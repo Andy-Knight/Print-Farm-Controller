@@ -1,4 +1,6 @@
-# Printer Fleet Controller v0.12.14
+# Printer Fleet Controller v0.12.15
+
+> v0.12.15 moves production-batch controls into a dedicated full-width row below the batch copy list, preventing Pause/Resume, priority, quantity and cancellation controls from overlapping batch items at narrower queue widths.
 
 > v0.12.14 adds persistent **High / Normal / Low queue priorities** for individual jobs and production batches. The scheduler ranks priority before manual order, promotes waiting work one level every six hours to prevent starvation, prefers a compatible printer where the file is already verified, and records why a printer was selected.
 
