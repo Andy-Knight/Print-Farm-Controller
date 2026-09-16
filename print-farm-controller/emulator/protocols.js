@@ -165,6 +165,18 @@ function applyGcode(printer, script) {
     if (fan) printer.fans.chamber = Number(fan[1]) * 100;
     const purifier = line.match(/SET_PURIFIER\s+FAN=(inner|exhaust)\s+SPEED=([\d.]+)/i);
     if (purifier) printer.fans[purifier[1] === 'inner' ? 'internal' : 'external'] = Number(purifier[2]) * 100;
+    const filamentTool = line.match(/SET_PRINT_FILAMENT_CONFIG.*CONFIG_EXTRUDER='?(\d+)'?/i);
+    const filamentType = line.match(/FILAMENT_TYPE='?([^'\s]+)'?/i);
+    const filamentVendor = line.match(/VENDOR='?([^'\s]+)'?/i);
+    const filamentSubtype = line.match(/FILAMENT_SUBTYPE='?([^']+?)'?(?:\s+[A-Z_]+=|$)/i);
+    if (filamentTool && printer.tools[Number(filamentTool[1])] && filamentType) {
+      const filament = printer.tools[Number(filamentTool[1])].filament;
+      filament.material = filamentType[1];
+      if (filamentVendor) filament.vendor = filamentVendor[1];
+      if (filamentSubtype) filament.materialVariant = filamentSubtype[1];
+      filament.officialFilament = false;
+      filament.colorEditable = true;
+    }
     const color = line.match(/SET_PRINT_FILAMENT_CONFIG.*CONFIG_EXTRUDER='?(\d+)'?.*FILAMENT_COLOR_RGBA='?([0-9A-F]{8})'?/i);
     if (color && printer.tools[Number(color[1])]) printer.tools[Number(color[1])].filament.color = `#${color[2].slice(0, 6).toUpperCase()}`;
   }

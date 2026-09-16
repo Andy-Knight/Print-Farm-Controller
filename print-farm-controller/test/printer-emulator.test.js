@@ -71,6 +71,11 @@ test('Snapmaker profile interoperates with the production adapter', async (t) =>
 
   const files = await adapter.getFiles();
   assert.deepEqual(files.files, ['calibration-cube.gcode']);
+  const filamentConfig = await adapter.setFilamentConfig({ toolIndex:0, material:'PETG', color:'#123456' });
+  assert.equal(filamentConfig.verified, true);
+  const configured = await adapter.getStatus();
+  assert.equal(configured.tools[0].filament.material, 'PETG');
+  assert.equal(configured.tools[0].filament.color, '#123456');
   await adapter.printLocalFile('calibration-cube.gcode', { levelingBeforePrint: false });
   assert.equal((await adapter.getStatus()).status, 'printing');
   await adapter.setJobState('pause');

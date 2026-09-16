@@ -26,6 +26,7 @@ export const DEFAULT_CAPABILITIES = Object.freeze({
   chamberTemperatureSensor: false,
   materialStatus: false,
   materialDesignation: false,
+  filamentTypeControl: false,
   filamentColorControl: false,
   nozzleDesignation: false,
   printToolMapping: false,

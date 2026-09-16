@@ -76,7 +76,7 @@ Manufacturer-specific discovery, capabilities, limits, status normalization, fil
 - U1 tool mapping, print preferences, material/nozzle readiness and XYZ offset calibration.
 - Bed-powered timed chamber preheat and applicable fan/purifier controls.
 - **v0.13.0 printer emulator:** standalone loopback service and responsive light/dark management UI; multiple dynamically allocated virtual printers; production-adapter-compatible FlashForge HTTP/TCP/MJPEG camera and Snapmaker Moonraker/WebSocket/snapshot endpoints; a visible simulated-camera test frame; virtual files, print progress, temperatures and material/nozzle state; accelerated time; activity logs; repeatable scenarios; and fault injection for offline/delay/rejection/malformed response/verification/cancellation/filename/camera conditions. FlashForge connection forms now expose configurable HTTP, TCP and camera ports while retaining physical-printer defaults.
-- v0.13.0 regression suite: **142 passing tests, 0 failures**, including management API plus production Snapmaker and FlashForge adapter integration against live simulated endpoints.
+- v0.13.0 regression suite: **146 passing tests, 0 failures**, including management API plus production Snapmaker and FlashForge adapter integration against live simulated endpoints and the combined U1 filament type/colour command.
 - **v0.11.0 file-centric automatic queue:**
   - persistent controller-side staged queue files with SHA-256;
   - bounded G-code requirement extraction for tools/material/colour/nozzle metadata;
@@ -109,6 +109,7 @@ Manufacturer-specific discovery, capabilities, limits, status normalization, fil
 - **v0.12.6 Snapmaker RGB toolhead layout:** U1 toolhead status keeps the hexadecimal colour on the metadata line and renders `RGB(r, g, b)` on a separate line to prevent overflow; print setup and material preflight retain combined hex + RGB text.
 - **v0.12.7 FlashForge RGB colour display:** controller-assigned FlashForge filament colours now show the stored `#RRGGBB` value plus `RGB(r, g, b)` in Toolhead status; queue compatibility semantics are unchanged.
 - **v0.12.15 production batch control layout:** Pause/Resume, priority, quantity and cancellation controls use a dedicated responsive row below the copy list instead of sharing its grid row.
+- **v0.12.16 combined Snapmaker filament configuration:** each U1 toolhead card has one type dropdown, colour picker, and **Set filament on U1** button for idle, loaded, editable third-party filament. One `SET_PRINT_FILAMENT_CONFIG` command sends `VENDOR=generic`, `FILAMENT_TYPE`, `FILAMENT_SUBTYPE=generic`, and `FILAMENT_COLOR_RGBA`; the controller verifies all values and keeps official RFID filament locked. Physical U1 testing confirmed the combined control works correctly.
 - **v0.12.14 queue priorities and printer selection:** persistent High/Normal/Low priority for individual jobs and production batches, six-hour anti-starvation promotion, manual-order tie-breaking, verified-existing-file preference, and visible printer-selection reasoning.
 - **v0.12.13 light/dark appearance modes:** the header exposes an accessible theme switch; the choice persists in the browser, while first use follows the operating-system colour preference.
 - **v0.12.12 new-job progress isolation:** retained filename and 100% telemetry are ignored while a queued job is starting; an active matching print state must confirm the new run before its progress is recorded, including same-file reprints.
@@ -120,18 +121,15 @@ Manufacturer-specific discovery, capabilities, limits, status normalization, fil
 - v0.12.13 regression suite: **132 passing tests, 0 failures**.
 - v0.12.14 regression suite: **137 passing tests, 0 failures**. Priority ordering and progress display were also confirmed in the running interface.
 - v0.12.15 regression suite: **138 passing tests, 0 failures**. The corrected production-batch layout was also confirmed in the running interface.
+- v0.12.16 regression suite: **142 passing tests, 0 failures**.
 
 ## Current task
 
-**v0.13.0 printer emulator is implemented on `feature/printer-emulator-v0130` and awaiting user validation.** It has not been merged to `main`.
+**v0.13.0 printer emulator is implemented and user-validated on `feature/printer-emulator-v0130`, now including all production v0.12.16 changes.** It has not been merged to `main`.
 
 ## Next steps
 
-1. Start `npm run emulator`, open `http://127.0.0.1:4250`, and confirm both default simulated printers and live controls render correctly.
-2. Add the displayed simulated FlashForge and Snapmaker endpoints to Printer Fleet Controller and validate status, files, print control, queue progression and selected fault scenarios.
-3. Open one physical FlashForge and one physical Snapmaker printer window, upload a supported file to each, and confirm the verified file appears immediately in that printer's file list.
-4. Queue a known-good single-tool file with quantity 4 or more and confirm multiple compatible printers receive copies concurrently.
-5. After emulator and hardware validation, select the first experimental manufacturer profile.
+1. Select the first experimental manufacturer profile to add using the emulator-first workflow.
 
 ## Handoff rule
 
