@@ -86,7 +86,7 @@ Manufacturer-specific discovery, capabilities, limits, status normalization, fil
 - **v0.11.2 neutral data directory:** default controller storage no longer contains `FlashForge`; existing printer registry, queue/history, staged queue files, and metadata migrate automatically to the new manufacturer-neutral directory.
 - v0.11.2 regression suite: **106 passing tests, 0 failures**, including an end-to-end legacy-directory migration test in GitHub Actions.
 - **v0.11.3 staged-file cleanup:** clearing print history immediately removes controller-staged queue files that have no remaining queue/history reference; shared/referenced files are retained.
-- **v0.12.0 production quantity / batch printing:** one staged G-code can create 2–999 run records sharing the same file; automatic scheduling can distribute copies across multiple compatible printers concurrently, with batch progress, pause/resume, cancel remaining, and safe quantity adjustment. Physical validation confirmed a completed printer remains blocked until **Bed cleared** before receiving the next batch copy.
+- **v0.12.0 production quantity / batch printing:** one staged G-code can create 2–999 run records sharing the same file; automatic scheduling can distribute copies across multiple compatible printers concurrently, with batch progress, pause/resume, cancel remaining, and safe quantity adjustment. Physical validation confirmed a completed printer remains blocked until **Bed cleared** before receiving the next batch copy. It also confirmed **Cancel remaining** cancels all waiting/preparing copies while currently active prints continue.
 - v0.12.0 regression suite: **113 passing tests, 0 failures**, including concurrent assignment plus pause/cancel race coverage during staged upload.
 - **v0.12.1 cancelled-history reprint regression:** automated coverage now guarantees a cancelled automatic queued job remains reprintable from Recent history using the same staged controller file and print options; UI coverage verifies cancelled history retains the Reprint action.
 - v0.12.1 regression suite: **115 passing tests, 0 failures**.
@@ -122,8 +122,7 @@ Manufacturer-specific discovery, capabilities, limits, status normalization, fil
 2. Queue a known-good single-tool file with quantity 4 or more and confirm multiple compatible printers receive copies concurrently.
 3. Pause a production batch while copies are active and confirm active prints continue but no new copies start; then resume it.
 4. Increase and decrease the requested quantity while copies are waiting and confirm already-started/finished copies are never removed.
-5. Cancel remaining copies and confirm currently active prints continue while all waiting/preparing copies are cancelled.
-6. After hardware validation, choose the next scheduler or fleet-management milestone.
+5. After hardware validation, choose the next scheduler or fleet-management milestone.
 
 ## Handoff rule
 
