@@ -11,6 +11,7 @@ import {
   setMoonrakerTemperatures,
   setMoonrakerFans,
   setMoonrakerFiltration,
+  setMoonrakerFilamentType,
   setMoonrakerFilamentColor,
   startMoonrakerChamberPreheat,
   stopMoonrakerChamberPreheat,
@@ -68,6 +69,7 @@ const CAPABILITIES = normalizeCapabilities({
   chamberPreheat: true,
   chamberTemperatureSensor: true,
   materialStatus: true,
+  filamentTypeControl: true,
   filamentColorControl: true,
   printToolMapping: true,
   flowCalibrationBeforePrint: true,
@@ -105,6 +107,7 @@ export class SnapmakerU1Adapter extends PrinterAdapter {
   async setTemperatures(values) { return setMoonrakerTemperatures(this.printer, values); }
   async setFans(values) { return setMoonrakerFans(this.printer, values); }
   async setFiltration(values) { return setMoonrakerFiltration(this.printer, values); }
+  async setFilamentType(values) { return setMoonrakerFilamentType(this.printer, values); }
   async setFilamentColor(values) { return setMoonrakerFilamentColor(this.printer, values); }
   async prepareChamberPreheat(_options = {}, { status } = {}) {
     if (status?.filtration?.available === false) {

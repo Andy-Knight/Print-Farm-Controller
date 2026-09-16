@@ -67,6 +67,16 @@ test('Snapmaker U1 manual filament colour control writes colour to the printer',
   assert.match(styles, /\.u1-filament-color-control/);
 });
 
+test('Snapmaker U1 third-party filament type control writes a generic profile to the printer', () => {
+  assert.match(app, /function u1FilamentTypeEditState/);
+  assert.match(app, /data-u1-filament-type-input/);
+  assert.match(app, /data-u1-filament-type-save/);
+  assert.match(app, /SNAPMAKER_U1_FILAMENT_TYPES/);
+  assert.match(app, /\/filament-type/);
+  assert.match(app, /Official Snapmaker RFID filament controls its own type/);
+  assert.match(styles, /\.u1-filament-type-control/);
+});
+
 test('U1 print setup exposes native timelapse and filament safety controls', () => {
   assert.match(app, /id=\"printSetupTimeLapse\"/);
   assert.match(app, /id=\"printSetupAutoReplenish\"/);
@@ -335,4 +345,3 @@ test('production batch controls occupy a separate responsive row below batch ite
   assert.match(styles, /\.production-actions\s*\{[\s\S]*?width:100%[\s\S]*?border-top/);
   assert.match(styles, /\.production-actions > button,[\s\S]*?\.production-actions > label \{ flex:1 1 170px; \}/);
 });
-

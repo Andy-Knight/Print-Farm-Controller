@@ -339,6 +339,14 @@ async function apiRoute(req, res, url) {
     return json(res, 200, { ok:true, ...result });
   }
 
+  if (req.method === 'POST' && action === 'filament-type') {
+    if (!adapter.capabilities?.filamentTypeControl) throw new Error('Filament type control is not supported by this printer');
+    const body = await readJson(req);
+    const result = await adapter.setFilamentType({ toolIndex:body.toolIndex, material:body.material });
+    refreshAfterCommand(id);
+    return json(res, 200, { ok:true, ...result });
+  }
+
   if (action === 'material-designation' && (req.method === 'POST' || req.method === 'DELETE')) {
     if (!adapter.capabilities?.materialDesignation) throw new Error('Manual material designation is not supported by this printer');
     const body = req.method === 'POST' ? await readJson(req) : {};

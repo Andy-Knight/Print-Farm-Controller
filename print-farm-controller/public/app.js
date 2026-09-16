@@ -1567,6 +1567,42 @@ function filamentColorText(value) {
   return `${color} · ${filamentRgbText(color)}`;
 }
 
+const SNAPMAKER_U1_FILAMENT_TYPES = [
+  'PLA', 'PETG', 'ABS', 'ASA', 'TPU', 'PVA', 'PA', 'PA-CF', 'PA-GF',
+  'PA6-CF', 'PA6-GF', 'PC', 'PC-ABS', 'PETG-CF', 'PLA-CF', 'PEBA'
+];
+
+function u1FilamentTypeEditState(printer, tool = {}) {
+  const filament = tool.filament || {};
+  if (printer?.adapterType !== 'snapmaker-u1' || !printer?.capabilities?.filamentTypeControl) {
+    return { enabled:false, message:'Filament type editing is unavailable.' };
+  }
+  if (String(printer.status?.status || '').toLowerCase() !== 'idle') {
+    return { enabled:false, message:'Type can be changed while the U1 is idle.' };
+  }
+  if (filament.present !== true) return { enabled:false, message:`Load filament in T${tool.index} before setting its type.` };
+  if (filament.officialFilament === true || filament.editable === false) {
+    return { enabled:false, message:'Official Snapmaker RFID filament controls its own type.' };
+  }
+  return { enabled:true, message:'Assigns the U1 generic profile for this material and verifies the printer read-back.' };
+}
+
+function u1FilamentTypeControlMarkup(printer, tool = {}) {
+  if (printer?.adapterType !== 'snapmaker-u1' || !printer?.capabilities?.filamentTypeControl) return '';
+  const filament = tool.filament || {};
+  const state = u1FilamentTypeEditState(printer, tool);
+  const material = String(filament.material || '').trim().toUpperCase();
+  const knownMaterial = SNAPMAKER_U1_FILAMENT_TYPES.includes(material);
+  return `<div class="u1-filament-type-control" data-u1-filament-type-control="${tool.index}">
+    <label>Filament type<select data-u1-filament-type-input="${tool.index}"${state.enabled ? '' : ' disabled'}>
+      <option value=""${knownMaterial ? '' : ' selected'}>Select type</option>
+      ${SNAPMAKER_U1_FILAMENT_TYPES.map((value) => `<option value="${value}"${value === material ? ' selected' : ''}>${value}</option>`).join('')}
+    </select></label>
+    <button type="button" class="secondary" data-u1-filament-type-save="${tool.index}"${state.enabled ? '' : ' disabled'}>Set on U1</button>
+    <small data-u1-filament-type-help="${tool.index}">${escapeHtml(state.message)}</small>
+  </div>`;
+}
+
 function u1FilamentColorEditState(printer, tool = {}) {
   const filament = tool.filament || {};
   if (printer?.adapterType !== 'snapmaker-u1' || !printer?.capabilities?.filamentColorControl) {
@@ -2002,6 +2038,17 @@ function updateOpenPrinterTelemetry() {
       set(`[data-material-rgb="${tool.index}"]`, rgbText || '');
       const rgbLine = row.querySelector(`[data-material-rgb="${tool.index}"]`);
       rgbLine?.classList.toggle('hidden', !rgbText);
+      const u1TypeState = u1FilamentTypeEditState(printer, tool);
+      const u1TypeInput = row.querySelector(`[data-u1-filament-type-input="${tool.index}"]`);
+      const u1TypeSave = row.querySelector(`[data-u1-filament-type-save="${tool.index}"]`);
+      const u1TypeHelp = row.querySelector(`[data-u1-filament-type-help="${tool.index}"]`);
+      if (u1TypeInput) {
+        const reportedMaterial = String(filament.material || '').trim().toUpperCase();
+        if (document.activeElement !== u1TypeInput) u1TypeInput.value = SNAPMAKER_U1_FILAMENT_TYPES.includes(reportedMaterial) ? reportedMaterial : '';
+        u1TypeInput.disabled = !u1TypeState.enabled;
+      }
+      if (u1TypeSave) u1TypeSave.disabled = !u1TypeState.enabled;
+      if (u1TypeHelp) u1TypeHelp.textContent = u1TypeState.message;
       const u1ColorState = u1FilamentColorEditState(printer, tool);
       const u1ColorInput = row.querySelector(`[data-u1-filament-color-input="${tool.index}"]`);
       const u1ColorSave = row.querySelector(`[data-u1-filament-color-save="${tool.index}"]`);
@@ -2144,7 +2191,7 @@ async function openPrinter(id) {
     if (!tools.length) return `<div class="panel material-panel"><h3>Toolhead status</h3><div class="subtle">Material status is unavailable while the printer is offline.</div>${flashForgeMaterialDesignationMarkup(printer)}${flashForgeNozzleDesignationMarkup(printer)}</div>`;
     const materialHelp = printer.adapterType === 'flashforge-ad5m'
       ? "Filament type uses the controller's manual designation when set, otherwise the value reported by the FlashForge 5M local /detail API. Installed nozzle size uses the controller nozzle designation when set because the 5M API does not reliably expose it. The 5M API also does not expose U1-style filament colour/RFID metadata or a reliable live filament-presence value."
-      : 'Filament presence comes from each U1 motion sensor. Material and colour use the U1\'s effective per-tool configuration, including manual assignments for third-party filament; manually assigned filament colours can be written back to the idle printer. Official Snapmaker RFID colours remain locked. Nozzle size and XYZ offset come directly from each physical U1 extruder.';
+      : 'Filament presence comes from each U1 motion sensor. Third-party filament type and colour can be written to the idle printer and are verified by reading the effective per-tool configuration back. Official Snapmaker RFID filament remains locked. Nozzle size and XYZ offset come directly from each physical U1 extruder.';
     return `<div class="panel material-panel">
       <h3>Toolhead status</h3>
       <div class="material-summary" data-material-summary>${escapeHtml(materialSummaryText(tools))}</div>
@@ -2160,7 +2207,7 @@ async function openPrinter(id) {
           ${capabilities.toolheadNozzleStatus ? `<small data-tool-offset="${tool.index}">${escapeHtml(toolOffsetText(tool.offset))}</small>` : ''}
           <small data-material-meta="${tool.index}">${escapeHtml(filamentMetaText(filament))}</small>
           ${['snapmaker-u1','flashforge-ad5m'].includes(printer.adapterType) ? `<small class="material-rgb${filamentRgbText(filament.color) ? '' : ' hidden'}" data-material-rgb="${tool.index}">${escapeHtml(filamentRgbText(filament.color) || '')}</small>` : ''}
-          ${printer.adapterType === 'snapmaker-u1' ? u1FilamentColorControlMarkup(printer, tool) : ''}
+          ${printer.adapterType === 'snapmaker-u1' ? `${u1FilamentTypeControlMarkup(printer, tool)}${u1FilamentColorControlMarkup(printer, tool)}` : ''}
         </div>`;
       }).join('')}</div>
       ${printer.adapterType === 'flashforge-ad5m' ? flashForgeMaterialDesignationMarkup(printer, tools[0]?.filament || {}) : ''}
@@ -2451,6 +2498,31 @@ ${flashForgePreflight}` : ''}`)) return;
       const tool = printer.status?.tools?.find((item) => Number(item.index) === toolIndex);
       if (tool?.filament) {
         tool.filament.color = result.color;
+        tool.filament.metadataAvailable = true;
+      }
+      updateOpenPrinterTelemetry();
+    } catch (error) { showError(error); }
+    finally { button.textContent = original; updateOpenPrinterTelemetry(); }
+  });
+
+  printerDetail.querySelectorAll('[data-u1-filament-type-save]').forEach((button) => button.onclick = async () => {
+    const toolIndex = Number(button.dataset.u1FilamentTypeSave);
+    const input = printerDetail.querySelector(`[data-u1-filament-type-input="${toolIndex}"]`);
+    const material = String(input?.value || '').trim().toUpperCase();
+    if (!material) { showError(new Error('Choose a filament type.')); return; }
+    const original = button.textContent;
+    button.disabled = true;
+    button.textContent = 'Setting…';
+    try {
+      const result = await api(`/api/printers/${id}/filament-type`, { method:'POST', body:JSON.stringify({ toolIndex, material }) });
+      const tool = printer.status?.tools?.find((item) => Number(item.index) === toolIndex);
+      if (tool?.filament) {
+        tool.filament.material = result.material;
+        tool.filament.materialVariant = result.subtype;
+        tool.filament.vendor = result.vendor;
+        tool.filament.materialSource = 'manual';
+        tool.filament.manuallyAssigned = true;
+        tool.filament.officialFilament = false;
         tool.filament.metadataAvailable = true;
       }
       updateOpenPrinterTelemetry();
