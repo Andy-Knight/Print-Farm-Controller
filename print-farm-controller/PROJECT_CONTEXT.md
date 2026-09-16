@@ -105,7 +105,7 @@ Manufacturer-specific discovery, capabilities, limits, status normalization, fil
 - **v0.12.11 FlashForge cancellation display:** a latched raw `CANCEL` state displays as Cancelled while clearance is pending and Ready after acknowledgement; raw status remains available in printer detail diagnostics.
 - **v0.12.10 FlashForge cancellation queue fix:** persistent `CANCEL`/cancelled/stopped states and retained filenames are handled as terminal only after a bed-clearance acknowledgement; untracked external cancellations also create the clearance interlock.
 - **v0.12.9 Snapmaker completed-print queue fix:** explicit idle/complete printer state now takes precedence over Moonraker's retained previous filename, while the independent bed-clearance interlock remains enforced.
-- **v0.12.8 native Snapmaker filament colour editing:** manually assigned third-party U1 filament colours can be changed from each toolhead card using stock `SET_PRINT_FILAMENT_CONFIG`; writes are idle/loaded/editable-only and verified against `print_task_config.filament_color_rgba`. Official RFID filament remains colour-locked.
+- **v0.12.8 native Snapmaker filament colour editing:** manually assigned third-party U1 filament colours can be changed from each toolhead card using stock `SET_PRINT_FILAMENT_CONFIG`; writes are idle/loaded/editable-only and verified against `print_task_config.filament_color_rgba`. Official RFID filament remains colour-locked. Physical U1 testing confirmed that third-party colour changes reach the touchscreen and official RFID colours remain locked.
 - v0.12.12 regression suite: **131 passing tests, 0 failures**.
 - v0.12.13 regression suite: **132 passing tests, 0 failures**.
 - v0.12.14 regression suite: **137 passing tests, 0 failures**. Priority ordering and progress display were also confirmed in the running interface.
@@ -116,15 +116,14 @@ Manufacturer-specific discovery, capabilities, limits, status normalization, fil
 
 ## Next steps
 
-1. On an idle Snapmaker U1 with manually assigned third-party filament loaded, change a toolhead colour in Printer Fleet Controller and confirm the U1 touchscreen updates to the same colour; confirm official RFID spools remain locked.
-2. Open one FlashForge and one Snapmaker printer window, upload a supported file to each, and confirm the verified file appears immediately in that printer's file list.
-3. Queue a known-good single-tool file with quantity 4 or more and confirm multiple compatible printers receive copies concurrently.
-4. Confirm each completed printer waits for **Bed cleared** before it receives the next copy from the same production batch.
-5. Pause a production batch while copies are active and confirm active prints continue but no new copies start; then resume it.
-6. Increase and decrease the requested quantity while copies are waiting and confirm already-started/finished copies are never removed.
-7. Cancel remaining copies and confirm currently active prints continue while all waiting/preparing copies are cancelled.
-8. Confirm a printer that already has the exact filename reuses its printer-local copy rather than uploading it again.
-9. After hardware validation, choose the next scheduler or fleet-management milestone.
+1. Open one FlashForge and one Snapmaker printer window, upload a supported file to each, and confirm the verified file appears immediately in that printer's file list.
+2. Queue a known-good single-tool file with quantity 4 or more and confirm multiple compatible printers receive copies concurrently.
+3. Confirm each completed printer waits for **Bed cleared** before it receives the next copy from the same production batch.
+4. Pause a production batch while copies are active and confirm active prints continue but no new copies start; then resume it.
+5. Increase and decrease the requested quantity while copies are waiting and confirm already-started/finished copies are never removed.
+6. Cancel remaining copies and confirm currently active prints continue while all waiting/preparing copies are cancelled.
+7. Confirm a printer that already has the exact filename reuses its printer-local copy rather than uploading it again.
+8. After hardware validation, choose the next scheduler or fleet-management milestone.
 
 ## Handoff rule
 
