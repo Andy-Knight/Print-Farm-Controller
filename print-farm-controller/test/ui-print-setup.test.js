@@ -330,3 +330,9 @@ test('queue UI exposes persistent job and production priority controls', () => {
   assert.match(styles, /\.queue-priority\.priority-high/);
 });
 
+test('production batch controls occupy a separate responsive row below batch items', () => {
+  assert.match(styles, /\.production-batch\s*\{[\s\S]*?grid-template-columns:minmax\(0,1fr\)/);
+  assert.match(styles, /\.production-actions\s*\{[\s\S]*?width:100%[\s\S]*?border-top/);
+  assert.match(styles, /\.production-actions > button,[\s\S]*?\.production-actions > label \{ flex:1 1 170px; \}/);
+});
+

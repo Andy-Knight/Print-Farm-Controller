@@ -7,7 +7,7 @@
 - Repository: `Andy-Knight/Print-Farm-Controller`
 - Project path: `print-farm-controller/`
 - Branch: `main`
-- Current application version: **0.12.14**
+- Current application version: **0.12.15**
 - Runtime: **Node.js 20+**, ES modules, no npm runtime dependencies.
 - GitHub is the authoritative code baseline.
 
@@ -99,6 +99,7 @@ Manufacturer-specific discovery, capabilities, limits, status normalization, fil
 - v0.12.5 regression suite: **121 passing tests, 0 failures**.
 - **v0.12.6 Snapmaker RGB toolhead layout:** U1 toolhead status keeps the hexadecimal colour on the metadata line and renders `RGB(r, g, b)` on a separate line to prevent overflow; print setup and material preflight retain combined hex + RGB text.
 - **v0.12.7 FlashForge RGB colour display:** controller-assigned FlashForge filament colours now show the stored `#RRGGBB` value plus `RGB(r, g, b)` in Toolhead status; queue compatibility semantics are unchanged.
+- **v0.12.15 production batch control layout:** Pause/Resume, priority, quantity and cancellation controls use a dedicated responsive row below the copy list instead of sharing its grid row.
 - **v0.12.14 queue priorities and printer selection:** persistent High/Normal/Low priority for individual jobs and production batches, six-hour anti-starvation promotion, manual-order tie-breaking, verified-existing-file preference, and visible printer-selection reasoning.
 - **v0.12.13 light/dark appearance modes:** the header exposes an accessible theme switch; the choice persists in the browser, while first use follows the operating-system colour preference.
 - **v0.12.12 new-job progress isolation:** retained filename and 100% telemetry are ignored while a queued job is starting; an active matching print state must confirm the new run before its progress is recorded, including same-file reprints.
@@ -109,10 +110,11 @@ Manufacturer-specific discovery, capabilities, limits, status normalization, fil
 - v0.12.12 regression suite: **131 passing tests, 0 failures**.
 - v0.12.13 regression suite: **132 passing tests, 0 failures**.
 - v0.12.14 regression suite: **137 passing tests, 0 failures**. Priority ordering and progress display were also confirmed in the running interface.
+- v0.12.15 regression suite: **138 passing tests, 0 failures**. The corrected production-batch layout was also confirmed in the running interface.
 
 ## Current task
 
-**v0.12.14 queue priorities and smarter printer selection are complete and user-validated.** The v0.12.12 queue-progress isolation, v0.12.13 light/dark appearance modes, and v0.12.14 priority ordering have all been confirmed in the running interface.
+**v0.12.15 production-batch control layout fix is complete and user-validated.** The controls occupy their own responsive row beneath the batch copy list without overlapping batch items.
 
 ## Next steps
 
