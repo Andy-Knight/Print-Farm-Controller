@@ -222,11 +222,12 @@ input:focus,select:focus { border-color:#7a9fbe; }
 .material-tool > span { color:#9cacb8; font-size:.73rem; }
 .material-tool > small { color:#687986; font-size:.69rem; margin-top:4px; }
 .material-tool > small.material-rgb { color:#8193a2; margin-top:2px; }
-.u1-filament-color-control { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:6px 8px; align-items:end; margin-top:8px; padding-top:8px; border-top:1px solid #202a32; }
-.u1-filament-color-control label { margin:0; color:#8493a1; font-size:.68rem; }
-.u1-filament-color-control input[type="color"] { display:block; width:100%; min-height:34px; margin-top:4px; padding:3px; cursor:pointer; }
-.u1-filament-color-control button { min-height:34px; padding:6px 9px; }
-.u1-filament-color-control small { grid-column:1 / -1; color:#687986; font-size:.66rem; line-height:1.3; }
+.u1-filament-config-control { display:grid; grid-template-columns:minmax(0,1fr) 74px; gap:6px 8px; align-items:end; margin-top:8px; padding-top:8px; border-top:1px solid #202a32; }
+.u1-filament-config-control label { margin:0; color:#8493a1; font-size:.68rem; }
+.u1-filament-config-control select, .u1-filament-config-control input[type="color"] { display:block; width:100%; min-height:34px; margin-top:4px; }
+.u1-filament-config-control input[type="color"] { padding:3px; cursor:pointer; }
+.u1-filament-config-control button { grid-column:1 / -1; min-height:34px; padding:6px 9px; }
+.u1-filament-config-control small { grid-column:1 / -1; color:#687986; font-size:.66rem; line-height:1.3; }
 .material-tool.filament-missing > span { color:#df9ba1; }
 .material-swatch { width:20px; height:20px; flex:0 0 auto; border-radius:50%; border:1px solid rgba(255,255,255,.3); box-shadow:inset 0 0 0 1px rgba(0,0,0,.25); }
 .material-swatch.unknown { background:repeating-linear-gradient(45deg,#202a32,#202a32 4px,#111820 4px,#111820 8px); border-color:#3b4853; }

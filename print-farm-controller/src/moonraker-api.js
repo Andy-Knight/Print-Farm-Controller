@@ -186,6 +186,7 @@ export function normalizeSnapmakerFilament(objects = {}) {
       manuallyAssigned: materialSource === 'manual',
       officialFilament: configuredOfficial === true,
       configuredExists: typeof configuredExists === 'boolean' ? configuredExists : null,
+      editable: typeof configuredEditable === 'boolean' ? configuredEditable : (configuredOfficial === true ? false : null),
       colorEditable: typeof configuredEditable === 'boolean' ? configuredEditable : (configuredOfficial === true ? false : null),
       vendor,
       manufacturer,
@@ -679,6 +680,109 @@ export async function setMoonrakerFilamentColor(printer, { toolIndex, color } = 
     throw new MoonrakerApiError(`U1 did not confirm the filament colour change for T${index}`);
   }
   return { toolIndex:index, color:normalizedColor, rgba, verified:true };
+}
+
+export const SNAPMAKER_U1_GENERIC_FILAMENT_TYPES = Object.freeze([
+  'PLA', 'PETG', 'ABS', 'ASA', 'TPU', 'PVA', 'PA', 'PA-CF', 'PA-GF',
+  'PA6-CF', 'PA6-GF', 'PC', 'PC-ABS', 'PETG-CF', 'PLA-CF', 'PEBA'
+]);
+
+export async function setMoonrakerFilamentConfig(printer, { toolIndex, material, color } = {}) {
+  const index = Number(toolIndex);
+  if (!Number.isInteger(index) || index < 0 || index >= SNAPMAKER_U1_TOOL_COUNT) {
+    throw new MoonrakerApiError('Tool index must be 0-3');
+  }
+  const normalizedMaterial = String(material || '').trim().toUpperCase();
+  if (!SNAPMAKER_U1_GENERIC_FILAMENT_TYPES.includes(normalizedMaterial)) {
+    throw new MoonrakerApiError(`Unsupported U1 filament type: ${normalizedMaterial || 'empty'}`);
+  }
+  const normalizedColor = normalizeHexColor(color);
+  if (!normalizedColor || !/^#[0-9A-F]{6}$/.test(normalizedColor)) {
+    throw new MoonrakerApiError('Filament colour must be a 6-digit RGB hex value');
+  }
+
+  const current = await moonrakerRequest(printer, '/printer/objects/query?print_stats&print_task_config');
+  const status = current?.status || current || {};
+  const printState = String(status.print_stats?.state || 'unknown').toLowerCase();
+  if (!['standby', 'complete', 'cancelled'].includes(printState)) {
+    throw new MoonrakerApiError('U1 filament configuration can only be changed while the printer is idle');
+  }
+
+  const taskConfig = status.print_task_config || {};
+  const exists = arrayValue(taskConfig, 'filament_exist', index);
+  if (exists !== true) throw new MoonrakerApiError(`No filament is loaded in U1 T${index}`);
+  const official = arrayValue(taskConfig, 'filament_official', index);
+  const editable = arrayValue(taskConfig, 'filament_edit', index);
+  if (official === true || editable === false) {
+    throw new MoonrakerApiError(`U1 T${index} material is locked by its official Snapmaker RFID filament`);
+  }
+
+  const vendor = 'generic';
+  const subtype = 'generic';
+  const rgba = `${normalizedColor.slice(1)}FF`;
+  await runMoonrakerGcode(
+    printer,
+    `SET_PRINT_FILAMENT_CONFIG CONFIG_EXTRUDER='${index}' VENDOR='${vendor}' FILAMENT_TYPE='${normalizedMaterial}' FILAMENT_SUBTYPE='${subtype}' FILAMENT_COLOR_RGBA='${rgba}' SAVE='1'`
+  );
+
+  const verified = await moonrakerRequest(printer, '/printer/objects/query?print_task_config');
+  const verifiedStatus = verified?.status || verified || {};
+  const verifiedConfig = verifiedStatus.print_task_config || {};
+  const reportedMaterial = cleanFilamentText(arrayValue(verifiedConfig, 'filament_type', index));
+  const reportedVendor = cleanFilamentText(arrayValue(verifiedConfig, 'filament_vendor', index));
+  const reportedSubtype = cleanFilamentText(arrayValue(verifiedConfig, 'filament_sub_type', index));
+  const reportedRgba = String(arrayValue(verifiedConfig, 'filament_color_rgba', index) || '').toUpperCase();
+  if (reportedMaterial !== normalizedMaterial || reportedVendor?.toLowerCase() !== vendor ||
+      reportedSubtype?.toLowerCase() !== subtype || reportedRgba !== rgba) {
+    throw new MoonrakerApiError(`U1 did not confirm the filament configuration change for T${index}`);
+  }
+  return { toolIndex:index, material:normalizedMaterial, color:normalizedColor, rgba, vendor, subtype, verified:true };
+}
+
+export async function setMoonrakerFilamentType(printer, { toolIndex, material } = {}) {
+  const index = Number(toolIndex);
+  if (!Number.isInteger(index) || index < 0 || index >= SNAPMAKER_U1_TOOL_COUNT) {
+    throw new MoonrakerApiError('Tool index must be 0-3');
+  }
+  const normalizedMaterial = String(material || '').trim().toUpperCase();
+  if (!SNAPMAKER_U1_GENERIC_FILAMENT_TYPES.includes(normalizedMaterial)) {
+    throw new MoonrakerApiError(`Unsupported U1 filament type: ${normalizedMaterial || 'empty'}`);
+  }
+
+  const current = await moonrakerRequest(printer, '/printer/objects/query?print_stats&print_task_config');
+  const status = current?.status || current || {};
+  const printState = String(status.print_stats?.state || 'unknown').toLowerCase();
+  if (!['standby', 'complete', 'cancelled'].includes(printState)) {
+    throw new MoonrakerApiError('U1 filament type can only be changed while the printer is idle');
+  }
+
+  const taskConfig = status.print_task_config || {};
+  const exists = arrayValue(taskConfig, 'filament_exist', index);
+  if (exists !== true) throw new MoonrakerApiError(`No filament is loaded in U1 T${index}`);
+
+  const official = arrayValue(taskConfig, 'filament_official', index);
+  const editable = arrayValue(taskConfig, 'filament_edit', index);
+  if (official === true || editable === false) {
+    throw new MoonrakerApiError(`U1 T${index} material is locked by its official Snapmaker RFID filament`);
+  }
+
+  const vendor = 'generic';
+  const subtype = 'generic';
+  await runMoonrakerGcode(
+    printer,
+    `SET_PRINT_FILAMENT_CONFIG CONFIG_EXTRUDER='${index}' VENDOR='${vendor}' FILAMENT_TYPE='${normalizedMaterial}' FILAMENT_SUBTYPE='${subtype}' SAVE='1'`
+  );
+
+  const verified = await moonrakerRequest(printer, '/printer/objects/query?print_task_config');
+  const verifiedStatus = verified?.status || verified || {};
+  const verifiedConfig = verifiedStatus.print_task_config || {};
+  const reportedMaterial = cleanFilamentText(arrayValue(verifiedConfig, 'filament_type', index));
+  const reportedVendor = cleanFilamentText(arrayValue(verifiedConfig, 'filament_vendor', index));
+  const reportedSubtype = cleanFilamentText(arrayValue(verifiedConfig, 'filament_sub_type', index));
+  if (reportedMaterial !== normalizedMaterial || reportedVendor?.toLowerCase() !== vendor || reportedSubtype?.toLowerCase() !== subtype) {
+    throw new MoonrakerApiError(`U1 did not confirm the filament type change for T${index}`);
+  }
+  return { toolIndex:index, material:normalizedMaterial, vendor, subtype, verified:true };
 }
 
 export async function setMoonrakerTemperatures(printer, { nozzle, bed, toolIndex, allTools = false } = {}) {
