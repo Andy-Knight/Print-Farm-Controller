@@ -74,7 +74,7 @@ Manufacturer-specific discovery, capabilities, limits, status normalization, fil
   - centralized compatibility/readiness engine with reason codes;
   - automatic printer selection and reservation;
   - U1 logical→physical tool-map generation;
-  - staged-file upload and verification only when needed;
+  - staged-file upload and verification only when needed; physical validation confirmed an exact existing printer-local filename is reused without another upload;
   - fresh printer-specific preflight immediately before start;
   - restart-safe automatic upload/preflight recovery;
   - cancellation-race protection;
@@ -121,8 +121,7 @@ Manufacturer-specific discovery, capabilities, limits, status normalization, fil
 3. Pause a production batch while copies are active and confirm active prints continue but no new copies start; then resume it.
 4. Increase and decrease the requested quantity while copies are waiting and confirm already-started/finished copies are never removed.
 5. Cancel remaining copies and confirm currently active prints continue while all waiting/preparing copies are cancelled.
-6. Confirm a printer that already has the exact filename reuses its printer-local copy rather than uploading it again.
-7. After hardware validation, choose the next scheduler or fleet-management milestone.
+6. After hardware validation, choose the next scheduler or fleet-management milestone.
 
 ## Handoff rule
 
