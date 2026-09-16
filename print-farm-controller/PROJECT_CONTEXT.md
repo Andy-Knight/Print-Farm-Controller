@@ -100,7 +100,7 @@ Manufacturer-specific discovery, capabilities, limits, status normalization, fil
 - **v0.12.6 Snapmaker RGB toolhead layout:** U1 toolhead status keeps the hexadecimal colour on the metadata line and renders `RGB(r, g, b)` on a separate line to prevent overflow; print setup and material preflight retain combined hex + RGB text.
 - **v0.12.7 FlashForge RGB colour display:** controller-assigned FlashForge filament colours now show the stored `#RRGGBB` value plus `RGB(r, g, b)` in Toolhead status; queue compatibility semantics are unchanged.
 - **v0.12.15 production batch control layout:** Pause/Resume, priority, quantity and cancellation controls use a dedicated responsive row below the copy list instead of sharing its grid row.
-- **v0.12.16 native Snapmaker filament type selection:** each U1 toolhead card can assign a stock generic material profile to idle, loaded, editable third-party filament. The controller sends the complete `VENDOR=generic`, `FILAMENT_TYPE`, and `FILAMENT_SUBTYPE=generic` tuple required by `SET_PRINT_FILAMENT_CONFIG`, verifies printer read-back, and keeps official RFID filament locked.
+- **v0.12.16 combined Snapmaker filament configuration:** each U1 toolhead card has one type dropdown, colour picker, and **Set filament on U1** button for idle, loaded, editable third-party filament. One `SET_PRINT_FILAMENT_CONFIG` command sends `VENDOR=generic`, `FILAMENT_TYPE`, `FILAMENT_SUBTYPE=generic`, and `FILAMENT_COLOR_RGBA`; the controller verifies all values and keeps official RFID filament locked.
 - **v0.12.14 queue priorities and printer selection:** persistent High/Normal/Low priority for individual jobs and production batches, six-hour anti-starvation promotion, manual-order tie-breaking, verified-existing-file preference, and visible printer-selection reasoning.
 - **v0.12.13 light/dark appearance modes:** the header exposes an accessible theme switch; the choice persists in the browser, while first use follows the operating-system colour preference.
 - **v0.12.12 new-job progress isolation:** retained filename and 100% telemetry are ignored while a queued job is starting; an active matching print state must confirm the new run before its progress is recorded, including same-file reprints.
@@ -112,15 +112,15 @@ Manufacturer-specific discovery, capabilities, limits, status normalization, fil
 - v0.12.13 regression suite: **132 passing tests, 0 failures**.
 - v0.12.14 regression suite: **137 passing tests, 0 failures**. Priority ordering and progress display were also confirmed in the running interface.
 - v0.12.15 regression suite: **138 passing tests, 0 failures**. The corrected production-batch layout was also confirmed in the running interface.
-- v0.12.16 regression suite: **141 passing tests, 0 failures**.
+- v0.12.16 regression suite: **142 passing tests, 0 failures**.
 
 ## Current task
 
-**v0.12.16 Snapmaker U1 third-party filament type selection is implemented and awaiting physical U1 validation.** Verify that changing a loaded third-party toolhead updates the U1 touchscreen and that official RFID toolheads remain disabled.
+**v0.12.16 Snapmaker U1 combined third-party filament type and colour control is implemented and awaiting physical U1 validation.** Verify that one button updates both values on the U1 touchscreen and that official RFID toolheads remain disabled.
 
 ## Next steps
 
-1. On an idle U1 with third-party filament loaded, choose a different filament type in the controller and confirm the U1 touchscreen shows the new generic material.
+1. On an idle U1 with third-party filament loaded, choose a filament type and colour, press **Set filament on U1**, and confirm the touchscreen shows both new values.
 2. Confirm the controller disables type editing for official Snapmaker RFID filament.
 3. Queue a file requiring the selected material and confirm automatic compatibility uses the updated type.
 

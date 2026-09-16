@@ -57,24 +57,18 @@ test('FlashForge assigned filament colour shows hexadecimal and RGB values in to
 
 
 
-test('Snapmaker U1 manual filament colour control writes colour to the printer', () => {
-  assert.match(app, /function u1FilamentColorEditState/);
-  assert.match(app, /data-u1-filament-color-input/);
-  assert.match(app, /data-u1-filament-color-save/);
-  assert.match(app, /Set on U1/);
-  assert.match(app, /\/filament-color/);
-  assert.match(app, /Official Snapmaker RFID filament controls its own colour/);
-  assert.match(styles, /\.u1-filament-color-control/);
-});
-
-test('Snapmaker U1 third-party filament type control writes a generic profile to the printer', () => {
-  assert.match(app, /function u1FilamentTypeEditState/);
+test('Snapmaker U1 uses one control and one command for third-party filament type and colour', () => {
+  assert.match(app, /function u1FilamentConfigEditState/);
   assert.match(app, /data-u1-filament-type-input/);
-  assert.match(app, /data-u1-filament-type-save/);
+  assert.match(app, /data-u1-filament-color-input/);
+  assert.match(app, /data-u1-filament-config-save/);
+  assert.match(app, /Set filament on U1/);
   assert.match(app, /SNAPMAKER_U1_FILAMENT_TYPES/);
-  assert.match(app, /\/filament-type/);
-  assert.match(app, /Official Snapmaker RFID filament controls its own type/);
-  assert.match(styles, /\.u1-filament-type-control/);
+  assert.match(app, /\/filament-config/);
+  assert.match(app, /Official Snapmaker RFID filament controls its own type and colour/);
+  assert.doesNotMatch(app, /data-u1-filament-type-save/);
+  assert.doesNotMatch(app, /data-u1-filament-color-save/);
+  assert.match(styles, /\.u1-filament-config-control/);
 });
 
 test('U1 print setup exposes native timelapse and filament safety controls', () => {

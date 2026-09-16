@@ -12,6 +12,7 @@ import {
   setMoonrakerTemperatures,
   setMoonrakerFans,
   setMoonrakerFiltration,
+  setMoonrakerFilamentConfig,
   setMoonrakerFilamentType,
   setMoonrakerFilamentColor,
   startMoonrakerChamberPreheat,
@@ -367,6 +368,84 @@ test('U1 third-party filament type uses the native generic profile command and v
     const result = await setMoonrakerFilamentType(printer, { toolIndex:0, material:'petg-cf' });
     assert.equal(scripts[0], "SET_PRINT_FILAMENT_CONFIG CONFIG_EXTRUDER='0' VENDOR='generic' FILAMENT_TYPE='PETG-CF' FILAMENT_SUBTYPE='generic' SAVE='1'");
     assert.deepEqual(result, { toolIndex:0, material:'PETG-CF', vendor:'generic', subtype:'generic', verified:true });
+  } finally {
+    await close(server);
+  }
+});
+
+test('U1 combined filament control writes type and colour in one command and verifies both', async () => {
+  const scripts = [];
+  let reportedMaterial = 'PLA';
+  let reportedVendor = 'generic';
+  let reportedSubtype = 'generic';
+  let reportedColor = '112233FF';
+  const { server, port } = await listen((req, res) => {
+    const url = new URL(req.url, 'http://localhost');
+    if (url.pathname === '/printer/objects/query') {
+      const wantsPrintStats = url.search.includes('print_stats');
+      res.writeHead(200, { 'content-type':'application/json' });
+      res.end(JSON.stringify({ result:{ status:{
+        ...(wantsPrintStats ? { print_stats:{ state:'standby' } } : {}),
+        print_task_config:{
+          filament_exist:[true,false,false,false],
+          filament_edit:[true,false,false,false],
+          filament_official:[false,false,false,false],
+          filament_vendor:[reportedVendor,'NONE','NONE','NONE'],
+          filament_type:[reportedMaterial,'NONE','NONE','NONE'],
+          filament_sub_type:[reportedSubtype,'NONE','NONE','NONE'],
+          filament_color_rgba:[reportedColor,'FFFFFFFF','FFFFFFFF','FFFFFFFF']
+        }
+      } } }));
+      return;
+    }
+    if (url.pathname === '/printer/gcode/script') {
+      scripts.push(url.searchParams.get('script'));
+      reportedMaterial = 'ASA';
+      reportedVendor = 'generic';
+      reportedSubtype = 'generic';
+      reportedColor = 'A1B2C3FF';
+      res.writeHead(200, { 'content-type':'application/json' });
+      res.end(JSON.stringify({ result:'ok' }));
+      return;
+    }
+    res.writeHead(404); res.end();
+  });
+  const printer = { host:'127.0.0.1', httpPort:port, adapterConfig:{} };
+  try {
+    const result = await setMoonrakerFilamentConfig(printer, { toolIndex:0, material:'asa', color:'#a1b2c3' });
+    assert.equal(scripts.length, 1);
+    assert.equal(scripts[0], "SET_PRINT_FILAMENT_CONFIG CONFIG_EXTRUDER='0' VENDOR='generic' FILAMENT_TYPE='ASA' FILAMENT_SUBTYPE='generic' FILAMENT_COLOR_RGBA='A1B2C3FF' SAVE='1'");
+    assert.deepEqual(result, { toolIndex:0, material:'ASA', color:'#A1B2C3', rgba:'A1B2C3FF', vendor:'generic', subtype:'generic', verified:true });
+  } finally {
+    await close(server);
+  }
+});
+
+test('U1 combined filament control rejects busy, empty, and RFID-locked toolheads', async () => {
+  let state = 'printing';
+  let exists = true;
+  let official = false;
+  let editable = true;
+  const { server, port } = await listen((req, res) => {
+    const url = new URL(req.url, 'http://localhost');
+    if (url.pathname !== '/printer/objects/query') { res.writeHead(404); res.end(); return; }
+    res.writeHead(200, { 'content-type':'application/json' });
+    res.end(JSON.stringify({ result:{ status:{
+      print_stats:{ state },
+      print_task_config:{
+        filament_exist:[exists,false,false,false],
+        filament_edit:[editable,false,false,false],
+        filament_official:[official,false,false,false]
+      }
+    } } }));
+  });
+  const printer = { host:'127.0.0.1', httpPort:port, adapterConfig:{} };
+  try {
+    await assert.rejects(() => setMoonrakerFilamentConfig(printer, { toolIndex:0, material:'PLA', color:'#334455' }), /only be changed while the printer is idle/);
+    state = 'standby'; exists = false;
+    await assert.rejects(() => setMoonrakerFilamentConfig(printer, { toolIndex:0, material:'PLA', color:'#334455' }), /No filament is loaded/);
+    exists = true; official = true; editable = false;
+    await assert.rejects(() => setMoonrakerFilamentConfig(printer, { toolIndex:0, material:'PLA', color:'#334455' }), /locked by its official Snapmaker RFID filament/);
   } finally {
     await close(server);
   }
