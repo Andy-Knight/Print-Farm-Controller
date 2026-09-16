@@ -67,6 +67,13 @@ test('Snapmaker profile interoperates with the production adapter', async (t) =>
   const heated = await adapter.getStatus();
   assert.equal(heated.bed.target, 60);
   assert.equal(heated.tools[0].target, 210);
+
+  const camera = await adapter.getCameraSource();
+  await camera.start();
+  const jpeg = await camera.getSnapshot();
+  assert.equal(jpeg[0], 0xff);
+  assert.equal(jpeg[1], 0xd8);
+  await camera.stop();
 });
 
 test('FlashForge profile interoperates with HTTP and TCP production clients', async (t) => {

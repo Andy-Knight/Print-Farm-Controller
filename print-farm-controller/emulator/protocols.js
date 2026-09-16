@@ -1,5 +1,8 @@
 import http from 'node:http';
 import net from 'node:net';
+import crypto from 'node:crypto';
+
+const WEBSOCKET_GUID = '258EAFA5-E914-47DA-95CA-C5AB0DC85B11';
 
 const PIXEL_JPEG = Buffer.from(
   '/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAP//////////////////////////////////////////////////////////////////////////////////////2wBDAf//////////////////////////////////////////////////////////////////////////////////////wAARCAABAAEDASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAX/xAAUEAEAAAAAAAAAAAAAAAAAAAAA/9oADAMBAAIQAxAAAAEf/8QAFBABAAAAAAAAAAAAAAAAAAAAAP/aAAgBAQABBQJ//8QAFBEBAAAAAAAAAAAAAAAAAAAAAP/aAAgBAwEBPwF//8QAFBEBAAAAAAAAAAAAAAAAAAAAAP/aAAgBAgEBPwF//8QAFBABAAAAAAAAAAAAAAAAAAAAAP/aAAgBAQAGPwJ//8QAFBABAAAAAAAAAAAAAAAAAAAAAP/aAAgBAQABPyF//9oADAMBAAIAAwAAABAf/8QAFBEBAAAAAAAAAAAAAAAAAAAAAP/aAAgBAwEBPxB//8QAFBEBAAAAAAAAAAAAAAAAAAAAAP/aAAgBAgEBPxB//8QAFBABAAAAAAAAAAAAAAAAAAAAAP/aAAgBAQABPxB//9k=',
@@ -48,6 +51,7 @@ function listen(server, host, port) {
 }
 
 function closeServer(server) {
+  for (const socket of server.emulatorSockets || []) socket.destroy();
   return new Promise((resolve) => server.close(() => resolve()));
 }
 
@@ -169,7 +173,7 @@ function applyGcode(printer, script) {
 }
 
 function createMoonrakerServer(printer) {
-  return http.createServer(async (request, response) => {
+  const server = http.createServer(async (request, response) => {
     const url = new URL(request.url, `http://${request.headers.host || 'localhost'}`);
     if (await applyFault(printer, 'moonraker', `${request.method} ${url.pathname}`, response)) return;
 
@@ -251,6 +255,34 @@ function createMoonrakerServer(printer) {
     }
     sendJson(response, 404, { error: { message: `Unsupported simulated Moonraker endpoint: ${url.pathname}` } });
   });
+  server.emulatorSockets = new Set();
+  server.on('upgrade', (request, socket) => {
+    const url = new URL(request.url, `http://${request.headers.host || 'localhost'}`);
+    const key = String(request.headers['sec-websocket-key'] || '');
+    if (url.pathname !== '/websocket' || !key || !printer.online) {
+      socket.end('HTTP/1.1 400 Bad Request\r\nConnection: close\r\n\r\n');
+      return;
+    }
+    const accept = crypto.createHash('sha1').update(key + WEBSOCKET_GUID).digest('base64');
+    socket.write([
+      'HTTP/1.1 101 Switching Protocols',
+      'Upgrade: websocket',
+      'Connection: Upgrade',
+      `Sec-WebSocket-Accept: ${accept}`,
+      '', ''
+    ].join('\r\n'));
+    server.emulatorSockets.add(socket);
+    printer.log('moonraker-websocket', 'Camera monitor connection opened');
+    socket.on('data', (buffer) => {
+      // The production camera source only needs the successful upgrade before
+      // sending camera.start_monitor. Keep frames protocol-valid by accepting
+      // them without echoing unsolicited Moonraker notifications.
+      if ((buffer[0] & 0x0f) === 0x8) socket.end();
+    });
+    socket.on('error', () => {});
+    socket.on('close', () => server.emulatorSockets.delete(socket));
+  });
+  return server;
 }
 
 function flashForgeStatus(printer) {
