@@ -6,8 +6,8 @@
 
 - Repository: `Andy-Knight/Print-Farm-Controller`
 - Project path: `print-farm-controller/`
-- Branch: `main`
-- Current application version: **0.12.15**
+- Branch: `feature/printer-emulator-v0130` (not yet merged to `main`)
+- Current application version on this branch: **0.13.0**
 - Runtime: **Node.js 20+**, ES modules, no npm runtime dependencies.
 - GitHub is the authoritative code baseline.
 
@@ -33,6 +33,12 @@ Local Fleet Controller (`src/`)
 PrinterAdapter boundary (`src/adapters/`)
         +-- FlashForge Adventurer 5M / 5M Pro
         +-- Snapmaker U1 -> Moonraker / Klipper
+
+Development Printer Emulator (`emulator/`, loopback only)
+        +-- management UI/API + SSE
+        +-- shared virtual-printer state and scenarios
+        +-- FlashForge HTTP/TCP/camera endpoints
+        +-- Snapmaker U1 Moonraker endpoints
 ```
 
 Manufacturer-specific discovery, capabilities, limits, status normalization, files, print control, temperatures and camera selection belong behind the adapter boundary. Core fleet services should remain manufacturer-agnostic.
@@ -56,6 +62,7 @@ Manufacturer-specific discovery, capabilities, limits, status normalization, fil
 - The browser appearance switch is accessible, persists only in browser `localStorage`, and follows the device colour scheme until the user explicitly selects Light or Dark.
 - Queue priority is **High / Normal / Low**. Effective priority ranks before manual queue order; a waiting job gains one priority level every six hours so low-priority work cannot be starved. Within the same effective priority, manual order remains authoritative.
 - When multiple compatible idle printers are ready for an automatic job, a printer with a verified existing copy of the file is preferred; the assigned job records the selection reason.
+- The development printer emulator is a separate loopback-only service with its own UI. It exercises production adapters through network protocols rather than bypassing the adapter boundary. Emulator-only support never counts as physical hardware validation.
 
 ## Completed work / current baseline
 
@@ -68,6 +75,8 @@ Manufacturer-specific discovery, capabilities, limits, status normalization, fil
 - Material metadata/preflight for FlashForge and multi-tool print setup/preflight for U1.
 - U1 tool mapping, print preferences, material/nozzle readiness and XYZ offset calibration.
 - Bed-powered timed chamber preheat and applicable fan/purifier controls.
+- **v0.13.0 printer emulator:** standalone loopback service and responsive light/dark management UI; multiple dynamically allocated virtual printers; production-adapter-compatible FlashForge HTTP/TCP/camera and Snapmaker Moonraker endpoints; virtual files, print progress, temperatures and material/nozzle state; accelerated time; activity logs; repeatable scenarios; and fault injection for offline/delay/rejection/malformed response/verification/cancellation/filename/camera conditions. FlashForge connection forms now expose configurable HTTP, TCP and camera ports while retaining physical-printer defaults.
+- v0.13.0 regression suite: **142 passing tests, 0 failures**, including management API plus production Snapmaker and FlashForge adapter integration against live simulated endpoints.
 - **v0.11.0 file-centric automatic queue:**
   - persistent controller-side staged queue files with SHA-256;
   - bounded G-code requirement extraction for tools/material/colour/nozzle metadata;
@@ -114,13 +123,15 @@ Manufacturer-specific discovery, capabilities, limits, status normalization, fil
 
 ## Current task
 
-**v0.12.15 production-batch control layout fix is complete and user-validated.** The controls occupy their own responsive row beneath the batch copy list without overlapping batch items.
+**v0.13.0 printer emulator is implemented on `feature/printer-emulator-v0130` and awaiting user validation.** It has not been merged to `main`.
 
 ## Next steps
 
-1. Open one FlashForge and one Snapmaker printer window, upload a supported file to each, and confirm the verified file appears immediately in that printer's file list.
-2. Queue a known-good single-tool file with quantity 4 or more and confirm multiple compatible printers receive copies concurrently.
-3. After hardware validation, choose the next scheduler or fleet-management milestone.
+1. Start `npm run emulator`, open `http://127.0.0.1:4250`, and confirm both default simulated printers and live controls render correctly.
+2. Add the displayed simulated FlashForge and Snapmaker endpoints to Printer Fleet Controller and validate status, files, print control, queue progression and selected fault scenarios.
+3. Open one physical FlashForge and one physical Snapmaker printer window, upload a supported file to each, and confirm the verified file appears immediately in that printer's file list.
+4. Queue a known-good single-tool file with quantity 4 or more and confirm multiple compatible printers receive copies concurrently.
+5. After emulator and hardware validation, select the first experimental manufacturer profile.
 
 ## Handoff rule
 

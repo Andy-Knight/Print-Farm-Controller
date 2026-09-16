@@ -1,4 +1,6 @@
-# Printer Fleet Controller v0.12.15
+# Printer Fleet Controller v0.13.0
+
+> v0.13.0 adds a standalone, loopback-only **Printer Emulator** with its own responsive light/dark UI. It can run multiple simulated FlashForge Adventurer 5M Pro and Snapmaker U1 endpoints, exercise the controller's production adapters, accelerate print progress, manage virtual files and temperatures, and inject repeatable connection, cancellation, verification, camera, material and nozzle faults. Emulator support is a development aid and does not replace final validation on physical hardware.
 
 > v0.12.15 moves production-batch controls into a dedicated full-width row below the batch copy list, preventing Pause/Resume, priority, quantity and cancellation controls from overlapping batch items at narrower queue widths.
 
@@ -66,6 +68,39 @@ Other devices on the same LAN can use:
 ```text
 http://<controller-computer-ip>:4242
 ```
+
+## Printer Emulator
+
+Start the emulator in a second terminal:
+
+```bash
+npm run emulator
+```
+
+Open its separate management interface at:
+
+```text
+http://127.0.0.1:4250
+```
+
+The emulator binds to loopback by default, starts one simulated FlashForge Adventurer 5M Pro and one simulated Snapmaker U1, and displays the exact host, ports and credentials to enter in Printer Fleet Controller. Additional instances receive non-conflicting ports automatically.
+
+The UI provides live state, progress and temperature controls; accelerated print time; virtual printer files; activity logs; repeatable scenarios; and fault injection for retained filenames, persistent cancellation, failed verification, rejected or malformed commands, delayed responses and unavailable cameras. All state changes are streamed live to the browser.
+
+Default endpoints are:
+
+```text
+FlashForge HTTP:  127.0.0.1:18898
+FlashForge TCP:   127.0.0.1:18899
+FlashForge camera 127.0.0.1:18080
+Snapmaker U1:     127.0.0.1:17125
+```
+
+For FlashForge, the Add printer form now exposes the normally fixed HTTP, TCP and camera ports. Physical printers retain their standard defaults of 8898, 8899 and 8080. Snapmaker already supports a configurable Moonraker port.
+
+Set `EMULATOR_NO_DEFAULTS=1` to start with an empty emulator fleet. `EMULATOR_HOST` and `EMULATOR_PORT` can override the management listener when required. Keeping the default loopback binding is recommended; if the controller runs in a container, supply a host address reachable from that container.
+
+The emulator verifies controller behaviour against the implemented protocol model. A new manufacturer developed without access to its hardware must remain marked experimental until its behaviour has been checked against reliable protocol captures, documentation or a physical printer.
 
 ## Supported features
 

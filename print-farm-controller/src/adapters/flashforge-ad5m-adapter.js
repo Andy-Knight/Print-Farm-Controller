@@ -33,14 +33,20 @@ export function prepareFlashForgeAd5mConfig(input = {}) {
     throw new Error('name, host, serialNumber and checkCode are required');
   }
   if (!/^[a-zA-Z0-9._:-]+$/.test(host)) throw new Error('Host/IP contains invalid characters');
+  const httpPort = Number(input.httpPort || 8898);
+  const cameraPort = Number(input.cameraPort || 8080);
+  const tcpPort = Number(input.tcpPort || input.commandPort || 8899);
+  for (const [label, port] of [['HTTP', httpPort], ['TCP command', tcpPort], ['Camera', cameraPort]]) {
+    if (!Number.isInteger(port) || port < 1 || port > 65535) throw new Error(`${label} port must be 1-65535`);
+  }
   return {
     name,
     host,
     serialNumber,
     checkCode,
-    httpPort: Number(input.httpPort || 8898),
-    cameraPort: Number(input.cameraPort || 8080),
-    tcpPort: Number(input.tcpPort || input.commandPort || 8899),
+    httpPort,
+    cameraPort,
+    tcpPort,
     adapterType: FLASHFORGE_AD5M_ADAPTER_TYPE,
     manufacturer: 'FlashForge',
     model: String(input.model || 'Adventurer 5M Pro')
@@ -196,6 +202,9 @@ export const flashForgeAd5mAdapterDefinition = Object.freeze({
   models: ['Adventurer 5M', 'Adventurer 5M Pro'],
   capabilities: CAPABILITIES,
   configFields: [
+    { name: 'httpPort', label: 'HTTP API port', required: true, type: 'number', defaultValue: 8898, min: 1, max: 65535, help: 'Leave at 8898 for physical 5M-family printers. Emulator endpoints may use a different port.' },
+    { name: 'tcpPort', label: 'TCP command port', required: true, type: 'number', defaultValue: 8899, min: 1, max: 65535, help: 'Leave at 8899 for physical 5M-family printers.' },
+    { name: 'cameraPort', label: 'Camera port', required: true, type: 'number', defaultValue: 8080, min: 1, max: 65535, help: 'Leave at 8080 for the stock FlashForge camera.' },
     { name: 'serialNumber', label: 'Serial number', required: true, placeholder: 'SN...' },
     { name: 'checkCode', label: 'Printer ID / Check code', required: true, secret: true, placeholder: "Shown on the printer's LAN Only screen", help: 'On the printer: Settings → Network → Network Mode → LAN Only.' }
   ],
