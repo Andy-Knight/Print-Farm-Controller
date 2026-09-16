@@ -1,0 +1,21 @@
+name: Validate Printer Fleet Controller v0.12.15
+on:
+  push:
+    branches: [fix/production-batch-controls-v01215]
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-24.04
+    defaults:
+      run:
+        working-directory: print-farm-controller
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - run: |
+          npm test | tee /tmp/pfc-tests.txt
+          grep -q '# pass 138' /tmp/pfc-tests.txt
+          grep -q '# fail 0' /tmp/pfc-tests.txt
