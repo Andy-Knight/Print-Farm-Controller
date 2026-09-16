@@ -85,7 +85,7 @@ http://127.0.0.1:4250
 
 The emulator binds to loopback by default, starts one simulated FlashForge Adventurer 5M Pro and one simulated Snapmaker U1, and displays the exact host, ports and credentials to enter in Printer Fleet Controller. Additional instances receive non-conflicting ports automatically.
 
-The UI provides live state, progress and temperature controls; accelerated print time; virtual printer files; activity logs; repeatable scenarios; and fault injection for retained filenames, persistent cancellation, failed verification, rejected or malformed commands, delayed responses and unavailable cameras. All state changes are streamed live to the browser.
+The UI provides live state, progress and temperature controls; accelerated print time; virtual printer files; activity logs; repeatable scenarios; and fault injection for retained filenames, persistent cancellation, failed verification, rejected or malformed commands, delayed responses and unavailable cameras. Both printer profiles provide a clearly labelled simulated camera test frame; FlashForge uses a continuous MJPEG stream and Snapmaker uses its Moonraker WebSocket/snapshot sequence. All state changes are streamed live to the browser.
 
 Default endpoints are:
 

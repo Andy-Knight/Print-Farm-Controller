@@ -1,10 +1,24 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { EventEmitter } from 'node:events';
 import { createEmulator } from '../emulator/server.js';
+import { CameraManager } from '../src/camera-manager.js';
 import { getPrinterAdapter } from '../src/adapters/adapter-registry.js';
 import { prepareFlashForgeAd5mConfig } from '../src/adapters/flashforge-ad5m-adapter.js';
 import { prepareSnapmakerU1Config } from '../src/adapters/snapmaker-u1-adapter.js';
 import { listAllFilesTcp } from '../src/tcp-files.js';
+
+function fakeResponse() {
+  const response = new EventEmitter();
+  return Object.assign(response, {
+    destroyed: false,
+    writableEnded: false,
+    writableLength: 0,
+    writeHead(statusCode, headers) { this.statusCode = statusCode; this.headers = headers; },
+    write() { return true; },
+    end(body = Buffer.alloc(0)) { this.body = Buffer.isBuffer(body) ? body : Buffer.from(String(body)); this.writableEnded = true; }
+  });
+}
 
 test('emulator management API creates and controls a virtual printer', async (t) => {
   const emulator = createEmulator({ managementPort: 0, withDefaults: false });
@@ -73,6 +87,7 @@ test('Snapmaker profile interoperates with the production adapter', async (t) =>
   const jpeg = await camera.getSnapshot();
   assert.equal(jpeg[0], 0xff);
   assert.equal(jpeg[1], 0xd8);
+  assert.ok(jpeg.length > 10000, 'simulated camera should return a visible test frame rather than a tiny placeholder');
   await camera.stop();
 });
 
@@ -105,6 +120,22 @@ test('FlashForge profile interoperates with HTTP and TCP production clients', as
   assert.equal((await adapter.getStatus()).status, 'printing');
   await adapter.setJobState('cancel');
   assert.equal((await adapter.getStatus()).status, 'cancelled');
+
+  const printer = { ...config, id: 'simulated-flashforge-camera' };
+  const cameraManager = new CameraManager({
+    lookupPrinter: async () => printer,
+    idleCloseMs: 50,
+    connectTimeoutMs: 1000,
+    frameTimeoutMs: 2000
+  });
+  const cameraResponse = fakeResponse();
+  await cameraManager.handleSnapshot(printer.id, cameraResponse);
+  assert.equal(cameraResponse.statusCode, 200);
+  assert.equal(cameraResponse.headers['content-type'], 'image/jpeg');
+  assert.ok(cameraResponse.body.length > 10000);
+  assert.equal(cameraResponse.body[0], 0xff);
+  assert.equal(cameraResponse.body[1], 0xd8);
+  cameraManager.stop();
 });
 
 test('FlashForge port configuration validates emulator overrides', () => {

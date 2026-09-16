@@ -1,13 +1,12 @@
 import http from 'node:http';
 import net from 'node:net';
 import crypto from 'node:crypto';
+import { readFileSync } from 'node:fs';
 
 const WEBSOCKET_GUID = '258EAFA5-E914-47DA-95CA-C5AB0DC85B11';
 
-const PIXEL_JPEG = Buffer.from(
-  '/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAP//////////////////////////////////////////////////////////////////////////////////////2wBDAf//////////////////////////////////////////////////////////////////////////////////////wAARCAABAAEDASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAX/xAAUEAEAAAAAAAAAAAAAAAAAAAAA/9oADAMBAAIQAxAAAAEf/8QAFBABAAAAAAAAAAAAAAAAAAAAAP/aAAgBAQABBQJ//8QAFBEBAAAAAAAAAAAAAAAAAAAAAP/aAAgBAwEBPwF//8QAFBEBAAAAAAAAAAAAAAAAAAAAAP/aAAgBAgEBPwF//8QAFBABAAAAAAAAAAAAAAAAAAAAAP/aAAgBAQAGPwJ//8QAFBABAAAAAAAAAAAAAAAAAAAAAP/aAAgBAQABPyF//9oADAMBAAIAAwAAABAf/8QAFBEBAAAAAAAAAAAAAAAAAAAAAP/aAAgBAwEBPxB//8QAFBEBAAAAAAAAAAAAAAAAAAAAAP/aAAgBAgEBPxB//8QAFBABAAAAAAAAAAAAAAAAAAAAAP/aAAgBAQABPxB//9k=',
-  'base64'
-);
+const TEST_FRAME_JPEG = readFileSync(new URL('./assets/test-frame.jpg', import.meta.url));
+const MJPEG_BOUNDARY = 'printfleetemulator';
 
 function sendJson(response, status, body) {
   const content = Buffer.from(JSON.stringify(body));
@@ -245,8 +244,8 @@ function createMoonrakerServer(printer) {
     }
     if (url.pathname === '/server/files/camera/monitor.jpg') {
       if (printer.faults.cameraUnavailable) return sendJson(response, 503, { error: { message: 'Simulated camera unavailable' } });
-      response.writeHead(200, { 'content-type': 'image/jpeg', 'content-length': PIXEL_JPEG.length, 'cache-control': 'no-store' });
-      response.end(PIXEL_JPEG);
+      response.writeHead(200, { 'content-type': 'image/jpeg', 'content-length': TEST_FRAME_JPEG.length, 'cache-control': 'no-store' });
+      response.end(TEST_FRAME_JPEG);
       return;
     }
     if (url.pathname === '/access/api_key') {
@@ -392,8 +391,22 @@ function createCameraServer(printer) {
   return http.createServer((request, response) => {
     printer.log('camera', `${request.method} ${request.url}`);
     if (!printer.online || printer.faults.cameraUnavailable) return sendJson(response, 503, { error: 'Simulated camera unavailable' });
-    response.writeHead(200, { 'content-type': 'image/jpeg', 'content-length': PIXEL_JPEG.length, 'cache-control': 'no-store' });
-    response.end(PIXEL_JPEG);
+    response.writeHead(200, {
+      'content-type': `multipart/x-mixed-replace; boundary=${MJPEG_BOUNDARY}`,
+      'cache-control': 'no-store, no-cache, must-revalidate, max-age=0',
+      connection: 'keep-alive'
+    });
+    const writeFrame = () => {
+      if (response.destroyed || response.writableEnded) return;
+      response.write(`--${MJPEG_BOUNDARY}\r\nContent-Type: image/jpeg\r\nContent-Length: ${TEST_FRAME_JPEG.length}\r\n\r\n`);
+      response.write(TEST_FRAME_JPEG);
+      response.write('\r\n');
+    };
+    writeFrame();
+    const timer = setInterval(writeFrame, 1000);
+    timer.unref?.();
+    request.once('close', () => clearInterval(timer));
+    response.once('close', () => clearInterval(timer));
   });
 }
 
