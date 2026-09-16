@@ -389,7 +389,27 @@ function queueCompatibilityMarkup(job) {
   return rows.length ? `<div class="queue-compatibility">${rows.join('')}</div>` : '';
 }
 
-function queueJobMarkup(job, { history = false, queuedIndex = -1, queuedCount = 0 } = {}) {
+function queuePriorityLabel(value) {
+  const priority = String(value || 'normal').toLowerCase();
+  return priority === 'high' ? 'High' : priority === 'low' ? 'Low' : 'Normal';
+}
+
+function queuePriorityOptions(selected) {
+  return ['high','normal','low'].map((priority) =>
+    `<option value="${priority}"${priority === selected ? ' selected' : ''}>${queuePriorityLabel(priority)}</option>`
+  ).join('');
+}
+
+function queuePriorityBadge(job) {
+  const priority = String(job.priority || 'normal').toLowerCase();
+  const effective = String(job.effectivePriority || priority).toLowerCase();
+  const aged = job.priorityAged === true && effective !== priority;
+  const title = aged ? `Originally ${queuePriorityLabel(priority)}; promoted automatically while waiting` : `${queuePriorityLabel(priority)} queue priority`;
+  const text = aged ? `${queuePriorityLabel(effective)} effective` : `${queuePriorityLabel(priority)} priority`;
+  return `<span class="queue-priority priority-${escapeHtml(effective)}" title="${escapeHtml(title)}">${escapeHtml(text)}</span>`;
+}
+
+function queueJobMarkup(job, { history = false, queuedIndex = -1, queuedCount = 0, canMoveUp = false, canMoveDown = false } = {}) {
   const terminalTime = history ? (job.finishedAt || job.updatedAt) : job.queuedAt;
   const elapsed = queueElapsed(job);
   const progress = job.status === 'printing' ? `${Math.round(Number(job.maxProgress || 0))}%` : '';
@@ -400,16 +420,18 @@ function queueJobMarkup(job, { history = false, queuedIndex = -1, queuedCount = 
   const controls = history
     ? `<button type="button" class="secondary" data-queue-reprint="${escapeHtml(job.id)}">Reprint</button>`
     : `<div class="queue-job-actions">
-        ${job.status === 'queued' ? `<button type="button" class="queue-order-button" data-queue-up="${escapeHtml(job.id)}" aria-label="Move queued job earlier" title="Move earlier"${queuedIndex <= 0 ? ' disabled' : ''}>↑</button><button type="button" class="queue-order-button" data-queue-down="${escapeHtml(job.id)}" aria-label="Move queued job later" title="Move later"${queuedIndex < 0 || queuedIndex >= queuedCount - 1 ? ' disabled' : ''}>↓</button>` : ''}
+        ${['queued','needs_review'].includes(job.status) ? `<label class="queue-priority-control">Priority<select data-queue-priority="${escapeHtml(job.id)}">${queuePriorityOptions(String(job.priority || 'normal').toLowerCase())}</select></label>` : ''}
+        ${job.status === 'queued' ? `<button type="button" class="queue-order-button" data-queue-up="${escapeHtml(job.id)}" aria-label="Move queued job earlier within its priority" title="Move earlier within ${escapeHtml(queuePriorityLabel(job.effectivePriority))} priority"${!canMoveUp ? ' disabled' : ''}>↑</button><button type="button" class="queue-order-button" data-queue-down="${escapeHtml(job.id)}" aria-label="Move queued job later within its priority" title="Move later within ${escapeHtml(queuePriorityLabel(job.effectivePriority))} priority"${!canMoveDown ? ' disabled' : ''}>↓</button>` : ''}
         ${job.status === 'needs_review' ? `<button type="button" class="secondary" data-queue-recheck="${escapeHtml(job.id)}">Recheck</button>` : ''}
         <button type="button" class="danger queue-cancel-button" data-queue-cancel="${escapeHtml(job.id)}">Cancel</button>
       </div>`;
   const printerLabel = job.assignmentMode === 'automatic' && !job.printerId ? 'Next available compatible printer' : (job.printerName || job.printerId || 'Unassigned');
   return `<article class="queue-job queue-job-${escapeHtml(job.status)}" data-queue-job="${escapeHtml(job.id)}">
     <div class="queue-job-main">
-      <div class="queue-job-title"><strong>${escapeHtml(job.fileName)}</strong><span class="queue-status ${escapeHtml(job.status)}">${escapeHtml(queueStatusLabel(job.status))}${progress ? ` · ${progress}` : ''}</span></div>
+      <div class="queue-job-title"><strong>${escapeHtml(job.fileName)}</strong><span class="queue-job-badges">${queuePriorityBadge(job)}<span class="queue-status ${escapeHtml(job.status)}">${escapeHtml(queueStatusLabel(job.status))}${progress ? ` · ${progress}` : ''}</span></span></div>
       <div class="queue-job-printer">${escapeHtml(printerLabel)}</div>
       <div class="queue-job-meta">${escapeHtml(meta)}</div>
+      ${job.selectionReason ? `<div class="queue-selection-reason">${escapeHtml(job.selectionReason)}</div>` : ''}
       ${queueCompatibilityMarkup(job)}
       ${error}
     </div>
@@ -456,13 +478,14 @@ function productionBatchMarkup(batch, { history = false } = {}) {
     ? `<div class="production-actions"><button type="button" class="secondary" data-production-reprint="${escapeHtml(batch.id)}">Reprint batch</button></div>`
     : !history && !batch.finished ? `<div class="production-actions">
       <button type="button" class="secondary" data-production-action="${batch.paused ? 'resume' : 'pause'}" data-production-batch="${escapeHtml(batch.id)}">${batch.paused ? 'Resume production' : 'Pause production'}</button>
+      <label class="queue-priority-control">Priority<select data-production-priority-select="${escapeHtml(batch.id)}">${queuePriorityOptions(String(batch.priority || 'normal').toLowerCase())}</select></label>
       <label class="production-quantity-control">Quantity <input type="number" min="1" max="999" step="1" value="${quantity}" data-production-quantity-input="${escapeHtml(batch.id)}"></label>
       <button type="button" class="secondary" data-production-quantity="${escapeHtml(batch.id)}">Update quantity</button>
       ${cancelable ? `<button type="button" class="danger" data-production-action="cancel" data-production-batch="${escapeHtml(batch.id)}">Cancel remaining</button>` : ''}
     </div>` : '';
   return `<article class="queue-job production-batch${batch.paused ? ' production-paused' : ''}" data-production-card="${escapeHtml(batch.id)}">
     <div class="queue-job-main">
-      <div class="queue-job-title"><strong>${escapeHtml(batch.fileName)}</strong><span class="queue-status ${batch.paused ? 'paused' : batch.finished ? 'completed' : active ? 'printing' : 'queued'}">${escapeHtml(state)}</span></div>
+      <div class="queue-job-title"><strong>${escapeHtml(batch.fileName)}</strong><span class="queue-job-badges">${queuePriorityBadge(batch)}<span class="queue-status ${batch.paused ? 'paused' : batch.finished ? 'completed' : active ? 'printing' : 'queued'}">${escapeHtml(state)}</span></span></div>
       <div class="queue-job-printer">Production quantity ${quantity}</div>
       <div class="production-counts">Completed ${completed} · Printing/preparing ${active} · Remaining ${remaining}${failed ? ` · Failed ${failed}` : ''}${cancelled ? ` · Cancelled ${cancelled}` : ''}</div>
       <div class="production-progress"><span style="width:${progress}%"></span></div>
@@ -503,10 +526,16 @@ function renderPrintQueue() {
   if (queueActiveList) {
     const clearanceMarkup = clearanceItems.map(queueClearanceMarkup).join('');
     const productionMarkup = activeProduction.map((batch) => productionBatchMarkup(batch)).join('');
-    const jobsMarkup = currentJobs.map((job) => queueJobMarkup(job, {
-      queuedIndex: job.status === 'queued' ? queuedJobs.findIndex((queued) => queued.id === job.id) : -1,
-      queuedCount: queuedJobs.length
-    })).join('');
+    const jobsMarkup = currentJobs.map((job) => {
+      const queuedIndex = job.status === 'queued' ? queuedJobs.findIndex((queued) => queued.id === job.id) : -1;
+      const effectivePriority = String(job.effectivePriority || job.priority || 'normal');
+      return queueJobMarkup(job, {
+        queuedIndex,
+        queuedCount: queuedJobs.length,
+        canMoveUp:queuedIndex > 0 && String(queuedJobs[queuedIndex - 1]?.effectivePriority || queuedJobs[queuedIndex - 1]?.priority || 'normal') === effectivePriority,
+        canMoveDown:queuedIndex >= 0 && queuedIndex < queuedJobs.length - 1 && String(queuedJobs[queuedIndex + 1]?.effectivePriority || queuedJobs[queuedIndex + 1]?.priority || 'normal') === effectivePriority
+      });
+    }).join('');
     queueActiveList.innerHTML = clearanceMarkup || productionMarkup || jobsMarkup
       ? `${clearanceMarkup}${productionMarkup}${jobsMarkup}`
       : '<div class="queue-empty">No active, queued or review-blocked jobs.</div>';
@@ -539,7 +568,7 @@ async function addPrintQueueJob(printer, fileName, options = {}) {
   return result.job;
 }
 
-async function stageAutomaticQueueFile(file, options = {}, quantity = 1) {
+async function stageAutomaticQueueFile(file, options = {}, quantity = 1, priority = 'normal') {
   if (!(file instanceof File) || !file.size) throw new Error('Choose a file to queue');
   if (file.size > 512 * 1024 * 1024) throw new Error('File exceeds the 512 MB upload limit');
   let stagedFile = null;
@@ -558,6 +587,7 @@ async function stageAutomaticQueueFile(file, options = {}, quantity = 1) {
         assignmentMode:'automatic',
         stagedFileId:stagedFile.id,
         quantity,
+        priority,
         options
       })
     });
@@ -935,10 +965,11 @@ queueAddForm?.addEventListener('submit', async (event) => {
   try {
     const data = new FormData(queueAddForm);
     const quantity = Number(data.get('quantity') || 1);
+    const priority = String(data.get('priority') || 'normal');
     await stageAutomaticQueueFile(file, {
       levelingBeforePrint:data.get('levelingBeforePrint') === 'on',
       flowCalibrationBeforePrint:data.get('flowCalibrationBeforePrint') === 'on'
-    }, quantity);
+    }, quantity, priority);
     if (queueAddStatus) queueAddStatus.textContent = quantity > 1 ? `Added ${quantity} copies as a production batch` : 'Added to fleet queue';
     queueAddDialog?.close();
     renderPrintQueue();
@@ -957,6 +988,28 @@ clearQueueHistoryBtn?.addEventListener('click', async () => {
     renderPrintQueue();
   } catch (error) { alert(error.message); }
 });
+queueActiveList?.addEventListener('change', async (event) => {
+  const jobPriority = event.target.closest('[data-queue-priority]');
+  const productionPriority = event.target.closest('[data-production-priority-select]');
+  if (!jobPriority && !productionPriority) return;
+  const previous = jobPriority
+    ? (queueState.jobs || []).find((job) => job.id === jobPriority.dataset.queuePriority)?.priority
+    : (queueState.productionBatches || []).find((batch) => batch.id === productionPriority.dataset.productionPrioritySelect)?.priority;
+  event.target.disabled = true;
+  try {
+    const endpoint = jobPriority
+      ? `/api/queue/${encodeURIComponent(jobPriority.dataset.queuePriority)}/priority`
+      : `/api/queue/production/${encodeURIComponent(productionPriority.dataset.productionPrioritySelect)}/priority`;
+    const result = await api(endpoint, { method:'POST', body:JSON.stringify({ priority:event.target.value }) });
+    queueState = result.queue || queueState;
+    renderPrintQueue();
+  } catch (error) {
+    alert(error.message);
+    event.target.value = previous || 'normal';
+    event.target.disabled = false;
+  }
+});
+
 queueActiveList?.addEventListener('click', async (event) => {
   const productionAction = event.target.closest('[data-production-action]');
   if (productionAction) {

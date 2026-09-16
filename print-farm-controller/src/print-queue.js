@@ -17,9 +17,47 @@ const ERROR_PRINTER_STATES = new Set(['error', 'failed']);
 const START_TIMEOUT_MS = 60_000;
 const MIN_ACTIVE_MS = 1_500;
 const MAX_HISTORY = 250;
+const PRIORITIES = new Set(['low', 'normal', 'high']);
+const PRIORITY_WEIGHT = { low:0, normal:1, high:2 };
+const PRIORITY_BY_WEIGHT = ['low', 'normal', 'high'];
+const PRIORITY_AGING_MS = 6 * 60 * 60 * 1000;
 
 const nowIso = () => new Date().toISOString();
 const nowMs = () => Date.now();
+
+function normalizePriority(value) {
+  const priority = String(value || '').trim().toLowerCase();
+  return PRIORITIES.has(priority) ? priority : 'normal';
+}
+
+function requirePriority(value) {
+  const priority = String(value || '').trim().toLowerCase();
+  if (!PRIORITIES.has(priority)) throw new Error('Priority must be High, Normal or Low');
+  return priority;
+}
+
+function priorityInfo(job, atMs = nowMs()) {
+  const priority = normalizePriority(job?.priority);
+  const queuedAt = new Date(job?.queuedAt || atMs).getTime();
+  const waiting = job?.status === 'queued' || job?.status === 'needs_review';
+  const ageBoost = waiting && Number.isFinite(queuedAt)
+    ? Math.max(0, Math.floor((atMs - queuedAt) / PRIORITY_AGING_MS))
+    : 0;
+  const effectiveWeight = Math.min(PRIORITY_WEIGHT.high, PRIORITY_WEIGHT[priority] + ageBoost);
+  return {
+    priority,
+    effectivePriority:PRIORITY_BY_WEIGHT[effectiveWeight],
+    priorityAged:effectiveWeight > PRIORITY_WEIGHT[priority]
+  };
+}
+
+function compareQueuePriority(left, right, positions, atMs = nowMs()) {
+  const leftInfo = priorityInfo(left, atMs);
+  const rightInfo = priorityInfo(right, atMs);
+  const weightDifference = PRIORITY_WEIGHT[rightInfo.effectivePriority] - PRIORITY_WEIGHT[leftInfo.effectivePriority];
+  if (weightDifference) return weightDifference;
+  return (positions.get(left.id) ?? Number.MAX_SAFE_INTEGER) - (positions.get(right.id) ?? Number.MAX_SAFE_INTEGER);
+}
 
 function normalizeState(value) {
   return String(value || '').trim().toLowerCase();
@@ -72,6 +110,7 @@ function publicJob(job) {
     productionSequence: Number.isInteger(Number(job.productionSequence)) && Number(job.productionSequence) > 0 ? Number(job.productionSequence) : null,
     productionQuantity: Number.isInteger(Number(job.productionQuantity)) && Number(job.productionQuantity) > 0 ? Number(job.productionQuantity) : null,
     productionPaused: job.productionPaused === true,
+    ...priorityInfo(job),
     assignmentMode: job.assignmentMode === 'automatic' ? 'automatic' : 'fixed',
     printerId: job.printerId || null,
     printerName: job.printerName || null,
@@ -79,6 +118,7 @@ function publicJob(job) {
     stagedFile,
     requirements: job.requirements ? structuredClone(job.requirements) : null,
     compatibility: job.compatibility ? structuredClone(job.compatibility) : null,
+    selectionReason: job.selectionReason || null,
     status: job.status,
     options: { ...(job.options || {}) },
     queuedAt: job.queuedAt,
@@ -172,6 +212,7 @@ function cloneProductionRun(template, sequence, quantity, paused = template.prod
     productionQuantity: quantity,
     productionPaused: paused,
     compatibility: null,
+    selectionReason: null,
     options: { ...sanitizeOptions(template.options), toolMap:null, usedLogicalTools:[] },
     toolSnapshot: [],
     status: 'queued',
@@ -239,6 +280,8 @@ export class PrintQueueService {
       return {
         ...job,
         assignmentMode,
+        priority:normalizePriority(job.priority),
+        selectionReason:job.selectionReason || null,
         ...(interruptedAutomatic ? { status:'queued', printerId:null, printerName:'Next available compatible printer', error:'Controller restarted before automatic assignment completed; job returned to the queue.' } : {}),
         productionPaused: job.productionPaused === true,
         productionSequence: Number.isInteger(Number(job.productionSequence)) && Number(job.productionSequence) > 0 ? Number(job.productionSequence) : null,
@@ -260,7 +303,13 @@ export class PrintQueueService {
   }
 
   getSnapshot() {
-    const jobs = this.jobs.map((job) => {
+    const positions = new Map(this.jobs.map((job, index) => [job.id, index]));
+    const orderedQueued = this.jobs
+      .filter((job) => job.status === 'queued')
+      .sort((left, right) => compareQueuePriority(left, right, positions));
+    let queuedIndex = 0;
+    const orderedJobs = this.jobs.map((job) => job.status === 'queued' ? orderedQueued[queuedIndex++] : job);
+    const jobs = orderedJobs.map((job) => {
       const currentName = this.fleetState.getPrinterState(job.printerId)?.name;
       return publicJob(currentName ? { ...job, printerName: currentName } : job);
     });
@@ -299,6 +348,8 @@ export class PrintQueueService {
       return {
         id,
         fileName: runs[0]?.fileName || 'Production job',
+        priority:normalizePriority(runs[0]?.priority),
+        effectivePriority:priorityInfo(runs.find((job) => job.status === 'queued' || job.status === 'needs_review') || runs[0]).effectivePriority,
         quantity,
         completed,
         active,
@@ -389,6 +440,7 @@ export class PrintQueueService {
       fileName:source.fileName,
       stagedFileId,
       quantity,
+      priority:source.priority,
       options
     });
   }
@@ -494,7 +546,7 @@ export class PrintQueueService {
     return job ? publicJob(job) : null;
   }
 
-  async add({ printerId, fileName, options = {}, assignmentMode = 'fixed', stagedFileId = null, quantity = 1 } = {}) {
+  async add({ printerId, fileName, options = {}, assignmentMode = 'fixed', stagedFileId = null, quantity = 1, priority = 'normal' } = {}) {
     const mode = assignmentMode === 'automatic' ? 'automatic' : 'fixed';
     const requestedQuantity = Number(quantity ?? 1);
     if (!Number.isInteger(requestedQuantity) || requestedQuantity < 1 || requestedQuantity > 999) throw new Error('Production quantity must be a whole number from 1 to 999');
@@ -541,6 +593,7 @@ export class PrintQueueService {
       productionSequence: productionBatchId ? 1 : null,
       productionQuantity: productionBatchId ? requestedQuantity : null,
       productionPaused: false,
+      priority:requirePriority(priority),
       assignmentMode: mode,
       printerId: mode === 'fixed' ? printer.id : null,
       printerName: mode === 'fixed' ? printer.name : 'Next available compatible printer',
@@ -554,6 +607,7 @@ export class PrintQueueService {
       } : null,
       requirements: stagedFile?.requirements ? structuredClone(stagedFile.requirements) : null,
       compatibility: null,
+      selectionReason: null,
       options: sanitizeOptions(options),
       toolSnapshot,
       fileMaterial,
@@ -588,8 +642,35 @@ export class PrintQueueService {
       printerId: source.assignmentMode === 'automatic' ? null : source.printerId,
       fileName: source.fileName,
       stagedFileId: source.stagedFile?.id || null,
+      priority:source.priority,
       options: source.options
     });
+  }
+
+  async setPriority(id, priority) {
+    const job = this.jobs.find((item) => item.id === id);
+    if (!job) throw new Error('Queued print not found');
+    if (!['queued', 'needs_review'].includes(job.status)) throw new Error('Priority can only be changed while a print is waiting');
+    job.priority = requirePriority(priority);
+    job.updatedAt = nowIso();
+    await this.persistAndNotify();
+    this.scheduleReconcile();
+    return publicJob(job);
+  }
+
+  async setProductionPriority(batchId, priority) {
+    const jobs = this.getProductionJobs(batchId);
+    const nextPriority = requirePriority(priority);
+    let changed = false;
+    for (const job of jobs) {
+      if (TERMINAL_STATES.has(job.status)) continue;
+      if (job.priority !== nextPriority) changed = true;
+      job.priority = nextPriority;
+      job.updatedAt = nowIso();
+    }
+    if (changed) await this.persistAndNotify();
+    this.scheduleReconcile();
+    return this.getProductionBatches().find((batch) => batch.id === batchId);
   }
 
   async recheck(id) {
@@ -756,26 +837,31 @@ export class PrintQueueService {
         }
       }
 
-      // Automatic jobs are evaluated in global queue order. Compatibility is
-      // hardware/file-centric; readiness adds live state such as busy/offline and
-      // the persistent bed-clearance interlock.
-      for (let index = 0; index < this.jobs.length; index++) {
-        const job = this.jobs[index];
-        if (job.status !== 'queued' || job.assignmentMode !== 'automatic' || job.productionPaused === true) continue;
-        const evaluation = await this.refreshAutomaticCompatibility(job, fleet, index);
+      // Priority is evaluated before manual queue order. Every six hours a
+      // waiting job gains one effective priority level so lower-priority work
+      // cannot be starved indefinitely.
+      const queuePositions = new Map(this.jobs.map((job, index) => [job.id, index]));
+      const automaticJobs = this.jobs
+        .filter((job) => job.status === 'queued' && job.assignmentMode === 'automatic' && job.productionPaused !== true)
+        .sort((left, right) => compareQueuePriority(left, right, queuePositions));
+      for (const job of automaticJobs) {
+        const evaluation = await this.refreshAutomaticCompatibility(job, fleet, this.jobs.indexOf(job));
         changed = evaluation.changed || changed;
         const candidate = evaluation.results.find((item) => item.ready);
         if (candidate) this.startAutomaticJob(job, candidate).catch((error) => console.error('Automatic queued print start failed:', error));
       }
 
-      // Fixed-printer jobs retain the original per-printer queue behaviour.
+      // Fixed-printer jobs use the same priority policy independently for each
+      // printer. A review-blocked job only blocks work ranked behind it.
       for (const state of fleet.values()) {
         if (!state.online || !state.status) continue;
         if (this.startingPrinters.has(state.id)) continue;
         if (this.requiresBedClearance(state.id)) continue;
         if (!printerCanStart(state.status)) continue;
         if (this.jobs.some((job) => job.printerId === state.id && ACTIVE_QUEUE_STATES.has(job.status))) continue;
-        const next = this.jobs.find((job) => job.assignmentMode !== 'automatic' && job.printerId === state.id && (job.status === 'queued' || job.status === 'needs_review'));
+        const next = this.jobs
+          .filter((job) => job.assignmentMode !== 'automatic' && job.printerId === state.id && (job.status === 'queued' || job.status === 'needs_review'))
+          .sort((left, right) => compareQueuePriority(left, right, queuePositions))[0];
         if (next?.status === 'queued') this.startJob(next).catch((error) => console.error('Queued print start failed:', error));
       }
 
@@ -796,26 +882,45 @@ export class PrintQueueService {
       if (!printer) continue;
       let adapter;
       try { adapter = this.adapterResolver(printer); } catch { continue; }
-      const earlierFixedWaiting = this.jobs.slice(0, Math.max(0, jobIndex)).some((other) =>
-        other.assignmentMode !== 'automatic' && other.printerId === state.id && (other.status === 'queued' || other.status === 'needs_review')
+      const positions = new Map(this.jobs.map((other, index) => [other.id, index]));
+      const earlierFixedWaiting = this.jobs.some((other) =>
+        other.id !== job.id
+        && other.assignmentMode !== 'automatic'
+        && other.printerId === state.id
+        && (other.status === 'queued' || other.status === 'needs_review')
+        && compareQueuePriority(other, job, positions) < 0
       );
       const reserved = this.startingPrinters.has(state.id) || earlierFixedWaiting || this.jobs.some((other) =>
         other.id !== job.id && other.printerId === state.id && ACTIVE_QUEUE_STATES.has(other.status)
       );
-      results.push(evaluateQueueCompatibility({
+      const result = evaluateQueueCompatibility({
         job,
         printer,
         state,
         adapter,
         bedClearanceRequired:this.requiresBedClearance(state.id),
         reserved
-      }));
+      });
+      result.fileAlreadyPresent = false;
+      if (result.ready) {
+        try {
+          result.fileAlreadyPresent = (await adapter.verifyFile(job.fileName))?.verified === true;
+        } catch {}
+      }
+      results.push(result);
     }
+    results.sort((left, right) => {
+      if (left.ready && right.ready && left.fileAlreadyPresent !== right.fileAlreadyPresent) {
+        return Number(right.fileAlreadyPresent) - Number(left.fileAlreadyPresent);
+      }
+      return 0;
+    });
     const summarize = (category) => results.filter((item) => item.category === category).map((item) => ({
       printerId:item.printerId,
       printerName:item.printerName,
       reasons:item.reasons.map((reason) => ({ ...reason })),
-      ...(item.toolMap ? { toolMap:{ ...item.toolMap } } : {})
+      ...(item.toolMap ? { toolMap:{ ...item.toolMap } } : {}),
+      ...(item.ready ? { fileAlreadyPresent:item.fileAlreadyPresent === true } : {})
     }));
     const next = {
       evaluatedAt:nowIso(),
@@ -857,6 +962,7 @@ export class PrintQueueService {
     job.status = 'queued';
     job.printerId = null;
     job.printerName = 'Next available compatible printer';
+    job.selectionReason = null;
     job.options = { ...sanitizeOptions(job.options), toolMap:null, usedLogicalTools:[] };
     job.toolSnapshot = [];
     job.startRequestedAt = null;
@@ -899,6 +1005,10 @@ export class PrintQueueService {
 
       job.printerId = printer.id;
       job.printerName = printer.name;
+      const effectivePriority = priorityInfo(job).effectivePriority;
+      job.selectionReason = candidate.fileAlreadyPresent
+        ? `${printer.name} selected because this file is already verified on the printer and its live setup is compatible (${effectivePriority} priority).`
+        : `${printer.name} selected as the first compatible idle printer for this ${effectivePriority} priority job.`;
       job.options = {
         ...sanitizeOptions(job.options),
         toolMap:freshEvaluation.toolMap ? { ...freshEvaluation.toolMap } : null,
@@ -1094,4 +1204,4 @@ export class PrintQueueService {
   }
 }
 
-export const printQueueHelpers = { printIsActive, printerCanStart, matchesFile, sanitizeOptions, buildToolSnapshot, checkToolSnapshot };
+export const printQueueHelpers = { printIsActive, printerCanStart, matchesFile, sanitizeOptions, buildToolSnapshot, checkToolSnapshot, normalizePriority, priorityInfo, compareQueuePriority };

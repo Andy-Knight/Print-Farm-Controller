@@ -180,6 +180,7 @@ async function apiRoute(req, res, url) {
       fileName: body.fileName,
       stagedFileId: body.stagedFileId,
       quantity: body.quantity,
+      priority: body.priority,
       options: body.options || {}
     });
     return json(res, 201, { job, queue: printQueue.getSnapshot() });
@@ -195,7 +196,7 @@ async function apiRoute(req, res, url) {
     return json(res, 200, { ok: true, cleared, queue: printQueue.getSnapshot() });
   }
 
-  const productionQueueMatch = url.pathname.match(/^\/api\/queue\/production\/([^/]+)\/(pause|resume|cancel|quantity|reprint)$/);
+  const productionQueueMatch = url.pathname.match(/^\/api\/queue\/production\/([^/]+)\/(pause|resume|cancel|quantity|priority|reprint)$/);
   if (productionQueueMatch && req.method === 'POST') {
     const batchId = decodeURIComponent(productionQueueMatch[1]);
     const action = productionQueueMatch[2];
@@ -206,7 +207,9 @@ async function apiRoute(req, res, url) {
     else if (action === 'reprint') result = await printQueue.reprintProduction(batchId);
     else {
       const body = await readJson(req);
-      result = await printQueue.setProductionQuantity(batchId, body.quantity);
+      result = action === 'priority'
+        ? await printQueue.setProductionPriority(batchId, body.priority)
+        : await printQueue.setProductionQuantity(batchId, body.quantity);
     }
     return json(res, 200, { ok:true, production:result, queue:printQueue.getSnapshot() });
   }
@@ -217,7 +220,7 @@ async function apiRoute(req, res, url) {
     return json(res, 200, { ok: true, clearance: result, queue: printQueue.getSnapshot() });
   }
 
-  const queueMatch = url.pathname.match(/^\/api\/queue\/([^/]+)(?:\/(reprint|recheck))?$/);
+  const queueMatch = url.pathname.match(/^\/api\/queue\/([^/]+)(?:\/(reprint|recheck|priority))?$/);
   if (queueMatch) {
     const [, jobId, queueAction] = queueMatch;
     if (req.method === 'DELETE' && !queueAction) {
@@ -230,6 +233,11 @@ async function apiRoute(req, res, url) {
     }
     if (req.method === 'POST' && queueAction === 'recheck') {
       const job = await printQueue.recheck(jobId);
+      return json(res, 200, { job, queue: printQueue.getSnapshot() });
+    }
+    if (req.method === 'POST' && queueAction === 'priority') {
+      const body = await readJson(req);
+      const job = await printQueue.setPriority(jobId, body.priority);
       return json(res, 200, { job, queue: printQueue.getSnapshot() });
     }
   }

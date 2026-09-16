@@ -1,4 +1,6 @@
-# Printer Fleet Controller v0.12.13
+# Printer Fleet Controller v0.12.14
+
+> v0.12.14 adds persistent **High / Normal / Low queue priorities** for individual jobs and production batches. The scheduler ranks priority before manual order, promotes waiting work one level every six hours to prevent starvation, prefers a compatible printer where the file is already verified, and records why a printer was selected.
 
 > v0.12.13 adds an accessible **Light / Dark** appearance switch in the main header. The selected theme is saved in the browser; before a choice is made, the interface follows the device colour-scheme preference.
 
@@ -77,6 +79,7 @@ http://<controller-computer-ip>:4242
 - Backend camera proxy with shared MJPEG streams and cached dashboard snapshots.
 - Multi-printer selection and batch actions.
 - Verified multi-printer G-code distribution.
+- Persistent **High / Normal / Low queue priorities** for individual jobs and production batches. Priority ranks before manual order, waiting jobs gain one effective priority level every six hours, and automatic assignment prefers a ready compatible printer where the file is already verified.
 - Persistent print queue with two assignment modes: existing **fixed-printer** jobs for files already stored on a printer, plus **Next available compatible printer** jobs backed by a controller-staged file. Automatic jobs are evaluated against the live fleet, uploaded/verified on the selected printer, rechecked immediately before start, and survive controller restarts.
 - Queue states: **Queued**, **Needs review**, **Starting**, **Printing**, **Completed**, **Failed**, and **Cancelled**. Queued jobs can be reordered or cancelled, including cancelling the active printer job when appropriate. A **Needs review** job blocks later jobs for the same printer until it is corrected/rechecked or cancelled.
 - Persistent print history with printer, file, timestamps, duration/result, and **Reprint**. Completed or active-failed/cancelled queue jobs create a **Waiting for bed clearance** interlock; **Bed cleared** must be confirmed before the next queued print can start. Outstanding clearance records are retained even when normal history is cleared.
@@ -197,6 +200,8 @@ The browser uses the controller-side scheduler API:
 GET    /api/queue
 POST   /api/queue
 PUT    /api/queue/order
+POST   /api/queue/:jobId/priority
+POST   /api/queue/production/:batchId/priority
 DELETE /api/queue/:jobId
 POST   /api/queue/:jobId/reprint
 POST   /api/queue/:jobId/recheck

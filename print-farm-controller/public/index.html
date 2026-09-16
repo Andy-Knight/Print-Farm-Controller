@@ -147,6 +147,14 @@
       <label>G-code file<input id="queueAddFileInput" name="file" type="file" accept=".gcode,.gx,.3mf" required /></label>
       <label>Quantity<input id="queueAddQuantity" name="quantity" type="number" min="1" max="999" step="1" value="1" required /></label>
       <div class="field-help">Quantity 2 or more creates one production batch. Copies share one staged G-code and are distributed across compatible printers as they become available.</div>
+      <label>Queue priority
+        <select id="queueAddPriority" name="priority">
+          <option value="high">High</option>
+          <option value="normal" selected>Normal</option>
+          <option value="low">Low</option>
+        </select>
+      </label>
+      <div class="field-help">Higher-priority jobs are offered to available compatible printers first. Waiting jobs are promoted automatically over time so low-priority work is not starved.</div>
       <div class="queue-assignment-card">
         <strong>Assignment</strong>
         <div>Next available compatible printer</div>

@@ -341,6 +341,7 @@ input:focus,select:focus { border-color:#7a9fbe; }
   .queue-job { grid-template-columns:1fr; align-items:stretch; }
   .queue-job-actions { justify-content:flex-end; }
   .queue-job-title { align-items:flex-start; flex-direction:column; gap:5px; }
+  .queue-job-badges { margin-left:0; }
   .queue-status { align-self:flex-start; }
   .file { align-items:flex-start; }
   .file-actions { flex-direction:column; }
@@ -365,6 +366,14 @@ input:focus,select:focus { border-color:#7a9fbe; }
 .production-run { display:flex; justify-content:space-between; gap:12px; font-size:.82rem; padding:5px 0; border-top:1px solid rgba(127,127,127,.18); }
 .production-run span:last-child { text-align:right; opacity:.78; }
 .production-actions { display:flex; flex-wrap:wrap; align-items:center; gap:8px; }
+.queue-job-badges { display:inline-flex; align-items:center; gap:6px; margin-left:auto; }
+.queue-priority { flex:0 0 auto; border-radius:999px; padding:3px 7px; font-size:.63rem; font-weight:850; text-transform:uppercase; letter-spacing:.04em; }
+.queue-priority.priority-high { background:#4a2630; color:#ffb7c3; }
+.queue-priority.priority-normal { background:#203a51; color:#a9d7f5; }
+.queue-priority.priority-low { background:#2b3035; color:#b9c2c9; }
+.queue-priority-control { display:flex; align-items:center; gap:6px; color:#91a2af; font-size:.72rem; font-weight:750; }
+.queue-priority-control select { width:auto; min-width:88px; padding:7px 28px 7px 8px; font-size:.75rem; }
+.queue-selection-reason { color:#8fb4ca; font-size:.72rem; margin-top:5px; }
 .production-quantity-control { display:flex; align-items:center; gap:6px; font-size:.82rem; }
 .production-quantity-control input { width:76px; }
 @media (max-width:760px) { .production-run { flex-direction:column; gap:2px; } .production-run span:last-child { text-align:left; } }
@@ -527,6 +536,11 @@ input:focus,select:focus { border-color:#7a9fbe; }
   color:#526a7b;
 }
 :root[data-theme="light"] .queue-compatibility b { color:#293d4c; }
+:root[data-theme="light"] .queue-priority.priority-high { background:#f8dfe4; color:#922b3e; }
+:root[data-theme="light"] .queue-priority.priority-normal { background:#dcecf7; color:#285d7e; }
+:root[data-theme="light"] .queue-priority.priority-low { background:#e5eaee; color:#53636f; }
+:root[data-theme="light"] .queue-priority-control { color:#526a7b; }
+:root[data-theme="light"] .queue-selection-reason { color:#3f718d; }
 :root[data-theme="light"] .queue-job-needs_review,
 :root[data-theme="light"] .queue-job-clearance {
   background:#fff8e8;

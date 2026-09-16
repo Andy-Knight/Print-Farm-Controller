@@ -7,7 +7,7 @@
 - Repository: `Andy-Knight/Print-Farm-Controller`
 - Project path: `print-farm-controller/`
 - Branch: `main`
-- Current application version: **0.12.13**
+- Current application version: **0.12.14**
 - Runtime: **Node.js 20+**, ES modules, no npm runtime dependencies.
 - GitHub is the authoritative code baseline.
 
@@ -54,6 +54,8 @@ Manufacturer-specific discovery, capabilities, limits, status normalization, fil
 - Existing fixed-printer queue behaviour remains backward compatible.
 - Every delivered version increments the application version and updates README/context.
 - The browser appearance switch is accessible, persists only in browser `localStorage`, and follows the device colour scheme until the user explicitly selects Light or Dark.
+- Queue priority is **High / Normal / Low**. Effective priority ranks before manual queue order; a waiting job gains one priority level every six hours so low-priority work cannot be starved. Within the same effective priority, manual order remains authoritative.
+- When multiple compatible idle printers are ready for an automatic job, a printer with a verified existing copy of the file is preferred; the assigned job records the selection reason.
 
 ## Completed work / current baseline
 
@@ -97,6 +99,7 @@ Manufacturer-specific discovery, capabilities, limits, status normalization, fil
 - v0.12.5 regression suite: **121 passing tests, 0 failures**.
 - **v0.12.6 Snapmaker RGB toolhead layout:** U1 toolhead status keeps the hexadecimal colour on the metadata line and renders `RGB(r, g, b)` on a separate line to prevent overflow; print setup and material preflight retain combined hex + RGB text.
 - **v0.12.7 FlashForge RGB colour display:** controller-assigned FlashForge filament colours now show the stored `#RRGGBB` value plus `RGB(r, g, b)` in Toolhead status; queue compatibility semantics are unchanged.
+- **v0.12.14 queue priorities and printer selection:** persistent High/Normal/Low priority for individual jobs and production batches, six-hour anti-starvation promotion, manual-order tie-breaking, verified-existing-file preference, and visible printer-selection reasoning.
 - **v0.12.13 light/dark appearance modes:** the header exposes an accessible theme switch; the choice persists in the browser, while first use follows the operating-system colour preference.
 - **v0.12.12 new-job progress isolation:** retained filename and 100% telemetry are ignored while a queued job is starting; an active matching print state must confirm the new run before its progress is recorded, including same-file reprints.
 - **v0.12.11 FlashForge cancellation display:** a latched raw `CANCEL` state displays as Cancelled while clearance is pending and Ready after acknowledgement; raw status remains available in printer detail diagnostics.
@@ -105,23 +108,23 @@ Manufacturer-specific discovery, capabilities, limits, status normalization, fil
 - **v0.12.8 native Snapmaker filament colour editing:** manually assigned third-party U1 filament colours can be changed from each toolhead card using stock `SET_PRINT_FILAMENT_CONFIG`; writes are idle/loaded/editable-only and verified against `print_task_config.filament_color_rgba`. Official RFID filament remains colour-locked.
 - v0.12.12 regression suite: **131 passing tests, 0 failures**.
 - v0.12.13 regression suite: **132 passing tests, 0 failures**.
+- v0.12.14 regression suite: **137 passing tests, 0 failures**. Priority ordering and progress display were also confirmed in the running interface.
 
 ## Current task
 
-**v0.12.13 light/dark appearance modes are complete in code and automated tests.** Visual validation should cover the dashboard and all dialogs in both modes. The v0.12.12 queue-progress change still needs real-hardware confirmation that a newly assigned job shows Starting at 0%, then tracks the new run after the printer reports it active.
+**v0.12.14 queue priorities and smarter printer selection are complete and user-validated.** The v0.12.12 queue-progress isolation, v0.12.13 light/dark appearance modes, and v0.12.14 priority ordering have all been confirmed in the running interface.
 
 ## Next steps
 
-1. Check the dashboard, printer details, queue, add-printer and print-setup dialogs in both Light and Dark modes; reload once to confirm the selected mode is retained.
-2. On an idle Snapmaker U1 with manually assigned third-party filament loaded, change a toolhead colour in Printer Fleet Controller and confirm the U1 touchscreen updates to the same colour; confirm official RFID spools remain locked.
-3. Open one FlashForge and one Snapmaker printer window, upload a supported file to each, and confirm the verified file appears immediately in that printer's file list.
-4. Queue a known-good single-tool file with quantity 4 or more and confirm multiple compatible printers receive copies concurrently.
-5. Confirm each completed printer waits for **Bed cleared** before it receives the next copy from the same production batch.
-6. Pause a production batch while copies are active and confirm active prints continue but no new copies start; then resume it.
-7. Increase and decrease the requested quantity while copies are waiting and confirm already-started/finished copies are never removed.
-8. Cancel remaining copies and confirm currently active prints continue while all waiting/preparing copies are cancelled.
-9. Confirm a printer that already has the exact filename reuses its printer-local copy rather than uploading it again.
-10. After hardware validation, consider queue priority / scheduling policy as the next scheduler milestone.
+1. On an idle Snapmaker U1 with manually assigned third-party filament loaded, change a toolhead colour in Printer Fleet Controller and confirm the U1 touchscreen updates to the same colour; confirm official RFID spools remain locked.
+2. Open one FlashForge and one Snapmaker printer window, upload a supported file to each, and confirm the verified file appears immediately in that printer's file list.
+3. Queue a known-good single-tool file with quantity 4 or more and confirm multiple compatible printers receive copies concurrently.
+4. Confirm each completed printer waits for **Bed cleared** before it receives the next copy from the same production batch.
+5. Pause a production batch while copies are active and confirm active prints continue but no new copies start; then resume it.
+6. Increase and decrease the requested quantity while copies are waiting and confirm already-started/finished copies are never removed.
+7. Cancel remaining copies and confirm currently active prints continue while all waiting/preparing copies are cancelled.
+8. Confirm a printer that already has the exact filename reuses its printer-local copy rather than uploading it again.
+9. After hardware validation, choose the next scheduler or fleet-management milestone.
 
 ## Handoff rule
 

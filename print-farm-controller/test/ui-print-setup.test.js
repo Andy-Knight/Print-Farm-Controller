@@ -278,7 +278,7 @@ test('finished production batches can be reprinted from recent history', () => {
   assert.match(app, /Reprint batch/);
   assert.match(app, /Reprint all \${batch\.quantity} copies/);
   assert.match(app, /production\/\$\{encodeURIComponent\(batchId\)\}\/reprint/);
-  assert.match(server, /pause\|resume\|cancel\|quantity\|reprint/);
+  assert.match(server, /pause\|resume\|cancel\|quantity\|priority\|reprint/);
   assert.match(queue, /async reprintProduction/);
   assert.match(queue, /Production batch must be finished before it can be reprinted/);
 });
@@ -313,3 +313,20 @@ test('queue UI exposes production quantity and batch controls', () => {
   assert.match(queue, /productionBatches/);
   assert.match(styles, /\.production-progress/);
 });
+
+test('queue UI exposes persistent job and production priority controls', () => {
+  const server = fs.readFileSync(new URL('../src/server.js', import.meta.url), 'utf8');
+  const queue = fs.readFileSync(new URL('../src/print-queue.js', import.meta.url), 'utf8');
+  assert.match(index, /id="queueAddPriority"/);
+  assert.match(index, /Higher-priority jobs are offered/);
+  assert.match(app, /data-queue-priority/);
+  assert.match(app, /data-production-priority-select/);
+  assert.match(app, /queuePriorityBadge/);
+  assert.match(app, /queue-selection-reason/);
+  assert.match(server, /setProductionPriority/);
+  assert.match(server, /setPriority\(jobId, body\.priority\)/);
+  assert.match(queue, /PRIORITY_AGING_MS/);
+  assert.match(queue, /fileAlreadyPresent/);
+  assert.match(styles, /\.queue-priority\.priority-high/);
+});
+
