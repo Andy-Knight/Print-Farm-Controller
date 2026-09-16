@@ -1,11 +1,16 @@
 import http from 'node:http';
 import net from 'node:net';
+import tls from 'node:tls';
 import crypto from 'node:crypto';
 import { readFileSync } from 'node:fs';
 
 const WEBSOCKET_GUID = '258EAFA5-E914-47DA-95CA-C5AB0DC85B11';
 
 const TEST_FRAME_JPEG = readFileSync(new URL('./assets/test-frame.jpg', import.meta.url));
+const BAMBU_TLS = Object.freeze({
+  key: readFileSync(new URL('./assets/bambu-simulator-key.pem', import.meta.url)),
+  cert: readFileSync(new URL('./assets/bambu-simulator-cert.pem', import.meta.url))
+});
 const MJPEG_BOUNDARY = 'printfleetemulator';
 
 function sendJson(response, status, body) {
@@ -422,6 +427,333 @@ function createCameraServer(printer) {
   });
 }
 
+function mqttLength(value) {
+  const bytes = [];
+  do {
+    let byte = value % 128;
+    value = Math.floor(value / 128);
+    if (value > 0) byte |= 0x80;
+    bytes.push(byte);
+  } while (value > 0);
+  return Buffer.from(bytes);
+}
+
+function mqttPacket(typeAndFlags, payload = Buffer.alloc(0)) {
+  return Buffer.concat([Buffer.from([typeAndFlags]), mqttLength(payload.length), payload]);
+}
+
+function mqttString(value) {
+  const body = Buffer.from(String(value));
+  const size = Buffer.alloc(2);
+  size.writeUInt16BE(body.length);
+  return Buffer.concat([size, body]);
+}
+
+function mqttReadString(buffer, offset) {
+  if (offset + 2 > buffer.length) return null;
+  const size = buffer.readUInt16BE(offset);
+  if (offset + 2 + size > buffer.length) return null;
+  return { value: buffer.subarray(offset + 2, offset + 2 + size).toString(), next: offset + 2 + size };
+}
+
+function bambuState(printer) {
+  return {
+    idle: 'IDLE',
+    printing: 'RUNNING',
+    paused: 'PAUSE',
+    completed: 'FINISH',
+    cancelled: 'FAILED',
+    failed: 'FAILED'
+  }[printer.status] || 'IDLE';
+}
+
+function bambuStatus(printer, sequenceId = '0') {
+  const tool = printer.tools[0];
+  return {
+    print: {
+      command: 'push_status',
+      sequence_id: String(sequenceId),
+      msg: printer.statusMessage || '',
+      gcode_state: bambuState(printer),
+      gcode_file: printer.fileName || '',
+      subtask_name: printer.fileName || '',
+      mc_percent: Math.round(printer.progress),
+      mc_remaining_time: Math.ceil(printer.remainingSeconds / 60),
+      mc_print_stage: printer.status === 'printing' ? '2' : '0',
+      layer_num: printer.currentLayer,
+      total_layer_num: printer.totalLayers,
+      nozzle_temper: tool.actual,
+      nozzle_target_temper: tool.target,
+      bed_temper: printer.bed.actual,
+      bed_target_temper: printer.bed.target,
+      chamber_temper: printer.chamber.actual,
+      cooling_fan_speed: String(Math.round(printer.fans.cooling * 15)),
+      big_fan1_speed: String(Math.round(printer.fans.chamber * 15)),
+      big_fan2_speed: String(Math.round(printer.fans.external * 15)),
+      spd_lvl: 2,
+      spd_mag: 100,
+      wifi_signal: '-42dBm',
+      lights_report: [{ node: 'chamber_light', mode: 'off' }],
+      home_flag: 0,
+      hw_switch_state: 1,
+      ams_status: 0,
+      upgrade_state: { sequence_id: 0, progress: '', status: 'IDLE' }
+    }
+  };
+}
+
+function applyBambuCommand(printer, body) {
+  const command = body?.print?.command || body?.system?.command;
+  const payload = body?.print || body?.system || {};
+  if (command === 'pause') printer.action('pause');
+  else if (command === 'resume') printer.action('resume');
+  else if (command === 'stop') printer.action('cancel');
+  else if (command === 'project_file') {
+    const urlName = String(payload.url || '').split('/').pop();
+    printer.startPrint(payload.subtask_name || payload.file || urlName || 'uploaded.3mf');
+  } else if (command === 'gcode_file') {
+    printer.startPrint(payload.param || payload.file || 'uploaded.gcode');
+  } else if (command === 'pushall') {
+    // The status response is published by the caller.
+  } else if (command === 'ledctrl') {
+    printer.chamberLight = payload.led_mode === 'on';
+    printer.emitChange();
+  }
+  return command;
+}
+
+function createBambuMqttServer(printer) {
+  const clients = new Set();
+  const reportTopic = `device/${printer.serialNumber}/report`;
+  const requestTopic = `device/${printer.serialNumber}/request`;
+  const publishStatus = (client, sequenceId = '0') => {
+    if (!client.authorized || !client.subscribed || client.destroyed) return;
+    const body = Buffer.from(JSON.stringify(bambuStatus(printer, sequenceId)));
+    client.write(mqttPacket(0x30, Buffer.concat([mqttString(reportTopic), body])));
+  };
+  const server = tls.createServer(BAMBU_TLS, (socket) => {
+    clients.add(socket);
+    socket.authorized = false;
+    socket.subscribed = false;
+    let pending = Buffer.alloc(0);
+    socket.on('data', (chunk) => {
+      pending = Buffer.concat([pending, chunk]);
+      while (pending.length >= 2) {
+        let multiplier = 1;
+        let remaining = 0;
+        let cursor = 1;
+        let byte;
+        do {
+          if (cursor >= pending.length) return;
+          byte = pending[cursor++];
+          remaining += (byte & 0x7f) * multiplier;
+          multiplier *= 128;
+        } while (byte & 0x80);
+        if (pending.length < cursor + remaining) return;
+        const header = pending[0];
+        const payload = pending.subarray(cursor, cursor + remaining);
+        pending = pending.subarray(cursor + remaining);
+        const type = header >> 4;
+        if (type === 1) {
+          const protocol = mqttReadString(payload, 0);
+          if (!protocol || protocol.next + 4 > payload.length) return socket.destroy();
+          const level = payload[protocol.next];
+          const flags = payload[protocol.next + 1];
+          let position = protocol.next + 4;
+          if (level === 5) {
+            const propertySize = payload[position++] || 0;
+            position += propertySize;
+          }
+          const clientId = mqttReadString(payload, position);
+          if (!clientId) return socket.destroy();
+          position = clientId.next;
+          if (flags & 0x04) {
+            const willTopic = mqttReadString(payload, position);
+            const willPayload = willTopic && mqttReadString(payload, willTopic.next);
+            if (!willPayload) return socket.destroy();
+            position = willPayload.next;
+          }
+          let username = null;
+          let password = null;
+          if (flags & 0x80) { username = mqttReadString(payload, position); position = username?.next || position; }
+          if (flags & 0x40) password = mqttReadString(payload, position);
+          socket.authorized = username?.value === 'bblp' && password?.value === printer.checkCode;
+          printer.log('bambu-mqtt', `CONNECT ${clientId.value}`);
+          socket.write(mqttPacket(0x20, Buffer.from([0, socket.authorized ? 0 : 4])));
+          if (!socket.authorized) socket.end();
+        } else if (!socket.authorized) {
+          socket.destroy();
+        } else if (type === 8) {
+          const packetId = payload.subarray(0, 2);
+          const topic = mqttReadString(payload, 2);
+          socket.subscribed = topic?.value === reportTopic || topic?.value === `device/${printer.serialNumber}/#`;
+          socket.write(mqttPacket(0x90, Buffer.concat([packetId, Buffer.from([socket.subscribed ? 0 : 0x80])])));
+          printer.log('bambu-mqtt', `SUBSCRIBE ${topic?.value || ''}`);
+          publishStatus(socket);
+        } else if (type === 3) {
+          const topic = mqttReadString(payload, 0);
+          if (!topic) continue;
+          let position = topic.next;
+          if (((header >> 1) & 0x03) > 0) position += 2;
+          let body = {};
+          try { body = JSON.parse(payload.subarray(position).toString()); } catch {}
+          printer.log('bambu-mqtt', `PUBLISH ${topic.value}`, body);
+          if (topic.value === requestTopic) {
+            applyBambuCommand(printer, body);
+            publishStatus(socket, body?.print?.sequence_id || body?.system?.sequence_id);
+          }
+        } else if (type === 12) socket.write(mqttPacket(0xd0));
+        else if (type === 14) socket.end();
+      }
+    });
+    socket.on('error', () => {});
+    socket.on('close', () => clients.delete(socket));
+  });
+  server.emulatorSockets = clients;
+  const onChange = () => {
+    for (const client of clients) publishStatus(client);
+  };
+  printer.on('change', onChange);
+  server.once('close', () => printer.off('change', onChange));
+  return server;
+}
+
+function createBambuCameraServer(printer) {
+  const server = tls.createServer(BAMBU_TLS, (socket) => {
+    let authenticated = false;
+    let pending = Buffer.alloc(0);
+    let timer = null;
+    const sendFrame = () => {
+      if (socket.destroyed || !authenticated) return;
+      const header = Buffer.alloc(16);
+      header.writeUInt32LE(TEST_FRAME_JPEG.length, 0);
+      header.writeUInt32LE(0, 4);
+      header.writeBigUInt64LE(BigInt(Date.now()) * 1000n, 8);
+      socket.write(Buffer.concat([header, TEST_FRAME_JPEG]));
+    };
+    socket.on('data', (chunk) => {
+      if (authenticated) return;
+      pending = Buffer.concat([pending, chunk]);
+      if (pending.length < 80) return;
+      const magic = pending.readUInt32LE(0);
+      const username = pending.subarray(16, 48).toString().replace(/\0.*$/, '');
+      const password = pending.subarray(48, 80).toString().replace(/\0.*$/, '');
+      if (magic !== 0x40 || username !== 'bblp' || password !== printer.checkCode || !printer.online || printer.faults.cameraUnavailable) {
+        printer.log('bambu-camera', 'Camera authentication rejected');
+        socket.destroy();
+        return;
+      }
+      authenticated = true;
+      printer.log('bambu-camera', 'Camera stream opened');
+      sendFrame();
+      timer = setInterval(sendFrame, 1000);
+      timer.unref?.();
+    });
+    socket.on('error', () => {});
+    socket.on('close', () => clearInterval(timer));
+  });
+  server.emulatorSockets = new Set();
+  server.on('secureConnection', (socket) => {
+    server.emulatorSockets.add(socket);
+    socket.once('close', () => server.emulatorSockets.delete(socket));
+  });
+  return server;
+}
+
+function createBambuFtpsServer(printer) {
+  const server = tls.createServer(BAMBU_TLS, (socket) => {
+    let authenticated = false;
+    let username = '';
+    let commandBuffer = '';
+    let dataServer = null;
+    let dataSocketPromise = null;
+    socket.setEncoding('utf8');
+    socket.write('220 Bambu Lab Printer Simulator FTP server ready\r\n');
+    const closeData = () => {
+      for (const connection of dataServer?.emulatorSockets || []) connection.destroy();
+      dataServer?.close();
+      dataServer = null;
+      dataSocketPromise = null;
+    };
+    const openPassive = async () => {
+      closeData();
+      let accept;
+      dataSocketPromise = new Promise((resolve) => { accept = resolve; });
+      dataServer = tls.createServer(BAMBU_TLS, (connection) => accept(connection));
+      dataServer.emulatorSockets = new Set();
+      dataServer.on('secureConnection', (connection) => {
+        dataServer.emulatorSockets.add(connection);
+        connection.once('close', () => dataServer?.emulatorSockets?.delete(connection));
+      });
+      const port = await listen(dataServer, printer.host, 0);
+      return port;
+    };
+    const transfer = async (operation) => {
+      if (!dataSocketPromise) return socket.write('425 Use PASV or EPSV first\r\n');
+      socket.write('150 Opening encrypted data connection\r\n');
+      const dataSocket = await Promise.race([
+        dataSocketPromise,
+        new Promise((_, reject) => setTimeout(() => reject(new Error('data timeout')), 5000))
+      ]);
+      await operation(dataSocket);
+      dataSocket.end();
+      socket.write('226 Transfer complete\r\n');
+      closeData();
+    };
+    socket.on('data', (chunk) => {
+      commandBuffer += chunk;
+      const lines = commandBuffer.split(/\r?\n/);
+      commandBuffer = lines.pop() || '';
+      for (const line of lines.filter(Boolean)) {
+        const [rawCommand, ...parts] = line.trim().split(' ');
+        const command = rawCommand.toUpperCase();
+        const argument = parts.join(' ').replace(/^\/+/, '');
+        printer.log('bambu-ftps', `${command}${argument ? ` ${argument}` : ''}`);
+        if (command === 'USER') { username = argument; socket.write('331 Password required\r\n'); }
+        else if (command === 'PASS') {
+          authenticated = username === 'bblp' && argument === printer.checkCode;
+          socket.write(authenticated ? '230 Login successful\r\n' : '530 Login incorrect\r\n');
+        } else if (!authenticated) socket.write('530 Please login\r\n');
+        else if (command === 'SYST') socket.write('215 UNIX Type: L8\r\n');
+        else if (command === 'FEAT') socket.write('211-Features\r\n EPSV\r\n PASV\r\n PBSZ\r\n PROT\r\n SIZE\r\n211 End\r\n');
+        else if (['PBSZ', 'PROT', 'TYPE', 'CWD', 'OPTS'].includes(command)) socket.write('200 Command okay\r\n');
+        else if (command === 'PWD') socket.write('257 "/" is current directory\r\n');
+        else if (command === 'NOOP') socket.write('200 NOOP okay\r\n');
+        else if (command === 'EPSV') openPassive().then((port) => socket.write(`229 Entering Extended Passive Mode (|||${port}|)\r\n`)).catch(() => socket.write('425 Cannot open data connection\r\n'));
+        else if (command === 'PASV') openPassive().then((port) => socket.write(`227 Entering Passive Mode (127,0,0,1,${Math.floor(port / 256)},${port % 256})\r\n`)).catch(() => socket.write('425 Cannot open data connection\r\n'));
+        else if (command === 'LIST' || command === 'MLSD') transfer(async (data) => {
+          const listing = [...printer.files.values()].map((file) => command === 'MLSD'
+            ? `type=file;size=${file.size};modify=20240101000000; ${file.path}`
+            : `-rw-r--r-- 1 bblp bblp ${file.size} Jan 01 00:00 ${file.path}`).join('\r\n');
+          data.write(`${listing}\r\n`);
+        }).catch(() => socket.write('425 Data connection failed\r\n'));
+        else if (command === 'SIZE') socket.write(printer.files.has(argument) ? `213 ${printer.files.get(argument).size}\r\n` : '550 File unavailable\r\n');
+        else if (command === 'RETR') {
+          const file = printer.files.get(argument);
+          if (!file) socket.write('550 File unavailable\r\n');
+          else transfer(async (data) => data.write(Buffer.from(file.content || ''))).catch(() => socket.write('425 Data connection failed\r\n'));
+        } else if (command === 'STOR') transfer(async (data) => {
+          const chunks = [];
+          for await (const chunk of data) chunks.push(chunk);
+          const content = Buffer.concat(chunks);
+          printer.addFile(argument, { size: content.length, content });
+        }).catch(() => socket.write('425 Data connection failed\r\n'));
+        else if (command === 'DELE') { printer.removeFile(argument); socket.write('250 File deleted\r\n'); }
+        else if (command === 'QUIT') socket.end('221 Goodbye\r\n');
+        else socket.write('502 Command not implemented\r\n');
+      }
+    });
+    socket.on('error', () => {});
+    socket.on('close', closeData);
+  });
+  server.emulatorSockets = new Set();
+  server.on('secureConnection', (socket) => {
+    server.emulatorSockets.add(socket);
+    socket.once('close', () => server.emulatorSockets.delete(socket));
+  });
+  return server;
+}
+
 export async function startProtocolEndpoints(printer) {
   const servers = [];
   try {
@@ -437,6 +769,16 @@ export async function startProtocolEndpoints(printer) {
       printer.ports.tcpPort = await listen(tcpServer, printer.host, Number(printer.ports.tcpPort));
       servers.push(tcpServer);
       const cameraServer = createCameraServer(printer);
+      printer.ports.cameraPort = await listen(cameraServer, printer.host, Number(printer.ports.cameraPort));
+      servers.push(cameraServer);
+    } else if (printer.adapterType === 'bambu-lab') {
+      const mqttServer = createBambuMqttServer(printer);
+      printer.ports.mqttPort = await listen(mqttServer, printer.host, Number(printer.ports.mqttPort));
+      servers.push(mqttServer);
+      const ftpsServer = createBambuFtpsServer(printer);
+      printer.ports.ftpsPort = await listen(ftpsServer, printer.host, Number(printer.ports.ftpsPort));
+      servers.push(ftpsServer);
+      const cameraServer = createBambuCameraServer(printer);
       printer.ports.cameraPort = await listen(cameraServer, printer.host, Number(printer.ports.cameraPort));
       servers.push(cameraServer);
     } else {

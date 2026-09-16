@@ -49,6 +49,19 @@ function controllerSettings(printer) {
       cameraPort: printer.ports.cameraPort
     };
   }
+  if (printer.adapterType === 'bambu-lab') {
+    return {
+      ...common,
+      model: printer.model,
+      serialNumber: printer.serialNumber,
+      accessCode: printer.checkCode,
+      mqttPort: printer.ports.mqttPort,
+      ftpsPort: printer.ports.ftpsPort,
+      cameraPort: printer.ports.cameraPort,
+      tls: true,
+      protocolStatus: 'simulated-unverified'
+    };
+  }
   return { ...common, model: printer.model, httpPort: printer.ports.httpPort };
 }
 
@@ -174,6 +187,8 @@ export function createEmulator({
     if (withDefaults) {
       await addPrinter({ profileId: 'flashforge-ad5m-pro', name: 'Simulated AD5M Pro' });
       await addPrinter({ profileId: 'snapmaker-u1', name: 'Simulated Snapmaker U1' });
+      await addPrinter({ profileId: 'bambu-p1p', name: 'Simulated Bambu Lab P1P' });
+      await addPrinter({ profileId: 'bambu-p1s', name: 'Simulated Bambu Lab P1S' });
     }
     return managementServer.address();
   }

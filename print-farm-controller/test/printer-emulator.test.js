@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { EventEmitter } from 'node:events';
+import tls from 'node:tls';
 import { createEmulator } from '../emulator/server.js';
 import { CameraManager } from '../src/camera-manager.js';
 import { getPrinterAdapter } from '../src/adapters/adapter-registry.js';
@@ -27,7 +28,7 @@ test('emulator management API creates and controls a virtual printer', async (t)
   const base = `http://127.0.0.1:${address.port}`;
 
   const profiles = await fetch(`${base}/api/profiles`).then((response) => response.json());
-  assert.deepEqual(profiles.profiles.map((profile) => profile.id).sort(), ['flashforge-ad5m-pro', 'snapmaker-u1']);
+  assert.deepEqual(profiles.profiles.map((profile) => profile.id).sort(), ['bambu-p1p', 'bambu-p1s', 'flashforge-ad5m-pro', 'snapmaker-u1']);
 
   const createdResponse = await fetch(`${base}/api/printers`, {
     method: 'POST',
@@ -49,6 +50,104 @@ test('emulator management API creates and controls a virtual printer', async (t)
   assert.equal(scenario.printer.status, 'cancelled');
   assert.equal(scenario.printer.faults.stuckCancel, true);
   assert.ok(scenario.printer.fileName);
+});
+
+function mqttLength(value) {
+  const bytes = [];
+  do {
+    let byte = value % 128;
+    value = Math.floor(value / 128);
+    if (value) byte |= 0x80;
+    bytes.push(byte);
+  } while (value);
+  return Buffer.from(bytes);
+}
+
+function mqttString(value) {
+  const body = Buffer.from(value);
+  const length = Buffer.alloc(2);
+  length.writeUInt16BE(body.length);
+  return Buffer.concat([length, body]);
+}
+
+function mqttPacket(type, payload) {
+  return Buffer.concat([Buffer.from([type]), mqttLength(payload.length), payload]);
+}
+
+function waitForData(socket, predicate, timeoutMs = 2000) {
+  return new Promise((resolve, reject) => {
+    let received = Buffer.alloc(0);
+    const timer = setTimeout(() => finish(new Error('Timed out waiting for socket data')), timeoutMs);
+    const onData = (chunk) => {
+      received = Buffer.concat([received, chunk]);
+      if (predicate(received)) finish(null, received);
+    };
+    const finish = (error, value) => {
+      clearTimeout(timer);
+      socket.off('data', onData);
+      if (error) reject(error); else resolve(value);
+    };
+    socket.on('data', onData);
+  });
+}
+
+test('Bambu P1P and P1S profiles expose authenticated LAN protocol endpoints', async (t) => {
+  const emulator = createEmulator({ managementPort: 0, withDefaults: false });
+  await emulator.start();
+  t.after(() => emulator.stop());
+  const p1p = await emulator.addPrinter({
+    profileId: 'bambu-p1p',
+    ports: { mqttPort: 0, ftpsPort: 0, cameraPort: 0 }
+  });
+  const p1s = await emulator.addPrinter({
+    profileId: 'bambu-p1s',
+    ports: { mqttPort: 0, ftpsPort: 0, cameraPort: 0 }
+  });
+
+  assert.equal(p1p.model, 'P1P');
+  assert.equal(p1s.model, 'P1S');
+  assert.equal(p1p.controllerSettings.protocolStatus, 'simulated-unverified');
+  assert.notEqual(p1p.ports.mqttPort, p1s.ports.mqttPort);
+
+  const mqtt = tls.connect({ host: p1p.host, port: p1p.ports.mqttPort, rejectUnauthorized: false });
+  await new Promise((resolve, reject) => { mqtt.once('secureConnect', resolve); mqtt.once('error', reject); });
+  const connectBody = Buffer.concat([
+    mqttString('MQTT'), Buffer.from([4, 0xc2, 0, 30]), mqttString('emulator-test'),
+    mqttString('bblp'), mqttString(p1p.checkCode)
+  ]);
+  mqtt.write(mqttPacket(0x10, connectBody));
+  assert.ok((await waitForData(mqtt, (data) => data.includes(Buffer.from([0x20, 0x02, 0x00, 0x00])))).length);
+  const reportTopic = `device/${p1p.serialNumber}/report`;
+  const requestTopic = `device/${p1p.serialNumber}/request`;
+  mqtt.write(mqttPacket(0x82, Buffer.concat([Buffer.from([0, 1]), mqttString(reportTopic), Buffer.from([0])])));
+  const status = await waitForData(mqtt, (data) => data.includes(Buffer.from('"gcode_state":"IDLE"')));
+  assert.ok(status.includes(Buffer.from(reportTopic)));
+  const startCommand = Buffer.from(JSON.stringify({ print: { command: 'project_file', sequence_id: '7', subtask_name: 'bambu-test.3mf' } }));
+  mqtt.write(mqttPacket(0x30, Buffer.concat([mqttString(requestTopic), startCommand])));
+  await waitForData(mqtt, (data) => data.includes(Buffer.from('"gcode_state":"RUNNING"')));
+  assert.equal(emulator.printers.get(p1p.id).status, 'printing');
+  mqtt.end();
+
+  const ftps = tls.connect({ host: p1p.host, port: p1p.ports.ftpsPort, rejectUnauthorized: false });
+  await new Promise((resolve, reject) => { ftps.once('secureConnect', resolve); ftps.once('error', reject); });
+  await waitForData(ftps, (data) => data.includes(Buffer.from('220 ')));
+  ftps.write(`USER bblp\r\nPASS ${p1p.checkCode}\r\nPWD\r\n`);
+  const login = await waitForData(ftps, (data) => data.includes(Buffer.from('257 "/"')));
+  assert.ok(login.includes(Buffer.from('230 Login successful')));
+  ftps.end('QUIT\r\n');
+
+  const camera = tls.connect({ host: p1p.host, port: p1p.ports.cameraPort, rejectUnauthorized: false });
+  await new Promise((resolve, reject) => { camera.once('secureConnect', resolve); camera.once('error', reject); });
+  const auth = Buffer.alloc(80);
+  auth.writeUInt32LE(0x40, 0);
+  auth.writeUInt32LE(0x3000, 4);
+  auth.write('bblp', 16);
+  auth.write(p1p.checkCode, 48);
+  camera.write(auth);
+  const frame = await waitForData(camera, (data) => data.length >= 16 && data.length >= 16 + data.readUInt32LE(0));
+  const frameLength = frame.readUInt32LE(0);
+  assert.ok(frame.subarray(16, 16 + frameLength).includes(Buffer.from([0xff, 0xd8, 0xff])));
+  camera.destroy();
 });
 
 test('Snapmaker profile interoperates with the production adapter', async (t) => {

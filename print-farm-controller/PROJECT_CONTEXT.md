@@ -33,12 +33,14 @@ Local Fleet Controller (`src/`)
 PrinterAdapter boundary (`src/adapters/`)
         +-- FlashForge Adventurer 5M / 5M Pro
         +-- Snapmaker U1 -> Moonraker / Klipper
+        +-- Bambu Lab P1P / P1S -> planned adapter (emulator available)
 
 Development Printer Emulator (`emulator/`, loopback only)
         +-- management UI/API + SSE
         +-- shared virtual-printer state and scenarios
         +-- FlashForge HTTP/TCP/camera endpoints
         +-- Snapmaker U1 Moonraker endpoints
+        +-- Bambu P1P/P1S MQTT TLS, FTPS TLS and camera TLS endpoints
 ```
 
 Manufacturer-specific discovery, capabilities, limits, status normalization, files, print control, temperatures and camera selection belong behind the adapter boundary. Core fleet services should remain manufacturer-agnostic.
@@ -75,8 +77,8 @@ Manufacturer-specific discovery, capabilities, limits, status normalization, fil
 - Material metadata/preflight for FlashForge and multi-tool print setup/preflight for U1.
 - U1 tool mapping, print preferences, material/nozzle readiness and XYZ offset calibration.
 - Bed-powered timed chamber preheat and applicable fan/purifier controls.
-- **v0.13.0 printer emulator:** standalone loopback service and responsive light/dark management UI; multiple dynamically allocated virtual printers; production-adapter-compatible FlashForge HTTP/TCP/MJPEG camera and Snapmaker Moonraker/WebSocket/snapshot endpoints; a visible simulated-camera test frame; virtual files, print progress, temperatures and material/nozzle state; accelerated time; activity logs; repeatable scenarios; and fault injection for offline/delay/rejection/malformed response/verification/cancellation/filename/camera conditions. FlashForge connection forms now expose configurable HTTP, TCP and camera ports while retaining physical-printer defaults.
-- v0.13.0 regression suite: **146 passing tests, 0 failures**, including management API plus production Snapmaker and FlashForge adapter integration against live simulated endpoints and the combined U1 filament type/colour command.
+- **v0.13.0 printer emulator:** standalone loopback service and responsive light/dark management UI; multiple dynamically allocated virtual printers; production-adapter-compatible FlashForge HTTP/TCP/MJPEG camera and Snapmaker Moonraker/WebSocket/snapshot endpoints; experimental Bambu Lab P1P/P1S TLS MQTT status/control, implicit FTPS file transfer and authenticated camera endpoints; a visible simulated-camera test frame; virtual files, print progress, temperatures and material/nozzle state; accelerated time; activity logs; repeatable scenarios; and fault injection for offline/delay/rejection/malformed response/verification/cancellation/filename/camera conditions. Bambu protocol behaviour is emulator-only and awaits physical hardware validation. FlashForge connection forms now expose configurable HTTP, TCP and camera ports while retaining physical-printer defaults.
+- v0.13.0 regression suite: **147 passing tests, 0 failures**, including management API, authenticated Bambu P1P/P1S LAN endpoints, production Snapmaker and FlashForge adapter integration against live simulated endpoints, and the combined U1 filament type/colour command.
 - **v0.11.0 file-centric automatic queue:**
   - persistent controller-side staged queue files with SHA-256;
   - bounded G-code requirement extraction for tools/material/colour/nozzle metadata;

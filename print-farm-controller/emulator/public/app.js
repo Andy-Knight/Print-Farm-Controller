@@ -33,6 +33,13 @@ function endpointLines(printer) {
       `Serial ${settings.serialNumber} · Check code ${settings.checkCode}`
     ];
   }
+  if (printer.adapterType === 'bambu-lab') {
+    return [
+      `Host ${settings.host}`,
+      `MQTT TLS ${settings.mqttPort} · FTPS TLS ${settings.ftpsPort} · Camera TLS ${settings.cameraPort}`,
+      `Serial ${settings.serialNumber} · Access code ${settings.accessCode}`
+    ];
+  }
   return [`Host ${settings.host}`, `Moonraker ${settings.httpPort}`];
 }
 

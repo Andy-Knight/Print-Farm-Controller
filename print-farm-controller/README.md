@@ -1,6 +1,6 @@
 # Printer Fleet Controller v0.13.0
 
-> v0.13.0 adds a standalone, loopback-only **Printer Emulator** with its own responsive light/dark UI. It can run multiple simulated FlashForge Adventurer 5M Pro and Snapmaker U1 endpoints, exercise the controller's production adapters, accelerate print progress, manage virtual files and temperatures, and inject repeatable connection, cancellation, verification, camera, material and nozzle faults. Emulator support is a development aid and does not replace final validation on physical hardware.
+> v0.13.0 adds a standalone, loopback-only **Printer Emulator** with its own responsive light/dark UI. It can run multiple simulated FlashForge Adventurer 5M Pro, Snapmaker U1, Bambu Lab P1P and Bambu Lab P1S endpoints, exercise the controller's production adapters, accelerate print progress, manage virtual files and temperatures, and inject repeatable connection, cancellation, verification, camera, material and nozzle faults. Emulator support is a development aid and does not replace final validation on physical hardware.
 
 > v0.12.16 adds a combined **Snapmaker U1 third-party filament type and colour control** to each toolhead card. One **Set filament on U1** button sends the selected generic material profile and colour together using stock `SET_PRINT_FILAMENT_CONFIG`; the controller verifies both values and immediately uses them for queue compatibility. The control is available only for idle, loaded, editable third-party slots, while official RFID filament remains locked. The combined workflow has been validated on physical U1 hardware.
 
@@ -85,9 +85,9 @@ Open its separate management interface at:
 http://127.0.0.1:4250
 ```
 
-The emulator binds to loopback by default, starts one simulated FlashForge Adventurer 5M Pro and one simulated Snapmaker U1, and displays the exact host, ports and credentials to enter in Printer Fleet Controller. Additional instances receive non-conflicting ports automatically.
+The emulator binds to loopback by default, starts simulated FlashForge Adventurer 5M Pro, Snapmaker U1, Bambu Lab P1P and Bambu Lab P1S printers, and displays the exact host, ports and credentials for each endpoint. Additional instances receive non-conflicting ports automatically.
 
-The UI provides live state, progress and temperature controls; accelerated print time; virtual printer files; activity logs; repeatable scenarios; and fault injection for retained filenames, persistent cancellation, failed verification, rejected or malformed commands, delayed responses and unavailable cameras. Both printer profiles provide a clearly labelled simulated camera test frame; FlashForge uses a continuous MJPEG stream and Snapmaker uses its Moonraker WebSocket/snapshot sequence. All state changes are streamed live to the browser.
+The UI provides live state, progress and temperature controls; accelerated print time; virtual printer files; activity logs; repeatable scenarios; and fault injection for retained filenames, persistent cancellation, failed verification, rejected or malformed commands, delayed responses and unavailable cameras. FlashForge uses a continuous MJPEG camera stream, Snapmaker uses its Moonraker WebSocket/snapshot sequence, and the Bambu profiles expose TLS MQTT status/control, implicit FTPS file transfer and the authenticated local camera stream. All state changes are streamed live to the browser.
 
 Default endpoints are:
 
@@ -96,13 +96,19 @@ FlashForge HTTP:  127.0.0.1:18898
 FlashForge TCP:   127.0.0.1:18899
 FlashForge camera 127.0.0.1:18080
 Snapmaker U1:     127.0.0.1:17125
+Bambu P1P MQTT:   127.0.0.1:18883
+Bambu P1P FTPS:   127.0.0.1:19990
+Bambu P1P camera: 127.0.0.1:16000
+Bambu P1S MQTT:   127.0.0.1:18893
+Bambu P1S FTPS:   127.0.0.1:20000
+Bambu P1S camera: 127.0.0.1:16010
 ```
 
 For FlashForge, the Add printer form now exposes the normally fixed HTTP, TCP and camera ports. Physical printers retain their standard defaults of 8898, 8899 and 8080. Snapmaker already supports a configurable Moonraker port.
 
 Set `EMULATOR_NO_DEFAULTS=1` to start with an empty emulator fleet. `EMULATOR_HOST` and `EMULATOR_PORT` can override the management listener when required. Keeping the default loopback binding is recommended; if the controller runs in a container, supply a host address reachable from that container.
 
-The emulator verifies controller behaviour against the implemented protocol model. A new manufacturer developed without access to its hardware must remain marked experimental until its behaviour has been checked against reliable protocol captures, documentation or a physical printer.
+The Bambu endpoints use a simulator-owned self-signed certificate, MQTT username `bblp`, and the access code shown in the emulator UI. They model the LAN/Developer interfaces used by P1 printers but are deliberately marked unverified because no physical P1P or P1S was available for comparison. The emulator verifies controller behaviour against the implemented protocol model; new manufacturer support remains experimental until checked against reliable captures, documentation or physical hardware.
 
 ## Supported features
 
