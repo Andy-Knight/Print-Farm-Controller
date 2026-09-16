@@ -110,11 +110,11 @@ Manufacturer-specific discovery, capabilities, limits, status normalization, fil
 - v0.12.12 regression suite: **131 passing tests, 0 failures**.
 - v0.12.13 regression suite: **132 passing tests, 0 failures**.
 - v0.12.14 regression suite: **137 passing tests, 0 failures**. Priority ordering and progress display were also confirmed in the running interface.
-- v0.12.15 regression suite: **138 passing tests, 0 failures**.
+- v0.12.15 regression suite: **138 passing tests, 0 failures**. The corrected production-batch layout was also confirmed in the running interface.
 
 ## Current task
 
-**v0.12.15 production-batch control layout fix is complete in code and automated tests.** The controls now occupy their own responsive row beneath the batch copy list and need interface confirmation at the queue width that previously overlapped.
+**v0.12.15 production-batch control layout fix is complete and user-validated.** The controls occupy their own responsive row beneath the batch copy list without overlapping batch items.
 
 ## Next steps
 
