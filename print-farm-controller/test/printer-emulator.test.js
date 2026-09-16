@@ -7,6 +7,7 @@ import { CameraManager } from '../src/camera-manager.js';
 import { getPrinterAdapter } from '../src/adapters/adapter-registry.js';
 import { prepareFlashForgeAd5mConfig } from '../src/adapters/flashforge-ad5m-adapter.js';
 import { prepareSnapmakerU1Config } from '../src/adapters/snapmaker-u1-adapter.js';
+import { prepareBambuLabConfig } from '../src/adapters/bambu-lab-adapter.js';
 import { listAllFilesTcp } from '../src/tcp-files.js';
 
 function fakeResponse() {
@@ -148,6 +149,64 @@ test('Bambu P1P and P1S profiles expose authenticated LAN protocol endpoints', a
   const frameLength = frame.readUInt32LE(0);
   assert.ok(frame.subarray(16, 16 + frameLength).includes(Buffer.from([0xff, 0xd8, 0xff])));
   camera.destroy();
+});
+
+test('Bambu P1S profile interoperates with the production controller adapter', async (t) => {
+  const emulator = createEmulator({ managementPort: 0, withDefaults: false });
+  await emulator.start();
+  t.after(() => emulator.stop());
+  const virtual = await emulator.addPrinter({
+    profileId: 'bambu-p1s',
+    name: 'Adapter Test P1S',
+    ports: { mqttPort: 0, ftpsPort: 0, cameraPort: 0 }
+  });
+  const config = prepareBambuLabConfig({
+    name: virtual.name,
+    model: virtual.model,
+    host: virtual.host,
+    serialNumber: virtual.serialNumber,
+    accessCode: virtual.checkCode,
+    mqttPort: virtual.ports.mqttPort,
+    ftpsPort: virtual.ports.ftpsPort,
+    cameraPort: virtual.ports.cameraPort
+  });
+  const adapter = getPrinterAdapter(config);
+
+  const initial = await adapter.getStatus();
+  assert.equal(initial.status, 'idle');
+  assert.equal(initial.model, 'P1S');
+  assert.equal(initial.tools.length, 1);
+  assert.equal(initial.tools[0].filament.material, 'PLA');
+
+  const listed = await adapter.getFiles();
+  assert.deepEqual(listed.files, ['calibration-cube.gcode']);
+  await adapter.uploadFile(new URL('../README.md', import.meta.url), { fileName:'controller-upload.gcode' });
+  assert.equal((await adapter.verifyFile('controller-upload.gcode')).verified, true);
+  await adapter.printLocalFile('calibration-cube.gcode');
+  assert.equal((await adapter.getStatus()).status, 'printing');
+  await adapter.setJobState('pause');
+  assert.equal((await adapter.getStatus()).status, 'paused');
+  await adapter.setJobState('resume');
+  assert.equal((await adapter.getStatus()).status, 'printing');
+  await adapter.setTemperatures({ nozzle: 215, bed: 65 });
+  const heated = await adapter.getStatus();
+  assert.equal(heated.nozzle.target, 215);
+  assert.equal(heated.bed.target, 65);
+  await adapter.setFans({ coolingFan: 40, chamberFan: 60 });
+  const fans = await adapter.getStatus();
+  assert.ok(Math.abs(fans.coolingFan - 40) <= 1);
+  assert.ok(Math.abs(fans.chamberFan - 60) <= 1);
+
+  const camera = await adapter.getCameraSource();
+  await camera.start();
+  const jpeg = await camera.getSnapshot();
+  assert.equal(jpeg[0], 0xff);
+  assert.equal(jpeg[1], 0xd8);
+  assert.ok(jpeg.length > 10000);
+  await camera.stop();
+
+  await adapter.setJobState('cancel');
+  assert.equal((await adapter.getStatus()).status, 'cancelled');
 });
 
 test('Snapmaker profile interoperates with the production adapter', async (t) => {

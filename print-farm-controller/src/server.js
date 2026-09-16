@@ -656,7 +656,7 @@ chamberPreheat.startService();
 server.listen(PORT, HOST, () => {
   console.log(`Printer Fleet Controller v${CONTROLLER_VERSION} running at http://localhost:${PORT}`);
   console.log(`LAN access: http://<this-computer-ip>:${PORT}`);
-  console.log('Generic printer adapter + capability layer enabled (FlashForge AD5M + Snapmaker U1)');
+  console.log('Generic printer adapter + capability layer enabled (FlashForge AD5M + Snapmaker U1 + experimental Bambu P1P/P1S)');
   console.log('Live fleet polling + SSE enabled');
   console.log('Shared backend camera proxy enabled');
   console.log('Bounded chamber preheat control enabled');

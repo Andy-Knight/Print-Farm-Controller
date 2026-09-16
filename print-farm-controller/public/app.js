@@ -1150,7 +1150,11 @@ discoveryResults.addEventListener('click', (event) => {
   adapterTypeSelect.value = type;
   renderAdapterFields(type, {
     serialNumber: printer.serialNumber || '',
-    httpPort: printer.httpPort || (type === 'snapmaker-u1' ? 7125 : 8898)
+    model: printer.model || '',
+    httpPort: printer.httpPort || (type === 'snapmaker-u1' ? 7125 : 8898),
+    mqttPort: printer.mqttPort || 8883,
+    ftpsPort: printer.ftpsPort || 990,
+    cameraPort: printer.cameraPort || (type === 'bambu-lab' ? 6000 : 8080)
   });
   addForm.elements.name.value = printer.name || printer.model || 'Printer';
   addForm.elements.host.value = printer.host || '';
@@ -2158,7 +2162,9 @@ async function openPrinter(id) {
     if (!tools.length) return `<div class="panel material-panel"><h3>Toolhead status</h3><div class="subtle">Material status is unavailable while the printer is offline.</div>${flashForgeMaterialDesignationMarkup(printer)}${flashForgeNozzleDesignationMarkup(printer)}</div>`;
     const materialHelp = printer.adapterType === 'flashforge-ad5m'
       ? "Filament type uses the controller's manual designation when set, otherwise the value reported by the FlashForge 5M local /detail API. Installed nozzle size uses the controller nozzle designation when set because the 5M API does not reliably expose it. The 5M API also does not expose U1-style filament colour/RFID metadata or a reliable live filament-presence value."
-      : 'Filament presence comes from each U1 motion sensor. Third-party filament type and colour can be written to the idle printer and are verified by reading the effective per-tool configuration back. Official Snapmaker RFID filament remains locked. Nozzle size and XYZ offset come directly from each physical U1 extruder.';
+      : printer.adapterType === 'bambu-lab'
+        ? 'Material and colour come from the active external-spool or AMS tray metadata reported by the Bambu LAN interface. Bambu P1 support is experimental until checked against physical P1P and P1S hardware.'
+        : 'Filament presence comes from each U1 motion sensor. Third-party filament type and colour can be written to the idle printer and are verified by reading the effective per-tool configuration back. Official Snapmaker RFID filament remains locked. Nozzle size and XYZ offset come directly from each physical U1 extruder.';
     return `<div class="panel material-panel">
       <h3>Toolhead status</h3>
       <div class="material-summary" data-material-summary>${escapeHtml(materialSummaryText(tools))}</div>
@@ -2173,7 +2179,7 @@ async function openPrinter(id) {
           ${capabilities.toolheadNozzleStatus ? `<small data-tool-nozzle="${tool.index}">${escapeHtml(`${nozzleDiameterText(tool.nozzleDiameter)}${tool.nozzleVolumeType ? ` · ${tool.nozzleVolumeType}` : ''}`)}</small>` : ''}
           ${capabilities.toolheadNozzleStatus ? `<small data-tool-offset="${tool.index}">${escapeHtml(toolOffsetText(tool.offset))}</small>` : ''}
           <small data-material-meta="${tool.index}">${escapeHtml(filamentMetaText(filament))}</small>
-          ${['snapmaker-u1','flashforge-ad5m'].includes(printer.adapterType) ? `<small class="material-rgb${filamentRgbText(filament.color) ? '' : ' hidden'}" data-material-rgb="${tool.index}">${escapeHtml(filamentRgbText(filament.color) || '')}</small>` : ''}
+          ${['snapmaker-u1','flashforge-ad5m','bambu-lab'].includes(printer.adapterType) ? `<small class="material-rgb${filamentRgbText(filament.color) ? '' : ' hidden'}" data-material-rgb="${tool.index}">${escapeHtml(filamentRgbText(filament.color) || '')}</small>` : ''}
           ${printer.adapterType === 'snapmaker-u1' ? u1FilamentConfigControlMarkup(printer, tool) : ''}
         </div>`;
       }).join('')}</div>
@@ -2220,6 +2226,7 @@ async function openPrinter(id) {
       <button class="icon" data-detail-close>×</button>
     </div>
     <div id="detailConnectionError" class="error hidden"></div>
+    ${printer.adapterType === 'bambu-lab' ? '<div class="file-warning">Experimental Bambu P1 support: validate behavior carefully before relying on unattended printing.</div>' : ''}
     <div class="detail-grid">
       <div class="detail-column detail-column-left">
         ${detailCameraMarkup(printer)}

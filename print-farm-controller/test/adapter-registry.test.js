@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   FLASHFORGE_AD5M_ADAPTER_TYPE,
+  BAMBU_LAB_ADAPTER_TYPE,
   getPrinterAdapter,
   listAdapterDefinitions,
   preparePrinterConfig,
@@ -62,6 +63,33 @@ test('Snapmaker U1 exposes print tool mapping and flow-calibration capabilities'
   assert.equal(adapter.capabilities.toolheadNozzleStatus, true);
   assert.equal(adapter.capabilities.toolheadOffsetCalibration, true);
   assert.equal(adapter.limits.toolCount, 4);
+});
+
+test('Bambu P1P and P1S configuration exposes model-specific experimental capabilities', () => {
+  const common = {
+    adapterType:BAMBU_LAB_ADAPTER_TYPE,
+    name:'Bambu test',
+    host:'127.0.0.1',
+    serialNumber:'01S00SIM000001',
+    accessCode:'12345678',
+    mqttPort:18883,
+    ftpsPort:19990,
+    cameraPort:16000
+  };
+  const p1pConfig = preparePrinterConfig({ ...common, model:'p1p' });
+  const p1sConfig = preparePrinterConfig({ ...common, model:'P1S' });
+  assert.equal(p1pConfig.model, 'P1P');
+  assert.equal(p1pConfig.checkCode, '12345678');
+  assert.equal(p1sConfig.model, 'P1S');
+  const p1p = getPrinterAdapter(p1pConfig);
+  const p1s = getPrinterAdapter(p1sConfig);
+  assert.equal(p1p.capabilities.fileUpload, true);
+  assert.equal(p1p.capabilities.camera, true);
+  assert.equal(p1p.capabilities.chamberFan, false);
+  assert.equal(p1s.capabilities.chamberFan, true);
+  assert.equal(p1s.capabilities.chamberPreheat, true);
+  assert.deepEqual(p1s.uploadExtensions, ['.3mf', '.gcode']);
+  assert.throws(() => preparePrinterConfig({ ...common, model:'X1C' }), /model must be P1P or P1S/);
 });
 
 test('a new printer family can register without changing fleet services', () => {

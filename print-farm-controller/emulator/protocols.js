@@ -484,12 +484,13 @@ function bambuStatus(printer, sequenceId = '0') {
       total_layer_num: printer.totalLayers,
       nozzle_temper: tool.actual,
       nozzle_target_temper: tool.target,
+      nozzle_diameter: String(tool.nozzleDiameter),
       bed_temper: printer.bed.actual,
       bed_target_temper: printer.bed.target,
       chamber_temper: printer.chamber.actual,
-      cooling_fan_speed: String(Math.round(printer.fans.cooling * 15)),
-      big_fan1_speed: String(Math.round(printer.fans.chamber * 15)),
-      big_fan2_speed: String(Math.round(printer.fans.external * 15)),
+      cooling_fan_speed: String(Math.round(printer.fans.cooling / 100 * 15)),
+      big_fan1_speed: String(Math.round(printer.fans.chamber / 100 * 15)),
+      big_fan2_speed: String(Math.round(printer.fans.external / 100 * 15)),
       spd_lvl: 2,
       spd_mag: 100,
       wifi_signal: '-42dBm',
@@ -497,6 +498,13 @@ function bambuStatus(printer, sequenceId = '0') {
       home_flag: 0,
       hw_switch_state: 1,
       ams_status: 0,
+      vt_tray: {
+        id: '254',
+        tray_type: tool.filament.material || '',
+        tray_sub_brands: tool.filament.materialVariant || '',
+        tray_color: `${String(tool.filament.color || '#FFFFFF').replace('#', '').toUpperCase()}FF`,
+        tray_info_idx: tool.filament.vendor || 'Simulator'
+      },
       upgrade_state: { sequence_id: 0, progress: '', status: 'IDLE' }
     }
   };
@@ -513,6 +521,19 @@ function applyBambuCommand(printer, body) {
     printer.startPrint(payload.subtask_name || payload.file || urlName || 'uploaded.3mf');
   } else if (command === 'gcode_file') {
     printer.startPrint(payload.param || payload.file || 'uploaded.gcode');
+  } else if (command === 'gcode_line') {
+    for (const line of String(payload.param || '').split(/\r?\n/)) {
+      const nozzle = line.match(/^M104\s+S([\d.]+)/i);
+      const bed = line.match(/^M140\s+S([\d.]+)/i);
+      const fan = line.match(/^M106\s+P([123])\s+S([\d.]+)/i);
+      if (nozzle) printer.tools[0].target = Number(nozzle[1]);
+      if (bed) printer.bed.target = Number(bed[1]);
+      if (fan) {
+        const key = { 1: 'cooling', 2: 'chamber', 3: 'external' }[Number(fan[1])];
+        printer.fans[key] = Math.round(Number(fan[2]) / 255 * 100);
+      }
+    }
+    printer.emitChange();
   } else if (command === 'pushall') {
     // The status response is published by the caller.
   } else if (command === 'ledctrl') {
@@ -693,12 +714,22 @@ function createBambuFtpsServer(printer) {
       socket.write('150 Opening encrypted data connection\r\n');
       const dataSocket = await Promise.race([
         dataSocketPromise,
-        new Promise((_, reject) => setTimeout(() => reject(new Error('data timeout')), 5000))
+        new Promise((_, reject) => {
+          const timer = setTimeout(() => reject(new Error('data timeout')), 5000);
+          timer.unref?.();
+        })
       ]);
       await operation(dataSocket);
-      dataSocket.end();
+      if (!dataSocket.writableEnded) dataSocket.end();
+      await Promise.race([
+        new Promise((resolve) => dataSocket.once('close', resolve)),
+        new Promise((resolve) => setTimeout(resolve, 500))
+      ]);
       socket.write('226 Transfer complete\r\n');
-      closeData();
+      const completedServer = dataServer;
+      dataServer = null;
+      dataSocketPromise = null;
+      completedServer?.close();
     };
     socket.on('data', (chunk) => {
       commandBuffer += chunk;

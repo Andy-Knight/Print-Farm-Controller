@@ -1,0 +1,264 @@
+import path from 'node:path';
+import { PrinterAdapter, normalizeCapabilities } from './printer-adapter.js';
+import { getBambuReport, sendBambuCommand } from '../bambu-mqtt.js';
+import { listBambuFiles, uploadBambuFile } from '../bambu-ftps.js';
+import { createBambuCameraSource } from '../bambu-camera.js';
+
+export const BAMBU_LAB_ADAPTER_TYPE = 'bambu-lab';
+export const BAMBU_P1_MODELS = Object.freeze(['P1P', 'P1S']);
+
+function cleanHost(host) {
+  return String(host || '').trim().replace(/^[a-z]+:\/\//i, '').replace(/\/$/, '').replace(/:\d+$/, '');
+}
+
+function validPort(value, fallback, label) {
+  const port = Number(value || fallback);
+  if (!Number.isInteger(port) || port < 1 || port > 65535) throw new Error(`${label} port must be 1-65535`);
+  return port;
+}
+
+function normalizeModel(value) {
+  const model = String(value || 'P1S').trim().toUpperCase();
+  if (!BAMBU_P1_MODELS.includes(model)) throw new Error('Bambu model must be P1P or P1S');
+  return model;
+}
+
+export function prepareBambuLabConfig(input = {}) {
+  const name = String(input.name || '').trim();
+  const host = cleanHost(input.host);
+  const serialNumber = String(input.serialNumber || '').trim();
+  const accessCode = String(input.accessCode || input.checkCode || input.adapterConfig?.accessCode || '').trim();
+  const model = normalizeModel(input.model);
+  if (!name || !host || !serialNumber || !accessCode) throw new Error('name, host, serialNumber and accessCode are required');
+  if (!/^[a-zA-Z0-9._:-]+$/.test(host)) throw new Error('Host/IP contains invalid characters');
+  if (serialNumber.length > 64 || /[\x00-\x1f\x7f]/.test(serialNumber)) throw new Error('Bambu serial number is invalid');
+  if (accessCode.length > 64 || /[\x00-\x1f\x7f]/.test(accessCode)) throw new Error('Bambu access code is invalid');
+  const mqttPort = validPort(input.mqttPort || input.adapterConfig?.mqttPort, 8883, 'MQTT TLS');
+  const ftpsPort = validPort(input.ftpsPort || input.adapterConfig?.ftpsPort, 990, 'FTPS TLS');
+  const cameraPort = validPort(input.cameraPort || input.adapterConfig?.cameraPort, 6000, 'Camera TLS');
+  return {
+    name,
+    host,
+    serialNumber,
+    checkCode: accessCode,
+    mqttPort,
+    ftpsPort,
+    cameraPort,
+    adapterType: BAMBU_LAB_ADAPTER_TYPE,
+    manufacturer: 'Bambu Lab',
+    model,
+    adapterConfig: { mqttPort, ftpsPort, cameraPort, experimental: true }
+  };
+}
+
+function stateName(value, report = {}) {
+  const state = String(value || '').trim().toUpperCase();
+  if (['RUNNING', 'PREPARE'].includes(state)) return 'printing';
+  if (state === 'PAUSE') return 'paused';
+  if (state === 'FINISH') return 'completed';
+  if (state === 'FAILED') return Number(report.print_error || 0) ? 'failed' : 'cancelled';
+  if (['IDLE', 'READY'].includes(state)) return 'idle';
+  return state.toLowerCase() || 'unknown';
+}
+
+function fanPercent(value) {
+  const numeric = Number(value || 0);
+  return Math.max(0, Math.min(100, Math.round(numeric <= 15 ? numeric / 15 * 100 : numeric)));
+}
+
+function rgbaColor(value) {
+  const text = String(value || '').trim().replace(/^#/, '').toUpperCase();
+  if (/^[0-9A-F]{8}$/.test(text)) return `#${text.slice(0, 6)}`;
+  if (/^[0-9A-F]{6}$/.test(text)) return `#${text}`;
+  return null;
+}
+
+function firstTray(print = {}) {
+  const virtual = print.vt_tray || print.virtual_tray;
+  const units = Array.isArray(print.ams?.ams) ? print.ams.ams : [];
+  const trays = units.flatMap((unit) => Array.isArray(unit?.tray) ? unit.tray : []);
+  const activeId = String(print.tray_now ?? '');
+  const activeAms = trays.find((tray) => String(tray.id ?? tray.tray_id ?? '') === activeId);
+  if (activeAms) return activeAms;
+  if (virtual && (virtual.tray_type || virtual.tray_color)) return virtual;
+  return trays.find((tray) => tray?.tray_type || tray?.tray_color) || null;
+}
+
+export function normalizeBambuStatus(payload = {}, printer = {}) {
+  const print = payload.print || payload;
+  const tray = firstTray(print);
+  const nozzleDiameter = Number(print.nozzle_diameter ?? printer.adapterConfig?.nozzleDiameterDesignation);
+  const material = String(tray?.tray_type || '').trim() || null;
+  const color = rgbaColor(tray?.tray_color);
+  const model = normalizeModel(printer.model);
+  return {
+    status: stateName(print.gcode_state, print),
+    rawStatus: String(print.gcode_state || 'unknown'),
+    printerName: print.dev_name || null,
+    firmwareVersion: print.firmware_version || print.sw_ver || null,
+    fileName: print.subtask_name || print.gcode_file || null,
+    progress: Math.max(0, Math.min(100, Number(print.mc_percent || 0))),
+    currentLayer: Number(print.layer_num || 0),
+    totalLayers: Number(print.total_layer_num || 0),
+    remainingSeconds: Math.max(0, Number(print.mc_remaining_time || 0) * 60),
+    elapsedSeconds: Math.max(0, Number(print.mc_print_time || 0)),
+    nozzle: { actual: Number(print.nozzle_temper || 0), target: Number(print.nozzle_target_temper || 0) },
+    tools: [{
+      index: 0,
+      active: true,
+      actual: Number(print.nozzle_temper || 0),
+      target: Number(print.nozzle_target_temper || 0),
+      nozzleDiameter: Number.isFinite(nozzleDiameter) && nozzleDiameter > 0 ? nozzleDiameter : null,
+      filament: {
+        present: tray ? true : null,
+        detecting: false,
+        material,
+        materialVariant: String(tray?.tray_sub_brands || '').trim() || null,
+        color,
+        vendor: String(tray?.tray_info_idx || '').trim() || null,
+        manufacturer: null,
+        materialSource: material ? 'printer' : null,
+        metadataAvailable: Boolean(material || color)
+      }
+    }],
+    bed: { actual: Number(print.bed_temper || 0), target: Number(print.bed_target_temper || 0) },
+    chamber: { actual: Number(print.chamber_temper || 0) },
+    coolingFan: fanPercent(print.cooling_fan_speed),
+    chamberFan: fanPercent(print.big_fan2_speed),
+    auxiliaryFan: fanPercent(print.big_fan1_speed),
+    light: Array.isArray(print.lights_report) ? print.lights_report.find((item) => item.node === 'chamber_light')?.mode || null : null,
+    cameraAvailable: true,
+    model,
+    experimental: true
+  };
+}
+
+function sequenceId() {
+  return String(Date.now());
+}
+
+function printCommand(fileName, options = {}) {
+  const name = String(fileName || '').replace(/^\/+/, '');
+  const extension = path.extname(name).toLowerCase();
+  if (extension === '.3mf') {
+    return {
+      print: {
+        command: 'project_file',
+        sequence_id: sequenceId(),
+        param: 'Metadata/plate_1.gcode',
+        project_id: '0',
+        profile_id: '0',
+        task_id: '0',
+        subtask_id: '0',
+        subtask_name: name,
+        url: `file:///sdcard/${name}`,
+        bed_type: 'auto',
+        timelapse: Boolean(options.timeLapseBeforePrint),
+        bed_leveling: options.levelingBeforePrint !== false,
+        flow_cali: Boolean(options.flowCalibrationBeforePrint),
+        vibration_cali: true,
+        layer_inspect: false,
+        use_ams: false
+      }
+    };
+  }
+  return { print: { command: 'gcode_file', sequence_id: sequenceId(), param: name, file: name } };
+}
+
+const P1P_CAPABILITIES = normalizeCapabilities({
+  status: true,
+  localFiles: true,
+  fileUpload: true,
+  printLocalFile: true,
+  jobControl: true,
+  nozzleTemperature: true,
+  bedTemperature: true,
+  coolingFan: true,
+  camera: true,
+  materialStatus: true,
+  levelBeforePrint: true,
+  flowCalibrationBeforePrint: true,
+  timeLapseBeforePrint: true,
+  toolheadNozzleStatus: true
+});
+
+const P1S_CAPABILITIES = normalizeCapabilities({
+  ...P1P_CAPABILITIES,
+  chamberFan: true,
+  chamberPreheat: true,
+  chamberTemperatureSensor: true
+});
+
+export class BambuLabAdapter extends PrinterAdapter {
+  get type() { return BAMBU_LAB_ADAPTER_TYPE; }
+  get manufacturer() { return 'Bambu Lab'; }
+  get model() { return normalizeModel(this.printer.model); }
+  get capabilities() { return this.model === 'P1S' ? P1S_CAPABILITIES : P1P_CAPABILITIES; }
+  get uploadExtensions() { return ['.3mf', '.gcode']; }
+  get limits() {
+    return Object.freeze({
+      bedTemperature: { min: 0, max: 100 },
+      nozzleTemperature: { min: 0, max: 300 },
+      fanPercent: { min: 0, max: 100 },
+      chamberPreheatBedTemperature: { min: 30, max: 100 },
+      chamberPreheatMinutes: { min: 1, max: 120 },
+      toolCount: 1
+    });
+  }
+
+  async getStatus() { return normalizeBambuStatus(await getBambuReport(this.printer), this.printer); }
+  async getFiles() {
+    const files = await listBambuFiles(this.printer);
+    return { files: files.sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' })), recentFiles: [], complete: true, source: 'bambu-ftps', ordering: 'alphabetical', warning: null };
+  }
+  async uploadFile(filePath, options = {}) { return uploadBambuFile(this.printer, filePath, { fileName: options.fileName || path.basename(filePath) }); }
+  async verifyFile(fileName) {
+    const wanted = String(fileName || '').replace(/^\/+/, '').toLocaleLowerCase();
+    const files = await listBambuFiles(this.printer);
+    const verified = files.some((file) => String(file).replace(/^\/+/, '').toLocaleLowerCase() === wanted);
+    return { verified, source: verified ? 'bambu-ftps' : null, warning: verified ? null : 'Upload completed, but the file was not visible in Bambu printer storage.' };
+  }
+  async printLocalFile(fileName, options = {}) { return sendBambuCommand(this.printer, printCommand(fileName, options)); }
+  async setJobState(action) {
+    const command = { pause: 'pause', resume: 'resume', cancel: 'stop' }[String(action || '').toLowerCase()];
+    if (!command) throw new Error(`Unsupported Bambu job action: ${action}`);
+    return sendBambuCommand(this.printer, { print: { command, sequence_id: sequenceId() } });
+  }
+  async setTemperatures({ nozzle, bed } = {}) {
+    const commands = [];
+    if (nozzle !== undefined) commands.push(`M104 S${Number(nozzle)}`);
+    if (bed !== undefined) commands.push(`M140 S${Number(bed)}`);
+    if (!commands.length) throw new Error('No Bambu temperature value supplied');
+    return sendBambuCommand(this.printer, { print: { command: 'gcode_line', sequence_id: sequenceId(), param: `${commands.join('\n')}\n` } });
+  }
+  async setFans({ coolingFan, chamberFan } = {}) {
+    const commands = [];
+    if (coolingFan !== undefined) commands.push(`M106 P1 S${Math.round(Number(coolingFan) / 100 * 255)}`);
+    if (chamberFan !== undefined) commands.push(`M106 P3 S${Math.round(Number(chamberFan) / 100 * 255)}`);
+    if (!commands.length) throw new Error('No Bambu fan value supplied');
+    return sendBambuCommand(this.printer, { print: { command: 'gcode_line', sequence_id: sequenceId(), param: `${commands.join('\n')}\n` } });
+  }
+  async getCameraSource() { return createBambuCameraSource(this.printer); }
+  async activateCamera() { return { ok: true }; }
+}
+
+export const bambuLabAdapterDefinition = Object.freeze({
+  type: BAMBU_LAB_ADAPTER_TYPE,
+  manufacturer: 'Bambu Lab',
+  label: 'Bambu Lab P1P / P1S (experimental)',
+  models: [...BAMBU_P1_MODELS],
+  capabilities: P1S_CAPABILITIES,
+  experimental: true,
+  configFields: [
+    { name: 'model', label: 'Model', required: true, defaultValue: 'P1S', placeholder: 'P1P or P1S', help: 'Enter P1P or P1S. Support remains experimental until validated on physical hardware.' },
+    { name: 'serialNumber', label: 'Printer serial number', required: true, placeholder: 'Shown in printer device information' },
+    { name: 'accessCode', label: 'LAN access code', required: true, secret: true, placeholder: 'Shown in LAN / Developer mode', help: 'Enable LAN Only or Developer mode on the printer, then enter its access code.' },
+    { name: 'mqttPort', label: 'MQTT TLS port', required: true, type: 'number', defaultValue: 8883, min: 1, max: 65535 },
+    { name: 'ftpsPort', label: 'FTPS TLS port', required: true, type: 'number', defaultValue: 990, min: 1, max: 65535 },
+    { name: 'cameraPort', label: 'Camera TLS port', required: true, type: 'number', defaultValue: 6000, min: 1, max: 65535 }
+  ],
+  prepareConfig: prepareBambuLabConfig,
+  create: (printer) => new BambuLabAdapter(printer)
+});
+
+export const bambuAdapterInternals = { fanPercent, firstTray, printCommand, rgbaColor, stateName };

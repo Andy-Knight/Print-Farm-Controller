@@ -1,5 +1,7 @@
 # Printer Fleet Controller v0.13.0
 
+> v0.13.0 now includes an **experimental Bambu Lab P1P/P1S controller adapter**. It reads LAN status and material telemetry and sends print/job/temperature/fan commands over MQTT TLS, performs verified `.3mf`/`.gcode` storage operations over implicit FTPS, and feeds the authenticated Bambu camera into the existing dashboard camera manager. The complete workflow is tested against the P1 emulator but has not been validated on physical Bambu hardware.
+
 > v0.13.0 adds a standalone, loopback-only **Printer Emulator** with its own responsive light/dark UI. It can run multiple simulated FlashForge Adventurer 5M Pro, Snapmaker U1, Bambu Lab P1P and Bambu Lab P1S endpoints, exercise the controller's production adapters, accelerate print progress, manage virtual files and temperatures, and inject repeatable connection, cancellation, verification, camera, material and nozzle faults. Emulator support is a development aid and does not replace final validation on physical hardware.
 
 > v0.12.16 adds a combined **Snapmaker U1 third-party filament type and colour control** to each toolhead card. One **Set filament on U1** button sends the selected generic material profile and colour together using stock `SET_PRINT_FILAMENT_CONFIG`; the controller verifies both values and immediately uses them for queue compatibility. The control is available only for idle, loaded, editable third-party slots, while official RFID filament remains locked. The combined workflow has been validated on physical U1 hardware.
@@ -48,6 +50,7 @@ A local-first 3D printer fleet controller. It runs entirely on your LAN and curr
 
 - **FlashForge Adventurer 5M / 5M Pro** through the local FlashForge HTTP/TCP APIs.
 - **Snapmaker U1** through its local Moonraker/Klipper API.
+- **Bambu Lab P1P / P1S (experimental)** through the local MQTT TLS, FTPS TLS and camera interfaces.
 
 The application is named **Printer Fleet Controller**. From v0.11.2 the default application-data directory is manufacturer-neutral; existing installations are migrated automatically from the historical FlashForge-named directory so configured printers and queued work are retained.
 
@@ -109,6 +112,16 @@ For FlashForge, the Add printer form now exposes the normally fixed HTTP, TCP an
 Set `EMULATOR_NO_DEFAULTS=1` to start with an empty emulator fleet. `EMULATOR_HOST` and `EMULATOR_PORT` can override the management listener when required. Keeping the default loopback binding is recommended; if the controller runs in a container, supply a host address reachable from that container.
 
 The Bambu endpoints use a simulator-owned self-signed certificate, MQTT username `bblp`, and the access code shown in the emulator UI. They model the LAN/Developer interfaces used by P1 printers but are deliberately marked unverified because no physical P1P or P1S was available for comparison. The emulator verifies controller behaviour against the implemented protocol model; new manufacturer support remains experimental until checked against reliable captures, documentation or physical hardware.
+
+### Adding an experimental Bambu P1P or P1S
+
+1. Enable the printer's LAN Only or Developer mode and note its serial number and LAN access code.
+2. Click **+ Add printer** and select **Bambu Lab P1P / P1S (experimental)**.
+3. Enter `P1P` or `P1S`, the IP address, serial number and access code.
+4. Keep the physical-printer defaults of MQTT TLS `8883`, implicit FTPS `990` and camera TLS `6000`. Use the alternate ports displayed by the emulator only for simulated printers.
+5. **Test & add** validates the MQTT credentials before saving the printer.
+
+Bambu discovery is not yet implemented, so P1 printers are added manually. Access codes remain backend-side and are never returned by the public fleet API. Until physical validation is complete, supervise test prints and do not rely on this adapter for unattended production.
 
 ## Supported features
 
@@ -284,7 +297,7 @@ The persistent fleet print queue/history is stored beside the printer registry a
 
 You can override the directory with `DATA_DIR`.
 
-Printer secrets such as FlashForge check codes and an optional Moonraker API key are stored backend-side and are not returned in public printer/fleet API responses.
+Printer secrets such as FlashForge check codes, Bambu LAN access codes and an optional Moonraker API key are stored backend-side and are not returned in public printer/fleet API responses.
 
 ## Architecture
 
@@ -306,8 +319,12 @@ Local Fleet Controller
      PrinterAdapter
           │
           ├── flashforge-ad5m
-          └── snapmaker-u1
-                 └── Moonraker / Klipper
+          ├── snapmaker-u1
+          │      └── Moonraker / Klipper
+          └── bambu-lab (experimental)
+                 ├── MQTT TLS status/control
+                 ├── implicit FTPS files
+                 └── authenticated TLS camera
 ```
 
 The adapter boundary owns discovery, connection validation, capabilities, thermal limits, status normalization, file operations, job control, temperature control, and camera source selection. Core fleet services do not need manufacturer-specific protocol logic.

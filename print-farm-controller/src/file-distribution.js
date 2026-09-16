@@ -169,6 +169,7 @@ export class FileDistributionService {
         });
       } else {
         await adapter.uploadFile(filePath, {
+          fileName,
           firmwareVersion: state.status?.firmwareVersion,
           levelingBeforePrint
         });

@@ -39,7 +39,7 @@ test('Snapmaker U1 toolhead status puts RGB colour on a dedicated second line', 
   assert.match(app, /function filamentRgbText/);
   assert.match(app, /RGB\(\$\{red\}, \$\{green\}, \$\{blue\}\)/);
   assert.match(app, /data-material-rgb=/);
-  assert.match(app, /\['snapmaker-u1','flashforge-ad5m'\]\.includes\(printer\.adapterType\)/);
+  assert.match(app, /\['snapmaker-u1','flashforge-ad5m','bambu-lab'\]\.includes\(printer\.adapterType\)/);
   assert.match(app, /rgbLine\?\.classList\.toggle\('hidden', !rgbText\)/);
   assert.match(styles, /\.material-tool > small\.material-rgb/);
   assert.doesNotMatch(app, /const values = \[source, reported, filament\.vendor \|\| filament\.manufacturer, filamentColorText\(filament\.color\)\]/);
@@ -50,7 +50,7 @@ test('Snapmaker U1 toolhead status puts RGB colour on a dedicated second line', 
 
 test('FlashForge assigned filament colour shows hexadecimal and RGB values in toolhead status', () => {
   assert.match(app, /const values = \[source, reported, filament\.vendor \|\| filament\.manufacturer, normalizeColor\(filament\.color\)\]/);
-  assert.match(app, /\['snapmaker-u1','flashforge-ad5m'\]\.includes\(printer\.adapterType\)/);
+  assert.match(app, /\['snapmaker-u1','flashforge-ad5m','bambu-lab'\]\.includes\(printer\.adapterType\)/);
   assert.match(app, /data-material-rgb=/);
   assert.match(app, /return `RGB\(\$\{red\}, \$\{green\}, \$\{blue\}\)`/);
 });

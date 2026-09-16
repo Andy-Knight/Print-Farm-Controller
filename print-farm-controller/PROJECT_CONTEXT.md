@@ -6,7 +6,7 @@
 
 - Repository: `Andy-Knight/Print-Farm-Controller`
 - Project path: `print-farm-controller/`
-- Branch: `feature/printer-emulator-v0130` (not yet merged to `main`)
+- Branch: `feature/bambu-controller-adapter-v0130` (branched from the v0.13.0 emulator baseline; not merged to `main`)
 - Current application version on this branch: **0.13.0**
 - Runtime: **Node.js 20+**, ES modules, no npm runtime dependencies.
 - GitHub is the authoritative code baseline.
@@ -33,7 +33,7 @@ Local Fleet Controller (`src/`)
 PrinterAdapter boundary (`src/adapters/`)
         +-- FlashForge Adventurer 5M / 5M Pro
         +-- Snapmaker U1 -> Moonraker / Klipper
-        +-- Bambu Lab P1P / P1S -> planned adapter (emulator available)
+        +-- Bambu Lab P1P / P1S -> experimental MQTT/FTPS/camera adapter
 
 Development Printer Emulator (`emulator/`, loopback only)
         +-- management UI/API + SSE
@@ -65,11 +65,13 @@ Manufacturer-specific discovery, capabilities, limits, status normalization, fil
 - Queue priority is **High / Normal / Low**. Effective priority ranks before manual queue order; a waiting job gains one priority level every six hours so low-priority work cannot be starved. Within the same effective priority, manual order remains authoritative.
 - When multiple compatible idle printers are ready for an automatic job, a printer with a verified existing copy of the file is preferred; the assigned job records the selection reason.
 - The development printer emulator is a separate loopback-only service with its own UI. It exercises production adapters through network protocols rather than bypassing the adapter boundary. Emulator-only support never counts as physical hardware validation.
+- Bambu P1P/P1S support remains explicitly experimental until the MQTT telemetry/commands, FTPS behavior and camera framing are compared with physical printers. Manual entry is used; Bambu LAN discovery is not yet implemented.
 
 ## Completed work / current baseline
 
 - FlashForge Adventurer 5M / 5M Pro support.
 - Snapmaker U1 support via Moonraker/Klipper, including stock camera integration.
+- Experimental Bambu Lab P1P/P1S controller support: MQTT TLS status, external-spool/AMS material metadata and job/temperature/fan control; implicit FTPS list/upload/verification; `.3mf` and `.gcode` print start; authenticated TLS camera snapshots; model-specific P1P/P1S capabilities and manual connection fields.
 - Automatic/local discovery, persistent printer registry and controller-side printer renaming.
 - Dashboard ordering, SSE fleet state, diagnostics and batch actions.
 - Verified file distribution and printer-local file operations.
@@ -78,7 +80,7 @@ Manufacturer-specific discovery, capabilities, limits, status normalization, fil
 - U1 tool mapping, print preferences, material/nozzle readiness and XYZ offset calibration.
 - Bed-powered timed chamber preheat and applicable fan/purifier controls.
 - **v0.13.0 printer emulator:** standalone loopback service and responsive light/dark management UI; multiple dynamically allocated virtual printers; production-adapter-compatible FlashForge HTTP/TCP/MJPEG camera and Snapmaker Moonraker/WebSocket/snapshot endpoints; experimental Bambu Lab P1P/P1S TLS MQTT status/control, implicit FTPS file transfer and authenticated camera endpoints; a visible simulated-camera test frame; virtual files, print progress, temperatures and material/nozzle state; accelerated time; activity logs; repeatable scenarios; and fault injection for offline/delay/rejection/malformed response/verification/cancellation/filename/camera conditions. Bambu protocol behaviour is emulator-only and awaits physical hardware validation. FlashForge connection forms now expose configurable HTTP, TCP and camera ports while retaining physical-printer defaults.
-- v0.13.0 regression suite: **147 passing tests, 0 failures**, including management API, authenticated Bambu P1P/P1S LAN endpoints, production Snapmaker and FlashForge adapter integration against live simulated endpoints, and the combined U1 filament type/colour command.
+- v0.13.0 regression suite: **155 passing tests, 0 failures**, including management API, authenticated Bambu P1P/P1S LAN endpoints, full production Bambu P1S adapter integration against the live emulator, external-spool/AMS material selection, credential-safe Bambu persistence, production Snapmaker and FlashForge adapter integration, and the combined U1 filament type/colour command.
 - **v0.11.0 file-centric automatic queue:**
   - persistent controller-side staged queue files with SHA-256;
   - bounded G-code requirement extraction for tools/material/colour/nozzle metadata;
@@ -127,11 +129,12 @@ Manufacturer-specific discovery, capabilities, limits, status normalization, fil
 
 ## Current task
 
-**v0.13.0 printer emulator is implemented and user-validated on `feature/printer-emulator-v0130`, now including all production v0.12.16 changes.** It has not been merged to `main`.
+**The initial experimental Bambu P1P/P1S controller adapter is implemented on `feature/bambu-controller-adapter-v0130` and works end-to-end against the v0.13.0 emulator.** Neither the adapter branch nor its emulator parent has been merged to `main`.
 
 ## Next steps
 
-1. Select the first experimental manufacturer profile to add using the emulator-first workflow.
+1. Run the controller and emulator together, add both displayed Bambu endpoints manually, and validate dashboard status, files, verified upload, direct printing, queue assignment, pause/resume/cancel, completion/clearance and camera behavior through the UI.
+2. Compare protocol behavior against reliable captures or physical P1P/P1S hardware before removing the experimental label or merging to `main`.
 
 ## Handoff rule
 
