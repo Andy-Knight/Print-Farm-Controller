@@ -1,6 +1,6 @@
 # Printer Fleet Controller v0.12.16
 
-> v0.12.16 adds a combined **Snapmaker U1 third-party filament type and colour control** to each toolhead card. One **Set filament on U1** button sends the selected generic material profile and colour together using stock `SET_PRINT_FILAMENT_CONFIG`; the controller verifies both values and immediately uses them for queue compatibility. The control is available only for idle, loaded, editable third-party slots, while official RFID filament remains locked.
+> v0.12.16 adds a combined **Snapmaker U1 third-party filament type and colour control** to each toolhead card. One **Set filament on U1** button sends the selected generic material profile and colour together using stock `SET_PRINT_FILAMENT_CONFIG`; the controller verifies both values and immediately uses them for queue compatibility. The control is available only for idle, loaded, editable third-party slots, while official RFID filament remains locked. The combined workflow has been validated on physical U1 hardware.
 
 > v0.12.15 moves production-batch controls into a dedicated full-width row below the batch copy list, preventing Pause/Resume, priority, quantity and cancellation controls from overlapping batch items at narrower queue widths.
 
