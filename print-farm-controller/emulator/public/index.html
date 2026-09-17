@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Printer Emulator</title>
-  <link rel="stylesheet" href="/styles.css">
+  <link rel="stylesheet" href="styles.css">
 </head>
 <body>
   <header class="app-header">
@@ -14,6 +14,7 @@
       <p class="subtitle">Protocol-faithful virtual printers for Printer Fleet Controller</p>
     </div>
     <div class="header-actions">
+      <a id="controller-link" class="header-link hidden" href="/">Back to controller</a>
       <button id="theme-toggle" class="secondary" type="button" aria-label="Toggle colour theme">Theme</button>
       <button id="show-add" type="button">Add simulated printer</button>
     </div>
@@ -24,6 +25,17 @@
       <strong>Simulated devices only.</strong>
       These endpoints run on loopback and never control physical printer hardware.
     </section>
+
+    <section id="integrated-control" class="panel integrated-control hidden" aria-live="polite">
+      <div>
+        <p class="eyebrow">CONTROLLER SETTING</p>
+        <h2 id="integrated-heading">Printer simulator is disabled</h2>
+        <p id="integrated-description">Enable it to start loopback-only virtual printer endpoints. This preference is remembered for future controller launches.</p>
+      </div>
+      <button id="simulator-toggle" type="button">Enable simulator</button>
+    </section>
+
+    <div id="simulator-content">
 
     <section id="add-panel" class="panel hidden" aria-labelledby="add-heading">
       <div class="panel-heading">
@@ -53,6 +65,7 @@
       <div id="printer-grid" class="printer-grid"></div>
       <div id="empty-state" class="empty hidden"><h3>No simulated printers</h3><p>Add a printer profile to create its local protocol endpoints.</p></div>
     </section>
+    </div>
   </main>
 
   <template id="printer-template">
@@ -114,6 +127,6 @@
   </template>
 
   <div id="toast" role="status" aria-live="polite"></div>
-  <script type="module" src="/app.js"></script>
+  <script type="module" src="app.js"></script>
 </body>
 </html>

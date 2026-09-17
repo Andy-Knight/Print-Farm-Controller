@@ -45,6 +45,7 @@ label { display: grid; gap: .35rem; color: var(--muted); font-size: .82rem; font
 .app-header .subtitle { color: #bdcae8; margin: .3rem 0 0; }
 .header-actions { display: flex; gap: .7rem; flex-wrap: wrap; }
 .app-header .secondary { background: rgba(255,255,255,.1); color: white; border-color: rgba(255,255,255,.28); }
+.header-link { border: 1px solid rgba(255,255,255,.28); border-radius: 8px; padding: .65rem .9rem; background: rgba(255,255,255,.1); color: white; font-weight: 700; text-decoration: none; }
 .eyebrow { margin: 0 0 .2rem; font-size: .68rem; font-weight: 800; letter-spacing: .14em; color: var(--brand); }
 .app-header .eyebrow { color: #8cafff; }
 
@@ -53,6 +54,8 @@ main { width: min(1440px, calc(100% - 3rem)); margin: 1.5rem auto 4rem; }
 .panel { margin: 1rem 0; padding: 1.2rem; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; box-shadow: var(--shadow); }
 .panel-heading, .section-heading, .card-header, .job-line, .card-footer { display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
 .panel h2, .section-heading h2 { margin: 0; }
+.integrated-control { display:flex; align-items:center; justify-content:space-between; gap:1rem; }
+.integrated-control p:last-child { margin:.35rem 0 0; color:var(--muted); }
 .icon-button { background: transparent; color: var(--muted); font-size: 1.6rem; padding: .2rem .6rem; }
 .add-form { display: grid; grid-template-columns: 1fr 1fr auto; align-items: end; gap: 1rem; margin-top: 1rem; }
 .form-note { margin: .7rem 0 0; color: var(--muted); font-size: .85rem; }

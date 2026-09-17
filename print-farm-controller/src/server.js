@@ -29,6 +29,7 @@ import { stageQueueFile, removeQueueFile } from './queue-file-store.js';
 import { PrintQueueService } from './print-queue.js';
 import { assessMaterialCompatibility } from './file-material-metadata.js';
 import { getPrinterFileMaterialMetadata, removePrinterFileMaterialMetadata } from './file-material-store.js';
+import { EmulatorManager } from './emulator-manager.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PUBLIC_DIR = path.resolve(__dirname, '../public');
@@ -50,6 +51,7 @@ const printQueue = new PrintQueueService({
   onChange: () => fleetState.schedulePublish()
 });
 const toolOffsetCalibrationLocks = new Map();
+const emulatorManager = new EmulatorManager();
 
 const contentTypes = {
   '.html': 'text/html; charset=utf-8',
@@ -621,10 +623,24 @@ async function serveStatic(res, pathname) {
 const server = http.createServer(async (req, res) => {
   const url = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
   try {
+    if (url.pathname.startsWith('/api/emulator')) {
+      await emulatorManager.handleApi(req, res, url);
+      return;
+    }
     if (url.pathname.startsWith('/api/')) {
       const handled = await apiRoute(req, res, url);
       if (handled !== false) return;
       return json(res, 404, { error: 'API route not found' });
+    }
+
+    if (url.pathname === '/simulator') {
+      res.writeHead(302, { location: '/simulator/' });
+      res.end();
+      return;
+    }
+    if (url.pathname.startsWith('/simulator/')) {
+      await emulatorManager.serveStatic(res, url);
+      return;
     }
 
     if (await serveStatic(res, url.pathname)) return;
@@ -644,6 +660,7 @@ async function shutdown() {
   printQueue.stop();
   fleetState.stop();
   cameraManager.stop();
+  try { await emulatorManager.stop(); } catch {}
   server.close(() => process.exit(0));
   setTimeout(() => process.exit(0), 2000).unref();
 }
@@ -653,6 +670,12 @@ process.on('SIGTERM', shutdown);
 
 await fleetState.start();
 await printQueue.start();
+try {
+  const emulatorStatus = await emulatorManager.init();
+  if (emulatorStatus.running) console.log(`Integrated printer simulator enabled with ${emulatorStatus.printerCount} loopback endpoints`);
+} catch (error) {
+  console.error(`Could not start integrated printer simulator: ${error.message}`);
+}
 chamberPreheat.startService();
 server.listen(PORT, HOST, () => {
   console.log(`Printer Fleet Controller v${CONTROLLER_VERSION} running at http://localhost:${PORT}`);

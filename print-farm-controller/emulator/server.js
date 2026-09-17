@@ -74,6 +74,7 @@ export function createEmulator({
   const endpointHandles = new Map();
   const sseClients = new Set();
   let managementServer = null;
+  let protocolsStarted = false;
   let nextId = 1;
 
   const serializePrinter = (printer) => ({ ...printer.snapshot(), controllerSettings: controllerSettings(printer) });
@@ -127,11 +128,12 @@ export function createEmulator({
     return printer;
   }
 
-  async function api(request, response, url) {
-    if (url.pathname === '/api/profiles' && request.method === 'GET') return json(response, 200, { profiles: listProfiles() });
-    if (url.pathname === '/api/printers' && request.method === 'GET') return json(response, 200, { printers: [...printers.values()].map(serializePrinter) });
-    if (url.pathname === '/api/printers' && request.method === 'POST') return json(response, 201, { printer: await addPrinter(await jsonBody(request)) });
-    if (url.pathname === '/api/events' && request.method === 'GET') {
+  async function api(request, response, url, { basePath = '/api' } = {}) {
+    const pathname = url.pathname.startsWith(basePath) ? `/api${url.pathname.slice(basePath.length)}` : url.pathname;
+    if (pathname === '/api/profiles' && request.method === 'GET') return json(response, 200, { profiles: listProfiles() });
+    if (pathname === '/api/printers' && request.method === 'GET') return json(response, 200, { printers: [...printers.values()].map(serializePrinter) });
+    if (pathname === '/api/printers' && request.method === 'POST') return json(response, 201, { printer: await addPrinter(await jsonBody(request)) });
+    if (pathname === '/api/events' && request.method === 'GET') {
       response.writeHead(200, { 'content-type': 'text/event-stream', 'cache-control': 'no-cache', connection: 'keep-alive' });
       sseClients.add(response);
       response.write(`data: ${JSON.stringify({ printers: [...printers.values()].map(serializePrinter) })}\n\n`);
@@ -139,7 +141,7 @@ export function createEmulator({
       return;
     }
 
-    const match = url.pathname.match(/^\/api\/printers\/([^/]+)(?:\/(actions|faults|scenarios|files))?$/);
+    const match = pathname.match(/^\/api\/printers\/([^/]+)(?:\/(actions|faults|scenarios|files))?$/);
     if (!match) return json(response, 404, { error: 'Not found' });
     const id = decodeURIComponent(match[1]);
     const section = match[2] || null;
@@ -156,8 +158,9 @@ export function createEmulator({
     return json(response, 200, { printer: serializePrinter(printer) });
   }
 
-  async function staticFile(response, url) {
-    const relative = url.pathname === '/' ? 'index.html' : url.pathname.replace(/^\/+/, '');
+  async function staticFile(response, url, { basePath = '/' } = {}) {
+    const pathname = basePath === '/' ? url.pathname : url.pathname.slice(basePath.length);
+    const relative = !pathname || pathname === '/' ? 'index.html' : pathname.replace(/^\/+/, '');
     const target = path.resolve(PUBLIC_DIR, relative);
     if (!target.startsWith(`${PUBLIC_DIR}${path.sep}`) && target !== path.join(PUBLIC_DIR, 'index.html')) return json(response, 403, { error: 'Forbidden' });
     try {
@@ -167,6 +170,31 @@ export function createEmulator({
     } catch {
       json(response, 404, { error: 'Not found' });
     }
+  }
+
+  async function startProtocols() {
+    if (protocolsStarted) return;
+    protocolsStarted = true;
+    try {
+      if (withDefaults && printers.size === 0) {
+        await addPrinter({ profileId: 'flashforge-ad5m-pro', name: 'Simulated AD5M Pro' });
+        await addPrinter({ profileId: 'snapmaker-u1', name: 'Simulated Snapmaker U1' });
+        await addPrinter({ profileId: 'bambu-p1p', name: 'Simulated Bambu Lab P1P' });
+        await addPrinter({ profileId: 'bambu-p1s', name: 'Simulated Bambu Lab P1S' });
+        await addPrinter({ profileId: 'bambu-x1c', name: 'Simulated Bambu Lab X1 Carbon' });
+      }
+    } catch (error) {
+      protocolsStarted = false;
+      for (const id of [...printers.keys()]) await removePrinter(id);
+      throw error;
+    }
+  }
+
+  async function stopProtocols() {
+    for (const id of [...printers.keys()]) await removePrinter(id);
+    for (const client of sseClients) client.end();
+    sseClients.clear();
+    protocolsStarted = false;
   }
 
   async function start() {
@@ -184,25 +212,29 @@ export function createEmulator({
       managementServer.once('error', reject);
       managementServer.listen(managementPort, host, resolve);
     });
-    if (withDefaults) {
-      await addPrinter({ profileId: 'flashforge-ad5m-pro', name: 'Simulated AD5M Pro' });
-      await addPrinter({ profileId: 'snapmaker-u1', name: 'Simulated Snapmaker U1' });
-      await addPrinter({ profileId: 'bambu-p1p', name: 'Simulated Bambu Lab P1P' });
-      await addPrinter({ profileId: 'bambu-p1s', name: 'Simulated Bambu Lab P1S' });
-      await addPrinter({ profileId: 'bambu-x1c', name: 'Simulated Bambu Lab X1 Carbon' });
-    }
+    await startProtocols();
     return managementServer.address();
   }
 
   async function stop() {
-    for (const id of [...printers.keys()]) await removePrinter(id);
-    for (const client of sseClients) client.end();
-    sseClients.clear();
+    await stopProtocols();
     if (managementServer) await new Promise((resolve) => managementServer.close(resolve));
     managementServer = null;
   }
 
-  return { start, stop, addPrinter, removePrinter, printers, get managementServer() { return managementServer; } };
+  return {
+    start,
+    stop,
+    startProtocols,
+    stopProtocols,
+    handleApi: api,
+    serveStatic: staticFile,
+    addPrinter,
+    removePrinter,
+    printers,
+    get running() { return protocolsStarted; },
+    get managementServer() { return managementServer; }
+  };
 }
 
 const isEntryPoint = process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url);

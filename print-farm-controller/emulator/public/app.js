@@ -6,6 +6,9 @@ const profileSelect = document.querySelector('#profile');
 const cards = new Map();
 let printers = [];
 let toastTimer = null;
+const integrated = location.pathname.startsWith('/simulator');
+const apiBase = integrated ? '/api/emulator' : '/api';
+const apiUrl = (pathname) => `${apiBase}${pathname}`;
 
 function showToast(message) {
   toast.textContent = message;
@@ -119,12 +122,12 @@ function bindCard(card, id) {
     const printer = printers.find((item) => item.id === id);
     let action = button.dataset.action;
     if (action === 'offline' && printer && !printer.online) action = 'online';
-    try { await request(`/api/printers/${encodeURIComponent(id)}/actions`, { method: 'POST', body: JSON.stringify({ action }) }); }
+    try { await request(apiUrl(`/printers/${encodeURIComponent(id)}/actions`), { method: 'POST', body: JSON.stringify({ action }) }); }
     catch (error) { showToast(error.message); }
   }));
   card.querySelector('.remove-button').addEventListener('click', async () => {
     if (!window.confirm('Remove this simulated printer and stop all of its endpoints?')) return;
-    try { await request(`/api/printers/${encodeURIComponent(id)}`, { method: 'DELETE' }); }
+    try { await request(apiUrl(`/printers/${encodeURIComponent(id)}`), { method: 'DELETE' }); }
     catch (error) { showToast(error.message); }
   });
   card.querySelector('.progress-slider').addEventListener('change', (event) => updatePrinter(id, { progress: Number(event.target.value) }));
@@ -136,20 +139,20 @@ function bindCard(card, id) {
   card.querySelector('.delay-input').addEventListener('change', () => updateFaults(id, card));
   card.querySelector('.run-scenario').addEventListener('click', async () => {
     const scenario = card.querySelector('.scenario-select').value;
-    try { await request(`/api/printers/${encodeURIComponent(id)}/scenarios`, { method: 'POST', body: JSON.stringify({ scenario }) }); }
+    try { await request(apiUrl(`/printers/${encodeURIComponent(id)}/scenarios`), { method: 'POST', body: JSON.stringify({ scenario }) }); }
     catch (error) { showToast(error.message); }
   });
 }
 
 async function updatePrinter(id, values) {
-  try { await request(`/api/printers/${encodeURIComponent(id)}`, { method: 'PATCH', body: JSON.stringify(values) }); }
+  try { await request(apiUrl(`/printers/${encodeURIComponent(id)}`), { method: 'PATCH', body: JSON.stringify(values) }); }
   catch (error) { showToast(error.message); }
 }
 
 async function updateFaults(id, card) {
   const faults = { responseDelayMs: Number(card.querySelector('.delay-input').value || 0) };
   card.querySelectorAll('[data-fault]').forEach((input) => { faults[input.dataset.fault] = input.checked; });
-  try { await request(`/api/printers/${encodeURIComponent(id)}/faults`, { method: 'PATCH', body: JSON.stringify(faults) }); }
+  try { await request(apiUrl(`/printers/${encodeURIComponent(id)}/faults`), { method: 'PATCH', body: JSON.stringify(faults) }); }
   catch (error) { showToast(error.message); }
 }
 
@@ -215,7 +218,7 @@ function render(nextPrinters) {
 }
 
 async function loadProfiles() {
-  const { profiles } = await request('/api/profiles');
+  const { profiles } = await request(apiUrl('/profiles'));
   profileSelect.replaceChildren(...profiles.map((profile) => {
     const option = document.createElement('option');
     option.value = profile.id;
@@ -226,7 +229,7 @@ async function loadProfiles() {
 
 function connectEvents() {
   const state = document.querySelector('#connection-state');
-  const events = new EventSource('/api/events');
+  const events = new EventSource(apiUrl('/events'));
   events.onopen = () => { state.textContent = 'Live'; state.classList.remove('disconnected'); };
   events.onmessage = (event) => render(JSON.parse(event.data).printers);
   events.onerror = () => { state.textContent = 'Reconnecting…'; state.classList.add('disconnected'); };
@@ -238,7 +241,7 @@ document.querySelector('#add-form').addEventListener('submit', async (event) => 
   event.preventDefault();
   const body = Object.fromEntries(new FormData(event.currentTarget));
   try {
-    await request('/api/printers', { method: 'POST', body: JSON.stringify(body) });
+    await request(apiUrl('/printers'), { method: 'POST', body: JSON.stringify(body) });
     document.querySelector('#printer-name').value = '';
     document.querySelector('#add-panel').classList.add('hidden');
   } catch (error) { showToast(error.message); }
@@ -252,6 +255,38 @@ document.querySelector('#theme-toggle').addEventListener('click', () => {
   localStorage.setItem('printer-emulator-theme', theme);
 });
 
-Promise.all([loadProfiles(), request('/api/printers').then((data) => render(data.printers))])
-  .then(connectEvents)
-  .catch((error) => showToast(error.message));
+async function initialize() {
+  if (integrated) {
+    document.querySelector('#controller-link').classList.remove('hidden');
+    const panel = document.querySelector('#integrated-control');
+    const content = document.querySelector('#simulator-content');
+    const toggle = document.querySelector('#simulator-toggle');
+    panel.classList.remove('hidden');
+    let status = await request(apiUrl('/status'));
+    const renderStatus = (current) => {
+      document.querySelector('#integrated-heading').textContent = current.running ? 'Printer simulator is enabled' : 'Printer simulator is disabled';
+      document.querySelector('#integrated-description').textContent = current.running
+        ? `${current.printerCount} virtual printer endpoints are running on ${current.host}. Disabling stops every simulated endpoint.`
+        : 'Enable it to start loopback-only virtual printer endpoints. This preference is remembered for future controller launches.';
+      toggle.textContent = current.running ? 'Disable simulator' : 'Enable simulator';
+      toggle.className = current.running ? 'danger' : '';
+      content.classList.toggle('hidden', !current.running);
+      document.querySelector('#show-add').disabled = !current.running;
+    };
+    renderStatus(status);
+    toggle.addEventListener('click', async () => {
+      toggle.disabled = true;
+      try {
+        status = await request(apiUrl('/status'), { method: 'POST', body: JSON.stringify({ enabled: !status.running }) });
+        if (status.running) location.reload();
+        else renderStatus(status);
+      } catch (error) { showToast(error.message); }
+      finally { toggle.disabled = false; }
+    });
+    if (!status.running) return;
+  }
+  await Promise.all([loadProfiles(), request(apiUrl('/printers')).then((data) => render(data.printers))]);
+  connectEvents();
+}
+
+initialize().catch((error) => showToast(error.message));
