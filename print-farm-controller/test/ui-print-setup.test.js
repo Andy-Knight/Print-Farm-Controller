@@ -5,6 +5,9 @@ import fs from 'node:fs';
 const app = fs.readFileSync(new URL('../public/app.js', import.meta.url), 'utf8');
 const index = fs.readFileSync(new URL('../public/index.html', import.meta.url), 'utf8');
 const styles = fs.readFileSync(new URL('../public/styles.css', import.meta.url), 'utf8');
+const emulatorApp = fs.readFileSync(new URL('../emulator/public/app.js', import.meta.url), 'utf8');
+const emulatorIndex = fs.readFileSync(new URL('../emulator/public/index.html', import.meta.url), 'utf8');
+const emulatorStyles = fs.readFileSync(new URL('../emulator/public/styles.css', import.meta.url), 'utf8');
 
 test('interface exposes a persistent accessible light and dark mode switch', () => {
   assert.match(index, /id="themeToggle"/);
@@ -16,6 +19,11 @@ test('interface exposes a persistent accessible light and dark mode switch', () 
   assert.match(app, /themeToggle\?\.addEventListener\('click'/);
   assert.match(styles, /:root\[data-theme="light"\]/);
   assert.match(styles, /\.theme-toggle-track::after/);
+  assert.match(emulatorIndex, /id="theme-toggle" class="theme-toggle"/);
+  assert.match(emulatorIndex, /printer-fleet-theme/);
+  assert.match(emulatorApp, /const themeStorageKey = 'printer-fleet-theme'/);
+  assert.match(emulatorStyles, /background: radial-gradient\(circle at 10% 0%/);
+  assert.match(emulatorStyles, /\.theme-toggle-track::after/);
 });
 
 test('FlashForge cancelled state displays clearance-aware readiness while retaining raw status', () => {

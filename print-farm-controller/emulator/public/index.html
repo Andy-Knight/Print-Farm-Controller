@@ -3,20 +3,38 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Printer Emulator</title>
+  <title>Printer Simulator</title>
+  <meta id="theme-color-meta" name="theme-color" content="#0c1015">
+  <script>
+    (() => {
+      try {
+        const saved = localStorage.getItem('printer-fleet-theme');
+        const theme = saved === 'light' || saved === 'dark'
+          ? saved
+          : (matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark');
+        document.documentElement.dataset.theme = theme;
+        document.querySelector('#theme-color-meta')?.setAttribute('content', theme === 'light' ? '#eef3f7' : '#0c1015');
+      } catch {
+        document.documentElement.dataset.theme = 'dark';
+      }
+    })();
+  </script>
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
   <header class="app-header">
     <div>
       <p class="eyebrow">DEVELOPMENT TOOL</p>
-      <h1>Printer Emulator</h1>
+      <h1>Printer Simulator</h1>
       <p class="subtitle">Protocol-faithful virtual printers for Printer Fleet Controller</p>
     </div>
     <div class="header-actions">
       <a id="controller-link" class="header-link hidden" href="/">Back to controller</a>
-      <button id="theme-toggle" class="secondary" type="button" aria-label="Toggle colour theme">Theme</button>
-      <button id="show-add" type="button">Add simulated printer</button>
+      <button id="theme-toggle" class="theme-toggle" type="button" role="switch" aria-checked="true" aria-label="Switch to light mode">
+        <span class="theme-toggle-track" aria-hidden="true"></span>
+        <span class="theme-toggle-label">Dark</span>
+      </button>
+      <button id="show-add" class="primary" type="button">+ Add simulated printer</button>
     </div>
   </header>
 
@@ -32,7 +50,7 @@
         <h2 id="integrated-heading">Printer simulator is disabled</h2>
         <p id="integrated-description">Enable it to start loopback-only virtual printer endpoints. This preference is remembered for future controller launches.</p>
       </div>
-      <button id="simulator-toggle" type="button">Enable simulator</button>
+      <button id="simulator-toggle" class="primary" type="button">Enable simulator</button>
     </section>
 
     <div id="simulator-content">

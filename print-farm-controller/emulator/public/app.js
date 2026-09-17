@@ -247,12 +247,38 @@ document.querySelector('#add-form').addEventListener('submit', async (event) => 
   } catch (error) { showToast(error.message); }
 });
 
-const preferredTheme = localStorage.getItem('printer-emulator-theme') || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
-document.documentElement.dataset.theme = preferredTheme;
-document.querySelector('#theme-toggle').addEventListener('click', () => {
-  const theme = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark';
-  document.documentElement.dataset.theme = theme;
-  localStorage.setItem('printer-emulator-theme', theme);
+const themeToggle = document.querySelector('#theme-toggle');
+const themeMedia = matchMedia('(prefers-color-scheme: light)');
+const themeColorMeta = document.querySelector('#theme-color-meta');
+const themeStorageKey = 'printer-fleet-theme';
+
+function savedTheme() {
+  try {
+    const value = localStorage.getItem(themeStorageKey);
+    return value === 'light' || value === 'dark' ? value : null;
+  } catch { return null; }
+}
+
+function applyTheme(theme, { persist = false } = {}) {
+  const next = theme === 'light' ? 'light' : 'dark';
+  const dark = next === 'dark';
+  document.documentElement.dataset.theme = next;
+  document.documentElement.style.colorScheme = next;
+  themeColorMeta?.setAttribute('content', dark ? '#0c1015' : '#eef3f7');
+  themeToggle.setAttribute('aria-checked', String(dark));
+  themeToggle.setAttribute('aria-label', `Switch to ${dark ? 'light' : 'dark'} mode`);
+  themeToggle.querySelector('.theme-toggle-label').textContent = dark ? 'Dark' : 'Light';
+  if (persist) {
+    try { localStorage.setItem(themeStorageKey, next); } catch {}
+  }
+}
+
+applyTheme(document.documentElement.dataset.theme || (themeMedia.matches ? 'light' : 'dark'));
+themeToggle.addEventListener('click', () => {
+  applyTheme(document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark', { persist:true });
+});
+themeMedia.addEventListener('change', (event) => {
+  if (!savedTheme()) applyTheme(event.matches ? 'light' : 'dark');
 });
 
 async function initialize() {
@@ -269,7 +295,7 @@ async function initialize() {
         ? `${current.printerCount} virtual printer endpoints are running on ${current.host}. Disabling stops every simulated endpoint.`
         : 'Enable it to start loopback-only virtual printer endpoints. This preference is remembered for future controller launches.';
       toggle.textContent = current.running ? 'Disable simulator' : 'Enable simulator';
-      toggle.className = current.running ? 'danger' : '';
+      toggle.className = current.running ? 'danger' : 'primary';
       content.classList.toggle('hidden', !current.running);
       document.querySelector('#show-add').disabled = !current.running;
     };
