@@ -65,30 +65,50 @@ function renderAmsControls(card, printer) {
     { value:254, label:'External spool' },
     ...units.flatMap((unit) => unit.trays.map((tray) => ({ value:Number(unit.id) * 4 + Number(tray.slotIndex), label:`AMS ${Number(unit.id) + 1} · Slot ${Number(tray.slotIndex) + 1}` })))
   ];
-  active.replaceChildren(...choices.map((choice) => {
-    const option = document.createElement('option');
-    option.value = String(choice.value); option.textContent = choice.label;
-    return option;
-  }));
-  active.value = String(printer.activeMaterialSource ?? 254);
+  const choiceSignature = JSON.stringify(choices);
+  if (active.dataset.choiceSignature !== choiceSignature && document.activeElement !== active) {
+    active.replaceChildren(...choices.map((choice) => {
+      const option = document.createElement('option');
+      option.value = String(choice.value); option.textContent = choice.label;
+      return option;
+    }));
+    active.dataset.choiceSignature = choiceSignature;
+  }
+  if (document.activeElement !== active) active.value = String(printer.activeMaterialSource ?? 254);
   active.onchange = () => updatePrinter(printer.id, { activeMaterialSource:Number(active.value) });
   const grid = panel.querySelector('.ams-slot-grid');
-  grid.replaceChildren(...units.flatMap((unit) => unit.trays.map((tray) => {
-    const slot = document.createElement('div');
-    slot.className = 'ams-slot';
-    slot.innerHTML = `<strong>AMS ${Number(unit.id) + 1} · Slot ${Number(tray.slotIndex) + 1}</strong>
-      <label class="check"><input data-ams-present type="checkbox"${tray.present ? ' checked' : ''}>Loaded</label>
-      <label>Material<select data-ams-material>${['PLA','PETG','ABS','ASA','PA','PC','TPU','PVA'].map((value) => `<option${value === tray.material ? ' selected' : ''}>${value}</option>`).join('')}</select></label>
-      <label>Colour<input data-ams-color type="color" value="${/^#[0-9A-F]{6}$/i.test(tray.color || '') ? tray.color : '#FFFFFF'}"></label>`;
-    const save = () => updatePrinter(printer.id, { amsSlots:[{
-      unitIndex:Number(unit.id), slotIndex:Number(tray.slotIndex),
-      present:slot.querySelector('[data-ams-present]').checked,
-      material:slot.querySelector('[data-ams-material]').value,
-      color:slot.querySelector('[data-ams-color]').value
-    }] });
-    slot.querySelectorAll('input,select').forEach((input) => input.addEventListener('change', save));
-    return slot;
-  })));
+  const slots = units.flatMap((unit) => unit.trays.map((tray) => ({ unit, tray })));
+  const structureSignature = JSON.stringify(slots.map(({ unit, tray }) => [Number(unit.id), Number(tray.slotIndex)]));
+  if (grid.dataset.structureSignature !== structureSignature && !grid.contains(document.activeElement)) {
+    grid.replaceChildren(...slots.map(({ unit, tray }) => {
+      const slot = document.createElement('div');
+      slot.className = 'ams-slot';
+      slot.dataset.amsSlot = `${Number(unit.id)}:${Number(tray.slotIndex)}`;
+      slot.innerHTML = `<strong>AMS ${Number(unit.id) + 1} · Slot ${Number(tray.slotIndex) + 1}</strong>
+        <label class="check"><input data-ams-present type="checkbox">Loaded</label>
+        <label>Material<select data-ams-material>${['PLA','PETG','ABS','ASA','PA','PC','TPU','PVA'].map((value) => `<option>${value}</option>`).join('')}</select></label>
+        <label>Colour<input data-ams-color type="color"></label>`;
+      const save = () => updatePrinter(printer.id, { amsSlots:[{
+        unitIndex:Number(unit.id), slotIndex:Number(tray.slotIndex),
+        present:slot.querySelector('[data-ams-present]').checked,
+        material:slot.querySelector('[data-ams-material]').value,
+        color:slot.querySelector('[data-ams-color]').value
+      }] });
+      slot.querySelectorAll('input,select').forEach((input) => input.addEventListener('change', save));
+      return slot;
+    }));
+    grid.dataset.structureSignature = structureSignature;
+  }
+  for (const { unit, tray } of slots) {
+    const slot = [...grid.querySelectorAll('[data-ams-slot]')].find((item) => item.dataset.amsSlot === `${Number(unit.id)}:${Number(tray.slotIndex)}`);
+    if (!slot) continue;
+    const present = slot.querySelector('[data-ams-present]');
+    const material = slot.querySelector('[data-ams-material]');
+    const color = slot.querySelector('[data-ams-color]');
+    if (document.activeElement !== present) present.checked = Boolean(tray.present);
+    if (document.activeElement !== material) material.value = tray.material || 'PLA';
+    if (document.activeElement !== color) color.value = /^#[0-9A-F]{6}$/i.test(tray.color || '') ? tray.color : '#FFFFFF';
+  }
 }
 
 function bindCard(card, id) {

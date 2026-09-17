@@ -81,7 +81,7 @@ Manufacturer-specific discovery, capabilities, limits, status normalization, fil
 - U1 tool mapping, print preferences, material/nozzle readiness and XYZ offset calibration.
 - Bed-powered timed chamber preheat and applicable fan/purifier controls.
 - **v0.13.0 printer emulator:** standalone loopback service and responsive light/dark management UI; multiple dynamically allocated virtual printers; production-adapter-compatible FlashForge HTTP/TCP/MJPEG camera and Snapmaker Moonraker/WebSocket/snapshot endpoints; experimental Bambu Lab P1P/P1S TLS MQTT status/control, implicit FTPS file transfer and authenticated camera endpoints; a visible simulated-camera test frame; virtual files, print progress, temperatures and material/nozzle state; accelerated time; activity logs; repeatable scenarios; and fault injection for offline/delay/rejection/malformed response/verification/cancellation/filename/camera conditions. Bambu protocol behaviour is emulator-only and awaits physical hardware validation. FlashForge connection forms now expose configurable HTTP, TCP and camera ports while retaining physical-printer defaults.
-- v0.13.0 regression suite: **160 passing tests, 0 failures**, including management API, authenticated Bambu P1P/P1S LAN endpoints, full production Bambu P1S adapter integration against the live emulator, editable zero-to-four-unit AMS simulation, embedded 3MF requirement parsing, interactive and automatic AMS material mapping, queue-to-print mapping propagation, credential-safe Bambu persistence, production Snapmaker and FlashForge adapter integration, and the combined U1 filament type/colour command.
+- v0.13.0 regression suite: **161 passing tests, 0 failures**, including management API, authenticated Bambu P1P/P1S LAN endpoints, full production Bambu P1S adapter integration against the live emulator, editable zero-to-four-unit AMS simulation, live-refresh-safe AMS material/colour controls, embedded 3MF requirement parsing, interactive and automatic AMS material mapping, queue-to-print mapping propagation, credential-safe Bambu persistence, production Snapmaker and FlashForge adapter integration, and the combined U1 filament type/colour command.
 - **v0.11.0 file-centric automatic queue:**
   - persistent controller-side staged queue files with SHA-256;
   - bounded G-code requirement extraction for tools/material/colour/nozzle metadata;
@@ -130,7 +130,7 @@ Manufacturer-specific discovery, capabilities, limits, status normalization, fil
 
 ## Current task
 
-**Experimental P1P/P1S AMS support is implemented on `feature/bambu-ams-v0130`.** The controller displays live AMS/external-spool sources, parses sliced 3MF filament requirements, provides direct-print mapping and carries automatic queue mappings through to the Bambu start command. The emulator supports zero to four editable AMS units. This branch, its controller-adapter parent and the emulator baseline have not been merged to `main`.
+**Experimental P1P/P1S AMS support is implemented on `feature/bambu-ams-v0130`.** The controller displays live AMS/external-spool sources, parses sliced 3MF filament requirements, provides direct-print mapping and carries automatic queue mappings through to the Bambu start command. The emulator supports zero to four editable AMS units; its live refresh reconciles controls in place so open material and colour selectors are not destroyed. This branch, its controller-adapter parent and the emulator baseline have not been merged to `main`.
 
 ## Next steps
 

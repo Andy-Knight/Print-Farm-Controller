@@ -313,6 +313,14 @@ test('Bambu printer detail exposes AMS slots and material mapping setup', () => 
   assert.match(emulatorApp, /amsSlots/);
 });
 
+test('emulator AMS controls survive live refresh while a slot is being edited', () => {
+  const emulatorApp = fs.readFileSync(new URL('../emulator/public/app.js', import.meta.url), 'utf8');
+  assert.match(emulatorApp, /structureSignature/);
+  assert.match(emulatorApp, /grid\.contains\(document\.activeElement\)/);
+  assert.match(emulatorApp, /document\.activeElement !== material/);
+  assert.match(emulatorApp, /document\.activeElement !== color/);
+});
+
 test('queue UI exposes production quantity and batch controls', () => {
   const html = fs.readFileSync(new URL('../public/index.html', import.meta.url), 'utf8');
   const server = fs.readFileSync(new URL('../src/server.js', import.meta.url), 'utf8');
