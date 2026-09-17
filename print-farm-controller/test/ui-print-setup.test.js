@@ -311,6 +311,8 @@ test('Bambu printer detail exposes AMS slots and material mapping setup', () => 
   assert.match(emulatorHtml, /AMS configuration/);
   assert.match(emulatorApp, /function renderAmsControls/);
   assert.match(emulatorApp, /amsSlots/);
+  assert.match(app, /P1P, P1S and X1C/);
+  assert.match(app, /X1C RTSPS\/H\.264 camera decoding is not yet supported/);
 });
 
 test('emulator AMS controls survive live refresh while a slot is being edited', () => {

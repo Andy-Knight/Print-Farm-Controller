@@ -27,6 +27,20 @@ export const EMULATOR_PROFILES = Object.freeze({
       checkCode: '87654321'
     })
   }),
+  'bambu-x1c': Object.freeze({
+    id: 'bambu-x1c',
+    adapterType: 'bambu-lab',
+    manufacturer: 'Bambu Lab',
+    model: 'X1C',
+    toolCount: 1,
+    defaults: Object.freeze({
+      mqttPort: 18903,
+      ftpsPort: 20010,
+      cameraPort: 16020,
+      serialNumber: '00M00SIM000001',
+      checkCode: '11223344'
+    })
+  }),
   'flashforge-ad5m-pro': Object.freeze({
     id: 'flashforge-ad5m-pro',
     adapterType: 'flashforge-ad5m',

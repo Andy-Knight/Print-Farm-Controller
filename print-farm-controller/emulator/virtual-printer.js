@@ -70,6 +70,7 @@ export class VirtualPrinter extends EventEmitter {
     this.bed = { actual: 25, target: 0 };
     this.chamber = { actual: 25 };
     this.tools = defaultTools(profile.toolCount || 1);
+    if (this.model === 'X1C') this.tools[0].nozzleVolumeType = 'hardened-steel';
     this.amsUnits = defaultAmsUnits(profile.adapterType === 'bambu-lab');
     this.externalSpool = { present:true, material:'PLA', materialVariant:null, color:'#FFFFFF', vendor:'Simulator' };
     this.activeMaterialSource = this.amsUnits.length ? 0 : 254;

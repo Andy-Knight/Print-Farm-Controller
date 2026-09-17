@@ -6,7 +6,7 @@ import { createBambuCameraSource } from '../bambu-camera.js';
 import { parse3mfPrintRequirements, parseGcodePrintRequirements } from '../file-print-requirements.js';
 
 export const BAMBU_LAB_ADAPTER_TYPE = 'bambu-lab';
-export const BAMBU_P1_MODELS = Object.freeze(['P1P', 'P1S']);
+export const BAMBU_LAB_MODELS = Object.freeze(['P1P', 'P1S', 'X1C']);
 
 function cleanHost(host) {
   return String(host || '').trim().replace(/^[a-z]+:\/\//i, '').replace(/\/$/, '').replace(/:\d+$/, '');
@@ -20,7 +20,7 @@ function validPort(value, fallback, label) {
 
 function normalizeModel(value) {
   const model = String(value || 'P1S').trim().toUpperCase();
-  if (!BAMBU_P1_MODELS.includes(model)) throw new Error('Bambu model must be P1P or P1S');
+  if (!BAMBU_LAB_MODELS.includes(model)) throw new Error('Bambu model must be P1P, P1S or X1C');
   return model;
 }
 
@@ -36,7 +36,7 @@ export function prepareBambuLabConfig(input = {}) {
   if (accessCode.length > 64 || /[\x00-\x1f\x7f]/.test(accessCode)) throw new Error('Bambu access code is invalid');
   const mqttPort = validPort(input.mqttPort || input.adapterConfig?.mqttPort, 8883, 'MQTT TLS');
   const ftpsPort = validPort(input.ftpsPort || input.adapterConfig?.ftpsPort, 990, 'FTPS TLS');
-  const cameraPort = validPort(input.cameraPort || input.adapterConfig?.cameraPort, 6000, 'Camera TLS');
+  const cameraPort = validPort(input.cameraPort || input.adapterConfig?.cameraPort, model === 'X1C' ? 322 : 6000, model === 'X1C' ? 'Camera RTSPS' : 'Camera TLS');
   return {
     name,
     host,
@@ -48,7 +48,7 @@ export function prepareBambuLabConfig(input = {}) {
     adapterType: BAMBU_LAB_ADAPTER_TYPE,
     manufacturer: 'Bambu Lab',
     model,
-    adapterConfig: { mqttPort, ftpsPort, cameraPort, experimental: true }
+    adapterConfig: { mqttPort, ftpsPort, cameraPort, cameraProtocol:model === 'X1C' ? 'rtsps-h264' : 'tls-jpeg', experimental: true }
   };
 }
 
@@ -180,7 +180,8 @@ export function normalizeBambuStatus(payload = {}, printer = {}) {
     chamberFan: fanPercent(print.big_fan2_speed),
     auxiliaryFan: fanPercent(print.big_fan1_speed),
     light: Array.isArray(print.lights_report) ? print.lights_report.find((item) => item.node === 'chamber_light')?.mode || null : null,
-    cameraAvailable: true,
+    cameraAvailable: model !== 'X1C',
+    lidarAvailable: model === 'X1C',
     model,
     experimental: true
   };
@@ -250,18 +251,28 @@ const P1S_CAPABILITIES = normalizeCapabilities({
   chamberTemperatureSensor: true
 });
 
+const X1C_CAPABILITIES = normalizeCapabilities({
+  ...P1S_CAPABILITIES,
+  // X1C exposes H.264 over RTSPS rather than the P1 TLS/JPEG stream. The
+  // controller has no native H.264 decoder, so do not advertise camera support.
+  camera: false
+});
+
 export class BambuLabAdapter extends PrinterAdapter {
   get type() { return BAMBU_LAB_ADAPTER_TYPE; }
   get manufacturer() { return 'Bambu Lab'; }
   get model() { return normalizeModel(this.printer.model); }
-  get capabilities() { return this.model === 'P1S' ? P1S_CAPABILITIES : P1P_CAPABILITIES; }
+  get capabilities() {
+    if (this.model === 'X1C') return X1C_CAPABILITIES;
+    return this.model === 'P1S' ? P1S_CAPABILITIES : P1P_CAPABILITIES;
+  }
   get uploadExtensions() { return ['.3mf', '.gcode']; }
   get limits() {
     return Object.freeze({
-      bedTemperature: { min: 0, max: 100 },
+      bedTemperature: { min: 0, max: this.model === 'X1C' ? 120 : 100 },
       nozzleTemperature: { min: 0, max: 300 },
       fanPercent: { min: 0, max: 100 },
-      chamberPreheatBedTemperature: { min: 30, max: 100 },
+      chamberPreheatBedTemperature: { min: 30, max: this.model === 'X1C' ? 120 : 100 },
       chamberPreheatMinutes: { min: 1, max: 120 },
       toolCount: 1
     });
@@ -312,24 +323,27 @@ export class BambuLabAdapter extends PrinterAdapter {
     if (!commands.length) throw new Error('No Bambu fan value supplied');
     return sendBambuCommand(this.printer, { print: { command: 'gcode_line', sequence_id: sequenceId(), param: `${commands.join('\n')}\n` } });
   }
-  async getCameraSource() { return createBambuCameraSource(this.printer); }
+  async getCameraSource() {
+    if (this.model === 'X1C') return this.unsupported('X1C RTSPS/H.264 camera');
+    return createBambuCameraSource(this.printer);
+  }
   async activateCamera() { return { ok: true }; }
 }
 
 export const bambuLabAdapterDefinition = Object.freeze({
   type: BAMBU_LAB_ADAPTER_TYPE,
   manufacturer: 'Bambu Lab',
-  label: 'Bambu Lab P1P / P1S (experimental)',
-  models: [...BAMBU_P1_MODELS],
+  label: 'Bambu Lab P1P / P1S / X1C (experimental)',
+  models: [...BAMBU_LAB_MODELS],
   capabilities: P1S_CAPABILITIES,
   experimental: true,
   configFields: [
-    { name: 'model', label: 'Model', required: true, defaultValue: 'P1S', placeholder: 'P1P or P1S', help: 'Enter P1P or P1S. Support remains experimental until validated on physical hardware.' },
+    { name: 'model', label: 'Model', required: true, defaultValue: 'P1S', placeholder: 'P1P, P1S or X1C', help: 'Enter P1P, P1S or X1C. Support remains experimental until validated on physical hardware.' },
     { name: 'serialNumber', label: 'Printer serial number', required: true, placeholder: 'Shown in printer device information' },
     { name: 'accessCode', label: 'LAN access code', required: true, secret: true, placeholder: 'Shown in LAN / Developer mode', help: 'Enable LAN Only or Developer mode on the printer, then enter its access code.' },
     { name: 'mqttPort', label: 'MQTT TLS port', required: true, type: 'number', defaultValue: 8883, min: 1, max: 65535 },
     { name: 'ftpsPort', label: 'FTPS TLS port', required: true, type: 'number', defaultValue: 990, min: 1, max: 65535 },
-    { name: 'cameraPort', label: 'Camera TLS port', required: true, type: 'number', defaultValue: 6000, min: 1, max: 65535 }
+    { name: 'cameraPort', label: 'Camera port', required: true, type: 'number', defaultValue: 6000, min: 1, max: 65535, help: 'P1P/P1S use TLS/JPEG port 6000. X1C uses RTSPS/H.264 port 322; X1C camera decoding is not yet supported by the controller.' }
   ],
   prepareConfig: prepareBambuLabConfig,
   create: (printer) => new BambuLabAdapter(printer)

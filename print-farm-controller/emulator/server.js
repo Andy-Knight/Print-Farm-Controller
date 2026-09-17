@@ -189,6 +189,7 @@ export function createEmulator({
       await addPrinter({ profileId: 'snapmaker-u1', name: 'Simulated Snapmaker U1' });
       await addPrinter({ profileId: 'bambu-p1p', name: 'Simulated Bambu Lab P1P' });
       await addPrinter({ profileId: 'bambu-p1s', name: 'Simulated Bambu Lab P1S' });
+      await addPrinter({ profileId: 'bambu-x1c', name: 'Simulated Bambu Lab X1 Carbon' });
     }
     return managementServer.address();
   }

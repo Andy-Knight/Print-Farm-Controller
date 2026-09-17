@@ -60,6 +60,18 @@ test('normalizes terminal Bambu states without letting retained filenames imply 
   assert.equal(failed.status, 'failed');
 });
 
+test('normalizes X1C model telemetry without advertising the unsupported RTSPS camera', () => {
+  const status = normalizeBambuStatus({ print:{
+    gcode_state:'IDLE', nozzle_diameter:'0.4', chamber_temper:41,
+    vt_tray:{ tray_type:'PA-CF', tray_color:'222222FF' }
+  } }, { model:'X1C', adapterConfig:{} });
+  assert.equal(status.model, 'X1C');
+  assert.equal(status.chamber.actual, 41);
+  assert.equal(status.lidarAvailable, true);
+  assert.equal(status.cameraAvailable, false);
+  assert.equal(status.tools[0].filament.material, 'PA-CF');
+});
+
 test('builds Bambu project and raw G-code print commands', () => {
   const project = bambuAdapterInternals.printCommand('part.3mf', {
     levelingBeforePrint:false, flowCalibrationBeforePrint:true, timeLapseBeforePrint:true,

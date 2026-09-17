@@ -34,9 +34,12 @@ function endpointLines(printer) {
     ];
   }
   if (printer.adapterType === 'bambu-lab') {
+    const cameraLabel = printer.model === 'X1C'
+      ? `Camera test endpoint ${settings.cameraPort} · physical X1C uses RTSPS 322`
+      : `Camera TLS ${settings.cameraPort}`;
     return [
       `Host ${settings.host}`,
-      `MQTT TLS ${settings.mqttPort} · FTPS TLS ${settings.ftpsPort} · Camera TLS ${settings.cameraPort}`,
+      `MQTT TLS ${settings.mqttPort} · FTPS TLS ${settings.ftpsPort} · ${cameraLabel}`,
       `Serial ${settings.serialNumber} · Access code ${settings.accessCode}`
     ];
   }

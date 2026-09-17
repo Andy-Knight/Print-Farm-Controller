@@ -29,7 +29,7 @@ test('emulator management API creates and controls a virtual printer', async (t)
   const base = `http://127.0.0.1:${address.port}`;
 
   const profiles = await fetch(`${base}/api/profiles`).then((response) => response.json());
-  assert.deepEqual(profiles.profiles.map((profile) => profile.id).sort(), ['bambu-p1p', 'bambu-p1s', 'flashforge-ad5m-pro', 'snapmaker-u1']);
+  assert.deepEqual(profiles.profiles.map((profile) => profile.id).sort(), ['bambu-p1p', 'bambu-p1s', 'bambu-x1c', 'flashforge-ad5m-pro', 'snapmaker-u1']);
 
   const createdResponse = await fetch(`${base}/api/printers`, {
     method: 'POST',
@@ -92,7 +92,7 @@ function waitForData(socket, predicate, timeoutMs = 2000) {
   });
 }
 
-test('Bambu P1P and P1S profiles expose authenticated LAN protocol endpoints', async (t) => {
+test('Bambu P1P, P1S and X1C profiles expose authenticated LAN protocol endpoints', async (t) => {
   const emulator = createEmulator({ managementPort: 0, withDefaults: false });
   await emulator.start();
   t.after(() => emulator.stop());
@@ -104,9 +104,15 @@ test('Bambu P1P and P1S profiles expose authenticated LAN protocol endpoints', a
     profileId: 'bambu-p1s',
     ports: { mqttPort: 0, ftpsPort: 0, cameraPort: 0 }
   });
+  const x1c = await emulator.addPrinter({
+    profileId: 'bambu-x1c',
+    ports: { mqttPort: 0, ftpsPort: 0, cameraPort: 0 }
+  });
 
   assert.equal(p1p.model, 'P1P');
   assert.equal(p1s.model, 'P1S');
+  assert.equal(x1c.model, 'X1C');
+  assert.equal(x1c.tools[0].nozzleVolumeType, 'hardened-steel');
   assert.equal(p1p.controllerSettings.protocolStatus, 'simulated-unverified');
   assert.notEqual(p1p.ports.mqttPort, p1s.ports.mqttPort);
 
@@ -149,6 +155,44 @@ test('Bambu P1P and P1S profiles expose authenticated LAN protocol endpoints', a
   const frameLength = frame.readUInt32LE(0);
   assert.ok(frame.subarray(16, 16 + frameLength).includes(Buffer.from([0xff, 0xd8, 0xff])));
   camera.destroy();
+});
+
+test('Bambu X1C profile interoperates with controller status, files, controls and AMS mapping', async (t) => {
+  const emulator = createEmulator({ managementPort: 0, withDefaults: false });
+  await emulator.start();
+  t.after(() => emulator.stop());
+  const virtual = await emulator.addPrinter({
+    profileId:'bambu-x1c', name:'Adapter Test X1C',
+    ports:{ mqttPort:0, ftpsPort:0, cameraPort:0 }
+  });
+  const config = prepareBambuLabConfig({
+    name:virtual.name, model:virtual.model, host:virtual.host,
+    serialNumber:virtual.serialNumber, accessCode:virtual.checkCode,
+    mqttPort:virtual.ports.mqttPort, ftpsPort:virtual.ports.ftpsPort,
+    cameraPort:virtual.ports.cameraPort
+  });
+  const adapter = getPrinterAdapter(config);
+  const initial = await adapter.getStatus();
+  assert.equal(initial.model, 'X1C');
+  assert.equal(initial.lidarAvailable, true);
+  assert.equal(initial.cameraAvailable, false);
+  assert.equal(initial.materialSources.filter((source) => source.kind === 'ams').length, 4);
+  assert.equal(adapter.capabilities.camera, false);
+  assert.equal(adapter.limits.bedTemperature.max, 120);
+  assert.deepEqual((await adapter.getFiles()).files, ['calibration-cube.gcode']);
+  await adapter.uploadFile(new URL('../README.md', import.meta.url), { fileName:'X1C upload test.3mf' });
+  assert.equal((await adapter.verifyFile('X1C upload test.3mf')).verified, true);
+  await adapter.printLocalFile('X1C upload test.3mf', { materialMap:{ 0:2 }, usedLogicalTools:[0] });
+  const printing = await adapter.getStatus();
+  assert.equal(printing.status, 'printing');
+  assert.equal(printing.materialSources.find((source) => source.active).protocolIndex, 2);
+  await adapter.setTemperatures({ nozzle:225, bed:105 });
+  await adapter.setFans({ coolingFan:35, chamberFan:60 });
+  const controlled = await adapter.getStatus();
+  assert.equal(controlled.nozzle.target, 225);
+  assert.equal(controlled.bed.target, 105);
+  assert.ok(Math.abs(controlled.chamberFan - 60) <= 1);
+  await assert.rejects(() => adapter.getCameraSource(), /not supported/i);
 });
 
 test('Bambu P1S profile interoperates with the production controller adapter', async (t) => {

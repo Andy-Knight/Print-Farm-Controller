@@ -3,7 +3,7 @@
   "version": "0.13.0",
   "private": true,
   "type": "module",
-  "description": "Printer Fleet Controller: local-first FlashForge and Snapmaker fleet control with experimental Bambu P1P/P1S support and printer emulation",
+  "description": "Printer Fleet Controller: local-first FlashForge and Snapmaker fleet control with experimental Bambu P1P/P1S/X1C support and printer emulation",
   "scripts": {
     "start": "node src/server.js",
     "dev": "node --watch src/server.js",

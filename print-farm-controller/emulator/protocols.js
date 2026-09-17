@@ -489,6 +489,7 @@ function bambuStatus(printer, sequenceId = '0') {
       nozzle_temper: tool.actual,
       nozzle_target_temper: tool.target,
       nozzle_diameter: String(tool.nozzleDiameter),
+      nozzle_type: printer.model === 'X1C' ? 'hardened_steel' : 'stainless_steel',
       bed_temper: printer.bed.actual,
       bed_target_temper: printer.bed.target,
       chamber_temper: printer.chamber.actual,
@@ -501,6 +502,7 @@ function bambuStatus(printer, sequenceId = '0') {
       lights_report: [{ node: 'chamber_light', mode: 'off' }],
       home_flag: 0,
       hw_switch_state: 1,
+      xcam_status: printer.model === 'X1C' ? '0' : undefined,
       ams_status: printer.amsUnits?.length ? 768 : 0,
       tray_now: String(printer.amsUnits?.length && activeTray ? activeIndex : 254),
       ams: {

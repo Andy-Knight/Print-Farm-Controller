@@ -65,7 +65,7 @@ test('Snapmaker U1 exposes print tool mapping and flow-calibration capabilities'
   assert.equal(adapter.limits.toolCount, 4);
 });
 
-test('Bambu P1P and P1S configuration exposes model-specific experimental capabilities', () => {
+test('Bambu P1P, P1S and X1C configuration exposes model-specific experimental capabilities', () => {
   const common = {
     adapterType:BAMBU_LAB_ADAPTER_TYPE,
     name:'Bambu test',
@@ -78,19 +78,30 @@ test('Bambu P1P and P1S configuration exposes model-specific experimental capabi
   };
   const p1pConfig = preparePrinterConfig({ ...common, model:'p1p' });
   const p1sConfig = preparePrinterConfig({ ...common, model:'P1S' });
+  const x1cConfig = preparePrinterConfig({ ...common, model:'x1c' });
+  const x1cDefaults = preparePrinterConfig({ ...common, model:'X1C', cameraPort:undefined });
   assert.equal(p1pConfig.model, 'P1P');
   assert.equal(p1pConfig.checkCode, '12345678');
   assert.equal(p1sConfig.model, 'P1S');
+  assert.equal(x1cConfig.model, 'X1C');
+  assert.equal(x1cDefaults.cameraPort, 322);
+  assert.equal(x1cDefaults.adapterConfig.cameraProtocol, 'rtsps-h264');
   const p1p = getPrinterAdapter(p1pConfig);
   const p1s = getPrinterAdapter(p1sConfig);
+  const x1c = getPrinterAdapter(x1cConfig);
   assert.equal(p1p.capabilities.fileUpload, true);
   assert.equal(p1p.capabilities.camera, true);
   assert.equal(p1p.capabilities.materialSlotMapping, true);
   assert.equal(p1p.capabilities.chamberFan, false);
   assert.equal(p1s.capabilities.chamberFan, true);
   assert.equal(p1s.capabilities.chamberPreheat, true);
+  assert.equal(x1c.capabilities.chamberFan, true);
+  assert.equal(x1c.capabilities.chamberTemperatureSensor, true);
+  assert.equal(x1c.capabilities.materialSlotMapping, true);
+  assert.equal(x1c.capabilities.camera, false);
+  assert.equal(x1c.limits.bedTemperature.max, 120);
   assert.deepEqual(p1s.uploadExtensions, ['.3mf', '.gcode']);
-  assert.throws(() => preparePrinterConfig({ ...common, model:'X1C' }), /model must be P1P or P1S/);
+  assert.throws(() => preparePrinterConfig({ ...common, model:'A1' }), /model must be P1P, P1S or X1C/);
 });
 
 test('a new printer family can register without changing fleet services', () => {

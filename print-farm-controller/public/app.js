@@ -882,6 +882,14 @@ function renderAdapterFields(type, values = {}) {
     ].filter(Boolean).join(' ');
     return `<label>${escapeHtml(field.label || field.name)}<input ${attrs}></label>${field.help ? `<div class="field-help">${escapeHtml(field.help)}</div>` : ''}`;
   }).join('');
+  if (type === 'bambu-lab') {
+    const model = adapterFields.querySelector('[name="model"]');
+    const cameraPort = adapterFields.querySelector('[name="cameraPort"]');
+    model?.addEventListener('change', () => {
+      if (!cameraPort || !['322','6000'].includes(cameraPort.value)) return;
+      cameraPort.value = model.value.trim().toUpperCase() === 'X1C' ? '322' : '6000';
+    });
+  }
 }
 
 async function loadAdapters() {
@@ -2271,7 +2279,7 @@ async function openPrinter(id) {
     const materialHelp = printer.adapterType === 'flashforge-ad5m'
       ? "Filament type uses the controller's manual designation when set, otherwise the value reported by the FlashForge 5M local /detail API. Installed nozzle size uses the controller nozzle designation when set because the 5M API does not reliably expose it. The 5M API also does not expose U1-style filament colour/RFID metadata or a reliable live filament-presence value."
       : printer.adapterType === 'bambu-lab'
-        ? 'Material and colour come from the active external-spool or AMS tray metadata reported by the Bambu LAN interface. Bambu P1 support is experimental until checked against physical P1P and P1S hardware.'
+        ? 'Material and colour come from the active external-spool or AMS tray metadata reported by the Bambu LAN interface. Bambu support is experimental until checked against physical P1P, P1S and X1C hardware.'
         : 'Filament presence comes from each U1 motion sensor. Third-party filament type and colour can be written to the idle printer and are verified by reading the effective per-tool configuration back. Official Snapmaker RFID filament remains locked. Nozzle size and XYZ offset come directly from each physical U1 extruder.';
     const bambuSources = printer.adapterType === 'bambu-lab' && Array.isArray(s?.materialSources)
       ? `<div class="ams-source-grid">${s.materialSources.map((source) => {
@@ -2342,7 +2350,7 @@ async function openPrinter(id) {
       <button class="icon" data-detail-close>×</button>
     </div>
     <div id="detailConnectionError" class="error hidden"></div>
-    ${printer.adapterType === 'bambu-lab' ? '<div class="file-warning">Experimental Bambu P1 support: validate behavior carefully before relying on unattended printing.</div>' : ''}
+    ${printer.adapterType === 'bambu-lab' ? `<div class="file-warning">Experimental Bambu ${escapeHtml(printer.model || '')} support: validate behavior carefully before relying on unattended printing.${printer.model === 'X1C' ? ' X1C RTSPS/H.264 camera decoding is not yet supported.' : ''}</div>` : ''}
     <div class="detail-grid">
       <div class="detail-column detail-column-left">
         ${detailCameraMarkup(printer)}
