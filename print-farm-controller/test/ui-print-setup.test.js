@@ -315,6 +315,12 @@ test('Bambu printer detail exposes AMS slots and material mapping setup', () => 
   assert.match(app, /X1C RTSPS\/H\.264 camera decoding is not yet supported/);
 });
 
+test('add-printer adapter fields render controlled model choices as a dropdown', () => {
+  assert.match(app, /field\.type === 'select' && Array\.isArray\(field\.options\)/);
+  assert.match(app, /<select \$\{attrs\}>\$\{options\}<\/select>/);
+  assert.match(app, /model\.value\.trim\(\)\.toUpperCase\(\) === 'X1C'/);
+});
+
 test('emulator AMS controls survive live refresh while a slot is being edited', () => {
   const emulatorApp = fs.readFileSync(new URL('../emulator/public/app.js', import.meta.url), 'utf8');
   assert.match(emulatorApp, /structureSignature/);

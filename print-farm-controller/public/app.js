@@ -869,8 +869,17 @@ function renderAdapterFields(type, values = {}) {
   const definition = adapterDefinition(type);
   const fields = definition?.configFields || [];
   adapterFields.innerHTML = fields.map((field) => {
-    const inputType = field.secret ? 'password' : (field.type || 'text');
     const value = values[field.name] ?? field.defaultValue ?? '';
+    const help = field.help ? `<div class="field-help">${escapeHtml(field.help)}</div>` : '';
+    if (field.type === 'select' && Array.isArray(field.options)) {
+      const attrs = [`name="${escapeHtml(field.name)}"`, field.required ? 'required' : ''].filter(Boolean).join(' ');
+      const options = field.options.map((item) => {
+        const option = item && typeof item === 'object' ? item : { value:item, label:item };
+        return `<option value="${escapeHtml(option.value)}"${String(option.value) === String(value) ? ' selected' : ''}>${escapeHtml(option.label ?? option.value)}</option>`;
+      }).join('');
+      return `<label>${escapeHtml(field.label || field.name)}<select ${attrs}>${options}</select></label>${help}`;
+    }
+    const inputType = field.secret ? 'password' : (field.type || 'text');
     const attrs = [
       `name="${escapeHtml(field.name)}"`,
       `type="${escapeHtml(inputType)}"`,
@@ -880,7 +889,7 @@ function renderAdapterFields(type, values = {}) {
       field.max !== undefined ? `max="${escapeHtml(field.max)}"` : '',
       value !== '' ? `value="${escapeHtml(value)}"` : ''
     ].filter(Boolean).join(' ');
-    return `<label>${escapeHtml(field.label || field.name)}<input ${attrs}></label>${field.help ? `<div class="field-help">${escapeHtml(field.help)}</div>` : ''}`;
+    return `<label>${escapeHtml(field.label || field.name)}<input ${attrs}></label>${help}`;
   }).join('');
   if (type === 'bambu-lab') {
     const model = adapterFields.querySelector('[name="model"]');

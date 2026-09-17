@@ -66,6 +66,10 @@ test('Snapmaker U1 exposes print tool mapping and flow-calibration capabilities'
 });
 
 test('Bambu P1P, P1S and X1C configuration exposes model-specific experimental capabilities', () => {
+  const definition = listAdapterDefinitions().find((item) => item.type === BAMBU_LAB_ADAPTER_TYPE);
+  const modelField = definition.configFields.find((field) => field.name === 'model');
+  assert.equal(modelField.type, 'select');
+  assert.deepEqual(modelField.options.map((option) => option.value), ['P1P','P1S','X1C']);
   const common = {
     adapterType:BAMBU_LAB_ADAPTER_TYPE,
     name:'Bambu test',

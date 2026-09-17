@@ -338,7 +338,11 @@ export const bambuLabAdapterDefinition = Object.freeze({
   capabilities: P1S_CAPABILITIES,
   experimental: true,
   configFields: [
-    { name: 'model', label: 'Model', required: true, defaultValue: 'P1S', placeholder: 'P1P, P1S or X1C', help: 'Enter P1P, P1S or X1C. Support remains experimental until validated on physical hardware.' },
+    { name: 'model', label: 'Model', required: true, type:'select', defaultValue:'P1S', options:[
+      { value:'P1P', label:'P1P' },
+      { value:'P1S', label:'P1S' },
+      { value:'X1C', label:'X1 Carbon (X1C)' }
+    ], help:'Select the Bambu printer model. Support remains experimental until validated on physical hardware.' },
     { name: 'serialNumber', label: 'Printer serial number', required: true, placeholder: 'Shown in printer device information' },
     { name: 'accessCode', label: 'LAN access code', required: true, secret: true, placeholder: 'Shown in LAN / Developer mode', help: 'Enable LAN Only or Developer mode on the printer, then enter its access code.' },
     { name: 'mqttPort', label: 'MQTT TLS port', required: true, type: 'number', defaultValue: 8883, min: 1, max: 65535 },

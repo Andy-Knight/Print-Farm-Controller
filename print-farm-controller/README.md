@@ -120,7 +120,7 @@ The Bambu endpoints use a simulator-owned self-signed certificate, MQTT username
 
 1. Enable the printer's LAN Only or Developer mode and note its serial number and LAN access code.
 2. Click **+ Add printer** and select **Bambu Lab P1P / P1S / X1C (experimental)**.
-3. Enter `P1P`, `P1S` or `X1C`, the IP address, serial number and access code.
+3. Choose `P1P`, `P1S` or `X1 Carbon (X1C)` from the model dropdown, then enter the IP address, serial number and access code.
 4. Keep the physical-printer defaults of MQTT TLS `8883` and implicit FTPS `990`. P1P/P1S camera TLS defaults to `6000`; selecting X1C changes the stored camera port to its RTSPS default `322`, although X1C camera decoding is not yet enabled. Use the alternate ports displayed by the emulator only for simulated printers.
 5. **Test & add** validates the MQTT credentials before saving the printer.
 
