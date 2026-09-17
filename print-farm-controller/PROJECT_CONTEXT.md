@@ -6,7 +6,7 @@
 
 - Repository: `Andy-Knight/Print-Farm-Controller`
 - Project path: `print-farm-controller/`
-- Branch: `feature/bambu-x1c-v0130` (branched from `feature/bambu-ams-v0130`; not merged to `main`)
+- Branch: `release/v0.13.0` (consolidates the complete v0.13.0 emulator, Bambu P1, AMS and X1C branch chain; not merged to `main`)
 - Current application version on this branch: **0.13.0**
 - Runtime: **Node.js 20+**, ES modules, no npm runtime dependencies.
 - GitHub is the authoritative code baseline.
@@ -130,13 +130,14 @@ Manufacturer-specific discovery, capabilities, limits, status normalization, fil
 
 ## Current task
 
-**Experimental X1C support is implemented on `feature/bambu-x1c-v0130`, based on the P1/AMS work.** Status, FTPS files, print/job/temperature/fan control, 3MF mapping, automatic queueing and zero-to-four AMS emulation work through the shared Bambu adapter. The add-printer form uses controlled P1P/P1S/X1C model choices and switches the default camera port for X1C. Physical X1C RTSPS/H.264 camera decoding is explicitly out of scope for this first pass. This branch and its Bambu/emulator parents have not been merged to `main`.
+**`release/v0.13.0` is the consolidated release candidate containing the complete emulator, Bambu P1P/P1S controller, AMS and X1C work.** Status, FTPS files, print/job/temperature/fan control, 3MF mapping, automatic queueing and zero-to-four AMS emulation work through the shared Bambu adapter. The add-printer form uses controlled P1P/P1S/X1C model choices and switches the default camera port for X1C. Physical X1C RTSPS/H.264 camera decoding is explicitly out of scope for this release candidate. The release branch has not been merged to `main`.
 
 ## Next steps
 
-1. Run the controller and emulator together, add the displayed X1C endpoint, and validate status, storage, direct printing, automatic queueing, AMS mapping, temperatures, fans, completion and clearance behavior.
-2. Compare telemetry, FTPS behavior and `project_file` start payloads against reliable captures or physical X1C hardware before removing the experimental label or merging to `main`.
-3. Decide whether to add an optional native dependency/transcoder for X1C RTSPS/H.264 camera support without compromising the controller's dependency-free default installation.
+1. Run final release-candidate testing with the controller and all default emulator profiles: FlashForge AD5M Pro, Snapmaker U1, Bambu P1P, P1S and X1C.
+2. Validate X1C status, storage, direct printing, automatic queueing, AMS mapping, temperatures, fans, completion and clearance behavior, while retaining the explicit physical-camera limitation.
+3. Compare Bambu telemetry, FTPS behavior and `project_file` start payloads against reliable captures or physical hardware before removing the experimental label.
+4. After acceptance, merge `release/v0.13.0` into `main`, create the final `v0.13.0` release tag, then remove superseded feature branches.
 
 ## Handoff rule
 
