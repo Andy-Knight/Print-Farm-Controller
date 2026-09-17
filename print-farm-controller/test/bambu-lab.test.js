@@ -45,6 +45,10 @@ test('active AMS tray takes precedence over configured external-spool metadata',
   } }, { model:'P1S' });
   assert.equal(status.tools[0].filament.material, 'ASA');
   assert.equal(status.tools[0].filament.color, '#112233');
+  assert.equal(status.amsAttached, true);
+  assert.equal(status.materialSources.length, 3);
+  assert.equal(status.materialSources.find((source) => source.active).label, 'AMS 1 · Slot 2');
+  assert.equal(status.materialSources.find((source) => source.kind === 'external').protocolIndex, 254);
 });
 
 test('normalizes terminal Bambu states without letting retained filenames imply busy', () => {
@@ -57,12 +61,20 @@ test('normalizes terminal Bambu states without letting retained filenames imply 
 });
 
 test('builds Bambu project and raw G-code print commands', () => {
-  const project = bambuAdapterInternals.printCommand('part.3mf', { levelingBeforePrint:false, flowCalibrationBeforePrint:true, timeLapseBeforePrint:true });
+  const project = bambuAdapterInternals.printCommand('part.3mf', {
+    levelingBeforePrint:false, flowCalibrationBeforePrint:true, timeLapseBeforePrint:true,
+    materialMap:{ 0:2, 1:0 }, usedLogicalTools:[0,1]
+  });
   assert.equal(project.print.command, 'project_file');
   assert.equal(project.print.url, 'file:///sdcard/part.3mf');
   assert.equal(project.print.bed_leveling, false);
   assert.equal(project.print.flow_cali, true);
   assert.equal(project.print.timelapse, true);
+  assert.equal(project.print.use_ams, true);
+  assert.deepEqual(project.print.ams_mapping, [2,0]);
+  const external = bambuAdapterInternals.printCommand('single.3mf', { materialMap:{ 0:254 }, usedLogicalTools:[0] });
+  assert.equal(external.print.use_ams, false);
+  assert.deepEqual(external.print.ams_mapping, [254]);
   const gcode = bambuAdapterInternals.printCommand('part.gcode');
   assert.equal(gcode.print.command, 'gcode_file');
   assert.equal(gcode.print.param, 'part.gcode');

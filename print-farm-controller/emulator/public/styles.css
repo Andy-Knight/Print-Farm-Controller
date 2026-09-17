@@ -92,6 +92,11 @@ main { width: min(1440px, calc(100% - 3rem)); margin: 1.5rem auto 4rem; }
 details { border-top: 1px solid var(--line); margin-top: 1rem; padding-top: .8rem; }
 summary { cursor: pointer; color: var(--text); font-weight: 800; }
 .control-grid, .fault-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: .8rem; padding-top: .8rem; }
+.ams-toolbar { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:.8rem; padding-top:.8rem; }
+.ams-slot-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:.8rem; margin-top:.8rem; }
+.ams-slot { border:1px solid var(--border); border-radius:10px; padding:.75rem; display:grid; gap:.55rem; }
+.ams-slot label { display:grid; gap:.25rem; }
+.ams-slot label.check { display:flex; align-items:center; gap:.45rem; }
 .control-grid label:not(.check), .fault-grid label:not(.check) { grid-template-columns: 1fr auto; align-items: center; }
 .control-grid label:not(.check) input, .control-grid label:not(.check) select, .fault-grid label:not(.check) input { grid-column: 1 / -1; }
 label.check { display: flex; align-items: center; gap: .5rem; min-height: 38px; }
@@ -110,5 +115,5 @@ label.check input { width: auto; }
   .summary { grid-template-columns: repeat(2, 1fr); }
   .add-form { grid-template-columns: 1fr; }
   .button-row { grid-template-columns: repeat(2, 1fr); }
-  .control-grid, .fault-grid { grid-template-columns: 1fr; }
+  .control-grid, .fault-grid, .ams-toolbar, .ams-slot-grid { grid-template-columns: 1fr; }
 }

@@ -222,6 +222,13 @@ input:focus,select:focus { border-color:#7a9fbe; }
 .material-tool > span { color:#9cacb8; font-size:.73rem; }
 .material-tool > small { color:#687986; font-size:.69rem; margin-top:4px; }
 .material-tool > small.material-rgb { color:#8193a2; margin-top:2px; }
+.ams-source-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; margin-top:10px; }
+.ams-source { display:grid; grid-template-columns:1fr auto; gap:4px 8px; align-items:center; border:1px solid #29343d; border-radius:9px; padding:9px; }
+.ams-source > div { display:flex; align-items:center; gap:7px; }
+.ams-source > div span { font-size:11px; color:#78d6b1; }
+.ams-source small { grid-column:1 / -1; color:#8193a2; }
+.ams-source.active { border-color:#4b8f77; }
+.ams-source.empty { opacity:.62; }
 .u1-filament-config-control { display:grid; grid-template-columns:minmax(0,1fr) 74px; gap:6px 8px; align-items:end; margin-top:8px; padding-top:8px; border-top:1px solid #202a32; }
 .u1-filament-config-control label { margin:0; color:#8493a1; font-size:.68rem; }
 .u1-filament-config-control select, .u1-filament-config-control input[type="color"] { display:block; width:100%; min-height:34px; margin-top:4px; }

@@ -301,6 +301,18 @@ test('printer detail exposes verified upload to an individual printer', () => {
   assert.match(styles, /\.printer-file-upload/);
 });
 
+test('Bambu printer detail exposes AMS slots and material mapping setup', () => {
+  const emulatorApp = fs.readFileSync(new URL('../emulator/public/app.js', import.meta.url), 'utf8');
+  const emulatorHtml = fs.readFileSync(new URL('../emulator/public/index.html', import.meta.url), 'utf8');
+  assert.match(app, /function renderBambuPrintSetup/);
+  assert.match(app, /data-bambu-material-map/);
+  assert.match(app, /data-ams-source/);
+  assert.match(app, /materialSlotMapping/);
+  assert.match(emulatorHtml, /AMS configuration/);
+  assert.match(emulatorApp, /function renderAmsControls/);
+  assert.match(emulatorApp, /amsSlots/);
+});
+
 test('queue UI exposes production quantity and batch controls', () => {
   const html = fs.readFileSync(new URL('../public/index.html', import.meta.url), 'utf8');
   const server = fs.readFileSync(new URL('../src/server.js', import.meta.url), 'utf8');

@@ -85,6 +85,7 @@ test('Bambu P1P and P1S configuration exposes model-specific experimental capabi
   const p1s = getPrinterAdapter(p1sConfig);
   assert.equal(p1p.capabilities.fileUpload, true);
   assert.equal(p1p.capabilities.camera, true);
+  assert.equal(p1p.capabilities.materialSlotMapping, true);
   assert.equal(p1p.capabilities.chamberFan, false);
   assert.equal(p1s.capabilities.chamberFan, true);
   assert.equal(p1s.capabilities.chamberPreheat, true);

@@ -120,6 +120,69 @@ function mapLogicalTools(requirements = {}, status = {}) {
   return { ok:review.length === 0, toolMap, reasons:[], review };
 }
 
+function sourceMatches(required, source) {
+  if (source?.present === false) return false;
+  const requiredMaterial = canonicalMaterial(required.material);
+  const currentMaterial = canonicalMaterial(source?.material);
+  if (requiredMaterial && currentMaterial && requiredMaterial !== currentMaterial) return false;
+  const requiredColor = normalizeColor(required.color);
+  const currentColor = normalizeColor(source?.color);
+  if (requiredColor && currentColor && requiredColor !== currentColor) return false;
+  return true;
+}
+
+function mapLogicalMaterials(requirements = {}, status = {}) {
+  const logicalTools = Array.isArray(requirements.logicalTools) ? requirements.logicalTools : [];
+  const sources = (Array.isArray(status.materialSources) ? status.materialSources : []).filter((source) => source?.present !== false);
+  if (!logicalTools.length) return { ok:true, materialMap:null, reasons:[], review:[] };
+  const descriptors = logicalTools.map((logical) => ({ logical, candidates:sources.filter((source) => sourceMatches(logical, source)) }));
+  const missing = descriptors.filter((item) => !item.candidates.length);
+  if (missing.length) {
+    return {
+      ok:false, materialMap:null, review:[],
+      reasons:missing.map(({ logical }) => ({ code:'material_slot_not_loaded', text:`No AMS or external-spool slot matches file T${logical.index} (${requirementText(logical)})` }))
+    };
+  }
+  const ordered = [...descriptors].sort((a, b) => a.candidates.length - b.candidates.length || Number(a.logical.index) - Number(b.logical.index));
+  const assigned = new Map();
+  const used = new Set();
+  function choose(position) {
+    if (position >= ordered.length) return true;
+    const descriptor = ordered[position];
+    for (const source of descriptor.candidates) {
+      const key = String(source.id ?? source.protocolIndex);
+      if (used.has(key)) continue;
+      used.add(key);
+      assigned.set(Number(descriptor.logical.index), source);
+      if (choose(position + 1)) return true;
+      assigned.delete(Number(descriptor.logical.index));
+      used.delete(key);
+    }
+    return false;
+  }
+  if (!choose(0)) {
+    return { ok:false, materialMap:null, review:[], reasons:[{ code:'material_mapping_conflict', text:'No unique AMS/external-spool mapping satisfies all file filament requirements' }] };
+  }
+  const materialMap = {};
+  const review = [];
+  for (const logical of logicalTools) {
+    const source = assigned.get(Number(logical.index));
+    materialMap[String(logical.index)] = Number(source.protocolIndex);
+    if (logical.material && !canonicalMaterial(source.material)) review.push({ code:'material_unknown', text:`${source.label} material is unknown for file T${logical.index} (${logical.material})` });
+    if (logical.color && !normalizeColor(source.color)) review.push({ code:'color_unknown', text:`${source.label} colour is unknown for file T${logical.index} (${logical.color})` });
+  }
+  const requestedNozzles = [...new Set(logicalTools.filter((item) => item.nozzleDiameter != null).map((item) => Number(item.nozzleDiameter)).filter(Number.isFinite))];
+  if (requestedNozzles.length > 1) {
+    return { ok:false, materialMap:null, review:[], reasons:[{ code:'multiple_nozzle_requirements', text:'The file requests different nozzle sizes but the Bambu P1 has one nozzle' }] };
+  }
+  if (requestedNozzles.length === 1) {
+    const installed = Number(status.tools?.[0]?.nozzleDiameter);
+    if (!Number.isFinite(installed)) review.push({ code:'nozzle_unknown', text:`File requires a ${requestedNozzles[0].toFixed(1)} mm nozzle, but installed nozzle size is not reported` });
+    else if (!sameNozzle(requestedNozzles[0], installed)) return { ok:false, materialMap:null, review:[], reasons:[{ code:'nozzle_mismatch', text:`Installed nozzle ${installed.toFixed(1)} mm does not match required ${requestedNozzles[0].toFixed(1)} mm` }] };
+  }
+  return { ok:review.length === 0, materialMap, reasons:[], review };
+}
+
 export function evaluateQueueCompatibility({ job, printer, state, adapter, bedClearanceRequired = false, reserved = false } = {}) {
   const incompatible = [];
   const blocked = [];
@@ -139,15 +202,28 @@ export function evaluateQueueCompatibility({ job, printer, state, adapter, bedCl
 
   const requiredTools = Array.isArray(requirements.requiredTools) ? requirements.requiredTools : [];
   const requiredToolCount = Number(requirements.toolCount || requiredTools.length || 0);
-  if (requiredToolCount > 1 && !capabilities.printToolMapping) {
+  if (capabilities.materialSlotMapping && requiredToolCount > 1 && extension !== '.3mf') {
+    incompatible.push({ code:'ams_requires_3mf', text:'Bambu multi-material AMS jobs require a sliced .3mf project file' });
+  }
+  if (requiredToolCount > 1 && !capabilities.printToolMapping && !capabilities.materialSlotMapping) {
     incompatible.push({ code:'insufficient_tool_support', text:`File requires ${requiredToolCount} tools` });
   }
-  if (Number.isFinite(Number(limits.toolCount)) && requiredToolCount > Number(limits.toolCount)) {
+  if (!capabilities.materialSlotMapping && Number.isFinite(Number(limits.toolCount)) && requiredToolCount > Number(limits.toolCount)) {
     incompatible.push({ code:'insufficient_tool_count', text:`File requires ${requiredToolCount} tools; printer has ${Number(limits.toolCount)}` });
   }
 
   let toolMap = null;
-  if (!incompatible.length && capabilities.printToolMapping && requiredToolCount) {
+  let materialMap = null;
+  if (!incompatible.length && capabilities.materialSlotMapping && requiredToolCount) {
+    if (requirements.usageReliable === false && requiredToolCount > 1) {
+      review.push({ code:'unreliable_material_usage', text:'File filament usage could not be determined reliably for unattended AMS scheduling' });
+    } else {
+      const mapped = mapLogicalMaterials(requirements, state?.status || {});
+      materialMap = mapped.materialMap;
+      blocked.push(...mapped.reasons);
+      review.push(...mapped.review);
+    }
+  } else if (!incompatible.length && capabilities.printToolMapping && requiredToolCount) {
     if (requirements.usageReliable === false && requiredToolCount > 1) {
       review.push({ code:'unreliable_tool_usage', text:'File tool usage could not be determined reliably for unattended multi-tool scheduling' });
     } else {
@@ -194,8 +270,9 @@ export function evaluateQueueCompatibility({ job, printer, state, adapter, bedCl
     ready: category === 'ready',
     compatible: !incompatible.length,
     toolMap,
+    materialMap,
     reasons: [...incompatible, ...review, ...blocked]
   };
 }
 
-export const queueCompatibilityHelpers = { isBusy, mapLogicalTools, normalizeColor, sameNozzle };
+export const queueCompatibilityHelpers = { isBusy, mapLogicalMaterials, mapLogicalTools, normalizeColor, sameNozzle };

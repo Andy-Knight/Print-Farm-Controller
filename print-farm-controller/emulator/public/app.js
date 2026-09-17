@@ -52,6 +52,45 @@ function temperatureMetrics(printer) {
   ];
 }
 
+function renderAmsControls(card, printer) {
+  const panel = card.querySelector('.ams-controls');
+  panel.classList.toggle('hidden', printer.adapterType !== 'bambu-lab');
+  if (printer.adapterType !== 'bambu-lab') return;
+  const units = Array.isArray(printer.amsUnits) ? printer.amsUnits : [];
+  const unitCount = panel.querySelector('.ams-unit-count');
+  if (document.activeElement !== unitCount) unitCount.value = units.length;
+  unitCount.onchange = () => updatePrinter(printer.id, { amsUnits:Number(unitCount.value) });
+  const active = panel.querySelector('.ams-active-source');
+  const choices = [
+    { value:254, label:'External spool' },
+    ...units.flatMap((unit) => unit.trays.map((tray) => ({ value:Number(unit.id) * 4 + Number(tray.slotIndex), label:`AMS ${Number(unit.id) + 1} · Slot ${Number(tray.slotIndex) + 1}` })))
+  ];
+  active.replaceChildren(...choices.map((choice) => {
+    const option = document.createElement('option');
+    option.value = String(choice.value); option.textContent = choice.label;
+    return option;
+  }));
+  active.value = String(printer.activeMaterialSource ?? 254);
+  active.onchange = () => updatePrinter(printer.id, { activeMaterialSource:Number(active.value) });
+  const grid = panel.querySelector('.ams-slot-grid');
+  grid.replaceChildren(...units.flatMap((unit) => unit.trays.map((tray) => {
+    const slot = document.createElement('div');
+    slot.className = 'ams-slot';
+    slot.innerHTML = `<strong>AMS ${Number(unit.id) + 1} · Slot ${Number(tray.slotIndex) + 1}</strong>
+      <label class="check"><input data-ams-present type="checkbox"${tray.present ? ' checked' : ''}>Loaded</label>
+      <label>Material<select data-ams-material>${['PLA','PETG','ABS','ASA','PA','PC','TPU','PVA'].map((value) => `<option${value === tray.material ? ' selected' : ''}>${value}</option>`).join('')}</select></label>
+      <label>Colour<input data-ams-color type="color" value="${/^#[0-9A-F]{6}$/i.test(tray.color || '') ? tray.color : '#FFFFFF'}"></label>`;
+    const save = () => updatePrinter(printer.id, { amsSlots:[{
+      unitIndex:Number(unit.id), slotIndex:Number(tray.slotIndex),
+      present:slot.querySelector('[data-ams-present]').checked,
+      material:slot.querySelector('[data-ams-material]').value,
+      color:slot.querySelector('[data-ams-color]').value
+    }] });
+    slot.querySelectorAll('input,select').forEach((input) => input.addEventListener('change', save));
+    return slot;
+  })));
+}
+
 function bindCard(card, id) {
   card.querySelectorAll('[data-action]').forEach((button) => button.addEventListener('click', async () => {
     const printer = printers.find((item) => item.id === id);
@@ -125,6 +164,7 @@ function renderCard(printer) {
   card.querySelector('.speed-input').value = printer.speedMultiplier;
   card.querySelector('.bed-input').value = printer.bed.target;
   card.querySelector('.auto-progress').checked = printer.autoProgress;
+  renderAmsControls(card, printer);
   card.querySelectorAll('[data-fault]').forEach((input) => { input.checked = Boolean(printer.faults[input.dataset.fault]); });
   card.querySelector('.delay-input').value = printer.faults.responseDelayMs;
   const onlineButton = card.querySelector('.online-toggle');

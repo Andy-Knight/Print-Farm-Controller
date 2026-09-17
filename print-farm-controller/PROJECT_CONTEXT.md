@@ -6,7 +6,7 @@
 
 - Repository: `Andy-Knight/Print-Farm-Controller`
 - Project path: `print-farm-controller/`
-- Branch: `feature/bambu-controller-adapter-v0130` (branched from the v0.13.0 emulator baseline; not merged to `main`)
+- Branch: `feature/bambu-ams-v0130` (branched from `feature/bambu-controller-adapter-v0130`; not merged to `main`)
 - Current application version on this branch: **0.13.0**
 - Runtime: **Node.js 20+**, ES modules, no npm runtime dependencies.
 - GitHub is the authoritative code baseline.
@@ -66,12 +66,13 @@ Manufacturer-specific discovery, capabilities, limits, status normalization, fil
 - When multiple compatible idle printers are ready for an automatic job, a printer with a verified existing copy of the file is preferred; the assigned job records the selection reason.
 - The development printer emulator is a separate loopback-only service with its own UI. It exercises production adapters through network protocols rather than bypassing the adapter boundary. Emulator-only support never counts as physical hardware validation.
 - Bambu P1P/P1S support remains explicitly experimental until the MQTT telemetry/commands, FTPS behavior and camera framing are compared with physical printers. Manual entry is used; Bambu LAN discovery is not yet implemented.
+- Bambu AMS support models each AMS tray and the external spool as a material source, separate from the P1's single physical nozzle. Automatic scheduling maps logical 3MF filaments to unique live sources, while multi-material raw G-code is rejected because it does not carry the project-level AMS mapping required by the print command.
 
 ## Completed work / current baseline
 
 - FlashForge Adventurer 5M / 5M Pro support.
 - Snapmaker U1 support via Moonraker/Klipper, including stock camera integration.
-- Experimental Bambu Lab P1P/P1S controller support: MQTT TLS status, external-spool/AMS material metadata and job/temperature/fan control; implicit FTPS list/upload/verification; `.3mf` and `.gcode` print start; authenticated TLS camera snapshots; model-specific P1P/P1S capabilities and manual connection fields. FTPS upload verification checks the exact filename with `SIZE`, falls back to normalized directory entries and retries briefly for delayed storage visibility.
+- Experimental Bambu Lab P1P/P1S controller support: MQTT TLS status, external-spool/AMS material metadata and job/temperature/fan control; implicit FTPS list/upload/verification/download; embedded 3MF plate-G-code requirement parsing; interactive and automatic logical-filament-to-AMS mapping; `.3mf` and single-material `.gcode` print start; authenticated TLS camera snapshots; model-specific P1P/P1S capabilities and manual connection fields. FTPS upload verification checks the exact filename with `SIZE`, falls back to normalized directory entries and retries briefly for delayed storage visibility.
 - Automatic/local discovery, persistent printer registry and controller-side printer renaming.
 - Dashboard ordering, SSE fleet state, diagnostics and batch actions.
 - Verified file distribution and printer-local file operations.
@@ -80,7 +81,7 @@ Manufacturer-specific discovery, capabilities, limits, status normalization, fil
 - U1 tool mapping, print preferences, material/nozzle readiness and XYZ offset calibration.
 - Bed-powered timed chamber preheat and applicable fan/purifier controls.
 - **v0.13.0 printer emulator:** standalone loopback service and responsive light/dark management UI; multiple dynamically allocated virtual printers; production-adapter-compatible FlashForge HTTP/TCP/MJPEG camera and Snapmaker Moonraker/WebSocket/snapshot endpoints; experimental Bambu Lab P1P/P1S TLS MQTT status/control, implicit FTPS file transfer and authenticated camera endpoints; a visible simulated-camera test frame; virtual files, print progress, temperatures and material/nozzle state; accelerated time; activity logs; repeatable scenarios; and fault injection for offline/delay/rejection/malformed response/verification/cancellation/filename/camera conditions. Bambu protocol behaviour is emulator-only and awaits physical hardware validation. FlashForge connection forms now expose configurable HTTP, TCP and camera ports while retaining physical-printer defaults.
-- v0.13.0 regression suite: **155 passing tests, 0 failures**, including management API, authenticated Bambu P1P/P1S LAN endpoints, full production Bambu P1S adapter integration against the live emulator, external-spool/AMS material selection, credential-safe Bambu persistence, production Snapmaker and FlashForge adapter integration, and the combined U1 filament type/colour command.
+- v0.13.0 regression suite: **160 passing tests, 0 failures**, including management API, authenticated Bambu P1P/P1S LAN endpoints, full production Bambu P1S adapter integration against the live emulator, editable zero-to-four-unit AMS simulation, embedded 3MF requirement parsing, interactive and automatic AMS material mapping, queue-to-print mapping propagation, credential-safe Bambu persistence, production Snapmaker and FlashForge adapter integration, and the combined U1 filament type/colour command.
 - **v0.11.0 file-centric automatic queue:**
   - persistent controller-side staged queue files with SHA-256;
   - bounded G-code requirement extraction for tools/material/colour/nozzle metadata;
@@ -129,12 +130,12 @@ Manufacturer-specific discovery, capabilities, limits, status normalization, fil
 
 ## Current task
 
-**The initial experimental Bambu P1P/P1S controller adapter is implemented on `feature/bambu-controller-adapter-v0130` and works end-to-end against the v0.13.0 emulator.** Neither the adapter branch nor its emulator parent has been merged to `main`.
+**Experimental P1P/P1S AMS support is implemented on `feature/bambu-ams-v0130`.** The controller displays live AMS/external-spool sources, parses sliced 3MF filament requirements, provides direct-print mapping and carries automatic queue mappings through to the Bambu start command. The emulator supports zero to four editable AMS units. This branch, its controller-adapter parent and the emulator baseline have not been merged to `main`.
 
 ## Next steps
 
-1. Run the controller and emulator together, add both displayed Bambu endpoints manually, and validate dashboard status, files, verified upload, direct printing, queue assignment, pause/resume/cancel, completion/clearance and camera behavior through the UI.
-2. Compare protocol behavior against reliable captures or physical P1P/P1S hardware before removing the experimental label or merging to `main`.
+1. Run the controller and emulator together, configure P1P/P1S profiles with and without AMS units, and validate source telemetry, manual mapping, automatic assignment, active-source changes and missing-filament blocking with sliced single- and multi-material 3MF files.
+2. Compare AMS telemetry and `project_file` start payloads against reliable captures or physical P1P/P1S hardware before removing the experimental label or merging to `main`.
 
 ## Handoff rule
 

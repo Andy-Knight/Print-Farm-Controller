@@ -1,6 +1,6 @@
 # Printer Fleet Controller v0.13.0
 
-> v0.13.0 now includes an **experimental Bambu Lab P1P/P1S controller adapter**. It reads LAN status and material telemetry and sends print/job/temperature/fan commands over MQTT TLS, performs verified `.3mf`/`.gcode` storage operations over implicit FTPS, and feeds the authenticated Bambu camera into the existing dashboard camera manager. The complete workflow is tested against the P1 emulator but has not been validated on physical Bambu hardware.
+> v0.13.0 now includes an **experimental Bambu Lab P1P/P1S controller adapter**. It reads LAN status and external-spool/AMS telemetry, maps sliced 3MF filaments to loaded AMS slots, and sends print/job/temperature/fan commands over MQTT TLS. It also performs verified `.3mf`/`.gcode` storage operations over implicit FTPS and feeds the authenticated Bambu camera into the existing dashboard camera manager. The complete workflow is tested against the P1 emulator but has not been validated on physical Bambu hardware.
 
 > v0.13.0 adds a standalone, loopback-only **Printer Emulator** with its own responsive light/dark UI. It can run multiple simulated FlashForge Adventurer 5M Pro, Snapmaker U1, Bambu Lab P1P and Bambu Lab P1S endpoints, exercise the controller's production adapters, accelerate print progress, manage virtual files and temperatures, and inject repeatable connection, cancellation, verification, camera, material and nozzle faults. Emulator support is a development aid and does not replace final validation on physical hardware.
 
@@ -90,7 +90,7 @@ http://127.0.0.1:4250
 
 The emulator binds to loopback by default, starts simulated FlashForge Adventurer 5M Pro, Snapmaker U1, Bambu Lab P1P and Bambu Lab P1S printers, and displays the exact host, ports and credentials for each endpoint. Additional instances receive non-conflicting ports automatically.
 
-The UI provides live state, progress and temperature controls; accelerated print time; virtual printer files; activity logs; repeatable scenarios; and fault injection for retained filenames, persistent cancellation, failed verification, rejected or malformed commands, delayed responses and unavailable cameras. FlashForge uses a continuous MJPEG camera stream, Snapmaker uses its Moonraker WebSocket/snapshot sequence, and the Bambu profiles expose TLS MQTT status/control, implicit FTPS file transfer and the authenticated local camera stream. All state changes are streamed live to the browser.
+The UI provides live state, progress and temperature controls; accelerated print time; virtual printer files; activity logs; repeatable scenarios; and fault injection for retained filenames, persistent cancellation, failed verification, rejected or malformed commands, delayed responses and unavailable cameras. Bambu profiles can emulate zero to four four-slot AMS units plus the external spool, with editable material, colour, loaded state and active source. FlashForge uses a continuous MJPEG camera stream, Snapmaker uses its Moonraker WebSocket/snapshot sequence, and the Bambu profiles expose TLS MQTT status/control, implicit FTPS file transfer and the authenticated local camera stream. All state changes are streamed live to the browser.
 
 Default endpoints are:
 
@@ -122,6 +122,16 @@ The Bambu endpoints use a simulator-owned self-signed certificate, MQTT username
 5. **Test & add** validates the MQTT credentials before saving the printer.
 
 Bambu discovery is not yet implemented, so P1 printers are added manually. Access codes remain backend-side and are never returned by the public fleet API. Until physical validation is complete, supervise test prints and do not rely on this adapter for unattended production.
+
+### Experimental Bambu AMS workflow
+
+- The printer detail view shows each reported AMS tray and the external spool, including loaded state, material, colour and active source.
+- Before printing or queueing a sliced `.3mf`, the controller reads the embedded plate G-code and lets each logical filament be mapped to a loaded source. Exact material-and-colour matches are selected automatically when possible.
+- File-centric automatic queue jobs use the live AMS inventory when choosing a compatible P1P/P1S and recheck that mapping immediately before print start.
+- Multi-material Bambu jobs require `.3mf`; raw `.gcode` is retained for single-material starts because it cannot carry the project-level AMS mapping expected by the P1 print command.
+- P1 printers still have one nozzle. Multiple filaments are valid, but conflicting nozzle-size requirements are rejected.
+
+AMS behavior is implemented against the emulator protocol model and must remain experimental until start commands and telemetry are confirmed on physical P1P/P1S hardware with and without an AMS attached.
 
 ## Supported features
 

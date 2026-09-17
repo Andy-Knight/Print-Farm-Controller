@@ -28,6 +28,20 @@ function defaultTools(count) {
   }));
 }
 
+function defaultAmsUnits(enabled) {
+  if (!enabled) return [];
+  const materials = [
+    ['PLA', '#FF6B35'], ['PLA', '#3A86FF'], ['PETG', '#2EC4B6'], ['ASA', '#F7C948']
+  ];
+  return [{
+    id:0,
+    humidity:3,
+    trays:materials.map(([material, color], slotIndex) => ({
+      slotIndex, present:true, material, materialVariant:null, color, vendor:'Simulator'
+    }))
+  }];
+}
+
 export class VirtualPrinter extends EventEmitter {
   constructor({ id, profile, name, host = '127.0.0.1', ports = {}, serialNumber, checkCode }) {
     super();
@@ -56,6 +70,9 @@ export class VirtualPrinter extends EventEmitter {
     this.bed = { actual: 25, target: 0 };
     this.chamber = { actual: 25 };
     this.tools = defaultTools(profile.toolCount || 1);
+    this.amsUnits = defaultAmsUnits(profile.adapterType === 'bambu-lab');
+    this.externalSpool = { present:true, material:'PLA', materialVariant:null, color:'#FFFFFF', vendor:'Simulator' };
+    this.activeMaterialSource = this.amsUnits.length ? 0 : 254;
     this.fans = { cooling: 0, chamber: 0, internal: 0, external: 0 };
     this.files = new Map();
     this.history = [];
@@ -188,6 +205,30 @@ export class VirtualPrinter extends EventEmitter {
         if (this.tools[Number(index)]) this.tools[Number(index)].target = clamp(target, 0, 400);
       }
     }
+    if (values.amsUnits !== undefined) {
+      const count = Math.round(clamp(values.amsUnits, 0, 4));
+      const current = this.amsUnits;
+      this.amsUnits = Array.from({ length:count }, (_, unitIndex) => current[unitIndex] || {
+        id:unitIndex, humidity:3,
+        trays:Array.from({ length:4 }, (_unused, slotIndex) => ({ slotIndex, present:false, material:null, materialVariant:null, color:null, vendor:'Simulator' }))
+      });
+      if (!this.amsUnits.length) this.activeMaterialSource = 254;
+    }
+    if (Array.isArray(values.amsSlots)) {
+      for (const value of values.amsSlots) {
+        const unitIndex = Number(value?.unitIndex);
+        const slotIndex = Number(value?.slotIndex);
+        const tray = this.amsUnits[unitIndex]?.trays?.[slotIndex];
+        if (!tray) continue;
+        if (value.present !== undefined) tray.present = Boolean(value.present);
+        if (value.material !== undefined) tray.material = String(value.material || '').trim().toUpperCase() || null;
+        if (value.color !== undefined) tray.color = /^#[0-9A-F]{6}$/i.test(String(value.color || '')) ? String(value.color).toUpperCase() : null;
+      }
+    }
+    if (values.activeMaterialSource !== undefined) {
+      const source = Number(values.activeMaterialSource);
+      if (source === 254 || (Number.isInteger(source) && source >= 0 && source < this.amsUnits.length * 4)) this.activeMaterialSource = source;
+    }
     this.currentLayer = Math.round(this.totalLayers * this.progress / 100);
     this.log('state', 'Configuration updated');
   }
@@ -294,6 +335,9 @@ export class VirtualPrinter extends EventEmitter {
       bed: { actual: Number(this.bed.actual.toFixed(1)), target: this.bed.target },
       chamber: { ...this.chamber },
       tools: this.tools.map((tool) => ({ ...tool, filament: { ...tool.filament }, offset: [...tool.offset] })),
+      amsUnits:this.amsUnits.map((unit) => ({ ...unit, trays:unit.trays.map((tray) => ({ ...tray })) })),
+      externalSpool:{ ...this.externalSpool },
+      activeMaterialSource:this.activeMaterialSource,
       fans: { ...this.fans },
       files: [...this.files.values()].map(({ content, ...file }) => ({ ...file })),
       history: this.history.map((entry) => ({ ...entry })),

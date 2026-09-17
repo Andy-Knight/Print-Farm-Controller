@@ -432,7 +432,7 @@ async function apiRoute(req, res, url) {
   }
 
   if (req.method === 'GET' && action === 'print-setup') {
-    if (!adapter.capabilities?.printToolMapping) throw new Error('Print tool mapping is not supported by this printer');
+    if (!adapter.capabilities?.printToolMapping && !adapter.capabilities?.materialSlotMapping) throw new Error('Print material mapping is not supported by this printer');
     const fileName = String(url.searchParams.get('fileName') || '').trim();
     if (!fileName) throw new Error('fileName is required');
     return json(res, 200, await adapter.getPrintSetup(fileName));
@@ -470,6 +470,7 @@ async function apiRoute(req, res, url) {
       filamentEntangleDetect: typeof body.filamentEntangleDetect === 'boolean' ? body.filamentEntangleDetect : undefined,
       filamentEntangleSensitivity: body.filamentEntangleSensitivity ?? undefined,
       toolMap: body.toolMap ?? null,
+      materialMap: body.materialMap ?? null,
       usedLogicalTools: Array.isArray(body.usedLogicalTools) ? body.usedLogicalTools : []
     });
     refreshAfterCommand(id);

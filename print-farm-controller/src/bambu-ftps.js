@@ -199,6 +199,26 @@ class ImplicitFtpsClient {
     return { fileName: target, size: stat.size };
   }
 
+  async download(remoteName, { maxBytes = 64 * 1024 * 1024 } = {}) {
+    const target = safeRemoteName(remoteName);
+    const chunks = [];
+    let size = 0;
+    await this.transfer(`RETR ${target}`, (dataSocket) => new Promise((resolve, reject) => {
+      dataSocket.on('data', (chunk) => {
+        size += chunk.length;
+        if (size > maxBytes) {
+          dataSocket.destroy(new BambuFtpsError(`Bambu file exceeds the ${Math.round(maxBytes / 1024 / 1024)} MB inspection limit`));
+          return;
+        }
+        chunks.push(Buffer.from(chunk));
+      });
+      dataSocket.once('end', resolve);
+      dataSocket.once('close', resolve);
+      dataSocket.once('error', reject);
+    }));
+    return Buffer.concat(chunks);
+  }
+
   async exists(remoteName) {
     const target = safeRemoteName(remoteName);
     try {
@@ -232,6 +252,10 @@ export function listBambuFiles(printer, options = {}) {
 
 export function uploadBambuFile(printer, localPath, { fileName } = {}, options = {}) {
   return withClient(printer, (client) => client.upload(localPath, fileName), options);
+}
+
+export function downloadBambuFile(printer, fileName, options = {}) {
+  return withClient(printer, (client) => client.download(fileName, options), options);
 }
 
 export async function verifyBambuFile(printer, fileName, { attempts = DEFAULT_VERIFY_ATTEMPTS, retryDelayMs = 300, ...clientOptions } = {}) {

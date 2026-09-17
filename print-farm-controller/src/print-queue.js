@@ -140,6 +140,7 @@ function sanitizeOptions(options = {}) {
     levelingBeforePrint: options.levelingBeforePrint !== false,
     flowCalibrationBeforePrint: options.flowCalibrationBeforePrint === true,
     toolMap: options.toolMap && typeof options.toolMap === 'object' ? { ...options.toolMap } : null,
+    materialMap: options.materialMap && typeof options.materialMap === 'object' ? { ...options.materialMap } : null,
     usedLogicalTools: Array.isArray(options.usedLogicalTools) ? options.usedLogicalTools.map(Number).filter(Number.isFinite) : []
   };
   for (const key of ['timeLapseBeforePrint', 'autoReplenishFilament', 'filamentEntangleDetect']) {
@@ -213,7 +214,7 @@ function cloneProductionRun(template, sequence, quantity, paused = template.prod
     productionPaused: paused,
     compatibility: null,
     selectionReason: null,
-    options: { ...sanitizeOptions(template.options), toolMap:null, usedLogicalTools:[] },
+    options: { ...sanitizeOptions(template.options), toolMap:null, materialMap:null, usedLogicalTools:[] },
     toolSnapshot: [],
     status: 'queued',
     queuedAt: timestamp,
@@ -434,7 +435,7 @@ export class PrintQueueService {
     const stagedFileId = source?.stagedFile?.id || null;
     if (!stagedFileId) throw new Error('Production batch no longer has a staged controller file');
     const quantity = Math.max(jobs.length, ...jobs.map((job) => Number(job.productionQuantity || 0)));
-    const options = { ...sanitizeOptions(source.options), toolMap:null, usedLogicalTools:[] };
+    const options = { ...sanitizeOptions(source.options), toolMap:null, materialMap:null, usedLogicalTools:[] };
     return this.add({
       assignmentMode:'automatic',
       fileName:source.fileName,
@@ -578,6 +579,15 @@ export class PrintQueueService {
         for (const logicalIndex of requiredLogical) {
           if (options.toolMap?.[logicalIndex] === undefined && options.toolMap?.[String(logicalIndex)] === undefined) {
             throw new Error(`Queued U1 print is missing a physical head mapping for file T${logicalIndex}`);
+          }
+        }
+      }
+      if (adapter.capabilities?.materialSlotMapping) {
+        if (!liveState?.online || !Array.isArray(liveState.status?.materialSources)) throw new Error('Live Bambu AMS status is required before queueing a mapped print');
+        const requiredLogical = Array.isArray(options.usedLogicalTools) ? options.usedLogicalTools.map(Number).filter(Number.isFinite) : [];
+        for (const logicalIndex of requiredLogical) {
+          if (options.materialMap?.[logicalIndex] === undefined && options.materialMap?.[String(logicalIndex)] === undefined) {
+            throw new Error(`Queued Bambu print is missing an AMS/external-spool mapping for file T${logicalIndex}`);
           }
         }
       }
@@ -920,6 +930,7 @@ export class PrintQueueService {
       printerName:item.printerName,
       reasons:item.reasons.map((reason) => ({ ...reason })),
       ...(item.toolMap ? { toolMap:{ ...item.toolMap } } : {}),
+      ...(item.materialMap ? { materialMap:{ ...item.materialMap } } : {}),
       ...(item.ready ? { fileAlreadyPresent:item.fileAlreadyPresent === true } : {})
     }));
     const next = {
@@ -963,7 +974,7 @@ export class PrintQueueService {
     job.printerId = null;
     job.printerName = 'Next available compatible printer';
     job.selectionReason = null;
-    job.options = { ...sanitizeOptions(job.options), toolMap:null, usedLogicalTools:[] };
+    job.options = { ...sanitizeOptions(job.options), toolMap:null, materialMap:null, usedLogicalTools:[] };
     job.toolSnapshot = [];
     job.startRequestedAt = null;
     job.error = error || null;
@@ -1012,6 +1023,7 @@ export class PrintQueueService {
       job.options = {
         ...sanitizeOptions(job.options),
         toolMap:freshEvaluation.toolMap ? { ...freshEvaluation.toolMap } : null,
+        materialMap:freshEvaluation.materialMap ? { ...freshEvaluation.materialMap } : null,
         usedLogicalTools:Array.isArray(job.requirements?.requiredTools) ? [...job.requirements.requiredTools] : []
       };
       job.status = 'uploading';
@@ -1044,6 +1056,11 @@ export class PrintQueueService {
         await this.persistAndNotify();
         return;
       }
+      job.options = {
+        ...sanitizeOptions(job.options),
+        toolMap:finalEvaluation.toolMap ? { ...finalEvaluation.toolMap } : job.options.toolMap,
+        materialMap:finalEvaluation.materialMap ? { ...finalEvaluation.materialMap } : job.options.materialMap
+      };
 
       const materialCheck = assessMaterialCompatibility(printer.adapterConfig?.filamentDesignation, job.fileMaterial || job.requirements?.materialMetadata || {});
       if (materialCheck.mismatch) {
@@ -1146,6 +1163,13 @@ export class PrintQueueService {
         const problems = checkToolSnapshot(job.toolSnapshot, freshStatus);
         if (problems.length) {
           throw new Error(`U1 toolhead state changed since this job was queued: ${problems.join('; ')}. Review Print setup and queue the job again.`);
+        }
+      }
+      if (adapter.capabilities?.materialSlotMapping && job.options?.materialMap) {
+        const sources = Array.isArray(freshStatus?.materialSources) ? freshStatus.materialSources : [];
+        for (const protocolIndex of Object.values(job.options.materialMap).map(Number)) {
+          const source = sources.find((item) => Number(item.protocolIndex) === protocolIndex);
+          if (!source || source.present === false) throw new Error(`Bambu material source ${protocolIndex} is no longer loaded. Review AMS Print setup and queue the job again.`);
         }
       }
       if (this.chamberPreheat.isActive(job.printerId)) {

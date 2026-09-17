@@ -469,6 +469,10 @@ function bambuState(printer) {
 
 function bambuStatus(printer, sequenceId = '0') {
   const tool = printer.tools[0];
+  const activeIndex = Number(printer.activeMaterialSource);
+  const activeTray = activeIndex >= 0 && activeIndex < 254
+    ? printer.amsUnits?.[Math.floor(activeIndex / 4)]?.trays?.[activeIndex % 4]
+    : null;
   return {
     print: {
       command: 'push_status',
@@ -497,13 +501,28 @@ function bambuStatus(printer, sequenceId = '0') {
       lights_report: [{ node: 'chamber_light', mode: 'off' }],
       home_flag: 0,
       hw_switch_state: 1,
-      ams_status: 0,
+      ams_status: printer.amsUnits?.length ? 768 : 0,
+      tray_now: String(printer.amsUnits?.length && activeTray ? activeIndex : 254),
+      ams: {
+        ams:(printer.amsUnits || []).map((unit) => ({
+          id:String(unit.id),
+          humidity:String(unit.humidity ?? 3),
+          tray:unit.trays.map((tray) => ({
+            id:String(tray.slotIndex),
+            tray_exist_bits:tray.present ? '1' : '0',
+            tray_type:tray.present ? tray.material || '' : '',
+            tray_sub_brands:tray.present ? tray.materialVariant || '' : '',
+            tray_color:tray.present && tray.color ? `${tray.color.replace('#', '').toUpperCase()}FF` : '',
+            tray_info_idx:tray.present ? tray.vendor || 'Simulator' : ''
+          }))
+        }))
+      },
       vt_tray: {
         id: '254',
-        tray_type: tool.filament.material || '',
-        tray_sub_brands: tool.filament.materialVariant || '',
-        tray_color: `${String(tool.filament.color || '#FFFFFF').replace('#', '').toUpperCase()}FF`,
-        tray_info_idx: tool.filament.vendor || 'Simulator'
+        tray_type: printer.externalSpool?.present ? printer.externalSpool.material || '' : '',
+        tray_sub_brands: printer.externalSpool?.present ? printer.externalSpool.materialVariant || '' : '',
+        tray_color: printer.externalSpool?.present && printer.externalSpool.color ? `${printer.externalSpool.color.replace('#', '').toUpperCase()}FF` : '',
+        tray_info_idx: printer.externalSpool?.present ? printer.externalSpool.vendor || 'Simulator' : ''
       },
       upgrade_state: { sequence_id: 0, progress: '', status: 'IDLE' }
     }
@@ -517,6 +536,14 @@ function applyBambuCommand(printer, body) {
   else if (command === 'resume') printer.action('resume');
   else if (command === 'stop') printer.action('cancel');
   else if (command === 'project_file') {
+    if (payload.use_ams && Array.isArray(payload.ams_mapping) && Number.isInteger(Number(payload.ams_mapping[0]))) {
+      printer.activeMaterialSource = Number(payload.ams_mapping[0]);
+      const selected = printer.amsUnits?.[Math.floor(printer.activeMaterialSource / 4)]?.trays?.[printer.activeMaterialSource % 4];
+      if (selected?.present) printer.tools[0].filament = { ...printer.tools[0].filament, ...selected };
+    } else {
+      printer.activeMaterialSource = 254;
+      if (printer.externalSpool?.present) printer.tools[0].filament = { ...printer.tools[0].filament, ...printer.externalSpool };
+    }
     const urlName = String(payload.url || '').split('/').pop();
     printer.startPrint(payload.subtask_name || payload.file || urlName || 'uploaded.3mf');
   } else if (command === 'gcode_file') {
@@ -753,12 +780,13 @@ function createBambuFtpsServer(printer) {
         else if (command === 'EPSV') openPassive().then((port) => socket.write(`229 Entering Extended Passive Mode (|||${port}|)\r\n`)).catch(() => socket.write('425 Cannot open data connection\r\n'));
         else if (command === 'PASV') openPassive().then((port) => socket.write(`227 Entering Passive Mode (127,0,0,1,${Math.floor(port / 256)},${port % 256})\r\n`)).catch(() => socket.write('425 Cannot open data connection\r\n'));
         else if (command === 'LIST' || command === 'MLSD') transfer(async (data) => {
-          const listing = [...printer.files.values()].map((file) => command === 'MLSD'
+          const visibleFiles = printer.faults.failVerification ? [] : [...printer.files.values()];
+          const listing = visibleFiles.map((file) => command === 'MLSD'
             ? `type=file;size=${file.size};modify=20240101000000; ${file.path}`
             : `-rw-r--r-- 1 bblp bblp ${file.size} Jan 01 00:00 ${file.path}`).join('\r\n');
           data.write(`${listing}\r\n`);
         }).catch(() => socket.write('425 Data connection failed\r\n'));
-        else if (command === 'SIZE') socket.write(printer.files.has(argument) ? `213 ${printer.files.get(argument).size}\r\n` : '550 File unavailable\r\n');
+        else if (command === 'SIZE') socket.write(!printer.faults.failVerification && printer.files.has(argument) ? `213 ${printer.files.get(argument).size}\r\n` : '550 File unavailable\r\n');
         else if (command === 'RETR') {
           const file = printer.files.get(argument);
           if (!file) socket.write('550 File unavailable\r\n');

@@ -177,14 +177,22 @@ test('Bambu P1S profile interoperates with the production controller adapter', a
   assert.equal(initial.model, 'P1S');
   assert.equal(initial.tools.length, 1);
   assert.equal(initial.tools[0].filament.material, 'PLA');
+  assert.equal(initial.amsAttached, true);
+  assert.equal(initial.materialSources.filter((source) => source.kind === 'ams').length, 4);
 
   const listed = await adapter.getFiles();
   assert.deepEqual(listed.files, ['calibration-cube.gcode']);
+  const setup = await adapter.getPrintSetup('calibration-cube.gcode');
+  assert.deepEqual(setup.referencedTools, [0]);
+  assert.equal(setup.logicalTools[0].material, 'PLA');
+  assert.equal(setup.materialSources.filter((source) => source.kind === 'ams').length, 4);
   await adapter.uploadFile(new URL('../README.md', import.meta.url), { fileName:'Controller upload test.3mf' });
   assert.equal((await adapter.verifyFile('Controller upload test.3mf')).verified, true);
   assert.ok((await adapter.getFiles()).files.includes('Controller upload test.3mf'));
-  await adapter.printLocalFile('calibration-cube.gcode');
-  assert.equal((await adapter.getStatus()).status, 'printing');
+  await adapter.printLocalFile('Controller upload test.3mf', { materialMap:{ 0:2 }, usedLogicalTools:[0] });
+  const printing = await adapter.getStatus();
+  assert.equal(printing.status, 'printing');
+  assert.equal(printing.materialSources.find((source) => source.active).protocolIndex, 2);
   await adapter.setJobState('pause');
   assert.equal((await adapter.getStatus()).status, 'paused');
   await adapter.setJobState('resume');

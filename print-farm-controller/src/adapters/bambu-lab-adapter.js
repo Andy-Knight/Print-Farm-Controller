@@ -1,8 +1,9 @@
 import path from 'node:path';
 import { PrinterAdapter, normalizeCapabilities } from './printer-adapter.js';
 import { getBambuReport, sendBambuCommand } from '../bambu-mqtt.js';
-import { listBambuFiles, uploadBambuFile, verifyBambuFile } from '../bambu-ftps.js';
+import { downloadBambuFile, listBambuFiles, uploadBambuFile, verifyBambuFile } from '../bambu-ftps.js';
 import { createBambuCameraSource } from '../bambu-camera.js';
+import { parse3mfPrintRequirements, parseGcodePrintRequirements } from '../file-print-requirements.js';
 
 export const BAMBU_LAB_ADAPTER_TYPE = 'bambu-lab';
 export const BAMBU_P1_MODELS = Object.freeze(['P1P', 'P1S']);
@@ -84,12 +85,62 @@ function firstTray(print = {}) {
   return trays.find((tray) => tray?.tray_type || tray?.tray_color) || null;
 }
 
+function trayMaterial(tray = {}) {
+  return {
+    material:String(tray.tray_type || '').trim() || null,
+    materialVariant:String(tray.tray_sub_brands || '').trim() || null,
+    color:rgbaColor(tray.tray_color),
+    vendor:String(tray.tray_info_idx || '').trim() || null
+  };
+}
+
+export function normalizeBambuMaterialSources(print = {}) {
+  const activeId = String(print.tray_now ?? '');
+  const units = Array.isArray(print.ams?.ams) ? print.ams.ams : [];
+  const sources = [];
+  units.forEach((unit, unitPosition) => {
+    const unitIndex = Number.isInteger(Number(unit?.id)) ? Number(unit.id) : unitPosition;
+    const trays = Array.isArray(unit?.tray) ? unit.tray : [];
+    trays.forEach((tray, slotPosition) => {
+      const slotIndex = Number.isInteger(Number(tray?.id)) ? Number(tray.id) : slotPosition;
+      const protocolIndex = unitIndex * 4 + slotIndex;
+      const material = trayMaterial(tray);
+      const present = tray?.tray_exist_bits !== undefined
+        ? Boolean(Number(tray.tray_exist_bits))
+        : Boolean(material.material || material.color);
+      sources.push({
+        id:`ams-${unitIndex}-${slotIndex}`,
+        kind:'ams', unitIndex, slotIndex, protocolIndex,
+        label:`AMS ${unitIndex + 1} · Slot ${slotIndex + 1}`,
+        present,
+        active:activeId === String(protocolIndex) || (units.length === 1 && activeId === String(slotIndex)),
+        ...material
+      });
+    });
+  });
+  const virtual = print.vt_tray || print.virtual_tray;
+  if (virtual) {
+    const material = trayMaterial(virtual);
+    sources.push({
+      id:'external', kind:'external', unitIndex:null, slotIndex:null, protocolIndex:254,
+      label:'External spool', present:Boolean(material.material || material.color),
+      active:['254','255'].includes(activeId) || (!sources.some((source) => source.active) && units.length === 0),
+      ...material
+    });
+  }
+  return sources;
+}
+
 export function normalizeBambuStatus(payload = {}, printer = {}) {
   const print = payload.print || payload;
-  const tray = firstTray(print);
+  const materialSources = normalizeBambuMaterialSources(print);
+  const selectedSource = materialSources.find((source) => source.active)
+    || materialSources.find((source) => source.kind === 'external' && source.present)
+    || materialSources.find((source) => source.present)
+    || null;
   const nozzleDiameter = Number(print.nozzle_diameter ?? printer.adapterConfig?.nozzleDiameterDesignation);
-  const material = String(tray?.tray_type || '').trim() || null;
-  const color = rgbaColor(tray?.tray_color);
+  const material = selectedSource?.material || null;
+  const color = selectedSource?.color || null;
   const model = normalizeModel(printer.model);
   return {
     status: stateName(print.gcode_state, print),
@@ -110,17 +161,19 @@ export function normalizeBambuStatus(payload = {}, printer = {}) {
       target: Number(print.nozzle_target_temper || 0),
       nozzleDiameter: Number.isFinite(nozzleDiameter) && nozzleDiameter > 0 ? nozzleDiameter : null,
       filament: {
-        present: tray ? true : null,
+        present: selectedSource ? selectedSource.present : null,
         detecting: false,
         material,
-        materialVariant: String(tray?.tray_sub_brands || '').trim() || null,
+        materialVariant: selectedSource?.materialVariant || null,
         color,
-        vendor: String(tray?.tray_info_idx || '').trim() || null,
+        vendor: selectedSource?.vendor || null,
         manufacturer: null,
         materialSource: material ? 'printer' : null,
         metadataAvailable: Boolean(material || color)
       }
     }],
+    materialSources,
+    amsAttached: materialSources.some((source) => source.kind === 'ams'),
     bed: { actual: Number(print.bed_temper || 0), target: Number(print.bed_target_temper || 0) },
     chamber: { actual: Number(print.chamber_temper || 0) },
     coolingFan: fanPercent(print.cooling_fan_speed),
@@ -141,6 +194,12 @@ function printCommand(fileName, options = {}) {
   const name = String(fileName || '').replace(/^\/+/, '');
   const extension = path.extname(name).toLowerCase();
   if (extension === '.3mf') {
+    const materialMap = options.materialMap && typeof options.materialMap === 'object' ? options.materialMap : {};
+    const logical = (Array.isArray(options.usedLogicalTools) && options.usedLogicalTools.length
+      ? options.usedLogicalTools
+      : Object.keys(materialMap)).map(Number).filter(Number.isFinite).sort((a, b) => a - b);
+    const amsMapping = logical.map((index) => Number(materialMap[index] ?? materialMap[String(index)])).filter(Number.isFinite);
+    const useAms = amsMapping.length > 0 && amsMapping.every((index) => index >= 0 && index < 254);
     return {
       print: {
         command: 'project_file',
@@ -158,7 +217,8 @@ function printCommand(fileName, options = {}) {
         flow_cali: Boolean(options.flowCalibrationBeforePrint),
         vibration_cali: true,
         layer_inspect: false,
-        use_ams: false
+        use_ams: useAms,
+        ...(amsMapping.length ? { ams_mapping:amsMapping } : {})
       }
     };
   }
@@ -176,6 +236,7 @@ const P1P_CAPABILITIES = normalizeCapabilities({
   coolingFan: true,
   camera: true,
   materialStatus: true,
+  materialSlotMapping: true,
   levelBeforePrint: true,
   flowCalibrationBeforePrint: true,
   timeLapseBeforePrint: true,
@@ -213,6 +274,24 @@ export class BambuLabAdapter extends PrinterAdapter {
   }
   async uploadFile(filePath, options = {}) { return uploadBambuFile(this.printer, filePath, { fileName: options.fileName || path.basename(filePath) }); }
   async verifyFile(fileName, options = {}) { return verifyBambuFile(this.printer, fileName, options); }
+  async getPrintSetup(fileName) {
+    const content = await downloadBambuFile(this.printer, fileName);
+    const extension = path.extname(String(fileName || '')).toLowerCase();
+    const requirements = extension === '.3mf'
+      ? parse3mfPrintRequirements(content, { fileName })
+      : parseGcodePrintRequirements(content.toString('utf8'), { fileName });
+    const status = await this.getStatus();
+    return {
+      ...requirements,
+      referencedTools:[...requirements.requiredTools],
+      materialSources:status.materialSources || [],
+      amsAttached:status.amsAttached === true,
+      amsMappingSupported:extension === '.3mf' || requirements.toolCount <= 1,
+      warning:extension !== '.3mf' && requirements.toolCount > 1
+        ? 'Bambu multi-material AMS printing requires a sliced .3mf project file.'
+        : requirements.warning
+    };
+  }
   async printLocalFile(fileName, options = {}) { return sendBambuCommand(this.printer, printCommand(fileName, options)); }
   async setJobState(action) {
     const command = { pause: 'pause', resume: 'resume', cancel: 'stop' }[String(action || '').toLowerCase()];
@@ -256,4 +335,4 @@ export const bambuLabAdapterDefinition = Object.freeze({
   create: (printer) => new BambuLabAdapter(printer)
 });
 
-export const bambuAdapterInternals = { fanPercent, firstTray, printCommand, rgbaColor, stateName };
+export const bambuAdapterInternals = { fanPercent, firstTray, normalizeBambuMaterialSources, printCommand, rgbaColor, stateName };
