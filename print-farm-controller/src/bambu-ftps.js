@@ -4,6 +4,8 @@ import { createReadStream } from 'node:fs';
 import { promises as fs } from 'node:fs';
 
 const DEFAULT_TIMEOUT_MS = 8000;
+const DEFAULT_VERIFY_ATTEMPTS = 4;
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 export class BambuFtpsError extends Error {
   constructor(message, options = {}) {
@@ -27,6 +29,15 @@ function safeRemoteName(value) {
     throw new BambuFtpsError('Invalid Bambu printer file name');
   }
   return normalized;
+}
+
+function normalizedRemoteName(value) {
+  return String(value || '')
+    .replace(/\\/g, '/')
+    .replace(/^\/+/, '')
+    .replace(/^(?:internal|user)\//i, '')
+    .trim()
+    .toLocaleLowerCase();
 }
 
 function connectTls({ host, port }, timeoutMs) {
@@ -188,6 +199,16 @@ class ImplicitFtpsClient {
     return { fileName: target, size: stat.size };
   }
 
+  async exists(remoteName) {
+    const target = safeRemoteName(remoteName);
+    try {
+      const response = await this.command(`SIZE ${target}`, [213]);
+      return /^213\s+\d+/m.test(response.message);
+    } catch {
+      return false;
+    }
+  }
+
   async close() {
     if (!this.socket || this.socket.destroyed) return;
     try { await this.command('QUIT', [221]); } catch {}
@@ -213,4 +234,34 @@ export function uploadBambuFile(printer, localPath, { fileName } = {}, options =
   return withClient(printer, (client) => client.upload(localPath, fileName), options);
 }
 
-export const bambuFtpsInternals = { ImplicitFtpsClient, safeRemoteName, settingsFor };
+export async function verifyBambuFile(printer, fileName, { attempts = DEFAULT_VERIFY_ATTEMPTS, retryDelayMs = 300, ...clientOptions } = {}) {
+  const target = safeRemoteName(fileName);
+  const wanted = normalizedRemoteName(target);
+  const wantedBaseName = path.posix.basename(wanted);
+  let lastError = null;
+  for (let attempt = 0; attempt < Math.max(1, Number(attempts) || 1); attempt++) {
+    if (attempt) await sleep(retryDelayMs * attempt);
+    try {
+      const verified = await withClient(printer, async (client) => {
+        if (await client.exists(target)) return true;
+        const files = await client.list();
+        return files.some((file) => {
+          const candidate = normalizedRemoteName(file);
+          return candidate === wanted || path.posix.basename(candidate) === wantedBaseName;
+        });
+      }, clientOptions);
+      if (verified) return { verified:true, source:'bambu-ftps' };
+    } catch (error) {
+      lastError = error;
+    }
+  }
+  return {
+    verified:false,
+    source:null,
+    warning:lastError
+      ? `Upload completed, but Bambu storage verification failed: ${lastError.message}`
+      : 'Upload completed, but the file was not visible in Bambu printer storage.'
+  };
+}
+
+export const bambuFtpsInternals = { ImplicitFtpsClient, safeRemoteName, normalizedRemoteName, settingsFor };

@@ -71,7 +71,7 @@ Manufacturer-specific discovery, capabilities, limits, status normalization, fil
 
 - FlashForge Adventurer 5M / 5M Pro support.
 - Snapmaker U1 support via Moonraker/Klipper, including stock camera integration.
-- Experimental Bambu Lab P1P/P1S controller support: MQTT TLS status, external-spool/AMS material metadata and job/temperature/fan control; implicit FTPS list/upload/verification; `.3mf` and `.gcode` print start; authenticated TLS camera snapshots; model-specific P1P/P1S capabilities and manual connection fields.
+- Experimental Bambu Lab P1P/P1S controller support: MQTT TLS status, external-spool/AMS material metadata and job/temperature/fan control; implicit FTPS list/upload/verification; `.3mf` and `.gcode` print start; authenticated TLS camera snapshots; model-specific P1P/P1S capabilities and manual connection fields. FTPS upload verification checks the exact filename with `SIZE`, falls back to normalized directory entries and retries briefly for delayed storage visibility.
 - Automatic/local discovery, persistent printer registry and controller-side printer renaming.
 - Dashboard ordering, SSE fleet state, diagnostics and batch actions.
 - Verified file distribution and printer-local file operations.

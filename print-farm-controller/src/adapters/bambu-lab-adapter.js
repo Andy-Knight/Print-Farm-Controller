@@ -1,7 +1,7 @@
 import path from 'node:path';
 import { PrinterAdapter, normalizeCapabilities } from './printer-adapter.js';
 import { getBambuReport, sendBambuCommand } from '../bambu-mqtt.js';
-import { listBambuFiles, uploadBambuFile } from '../bambu-ftps.js';
+import { listBambuFiles, uploadBambuFile, verifyBambuFile } from '../bambu-ftps.js';
 import { createBambuCameraSource } from '../bambu-camera.js';
 
 export const BAMBU_LAB_ADAPTER_TYPE = 'bambu-lab';
@@ -212,12 +212,7 @@ export class BambuLabAdapter extends PrinterAdapter {
     return { files: files.sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' })), recentFiles: [], complete: true, source: 'bambu-ftps', ordering: 'alphabetical', warning: null };
   }
   async uploadFile(filePath, options = {}) { return uploadBambuFile(this.printer, filePath, { fileName: options.fileName || path.basename(filePath) }); }
-  async verifyFile(fileName) {
-    const wanted = String(fileName || '').replace(/^\/+/, '').toLocaleLowerCase();
-    const files = await listBambuFiles(this.printer);
-    const verified = files.some((file) => String(file).replace(/^\/+/, '').toLocaleLowerCase() === wanted);
-    return { verified, source: verified ? 'bambu-ftps' : null, warning: verified ? null : 'Upload completed, but the file was not visible in Bambu printer storage.' };
-  }
+  async verifyFile(fileName, options = {}) { return verifyBambuFile(this.printer, fileName, options); }
   async printLocalFile(fileName, options = {}) { return sendBambuCommand(this.printer, printCommand(fileName, options)); }
   async setJobState(action) {
     const command = { pause: 'pause', resume: 'resume', cancel: 'stop' }[String(action || '').toLowerCase()];

@@ -180,8 +180,9 @@ test('Bambu P1S profile interoperates with the production controller adapter', a
 
   const listed = await adapter.getFiles();
   assert.deepEqual(listed.files, ['calibration-cube.gcode']);
-  await adapter.uploadFile(new URL('../README.md', import.meta.url), { fileName:'controller-upload.gcode' });
-  assert.equal((await adapter.verifyFile('controller-upload.gcode')).verified, true);
+  await adapter.uploadFile(new URL('../README.md', import.meta.url), { fileName:'Controller upload test.3mf' });
+  assert.equal((await adapter.verifyFile('Controller upload test.3mf')).verified, true);
+  assert.ok((await adapter.getFiles()).files.includes('Controller upload test.3mf'));
   await adapter.printLocalFile('calibration-cube.gcode');
   assert.equal((await adapter.getStatus()).status, 'printing');
   await adapter.setJobState('pause');
