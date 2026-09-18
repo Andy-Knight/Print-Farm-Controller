@@ -36,7 +36,8 @@ import { loadLicenseManager } from './licensing/license-loader.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PUBLIC_DIR = path.resolve(__dirname, '../public');
-const PACKAGE_PATH = path.resolve(__dirname, '../package.json');
+const APP_DIR = path.resolve(__dirname, '..');
+const PACKAGE_PATH = path.join(APP_DIR, 'package.json');
 const packageInfo = JSON.parse(await fs.readFile(PACKAGE_PATH, 'utf8'));
 const CONTROLLER_VERSION = String(packageInfo.version || 'unknown');
 const PORT = Number(process.env.PORT || 4242);
@@ -47,7 +48,10 @@ const cameraManager = new CameraManager({
 });
 const chamberPreheat = new ChamberPreheatService({ fleetState });
 const emulatorManager = new EmulatorManager();
-const licenseManager = await loadLicenseManager({ dataDir:controllerDataDir });
+const licenseManager = await loadLicenseManager({
+  appDir:APP_DIR,
+  dataDir:controllerDataDir
+});
 
 function isControllerSimulator(printer) {
   return printer?.simulated === true || emulatorManager.isSimulatedConfig(printer);
