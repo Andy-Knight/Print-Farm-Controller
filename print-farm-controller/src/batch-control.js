@@ -53,6 +53,7 @@ export class BatchControlService {
     setTemperaturesFn = null,
     setFansFn = null,
     setJobStateFn = null,
+    printerAllowedFn = null,
     maxConcurrent = 4
   } = {}) {
     if (!fleetState) throw new Error('fleetState is required');
@@ -64,6 +65,7 @@ export class BatchControlService {
     this.setTemperaturesOverride = setTemperaturesFn;
     this.setFansOverride = setFansFn;
     this.setJobStateOverride = setJobStateFn;
+    this.printerAllowed = typeof printerAllowedFn === 'function' ? printerAllowedFn : () => true;
     this.maxConcurrent = Math.max(1, Number(maxConcurrent) || 4);
   }
 
@@ -99,6 +101,11 @@ export class BatchControlService {
     const printer = await this.getPrinter(id);
     const name = printer?.name || id;
     if (!printer) return { id, name, ok: false, error: 'Printer not found' };
+
+    const safetyAction = ['chamber-preheat-stop', 'heaters-off', 'pause', 'resume', 'cancel'].includes(action);
+    if (!safetyAction && !this.printerAllowed(id)) {
+      return { id, name, ok:false, error:'Printer is inactive because it does not currently have a licence slot' };
+    }
 
     const state = this.fleetState.getPrinterState(id);
     if (!state?.online) return { id, name, ok: false, error: state?.error || 'Printer is offline' };
