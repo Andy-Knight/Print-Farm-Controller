@@ -1,12 +1,13 @@
 {
   "name": "printer-fleet-controller",
-  "version": "0.12.16",
+  "version": "0.13.0",
   "private": true,
   "type": "module",
-  "description": "Printer Fleet Controller: local-first multi-manufacturer 3D printer fleet control with FlashForge Adventurer 5M/5M Pro and Snapmaker U1 support",
+  "description": "Printer Fleet Controller: local-first FlashForge and Snapmaker fleet control with experimental Bambu P1P/P1S/X1C support and printer emulation",
   "scripts": {
     "start": "node src/server.js",
     "dev": "node --watch src/server.js",
+    "emulator": "node emulator/server.js",
     "test": "node --test"
   },
   "engines": {

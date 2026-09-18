@@ -1,0 +1,150 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Printer Simulator</title>
+  <meta id="theme-color-meta" name="theme-color" content="#0c1015">
+  <script>
+    (() => {
+      try {
+        const saved = localStorage.getItem('printer-fleet-theme');
+        const theme = saved === 'light' || saved === 'dark'
+          ? saved
+          : (matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark');
+        document.documentElement.dataset.theme = theme;
+        document.querySelector('#theme-color-meta')?.setAttribute('content', theme === 'light' ? '#eef3f7' : '#0c1015');
+      } catch {
+        document.documentElement.dataset.theme = 'dark';
+      }
+    })();
+  </script>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="app-header">
+    <div>
+      <p class="eyebrow">DEVELOPMENT TOOL</p>
+      <h1>Printer Simulator</h1>
+      <p class="subtitle">Protocol-faithful virtual printers for Printer Fleet Controller</p>
+    </div>
+    <div class="header-actions">
+      <a id="controller-link" class="header-link hidden" href="/">Back to controller</a>
+      <button id="theme-toggle" class="theme-toggle" type="button" role="switch" aria-checked="true" aria-label="Switch to light mode">
+        <span class="theme-toggle-track" aria-hidden="true"></span>
+        <span class="theme-toggle-label">Dark</span>
+      </button>
+      <button id="show-add" class="primary" type="button">+ Add simulated printer</button>
+    </div>
+  </header>
+
+  <main>
+    <section class="notice" aria-label="Simulator warning">
+      <strong>Simulated devices only.</strong>
+      These endpoints run on loopback and never control physical printer hardware.
+    </section>
+
+    <section id="integrated-control" class="panel integrated-control hidden" aria-live="polite">
+      <div>
+        <p class="eyebrow">CONTROLLER SETTING</p>
+        <h2 id="integrated-heading">Printer simulator is disabled</h2>
+        <p id="integrated-description">Enable it to start loopback-only virtual printer endpoints. This preference is remembered for future controller launches.</p>
+      </div>
+      <button id="simulator-toggle" class="primary" type="button">Enable simulator</button>
+    </section>
+
+    <div id="simulator-content">
+
+    <section id="add-panel" class="panel hidden" aria-labelledby="add-heading">
+      <div class="panel-heading">
+        <div><p class="eyebrow">NEW ENDPOINT</p><h2 id="add-heading">Add simulated printer</h2></div>
+        <button id="hide-add" class="icon-button" type="button" aria-label="Close">×</button>
+      </div>
+      <form id="add-form" class="add-form">
+        <label>Printer profile<select id="profile" name="profileId" required></select></label>
+        <label>Display name<input id="printer-name" name="name" placeholder="Optional custom name"></label>
+        <button type="submit">Start endpoint</button>
+      </form>
+      <p class="form-note">Ports are allocated automatically. Connection details appear on the printer card.</p>
+    </section>
+
+    <section class="summary" aria-label="Emulator summary">
+      <div><span id="printer-count">0</span><small>Virtual printers</small></div>
+      <div><span id="online-count">0</span><small>Online</small></div>
+      <div><span id="printing-count">0</span><small>Printing</small></div>
+      <div><span id="fault-count">0</span><small>Active faults</small></div>
+    </section>
+
+    <section>
+      <div class="section-heading">
+        <div><p class="eyebrow">LOOPBACK FLEET</p><h2>Simulated printers</h2></div>
+        <span id="connection-state" class="connection-state">Connecting…</span>
+      </div>
+      <div id="printer-grid" class="printer-grid"></div>
+      <div id="empty-state" class="empty hidden"><h3>No simulated printers</h3><p>Add a printer profile to create its local protocol endpoints.</p></div>
+    </section>
+    </div>
+  </main>
+
+  <template id="printer-template">
+    <article class="printer-card">
+      <div class="card-accent"></div>
+      <div class="card-header">
+        <div><p class="manufacturer"></p><h3 class="printer-title"></h3><p class="model"></p></div>
+        <span class="status-pill"></span>
+      </div>
+      <div class="endpoint-box"><strong>Controller connection</strong><div class="endpoint-lines"></div></div>
+      <div class="job-block">
+        <div class="job-line"><span class="filename">No active file</span><strong class="progress-text">0%</strong></div>
+        <div class="progress-track"><div class="progress-fill"></div></div>
+        <input class="progress-slider" type="range" min="0" max="100" step="1" aria-label="Print progress">
+      </div>
+      <div class="metrics"></div>
+      <div class="button-row primary-actions">
+        <button data-action="start">Start</button><button data-action="pause" class="secondary">Pause</button><button data-action="resume" class="secondary">Resume</button><button data-action="cancel" class="danger">Cancel</button>
+      </div>
+      <details>
+        <summary>Simulation controls</summary>
+        <div class="control-grid">
+          <label>State<select class="state-select"><option>idle</option><option>printing</option><option>paused</option><option>completed</option><option>cancelled</option><option>failed</option></select></label>
+          <label>Speed<input class="speed-input" type="number" min="0.1" max="1000" step="0.1"><span>× real time</span></label>
+          <label>Bed target<input class="bed-input" type="number" min="0" max="150"><span>°C</span></label>
+          <label class="check"><input class="auto-progress" type="checkbox">Automatic progress</label>
+        </div>
+      </details>
+      <details class="ams-controls hidden">
+        <summary>AMS configuration</summary>
+        <div class="ams-toolbar">
+          <label>AMS units<input class="ams-unit-count" type="number" min="0" max="4" step="1"></label>
+          <label>Active source<select class="ams-active-source"></select></label>
+        </div>
+        <div class="ams-slot-grid"></div>
+      </details>
+      <details>
+        <summary>Fault injection</summary>
+        <div class="fault-grid">
+          <label class="check"><input data-fault="retainFilename" type="checkbox">Retain filename</label>
+          <label class="check"><input data-fault="stuckCancel" type="checkbox">Remain in CANCEL</label>
+          <label class="check"><input data-fault="failVerification" type="checkbox">Fail verification</label>
+          <label class="check"><input data-fault="cameraUnavailable" type="checkbox">Camera unavailable</label>
+          <label class="check"><input data-fault="rejectNextCommand" type="checkbox">Reject next command</label>
+          <label class="check"><input data-fault="malformedNextResponse" type="checkbox">Malformed next response</label>
+          <label>Response delay<input class="delay-input" type="number" min="0" max="30000" step="100"><span>ms</span></label>
+        </div>
+      </details>
+      <details>
+        <summary>Scenarios and activity</summary>
+        <div class="scenario-row">
+          <select class="scenario-select"><option value="successful-print">Successful print</option><option value="cancel-retained-filename">Cancelled with retained filename</option><option value="upload-verification-failure">Upload verification failure</option><option value="offline">Printer offline</option><option value="material-mismatch">Material mismatch</option><option value="nozzle-mismatch">Nozzle mismatch</option></select>
+          <button class="run-scenario secondary" type="button">Run scenario</button>
+        </div>
+        <ol class="activity-log"></ol>
+      </details>
+      <div class="card-footer"><button data-action="offline" class="secondary online-toggle">Take offline</button><button data-action="reset" class="secondary">Reset</button><button class="remove-button danger">Remove</button></div>
+    </article>
+  </template>
+
+  <div id="toast" role="status" aria-live="polite"></div>
+  <script type="module" src="app.js"></script>
+</body>
+</html>

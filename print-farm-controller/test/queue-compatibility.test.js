@@ -52,6 +52,45 @@ test('single-tool printer is incompatible with a two-tool file', () => {
   assert.match(result.reasons[0].text, /requires 2 tools/);
 });
 
+test('Bambu AMS compatibility maps file filaments to loaded slots without treating them as nozzles', () => {
+  const bambuJob = { fileName:'two-colour.3mf', stagedFile:{ requirements:{
+    requiredTools:[0,1], toolCount:2, usageReliable:true,
+    logicalTools:[
+      { index:0, material:'PLA', color:'#FF0000', nozzleDiameter:0.4 },
+      { index:1, material:'PETG', color:'#00FF00', nozzleDiameter:0.4 }
+    ]
+  } } };
+  const result = evaluateQueueCompatibility({
+    job:bambuJob,
+    printer:{ id:'p1s', name:'P1S' },
+    state:{ id:'p1s', name:'P1S', online:true, status:{ status:'idle', tools:[{ index:0, nozzleDiameter:0.4 }], materialSources:[
+      { id:'ams-0-0', protocolIndex:0, label:'AMS 1 · Slot 1', present:true, material:'PETG', color:'#00FF00' },
+      { id:'ams-0-2', protocolIndex:2, label:'AMS 1 · Slot 3', present:true, material:'PLA', color:'#FF0000' },
+      { id:'external', protocolIndex:254, label:'External spool', present:true, material:'PLA', color:'#FFFFFF' }
+    ] } },
+    adapter:{ capabilities:{ fileUpload:true, localFiles:true, printLocalFile:true, materialSlotMapping:true }, limits:{ toolCount:1 }, uploadExtensions:['.3mf','.gcode'] }
+  });
+  assert.equal(result.category, 'ready');
+  assert.deepEqual(result.materialMap, { '0':2, '1':0 });
+});
+
+test('Bambu AMS compatibility blocks a missing required filament', () => {
+  const bambuJob = { fileName:'two-colour.3mf', stagedFile:{ requirements:{
+    requiredTools:[0,1], toolCount:2, usageReliable:true,
+    logicalTools:[{ index:0, material:'PLA', color:'#FF0000' }, { index:1, material:'PETG', color:'#00FF00' }]
+  } } };
+  const result = evaluateQueueCompatibility({
+    job:bambuJob,
+    printer:{ id:'p1p', name:'P1P' },
+    state:{ online:true, status:{ status:'idle', tools:[{ index:0, nozzleDiameter:0.4 }], materialSources:[
+      { id:'ams-0-0', protocolIndex:0, label:'AMS 1 · Slot 1', present:true, material:'PLA', color:'#FF0000' }
+    ] } },
+    adapter:{ capabilities:{ fileUpload:true, localFiles:true, printLocalFile:true, materialSlotMapping:true }, limits:{ toolCount:1 }, uploadExtensions:['.3mf'] }
+  });
+  assert.equal(result.category, 'blocked');
+  assert.ok(result.reasons.some((reason) => reason.code === 'material_slot_not_loaded'));
+});
+
 test('compatible printer can be temporarily blocked by bed clearance', () => {
   const result = evaluateQueueCompatibility({
     job:{ stagedFile:{ requirements:{ requiredTools:[0], toolCount:1, usageReliable:true, logicalTools:[{ index:0, material:'PLA' }] } } },

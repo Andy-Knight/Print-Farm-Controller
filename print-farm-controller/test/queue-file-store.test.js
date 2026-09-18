@@ -5,6 +5,34 @@ import os from 'node:os';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 
+function storedZipEntry(name, content) {
+  const fileName = Buffer.from(name);
+  const body = Buffer.from(content);
+  const local = Buffer.alloc(30);
+  local.writeUInt32LE(0x04034b50, 0);
+  local.writeUInt16LE(20, 4);
+  local.writeUInt32LE(body.length, 18);
+  local.writeUInt32LE(body.length, 22);
+  local.writeUInt16LE(fileName.length, 26);
+  const central = Buffer.alloc(46);
+  central.writeUInt32LE(0x02014b50, 0);
+  central.writeUInt16LE(20, 4);
+  central.writeUInt16LE(20, 6);
+  central.writeUInt32LE(body.length, 20);
+  central.writeUInt32LE(body.length, 24);
+  central.writeUInt16LE(fileName.length, 28);
+  central.writeUInt32LE(0, 42);
+  const localRecord = Buffer.concat([local, fileName, body]);
+  const centralRecord = Buffer.concat([central, fileName]);
+  const end = Buffer.alloc(22);
+  end.writeUInt32LE(0x06054b50, 0);
+  end.writeUInt16LE(1, 8);
+  end.writeUInt16LE(1, 10);
+  end.writeUInt32LE(centralRecord.length, 12);
+  end.writeUInt32LE(localRecord.length, 16);
+  return Buffer.concat([localRecord, centralRecord, end]);
+}
+
 async function loadStoreInTempDir() {
   const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'pfc-queue-files-test-'));
   process.env.DATA_DIR = dir;
@@ -36,5 +64,19 @@ test('persistent queue file staging stores hash, requirements and exact bytes', 
   const orphan = await stageQueueFile(source, 'orphan.gcode');
   await pruneQueueFiles([], { minAgeMs:0 });
   await assert.rejects(() => getQueueFile(orphan.id));
+  await fs.rm(dir, { recursive:true, force:true });
+});
+
+test('persistent queue staging reads multi-filament requirements from embedded 3MF plate G-code', async () => {
+  const { dir, stageQueueFile } = await loadStoreInTempDir();
+  const source = path.join(dir, 'two-colour.3mf');
+  const gcode = '; filament_type = PLA;PETG\n; filament_colour = #FF0000;#00FF00\n; nozzle_diameter = 0.4;0.4\n; filament used [g] = 2.5;3.5\nT0\nT1\n';
+  await fs.writeFile(source, storedZipEntry('Metadata/plate_1.gcode', gcode));
+  const staged = await stageQueueFile(source, 'two-colour.3mf');
+  assert.equal(staged.requirements.source, '3mf-embedded-gcode');
+  assert.deepEqual(staged.requirements.requiredTools, [0,1]);
+  assert.equal(staged.requirements.logicalTools[0].material, 'PLA');
+  assert.equal(staged.requirements.logicalTools[1].material, 'PETG');
+  assert.equal(staged.requirements.logicalTools[1].color, '#00FF00');
   await fs.rm(dir, { recursive:true, force:true });
 });

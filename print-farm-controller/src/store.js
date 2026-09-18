@@ -172,6 +172,8 @@ export async function addPrinter(input) {
     httpPort: Number(input.httpPort || 8898),
     cameraPort: Number(input.cameraPort || 8080),
     tcpPort: Number(input.tcpPort || input.commandPort || 8899),
+    mqttPort: input.mqttPort == null ? undefined : Number(input.mqttPort),
+    ftpsPort: input.ftpsPort == null ? undefined : Number(input.ftpsPort),
     ...(dashboardOrder !== undefined ? { dashboardOrder } : {}),
     createdAt: new Date().toISOString()
   };
@@ -262,6 +264,8 @@ export function publicPrinter(printer) {
     httpPort: printer.httpPort,
     cameraPort: printer.cameraPort,
     tcpPort: printer.tcpPort || printer.commandPort || 8899,
+    mqttPort: Number.isFinite(Number(printer.mqttPort)) ? Number(printer.mqttPort) : null,
+    ftpsPort: Number.isFinite(Number(printer.ftpsPort)) ? Number(printer.ftpsPort) : null,
     dashboardOrder: Number.isFinite(Number(printer.dashboardOrder)) ? Number(printer.dashboardOrder) : null,
     materialDesignation: String(printer.adapterConfig?.filamentDesignation || '').trim() || null,
     materialColorDesignation: normalizeColorDesignation(printer.adapterConfig?.filamentColorDesignation),

@@ -1,5 +1,6 @@
 import { flashForgeAd5mAdapterDefinition, FLASHFORGE_AD5M_ADAPTER_TYPE } from './flashforge-ad5m-adapter.js';
 import { snapmakerU1AdapterDefinition, SNAPMAKER_U1_ADAPTER_TYPE } from './snapmaker-u1-adapter.js';
+import { bambuLabAdapterDefinition, BAMBU_LAB_ADAPTER_TYPE } from './bambu-lab-adapter.js';
 
 const registry = new Map();
 
@@ -65,5 +66,6 @@ export function getPrinterAdapter(printer) {
 
 registerPrinterAdapter(flashForgeAd5mAdapterDefinition);
 registerPrinterAdapter(snapmakerU1AdapterDefinition);
+registerPrinterAdapter(bambuLabAdapterDefinition);
 
-export { FLASHFORGE_AD5M_ADAPTER_TYPE, SNAPMAKER_U1_ADAPTER_TYPE };
+export { FLASHFORGE_AD5M_ADAPTER_TYPE, SNAPMAKER_U1_ADAPTER_TYPE, BAMBU_LAB_ADAPTER_TYPE };

@@ -869,8 +869,17 @@ function renderAdapterFields(type, values = {}) {
   const definition = adapterDefinition(type);
   const fields = definition?.configFields || [];
   adapterFields.innerHTML = fields.map((field) => {
-    const inputType = field.secret ? 'password' : (field.type || 'text');
     const value = values[field.name] ?? field.defaultValue ?? '';
+    const help = field.help ? `<div class="field-help">${escapeHtml(field.help)}</div>` : '';
+    if (field.type === 'select' && Array.isArray(field.options)) {
+      const attrs = [`name="${escapeHtml(field.name)}"`, field.required ? 'required' : ''].filter(Boolean).join(' ');
+      const options = field.options.map((item) => {
+        const option = item && typeof item === 'object' ? item : { value:item, label:item };
+        return `<option value="${escapeHtml(option.value)}"${String(option.value) === String(value) ? ' selected' : ''}>${escapeHtml(option.label ?? option.value)}</option>`;
+      }).join('');
+      return `<label>${escapeHtml(field.label || field.name)}<select ${attrs}>${options}</select></label>${help}`;
+    }
+    const inputType = field.secret ? 'password' : (field.type || 'text');
     const attrs = [
       `name="${escapeHtml(field.name)}"`,
       `type="${escapeHtml(inputType)}"`,
@@ -880,8 +889,16 @@ function renderAdapterFields(type, values = {}) {
       field.max !== undefined ? `max="${escapeHtml(field.max)}"` : '',
       value !== '' ? `value="${escapeHtml(value)}"` : ''
     ].filter(Boolean).join(' ');
-    return `<label>${escapeHtml(field.label || field.name)}<input ${attrs}></label>${field.help ? `<div class="field-help">${escapeHtml(field.help)}</div>` : ''}`;
+    return `<label>${escapeHtml(field.label || field.name)}<input ${attrs}></label>${help}`;
   }).join('');
+  if (type === 'bambu-lab') {
+    const model = adapterFields.querySelector('[name="model"]');
+    const cameraPort = adapterFields.querySelector('[name="cameraPort"]');
+    model?.addEventListener('change', () => {
+      if (!cameraPort || !['322','6000'].includes(cameraPort.value)) return;
+      cameraPort.value = model.value.trim().toUpperCase() === 'X1C' ? '322' : '6000';
+    });
+  }
 }
 
 async function loadAdapters() {
@@ -1122,11 +1139,12 @@ queueHistoryList?.addEventListener('click', async (event) => {
     // A fixed U1 reprint must re-open Print setup because filament/nozzle state may
     // have changed since the historical job was queued. This avoids silently
     // reusing a stale physical tool mapping.
-    if (printer?.capabilities?.printToolMapping) {
+    if (printer?.capabilities?.printToolMapping || printer?.capabilities?.materialSlotMapping) {
       queueDialog.close();
       await openPrinter(printer.id);
       const setup = await api(`/api/printers/${encodeURIComponent(printer.id)}/print-setup?fileName=${encodeURIComponent(job.fileName)}`);
-      renderU1PrintSetup(printer, setup, job.fileName, 'queue');
+      if (printer.capabilities?.materialSlotMapping) renderBambuPrintSetup(printer, setup, job.fileName, 'queue');
+      else renderU1PrintSetup(printer, setup, job.fileName, 'queue');
       return;
     }
     if (!confirm(`Queue ${job.fileName} again on ${job.printerName}?`)) return;
@@ -1150,7 +1168,11 @@ discoveryResults.addEventListener('click', (event) => {
   adapterTypeSelect.value = type;
   renderAdapterFields(type, {
     serialNumber: printer.serialNumber || '',
-    httpPort: printer.httpPort || (type === 'snapmaker-u1' ? 7125 : 8898)
+    model: printer.model || '',
+    httpPort: printer.httpPort || (type === 'snapmaker-u1' ? 7125 : 8898),
+    mqttPort: printer.mqttPort || 8883,
+    ftpsPort: printer.ftpsPort || 990,
+    cameraPort: printer.cameraPort || (type === 'bambu-lab' ? 6000 : 8080)
   });
   addForm.elements.name.value = printer.name || printer.model || 'Printer';
   addForm.elements.host.value = printer.host || '';
@@ -1833,6 +1855,97 @@ function u1MappingAssessment(printer, setup, toolMap) {
   return { warnings:[...new Set(warnings)], errors:[...new Set(errors)] };
 }
 
+function defaultBambuMaterialMap(setup) {
+  const sources = (setup.materialSources || []).filter((source) => source.present !== false);
+  const mapping = {};
+  const used = new Set();
+  for (const logical of setup.logicalTools || []) {
+    const wantedMaterial = normalizedMaterial(logical.material);
+    const wantedColor = normalizeColor(logical.color);
+    let selected = sources.find((source) => !used.has(source.protocolIndex)
+      && (!wantedMaterial || normalizedMaterial(source.material) === wantedMaterial)
+      && (!wantedColor || normalizeColor(source.color) === wantedColor));
+    if (!selected) selected = sources.find((source) => !used.has(source.protocolIndex) && (!wantedMaterial || normalizedMaterial(source.material) === wantedMaterial));
+    if (!selected) selected = sources.find((source) => !used.has(source.protocolIndex));
+    if (!selected) selected = sources[0];
+    if (selected) { mapping[logical.index] = selected.protocolIndex; used.add(selected.protocolIndex); }
+  }
+  return mapping;
+}
+
+function bambuMappingAssessment(setup, materialMap) {
+  const sources = setup.materialSources || [];
+  const warnings = [];
+  const errors = [];
+  const used = new Set();
+  for (const logical of setup.logicalTools || []) {
+    const protocolIndex = Number(materialMap[logical.index]);
+    const source = sources.find((item) => Number(item.protocolIndex) === protocolIndex);
+    if (!source) { errors.push(`File T${logical.index} has no valid material source selected.`); continue; }
+    if (source.present === false) errors.push(`${source.label} is empty.`);
+    if (used.has(protocolIndex)) errors.push(`${source.label} is assigned more than once.`);
+    used.add(protocolIndex);
+    const wantedMaterial = normalizedMaterial(logical.material);
+    const loadedMaterial = normalizedMaterial(source.material);
+    if (wantedMaterial && loadedMaterial && wantedMaterial !== loadedMaterial) warnings.push(`File T${logical.index} requests ${logical.material}, but ${source.label} contains ${source.material}.`);
+    const wantedColor = normalizeColor(logical.color);
+    const loadedColor = normalizeColor(source.color);
+    if (wantedColor && loadedColor && wantedColor !== loadedColor) warnings.push(`File T${logical.index} requests ${wantedColor}, but ${source.label} contains ${loadedColor}.`);
+  }
+  return { warnings:[...new Set(warnings)], errors:[...new Set(errors)] };
+}
+
+function renderBambuPrintSetup(printer, setup, fileName, mode = 'print') {
+  const panel = printerDetail.querySelector('#printSetupPanel');
+  if (!panel) return;
+  const queueMode = mode === 'queue';
+  const mapping = defaultBambuMaterialMap(setup);
+  const sources = setup.materialSources || [];
+  const rows = (setup.logicalTools || []).map((logical) => {
+    const label = [logical.material || 'material unknown', logical.color || 'colour unknown'].filter(Boolean).join(' · ');
+    const options = sources.map((source) => `<option value="${source.protocolIndex}"${Number(mapping[logical.index]) === Number(source.protocolIndex) ? ' selected' : ''}${source.present === false ? ' disabled' : ''}>${escapeHtml(`${source.label} · ${source.present === false ? 'empty' : `${source.material || 'unknown'} · ${source.color || 'colour unknown'}`}`)}</option>`).join('');
+    return `<div class="tool-map-row"><div class="tool-map-file"><strong>File T${logical.index}</strong><span>${escapeHtml(label)}</span></div><label>Material source<select data-bambu-material-map="${logical.index}">${options}</select></label></div>`;
+  }).join('');
+  panel.innerHTML = `<div class="print-setup-head"><div><strong>${queueMode ? 'Queue setup' : 'Print setup'}</strong><span>${escapeHtml(fileName)}</span></div><button type="button" class="icon" data-print-setup-close>×</button></div>
+    <div class="field-help">Map each filament used by the file to a loaded AMS slot. The external spool is available for single-material printing.</div>
+    ${setup.warning ? `<div class="file-warning">${escapeHtml(setup.warning)}</div>` : ''}
+    <div class="tool-map-grid">${rows || '<div class="file-warning">No reliable filament requirements were found. The printer will use its default external-spool path.</div>'}</div>
+    <div id="printSetupAssessment" class="print-setup-assessment"></div>
+    <div class="actions"><button type="button" class="secondary" data-print-setup-close>Cancel</button><button type="button" class="primary" data-print-setup-start>${queueMode ? 'Add to queue' : 'Start print'}</button></div>`;
+  panel.classList.remove('hidden');
+  const currentMap = () => Object.fromEntries([...panel.querySelectorAll('[data-bambu-material-map]')].map((select) => [select.dataset.bambuMaterialMap, Number(select.value)]));
+  const refresh = () => {
+    const assessment = bambuMappingAssessment(setup, currentMap());
+    if (setup.amsMappingSupported === false) assessment.errors.push('Bambu multi-material AMS printing requires a sliced .3mf project file.');
+    const target = panel.querySelector('#printSetupAssessment');
+    target.textContent = [...assessment.errors.map((value) => `BLOCK: ${value}`), ...assessment.warnings.map((value) => `Warning: ${value}`)].join('\n');
+    target.classList.toggle('has-errors', assessment.errors.length > 0);
+    panel.querySelector('[data-print-setup-start]').disabled = assessment.errors.length > 0;
+  };
+  panel.querySelectorAll('[data-bambu-material-map]').forEach((select) => select.addEventListener('change', refresh));
+  panel.querySelectorAll('[data-print-setup-close]').forEach((button) => button.onclick = () => panel.classList.add('hidden'));
+  panel.querySelector('[data-print-setup-start]').onclick = async () => {
+    const materialMap = currentMap();
+    const assessment = bambuMappingAssessment(setup, materialMap);
+    if (assessment.errors.length) return;
+    const options = {
+      levelingBeforePrint:printerDetail.querySelector('#levelBeforePrint')?.checked ?? false,
+      flowCalibrationBeforePrint:printerDetail.querySelector('#flowCalibrationBeforePrint')?.checked ?? false,
+      materialMap,
+      usedLogicalTools:setup.referencedTools || []
+    };
+    if (!confirm(`${queueMode ? 'Add to queue' : 'Start'} ${fileName} ${queueMode ? `for ${printer.name}` : `on ${printer.name}`}?${assessment.warnings.length ? `\n\n${assessment.warnings.join('\n')}` : ''}`)) return;
+    try {
+      if (queueMode) await addPrintQueueJob(printer, fileName, options);
+      else await command(printer.id, 'print', { fileName, ...options });
+      printerDialog.close();
+      if (queueMode) { renderPrintQueue(); queueDialog.showModal(); }
+    } catch (error) { showError(error); }
+  };
+  refresh();
+  panel.scrollIntoView({ behavior:'smooth', block:'nearest' });
+}
+
 function renderU1PrintSetup(printer, setup, fileName, mode = 'print') {
   const panel = printerDetail.querySelector('#printSetupPanel');
   if (!panel) return;
@@ -2036,6 +2149,22 @@ function updateOpenPrinterTelemetry() {
         swatch.title = color || 'Colour unknown';
       }
     }
+    for (const source of s.materialSources || []) {
+      const row = printerDetail.querySelector(`[data-ams-source="${source.protocolIndex}"]`);
+      if (!row) continue;
+      const color = normalizeColor(source.color);
+      const active = row.querySelector('[data-ams-active]');
+      const state = row.querySelector('[data-ams-state]');
+      const swatch = row.querySelector('[data-ams-swatch]');
+      if (active) active.textContent = source.active ? 'Active' : '';
+      if (state) state.textContent = source.present === false ? 'Empty' : `${source.material || 'Unknown material'}${color ? ` · ${color}` : ''}`;
+      if (swatch) {
+        swatch.classList.toggle('unknown', !color);
+        swatch.style.background = color || '';
+      }
+      row.classList.toggle('active', source.active === true);
+      row.classList.toggle('empty', source.present === false);
+    }
   }
   if (s?.chamber?.actual != null && Number.isFinite(Number(s.chamber.actual))) set('[data-chamber-now]', `${Number(s.chamber.actual).toFixed(1)} °C`);
   if (s?.chamberFan != null) set('[data-chamber-fan-now]', `${Math.round(Number(s.chamberFan) || 0)}% now`);
@@ -2158,7 +2287,16 @@ async function openPrinter(id) {
     if (!tools.length) return `<div class="panel material-panel"><h3>Toolhead status</h3><div class="subtle">Material status is unavailable while the printer is offline.</div>${flashForgeMaterialDesignationMarkup(printer)}${flashForgeNozzleDesignationMarkup(printer)}</div>`;
     const materialHelp = printer.adapterType === 'flashforge-ad5m'
       ? "Filament type uses the controller's manual designation when set, otherwise the value reported by the FlashForge 5M local /detail API. Installed nozzle size uses the controller nozzle designation when set because the 5M API does not reliably expose it. The 5M API also does not expose U1-style filament colour/RFID metadata or a reliable live filament-presence value."
-      : 'Filament presence comes from each U1 motion sensor. Third-party filament type and colour can be written to the idle printer and are verified by reading the effective per-tool configuration back. Official Snapmaker RFID filament remains locked. Nozzle size and XYZ offset come directly from each physical U1 extruder.';
+      : printer.adapterType === 'bambu-lab'
+        ? 'Material and colour come from the active external-spool or AMS tray metadata reported by the Bambu LAN interface. Bambu support is experimental until checked against physical P1P, P1S and X1C hardware.'
+        : 'Filament presence comes from each U1 motion sensor. Third-party filament type and colour can be written to the idle printer and are verified by reading the effective per-tool configuration back. Official Snapmaker RFID filament remains locked. Nozzle size and XYZ offset come directly from each physical U1 extruder.';
+    const bambuSources = printer.adapterType === 'bambu-lab' && Array.isArray(s?.materialSources)
+      ? `<div class="ams-source-grid">${s.materialSources.map((source) => {
+        const color = normalizeColor(source.color);
+        const state = source.present === false ? 'Empty' : `${source.material || 'Unknown material'}${color ? ` · ${color}` : ''}`;
+        return `<div class="ams-source${source.active ? ' active' : ''}${source.present === false ? ' empty' : ''}" data-ams-source="${source.protocolIndex}"><div><strong>${escapeHtml(source.label)}</strong><span data-ams-active>${source.active ? 'Active' : ''}</span></div><i class="material-swatch${color ? '' : ' unknown'}" data-ams-swatch${color ? ` style="background:${escapeHtml(color)}"` : ''}></i><small data-ams-state>${escapeHtml(state)}</small></div>`;
+      }).join('')}</div>`
+      : '';
     return `<div class="panel material-panel">
       <h3>Toolhead status</h3>
       <div class="material-summary" data-material-summary>${escapeHtml(materialSummaryText(tools))}</div>
@@ -2173,10 +2311,11 @@ async function openPrinter(id) {
           ${capabilities.toolheadNozzleStatus ? `<small data-tool-nozzle="${tool.index}">${escapeHtml(`${nozzleDiameterText(tool.nozzleDiameter)}${tool.nozzleVolumeType ? ` · ${tool.nozzleVolumeType}` : ''}`)}</small>` : ''}
           ${capabilities.toolheadNozzleStatus ? `<small data-tool-offset="${tool.index}">${escapeHtml(toolOffsetText(tool.offset))}</small>` : ''}
           <small data-material-meta="${tool.index}">${escapeHtml(filamentMetaText(filament))}</small>
-          ${['snapmaker-u1','flashforge-ad5m'].includes(printer.adapterType) ? `<small class="material-rgb${filamentRgbText(filament.color) ? '' : ' hidden'}" data-material-rgb="${tool.index}">${escapeHtml(filamentRgbText(filament.color) || '')}</small>` : ''}
+          ${['snapmaker-u1','flashforge-ad5m','bambu-lab'].includes(printer.adapterType) ? `<small class="material-rgb${filamentRgbText(filament.color) ? '' : ' hidden'}" data-material-rgb="${tool.index}">${escapeHtml(filamentRgbText(filament.color) || '')}</small>` : ''}
           ${printer.adapterType === 'snapmaker-u1' ? u1FilamentConfigControlMarkup(printer, tool) : ''}
         </div>`;
       }).join('')}</div>
+      ${bambuSources}
       ${printer.adapterType === 'flashforge-ad5m' ? flashForgeMaterialDesignationMarkup(printer, tools[0]?.filament || {}) : ''}
       ${printer.adapterType === 'flashforge-ad5m' ? flashForgeNozzleDesignationMarkup(printer, tools[0] || {}) : ''}
       <div class="field-help material-help">${escapeHtml(materialHelp)}</div>
@@ -2220,6 +2359,7 @@ async function openPrinter(id) {
       <button class="icon" data-detail-close>×</button>
     </div>
     <div id="detailConnectionError" class="error hidden"></div>
+    ${printer.adapterType === 'bambu-lab' ? `<div class="file-warning">Experimental Bambu ${escapeHtml(printer.model || '')} support: validate behavior carefully before relying on unattended printing.${printer.model === 'X1C' ? ' X1C RTSPS/H.264 camera decoding is not yet supported.' : ''}</div>` : ''}
     <div class="detail-grid">
       <div class="detail-column detail-column-left">
         ${detailCameraMarkup(printer)}
@@ -2242,7 +2382,7 @@ async function openPrinter(id) {
           ${files.length > 10 ? `<input id="fileSearch" class="file-search" type="search" placeholder="Filter ${files.length} files…" autocomplete="off" />` : ''}
           ${fileWarningMarkup}
           <div class="file-list" id="printerFileList">${fileListMarkup}<div id="fileNoMatches" class="subtle hidden">No matching files.</div></div>
-          ${capabilities.printToolMapping ? '<div id="printSetupPanel" class="print-setup-panel hidden"></div>' : ''}
+          ${capabilities.printToolMapping || capabilities.materialSlotMapping ? '<div id="printSetupPanel" class="print-setup-panel hidden"></div>' : ''}
         </div>
       </div>
       <div class="detail-column detail-column-right">
@@ -2392,13 +2532,14 @@ async function openPrinter(id) {
   printerDetail.querySelectorAll('[data-job]').forEach((btn) => btn.onclick = () => command(id, 'job', { action: btn.dataset.job }).catch(showError));
   printerDetail.querySelectorAll('[data-queue-file]').forEach((btn) => btn.onclick = async () => {
     try {
-      if (printer.capabilities?.printToolMapping) {
+      if (printer.capabilities?.printToolMapping || printer.capabilities?.materialSlotMapping) {
         btn.disabled = true;
         const original = btn.textContent;
         btn.textContent = 'Reading…';
         try {
           const setup = await api(`/api/printers/${encodeURIComponent(id)}/print-setup?fileName=${encodeURIComponent(btn.dataset.queueFile)}`);
-          renderU1PrintSetup(printer, setup, btn.dataset.queueFile, 'queue');
+          if (printer.capabilities?.materialSlotMapping) renderBambuPrintSetup(printer, setup, btn.dataset.queueFile, 'queue');
+          else renderU1PrintSetup(printer, setup, btn.dataset.queueFile, 'queue');
         } finally {
           btn.disabled = false;
           btn.textContent = original;
@@ -2423,13 +2564,14 @@ The controller will start it automatically when this printer is idle and all saf
   });
   printerDetail.querySelectorAll('[data-print-file]').forEach((btn) => btn.onclick = async () => {
     try {
-      if (printer.capabilities?.printToolMapping) {
+      if (printer.capabilities?.printToolMapping || printer.capabilities?.materialSlotMapping) {
         btn.disabled = true;
         const original = btn.textContent;
         btn.textContent = 'Reading…';
         try {
           const setup = await api(`/api/printers/${encodeURIComponent(id)}/print-setup?fileName=${encodeURIComponent(btn.dataset.printFile)}`);
-          renderU1PrintSetup(printer, setup, btn.dataset.printFile);
+          if (printer.capabilities?.materialSlotMapping) renderBambuPrintSetup(printer, setup, btn.dataset.printFile);
+          else renderU1PrintSetup(printer, setup, btn.dataset.printFile);
         } finally {
           btn.disabled = false;
           btn.textContent = original;

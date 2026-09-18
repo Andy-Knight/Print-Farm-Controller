@@ -123,6 +123,33 @@ test('FlashForge controller nozzle designation persists without exposing adapter
   }
 });
 
+test('Bambu connection ports persist without exposing the LAN access code', async () => {
+  const dir = await mkdtemp(path.join(os.tmpdir(), 'pfc-bambu-store-'));
+  process.env.DATA_DIR = dir;
+  const store = await import(`../src/store.js?bambu-store-test=${Date.now()}`);
+
+  try {
+    const stored = await store.addPrinter({
+      name:'Bambu P1S', adapterType:'bambu-lab', manufacturer:'Bambu Lab', model:'P1S',
+      host:'127.0.0.1', serialNumber:'01S00SIM000001', checkCode:'secret-code',
+      mqttPort:18893, ftpsPort:20000, cameraPort:16010,
+      adapterConfig:{ mqttPort:18893, ftpsPort:20000, cameraPort:16010, experimental:true }
+    });
+    const publicValue = store.publicPrinter(stored);
+    assert.equal(publicValue.mqttPort, 18893);
+    assert.equal(publicValue.ftpsPort, 20000);
+    assert.equal(publicValue.cameraPort, 16010);
+    assert.equal('checkCode' in publicValue, false);
+    assert.equal('adapterConfig' in publicValue, false);
+    const [reloaded] = await store.listPrinters();
+    assert.equal(reloaded.checkCode, 'secret-code');
+    assert.equal(reloaded.mqttPort, 18893);
+  } finally {
+    delete process.env.DATA_DIR;
+    await rm(dir, { recursive:true, force:true });
+  }
+});
+
 test('default controller data directory migrates the complete legacy FlashForge Fleet tree', async () => {
   const base = await mkdtemp(path.join(os.tmpdir(), 'pfc-data-dir-migration-'));
   const previous = {

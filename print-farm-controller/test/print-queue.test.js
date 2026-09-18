@@ -518,6 +518,56 @@ test('automatic queue job selects a compatible idle printer, uploads, verifies a
   service.stop();
 });
 
+test('automatic Bambu queue job maps 3MF filaments to AMS slots before starting', async () => {
+  const materialSources = [
+    { id:'ams-0-0', protocolIndex:0, label:'AMS 1 slot 1', present:true, material:'PETG', color:'#00FF00' },
+    { id:'ams-0-2', protocolIndex:2, label:'AMS 1 slot 3', present:true, material:'PLA', color:'#FF0000' }
+  ];
+  const status = {
+    status:'idle', fileName:null,
+    tools:[{ index:0, nozzleDiameter:0.4, filament:{ present:true, material:'PLA', color:'#FF0000' } }],
+    materialSources
+  };
+  const fleetState = new FakeFleetState([{ id:'p1s', name:'P1S', online:true, status }]);
+  const store = memoryStore();
+  const starts = [];
+  const staged = {
+    id:'12121212-1212-4121-8121-121212121212', fileName:'two-colour.3mf', filePath:'/staged/two-colour.3mf', size:321,
+    sha256:'c'.repeat(64), stagedAt:'2026-09-11T11:00:00.000Z',
+    requirements:{ requiredTools:[0,1], toolCount:2, usageReliable:true, logicalTools:[
+      { index:0, material:'PLA', color:'#FF0000', nozzleDiameter:0.4 },
+      { index:1, material:'PETG', color:'#00FF00', nozzleDiameter:0.4 }
+    ], materialMetadata:{ metadataAvailable:true, requiredMaterial:null, materials:['PLA','PETG'] } }
+  };
+  let uploaded = false;
+  const service = new PrintQueueService({
+    fleetState,
+    chamberPreheat:{ isActive:() => false, stop:async () => {} },
+    getPrinterFn:async () => ({ id:'p1s', name:'P1S' }),
+    adapterResolver:() => ({
+      capabilities:{ fileUpload:true, localFiles:true, printLocalFile:true, materialSlotMapping:true },
+      limits:{ toolCount:1 }, uploadExtensions:['.3mf'],
+      getStatus:async () => status,
+      verifyFile:async () => ({ verified:uploaded, source:'test' }),
+      uploadFile:async () => { uploaded = true; },
+      printLocalFile:async (fileName, options) => starts.push({ fileName, options })
+    }),
+    loadJobsFn:store.load,
+    saveJobsFn:store.save,
+    getQueueFileFn:async () => staged,
+    pruneQueueFilesFn:async () => 0,
+    saveFileMaterialMetadataFn:async () => {}
+  });
+
+  await service.start();
+  const job = await service.add({ assignmentMode:'automatic', stagedFileId:staged.id });
+  await waitFor(() => starts.length === 1);
+  assert.equal(service.getJob(job.id).printerId, 'p1s');
+  assert.equal(starts[0].fileName, 'two-colour.3mf');
+  assert.deepEqual(starts[0].options.materialMap, { '0':2, '1':0 });
+  service.stop();
+});
+
 test('automatic queue job remains queued and exposes why compatible printers are blocked', async () => {
   const fleetState = new FakeFleetState([
     { id:'p1', name:'Printer 1', online:false, error:'offline', status:null },
@@ -985,4 +1035,3 @@ test('production batches keep one editable priority across waiting copies', asyn
   assert.deepEqual(service.jobs.filter((job) => job.productionBatchId === first.productionBatchId).map((job) => job.priority), ['high','high','high']);
   service.stop();
 });
-

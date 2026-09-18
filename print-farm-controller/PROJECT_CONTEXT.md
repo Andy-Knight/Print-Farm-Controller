@@ -6,8 +6,8 @@
 
 - Repository: `Andy-Knight/Print-Farm-Controller`
 - Project path: `print-farm-controller/`
-- Branch: `main`
-- Current application version: **0.12.16**
+- Primary branch: `main` (v0.13.0 approved and merged from `release/v0.13.0`; the release branch is retained)
+- Current application version on this branch: **0.13.0**
 - Runtime: **Node.js 20+**, ES modules, no npm runtime dependencies.
 - GitHub is the authoritative code baseline.
 
@@ -33,6 +33,14 @@ Local Fleet Controller (`src/`)
 PrinterAdapter boundary (`src/adapters/`)
         +-- FlashForge Adventurer 5M / 5M Pro
         +-- Snapmaker U1 -> Moonraker / Klipper
+        +-- Bambu Lab P1P / P1S / X1C -> experimental MQTT/FTPS adapter + P1 camera
+
+Development Printer Emulator (`emulator/`, loopback only)
+        +-- management UI/API + SSE
+        +-- shared virtual-printer state and scenarios
+        +-- FlashForge HTTP/TCP/camera endpoints
+        +-- Snapmaker U1 Moonraker endpoints
+        +-- Bambu P1P/P1S/X1C MQTT TLS, FTPS TLS and camera test endpoints
 ```
 
 Manufacturer-specific discovery, capabilities, limits, status normalization, files, print control, temperatures and camera selection belong behind the adapter boundary. Core fleet services should remain manufacturer-agnostic.
@@ -56,11 +64,15 @@ Manufacturer-specific discovery, capabilities, limits, status normalization, fil
 - The browser appearance switch is accessible, persists only in browser `localStorage`, and follows the device colour scheme until the user explicitly selects Light or Dark.
 - Queue priority is **High / Normal / Low**. Effective priority ranks before manual queue order; a waiting job gains one priority level every six hours so low-priority work cannot be starved. Within the same effective priority, manual order remains authoritative.
 - When multiple compatible idle printers are ready for an automatic job, a printer with a verified existing copy of the file is preferred; the assigned job records the selection reason.
+- The development printer simulator is integrated into the controller lifecycle and UI, but its virtual protocol endpoints remain loopback-only. It is disabled by default, remembers explicit enablement, and exercises production adapters through network protocols rather than bypassing the adapter boundary. Simulator-only support never counts as physical hardware validation. The standalone emulator command remains available for development.
+- Bambu P1P/P1S/X1C support remains explicitly experimental until the MQTT telemetry/commands and FTPS behavior are compared with physical printers. P1 TLS/JPEG camera framing also requires physical validation. X1C uses RTSPS/H.264 on port 322; the controller deliberately reports X1C camera as unsupported until a suitable decoder is implemented. Manual entry is used; Bambu LAN discovery is not yet implemented.
+- Bambu AMS support models each AMS tray and the external spool as a material source, separate from the P1's single physical nozzle. Automatic scheduling maps logical 3MF filaments to unique live sources, while multi-material raw G-code is rejected because it does not carry the project-level AMS mapping required by the print command.
 
 ## Completed work / current baseline
 
 - FlashForge Adventurer 5M / 5M Pro support.
 - Snapmaker U1 support via Moonraker/Klipper, including stock camera integration.
+- Experimental Bambu Lab P1P/P1S/X1C controller support: MQTT TLS status, external-spool/AMS material metadata and job/temperature/fan control; implicit FTPS list/upload/verification/download; embedded 3MF plate-G-code requirement parsing; interactive and automatic logical-filament-to-AMS mapping; `.3mf` and single-material `.gcode` print start; authenticated P1 TLS/JPEG camera snapshots; model-specific capabilities/limits and manual connection fields. X1C reports LiDAR availability, a hardened nozzle profile and a 120 °C bed limit, while its RTSPS/H.264 camera remains explicitly unsupported. FTPS upload verification checks the exact filename with `SIZE`, falls back to normalized directory entries and retries briefly for delayed storage visibility.
 - Automatic/local discovery, persistent printer registry and controller-side printer renaming.
 - Dashboard ordering, SSE fleet state, diagnostics and batch actions.
 - Verified file distribution and printer-local file operations.
@@ -68,6 +80,8 @@ Manufacturer-specific discovery, capabilities, limits, status normalization, fil
 - Material metadata/preflight for FlashForge and multi-tool print setup/preflight for U1.
 - U1 tool mapping, print preferences, material/nozzle readiness and XYZ offset calibration.
 - Bed-powered timed chamber preheat and applicable fan/purifier controls.
+- **v0.13.0 printer simulator:** controller-managed lifecycle, controller-hosted responsive management UI sharing the controller's visual system and persisted light/dark preference, disabled-by-default persisted enablement, and loopback-only protocol endpoints; multiple dynamically allocated virtual printers; production-adapter-compatible FlashForge HTTP/TCP/MJPEG camera and Snapmaker Moonraker/WebSocket/snapshot endpoints; experimental Bambu Lab P1P/P1S/X1C TLS MQTT status/control, implicit FTPS file transfer and authenticated camera test endpoints; a visible simulated-camera test frame; virtual files, print progress, temperatures and material/nozzle state; accelerated time; activity logs; repeatable scenarios; and fault injection for offline/delay/rejection/malformed response/verification/cancellation/filename/camera conditions. The standalone development command remains available. The X1C test camera intentionally does not emulate physical RTSPS/H.264. Bambu protocol behaviour is simulator-only and awaits physical hardware validation. FlashForge connection forms now expose configurable HTTP, TCP and camera ports while retaining physical-printer defaults.
+- v0.13.0 regression suite: **166 passing tests, 0 failures**, including integrated simulator persistence/routes/lifecycle, standalone management API, authenticated Bambu P1P/P1S/X1C LAN endpoints, full production Bambu P1S and X1C adapter integration against the live simulator, controlled Bambu model selection, editable zero-to-four-unit AMS simulation, live-refresh-safe AMS material/colour controls, embedded 3MF requirement parsing, interactive and automatic AMS material mapping, queue-to-print mapping propagation, credential-safe Bambu persistence, production Snapmaker and FlashForge adapter integration, and the combined U1 filament type/colour command.
 - **v0.11.0 file-centric automatic queue:**
   - persistent controller-side staged queue files with SHA-256;
   - bounded G-code requirement extraction for tools/material/colour/nozzle metadata;
@@ -116,11 +130,14 @@ Manufacturer-specific discovery, capabilities, limits, status normalization, fil
 
 ## Current task
 
-**v0.12.16 Snapmaker U1 combined third-party filament type and colour control is complete and physically validated.** One button updates both values through the printer's native configuration command, with read-back verification and official RFID locking retained.
+**v0.13.0 is merged into `main`, with `release/v0.13.0` retained as the release source branch.** The integrated simulator, Bambu P1P/P1S controller, AMS and X1C work are included. Bambu remains visibly marked experimental in the add-printer list, adapter metadata and printer-detail warning until physical hardware validation is complete. Physical X1C RTSPS/H.264 camera decoding remains explicitly out of scope.
 
 ## Next steps
 
-1. Choose the next scheduler, printer-support, or fleet-management milestone.
+1. Run final release-candidate testing with the controller and all default emulator profiles: FlashForge AD5M Pro, Snapmaker U1, Bambu P1P, P1S and X1C.
+2. Validate X1C status, storage, direct printing, automatic queueing, AMS mapping, temperatures, fans, completion and clearance behavior, while retaining the explicit physical-camera limitation.
+3. Compare Bambu telemetry, FTPS behavior and `project_file` start payloads against reliable captures or physical hardware before removing the experimental label.
+4. After final acceptance, create the `v0.13.0` release tag; retain the experimental Bambu labels until physical validation supports removing them.
 
 ## Handoff rule
 

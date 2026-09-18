@@ -5,6 +5,9 @@ import fs from 'node:fs';
 const app = fs.readFileSync(new URL('../public/app.js', import.meta.url), 'utf8');
 const index = fs.readFileSync(new URL('../public/index.html', import.meta.url), 'utf8');
 const styles = fs.readFileSync(new URL('../public/styles.css', import.meta.url), 'utf8');
+const emulatorApp = fs.readFileSync(new URL('../emulator/public/app.js', import.meta.url), 'utf8');
+const emulatorIndex = fs.readFileSync(new URL('../emulator/public/index.html', import.meta.url), 'utf8');
+const emulatorStyles = fs.readFileSync(new URL('../emulator/public/styles.css', import.meta.url), 'utf8');
 
 test('interface exposes a persistent accessible light and dark mode switch', () => {
   assert.match(index, /id="themeToggle"/);
@@ -16,6 +19,11 @@ test('interface exposes a persistent accessible light and dark mode switch', () 
   assert.match(app, /themeToggle\?\.addEventListener\('click'/);
   assert.match(styles, /:root\[data-theme="light"\]/);
   assert.match(styles, /\.theme-toggle-track::after/);
+  assert.match(emulatorIndex, /id="theme-toggle" class="theme-toggle"/);
+  assert.match(emulatorIndex, /printer-fleet-theme/);
+  assert.match(emulatorApp, /const themeStorageKey = 'printer-fleet-theme'/);
+  assert.match(emulatorStyles, /background: radial-gradient\(circle at 10% 0%/);
+  assert.match(emulatorStyles, /\.theme-toggle-track::after/);
 });
 
 test('FlashForge cancelled state displays clearance-aware readiness while retaining raw status', () => {
@@ -39,7 +47,7 @@ test('Snapmaker U1 toolhead status puts RGB colour on a dedicated second line', 
   assert.match(app, /function filamentRgbText/);
   assert.match(app, /RGB\(\$\{red\}, \$\{green\}, \$\{blue\}\)/);
   assert.match(app, /data-material-rgb=/);
-  assert.match(app, /\['snapmaker-u1','flashforge-ad5m'\]\.includes\(printer\.adapterType\)/);
+  assert.match(app, /\['snapmaker-u1','flashforge-ad5m','bambu-lab'\]\.includes\(printer\.adapterType\)/);
   assert.match(app, /rgbLine\?\.classList\.toggle\('hidden', !rgbText\)/);
   assert.match(styles, /\.material-tool > small\.material-rgb/);
   assert.doesNotMatch(app, /const values = \[source, reported, filament\.vendor \|\| filament\.manufacturer, filamentColorText\(filament\.color\)\]/);
@@ -50,7 +58,7 @@ test('Snapmaker U1 toolhead status puts RGB colour on a dedicated second line', 
 
 test('FlashForge assigned filament colour shows hexadecimal and RGB values in toolhead status', () => {
   assert.match(app, /const values = \[source, reported, filament\.vendor \|\| filament\.manufacturer, normalizeColor\(filament\.color\)\]/);
-  assert.match(app, /\['snapmaker-u1','flashforge-ad5m'\]\.includes\(printer\.adapterType\)/);
+  assert.match(app, /\['snapmaker-u1','flashforge-ad5m','bambu-lab'\]\.includes\(printer\.adapterType\)/);
   assert.match(app, /data-material-rgb=/);
   assert.match(app, /return `RGB\(\$\{red\}, \$\{green\}, \$\{blue\}\)`/);
 });
@@ -299,6 +307,38 @@ test('printer detail exposes verified upload to an individual printer', () => {
   assert.match(server, /printerIds:\[id\]/);
   assert.match(fleetState, /uploadExtensions/);
   assert.match(styles, /\.printer-file-upload/);
+});
+
+test('Bambu printer detail exposes AMS slots and material mapping setup', () => {
+  const emulatorApp = fs.readFileSync(new URL('../emulator/public/app.js', import.meta.url), 'utf8');
+  const emulatorHtml = fs.readFileSync(new URL('../emulator/public/index.html', import.meta.url), 'utf8');
+  const bambuAdapter = fs.readFileSync(new URL('../src/adapters/bambu-lab-adapter.js', import.meta.url), 'utf8');
+  assert.match(app, /function renderBambuPrintSetup/);
+  assert.match(app, /data-bambu-material-map/);
+  assert.match(app, /data-ams-source/);
+  assert.match(app, /materialSlotMapping/);
+  assert.match(emulatorHtml, /AMS configuration/);
+  assert.match(emulatorApp, /function renderAmsControls/);
+  assert.match(emulatorApp, /amsSlots/);
+  assert.match(app, /P1P, P1S and X1C/);
+  assert.match(app, /X1C RTSPS\/H\.264 camera decoding is not yet supported/);
+  assert.match(bambuAdapter, /label: 'Bambu Lab P1P \/ P1S \/ X1C \(experimental\)'/);
+  assert.match(bambuAdapter, /experimental: true/);
+  assert.match(app, /Experimental Bambu \$\{escapeHtml\(printer\.model \|\| ''\)\} support/);
+});
+
+test('add-printer adapter fields render controlled model choices as a dropdown', () => {
+  assert.match(app, /field\.type === 'select' && Array\.isArray\(field\.options\)/);
+  assert.match(app, /<select \$\{attrs\}>\$\{options\}<\/select>/);
+  assert.match(app, /model\.value\.trim\(\)\.toUpperCase\(\) === 'X1C'/);
+});
+
+test('emulator AMS controls survive live refresh while a slot is being edited', () => {
+  const emulatorApp = fs.readFileSync(new URL('../emulator/public/app.js', import.meta.url), 'utf8');
+  assert.match(emulatorApp, /structureSignature/);
+  assert.match(emulatorApp, /grid\.contains\(document\.activeElement\)/);
+  assert.match(emulatorApp, /document\.activeElement !== material/);
+  assert.match(emulatorApp, /document\.activeElement !== color/);
 });
 
 test('queue UI exposes production quantity and batch controls', () => {
