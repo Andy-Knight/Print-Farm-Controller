@@ -312,6 +312,7 @@ test('printer detail exposes verified upload to an individual printer', () => {
 test('Bambu printer detail exposes AMS slots and material mapping setup', () => {
   const emulatorApp = fs.readFileSync(new URL('../emulator/public/app.js', import.meta.url), 'utf8');
   const emulatorHtml = fs.readFileSync(new URL('../emulator/public/index.html', import.meta.url), 'utf8');
+  const bambuAdapter = fs.readFileSync(new URL('../src/adapters/bambu-lab-adapter.js', import.meta.url), 'utf8');
   assert.match(app, /function renderBambuPrintSetup/);
   assert.match(app, /data-bambu-material-map/);
   assert.match(app, /data-ams-source/);
@@ -321,6 +322,9 @@ test('Bambu printer detail exposes AMS slots and material mapping setup', () => 
   assert.match(emulatorApp, /amsSlots/);
   assert.match(app, /P1P, P1S and X1C/);
   assert.match(app, /X1C RTSPS\/H\.264 camera decoding is not yet supported/);
+  assert.match(bambuAdapter, /label: 'Bambu Lab P1P \/ P1S \/ X1C \(experimental\)'/);
+  assert.match(bambuAdapter, /experimental: true/);
+  assert.match(app, /Experimental Bambu \$\{escapeHtml\(printer\.model \|\| ''\)\} support/);
 });
 
 test('add-printer adapter fields render controlled model choices as a dropdown', () => {

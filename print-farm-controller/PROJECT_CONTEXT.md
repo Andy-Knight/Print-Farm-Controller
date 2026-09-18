@@ -6,7 +6,7 @@
 
 - Repository: `Andy-Knight/Print-Farm-Controller`
 - Project path: `print-farm-controller/`
-- Branch: `release/v0.13.0` (consolidates the complete v0.13.0 emulator, Bambu P1, AMS and X1C branch chain; not merged to `main`)
+- Primary branch: `main` (v0.13.0 approved and merged from `release/v0.13.0`; the release branch is retained)
 - Current application version on this branch: **0.13.0**
 - Runtime: **Node.js 20+**, ES modules, no npm runtime dependencies.
 - GitHub is the authoritative code baseline.
@@ -130,14 +130,14 @@ Manufacturer-specific discovery, capabilities, limits, status normalization, fil
 
 ## Current task
 
-**`release/v0.13.0` is the consolidated release candidate containing the complete emulator, Bambu P1P/P1S controller, AMS and X1C work.** Status, FTPS files, print/job/temperature/fan control, 3MF mapping, automatic queueing and zero-to-four AMS emulation work through the shared Bambu adapter. The add-printer form uses controlled P1P/P1S/X1C model choices and switches the default camera port for X1C. Physical X1C RTSPS/H.264 camera decoding is explicitly out of scope for this release candidate. The release branch has not been merged to `main`.
+**v0.13.0 is merged into `main`, with `release/v0.13.0` retained as the release source branch.** The integrated simulator, Bambu P1P/P1S controller, AMS and X1C work are included. Bambu remains visibly marked experimental in the add-printer list, adapter metadata and printer-detail warning until physical hardware validation is complete. Physical X1C RTSPS/H.264 camera decoding remains explicitly out of scope.
 
 ## Next steps
 
 1. Run final release-candidate testing with the controller and all default emulator profiles: FlashForge AD5M Pro, Snapmaker U1, Bambu P1P, P1S and X1C.
 2. Validate X1C status, storage, direct printing, automatic queueing, AMS mapping, temperatures, fans, completion and clearance behavior, while retaining the explicit physical-camera limitation.
 3. Compare Bambu telemetry, FTPS behavior and `project_file` start payloads against reliable captures or physical hardware before removing the experimental label.
-4. After acceptance, merge `release/v0.13.0` into `main`, create the final `v0.13.0` release tag, then remove superseded feature branches.
+4. After final acceptance, create the `v0.13.0` release tag; retain the experimental Bambu labels until physical validation supports removing them.
 
 ## Handoff rule
 
