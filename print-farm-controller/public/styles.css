@@ -146,6 +146,21 @@ input:focus,select:focus { border-color:#7a9fbe; }
   .drag-handle { display:none; }
   .reorder-button { width:32px; height:32px; }
 }
+.license-notice { display:flex; align-items:center; justify-content:space-between; gap:16px; margin:-6px 0 18px; padding:13px 15px; border:1px solid #624b28; border-radius:13px; background:#241b0f; color:#f3d18c; }
+.license-notice > div { display:flex; flex-direction:column; gap:3px; }
+.license-notice strong { font-size:.82rem; }
+.license-notice span { font-size:.78rem; }
+.license-notice-count { flex:0 0 auto; font-weight:850; }
+.license-strip { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:10px 14px; border-bottom:1px solid #624b28; background:#241b0f; color:#f3d18c; }
+.license-strip > div { min-width:0; display:flex; flex-direction:column; gap:2px; }
+.license-strip strong { font-size:.7rem; letter-spacing:.09em; }
+.license-strip span { font-size:.79rem; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.license-strip button { flex:0 0 auto; padding:7px 9px; }
+.card.license-inactive { opacity:.82; }
+.card.license-inactive .camera-slot, .card.license-inactive .card-body { filter:saturate(.55); }
+.license-detail-warning { border:1px solid #624b28; border-radius:10px; padding:10px 12px; margin-bottom:12px; background:#241b0f; color:#f3d18c; font-size:.82rem; }
+@media (max-width:620px) { .license-notice { align-items:flex-start; flex-direction:column; } }
+
 .preheat-strip { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:10px 14px; border-bottom:1px solid #5b4624; background:#211a0f; color:#f2d28a; }
 .preheat-strip > div { min-width:0; display:flex; flex-direction:column; gap:2px; }
 .preheat-strip strong { font-size:.7rem; letter-spacing:.09em; }
