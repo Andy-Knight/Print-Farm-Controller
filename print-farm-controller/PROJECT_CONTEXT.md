@@ -137,7 +137,7 @@ Manufacturer-specific discovery, capabilities, limits, status normalization, fil
 1. Run final release-candidate testing with the controller and all default emulator profiles: FlashForge AD5M Pro, Snapmaker U1, Bambu P1P, P1S and X1C.
 2. Validate X1C status, storage, direct printing, automatic queueing, AMS mapping, temperatures, fans, completion and clearance behavior, while retaining the explicit physical-camera limitation.
 3. Compare Bambu telemetry, FTPS behavior and `project_file` start payloads against reliable captures or physical hardware before removing the experimental label.
-4. After final acceptance, create the `v0.13.0` release tag; retain the experimental Bambu labels until physical validation supports removing them.
+4. **Closed:** v0.13.0 has been merged into `main`; `release/v0.13.0` is retained and the Bambu adapters remain explicitly experimental pending physical validation.
 
 ## Handoff rule
 
