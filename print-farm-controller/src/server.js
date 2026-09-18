@@ -10,6 +10,7 @@ import {
   removePrinter,
   renamePrinter,
   reorderPrinters,
+  setPrinterLicenseSlotActive,
   setPrinterMaterialDesignation,
   setPrinterNozzleDesignation
 } from './store.js';
@@ -44,16 +45,48 @@ const cameraManager = new CameraManager({
   onHealthChange: (id, health) => fleetState.setCameraHealth(id, health)
 });
 const chamberPreheat = new ChamberPreheatService({ fleetState });
-const batchControl = new BatchControlService({ fleetState, chamberPreheat });
-const fileDistribution = new FileDistributionService({ fleetState, chamberPreheat });
+const emulatorManager = new EmulatorManager();
+const licenseManager = new LicenseManager();
+
+function resolveLicensedFleet(printers = fleetState.getFleet()) {
+  return licenseManager.resolvePrinterAccess(printers, {
+    isSimulated: (printer) => emulatorManager.isSimulatedConfig(printer)
+  });
+}
+
+function decoratedFleet(printers = fleetState.getFleet()) {
+  return resolveLicensedFleet(printers).printers;
+}
+
+function currentLicenseSnapshot(printers = fleetState.getFleet()) {
+  return licenseManager.getSnapshot({
+    printers,
+    isSimulated: (printer) => emulatorManager.isSimulatedConfig(printer)
+  });
+}
+
+function printerLicensedForNewWork(printerId) {
+  const printer = resolveLicensedFleet().printers.find((item) => item.id === printerId);
+  return printer ? printer.licenseActive !== false : false;
+}
+
+const batchControl = new BatchControlService({
+  fleetState,
+  chamberPreheat,
+  printerAllowedFn: printerLicensedForNewWork
+});
+const fileDistribution = new FileDistributionService({
+  fleetState,
+  chamberPreheat,
+  printerAllowedFn: printerLicensedForNewWork
+});
 const printQueue = new PrintQueueService({
   fleetState,
   chamberPreheat,
+  printerAllowedFn: printerLicensedForNewWork,
   onChange: () => fleetState.schedulePublish()
 });
 const toolOffsetCalibrationLocks = new Map();
-const emulatorManager = new EmulatorManager();
-const licenseManager = new LicenseManager();
 
 const contentTypes = {
   '.html': 'text/html; charset=utf-8',
@@ -100,7 +133,13 @@ function openEventStream(req, res) {
 
   const unsubscribe = fleetState.subscribe((printers) => {
     if (res.destroyed || res.writableEnded) return;
-    res.write(`event: fleet\ndata: ${JSON.stringify({ printers, queue: printQueue.getSnapshot(), version: CONTROLLER_VERSION, license: licenseManager.getSnapshot(), serverTime: new Date().toISOString() })}\n\n`);
+    res.write(`event: fleet\ndata: ${JSON.stringify({
+      printers:decoratedFleet(printers),
+      queue:printQueue.getSnapshot(),
+      version:CONTROLLER_VERSION,
+      license:currentLicenseSnapshot(printers),
+      serverTime:new Date().toISOString()
+    })}\n\n`);
   });
   const keepAlive = setInterval(() => {
     if (!res.destroyed && !res.writableEnded) res.write(`: keepalive ${Date.now()}\n\n`);
@@ -120,11 +159,11 @@ async function refreshAfterCommand(id) {
 
 async function apiRoute(req, res, url) {
   if (req.method === 'GET' && url.pathname === '/api/health') {
-    return json(res, 200, { ok: true, service: 'printer-fleet-controller', version: CONTROLLER_VERSION, license: licenseManager.getSnapshot(), liveState: true });
+    return json(res, 200, { ok: true, service: 'printer-fleet-controller', version: CONTROLLER_VERSION, license: currentLicenseSnapshot(), liveState: true });
   }
 
   if (req.method === 'GET' && url.pathname === '/api/license') {
-    return json(res, 200, { license: licenseManager.getSnapshot() });
+    return json(res, 200, { license: currentLicenseSnapshot() });
   }
 
   if (req.method === 'GET' && url.pathname === '/api/adapters') {
@@ -152,12 +191,12 @@ async function apiRoute(req, res, url) {
   }
 
   if (req.method === 'GET' && url.pathname === '/api/printers') {
-    const printers = (await listPrinters()).map(publicPrinter);
-    return json(res, 200, { printers });
+    const printers = decoratedFleet((await listPrinters()).map(publicPrinter));
+    return json(res, 200, { printers, license:currentLicenseSnapshot(printers) });
   }
 
   if (req.method === 'GET' && url.pathname === '/api/fleet') {
-    return json(res, 200, { printers: fleetState.getFleet(), queue: printQueue.getSnapshot(), version: CONTROLLER_VERSION, license: licenseManager.getSnapshot() });
+    return json(res, 200, { printers: decoratedFleet(), queue: printQueue.getSnapshot(), version: CONTROLLER_VERSION, license: currentLicenseSnapshot() });
   }
 
   if (req.method === 'GET' && url.pathname === '/api/queue') {
@@ -302,6 +341,12 @@ async function apiRoute(req, res, url) {
 
   if (req.method === 'POST' && url.pathname === '/api/printers') {
     const input = validateAddPrinter(await readJson(req));
+    const simulatedCandidate = emulatorManager.isSimulatedConfig(input);
+    if (!simulatedCandidate) {
+      const configured = await listPrinters();
+      const physicalCount = configured.filter((printer) => !emulatorManager.isSimulatedConfig(printer)).length;
+      licenseManager.requirePrinterCapacity(physicalCount);
+    }
     const candidate = { ...input, id: 'candidate' };
     // Validate LAN mode + credentials before persisting the printer.
     const status = await getPrinterAdapter(candidate).getStatus();
@@ -316,6 +361,46 @@ async function apiRoute(req, res, url) {
   const [, id, action] = match;
   const printer = await getPrinter(id);
   if (!printer) return json(res, 404, { error: 'Printer not found' });
+  if (req.method === 'PUT' && action === 'license-slot') {
+    const body = await readJson(req);
+    if (typeof body.active !== 'boolean') throw new Error('active must be true or false');
+    if (emulatorManager.isSimulatedConfig(printer)) {
+      return json(res, 200, { ok:true, printer:{ ...publicPrinter(printer), simulated:true, licenseActive:true }, license:currentLicenseSnapshot() });
+    }
+
+    const configured = (await listPrinters()).map(publicPrinter);
+    const access = licenseManager.resolvePrinterAccess(configured, {
+      isSimulated:(item) => emulatorManager.isSimulatedConfig(item)
+    });
+    const current = access.printers.find((item) => item.id === id);
+    if (body.active === true && current?.licenseActive !== true && access.maxPrinters != null && access.activePhysicalPrinters >= access.maxPrinters) {
+      throw new Error(`All ${access.maxPrinters} licence slots are already in use. Release a slot from another printer first.`);
+    }
+
+    if (body.active === false && chamberPreheat.isActive(id)) {
+      await chamberPreheat.stop(id, { reason:'licence-slot-released', turnOff:true });
+    }
+    const updated = await setPrinterLicenseSlotActive(id, body.active);
+    await fleetState.syncRegistry();
+    return json(res, 200, {
+      ok:true,
+      printer:resolveLicensedFleet().printers.find((item) => item.id === id) || publicPrinter(updated),
+      license:currentLicenseSnapshot()
+    });
+  }
+
+  const licenseAccess = resolveLicensedFleet().printers.find((item) => item.id === id);
+  const inactiveAllowed = req.method === 'GET'
+    || (req.method === 'DELETE' && !action)
+    || (req.method === 'PUT' && action === 'name')
+    || (req.method === 'POST' && action === 'camera')
+    || (req.method === 'POST' && action === 'job')
+    || (req.method === 'DELETE' && action === 'chamber-preheat')
+    || ['material-designation', 'nozzle-designation'].includes(action);
+  if (licenseAccess?.licenseActive === false && !inactiveAllowed) {
+    throw new Error('Printer is inactive because it does not currently have a licence slot. Select it for a licence slot before sending new control commands.');
+  }
+
   if (req.method === 'DELETE' && !action) {
     if (chamberPreheat.isActive(id)) await chamberPreheat.stop(id, { reason: 'printer-removed', turnOff: true });
     await removePrinter(id);
@@ -685,7 +770,7 @@ try {
 chamberPreheat.startService();
 server.listen(PORT, HOST, () => {
   console.log(`Printer Fleet Controller v${CONTROLLER_VERSION} running at http://localhost:${PORT}`);
-  const license = licenseManager.getSnapshot();
+  const license = currentLicenseSnapshot();
   console.log(`Licence: ${license.label} (${license.source}; enforcement ${license.enforcementEnabled ? 'enabled' : 'disabled'})`);
   console.log(`LAN access: http://<this-computer-ip>:${PORT}`);
   console.log('Generic printer adapter + capability layer enabled (FlashForge AD5M + Snapmaker U1 + experimental Bambu P1P/P1S/X1C)');
