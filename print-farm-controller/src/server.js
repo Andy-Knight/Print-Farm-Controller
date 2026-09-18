@@ -763,14 +763,14 @@ async function shutdown() {
 process.on('SIGINT', shutdown);
 process.on('SIGTERM', shutdown);
 
-await fleetState.start();
-await printQueue.start();
 try {
   const emulatorStatus = await emulatorManager.init();
   if (emulatorStatus.running) console.log(`Integrated printer simulator enabled with ${emulatorStatus.printerCount} loopback endpoints`);
 } catch (error) {
   console.error(`Could not start integrated printer simulator: ${error.message}`);
 }
+await fleetState.start();
+await printQueue.start();
 chamberPreheat.startService();
 server.listen(PORT, HOST, () => {
   console.log(`Printer Fleet Controller v${CONTROLLER_VERSION} running at http://localhost:${PORT}`);
