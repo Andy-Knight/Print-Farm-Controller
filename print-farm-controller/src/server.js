@@ -48,9 +48,13 @@ const chamberPreheat = new ChamberPreheatService({ fleetState });
 const emulatorManager = new EmulatorManager();
 const licenseManager = new LicenseManager();
 
+function isControllerSimulator(printer) {
+  return printer?.simulated === true || emulatorManager.isSimulatedConfig(printer);
+}
+
 function resolveLicensedFleet(printers = fleetState.getFleet()) {
   return licenseManager.resolvePrinterAccess(printers, {
-    isSimulated: (printer) => emulatorManager.isSimulatedConfig(printer)
+    isSimulated: isControllerSimulator
   });
 }
 
@@ -61,7 +65,7 @@ function decoratedFleet(printers = fleetState.getFleet()) {
 function currentLicenseSnapshot(printers = fleetState.getFleet()) {
   return licenseManager.getSnapshot({
     printers,
-    isSimulated: (printer) => emulatorManager.isSimulatedConfig(printer)
+    isSimulated: isControllerSimulator
   });
 }
 
@@ -344,13 +348,13 @@ async function apiRoute(req, res, url) {
     const simulatedCandidate = emulatorManager.isSimulatedConfig(input);
     if (!simulatedCandidate) {
       const configured = await listPrinters();
-      const physicalCount = configured.filter((printer) => !emulatorManager.isSimulatedConfig(printer)).length;
+      const physicalCount = configured.filter((printer) => !isControllerSimulator(printer)).length;
       licenseManager.requirePrinterCapacity(physicalCount);
     }
     const candidate = { ...input, id: 'candidate' };
     // Validate LAN mode + credentials before persisting the printer.
     const status = await getPrinterAdapter(candidate).getStatus();
-    const printer = await addPrinter(input);
+    const printer = await addPrinter({ ...input, simulated:simulatedCandidate });
     await fleetState.syncRegistry();
     await fleetState.refreshNow(printer.id);
     return json(res, 201, { printer: publicPrinter(printer), status });
@@ -364,13 +368,13 @@ async function apiRoute(req, res, url) {
   if (req.method === 'PUT' && action === 'license-slot') {
     const body = await readJson(req);
     if (typeof body.active !== 'boolean') throw new Error('active must be true or false');
-    if (emulatorManager.isSimulatedConfig(printer)) {
+    if (isControllerSimulator(printer)) {
       return json(res, 200, { ok:true, printer:{ ...publicPrinter(printer), simulated:true, licenseActive:true }, license:currentLicenseSnapshot() });
     }
 
     const configured = (await listPrinters()).map(publicPrinter);
     const access = licenseManager.resolvePrinterAccess(configured, {
-      isSimulated:(item) => emulatorManager.isSimulatedConfig(item)
+      isSimulated:isControllerSimulator
     });
     const current = access.printers.find((item) => item.id === id);
     if (body.active === true && current?.licenseActive !== true && access.maxPrinters != null && access.activePhysicalPrinters >= access.maxPrinters) {
