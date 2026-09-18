@@ -12,6 +12,7 @@ const discoveryResults = document.querySelector('#discoveryResults');
 const liveIndicator = document.querySelector('#liveIndicator');
 const controllerVersionEl = document.querySelector('#controllerVersion');
 const controllerEditionEl = document.querySelector('#controllerEdition');
+const licenseNoticeEl = document.querySelector('#licenseNotice');
 const batchModeBtn = document.querySelector('#batchModeBtn');
 const batchToolbar = document.querySelector('#batchToolbar');
 const batchSelectedCount = document.querySelector('#batchSelectedCount');
@@ -43,6 +44,7 @@ const themeColorMeta = document.querySelector('#themeColorMeta');
 let fleet = [];
 let adapters = [];
 let queueState = { jobs:[], queued:0, active:0, history:0, needsReview:0, awaitingClearance:0, bedClearance:[], productionBatches:[] };
+let licenseState = null;
 let eventSource = null;
 let currentPrinterId = null;
 let lastDiscoveryAt = 0;
@@ -278,11 +280,27 @@ function setControllerVersion(version) {
 }
 
 function setControllerLicense(license) {
-  if (!controllerEditionEl || !license?.label) return;
-  controllerEditionEl.textContent = license.label;
-  controllerEditionEl.title = license.enforcementEnabled
-    ? 'Licence enforcement enabled'
-    : 'Licence foundation active; enforcement is not enabled in this build';
+  licenseState = license || null;
+  if (controllerEditionEl && license?.label) {
+    const usage = license.maxPrinters != null && Number.isFinite(Number(license.activePhysicalPrinters))
+      ? ` · ${license.activePhysicalPrinters}/${license.maxPrinters} active`
+      : '';
+    controllerEditionEl.textContent = `${license.label}${usage}`;
+    controllerEditionEl.title = license.enforcementEnabled
+      ? 'Licence enforcement enabled'
+      : 'Development edition: licence limits are not enforced';
+  }
+
+  if (!licenseNoticeEl) return;
+  const show = Boolean(license?.enforcementEnabled && license?.overLimit);
+  licenseNoticeEl.classList.toggle('hidden', !show);
+  if (!show) {
+    licenseNoticeEl.innerHTML = '';
+    return;
+  }
+
+  const remaining = Number(license.slotsRemaining || 0);
+  licenseNoticeEl.innerHTML = `<div><strong>${escapeHtml(license.label)} printer limit</strong><span>${escapeHtml(String(license.configuredPhysicalPrinters))} physical printers are configured; this edition allows ${escapeHtml(String(license.maxPrinters))}. Choose the printers that may receive new controller commands.</span></div><span class="license-notice-count">${escapeHtml(String(license.activePhysicalPrinters))} / ${escapeHtml(String(license.maxPrinters))} selected${remaining ? ` · ${remaining} slot${remaining === 1 ? '' : 's'} free` : ''}</span>`;
 }
 
 function setLiveState(state) {
@@ -670,6 +688,10 @@ function cardMarkup(printer) {
       </div>
     </div>
     <div class="camera-slot" data-camera-slot></div>
+    <div class="license-strip hidden" data-license-strip>
+      <div><strong data-license-title></strong><span data-license-summary></span></div>
+      <button type="button" class="secondary" data-license-slot-toggle></button>
+    </div>
     <div class="preheat-strip hidden" data-preheat-strip>
       <div><strong>CHAMBER PREHEAT</strong><span data-preheat-summary></span></div>
       <button type="button" class="preheat-stop" data-stop-preheat>Stop</button>
@@ -732,6 +754,35 @@ function updateCard(card, printer) {
   card.querySelector('[data-remaining]').textContent = formatDuration(s?.remainingSeconds);
   card.querySelector('[data-last-seen]').textContent = printer.online ? `Seen ${formatLastSeen(printer.lastSeen)}` : `Last seen ${formatLastSeen(printer.lastSeen)}`;
   card.querySelector('[data-latency]').textContent = printer.latencyMs != null ? `${printer.latencyMs} ms` : '';
+  const licenseStrip = card.querySelector('[data-license-strip]');
+  const showLicenseSlots = Boolean(licenseState?.enforcementEnabled && licenseState?.overLimit && !printer.simulated);
+  licenseStrip?.classList.toggle('hidden', !showLicenseSlots);
+  card.classList.toggle('license-inactive', printer.licenseActive === false);
+  if (showLicenseSlots && licenseStrip) {
+    const active = printer.licenseActive !== false;
+    const title = licenseStrip.querySelector('[data-license-title]');
+    const summary = licenseStrip.querySelector('[data-license-summary]');
+    const button = licenseStrip.querySelector('[data-license-slot-toggle]');
+    if (title) title.textContent = active ? 'LICENCE SLOT ACTIVE' : 'INACTIVE — LICENCE LIMIT';
+    if (summary) summary.textContent = active
+      ? 'This printer may receive new controller commands.'
+      : 'Monitoring remains available, but new jobs and control commands are blocked.';
+    if (button) {
+      button.textContent = active ? 'Release slot' : 'Use licence slot';
+      button.dataset.licenseSlotToggle = active ? 'off' : 'on';
+      button.disabled = !active && Number(licenseState?.slotsRemaining || 0) <= 0;
+      button.title = button.disabled ? 'Release a licence slot from another printer first' : '';
+    }
+  }
+  const selector = card.querySelector('[data-printer-select]');
+  if (selector) {
+    selector.disabled = printer.licenseActive === false;
+    if (selector.disabled && selector.checked) {
+      selector.checked = false;
+      selectedPrinterIds.delete(printer.id);
+    }
+  }
+
   const error = card.querySelector('[data-card-error]');
   error.textContent = printer.error || '';
   error.classList.toggle('hidden', !printer.error || printer.online);
@@ -1215,6 +1266,26 @@ addForm.addEventListener('submit', async (event) => {
 });
 
 fleetEl.addEventListener('click', (event) => {
+  const licenceToggle = event.target.closest('[data-license-slot-toggle]');
+  if (licenceToggle) {
+    const card = licenceToggle.closest('[data-printer-card]');
+    const printer = card ? fleet.find((item) => item.id === card.dataset.printerCard) : null;
+    if (!printer) return;
+    const active = licenceToggle.dataset.licenseSlotToggle === 'on';
+    licenceToggle.disabled = true;
+    api(`/api/printers/${encodeURIComponent(printer.id)}/license-slot`, {
+      method:'PUT',
+      body:JSON.stringify({ active })
+    }).then((result) => {
+      if (result.license) setControllerLicense(result.license);
+      return loadInitialFleet();
+    }).catch((error) => {
+      alert(error.message);
+      licenceToggle.disabled = false;
+    });
+    return;
+  }
+
   const bedCleared = event.target.closest('[data-bed-cleared-card]');
   if (bedCleared) {
     const card = bedCleared.closest('[data-printer-card]');
@@ -2091,6 +2162,24 @@ ${rows.join('\n')}
 This is advisory; the selected file may use only some toolheads.`;
 }
 
+function applyLicenseReadOnly(printer) {
+  if (!printerDetail || printer?.licenseActive !== false) return;
+  const safeSelectors = [
+    '[data-detail-close]',
+    '[data-remove]',
+    '[data-job="pause"]',
+    '[data-job="resume"]',
+    '[data-job="cancel"]',
+    '[data-preheat-stop]',
+    '[data-camera-open]'
+  ];
+  for (const button of printerDetail.querySelectorAll('button')) {
+    if (safeSelectors.some((selector) => button.matches(selector))) continue;
+    button.disabled = true;
+    button.title = 'Inactive — no licence slot selected';
+  }
+}
+
 function updateOpenPrinterTelemetry() {
   if (!currentPrinterId || !printerDialog.open) return;
   const printer = fleet.find((p) => p.id === currentPrinterId);
@@ -2248,6 +2337,7 @@ function updateOpenPrinterTelemetry() {
     err.textContent = printer.online ? '' : (printer.error || 'Printer is offline');
     err.classList.toggle('hidden', printer.online);
   }
+  applyLicenseReadOnly(printer);
 }
 
 async function openPrinter(id) {
@@ -2370,6 +2460,7 @@ async function openPrinter(id) {
       <button class="icon" data-detail-close>×</button>
     </div>
     <div id="detailConnectionError" class="error hidden"></div>
+    ${printer.licenseActive === false ? '<div class="license-detail-warning">This printer is inactive because it does not have a selected licence slot. Live monitoring and safety controls remain available, but new jobs and normal controller commands are disabled.</div>' : ''}
     ${printer.adapterType === 'bambu-lab' ? `<div class="file-warning">Experimental Bambu ${escapeHtml(printer.model || '')} support: validate behavior carefully before relying on unattended printing.${printer.model === 'X1C' ? ' X1C RTSPS/H.264 camera decoding is not yet supported.' : ''}</div>` : ''}
     <div class="detail-grid">
       <div class="detail-column detail-column-left">
