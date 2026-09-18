@@ -86,6 +86,7 @@ export class FileDistributionService {
     printLocalFileFn = null,
     fileMetadataReader = readFileMaterialMetadata,
     fileMetadataSaver = savePrinterFileMaterialMetadata,
+    printerAllowedFn = null,
     maxConcurrent = 2
   } = {}) {
     if (!fleetState) throw new Error('fleetState is required');
@@ -99,6 +100,7 @@ export class FileDistributionService {
     this.printLocalFileOverride = printLocalFileFn;
     this.fileMetadataReader = fileMetadataReader;
     this.fileMetadataSaver = fileMetadataSaver;
+    this.printerAllowed = typeof printerAllowedFn === 'function' ? printerAllowedFn : () => true;
     this.maxConcurrent = Math.max(1, Number(maxConcurrent) || 2);
   }
 
@@ -140,6 +142,7 @@ export class FileDistributionService {
     const printer = await this.getPrinter(id);
     const name = printer?.name || id;
     if (!printer) return { id, name, ok: false, uploaded: false, verified: false, started: false, error: 'Printer not found' };
+    if (!this.printerAllowed(id)) return { id, name, ok:false, uploaded:false, verified:false, started:false, error:'Printer is inactive because it does not currently have a licence slot' };
 
     const state = this.fleetState.getPrinterState(id);
     if (!state?.online) return { id, name, ok: false, uploaded: false, verified: false, started: false, error: state?.error || 'Printer is offline' };
