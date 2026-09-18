@@ -175,6 +175,7 @@ export async function addPrinter(input) {
     tcpPort: Number(input.tcpPort || input.commandPort || 8899),
     mqttPort: input.mqttPort == null ? undefined : Number(input.mqttPort),
     ftpsPort: input.ftpsPort == null ? undefined : Number(input.ftpsPort),
+    simulated: input.simulated === true,
     ...(dashboardOrder !== undefined ? { dashboardOrder } : {}),
     ...(typeof input.licenseSlotActive === 'boolean' ? { licenseSlotActive: input.licenseSlotActive } : {}),
     createdAt: new Date().toISOString()
@@ -278,6 +279,7 @@ export function publicPrinter(printer) {
     tcpPort: printer.tcpPort || printer.commandPort || 8899,
     mqttPort: Number.isFinite(Number(printer.mqttPort)) ? Number(printer.mqttPort) : null,
     ftpsPort: Number.isFinite(Number(printer.ftpsPort)) ? Number(printer.ftpsPort) : null,
+    simulated: printer.simulated === true,
     dashboardOrder: Number.isFinite(Number(printer.dashboardOrder)) ? Number(printer.dashboardOrder) : null,
     licenseSlotActive: typeof printer.licenseSlotActive === 'boolean' ? printer.licenseSlotActive : null,
     materialDesignation: String(printer.adapterConfig?.filamentDesignation || '').trim() || null,
