@@ -243,6 +243,7 @@ export class PrintQueueService {
     saveFileMaterialMetadataFn = savePrinterFileMaterialMetadata,
     getQueueFileFn = getQueueFile,
     pruneQueueFilesFn = pruneQueueFiles,
+    printerAllowedFn = null,
     onChange = null,
     startTimeoutMs = START_TIMEOUT_MS,
     minActiveMs = MIN_ACTIVE_MS
@@ -259,6 +260,7 @@ export class PrintQueueService {
     this.saveFileMaterialMetadata = saveFileMaterialMetadataFn;
     this.getQueueFile = getQueueFileFn;
     this.pruneQueueFiles = pruneQueueFilesFn;
+    this.printerAllowed = typeof printerAllowedFn === 'function' ? printerAllowedFn : () => true;
     this.onChange = onChange;
     this.startTimeoutMs = startTimeoutMs;
     this.minActiveMs = minActiveMs;
@@ -568,6 +570,7 @@ export class PrintQueueService {
     if (mode === 'fixed') {
       printer = await this.getPrinter(String(printerId || ''));
       if (!printer) throw new Error('Printer not found');
+      if (!this.printerAllowed(printer.id)) throw new Error('Printer is inactive because it does not currently have a licence slot');
       adapter = this.adapterResolver(printer);
       if (!adapter.capabilities?.printLocalFile) throw new Error('Printing local files is not supported by this printer');
       liveState = this.fleetState.getPrinterState(printer.id);
@@ -864,6 +867,7 @@ export class PrintQueueService {
       // Fixed-printer jobs use the same priority policy independently for each
       // printer. A review-blocked job only blocks work ranked behind it.
       for (const state of fleet.values()) {
+        if (!this.printerAllowed(state.id)) continue;
         if (!state.online || !state.status) continue;
         if (this.startingPrinters.has(state.id)) continue;
         if (this.requiresBedClearance(state.id)) continue;
@@ -888,6 +892,16 @@ export class PrintQueueService {
   async refreshAutomaticCompatibility(job, fleet, jobIndex = this.jobs.indexOf(job)) {
     const results = [];
     for (const state of fleet.values()) {
+      if (!this.printerAllowed(state.id)) {
+        results.push({
+          printerId:state.id,
+          printerName:state.name,
+          ready:false,
+          category:'blocked',
+          reasons:[{ code:'licence_limit', text:'Inactive — no licence slot selected for this printer' }]
+        });
+        continue;
+      }
       const printer = await this.getPrinter(state.id);
       if (!printer) continue;
       let adapter;
@@ -983,6 +997,7 @@ export class PrintQueueService {
 
   async startAutomaticJob(job, candidate) {
     if (!job || job.status !== 'queued' || job.assignmentMode !== 'automatic' || !candidate?.printerId) return;
+    if (!this.printerAllowed(candidate.printerId)) return;
     if (this.startingPrinters.has(candidate.printerId)) return;
     this.startingPrinters.add(candidate.printerId);
     try {
@@ -1117,7 +1132,7 @@ export class PrintQueueService {
   }
 
   async startJob(job) {
-    if (!job || job.status !== 'queued' || this.startingPrinters.has(job.printerId) || this.requiresBedClearance(job.printerId)) return;
+    if (!job || job.status !== 'queued' || !this.printerAllowed(job.printerId) || this.startingPrinters.has(job.printerId) || this.requiresBedClearance(job.printerId)) return;
     this.startingPrinters.add(job.printerId);
     try {
       if (this.requiresBedClearance(job.printerId)) return;
