@@ -46,12 +46,14 @@ export function verifyLicenseDocument(input, {
 
   let keyObject;
   try {
-    keyObject = crypto.createPublicKey(verificationKey);
+    keyObject = verificationKey?.type === 'public' && verificationKey?.asymmetricKeyType
+      ? verificationKey
+      : crypto.createPublicKey(verificationKey);
   } catch {
     throw licenceError('LICENSE_PUBLIC_KEY_INVALID', 'Configured licence public key is invalid');
   }
 
-  if (keyObject.asymmetricKeyType !== 'ed25519') {
+  if (keyObject.type !== 'public' || keyObject.asymmetricKeyType !== 'ed25519') {
     throw licenceError('LICENSE_PUBLIC_KEY_INVALID', 'Licence public key must be an Ed25519 key');
   }
 
