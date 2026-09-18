@@ -66,6 +66,29 @@ export class EmulatorManager {
     return this.snapshot();
   }
 
+  isSimulatedConfig(config = {}) {
+    const host = String(config.host || '').trim().toLowerCase();
+    const adapterType = String(config.adapterType || '').trim();
+    if (!host || !adapterType) return false;
+    for (const printer of this.emulator.printers.values()) {
+      if (String(printer.adapterType || '') !== adapterType) continue;
+      if (String(printer.host || '').trim().toLowerCase() !== host) continue;
+      const ports = printer.ports || {};
+      const serial = String(config.serialNumber || '').trim();
+      if (serial && printer.serialNumber && serial !== String(printer.serialNumber)) continue;
+      if (adapterType === 'flashforge-ad5m') {
+        if (Number(config.httpPort || 8898) === Number(ports.httpPort)
+          && Number(config.tcpPort || config.commandPort || 8899) === Number(ports.tcpPort)) return true;
+      } else if (adapterType === 'bambu-lab') {
+        if (Number(config.mqttPort || 8883) === Number(ports.mqttPort)
+          && Number(config.ftpsPort || 990) === Number(ports.ftpsPort)) return true;
+      } else if (adapterType === 'snapmaker-u1') {
+        if (Number(config.httpPort || 7125) === Number(ports.httpPort)) return true;
+      }
+    }
+    return false;
+  }
+
   async handleApi(request, response, url) {
     if (url.pathname === '/api/emulator/status') {
       if (request.method === 'GET') return json(response, 200, this.snapshot());
