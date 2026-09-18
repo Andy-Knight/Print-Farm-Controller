@@ -12,7 +12,8 @@ import {
   reorderPrinters,
   setPrinterLicenseSlotActive,
   setPrinterMaterialDesignation,
-  setPrinterNozzleDesignation
+  setPrinterNozzleDesignation,
+  controllerDataDir
 } from './store.js';
 import {
   getPrinterAdapter,
@@ -31,7 +32,7 @@ import { PrintQueueService } from './print-queue.js';
 import { assessMaterialCompatibility } from './file-material-metadata.js';
 import { getPrinterFileMaterialMetadata, removePrinterFileMaterialMetadata } from './file-material-store.js';
 import { EmulatorManager } from './emulator-manager.js';
-import { LicenseManager } from './licensing/license-manager.js';
+import { loadLicenseManager } from './licensing/license-loader.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PUBLIC_DIR = path.resolve(__dirname, '../public');
@@ -46,7 +47,7 @@ const cameraManager = new CameraManager({
 });
 const chamberPreheat = new ChamberPreheatService({ fleetState });
 const emulatorManager = new EmulatorManager();
-const licenseManager = new LicenseManager();
+const licenseManager = await loadLicenseManager({ dataDir:controllerDataDir });
 
 function isControllerSimulator(printer) {
   return printer?.simulated === true || emulatorManager.isSimulatedConfig(printer);
