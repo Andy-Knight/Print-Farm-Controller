@@ -30,6 +30,7 @@ import { PrintQueueService } from './print-queue.js';
 import { assessMaterialCompatibility } from './file-material-metadata.js';
 import { getPrinterFileMaterialMetadata, removePrinterFileMaterialMetadata } from './file-material-store.js';
 import { EmulatorManager } from './emulator-manager.js';
+import { LicenseManager } from './licensing/license-manager.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PUBLIC_DIR = path.resolve(__dirname, '../public');
@@ -52,6 +53,7 @@ const printQueue = new PrintQueueService({
 });
 const toolOffsetCalibrationLocks = new Map();
 const emulatorManager = new EmulatorManager();
+const licenseManager = new LicenseManager();
 
 const contentTypes = {
   '.html': 'text/html; charset=utf-8',
@@ -98,7 +100,7 @@ function openEventStream(req, res) {
 
   const unsubscribe = fleetState.subscribe((printers) => {
     if (res.destroyed || res.writableEnded) return;
-    res.write(`event: fleet\ndata: ${JSON.stringify({ printers, queue: printQueue.getSnapshot(), version: CONTROLLER_VERSION, serverTime: new Date().toISOString() })}\n\n`);
+    res.write(`event: fleet\ndata: ${JSON.stringify({ printers, queue: printQueue.getSnapshot(), version: CONTROLLER_VERSION, license: licenseManager.getSnapshot(), serverTime: new Date().toISOString() })}\n\n`);
   });
   const keepAlive = setInterval(() => {
     if (!res.destroyed && !res.writableEnded) res.write(`: keepalive ${Date.now()}\n\n`);
@@ -118,7 +120,11 @@ async function refreshAfterCommand(id) {
 
 async function apiRoute(req, res, url) {
   if (req.method === 'GET' && url.pathname === '/api/health') {
-    return json(res, 200, { ok: true, service: 'printer-fleet-controller', version: CONTROLLER_VERSION, liveState: true });
+    return json(res, 200, { ok: true, service: 'printer-fleet-controller', version: CONTROLLER_VERSION, license: licenseManager.getSnapshot(), liveState: true });
+  }
+
+  if (req.method === 'GET' && url.pathname === '/api/license') {
+    return json(res, 200, { license: licenseManager.getSnapshot() });
   }
 
   if (req.method === 'GET' && url.pathname === '/api/adapters') {
@@ -151,7 +157,7 @@ async function apiRoute(req, res, url) {
   }
 
   if (req.method === 'GET' && url.pathname === '/api/fleet') {
-    return json(res, 200, { printers: fleetState.getFleet(), queue: printQueue.getSnapshot(), version: CONTROLLER_VERSION });
+    return json(res, 200, { printers: fleetState.getFleet(), queue: printQueue.getSnapshot(), version: CONTROLLER_VERSION, license: licenseManager.getSnapshot() });
   }
 
   if (req.method === 'GET' && url.pathname === '/api/queue') {
@@ -679,6 +685,8 @@ try {
 chamberPreheat.startService();
 server.listen(PORT, HOST, () => {
   console.log(`Printer Fleet Controller v${CONTROLLER_VERSION} running at http://localhost:${PORT}`);
+  const license = licenseManager.getSnapshot();
+  console.log(`Licence: ${license.label} (${license.source}; enforcement ${license.enforcementEnabled ? 'enabled' : 'disabled'})`);
   console.log(`LAN access: http://<this-computer-ip>:${PORT}`);
   console.log('Generic printer adapter + capability layer enabled (FlashForge AD5M + Snapmaker U1 + experimental Bambu P1P/P1S/X1C)');
   console.log('Live fleet polling + SSE enabled');

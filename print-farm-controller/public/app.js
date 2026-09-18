@@ -11,6 +11,7 @@ const discoveryStatus = document.querySelector('#discoveryStatus');
 const discoveryResults = document.querySelector('#discoveryResults');
 const liveIndicator = document.querySelector('#liveIndicator');
 const controllerVersionEl = document.querySelector('#controllerVersion');
+const controllerEditionEl = document.querySelector('#controllerEdition');
 const batchModeBtn = document.querySelector('#batchModeBtn');
 const batchToolbar = document.querySelector('#batchToolbar');
 const batchSelectedCount = document.querySelector('#batchSelectedCount');
@@ -274,6 +275,14 @@ function formatLastSeen(value) {
 function setControllerVersion(version) {
   if (!controllerVersionEl || !version) return;
   controllerVersionEl.textContent = `v${version}`;
+}
+
+function setControllerLicense(license) {
+  if (!controllerEditionEl || !license?.label) return;
+  controllerEditionEl.textContent = license.label;
+  controllerEditionEl.title = license.enforcementEnabled
+    ? 'Licence enforcement enabled'
+    : 'Licence foundation active; enforcement is not enabled in this build';
 }
 
 function setLiveState(state) {
@@ -832,6 +841,7 @@ async function loadInitialFleet() {
     fleet = result.printers || [];
     queueState = result.queue || queueState;
     setControllerVersion(result.version);
+    setControllerLicense(result.license);
     reconcileFleet();
     renderPrintQueue();
   } catch (error) {
@@ -850,6 +860,7 @@ function connectLiveUpdates() {
       fleet = payload.printers || [];
       queueState = payload.queue || queueState;
       setControllerVersion(payload.version);
+      setControllerLicense(payload.license);
       reconcileFleet();
       renderPrintQueue();
       setLiveState('live');
