@@ -126,7 +126,8 @@ function normalizeStoredPrinter(printer) {
     ...printer,
     adapterType,
     manufacturer: printer?.manufacturer || (adapterType === FLASHFORGE_AD5M_ADAPTER_TYPE ? 'FlashForge' : 'Unknown'),
-    model: printer?.model || (adapterType === FLASHFORGE_AD5M_ADAPTER_TYPE ? 'Adventurer 5M Pro' : 'Unknown')
+    model: printer?.model || (adapterType === FLASHFORGE_AD5M_ADAPTER_TYPE ? 'Adventurer 5M Pro' : 'Unknown'),
+    licenseSlotActive: typeof printer?.licenseSlotActive === 'boolean' ? printer.licenseSlotActive : null
   };
 }
 
@@ -175,6 +176,7 @@ export async function addPrinter(input) {
     mqttPort: input.mqttPort == null ? undefined : Number(input.mqttPort),
     ftpsPort: input.ftpsPort == null ? undefined : Number(input.ftpsPort),
     ...(dashboardOrder !== undefined ? { dashboardOrder } : {}),
+    ...(typeof input.licenseSlotActive === 'boolean' ? { licenseSlotActive: input.licenseSlotActive } : {}),
     createdAt: new Date().toISOString()
   };
   printers.push(printer);
@@ -228,6 +230,16 @@ export async function setPrinterNozzleDesignation(id, nozzleDiameter) {
   return normalizeStoredPrinter(printers[index]);
 }
 
+export async function setPrinterLicenseSlotActive(id, active) {
+  const printers = await readAll();
+  const index = printers.findIndex((printer) => printer.id === id);
+  if (index < 0) return null;
+  if (typeof active !== 'boolean') throw new Error('Licence slot state must be true or false');
+  printers[index] = { ...printers[index], licenseSlotActive: active };
+  await writeAll(printers);
+  return normalizeStoredPrinter(printers[index]);
+}
+
 export async function reorderPrinters(printerIds) {
   const printers = await readAll();
   const requested = Array.isArray(printerIds) ? printerIds.map(String) : [];
@@ -267,6 +279,7 @@ export function publicPrinter(printer) {
     mqttPort: Number.isFinite(Number(printer.mqttPort)) ? Number(printer.mqttPort) : null,
     ftpsPort: Number.isFinite(Number(printer.ftpsPort)) ? Number(printer.ftpsPort) : null,
     dashboardOrder: Number.isFinite(Number(printer.dashboardOrder)) ? Number(printer.dashboardOrder) : null,
+    licenseSlotActive: typeof printer.licenseSlotActive === 'boolean' ? printer.licenseSlotActive : null,
     materialDesignation: String(printer.adapterConfig?.filamentDesignation || '').trim() || null,
     materialColorDesignation: normalizeColorDesignation(printer.adapterConfig?.filamentColorDesignation),
     nozzleDiameterDesignation: Number.isFinite(Number(printer.adapterConfig?.nozzleDiameterDesignation))
