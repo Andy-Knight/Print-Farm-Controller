@@ -369,7 +369,6 @@ function setControllerLicense(license) {
 
   const remaining = Number(license.slotsRemaining || 0);
   licenseNoticeEl.innerHTML = `<div><strong>${escapeHtml(license.label)} printer limit</strong><span>${escapeHtml(String(license.configuredPhysicalPrinters))} physical printers are configured; this edition allows ${escapeHtml(String(license.maxPrinters))}. Choose the printers that may receive new controller commands.</span></div><span class="license-notice-count">${escapeHtml(String(license.activePhysicalPrinters))} / ${escapeHtml(String(license.maxPrinters))} selected${remaining ? ` · ${remaining} slot${remaining === 1 ? '' : 's'} free` : ''}</span>`;
-  if (licenseDialog?.open) renderLicenseDialog();
 }
 
 function setLiveState(state) {
