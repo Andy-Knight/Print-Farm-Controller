@@ -630,3 +630,128 @@ input:focus,select:focus { border-color:#7a9fbe; }
   .theme-toggle-label { display:none; }
   .theme-toggle { padding:7px 8px; }
 }
+
+/* Licence management */
+.license-dialog { width:min(680px,calc(100vw - 30px)); }
+.license-shell { padding:22px; }
+.license-install-form { padding:0; margin-top:18px; }
+.license-status-card {
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:16px;
+  padding:15px 16px;
+  border:1px solid #33404b;
+  border-radius:13px;
+  background:#0e151b;
+}
+.license-status-card > div { display:flex; flex-direction:column; gap:4px; min-width:0; }
+.license-status-card strong { font-size:1.05rem; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.license-status-label,
+.license-info-grid span,
+.license-file-path > span {
+  color:#748795;
+  font-size:.69rem;
+  font-weight:800;
+  letter-spacing:.07em;
+  text-transform:uppercase;
+}
+.license-status-pill {
+  flex:0 0 auto;
+  border:1px solid #355b45;
+  border-radius:999px;
+  background:#13251b;
+  color:#9bd3ae;
+  padding:6px 10px;
+  font-size:.73rem;
+  font-weight:850;
+}
+.license-status-pill[data-license-status="expired"],
+.license-status-pill[data-license-status="invalid"] {
+  border-color:#6b363b;
+  background:#2b1719;
+  color:#ffb7bd;
+}
+.license-status-pill[data-license-status="not-installed"] {
+  border-color:#624b28;
+  background:#241b0f;
+  color:#f3d18c;
+}
+.license-status-pill[data-license-status="development-override"] {
+  border-color:#365a70;
+  background:#13232d;
+  color:#a9d5ee;
+}
+.license-info-grid {
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:10px;
+  margin-top:12px;
+}
+.license-info-grid > div,
+.license-file-path {
+  display:flex;
+  flex-direction:column;
+  gap:5px;
+  min-width:0;
+  padding:11px 12px;
+  border:1px solid #29343d;
+  border-radius:10px;
+  background:#10171d;
+}
+.license-info-grid strong { font-size:.84rem; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.license-file-path { margin-top:10px; }
+.license-file-path code {
+  color:#aebdca;
+  font-size:.76rem;
+  overflow-wrap:anywhere;
+  white-space:normal;
+}
+.license-dialog-warning {
+  margin-top:10px;
+  padding:10px 12px;
+  border:1px solid #624b28;
+  border-radius:10px;
+  background:#241b0f;
+  color:#f3d18c;
+  font-size:.8rem;
+}
+.license-install-status { min-height:1.1em; margin-top:10px; }
+
+:root[data-theme="light"] .license-status-card,
+:root[data-theme="light"] .license-info-grid > div,
+:root[data-theme="light"] .license-file-path {
+  background:#f7fafc;
+  border-color:#d5dee5;
+}
+:root[data-theme="light"] .license-status-card strong,
+:root[data-theme="light"] .license-info-grid strong { color:#263744; }
+:root[data-theme="light"] .license-file-path code { color:#526a7b; }
+:root[data-theme="light"] .license-status-pill {
+  background:#e9f6ed;
+  border-color:#a7ceb2;
+  color:#2d6940;
+}
+:root[data-theme="light"] .license-status-pill[data-license-status="expired"],
+:root[data-theme="light"] .license-status-pill[data-license-status="invalid"] {
+  background:#fdebed;
+  border-color:#d7a8ad;
+  color:#9f2933;
+}
+:root[data-theme="light"] .license-status-pill[data-license-status="not-installed"],
+:root[data-theme="light"] .license-dialog-warning {
+  background:#fff7e5;
+  border-color:#d9b969;
+  color:#6c5010;
+}
+:root[data-theme="light"] .license-status-pill[data-license-status="development-override"] {
+  background:#eaf5fb;
+  border-color:#a8c9dc;
+  color:#35677f;
+}
+
+@media (max-width:560px) {
+  .license-info-grid { grid-template-columns:1fr; }
+  .license-status-card { align-items:flex-start; flex-direction:column; }
+}
+
