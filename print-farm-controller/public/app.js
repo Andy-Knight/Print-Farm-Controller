@@ -13,6 +13,13 @@ const liveIndicator = document.querySelector('#liveIndicator');
 const controllerVersionEl = document.querySelector('#controllerVersion');
 const controllerEditionEl = document.querySelector('#controllerEdition');
 const licenseNoticeEl = document.querySelector('#licenseNotice');
+const licenseBtn = document.querySelector('#licenseBtn');
+const licenseDialog = document.querySelector('#licenseDialog');
+const licenseDetails = document.querySelector('#licenseDetails');
+const licenseInstallForm = document.querySelector('#licenseInstallForm');
+const licenseFileInput = document.querySelector('#licenseFileInput');
+const licenseInstallStatus = document.querySelector('#licenseInstallStatus');
+const licenseInstallError = document.querySelector('#licenseInstallError');
 const batchModeBtn = document.querySelector('#batchModeBtn');
 const batchToolbar = document.querySelector('#batchToolbar');
 const batchSelectedCount = document.querySelector('#batchSelectedCount');
@@ -279,6 +286,66 @@ function setControllerVersion(version) {
   controllerVersionEl.textContent = `v${version}`;
 }
 
+function formatLicenseDate(value, emptyLabel = '—') {
+  const text = String(value || '').trim();
+  if (!text) return emptyLabel;
+  const date = new Date(`${text}T00:00:00Z`);
+  return Number.isNaN(date.getTime()) ? text : date.toLocaleDateString();
+}
+
+function licenseStatusLabel(license) {
+  const status = String(license?.licenseStatus || '').toLowerCase();
+  if (status === 'valid') return 'Valid';
+  if (status === 'expired') return 'Expired';
+  if (status === 'invalid') return 'Invalid';
+  if (status === 'not-installed') return 'Not installed';
+  if (status === 'development-override') return 'Development override';
+  return status ? status.replace(/-/g, ' ') : 'Unknown';
+}
+
+function renderLicenseDialog() {
+  if (!licenseDetails) return;
+  const license = licenseState || {};
+  const printerAllowance = license.maxPrinters == null
+    ? 'Unlimited'
+    : `${license.maxPrinters} physical printers`;
+  const customer = license.customer || (license.edition === 'community' ? 'Community user' : '—');
+  const type = license.licenseType
+    ? license.licenseType.charAt(0).toUpperCase() + license.licenseType.slice(1)
+    : '—';
+  const expiry = license.licenseType === 'perpetual' && !license.expiresAt
+    ? 'Never'
+    : formatLicenseDate(license.expiresAt);
+  const updateEntitlement = license.updatesUntil
+    ? `${formatLicenseDate(license.updatesUntil)}${license.updatesExpired ? ' · expired' : ''}`
+    : '—';
+
+  licenseDetails.innerHTML = `
+    <div class="license-status-card">
+      <div>
+        <span class="license-status-label">Current edition</span>
+        <strong>${escapeHtml(license.label || 'Community Edition')}</strong>
+      </div>
+      <span class="license-status-pill" data-license-status="${escapeHtml(String(license.licenseStatus || 'unknown'))}">${escapeHtml(licenseStatusLabel(license))}</span>
+    </div>
+    <div class="license-info-grid">
+      <div><span>Customer</span><strong>${escapeHtml(customer)}</strong></div>
+      <div><span>Licence ID</span><strong>${escapeHtml(license.licenseId || '—')}</strong></div>
+      <div><span>Licence type</span><strong>${escapeHtml(type)}</strong></div>
+      <div><span>Printer allowance</span><strong>${escapeHtml(printerAllowance)}</strong></div>
+      <div><span>Expires</span><strong>${escapeHtml(expiry)}</strong></div>
+      <div><span>Feature updates until</span><strong>${escapeHtml(updateEntitlement)}</strong></div>
+      <div><span>Signature key</span><strong>${escapeHtml(license.signatureKeyId || '—')}</strong></div>
+      <div><span>Source</span><strong>${escapeHtml(license.source || '—')}</strong></div>
+    </div>
+    <div class="license-file-path"><span>Licence file</span><code>${escapeHtml(license.licenseFile || 'Application directory / license.json')}</code></div>
+    ${license.configurationWarning ? `<div class="license-dialog-warning">${escapeHtml(license.configurationWarning)}</div>` : ''}
+  `;
+
+  const submit = licenseInstallForm?.querySelector('button[type="submit"]');
+  if (submit) submit.textContent = license.licenseStatus === 'valid' ? 'Replace licence' : 'Install licence';
+}
+
 function setControllerLicense(license) {
   licenseState = license || null;
   if (controllerEditionEl && license?.label) {
@@ -301,6 +368,7 @@ function setControllerLicense(license) {
 
   const remaining = Number(license.slotsRemaining || 0);
   licenseNoticeEl.innerHTML = `<div><strong>${escapeHtml(license.label)} printer limit</strong><span>${escapeHtml(String(license.configuredPhysicalPrinters))} physical printers are configured; this edition allows ${escapeHtml(String(license.maxPrinters))}. Choose the printers that may receive new controller commands.</span></div><span class="license-notice-count">${escapeHtml(String(license.activePhysicalPrinters))} / ${escapeHtml(String(license.maxPrinters))} selected${remaining ? ` · ${remaining} slot${remaining === 1 ? '' : 's'} free` : ''}</span>`;
+  if (licenseDialog?.open) renderLicenseDialog();
 }
 
 function setLiveState(state) {
@@ -1025,6 +1093,65 @@ function openAdd() {
 }
 
 document.querySelector('#addPrinterBtn').addEventListener('click', openAdd);
+licenseBtn?.addEventListener('click', () => {
+  if (licenseInstallStatus) licenseInstallStatus.textContent = '';
+  if (licenseInstallError) {
+    licenseInstallError.textContent = '';
+    licenseInstallError.classList.add('hidden');
+  }
+  if (licenseFileInput) licenseFileInput.value = '';
+  renderLicenseDialog();
+  licenseDialog?.showModal();
+});
+document.querySelectorAll('[data-license-close]').forEach((el) => el.addEventListener('click', () => licenseDialog?.close()));
+licenseInstallForm?.addEventListener('submit', async (event) => {
+  event.preventDefault();
+  const file = licenseFileInput?.files?.[0];
+  const submit = licenseInstallForm.querySelector('button[type="submit"]');
+  if (!file) return;
+  if (file.size > 256_000) {
+    if (licenseInstallError) {
+      licenseInstallError.textContent = 'Licence file is too large.';
+      licenseInstallError.classList.remove('hidden');
+    }
+    return;
+  }
+
+  if (submit) submit.disabled = true;
+  if (licenseInstallError) {
+    licenseInstallError.textContent = '';
+    licenseInstallError.classList.add('hidden');
+  }
+  if (licenseInstallStatus) licenseInstallStatus.textContent = 'Verifying licence signature…';
+
+  try {
+    const documentText = await file.text();
+    const result = await api('/api/license/install', {
+      method:'POST',
+      body:JSON.stringify({ license:documentText })
+    });
+    if (result.license) setControllerLicense(result.license);
+    await loadInitialFleet();
+    renderLicenseDialog();
+    if (licenseFileInput) licenseFileInput.value = '';
+    if (licenseInstallStatus) {
+      licenseInstallStatus.textContent = result.restartRequired
+        ? 'Licence installed. PRINT_CONTROLLER_EDITION is currently overriding it; clear the override and restart to use the installed licence.'
+        : `${result.installedLicense?.label || 'Licence'} installed and activated.`;
+    }
+  } catch (error) {
+    if (licenseInstallStatus) licenseInstallStatus.textContent = '';
+    if (licenseInstallError) {
+      licenseInstallError.textContent = error.message;
+      licenseInstallError.classList.remove('hidden');
+    }
+  } finally {
+    if (submit) {
+      submit.disabled = false;
+      submit.textContent = licenseState?.licenseStatus === 'valid' ? 'Replace licence' : 'Install licence';
+    }
+  }
+});
 queueBtn?.addEventListener('click', () => { renderPrintQueue(); queueDialog.showModal(); });
 document.querySelectorAll('[data-queue-close]').forEach((el) => el.addEventListener('click', () => queueDialog.close()));
 queueAddFileBtn?.addEventListener('click', () => {
