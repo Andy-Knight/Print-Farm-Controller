@@ -358,6 +358,7 @@ function setControllerLicense(license) {
       : 'Development edition: licence limits are not enforced';
   }
 
+  if (licenseDialog?.open) renderLicenseDialog();
   if (!licenseNoticeEl) return;
   const show = Boolean(license?.enforcementEnabled && license?.overLimit);
   licenseNoticeEl.classList.toggle('hidden', !show);
