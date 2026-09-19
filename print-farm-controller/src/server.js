@@ -1,6 +1,7 @@
 import http from 'node:http';
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
+import os from 'node:os';
 import { fileURLToPath } from 'node:url';
 import {
   addPrinter,
@@ -48,7 +49,7 @@ const cameraManager = new CameraManager({
 });
 const chamberPreheat = new ChamberPreheatService({ fleetState });
 const emulatorManager = new EmulatorManager();
-const licenseManager = await loadLicenseManager({
+let licenseManager = await loadLicenseManager({
   appDir:APP_DIR,
   dataDir:controllerDataDir
 });
@@ -127,6 +128,78 @@ async function readJson(req) {
   return JSON.parse(Buffer.concat(chunks).toString('utf8'));
 }
 
+async function installLicenseDocument(input) {
+  const documentText = typeof input === 'string'
+    ? input.trim()
+    : (input && typeof input === 'object' ? JSON.stringify(input) : '');
+
+  if (!documentText) {
+    const error = new Error('Select a licence file to install');
+    error.statusCode = 400;
+    throw error;
+  }
+  if (Buffer.byteLength(documentText, 'utf8') > 256_000) {
+    const error = new Error('Licence file is too large');
+    error.statusCode = 400;
+    throw error;
+  }
+
+  const validationDir = await fs.mkdtemp(path.join(os.tmpdir(), 'print-controller-license-install-'));
+  let candidate;
+  try {
+    await fs.writeFile(path.join(validationDir, 'license.json'), `${documentText}\n`, { encoding:'utf8', mode:0o600 });
+    candidate = await loadLicenseManager({
+      appDir:validationDir,
+      dataDir:null,
+      env:{},
+      now:new Date()
+    });
+  } finally {
+    await fs.rm(validationDir, { recursive:true, force:true }).catch(() => {});
+  }
+
+  const candidateSnapshot = candidate.getSnapshot();
+  if (candidateSnapshot.licenseStatus !== 'valid') {
+    const error = new Error(candidateSnapshot.configurationWarning || 'Licence file is invalid or expired');
+    error.statusCode = 400;
+    throw error;
+  }
+
+  const target = path.join(APP_DIR, 'license.json');
+  try {
+    await fs.writeFile(target, `${documentText}\n`, { encoding:'utf8', mode:0o600 });
+  } catch (error) {
+    if (error?.code === 'EACCES' || error?.code === 'EPERM') {
+      const permissionError = new Error(
+        `Windows blocked writing the licence to ${target}. Restart Printer Fleet Controller with Administrator rights, then install the licence again.`
+      );
+      permissionError.statusCode = 403;
+      throw permissionError;
+    }
+    throw error;
+  }
+
+  const overrideActive = Boolean(String(process.env.PRINT_CONTROLLER_EDITION || '').trim());
+  if (!overrideActive) {
+    licenseManager = await loadLicenseManager({
+      appDir:APP_DIR,
+      dataDir:controllerDataDir
+    });
+  }
+
+  fleetState.schedulePublish();
+  const installedLicense = {
+    ...candidateSnapshot,
+    licenseFile:target
+  };
+  return {
+    ok:true,
+    restartRequired:overrideActive,
+    installedLicense,
+    license:currentLicenseSnapshot()
+  };
+}
+
 function validateAddPrinter(body) {
   return preparePrinterConfig(body);
 }
@@ -173,6 +246,12 @@ async function apiRoute(req, res, url) {
 
   if (req.method === 'GET' && url.pathname === '/api/license') {
     return json(res, 200, { license: currentLicenseSnapshot() });
+  }
+
+  if (req.method === 'POST' && url.pathname === '/api/license/install') {
+    const body = await readJson(req);
+    const result = await installLicenseDocument(body.license);
+    return json(res, 200, result);
   }
 
   if (req.method === 'GET' && url.pathname === '/api/adapters') {
@@ -749,7 +828,8 @@ const server = http.createServer(async (req, res) => {
     res.end('Not found');
   } catch (error) {
     console.error(`[${new Date().toISOString()}]`, error.message);
-    if (!res.headersSent) json(res, 400, { error: error.message || 'Request failed' });
+    const status = Number.isInteger(Number(error?.statusCode)) ? Number(error.statusCode) : 400;
+    if (!res.headersSent) json(res, status, { error: error.message || 'Request failed' });
     else res.end();
   }
 });
