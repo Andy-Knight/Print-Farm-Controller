@@ -32,6 +32,7 @@
     </div>
     <div class="topbar-actions">
       <button class="secondary" type="button" onclick="location.href='/simulator/'">Printer simulator</button>
+      <button id="licenseBtn" class="secondary" type="button">Licence</button>
       <button id="themeToggle" class="theme-toggle" type="button" role="switch" aria-checked="true" aria-label="Switch to light mode">
         <span class="theme-toggle-track" aria-hidden="true"></span>
         <span class="theme-toggle-label">Dark</span>
@@ -72,6 +73,31 @@
     </section>
     <footer class="controller-footer" aria-label="Controller version and licence">Printer Fleet Controller <span id="controllerVersion">v—</span> · <span id="controllerEdition">Development Edition</span></footer>
   </main>
+
+  <dialog id="licenseDialog" class="license-dialog">
+    <div class="license-shell">
+      <div class="dialog-head">
+        <div>
+          <div class="eyebrow">CONTROLLER LICENCE</div>
+          <h2>Licence</h2>
+          <div class="subtle">Signed licences control the controller edition and physical-printer allowance.</div>
+        </div>
+        <button type="button" class="icon" data-license-close>×</button>
+      </div>
+      <div id="licenseDetails" class="license-details"></div>
+      <form id="licenseInstallForm" class="license-install-form">
+        <div class="form-divider"><span>Install or replace</span></div>
+        <label>Licence file<input id="licenseFileInput" name="licenseFile" type="file" accept=".json,application/json" required /></label>
+        <div class="field-help">The licence signature is verified before the existing application licence is replaced.</div>
+        <div id="licenseInstallStatus" class="subtle license-install-status"></div>
+        <div id="licenseInstallError" class="error hidden"></div>
+        <div class="actions">
+          <button type="button" class="secondary" data-license-close>Close</button>
+          <button type="submit" class="primary">Install licence</button>
+        </div>
+      </form>
+    </div>
+  </dialog>
 
   <dialog id="addPrinterDialog" class="add-dialog">
     <form id="addPrinterForm" method="dialog">
