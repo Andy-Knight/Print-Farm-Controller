@@ -1,6 +1,6 @@
 {
   "name": "printer-fleet-controller",
-  "version": "0.14.6",
+  "version": "0.14.7",
   "private": true,
   "type": "module",
   "description": "Printer Fleet Controller: local-first FlashForge and Snapmaker fleet control with experimental Bambu P1P/P1S/X1C support and printer emulation",
@@ -8,9 +8,7 @@
     "start": "node src/server.js",
     "dev": "node --watch src/server.js",
     "emulator": "node emulator/server.js",
-    "test": "node --test",
-    "license:keygen": "node tools/licensing/keygen.js",
-    "license:sign": "node tools/licensing/sign.js"
+    "test": "node --test"
   },
   "engines": {
     "node": ">=20"
