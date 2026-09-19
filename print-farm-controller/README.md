@@ -341,3 +341,21 @@ Local Fleet Controller
 ```
 
 The adapter boundary owns discovery, connection validation, capabilities, thermal limits, status normalization, file operations, job control, temperature control, and camera source selection. Core fleet services do not need manufacturer-specific protocol logic.
+
+## Licence architecture
+
+Print Farm Controller contains only the customer/distribution side of the licensing system:
+
+- signed licence verification
+- trusted public verification keys
+- licence installation and status UI
+- edition and entitlement enforcement
+
+Licence generation, Ed25519 private-key handling and customer licence signing are intentionally maintained in the separate private repository:
+
+```text
+Andy-Knight/Print-Farm-Licensing
+```
+
+Private signing keys must never be added to this repository. The controller only requires the corresponding public keys in `src/licensing/trusted-public-keys.json`.
+
