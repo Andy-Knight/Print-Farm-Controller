@@ -1135,9 +1135,7 @@ licenseInstallForm?.addEventListener('submit', async (event) => {
     renderLicenseDialog();
     if (licenseFileInput) licenseFileInput.value = '';
     if (licenseInstallStatus) {
-      licenseInstallStatus.textContent = result.restartRequired
-        ? 'Licence installed. PRINT_CONTROLLER_EDITION is currently overriding it; clear the override and restart to use the installed licence.'
-        : `${result.installedLicense?.label || 'Licence'} installed and activated.`;
+      licenseInstallStatus.textContent = `${result.installedLicense?.label || 'Licence'} installed and activated.`;
     }
   } catch (error) {
     if (licenseInstallStatus) licenseInstallStatus.textContent = '';
