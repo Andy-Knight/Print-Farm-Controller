@@ -11,9 +11,9 @@ function normalizeAdditionalFeatures(features) {
 
 export class LicenseManager {
   constructor({
-    edition = process.env.PRINT_CONTROLLER_EDITION || 'development',
+    edition = 'community',
     enforcementEnabled = null,
-    source = 'development-config',
+    source = 'internal-config',
     maxPrinters = undefined,
     additionalFeatures = null,
     configurationWarning = null,
