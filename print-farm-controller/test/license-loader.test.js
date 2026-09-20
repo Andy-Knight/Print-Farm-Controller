@@ -66,16 +66,71 @@ test('no installed licence falls back to Community and points at application dir
   assert.match(snapshot.configurationWarning, /no signed licence/i);
 });
 
-test('environment edition override remains available for development', async () => {
+test('production loading ignores the environment edition override', async () => {
   const appDir = await tempDir();
   const manager = await loadLicenseManager({
     appDir,
     env:{ PRINT_CONTROLLER_EDITION:'development' }
   });
 
+  assert.equal(manager.edition, 'community');
+  assert.equal(manager.enforcementEnabled, true);
+  assert.equal(manager.getSnapshot().licenseStatus, 'not-installed');
+});
+
+test('development edition override requires the explicit internal development gate', async () => {
+  const appDir = await tempDir();
+  const manager = await loadLicenseManager({
+    appDir,
+    env:{ PRINT_CONTROLLER_EDITION:'development' },
+    allowDevelopmentOverrides:true
+  });
+
   assert.equal(manager.edition, 'development');
   assert.equal(manager.enforcementEnabled, false);
   assert.equal(manager.getSnapshot().licenseStatus, 'development-override');
+});
+
+test('production loading ignores an environment-supplied public verification key', async () => {
+  const appDir = await tempDir();
+  const keyDir = await tempDir('print-controller-dev-key-');
+  const { publicKey, privateKey } = crypto.generateKeyPairSync('ed25519');
+  const publicKeyFile = path.join(keyDir, 'development-public.pem');
+  await fs.writeFile(publicKeyFile, publicKey.export({ type:'spki', format:'pem' }), 'utf8');
+  await writeSignedLicense(appDir, createSignedDocument(proPayload(), privateKey, 'development-local'));
+
+  const manager = await loadLicenseManager({
+    appDir,
+    env:{
+      PRINT_CONTROLLER_LICENSE_PUBLIC_KEY_FILE:publicKeyFile,
+      PRINT_CONTROLLER_LICENSE_KEY_ID:'development-local'
+    }
+  });
+
+  assert.equal(manager.edition, 'community');
+  assert.equal(manager.getSnapshot().licenseStatus, 'invalid');
+});
+
+test('environment-supplied public verification key requires the explicit internal development gate', async () => {
+  const appDir = await tempDir();
+  const keyDir = await tempDir('print-controller-dev-key-');
+  const { publicKey, privateKey } = crypto.generateKeyPairSync('ed25519');
+  const publicKeyFile = path.join(keyDir, 'development-public.pem');
+  await fs.writeFile(publicKeyFile, publicKey.export({ type:'spki', format:'pem' }), 'utf8');
+  await writeSignedLicense(appDir, createSignedDocument(proPayload(), privateKey, 'development-local'));
+
+  const manager = await loadLicenseManager({
+    appDir,
+    env:{
+      PRINT_CONTROLLER_LICENSE_PUBLIC_KEY_FILE:publicKeyFile,
+      PRINT_CONTROLLER_LICENSE_KEY_ID:'development-local'
+    },
+    allowDevelopmentOverrides:true
+  });
+
+  assert.equal(manager.edition, 'pro');
+  assert.equal(manager.maxPrinters, 7);
+  assert.equal(manager.getSnapshot().licenseStatus, 'valid');
 });
 
 test('valid signed licence is loaded from the application directory', async () => {
