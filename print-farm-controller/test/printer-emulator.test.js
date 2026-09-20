@@ -329,7 +329,9 @@ test('FlashForge profile interoperates with HTTP and TCP production clients', as
 
   const initial = await adapter.getStatus();
   assert.equal(initial.status, 'ready');
-  assert.equal(initial.tools[0].filament.material, 'PLA');
+  assert.equal(initial.tools[0].filament.material, null);
+  assert.equal(initial.tools[0].filament.materialSource, null);
+  assert.equal(virtual.tools[0].filament.material, 'PLA');
   const files = await listAllFilesTcp(config, { settleMs: 20 });
   assert.deepEqual(files, ['calibration-cube.gcode']);
   await adapter.printLocalFile('calibration-cube.gcode', false);
