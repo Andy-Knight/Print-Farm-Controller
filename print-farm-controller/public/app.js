@@ -1857,7 +1857,7 @@ function flashForgeMaterialDesignationMarkup(printer, filament = {}) {
     </div>
     <datalist id="flashforgeMaterialTypes">${options.map((value) => `<option value="${escapeHtml(value)}"></option>`).join('')}</datalist>
     <div class="mini-actions"><button type="button" class="secondary" data-material-designation-save>Assign filament</button><button type="button" class="secondary" data-material-designation-clear>${escapeHtml(clearLabel)}</button></div>
-    <div class="field-help">Stored by Printer Fleet Controller for this printer. Material and colour are used by automatic queue compatibility until cleared.${reported ? ` Printer currently reports material ${escapeHtml(reported)}.` : ''}</div>
+    <div class="field-help">Stored by Print Farm Controller for this printer. Material and colour are used by automatic queue compatibility until cleared.${reported ? ` Printer currently reports material ${escapeHtml(reported)}.` : ''}</div>
   </div>`;
 }
 
@@ -1877,7 +1877,7 @@ function flashForgeNozzleDesignationMarkup(printer, tool = {}) {
     </label>
     <datalist id="flashforgeNozzleSizes">${options.map((value) => `<option value="${value}"></option>`).join('')}</datalist>
     <div class="mini-actions"><button type="button" class="secondary" data-nozzle-designation-save>Assign nozzle</button><button type="button" class="secondary" data-nozzle-designation-clear>${escapeHtml(clearLabel)}</button></div>
-    <div class="field-help">Stored by Printer Fleet Controller for this printer and used by automatic queue compatibility.${reported ? ` Printer currently reports ${escapeHtml(nozzleDiameterText(reported))}.` : ' FlashForge firmware does not reliably report the installed nozzle size, so set this whenever you change the nozzle.'}</div>
+    <div class="field-help">Stored by Print Farm Controller for this printer and used by automatic queue compatibility.${reported ? ` Printer currently reports ${escapeHtml(nozzleDiameterText(reported))}.` : ' FlashForge firmware does not reliably report the installed nozzle size, so set this whenever you change the nozzle.'}</div>
   </div>`;
 }
 
@@ -2668,7 +2668,7 @@ async function openPrinter(id) {
           <h3>Printer management</h3>
           <label>Controller name<input data-printer-name type="text" maxlength="80" value="${escapeHtml(printer.name)}" autocomplete="off" /></label>
           <div class="mini-actions"><button class="secondary" data-rename>Rename printer</button><button class="danger" data-remove>Remove printer</button></div>
-          <div class="field-help" data-rename-status>This changes only the name shown by Printer Fleet Controller; the printer's own name is not modified.</div>
+          <div class="field-help" data-rename-status>This changes only the name shown by Print Farm Controller; the printer's own name is not modified.</div>
         </div>
       </div>
     </div>
