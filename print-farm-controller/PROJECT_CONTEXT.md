@@ -7,8 +7,8 @@
 - Repository: `Andy-Knight/Print-Farm-Controller`
 - Project path: `print-farm-controller/`
 - Primary branch: `main` (current production baseline)
-- Current application version on this branch: **0.14.10**
-- v0.14.9 Print Farm Controller branding is merged into `main`. v0.14.10 Open printer hover work is on `feature/open-printer-hover`.
+- Current application version on this branch: **0.14.11**
+- v0.14.10 button-hover feedback is merged into `main`. v0.14.11 FlashForge emulator material-fidelity work is on `feature/flashforge-emulator-material-fidelity`.
 - Runtime: **Node.js 20+**, ES modules, no npm runtime dependencies.
 - GitHub is the authoritative code baseline.
 
@@ -141,10 +141,11 @@ Manufacturer-specific discovery, capabilities, limits, status normalization, fil
 - **v0.14.8 validation completed:** full automated test suite passed with 0 failures; manual Community, Pro and Farm licence activation passed; environment-bypass attempts remained blocked; genuine licence install/replace worked without restart; tampered licences were rejected; simulator printers did not consume slots; over-limit physical-printer selection behaved correctly; general dashboard/printer/files/queue/camera/temperature regression checks passed.
 - **v0.14.9 product branding:** application renamed from **Printer Fleet Controller** to **Print Farm Controller** across the browser UI, runtime messages, simulator wording and documentation. Historical application-data directory names, npm package/service identifiers and the existing browser theme storage key are intentionally retained to preserve upgrades, integrations and saved preferences.
 - **v0.14.10 button hover feedback:** all enabled buttons gain a hover/focus colour change. Dark mode brightens buttons and light mode slightly darkens them; disabled buttons are unaffected.
+- **v0.14.11 FlashForge emulator material fidelity:** simulated FlashForge `/detail` no longer reports `rightFilamentType` by default. The virtual printer still keeps its internal filament material for simulator state/scenarios, but the production adapter correctly sees no printer-reported material unless the physical protocol actually supplies one. This aligns the designation control with physical AD5M-family behaviour: **Clear designation** when there is no reported material, **Use printer value** only when a value is genuinely reported.
 
 ## Current task
 
-**v0.14.10 button hover feedback is the current feature work.** All enabled controller buttons now provide a clearer pointer-hover/focus colour state in both appearance modes.
+**v0.14.11 FlashForge emulator material fidelity is the current feature work.** The emulator no longer invents a printer-reported material value for FlashForge `/detail`, while retaining its internal virtual filament state.
 
 The licensing feature branches currently match `main` and can be treated as historical development branches unless a future change deliberately reuses them.
 
@@ -152,7 +153,7 @@ Bambu P1P/P1S/X1C support remains explicitly experimental. Physical X1C RTSPS/H.
 
 ## Next steps
 
-1. Validate the v0.14.10 button hover behaviour in both light and dark themes, then merge it to `main`.
+1. Validate that an emulated FlashForge shows **Clear designation** when no controller material designation is set, while the emulator still retains its internal virtual filament material; then merge v0.14.11 to `main`.
 2. Add systematic feature-by-feature entitlement gates only where product packaging requires them; preserve the signed licence format and existing edition definitions.
 3. When rotating production signing keys, add the new **public** key to `src/licensing/trusted-public-keys.json` and release a controller build before issuing production licences with that new key ID. Retain older trusted public keys while licences signed by them remain supported.
 4. Continue physical validation of experimental Bambu behaviour before removing the experimental designation.
