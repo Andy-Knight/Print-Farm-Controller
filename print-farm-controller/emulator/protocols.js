@@ -323,7 +323,6 @@ function flashForgeDetail(printer) {
     printDuration: printer.elapsedSeconds,
     rightTemp: tool.actual,
     rightTargetTemp: tool.target,
-    rightFilamentType: tool.filament.material,
     platTemp: printer.bed.actual,
     platTargetTemp: printer.bed.target,
     coolingFanSpeed: printer.fans.cooling,
