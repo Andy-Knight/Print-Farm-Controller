@@ -1,4 +1,6 @@
-# Printer Fleet Controller v0.14.8
+# Print Farm Controller v0.14.9
+
+> **v0.14.9 renames the application from Printer Fleet Controller to Print Farm Controller.** The browser title, dashboard header/footer, controller messages, package identity, service health identity, simulator wording and documentation now use **Print Farm Controller**. Existing application-data directories retain their historical `Printer Fleet Controller` / `printer-fleet-controller` names so upgrades continue using the same printers, queue, history and settings without a storage migration.
 
 > **v0.14.8 adds production-hardened offline signed licensing.** The controller verifies Ed25519-signed `license.json` files and fails closed to Community Edition when no valid licence is installed. Community permits 2 physical printers, Pro 10 and Farm 25; simulator printers do not consume licence slots. Existing printers are never deleted if a licence allowance is reduced. Licence installation/replacement is available from the controller UI and takes effect without restarting. Production startup ignores environment-variable attempts to elevate the edition or trust an arbitrary signing key.
 
@@ -44,7 +46,7 @@
 
 > v0.11.3 makes **Clear history** immediately delete controller-staged queue files that are no longer referenced. Files still referenced by queued/active/review jobs, retained bed-clearance records, or another history item are preserved. The normal one-hour orphan grace period remains in place for non-explicit cleanup paths.
 
-> v0.11.2 moves the default controller application-data directory to a manufacturer-neutral **Printer Fleet Controller** path. Existing data is migrated automatically from the historical `FlashForge Fleet` directory on first startup, including printer configuration, queue/history, staged queue files, and material metadata. Custom `DATA_DIR` locations are unchanged.
+> v0.11.2 moved the default controller application-data directory to the then-current manufacturer-neutral **Printer Fleet Controller** path. Existing data is migrated automatically from the historical `FlashForge Fleet` directory on first startup, including printer configuration, queue/history, staged queue files, and material metadata. Custom `DATA_DIR` locations are unchanged.
 
 > v0.11.1 adds a persistent **Controller nozzle designation** for FlashForge 5M-family printers. Set the installed nozzle diameter in Toolhead status so file-centric automatic queue compatibility can safely match staged G-code nozzle requirements instead of holding FlashForge jobs for review when the local API cannot report nozzle size.
 
@@ -56,11 +58,11 @@ A local-first 3D printer fleet controller. It runs entirely on your LAN and curr
 - **Snapmaker U1** through its local Moonraker/Klipper API.
 - **Bambu Lab P1P / P1S / X1C (experimental)** through the local MQTT TLS and FTPS TLS interfaces, plus P1 TLS/JPEG camera support.
 
-The application is named **Printer Fleet Controller**. From v0.11.2 the default application-data directory is manufacturer-neutral; existing installations are migrated automatically from the historical FlashForge-named directory so configured printers and queued work are retained.
+The application is named **Print Farm Controller**. The default application-data directory retains its historical **Printer Fleet Controller** / `printer-fleet-controller` folder name for compatibility; existing installations therefore continue to use the same configured printers, queued work and settings after the v0.14.9 branding rename.
 
 ## Licensing
 
-Printer Fleet Controller v0.14.8 uses offline Ed25519-signed licence files. The controller contains trusted **public** verification keys only; private signing keys are never required by the controller.
+Print Farm Controller v0.14.9 uses offline Ed25519-signed licence files. The controller contains trusted **public** verification keys only; private signing keys are never required by the controller.
 
 If no valid signed licence is installed, the controller runs as **Community Edition**.
 
@@ -238,7 +240,7 @@ AMS behavior is implemented against the emulator protocol model and must remain 
 - Camera stream.
 - Timed bed-powered chamber preheat with idle-target reassertion.
 - **Toolhead status** shows the filament type reported by the printer (for example PLA/PETG) from the local `/detail` API. You can also set a persistent **Controller material designation** (common presets or a custom material name); while assigned, it becomes the effective material shown by the controller and is marked **Manually assigned**, while the original printer-reported value is retained as secondary information. **Use printer value / Clear designation** removes the override. The designation is stored locally with that printer and does not change FlashForge firmware settings. The 5M API does not provide U1-style RFID colour metadata or a reliable live filament-presence value, so those remain explicitly unavailable.
-- FlashForge file-material preflight compares that manual designation with the filament type declared by G-code metadata (including Orca/FlashForge `right_extruder_material` and slicer `filament_type` comments) when the controller has inspected the file. Equivalent punctuation variants such as `ASA CF`, `ASA-CF`, and `ASA_CF` compare as the same material. A direct **Print** shows an advisory mismatch and permits **Print anyway** by confirmation; a queued or fleet upload/start mismatch is not started unattended and is held/reported for review. The stock 5M local API exposes filenames but not the stored G-code body, so files copied to the printer outside Printer Fleet Controller have an explicitly unknown material requirement until the controller has an inspected copy.
+- FlashForge file-material preflight compares that manual designation with the filament type declared by G-code metadata (including Orca/FlashForge `right_extruder_material` and slicer `filament_type` comments) when the controller has inspected the file. Equivalent punctuation variants such as `ASA CF`, `ASA-CF`, and `ASA_CF` compare as the same material. A direct **Print** shows an advisory mismatch and permits **Print anyway** by confirmation; a queued or fleet upload/start mismatch is not started unattended and is held/reported for review. The stock 5M local API exposes filenames but not the stored G-code body, so files copied to the printer outside Print Farm Controller have an explicitly unknown material requirement until the controller has an inspected copy.
 
 ### Snapmaker U1
 
