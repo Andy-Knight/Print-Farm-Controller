@@ -42,7 +42,7 @@ export async function getPrinterFileMaterialMetadata(printerId, fileName) {
       requiredMaterial: null,
       materials: [],
       source: null,
-      warning: 'Material metadata is unavailable for this printer-only file. Files uploaded through Printer Fleet Controller are inspected and remembered for future checks.'
+      warning: 'Material metadata is unavailable for this printer-only file. Files uploaded through Print Farm Controller are inspected and remembered for future checks.'
     };
   }
   return { ...entry, fileName: entry.fileName || String(fileName || '') };
