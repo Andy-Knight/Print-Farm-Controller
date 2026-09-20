@@ -238,7 +238,7 @@ async function refreshAfterCommand(id) {
 
 async function apiRoute(req, res, url) {
   if (req.method === 'GET' && url.pathname === '/api/health') {
-    return json(res, 200, { ok: true, service: 'print-farm-controller', version: CONTROLLER_VERSION, license: currentLicenseSnapshot(), liveState: true });
+    return json(res, 200, { ok: true, service: 'printer-fleet-controller', version: CONTROLLER_VERSION, license: currentLicenseSnapshot(), liveState: true });
   }
 
   if (req.method === 'GET' && url.pathname === '/api/license') {
