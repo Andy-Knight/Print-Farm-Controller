@@ -54,7 +54,7 @@ async function ensureDataDir() {
     await fs.mkdir(path.dirname(DATA_DIR), { recursive: true });
     try {
       await fs.rename(LEGACY_DATA_DIR, DATA_DIR);
-      console.log(`Migrated Printer Fleet Controller data to ${DATA_DIR}`);
+      console.log(`Migrated Print Farm Controller data to ${DATA_DIR}`);
       return;
     } catch (renameError) {
       // A second controller instance may have completed the migration while this
@@ -71,7 +71,7 @@ async function ensureDataDir() {
       // The copy is already authoritative. Failure to remove the old directory
       // is non-fatal and leaves a recoverable backup behind.
       await fs.rm(LEGACY_DATA_DIR, { recursive: true, force: true }).catch(() => {});
-      console.log(`Copied Printer Fleet Controller data to ${DATA_DIR}`);
+      console.log(`Copied Print Farm Controller data to ${DATA_DIR}`);
       return;
     }
   }
