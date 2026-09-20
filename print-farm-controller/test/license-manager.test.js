@@ -3,6 +3,21 @@ import assert from 'node:assert/strict';
 import { LICENSE_FEATURES } from '../src/licensing/entitlements.js';
 import { LicenseManager } from '../src/licensing/license-manager.js';
 
+test('default manager fails closed to Community rather than reading an environment override', () => {
+  const previous = process.env.PRINT_CONTROLLER_EDITION;
+  process.env.PRINT_CONTROLLER_EDITION = 'farm';
+  try {
+    const manager = new LicenseManager();
+    const snapshot = manager.getSnapshot();
+    assert.equal(snapshot.edition, 'community');
+    assert.equal(snapshot.enforcementEnabled, true);
+    assert.equal(snapshot.maxPrinters, 2);
+  } finally {
+    if (previous === undefined) delete process.env.PRINT_CONTROLLER_EDITION;
+    else process.env.PRINT_CONTROLLER_EDITION = previous;
+  }
+});
+
 test('development edition is unrestricted and non-enforcing', () => {
   const manager = new LicenseManager({ edition:'development' });
   const snapshot = manager.getSnapshot();
