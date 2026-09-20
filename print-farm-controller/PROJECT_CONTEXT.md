@@ -1,4 +1,4 @@
-# Printer Fleet Controller — Project Context
+# Print Farm Controller — Project Context
 
 > Cross-chat handoff file. Read this first when continuing the project in a new chat. Keep it concise and update it whenever architecture/decisions change, a task is completed, or the current/next task changes.
 
@@ -7,8 +7,8 @@
 - Repository: `Andy-Knight/Print-Farm-Controller`
 - Project path: `print-farm-controller/`
 - Primary branch: `main` (current production baseline)
-- Current application version on this branch: **0.14.8**
-- v0.14.8 signed licensing and production hardening are merged into `main`; `feature/licensing-foundation` and `feature/licensing-production-hardening` currently point at the same commit as `main`.
+- Current application version on this branch: **0.14.9**
+- v0.14.8 signed licensing and production hardening are merged into `main`. v0.14.9 branding work is on `feature/print-farm-controller-branding`.
 - Runtime: **Node.js 20+**, ES modules, no npm runtime dependencies.
 - GitHub is the authoritative code baseline.
 
@@ -51,7 +51,7 @@ Manufacturer-specific discovery, capabilities, limits, status normalization, fil
 
 - Local-first/LAN-only controller; printer credentials remain backend-side.
 - Multiple manufacturers are supported through adapters rather than manufacturer logic in shared fleet code.
-- Default application data uses the manufacturer-neutral `Printer Fleet Controller` directory. v0.11.2 automatically migrates the complete historical `FlashForge Fleet` directory on first startup; custom `DATA_DIR` locations are never moved.
+- Default application data deliberately retains the historical `Printer Fleet Controller` / `printer-fleet-controller` directory name for compatibility. v0.11.2 migrated the older `FlashForge Fleet` directory on first startup; the v0.14.9 product rename does **not** migrate or rename existing data directories. Custom `DATA_DIR` locations are never moved.
 - Queue/history and controller-staged queue files persist across restarts.
 - A completed/active-failed/cancelled print creates a **bed-clearance interlock**; no later queued job may start on that printer until **Bed cleared** is confirmed.
 - Queue jobs support two assignment modes: **fixed printer** and **Next available compatible printer**.
@@ -139,10 +139,11 @@ Manufacturer-specific discovery, capabilities, limits, status normalization, fil
 - **v0.14.8 signed licensing:** offline Ed25519 verification of `license.json`; Community/Pro/Farm editions with signed independent `maxPrinters`; simulator printers excluded from physical-printer usage; over-limit fleet slot selection without deleting configured printers; controller UI for installing/replacing licences; application-directory licence precedence with legacy data-directory fallback; expired/tampered/untrusted licences fail closed to Community.
 - **v0.14.8 production hardening:** normal production startup ignores `PRINT_CONTROLLER_EDITION`, `PRINT_CONTROLLER_LICENSE_PUBLIC_KEY_FILE`, and arbitrary key-ID trust as privilege-escalation mechanisms; `LicenseManager` defaults to Community; the production server does not enable the internal development override gate.
 - **v0.14.8 validation completed:** full automated test suite passed with 0 failures; manual Community, Pro and Farm licence activation passed; environment-bypass attempts remained blocked; genuine licence install/replace worked without restart; tampered licences were rejected; simulator printers did not consume slots; over-limit physical-printer selection behaved correctly; general dashboard/printer/files/queue/camera/temperature regression checks passed.
+- **v0.14.9 product branding:** application renamed from **Printer Fleet Controller** to **Print Farm Controller** across the browser UI, runtime messages, package/service identity, simulator wording and documentation. Historical application-data directory names and the existing browser theme storage key are intentionally retained to preserve upgrades and saved preferences.
 
 ## Current task
 
-**v0.14.8 is merged into `main` and is the current production baseline.** Signed licensing and production hardening have completed their release-gate testing.
+**v0.14.9 branding is the current feature work.** The product-facing name is changing to **Print Farm Controller** while durable storage paths and compatibility identifiers that would otherwise reset user state are retained.
 
 The licensing feature branches currently match `main` and can be treated as historical development branches unless a future change deliberately reuses them.
 
@@ -150,7 +151,7 @@ Bambu P1P/P1S/X1C support remains explicitly experimental. Physical X1C RTSPS/H.
 
 ## Next steps
 
-1. Continue normal controller development from `main`.
+1. Validate the v0.14.9 branding branch, then merge it to `main`.
 2. Add systematic feature-by-feature entitlement gates only where product packaging requires them; preserve the signed licence format and existing edition definitions.
 3. When rotating production signing keys, add the new **public** key to `src/licensing/trusted-public-keys.json` and release a controller build before issuing production licences with that new key ID. Retain older trusted public keys while licences signed by them remain supported.
 4. Continue physical validation of experimental Bambu behaviour before removing the experimental designation.
