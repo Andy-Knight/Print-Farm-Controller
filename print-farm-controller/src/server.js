@@ -179,13 +179,10 @@ async function installLicenseDocument(input) {
     throw error;
   }
 
-  const overrideActive = Boolean(String(process.env.PRINT_CONTROLLER_EDITION || '').trim());
-  if (!overrideActive) {
-    licenseManager = await loadLicenseManager({
-      appDir:APP_DIR,
-      dataDir:controllerDataDir
-    });
-  }
+  licenseManager = await loadLicenseManager({
+    appDir:APP_DIR,
+    dataDir:controllerDataDir
+  });
 
   fleetState.schedulePublish();
   const installedLicense = {
@@ -194,7 +191,7 @@ async function installLicenseDocument(input) {
   };
   return {
     ok:true,
-    restartRequired:overrideActive,
+    restartRequired:false,
     installedLicense,
     license:currentLicenseSnapshot()
   };
