@@ -98,12 +98,13 @@ export async function loadLicenseManager({
   env = process.env,
   now = new Date(),
   trustedPublicKeys = null,
-  trustedKeysPath = TRUSTED_KEYS_PATH
+  trustedKeysPath = TRUSTED_KEYS_PATH,
+  allowDevelopmentOverrides = false
 } = {}) {
   if (!appDir) throw new Error('appDir is required to load the controller licence');
 
   const editionOverride = String(env.PRINT_CONTROLLER_EDITION || '').trim();
-  if (editionOverride) {
+  if (allowDevelopmentOverrides && editionOverride) {
     return new LicenseManager({
       edition:editionOverride,
       source:'development-config',
@@ -122,7 +123,7 @@ export async function loadLicenseManager({
     : await readTrustedPublicKeys(trustedKeysPath);
 
   const developmentPublicKeyFile = String(env.PRINT_CONTROLLER_LICENSE_PUBLIC_KEY_FILE || '').trim();
-  if (developmentPublicKeyFile) {
+  if (allowDevelopmentOverrides && developmentPublicKeyFile) {
     const keyId = String(env.PRINT_CONTROLLER_LICENSE_KEY_ID || 'development-local').trim();
     const publicKey = await fs.readFile(path.resolve(developmentPublicKeyFile), 'utf8');
     keys = { ...keys, [keyId]:publicKey };
@@ -196,4 +197,8 @@ export async function loadLicenseManager({
 
 export const licenseLoaderPaths = Object.freeze({
   trustedKeysPath:TRUSTED_KEYS_PATH
+});
+
+export const licenseLoaderPolicy = Object.freeze({
+  developmentOverridesEnabledByDefault:false
 });
