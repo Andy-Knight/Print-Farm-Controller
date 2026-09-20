@@ -1,5 +1,5 @@
 {
-  "name": "print-farm-controller",
+  "name": "printer-fleet-controller",
   "version": "0.14.9",
   "private": true,
   "type": "module",
