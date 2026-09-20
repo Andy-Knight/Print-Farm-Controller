@@ -13,7 +13,7 @@ button {
 }
 button:not(:disabled):hover,
 button:not(:disabled):focus-visible {
-  filter:brightness(1.18);
+  filter:brightness(1.32);
 }
 button:disabled { cursor: not-allowed; opacity: .5; }
 .topbar { max-width: 1500px; margin: 0 auto; padding: 30px 30px 18px; display:flex; justify-content:space-between; align-items:center; gap:16px; }
