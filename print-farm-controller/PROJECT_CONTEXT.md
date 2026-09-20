@@ -141,3 +141,68 @@ Manufacturer-specific discovery, capabilities, limits, status normalization, fil
 ## Handoff rule
 
 If chat context and this file disagree about the codebase, inspect current GitHub files and tests. **GitHub is authoritative for code; this document is authoritative for project intent/status until deliberately updated.**
+
+## Licensing workstream (v0.14.x)
+
+Licensing development is based on `feature/licensing-foundation`, which was branched from `main` and now contains the signed-licensing work that was previously developed on `feature/signed-licensing`.
+
+Current production-hardening branch:
+
+```text
+feature/licensing-production-hardening
+```
+
+Current hardening version:
+
+```text
+0.14.8
+```
+
+### Signed licensing
+
+The controller verifies offline Ed25519-signed `license.json` files.
+
+Current trusted production key ID:
+
+```text
+primary-2026
+```
+
+The controller contains only the public verification key. Private-key handling and customer licence generation live in the separate private repository:
+
+```text
+Andy-Knight/Print-Farm-Licensing
+```
+
+Default licence file location is the controller application directory:
+
+```text
+<application directory>/license.json
+```
+
+No valid signed licence means Community Edition.
+
+Signed editions:
+- Community: 2 physical printers
+- Pro: 10 physical printers
+- Farm: 25 physical printers
+
+Simulator printers do not consume licence slots. If configured physical printers exceed the allowance, printers remain saved and visible; the allowed number can be selected as active licence slots.
+
+### Production hardening rule
+
+Normal controller startup must not permit an environment-variable licensing bypass.
+
+As of v0.14.8:
+
+- `PRINT_CONTROLLER_EDITION` is ignored in normal production/default loading.
+- `PRINT_CONTROLLER_LICENSE_PUBLIC_KEY_FILE` is ignored in normal production/default loading.
+- `PRINT_CONTROLLER_LICENSE_KEY_ID` only participates in the explicitly gated development override path.
+- `LicenseManager` defaults to Community rather than reading the environment.
+- The production server does not enable development licence overrides.
+- `loadLicenseManager(..., { allowDevelopmentOverrides:true })` is an internal test/development mechanism only and must never be enabled by the production server.
+
+Do not reintroduce a runtime environment flag that lets an installed/distributed controller activate Pro/Farm/Development or trust an arbitrary signing key without a source/build modification.
+
+Before merging this hardening work into `feature/licensing-foundation`, run the full test suite and manually validate Community, Pro and Farm signed-licence behavior.
+
