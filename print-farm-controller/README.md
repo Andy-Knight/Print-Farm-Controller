@@ -1,4 +1,6 @@
-# Print Farm Controller v0.14.10
+# Print Farm Controller v0.14.11
+
+> **v0.14.11 aligns the simulated FlashForge material telemetry with physical AD5M-family behaviour.** The simulator still tracks its virtual filament internally, but its FlashForge `/detail` response no longer claims that the printer reports a loaded material type by default. This makes the controller show **Clear designation** instead of **Use printer value** unless a real printer-reported value is actually available.
 
 > **v0.14.10 adds hover/focus colour feedback to all enabled buttons.** Dark mode brightens buttons under the pointer or keyboard focus, while light mode slightly darkens them. Disabled buttons are unchanged.
 
