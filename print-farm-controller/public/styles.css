@@ -54,6 +54,14 @@ main { max-width:1500px; margin:0 auto; padding:0 30px 40px; }
 .danger { background:#47262b; color:#ffb2ba; }
 .icon { background:#202831; color:#e8edf2; font-size:1.2rem; line-height:1; padding:8px 11px; }
 .card-footer button { flex:1; }
+.card-footer button[data-open] {
+  transition:background-color .16s ease, color .16s ease;
+}
+.card-footer button[data-open]:hover,
+.card-footer button[data-open]:focus-visible {
+  background:#34424e;
+  color:#ffffff;
+}
 .empty { border:1px dashed #35414b; border-radius:18px; padding:60px 20px; text-align:center; color:#8ea1b3; }
 .hidden { display:none !important; }
 .controller-footer {
@@ -521,6 +529,11 @@ input:focus,select:focus { border-color:#7a9fbe; }
 :root[data-theme="light"] .primary {
   background:#183f62;
   color:#ffffff;
+}
+:root[data-theme="light"] .card-footer button[data-open]:hover,
+:root[data-theme="light"] .card-footer button[data-open]:focus-visible {
+  background:#c9dce8;
+  color:#10283d;
 }
 :root[data-theme="light"] .theme-toggle {
   background:#ffffff;
