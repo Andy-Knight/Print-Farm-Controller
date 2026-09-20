@@ -140,11 +140,11 @@ Manufacturer-specific discovery, capabilities, limits, status normalization, fil
 - **v0.14.8 production hardening:** normal production startup ignores `PRINT_CONTROLLER_EDITION`, `PRINT_CONTROLLER_LICENSE_PUBLIC_KEY_FILE`, and arbitrary key-ID trust as privilege-escalation mechanisms; `LicenseManager` defaults to Community; the production server does not enable the internal development override gate.
 - **v0.14.8 validation completed:** full automated test suite passed with 0 failures; manual Community, Pro and Farm licence activation passed; environment-bypass attempts remained blocked; genuine licence install/replace worked without restart; tampered licences were rejected; simulator printers did not consume slots; over-limit physical-printer selection behaved correctly; general dashboard/printer/files/queue/camera/temperature regression checks passed.
 - **v0.14.9 product branding:** application renamed from **Printer Fleet Controller** to **Print Farm Controller** across the browser UI, runtime messages, simulator wording and documentation. Historical application-data directory names, npm package/service identifiers and the existing browser theme storage key are intentionally retained to preserve upgrades, integrations and saved preferences.
-- **v0.14.10 Open printer hover:** the dashboard **Open printer** button gains a scoped hover/focus colour change in both dark and light themes without altering other secondary buttons.
+- **v0.14.10 button hover feedback:** all enabled buttons gain a hover/focus colour change. Dark mode brightens buttons and light mode slightly darkens them; disabled buttons are unaffected.
 
 ## Current task
 
-**v0.14.10 Open printer hover is the current feature work.** The dashboard **Open printer** control now provides a clearer pointer-hover/focus state in both appearance modes.
+**v0.14.10 button hover feedback is the current feature work.** All enabled controller buttons now provide a clearer pointer-hover/focus colour state in both appearance modes.
 
 The licensing feature branches currently match `main` and can be treated as historical development branches unless a future change deliberately reuses them.
 
@@ -152,7 +152,7 @@ Bambu P1P/P1S/X1C support remains explicitly experimental. Physical X1C RTSPS/H.
 
 ## Next steps
 
-1. Validate the v0.14.10 Open printer hover behaviour, then merge it to `main`.
+1. Validate the v0.14.10 button hover behaviour in both light and dark themes, then merge it to `main`.
 2. Add systematic feature-by-feature entitlement gates only where product packaging requires them; preserve the signed licence format and existing edition definitions.
 3. When rotating production signing keys, add the new **public** key to `src/licensing/trusted-public-keys.json` and release a controller build before issuing production licences with that new key ID. Retain older trusted public keys while licences signed by them remain supported.
 4. Continue physical validation of experimental Bambu behaviour before removing the experimental designation.
