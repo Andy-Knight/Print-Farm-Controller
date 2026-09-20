@@ -1,6 +1,6 @@
 # Print Farm Controller v0.14.10
 
-> **v0.14.10 adds a hover/focus colour state to the dashboard Open printer button.** The effect is scoped to that control and includes separate dark- and light-theme colours.
+> **v0.14.10 adds hover/focus colour feedback to all enabled buttons.** Dark mode brightens buttons under the pointer or keyboard focus, while light mode slightly darkens them. Disabled buttons are unchanged.
 
 > **v0.14.9 renames the application from Printer Fleet Controller to Print Farm Controller.** The browser title, dashboard header/footer, controller messages, simulator wording and documentation now use **Print Farm Controller**. Existing application-data directories and machine-facing compatibility identifiers retain their historical `Printer Fleet Controller` / `printer-fleet-controller` names so upgrades, scripts and integrations continue to work without migration.
 
