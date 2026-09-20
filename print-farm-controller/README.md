@@ -359,3 +359,16 @@ Andy-Knight/Print-Farm-Licensing
 
 Private signing keys must never be added to this repository. The controller only requires the corresponding public keys in `src/licensing/trusted-public-keys.json`.
 
+### Production licence hardening
+
+Production/default controller startup does not allow environment variables to bypass signed licensing.
+
+In particular:
+
+- `PRINT_CONTROLLER_EDITION` is ignored during normal licence loading.
+- `PRINT_CONTROLLER_LICENSE_PUBLIC_KEY_FILE` and `PRINT_CONTROLLER_LICENSE_KEY_ID` are ignored during normal licence loading.
+- `LicenseManager` defaults fail closed to Community rather than reading an edition from the environment.
+- Installing a valid signed licence reloads and activates it immediately; there is no runtime edition override to take precedence.
+
+The loader still has an internal `allowDevelopmentOverrides:true` option for automated tests or deliberately modified development builds. The production server never enables it. Enabling development overrides therefore requires a source/build change rather than an end-user environment variable.
+
