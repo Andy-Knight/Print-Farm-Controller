@@ -171,7 +171,7 @@ async function installLicenseDocument(input) {
   } catch (error) {
     if (error?.code === 'EACCES' || error?.code === 'EPERM') {
       const permissionError = new Error(
-        `Windows blocked writing the licence to ${target}. Restart Printer Fleet Controller with Administrator rights, then install the licence again.`
+        `Windows blocked writing the licence to ${target}. Restart Print Farm Controller with Administrator rights, then install the licence again.`
       );
       permissionError.statusCode = 403;
       throw permissionError;
@@ -238,7 +238,7 @@ async function refreshAfterCommand(id) {
 
 async function apiRoute(req, res, url) {
   if (req.method === 'GET' && url.pathname === '/api/health') {
-    return json(res, 200, { ok: true, service: 'printer-fleet-controller', version: CONTROLLER_VERSION, license: currentLicenseSnapshot(), liveState: true });
+    return json(res, 200, { ok: true, service: 'print-farm-controller', version: CONTROLLER_VERSION, license: currentLicenseSnapshot(), liveState: true });
   }
 
   if (req.method === 'GET' && url.pathname === '/api/license') {
@@ -855,7 +855,7 @@ await fleetState.start();
 await printQueue.start();
 chamberPreheat.startService();
 server.listen(PORT, HOST, () => {
-  console.log(`Printer Fleet Controller v${CONTROLLER_VERSION} running at http://localhost:${PORT}`);
+  console.log(`Print Farm Controller v${CONTROLLER_VERSION} running at http://localhost:${PORT}`);
   const license = currentLicenseSnapshot();
   console.log(`Licence: ${license.label} (${license.source}; enforcement ${license.enforcementEnabled ? 'enabled' : 'disabled'})`);
   console.log(`LAN access: http://<this-computer-ip>:${PORT}`);
