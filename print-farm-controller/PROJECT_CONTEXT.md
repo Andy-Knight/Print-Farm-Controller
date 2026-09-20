@@ -6,8 +6,9 @@
 
 - Repository: `Andy-Knight/Print-Farm-Controller`
 - Project path: `print-farm-controller/`
-- Primary branch: `main` (v0.13.0 approved and merged from `release/v0.13.0`; the release branch is retained)
-- Current application version on this branch: **0.13.0**
+- Primary branch: `main` (current production baseline)
+- Current application version on this branch: **0.14.8**
+- v0.14.8 signed licensing and production hardening are merged into `main`; `feature/licensing-foundation` and `feature/licensing-production-hardening` currently point at the same commit as `main`.
 - Runtime: **Node.js 20+**, ES modules, no npm runtime dependencies.
 - GitHub is the authoritative code baseline.
 
@@ -28,6 +29,7 @@ Local Fleet Controller (`src/`)
         +-- staged queue-file store
         +-- compatibility engine
         +-- persistent print queue + history + bed-clearance interlock
+        +-- signed licence loader / verifier / edition + printer-slot enforcement
         |
         v
 PrinterAdapter boundary (`src/adapters/`)
@@ -67,6 +69,13 @@ Manufacturer-specific discovery, capabilities, limits, status normalization, fil
 - The development printer simulator is integrated into the controller lifecycle and UI, but its virtual protocol endpoints remain loopback-only. It is disabled by default, remembers explicit enablement, and exercises production adapters through network protocols rather than bypassing the adapter boundary. Simulator-only support never counts as physical hardware validation. The standalone emulator command remains available for development.
 - Bambu P1P/P1S/X1C support remains explicitly experimental until the MQTT telemetry/commands and FTPS behavior are compared with physical printers. P1 TLS/JPEG camera framing also requires physical validation. X1C uses RTSPS/H.264 on port 322; the controller deliberately reports X1C camera as unsupported until a suitable decoder is implemented. Manual entry is used; Bambu LAN discovery is not yet implemented.
 - Bambu AMS support models each AMS tray and the external spool as a material source, separate from the P1's single physical nozzle. Automatic scheduling maps logical 3MF filaments to unique live sources, while multi-material raw G-code is rejected because it does not carry the project-level AMS mapping required by the print command.
+- Production licensing is offline and Ed25519-signed. The controller ships trusted public verification keys only; production private keys live only in the separate private `Andy-Knight/Print-Farm-Licensing` application.
+- No valid signed licence means Community Edition. Current physical-printer allowances are Community 2, Pro 10, Farm 25; simulator printers do not consume licence slots.
+- Reducing the allowance never deletes configured printers. Over-limit fleets retain all printers and require selection of the physical printers that occupy active licence slots.
+- The signed licence file defaults to `<application directory>/license.json`; the previous data-directory location remains accepted temporarily for migration, with the application-directory file taking priority.
+- Production startup must not allow environment-variable licence bypasses. `PRINT_CONTROLLER_EDITION` and arbitrary public-key trust are ignored unless source/test code explicitly enables the internal development override path.
+- Licence installation/replacement reloads the signed licence immediately; a normal controller restart is not required.
+- The edition entitlement catalogue exists for future feature-by-feature enforcement. As of v0.14.8 the production enforcement path includes signature/expiry validation and physical-printer slot limits; do not describe every entitlement as fully gated unless the code has actually been wired to enforce it.
 
 ## Completed work / current baseline
 
@@ -80,6 +89,9 @@ Manufacturer-specific discovery, capabilities, limits, status normalization, fil
 - Material metadata/preflight for FlashForge and multi-tool print setup/preflight for U1.
 - U1 tool mapping, print preferences, material/nozzle readiness and XYZ offset calibration.
 - Bed-powered timed chamber preheat and applicable fan/purifier controls.
+- **v0.14.8 signed licensing:** offline Ed25519 verification of `license.json`; Community/Pro/Farm editions with signed independent `maxPrinters`; simulator printers excluded from physical-printer usage; over-limit fleet slot selection without deleting configured printers; controller UI for installing/replacing licences; application-directory licence precedence with legacy data-directory fallback; expired/tampered/untrusted licences fail closed to Community.
+- **v0.14.8 production hardening:** normal production startup ignores `PRINT_CONTROLLER_EDITION`, `PRINT_CONTROLLER_LICENSE_PUBLIC_KEY_FILE`, and arbitrary key-ID trust as privilege-escalation mechanisms; `LicenseManager` defaults to Community; the production server does not enable the internal development override gate.
+- **v0.14.8 validation completed:** full automated test suite passed with 0 failures; manual Community, Pro and Farm licence activation passed; environment-bypass attempts remained blocked; genuine licence install/replace worked without restart; tampered licences were rejected; simulator printers did not consume slots; over-limit physical-printer selection behaved correctly; general dashboard/printer/files/queue/camera/temperature regression checks passed.
 - **v0.13.0 printer simulator:** controller-managed lifecycle, controller-hosted responsive management UI sharing the controller's visual system and persisted light/dark preference, disabled-by-default persisted enablement, and loopback-only protocol endpoints; multiple dynamically allocated virtual printers; production-adapter-compatible FlashForge HTTP/TCP/MJPEG camera and Snapmaker Moonraker/WebSocket/snapshot endpoints; experimental Bambu Lab P1P/P1S/X1C TLS MQTT status/control, implicit FTPS file transfer and authenticated camera test endpoints; a visible simulated-camera test frame; virtual files, print progress, temperatures and material/nozzle state; accelerated time; activity logs; repeatable scenarios; and fault injection for offline/delay/rejection/malformed response/verification/cancellation/filename/camera conditions. The standalone development command remains available. The X1C test camera intentionally does not emulate physical RTSPS/H.264. Bambu protocol behaviour is simulator-only and awaits physical hardware validation. FlashForge connection forms now expose configurable HTTP, TCP and camera ports while retaining physical-printer defaults.
 - v0.13.0 regression suite: **166 passing tests, 0 failures**, including integrated simulator persistence/routes/lifecycle, standalone management API, authenticated Bambu P1P/P1S/X1C LAN endpoints, full production Bambu P1S and X1C adapter integration against the live simulator, controlled Bambu model selection, editable zero-to-four-unit AMS simulation, live-refresh-safe AMS material/colour controls, embedded 3MF requirement parsing, interactive and automatic AMS material mapping, queue-to-print mapping propagation, credential-safe Bambu persistence, production Snapmaker and FlashForge adapter integration, and the combined U1 filament type/colour command.
 - **v0.11.0 file-centric automatic queue:**
@@ -130,35 +142,24 @@ Manufacturer-specific discovery, capabilities, limits, status normalization, fil
 
 ## Current task
 
-**v0.13.0 is merged into `main`, with `release/v0.13.0` retained as the release source branch.** The integrated simulator, Bambu P1P/P1S controller, AMS and X1C work are included. Bambu remains visibly marked experimental in the add-printer list, adapter metadata and printer-detail warning until physical hardware validation is complete. Physical X1C RTSPS/H.264 camera decoding remains explicitly out of scope.
+**v0.14.8 is merged into `main` and is the current production baseline.** Signed licensing and production hardening have completed their release-gate testing.
+
+The licensing feature branches currently match `main` and can be treated as historical development branches unless a future change deliberately reuses them.
+
+Bambu P1P/P1S/X1C support remains explicitly experimental. Physical X1C RTSPS/H.264 camera decoding remains out of scope until a suitable implementation is added.
 
 ## Next steps
 
-1. Run final release-candidate testing with the controller and all default emulator profiles: FlashForge AD5M Pro, Snapmaker U1, Bambu P1P, P1S and X1C.
-2. Validate X1C status, storage, direct printing, automatic queueing, AMS mapping, temperatures, fans, completion and clearance behavior, while retaining the explicit physical-camera limitation.
-3. Compare Bambu telemetry, FTPS behavior and `project_file` start payloads against reliable captures or physical hardware before removing the experimental label.
+1. Continue normal controller development from `main`.
+2. Add systematic feature-by-feature entitlement gates only where product packaging requires them; preserve the signed licence format and existing edition definitions.
+3. When rotating production signing keys, add the new **public** key to `src/licensing/trusted-public-keys.json` and release a controller build before issuing production licences with that new key ID. Retain older trusted public keys while licences signed by them remain supported.
+4. Continue physical validation of experimental Bambu behaviour before removing the experimental designation.
 
 ## Handoff rule
 
 If chat context and this file disagree about the codebase, inspect current GitHub files and tests. **GitHub is authoritative for code; this document is authoritative for project intent/status until deliberately updated.**
 
-## Licensing workstream (v0.14.x)
-
-Licensing development is based on `feature/licensing-foundation`, which was branched from `main` and now contains the signed-licensing work that was previously developed on `feature/signed-licensing`.
-
-Current production-hardening branch:
-
-```text
-feature/licensing-production-hardening
-```
-
-Current hardening version:
-
-```text
-0.14.8
-```
-
-### Signed licensing
+## Licensing baseline (v0.14.8)
 
 The controller verifies offline Ed25519-signed `license.json` files.
 
@@ -168,26 +169,63 @@ Current trusted production key ID:
 primary-2026
 ```
 
-The controller contains only the public verification key. Private-key handling and customer licence generation live in the separate private repository:
+The controller contains only public verification keys. Private-key handling, customer records and licence generation live in the separate private repository:
 
 ```text
 Andy-Knight/Print-Farm-Licensing
 ```
 
-Default licence file location is the controller application directory:
+Default licence location:
 
 ```text
 <application directory>/license.json
 ```
 
-No valid signed licence means Community Edition.
+Licence-file lookup order:
+1. `PRINT_CONTROLLER_LICENSE_FILE` explicit file override, when deliberately configured.
+2. Application-directory `license.json`.
+3. Legacy application-data-directory `license.json` for migration compatibility.
+4. No file -> Community Edition.
 
 Signed editions:
 - Community: 2 physical printers
 - Pro: 10 physical printers
 - Farm: 25 physical printers
+- Development: unrestricted internal development mode only
 
-Simulator printers do not consume licence slots. If configured physical printers exceed the allowance, printers remain saved and visible; the allowed number can be selected as active licence slots.
+Simulator printers do not consume licence slots. If configured physical printers exceed the signed allowance, all printer definitions remain saved and visible; the permitted number are selected as active licence slots.
+
+The signed payload can carry edition, `maxPrinters`, licence type/dates and additional feature entitlements. `maxPrinters` is independently signed rather than inferred solely from edition.
+
+Current entitlement catalogue:
+- `printer.basic_control`
+- `printer.file_management`
+- `printer.camera`
+- `printer.preheat`
+- `queue.manual`
+- `queue.smart_assignment`
+- `queue.job_priority`
+- `queue.batch_jobs`
+- `fleet.statistics`
+- `fleet.maintenance`
+- `fleet.history`
+- `fleet.multi_operator`
+- `automation.bed_clearance`
+- `automation.material_matching`
+- `automation.nozzle_matching`
+- `automation.auto_transfer`
+- `automation.failure_recovery`
+- `remote.access`
+- `remote.notifications`
+- `remote.multi_site`
+
+Edition mappings:
+- BASIC = basic control, file management, camera, preheat, manual queue
+- PRO = BASIC + job priority + statistics + maintenance + history
+- FARM = PRO + smart assignment + batch jobs + multi-operator + bed clearance + material/nozzle matching + auto transfer + failure recovery
+- development = `*`, unrestricted/noncommercial
+
+As of v0.14.8, do **not** assume every catalogue entry is systematically enforced throughout the UI/API. The release-gated enforcement is signed-licence validity/expiry plus physical-printer slot limits. Extend feature gating deliberately and test each gated surface.
 
 ### Production hardening rule
 
@@ -201,8 +239,25 @@ As of v0.14.8:
 - `LicenseManager` defaults to Community rather than reading the environment.
 - The production server does not enable development licence overrides.
 - `loadLicenseManager(..., { allowDevelopmentOverrides:true })` is an internal test/development mechanism only and must never be enabled by the production server.
+- Tampered, malformed or untrusted signed licences fail closed to Community.
+- Expired subscription licences fail closed to Community without erasing the signed licence identity from status information.
+- Installing/replacing a valid licence reloads the active licence immediately and returns `restartRequired:false`.
 
-Do not reintroduce a runtime environment flag that lets an installed/distributed controller activate Pro/Farm/Development or trust an arbitrary signing key without a source/build modification.
+Do not reintroduce a runtime environment flag that lets a distributed controller activate Pro/Farm/Development or trust an arbitrary signing key without a source/build modification.
 
-Before merging this hardening work into `feature/licensing-foundation`, run the full test suite and manually validate Community, Pro and Farm signed-licence behavior.
+### v0.14.8 release validation
+
+Completed before merge to `main`:
+- full automated `npm test` suite: passed, 0 failures
+- no licence -> Community
+- production `PRINT_CONTROLLER_EDITION=farm` bypass attempt -> remained Community
+- valid Pro licence -> activated correctly
+- restart with valid Pro licence -> remained active
+- valid Farm replacement -> activated correctly
+- Community replacement -> reduced allowance correctly
+- tampered signed payload -> rejected
+- simulator printers -> did not consume physical slots
+- over-limit fleet -> printer definitions retained; slot selection enforced
+- Licence install/replace UI -> valid files accepted and applied without restart
+- general dashboard, printer details, file listing/upload, manual print, queue, camera and temperature controls -> regression checked
 
