@@ -1,4 +1,6 @@
-# Print Farm Controller v0.15.0
+# Print Farm Controller v0.15.1
+
+> **v0.15.1 adds detected filament colours to Print Library entries.** When colour metadata is available in the G-code/GX/3MF requirements, each library card now lists the actual colours with a swatch, hexadecimal value and RGB value.
 
 > **v0.15.0 introduces the persistent Print Library.** Controller-owned G-code/GX/3MF files are now durable independently of the queue and history. The dashboard exposes a searchable **Print library** browser where files can be uploaded, inspected for detected material/nozzle/tool requirements, queued to the next compatible printer, or explicitly deleted when no queue/history record still references them. Existing `queue-files/` entries migrate automatically into `print-library/` while retaining their UUIDs, so current queue/history records remain valid. Uploading the same file content again reuses the existing library entry by SHA-256 instead of storing a duplicate.
 
