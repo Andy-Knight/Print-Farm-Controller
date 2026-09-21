@@ -3279,4 +3279,5 @@ window.addEventListener('beforeunload', () => eventSource?.close());
 
 await loadAdapters();
 await loadInitialFleet();
+await refreshPrintLibrary().catch((error) => console.error('Could not load Print Library', error));
 connectLiveUpdates();
