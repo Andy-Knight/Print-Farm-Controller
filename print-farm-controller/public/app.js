@@ -1262,30 +1262,90 @@ licenseInstallForm?.addEventListener('submit', async (event) => {
     }
   }
 });
+libraryBtn?.addEventListener('click', async () => {
+  if (libraryError) { libraryError.textContent = ''; libraryError.classList.add('hidden'); }
+  if (libraryStatus) libraryStatus.textContent = 'Loading Print Library…';
+  libraryDialog?.showModal();
+  try {
+    await refreshPrintLibrary();
+    if (libraryStatus) libraryStatus.textContent = '';
+  } catch (error) {
+    if (libraryStatus) libraryStatus.textContent = '';
+    if (libraryError) { libraryError.textContent = error.message; libraryError.classList.remove('hidden'); }
+  }
+});
+document.querySelectorAll('[data-library-close]').forEach((el) => el.addEventListener('click', () => libraryDialog?.close()));
+librarySearchInput?.addEventListener('input', renderPrintLibrary);
+libraryUploadBtn?.addEventListener('click', () => libraryFileInput?.click());
+libraryFileInput?.addEventListener('change', async () => {
+  const file = libraryFileInput.files?.[0];
+  if (!file) return;
+  libraryUploadBtn.disabled = true;
+  if (libraryError) { libraryError.textContent = ''; libraryError.classList.add('hidden'); }
+  if (libraryStatus) libraryStatus.textContent = `Adding ${file.name} to Print Library…`;
+  try {
+    const stored = await uploadLibraryFile(file);
+    if (libraryStatus) libraryStatus.textContent = stored.duplicate
+      ? `${stored.fileName} is already in the Print Library.`
+      : `${stored.fileName} added to the Print Library.`;
+  } catch (error) {
+    if (libraryStatus) libraryStatus.textContent = '';
+    if (libraryError) { libraryError.textContent = error.message; libraryError.classList.remove('hidden'); }
+  } finally {
+    libraryFileInput.value = '';
+    libraryUploadBtn.disabled = false;
+  }
+});
+libraryList?.addEventListener('click', async (event) => {
+  const queueButton = event.target.closest('[data-library-queue]');
+  if (queueButton) {
+    const file = (libraryState.files || []).find((item) => item.id === queueButton.dataset.libraryQueue);
+    if (!file) return;
+    libraryDialog?.close();
+    openQueueAddDialog(file);
+    return;
+  }
+  const deleteButton = event.target.closest('[data-library-delete]');
+  if (!deleteButton) return;
+  const file = (libraryState.files || []).find((item) => item.id === deleteButton.dataset.libraryDelete);
+  if (!file || !confirm(`Delete ${file.fileName} from the Print Library? The stored controller copy will be removed.`)) return;
+  deleteButton.disabled = true;
+  try {
+    await api(`/api/library/${encodeURIComponent(file.id)}`, { method:'DELETE' });
+    await refreshPrintLibrary();
+  } catch (error) {
+    alert(error.message);
+    deleteButton.disabled = false;
+  }
+});
+
 queueBtn?.addEventListener('click', () => { renderPrintQueue(); queueDialog.showModal(); });
 document.querySelectorAll('[data-queue-close]').forEach((el) => el.addEventListener('click', () => queueDialog.close()));
-queueAddFileBtn?.addEventListener('click', () => {
-  queueAddForm?.reset();
-  if (queueAddStatus) queueAddStatus.textContent = '';
-  if (queueAddError) { queueAddError.textContent = ''; queueAddError.classList.add('hidden'); }
-  queueAddDialog?.showModal();
-});
+queueAddFileBtn?.addEventListener('click', () => openQueueAddDialog());
 document.querySelectorAll('[data-queue-add-close]').forEach((el) => el.addEventListener('click', () => queueAddDialog?.close()));
+queueAddDialog?.addEventListener('close', () => {
+  queueAddLibraryFile = null;
+  queueAddFileField?.classList.remove('hidden');
+  if (queueAddFileInput) queueAddFileInput.required = true;
+  queueAddSelectedFile?.classList.add('hidden');
+});
 queueAddForm?.addEventListener('submit', async (event) => {
   event.preventDefault();
   const file = queueAddFileInput?.files?.[0];
   const submit = queueAddForm.querySelector('button[type="submit"]');
   if (submit) submit.disabled = true;
   if (queueAddError) { queueAddError.textContent = ''; queueAddError.classList.add('hidden'); }
-  if (queueAddStatus) queueAddStatus.textContent = 'Staging file on controller…';
+  if (queueAddStatus) queueAddStatus.textContent = queueAddLibraryFile ? 'Adding library file to queue…' : 'Adding file to Print Library and queue…';
   try {
     const data = new FormData(queueAddForm);
     const quantity = Number(data.get('quantity') || 1);
     const priority = String(data.get('priority') || 'normal');
-    await stageAutomaticQueueFile(file, {
+    const options = {
       levelingBeforePrint:data.get('levelingBeforePrint') === 'on',
       flowCalibrationBeforePrint:data.get('flowCalibrationBeforePrint') === 'on'
-    }, quantity, priority);
+    };
+    if (queueAddLibraryFile) await queueLibraryFile(queueAddLibraryFile.id, options, quantity, priority);
+    else await stageAutomaticQueueFile(file, options, quantity, priority);
     if (queueAddStatus) queueAddStatus.textContent = quantity > 1 ? `Added ${quantity} copies as a production batch` : 'Added to fleet queue';
     queueAddDialog?.close();
     renderPrintQueue();
@@ -1302,6 +1362,7 @@ clearQueueHistoryBtn?.addEventListener('click', async () => {
     const result = await api('/api/queue/history', { method:'DELETE' });
     queueState = result.queue || queueState;
     renderPrintQueue();
+    await refreshPrintLibrary().catch(() => {});
   } catch (error) { alert(error.message); }
 });
 queueActiveList?.addEventListener('change', async (event) => {
