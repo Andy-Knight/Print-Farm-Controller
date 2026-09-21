@@ -60,7 +60,6 @@ async function pathExists(target) {
 async function ensureDataDir() {
   if (await pathExists(DATA_DIR)) return;
 
-  const migrationSource = LEGACY_DATA_DIRS.find((candidate) => candidate && candidate !== DATA_DIR && fs.access(candidate).then(() => true, () => false));
   let source = null;
   for (const candidate of LEGACY_DATA_DIRS) {
     if (await pathExists(candidate)) {
