@@ -103,7 +103,8 @@ const contentTypes = {
   '.js': 'text/javascript; charset=utf-8',
   '.css': 'text/css; charset=utf-8',
   '.svg': 'image/svg+xml',
-  '.png': 'image/png'
+  '.png': 'image/png',
+  '.ico': 'image/x-icon'
 };
 
 function json(res, status, body) {
@@ -844,11 +845,7 @@ async function apiRoute(req, res, url) {
 }
 
 async function serveStatic(res, pathname) {
-  const requested = pathname === '/'
-    ? '/index.html'
-    : pathname === '/favicon.ico'
-      ? '/favicon.png'
-      : pathname;
+  const requested = pathname === '/' ? '/index.html' : pathname;
   const normalized = path.normalize(requested).replace(/^(\.\.(\/|\\|$))+/, '');
   const filePath = path.join(PUBLIC_DIR, normalized);
   if (!filePath.startsWith(PUBLIC_DIR)) return false;
