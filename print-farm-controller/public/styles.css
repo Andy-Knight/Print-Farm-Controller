@@ -189,7 +189,62 @@ input:focus,select:focus { border-color:#7a9fbe; }
   .preheat-fields { grid-template-columns:1fr; gap:0; }
 }
 
-.topbar-actions { display:flex; align-items:center; gap:9px; flex-wrap:wrap; justify-content:flex-end; }
+.topbar-actions { display:flex; align-items:center; gap:9px; flex-wrap:nowrap; justify-content:flex-end; }
+.topbar-overflow { position:relative; flex:0 0 auto; }
+.topbar-overflow > summary {
+  width:40px;
+  height:40px;
+  display:grid;
+  place-items:center;
+  list-style:none;
+  border:1px solid #2d3943;
+  border-radius:10px;
+  background:#151d24;
+  color:#dce4eb;
+  cursor:pointer;
+  user-select:none;
+  font-size:1.35rem;
+  line-height:1;
+  font-weight:900;
+  transition:filter .16s ease,border-color .16s ease;
+}
+.topbar-overflow > summary::-webkit-details-marker { display:none; }
+.topbar-overflow > summary:hover,
+.topbar-overflow > summary:focus-visible { filter:brightness(1.32); border-color:#506171; }
+.topbar-overflow > summary:focus-visible { outline:2px solid #80bfff; outline-offset:2px; }
+.topbar-overflow[open] > summary { border-color:#6d8799; }
+.topbar-overflow-menu {
+  position:absolute;
+  z-index:80;
+  top:calc(100% + 8px);
+  right:0;
+  width:210px;
+  padding:7px;
+  border:1px solid #2d3943;
+  border-radius:11px;
+  background:#10171d;
+  box-shadow:0 16px 38px rgba(0,0,0,.32);
+}
+.topbar-overflow-item {
+  width:100%;
+  display:block;
+  text-align:left;
+  border:0;
+  border-radius:8px;
+  padding:10px 11px;
+  background:transparent;
+  color:#dce4eb;
+  font-weight:750;
+}
+.topbar-overflow-item + .topbar-overflow-item { margin-top:2px; }
+.topbar-overflow-item:not(:disabled):hover,
+.topbar-overflow-item:not(:disabled):focus-visible { background:#1d2831; filter:none; }
+.topbar-overflow-fleet { display:none; }
+
+@media (max-width:1180px) {
+  .topbar-fleet-action { display:none; }
+  .topbar-overflow-fleet { display:block; }
+}
 .batch-toolbar { border:1px solid #31404c; background:#111820; border-radius:15px; padding:13px 14px; margin:-6px 0 18px; box-shadow:0 12px 35px rgba(0,0,0,.12); }
 .batch-toolbar-head { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:10px; }
 .batch-toolbar-head > div:first-child { display:flex; align-items:baseline; gap:10px; flex-wrap:wrap; }
@@ -211,15 +266,16 @@ input:focus,select:focus { border-color:#7a9fbe; }
 .batch-field-grid { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
 .field-inline-help { color:#697b89; font-weight:500; font-size:.72rem; }
 
+@media (max-width:900px) {
+  .topbar { align-items:flex-start; flex-direction:column; }
+  .topbar-actions { max-width:none; width:100%; justify-content:flex-start; flex-wrap:wrap; }
+}
 @media (max-width:760px) {
-  .topbar { align-items:flex-start; }
-  .topbar-actions { max-width:46%; }
   .batch-toolbar-head { align-items:flex-start; flex-direction:column; }
 }
 @media (max-width:520px) {
-  .topbar { flex-direction:column; }
-  .topbar-actions { max-width:none; width:100%; }
-  .topbar-actions button { flex:1; }
+  .topbar-actions > button:not(.theme-toggle) { flex:1 1 calc(50% - 9px); }
+  .topbar-overflow { margin-left:auto; }
   .batch-field-grid { grid-template-columns:1fr; gap:0; }
   .batch-actions > button { flex:1 1 calc(50% - 7px); }
 }
@@ -588,6 +644,21 @@ input:focus,select:focus { border-color:#7a9fbe; }
   background:#ffffff;
   border-color:#bdcbd6;
   color:#263746;
+}
+:root[data-theme="light"] .topbar-overflow > summary {
+  background:#ffffff;
+  border-color:#bdcbd6;
+  color:#263746;
+}
+:root[data-theme="light"] .topbar-overflow-menu {
+  background:#ffffff;
+  border-color:#cad5de;
+  box-shadow:0 16px 38px rgba(31,48,61,.16);
+}
+:root[data-theme="light"] .topbar-overflow-item { color:#17212b; }
+:root[data-theme="light"] .topbar-overflow-item:not(:disabled):hover,
+:root[data-theme="light"] .topbar-overflow-item:not(:disabled):focus-visible {
+  background:#e8f1f8;
 }
 :root[data-theme="light"] .theme-toggle-track { background:#9aabb8; }
 :root[data-theme="light"] .progress { background:#dce5eb; }
