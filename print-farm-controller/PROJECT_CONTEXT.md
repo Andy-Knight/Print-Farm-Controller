@@ -8,7 +8,7 @@
 - Project path: `print-farm-controller/`
 - Primary branch: `main` (current production baseline)
 - Current application version on this branch: **0.15.5**
-- `main` remains the validated v0.15.4 baseline. v0.15.5 Print Library preview work is on `feature/print-library-previews`.
+- v0.15.5 Print Library previews are merged into `main`.
 - Runtime: **Node.js 20+**, ES modules, no npm runtime dependencies.
 - GitHub is the authoritative code baseline.
 
@@ -155,7 +155,7 @@ Manufacturer-specific discovery, capabilities, limits, status normalization, fil
 
 ## Current task
 
-**v0.15.5 Print Library previews are the current feature work on top of the merged v0.15.4 release.** The controller separates durable printable-file storage from scheduling:
+**v0.15.5 Print Library previews are the current merged release.** The controller separates durable printable-file storage from scheduling:
 
 - **Print Library** = what can be printed.
 - **Queue** = what should be printed.
@@ -167,9 +167,9 @@ Bambu P1P/P1S/X1C support remains explicitly experimental. Physical X1C RTSPS/H.
 
 ## Next steps
 
-1. Run the full automated regression suite for v0.15.5 and fix any failures.
-2. Manually validate previews for a new Orca/Bambu 3MF, embedded-thumbnail G-code, an existing pre-v0.15.5 library file, a file with no supported preview, and the larger preview viewer.
-3. After validation, merge `feature/print-library-previews` (v0.15.5) into `main`.
+1. v0.15.5 full automated regression suite passed with no issues (user-run validation).
+2. v0.15.5 manual validation passed for 3MF previews, embedded G-code thumbnails, and the no-preview fallback. Existing-file backfill remains covered by automated regression tests.
+3. v0.15.5 `feature/print-library-previews` merged into `main` after automated and manual validation.
 4. Add systematic feature-by-feature entitlement gates only where product packaging requires them; preserve the signed licence format and existing edition definitions.
 5. Continue physical validation of experimental Bambu behaviour before removing the experimental designation.
 
