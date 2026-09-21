@@ -1,4 +1,6 @@
-# Print Farm Controller v0.15.2
+# Print Farm Controller v0.15.3
+
+> **v0.15.3 preserves the red Offline/Error printer status treatment in Light mode.** The generic light-theme badge styling no longer overrides these warning states.
 
 > **v0.15.2 simplifies the controller top bar with a responsive overflow menu.** The Light/Dark toggle remains permanently visible. Printer simulator and Licence move into a compact **⋮** menu, while Fleet operations stays visible on wider screens and automatically moves into the same overflow menu when horizontal space is tighter.
 
