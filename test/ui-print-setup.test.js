@@ -31,6 +31,13 @@ test('offline printer badge remains red in light mode', () => {
   assert.match(styles, /:root\[data-theme="light"\] \.badge\.offline \{ background:#4b2528; color:#ffafb4; \}/);
 });
 
+test('Snapmaker U1 is named consistently on dashboard and printer details', () => {
+  assert.match(app, /function printerModelLabel\(printer\)/);
+  assert.match(app, /printer\?\.adapterType === 'snapmaker-u1'\) return 'Snapmaker U1'/);
+  assert.match(app, /const modelLabel = printerModelLabel\(printer\)/);
+  assert.match(app, /<span>Model<\/span><b>\$\{escapeHtml\(printerModelLabel\(printer\) \|\| 'Unknown'\)\}<\/b>/);
+});
+
 test('interface exposes a persistent accessible light and dark mode switch', () => {
   assert.match(index, /id="themeToggle"/);
   assert.match(index, /role="switch"/);
