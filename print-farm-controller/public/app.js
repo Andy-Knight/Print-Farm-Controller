@@ -690,6 +690,25 @@ function libraryRequirementSummary(file) {
   return parts.join(' · ') || 'Requirements not detected';
 }
 
+function libraryFileColors(file) {
+  const logicalTools = Array.isArray(file?.requirements?.logicalTools) ? file.requirements.logicalTools : [];
+  return [...new Set(logicalTools.map((tool) => normalizeColor(tool.color)).filter(Boolean))];
+}
+
+function libraryColorsMarkup(file) {
+  const colors = libraryFileColors(file);
+  if (!colors.length) return '';
+  return `<div class="library-file-colors">
+    <span class="library-file-colors-label">Colours</span>
+    <div class="library-color-list">
+      ${colors.map((color) => `<span class="library-color-item">
+        <i class="material-swatch" style="background:${escapeHtml(color)}" aria-hidden="true"></i>
+        <span><b>${escapeHtml(color)}</b><small>${escapeHtml(filamentRgbText(color) || '')}</small></span>
+      </span>`).join('')}
+    </div>
+  </div>`;
+}
+
 function librarySearchText(file) {
   const requirements = file?.requirements || {};
   const logicalTools = Array.isArray(requirements.logicalTools) ? requirements.logicalTools : [];
@@ -708,6 +727,7 @@ function libraryFileMarkup(file) {
     <div class="library-file-main">
       <div class="library-file-title"><strong>${escapeHtml(file.fileName)}</strong><span>${escapeHtml(formatBytes(file.size))}</span></div>
       <div class="library-file-requirements">${escapeHtml(libraryRequirementSummary(file))}</div>
+      ${libraryColorsMarkup(file)}
       <div class="library-file-meta">Added ${escapeHtml(formatLastSeen(file.addedAt || file.stagedAt))} · ${Number(usage.completedPrints || 0)} completed print${Number(usage.completedPrints || 0) === 1 ? '' : 's'} · ${escapeHtml(lastPrinted)}</div>
       ${warning}
     </div>
