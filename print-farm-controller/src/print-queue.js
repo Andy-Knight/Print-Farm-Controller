@@ -4,7 +4,7 @@ import { getPrinter } from './store.js';
 import { getPrinterAdapter } from './adapters/adapter-registry.js';
 import { loadPrintJobs, savePrintJobs } from './queue-store.js';
 import { getPrinterFileMaterialMetadata, savePrinterFileMaterialMetadata } from './file-material-store.js';
-import { getQueueFile, pruneQueueFiles } from './queue-file-store.js';
+import { getQueueFile } from './queue-file-store.js';
 import { evaluateQueueCompatibility } from './queue-compatibility.js';
 import { assessMaterialCompatibility } from './file-material-metadata.js';
 
@@ -242,7 +242,6 @@ export class PrintQueueService {
     getFileMaterialMetadataFn = getPrinterFileMaterialMetadata,
     saveFileMaterialMetadataFn = savePrinterFileMaterialMetadata,
     getQueueFileFn = getQueueFile,
-    pruneQueueFilesFn = pruneQueueFiles,
     printerAllowedFn = null,
     onChange = null,
     startTimeoutMs = START_TIMEOUT_MS,
@@ -259,7 +258,6 @@ export class PrintQueueService {
     this.getFileMaterialMetadata = getFileMaterialMetadataFn;
     this.saveFileMaterialMetadata = saveFileMaterialMetadataFn;
     this.getQueueFile = getQueueFileFn;
-    this.pruneQueueFiles = pruneQueueFilesFn;
     this.printerAllowed = typeof printerAllowedFn === 'function' ? printerAllowedFn : () => true;
     this.onChange = onChange;
     this.startTimeoutMs = startTimeoutMs;
@@ -294,7 +292,6 @@ export class PrintQueueService {
         bedClearedAt: job.bedClearedAt || null
       };
     });
-    await this.pruneQueueFiles(this.jobs.map((job) => job.stagedFile?.id).filter(Boolean)).catch(() => {});
     this.unsubscribe = this.fleetState.subscribe(() => this.scheduleReconcile());
     this.notify();
     this.scheduleReconcile();
@@ -756,8 +753,6 @@ export class PrintQueueService {
     this.jobs = this.jobs.filter((job) => !TERMINAL_STATES.has(job.status) || (job.bedClearanceRequired === true && !job.bedClearedAt) || activeProductionIds.has(job.productionBatchId));
     if (this.jobs.length !== before) {
       await this.persistAndNotify();
-      const referencedIds = this.jobs.map((job) => job.stagedFile?.id).filter(Boolean);
-      await this.pruneQueueFiles(referencedIds, { minAgeMs:0 }).catch(() => {});
     }
     return before - this.jobs.length;
   }
@@ -1234,7 +1229,6 @@ export class PrintQueueService {
     const save = this.saveChain.then(() => this.saveJobs(snapshot));
     this.saveChain = save.catch(() => {});
     await save;
-    await this.pruneQueueFiles(snapshot.map((job) => job.stagedFile?.id).filter(Boolean)).catch(() => {});
     this.notify();
   }
 
