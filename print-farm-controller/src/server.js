@@ -103,8 +103,7 @@ const contentTypes = {
   '.js': 'text/javascript; charset=utf-8',
   '.css': 'text/css; charset=utf-8',
   '.svg': 'image/svg+xml',
-  '.png': 'image/png',
-  '.ico': 'image/x-icon'
+  '.png': 'image/png'
 };
 
 function json(res, status, body) {
@@ -855,7 +854,7 @@ async function serveStatic(res, pathname) {
     const data = await fs.readFile(filePath);
     res.writeHead(200, {
       'content-type': contentTypes[path.extname(filePath)] || 'application/octet-stream',
-      'cache-control': path.extname(filePath) === '.ico' ? 'no-store, max-age=0' : 'no-cache'
+      'cache-control': 'no-cache'
     });
     res.end(data);
     return true;
