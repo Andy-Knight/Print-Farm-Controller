@@ -2,9 +2,16 @@ import { promises as fs } from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
 import crypto from 'node:crypto';
+import { fileURLToPath } from 'node:url';
 import { FLASHFORGE_AD5M_ADAPTER_TYPE } from './adapters/adapter-registry.js';
 
+const APPLICATION_DIR = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+
 function defaultDataDir() {
+  return path.join(APPLICATION_DIR, 'data');
+}
+
+function profileDataDir() {
   if (process.platform === 'win32') {
     const base = process.env.LOCALAPPDATA || process.env.APPDATA || os.homedir();
     return path.join(base, 'Print Controller', 'Printer Fleet Controller');
@@ -18,7 +25,7 @@ function defaultDataDir() {
   return path.join(base, 'print-controller', 'printer-fleet-controller');
 }
 
-function legacyDataDir() {
+function legacyFlashForgeDataDir() {
   if (process.platform === 'win32') {
     const base = process.env.LOCALAPPDATA || process.env.APPDATA || os.homedir();
     return path.join(base, 'Print Controller', 'FlashForge Fleet');
@@ -34,7 +41,10 @@ function legacyDataDir() {
 
 const CUSTOM_DATA_DIR = String(process.env.DATA_DIR || '').trim();
 const DATA_DIR = path.resolve(CUSTOM_DATA_DIR || defaultDataDir());
-const LEGACY_DATA_DIR = CUSTOM_DATA_DIR ? null : path.resolve(legacyDataDir());
+const LEGACY_DATA_DIRS = CUSTOM_DATA_DIR
+  ? []
+  : [...new Set([profileDataDir(), legacyFlashForgeDataDir()].map((value) => path.resolve(value)))]
+      .filter((value) => value !== DATA_DIR);
 const FILE_PATH = path.join(DATA_DIR, 'printers.json');
 
 async function pathExists(target) {
@@ -50,33 +60,41 @@ async function pathExists(target) {
 async function ensureDataDir() {
   if (await pathExists(DATA_DIR)) return;
 
-  if (LEGACY_DATA_DIR && LEGACY_DATA_DIR !== DATA_DIR && await pathExists(LEGACY_DATA_DIR)) {
+  let source = null;
+  for (const candidate of LEGACY_DATA_DIRS) {
+    if (await pathExists(candidate)) {
+      source = candidate;
+      break;
+    }
+  }
+
+  if (source) {
     await fs.mkdir(path.dirname(DATA_DIR), { recursive: true });
     try {
-      await fs.rename(LEGACY_DATA_DIR, DATA_DIR);
-      console.log(`Migrated Print Farm Controller data to ${DATA_DIR}`);
+      await fs.rename(source, DATA_DIR);
+      console.log(`Migrated Print Farm Controller data from ${source} to ${DATA_DIR}`);
       return;
     } catch (renameError) {
-      // A second controller instance may have completed the migration while this
-      // one was waiting. Prefer the new directory if it now exists.
       if (await pathExists(DATA_DIR)) return;
 
       try {
-        await fs.cp(LEGACY_DATA_DIR, DATA_DIR, { recursive: true, force: false, errorOnExist: true });
+        await fs.cp(source, DATA_DIR, { recursive: true, force: false, errorOnExist: true });
       } catch (copyError) {
         await fs.rm(DATA_DIR, { recursive: true, force: true }).catch(() => {});
-        throw new Error(`Could not migrate controller data from ${LEGACY_DATA_DIR} to ${DATA_DIR}: ${copyError.message || renameError.message}`);
+        throw new Error(`Could not migrate controller data from ${source} to ${DATA_DIR}: ${copyError.message || renameError.message}`);
       }
 
-      // The copy is already authoritative. Failure to remove the old directory
-      // is non-fatal and leaves a recoverable backup behind.
-      await fs.rm(LEGACY_DATA_DIR, { recursive: true, force: true }).catch(() => {});
-      console.log(`Copied Print Farm Controller data to ${DATA_DIR}`);
+      await fs.rm(source, { recursive: true, force: true }).catch(() => {});
+      console.log(`Copied Print Farm Controller data from ${source} to ${DATA_DIR}`);
       return;
     }
   }
 
-  await fs.mkdir(DATA_DIR, { recursive: true });
+  try {
+    await fs.mkdir(DATA_DIR, { recursive: true });
+  } catch (error) {
+    throw new Error(`Could not create controller data directory at ${DATA_DIR}: ${error.message}`);
+  }
 }
 
 function normalizePrinterName(value) {
@@ -293,4 +311,6 @@ export function publicPrinter(printer) {
 
 export const printerStorePath = FILE_PATH;
 export const controllerDataDir = DATA_DIR;
-export const legacyControllerDataDir = LEGACY_DATA_DIR;
+export const controllerApplicationDir = APPLICATION_DIR;
+export const legacyControllerDataDir = LEGACY_DATA_DIRS[0] || null;
+export const legacyControllerDataDirs = Object.freeze([...LEGACY_DATA_DIRS]);

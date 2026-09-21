@@ -1,8 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { access, mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 test('dashboard order persists and new printers append after a custom order', async () => {
   const dir = await mkdtemp(path.join(os.tmpdir(), 'ff-fleet-order-'));
@@ -150,59 +151,23 @@ test('Bambu connection ports persist without exposing the LAN access code', asyn
   }
 });
 
-test('default controller data directory migrates the complete legacy FlashForge Fleet tree', async () => {
-  const base = await mkdtemp(path.join(os.tmpdir(), 'pfc-data-dir-migration-'));
-  const previous = {
-    DATA_DIR: process.env.DATA_DIR,
-    LOCALAPPDATA: process.env.LOCALAPPDATA,
-    APPDATA: process.env.APPDATA,
-    XDG_DATA_HOME: process.env.XDG_DATA_HOME,
-    HOME: process.env.HOME
-  };
-
+test('default controller data directory is the application-local data folder', async () => {
+  const previous = process.env.DATA_DIR;
   delete process.env.DATA_DIR;
-  let legacyDir;
-  let newDir;
-  if (process.platform === 'win32') {
-    process.env.LOCALAPPDATA = base;
-    process.env.APPDATA = base;
-    legacyDir = path.join(base, 'Print Controller', 'FlashForge Fleet');
-    newDir = path.join(base, 'Print Controller', 'Printer Fleet Controller');
-  } else if (process.platform === 'darwin') {
-    process.env.HOME = base;
-    legacyDir = path.join(base, 'Library', 'Application Support', 'Print Controller', 'FlashForge Fleet');
-    newDir = path.join(base, 'Library', 'Application Support', 'Print Controller', 'Printer Fleet Controller');
-  } else {
-    process.env.XDG_DATA_HOME = base;
-    legacyDir = path.join(base, 'print-controller', 'flashforge-fleet');
-    newDir = path.join(base, 'print-controller', 'printer-fleet-controller');
-  }
-
-  const legacyPrinters = [{
-    id:'legacy-data-1', name:'Migrated Printer', host:'10.0.5.1', serialNumber:'SN', checkCode:'CODE',
-    adapterType:'flashforge-ad5m', manufacturer:'FlashForge', model:'Adventurer 5M Pro'
-  }];
 
   try {
-    await mkdir(path.join(legacyDir, 'queue-files', 'staged-file'), { recursive:true });
-    await writeFile(path.join(legacyDir, 'printers.json'), JSON.stringify(legacyPrinters));
-    await writeFile(path.join(legacyDir, 'print-jobs.json'), '[{"id":"queued-job"}]\n');
-    await writeFile(path.join(legacyDir, 'queue-files', 'staged-file', 'part.gcode'), '; migrated staged file\nG1 X1\n');
+    const store = await import(`../src/store.js?application-local-data-test=${Date.now()}`);
+    const applicationRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+    const expectedDataDir = path.join(applicationRoot, 'data');
 
-    const store = await import(`../src/store.js?neutral-dir-migration-test=${Date.now()}`);
-    const printers = await store.listPrinters();
-
-    assert.equal(path.dirname(store.printerStorePath), path.resolve(newDir));
-    assert.equal(printers[0].name, 'Migrated Printer');
-    assert.match(await readFile(path.join(newDir, 'print-jobs.json'), 'utf8'), /queued-job/);
-    assert.match(await readFile(path.join(newDir, 'queue-files', 'staged-file', 'part.gcode'), 'utf8'), /migrated staged file/);
-    await assert.rejects(() => access(legacyDir), (error) => error?.code === 'ENOENT');
+    assert.equal(store.controllerApplicationDir, applicationRoot);
+    assert.equal(store.controllerDataDir, expectedDataDir);
+    assert.equal(store.printerStorePath, path.join(expectedDataDir, 'printers.json'));
+    assert.ok(store.legacyControllerDataDirs.length >= 1);
+    assert.ok(store.legacyControllerDataDirs.every((candidate) => path.resolve(candidate) !== expectedDataDir));
   } finally {
-    for (const [key, value] of Object.entries(previous)) {
-      if (value === undefined) delete process.env[key];
-      else process.env[key] = value;
-    }
-    await rm(base, { recursive:true, force:true });
+    if (previous === undefined) delete process.env.DATA_DIR;
+    else process.env.DATA_DIR = previous;
   }
 });
 
