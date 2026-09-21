@@ -1,110 +1,13 @@
-import crypto from 'node:crypto';
-import { createReadStream, promises as fs } from 'node:fs';
-import path from 'node:path';
-import { pipeline } from 'node:stream/promises';
-import { printerStorePath } from './store.js';
-import { validateUploadFilename } from './upload-staging.js';
-import { readFilePrintRequirements } from './file-print-requirements.js';
-
-const ROOT = path.join(path.dirname(printerStorePath), 'queue-files');
-const META_FILE = 'metadata.json';
-
-function safeId(value) {
-  const id = String(value || '').trim().toLowerCase();
-  if (!/^[0-9a-f-]{36}$/.test(id)) throw new Error('Invalid staged queue file id');
-  return id;
-}
-
-async function sha256File(filePath) {
-  const hash = crypto.createHash('sha256');
-  for await (const chunk of createReadStream(filePath)) hash.update(chunk);
-  return hash.digest('hex');
-}
-
-async function ensureRoot() {
-  await fs.mkdir(ROOT, { recursive:true, mode:0o700 });
-}
-
-function publicMetadata(metadata) {
-  if (!metadata) return null;
-  return {
-    id: metadata.id,
-    fileName: metadata.fileName,
-    size: Number(metadata.size || 0),
-    sha256: metadata.sha256,
-    stagedAt: metadata.stagedAt,
-    requirements: metadata.requirements ? structuredClone(metadata.requirements) : null
-  };
-}
-
-export async function stageQueueFile(sourcePath, rawFileName) {
-  await ensureRoot();
-  const fileName = validateUploadFilename(rawFileName);
-  const id = crypto.randomUUID();
-  const directory = path.join(ROOT, id);
-  const finalPath = path.join(directory, fileName);
-  const tempPath = `${finalPath}.tmp`;
-  await fs.mkdir(directory, { recursive:false, mode:0o700 });
-  try {
-    await pipeline(createReadStream(sourcePath), await fs.open(tempPath, 'wx', 0o600).then((handle) => handle.createWriteStream()));
-    const stat = await fs.stat(tempPath);
-    if (!stat.isFile() || !stat.size) throw new Error('Staged queue file is empty');
-    await fs.rename(tempPath, finalPath);
-    const [sha256, requirements] = await Promise.all([
-      sha256File(finalPath),
-      readFilePrintRequirements(finalPath)
-    ]);
-    const metadata = {
-      id,
-      fileName,
-      size: stat.size,
-      sha256,
-      stagedAt: new Date().toISOString(),
-      requirements: { ...requirements, fileName }
-    };
-    await fs.writeFile(path.join(directory, META_FILE), `${JSON.stringify(metadata, null, 2)}\n`, { mode:0o600 });
-    return publicMetadata(metadata);
-  } catch (error) {
-    await fs.rm(directory, { recursive:true, force:true }).catch(() => {});
-    throw error;
-  }
-}
-
-export async function getQueueFile(id) {
-  await ensureRoot();
-  const normalizedId = safeId(id);
-  const directory = path.join(ROOT, normalizedId);
-  const metadata = JSON.parse(await fs.readFile(path.join(directory, META_FILE), 'utf8'));
-  if (metadata.id !== normalizedId) throw new Error('Staged queue file metadata is invalid');
-  const fileName = validateUploadFilename(metadata.fileName);
-  const filePath = path.join(directory, fileName);
-  const stat = await fs.stat(filePath);
-  if (!stat.isFile()) throw new Error('Staged queue file is missing');
-  return { ...publicMetadata(metadata), filePath };
-}
-
-export async function removeQueueFile(id) {
-  await ensureRoot();
-  const normalizedId = safeId(id);
-  await fs.rm(path.join(ROOT, normalizedId), { recursive:true, force:true });
-}
-
-export async function pruneQueueFiles(referencedIds = [], { minAgeMs = 60 * 60 * 1000 } = {}) {
-  await ensureRoot();
-  const keep = new Set((referencedIds || []).map((id) => String(id || '').toLowerCase()).filter(Boolean));
-  const entries = await fs.readdir(ROOT, { withFileTypes:true });
-  let removed = 0;
-  for (const entry of entries) {
-    if (!entry.isDirectory() || keep.has(entry.name.toLowerCase())) continue;
-    const directory = path.join(ROOT, entry.name);
-    if (minAgeMs > 0) {
-      const stat = await fs.stat(directory).catch(() => null);
-      if (stat && Date.now() - stat.mtimeMs < minAgeMs) continue;
-    }
-    await fs.rm(directory, { recursive:true, force:true });
-    removed += 1;
-  }
-  return removed;
-}
-
-export const queueFilesPath = ROOT;
+// Backward-compatible queue-file API.
+//
+// v0.15.0 promotes controller-staged files into the persistent Print Library.
+// Existing queue/history records still refer to stagedFile.id, so these aliases
+// deliberately preserve the previous module contract while changing lifecycle
+// ownership from queue cleanup to explicit library management.
+export {
+  addLibraryFile as stageQueueFile,
+  getLibraryFile as getQueueFile,
+  removeLibraryFile as removeQueueFile,
+  preserveLibraryFiles as pruneQueueFiles,
+  printLibraryPath as queueFilesPath
+} from './print-library.js';
