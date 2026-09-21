@@ -192,7 +192,7 @@ test('Print Library shows cached slicer previews with a larger preview viewer', 
   assert.match(styles, /\.library-file-preview/);
   assert.match(styles, /\.library-preview-large/);
   assert.match(server, /libraryPreviewMatch/);
-  assert.match(server, /\/api\/library\/\([^/]+\)\\\/preview/);
+  assert.match(server, /libraryPreviewMatch = url\.pathname\.match/);
   assert.match(server, /previewUrl:file\.preview\?\.available/);
   assert.match(library, /getLibraryPreview/);
   assert.match(library, /cachePreview/);
