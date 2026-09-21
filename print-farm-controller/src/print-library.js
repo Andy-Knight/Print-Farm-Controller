@@ -17,6 +17,19 @@ function safeId(value) {
   return id;
 }
 
+function normalizeDescription(value) {
+  const description = String(value ?? '').replace(/\r\n/g, '\n').trim();
+  if (description.length > 4000) throw new Error('Print Library description must be 4000 characters or fewer');
+  return description;
+}
+
+async function writeMetadata(directory, metadata) {
+  const target = path.join(directory, META_FILE);
+  const temp = `${target}.tmp`;
+  await fs.writeFile(temp, `${JSON.stringify(metadata, null, 2)}\n`, { mode:0o600 });
+  await fs.rename(temp, target);
+}
+
 async function exists(target) {
   try {
     await fs.access(target);
@@ -72,7 +85,9 @@ function normalizeMetadata(metadata) {
     fileName: metadata.fileName,
     size: Number(metadata.size || 0),
     sha256: metadata.sha256 || null,
+    description: normalizeDescription(metadata.description || ''),
     addedAt,
+    updatedAt: metadata.updatedAt || null,
     // Keep stagedAt as a compatibility alias for persisted queue/history records.
     stagedAt: metadata.stagedAt || addedAt,
     requirements: metadata.requirements ? structuredClone(metadata.requirements) : null
@@ -109,9 +124,10 @@ export async function listLibraryFiles() {
   });
 }
 
-export async function addLibraryFile(sourcePath, rawFileName) {
+export async function addLibraryFile(sourcePath, rawFileName, { description = '' } = {}) {
   await ensureRoot();
   const fileName = validateUploadFilename(rawFileName);
+  const cleanDescription = normalizeDescription(description);
   const sourceStat = await fs.stat(sourcePath);
   if (!sourceStat.isFile() || !sourceStat.size) throw new Error('Print library file is empty');
 
@@ -134,11 +150,13 @@ export async function addLibraryFile(sourcePath, rawFileName) {
       fileName,
       size: sourceStat.size,
       sha256: sourceHash,
+      description: cleanDescription,
       addedAt,
+      updatedAt: null,
       stagedAt: addedAt,
       requirements: { ...requirements, fileName }
     };
-    await fs.writeFile(path.join(directory, META_FILE), `${JSON.stringify(metadata, null, 2)}\n`, { mode:0o600 });
+    await writeMetadata(directory, metadata);
     return normalizeMetadata(metadata);
   } catch (error) {
     await fs.rm(directory, { recursive:true, force:true }).catch(() => {});
@@ -150,6 +168,19 @@ export async function getLibraryFile(id) {
   await ensureRoot();
   const normalizedId = safeId(id);
   return readMetadata(path.join(ROOT, normalizedId), normalizedId);
+}
+
+export async function updateLibraryFileMetadata(id, { description = '' } = {}) {
+  await ensureRoot();
+  const normalizedId = safeId(id);
+  const directory = path.join(ROOT, normalizedId);
+  const metadataPath = path.join(directory, META_FILE);
+  const metadata = JSON.parse(await fs.readFile(metadataPath, 'utf8'));
+  if (metadata.id !== normalizedId) throw new Error('Print library metadata is invalid');
+  metadata.description = normalizeDescription(description);
+  metadata.updatedAt = new Date().toISOString();
+  await writeMetadata(directory, metadata);
+  return normalizeMetadata(metadata);
 }
 
 export async function removeLibraryFile(id) {
