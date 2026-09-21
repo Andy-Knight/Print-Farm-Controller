@@ -28,7 +28,7 @@ import { ChamberPreheatService } from './chamber-preheat.js';
 import { BatchControlService } from './batch-control.js';
 import { FileDistributionService } from './file-distribution.js';
 import { stageUploadRequest } from './upload-staging.js';
-import { stageQueueFile, removeQueueFile } from './queue-file-store.js';
+import { addLibraryFile, listLibraryFiles, removeLibraryFile } from './print-library.js';
 import { PrintQueueService } from './print-queue.js';
 import { assessMaterialCompatibility } from './file-material-metadata.js';
 import { getPrinterFileMaterialMetadata, removePrinterFileMaterialMetadata } from './file-material-store.js';
@@ -288,11 +288,55 @@ async function apiRoute(req, res, url) {
     return json(res, 200, printQueue.getSnapshot());
   }
 
+  if (req.method === 'GET' && url.pathname === '/api/library') {
+    const queueSnapshot = printQueue.getSnapshot();
+    const files = (await listLibraryFiles()).map((file) => {
+      const references = (queueSnapshot.jobs || []).filter((job) => job.stagedFile?.id === file.id);
+      const completed = references.filter((job) => job.status === 'completed');
+      const finished = references
+        .map((job) => job.finishedAt)
+        .filter(Boolean)
+        .sort();
+      return {
+        ...file,
+        usage: {
+          queueReferences: references.length,
+          activeReferences: references.filter((job) => !['completed', 'failed', 'cancelled'].includes(job.status)).length,
+          completedPrints: completed.length,
+          lastPrintedAt: finished.length ? finished[finished.length - 1] : null
+        }
+      };
+    });
+    return json(res, 200, { files });
+  }
+
+  if (req.method === 'POST' && url.pathname === '/api/library') {
+    const stagedUpload = await stageUploadRequest(req, req.headers['x-file-name']);
+    try {
+      const file = await addLibraryFile(stagedUpload.filePath, stagedUpload.fileName);
+      return json(res, file.duplicate ? 200 : 201, { file });
+    } finally {
+      await stagedUpload.cleanup().catch(() => {});
+    }
+  }
+
+  const libraryFileMatch = url.pathname.match(/^\/api\/library\/([^/]+)$/);
+  if (libraryFileMatch && req.method === 'DELETE') {
+    const fileId = decodeURIComponent(libraryFileMatch[1]);
+    const references = (printQueue.getSnapshot().jobs || []).filter((job) => job.stagedFile?.id === fileId);
+    if (references.length) {
+      throw new Error('This library file is still referenced by the print queue or history. Cancel/clear those records before deleting it.');
+    }
+    await removeLibraryFile(fileId);
+    return json(res, 200, { ok:true });
+  }
+
+
   if (req.method === 'POST' && url.pathname === '/api/queue/stage') {
     const stagedUpload = await stageUploadRequest(req, req.headers['x-file-name']);
     try {
-      const stagedFile = await stageQueueFile(stagedUpload.filePath, stagedUpload.fileName);
-      return json(res, 201, { stagedFile });
+      const stagedFile = await addLibraryFile(stagedUpload.filePath, stagedUpload.fileName);
+      return json(res, stagedFile.duplicate ? 200 : 201, { stagedFile });
     } finally {
       await stagedUpload.cleanup().catch(() => {});
     }
@@ -300,7 +344,7 @@ async function apiRoute(req, res, url) {
 
   const stagedQueueFileMatch = url.pathname.match(/^\/api\/queue\/stage\/([^/]+)$/);
   if (stagedQueueFileMatch && req.method === 'DELETE') {
-    await removeQueueFile(decodeURIComponent(stagedQueueFileMatch[1]));
+    await removeLibraryFile(decodeURIComponent(stagedQueueFileMatch[1]));
     return json(res, 200, { ok:true });
   }
 
@@ -310,7 +354,7 @@ async function apiRoute(req, res, url) {
       assignmentMode: body.assignmentMode,
       printerId: body.printerId,
       fileName: body.fileName,
-      stagedFileId: body.stagedFileId,
+      stagedFileId: body.libraryFileId || body.stagedFileId,
       quantity: body.quantity,
       priority: body.priority,
       options: body.options || {}
