@@ -28,7 +28,7 @@ import { ChamberPreheatService } from './chamber-preheat.js';
 import { BatchControlService } from './batch-control.js';
 import { FileDistributionService } from './file-distribution.js';
 import { stageUploadRequest } from './upload-staging.js';
-import { addLibraryFile, listLibraryFiles, removeLibraryFile } from './print-library.js';
+import { addLibraryFile, listLibraryFiles, removeLibraryFile, updateLibraryFileMetadata } from './print-library.js';
 import { PrintQueueService } from './print-queue.js';
 import { assessMaterialCompatibility } from './file-material-metadata.js';
 import { getPrinterFileMaterialMetadata, removePrinterFileMaterialMetadata } from './file-material-store.js';
@@ -312,8 +312,14 @@ async function apiRoute(req, res, url) {
 
   if (req.method === 'POST' && url.pathname === '/api/library') {
     const stagedUpload = await stageUploadRequest(req, req.headers['x-file-name']);
+    let description = '';
     try {
-      const file = await addLibraryFile(stagedUpload.filePath, stagedUpload.fileName);
+      description = decodeURIComponent(String(req.headers['x-file-description'] || ''));
+    } catch {
+      throw new Error('Invalid Print Library description encoding');
+    }
+    try {
+      const file = await addLibraryFile(stagedUpload.filePath, stagedUpload.fileName, { description });
       return json(res, file.duplicate ? 200 : 201, { file });
     } finally {
       await stagedUpload.cleanup().catch(() => {});
@@ -321,6 +327,12 @@ async function apiRoute(req, res, url) {
   }
 
   const libraryFileMatch = url.pathname.match(/^\/api\/library\/([^/]+)$/);
+  if (libraryFileMatch && req.method === 'PATCH') {
+    const fileId = decodeURIComponent(libraryFileMatch[1]);
+    const body = await readJson(req);
+    const file = await updateLibraryFileMetadata(fileId, { description:body.description });
+    return json(res, 200, { file });
+  }
   if (libraryFileMatch && req.method === 'DELETE') {
     const fileId = decodeURIComponent(libraryFileMatch[1]);
     const references = (printQueue.getSnapshot().jobs || []).filter((job) => job.stagedFile?.id === fileId);
@@ -334,8 +346,14 @@ async function apiRoute(req, res, url) {
 
   if (req.method === 'POST' && url.pathname === '/api/queue/stage') {
     const stagedUpload = await stageUploadRequest(req, req.headers['x-file-name']);
+    let description = '';
     try {
-      const stagedFile = await addLibraryFile(stagedUpload.filePath, stagedUpload.fileName);
+      description = decodeURIComponent(String(req.headers['x-file-description'] || ''));
+    } catch {
+      throw new Error('Invalid Print Library description encoding');
+    }
+    try {
+      const stagedFile = await addLibraryFile(stagedUpload.filePath, stagedUpload.fileName, { description });
       return json(res, stagedFile.duplicate ? 200 : 201, { stagedFile });
     } finally {
       await stagedUpload.cleanup().catch(() => {});
