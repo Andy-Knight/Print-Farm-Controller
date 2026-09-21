@@ -385,6 +385,39 @@ input:focus,select:focus { border-color:#7a9fbe; }
 .queue-assignment-card { border:1px solid #2b3945; border-radius:10px; padding:11px 12px; background:#10171d; }
 .queue-assignment-card > div:not(.field-help) { margin-top:4px; color:#b9c8d3; font-size:.86rem; }
 
+/* Persistent Print Library */
+.library-dialog { width:min(980px,calc(100vw - 30px)); }
+.library-toolbar { display:flex; align-items:flex-end; gap:10px; margin-bottom:10px; }
+.library-search { flex:1 1 auto; margin:0; }
+.library-search input { width:100%; }
+.library-list { display:grid; gap:9px; margin-top:10px; }
+.library-file {
+  display:grid;
+  grid-template-columns:minmax(0,1fr) auto;
+  gap:14px;
+  align-items:center;
+  border:1px solid #29343d;
+  background:#0e141a;
+  border-radius:12px;
+  padding:12px 13px;
+}
+.library-file-main { min-width:0; }
+.library-file-title { display:flex; align-items:center; gap:10px; min-width:0; }
+.library-file-title strong { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:.9rem; }
+.library-file-title span { margin-left:auto; flex:0 0 auto; color:#8293a0; font-size:.72rem; }
+.library-file-requirements { color:#b7c5cf; font-size:.77rem; margin-top:5px; }
+.library-file-meta { color:#718391; font-size:.7rem; margin-top:4px; }
+.library-warning { color:#e5c27d; font-size:.7rem; margin-top:5px; }
+.library-file-actions { display:flex; gap:7px; align-items:center; }
+.library-file-actions button { min-width:76px; }
+
+@media (max-width:620px) {
+  .library-toolbar { align-items:stretch; flex-direction:column; }
+  .library-toolbar > button { width:100%; }
+  .library-file { grid-template-columns:1fr; align-items:stretch; }
+  .library-file-actions { justify-content:flex-end; }
+}
+
 
 /* Production quantity / batch queue */
 .production-batch {
@@ -435,6 +468,11 @@ input:focus,select:focus { border-color:#7a9fbe; }
 }
 
 :root[data-theme="light"] { color-scheme:light; color:#17212b; background:#eef3f7; }
+:root[data-theme="light"] .library-file { background:#ffffff; border-color:#cbd7df; }
+:root[data-theme="light"] .library-file-title span,
+:root[data-theme="light"] .library-file-meta { color:#617788; }
+:root[data-theme="light"] .library-file-requirements { color:#314b5f; }
+:root[data-theme="light"] .library-warning { color:#795b12; }
 
 .theme-toggle {
   display:inline-flex;
