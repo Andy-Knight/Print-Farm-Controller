@@ -311,15 +311,9 @@ async function apiRoute(req, res, url) {
   }
 
   if (req.method === 'POST' && url.pathname === '/api/library') {
-    let description = '';
-    try {
-      description = decodeURIComponent(String(req.headers['x-file-description'] || ''));
-    } catch {
-      throw new Error('Invalid Print Library description encoding');
-    }
     const stagedUpload = await stageUploadRequest(req, req.headers['x-file-name']);
     try {
-      const file = await addLibraryFile(stagedUpload.filePath, stagedUpload.fileName, { description });
+      const file = await addLibraryFile(stagedUpload.filePath, stagedUpload.fileName);
       return json(res, file.duplicate ? 200 : 201, { file });
     } finally {
       await stagedUpload.cleanup().catch(() => {});
@@ -345,15 +339,9 @@ async function apiRoute(req, res, url) {
 
 
   if (req.method === 'POST' && url.pathname === '/api/queue/stage') {
-    let description = '';
-    try {
-      description = decodeURIComponent(String(req.headers['x-file-description'] || ''));
-    } catch {
-      throw new Error('Invalid Print Library description encoding');
-    }
     const stagedUpload = await stageUploadRequest(req, req.headers['x-file-name']);
     try {
-      const stagedFile = await addLibraryFile(stagedUpload.filePath, stagedUpload.fileName, { description });
+      const stagedFile = await addLibraryFile(stagedUpload.filePath, stagedUpload.fileName);
       return json(res, stagedFile.duplicate ? 200 : 201, { stagedFile });
     } finally {
       await stagedUpload.cleanup().catch(() => {});
