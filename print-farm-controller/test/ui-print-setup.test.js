@@ -180,6 +180,31 @@ test('dashboard exposes persistent print queue and printer file queue actions', 
 });
 
 
+test('Print Library supports searchable editable free-text descriptions', () => {
+  const server = fs.readFileSync(new URL('../src/server.js', import.meta.url), 'utf8');
+  const library = fs.readFileSync(new URL('../src/print-library.js', import.meta.url), 'utf8');
+  assert.match(index, /id="libraryAddDialog"/);
+  assert.match(index, /id="libraryAddForm"/);
+  assert.match(index, /id="libraryDescriptionInput"/);
+  assert.match(index, /maxlength="4000"/);
+  assert.match(index, /id="libraryMetadataDialog"/);
+  assert.match(index, /id="libraryMetadataDescription"/);
+  assert.match(index, /id="queueAddDescriptionInput"/);
+  assert.match(app, /file\?\.description/);
+  assert.match(app, /library-file-description/);
+  assert.match(app, /data-library-edit/);
+  assert.match(app, /async function updateLibraryDescription/);
+  assert.match(app, /method:'PATCH'/);
+  assert.match(app, /stageAutomaticQueueFile\(file, options, quantity, priority, data\.get\('description'\)/);
+  assert.match(server, /libraryFileMatch && req\.method === 'PATCH'/);
+  assert.match(server, /updateLibraryFileMetadata/);
+  assert.match(library, /function normalizeDescription/);
+  assert.match(library, /4000 characters or fewer/);
+  assert.match(library, /description: normalizeDescription/);
+  assert.match(styles, /\.library-file-description/);
+  assert.match(styles, /textarea \{ resize:vertical/);
+});
+
 test('Print Library lists detected file colours with swatches and values', () => {
   assert.match(app, /function libraryFileColors\(file\)/);
   assert.match(app, /function libraryColorsMarkup\(file\)/);
