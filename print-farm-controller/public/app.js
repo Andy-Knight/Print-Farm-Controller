@@ -667,6 +667,133 @@ async function refreshPrintQueue() {
   renderPrintQueue();
 }
 
+function formatBytes(bytes) {
+  const value = Number(bytes || 0);
+  if (!Number.isFinite(value) || value <= 0) return '0 B';
+  const units = ['B', 'KB', 'MB', 'GB'];
+  const power = Math.min(units.length - 1, Math.floor(Math.log(value) / Math.log(1024)));
+  const amount = value / (1024 ** power);
+  return `${amount >= 10 || power === 0 ? amount.toFixed(0) : amount.toFixed(1)} ${units[power]}`;
+}
+
+function libraryRequirementSummary(file) {
+  const requirements = file?.requirements || {};
+  const logicalTools = Array.isArray(requirements.logicalTools) ? requirements.logicalTools : [];
+  const materials = [...new Set(logicalTools.map((tool) => String(tool.material || '').trim()).filter(Boolean))];
+  const nozzles = [...new Set(logicalTools.map((tool) => Number(tool.nozzleDiameter)).filter((value) => Number.isFinite(value) && value > 0).map((value) => value.toFixed(2).replace(/0+$/, '').replace(/\.$/, '')))];
+  const colors = [...new Set(logicalTools.map((tool) => normalizeColor(tool.color)).filter(Boolean))];
+  const parts = [];
+  if (materials.length) parts.push(materials.join(' / '));
+  if (nozzles.length) parts.push(`${nozzles.join(' / ')} mm nozzle`);
+  if (Number(requirements.toolCount || 0) > 0) parts.push(`${requirements.toolCount} tool${Number(requirements.toolCount) === 1 ? '' : 's'}`);
+  if (colors.length) parts.push(`${colors.length} colour${colors.length === 1 ? '' : 's'}`);
+  return parts.join(' · ') || 'Requirements not detected';
+}
+
+function librarySearchText(file) {
+  const requirements = file?.requirements || {};
+  const logicalTools = Array.isArray(requirements.logicalTools) ? requirements.logicalTools : [];
+  return [
+    file?.fileName,
+    file?.sha256,
+    ...logicalTools.flatMap((tool) => [tool.material, tool.color, tool.nozzleDiameter])
+  ].filter(Boolean).join(' ').toLowerCase();
+}
+
+function libraryFileMarkup(file) {
+  const usage = file.usage || {};
+  const lastPrinted = usage.lastPrintedAt ? `Last printed ${formatLastSeen(usage.lastPrintedAt)}` : 'Not printed from queue yet';
+  const warning = file.requirements?.warning ? `<div class="library-warning">${escapeHtml(file.requirements.warning)}</div>` : '';
+  return `<article class="library-file" data-library-file="${escapeHtml(file.id)}">
+    <div class="library-file-main">
+      <div class="library-file-title"><strong>${escapeHtml(file.fileName)}</strong><span>${escapeHtml(formatBytes(file.size))}</span></div>
+      <div class="library-file-requirements">${escapeHtml(libraryRequirementSummary(file))}</div>
+      <div class="library-file-meta">Added ${escapeHtml(formatLastSeen(file.addedAt || file.stagedAt))} · ${Number(usage.completedPrints || 0)} completed print${Number(usage.completedPrints || 0) === 1 ? '' : 's'} · ${escapeHtml(lastPrinted)}</div>
+      ${warning}
+    </div>
+    <div class="library-file-actions">
+      <button type="button" class="primary" data-library-queue="${escapeHtml(file.id)}">Queue</button>
+      <button type="button" class="danger" data-library-delete="${escapeHtml(file.id)}"${Number(usage.queueReferences || 0) > 0 ? ' disabled title="Clear queue/history references before deleting this file"' : ''}>Delete</button>
+    </div>
+  </article>`;
+}
+
+function renderPrintLibrary() {
+  if (!libraryList) return;
+  const files = Array.isArray(libraryState?.files) ? libraryState.files : [];
+  const query = String(librarySearchInput?.value || '').trim().toLowerCase();
+  const visible = query ? files.filter((file) => librarySearchText(file).includes(query)) : files;
+
+  if (libraryButtonCount) {
+    libraryButtonCount.textContent = String(files.length);
+    libraryButtonCount.classList.toggle('hidden', files.length === 0);
+  }
+  if (librarySummary) {
+    const bytes = files.reduce((sum, file) => sum + Number(file.size || 0), 0);
+    librarySummary.textContent = `${files.length} file${files.length === 1 ? '' : 's'} · ${formatBytes(bytes)} stored on this controller`;
+  }
+  libraryList.innerHTML = visible.length
+    ? visible.map(libraryFileMarkup).join('')
+    : `<div class="queue-empty">${files.length ? 'No library files match this search.' : 'No files in the Print Library yet. Add a G-code, GX or 3MF file to get started.'}</div>`;
+}
+
+async function refreshPrintLibrary() {
+  libraryState = await api('/api/library');
+  renderPrintLibrary();
+  return libraryState;
+}
+
+async function uploadLibraryFile(file) {
+  if (!(file instanceof File) || !file.size) throw new Error('Choose a file to add to the Print Library');
+  if (file.size > 512 * 1024 * 1024) throw new Error('File exceeds the 512 MB upload limit');
+  const response = await fetch('/api/library', {
+    method:'POST',
+    headers:{ 'x-file-name':encodeURIComponent(file.name), 'content-type':'application/octet-stream' },
+    body:file
+  });
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(payload.error || `Print Library upload failed (${response.status})`);
+  await refreshPrintLibrary();
+  return payload.file;
+}
+
+async function queueLibraryFile(libraryFileId, options = {}, quantity = 1, priority = 'normal') {
+  if (!libraryFileId) throw new Error('Choose a Print Library file to queue');
+  const result = await api('/api/queue', {
+    method:'POST',
+    body:JSON.stringify({
+      assignmentMode:'automatic',
+      libraryFileId,
+      quantity,
+      priority,
+      options
+    })
+  });
+  queueState = result.queue || queueState;
+  renderPrintQueue();
+  await refreshPrintLibrary().catch(() => {});
+  return result.job;
+}
+
+function openQueueAddDialog(libraryFile = null) {
+  queueAddLibraryFile = libraryFile || null;
+  queueAddForm?.reset();
+  if (queueAddStatus) queueAddStatus.textContent = '';
+  if (queueAddError) {
+    queueAddError.textContent = '';
+    queueAddError.classList.add('hidden');
+  }
+  queueAddFileField?.classList.toggle('hidden', Boolean(queueAddLibraryFile));
+  if (queueAddFileInput) queueAddFileInput.required = !queueAddLibraryFile;
+  if (queueAddSelectedFile) {
+    queueAddSelectedFile.classList.toggle('hidden', !queueAddLibraryFile);
+    queueAddSelectedFile.innerHTML = queueAddLibraryFile
+      ? `<strong>Print Library file</strong><div>${escapeHtml(queueAddLibraryFile.fileName)}</div><div class="field-help">${escapeHtml(libraryRequirementSummary(queueAddLibraryFile))}</div>`
+      : '';
+  }
+  queueAddDialog?.showModal();
+}
+
 async function addPrintQueueJob(printer, fileName, options = {}) {
   const result = await api('/api/queue', {
     method:'POST',
@@ -678,37 +805,8 @@ async function addPrintQueueJob(printer, fileName, options = {}) {
 }
 
 async function stageAutomaticQueueFile(file, options = {}, quantity = 1, priority = 'normal') {
-  if (!(file instanceof File) || !file.size) throw new Error('Choose a file to queue');
-  if (file.size > 512 * 1024 * 1024) throw new Error('File exceeds the 512 MB upload limit');
-  let stagedFile = null;
-  try {
-    const response = await fetch('/api/queue/stage', {
-      method:'POST',
-      headers:{ 'x-file-name':encodeURIComponent(file.name), 'content-type':'application/octet-stream' },
-      body:file
-    });
-    const payload = await response.json().catch(() => ({}));
-    if (!response.ok) throw new Error(payload.error || `Queue staging failed (${response.status})`);
-    stagedFile = payload.stagedFile;
-    const result = await api('/api/queue', {
-      method:'POST',
-      body:JSON.stringify({
-        assignmentMode:'automatic',
-        stagedFileId:stagedFile.id,
-        quantity,
-        priority,
-        options
-      })
-    });
-    queueState = result.queue || queueState;
-    renderPrintQueue();
-    return result.job;
-  } catch (error) {
-    if (stagedFile?.id) {
-      await fetch(`/api/queue/stage/${encodeURIComponent(stagedFile.id)}`, { method:'DELETE' }).catch(() => {});
-    }
-    throw error;
-  }
+  const libraryFile = await uploadLibraryFile(file);
+  return queueLibraryFile(libraryFile.id, options, quantity, priority);
 }
 
 function selectedPrinters() {
