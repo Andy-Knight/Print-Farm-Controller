@@ -62,7 +62,7 @@
 
 > v0.11.3 makes **Clear history** immediately delete controller-staged queue files that are no longer referenced. Files still referenced by queued/active/review jobs, retained bed-clearance records, or another history item are preserved. The normal one-hour orphan grace period remains in place for non-explicit cleanup paths. **This is historical behavior and is superseded by v0.15.0:** migrated Print Library files are no longer pruned by queue/history cleanup and require explicit deletion.
 
-> v0.11.2 moved the default controller application-data directory to the then-current manufacturer-neutral **Printer Fleet Controller** path. Existing data is migrated automatically from the historical `FlashForge Fleet` directory on first startup, including printer configuration, queue/history, staged queue files, and material metadata. Custom `DATA_DIR` locations are unchanged.
+> v0.11.2 moved the default controller application-data directory to the then-current manufacturer-neutral **Printer Fleet Controller** path. Current builds now store runtime data in the application-local `data/` directory instead of the user profile. On first startup, existing data is migrated automatically from the former profile location (or the older `FlashForge Fleet` location), including printer configuration, queue/history, Print Library files, emulator settings and material metadata. Custom `DATA_DIR` locations are unchanged.
 
 > v0.11.1 adds a persistent **Controller nozzle designation** for FlashForge 5M-family printers. Set the installed nozzle diameter in Toolhead status so file-centric automatic queue compatibility can safely match staged G-code nozzle requirements instead of holding FlashForge jobs for review when the local API cannot report nozzle size.
 
@@ -380,29 +380,26 @@ After any queued job reaches the printer and then completes, fails, or is cancel
 
 ## Application data
 
-The default application-data directory is manufacturer-neutral. On first v0.11.2 startup, if the new directory does not yet exist but the historical `FlashForge Fleet` directory does, the controller migrates the complete directory before fleet and queue startup. v0.15.0 then promotes any historical staged `queue-files/` entries into the durable `print-library/` store while retaining their UUIDs and metadata, so existing automatic queue/history records keep resolving the same controller-owned files. A custom `DATA_DIR` is used exactly as configured.
-
-Windows:
+By default, persistent controller data is stored in the `data/` sub-directory of the application folder. This keeps the controller configuration and runtime state with the application rather than under the operating-system user profile.
 
 ```text
-%LOCALAPPDATA%\Print Controller\Printer Fleet Controller\printers.json
+Print-Farm-Controller/
+├── data/
+│   ├── printers.json
+│   ├── print-jobs.json
+│   ├── file-material-metadata.json
+│   ├── emulator-settings.json
+│   └── print-library/
+├── public/
+├── src/
+└── package.json
 ```
 
-macOS:
+On first startup with this layout, if `data/` does not yet exist, the controller looks for the previous profile-based **Printer Fleet Controller** data directory and migrates the complete directory into `data/`. If that directory is absent, the still older **FlashForge Fleet** location is also recognised. This preserves printer configuration, queue/history, Print Library files, emulator settings and material metadata. Historical `queue-files/` entries are still promoted into `print-library/` by the existing Print Library migration.
 
-```text
-~/Library/Application Support/Print Controller/Printer Fleet Controller/printers.json
-```
+The persistent fleet print queue/history is stored as `data/print-jobs.json`. Print Library files live under `data/print-library/`, one UUID directory per file, with metadata, SHA-256, parsed print requirements and cached previews where available. Printer configuration is stored in `data/printers.json`, controller-inspected file material metadata in `data/file-material-metadata.json`, and integrated emulator enablement in `data/emulator-settings.json`. Library lifetime is independent of queue/history lifetime: clearing history never deletes a library file. Library deletion is explicit and is blocked while a current queue/history record still references that file. Queued jobs survive a normal controller restart; interrupted automatic upload/preflight work returns safely to the queue, while jobs already handed to a printer are reconciled against live printer state. Build-plate clearance is persisted on the completed queue record, so restarting the controller or clearing ordinary history cannot accidentally release a printer that is still waiting for its bed to be cleared.
 
-Linux:
-
-```text
-~/.local/share/print-controller/printer-fleet-controller/printers.json
-```
-
-The persistent fleet print queue/history is stored beside the printer registry as `print-jobs.json`. Print Library files live under the sibling `print-library/` directory, one UUID directory per file, with metadata, SHA-256 and parsed print requirements. Library lifetime is independent of queue/history lifetime: clearing history never deletes a library file. Library deletion is explicit and is blocked while a current queue/history record still references that file. Queued jobs survive a normal controller restart; interrupted automatic upload/preflight work returns safely to the queue, while jobs already handed to a printer are reconciled against live printer state. Build-plate clearance is persisted on the completed queue record, so restarting the controller or clearing ordinary history cannot accidentally release a printer that is still waiting for its bed to be cleared.
-
-You can override the directory with `DATA_DIR`.
+You can still override the storage location with `DATA_DIR`. A custom `DATA_DIR` is used exactly as configured and is not automatically migrated.
 
 Printer secrets such as FlashForge check codes, Bambu LAN access codes and an optional Moonraker API key are stored backend-side and are not returned in public printer/fleet API responses.
 
