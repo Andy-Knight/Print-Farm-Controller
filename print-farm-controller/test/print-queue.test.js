@@ -640,7 +640,7 @@ test('cancelling an automatic job during staged upload cannot race into print st
   service.stop();
 });
 
-test('clearing history immediately prunes unreferenced staged files but keeps files still referenced', async () => {
+test('clearing history does not own or prune persistent Print Library files', async () => {
   const orphanId = '44444444-4444-4444-8444-444444444444';
   const sharedId = '55555555-5555-4555-8555-555555555555';
   const jobs = [
@@ -661,22 +661,19 @@ test('clearing history immediately prunes unreferenced staged files but keeps fi
     }
   ];
   const store = memoryStore(jobs);
-  const pruneCalls = [];
+  let pruneCalled = false;
   const service = new PrintQueueService({
     fleetState:new FakeFleetState([]),
     chamberPreheat:{ isActive:() => false, stop:async () => {} },
     loadJobsFn:store.load,
     saveJobsFn:store.save,
-    pruneQueueFilesFn:async (referencedIds, options) => { pruneCalls.push({ referencedIds:[...referencedIds], options }); return 0; }
+    pruneQueueFilesFn:async () => { pruneCalled = true; return 0; }
   });
   await service.start();
-  pruneCalls.length = 0;
 
   assert.equal(await service.clearHistory(), 2);
   assert.deepEqual(service.getSnapshot().jobs.map((job) => job.id), ['review-shared']);
-  assert.equal(pruneCalls.length, 2);
-  assert.deepEqual(pruneCalls[0], { referencedIds:[sharedId], options:undefined });
-  assert.deepEqual(pruneCalls[1], { referencedIds:[sharedId], options:{ minAgeMs:0 } });
+  assert.equal(pruneCalled, false);
   service.stop();
 });
 
