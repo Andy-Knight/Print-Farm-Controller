@@ -458,6 +458,38 @@ input:focus,select:focus { border-color:#7a9fbe; }
   border-radius:12px;
   padding:12px 13px;
 }
+.library-file-content { display:flex; align-items:flex-start; gap:13px; min-width:0; }
+.library-file-preview {
+  width:112px;
+  aspect-ratio:1;
+  flex:0 0 112px;
+  margin:0;
+  padding:5px;
+  display:grid;
+  place-items:center;
+  overflow:hidden;
+  border:1px solid #2b3945;
+  border-radius:10px;
+  background:#090f14;
+  color:#718391;
+}
+button.library-file-preview { cursor:zoom-in; }
+.library-file-preview img { display:block; width:100%; height:100%; object-fit:contain; border-radius:6px; }
+.library-file-preview-empty { grid-template-rows:1fr auto; padding:17px 8px 11px; text-align:center; }
+.library-file-preview-empty span { align-self:end; font-size:2rem; line-height:1; color:#526574; }
+.library-file-preview-empty small { margin-top:7px; font-size:.64rem; font-weight:750; }
+.library-preview-dialog { width:min(720px,calc(100vw - 30px)); }
+.library-preview-shell { padding:20px; }
+.library-preview-large {
+  min-height:280px;
+  display:grid;
+  place-items:center;
+  overflow:hidden;
+  border:1px solid #29343d;
+  border-radius:14px;
+  background:#090f14;
+}
+.library-preview-large img { display:block; max-width:100%; max-height:min(70vh,680px); object-fit:contain; }
 .library-file-main { min-width:0; }
 .library-file-title { display:flex; align-items:center; gap:10px; min-width:0; }
 .library-file-title strong { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:.9rem; }
@@ -481,6 +513,9 @@ input:focus,select:focus { border-color:#7a9fbe; }
   .library-toolbar { align-items:stretch; flex-direction:column; }
   .library-toolbar > button { width:100%; }
   .library-file { grid-template-columns:1fr; align-items:stretch; }
+  .library-file-content { gap:10px; }
+  .library-file-preview { width:84px; flex-basis:84px; }
+  .library-file-preview-empty span { font-size:1.5rem; }
   .library-file-actions { justify-content:flex-end; }
 }
 
@@ -535,6 +570,13 @@ input:focus,select:focus { border-color:#7a9fbe; }
 
 :root[data-theme="light"] { color-scheme:light; color:#17212b; background:#eef3f7; }
 :root[data-theme="light"] .library-file { background:#ffffff; border-color:#cbd7df; }
+:root[data-theme="light"] .library-file-preview,
+:root[data-theme="light"] .library-preview-large {
+  background:#f3f7fa;
+  border-color:#cbd7df;
+}
+:root[data-theme="light"] .library-file-preview-empty { color:#617788; }
+:root[data-theme="light"] .library-file-preview-empty span { color:#8aa0b0; }
 :root[data-theme="light"] .library-file-title span,
 :root[data-theme="light"] .library-file-meta { color:#617788; }
 :root[data-theme="light"] .library-file-description { color:#263f52; }
