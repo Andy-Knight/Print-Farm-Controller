@@ -663,6 +663,8 @@ input:focus,select:focus { border-color:#7a9fbe; }
 :root[data-theme="light"] .theme-toggle-track { background:#9aabb8; }
 :root[data-theme="light"] .progress { background:#dce5eb; }
 :root[data-theme="light"] .badge { background:#e2eaf0; color:#354858; }
+:root[data-theme="light"] .badge.error,
+:root[data-theme="light"] .badge.offline { background:#4b2528; color:#ffafb4; }
 :root[data-theme="light"] .subtle,
 :root[data-theme="light"] .eyebrow,
 :root[data-theme="light"] label,
