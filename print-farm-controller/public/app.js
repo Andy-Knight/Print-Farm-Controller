@@ -729,6 +729,7 @@ function librarySearchText(file) {
   const logicalTools = Array.isArray(requirements.logicalTools) ? requirements.logicalTools : [];
   return [
     file?.fileName,
+    file?.description,
     file?.sha256,
     ...logicalTools.flatMap((tool) => [tool.material, tool.color, tool.nozzleDiameter])
   ].filter(Boolean).join(' ').toLowerCase();
@@ -738,9 +739,11 @@ function libraryFileMarkup(file) {
   const usage = file.usage || {};
   const lastPrinted = usage.lastPrintedAt ? `Last printed ${formatLastSeen(usage.lastPrintedAt)}` : 'Not printed from queue yet';
   const warning = file.requirements?.warning ? `<div class="library-warning">${escapeHtml(file.requirements.warning)}</div>` : '';
+  const description = String(file.description || '').trim();
   return `<article class="library-file" data-library-file="${escapeHtml(file.id)}">
     <div class="library-file-main">
       <div class="library-file-title"><strong>${escapeHtml(file.fileName)}</strong><span>${escapeHtml(formatBytes(file.size))}</span></div>
+      ${description ? `<div class="library-file-description">${escapeHtml(description)}</div>` : ''}
       <div class="library-file-requirements">${escapeHtml(libraryRequirementSummary(file))}</div>
       ${libraryColorsMarkup(file)}
       <div class="library-file-meta">Added ${escapeHtml(formatLastSeen(file.addedAt || file.stagedAt))} · ${Number(usage.completedPrints || 0)} completed print${Number(usage.completedPrints || 0) === 1 ? '' : 's'} · ${escapeHtml(lastPrinted)}</div>
@@ -748,6 +751,7 @@ function libraryFileMarkup(file) {
     </div>
     <div class="library-file-actions">
       <button type="button" class="primary" data-library-queue="${escapeHtml(file.id)}">Queue</button>
+      <button type="button" class="secondary" data-library-edit="${escapeHtml(file.id)}">Edit details</button>
       <button type="button" class="danger" data-library-delete="${escapeHtml(file.id)}"${Number(usage.queueReferences || 0) > 0 ? ' disabled title="Clear queue/history references before deleting this file"' : ''}>Delete</button>
     </div>
   </article>`;
@@ -778,16 +782,33 @@ async function refreshPrintLibrary() {
   return libraryState;
 }
 
-async function uploadLibraryFile(file) {
+async function uploadLibraryFile(file, description = '') {
   if (!(file instanceof File) || !file.size) throw new Error('Choose a file to add to the Print Library');
   if (file.size > 512 * 1024 * 1024) throw new Error('File exceeds the 512 MB upload limit');
+  const notes = String(description || '').trim();
+  if (notes.length > 4000) throw new Error('Print Library description must be 4000 characters or fewer');
   const response = await fetch('/api/library', {
     method:'POST',
-    headers:{ 'x-file-name':encodeURIComponent(file.name), 'content-type':'application/octet-stream' },
+    headers:{
+      'x-file-name':encodeURIComponent(file.name),
+      'x-file-description':encodeURIComponent(notes),
+      'content-type':'application/octet-stream'
+    },
     body:file
   });
   const payload = await response.json().catch(() => ({}));
   if (!response.ok) throw new Error(payload.error || `Print Library upload failed (${response.status})`);
+  await refreshPrintLibrary();
+  return payload.file;
+}
+
+async function updateLibraryDescription(fileId, description = '') {
+  const notes = String(description || '').trim();
+  if (notes.length > 4000) throw new Error('Print Library description must be 4000 characters or fewer');
+  const payload = await api(`/api/library/${encodeURIComponent(fileId)}`, {
+    method:'PATCH',
+    body:JSON.stringify({ description:notes })
+  });
   await refreshPrintLibrary();
   return payload.file;
 }
@@ -819,7 +840,9 @@ function openQueueAddDialog(libraryFile = null) {
     queueAddError.classList.add('hidden');
   }
   queueAddFileField?.classList.toggle('hidden', Boolean(queueAddLibraryFile));
+  queueAddDescriptionField?.classList.toggle('hidden', Boolean(queueAddLibraryFile));
   if (queueAddFileInput) queueAddFileInput.required = !queueAddLibraryFile;
+  if (queueAddDescriptionInput && queueAddLibraryFile) queueAddDescriptionInput.value = '';
   if (queueAddSelectedFile) {
     queueAddSelectedFile.classList.toggle('hidden', !queueAddLibraryFile);
     queueAddSelectedFile.innerHTML = queueAddLibraryFile
@@ -839,8 +862,8 @@ async function addPrintQueueJob(printer, fileName, options = {}) {
   return result.job;
 }
 
-async function stageAutomaticQueueFile(file, options = {}, quantity = 1, priority = 'normal') {
-  const libraryFile = await uploadLibraryFile(file);
+async function stageAutomaticQueueFile(file, options = {}, quantity = 1, priority = 'normal', description = '') {
+  const libraryFile = await uploadLibraryFile(file, description);
   return queueLibraryFile(libraryFile.id, options, quantity, priority);
 }
 
