@@ -41,7 +41,10 @@ async function migrateLegacyQueueFiles() {
     if (!entry.isDirectory()) continue;
     const source = path.join(LEGACY_ROOT, entry.name);
     const destination = path.join(ROOT, entry.name);
-    if (await exists(destination)) continue;
+    if (await exists(destination)) {
+      await fs.rm(source, { recursive:true, force:true }).catch(() => {});
+      continue;
+    }
     try {
       await fs.rename(source, destination);
       migrated += 1;
