@@ -43,6 +43,9 @@ const libraryUploadBtn = document.querySelector('#libraryUploadBtn');
 const libraryStatus = document.querySelector('#libraryStatus');
 const libraryError = document.querySelector('#libraryError');
 const libraryList = document.querySelector('#libraryList');
+const libraryPreviewDialog = document.querySelector('#libraryPreviewDialog');
+const libraryPreviewFileName = document.querySelector('#libraryPreviewFileName');
+const libraryPreviewImage = document.querySelector('#libraryPreviewImage');
 const libraryAddDialog = document.querySelector('#libraryAddDialog');
 const libraryAddForm = document.querySelector('#libraryAddForm');
 const libraryFileInput = document.querySelector('#libraryFileInput');
@@ -735,19 +738,35 @@ function librarySearchText(file) {
   ].filter(Boolean).join(' ').toLowerCase();
 }
 
+function libraryPreviewMarkup(file) {
+  if (file?.previewUrl) {
+    const alt = `Preview of ${file.fileName || 'print file'}`;
+    return `<button type="button" class="library-file-preview" data-library-preview="${escapeHtml(file.id)}" title="Open larger preview">
+      <img src="${escapeHtml(file.previewUrl)}" alt="${escapeHtml(alt)}" loading="lazy" />
+    </button>`;
+  }
+  return `<div class="library-file-preview library-file-preview-empty" aria-label="No preview available">
+    <span aria-hidden="true">◇</span>
+    <small>No preview</small>
+  </div>`;
+}
+
 function libraryFileMarkup(file) {
   const usage = file.usage || {};
   const lastPrinted = usage.lastPrintedAt ? `Last printed ${formatLastSeen(usage.lastPrintedAt)}` : 'Not printed from queue yet';
   const warning = file.requirements?.warning ? `<div class="library-warning">${escapeHtml(file.requirements.warning)}</div>` : '';
   const description = String(file.description || '').trim();
   return `<article class="library-file" data-library-file="${escapeHtml(file.id)}">
-    <div class="library-file-main">
-      <div class="library-file-title"><strong>${escapeHtml(file.fileName)}</strong><span>${escapeHtml(formatBytes(file.size))}</span></div>
-      ${description ? `<div class="library-file-description">${escapeHtml(description)}</div>` : ''}
-      <div class="library-file-requirements">${escapeHtml(libraryRequirementSummary(file))}</div>
-      ${libraryColorsMarkup(file)}
-      <div class="library-file-meta">Added ${escapeHtml(formatLastSeen(file.addedAt || file.stagedAt))} · ${Number(usage.completedPrints || 0)} completed print${Number(usage.completedPrints || 0) === 1 ? '' : 's'} · ${escapeHtml(lastPrinted)}</div>
-      ${warning}
+    <div class="library-file-content">
+      ${libraryPreviewMarkup(file)}
+      <div class="library-file-main">
+        <div class="library-file-title"><strong>${escapeHtml(file.fileName)}</strong><span>${escapeHtml(formatBytes(file.size))}</span></div>
+        ${description ? `<div class="library-file-description">${escapeHtml(description)}</div>` : ''}
+        <div class="library-file-requirements">${escapeHtml(libraryRequirementSummary(file))}</div>
+        ${libraryColorsMarkup(file)}
+        <div class="library-file-meta">Added ${escapeHtml(formatLastSeen(file.addedAt || file.stagedAt))} · ${Number(usage.completedPrints || 0)} completed print${Number(usage.completedPrints || 0) === 1 ? '' : 's'} · ${escapeHtml(lastPrinted)}</div>
+        ${warning}
+      </div>
     </div>
     <div class="library-file-actions">
       <button type="button" class="primary" data-library-queue="${escapeHtml(file.id)}">Queue</button>
@@ -1347,6 +1366,13 @@ libraryUploadBtn?.addEventListener('click', () => {
   if (libraryAddError) { libraryAddError.textContent = ''; libraryAddError.classList.add('hidden'); }
   libraryAddDialog?.showModal();
 });
+document.querySelectorAll('[data-library-preview-close]').forEach((el) => el.addEventListener('click', () => libraryPreviewDialog?.close()));
+libraryPreviewDialog?.addEventListener('close', () => {
+  if (libraryPreviewImage) {
+    libraryPreviewImage.removeAttribute('src');
+    libraryPreviewImage.alt = '';
+  }
+});
 document.querySelectorAll('[data-library-add-close]').forEach((el) => el.addEventListener('click', () => libraryAddDialog?.close()));
 libraryAddForm?.addEventListener('submit', async (event) => {
   event.preventDefault();
@@ -1388,6 +1414,18 @@ libraryMetadataForm?.addEventListener('submit', async (event) => {
   }
 });
 libraryList?.addEventListener('click', async (event) => {
+  const previewButton = event.target.closest('[data-library-preview]');
+  if (previewButton) {
+    const file = (libraryState.files || []).find((item) => item.id === previewButton.dataset.libraryPreview);
+    if (!file?.previewUrl) return;
+    if (libraryPreviewFileName) libraryPreviewFileName.textContent = file.fileName;
+    if (libraryPreviewImage) {
+      libraryPreviewImage.src = file.previewUrl;
+      libraryPreviewImage.alt = `Preview of ${file.fileName}`;
+    }
+    libraryPreviewDialog?.showModal();
+    return;
+  }
   const queueButton = event.target.closest('[data-library-queue]');
   if (queueButton) {
     const file = (libraryState.files || []).find((item) => item.id === queueButton.dataset.libraryQueue);
