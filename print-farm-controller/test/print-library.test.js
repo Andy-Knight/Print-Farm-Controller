@@ -59,8 +59,14 @@ test('Print Library migrates staged queue files, deduplicates uploads and persis
 
   const secondSource = path.join(dir, 'second.gcode');
   await fs.writeFile(secondSource, '; filament_type = PETG\n; nozzle_diameter = 0.6\nT0\nG1 X20\n');
-  const second = await library.addLibraryFile(secondSource, 'second-part.gcode');
+  const second = await library.addLibraryFile(secondSource, 'second-part.gcode', { description:'Replacement caravan blind clip. Print two.' });
   assert.notEqual(second.id, legacyId);
+  assert.equal(second.description, 'Replacement caravan blind clip. Print two.');
+  const edited = await library.updateLibraryFileMetadata(second.id, { description:'Updated notes for this part.' });
+  assert.equal(edited.description, 'Updated notes for this part.');
+  assert.ok(edited.updatedAt);
+  assert.equal((await library.getLibraryFile(second.id)).description, 'Updated notes for this part.');
+  await assert.rejects(() => library.updateLibraryFileMetadata(second.id, { description:'x'.repeat(4001) }), /4000 characters/);
   assert.equal((await library.listLibraryFiles()).length, 2);
 
   await library.preserveLibraryFiles([], { minAgeMs:0 });
