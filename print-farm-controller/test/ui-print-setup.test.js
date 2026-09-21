@@ -26,6 +26,11 @@ test('top bar keeps theme toggle visible and moves secondary actions into respon
   assert.match(styles, /@media \(max-width:900px\)[\s\S]*\.topbar \{ align-items:flex-start; flex-direction:column; \}/);
 });
 
+test('offline printer badge remains red in light mode', () => {
+  assert.match(styles, /:root\[data-theme="light"\] \.badge\.error,/);
+  assert.match(styles, /:root\[data-theme="light"\] \.badge\.offline \{ background:#4b2528; color:#ffafb4; \}/);
+});
+
 test('interface exposes a persistent accessible light and dark mode switch', () => {
   assert.match(index, /id="themeToggle"/);
   assert.match(index, /role="switch"/);
