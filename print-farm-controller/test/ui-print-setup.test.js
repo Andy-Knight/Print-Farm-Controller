@@ -180,6 +180,26 @@ test('dashboard exposes persistent print queue and printer file queue actions', 
 });
 
 
+test('Print Library shows cached slicer previews with a larger preview viewer', () => {
+  const server = fs.readFileSync(new URL('../src/server.js', import.meta.url), 'utf8');
+  const library = fs.readFileSync(new URL('../src/print-library.js', import.meta.url), 'utf8');
+  const preview = fs.readFileSync(new URL('../src/file-preview.js', import.meta.url), 'utf8');
+  assert.match(index, /id="libraryPreviewDialog"/);
+  assert.match(index, /id="libraryPreviewImage"/);
+  assert.match(app, /function libraryPreviewMarkup\(file\)/);
+  assert.match(app, /data-library-preview/);
+  assert.match(app, /file\?\.previewUrl/);
+  assert.match(styles, /\.library-file-preview/);
+  assert.match(styles, /\.library-preview-large/);
+  assert.match(server, /libraryPreviewMatch/);
+  assert.match(server, /\/api\/library\/\([^/]+\)\\\/preview/);
+  assert.match(server, /previewUrl:file\.preview\?\.available/);
+  assert.match(library, /getLibraryPreview/);
+  assert.match(library, /cachePreview/);
+  assert.match(preview, /Metadata\\\/plate_1\\\.png/);
+  assert.match(preview, /gcodeThumbnailCandidates/);
+});
+
 test('Print Library supports searchable editable free-text descriptions', () => {
   const server = fs.readFileSync(new URL('../src/server.js', import.meta.url), 'utf8');
   const library = fs.readFileSync(new URL('../src/print-library.js', import.meta.url), 'utf8');
