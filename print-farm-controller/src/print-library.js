@@ -33,7 +33,10 @@ function normalizePreview(preview) {
       source:null
     };
   }
-  const mimeType = preview.mimeType === 'image/jpeg' ? 'image/jpeg' : 'image/png';
+  if (!['image/png', 'image/jpeg'].includes(preview.mimeType)) {
+    return { available:false, checkedAt:preview.checkedAt || null, source:null };
+  }
+  const mimeType = preview.mimeType;
   const fileName = mimeType === 'image/jpeg' ? 'preview.jpg' : 'preview.png';
   return {
     available:true,
