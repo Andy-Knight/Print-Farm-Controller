@@ -344,8 +344,9 @@ async function apiRoute(req, res, url) {
 
   const stagedQueueFileMatch = url.pathname.match(/^\/api\/queue\/stage\/([^/]+)$/);
   if (stagedQueueFileMatch && req.method === 'DELETE') {
-    await removeLibraryFile(decodeURIComponent(stagedQueueFileMatch[1]));
-    return json(res, 200, { ok:true });
+    // Compatibility with pre-library clients: staged files are now durable
+    // Print Library entries, so queue cleanup must never delete them.
+    return json(res, 200, { ok:true, preserved:true });
   }
 
   if (req.method === 'POST' && url.pathname === '/api/queue') {
