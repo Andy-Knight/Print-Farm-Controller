@@ -5,7 +5,7 @@
 ## Source of truth
 
 - Repository: `Andy-Knight/Print-Farm-Controller`
-- Project path: `print-farm-controller/`
+- Project path: repository root (`/`)
 - Primary branch: `main` (current production baseline)
 - Current application version on this branch: **0.15.5**
 - v0.15.5 Print Library previews are merged into `main`.
