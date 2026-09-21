@@ -1373,9 +1373,10 @@ libraryMetadataForm?.addEventListener('submit', async (event) => {
   if (submit) submit.disabled = true;
   if (libraryMetadataError) { libraryMetadataError.textContent = ''; libraryMetadataError.classList.add('hidden'); }
   try {
+    const editedFileName = libraryMetadataFile.fileName;
     await updateLibraryDescription(libraryMetadataFile.id, libraryMetadataDescription?.value || '');
     libraryMetadataDialog?.close();
-    if (libraryStatus) libraryStatus.textContent = `${libraryMetadataFile.fileName} details updated.`;
+    if (libraryStatus) libraryStatus.textContent = `${editedFileName} details updated.`;
   } catch (error) {
     if (libraryMetadataError) { libraryMetadataError.textContent = error.message; libraryMetadataError.classList.remove('hidden'); }
   } finally {
