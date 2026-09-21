@@ -7,8 +7,8 @@
 - Repository: `Andy-Knight/Print-Farm-Controller`
 - Project path: `print-farm-controller/`
 - Primary branch: `main` (current production baseline)
-- Current application version on this branch: **0.15.1**
-- v0.14.11 FlashForge emulator material fidelity is merged into `main`. v0.15.1 Print Library work is on `feature/print-library`.
+- Current application version on this branch: **0.15.2**
+- v0.14.11 FlashForge emulator material fidelity is merged into `main`. v0.15.2 Print Library/UI work is on `feature/print-library`.
 - Runtime: **Node.js 20+**, ES modules, no npm runtime dependencies.
 - GitHub is the authoritative code baseline.
 
@@ -147,10 +147,11 @@ Manufacturer-specific discovery, capabilities, limits, status normalization, fil
 - **v0.14.11 FlashForge emulator material fidelity:** simulated FlashForge `/detail` no longer reports `rightFilamentType` by default. The virtual printer still keeps its internal filament material for simulator state/scenarios, but the production adapter correctly sees no printer-reported material unless the physical protocol actually supplies one. This aligns the designation control with physical AD5M-family behaviour: **Clear designation** when there is no reported material, **Use printer value** only when a value is genuinely reported.
 - **v0.15.0 persistent Print Library:** controller-owned print files are promoted from queue-owned staging into a searchable persistent library. Users can add files without queueing them, inspect detected material/nozzle/tool requirements, queue a selected library entry with quantity and priority, and explicitly delete unreferenced files. SHA-256/size deduplication prevents duplicate storage. Existing `queue-files/` entries migrate to `print-library/` without changing IDs. Legacy queue-file module/API contracts remain compatibility aliases, but queue/history cleanup no longer prunes files.
 - **v0.15.1 Print Library colour listing:** when print requirements contain filament colours, library cards list each distinct detected colour with a swatch plus hexadecimal and RGB values.
+- **v0.15.2 responsive top bar:** Light/Dark remains permanently visible. Printer simulator and Licence live in a compact overflow menu; Fleet operations stays visible on wider layouts and moves into the same overflow at narrower desktop widths. The header switches to a stacked responsive layout before controls become cramped.
 
 ## Current task
 
-**v0.15.1 Print Library is the current feature work.** The controller now separates durable printable-file storage from scheduling:
+**v0.15.2 Print Library/UI is the current feature work.** The controller now separates durable printable-file storage from scheduling:
 
 - **Print Library** = what can be printed.
 - **Queue** = what should be printed.
@@ -162,9 +163,9 @@ Bambu P1P/P1S/X1C support remains explicitly experimental. Physical X1C RTSPS/H.
 
 ## Next steps
 
-1. Run the full automated regression suite for v0.15.1 and fix any failures.
+1. Run the full automated regression suite for v0.15.2 and fix any failures.
 2. Manually validate migration from an existing `queue-files/` directory, library upload/search/delete, duplicate upload handling, queue-from-library, production quantity, restart persistence and history clearing without library deletion.
-3. After validation, merge `feature/print-library` (v0.15.1) into `main`.
+3. After validation, merge `feature/print-library` (v0.15.2) into `main`.
 4. Add systematic feature-by-feature entitlement gates only where product packaging requires them; preserve the signed licence format and existing edition definitions.
 5. Continue physical validation of experimental Bambu behaviour before removing the experimental designation.
 
