@@ -50,7 +50,7 @@
 
 > v0.12.0 adds **production quantity / batch printing**. A single staged G-code can represent 2–999 copies, with copies automatically distributed across compatible idle printers. Production batches expose overall progress, per-copy printer/status, pause/resume, cancel remaining copies, and safe quantity changes while retaining existing bed-clearance and preflight protections.
 
-> v0.11.3 makes **Clear history** immediately delete controller-staged queue files that are no longer referenced. Files still referenced by queued/active/review jobs, retained bed-clearance records, or another history item are preserved. The normal one-hour orphan grace period remains in place for non-explicit cleanup paths.
+> v0.11.3 makes **Clear history** immediately delete controller-staged queue files that are no longer referenced. Files still referenced by queued/active/review jobs, retained bed-clearance records, or another history item are preserved. The normal one-hour orphan grace period remains in place for non-explicit cleanup paths. **This is historical behavior and is superseded by v0.15.0:** migrated Print Library files are no longer pruned by queue/history cleanup and require explicit deletion.
 
 > v0.11.2 moved the default controller application-data directory to the then-current manufacturer-neutral **Printer Fleet Controller** path. Existing data is migrated automatically from the historical `FlashForge Fleet` directory on first startup, including printer configuration, queue/history, staged queue files, and material metadata. Custom `DATA_DIR` locations are unchanged.
 
