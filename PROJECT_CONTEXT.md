@@ -51,7 +51,7 @@ Manufacturer-specific discovery, capabilities, limits, status normalization, fil
 
 - Local-first/LAN-only controller; printer credentials remain backend-side.
 - Multiple manufacturers are supported through adapters rather than manufacturer logic in shared fleet code.
-- Default application data deliberately retains the historical `Printer Fleet Controller` / `printer-fleet-controller` directory name for compatibility. v0.11.2 migrated the older `FlashForge Fleet` directory on first startup; the v0.14.9 product rename does **not** migrate or rename existing data directories. Custom `DATA_DIR` locations are never moved.
+- Default persistent controller data now lives in the application-local `data/` directory rather than the operating-system user profile. If `data/` does not yet exist, startup migrates the previous profile-based `Printer Fleet Controller` directory, falling back to the older `FlashForge Fleet` location. This moves printer configuration, queue/history, Print Library files, emulator settings and file material metadata together. Custom `DATA_DIR` locations are used exactly as configured and are never moved.
 - Print Library files, queue/history and their references persist across restarts. Queue/history cleanup never owns library-file deletion.
 - Print Library previews are derived from slicer-provided images only: Orca/Bambu-style 3MF plate thumbnails and supported embedded PNG/JPEG G-code thumbnail blocks. Cached preview images live beside the stored print file; unsupported/missing thumbnails use a UI placeholder rather than a generated render.
 - A completed/active-failed/cancelled print creates a **bed-clearance interlock**; no later queued job may start on that printer until **Bed cleared** is confirmed.
