@@ -12,6 +12,8 @@
 
 > **v0.15.0 introduces the persistent Print Library.** Controller-owned G-code/GX/3MF files are now durable independently of the queue and history. The dashboard exposes a searchable **Print library** browser where files can be uploaded, inspected for detected material/nozzle/tool requirements, queued to the next compatible printer, or explicitly deleted when no queue/history record still references them. Existing `queue-files/` entries migrate automatically into `print-library/` while retaining their UUIDs, so current queue/history records remain valid. Uploading the same file content again reuses the existing library entry by SHA-256 instead of storing a duplicate.
 
+> **v0.14.12 standardises the Snapmaker model name in the controller UI.** Snapmaker U1 printers display as **Snapmaker U1** on dashboard cards and in printer-details diagnostics, while the stored model remains `U1` and the adapter identity remains unchanged.
+
 > **v0.14.11 aligns the simulated FlashForge material telemetry with physical AD5M-family behaviour.** The simulator still tracks its virtual filament internally, but its FlashForge `/detail` response no longer claims that the printer reports a loaded material type by default. This makes the controller show **Clear designation** instead of **Use printer value** unless a real printer-reported value is actually available.
 
 > **v0.14.10 adds hover/focus colour feedback to all enabled buttons.** Dark mode brightens buttons under the pointer or keyboard focus, while light mode slightly darkens them. Disabled buttons are unchanged.
