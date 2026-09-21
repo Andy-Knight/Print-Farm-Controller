@@ -37,6 +37,7 @@
         <span class="theme-toggle-track" aria-hidden="true"></span>
         <span class="theme-toggle-label">Dark</span>
       </button>
+      <button id="libraryBtn" class="secondary">Print library <span id="libraryButtonCount" class="queue-button-count hidden">0</span></button>
       <button id="queueBtn" class="secondary">Queue &amp; history <span id="queueButtonCount" class="queue-button-count hidden">0</span></button>
       <button id="batchModeBtn" class="secondary">Fleet operations</button>
       <button id="addPrinterBtn" class="primary">+ Add printer</button>
@@ -138,6 +139,29 @@
     <div id="printerDetail"></div>
   </dialog>
 
+  <dialog id="libraryDialog" class="queue-dialog library-dialog">
+    <div class="queue-shell">
+      <div class="dialog-head">
+        <div>
+          <div class="eyebrow">PRINT LIBRARY</div>
+          <h2>Print library</h2>
+          <div id="librarySummary" class="subtle">Loading library…</div>
+        </div>
+        <button type="button" class="icon" data-library-close>×</button>
+      </div>
+      <section class="queue-section">
+        <div class="library-toolbar">
+          <label class="library-search">Search<input id="librarySearchInput" type="search" placeholder="Search filenames, materials or nozzle size" autocomplete="off" /></label>
+          <input id="libraryFileInput" type="file" accept=".gcode,.gx,.3mf" hidden />
+          <button id="libraryUploadBtn" type="button" class="primary">+ Add file</button>
+        </div>
+        <div id="libraryStatus" class="subtle"></div>
+        <div id="libraryError" class="error hidden"></div>
+        <div id="libraryList" class="library-list"></div>
+      </section>
+    </div>
+  </dialog>
+
   <dialog id="queueDialog" class="queue-dialog">
     <div class="queue-shell">
       <div class="dialog-head">
@@ -168,13 +192,14 @@
         <div>
           <div class="eyebrow">FLEET SCHEDULER</div>
           <h2>Queue file</h2>
-          <div class="subtle">The controller keeps a persistent copy and sends it to the next available compatible printer.</div>
+          <div class="subtle">Choose a Print Library file or upload a new file. The controller keeps one persistent library copy and sends it to the next available compatible printer.</div>
         </div>
         <button type="button" class="icon" data-queue-add-close>×</button>
       </div>
-      <label>G-code file<input id="queueAddFileInput" name="file" type="file" accept=".gcode,.gx,.3mf" required /></label>
+      <div id="queueAddSelectedFile" class="queue-assignment-card hidden"></div>
+      <label id="queueAddFileField">Print file<input id="queueAddFileInput" name="file" type="file" accept=".gcode,.gx,.3mf" /></label>
       <label>Quantity<input id="queueAddQuantity" name="quantity" type="number" min="1" max="999" step="1" value="1" required /></label>
-      <div class="field-help">Quantity 2 or more creates one production batch. Copies share one staged G-code and are distributed across compatible printers as they become available.</div>
+      <div class="field-help">Quantity 2 or more creates one production batch. Copies share one Print Library file and are distributed across compatible printers as they become available.</div>
       <label>Queue priority
         <select id="queueAddPriority" name="priority">
           <option value="high">High</option>
