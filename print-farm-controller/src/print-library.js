@@ -234,13 +234,17 @@ export async function getLibraryPreview(id) {
   if (!file.preview?.available) return null;
   const fileName = file.preview.mimeType === 'image/jpeg' ? 'preview.jpg' : 'preview.png';
   const previewPath = path.join(directory, fileName);
-  const stat = await fs.stat(previewPath);
-  if (!stat.isFile()) return null;
-  return {
-    filePath:previewPath,
-    mimeType:file.preview.mimeType,
-    size:stat.size
-  };
+  try {
+    const stat = await fs.stat(previewPath);
+    if (!stat.isFile()) return null;
+    return {
+      filePath:previewPath,
+      mimeType:file.preview.mimeType,
+      size:stat.size
+    };
+  } catch {
+    return null;
+  }
 }
 
 export async function updateLibraryFileMetadata(id, { description = '' } = {}) {
