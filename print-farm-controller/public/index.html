@@ -157,8 +157,7 @@
       </div>
       <section class="queue-section">
         <div class="library-toolbar">
-          <label class="library-search">Search<input id="librarySearchInput" type="search" placeholder="Search filenames, materials or nozzle size" autocomplete="off" /></label>
-          <input id="libraryFileInput" type="file" accept=".gcode,.gx,.3mf" hidden />
+          <label class="library-search">Search<input id="librarySearchInput" type="search" placeholder="Search filenames, descriptions, materials or nozzle size" autocomplete="off" /></label>
           <button id="libraryUploadBtn" type="button" class="primary">+ Add file</button>
         </div>
         <div id="libraryStatus" class="subtle"></div>
@@ -166,6 +165,52 @@
         <div id="libraryList" class="library-list"></div>
       </section>
     </div>
+  </dialog>
+
+  <dialog id="libraryAddDialog" class="batch-action-dialog">
+    <form id="libraryAddForm">
+      <div class="dialog-head">
+        <div>
+          <div class="eyebrow">PRINT LIBRARY</div>
+          <h2>Add file</h2>
+          <div class="subtle">Add a printable file and optional notes describing what it is or how it should be used.</div>
+        </div>
+        <button type="button" class="icon" data-library-add-close>×</button>
+      </div>
+      <label>Print file<input id="libraryFileInput" name="file" type="file" accept=".gcode,.gx,.3mf" required /></label>
+      <label>Description / notes
+        <textarea id="libraryDescriptionInput" name="description" rows="5" maxlength="4000" placeholder="Example: Replacement wardrobe latch for Swift caravan. Print two for each door."></textarea>
+      </label>
+      <div class="field-help">Optional · up to 4000 characters. This text is stored with the library file and is searchable.</div>
+      <div id="libraryAddStatus" class="subtle"></div>
+      <div id="libraryAddError" class="error hidden"></div>
+      <div class="actions">
+        <button type="button" class="secondary" data-library-add-close>Cancel</button>
+        <button type="submit" class="primary">Add to library</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="libraryMetadataDialog" class="batch-action-dialog">
+    <form id="libraryMetadataForm">
+      <div class="dialog-head">
+        <div>
+          <div class="eyebrow">PRINT LIBRARY</div>
+          <h2>Edit details</h2>
+          <div id="libraryMetadataFileName" class="subtle"></div>
+        </div>
+        <button type="button" class="icon" data-library-metadata-close>×</button>
+      </div>
+      <label>Description / notes
+        <textarea id="libraryMetadataDescription" name="description" rows="6" maxlength="4000"></textarea>
+      </label>
+      <div class="field-help">Optional · up to 4000 characters. This text is searchable in the Print Library.</div>
+      <div id="libraryMetadataError" class="error hidden"></div>
+      <div class="actions">
+        <button type="button" class="secondary" data-library-metadata-close>Cancel</button>
+        <button type="submit" class="primary">Save details</button>
+      </div>
+    </form>
   </dialog>
 
   <dialog id="queueDialog" class="queue-dialog">
@@ -204,6 +249,9 @@
       </div>
       <div id="queueAddSelectedFile" class="queue-assignment-card hidden"></div>
       <label id="queueAddFileField">Print file<input id="queueAddFileInput" name="file" type="file" accept=".gcode,.gx,.3mf" /></label>
+      <label id="queueAddDescriptionField">Library description / notes
+        <textarea id="queueAddDescriptionInput" name="description" rows="4" maxlength="4000" placeholder="Optional description stored with this new library file"></textarea>
+      </label>
       <label>Quantity<input id="queueAddQuantity" name="quantity" type="number" min="1" max="999" step="1" value="1" required /></label>
       <div class="field-help">Quantity 2 or more creates one production batch. Copies share one Print Library file and are distributed across compatible printers as they become available.</div>
       <label>Queue priority
