@@ -21,6 +21,8 @@ const licenseFileInput = document.querySelector('#licenseFileInput');
 const licenseInstallStatus = document.querySelector('#licenseInstallStatus');
 const licenseInstallError = document.querySelector('#licenseInstallError');
 const batchModeBtn = document.querySelector('#batchModeBtn');
+const batchModeMenuBtn = document.querySelector('#batchModeMenuBtn');
+const topbarOverflow = document.querySelector('#topbarOverflow');
 const batchToolbar = document.querySelector('#batchToolbar');
 const batchSelectedCount = document.querySelector('#batchSelectedCount');
 const batchResult = document.querySelector('#batchResult');
@@ -839,7 +841,9 @@ function updateBatchUi() {
   }
   fleetEl.classList.toggle('selection-mode', selectionMode);
   batchToolbar.classList.toggle('hidden', !selectionMode);
-  batchModeBtn.textContent = selectionMode ? 'Exit fleet ops' : 'Fleet operations';
+  const fleetModeLabel = selectionMode ? 'Exit fleet ops' : 'Fleet operations';
+  batchModeBtn.textContent = fleetModeLabel;
+  if (batchModeMenuBtn) batchModeMenuBtn.textContent = fleetModeLabel;
   batchSelectedCount.textContent = String(selectedPrinterIds.size);
 
   for (const card of fleetEl.querySelectorAll('[data-printer-card]')) {
@@ -1226,6 +1230,7 @@ function openAdd() {
 
 document.querySelector('#addPrinterBtn').addEventListener('click', openAdd);
 licenseBtn?.addEventListener('click', () => {
+  if (topbarOverflow) topbarOverflow.open = false;
   if (licenseInstallStatus) licenseInstallStatus.textContent = '';
   if (licenseInstallError) {
     licenseInstallError.textContent = '';
@@ -1534,6 +1539,16 @@ queueHistoryList?.addEventListener('click', async (event) => {
   } catch (error) { alert(error.message); button.disabled = false; }
 });
 batchModeBtn.addEventListener('click', () => setSelectionMode(!selectionMode));
+batchModeMenuBtn?.addEventListener('click', () => {
+  if (topbarOverflow) topbarOverflow.open = false;
+  setSelectionMode(!selectionMode);
+});
+topbarOverflow?.addEventListener('click', (event) => {
+  if (event.target.closest('[onclick]')) topbarOverflow.open = false;
+});
+document.addEventListener('click', (event) => {
+  if (topbarOverflow?.open && !topbarOverflow.contains(event.target)) topbarOverflow.open = false;
+});
 document.querySelectorAll('[data-add-printer]').forEach((el) => el.addEventListener('click', openAdd));
 document.querySelectorAll('[data-close]').forEach((el) => el.addEventListener('click', () => el.closest('dialog').close()));
 scanNetworkBtn.addEventListener('click', scanNetwork);
@@ -1836,6 +1851,7 @@ function setBatchBusy(busy) {
   batchBusy = Boolean(busy);
   batchToolbar.querySelectorAll('button').forEach((button) => { button.disabled = batchBusy || (button.matches('[data-batch-open],[data-batch-direct]') && selectedPrinterIds.size === 0); });
   batchModeBtn.disabled = batchBusy;
+  if (batchModeMenuBtn) batchModeMenuBtn.disabled = batchBusy;
 }
 
 async function runBatchAction(action, params = {}) {
