@@ -7,8 +7,8 @@
 - Repository: `Andy-Knight/Print-Farm-Controller`
 - Project path: `print-farm-controller/`
 - Primary branch: `main` (current production baseline)
-- Current application version on this branch: **0.15.4**
-- v0.15.4 Print Library/UI is merged into `main`.
+- Current application version on this branch: **0.15.5**
+- `main` remains the validated v0.15.4 baseline. v0.15.5 Print Library preview work is on `feature/print-library-previews`.
 - Runtime: **Node.js 20+**, ES modules, no npm runtime dependencies.
 - GitHub is the authoritative code baseline.
 
@@ -26,7 +26,7 @@ Local Fleet Controller (`src/`)
         +-- batch control
         +-- chamber preheat
         +-- file distribution / material metadata
-        +-- persistent Print Library store
+        +-- persistent Print Library store + cached slicer preview extraction
         +-- compatibility engine
         +-- persistent print queue + history + bed-clearance interlock
         +-- signed licence loader / verifier / edition + printer-slot enforcement
@@ -53,6 +53,7 @@ Manufacturer-specific discovery, capabilities, limits, status normalization, fil
 - Multiple manufacturers are supported through adapters rather than manufacturer logic in shared fleet code.
 - Default application data deliberately retains the historical `Printer Fleet Controller` / `printer-fleet-controller` directory name for compatibility. v0.11.2 migrated the older `FlashForge Fleet` directory on first startup; the v0.14.9 product rename does **not** migrate or rename existing data directories. Custom `DATA_DIR` locations are never moved.
 - Print Library files, queue/history and their references persist across restarts. Queue/history cleanup never owns library-file deletion.
+- Print Library previews are derived from slicer-provided images only: Orca/Bambu-style 3MF plate thumbnails and supported embedded PNG/JPEG G-code thumbnail blocks. Cached preview images live beside the stored print file; unsupported/missing thumbnails use a UI placeholder rather than a generated render.
 - A completed/active-failed/cancelled print creates a **bed-clearance interlock**; no later queued job may start on that printer until **Bed cleared** is confirmed.
 - Queue jobs support two assignment modes: **fixed printer** and **Next available compatible printer**.
 - Automatic scheduling is file-centric: the controller references a durable Print Library entry, evaluates compatibility/readiness, reserves one printer, uploads/verifies if required, performs a fresh live preflight, then starts.
@@ -150,10 +151,11 @@ Manufacturer-specific discovery, capabilities, limits, status normalization, fil
 - **v0.15.2 responsive top bar:** Light/Dark remains permanently visible. Printer simulator and Licence live in a compact overflow menu; Fleet operations stays visible on wider layouts and moves into the same overflow at narrower desktop widths. The header switches to a stacked responsive layout before controls become cramped.
 - **v0.15.3 light-mode offline warning:** Offline and Error printer badges retain the same red warning treatment in Light mode instead of being overridden by the generic light badge colours.
 - **v0.15.4 Print Library descriptions:** library files support optional free-text description/notes (maximum 4000 characters). Notes are persisted in library metadata, displayed on cards, included in search, editable later through **Edit details**, and accepted when a new file is uploaded through either the library or queue workflow.
+- **v0.15.5 Print Library previews:** library files cache slicer-provided preview images when available. 3MF extraction prefers Orca/Bambu plate thumbnails such as `Metadata/plate_1.png`; G-code extraction recognises embedded PNG/JPEG thumbnail blocks and selects the largest supported image. Existing entries are backfilled on first read. The library card shows a compact thumbnail or **No preview** placeholder, and clicking a real thumbnail opens a larger viewer.
 
 ## Current task
 
-**v0.15.4 Print Library/UI is the current merged release.** The controller now separates durable printable-file storage from scheduling:
+**v0.15.5 Print Library previews are the current feature work on top of the merged v0.15.4 release.** The controller separates durable printable-file storage from scheduling:
 
 - **Print Library** = what can be printed.
 - **Queue** = what should be printed.
@@ -165,9 +167,9 @@ Bambu P1P/P1S/X1C support remains explicitly experimental. Physical X1C RTSPS/H.
 
 ## Next steps
 
-1. v0.15.4 full automated regression suite passed with 0 failures (user-run validation).
-2. Manually validate migration from an existing `queue-files/` directory, library upload/search/delete, duplicate upload handling, queue-from-library, production quantity, restart persistence and history clearing without library deletion.
-3. v0.15.4 `feature/print-library` merged into `main` after automated validation.
+1. Run the full automated regression suite for v0.15.5 and fix any failures.
+2. Manually validate previews for a new Orca/Bambu 3MF, embedded-thumbnail G-code, an existing pre-v0.15.5 library file, a file with no supported preview, and the larger preview viewer.
+3. After validation, merge `feature/print-library-previews` (v0.15.5) into `main`.
 4. Add systematic feature-by-feature entitlement gates only where product packaging requires them; preserve the signed licence format and existing edition definitions.
 5. Continue physical validation of experimental Bambu behaviour before removing the experimental designation.
 
