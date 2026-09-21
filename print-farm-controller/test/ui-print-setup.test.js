@@ -158,6 +158,36 @@ test('dashboard exposes persistent print queue and printer file queue actions', 
 });
 
 
+test('Print Library persists files independently and queues selected library entries', () => {
+  const server = fs.readFileSync(new URL('../src/server.js', import.meta.url), 'utf8');
+  const library = fs.readFileSync(new URL('../src/print-library.js', import.meta.url), 'utf8');
+  const queueStore = fs.readFileSync(new URL('../src/queue-file-store.js', import.meta.url), 'utf8');
+  assert.match(index, /id="libraryBtn"/);
+  assert.match(index, /id="libraryDialog"/);
+  assert.match(index, /id="librarySearchInput"/);
+  assert.match(index, /id="libraryUploadBtn"/);
+  assert.match(index, /id="libraryList"/);
+  assert.match(app, /function libraryFileMarkup/);
+  assert.match(app, /async function refreshPrintLibrary/);
+  assert.match(app, /async function uploadLibraryFile/);
+  assert.match(app, /async function queueLibraryFile/);
+  assert.match(app, /libraryFileId/);
+  assert.match(app, /data-library-queue/);
+  assert.match(app, /data-library-delete/);
+  assert.match(server, /url\.pathname === '\/api\/library'/);
+  assert.match(server, /addLibraryFile/);
+  assert.match(server, /listLibraryFiles/);
+  assert.match(server, /removeLibraryFile/);
+  assert.match(server, /body\.libraryFileId \|\| body\.stagedFileId/);
+  assert.match(server, /preserved:true/);
+  assert.match(library, /const ROOT = path\.join\(DATA_ROOT, 'print-library'\)/);
+  assert.match(library, /const LEGACY_ROOT = path\.join\(DATA_ROOT, 'queue-files'\)/);
+  assert.match(library, /duplicate:true/);
+  assert.match(library, /Library files are durable by design/);
+  assert.match(queueStore, /persistent Print Library/);
+  assert.match(styles, /\.library-file/);
+});
+
 test('queue UI can stage a file for the next available compatible printer', () => {
   const html = fs.readFileSync(new URL('../public/index.html', import.meta.url), 'utf8');
   const server = fs.readFileSync(new URL('../src/server.js', import.meta.url), 'utf8');
