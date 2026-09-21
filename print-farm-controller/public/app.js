@@ -789,17 +789,21 @@ async function uploadLibraryFile(file, description = '') {
   if (notes.length > 4000) throw new Error('Print Library description must be 4000 characters or fewer');
   const response = await fetch('/api/library', {
     method:'POST',
-    headers:{
-      'x-file-name':encodeURIComponent(file.name),
-      'x-file-description':encodeURIComponent(notes),
-      'content-type':'application/octet-stream'
-    },
+    headers:{ 'x-file-name':encodeURIComponent(file.name), 'content-type':'application/octet-stream' },
     body:file
   });
   const payload = await response.json().catch(() => ({}));
   if (!response.ok) throw new Error(payload.error || `Print Library upload failed (${response.status})`);
+  let stored = payload.file;
+  if (notes && stored && !stored.duplicate) {
+    const updated = await api(`/api/library/${encodeURIComponent(stored.id)}`, {
+      method:'PATCH',
+      body:JSON.stringify({ description:notes })
+    });
+    stored = updated.file || stored;
+  }
   await refreshPrintLibrary();
-  return payload.file;
+  return stored;
 }
 
 async function updateLibraryDescription(fileId, description = '') {
