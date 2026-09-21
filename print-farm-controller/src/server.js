@@ -28,7 +28,7 @@ import { ChamberPreheatService } from './chamber-preheat.js';
 import { BatchControlService } from './batch-control.js';
 import { FileDistributionService } from './file-distribution.js';
 import { stageUploadRequest } from './upload-staging.js';
-import { addLibraryFile, listLibraryFiles, removeLibraryFile, updateLibraryFileMetadata } from './print-library.js';
+import { addLibraryFile, getLibraryPreview, listLibraryFiles, removeLibraryFile, updateLibraryFileMetadata } from './print-library.js';
 import { PrintQueueService } from './print-queue.js';
 import { assessMaterialCompatibility } from './file-material-metadata.js';
 import { getPrinterFileMaterialMetadata, removePrinterFileMaterialMetadata } from './file-material-store.js';
@@ -299,6 +299,7 @@ async function apiRoute(req, res, url) {
         .sort();
       return {
         ...file,
+        previewUrl:file.preview?.available ? `/api/library/${encodeURIComponent(file.id)}/preview` : null,
         usage: {
           queueReferences: references.length,
           activeReferences: references.filter((job) => !['completed', 'failed', 'cancelled'].includes(job.status)).length,
@@ -318,6 +319,21 @@ async function apiRoute(req, res, url) {
     } finally {
       await stagedUpload.cleanup().catch(() => {});
     }
+  }
+
+  const libraryPreviewMatch = url.pathname.match(/^\/api\/library\/([^/]+)\/preview$/);
+  if (libraryPreviewMatch && req.method === 'GET') {
+    const fileId = decodeURIComponent(libraryPreviewMatch[1]);
+    const preview = await getLibraryPreview(fileId);
+    if (!preview) return json(res, 404, { error:'No preview is available for this Print Library file' });
+    const data = await fs.readFile(preview.filePath);
+    res.writeHead(200, {
+      'content-type':preview.mimeType,
+      'content-length':data.length,
+      'cache-control':'private, max-age=3600'
+    });
+    res.end(data);
+    return;
   }
 
   const libraryFileMatch = url.pathname.match(/^\/api\/library\/([^/]+)$/);
