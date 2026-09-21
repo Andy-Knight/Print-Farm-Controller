@@ -1,4 +1,6 @@
-# Print Farm Controller v0.15.3
+# Print Farm Controller v0.15.4
+
+> **v0.15.4 adds free-text metadata to Print Library files.** When adding a file, users can optionally enter up to 4000 characters of description/notes explaining what the part is, its intended use, print guidance or other context. Notes are displayed on library cards, included in library search, can be edited later with **Edit details**, and are also available when uploading a new file through the queue workflow.
 
 > **v0.15.3 preserves the red Offline/Error printer status treatment in Light mode.** The generic light-theme badge styling no longer overrides these warning states.
 
