@@ -1,4 +1,6 @@
-# Print Farm Controller v0.14.11
+# Print Farm Controller v0.15.0
+
+> **v0.15.0 introduces the persistent Print Library.** Controller-owned G-code/GX/3MF files are now durable independently of the queue and history. The dashboard exposes a searchable **Print library** browser where files can be uploaded, inspected for detected material/nozzle/tool requirements, queued to the next compatible printer, or explicitly deleted when no queue/history record still references them. Existing `queue-files/` entries migrate automatically into `print-library/` while retaining their UUIDs, so current queue/history records remain valid. Uploading the same file content again reuses the existing library entry by SHA-256 instead of storing a duplicate.
 
 > **v0.14.11 aligns the simulated FlashForge material telemetry with physical AD5M-family behaviour.** The simulator still tracks its virtual filament internally, but its FlashForge `/detail` response no longer claims that the printer reports a loaded material type by default. This makes the controller show **Clear designation** instead of **Use printer value** unless a real printer-reported value is actually available.
 
@@ -339,11 +341,15 @@ Uploads include a SHA-256 checksum and are verified by re-listing Moonraker stor
 
 The stock U1 camera is not a normal Moonraker webcam. The controller opens a dedicated Moonraker WebSocket and sends `camera.start_monitor` with `domain: "lan"`, then reads the camera frame from `GET /server/files/camera/monitor.jpg`. It repeats the wake command periodically while the camera is in use and converts the resulting ~1 fps JPEG sequence into the same MJPEG proxy interface used by the rest of the fleet.
 
-## Print queue API
+## Print Library and queue API
 
-The browser uses the controller-side scheduler API:
+The browser uses the controller-side Print Library and scheduler APIs:
 
 ```text
+GET    /api/library
+POST   /api/library
+DELETE /api/library/:fileId
+
 GET    /api/queue
 POST   /api/queue
 PUT    /api/queue/order
@@ -356,13 +362,15 @@ DELETE /api/queue/history
 POST   /api/queue/bed-clearance/:printerId
 ```
 
-The queue supports both fixed-printer and automatic assignment. Automatic jobs persist a controller-side staged file (including SHA-256 and bounded G-code requirements metadata), evaluate every configured printer as **Eligible**, **Waiting**, **Needs review**, or **Not compatible**, and reserve one eligible printer at a time. Compatibility includes verified upload/print capability, supported file type, required tool count, loaded material/colour where known, required nozzle diameter, U1 logical→physical tool mapping, online/idle state, existing queue reservations, and the persistent bed-clearance interlock. The staged file is uploaded only when required, verified on printer storage, and followed by a fresh live preflight before print start. Fixed-printer jobs keep the original behaviour and remain backward compatible.
+The Print Library is the durable controller-side source of printable files. Each entry stores the original filename, byte size, SHA-256 and bounded print requirements. Queue/history cleanup never deletes library files; removal is explicit and is blocked while a queue/history record still references the file. Duplicate uploads are detected by SHA-256 and size.
+
+The queue supports both fixed-printer and automatic assignment. Automatic jobs reference a Print Library file, evaluate every configured printer as **Eligible**, **Waiting**, **Needs review**, or **Not compatible**, and reserve one eligible printer at a time. Compatibility includes verified upload/print capability, supported file type, required tool count, loaded material/colour where known, required nozzle diameter, U1 logical→physical tool mapping, online/idle state, existing queue reservations, and the persistent bed-clearance interlock. The library file is uploaded only when required, verified on printer storage, and followed by a fresh live preflight before print start. Fixed-printer jobs keep the original behaviour and remain backward compatible.
 
 After any queued job reaches the printer and then completes, fails, or is cancelled, the controller blocks queue progression for that printer until the build plate is explicitly confirmed clear. Cancelling a job that never started does not create a clearance interlock.
 
 ## Application data
 
-The default application-data directory is now manufacturer-neutral. On first v0.11.2 startup, if the new directory does not yet exist but the historical `FlashForge Fleet` directory does, the controller migrates the complete directory before fleet and queue startup. That preserves `printers.json`, `print-jobs.json`, `file-material-metadata.json`, staged `queue-files/`, and other controller state. A custom `DATA_DIR` is used exactly as configured and is not migrated.
+The default application-data directory is manufacturer-neutral. On first v0.11.2 startup, if the new directory does not yet exist but the historical `FlashForge Fleet` directory does, the controller migrates the complete directory before fleet and queue startup. v0.15.0 then promotes any historical staged `queue-files/` entries into the durable `print-library/` store while retaining their UUIDs and metadata, so existing automatic queue/history records keep resolving the same controller-owned files. A custom `DATA_DIR` is used exactly as configured.
 
 Windows:
 
@@ -382,7 +390,7 @@ Linux:
 ~/.local/share/print-controller/printer-fleet-controller/printers.json
 ```
 
-The persistent fleet print queue/history is stored beside the printer registry as `print-jobs.json`. Controller-staged automatic-queue files are stored under the sibling `queue-files/` directory with metadata, SHA-256 and parsed print requirements. These are intentionally separate from `printers.json`, so clearing print history cannot remove configured printers. Queued jobs survive a normal controller restart; interrupted automatic upload/preflight work returns safely to the queue, while jobs already handed to a printer are reconciled against live printer state. Build-plate clearance is persisted on the completed queue record, so restarting the controller or clearing ordinary history cannot accidentally release a printer that is still waiting for its bed to be cleared.
+The persistent fleet print queue/history is stored beside the printer registry as `print-jobs.json`. Print Library files live under the sibling `print-library/` directory, one UUID directory per file, with metadata, SHA-256 and parsed print requirements. Library lifetime is independent of queue/history lifetime: clearing history never deletes a library file. Library deletion is explicit and is blocked while a current queue/history record still references that file. Queued jobs survive a normal controller restart; interrupted automatic upload/preflight work returns safely to the queue, while jobs already handed to a printer are reconciled against live printer state. Build-plate clearance is persisted on the completed queue record, so restarting the controller or clearing ordinary history cannot accidentally release a printer that is still waiting for its bed to be cleared.
 
 You can override the directory with `DATA_DIR`.
 
@@ -402,6 +410,7 @@ Local Fleet Controller
    ├── Batch control
    ├── Chamber preheat
    ├── File distribution
+   ├── Print Library
    └── Print queue / history
           │
           ▼
