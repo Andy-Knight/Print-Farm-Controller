@@ -844,7 +844,11 @@ async function apiRoute(req, res, url) {
 }
 
 async function serveStatic(res, pathname) {
-  const requested = pathname === '/' ? '/index.html' : pathname;
+  const requested = pathname === '/'
+    ? '/index.html'
+    : pathname === '/favicon.ico'
+      ? '/favicon.png'
+      : pathname;
   const normalized = path.normalize(requested).replace(/^(\.\.(\/|\\|$))+/, '');
   const filePath = path.join(PUBLIC_DIR, normalized);
   if (!filePath.startsWith(PUBLIC_DIR)) return false;
