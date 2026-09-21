@@ -855,7 +855,7 @@ async function serveStatic(res, pathname) {
     const data = await fs.readFile(filePath);
     res.writeHead(200, {
       'content-type': contentTypes[path.extname(filePath)] || 'application/octet-stream',
-      'cache-control': 'no-cache'
+      'cache-control': path.extname(filePath) === '.ico' ? 'no-store, max-age=0' : 'no-cache'
     });
     res.end(data);
     return true;
