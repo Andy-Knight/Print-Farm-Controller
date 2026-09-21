@@ -147,6 +147,7 @@ function previewRank(name) {
   if (/^Auxiliaries\/\.thumbnails\/thumbnail_3mf\.png$/i.test(normalized)) return 900;
   if (/^Auxiliaries\/\.thumbnails\/thumbnail_middle\.png$/i.test(normalized)) return 850;
   if (/^Metadata\/bbl_thumbnail\.png$/i.test(normalized)) return 800;
+  if (/^Metadata\/plate_1_small\.png$/i.test(normalized)) return 775;
   if (/^Metadata\/plate_\d+\.png$/i.test(normalized)) {
     const number = Number(normalized.match(/plate_(\d+)\.png/i)?.[1] || 9999);
     return 700 - Math.min(number, 600);
