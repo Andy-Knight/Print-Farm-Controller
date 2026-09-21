@@ -158,6 +158,16 @@ test('dashboard exposes persistent print queue and printer file queue actions', 
 });
 
 
+test('Print Library lists detected file colours with swatches and values', () => {
+  assert.match(app, /function libraryFileColors\(file\)/);
+  assert.match(app, /function libraryColorsMarkup\(file\)/);
+  assert.match(app, /library-file-colors/);
+  assert.match(app, /filamentRgbText\(color\)/);
+  assert.match(app, /class="material-swatch" style="background:/);
+  assert.match(styles, /\.library-color-list/);
+  assert.match(styles, /\.library-color-item/);
+});
+
 test('Print Library persists files independently and queues selected library entries', () => {
   const server = fs.readFileSync(new URL('../src/server.js', import.meta.url), 'utf8');
   const library = fs.readFileSync(new URL('../src/print-library.js', import.meta.url), 'utf8');
