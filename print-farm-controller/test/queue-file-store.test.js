@@ -42,7 +42,7 @@ async function loadStoreInTempDir() {
   return { dir, ...mod };
 }
 
-test('persistent queue file staging stores hash, requirements and exact bytes', async () => {
+test('queue file compatibility API stores library-backed hash, requirements and exact bytes', async () => {
   const { dir, stageQueueFile, getQueueFile, removeQueueFile, pruneQueueFiles } = await loadStoreInTempDir();
   const source = path.join(dir, 'source.gcode');
   const content = '; filament_type = PLA\n; filament_colour = #FF0000\n; nozzle_diameter = 0.4\nT0\nG1 X10\n';
@@ -63,11 +63,12 @@ test('persistent queue file staging stores hash, requirements and exact bytes', 
 
   const orphan = await stageQueueFile(source, 'orphan.gcode');
   await pruneQueueFiles([], { minAgeMs:0 });
-  await assert.rejects(() => getQueueFile(orphan.id));
+  const preserved = await getQueueFile(orphan.id);
+  assert.equal(preserved.fileName, 'orphan.gcode');
   await fs.rm(dir, { recursive:true, force:true });
 });
 
-test('persistent queue staging reads multi-filament requirements from embedded 3MF plate G-code', async () => {
+test('library-backed queue staging reads multi-filament requirements from embedded 3MF plate G-code', async () => {
   const { dir, stageQueueFile } = await loadStoreInTempDir();
   const source = path.join(dir, 'two-colour.3mf');
   const gcode = '; filament_type = PLA;PETG\n; filament_colour = #FF0000;#00FF00\n; nozzle_diameter = 0.4;0.4\n; filament used [g] = 2.5;3.5\nT0\nT1\n';
