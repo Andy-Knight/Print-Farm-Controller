@@ -5,6 +5,7 @@ import { pipeline } from 'node:stream/promises';
 import { printerStorePath } from './store.js';
 import { validateUploadFilename } from './upload-staging.js';
 import { readFilePrintRequirements } from './file-print-requirements.js';
+import { extractFilePreview } from './file-preview.js';
 
 const DATA_ROOT = path.dirname(printerStorePath);
 const ROOT = path.join(DATA_ROOT, 'print-library');
@@ -21,6 +22,46 @@ function normalizeDescription(value) {
   const description = String(value ?? '').replace(/\r\n/g, '\n').trim();
   if (description.length > 4000) throw new Error('Print Library description must be 4000 characters or fewer');
   return description;
+}
+
+function normalizePreview(preview) {
+  if (!preview || typeof preview.available !== 'boolean') return null;
+  if (preview.available !== true) {
+    return {
+      available:false,
+      checkedAt:preview.checkedAt || null,
+      source:null
+    };
+  }
+  const mimeType = preview.mimeType === 'image/jpeg' ? 'image/jpeg' : 'image/png';
+  const fileName = mimeType === 'image/jpeg' ? 'preview.jpg' : 'preview.png';
+  return {
+    available:true,
+    fileName,
+    mimeType,
+    source:String(preview.source || ''),
+    checkedAt:preview.checkedAt || null
+  };
+}
+
+async function cachePreview(directory, filePath) {
+  const extracted = await extractFilePreview(filePath);
+  const checkedAt = new Date().toISOString();
+  if (!extracted) {
+    return { available:false, checkedAt, source:null };
+  }
+  const fileName = extracted.mimeType === 'image/jpeg' ? 'preview.jpg' : 'preview.png';
+  const target = path.join(directory, fileName);
+  const temp = `${target}.tmp`;
+  await fs.writeFile(temp, extracted.data, { mode:0o600 });
+  await fs.rename(temp, target);
+  return {
+    available:true,
+    fileName,
+    mimeType:extracted.mimeType,
+    source:extracted.source || null,
+    checkedAt
+  };
 }
 
 async function writeMetadata(directory, metadata) {
@@ -86,6 +127,7 @@ function normalizeMetadata(metadata) {
     size: Number(metadata.size || 0),
     sha256: metadata.sha256 || null,
     description: normalizeDescription(metadata.description || ''),
+    preview: normalizePreview(metadata.preview),
     addedAt,
     updatedAt: metadata.updatedAt || null,
     // Keep stagedAt as a compatibility alias for persisted queue/history records.
@@ -101,6 +143,14 @@ async function readMetadata(directory, expectedId = null) {
   const filePath = path.join(directory, fileName);
   const stat = await fs.stat(filePath);
   if (!stat.isFile()) throw new Error('Print library file is missing');
+  if (!normalizePreview(metadata.preview)) {
+    metadata.preview = await cachePreview(directory, filePath).catch(() => ({
+      available:false,
+      checkedAt:new Date().toISOString(),
+      source:null
+    }));
+    await writeMetadata(directory, metadata);
+  }
   return { ...normalizeMetadata(metadata), filePath };
 }
 
@@ -144,6 +194,11 @@ export async function addLibraryFile(sourcePath, rawFileName, { description = ''
     await pipeline(createReadStream(sourcePath), await fs.open(tempPath, 'wx', 0o600).then((handle) => handle.createWriteStream()));
     await fs.rename(tempPath, finalPath);
     const requirements = await readFilePrintRequirements(finalPath);
+    const preview = await cachePreview(directory, finalPath).catch(() => ({
+      available:false,
+      checkedAt:new Date().toISOString(),
+      source:null
+    }));
     const addedAt = new Date().toISOString();
     const metadata = {
       id,
@@ -151,6 +206,7 @@ export async function addLibraryFile(sourcePath, rawFileName, { description = ''
       size: sourceStat.size,
       sha256: sourceHash,
       description: cleanDescription,
+      preview,
       addedAt,
       updatedAt: null,
       stagedAt: addedAt,
@@ -168,6 +224,23 @@ export async function getLibraryFile(id) {
   await ensureRoot();
   const normalizedId = safeId(id);
   return readMetadata(path.join(ROOT, normalizedId), normalizedId);
+}
+
+export async function getLibraryPreview(id) {
+  await ensureRoot();
+  const normalizedId = safeId(id);
+  const directory = path.join(ROOT, normalizedId);
+  const file = await readMetadata(directory, normalizedId);
+  if (!file.preview?.available) return null;
+  const fileName = file.preview.mimeType === 'image/jpeg' ? 'preview.jpg' : 'preview.png';
+  const previewPath = path.join(directory, fileName);
+  const stat = await fs.stat(previewPath);
+  if (!stat.isFile()) return null;
+  return {
+    filePath:previewPath,
+    mimeType:file.preview.mimeType,
+    size:stat.size
+  };
 }
 
 export async function updateLibraryFileMetadata(id, { description = '' } = {}) {
