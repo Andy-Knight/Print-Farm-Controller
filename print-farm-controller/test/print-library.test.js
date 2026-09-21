@@ -46,6 +46,7 @@ test('Print Library migrates staged queue files, deduplicates uploads and persis
   assert.equal(migrated[0].id, legacyId);
   assert.equal(migrated[0].fileName, legacyName);
   assert.equal(migrated[0].addedAt, stagedAt);
+  assert.equal(migrated[0].preview?.available, false);
   assert.equal(await fs.readFile((await library.getLibraryFile(legacyId)).filePath, 'utf8'), legacyContent);
   await assert.rejects(() => fs.access(path.join(dir, 'queue-files')));
   await fs.access(path.join(dir, 'print-library', legacyId));
@@ -58,10 +59,25 @@ test('Print Library migrates staged queue files, deduplicates uploads and persis
   assert.equal((await library.listLibraryFiles()).length, 1);
 
   const secondSource = path.join(dir, 'second.gcode');
-  await fs.writeFile(secondSource, '; filament_type = PETG\n; nozzle_diameter = 0.6\nT0\nG1 X20\n');
+  const previewPng = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Y9ZB1sAAAAASUVORK5CYII=', 'base64');
+  const previewBase64 = previewPng.toString('base64');
+  await fs.writeFile(secondSource, [
+    '; filament_type = PETG',
+    '; nozzle_diameter = 0.6',
+    `; thumbnail begin 256x256 ${previewBase64.length}`,
+    `; ${previewBase64}`,
+    '; thumbnail end',
+    'T0',
+    'G1 X20'
+  ].join('\n'));
   const second = await library.addLibraryFile(secondSource, 'second-part.gcode', { description:'Replacement caravan blind clip. Print two.' });
   assert.notEqual(second.id, legacyId);
   assert.equal(second.description, 'Replacement caravan blind clip. Print two.');
+  assert.equal(second.preview?.available, true);
+  assert.equal(second.preview?.mimeType, 'image/png');
+  const storedPreview = await library.getLibraryPreview(second.id);
+  assert.equal(storedPreview?.mimeType, 'image/png');
+  assert.deepEqual(await fs.readFile(storedPreview.filePath), previewPng);
   const edited = await library.updateLibraryFileMetadata(second.id, { description:'Updated notes for this part.' });
   assert.equal(edited.description, 'Updated notes for this part.');
   assert.ok(edited.updatedAt);
