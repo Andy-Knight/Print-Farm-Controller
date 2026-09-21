@@ -1337,24 +1337,49 @@ libraryBtn?.addEventListener('click', async () => {
 });
 document.querySelectorAll('[data-library-close]').forEach((el) => el.addEventListener('click', () => libraryDialog?.close()));
 librarySearchInput?.addEventListener('input', renderPrintLibrary);
-libraryUploadBtn?.addEventListener('click', () => libraryFileInput?.click());
-libraryFileInput?.addEventListener('change', async () => {
-  const file = libraryFileInput.files?.[0];
-  if (!file) return;
-  libraryUploadBtn.disabled = true;
-  if (libraryError) { libraryError.textContent = ''; libraryError.classList.add('hidden'); }
-  if (libraryStatus) libraryStatus.textContent = `Adding ${file.name} to Print Library…`;
+libraryUploadBtn?.addEventListener('click', () => {
+  libraryAddForm?.reset();
+  if (libraryAddStatus) libraryAddStatus.textContent = '';
+  if (libraryAddError) { libraryAddError.textContent = ''; libraryAddError.classList.add('hidden'); }
+  libraryAddDialog?.showModal();
+});
+document.querySelectorAll('[data-library-add-close]').forEach((el) => el.addEventListener('click', () => libraryAddDialog?.close()));
+libraryAddForm?.addEventListener('submit', async (event) => {
+  event.preventDefault();
+  const file = libraryFileInput?.files?.[0];
+  const submit = libraryAddForm.querySelector('button[type="submit"]');
+  if (submit) submit.disabled = true;
+  if (libraryAddError) { libraryAddError.textContent = ''; libraryAddError.classList.add('hidden'); }
+  if (libraryAddStatus) libraryAddStatus.textContent = file ? `Adding ${file.name} to Print Library…` : '';
   try {
-    const stored = await uploadLibraryFile(file);
+    const stored = await uploadLibraryFile(file, libraryDescriptionInput?.value || '');
     if (libraryStatus) libraryStatus.textContent = stored.duplicate
-      ? `${stored.fileName} is already in the Print Library.`
+      ? `${stored.fileName} is already in the Print Library. Existing details were kept.`
       : `${stored.fileName} added to the Print Library.`;
+    libraryAddDialog?.close();
   } catch (error) {
-    if (libraryStatus) libraryStatus.textContent = '';
-    if (libraryError) { libraryError.textContent = error.message; libraryError.classList.remove('hidden'); }
+    if (libraryAddStatus) libraryAddStatus.textContent = '';
+    if (libraryAddError) { libraryAddError.textContent = error.message; libraryAddError.classList.remove('hidden'); }
   } finally {
-    libraryFileInput.value = '';
-    libraryUploadBtn.disabled = false;
+    if (submit) submit.disabled = false;
+  }
+});
+document.querySelectorAll('[data-library-metadata-close]').forEach((el) => el.addEventListener('click', () => libraryMetadataDialog?.close()));
+libraryMetadataDialog?.addEventListener('close', () => { libraryMetadataFile = null; });
+libraryMetadataForm?.addEventListener('submit', async (event) => {
+  event.preventDefault();
+  if (!libraryMetadataFile) return;
+  const submit = libraryMetadataForm.querySelector('button[type="submit"]');
+  if (submit) submit.disabled = true;
+  if (libraryMetadataError) { libraryMetadataError.textContent = ''; libraryMetadataError.classList.add('hidden'); }
+  try {
+    await updateLibraryDescription(libraryMetadataFile.id, libraryMetadataDescription?.value || '');
+    libraryMetadataDialog?.close();
+    if (libraryStatus) libraryStatus.textContent = `${libraryMetadataFile.fileName} details updated.`;
+  } catch (error) {
+    if (libraryMetadataError) { libraryMetadataError.textContent = error.message; libraryMetadataError.classList.remove('hidden'); }
+  } finally {
+    if (submit) submit.disabled = false;
   }
 });
 libraryList?.addEventListener('click', async (event) => {
@@ -1364,6 +1389,17 @@ libraryList?.addEventListener('click', async (event) => {
     if (!file) return;
     libraryDialog?.close();
     openQueueAddDialog(file);
+    return;
+  }
+  const editButton = event.target.closest('[data-library-edit]');
+  if (editButton) {
+    const file = (libraryState.files || []).find((item) => item.id === editButton.dataset.libraryEdit);
+    if (!file) return;
+    libraryMetadataFile = file;
+    if (libraryMetadataFileName) libraryMetadataFileName.textContent = file.fileName;
+    if (libraryMetadataDescription) libraryMetadataDescription.value = String(file.description || '');
+    if (libraryMetadataError) { libraryMetadataError.textContent = ''; libraryMetadataError.classList.add('hidden'); }
+    libraryMetadataDialog?.showModal();
     return;
   }
   const deleteButton = event.target.closest('[data-library-delete]');
@@ -1387,6 +1423,7 @@ document.querySelectorAll('[data-queue-add-close]').forEach((el) => el.addEventL
 queueAddDialog?.addEventListener('close', () => {
   queueAddLibraryFile = null;
   queueAddFileField?.classList.remove('hidden');
+  queueAddDescriptionField?.classList.remove('hidden');
   if (queueAddFileInput) queueAddFileInput.required = true;
   queueAddSelectedFile?.classList.add('hidden');
 });
@@ -1406,7 +1443,7 @@ queueAddForm?.addEventListener('submit', async (event) => {
       flowCalibrationBeforePrint:data.get('flowCalibrationBeforePrint') === 'on'
     };
     if (queueAddLibraryFile) await queueLibraryFile(queueAddLibraryFile.id, options, quantity, priority);
-    else await stageAutomaticQueueFile(file, options, quantity, priority);
+    else await stageAutomaticQueueFile(file, options, quantity, priority, data.get('description') || '');
     if (queueAddStatus) queueAddStatus.textContent = quantity > 1 ? `Added ${quantity} copies as a production batch` : 'Added to fleet queue';
     queueAddDialog?.close();
     renderPrintQueue();
