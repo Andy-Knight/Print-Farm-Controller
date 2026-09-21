@@ -9,6 +9,23 @@ const emulatorApp = fs.readFileSync(new URL('../emulator/public/app.js', import.
 const emulatorIndex = fs.readFileSync(new URL('../emulator/public/index.html', import.meta.url), 'utf8');
 const emulatorStyles = fs.readFileSync(new URL('../emulator/public/styles.css', import.meta.url), 'utf8');
 
+test('top bar keeps theme toggle visible and moves secondary actions into responsive overflow', () => {
+  assert.match(index, /id="themeToggle"/);
+  assert.match(index, /id="topbarOverflow"/);
+  assert.match(index, /More controller actions/);
+  assert.match(index, />Printer simulator<\/button>/);
+  assert.match(index, /id="licenseBtn"[^>]*>Licence<\/button>/);
+  assert.match(index, /id="batchModeMenuBtn"/);
+  assert.match(index, /id="batchModeBtn"[^>]*topbar-fleet-action/);
+  assert.match(app, /const batchModeMenuBtn = document\.querySelector\('#batchModeMenuBtn'\)/);
+  assert.match(app, /if \(batchModeMenuBtn\) batchModeMenuBtn\.textContent = fleetModeLabel/);
+  assert.match(app, /batchModeMenuBtn\?\.addEventListener/);
+  assert.match(app, /topbarOverflow\.open = false/);
+  assert.match(styles, /\.topbar-overflow-menu/);
+  assert.match(styles, /@media \(max-width:1180px\)[\s\S]*\.topbar-fleet-action \{ display:none; \}[\s\S]*\.topbar-overflow-fleet \{ display:block; \}/);
+  assert.match(styles, /@media \(max-width:900px\)[\s\S]*\.topbar \{ align-items:flex-start; flex-direction:column; \}/);
+});
+
 test('interface exposes a persistent accessible light and dark mode switch', () => {
   assert.match(index, /id="themeToggle"/);
   assert.match(index, /role="switch"/);
