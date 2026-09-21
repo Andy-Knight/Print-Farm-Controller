@@ -31,16 +31,22 @@
       </div>
     </div>
     <div class="topbar-actions">
-      <button class="secondary" type="button" onclick="location.href='/simulator/'">Printer simulator</button>
-      <button id="licenseBtn" class="secondary" type="button">Licence</button>
+      <button id="libraryBtn" class="secondary">Print library <span id="libraryButtonCount" class="queue-button-count hidden">0</span></button>
+      <button id="queueBtn" class="secondary">Queue &amp; history <span id="queueButtonCount" class="queue-button-count hidden">0</span></button>
+      <button id="batchModeBtn" class="secondary topbar-fleet-action">Fleet operations</button>
+      <button id="addPrinterBtn" class="primary">+ Add printer</button>
       <button id="themeToggle" class="theme-toggle" type="button" role="switch" aria-checked="true" aria-label="Switch to light mode">
         <span class="theme-toggle-track" aria-hidden="true"></span>
         <span class="theme-toggle-label">Dark</span>
       </button>
-      <button id="libraryBtn" class="secondary">Print library <span id="libraryButtonCount" class="queue-button-count hidden">0</span></button>
-      <button id="queueBtn" class="secondary">Queue &amp; history <span id="queueButtonCount" class="queue-button-count hidden">0</span></button>
-      <button id="batchModeBtn" class="secondary">Fleet operations</button>
-      <button id="addPrinterBtn" class="primary">+ Add printer</button>
+      <details id="topbarOverflow" class="topbar-overflow">
+        <summary aria-label="More controller actions" title="More controller actions">⋮</summary>
+        <div class="topbar-overflow-menu" role="menu">
+          <button type="button" class="topbar-overflow-item" role="menuitem" onclick="location.href='/simulator/'">Printer simulator</button>
+          <button id="licenseBtn" type="button" class="topbar-overflow-item" role="menuitem">Licence</button>
+          <button id="batchModeMenuBtn" type="button" class="topbar-overflow-item topbar-overflow-fleet" role="menuitem">Fleet operations</button>
+        </div>
+      </details>
     </div>
   </header>
 
