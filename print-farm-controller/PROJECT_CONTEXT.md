@@ -7,8 +7,8 @@
 - Repository: `Andy-Knight/Print-Farm-Controller`
 - Project path: `print-farm-controller/`
 - Primary branch: `main` (current production baseline)
-- Current application version on this branch: **0.14.11**
-- v0.14.10 button-hover feedback is merged into `main`. v0.14.11 FlashForge emulator material-fidelity work is on `feature/flashforge-emulator-material-fidelity`.
+- Current application version on this branch: **0.15.0**
+- v0.14.11 FlashForge emulator material fidelity is merged into `main`. v0.15.0 Print Library work is on `feature/print-library`.
 - Runtime: **Node.js 20+**, ES modules, no npm runtime dependencies.
 - GitHub is the authoritative code baseline.
 
@@ -26,7 +26,7 @@ Local Fleet Controller (`src/`)
         +-- batch control
         +-- chamber preheat
         +-- file distribution / material metadata
-        +-- staged queue-file store
+        +-- persistent Print Library store
         +-- compatibility engine
         +-- persistent print queue + history + bed-clearance interlock
         +-- signed licence loader / verifier / edition + printer-slot enforcement
@@ -52,16 +52,19 @@ Manufacturer-specific discovery, capabilities, limits, status normalization, fil
 - Local-first/LAN-only controller; printer credentials remain backend-side.
 - Multiple manufacturers are supported through adapters rather than manufacturer logic in shared fleet code.
 - Default application data deliberately retains the historical `Printer Fleet Controller` / `printer-fleet-controller` directory name for compatibility. v0.11.2 migrated the older `FlashForge Fleet` directory on first startup; the v0.14.9 product rename does **not** migrate or rename existing data directories. Custom `DATA_DIR` locations are never moved.
-- Queue/history and controller-staged queue files persist across restarts.
+- Print Library files, queue/history and their references persist across restarts. Queue/history cleanup never owns library-file deletion.
 - A completed/active-failed/cancelled print creates a **bed-clearance interlock**; no later queued job may start on that printer until **Bed cleared** is confirmed.
 - Queue jobs support two assignment modes: **fixed printer** and **Next available compatible printer**.
-- Automatic scheduling is file-centric: the controller owns a durable staged copy, evaluates compatibility/readiness, reserves one printer, uploads/verifies if required, performs a fresh live preflight, then starts.
+- Automatic scheduling is file-centric: the controller references a durable Print Library entry, evaluates compatibility/readiness, reserves one printer, uploads/verifies if required, performs a fresh live preflight, then starts.
 - Compatibility and readiness are distinct. A printer may be compatible but temporarily blocked by offline/busy/bed-clearance/reservation state.
 - Automatic compatibility returns explicit per-printer reasons and distinguishes **Eligible**, **Waiting**, **Needs review**, and **Not compatible**.
 - Required nozzle size must not be guessed. If a printer cannot report an explicitly required nozzle, unattended scheduling requires review rather than assuming a match.
 - U1 logical-to-physical tool mapping is derived from live material/colour/nozzle state and uses constrained matching to avoid greedy mapping errors.
-- Production batches share one staged G-code across multiple run records. Pausing prevents not-yet-started copies from progressing, while active prints continue; cancelling remaining copies also catches copies still in upload/preflight without cancelling prints that have already started.
+- Production batches share one Print Library file across multiple run records. Pausing prevents not-yet-started copies from progressing, while active prints continue; cancelling remaining copies also catches copies still in upload/preflight without cancelling prints that have already started.
 - Existing fixed-printer queue behaviour remains backward compatible.
+- The Print Library is the durable source of controller-owned G-code/GX/3MF files. Library entries store filename, size, SHA-256, added timestamp and parsed print requirements; duplicate content reuses the existing entry.
+- Historical `queue-files/` directories migrate automatically to `print-library/` while keeping the same UUID directories, preserving existing queue/history references.
+- Library files are deleted only by an explicit library delete action, and deletion is blocked while any current queue/history record still references the entry.
 - Every delivered version increments the application version and updates README/context.
 - The browser appearance switch is accessible, persists only in browser `localStorage`, and follows the device colour scheme until the user explicitly selects Light or Dark.
 - Queue priority is **High / Normal / Low**. Effective priority ranks before manual queue order; a waiting job gains one priority level every six hours so low-priority work cannot be starved. Within the same effective priority, manual order remains authoritative.
@@ -142,21 +145,27 @@ Manufacturer-specific discovery, capabilities, limits, status normalization, fil
 - **v0.14.9 product branding:** application renamed from **Printer Fleet Controller** to **Print Farm Controller** across the browser UI, runtime messages, simulator wording and documentation. Historical application-data directory names, npm package/service identifiers and the existing browser theme storage key are intentionally retained to preserve upgrades, integrations and saved preferences.
 - **v0.14.10 button hover feedback:** all enabled buttons gain a hover/focus colour change. Dark mode brightens buttons and light mode slightly darkens them; disabled buttons are unaffected.
 - **v0.14.11 FlashForge emulator material fidelity:** simulated FlashForge `/detail` no longer reports `rightFilamentType` by default. The virtual printer still keeps its internal filament material for simulator state/scenarios, but the production adapter correctly sees no printer-reported material unless the physical protocol actually supplies one. This aligns the designation control with physical AD5M-family behaviour: **Clear designation** when there is no reported material, **Use printer value** only when a value is genuinely reported.
+- **v0.15.0 persistent Print Library:** controller-owned print files are promoted from queue-owned staging into a searchable persistent library. Users can add files without queueing them, inspect detected material/nozzle/tool requirements, queue a selected library entry with quantity and priority, and explicitly delete unreferenced files. SHA-256/size deduplication prevents duplicate storage. Existing `queue-files/` entries migrate to `print-library/` without changing IDs. Legacy queue-file module/API contracts remain compatibility aliases, but queue/history cleanup no longer prunes files.
 
 ## Current task
 
-**v0.14.11 FlashForge emulator material fidelity is the current feature work.** The emulator no longer invents a printer-reported material value for FlashForge `/detail`, while retaining its internal virtual filament state.
+**v0.15.0 Print Library is the current feature work.** The controller now separates durable printable-file storage from scheduling:
 
-The licensing feature branches currently match `main` and can be treated as historical development branches unless a future change deliberately reuses them.
+- **Print Library** = what can be printed.
+- **Queue** = what should be printed.
+- **History** = what was printed.
+
+The library browser supports upload, search, detected requirement summaries, queueing to the next compatible printer, production quantity/priority through the existing queue setup, and explicit deletion when no queue/history record references the file. Existing staged queue files migrate automatically and keep their IDs.
 
 Bambu P1P/P1S/X1C support remains explicitly experimental. Physical X1C RTSPS/H.264 camera decoding remains out of scope until a suitable implementation is added.
 
 ## Next steps
 
-1. Validate that an emulated FlashForge shows **Clear designation** when no controller material designation is set, while the emulator still retains its internal virtual filament material; then merge v0.14.11 to `main`.
-2. Add systematic feature-by-feature entitlement gates only where product packaging requires them; preserve the signed licence format and existing edition definitions.
-3. When rotating production signing keys, add the new **public** key to `src/licensing/trusted-public-keys.json` and release a controller build before issuing production licences with that new key ID. Retain older trusted public keys while licences signed by them remain supported.
-4. Continue physical validation of experimental Bambu behaviour before removing the experimental designation.
+1. Run the full automated regression suite for v0.15.0 and fix any failures.
+2. Manually validate migration from an existing `queue-files/` directory, library upload/search/delete, duplicate upload handling, queue-from-library, production quantity, restart persistence and history clearing without library deletion.
+3. After validation, merge `feature/print-library` into `main`.
+4. Add systematic feature-by-feature entitlement gates only where product packaging requires them; preserve the signed licence format and existing edition definitions.
+5. Continue physical validation of experimental Bambu behaviour before removing the experimental designation.
 
 ## Handoff rule
 
