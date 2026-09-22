@@ -34,6 +34,7 @@ import { getPrinterFileMaterialMetadata, removePrinterFileMaterialMetadata } fro
 import { EmulatorManager } from './emulator-manager.js';
 import { loadLicenseManager } from './licensing/license-loader.js';
 import { resolveControllerRuntimePaths } from './runtime-paths.js';
+import { publicAssetKey, readRuntimeAsset } from './runtime-assets.js';
 
 const runtimePaths = resolveControllerRuntimePaths();
 const PUBLIC_DIR = runtimePaths.publicDir;
@@ -842,17 +843,17 @@ async function apiRoute(req, res, url) {
 }
 
 async function serveStatic(res, pathname) {
-  if (!PUBLIC_DIR) return false;
-  const requested = pathname === '/' ? '/index.html' : pathname;
-  const normalized = path.normalize(requested).replace(/^(\.\.(\/|\\|$))+/, '');
-  const filePath = path.join(PUBLIC_DIR, normalized);
-  if (!filePath.startsWith(PUBLIC_DIR)) return false;
+  const requested = pathname === '/' ? 'index.html' : String(pathname || '').replace(/^\/+/, '');
+  const normalized = path.posix.normalize(requested.replaceAll('\\', '/'));
+  if (!normalized || normalized === '..' || normalized.startsWith('../') || path.posix.isAbsolute(normalized)) return false;
+  const filePath = PUBLIC_DIR ? path.join(PUBLIC_DIR, ...normalized.split('/')) : null;
   try {
-    const stat = await fs.stat(filePath);
-    if (!stat.isFile()) return false;
-    const data = await fs.readFile(filePath);
+    const data = await readRuntimeAsset({
+      key:publicAssetKey(normalized),
+      filePath
+    });
     res.writeHead(200, {
-      'content-type': contentTypes[path.extname(filePath)] || 'application/octet-stream',
+      'content-type': contentTypes[path.extname(normalized)] || 'application/octet-stream',
       'cache-control': 'no-cache'
     });
     res.end(data);
