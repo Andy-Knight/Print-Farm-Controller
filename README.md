@@ -1,5 +1,7 @@
 # Print Farm Controller v0.15.5
 
+> **Current development adds clickable dashboard summary filters.** The Printers, Online, Printing and Needs attention summary cards can filter the dashboard fleet in place. The active filter is highlighted, filtering stays in sync with live printer/queue state, and an empty-filter state provides a quick return to all printers. Printer reordering controls are hidden while a subset is filtered to avoid accidental partial-order changes.
+
 > **v0.15.5 adds visual previews to the Print Library.** The controller extracts and caches slicer-provided preview images when available, using Orca/Bambu-style 3MF plate thumbnails (including `Metadata/plate_1.png` and related fallbacks) and embedded PNG/JPEG G-code thumbnail blocks. Library cards show a compact preview beside the file details; clicking it opens a larger viewer. Existing library files are backfilled automatically the first time they are read, and files without a supported embedded image show a **No preview** placeholder. Preview images are cached as separate files beside the stored print file rather than embedded into `metadata.json`.
 
 > **v0.15.4 adds free-text metadata to Print Library files.** When adding a file, users can optionally enter up to 4000 characters of description/notes explaining what the part is, its intended use, print guidance or other context. Notes are displayed on library cards, included in library search, can be edited later with **Edit details**, and are also available when uploading a new file through the queue workflow.
