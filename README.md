@@ -1,5 +1,7 @@
 # Print Farm Controller v0.15.6
 
+> **Current development: production packaging foundation.** Runtime/application paths are now resolved centrally so source runs continue to use the repository root while future Node SEA builds can use the packaged executable directory for `data/` and `license.json`. The supported runtime baseline is Node.js 24+, matching the Node 24.21.0 development environment used for the project.
+
 > **v0.15.6 adds dashboard fleet filtering and consolidates the latest controller usability/storage improvements.** The Printers, Online, Printing and Needs attention summary cards can filter the dashboard fleet in place; the active filter is highlighted, filtering stays in sync with live printer/queue state, and an empty-filter state provides a quick return to all printers. This build also includes application-local `data/` storage, consistent **Snapmaker U1** model naming, and the combined printer-card hover/focus highlight treatment.
 
 > **v0.15.5 adds visual previews to the Print Library.** The controller extracts and caches slicer-provided preview images when available, using Orca/Bambu-style 3MF plate thumbnails (including `Metadata/plate_1.png` and related fallbacks) and embedded PNG/JPEG G-code thumbnail blocks. Library cards show a compact preview beside the file details; clicking it opens a larger viewer. Existing library files are backfilled automatically the first time they are read, and files without a supported embedded image show a **No preview** placeholder. Preview images are cached as separate files beside the stored print file rather than embedded into `metadata.json`.
@@ -148,7 +150,7 @@ The internal `allowDevelopmentOverrides:true` loader option exists for tests/dev
 
 ## Run
 
-Requires Node.js 20 or later. There are no npm runtime dependencies.
+Requires Node.js 24 or later. Development has been performed against Node.js 24.21.0. There are no npm runtime dependencies.
 
 ```bash
 npm start
