@@ -7,6 +7,9 @@ const bundleScript = fs.readFileSync(new URL('../scripts/build-controller-bundle
 const seaScript = fs.readFileSync(new URL('../scripts/build-sea-windows.mjs', import.meta.url), 'utf8');
 const server = fs.readFileSync(new URL('../src/server.js', import.meta.url), 'utf8');
 const licenceLoader = fs.readFileSync(new URL('../src/licensing/license-loader.js', import.meta.url), 'utf8');
+const runtimeAssets = fs.readFileSync(new URL('../src/runtime-assets.js', import.meta.url), 'utf8');
+const emulatorServer = fs.readFileSync(new URL('../emulator/server.js', import.meta.url), 'utf8');
+const emulatorProtocols = fs.readFileSync(new URL('../emulator/protocols.js', import.meta.url), 'utf8');
 
 test('production packaging scripts use Node 24, esbuild and Node SEA', () => {
   assert.equal(pkg.engines.node, '>=24');
@@ -22,13 +25,16 @@ test('production packaging scripts use Node 24, esbuild and Node SEA', () => {
   assert.match(seaScript, /NODE_SEA_FUSE_fce680ab2cc467b6e072b8b5df1996b2/);
 });
 
-test('first portable Windows build carries external runtime assets beside the SEA executable', () => {
+test('hardened Windows build embeds controller, simulator and trusted-key assets', () => {
   assert.match(seaScript, /PrintFarmController\.exe/);
-  assert.match(seaScript, /'public'\), path\.join\(outputDir, 'public'/);
-  assert.match(seaScript, /'emulator', 'public'/);
-  assert.match(seaScript, /'emulator', 'assets'/);
-  assert.match(seaScript, /trusted-public-keys\.json/);
+  assert.match(seaScript, /assets:await embeddedAssets\(\)/);
+  assert.match(seaScript, /addAssetTree\(assets, path\.join\(projectRoot, 'public'\), 'public'\)/);
+  assert.match(seaScript, /'emulator\/public'/);
+  assert.match(seaScript, /'emulator\/assets'/);
+  assert.match(seaScript, /assets\['licensing\/trusted-public-keys\.json'\]/);
   assert.match(seaScript, /dist', 'windows-x64'/);
+  assert.doesNotMatch(seaScript, /copyPortableAssets/);
+  assert.doesNotMatch(seaScript, /BUILD-INFO\.txt/);
 });
 
 test('controller bundle has no top-level startup await and embeds the application version', () => {
@@ -39,7 +45,17 @@ test('controller bundle has no top-level startup await and embeds the applicatio
   assert.doesNotMatch(server, /const packageInfo = PACKAGE_PATH \? JSON\.parse\(await/);
 });
 
-test('production trusted-key location is resolved through central runtime paths', () => {
-  assert.match(licenceLoader, /resolveControllerRuntimePaths\(\)\.trustedPublicKeysPath/);
+test('packaged runtime reads UI, simulator and licence trust data through SEA assets', () => {
+  assert.match(runtimeAssets, /getAsset/);
+  assert.match(runtimeAssets, /trustedPublicKeys:'licensing\/trusted-public-keys\.json'/);
+  assert.match(server, /publicAssetKey/);
+  assert.match(server, /readRuntimeAsset/);
+  assert.match(emulatorServer, /emulatorPublicAssetKey/);
+  assert.match(emulatorServer, /readRuntimeAsset/);
+  assert.match(emulatorProtocols, /runtimeAssetKeys\.emulatorTestFrame/);
+  assert.match(emulatorProtocols, /runtimeAssetKeys\.emulatorBambuKey/);
+  assert.match(emulatorProtocols, /runtimeAssetKeys\.emulatorBambuCert/);
+  assert.match(licenceLoader, /readRuntimeTextAsset/);
+  assert.match(licenceLoader, /runtimeAssetKeys\.trustedPublicKeys/);
   assert.doesNotMatch(licenceLoader, /new URL\('\.\/trusted-public-keys\.json', import\.meta\.url\)/);
 });
