@@ -10,7 +10,7 @@
 - Current application version on this branch: **0.16.0**.
 - v0.15.5 Print Library previews are merged into `main`.
 - v0.15.6 includes dashboard summary filtering, application-local data storage, Snapmaker U1 display naming and printer-card hover/focus highlighting.
-- Current feature branch `feature/production-packaging` establishes hardened production packaging: centralized runtime paths detect source vs Node SEA execution, esbuild produces a CommonJS controller bundle, and the Windows x64 SEA build embeds the controller UI, simulator UI/resources and trusted Ed25519 public verification keys directly into `PrintFarmController.exe`. The Windows installer targets Program Files, leaves the EXE protected, grants standard-user modify permission only to `data/`, and packaged builds store the signed customer licence at `data/license.json`. Inno Setup 7 is the preferred Windows installer compiler (Inno Setup 6 remains supported as a fallback), and Authenticode signing workflows are included. Inno Setup may display `Non-commercial use only` during development until a commercial licence is installed; current upstream guidance permits purchasing that licence when the installer is ready for production, so this does not block test builds.
+- **v0.16.0 production packaging is merged into `main`** via PR #24 (squash commit `af8d8e493e2f311c1469ed5faddfffc2316ae727`): centralized runtime paths detect source vs Node SEA execution, esbuild produces a CommonJS controller bundle, and the Windows x64 SEA build embeds the controller UI, simulator UI/resources and trusted Ed25519 public verification keys directly into `PrintFarmController.exe`. The Windows installer targets Program Files, leaves the EXE protected, grants standard-user modify permission only to `data/`, and packaged builds store the signed customer licence at `data/license.json`. Inno Setup 7 is the preferred Windows installer compiler (Inno Setup 6 remains supported as a fallback), and optional Authenticode signing workflows are included.
 - Runtime: **Node.js 24+** (development baseline Node.js 24.21.0), ES modules, no npm runtime dependencies.
 - GitHub is the authoritative code baseline.
 
@@ -160,7 +160,7 @@ Manufacturer-specific discovery, capabilities, limits, status normalization, fil
 
 ## Current task
 
-**v0.15.6 remains the current merged release. `feature/production-packaging` is now versioned as v0.16.0 and has passed the portable SEA and unsigned Windows installer validation stages.** Runtime path handling is centralized; the Windows x64 Node SEA build embeds controller/simulator resources and trusted licence verification keys; Inno Setup 7 installs the app under Program Files while granting normal users write access only to `data/`. Authenticode signing support is implemented but is optional for development/private testing until a production code-signing certificate is obtained.
+**v0.16.0 is the current merged release on `main`.** The hardened Windows x64 SEA build and unsigned Inno Setup installer have both been manually validated. Runtime path handling is centralized; the SEA build embeds controller/simulator resources and trusted licence verification keys; Inno Setup 7 installs the app under Program Files while granting normal users write access only to `data/`. Authenticode signing support is implemented but remains optional until a production code-signing certificate is obtained.
 
 - **Print Library** = what can be printed.
 - **Queue** = what should be printed.
@@ -174,9 +174,9 @@ Bambu P1P/P1S/X1C support remains explicitly experimental. Physical X1C RTSPS/H.
 
 **Completed for v0.16.0:** full `npm test` regression run, rebuild of the Windows SEA executable and Inno Setup installer, and verification that both the installer and controller UI/footer report **v0.16.0**.
 
-1. Code signing is **not a blocker for development or private testing**. The Authenticode workflow is already implemented; when a production certificate is obtained, `npm run release:windows` signs the injected SEA executable, builds the installer around the signed EXE, then signs and verifies the installer.
-2. Add Linux x64 and ARM64 packaging after the Windows packaging branch is stable.
-3. Future Windows packaging polish: add a custom Print Farm Controller icon for the installer, installed shortcuts and, ideally, the packaged executable itself. This is intentionally deferred and is not a blocker for v0.16.0.
+1. Add Linux x64 and ARM64 packaging from the v0.16.0 `main` baseline.
+2. Code signing is **not a blocker for development or private testing**. The Authenticode workflow is already implemented; when a production certificate is obtained, `npm run release:windows` signs the injected SEA executable, builds the installer around the signed EXE, then signs and verifies the installer.
+3. Future Windows packaging polish: add a custom Print Farm Controller icon for the installer, installed shortcuts and, ideally, the packaged executable itself. This is intentionally deferred.
 4. Add systematic feature-by-feature entitlement gates only where product packaging requires them; preserve the signed licence format and existing edition definitions.
 5. Continue physical validation of experimental Bambu behaviour before removing the experimental designation.
 
