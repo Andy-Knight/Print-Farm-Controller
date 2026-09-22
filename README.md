@@ -1,10 +1,12 @@
-# Print Farm Controller v0.16.0
+# Print Farm Controller v0.16.1
 
-> **Current release: v0.16.0 production packaging.** Runtime/application paths are resolved centrally, the controller is bundled with esbuild, and the Windows x64 Node SEA build embeds the controller UI, simulator UI/resources and trusted Ed25519 public verification keys directly inside `PrintFarmController.exe`. Persistent runtime data and the signed customer licence remain external. The supported runtime baseline is Node.js 24+, matching the Node 24.21.0 development environment used for the project.
+> **Current development: v0.16.1 dashboard status colours.** The main dashboard now shows **Idle** and **Ready** printer status badges in green, matching the successful/available-state treatment used by the Printer Simulator. v0.16.0 remains the current merged release on `main` until this change is validated and merged.
 
 > **Packaging validation:** the hardened Windows x64 single-executable build has been manually validated successfully with embedded controller UI, simulator resources and trusted licence public keys.
 
 > **Installer validation:** the Inno Setup 7 Windows installer has been built and manually validated successfully under Program Files, including normal non-admin runtime writes to `data/` and packaged licence storage at `data/license.json`.
+
+> **v0.16.1 aligns dashboard available-state colours.** Idle and Ready printer badges on the main dashboard are green in both Dark and Light modes, while existing warning/error colours remain unchanged.
 
 > **v0.16.0 adds production packaging.** The controller can now be bundled into a hardened Windows x64 Node SEA executable with embedded UI, simulator resources and trusted licence verification keys. The release includes an Inno Setup 7 installer for Program Files deployment, writable application-local `data/`, packaged licence storage at `data/license.json`, and an optional Authenticode signing workflow for future production releases.
 
