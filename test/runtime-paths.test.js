@@ -23,6 +23,7 @@ test('runtime paths resolve source checkout locations during development', () =>
   assert.equal(paths.trustedPublicKeysPath, path.join(expectedRoot, 'src', 'licensing', 'trusted-public-keys.json'));
   assert.equal(paths.packageJsonPath, path.join(expectedRoot, 'package.json'));
   assert.equal(paths.licensePath, path.join(expectedRoot, 'license.json'));
+  assert.equal(paths.legacyApplicationLicensePath, null);
   assert.equal(paths.emulatorSettingsPath, path.join(expectedRoot, 'data', 'emulator-settings.json'));
 });
 
@@ -45,7 +46,8 @@ test('runtime paths resolve application-local storage beside a packaged executab
   assert.equal(paths.emulatorAssetsDir, null);
   assert.equal(paths.trustedPublicKeysPath, null);
   assert.equal(paths.packageJsonPath, null);
-  assert.equal(paths.licensePath, path.join(installDir, 'license.json'));
+  assert.equal(paths.licensePath, path.join(installDir, 'data', 'license.json'));
+  assert.equal(paths.legacyApplicationLicensePath, path.join(installDir, 'license.json'));
   assert.equal(paths.emulatorSettingsPath, path.join(installDir, 'data', 'emulator-settings.json'));
 });
 
