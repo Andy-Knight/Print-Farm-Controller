@@ -18,6 +18,9 @@ test('runtime paths resolve source checkout locations during development', () =>
   assert.equal(paths.defaultDataDir, path.join(expectedRoot, 'data'));
   assert.equal(paths.dataDir, path.join(expectedRoot, 'data'));
   assert.equal(paths.publicDir, path.join(expectedRoot, 'public'));
+  assert.equal(paths.emulatorPublicDir, path.join(expectedRoot, 'emulator', 'public'));
+  assert.equal(paths.emulatorAssetsDir, path.join(expectedRoot, 'emulator', 'assets'));
+  assert.equal(paths.trustedPublicKeysPath, path.join(expectedRoot, 'src', 'licensing', 'trusted-public-keys.json'));
   assert.equal(paths.packageJsonPath, path.join(expectedRoot, 'package.json'));
   assert.equal(paths.licensePath, path.join(expectedRoot, 'license.json'));
   assert.equal(paths.emulatorSettingsPath, path.join(expectedRoot, 'data', 'emulator-settings.json'));
@@ -37,7 +40,10 @@ test('runtime paths resolve application-local storage beside a packaged executab
   assert.equal(paths.applicationDir, installDir);
   assert.equal(paths.defaultDataDir, path.join(installDir, 'data'));
   assert.equal(paths.dataDir, path.join(installDir, 'data'));
-  assert.equal(paths.publicDir, null);
+  assert.equal(paths.publicDir, path.join(installDir, 'public'));
+  assert.equal(paths.emulatorPublicDir, path.join(installDir, 'emulator', 'public'));
+  assert.equal(paths.emulatorAssetsDir, path.join(installDir, 'emulator', 'assets'));
+  assert.equal(paths.trustedPublicKeysPath, path.join(installDir, 'trusted-public-keys.json'));
   assert.equal(paths.packageJsonPath, null);
   assert.equal(paths.licensePath, path.join(installDir, 'license.json'));
   assert.equal(paths.emulatorSettingsPath, path.join(installDir, 'data', 'emulator-settings.json'));
