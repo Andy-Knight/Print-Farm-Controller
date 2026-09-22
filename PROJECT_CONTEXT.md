@@ -176,8 +176,8 @@ Bambu P1P/P1S/X1C support remains explicitly experimental. Physical X1C RTSPS/H.
 3. v0.15.5 `feature/print-library-previews` merged into `main` after automated and manual validation.
 4. Packaging-foundation regression validation on Node.js 24.21.0 passed with 0 failures before the SEA build step was added.
 5. The first Windows x64 portable SEA package was built and manually validated successfully before hardening; dashboard/controller functionality behaved normally.
-6. Current task: rerun `npm test`, rebuild with `npm run build:sea:windows`, and manually validate the hardened single-EXE build with embedded browser/simulator assets and trusted production public keys. The clean `dist/windows-x64/` output should contain only `PrintFarmController.exe` before runtime creates `data/` or installs `license.json`.
-7. Add Windows installer/signing and Linux x64/ARM64 packaging only after the hardened portable executable is stable.
+6. Hardened Windows x64 single-EXE build manually validated successfully: embedded controller UI, simulator resources and trusted production public keys all worked correctly with no external asset directories/files beside `PrintFarmController.exe`.
+7. Next packaging step: add the Windows installer/signing workflow, then Linux x64/ARM64 packaging.
 8. Add systematic feature-by-feature entitlement gates only where product packaging requires them; preserve the signed licence format and existing edition definitions.
 9. Continue physical validation of experimental Bambu behaviour before removing the experimental designation.
 
