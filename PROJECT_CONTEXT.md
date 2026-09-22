@@ -172,14 +172,13 @@ Bambu P1P/P1S/X1C support remains explicitly experimental. Physical X1C RTSPS/H.
 
 ## Next steps
 
-**Completed for v0.16.0:** full `npm test` regression run and rebuild of the Windows SEA executable and Inno Setup installer.
+**Completed for v0.16.0:** full `npm test` regression run, rebuild of the Windows SEA executable and Inno Setup installer, and verification that both the installer and controller UI/footer report **v0.16.0**.
 
-1. Confirm the rebuilt installer identifies itself as v0.16.0 and the controller UI/footer reports v0.16.0.
-2. Code signing is **not a blocker for development or private testing**. The Authenticode workflow is already implemented; when a production certificate is obtained, `npm run release:windows` signs the injected SEA executable, builds the installer around the signed EXE, then signs and verifies the installer.
-3. Add Linux x64 and ARM64 packaging after the Windows packaging branch is stable.
-4. Future Windows packaging polish: add a custom Print Farm Controller icon for the installer, installed shortcuts and, ideally, the packaged executable itself. This is intentionally deferred and is not a blocker for v0.16.0.
-5. Add systematic feature-by-feature entitlement gates only where product packaging requires them; preserve the signed licence format and existing edition definitions.
-6. Continue physical validation of experimental Bambu behaviour before removing the experimental designation.
+1. Code signing is **not a blocker for development or private testing**. The Authenticode workflow is already implemented; when a production certificate is obtained, `npm run release:windows` signs the injected SEA executable, builds the installer around the signed EXE, then signs and verifies the installer.
+2. Add Linux x64 and ARM64 packaging after the Windows packaging branch is stable.
+3. Future Windows packaging polish: add a custom Print Farm Controller icon for the installer, installed shortcuts and, ideally, the packaged executable itself. This is intentionally deferred and is not a blocker for v0.16.0.
+4. Add systematic feature-by-feature entitlement gates only where product packaging requires them; preserve the signed licence format and existing edition definitions.
+5. Continue physical validation of experimental Bambu behaviour before removing the experimental designation.
 
 ## Handoff rule
 
