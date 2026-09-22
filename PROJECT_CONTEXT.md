@@ -7,7 +7,7 @@
 - Repository: `Andy-Knight/Print-Farm-Controller`
 - Project path: repository root (`/`)
 - Primary branch: `main` (current production baseline)
-- Current application version on this branch: **0.16.1**.
+- Current application version on this branch: **0.17.0**.
 - v0.15.5 Print Library previews are merged into `main`.
 - v0.15.6 includes dashboard summary filtering, application-local data storage, Snapmaker U1 display naming and printer-card hover/focus highlighting.
 - **v0.16.0 production packaging is merged into `main`** via PR #24 (squash commit `af8d8e493e2f311c1469ed5faddfffc2316ae727`): centralized runtime paths detect source vs Node SEA execution, esbuild produces a CommonJS controller bundle, and the Windows x64 SEA build embeds the controller UI, simulator UI/resources and trusted Ed25519 public verification keys directly into `PrintFarmController.exe`. The Windows installer targets Program Files, leaves the EXE protected, grants standard-user modify permission only to `data/`, and packaged builds store the signed customer licence at `data/license.json`. Inno Setup 7 is the preferred Windows installer compiler (Inno Setup 6 remains supported as a fallback), and optional Authenticode signing workflows are included.
@@ -38,14 +38,14 @@ Local Fleet Controller (`src/`)
 PrinterAdapter boundary (`src/adapters/`)
         +-- FlashForge Adventurer 5M / 5M Pro
         +-- Snapmaker U1 -> Moonraker / Klipper
-        +-- Bambu Lab P1P / P1S / X1C -> experimental MQTT/FTPS adapter + P1 camera
+        +-- Bambu Lab P1P / P1S / X1C / A1 Mini -> experimental MQTT/FTPS adapter; P1/A1 Mini TLS-JPEG camera
 
 Development Printer Emulator (`emulator/`, loopback only)
         +-- management UI/API + SSE
         +-- shared virtual-printer state and scenarios
         +-- FlashForge HTTP/TCP/camera endpoints
         +-- Snapmaker U1 Moonraker endpoints
-        +-- Bambu P1P/P1S/X1C MQTT TLS, FTPS TLS and camera test endpoints
+        +-- Bambu P1P/P1S/X1C/A1 Mini MQTT TLS, FTPS TLS and camera test endpoints
 ```
 
 Manufacturer-specific discovery, capabilities, limits, status normalization, files, print control, temperatures and camera selection belong behind the adapter boundary. Core fleet services should remain manufacturer-agnostic.
@@ -74,8 +74,8 @@ Manufacturer-specific discovery, capabilities, limits, status normalization, fil
 - Queue priority is **High / Normal / Low**. Effective priority ranks before manual queue order; a waiting job gains one priority level every six hours so low-priority work cannot be starved. Within the same effective priority, manual order remains authoritative.
 - When multiple compatible idle printers are ready for an automatic job, a printer with a verified existing copy of the file is preferred; the assigned job records the selection reason.
 - The development printer simulator is integrated into the controller lifecycle and UI, but its virtual protocol endpoints remain loopback-only. It is disabled by default, remembers explicit enablement, and exercises production adapters through network protocols rather than bypassing the adapter boundary. Simulator-only support never counts as physical hardware validation. The standalone emulator command remains available for development.
-- Bambu P1P/P1S/X1C support remains explicitly experimental until the MQTT telemetry/commands and FTPS behavior are compared with physical printers. P1 TLS/JPEG camera framing also requires physical validation. X1C uses RTSPS/H.264 on port 322; the controller deliberately reports X1C camera as unsupported until a suitable decoder is implemented. Manual entry is used; Bambu LAN discovery is not yet implemented.
-- Bambu AMS support models each AMS tray and the external spool as a material source, separate from the P1's single physical nozzle. Automatic scheduling maps logical 3MF filaments to unique live sources, while multi-material raw G-code is rejected because it does not carry the project-level AMS mapping required by the print command.
+- Bambu P1P/P1S/X1C/A1 Mini support remains explicitly experimental until MQTT telemetry/commands, FTPS behavior, material mapping and camera behavior are compared with physical printers. P1P/P1S/A1 Mini use the TLS/JPEG camera path on port 6000. X1C uses RTSPS/H.264 on port 322; the controller deliberately reports X1C camera as unsupported until a suitable decoder is implemented. Manual entry is used; Bambu LAN discovery is not yet implemented.
+- Bambu AMS support models each AMS/AMS Lite tray and the external spool as a material source, separate from the printer's single physical nozzle. Automatic scheduling maps logical 3MF filaments to unique live sources, while multi-material raw G-code is rejected because it does not carry the project-level mapping required by the print command.
 - Production licensing is offline and Ed25519-signed. The controller ships trusted public verification keys only; production private keys live only in the separate private `Andy-Knight/Print-Farm-Licensing` application.
 - No valid signed licence means Community Edition. Current physical-printer allowances are Community 2, Pro 10, Farm 25; simulator printers do not consume licence slots.
 - Reducing the allowance never deletes configured printers. Over-limit fleets retain all printers and require selection of the physical printers that occupy active licence slots.
@@ -88,7 +88,7 @@ Manufacturer-specific discovery, capabilities, limits, status normalization, fil
 
 - FlashForge Adventurer 5M / 5M Pro support.
 - Snapmaker U1 support via Moonraker/Klipper, including stock camera integration.
-- Experimental Bambu Lab P1P/P1S/X1C controller support: MQTT TLS status, external-spool/AMS material metadata and job/temperature/fan control; implicit FTPS list/upload/verification/download; embedded 3MF plate-G-code requirement parsing; interactive and automatic logical-filament-to-AMS mapping; `.3mf` and single-material `.gcode` print start; authenticated P1 TLS/JPEG camera snapshots; model-specific capabilities/limits and manual connection fields. X1C reports LiDAR availability, a hardened nozzle profile and a 120 °C bed limit, while its RTSPS/H.264 camera remains explicitly unsupported. FTPS upload verification checks the exact filename with `SIZE`, falls back to normalized directory entries and retries briefly for delayed storage visibility.
+- Experimental Bambu Lab P1P/P1S/X1C/A1 Mini controller support: MQTT TLS status, external-spool/AMS/AMS Lite material metadata and job/temperature/fan control; implicit FTPS list/upload/verification/download; embedded 3MF plate-G-code requirement parsing; interactive and automatic logical-filament-to-material-source mapping; `.3mf` and single-material `.gcode` print start; authenticated TLS/JPEG camera snapshots on P1P/P1S/A1 Mini; model-specific capabilities/limits and manual connection fields. A1 Mini uses an 80 °C bed limit and no chamber controls. X1C reports LiDAR availability, a hardened nozzle profile and a 120 °C bed limit, while its RTSPS/H.264 camera remains explicitly unsupported. FTPS upload verification checks the exact filename with `SIZE`, falls back to normalized directory entries and retries briefly for delayed storage visibility.
 - Automatic/local discovery, persistent printer registry and controller-side printer renaming.
 - Dashboard ordering, SSE fleet state, diagnostics and batch actions.
 - Verified file distribution and printer-local file operations.
@@ -158,10 +158,11 @@ Manufacturer-specific discovery, capabilities, limits, status normalization, fil
 - **v0.15.5 Print Library previews:** library files cache slicer-provided preview images when available. 3MF extraction prefers Orca/Bambu plate thumbnails such as `Metadata/plate_1.png`; G-code extraction recognises embedded PNG/JPEG thumbnail blocks and selects the largest supported image. Existing entries are backfilled on first read. The library card shows a compact thumbnail or **No preview** placeholder, and clicking a real thumbnail opens a larger viewer.
 - **v0.15.6 dashboard filtering:** the top summary cards are interactive filters for all printers, online printers, actively printing printers, and printers needing attention. The active filter is highlighted, live state changes automatically re-evaluate visibility, and printer reordering controls are hidden while a subset is filtered. This build also includes the application-local `data/` storage change, Snapmaker U1 display naming and printer-card hover/focus highlighting.
 - **v0.16.0 production packaging:** hardened Windows x64 Node SEA executable with embedded controller/simulator assets and trusted public licence keys; Inno Setup 7 installer targeting Program Files; normal-user writable `data/`; packaged `data/license.json`; optional Authenticode release-signing workflow; Node 24 production baseline.
+- **v0.17.0 experimental A1 Mini support:** `feature/bambu-a1-mini` extends the Bambu LAN adapter and integrated emulator to A1 Mini, including MQTT status/control, FTPS file operations, TLS/JPEG camera support, AMS Lite material mapping, 80 °C bed limit, 300 °C nozzle limit, and no chamber controls. Physical A1 Mini validation remains outstanding.
 
 ## Current task
 
-**v0.16.1 is the current merged release on `main`.** The dashboard Idle/Ready colour treatment and consistent Print Library preview backgrounds were manually validated before merge.
+**v0.16.1 is the current merged release on `main`; `feature/bambu-a1-mini` is versioned as v0.17.0 and is awaiting validation.** The branch adds experimental A1 Mini support to the existing Bambu LAN adapter and Printer Simulator.
 
 - **Print Library** = what can be printed.
 - **Queue** = what should be printed.
@@ -169,17 +170,18 @@ Manufacturer-specific discovery, capabilities, limits, status normalization, fil
 
 The library browser supports upload, search, detected requirement summaries, queueing to the next compatible printer, production quantity/priority through the existing queue setup, and explicit deletion when no queue/history record references the file. Existing staged queue files migrate automatically and keep their IDs.
 
-Bambu P1P/P1S/X1C support remains explicitly experimental. Physical X1C RTSPS/H.264 camera decoding remains out of scope until a suitable implementation is added.
+Bambu P1P/P1S/X1C/A1 Mini support remains explicitly experimental. Physical A1 Mini validation is still required, and physical X1C RTSPS/H.264 camera decoding remains out of scope until a suitable implementation is added.
 
 ## Next steps
 
 **Completed for v0.16.0:** full `npm test` regression run, rebuild of the Windows SEA executable and Inno Setup installer, and verification that both the installer and controller UI/footer report **v0.16.0**.
 
-1. Add Linux x64 and ARM64 packaging from the v0.16.1 `main` baseline.
-2. Code signing is **not a blocker for development or private testing**. The Authenticode workflow is already implemented; when a production certificate is obtained, `npm run release:windows` signs the injected SEA executable, builds the installer around the signed EXE, then signs and verifies the installer.
-3. Future Windows packaging polish: add a custom Print Farm Controller icon for the installer, installed shortcuts and, ideally, the packaged executable itself. This is intentionally deferred.
-4. Add systematic feature-by-feature entitlement gates only where product packaging requires them; preserve the signed licence format and existing edition definitions.
-5. Continue physical validation of experimental Bambu behaviour before removing the experimental designation.
+1. Validate v0.17.0 A1 Mini support against the integrated simulator and, when available, physical A1 Mini hardware.
+2. Add Linux x64 and ARM64 packaging after the A1 Mini feature is merged.
+3. Code signing is **not a blocker for development or private testing**. The Authenticode workflow is already implemented; when a production certificate is obtained, `npm run release:windows` signs the injected SEA executable, builds the installer around the signed EXE, then signs and verifies the installer.
+4. Future Windows packaging polish: add a custom Print Farm Controller icon for the installer, installed shortcuts and, ideally, the packaged executable itself. This is intentionally deferred.
+5. Add systematic feature-by-feature entitlement gates only where product packaging requires them; preserve the signed licence format and existing edition definitions.
+6. Continue physical validation of experimental Bambu behaviour before removing the experimental designation.
 
 ## Handoff rule
 
