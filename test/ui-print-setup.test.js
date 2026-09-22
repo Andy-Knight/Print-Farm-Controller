@@ -475,7 +475,7 @@ test('Bambu printer detail exposes AMS slots and material mapping setup', () => 
   assert.match(emulatorApp, /amsSlots/);
   assert.match(app, /P1P, P1S, X1C and A1 Mini/);
   assert.match(app, /X1C RTSPS\/H\.264 camera decoding is not yet supported/);
-  assert.match(app, /A1 Mini controller print starts are currently limited to sliced \.3mf files/);
+  assert.match(app, /Single-material A1 Mini \.gcode starts remain experimental/);
   assert.match(bambuAdapter, /label: 'Bambu Lab P1P \/ P1S \/ X1C \/ A1 Mini \(experimental\)'/);
   assert.match(bambuAdapter, /experimental: true/);
   assert.match(app, /Experimental Bambu \$\{escapeHtml\(printer\.model \|\| ''\)\} support/);
