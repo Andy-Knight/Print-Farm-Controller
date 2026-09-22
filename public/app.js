@@ -269,6 +269,11 @@ function escapeHtml(value = '') {
   return String(value).replace(/[&<>'"]/g, (ch) => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', "'":'&#39;', '"':'&quot;' }[ch]));
 }
 
+function printerModelLabel(printer) {
+  if (printer?.adapterType === 'snapmaker-u1') return 'Snapmaker U1';
+  return String(printer?.model || '');
+}
+
 async function api(url, options = {}) {
   const response = await fetch(url, {
     ...options,
@@ -1000,7 +1005,8 @@ function updateCard(card, printer) {
   const state = stateName(printer);
   const progress = Math.round(s?.progress || 0);
   card.querySelector('[data-name]').textContent = printer.name;
-  card.querySelector('[data-host]').textContent = `${printer.host}${printer.model ? ` · ${printer.model}` : ''}`;
+  const modelLabel = printerModelLabel(printer);
+  card.querySelector('[data-host]').textContent = `${printer.host}${modelLabel ? ` · ${modelLabel}` : ''}`;
   const badge = card.querySelector('[data-state]');
   badge.textContent = state;
   badge.className = `badge ${state.toLowerCase()}`;
@@ -2980,7 +2986,7 @@ async function openPrinter(id) {
         <div class="panel diagnostics-panel">
           <h3>Diagnostics</h3>
           <div><span>Manufacturer</span><b>${escapeHtml(printer.manufacturer || 'Unknown')}</b></div>
-          <div><span>Model</span><b>${escapeHtml(printer.model || 'Unknown')}</b></div>
+          <div><span>Model</span><b>${escapeHtml(printerModelLabel(printer) || 'Unknown')}</b></div>
           <div><span>Adapter</span><b>${escapeHtml(printer.adapterType || 'unknown')}</b></div>
           <div><span>Serial</span><b>${escapeHtml(printer.serialNumber || '—')}</b></div>
           <div><span>Firmware</span><b>${escapeHtml(s?.firmwareVersion || '—')}</b></div>
