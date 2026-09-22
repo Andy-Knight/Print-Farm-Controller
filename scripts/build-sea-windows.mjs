@@ -38,16 +38,29 @@ function run(command, args) {
   }
 }
 
-async function copyPortableAssets() {
-  await fs.cp(path.join(projectRoot, 'public'), path.join(outputDir, 'public'), { recursive:true });
-  await fs.cp(path.join(projectRoot, 'emulator', 'public'), path.join(outputDir, 'emulator', 'public'), { recursive:true });
-  await fs.cp(path.join(projectRoot, 'emulator', 'assets'), path.join(outputDir, 'emulator', 'assets'), { recursive:true });
-  await fs.copyFile(
-    path.join(projectRoot, 'src', 'licensing', 'trusted-public-keys.json'),
-    path.join(outputDir, 'trusted-public-keys.json')
-  );
+async function addAssetTree(assets, sourceDir, keyPrefix) {
+  const entries = await fs.readdir(sourceDir, { withFileTypes:true });
+  for (const entry of entries) {
+    const sourcePath = path.join(sourceDir, entry.name);
+    const assetKey = path.posix.join(keyPrefix, entry.name);
+    if (entry.isDirectory()) await addAssetTree(assets, sourcePath, assetKey);
+    else if (entry.isFile()) assets[assetKey] = sourcePath;
+  }
 }
 
+async function embeddedAssets() {
+  const assets = {};
+  await addAssetTree(assets, path.join(projectRoot, 'public'), 'public');
+  await addAssetTree(assets, path.join(projectRoot, 'emulator', 'public'), 'emulator/public');
+  await addAssetTree(assets, path.join(projectRoot, 'emulator', 'assets'), 'emulator/assets');
+  assets['licensing/trusted-public-keys.json'] = path.join(
+    projectRoot,
+    'src',
+    'licensing',
+    'trusted-public-keys.json'
+  );
+  return assets;
+}
 async function buildWindowsSea() {
   requireWindowsX64Node24();
   const { version, bundlePath } = await buildControllerBundle();
@@ -62,7 +75,8 @@ async function buildWindowsSea() {
     disableExperimentalSEAWarning:true,
     useSnapshot:false,
     useCodeCache:false,
-    execArgvExtension:'none'
+    execArgvExtension:'none',
+    assets:await embeddedAssets()
   };
   await fs.writeFile(seaConfigPath, `${JSON.stringify(seaConfig, null, 2)}\n`, 'utf8');
 
@@ -74,24 +88,9 @@ async function buildWindowsSea() {
     sentinelFuse:SEA_FUSE
   });
 
-  await copyPortableAssets();
-  await fs.writeFile(
-    path.join(outputDir, 'BUILD-INFO.txt'),
-    [
-      `Print Farm Controller v${version}`,
-      `Built with Node.js ${process.version}`,
-      'Target: Windows x64 portable SEA',
-      '',
-      'This first packaging stage intentionally keeps browser/emulator assets',
-      'and trusted-public-keys.json external to the executable.',
-      'The next hardening stage will embed those resources.',
-      ''
-    ].join('\r\n'),
-    'utf8'
-  );
-
   console.log('');
-  console.log(`Portable build created: ${executablePath}`);
+  console.log(`Hardened portable build created: ${executablePath}`);
+  console.log(`Embedded application assets for Print Farm Controller v${version} using Node.js ${process.version}`);
   console.log('Run PrintFarmController.exe, then open http://localhost:4242');
 }
 
