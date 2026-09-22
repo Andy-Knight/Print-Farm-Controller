@@ -29,7 +29,7 @@ test('emulator management API creates and controls a virtual printer', async (t)
   const base = `http://127.0.0.1:${address.port}`;
 
   const profiles = await fetch(`${base}/api/profiles`).then((response) => response.json());
-  assert.deepEqual(profiles.profiles.map((profile) => profile.id).sort(), ['bambu-p1p', 'bambu-p1s', 'bambu-x1c', 'flashforge-ad5m-pro', 'snapmaker-u1']);
+  assert.deepEqual(profiles.profiles.map((profile) => profile.id).sort(), ['bambu-a1-mini', 'bambu-p1p', 'bambu-p1s', 'bambu-x1c', 'flashforge-ad5m-pro', 'snapmaker-u1']);
 
   const createdResponse = await fetch(`${base}/api/printers`, {
     method: 'POST',
@@ -92,7 +92,7 @@ function waitForData(socket, predicate, timeoutMs = 2000) {
   });
 }
 
-test('Bambu P1P, P1S and X1C profiles expose authenticated LAN protocol endpoints', async (t) => {
+test('Bambu P1P, P1S, X1C and A1 Mini profiles expose authenticated LAN protocol endpoints', async (t) => {
   const emulator = createEmulator({ managementPort: 0, withDefaults: false });
   await emulator.start();
   t.after(() => emulator.stop());
@@ -108,10 +108,15 @@ test('Bambu P1P, P1S and X1C profiles expose authenticated LAN protocol endpoint
     profileId: 'bambu-x1c',
     ports: { mqttPort: 0, ftpsPort: 0, cameraPort: 0 }
   });
+  const a1Mini = await emulator.addPrinter({
+    profileId: 'bambu-a1-mini',
+    ports: { mqttPort: 0, ftpsPort: 0, cameraPort: 0 }
+  });
 
   assert.equal(p1p.model, 'P1P');
   assert.equal(p1s.model, 'P1S');
   assert.equal(x1c.model, 'X1C');
+  assert.equal(a1Mini.model, 'A1 Mini');
   assert.equal(x1c.tools[0].nozzleVolumeType, 'hardened-steel');
   assert.equal(p1p.controllerSettings.protocolStatus, 'simulated-unverified');
   assert.notEqual(p1p.ports.mqttPort, p1s.ports.mqttPort);
@@ -193,6 +198,62 @@ test('Bambu X1C profile interoperates with controller status, files, controls an
   assert.equal(controlled.bed.target, 105);
   assert.ok(Math.abs(controlled.chamberFan - 60) <= 1);
   await assert.rejects(() => adapter.getCameraSource(), /not supported/i);
+});
+
+test('Bambu A1 Mini profile interoperates with the production controller adapter and AMS Lite mapping', async (t) => {
+  const emulator = createEmulator({ managementPort: 0, withDefaults: false });
+  await emulator.start();
+  t.after(() => emulator.stop());
+  const virtual = await emulator.addPrinter({
+    profileId: 'bambu-a1-mini',
+    name: 'Adapter Test A1 Mini',
+    ports: { mqttPort: 0, ftpsPort: 0, cameraPort: 0 }
+  });
+  const config = prepareBambuLabConfig({
+    name: virtual.name,
+    model: virtual.model,
+    host: virtual.host,
+    serialNumber: virtual.serialNumber,
+    accessCode: virtual.checkCode,
+    mqttPort: virtual.ports.mqttPort,
+    ftpsPort: virtual.ports.ftpsPort,
+    cameraPort: virtual.ports.cameraPort
+  });
+  const adapter = getPrinterAdapter(config);
+
+  assert.equal(adapter.model, 'A1 Mini');
+  assert.equal(adapter.limits.bedTemperature.max, 80);
+  assert.equal(adapter.capabilities.camera, true);
+  assert.equal(adapter.capabilities.chamberFan, false);
+  assert.equal(adapter.capabilities.chamberPreheat, false);
+
+  const initial = await adapter.getStatus();
+  assert.equal(initial.status, 'idle');
+  assert.equal(initial.model, 'A1 Mini');
+  assert.equal(initial.cameraAvailable, true);
+  assert.equal(initial.lidarAvailable, false);
+  assert.equal(initial.amsAttached, true);
+  assert.equal(initial.materialSources.filter((source) => source.kind === 'ams').length, 4);
+
+  await adapter.uploadFile(new URL('../README.md', import.meta.url), { fileName:'A1 Mini upload test.3mf' });
+  assert.equal((await adapter.verifyFile('A1 Mini upload test.3mf')).verified, true);
+  await adapter.printLocalFile('A1 Mini upload test.3mf', { materialMap:{ 0:1 }, usedLogicalTools:[0] });
+  const printing = await adapter.getStatus();
+  assert.equal(printing.status, 'printing');
+  assert.equal(printing.materialSources.find((source) => source.active).protocolIndex, 1);
+
+  await adapter.setTemperatures({ nozzle: 215, bed: 70 });
+  const heated = await adapter.getStatus();
+  assert.equal(heated.nozzle.target, 215);
+  assert.equal(heated.bed.target, 70);
+
+  const camera = await adapter.getCameraSource();
+  await camera.start();
+  const jpeg = await camera.getSnapshot();
+  assert.equal(jpeg[0], 0xff);
+  assert.equal(jpeg[1], 0xd8);
+  assert.ok(jpeg.length > 10000);
+  await camera.stop();
 });
 
 test('Bambu P1S profile interoperates with the production controller adapter', async (t) => {
