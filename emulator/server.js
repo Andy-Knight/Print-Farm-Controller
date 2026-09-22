@@ -5,6 +5,7 @@ import { allocatePorts, getProfile, listProfiles } from './profiles.js';
 import { startProtocolEndpoints } from './protocols.js';
 import { VirtualPrinter } from './virtual-printer.js';
 import { resolveControllerRuntimePaths } from '../src/runtime-paths.js';
+import { emulatorPublicAssetKey, readRuntimeAsset } from '../src/runtime-assets.js';
 
 const runtimePaths = resolveControllerRuntimePaths();
 const MIME = { '.html': 'text/html; charset=utf-8', '.css': 'text/css; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.svg': 'image/svg+xml' };
@@ -162,12 +163,18 @@ export function createEmulator({
 
   async function staticFile(response, url, { basePath = '/' } = {}) {
     const pathname = basePath === '/' ? url.pathname : url.pathname.slice(basePath.length);
-    const relative = !pathname || pathname === '/' ? 'index.html' : pathname.replace(/^\/+/, '');
-    const target = path.resolve(publicDir, relative);
-    if (!target.startsWith(`${publicDir}${path.sep}`) && target !== path.join(publicDir, 'index.html')) return json(response, 403, { error: 'Forbidden' });
+    const requested = !pathname || pathname === '/' ? 'index.html' : pathname.replace(/^\/+/, '');
+    const relative = path.posix.normalize(String(requested).replaceAll('\\', '/'));
+    if (!relative || relative === '..' || relative.startsWith('../') || path.posix.isAbsolute(relative)) {
+      return json(response, 403, { error: 'Forbidden' });
+    }
+    const sourcePath = publicDir ? path.join(publicDir, ...relative.split('/')) : null;
     try {
-      const content = await fs.readFile(target);
-      response.writeHead(200, { 'content-type': MIME[path.extname(target)] || 'application/octet-stream', 'content-length': content.length });
+      const content = await readRuntimeAsset({
+        key:emulatorPublicAssetKey(relative),
+        filePath:sourcePath
+      });
+      response.writeHead(200, { 'content-type': MIME[path.extname(relative)] || 'application/octet-stream', 'content-length': content.length });
       response.end(content);
     } catch {
       json(response, 404, { error: 'Not found' });
