@@ -240,9 +240,10 @@ test('Print Library shows cached slicer previews with a larger preview viewer', 
 });
 
 test('Print Library preview background stays the light-mode colour in both themes', () => {
-  assert.match(styles, /\.library-file-preview \{[\s\S]*?background:#f3f7fa;/);
-  assert.match(styles, /\.library-preview-large \{[\s\S]*?background:#f3f7fa;/);
-  assert.doesNotMatch(styles, /:root\[data-theme="light"\] \.library-file-preview,[\s\S]*?background:#f3f7fa;/);
+  assert.match(styles, /\.library-file-preview \{[^}]*background:#f3f7fa;/);
+  assert.match(styles, /\.library-preview-large \{[^}]*background:#f3f7fa;/);
+  assert.match(styles, /:root\[data-theme="light"\] \.library-file-preview,\s*:root\[data-theme="light"\] \.library-preview-large \{[^}]*border-color:#cbd7df;[^}]*\}/);
+  assert.doesNotMatch(styles, /:root\[data-theme="light"\] \.library-file-preview,\s*:root\[data-theme="light"\] \.library-preview-large \{[^}]*background\s*:/);
 });
 
 
