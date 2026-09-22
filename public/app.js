@@ -2968,7 +2968,7 @@ async function openPrinter(id) {
     </div>
     <div id="detailConnectionError" class="error hidden"></div>
     ${printer.licenseActive === false ? '<div class="license-detail-warning">This printer is inactive because it does not have a selected licence slot. Live monitoring and safety controls remain available, but new jobs and normal controller commands are disabled.</div>' : ''}
-    ${printer.adapterType === 'bambu-lab' ? `<div class="file-warning">Experimental Bambu ${escapeHtml(printer.model || '')} support: validate behavior carefully before relying on unattended printing.${printer.model === 'X1C' ? ' X1C RTSPS/H.264 camera decoding is not yet supported.' : ''}${printer.model === 'A1 Mini' ? ' A1 Mini controller print starts are currently limited to sliced .3mf files until raw G-code launch is validated on physical hardware.' : ''}</div>` : ''}
+    ${printer.adapterType === 'bambu-lab' ? `<div class="file-warning">Experimental Bambu ${escapeHtml(printer.model || '')} support: validate behavior carefully before relying on unattended printing.${printer.model === 'X1C' ? ' X1C RTSPS/H.264 camera decoding is not yet supported.' : ''}${printer.model === 'A1 Mini' ? ' Single-material A1 Mini .gcode starts remain experimental until validated on physical hardware; multi-material AMS Lite jobs require sliced .3mf.' : ''}</div>` : ''}
     <div class="detail-grid">
       <div class="detail-column detail-column-left">
         ${detailCameraMarkup(printer)}
