@@ -247,6 +247,10 @@ const P1P_CAPABILITIES = normalizeCapabilities({
   toolheadNozzleStatus: true
 });
 
+const A1_MINI_CAPABILITIES = normalizeCapabilities({
+  ...P1P_CAPABILITIES
+});
+
 const P1S_CAPABILITIES = normalizeCapabilities({
   ...P1P_CAPABILITIES,
   chamberFan: true,
@@ -267,9 +271,16 @@ export class BambuLabAdapter extends PrinterAdapter {
   get model() { return normalizeModel(this.printer.model); }
   get capabilities() {
     if (this.model === 'X1C') return X1C_CAPABILITIES;
-    return this.model === 'P1S' ? P1S_CAPABILITIES : P1P_CAPABILITIES;
+    if (this.model === 'P1S') return P1S_CAPABILITIES;
+    if (this.model === 'A1 Mini') return A1_MINI_CAPABILITIES;
+    return P1P_CAPABILITIES;
   }
-  get uploadExtensions() { return ['.3mf', '.gcode']; }
+  get uploadExtensions() {
+    // Keep A1 Mini starts conservative until raw on-printer G-code launch is
+    // validated against physical hardware. Project-file (.3mf) starts are the
+    // supported controller workflow for this experimental model.
+    return this.model === 'A1 Mini' ? ['.3mf'] : ['.3mf', '.gcode'];
+  }
   get limits() {
     const maxBedTemperature = this.model === 'X1C' ? 120 : this.model === 'A1 Mini' ? 80 : 100;
     return Object.freeze({
