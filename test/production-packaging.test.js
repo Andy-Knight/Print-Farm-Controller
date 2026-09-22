@@ -74,7 +74,9 @@ test('Windows installer protects program files and grants modify access only to 
   assert.match(installerScript, /Name: "\{app\}\\data"; Permissions: users-modify/);
   assert.match(installerScript, /Source: "\.\.\\\.\.\\dist\\windows-x64\\\{#MyAppExeName\}"/);
   assert.doesNotMatch(installerScript, /Permissions: users-modify.*MyAppExeName/);
+  assert.match(installerBuildScript, /Inno Setup 7/);
   assert.match(installerBuildScript, /Inno Setup 6/);
+  assert.ok(installerBuildScript.indexOf("'Inno Setup 7'") < installerBuildScript.indexOf("'Inno Setup 6'"));
   assert.match(installerBuildScript, /PrintFarmController-Setup-v/);
 });
 
