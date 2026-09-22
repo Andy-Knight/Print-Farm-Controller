@@ -10,6 +10,10 @@ const licenceLoader = fs.readFileSync(new URL('../src/licensing/license-loader.j
 const runtimeAssets = fs.readFileSync(new URL('../src/runtime-assets.js', import.meta.url), 'utf8');
 const emulatorServer = fs.readFileSync(new URL('../emulator/server.js', import.meta.url), 'utf8');
 const emulatorProtocols = fs.readFileSync(new URL('../emulator/protocols.js', import.meta.url), 'utf8');
+const installerScript = fs.readFileSync(new URL('../installer/windows/PrintFarmController.iss', import.meta.url), 'utf8');
+const installerBuildScript = fs.readFileSync(new URL('../scripts/build-installer-windows.mjs', import.meta.url), 'utf8');
+const signingScript = fs.readFileSync(new URL('../scripts/sign-windows.mjs', import.meta.url), 'utf8');
+const releaseScript = fs.readFileSync(new URL('../scripts/build-windows-release.mjs', import.meta.url), 'utf8');
 
 test('production packaging scripts use Node 24, esbuild and Node SEA', () => {
   assert.equal(pkg.engines.node, '>=24');
@@ -17,6 +21,9 @@ test('production packaging scripts use Node 24, esbuild and Node SEA', () => {
   assert.equal(pkg.devDependencies.postject, '1.0.0-alpha.6');
   assert.equal(pkg.scripts['build:bundle'], 'node scripts/build-controller-bundle.mjs');
   assert.equal(pkg.scripts['build:sea:windows'], 'node scripts/build-sea-windows.mjs');
+  assert.equal(pkg.scripts['build:installer:windows'], 'npm run build:sea:windows && node scripts/build-installer-windows.mjs');
+  assert.equal(pkg.scripts['sign:windows'], 'node scripts/sign-windows.mjs');
+  assert.equal(pkg.scripts['release:windows'], 'node scripts/build-windows-release.mjs');
   assert.match(bundleScript, /format:'cjs'/);
   assert.match(bundleScript, /target:'node24'/);
   assert.match(bundleScript, /__PFC_VERSION__/);
@@ -58,4 +65,29 @@ test('packaged runtime reads UI, simulator and licence trust data through SEA as
   assert.match(licenceLoader, /readRuntimeTextAsset/);
   assert.match(licenceLoader, /runtimeAssetKeys\.trustedPublicKeys/);
   assert.doesNotMatch(licenceLoader, /new URL\('\.\/trusted-public-keys\.json', import\.meta\.url\)/);
+});
+
+
+test('Windows installer protects program files and grants modify access only to persistent data', () => {
+  assert.match(installerScript, /DefaultDirName=\{autopf\}\\Print Farm Controller/);
+  assert.match(installerScript, /PrivilegesRequired=admin/);
+  assert.match(installerScript, /Name: "\{app\}\\data"; Permissions: users-modify/);
+  assert.match(installerScript, /Source: "\.\.\\\.\.\\dist\\windows-x64\\\{#MyAppExeName\}"/);
+  assert.doesNotMatch(installerScript, /Permissions: users-modify.*MyAppExeName/);
+  assert.match(installerBuildScript, /Inno Setup 6/);
+  assert.match(installerBuildScript, /PrintFarmController-Setup-v/);
+});
+
+test('Windows release signing occurs after SEA injection and before installer compilation', () => {
+  assert.match(signingScript, /'sign'/);
+  assert.match(signingScript, /'\/fd', 'SHA256'/);
+  assert.match(signingScript, /'\/tr', timestampUrl/);
+  assert.match(signingScript, /'verify', '\/pa', '\/v'/);
+  assert.match(signingScript, /PFC_SIGN_CERT_SHA1/);
+  assert.match(signingScript, /PFC_SIGN_PFX/);
+  const seaBuild = releaseScript.indexOf("build-sea-windows.mjs");
+  const exeSign = releaseScript.indexOf("sign-windows.mjs', [portableExe]");
+  const installerBuild = releaseScript.indexOf("build-installer-windows.mjs");
+  const installerSign = releaseScript.indexOf("sign-windows.mjs', [installerExe]");
+  assert.ok(seaBuild >= 0 && exeSign > seaBuild && installerBuild > exeSign && installerSign > installerBuild);
 });
