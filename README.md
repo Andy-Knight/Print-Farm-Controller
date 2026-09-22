@@ -1,6 +1,6 @@
 # Print Farm Controller v0.15.6
 
-> **Current development: production packaging foundation.** Runtime/application paths are now resolved centrally so source runs continue to use the repository root while future Node SEA builds can use the packaged executable directory for `data/` and `license.json`. The supported runtime baseline is Node.js 24+, matching the Node 24.21.0 development environment used for the project.
+> **Current development: production packaging foundation.** Runtime/application paths are resolved centrally, the controller can now be bundled with esbuild, and an initial Windows x64 Node SEA build script produces a portable `PrintFarmController.exe`. This first executable stage deliberately keeps browser/emulator assets and `trusted-public-keys.json` beside the EXE so packaging can be validated before those resources are embedded in the hardening stage. The supported runtime baseline is Node.js 24+, matching the Node 24.21.0 development environment used for the project.
 
 > **v0.15.6 adds dashboard fleet filtering and consolidates the latest controller usability/storage improvements.** The Printers, Online, Printing and Needs attention summary cards can filter the dashboard fleet in place; the active filter is highlighted, filtering stays in sync with live printer/queue state, and an empty-filter state provides a quick return to all printers. This build also includes application-local `data/` storage, consistent **Snapmaker U1** model naming, and the combined printer-card hover/focus highlight treatment.
 
@@ -167,6 +167,50 @@ Other devices on the same LAN can use:
 ```text
 http://<controller-computer-ip>:4242
 ```
+
+## Production packaging (development)
+
+The current `feature/production-packaging` branch contains the first portable Windows x64 packaging pipeline. Development/source mode remains unchanged: `npm start` still runs directly from the repository.
+
+Install the build-only dependencies once:
+
+```powershell
+npm install
+```
+
+Run the full regression suite:
+
+```powershell
+npm test
+```
+
+Build the portable Windows x64 executable:
+
+```powershell
+npm run build:sea:windows
+```
+
+The build command first bundles the Node server with esbuild, generates a Node SEA blob using the local Node 24 runtime, injects it into a copy of `node.exe`, and then stages the required runtime assets. The output is:
+
+```text
+dist/
+└── windows-x64/
+    ├── PrintFarmController.exe
+    ├── BUILD-INFO.txt
+    ├── trusted-public-keys.json
+    ├── public/
+    └── emulator/
+        ├── public/
+        └── assets/
+```
+
+Keep the complete `windows-x64` directory together for this first validation build. Start `PrintFarmController.exe` and open:
+
+```text
+http://localhost:4242
+```
+
+The packaged controller stores `data/` and `license.json` beside the executable, matching the application-local storage model. The first SEA validation stage intentionally leaves web/emulator resources and the trusted licence public-key file external. Once the portable executable has passed functional testing, the next hardening stage will embed those resources into the executable before installer work begins.
 
 ## Printer Emulator
 
