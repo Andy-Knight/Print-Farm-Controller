@@ -11,7 +11,7 @@
 - v0.15.5 Print Library previews are merged into `main`.
 - v0.15.6 includes dashboard summary filtering, application-local data storage, Snapmaker U1 display naming and printer-card hover/focus highlighting.
 - **v0.16.0 production packaging is merged into `main`** via PR #24 (squash commit `af8d8e493e2f311c1469ed5faddfffc2316ae727`): centralized runtime paths detect source vs Node SEA execution, esbuild produces a CommonJS controller bundle, and the Windows x64 SEA build embeds the controller UI, simulator UI/resources and trusted Ed25519 public verification keys directly into `PrintFarmController.exe`. The Windows installer targets Program Files, leaves the EXE protected, grants standard-user modify permission only to `data/`, and packaged builds store the signed customer licence at `data/license.json`. Inno Setup 7 is the preferred Windows installer compiler (Inno Setup 6 remains supported as a fallback), and optional Authenticode signing workflows are included.
-- **v0.16.1 dashboard/UI polish:** `feature/dashboard-ready-green` makes main-dashboard **Idle** and **Ready** status badges green in both Dark and Light modes, matching the Printer Simulator's available-state treatment. It also fixes Print Library thumbnail and enlarged-preview backgrounds to the existing Light-mode colour `#f3f7fa` in both themes. Existing Offline/Error/Pause styling is unchanged.
+- **v0.16.1 dashboard/UI polish is merged into `main`** via PR #25 (squash commit `8936dcf40a75579d6575306d95e3eca79f4508f5`): main-dashboard **Idle** and **Ready** status badges are green in both Dark and Light modes, matching the Printer Simulator's available-state treatment. Print Library thumbnail and enlarged-preview backgrounds use the existing Light-mode colour `#f3f7fa` in both themes. Existing Offline/Error/Pause styling is unchanged.
 - Runtime: **Node.js 24+** (development baseline Node.js 24.21.0), ES modules, no npm runtime dependencies.
 - GitHub is the authoritative code baseline.
 
@@ -161,7 +161,7 @@ Manufacturer-specific discovery, capabilities, limits, status normalization, fil
 
 ## Current task
 
-**v0.16.0 is the current merged release on `main`; `feature/dashboard-ready-green` is versioned as v0.16.1 and is awaiting validation.** v0.16.1 updates the main-dashboard Idle/Ready status treatment and makes Print Library preview backgrounds consistent between Light and Dark modes.
+**v0.16.1 is the current merged release on `main`.** The dashboard Idle/Ready colour treatment and consistent Print Library preview backgrounds were manually validated before merge.
 
 - **Print Library** = what can be printed.
 - **Queue** = what should be printed.
@@ -175,7 +175,7 @@ Bambu P1P/P1S/X1C support remains explicitly experimental. Physical X1C RTSPS/H.
 
 **Completed for v0.16.0:** full `npm test` regression run, rebuild of the Windows SEA executable and Inno Setup installer, and verification that both the installer and controller UI/footer report **v0.16.0**.
 
-1. Add Linux x64 and ARM64 packaging from the v0.16.0 `main` baseline.
+1. Add Linux x64 and ARM64 packaging from the v0.16.1 `main` baseline.
 2. Code signing is **not a blocker for development or private testing**. The Authenticode workflow is already implemented; when a production certificate is obtained, `npm run release:windows` signs the injected SEA executable, builds the installer around the signed EXE, then signs and verifies the installer.
 3. Future Windows packaging polish: add a custom Print Farm Controller icon for the installer, installed shortcuts and, ideally, the packaged executable itself. This is intentionally deferred.
 4. Add systematic feature-by-feature entitlement gates only where product packaging requires them; preserve the signed licence format and existing edition definitions.
