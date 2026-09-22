@@ -1,9 +1,10 @@
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
 import { isSea } from 'node:sea';
 
 function sourceApplicationDir() {
-  return path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+  const entryPoint = process.argv[1] ? path.resolve(process.argv[1]) : null;
+  if (entryPoint) return path.resolve(path.dirname(entryPoint), '..');
+  return path.resolve(process.cwd());
 }
 
 export function resolveControllerRuntimePaths({
