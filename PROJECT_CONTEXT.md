@@ -7,7 +7,7 @@
 - Repository: `Andy-Knight/Print-Farm-Controller`
 - Project path: repository root (`/`)
 - Primary branch: `main` (current production baseline)
-- Current application version on this branch: **0.15.6**. The packaging work will be released as **v0.16.0**; bump the version before merge/release.
+- Current application version on this branch: **0.16.0**.
 - v0.15.5 Print Library previews are merged into `main`.
 - v0.15.6 includes dashboard summary filtering, application-local data storage, Snapmaker U1 display naming and printer-card hover/focus highlighting.
 - Current feature branch `feature/production-packaging` establishes hardened production packaging: centralized runtime paths detect source vs Node SEA execution, esbuild produces a CommonJS controller bundle, and the Windows x64 SEA build embeds the controller UI, simulator UI/resources and trusted Ed25519 public verification keys directly into `PrintFarmController.exe`. The Windows installer targets Program Files, leaves the EXE protected, grants standard-user modify permission only to `data/`, and packaged builds store the signed customer licence at `data/license.json`. Inno Setup 7 is the preferred Windows installer compiler (Inno Setup 6 remains supported as a fallback), and Authenticode signing workflows are included. Inno Setup may display `Non-commercial use only` during development until a commercial licence is installed; current upstream guidance permits purchasing that licence when the installer is ready for production, so this does not block test builds.
@@ -156,10 +156,11 @@ Manufacturer-specific discovery, capabilities, limits, status normalization, fil
 - **v0.15.4 Print Library descriptions:** library files support optional free-text description/notes (maximum 4000 characters). Notes are persisted in library metadata, displayed on cards, included in search, editable later through **Edit details**, and accepted when a new file is uploaded through either the library or queue workflow.
 - **v0.15.5 Print Library previews:** library files cache slicer-provided preview images when available. 3MF extraction prefers Orca/Bambu plate thumbnails such as `Metadata/plate_1.png`; G-code extraction recognises embedded PNG/JPEG thumbnail blocks and selects the largest supported image. Existing entries are backfilled on first read. The library card shows a compact thumbnail or **No preview** placeholder, and clicking a real thumbnail opens a larger viewer.
 - **v0.15.6 dashboard filtering:** the top summary cards are interactive filters for all printers, online printers, actively printing printers, and printers needing attention. The active filter is highlighted, live state changes automatically re-evaluate visibility, and printer reordering controls are hidden while a subset is filtered. This build also includes the application-local `data/` storage change, Snapmaker U1 display naming and printer-card hover/focus highlighting.
+- **v0.16.0 production packaging:** hardened Windows x64 Node SEA executable with embedded controller/simulator assets and trusted public licence keys; Inno Setup 7 installer targeting Program Files; normal-user writable `data/`; packaged `data/license.json`; optional Authenticode release-signing workflow; Node 24 production baseline.
 
 ## Current task
 
-**v0.15.6 remains the current merged release. `feature/production-packaging` has now passed the portable SEA and unsigned Windows installer validation stages and is intended to become v0.16.0 before merge.** Runtime path handling is centralized; the Windows x64 Node SEA build embeds controller/simulator resources and trusted licence verification keys; Inno Setup 7 installs the app under Program Files while granting normal users write access only to `data/`. Authenticode signing support is implemented but is optional for development/private testing until a production code-signing certificate is obtained.
+**v0.15.6 remains the current merged release. `feature/production-packaging` is now versioned as v0.16.0 and has passed the portable SEA and unsigned Windows installer validation stages.** Runtime path handling is centralized; the Windows x64 Node SEA build embeds controller/simulator resources and trusted licence verification keys; Inno Setup 7 installs the app under Program Files while granting normal users write access only to `data/`. Authenticode signing support is implemented but is optional for development/private testing until a production code-signing certificate is obtained.
 
 - **Print Library** = what can be printed.
 - **Queue** = what should be printed.
@@ -171,8 +172,8 @@ Bambu P1P/P1S/X1C support remains explicitly experimental. Physical X1C RTSPS/H.
 
 ## Next steps
 
-1. Bump the packaging branch from **0.15.6 to 0.16.0** before release/merge and update the README/context/version-derived installer output accordingly.
-2. Re-run the full `npm test` suite and rebuild the Windows SEA executable and Inno Setup installer after the 0.16.0 version bump.
+1. Re-run the full `npm test` suite and rebuild the Windows SEA executable and Inno Setup installer as **v0.16.0**.
+2. Confirm the rebuilt installer identifies itself as v0.16.0 and the controller UI/footer reports v0.16.0.
 3. Code signing is **not a blocker for development or private testing**. The Authenticode workflow is already implemented; when a production certificate is obtained, `npm run release:windows` signs the injected SEA executable, builds the installer around the signed EXE, then signs and verifies the installer.
 4. Add Linux x64 and ARM64 packaging after the Windows packaging branch is stable.
 5. Add systematic feature-by-feature entitlement gates only where product packaging requires them; preserve the signed licence format and existing edition definitions.
