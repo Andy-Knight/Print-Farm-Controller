@@ -10,7 +10,7 @@
 - Current application version on this branch: **0.15.6**
 - v0.15.5 Print Library previews are merged into `main`.
 - v0.15.6 includes dashboard summary filtering, application-local data storage, Snapmaker U1 display naming and printer-card hover/focus highlighting.
-- Current feature branch `feature/production-packaging` establishes production packaging foundations: centralized runtime paths detect source vs Node SEA execution and keep application-local data/licence paths beside the packaged executable.
+- Current feature branch `feature/production-packaging` establishes production packaging foundations: centralized runtime paths detect source vs Node SEA execution, esbuild produces a CommonJS controller bundle, and the initial Windows x64 SEA build stages a portable `PrintFarmController.exe` plus external browser/emulator assets and trusted public keys for first-pass validation.
 - Runtime: **Node.js 24+** (development baseline Node.js 24.21.0), ES modules, no npm runtime dependencies.
 - GitHub is the authoritative code baseline.
 
@@ -174,10 +174,12 @@ Bambu P1P/P1S/X1C support remains explicitly experimental. Physical X1C RTSPS/H.
 1. v0.15.5 full automated regression suite passed with no issues (user-run validation).
 2. v0.15.5 manual validation passed for 3MF previews, embedded G-code thumbnails, and the no-preview fallback. Existing-file backfill remains covered by automated regression tests.
 3. v0.15.5 `feature/print-library-previews` merged into `main` after automated and manual validation.
-4. Run the full regression suite on Node.js 24.21.0 against `feature/production-packaging` and validate normal source-mode startup/data/licence behaviour.
-5. Add the production bundling/SEA build step, then embed browser/emulator assets and trusted production licence public keys before producing the first portable Windows executable.
-6. Add systematic feature-by-feature entitlement gates only where product packaging requires them; preserve the signed licence format and existing edition definitions.
-7. Continue physical validation of experimental Bambu behaviour before removing the experimental designation.
+4. Packaging-foundation regression validation on Node.js 24.21.0 passed with 0 failures before the SEA build step was added.
+5. Build and manually validate the first Windows x64 portable SEA package using `npm install`, `npm test`, then `npm run build:sea:windows`. Keep the complete `dist/windows-x64/` directory together during this validation stage.
+6. After the portable EXE passes controller, printer, simulator, file, queue and licence checks, embed the browser/emulator assets and trusted production public keys into the executable and rerun the regression/manual validation.
+7. Add Windows installer/signing and Linux x64/ARM64 packaging only after the hardened portable executable is stable.
+8. Add systematic feature-by-feature entitlement gates only where product packaging requires them; preserve the signed licence format and existing edition definitions.
+9. Continue physical validation of experimental Bambu behaviour before removing the experimental designation.
 
 ## Handoff rule
 
