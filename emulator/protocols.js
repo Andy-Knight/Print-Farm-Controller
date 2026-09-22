@@ -2,15 +2,35 @@ import http from 'node:http';
 import net from 'node:net';
 import tls from 'node:tls';
 import crypto from 'node:crypto';
-import { readFileSync } from 'node:fs';
+import path from 'node:path';
+import { readRuntimeAssetSync, runtimeAssetKeys } from '../src/runtime-assets.js';
 
 const WEBSOCKET_GUID = '258EAFA5-E914-47DA-95CA-C5AB0DC85B11';
 
-const TEST_FRAME_JPEG = readFileSync(new URL('./assets/test-frame.jpg', import.meta.url));
-const BAMBU_TLS = Object.freeze({
-  key: readFileSync(new URL('./assets/bambu-simulator-key.pem', import.meta.url)),
-  cert: readFileSync(new URL('./assets/bambu-simulator-cert.pem', import.meta.url))
-});
+let TEST_FRAME_JPEG = null;
+let BAMBU_TLS = null;
+let loadedAssetsDir = null;
+
+function loadProtocolAssets(assetsDir) {
+  const sourceDir = assetsDir ? path.resolve(String(assetsDir)) : null;
+  const cacheKey = sourceDir || 'embedded-sea-assets';
+  if (loadedAssetsDir === cacheKey && TEST_FRAME_JPEG && BAMBU_TLS) return;
+  TEST_FRAME_JPEG = readRuntimeAssetSync({
+    key:runtimeAssetKeys.emulatorTestFrame,
+    filePath:sourceDir ? path.join(sourceDir, 'test-frame.jpg') : null
+  });
+  BAMBU_TLS = Object.freeze({
+    key:readRuntimeAssetSync({
+      key:runtimeAssetKeys.emulatorBambuKey,
+      filePath:sourceDir ? path.join(sourceDir, 'bambu-simulator-key.pem') : null
+    }),
+    cert:readRuntimeAssetSync({
+      key:runtimeAssetKeys.emulatorBambuCert,
+      filePath:sourceDir ? path.join(sourceDir, 'bambu-simulator-cert.pem') : null
+    })
+  });
+  loadedAssetsDir = cacheKey;
+}
 const MJPEG_BOUNDARY = 'printfleetemulator';
 
 function sendJson(response, status, body) {
@@ -814,7 +834,8 @@ function createBambuFtpsServer(printer) {
   return server;
 }
 
-export async function startProtocolEndpoints(printer) {
+export async function startProtocolEndpoints(printer, { assetsDir } = {}) {
+  loadProtocolAssets(assetsDir);
   const servers = [];
   try {
     if (printer.adapterType === 'snapmaker-u1') {

@@ -1,4 +1,12 @@
-# Print Farm Controller v0.15.6
+# Print Farm Controller v0.16.0
+
+> **Current development: hardened production packaging.** Runtime/application paths are resolved centrally, the controller is bundled with esbuild, and the Windows x64 Node SEA build now embeds the controller UI, simulator UI/resources and trusted Ed25519 public verification keys directly inside `PrintFarmController.exe`. Only persistent runtime data and the signed customer `license.json` remain external. The supported runtime baseline is Node.js 24+, matching the Node 24.21.0 development environment used for the project.
+
+> **Packaging validation:** the hardened Windows x64 single-executable build has been manually validated successfully with embedded controller UI, simulator resources and trusted licence public keys.
+
+> **Installer validation:** the Inno Setup 7 Windows installer has been built and manually validated successfully under Program Files, including normal non-admin runtime writes to `data/` and packaged licence storage at `data/license.json`.
+
+> **v0.16.0 adds production packaging.** The controller can now be bundled into a hardened Windows x64 Node SEA executable with embedded UI, simulator resources and trusted licence verification keys. The branch also includes an Inno Setup 7 installer for Program Files deployment, writable application-local `data/`, packaged licence storage at `data/license.json`, and an optional Authenticode signing workflow for future production releases.
 
 > **v0.15.6 adds dashboard fleet filtering and consolidates the latest controller usability/storage improvements.** The Printers, Online, Printing and Needs attention summary cards can filter the dashboard fleet in place; the active filter is highlighted, filtering stays in sync with live printer/queue state, and an empty-filter state provides a quick return to all printers. This build also includes application-local `data/` storage, consistent **Snapmaker U1** model naming, and the combined printer-card hover/focus highlight treatment.
 
@@ -82,7 +90,7 @@ The application is named **Print Farm Controller**. The default application-data
 
 ## Licensing
 
-Print Farm Controller v0.14.9 uses offline Ed25519-signed licence files. The controller contains trusted **public** verification keys only; private signing keys are never required by the controller.
+Print Farm Controller uses offline Ed25519-signed licence files. The controller contains trusted **public** verification keys only; private signing keys are never required by the controller.
 
 If no valid signed licence is installed, the controller runs as **Community Edition**.
 
@@ -99,13 +107,14 @@ If an installed licence allows fewer physical printers than are already configur
 
 ### Licence file
 
-The normal licence location is:
+The normal licence location depends on how the controller is run:
 
 ```text
-<controller application directory>/license.json
+Source/development: <controller application directory>/license.json
+Packaged SEA:       <controller application directory>/data/license.json
 ```
 
-The controller also temporarily supports the previous application-data-directory location for migration compatibility. When both locations contain a licence, the application-directory licence takes priority.
+Packaged builds prefer `data/license.json` so an installation under Program Files can remain read-only for normal users. A previous application-directory `license.json` is still accepted for migration; reinstalling the licence moves it to the current packaged data location.
 
 A licence contains signed customer/licence metadata such as:
 
@@ -148,7 +157,7 @@ The internal `allowDevelopmentOverrides:true` loader option exists for tests/dev
 
 ## Run
 
-Requires Node.js 20 or later. There are no npm runtime dependencies.
+Requires Node.js 24 or later. Development has been performed against Node.js 24.21.0. There are no npm runtime dependencies.
 
 ```bash
 npm start
@@ -165,6 +174,104 @@ Other devices on the same LAN can use:
 ```text
 http://<controller-computer-ip>:4242
 ```
+
+## Production packaging (development)
+
+The current `feature/production-packaging` branch contains the hardened Windows x64 Node SEA packaging pipeline. Development/source mode remains unchanged: `npm start` still runs directly from the repository.
+
+Install the build-only dependencies once:
+
+```powershell
+npm install
+```
+
+Run the full regression suite:
+
+```powershell
+npm test
+```
+
+Build the portable Windows x64 executable:
+
+```powershell
+npm run build:sea:windows
+```
+
+The build command bundles the Node server with esbuild, adds the controller UI, simulator UI/resources and trusted Ed25519 public verification keys as Node SEA assets, generates the SEA blob with the local Node 24 runtime, then injects that blob into a copy of `node.exe`.
+
+The clean build output is:
+
+```text
+dist/
+└── windows-x64/
+    └── PrintFarmController.exe
+```
+
+Start `PrintFarmController.exe` and open:
+
+```text
+http://localhost:4242
+```
+
+The executable reads its built-in web/simulator resources and trusted licence public keys directly from the SEA payload. It creates `data/` beside the executable for persistent controller state. Packaged builds also store the replaceable signed customer licence at `data/license.json`, keeping the executable/application directory read-only for normal users. A previous application-directory `license.json` remains readable for migration.
+
+The Ed25519 private signing key is never included in the controller. The Bambu simulator TLS key embedded in the executable is only a local simulator/test credential and is unrelated to production licence signing.
+
+The copied Node executable's original Authenticode signature is invalidated when the SEA payload is injected, so the build may report a signature warning. The final installer/release process will digitally sign the finished `PrintFarmController.exe` after all embedding is complete.
+
+### Windows installer
+
+The Windows installer uses **Inno Setup 7** (preferred; Inno Setup 6 remains supported as a fallback) and installs the controller under Program Files. The executable remains protected by normal Program Files permissions, while the installer creates only the `data/` directory with standard-user modify permission so printer configuration, queue/library state, simulator settings and `data/license.json` can be updated without running the controller as Administrator.
+
+Install Inno Setup 7 x64, then build an unsigned installer with:
+
+```powershell
+npm run build:installer:windows
+```
+
+This rebuilds the hardened SEA executable first, then creates:
+
+```text
+dist/
+└── installer/
+    └── PrintFarmController-Setup-v0.16.0.exe
+```
+
+The installer creates a Start Menu shortcut and offers an optional desktop shortcut. Uninstalling the application does not explicitly delete the `data/` directory, so user data is not intentionally removed by the uninstall script.
+
+### Windows code signing
+
+Authenticode signing is performed **after** the SEA payload has been injected. For a signed release the workflow is:
+
+```text
+Build SEA executable
+→ sign PrintFarmController.exe
+→ build installer containing the signed EXE
+→ sign installer
+```
+
+The signing script supports either a certificate already installed in the Windows certificate store or a PFX file. Configure `signtool.exe` using `SIGNTOOL_PATH` if it is not already on PATH, and configure one signing identity:
+
+```powershell
+$env:PFC_SIGN_CERT_SHA1="<certificate thumbprint>"
+# or:
+$env:PFC_SIGN_PFX="C:\path\to\code-signing.pfx"
+$env:PFC_SIGN_PFX_PASSWORD="<password>"
+```
+
+Also set the RFC 3161 timestamp URL recommended by the code-signing certificate provider:
+
+```powershell
+$env:PFC_TIMESTAMP_URL="<timestamp URL>"
+```
+
+Then create the complete signed release with:
+
+```powershell
+npm run release:windows
+```
+
+The release script signs and verifies both the finished controller executable and the final installer.
 
 ## Printer Emulator
 

@@ -1,12 +1,13 @@
 import http from 'node:http';
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
 import { allocatePorts, getProfile, listProfiles } from './profiles.js';
 import { startProtocolEndpoints } from './protocols.js';
 import { VirtualPrinter } from './virtual-printer.js';
+import { resolveControllerRuntimePaths } from '../src/runtime-paths.js';
+import { emulatorPublicAssetKey, readRuntimeAsset } from '../src/runtime-assets.js';
 
-const PUBLIC_DIR = path.join(path.dirname(fileURLToPath(import.meta.url)), 'public');
+const runtimePaths = resolveControllerRuntimePaths();
 const MIME = { '.html': 'text/html; charset=utf-8', '.css': 'text/css; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.svg': 'image/svg+xml' };
 
 function json(response, status, body) {
@@ -68,7 +69,9 @@ function controllerSettings(printer) {
 export function createEmulator({
   host = process.env.EMULATOR_HOST || '127.0.0.1',
   managementPort = Number(process.env.EMULATOR_PORT || 4250),
-  withDefaults = process.env.EMULATOR_NO_DEFAULTS !== '1'
+  withDefaults = process.env.EMULATOR_NO_DEFAULTS !== '1',
+  publicDir = runtimePaths.emulatorPublicDir,
+  assetsDir = runtimePaths.emulatorAssetsDir
 } = {}) {
   const printers = new Map();
   const endpointHandles = new Map();
@@ -100,7 +103,7 @@ export function createEmulator({
     });
     printer.on('change', broadcast);
     try {
-      const endpoints = await startProtocolEndpoints(printer);
+      const endpoints = await startProtocolEndpoints(printer, { assetsDir });
       endpointHandles.set(id, endpoints);
       printers.set(id, printer);
       broadcast();
@@ -160,12 +163,18 @@ export function createEmulator({
 
   async function staticFile(response, url, { basePath = '/' } = {}) {
     const pathname = basePath === '/' ? url.pathname : url.pathname.slice(basePath.length);
-    const relative = !pathname || pathname === '/' ? 'index.html' : pathname.replace(/^\/+/, '');
-    const target = path.resolve(PUBLIC_DIR, relative);
-    if (!target.startsWith(`${PUBLIC_DIR}${path.sep}`) && target !== path.join(PUBLIC_DIR, 'index.html')) return json(response, 403, { error: 'Forbidden' });
+    const requested = !pathname || pathname === '/' ? 'index.html' : pathname.replace(/^\/+/, '');
+    const relative = path.posix.normalize(String(requested).replaceAll('\\', '/'));
+    if (!relative || relative === '..' || relative.startsWith('../') || path.posix.isAbsolute(relative)) {
+      return json(response, 403, { error: 'Forbidden' });
+    }
+    const sourcePath = publicDir ? path.join(publicDir, ...relative.split('/')) : null;
     try {
-      const content = await fs.readFile(target);
-      response.writeHead(200, { 'content-type': MIME[path.extname(target)] || 'application/octet-stream', 'content-length': content.length });
+      const content = await readRuntimeAsset({
+        key:emulatorPublicAssetKey(relative),
+        filePath:sourcePath
+      });
+      response.writeHead(200, { 'content-type': MIME[path.extname(relative)] || 'application/octet-stream', 'content-length': content.length });
       response.end(content);
     } catch {
       json(response, 404, { error: 'Not found' });
@@ -237,7 +246,8 @@ export function createEmulator({
   };
 }
 
-const isEntryPoint = process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url);
+const standaloneEntry = runtimePaths.sourceRoot ? path.join(runtimePaths.sourceRoot, 'emulator', 'server.js') : null;
+const isEntryPoint = Boolean(standaloneEntry && process.argv[1] && path.resolve(process.argv[1]) === standaloneEntry);
 if (isEntryPoint) {
   const emulator = createEmulator();
   emulator.start().then((address) => {

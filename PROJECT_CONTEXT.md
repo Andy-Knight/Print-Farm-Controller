@@ -7,10 +7,11 @@
 - Repository: `Andy-Knight/Print-Farm-Controller`
 - Project path: repository root (`/`)
 - Primary branch: `main` (current production baseline)
-- Current application version on this branch: **0.15.6**
+- Current application version on this branch: **0.16.0**.
 - v0.15.5 Print Library previews are merged into `main`.
 - v0.15.6 includes dashboard summary filtering, application-local data storage, Snapmaker U1 display naming and printer-card hover/focus highlighting.
-- Runtime: **Node.js 20+**, ES modules, no npm runtime dependencies.
+- Current feature branch `feature/production-packaging` establishes hardened production packaging: centralized runtime paths detect source vs Node SEA execution, esbuild produces a CommonJS controller bundle, and the Windows x64 SEA build embeds the controller UI, simulator UI/resources and trusted Ed25519 public verification keys directly into `PrintFarmController.exe`. The Windows installer targets Program Files, leaves the EXE protected, grants standard-user modify permission only to `data/`, and packaged builds store the signed customer licence at `data/license.json`. Inno Setup 7 is the preferred Windows installer compiler (Inno Setup 6 remains supported as a fallback), and Authenticode signing workflows are included. Inno Setup may display `Non-commercial use only` during development until a commercial licence is installed; current upstream guidance permits purchasing that licence when the installer is ready for production, so this does not block test builds.
+- Runtime: **Node.js 24+** (development baseline Node.js 24.21.0), ES modules, no npm runtime dependencies.
 - GitHub is the authoritative code baseline.
 
 ## Architecture
@@ -77,7 +78,7 @@ Manufacturer-specific discovery, capabilities, limits, status normalization, fil
 - Production licensing is offline and Ed25519-signed. The controller ships trusted public verification keys only; production private keys live only in the separate private `Andy-Knight/Print-Farm-Licensing` application.
 - No valid signed licence means Community Edition. Current physical-printer allowances are Community 2, Pro 10, Farm 25; simulator printers do not consume licence slots.
 - Reducing the allowance never deletes configured printers. Over-limit fleets retain all printers and require selection of the physical printers that occupy active licence slots.
-- The signed licence file defaults to `<application directory>/license.json`; the previous data-directory location remains accepted temporarily for migration, with the application-directory file taking priority.
+- Source/development mode keeps the signed licence at `<application directory>/license.json`. Packaged SEA builds prefer `<application directory>/data/license.json` so Program Files can remain read-only; an older application-directory `license.json` is still accepted for migration.
 - Production startup must not allow environment-variable licence bypasses. `PRINT_CONTROLLER_EDITION` and arbitrary public-key trust are ignored unless source/test code explicitly enables the internal development override path.
 - Licence installation/replacement reloads the signed licence immediately; a normal controller restart is not required.
 - The edition entitlement catalogue exists for future feature-by-feature enforcement. As of v0.14.8 the production enforcement path includes signature/expiry validation and physical-printer slot limits; do not describe every entitlement as fully gated unless the code has actually been wired to enforce it.
@@ -155,10 +156,11 @@ Manufacturer-specific discovery, capabilities, limits, status normalization, fil
 - **v0.15.4 Print Library descriptions:** library files support optional free-text description/notes (maximum 4000 characters). Notes are persisted in library metadata, displayed on cards, included in search, editable later through **Edit details**, and accepted when a new file is uploaded through either the library or queue workflow.
 - **v0.15.5 Print Library previews:** library files cache slicer-provided preview images when available. 3MF extraction prefers Orca/Bambu plate thumbnails such as `Metadata/plate_1.png`; G-code extraction recognises embedded PNG/JPEG thumbnail blocks and selects the largest supported image. Existing entries are backfilled on first read. The library card shows a compact thumbnail or **No preview** placeholder, and clicking a real thumbnail opens a larger viewer.
 - **v0.15.6 dashboard filtering:** the top summary cards are interactive filters for all printers, online printers, actively printing printers, and printers needing attention. The active filter is highlighted, live state changes automatically re-evaluate visibility, and printer reordering controls are hidden while a subset is filtered. This build also includes the application-local `data/` storage change, Snapmaker U1 display naming and printer-card hover/focus highlighting.
+- **v0.16.0 production packaging:** hardened Windows x64 Node SEA executable with embedded controller/simulator assets and trusted public licence keys; Inno Setup 7 installer targeting Program Files; normal-user writable `data/`; packaged `data/license.json`; optional Authenticode release-signing workflow; Node 24 production baseline.
 
 ## Current task
 
-**v0.15.6 is the current merged release.** It adds clickable dashboard summary filtering while retaining the existing Print Library / Queue / History separation:
+**v0.15.6 remains the current merged release. `feature/production-packaging` is now versioned as v0.16.0 and has passed the portable SEA and unsigned Windows installer validation stages.** Runtime path handling is centralized; the Windows x64 Node SEA build embeds controller/simulator resources and trusted licence verification keys; Inno Setup 7 installs the app under Program Files while granting normal users write access only to `data/`. Authenticode signing support is implemented but is optional for development/private testing until a production code-signing certificate is obtained.
 
 - **Print Library** = what can be printed.
 - **Queue** = what should be printed.
@@ -170,9 +172,11 @@ Bambu P1P/P1S/X1C support remains explicitly experimental. Physical X1C RTSPS/H.
 
 ## Next steps
 
-1. v0.15.5 full automated regression suite passed with no issues (user-run validation).
-2. v0.15.5 manual validation passed for 3MF previews, embedded G-code thumbnails, and the no-preview fallback. Existing-file backfill remains covered by automated regression tests.
-3. v0.15.5 `feature/print-library-previews` merged into `main` after automated and manual validation.
+**Completed for v0.16.0:** full `npm test` regression run, rebuild of the Windows SEA executable and Inno Setup installer, and verification that both the installer and controller UI/footer report **v0.16.0**.
+
+1. Code signing is **not a blocker for development or private testing**. The Authenticode workflow is already implemented; when a production certificate is obtained, `npm run release:windows` signs the injected SEA executable, builds the installer around the signed EXE, then signs and verifies the installer.
+2. Add Linux x64 and ARM64 packaging after the Windows packaging branch is stable.
+3. Future Windows packaging polish: add a custom Print Farm Controller icon for the installer, installed shortcuts and, ideally, the packaged executable itself. This is intentionally deferred and is not a blocker for v0.16.0.
 4. Add systematic feature-by-feature entitlement gates only where product packaging requires them; preserve the signed licence format and existing edition definitions.
 5. Continue physical validation of experimental Bambu behaviour before removing the experimental designation.
 
@@ -197,16 +201,15 @@ Andy-Knight/Print-Farm-Licensing
 ```
 
 Default licence location:
+- source/development mode: `<application directory>/license.json`
+- packaged SEA builds: `<application directory>/data/license.json`
 
-```text
-<application directory>/license.json
-```
-
-Licence-file lookup order:
+Packaged licence-file lookup order:
 1. `PRINT_CONTROLLER_LICENSE_FILE` explicit file override, when deliberately configured.
-2. Application-directory `license.json`.
-3. Legacy application-data-directory `license.json` for migration compatibility.
-4. No file -> Community Edition.
+2. Preferred packaged `data/license.json`.
+3. Previous application-directory `license.json` for migration compatibility.
+4. Other legacy data-directory location where applicable.
+5. No file -> Community Edition.
 
 Signed editions:
 - Community: 2 physical printers
@@ -241,10 +244,10 @@ Current entitlement catalogue:
 - `remote.multi_site`
 
 Edition mappings:
-- BASIC = basic control, file management, camera, preheat, manual queue
-- PRO = BASIC + job priority + statistics + maintenance + history
-- FARM = PRO + smart assignment + batch jobs + multi-operator + bed clearance + material/nozzle matching + auto transfer + failure recovery
-- development = `*`, unrestricted/noncommercial
+- Community = basic control, file management, camera, preheat, manual queue
+- Pro = Community feature set + job priority + statistics + maintenance + history
+- Farm = Pro feature set + smart assignment + batch jobs + multi-operator + bed clearance + material/nozzle matching + auto transfer + failure recovery
+- Development = `*`, unrestricted/noncommercial
 
 As of v0.14.8, do **not** assume every catalogue entry is systematically enforced throughout the UI/API. The release-gated enforcement is signed-licence validity/expiry plus physical-printer slot limits. Extend feature gating deliberately and test each gated surface.
 

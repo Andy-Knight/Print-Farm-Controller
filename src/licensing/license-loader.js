@@ -1,14 +1,18 @@
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
 import { LicenseManager } from './license-manager.js';
 import { verifyLicenseDocument } from './signature-verifier.js';
+import { resolveControllerRuntimePaths } from '../runtime-paths.js';
+import { readRuntimeTextAsset, runtimeAssetKeys } from '../runtime-assets.js';
 
-const TRUSTED_KEYS_PATH = fileURLToPath(new URL('./trusted-public-keys.json', import.meta.url));
+const TRUSTED_KEYS_PATH = resolveControllerRuntimePaths().trustedPublicKeysPath;
 
 async function readTrustedPublicKeys(trustedKeysPath = TRUSTED_KEYS_PATH) {
   try {
-    const raw = await fs.readFile(trustedKeysPath, 'utf8');
+    const raw = await readRuntimeTextAsset({
+      key:runtimeAssetKeys.trustedPublicKeys,
+      filePath:trustedKeysPath
+    });
     const parsed = JSON.parse(raw || '{}');
     return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? { ...parsed } : {};
   } catch (error) {
@@ -43,7 +47,7 @@ function communityFallback({ source, status, warning, licenseFile, verification 
   });
 }
 
-async function resolveLicenseFile({ appDir, dataDir, env }) {
+async function resolveLicenseFile({ appDir, dataDir, env, preferredLicenseFile = null }) {
   const override = String(env.PRINT_CONTROLLER_LICENSE_FILE || '').trim();
   if (override) {
     return {
@@ -53,41 +57,47 @@ async function resolveLicenseFile({ appDir, dataDir, env }) {
   }
 
   const applicationLicenseFile = path.resolve(appDir, 'license.json');
-  try {
-    await fs.access(applicationLicenseFile);
-    return {
-      licenseFile:applicationLicenseFile,
-      legacyLocation:false
-    };
-  } catch (error) {
-    if (error?.code !== 'ENOENT') {
-      return {
-        licenseFile:applicationLicenseFile,
-        legacyLocation:false
-      };
-    }
-  }
+  const preferred = preferredLicenseFile ? path.resolve(preferredLicenseFile) : applicationLicenseFile;
 
-  if (dataDir) {
-    const legacyLicenseFile = path.resolve(dataDir, 'license.json');
+  for (const candidate of [...new Set([preferred, applicationLicenseFile].filter(Boolean))]) {
     try {
-      await fs.access(legacyLicenseFile);
+      await fs.access(candidate);
       return {
-        licenseFile:legacyLicenseFile,
-        legacyLocation:true
+        licenseFile:candidate,
+        legacyLocation:candidate !== preferred
       };
     } catch (error) {
       if (error?.code !== 'ENOENT') {
         return {
-          licenseFile:legacyLicenseFile,
-          legacyLocation:true
+          licenseFile:candidate,
+          legacyLocation:candidate !== preferred
         };
       }
     }
   }
 
+  if (dataDir) {
+    const legacyLicenseFile = path.resolve(dataDir, 'license.json');
+    if (legacyLicenseFile !== preferred && legacyLicenseFile !== applicationLicenseFile) {
+      try {
+        await fs.access(legacyLicenseFile);
+        return {
+          licenseFile:legacyLicenseFile,
+          legacyLocation:true
+        };
+      } catch (error) {
+        if (error?.code !== 'ENOENT') {
+          return {
+            licenseFile:legacyLicenseFile,
+            legacyLocation:true
+          };
+        }
+      }
+    }
+  }
+
   return {
-    licenseFile:applicationLicenseFile,
+    licenseFile:preferred,
     legacyLocation:false
   };
 }
@@ -99,6 +109,7 @@ export async function loadLicenseManager({
   now = new Date(),
   trustedPublicKeys = null,
   trustedKeysPath = TRUSTED_KEYS_PATH,
+  preferredLicenseFile = null,
   allowDevelopmentOverrides = false
 } = {}) {
   if (!appDir) throw new Error('appDir is required to load the controller licence');
@@ -115,7 +126,8 @@ export async function loadLicenseManager({
   const { licenseFile, legacyLocation } = await resolveLicenseFile({
     appDir,
     dataDir,
-    env
+    env,
+    preferredLicenseFile
   });
 
   let keys = trustedPublicKeys && typeof trustedPublicKeys === 'object'
@@ -180,7 +192,7 @@ export async function loadLicenseManager({
     warnings.push('This licence remains valid, but its feature-update entitlement has expired.');
   }
   if (legacyLocation) {
-    warnings.push('Licence loaded from the previous data-directory location. Move license.json into the application directory.');
+    warnings.push('Licence loaded from a previous location. Reinstall the licence to move it to the current application data location.');
   }
 
   return new LicenseManager({

@@ -1,8 +1,7 @@
 import http from 'node:http';
-import { promises as fs } from 'node:fs';
+import { promises as fs, readFileSync } from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
-import { fileURLToPath } from 'node:url';
 import {
   addPrinter,
   getPrinter,
@@ -34,13 +33,16 @@ import { assessMaterialCompatibility } from './file-material-metadata.js';
 import { getPrinterFileMaterialMetadata, removePrinterFileMaterialMetadata } from './file-material-store.js';
 import { EmulatorManager } from './emulator-manager.js';
 import { loadLicenseManager } from './licensing/license-loader.js';
+import { resolveControllerRuntimePaths } from './runtime-paths.js';
+import { publicAssetKey, readRuntimeAsset } from './runtime-assets.js';
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const PUBLIC_DIR = path.resolve(__dirname, '../public');
-const APP_DIR = path.resolve(__dirname, '..');
-const PACKAGE_PATH = path.join(APP_DIR, 'package.json');
-const packageInfo = JSON.parse(await fs.readFile(PACKAGE_PATH, 'utf8'));
-const CONTROLLER_VERSION = String(packageInfo.version || 'unknown');
+const runtimePaths = resolveControllerRuntimePaths();
+const PUBLIC_DIR = runtimePaths.publicDir;
+const APP_DIR = runtimePaths.applicationDir;
+const PACKAGE_PATH = runtimePaths.packageJsonPath;
+const bundledVersion = typeof __PFC_VERSION__ === 'string' ? __PFC_VERSION__ : null;
+const packageInfo = PACKAGE_PATH ? JSON.parse(readFileSync(PACKAGE_PATH, 'utf8')) : {};
+const CONTROLLER_VERSION = String(bundledVersion || packageInfo.version || 'unknown');
 const PORT = Number(process.env.PORT || 4242);
 const HOST = process.env.HOST || '0.0.0.0';
 const fleetState = new FleetStateService();
@@ -49,10 +51,7 @@ const cameraManager = new CameraManager({
 });
 const chamberPreheat = new ChamberPreheatService({ fleetState });
 const emulatorManager = new EmulatorManager();
-let licenseManager = await loadLicenseManager({
-  appDir:APP_DIR,
-  dataDir:controllerDataDir
-});
+let licenseManager = null;
 
 function isControllerSimulator(printer) {
   return printer?.simulated === true || emulatorManager.isSimulatedConfig(printer);
@@ -165,7 +164,7 @@ async function installLicenseDocument(input) {
     throw error;
   }
 
-  const target = path.join(APP_DIR, 'license.json');
+  const target = runtimePaths.licensePath;
   try {
     await fs.writeFile(target, `${documentText}\n`, { encoding:'utf8', mode:0o600 });
   } catch (error) {
@@ -181,7 +180,8 @@ async function installLicenseDocument(input) {
 
   licenseManager = await loadLicenseManager({
     appDir:APP_DIR,
-    dataDir:controllerDataDir
+    dataDir:controllerDataDir,
+    preferredLicenseFile:runtimePaths.licensePath
   });
 
   fleetState.schedulePublish();
@@ -844,16 +844,17 @@ async function apiRoute(req, res, url) {
 }
 
 async function serveStatic(res, pathname) {
-  const requested = pathname === '/' ? '/index.html' : pathname;
-  const normalized = path.normalize(requested).replace(/^(\.\.(\/|\\|$))+/, '');
-  const filePath = path.join(PUBLIC_DIR, normalized);
-  if (!filePath.startsWith(PUBLIC_DIR)) return false;
+  const requested = pathname === '/' ? 'index.html' : String(pathname || '').replace(/^\/+/, '');
+  const normalized = path.posix.normalize(requested.replaceAll('\\', '/'));
+  if (!normalized || normalized === '..' || normalized.startsWith('../') || path.posix.isAbsolute(normalized)) return false;
+  const filePath = PUBLIC_DIR ? path.join(PUBLIC_DIR, ...normalized.split('/')) : null;
   try {
-    const stat = await fs.stat(filePath);
-    if (!stat.isFile()) return false;
-    const data = await fs.readFile(filePath);
+    const data = await readRuntimeAsset({
+      key:publicAssetKey(normalized),
+      filePath
+    });
     res.writeHead(200, {
-      'content-type': contentTypes[path.extname(filePath)] || 'application/octet-stream',
+      'content-type': contentTypes[path.extname(normalized)] || 'application/octet-stream',
       'cache-control': 'no-cache'
     });
     res.end(data);
@@ -912,25 +913,40 @@ async function shutdown() {
 process.on('SIGINT', shutdown);
 process.on('SIGTERM', shutdown);
 
-try {
-  const emulatorStatus = await emulatorManager.init();
-  if (emulatorStatus.running) console.log(`Integrated printer simulator enabled with ${emulatorStatus.printerCount} loopback endpoints`);
-} catch (error) {
-  console.error(`Could not start integrated printer simulator: ${error.message}`);
+async function startController() {
+  licenseManager = await loadLicenseManager({
+    appDir:APP_DIR,
+    dataDir:controllerDataDir,
+    preferredLicenseFile:runtimePaths.licensePath
+  });
+
+  try {
+    const emulatorStatus = await emulatorManager.init();
+    if (emulatorStatus.running) console.log(`Integrated printer simulator enabled with ${emulatorStatus.printerCount} loopback endpoints`);
+  } catch (error) {
+    console.error(`Could not start integrated printer simulator: ${error.message}`);
+  }
+
+  await fleetState.start();
+  await printQueue.start();
+  chamberPreheat.startService();
+
+  server.listen(PORT, HOST, () => {
+    console.log(`Print Farm Controller v${CONTROLLER_VERSION} running at http://localhost:${PORT}`);
+    const license = currentLicenseSnapshot();
+    console.log(`Licence: ${license.label} (${license.source}; enforcement ${license.enforcementEnabled ? 'enabled' : 'disabled'})`);
+    console.log(`LAN access: http://<this-computer-ip>:${PORT}`);
+    console.log('Generic printer adapter + capability layer enabled (FlashForge AD5M + Snapmaker U1 + experimental Bambu P1P/P1S/X1C)');
+    console.log('Live fleet polling + SSE enabled');
+    console.log('Shared backend camera proxy enabled');
+    console.log('Bounded chamber preheat control enabled');
+    console.log('Batch fleet control enabled');
+    console.log('Verified multi-printer file distribution enabled');
+    console.log('Persistent fleet print queue + history enabled');
+  });
 }
-await fleetState.start();
-await printQueue.start();
-chamberPreheat.startService();
-server.listen(PORT, HOST, () => {
-  console.log(`Print Farm Controller v${CONTROLLER_VERSION} running at http://localhost:${PORT}`);
-  const license = currentLicenseSnapshot();
-  console.log(`Licence: ${license.label} (${license.source}; enforcement ${license.enforcementEnabled ? 'enabled' : 'disabled'})`);
-  console.log(`LAN access: http://<this-computer-ip>:${PORT}`);
-  console.log('Generic printer adapter + capability layer enabled (FlashForge AD5M + Snapmaker U1 + experimental Bambu P1P/P1S/X1C)');
-  console.log('Live fleet polling + SSE enabled');
-  console.log('Shared backend camera proxy enabled');
-  console.log('Bounded chamber preheat control enabled');
-  console.log('Batch fleet control enabled');
-  console.log('Verified multi-printer file distribution enabled');
-  console.log('Persistent fleet print queue + history enabled');
+
+startController().catch((error) => {
+  console.error(`Could not start Print Farm Controller: ${error.message}`);
+  process.exitCode = 1;
 });

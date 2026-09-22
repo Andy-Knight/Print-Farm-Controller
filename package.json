@@ -1,6 +1,6 @@
 {
   "name": "printer-fleet-controller",
-  "version": "0.15.6",
+  "version": "0.16.0",
   "private": true,
   "type": "module",
   "description": "Print Farm Controller: local-first FlashForge and Snapmaker fleet control with experimental Bambu P1P/P1S/X1C support and printer emulation",
@@ -8,9 +8,18 @@
     "start": "node src/server.js",
     "dev": "node --watch src/server.js",
     "emulator": "node emulator/server.js",
-    "test": "node --test"
+    "test": "node --test",
+    "build:bundle": "node scripts/build-controller-bundle.mjs",
+    "build:sea:windows": "node scripts/build-sea-windows.mjs",
+    "build:installer:windows": "npm run build:sea:windows && node scripts/build-installer-windows.mjs",
+    "sign:windows": "node scripts/sign-windows.mjs",
+    "release:windows": "node scripts/build-windows-release.mjs"
   },
   "engines": {
-    "node": ">=20"
+    "node": ">=24"
+  },
+  "devDependencies": {
+    "esbuild": "0.28.2",
+    "postject": "1.0.0-alpha.6"
   }
 }

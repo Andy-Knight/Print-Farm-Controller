@@ -1,7 +1,7 @@
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
 import { createEmulator } from '../emulator/server.js';
-import { controllerDataDir } from './store.js';
+import { resolveControllerRuntimePaths } from './runtime-paths.js';
 
 function json(response, status, body) {
   const payload = JSON.stringify(body);
@@ -22,15 +22,21 @@ async function readJson(request) {
 
 export class EmulatorManager {
   constructor({
-    settingsPath = path.join(controllerDataDir, 'emulator-settings.json'),
+    settingsPath = resolveControllerRuntimePaths().emulatorSettingsPath,
     host = '127.0.0.1',
     withDefaults = process.env.EMULATOR_NO_DEFAULTS !== '1',
     emulator = null
   } = {}) {
+    const runtimePaths = resolveControllerRuntimePaths();
     this.settingsPath = settingsPath;
     this.host = host;
     this.enabled = false;
-    this.emulator = emulator || createEmulator({ host, withDefaults });
+    this.emulator = emulator || createEmulator({
+      host,
+      withDefaults,
+      publicDir:runtimePaths.emulatorPublicDir,
+      assetsDir:runtimePaths.emulatorAssetsDir
+    });
   }
 
   snapshot() {
