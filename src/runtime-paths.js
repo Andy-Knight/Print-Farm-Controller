@@ -27,12 +27,10 @@ export function resolveControllerRuntimePaths({
     defaultDataDir,
     dataDir,
     customDataDir:requestedDataDir ? dataDir : null,
-    publicDir:sourceRoot ? path.join(sourceRoot, 'public') : path.join(applicationDir, 'public'),
-    emulatorPublicDir:sourceRoot ? path.join(sourceRoot, 'emulator', 'public') : path.join(applicationDir, 'emulator', 'public'),
-    emulatorAssetsDir:sourceRoot ? path.join(sourceRoot, 'emulator', 'assets') : path.join(applicationDir, 'emulator', 'assets'),
-    trustedPublicKeysPath:sourceRoot
-      ? path.join(sourceRoot, 'src', 'licensing', 'trusted-public-keys.json')
-      : path.join(applicationDir, 'trusted-public-keys.json'),
+    publicDir:sourceRoot ? path.join(sourceRoot, 'public') : null,
+    emulatorPublicDir:sourceRoot ? path.join(sourceRoot, 'emulator', 'public') : null,
+    emulatorAssetsDir:sourceRoot ? path.join(sourceRoot, 'emulator', 'assets') : null,
+    trustedPublicKeysPath:sourceRoot ? path.join(sourceRoot, 'src', 'licensing', 'trusted-public-keys.json') : null,
     packageJsonPath:sourceRoot ? path.join(sourceRoot, 'package.json') : null,
     licensePath:path.join(applicationDir, 'license.json'),
     emulatorSettingsPath:path.join(dataDir, 'emulator-settings.json')
