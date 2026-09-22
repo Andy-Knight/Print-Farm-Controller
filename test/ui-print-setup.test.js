@@ -31,6 +31,12 @@ test('offline printer badge remains red in light mode', () => {
   assert.match(styles, /:root\[data-theme="light"\] \.badge\.offline \{ background:#4b2528; color:#ffafb4; \}/);
 });
 
+test('idle and ready printer badges are green on the dashboard in both themes', () => {
+  assert.match(styles, /\.badge\.printing,\.badge\.working,\.badge\.building_from_sd,\.badge\.idle,\.badge\.ready \{ background:#1a4035; color:#9be4c9; \}/);
+  assert.match(styles, /:root\[data-theme="light"\] \.badge\.idle,/);
+  assert.match(styles, /:root\[data-theme="light"\] \.badge\.ready \{ background:#e1f2ea; color:#247552; \}/);
+});
+
 test('printer cards highlight with border, lift and shadow on hover or keyboard focus', () => {
   assert.match(styles, /\.fleet \.card \{ transition:transform \.14s ease, border-color \.14s ease, box-shadow \.14s ease; \}/);
   assert.match(styles, /\.fleet \.card:hover,[\s\S]*\.fleet \.card:focus-within[\s\S]*transform:translateY\(-2px\)/);
@@ -232,6 +238,13 @@ test('Print Library shows cached slicer previews with a larger preview viewer', 
   assert.match(preview, /Metadata\\\/plate_1\\\.png/);
   assert.match(preview, /gcodeThumbnailCandidates/);
 });
+
+test('Print Library preview background stays the light-mode colour in both themes', () => {
+  assert.match(styles, /\.library-file-preview \{[\s\S]*?background:#f3f7fa;/);
+  assert.match(styles, /\.library-preview-large \{[\s\S]*?background:#f3f7fa;/);
+  assert.doesNotMatch(styles, /:root\[data-theme="light"\] \.library-file-preview,[\s\S]*?background:#f3f7fa;/);
+});
+
 
 test('Print Library supports searchable editable free-text descriptions', () => {
   const server = fs.readFileSync(new URL('../src/server.js', import.meta.url), 'utf8');

@@ -7,10 +7,11 @@
 - Repository: `Andy-Knight/Print-Farm-Controller`
 - Project path: repository root (`/`)
 - Primary branch: `main` (current production baseline)
-- Current application version on this branch: **0.16.0**.
+- Current application version on this branch: **0.16.1**.
 - v0.15.5 Print Library previews are merged into `main`.
 - v0.15.6 includes dashboard summary filtering, application-local data storage, Snapmaker U1 display naming and printer-card hover/focus highlighting.
 - **v0.16.0 production packaging is merged into `main`** via PR #24 (squash commit `af8d8e493e2f311c1469ed5faddfffc2316ae727`): centralized runtime paths detect source vs Node SEA execution, esbuild produces a CommonJS controller bundle, and the Windows x64 SEA build embeds the controller UI, simulator UI/resources and trusted Ed25519 public verification keys directly into `PrintFarmController.exe`. The Windows installer targets Program Files, leaves the EXE protected, grants standard-user modify permission only to `data/`, and packaged builds store the signed customer licence at `data/license.json`. Inno Setup 7 is the preferred Windows installer compiler (Inno Setup 6 remains supported as a fallback), and optional Authenticode signing workflows are included.
+- **v0.16.1 dashboard/UI polish:** `feature/dashboard-ready-green` makes main-dashboard **Idle** and **Ready** status badges green in both Dark and Light modes, matching the Printer Simulator's available-state treatment. It also fixes Print Library thumbnail and enlarged-preview backgrounds to the existing Light-mode colour `#f3f7fa` in both themes. Existing Offline/Error/Pause styling is unchanged.
 - Runtime: **Node.js 24+** (development baseline Node.js 24.21.0), ES modules, no npm runtime dependencies.
 - GitHub is the authoritative code baseline.
 
@@ -160,7 +161,7 @@ Manufacturer-specific discovery, capabilities, limits, status normalization, fil
 
 ## Current task
 
-**v0.16.0 is the current merged release on `main`.** The hardened Windows x64 SEA build and unsigned Inno Setup installer have both been manually validated. Runtime path handling is centralized; the SEA build embeds controller/simulator resources and trusted licence verification keys; Inno Setup 7 installs the app under Program Files while granting normal users write access only to `data/`. Authenticode signing support is implemented but remains optional until a production code-signing certificate is obtained.
+**v0.16.0 is the current merged release on `main`; `feature/dashboard-ready-green` is versioned as v0.16.1 and is awaiting validation.** v0.16.1 updates the main-dashboard Idle/Ready status treatment and makes Print Library preview backgrounds consistent between Light and Dark modes.
 
 - **Print Library** = what can be printed.
 - **Queue** = what should be printed.
