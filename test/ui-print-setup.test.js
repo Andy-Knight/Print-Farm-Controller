@@ -178,6 +178,11 @@ test('U1 print setup warns on nozzle mismatch and exposes guided XYZ offset cali
 });
 
 
+test('unsupported chamber controls are omitted rather than shown disabled', () => {
+  assert.match(app, /\$\{capabilities\.chamberPreheat \? `<div class="panel chamber-preheat-panel">/);
+  assert.match(app, /\$\{capabilities\.chamberFan \? `<div class="control-row"><label>Chamber fan %/);
+});
+
 test('printer detail uses stable desktop columns so expanding maintenance does not rebalance panels', () => {
   assert.match(styles, /\.printer-dialog \{ width:min\(1200px,calc\(100vw - 30px\)\); \}/);
   assert.match(styles, /\.detail-grid \{ display:grid; grid-template-columns:minmax\(0,1fr\) minmax\(0,1fr\); gap:18px; align-items:start; \}/);
