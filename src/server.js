@@ -180,7 +180,8 @@ async function installLicenseDocument(input) {
 
   licenseManager = await loadLicenseManager({
     appDir:APP_DIR,
-    dataDir:controllerDataDir
+    dataDir:controllerDataDir,
+    preferredLicenseFile:runtimePaths.licensePath
   });
 
   fleetState.schedulePublish();
@@ -915,7 +916,8 @@ process.on('SIGTERM', shutdown);
 async function startController() {
   licenseManager = await loadLicenseManager({
     appDir:APP_DIR,
-    dataDir:controllerDataDir
+    dataDir:controllerDataDir,
+    preferredLicenseFile:runtimePaths.licensePath
   });
 
   try {
