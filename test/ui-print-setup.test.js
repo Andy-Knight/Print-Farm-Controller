@@ -40,6 +40,23 @@ test('printer cards highlight with border, lift and shadow on hover or keyboard 
   assert.match(styles, /\.fleet \.card\.dragging \{ transform:none; \}/);
 });
 
+test('dashboard summary cards filter the visible printer fleet', () => {
+  assert.match(index, /id="fleetFilterEmpty"/);
+  assert.match(index, /data-dashboard-filter-reset/);
+  assert.match(app, /let dashboardFilter = 'all'/);
+  assert.match(app, /function isPrinterPrinting\(printer\)/);
+  assert.match(app, /function printerNeedsAttention\(printer\)/);
+  assert.match(app, /function matchesDashboardFilter\(printer, filter = dashboardFilter\)/);
+  assert.match(app, /data-dashboard-filter="\$\{filter\}"/);
+  assert.match(app, /aria-pressed="\$\{active\}"/);
+  assert.match(app, /card\.classList\.toggle\('hidden', !show\)/);
+  assert.match(app, /fleetEl\.classList\.toggle\('filtered', dashboardFilter !== 'all'\)/);
+  assert.match(app, /summaryEl\.addEventListener\('click'/);
+  assert.match(app, /setDashboardFilter\(filter\.dataset\.dashboardFilter\)/);
+  assert.match(styles, /\.summary-card\.active/);
+  assert.match(styles, /\.fleet\.filtered \.reorder-controls \{ display:none; \}/);
+});
+
 test('Snapmaker U1 is named consistently on dashboard and printer details', () => {
   assert.match(app, /function printerModelLabel\(printer\)/);
   assert.match(app, /printer\?\.adapterType === 'snapmaker-u1'\) return 'Snapmaker U1'/);
