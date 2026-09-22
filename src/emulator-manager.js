@@ -27,10 +27,16 @@ export class EmulatorManager {
     withDefaults = process.env.EMULATOR_NO_DEFAULTS !== '1',
     emulator = null
   } = {}) {
+    const runtimePaths = resolveControllerRuntimePaths();
     this.settingsPath = settingsPath;
     this.host = host;
     this.enabled = false;
-    this.emulator = emulator || createEmulator({ host, withDefaults });
+    this.emulator = emulator || createEmulator({
+      host,
+      withDefaults,
+      publicDir:runtimePaths.emulatorPublicDir,
+      assetsDir:runtimePaths.emulatorAssetsDir
+    });
   }
 
   snapshot() {
