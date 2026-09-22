@@ -88,7 +88,7 @@ The application is named **Print Farm Controller**. The default application-data
 
 ## Licensing
 
-Print Farm Controller v0.14.9 uses offline Ed25519-signed licence files. The controller contains trusted **public** verification keys only; private signing keys are never required by the controller.
+Print Farm Controller uses offline Ed25519-signed licence files. The controller contains trusted **public** verification keys only; private signing keys are never required by the controller.
 
 If no valid signed licence is installed, the controller runs as **Community Edition**.
 
@@ -105,13 +105,14 @@ If an installed licence allows fewer physical printers than are already configur
 
 ### Licence file
 
-The normal licence location is:
+The normal licence location depends on how the controller is run:
 
 ```text
-<controller application directory>/license.json
+Source/development: <controller application directory>/license.json
+Packaged SEA:       <controller application directory>/data/license.json
 ```
 
-The controller also temporarily supports the previous application-data-directory location for migration compatibility. When both locations contain a licence, the application-directory licence takes priority.
+Packaged builds prefer `data/license.json` so an installation under Program Files can remain read-only for normal users. A previous application-directory `license.json` is still accepted for migration; reinstalling the licence moves it to the current packaged data location.
 
 A licence contains signed customer/licence metadata such as:
 
