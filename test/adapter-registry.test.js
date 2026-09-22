@@ -117,7 +117,7 @@ test('Bambu P1P, P1S, X1C and A1 Mini configuration exposes model-specific exper
   assert.equal(a1Mini.capabilities.materialSlotMapping, true);
   assert.equal(a1Mini.limits.bedTemperature.max, 80);
   assert.equal(a1Mini.limits.nozzleTemperature.max, 300);
-  assert.deepEqual(a1Mini.uploadExtensions, ['.3mf']);
+  assert.deepEqual(a1Mini.uploadExtensions, ['.3mf', '.gcode']);
   assert.deepEqual(p1s.uploadExtensions, ['.3mf', '.gcode']);
   assert.throws(() => preparePrinterConfig({ ...common, model:'A1' }), /model must be P1P, P1S, X1C or A1 Mini/);
 });
