@@ -6,7 +6,7 @@ import { createBambuCameraSource } from '../bambu-camera.js';
 import { parse3mfPrintRequirements, parseGcodePrintRequirements } from '../file-print-requirements.js';
 
 export const BAMBU_LAB_ADAPTER_TYPE = 'bambu-lab';
-export const BAMBU_LAB_MODELS = Object.freeze(['P1P', 'P1S', 'X1C']);
+export const BAMBU_LAB_MODELS = Object.freeze(['P1P', 'P1S', 'X1C', 'A1 Mini']);
 
 function cleanHost(host) {
   return String(host || '').trim().replace(/^[a-z]+:\/\//i, '').replace(/\/$/, '').replace(/:\d+$/, '');
@@ -19,8 +19,11 @@ function validPort(value, fallback, label) {
 }
 
 function normalizeModel(value) {
-  const model = String(value || 'P1S').trim().toUpperCase();
-  if (!BAMBU_LAB_MODELS.includes(model)) throw new Error('Bambu model must be P1P, P1S or X1C');
+  const raw = String(value || 'P1S').trim();
+  const compact = raw.toUpperCase().replace(/[\s_-]+/g, '');
+  if (compact === 'A1MINI') return 'A1 Mini';
+  const model = raw.toUpperCase();
+  if (!BAMBU_LAB_MODELS.includes(model)) throw new Error('Bambu model must be P1P, P1S, X1C or A1 Mini');
   return model;
 }
 
@@ -268,11 +271,12 @@ export class BambuLabAdapter extends PrinterAdapter {
   }
   get uploadExtensions() { return ['.3mf', '.gcode']; }
   get limits() {
+    const maxBedTemperature = this.model === 'X1C' ? 120 : this.model === 'A1 Mini' ? 80 : 100;
     return Object.freeze({
-      bedTemperature: { min: 0, max: this.model === 'X1C' ? 120 : 100 },
+      bedTemperature: { min: 0, max: maxBedTemperature },
       nozzleTemperature: { min: 0, max: 300 },
       fanPercent: { min: 0, max: 100 },
-      chamberPreheatBedTemperature: { min: 30, max: this.model === 'X1C' ? 120 : 100 },
+      chamberPreheatBedTemperature: { min: 30, max: maxBedTemperature },
       chamberPreheatMinutes: { min: 1, max: 120 },
       toolCount: 1
     });
@@ -333,7 +337,7 @@ export class BambuLabAdapter extends PrinterAdapter {
 export const bambuLabAdapterDefinition = Object.freeze({
   type: BAMBU_LAB_ADAPTER_TYPE,
   manufacturer: 'Bambu Lab',
-  label: 'Bambu Lab P1P / P1S / X1C (experimental)',
+  label: 'Bambu Lab P1P / P1S / X1C / A1 Mini (experimental)',
   models: [...BAMBU_LAB_MODELS],
   capabilities: P1S_CAPABILITIES,
   experimental: true,
@@ -341,13 +345,14 @@ export const bambuLabAdapterDefinition = Object.freeze({
     { name: 'model', label: 'Model', required: true, type:'select', defaultValue:'P1S', options:[
       { value:'P1P', label:'P1P' },
       { value:'P1S', label:'P1S' },
-      { value:'X1C', label:'X1 Carbon (X1C)' }
+      { value:'X1C', label:'X1 Carbon (X1C)' },
+      { value:'A1 Mini', label:'A1 Mini' }
     ], help:'Select the Bambu printer model. Support remains experimental until validated on physical hardware.' },
     { name: 'serialNumber', label: 'Printer serial number', required: true, placeholder: 'Shown in printer device information' },
     { name: 'accessCode', label: 'LAN access code', required: true, secret: true, placeholder: 'Shown in LAN / Developer mode', help: 'Enable LAN Only or Developer mode on the printer, then enter its access code.' },
     { name: 'mqttPort', label: 'MQTT TLS port', required: true, type: 'number', defaultValue: 8883, min: 1, max: 65535 },
     { name: 'ftpsPort', label: 'FTPS TLS port', required: true, type: 'number', defaultValue: 990, min: 1, max: 65535 },
-    { name: 'cameraPort', label: 'Camera port', required: true, type: 'number', defaultValue: 6000, min: 1, max: 65535, help: 'P1P/P1S use TLS/JPEG port 6000. X1C uses RTSPS/H.264 port 322; X1C camera decoding is not yet supported by the controller.' }
+    { name: 'cameraPort', label: 'Camera port', required: true, type: 'number', defaultValue: 6000, min: 1, max: 65535, help: 'P1P/P1S/A1 Mini use TLS/JPEG port 6000. X1C uses RTSPS/H.264 port 322; X1C camera decoding is not yet supported by the controller.' }
   ],
   prepareConfig: prepareBambuLabConfig,
   create: (printer) => new BambuLabAdapter(printer)
