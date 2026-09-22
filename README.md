@@ -225,8 +225,6 @@ The Windows installer uses **Inno Setup 7** (preferred; Inno Setup 6 remains sup
 
 Install Inno Setup 7 x64, then build an unsigned installer with:
 
-> Inno Setup may report **Non-commercial use only** until a commercial licence key is installed. That does not block development/testing. Inno Setup's current guidance says a commercial licence can be purchased when the installer is ready for production use; commercial users are requested to purchase one before production distribution.
-
 ```powershell
 npm run build:installer:windows
 ```
