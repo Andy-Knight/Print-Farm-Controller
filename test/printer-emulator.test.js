@@ -235,6 +235,11 @@ test('Bambu A1 Mini profile interoperates with the production controller adapter
   assert.equal(initial.amsAttached, true);
   assert.equal(initial.materialSources.filter((source) => source.kind === 'ams').length, 4);
 
+  await adapter.printLocalFile('calibration-cube.gcode');
+  assert.equal((await adapter.getStatus()).status, 'printing');
+  await adapter.setJobState('cancel');
+  assert.equal((await adapter.getStatus()).status, 'cancelled');
+
   await adapter.uploadFile(new URL('../README.md', import.meta.url), { fileName:'A1 Mini upload test.3mf' });
   assert.equal((await adapter.verifyFile('A1 Mini upload test.3mf')).verified, true);
   await adapter.printLocalFile('A1 Mini upload test.3mf', { materialMap:{ 0:1 }, usedLogicalTools:[0] });
