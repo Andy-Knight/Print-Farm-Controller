@@ -9,6 +9,7 @@
 - Primary branch: `main` (current production baseline)
 - Current application version on this branch: **0.15.5**
 - v0.15.5 Print Library previews are merged into `main`.
+- Current feature work: clickable dashboard summary cards filter the visible fleet by all printers, online, printing, or needs-attention state without changing the stored fleet order.
 - Runtime: **Node.js 20+**, ES modules, no npm runtime dependencies.
 - GitHub is the authoritative code baseline.
 
