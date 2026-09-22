@@ -239,6 +239,13 @@ test('Print Library shows cached slicer previews with a larger preview viewer', 
   assert.match(preview, /gcodeThumbnailCandidates/);
 });
 
+test('Print Library preview background stays the light-mode colour in both themes', () => {
+  assert.match(styles, /\.library-file-preview \{[\s\S]*?background:#f3f7fa;/);
+  assert.match(styles, /\.library-preview-large \{[\s\S]*?background:#f3f7fa;/);
+  assert.doesNotMatch(styles, /:root\[data-theme="light"\] \.library-file-preview,[\s\S]*?background:#f3f7fa;/);
+});
+
+
 test('Print Library supports searchable editable free-text descriptions', () => {
   const server = fs.readFileSync(new URL('../src/server.js', import.meta.url), 'utf8');
   const library = fs.readFileSync(new URL('../src/print-library.js', import.meta.url), 'utf8');
