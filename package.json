@@ -8,9 +8,15 @@
     "start": "node src/server.js",
     "dev": "node --watch src/server.js",
     "emulator": "node emulator/server.js",
-    "test": "node --test"
+    "test": "node --test",
+    "build:bundle": "node scripts/build-controller-bundle.mjs",
+    "build:sea:windows": "node scripts/build-sea-windows.mjs"
   },
   "engines": {
     "node": ">=24"
+  },
+  "devDependencies": {
+    "esbuild": "0.28.2",
+    "postject": "1.0.0-alpha.6"
   }
 }
