@@ -275,12 +275,7 @@ export class BambuLabAdapter extends PrinterAdapter {
     if (this.model === 'A1 Mini') return A1_MINI_CAPABILITIES;
     return P1P_CAPABILITIES;
   }
-  get uploadExtensions() {
-    // Keep A1 Mini starts conservative until raw on-printer G-code launch is
-    // validated against physical hardware. Project-file (.3mf) starts are the
-    // supported controller workflow for this experimental model.
-    return this.model === 'A1 Mini' ? ['.3mf'] : ['.3mf', '.gcode'];
-  }
+  get uploadExtensions() { return ['.3mf', '.gcode']; }
   get limits() {
     const maxBedTemperature = this.model === 'X1C' ? 120 : this.model === 'A1 Mini' ? 80 : 100;
     return Object.freeze({
@@ -314,7 +309,7 @@ export class BambuLabAdapter extends PrinterAdapter {
       amsAttached:status.amsAttached === true,
       amsMappingSupported:extension === '.3mf' || requirements.toolCount <= 1,
       warning:extension !== '.3mf' && requirements.toolCount > 1
-        ? 'Bambu multi-material AMS printing requires a sliced .3mf project file.'
+        ? 'Bambu multi-material AMS/AMS Lite printing requires a sliced .3mf project file.'
         : requirements.warning
     };
   }
