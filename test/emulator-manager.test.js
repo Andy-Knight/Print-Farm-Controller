@@ -45,6 +45,7 @@ test('integrated emulator exposes management API and UI under controller paths',
   assert.equal(status.loopbackOnly, true);
   const profiles = await fetch(`${base}/api/emulator/profiles`).then((response) => response.json());
   assert.ok(profiles.profiles.some((profile) => profile.id === 'bambu-x1c'));
+  assert.ok(profiles.profiles.some((profile) => profile.id === 'bambu-a1-mini'));
   const app = await fetch(`${base}/simulator/app.js`).then((response) => response.text());
   assert.match(app, /\/api\/emulator/);
 });
