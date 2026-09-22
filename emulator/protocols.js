@@ -3,14 +3,25 @@ import net from 'node:net';
 import tls from 'node:tls';
 import crypto from 'node:crypto';
 import { readFileSync } from 'node:fs';
+import path from 'node:path';
 
 const WEBSOCKET_GUID = '258EAFA5-E914-47DA-95CA-C5AB0DC85B11';
 
-const TEST_FRAME_JPEG = readFileSync(new URL('./assets/test-frame.jpg', import.meta.url));
-const BAMBU_TLS = Object.freeze({
-  key: readFileSync(new URL('./assets/bambu-simulator-key.pem', import.meta.url)),
-  cert: readFileSync(new URL('./assets/bambu-simulator-cert.pem', import.meta.url))
-});
+let TEST_FRAME_JPEG = null;
+let BAMBU_TLS = null;
+let loadedAssetsDir = null;
+
+function loadProtocolAssets(assetsDir) {
+  const resolved = path.resolve(String(assetsDir || ''));
+  if (!assetsDir || !resolved) throw new Error('Emulator protocol assets directory is required');
+  if (loadedAssetsDir === resolved && TEST_FRAME_JPEG && BAMBU_TLS) return;
+  TEST_FRAME_JPEG = readFileSync(path.join(resolved, 'test-frame.jpg'));
+  BAMBU_TLS = Object.freeze({
+    key: readFileSync(path.join(resolved, 'bambu-simulator-key.pem')),
+    cert: readFileSync(path.join(resolved, 'bambu-simulator-cert.pem'))
+  });
+  loadedAssetsDir = resolved;
+}
 const MJPEG_BOUNDARY = 'printfleetemulator';
 
 function sendJson(response, status, body) {
@@ -814,7 +825,8 @@ function createBambuFtpsServer(printer) {
   return server;
 }
 
-export async function startProtocolEndpoints(printer) {
+export async function startProtocolEndpoints(printer, { assetsDir } = {}) {
+  loadProtocolAssets(assetsDir);
   const servers = [];
   try {
     if (printer.adapterType === 'snapmaker-u1') {
