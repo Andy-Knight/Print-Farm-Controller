@@ -4,6 +4,8 @@
 
 > **Packaging validation:** the hardened Windows x64 single-executable build has been manually validated successfully with embedded controller UI, simulator resources and trusted licence public keys.
 
+> **Installer validation:** the Inno Setup 7 Windows installer has been built and manually validated successfully under Program Files, including normal non-admin runtime writes to `data/` and packaged licence storage at `data/license.json`.
+
 > **v0.15.6 adds dashboard fleet filtering and consolidates the latest controller usability/storage improvements.** The Printers, Online, Printing and Needs attention summary cards can filter the dashboard fleet in place; the active filter is highlighted, filtering stays in sync with live printer/queue state, and an empty-filter state provides a quick return to all printers. This build also includes application-local `data/` storage, consistent **Snapmaker U1** model naming, and the combined printer-card hover/focus highlight treatment.
 
 > **v0.15.5 adds visual previews to the Print Library.** The controller extracts and caches slicer-provided preview images when available, using Orca/Bambu-style 3MF plate thumbnails (including `Metadata/plate_1.png` and related fallbacks) and embedded PNG/JPEG G-code thumbnail blocks. Library cards show a compact preview beside the file details; clicking it opens a larger viewer. Existing library files are backfilled automatically the first time they are read, and files without a supported embedded image show a **No preview** placeholder. Preview images are cached as separate files beside the stored print file rather than embedded into `metadata.json`.
