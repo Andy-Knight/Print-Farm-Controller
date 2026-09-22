@@ -1,12 +1,12 @@
 # Print Farm Controller v0.16.0
 
-> **Current development: hardened production packaging.** Runtime/application paths are resolved centrally, the controller is bundled with esbuild, and the Windows x64 Node SEA build now embeds the controller UI, simulator UI/resources and trusted Ed25519 public verification keys directly inside `PrintFarmController.exe`. Only persistent runtime data and the signed customer `license.json` remain external. The supported runtime baseline is Node.js 24+, matching the Node 24.21.0 development environment used for the project.
+> **Current release: v0.16.0 production packaging.** Runtime/application paths are resolved centrally, the controller is bundled with esbuild, and the Windows x64 Node SEA build embeds the controller UI, simulator UI/resources and trusted Ed25519 public verification keys directly inside `PrintFarmController.exe`. Persistent runtime data and the signed customer licence remain external. The supported runtime baseline is Node.js 24+, matching the Node 24.21.0 development environment used for the project.
 
 > **Packaging validation:** the hardened Windows x64 single-executable build has been manually validated successfully with embedded controller UI, simulator resources and trusted licence public keys.
 
 > **Installer validation:** the Inno Setup 7 Windows installer has been built and manually validated successfully under Program Files, including normal non-admin runtime writes to `data/` and packaged licence storage at `data/license.json`.
 
-> **v0.16.0 adds production packaging.** The controller can now be bundled into a hardened Windows x64 Node SEA executable with embedded UI, simulator resources and trusted licence verification keys. The branch also includes an Inno Setup 7 installer for Program Files deployment, writable application-local `data/`, packaged licence storage at `data/license.json`, and an optional Authenticode signing workflow for future production releases.
+> **v0.16.0 adds production packaging.** The controller can now be bundled into a hardened Windows x64 Node SEA executable with embedded UI, simulator resources and trusted licence verification keys. The release includes an Inno Setup 7 installer for Program Files deployment, writable application-local `data/`, packaged licence storage at `data/license.json`, and an optional Authenticode signing workflow for future production releases.
 
 > **v0.15.6 adds dashboard fleet filtering and consolidates the latest controller usability/storage improvements.** The Printers, Online, Printing and Needs attention summary cards can filter the dashboard fleet in place; the active filter is highlighted, filtering stays in sync with live printer/queue state, and an empty-filter state provides a quick return to all printers. This build also includes application-local `data/` storage, consistent **Snapmaker U1** model naming, and the combined printer-card hover/focus highlight treatment.
 
