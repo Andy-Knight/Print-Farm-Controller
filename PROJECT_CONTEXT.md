@@ -9,7 +9,7 @@
 - Primary branch: `main` (current production baseline)
 - Current application version on this branch: **0.15.6**
 - v0.15.5 Print Library previews are merged into `main`.
-- v0.15.6 dashboard summary filtering is ready to merge, alongside application-local data storage, Snapmaker U1 display naming and printer-card hover/focus highlighting.
+- v0.15.6 includes dashboard summary filtering, application-local data storage, Snapmaker U1 display naming and printer-card hover/focus highlighting.
 - Runtime: **Node.js 20+**, ES modules, no npm runtime dependencies.
 - GitHub is the authoritative code baseline.
 
@@ -158,7 +158,7 @@ Manufacturer-specific discovery, capabilities, limits, status normalization, fil
 
 ## Current task
 
-**v0.15.6 is the current release candidate.** It adds clickable dashboard summary filtering while retaining the existing Print Library / Queue / History separation:
+**v0.15.6 is the current merged release.** It adds clickable dashboard summary filtering while retaining the existing Print Library / Queue / History separation:
 
 - **Print Library** = what can be printed.
 - **Queue** = what should be printed.
