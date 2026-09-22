@@ -315,6 +315,56 @@ test('completed queued print blocks the next job until bed clearance is confirme
   service.stop();
 });
 
+test('observed direct print completion requires bed clearance before queued work can start', async () => {
+  const fleetState = new FakeFleetState([{
+    id:'p1',
+    name:'A1 Mini',
+    online:true,
+    status:{ status:'printing', fileName:'direct-print.3mf', progress:55 }
+  }]);
+  const store = memoryStore();
+  const starts = [];
+  const service = new PrintQueueService({
+    fleetState,
+    chamberPreheat:{ isActive:() => false, stop:async () => {} },
+    getPrinterFn:async () => ({ id:'p1', name:'A1 Mini' }),
+    adapterResolver:() => ({
+      capabilities:{ printLocalFile:true },
+      getStatus:async () => fleetState.getPrinterState('p1').status,
+      printLocalFile:async (fileName) => starts.push(fileName)
+    }),
+    loadJobsFn:store.load,
+    saveJobsFn:store.save,
+    minActiveMs:0
+  });
+
+  await service.start();
+  await waitFor(() => service.observedActivePrints.has('p1'));
+  const queued = await service.add({ printerId:'p1', fileName:'next.3mf' });
+  await new Promise((resolve) => setTimeout(resolve, 20));
+  assert.equal(service.getJob(queued.id).status, 'queued');
+  assert.deepEqual(starts, []);
+
+  fleetState.setState('p1', {
+    online:true,
+    status:{ status:'idle', fileName:null, progress:100 }
+  });
+  await waitFor(() => service.getSnapshot().awaitingClearance === 1);
+
+  const clearance = service.getSnapshot().bedClearance[0];
+  assert.equal(clearance.printerId, 'p1');
+  assert.equal(clearance.jobId, null);
+  assert.equal(clearance.fileName, 'direct-print.3mf');
+  assert.equal(clearance.jobStatus, 'completed');
+  assert.deepEqual(starts, []);
+
+  const cleared = await service.clearBed('p1');
+  assert.equal(cleared.clearedObservedPrint, true);
+  await waitFor(() => starts.length === 1);
+  assert.deepEqual(starts, ['next.3mf']);
+  service.stop();
+});
+
 test('FlashForge CANCEL state requires clearance then permits the next queued job despite a stale filename', async () => {
   const fleetState = new FakeFleetState([{
     id:'ff',
