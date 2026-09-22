@@ -1,5 +1,5 @@
 import http from 'node:http';
-import { promises as fs } from 'node:fs';
+import { promises as fs, readFileSync } from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
 import {
@@ -39,8 +39,9 @@ const runtimePaths = resolveControllerRuntimePaths();
 const PUBLIC_DIR = runtimePaths.publicDir;
 const APP_DIR = runtimePaths.applicationDir;
 const PACKAGE_PATH = runtimePaths.packageJsonPath;
-const packageInfo = PACKAGE_PATH ? JSON.parse(await fs.readFile(PACKAGE_PATH, 'utf8')) : {};
-const CONTROLLER_VERSION = String(packageInfo.version || 'unknown');
+const bundledVersion = typeof __PFC_VERSION__ === 'string' ? __PFC_VERSION__ : null;
+const packageInfo = PACKAGE_PATH ? JSON.parse(readFileSync(PACKAGE_PATH, 'utf8')) : {};
+const CONTROLLER_VERSION = String(bundledVersion || packageInfo.version || 'unknown');
 const PORT = Number(process.env.PORT || 4242);
 const HOST = process.env.HOST || '0.0.0.0';
 const fleetState = new FleetStateService();
@@ -49,10 +50,7 @@ const cameraManager = new CameraManager({
 });
 const chamberPreheat = new ChamberPreheatService({ fleetState });
 const emulatorManager = new EmulatorManager();
-let licenseManager = await loadLicenseManager({
-  appDir:APP_DIR,
-  dataDir:controllerDataDir
-});
+let licenseManager = null;
 
 function isControllerSimulator(printer) {
   return printer?.simulated === true || emulatorManager.isSimulatedConfig(printer);
@@ -913,25 +911,39 @@ async function shutdown() {
 process.on('SIGINT', shutdown);
 process.on('SIGTERM', shutdown);
 
-try {
-  const emulatorStatus = await emulatorManager.init();
-  if (emulatorStatus.running) console.log(`Integrated printer simulator enabled with ${emulatorStatus.printerCount} loopback endpoints`);
-} catch (error) {
-  console.error(`Could not start integrated printer simulator: ${error.message}`);
+async function startController() {
+  licenseManager = await loadLicenseManager({
+    appDir:APP_DIR,
+    dataDir:controllerDataDir
+  });
+
+  try {
+    const emulatorStatus = await emulatorManager.init();
+    if (emulatorStatus.running) console.log(`Integrated printer simulator enabled with ${emulatorStatus.printerCount} loopback endpoints`);
+  } catch (error) {
+    console.error(`Could not start integrated printer simulator: ${error.message}`);
+  }
+
+  await fleetState.start();
+  await printQueue.start();
+  chamberPreheat.startService();
+
+  server.listen(PORT, HOST, () => {
+    console.log(`Print Farm Controller v${CONTROLLER_VERSION} running at http://localhost:${PORT}`);
+    const license = currentLicenseSnapshot();
+    console.log(`Licence: ${license.label} (${license.source}; enforcement ${license.enforcementEnabled ? 'enabled' : 'disabled'})`);
+    console.log(`LAN access: http://<this-computer-ip>:${PORT}`);
+    console.log('Generic printer adapter + capability layer enabled (FlashForge AD5M + Snapmaker U1 + experimental Bambu P1P/P1S/X1C)');
+    console.log('Live fleet polling + SSE enabled');
+    console.log('Shared backend camera proxy enabled');
+    console.log('Bounded chamber preheat control enabled');
+    console.log('Batch fleet control enabled');
+    console.log('Verified multi-printer file distribution enabled');
+    console.log('Persistent fleet print queue + history enabled');
+  });
 }
-await fleetState.start();
-await printQueue.start();
-chamberPreheat.startService();
-server.listen(PORT, HOST, () => {
-  console.log(`Print Farm Controller v${CONTROLLER_VERSION} running at http://localhost:${PORT}`);
-  const license = currentLicenseSnapshot();
-  console.log(`Licence: ${license.label} (${license.source}; enforcement ${license.enforcementEnabled ? 'enabled' : 'disabled'})`);
-  console.log(`LAN access: http://<this-computer-ip>:${PORT}`);
-  console.log('Generic printer adapter + capability layer enabled (FlashForge AD5M + Snapmaker U1 + experimental Bambu P1P/P1S/X1C)');
-  console.log('Live fleet polling + SSE enabled');
-  console.log('Shared backend camera proxy enabled');
-  console.log('Bounded chamber preheat control enabled');
-  console.log('Batch fleet control enabled');
-  console.log('Verified multi-printer file distribution enabled');
-  console.log('Persistent fleet print queue + history enabled');
+
+startController().catch((error) => {
+  console.error(`Could not start Print Farm Controller: ${error.message}`);
+  process.exitCode = 1;
 });
