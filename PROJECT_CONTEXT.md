@@ -162,7 +162,7 @@ Manufacturer-specific discovery, capabilities, limits, status normalization, fil
 
 ## Current task
 
-**v0.16.1 is the current merged release on `main`; `feature/bambu-a1-mini` is versioned as v0.17.0 and has passed the full `npm test` regression suite with 0 failures.** The branch adds experimental A1 Mini support to the existing Bambu LAN adapter and Printer Simulator; simulator/physical behaviour validation remains outstanding.
+**v0.16.1 is the current merged release on `main`; `feature/bambu-a1-mini` is versioned as v0.17.0 and has passed the full `npm test` regression suite with 0 failures.** Initial integrated-simulator validation has also passed for A1 Mini online/idle state, 80 °C bed limit, four AMS Lite slots plus external spool, and camera preview. Print-start/job-control/material-mapping checks remain outstanding; physical A1 Mini validation remains outstanding.
 
 - **Print Library** = what can be printed.
 - **Queue** = what should be printed.
@@ -176,7 +176,7 @@ Bambu P1P/P1S/X1C/A1 Mini support remains explicitly experimental. Physical A1 M
 
 **Completed for v0.16.0:** full `npm test` regression run, rebuild of the Windows SEA executable and Inno Setup installer, and verification that both the installer and controller UI/footer report **v0.16.0**.
 
-1. Validate v0.17.0 A1 Mini behaviour in the integrated simulator and, when available, against physical A1 Mini hardware. The full `npm test` regression suite has already passed with 0 failures.
+1. Complete v0.17.0 A1 Mini integrated-simulator validation: verify single-material `.gcode` start, pause/resume/cancel, `.3mf` start, AMS Lite source mapping and return-to-idle behavior. Already confirmed: online/idle state, 80 °C bed limit, four AMS Lite slots plus external spool, camera preview, and full `npm test` with 0 failures. Physical A1 Mini validation can follow when hardware is available.
 2. Add Linux x64 and ARM64 packaging after the A1 Mini feature is merged.
 3. Code signing is **not a blocker for development or private testing**. The Authenticode workflow is already implemented; when a production certificate is obtained, `npm run release:windows` signs the injected SEA executable, builds the installer around the signed EXE, then signs and verifies the installer.
 4. Future Windows packaging polish: add a custom Print Farm Controller icon for the installer, installed shortcuts and, ideally, the packaged executable itself. This is intentionally deferred.
