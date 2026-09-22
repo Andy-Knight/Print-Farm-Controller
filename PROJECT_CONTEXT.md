@@ -7,9 +7,9 @@
 - Repository: `Andy-Knight/Print-Farm-Controller`
 - Project path: repository root (`/`)
 - Primary branch: `main` (current production baseline)
-- Current application version on this branch: **0.15.5**
+- Current application version on this branch: **0.15.6**
 - v0.15.5 Print Library previews are merged into `main`.
-- Current feature work: clickable dashboard summary cards filter the visible fleet by all printers, online, printing, or needs-attention state without changing the stored fleet order.
+- v0.15.6 dashboard summary filtering is ready to merge, alongside application-local data storage, Snapmaker U1 display naming and printer-card hover/focus highlighting.
 - Runtime: **Node.js 20+**, ES modules, no npm runtime dependencies.
 - GitHub is the authoritative code baseline.
 
@@ -154,10 +154,11 @@ Manufacturer-specific discovery, capabilities, limits, status normalization, fil
 - **v0.15.3 light-mode offline warning:** Offline and Error printer badges retain the same red warning treatment in Light mode instead of being overridden by the generic light badge colours.
 - **v0.15.4 Print Library descriptions:** library files support optional free-text description/notes (maximum 4000 characters). Notes are persisted in library metadata, displayed on cards, included in search, editable later through **Edit details**, and accepted when a new file is uploaded through either the library or queue workflow.
 - **v0.15.5 Print Library previews:** library files cache slicer-provided preview images when available. 3MF extraction prefers Orca/Bambu plate thumbnails such as `Metadata/plate_1.png`; G-code extraction recognises embedded PNG/JPEG thumbnail blocks and selects the largest supported image. Existing entries are backfilled on first read. The library card shows a compact thumbnail or **No preview** placeholder, and clicking a real thumbnail opens a larger viewer.
+- **v0.15.6 dashboard filtering:** the top summary cards are interactive filters for all printers, online printers, actively printing printers, and printers needing attention. The active filter is highlighted, live state changes automatically re-evaluate visibility, and printer reordering controls are hidden while a subset is filtered. This build also includes the application-local `data/` storage change, Snapmaker U1 display naming and printer-card hover/focus highlighting.
 
 ## Current task
 
-**v0.15.5 Print Library previews are the current merged release.** The controller separates durable printable-file storage from scheduling:
+**v0.15.6 is the current release candidate.** It adds clickable dashboard summary filtering while retaining the existing Print Library / Queue / History separation:
 
 - **Print Library** = what can be printed.
 - **Queue** = what should be printed.
