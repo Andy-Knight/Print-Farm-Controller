@@ -6,7 +6,7 @@
 
 > **Installer validation:** the Inno Setup 7 Windows installer has been built and manually validated successfully under Program Files, including normal non-admin runtime writes to `data/` and packaged licence storage at `data/license.json`.
 
-> **v0.16.1 aligns dashboard available-state colours.** Idle and Ready printer badges on the main dashboard are green in both Dark and Light modes, while existing warning/error colours remain unchanged.
+> **v0.16.1 aligns dashboard available-state colours and Print Library preview presentation.** Idle and Ready printer badges on the main dashboard are green in both Dark and Light modes, while existing warning/error colours remain unchanged. Print Library thumbnail and enlarged preview backgrounds now use the existing Light-mode preview colour (`#f3f7fa`) in both themes so model images are presented consistently.
 
 > **v0.16.0 adds production packaging.** The controller can now be bundled into a hardened Windows x64 Node SEA executable with embedded UI, simulator resources and trusted licence verification keys. The release includes an Inno Setup 7 installer for Program Files deployment, writable application-local `data/`, packaged licence storage at `data/license.json`, and an optional Authenticode signing workflow for future production releases.
 
