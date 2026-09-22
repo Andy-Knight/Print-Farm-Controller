@@ -2496,7 +2496,7 @@ function renderBambuPrintSetup(printer, setup, fileName, mode = 'print') {
     return `<div class="tool-map-row"><div class="tool-map-file"><strong>File T${logical.index}</strong><span>${escapeHtml(label)}</span></div><label>Material source<select data-bambu-material-map="${logical.index}">${options}</select></label></div>`;
   }).join('');
   panel.innerHTML = `<div class="print-setup-head"><div><strong>${queueMode ? 'Queue setup' : 'Print setup'}</strong><span>${escapeHtml(fileName)}</span></div><button type="button" class="icon" data-print-setup-close>×</button></div>
-    <div class="field-help">Map each filament used by the file to a loaded AMS slot. The external spool is available for single-material printing.</div>
+    <div class="field-help">Map each filament used by the file to a loaded AMS/AMS Lite slot. The external spool is available for single-material printing.</div>
     ${setup.warning ? `<div class="file-warning">${escapeHtml(setup.warning)}</div>` : ''}
     <div class="tool-map-grid">${rows || '<div class="file-warning">No reliable filament requirements were found. The printer will use its default external-spool path.</div>'}</div>
     <div id="printSetupAssessment" class="print-setup-assessment"></div>
@@ -2505,7 +2505,7 @@ function renderBambuPrintSetup(printer, setup, fileName, mode = 'print') {
   const currentMap = () => Object.fromEntries([...panel.querySelectorAll('[data-bambu-material-map]')].map((select) => [select.dataset.bambuMaterialMap, Number(select.value)]));
   const refresh = () => {
     const assessment = bambuMappingAssessment(setup, currentMap());
-    if (setup.amsMappingSupported === false) assessment.errors.push('Bambu multi-material AMS printing requires a sliced .3mf project file.');
+    if (setup.amsMappingSupported === false) assessment.errors.push('Bambu multi-material AMS/AMS Lite printing requires a sliced .3mf project file.');
     const target = panel.querySelector('#printSetupAssessment');
     target.textContent = [...assessment.errors.map((value) => `BLOCK: ${value}`), ...assessment.warnings.map((value) => `Warning: ${value}`)].join('\n');
     target.classList.toggle('has-errors', assessment.errors.length > 0);
@@ -2896,7 +2896,7 @@ async function openPrinter(id) {
     const materialHelp = printer.adapterType === 'flashforge-ad5m'
       ? "Filament type uses the controller's manual designation when set, otherwise the value reported by the FlashForge 5M local /detail API. Installed nozzle size uses the controller nozzle designation when set because the 5M API does not reliably expose it. The 5M API also does not expose U1-style filament colour/RFID metadata or a reliable live filament-presence value."
       : printer.adapterType === 'bambu-lab'
-        ? 'Material and colour come from the active external-spool or AMS tray metadata reported by the Bambu LAN interface. Bambu support is experimental until checked against physical P1P, P1S and X1C hardware.'
+        ? 'Material and colour come from the active external-spool or AMS/AMS Lite tray metadata reported by the Bambu LAN interface. Bambu support is experimental until checked against physical P1P, P1S, X1C and A1 Mini hardware.'
         : 'Filament presence comes from each U1 motion sensor. Third-party filament type and colour can be written to the idle printer and are verified by reading the effective per-tool configuration back. Official Snapmaker RFID filament remains locked. Nozzle size and XYZ offset come directly from each physical U1 extruder.';
     const bambuSources = printer.adapterType === 'bambu-lab' && Array.isArray(s?.materialSources)
       ? `<div class="ams-source-grid">${s.materialSources.map((source) => {
