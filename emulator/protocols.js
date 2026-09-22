@@ -2,8 +2,8 @@ import http from 'node:http';
 import net from 'node:net';
 import tls from 'node:tls';
 import crypto from 'node:crypto';
-import { readFileSync } from 'node:fs';
 import path from 'node:path';
+import { readRuntimeAssetSync, runtimeAssetKeys } from '../src/runtime-assets.js';
 
 const WEBSOCKET_GUID = '258EAFA5-E914-47DA-95CA-C5AB0DC85B11';
 
@@ -12,15 +12,24 @@ let BAMBU_TLS = null;
 let loadedAssetsDir = null;
 
 function loadProtocolAssets(assetsDir) {
-  const resolved = path.resolve(String(assetsDir || ''));
-  if (!assetsDir || !resolved) throw new Error('Emulator protocol assets directory is required');
-  if (loadedAssetsDir === resolved && TEST_FRAME_JPEG && BAMBU_TLS) return;
-  TEST_FRAME_JPEG = readFileSync(path.join(resolved, 'test-frame.jpg'));
-  BAMBU_TLS = Object.freeze({
-    key: readFileSync(path.join(resolved, 'bambu-simulator-key.pem')),
-    cert: readFileSync(path.join(resolved, 'bambu-simulator-cert.pem'))
+  const sourceDir = assetsDir ? path.resolve(String(assetsDir)) : null;
+  const cacheKey = sourceDir || 'embedded-sea-assets';
+  if (loadedAssetsDir === cacheKey && TEST_FRAME_JPEG && BAMBU_TLS) return;
+  TEST_FRAME_JPEG = readRuntimeAssetSync({
+    key:runtimeAssetKeys.emulatorTestFrame,
+    filePath:sourceDir ? path.join(sourceDir, 'test-frame.jpg') : null
   });
-  loadedAssetsDir = resolved;
+  BAMBU_TLS = Object.freeze({
+    key:readRuntimeAssetSync({
+      key:runtimeAssetKeys.emulatorBambuKey,
+      filePath:sourceDir ? path.join(sourceDir, 'bambu-simulator-key.pem') : null
+    }),
+    cert:readRuntimeAssetSync({
+      key:runtimeAssetKeys.emulatorBambuCert,
+      filePath:sourceDir ? path.join(sourceDir, 'bambu-simulator-cert.pem') : null
+    })
+  });
+  loadedAssetsDir = cacheKey;
 }
 const MJPEG_BOUNDARY = 'printfleetemulator';
 
