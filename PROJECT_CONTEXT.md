@@ -7,7 +7,7 @@
 - Repository: `Andy-Knight/Print-Farm-Controller`
 - Project path: repository root (`/`)
 - Primary branch: `main` (current production baseline)
-- Current application version on this branch: **0.15.6**
+- Current application version on this branch: **0.15.6**. The packaging work will be released as **v0.16.0**; bump the version before merge/release.
 - v0.15.5 Print Library previews are merged into `main`.
 - v0.15.6 includes dashboard summary filtering, application-local data storage, Snapmaker U1 display naming and printer-card hover/focus highlighting.
 - Current feature branch `feature/production-packaging` establishes hardened production packaging: centralized runtime paths detect source vs Node SEA execution, esbuild produces a CommonJS controller bundle, and the Windows x64 SEA build embeds the controller UI, simulator UI/resources and trusted Ed25519 public verification keys directly into `PrintFarmController.exe`. The Windows installer targets Program Files, leaves the EXE protected, grants standard-user modify permission only to `data/`, and packaged builds store the signed customer licence at `data/license.json`. Inno Setup 7 is the preferred Windows installer compiler (Inno Setup 6 remains supported as a fallback), and Authenticode signing workflows are included. Inno Setup may display `Non-commercial use only` during development until a commercial licence is installed; current upstream guidance permits purchasing that licence when the installer is ready for production, so this does not block test builds.
@@ -159,7 +159,7 @@ Manufacturer-specific discovery, capabilities, limits, status normalization, fil
 
 ## Current task
 
-**v0.15.6 remains the current merged release. Hardened production packaging work is in progress on `feature/production-packaging`.** Runtime path handling is centralized and the Windows x64 Node SEA build now embeds controller/simulator resources and trusted licence verification keys while retaining the existing Print Library / Queue / History separation:
+**v0.15.6 remains the current merged release. `feature/production-packaging` has now passed the portable SEA and unsigned Windows installer validation stages and is intended to become v0.16.0 before merge.** Runtime path handling is centralized; the Windows x64 Node SEA build embeds controller/simulator resources and trusted licence verification keys; Inno Setup 7 installs the app under Program Files while granting normal users write access only to `data/`. Authenticode signing support is implemented but is optional for development/private testing until a production code-signing certificate is obtained.
 
 - **Print Library** = what can be printed.
 - **Queue** = what should be printed.
@@ -171,17 +171,12 @@ Bambu P1P/P1S/X1C support remains explicitly experimental. Physical X1C RTSPS/H.
 
 ## Next steps
 
-1. v0.15.5 full automated regression suite passed with no issues (user-run validation).
-2. v0.15.5 manual validation passed for 3MF previews, embedded G-code thumbnails, and the no-preview fallback. Existing-file backfill remains covered by automated regression tests.
-3. v0.15.5 `feature/print-library-previews` merged into `main` after automated and manual validation.
-4. Packaging-foundation regression validation on Node.js 24.21.0 passed with 0 failures before the SEA build step was added.
-5. The first Windows x64 portable SEA package was built and manually validated successfully before hardening; dashboard/controller functionality behaved normally.
-6. Hardened Windows x64 single-EXE build manually validated successfully: embedded controller UI, simulator resources and trusted production public keys all worked correctly with no external asset directories/files beside `PrintFarmController.exe`.
-7. Windows installer workflow validated successfully: Inno Setup 7 built `PrintFarmController-Setup-v0.15.6.exe`, installation under Program Files completed, the controller ran without Administrator rights, persistent data remained writable, and packaged licence storage at `data/license.json` was confirmed.
-8. Next Windows release step: obtain/configure a production Authenticode code-signing certificate, then run `npm run release:windows` to sign the injected SEA executable, build the installer around the signed EXE, sign the installer, and verify both signatures.
-9. After Windows signing validation, add Linux x64/ARM64 packaging.
-10. Add systematic feature-by-feature entitlement gates only where product packaging requires them; preserve the signed licence format and existing edition definitions.
-11. Continue physical validation of experimental Bambu behaviour before removing the experimental designation.
+1. Bump the packaging branch from **0.15.6 to 0.16.0** before release/merge and update the README/context/version-derived installer output accordingly.
+2. Re-run the full `npm test` suite and rebuild the Windows SEA executable and Inno Setup installer after the 0.16.0 version bump.
+3. Code signing is **not a blocker for development or private testing**. The Authenticode workflow is already implemented; when a production certificate is obtained, `npm run release:windows` signs the injected SEA executable, builds the installer around the signed EXE, then signs and verifies the installer.
+4. Add Linux x64 and ARM64 packaging after the Windows packaging branch is stable.
+5. Add systematic feature-by-feature entitlement gates only where product packaging requires them; preserve the signed licence format and existing edition definitions.
+6. Continue physical validation of experimental Bambu behaviour before removing the experimental designation.
 
 ## Handoff rule
 
@@ -247,10 +242,10 @@ Current entitlement catalogue:
 - `remote.multi_site`
 
 Edition mappings:
-- BASIC = basic control, file management, camera, preheat, manual queue
-- PRO = BASIC + job priority + statistics + maintenance + history
-- FARM = PRO + smart assignment + batch jobs + multi-operator + bed clearance + material/nozzle matching + auto transfer + failure recovery
-- development = `*`, unrestricted/noncommercial
+- Community = basic control, file management, camera, preheat, manual queue
+- Pro = Community feature set + job priority + statistics + maintenance + history
+- Farm = Pro feature set + smart assignment + batch jobs + multi-operator + bed clearance + material/nozzle matching + auto transfer + failure recovery
+- Development = `*`, unrestricted/noncommercial
 
 As of v0.14.8, do **not** assume every catalogue entry is systematically enforced throughout the UI/API. The release-gated enforcement is signed-licence validity/expiry plus physical-printer slot limits. Extend feature gating deliberately and test each gated surface.
 
