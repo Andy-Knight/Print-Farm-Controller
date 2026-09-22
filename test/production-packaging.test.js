@@ -8,6 +8,7 @@ const seaScript = fs.readFileSync(new URL('../scripts/build-sea-windows.mjs', im
 const server = fs.readFileSync(new URL('../src/server.js', import.meta.url), 'utf8');
 const licenceLoader = fs.readFileSync(new URL('../src/licensing/license-loader.js', import.meta.url), 'utf8');
 const runtimeAssets = fs.readFileSync(new URL('../src/runtime-assets.js', import.meta.url), 'utf8');
+const runtimePaths = fs.readFileSync(new URL('../src/runtime-paths.js', import.meta.url), 'utf8');
 const emulatorServer = fs.readFileSync(new URL('../emulator/server.js', import.meta.url), 'utf8');
 const emulatorProtocols = fs.readFileSync(new URL('../emulator/protocols.js', import.meta.url), 'utf8');
 const installerScript = fs.readFileSync(new URL('../installer/windows/PrintFarmController.iss', import.meta.url), 'utf8');
@@ -50,6 +51,7 @@ test('controller bundle has no top-level startup await and embeds the applicatio
   assert.match(server, /async function startController\(\)/);
   assert.match(server, /startController\(\)\.catch/);
   assert.doesNotMatch(server, /const packageInfo = PACKAGE_PATH \? JSON\.parse\(await/);
+  assert.doesNotMatch(runtimePaths, /import\.meta/);
 });
 
 test('packaged runtime reads UI, simulator and licence trust data through SEA assets', () => {
