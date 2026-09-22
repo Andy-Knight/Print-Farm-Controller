@@ -1,6 +1,7 @@
 const fleetEl = document.querySelector('#fleet');
 const summaryEl = document.querySelector('#summary');
 const emptyEl = document.querySelector('#empty');
+const fleetFilterEmptyEl = document.querySelector('#fleetFilterEmpty');
 const addDialog = document.querySelector('#addPrinterDialog');
 const addForm = document.querySelector('#addPrinterForm');
 const printerDialog = document.querySelector('#printerDialog');
@@ -92,6 +93,8 @@ let reorderSaveTimer = null;
 let selectionMode = false;
 let batchBusy = false;
 let pendingBatchAction = null;
+let dashboardFilter = 'all';
+const DASHBOARD_FILTER_LABELS = Object.freeze({ all:'Printers', online:'Online', printing:'Printing', attention:'Needs attention' });
 const selectedPrinterIds = new Set();
 const toolOffsetActionLocks = new Map();
 
@@ -445,18 +448,54 @@ async function confirmBedCleared(printerId, printerName) {
   return true;
 }
 
+function isPrinterPrinting(printer) {
+  const state = String(printer?.status?.status || '').toLowerCase();
+  if (state === 'heating' && printer?.chamberPreheat?.active && !printer?.status?.fileName) return false;
+  return ['printing', 'working', 'heating', 'building_from_sd'].includes(state);
+}
+
+function printerNeedsAttention(printer) {
+  if (!printer?.online) return true;
+  if (['error', 'pause', 'paused'].includes(String(printer?.status?.status || '').toLowerCase())) return true;
+  return Boolean(queueBedClearance(printer?.id));
+}
+
+function matchesDashboardFilter(printer, filter = dashboardFilter) {
+  if (filter === 'online') return printer?.online === true;
+  if (filter === 'printing') return isPrinterPrinting(printer);
+  if (filter === 'attention') return printerNeedsAttention(printer);
+  return true;
+}
+
 function renderSummary() {
-  const online = fleet.filter((p) => p.online).length;
-  const printing = fleet.filter((p) => {
-    const state = String(p.status?.status || '').toLowerCase();
-    if (state === 'heating' && p.chamberPreheat?.active && !p.status?.fileName) return false;
-    return ['printing', 'working', 'heating', 'building_from_sd'].includes(state);
-  }).length;
-  const attentionIds = new Set(fleet.filter((p) => !p.online || ['error', 'pause', 'paused'].includes(String(p.status?.status || '').toLowerCase())).map((p) => p.id));
-  for (const item of Array.isArray(queueState?.bedClearance) ? queueState.bedClearance : []) attentionIds.add(item.printerId);
-  const attention = attentionIds.size;
-  const items = [['Printers', fleet.length], ['Online', online], ['Printing', printing], ['Needs attention', attention]];
-  summaryEl.innerHTML = items.map(([label, value]) => `<div class="summary-card"><span class="subtle">${label}</span><b>${value}</b></div>`).join('');
+  const items = [
+    ['all', fleet.length],
+    ['online', fleet.filter((printer) => printer.online).length],
+    ['printing', fleet.filter(isPrinterPrinting).length],
+    ['attention', fleet.filter(printerNeedsAttention).length]
+  ];
+  summaryEl.innerHTML = items.map(([filter, value]) => {
+    const active = dashboardFilter === filter;
+    return `<button type="button" class="summary-card${active ? ' active' : ''}" data-dashboard-filter="${filter}" aria-pressed="${active}"><span class="subtle">${DASHBOARD_FILTER_LABELS[filter]}</span><b>${value}</b></button>`;
+  }).join('');
+}
+
+function applyDashboardFilter() {
+  let visible = 0;
+  for (const card of fleetEl.querySelectorAll('[data-printer-card]')) {
+    const printer = fleet.find((item) => item.id === card.dataset.printerCard);
+    const show = Boolean(printer && matchesDashboardFilter(printer));
+    card.classList.toggle('hidden', !show);
+    if (show) visible += 1;
+  }
+  fleetEl.classList.toggle('filtered', dashboardFilter !== 'all');
+  fleetFilterEmptyEl?.classList.toggle('hidden', fleet.length === 0 || visible > 0);
+}
+
+function setDashboardFilter(filter) {
+  dashboardFilter = Object.hasOwn(DASHBOARD_FILTER_LABELS, filter) ? filter : 'all';
+  renderSummary();
+  applyDashboardFilter();
 }
 
 
@@ -1097,6 +1136,7 @@ function reconcileFleet() {
     if (!reorderInProgress) fleetEl.appendChild(card);
   }
 
+  applyDashboardFilter();
   updateBatchUi();
   updateOpenPrinterTelemetry();
 }
@@ -1718,6 +1758,17 @@ addForm.addEventListener('submit', async (event) => {
     submit.disabled = false;
     submit.textContent = 'Test & add';
   }
+});
+
+summaryEl.addEventListener('click', (event) => {
+  const filter = event.target.closest('[data-dashboard-filter]');
+  if (!filter) return;
+  setDashboardFilter(filter.dataset.dashboardFilter);
+});
+
+fleetFilterEmptyEl?.addEventListener('click', (event) => {
+  if (!event.target.closest('[data-dashboard-filter-reset]')) return;
+  setDashboardFilter('all');
 });
 
 fleetEl.addEventListener('click', (event) => {
