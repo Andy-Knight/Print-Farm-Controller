@@ -40,10 +40,10 @@ test('runtime paths resolve application-local storage beside a packaged executab
   assert.equal(paths.applicationDir, installDir);
   assert.equal(paths.defaultDataDir, path.join(installDir, 'data'));
   assert.equal(paths.dataDir, path.join(installDir, 'data'));
-  assert.equal(paths.publicDir, path.join(installDir, 'public'));
-  assert.equal(paths.emulatorPublicDir, path.join(installDir, 'emulator', 'public'));
-  assert.equal(paths.emulatorAssetsDir, path.join(installDir, 'emulator', 'assets'));
-  assert.equal(paths.trustedPublicKeysPath, path.join(installDir, 'trusted-public-keys.json'));
+  assert.equal(paths.publicDir, null);
+  assert.equal(paths.emulatorPublicDir, null);
+  assert.equal(paths.emulatorAssetsDir, null);
+  assert.equal(paths.trustedPublicKeysPath, null);
   assert.equal(paths.packageJsonPath, null);
   assert.equal(paths.licensePath, path.join(installDir, 'license.json'));
   assert.equal(paths.emulatorSettingsPath, path.join(installDir, 'data', 'emulator-settings.json'));
