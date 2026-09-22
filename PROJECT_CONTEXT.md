@@ -177,10 +177,11 @@ Bambu P1P/P1S/X1C support remains explicitly experimental. Physical X1C RTSPS/H.
 4. Packaging-foundation regression validation on Node.js 24.21.0 passed with 0 failures before the SEA build step was added.
 5. The first Windows x64 portable SEA package was built and manually validated successfully before hardening; dashboard/controller functionality behaved normally.
 6. Hardened Windows x64 single-EXE build manually validated successfully: embedded controller UI, simulator resources and trusted production public keys all worked correctly with no external asset directories/files beside `PrintFarmController.exe`.
-7. Windows installer/signing workflow added on `feature/production-packaging`: Inno Setup 7 is preferred and installs under Program Files with only `data/` writable; `release:windows` signs the injected SEA executable before compiling the installer, then signs/verifies the installer. Next validation: run the full regression suite, build/install the unsigned installer, and confirm data/licence persistence without Administrator runtime privileges.
-8. After Windows installer validation, add Linux x64/ARM64 packaging.
-9. Add systematic feature-by-feature entitlement gates only where product packaging requires them; preserve the signed licence format and existing edition definitions.
-10. Continue physical validation of experimental Bambu behaviour before removing the experimental designation.
+7. Windows installer workflow validated successfully: Inno Setup 7 built `PrintFarmController-Setup-v0.15.6.exe`, installation under Program Files completed, the controller ran without Administrator rights, persistent data remained writable, and packaged licence storage at `data/license.json` was confirmed.
+8. Next Windows release step: obtain/configure a production Authenticode code-signing certificate, then run `npm run release:windows` to sign the injected SEA executable, build the installer around the signed EXE, sign the installer, and verify both signatures.
+9. After Windows signing validation, add Linux x64/ARM64 packaging.
+10. Add systematic feature-by-feature entitlement gates only where product packaging requires them; preserve the signed licence format and existing edition definitions.
+11. Continue physical validation of experimental Bambu behaviour before removing the experimental designation.
 
 ## Handoff rule
 
