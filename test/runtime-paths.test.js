@@ -61,5 +61,6 @@ test('DATA_DIR override remains supported through central runtime paths', () => 
 
   assert.equal(paths.dataDir, path.resolve(requested));
   assert.equal(paths.customDataDir, path.resolve(requested));
+  assert.equal(paths.licensePath, path.join(path.resolve(requested), 'license.json'));
   assert.equal(paths.emulatorSettingsPath, path.join(path.resolve(requested), 'emulator-settings.json'));
 });
