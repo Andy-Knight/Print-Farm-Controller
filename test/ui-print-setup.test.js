@@ -31,6 +31,12 @@ test('offline printer badge remains red in light mode', () => {
   assert.match(styles, /:root\[data-theme="light"\] \.badge\.offline \{ background:#4b2528; color:#ffafb4; \}/);
 });
 
+test('idle and ready printer badges are green on the dashboard in both themes', () => {
+  assert.match(styles, /\.badge\.printing,\.badge\.working,\.badge\.building_from_sd,\.badge\.idle,\.badge\.ready \{ background:#1a4035; color:#9be4c9; \}/);
+  assert.match(styles, /:root\[data-theme="light"\] \.badge\.idle,/);
+  assert.match(styles, /:root\[data-theme="light"\] \.badge\.ready \{ background:#e1f2ea; color:#247552; \}/);
+});
+
 test('printer cards highlight with border, lift and shadow on hover or keyboard focus', () => {
   assert.match(styles, /\.fleet \.card \{ transition:transform \.14s ease, border-color \.14s ease, box-shadow \.14s ease; \}/);
   assert.match(styles, /\.fleet \.card:hover,[\s\S]*\.fleet \.card:focus-within[\s\S]*transform:translateY\(-2px\)/);
