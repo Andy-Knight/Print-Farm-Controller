@@ -216,9 +216,9 @@ The copied Node executable's original Authenticode signature is invalidated when
 
 ### Windows installer
 
-The Windows installer uses **Inno Setup 6** and installs the controller under Program Files. The executable remains protected by normal Program Files permissions, while the installer creates only the `data/` directory with standard-user modify permission so printer configuration, queue/library state, simulator settings and `data/license.json` can be updated without running the controller as Administrator.
+The Windows installer uses **Inno Setup 7** (preferred; Inno Setup 6 remains supported as a fallback) and installs the controller under Program Files. The executable remains protected by normal Program Files permissions, while the installer creates only the `data/` directory with standard-user modify permission so printer configuration, queue/library state, simulator settings and `data/license.json` can be updated without running the controller as Administrator.
 
-Install Inno Setup 6, then build an unsigned installer with:
+Install Inno Setup 7 x64, then build an unsigned installer with:
 
 ```powershell
 npm run build:installer:windows
