@@ -473,9 +473,9 @@ test('Bambu printer detail exposes AMS slots and material mapping setup', () => 
   assert.match(emulatorHtml, /AMS configuration/);
   assert.match(emulatorApp, /function renderAmsControls/);
   assert.match(emulatorApp, /amsSlots/);
-  assert.match(app, /P1P, P1S and X1C/);
+  assert.match(app, /P1P, P1S, X1C and A1 Mini/);
   assert.match(app, /X1C RTSPS\/H\.264 camera decoding is not yet supported/);
-  assert.match(bambuAdapter, /label: 'Bambu Lab P1P \/ P1S \/ X1C \(experimental\)'/);
+  assert.match(bambuAdapter, /label: 'Bambu Lab P1P \/ P1S \/ X1C \/ A1 Mini \(experimental\)'/);
   assert.match(bambuAdapter, /experimental: true/);
   assert.match(app, /Experimental Bambu \$\{escapeHtml\(printer\.model \|\| ''\)\} support/);
 });
