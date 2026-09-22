@@ -263,6 +263,13 @@ test('queued U1 mapped print refuses to start if a mapped tool changes after que
     options:{ toolMap:{ 0:0 }, usedLogicalTools:[0] }
   });
   fleetState.setState('u1', { online:true, status:{ status:'idle', fileName:null, tools:fleetState.getPrinterState('u1').status.tools } });
+  await waitFor(() => service.getSnapshot().awaitingClearance === 1);
+  assert.equal(service.getJob(job.id).status, 'queued');
+  assert.equal(starts, 0);
+
+  // The pre-existing observed print must be acknowledged clear before the
+  // queued mapped job can run its final live-tool preflight.
+  await service.clearBed('u1');
   await waitFor(() => service.getJob(job.id).status === 'failed');
   assert.equal(starts, 0);
   assert.match(service.getJob(job.id).error, /nozzle changed from 0\.4 mm/);
