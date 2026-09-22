@@ -3,12 +3,16 @@ import path from 'node:path';
 import { LicenseManager } from './license-manager.js';
 import { verifyLicenseDocument } from './signature-verifier.js';
 import { resolveControllerRuntimePaths } from '../runtime-paths.js';
+import { readRuntimeTextAsset, runtimeAssetKeys } from '../runtime-assets.js';
 
 const TRUSTED_KEYS_PATH = resolveControllerRuntimePaths().trustedPublicKeysPath;
 
 async function readTrustedPublicKeys(trustedKeysPath = TRUSTED_KEYS_PATH) {
   try {
-    const raw = await fs.readFile(trustedKeysPath, 'utf8');
+    const raw = await readRuntimeTextAsset({
+      key:runtimeAssetKeys.trustedPublicKeys,
+      filePath:trustedKeysPath
+    });
     const parsed = JSON.parse(raw || '{}');
     return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? { ...parsed } : {};
   } catch (error) {
