@@ -23,8 +23,11 @@ async function existingFile(candidate) {
 async function findInnoCompiler() {
   const candidates = [
     process.env.INNO_SETUP_COMPILER,
-    process.env['ProgramFiles(x86)'] && path.join(process.env['ProgramFiles(x86)'], 'Inno Setup 6', 'ISCC.exe'),
+    process.env.ProgramFiles && path.join(process.env.ProgramFiles, 'Inno Setup 7', 'ISCC.exe'),
+    process.env['ProgramFiles(x86)'] && path.join(process.env['ProgramFiles(x86)'], 'Inno Setup 7', 'ISCC.exe'),
+    process.env.LOCALAPPDATA && path.join(process.env.LOCALAPPDATA, 'Programs', 'Inno Setup 7', 'ISCC.exe'),
     process.env.ProgramFiles && path.join(process.env.ProgramFiles, 'Inno Setup 6', 'ISCC.exe'),
+    process.env['ProgramFiles(x86)'] && path.join(process.env['ProgramFiles(x86)'], 'Inno Setup 6', 'ISCC.exe'),
     process.env.LOCALAPPDATA && path.join(process.env.LOCALAPPDATA, 'Programs', 'Inno Setup 6', 'ISCC.exe')
   ];
 
@@ -41,7 +44,7 @@ async function findInnoCompiler() {
   }
 
   throw new Error(
-    'Inno Setup 6 compiler (ISCC.exe) was not found. Install Inno Setup 6 or set INNO_SETUP_COMPILER to the full ISCC.exe path.'
+    'Inno Setup compiler (ISCC.exe) was not found. Install Inno Setup 7 (preferred) or Inno Setup 6, or set INNO_SETUP_COMPILER to the full ISCC.exe path.'
   );
 }
 
