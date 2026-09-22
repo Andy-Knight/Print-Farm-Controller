@@ -1,8 +1,8 @@
 # Print Farm Controller v0.17.0
 
-> **Current development: v0.17.0 Bambu Lab A1 Mini support.** The existing experimental Bambu LAN adapter now supports A1 Mini configuration, status/control, FTPS file handling, TLS/JPEG camera access and AMS Lite material mapping. A1 Mini support remains experimental until validated on physical hardware.
+> **Current development: v0.17.0 Bambu Lab A1 Mini support.** The existing experimental Bambu LAN adapter now supports A1 Mini configuration, status/control, FTPS file handling, TLS/JPEG camera access and AMS Lite material mapping. Controller-initiated A1 Mini print starts are currently limited to sliced `.3mf` files until raw G-code launch is validated on physical hardware. A1 Mini support remains experimental until validated on physical hardware.
 
-> **v0.17.0 adds experimental Bambu Lab A1 Mini support.** A1 Mini uses the existing Bambu MQTT TLS/FTPS integration, the same TLS/JPEG camera path used by P1-family printers, a model-specific 80 °C maximum bed limit, and single-nozzle AMS Lite mapping through the existing Bambu material-source workflow. The integrated Printer Simulator includes an A1 Mini profile for controller testing.
+> **v0.17.0 adds experimental Bambu Lab A1 Mini support.** A1 Mini uses the existing Bambu MQTT TLS/FTPS integration, the same TLS/JPEG camera path used by P1-family printers, a model-specific 80 °C maximum bed limit, and single-nozzle AMS Lite mapping through the existing Bambu material-source workflow. The controller advertises `.3mf` printing only for A1 Mini until raw G-code starts are physically validated. The integrated Printer Simulator includes an A1 Mini profile for controller testing.
 
 > **Packaging validation:** the hardened Windows x64 single-executable build has been manually validated successfully with embedded controller UI, simulator resources and trusted licence public keys.
 
@@ -337,7 +337,7 @@ Bambu discovery is not yet implemented, so supported Bambu printers are added ma
 - The printer detail view shows each reported AMS tray and the external spool, including loaded state, material, colour and active source.
 - Before printing or queueing a sliced `.3mf`, the controller reads the embedded plate G-code and lets each logical filament be mapped to a loaded source. Exact material-and-colour matches are selected automatically when possible.
 - File-centric automatic queue jobs use the live AMS inventory when choosing a compatible P1P/P1S/X1C/A1 Mini and recheck that mapping immediately before print start.
-- Multi-material Bambu jobs require `.3mf`; raw `.gcode` is retained for single-material starts because it cannot carry the project-level AMS mapping expected by the P1 print command.
+- Multi-material Bambu jobs require `.3mf`; P1P/P1S/X1C retain raw `.gcode` for single-material starts. A1 Mini controller starts are intentionally `.3mf`-only until raw G-code launch is physically validated.
 - P1-family and A1 Mini printers still have one nozzle. Multiple filaments are valid, but conflicting nozzle-size requirements are rejected.
 
 AMS behavior is implemented against the emulator protocol model and must remain experimental until start commands and telemetry are confirmed on physical P1P/P1S/X1C/A1 Mini hardware with the applicable AMS/AMS Lite configuration.
