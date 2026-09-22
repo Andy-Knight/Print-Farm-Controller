@@ -3002,26 +3002,26 @@ async function openPrinter(id) {
           ${chamberTemperatureMarkup}
         </div>
         ${materialStatusMarkup}
-        <div class="panel chamber-preheat-panel">
+        ${capabilities.chamberPreheat ? `<div class="panel chamber-preheat-panel">
           <h3>Chamber preheat</h3>
           <p class="subtle">${printer.adapterType === 'snapmaker-u1'
             ? 'Uses the build plate as the heat source and the U1 stock PREHEAT_CHAMBER mode for circulation: 60% inner purifier fan, exhaust off. The controller keeps the session bounded and holds the bed setpoint.'
             : 'Uses the build plate as the chamber heat source. The controller holds the normal bed setpoint for a bounded period and reasserts it if idle firmware clears it.'}</p>
           <div class="preheat-fields">
-            <label>Bed setpoint °C<input id="preheatBedInput" type="number" min="${preheatMinBedC}" max="${preheatMaxBedC}" value="${Math.max(preheatMinBedC, Math.min(preheatMaxBedC, Number(s?.bed.target || 90) || 90))}"${disabled(capabilities.chamberPreheat)} /></label>
-            <label>Duration minutes<input id="preheatDurationInput" type="number" min="1" max="${preheatMaxMinutes}" value="45"${disabled(capabilities.chamberPreheat)} /></label>
+            <label>Bed setpoint °C<input id="preheatBedInput" type="number" min="${preheatMinBedC}" max="${preheatMaxBedC}" value="${Math.max(preheatMinBedC, Math.min(preheatMaxBedC, Number(s?.bed.target || 90) || 90))}" /></label>
+            <label>Duration minutes<input id="preheatDurationInput" type="number" min="1" max="${preheatMaxMinutes}" value="45" /></label>
           </div>
           <div class="preheat-status" data-preheat-status>Not active</div>
           <div class="mini-actions">
-            <button class="primary" data-preheat-start${disabled(capabilities.chamberPreheat)}>Start chamber preheat</button>
+            <button class="primary" data-preheat-start>Start chamber preheat</button>
             <button class="danger" data-preheat-stop disabled>Stop preheat</button>
           </div>
           <div class="field-help">Maximum bed setpoint ${preheatMaxBedC} °C · maximum session ${preheatMaxMinutes} minutes · sessions never resume after controller restart.</div>
-        </div>
+        </div>` : ''}
         <div class="panel fans-panel">
           <h3>Fans</h3>
           <div class="control-row"><label>Part cooling %<input id="coolingFanInput" type="number" min="0" max="100" value="${s?.coolingFan || 0}"${disabled(capabilities.coolingFan)} /></label><span></span><button class="secondary" data-set-fan="coolingFan"${disabled(capabilities.coolingFan)}>Set</button></div>
-          <div class="control-row"><label>Chamber fan %<input id="chamberFanInput" type="number" min="0" max="100" value="${s?.chamberFan || 0}"${disabled(capabilities.chamberFan)} /></label><span class="subtle" data-chamber-fan-now>${Math.round(Number(s?.chamberFan) || 0)}% now</span><button class="secondary" data-set-fan="chamberFan"${disabled(capabilities.chamberFan)}>Set</button></div>
+          ${capabilities.chamberFan ? `<div class="control-row"><label>Chamber fan %<input id="chamberFanInput" type="number" min="0" max="100" value="${s?.chamberFan || 0}" /></label><span class="subtle" data-chamber-fan-now>${Math.round(Number(s?.chamberFan) || 0)}% now</span><button class="secondary" data-set-fan="chamberFan">Set</button></div>` : ''}
           ${capabilities.filtration && limits.filtrationSpeed ? `
             <div class="control-row"><label>Internal filter %<input id="internalFilterInput" type="number" min="${Number(limits.filtrationSpeed.min ?? 0)}" max="${Number(limits.filtrationSpeed.max ?? 100)}" value="${Math.round(Number(s?.filtration?.internal) || 0)}"${disabled(s?.filtration?.available !== false)} /></label><span class="subtle" data-internal-filter-now>${Math.round(Number(s?.filtration?.internal) || 0)}% now</span><button class="secondary" data-set-filtration="internal"${disabled(s?.filtration?.available !== false)}>Set</button></div>
             <div class="control-row"><label>Exhaust filter %<input id="externalFilterInput" type="number" min="${Number(limits.filtrationSpeed.min ?? 0)}" max="${Number(limits.filtrationSpeed.max ?? 100)}" value="${Math.round(Number(s?.filtration?.external) || 0)}"${disabled(s?.filtration?.available !== false)} /></label><span class="subtle" data-external-filter-now>${Math.round(Number(s?.filtration?.external) || 0)}% now</span><button class="secondary" data-set-filtration="external"${disabled(s?.filtration?.available !== false)}>Set</button></div>
