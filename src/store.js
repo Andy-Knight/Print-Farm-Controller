@@ -2,14 +2,11 @@ import { promises as fs } from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
 import crypto from 'node:crypto';
-import { fileURLToPath } from 'node:url';
 import { FLASHFORGE_AD5M_ADAPTER_TYPE } from './adapters/adapter-registry.js';
+import { resolveControllerRuntimePaths } from './runtime-paths.js';
 
-const APPLICATION_DIR = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-
-function defaultDataDir() {
-  return path.join(APPLICATION_DIR, 'data');
-}
+const runtimePaths = resolveControllerRuntimePaths();
+const APPLICATION_DIR = runtimePaths.applicationDir;
 
 function profileDataDir() {
   if (process.platform === 'win32') {
@@ -39,8 +36,8 @@ function legacyFlashForgeDataDir() {
   return path.join(base, 'print-controller', 'flashforge-fleet');
 }
 
-const CUSTOM_DATA_DIR = String(process.env.DATA_DIR || '').trim();
-const DATA_DIR = path.resolve(CUSTOM_DATA_DIR || defaultDataDir());
+const CUSTOM_DATA_DIR = runtimePaths.customDataDir;
+const DATA_DIR = runtimePaths.dataDir;
 const LEGACY_DATA_DIRS = CUSTOM_DATA_DIR
   ? []
   : [...new Set([profileDataDir(), legacyFlashForgeDataDir()].map((value) => path.resolve(value)))]
