@@ -1,10 +1,10 @@
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
 import { LicenseManager } from './license-manager.js';
 import { verifyLicenseDocument } from './signature-verifier.js';
+import { resolveControllerRuntimePaths } from '../runtime-paths.js';
 
-const TRUSTED_KEYS_PATH = fileURLToPath(new URL('./trusted-public-keys.json', import.meta.url));
+const TRUSTED_KEYS_PATH = resolveControllerRuntimePaths().trustedPublicKeysPath;
 
 async function readTrustedPublicKeys(trustedKeysPath = TRUSTED_KEYS_PATH) {
   try {
