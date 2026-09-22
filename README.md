@@ -208,11 +208,65 @@ Start `PrintFarmController.exe` and open:
 http://localhost:4242
 ```
 
-The executable reads its built-in web/simulator resources and trusted licence public keys directly from the SEA payload. It creates `data/` beside the executable for persistent controller state. A signed customer `license.json`, when installed, also remains beside the executable because licence files are intentionally external and replaceable.
+The executable reads its built-in web/simulator resources and trusted licence public keys directly from the SEA payload. It creates `data/` beside the executable for persistent controller state. Packaged builds also store the replaceable signed customer licence at `data/license.json`, keeping the executable/application directory read-only for normal users. A previous application-directory `license.json` remains readable for migration.
 
 The Ed25519 private signing key is never included in the controller. The Bambu simulator TLS key embedded in the executable is only a local simulator/test credential and is unrelated to production licence signing.
 
 The copied Node executable's original Authenticode signature is invalidated when the SEA payload is injected, so the build may report a signature warning. The final installer/release process will digitally sign the finished `PrintFarmController.exe` after all embedding is complete.
+
+### Windows installer
+
+The Windows installer uses **Inno Setup 6** and installs the controller under Program Files. The executable remains protected by normal Program Files permissions, while the installer creates only the `data/` directory with standard-user modify permission so printer configuration, queue/library state, simulator settings and `data/license.json` can be updated without running the controller as Administrator.
+
+Install Inno Setup 6, then build an unsigned installer with:
+
+```powershell
+npm run build:installer:windows
+```
+
+This rebuilds the hardened SEA executable first, then creates:
+
+```text
+dist/
+└── installer/
+    └── PrintFarmController-Setup-v0.15.6.exe
+```
+
+The installer creates a Start Menu shortcut and offers an optional desktop shortcut. Uninstalling the application does not explicitly delete the `data/` directory, so user data is not intentionally removed by the uninstall script.
+
+### Windows code signing
+
+Authenticode signing is performed **after** the SEA payload has been injected. For a signed release the workflow is:
+
+```text
+Build SEA executable
+→ sign PrintFarmController.exe
+→ build installer containing the signed EXE
+→ sign installer
+```
+
+The signing script supports either a certificate already installed in the Windows certificate store or a PFX file. Configure `signtool.exe` using `SIGNTOOL_PATH` if it is not already on PATH, and configure one signing identity:
+
+```powershell
+$env:PFC_SIGN_CERT_SHA1="<certificate thumbprint>"
+# or:
+$env:PFC_SIGN_PFX="C:\path\to\code-signing.pfx"
+$env:PFC_SIGN_PFX_PASSWORD="<password>"
+```
+
+Also set the RFC 3161 timestamp URL recommended by the code-signing certificate provider:
+
+```powershell
+$env:PFC_TIMESTAMP_URL="<timestamp URL>"
+```
+
+Then create the complete signed release with:
+
+```powershell
+npm run release:windows
+```
+
+The release script signs and verifies both the finished controller executable and the final installer.
 
 ## Printer Emulator
 
