@@ -10,7 +10,7 @@
 - Current application version on this branch: **0.15.6**
 - v0.15.5 Print Library previews are merged into `main`.
 - v0.15.6 includes dashboard summary filtering, application-local data storage, Snapmaker U1 display naming and printer-card hover/focus highlighting.
-- Current feature branch `feature/production-packaging` establishes production packaging foundations: centralized runtime paths detect source vs Node SEA execution, esbuild produces a CommonJS controller bundle, and the initial Windows x64 SEA build stages a portable `PrintFarmController.exe` plus external browser/emulator assets and trusted public keys for first-pass validation.
+- Current feature branch `feature/production-packaging` establishes hardened production packaging: centralized runtime paths detect source vs Node SEA execution, esbuild produces a CommonJS controller bundle, and the Windows x64 SEA build embeds the controller UI, simulator UI/resources and trusted Ed25519 public verification keys directly into `PrintFarmController.exe`. Persistent `data/` and signed customer `license.json` remain external beside the executable.
 - Runtime: **Node.js 24+** (development baseline Node.js 24.21.0), ES modules, no npm runtime dependencies.
 - GitHub is the authoritative code baseline.
 
@@ -159,7 +159,7 @@ Manufacturer-specific discovery, capabilities, limits, status normalization, fil
 
 ## Current task
 
-**v0.15.6 remains the current merged release. Production packaging foundation work is in progress on `feature/production-packaging`.** Runtime path handling has been centralized without changing source-mode behaviour, preparing the controller for a future Node SEA executable while retaining the existing Print Library / Queue / History separation:
+**v0.15.6 remains the current merged release. Hardened production packaging work is in progress on `feature/production-packaging`.** Runtime path handling is centralized and the Windows x64 Node SEA build now embeds controller/simulator resources and trusted licence verification keys while retaining the existing Print Library / Queue / History separation:
 
 - **Print Library** = what can be printed.
 - **Queue** = what should be printed.
@@ -175,8 +175,8 @@ Bambu P1P/P1S/X1C support remains explicitly experimental. Physical X1C RTSPS/H.
 2. v0.15.5 manual validation passed for 3MF previews, embedded G-code thumbnails, and the no-preview fallback. Existing-file backfill remains covered by automated regression tests.
 3. v0.15.5 `feature/print-library-previews` merged into `main` after automated and manual validation.
 4. Packaging-foundation regression validation on Node.js 24.21.0 passed with 0 failures before the SEA build step was added.
-5. Build and manually validate the first Windows x64 portable SEA package using `npm install`, `npm test`, then `npm run build:sea:windows`. Keep the complete `dist/windows-x64/` directory together during this validation stage.
-6. After the portable EXE passes controller, printer, simulator, file, queue and licence checks, embed the browser/emulator assets and trusted production public keys into the executable and rerun the regression/manual validation.
+5. The first Windows x64 portable SEA package was built and manually validated successfully before hardening; dashboard/controller functionality behaved normally.
+6. Current task: rerun `npm test`, rebuild with `npm run build:sea:windows`, and manually validate the hardened single-EXE build with embedded browser/simulator assets and trusted production public keys. The clean `dist/windows-x64/` output should contain only `PrintFarmController.exe` before runtime creates `data/` or installs `license.json`.
 7. Add Windows installer/signing and Linux x64/ARM64 packaging only after the hardened portable executable is stable.
 8. Add systematic feature-by-feature entitlement gates only where product packaging requires them; preserve the signed licence format and existing edition definitions.
 9. Continue physical validation of experimental Bambu behaviour before removing the experimental designation.
