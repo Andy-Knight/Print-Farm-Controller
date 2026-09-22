@@ -1,6 +1,6 @@
 # Print Farm Controller v0.16.1
 
-> **Current development: v0.16.1 dashboard status colours.** The main dashboard now shows **Idle** and **Ready** printer status badges in green, matching the successful/available-state treatment used by the Printer Simulator. v0.16.0 remains the current merged release on `main` until this change is validated and merged.
+> **Current release: v0.16.1 dashboard/UI polish.** The main dashboard shows **Idle** and **Ready** printer status badges in green, matching the successful/available-state treatment used by the Printer Simulator. Print Library thumbnail and enlarged preview backgrounds also use the same light preview background in both themes.
 
 > **Packaging validation:** the hardened Windows x64 single-executable build has been manually validated successfully with embedded controller UI, simulator resources and trusted licence public keys.
 
