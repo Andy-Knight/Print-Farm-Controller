@@ -32,7 +32,8 @@ export function resolveControllerRuntimePaths({
     emulatorAssetsDir:sourceRoot ? path.join(sourceRoot, 'emulator', 'assets') : null,
     trustedPublicKeysPath:sourceRoot ? path.join(sourceRoot, 'src', 'licensing', 'trusted-public-keys.json') : null,
     packageJsonPath:sourceRoot ? path.join(sourceRoot, 'package.json') : null,
-    licensePath:path.join(applicationDir, 'license.json'),
+    licensePath:runningAsSea ? path.join(dataDir, 'license.json') : path.join(applicationDir, 'license.json'),
+    legacyApplicationLicensePath:runningAsSea ? path.join(applicationDir, 'license.json') : null,
     emulatorSettingsPath:path.join(dataDir, 'emulator-settings.json')
   });
 }
