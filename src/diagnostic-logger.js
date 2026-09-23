@@ -140,6 +140,7 @@ export class DiagnosticLogger {
     this.retainedFiles = Math.max(2, Number(retainedFiles) || 7);
     this.now = now;
     this.activeFile = path.join(this.logDir, 'controller.log');
+    this.enabled = false;
     this.verboseUntilMs = 0;
     this.writeChain = Promise.resolve();
     this.consolePatched = false;
@@ -149,6 +150,7 @@ export class DiagnosticLogger {
   async init() {
     await fs.mkdir(this.logDir, { recursive:true });
     await this._prune();
+    this.enabled = true;
     await this.info('controller', 'Diagnostic logger initialized', {
       version:this.version,
       maxBytes:this.maxBytes,
@@ -160,7 +162,7 @@ export class DiagnosticLogger {
   status() {
     const now = this.now().getTime();
     return {
-      enabled:true,
+      enabled:this.enabled,
       level:this.isVerbose() ? 'debug' : 'info',
       verbose:this.isVerbose(),
       verboseUntil:this.verboseUntilMs > now ? new Date(this.verboseUntilMs).toISOString() : null,
@@ -191,6 +193,7 @@ export class DiagnosticLogger {
   error(subsystem, message, meta = {}) { return this._write('error', subsystem, message, meta); }
 
   _write(level, subsystem, message, meta = {}) {
+    if (!this.enabled) return Promise.resolve();
     const normalized = LEVELS.has(level) ? level : 'info';
     const entry = {
       timestamp:this.now().toISOString(),
