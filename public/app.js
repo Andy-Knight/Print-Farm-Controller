@@ -1132,9 +1132,11 @@ function cardMarkup(printer) {
         <div class="metric"><span>Remaining</span><b data-remaining>—</b></div>
       </div>
       <div class="health-line"><span data-last-seen></span><span data-latency></span></div>
+    </div>
+    <div class="card-footer">
+      <button class="secondary" data-open="${escapeHtml(printer.id)}">Open printer</button>
       <div class="card-error hidden" data-card-error></div>
     </div>
-    <div class="card-footer"><button class="secondary" data-open="${escapeHtml(printer.id)}">Open printer</button></div>
   </article>`;
 }
 
