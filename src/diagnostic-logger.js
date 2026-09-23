@@ -178,6 +178,7 @@ export class DiagnosticLogger {
   }
 
   async setVerbose(enabled, minutes = 30) {
+    if (!this.enabled && enabled !== false) throw new Error('Diagnostic file logging is unavailable');
     const safeMinutes = Math.min(120, Math.max(1, Number(minutes) || 30));
     this.verboseUntilMs = enabled ? this.now().getTime() + safeMinutes * 60_000 : 0;
     await this.info('diagnostics', enabled ? 'Verbose diagnostic logging enabled' : 'Verbose diagnostic logging disabled', enabled ? { minutes:safeMinutes } : {});
