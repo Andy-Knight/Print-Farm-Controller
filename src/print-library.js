@@ -13,6 +13,7 @@ const ROOT = path.join(DATA_ROOT, 'print-library');
 const LEGACY_ROOT = path.join(DATA_ROOT, 'queue-files');
 const META_FILE = 'metadata.json';
 const libraryMutations = new KeyedSerialExecutor();
+let rootInitialization = null;
 
 function safeId(value) {
   const id = String(value || '').trim().toLowerCase();
@@ -127,8 +128,16 @@ async function migrateLegacyQueueFiles() {
 }
 
 async function ensureRoot() {
-  await fs.mkdir(ROOT, { recursive:true, mode:0o700 });
-  await migrateLegacyQueueFiles();
+  if (!rootInitialization) {
+    rootInitialization = (async () => {
+      await fs.mkdir(ROOT, { recursive:true, mode:0o700 });
+      await migrateLegacyQueueFiles();
+    })().catch((error) => {
+      rootInitialization = null;
+      throw error;
+    });
+  }
+  return rootInitialization;
 }
 
 function normalizeMetadata(metadata) {
