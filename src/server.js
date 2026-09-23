@@ -581,7 +581,7 @@ async function apiRoute(req, res, url) {
       const updated = await setPrinterLicenseSlotActive(id, body.active);
       await fleetState.syncRegistry();
       return updated;
-    }));
+    }, { operationType:PRINTER_OPERATION_TYPES.LICENSE_SLOT }));
     return json(res, 200, {
       ok:true,
       printer:resolveLicensedFleet().printers.find((item) => item.id === id) || publicPrinter(result),
@@ -606,9 +606,10 @@ async function apiRoute(req, res, url) {
       if (chamberPreheat.isActive(id)) await chamberPreheat.stop(id, { reason: 'printer-removed', turnOff: true });
       await removePrinter(id);
       await removePrinterFileMaterialMetadata(id).catch(() => {});
+      printerActivities.clear(id);
       cameraManager.remove(id);
       await fleetState.syncRegistry();
-    }));
+    }, { operationType:PRINTER_OPERATION_TYPES.PRINTER_REMOVAL }));
     return json(res, 200, { ok: true });
   }
 
@@ -632,7 +633,7 @@ async function apiRoute(req, res, url) {
   if (req.method === 'POST' && action === 'filament-color') {
     if (!adapter.capabilities?.filamentColorControl) throw new Error('Filament colour control is not supported by this printer');
     const body = await readJson(req);
-    const result = await runPrinterMutation(id, 'filament colour change', (_currentPrinter, currentAdapter) => currentAdapter.setFilamentColor({ toolIndex:body.toolIndex, color:body.color }));
+    const result = await runPrinterMutation(id, 'filament colour change', (_currentPrinter, currentAdapter) => currentAdapter.setFilamentColor({ toolIndex:body.toolIndex, color:body.color }), { operationType:PRINTER_OPERATION_TYPES.FILAMENT_CONFIG });
     refreshAfterCommand(id);
     return json(res, 200, { ok:true, ...result });
   }
@@ -640,7 +641,7 @@ async function apiRoute(req, res, url) {
   if (req.method === 'POST' && action === 'filament-type') {
     if (!adapter.capabilities?.filamentTypeControl) throw new Error('Filament type control is not supported by this printer');
     const body = await readJson(req);
-    const result = await runPrinterMutation(id, 'filament type change', (_currentPrinter, currentAdapter) => currentAdapter.setFilamentType({ toolIndex:body.toolIndex, material:body.material }));
+    const result = await runPrinterMutation(id, 'filament type change', (_currentPrinter, currentAdapter) => currentAdapter.setFilamentType({ toolIndex:body.toolIndex, material:body.material }), { operationType:PRINTER_OPERATION_TYPES.FILAMENT_CONFIG });
     refreshAfterCommand(id);
     return json(res, 200, { ok:true, ...result });
   }
@@ -650,7 +651,7 @@ async function apiRoute(req, res, url) {
       throw new Error('Combined filament control is not supported by this printer');
     }
     const body = await readJson(req);
-    const result = await runPrinterMutation(id, 'filament configuration change', (_currentPrinter, currentAdapter) => currentAdapter.setFilamentConfig({ toolIndex:body.toolIndex, material:body.material, color:body.color }));
+    const result = await runPrinterMutation(id, 'filament configuration change', (_currentPrinter, currentAdapter) => currentAdapter.setFilamentConfig({ toolIndex:body.toolIndex, material:body.material, color:body.color }), { operationType:PRINTER_OPERATION_TYPES.FILAMENT_CONFIG });
     refreshAfterCommand(id);
     return json(res, 200, { ok:true, ...result });
   }
@@ -667,7 +668,7 @@ async function apiRoute(req, res, url) {
       if (!value) throw new Error('Printer not found');
       await fleetState.syncRegistry();
       return value;
-    }, { allowInactive:true }));
+    }, { allowInactive:true, operationType:PRINTER_OPERATION_TYPES.MATERIAL_DESIGNATION }));
     fleetState.refreshNow(id).catch(() => {});
     return json(res, 200, {
       ok: true,
@@ -685,7 +686,7 @@ async function apiRoute(req, res, url) {
       if (!value) throw new Error('Printer not found');
       await fleetState.syncRegistry();
       return value;
-    }, { allowInactive:true }));
+    }, { allowInactive:true, operationType:PRINTER_OPERATION_TYPES.NOZZLE_DESIGNATION }));
     fleetState.refreshNow(id).catch(() => {});
     return json(res, 200, {
       ok: true,
@@ -778,7 +779,7 @@ async function apiRoute(req, res, url) {
         materialMap: body.materialMap ?? null,
         usedLogicalTools: Array.isArray(body.usedLogicalTools) ? body.usedLogicalTools : []
       });
-    });
+    }, { operationType:PRINTER_OPERATION_TYPES.PRINT_START });
     refreshAfterCommand(id);
     return json(res, 200, { ok: true });
   }
@@ -786,11 +787,17 @@ async function apiRoute(req, res, url) {
   if (req.method === 'POST' && action === 'job') {
     const body = await readJson(req);
     if (!adapter.capabilities?.jobControl) throw new Error('Job control is not supported by this printer');
+    const normalizedJobAction = String(body.action || '').toLowerCase();
+    const jobOperationType = normalizedJobAction === 'pause'
+      ? PRINTER_OPERATION_TYPES.PRINT_PAUSE
+      : normalizedJobAction === 'resume'
+        ? PRINTER_OPERATION_TYPES.PRINT_RESUME
+        : PRINTER_OPERATION_TYPES.PRINT_CANCEL;
     await runPrinterMutation(
       id,
-      `job ${String(body.action || '').toLowerCase() || 'control'}`,
+      `job ${normalizedJobAction || 'control'}`,
       (_currentPrinter, currentAdapter) => currentAdapter.setJobState(body.action),
-      { allowInactive:true }
+      { allowInactive:true, operationType:jobOperationType }
     );
     if (String(body.action || '').toLowerCase() === 'cancel') {
       await controllerMutations.run('library-queue', () => printQueue.noteExternalCancel(id));
@@ -822,7 +829,7 @@ async function apiRoute(req, res, url) {
       // A manual bed command is an explicit override of chamber preheat.
       if (body.bed !== undefined && chamberPreheat.isActive(id)) await chamberPreheat.stop(id, { reason: 'manual-bed-override', turnOff: false });
       await currentAdapter.setTemperatures(body);
-    });
+    }, { operationType:PRINTER_OPERATION_TYPES.TEMPERATURE });
     refreshAfterCommand(id);
     return json(res, 200, { ok: true });
   }
@@ -837,7 +844,7 @@ async function apiRoute(req, res, url) {
     const session = await runPrinterMutation(id, 'chamber preheat start', () => chamberPreheat.start(id, {
       bedTemperature: body.bedTemperature,
       durationMinutes: body.durationMinutes
-    }));
+    }), { operationType:PRINTER_OPERATION_TYPES.CHAMBER_PREHEAT_START });
     refreshAfterCommand(id);
     return json(res, 200, { ok: true, chamberPreheat: session });
   }
@@ -847,7 +854,7 @@ async function apiRoute(req, res, url) {
       id,
       'chamber preheat stop',
       () => chamberPreheat.stop(id, { reason: 'manual', turnOff: true }),
-      { allowInactive:true }
+      { allowInactive:true, operationType:PRINTER_OPERATION_TYPES.CHAMBER_PREHEAT_STOP }
     );
     refreshAfterCommand(id);
     return json(res, 200, { ok: true, ...result });
@@ -860,7 +867,7 @@ async function apiRoute(req, res, url) {
     }
     if (body.coolingFan !== undefined && !adapter.capabilities?.coolingFan) throw new Error('Cooling fan control is not supported by this printer');
     if (body.chamberFan !== undefined && !adapter.capabilities?.chamberFan) throw new Error('Chamber fan control is not supported by this printer');
-    await runPrinterMutation(id, 'fan change', (_currentPrinter, currentAdapter) => currentAdapter.setFans(body));
+    await runPrinterMutation(id, 'fan change', (_currentPrinter, currentAdapter) => currentAdapter.setFans(body), { operationType:PRINTER_OPERATION_TYPES.FAN });
     refreshAfterCommand(id);
     return json(res, 200, { ok: true });
   }
@@ -878,14 +885,18 @@ async function apiRoute(req, res, url) {
         body[key] = value;
       }
     }
-    await runPrinterMutation(id, 'filtration change', (_currentPrinter, currentAdapter) => currentAdapter.setFiltration(body));
+    await runPrinterMutation(id, 'filtration change', (_currentPrinter, currentAdapter) => currentAdapter.setFiltration(body), { operationType:PRINTER_OPERATION_TYPES.FILTRATION });
     refreshAfterCommand(id);
     return json(res, 200, { ok: true });
   }
 
   if (req.method === 'POST' && action === 'level') {
     if (!adapter.capabilities?.bedLeveling) throw new Error('Bed levelling is not supported by this printer');
-    await runPrinterMutation(id, 'bed levelling', (_currentPrinter, currentAdapter) => currentAdapter.levelBed());
+    await runPrinterMutation(id, 'bed levelling', async (_currentPrinter, currentAdapter) => {
+      await currentAdapter.levelBed();
+      printerActivities.start(id, 'bed-leveling', 'bed levelling', { sticky:false, maxDurationMs:20 * 60_000 });
+      fleetState.refreshNow(id).catch(() => {});
+    }, { operationType:PRINTER_OPERATION_TYPES.BED_LEVEL });
     refreshAfterCommand(id);
     return json(res, 200, { ok: true });
   }
@@ -898,12 +909,24 @@ async function apiRoute(req, res, url) {
     }
     toolOffsetCalibrationLocks.set(id, { action: String(body.action || ''), startedAt: Date.now() });
     try {
+      const calibrationAction = String(body.action || '').toLowerCase();
+      const calibrationOperationType = calibrationAction === 'start'
+        ? PRINTER_OPERATION_TYPES.TOOL_CALIBRATION_START
+        : calibrationAction === 'exit'
+          ? PRINTER_OPERATION_TYPES.TOOL_CALIBRATION_EXIT
+          : PRINTER_OPERATION_TYPES.TOOL_CALIBRATION_STEP;
       await runPrinterMutation(id, 'tool offset calibration', async (_currentPrinter, currentAdapter) => {
-        if (String(body.action || '').toLowerCase() === 'start' && chamberPreheat.isActive(id)) {
+        if (calibrationAction === 'start' && chamberPreheat.isActive(id)) {
           await chamberPreheat.stop(id, { reason: 'tool-offset-calibration', turnOff: true });
         }
         await currentAdapter.calibrateToolOffsets({ action:body.action, toolIndex:body.toolIndex });
-      });
+        if (calibrationAction === 'start') {
+          printerActivities.start(id, 'calibration', 'tool calibration', { sticky:true, maxDurationMs:2 * 60 * 60_000 });
+        } else if (calibrationAction === 'exit') {
+          printerActivities.clear(id);
+        }
+        fleetState.refreshNow(id).catch(() => {});
+      }, { operationType:calibrationOperationType });
       refreshAfterCommand(id);
       return json(res, 200, { ok: true });
     } finally {
@@ -913,7 +936,7 @@ async function apiRoute(req, res, url) {
 
   if (req.method === 'POST' && action === 'camera') {
     if (!adapter.capabilities?.camera) throw new Error('Camera is not supported by this printer');
-    await runPrinterMutation(id, 'camera restart', (_currentPrinter, currentAdapter) => currentAdapter.activateCamera(), { allowInactive:true });
+    await runPrinterMutation(id, 'camera restart', (_currentPrinter, currentAdapter) => currentAdapter.activateCamera(), { allowInactive:true, operationType:PRINTER_OPERATION_TYPES.CAMERA });
     return json(res, 200, { cameraUrl: `/api/printers/${encodeURIComponent(id)}/camera/stream` });
   }
 
