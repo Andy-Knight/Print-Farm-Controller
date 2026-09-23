@@ -115,6 +115,7 @@ function moonrakerObjects(printer) {
     },
     virtual_sdcard: { progress: printer.progress / 100, is_active: printer.status === 'printing' },
     display_status: { progress: printer.progress / 100, message: printer.statusMessage },
+    idle_timeout: { state: ['printing', 'paused', 'leveling'].includes(printer.status) ? 'Printing' : 'Ready' },
     heater_bed: { temperature: printer.bed.actual, target: printer.bed.target },
     toolhead: { extruder: 'extruder', position: [0, 0, printer.currentLayer * 0.2, 0] },
     'temperature_sensor cavity': { temperature: printer.chamber.actual },
@@ -204,6 +205,7 @@ function applyGcode(printer, script) {
     }
     const color = line.match(/SET_PRINT_FILAMENT_CONFIG.*CONFIG_EXTRUDER='?(\d+)'?.*FILAMENT_COLOR_RGBA='?([0-9A-F]{8})'?/i);
     if (color && printer.tools[Number(color[1])]) printer.tools[Number(color[1])].filament.color = `#${color[2].slice(0, 6).toUpperCase()}`;
+    if (/\bAUTO_BED_MESH_CALIBRATE\b/i.test(line)) printer.action('level', { durationSeconds:8 });
   }
   printer.emitChange();
 }
@@ -392,6 +394,8 @@ function createFlashForgeHttpServer(printer) {
       } else if (command === 'circulateCtl_cmd') {
         if (args.internal !== undefined) printer.fans.internal = args.internal === 'open' ? 100 : 0;
         if (args.external !== undefined) printer.fans.external = args.external === 'open' ? 100 : 0;
+      } else if (command === 'calibration_cmd' && args.levelingDetection === 'open') {
+        printer.action('level', { durationSeconds:8 });
       }
       printer.emitChange();
       return sendJson(response, 200, { code: 0, message: 'success' });
