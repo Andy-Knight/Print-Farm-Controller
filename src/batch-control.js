@@ -1,6 +1,7 @@
 import { getPrinter } from './store.js';
 import { getPrinterAdapter } from './adapters/adapter-registry.js';
 import { isPrintJobActive } from './chamber-preheat.js';
+import { PRINTER_OPERATION_TYPES } from './printer-operation-policy.js';
 
 const PAUSED_STATES = new Set(['pause', 'paused']);
 const RUNNING_STATES = new Set(['printing', 'working', 'building_from_sd']);
@@ -101,8 +102,22 @@ export class BatchControlService {
 
   async executeOne(id, action, params) {
     if (!this.operationCoordinator) return this.executeOneUnlocked(id, action, params);
+    const operationType = {
+      fans:PRINTER_OPERATION_TYPES.FAN,
+      'chamber-preheat-start':PRINTER_OPERATION_TYPES.CHAMBER_PREHEAT_START,
+      'chamber-preheat-stop':PRINTER_OPERATION_TYPES.CHAMBER_PREHEAT_STOP,
+      'heaters-off':PRINTER_OPERATION_TYPES.HEATERS_OFF,
+      pause:PRINTER_OPERATION_TYPES.PRINT_PAUSE,
+      resume:PRINTER_OPERATION_TYPES.PRINT_RESUME,
+      cancel:PRINTER_OPERATION_TYPES.PRINT_CANCEL
+    }[action] || null;
     try {
-      return await this.operationCoordinator.run(id, `batch ${action}`, () => this.executeOneUnlocked(id, action, params));
+      return await this.operationCoordinator.run(
+        id,
+        `batch ${action}`,
+        () => this.executeOneUnlocked(id, action, params),
+        { operationType }
+      );
     } catch (error) {
       const printer = await this.getPrinter(id).catch(() => null);
       return { id, name:printer?.name || id, ok:false, error:error.message || 'Printer operation is busy' };
