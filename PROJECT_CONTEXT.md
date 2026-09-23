@@ -162,22 +162,23 @@ Manufacturer-specific discovery, capabilities, limits, status normalization, fil
 
 ## Current task
 
-**v0.17.0 is the current merged release on `main`.** Initial integrated-simulator validation has also passed for A1 Mini online/idle state, 80 °C bed limit, four AMS Lite slots plus external spool, camera preview, single-material `.gcode` upload/start, Pause/Resume/Cancel, plate-sliced `.3mf` upload/start, and AMS Lite slot mapping through the normal controller workflow. Simulator testing exposed that directly started prints did not create the normal bed-clearance interlock on completion; the queue service now observes all live print transitions and requires bed clearance after direct/external prints before queued work can start. Final return-to-idle/bed-clearance retest has passed: a directly started A1 Mini print now produces the expected BED CLEARANCE REQUIRED prompt on completion, and the final full `npm test` regression run passes. Physical A1 Mini validation remains outstanding.
+**v0.17.0 is the current merged release on `main`; `feature/concurrent-client-safety-v0180` is versioned as v0.18.0 and adds concurrent-client safety for shared controller use.** The existing HTTP/SSE architecture already supports multiple simultaneous browser clients for monitoring. v0.18.0 adds per-printer operation arbitration so overlapping print/control/upload/calibration operations from different clients cannot be interleaved; conflicting direct commands return HTTP 409 with a `Printer busy — … in progress` error. Queue-driven starts and cancellations, batch control and file distribution use the same coordinator.
+
+Shared mutable controller data is also hardened for concurrent clients. Print Library and queue API mutations are serialized together so library deletion cannot race a new queue reference; printer-registry and licence installation mutations are serialized; printer and file-material JSON read-modify-write operations are serialized; queue/store metadata writes use collision-safe temporary files; and Print Library initialization/mutations are guarded. Automatic queue compatibility exposes an active client operation as a temporary blocker.
+
+This work intentionally does **not** add authentication, user accounts, roles or per-user audit history. Connected clients still share the same controller authority. Physical A1 Mini validation also remains outstanding, so Bambu P1P/P1S/X1C/A1 Mini support remains experimental.
 
 - **Print Library** = what can be printed.
 - **Queue** = what should be printed.
 - **History** = what was printed.
 
-The library browser supports upload, search, detected requirement summaries, queueing to the next compatible printer, production quantity/priority through the existing queue setup, and explicit deletion when no queue/history record references the file. Existing staged queue files migrate automatically and keep their IDs.
-
-Bambu P1P/P1S/X1C/A1 Mini support remains explicitly experimental. Physical A1 Mini validation is still required, and physical X1C RTSPS/H.264 camera decoding remains out of scope until a suitable implementation is added.
-
 ## Next steps
 
-**Completed for v0.16.0:** full `npm test` regression run, rebuild of the Windows SEA executable and Inno Setup installer, and verification that both the installer and controller UI/footer report **v0.16.0**.
+**Completed for v0.17.0:** integrated A1 Mini simulator validation and a full `npm test` regression run with 0 failures. Physical A1 Mini validation can follow when hardware is available.
 
-1. Integrated-simulator validation for v0.17.0 A1 Mini support is complete, including print completion/return-to-idle and the build-plate clearance prompt for directly started prints. Already confirmed: online/idle state, 80 °C bed limit, four AMS Lite slots plus external spool, camera preview, successful single-material `.gcode` upload/start, Pause/Resume/Cancel, plate-sliced `.3mf` upload/start, AMS Lite slot mapping, and the earlier full `npm test` run with 0 failures. Unsupported chamber controls were corrected to be omitted entirely, and direct/external print completion now participates in the bed-clearance interlock. The final full `npm test` regression run now passes after updating the outdated U1 queue test assumption. A pre-existing observed print correctly creates a bed-clearance interlock before mapped-tool preflight; the test now acknowledges bed clearance first, then verifies the original nozzle-change rejection. Physical A1 Mini validation can follow when hardware is available.
-2. Add Linux x64 and ARM64 packaging.
+1. Validate v0.18.0 concurrent-client safety with the full `npm test` suite, then use two simultaneous browser clients to confirm that a long-running operation on one client causes a conflicting command from the other to receive `Printer busy — … in progress` without interrupting the first operation. Also verify normal monitoring/live SSE updates remain available to both clients.
+2. Confirm Print Library/queue and printer-registry changes remain consistent when initiated from separate clients in quick succession.
+3. Add Linux x64 and ARM64 packaging.
 3. Code signing is **not a blocker for development or private testing**. The Authenticode workflow is already implemented; when a production certificate is obtained, `npm run release:windows` signs the injected SEA executable, builds the installer around the signed EXE, then signs and verifies the installer.
 4. Future Windows packaging polish: add a custom Print Farm Controller icon for the installer, installed shortcuts and, ideally, the packaged executable itself. This is intentionally deferred.
 5. Add systematic feature-by-feature entitlement gates only where product packaging requires them; preserve the signed licence format and existing edition definitions.
