@@ -396,8 +396,8 @@ async function apiRoute(req, res, url) {
         architecture:process.arch,
         uptimeSeconds:Math.round(process.uptime()),
         runningAsSea:runtimePaths.runningAsSea,
-        dataDir:runtimePaths.dataDir,
-        logDir:runtimePaths.logDir,
+        dataDirectoryMode:runtimePaths.customDataDir ? 'custom' : 'application-local',
+        logDirectoryMode:runtimePaths.customLogDir ? 'custom' : 'application-local',
         license:{
           edition:license.edition,
           label:license.label,
@@ -1174,7 +1174,7 @@ process.on('SIGTERM', shutdown);
 async function startController() {
   await diagnosticLogger.init();
   diagnosticLogger.patchConsole();
-  console.log(`Diagnostic logs: ${runtimePaths.logDir}`);
+  console.log(`Diagnostic logging enabled (${runtimePaths.customLogDir ? 'LOG_DIR override' : 'application-local logs directory'})`);
   licenseManager = await loadLicenseManager({
     appDir:APP_DIR,
     dataDir:controllerDataDir,
