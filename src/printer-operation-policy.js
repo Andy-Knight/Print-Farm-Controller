@@ -66,6 +66,8 @@ const ALLOWED_BY_ACTIVITY = Object.freeze({
     PRINTER_OPERATION_TYPES.CHAMBER_PREHEAT_STOP,
     PRINTER_OPERATION_TYPES.BED_LEVEL,
     PRINTER_OPERATION_TYPES.TOOL_CALIBRATION_START,
+    PRINTER_OPERATION_TYPES.TOOL_CALIBRATION_STEP,
+    PRINTER_OPERATION_TYPES.TOOL_CALIBRATION_EXIT,
     PRINTER_OPERATION_TYPES.FILAMENT_CONFIG,
     PRINTER_OPERATION_TYPES.CAMERA,
     PRINTER_OPERATION_TYPES.LICENSE_SLOT,
@@ -86,6 +88,14 @@ const ALLOWED_BY_ACTIVITY = Object.freeze({
   ]),
   'chamber-preheat': new Set([
     PRINTER_OPERATION_TYPES.CHAMBER_PREHEAT_STOP,
+    PRINTER_OPERATION_TYPES.TEMPERATURE,
+    PRINTER_OPERATION_TYPES.FAN,
+    PRINTER_OPERATION_TYPES.FILTRATION,
+    PRINTER_OPERATION_TYPES.FILE_UPLOAD,
+    ...SAFE_METADATA,
+    PRINTER_OPERATION_TYPES.HEATERS_OFF
+  ]),
+  heating: new Set([
     PRINTER_OPERATION_TYPES.TEMPERATURE,
     PRINTER_OPERATION_TYPES.FAN,
     PRINTER_OPERATION_TYPES.FILTRATION,
@@ -145,6 +155,7 @@ export function livePrinterActivity(status = {}) {
   if (PRINTING_STATES.has(state) || (state === 'heating' && status.fileName)) {
     return { kind:'printing', label:'active print', source:'live' };
   }
+  if (state === 'heating') return { kind:'heating', label:'manual heating', source:'live' };
   if (toolCalibrationActive(status)) return { kind:'calibration', label:'tool calibration', source:'live' };
   if (BED_LEVEL_STATES.has(state)) return { kind:'bed-leveling', label:'bed levelling', source:'live' };
   if (CALIBRATION_STATES.has(state)) return { kind:'calibration', label:'calibration', source:'live' };
