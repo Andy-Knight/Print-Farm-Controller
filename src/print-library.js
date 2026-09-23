@@ -128,11 +128,13 @@ async function migrateLegacyQueueFiles() {
 }
 
 async function ensureRoot() {
+  // The library directory itself can disappear independently of module
+  // lifetime (for example test/temp cleanup, restore tooling, or manual
+  // recovery). Always make sure it exists before accessing it. Only the
+  // one-time legacy migration is memoized.
+  await fs.mkdir(ROOT, { recursive:true, mode:0o700 });
   if (!rootInitialization) {
-    rootInitialization = (async () => {
-      await fs.mkdir(ROOT, { recursive:true, mode:0o700 });
-      await migrateLegacyQueueFiles();
-    })().catch((error) => {
+    rootInitialization = migrateLegacyQueueFiles().catch((error) => {
       rootInitialization = null;
       throw error;
     });
