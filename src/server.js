@@ -485,7 +485,9 @@ async function apiRoute(req, res, url) {
     for (const item of result.results) {
       if (item.ok) {
         refreshAfterCommand(item.id);
-        if (String(request.action || '').toLowerCase() === 'cancel') await printQueue.noteExternalCancel(item.id);
+        if (String(request.action || '').toLowerCase() === 'cancel') {
+          await controllerMutations.run('library-queue', () => printQueue.noteExternalCancel(item.id));
+        }
       }
     }
     return json(res, 200, result);
@@ -755,7 +757,9 @@ async function apiRoute(req, res, url) {
     const body = await readJson(req);
     if (!adapter.capabilities?.jobControl) throw new Error('Job control is not supported by this printer');
     await printerOperations.run(id, `job ${String(body.action || '').toLowerCase() || 'control'}`, () => adapter.setJobState(body.action));
-    if (String(body.action || '').toLowerCase() === 'cancel') await printQueue.noteExternalCancel(id);
+    if (String(body.action || '').toLowerCase() === 'cancel') {
+      await controllerMutations.run('library-queue', () => printQueue.noteExternalCancel(id));
+    }
     refreshAfterCommand(id);
     return json(res, 200, { ok: true });
   }
