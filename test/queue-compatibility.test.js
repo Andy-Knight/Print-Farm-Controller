@@ -27,6 +27,41 @@ const stagedJob = {
   } }
 };
 
+test('printer target allows only the designated printer model', () => {
+  const targetedJob = {
+    fileName:'targeted.gcode',
+    printerTarget:{ adapterType:'flashforge-ad5m', model:'Adventurer 5M Pro' },
+    requirements:{ requiredTools:[], toolCount:0 }
+  };
+  const matching = evaluateQueueCompatibility({
+    job:targetedJob,
+    printer:{ id:'ff-pro', name:'AD5M Pro', adapterType:'flashforge-ad5m', model:'Adventurer 5M Pro' },
+    state:{ online:true, status:{ status:'idle' } },
+    adapter:{ type:'flashforge-ad5m', model:'Adventurer 5M Pro', capabilities:{ fileUpload:true, localFiles:true, printLocalFile:true }, limits:{}, uploadExtensions:['.gcode'] }
+  });
+  assert.equal(matching.category, 'ready');
+
+  const wrongModel = evaluateQueueCompatibility({
+    job:targetedJob,
+    printer:{ id:'u1', name:'U1', adapterType:'snapmaker-u1', model:'U1' },
+    state:{ online:true, status:{ status:'idle' } },
+    adapter:{ type:'snapmaker-u1', model:'U1', capabilities:{ fileUpload:true, localFiles:true, printLocalFile:true }, limits:{}, uploadExtensions:['.gcode'] }
+  });
+  assert.equal(wrongModel.category, 'incompatible');
+  assert.ok(wrongModel.reasons.some((reason) => reason.code === 'printer_target_mismatch'));
+  assert.ok(wrongModel.reasons.some((reason) => /Adventurer 5M Pro/.test(reason.text)));
+});
+
+test('files without a printer target remain unrestricted by model', () => {
+  const result = evaluateQueueCompatibility({
+    job:{ fileName:'general.gcode', requirements:{ requiredTools:[], toolCount:0 } },
+    printer:{ id:'u1', name:'U1', adapterType:'snapmaker-u1', model:'U1' },
+    state:{ online:true, status:{ status:'idle' } },
+    adapter:{ type:'snapmaker-u1', model:'U1', capabilities:{ fileUpload:true, localFiles:true, printLocalFile:true }, limits:{}, uploadExtensions:['.gcode'] }
+  });
+  assert.equal(result.category, 'ready');
+});
+
 test('U1 compatibility produces a logical-to-physical mapping from loaded tool state', () => {
   const result = evaluateQueueCompatibility({
     job:stagedJob,
