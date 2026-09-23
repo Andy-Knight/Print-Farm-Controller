@@ -1,4 +1,8 @@
-# Print Farm Controller v0.17.0
+# Print Farm Controller v0.18.0
+
+> **Current development: v0.18.0 concurrent client safety.** Multiple browser clients can continue to monitor the same controller through the existing shared SSE/live-state backend, while conflicting writes are now coordinated centrally. Per-printer command arbitration rejects overlapping printer operations with HTTP 409 and a `Printer busy — … in progress` message; queue/library and printer-registry mutations are serialized; shared JSON stores use collision-safe atomic writes; and automatic queue compatibility reports printers blocked by another active client operation. This release does **not** add user accounts, authentication, roles or per-user audit history — connected clients still share the same controller authority.
+
+> **v0.18.0 hardens the controller for concurrent operators.** Direct print/control commands, batch operations, file distribution, queue-driven starts/cancels, chamber preheat interactions, licence-slot changes, printer removal and compatibility designations share a per-printer operation coordinator. Long-running operations therefore cannot be interleaved accidentally by another browser client. Print Library/queue mutations and printer-registry mutations are serialized, and printer/material/queue metadata persistence is hardened against concurrent read-modify-write loss and temporary-file collisions.
 
 > **Current release: v0.17.0 Bambu Lab A1 Mini support.** The existing experimental Bambu LAN adapter now supports A1 Mini configuration, status/control, FTPS file handling, TLS/JPEG camera access and AMS Lite material mapping. Single-material `.gcode` starts are enabled on A1 Mini using the existing Bambu `gcode_file` path, but remain experimental until validated on physical hardware; multi-material AMS Lite jobs require sliced `.3mf`. A1 Mini support remains experimental until validated on physical hardware.
 
