@@ -1093,8 +1093,10 @@ export class PrintQueueService {
       );
     } catch (error) {
       if (error?.code === 'PRINTER_BUSY') {
-        const timer = setTimeout(() => this.scheduleReconcile(), 100);
-        timer.unref?.();
+        if (error.conflictCode === 'transaction_busy') {
+          const timer = setTimeout(() => this.scheduleReconcile(), 100);
+          timer.unref?.();
+        }
         return;
       }
       throw error;
@@ -1248,8 +1250,10 @@ export class PrintQueueService {
       );
     } catch (error) {
       if (error?.code === 'PRINTER_BUSY') {
-        const timer = setTimeout(() => this.scheduleReconcile(), 100);
-        timer.unref?.();
+        if (error.conflictCode === 'transaction_busy') {
+          const timer = setTimeout(() => this.scheduleReconcile(), 100);
+          timer.unref?.();
+        }
         return;
       }
       throw error;
