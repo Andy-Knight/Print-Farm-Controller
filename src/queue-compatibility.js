@@ -8,6 +8,18 @@ function normState(value) {
   return String(value || '').trim().toLowerCase();
 }
 
+function normalizeIdentity(value) {
+  return String(value || '').trim().toLowerCase().replace(/[\s_-]+/g, '');
+}
+
+function printerMatchesTarget(target, printer = {}, state = {}, adapter = {}) {
+  if (!target?.adapterType || !target?.model) return true;
+  const actualAdapterType = printer?.adapterType || adapter?.type || state?.adapterType || '';
+  const actualModel = printer?.model || adapter?.model || state?.model || state?.status?.model || '';
+  return normalizeIdentity(target.adapterType) === normalizeIdentity(actualAdapterType)
+    && normalizeIdentity(target.model) === normalizeIdentity(actualModel);
+}
+
 function isBusy(status = {}) {
   const state = normState(status.status);
   // Moonraker and FlashForge may retain the previous filename after a print
@@ -188,8 +200,16 @@ export function evaluateQueueCompatibility({ job, printer, state, adapter, bedCl
   const blocked = [];
   const review = [];
   const requirements = job?.requirements || job?.stagedFile?.requirements || {};
+  const printerTarget = job?.printerTarget || job?.stagedFile?.printerTarget || null;
   const capabilities = adapter?.capabilities || state?.capabilities || {};
   const limits = adapter?.limits || state?.limits || {};
+
+  if (printerTarget && !printerMatchesTarget(printerTarget, printer, state, adapter)) {
+    incompatible.push({
+      code:'printer_target_mismatch',
+      text:`File is designated for ${printerTarget.model}`
+    });
+  }
 
   if (!capabilities.fileUpload || !capabilities.localFiles || !capabilities.printLocalFile) {
     incompatible.push({ code:'missing_file_workflow', text:'Printer does not support verified controller file upload and local print start' });
@@ -276,4 +296,4 @@ export function evaluateQueueCompatibility({ job, printer, state, adapter, bedCl
   };
 }
 
-export const queueCompatibilityHelpers = { isBusy, mapLogicalMaterials, mapLogicalTools, normalizeColor, sameNozzle };
+export const queueCompatibilityHelpers = { isBusy, mapLogicalMaterials, mapLogicalTools, normalizeColor, printerMatchesTarget, sameNozzle };
