@@ -125,7 +125,7 @@ test('coordinator applies physical activity policy in addition to transaction lo
       assert.equal(error.code, 'PRINTER_BUSY');
       assert.equal(error.statusCode, 409);
       assert.equal(error.conflictCode, 'activity_conflict');
-      assert.match(error.message, /bed levelling blocks print-start/);
+      assert.match(error.message, /bed levelling in progress; print-start is not allowed/);
       return true;
     }
   );
