@@ -37,6 +37,7 @@ import { resolveControllerRuntimePaths } from './runtime-paths.js';
 import { publicAssetKey, readRuntimeAsset } from './runtime-assets.js';
 import { KeyedSerialExecutor, PrinterOperationCoordinator } from './concurrency.js';
 import { evaluatePrinterOperation, PrinterPhysicalActivityTracker, PRINTER_OPERATION_TYPES } from './printer-operation-policy.js';
+import { DiagnosticLogger } from './diagnostic-logger.js';
 
 const runtimePaths = resolveControllerRuntimePaths();
 const PUBLIC_DIR = runtimePaths.publicDir;
@@ -47,6 +48,7 @@ const packageInfo = PACKAGE_PATH ? JSON.parse(readFileSync(PACKAGE_PATH, 'utf8')
 const CONTROLLER_VERSION = String(bundledVersion || packageInfo.version || 'unknown');
 const PORT = Number(process.env.PORT || 4242);
 const HOST = process.env.HOST || '0.0.0.0';
+const diagnosticLogger = new DiagnosticLogger({ logDir:runtimePaths.logDir, version:CONTROLLER_VERSION });
 const fleetState = new FleetStateService();
 const printerActivities = new PrinterPhysicalActivityTracker();
 const U1_BED_LEVEL_SOAK_MS = 120_000;
@@ -149,20 +151,33 @@ function printerLicensedForNewWork(printerId) {
 }
 
 async function runPrinterMutation(printerId, label, task, { allowInactive = false, operationType = null } = {}) {
-  return printerOperations.run(printerId, label, async () => {
-    const currentPrinter = await getPrinter(printerId);
-    if (!currentPrinter) {
-      const error = new Error('Printer not found');
-      error.statusCode = 404;
-      throw error;
-    }
-    if (!allowInactive && !printerLicensedForNewWork(printerId)) {
-      const error = new Error('Printer is inactive because it does not currently have a licence slot. Select it for a licence slot before sending new control commands.');
-      error.statusCode = 409;
-      throw error;
-    }
-    return task(currentPrinter, getPrinterAdapter(currentPrinter));
-  }, { operationType });
+  const meta = { printerId, operationType:operationType || null, label };
+  await diagnosticLogger.debug('printer-operation', 'Starting printer operation', meta);
+  try {
+    const result = await printerOperations.run(printerId, label, async () => {
+      const currentPrinter = await getPrinter(printerId);
+      if (!currentPrinter) {
+        const error = new Error('Printer not found');
+        error.statusCode = 404;
+        throw error;
+      }
+      if (!allowInactive && !printerLicensedForNewWork(printerId)) {
+        const error = new Error('Printer is inactive because it does not currently have a licence slot. Select it for a licence slot before sending new control commands.');
+        error.statusCode = 409;
+        throw error;
+      }
+      return task(currentPrinter, getPrinterAdapter(currentPrinter));
+    }, { operationType });
+    await diagnosticLogger.info('printer-operation', 'Printer operation completed', meta);
+    return result;
+  } catch (error) {
+    await diagnosticLogger.warn('printer-operation', 'Printer operation failed or was blocked', {
+      ...meta,
+      error:error?.message || String(error),
+      statusCode:error?.statusCode || null
+    });
+    throw error;
+  }
 }
 
 const batchControl = new BatchControlService({
@@ -333,6 +348,75 @@ async function apiRoute(req, res, url) {
   if (req.method === 'GET' && url.pathname === '/api/license') {
     return json(res, 200, { license: currentLicenseSnapshot() });
   }
+  if (req.method === 'GET' && url.pathname === '/api/diagnostics') {
+    const entries = await diagnosticLogger.recent({
+      limit:url.searchParams.get('limit') || 300,
+      level:url.searchParams.get('level') || '',
+      search:url.searchParams.get('search') || ''
+    });
+    return json(res, 200, { status:diagnosticLogger.status(), entries });
+  }
+
+  if (req.method === 'POST' && url.pathname === '/api/diagnostics/verbose') {
+    const body = await readJson(req);
+    const status = await diagnosticLogger.setVerbose(body.enabled !== false, body.minutes || 30);
+    return json(res, 200, { status });
+  }
+
+  if (req.method === 'GET' && url.pathname === '/api/diagnostics/bundle') {
+    await diagnosticLogger.info('diagnostics', 'Diagnostic bundle requested');
+    const printers = decoratedFleet().map((printer) => ({
+      id:printer.id,
+      name:printer.name,
+      host:printer.host,
+      manufacturer:printer.manufacturer,
+      model:printer.model,
+      adapterType:printer.adapterType,
+      serialNumber:printer.serialNumber,
+      online:printer.online,
+      lastSeen:printer.lastSeen,
+      latencyMs:printer.latencyMs,
+      consecutiveFailures:printer.consecutiveFailures,
+      capabilities:printer.capabilities,
+      status:printer.status,
+      cameraHealth:printer.cameraHealth,
+      chamberPreheat:printer.chamberPreheat,
+      controllerActivity:printer.controllerActivity
+    }));
+    const license = currentLicenseSnapshot();
+    const bundle = await diagnosticLogger.createBundle({
+      system:{
+        controllerVersion:CONTROLLER_VERSION,
+        generatedAt:new Date().toISOString(),
+        nodeVersion:process.version,
+        platform:process.platform,
+        architecture:process.arch,
+        uptimeSeconds:Math.round(process.uptime()),
+        runningAsSea:runtimePaths.runningAsSea,
+        dataDir:runtimePaths.dataDir,
+        logDir:runtimePaths.logDir,
+        license:{
+          edition:license.edition,
+          label:license.label,
+          licenseStatus:license.licenseStatus,
+          enforcementEnabled:license.enforcementEnabled,
+          maxPrinters:license.maxPrinters
+        }
+      },
+      printers,
+      queue:printQueue.getSnapshot()
+    });
+    const stamp = new Date().toISOString().replace(/[:.]/g, '-');
+    res.writeHead(200, {
+      'content-type':'application/zip',
+      'content-length':bundle.length,
+      'content-disposition':`attachment; filename="PrintFarmController-Diagnostics-${stamp}.zip"`,
+      'cache-control':'no-store'
+    });
+    res.end(bundle);
+    return;
+  }
+
 
   if (req.method === 'POST' && url.pathname === '/api/license/install') {
     const body = await readJson(req);
@@ -1055,6 +1139,13 @@ const server = http.createServer(async (req, res) => {
     res.writeHead(404);
     res.end('Not found');
   } catch (error) {
+    await diagnosticLogger.error('http', 'Request failed', {
+      method:req.method,
+      pathname:url.pathname,
+      statusCode:error?.statusCode || null,
+      error:error?.message || String(error),
+      stack:error?.stack || null
+    });
     console.error(`[${new Date().toISOString()}]`, error.message);
     const status = Number.isInteger(Number(error?.statusCode)) ? Number(error.statusCode) : 400;
     if (!res.headersSent) json(res, status, { error: error.message || 'Request failed' });
@@ -1063,6 +1154,7 @@ const server = http.createServer(async (req, res) => {
 });
 
 async function shutdown() {
+  await diagnosticLogger.info('controller', 'Controller shutdown requested').catch(() => {});
   try { await chamberPreheat.stopAll({ reason: 'controller-shutdown', turnOff: true }); } catch {}
   chamberPreheat.stopService();
   printQueue.stop();
@@ -1077,6 +1169,9 @@ process.on('SIGINT', shutdown);
 process.on('SIGTERM', shutdown);
 
 async function startController() {
+  await diagnosticLogger.init();
+  diagnosticLogger.patchConsole();
+  console.log(`Diagnostic logs: ${runtimePaths.logDir}`);
   licenseManager = await loadLicenseManager({
     appDir:APP_DIR,
     dataDir:controllerDataDir,
