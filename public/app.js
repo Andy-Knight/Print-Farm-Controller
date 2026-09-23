@@ -409,19 +409,26 @@ function diagnosticStatusTime(value) {
 function renderDiagnostics(payload) {
   diagnosticsState = payload?.status || diagnosticsState || {};
   const status = diagnosticsState || {};
+  const loggingAvailable = status.enabled !== false;
   if (diagnosticsStatus) {
     diagnosticsStatus.innerHTML = `
+      <div><span>Logging</span><strong>${loggingAvailable ? 'Enabled' : 'Unavailable'}</strong></div>
       <div><span>Logging level</span><strong>${escapeHtml(String(status.level || 'info').toUpperCase())}</strong></div>
       <div><span>Verbose until</span><strong>${escapeHtml(status.verbose ? diagnosticStatusTime(status.verboseUntil) : 'Off')}</strong></div>
       <div><span>Log location</span><code>${escapeHtml(status.logDir || '—')}</code></div>
       <div><span>Rotation</span><strong>${escapeHtml(status.maxFileBytes ? `${Math.round(status.maxFileBytes / 1024 / 1024)} MB × ${status.retainedFiles || '—'} files` : '—')}</strong></div>
     `;
   }
-  if (diagnosticsVerboseBtn) diagnosticsVerboseBtn.textContent = status.verbose ? 'Disable verbose logging' : 'Enable for 30 minutes';
+  if (diagnosticsVerboseBtn) {
+    diagnosticsVerboseBtn.textContent = status.verbose ? 'Disable verbose logging' : 'Enable for 30 minutes';
+    diagnosticsVerboseBtn.disabled = !loggingAvailable;
+  }
   if (diagnosticsVerboseHelp) {
-    diagnosticsVerboseHelp.textContent = status.verbose
-      ? `DEBUG logging is active until ${diagnosticStatusTime(status.verboseUntil)}.`
-      : 'Temporarily records DEBUG-level activity while reproducing an issue.';
+    diagnosticsVerboseHelp.textContent = !loggingAvailable
+      ? 'The configured log directory is not writable. The controller continues to run, but file logging is unavailable.'
+      : status.verbose
+        ? `DEBUG logging is active until ${diagnosticStatusTime(status.verboseUntil)}.`
+        : 'Temporarily records DEBUG-level activity while reproducing an issue.';
   }
 
   const entries = Array.isArray(payload?.entries) ? payload.entries : [];
