@@ -1067,8 +1067,9 @@ function updateCard(card, printer) {
   card.querySelector('[data-latency]').textContent = printer.latencyMs != null ? `${printer.latencyMs} ms` : '';
   const activityStatus = printerActivityStatus(printer);
   const activityStrip = card.querySelector('[data-bed-level-strip]');
-  activityStrip?.classList.toggle('hidden', !activityStatus.active);
-  if (activityStatus.active) {
+  const showCardActivity = activityStatus.active && activityStatus.kind !== 'chamber-preheat';
+  activityStrip?.classList.toggle('hidden', !showCardActivity);
+  if (showCardActivity) {
     const title = activityStrip.querySelector('[data-bed-level-title]');
     const summary = card.querySelector('[data-bed-level-summary]');
     if (title) title.textContent = activityStatus.title;
