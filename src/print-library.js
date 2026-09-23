@@ -286,7 +286,7 @@ export async function getLibraryPreview(id) {
   }
 }
 
-export async function updateLibraryFileMetadata(id, { description = '', printerTarget = null } = {}) {
+export async function updateLibraryFileMetadata(id, { description, printerTarget } = {}) {
   return libraryMutations.run('catalog', async () => {
   await ensureRoot();
   const normalizedId = safeId(id);
@@ -294,8 +294,8 @@ export async function updateLibraryFileMetadata(id, { description = '', printerT
   const metadataPath = path.join(directory, META_FILE);
   const metadata = JSON.parse(await fs.readFile(metadataPath, 'utf8'));
   if (metadata.id !== normalizedId) throw new Error('Print library metadata is invalid');
-  metadata.description = normalizeDescription(description);
-  metadata.printerTarget = normalizePrinterTarget(printerTarget);
+  if (description !== undefined) metadata.description = normalizeDescription(description);
+  if (printerTarget !== undefined) metadata.printerTarget = normalizePrinterTarget(printerTarget);
   metadata.updatedAt = new Date().toISOString();
   await writeMetadata(directory, metadata);
   return normalizeMetadata(metadata);
