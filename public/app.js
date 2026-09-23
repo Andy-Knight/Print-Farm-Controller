@@ -804,6 +804,7 @@ function productionBatchMarkup(batch, { history = false } = {}) {
     : batch.needsReview ? 'Needs review'
     : 'Queued';
   const runs = Array.isArray(batch.runs) ? batch.runs : [];
+  const printerTarget = batch.printerTarget ? `Target printer: ${printerTargetLabel(batch.printerTarget)}` : '';
   const visibleRuns = runs.slice(0, 12);
   const runMarkup = visibleRuns.map((run) => {
     const printer = run.printerName || (run.status === 'queued' ? 'Waiting for compatible printer' : 'Unassigned');
@@ -824,6 +825,7 @@ function productionBatchMarkup(batch, { history = false } = {}) {
     <div class="queue-job-main">
       <div class="queue-job-title"><strong>${escapeHtml(batch.fileName)}</strong><span class="queue-job-badges">${queuePriorityBadge(batch)}<span class="queue-status ${batch.paused ? 'paused' : batch.finished ? 'completed' : active ? 'printing' : 'queued'}">${escapeHtml(state)}</span></span></div>
       <div class="queue-job-printer">Production quantity ${quantity}</div>
+      ${printerTarget ? `<div class="queue-job-meta">${escapeHtml(printerTarget)}</div>` : ''}
       <div class="production-counts">Completed ${completed} · Printing/preparing ${active} · Remaining ${remaining}${failed ? ` · Failed ${failed}` : ''}${cancelled ? ` · Cancelled ${cancelled}` : ''}</div>
       <div class="production-progress"><span style="width:${progress}%"></span></div>
       <div class="production-runs">${runMarkup}${more}</div>
