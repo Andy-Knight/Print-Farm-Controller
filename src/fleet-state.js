@@ -4,11 +4,12 @@ import { getPrinter, listPrinters, publicPrinter } from './store.js';
 const nowIso = () => new Date().toISOString();
 
 export class FleetStateService {
-  constructor({ pollIntervalMs = 2500, tickIntervalMs = 250, maxConcurrent = 4, adapterResolver = getPrinterAdapter } = {}) {
+  constructor({ pollIntervalMs = 2500, tickIntervalMs = 250, maxConcurrent = 4, adapterResolver = getPrinterAdapter, diagnosticFn = null } = {}) {
     this.pollIntervalMs = pollIntervalMs;
     this.tickIntervalMs = tickIntervalMs;
     this.maxConcurrent = maxConcurrent;
     this.adapterResolver = adapterResolver;
+    this.diagnostic = typeof diagnosticFn === 'function' ? diagnosticFn : null;
     this.states = new Map();
     this.subscribers = new Set();
     this.timer = null;
@@ -121,6 +122,7 @@ export class FleetStateService {
     state.lastAttempt = nowIso();
     this.running += 1;
     const started = Date.now();
+    const wasOnline = state.online === true;
 
     try {
       const printer = await getPrinter(id);
@@ -140,11 +142,30 @@ export class FleetStateService {
       state.lastSeen = nowIso();
       state.latencyMs = Date.now() - started;
       state.consecutiveFailures = 0;
+      if (!wasOnline) {
+        Promise.resolve(this.diagnostic?.('info', 'Printer connected', {
+          printerId:state.id,
+          printerName:state.name,
+          adapterType:state.adapterType,
+          host:state.host,
+          latencyMs:state.latencyMs
+        })).catch(() => {});
+      }
     } catch (error) {
       state.online = false;
       state.error = error.message || 'Printer did not respond';
       state.latencyMs = Date.now() - started;
       state.consecutiveFailures = (state.consecutiveFailures || 0) + 1;
+      if (wasOnline || state.consecutiveFailures === 1) {
+        Promise.resolve(this.diagnostic?.('warn', 'Printer connection failed', {
+          printerId:state.id,
+          printerName:state.name,
+          adapterType:state.adapterType,
+          host:state.host,
+          error:state.error,
+          consecutiveFailures:state.consecutiveFailures
+        })).catch(() => {});
+      }
     } finally {
       const backoff = state.online ? this.pollIntervalMs : Math.min(15000, this.pollIntervalMs * Math.max(1, state.consecutiveFailures));
       state.nextPollAt = Date.now() + backoff;
