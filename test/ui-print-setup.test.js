@@ -366,7 +366,7 @@ test('Print Library supports searchable editable free-text descriptions', () => 
   assert.match(app, /data-library-edit/);
   assert.match(app, /async function updateLibraryMetadata/);
   assert.match(app, /method:'PATCH'/);
-  assert.match(app, /stageAutomaticQueueFile\(file, options, quantity, priority, data\.get\('description'\)/);
+  assert.match(app, /else await stageAutomaticQueueFile\([\s\S]*?data\.get\('description'\) \|\| '',[\s\S]*?parsePrinterTargetValue\(data\.get\('printerTarget'\) \|\| ''\)[\s\S]*?\);/);
   assert.match(server, /libraryFileMatch && req\.method === 'PATCH'/);
   assert.match(server, /updateLibraryFileMetadata/);
   assert.match(library, /function normalizeDescription/);
