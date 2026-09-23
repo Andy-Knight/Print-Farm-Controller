@@ -49,6 +49,8 @@ const PORT = Number(process.env.PORT || 4242);
 const HOST = process.env.HOST || '0.0.0.0';
 const fleetState = new FleetStateService();
 const printerActivities = new PrinterPhysicalActivityTracker();
+const U1_BED_LEVEL_SOAK_MS = 120_000;
+const u1BedLevelProgress = new Map();
 let chamberPreheat = null;
 const printerOperations = new PrinterOperationCoordinator({
   evaluateFn:evaluatePrinterOperation,
@@ -79,8 +81,59 @@ function resolveLicensedFleet(printers = fleetState.getFleet()) {
   });
 }
 
+function controllerActivityFor(printer) {
+  const activity = printerActivities.current(printer?.id, printer?.status || null);
+  if (!activity) {
+    u1BedLevelProgress.delete(String(printer?.id || ''));
+    return null;
+  }
+
+  if (printer?.adapterType !== 'snapmaker-u1' || activity.kind !== 'bed-leveling') {
+    u1BedLevelProgress.delete(String(printer?.id || ''));
+    return activity;
+  }
+
+  const id = String(printer.id || '');
+  const actual = Number(printer.status?.bed?.actual);
+  const target = Number(printer.status?.bed?.target);
+  const now = Date.now();
+  const progress = u1BedLevelProgress.get(id) || { stableSinceMs:null };
+  let phase = 'homing';
+  let remainingSeconds = null;
+
+  if (Number.isFinite(target) && target >= 50) {
+    if (!Number.isFinite(actual) || actual < target - 1) {
+      phase = 'heating';
+      progress.stableSinceMs = null;
+    } else {
+      if (!progress.stableSinceMs) progress.stableSinceMs = now;
+      const stableForMs = Math.max(0, now - progress.stableSinceMs);
+      if (stableForMs < U1_BED_LEVEL_SOAK_MS) {
+        phase = 'stabilising';
+        remainingSeconds = Math.max(0, Math.ceil((U1_BED_LEVEL_SOAK_MS - stableForMs) / 1000));
+      } else {
+        phase = 'probing';
+      }
+    }
+  } else {
+    progress.stableSinceMs = null;
+  }
+
+  u1BedLevelProgress.set(id, progress);
+  return {
+    ...activity,
+    phase,
+    remainingSeconds,
+    bedActual:Number.isFinite(actual) ? actual : null,
+    bedTarget:Number.isFinite(target) ? target : null
+  };
+}
+
 function decoratedFleet(printers = fleetState.getFleet()) {
-  return resolveLicensedFleet(printers).printers;
+  return resolveLicensedFleet(printers).printers.map((printer) => {
+    const controllerActivity = controllerActivityFor(printer);
+    return controllerActivity ? { ...printer, controllerActivity } : printer;
+  });
 }
 
 function currentLicenseSnapshot(printers = fleetState.getFleet()) {
@@ -895,8 +948,16 @@ async function apiRoute(req, res, url) {
   if (req.method === 'POST' && action === 'level') {
     if (!adapter.capabilities?.bedLeveling) throw new Error('Bed levelling is not supported by this printer');
     await runPrinterMutation(id, 'bed levelling', async (_currentPrinter, currentAdapter) => {
-      await currentAdapter.levelBed();
       printerActivities.start(id, 'bed-leveling', 'bed levelling', { sticky:false, maxDurationMs:20 * 60_000 });
+      fleetState.schedulePublish();
+      try {
+        await currentAdapter.levelBed();
+      } catch (error) {
+        printerActivities.clear(id);
+        u1BedLevelProgress.delete(String(id));
+        fleetState.schedulePublish();
+        throw error;
+      }
       fleetState.refreshNow(id).catch(() => {});
     }, { operationType:PRINTER_OPERATION_TYPES.BED_LEVEL });
     refreshAfterCommand(id);
