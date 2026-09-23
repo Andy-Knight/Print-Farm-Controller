@@ -180,13 +180,14 @@ This work intentionally does **not** add authentication, user accounts, roles or
 
 **Completed for v0.17.0:** integrated A1 Mini simulator validation and a full `npm test` regression run with 0 failures. Physical A1 Mini validation can follow when hardware is available.
 
-1. The full `npm test` suite has now been re-run after the live physical-activity matrix changes and passes with 0 failures. Coverage includes live print/pause/preheat/levelling/calibration compatibility decisions, U1 macro activity normalization, physical bed-levelling tracking, simulated levelling states, same-printer transaction conflicts, different-printer concurrency, batch/file-distribution arbitration, queue start/cancel races, active-operation queue blockers, concurrent printer-registry mutations, concurrent file-material writes and concurrent Print Library deduplication. Next, validate with two simultaneous browser clients: start bed levelling or another longer printer activity from one client and confirm a conflicting print start from the other is blocked for the physical activity duration while safe monitoring/controls continue to work.
-2. Confirm Print Library/queue and printer-registry changes remain consistent when initiated from separate clients in quick succession.
-3. Add Linux x64 and ARM64 packaging.
-4. Code signing is **not a blocker for development or private testing**. The Authenticode workflow is already implemented; when a production certificate is obtained, `npm run release:windows` signs the injected SEA executable, builds the installer around the signed EXE, then signs and verifies the installer.
-5. Future Windows packaging polish: add a custom Print Farm Controller icon for the installer, installed shortcuts and, ideally, the packaged executable itself. This is intentionally deferred.
-6. Add systematic feature-by-feature entitlement gates only where product packaging requires them; preserve the signed licence format and existing edition definitions.
-7. Continue physical validation of experimental Bambu behaviour before removing the experimental designation.
+**Completed for v0.18.0:** the full `npm test` suite passes with coverage for the physical-activity compatibility matrix and concurrent mutation protection. Live two-client validation also confirmed that a long-running bed-level operation started from one browser blocks a conflicting print start from another browser for the activity duration, while compatible operations such as file upload remain available.
+
+1. Confirm Print Library/queue and printer-registry changes remain consistent when initiated from separate clients in quick succession.
+2. Add Linux x64 and ARM64 packaging.
+3. Code signing is **not a blocker for development or private testing**. The Authenticode workflow is already implemented; when a production certificate is obtained, `npm run release:windows` signs the injected SEA executable, builds the installer around the signed EXE, then signs and verifies the installer.
+4. Future Windows packaging polish: add a custom Print Farm Controller icon for the installer, installed shortcuts and, ideally, the packaged executable itself. This is intentionally deferred.
+5. Add systematic feature-by-feature entitlement gates only where product packaging requires them; preserve the signed licence format and existing edition definitions.
+6. Continue physical validation of experimental Bambu behaviour before removing the experimental designation.
 
 ## Handoff rule
 
