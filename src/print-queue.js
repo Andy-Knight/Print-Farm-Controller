@@ -5,7 +5,7 @@ import { getPrinterAdapter } from './adapters/adapter-registry.js';
 import { loadPrintJobs, savePrintJobs } from './queue-store.js';
 import { getPrinterFileMaterialMetadata, savePrinterFileMaterialMetadata } from './file-material-store.js';
 import { getQueueFile } from './queue-file-store.js';
-import { evaluateQueueCompatibility } from './queue-compatibility.js';
+import { evaluateQueueCompatibility, queueCompatibilityHelpers } from './queue-compatibility.js';
 import { assessMaterialCompatibility } from './file-material-metadata.js';
 import { PRINTER_OPERATION_TYPES } from './printer-operation-policy.js';
 
@@ -103,7 +103,8 @@ function publicJob(job) {
     fileName: job.stagedFile.fileName,
     size: Number(job.stagedFile.size || 0),
     sha256: job.stagedFile.sha256 || null,
-    stagedAt: job.stagedFile.stagedAt || null
+    stagedAt: job.stagedFile.stagedAt || null,
+    printerTarget: job.stagedFile.printerTarget ? { ...job.stagedFile.printerTarget } : null
   } : null;
   return {
     id: job.id,
@@ -118,6 +119,7 @@ function publicJob(job) {
     fileName: job.fileName,
     stagedFile,
     requirements: job.requirements ? structuredClone(job.requirements) : null,
+    printerTarget: job.printerTarget ? { ...job.printerTarget } : null,
     compatibility: job.compatibility ? structuredClone(job.compatibility) : null,
     selectionReason: job.selectionReason || null,
     status: job.status,
@@ -604,6 +606,9 @@ export class PrintQueueService {
       adapter = this.adapterResolver(printer);
       if (!adapter.capabilities?.printLocalFile) throw new Error('Printing local files is not supported by this printer');
       liveState = this.fleetState.getPrinterState(printer.id);
+      if (stagedFile?.printerTarget && !queueCompatibilityHelpers.printerMatchesTarget(stagedFile.printerTarget, printer, liveState || {}, adapter)) {
+        throw new Error(`This library file is designated for ${stagedFile.printerTarget.model}`);
+      }
       if (adapter.capabilities?.printToolMapping) {
         if (!liveState?.online || !Array.isArray(liveState.status?.tools) || !liveState.status.tools.length) {
           throw new Error('Live U1 toolhead status is required before queueing a mapped print');
@@ -646,9 +651,11 @@ export class PrintQueueService {
         fileName: stagedFile.fileName,
         size: stagedFile.size,
         sha256: stagedFile.sha256,
-        stagedAt: stagedFile.stagedAt
+        stagedAt: stagedFile.stagedAt,
+        printerTarget: stagedFile.printerTarget ? { ...stagedFile.printerTarget } : null
       } : null,
       requirements: stagedFile?.requirements ? structuredClone(stagedFile.requirements) : null,
+      printerTarget: stagedFile?.printerTarget ? { ...stagedFile.printerTarget } : null,
       compatibility: null,
       selectionReason: null,
       options: sanitizeOptions(options),
