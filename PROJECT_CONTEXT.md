@@ -178,8 +178,6 @@ This work intentionally does **not** add authentication, user accounts, roles or
 
 ## Next steps
 
-**Completed for v0.18.0:** the full `npm test` suite passes with coverage for the physical-activity compatibility matrix and concurrent mutation protection. Live two-client validation also confirmed that a long-running bed-level operation started from one browser blocks a conflicting print start from another browser for the activity duration, while compatible operations such as file upload remain available.
-
 1. Confirm Print Library/queue and printer-registry changes remain consistent when initiated from separate clients in quick succession.
 2. Add Linux x64 and ARM64 packaging.
 3. Code signing is **not a blocker for development or private testing**. The Authenticode workflow is already implemented; when a production certificate is obtained, `npm run release:windows` signs the injected SEA executable, builds the installer around the signed EXE, then signs and verifies the installer.
