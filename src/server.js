@@ -1059,8 +1059,17 @@ async function apiRoute(req, res, url) {
 
   if (req.method === 'POST' && action === 'level') {
     if (!adapter.capabilities?.bedLeveling) throw new Error('Bed levelling is not supported by this printer');
-    await runPrinterMutation(id, 'bed levelling', async (_currentPrinter, currentAdapter) => {
-      printerActivities.start(id, 'bed-leveling', 'bed levelling', { sticky:false, maxDurationMs:20 * 60_000 });
+    await runPrinterMutation(id, 'bed levelling', async (currentPrinter, currentAdapter) => {
+      // Moonraker's U1 levelling request stays open for the stock homing/heating/
+      // soak/probing workflow. Keep that controller-owned activity sticky so
+      // transient idle-looking polls cannot erase it while the macro is still
+      // running. This also means a printer-detail dialog that is closed and
+      // reopened can reconstruct the live banner from the fleet state.
+      const stickyUntilRequestCompletes = currentPrinter.adapterType === 'snapmaker-u1';
+      printerActivities.start(id, 'bed-leveling', 'bed levelling', {
+        sticky:stickyUntilRequestCompletes,
+        maxDurationMs:20 * 60_000
+      });
       fleetState.schedulePublish();
       try {
         await currentAdapter.levelBed();
@@ -1069,6 +1078,12 @@ async function apiRoute(req, res, url) {
         u1BedLevelProgress.delete(String(id));
         fleetState.schedulePublish();
         throw error;
+      } finally {
+        if (stickyUntilRequestCompletes) {
+          printerActivities.clear(id);
+          u1BedLevelProgress.delete(String(id));
+          fleetState.schedulePublish();
+        }
       }
       fleetState.refreshNow(id).catch(() => {});
     }, { operationType:PRINTER_OPERATION_TYPES.BED_LEVEL });
