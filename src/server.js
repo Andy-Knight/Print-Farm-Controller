@@ -35,6 +35,7 @@ import { EmulatorManager } from './emulator-manager.js';
 import { loadLicenseManager } from './licensing/license-loader.js';
 import { resolveControllerRuntimePaths } from './runtime-paths.js';
 import { publicAssetKey, readRuntimeAsset } from './runtime-assets.js';
+import { KeyedSerialExecutor, PrinterOperationCoordinator } from './concurrency.js';
 
 const runtimePaths = resolveControllerRuntimePaths();
 const PUBLIC_DIR = runtimePaths.publicDir;
@@ -46,10 +47,12 @@ const CONTROLLER_VERSION = String(bundledVersion || packageInfo.version || 'unkn
 const PORT = Number(process.env.PORT || 4242);
 const HOST = process.env.HOST || '0.0.0.0';
 const fleetState = new FleetStateService();
+const printerOperations = new PrinterOperationCoordinator();
+const controllerMutations = new KeyedSerialExecutor();
 const cameraManager = new CameraManager({
   onHealthChange: (id, health) => fleetState.setCameraHealth(id, health)
 });
-const chamberPreheat = new ChamberPreheatService({ fleetState });
+const chamberPreheat = new ChamberPreheatService({ fleetState, operationCoordinator:printerOperations });
 const emulatorManager = new EmulatorManager();
 let licenseManager = null;
 
@@ -82,17 +85,20 @@ function printerLicensedForNewWork(printerId) {
 const batchControl = new BatchControlService({
   fleetState,
   chamberPreheat,
-  printerAllowedFn: printerLicensedForNewWork
+  printerAllowedFn: printerLicensedForNewWork,
+  operationCoordinator:printerOperations
 });
 const fileDistribution = new FileDistributionService({
   fleetState,
   chamberPreheat,
-  printerAllowedFn: printerLicensedForNewWork
+  printerAllowedFn: printerLicensedForNewWork,
+  operationCoordinator:printerOperations
 });
 const printQueue = new PrintQueueService({
   fleetState,
   chamberPreheat,
   printerAllowedFn: printerLicensedForNewWork,
+  operationCoordinator:printerOperations,
   onChange: () => fleetState.schedulePublish()
 });
 const toolOffsetCalibrationLocks = new Map();
