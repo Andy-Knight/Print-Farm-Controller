@@ -382,6 +382,7 @@ export class PrintQueueService {
         paused,
         finished,
         stagedFile: runs[0]?.stagedFile ? { ...runs[0].stagedFile } : null,
+        printerTarget: runs[0]?.printerTarget ? { ...runs[0].printerTarget } : null,
         queuedAt: runs.map((job) => job.queuedAt).filter(Boolean).sort()[0] || null,
         updatedAt: runs.map((job) => job.updatedAt).filter(Boolean).sort().at(-1) || null,
         runs: runs.map((job) => ({
