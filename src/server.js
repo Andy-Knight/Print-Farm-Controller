@@ -533,7 +533,7 @@ async function apiRoute(req, res, url) {
       return json(res, 200, { ok:true, printer:{ ...publicPrinter(printer), simulated:true, licenseActive:true }, license:currentLicenseSnapshot() });
     }
 
-    const result = await controllerMutations.run('printer-registry', async () => {
+    const result = await controllerMutations.run('printer-registry', () => printerOperations.run(id, 'licence slot change', async () => {
       const configured = (await listPrinters()).map(publicPrinter);
       const access = licenseManager.resolvePrinterAccess(configured, {
         isSimulated:isControllerSimulator
@@ -544,12 +544,12 @@ async function apiRoute(req, res, url) {
       }
 
       if (body.active === false && chamberPreheat.isActive(id)) {
-        await printerOperations.run(id, 'licence slot change', () => chamberPreheat.stop(id, { reason:'licence-slot-released', turnOff:true }));
+        await chamberPreheat.stop(id, { reason:'licence-slot-released', turnOff:true });
       }
       const updated = await setPrinterLicenseSlotActive(id, body.active);
       await fleetState.syncRegistry();
       return updated;
-    });
+    }));
     return json(res, 200, {
       ok:true,
       printer:resolveLicensedFleet().printers.find((item) => item.id === id) || publicPrinter(result),
