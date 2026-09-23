@@ -320,7 +320,7 @@ async function apiRoute(req, res, url) {
   if (req.method === 'POST' && url.pathname === '/api/library') {
     const stagedUpload = await stageUploadRequest(req, req.headers['x-file-name']);
     try {
-      const file = await addLibraryFile(stagedUpload.filePath, stagedUpload.fileName);
+      const file = await controllerMutations.run('library-queue', () => addLibraryFile(stagedUpload.filePath, stagedUpload.fileName));
       return json(res, file.duplicate ? 200 : 201, { file });
     } finally {
       await stagedUpload.cleanup().catch(() => {});
@@ -346,16 +346,18 @@ async function apiRoute(req, res, url) {
   if (libraryFileMatch && req.method === 'PATCH') {
     const fileId = decodeURIComponent(libraryFileMatch[1]);
     const body = await readJson(req);
-    const file = await updateLibraryFileMetadata(fileId, { description:body.description });
+    const file = await controllerMutations.run('library-queue', () => updateLibraryFileMetadata(fileId, { description:body.description }));
     return json(res, 200, { file });
   }
   if (libraryFileMatch && req.method === 'DELETE') {
     const fileId = decodeURIComponent(libraryFileMatch[1]);
-    const references = (printQueue.getSnapshot().jobs || []).filter((job) => job.stagedFile?.id === fileId);
-    if (references.length) {
-      throw new Error('This library file is still referenced by the print queue or history. Cancel/clear those records before deleting it.');
-    }
-    await removeLibraryFile(fileId);
+    await controllerMutations.run('library-queue', async () => {
+      const references = (printQueue.getSnapshot().jobs || []).filter((job) => job.stagedFile?.id === fileId);
+      if (references.length) {
+        throw new Error('This library file is still referenced by the print queue or history. Cancel/clear those records before deleting it.');
+      }
+      await removeLibraryFile(fileId);
+    });
     return json(res, 200, { ok:true });
   }
 
@@ -363,7 +365,7 @@ async function apiRoute(req, res, url) {
   if (req.method === 'POST' && url.pathname === '/api/queue/stage') {
     const stagedUpload = await stageUploadRequest(req, req.headers['x-file-name']);
     try {
-      const stagedFile = await addLibraryFile(stagedUpload.filePath, stagedUpload.fileName);
+      const stagedFile = await controllerMutations.run('library-queue', () => addLibraryFile(stagedUpload.filePath, stagedUpload.fileName));
       return json(res, stagedFile.duplicate ? 200 : 201, { stagedFile });
     } finally {
       await stagedUpload.cleanup().catch(() => {});
@@ -379,7 +381,7 @@ async function apiRoute(req, res, url) {
 
   if (req.method === 'POST' && url.pathname === '/api/queue') {
     const body = await readJson(req);
-    const job = await printQueue.add({
+    const job = await controllerMutations.run('library-queue', () => printQueue.add({
       assignmentMode: body.assignmentMode,
       printerId: body.printerId,
       fileName: body.fileName,
@@ -387,17 +389,17 @@ async function apiRoute(req, res, url) {
       quantity: body.quantity,
       priority: body.priority,
       options: body.options || {}
-    });
+    }));
     return json(res, 201, { job, queue: printQueue.getSnapshot() });
   }
 
   if (req.method === 'PUT' && url.pathname === '/api/queue/order') {
     const body = await readJson(req);
-    return json(res, 200, await printQueue.reorder(body.jobIds));
+    return json(res, 200, await controllerMutations.run('library-queue', () => printQueue.reorder(body.jobIds)));
   }
 
   if (req.method === 'DELETE' && url.pathname === '/api/queue/history') {
-    const cleared = await printQueue.clearHistory();
+    const cleared = await controllerMutations.run('library-queue', () => printQueue.clearHistory());
     return json(res, 200, { ok: true, cleared, queue: printQueue.getSnapshot() });
   }
 
@@ -405,23 +407,22 @@ async function apiRoute(req, res, url) {
   if (productionQueueMatch && req.method === 'POST') {
     const batchId = decodeURIComponent(productionQueueMatch[1]);
     const action = productionQueueMatch[2];
-    let result;
-    if (action === 'pause') result = await printQueue.pauseProduction(batchId);
-    else if (action === 'resume') result = await printQueue.resumeProduction(batchId);
-    else if (action === 'cancel') result = await printQueue.cancelProduction(batchId);
-    else if (action === 'reprint') result = await printQueue.reprintProduction(batchId);
-    else {
-      const body = await readJson(req);
-      result = action === 'priority'
-        ? await printQueue.setProductionPriority(batchId, body.priority)
-        : await printQueue.setProductionQuantity(batchId, body.quantity);
-    }
+    const body = ['priority', 'quantity'].includes(action) ? await readJson(req) : {};
+    const result = await controllerMutations.run('library-queue', async () => {
+      if (action === 'pause') return printQueue.pauseProduction(batchId);
+      if (action === 'resume') return printQueue.resumeProduction(batchId);
+      if (action === 'cancel') return printQueue.cancelProduction(batchId);
+      if (action === 'reprint') return printQueue.reprintProduction(batchId);
+      return action === 'priority'
+        ? printQueue.setProductionPriority(batchId, body.priority)
+        : printQueue.setProductionQuantity(batchId, body.quantity);
+    });
     return json(res, 200, { ok:true, production:result, queue:printQueue.getSnapshot() });
   }
 
   const bedClearanceMatch = url.pathname.match(/^\/api\/queue\/bed-clearance\/([^/]+)$/);
   if (bedClearanceMatch && req.method === 'POST') {
-    const result = await printQueue.clearBed(decodeURIComponent(bedClearanceMatch[1]));
+    const result = await controllerMutations.run('library-queue', () => printQueue.clearBed(decodeURIComponent(bedClearanceMatch[1])));
     return json(res, 200, { ok: true, clearance: result, queue: printQueue.getSnapshot() });
   }
 
@@ -429,20 +430,20 @@ async function apiRoute(req, res, url) {
   if (queueMatch) {
     const [, jobId, queueAction] = queueMatch;
     if (req.method === 'DELETE' && !queueAction) {
-      const job = await printQueue.cancel(jobId);
+      const job = await controllerMutations.run('library-queue', () => printQueue.cancel(jobId));
       return json(res, 200, { ok: true, job, queue: printQueue.getSnapshot() });
     }
     if (req.method === 'POST' && queueAction === 'reprint') {
-      const job = await printQueue.reprint(jobId);
+      const job = await controllerMutations.run('library-queue', () => printQueue.reprint(jobId));
       return json(res, 201, { job, queue: printQueue.getSnapshot() });
     }
     if (req.method === 'POST' && queueAction === 'recheck') {
-      const job = await printQueue.recheck(jobId);
+      const job = await controllerMutations.run('library-queue', () => printQueue.recheck(jobId));
       return json(res, 200, { job, queue: printQueue.getSnapshot() });
     }
     if (req.method === 'POST' && queueAction === 'priority') {
       const body = await readJson(req);
-      const job = await printQueue.setPriority(jobId, body.priority);
+      const job = await controllerMutations.run('library-queue', () => printQueue.setPriority(jobId, body.priority));
       return json(res, 200, { job, queue: printQueue.getSnapshot() });
     }
   }
