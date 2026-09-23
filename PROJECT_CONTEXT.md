@@ -7,7 +7,7 @@
 - Repository: `Andy-Knight/Print-Farm-Controller`
 - Project path: repository root (`/`)
 - Primary branch: `main` (current production baseline)
-- Current application version on this branch: **0.20.1**.
+- Current application version on this branch: **0.20.2**.
 - v0.15.5 Print Library previews are merged into `main`.
 - v0.15.6 includes dashboard summary filtering, application-local data storage, Snapmaker U1 display naming and printer-card hover/focus highlighting.
 - **v0.16.0 production packaging is merged into `main`** via PR #24 (squash commit `af8d8e493e2f311c1469ed5faddfffc2316ae727`): centralized runtime paths detect source vs Node SEA execution, esbuild produces a CommonJS controller bundle, and the Windows x64 SEA build embeds the controller UI, simulator UI/resources and trusted Ed25519 public verification keys directly into `PrintFarmController.exe`. The Windows installer targets Program Files, leaves the EXE protected, grants standard-user modify permission only to `data/`, and packaged builds store the signed customer licence at `data/license.json`. Inno Setup 7 is the preferred Windows installer compiler (Inno Setup 6 remains supported as a fallback), and optional Authenticode signing workflows are included.
@@ -16,7 +16,8 @@
 - **v0.19.0 printer activity status messaging is merged into `main`** via PR #28. It generalises the prominent printer-window activity banner beyond the U1 so controller-tracked bed levelling/calibration and chamber preheat are surfaced consistently across supported printer types.
 - **v0.20.0 diagnostic logging is merged into `main`** via PR #29. It adds controller-wide structured diagnostic logging, an independent application-local `logs/` runtime path with `LOG_DIR` override, log rotation/redaction, menu-based recent-log viewing, temporary verbose DEBUG mode, and sanitized ZIP diagnostic bundles. Windows packaging grants standard users write access to both `data/` and `logs/`.
 - v0.20.0 also fixes U1 bed-levelling activity persistence: while the blocking Moonraker levelling request is running, the controller keeps the activity sticky so transient idle-looking polls cannot erase the Homing / Heating / Stabilising / Probing banner. Closing and reopening the printer-detail dialog therefore reconstructs the active levelling status correctly.
-- **Current v0.20.1 bug-fix branch:** `fix/open-printer-immediate-dialog-v0201`. The printer-detail dialog opens immediately with a loading state before file enumeration completes, stale asynchronous open requests are discarded after close/reopen, and open failures are no longer silent. Dashboard connection errors are rendered below the **Open printer** button so the action buttons remain aligned across printer cards.
+- **v0.20.1 printer-detail opening reliability is merged into `main`** via PR #30. The printer-detail dialog opens immediately with a loading state before file enumeration completes, stale asynchronous open requests are discarded after close/reopen, and open failures are no longer silent. Dashboard connection errors are rendered below the **Open printer** button so the action buttons remain aligned across printer cards.
+- **Current v0.20.2 bug-fix branch:** `fix/dashboard-card-click-race-v0202`. Live fleet reconciliation updates existing cards in place and only moves a card when its actual fleet order differs from the DOM, preventing a live status event from detaching an **Open printer** button between pointer-down and click.
 - Runtime: **Node.js 24+** (development baseline Node.js 24.21.0), ES modules, no npm runtime dependencies.
 - GitHub is the authoritative code baseline.
 
