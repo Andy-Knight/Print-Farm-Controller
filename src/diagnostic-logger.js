@@ -151,7 +151,6 @@ export class DiagnosticLogger {
     await this._prune();
     await this.info('controller', 'Diagnostic logger initialized', {
       version:this.version,
-      logDir:this.logDir,
       maxBytes:this.maxBytes,
       retainedFiles:this.retainedFiles
     });
