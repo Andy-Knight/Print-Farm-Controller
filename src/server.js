@@ -600,7 +600,7 @@ async function apiRoute(req, res, url) {
   if (req.method === 'POST' && action === 'filament-color') {
     if (!adapter.capabilities?.filamentColorControl) throw new Error('Filament colour control is not supported by this printer');
     const body = await readJson(req);
-    const result = await adapter.setFilamentColor({ toolIndex:body.toolIndex, color:body.color });
+    const result = await printerOperations.run(id, 'filament colour change', () => adapter.setFilamentColor({ toolIndex:body.toolIndex, color:body.color }));
     refreshAfterCommand(id);
     return json(res, 200, { ok:true, ...result });
   }
@@ -608,7 +608,7 @@ async function apiRoute(req, res, url) {
   if (req.method === 'POST' && action === 'filament-type') {
     if (!adapter.capabilities?.filamentTypeControl) throw new Error('Filament type control is not supported by this printer');
     const body = await readJson(req);
-    const result = await adapter.setFilamentType({ toolIndex:body.toolIndex, material:body.material });
+    const result = await printerOperations.run(id, 'filament type change', () => adapter.setFilamentType({ toolIndex:body.toolIndex, material:body.material }));
     refreshAfterCommand(id);
     return json(res, 200, { ok:true, ...result });
   }
@@ -618,7 +618,7 @@ async function apiRoute(req, res, url) {
       throw new Error('Combined filament control is not supported by this printer');
     }
     const body = await readJson(req);
-    const result = await adapter.setFilamentConfig({ toolIndex:body.toolIndex, material:body.material, color:body.color });
+    const result = await printerOperations.run(id, 'filament configuration change', () => adapter.setFilamentConfig({ toolIndex:body.toolIndex, material:body.material, color:body.color }));
     refreshAfterCommand(id);
     return json(res, 200, { ok:true, ...result });
   }
@@ -726,7 +726,6 @@ async function apiRoute(req, res, url) {
 
   if (req.method === 'POST' && action === 'print') {
     const body = await readJson(req);
-    if (chamberPreheat.isActive(id)) await chamberPreheat.stop(id, { reason: 'print-started', turnOff: false });
     if (!body.fileName) throw new Error('fileName is required');
     if (!adapter.capabilities?.printLocalFile) throw new Error('Printing local files is not supported by this printer');
     const fileMaterial = await getPrinterFileMaterialMetadata(id, String(body.fileName));
@@ -734,16 +733,19 @@ async function apiRoute(req, res, url) {
     if (materialCheck.mismatch && body.allowMaterialMismatch !== true) {
       throw new Error(`Material mismatch: file requires ${materialCheck.requiredMaterial}, but this printer is manually designated ${materialCheck.designatedMaterial}. Confirm Print anyway to override this warning.`);
     }
-    await adapter.printLocalFile(String(body.fileName), {
-      levelingBeforePrint: body.levelingBeforePrint !== false,
-      flowCalibrationBeforePrint: body.flowCalibrationBeforePrint === true,
-      timeLapseBeforePrint: typeof body.timeLapseBeforePrint === 'boolean' ? body.timeLapseBeforePrint : undefined,
-      autoReplenishFilament: typeof body.autoReplenishFilament === 'boolean' ? body.autoReplenishFilament : undefined,
-      filamentEntangleDetect: typeof body.filamentEntangleDetect === 'boolean' ? body.filamentEntangleDetect : undefined,
-      filamentEntangleSensitivity: body.filamentEntangleSensitivity ?? undefined,
-      toolMap: body.toolMap ?? null,
-      materialMap: body.materialMap ?? null,
-      usedLogicalTools: Array.isArray(body.usedLogicalTools) ? body.usedLogicalTools : []
+    await printerOperations.run(id, 'print start', async () => {
+      if (chamberPreheat.isActive(id)) await chamberPreheat.stop(id, { reason: 'print-started', turnOff: false });
+      await adapter.printLocalFile(String(body.fileName), {
+        levelingBeforePrint: body.levelingBeforePrint !== false,
+        flowCalibrationBeforePrint: body.flowCalibrationBeforePrint === true,
+        timeLapseBeforePrint: typeof body.timeLapseBeforePrint === 'boolean' ? body.timeLapseBeforePrint : undefined,
+        autoReplenishFilament: typeof body.autoReplenishFilament === 'boolean' ? body.autoReplenishFilament : undefined,
+        filamentEntangleDetect: typeof body.filamentEntangleDetect === 'boolean' ? body.filamentEntangleDetect : undefined,
+        filamentEntangleSensitivity: body.filamentEntangleSensitivity ?? undefined,
+        toolMap: body.toolMap ?? null,
+        materialMap: body.materialMap ?? null,
+        usedLogicalTools: Array.isArray(body.usedLogicalTools) ? body.usedLogicalTools : []
+      });
     });
     refreshAfterCommand(id);
     return json(res, 200, { ok: true });
@@ -752,7 +754,7 @@ async function apiRoute(req, res, url) {
   if (req.method === 'POST' && action === 'job') {
     const body = await readJson(req);
     if (!adapter.capabilities?.jobControl) throw new Error('Job control is not supported by this printer');
-    await adapter.setJobState(body.action);
+    await printerOperations.run(id, `job ${String(body.action || '').toLowerCase() || 'control'}`, () => adapter.setJobState(body.action));
     if (String(body.action || '').toLowerCase() === 'cancel') await printQueue.noteExternalCancel(id);
     refreshAfterCommand(id);
     return json(res, 200, { ok: true });
@@ -777,9 +779,11 @@ async function apiRoute(req, res, url) {
       const max = Number(adapter.limits?.bedTemperature?.max ?? 110);
       if (body.bed < 0 || body.bed > max) throw new Error(`Bed must be 0-${max} C`);
     }
-    // A manual bed command is an explicit override of chamber preheat.
-    if (body.bed !== undefined && chamberPreheat.isActive(id)) await chamberPreheat.stop(id, { reason: 'manual-bed-override', turnOff: false });
-    await adapter.setTemperatures(body);
+    await printerOperations.run(id, 'temperature change', async () => {
+      // A manual bed command is an explicit override of chamber preheat.
+      if (body.bed !== undefined && chamberPreheat.isActive(id)) await chamberPreheat.stop(id, { reason: 'manual-bed-override', turnOff: false });
+      await adapter.setTemperatures(body);
+    });
     refreshAfterCommand(id);
     return json(res, 200, { ok: true });
   }
@@ -791,16 +795,16 @@ async function apiRoute(req, res, url) {
 
   if (req.method === 'POST' && action === 'chamber-preheat') {
     const body = await readJson(req);
-    const session = await chamberPreheat.start(id, {
+    const session = await printerOperations.run(id, 'chamber preheat start', () => chamberPreheat.start(id, {
       bedTemperature: body.bedTemperature,
       durationMinutes: body.durationMinutes
-    });
+    }));
     refreshAfterCommand(id);
     return json(res, 200, { ok: true, chamberPreheat: session });
   }
 
   if (req.method === 'DELETE' && action === 'chamber-preheat') {
-    const result = await chamberPreheat.stop(id, { reason: 'manual', turnOff: true });
+    const result = await printerOperations.run(id, 'chamber preheat stop', () => chamberPreheat.stop(id, { reason: 'manual', turnOff: true }));
     refreshAfterCommand(id);
     return json(res, 200, { ok: true, ...result });
   }
@@ -812,7 +816,7 @@ async function apiRoute(req, res, url) {
     }
     if (body.coolingFan !== undefined && !adapter.capabilities?.coolingFan) throw new Error('Cooling fan control is not supported by this printer');
     if (body.chamberFan !== undefined && !adapter.capabilities?.chamberFan) throw new Error('Chamber fan control is not supported by this printer');
-    await adapter.setFans(body);
+    await printerOperations.run(id, 'fan change', () => adapter.setFans(body));
     refreshAfterCommand(id);
     return json(res, 200, { ok: true });
   }
@@ -830,14 +834,14 @@ async function apiRoute(req, res, url) {
         body[key] = value;
       }
     }
-    await adapter.setFiltration(body);
+    await printerOperations.run(id, 'filtration change', () => adapter.setFiltration(body));
     refreshAfterCommand(id);
     return json(res, 200, { ok: true });
   }
 
   if (req.method === 'POST' && action === 'level') {
     if (!adapter.capabilities?.bedLeveling) throw new Error('Bed levelling is not supported by this printer');
-    await adapter.levelBed();
+    await printerOperations.run(id, 'bed levelling', () => adapter.levelBed());
     refreshAfterCommand(id);
     return json(res, 200, { ok: true });
   }
@@ -850,10 +854,12 @@ async function apiRoute(req, res, url) {
     }
     toolOffsetCalibrationLocks.set(id, { action: String(body.action || ''), startedAt: Date.now() });
     try {
-      if (String(body.action || '').toLowerCase() === 'start' && chamberPreheat.isActive(id)) {
-        await chamberPreheat.stop(id, { reason: 'tool-offset-calibration', turnOff: true });
-      }
-      await adapter.calibrateToolOffsets({ action:body.action, toolIndex:body.toolIndex });
+      await printerOperations.run(id, 'tool offset calibration', async () => {
+        if (String(body.action || '').toLowerCase() === 'start' && chamberPreheat.isActive(id)) {
+          await chamberPreheat.stop(id, { reason: 'tool-offset-calibration', turnOff: true });
+        }
+        await adapter.calibrateToolOffsets({ action:body.action, toolIndex:body.toolIndex });
+      });
       refreshAfterCommand(id);
       return json(res, 200, { ok: true });
     } finally {
@@ -863,7 +869,7 @@ async function apiRoute(req, res, url) {
 
   if (req.method === 'POST' && action === 'camera') {
     if (!adapter.capabilities?.camera) throw new Error('Camera is not supported by this printer');
-    await adapter.activateCamera();
+    await printerOperations.run(id, 'camera restart', () => adapter.activateCamera());
     return json(res, 200, { cameraUrl: `/api/printers/${encodeURIComponent(id)}/camera/stream` });
   }
 
