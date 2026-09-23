@@ -186,11 +186,16 @@ export function evaluatePrinterOperation(operationType, context = {}) {
   const allowed = ALLOWED_BY_ACTIVITY[activity.kind] || ALLOWED_BY_ACTIVITY.busy;
   if (allowed.has(type)) return { allowed:true, code:null, message:null, activity };
 
+  const prefix = activity.kind === 'idle'
+    ? 'Printer is idle'
+    : activity.kind === 'fault'
+      ? 'Printer fault'
+      : `Printer busy — ${activity.label} in progress`;
   return {
     allowed:false,
     code:'activity_conflict',
     activity,
-    message:`Printer busy — ${activity.label} blocks ${type}`
+    message:`${prefix}; ${type} is not allowed`
   };
 }
 
