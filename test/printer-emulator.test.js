@@ -371,6 +371,13 @@ test('Snapmaker profile interoperates with the production adapter', async (t) =>
   assert.equal(jpeg[1], 0xd8);
   assert.ok(jpeg.length > 10000, 'simulated camera should return a visible test frame rather than a tiny placeholder');
   await camera.stop();
+
+  await adapter.setJobState('cancel');
+  assert.equal((await adapter.getStatus()).status, 'idle');
+  await adapter.levelBed();
+  const levelling = await adapter.getStatus();
+  assert.equal(levelling.status, 'idle');
+  assert.equal(levelling.machineActivity?.state, 'printing');
 });
 
 test('FlashForge profile interoperates with HTTP and TCP production clients', async (t) => {
@@ -404,6 +411,8 @@ test('FlashForge profile interoperates with HTTP and TCP production clients', as
   assert.equal((await adapter.getStatus()).status, 'printing');
   await adapter.setJobState('cancel');
   assert.equal((await adapter.getStatus()).status, 'cancelled');
+  await adapter.levelBed();
+  assert.equal((await adapter.getStatus()).status, 'leveling');
 
   const printer = { ...config, id: 'simulated-flashforge-camera' };
   const cameraManager = new CameraManager({
