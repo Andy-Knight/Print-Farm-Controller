@@ -397,6 +397,8 @@ test('Print Library supports optional target printer models and automatic compat
   assert.match(queue, /printer_target_mismatch/);
   assert.match(queue, /printerMatchesTarget/);
   assert.match(printQueue, /printerTarget: stagedFile\.printerTarget/);
+  assert.match(printQueue, /printerTarget: runs\[0\]\?\.printerTarget/);
+  assert.match(app, /Target printer:/);
   assert.match(styles, /\.library-printer-target/);
 });
 
