@@ -66,8 +66,8 @@ button.summary-card:focus-visible { filter:none; transform:translateY(-1px); bor
 .metric span { display:block; color:#7f909f; font-size:.75rem; margin-bottom:4px; }
 .metric b { font-size:.95rem; }
 .health-line { display:flex; justify-content:space-between; gap:10px; color:#687986; font-size:.72rem; margin-top:12px; }
-.card-error { margin-top:10px; font-size:.77rem; color:#ffafb4; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-.card-footer { padding:0 16px 16px; display:flex; gap:8px; }
+.card-error { margin-top:0; font-size:.77rem; color:#ffafb4; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.card-footer { padding:0 16px 16px; display:flex; flex-direction:column; gap:8px; }
 .primary,.secondary,.danger,.icon { border:0; border-radius:10px; padding:10px 14px; font-weight:750; }
 .primary { background:#e8edf2; color:#10151a; }
 .secondary { background:#202831; color:#e8edf2; }
