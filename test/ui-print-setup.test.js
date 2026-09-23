@@ -193,6 +193,15 @@ test('U1 bed levelling exposes homing, heating, soak and probing progress', () =
   assert.match(app, /Bed levelling — stabilising bed/);
   assert.match(app, /Bed levelling — probing bed/);
   assert.match(app, /data-bed-level-status/);
+  assert.match(app, /data-bed-level-strip/);
+  assert.match(app, /data-bed-level-summary/);
+  assert.match(app, /data-detail-bed-level-banner/);
+  assert.match(app, /data-detail-bed-level-summary/);
+  assert.match(app, /bedLevelStrip\?\.classList\.toggle\('hidden', !bedLevelStatus\.active\)/);
+  assert.match(app, /topLevelBanner\.classList\.toggle\('hidden', !levelStatus\.active\)/);
+  assert.match(styles, /\.bed-level-strip \{ display:flex;/);
+  assert.match(styles, /\.detail-activity-banner \{ display:flex;/);
+  assert.match(styles, /:root\[data-theme="light"\] \.bed-level-strip,/);
 });
 
 test('printer detail errors are surfaced in a sticky top banner', () => {
