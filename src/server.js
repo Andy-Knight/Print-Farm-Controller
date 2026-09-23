@@ -493,26 +493,32 @@ async function apiRoute(req, res, url) {
 
   if (req.method === 'PUT' && url.pathname === '/api/printers/order') {
     const body = await readJson(req);
-    const printers = await reorderPrinters(body.printerIds);
-    await fleetState.syncRegistry();
+    const printers = await controllerMutations.run('printer-registry', async () => {
+      const updated = await reorderPrinters(body.printerIds);
+      await fleetState.syncRegistry();
+      return updated;
+    });
     return json(res, 200, { printers: printers.map(publicPrinter) });
   }
 
   if (req.method === 'POST' && url.pathname === '/api/printers') {
     const input = validateAddPrinter(await readJson(req));
-    const simulatedCandidate = emulatorManager.isSimulatedConfig(input);
-    if (!simulatedCandidate) {
-      const configured = await listPrinters();
-      const physicalCount = configured.filter((printer) => !isControllerSimulator(printer)).length;
-      licenseManager.requirePrinterCapacity(physicalCount);
-    }
-    const candidate = { ...input, id: 'candidate' };
-    // Validate LAN mode + credentials before persisting the printer.
-    const status = await getPrinterAdapter(candidate).getStatus();
-    const printer = await addPrinter({ ...input, simulated:simulatedCandidate });
-    await fleetState.syncRegistry();
-    await fleetState.refreshNow(printer.id);
-    return json(res, 201, { printer: publicPrinter(printer), status });
+    const result = await controllerMutations.run('printer-registry', async () => {
+      const simulatedCandidate = emulatorManager.isSimulatedConfig(input);
+      if (!simulatedCandidate) {
+        const configured = await listPrinters();
+        const physicalCount = configured.filter((printer) => !isControllerSimulator(printer)).length;
+        licenseManager.requirePrinterCapacity(physicalCount);
+      }
+      const candidate = { ...input, id: 'candidate' };
+      // Validate LAN mode + credentials before persisting the printer.
+      const status = await getPrinterAdapter(candidate).getStatus();
+      const printer = await addPrinter({ ...input, simulated:simulatedCandidate });
+      await fleetState.syncRegistry();
+      await fleetState.refreshNow(printer.id);
+      return { printer, status };
+    });
+    return json(res, 201, { printer: publicPrinter(result.printer), status:result.status });
   }
 
   const match = url.pathname.match(/^\/api\/printers\/([^/]+)(?:\/(.+))?$/);
@@ -527,23 +533,26 @@ async function apiRoute(req, res, url) {
       return json(res, 200, { ok:true, printer:{ ...publicPrinter(printer), simulated:true, licenseActive:true }, license:currentLicenseSnapshot() });
     }
 
-    const configured = (await listPrinters()).map(publicPrinter);
-    const access = licenseManager.resolvePrinterAccess(configured, {
-      isSimulated:isControllerSimulator
-    });
-    const current = access.printers.find((item) => item.id === id);
-    if (body.active === true && current?.licenseActive !== true && access.maxPrinters != null && access.activePhysicalPrinters >= access.maxPrinters) {
-      throw new Error(`All ${access.maxPrinters} licence slots are already in use. Release a slot from another printer first.`);
-    }
+    const result = await controllerMutations.run('printer-registry', async () => {
+      const configured = (await listPrinters()).map(publicPrinter);
+      const access = licenseManager.resolvePrinterAccess(configured, {
+        isSimulated:isControllerSimulator
+      });
+      const current = access.printers.find((item) => item.id === id);
+      if (body.active === true && current?.licenseActive !== true && access.maxPrinters != null && access.activePhysicalPrinters >= access.maxPrinters) {
+        throw new Error(`All ${access.maxPrinters} licence slots are already in use. Release a slot from another printer first.`);
+      }
 
-    if (body.active === false && chamberPreheat.isActive(id)) {
-      await chamberPreheat.stop(id, { reason:'licence-slot-released', turnOff:true });
-    }
-    const updated = await setPrinterLicenseSlotActive(id, body.active);
-    await fleetState.syncRegistry();
+      if (body.active === false && chamberPreheat.isActive(id)) {
+        await printerOperations.run(id, 'licence slot change', () => chamberPreheat.stop(id, { reason:'licence-slot-released', turnOff:true }));
+      }
+      const updated = await setPrinterLicenseSlotActive(id, body.active);
+      await fleetState.syncRegistry();
+      return updated;
+    });
     return json(res, 200, {
       ok:true,
-      printer:resolveLicensedFleet().printers.find((item) => item.id === id) || publicPrinter(updated),
+      printer:resolveLicensedFleet().printers.find((item) => item.id === id) || publicPrinter(result),
       license:currentLicenseSnapshot()
     });
   }
@@ -561,19 +570,24 @@ async function apiRoute(req, res, url) {
   }
 
   if (req.method === 'DELETE' && !action) {
-    if (chamberPreheat.isActive(id)) await chamberPreheat.stop(id, { reason: 'printer-removed', turnOff: true });
-    await removePrinter(id);
-    await removePrinterFileMaterialMetadata(id).catch(() => {});
-    cameraManager.remove(id);
-    await fleetState.syncRegistry();
+    await controllerMutations.run('printer-registry', () => printerOperations.run(id, 'printer removal', async () => {
+      if (chamberPreheat.isActive(id)) await chamberPreheat.stop(id, { reason: 'printer-removed', turnOff: true });
+      await removePrinter(id);
+      await removePrinterFileMaterialMetadata(id).catch(() => {});
+      cameraManager.remove(id);
+      await fleetState.syncRegistry();
+    }));
     return json(res, 200, { ok: true });
   }
 
   if (req.method === 'PUT' && action === 'name') {
     const body = await readJson(req);
-    const updated = await renamePrinter(id, body.name);
-    if (!updated) throw new Error('Printer not found');
-    await fleetState.syncRegistry();
+    const updated = await controllerMutations.run('printer-registry', async () => {
+      const value = await renamePrinter(id, body.name);
+      if (!value) throw new Error('Printer not found');
+      await fleetState.syncRegistry();
+      return value;
+    });
     return json(res, 200, { ok: true, printer: publicPrinter(updated) });
   }
 
@@ -612,13 +626,16 @@ async function apiRoute(req, res, url) {
   if (action === 'material-designation' && (req.method === 'POST' || req.method === 'DELETE')) {
     if (!adapter.capabilities?.materialDesignation) throw new Error('Manual material designation is not supported by this printer');
     const body = req.method === 'POST' ? await readJson(req) : {};
-    const updated = await setPrinterMaterialDesignation(
-      id,
-      req.method === 'POST' ? body.material : null,
-      req.method === 'POST' ? body.color : null
-    );
-    if (!updated) throw new Error('Printer not found');
-    await fleetState.syncRegistry();
+    const updated = await controllerMutations.run('printer-registry', async () => {
+      const value = await setPrinterMaterialDesignation(
+        id,
+        req.method === 'POST' ? body.material : null,
+        req.method === 'POST' ? body.color : null
+      );
+      if (!value) throw new Error('Printer not found');
+      await fleetState.syncRegistry();
+      return value;
+    });
     fleetState.refreshNow(id).catch(() => {});
     return json(res, 200, {
       ok: true,
@@ -631,9 +648,12 @@ async function apiRoute(req, res, url) {
   if (action === 'nozzle-designation' && (req.method === 'POST' || req.method === 'DELETE')) {
     if (!adapter.capabilities?.nozzleDesignation) throw new Error('Manual nozzle designation is not supported by this printer');
     const body = req.method === 'POST' ? await readJson(req) : {};
-    const updated = await setPrinterNozzleDesignation(id, req.method === 'POST' ? body.nozzleDiameter : null);
-    if (!updated) throw new Error('Printer not found');
-    await fleetState.syncRegistry();
+    const updated = await controllerMutations.run('printer-registry', async () => {
+      const value = await setPrinterNozzleDesignation(id, req.method === 'POST' ? body.nozzleDiameter : null);
+      if (!value) throw new Error('Printer not found');
+      await fleetState.syncRegistry();
+      return value;
+    });
     fleetState.refreshNow(id).catch(() => {});
     return json(res, 200, {
       ok: true,
