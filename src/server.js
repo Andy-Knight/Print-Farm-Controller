@@ -407,7 +407,32 @@ async function apiRoute(req, res, url) {
         }
       },
       printers,
-      queue:printQueue.getSnapshot()
+      queue:(() => {
+        const snapshot = printQueue.getSnapshot();
+        return {
+          queued:snapshot.queued,
+          active:snapshot.active,
+          history:snapshot.history,
+          needsReview:snapshot.needsReview,
+          awaitingClearance:snapshot.awaitingClearance,
+          bedClearance:snapshot.bedClearance,
+          jobs:(snapshot.jobs || []).map((job) => ({
+            id:job.id,
+            fileName:job.fileName,
+            assignmentMode:job.assignmentMode,
+            printerId:job.printerId,
+            printerName:job.printerName,
+            priority:job.priority,
+            status:job.status,
+            queuedAt:job.queuedAt,
+            startedAt:job.startedAt,
+            finishedAt:job.finishedAt,
+            selectionReason:job.selectionReason,
+            error:job.error,
+            bedClearanceRequired:job.bedClearanceRequired
+          }))
+        };
+      })()
     });
     const stamp = new Date().toISOString().replace(/[:.]/g, '-');
     res.writeHead(200, {
@@ -1172,9 +1197,13 @@ process.on('SIGINT', shutdown);
 process.on('SIGTERM', shutdown);
 
 async function startController() {
-  await diagnosticLogger.init();
-  diagnosticLogger.patchConsole();
-  console.log(`Diagnostic logging enabled (${runtimePaths.customLogDir ? 'LOG_DIR override' : 'application-local logs directory'})`);
+  try {
+    await diagnosticLogger.init();
+    diagnosticLogger.patchConsole();
+    console.log(`Diagnostic logging enabled (${runtimePaths.customLogDir ? 'LOG_DIR override' : 'application-local logs directory'})`);
+  } catch (error) {
+    console.warn(`Diagnostic file logging unavailable: ${error.message}`);
+  }
   licenseManager = await loadLicenseManager({
     appDir:APP_DIR,
     dataDir:controllerDataDir,
