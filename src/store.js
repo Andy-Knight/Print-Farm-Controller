@@ -45,6 +45,7 @@ const LEGACY_DATA_DIRS = CUSTOM_DATA_DIR
       .filter((value) => value !== DATA_DIR);
 const FILE_PATH = path.join(DATA_DIR, 'printers.json');
 const storeMutations = new KeyedSerialExecutor();
+let storeInitialization = null;
 
 async function pathExists(target) {
   try {
@@ -129,12 +130,20 @@ function normalizeNozzleDesignation(value) {
 }
 
 async function ensureStore() {
-  await ensureDataDir();
-  try {
-    await fs.access(FILE_PATH);
-  } catch {
-    await fs.writeFile(FILE_PATH, '[]\n', { mode: 0o600 });
+  if (!storeInitialization) {
+    storeInitialization = (async () => {
+      await ensureDataDir();
+      try {
+        await fs.writeFile(FILE_PATH, '[]\n', { mode:0o600, flag:'wx' });
+      } catch (error) {
+        if (error?.code !== 'EEXIST') throw error;
+      }
+    })().catch((error) => {
+      storeInitialization = null;
+      throw error;
+    });
   }
+  return storeInitialization;
 }
 
 function normalizeStoredPrinter(printer) {
