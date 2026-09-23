@@ -86,7 +86,7 @@ export async function moonrakerRequest(printer, endpoint, {
 const TOOL_OBJECTS = ['extruder', 'extruder1', 'extruder2', 'extruder3'];
 const FILAMENT_SENSOR_OBJECTS = TOOL_OBJECTS.map((_, index) => `filament_motion_sensor e${index}_filament`);
 const STATUS_QUERY = [
-  'webhooks', 'print_stats', 'virtual_sdcard', 'display_status', 'heater_bed',
+  'webhooks', 'print_stats', 'virtual_sdcard', 'display_status', 'heater_bed', 'idle_timeout',
   ...TOOL_OBJECTS, 'toolhead', 'temperature_sensor cavity', 'fan_generic cavity_fan', 'purifier'
 ].map((name) => encodeURIComponent(name)).join('&');
 const MATERIAL_STATUS_QUERY = ['filament_detect', 'print_task_config', 'extruder_offset_calibration', ...FILAMENT_SENSOR_OBJECTS]
@@ -270,6 +270,15 @@ export function normalizeMoonrakerStatus(objects = {}, printerInfo = {}) {
         ? String(taskConfig.filament_entangle_sen).toLowerCase()
         : null
     },
+    machineActivity: (() => {
+      const state = cleanFilamentText(objects.idle_timeout?.state);
+      return {
+        state: state ? String(state).toLowerCase() : null,
+        label: state && String(state).toLowerCase() === 'printing' && !printStats.filename
+          ? 'printer macro/activity'
+          : null
+      };
+    })(),
     toolOffsetCalibration: (() => {
       const calibration = objects.extruder_offset_calibration || {};
       const available = Object.keys(calibration).length > 0;
