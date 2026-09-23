@@ -1,6 +1,6 @@
 {
   "name": "printer-fleet-controller",
-  "version": "0.19.0",
+  "version": "0.20.0",
   "private": true,
   "type": "module",
   "description": "Print Farm Controller: local-first FlashForge, Snapmaker and experimental Bambu P1P/P1S/X1C/A1 Mini fleet control with printer emulation",

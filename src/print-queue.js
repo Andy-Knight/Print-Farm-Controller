@@ -246,6 +246,7 @@ export class PrintQueueService {
     printerAllowedFn = null,
     operationCoordinator = null,
     onChange = null,
+    diagnosticFn = null,
     startTimeoutMs = START_TIMEOUT_MS,
     minActiveMs = MIN_ACTIVE_MS
   } = {}) {
@@ -263,6 +264,8 @@ export class PrintQueueService {
     this.printerAllowed = typeof printerAllowedFn === 'function' ? printerAllowedFn : () => true;
     this.operationCoordinator = operationCoordinator;
     this.onChange = onChange;
+    this.diagnostic = typeof diagnosticFn === 'function' ? diagnosticFn : null;
+    this.diagnosticJobs = new Map();
     this.startTimeoutMs = startTimeoutMs;
     this.minActiveMs = minActiveMs;
     this.jobs = [];
@@ -301,6 +304,12 @@ export class PrintQueueService {
         bedClearedAt: job.bedClearedAt || null
       };
     });
+    this.diagnosticJobs = new Map(this.jobs.map((job) => [job.id, {
+      status:job.status,
+      printerId:job.printerId || null,
+      error:job.error || null,
+      selectionReason:job.selectionReason || null
+    }]));
     this.unsubscribe = this.fleetState.subscribe(() => this.scheduleReconcile());
     this.notify();
     this.scheduleReconcile();
@@ -1358,11 +1367,51 @@ export class PrintQueueService {
     this.jobs = this.jobs.filter((job) => !remove.has(job.id));
   }
 
+  emitDiagnosticTransitions() {
+    if (!this.diagnostic) return;
+    const currentIds = new Set();
+    for (const job of this.jobs) {
+      currentIds.add(job.id);
+      const next = {
+        status:job.status,
+        printerId:job.printerId || null,
+        error:job.error || null,
+        selectionReason:job.selectionReason || null
+      };
+      const previous = this.diagnosticJobs.get(job.id);
+      const changed = !previous
+        || previous.status !== next.status
+        || previous.printerId !== next.printerId
+        || previous.error !== next.error
+        || previous.selectionReason !== next.selectionReason;
+      if (changed) {
+        const level = ['failed', 'needs_review'].includes(job.status) ? 'warn' : 'info';
+        Promise.resolve(this.diagnostic(level, previous ? 'Queue job state changed' : 'Queue job added', {
+          jobId:job.id,
+          fileName:job.fileName,
+          assignmentMode:job.assignmentMode,
+          previousStatus:previous?.status || null,
+          status:job.status,
+          printerId:job.printerId || null,
+          printerName:job.printerName || null,
+          priority:job.priority || 'normal',
+          selectionReason:job.selectionReason || null,
+          error:job.error || null
+        })).catch(() => {});
+      }
+      this.diagnosticJobs.set(job.id, next);
+    }
+    for (const id of this.diagnosticJobs.keys()) {
+      if (!currentIds.has(id)) this.diagnosticJobs.delete(id);
+    }
+  }
+
   async persistAndNotify() {
     const snapshot = structuredClone(this.jobs);
     const save = this.saveChain.then(() => this.saveJobs(snapshot));
     this.saveChain = save.catch(() => {});
     await save;
+    this.emitDiagnosticTransitions();
     this.notify();
   }
 

@@ -21,6 +21,17 @@ const licenseInstallForm = document.querySelector('#licenseInstallForm');
 const licenseFileInput = document.querySelector('#licenseFileInput');
 const licenseInstallStatus = document.querySelector('#licenseInstallStatus');
 const licenseInstallError = document.querySelector('#licenseInstallError');
+const diagnosticsBtn = document.querySelector('#diagnosticsBtn');
+const diagnosticsDialog = document.querySelector('#diagnosticsDialog');
+const diagnosticsStatus = document.querySelector('#diagnosticsStatus');
+const diagnosticsVerboseHelp = document.querySelector('#diagnosticsVerboseHelp');
+const diagnosticsVerboseBtn = document.querySelector('#diagnosticsVerboseBtn');
+const diagnosticsBundleBtn = document.querySelector('#diagnosticsBundleBtn');
+const diagnosticsLevel = document.querySelector('#diagnosticsLevel');
+const diagnosticsSearch = document.querySelector('#diagnosticsSearch');
+const diagnosticsRefreshBtn = document.querySelector('#diagnosticsRefreshBtn');
+const diagnosticsError = document.querySelector('#diagnosticsError');
+const diagnosticsLog = document.querySelector('#diagnosticsLog');
 const batchModeBtn = document.querySelector('#batchModeBtn');
 const batchModeMenuBtn = document.querySelector('#batchModeMenuBtn');
 const topbarOverflow = document.querySelector('#topbarOverflow');
@@ -85,6 +96,8 @@ let libraryState = { files:[] };
 let libraryMetadataFile = null;
 let queueAddLibraryFile = null;
 let licenseState = null;
+let diagnosticsState = null;
+let diagnosticsSearchTimer = null;
 let eventSource = null;
 let currentPrinterId = null;
 let lastDiscoveryAt = 0;
@@ -384,6 +397,104 @@ function renderLicenseDialog() {
 
   const submit = licenseInstallForm?.querySelector('button[type="submit"]');
   if (submit) submit.textContent = license.licenseStatus === 'valid' ? 'Replace licence' : 'Install licence';
+}
+
+
+function diagnosticStatusTime(value) {
+  if (!value) return 'Off';
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? String(value) : date.toLocaleString();
+}
+
+function renderDiagnostics(payload) {
+  diagnosticsState = payload?.status || diagnosticsState || {};
+  const status = diagnosticsState || {};
+  const loggingAvailable = status.enabled !== false;
+  if (diagnosticsStatus) {
+    diagnosticsStatus.innerHTML = `
+      <div><span>Logging</span><strong>${loggingAvailable ? 'Enabled' : 'Unavailable'}</strong></div>
+      <div><span>Logging level</span><strong>${escapeHtml(String(status.level || 'info').toUpperCase())}</strong></div>
+      <div><span>Verbose until</span><strong>${escapeHtml(status.verbose ? diagnosticStatusTime(status.verboseUntil) : 'Off')}</strong></div>
+      <div><span>Log location</span><code>${escapeHtml(status.logDir || '—')}</code></div>
+      <div><span>Rotation</span><strong>${escapeHtml(status.maxFileBytes ? `${Math.round(status.maxFileBytes / 1024 / 1024)} MB × ${status.retainedFiles || '—'} files` : '—')}</strong></div>
+    `;
+  }
+  if (diagnosticsVerboseBtn) {
+    diagnosticsVerboseBtn.textContent = status.verbose ? 'Disable verbose logging' : 'Enable for 30 minutes';
+    diagnosticsVerboseBtn.disabled = !loggingAvailable;
+  }
+  if (diagnosticsVerboseHelp) {
+    diagnosticsVerboseHelp.textContent = !loggingAvailable
+      ? 'The configured log directory is not writable. The controller continues to run, but file logging is unavailable.'
+      : status.verbose
+        ? `DEBUG logging is active until ${diagnosticStatusTime(status.verboseUntil)}.`
+        : 'Temporarily records DEBUG-level activity while reproducing an issue.';
+  }
+
+  const entries = Array.isArray(payload?.entries) ? payload.entries : [];
+  if (diagnosticsLog) {
+    diagnosticsLog.innerHTML = entries.length ? entries.slice().reverse().map((entry) => {
+      const meta = entry.meta && Object.keys(entry.meta).length ? JSON.stringify(entry.meta, null, 2) : '';
+      return `<article class="diagnostic-entry diagnostic-${escapeHtml(String(entry.level || 'INFO').toLowerCase())}">
+        <div class="diagnostic-entry-head">
+          <span class="diagnostic-level">${escapeHtml(entry.level || 'INFO')}</span>
+          <strong>${escapeHtml(entry.subsystem || 'controller')}</strong>
+          <time>${escapeHtml(diagnosticStatusTime(entry.timestamp))}</time>
+        </div>
+        <div class="diagnostic-message">${escapeHtml(entry.message || '')}</div>
+        ${meta ? `<pre>${escapeHtml(meta)}</pre>` : ''}
+      </article>`;
+    }).join('') : '<div class="queue-empty">No matching diagnostic log entries.</div>';
+  }
+}
+
+async function loadDiagnostics() {
+  if (diagnosticsError) {
+    diagnosticsError.textContent = '';
+    diagnosticsError.classList.add('hidden');
+  }
+  const params = new URLSearchParams({ limit:'400' });
+  if (diagnosticsLevel?.value) params.set('level', diagnosticsLevel.value);
+  if (diagnosticsSearch?.value?.trim()) params.set('search', diagnosticsSearch.value.trim());
+  try {
+    const result = await api(`/api/diagnostics?${params}`);
+    renderDiagnostics(result);
+  } catch (error) {
+    if (diagnosticsError) {
+      diagnosticsError.textContent = error.message;
+      diagnosticsError.classList.remove('hidden');
+    }
+  }
+}
+
+async function toggleVerboseDiagnostics() {
+  if (!diagnosticsVerboseBtn) return;
+  diagnosticsVerboseBtn.disabled = true;
+  try {
+    const enabled = !Boolean(diagnosticsState?.verbose);
+    const result = await api('/api/diagnostics/verbose', {
+      method:'POST',
+      body:JSON.stringify({ enabled, minutes:30 })
+    });
+    diagnosticsState = result.status;
+    await loadDiagnostics();
+  } catch (error) {
+    if (diagnosticsError) {
+      diagnosticsError.textContent = error.message;
+      diagnosticsError.classList.remove('hidden');
+    }
+  } finally {
+    diagnosticsVerboseBtn.disabled = false;
+  }
+}
+
+function downloadDiagnosticBundle() {
+  const link = document.createElement('a');
+  link.href = '/api/diagnostics/bundle';
+  link.download = '';
+  document.body.append(link);
+  link.click();
+  link.remove();
 }
 
 function setControllerLicense(license) {
@@ -1347,6 +1458,20 @@ function openAdd() {
 }
 
 document.querySelector('#addPrinterBtn').addEventListener('click', openAdd);
+diagnosticsBtn?.addEventListener('click', async () => {
+  if (topbarOverflow) topbarOverflow.open = false;
+  diagnosticsDialog?.showModal();
+  await loadDiagnostics();
+});
+document.querySelectorAll('[data-diagnostics-close]').forEach((el) => el.addEventListener('click', () => diagnosticsDialog?.close()));
+diagnosticsRefreshBtn?.addEventListener('click', loadDiagnostics);
+diagnosticsVerboseBtn?.addEventListener('click', toggleVerboseDiagnostics);
+diagnosticsBundleBtn?.addEventListener('click', downloadDiagnosticBundle);
+diagnosticsLevel?.addEventListener('change', loadDiagnostics);
+diagnosticsSearch?.addEventListener('input', () => {
+  clearTimeout(diagnosticsSearchTimer);
+  diagnosticsSearchTimer = setTimeout(loadDiagnostics, 250);
+});
 licenseBtn?.addEventListener('click', () => {
   if (topbarOverflow) topbarOverflow.open = false;
   if (licenseInstallStatus) licenseInstallStatus.textContent = '';

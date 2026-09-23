@@ -45,6 +45,7 @@
         <summary aria-label="More controller actions" title="More controller actions">⋮</summary>
         <div class="topbar-overflow-menu" role="menu">
           <button type="button" class="topbar-overflow-item" role="menuitem" onclick="location.href='/simulator/'">Printer simulator</button>
+          <button id="diagnosticsBtn" type="button" class="topbar-overflow-item" role="menuitem">Diagnostics</button>
           <button id="licenseBtn" type="button" class="topbar-overflow-item" role="menuitem">Licence</button>
           <button id="batchModeMenuBtn" type="button" class="topbar-overflow-item topbar-overflow-fleet" role="menuitem">Fleet operations</button>
         </div>
@@ -110,6 +111,58 @@
           <button type="submit" class="primary">Install licence</button>
         </div>
       </form>
+    </div>
+  </dialog>
+
+  <dialog id="diagnosticsDialog" class="diagnostics-dialog">
+    <div class="diagnostics-shell">
+      <div class="dialog-head">
+        <div>
+          <div class="eyebrow">CONTROLLER DIAGNOSTICS</div>
+          <h2>Diagnostics</h2>
+          <div class="subtle">Review recent controller activity, temporarily increase logging detail, or export a sanitized support bundle.</div>
+        </div>
+        <button type="button" class="icon" data-diagnostics-close>×</button>
+      </div>
+
+      <div id="diagnosticsStatus" class="diagnostics-status-grid"></div>
+
+      <section class="diagnostics-controls">
+        <div class="diagnostics-control-row">
+          <div>
+            <strong>Verbose diagnostics</strong>
+            <div id="diagnosticsVerboseHelp" class="field-help">Temporarily records DEBUG-level activity while reproducing an issue.</div>
+          </div>
+          <div class="mini-actions">
+            <button id="diagnosticsVerboseBtn" type="button" class="secondary">Enable for 30 minutes</button>
+            <button id="diagnosticsBundleBtn" type="button" class="primary">Download diagnostic bundle</button>
+          </div>
+        </div>
+      </section>
+
+      <section class="diagnostics-log-section">
+        <div class="diagnostics-log-toolbar">
+          <label>Level
+            <select id="diagnosticsLevel">
+              <option value="">All</option>
+              <option value="DEBUG">Debug</option>
+              <option value="INFO">Info</option>
+              <option value="WARN">Warn</option>
+              <option value="ERROR">Error</option>
+            </select>
+          </label>
+          <label class="diagnostics-search">Search
+            <input id="diagnosticsSearch" type="search" placeholder="Search messages, printer IDs or subsystems" autocomplete="off" />
+          </label>
+          <button id="diagnosticsRefreshBtn" type="button" class="secondary">Refresh</button>
+        </div>
+        <div id="diagnosticsError" class="error hidden"></div>
+        <div id="diagnosticsLog" class="diagnostics-log" aria-live="polite"></div>
+      </section>
+
+      <div class="actions">
+        <button type="button" class="secondary" data-diagnostics-close>Close</button>
+      </div>
     </div>
   </dialog>
 

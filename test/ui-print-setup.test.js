@@ -186,7 +186,9 @@ test('U1 bed levelling exposes homing, heating, soak and probing progress', () =
   assert.match(server, /phase = 'stabilising'/);
   assert.match(server, /phase = 'probing'/);
   assert.match(server, /printerActivities\.start\(id, 'bed-leveling'/);
-  assert.match(server, /printerActivities\.start\(id, 'bed-leveling'[\s\S]*await currentAdapter\.levelBed\(\)/);
+  assert.match(server, /stickyUntilRequestCompletes = currentPrinter\.adapterType === 'snapmaker-u1'/);
+  assert.match(server, /sticky:stickyUntilRequestCompletes/);
+  assert.match(server, /await currentAdapter\.levelBed\(\)[\s\S]*if \(stickyUntilRequestCompletes\)[\s\S]*printerActivities\.clear\(id\)/);
   assert.match(app, /function u1BedLevelStatus\(printer\)/);
   assert.match(app, /Bed levelling — homing printer/);
   assert.match(app, /Bed levelling — heating bed/);

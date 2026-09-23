@@ -16,7 +16,9 @@ test('runtime paths resolve source checkout locations during development', () =>
   assert.equal(paths.applicationDir, expectedRoot);
   assert.equal(paths.sourceRoot, expectedRoot);
   assert.equal(paths.defaultDataDir, path.join(expectedRoot, 'data'));
+  assert.equal(paths.defaultLogDir, path.join(expectedRoot, 'logs'));
   assert.equal(paths.dataDir, path.join(expectedRoot, 'data'));
+  assert.equal(paths.logDir, path.join(expectedRoot, 'logs'));
   assert.equal(paths.publicDir, path.join(expectedRoot, 'public'));
   assert.equal(paths.emulatorPublicDir, path.join(expectedRoot, 'emulator', 'public'));
   assert.equal(paths.emulatorAssetsDir, path.join(expectedRoot, 'emulator', 'assets'));
@@ -40,7 +42,9 @@ test('runtime paths resolve application-local storage beside a packaged executab
   assert.equal(paths.sourceRoot, null);
   assert.equal(paths.applicationDir, installDir);
   assert.equal(paths.defaultDataDir, path.join(installDir, 'data'));
+  assert.equal(paths.defaultLogDir, path.join(installDir, 'logs'));
   assert.equal(paths.dataDir, path.join(installDir, 'data'));
+  assert.equal(paths.logDir, path.join(installDir, 'logs'));
   assert.equal(paths.publicDir, null);
   assert.equal(paths.emulatorPublicDir, null);
   assert.equal(paths.emulatorAssetsDir, null);
@@ -61,6 +65,24 @@ test('DATA_DIR override remains supported through central runtime paths', () => 
 
   assert.equal(paths.dataDir, path.resolve(requested));
   assert.equal(paths.customDataDir, path.resolve(requested));
+  assert.equal(paths.logDir, path.join(paths.applicationDir, 'logs'));
   assert.equal(paths.licensePath, path.join(path.resolve(requested), 'license.json'));
   assert.equal(paths.emulatorSettingsPath, path.join(path.resolve(requested), 'emulator-settings.json'));
+});
+
+
+test('LOG_DIR override is independent from DATA_DIR for container volume separation', () => {
+  const dataDir = path.join(os.tmpdir(), 'pfc-container-data');
+  const logDir = path.join(os.tmpdir(), 'pfc-container-logs');
+  const paths = resolveControllerRuntimePaths({
+    env:{ DATA_DIR:dataDir, LOG_DIR:logDir },
+    runningAsSea:true,
+    execPath:path.join(os.tmpdir(), 'pfc-install', 'print-farm-controller')
+  });
+
+  assert.equal(paths.dataDir, path.resolve(dataDir));
+  assert.equal(paths.logDir, path.resolve(logDir));
+  assert.equal(paths.customDataDir, path.resolve(dataDir));
+  assert.equal(paths.customLogDir, path.resolve(logDir));
+  assert.equal(paths.licensePath, path.join(path.resolve(dataDir), 'license.json'));
 });

@@ -36,6 +36,7 @@ Name: "desktopicon"; Description: "Create a &desktop shortcut"; GroupDescription
 
 [Dirs]
 Name: "{app}\data"; Permissions: users-modify
+Name: "{app}\logs"; Permissions: users-modify
 
 [Files]
 Source: "..\..\dist\windows-x64\{#MyAppExeName}"; DestDir: "{app}"; Flags: ignoreversion

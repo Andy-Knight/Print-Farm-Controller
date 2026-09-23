@@ -109,6 +109,18 @@ test('sticky tool calibration tracker remains active across idle reports until e
   assert.equal(tracker.current('u1', idle), null);
 });
 
+test('sticky U1 bed levelling tracker survives transient idle reports until explicitly cleared', () => {
+  const tracker = new PrinterPhysicalActivityTracker();
+  tracker.start('u1', 'bed-leveling', 'bed levelling', { sticky:true, maxDurationMs:600_000 });
+
+  assert.equal(tracker.current('u1', { status:'leveling' })?.kind, 'bed-leveling');
+  assert.equal(tracker.current('u1', idle)?.kind, 'bed-leveling');
+  assert.equal(tracker.current('u1', { status:'idle', machineActivity:{ state:'printing', label:'printer macro/activity' } })?.kind, 'bed-leveling');
+
+  tracker.clear('u1');
+  assert.equal(tracker.current('u1', idle), null);
+});
+
 test('coordinator applies physical activity policy in addition to transaction locking', async () => {
   const contexts = new Map([
     ['p1', { status:{ status:'leveling' } }],
