@@ -1,5 +1,5 @@
 export class PrinterBusyError extends Error {
-  constructor(printerId, activeOperation, message = null) {
+  constructor(printerId, activeOperation, message = null, conflictCode = 'transaction_busy') {
     const operation = activeOperation?.label || 'another operation';
     super(message || `Printer busy — ${operation} in progress`);
     this.name = 'PrinterBusyError';
@@ -7,6 +7,7 @@ export class PrinterBusyError extends Error {
     this.statusCode = 409;
     this.printerId = String(printerId || '');
     this.activeOperation = operation;
+    this.conflictCode = conflictCode;
     this.startedAt = activeOperation?.startedAt || null;
   }
 }
@@ -57,7 +58,12 @@ export class PrinterOperationCoordinator {
 
     const decision = this.evaluate(id, operationType, { ignoreTransaction:true });
     if (decision?.allowed === false) {
-      throw new PrinterBusyError(id, decision.activity, decision.message || 'Printer operation is blocked by current printer activity');
+      throw new PrinterBusyError(
+        id,
+        decision.activity,
+        decision.message || 'Printer operation is blocked by current printer activity',
+        decision.code || 'activity_conflict'
+      );
     }
 
     const operation = {
