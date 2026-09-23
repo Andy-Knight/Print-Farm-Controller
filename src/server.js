@@ -310,12 +310,20 @@ function validateAddPrinter(body) {
 
 function validateLibraryPrinterTarget(input) {
   if (input == null || input === '') return null;
-  if (typeof input !== 'object' || Array.isArray(input)) throw new Error('Print Library printer target is invalid');
+  if (typeof input !== 'object' || Array.isArray(input)) {
+    const error = new Error('Print Library printer target is invalid');
+    error.statusCode = 400;
+    throw error;
+  }
   const requestedType = String(input.adapterType || '').trim();
   const requestedModel = String(input.model || '').trim();
   const adapter = listAdapterDefinitions().find((item) => String(item.type) === requestedType);
   const model = adapter?.models?.find((item) => String(item).toLowerCase() === requestedModel.toLowerCase());
-  if (!adapter || !model) throw new Error('Choose a supported printer type for this Print Library file');
+  if (!adapter || !model) {
+    const error = new Error('Choose a supported printer type for this Print Library file');
+    error.statusCode = 400;
+    throw error;
+  }
   return { adapterType:adapter.type, model };
 }
 
