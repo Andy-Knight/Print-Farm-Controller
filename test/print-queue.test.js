@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { PrintQueueService, printQueueHelpers } from '../src/print-queue.js';
 import { PrinterOperationCoordinator } from '../src/concurrency.js';
+import { evaluatePrinterOperation } from '../src/printer-operation-policy.js';
 
 
 test('completed Snapmaker status can start a new job when Moonraker retains the previous filename', () => {
@@ -175,6 +176,47 @@ test('queued print waits while another client operation owns the printer', async
 
   release();
   await active;
+  await waitFor(() => starts.length === 1);
+  assert.deepEqual(starts, ['queued.gcode']);
+  service.stop();
+});
+
+test('queued print stays blocked for live U1 macro activity and starts when the printer returns idle', async () => {
+  const fleetState = new FakeFleetState([{
+    id:'p1',
+    online:true,
+    status:{ status:'idle', fileName:null, progress:0, machineActivity:{ state:'printing', label:'printer macro/activity' } }
+  }]);
+  const coordinator = new PrinterOperationCoordinator({
+    evaluateFn:evaluatePrinterOperation,
+    contextProvider:(id) => ({ status:fleetState.getPrinterState(id)?.status || {} })
+  });
+  const store = memoryStore();
+  const starts = [];
+  const service = new PrintQueueService({
+    fleetState,
+    chamberPreheat:{ isActive:() => false, stop:async () => {} },
+    getPrinterFn:async () => ({ id:'p1', name:'U1' }),
+    adapterResolver:() => ({
+      capabilities:{ printLocalFile:true },
+      getStatus:async () => fleetState.getPrinterState('p1').status,
+      printLocalFile:async (fileName) => starts.push(fileName)
+    }),
+    loadJobsFn:store.load,
+    saveJobsFn:store.save,
+    operationCoordinator:coordinator
+  });
+
+  await service.start();
+  const job = await service.add({ printerId:'p1', fileName:'queued.gcode' });
+  await new Promise((resolve) => setTimeout(resolve, 40));
+  assert.equal(service.getJob(job.id).status, 'queued');
+  assert.deepEqual(starts, []);
+
+  fleetState.setState('p1', {
+    online:true,
+    status:{ status:'idle', fileName:null, progress:0, machineActivity:{ state:'ready', label:null } }
+  });
   await waitFor(() => starts.length === 1);
   assert.deepEqual(starts, ['queued.gcode']);
   service.stop();
