@@ -7,6 +7,7 @@ import { getPrinterFileMaterialMetadata, savePrinterFileMaterialMetadata } from 
 import { getQueueFile } from './queue-file-store.js';
 import { evaluateQueueCompatibility } from './queue-compatibility.js';
 import { assessMaterialCompatibility } from './file-material-metadata.js';
+import { PRINTER_OPERATION_TYPES } from './printer-operation-policy.js';
 
 const TERMINAL_STATES = new Set(['completed', 'failed', 'cancelled']);
 const ACTIVE_PRINTER_STATES = new Set(['printing', 'working', 'building_from_sd', 'pause', 'paused']);
@@ -755,7 +756,8 @@ export class PrintQueueService {
       return this.operationCoordinator.run(
         job.printerId,
         'queued print cancel',
-        () => this.cancelUnlocked(id, options)
+        () => this.cancelUnlocked(id, options),
+        { operationType:PRINTER_OPERATION_TYPES.PRINT_CANCEL }
       );
     }
     return this.cancelUnlocked(id, options);
@@ -998,13 +1000,16 @@ export class PrintQueueService {
       const reserved = this.startingPrinters.has(state.id) || earlierFixedWaiting || this.jobs.some((other) =>
         other.id !== job.id && other.printerId === state.id && ACTIVE_QUEUE_STATES.has(other.status)
       );
+      const operationDecision = this.operationCoordinator
+        ? this.operationCoordinator.evaluate(state.id, PRINTER_OPERATION_TYPES.FILE_UPLOAD_START)
+        : { allowed:true, activity:null };
       const result = evaluateQueueCompatibility({
         job,
         printer,
         state,
         adapter,
         bedClearanceRequired:this.requiresBedClearance(state.id),
-        operationBusy:this.operationCoordinator?.current(state.id) || null,
+        operationBusy:operationDecision.allowed === false ? (operationDecision.activity || { label:'another printer activity' }) : null,
         reserved
       });
       result.fileAlreadyPresent = false;
@@ -1083,7 +1088,8 @@ export class PrintQueueService {
       return await this.operationCoordinator.run(
         candidate.printerId,
         'queued print preparation and start',
-        () => this.startAutomaticJobUnlocked(job, candidate)
+        () => this.startAutomaticJobUnlocked(job, candidate),
+        { operationType:PRINTER_OPERATION_TYPES.FILE_UPLOAD_START }
       );
     } catch (error) {
       if (error?.code === 'PRINTER_BUSY') {
@@ -1237,7 +1243,8 @@ export class PrintQueueService {
       return await this.operationCoordinator.run(
         job.printerId,
         'queued print preparation and start',
-        () => this.startJobUnlocked(job)
+        () => this.startJobUnlocked(job),
+        { operationType:PRINTER_OPERATION_TYPES.FILE_UPLOAD_START }
       );
     } catch (error) {
       if (error?.code === 'PRINTER_BUSY') {
