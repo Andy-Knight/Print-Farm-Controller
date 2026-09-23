@@ -1004,6 +1004,7 @@ export class PrintQueueService {
         state,
         adapter,
         bedClearanceRequired:this.requiresBedClearance(state.id),
+        operationBusy:this.operationCoordinator?.current(state.id) || null,
         reserved
       });
       result.fileAlreadyPresent = false;
