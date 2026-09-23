@@ -36,6 +36,7 @@ import { loadLicenseManager } from './licensing/license-loader.js';
 import { resolveControllerRuntimePaths } from './runtime-paths.js';
 import { publicAssetKey, readRuntimeAsset } from './runtime-assets.js';
 import { KeyedSerialExecutor, PrinterOperationCoordinator } from './concurrency.js';
+import { evaluatePrinterOperation, PrinterPhysicalActivityTracker, PRINTER_OPERATION_TYPES } from './printer-operation-policy.js';
 
 const runtimePaths = resolveControllerRuntimePaths();
 const PUBLIC_DIR = runtimePaths.publicDir;
@@ -47,12 +48,24 @@ const CONTROLLER_VERSION = String(bundledVersion || packageInfo.version || 'unkn
 const PORT = Number(process.env.PORT || 4242);
 const HOST = process.env.HOST || '0.0.0.0';
 const fleetState = new FleetStateService();
-const printerOperations = new PrinterOperationCoordinator();
+const printerActivities = new PrinterPhysicalActivityTracker();
+let chamberPreheat = null;
+const printerOperations = new PrinterOperationCoordinator({
+  evaluateFn:evaluatePrinterOperation,
+  contextProvider:(id) => {
+    const state = fleetState.getPrinterState(id);
+    return {
+      status:state?.status || {},
+      chamberPreheatActive:Boolean(chamberPreheat?.isActive(id)),
+      trackedActivity:printerActivities.current(id, state?.status || null)
+    };
+  }
+});
 const controllerMutations = new KeyedSerialExecutor();
 const cameraManager = new CameraManager({
   onHealthChange: (id, health) => fleetState.setCameraHealth(id, health)
 });
-const chamberPreheat = new ChamberPreheatService({ fleetState, operationCoordinator:printerOperations });
+chamberPreheat = new ChamberPreheatService({ fleetState, operationCoordinator:printerOperations });
 const emulatorManager = new EmulatorManager();
 let licenseManager = null;
 
@@ -82,7 +95,7 @@ function printerLicensedForNewWork(printerId) {
   return printer ? printer.licenseActive !== false : false;
 }
 
-async function runPrinterMutation(printerId, label, task, { allowInactive = false } = {}) {
+async function runPrinterMutation(printerId, label, task, { allowInactive = false, operationType = null } = {}) {
   return printerOperations.run(printerId, label, async () => {
     const currentPrinter = await getPrinter(printerId);
     if (!currentPrinter) {
@@ -96,7 +109,7 @@ async function runPrinterMutation(printerId, label, task, { allowInactive = fals
       throw error;
     }
     return task(currentPrinter, getPrinterAdapter(currentPrinter));
-  });
+  }, { operationType });
 }
 
 const batchControl = new BatchControlService({
