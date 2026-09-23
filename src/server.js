@@ -628,7 +628,7 @@ async function apiRoute(req, res, url) {
   if (action === 'material-designation' && (req.method === 'POST' || req.method === 'DELETE')) {
     if (!adapter.capabilities?.materialDesignation) throw new Error('Manual material designation is not supported by this printer');
     const body = req.method === 'POST' ? await readJson(req) : {};
-    const updated = await controllerMutations.run('printer-registry', async () => {
+    const updated = await controllerMutations.run('printer-registry', () => printerOperations.run(id, 'material designation change', async () => {
       const value = await setPrinterMaterialDesignation(
         id,
         req.method === 'POST' ? body.material : null,
@@ -637,7 +637,7 @@ async function apiRoute(req, res, url) {
       if (!value) throw new Error('Printer not found');
       await fleetState.syncRegistry();
       return value;
-    });
+    }));
     fleetState.refreshNow(id).catch(() => {});
     return json(res, 200, {
       ok: true,
@@ -650,12 +650,12 @@ async function apiRoute(req, res, url) {
   if (action === 'nozzle-designation' && (req.method === 'POST' || req.method === 'DELETE')) {
     if (!adapter.capabilities?.nozzleDesignation) throw new Error('Manual nozzle designation is not supported by this printer');
     const body = req.method === 'POST' ? await readJson(req) : {};
-    const updated = await controllerMutations.run('printer-registry', async () => {
+    const updated = await controllerMutations.run('printer-registry', () => printerOperations.run(id, 'nozzle designation change', async () => {
       const value = await setPrinterNozzleDesignation(id, req.method === 'POST' ? body.nozzleDiameter : null);
       if (!value) throw new Error('Printer not found');
       await fleetState.syncRegistry();
       return value;
-    });
+    }));
     fleetState.refreshNow(id).catch(() => {});
     return json(res, 200, {
       ok: true,
@@ -730,12 +730,14 @@ async function apiRoute(req, res, url) {
     const body = await readJson(req);
     if (!body.fileName) throw new Error('fileName is required');
     if (!adapter.capabilities?.printLocalFile) throw new Error('Printing local files is not supported by this printer');
-    const fileMaterial = await getPrinterFileMaterialMetadata(id, String(body.fileName));
-    const materialCheck = assessMaterialCompatibility(printer.adapterConfig?.filamentDesignation, fileMaterial);
-    if (materialCheck.mismatch && body.allowMaterialMismatch !== true) {
-      throw new Error(`Material mismatch: file requires ${materialCheck.requiredMaterial}, but this printer is manually designated ${materialCheck.designatedMaterial}. Confirm Print anyway to override this warning.`);
-    }
     await printerOperations.run(id, 'print start', async () => {
+      const currentPrinter = await getPrinter(id);
+      if (!currentPrinter) throw new Error('Printer not found');
+      const fileMaterial = await getPrinterFileMaterialMetadata(id, String(body.fileName));
+      const materialCheck = assessMaterialCompatibility(currentPrinter.adapterConfig?.filamentDesignation, fileMaterial);
+      if (materialCheck.mismatch && body.allowMaterialMismatch !== true) {
+        throw new Error(`Material mismatch: file requires ${materialCheck.requiredMaterial}, but this printer is manually designated ${materialCheck.designatedMaterial}. Confirm Print anyway to override this warning.`);
+      }
       if (chamberPreheat.isActive(id)) await chamberPreheat.stop(id, { reason: 'print-started', turnOff: false });
       await adapter.printLocalFile(String(body.fileName), {
         levelingBeforePrint: body.levelingBeforePrint !== false,
