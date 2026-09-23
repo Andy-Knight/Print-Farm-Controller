@@ -364,7 +364,7 @@ test('Print Library supports searchable editable free-text descriptions', () => 
   assert.match(app, /file\?\.description/);
   assert.match(app, /library-file-description/);
   assert.match(app, /data-library-edit/);
-  assert.match(app, /async function updateLibraryDescription/);
+  assert.match(app, /async function updateLibraryMetadata/);
   assert.match(app, /method:'PATCH'/);
   assert.match(app, /stageAutomaticQueueFile\(file, options, quantity, priority, data\.get\('description'\)/);
   assert.match(server, /libraryFileMatch && req\.method === 'PATCH'/);
@@ -374,6 +374,30 @@ test('Print Library supports searchable editable free-text descriptions', () => 
   assert.match(library, /description: normalizeDescription/);
   assert.match(styles, /\.library-file-description/);
   assert.match(styles, /textarea \{ resize:vertical/);
+});
+
+test('Print Library supports optional target printer models and automatic compatibility enforcement', () => {
+  const server = fs.readFileSync(new URL('../src/server.js', import.meta.url), 'utf8');
+  const library = fs.readFileSync(new URL('../src/print-library.js', import.meta.url), 'utf8');
+  const queue = fs.readFileSync(new URL('../src/queue-compatibility.js', import.meta.url), 'utf8');
+  const printQueue = fs.readFileSync(new URL('../src/print-queue.js', import.meta.url), 'utf8');
+
+  assert.match(index, /id="libraryPrinterTargetInput"/);
+  assert.match(index, /id="libraryMetadataPrinterTarget"/);
+  assert.match(index, /id="queueAddPrinterTargetInput"/);
+  assert.match(index, /Any supported printer/);
+  assert.match(app, /function printerTargetOptionsMarkup/);
+  assert.match(app, /function parsePrinterTargetValue/);
+  assert.match(app, /function printerTargetLabel/);
+  assert.match(app, /library-printer-target/);
+  assert.match(app, /printerTarget:parsePrinterTargetValue/);
+  assert.match(server, /printerTarget:body\.printerTarget/);
+  assert.match(library, /function normalizePrinterTarget/);
+  assert.match(library, /printerTarget: normalizePrinterTarget/);
+  assert.match(queue, /printer_target_mismatch/);
+  assert.match(queue, /printerMatchesTarget/);
+  assert.match(printQueue, /printerTarget: stagedFile\.printerTarget/);
+  assert.match(styles, /\.library-printer-target/);
 });
 
 test('Print Library lists detected file colours with swatches and values', () => {
