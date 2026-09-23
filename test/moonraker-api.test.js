@@ -742,7 +742,7 @@ test('U1 bed levelling uses the stock heated mesh macro and refuses an active pr
   const printer = { host:'127.0.0.1', httpPort:port, adapterConfig:{} };
   try {
     await levelMoonrakerBed(printer);
-    assert.equal(scripts[0], 'AUTO_BED_MESH_CALIBRATE');
+    assert.equal(scripts[0], 'G28\nAUTO_BED_MESH_CALIBRATE');
     state = 'printing';
     await assert.rejects(() => levelMoonrakerBed(printer), /only be started while the U1 is idle/);
   } finally {
