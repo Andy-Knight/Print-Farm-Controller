@@ -217,7 +217,7 @@
       </div>
       <section class="queue-section">
         <div class="library-toolbar">
-          <label class="library-search">Search<input id="librarySearchInput" type="search" placeholder="Search filenames, descriptions, materials or nozzle size" autocomplete="off" /></label>
+          <label class="library-search">Search<input id="librarySearchInput" type="search" placeholder="Search filenames, printer types, descriptions, materials or nozzle size" autocomplete="off" /></label>
           <button id="libraryUploadBtn" type="button" class="primary">+ Add file</button>
         </div>
         <div id="libraryStatus" class="subtle"></div>
@@ -253,6 +253,12 @@
         <button type="button" class="icon" data-library-add-close>×</button>
       </div>
       <label>Print file<input id="libraryFileInput" name="file" type="file" accept=".gcode,.gx,.3mf" required /></label>
+      <label>Printer type
+        <select id="libraryPrinterTargetInput" name="printerTarget">
+          <option value="">Any supported printer</option>
+        </select>
+      </label>
+      <div class="field-help">Optional. When selected, automatic queue assignment will only offer this file to matching printer models.</div>
       <label>Description / notes
         <textarea id="libraryDescriptionInput" name="description" rows="5" maxlength="4000" placeholder="Example: Replacement wardrobe latch for Swift caravan. Print two for each door."></textarea>
       </label>
@@ -276,6 +282,12 @@
         </div>
         <button type="button" class="icon" data-library-metadata-close>×</button>
       </div>
+      <label>Printer type
+        <select id="libraryMetadataPrinterTarget" name="printerTarget">
+          <option value="">Any supported printer</option>
+        </select>
+      </label>
+      <div class="field-help">Optional. Automatic queue assignment will only use matching printer models when a target is selected.</div>
       <label>Description / notes
         <textarea id="libraryMetadataDescription" name="description" rows="6" maxlength="4000"></textarea>
       </label>
@@ -324,6 +336,12 @@
       </div>
       <div id="queueAddSelectedFile" class="queue-assignment-card hidden"></div>
       <label id="queueAddFileField">Print file<input id="queueAddFileInput" name="file" type="file" accept=".gcode,.gx,.3mf" /></label>
+      <label id="queueAddPrinterTargetField">Library printer type
+        <select id="queueAddPrinterTargetInput" name="printerTarget">
+          <option value="">Any supported printer</option>
+        </select>
+      </label>
+      <div id="queueAddPrinterTargetHelp" class="field-help">Optional. This becomes a compatibility constraint for the new Print Library file.</div>
       <label id="queueAddDescriptionField">Library description / notes
         <textarea id="queueAddDescriptionInput" name="description" rows="4" maxlength="4000" placeholder="Optional description stored with this new library file"></textarea>
       </label>

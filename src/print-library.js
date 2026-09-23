@@ -27,6 +27,16 @@ function normalizeDescription(value) {
   return description;
 }
 
+function normalizePrinterTarget(value) {
+  if (value == null || value === '') return null;
+  if (typeof value !== 'object' || Array.isArray(value)) throw new Error('Print Library printer target is invalid');
+  const adapterType = String(value.adapterType || '').trim();
+  const model = String(value.model || '').trim();
+  if (!adapterType || !model) throw new Error('Print Library printer target requires adapter type and model');
+  if (adapterType.length > 64 || model.length > 80) throw new Error('Print Library printer target is too long');
+  return { adapterType, model };
+}
+
 function normalizePreview(preview) {
   if (!preview || typeof preview.available !== 'boolean') return null;
   if (preview.available !== true) {
@@ -151,6 +161,7 @@ function normalizeMetadata(metadata) {
     size: Number(metadata.size || 0),
     sha256: metadata.sha256 || null,
     description: normalizeDescription(metadata.description || ''),
+    printerTarget: normalizePrinterTarget(metadata.printerTarget),
     preview: normalizePreview(metadata.preview),
     addedAt,
     updatedAt: metadata.updatedAt || null,
@@ -198,11 +209,12 @@ export async function listLibraryFiles() {
   });
 }
 
-export async function addLibraryFile(sourcePath, rawFileName, { description = '' } = {}) {
+export async function addLibraryFile(sourcePath, rawFileName, { description = '', printerTarget = null } = {}) {
   return libraryMutations.run('catalog', async () => {
   await ensureRoot();
   const fileName = validateUploadFilename(rawFileName);
   const cleanDescription = normalizeDescription(description);
+  const cleanPrinterTarget = normalizePrinterTarget(printerTarget);
   const sourceStat = await fs.stat(sourcePath);
   if (!sourceStat.isFile() || !sourceStat.size) throw new Error('Print library file is empty');
 
@@ -231,6 +243,7 @@ export async function addLibraryFile(sourcePath, rawFileName, { description = ''
       size: sourceStat.size,
       sha256: sourceHash,
       description: cleanDescription,
+      printerTarget: cleanPrinterTarget,
       preview,
       addedAt,
       updatedAt: null,
@@ -273,7 +286,7 @@ export async function getLibraryPreview(id) {
   }
 }
 
-export async function updateLibraryFileMetadata(id, { description = '' } = {}) {
+export async function updateLibraryFileMetadata(id, { description, printerTarget } = {}) {
   return libraryMutations.run('catalog', async () => {
   await ensureRoot();
   const normalizedId = safeId(id);
@@ -281,7 +294,8 @@ export async function updateLibraryFileMetadata(id, { description = '' } = {}) {
   const metadataPath = path.join(directory, META_FILE);
   const metadata = JSON.parse(await fs.readFile(metadataPath, 'utf8'));
   if (metadata.id !== normalizedId) throw new Error('Print library metadata is invalid');
-  metadata.description = normalizeDescription(description);
+  if (description !== undefined) metadata.description = normalizeDescription(description);
+  if (printerTarget !== undefined) metadata.printerTarget = normalizePrinterTarget(printerTarget);
   metadata.updatedAt = new Date().toISOString();
   await writeMetadata(directory, metadata);
   return normalizeMetadata(metadata);

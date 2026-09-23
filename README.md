@@ -1,6 +1,8 @@
-# Print Farm Controller v0.20.2
+# Print Farm Controller v0.21.0
 
-> **Current development: v0.20.2 dashboard click reliability.** Live fleet updates no longer detach and reinsert every existing printer card when the card order is unchanged. This removes a browser click race where an **Open printer** button could be moved between pointer-down and click, making the action appear to do nothing intermittently.
+> **Current development: v0.21.0 Print Library printer targeting.** Print Library files can optionally be designated for a specific supported printer model. The target is selectable when adding a file, editable later, searchable/displayed in the library, copied into queued-job snapshots, and enforced by Next Available compatibility so a targeted file is only offered to matching printer models. Files with no target remain unrestricted.
+
+> **v0.20.2 dashboard click reliability.** Live fleet updates no longer detach and reinsert every existing printer card when the card order is unchanged. This removes a browser click race where an **Open printer** button could be moved between pointer-down and click, making the action appear to do nothing intermittently.
 
 > **v0.20.1 printer-detail opening reliability.** The printer dialog opens immediately with a loading state instead of waiting for the printer file-list request to finish. Slow printer storage access therefore no longer makes **Open printer** appear unresponsive. Stale asynchronous opens are discarded when the dialog is closed/reopened, and top-level open failures are surfaced instead of failing silently. Dashboard connection errors render below **Open printer**, keeping action buttons aligned across printer cards.
 

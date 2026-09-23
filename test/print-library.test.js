@@ -47,6 +47,7 @@ test('Print Library migrates staged queue files, deduplicates uploads and persis
   assert.equal(migrated[0].fileName, legacyName);
   assert.equal(migrated[0].addedAt, stagedAt);
   assert.equal(migrated[0].preview?.available, false);
+  assert.equal(migrated[0].printerTarget, null);
   assert.equal(await fs.readFile((await library.getLibraryFile(legacyId)).filePath, 'utf8'), legacyContent);
   await assert.rejects(() => fs.access(path.join(dir, 'queue-files')));
   await fs.access(path.join(dir, 'print-library', legacyId));
@@ -70,9 +71,13 @@ test('Print Library migrates staged queue files, deduplicates uploads and persis
     'T0',
     'G1 X20'
   ].join('\n'));
-  const second = await library.addLibraryFile(secondSource, 'second-part.gcode', { description:'Replacement caravan blind clip. Print two.' });
+  const second = await library.addLibraryFile(secondSource, 'second-part.gcode', {
+    description:'Replacement caravan blind clip. Print two.',
+    printerTarget:{ adapterType:'flashforge-ad5m', model:'Adventurer 5M Pro' }
+  });
   assert.notEqual(second.id, legacyId);
   assert.equal(second.description, 'Replacement caravan blind clip. Print two.');
+  assert.deepEqual(second.printerTarget, { adapterType:'flashforge-ad5m', model:'Adventurer 5M Pro' });
   assert.equal(second.preview?.available, true);
   assert.equal(second.preview?.mimeType, 'image/png');
   const storedPreview = await library.getLibraryPreview(second.id);
@@ -80,9 +85,20 @@ test('Print Library migrates staged queue files, deduplicates uploads and persis
   assert.deepEqual(await fs.readFile(storedPreview.filePath), previewPng);
   const edited = await library.updateLibraryFileMetadata(second.id, { description:'Updated notes for this part.' });
   assert.equal(edited.description, 'Updated notes for this part.');
+  assert.deepEqual(edited.printerTarget, { adapterType:'flashforge-ad5m', model:'Adventurer 5M Pro' });
   assert.ok(edited.updatedAt);
   assert.equal((await library.getLibraryFile(second.id)).description, 'Updated notes for this part.');
+  const retargeted = await library.updateLibraryFileMetadata(second.id, {
+    printerTarget:{ adapterType:'snapmaker-u1', model:'U1' }
+  });
+  assert.deepEqual(retargeted.printerTarget, { adapterType:'snapmaker-u1', model:'U1' });
+  const unrestricted = await library.updateLibraryFileMetadata(second.id, { printerTarget:null });
+  assert.equal(unrestricted.printerTarget, null);
   await assert.rejects(() => library.updateLibraryFileMetadata(second.id, { description:'x'.repeat(4001) }), /4000 characters/);
+  await assert.rejects(
+    () => library.updateLibraryFileMetadata(second.id, { printerTarget:{ adapterType:'snapmaker-u1', model:'' } }),
+    /requires adapter type and model/
+  );
   assert.equal((await library.listLibraryFiles()).length, 2);
 
   await library.preserveLibraryFiles([], { minAgeMs:0 });

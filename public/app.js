@@ -61,12 +61,14 @@ const libraryPreviewImage = document.querySelector('#libraryPreviewImage');
 const libraryAddDialog = document.querySelector('#libraryAddDialog');
 const libraryAddForm = document.querySelector('#libraryAddForm');
 const libraryFileInput = document.querySelector('#libraryFileInput');
+const libraryPrinterTargetInput = document.querySelector('#libraryPrinterTargetInput');
 const libraryDescriptionInput = document.querySelector('#libraryDescriptionInput');
 const libraryAddStatus = document.querySelector('#libraryAddStatus');
 const libraryAddError = document.querySelector('#libraryAddError');
 const libraryMetadataDialog = document.querySelector('#libraryMetadataDialog');
 const libraryMetadataForm = document.querySelector('#libraryMetadataForm');
 const libraryMetadataFileName = document.querySelector('#libraryMetadataFileName');
+const libraryMetadataPrinterTarget = document.querySelector('#libraryMetadataPrinterTarget');
 const libraryMetadataDescription = document.querySelector('#libraryMetadataDescription');
 const libraryMetadataError = document.querySelector('#libraryMetadataError');
 const queueBtn = document.querySelector('#queueBtn');
@@ -81,6 +83,9 @@ const queueAddDialog = document.querySelector('#queueAddDialog');
 const queueAddForm = document.querySelector('#queueAddForm');
 const queueAddFileInput = document.querySelector('#queueAddFileInput');
 const queueAddFileField = document.querySelector('#queueAddFileField');
+const queueAddPrinterTargetField = document.querySelector('#queueAddPrinterTargetField');
+const queueAddPrinterTargetHelp = document.querySelector('#queueAddPrinterTargetHelp');
+const queueAddPrinterTargetInput = document.querySelector('#queueAddPrinterTargetInput');
 const queueAddDescriptionField = document.querySelector('#queueAddDescriptionField');
 const queueAddDescriptionInput = document.querySelector('#queueAddDescriptionInput');
 const queueAddSelectedFile = document.querySelector('#queueAddSelectedFile');
@@ -289,6 +294,53 @@ function escapeHtml(value = '') {
 function printerModelLabel(printer) {
   if (printer?.adapterType === 'snapmaker-u1') return 'Snapmaker U1';
   return String(printer?.model || '');
+}
+
+function printerTargetValue(target) {
+  if (!target?.adapterType || !target?.model) return '';
+  return `${target.adapterType}|${target.model}`;
+}
+
+function parsePrinterTargetValue(value) {
+  const text = String(value || '').trim();
+  if (!text) return null;
+  const splitAt = text.indexOf('|');
+  if (splitAt <= 0 || splitAt >= text.length - 1) throw new Error('Choose a valid printer type');
+  return { adapterType:text.slice(0, splitAt), model:text.slice(splitAt + 1) };
+}
+
+function printerTargetLabel(target) {
+  if (!target?.adapterType || !target?.model) return 'Any supported printer';
+  const adapter = adapters.find((item) => String(item.type) === String(target.adapterType));
+  const manufacturer = String(adapter?.manufacturer || '').trim();
+  return [manufacturer, target.model].filter(Boolean).join(' ') || String(target.model);
+}
+
+function printerTargetOptionsMarkup() {
+  const choices = [];
+  for (const adapter of adapters) {
+    for (const model of Array.isArray(adapter.models) ? adapter.models : []) {
+      choices.push({
+        value:`${adapter.type}|${model}`,
+        label:[adapter.manufacturer, model].filter(Boolean).join(' ')
+      });
+    }
+  }
+  choices.sort((left, right) => left.label.localeCompare(right.label, undefined, { numeric:true, sensitivity:'base' }));
+  return [
+    '<option value="">Any supported printer</option>',
+    ...choices.map((choice) => `<option value="${escapeHtml(choice.value)}">${escapeHtml(choice.label)}</option>`)
+  ].join('');
+}
+
+function populateLibraryPrinterTargetOptions() {
+  const markup = printerTargetOptionsMarkup();
+  for (const select of [libraryPrinterTargetInput, libraryMetadataPrinterTarget, queueAddPrinterTargetInput]) {
+    if (!select) continue;
+    const previous = select.value;
+    select.innerHTML = markup;
+    if ([...select.options].some((option) => option.value === previous)) select.value = previous;
+  }
 }
 
 async function api(url, options = {}) {
@@ -709,10 +761,12 @@ function queueJobMarkup(job, { history = false, queuedIndex = -1, queuedCount = 
         <button type="button" class="danger queue-cancel-button" data-queue-cancel="${escapeHtml(job.id)}">Cancel</button>
       </div>`;
   const printerLabel = job.assignmentMode === 'automatic' && !job.printerId ? 'Next available compatible printer' : (job.printerName || job.printerId || 'Unassigned');
+  const printerTarget = job.printerTarget ? `Target printer: ${printerTargetLabel(job.printerTarget)}` : '';
   return `<article class="queue-job queue-job-${escapeHtml(job.status)}" data-queue-job="${escapeHtml(job.id)}">
     <div class="queue-job-main">
       <div class="queue-job-title"><strong>${escapeHtml(job.fileName)}</strong><span class="queue-job-badges">${queuePriorityBadge(job)}<span class="queue-status ${escapeHtml(job.status)}">${escapeHtml(queueStatusLabel(job.status))}${progress ? ` · ${progress}` : ''}</span></span></div>
       <div class="queue-job-printer">${escapeHtml(printerLabel)}</div>
+      ${printerTarget ? `<div class="queue-job-meta">${escapeHtml(printerTarget)}</div>` : ''}
       <div class="queue-job-meta">${escapeHtml(meta)}</div>
       ${job.selectionReason ? `<div class="queue-selection-reason">${escapeHtml(job.selectionReason)}</div>` : ''}
       ${queueCompatibilityMarkup(job)}
@@ -750,6 +804,7 @@ function productionBatchMarkup(batch, { history = false } = {}) {
     : batch.needsReview ? 'Needs review'
     : 'Queued';
   const runs = Array.isArray(batch.runs) ? batch.runs : [];
+  const printerTarget = batch.printerTarget ? `Target printer: ${printerTargetLabel(batch.printerTarget)}` : '';
   const visibleRuns = runs.slice(0, 12);
   const runMarkup = visibleRuns.map((run) => {
     const printer = run.printerName || (run.status === 'queued' ? 'Waiting for compatible printer' : 'Unassigned');
@@ -770,6 +825,7 @@ function productionBatchMarkup(batch, { history = false } = {}) {
     <div class="queue-job-main">
       <div class="queue-job-title"><strong>${escapeHtml(batch.fileName)}</strong><span class="queue-job-badges">${queuePriorityBadge(batch)}<span class="queue-status ${batch.paused ? 'paused' : batch.finished ? 'completed' : active ? 'printing' : 'queued'}">${escapeHtml(state)}</span></span></div>
       <div class="queue-job-printer">Production quantity ${quantity}</div>
+      ${printerTarget ? `<div class="queue-job-meta">${escapeHtml(printerTarget)}</div>` : ''}
       <div class="production-counts">Completed ${completed} · Printing/preparing ${active} · Remaining ${remaining}${failed ? ` · Failed ${failed}` : ''}${cancelled ? ` · Cancelled ${cancelled}` : ''}</div>
       <div class="production-progress"><span style="width:${progress}%"></span></div>
       <div class="production-runs">${runMarkup}${more}</div>
@@ -889,6 +945,9 @@ function librarySearchText(file) {
   return [
     file?.fileName,
     file?.description,
+    file?.printerTarget?.adapterType,
+    file?.printerTarget?.model,
+    printerTargetLabel(file?.printerTarget),
     file?.sha256,
     ...logicalTools.flatMap((tool) => [tool.material, tool.color, tool.nozzleDiameter])
   ].filter(Boolean).join(' ').toLowerCase();
@@ -912,12 +971,16 @@ function libraryFileMarkup(file) {
   const lastPrinted = usage.lastPrintedAt ? `Last printed ${formatLastSeen(usage.lastPrintedAt)}` : 'Not printed from queue yet';
   const warning = file.requirements?.warning ? `<div class="library-warning">${escapeHtml(file.requirements.warning)}</div>` : '';
   const description = String(file.description || '').trim();
+  const printerTarget = file.printerTarget
+    ? `<div class="library-printer-target"><span>Printer</span><strong>${escapeHtml(printerTargetLabel(file.printerTarget))}</strong></div>`
+    : '';
   return `<article class="library-file" data-library-file="${escapeHtml(file.id)}">
     <div class="library-file-content">
       ${libraryPreviewMarkup(file)}
       <div class="library-file-main">
         <div class="library-file-title"><strong>${escapeHtml(file.fileName)}</strong><span>${escapeHtml(formatBytes(file.size))}</span></div>
         ${description ? `<div class="library-file-description">${escapeHtml(description)}</div>` : ''}
+        ${printerTarget}
         <div class="library-file-requirements">${escapeHtml(libraryRequirementSummary(file))}</div>
         ${libraryColorsMarkup(file)}
         <div class="library-file-meta">Added ${escapeHtml(formatLastSeen(file.addedAt || file.stagedAt))} · ${Number(usage.completedPrints || 0)} completed print${Number(usage.completedPrints || 0) === 1 ? '' : 's'} · ${escapeHtml(lastPrinted)}</div>
@@ -957,7 +1020,7 @@ async function refreshPrintLibrary() {
   return libraryState;
 }
 
-async function uploadLibraryFile(file, description = '') {
+async function uploadLibraryFile(file, description = '', printerTarget = null) {
   if (!(file instanceof File) || !file.size) throw new Error('Choose a file to add to the Print Library');
   if (file.size > 512 * 1024 * 1024) throw new Error('File exceeds the 512 MB upload limit');
   const notes = String(description || '').trim();
@@ -970,10 +1033,10 @@ async function uploadLibraryFile(file, description = '') {
   const payload = await response.json().catch(() => ({}));
   if (!response.ok) throw new Error(payload.error || `Print Library upload failed (${response.status})`);
   let stored = payload.file;
-  if (notes && stored && !stored.duplicate) {
+  if ((notes || printerTarget) && stored && !stored.duplicate) {
     const updated = await api(`/api/library/${encodeURIComponent(stored.id)}`, {
       method:'PATCH',
-      body:JSON.stringify({ description:notes })
+      body:JSON.stringify({ description:notes, printerTarget })
     });
     stored = updated.file || stored;
   }
@@ -981,12 +1044,12 @@ async function uploadLibraryFile(file, description = '') {
   return stored;
 }
 
-async function updateLibraryDescription(fileId, description = '') {
+async function updateLibraryMetadata(fileId, { description = '', printerTarget = null } = {}) {
   const notes = String(description || '').trim();
   if (notes.length > 4000) throw new Error('Print Library description must be 4000 characters or fewer');
   const payload = await api(`/api/library/${encodeURIComponent(fileId)}`, {
     method:'PATCH',
-    body:JSON.stringify({ description:notes })
+    body:JSON.stringify({ description:notes, printerTarget })
   });
   await refreshPrintLibrary();
   return payload.file;
@@ -1019,13 +1082,16 @@ function openQueueAddDialog(libraryFile = null) {
     queueAddError.classList.add('hidden');
   }
   queueAddFileField?.classList.toggle('hidden', Boolean(queueAddLibraryFile));
+  queueAddPrinterTargetField?.classList.toggle('hidden', Boolean(queueAddLibraryFile));
+  queueAddPrinterTargetHelp?.classList.toggle('hidden', Boolean(queueAddLibraryFile));
   queueAddDescriptionField?.classList.toggle('hidden', Boolean(queueAddLibraryFile));
   if (queueAddFileInput) queueAddFileInput.required = !queueAddLibraryFile;
+  if (queueAddPrinterTargetInput && queueAddLibraryFile) queueAddPrinterTargetInput.value = '';
   if (queueAddDescriptionInput && queueAddLibraryFile) queueAddDescriptionInput.value = '';
   if (queueAddSelectedFile) {
     queueAddSelectedFile.classList.toggle('hidden', !queueAddLibraryFile);
     queueAddSelectedFile.innerHTML = queueAddLibraryFile
-      ? `<strong>Print Library file</strong><div>${escapeHtml(queueAddLibraryFile.fileName)}</div><div class="field-help">${escapeHtml(libraryRequirementSummary(queueAddLibraryFile))}</div>`
+      ? `<strong>Print Library file</strong><div>${escapeHtml(queueAddLibraryFile.fileName)}</div><div class="field-help">${escapeHtml(libraryRequirementSummary(queueAddLibraryFile))}</div>${queueAddLibraryFile.printerTarget ? `<div class="field-help">Printer: ${escapeHtml(printerTargetLabel(queueAddLibraryFile.printerTarget))}</div>` : ''}`
       : '';
   }
   queueAddDialog?.showModal();
@@ -1041,8 +1107,8 @@ async function addPrintQueueJob(printer, fileName, options = {}) {
   return result.job;
 }
 
-async function stageAutomaticQueueFile(file, options = {}, quantity = 1, priority = 'normal', description = '') {
-  const libraryFile = await uploadLibraryFile(file, description);
+async function stageAutomaticQueueFile(file, options = {}, quantity = 1, priority = 'normal', description = '', printerTarget = null) {
+  const libraryFile = await uploadLibraryFile(file, description, printerTarget);
   return queueLibraryFile(libraryFile.id, options, quantity, priority);
 }
 
@@ -1414,10 +1480,12 @@ async function loadAdapters() {
     adapterTypeSelect.innerHTML = adapters.map((adapter) => `<option value="${escapeHtml(adapter.type)}">${escapeHtml(adapter.label || adapter.type)}</option>`).join('');
     if (!adapterTypeSelect.value && adapters.length) adapterTypeSelect.value = adapters[0].type;
     renderAdapterFields(adapterTypeSelect.value);
+    populateLibraryPrinterTargetOptions();
   } catch (error) {
     adapters = [];
     adapterTypeSelect.innerHTML = '<option value="flashforge-ad5m">FlashForge Adventurer 5M family</option>';
     renderAdapterFields('flashforge-ad5m');
+    populateLibraryPrinterTargetOptions();
     console.error('Could not load printer adapters', error);
   }
 }
@@ -1577,7 +1645,11 @@ libraryAddForm?.addEventListener('submit', async (event) => {
   if (libraryAddError) { libraryAddError.textContent = ''; libraryAddError.classList.add('hidden'); }
   if (libraryAddStatus) libraryAddStatus.textContent = file ? `Adding ${file.name} to Print Library…` : '';
   try {
-    const stored = await uploadLibraryFile(file, libraryDescriptionInput?.value || '');
+    const stored = await uploadLibraryFile(
+      file,
+      libraryDescriptionInput?.value || '',
+      parsePrinterTargetValue(libraryPrinterTargetInput?.value || '')
+    );
     if (libraryStatus) libraryStatus.textContent = stored.duplicate
       ? `${stored.fileName} is already in the Print Library. Existing details were kept.`
       : `${stored.fileName} added to the Print Library.`;
@@ -1599,7 +1671,10 @@ libraryMetadataForm?.addEventListener('submit', async (event) => {
   if (libraryMetadataError) { libraryMetadataError.textContent = ''; libraryMetadataError.classList.add('hidden'); }
   try {
     const editedFileName = libraryMetadataFile.fileName;
-    await updateLibraryDescription(libraryMetadataFile.id, libraryMetadataDescription?.value || '');
+    await updateLibraryMetadata(libraryMetadataFile.id, {
+      description:libraryMetadataDescription?.value || '',
+      printerTarget:parsePrinterTargetValue(libraryMetadataPrinterTarget?.value || '')
+    });
     libraryMetadataDialog?.close();
     if (libraryStatus) libraryStatus.textContent = `${editedFileName} details updated.`;
   } catch (error) {
@@ -1635,6 +1710,7 @@ libraryList?.addEventListener('click', async (event) => {
     if (!file) return;
     libraryMetadataFile = file;
     if (libraryMetadataFileName) libraryMetadataFileName.textContent = file.fileName;
+    if (libraryMetadataPrinterTarget) libraryMetadataPrinterTarget.value = printerTargetValue(file.printerTarget);
     if (libraryMetadataDescription) libraryMetadataDescription.value = String(file.description || '');
     if (libraryMetadataError) { libraryMetadataError.textContent = ''; libraryMetadataError.classList.add('hidden'); }
     libraryMetadataDialog?.showModal();
@@ -1661,6 +1737,8 @@ document.querySelectorAll('[data-queue-add-close]').forEach((el) => el.addEventL
 queueAddDialog?.addEventListener('close', () => {
   queueAddLibraryFile = null;
   queueAddFileField?.classList.remove('hidden');
+  queueAddPrinterTargetField?.classList.remove('hidden');
+  queueAddPrinterTargetHelp?.classList.remove('hidden');
   queueAddDescriptionField?.classList.remove('hidden');
   if (queueAddFileInput) queueAddFileInput.required = true;
   queueAddSelectedFile?.classList.add('hidden');
@@ -1681,7 +1759,14 @@ queueAddForm?.addEventListener('submit', async (event) => {
       flowCalibrationBeforePrint:data.get('flowCalibrationBeforePrint') === 'on'
     };
     if (queueAddLibraryFile) await queueLibraryFile(queueAddLibraryFile.id, options, quantity, priority);
-    else await stageAutomaticQueueFile(file, options, quantity, priority, data.get('description') || '');
+    else await stageAutomaticQueueFile(
+      file,
+      options,
+      quantity,
+      priority,
+      data.get('description') || '',
+      parsePrinterTargetValue(data.get('printerTarget') || '')
+    );
     if (queueAddStatus) queueAddStatus.textContent = quantity > 1 ? `Added ${quantity} copies as a production batch` : 'Added to fleet queue';
     queueAddDialog?.close();
     renderPrintQueue();

@@ -518,6 +518,9 @@ button.library-file-preview { cursor:zoom-in; }
 .library-file-title strong { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:.9rem; }
 .library-file-title span { margin-left:auto; flex:0 0 auto; color:#8293a0; font-size:.72rem; }
 .library-file-description { margin-top:7px; color:#d8e0e7; font-size:.78rem; line-height:1.45; white-space:pre-wrap; overflow-wrap:anywhere; }
+.library-printer-target { display:inline-flex; align-items:center; gap:7px; margin-top:7px; padding:4px 8px; border:1px solid #365a70; border-radius:999px; background:#13232d; color:#a9d5ee; font-size:.69rem; }
+.library-printer-target span { font-weight:800; text-transform:uppercase; letter-spacing:.05em; opacity:.78; }
+.library-printer-target strong { font-size:.72rem; }
 .library-file-requirements { color:#b7c5cf; font-size:.77rem; margin-top:5px; }
 .library-file-colors { display:flex; align-items:flex-start; gap:10px; margin-top:8px; }
 .library-file-colors-label { flex:0 0 auto; color:#718391; font-size:.7rem; font-weight:800; text-transform:uppercase; letter-spacing:.04em; padding-top:4px; }
@@ -602,6 +605,7 @@ button.library-file-preview { cursor:zoom-in; }
 :root[data-theme="light"] .library-file-title span,
 :root[data-theme="light"] .library-file-meta { color:#617788; }
 :root[data-theme="light"] .library-file-description { color:#263f52; }
+:root[data-theme="light"] .library-printer-target { background:#eaf4fb; border-color:#9fc7df; color:#285d7e; }
 :root[data-theme="light"] .library-file-requirements { color:#314b5f; }
 :root[data-theme="light"] .library-file-colors-label,
 :root[data-theme="light"] .library-color-item small { color:#617788; }

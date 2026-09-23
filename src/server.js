@@ -308,6 +308,25 @@ function validateAddPrinter(body) {
   return preparePrinterConfig(body);
 }
 
+function validateLibraryPrinterTarget(input) {
+  if (input == null || input === '') return null;
+  if (typeof input !== 'object' || Array.isArray(input)) {
+    const error = new Error('Print Library printer target is invalid');
+    error.statusCode = 400;
+    throw error;
+  }
+  const requestedType = String(input.adapterType || '').trim();
+  const requestedModel = String(input.model || '').trim();
+  const adapter = listAdapterDefinitions().find((item) => String(item.type) === requestedType);
+  const model = adapter?.models?.find((item) => String(item).toLowerCase() === requestedModel.toLowerCase());
+  if (!adapter || !model) {
+    const error = new Error('Choose a supported printer type for this Print Library file');
+    error.statusCode = 400;
+    throw error;
+  }
+  return { adapterType:adapter.type, model };
+}
+
 function openEventStream(req, res) {
   res.writeHead(200, {
     'content-type': 'text/event-stream; charset=utf-8',
@@ -541,7 +560,10 @@ async function apiRoute(req, res, url) {
   if (libraryFileMatch && req.method === 'PATCH') {
     const fileId = decodeURIComponent(libraryFileMatch[1]);
     const body = await readJson(req);
-    const file = await controllerMutations.run('library-queue', () => updateLibraryFileMetadata(fileId, { description:body.description }));
+    const file = await controllerMutations.run('library-queue', () => updateLibraryFileMetadata(fileId, {
+      description:body.description,
+      printerTarget:body.printerTarget === undefined ? undefined : validateLibraryPrinterTarget(body.printerTarget)
+    }));
     return json(res, 200, { file });
   }
   if (libraryFileMatch && req.method === 'DELETE') {
