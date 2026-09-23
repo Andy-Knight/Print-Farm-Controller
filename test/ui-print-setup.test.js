@@ -178,6 +178,37 @@ test('U1 print setup warns on nozzle mismatch and exposes guided XYZ offset cali
 });
 
 
+test('U1 bed levelling exposes homing, heating, soak and probing progress', () => {
+  const server = fs.readFileSync(new URL('../src/server.js', import.meta.url), 'utf8');
+  assert.match(server, /const U1_BED_LEVEL_SOAK_MS = 120_000/);
+  assert.match(server, /phase = 'homing'/);
+  assert.match(server, /phase = 'heating'/);
+  assert.match(server, /phase = 'stabilising'/);
+  assert.match(server, /phase = 'probing'/);
+  assert.match(server, /printerActivities\.start\(id, 'bed-leveling'/);
+  assert.match(server, /printerActivities\.start\(id, 'bed-leveling'[\s\S]*await currentAdapter\.levelBed\(\)/);
+  assert.match(app, /function u1BedLevelStatus\(printer\)/);
+  assert.match(app, /Bed levelling — homing printer/);
+  assert.match(app, /Bed levelling — heating bed/);
+  assert.match(app, /Bed levelling — stabilising bed/);
+  assert.match(app, /Bed levelling — probing bed/);
+  assert.match(app, /data-bed-level-status/);
+});
+
+test('printer detail errors are surfaced in a sticky top banner', () => {
+  const head = app.indexOf('class="dialog-head"');
+  const error = app.indexOf('id="detailError"');
+  const grid = app.indexOf('class="detail-grid"');
+  assert.ok(head >= 0 && error > head && grid > error);
+  assert.match(app, /function showPrinterDetailError\(error\)/);
+  assert.match(app, /el\.scrollIntoView\(\{ behavior:'smooth', block:'nearest' \}\)/);
+  assert.match(app, /role="alert" aria-live="assertive"/);
+  assert.match(app, /showPrinterDetailError\(new Error\(`Unsupported file type/);
+  assert.match(app, /showPrinterDetailError\(new Error\('File exceeds the 512 MB upload limit\.'/);
+  assert.match(styles, /\.detail-error-banner \{ position:sticky; top:0;/);
+  assert.doesNotMatch(app, /id="detailError" class="error hidden" style="margin-top:12px"/);
+});
+
 test('unsupported chamber controls are omitted rather than shown disabled', () => {
   assert.match(app, /\$\{capabilities\.chamberPreheat \? `<div class="panel chamber-preheat-panel">/);
   assert.match(app, /\$\{capabilities\.chamberFan \? `<div class="control-row"><label>Chamber fan %/);
