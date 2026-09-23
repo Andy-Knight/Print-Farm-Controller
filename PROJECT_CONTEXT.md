@@ -178,8 +178,6 @@ This work intentionally does **not** add authentication, user accounts, roles or
 
 ## Next steps
 
-**Completed for v0.17.0:** integrated A1 Mini simulator validation and a full `npm test` regression run with 0 failures. Physical A1 Mini validation can follow when hardware is available.
-
 **Completed for v0.18.0:** the full `npm test` suite passes with coverage for the physical-activity compatibility matrix and concurrent mutation protection. Live two-client validation also confirmed that a long-running bed-level operation started from one browser blocks a conflicting print start from another browser for the activity duration, while compatible operations such as file upload remain available.
 
 1. Confirm Print Library/queue and printer-registry changes remain consistent when initiated from separate clients in quick succession.
