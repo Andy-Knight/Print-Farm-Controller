@@ -54,6 +54,7 @@ export class BatchControlService {
     setFansFn = null,
     setJobStateFn = null,
     printerAllowedFn = null,
+    operationCoordinator = null,
     maxConcurrent = 4
   } = {}) {
     if (!fleetState) throw new Error('fleetState is required');
@@ -66,6 +67,7 @@ export class BatchControlService {
     this.setFansOverride = setFansFn;
     this.setJobStateOverride = setJobStateFn;
     this.printerAllowed = typeof printerAllowedFn === 'function' ? printerAllowedFn : () => true;
+    this.operationCoordinator = operationCoordinator;
     this.maxConcurrent = Math.max(1, Number(maxConcurrent) || 4);
   }
 
@@ -98,6 +100,16 @@ export class BatchControlService {
   }
 
   async executeOne(id, action, params) {
+    if (!this.operationCoordinator) return this.executeOneUnlocked(id, action, params);
+    try {
+      return await this.operationCoordinator.run(id, `batch ${action}`, () => this.executeOneUnlocked(id, action, params));
+    } catch (error) {
+      const printer = await this.getPrinter(id).catch(() => null);
+      return { id, name:printer?.name || id, ok:false, error:error.message || 'Printer operation is busy' };
+    }
+  }
+
+  async executeOneUnlocked(id, action, params) {
     const printer = await this.getPrinter(id);
     const name = printer?.name || id;
     if (!printer) return { id, name, ok: false, error: 'Printer not found' };
