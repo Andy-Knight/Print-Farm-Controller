@@ -121,6 +121,9 @@ input:focus,select:focus { border-color:#7a9fbe; }
 .detail-health { color:#687986; font-size:.76rem; margin-top:5px; }
 .detail-error-banner { position:sticky; top:0; z-index:6; margin:0 0 12px; border:1px solid #754047; box-shadow:0 8px 22px rgba(0,0,0,.22); }
 .bed-level-status.active { margin-top:9px; color:#9fc9ea; font-weight:750; }
+.detail-activity-banner { display:flex; flex-direction:column; gap:3px; margin:0 0 12px; padding:10px 12px; border:1px solid #365a70; border-radius:10px; background:#13232d; color:#a9d5ee; }
+.detail-activity-banner strong { font-size:.7rem; letter-spacing:.09em; }
+.detail-activity-banner span { font-size:.82rem; font-weight:750; }
 .panel { border:1px solid #29323b; background:#0e141a; border-radius:14px; padding:15px; margin-bottom:12px; }
 .panel h3 { margin-bottom:12px; font-size:.95rem; }
 .control-row { display:grid; grid-template-columns:1fr 90px auto; gap:8px; align-items:end; margin:10px 0; }
@@ -183,6 +186,11 @@ input:focus,select:focus { border-color:#7a9fbe; }
 .card.license-inactive .camera-slot, .card.license-inactive .card-body { filter:saturate(.55); }
 .license-detail-warning { border:1px solid #624b28; border-radius:10px; padding:10px 12px; margin-bottom:12px; background:#241b0f; color:#f3d18c; font-size:.82rem; }
 @media (max-width:620px) { .license-notice { align-items:flex-start; flex-direction:column; } }
+
+.bed-level-strip { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:10px 14px; border-bottom:1px solid #365a70; background:#13232d; color:#a9d5ee; }
+.bed-level-strip > div { min-width:0; display:flex; flex-direction:column; gap:2px; }
+.bed-level-strip strong { font-size:.7rem; letter-spacing:.09em; }
+.bed-level-strip span { font-size:.79rem; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 
 .preheat-strip { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:10px 14px; border-bottom:1px solid #5b4624; background:#211a0f; color:#f2d28a; }
 .preheat-strip > div { min-width:0; display:flex; flex-direction:column; gap:2px; }
@@ -810,6 +818,12 @@ button.library-file-preview { cursor:zoom-in; }
   background:#fff7e5;
   color:#6c5010;
   border-color:#d9b969;
+}
+:root[data-theme="light"] .bed-level-strip,
+:root[data-theme="light"] .detail-activity-banner {
+  background:#eaf4fb;
+  color:#285d7e;
+  border-color:#9fc7df;
 }
 :root[data-theme="light"] .preheat-status {
   color:#526a7b;
