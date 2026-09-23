@@ -87,6 +87,7 @@ export class FileDistributionService {
     fileMetadataReader = readFileMaterialMetadata,
     fileMetadataSaver = savePrinterFileMaterialMetadata,
     printerAllowedFn = null,
+    operationCoordinator = null,
     maxConcurrent = 2
   } = {}) {
     if (!fleetState) throw new Error('fleetState is required');
@@ -101,6 +102,7 @@ export class FileDistributionService {
     this.fileMetadataReader = fileMetadataReader;
     this.fileMetadataSaver = fileMetadataSaver;
     this.printerAllowed = typeof printerAllowedFn === 'function' ? printerAllowedFn : () => true;
+    this.operationCoordinator = operationCoordinator;
     this.maxConcurrent = Math.max(1, Number(maxConcurrent) || 2);
   }
 
@@ -138,7 +140,26 @@ export class FileDistributionService {
     };
   }
 
-  async distributeOne(id, { filePath, fileName, startPrint, levelingBeforePrint, flowCalibrationBeforePrint, fileMaterialMetadata = null }) {
+  async distributeOne(id, options) {
+    if (!this.operationCoordinator) return this.distributeOneUnlocked(id, options);
+    const label = options.startPrint ? 'file upload and print start' : 'file upload';
+    try {
+      return await this.operationCoordinator.run(id, label, () => this.distributeOneUnlocked(id, options));
+    } catch (error) {
+      const printer = await this.getPrinter(id).catch(() => null);
+      return {
+        id,
+        name:printer?.name || id,
+        ok:false,
+        uploaded:false,
+        verified:false,
+        started:false,
+        error:error.message || 'Printer operation is busy'
+      };
+    }
+  }
+
+  async distributeOneUnlocked(id, { filePath, fileName, startPrint, levelingBeforePrint, flowCalibrationBeforePrint, fileMaterialMetadata = null }) {
     const printer = await this.getPrinter(id);
     const name = printer?.name || id;
     if (!printer) return { id, name, ok: false, uploaded: false, verified: false, started: false, error: 'Printer not found' };
