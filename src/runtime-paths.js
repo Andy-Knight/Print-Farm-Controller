@@ -18,16 +18,22 @@ export function resolveControllerRuntimePaths({
     : sourceRoot;
 
   const requestedDataDir = String(env?.DATA_DIR || '').trim();
+  const requestedLogDir = String(env?.LOG_DIR || '').trim();
   const defaultDataDir = path.join(applicationDir, 'data');
+  const defaultLogDir = path.join(applicationDir, 'logs');
   const dataDir = path.resolve(requestedDataDir || defaultDataDir);
+  const logDir = path.resolve(requestedLogDir || defaultLogDir);
 
   return Object.freeze({
     runningAsSea:Boolean(runningAsSea),
     sourceRoot,
     applicationDir,
     defaultDataDir,
+    defaultLogDir,
     dataDir,
+    logDir,
     customDataDir:requestedDataDir ? dataDir : null,
+    customLogDir:requestedLogDir ? logDir : null,
     publicDir:sourceRoot ? path.join(sourceRoot, 'public') : null,
     emulatorPublicDir:sourceRoot ? path.join(sourceRoot, 'emulator', 'public') : null,
     emulatorAssetsDir:sourceRoot ? path.join(sourceRoot, 'emulator', 'assets') : null,
