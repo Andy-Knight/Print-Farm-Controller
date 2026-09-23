@@ -234,8 +234,16 @@ export class PrinterPhysicalActivityTracker {
       return null;
     }
 
-    if (status && !activity.sticky) {
+    if (status) {
       const live = livePrinterActivity(status);
+      if (['printing', 'paused'].includes(live.kind) && !['printing', 'paused'].includes(activity.kind)) {
+        this.activities.delete(id);
+        return null;
+      }
+      if (activity.sticky) {
+        const { startedAtMs, pendingUntilMs, expiresAtMs, ...publicActivity } = activity;
+        return { ...publicActivity };
+      }
       const matches = activity.kind === live.kind
         || (activity.kind === 'bed-leveling' && live.kind === 'busy')
         || (activity.kind === 'calibration' && live.kind === 'busy');
