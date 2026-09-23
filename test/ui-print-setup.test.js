@@ -220,6 +220,17 @@ test('top printer activity banner works for non-U1 tracked activities', () => {
   assert.match(app, /data-detail-activity-banner/);
 });
 
+test('live fleet reconciliation does not reinsert cards when order is unchanged', () => {
+  const reconcileStart = app.indexOf('function reconcileFleet()');
+  const reconcileEnd = app.indexOf('function dashboardOrderIds()', reconcileStart);
+  const reconcile = app.slice(reconcileStart, reconcileEnd);
+
+  assert.match(reconcile, /for \(const \[index, printer\] of fleet\.entries\(\)\)/);
+  assert.match(reconcile, /const cardAtIndex = fleetEl\.querySelectorAll\('\[data-printer-card\]'\)\[index\]/);
+  assert.match(reconcile, /if \(cardAtIndex !== card\) fleetEl\.insertBefore\(card, cardAtIndex \|\| null\)/);
+  assert.doesNotMatch(reconcile, /fleetEl\.appendChild\(card\)/);
+});
+
 test('dashboard printer errors render below the Open printer button', () => {
   const cardStart = app.indexOf('function cardMarkup(printer)');
   const bodyEnd = app.indexOf('</div>\n    <div class="card-footer">', cardStart);
