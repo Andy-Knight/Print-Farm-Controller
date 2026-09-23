@@ -792,7 +792,9 @@ async function apiRoute(req, res, url) {
       ? PRINTER_OPERATION_TYPES.PRINT_PAUSE
       : normalizedJobAction === 'resume'
         ? PRINTER_OPERATION_TYPES.PRINT_RESUME
-        : PRINTER_OPERATION_TYPES.PRINT_CANCEL;
+        : normalizedJobAction === 'cancel'
+          ? PRINTER_OPERATION_TYPES.PRINT_CANCEL
+          : null;
     await runPrinterMutation(
       id,
       `job ${normalizedJobAction || 'control'}`,
