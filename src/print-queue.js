@@ -1067,7 +1067,8 @@ export class PrintQueueService {
       );
     } catch (error) {
       if (error?.code === 'PRINTER_BUSY') {
-        this.scheduleReconcile();
+        const timer = setTimeout(() => this.scheduleReconcile(), 100);
+        timer.unref?.();
         return;
       }
       throw error;
@@ -1220,7 +1221,8 @@ export class PrintQueueService {
       );
     } catch (error) {
       if (error?.code === 'PRINTER_BUSY') {
-        this.scheduleReconcile();
+        const timer = setTimeout(() => this.scheduleReconcile(), 100);
+        timer.unref?.();
         return;
       }
       throw error;
