@@ -253,7 +253,7 @@ async function apiRoute(req, res, url) {
 
   if (req.method === 'POST' && url.pathname === '/api/license/install') {
     const body = await readJson(req);
-    const result = await installLicenseDocument(body.license);
+    const result = await controllerMutations.run('license', () => installLicenseDocument(body.license));
     return json(res, 200, result);
   }
 
