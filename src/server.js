@@ -49,7 +49,9 @@ const CONTROLLER_VERSION = String(bundledVersion || packageInfo.version || 'unkn
 const PORT = Number(process.env.PORT || 4242);
 const HOST = process.env.HOST || '0.0.0.0';
 const diagnosticLogger = new DiagnosticLogger({ logDir:runtimePaths.logDir, version:CONTROLLER_VERSION });
-const fleetState = new FleetStateService();
+const fleetState = new FleetStateService({
+  diagnosticFn:(level, message, meta) => diagnosticLogger[level]?.('fleet', message, meta)
+});
 const printerActivities = new PrinterPhysicalActivityTracker();
 const U1_BED_LEVEL_SOAK_MS = 120_000;
 const u1BedLevelProgress = new Map();
@@ -197,7 +199,8 @@ const printQueue = new PrintQueueService({
   chamberPreheat,
   printerAllowedFn: printerLicensedForNewWork,
   operationCoordinator:printerOperations,
-  onChange: () => fleetState.schedulePublish()
+  onChange: () => fleetState.schedulePublish(),
+  diagnosticFn:(level, message, meta) => diagnosticLogger[level]?.('queue', message, meta)
 });
 const toolOffsetCalibrationLocks = new Map();
 
