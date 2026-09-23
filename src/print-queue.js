@@ -749,11 +749,18 @@ export class PrintQueueService {
 
     const mayHavePrintOnBed = job.status === 'starting' || job.status === 'printing';
     if (cancelPrinter && mayHavePrintOnBed) {
-      const printer = await this.getPrinter(job.printerId);
-      if (!printer) throw new Error('Printer not found');
-      const adapter = this.adapterResolver(printer);
-      if (!adapter.capabilities?.jobControl) throw new Error('Job control is not supported by this printer');
-      await adapter.setJobState('cancel');
+      const cancelActivePrint = async () => {
+        const printer = await this.getPrinter(job.printerId);
+        if (!printer) throw new Error('Printer not found');
+        const adapter = this.adapterResolver(printer);
+        if (!adapter.capabilities?.jobControl) throw new Error('Job control is not supported by this printer');
+        await adapter.setJobState('cancel');
+      };
+      if (this.operationCoordinator) {
+        await this.operationCoordinator.run(job.printerId, 'queued print cancel', cancelActivePrint);
+      } else {
+        await cancelActivePrint();
+      }
     }
 
     this.markTerminal(job, 'cancelled', null, { requireBedClearance: mayHavePrintOnBed });
