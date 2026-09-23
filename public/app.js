@@ -2496,7 +2496,7 @@ function renderBambuPrintSetup(printer, setup, fileName, mode = 'print') {
     return `<div class="tool-map-row"><div class="tool-map-file"><strong>File T${logical.index}</strong><span>${escapeHtml(label)}</span></div><label>Material source<select data-bambu-material-map="${logical.index}">${options}</select></label></div>`;
   }).join('');
   panel.innerHTML = `<div class="print-setup-head"><div><strong>${queueMode ? 'Queue setup' : 'Print setup'}</strong><span>${escapeHtml(fileName)}</span></div><button type="button" class="icon" data-print-setup-close>×</button></div>
-    <div class="field-help">Map each filament used by the file to a loaded AMS slot. The external spool is available for single-material printing.</div>
+    <div class="field-help">Map each filament used by the file to a loaded AMS/AMS Lite slot. The external spool is available for single-material printing.</div>
     ${setup.warning ? `<div class="file-warning">${escapeHtml(setup.warning)}</div>` : ''}
     <div class="tool-map-grid">${rows || '<div class="file-warning">No reliable filament requirements were found. The printer will use its default external-spool path.</div>'}</div>
     <div id="printSetupAssessment" class="print-setup-assessment"></div>
@@ -2505,7 +2505,7 @@ function renderBambuPrintSetup(printer, setup, fileName, mode = 'print') {
   const currentMap = () => Object.fromEntries([...panel.querySelectorAll('[data-bambu-material-map]')].map((select) => [select.dataset.bambuMaterialMap, Number(select.value)]));
   const refresh = () => {
     const assessment = bambuMappingAssessment(setup, currentMap());
-    if (setup.amsMappingSupported === false) assessment.errors.push('Bambu multi-material AMS printing requires a sliced .3mf project file.');
+    if (setup.amsMappingSupported === false) assessment.errors.push('Bambu multi-material AMS/AMS Lite printing requires a sliced .3mf project file.');
     const target = panel.querySelector('#printSetupAssessment');
     target.textContent = [...assessment.errors.map((value) => `BLOCK: ${value}`), ...assessment.warnings.map((value) => `Warning: ${value}`)].join('\n');
     target.classList.toggle('has-errors', assessment.errors.length > 0);
@@ -2896,7 +2896,7 @@ async function openPrinter(id) {
     const materialHelp = printer.adapterType === 'flashforge-ad5m'
       ? "Filament type uses the controller's manual designation when set, otherwise the value reported by the FlashForge 5M local /detail API. Installed nozzle size uses the controller nozzle designation when set because the 5M API does not reliably expose it. The 5M API also does not expose U1-style filament colour/RFID metadata or a reliable live filament-presence value."
       : printer.adapterType === 'bambu-lab'
-        ? 'Material and colour come from the active external-spool or AMS tray metadata reported by the Bambu LAN interface. Bambu support is experimental until checked against physical P1P, P1S and X1C hardware.'
+        ? 'Material and colour come from the active external-spool or AMS/AMS Lite tray metadata reported by the Bambu LAN interface. Bambu support is experimental until checked against physical P1P, P1S, X1C and A1 Mini hardware.'
         : 'Filament presence comes from each U1 motion sensor. Third-party filament type and colour can be written to the idle printer and are verified by reading the effective per-tool configuration back. Official Snapmaker RFID filament remains locked. Nozzle size and XYZ offset come directly from each physical U1 extruder.';
     const bambuSources = printer.adapterType === 'bambu-lab' && Array.isArray(s?.materialSources)
       ? `<div class="ams-source-grid">${s.materialSources.map((source) => {
@@ -2968,7 +2968,7 @@ async function openPrinter(id) {
     </div>
     <div id="detailConnectionError" class="error hidden"></div>
     ${printer.licenseActive === false ? '<div class="license-detail-warning">This printer is inactive because it does not have a selected licence slot. Live monitoring and safety controls remain available, but new jobs and normal controller commands are disabled.</div>' : ''}
-    ${printer.adapterType === 'bambu-lab' ? `<div class="file-warning">Experimental Bambu ${escapeHtml(printer.model || '')} support: validate behavior carefully before relying on unattended printing.${printer.model === 'X1C' ? ' X1C RTSPS/H.264 camera decoding is not yet supported.' : ''}</div>` : ''}
+    ${printer.adapterType === 'bambu-lab' ? `<div class="file-warning">Experimental Bambu ${escapeHtml(printer.model || '')} support: validate behavior carefully before relying on unattended printing.${printer.model === 'X1C' ? ' X1C RTSPS/H.264 camera decoding is not yet supported.' : ''}${printer.model === 'A1 Mini' ? ' Single-material A1 Mini .gcode starts remain experimental until validated on physical hardware; multi-material AMS Lite jobs require sliced .3mf.' : ''}</div>` : ''}
     <div class="detail-grid">
       <div class="detail-column detail-column-left">
         ${detailCameraMarkup(printer)}
@@ -3002,26 +3002,26 @@ async function openPrinter(id) {
           ${chamberTemperatureMarkup}
         </div>
         ${materialStatusMarkup}
-        <div class="panel chamber-preheat-panel">
+        ${capabilities.chamberPreheat ? `<div class="panel chamber-preheat-panel">
           <h3>Chamber preheat</h3>
           <p class="subtle">${printer.adapterType === 'snapmaker-u1'
             ? 'Uses the build plate as the heat source and the U1 stock PREHEAT_CHAMBER mode for circulation: 60% inner purifier fan, exhaust off. The controller keeps the session bounded and holds the bed setpoint.'
             : 'Uses the build plate as the chamber heat source. The controller holds the normal bed setpoint for a bounded period and reasserts it if idle firmware clears it.'}</p>
           <div class="preheat-fields">
-            <label>Bed setpoint °C<input id="preheatBedInput" type="number" min="${preheatMinBedC}" max="${preheatMaxBedC}" value="${Math.max(preheatMinBedC, Math.min(preheatMaxBedC, Number(s?.bed.target || 90) || 90))}"${disabled(capabilities.chamberPreheat)} /></label>
-            <label>Duration minutes<input id="preheatDurationInput" type="number" min="1" max="${preheatMaxMinutes}" value="45"${disabled(capabilities.chamberPreheat)} /></label>
+            <label>Bed setpoint °C<input id="preheatBedInput" type="number" min="${preheatMinBedC}" max="${preheatMaxBedC}" value="${Math.max(preheatMinBedC, Math.min(preheatMaxBedC, Number(s?.bed.target || 90) || 90))}" /></label>
+            <label>Duration minutes<input id="preheatDurationInput" type="number" min="1" max="${preheatMaxMinutes}" value="45" /></label>
           </div>
           <div class="preheat-status" data-preheat-status>Not active</div>
           <div class="mini-actions">
-            <button class="primary" data-preheat-start${disabled(capabilities.chamberPreheat)}>Start chamber preheat</button>
+            <button class="primary" data-preheat-start>Start chamber preheat</button>
             <button class="danger" data-preheat-stop disabled>Stop preheat</button>
           </div>
           <div class="field-help">Maximum bed setpoint ${preheatMaxBedC} °C · maximum session ${preheatMaxMinutes} minutes · sessions never resume after controller restart.</div>
-        </div>
+        </div>` : ''}
         <div class="panel fans-panel">
           <h3>Fans</h3>
           <div class="control-row"><label>Part cooling %<input id="coolingFanInput" type="number" min="0" max="100" value="${s?.coolingFan || 0}"${disabled(capabilities.coolingFan)} /></label><span></span><button class="secondary" data-set-fan="coolingFan"${disabled(capabilities.coolingFan)}>Set</button></div>
-          <div class="control-row"><label>Chamber fan %<input id="chamberFanInput" type="number" min="0" max="100" value="${s?.chamberFan || 0}"${disabled(capabilities.chamberFan)} /></label><span class="subtle" data-chamber-fan-now>${Math.round(Number(s?.chamberFan) || 0)}% now</span><button class="secondary" data-set-fan="chamberFan"${disabled(capabilities.chamberFan)}>Set</button></div>
+          ${capabilities.chamberFan ? `<div class="control-row"><label>Chamber fan %<input id="chamberFanInput" type="number" min="0" max="100" value="${s?.chamberFan || 0}" /></label><span class="subtle" data-chamber-fan-now>${Math.round(Number(s?.chamberFan) || 0)}% now</span><button class="secondary" data-set-fan="chamberFan">Set</button></div>` : ''}
           ${capabilities.filtration && limits.filtrationSpeed ? `
             <div class="control-row"><label>Internal filter %<input id="internalFilterInput" type="number" min="${Number(limits.filtrationSpeed.min ?? 0)}" max="${Number(limits.filtrationSpeed.max ?? 100)}" value="${Math.round(Number(s?.filtration?.internal) || 0)}"${disabled(s?.filtration?.available !== false)} /></label><span class="subtle" data-internal-filter-now>${Math.round(Number(s?.filtration?.internal) || 0)}% now</span><button class="secondary" data-set-filtration="internal"${disabled(s?.filtration?.available !== false)}>Set</button></div>
             <div class="control-row"><label>Exhaust filter %<input id="externalFilterInput" type="number" min="${Number(limits.filtrationSpeed.min ?? 0)}" max="${Number(limits.filtrationSpeed.max ?? 100)}" value="${Math.round(Number(s?.filtration?.external) || 0)}"${disabled(s?.filtration?.available !== false)} /></label><span class="subtle" data-external-filter-now>${Math.round(Number(s?.filtration?.external) || 0)}% now</span><button class="secondary" data-set-filtration="external"${disabled(s?.filtration?.available !== false)}>Set</button></div>

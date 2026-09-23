@@ -191,6 +191,7 @@ export function createEmulator({
         await addPrinter({ profileId: 'bambu-p1p', name: 'Simulated Bambu Lab P1P' });
         await addPrinter({ profileId: 'bambu-p1s', name: 'Simulated Bambu Lab P1S' });
         await addPrinter({ profileId: 'bambu-x1c', name: 'Simulated Bambu Lab X1 Carbon' });
+        await addPrinter({ profileId: 'bambu-a1-mini', name: 'Simulated Bambu Lab A1 Mini' });
       }
     } catch (error) {
       protocolsStarted = false;

@@ -72,6 +72,26 @@ test('normalizes X1C model telemetry without advertising the unsupported RTSPS c
   assert.equal(status.tools[0].filament.material, 'PA-CF');
 });
 
+test('normalizes A1 Mini telemetry for TLS/JPEG camera and AMS Lite material sources', () => {
+  const status = normalizeBambuStatus({ print:{
+    gcode_state:'IDLE',
+    nozzle_diameter:'0.4',
+    bed_temper:25,
+    tray_now:'0',
+    ams:{ ams:[{ id:'0', tray:[
+      { id:'0', tray_exist_bits:'1', tray_type:'PLA', tray_color:'00AAFFFF' },
+      { id:'1', tray_exist_bits:'0', tray_type:'', tray_color:'' }
+    ] }] }
+  } }, { model:'A1-MINI', adapterConfig:{} });
+  assert.equal(status.model, 'A1 Mini');
+  assert.equal(status.status, 'idle');
+  assert.equal(status.cameraAvailable, true);
+  assert.equal(status.lidarAvailable, false);
+  assert.equal(status.amsAttached, true);
+  assert.equal(status.materialSources.find((source) => source.active).material, 'PLA');
+  assert.equal(status.materialSources.find((source) => source.active).color, '#00AAFF');
+});
+
 test('builds Bambu project and raw G-code print commands', () => {
   const project = bambuAdapterInternals.printCommand('part.3mf', {
     levelingBeforePrint:false, flowCalibrationBeforePrint:true, timeLapseBeforePrint:true,

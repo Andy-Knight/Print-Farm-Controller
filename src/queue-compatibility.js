@@ -173,7 +173,7 @@ function mapLogicalMaterials(requirements = {}, status = {}) {
   }
   const requestedNozzles = [...new Set(logicalTools.filter((item) => item.nozzleDiameter != null).map((item) => Number(item.nozzleDiameter)).filter(Number.isFinite))];
   if (requestedNozzles.length > 1) {
-    return { ok:false, materialMap:null, review:[], reasons:[{ code:'multiple_nozzle_requirements', text:'The file requests different nozzle sizes but the Bambu P1 has one nozzle' }] };
+    return { ok:false, materialMap:null, review:[], reasons:[{ code:'multiple_nozzle_requirements', text:'The file requests different nozzle sizes but the Bambu printer has one nozzle' }] };
   }
   if (requestedNozzles.length === 1) {
     const installed = Number(status.tools?.[0]?.nozzleDiameter);
@@ -203,7 +203,7 @@ export function evaluateQueueCompatibility({ job, printer, state, adapter, bedCl
   const requiredTools = Array.isArray(requirements.requiredTools) ? requirements.requiredTools : [];
   const requiredToolCount = Number(requirements.toolCount || requiredTools.length || 0);
   if (capabilities.materialSlotMapping && requiredToolCount > 1 && extension !== '.3mf') {
-    incompatible.push({ code:'ams_requires_3mf', text:'Bambu multi-material AMS jobs require a sliced .3mf project file' });
+    incompatible.push({ code:'ams_requires_3mf', text:'Bambu multi-material AMS/AMS Lite jobs require a sliced .3mf project file' });
   }
   if (requiredToolCount > 1 && !capabilities.printToolMapping && !capabilities.materialSlotMapping) {
     incompatible.push({ code:'insufficient_tool_support', text:`File requires ${requiredToolCount} tools` });

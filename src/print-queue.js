@@ -271,6 +271,12 @@ export class PrintQueueService {
     // operator acknowledgement for that exact terminal report until the printer
     // leaves the cancelled state.
     this.cancelledStateAcknowledgements = new Map();
+    // Track any live print seen by the controller, including prints started
+    // directly from the printer detail UI or outside the persistent queue.
+    // When an observed print leaves an active state, require an explicit bed
+    // clearance acknowledgement before an automatic queued job can start.
+    this.observedActivePrints = new Map();
+    this.untrackedBedClearance = new Map();
     this.saveChain = Promise.resolve();
   }
 
@@ -506,6 +512,18 @@ export class PrintQueueService {
         });
       }
     }
+    for (const [printerId, clearance] of this.untrackedBedClearance) {
+      if (pending.has(printerId)) continue;
+      const state = this.fleetState.getPrinterState(printerId);
+      pending.set(printerId, {
+        printerId,
+        printerName:state?.name || clearance.printerName || 'Printer',
+        jobId:null,
+        fileName:clearance.fileName || 'Completed print',
+        jobStatus:clearance.jobStatus || 'completed',
+        finishedAt:clearance.finishedAt || null
+      });
+    }
     for (const state of this.fleetState.getFleet()) {
       if (pending.has(state.id) || !this.cancelledStateNeedsClearance(state.id)) continue;
       pending.set(state.id, {
@@ -522,23 +540,26 @@ export class PrintQueueService {
 
   requiresBedClearance(printerId) {
     return this.jobs.some((job) => job.printerId === printerId && job.bedClearanceRequired === true && !job.bedClearedAt)
+      || this.untrackedBedClearance.has(printerId)
       || Boolean(this.cancelledStateNeedsClearance(printerId));
   }
 
   async clearBed(printerId) {
     const pending = this.jobs.filter((job) => job.printerId === printerId && job.bedClearanceRequired === true && !job.bedClearedAt);
     const cancellation = this.cancelledStateNeedsClearance(printerId);
-    if (!pending.length && !cancellation) throw new Error('This printer is not waiting for bed clearance');
+    const untracked = this.untrackedBedClearance.get(printerId) || null;
+    if (!pending.length && !cancellation && !untracked) throw new Error('This printer is not waiting for bed clearance');
     const clearedAt = nowIso();
     for (const job of pending) {
       job.bedClearedAt = clearedAt;
       job.updatedAt = clearedAt;
     }
     if (cancellation) this.cancelledStateAcknowledgements.set(printerId, cancellation);
+    if (untracked) this.untrackedBedClearance.delete(printerId);
     if (pending.length) await this.persistAndNotify();
     else this.notify();
     this.scheduleReconcile();
-    return { printerId, clearedAt, clearedJobs: pending.map((job) => job.id) };
+    return { printerId, clearedAt, clearedJobs: pending.map((job) => job.id), clearedObservedPrint: Boolean(untracked) };
   }
 
   getJob(id) {
@@ -843,6 +864,50 @@ export class PrintQueueService {
           this.markTerminal(job, 'completed', null, { requireBedClearance: true });
           changed = true;
         }
+      }
+
+      // Observe print transitions independently of persistent queue jobs. This
+      // protects automatic scheduling after prints started directly from the
+      // controller or at the printer itself: once such a print finishes, the
+      // build plate must be acknowledged clear before another queued job starts.
+      for (const state of fleet.values()) {
+        if (!state?.online || !state.status) continue;
+        const active = printIsActive(state.status);
+        const observed = this.observedActivePrints.get(state.id);
+
+        if (active) {
+          this.observedActivePrints.set(state.id, {
+            printerName:state.name || observed?.printerName || 'Printer',
+            fileName:state.status.fileName || observed?.fileName || 'Active print',
+            startedAt:observed?.startedAt || nowIso()
+          });
+          continue;
+        }
+
+        if (!observed) continue;
+        this.observedActivePrints.delete(state.id);
+
+        // A persistent queue job already creates its own durable clearance
+        // record. Only create a transient printer-level interlock when the
+        // completed print was not represented by one of those jobs.
+        const queuedClearance = this.jobs.some((job) =>
+          job.printerId === state.id
+          && job.bedClearanceRequired === true
+          && !job.bedClearedAt
+        );
+        if (queuedClearance) continue;
+
+        const stateName = normalizeState(state.status.status);
+        const jobStatus = CANCELLED_PRINTER_STATES.has(stateName)
+          ? 'cancelled'
+          : ERROR_PRINTER_STATES.has(stateName) ? 'failed' : 'completed';
+        this.untrackedBedClearance.set(state.id, {
+          printerName:state.name || observed.printerName || 'Printer',
+          fileName:observed.fileName || state.status.fileName || 'Completed print',
+          jobStatus,
+          finishedAt:nowIso()
+        });
+        changed = true;
       }
 
       // Priority is evaluated before manual queue order. Every six hours a

@@ -178,6 +178,11 @@ test('U1 print setup warns on nozzle mismatch and exposes guided XYZ offset cali
 });
 
 
+test('unsupported chamber controls are omitted rather than shown disabled', () => {
+  assert.match(app, /\$\{capabilities\.chamberPreheat \? `<div class="panel chamber-preheat-panel">/);
+  assert.match(app, /\$\{capabilities\.chamberFan \? `<div class="control-row"><label>Chamber fan %/);
+});
+
 test('printer detail uses stable desktop columns so expanding maintenance does not rebalance panels', () => {
   assert.match(styles, /\.printer-dialog \{ width:min\(1200px,calc\(100vw - 30px\)\); \}/);
   assert.match(styles, /\.detail-grid \{ display:grid; grid-template-columns:minmax\(0,1fr\) minmax\(0,1fr\); gap:18px; align-items:start; \}/);
@@ -240,9 +245,10 @@ test('Print Library shows cached slicer previews with a larger preview viewer', 
 });
 
 test('Print Library preview background stays the light-mode colour in both themes', () => {
-  assert.match(styles, /\.library-file-preview \{[\s\S]*?background:#f3f7fa;/);
-  assert.match(styles, /\.library-preview-large \{[\s\S]*?background:#f3f7fa;/);
-  assert.doesNotMatch(styles, /:root\[data-theme="light"\] \.library-file-preview,[\s\S]*?background:#f3f7fa;/);
+  assert.match(styles, /\.library-file-preview \{[^}]*background:#f3f7fa;/);
+  assert.match(styles, /\.library-preview-large \{[^}]*background:#f3f7fa;/);
+  assert.match(styles, /:root\[data-theme="light"\] \.library-file-preview,\s*:root\[data-theme="light"\] \.library-preview-large \{[^}]*border-color:#cbd7df;[^}]*\}/);
+  assert.doesNotMatch(styles, /:root\[data-theme="light"\] \.library-file-preview,\s*:root\[data-theme="light"\] \.library-preview-large \{[^}]*background\s*:/);
 });
 
 
@@ -473,9 +479,10 @@ test('Bambu printer detail exposes AMS slots and material mapping setup', () => 
   assert.match(emulatorHtml, /AMS configuration/);
   assert.match(emulatorApp, /function renderAmsControls/);
   assert.match(emulatorApp, /amsSlots/);
-  assert.match(app, /P1P, P1S and X1C/);
+  assert.match(app, /P1P, P1S, X1C and A1 Mini/);
   assert.match(app, /X1C RTSPS\/H\.264 camera decoding is not yet supported/);
-  assert.match(bambuAdapter, /label: 'Bambu Lab P1P \/ P1S \/ X1C \(experimental\)'/);
+  assert.match(app, /Single-material A1 Mini \.gcode starts remain experimental/);
+  assert.match(bambuAdapter, /label: 'Bambu Lab P1P \/ P1S \/ X1C \/ A1 Mini \(experimental\)'/);
   assert.match(bambuAdapter, /experimental: true/);
   assert.match(app, /Experimental Bambu \$\{escapeHtml\(printer\.model \|\| ''\)\} support/);
 });
