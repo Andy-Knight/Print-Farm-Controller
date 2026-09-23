@@ -183,7 +183,7 @@ function mapLogicalMaterials(requirements = {}, status = {}) {
   return { ok:review.length === 0, materialMap, reasons:[], review };
 }
 
-export function evaluateQueueCompatibility({ job, printer, state, adapter, bedClearanceRequired = false, reserved = false } = {}) {
+export function evaluateQueueCompatibility({ job, printer, state, adapter, bedClearanceRequired = false, reserved = false, operationBusy = null } = {}) {
   const incompatible = [];
   const blocked = [];
   const review = [];
@@ -260,6 +260,7 @@ export function evaluateQueueCompatibility({ job, printer, state, adapter, bedCl
   if (!state?.online) blocked.push({ code:'offline', text:state?.error || 'Printer is offline' });
   else if (isBusy(state.status || {})) blocked.push({ code:'busy', text:'Printer is not idle' });
   if (bedClearanceRequired) blocked.push({ code:'bed_not_cleared', text:'Bed not cleared' });
+  if (operationBusy) blocked.push({ code:'operation_busy', text:`Printer busy — ${operationBusy.label || 'another operation'} in progress` });
   if (reserved) blocked.push({ code:'reserved', text:'Printer is reserved by another queued job' });
 
   const category = incompatible.length ? 'incompatible' : blocked.length ? 'blocked' : review.length ? 'needs_review' : 'ready';
