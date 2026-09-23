@@ -864,8 +864,14 @@ export async function levelMoonrakerBed(printer) {
   if (String(status.status || '').toLowerCase() !== 'idle') {
     throw new MoonrakerApiError('Bed levelling can only be started while the U1 is idle');
   }
-  // Stock U1 macro heats the bed, allows its configured soak time, then runs BED_MESH_CALIBRATE.
-  return runMoonrakerGcode(printer, 'AUTO_BED_MESH_CALIBRATE');
+  // The stock U1 AUTO_BED_MESH_CALIBRATE macro expects the machine to have been
+  // homed already. Starting it directly from the controller can otherwise leave
+  // the touchscreen reporting that homing is required. Home first, then invoke
+  // Snapmaker's stock heated/soaked mesh-calibration workflow.
+  return runMoonrakerGcode(printer, [
+    'G28',
+    'AUTO_BED_MESH_CALIBRATE'
+  ].join('\n'), { timeoutMs: 420000 });
 }
 
 export async function calibrateMoonrakerToolOffsets(printer, { action, toolIndex } = {}) {
