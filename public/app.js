@@ -1253,14 +1253,22 @@ function reconcileFleet() {
     }
   }
 
-  for (const printer of fleet) {
+  for (const [index, printer] of fleet.entries()) {
     let card = fleetEl.querySelector(`[data-printer-card="${CSS.escape(printer.id)}"]`);
     if (!card) {
       fleetEl.insertAdjacentHTML('beforeend', cardMarkup(printer));
       card = fleetEl.lastElementChild;
     }
     updateCard(card, printer);
-    if (!reorderInProgress) fleetEl.appendChild(card);
+
+    // Do not detach/reinsert cards on every live fleet event. Moving a button's
+    // card between pointerdown and click can cause browsers to drop the click,
+    // making Open printer appear intermittently unresponsive. Only move a card
+    // when its actual fleet order differs from the DOM.
+    if (!reorderInProgress) {
+      const cardAtIndex = fleetEl.querySelectorAll('[data-printer-card]')[index];
+      if (cardAtIndex !== card) fleetEl.insertBefore(card, cardAtIndex || null);
+    }
   }
 
   applyDashboardFilter();
