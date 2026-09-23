@@ -7,9 +7,11 @@
 - Repository: `Andy-Knight/Print-Farm-Controller`
 - Project path: repository root (`/`)
 - Primary branch: `main` (current production baseline)
-- Current application version on this branch: **0.17.0**.
+- Current application version on this branch: **0.19.0**.
 - v0.15.5 Print Library previews are merged into `main`.
 - v0.15.6 includes dashboard summary filtering, application-local data storage, Snapmaker U1 display naming and printer-card hover/focus highlighting.
+- **v0.18.0 concurrent client safety is merged into `main`** via PR #27. The controller coordinates conflicting operations per printer and tracks longer physical workflows such as bed levelling and U1 tool calibration; U1 bed levelling also exposes Homing / Heating / Stabilising / Probing phases and printer-detail errors are surfaced at the top of the printer window.
+- **Current v0.19.0 development branch:** `feature/printer-status-messaging-v0190`. It generalises the prominent printer-window activity banner beyond the U1 so controller-tracked bed levelling/calibration and chamber preheat can be surfaced consistently across supported printer types.
 - **v0.16.0 production packaging is merged into `main`** via PR #24 (squash commit `af8d8e493e2f311c1469ed5faddfffc2316ae727`): centralized runtime paths detect source vs Node SEA execution, esbuild produces a CommonJS controller bundle, and the Windows x64 SEA build embeds the controller UI, simulator UI/resources and trusted Ed25519 public verification keys directly into `PrintFarmController.exe`. The Windows installer targets Program Files, leaves the EXE protected, grants standard-user modify permission only to `data/`, and packaged builds store the signed customer licence at `data/license.json`. Inno Setup 7 is the preferred Windows installer compiler (Inno Setup 6 remains supported as a fallback), and optional Authenticode signing workflows are included.
 - **v0.16.1 dashboard/UI polish is merged into `main`** via PR #25 (squash commit `8936dcf40a75579d6575306d95e3eca79f4508f5`): main-dashboard **Idle** and **Ready** status badges are green in both Dark and Light modes, matching the Printer Simulator's available-state treatment. Print Library thumbnail and enlarged-preview backgrounds use the existing Light-mode colour `#f3f7fa` in both themes. Existing Offline/Error/Pause styling is unchanged.
 - Runtime: **Node.js 24+** (development baseline Node.js 24.21.0), ES modules, no npm runtime dependencies.

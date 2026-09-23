@@ -193,15 +193,29 @@ test('U1 bed levelling exposes homing, heating, soak and probing progress', () =
   assert.match(app, /Bed levelling — stabilising bed/);
   assert.match(app, /Bed levelling — probing bed/);
   assert.match(app, /data-bed-level-status/);
+  assert.match(app, /function printerActivityStatus\(printer\)/);
+  assert.match(app, /activity\?\.kind === 'bed-leveling'/);
+  assert.match(app, /activity\?\.kind === 'calibration'/);
+  assert.match(app, /kind:'chamber-preheat'/);
   assert.match(app, /data-bed-level-strip/);
+  assert.match(app, /data-bed-level-title/);
   assert.match(app, /data-bed-level-summary/);
-  assert.match(app, /data-detail-bed-level-banner/);
-  assert.match(app, /data-detail-bed-level-summary/);
-  assert.match(app, /bedLevelStrip\?\.classList\.toggle\('hidden', !bedLevelStatus\.active\)/);
-  assert.match(app, /topLevelBanner\.classList\.toggle\('hidden', !levelStatus\.active\)/);
+  assert.match(app, /data-detail-activity-banner/);
+  assert.match(app, /data-detail-activity-title/);
+  assert.match(app, /data-detail-activity-summary/);
+  assert.match(app, /showCardActivity = activityStatus\.active && activityStatus\.kind !== 'chamber-preheat'/);
+  assert.match(app, /topActivityBanner\.classList\.toggle\('hidden', !activityStatus\.active\)/);
   assert.match(styles, /\.bed-level-strip \{ display:flex;/);
   assert.match(styles, /\.detail-activity-banner \{ display:flex;/);
   assert.match(styles, /:root\[data-theme="light"\] \.bed-level-strip,/);
+});
+
+test('top printer activity banner works for non-U1 tracked activities', () => {
+  assert.match(app, /title:'BED LEVELLING',[\s\S]*text:'in progress'/);
+  assert.match(app, /title:'CALIBRATION'/);
+  assert.match(app, /title:'CHAMBER PREHEAT'/);
+  assert.match(app, /const activityStatus = printerActivityStatus\(printer\)/);
+  assert.match(app, /data-detail-activity-banner/);
 });
 
 test('printer detail errors are surfaced in a sticky top banner', () => {

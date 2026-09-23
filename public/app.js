@@ -996,7 +996,7 @@ function cardMarkup(printer) {
     </div>
     <div class="camera-slot" data-camera-slot></div>
     <div class="bed-level-strip hidden" data-bed-level-strip>
-      <div><strong>BED LEVELLING</strong><span data-bed-level-summary></span></div>
+      <div><strong data-bed-level-title>PRINTER ACTIVITY</strong><span data-bed-level-summary></span></div>
     </div>
     <div class="license-strip hidden" data-license-strip>
       <div><strong data-license-title></strong><span data-license-summary></span></div>
@@ -1065,12 +1065,15 @@ function updateCard(card, printer) {
   card.querySelector('[data-remaining]').textContent = formatDuration(s?.remainingSeconds);
   card.querySelector('[data-last-seen]').textContent = printer.online ? `Seen ${formatLastSeen(printer.lastSeen)}` : `Last seen ${formatLastSeen(printer.lastSeen)}`;
   card.querySelector('[data-latency]').textContent = printer.latencyMs != null ? `${printer.latencyMs} ms` : '';
-  const bedLevelStatus = u1BedLevelStatus(printer);
-  const bedLevelStrip = card.querySelector('[data-bed-level-strip]');
-  bedLevelStrip?.classList.toggle('hidden', !bedLevelStatus.active);
-  if (bedLevelStatus.active) {
+  const activityStatus = printerActivityStatus(printer);
+  const activityStrip = card.querySelector('[data-bed-level-strip]');
+  const showCardActivity = activityStatus.active && activityStatus.kind !== 'chamber-preheat';
+  activityStrip?.classList.toggle('hidden', !showCardActivity);
+  if (showCardActivity) {
+    const title = activityStrip.querySelector('[data-bed-level-title]');
     const summary = card.querySelector('[data-bed-level-summary]');
-    if (summary) summary.textContent = bedLevelStatus.text.replace(/^Bed levelling —\s*/, '');
+    if (title) title.textContent = activityStatus.title;
+    if (summary) summary.textContent = activityStatus.text;
   }
   const licenseStrip = card.querySelector('[data-license-strip]');
   const showLicenseSlots = Boolean(licenseState?.enforcementEnabled && licenseState?.overLimit && !printer.simulated);
@@ -2709,6 +2712,51 @@ function u1BedLevelStatus(printer) {
   return { active:true, text:'Bed levelling — in progress' };
 }
 
+function printerActivityStatus(printer) {
+  const u1Level = u1BedLevelStatus(printer);
+  if (u1Level.active) {
+    return {
+      active:true,
+      kind:'bed-leveling',
+      title:'BED LEVELLING',
+      text:u1Level.text.replace(/^Bed levelling —\s*/, '')
+    };
+  }
+
+  const activity = printer?.controllerActivity;
+  if (activity?.kind === 'bed-leveling') {
+    return {
+      active:true,
+      kind:'bed-leveling',
+      title:'BED LEVELLING',
+      text:'in progress'
+    };
+  }
+
+  if (activity?.kind === 'calibration') {
+    return {
+      active:true,
+      kind:'calibration',
+      title:'CALIBRATION',
+      text:activity.label ? `${activity.label} in progress` : 'in progress'
+    };
+  }
+
+  const preheat = printer?.chamberPreheat;
+  if (preheat?.active) {
+    const chamber = Number(printer?.status?.chamber?.actual);
+    const chamberText = Number.isFinite(chamber) ? ` · chamber ${chamber.toFixed(1)} °C` : '';
+    return {
+      active:true,
+      kind:'chamber-preheat',
+      title:'CHAMBER PREHEAT',
+      text:`bed ${Number(preheat.bedTemperature).toFixed(0)} °C${chamberText} · ${formatCountdown(preheatRemainingSeconds(preheat))} remaining`
+    };
+  }
+
+  return { active:false, kind:null, title:'', text:'' };
+}
+
 function applyLicenseReadOnly(printer) {
   if (!printerDetail || printer?.licenseActive !== false) return;
   const safeSelectors = [
@@ -2758,14 +2806,18 @@ function updateOpenPrinterTelemetry() {
       levelStatusEl.textContent = levelStatus.text;
       levelStatusEl.classList.toggle('active', levelStatus.active);
     }
-    const topLevelBanner = printerDetail.querySelector('[data-detail-bed-level-banner]');
-    if (topLevelBanner) {
-      topLevelBanner.classList.toggle('hidden', !levelStatus.active);
-      const summary = topLevelBanner.querySelector('[data-detail-bed-level-summary]');
-      if (summary) summary.textContent = levelStatus.text.replace(/^Bed levelling —\s*/, '');
-    }
     const levelButton = printerDetail.querySelector('[data-level]');
     if (levelButton) levelButton.disabled = !printer.online || levelStatus.active;
+  }
+
+  const activityStatus = printerActivityStatus(printer);
+  const topActivityBanner = printerDetail.querySelector('[data-detail-activity-banner]');
+  if (topActivityBanner) {
+    topActivityBanner.classList.toggle('hidden', !activityStatus.active);
+    const title = topActivityBanner.querySelector('[data-detail-activity-title]');
+    const summary = topActivityBanner.querySelector('[data-detail-activity-summary]');
+    if (title) title.textContent = activityStatus.title;
+    if (summary) summary.textContent = activityStatus.text;
   }
   for (const tool of s?.tools || []) set(`[data-tool-now="${tool.index}"]`, `${Number(tool.actual || 0).toFixed(0)} °C now${tool.active ? ' · active' : ''}`);
   if (printer.capabilities?.materialStatus && Array.isArray(s?.tools)) {
@@ -3024,7 +3076,10 @@ async function openPrinter(id) {
     </div>
     <div id="detailError" class="error detail-error-banner${fileLoadError ? '' : ' hidden'}" role="alert" aria-live="assertive">${fileLoadError ? escapeHtml(`Could not load files: ${fileLoadError}`) : ''}</div>
     <div id="detailConnectionError" class="error hidden" role="alert" aria-live="assertive"></div>
-    ${printer.adapterType === 'snapmaker-u1' && capabilities.bedLeveling ? `<div class="detail-activity-banner${u1BedLevelStatus(printer).active ? '' : ' hidden'}" data-detail-bed-level-banner><strong>BED LEVELLING</strong><span data-detail-bed-level-summary>${escapeHtml(u1BedLevelStatus(printer).text.replace(/^Bed levelling —\\s*/, ''))}</span></div>` : ''}
+    ${(() => {
+      const activity = printerActivityStatus(printer);
+      return `<div class="detail-activity-banner${activity.active ? '' : ' hidden'}" data-detail-activity-banner><strong data-detail-activity-title>${escapeHtml(activity.title || 'PRINTER ACTIVITY')}</strong><span data-detail-activity-summary>${escapeHtml(activity.text || '')}</span></div>`;
+    })()}
     ${printer.licenseActive === false ? '<div class="license-detail-warning">This printer is inactive because it does not have a selected licence slot. Live monitoring and safety controls remain available, but new jobs and normal controller commands are disabled.</div>' : ''}
     ${printer.adapterType === 'bambu-lab' ? `<div class="file-warning">Experimental Bambu ${escapeHtml(printer.model || '')} support: validate behavior carefully before relying on unattended printing.${printer.model === 'X1C' ? ' X1C RTSPS/H.264 camera decoding is not yet supported.' : ''}${printer.model === 'A1 Mini' ? ' Single-material A1 Mini .gcode starts remain experimental until validated on physical hardware; multi-material AMS Lite jobs require sliced .3mf.' : ''}</div>` : ''}
     <div class="detail-grid">
