@@ -243,6 +243,7 @@ export class PrintQueueService {
     saveFileMaterialMetadataFn = savePrinterFileMaterialMetadata,
     getQueueFileFn = getQueueFile,
     printerAllowedFn = null,
+    operationCoordinator = null,
     onChange = null,
     startTimeoutMs = START_TIMEOUT_MS,
     minActiveMs = MIN_ACTIVE_MS
@@ -259,6 +260,7 @@ export class PrintQueueService {
     this.saveFileMaterialMetadata = saveFileMaterialMetadataFn;
     this.getQueueFile = getQueueFileFn;
     this.printerAllowed = typeof printerAllowedFn === 'function' ? printerAllowedFn : () => true;
+    this.operationCoordinator = operationCoordinator;
     this.onChange = onChange;
     this.startTimeoutMs = startTimeoutMs;
     this.minActiveMs = minActiveMs;
@@ -1056,6 +1058,23 @@ export class PrintQueueService {
   }
 
   async startAutomaticJob(job, candidate) {
+    if (!this.operationCoordinator || !candidate?.printerId) return this.startAutomaticJobUnlocked(job, candidate);
+    try {
+      return await this.operationCoordinator.run(
+        candidate.printerId,
+        'queued print preparation and start',
+        () => this.startAutomaticJobUnlocked(job, candidate)
+      );
+    } catch (error) {
+      if (error?.code === 'PRINTER_BUSY') {
+        this.scheduleReconcile();
+        return;
+      }
+      throw error;
+    }
+  }
+
+  async startAutomaticJobUnlocked(job, candidate) {
     if (!job || job.status !== 'queued' || job.assignmentMode !== 'automatic' || !candidate?.printerId) return;
     if (!this.printerAllowed(candidate.printerId)) return;
     if (this.startingPrinters.has(candidate.printerId)) return;
@@ -1192,6 +1211,23 @@ export class PrintQueueService {
   }
 
   async startJob(job) {
+    if (!this.operationCoordinator || !job?.printerId) return this.startJobUnlocked(job);
+    try {
+      return await this.operationCoordinator.run(
+        job.printerId,
+        'queued print preparation and start',
+        () => this.startJobUnlocked(job)
+      );
+    } catch (error) {
+      if (error?.code === 'PRINTER_BUSY') {
+        this.scheduleReconcile();
+        return;
+      }
+      throw error;
+    }
+  }
+
+  async startJobUnlocked(job) {
     if (!job || job.status !== 'queued' || !this.printerAllowed(job.printerId) || this.startingPrinters.has(job.printerId) || this.requiresBedClearance(job.printerId)) return;
     this.startingPrinters.add(job.printerId);
     try {
