@@ -179,10 +179,10 @@ This work intentionally does **not** add authentication, user accounts, roles or
 1. Validate v0.18.0 concurrent-client safety with the full `npm test` suite, then use two simultaneous browser clients to confirm that a long-running operation on one client causes a conflicting command from the other to receive `Printer busy — … in progress` without interrupting the first operation. Also verify normal monitoring/live SSE updates remain available to both clients.
 2. Confirm Print Library/queue and printer-registry changes remain consistent when initiated from separate clients in quick succession.
 3. Add Linux x64 and ARM64 packaging.
-3. Code signing is **not a blocker for development or private testing**. The Authenticode workflow is already implemented; when a production certificate is obtained, `npm run release:windows` signs the injected SEA executable, builds the installer around the signed EXE, then signs and verifies the installer.
-4. Future Windows packaging polish: add a custom Print Farm Controller icon for the installer, installed shortcuts and, ideally, the packaged executable itself. This is intentionally deferred.
-5. Add systematic feature-by-feature entitlement gates only where product packaging requires them; preserve the signed licence format and existing edition definitions.
-6. Continue physical validation of experimental Bambu behaviour before removing the experimental designation.
+4. Code signing is **not a blocker for development or private testing**. The Authenticode workflow is already implemented; when a production certificate is obtained, `npm run release:windows` signs the injected SEA executable, builds the installer around the signed EXE, then signs and verifies the installer.
+5. Future Windows packaging polish: add a custom Print Farm Controller icon for the installer, installed shortcuts and, ideally, the packaged executable itself. This is intentionally deferred.
+6. Add systematic feature-by-feature entitlement gates only where product packaging requires them; preserve the signed licence format and existing edition definitions.
+7. Continue physical validation of experimental Bambu behaviour before removing the experimental designation.
 
 ## Handoff rule
 
