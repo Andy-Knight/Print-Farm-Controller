@@ -995,6 +995,9 @@ function cardMarkup(printer) {
       </div>
     </div>
     <div class="camera-slot" data-camera-slot></div>
+    <div class="bed-level-strip hidden" data-bed-level-strip>
+      <div><strong>BED LEVELLING</strong><span data-bed-level-summary></span></div>
+    </div>
     <div class="license-strip hidden" data-license-strip>
       <div><strong data-license-title></strong><span data-license-summary></span></div>
       <button type="button" class="secondary" data-license-slot-toggle></button>
@@ -1062,6 +1065,13 @@ function updateCard(card, printer) {
   card.querySelector('[data-remaining]').textContent = formatDuration(s?.remainingSeconds);
   card.querySelector('[data-last-seen]').textContent = printer.online ? `Seen ${formatLastSeen(printer.lastSeen)}` : `Last seen ${formatLastSeen(printer.lastSeen)}`;
   card.querySelector('[data-latency]').textContent = printer.latencyMs != null ? `${printer.latencyMs} ms` : '';
+  const bedLevelStatus = u1BedLevelStatus(printer);
+  const bedLevelStrip = card.querySelector('[data-bed-level-strip]');
+  bedLevelStrip?.classList.toggle('hidden', !bedLevelStatus.active);
+  if (bedLevelStatus.active) {
+    const summary = card.querySelector('[data-bed-level-summary]');
+    if (summary) summary.textContent = bedLevelStatus.text.replace(/^Bed levelling —\s*/, '');
+  }
   const licenseStrip = card.querySelector('[data-license-strip]');
   const showLicenseSlots = Boolean(licenseState?.enforcementEnabled && licenseState?.overLimit && !printer.simulated);
   licenseStrip?.classList.toggle('hidden', !showLicenseSlots);
@@ -2748,6 +2758,12 @@ function updateOpenPrinterTelemetry() {
       levelStatusEl.textContent = levelStatus.text;
       levelStatusEl.classList.toggle('active', levelStatus.active);
     }
+    const topLevelBanner = printerDetail.querySelector('[data-detail-bed-level-banner]');
+    if (topLevelBanner) {
+      topLevelBanner.classList.toggle('hidden', !levelStatus.active);
+      const summary = topLevelBanner.querySelector('[data-detail-bed-level-summary]');
+      if (summary) summary.textContent = levelStatus.text.replace(/^Bed levelling —\s*/, '');
+    }
     const levelButton = printerDetail.querySelector('[data-level]');
     if (levelButton) levelButton.disabled = !printer.online || levelStatus.active;
   }
@@ -3008,6 +3024,7 @@ async function openPrinter(id) {
     </div>
     <div id="detailError" class="error detail-error-banner${fileLoadError ? '' : ' hidden'}" role="alert" aria-live="assertive">${fileLoadError ? escapeHtml(`Could not load files: ${fileLoadError}`) : ''}</div>
     <div id="detailConnectionError" class="error hidden" role="alert" aria-live="assertive"></div>
+    ${printer.adapterType === 'snapmaker-u1' && capabilities.bedLeveling ? `<div class="detail-activity-banner${u1BedLevelStatus(printer).active ? '' : ' hidden'}" data-detail-bed-level-banner><strong>BED LEVELLING</strong><span data-detail-bed-level-summary>${escapeHtml(u1BedLevelStatus(printer).text.replace(/^Bed levelling —\\s*/, ''))}</span></div>` : ''}
     ${printer.licenseActive === false ? '<div class="license-detail-warning">This printer is inactive because it does not have a selected licence slot. Live monitoring and safety controls remain available, but new jobs and normal controller commands are disabled.</div>' : ''}
     ${printer.adapterType === 'bambu-lab' ? `<div class="file-warning">Experimental Bambu ${escapeHtml(printer.model || '')} support: validate behavior carefully before relying on unattended printing.${printer.model === 'X1C' ? ' X1C RTSPS/H.264 camera decoding is not yet supported.' : ''}${printer.model === 'A1 Mini' ? ' Single-material A1 Mini .gcode starts remain experimental until validated on physical hardware; multi-material AMS Lite jobs require sliced .3mf.' : ''}</div>` : ''}
     <div class="detail-grid">
