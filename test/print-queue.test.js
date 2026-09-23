@@ -180,6 +180,54 @@ test('queued print waits while another client operation owns the printer', async
   service.stop();
 });
 
+test('queue cancellation cannot race an in-flight queued print start', async () => {
+  const coordinator = new PrinterOperationCoordinator();
+  let releaseStatus;
+  let blockStatus = true;
+  const statusGate = new Promise((resolve) => { releaseStatus = resolve; });
+  const fleetState = new FakeFleetState([{ id:'p1', online:true, status:{ status:'idle', fileName:null, progress:0 } }]);
+  const store = memoryStore();
+  const starts = [];
+  const cancels = [];
+  const service = new PrintQueueService({
+    fleetState,
+    chamberPreheat:{ isActive:() => false, stop:async () => {} },
+    getPrinterFn:async () => ({ id:'p1', name:'Printer' }),
+    adapterResolver:() => ({
+      capabilities:{ printLocalFile:true, jobControl:true },
+      getStatus:async () => {
+        if (blockStatus) await statusGate;
+        return { status:'idle', fileName:null, progress:0 };
+      },
+      printLocalFile:async (fileName) => starts.push(fileName),
+      setJobState:async (action) => cancels.push(action)
+    }),
+    loadJobsFn:store.load,
+    saveJobsFn:store.save,
+    operationCoordinator:coordinator
+  });
+
+  await service.start();
+  const job = await service.add({ printerId:'p1', fileName:'queued.gcode' });
+  await waitFor(() => service.startingPrinters.has('p1'));
+
+  await assert.rejects(
+    service.cancel(job.id),
+    (error) => error?.code === 'PRINTER_BUSY' && /queued print preparation and start/.test(error.message)
+  );
+  assert.equal(service.getJob(job.id).status, 'queued');
+
+  blockStatus = false;
+  releaseStatus();
+  await waitFor(() => starts.length === 1);
+  assert.equal(service.getJob(job.id).status, 'starting');
+
+  const cancelled = await service.cancel(job.id);
+  assert.equal(cancelled.status, 'cancelled');
+  assert.deepEqual(cancels, ['cancel']);
+  service.stop();
+});
+
 test('queue reorder validates all queued jobs and preserves requested order', async () => {
   const fleetState = new FakeFleetState([{ id:'p1', online:false, status:null }]);
   const store = memoryStore();
