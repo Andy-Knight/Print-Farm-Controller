@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { PrintQueueService, printQueueHelpers } from '../src/print-queue.js';
+import { PrinterOperationCoordinator } from '../src/concurrency.js';
 
 
 test('completed Snapmaker status can start a new job when Moonraker retains the previous filename', () => {
@@ -139,6 +140,43 @@ test('printer busy with a manual print blocks queue progression', async () => {
   await new Promise((resolve) => setTimeout(resolve, 30));
   assert.equal(starts, 0);
   assert.equal(service.getJob(job.id).status, 'queued');
+  service.stop();
+});
+
+test('queued print waits while another client operation owns the printer', async () => {
+  const coordinator = new PrinterOperationCoordinator();
+  let release;
+  const gate = new Promise((resolve) => { release = resolve; });
+  const active = coordinator.run('p1', 'temperature change', () => gate);
+  await new Promise((resolve) => setImmediate(resolve));
+
+  const fleetState = new FakeFleetState([{ id:'p1', online:true, status:{ status:'idle', fileName:null, progress:0 } }]);
+  const store = memoryStore();
+  const starts = [];
+  const service = new PrintQueueService({
+    fleetState,
+    chamberPreheat:{ isActive:() => false, stop:async () => {} },
+    getPrinterFn:async () => ({ id:'p1', name:'Printer' }),
+    adapterResolver:() => ({
+      capabilities:{ printLocalFile:true },
+      getStatus:async () => fleetState.getPrinterState('p1').status,
+      printLocalFile:async (fileName) => starts.push(fileName)
+    }),
+    loadJobsFn:store.load,
+    saveJobsFn:store.save,
+    operationCoordinator:coordinator
+  });
+
+  await service.start();
+  const job = await service.add({ printerId:'p1', fileName:'queued.gcode' });
+  await new Promise((resolve) => setTimeout(resolve, 40));
+  assert.equal(service.getJob(job.id).status, 'queued');
+  assert.deepEqual(starts, []);
+
+  release();
+  await active;
+  await waitFor(() => starts.length === 1);
+  assert.deepEqual(starts, ['queued.gcode']);
   service.stop();
 });
 
