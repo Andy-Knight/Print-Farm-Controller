@@ -1,6 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { PrintQueueService, printQueueHelpers } from '../src/print-queue.js';
+import { PrinterOperationCoordinator } from '../src/concurrency.js';
+import { evaluatePrinterOperation } from '../src/printer-operation-policy.js';
 
 
 test('completed Snapmaker status can start a new job when Moonraker retains the previous filename', () => {
@@ -139,6 +141,132 @@ test('printer busy with a manual print blocks queue progression', async () => {
   await new Promise((resolve) => setTimeout(resolve, 30));
   assert.equal(starts, 0);
   assert.equal(service.getJob(job.id).status, 'queued');
+  service.stop();
+});
+
+test('queued print waits while another client operation owns the printer', async () => {
+  const coordinator = new PrinterOperationCoordinator();
+  let release;
+  const gate = new Promise((resolve) => { release = resolve; });
+  const active = coordinator.run('p1', 'temperature change', () => gate);
+  await new Promise((resolve) => setImmediate(resolve));
+
+  const fleetState = new FakeFleetState([{ id:'p1', online:true, status:{ status:'idle', fileName:null, progress:0 } }]);
+  const store = memoryStore();
+  const starts = [];
+  const service = new PrintQueueService({
+    fleetState,
+    chamberPreheat:{ isActive:() => false, stop:async () => {} },
+    getPrinterFn:async () => ({ id:'p1', name:'Printer' }),
+    adapterResolver:() => ({
+      capabilities:{ printLocalFile:true },
+      getStatus:async () => fleetState.getPrinterState('p1').status,
+      printLocalFile:async (fileName) => starts.push(fileName)
+    }),
+    loadJobsFn:store.load,
+    saveJobsFn:store.save,
+    operationCoordinator:coordinator
+  });
+
+  await service.start();
+  const job = await service.add({ printerId:'p1', fileName:'queued.gcode' });
+  await new Promise((resolve) => setTimeout(resolve, 40));
+  assert.equal(service.getJob(job.id).status, 'queued');
+  assert.deepEqual(starts, []);
+
+  release();
+  await active;
+  await waitFor(() => starts.length === 1);
+  assert.deepEqual(starts, ['queued.gcode']);
+  service.stop();
+});
+
+test('queued print stays blocked for live U1 macro activity and starts when the printer returns idle', async () => {
+  const fleetState = new FakeFleetState([{
+    id:'p1',
+    online:true,
+    status:{ status:'idle', fileName:null, progress:0, machineActivity:{ state:'printing', label:'printer macro/activity' } }
+  }]);
+  const coordinator = new PrinterOperationCoordinator({
+    evaluateFn:evaluatePrinterOperation,
+    contextProvider:(id) => ({ status:fleetState.getPrinterState(id)?.status || {} })
+  });
+  const store = memoryStore();
+  const starts = [];
+  const service = new PrintQueueService({
+    fleetState,
+    chamberPreheat:{ isActive:() => false, stop:async () => {} },
+    getPrinterFn:async () => ({ id:'p1', name:'U1' }),
+    adapterResolver:() => ({
+      capabilities:{ printLocalFile:true },
+      getStatus:async () => fleetState.getPrinterState('p1').status,
+      printLocalFile:async (fileName) => starts.push(fileName)
+    }),
+    loadJobsFn:store.load,
+    saveJobsFn:store.save,
+    operationCoordinator:coordinator
+  });
+
+  await service.start();
+  const job = await service.add({ printerId:'p1', fileName:'queued.gcode' });
+  await new Promise((resolve) => setTimeout(resolve, 40));
+  assert.equal(service.getJob(job.id).status, 'queued');
+  assert.deepEqual(starts, []);
+
+  fleetState.setState('p1', {
+    online:true,
+    status:{ status:'idle', fileName:null, progress:0, machineActivity:{ state:'ready', label:null } }
+  });
+  await waitFor(() => starts.length === 1);
+  assert.deepEqual(starts, ['queued.gcode']);
+  service.stop();
+});
+
+test('queue cancellation cannot race an in-flight queued print start', async () => {
+  const coordinator = new PrinterOperationCoordinator();
+  let releaseStatus;
+  let blockStatus = true;
+  const statusGate = new Promise((resolve) => { releaseStatus = resolve; });
+  const fleetState = new FakeFleetState([{ id:'p1', online:true, status:{ status:'idle', fileName:null, progress:0 } }]);
+  const store = memoryStore();
+  const starts = [];
+  const cancels = [];
+  const service = new PrintQueueService({
+    fleetState,
+    chamberPreheat:{ isActive:() => false, stop:async () => {} },
+    getPrinterFn:async () => ({ id:'p1', name:'Printer' }),
+    adapterResolver:() => ({
+      capabilities:{ printLocalFile:true, jobControl:true },
+      getStatus:async () => {
+        if (blockStatus) await statusGate;
+        return { status:'idle', fileName:null, progress:0 };
+      },
+      printLocalFile:async (fileName) => starts.push(fileName),
+      setJobState:async (action) => cancels.push(action)
+    }),
+    loadJobsFn:store.load,
+    saveJobsFn:store.save,
+    operationCoordinator:coordinator
+  });
+
+  await service.start();
+  const job = await service.add({ printerId:'p1', fileName:'queued.gcode' });
+  await waitFor(() => service.startingPrinters.has('p1'));
+
+  await assert.rejects(
+    service.cancel(job.id),
+    (error) => error?.code === 'PRINTER_BUSY' && /queued print preparation and start/.test(error.message)
+  );
+  assert.equal(service.getJob(job.id).status, 'queued');
+
+  blockStatus = false;
+  releaseStatus();
+  await waitFor(() => starts.length === 1);
+  assert.equal(service.getJob(job.id).status, 'starting');
+
+  const cancelled = await service.cancel(job.id);
+  assert.equal(cancelled.status, 'cancelled');
+  assert.deepEqual(cancels, ['cancel']);
   service.stop();
 });
 

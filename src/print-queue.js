@@ -7,6 +7,7 @@ import { getPrinterFileMaterialMetadata, savePrinterFileMaterialMetadata } from 
 import { getQueueFile } from './queue-file-store.js';
 import { evaluateQueueCompatibility } from './queue-compatibility.js';
 import { assessMaterialCompatibility } from './file-material-metadata.js';
+import { PRINTER_OPERATION_TYPES } from './printer-operation-policy.js';
 
 const TERMINAL_STATES = new Set(['completed', 'failed', 'cancelled']);
 const ACTIVE_PRINTER_STATES = new Set(['printing', 'working', 'building_from_sd', 'pause', 'paused']);
@@ -243,6 +244,7 @@ export class PrintQueueService {
     saveFileMaterialMetadataFn = savePrinterFileMaterialMetadata,
     getQueueFileFn = getQueueFile,
     printerAllowedFn = null,
+    operationCoordinator = null,
     onChange = null,
     startTimeoutMs = START_TIMEOUT_MS,
     minActiveMs = MIN_ACTIVE_MS
@@ -259,6 +261,7 @@ export class PrintQueueService {
     this.saveFileMaterialMetadata = saveFileMaterialMetadataFn;
     this.getQueueFile = getQueueFileFn;
     this.printerAllowed = typeof printerAllowedFn === 'function' ? printerAllowedFn : () => true;
+    this.operationCoordinator = operationCoordinator;
     this.onChange = onChange;
     this.startTimeoutMs = startTimeoutMs;
     this.minActiveMs = minActiveMs;
@@ -740,7 +743,27 @@ export class PrintQueueService {
     return publicJob(job);
   }
 
-  async cancel(id, { cancelPrinter = true } = {}) {
+  async cancel(id, options = {}) {
+    const job = this.jobs.find((item) => item.id === id);
+    if (!job) throw new Error('Queued print not found');
+    if (TERMINAL_STATES.has(job.status)) return publicJob(job);
+
+    const printerOperationInFlight = Boolean(
+      job.printerId
+      && (this.startingPrinters.has(job.printerId) || ACTIVE_QUEUE_STATES.has(job.status))
+    );
+    if (this.operationCoordinator && printerOperationInFlight) {
+      return this.operationCoordinator.run(
+        job.printerId,
+        'queued print cancel',
+        () => this.cancelUnlocked(id, options),
+        { operationType:PRINTER_OPERATION_TYPES.PRINT_CANCEL }
+      );
+    }
+    return this.cancelUnlocked(id, options);
+  }
+
+  async cancelUnlocked(id, { cancelPrinter = true } = {}) {
     const job = this.jobs.find((item) => item.id === id);
     if (!job) throw new Error('Queued print not found');
     if (TERMINAL_STATES.has(job.status)) return publicJob(job);
@@ -977,12 +1000,16 @@ export class PrintQueueService {
       const reserved = this.startingPrinters.has(state.id) || earlierFixedWaiting || this.jobs.some((other) =>
         other.id !== job.id && other.printerId === state.id && ACTIVE_QUEUE_STATES.has(other.status)
       );
+      const operationDecision = this.operationCoordinator
+        ? this.operationCoordinator.evaluate(state.id, PRINTER_OPERATION_TYPES.FILE_UPLOAD_START)
+        : { allowed:true, activity:null };
       const result = evaluateQueueCompatibility({
         job,
         printer,
         state,
         adapter,
         bedClearanceRequired:this.requiresBedClearance(state.id),
+        operationBusy:operationDecision.allowed === false ? (operationDecision.activity || { label:'another printer activity' }) : null,
         reserved
       });
       result.fileAlreadyPresent = false;
@@ -1056,6 +1083,27 @@ export class PrintQueueService {
   }
 
   async startAutomaticJob(job, candidate) {
+    if (!this.operationCoordinator || !candidate?.printerId) return this.startAutomaticJobUnlocked(job, candidate);
+    try {
+      return await this.operationCoordinator.run(
+        candidate.printerId,
+        'queued print preparation and start',
+        () => this.startAutomaticJobUnlocked(job, candidate),
+        { operationType:PRINTER_OPERATION_TYPES.FILE_UPLOAD_START }
+      );
+    } catch (error) {
+      if (error?.code === 'PRINTER_BUSY') {
+        if (error.conflictCode === 'transaction_busy') {
+          const timer = setTimeout(() => this.scheduleReconcile(), 100);
+          timer.unref?.();
+        }
+        return;
+      }
+      throw error;
+    }
+  }
+
+  async startAutomaticJobUnlocked(job, candidate) {
     if (!job || job.status !== 'queued' || job.assignmentMode !== 'automatic' || !candidate?.printerId) return;
     if (!this.printerAllowed(candidate.printerId)) return;
     if (this.startingPrinters.has(candidate.printerId)) return;
@@ -1192,6 +1240,27 @@ export class PrintQueueService {
   }
 
   async startJob(job) {
+    if (!this.operationCoordinator || !job?.printerId) return this.startJobUnlocked(job);
+    try {
+      return await this.operationCoordinator.run(
+        job.printerId,
+        'queued print preparation and start',
+        () => this.startJobUnlocked(job),
+        { operationType:PRINTER_OPERATION_TYPES.FILE_UPLOAD_START }
+      );
+    } catch (error) {
+      if (error?.code === 'PRINTER_BUSY') {
+        if (error.conflictCode === 'transaction_busy') {
+          const timer = setTimeout(() => this.scheduleReconcile(), 100);
+          timer.unref?.();
+        }
+        return;
+      }
+      throw error;
+    }
+  }
+
+  async startJobUnlocked(job) {
     if (!job || job.status !== 'queued' || !this.printerAllowed(job.printerId) || this.startingPrinters.has(job.printerId) || this.requiresBedClearance(job.printerId)) return;
     this.startingPrinters.add(job.printerId);
     try {

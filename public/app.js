@@ -995,6 +995,9 @@ function cardMarkup(printer) {
       </div>
     </div>
     <div class="camera-slot" data-camera-slot></div>
+    <div class="bed-level-strip hidden" data-bed-level-strip>
+      <div><strong>BED LEVELLING</strong><span data-bed-level-summary></span></div>
+    </div>
     <div class="license-strip hidden" data-license-strip>
       <div><strong data-license-title></strong><span data-license-summary></span></div>
       <button type="button" class="secondary" data-license-slot-toggle></button>
@@ -1062,6 +1065,13 @@ function updateCard(card, printer) {
   card.querySelector('[data-remaining]').textContent = formatDuration(s?.remainingSeconds);
   card.querySelector('[data-last-seen]').textContent = printer.online ? `Seen ${formatLastSeen(printer.lastSeen)}` : `Last seen ${formatLastSeen(printer.lastSeen)}`;
   card.querySelector('[data-latency]').textContent = printer.latencyMs != null ? `${printer.latencyMs} ms` : '';
+  const bedLevelStatus = u1BedLevelStatus(printer);
+  const bedLevelStrip = card.querySelector('[data-bed-level-strip]');
+  bedLevelStrip?.classList.toggle('hidden', !bedLevelStatus.active);
+  if (bedLevelStatus.active) {
+    const summary = card.querySelector('[data-bed-level-summary]');
+    if (summary) summary.textContent = bedLevelStatus.text.replace(/^Bed levelling —\s*/, '');
+  }
   const licenseStrip = card.querySelector('[data-license-strip]');
   const showLicenseSlots = Boolean(licenseState?.enforcementEnabled && licenseState?.overLimit && !printer.simulated);
   licenseStrip?.classList.toggle('hidden', !showLicenseSlots);
@@ -2645,8 +2655,7 @@ function renderU1PrintSetup(printer, setup, fileName, mode = 'print') {
         queueDialog.showModal();
       }
     } catch (error) {
-      const el = printerDetail.querySelector('#detailError');
-      if (el) { el.textContent = error.message; el.classList.remove('hidden'); }
+      showPrinterDetailError(error);
     }
   };
   refreshAssessment();
@@ -2667,6 +2676,37 @@ function selectedMaterialPreflightText() {
 U1 material preflight:
 ${rows.join('\n')}
 This is advisory; the selected file may use only some toolheads.`;
+}
+
+function showPrinterDetailError(error) {
+  const el = printerDetail?.querySelector('#detailError');
+  if (!el) return;
+  el.textContent = error?.message || String(error || 'Request failed');
+  el.classList.remove('hidden');
+  el.scrollIntoView({ behavior:'smooth', block:'nearest' });
+}
+
+function u1BedLevelStatus(printer) {
+  const defaultText = 'U1 bed level runs the stock heated AUTO_BED_MESH_CALIBRATE routine; the printer heats, soaks, probes the bed, and updates its mesh.';
+  if (printer?.adapterType !== 'snapmaker-u1') return { active:false, text:defaultText };
+  const activity = printer.controllerActivity;
+  if (activity?.kind !== 'bed-leveling') return { active:false, text:defaultText };
+
+  const actual = Number(activity.bedActual ?? printer.status?.bed?.actual);
+  const target = Number(activity.bedTarget ?? printer.status?.bed?.target);
+  const temperature = Number.isFinite(actual) && Number.isFinite(target)
+    ? ` · ${actual.toFixed(0)} / ${target.toFixed(0)} °C`
+    : '';
+
+  if (activity.phase === 'homing') return { active:true, text:'Bed levelling — homing printer' };
+  if (activity.phase === 'heating') return { active:true, text:`Bed levelling — heating bed${temperature}` };
+  if (activity.phase === 'stabilising') {
+    const remaining = Number(activity.remainingSeconds);
+    const countdown = Number.isFinite(remaining) && remaining > 0 ? ` · about ${formatCountdown(remaining)} remaining` : '';
+    return { active:true, text:`Bed levelling — stabilising bed${temperature}${countdown}` };
+  }
+  if (activity.phase === 'probing') return { active:true, text:'Bed levelling — probing bed' };
+  return { active:true, text:'Bed levelling — in progress' };
 }
 
 function applyLicenseReadOnly(printer) {
@@ -2711,6 +2751,22 @@ function updateOpenPrinterTelemetry() {
   set('[data-detail-remaining]', formatDuration(s?.remainingSeconds));
   set('[data-nozzle-now]', s ? `${s.nozzle.actual.toFixed(0)} °C now` : '—');
   set('[data-bed-now]', s ? `${s.bed.actual.toFixed(0)} °C now` : '—');
+  if (printer.adapterType === 'snapmaker-u1' && printer.capabilities?.bedLeveling) {
+    const levelStatus = u1BedLevelStatus(printer);
+    const levelStatusEl = printerDetail.querySelector('[data-bed-level-status]');
+    if (levelStatusEl) {
+      levelStatusEl.textContent = levelStatus.text;
+      levelStatusEl.classList.toggle('active', levelStatus.active);
+    }
+    const topLevelBanner = printerDetail.querySelector('[data-detail-bed-level-banner]');
+    if (topLevelBanner) {
+      topLevelBanner.classList.toggle('hidden', !levelStatus.active);
+      const summary = topLevelBanner.querySelector('[data-detail-bed-level-summary]');
+      if (summary) summary.textContent = levelStatus.text.replace(/^Bed levelling —\s*/, '');
+    }
+    const levelButton = printerDetail.querySelector('[data-level]');
+    if (levelButton) levelButton.disabled = !printer.online || levelStatus.active;
+  }
   for (const tool of s?.tools || []) set(`[data-tool-now="${tool.index}"]`, `${Number(tool.actual || 0).toFixed(0)} °C now${tool.active ? ' · active' : ''}`);
   if (printer.capabilities?.materialStatus && Array.isArray(s?.tools)) {
     const materialSummary = printerDetail.querySelector('[data-material-summary]');
@@ -2872,7 +2928,7 @@ async function openPrinter(id) {
   const files = fileResult.files || [];
   const fileListMarkup = files.length
     ? files.map((file) => `<div class="file" data-file-entry><span class="file-name">${escapeHtml(file)}</span><div class="file-actions"><button class="secondary" data-queue-file="${escapeHtml(file)}">Queue</button><button class="secondary" data-print-file="${escapeHtml(file)}">Print</button></div></div>`).join('')
-    : `<div class="subtle">${!capabilities.localFiles ? 'File browsing is not supported by this printer.' : printer.online ? (fileLoadError ? `Could not load files: ${escapeHtml(fileLoadError)}` : 'No printable files returned by printer.') : 'Files unavailable while printer is offline.'}</div>`;
+    : `<div class="subtle">${!capabilities.localFiles ? 'File browsing is not supported by this printer.' : printer.online ? (fileLoadError ? 'Files unavailable.' : 'No printable files returned by printer.') : 'Files unavailable while printer is offline.'}</div>`;
   const fileWarningMarkup = fileResult.warning ? `<div class="file-warning">${escapeHtml(fileResult.warning)}</div>` : '';
   const orderLabel = fileResult.ordering === 'last-printed-first' ? 'recent first' : '';
   const fileSourceLabel = files.length ? `${files.length} file${files.length === 1 ? '' : 's'} · ${fileResult.complete ? 'full storage' : 'recent only'}${orderLabel ? ` · ${orderLabel}` : ''}` : '';
@@ -2966,7 +3022,9 @@ async function openPrinter(id) {
       </div>
       <button class="icon" data-detail-close>×</button>
     </div>
-    <div id="detailConnectionError" class="error hidden"></div>
+    <div id="detailError" class="error detail-error-banner${fileLoadError ? '' : ' hidden'}" role="alert" aria-live="assertive">${fileLoadError ? escapeHtml(`Could not load files: ${fileLoadError}`) : ''}</div>
+    <div id="detailConnectionError" class="error hidden" role="alert" aria-live="assertive"></div>
+    ${printer.adapterType === 'snapmaker-u1' && capabilities.bedLeveling ? `<div class="detail-activity-banner${u1BedLevelStatus(printer).active ? '' : ' hidden'}" data-detail-bed-level-banner><strong>BED LEVELLING</strong><span data-detail-bed-level-summary>${escapeHtml(u1BedLevelStatus(printer).text.replace(/^Bed levelling —\\s*/, ''))}</span></div>` : ''}
     ${printer.licenseActive === false ? '<div class="license-detail-warning">This printer is inactive because it does not have a selected licence slot. Live monitoring and safety controls remain available, but new jobs and normal controller commands are disabled.</div>' : ''}
     ${printer.adapterType === 'bambu-lab' ? `<div class="file-warning">Experimental Bambu ${escapeHtml(printer.model || '')} support: validate behavior carefully before relying on unattended printing.${printer.model === 'X1C' ? ' X1C RTSPS/H.264 camera decoding is not yet supported.' : ''}${printer.model === 'A1 Mini' ? ' Single-material A1 Mini .gcode starts remain experimental until validated on physical hardware; multi-material AMS Lite jobs require sliced .3mf.' : ''}</div>` : ''}
     <div class="detail-grid">
@@ -3031,7 +3089,7 @@ async function openPrinter(id) {
         <div class="panel maintenance-panel">
           <h3>Maintenance</h3>
           <div class="mini-actions"><button class="secondary" data-level${disabled(capabilities.bedLeveling)}>Bed level</button><button class="secondary" data-camera-open${disabled(capabilities.camera)}>Restart camera</button>${capabilities.toolheadOffsetCalibration ? '<button class="secondary" data-tool-offset-open>XYZ tool offsets</button>' : ''}</div>
-          ${printer.adapterType === 'snapmaker-u1' && capabilities.bedLeveling ? '<div class="field-help">U1 bed level runs the stock heated AUTO_BED_MESH_CALIBRATE routine; the printer heats, soaks, probes the bed, and updates its mesh.</div>' : ''}
+          ${printer.adapterType === 'snapmaker-u1' && capabilities.bedLeveling ? `<div class="field-help bed-level-status${u1BedLevelStatus(printer).active ? ' active' : ''}" data-bed-level-status>${escapeHtml(u1BedLevelStatus(printer).text)}</div>` : ''}
           ${toolOffsetCalibrationMarkup}
         </div>
         <div class="panel diagnostics-panel">
@@ -3054,7 +3112,6 @@ async function openPrinter(id) {
         </div>
       </div>
     </div>
-    <div id="detailError" class="error hidden" style="margin-top:12px"></div>
   </div>`;
   const leftDetailColumn = printerDetail.querySelector('.detail-column-left');
   if (leftDetailColumn) {
@@ -3076,12 +3133,12 @@ async function openPrinter(id) {
       if (!file) return;
       const extension = `.${String(file.name || '').split('.').pop().toLowerCase()}`;
       if (uploadExtensions.length && !uploadExtensions.includes(extension)) {
-        if (printerUploadStatus) printerUploadStatus.textContent = `Unsupported file type. Use ${uploadExtensions.join(', ')}`;
+        showPrinterDetailError(new Error(`Unsupported file type. Use ${uploadExtensions.join(', ')}`));
         printerUploadInput.value = '';
         return;
       }
       if (file.size > 512 * 1024 * 1024) {
-        if (printerUploadStatus) printerUploadStatus.textContent = 'File exceeds the 512 MB upload limit.';
+        showPrinterDetailError(new Error('File exceeds the 512 MB upload limit.'));
         printerUploadInput.value = '';
         return;
       }
@@ -3099,7 +3156,8 @@ async function openPrinter(id) {
         const refreshedStatus = printerDetail.querySelector('[data-printer-file-upload-status]');
         if (refreshedStatus) refreshedStatus.textContent = `Uploaded and verified ${result.fileName || file.name}`;
       } catch (error) {
-        if (printerUploadStatus) printerUploadStatus.textContent = error.message || 'Upload failed';
+        showPrinterDetailError(error);
+        if (printerUploadStatus) printerUploadStatus.textContent = `Supported: ${uploadExtensions.join(', ')}`;
       } finally {
         printerUploadInput.value = '';
         if (printerUploadButton.isConnected) printerUploadButton.disabled = false;
@@ -3116,11 +3174,7 @@ async function openPrinter(id) {
     liveCamera.replaceWith(placeholder);
   }, { once: true });
 
-  const showError = (error) => {
-    const el = printerDetail.querySelector('#detailError');
-    el.textContent = error.message;
-    el.classList.remove('hidden');
-  };
+  const showError = showPrinterDetailError;
 
   const fileSearch = printerDetail.querySelector('#fileSearch');
   if (fileSearch) {

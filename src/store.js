@@ -4,6 +4,7 @@ import os from 'node:os';
 import crypto from 'node:crypto';
 import { FLASHFORGE_AD5M_ADAPTER_TYPE } from './adapters/adapter-registry.js';
 import { resolveControllerRuntimePaths } from './runtime-paths.js';
+import { KeyedSerialExecutor } from './concurrency.js';
 
 const runtimePaths = resolveControllerRuntimePaths();
 const APPLICATION_DIR = runtimePaths.applicationDir;
@@ -43,6 +44,8 @@ const LEGACY_DATA_DIRS = CUSTOM_DATA_DIR
   : [...new Set([profileDataDir(), legacyFlashForgeDataDir()].map((value) => path.resolve(value)))]
       .filter((value) => value !== DATA_DIR);
 const FILE_PATH = path.join(DATA_DIR, 'printers.json');
+const storeMutations = new KeyedSerialExecutor();
+let storeInitialization = null;
 
 async function pathExists(target) {
   try {
@@ -127,12 +130,20 @@ function normalizeNozzleDesignation(value) {
 }
 
 async function ensureStore() {
-  await ensureDataDir();
-  try {
-    await fs.access(FILE_PATH);
-  } catch {
-    await fs.writeFile(FILE_PATH, '[]\n', { mode: 0o600 });
+  if (!storeInitialization) {
+    storeInitialization = (async () => {
+      await ensureDataDir();
+      try {
+        await fs.writeFile(FILE_PATH, '[]\n', { mode:0o600, flag:'wx' });
+      } catch (error) {
+        if (error?.code !== 'EEXIST') throw error;
+      }
+    })().catch((error) => {
+      storeInitialization = null;
+      throw error;
+    });
   }
+  return storeInitialization;
 }
 
 function normalizeStoredPrinter(printer) {
@@ -155,9 +166,13 @@ async function readAll() {
 
 async function writeAll(printers) {
   await ensureStore();
-  const temp = `${FILE_PATH}.tmp`;
-  await fs.writeFile(temp, `${JSON.stringify(printers, null, 2)}\n`, { mode: 0o600 });
-  await fs.rename(temp, FILE_PATH);
+  const temp = `${FILE_PATH}.${crypto.randomUUID()}.tmp`;
+  try {
+    await fs.writeFile(temp, `${JSON.stringify(printers, null, 2)}\n`, { mode: 0o600 });
+    await fs.rename(temp, FILE_PATH);
+  } finally {
+    await fs.rm(temp, { force:true }).catch(() => {});
+  }
 }
 
 export async function listPrinters() {
@@ -170,6 +185,7 @@ export async function getPrinter(id) {
 }
 
 export async function addPrinter(input) {
+  return storeMutations.run('printers', async () => {
   const printers = await readAll();
   const existingOrders = printers.map((printer) => Number(printer.dashboardOrder)).filter(Number.isFinite);
   const dashboardOrder = existingOrders.length === printers.length && printers.length
@@ -198,9 +214,11 @@ export async function addPrinter(input) {
   printers.push(printer);
   await writeAll(printers);
   return printer;
+  });
 }
 
 export async function renamePrinter(id, name) {
+  return storeMutations.run('printers', async () => {
   const printers = await readAll();
   const index = printers.findIndex((printer) => printer.id === id);
   if (index < 0) return null;
@@ -209,9 +227,11 @@ export async function renamePrinter(id, name) {
   printers[index] = { ...printers[index], name: nextName };
   await writeAll(printers);
   return normalizeStoredPrinter(printers[index]);
+  });
 }
 
 export async function setPrinterMaterialDesignation(id, material, color = undefined) {
+  return storeMutations.run('printers', async () => {
   const printers = await readAll();
   const index = printers.findIndex((printer) => printer.id === id);
   if (index < 0) return null;
@@ -229,9 +249,11 @@ export async function setPrinterMaterialDesignation(id, material, color = undefi
   printers[index] = { ...printers[index], adapterConfig };
   await writeAll(printers);
   return normalizeStoredPrinter(printers[index]);
+  });
 }
 
 export async function setPrinterNozzleDesignation(id, nozzleDiameter) {
+  return storeMutations.run('printers', async () => {
   const printers = await readAll();
   const index = printers.findIndex((printer) => printer.id === id);
   if (index < 0) return null;
@@ -244,9 +266,11 @@ export async function setPrinterNozzleDesignation(id, nozzleDiameter) {
   printers[index] = { ...printers[index], adapterConfig };
   await writeAll(printers);
   return normalizeStoredPrinter(printers[index]);
+  });
 }
 
 export async function setPrinterLicenseSlotActive(id, active) {
+  return storeMutations.run('printers', async () => {
   const printers = await readAll();
   const index = printers.findIndex((printer) => printer.id === id);
   if (index < 0) return null;
@@ -254,9 +278,11 @@ export async function setPrinterLicenseSlotActive(id, active) {
   printers[index] = { ...printers[index], licenseSlotActive: active };
   await writeAll(printers);
   return normalizeStoredPrinter(printers[index]);
+  });
 }
 
 export async function reorderPrinters(printerIds) {
+  return storeMutations.run('printers', async () => {
   const printers = await readAll();
   const requested = Array.isArray(printerIds) ? printerIds.map(String) : [];
   const currentIds = new Set(printers.map((printer) => printer.id));
@@ -270,14 +296,17 @@ export async function reorderPrinters(printerIds) {
   const updated = printers.map((printer) => ({ ...printer, dashboardOrder: order.get(printer.id) }));
   await writeAll(updated);
   return updated;
+  });
 }
 
 export async function removePrinter(id) {
+  return storeMutations.run('printers', async () => {
   const printers = await readAll();
   const next = printers.filter((printer) => printer.id !== id);
   if (next.length === printers.length) return false;
   await writeAll(next);
   return true;
+  });
 }
 
 export function publicPrinter(printer) {

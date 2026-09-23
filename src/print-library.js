@@ -6,11 +6,14 @@ import { printerStorePath } from './store.js';
 import { validateUploadFilename } from './upload-staging.js';
 import { readFilePrintRequirements } from './file-print-requirements.js';
 import { extractFilePreview } from './file-preview.js';
+import { KeyedSerialExecutor } from './concurrency.js';
 
 const DATA_ROOT = path.dirname(printerStorePath);
 const ROOT = path.join(DATA_ROOT, 'print-library');
 const LEGACY_ROOT = path.join(DATA_ROOT, 'queue-files');
 const META_FILE = 'metadata.json';
+const libraryMutations = new KeyedSerialExecutor();
+let rootInitialization = null;
 
 function safeId(value) {
   const id = String(value || '').trim().toLowerCase();
@@ -55,9 +58,13 @@ async function cachePreview(directory, filePath) {
   }
   const fileName = extracted.mimeType === 'image/jpeg' ? 'preview.jpg' : 'preview.png';
   const target = path.join(directory, fileName);
-  const temp = `${target}.tmp`;
-  await fs.writeFile(temp, extracted.data, { mode:0o600 });
-  await fs.rename(temp, target);
+  const temp = `${target}.${crypto.randomUUID()}.tmp`;
+  try {
+    await fs.writeFile(temp, extracted.data, { mode:0o600 });
+    await fs.rename(temp, target);
+  } finally {
+    await fs.rm(temp, { force:true }).catch(() => {});
+  }
   return {
     available:true,
     fileName,
@@ -69,9 +76,13 @@ async function cachePreview(directory, filePath) {
 
 async function writeMetadata(directory, metadata) {
   const target = path.join(directory, META_FILE);
-  const temp = `${target}.tmp`;
-  await fs.writeFile(temp, `${JSON.stringify(metadata, null, 2)}\n`, { mode:0o600 });
-  await fs.rename(temp, target);
+  const temp = `${target}.${crypto.randomUUID()}.tmp`;
+  try {
+    await fs.writeFile(temp, `${JSON.stringify(metadata, null, 2)}\n`, { mode:0o600 });
+    await fs.rename(temp, target);
+  } finally {
+    await fs.rm(temp, { force:true }).catch(() => {});
+  }
 }
 
 async function exists(target) {
@@ -117,8 +128,18 @@ async function migrateLegacyQueueFiles() {
 }
 
 async function ensureRoot() {
+  // The library directory itself can disappear independently of module
+  // lifetime (for example test/temp cleanup, restore tooling, or manual
+  // recovery). Always make sure it exists before accessing it. Only the
+  // one-time legacy migration is memoized.
   await fs.mkdir(ROOT, { recursive:true, mode:0o700 });
-  await migrateLegacyQueueFiles();
+  if (!rootInitialization) {
+    rootInitialization = migrateLegacyQueueFiles().catch((error) => {
+      rootInitialization = null;
+      throw error;
+    });
+  }
+  return rootInitialization;
 }
 
 function normalizeMetadata(metadata) {
@@ -178,6 +199,7 @@ export async function listLibraryFiles() {
 }
 
 export async function addLibraryFile(sourcePath, rawFileName, { description = '' } = {}) {
+  return libraryMutations.run('catalog', async () => {
   await ensureRoot();
   const fileName = validateUploadFilename(rawFileName);
   const cleanDescription = normalizeDescription(description);
@@ -221,6 +243,7 @@ export async function addLibraryFile(sourcePath, rawFileName, { description = ''
     await fs.rm(directory, { recursive:true, force:true }).catch(() => {});
     throw error;
   }
+  });
 }
 
 export async function getLibraryFile(id) {
@@ -251,6 +274,7 @@ export async function getLibraryPreview(id) {
 }
 
 export async function updateLibraryFileMetadata(id, { description = '' } = {}) {
+  return libraryMutations.run('catalog', async () => {
   await ensureRoot();
   const normalizedId = safeId(id);
   const directory = path.join(ROOT, normalizedId);
@@ -261,12 +285,15 @@ export async function updateLibraryFileMetadata(id, { description = '' } = {}) {
   metadata.updatedAt = new Date().toISOString();
   await writeMetadata(directory, metadata);
   return normalizeMetadata(metadata);
+  });
 }
 
 export async function removeLibraryFile(id) {
-  await ensureRoot();
-  const normalizedId = safeId(id);
-  await fs.rm(path.join(ROOT, normalizedId), { recursive:true, force:true });
+  return libraryMutations.run('catalog', async () => {
+    await ensureRoot();
+    const normalizedId = safeId(id);
+    await fs.rm(path.join(ROOT, normalizedId), { recursive:true, force:true });
+  });
 }
 
 export async function preserveLibraryFiles() {

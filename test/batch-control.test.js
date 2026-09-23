@@ -1,8 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { BatchControlService, validateBatchRequest } from '../src/batch-control.js';
+import { PrinterOperationCoordinator } from '../src/concurrency.js';
 
-function makeService({ states, activePreheats = new Set() } = {}) {
+function makeService({ states, activePreheats = new Set(), operationCoordinator = null } = {}) {
   const printers = new Map(Object.keys(states).map((id) => [id, { id, name:`Printer ${id}` }]));
   const temperatureCalls = [];
   const fanCalls = [];
@@ -27,6 +28,7 @@ function makeService({ states, activePreheats = new Set() } = {}) {
     setTemperaturesFn: async (printer, params) => temperatureCalls.push([printer.id, params]),
     setFansFn: async (printer, params) => fanCalls.push([printer.id, params]),
     setJobStateFn: async (printer, action) => jobCalls.push([printer.id, action]),
+    operationCoordinator,
     maxConcurrent: 2
   });
 
@@ -74,4 +76,26 @@ test('heaters-off remains a supported fleet safety action', () => {
     validateBatchRequest({ printerIds:['a'], action:'heaters-off' }),
     { printerIds:['a'], action:'heaters-off', params:{} }
   );
+});
+
+
+test('batch command reports printer busy when another client operation owns that printer', async () => {
+  const coordinator = new PrinterOperationCoordinator();
+  let release;
+  const gate = new Promise((resolve) => { release = resolve; });
+  const active = coordinator.run('a', 'print start', () => gate);
+
+  await new Promise((resolve) => setImmediate(resolve));
+  const { service, jobCalls } = makeService({
+    operationCoordinator:coordinator,
+    states:{ a:{ online:true, status:{ status:'printing', fileName:'part.gcode' } } }
+  });
+
+  const result = await service.execute({ printerIds:['a'], action:'pause' });
+  assert.equal(result.succeeded, 0);
+  assert.equal(jobCalls.length, 0);
+  assert.match(result.results[0].error, /Printer busy.*print start in progress/);
+
+  release();
+  await active;
 });

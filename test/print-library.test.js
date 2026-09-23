@@ -93,3 +93,29 @@ test('Print Library migrates staged queue files, deduplicates uploads and persis
 
   await fs.rm(dir, { recursive:true, force:true });
 });
+
+
+test('concurrent identical Print Library uploads deduplicate to one stored file', async () => {
+  const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'pfc-print-library-concurrent-'));
+  process.env.DATA_DIR = dir;
+  const source = path.join(dir, 'same.gcode');
+  await fs.writeFile(source, '; filament_type = PLA\n; nozzle_diameter = 0.4\nT0\nG1 X1\n');
+
+  const moduleUrl = pathToFileURL(path.resolve('src/print-library.js'));
+  moduleUrl.searchParams.set('concurrent-case', String(Date.now()));
+  const library = await import(moduleUrl.href);
+
+  try {
+    const [first, second] = await Promise.all([
+      library.addLibraryFile(source, 'same-a.gcode'),
+      library.addLibraryFile(source, 'same-b.gcode')
+    ]);
+
+    assert.equal(first.id, second.id);
+    assert.equal((await library.listLibraryFiles()).length, 1);
+    assert.equal([first.duplicate, second.duplicate].filter(Boolean).length, 1);
+  } finally {
+    delete process.env.DATA_DIR;
+    await fs.rm(dir, { recursive:true, force:true });
+  }
+});

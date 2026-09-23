@@ -194,3 +194,32 @@ test('printer controller name can be renamed without changing connection identit
     await rm(dir, { recursive:true, force:true });
   }
 });
+
+
+test('concurrent printer registry mutations preserve both changes', async () => {
+  const dir = await mkdtemp(path.join(os.tmpdir(), 'pfc-concurrent-store-'));
+  process.env.DATA_DIR = dir;
+  const store = await import(`../src/store.js?concurrent-store-test=${Date.now()}`);
+
+  try {
+    const printer = await store.addPrinter({
+      name:'Concurrent Test',
+      host:'10.0.5.1',
+      serialNumber:'SERIAL-C',
+      checkCode:'CODE-C'
+    });
+
+    await Promise.all([
+      store.setPrinterMaterialDesignation(printer.id, 'PETG', '#112233'),
+      store.setPrinterNozzleDesignation(printer.id, 0.6)
+    ]);
+
+    const reloaded = await store.getPrinter(printer.id);
+    assert.equal(reloaded.adapterConfig.filamentDesignation, 'PETG');
+    assert.equal(reloaded.adapterConfig.filamentColorDesignation, '#112233');
+    assert.equal(reloaded.adapterConfig.nozzleDiameterDesignation, 0.6);
+  } finally {
+    delete process.env.DATA_DIR;
+    await rm(dir, { recursive:true, force:true });
+  }
+});

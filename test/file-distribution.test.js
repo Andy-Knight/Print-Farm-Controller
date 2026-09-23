@@ -1,8 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { FileDistributionService, verifyPrinterFile } from '../src/file-distribution.js';
+import { PrinterOperationCoordinator } from '../src/concurrency.js';
 
-function makeDistribution(states, { verify = true } = {}) {
+function makeDistribution(states, { verify = true, operationCoordinator = null } = {}) {
   const uploads = [];
   const prints = [];
   const preheatStops = [];
@@ -18,6 +19,7 @@ function makeDistribution(states, { verify = true } = {}) {
     uploadFileFn: async (printer, filePath, options) => uploads.push([printer.id, filePath, options]),
     verifyFileFn: async () => verify ? { verified:true, source:'tcp-m661' } : { verified:false, warning:'not visible yet' },
     printLocalFileFn: async (printer, fileName, level) => prints.push([printer.id, fileName, level]),
+    operationCoordinator,
     maxConcurrent:1
   });
   return { service, uploads, prints, preheatStops };
@@ -116,4 +118,32 @@ test('distribution remembers file material metadata and refuses mismatched unatt
   assert.equal(result.results[0].verified, true);
   assert.equal(result.results[0].started, false);
   assert.match(result.results[0].error, /Material mismatch/);
+});
+
+
+test('distribution reports busy instead of interleaving with another printer operation', async () => {
+  const coordinator = new PrinterOperationCoordinator();
+  let release;
+  const gate = new Promise((resolve) => { release = resolve; });
+  const active = coordinator.run('a', 'bed levelling', () => gate);
+  await new Promise((resolve) => setImmediate(resolve));
+
+  const { service, uploads, prints } = makeDistribution(
+    { a:{ online:true, status:{ status:'ready' } } },
+    { operationCoordinator:coordinator }
+  );
+  const result = await service.distribute({
+    printerIds:['a'],
+    filePath:'/tmp/example.gcode',
+    fileName:'example.gcode',
+    startPrint:true
+  });
+
+  assert.equal(result.failed, 1);
+  assert.equal(uploads.length, 0);
+  assert.equal(prints.length, 0);
+  assert.match(result.results[0].error, /Printer busy.*bed levelling in progress/);
+
+  release();
+  await active;
 });

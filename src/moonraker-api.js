@@ -86,7 +86,7 @@ export async function moonrakerRequest(printer, endpoint, {
 const TOOL_OBJECTS = ['extruder', 'extruder1', 'extruder2', 'extruder3'];
 const FILAMENT_SENSOR_OBJECTS = TOOL_OBJECTS.map((_, index) => `filament_motion_sensor e${index}_filament`);
 const STATUS_QUERY = [
-  'webhooks', 'print_stats', 'virtual_sdcard', 'display_status', 'heater_bed',
+  'webhooks', 'print_stats', 'virtual_sdcard', 'display_status', 'heater_bed', 'idle_timeout',
   ...TOOL_OBJECTS, 'toolhead', 'temperature_sensor cavity', 'fan_generic cavity_fan', 'purifier'
 ].map((name) => encodeURIComponent(name)).join('&');
 const MATERIAL_STATUS_QUERY = ['filament_detect', 'print_task_config', 'extruder_offset_calibration', ...FILAMENT_SENSOR_OBJECTS]
@@ -270,6 +270,15 @@ export function normalizeMoonrakerStatus(objects = {}, printerInfo = {}) {
         ? String(taskConfig.filament_entangle_sen).toLowerCase()
         : null
     },
+    machineActivity: (() => {
+      const state = cleanFilamentText(objects.idle_timeout?.state);
+      return {
+        state: state ? String(state).toLowerCase() : null,
+        label: state && String(state).toLowerCase() === 'printing' && !printStats.filename
+          ? 'printer macro/activity'
+          : null
+      };
+    })(),
     toolOffsetCalibration: (() => {
       const calibration = objects.extruder_offset_calibration || {};
       const available = Object.keys(calibration).length > 0;
@@ -855,8 +864,14 @@ export async function levelMoonrakerBed(printer) {
   if (String(status.status || '').toLowerCase() !== 'idle') {
     throw new MoonrakerApiError('Bed levelling can only be started while the U1 is idle');
   }
-  // Stock U1 macro heats the bed, allows its configured soak time, then runs BED_MESH_CALIBRATE.
-  return runMoonrakerGcode(printer, 'AUTO_BED_MESH_CALIBRATE');
+  // The stock U1 AUTO_BED_MESH_CALIBRATE macro expects the machine to have been
+  // homed already. Starting it directly from the controller can otherwise leave
+  // the touchscreen reporting that homing is required. Home first, then invoke
+  // Snapmaker's stock heated/soaked mesh-calibration workflow.
+  return runMoonrakerGcode(printer, [
+    'G28',
+    'AUTO_BED_MESH_CALIBRATE'
+  ].join('\n'), { timeoutMs: 420000 });
 }
 
 export async function calibrateMoonrakerToolOffsets(printer, { action, toolIndex } = {}) {

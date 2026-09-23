@@ -36,6 +36,26 @@ async function close(server) {
   await new Promise((resolve) => server.close(resolve));
 }
 
+test('normalizes U1 idle-timeout macro activity separately from print state', () => {
+  const status = normalizeMoonrakerStatus({
+    webhooks:{ state:'ready' },
+    print_stats:{ state:'standby', filename:'' },
+    virtual_sdcard:{ progress:0 },
+    display_status:{ progress:0 },
+    idle_timeout:{ state:'Printing' },
+    heater_bed:{ temperature:25, target:0 },
+    extruder:{ temperature:25, target:0 },
+    extruder1:{ temperature:25, target:0 },
+    extruder2:{ temperature:25, target:0 },
+    extruder3:{ temperature:25, target:0 },
+    toolhead:{ extruder:'extruder' }
+  });
+
+  assert.equal(status.status, 'idle');
+  assert.equal(status.machineActivity.state, 'printing');
+  assert.equal(status.machineActivity.label, 'printer macro/activity');
+});
+
 test('normalizes Snapmaker U1 Moonraker status with four toolheads and cavity temperature', () => {
   const status = normalizeMoonrakerStatus({
     webhooks: { state:'ready' },
@@ -722,7 +742,7 @@ test('U1 bed levelling uses the stock heated mesh macro and refuses an active pr
   const printer = { host:'127.0.0.1', httpPort:port, adapterConfig:{} };
   try {
     await levelMoonrakerBed(printer);
-    assert.equal(scripts[0], 'AUTO_BED_MESH_CALIBRATE');
+    assert.equal(scripts[0], 'G28\nAUTO_BED_MESH_CALIBRATE');
     state = 'printing';
     await assert.rejects(() => levelMoonrakerBed(printer), /only be started while the U1 is idle/);
   } finally {

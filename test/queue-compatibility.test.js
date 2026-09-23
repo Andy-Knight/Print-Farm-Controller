@@ -103,6 +103,19 @@ test('compatible printer can be temporarily blocked by bed clearance', () => {
   assert.ok(result.reasons.some((reason) => reason.code === 'bed_not_cleared'));
 });
 
+test('compatible printer is blocked while another client operation is in progress', () => {
+  const result = evaluateQueueCompatibility({
+    job:{ stagedFile:{ requirements:{ requiredTools:[0], toolCount:1, usageReliable:true, logicalTools:[{ index:0, material:'PLA' }] } } },
+    printer:{ id:'ff', name:'AD5M' },
+    state:{ id:'ff', name:'AD5M', online:true, status:{ status:'idle', tools:[{ index:0, filament:{ material:'PLA' } }] } },
+    adapter:{ capabilities:{ fileUpload:true, localFiles:true, printLocalFile:true }, limits:{} },
+    operationBusy:{ label:'bed levelling' }
+  });
+  assert.equal(result.category, 'blocked');
+  assert.ok(result.reasons.some((reason) => reason.code === 'operation_busy'));
+  assert.ok(result.reasons.some((reason) => /bed levelling in progress/.test(reason.text)));
+});
+
 test('automatic compatibility does not guess a required nozzle size when printer cannot report it', () => {
   const result = evaluateQueueCompatibility({
     job:{ fileName:'part.gcode', stagedFile:{ requirements:{ requiredTools:[0], toolCount:1, usageReliable:true, logicalTools:[{ index:0, material:'PLA', nozzleDiameter:0.6 }] } } },

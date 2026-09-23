@@ -1,8 +1,11 @@
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
 import { printerStorePath } from './store.js';
+import crypto from 'node:crypto';
+import { KeyedSerialExecutor } from './concurrency.js';
 
 const FILE_PATH = path.join(path.dirname(printerStorePath), 'file-material-metadata.json');
+const storeMutations = new KeyedSerialExecutor();
 
 function fileKey(value) {
   return String(value || '')
@@ -27,9 +30,13 @@ async function readStore() {
 
 async function writeStore(store) {
   await fs.mkdir(path.dirname(FILE_PATH), { recursive: true });
-  const temp = `${FILE_PATH}.tmp`;
-  await fs.writeFile(temp, `${JSON.stringify(store, null, 2)}\n`, { mode: 0o600 });
-  await fs.rename(temp, FILE_PATH);
+  const temp = `${FILE_PATH}.${crypto.randomUUID()}.tmp`;
+  try {
+    await fs.writeFile(temp, `${JSON.stringify(store, null, 2)}\n`, { mode: 0o600 });
+    await fs.rename(temp, FILE_PATH);
+  } finally {
+    await fs.rm(temp, { force:true }).catch(() => {});
+  }
 }
 
 export async function getPrinterFileMaterialMetadata(printerId, fileName) {
@@ -52,6 +59,7 @@ export async function savePrinterFileMaterialMetadata(printerId, fileName, metad
   const id = String(printerId || '').trim();
   const key = fileKey(fileName);
   if (!id || !key || !metadata?.metadataAvailable) return null;
+  return storeMutations.run('file-material', async () => {
   const store = await readStore();
   store[id] ||= {};
   const entry = {
@@ -66,16 +74,19 @@ export async function savePrinterFileMaterialMetadata(printerId, fileName, metad
   store[id][key] = entry;
   await writeStore(store);
   return entry;
+  });
 }
 
 export async function removePrinterFileMaterialMetadata(printerId) {
   const id = String(printerId || '').trim();
   if (!id) return false;
+  return storeMutations.run('file-material', async () => {
   const store = await readStore();
   if (!store[id]) return false;
   delete store[id];
   await writeStore(store);
   return true;
+  });
 }
 
 export const fileMaterialStorePath = FILE_PATH;

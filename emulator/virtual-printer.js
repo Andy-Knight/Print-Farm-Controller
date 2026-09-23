@@ -67,6 +67,7 @@ export class VirtualPrinter extends EventEmitter {
     this.durationSeconds = 600;
     this.speedMultiplier = 20;
     this.autoProgress = true;
+    this.maintenanceEndsAt = 0;
     this.bed = { actual: 25, target: 0 };
     this.chamber = { actual: 25 };
     this.tools = defaultTools(profile.toolCount || 1);
@@ -157,6 +158,11 @@ export class VirtualPrinter extends EventEmitter {
       this.status = 'failed';
       this.statusMessage = values.message || 'Simulated printer failure';
       this.recordHistory('error');
+    } else if (normalized === 'level') {
+      this.status = 'leveling';
+      this.statusMessage = 'Simulated bed levelling';
+      this.fileName = null;
+      this.maintenanceEndsAt = Date.now() + clamp(values.durationSeconds ?? 8, 1, 120) * 1000;
     } else if (normalized === 'idle') {
       this.status = 'idle';
       this.statusMessage = '';
@@ -179,6 +185,7 @@ export class VirtualPrinter extends EventEmitter {
     this.currentLayer = 0;
     this.elapsedSeconds = 0;
     this.remainingSeconds = 0;
+    this.maintenanceEndsAt = 0;
     this.bed.target = 0;
     for (const tool of this.tools) tool.target = 0;
     for (const key of Object.keys(this.faults)) this.faults[key] = typeof this.faults[key] === 'boolean' ? false : 0;
@@ -293,6 +300,13 @@ export class VirtualPrinter extends EventEmitter {
     };
     this.bed.actual = approach(this.bed.actual, this.bed.target || 25);
     for (const tool of this.tools) tool.actual = approach(tool.actual, tool.target || 25);
+
+    if (this.status === 'leveling' && this.maintenanceEndsAt && now >= this.maintenanceEndsAt) {
+      this.status = 'idle';
+      this.statusMessage = '';
+      this.maintenanceEndsAt = 0;
+      this.log('state', 'Simulated bed levelling completed');
+    }
 
     if (this.status === 'printing' && this.autoProgress) {
       this.elapsedSeconds += delta * this.speedMultiplier;
