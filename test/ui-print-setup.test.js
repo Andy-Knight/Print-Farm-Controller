@@ -220,6 +220,38 @@ test('top printer activity banner works for non-U1 tracked activities', () => {
   assert.match(app, /data-detail-activity-banner/);
 });
 
+test('dashboard printer errors render below the Open printer button', () => {
+  const cardStart = app.indexOf('function cardMarkup(printer)');
+  const bodyEnd = app.indexOf('</div>\n    <div class="card-footer">', cardStart);
+  const openButton = app.indexOf('>Open printer</button>', bodyEnd);
+  const cardError = app.indexOf('data-card-error', openButton);
+
+  assert.ok(cardStart >= 0);
+  assert.ok(bodyEnd > cardStart);
+  assert.ok(openButton > bodyEnd);
+  assert.ok(cardError > openButton);
+  assert.match(styles, /\.card-footer \{[^}]*flex-direction:column/);
+  assert.match(styles, /\.card-error \{ margin-top:0;/);
+});
+
+test('printer detail opens immediately before slow file listing completes', () => {
+  const openStart = app.indexOf('async function openPrinter(id)');
+  const loadingDialog = app.indexOf('Loading printer details…', openStart);
+  const showModal = app.indexOf('printerDialog.showModal()', loadingDialog);
+  const fileFetch = app.indexOf('await api(\`/api/printers/\${id}/files\`)', openStart);
+  const staleGuard = app.indexOf('requestId !== printerOpenRequestId', fileFetch);
+
+  assert.ok(openStart >= 0);
+  assert.ok(loadingDialog > openStart);
+  assert.ok(showModal > loadingDialog);
+  assert.ok(fileFetch > showModal);
+  assert.ok(staleGuard > fileFetch);
+  assert.match(app, /let printerOpenRequestId = 0/);
+  assert.match(app, /const requestId = \+\+printerOpenRequestId/);
+  assert.match(app, /printerOpenRequestId \+= 1/);
+  assert.match(app, /Could not open printer details/);
+});
+
 test('printer detail errors are surfaced in a sticky top banner', () => {
   const head = app.indexOf('class="dialog-head"');
   const error = app.indexOf('id="detailError"');

@@ -100,6 +100,7 @@ let diagnosticsState = null;
 let diagnosticsSearchTimer = null;
 let eventSource = null;
 let currentPrinterId = null;
+let printerOpenRequestId = 0;
 let lastDiscoveryAt = 0;
 let reorderInProgress = false;
 let reorderSaveTimer = null;
@@ -1131,9 +1132,11 @@ function cardMarkup(printer) {
         <div class="metric"><span>Remaining</span><b data-remaining>—</b></div>
       </div>
       <div class="health-line"><span data-last-seen></span><span data-latency></span></div>
+    </div>
+    <div class="card-footer">
+      <button class="secondary" data-open="${escapeHtml(printer.id)}">Open printer</button>
       <div class="card-error hidden" data-card-error></div>
     </div>
-    <div class="card-footer"><button class="secondary" data-open="${escapeHtml(printer.id)}">Open printer</button></div>
   </article>`;
 }
 
@@ -1961,7 +1964,14 @@ fleetEl.addEventListener('click', (event) => {
     return;
   }
   const button = event.target.closest('[data-open]');
-  if (button) openPrinter(button.dataset.open);
+  if (button) {
+    openPrinter(button.dataset.open).catch((error) => {
+      console.error('Could not open printer details', error);
+      if (printerDialog.open && currentPrinterId === button.dataset.open) {
+        alert(`Could not open ${fleet.find((item) => item.id === button.dataset.open)?.name || 'printer'}: ${error.message}`);
+      }
+    });
+  }
 });
 
 fleetEl.addEventListener('change', (event) => {
@@ -3083,7 +3093,29 @@ function updateOpenPrinterTelemetry() {
 async function openPrinter(id) {
   const printer = fleet.find((p) => p.id === id);
   if (!printer) return;
+  const requestId = ++printerOpenRequestId;
+  const showLoadingState = !printerDialog.open || currentPrinterId !== id;
   currentPrinterId = id;
+
+  if (showLoadingState) {
+    printerDetail.innerHTML = `<div class="detail-shell">
+      <div class="dialog-head">
+        <div>
+          <div class="eyebrow">PRINTER</div>
+          <h2>${escapeHtml(printer.name)}</h2>
+          <div class="subtle">${escapeHtml(printer.host)} · ${escapeHtml(stateName(printer))}</div>
+        </div>
+        <button class="icon" data-detail-close>×</button>
+      </div>
+      <div class="panel">
+        <h3>Loading printer details…</h3>
+        <div class="subtle">Reading files and controls from ${escapeHtml(printer.name)}.</div>
+      </div>
+    </div>`;
+    printerDetail.querySelector('[data-detail-close]').onclick = () => printerDialog.close();
+    if (!printerDialog.open) printerDialog.showModal();
+  }
+
   const capabilities = printer.capabilities || {};
   const limits = printer.limits || {};
   const maxNozzleC = Number(limits.nozzleTemperature?.max ?? 265);
@@ -3102,6 +3134,11 @@ async function openPrinter(id) {
       fileLoadError = error.message;
     }
   }
+
+  // A slow file listing must never make the Open printer button appear dead,
+  // and an older request must not overwrite a newer dialog after close/reopen.
+  if (requestId !== printerOpenRequestId || currentPrinterId !== id || !printerDialog.open) return;
+
   const files = fileResult.files || [];
   const fileListMarkup = files.length
     ? files.map((file) => `<div class="file" data-file-entry><span class="file-name">${escapeHtml(file)}</span><div class="file-actions"><button class="secondary" data-queue-file="${escapeHtml(file)}">Queue</button><button class="secondary" data-print-file="${escapeHtml(file)}">Print</button></div></div>`).join('')
@@ -3714,6 +3751,7 @@ ${flashForgePreflight}` : ''}`)) return;
 
 printerDialog.addEventListener('close', () => {
   currentPrinterId = null;
+  printerOpenRequestId += 1;
   // Removing the live image closes this browser's proxy subscription. The
   // backend keeps a shared upstream stream only while another viewer needs it.
   printerDetail.innerHTML = '';
