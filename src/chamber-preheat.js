@@ -46,6 +46,7 @@ export class ChamberPreheatService {
     adapterResolver = getPrinterAdapter,
     getStatusFn = null,
     setTemperaturesFn = null,
+    operationCoordinator = null,
     tickIntervalMs = 3000,
     heartbeatMs = 60000,
     offlineGraceMs = 12000,
@@ -58,6 +59,7 @@ export class ChamberPreheatService {
     this.adapterResolver = adapterResolver;
     this.getStatusOverride = getStatusFn;
     this.setTemperaturesOverride = setTemperaturesFn;
+    this.operationCoordinator = operationCoordinator;
     this.tickIntervalMs = tickIntervalMs;
     this.heartbeatMs = heartbeatMs;
     this.offlineGraceMs = offlineGraceMs;
@@ -218,7 +220,7 @@ export class ChamberPreheatService {
 
   async tickSession(id) {
     const session = this.sessions.get(id);
-    if (!session || session.busy) return;
+    if (!session || session.busy || this.operationCoordinator?.isBusy(id)) return;
     session.busy = true;
 
     try {
