@@ -975,8 +975,9 @@ async function startController() {
     const license = currentLicenseSnapshot();
     console.log(`Licence: ${license.label} (${license.source}; enforcement ${license.enforcementEnabled ? 'enabled' : 'disabled'})`);
     console.log(`LAN access: http://<this-computer-ip>:${PORT}`);
-    console.log('Generic printer adapter + capability layer enabled (FlashForge AD5M + Snapmaker U1 + experimental Bambu P1P/P1S/X1C)');
+    console.log('Generic printer adapter + capability layer enabled (FlashForge AD5M + Snapmaker U1 + experimental Bambu P1P/P1S/X1C/A1 Mini)');
     console.log('Live fleet polling + SSE enabled');
+    console.log('Concurrent client command arbitration + serialized shared mutations enabled');
     console.log('Shared backend camera proxy enabled');
     console.log('Bounded chamber preheat control enabled');
     console.log('Batch fleet control enabled');
