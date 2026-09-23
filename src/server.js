@@ -541,7 +541,10 @@ async function apiRoute(req, res, url) {
   if (libraryFileMatch && req.method === 'PATCH') {
     const fileId = decodeURIComponent(libraryFileMatch[1]);
     const body = await readJson(req);
-    const file = await controllerMutations.run('library-queue', () => updateLibraryFileMetadata(fileId, { description:body.description }));
+    const file = await controllerMutations.run('library-queue', () => updateLibraryFileMetadata(fileId, {
+      description:body.description,
+      printerTarget:body.printerTarget
+    }));
     return json(res, 200, { file });
   }
   if (libraryFileMatch && req.method === 'DELETE') {
