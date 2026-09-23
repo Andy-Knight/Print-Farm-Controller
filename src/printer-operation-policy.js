@@ -7,7 +7,7 @@ const BED_LEVEL_STATES = new Set([
   'mesh_calibration', 'bed_mesh_calibrate', 'probing', 'homing'
 ]);
 const CALIBRATION_STATES = new Set(['calibrating', 'calibration', 'tool_calibration', 'tool calibration']);
-const CALIBRATION_IDLE_STATES = new Set(['', 'idle', 'ready', 'standby', 'complete', 'completed', 'done', 'none']);
+const CALIBRATION_IDLE_STATES = new Set(['', '0', 'false', 'idle', 'ready', 'standby', 'complete', 'completed', 'done', 'none']);
 
 export const PRINTER_OPERATION_TYPES = Object.freeze({
   PRINT_START:'print-start',
@@ -155,10 +155,10 @@ export function livePrinterActivity(status = {}) {
   if (PRINTING_STATES.has(state) || (state === 'heating' && status.fileName)) {
     return { kind:'printing', label:'active print', source:'live' };
   }
-  if (state === 'heating') return { kind:'heating', label:'manual heating', source:'live' };
   if (toolCalibrationActive(status)) return { kind:'calibration', label:'tool calibration', source:'live' };
   if (BED_LEVEL_STATES.has(state)) return { kind:'bed-leveling', label:'bed levelling', source:'live' };
   if (CALIBRATION_STATES.has(state)) return { kind:'calibration', label:'calibration', source:'live' };
+  if (state === 'heating') return { kind:'heating', label:'manual heating', source:'live' };
 
   const machineState = normalized(status.machineActivity?.state || status.machineActivity);
   if (['printing', 'busy', 'working'].includes(machineState) && !status.fileName) {
