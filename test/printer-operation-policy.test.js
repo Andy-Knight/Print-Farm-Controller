@@ -45,6 +45,13 @@ test('operation matrix blocks print start while chamber preheat, levelling or ca
   }).allowed, false);
 });
 
+test('manual heating permits thermal controls but blocks new print starts', () => {
+  const context = { status:{ status:'heating', fileName:null } };
+  assert.equal(evaluatePrinterOperation(PRINTER_OPERATION_TYPES.TEMPERATURE, context).allowed, true);
+  assert.equal(evaluatePrinterOperation(PRINTER_OPERATION_TYPES.FAN, context).allowed, true);
+  assert.equal(evaluatePrinterOperation(PRINTER_OPERATION_TYPES.PRINT_START, context).allowed, false);
+});
+
 test('camera and metadata controls remain available during maintenance activity', () => {
   const context = { status:{ status:'calibrating' } };
   assert.equal(evaluatePrinterOperation(PRINTER_OPERATION_TYPES.CAMERA, context).allowed, true);
@@ -117,6 +124,7 @@ test('coordinator applies physical activity policy in addition to transaction lo
     (error) => {
       assert.equal(error.code, 'PRINTER_BUSY');
       assert.equal(error.statusCode, 409);
+      assert.equal(error.conflictCode, 'activity_conflict');
       assert.match(error.message, /bed levelling blocks print-start/);
       return true;
     }
@@ -129,4 +137,19 @@ test('coordinator applies physical activity policy in addition to transaction lo
     { operationType:PRINTER_OPERATION_TYPES.PRINT_START }
   );
   assert.equal(result, 'started');
+});
+
+
+test('heaters-off remains available as a safety operation during levelling and calibration', () => {
+  assert.equal(evaluatePrinterOperation(PRINTER_OPERATION_TYPES.HEATERS_OFF, {
+    status:{ status:'leveling' }
+  }).allowed, true);
+  assert.equal(evaluatePrinterOperation(PRINTER_OPERATION_TYPES.HEATERS_OFF, {
+    status:{ status:'calibrating' }
+  }).allowed, true);
+});
+
+test('idle calibration step/exit remain available for recovery after controller restart', () => {
+  assert.equal(evaluatePrinterOperation(PRINTER_OPERATION_TYPES.TOOL_CALIBRATION_STEP, { status:idle }).allowed, true);
+  assert.equal(evaluatePrinterOperation(PRINTER_OPERATION_TYPES.TOOL_CALIBRATION_EXIT, { status:idle }).allowed, true);
 });
