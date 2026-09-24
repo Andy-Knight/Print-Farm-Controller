@@ -66,6 +66,32 @@ test('legacy stored FlashForge printers are hydrated with adapter metadata witho
   }
 });
 
+test('legacy FlashForge hex-only colour designation derives a colour family', async () => {
+  const dir = await mkdtemp(path.join(os.tmpdir(), 'ff-fleet-colour-family-migration-'));
+  process.env.DATA_DIR = dir;
+  const legacy = [{
+    id:'legacy-colour-1',
+    name:'Legacy Colour',
+    host:'10.0.2.2',
+    serialNumber:'SN',
+    checkCode:'CODE',
+    adapterConfig:{ filamentDesignation:'PLA', filamentColorDesignation:'#D91E18' },
+    createdAt:'2026-01-01T00:00:00.000Z'
+  }];
+  await writeFile(path.join(dir, 'printers.json'), JSON.stringify(legacy));
+  const store = await import(`../src/store.js?colour-family-migration-test=${Date.now()}`);
+
+  try {
+    const [printer] = await store.listPrinters();
+    const publicValue = store.publicPrinter(printer);
+    assert.equal(publicValue.materialColorDesignation, '#D91E18');
+    assert.equal(publicValue.materialColorFamilyDesignation, 'red');
+  } finally {
+    delete process.env.DATA_DIR;
+    await rm(dir, { recursive:true, force:true });
+  }
+});
+
 test('FlashForge manual material designation persists without exposing adapter secrets', async () => {
   const dir = await mkdtemp(path.join(os.tmpdir(), 'ff-fleet-material-designation-'));
   process.env.DATA_DIR = dir;
