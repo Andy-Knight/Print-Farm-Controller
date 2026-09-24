@@ -11,22 +11,26 @@ const apiBase = integrated ? '/api/emulator' : '/api';
 const apiUrl = (pathname) => `${apiBase}${pathname}`;
 
 const BAMBU_COLOR_FAMILIES = Object.freeze([
-  { value:'black', label:'Black', icon:'⬛' },
-  { value:'white', label:'White', icon:'⬜' },
-  { value:'grey', label:'Grey', icon:'🩶' },
-  { value:'red', label:'Red', icon:'🟥' },
-  { value:'orange', label:'Orange', icon:'🟧' },
-  { value:'yellow', label:'Yellow', icon:'🟨' },
-  { value:'green', label:'Green', icon:'🟩' },
-  { value:'cyan', label:'Cyan', icon:'💠' },
-  { value:'blue', label:'Blue', icon:'🟦' },
-  { value:'purple', label:'Purple', icon:'🟪' },
-  { value:'pink', label:'Pink', icon:'🩷' },
-  { value:'brown', label:'Brown', icon:'🟫' }
+  { value:'black', label:'Black', representative:'#111111' },
+  { value:'white', label:'White', representative:'#FFFFFF' },
+  { value:'grey', label:'Grey', representative:'#808080' },
+  { value:'red', label:'Red', representative:'#FF0000' },
+  { value:'orange', label:'Orange', representative:'#FF6600' },
+  { value:'yellow', label:'Yellow', representative:'#FFD400' },
+  { value:'green', label:'Green', representative:'#00A651' },
+  { value:'cyan', label:'Cyan', representative:'#00B7EB' },
+  { value:'blue', label:'Blue', representative:'#0066FF' },
+  { value:'purple', label:'Purple', representative:'#8000FF' },
+  { value:'pink', label:'Pink', representative:'#FF69B4' },
+  { value:'brown', label:'Brown', representative:'#8B4513' }
 ]);
 
 function bambuColorFamilyLabel(item) {
-  return item ? item.icon + ' ' + item.label : '';
+  return item?.label || '';
+}
+
+function bambuColorFamilyOption(value) {
+  return BAMBU_COLOR_FAMILIES.find((item) => item.value === String(value || '').trim().toLowerCase()) || null;
 }
 
 function bambuColorFamilyFromHex(value) {
@@ -59,7 +63,7 @@ function bambuColorFamilyFromHex(value) {
 }
 
 function bambuColorFamilyOptions() {
-  return BAMBU_COLOR_FAMILIES.map((item) => '<option value="' + item.value + '">' + bambuColorFamilyLabel(item) + '</option>').join('');
+  return BAMBU_COLOR_FAMILIES.map((item) => '<option value="' + item.value + '">' + item.label + '</option>').join('');
 }
 
 function showToast(message) {
@@ -144,13 +148,20 @@ function renderAmsControls(card, printer) {
     external.innerHTML = `<strong>External spool</strong>
       <label class="check"><input data-external-present type="checkbox">Loaded</label>
       <label>Material<select data-external-material>${['PLA','PETG','ABS','ASA','PA','PC','TPU','PVA'].map((value) => `<option>${value}</option>`).join('')}</select></label>
-      <label>Colour family<select data-external-color-family>${bambuColorFamilyOptions()}</select></label>`;
+      <label>Colour family<span class="color-family-picker"><i class="color-family-square" data-external-color-family-swatch></i><select data-external-color-family>${bambuColorFamilyOptions()}</select></span></label>`;
     const saveExternal = () => updatePrinter(printer.id, { externalSpool:{
       present:external.querySelector('[data-external-present]').checked,
       material:external.querySelector('[data-external-material]').value,
       colorFamily:external.querySelector('[data-external-color-family]').value
     } });
-    external.querySelectorAll('input,select').forEach((input) => input.addEventListener('change', saveExternal));
+    external.querySelectorAll('input,select').forEach((input) => input.addEventListener('change', () => {
+      if (input.matches('[data-external-color-family]')) {
+        const option = bambuColorFamilyOption(input.value);
+        const swatch = external.querySelector('[data-external-color-family-swatch]');
+        if (swatch) swatch.style.background = option?.representative || '';
+      }
+      saveExternal();
+    }));
     grid.replaceChildren(external, ...slots.map(({ unit, tray }) => {
       const slot = document.createElement('div');
       slot.className = 'ams-slot';
@@ -158,14 +169,21 @@ function renderAmsControls(card, printer) {
       slot.innerHTML = `<strong>AMS ${Number(unit.id) + 1} · Slot ${Number(tray.slotIndex) + 1}</strong>
         <label class="check"><input data-ams-present type="checkbox">Loaded</label>
         <label>Material<select data-ams-material>${['PLA','PETG','ABS','ASA','PA','PC','TPU','PVA'].map((value) => `<option>${value}</option>`).join('')}</select></label>
-        <label>Colour family<select data-ams-color-family>${bambuColorFamilyOptions()}</select></label>`;
+        <label>Colour family<span class="color-family-picker"><i class="color-family-square" data-ams-color-family-swatch></i><select data-ams-color-family>${bambuColorFamilyOptions()}</select></span></label>`;
       const save = () => updatePrinter(printer.id, { amsSlots:[{
         unitIndex:Number(unit.id), slotIndex:Number(tray.slotIndex),
         present:slot.querySelector('[data-ams-present]').checked,
         material:slot.querySelector('[data-ams-material]').value,
         colorFamily:slot.querySelector('[data-ams-color-family]').value
       }] });
-      slot.querySelectorAll('input,select').forEach((input) => input.addEventListener('change', save));
+      slot.querySelectorAll('input,select').forEach((input) => input.addEventListener('change', () => {
+        if (input.matches('[data-ams-color-family]')) {
+          const option = bambuColorFamilyOption(input.value);
+          const swatch = slot.querySelector('[data-ams-color-family-swatch]');
+          if (swatch) swatch.style.background = option?.representative || '';
+        }
+        save();
+      }));
       return slot;
     }));
     grid.dataset.structureSignature = structureSignature;
@@ -176,10 +194,13 @@ function renderAmsControls(card, printer) {
     const present = external.querySelector('[data-external-present]');
     const material = external.querySelector('[data-external-material]');
     const colorFamily = external.querySelector('[data-external-color-family]');
+    const familySwatch = external.querySelector('[data-external-color-family-swatch]');
     const familyValue = spool.colorFamily || bambuColorFamilyFromHex(spool.color) || 'white';
     if (document.activeElement !== present) present.checked = spool.present !== false;
     if (document.activeElement !== material) material.value = spool.material || 'PLA';
     if (document.activeElement !== colorFamily) colorFamily.value = familyValue;
+    const familyOption = bambuColorFamilyOption(familyValue);
+    if (familySwatch) familySwatch.style.background = familyOption?.representative || '';
   }
   for (const { unit, tray } of slots) {
     const slot = [...grid.querySelectorAll('[data-ams-slot]')].find((item) => item.dataset.amsSlot === `${Number(unit.id)}:${Number(tray.slotIndex)}`);
@@ -187,10 +208,13 @@ function renderAmsControls(card, printer) {
     const present = slot.querySelector('[data-ams-present]');
     const material = slot.querySelector('[data-ams-material]');
     const colorFamily = slot.querySelector('[data-ams-color-family]');
+    const familySwatch = slot.querySelector('[data-ams-color-family-swatch]');
     const familyValue = tray.colorFamily || bambuColorFamilyFromHex(tray.color) || 'white';
     if (document.activeElement !== present) present.checked = Boolean(tray.present);
     if (document.activeElement !== material) material.value = tray.material || 'PLA';
     if (document.activeElement !== colorFamily) colorFamily.value = familyValue;
+    const familyOption = bambuColorFamilyOption(familyValue);
+    if (familySwatch) familySwatch.style.background = familyOption?.representative || '';
   }
 }
 
