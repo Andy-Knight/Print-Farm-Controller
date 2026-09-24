@@ -873,8 +873,8 @@ function setRestorePendingUi(restore = {}) {
   if (restoreCancelStageBtn) restoreCancelStageBtn.classList.toggle('hidden', !pending);
   if (backupCreateBtn) backupCreateBtn.disabled = pending;
   if (restoreInspectStatus && pending) {
-    const fileName = restore.fileName ? \` \${restore.fileName}\` : '';
-    restoreInspectStatus.textContent = \`Restore staged\${fileName}. Restart Print Farm Controller to activate it. Controller changes are blocked until restart or cancellation.\`;
+    const fileName = restore.fileName ? ` ${restore.fileName}` : '';
+    restoreInspectStatus.textContent = `Restore staged${fileName}. Restart Print Farm Controller to activate it. Controller changes are blocked until restart or cancellation.`;
   }
 }
 
@@ -926,16 +926,16 @@ async function stageRestoreFile() {
       body:file
     });
     const payload = await response.json().catch(() => ({}));
-    if (!response.ok) throw new Error(payload.error || \`Restore staging failed (\${response.status})\`);
+    if (!response.ok) throw new Error(payload.error || `Restore staging failed (${response.status})`);
     if (!payload.restore?.staged) throw new Error('Restore staging did not complete');
     setRestorePendingUi(payload.restore);
     if (restoreInspectionSummary) {
-      restoreInspectionSummary.innerHTML = \`
+      restoreInspectionSummary.innerHTML = `
         <div class="restore-staged-banner">
           <strong>Restore staged — restart required</strong>
           <span>The backup is ready to activate. Close and restart Print Farm Controller. If restored startup fails, the previous controller data is rolled back automatically.</span>
         </div>
-      \`;
+      `;
       restoreInspectionSummary.classList.remove('hidden');
     }
   } catch (error) {
