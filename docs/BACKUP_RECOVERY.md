@@ -518,7 +518,7 @@ A test should create controller state in one temporary data directory, produce a
 
 ## Implementation status
 
-Stage 1 is implemented on `feature/backup-recovery-v0230`:
+Stages 1 and 2 are implemented on `feature/backup-recovery-v0230`:
 
 - dependency-free ZIP32-compatible archive writer using stored entries and data descriptors;
 - streaming SHA-256/CRC verification of completed archives;
@@ -526,9 +526,17 @@ Stage 1 is implemented on `feature/backup-recovery-v0230`:
 - persistent installation UUID and backup-settings foundation;
 - logical snapshot export of the known controller stores and Print Library;
 - optional signed licence and emulator settings inclusion;
-- archive corruption, path-independence and inclusion/exclusion tests.
+- archive corruption, path-independence and inclusion/exclusion tests;
+- manual backup status/create API;
+- one-at-a-time manual backup creation with verified server-side staging;
+- one-time tokenized streamed download that removes the staging copy after a successful transfer;
+- stale manual staging cleanup on controller startup;
+- diagnostic logging for manual backup creation/download;
+- Backup & Recovery overflow-menu entry and manual-backup UI;
+- explicit UI warning that v0.23.0 backups are integrity-checked but not encrypted;
+- Restore control intentionally disabled until the restore backend exists.
 
-The service is not yet exposed through the server/UI. Restore and scheduling are not yet implemented.
+Next: restore inspection/validation, restore staging/startup activation with rollback, recovery-hold queue semantics, then scheduled local/network backups and retention.
 
 ## Implementation order
 
