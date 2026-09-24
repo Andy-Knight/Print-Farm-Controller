@@ -57,7 +57,7 @@ function colorFamily(value) {
   const lightness = (max + min) / 2;
   const saturation = delta === 0 ? 0 : delta / (1 - Math.abs(2 * lightness - 1));
 
-  if (Math.max(rgb.r, rgb.g, rgb.b) < 28) return 'black';
+  if (Math.max(rgb.r, rgb.g, rgb.b) < 32 && saturation < 0.5) return 'black';
   if (Math.min(rgb.r, rgb.g, rgb.b) > 235 && Math.max(rgb.r, rgb.g, rgb.b) - Math.min(rgb.r, rgb.g, rgb.b) < 18) return 'white';
   if (delta < (16 / 255) || saturation < 0.12) return lightness > 0.92 ? 'white' : 'grey';
 
@@ -68,6 +68,7 @@ function colorFamily(value) {
   if (hue < 0) hue += 360;
 
   if (hue >= 15 && hue < 50 && lightness < 0.45) return 'brown';
+  if ((hue >= 330 || hue < 15) && lightness >= 0.75) return 'pink';
   if (hue >= 345 || hue < 15) return 'red';
   if (hue < 45) return 'orange';
   if (hue < 70) return 'yellow';
