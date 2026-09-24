@@ -93,6 +93,7 @@ const emulatorManager = new EmulatorManager();
 let licenseManager = null;
 let restoreInspectionInProgress = false;
 let restorePendingRestart = false;
+let activeMutationRequests = 0;
 
 function isControllerSimulator(printer) {
   return printer?.simulated === true || emulatorManager.isSimulatedConfig(printer);
@@ -481,15 +482,17 @@ async function apiRoute(req, res, url) {
     }
 
     printQueue.setDispatchPaused(true);
+    restoreInspectionInProgress = true;
     const blockers = restorePhysicalActivityBlockers();
+    if (activeMutationRequests > 1) blockers.push('another controller change request is still in progress');
     if (blockers.length) {
+      restoreInspectionInProgress = false;
       printQueue.setDispatchPaused(false);
-      const error = new Error(`Restore cannot be staged while physical printer work is active: ${blockers.join('; ')}`);
+      const error = new Error(`Restore cannot be staged while controller or physical printer work is active: ${blockers.join('; ')}`);
       error.statusCode = 409;
       throw error;
     }
 
-    restoreInspectionInProgress = true;
     let uploaded = null;
     let stagedSuccessfully = false;
     try {
@@ -1389,6 +1392,9 @@ async function serveStatic(res, pathname) {
 
 const server = http.createServer(async (req, res) => {
   const url = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
+  const countedMutation = url.pathname.startsWith('/api/')
+    && ['POST','PUT','PATCH','DELETE'].includes(req.method);
+  if (countedMutation) activeMutationRequests += 1;
   try {
     if (url.pathname.startsWith('/api/emulator')) {
       if ((restorePendingRestart || restoreInspectionInProgress) && ['POST','PUT','PATCH','DELETE'].includes(req.method)) {
@@ -1433,6 +1439,8 @@ const server = http.createServer(async (req, res) => {
     const status = Number.isInteger(Number(error?.statusCode)) ? Number(error.statusCode) : 400;
     if (!res.headersSent) json(res, status, { error: error.message || 'Request failed' });
     else res.end();
+  } finally {
+    if (countedMutation) activeMutationRequests = Math.max(0, activeMutationRequests - 1);
   }
 });
 
