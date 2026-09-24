@@ -11,7 +11,7 @@ export function backupSettingsPath(dataDir = resolveControllerRuntimePaths().dat
 
 function normalizeScheduleTime(value) {
   const text = String(value || '').trim();
-  return /^([01]\\d|2[0-3]):[0-5]\\d$/.test(text) ? text : '02:00';
+  return /^([01]\d|2[0-3]):[0-5]\d$/.test(text) ? text : '02:00';
 }
 
 export function normalizeBackupSettings(value = {}) {
