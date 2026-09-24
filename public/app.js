@@ -881,7 +881,11 @@ function setRestorePendingUi(restore = {}) {
 async function loadRestoreStatus() {
   try {
     const payload = await api('/api/restore/status');
-    if (payload?.restore?.pending) setRestorePendingUi(payload.restore);
+    if (payload?.restore?.pending) {
+      setRestorePendingUi(payload.restore);
+    } else if (payload?.restore?.recentlyRestored && restoreInspectStatus) {
+      restoreInspectStatus.textContent = `Last restore activated successfully. The pre-restore rollback snapshot is retained until ${backupStatusTime(payload.restore.rollbackRetainUntil, 'the recovery window expires')}.`;
+    }
     return payload?.restore || null;
   } catch (error) {
     if (restoreInspectError) {
