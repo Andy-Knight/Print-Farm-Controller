@@ -518,7 +518,7 @@ A test should create controller state in one temporary data directory, produce a
 
 ## Implementation status
 
-Stages 1–5 are implemented on `feature/backup-recovery-v0230`:
+Stages 1–6 are implemented on `feature/backup-recovery-v0230`:
 
 - dependency-free ZIP32-compatible archive writer using stored entries and data descriptors;
 - streaming SHA-256/CRC verification of completed archives;
@@ -580,7 +580,11 @@ Stages 1–5 are implemented on `feature/backup-recovery-v0230`:
 - retention deletion failures are recorded but do not invalidate the newly verified backup;
 - scheduled destination diagnostics record destination type rather than the full path.
 
-Next: full end-to-end disaster-recovery integration validation and final Windows/UI live validation.
+- end-to-end disaster-recovery integration now creates realistic source state, produces a verified portable backup, restores it into a separate fresh data directory, activates it, and reinitializes queue/scheduler/licensing logic from the recovered files;
+- integration assertions cover printer definitions, Print Library metadata/content SHA-256/preview bytes, file-material metadata, terminal history, recovery-held unfinished queue jobs, paused production batches, forced bed-clearance for work that may have printed, disabled restored schedules, emulator settings, installation UUID continuity, and normal fail-closed licence verification;
+- the recovered queue is started against an online idle fleet fixture and proves recovery-held work cannot auto-dispatch.
+
+Next: final Windows automated/UI/live validation and release-readiness review.
 
 ## Implementation order
 
