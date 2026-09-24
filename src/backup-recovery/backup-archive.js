@@ -257,6 +257,47 @@ export async function hashZipEntry(filePath, entry) {
   }
 }
 
+export async function extractZipEntryToFile(filePath, entry, destinationPath) {
+  const source = await fs.open(filePath, 'r');
+  let destination = null;
+  try {
+    const start = await zipEntryDataOffset(source, entry);
+    await fs.mkdir(path.dirname(destinationPath), { recursive:true, mode:0o700 });
+    destination = await fs.open(destinationPath, 'wx', 0o600);
+    const hash = crypto.createHash('sha256');
+    let crc = 0;
+    let remaining = entry.size;
+    let sourcePosition = start;
+    let destinationPosition = 0;
+    const chunk = Buffer.alloc(Math.min(1024 * 1024, Math.max(1, entry.size)));
+    while (remaining > 0) {
+      const length = Math.min(chunk.length, remaining);
+      const { bytesRead } = await source.read(chunk, 0, length, sourcePosition);
+      if (!bytesRead) throw new Error(`Backup archive entry is truncated: ${entry.name}`);
+      const data = chunk.subarray(0, bytesRead);
+      hash.update(data);
+      crc = crc32Update(crc, data);
+      let written = 0;
+      while (written < data.length) {
+        const result = await destination.write(data, written, data.length - written, destinationPosition + written);
+        written += result.bytesWritten;
+      }
+      remaining -= bytesRead;
+      sourcePosition += bytesRead;
+      destinationPosition += bytesRead;
+    }
+    await destination.sync();
+    if ((crc >>> 0) !== (entry.crc >>> 0)) throw new Error(`Backup archive CRC mismatch: ${entry.name}`);
+    return { sha256:hash.digest('hex'), size:entry.size };
+  } catch (error) {
+    await fs.rm(destinationPath, { force:true }).catch(() => {});
+    throw error;
+  } finally {
+    await destination?.close().catch(() => {});
+    await source.close();
+  }
+}
+
 export async function readZipEntry(filePath, entry, { maxBytes = 512 * 1024 * 1024 } = {}) {
   if (entry.size > maxBytes) throw new Error(`Backup archive entry exceeds allowed size: ${entry.name}`);
   const handle = await fs.open(filePath, 'r');
