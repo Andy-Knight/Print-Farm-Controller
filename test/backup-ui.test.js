@@ -6,6 +6,7 @@ const app = fs.readFileSync(new URL('../public/app.js', import.meta.url), 'utf8'
 const index = fs.readFileSync(new URL('../public/index.html', import.meta.url), 'utf8');
 const styles = fs.readFileSync(new URL('../public/styles.css', import.meta.url), 'utf8');
 const server = fs.readFileSync(new URL('../src/server.js', import.meta.url), 'utf8');
+const restoreService = fs.readFileSync(new URL('../src/backup-recovery/restore-service.js', import.meta.url), 'utf8');
 
 test('Backup and Recovery is available from the controller overflow menu', () => {
   assert.match(index, /id="backupRecoveryBtn"[^>]*>Backup &amp; recovery<\/button>/);
@@ -62,5 +63,14 @@ test('restore inspection enables staged restart-based restore with cancel suppor
   assert.match(server, /commitActivatedRestore/);
   assert.match(server, /rollbackActivatedRestore/);
   assert.match(server, /restorePendingRestart/);
+  assert.match(server, /printQueue\.setDispatchPaused\(true\)/);
+  assert.match(server, /activeMutationRequests > 1/);
+  assert.match(server, /restorePendingRestart \|\| restoreInspectionInProgress/);
   assert.match(server, /Restore staged; controller restart required/);
+  assert.match(restoreService, /phase:'staged'/);
+  assert.match(restoreService, /marker\.phase = 'activating'/);
+  assert.match(restoreService, /marker\.phase = 'activated'/);
+  assert.match(restoreService, /marker\.phase = 'committed'/);
+  assert.match(restoreService, /RESTORE_ROLLBACK_RETENTION_MS = 24 \* 60 \* 60 \* 1000/);
+  assert.match(restoreService, /restoreRecoveryHold = true/);
 });
