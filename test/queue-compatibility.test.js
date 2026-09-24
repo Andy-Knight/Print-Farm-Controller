@@ -185,6 +185,74 @@ test('FlashForge controller nozzle designation blocks an explicit nozzle mismatc
 });
 
 
+test('colour families allow different shades of the same named colour', () => {
+  assert.equal(queueCompatibilityHelpers.colorFamily('#FF0000'), 'red');
+  assert.equal(queueCompatibilityHelpers.colorFamily('#D91E18'), 'red');
+  assert.equal(queueCompatibilityHelpers.colorFamily('#A80000'), 'red');
+  assert.equal(queueCompatibilityHelpers.colorFamily('#FF5050'), 'red');
+  assert.equal(queueCompatibilityHelpers.colorsCompatible('#FF0000', '#D91E18'), true);
+  assert.equal(queueCompatibilityHelpers.colorsCompatible('#FF0000', '#FF6600'), false);
+  assert.equal(queueCompatibilityHelpers.colorsCompatible('#FF0000', '#0000FF'), false);
+  assert.equal(queueCompatibilityHelpers.colorFamily('#FFC0CB'), 'pink');
+});
+
+test('FlashForge controller accepts a different shade from the same colour family', () => {
+  const result = evaluateQueueCompatibility({
+    job:{ fileName:'part.gcode', stagedFile:{ requirements:{ requiredTools:[0], toolCount:1, usageReliable:true, logicalTools:[{ index:0, material:'PLA', color:'#FF0000' }] } } },
+    printer:{ id:'ff', name:'AD5M' },
+    state:{ id:'ff', name:'AD5M', online:true, status:{ status:'idle', tools:[{ index:0, filament:{ material:'PLA', color:'#D91E18', colorSource:'manual' } }] } },
+    adapter:{ capabilities:{ fileUpload:true, localFiles:true, printLocalFile:true }, limits:{}, uploadExtensions:['.gcode','.gx','.3mf'] }
+  });
+  assert.equal(result.category, 'ready');
+  assert.equal(result.reasons.length, 0);
+});
+
+test('FlashForge controller still blocks colours from a different family', () => {
+  const result = evaluateQueueCompatibility({
+    job:{ fileName:'part.gcode', stagedFile:{ requirements:{ requiredTools:[0], toolCount:1, usageReliable:true, logicalTools:[{ index:0, material:'PLA', color:'#FF0000' }] } } },
+    printer:{ id:'ff', name:'AD5M' },
+    state:{ id:'ff', name:'AD5M', online:true, status:{ status:'idle', tools:[{ index:0, filament:{ material:'PLA', color:'#FF6600', colorSource:'manual' } }] } },
+    adapter:{ capabilities:{ fileUpload:true, localFiles:true, printLocalFile:true }, limits:{}, uploadExtensions:['.gcode','.gx','.3mf'] }
+  });
+  assert.equal(result.category, 'blocked');
+  assert.ok(result.reasons.some((reason) => reason.code === 'color_mismatch'));
+  assert.ok(result.reasons.some((reason) => /orange/.test(reason.text) && /red/.test(reason.text)));
+});
+
+test('U1 mapping prefers the closest shade when multiple same-family tools are valid', () => {
+  const result = evaluateQueueCompatibility({
+    job:{ fileName:'red-part.gcode', stagedFile:{ requirements:{
+      requiredTools:[0], toolCount:1, usageReliable:true,
+      logicalTools:[{ index:0, material:'PLA', color:'#FF0000', nozzleDiameter:0.4 }]
+    } } },
+    printer:{ id:'u1', name:'U1' },
+    state:{ id:'u1', name:'U1', online:true, status:{ status:'idle', tools:[
+      { index:0, nozzleDiameter:0.4, filament:{ present:true, material:'PLA', color:'#A80000' } },
+      { index:1, nozzleDiameter:0.4, filament:{ present:true, material:'PLA', color:'#F02020' } }
+    ] } },
+    adapter:{ capabilities:{ fileUpload:true, localFiles:true, printLocalFile:true, printToolMapping:true }, limits:{ toolCount:4 }, uploadExtensions:['.gcode'] }
+  });
+  assert.equal(result.category, 'ready');
+  assert.deepEqual(result.toolMap, { '0':1 });
+  assert.ok(queueCompatibilityHelpers.colorDistance('#FF0000', '#F02020') < queueCompatibilityHelpers.colorDistance('#FF0000', '#A80000'));
+});
+
+test('Bambu AMS mapping accepts same-family shade differences', () => {
+  const result = evaluateQueueCompatibility({
+    job:{ fileName:'red-part.3mf', stagedFile:{ requirements:{
+      requiredTools:[0], toolCount:1, usageReliable:true,
+      logicalTools:[{ index:0, material:'PLA', color:'#FF0000', nozzleDiameter:0.4 }]
+    } } },
+    printer:{ id:'p1s', name:'P1S' },
+    state:{ id:'p1s', name:'P1S', online:true, status:{ status:'idle', tools:[{ index:0, nozzleDiameter:0.4 }], materialSources:[
+      { id:'ams-0-0', protocolIndex:0, label:'AMS 1 · Slot 1', present:true, material:'PLA', color:'#D91E18' }
+    ] } },
+    adapter:{ capabilities:{ fileUpload:true, localFiles:true, printLocalFile:true, materialSlotMapping:true }, limits:{ toolCount:1 }, uploadExtensions:['.3mf'] }
+  });
+  assert.equal(result.category, 'ready');
+  assert.deepEqual(result.materialMap, { '0':0 });
+});
+
 test('FlashForge controller filament colour blocks an explicit staged-file colour mismatch', () => {
   const result = evaluateQueueCompatibility({
     job:{ fileName:'part.gcode', stagedFile:{ requirements:{ requiredTools:[0], toolCount:1, usageReliable:true, logicalTools:[{ index:0, material:'PLA', color:'#FF0000' }] } } },
