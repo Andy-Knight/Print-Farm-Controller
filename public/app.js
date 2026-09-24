@@ -1185,14 +1185,16 @@ function queueJobMarkup(job, { history = false, queuedIndex = -1, queuedCount = 
     : `<div class="queue-job-actions">
         ${['queued','needs_review'].includes(job.status) ? `<label class="queue-priority-control">Priority<select data-queue-priority="${escapeHtml(job.id)}">${queuePriorityOptions(String(job.priority || 'normal').toLowerCase())}</select></label>` : ''}
         ${job.status === 'queued' ? `<button type="button" class="queue-order-button" data-queue-up="${escapeHtml(job.id)}" aria-label="Move queued job earlier within its priority" title="Move earlier within ${escapeHtml(queuePriorityLabel(job.effectivePriority))} priority"${!canMoveUp ? ' disabled' : ''}>↑</button><button type="button" class="queue-order-button" data-queue-down="${escapeHtml(job.id)}" aria-label="Move queued job later within its priority" title="Move later within ${escapeHtml(queuePriorityLabel(job.effectivePriority))} priority"${!canMoveDown ? ' disabled' : ''}>↓</button>` : ''}
-        ${job.status === 'needs_review' ? `<button type="button" class="secondary" data-queue-recheck="${escapeHtml(job.id)}">Recheck</button>` : ''}
+        ${job.status === 'needs_review' ? `<button type="button" class="secondary" data-queue-recheck="${escapeHtml(job.id)}">${job.restoreRecoveryHold ? 'Review & recheck' : 'Recheck'}</button>` : ''}
         <button type="button" class="danger queue-cancel-button" data-queue-cancel="${escapeHtml(job.id)}">Cancel</button>
       </div>`;
   const printerLabel = job.assignmentMode === 'automatic' && !job.printerId ? 'Next available compatible printer' : (job.printerName || job.printerId || 'Unassigned');
   const printerTarget = job.printerTarget ? `Target printer: ${printerTargetLabel(job.printerTarget)}` : '';
-  return `<article class="queue-job queue-job-${escapeHtml(job.status)}" data-queue-job="${escapeHtml(job.id)}">
+  const statusText = job.restoreRecoveryHold ? 'Restored — review required' : queueStatusLabel(job.status);
+  const statusClass = job.restoreRecoveryHold ? 'restore-hold' : job.status;
+  return `<article class="queue-job queue-job-${escapeHtml(job.status)}${job.restoreRecoveryHold ? ' queue-job-restore-hold' : ''}" data-queue-job="${escapeHtml(job.id)}">
     <div class="queue-job-main">
-      <div class="queue-job-title"><strong>${escapeHtml(job.fileName)}</strong><span class="queue-job-badges">${queuePriorityBadge(job)}<span class="queue-status ${escapeHtml(job.status)}">${escapeHtml(queueStatusLabel(job.status))}${progress ? ` · ${progress}` : ''}</span></span></div>
+      <div class="queue-job-title"><strong>${escapeHtml(job.fileName)}</strong><span class="queue-job-badges">${queuePriorityBadge(job)}<span class="queue-status ${escapeHtml(statusClass)}">${escapeHtml(statusText)}${progress ? ` · ${progress}` : ''}</span></span></div>
       <div class="queue-job-printer">${escapeHtml(printerLabel)}</div>
       ${printerTarget ? `<div class="queue-job-meta">${escapeHtml(printerTarget)}</div>` : ''}
       <div class="queue-job-meta">${escapeHtml(meta)}</div>
@@ -1237,7 +1239,8 @@ function productionBatchMarkup(batch, { history = false } = {}) {
   const runMarkup = visibleRuns.map((run) => {
     const printer = run.printerName || (run.status === 'queued' ? 'Waiting for compatible printer' : 'Unassigned');
     const pct = run.status === 'printing' ? ` · ${Math.round(Number(run.progress || 0))}%` : '';
-    return `<div class="production-run"><span>#${run.sequence} · ${escapeHtml(queueStatusLabel(run.status))}${pct}</span><span>${escapeHtml(printer)}</span></div>`;
+    const runStatus = run.restoreRecoveryHold ? 'Restored — review required' : queueStatusLabel(run.status);
+    return `<div class="production-run"><span>#${run.sequence} · ${escapeHtml(runStatus)}${pct}</span><span>${escapeHtml(printer)}</span></div>`;
   }).join('');
   const more = runs.length > visibleRuns.length ? `<div class="subtle">+ ${runs.length - visibleRuns.length} more copies</div>` : '';
   const controls = history && batch.finished
