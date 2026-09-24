@@ -244,7 +244,8 @@ test('live fleet reconciliation does not reinsert cards when order is unchanged'
 
 test('dashboard printer errors render below the Open printer button', () => {
   const cardStart = app.indexOf('function cardMarkup(printer)');
-  const bodyMatch = app.slice(cardStart).match(/<\/div>\r?\n    <div class="card-footer">/);\n  const bodyEnd = bodyMatch ? cardStart + bodyMatch.index : -1;
+  const bodyMatch = app.slice(cardStart).match(/<\/div>\r?\n    <div class="card-footer">/);
+  const bodyEnd = bodyMatch ? cardStart + bodyMatch.index : -1;
   const openButton = app.indexOf('>Open printer</button>', bodyEnd);
   const cardError = app.indexOf('data-card-error', openButton);
 
