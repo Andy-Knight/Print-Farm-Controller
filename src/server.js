@@ -479,8 +479,11 @@ async function apiRoute(req, res, url) {
       error.statusCode = 409;
       throw error;
     }
+
+    printQueue.setDispatchPaused(true);
     const blockers = restorePhysicalActivityBlockers();
     if (blockers.length) {
+      printQueue.setDispatchPaused(false);
       const error = new Error(`Restore cannot be staged while physical printer work is active: ${blockers.join('; ')}`);
       error.statusCode = 409;
       throw error;
@@ -488,6 +491,7 @@ async function apiRoute(req, res, url) {
 
     restoreInspectionInProgress = true;
     let uploaded = null;
+    let stagedSuccessfully = false;
     try {
       uploaded = await stageRestoreUploadRequest(req, req.headers['x-file-name']);
       await diagnosticLogger.info('restore', 'Restore staging requested', {
@@ -501,6 +505,7 @@ async function apiRoute(req, res, url) {
         originalFileName:uploaded.fileName
       });
       restorePendingRestart = true;
+      stagedSuccessfully = true;
       await diagnosticLogger.warn('restore', 'Restore staged; controller restart required', {
         fileName:restore.fileName,
         backupId:restore.backupId,
@@ -515,6 +520,7 @@ async function apiRoute(req, res, url) {
       throw error;
     } finally {
       restoreInspectionInProgress = false;
+      if (!stagedSuccessfully) printQueue.setDispatchPaused(false);
       await uploaded?.cleanup().catch(() => {});
     }
   }
@@ -522,6 +528,7 @@ async function apiRoute(req, res, url) {
   if (req.method === 'DELETE' && url.pathname === '/api/restore/stage') {
     const result = await cancelStagedRestore(runtimePaths.dataDir);
     restorePendingRestart = false;
+    printQueue.setDispatchPaused(false);
     await diagnosticLogger.info('restore', 'Staged restore cancelled', {
       backupId:result.backupId || null,
       fileName:result.fileName || null
