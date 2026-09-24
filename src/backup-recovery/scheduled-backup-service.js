@@ -10,6 +10,13 @@ import { BackupOperationLock } from './backup-operation-lock.js';
 const MAX_MANIFEST_BYTES = 1024 * 1024;
 const WEEKDAY_NAMES = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
 
+function backupDestinationType(value) {
+  const target = String(value || '').trim();
+  if (/^(\\\\|\/\/)/.test(target)) return 'network';
+  if (/^[A-Za-z]:[\\/]/.test(target)) return 'windows-drive';
+  return 'local';
+}
+
 function scheduleParts(value) {
   const match = String(value || '02:00').match(/^([01]\d|2[0-3]):([0-5]\d)$/);
   return match ? { hour:Number(match[1]), minute:Number(match[2]) } : { hour:2, minute:0 };
@@ -221,13 +228,14 @@ export class ScheduledBackupService {
         : current.frequency,
       scheduleTime:input.scheduleTime ?? current.scheduleTime,
       scheduleWeekday:input.scheduleWeekday ?? current.scheduleWeekday,
-      retentionCount:input.retentionCount ?? current.retentionCount
+      retentionCount:input.retentionCount ?? current.retentionCount,
+      lastScheduledError:null
     };
     if (requested.enabled) await validateBackupDestination(requested.destination);
     const saved = await saveBackupSettings(requested, { dataDir:this.dataDir });
     await this.arm();
     await this.log('info', saved.enabled ? 'Scheduled backups enabled or updated' : 'Scheduled backups disabled', {
-      destination:saved.destination || null,
+      destinationType:backupDestinationType(saved.destination),
       frequency:saved.frequency,
       scheduleTime:saved.scheduleTime,
       scheduleWeekday:saved.scheduleWeekday,
@@ -239,7 +247,7 @@ export class ScheduledBackupService {
   async testDestination(destination) {
     const result = await validateBackupDestination(destination);
     await this.log('info', 'Scheduled backup destination write test passed', {
-      destination:result.destination
+      destinationType:backupDestinationType(result.destination)
     });
     return result;
   }
@@ -265,7 +273,7 @@ export class ScheduledBackupService {
       const result = await this.operationLock.run('scheduled', async () => {
         await validateBackupDestination(updated.destination);
         await this.log('info', 'Scheduled backup started', {
-          destination:updated.destination,
+          destinationType:backupDestinationType(updated.destination),
           attemptedAt
         });
         return createBackupInDirectory({
@@ -334,7 +342,7 @@ export class ScheduledBackupService {
         fileName:result.fileName,
         size:result.size,
         createdAt:result.manifest.createdAt,
-        destination:updated.destination
+        destinationType:backupDestinationType(updated.destination)
       });
       return { success:true, backup:success };
     } catch (error) {
@@ -345,7 +353,7 @@ export class ScheduledBackupService {
         lastError:message
       }, { dataDir:this.dataDir }).catch(() => {});
       await this.log('warn', 'Scheduled backup failed', {
-        destination:updated.destination,
+        destinationType:backupDestinationType(updated.destination),
         error:message
       });
       return { success:false, error:message };
