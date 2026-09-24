@@ -208,11 +208,12 @@
         <div class="mini-actions backup-restore-actions">
           <button id="restoreInspectBtn" type="button" class="secondary">Inspect backup</button>
           <button id="restoreStageBtn" type="button" class="primary" disabled>Restore backup</button>
+          <button id="restoreCancelStageBtn" type="button" class="secondary hidden">Cancel staged restore</button>
         </div>
         <div id="restoreInspectStatus" class="subtle backup-action-status" aria-live="polite"></div>
         <div id="restoreInspectError" class="error hidden"></div>
         <div id="restoreInspectionSummary" class="restore-inspection-summary hidden"></div>
-        <div class="field-help">Restore activation is not enabled yet. A valid inspection only confirms that the backup is structurally safe and compatible with this controller version.</div>
+        <div class="field-help">A valid inspection enables restore staging. The staged restore activates only after Print Farm Controller is restarted; unfinished jobs remain recovery-held until deliberately rechecked.</div>
       </section>
 
       <div class="actions">
