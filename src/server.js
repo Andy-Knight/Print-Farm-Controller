@@ -1601,6 +1601,7 @@ async function startController() {
     console.log('Persistent fleet print queue + history enabled');
   } catch (error) {
     chamberPreheat.stopService();
+    scheduledBackupService.stop();
     printQueue.stop();
     fleetState.stop();
     cameraManager.stop();
