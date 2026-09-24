@@ -183,12 +183,12 @@ Every non-terminal restored queue job must be recovery-held and every restored p
 
 Initial v0.23.0 destinations are manual download/save plus scheduled local or OS-mounted/network/NAS paths. Scheduled retention is count-based and only prunes scheduler-owned backups from the same installation. Manual backups are never automatically deleted. Scheduled configuration is restored disabled until explicitly re-enabled.
 
-Implementation order: archive/checksum format -> logical snapshot/manual backup -> restore inspection/staging/startup activation -> recovery-hold UI -> scheduled backup/retention -> disaster-recovery tests.
+Implementation status: **stage 1 is implemented** — dependency-free ZIP-compatible `.pfcbackup` writing, manifest/checksum verification, persistent installation ID/backup settings foundation, and logical snapshot export for printers, queue/history, file-material metadata, Print Library files/metadata/previews, emulator settings and the installed signed licence. Next: manual backup API/UI. Later stages remain restore inspection/staging/startup activation -> recovery-hold UI -> scheduled backup/retention -> disaster-recovery tests.
 
 ## Next steps
 
-1. Implement backup format/archive/checksum helpers and logical snapshot export.
-2. Add manual backup API plus corruption/integrity tests.
+1. Wire the implemented backup format/archive/checksum and logical snapshot service into a manual backup API.
+2. Add the Backup & Recovery UI/manual download workflow and expand corruption/integrity coverage.
 3. Add restore inspection, migration and staged startup activation with automatic rollback.
 4. Add queue recovery-hold semantics and UI.
 5. Add scheduled local/network/NAS backup settings, retention and diagnostics.
