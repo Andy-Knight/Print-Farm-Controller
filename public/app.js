@@ -732,6 +732,7 @@ function renderBackupSchedule(schedule = {}) {
     const parts = [];
     if (schedule.running) parts.push('Scheduled backup is running.');
     if (schedule.nextRunAt) parts.push(`Next: ${backupStatusTime(schedule.nextRunAt, '—')}.`);
+    if (schedule.lastAttemptAt) parts.push(`Last attempt: ${backupStatusTime(schedule.lastAttemptAt, '—')}.`);
     if (schedule.lastSuccess?.createdAt) parts.push(`Last success: ${backupStatusTime(schedule.lastSuccess.createdAt, '—')}.`);
     if (schedule.lastRetentionResult?.completedAt) {
       parts.push(`Retention: ${Number(schedule.lastRetentionResult.deleted || 0)} deleted, ${Number(schedule.lastRetentionResult.failed || 0)} failed.`);
