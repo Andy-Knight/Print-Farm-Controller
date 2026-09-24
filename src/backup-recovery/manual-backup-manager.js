@@ -30,6 +30,18 @@ export class ManualBackupManager {
     this.stagingDir = path.join(this.dataDir, '.backup-staging');
     this.downloads = new Map();
     this.creating = false;
+    this.initialized = false;
+  }
+
+  async init() {
+    if (this.initialized) return;
+    await fs.mkdir(this.stagingDir, { recursive:true, mode:0o700 });
+    const entries = await fs.readdir(this.stagingDir, { withFileTypes:true }).catch(() => []);
+    for (const entry of entries) {
+      if (!entry.isFile()) continue;
+      await fs.rm(path.join(this.stagingDir, entry.name), { force:true }).catch(() => {});
+    }
+    this.initialized = true;
   }
 
   async cleanupExpired(nowMs = Date.now()) {
@@ -41,6 +53,7 @@ export class ManualBackupManager {
   }
 
   async status() {
+    await this.init();
     await this.cleanupExpired();
     const settings = await loadBackupSettings({ dataDir:this.dataDir, create:true });
     return {
@@ -59,6 +72,7 @@ export class ManualBackupManager {
   }
 
   async create() {
+    await this.init();
     if (this.creating) throw backupBusyError();
     this.creating = true;
     const attemptedAt = new Date().toISOString();
@@ -71,7 +85,6 @@ export class ManualBackupManager {
 
     try {
       await this.cleanupExpired();
-      await fs.mkdir(this.stagingDir, { recursive:true, mode:0o700 });
       const result = await createBackupInDirectory({
         destinationDir:this.stagingDir,
         dataDir:this.dataDir,
