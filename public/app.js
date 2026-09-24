@@ -2463,7 +2463,7 @@ function u1FilamentConfigEditState(printer, tool = {}) {
   if (filament.officialFilament === true || filament.editable === false) {
     return { enabled:false, message:'Official Snapmaker RFID filament controls its own type and colour.' };
   }
-  return { enabled:true, message:'Writes the type and colour together, then verifies both from the U1.' };
+  return { enabled:true, message:'Choose a colour family; the controller writes its representative colour to the U1 and verifies the result.' };
 }
 
 function u1FilamentConfigControlMarkup(printer, tool = {}) {
