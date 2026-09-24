@@ -346,6 +346,10 @@ input:focus,select:focus { border-color:#7a9fbe; }
 .material-designation-control select { margin-top:6px; }
 .material-designation-fields { display:grid; grid-template-columns:minmax(0,1fr) minmax(160px,.8fr); gap:10px; align-items:end; }
 .material-designation-fields label { margin-top:0; }
+.color-family-picker { display:grid; grid-template-columns:18px minmax(0,1fr); gap:8px; align-items:center; margin-top:4px; }
+.color-family-picker select { margin-top:0 !important; }
+.color-family-square { display:block; width:16px; height:16px; border-radius:2px; border:1px solid rgba(255,255,255,.35); box-shadow:inset 0 0 0 1px rgba(0,0,0,.2); }
+.color-family-square.unknown { background:repeating-linear-gradient(45deg,#202a32,#202a32 3px,#111820 3px,#111820 6px) !important; border-color:#3b4853; }
 .material-designation-control .field-help { margin-top:8px; }
 @media (max-width:520px) { .material-designation-fields { grid-template-columns:1fr; gap:0; } }
 .printer-management-panel label { margin-top:0; }
