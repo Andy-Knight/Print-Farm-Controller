@@ -7,7 +7,7 @@
 - Repository: `Andy-Knight/Print-Farm-Controller`
 - Project path: repository root (`/`)
 - Primary branch: `main` (current production baseline)
-- Current application version on this branch: **0.23.0**.
+- Current application version on this branch: **0.24.0**.
 - v0.15.5 Print Library previews are merged into `main`.
 - v0.15.6 includes dashboard summary filtering, application-local data storage, Snapmaker U1 display naming and printer-card hover/focus highlighting.
 - **v0.16.0 production packaging is merged into `main`** via PR #24 (squash commit `af8d8e493e2f311c1469ed5faddfffc2316ae727`): centralized runtime paths detect source vs Node SEA execution, esbuild produces a CommonJS controller bundle, and the Windows x64 SEA build embeds the controller UI, simulator UI/resources and trusted Ed25519 public verification keys directly into `PrintFarmController.exe`. The Windows installer targets Program Files, leaves the EXE protected, grants standard-user modify permission only to `data/`, and packaged builds store the signed customer licence at `data/license.json`. Inno Setup 7 is the preferred Windows installer compiler (Inno Setup 6 remains supported as a fallback), and optional Authenticode signing workflows are included.
@@ -21,6 +21,7 @@
 - **v0.21.0 Print Library printer targeting is in the current `main` baseline.** Print Library files can optionally store a canonical target printer adapter/model. The add/edit/queue-upload UI exposes the supported model list; library cards/search and queued jobs show the target; queue compatibility treats a target mismatch as incompatible; and files without a target remain unrestricted.
 - **v0.22.0 colour-family matching is merged into the current `main` baseline** via PR #33.
 - **v0.23.0 Backup & Recovery is merged into the current `main` baseline via PR #34.** The backup/recovery architecture is defined in `docs/BACKUP_RECOVERY.md`. The target is a portable logical `.pfcbackup` format with manifest/checksums, manual and scheduled local/NAS backup, validated two-phase restore activated on restart with rollback, and explicit recovery holds so unfinished restored queue work can never auto-start. Cloud destinations and built-in encryption are deferred. Queue colour compatibility treats slicer hex values as shade metadata within practical colour families rather than requiring byte-for-byte hex equality. Same-family shades can run automatically; different families remain blocked. FlashForge manual filament designation stores an authoritative colour family only; existing hex-only designations automatically derive their family, and saving a new manual designation clears the legacy shade. FlashForge, editable/non-RFID Snapmaker U1, and simulated Bambu AMS/AMS Lite/external-spool selectors use the same custom family dropdown, with a consistent square swatch rendered inside each option and selected value. Pending U1 filament type/colour edits are protected from live telemetry until the Set filament operation succeeds. The U1 and simulator write representative hex colours internally; official U1 RFID filament and real Bambu tray colours remain printer-reported. U1/AMS candidate mapping prefers the closest compatible shade using CIELAB colour distance without turning shade distance itself into a hard requirement.
+- **Current v0.24.0 feature branch:** `feature/maintenance-tracking-v0240`. Maintenance tracking is controller-owned and manufacturer-agnostic. It persists recurring tasks, completion history, and controller-observed print time/cycles in `data/maintenance.json`; tasks can be scheduled by calendar days, observed print hours, or observed print cycles and expose Current / Due soon / Due state. Maintenance data is included in logical `.pfcbackup` backup/restore.
 - Runtime: **Node.js 24+** (development baseline Node.js 24.21.0), ES modules, no npm runtime dependencies.
 - GitHub is the authoritative code baseline.
 
@@ -41,6 +42,7 @@ Local Fleet Controller (`src/`)
         +-- persistent Print Library store + cached slicer preview extraction
         +-- compatibility engine
         +-- persistent print queue + history + bed-clearance interlock
+        +-- persistent maintenance tasks + completion history + controller-observed printer usage
         +-- logical `.pfcbackup` backup/recovery + scheduled local/network backups + staged restart restore/rollback
         +-- signed licence loader / verifier / edition + printer-slot enforcement
         |
@@ -66,6 +68,7 @@ Manufacturer-specific discovery, capabilities, limits, status normalization, fil
 - Multiple manufacturers are supported through adapters rather than manufacturer logic in shared fleet code.
 - Default persistent controller data now lives in the application-local `data/` directory rather than the operating-system user profile. If `data/` does not yet exist, startup migrates the previous profile-based `Printer Fleet Controller` directory, falling back to the older `FlashForge Fleet` location. This moves printer configuration, queue/history, Print Library files, emulator settings and file material metadata together. Custom `DATA_DIR` locations are used exactly as configured and are never moved.
 - Print Library files, queue/history and their references persist across restarts. Queue/history cleanup never owns library-file deletion.
+- Maintenance tracking is a controller-owned fleet service keyed by printer ID rather than adapter-specific state. `maintenance.json` stores task definitions, completion history, per-task interval baselines, and controller-observed print seconds/cycles. Observed counters begin when this controller tracks activity and must not be presented as manufacturer lifetime counters. A maintenance task may recur by calendar days, observed print hours, or observed print count; reaching 80% of an interval is **Due soon**, reaching 100% is **Due**. Completing a task creates a retained history entry with notes/usage snapshot before resetting only that task's baseline.
 - Backup/recovery uses portable logical `.pfcbackup` archives rather than raw `data/` copies. Archives carry a manifest and checksums, include controller configuration/state and Print Library content, and exclude logs, executables/build artifacts, transient files and private licensing keys.
 - Restore is two-phase and restart-activated: inspect/validate/migrate/stage while the live installation stays intact, then activate before normal services initialize. Activation retains rollback state and automatically restores it if startup validation fails. Restored unfinished queue work is recovery-held, restored production batches remain paused, transient reservations/start state is cleared, and existing/required bed-clearance interlocks are preserved until deliberate user review.
 - Print Library previews are derived from slicer-provided images only: Orca/Bambu-style 3MF plate thumbnails and supported embedded PNG/JPEG G-code thumbnail blocks. Cached preview images live beside the stored print file; unsupported/missing thumbnails use a UI placeholder rather than a generated render.
@@ -176,26 +179,24 @@ Manufacturer-specific discovery, capabilities, limits, status normalization, fil
 
 ## Current task
 
-**v0.23.0 Backup & Recovery** is the current `main` baseline, merged via PR #34.
+**v0.24.0 Maintenance Tracking** is the active feature on `feature/maintenance-tracking-v0240`.
 
-The approved architecture is in `docs/BACKUP_RECOVERY.md`. Backups are logical/path-independent snapshots rather than raw copies of `data/`. They include printer configuration, Print Library files/metadata/previews, queue/history, file-material metadata, emulator settings, backup policy, and the installed signed licence when present. Logs, executable/build artifacts, transient files, and all private licensing keys are excluded.
+The first implementation is manufacturer-agnostic and controller-owned. A persistent `data/maintenance.json` store tracks recurring maintenance tasks, completion history, controller-observed print seconds and observed print cycles per configured printer. Tasks support calendar-day, print-hour, or print-count intervals and expose Current, Due soon and Due state. Completion records optional notes and a usage snapshot while retaining history even if the task is later deleted.
 
-Restore is deliberately two-phase: validate/migrate/stage while the current controller remains intact, then activate the staged data on controller restart before normal services initialize. Activation keeps a rollback copy and restores it automatically if startup validation fails. Restore is blocked while physical printer/control work is active.
+The Maintenance UI is available from the controller overflow menu and supports adding, editing, enabling/disabling, completing and deleting tasks across the fleet. It shows observed usage and recent history per printer. Usage is explicitly labelled controller-observed because it is derived from live printer activity seen by this controller rather than a manufacturer lifetime counter.
 
-Every non-terminal restored queue job must be recovery-held and every restored production batch paused; transient reservations/start state is cleared and bed-clearance interlocks are preserved. Restored work can only resume after deliberate user review/recheck.
+Maintenance state participates in v0.23+ logical backup/recovery. New backups include `state/maintenance.json`; restore validates and stages it, while older backups without maintenance state restore an empty maintenance store rather than retaining unrelated target-machine maintenance data.
 
-Initial v0.23.0 destinations are manual download/save plus scheduled local or OS-mounted/network/NAS paths. Scheduled retention is count-based and only prunes scheduler-owned backups from the same installation. Manual backups are never automatically deleted. Scheduled configuration is restored disabled until explicitly re-enabled.
-
-Implementation status: **stages 1–6 are implemented** — `.pfcbackup` creation/verification, manual backup/download/UI, read-only restore inspection, staged restart-based restore with rollback/recovery holds, and scheduled local/network/NAS backup with retention. Restore staging revalidates the backup, pauses queue dispatch before physical-activity checks, leaves live persistent state untouched until restart, and stores stage/rollback/journal data under writable `data/.restore-control/`. Startup journals `staged -> activating -> installing -> activated -> committed`; interrupted/failed activation rolls back automatically, while successful restore retains the previous snapshot for 24 hours. All unfinished jobs restore as `needs_review` with `restoreRecoveryHold`, restored production batches remain paused, and jobs that may have printed retain/force bed clearance until deliberately reviewed.
-
-Scheduled backups use controller-local daily or weekly time/day settings and support any existing OS-writable directory, including local folders, mapped drives and UNC/NAS paths. On scheduler startup, the controller detects the most recent missed schedule slot and queues a catch-up backup shortly after startup when that slot occurred after the current schedule became effective and has no recorded scheduled attempt. Newly enabled/retimed schedules do not backfill earlier slots, and busy backup operations defer the catch-up for retry rather than dropping it. Enabling a schedule performs a real write/delete probe. Manual and scheduled backups share one operation lock. Status reports next run, last attempt, last success, last error and retention result. Retention defaults to 14, runs only after a newly created scheduled backup has been completely verified, and only deletes older `backupSource=scheduled` archives whose embedded installation UUID matches the current controller. Manual backups and backups from other installations are never auto-pruned. Schedule configuration restored from a backup remains disabled until explicitly re-enabled. Diagnostic logging records destination type rather than the full local/network path. The end-to-end disaster-recovery integration test now creates a realistic source installation, generates a verified backup, restores it into a separate fresh installation, activates/reinitializes the recovered state, and verifies printer definitions, Print Library metadata/content hashes/preview bytes, file-material metadata, terminal history, recovery-held unfinished work, paused production batches, bed-clearance safety, restored-but-disabled backup scheduling, emulator settings, installation-ID continuity, and normal fail-closed licence revalidation.
+Current implementation includes service-layer tests for persistence, day/hour/count scheduling and usage tracking; UI/API wiring tests; backup coverage; and disaster-recovery preservation coverage.
 
 ## Next steps
 
-1. Monitor the v0.23.0 Backup & Recovery baseline for regressions after merge and keep `docs/BACKUP_RECOVERY.md` aligned with any future changes.
-2. Continue physical validation of experimental Bambu behaviour before removing the experimental designation.
-3. Add Linux x64 and ARM64 packaging now that the v0.23.0 backup/recovery work is complete.
-4. Keep cloud backup destinations and built-in backup encryption deferred unless product requirements change.
+1. Run the full automated `npm test` suite on Windows/Node 24 and correct any regressions.
+2. Live-test the Maintenance dialog in Dark and Light modes on desktop and mobile widths.
+3. Validate observed print-hour/cycle accounting with a real Snapmaker U1 and FlashForge AD5M Pro print, including pause/resume and controller restart behavior.
+4. Decide whether to add optional model-specific starter task templates after the generic workflow is validated.
+5. Continue physical validation of experimental Bambu behaviour before removing the experimental designation.
+6. Add Linux x64 and ARM64 packaging after the active maintenance work.
 
 ## Handoff rule
 
