@@ -17,6 +17,7 @@ import {
 import { listAllFilesTcp } from '../tcp-files.js';
 import { uploadGcodeFile } from '../upload-gcode.js';
 import { discoverPrinters } from '../discovery.js';
+import { colorFamily, normalizeColor, normalizeColorFamily } from '../color-family.js';
 
 export const FLASHFORGE_AD5M_ADAPTER_TYPE = 'flashforge-ad5m';
 
@@ -106,22 +107,37 @@ export class FlashForgeAd5mAdapter extends PrinterAdapter {
     const filament = status?.tools?.[0]?.filament;
     if (filament) {
       const reportedMaterial = filament.material || null;
-      const reportedColor = filament.color || null;
+      const reportedColor = normalizeColor(filament.color);
+      const reportedColorFamily = colorFamily(reportedColor);
       const manualMaterial = String(this.printer.adapterConfig?.filamentDesignation || '').trim() || null;
-      const manualColorRaw = String(this.printer.adapterConfig?.filamentColorDesignation || '').trim();
-      const manualColor = /^#[0-9A-Fa-f]{6}$/.test(manualColorRaw) ? manualColorRaw.toUpperCase() : null;
+      const manualColor = normalizeColor(this.printer.adapterConfig?.filamentColorDesignation);
+      const manualColorFamily = normalizeColorFamily(this.printer.adapterConfig?.filamentColorFamilyDesignation)
+        || colorFamily(manualColor);
       filament.reportedMaterial = reportedMaterial;
       filament.reportedColor = reportedColor;
+      filament.reportedColorFamily = reportedColorFamily;
       if (manualMaterial) {
         filament.material = manualMaterial;
         filament.materialSource = 'manual';
       }
-      if (manualColor) {
-        filament.color = manualColor;
-        filament.colorSource = 'manual';
+      if (manualColorFamily) {
+        filament.colorFamily = manualColorFamily;
+        filament.colorFamilySource = 'manual';
+        if (manualColor) {
+          filament.color = manualColor;
+          filament.colorSource = 'manual';
+        } else {
+          filament.color = null;
+          filament.colorSource = null;
+        }
+      } else {
+        filament.color = reportedColor;
+        filament.colorSource = reportedColor ? 'printer' : null;
+        filament.colorFamily = reportedColorFamily;
+        filament.colorFamilySource = reportedColorFamily ? 'printer' : null;
       }
-      filament.manuallyAssigned = Boolean(manualMaterial || manualColor);
-      if (manualMaterial || manualColor) filament.metadataAvailable = true;
+      filament.manuallyAssigned = Boolean(manualMaterial || manualColorFamily);
+      if (manualMaterial || manualColorFamily) filament.metadataAvailable = true;
     }
 
     const tool = status?.tools?.[0];
