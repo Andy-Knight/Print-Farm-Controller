@@ -865,6 +865,119 @@ async function inspectRestoreFile() {
   }
 }
 
+function setRestorePendingUi(restore = {}) {
+  const pending = restore?.pending === true || restore?.staged === true;
+  if (restoreBackupFileInput) restoreBackupFileInput.disabled = pending;
+  if (restoreInspectBtn) restoreInspectBtn.disabled = pending;
+  if (restoreStageBtn) restoreStageBtn.disabled = true;
+  if (restoreCancelStageBtn) restoreCancelStageBtn.classList.toggle('hidden', !pending);
+  if (backupCreateBtn) backupCreateBtn.disabled = pending;
+  if (restoreInspectStatus && pending) {
+    const fileName = restore.fileName ? \` \${restore.fileName}\` : '';
+    restoreInspectStatus.textContent = \`Restore staged\${fileName}. Restart Print Farm Controller to activate it. Controller changes are blocked until restart or cancellation.\`;
+  }
+}
+
+async function loadRestoreStatus() {
+  try {
+    const payload = await api('/api/restore/status');
+    if (payload?.restore?.pending) setRestorePendingUi(payload.restore);
+    return payload?.restore || null;
+  } catch (error) {
+    if (restoreInspectError) {
+      restoreInspectError.textContent = error.message;
+      restoreInspectError.classList.remove('hidden');
+    }
+    return null;
+  }
+}
+
+async function stageRestoreFile() {
+  const file = restoreBackupFileInput?.files?.[0];
+  if (!(file instanceof File) || !file.size) {
+    if (restoreInspectError) {
+      restoreInspectError.textContent = 'Choose and inspect a .pfcbackup file before restoring.';
+      restoreInspectError.classList.remove('hidden');
+    }
+    return;
+  }
+  if (!confirm('Stage this backup for restore?\\n\\nThe current controller data will not be replaced until Print Farm Controller is restarted. After staging, controller changes are blocked until you restart or cancel the staged restore. Unfinished queue jobs will be restored on recovery hold and will not auto-start.')) return;
+
+  const original = restoreStageBtn?.textContent || 'Restore backup';
+  if (restoreStageBtn) {
+    restoreStageBtn.disabled = true;
+    restoreStageBtn.textContent = 'Staging…';
+  }
+  if (restoreInspectBtn) restoreInspectBtn.disabled = true;
+  if (restoreBackupFileInput) restoreBackupFileInput.disabled = true;
+  if (restoreInspectError) {
+    restoreInspectError.textContent = '';
+    restoreInspectError.classList.add('hidden');
+  }
+  if (restoreInspectStatus) restoreInspectStatus.textContent = 'Revalidating and staging restore…';
+
+  try {
+    const response = await fetch('/api/restore/stage', {
+      method:'POST',
+      headers:{
+        'x-file-name':encodeURIComponent(file.name),
+        'content-type':'application/octet-stream'
+      },
+      body:file
+    });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(payload.error || \`Restore staging failed (\${response.status})\`);
+    if (!payload.restore?.staged) throw new Error('Restore staging did not complete');
+    setRestorePendingUi(payload.restore);
+    if (restoreInspectionSummary) {
+      restoreInspectionSummary.innerHTML = \`
+        <div class="restore-staged-banner">
+          <strong>Restore staged — restart required</strong>
+          <span>The backup is ready to activate. Close and restart Print Farm Controller. If restored startup fails, the previous controller data is rolled back automatically.</span>
+        </div>
+      \`;
+      restoreInspectionSummary.classList.remove('hidden');
+    }
+  } catch (error) {
+    if (restoreBackupFileInput) restoreBackupFileInput.disabled = false;
+    if (restoreInspectBtn) restoreInspectBtn.disabled = false;
+    if (restoreStageBtn) restoreStageBtn.disabled = false;
+    if (restoreInspectStatus) restoreInspectStatus.textContent = '';
+    if (restoreInspectError) {
+      restoreInspectError.textContent = error.message;
+      restoreInspectError.classList.remove('hidden');
+    }
+  } finally {
+    if (restoreStageBtn) restoreStageBtn.textContent = original;
+  }
+}
+
+async function cancelStagedRestoreUi() {
+  if (!confirm('Cancel the staged restore?\\n\\nThe current controller data will remain unchanged.')) return;
+  if (restoreCancelStageBtn) restoreCancelStageBtn.disabled = true;
+  try {
+    const result = await api('/api/restore/stage', { method:'DELETE' });
+    if (!result?.restore?.cancelled) throw new Error('No staged restore was cancelled');
+    if (restoreBackupFileInput) {
+      restoreBackupFileInput.disabled = false;
+      restoreBackupFileInput.value = '';
+    }
+    if (restoreInspectBtn) restoreInspectBtn.disabled = false;
+    if (restoreStageBtn) restoreStageBtn.disabled = true;
+    if (restoreCancelStageBtn) restoreCancelStageBtn.classList.add('hidden');
+    if (backupCreateBtn) backupCreateBtn.disabled = false;
+    clearRestoreInspection();
+    if (restoreInspectStatus) restoreInspectStatus.textContent = 'Staged restore cancelled. Current controller data is unchanged.';
+  } catch (error) {
+    if (restoreInspectError) {
+      restoreInspectError.textContent = error.message;
+      restoreInspectError.classList.remove('hidden');
+    }
+  } finally {
+    if (restoreCancelStageBtn) restoreCancelStageBtn.disabled = false;
+  }
+}
+
 function setControllerLicense(license) {
   licenseState = license || null;
   if (controllerEditionEl && license?.label) {
