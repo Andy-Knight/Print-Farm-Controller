@@ -46,6 +46,7 @@
         <div class="topbar-overflow-menu" role="menu">
           <button type="button" class="topbar-overflow-item" role="menuitem" onclick="location.href='/simulator/'">Printer simulator</button>
           <button id="diagnosticsBtn" type="button" class="topbar-overflow-item" role="menuitem">Diagnostics</button>
+          <button id="maintenanceBtn" type="button" class="topbar-overflow-item" role="menuitem">Maintenance</button>
           <button id="backupRecoveryBtn" type="button" class="topbar-overflow-item" role="menuitem">Backup &amp; recovery</button>
           <button id="licenseBtn" type="button" class="topbar-overflow-item" role="menuitem">Licence</button>
           <button id="batchModeMenuBtn" type="button" class="topbar-overflow-item topbar-overflow-fleet" role="menuitem">Fleet operations</button>
@@ -163,6 +164,70 @@
 
       <div class="actions">
         <button type="button" class="secondary" data-diagnostics-close>Close</button>
+      </div>
+    </div>
+  </dialog>
+
+  <dialog id="maintenanceDialog" class="maintenance-dialog">
+    <div class="maintenance-shell">
+      <div class="dialog-head">
+        <div>
+          <div class="eyebrow">FLEET MAINTENANCE</div>
+          <h2>Maintenance tracking</h2>
+          <div class="subtle">Track recurring service by calendar time, controller-observed print hours, or observed print cycles.</div>
+        </div>
+        <button type="button" class="icon" data-maintenance-close>×</button>
+      </div>
+
+      <div class="maintenance-tracking-note">
+        Usage counters begin when this controller starts observing a printer. They are controller-observed values, not manufacturer lifetime counters.
+      </div>
+      <div id="maintenanceStatus" class="subtle"></div>
+      <div id="maintenanceError" class="error hidden"></div>
+
+      <form id="maintenanceTaskForm" class="maintenance-task-form">
+        <input id="maintenanceTaskId" type="hidden" />
+        <div class="maintenance-form-head">
+          <div>
+            <strong id="maintenanceFormTitle">Add maintenance task</strong>
+            <div class="field-help">Completed tasks remain in maintenance history even if the task is later deleted.</div>
+          </div>
+        </div>
+        <div class="maintenance-form-grid">
+          <label>Printer
+            <select id="maintenancePrinter" required></select>
+          </label>
+          <label>Task name
+            <input id="maintenanceName" type="text" maxlength="100" placeholder="Lubricate rails" required />
+          </label>
+          <label class="maintenance-description-field">Description
+            <textarea id="maintenanceDescription" rows="3" maxlength="1000" placeholder="Optional service instructions or inspection points"></textarea>
+          </label>
+          <label>Interval type
+            <select id="maintenanceType">
+              <option value="days">Calendar days</option>
+              <option value="print_hours">Observed print hours</option>
+              <option value="print_count">Observed print cycles</option>
+            </select>
+          </label>
+          <label>Interval
+            <input id="maintenanceInterval" type="number" min="1" step="1" value="30" required />
+          </label>
+          <label class="checkbox-label maintenance-enabled-field">
+            <input id="maintenanceEnabled" type="checkbox" checked />
+            Task enabled
+          </label>
+        </div>
+        <div class="actions">
+          <button id="maintenanceCancelEdit" type="button" class="secondary hidden">Cancel edit</button>
+          <button id="maintenanceSubmitBtn" type="submit" class="primary">Add task</button>
+        </div>
+      </form>
+
+      <div id="maintenanceList" class="maintenance-list"></div>
+
+      <div class="actions">
+        <button type="button" class="secondary" data-maintenance-close>Close</button>
       </div>
     </div>
   </dialog>
@@ -497,5 +562,6 @@
   </dialog>
 
   <script type="module" src="/app.js"></script>
+  <script type="module" src="/maintenance.js"></script>
 </body>
 </html>
