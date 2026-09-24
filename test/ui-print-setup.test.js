@@ -513,13 +513,17 @@ test('FlashForge detail exposes printer-reported filament type in Toolhead statu
   assert.match(app, /Filament presence unavailable/);
   assert.match(app, /FlashForge 5M local \/detail API/);
   assert.match(app, /Controller material type/);
-  assert.match(app, /Controller filament colour/);
+  assert.match(app, /Controller colour family/);
+  assert.match(app, /data-material-color-family-input/);
+  assert.match(app, /Specify exact shade \(optional\)/);
+  assert.match(app, /data-material-color-shade-enabled/);
   assert.match(app, /data-material-color-input/);
+  assert.match(app, /materialColorFamilyDesignation/);
   assert.match(app, /materialColorDesignation/);
   assert.match(app, /'ASA-CF'/);
   assert.match(app, /data-material-designation-save/);
   assert.match(app, /data-material-designation-clear/);
-  assert.match(app, /Material and colour are used by automatic queue compatibility/);
+  assert.match(app, /colour family is used for automatic queue compatibility/);
 });
 
 
