@@ -277,6 +277,7 @@ export class PrintQueueService {
     this.unsubscribe = null;
     this.processing = false;
     this.pendingReconcile = false;
+    this.dispatchPaused = false;
     this.startingPrinters = new Set();
     // FlashForge can hold CANCEL and the old filename indefinitely. Remember
     // operator acknowledgement for that exact terminal report until the printer
@@ -326,6 +327,12 @@ export class PrintQueueService {
   stop() {
     this.unsubscribe?.();
     this.unsubscribe = null;
+  }
+
+  setDispatchPaused(paused) {
+    this.dispatchPaused = paused === true;
+    if (!this.dispatchPaused) this.scheduleReconcile();
+    return this.dispatchPaused;
   }
 
   getSnapshot() {
@@ -1037,6 +1044,13 @@ export class PrintQueueService {
         changed = true;
       }
 
+      // Restore staging can temporarily freeze new queue dispatch while
+      // continuing to observe active/terminal printer transitions above.
+      if (this.dispatchPaused) {
+        if (changed) await this.persistAndNotify();
+        return;
+      }
+
       // Priority is evaluated before manual queue order. Every six hours a
       // waiting job gains one effective priority level so lower-priority work
       // cannot be starved indefinitely.
@@ -1208,6 +1222,7 @@ export class PrintQueueService {
   }
 
   async startAutomaticJobUnlocked(job, candidate) {
+    if (this.dispatchPaused) return;
     if (!job || job.status !== 'queued' || job.assignmentMode !== 'automatic' || !candidate?.printerId) return;
     if (!this.printerAllowed(candidate.printerId)) return;
     if (this.startingPrinters.has(candidate.printerId)) return;
@@ -1365,6 +1380,7 @@ export class PrintQueueService {
   }
 
   async startJobUnlocked(job) {
+    if (this.dispatchPaused) return;
     if (!job || job.status !== 'queued' || !this.printerAllowed(job.printerId) || this.startingPrinters.has(job.printerId) || this.requiresBedClearance(job.printerId)) return;
     this.startingPrinters.add(job.printerId);
     try {
