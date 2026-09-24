@@ -343,12 +343,17 @@ input:focus,select:focus { border-color:#7a9fbe; }
 .material-help { margin-top:10px; }
 .material-designation-control { margin-top:10px; padding-top:10px; border-top:1px solid #202a32; }
 .material-designation-control label { margin:0 0 8px; }
-.material-designation-control input { margin-top:6px; }
-.material-designation-fields { display:grid; grid-template-columns:minmax(0,1fr) 132px; gap:10px; align-items:end; }
+.material-designation-control input,
+.material-designation-control select { margin-top:6px; }
+.material-designation-fields { display:grid; grid-template-columns:minmax(0,1fr) minmax(150px,.7fr) minmax(180px,.8fr); gap:10px; align-items:end; }
 .material-designation-fields label { margin-top:0; }
 .material-designation-fields input[type="color"] { min-height:44px; padding:5px; cursor:pointer; }
+.material-designation-fields input[type="color"]:disabled { cursor:not-allowed; }
+.material-shade-toggle > span { display:flex; align-items:center; gap:7px; min-height:22px; }
+.material-shade-toggle input[type="checkbox"] { width:auto; margin:0; }
 .material-designation-control .field-help { margin-top:8px; }
-@media (max-width:520px) { .material-designation-fields { grid-template-columns:1fr; gap:0; } }
+@media (max-width:800px) { .material-designation-fields { grid-template-columns:1fr 1fr; } .material-shade-toggle { grid-column:1 / -1; } }
+@media (max-width:520px) { .material-designation-fields { grid-template-columns:1fr; gap:0; } .material-shade-toggle { grid-column:auto; } }
 .printer-management-panel label { margin-top:0; }
 .printer-management-panel .mini-actions { margin-top:10px; }
 .printer-management-panel .field-help { margin-top:9px; }
