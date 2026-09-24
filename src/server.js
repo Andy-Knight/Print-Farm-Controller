@@ -1550,15 +1550,6 @@ async function startController() {
       }).catch(() => {});
       console.warn(`Backup staging unavailable: ${error.message}`);
     }
-    try {
-      await scheduledBackupService.start();
-    } catch (error) {
-      await diagnosticLogger.warn('backup', 'Scheduled backup service could not start', {
-        error:error?.message || String(error)
-      }).catch(() => {});
-      console.warn(`Scheduled backup service unavailable: ${error.message}`);
-    }
-
     licenseManager = await loadLicenseManager({
       appDir:APP_DIR,
       dataDir:controllerDataDir,
@@ -1585,6 +1576,15 @@ async function startController() {
         rollbackRetainUntil:committedRestore?.rollbackRetainUntil || null
       }).catch(() => {});
       restoreTransaction = null;
+    }
+
+    try {
+      await scheduledBackupService.start();
+    } catch (error) {
+      await diagnosticLogger.warn('backup', 'Scheduled backup service could not start', {
+        error:error?.message || String(error)
+      }).catch(() => {});
+      console.warn(`Scheduled backup service unavailable: ${error.message}`);
     }
 
     console.log(`Print Farm Controller v${CONTROLLER_VERSION} running at http://localhost:${PORT}`);
