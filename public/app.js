@@ -38,6 +38,12 @@ const backupStatusGrid = document.querySelector('#backupStatusGrid');
 const backupCreateBtn = document.querySelector('#backupCreateBtn');
 const backupActionStatus = document.querySelector('#backupActionStatus');
 const backupError = document.querySelector('#backupError');
+const restoreBackupFileInput = document.querySelector('#restoreBackupFileInput');
+const restoreInspectBtn = document.querySelector('#restoreInspectBtn');
+const restoreStageBtn = document.querySelector('#restoreStageBtn');
+const restoreInspectStatus = document.querySelector('#restoreInspectStatus');
+const restoreInspectError = document.querySelector('#restoreInspectError');
+const restoreInspectionSummary = document.querySelector('#restoreInspectionSummary');
 const batchModeBtn = document.querySelector('#batchModeBtn');
 const batchModeMenuBtn = document.querySelector('#batchModeMenuBtn');
 const topbarOverflow = document.querySelector('#topbarOverflow');
@@ -749,6 +755,111 @@ async function createManualBackup() {
   } finally {
     backupCreateBtn.disabled = false;
     backupCreateBtn.textContent = original;
+  }
+}
+
+function clearRestoreInspection() {
+  if (restoreInspectStatus) restoreInspectStatus.textContent = '';
+  if (restoreInspectError) {
+    restoreInspectError.textContent = '';
+    restoreInspectError.classList.add('hidden');
+  }
+  if (restoreInspectionSummary) {
+    restoreInspectionSummary.innerHTML = '';
+    restoreInspectionSummary.classList.add('hidden');
+  }
+  if (restoreStageBtn) restoreStageBtn.disabled = true;
+}
+
+function renderRestoreInspection(inspection) {
+  if (!restoreInspectionSummary) return;
+  const counts = inspection?.counts || {};
+  const warnings = Array.isArray(inspection?.warnings) ? inspection.warnings : [];
+  const migrations = Array.isArray(inspection?.migrationsRequired) ? inspection.migrationsRequired : [];
+  restoreInspectionSummary.innerHTML = `
+    <div class="restore-valid-banner"><strong>Backup is valid</strong><span>Inspection completed without changing controller data.</span></div>
+    <div class="restore-inspection-grid">
+      <div><span>Backup file</span><strong>${escapeHtml(inspection.fileName || '—')}</strong></div>
+      <div><span>Created</span><strong>${escapeHtml(backupStatusTime(inspection.createdAt, '—'))}</strong></div>
+      <div><span>Source controller</span><strong>v${escapeHtml(inspection.sourceControllerVersion || '—')}</strong></div>
+      <div><span>Backup format</span><strong>v${escapeHtml(String(inspection.formatVersion || '—'))}</strong></div>
+      <div><span>Archive size</span><strong>${escapeHtml(formatBytes(inspection.archiveBytes))}</strong></div>
+      <div><span>Payload size</span><strong>${escapeHtml(formatBytes(inspection.payloadBytes))}</strong></div>
+      <div><span>Printers</span><strong>${escapeHtml(String(counts.printers ?? 0))}</strong></div>
+      <div><span>Print Library</span><strong>${escapeHtml(String(counts.printLibrary ?? 0))} file${Number(counts.printLibrary || 0) === 1 ? '' : 's'}</strong></div>
+      <div><span>Unfinished queue</span><strong>${escapeHtml(String(counts.queued ?? 0))}</strong></div>
+      <div><span>History</span><strong>${escapeHtml(String(counts.history ?? 0))}</strong></div>
+      <div><span>Signed licence</span><strong>${inspection.licenseIncluded ? 'Included' : 'Not included'}</strong></div>
+      <div><span>Migration</span><strong>${migrations.length ? 'Required' : 'Not required'}</strong></div>
+    </div>
+    ${warnings.length ? `<div class="restore-warning-list"><strong>Restore notices</strong><ul>${warnings.map((warning) => `<li>${escapeHtml(warning)}</li>`).join('')}</ul></div>` : ''}
+    <div class="field-help">The backup has passed inspection. Actual restore/staging is not enabled in this build yet.</div>
+  `;
+  restoreInspectionSummary.classList.remove('hidden');
+}
+
+async function inspectRestoreFile() {
+  const file = restoreBackupFileInput?.files?.[0];
+  if (!(file instanceof File) || !file.size) {
+    clearRestoreInspection();
+    if (restoreInspectError) {
+      restoreInspectError.textContent = 'Choose a .pfcbackup file to inspect.';
+      restoreInspectError.classList.remove('hidden');
+    }
+    return;
+  }
+  if (!/\.pfcbackup$/i.test(file.name)) {
+    clearRestoreInspection();
+    if (restoreInspectError) {
+      restoreInspectError.textContent = 'Choose a .pfcbackup file.';
+      restoreInspectError.classList.remove('hidden');
+    }
+    return;
+  }
+  if (file.size > (4 * 1024 * 1024 * 1024) - 1) {
+    clearRestoreInspection();
+    if (restoreInspectError) {
+      restoreInspectError.textContent = 'Backup file exceeds the supported restore size limit.';
+      restoreInspectError.classList.remove('hidden');
+    }
+    return;
+  }
+
+  clearRestoreInspection();
+  const original = restoreInspectBtn?.textContent || 'Inspect backup';
+  if (restoreInspectBtn) {
+    restoreInspectBtn.disabled = true;
+    restoreInspectBtn.textContent = 'Inspecting…';
+  }
+  if (restoreBackupFileInput) restoreBackupFileInput.disabled = true;
+  if (restoreInspectStatus) restoreInspectStatus.textContent = 'Uploading and validating backup…';
+
+  try {
+    const response = await fetch('/api/restore/inspect', {
+      method:'POST',
+      headers:{
+        'x-file-name':encodeURIComponent(file.name),
+        'content-type':'application/octet-stream'
+      },
+      body:file
+    });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(payload.error || `Restore inspection failed (${response.status})`);
+    if (!payload.inspection?.valid) throw new Error('Backup inspection did not return a valid result');
+    renderRestoreInspection(payload.inspection);
+    if (restoreInspectStatus) restoreInspectStatus.textContent = 'Backup inspection passed.';
+  } catch (error) {
+    if (restoreInspectStatus) restoreInspectStatus.textContent = '';
+    if (restoreInspectError) {
+      restoreInspectError.textContent = error.message;
+      restoreInspectError.classList.remove('hidden');
+    }
+  } finally {
+    if (restoreBackupFileInput) restoreBackupFileInput.disabled = false;
+    if (restoreInspectBtn) {
+      restoreInspectBtn.disabled = false;
+      restoreInspectBtn.textContent = original;
+    }
   }
 }
 
@@ -1747,11 +1858,15 @@ diagnosticsBtn?.addEventListener('click', async () => {
 backupRecoveryBtn?.addEventListener('click', async () => {
   if (topbarOverflow) topbarOverflow.open = false;
   if (backupActionStatus) backupActionStatus.textContent = '';
+  clearRestoreInspection();
+  if (restoreBackupFileInput) restoreBackupFileInput.value = '';
   backupRecoveryDialog?.showModal();
   await loadBackupStatus();
 });
 document.querySelectorAll('[data-backup-close]').forEach((el) => el.addEventListener('click', () => backupRecoveryDialog?.close()));
 backupCreateBtn?.addEventListener('click', createManualBackup);
+restoreInspectBtn?.addEventListener('click', inspectRestoreFile);
+restoreBackupFileInput?.addEventListener('change', clearRestoreInspection);
 document.querySelectorAll('[data-diagnostics-close]').forEach((el) => el.addEventListener('click', () => diagnosticsDialog?.close()));
 diagnosticsRefreshBtn?.addEventListener('click', loadDiagnostics);
 diagnosticsVerboseBtn?.addEventListener('click', toggleVerboseDiagnostics);
