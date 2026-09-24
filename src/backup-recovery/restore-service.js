@@ -233,8 +233,7 @@ export async function stageRestoreBackup(filePath, {
       fileName:inspection.fileName,
       counts:inspection.counts,
       recoveryHeldJobs:inspection.counts.queued,
-      productionBatchesPaused:true,
-      pendingMarkerPath:paths.pendingMarkerPath
+      productionBatchesPaused:true
     };
   } catch (error) {
     await fs.rm(stageDir, { recursive:true, force:true }).catch(() => {});
@@ -283,12 +282,23 @@ async function rollbackExternalLicense(marker) {
 async function rollbackActivatedMarker(marker, markerPath) {
   const dataDir = path.resolve(marker.dataDir);
   const rollbackDir = path.resolve(marker.rollbackDir);
-  await fs.rm(dataDir, { recursive:true, force:true }).catch(() => {});
-  if (marker.liveDataExisted === true && await pathExists(rollbackDir)) {
-    await fs.rename(rollbackDir, dataDir);
+  const rollbackExists = await pathExists(rollbackDir);
+  const stageExists = await pathExists(marker.stageDir);
+
+  if (marker.liveDataExisted === true) {
+    if (rollbackExists) {
+      await fs.rm(dataDir, { recursive:true, force:true }).catch(() => {});
+      await fs.rename(rollbackDir, dataDir);
+    }
+    // If no rollback directory exists, activation had not yet moved the
+    // original live data, so leave dataDir untouched.
   } else {
+    // With no previous data directory, a missing stage directory means the
+    // staged data was already renamed into place and must be removed.
+    if (!stageExists) await fs.rm(dataDir, { recursive:true, force:true }).catch(() => {});
     await fs.rm(rollbackDir, { recursive:true, force:true }).catch(() => {});
   }
+
   await rollbackExternalLicense(marker).catch(() => {});
   await fs.rm(marker.externalLicenseBackupPath, { force:true }).catch(() => {});
   await fs.rm(marker.stageDir, { recursive:true, force:true }).catch(() => {});
@@ -306,7 +316,7 @@ export async function activatePendingRestore({ dataDir, licensePath } = {}) {
     throw new Error('Pending restore marker does not match this controller installation');
   }
 
-  if (marker.phase === 'activated') {
+  if (marker.phase === 'activated' || marker.phase === 'activating') {
     await rollbackActivatedMarker(marker, paths.pendingMarkerPath);
     return {
       rolledBack:true,
@@ -322,6 +332,9 @@ export async function activatePendingRestore({ dataDir, licensePath } = {}) {
   marker.externalLicenseExisted = marker.externalLicenseMode === 'inside-data'
     ? null
     : await pathExists(licensePath);
+  marker.phase = 'activating';
+  marker.activationStartedAt = new Date().toISOString();
+  await writeJsonAtomic(paths.pendingMarkerPath, marker);
 
   try {
     await fs.rm(marker.rollbackDir, { recursive:true, force:true }).catch(() => {});
@@ -362,6 +375,22 @@ export async function rollbackActivatedRestore(transaction) {
   if (!transaction?.activated || !transaction.marker) return false;
   await rollbackActivatedMarker(transaction.marker, transaction.markerPath);
   return true;
+}
+
+export async function cancelStagedRestore(dataDir) {
+  const paths = restoreRuntimePaths(dataDir);
+  if (!await pathExists(paths.pendingMarkerPath)) return { cancelled:false, pending:false };
+  const marker = await readJson(paths.pendingMarkerPath);
+  if (marker.phase !== 'staged') {
+    const error = new Error('Restore activation has already started and can no longer be cancelled from the running controller');
+    error.statusCode = 409;
+    throw error;
+  }
+  await fs.rm(marker.stageDir, { recursive:true, force:true }).catch(() => {});
+  await fs.rm(marker.rollbackDir, { recursive:true, force:true }).catch(() => {});
+  await fs.rm(marker.externalLicenseBackupPath, { force:true }).catch(() => {});
+  await fs.rm(paths.pendingMarkerPath, { force:true });
+  return { cancelled:true, pending:false, backupId:marker.backupId || null, fileName:marker.backupFileName || null };
 }
 
 export async function pendingRestoreStatus(dataDir) {
