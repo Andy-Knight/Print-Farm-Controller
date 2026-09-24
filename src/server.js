@@ -41,6 +41,14 @@ import { DiagnosticLogger } from './diagnostic-logger.js';
 import { ManualBackupManager } from './backup-recovery/manual-backup-manager.js';
 import { inspectRestoreBackup } from './backup-recovery/restore-inspector.js';
 import { stageRestoreUploadRequest } from './backup-recovery/restore-upload-staging.js';
+import {
+  activatePendingRestore,
+  cancelStagedRestore,
+  commitActivatedRestore,
+  pendingRestoreStatus,
+  rollbackActivatedRestore,
+  stageRestoreBackup
+} from './backup-recovery/restore-service.js';
 
 const runtimePaths = resolveControllerRuntimePaths();
 const PUBLIC_DIR = runtimePaths.publicDir;
@@ -84,6 +92,7 @@ chamberPreheat = new ChamberPreheatService({ fleetState, operationCoordinator:pr
 const emulatorManager = new EmulatorManager();
 let licenseManager = null;
 let restoreInspectionInProgress = false;
+let restorePendingRestart = false;
 
 function isControllerSimulator(printer) {
   return printer?.simulated === true || emulatorManager.isSimulatedConfig(printer);
@@ -155,6 +164,23 @@ function currentLicenseSnapshot(printers = fleetState.getFleet()) {
     printers,
     isSimulated: isControllerSimulator
   });
+}
+
+function restorePhysicalActivityBlockers() {
+  const blockers = [];
+  const activeQueue = printQueue?.getSnapshot?.().active || 0;
+  if (activeQueue > 0) blockers.push(`${activeQueue} controller queue operation${activeQueue === 1 ? '' : 's'} are active`);
+
+  for (const printer of decoratedFleet()) {
+    if (isControllerSimulator(printer)) continue;
+    const state = String(printer?.status?.status || '').trim().toLowerCase();
+    const activePrint = ['printing','working','building_from_sd','pause','paused'].includes(state)
+      || (state === 'heating' && Boolean(printer?.status?.fileName));
+    if (activePrint) blockers.push(`${printer.name || printer.id}: active print`);
+    if (printer?.chamberPreheat?.active) blockers.push(`${printer.name || printer.id}: chamber preheat`);
+    if (printer?.controllerActivity) blockers.push(`${printer.name || printer.id}: ${printer.controllerActivity.label || printer.controllerActivity.kind || 'controller operation'}`);
+  }
+  return [...new Set(blockers)];
 }
 
 function printerLicensedForNewWork(printerId) {
@@ -373,6 +399,14 @@ async function refreshAfterCommand(id) {
 }
 
 async function apiRoute(req, res, url) {
+  const mutation = ['POST','PUT','PATCH','DELETE'].includes(req.method);
+  const mayCancelStagedRestore = req.method === 'DELETE' && url.pathname === '/api/restore/stage';
+  if (restorePendingRestart && mutation && !mayCancelStagedRestore) {
+    const error = new Error('A restore is staged and waiting for controller restart. Restart the controller to activate it, or cancel the staged restore before making further changes.');
+    error.statusCode = 409;
+    throw error;
+  }
+
   if (req.method === 'GET' && url.pathname === '/api/health') {
     return json(res, 200, { ok: true, service: 'printer-fleet-controller', version: CONTROLLER_VERSION, license: currentLicenseSnapshot(), liveState: true });
   }
@@ -424,6 +458,66 @@ async function apiRoute(req, res, url) {
       });
       return;
     }
+  }
+
+  if (req.method === 'GET' && url.pathname === '/api/restore/status') {
+    return json(res, 200, { restore:await pendingRestoreStatus(runtimePaths.dataDir) });
+  }
+
+  if (req.method === 'POST' && url.pathname === '/api/restore/stage') {
+    if (restoreInspectionInProgress) {
+      const error = new Error('A restore backup operation is already in progress');
+      error.statusCode = 409;
+      throw error;
+    }
+    const blockers = restorePhysicalActivityBlockers();
+    if (blockers.length) {
+      const error = new Error(`Restore cannot be staged while physical printer work is active: ${blockers.join('; ')}`);
+      error.statusCode = 409;
+      throw error;
+    }
+
+    restoreInspectionInProgress = true;
+    let uploaded = null;
+    try {
+      uploaded = await stageRestoreUploadRequest(req, req.headers['x-file-name']);
+      await diagnosticLogger.info('restore', 'Restore staging requested', {
+        fileName:uploaded.fileName,
+        size:uploaded.size
+      });
+      const restore = await stageRestoreBackup(uploaded.filePath, {
+        dataDir:runtimePaths.dataDir,
+        licensePath:runtimePaths.licensePath,
+        currentControllerVersion:CONTROLLER_VERSION,
+        originalFileName:uploaded.fileName
+      });
+      restorePendingRestart = true;
+      await diagnosticLogger.warn('restore', 'Restore staged; controller restart required', {
+        fileName:restore.fileName,
+        backupId:restore.backupId,
+        recoveryHeldJobs:restore.recoveryHeldJobs
+      });
+      return json(res, 202, { restore });
+    } catch (error) {
+      await diagnosticLogger.warn('restore', 'Restore staging failed', {
+        fileName:uploaded?.fileName || null,
+        error:error?.message || String(error)
+      });
+      throw error;
+    } finally {
+      restoreInspectionInProgress = false;
+      await uploaded?.cleanup().catch(() => {});
+    }
+  }
+
+  if (req.method === 'DELETE' && url.pathname === '/api/restore/stage') {
+    const result = await cancelStagedRestore(runtimePaths.dataDir);
+    restorePendingRestart = false;
+    await diagnosticLogger.info('restore', 'Staged restore cancelled', {
+      backupId:result.backupId || null,
+      fileName:result.fileName || null
+    });
+    return json(res, 200, { restore:result });
   }
 
   if (req.method === 'POST' && url.pathname === '/api/restore/inspect') {
@@ -1334,40 +1428,79 @@ async function shutdown() {
 process.on('SIGINT', shutdown);
 process.on('SIGTERM', shutdown);
 
-async function startController() {
-  try {
-    await diagnosticLogger.init();
-    diagnosticLogger.patchConsole();
-    console.log(`Diagnostic logging enabled (${runtimePaths.customLogDir ? 'LOG_DIR override' : 'application-local logs directory'})`);
-  } catch (error) {
-    console.warn(`Diagnostic file logging unavailable: ${error.message}`);
-  }
-  try {
-    await manualBackupManager.init();
-  } catch (error) {
-    await diagnosticLogger.warn('backup', 'Backup staging is unavailable at startup', {
-      error:error?.message || String(error)
-    }).catch(() => {});
-    console.warn(`Backup staging unavailable: ${error.message}`);
-  }
-  licenseManager = await loadLicenseManager({
-    appDir:APP_DIR,
-    dataDir:controllerDataDir,
-    preferredLicenseFile:runtimePaths.licensePath
+async function listenControllerServer() {
+  await new Promise((resolve, reject) => {
+    const onError = (error) => {
+      server.off('listening', onListening);
+      reject(error);
+    };
+    const onListening = () => {
+      server.off('error', onError);
+      resolve();
+    };
+    server.once('error', onError);
+    server.once('listening', onListening);
+    server.listen(PORT, HOST);
   });
+}
 
+async function startController() {
+  let restoreTransaction = null;
   try {
-    const emulatorStatus = await emulatorManager.init();
-    if (emulatorStatus.running) console.log(`Integrated printer simulator enabled with ${emulatorStatus.printerCount} loopback endpoints`);
-  } catch (error) {
-    console.error(`Could not start integrated printer simulator: ${error.message}`);
-  }
+    const restoreStartup = await activatePendingRestore({
+      dataDir:runtimePaths.dataDir,
+      licensePath:runtimePaths.licensePath
+    });
+    if (restoreStartup?.activated) {
+      restoreTransaction = restoreStartup;
+      console.log(`Activating staged restore ${restoreStartup.fileName || restoreStartup.backupId || ''}`.trim());
+    } else if (restoreStartup?.rolledBack) {
+      console.warn(`Rolled back an incomplete restore startup: ${restoreStartup.reason}`);
+    }
 
-  await fleetState.start();
-  await printQueue.start();
-  chamberPreheat.startService();
+    try {
+      await diagnosticLogger.init();
+      diagnosticLogger.patchConsole();
+      console.log(`Diagnostic logging enabled (${runtimePaths.customLogDir ? 'LOG_DIR override' : 'application-local logs directory'})`);
+    } catch (error) {
+      console.warn(`Diagnostic file logging unavailable: ${error.message}`);
+    }
+    try {
+      await manualBackupManager.init();
+    } catch (error) {
+      await diagnosticLogger.warn('backup', 'Backup staging is unavailable at startup', {
+        error:error?.message || String(error)
+      }).catch(() => {});
+      console.warn(`Backup staging unavailable: ${error.message}`);
+    }
 
-  server.listen(PORT, HOST, () => {
+    licenseManager = await loadLicenseManager({
+      appDir:APP_DIR,
+      dataDir:controllerDataDir,
+      preferredLicenseFile:runtimePaths.licensePath
+    });
+
+    try {
+      const emulatorStatus = await emulatorManager.init();
+      if (emulatorStatus.running) console.log(`Integrated printer simulator enabled with ${emulatorStatus.printerCount} loopback endpoints`);
+    } catch (error) {
+      console.error(`Could not start integrated printer simulator: ${error.message}`);
+    }
+
+    await fleetState.start();
+    await printQueue.start();
+    chamberPreheat.startService();
+    await listenControllerServer();
+
+    if (restoreTransaction) {
+      await commitActivatedRestore(restoreTransaction);
+      await diagnosticLogger.info('restore', 'Staged restore activated successfully', {
+        backupId:restoreTransaction.backupId || null,
+        fileName:restoreTransaction.fileName || null
+      }).catch(() => {});
+      restoreTransaction = null;
+    }
+
     console.log(`Print Farm Controller v${CONTROLLER_VERSION} running at http://localhost:${PORT}`);
     const license = currentLicenseSnapshot();
     console.log(`Licence: ${license.label} (${license.source}; enforcement ${license.enforcementEnabled ? 'enabled' : 'disabled'})`);
@@ -1380,7 +1513,22 @@ async function startController() {
     console.log('Batch fleet control enabled');
     console.log('Verified multi-printer file distribution enabled');
     console.log('Persistent fleet print queue + history enabled');
-  });
+  } catch (error) {
+    chamberPreheat.stopService();
+    printQueue.stop();
+    fleetState.stop();
+    cameraManager.stop();
+    try { await emulatorManager.stop(); } catch {}
+    if (restoreTransaction) {
+      try {
+        await rollbackActivatedRestore(restoreTransaction);
+        console.error('Restored controller data failed startup validation and was rolled back automatically.');
+      } catch (rollbackError) {
+        console.error(`Automatic restore rollback failed: ${rollbackError.message}`);
+      }
+    }
+    throw error;
+  }
 }
 
 startController().catch((error) => {
