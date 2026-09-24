@@ -183,15 +183,14 @@ Every non-terminal restored queue job must be recovery-held and every restored p
 
 Initial v0.23.0 destinations are manual download/save plus scheduled local or OS-mounted/network/NAS paths. Scheduled retention is count-based and only prunes scheduler-owned backups from the same installation. Manual backups are never automatically deleted. Scheduled configuration is restored disabled until explicitly re-enabled.
 
-Implementation status: **stages 1 and 2 are implemented** — dependency-free ZIP-compatible `.pfcbackup` writing, manifest/checksum verification, persistent installation ID/backup settings foundation, logical snapshot export, manual backup API/status, one-at-a-time backup creation, one-time streamed download with stale staging cleanup, diagnostic logging, and the Backup & Recovery manual-backup UI. Restore is intentionally still disabled in the UI. Next: restore inspection/validation and staged startup activation with rollback, then recovery-hold UI and scheduled backup/retention.
+Implementation status: **stages 1–3 are implemented** — `.pfcbackup` archive/checksum creation, logical snapshot export, manual backup API/download/UI, and read-only restore inspection. Restore inspection rejects unchecksummed/hidden entries, absolute/traversal paths, unsupported/newer versions or schema versions, malformed state, manifest-count mismatches, missing/mismatched Print Library payloads/hashes, unresolved queue→library references and insufficient staging space. It reports counts, warnings and required version migration without changing live data. Actual restore staging/activation remains disabled. Next: staged restore activation on restart with rollback and recovery-hold semantics, then scheduled backup/retention.
 
 ## Next steps
 
-1. Add restore inspection/validation for `.pfcbackup`, including format/version/checksum/path/library-reference validation.
-2. Add restore migration and staged startup activation with automatic rollback.
-3. Add queue recovery-hold semantics and UI.
-4. Add scheduled local/network/NAS backup settings, retention and diagnostics.
-5. Add end-to-end disaster-recovery tests using separate temporary data directories.
+1. Add restore migration and staged startup activation with automatic rollback.
+2. Add queue recovery-hold semantics and UI.
+3. Add scheduled local/network/NAS backup settings, retention and diagnostics.
+4. Add end-to-end disaster-recovery tests using separate temporary data directories.
 7. Continue physical validation of experimental Bambu behaviour before removing the experimental designation.
 8. Add Linux x64 and ARM64 packaging after the active backup/recovery work.
 
