@@ -134,6 +134,9 @@ function publicJob(job) {
     lastPrinterState: job.lastPrinterState || null,
     bedClearanceRequired: job.bedClearanceRequired === true,
     bedClearedAt: job.bedClearedAt || null,
+    restoreRecoveryHold:job.restoreRecoveryHold === true,
+    restoreOriginalStatus:job.restoreOriginalStatus || null,
+    restoredAt:job.restoredAt || null,
     fileMaterial: job.fileMaterial ? { ...job.fileMaterial, materials: Array.isArray(job.fileMaterial.materials) ? [...job.fileMaterial.materials] : [] } : null
   };
 }
@@ -303,7 +306,10 @@ export class PrintQueueService {
         productionQuantity: Number.isInteger(Number(job.productionQuantity)) && Number(job.productionQuantity) > 0 ? Number(job.productionQuantity) : null,
         options: sanitizeOptions(job.options || {}),
         bedClearanceRequired: job.bedClearanceRequired === true,
-        bedClearedAt: job.bedClearedAt || null
+        bedClearedAt: job.bedClearedAt || null,
+        restoreRecoveryHold:job.restoreRecoveryHold === true,
+        restoreOriginalStatus:job.restoreOriginalStatus || null,
+        restoredAt:job.restoredAt || null
       };
     });
     this.diagnosticJobs = new Map(this.jobs.map((job) => [job.id, {
@@ -393,7 +399,8 @@ export class PrintQueueService {
           printerName: this.fleetState.getPrinterState(job.printerId)?.name || job.printerName || null,
           progress: Number(job.maxProgress || 0),
           error: job.error || null,
-          bedClearanceRequired: job.bedClearanceRequired === true && !job.bedClearedAt
+          bedClearanceRequired: job.bedClearanceRequired === true && !job.bedClearedAt,
+          restoreRecoveryHold:job.restoreRecoveryHold === true
         }))
       };
     }).sort((a, b) => new Date(a.queuedAt || 0).getTime() - new Date(b.queuedAt || 0).getTime());
@@ -728,6 +735,86 @@ export class PrintQueueService {
     const job = this.jobs.find((item) => item.id === id);
     if (!job) throw new Error('Queued print not found');
     if (job.status !== 'needs_review') throw new Error('This queued print is not waiting for review');
+
+    if (job.restoreRecoveryHold === true) {
+      if (job.bedClearanceRequired === true && !job.bedClearedAt) {
+        job.error = 'Restored — review required. Confirm the build plate is clear before releasing this restored job.';
+        job.updatedAt = nowIso();
+        await this.persistAndNotify();
+        return publicJob(job);
+      }
+
+      job.options = {
+        ...sanitizeOptions(job.options || {}),
+        toolMap:null,
+        materialMap:null,
+        usedLogicalTools:[]
+      };
+      job.compatibility = null;
+      job.selectionReason = null;
+      job.toolSnapshot = [];
+
+      if (job.assignmentMode === 'automatic') {
+        job.status = 'queued';
+        job.printerId = null;
+        job.printerName = 'Next available compatible printer';
+        job.restoreRecoveryHold = false;
+        job.restoreOriginalStatus = null;
+        job.restoredAt = null;
+        job.error = null;
+        job.updatedAt = nowIso();
+        await this.persistAndNotify();
+        this.scheduleReconcile();
+        return publicJob(job);
+      }
+
+      const printer = await this.getPrinter(job.printerId);
+      if (!printer) {
+        job.error = 'Restored — review required. The assigned printer is no longer configured.';
+        job.updatedAt = nowIso();
+        await this.persistAndNotify();
+        return publicJob(job);
+      }
+      const state = this.fleetState.getPrinterState(job.printerId);
+      if (!state?.online || !state.status) {
+        job.error = 'Restored — review required. The assigned printer must be online before this job can be released.';
+        job.updatedAt = nowIso();
+        await this.persistAndNotify();
+        return publicJob(job);
+      }
+      const adapter = this.adapterResolver(printer);
+      const evaluation = evaluateQueueCompatibility({
+        job,
+        printer,
+        state,
+        adapter,
+        bedClearanceRequired:false,
+        reserved:false
+      });
+      if (!evaluation.ready) {
+        job.error = `Restored — review required. ${evaluation.reasons?.map((reason) => reason.text).filter(Boolean).join('; ') || 'The assigned printer is not currently compatible.'}`;
+        job.updatedAt = nowIso();
+        await this.persistAndNotify();
+        return publicJob(job);
+      }
+      job.options = {
+        ...sanitizeOptions(job.options || {}),
+        toolMap:evaluation.toolMap ? { ...evaluation.toolMap } : null,
+        materialMap:evaluation.materialMap ? { ...evaluation.materialMap } : null,
+        usedLogicalTools:Array.isArray(job.requirements?.requiredTools) ? [...job.requirements.requiredTools] : []
+      };
+      job.toolSnapshot = adapter.capabilities?.printToolMapping ? buildToolSnapshot(state, job.options.toolMap) : [];
+      job.status = 'queued';
+      job.restoreRecoveryHold = false;
+      job.restoreOriginalStatus = null;
+      job.restoredAt = null;
+      job.error = null;
+      job.updatedAt = nowIso();
+      await this.persistAndNotify();
+      this.scheduleReconcile();
+      return publicJob(job);
+    }
+
     if (job.assignmentMode === 'automatic') {
       job.status = 'queued';
       job.printerId = null;
