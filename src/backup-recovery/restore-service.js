@@ -7,20 +7,27 @@ import { inspectRestoreBackup } from './restore-inspector.js';
 const TERMINAL_STATES = new Set(['completed','failed','cancelled']);
 const PRINT_MAY_HAVE_STARTED_STATES = new Set(['starting','printing']);
 const RESERVED_EXTERNAL_LICENSE = '.pfc-restore-external-license.json';
+const RESTORE_CONTROL_DIR = '.restore-control';
+const BASE_MANAGED_ENTRIES = Object.freeze([
+  'printers.json',
+  'print-jobs.json',
+  'file-material-metadata.json',
+  'backup-settings.json',
+  'emulator-settings.json',
+  'print-library',
+  // A historical queue-files directory must not survive a restore and then
+  // migrate stale content back into the restored Print Library.
+  'queue-files'
+]);
 export const RESTORE_ROLLBACK_RETENTION_MS = 24 * 60 * 60 * 1000;
-
-function restoreBaseName(dataDir) {
-  return path.basename(path.resolve(dataDir)).replace(/[^0-9A-Za-z._-]/g, '_') || 'data';
-}
 
 export function restoreRuntimePaths(dataDir) {
   const resolved = path.resolve(dataDir);
-  const parent = path.dirname(resolved);
-  const base = restoreBaseName(resolved);
+  const controlDir = path.join(resolved, RESTORE_CONTROL_DIR);
   return {
     dataDir:resolved,
-    parentDir:parent,
-    pendingMarkerPath:path.join(parent, `.pfc-${base}-restore-pending.json`)
+    controlDir,
+    pendingMarkerPath:path.join(controlDir, 'pending-restore.json')
   };
 }
 
@@ -49,10 +56,33 @@ async function readJson(filePath) {
   return JSON.parse(await fs.readFile(filePath, 'utf8'));
 }
 
+function safeRelativePath(value, label = 'restore entry') {
+  const relative = String(value || '').replace(/\\/g, '/');
+  if (!relative || relative.startsWith('/') || /^[A-Za-z]:\//.test(relative)
+    || relative.split('/').some((part) => !part || part === '.' || part === '..')) {
+    throw new Error(`Pending restore marker ${label} is invalid`);
+  }
+  if (relative === RESTORE_CONTROL_DIR || relative.startsWith(`${RESTORE_CONTROL_DIR}/`)) {
+    throw new Error(`Pending restore marker ${label} overlaps restore control state`);
+  }
+  return relative;
+}
+
+function licenseInsideData(dataDir, licensePath) {
+  const relative = path.relative(path.resolve(dataDir), path.resolve(licensePath));
+  if (!relative || relative.startsWith('..') || path.isAbsolute(relative)) return null;
+  return safeRelativePath(relative, 'licence path');
+}
+
+function managedEntriesFromMarker(marker) {
+  const entries = [...BASE_MANAGED_ENTRIES];
+  if (marker.insideLicenseRelative) entries.push(safeRelativePath(marker.insideLicenseRelative, 'licence path'));
+  return [...new Set(entries)];
+}
+
 function validatePendingMarkerPaths(marker, dataDir, licensePath = null) {
   const paths = restoreRuntimePaths(dataDir);
-  const base = restoreBaseName(dataDir);
-  if (!marker || marker.format !== 'print-farm-controller-pending-restore' || marker.version !== 1) {
+  if (!marker || marker.format !== 'print-farm-controller-pending-restore' || marker.version !== 2) {
     throw new Error('Pending restore marker is invalid');
   }
   if (path.resolve(marker.dataDir) !== paths.dataDir) {
@@ -62,27 +92,38 @@ function validatePendingMarkerPaths(marker, dataDir, licensePath = null) {
     throw new Error('Pending restore marker licence path is invalid');
   }
 
-  const validateSibling = (value, prefix, label) => {
+  const validateControlChild = (value, prefix, label, extension = '') => {
     const resolved = path.resolve(String(value || ''));
-    if (path.dirname(resolved) !== paths.parentDir || !path.basename(resolved).startsWith(prefix)) {
+    const name = path.basename(resolved);
+    if (path.dirname(resolved) !== paths.controlDir
+      || !name.startsWith(prefix)
+      || (extension && !name.endsWith(extension))) {
       throw new Error(`Pending restore marker ${label} path is invalid`);
     }
     return resolved;
   };
 
-  marker.stageDir = validateSibling(marker.stageDir, `.pfc-${base}-restore-stage-`, 'stage');
-  marker.rollbackDir = validateSibling(marker.rollbackDir, `.pfc-${base}-restore-rollback-`, 'rollback');
-  marker.externalLicenseBackupPath = validateSibling(
+  marker.stageDir = validateControlChild(marker.stageDir, 'stage-', 'stage');
+  marker.rollbackDir = validateControlChild(marker.rollbackDir, 'rollback-', 'rollback');
+  marker.externalLicenseBackupPath = validateControlChild(
     marker.externalLicenseBackupPath,
-    `.pfc-${base}-license-rollback-`,
-    'licence rollback'
+    'license-rollback-',
+    'licence rollback',
+    '.json'
   );
-  return marker;
-}
 
-function licenseInsideData(dataDir, licensePath) {
-  const relative = path.relative(path.resolve(dataDir), path.resolve(licensePath));
-  return relative && !relative.startsWith('..') && !path.isAbsolute(relative) ? relative : null;
+  if (marker.insideLicenseRelative) {
+    marker.insideLicenseRelative = safeRelativePath(marker.insideLicenseRelative, 'licence path');
+  }
+  if (licensePath) {
+    const expectedInside = licenseInsideData(dataDir, licensePath);
+    if ((marker.insideLicenseRelative || null) !== (expectedInside || null)) {
+      throw new Error('Pending restore marker licence placement is invalid');
+    }
+  }
+
+  managedEntriesFromMarker(marker);
+  return marker;
 }
 
 function cleanRestoredOptions(options = {}) {
@@ -102,6 +143,7 @@ export function prepareRestoredJobs(jobs, { restoredAt = new Date().toISOString(
 
     const originalStatus = String(job.status || 'queued').toLowerCase();
     const automatic = job.assignmentMode === 'automatic';
+    const mayHavePrinted = PRINT_MAY_HAVE_STARTED_STATES.has(originalStatus);
     job.status = 'needs_review';
     job.restoreRecoveryHold = true;
     job.restoreOriginalStatus = originalStatus;
@@ -116,14 +158,13 @@ export function prepareRestoredJobs(jobs, { restoredAt = new Date().toISOString(
     job.finishedAt = null;
     job.maxProgress = 0;
     job.lastPrinterState = null;
-    const mayHavePrinted = PRINT_MAY_HAVE_STARTED_STATES.has(originalStatus);
+
     if (automatic && !mayHavePrinted) {
       job.printerId = null;
       job.printerName = 'Next available compatible printer';
     }
-    // A restored automatic job that was already starting/printing keeps its
-    // last assigned printer only until bed clearance is acknowledged. This is
-    // necessary to preserve the physical interlock for the correct build plate.
+    // If an automatic job may already have printed, retain the physical
+    // printer only until that build plate has been acknowledged clear.
     if (job.bedClearanceRequired === true || mayHavePrinted) {
       job.bedClearanceRequired = true;
       job.bedClearedAt = null;
@@ -148,6 +189,19 @@ async function writeStateJson(stageDir, fileName, value) {
   await writeJsonAtomic(path.join(stageDir, fileName), value);
 }
 
+async function removeControlDirIfEmpty(controlDir) {
+  const remaining = await fs.readdir(controlDir).catch(() => []);
+  if (!remaining.length) await fs.rm(controlDir, { recursive:true, force:true }).catch(() => {});
+}
+
+async function cleanupCommittedRestore(marker, markerPath) {
+  await fs.rm(marker.rollbackDir, { recursive:true, force:true }).catch(() => {});
+  await fs.rm(marker.externalLicenseBackupPath, { force:true }).catch(() => {});
+  await fs.rm(marker.stageDir, { recursive:true, force:true }).catch(() => {});
+  await fs.rm(markerPath, { force:true }).catch(() => {});
+  await removeControlDirIfEmpty(path.dirname(markerPath));
+}
+
 export async function stageRestoreBackup(filePath, {
   dataDir,
   licensePath,
@@ -157,10 +211,13 @@ export async function stageRestoreBackup(filePath, {
 } = {}) {
   if (!dataDir || !licensePath) throw new Error('Restore staging requires data and licence paths');
   const paths = restoreRuntimePaths(dataDir);
+  await fs.mkdir(paths.controlDir, { recursive:true, mode:0o700 });
+
   if (await pathExists(paths.pendingMarkerPath)) {
     const existing = validatePendingMarkerPaths(await readJson(paths.pendingMarkerPath), dataDir);
     if (existing.phase === 'committed') {
       await cleanupCommittedRestore(existing, paths.pendingMarkerPath);
+      await fs.mkdir(paths.controlDir, { recursive:true, mode:0o700 });
     } else {
       const error = new Error('A restore is already staged and waiting for controller restart');
       error.statusCode = 409;
@@ -174,14 +231,11 @@ export async function stageRestoreBackup(filePath, {
     originalFileName
   });
   const archive = await inspectZipArchive(filePath);
-  // Expose the source path only inside this server-side object; it is never
-  // copied into the backup or marker.
-  archive.filePath = filePath;
 
   const id = crypto.randomUUID();
-  const stageDir = path.join(paths.parentDir, `.pfc-${restoreBaseName(dataDir)}-restore-stage-${id}`);
-  const rollbackDir = path.join(paths.parentDir, `.pfc-${restoreBaseName(dataDir)}-restore-rollback-${id}`);
-  const externalLicenseBackupPath = path.join(paths.parentDir, `.pfc-${restoreBaseName(dataDir)}-license-rollback-${id}.json`);
+  const stageDir = path.join(paths.controlDir, `stage-${id}`);
+  const rollbackDir = path.join(paths.controlDir, `rollback-${id}`);
+  const externalLicenseBackupPath = path.join(paths.controlDir, `license-rollback-${id}.json`);
   const restoredAt = now.toISOString();
   const insideLicenseRelative = licenseInsideData(dataDir, licensePath);
 
@@ -212,8 +266,11 @@ export async function stageRestoreBackup(filePath, {
     let externalLicenseMode = 'inside-data';
     if (insideLicenseRelative) {
       if (archive.byName.has('state/license.json')) {
-        const destination = path.join(stageDir, insideLicenseRelative);
-        await extractZipEntryToFile(filePath, archive.byName.get('state/license.json'), destination);
+        await extractZipEntryToFile(
+          filePath,
+          archive.byName.get('state/license.json'),
+          path.join(stageDir, insideLicenseRelative)
+        );
       }
     } else {
       externalLicenseMode = archive.byName.has('state/license.json') ? 'restore' : 'remove';
@@ -226,8 +283,6 @@ export async function stageRestoreBackup(filePath, {
       }
     }
 
-    // Verify the staged logical relationships after transformation, not just
-    // the source archive.
     const stagedPrinters = JSON.parse(await fs.readFile(path.join(stageDir, 'printers.json'), 'utf8'));
     const stagedJobs = JSON.parse(await fs.readFile(path.join(stageDir, 'print-jobs.json'), 'utf8'));
     if (!Array.isArray(stagedPrinters) || !Array.isArray(stagedJobs)) throw new Error('Staged restore state is invalid');
@@ -237,7 +292,7 @@ export async function stageRestoreBackup(filePath, {
 
     const marker = {
       format:'print-farm-controller-pending-restore',
-      version:1,
+      version:2,
       id,
       phase:'staged',
       stagedAt:restoredAt,
@@ -252,7 +307,7 @@ export async function stageRestoreBackup(filePath, {
       insideLicenseRelative,
       externalLicenseMode,
       externalLicenseBackupPath,
-      liveDataExisted:null,
+      originalEntries:null,
       externalLicenseExisted:null
     };
     await writeJsonAtomic(paths.pendingMarkerPath, marker);
@@ -271,20 +326,24 @@ export async function stageRestoreBackup(filePath, {
     await fs.rm(stageDir, { recursive:true, force:true }).catch(() => {});
     await fs.rm(rollbackDir, { recursive:true, force:true }).catch(() => {});
     await fs.rm(externalLicenseBackupPath, { force:true }).catch(() => {});
+    if (!await pathExists(paths.pendingMarkerPath)) await removeControlDirIfEmpty(paths.controlDir);
     throw error;
   }
 }
 
-async function restoreExternalLicense(marker, newDataDir) {
+async function backupExternalLicense(marker) {
   if (marker.externalLicenseMode === 'inside-data') return;
   const licensePath = path.resolve(marker.licensePath);
-  const existed = await pathExists(licensePath);
-  marker.externalLicenseExisted = existed;
-  if (existed) {
+  if (marker.externalLicenseExisted === true) {
     await fs.copyFile(licensePath, marker.externalLicenseBackupPath);
   }
+}
+
+async function installExternalLicense(marker) {
+  if (marker.externalLicenseMode === 'inside-data') return;
+  const licensePath = path.resolve(marker.licensePath);
   if (marker.externalLicenseMode === 'restore') {
-    const source = path.join(newDataDir, RESERVED_EXTERNAL_LICENSE);
+    const source = path.join(marker.stageDir, RESERVED_EXTERNAL_LICENSE);
     const temp = `${licensePath}.${crypto.randomUUID()}.tmp`;
     await fs.mkdir(path.dirname(licensePath), { recursive:true });
     try {
@@ -299,10 +358,14 @@ async function restoreExternalLicense(marker, newDataDir) {
   }
 }
 
-async function rollbackExternalLicense(marker) {
+async function rollbackExternalLicense(marker, { requireBackup = false } = {}) {
   if (marker.externalLicenseMode === 'inside-data') return;
   const licensePath = path.resolve(marker.licensePath);
-  if (marker.externalLicenseExisted === true && await pathExists(marker.externalLicenseBackupPath)) {
+  if (marker.externalLicenseExisted === true) {
+    if (!await pathExists(marker.externalLicenseBackupPath)) {
+      if (requireBackup) throw new Error('Restore rollback licence snapshot is missing');
+      return;
+    }
     const temp = `${licensePath}.${crypto.randomUUID()}.tmp`;
     await fs.copyFile(marker.externalLicenseBackupPath, temp);
     await fs.rename(temp, licensePath);
@@ -311,37 +374,61 @@ async function rollbackExternalLicense(marker) {
   }
 }
 
-async function cleanupCommittedRestore(marker, markerPath) {
-  await fs.rm(marker.rollbackDir, { recursive:true, force:true }).catch(() => {});
-  await fs.rm(marker.externalLicenseBackupPath, { force:true }).catch(() => {});
-  await fs.rm(marker.stageDir, { recursive:true, force:true }).catch(() => {});
-  await fs.rm(markerPath, { force:true }).catch(() => {});
+async function moveEntry(sourceRoot, destinationRoot, relative) {
+  const source = path.join(sourceRoot, ...relative.split('/'));
+  if (!await pathExists(source)) return false;
+  const destination = path.join(destinationRoot, ...relative.split('/'));
+  await fs.mkdir(path.dirname(destination), { recursive:true, mode:0o700 });
+  await fs.rename(source, destination);
+  return true;
+}
+
+async function removeEntry(root, relative) {
+  await fs.rm(path.join(root, ...relative.split('/')), { recursive:true, force:true });
 }
 
 async function rollbackActivatedMarker(marker, markerPath) {
-  const dataDir = path.resolve(marker.dataDir);
-  const rollbackDir = path.resolve(marker.rollbackDir);
-  const rollbackExists = await pathExists(rollbackDir);
-  const stageExists = await pathExists(marker.stageDir);
+  const entries = managedEntriesFromMarker(marker);
+  const originalEntries = marker.originalEntries && typeof marker.originalEntries === 'object'
+    ? marker.originalEntries
+    : {};
+  const installingOrLater = ['installing','activated'].includes(marker.phase);
 
-  if (marker.liveDataExisted === true) {
-    if (rollbackExists) {
-      await fs.rm(dataDir, { recursive:true, force:true }).catch(() => {});
-      await fs.rename(rollbackDir, dataDir);
+  // Once installation may have begun, every originally-present entry must have
+  // a rollback copy before any restored live entry is removed.
+  if (installingOrLater) {
+    for (const relative of entries) {
+      if (originalEntries[relative] === true
+        && !await pathExists(path.join(marker.rollbackDir, ...relative.split('/')))) {
+        throw new Error(`Restore rollback snapshot is missing ${relative}`);
+      }
     }
-    // If no rollback directory exists, activation had not yet moved the
-    // original live data, so leave dataDir untouched.
-  } else {
-    // With no previous data directory, a missing stage directory means the
-    // staged data was already renamed into place and must be removed.
-    if (!stageExists) await fs.rm(dataDir, { recursive:true, force:true }).catch(() => {});
-    await fs.rm(rollbackDir, { recursive:true, force:true }).catch(() => {});
+    if (marker.externalLicenseMode !== 'inside-data' && marker.externalLicenseExisted === true
+      && !await pathExists(marker.externalLicenseBackupPath)) {
+      throw new Error('Restore rollback licence snapshot is missing');
+    }
   }
 
-  await rollbackExternalLicense(marker).catch(() => {});
+  for (const relative of entries) {
+    const rollbackPath = path.join(marker.rollbackDir, ...relative.split('/'));
+    if (originalEntries[relative] === true) {
+      if (await pathExists(rollbackPath)) {
+        await removeEntry(marker.dataDir, relative);
+        await moveEntry(marker.rollbackDir, marker.dataDir, relative);
+      }
+      // During the activating phase a missing rollback copy means this entry
+      // had not yet moved, so the original live entry is left untouched.
+    } else if (installingOrLater) {
+      await removeEntry(marker.dataDir, relative);
+    }
+  }
+
+  await rollbackExternalLicense(marker, { requireBackup:installingOrLater });
   await fs.rm(marker.externalLicenseBackupPath, { force:true }).catch(() => {});
   await fs.rm(marker.stageDir, { recursive:true, force:true }).catch(() => {});
+  await fs.rm(marker.rollbackDir, { recursive:true, force:true }).catch(() => {});
   await fs.rm(markerPath, { force:true }).catch(() => {});
+  await removeControlDirIfEmpty(path.dirname(markerPath));
 }
 
 export async function activatePendingRestore({ dataDir, licensePath } = {}) {
@@ -372,7 +459,7 @@ export async function activatePendingRestore({ dataDir, licensePath } = {}) {
     };
   }
 
-  if (marker.phase === 'activated' || marker.phase === 'activating') {
+  if (['activating','installing','activated'].includes(marker.phase)) {
     await rollbackActivatedMarker(marker, paths.pendingMarkerPath);
     return {
       rolledBack:true,
@@ -384,7 +471,11 @@ export async function activatePendingRestore({ dataDir, licensePath } = {}) {
   if (marker.phase !== 'staged') throw new Error(`Unsupported pending restore phase: ${marker.phase}`);
   if (!await pathExists(marker.stageDir)) throw new Error('Pending restore staging directory is missing');
 
-  marker.liveDataExisted = await pathExists(dataDir);
+  const entries = managedEntriesFromMarker(marker);
+  marker.originalEntries = {};
+  for (const relative of entries) {
+    marker.originalEntries[relative] = await pathExists(path.join(paths.dataDir, ...relative.split('/')));
+  }
   marker.externalLicenseExisted = marker.externalLicenseMode === 'inside-data'
     ? null
     : await pathExists(licensePath);
@@ -394,9 +485,25 @@ export async function activatePendingRestore({ dataDir, licensePath } = {}) {
 
   try {
     await fs.rm(marker.rollbackDir, { recursive:true, force:true }).catch(() => {});
-    if (marker.liveDataExisted) await fs.rename(dataDir, marker.rollbackDir);
-    await fs.rename(marker.stageDir, dataDir);
-    await restoreExternalLicense(marker, dataDir);
+    await fs.mkdir(marker.rollbackDir, { recursive:false, mode:0o700 });
+
+    await backupExternalLicense(marker);
+
+    for (const relative of entries) {
+      if (marker.originalEntries[relative] === true) {
+        await moveEntry(paths.dataDir, marker.rollbackDir, relative);
+      }
+    }
+
+    marker.phase = 'installing';
+    marker.installStartedAt = new Date().toISOString();
+    await writeJsonAtomic(paths.pendingMarkerPath, marker);
+
+    for (const relative of entries) {
+      await moveEntry(marker.stageDir, paths.dataDir, relative);
+    }
+    await installExternalLicense(marker);
+
     marker.phase = 'activated';
     marker.activatedAt = new Date().toISOString();
     await writeJsonAtomic(paths.pendingMarkerPath, marker);
@@ -408,12 +515,11 @@ export async function activatePendingRestore({ dataDir, licensePath } = {}) {
       fileName:marker.backupFileName
     };
   } catch (error) {
-    const currentExists = await pathExists(dataDir);
-    if (currentExists) await fs.rm(dataDir, { recursive:true, force:true }).catch(() => {});
-    if (marker.liveDataExisted && await pathExists(marker.rollbackDir)) {
-      await fs.rename(marker.rollbackDir, dataDir).catch(() => {});
+    try {
+      await rollbackActivatedMarker(marker, paths.pendingMarkerPath);
+    } catch (rollbackError) {
+      throw new Error(`Could not activate staged restore: ${error.message}. Automatic rollback also failed: ${rollbackError.message}`);
     }
-    await rollbackExternalLicense(marker).catch(() => {});
     throw new Error(`Could not activate staged restore: ${error.message}`);
   }
 }
@@ -428,6 +534,7 @@ export async function commitActivatedRestore(transaction, {
   marker.committedAt = now.toISOString();
   marker.rollbackRetainUntil = new Date(now.getTime() + Math.max(0, Number(retentionMs) || 0)).toISOString();
   await writeJsonAtomic(transaction.markerPath, marker);
+  await fs.rm(marker.stageDir, { recursive:true, force:true }).catch(() => {});
   return {
     committed:true,
     rollbackRetainUntil:marker.rollbackRetainUntil
@@ -453,6 +560,7 @@ export async function cancelStagedRestore(dataDir) {
   await fs.rm(marker.rollbackDir, { recursive:true, force:true }).catch(() => {});
   await fs.rm(marker.externalLicenseBackupPath, { force:true }).catch(() => {});
   await fs.rm(paths.pendingMarkerPath, { force:true });
+  await removeControlDirIfEmpty(paths.controlDir);
   return { cancelled:true, pending:false, backupId:marker.backupId || null, fileName:marker.backupFileName || null };
 }
 
