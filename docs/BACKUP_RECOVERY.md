@@ -564,6 +564,9 @@ Stages 1–5 are implemented on `feature/backup-recovery-v0230`:
 - staging can be cancelled before restart, leaving current controller data unchanged.
 
 - scheduled backup settings/API/UI support daily or weekly execution at a controller-local time, with weekday selection for weekly schedules;
+- scheduler startup detects the most recent missed due slot and queues a catch-up backup shortly after startup when the slot belongs to the current effective schedule and has no prior scheduled attempt;
+- enabling or retiming a schedule resets its effective time so historical slots are not backfilled unexpectedly;
+- if a manual/settings backup operation is busy when a catch-up is due, the missed run is retried rather than discarded;
 - scheduled destinations can be existing local directories, mapped drives or writable UNC/NAS paths;
 - enabling a schedule and the explicit **Test destination** action perform a real temporary write/fsync/delete probe;
 - manual and scheduled backup creation share a single operation lock, preventing overlapping backup snapshots and settings writes;
