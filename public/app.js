@@ -2419,7 +2419,9 @@ function materialSummaryText(tools = []) {
 }
 
 function materialSwatchColor(filament = {}) {
-  return /^#[0-9A-Fa-f]{6}$/.test(String(filament.color || '')) ? filament.color : null;
+  const exact = /^#[0-9A-Fa-f]{6}$/.test(String(filament.color || '')) ? filament.color : null;
+  if (exact) return exact;
+  return filamentColorFamilyOption(filament.colorFamily)?.representative || null;
 }
 
 function filamentRgbText(value) {
@@ -2435,6 +2437,13 @@ function filamentColorText(value) {
   const color = normalizeColor(value);
   if (!color) return null;
   return `${color} · ${filamentRgbText(color)}`;
+}
+
+function filamentColorDisplayText(filament = {}) {
+  const exact = filamentColorText(filament.color);
+  const family = filamentColorFamilyOption(filament.colorFamily)?.label || null;
+  if (family && exact) return `${family} · ${exact}`;
+  return family || exact;
 }
 
 const SNAPMAKER_U1_FILAMENT_TYPES = [
@@ -3092,10 +3101,10 @@ function updateOpenPrinterTelemetry() {
       set(`[data-tool-nozzle="${tool.index}"]`, `${nozzleDiameterText(tool.nozzleDiameter)}${tool.nozzleVolumeType ? ` · ${tool.nozzleVolumeType}` : ''}`);
       set(`[data-tool-offset="${tool.index}"]`, toolOffsetText(tool.offset));
       set(`[data-material-meta="${tool.index}"]`, filamentMetaText(filament));
-      const rgbText = filamentRgbText(filament.color);
-      set(`[data-material-rgb="${tool.index}"]`, rgbText || '');
+      const colorDisplay = filamentColorDisplayText(filament);
+      set(`[data-material-rgb="${tool.index}"]`, colorDisplay || '');
       const rgbLine = row.querySelector(`[data-material-rgb="${tool.index}"]`);
-      rgbLine?.classList.toggle('hidden', !rgbText);
+      rgbLine?.classList.toggle('hidden', !colorDisplay);
       const u1ConfigState = u1FilamentConfigEditState(printer, tool);
       const u1TypeInput = row.querySelector(`[data-u1-filament-type-input="${tool.index}"]`);
       const u1ColorInput = row.querySelector(`[data-u1-filament-color-input="${tool.index}"]`);
@@ -3119,7 +3128,7 @@ function updateOpenPrinterTelemetry() {
         const color = materialSwatchColor(filament);
         swatch.style.background = color || '';
         swatch.classList.toggle('unknown', !color);
-        swatch.title = color || 'Colour unknown';
+        swatch.title = filamentColorDisplayText(filament) || 'Colour unknown';
       }
     }
     for (const source of s.materialSources || []) {
@@ -3312,7 +3321,7 @@ async function openPrinter(id) {
           ${capabilities.toolheadNozzleStatus ? `<small data-tool-nozzle="${tool.index}">${escapeHtml(`${nozzleDiameterText(tool.nozzleDiameter)}${tool.nozzleVolumeType ? ` · ${tool.nozzleVolumeType}` : ''}`)}</small>` : ''}
           ${capabilities.toolheadNozzleStatus ? `<small data-tool-offset="${tool.index}">${escapeHtml(toolOffsetText(tool.offset))}</small>` : ''}
           <small data-material-meta="${tool.index}">${escapeHtml(filamentMetaText(filament))}</small>
-          ${['snapmaker-u1','flashforge-ad5m','bambu-lab'].includes(printer.adapterType) ? `<small class="material-rgb${filamentRgbText(filament.color) ? '' : ' hidden'}" data-material-rgb="${tool.index}">${escapeHtml(filamentRgbText(filament.color) || '')}</small>` : ''}
+          ${['snapmaker-u1','flashforge-ad5m','bambu-lab'].includes(printer.adapterType) ? `<small class="material-rgb${filamentColorDisplayText(filament) ? '' : ' hidden'}" data-material-rgb="${tool.index}">${escapeHtml(filamentColorDisplayText(filament) || '')}</small>` : ''}
           ${printer.adapterType === 'snapmaker-u1' ? u1FilamentConfigControlMarkup(printer, tool) : ''}
         </div>`;
       }).join('')}</div>
