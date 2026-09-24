@@ -5,6 +5,7 @@ import crypto from 'node:crypto';
 import { FLASHFORGE_AD5M_ADAPTER_TYPE } from './adapters/adapter-registry.js';
 import { resolveControllerRuntimePaths } from './runtime-paths.js';
 import { KeyedSerialExecutor } from './concurrency.js';
+import { colorFamily, normalizeColorFamily } from './color-family.js';
 
 const runtimePaths = resolveControllerRuntimePaths();
 const APPLICATION_DIR = runtimePaths.applicationDir;
@@ -120,6 +121,13 @@ function normalizeColorDesignation(value) {
   return `#${text}`;
 }
 
+function normalizeColorFamilyDesignation(value) {
+  if (value == null || String(value).trim() === '') return null;
+  const family = normalizeColorFamily(value);
+  if (!family) throw new Error('Filament colour family is not supported');
+  return family;
+}
+
 function normalizeNozzleDesignation(value) {
   if (value == null || String(value).trim() === '') return null;
   const diameter = Number(value);
@@ -230,7 +238,7 @@ export async function renamePrinter(id, name) {
   });
 }
 
-export async function setPrinterMaterialDesignation(id, material, color = undefined) {
+export async function setPrinterMaterialDesignation(id, material, color = undefined, colorFamilyDesignation = undefined) {
   return storeMutations.run('printers', async () => {
   const printers = await readAll();
   const index = printers.findIndex((printer) => printer.id === id);
@@ -238,12 +246,24 @@ export async function setPrinterMaterialDesignation(id, material, color = undefi
 
   const designation = normalizeMaterialDesignation(material);
   const colorDesignation = color === undefined ? undefined : normalizeColorDesignation(color);
+  let familyDesignation = colorFamilyDesignation === undefined
+    ? undefined
+    : normalizeColorFamilyDesignation(colorFamilyDesignation);
+  if (familyDesignation === undefined && colorDesignation) familyDesignation = colorFamily(colorDesignation);
+  if (familyDesignation && colorDesignation && colorFamily(colorDesignation) !== familyDesignation) {
+    throw new Error('Optional filament shade must belong to the selected colour family');
+  }
+
   const adapterConfig = { ...(printers[index].adapterConfig || {}) };
   if (designation) adapterConfig.filamentDesignation = designation;
   else delete adapterConfig.filamentDesignation;
   if (colorDesignation !== undefined) {
     if (colorDesignation) adapterConfig.filamentColorDesignation = colorDesignation;
     else delete adapterConfig.filamentColorDesignation;
+  }
+  if (familyDesignation !== undefined) {
+    if (familyDesignation) adapterConfig.filamentColorFamilyDesignation = familyDesignation;
+    else delete adapterConfig.filamentColorFamilyDesignation;
   }
 
   printers[index] = { ...printers[index], adapterConfig };
@@ -328,6 +348,9 @@ export function publicPrinter(printer) {
     licenseSlotActive: typeof printer.licenseSlotActive === 'boolean' ? printer.licenseSlotActive : null,
     materialDesignation: String(printer.adapterConfig?.filamentDesignation || '').trim() || null,
     materialColorDesignation: normalizeColorDesignation(printer.adapterConfig?.filamentColorDesignation),
+    materialColorFamilyDesignation: normalizeColorFamily(printer.adapterConfig?.filamentColorFamilyDesignation)
+      || colorFamily(printer.adapterConfig?.filamentColorDesignation)
+      || null,
     nozzleDiameterDesignation: Number.isFinite(Number(printer.adapterConfig?.nozzleDiameterDesignation))
       ? Number(printer.adapterConfig.nozzleDiameterDesignation)
       : null,
