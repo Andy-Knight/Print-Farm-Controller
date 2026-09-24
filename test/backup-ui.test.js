@@ -69,6 +69,7 @@ test('restore inspection enables staged restart-based restore with cancel suppor
   assert.match(server, /Restore staged; controller restart required/);
   assert.match(restoreService, /phase:'staged'/);
   assert.match(restoreService, /marker\.phase = 'activating'/);
+  assert.match(restoreService, /marker\.phase = 'installing'/);
   assert.match(restoreService, /marker\.phase = 'activated'/);
   assert.match(restoreService, /marker\.phase = 'committed'/);
   assert.match(restoreService, /RESTORE_ROLLBACK_RETENTION_MS = 24 \* 60 \* 60 \* 1000/);
