@@ -32,3 +32,22 @@ test('manual backup UI uses create/status API and one-time streamed download URL
   assert.match(server, /manualBackupManager\.stream\(backupId, res\)/);
   assert.match(server, /Manual backup created and verified/);
 });
+
+
+test('restore inspection validates a pfcbackup without enabling restore activation', () => {
+  assert.match(index, /id="restoreBackupFileInput"[^>]*accept="\.pfcbackup/);
+  assert.match(index, /id="restoreInspectBtn"[^>]*>Inspect backup<\/button>/);
+  assert.match(index, /id="restoreStageBtn"[^>]*disabled[^>]*>Restore backup<\/button>/);
+  assert.match(index, /Inspection never changes controller data/);
+  assert.match(app, /async function inspectRestoreFile\(\)/);
+  assert.match(app, /fetch\('\/api\/restore\/inspect'/);
+  assert.match(app, /renderRestoreInspection\(payload\.inspection\)/);
+  assert.match(app, /Backup is valid/);
+  assert.match(app, /Actual restore\/staging is not enabled in this build yet/);
+  assert.match(styles, /\.restore-inspection-summary/);
+  assert.match(styles, /\.restore-valid-banner/);
+  assert.match(server, /url\.pathname === '\/api\/restore\/inspect'/);
+  assert.match(server, /inspectRestoreBackup\(staged\.filePath/);
+  assert.match(server, /restoreInspectionInProgress/);
+  assert.match(server, /Restore backup inspection passed/);
+});
