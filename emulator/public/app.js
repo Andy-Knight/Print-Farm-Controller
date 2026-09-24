@@ -10,6 +10,58 @@ const integrated = location.pathname.startsWith('/simulator');
 const apiBase = integrated ? '/api/emulator' : '/api';
 const apiUrl = (pathname) => `${apiBase}${pathname}`;
 
+const BAMBU_COLOR_FAMILIES = Object.freeze([
+  { value:'black', label:'Black', icon:'⬛' },
+  { value:'white', label:'White', icon:'⬜' },
+  { value:'grey', label:'Grey', icon:'🩶' },
+  { value:'red', label:'Red', icon:'🟥' },
+  { value:'orange', label:'Orange', icon:'🟧' },
+  { value:'yellow', label:'Yellow', icon:'🟨' },
+  { value:'green', label:'Green', icon:'🟩' },
+  { value:'cyan', label:'Cyan', icon:'💠' },
+  { value:'blue', label:'Blue', icon:'🟦' },
+  { value:'purple', label:'Purple', icon:'🟪' },
+  { value:'pink', label:'Pink', icon:'🩷' },
+  { value:'brown', label:'Brown', icon:'🟫' }
+]);
+
+function bambuColorFamilyLabel(item) {
+  return item ? item.icon + ' ' + item.label : '';
+}
+
+function bambuColorFamilyFromHex(value) {
+  const text = String(value || '').trim().replace(/^#/, '').toUpperCase();
+  if (!/^[0-9A-F]{6}$/.test(text)) return null;
+  const rgb = { r:Number.parseInt(text.slice(0,2),16), g:Number.parseInt(text.slice(2,4),16), b:Number.parseInt(text.slice(4,6),16) };
+  const channels = [rgb.r,rgb.g,rgb.b].map((channel) => channel / 255);
+  const max = Math.max(...channels), min = Math.min(...channels), delta = max - min;
+  const lightness = (max + min) / 2;
+  const saturation = delta === 0 ? 0 : delta / (1 - Math.abs(2 * lightness - 1));
+  if (Math.max(rgb.r,rgb.g,rgb.b) < 32 && saturation < 0.5) return 'black';
+  if (Math.min(rgb.r,rgb.g,rgb.b) > 235 && Math.max(rgb.r,rgb.g,rgb.b) - Math.min(rgb.r,rgb.g,rgb.b) < 18) return 'white';
+  if (delta < (16 / 255) || saturation < 0.12) return lightness > 0.92 ? 'white' : 'grey';
+  let hue;
+  if (max === channels[0]) hue = 60 * (((channels[1] - channels[2]) / delta) % 6);
+  else if (max === channels[1]) hue = 60 * (((channels[2] - channels[0]) / delta) + 2);
+  else hue = 60 * (((channels[0] - channels[1]) / delta) + 4);
+  if (hue < 0) hue += 360;
+  if (hue >= 15 && hue < 50 && lightness < 0.45) return 'brown';
+  if ((hue >= 330 || hue < 15) && lightness >= 0.75) return 'pink';
+  if (hue >= 345 || hue < 15) return 'red';
+  if (hue < 45) return 'orange';
+  if (hue < 70) return 'yellow';
+  if (hue < 165) return 'green';
+  if (hue < 200) return 'cyan';
+  if (hue < 260) return 'blue';
+  if (hue < 315) return 'purple';
+  if (hue < 345) return 'pink';
+  return null;
+}
+
+function bambuColorFamilyOptions() {
+  return BAMBU_COLOR_FAMILIES.map((item) => '<option value="' + item.value + '">' + bambuColorFamilyLabel(item) + '</option>').join('');
+}
+
 function showToast(message) {
   toast.textContent = message;
   toast.classList.add('visible');
@@ -93,12 +145,12 @@ function renderAmsControls(card, printer) {
       slot.innerHTML = `<strong>AMS ${Number(unit.id) + 1} · Slot ${Number(tray.slotIndex) + 1}</strong>
         <label class="check"><input data-ams-present type="checkbox">Loaded</label>
         <label>Material<select data-ams-material>${['PLA','PETG','ABS','ASA','PA','PC','TPU','PVA'].map((value) => `<option>${value}</option>`).join('')}</select></label>
-        <label>Colour<input data-ams-color type="color"></label>`;
+        <label>Colour family<select data-ams-color-family>${bambuColorFamilyOptions()}</select></label>`;
       const save = () => updatePrinter(printer.id, { amsSlots:[{
         unitIndex:Number(unit.id), slotIndex:Number(tray.slotIndex),
         present:slot.querySelector('[data-ams-present]').checked,
         material:slot.querySelector('[data-ams-material]').value,
-        color:slot.querySelector('[data-ams-color]').value
+        colorFamily:slot.querySelector('[data-ams-color-family]').value
       }] });
       slot.querySelectorAll('input,select').forEach((input) => input.addEventListener('change', save));
       return slot;
@@ -110,10 +162,11 @@ function renderAmsControls(card, printer) {
     if (!slot) continue;
     const present = slot.querySelector('[data-ams-present]');
     const material = slot.querySelector('[data-ams-material]');
-    const color = slot.querySelector('[data-ams-color]');
+    const colorFamily = slot.querySelector('[data-ams-color-family]');
+    const familyValue = tray.colorFamily || bambuColorFamilyFromHex(tray.color) || 'white';
     if (document.activeElement !== present) present.checked = Boolean(tray.present);
     if (document.activeElement !== material) material.value = tray.material || 'PLA';
-    if (document.activeElement !== color) color.value = /^#[0-9A-F]{6}$/i.test(tray.color || '') ? tray.color : '#FFFFFF';
+    if (document.activeElement !== colorFamily) colorFamily.value = familyValue;
   }
 }
 
