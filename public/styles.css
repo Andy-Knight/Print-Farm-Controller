@@ -331,10 +331,9 @@ input:focus,select:focus { border-color:#7a9fbe; }
 .ams-source small { grid-column:1 / -1; color:#8193a2; }
 .ams-source.active { border-color:#4b8f77; }
 .ams-source.empty { opacity:.62; }
-.u1-filament-config-control { display:grid; grid-template-columns:minmax(0,1fr) 74px; gap:6px 8px; align-items:end; margin-top:8px; padding-top:8px; border-top:1px solid #202a32; }
+.u1-filament-config-control { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:6px 8px; align-items:end; margin-top:8px; padding-top:8px; border-top:1px solid #202a32; }
 .u1-filament-config-control label { margin:0; color:#8493a1; font-size:.68rem; }
-.u1-filament-config-control select, .u1-filament-config-control input[type="color"] { display:block; width:100%; min-height:34px; margin-top:4px; }
-.u1-filament-config-control input[type="color"] { padding:3px; cursor:pointer; }
+.u1-filament-config-control select { display:block; width:100%; min-height:34px; margin-top:4px; }
 .u1-filament-config-control button { grid-column:1 / -1; min-height:34px; padding:6px 9px; }
 .u1-filament-config-control small { grid-column:1 / -1; color:#687986; font-size:.66rem; line-height:1.3; }
 .material-tool.filament-missing > span { color:#df9ba1; }
