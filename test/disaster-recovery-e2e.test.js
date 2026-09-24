@@ -288,7 +288,15 @@ test('end-to-end disaster recovery restores portable state and reinitializes saf
     const restoredSettings = JSON.parse(await fs.readFile(path.join(targetData, 'backup-settings.json'), 'utf8'));
     assert.equal(restoredSettings.installationId, '55555555-5555-4555-8555-555555555555');
     assert.equal(restoredSettings.enabled, false);
+    assert.equal(restoredSettings.destination, '\\\\nas.example.invalid\\pfc-backups');
+    assert.equal(restoredSettings.frequency, 'daily');
+    assert.equal(restoredSettings.scheduleTime, '02:00');
+    assert.equal(restoredSettings.retentionCount, 14);
     assert.match(restoredSettings.lastError, /restored disabled/i);
+    assert.deepEqual(
+      JSON.parse(await fs.readFile(path.join(targetData, 'emulator-settings.json'), 'utf8')),
+      { enabled:true }
+    );
 
     const restoredJobs = JSON.parse(await fs.readFile(path.join(targetData, 'print-jobs.json'), 'utf8'));
     const completed = restoredJobs.find((job) => job.id === 'history-complete');
