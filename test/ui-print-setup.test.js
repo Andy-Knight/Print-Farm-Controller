@@ -131,6 +131,10 @@ test('Snapmaker U1 uses one control and one command for third-party filament typ
   assert.match(app, /data-u1-filament-type-input/);
   assert.match(app, /data-u1-filament-color-family-input/);
   assert.match(app, /data-u1-filament-config-save/);
+  assert.match(app, /data-u1-filament-config-control/);
+  assert.match(app, /u1FilamentDirty/);
+  assert.match(app, /u1EditPending/);
+  assert.match(app, /delete control\.dataset\.u1FilamentDirty/);
   assert.match(app, /Set filament on U1/);
   assert.match(app, /SNAPMAKER_U1_FILAMENT_TYPES/);
   assert.match(app, /\/filament-config/);
