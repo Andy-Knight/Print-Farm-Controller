@@ -1,5 +1,6 @@
 import { EventEmitter } from 'node:events';
 import crypto from 'node:crypto';
+import { colorFamily, normalizeColor, normalizeColorFamily, representativeColor } from '../src/color-family.js';
 
 const FINAL_STATES = new Set(['completed', 'cancelled', 'failed']);
 
@@ -31,13 +32,19 @@ function defaultTools(count) {
 function defaultAmsUnits(enabled) {
   if (!enabled) return [];
   const materials = [
-    ['PLA', '#FF6B35'], ['PLA', '#3A86FF'], ['PETG', '#2EC4B6'], ['ASA', '#F7C948']
+    ['PLA', 'orange'], ['PLA', 'blue'], ['PETG', 'cyan'], ['ASA', 'yellow']
   ];
   return [{
     id:0,
     humidity:3,
-    trays:materials.map(([material, color], slotIndex) => ({
-      slotIndex, present:true, material, materialVariant:null, color, vendor:'Simulator'
+    trays:materials.map(([material, colorFamilyValue], slotIndex) => ({
+      slotIndex,
+      present:true,
+      material,
+      materialVariant:null,
+      colorFamily:colorFamilyValue,
+      color:representativeColor(colorFamilyValue),
+      vendor:'Simulator'
     }))
   }];
 }
@@ -73,7 +80,7 @@ export class VirtualPrinter extends EventEmitter {
     this.tools = defaultTools(profile.toolCount || 1);
     if (this.model === 'X1C') this.tools[0].nozzleVolumeType = 'hardened-steel';
     this.amsUnits = defaultAmsUnits(profile.adapterType === 'bambu-lab');
-    this.externalSpool = { present:true, material:'PLA', materialVariant:null, color:'#FFFFFF', vendor:'Simulator' };
+    this.externalSpool = { present:true, material:'PLA', materialVariant:null, colorFamily:'white', color:representativeColor('white'), vendor:'Simulator' };
     this.activeMaterialSource = this.amsUnits.length ? 0 : 254;
     this.fans = { cooling: 0, chamber: 0, internal: 0, external: 0 };
     this.files = new Map();
@@ -218,7 +225,7 @@ export class VirtualPrinter extends EventEmitter {
       const current = this.amsUnits;
       this.amsUnits = Array.from({ length:count }, (_, unitIndex) => current[unitIndex] || {
         id:unitIndex, humidity:3,
-        trays:Array.from({ length:4 }, (_unused, slotIndex) => ({ slotIndex, present:false, material:null, materialVariant:null, color:null, vendor:'Simulator' }))
+        trays:Array.from({ length:4 }, (_unused, slotIndex) => ({ slotIndex, present:false, material:null, materialVariant:null, colorFamily:null, color:null, vendor:'Simulator' }))
       });
       if (!this.amsUnits.length) this.activeMaterialSource = 254;
     }
@@ -230,7 +237,25 @@ export class VirtualPrinter extends EventEmitter {
         if (!tray) continue;
         if (value.present !== undefined) tray.present = Boolean(value.present);
         if (value.material !== undefined) tray.material = String(value.material || '').trim().toUpperCase() || null;
-        if (value.color !== undefined) tray.color = /^#[0-9A-F]{6}$/i.test(String(value.color || '')) ? String(value.color).toUpperCase() : null;
+        if (value.colorFamily !== undefined) {
+          tray.colorFamily = normalizeColorFamily(value.colorFamily);
+          tray.color = representativeColor(tray.colorFamily);
+        } else if (value.color !== undefined) {
+          tray.color = normalizeColor(value.color);
+          tray.colorFamily = colorFamily(tray.color);
+        }
+      }
+    }
+    if (values.externalSpool && typeof values.externalSpool === 'object') {
+      const value = values.externalSpool;
+      if (value.present !== undefined) this.externalSpool.present = Boolean(value.present);
+      if (value.material !== undefined) this.externalSpool.material = String(value.material || '').trim().toUpperCase() || null;
+      if (value.colorFamily !== undefined) {
+        this.externalSpool.colorFamily = normalizeColorFamily(value.colorFamily);
+        this.externalSpool.color = representativeColor(this.externalSpool.colorFamily);
+      } else if (value.color !== undefined) {
+        this.externalSpool.color = normalizeColor(value.color);
+        this.externalSpool.colorFamily = colorFamily(this.externalSpool.color);
       }
     }
     if (values.activeMaterialSource !== undefined) {
