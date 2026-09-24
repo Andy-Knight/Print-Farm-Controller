@@ -433,12 +433,13 @@ async function apiRoute(req, res, url) {
       throw error;
     }
     restoreInspectionInProgress = true;
-    const staged = await stageRestoreUploadRequest(req, req.headers['x-file-name']);
-    await diagnosticLogger.info('restore', 'Restore backup inspection requested', {
-      fileName:staged.fileName,
-      size:staged.size
-    });
+    let staged = null;
     try {
+      staged = await stageRestoreUploadRequest(req, req.headers['x-file-name']);
+      await diagnosticLogger.info('restore', 'Restore backup inspection requested', {
+        fileName:staged.fileName,
+        size:staged.size
+      });
       const inspection = await inspectRestoreBackup(staged.filePath, {
         currentControllerVersion:CONTROLLER_VERSION,
         targetDataDir:runtimePaths.dataDir,
@@ -458,13 +459,13 @@ async function apiRoute(req, res, url) {
       return json(res, 200, { inspection });
     } catch (error) {
       await diagnosticLogger.warn('restore', 'Restore backup inspection failed', {
-        fileName:staged.fileName,
+        fileName:staged?.fileName || null,
         error:error?.message || String(error)
       });
       throw error;
     } finally {
       restoreInspectionInProgress = false;
-      await staged.cleanup().catch(() => {});
+      await staged?.cleanup().catch(() => {});
     }
   }
 
