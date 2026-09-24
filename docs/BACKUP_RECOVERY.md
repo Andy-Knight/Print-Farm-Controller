@@ -553,7 +553,9 @@ Stages 1–4 are implemented on `feature/backup-recovery-v0230`:
 - restored production-batch runs are paused;
 - jobs that were starting/printing force bed clearance; automatic jobs that may have printed retain the last physical printer until that bed is acknowledged clear;
 - recovery-held fixed-printer jobs require fresh live compatibility before release; automatic jobs re-enter normal scheduler compatibility only after deliberate recheck;
-- restore activation is journalled through `staged -> activating -> activated -> committed` and occurs before normal controller stores/printer services initialize;
+- restore stage/rollback/journal data lives under `data/.restore-control/`, avoiding any requirement for normal users to create sibling folders in the surrounding Program Files directory;
+- activation transactionally swaps the known controller-owned persistent entries within `data/`, while transient/runtime folders are left outside the restored logical state;
+- restore activation is journalled through `staged -> activating -> installing -> activated -> committed` and occurs before normal controller stores/printer services initialize;
 - failed startup before commit automatically restores the previous data and external signed-licence state;
 - an interrupted `activating`/uncommitted `activated` journal is rolled back on the next startup;
 - successful restored startup retains the pre-restore snapshot for a 24-hour recovery window;
