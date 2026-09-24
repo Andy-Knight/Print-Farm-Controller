@@ -41,6 +41,7 @@ const backupError = document.querySelector('#backupError');
 const restoreBackupFileInput = document.querySelector('#restoreBackupFileInput');
 const restoreInspectBtn = document.querySelector('#restoreInspectBtn');
 const restoreStageBtn = document.querySelector('#restoreStageBtn');
+const restoreCancelStageBtn = document.querySelector('#restoreCancelStageBtn');
 const restoreInspectStatus = document.querySelector('#restoreInspectStatus');
 const restoreInspectError = document.querySelector('#restoreInspectError');
 const restoreInspectionSummary = document.querySelector('#restoreInspectionSummary');
@@ -793,9 +794,10 @@ function renderRestoreInspection(inspection) {
       <div><span>Migration</span><strong>${migrations.length ? 'Required' : 'Not required'}</strong></div>
     </div>
     ${warnings.length ? `<div class="restore-warning-list"><strong>Restore notices</strong><ul>${warnings.map((warning) => `<li>${escapeHtml(warning)}</li>`).join('')}</ul></div>` : ''}
-    <div class="field-help">The backup has passed inspection. Actual restore/staging is not enabled in this build yet.</div>
+    <div class="field-help">The backup has passed inspection. Choose Restore backup to stage it for activation on the next controller restart.</div>
   `;
   restoreInspectionSummary.classList.remove('hidden');
+  if (restoreStageBtn) restoreStageBtn.disabled = false;
 }
 
 async function inspectRestoreFile() {
