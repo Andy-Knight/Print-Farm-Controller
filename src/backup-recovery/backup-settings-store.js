@@ -9,12 +9,18 @@ export function backupSettingsPath(dataDir = resolveControllerRuntimePaths().dat
   return path.join(path.resolve(dataDir), 'backup-settings.json');
 }
 
+function normalizeScheduleTime(value) {
+  const text = String(value || '').trim();
+  return /^([01]\\d|2[0-3]):[0-5]\\d$/.test(text) ? text : '02:00';
+}
+
 export function normalizeBackupSettings(value = {}) {
   const installationId = String(value.installationId || '').trim();
   const validInstallationId = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(installationId)
     ? installationId.toLowerCase()
     : crypto.randomUUID();
   const retention = Number(value.retentionCount);
+  const weekday = Number(value.scheduleWeekday);
   return {
     installationId:validInstallationId,
     enabled:value.enabled === true,
@@ -22,12 +28,18 @@ export function normalizeBackupSettings(value = {}) {
     frequency:['daily','weekly'].includes(String(value.frequency || '').trim().toLowerCase())
       ? String(value.frequency).trim().toLowerCase()
       : 'daily',
+    scheduleTime:normalizeScheduleTime(value.scheduleTime),
+    scheduleWeekday:Number.isInteger(weekday) && weekday >= 0 && weekday <= 6 ? weekday : 1,
     retentionCount:Number.isInteger(retention) && retention >= 1 && retention <= 365
       ? retention
       : DEFAULT_BACKUP_RETENTION,
     lastSuccessfulBackup:value.lastSuccessfulBackup || null,
     lastAttemptedBackup:value.lastAttemptedBackup || null,
-    lastError:value.lastError ? String(value.lastError) : null
+    lastError:value.lastError ? String(value.lastError) : null,
+    lastScheduledAttemptAt:value.lastScheduledAttemptAt || null,
+    lastScheduledSuccess:value.lastScheduledSuccess || null,
+    lastScheduledError:value.lastScheduledError ? String(value.lastScheduledError) : null,
+    lastRetentionResult:value.lastRetentionResult || null
   };
 }
 
