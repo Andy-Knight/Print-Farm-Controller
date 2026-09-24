@@ -1,0 +1,164 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { promises as fs } from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import { MaintenanceService } from '../src/maintenance-service.js';
+
+class FakeFleet {
+  constructor(printers = []) {
+    this.printers = printers;
+    this.listeners = new Set();
+  }
+  getFleet() { return this.printers; }
+  subscribe(listener) {
+    this.listeners.add(listener);
+    return () => this.listeners.delete(listener);
+  }
+  emit(printers) {
+    this.printers = printers;
+    for (const listener of this.listeners) listener(printers);
+  }
+}
+
+function printer(status = 'idle', online = true) {
+  return {
+    id:'printer-1',
+    name:'Printer 1',
+    manufacturer:'Test',
+    model:'Model',
+    online,
+    status:{ status, fileName:status === 'printing' ? 'part.gcode' : null }
+  };
+}
+
+test('maintenance tasks persist, become due, and completion creates history', async () => {
+  const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'pfc-maintenance-'));
+  let now = Date.parse('2026-09-24T12:00:00Z');
+  const fleet = new FakeFleet([printer()]);
+  const service = new MaintenanceService({
+    fleetState:fleet,
+    dataDir:dir,
+    printerLookup:async (id) => id === 'printer-1' ? { id } : null,
+    nowFn:() => now,
+    persistDelayMs:1
+  });
+
+  try {
+    await service.start();
+    const created = await service.addTask('printer-1', {
+      name:'Lubricate rails',
+      description:'Inspect and lubricate motion rails',
+      schedule:{ type:'days', interval:30 }
+    });
+    assert.equal(created.status.state, 'current');
+
+    now += 31 * 86400000;
+    let snapshot = await service.getSnapshot([printer()]);
+    assert.equal(snapshot.printers[0].summary.due, 1);
+    assert.equal(snapshot.printers[0].tasks[0].status.state, 'due');
+
+    const completed = await service.completeTask('printer-1', created.id, 'Completed during monthly service');
+    assert.equal(completed.history.taskName, 'Lubricate rails');
+    assert.equal(completed.task.status.state, 'current');
+
+    await service.stop();
+
+    const reloaded = new MaintenanceService({
+      fleetState:fleet,
+      dataDir:dir,
+      printerLookup:async (id) => id === 'printer-1' ? { id } : null,
+      nowFn:() => now
+    });
+    await reloaded.start();
+    snapshot = await reloaded.getSnapshot([printer()]);
+    assert.equal(snapshot.printers[0].tasks.length, 1);
+    assert.equal(snapshot.printers[0].history.length, 1);
+    assert.equal(snapshot.printers[0].history[0].notes, 'Completed during monthly service');
+    await reloaded.stop();
+  } finally {
+    await fs.rm(dir, { recursive:true, force:true });
+  }
+});
+
+test('maintenance usage tracks observed print time and print cycles', async () => {
+  const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'pfc-maintenance-usage-'));
+  let now = Date.parse('2026-09-24T12:00:00Z');
+  const fleet = new FakeFleet([printer('printing')]);
+  const service = new MaintenanceService({
+    fleetState:fleet,
+    dataDir:dir,
+    printerLookup:async () => ({ id:'printer-1' }),
+    nowFn:() => now,
+    persistDelayMs:1
+  });
+
+  try {
+    await service.start();
+
+    now += 60_000;
+    fleet.emit([printer('printing')]);
+    now += 30_000;
+    fleet.emit([printer('idle')]);
+
+    let snapshot = await service.getSnapshot([printer()]);
+    assert.equal(snapshot.printers[0].usage.printSeconds, 90);
+    assert.equal(snapshot.printers[0].usage.printCount, 1);
+
+    const task = await service.addTask('printer-1', {
+      name:'Inspect nozzle',
+      schedule:{ type:'print_hours', interval:1 }
+    });
+
+    now += 60_000;
+    fleet.emit([printer('printing')]);
+    now += 48 * 60_000;
+    fleet.emit([printer('printing')]);
+    now += 12 * 60_000;
+    fleet.emit([printer('idle')]);
+
+    snapshot = await service.getSnapshot([printer()]);
+    const current = snapshot.printers[0].tasks.find((item) => item.id === task.id);
+    assert.equal(current.status.state, 'due');
+    assert.equal(snapshot.printers[0].usage.printCount, 2);
+  } finally {
+    await service.stop();
+    await fs.rm(dir, { recursive:true, force:true });
+  }
+});
+
+test('maintenance print-count tasks become due after the configured number of observed print cycles', async () => {
+  const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'pfc-maintenance-count-'));
+  let now = Date.parse('2026-09-24T12:00:00Z');
+  const fleet = new FakeFleet([printer()]);
+  const service = new MaintenanceService({
+    fleetState:fleet,
+    dataDir:dir,
+    printerLookup:async () => ({ id:'printer-1' }),
+    nowFn:() => now,
+    persistDelayMs:1
+  });
+
+  try {
+    await service.start();
+    const task = await service.addTask('printer-1', {
+      name:'Clean build surface',
+      schedule:{ type:'print_count', interval:2 }
+    });
+
+    for (let cycle = 0; cycle < 2; cycle++) {
+      now += 1000;
+      fleet.emit([printer('printing')]);
+      now += 1000;
+      fleet.emit([printer('idle')]);
+    }
+
+    const snapshot = await service.getSnapshot([printer()]);
+    const current = snapshot.printers[0].tasks.find((item) => item.id === task.id);
+    assert.equal(current.status.state, 'due');
+    assert.equal(snapshot.printers[0].usage.printCount, 2);
+  } finally {
+    await service.stop();
+    await fs.rm(dir, { recursive:true, force:true });
+  }
+});
