@@ -29,6 +29,8 @@ test('normalizes Bambu P1 telemetry and external-spool material metadata', () =>
   assert.equal(status.tools[0].nozzleDiameter, 0.4);
   assert.equal(status.tools[0].filament.material, 'PETG');
   assert.equal(status.tools[0].filament.color, '#3366CC');
+  assert.equal(status.tools[0].filament.colorFamily, 'blue');
+  assert.equal(status.materialSources.find((source) => source.kind === 'external').colorFamily, 'blue');
   assert.equal(status.coolingFan, 40);
   assert.equal(status.chamberFan, 60);
 });
@@ -45,6 +47,7 @@ test('active AMS tray takes precedence over configured external-spool metadata',
   } }, { model:'P1S' });
   assert.equal(status.tools[0].filament.material, 'ASA');
   assert.equal(status.tools[0].filament.color, '#112233');
+  assert.equal(status.tools[0].filament.colorFamily, 'blue');
   assert.equal(status.amsAttached, true);
   assert.equal(status.materialSources.length, 3);
   assert.equal(status.materialSources.find((source) => source.active).label, 'AMS 1 · Slot 2');
@@ -90,6 +93,7 @@ test('normalizes A1 Mini telemetry for TLS/JPEG camera and AMS Lite material sou
   assert.equal(status.amsAttached, true);
   assert.equal(status.materialSources.find((source) => source.active).material, 'PLA');
   assert.equal(status.materialSources.find((source) => source.active).color, '#00AAFF');
+  assert.equal(status.materialSources.find((source) => source.active).colorFamily, 'blue');
 });
 
 test('builds Bambu project and raw G-code print commands', () => {
