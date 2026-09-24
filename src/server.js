@@ -1292,10 +1292,17 @@ async function startController() {
   try {
     await diagnosticLogger.init();
     diagnosticLogger.patchConsole();
-    await manualBackupManager.init();
     console.log(`Diagnostic logging enabled (${runtimePaths.customLogDir ? 'LOG_DIR override' : 'application-local logs directory'})`);
   } catch (error) {
     console.warn(`Diagnostic file logging unavailable: ${error.message}`);
+  }
+  try {
+    await manualBackupManager.init();
+  } catch (error) {
+    await diagnosticLogger.warn('backup', 'Backup staging is unavailable at startup', {
+      error:error?.message || String(error)
+    }).catch(() => {});
+    console.warn(`Backup staging unavailable: ${error.message}`);
   }
   licenseManager = await loadLicenseManager({
     appDir:APP_DIR,
