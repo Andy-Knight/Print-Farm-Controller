@@ -39,6 +39,8 @@ import { KeyedSerialExecutor, PrinterOperationCoordinator } from './concurrency.
 import { evaluatePrinterOperation, PrinterPhysicalActivityTracker, PRINTER_OPERATION_TYPES } from './printer-operation-policy.js';
 import { DiagnosticLogger } from './diagnostic-logger.js';
 import { ManualBackupManager } from './backup-recovery/manual-backup-manager.js';
+import { inspectRestoreBackup } from './backup-recovery/restore-inspector.js';
+import { stageRestoreUploadRequest } from './backup-recovery/restore-upload-staging.js';
 
 const runtimePaths = resolveControllerRuntimePaths();
 const PUBLIC_DIR = runtimePaths.publicDir;
@@ -81,6 +83,7 @@ const cameraManager = new CameraManager({
 chamberPreheat = new ChamberPreheatService({ fleetState, operationCoordinator:printerOperations });
 const emulatorManager = new EmulatorManager();
 let licenseManager = null;
+let restoreInspectionInProgress = false;
 
 function isControllerSimulator(printer) {
   return printer?.simulated === true || emulatorManager.isSimulatedConfig(printer);
@@ -420,6 +423,48 @@ async function apiRoute(req, res, url) {
         error:error?.message || String(error)
       });
       return;
+    }
+  }
+
+  if (req.method === 'POST' && url.pathname === '/api/restore/inspect') {
+    if (restoreInspectionInProgress) {
+      const error = new Error('A restore backup is already being inspected');
+      error.statusCode = 409;
+      throw error;
+    }
+    restoreInspectionInProgress = true;
+    const staged = await stageRestoreUploadRequest(req, req.headers['x-file-name']);
+    await diagnosticLogger.info('restore', 'Restore backup inspection requested', {
+      fileName:staged.fileName,
+      size:staged.size
+    });
+    try {
+      const inspection = await inspectRestoreBackup(staged.filePath, {
+        currentControllerVersion:CONTROLLER_VERSION,
+        targetDataDir:runtimePaths.dataDir,
+        originalFileName:staged.fileName
+      });
+      await diagnosticLogger.info('restore', 'Restore backup inspection passed', {
+        fileName:inspection.fileName,
+        sourceControllerVersion:inspection.sourceControllerVersion,
+        createdAt:inspection.createdAt,
+        printers:inspection.counts.printers,
+        printLibrary:inspection.counts.printLibrary,
+        queued:inspection.counts.queued,
+        history:inspection.counts.history,
+        licenseIncluded:inspection.licenseIncluded,
+        migrationsRequired:inspection.migrationsRequired.length
+      });
+      return json(res, 200, { inspection });
+    } catch (error) {
+      await diagnosticLogger.warn('restore', 'Restore backup inspection failed', {
+        fileName:staged.fileName,
+        error:error?.message || String(error)
+      });
+      throw error;
+    } finally {
+      restoreInspectionInProgress = false;
+      await staged.cleanup().catch(() => {});
     }
   }
 
