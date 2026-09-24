@@ -347,7 +347,12 @@ export class ScheduledBackupService {
       if (this.catchUpTimer) this.clearTimeoutFn(this.catchUpTimer);
       this.catchUpTimer = null;
       this.catchUpScheduledFor = null;
-      await this.arm();
+      if (this.started) {
+        await this.scheduleMissedBackupCatchUp();
+        await this.arm();
+      } else {
+        this.nextRunAt = null;
+      }
       await this.log('info', saved.enabled ? 'Scheduled backups enabled or updated' : 'Scheduled backups disabled', {
         destinationType:backupDestinationType(saved.destination),
         frequency:saved.frequency,
