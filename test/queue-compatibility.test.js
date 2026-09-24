@@ -207,6 +207,28 @@ test('FlashForge controller accepts a different shade from the same colour famil
   assert.equal(result.reasons.length, 0);
 });
 
+test('FlashForge controller accepts a manual colour family without an exact shade', () => {
+  const result = evaluateQueueCompatibility({
+    job:{ fileName:'part.gcode', stagedFile:{ requirements:{ requiredTools:[0], toolCount:1, usageReliable:true, logicalTools:[{ index:0, material:'PLA', color:'#FF0000' }] } } },
+    printer:{ id:'ff', name:'AD5M' },
+    state:{ id:'ff', name:'AD5M', online:true, status:{ status:'idle', tools:[{ index:0, filament:{ material:'PLA', color:null, colorFamily:'red', colorFamilySource:'manual' } }] } },
+    adapter:{ capabilities:{ fileUpload:true, localFiles:true, printLocalFile:true }, limits:{}, uploadExtensions:['.gcode','.gx','.3mf'] }
+  });
+  assert.equal(result.category, 'ready');
+  assert.equal(result.reasons.length, 0);
+});
+
+test('FlashForge controller blocks a manual colour family that differs from the file colour family', () => {
+  const result = evaluateQueueCompatibility({
+    job:{ fileName:'part.gcode', stagedFile:{ requirements:{ requiredTools:[0], toolCount:1, usageReliable:true, logicalTools:[{ index:0, material:'PLA', color:'#FF0000' }] } } },
+    printer:{ id:'ff', name:'AD5M' },
+    state:{ id:'ff', name:'AD5M', online:true, status:{ status:'idle', tools:[{ index:0, filament:{ material:'PLA', color:null, colorFamily:'blue', colorFamilySource:'manual' } }] } },
+    adapter:{ capabilities:{ fileUpload:true, localFiles:true, printLocalFile:true }, limits:{}, uploadExtensions:['.gcode','.gx','.3mf'] }
+  });
+  assert.equal(result.category, 'blocked');
+  assert.ok(result.reasons.some((reason) => reason.code === 'color_mismatch'));
+});
+
 test('FlashForge controller still blocks colours from a different family', () => {
   const result = evaluateQueueCompatibility({
     job:{ fileName:'part.gcode', stagedFile:{ requirements:{ requiredTools:[0], toolCount:1, usageReliable:true, logicalTools:[{ index:0, material:'PLA', color:'#FF0000' }] } } },
