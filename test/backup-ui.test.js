@@ -95,6 +95,7 @@ test('scheduled backup UI configures writable local or network destinations and 
   assert.match(app, /api\('\/api\/backup\/settings'/);
   assert.match(app, /updateBackupWeekdayVisibility/);
   assert.match(app, /Next scheduled backup/);
+  assert.match(app, /Missed backup catch-up pending for/);
 
   assert.match(server, /new ScheduledBackupService/);
   assert.match(server, /new BackupOperationLock/);
@@ -108,5 +109,9 @@ test('scheduled backup UI configures writable local or network destinations and 
   assert.match(scheduledBackupService, /manifest\.installationId/);
   assert.match(scheduledBackupService, /retentionCount/);
   assert.match(scheduledBackupService, /newestBackupPath/);
+  assert.match(scheduledBackupService, /previousScheduledBackupAt/);
+  assert.match(scheduledBackupService, /scheduleMissedBackupCatchUp/);
+  assert.match(scheduledBackupService, /trigger:'catch-up'/);
+  assert.match(scheduledBackupService, /lastScheduledFor/);
   assert.match(styles, /\.backup-schedule-grid/);
 });
