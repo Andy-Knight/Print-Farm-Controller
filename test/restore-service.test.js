@@ -52,11 +52,12 @@ test('prepareRestoredJobs recovery-holds every unfinished job and preserves term
     { id:'queued', status:'queued', assignmentMode:'automatic', printerId:'p1', printerName:'P1', options:{ toolMap:{ 0:1 } } },
     { id:'starting', status:'starting', assignmentMode:'fixed', printerId:'p2', productionBatchId:'batch', productionPaused:false },
     { id:'printing', status:'printing', assignmentMode:'fixed', printerId:'p3', bedClearanceRequired:false },
+    { id:'auto-printing', status:'printing', assignmentMode:'automatic', printerId:'p5', printerName:'Auto printer', bedClearanceRequired:false },
     { id:'completed', status:'completed', assignmentMode:'fixed', printerId:'p4', finishedAt:'2026-01-01T00:00:00.000Z' }
   ];
   const restored = prepareRestoredJobs(jobs, { restoredAt:'2026-09-24T18:00:00.000Z' });
 
-  for (const job of restored.slice(0, 3)) {
+  for (const job of restored.slice(0, 4)) {
     assert.equal(job.status, 'needs_review');
     assert.equal(job.restoreRecoveryHold, true);
     assert.match(job.error, /Restored — review required/);
@@ -71,7 +72,10 @@ test('prepareRestoredJobs recovery-holds every unfinished job and preserves term
   assert.equal(restored[1].productionPaused, true);
   assert.equal(restored[1].bedClearanceRequired, true);
   assert.equal(restored[2].bedClearanceRequired, true);
-  assert.deepEqual(restored[3], jobs[3]);
+  assert.equal(restored[3].printerId, 'p5');
+  assert.equal(restored[3].printerName, 'Auto printer');
+  assert.equal(restored[3].bedClearanceRequired, true);
+  assert.deepEqual(restored[4], jobs[4]);
 });
 
 test('staging a restore does not change live data and can be cancelled', async () => {
