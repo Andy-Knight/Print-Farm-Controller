@@ -250,6 +250,7 @@ export async function setPrinterMaterialDesignation(id, material, color = undefi
     ? undefined
     : normalizeColorFamilyDesignation(colorFamilyDesignation);
   if (familyDesignation === undefined && colorDesignation) familyDesignation = colorFamily(colorDesignation);
+  if (familyDesignation === undefined && color === null) familyDesignation = null;
   if (familyDesignation && colorDesignation && colorFamily(colorDesignation) !== familyDesignation) {
     throw new Error('Optional filament shade must belong to the selected colour family');
   }
