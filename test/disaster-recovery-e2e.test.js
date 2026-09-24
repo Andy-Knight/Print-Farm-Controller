@@ -198,12 +198,31 @@ test('end-to-end disaster recovery restores portable state and reinitializes saf
     }
   };
 
+  const maintenanceState = {
+    version:1,
+    printers:{
+      'ff-dr':{
+        usage:{ printSeconds:14400, printCount:12, updatedAt:'2026-09-23T12:30:00.000Z' },
+        tasks:[],
+        history:[{
+          id:'maintenance-history-1',
+          taskId:'maintenance-task-1',
+          taskName:'Lubricate rails',
+          completedAt:'2026-09-20T00:00:00.000Z',
+          notes:'Completed before backup',
+          usageSnapshot:{ printSeconds:7200, printHours:2, printCount:6 }
+        }]
+      }
+    }
+  };
+
   try {
     await fs.mkdir(libraryDir, { recursive:true });
     await writeJson(path.join(sourceData, 'printers.json'), printers);
     await writeJson(path.join(sourceData, 'print-jobs.json'), jobs);
     await writeJson(path.join(sourceData, 'file-material-metadata.json'), fileMaterials);
     await writeJson(path.join(sourceData, 'emulator-settings.json'), { enabled:true });
+    await writeJson(path.join(sourceData, 'maintenance.json'), maintenanceState);
     await writeJson(path.join(sourceData, 'backup-settings.json'), {
       installationId:'55555555-5555-4555-8555-555555555555',
       enabled:true,
@@ -284,6 +303,7 @@ test('end-to-end disaster recovery restores portable state and reinitializes saf
       fileMaterials
     );
     assert.deepEqual(JSON.parse(await fs.readFile(targetLicense, 'utf8')), invalidSignedLicense);
+    assert.deepEqual(JSON.parse(await fs.readFile(path.join(targetData, 'maintenance.json'), 'utf8')), maintenanceState);
 
     const restoredSettings = JSON.parse(await fs.readFile(path.join(targetData, 'backup-settings.json'), 'utf8'));
     assert.equal(restoredSettings.installationId, '55555555-5555-4555-8555-555555555555');
