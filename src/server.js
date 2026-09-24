@@ -39,6 +39,8 @@ import { KeyedSerialExecutor, PrinterOperationCoordinator } from './concurrency.
 import { evaluatePrinterOperation, PrinterPhysicalActivityTracker, PRINTER_OPERATION_TYPES } from './printer-operation-policy.js';
 import { DiagnosticLogger } from './diagnostic-logger.js';
 import { ManualBackupManager } from './backup-recovery/manual-backup-manager.js';
+import { BackupOperationLock } from './backup-recovery/backup-operation-lock.js';
+import { ScheduledBackupService } from './backup-recovery/scheduled-backup-service.js';
 import { inspectRestoreBackup } from './backup-recovery/restore-inspector.js';
 import { stageRestoreUploadRequest } from './backup-recovery/restore-upload-staging.js';
 import {
@@ -60,11 +62,21 @@ const CONTROLLER_VERSION = String(bundledVersion || packageInfo.version || 'unkn
 const PORT = Number(process.env.PORT || 4242);
 const HOST = process.env.HOST || '0.0.0.0';
 const diagnosticLogger = new DiagnosticLogger({ logDir:runtimePaths.logDir, version:CONTROLLER_VERSION });
+const backupOperationLock = new BackupOperationLock();
 const manualBackupManager = new ManualBackupManager({
   dataDir:runtimePaths.dataDir,
   applicationDir:runtimePaths.applicationDir,
   licensePath:runtimePaths.licensePath,
-  controllerVersion:CONTROLLER_VERSION
+  controllerVersion:CONTROLLER_VERSION,
+  operationLock:backupOperationLock
+});
+const scheduledBackupService = new ScheduledBackupService({
+  dataDir:runtimePaths.dataDir,
+  applicationDir:runtimePaths.applicationDir,
+  licensePath:runtimePaths.licensePath,
+  controllerVersion:CONTROLLER_VERSION,
+  operationLock:backupOperationLock,
+  diagnosticFn:(level, message, meta) => diagnosticLogger[level]?.('backup', message, meta)
 });
 const fleetState = new FleetStateService({
   diagnosticFn:(level, message, meta) => diagnosticLogger[level]?.('fleet', message, meta)
@@ -426,7 +438,33 @@ async function apiRoute(req, res, url) {
   }
 
   if (req.method === 'GET' && url.pathname === '/api/backup/status') {
-    return json(res, 200, { backup:await manualBackupManager.status() });
+    const [manual, schedule] = await Promise.all([
+      manualBackupManager.status(),
+      scheduledBackupService.status()
+    ]);
+    return json(res, 200, {
+      backup:{
+        ...manual,
+        schedule,
+        operation:backupOperationLock.status()
+      }
+    });
+  }
+
+  if (req.method === 'GET' && url.pathname === '/api/backup/settings') {
+    return json(res, 200, { schedule:await scheduledBackupService.status() });
+  }
+
+  if (req.method === 'PUT' && url.pathname === '/api/backup/settings') {
+    const body = await readJson(req);
+    const schedule = await scheduledBackupService.updateSettings(body);
+    return json(res, 200, { schedule });
+  }
+
+  if (req.method === 'POST' && url.pathname === '/api/backup/test-destination') {
+    const body = await readJson(req);
+    const result = await scheduledBackupService.testDestination(body.destination);
+    return json(res, 200, { destination:result });
   }
 
   if (req.method === 'POST' && url.pathname === '/api/backup/create') {
@@ -482,12 +520,15 @@ async function apiRoute(req, res, url) {
     }
 
     printQueue.setDispatchPaused(true);
+    scheduledBackupService.stop();
     restoreInspectionInProgress = true;
     const blockers = restorePhysicalActivityBlockers();
     if (activeMutationRequests > 1) blockers.push('another controller change request is still in progress');
+    if (backupOperationLock.isBusy()) blockers.push(`${backupOperationLock.status()?.kind || 'backup'} backup operation is still in progress`);
     if (blockers.length) {
       restoreInspectionInProgress = false;
       printQueue.setDispatchPaused(false);
+      scheduledBackupService.start().catch(() => {});
       const error = new Error(`Restore cannot be staged while controller or physical printer work is active: ${blockers.join('; ')}`);
       error.statusCode = 409;
       throw error;
@@ -523,7 +564,10 @@ async function apiRoute(req, res, url) {
       throw error;
     } finally {
       restoreInspectionInProgress = false;
-      if (!stagedSuccessfully) printQueue.setDispatchPaused(false);
+      if (!stagedSuccessfully) {
+        printQueue.setDispatchPaused(false);
+        scheduledBackupService.start().catch(() => {});
+      }
       await uploaded?.cleanup().catch(() => {});
     }
   }
@@ -532,6 +576,7 @@ async function apiRoute(req, res, url) {
     const result = await cancelStagedRestore(runtimePaths.dataDir);
     restorePendingRestart = false;
     printQueue.setDispatchPaused(false);
+    await scheduledBackupService.start();
     await diagnosticLogger.info('restore', 'Staged restore cancelled', {
       backupId:result.backupId || null,
       fileName:result.fileName || null
@@ -1448,6 +1493,7 @@ async function shutdown() {
   await diagnosticLogger.info('controller', 'Controller shutdown requested').catch(() => {});
   try { await chamberPreheat.stopAll({ reason: 'controller-shutdown', turnOff: true }); } catch {}
   chamberPreheat.stopService();
+  scheduledBackupService.stop();
   printQueue.stop();
   fleetState.stop();
   cameraManager.stop();
@@ -1503,6 +1549,14 @@ async function startController() {
         error:error?.message || String(error)
       }).catch(() => {});
       console.warn(`Backup staging unavailable: ${error.message}`);
+    }
+    try {
+      await scheduledBackupService.start();
+    } catch (error) {
+      await diagnosticLogger.warn('backup', 'Scheduled backup service could not start', {
+        error:error?.message || String(error)
+      }).catch(() => {});
+      console.warn(`Scheduled backup service unavailable: ${error.message}`);
     }
 
     licenseManager = await loadLicenseManager({
