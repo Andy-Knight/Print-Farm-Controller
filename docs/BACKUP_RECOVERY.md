@@ -516,6 +516,20 @@ A test should create controller state in one temporary data directory, produce a
 - unfinished queue work exists but cannot auto-start;
 - licence validation still follows normal rules.
 
+## Implementation status
+
+Stage 1 is implemented on `feature/backup-recovery-v0230`:
+
+- dependency-free ZIP32-compatible archive writer using stored entries and data descriptors;
+- streaming SHA-256/CRC verification of completed archives;
+- `manifest.json` and `checksums.json` generation;
+- persistent installation UUID and backup-settings foundation;
+- logical snapshot export of the known controller stores and Print Library;
+- optional signed licence and emulator settings inclusion;
+- archive corruption, path-independence and inclusion/exclusion tests.
+
+The service is not yet exposed through the server/UI. Restore and scheduling are not yet implemented.
+
 ## Implementation order
 
 1. Backup format + archive/checksum helper.
