@@ -46,6 +46,7 @@
         <div class="topbar-overflow-menu" role="menu">
           <button type="button" class="topbar-overflow-item" role="menuitem" onclick="location.href='/simulator/'">Printer simulator</button>
           <button id="diagnosticsBtn" type="button" class="topbar-overflow-item" role="menuitem">Diagnostics</button>
+          <button id="backupRecoveryBtn" type="button" class="topbar-overflow-item" role="menuitem">Backup &amp; recovery</button>
           <button id="licenseBtn" type="button" class="topbar-overflow-item" role="menuitem">Licence</button>
           <button id="batchModeMenuBtn" type="button" class="topbar-overflow-item topbar-overflow-fleet" role="menuitem">Fleet operations</button>
         </div>
@@ -162,6 +163,51 @@
 
       <div class="actions">
         <button type="button" class="secondary" data-diagnostics-close>Close</button>
+      </div>
+    </div>
+  </dialog>
+
+  <dialog id="backupRecoveryDialog" class="backup-recovery-dialog">
+    <div class="backup-recovery-shell">
+      <div class="dialog-head">
+        <div>
+          <div class="eyebrow">CONTROLLER DATA</div>
+          <h2>Backup &amp; recovery</h2>
+          <div class="subtle">Create a portable backup of controller configuration, Print Library content, queue/history and related persistent state.</div>
+        </div>
+        <button type="button" class="icon" data-backup-close>×</button>
+      </div>
+
+      <div id="backupStatusGrid" class="backup-status-grid"></div>
+
+      <section class="backup-section">
+        <div class="backup-section-head">
+          <div>
+            <strong>Manual backup</strong>
+            <div class="field-help">The controller builds and verifies the backup before it is offered for download.</div>
+          </div>
+          <button id="backupCreateBtn" type="button" class="primary">Create backup now</button>
+        </div>
+        <div class="backup-warning">
+          Backup files may contain printer credentials, Print Library files and your signed licence. v0.23.0 backups are integrity-checked but are not encrypted; store them only in a trusted location.
+        </div>
+        <div id="backupActionStatus" class="subtle backup-action-status" aria-live="polite"></div>
+        <div id="backupError" class="error hidden"></div>
+      </section>
+
+      <section class="backup-section backup-disabled-section">
+        <div class="backup-section-head">
+          <div>
+            <strong>Restore</strong>
+            <div class="field-help">Restore validation, recovery holds and atomic restart activation are the next implementation stage.</div>
+          </div>
+          <button type="button" class="secondary" disabled>Restore backup</button>
+        </div>
+        <div class="subtle">Backups created by this build already use the v0.23.0 portable backup format and are intended for the restore engine being implemented next.</div>
+      </section>
+
+      <div class="actions">
+        <button type="button" class="secondary" data-backup-close>Close</button>
       </div>
     </div>
   </dialog>
