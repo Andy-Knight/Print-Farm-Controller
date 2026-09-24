@@ -29,6 +29,13 @@ export class PrinterOperationCoordinator {
     return this.active.has(String(printerId || ''));
   }
 
+  activeOperations() {
+    return [...this.active.entries()].map(([printerId, operation]) => ({
+      printerId,
+      ...operation
+    }));
+  }
+
   evaluate(printerId, operationType = null, { ignoreTransaction = false } = {}) {
     const id = String(printerId || '').trim();
     if (!id) return { allowed:false, code:'printer_id_required', message:'printerId is required', activity:null };

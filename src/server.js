@@ -38,6 +38,19 @@ import { publicAssetKey, readRuntimeAsset } from './runtime-assets.js';
 import { KeyedSerialExecutor, PrinterOperationCoordinator } from './concurrency.js';
 import { evaluatePrinterOperation, PrinterPhysicalActivityTracker, PRINTER_OPERATION_TYPES } from './printer-operation-policy.js';
 import { DiagnosticLogger } from './diagnostic-logger.js';
+import { ManualBackupManager } from './backup-recovery/manual-backup-manager.js';
+import { BackupOperationLock } from './backup-recovery/backup-operation-lock.js';
+import { ScheduledBackupService } from './backup-recovery/scheduled-backup-service.js';
+import { inspectRestoreBackup } from './backup-recovery/restore-inspector.js';
+import { stageRestoreUploadRequest } from './backup-recovery/restore-upload-staging.js';
+import {
+  activatePendingRestore,
+  cancelStagedRestore,
+  commitActivatedRestore,
+  pendingRestoreStatus,
+  rollbackActivatedRestore,
+  stageRestoreBackup
+} from './backup-recovery/restore-service.js';
 
 const runtimePaths = resolveControllerRuntimePaths();
 const PUBLIC_DIR = runtimePaths.publicDir;
@@ -49,6 +62,22 @@ const CONTROLLER_VERSION = String(bundledVersion || packageInfo.version || 'unkn
 const PORT = Number(process.env.PORT || 4242);
 const HOST = process.env.HOST || '0.0.0.0';
 const diagnosticLogger = new DiagnosticLogger({ logDir:runtimePaths.logDir, version:CONTROLLER_VERSION });
+const backupOperationLock = new BackupOperationLock();
+const manualBackupManager = new ManualBackupManager({
+  dataDir:runtimePaths.dataDir,
+  applicationDir:runtimePaths.applicationDir,
+  licensePath:runtimePaths.licensePath,
+  controllerVersion:CONTROLLER_VERSION,
+  operationLock:backupOperationLock
+});
+const scheduledBackupService = new ScheduledBackupService({
+  dataDir:runtimePaths.dataDir,
+  applicationDir:runtimePaths.applicationDir,
+  licensePath:runtimePaths.licensePath,
+  controllerVersion:CONTROLLER_VERSION,
+  operationLock:backupOperationLock,
+  diagnosticFn:(level, message, meta) => diagnosticLogger[level]?.('backup', message, meta)
+});
 const fleetState = new FleetStateService({
   diagnosticFn:(level, message, meta) => diagnosticLogger[level]?.('fleet', message, meta)
 });
@@ -74,6 +103,9 @@ const cameraManager = new CameraManager({
 chamberPreheat = new ChamberPreheatService({ fleetState, operationCoordinator:printerOperations });
 const emulatorManager = new EmulatorManager();
 let licenseManager = null;
+let restoreInspectionInProgress = false;
+let restorePendingRestart = false;
+let activeMutationRequests = 0;
 
 function isControllerSimulator(printer) {
   return printer?.simulated === true || emulatorManager.isSimulatedConfig(printer);
@@ -145,6 +177,30 @@ function currentLicenseSnapshot(printers = fleetState.getFleet()) {
     printers,
     isSimulated: isControllerSimulator
   });
+}
+
+function restorePhysicalActivityBlockers() {
+  const blockers = [];
+  const activeQueue = printQueue?.getSnapshot?.().active || 0;
+  if (activeQueue > 0) blockers.push(`${activeQueue} controller queue operation${activeQueue === 1 ? '' : 's'} are active`);
+
+  const fleetById = new Map(decoratedFleet().map((printer) => [printer.id, printer]));
+  for (const operation of printerOperations.activeOperations()) {
+    const printer = fleetById.get(operation.printerId);
+    if (!printer || isControllerSimulator(printer)) continue;
+    blockers.push(`${printer.name || printer.id}: ${operation.label || 'controller operation'}`);
+  }
+
+  for (const printer of fleetById.values()) {
+    if (isControllerSimulator(printer)) continue;
+    const state = String(printer?.status?.status || '').trim().toLowerCase();
+    const activePrint = ['printing','working','building_from_sd','pause','paused'].includes(state)
+      || (state === 'heating' && Boolean(printer?.status?.fileName));
+    if (activePrint) blockers.push(`${printer.name || printer.id}: active print`);
+    if (printer?.chamberPreheat?.active) blockers.push(`${printer.name || printer.id}: chamber preheat`);
+    if (printer?.controllerActivity) blockers.push(`${printer.name || printer.id}: ${printer.controllerActivity.label || printer.controllerActivity.kind || 'controller operation'}`);
+  }
+  return [...new Set(blockers)];
 }
 
 function printerLicensedForNewWork(printerId) {
@@ -363,6 +419,16 @@ async function refreshAfterCommand(id) {
 }
 
 async function apiRoute(req, res, url) {
+  const mutation = ['POST','PUT','PATCH','DELETE'].includes(req.method);
+  const mayCancelStagedRestore = req.method === 'DELETE' && url.pathname === '/api/restore/stage';
+  if ((restorePendingRestart || restoreInspectionInProgress) && mutation && !mayCancelStagedRestore) {
+    const error = new Error(restorePendingRestart
+      ? 'A restore is staged and waiting for controller restart. Restart the controller to activate it, or cancel the staged restore before making further changes.'
+      : 'A restore backup operation is in progress. Try this change again after it finishes.');
+    error.statusCode = 409;
+    throw error;
+  }
+
   if (req.method === 'GET' && url.pathname === '/api/health') {
     return json(res, 200, { ok: true, service: 'printer-fleet-controller', version: CONTROLLER_VERSION, license: currentLicenseSnapshot(), liveState: true });
   }
@@ -370,6 +436,197 @@ async function apiRoute(req, res, url) {
   if (req.method === 'GET' && url.pathname === '/api/license') {
     return json(res, 200, { license: currentLicenseSnapshot() });
   }
+
+  if (req.method === 'GET' && url.pathname === '/api/backup/status') {
+    const [manual, schedule] = await Promise.all([
+      manualBackupManager.status(),
+      scheduledBackupService.status()
+    ]);
+    return json(res, 200, {
+      backup:{
+        ...manual,
+        schedule,
+        operation:backupOperationLock.status()
+      }
+    });
+  }
+
+  if (req.method === 'GET' && url.pathname === '/api/backup/settings') {
+    return json(res, 200, { schedule:await scheduledBackupService.status() });
+  }
+
+  if (req.method === 'PUT' && url.pathname === '/api/backup/settings') {
+    const body = await readJson(req);
+    const schedule = await scheduledBackupService.updateSettings(body);
+    return json(res, 200, { schedule });
+  }
+
+  if (req.method === 'POST' && url.pathname === '/api/backup/test-destination') {
+    const body = await readJson(req);
+    const result = await scheduledBackupService.testDestination(body.destination);
+    return json(res, 200, { destination:result });
+  }
+
+  if (req.method === 'POST' && url.pathname === '/api/backup/create') {
+    await diagnosticLogger.info('backup', 'Manual backup requested');
+    try {
+      const backup = await manualBackupManager.create();
+      await diagnosticLogger.info('backup', 'Manual backup created and verified', {
+        fileName:backup.fileName,
+        size:backup.size,
+        createdAt:backup.manifest?.createdAt || null,
+        printers:backup.manifest?.counts?.printers ?? null,
+        printLibrary:backup.manifest?.counts?.printLibrary ?? null,
+        queued:backup.manifest?.counts?.queued ?? null,
+        history:backup.manifest?.counts?.history ?? null,
+        licenseIncluded:backup.manifest?.licenseIncluded === true
+      });
+      return json(res, 201, { backup });
+    } catch (error) {
+      await diagnosticLogger.warn('backup', 'Manual backup creation failed', {
+        error:error?.message || String(error)
+      });
+      throw error;
+    }
+  }
+
+  const backupDownloadMatch = url.pathname.match(/^\/api\/backup\/download\/([^/]+)$/);
+  if (backupDownloadMatch && req.method === 'GET') {
+    const backupId = decodeURIComponent(backupDownloadMatch[1]);
+    await diagnosticLogger.info('backup', 'Manual backup download started', { backupId });
+    try {
+      await manualBackupManager.stream(backupId, res);
+      await diagnosticLogger.info('backup', 'Manual backup download completed', { backupId });
+      return;
+    } catch (error) {
+      if (!res.headersSent) throw error;
+      await diagnosticLogger.warn('backup', 'Manual backup download interrupted', {
+        backupId,
+        error:error?.message || String(error)
+      });
+      return;
+    }
+  }
+
+  if (req.method === 'GET' && url.pathname === '/api/restore/status') {
+    return json(res, 200, { restore:await pendingRestoreStatus(runtimePaths.dataDir) });
+  }
+
+  if (req.method === 'POST' && url.pathname === '/api/restore/stage') {
+    if (restoreInspectionInProgress) {
+      const error = new Error('A restore backup operation is already in progress');
+      error.statusCode = 409;
+      throw error;
+    }
+
+    printQueue.setDispatchPaused(true);
+    scheduledBackupService.stop();
+    restoreInspectionInProgress = true;
+    const blockers = restorePhysicalActivityBlockers();
+    if (activeMutationRequests > 1) blockers.push('another controller change request is still in progress');
+    if (backupOperationLock.isBusy()) blockers.push(`${backupOperationLock.status()?.kind || 'backup'} backup operation is still in progress`);
+    if (blockers.length) {
+      restoreInspectionInProgress = false;
+      printQueue.setDispatchPaused(false);
+      scheduledBackupService.start().catch(() => {});
+      const error = new Error(`Restore cannot be staged while controller or physical printer work is active: ${blockers.join('; ')}`);
+      error.statusCode = 409;
+      throw error;
+    }
+
+    let uploaded = null;
+    let stagedSuccessfully = false;
+    try {
+      uploaded = await stageRestoreUploadRequest(req, req.headers['x-file-name']);
+      await diagnosticLogger.info('restore', 'Restore staging requested', {
+        fileName:uploaded.fileName,
+        size:uploaded.size
+      });
+      const restore = await stageRestoreBackup(uploaded.filePath, {
+        dataDir:runtimePaths.dataDir,
+        licensePath:runtimePaths.licensePath,
+        currentControllerVersion:CONTROLLER_VERSION,
+        originalFileName:uploaded.fileName
+      });
+      restorePendingRestart = true;
+      stagedSuccessfully = true;
+      await diagnosticLogger.warn('restore', 'Restore staged; controller restart required', {
+        fileName:restore.fileName,
+        backupId:restore.backupId,
+        recoveryHeldJobs:restore.recoveryHeldJobs
+      });
+      return json(res, 202, { restore });
+    } catch (error) {
+      await diagnosticLogger.warn('restore', 'Restore staging failed', {
+        fileName:uploaded?.fileName || null,
+        error:error?.message || String(error)
+      });
+      throw error;
+    } finally {
+      restoreInspectionInProgress = false;
+      if (!stagedSuccessfully) {
+        printQueue.setDispatchPaused(false);
+        scheduledBackupService.start().catch(() => {});
+      }
+      await uploaded?.cleanup().catch(() => {});
+    }
+  }
+
+  if (req.method === 'DELETE' && url.pathname === '/api/restore/stage') {
+    const result = await cancelStagedRestore(runtimePaths.dataDir);
+    restorePendingRestart = false;
+    printQueue.setDispatchPaused(false);
+    await scheduledBackupService.start();
+    await diagnosticLogger.info('restore', 'Staged restore cancelled', {
+      backupId:result.backupId || null,
+      fileName:result.fileName || null
+    });
+    return json(res, 200, { restore:result });
+  }
+
+  if (req.method === 'POST' && url.pathname === '/api/restore/inspect') {
+    if (restoreInspectionInProgress) {
+      const error = new Error('A restore backup is already being inspected');
+      error.statusCode = 409;
+      throw error;
+    }
+    restoreInspectionInProgress = true;
+    let staged = null;
+    try {
+      staged = await stageRestoreUploadRequest(req, req.headers['x-file-name']);
+      await diagnosticLogger.info('restore', 'Restore backup inspection requested', {
+        fileName:staged.fileName,
+        size:staged.size
+      });
+      const inspection = await inspectRestoreBackup(staged.filePath, {
+        currentControllerVersion:CONTROLLER_VERSION,
+        targetDataDir:runtimePaths.dataDir,
+        originalFileName:staged.fileName
+      });
+      await diagnosticLogger.info('restore', 'Restore backup inspection passed', {
+        fileName:inspection.fileName,
+        sourceControllerVersion:inspection.sourceControllerVersion,
+        createdAt:inspection.createdAt,
+        printers:inspection.counts.printers,
+        printLibrary:inspection.counts.printLibrary,
+        queued:inspection.counts.queued,
+        history:inspection.counts.history,
+        licenseIncluded:inspection.licenseIncluded,
+        migrationsRequired:inspection.migrationsRequired.length
+      });
+      return json(res, 200, { inspection });
+    } catch (error) {
+      await diagnosticLogger.warn('restore', 'Restore backup inspection failed', {
+        fileName:staged?.fileName || null,
+        error:error?.message || String(error)
+      });
+      throw error;
+    } finally {
+      restoreInspectionInProgress = false;
+      await staged?.cleanup().catch(() => {});
+    }
+  }
+
   if (req.method === 'GET' && url.pathname === '/api/diagnostics') {
     const entries = await diagnosticLogger.recent({
       limit:url.searchParams.get('limit') || 300,
@@ -1180,8 +1437,18 @@ async function serveStatic(res, pathname) {
 
 const server = http.createServer(async (req, res) => {
   const url = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
+  const countedMutation = url.pathname.startsWith('/api/')
+    && ['POST','PUT','PATCH','DELETE'].includes(req.method);
+  if (countedMutation) activeMutationRequests += 1;
   try {
     if (url.pathname.startsWith('/api/emulator')) {
+      if ((restorePendingRestart || restoreInspectionInProgress) && ['POST','PUT','PATCH','DELETE'].includes(req.method)) {
+        return json(res, 409, {
+          error:restorePendingRestart
+            ? 'A restore is staged and waiting for controller restart. Restart or cancel the staged restore before changing simulator state.'
+            : 'A restore backup operation is in progress. Try this change again after it finishes.'
+        });
+      }
       await emulatorManager.handleApi(req, res, url);
       return;
     }
@@ -1217,6 +1484,8 @@ const server = http.createServer(async (req, res) => {
     const status = Number.isInteger(Number(error?.statusCode)) ? Number(error.statusCode) : 400;
     if (!res.headersSent) json(res, status, { error: error.message || 'Request failed' });
     else res.end();
+  } finally {
+    if (countedMutation) activeMutationRequests = Math.max(0, activeMutationRequests - 1);
   }
 });
 
@@ -1224,6 +1493,7 @@ async function shutdown() {
   await diagnosticLogger.info('controller', 'Controller shutdown requested').catch(() => {});
   try { await chamberPreheat.stopAll({ reason: 'controller-shutdown', turnOff: true }); } catch {}
   chamberPreheat.stopService();
+  scheduledBackupService.stop();
   printQueue.stop();
   fleetState.stop();
   cameraManager.stop();
@@ -1235,32 +1505,88 @@ async function shutdown() {
 process.on('SIGINT', shutdown);
 process.on('SIGTERM', shutdown);
 
-async function startController() {
-  try {
-    await diagnosticLogger.init();
-    diagnosticLogger.patchConsole();
-    console.log(`Diagnostic logging enabled (${runtimePaths.customLogDir ? 'LOG_DIR override' : 'application-local logs directory'})`);
-  } catch (error) {
-    console.warn(`Diagnostic file logging unavailable: ${error.message}`);
-  }
-  licenseManager = await loadLicenseManager({
-    appDir:APP_DIR,
-    dataDir:controllerDataDir,
-    preferredLicenseFile:runtimePaths.licensePath
+async function listenControllerServer() {
+  await new Promise((resolve, reject) => {
+    const onError = (error) => {
+      server.off('listening', onListening);
+      reject(error);
+    };
+    const onListening = () => {
+      server.off('error', onError);
+      resolve();
+    };
+    server.once('error', onError);
+    server.once('listening', onListening);
+    server.listen(PORT, HOST);
   });
+}
 
+async function startController() {
+  let restoreTransaction = null;
   try {
-    const emulatorStatus = await emulatorManager.init();
-    if (emulatorStatus.running) console.log(`Integrated printer simulator enabled with ${emulatorStatus.printerCount} loopback endpoints`);
-  } catch (error) {
-    console.error(`Could not start integrated printer simulator: ${error.message}`);
-  }
+    const restoreStartup = await activatePendingRestore({
+      dataDir:runtimePaths.dataDir,
+      licensePath:runtimePaths.licensePath
+    });
+    if (restoreStartup?.activated) {
+      restoreTransaction = restoreStartup;
+      console.log(`Activating staged restore ${restoreStartup.fileName || restoreStartup.backupId || ''}`.trim());
+    } else if (restoreStartup?.rolledBack) {
+      console.warn(`Rolled back an incomplete restore startup: ${restoreStartup.reason}`);
+    }
 
-  await fleetState.start();
-  await printQueue.start();
-  chamberPreheat.startService();
+    try {
+      await diagnosticLogger.init();
+      diagnosticLogger.patchConsole();
+      console.log(`Diagnostic logging enabled (${runtimePaths.customLogDir ? 'LOG_DIR override' : 'application-local logs directory'})`);
+    } catch (error) {
+      console.warn(`Diagnostic file logging unavailable: ${error.message}`);
+    }
+    try {
+      await manualBackupManager.init();
+    } catch (error) {
+      await diagnosticLogger.warn('backup', 'Backup staging is unavailable at startup', {
+        error:error?.message || String(error)
+      }).catch(() => {});
+      console.warn(`Backup staging unavailable: ${error.message}`);
+    }
+    licenseManager = await loadLicenseManager({
+      appDir:APP_DIR,
+      dataDir:controllerDataDir,
+      preferredLicenseFile:runtimePaths.licensePath
+    });
 
-  server.listen(PORT, HOST, () => {
+    try {
+      const emulatorStatus = await emulatorManager.init();
+      if (emulatorStatus.running) console.log(`Integrated printer simulator enabled with ${emulatorStatus.printerCount} loopback endpoints`);
+    } catch (error) {
+      console.error(`Could not start integrated printer simulator: ${error.message}`);
+    }
+
+    await fleetState.start();
+    await printQueue.start();
+    chamberPreheat.startService();
+    await listenControllerServer();
+
+    if (restoreTransaction) {
+      const committedRestore = await commitActivatedRestore(restoreTransaction);
+      await diagnosticLogger.info('restore', 'Staged restore activated successfully', {
+        backupId:restoreTransaction.backupId || null,
+        fileName:restoreTransaction.fileName || null,
+        rollbackRetainUntil:committedRestore?.rollbackRetainUntil || null
+      }).catch(() => {});
+      restoreTransaction = null;
+    }
+
+    try {
+      await scheduledBackupService.start();
+    } catch (error) {
+      await diagnosticLogger.warn('backup', 'Scheduled backup service could not start', {
+        error:error?.message || String(error)
+      }).catch(() => {});
+      console.warn(`Scheduled backup service unavailable: ${error.message}`);
+    }
+
     console.log(`Print Farm Controller v${CONTROLLER_VERSION} running at http://localhost:${PORT}`);
     const license = currentLicenseSnapshot();
     console.log(`Licence: ${license.label} (${license.source}; enforcement ${license.enforcementEnabled ? 'enabled' : 'disabled'})`);
@@ -1273,7 +1599,23 @@ async function startController() {
     console.log('Batch fleet control enabled');
     console.log('Verified multi-printer file distribution enabled');
     console.log('Persistent fleet print queue + history enabled');
-  });
+  } catch (error) {
+    chamberPreheat.stopService();
+    scheduledBackupService.stop();
+    printQueue.stop();
+    fleetState.stop();
+    cameraManager.stop();
+    try { await emulatorManager.stop(); } catch {}
+    if (restoreTransaction) {
+      try {
+        await rollbackActivatedRestore(restoreTransaction);
+        console.error('Restored controller data failed startup validation and was rolled back automatically.');
+      } catch (rollbackError) {
+        console.error(`Automatic restore rollback failed: ${rollbackError.message}`);
+      }
+    }
+    throw error;
+  }
 }
 
 startController().catch((error) => {

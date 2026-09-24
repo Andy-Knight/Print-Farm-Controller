@@ -32,6 +32,30 @@ const diagnosticsSearch = document.querySelector('#diagnosticsSearch');
 const diagnosticsRefreshBtn = document.querySelector('#diagnosticsRefreshBtn');
 const diagnosticsError = document.querySelector('#diagnosticsError');
 const diagnosticsLog = document.querySelector('#diagnosticsLog');
+const backupRecoveryBtn = document.querySelector('#backupRecoveryBtn');
+const backupRecoveryDialog = document.querySelector('#backupRecoveryDialog');
+const backupStatusGrid = document.querySelector('#backupStatusGrid');
+const backupCreateBtn = document.querySelector('#backupCreateBtn');
+const backupActionStatus = document.querySelector('#backupActionStatus');
+const backupError = document.querySelector('#backupError');
+const backupScheduleEnabled = document.querySelector('#backupScheduleEnabled');
+const backupScheduleDestination = document.querySelector('#backupScheduleDestination');
+const backupScheduleFrequency = document.querySelector('#backupScheduleFrequency');
+const backupScheduleTime = document.querySelector('#backupScheduleTime');
+const backupScheduleWeekdayField = document.querySelector('#backupScheduleWeekdayField');
+const backupScheduleWeekday = document.querySelector('#backupScheduleWeekday');
+const backupScheduleRetention = document.querySelector('#backupScheduleRetention');
+const backupTestDestinationBtn = document.querySelector('#backupTestDestinationBtn');
+const backupSaveScheduleBtn = document.querySelector('#backupSaveScheduleBtn');
+const backupScheduleStatus = document.querySelector('#backupScheduleStatus');
+const backupScheduleError = document.querySelector('#backupScheduleError');
+const restoreBackupFileInput = document.querySelector('#restoreBackupFileInput');
+const restoreInspectBtn = document.querySelector('#restoreInspectBtn');
+const restoreStageBtn = document.querySelector('#restoreStageBtn');
+const restoreCancelStageBtn = document.querySelector('#restoreCancelStageBtn');
+const restoreInspectStatus = document.querySelector('#restoreInspectStatus');
+const restoreInspectError = document.querySelector('#restoreInspectError');
+const restoreInspectionSummary = document.querySelector('#restoreInspectionSummary');
 const batchModeBtn = document.querySelector('#batchModeBtn');
 const batchModeMenuBtn = document.querySelector('#batchModeMenuBtn');
 const topbarOverflow = document.querySelector('#topbarOverflow');
@@ -667,6 +691,444 @@ function downloadDiagnosticBundle() {
   link.remove();
 }
 
+function backupStatusTime(value, empty = 'Never') {
+  if (!value) return empty;
+  const candidate = typeof value === 'object' ? value.createdAt : value;
+  const date = new Date(candidate);
+  return Number.isNaN(date.getTime()) ? String(candidate || empty) : date.toLocaleString();
+}
+
+function updateBackupWeekdayVisibility() {
+  if (backupScheduleWeekdayField) {
+    backupScheduleWeekdayField.classList.toggle('hidden', backupScheduleFrequency?.value !== 'weekly');
+  }
+}
+
+function setBackupScheduleControlsDisabled(disabled) {
+  for (const element of [
+    backupScheduleEnabled,
+    backupScheduleDestination,
+    backupScheduleFrequency,
+    backupScheduleTime,
+    backupScheduleWeekday,
+    backupScheduleRetention,
+    backupTestDestinationBtn,
+    backupSaveScheduleBtn
+  ]) {
+    if (element) element.disabled = disabled === true;
+  }
+}
+
+function renderBackupSchedule(schedule = {}) {
+  if (backupScheduleEnabled) backupScheduleEnabled.checked = schedule.enabled === true;
+  if (backupScheduleDestination) backupScheduleDestination.value = schedule.destination || '';
+  if (backupScheduleFrequency) backupScheduleFrequency.value = schedule.frequency === 'weekly' ? 'weekly' : 'daily';
+  if (backupScheduleTime) backupScheduleTime.value = schedule.scheduleTime || '02:00';
+  if (backupScheduleWeekday) backupScheduleWeekday.value = String(schedule.scheduleWeekday ?? 1);
+  if (backupScheduleRetention) backupScheduleRetention.value = String(schedule.retentionCount || 14);
+  updateBackupWeekdayVisibility();
+
+  if (backupScheduleStatus) {
+    const parts = [];
+    if (schedule.running) parts.push('Scheduled backup is running.');
+    if (schedule.catchUpPending && schedule.catchUpScheduledFor) {
+      parts.push(`Missed backup catch-up pending for ${backupStatusTime(schedule.catchUpScheduledFor, '—')}.`);
+    }
+    if (schedule.nextRunAt) parts.push(`Next: ${backupStatusTime(schedule.nextRunAt, '—')}.`);
+    if (schedule.lastAttemptAt) parts.push(`Last attempt: ${backupStatusTime(schedule.lastAttemptAt, '—')}.`);
+    if (schedule.lastSuccess?.createdAt) parts.push(`Last success: ${backupStatusTime(schedule.lastSuccess.createdAt, '—')}.`);
+    if (schedule.lastRetentionResult?.completedAt) {
+      parts.push(`Retention: ${Number(schedule.lastRetentionResult.deleted || 0)} deleted, ${Number(schedule.lastRetentionResult.failed || 0)} failed.`);
+    }
+    backupScheduleStatus.textContent = parts.join(' ') || (schedule.enabled ? 'Schedule enabled.' : 'Schedule disabled.');
+  }
+  if (backupScheduleError) {
+    backupScheduleError.textContent = schedule.lastError || '';
+    backupScheduleError.classList.toggle('hidden', !schedule.lastError);
+  }
+}
+
+function renderBackupStatus(payload) {
+  const backup = payload?.backup || {};
+  const last = backup.lastSuccessfulBackup || null;
+  const schedule = backup.schedule || {};
+  if (backupStatusGrid) {
+    backupStatusGrid.innerHTML = `
+      <div><span>Last successful backup</span><strong>${escapeHtml(backupStatusTime(last))}</strong></div>
+      <div><span>Last backup file</span><strong>${escapeHtml(last?.fileName || '—')}</strong></div>
+      <div><span>Last backup size</span><strong>${escapeHtml(last?.size ? formatBytes(last.size) : '—')}</strong></div>
+      <div><span>Scheduled backups</span><strong>${schedule.enabled ? 'Enabled' : 'Not enabled'}</strong></div>
+      <div><span>Next scheduled backup</span><strong>${escapeHtml(backupStatusTime(schedule.nextRunAt, '—'))}</strong></div>
+      <div><span>Backup operation</span><strong>${escapeHtml(backup.operation?.kind ? `${backup.operation.kind} backup running` : 'Idle')}</strong></div>
+    `;
+  }
+  renderBackupSchedule(schedule);
+  if (backupCreateBtn) backupCreateBtn.disabled = backup.manualBackupInProgress === true || Boolean(backup.operation);
+  if (backup.lastError && backupError) {
+    backupError.textContent = backup.lastError;
+    backupError.classList.remove('hidden');
+  }
+}
+
+async function loadBackupStatus() {
+  if (backupError) {
+    backupError.textContent = '';
+    backupError.classList.add('hidden');
+  }
+  try {
+    const result = await api('/api/backup/status');
+    renderBackupStatus(result);
+  } catch (error) {
+    if (backupError) {
+      backupError.textContent = error.message;
+      backupError.classList.remove('hidden');
+    }
+  }
+}
+
+async function testScheduledBackupDestination() {
+  const destination = backupScheduleDestination?.value?.trim() || '';
+  if (!destination) {
+    if (backupScheduleError) {
+      backupScheduleError.textContent = 'Enter a destination folder to test.';
+      backupScheduleError.classList.remove('hidden');
+    }
+    return;
+  }
+  if (backupTestDestinationBtn) backupTestDestinationBtn.disabled = true;
+  if (backupScheduleError) {
+    backupScheduleError.textContent = '';
+    backupScheduleError.classList.add('hidden');
+  }
+  if (backupScheduleStatus) backupScheduleStatus.textContent = 'Testing destination write access…';
+  try {
+    await api('/api/backup/test-destination', {
+      method:'POST',
+      body:JSON.stringify({ destination })
+    });
+    if (backupScheduleStatus) backupScheduleStatus.textContent = 'Destination is writable.';
+  } catch (error) {
+    if (backupScheduleStatus) backupScheduleStatus.textContent = '';
+    if (backupScheduleError) {
+      backupScheduleError.textContent = error.message;
+      backupScheduleError.classList.remove('hidden');
+    }
+  } finally {
+    if (backupTestDestinationBtn) backupTestDestinationBtn.disabled = false;
+  }
+}
+
+async function saveScheduledBackupSettings() {
+  if (!backupSaveScheduleBtn) return;
+  backupSaveScheduleBtn.disabled = true;
+  if (backupScheduleError) {
+    backupScheduleError.textContent = '';
+    backupScheduleError.classList.add('hidden');
+  }
+  if (backupScheduleStatus) backupScheduleStatus.textContent = 'Saving schedule…';
+
+  const retention = Number(backupScheduleRetention?.value || 14);
+  if (!Number.isInteger(retention) || retention < 1 || retention > 365) {
+    if (backupScheduleError) {
+      backupScheduleError.textContent = 'Retention must be a whole number from 1 to 365.';
+      backupScheduleError.classList.remove('hidden');
+    }
+    backupSaveScheduleBtn.disabled = false;
+    return;
+  }
+
+  try {
+    const result = await api('/api/backup/settings', {
+      method:'PUT',
+      body:JSON.stringify({
+        enabled:backupScheduleEnabled?.checked === true,
+        destination:backupScheduleDestination?.value?.trim() || null,
+        frequency:backupScheduleFrequency?.value || 'daily',
+        scheduleTime:backupScheduleTime?.value || '02:00',
+        scheduleWeekday:Number(backupScheduleWeekday?.value ?? 1),
+        retentionCount:retention
+      })
+    });
+    renderBackupSchedule(result.schedule || {});
+    if (backupScheduleStatus) {
+      backupScheduleStatus.textContent = result.schedule?.enabled
+        ? `Schedule saved. Next backup: ${backupStatusTime(result.schedule.nextRunAt, '—')}.`
+        : 'Scheduled backups disabled.';
+    }
+    await loadBackupStatus();
+  } catch (error) {
+    if (backupScheduleStatus) backupScheduleStatus.textContent = '';
+    if (backupScheduleError) {
+      backupScheduleError.textContent = error.message;
+      backupScheduleError.classList.remove('hidden');
+    }
+  } finally {
+    backupSaveScheduleBtn.disabled = false;
+  }
+}
+
+async function createManualBackup() {
+  if (!backupCreateBtn) return;
+  backupCreateBtn.disabled = true;
+  const original = backupCreateBtn.textContent;
+  backupCreateBtn.textContent = 'Creating…';
+  if (backupActionStatus) backupActionStatus.textContent = 'Building and verifying backup…';
+  if (backupError) {
+    backupError.textContent = '';
+    backupError.classList.add('hidden');
+  }
+  try {
+    const result = await api('/api/backup/create', { method:'POST' });
+    const backup = result.backup;
+    if (!backup?.downloadUrl) throw new Error('Backup was created but no download was provided');
+    const counts = backup.manifest?.counts || {};
+    if (backupActionStatus) {
+      backupActionStatus.textContent = `Backup verified · ${formatBytes(backup.size)} · ${counts.printers || 0} printer${Number(counts.printers || 0) === 1 ? '' : 's'} · ${counts.printLibrary || 0} library file${Number(counts.printLibrary || 0) === 1 ? '' : 's'}. Starting download…`;
+    }
+    const link = document.createElement('a');
+    link.href = backup.downloadUrl;
+    link.download = backup.fileName || '';
+    document.body.append(link);
+    link.click();
+    link.remove();
+    await loadBackupStatus();
+  } catch (error) {
+    if (backupActionStatus) backupActionStatus.textContent = '';
+    if (backupError) {
+      backupError.textContent = error.message;
+      backupError.classList.remove('hidden');
+    }
+  } finally {
+    backupCreateBtn.disabled = false;
+    backupCreateBtn.textContent = original;
+  }
+}
+
+function clearRestoreInspection() {
+  if (restoreInspectStatus) restoreInspectStatus.textContent = '';
+  if (restoreInspectError) {
+    restoreInspectError.textContent = '';
+    restoreInspectError.classList.add('hidden');
+  }
+  if (restoreInspectionSummary) {
+    restoreInspectionSummary.innerHTML = '';
+    restoreInspectionSummary.classList.add('hidden');
+  }
+  if (restoreStageBtn) restoreStageBtn.disabled = true;
+}
+
+function renderRestoreInspection(inspection) {
+  if (!restoreInspectionSummary) return;
+  const counts = inspection?.counts || {};
+  const warnings = Array.isArray(inspection?.warnings) ? inspection.warnings : [];
+  const migrations = Array.isArray(inspection?.migrationsRequired) ? inspection.migrationsRequired : [];
+  restoreInspectionSummary.innerHTML = `
+    <div class="restore-valid-banner"><strong>Backup is valid</strong><span>Inspection completed without changing controller data.</span></div>
+    <div class="restore-inspection-grid">
+      <div><span>Backup file</span><strong>${escapeHtml(inspection.fileName || '—')}</strong></div>
+      <div><span>Created</span><strong>${escapeHtml(backupStatusTime(inspection.createdAt, '—'))}</strong></div>
+      <div><span>Source controller</span><strong>v${escapeHtml(inspection.sourceControllerVersion || '—')}</strong></div>
+      <div><span>Backup format</span><strong>v${escapeHtml(String(inspection.formatVersion || '—'))}</strong></div>
+      <div><span>Archive size</span><strong>${escapeHtml(formatBytes(inspection.archiveBytes))}</strong></div>
+      <div><span>Payload size</span><strong>${escapeHtml(formatBytes(inspection.payloadBytes))}</strong></div>
+      <div><span>Printers</span><strong>${escapeHtml(String(counts.printers ?? 0))}</strong></div>
+      <div><span>Print Library</span><strong>${escapeHtml(String(counts.printLibrary ?? 0))} file${Number(counts.printLibrary || 0) === 1 ? '' : 's'}</strong></div>
+      <div><span>Unfinished queue</span><strong>${escapeHtml(String(counts.queued ?? 0))}</strong></div>
+      <div><span>History</span><strong>${escapeHtml(String(counts.history ?? 0))}</strong></div>
+      <div><span>Signed licence</span><strong>${inspection.licenseIncluded ? 'Included' : 'Not included'}</strong></div>
+      <div><span>Migration</span><strong>${migrations.length ? 'Required' : 'Not required'}</strong></div>
+    </div>
+    ${warnings.length ? `<div class="restore-warning-list"><strong>Restore notices</strong><ul>${warnings.map((warning) => `<li>${escapeHtml(warning)}</li>`).join('')}</ul></div>` : ''}
+    <div class="field-help">The backup has passed inspection. Choose Restore backup to stage it for activation on the next controller restart.</div>
+  `;
+  restoreInspectionSummary.classList.remove('hidden');
+  if (restoreStageBtn) restoreStageBtn.disabled = false;
+}
+
+async function inspectRestoreFile() {
+  const file = restoreBackupFileInput?.files?.[0];
+  if (!(file instanceof File) || !file.size) {
+    clearRestoreInspection();
+    if (restoreInspectError) {
+      restoreInspectError.textContent = 'Choose a .pfcbackup file to inspect.';
+      restoreInspectError.classList.remove('hidden');
+    }
+    return;
+  }
+  if (!/\.pfcbackup$/i.test(file.name)) {
+    clearRestoreInspection();
+    if (restoreInspectError) {
+      restoreInspectError.textContent = 'Choose a .pfcbackup file.';
+      restoreInspectError.classList.remove('hidden');
+    }
+    return;
+  }
+  if (file.size > (4 * 1024 * 1024 * 1024) - 1) {
+    clearRestoreInspection();
+    if (restoreInspectError) {
+      restoreInspectError.textContent = 'Backup file exceeds the supported restore size limit.';
+      restoreInspectError.classList.remove('hidden');
+    }
+    return;
+  }
+
+  clearRestoreInspection();
+  const original = restoreInspectBtn?.textContent || 'Inspect backup';
+  if (restoreInspectBtn) {
+    restoreInspectBtn.disabled = true;
+    restoreInspectBtn.textContent = 'Inspecting…';
+  }
+  if (restoreBackupFileInput) restoreBackupFileInput.disabled = true;
+  if (restoreInspectStatus) restoreInspectStatus.textContent = 'Uploading and validating backup…';
+
+  try {
+    const response = await fetch('/api/restore/inspect', {
+      method:'POST',
+      headers:{
+        'x-file-name':encodeURIComponent(file.name),
+        'content-type':'application/octet-stream'
+      },
+      body:file
+    });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(payload.error || `Restore inspection failed (${response.status})`);
+    if (!payload.inspection?.valid) throw new Error('Backup inspection did not return a valid result');
+    renderRestoreInspection(payload.inspection);
+    if (restoreInspectStatus) restoreInspectStatus.textContent = 'Backup inspection passed.';
+  } catch (error) {
+    if (restoreInspectStatus) restoreInspectStatus.textContent = '';
+    if (restoreInspectError) {
+      restoreInspectError.textContent = error.message;
+      restoreInspectError.classList.remove('hidden');
+    }
+  } finally {
+    if (restoreBackupFileInput) restoreBackupFileInput.disabled = false;
+    if (restoreInspectBtn) {
+      restoreInspectBtn.disabled = false;
+      restoreInspectBtn.textContent = original;
+    }
+  }
+}
+
+function setRestorePendingUi(restore = {}) {
+  const pending = restore?.pending === true || restore?.staged === true;
+  if (restoreBackupFileInput) restoreBackupFileInput.disabled = pending;
+  if (restoreInspectBtn) restoreInspectBtn.disabled = pending;
+  if (restoreStageBtn) restoreStageBtn.disabled = true;
+  if (restoreCancelStageBtn) restoreCancelStageBtn.classList.toggle('hidden', !pending);
+  if (backupCreateBtn) backupCreateBtn.disabled = pending;
+  setBackupScheduleControlsDisabled(pending);
+  if (restoreInspectStatus && pending) {
+    const fileName = restore.fileName ? ` ${restore.fileName}` : '';
+    restoreInspectStatus.textContent = `Restore staged${fileName}. Restart Print Farm Controller to activate it. Controller changes are blocked until restart or cancellation.`;
+  }
+}
+
+async function loadRestoreStatus() {
+  try {
+    const payload = await api('/api/restore/status');
+    if (payload?.restore?.pending) {
+      setRestorePendingUi(payload.restore);
+    } else if (payload?.restore?.recentlyRestored && restoreInspectStatus) {
+      restoreInspectStatus.textContent = `Last restore activated successfully. The pre-restore rollback snapshot is retained until ${backupStatusTime(payload.restore.rollbackRetainUntil, 'the recovery window expires')}.`;
+    }
+    return payload?.restore || null;
+  } catch (error) {
+    if (restoreInspectError) {
+      restoreInspectError.textContent = error.message;
+      restoreInspectError.classList.remove('hidden');
+    }
+    return null;
+  }
+}
+
+async function stageRestoreFile() {
+  const file = restoreBackupFileInput?.files?.[0];
+  if (!(file instanceof File) || !file.size) {
+    if (restoreInspectError) {
+      restoreInspectError.textContent = 'Choose and inspect a .pfcbackup file before restoring.';
+      restoreInspectError.classList.remove('hidden');
+    }
+    return;
+  }
+  if (!confirm('Stage this backup for restore?\\n\\nThe current controller data will not be replaced until Print Farm Controller is restarted. After staging, controller changes are blocked until you restart or cancel the staged restore. Unfinished queue jobs will be restored on recovery hold and will not auto-start.')) return;
+
+  const original = restoreStageBtn?.textContent || 'Restore backup';
+  if (restoreStageBtn) {
+    restoreStageBtn.disabled = true;
+    restoreStageBtn.textContent = 'Staging…';
+  }
+  if (restoreInspectBtn) restoreInspectBtn.disabled = true;
+  if (restoreBackupFileInput) restoreBackupFileInput.disabled = true;
+  if (restoreInspectError) {
+    restoreInspectError.textContent = '';
+    restoreInspectError.classList.add('hidden');
+  }
+  if (restoreInspectStatus) restoreInspectStatus.textContent = 'Revalidating and staging restore…';
+
+  try {
+    const response = await fetch('/api/restore/stage', {
+      method:'POST',
+      headers:{
+        'x-file-name':encodeURIComponent(file.name),
+        'content-type':'application/octet-stream'
+      },
+      body:file
+    });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(payload.error || `Restore staging failed (${response.status})`);
+    if (!payload.restore?.staged) throw new Error('Restore staging did not complete');
+    setRestorePendingUi(payload.restore);
+    if (restoreInspectionSummary) {
+      restoreInspectionSummary.innerHTML = `
+        <div class="restore-staged-banner">
+          <strong>Restore staged — restart required</strong>
+          <span>The backup is ready to activate. Close and restart Print Farm Controller. If restored startup fails, the previous controller data is rolled back automatically.</span>
+        </div>
+      `;
+      restoreInspectionSummary.classList.remove('hidden');
+    }
+  } catch (error) {
+    if (restoreBackupFileInput) restoreBackupFileInput.disabled = false;
+    if (restoreInspectBtn) restoreInspectBtn.disabled = false;
+    if (restoreStageBtn) restoreStageBtn.disabled = false;
+    if (restoreInspectStatus) restoreInspectStatus.textContent = '';
+    if (restoreInspectError) {
+      restoreInspectError.textContent = error.message;
+      restoreInspectError.classList.remove('hidden');
+    }
+  } finally {
+    if (restoreStageBtn) restoreStageBtn.textContent = original;
+  }
+}
+
+async function cancelStagedRestoreUi() {
+  if (!confirm('Cancel the staged restore?\\n\\nThe current controller data will remain unchanged.')) return;
+  if (restoreCancelStageBtn) restoreCancelStageBtn.disabled = true;
+  try {
+    const result = await api('/api/restore/stage', { method:'DELETE' });
+    if (!result?.restore?.cancelled) throw new Error('No staged restore was cancelled');
+    if (restoreBackupFileInput) {
+      restoreBackupFileInput.disabled = false;
+      restoreBackupFileInput.value = '';
+    }
+    if (restoreInspectBtn) restoreInspectBtn.disabled = false;
+    if (restoreStageBtn) restoreStageBtn.disabled = true;
+    if (restoreCancelStageBtn) restoreCancelStageBtn.classList.add('hidden');
+    if (backupCreateBtn) backupCreateBtn.disabled = false;
+    setBackupScheduleControlsDisabled(false);
+    clearRestoreInspection();
+    if (restoreInspectStatus) restoreInspectStatus.textContent = 'Staged restore cancelled. Current controller data is unchanged.';
+  } catch (error) {
+    if (restoreInspectError) {
+      restoreInspectError.textContent = error.message;
+      restoreInspectError.classList.remove('hidden');
+    }
+  } finally {
+    if (restoreCancelStageBtn) restoreCancelStageBtn.disabled = false;
+  }
+}
+
 function setControllerLicense(license) {
   licenseState = license || null;
   if (controllerEditionEl && license?.label) {
@@ -874,14 +1336,16 @@ function queueJobMarkup(job, { history = false, queuedIndex = -1, queuedCount = 
     : `<div class="queue-job-actions">
         ${['queued','needs_review'].includes(job.status) ? `<label class="queue-priority-control">Priority<select data-queue-priority="${escapeHtml(job.id)}">${queuePriorityOptions(String(job.priority || 'normal').toLowerCase())}</select></label>` : ''}
         ${job.status === 'queued' ? `<button type="button" class="queue-order-button" data-queue-up="${escapeHtml(job.id)}" aria-label="Move queued job earlier within its priority" title="Move earlier within ${escapeHtml(queuePriorityLabel(job.effectivePriority))} priority"${!canMoveUp ? ' disabled' : ''}>↑</button><button type="button" class="queue-order-button" data-queue-down="${escapeHtml(job.id)}" aria-label="Move queued job later within its priority" title="Move later within ${escapeHtml(queuePriorityLabel(job.effectivePriority))} priority"${!canMoveDown ? ' disabled' : ''}>↓</button>` : ''}
-        ${job.status === 'needs_review' ? `<button type="button" class="secondary" data-queue-recheck="${escapeHtml(job.id)}">Recheck</button>` : ''}
+        ${job.status === 'needs_review' ? `<button type="button" class="secondary" data-queue-recheck="${escapeHtml(job.id)}">${job.restoreRecoveryHold ? 'Review & recheck' : 'Recheck'}</button>` : ''}
         <button type="button" class="danger queue-cancel-button" data-queue-cancel="${escapeHtml(job.id)}">Cancel</button>
       </div>`;
   const printerLabel = job.assignmentMode === 'automatic' && !job.printerId ? 'Next available compatible printer' : (job.printerName || job.printerId || 'Unassigned');
   const printerTarget = job.printerTarget ? `Target printer: ${printerTargetLabel(job.printerTarget)}` : '';
-  return `<article class="queue-job queue-job-${escapeHtml(job.status)}" data-queue-job="${escapeHtml(job.id)}">
+  const statusText = job.restoreRecoveryHold ? 'Restored — review required' : queueStatusLabel(job.status);
+  const statusClass = job.restoreRecoveryHold ? 'restore-hold' : job.status;
+  return `<article class="queue-job queue-job-${escapeHtml(job.status)}${job.restoreRecoveryHold ? ' queue-job-restore-hold' : ''}" data-queue-job="${escapeHtml(job.id)}">
     <div class="queue-job-main">
-      <div class="queue-job-title"><strong>${escapeHtml(job.fileName)}</strong><span class="queue-job-badges">${queuePriorityBadge(job)}<span class="queue-status ${escapeHtml(job.status)}">${escapeHtml(queueStatusLabel(job.status))}${progress ? ` · ${progress}` : ''}</span></span></div>
+      <div class="queue-job-title"><strong>${escapeHtml(job.fileName)}</strong><span class="queue-job-badges">${queuePriorityBadge(job)}<span class="queue-status ${escapeHtml(statusClass)}">${escapeHtml(statusText)}${progress ? ` · ${progress}` : ''}</span></span></div>
       <div class="queue-job-printer">${escapeHtml(printerLabel)}</div>
       ${printerTarget ? `<div class="queue-job-meta">${escapeHtml(printerTarget)}</div>` : ''}
       <div class="queue-job-meta">${escapeHtml(meta)}</div>
@@ -926,7 +1390,8 @@ function productionBatchMarkup(batch, { history = false } = {}) {
   const runMarkup = visibleRuns.map((run) => {
     const printer = run.printerName || (run.status === 'queued' ? 'Waiting for compatible printer' : 'Unassigned');
     const pct = run.status === 'printing' ? ` · ${Math.round(Number(run.progress || 0))}%` : '';
-    return `<div class="production-run"><span>#${run.sequence} · ${escapeHtml(queueStatusLabel(run.status))}${pct}</span><span>${escapeHtml(printer)}</span></div>`;
+    const runStatus = run.restoreRecoveryHold ? 'Restored — review required' : queueStatusLabel(run.status);
+    return `<div class="production-run"><span>#${run.sequence} · ${escapeHtml(runStatus)}${pct}</span><span>${escapeHtml(printer)}</span></div>`;
   }).join('');
   const more = runs.length > visibleRuns.length ? `<div class="subtle">+ ${runs.length - visibleRuns.length} more copies</div>` : '';
   const controls = history && batch.finished
@@ -1659,6 +2124,28 @@ diagnosticsBtn?.addEventListener('click', async () => {
   diagnosticsDialog?.showModal();
   await loadDiagnostics();
 });
+backupRecoveryBtn?.addEventListener('click', async () => {
+  if (topbarOverflow) topbarOverflow.open = false;
+  if (backupActionStatus) backupActionStatus.textContent = '';
+  clearRestoreInspection();
+  if (restoreBackupFileInput) {
+    restoreBackupFileInput.value = '';
+    restoreBackupFileInput.disabled = false;
+  }
+  if (restoreInspectBtn) restoreInspectBtn.disabled = false;
+  if (restoreCancelStageBtn) restoreCancelStageBtn.classList.add('hidden');
+  backupRecoveryDialog?.showModal();
+  await Promise.all([loadBackupStatus(), loadRestoreStatus()]);
+});
+document.querySelectorAll('[data-backup-close]').forEach((el) => el.addEventListener('click', () => backupRecoveryDialog?.close()));
+backupCreateBtn?.addEventListener('click', createManualBackup);
+backupScheduleFrequency?.addEventListener('change', updateBackupWeekdayVisibility);
+backupTestDestinationBtn?.addEventListener('click', testScheduledBackupDestination);
+backupSaveScheduleBtn?.addEventListener('click', saveScheduledBackupSettings);
+restoreInspectBtn?.addEventListener('click', inspectRestoreFile);
+restoreStageBtn?.addEventListener('click', stageRestoreFile);
+restoreCancelStageBtn?.addEventListener('click', cancelStagedRestoreUi);
+restoreBackupFileInput?.addEventListener('change', clearRestoreInspection);
 document.querySelectorAll('[data-diagnostics-close]').forEach((el) => el.addEventListener('click', () => diagnosticsDialog?.close()));
 diagnosticsRefreshBtn?.addEventListener('click', loadDiagnostics);
 diagnosticsVerboseBtn?.addEventListener('click', toggleVerboseDiagnostics);

@@ -88,3 +88,25 @@ test('keyed serial executor releases the resource after a failed mutation', asyn
   assert.equal(result, 'next');
   assert.equal(executor.pendingKeys(), 0);
 });
+
+
+test('printer operation coordinator exposes active operations for controller-wide safety checks', async () => {
+  const coordinator = new PrinterOperationCoordinator();
+  const gate = deferred();
+  const running = coordinator.run('p1', 'bed levelling', () => gate.promise);
+
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.deepEqual(coordinator.activeOperations().map((item) => ({
+    printerId:item.printerId,
+    label:item.label,
+    operationType:item.operationType
+  })), [{
+    printerId:'p1',
+    label:'bed levelling',
+    operationType:null
+  }]);
+
+  gate.resolve('done');
+  assert.equal(await running, 'done');
+  assert.deepEqual(coordinator.activeOperations(), []);
+});
