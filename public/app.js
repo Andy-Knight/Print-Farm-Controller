@@ -136,6 +136,46 @@ function filamentColorFamilyOption(value) {
 function filamentColorFamilyLabel(item) {
   return item ? `${item.icon} ${item.label}` : '';
 }
+
+function filamentColorFamilyFromHex(value) {
+  const color = normalizeColor(value);
+  if (!color) return null;
+  const rgb = {
+    r:Number.parseInt(color.slice(1, 3), 16),
+    g:Number.parseInt(color.slice(3, 5), 16),
+    b:Number.parseInt(color.slice(5, 7), 16)
+  };
+  const channels = [rgb.r, rgb.g, rgb.b].map((channel) => channel / 255);
+  const max = Math.max(...channels);
+  const min = Math.min(...channels);
+  const delta = max - min;
+  const lightness = (max + min) / 2;
+  const saturation = delta === 0 ? 0 : delta / (1 - Math.abs(2 * lightness - 1));
+  if (Math.max(rgb.r, rgb.g, rgb.b) < 32 && saturation < 0.5) return 'black';
+  if (Math.min(rgb.r, rgb.g, rgb.b) > 235 && Math.max(rgb.r, rgb.g, rgb.b) - Math.min(rgb.r, rgb.g, rgb.b) < 18) return 'white';
+  if (delta < (16 / 255) || saturation < 0.12) return lightness > 0.92 ? 'white' : 'grey';
+
+  let hue;
+  if (max === channels[0]) hue = 60 * (((channels[1] - channels[2]) / delta) % 6);
+  else if (max === channels[1]) hue = 60 * (((channels[2] - channels[0]) / delta) + 2);
+  else hue = 60 * (((channels[0] - channels[1]) / delta) + 4);
+  if (hue < 0) hue += 360;
+  if (hue >= 15 && hue < 50 && lightness < 0.45) return 'brown';
+  if ((hue >= 330 || hue < 15) && lightness >= 0.75) return 'pink';
+  if (hue >= 345 || hue < 15) return 'red';
+  if (hue < 45) return 'orange';
+  if (hue < 70) return 'yellow';
+  if (hue < 165) return 'green';
+  if (hue < 200) return 'cyan';
+  if (hue < 260) return 'blue';
+  if (hue < 315) return 'purple';
+  if (hue < 345) return 'pink';
+  return null;
+}
+
+function filamentSourceFamily(source = {}) {
+  return filamentColorFamilyOption(source.colorFamily)?.value || filamentColorFamilyFromHex(source.color);
+}
 const selectedPrinterIds = new Set();
 const toolOffsetActionLocks = new Map();
 
@@ -2729,10 +2769,10 @@ function defaultBambuMaterialMap(setup) {
   const used = new Set();
   for (const logical of setup.logicalTools || []) {
     const wantedMaterial = normalizedMaterial(logical.material);
-    const wantedColor = normalizeColor(logical.color);
+    const wantedFamily = filamentColorFamilyOption(logical.colorFamily)?.value || filamentColorFamilyFromHex(logical.color);
     let selected = sources.find((source) => !used.has(source.protocolIndex)
       && (!wantedMaterial || normalizedMaterial(source.material) === wantedMaterial)
-      && (!wantedColor || normalizeColor(source.color) === wantedColor));
+      && (!wantedFamily || filamentSourceFamily(source) === wantedFamily));
     if (!selected) selected = sources.find((source) => !used.has(source.protocolIndex) && (!wantedMaterial || normalizedMaterial(source.material) === wantedMaterial));
     if (!selected) selected = sources.find((source) => !used.has(source.protocolIndex));
     if (!selected) selected = sources[0];
@@ -2756,9 +2796,11 @@ function bambuMappingAssessment(setup, materialMap) {
     const wantedMaterial = normalizedMaterial(logical.material);
     const loadedMaterial = normalizedMaterial(source.material);
     if (wantedMaterial && loadedMaterial && wantedMaterial !== loadedMaterial) warnings.push(`File T${logical.index} requests ${logical.material}, but ${source.label} contains ${source.material}.`);
-    const wantedColor = normalizeColor(logical.color);
-    const loadedColor = normalizeColor(source.color);
-    if (wantedColor && loadedColor && wantedColor !== loadedColor) warnings.push(`File T${logical.index} requests ${wantedColor}, but ${source.label} contains ${loadedColor}.`);
+    const wantedFamily = filamentColorFamilyOption(logical.colorFamily)?.value || filamentColorFamilyFromHex(logical.color);
+    const loadedFamily = filamentSourceFamily(source);
+    if (wantedFamily && loadedFamily && wantedFamily !== loadedFamily) {
+      warnings.push(`File T${logical.index} requests ${filamentColorFamilyLabel(filamentColorFamilyOption(wantedFamily))}, but ${source.label} contains ${filamentColorFamilyLabel(filamentColorFamilyOption(loadedFamily))}.`);
+    }
   }
   return { warnings:[...new Set(warnings)], errors:[...new Set(errors)] };
 }
@@ -2771,7 +2813,11 @@ function renderBambuPrintSetup(printer, setup, fileName, mode = 'print') {
   const sources = setup.materialSources || [];
   const rows = (setup.logicalTools || []).map((logical) => {
     const label = [logical.material || 'material unknown', logical.color || 'colour unknown'].filter(Boolean).join(' · ');
-    const options = sources.map((source) => `<option value="${source.protocolIndex}"${Number(mapping[logical.index]) === Number(source.protocolIndex) ? ' selected' : ''}${source.present === false ? ' disabled' : ''}>${escapeHtml(`${source.label} · ${source.present === false ? 'empty' : `${source.material || 'unknown'} · ${source.color || 'colour unknown'}`}`)}</option>`).join('');
+    const options = sources.map((source) => {
+      const family = filamentColorFamilyOption(filamentSourceFamily(source));
+      const colourText = family ? filamentColorFamilyLabel(family) : 'colour unknown';
+      return `<option value="${source.protocolIndex}"${Number(mapping[logical.index]) === Number(source.protocolIndex) ? ' selected' : ''}${source.present === false ? ' disabled' : ''}>${escapeHtml(`${source.label} · ${source.present === false ? 'empty' : `${source.material || 'unknown'} · ${colourText}`}`)}</option>`;
+    }).join('');
     return `<div class="tool-map-row"><div class="tool-map-file"><strong>File T${logical.index}</strong><span>${escapeHtml(label)}</span></div><label>Material source<select data-bambu-material-map="${logical.index}">${options}</select></label></div>`;
   }).join('');
   panel.innerHTML = `<div class="print-setup-head"><div><strong>${queueMode ? 'Queue setup' : 'Print setup'}</strong><span>${escapeHtml(fileName)}</span></div><button type="button" class="icon" data-print-setup-close>×</button></div>
@@ -3135,14 +3181,18 @@ function updateOpenPrinterTelemetry() {
       const row = printerDetail.querySelector(`[data-ams-source="${source.protocolIndex}"]`);
       if (!row) continue;
       const color = normalizeColor(source.color);
+      const family = filamentColorFamilyOption(filamentSourceFamily(source));
       const active = row.querySelector('[data-ams-active]');
       const state = row.querySelector('[data-ams-state]');
       const swatch = row.querySelector('[data-ams-swatch]');
       if (active) active.textContent = source.active ? 'Active' : '';
-      if (state) state.textContent = source.present === false ? 'Empty' : `${source.material || 'Unknown material'}${color ? ` · ${color}` : ''}`;
+      if (state) state.textContent = source.present === false
+        ? 'Empty'
+        : `${source.material || 'Unknown material'}${family ? ` · ${filamentColorFamilyLabel(family)}` : color ? ` · ${color}` : ''}`;
       if (swatch) {
-        swatch.classList.toggle('unknown', !color);
-        swatch.style.background = color || '';
+        const swatchColor = color || family?.representative || null;
+        swatch.classList.toggle('unknown', !swatchColor);
+        swatch.style.background = swatchColor || '';
       }
       row.classList.toggle('active', source.active === true);
       row.classList.toggle('empty', source.present === false);
@@ -3303,8 +3353,12 @@ async function openPrinter(id) {
     const bambuSources = printer.adapterType === 'bambu-lab' && Array.isArray(s?.materialSources)
       ? `<div class="ams-source-grid">${s.materialSources.map((source) => {
         const color = normalizeColor(source.color);
-        const state = source.present === false ? 'Empty' : `${source.material || 'Unknown material'}${color ? ` · ${color}` : ''}`;
-        return `<div class="ams-source${source.active ? ' active' : ''}${source.present === false ? ' empty' : ''}" data-ams-source="${source.protocolIndex}"><div><strong>${escapeHtml(source.label)}</strong><span data-ams-active>${source.active ? 'Active' : ''}</span></div><i class="material-swatch${color ? '' : ' unknown'}" data-ams-swatch${color ? ` style="background:${escapeHtml(color)}"` : ''}></i><small data-ams-state>${escapeHtml(state)}</small></div>`;
+        const family = filamentColorFamilyOption(filamentSourceFamily(source));
+        const swatchColor = color || family?.representative || null;
+        const state = source.present === false
+          ? 'Empty'
+          : `${source.material || 'Unknown material'}${family ? ` · ${filamentColorFamilyLabel(family)}` : color ? ` · ${color}` : ''}`;
+        return `<div class="ams-source${source.active ? ' active' : ''}${source.present === false ? ' empty' : ''}" data-ams-source="${source.protocolIndex}"><div><strong>${escapeHtml(source.label)}</strong><span data-ams-active>${source.active ? 'Active' : ''}</span></div><i class="material-swatch${swatchColor ? '' : ' unknown'}" data-ams-swatch${swatchColor ? ` style="background:${escapeHtml(swatchColor)}"` : ''}></i><small data-ams-state>${escapeHtml(state)}</small></div>`;
       }).join('')}</div>`
       : '';
     return `<div class="panel material-panel">
