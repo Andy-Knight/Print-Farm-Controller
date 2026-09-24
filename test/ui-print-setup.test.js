@@ -137,7 +137,8 @@ test('Snapmaker U1 uses one control and one command for third-party filament typ
   assert.match(app, /Official Snapmaker RFID filament controls its own type and colour/);
   assert.match(app, /FILAMENT_COLOR_FAMILIES/);
   assert.match(app, /filamentColorFamilyLabel/);
-  assert.match(app, /data-u1-filament-color-family-swatch/);
+  assert.match(app, /data-color-family-option/);
+  assert.doesNotMatch(app, /data-u1-filament-color-family-swatch/);
   assert.doesNotMatch(app, /icon:'🟦'/);
   assert.match(app, /colorOption\?\.representative/);
   assert.doesNotMatch(app, /data-u1-filament-color-input/);
@@ -533,7 +534,9 @@ test('FlashForge detail exposes printer-reported filament type in Toolhead statu
   assert.match(app, /data-material-designation-save/);
   assert.match(app, /data-material-designation-clear/);
   assert.match(app, /colour family is used for automatic queue compatibility/);
-  assert.match(app, /data-material-color-family-swatch/);
+  assert.match(app, /data-color-family-option/);
+  assert.match(app, /color-family-menu/);
+  assert.doesNotMatch(app, /data-material-color-family-swatch/);
   assert.match(styles, /\.color-family-square/);
   assert.doesNotMatch(app, /icon:'🟥'/);
   assert.match(app, /filamentColorFamilyLabel/);
@@ -628,8 +631,10 @@ test('Bambu printer detail exposes AMS slots and material mapping setup', () => 
   assert.match(emulatorApp, /data-ams-color-family/);
   assert.match(emulatorApp, /data-external-color-family/);
   assert.match(emulatorApp, /BAMBU_COLOR_FAMILIES/);
-  assert.match(emulatorApp, /data-ams-color-family-swatch/);
-  assert.match(emulatorApp, /data-external-color-family-swatch/);
+  assert.match(emulatorApp, /data-color-family-option/);
+  assert.match(emulatorApp, /color-family-menu/);
+  assert.doesNotMatch(emulatorApp, /data-ams-color-family-swatch/);
+  assert.doesNotMatch(emulatorApp, /data-external-color-family-swatch/);
   assert.doesNotMatch(emulatorApp, /icon:'🟥'/);
   assert.doesNotMatch(emulatorApp, /data-ams-color type="color"/);
   assert.match(app, /filamentColorFamilyFromHex/);
@@ -654,7 +659,7 @@ test('emulator AMS controls survive live refresh while a slot is being edited', 
   assert.match(emulatorApp, /structureSignature/);
   assert.match(emulatorApp, /grid\.contains\(document\.activeElement\)/);
   assert.match(emulatorApp, /document\.activeElement !== material/);
-  assert.match(emulatorApp, /document\.activeElement !== colorFamily/);
+  assert.match(emulatorApp, /closest\('\[data-color-family-dropdown\]'\)\?\.open/);
 });
 
 test('queue UI exposes production quantity and batch controls', () => {
