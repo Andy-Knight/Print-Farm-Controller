@@ -2472,13 +2472,16 @@ function u1FilamentConfigControlMarkup(printer, tool = {}) {
   const state = u1FilamentConfigEditState(printer, tool);
   const material = String(filament.material || '').trim().toUpperCase();
   const knownMaterial = SNAPMAKER_U1_FILAMENT_TYPES.includes(material);
-  const color = normalizeColor(filament.color) || '#FFFFFF';
+  const familyOption = filamentColorFamilyOption(filament.colorFamily);
   return `<div class="u1-filament-config-control" data-u1-filament-config-control="${tool.index}">
     <label>Filament type<select data-u1-filament-type-input="${tool.index}"${state.enabled ? '' : ' disabled'}>
       <option value=""${knownMaterial ? '' : ' selected'}>Select type</option>
       ${SNAPMAKER_U1_FILAMENT_TYPES.map((value) => `<option value="${value}"${value === material ? ' selected' : ''}>${value}</option>`).join('')}
     </select></label>
-    <label>Colour<input type="color" data-u1-filament-color-input="${tool.index}" value="${escapeHtml(color)}"${state.enabled ? '' : ' disabled'}></label>
+    <label>Colour family<select data-u1-filament-color-family-input="${tool.index}"${state.enabled ? '' : ' disabled'}>
+      <option value=""${familyOption ? '' : ' selected'}>Select colour</option>
+      ${FILAMENT_COLOR_FAMILIES.map((item) => `<option value="${item.value}"${item.value === familyOption?.value ? ' selected' : ''}>${escapeHtml(item.label)}</option>`).join('')}
+    </select></label>
     <button type="button" class="secondary" data-u1-filament-config-save="${tool.index}"${state.enabled ? '' : ' disabled'}>Set filament on U1</button>
     <small data-u1-filament-config-help="${tool.index}">${escapeHtml(state.message)}</small>
   </div>`;
@@ -3107,7 +3110,7 @@ function updateOpenPrinterTelemetry() {
       rgbLine?.classList.toggle('hidden', !colorDisplay);
       const u1ConfigState = u1FilamentConfigEditState(printer, tool);
       const u1TypeInput = row.querySelector(`[data-u1-filament-type-input="${tool.index}"]`);
-      const u1ColorInput = row.querySelector(`[data-u1-filament-color-input="${tool.index}"]`);
+      const u1ColorFamilyInput = row.querySelector(`[data-u1-filament-color-family-input="${tool.index}"]`);
       const u1ConfigSave = row.querySelector(`[data-u1-filament-config-save="${tool.index}"]`);
       const u1ConfigHelp = row.querySelector(`[data-u1-filament-config-help="${tool.index}"]`);
       if (u1TypeInput) {
@@ -3115,9 +3118,10 @@ function updateOpenPrinterTelemetry() {
         if (document.activeElement !== u1TypeInput) u1TypeInput.value = SNAPMAKER_U1_FILAMENT_TYPES.includes(reportedMaterial) ? reportedMaterial : '';
         u1TypeInput.disabled = !u1ConfigState.enabled;
       }
-      if (u1ColorInput) {
-        if (document.activeElement !== u1ColorInput) u1ColorInput.value = normalizeColor(filament.color) || '#FFFFFF';
-        u1ColorInput.disabled = !u1ConfigState.enabled;
+      if (u1ColorFamilyInput) {
+        const reportedFamily = filamentColorFamilyOption(filament.colorFamily)?.value || '';
+        if (document.activeElement !== u1ColorFamilyInput) u1ColorFamilyInput.value = reportedFamily;
+        u1ColorFamilyInput.disabled = !u1ConfigState.enabled;
       }
       if (u1ConfigSave) u1ConfigSave.disabled = !u1ConfigState.enabled;
       if (u1ConfigHelp) u1ConfigHelp.textContent = u1ConfigState.message;
@@ -3609,11 +3613,13 @@ ${flashForgePreflight}` : ''}`)) return;
   printerDetail.querySelectorAll('[data-u1-filament-config-save]').forEach((button) => button.onclick = async () => {
     const toolIndex = Number(button.dataset.u1FilamentConfigSave);
     const typeInput = printerDetail.querySelector(`[data-u1-filament-type-input="${toolIndex}"]`);
-    const colorInput = printerDetail.querySelector(`[data-u1-filament-color-input="${toolIndex}"]`);
+    const colorFamilyInput = printerDetail.querySelector(`[data-u1-filament-color-family-input="${toolIndex}"]`);
     const material = String(typeInput?.value || '').trim().toUpperCase();
-    const color = normalizeColor(colorInput?.value);
+    const colorFamily = String(colorFamilyInput?.value || '').trim().toLowerCase();
+    const colorOption = filamentColorFamilyOption(colorFamily);
+    const color = colorOption?.representative || null;
     if (!material) { showError(new Error('Choose a filament type.')); return; }
-    if (!color) { showError(new Error('Choose a valid filament colour.')); return; }
+    if (!colorOption || !color) { showError(new Error('Choose a filament colour family.')); return; }
     const original = button.textContent;
     button.disabled = true;
     button.textContent = 'Setting…';
@@ -3625,6 +3631,7 @@ ${flashForgePreflight}` : ''}`)) return;
         tool.filament.materialVariant = result.subtype;
         tool.filament.vendor = result.vendor;
         tool.filament.color = result.color;
+        tool.filament.colorFamily = colorFamily;
         tool.filament.materialSource = 'manual';
         tool.filament.manuallyAssigned = true;
         tool.filament.officialFilament = false;
