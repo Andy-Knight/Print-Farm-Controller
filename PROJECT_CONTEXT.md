@@ -7,7 +7,7 @@
 - Repository: `Andy-Knight/Print-Farm-Controller`
 - Project path: repository root (`/`)
 - Primary branch: `main` (current production baseline)
-- Current application version on this branch: **0.21.0**.
+- Current application version on this branch: **0.22.0**.
 - v0.15.5 Print Library previews are merged into `main`.
 - v0.15.6 includes dashboard summary filtering, application-local data storage, Snapmaker U1 display naming and printer-card hover/focus highlighting.
 - **v0.16.0 production packaging is merged into `main`** via PR #24 (squash commit `af8d8e493e2f311c1469ed5faddfffc2316ae727`): centralized runtime paths detect source vs Node SEA execution, esbuild produces a CommonJS controller bundle, and the Windows x64 SEA build embeds the controller UI, simulator UI/resources and trusted Ed25519 public verification keys directly into `PrintFarmController.exe`. The Windows installer targets Program Files, leaves the EXE protected, grants standard-user modify permission only to `data/`, and packaged builds store the signed customer licence at `data/license.json`. Inno Setup 7 is the preferred Windows installer compiler (Inno Setup 6 remains supported as a fallback), and optional Authenticode signing workflows are included.
@@ -18,7 +18,8 @@
 - v0.20.0 also fixes U1 bed-levelling activity persistence: while the blocking Moonraker levelling request is running, the controller keeps the activity sticky so transient idle-looking polls cannot erase the Homing / Heating / Stabilising / Probing banner. Closing and reopening the printer-detail dialog therefore reconstructs the active levelling status correctly.
 - **v0.20.1 printer-detail opening reliability is merged into `main`** via PR #30. The printer-detail dialog opens immediately with a loading state before file enumeration completes, stale asynchronous open requests are discarded after close/reopen, and open failures are no longer silent. Dashboard connection errors are rendered below the **Open printer** button so the action buttons remain aligned across printer cards.
 - **v0.20.2 dashboard click reliability is merged into `main`** via PR #31. Live fleet reconciliation updates existing cards in place and only moves a card when its actual fleet order differs from the DOM, preventing a live status event from detaching an **Open printer** button between pointer-down and click.
-- **Current v0.21.0 feature branch:** `feature/print-library-printer-target-v0210`. Print Library files can optionally store a canonical target printer adapter/model. The add/edit/queue-upload UI exposes the supported model list; library cards/search and queued jobs show the target; queue compatibility treats a target mismatch as incompatible; and files without a target remain unrestricted.
+- **v0.21.0 Print Library printer targeting is in the current `main` baseline.** Print Library files can optionally store a canonical target printer adapter/model. The add/edit/queue-upload UI exposes the supported model list; library cards/search and queued jobs show the target; queue compatibility treats a target mismatch as incompatible; and files without a target remain unrestricted.
+- **Current v0.22.0 feature branch:** `feature/colour-family-matching`. Queue colour compatibility treats slicer hex values as shade metadata within practical colour families rather than requiring byte-for-byte hex equality. Same-family shades can run automatically; different families remain blocked. U1/AMS candidate mapping prefers the closest compatible shade using CIELAB colour distance without turning shade distance itself into a hard requirement.
 - Runtime: **Node.js 24+** (development baseline Node.js 24.21.0), ES modules, no npm runtime dependencies.
 - GitHub is the authoritative code baseline.
 
@@ -71,6 +72,7 @@ Manufacturer-specific discovery, capabilities, limits, status normalization, fil
 - Automatic compatibility returns explicit per-printer reasons and distinguishes **Eligible**, **Waiting**, **Needs review**, and **Not compatible**.
 - Required nozzle size must not be guessed. If a printer cannot report an explicitly required nozzle, unattended scheduling requires review rather than assuming a match.
 - U1 logical-to-physical tool mapping is derived from live material/colour/nozzle state and uses constrained matching to avoid greedy mapping errors.
+- Colour compatibility is semantic rather than exact-hex: normalized slicer/printer colours must resolve to the same colour family for unattended scheduling, while the original hex values are retained and CIELAB distance is used only to prefer the closest shade among otherwise-valid candidates. Material and nozzle requirements remain strict.
 - Production batches share one Print Library file across multiple run records. Pausing prevents not-yet-started copies from progressing, while active prints continue; cancelling remaining copies also catches copies still in upload/preflight without cancelling prints that have already started.
 - Existing fixed-printer queue behaviour remains backward compatible.
 - The Print Library is the durable source of controller-owned G-code/GX/3MF files. Library entries store filename, size, SHA-256, added timestamp and parsed print requirements; duplicate content reuses the existing entry.
