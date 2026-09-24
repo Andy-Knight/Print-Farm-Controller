@@ -7,7 +7,7 @@
 - Repository: `Andy-Knight/Print-Farm-Controller`
 - Project path: repository root (`/`)
 - Primary branch: `main` (current production baseline)
-- Current application version on this branch: **0.22.0**.
+- Current application version on this branch: **0.23.0**.
 - v0.15.5 Print Library previews are merged into `main`.
 - v0.15.6 includes dashboard summary filtering, application-local data storage, Snapmaker U1 display naming and printer-card hover/focus highlighting.
 - **v0.16.0 production packaging is merged into `main`** via PR #24 (squash commit `af8d8e493e2f311c1469ed5faddfffc2316ae727`): centralized runtime paths detect source vs Node SEA execution, esbuild produces a CommonJS controller bundle, and the Windows x64 SEA build embeds the controller UI, simulator UI/resources and trusted Ed25519 public verification keys directly into `PrintFarmController.exe`. The Windows installer targets Program Files, leaves the EXE protected, grants standard-user modify permission only to `data/`, and packaged builds store the signed customer licence at `data/license.json`. Inno Setup 7 is the preferred Windows installer compiler (Inno Setup 6 remains supported as a fallback), and optional Authenticode signing workflows are included.
@@ -19,7 +19,8 @@
 - **v0.20.1 printer-detail opening reliability is merged into `main`** via PR #30. The printer-detail dialog opens immediately with a loading state before file enumeration completes, stale asynchronous open requests are discarded after close/reopen, and open failures are no longer silent. Dashboard connection errors are rendered below the **Open printer** button so the action buttons remain aligned across printer cards.
 - **v0.20.2 dashboard click reliability is merged into `main`** via PR #31. Live fleet reconciliation updates existing cards in place and only moves a card when its actual fleet order differs from the DOM, preventing a live status event from detaching an **Open printer** button between pointer-down and click.
 - **v0.21.0 Print Library printer targeting is in the current `main` baseline.** Print Library files can optionally store a canonical target printer adapter/model. The add/edit/queue-upload UI exposes the supported model list; library cards/search and queued jobs show the target; queue compatibility treats a target mismatch as incompatible; and files without a target remain unrestricted.
-- **v0.22.0 colour-family matching is merged into the current `main` baseline** via PR #33. Queue colour compatibility treats slicer hex values as shade metadata within practical colour families rather than requiring byte-for-byte hex equality. Same-family shades can run automatically; different families remain blocked. FlashForge manual filament designation stores an authoritative colour family only; existing hex-only designations automatically derive their family, and saving a new manual designation clears the legacy shade. FlashForge, editable/non-RFID Snapmaker U1, and simulated Bambu AMS/AMS Lite/external-spool selectors use the same custom family dropdown, with a consistent square swatch rendered inside each option and selected value. Pending U1 filament type/colour edits are protected from live telemetry until the Set filament operation succeeds. The U1 and simulator write representative hex colours internally; official U1 RFID filament and real Bambu tray colours remain printer-reported. U1/AMS candidate mapping prefers the closest compatible shade using CIELAB colour distance without turning shade distance itself into a hard requirement.
+- **v0.22.0 colour-family matching is merged into the current `main` baseline** via PR #33.
+- **Current v0.23.0 feature branch:** `feature/backup-recovery-v0230`. Backup/recovery architecture is defined in `docs/BACKUP_RECOVERY.md`. The target is a portable logical `.pfcbackup` format with manifest/checksums, manual and scheduled local/NAS backup, validated two-phase restore activated on restart with rollback, and explicit recovery holds so unfinished restored queue work can never auto-start. Cloud destinations and built-in encryption are deferred. Queue colour compatibility treats slicer hex values as shade metadata within practical colour families rather than requiring byte-for-byte hex equality. Same-family shades can run automatically; different families remain blocked. FlashForge manual filament designation stores an authoritative colour family only; existing hex-only designations automatically derive their family, and saving a new manual designation clears the legacy shade. FlashForge, editable/non-RFID Snapmaker U1, and simulated Bambu AMS/AMS Lite/external-spool selectors use the same custom family dropdown, with a consistent square swatch rendered inside each option and selected value. Pending U1 filament type/colour edits are protected from live telemetry until the Set filament operation succeeds. The U1 and simulator write representative hex colours internally; official U1 RFID filament and real Bambu tray colours remain printer-reported. U1/AMS candidate mapping prefers the closest compatible shade using CIELAB colour distance without turning shade distance itself into a hard requirement.
 - Runtime: **Node.js 24+** (development baseline Node.js 24.21.0), ES modules, no npm runtime dependencies.
 - GitHub is the authoritative code baseline.
 
@@ -172,22 +173,28 @@ Manufacturer-specific discovery, capabilities, limits, status normalization, fil
 
 ## Current task
 
-**v0.21.0 adds optional target-printer metadata to the persistent Print Library.** A library file can be marked for a specific supported printer model or left as **Any supported printer**. The target is stored independently of slicer-derived material/nozzle requirements, is editable after upload, and is copied into queue jobs so already-queued work keeps a stable compatibility snapshot.
+**v0.23.0 Backup & Recovery** is the active feature on `feature/backup-recovery-v0230`.
 
-Automatic **Next available compatible printer** scheduling treats a target mismatch as incompatible before normal tool/nozzle/material/live-state checks. Direct fixed-printer queueing of a targeted library file is also rejected when the selected printer does not match. Existing library entries with no target remain fully backward-compatible.
+The approved architecture is in `docs/BACKUP_RECOVERY.md`. Backups are logical/path-independent snapshots rather than raw copies of `data/`. They include printer configuration, Print Library files/metadata/previews, queue/history, file-material metadata, emulator settings, backup policy, and the installed signed licence when present. Logs, executable/build artifacts, transient files, and all private licensing keys are excluded.
 
-- **Print Library** = what can be printed.
-- **Queue** = what should be printed.
-- **History** = what was printed.
+Restore is deliberately two-phase: validate/migrate/stage while the current controller remains intact, then activate the staged data on controller restart before normal services initialize. Activation keeps a rollback copy and restores it automatically if startup validation fails. Restore is blocked while physical printer/control work is active.
+
+Every non-terminal restored queue job must be recovery-held and every restored production batch paused; transient reservations/start state is cleared and bed-clearance interlocks are preserved. Restored work can only resume after deliberate user review/recheck.
+
+Initial v0.23.0 destinations are manual download/save plus scheduled local or OS-mounted/network/NAS paths. Scheduled retention is count-based and only prunes scheduler-owned backups from the same installation. Manual backups are never automatically deleted. Scheduled configuration is restored disabled until explicitly re-enabled.
+
+Implementation order: archive/checksum format -> logical snapshot/manual backup -> restore inspection/staging/startup activation -> recovery-hold UI -> scheduled backup/retention -> disaster-recovery tests.
 
 ## Next steps
 
-1. Confirm Print Library/queue and printer-registry changes remain consistent when initiated from separate clients in quick succession.
-2. Add Linux x64 and ARM64 packaging.
-3. Code signing is **not a blocker for development or private testing**. The Authenticode workflow is already implemented; when a production certificate is obtained, `npm run release:windows` signs the injected SEA executable, builds the installer around the signed EXE, then signs and verifies the installer.
-4. Future Windows packaging polish: add a custom Print Farm Controller icon for the installer, installed shortcuts and, ideally, the packaged executable itself. This is intentionally deferred.
-5. Add systematic feature-by-feature entitlement gates only where product packaging requires them; preserve the signed licence format and existing edition definitions.
-6. Continue physical validation of experimental Bambu behaviour before removing the experimental designation.
+1. Implement backup format/archive/checksum helpers and logical snapshot export.
+2. Add manual backup API plus corruption/integrity tests.
+3. Add restore inspection, migration and staged startup activation with automatic rollback.
+4. Add queue recovery-hold semantics and UI.
+5. Add scheduled local/network/NAS backup settings, retention and diagnostics.
+6. Add end-to-end disaster-recovery tests using separate temporary data directories.
+7. Continue physical validation of experimental Bambu behaviour before removing the experimental designation.
+8. Add Linux x64 and ARM64 packaging after the active backup/recovery work.
 
 ## Handoff rule
 
