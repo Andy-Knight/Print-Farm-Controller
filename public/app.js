@@ -38,6 +38,17 @@ const backupStatusGrid = document.querySelector('#backupStatusGrid');
 const backupCreateBtn = document.querySelector('#backupCreateBtn');
 const backupActionStatus = document.querySelector('#backupActionStatus');
 const backupError = document.querySelector('#backupError');
+const backupScheduleEnabled = document.querySelector('#backupScheduleEnabled');
+const backupScheduleDestination = document.querySelector('#backupScheduleDestination');
+const backupScheduleFrequency = document.querySelector('#backupScheduleFrequency');
+const backupScheduleTime = document.querySelector('#backupScheduleTime');
+const backupScheduleWeekdayField = document.querySelector('#backupScheduleWeekdayField');
+const backupScheduleWeekday = document.querySelector('#backupScheduleWeekday');
+const backupScheduleRetention = document.querySelector('#backupScheduleRetention');
+const backupTestDestinationBtn = document.querySelector('#backupTestDestinationBtn');
+const backupSaveScheduleBtn = document.querySelector('#backupSaveScheduleBtn');
+const backupScheduleStatus = document.querySelector('#backupScheduleStatus');
+const backupScheduleError = document.querySelector('#backupScheduleError');
 const restoreBackupFileInput = document.querySelector('#restoreBackupFileInput');
 const restoreInspectBtn = document.querySelector('#restoreInspectBtn');
 const restoreStageBtn = document.querySelector('#restoreStageBtn');
@@ -687,6 +698,52 @@ function backupStatusTime(value, empty = 'Never') {
   return Number.isNaN(date.getTime()) ? String(candidate || empty) : date.toLocaleString();
 }
 
+function updateBackupWeekdayVisibility() {
+  if (backupScheduleWeekdayField) {
+    backupScheduleWeekdayField.classList.toggle('hidden', backupScheduleFrequency?.value !== 'weekly');
+  }
+}
+
+function setBackupScheduleControlsDisabled(disabled) {
+  for (const element of [
+    backupScheduleEnabled,
+    backupScheduleDestination,
+    backupScheduleFrequency,
+    backupScheduleTime,
+    backupScheduleWeekday,
+    backupScheduleRetention,
+    backupTestDestinationBtn,
+    backupSaveScheduleBtn
+  ]) {
+    if (element) element.disabled = disabled === true;
+  }
+}
+
+function renderBackupSchedule(schedule = {}) {
+  if (backupScheduleEnabled) backupScheduleEnabled.checked = schedule.enabled === true;
+  if (backupScheduleDestination) backupScheduleDestination.value = schedule.destination || '';
+  if (backupScheduleFrequency) backupScheduleFrequency.value = schedule.frequency === 'weekly' ? 'weekly' : 'daily';
+  if (backupScheduleTime) backupScheduleTime.value = schedule.scheduleTime || '02:00';
+  if (backupScheduleWeekday) backupScheduleWeekday.value = String(schedule.scheduleWeekday ?? 1);
+  if (backupScheduleRetention) backupScheduleRetention.value = String(schedule.retentionCount || 14);
+  updateBackupWeekdayVisibility();
+
+  if (backupScheduleStatus) {
+    const parts = [];
+    if (schedule.running) parts.push('Scheduled backup is running.');
+    if (schedule.nextRunAt) parts.push(`Next: ${backupStatusTime(schedule.nextRunAt, '—')}.`);
+    if (schedule.lastSuccess?.createdAt) parts.push(`Last success: ${backupStatusTime(schedule.lastSuccess.createdAt, '—')}.`);
+    if (schedule.lastRetentionResult?.completedAt) {
+      parts.push(`Retention: ${Number(schedule.lastRetentionResult.deleted || 0)} deleted, ${Number(schedule.lastRetentionResult.failed || 0)} failed.`);
+    }
+    backupScheduleStatus.textContent = parts.join(' ') || (schedule.enabled ? 'Schedule enabled.' : 'Schedule disabled.');
+  }
+  if (backupScheduleError) {
+    backupScheduleError.textContent = schedule.lastError || '';
+    backupScheduleError.classList.toggle('hidden', !schedule.lastError);
+  }
+}
+
 function renderBackupStatus(payload) {
   const backup = payload?.backup || {};
   const last = backup.lastSuccessfulBackup || null;
@@ -696,10 +753,13 @@ function renderBackupStatus(payload) {
       <div><span>Last successful backup</span><strong>${escapeHtml(backupStatusTime(last))}</strong></div>
       <div><span>Last backup file</span><strong>${escapeHtml(last?.fileName || '—')}</strong></div>
       <div><span>Last backup size</span><strong>${escapeHtml(last?.size ? formatBytes(last.size) : '—')}</strong></div>
-      <div><span>Scheduled backups</span><strong>${schedule.enabled ? 'Configured' : 'Not enabled'}</strong></div>
+      <div><span>Scheduled backups</span><strong>${schedule.enabled ? 'Enabled' : 'Not enabled'}</strong></div>
+      <div><span>Next scheduled backup</span><strong>${escapeHtml(backupStatusTime(schedule.nextRunAt, '—'))}</strong></div>
+      <div><span>Backup operation</span><strong>${escapeHtml(backup.operation?.kind ? `${backup.operation.kind} backup running` : 'Idle')}</strong></div>
     `;
   }
-  if (backupCreateBtn) backupCreateBtn.disabled = backup.manualBackupInProgress === true;
+  renderBackupSchedule(schedule);
+  if (backupCreateBtn) backupCreateBtn.disabled = backup.manualBackupInProgress === true || Boolean(backup.operation);
   if (backup.lastError && backupError) {
     backupError.textContent = backup.lastError;
     backupError.classList.remove('hidden');
@@ -719,6 +779,87 @@ async function loadBackupStatus() {
       backupError.textContent = error.message;
       backupError.classList.remove('hidden');
     }
+  }
+}
+
+async function testScheduledBackupDestination() {
+  const destination = backupScheduleDestination?.value?.trim() || '';
+  if (!destination) {
+    if (backupScheduleError) {
+      backupScheduleError.textContent = 'Enter a destination folder to test.';
+      backupScheduleError.classList.remove('hidden');
+    }
+    return;
+  }
+  if (backupTestDestinationBtn) backupTestDestinationBtn.disabled = true;
+  if (backupScheduleError) {
+    backupScheduleError.textContent = '';
+    backupScheduleError.classList.add('hidden');
+  }
+  if (backupScheduleStatus) backupScheduleStatus.textContent = 'Testing destination write access…';
+  try {
+    await api('/api/backup/test-destination', {
+      method:'POST',
+      body:JSON.stringify({ destination })
+    });
+    if (backupScheduleStatus) backupScheduleStatus.textContent = 'Destination is writable.';
+  } catch (error) {
+    if (backupScheduleStatus) backupScheduleStatus.textContent = '';
+    if (backupScheduleError) {
+      backupScheduleError.textContent = error.message;
+      backupScheduleError.classList.remove('hidden');
+    }
+  } finally {
+    if (backupTestDestinationBtn) backupTestDestinationBtn.disabled = false;
+  }
+}
+
+async function saveScheduledBackupSettings() {
+  if (!backupSaveScheduleBtn) return;
+  backupSaveScheduleBtn.disabled = true;
+  if (backupScheduleError) {
+    backupScheduleError.textContent = '';
+    backupScheduleError.classList.add('hidden');
+  }
+  if (backupScheduleStatus) backupScheduleStatus.textContent = 'Saving schedule…';
+
+  const retention = Number(backupScheduleRetention?.value || 14);
+  if (!Number.isInteger(retention) || retention < 1 || retention > 365) {
+    if (backupScheduleError) {
+      backupScheduleError.textContent = 'Retention must be a whole number from 1 to 365.';
+      backupScheduleError.classList.remove('hidden');
+    }
+    backupSaveScheduleBtn.disabled = false;
+    return;
+  }
+
+  try {
+    const result = await api('/api/backup/settings', {
+      method:'PUT',
+      body:JSON.stringify({
+        enabled:backupScheduleEnabled?.checked === true,
+        destination:backupScheduleDestination?.value?.trim() || null,
+        frequency:backupScheduleFrequency?.value || 'daily',
+        scheduleTime:backupScheduleTime?.value || '02:00',
+        scheduleWeekday:Number(backupScheduleWeekday?.value ?? 1),
+        retentionCount:retention
+      })
+    });
+    renderBackupSchedule(result.schedule || {});
+    if (backupScheduleStatus) {
+      backupScheduleStatus.textContent = result.schedule?.enabled
+        ? `Schedule saved. Next backup: ${backupStatusTime(result.schedule.nextRunAt, '—')}.`
+        : 'Scheduled backups disabled.';
+    }
+    await loadBackupStatus();
+  } catch (error) {
+    if (backupScheduleStatus) backupScheduleStatus.textContent = '';
+    if (backupScheduleError) {
+      backupScheduleError.textContent = error.message;
+      backupScheduleError.classList.remove('hidden');
+    }
+  } finally {
+    backupSaveScheduleBtn.disabled = false;
   }
 }
 
@@ -872,6 +1013,7 @@ function setRestorePendingUi(restore = {}) {
   if (restoreStageBtn) restoreStageBtn.disabled = true;
   if (restoreCancelStageBtn) restoreCancelStageBtn.classList.toggle('hidden', !pending);
   if (backupCreateBtn) backupCreateBtn.disabled = pending;
+  setBackupScheduleControlsDisabled(pending);
   if (restoreInspectStatus && pending) {
     const fileName = restore.fileName ? ` ${restore.fileName}` : '';
     restoreInspectStatus.textContent = `Restore staged${fileName}. Restart Print Farm Controller to activate it. Controller changes are blocked until restart or cancellation.`;
@@ -970,6 +1112,7 @@ async function cancelStagedRestoreUi() {
     if (restoreStageBtn) restoreStageBtn.disabled = true;
     if (restoreCancelStageBtn) restoreCancelStageBtn.classList.add('hidden');
     if (backupCreateBtn) backupCreateBtn.disabled = false;
+    setBackupScheduleControlsDisabled(false);
     clearRestoreInspection();
     if (restoreInspectStatus) restoreInspectStatus.textContent = 'Staged restore cancelled. Current controller data is unchanged.';
   } catch (error) {
@@ -1992,6 +2135,9 @@ backupRecoveryBtn?.addEventListener('click', async () => {
 });
 document.querySelectorAll('[data-backup-close]').forEach((el) => el.addEventListener('click', () => backupRecoveryDialog?.close()));
 backupCreateBtn?.addEventListener('click', createManualBackup);
+backupScheduleFrequency?.addEventListener('change', updateBackupWeekdayVisibility);
+backupTestDestinationBtn?.addEventListener('click', testScheduledBackupDestination);
+backupSaveScheduleBtn?.addEventListener('click', saveScheduledBackupSettings);
 restoreInspectBtn?.addEventListener('click', inspectRestoreFile);
 restoreStageBtn?.addEventListener('click', stageRestoreFile);
 restoreCancelStageBtn?.addEventListener('click', cancelStagedRestoreUi);
