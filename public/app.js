@@ -731,6 +731,9 @@ function renderBackupSchedule(schedule = {}) {
   if (backupScheduleStatus) {
     const parts = [];
     if (schedule.running) parts.push('Scheduled backup is running.');
+    if (schedule.catchUpPending && schedule.catchUpScheduledFor) {
+      parts.push(`Missed backup catch-up pending for ${backupStatusTime(schedule.catchUpScheduledFor, '—')}.`);
+    }
     if (schedule.nextRunAt) parts.push(`Next: ${backupStatusTime(schedule.nextRunAt, '—')}.`);
     if (schedule.lastAttemptAt) parts.push(`Last attempt: ${backupStatusTime(schedule.lastAttemptAt, '—')}.`);
     if (schedule.lastSuccess?.createdAt) parts.push(`Last success: ${backupStatusTime(schedule.lastSuccess.createdAt, '—')}.`);
