@@ -8,6 +8,8 @@ import { loadBackupSettings, saveBackupSettings } from './backup-settings-store.
 import { BackupOperationLock } from './backup-operation-lock.js';
 
 const MAX_MANIFEST_BYTES = 1024 * 1024;
+const DEFAULT_CATCH_UP_DELAY_MS = 5_000;
+const BUSY_CATCH_UP_RETRY_MS = 60_000;
 const WEEKDAY_NAMES = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
 
 function backupDestinationType(value) {
@@ -20,6 +22,25 @@ function backupDestinationType(value) {
 function scheduleParts(value) {
   const match = String(value || '02:00').match(/^([01]\d|2[0-3]):([0-5]\d)$/);
   return match ? { hour:Number(match[1]), minute:Number(match[2]) } : { hour:2, minute:0 };
+}
+
+export function previousScheduledBackupAt(settings, from = new Date()) {
+  if (!settings?.enabled) return null;
+  const { hour, minute } = scheduleParts(settings.scheduleTime);
+  const candidate = new Date(from.getTime());
+  candidate.setHours(hour, minute, 0, 0);
+
+  if (settings.frequency === 'weekly') {
+    const target = Number.isInteger(Number(settings.scheduleWeekday))
+      ? Number(settings.scheduleWeekday)
+      : 1;
+    let days = (candidate.getDay() - target + 7) % 7;
+    candidate.setDate(candidate.getDate() - days);
+    if (candidate.getTime() > from.getTime()) candidate.setDate(candidate.getDate() - 7);
+  } else if (candidate.getTime() > from.getTime()) {
+    candidate.setDate(candidate.getDate() - 1);
+  }
+  return candidate;
 }
 
 export function nextScheduledBackupAt(settings, from = new Date()) {
@@ -141,7 +162,9 @@ export class ScheduledBackupService {
     operationLock = null,
     diagnosticFn = null,
     setTimeoutFn = setTimeout,
-    clearTimeoutFn = clearTimeout
+    clearTimeoutFn = clearTimeout,
+    catchUpDelayMs = DEFAULT_CATCH_UP_DELAY_MS,
+    busyCatchUpRetryMs = BUSY_CATCH_UP_RETRY_MS
   } = {}) {
     if (!dataDir) throw new Error('Scheduled backup service requires a data directory');
     this.dataDir = path.resolve(dataDir);
@@ -152,7 +175,11 @@ export class ScheduledBackupService {
     this.diagnostic = typeof diagnosticFn === 'function' ? diagnosticFn : null;
     this.setTimeoutFn = setTimeoutFn;
     this.clearTimeoutFn = clearTimeoutFn;
+    this.catchUpDelayMs = Math.max(0, Number(catchUpDelayMs) || 0);
+    this.busyCatchUpRetryMs = Math.max(1_000, Number(busyCatchUpRetryMs) || BUSY_CATCH_UP_RETRY_MS);
     this.timer = null;
+    this.catchUpTimer = null;
+    this.catchUpScheduledFor = null;
     this.nextRunAt = null;
     this.running = false;
     this.started = false;
@@ -165,15 +192,69 @@ export class ScheduledBackupService {
   async start() {
     if (this.started) return this.status();
     this.started = true;
+    await this.scheduleMissedBackupCatchUp();
     await this.arm();
     return this.status();
   }
 
   stop() {
     if (this.timer) this.clearTimeoutFn(this.timer);
+    if (this.catchUpTimer) this.clearTimeoutFn(this.catchUpTimer);
     this.timer = null;
+    this.catchUpTimer = null;
+    this.catchUpScheduledFor = null;
     this.nextRunAt = null;
     this.started = false;
+  }
+
+  async scheduleMissedBackupCatchUp(now = new Date()) {
+    if (this.catchUpTimer) this.clearTimeoutFn(this.catchUpTimer);
+    this.catchUpTimer = null;
+    this.catchUpScheduledFor = null;
+
+    let settings = await loadBackupSettings({ dataDir:this.dataDir, create:true });
+    if (!settings.enabled) return null;
+
+    if (!settings.scheduleEffectiveAt) {
+      settings = await saveBackupSettings({
+        ...settings,
+        scheduleEffectiveAt:now.toISOString()
+      }, { dataDir:this.dataDir });
+      return null;
+    }
+
+    const due = previousScheduledBackupAt(settings, now);
+    if (!due) return null;
+    const effectiveAt = new Date(settings.scheduleEffectiveAt).getTime();
+    const dueAt = due.getTime();
+    if (!Number.isFinite(effectiveAt) || dueAt < effectiveAt) return null;
+
+    const lastAttempt = new Date(settings.lastScheduledAttemptAt || 0).getTime();
+    if (Number.isFinite(lastAttempt) && lastAttempt >= dueAt) return null;
+
+    this.scheduleCatchUpRetry(due.toISOString(), this.catchUpDelayMs);
+    await this.log('info', 'Missed scheduled backup detected; catch-up queued', {
+      scheduledFor:due.toISOString(),
+      delayMs:this.catchUpDelayMs
+    });
+    return due;
+  }
+
+  scheduleCatchUpRetry(scheduledFor, delayMs = this.busyCatchUpRetryMs) {
+    if (!this.started) return;
+    if (this.catchUpTimer) this.clearTimeoutFn(this.catchUpTimer);
+    this.catchUpScheduledFor = String(scheduledFor || '');
+    this.catchUpTimer = this.setTimeoutFn(() => {
+      this.catchUpTimer = null;
+      const due = this.catchUpScheduledFor;
+      this.catchUpScheduledFor = null;
+      this.runScheduledBackup({
+        trigger:'catch-up',
+        scheduledFor:due,
+        now:new Date()
+      }).catch(() => {});
+    }, Math.max(1_000, Number(delayMs) || this.busyCatchUpRetryMs));
+    this.catchUpTimer?.unref?.();
   }
 
   async arm(from = new Date()) {
@@ -185,10 +266,15 @@ export class ScheduledBackupService {
     if (!next) return null;
     this.nextRunAt = next.toISOString();
     const delay = Math.max(1_000, next.getTime() - from.getTime());
+    const scheduledFor = next.toISOString();
     this.timer = this.setTimeoutFn(() => {
       this.timer = null;
       this.nextRunAt = null;
-      this.runScheduledBackup().catch(() => {});
+      this.runScheduledBackup({
+        trigger:'scheduled',
+        scheduledFor,
+        now:new Date()
+      }).catch(() => {});
     }, delay);
     this.timer?.unref?.();
     return next;
@@ -209,7 +295,10 @@ export class ScheduledBackupService {
       scheduleWeekdayName:WEEKDAY_NAMES[settings.scheduleWeekday] || WEEKDAY_NAMES[1],
       retentionCount:settings.retentionCount,
       nextRunAt:this.nextRunAt,
+      catchUpPending:Boolean(this.catchUpTimer),
+      catchUpScheduledFor:this.catchUpScheduledFor || null,
       running:this.running,
+      scheduleEffectiveAt:settings.scheduleEffectiveAt || null,
       lastAttemptAt:settings.lastScheduledAttemptAt || null,
       lastSuccess:settings.lastScheduledSuccess || null,
       lastError:settings.lastScheduledError || null,
@@ -232,13 +321,21 @@ export class ScheduledBackupService {
       if (!Number.isInteger(retentionCount) || retentionCount < 1 || retentionCount > 365) {
         throw new Error('Backup retention must be a whole number from 1 to 365');
       }
+      const enabled = input.enabled === true;
+      const timingChanged = current.frequency !== frequency
+        || current.scheduleTime !== scheduleTime
+        || Number(current.scheduleWeekday) !== scheduleWeekday;
+      const scheduleEffectiveAt = enabled && (!current.enabled || timingChanged || !current.scheduleEffectiveAt)
+        ? new Date().toISOString()
+        : current.scheduleEffectiveAt;
       const requested = {
         ...current,
-        enabled:input.enabled === true,
+        enabled,
         destination:String(input.destination ?? current.destination ?? '').trim() || null,
         frequency,
         scheduleTime,
         scheduleWeekday,
+        scheduleEffectiveAt:enabled ? scheduleEffectiveAt : null,
         retentionCount,
         lastScheduledError:null,
         lastError:current.lastScheduledError && current.lastError === current.lastScheduledError
@@ -247,6 +344,9 @@ export class ScheduledBackupService {
       };
       if (requested.enabled) await validateBackupDestination(requested.destination);
       const saved = await saveBackupSettings(requested, { dataDir:this.dataDir });
+      if (this.catchUpTimer) this.clearTimeoutFn(this.catchUpTimer);
+      this.catchUpTimer = null;
+      this.catchUpScheduledFor = null;
       await this.arm();
       await this.log('info', saved.enabled ? 'Scheduled backups enabled or updated' : 'Scheduled backups disabled', {
         destinationType:backupDestinationType(saved.destination),
@@ -267,7 +367,11 @@ export class ScheduledBackupService {
     return result;
   }
 
-  async runScheduledBackup({ now = new Date() } = {}) {
+  async runScheduledBackup({
+    now = new Date(),
+    trigger = 'scheduled',
+    scheduledFor = null
+  } = {}) {
     const initial = await loadBackupSettings({ dataDir:this.dataDir, create:true });
     if (!initial.enabled) {
       await this.arm(now);
@@ -286,14 +390,18 @@ export class ScheduledBackupService {
           ...settings,
           lastAttemptedBackup:attemptedAt,
           lastScheduledAttemptAt:attemptedAt,
+          lastScheduledFor:scheduledFor || attemptedAt,
+          lastScheduledTrigger:trigger === 'catch-up' ? 'catch-up' : 'scheduled',
           lastScheduledError:null
         }, { dataDir:this.dataDir });
 
         try {
           await validateBackupDestination(updated.destination);
-          await this.log('info', 'Scheduled backup started', {
+          await this.log('info', trigger === 'catch-up' ? 'Missed scheduled backup catch-up started' : 'Scheduled backup started', {
             destinationType:backupDestinationType(updated.destination),
-            attemptedAt
+            attemptedAt,
+            scheduledFor:scheduledFor || attemptedAt,
+            trigger:trigger === 'catch-up' ? 'catch-up' : 'scheduled'
           });
           const result = await createBackupInDirectory({
             destinationDir:updated.destination,
@@ -355,11 +463,15 @@ export class ScheduledBackupService {
             });
           }
 
-          await this.log('info', 'Scheduled backup created and verified', {
+          await this.log('info', trigger === 'catch-up'
+            ? 'Missed scheduled backup catch-up created and verified'
+            : 'Scheduled backup created and verified', {
             fileName:result.fileName,
             size:result.size,
             createdAt:result.manifest.createdAt,
-            destinationType:backupDestinationType(updated.destination)
+            destinationType:backupDestinationType(updated.destination),
+            scheduledFor:scheduledFor || attemptedAt,
+            trigger:trigger === 'catch-up' ? 'catch-up' : 'scheduled'
           });
           return { success:true, backup:success };
         } catch (error) {
@@ -378,10 +490,14 @@ export class ScheduledBackupService {
       });
     } catch (error) {
       if (error?.statusCode === 409) {
-        await this.log('warn', 'Scheduled backup skipped because another backup operation is in progress', {
-          operation:this.operationLock.status()?.kind || null
+        const due = scheduledFor || now.toISOString();
+        if (this.started) this.scheduleCatchUpRetry(due, this.busyCatchUpRetryMs);
+        await this.log('warn', 'Scheduled backup delayed because another backup operation is in progress', {
+          operation:this.operationLock.status()?.kind || null,
+          scheduledFor:due,
+          retryMs:this.busyCatchUpRetryMs
         });
-        return { skipped:true, reason:'busy', error:error.message };
+        return { skipped:true, reason:'busy', retryScheduled:this.started, error:error.message };
       }
       throw error;
     } finally {
