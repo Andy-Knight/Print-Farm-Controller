@@ -490,3 +490,49 @@ test('enabling or changing schedule timing resets the catch-up effective time', 
     await fs.rm(root, { recursive:true, force:true });
   }
 });
+
+
+test('successful catch-up records the missed slot and trigger metadata', async () => {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), 'pfc-scheduled-catchup-success-'));
+  const destination = path.join(root, 'backups');
+  const timers = fakeTimerApi();
+  try {
+    await fs.mkdir(destination, { recursive:true });
+    const dataDir = await makeData(root);
+    await saveBackupSettings({
+      enabled:true,
+      destination,
+      frequency:'daily',
+      scheduleTime:'02:00',
+      scheduleWeekday:1,
+      scheduleEffectiveAt:new Date(2026, 8, 23, 10, 0, 0, 0).toISOString(),
+      retentionCount:14
+    }, { dataDir });
+
+    const service = new ScheduledBackupService({
+      dataDir,
+      applicationDir:root,
+      controllerVersion:'0.23.0',
+      setTimeoutFn:timers.setTimeoutFn,
+      clearTimeoutFn:timers.clearTimeoutFn
+    });
+
+    const scheduledFor = new Date(2026, 8, 24, 2, 0, 0, 0).toISOString();
+    const result = await service.runScheduledBackup({
+      now:new Date(2026, 8, 24, 12, 0, 0, 0),
+      trigger:'catch-up',
+      scheduledFor
+    });
+    assert.equal(result.success, true);
+
+    const settings = await loadBackupSettings({ dataDir, create:false });
+    assert.equal(settings.lastScheduledTrigger, 'catch-up');
+    assert.equal(settings.lastScheduledFor, scheduledFor);
+    assert.ok(settings.lastScheduledAttemptAt);
+    assert.ok(settings.lastScheduledSuccess?.fileName);
+
+    service.stop();
+  } finally {
+    await fs.rm(root, { recursive:true, force:true });
+  }
+});
