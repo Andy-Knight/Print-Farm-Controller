@@ -11,11 +11,12 @@ function nowIso(nowMs) {
   return new Date(nowMs).toISOString();
 }
 
-function cleanText(value, { required = false, max = 100, label = 'Value' } = {}) {
+function cleanText(value, { required = false, max = 100, label = 'Value', multiline = false } = {}) {
   const text = String(value ?? '').trim();
   if (required && !text) throw new Error(`${label} is required`);
   if (text.length > max) throw new Error(`${label} must be ${max} characters or fewer`);
-  if (/[\x00-\x1f\x7f]/.test(text)) throw new Error(`${label} contains invalid characters`);
+  const invalidControl = multiline ? /[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]/ : /[\x00-\x1f\x7f]/;
+  if (invalidControl.test(text)) throw new Error(`${label} contains invalid characters`);
   return text;
 }
 
@@ -120,6 +121,7 @@ export class MaintenanceService {
     this.filePath = path.join(path.resolve(dataDir), 'maintenance.json');
     this.state = defaultState();
     this.started = false;
+    this.initialized = false;
     this.unsubscribe = null;
     this.sessions = new Map();
     this.persistTimer = null;
@@ -139,6 +141,7 @@ export class MaintenanceService {
       this.state = defaultState();
       await this.persistNow();
     }
+    this.initialized = true;
   }
 
   async start() {
@@ -155,7 +158,7 @@ export class MaintenanceService {
     this.started = false;
     if (this.persistTimer) clearTimeout(this.persistTimer);
     this.persistTimer = null;
-    await this.persistNow();
+    if (this.initialized) await this.persistNow();
   }
 
   schedulePersist() {
@@ -275,7 +278,7 @@ export class MaintenanceService {
     const task = {
       id:crypto.randomUUID(),
       name:cleanText(input.name, { required:true, max:100, label:'Maintenance task name' }),
-      description:cleanText(input.description, { max:1000, label:'Maintenance task description' }),
+      description:cleanText(input.description, { max:1000, label:'Maintenance task description', multiline:true }),
       schedule:normalizeSchedule(input.schedule),
       enabled:input.enabled !== false,
       createdAt:nowIso(nowMs),
@@ -302,7 +305,7 @@ export class MaintenanceService {
       throw error;
     }
     if (input.name !== undefined) task.name = cleanText(input.name, { required:true, max:100, label:'Maintenance task name' });
-    if (input.description !== undefined) task.description = cleanText(input.description, { max:1000, label:'Maintenance task description' });
+    if (input.description !== undefined) task.description = cleanText(input.description, { max:1000, label:'Maintenance task description', multiline:true });
     if (input.schedule !== undefined) task.schedule = normalizeSchedule(input.schedule);
     if (input.enabled !== undefined) task.enabled = input.enabled !== false;
     task.updatedAt = nowIso(this.nowFn());
@@ -344,7 +347,7 @@ export class MaintenanceService {
       taskId:task.id,
       taskName:task.name,
       completedAt,
-      notes:cleanText(notes, { max:1000, label:'Maintenance notes' }),
+      notes:cleanText(notes, { max:1000, label:'Maintenance notes', multiline:true }),
       usageSnapshot
     };
     record.history.unshift(entry);
