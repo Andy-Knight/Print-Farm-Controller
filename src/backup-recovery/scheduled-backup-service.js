@@ -225,7 +225,7 @@ export class ScheduledBackupService {
       const scheduleWeekday = Number(input.scheduleWeekday ?? current.scheduleWeekday);
       const retentionCount = Number(input.retentionCount ?? current.retentionCount);
       if (!['daily','weekly'].includes(frequency)) throw new Error('Backup frequency must be daily or weekly');
-      if (!/^([01]\\d|2[0-3]):[0-5]\\d$/.test(scheduleTime)) throw new Error('Backup time must use HH:MM in 24-hour time');
+      if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(scheduleTime)) throw new Error('Backup time must use HH:MM in 24-hour time');
       if (!Number.isInteger(scheduleWeekday) || scheduleWeekday < 0 || scheduleWeekday > 6) {
         throw new Error('Backup weekday is invalid');
       }
