@@ -38,6 +38,7 @@ import { publicAssetKey, readRuntimeAsset } from './runtime-assets.js';
 import { KeyedSerialExecutor, PrinterOperationCoordinator } from './concurrency.js';
 import { evaluatePrinterOperation, PrinterPhysicalActivityTracker, PRINTER_OPERATION_TYPES } from './printer-operation-policy.js';
 import { DiagnosticLogger } from './diagnostic-logger.js';
+import { ManualBackupManager } from './backup-recovery/manual-backup-manager.js';
 
 const runtimePaths = resolveControllerRuntimePaths();
 const PUBLIC_DIR = runtimePaths.publicDir;
@@ -49,6 +50,12 @@ const CONTROLLER_VERSION = String(bundledVersion || packageInfo.version || 'unkn
 const PORT = Number(process.env.PORT || 4242);
 const HOST = process.env.HOST || '0.0.0.0';
 const diagnosticLogger = new DiagnosticLogger({ logDir:runtimePaths.logDir, version:CONTROLLER_VERSION });
+const manualBackupManager = new ManualBackupManager({
+  dataDir:runtimePaths.dataDir,
+  applicationDir:runtimePaths.applicationDir,
+  licensePath:runtimePaths.licensePath,
+  controllerVersion:CONTROLLER_VERSION
+});
 const fleetState = new FleetStateService({
   diagnosticFn:(level, message, meta) => diagnosticLogger[level]?.('fleet', message, meta)
 });
@@ -370,6 +377,52 @@ async function apiRoute(req, res, url) {
   if (req.method === 'GET' && url.pathname === '/api/license') {
     return json(res, 200, { license: currentLicenseSnapshot() });
   }
+
+  if (req.method === 'GET' && url.pathname === '/api/backup/status') {
+    return json(res, 200, { backup:await manualBackupManager.status() });
+  }
+
+  if (req.method === 'POST' && url.pathname === '/api/backup/create') {
+    await diagnosticLogger.info('backup', 'Manual backup requested');
+    try {
+      const backup = await manualBackupManager.create();
+      await diagnosticLogger.info('backup', 'Manual backup created and verified', {
+        fileName:backup.fileName,
+        size:backup.size,
+        createdAt:backup.manifest?.createdAt || null,
+        printers:backup.manifest?.counts?.printers ?? null,
+        printLibrary:backup.manifest?.counts?.printLibrary ?? null,
+        queued:backup.manifest?.counts?.queued ?? null,
+        history:backup.manifest?.counts?.history ?? null,
+        licenseIncluded:backup.manifest?.licenseIncluded === true
+      });
+      return json(res, 201, { backup });
+    } catch (error) {
+      await diagnosticLogger.warn('backup', 'Manual backup creation failed', {
+        error:error?.message || String(error)
+      });
+      throw error;
+    }
+  }
+
+  const backupDownloadMatch = url.pathname.match(/^\/api\/backup\/download\/([^/]+)$/);
+  if (backupDownloadMatch && req.method === 'GET') {
+    const backupId = decodeURIComponent(backupDownloadMatch[1]);
+    await diagnosticLogger.info('backup', 'Manual backup download started', { backupId });
+    try {
+      await manualBackupManager.stream(backupId, res);
+      await diagnosticLogger.info('backup', 'Manual backup download completed', { backupId });
+      return;
+    } catch (error) {
+      if (!res.headersSent) throw error;
+      await diagnosticLogger.warn('backup', 'Manual backup download interrupted', {
+        backupId,
+        error:error?.message || String(error)
+      });
+      return;
+    }
+  }
+
   if (req.method === 'GET' && url.pathname === '/api/diagnostics') {
     const entries = await diagnosticLogger.recent({
       limit:url.searchParams.get('limit') || 300,
@@ -1239,6 +1292,7 @@ async function startController() {
   try {
     await diagnosticLogger.init();
     diagnosticLogger.patchConsole();
+    await manualBackupManager.init();
     console.log(`Diagnostic logging enabled (${runtimePaths.customLogDir ? 'LOG_DIR override' : 'application-local logs directory'})`);
   } catch (error) {
     console.warn(`Diagnostic file logging unavailable: ${error.message}`);
