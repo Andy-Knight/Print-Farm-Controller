@@ -3200,19 +3200,23 @@ function updateOpenPrinterTelemetry() {
       const rgbLine = row.querySelector(`[data-material-rgb="${tool.index}"]`);
       rgbLine?.classList.toggle('hidden', !colorDisplay);
       const u1ConfigState = u1FilamentConfigEditState(printer, tool);
+      const u1ConfigControl = row.querySelector(`[data-u1-filament-config-control="${tool.index}"]`);
+      const u1EditPending = u1ConfigControl?.dataset.u1FilamentDirty === '1';
       const u1TypeInput = row.querySelector(`[data-u1-filament-type-input="${tool.index}"]`);
       const u1ColorFamilyInput = row.querySelector(`[data-u1-filament-color-family-input="${tool.index}"]`);
       const u1ConfigSave = row.querySelector(`[data-u1-filament-config-save="${tool.index}"]`);
       const u1ConfigHelp = row.querySelector(`[data-u1-filament-config-help="${tool.index}"]`);
       if (u1TypeInput) {
         const reportedMaterial = String(filament.material || '').trim().toUpperCase();
-        if (document.activeElement !== u1TypeInput) u1TypeInput.value = SNAPMAKER_U1_FILAMENT_TYPES.includes(reportedMaterial) ? reportedMaterial : '';
+        if (!u1EditPending && document.activeElement !== u1TypeInput) {
+          u1TypeInput.value = SNAPMAKER_U1_FILAMENT_TYPES.includes(reportedMaterial) ? reportedMaterial : '';
+        }
         u1TypeInput.disabled = !u1ConfigState.enabled;
       }
       if (u1ColorFamilyInput) {
         const reportedFamily = filamentColorFamilyOption(filament.colorFamily)?.value || '';
         const dropdown = u1ColorFamilyInput.closest('[data-color-family-dropdown]');
-        if (!dropdown?.open) setColorFamilyDropdownValue(u1ColorFamilyInput, reportedFamily);
+        if (!u1EditPending && !dropdown?.open) setColorFamilyDropdownValue(u1ColorFamilyInput, reportedFamily);
         u1ColorFamilyInput.disabled = !u1ConfigState.enabled;
         if (dropdown) {
           dropdown.classList.toggle('disabled', !u1ConfigState.enabled);
@@ -3715,6 +3719,11 @@ ${flashForgePreflight}` : ''}`)) return;
     } catch (error) { showError(error); }
   });
   bindColorFamilyDropdowns(printerDetail);
+  printerDetail.querySelectorAll('[data-u1-filament-config-control]').forEach((control) => {
+    const markDirty = () => { control.dataset.u1FilamentDirty = '1'; };
+    control.querySelector('[data-u1-filament-type-input]')?.addEventListener('change', markDirty);
+    control.querySelector('[data-u1-filament-color-family-input]')?.addEventListener('change', markDirty);
+  });
 
   printerDetail.querySelectorAll('[data-u1-filament-config-save]').forEach((button) => button.onclick = async () => {
     const toolIndex = Number(button.dataset.u1FilamentConfigSave);
@@ -3743,6 +3752,8 @@ ${flashForgePreflight}` : ''}`)) return;
         tool.filament.officialFilament = false;
         tool.filament.metadataAvailable = true;
       }
+      const control = printerDetail.querySelector(`[data-u1-filament-config-control="${toolIndex}"]`);
+      if (control) delete control.dataset.u1FilamentDirty;
       updateOpenPrinterTelemetry();
     } catch (error) { showError(error); }
     finally { button.textContent = original; updateOpenPrinterTelemetry(); }
