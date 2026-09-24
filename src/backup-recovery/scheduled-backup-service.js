@@ -220,17 +220,30 @@ export class ScheduledBackupService {
   async updateSettings(input = {}) {
     return this.operationLock.run('settings', async () => {
       const current = await loadBackupSettings({ dataDir:this.dataDir, create:true });
+      const frequency = String(input.frequency ?? current.frequency).trim().toLowerCase();
+      const scheduleTime = String(input.scheduleTime ?? current.scheduleTime).trim();
+      const scheduleWeekday = Number(input.scheduleWeekday ?? current.scheduleWeekday);
+      const retentionCount = Number(input.retentionCount ?? current.retentionCount);
+      if (!['daily','weekly'].includes(frequency)) throw new Error('Backup frequency must be daily or weekly');
+      if (!/^([01]\\d|2[0-3]):[0-5]\\d$/.test(scheduleTime)) throw new Error('Backup time must use HH:MM in 24-hour time');
+      if (!Number.isInteger(scheduleWeekday) || scheduleWeekday < 0 || scheduleWeekday > 6) {
+        throw new Error('Backup weekday is invalid');
+      }
+      if (!Number.isInteger(retentionCount) || retentionCount < 1 || retentionCount > 365) {
+        throw new Error('Backup retention must be a whole number from 1 to 365');
+      }
       const requested = {
         ...current,
         enabled:input.enabled === true,
         destination:String(input.destination ?? current.destination ?? '').trim() || null,
-        frequency:['daily','weekly'].includes(String(input.frequency || '').toLowerCase())
-          ? String(input.frequency).toLowerCase()
-          : current.frequency,
-        scheduleTime:input.scheduleTime ?? current.scheduleTime,
-        scheduleWeekday:input.scheduleWeekday ?? current.scheduleWeekday,
-        retentionCount:input.retentionCount ?? current.retentionCount,
-        lastScheduledError:null
+        frequency,
+        scheduleTime,
+        scheduleWeekday,
+        retentionCount,
+        lastScheduledError:null,
+        lastError:current.lastScheduledError && current.lastError === current.lastScheduledError
+          ? null
+          : current.lastError
       };
       if (requested.enabled) await validateBackupDestination(requested.destination);
       const saved = await saveBackupSettings(requested, { dataDir:this.dataDir });
