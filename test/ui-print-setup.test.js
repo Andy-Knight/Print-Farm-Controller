@@ -109,7 +109,7 @@ test('Snapmaker U1 toolhead status puts RGB colour on a dedicated second line', 
   assert.match(app, /RGB\(\$\{red\}, \$\{green\}, \$\{blue\}\)/);
   assert.match(app, /data-material-rgb=/);
   assert.match(app, /\['snapmaker-u1','flashforge-ad5m','bambu-lab'\]\.includes\(printer\.adapterType\)/);
-  assert.match(app, /rgbLine\?\.classList\.toggle\('hidden', !rgbText\)/);
+  assert.match(app, /rgbLine\?\.classList\.toggle\('hidden', !colorDisplay\)/);
   assert.match(styles, /\.material-tool > small\.material-rgb/);
   assert.doesNotMatch(app, /const values = \[source, reported, filament\.vendor \|\| filament\.manufacturer, filamentColorText\(filament\.color\)\]/);
   assert.match(app, /const details = \[presence, colorText, nozzle\]/);
@@ -129,12 +129,15 @@ test('FlashForge assigned filament colour shows hexadecimal and RGB values in to
 test('Snapmaker U1 uses one control and one command for third-party filament type and colour', () => {
   assert.match(app, /function u1FilamentConfigEditState/);
   assert.match(app, /data-u1-filament-type-input/);
-  assert.match(app, /data-u1-filament-color-input/);
+  assert.match(app, /data-u1-filament-color-family-input/);
   assert.match(app, /data-u1-filament-config-save/);
   assert.match(app, /Set filament on U1/);
   assert.match(app, /SNAPMAKER_U1_FILAMENT_TYPES/);
   assert.match(app, /\/filament-config/);
   assert.match(app, /Official Snapmaker RFID filament controls its own type and colour/);
+  assert.match(app, /FILAMENT_COLOR_FAMILIES/);
+  assert.match(app, /colorOption\?\.representative/);
+  assert.doesNotMatch(app, /data-u1-filament-color-input/);
   assert.doesNotMatch(app, /data-u1-filament-type-save/);
   assert.doesNotMatch(app, /data-u1-filament-color-save/);
   assert.match(styles, /\.u1-filament-config-control/);
