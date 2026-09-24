@@ -141,6 +141,57 @@ function filamentColorFamilySwatchStyle(item) {
   return item?.representative ? `background:${item.representative}` : '';
 }
 
+function colorFamilyDropdownMarkup({ value = '', inputAttributes = '', disabled = false, placeholder = 'Select colour family' } = {}) {
+  const selected = filamentColorFamilyOption(value);
+  const selectedMarkup = selected
+    ? `<span class="color-family-selected"><i class="color-family-square" style="${escapeHtml(filamentColorFamilySwatchStyle(selected))}"></i><span>${escapeHtml(selected.label)}</span></span>`
+    : `<span class="color-family-selected placeholder"><span>${escapeHtml(placeholder)}</span></span>`;
+  return `<details class="color-family-dropdown${disabled ? ' disabled' : ''}" data-color-family-dropdown${disabled ? ' data-disabled="1"' : ''}>
+    <summary>${selectedMarkup}<span class="color-family-caret">▾</span></summary>
+    <div class="color-family-menu">
+      ${FILAMENT_COLOR_FAMILIES.map((item) => `<button type="button" class="color-family-option${item.value === selected?.value ? ' selected' : ''}" data-color-family-option="${item.value}"><i class="color-family-square" style="${escapeHtml(filamentColorFamilySwatchStyle(item))}"></i><span>${escapeHtml(item.label)}</span></button>`).join('')}
+    </div>
+    <input type="hidden" data-color-family-value ${inputAttributes} value="${escapeHtml(selected?.value || '')}"${disabled ? ' disabled' : ''}>
+  </details>`;
+}
+
+function setColorFamilyDropdownValue(input, value) {
+  if (!input) return;
+  const dropdown = input.closest('[data-color-family-dropdown]');
+  const option = filamentColorFamilyOption(value);
+  input.value = option?.value || '';
+  if (!dropdown) return;
+  const selected = dropdown.querySelector('.color-family-selected');
+  if (selected) {
+    selected.classList.toggle('placeholder', !option);
+    selected.innerHTML = option
+      ? `<i class="color-family-square" style="${escapeHtml(filamentColorFamilySwatchStyle(option))}"></i><span>${escapeHtml(option.label)}</span>`
+      : '<span>Select colour family</span>';
+  }
+  dropdown.querySelectorAll('[data-color-family-option]').forEach((button) => {
+    button.classList.toggle('selected', button.dataset.colorFamilyOption === option?.value);
+  });
+}
+
+function bindColorFamilyDropdowns(root) {
+  root?.querySelectorAll('[data-color-family-dropdown]').forEach((dropdown) => {
+    if (dropdown.dataset.bound === '1') return;
+    dropdown.dataset.bound = '1';
+    dropdown.querySelectorAll('[data-color-family-option]').forEach((button) => {
+      button.onclick = () => {
+        if (dropdown.dataset.disabled === '1') return;
+        const input = dropdown.querySelector('[data-color-family-value]');
+        setColorFamilyDropdownValue(input, button.dataset.colorFamilyOption);
+        dropdown.open = false;
+        input?.dispatchEvent(new Event('change', { bubbles:true }));
+      };
+    });
+    dropdown.addEventListener('toggle', () => {
+      if (dropdown.open && dropdown.dataset.disabled === '1') dropdown.open = false;
+    });
+  });
+}
+
 function filamentColorFamilyFromHex(value) {
   const color = normalizeColor(value);
   if (!color) return null;
@@ -2527,10 +2578,7 @@ function u1FilamentConfigControlMarkup(printer, tool = {}) {
       <option value=""${knownMaterial ? '' : ' selected'}>Select type</option>
       ${SNAPMAKER_U1_FILAMENT_TYPES.map((value) => `<option value="${value}"${value === material ? ' selected' : ''}>${value}</option>`).join('')}
     </select></label>
-    <label>Colour family<span class="color-family-picker"><i class="color-family-square${familyOption ? '' : ' unknown'}" data-u1-filament-color-family-swatch="${tool.index}" style="${escapeHtml(filamentColorFamilySwatchStyle(familyOption))}"></i><select data-u1-filament-color-family-input="${tool.index}"${state.enabled ? '' : ' disabled'}>
-      <option value=""${familyOption ? '' : ' selected'}>Select colour</option>
-      ${FILAMENT_COLOR_FAMILIES.map((item) => `<option value="${item.value}"${item.value === familyOption?.value ? ' selected' : ''}>${escapeHtml(item.label)}</option>`).join('')}
-    </select></span></label>
+    <label>Colour family${colorFamilyDropdownMarkup({ value:familyOption?.value || '', inputAttributes:`data-u1-filament-color-family-input="${tool.index}"`, disabled:!state.enabled, placeholder:'Select colour' })}</label>
     <button type="button" class="secondary" data-u1-filament-config-save="${tool.index}"${state.enabled ? '' : ' disabled'}>Set filament on U1</button>
     <small data-u1-filament-config-help="${tool.index}">${escapeHtml(state.message)}</small>
   </div>`;
@@ -2554,10 +2602,7 @@ function flashForgeMaterialDesignationMarkup(printer, filament = {}) {
         <input type="text" data-material-designation-input value="${escapeHtml(manualValue)}" list="flashforgeMaterialTypes" maxlength="48" placeholder="e.g. PLA, PETG, ASA" autocomplete="off" />
       </label>
       <label>Controller colour family
-        <span class="color-family-picker"><i class="color-family-square${familyOption ? '' : ' unknown'}" data-material-color-family-swatch style="${escapeHtml(filamentColorFamilySwatchStyle(familyOption))}"></i><select data-material-color-family-input>
-          <option value="">Select colour family</option>
-          ${FILAMENT_COLOR_FAMILIES.map((item) => `<option value="${item.value}"${item.value === familyOption?.value ? ' selected' : ''}>${escapeHtml(item.label)}</option>`).join('')}
-        </select></span>
+        ${colorFamilyDropdownMarkup({ value:familyOption?.value || '', inputAttributes:'data-material-color-family-input', placeholder:'Select colour family' })}
       </label>
     </div>
     <datalist id="flashforgeMaterialTypes">${options.map((value) => `<option value="${escapeHtml(value)}"></option>`).join('')}</datalist>
@@ -3166,13 +3211,12 @@ function updateOpenPrinterTelemetry() {
       }
       if (u1ColorFamilyInput) {
         const reportedFamily = filamentColorFamilyOption(filament.colorFamily)?.value || '';
-        if (document.activeElement !== u1ColorFamilyInput) u1ColorFamilyInput.value = reportedFamily;
+        const dropdown = u1ColorFamilyInput.closest('[data-color-family-dropdown]');
+        if (!dropdown?.open) setColorFamilyDropdownValue(u1ColorFamilyInput, reportedFamily);
         u1ColorFamilyInput.disabled = !u1ConfigState.enabled;
-        const familySwatch = row.querySelector(`[data-u1-filament-color-family-swatch="${tool.index}"]`);
-        if (familySwatch && document.activeElement !== u1ColorFamilyInput) {
-          const option = filamentColorFamilyOption(reportedFamily);
-          familySwatch.style.background = option?.representative || '';
-          familySwatch.classList.toggle('unknown', !option);
+        if (dropdown) {
+          dropdown.classList.toggle('disabled', !u1ConfigState.enabled);
+          dropdown.dataset.disabled = u1ConfigState.enabled ? '0' : '1';
         }
       }
       if (u1ConfigSave) u1ConfigSave.disabled = !u1ConfigState.enabled;
@@ -3670,16 +3714,7 @@ ${flashForgePreflight}` : ''}`)) return;
       printerDialog.close();
     } catch (error) { showError(error); }
   });
-  printerDetail.querySelectorAll('[data-u1-filament-color-family-input]').forEach((select) => {
-    select.onchange = () => {
-      const option = filamentColorFamilyOption(select.value);
-      const swatch = printerDetail.querySelector(`[data-u1-filament-color-family-swatch="${select.dataset.u1FilamentColorFamilyInput}"]`);
-      if (swatch) {
-        swatch.style.background = option?.representative || '';
-        swatch.classList.toggle('unknown', !option);
-      }
-    };
-  });
+  bindColorFamilyDropdowns(printerDetail);
 
   printerDetail.querySelectorAll('[data-u1-filament-config-save]').forEach((button) => button.onclick = async () => {
     const toolIndex = Number(button.dataset.u1FilamentConfigSave);
@@ -3714,14 +3749,6 @@ ${flashForgePreflight}` : ''}`)) return;
   });
 
   const materialColorFamilyInput = printerDetail.querySelector('[data-material-color-family-input]');
-  const materialColorFamilySwatch = printerDetail.querySelector('[data-material-color-family-swatch]');
-  if (materialColorFamilyInput) materialColorFamilyInput.onchange = () => {
-    const option = filamentColorFamilyOption(materialColorFamilyInput.value);
-    if (materialColorFamilySwatch) {
-      materialColorFamilySwatch.style.background = option?.representative || '';
-      materialColorFamilySwatch.classList.toggle('unknown', !option);
-    }
-  };
 
   const materialDesignationSave = printerDetail.querySelector('[data-material-designation-save]');
   if (materialDesignationSave) materialDesignationSave.onclick = async () => {
@@ -3778,7 +3805,7 @@ ${flashForgePreflight}` : ''}`)) return;
       }
       const input = printerDetail.querySelector('[data-material-designation-input]');
       if (input) input.value = '';
-      if (materialColorFamilyInput) materialColorFamilyInput.value = '';
+      if (materialColorFamilyInput) setColorFamilyDropdownValue(materialColorFamilyInput, '');
     } catch (error) { showError(error); }
     finally { materialDesignationClear.disabled = false; materialDesignationClear.textContent = original; }
   };
