@@ -232,3 +232,34 @@ test('shared backup lock prevents scheduled and manual-style operations from ove
   assert.equal(await running, 'done');
   assert.equal(lock.status(), null);
 });
+
+
+test('scheduled backup settings reject invalid time weekday and retention values', async () => {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), 'pfc-scheduled-validation-'));
+  const timers = fakeTimerApi();
+  try {
+    const dataDir = await makeData(root);
+    const service = new ScheduledBackupService({
+      dataDir,
+      applicationDir:root,
+      controllerVersion:'0.23.0',
+      setTimeoutFn:timers.setTimeoutFn,
+      clearTimeoutFn:timers.clearTimeoutFn
+    });
+    await assert.rejects(
+      () => service.updateSettings({ enabled:false, frequency:'daily', scheduleTime:'25:00', scheduleWeekday:1, retentionCount:14 }),
+      /24-hour time/
+    );
+    await assert.rejects(
+      () => service.updateSettings({ enabled:false, frequency:'weekly', scheduleTime:'02:00', scheduleWeekday:7, retentionCount:14 }),
+      /weekday is invalid/
+    );
+    await assert.rejects(
+      () => service.updateSettings({ enabled:false, frequency:'daily', scheduleTime:'02:00', scheduleWeekday:1, retentionCount:0 }),
+      /retention must be a whole number/
+    );
+    service.stop();
+  } finally {
+    await fs.rm(root, { recursive:true, force:true });
+  }
+});
