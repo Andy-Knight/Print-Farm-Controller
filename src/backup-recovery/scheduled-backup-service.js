@@ -189,11 +189,11 @@ export class ScheduledBackupService {
     try { await this.diagnostic?.(level, message, meta); } catch {}
   }
 
-  async start() {
+  async start({ now = new Date() } = {}) {
     if (this.started) return this.status();
     this.started = true;
-    await this.scheduleMissedBackupCatchUp();
-    await this.arm();
+    await this.scheduleMissedBackupCatchUp(now);
+    await this.arm(now);
     return this.status();
   }
 
