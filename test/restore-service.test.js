@@ -242,3 +242,48 @@ test('tampered pending restore journal cannot redirect cleanup outside controlle
     await fs.rm(root, { recursive:true, force:true });
   }
 });
+
+
+test('successful restore keeps rollback metadata for the recovery window and cleans it after expiry', async () => {
+  const root = await tempRoot('pfc-restore-retention-');
+  const liveData = path.join(root, 'live-data');
+  const liveLicense = path.join(root, 'live-license.json');
+  try {
+    await fs.mkdir(liveData, { recursive:true });
+    await writeJson(path.join(liveData, 'printers.json'), [{ id:'old-printer' }]);
+    await writeJson(path.join(liveData, 'print-jobs.json'), []);
+    const fixture = await createBackupFixture(root, { printers:[{ id:'new-printer' }] });
+
+    await stageRestoreBackup(fixture.backupPath, {
+      dataDir:liveData,
+      licensePath:liveLicense,
+      currentControllerVersion:'0.23.0'
+    });
+    const tx = await activatePendingRestore({ dataDir:liveData, licensePath:liveLicense });
+    const committed = await commitActivatedRestore(tx, {
+      now:new Date('2026-09-24T18:00:00.000Z'),
+      retentionMs:60_000
+    });
+    assert.equal(committed.committed, true);
+    assert.equal(committed.rollbackRetainUntil, '2026-09-24T18:01:00.000Z');
+
+    const status = await pendingRestoreStatus(liveData);
+    assert.equal(status.pending, false);
+    assert.equal(status.recentlyRestored, true);
+    assert.equal(status.rollbackRetainUntil, '2026-09-24T18:01:00.000Z');
+
+    // Rewrite the retained-until timestamp into the past to simulate the next
+    // lifecycle check occurring after the recovery window.
+    const markerPath = restoreRuntimePaths(liveData).pendingMarkerPath;
+    const marker = JSON.parse(await fs.readFile(markerPath, 'utf8'));
+    marker.rollbackRetainUntil = '2020-01-01T00:00:00.000Z';
+    await fs.writeFile(markerPath, JSON.stringify(marker));
+
+    const cleanup = await activatePendingRestore({ dataDir:liveData, licensePath:liveLicense });
+    assert.equal(cleanup.rollbackRetentionExpired, true);
+    assert.equal((await pendingRestoreStatus(liveData)).pending, false);
+    assert.equal((JSON.parse(await fs.readFile(path.join(liveData, 'printers.json'), 'utf8')))[0].id, 'new-printer');
+  } finally {
+    await fs.rm(root, { recursive:true, force:true });
+  }
+});
