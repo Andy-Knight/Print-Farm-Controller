@@ -218,30 +218,32 @@ export class ScheduledBackupService {
   }
 
   async updateSettings(input = {}) {
-    const current = await loadBackupSettings({ dataDir:this.dataDir, create:true });
-    const requested = {
-      ...current,
-      enabled:input.enabled === true,
-      destination:String(input.destination ?? current.destination ?? '').trim() || null,
-      frequency:['daily','weekly'].includes(String(input.frequency || '').toLowerCase())
-        ? String(input.frequency).toLowerCase()
-        : current.frequency,
-      scheduleTime:input.scheduleTime ?? current.scheduleTime,
-      scheduleWeekday:input.scheduleWeekday ?? current.scheduleWeekday,
-      retentionCount:input.retentionCount ?? current.retentionCount,
-      lastScheduledError:null
-    };
-    if (requested.enabled) await validateBackupDestination(requested.destination);
-    const saved = await saveBackupSettings(requested, { dataDir:this.dataDir });
-    await this.arm();
-    await this.log('info', saved.enabled ? 'Scheduled backups enabled or updated' : 'Scheduled backups disabled', {
-      destinationType:backupDestinationType(saved.destination),
-      frequency:saved.frequency,
-      scheduleTime:saved.scheduleTime,
-      scheduleWeekday:saved.scheduleWeekday,
-      retentionCount:saved.retentionCount
+    return this.operationLock.run('settings', async () => {
+      const current = await loadBackupSettings({ dataDir:this.dataDir, create:true });
+      const requested = {
+        ...current,
+        enabled:input.enabled === true,
+        destination:String(input.destination ?? current.destination ?? '').trim() || null,
+        frequency:['daily','weekly'].includes(String(input.frequency || '').toLowerCase())
+          ? String(input.frequency).toLowerCase()
+          : current.frequency,
+        scheduleTime:input.scheduleTime ?? current.scheduleTime,
+        scheduleWeekday:input.scheduleWeekday ?? current.scheduleWeekday,
+        retentionCount:input.retentionCount ?? current.retentionCount,
+        lastScheduledError:null
+      };
+      if (requested.enabled) await validateBackupDestination(requested.destination);
+      const saved = await saveBackupSettings(requested, { dataDir:this.dataDir });
+      await this.arm();
+      await this.log('info', saved.enabled ? 'Scheduled backups enabled or updated' : 'Scheduled backups disabled', {
+        destinationType:backupDestinationType(saved.destination),
+        frequency:saved.frequency,
+        scheduleTime:saved.scheduleTime,
+        scheduleWeekday:saved.scheduleWeekday,
+        retentionCount:saved.retentionCount
+      });
+      return this.status();
     });
-    return this.status();
   }
 
   async testDestination(destination) {
@@ -253,110 +255,122 @@ export class ScheduledBackupService {
   }
 
   async runScheduledBackup({ now = new Date() } = {}) {
-    const settings = await loadBackupSettings({ dataDir:this.dataDir, create:true });
-    if (!settings.enabled) {
+    const initial = await loadBackupSettings({ dataDir:this.dataDir, create:true });
+    if (!initial.enabled) {
       await this.arm(now);
       return { skipped:true, reason:'disabled' };
     }
 
-    this.running = true;
     this.nextRunAt = null;
-    const attemptedAt = now.toISOString();
-    let updated = await saveBackupSettings({
-      ...settings,
-      lastAttemptedBackup:attemptedAt,
-      lastScheduledAttemptAt:attemptedAt,
-      lastScheduledError:null
-    }, { dataDir:this.dataDir });
-
     try {
-      const result = await this.operationLock.run('scheduled', async () => {
-        await validateBackupDestination(updated.destination);
-        await this.log('info', 'Scheduled backup started', {
-          destinationType:backupDestinationType(updated.destination),
-          attemptedAt
-        });
-        return createBackupInDirectory({
-          destinationDir:updated.destination,
-          dataDir:this.dataDir,
-          applicationDir:this.applicationDir,
-          licensePath:this.licensePath,
-          controllerVersion:this.controllerVersion,
-          source:'scheduled',
-          now
-        });
-      });
+      return await this.operationLock.run('scheduled', async () => {
+        this.running = true;
+        const settings = await loadBackupSettings({ dataDir:this.dataDir, create:true });
+        if (!settings.enabled) return { skipped:true, reason:'disabled' };
 
-      const success = {
-        createdAt:result.manifest.createdAt,
-        fileName:result.fileName,
-        size:result.size,
-        source:'scheduled',
-        destination:updated.destination
-      };
-      updated = await saveBackupSettings({
-        ...updated,
-        lastSuccessfulBackup:success,
-        lastScheduledSuccess:success,
-        lastScheduledError:null,
-        lastError:null
-      }, { dataDir:this.dataDir });
-
-      let retention;
-      try {
-        retention = await pruneScheduledBackups({
-          destination:updated.destination,
-          installationId:updated.installationId,
-          retentionCount:updated.retentionCount,
-          newestBackupPath:result.filePath
-        });
-        const retentionResult = {
-          completedAt:new Date().toISOString(),
-          deleted:retention.deleted.length,
-          failed:retention.failed.length,
-          eligible:retention.eligible,
-          kept:retention.kept,
-          failures:retention.failed
-        };
-        updated = await saveBackupSettings({
-          ...updated,
-          lastRetentionResult:retentionResult
+        const attemptedAt = now.toISOString();
+        let updated = await saveBackupSettings({
+          ...settings,
+          lastAttemptedBackup:attemptedAt,
+          lastScheduledAttemptAt:attemptedAt,
+          lastScheduledError:null
         }, { dataDir:this.dataDir });
-        await this.log(retention.failed.length ? 'warn' : 'info', 'Scheduled backup retention completed', retentionResult);
-      } catch (error) {
-        const retentionResult = {
-          completedAt:new Date().toISOString(),
-          deleted:0,
-          failed:1,
-          eligible:null,
-          kept:null,
-          failures:[{ fileName:null, error:error?.message || String(error) }]
-        };
-        await saveBackupSettings({ ...updated, lastRetentionResult:retentionResult }, { dataDir:this.dataDir }).catch(() => {});
-        await this.log('warn', 'Scheduled backup retention failed after successful backup', {
-          error:error?.message || String(error)
-        });
-      }
 
-      await this.log('info', 'Scheduled backup created and verified', {
-        fileName:result.fileName,
-        size:result.size,
-        createdAt:result.manifest.createdAt,
-        destinationType:backupDestinationType(updated.destination)
+        try {
+          await validateBackupDestination(updated.destination);
+          await this.log('info', 'Scheduled backup started', {
+            destinationType:backupDestinationType(updated.destination),
+            attemptedAt
+          });
+          const result = await createBackupInDirectory({
+            destinationDir:updated.destination,
+            dataDir:this.dataDir,
+            applicationDir:this.applicationDir,
+            licensePath:this.licensePath,
+            controllerVersion:this.controllerVersion,
+            source:'scheduled',
+            now
+          });
+
+          const success = {
+            createdAt:result.manifest.createdAt,
+            fileName:result.fileName,
+            size:result.size,
+            source:'scheduled',
+            destination:updated.destination
+          };
+          updated = await saveBackupSettings({
+            ...updated,
+            lastSuccessfulBackup:success,
+            lastScheduledSuccess:success,
+            lastScheduledError:null,
+            lastError:null
+          }, { dataDir:this.dataDir });
+
+          try {
+            const retention = await pruneScheduledBackups({
+              destination:updated.destination,
+              installationId:updated.installationId,
+              retentionCount:updated.retentionCount,
+              newestBackupPath:result.filePath
+            });
+            const retentionResult = {
+              completedAt:new Date().toISOString(),
+              deleted:retention.deleted.length,
+              failed:retention.failed.length,
+              eligible:retention.eligible,
+              kept:retention.kept,
+              failures:retention.failed
+            };
+            updated = await saveBackupSettings({
+              ...updated,
+              lastRetentionResult:retentionResult
+            }, { dataDir:this.dataDir });
+            await this.log(retention.failed.length ? 'warn' : 'info', 'Scheduled backup retention completed', retentionResult);
+          } catch (error) {
+            const retentionResult = {
+              completedAt:new Date().toISOString(),
+              deleted:0,
+              failed:1,
+              eligible:null,
+              kept:null,
+              failures:[{ fileName:null, error:error?.message || String(error) }]
+            };
+            await saveBackupSettings({ ...updated, lastRetentionResult:retentionResult }, { dataDir:this.dataDir }).catch(() => {});
+            await this.log('warn', 'Scheduled backup retention failed after successful backup', {
+              error:error?.message || String(error)
+            });
+          }
+
+          await this.log('info', 'Scheduled backup created and verified', {
+            fileName:result.fileName,
+            size:result.size,
+            createdAt:result.manifest.createdAt,
+            destinationType:backupDestinationType(updated.destination)
+          });
+          return { success:true, backup:success };
+        } catch (error) {
+          const message = error?.message || String(error);
+          await saveBackupSettings({
+            ...updated,
+            lastScheduledError:message,
+            lastError:message
+          }, { dataDir:this.dataDir }).catch(() => {});
+          await this.log('warn', 'Scheduled backup failed', {
+            destinationType:backupDestinationType(updated.destination),
+            error:message
+          });
+          return { success:false, error:message };
+        }
       });
-      return { success:true, backup:success };
     } catch (error) {
-      const message = error?.message || String(error);
-      await saveBackupSettings({
-        ...updated,
-        lastScheduledError:message,
-        lastError:message
-      }, { dataDir:this.dataDir }).catch(() => {});
-      await this.log('warn', 'Scheduled backup failed', {
-        destinationType:backupDestinationType(updated.destination),
-        error:message
-      });
-      return { success:false, error:message };
+      if (error?.statusCode === 409) {
+        await this.log('warn', 'Scheduled backup skipped because another backup operation is in progress', {
+          operation:this.operationLock.status()?.kind || null
+        });
+        return { skipped:true, reason:'busy', error:error.message };
+      }
+      throw error;
     } finally {
       this.running = false;
       await this.arm(new Date(Math.max(Date.now(), now.getTime() + 1000))).catch(() => {});
