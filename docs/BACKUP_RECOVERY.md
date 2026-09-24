@@ -518,7 +518,7 @@ A test should create controller state in one temporary data directory, produce a
 
 ## Implementation status
 
-Stages 1–3 are implemented on `feature/backup-recovery-v0230`:
+Stages 1–4 are implemented on `feature/backup-recovery-v0230`:
 
 - dependency-free ZIP32-compatible archive writer using stored entries and data descriptors;
 - streaming SHA-256/CRC verification of completed archives;
@@ -544,9 +544,24 @@ Stages 1–3 are implemented on `feature/backup-recovery-v0230`:
 - local staging-space check where the platform exposes filesystem free-space information;
 - explicit rejection of backups created by a newer controller version;
 - restore summary showing counts, warnings and migration requirement without mutating live state;
-- actual **Restore backup** action remains disabled until staging/activation exists.
+- read-only inspection enables **Restore backup** only after a valid inspection;
+- restore staging revalidates the selected backup and extracts a logical staged data set without changing live data;
+- queue dispatch is paused before restore safety checks so a queued job cannot race staging;
+- staging is blocked while physical prints, controller queue work, chamber preheat, tracked printer activity or in-flight printer operations are active;
+- once staged, controller and simulator mutations are frozen until restart or explicit staged-restore cancellation;
+- all non-terminal jobs are transformed to **Restored — review required** with an explicit recovery hold;
+- restored production-batch runs are paused;
+- jobs that were starting/printing force bed clearance; automatic jobs that may have printed retain the last physical printer until that bed is acknowledged clear;
+- recovery-held fixed-printer jobs require fresh live compatibility before release; automatic jobs re-enter normal scheduler compatibility only after deliberate recheck;
+- restore activation is journalled through `staged -> activating -> activated -> committed` and occurs before normal controller stores/printer services initialize;
+- failed startup before commit automatically restores the previous data and external signed-licence state;
+- an interrupted `activating`/uncommitted `activated` journal is rolled back on the next startup;
+- successful restored startup retains the pre-restore snapshot for a 24-hour recovery window;
+- committed rollback state is discarded when its recovery window expires on a lifecycle check or when a newer restore is staged;
+- pending-journal filesystem paths are validated against controller-owned sibling restore paths before cleanup/rename;
+- staging can be cancelled before restart, leaving current controller data unchanged.
 
-Next: restore migration and staged startup activation with rollback, recovery-hold queue semantics, then scheduled local/network backups and retention.
+Next: scheduled local/network/NAS backups, scheduled retention/status/diagnostics, then full disaster-recovery integration validation.
 
 ## Implementation order
 
