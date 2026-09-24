@@ -1,6 +1,8 @@
-# Print Farm Controller v0.21.0
+# Print Farm Controller v0.22.0
 
-> **Current development: v0.21.0 Print Library printer targeting.** Print Library files can optionally be designated for a specific supported printer model. The target is selectable when adding a file, editable later, searchable/displayed in the library, copied into queued-job snapshots, and enforced by Next Available compatibility so a targeted file is only offered to matching printer models. Files with no target remain unrestricted.
+> **Current development: v0.22.0 colour-family queue matching.** Slicer hexadecimal colours are retained as shade metadata but automatic queue eligibility no longer requires an exact RGB/hex match. Required and loaded colours are classified into practical colour families (for example red, orange, yellow, green, cyan, blue, purple, pink, brown, black, white and grey). Same-family shades are compatible; different families remain blocked. When multiple U1 tools or Bambu AMS sources satisfy the same material/nozzle/colour-family requirement, CIELAB colour distance is used only to prefer the closest shade.
+
+> **v0.21.0 Print Library printer targeting.** Print Library files can optionally be designated for a specific supported printer model. The target is selectable when adding a file, editable later, searchable/displayed in the library, copied into queued-job snapshots, and enforced by Next Available compatibility so a targeted file is only offered to matching printer models. Files with no target remain unrestricted.
 
 > **v0.20.2 dashboard click reliability.** Live fleet updates no longer detach and reinsert every existing printer card when the card order is unchanged. This removes a browser click race where an **Open printer** button could be moved between pointer-down and click, making the action appear to do nothing intermittently.
 
