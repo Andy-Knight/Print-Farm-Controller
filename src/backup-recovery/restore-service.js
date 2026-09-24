@@ -148,15 +148,6 @@ async function writeStateJson(stageDir, fileName, value) {
   await writeJsonAtomic(path.join(stageDir, fileName), value);
 }
 
-async function extractLibrary(archive, stageDir) {
-  for (const entry of archive.entries) {
-    if (!entry.name.startsWith('print-library/')) continue;
-    const relative = entry.name.split('/');
-    const destination = path.join(stageDir, ...relative);
-    await extractZipEntryToFile(archive.filePath, entry, destination);
-  }
-}
-
 export async function stageRestoreBackup(filePath, {
   dataDir,
   licensePath,
