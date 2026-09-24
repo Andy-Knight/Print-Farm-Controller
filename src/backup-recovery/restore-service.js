@@ -14,6 +14,7 @@ const BASE_MANAGED_ENTRIES = Object.freeze([
   'file-material-metadata.json',
   'backup-settings.json',
   'emulator-settings.json',
+  'maintenance.json',
   'print-library',
   // A historical queue-files directory must not survive a restore and then
   // migrate stale content back into the restored Print Library.
@@ -251,6 +252,12 @@ export async function stageRestoreBackup(filePath, {
     await writeStateJson(stageDir, 'print-jobs.json', prepareRestoredJobs(jobs, { restoredAt }));
     await writeStateJson(stageDir, 'file-material-metadata.json', fileMaterials);
     await writeStateJson(stageDir, 'backup-settings.json', restoredBackupSettings(backupSettings));
+    if (archive.byName.has('state/maintenance.json')) {
+      const maintenance = JSON.parse((await archive.read('state/maintenance.json')).toString('utf8'));
+      await writeStateJson(stageDir, 'maintenance.json', maintenance);
+    } else {
+      await writeStateJson(stageDir, 'maintenance.json', { version:1, printers:{} });
+    }
 
     if (archive.byName.has('state/emulator-settings.json')) {
       const emulator = JSON.parse((await archive.read('state/emulator-settings.json')).toString('utf8'));
