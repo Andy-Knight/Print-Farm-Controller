@@ -14,6 +14,12 @@ function normalizeScheduleTime(value) {
   return /^([01]\d|2[0-3]):[0-5]\d$/.test(text) ? text : '02:00';
 }
 
+function normalizeIsoDate(value) {
+  if (!value) return null;
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? null : date.toISOString();
+}
+
 export function normalizeBackupSettings(value = {}) {
   const installationId = String(value.installationId || '').trim();
   const validInstallationId = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(installationId)
@@ -36,9 +42,14 @@ export function normalizeBackupSettings(value = {}) {
     lastSuccessfulBackup:value.lastSuccessfulBackup || null,
     lastAttemptedBackup:value.lastAttemptedBackup || null,
     lastError:value.lastError ? String(value.lastError) : null,
-    lastScheduledAttemptAt:value.lastScheduledAttemptAt || null,
+    scheduleEffectiveAt:normalizeIsoDate(value.scheduleEffectiveAt),
+    lastScheduledAttemptAt:normalizeIsoDate(value.lastScheduledAttemptAt),
     lastScheduledSuccess:value.lastScheduledSuccess || null,
     lastScheduledError:value.lastScheduledError ? String(value.lastScheduledError) : null,
+    lastScheduledFor:normalizeIsoDate(value.lastScheduledFor),
+    lastScheduledTrigger:['scheduled','catch-up'].includes(String(value.lastScheduledTrigger || ''))
+      ? String(value.lastScheduledTrigger)
+      : null,
     lastRetentionResult:value.lastRetentionResult || null
   };
 }
