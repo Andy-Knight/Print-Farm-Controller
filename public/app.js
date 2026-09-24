@@ -3641,10 +3641,6 @@ ${flashForgePreflight}` : ''}`)) return;
   if (materialColorShadeToggle && materialColorInput) {
     materialColorShadeToggle.onchange = () => {
       materialColorInput.disabled = !materialColorShadeToggle.checked;
-      if (materialColorShadeToggle.checked && materialColorFamilyInput?.value) {
-        const representative = filamentColorFamilyOption(materialColorFamilyInput.value)?.representative;
-        if (representative) materialColorInput.value = representative;
-      }
     };
   }
   if (materialColorFamilyInput && materialColorInput) {
