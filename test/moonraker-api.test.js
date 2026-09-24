@@ -123,10 +123,12 @@ test('normalizes Snapmaker U1 Moonraker status with four toolheads and cavity te
   assert.equal(status.tools[0].filament.material, 'PLA');
   assert.equal(status.tools[0].filament.materialVariant, 'Basic');
   assert.equal(status.tools[0].filament.color, '#112233');
+  assert.equal(status.tools[0].filament.colorFamily, 'blue');
   assert.equal(status.tools[1].filament.present, false);
   assert.equal(status.tools[1].filament.metadataAvailable, false);
   assert.equal(status.tools[2].filament.detecting, true);
   assert.equal(status.tools[2].filament.color, '#ABCDEF');
+  assert.equal(status.tools[2].filament.colorFamily, 'blue');
   assert.equal(status.progress, 25);
   assert.equal(status.currentLayer, 12);
   assert.equal(status.totalLayers, 100);
@@ -203,6 +205,7 @@ test('U1 material normalization prefers manual print-task assignments over RFID 
   assert.equal(t0.materialVariant, 'CF');
   assert.equal(t0.vendor, 'Generic Brand');
   assert.equal(t0.color, '#CC2200');
+  assert.equal(t0.colorFamily, 'red');
   assert.equal(t0.materialSource, 'manual');
   assert.equal(t0.manuallyAssigned, true);
   assert.equal(t0.rfidMetadataAvailable, true);

@@ -1,5 +1,13 @@
 import path from 'node:path';
 import { canonicalMaterial } from './file-material-metadata.js';
+import {
+  colorDistance,
+  colorFamily,
+  colorMatchScore,
+  colorsCompatible,
+  normalizeColor,
+  resolveColorFamily
+} from './color-family.js';
 
 const ACTIVE_STATES = new Set(['printing', 'working', 'building_from_sd', 'pause', 'paused']);
 const IDLE_STATES = new Set(['idle', 'ready', 'standby', 'complete', 'completed', 'cancel', 'cancelled', 'canceled', 'stopped']);
@@ -30,13 +38,6 @@ function isBusy(status = {}) {
   return state !== '';
 }
 
-function normalizeColor(value) {
-  const text = String(value || '').trim().replace(/^0x/i, '').replace(/^#/, '').toUpperCase();
-  if (/^[0-9A-F]{8}$/.test(text)) return `#${text.slice(2)}`;
-  if (/^[0-9A-F]{6}$/.test(text)) return `#${text}`;
-  return null;
-}
-
 function sameNozzle(a, b) {
   const left = Number(a);
   const right = Number(b);
@@ -60,7 +61,9 @@ function toolMatches(required, physical) {
   if (requiredMaterial && currentMaterial && requiredMaterial !== currentMaterial) return false;
   const requiredColor = normalizeColor(required.color);
   const currentColor = normalizeColor(filament.color);
-  if (requiredColor && currentColor && requiredColor !== currentColor) return false;
+  const requiredFamily = resolveColorFamily({ color:requiredColor, family:required.colorFamily });
+  const currentFamily = resolveColorFamily({ color:currentColor, family:filament.colorFamily });
+  if (requiredFamily && currentFamily && requiredFamily !== currentFamily) return false;
   return true;
 }
 
@@ -74,6 +77,13 @@ function mapLogicalTools(requirements = {}, status = {}) {
     candidates:physicalTools
       .filter((tool) => Number.isInteger(Number(tool.index)))
       .filter((tool) => toolMatches(logical, tool))
+      .sort((left, right) => colorMatchScore(logical.color, left?.filament?.color, {
+        requiredFamily:logical.colorFamily,
+        currentFamily:left?.filament?.colorFamily
+      }) - colorMatchScore(logical.color, right?.filament?.color, {
+        requiredFamily:logical.colorFamily,
+        currentFamily:right?.filament?.colorFamily
+      }) || Number(left.index) - Number(right.index))
   }));
   const missing = descriptors.filter((item) => !item.candidates.length);
   if (missing.length) {
@@ -139,7 +149,9 @@ function sourceMatches(required, source) {
   if (requiredMaterial && currentMaterial && requiredMaterial !== currentMaterial) return false;
   const requiredColor = normalizeColor(required.color);
   const currentColor = normalizeColor(source?.color);
-  if (requiredColor && currentColor && requiredColor !== currentColor) return false;
+  const requiredFamily = resolveColorFamily({ color:requiredColor, family:required.colorFamily });
+  const currentFamily = resolveColorFamily({ color:currentColor, family:source?.colorFamily });
+  if (requiredFamily && currentFamily && requiredFamily !== currentFamily) return false;
   return true;
 }
 
@@ -147,7 +159,18 @@ function mapLogicalMaterials(requirements = {}, status = {}) {
   const logicalTools = Array.isArray(requirements.logicalTools) ? requirements.logicalTools : [];
   const sources = (Array.isArray(status.materialSources) ? status.materialSources : []).filter((source) => source?.present !== false);
   if (!logicalTools.length) return { ok:true, materialMap:null, reasons:[], review:[] };
-  const descriptors = logicalTools.map((logical) => ({ logical, candidates:sources.filter((source) => sourceMatches(logical, source)) }));
+  const descriptors = logicalTools.map((logical) => ({
+    logical,
+    candidates:sources
+      .filter((source) => sourceMatches(logical, source))
+      .sort((left, right) => colorMatchScore(logical.color, left?.color, {
+        requiredFamily:logical.colorFamily,
+        currentFamily:left?.colorFamily
+      }) - colorMatchScore(logical.color, right?.color, {
+        requiredFamily:logical.colorFamily,
+        currentFamily:right?.colorFamily
+      }) || Number(left.protocolIndex) - Number(right.protocolIndex))
+  }));
   const missing = descriptors.filter((item) => !item.candidates.length);
   if (missing.length) {
     return {
@@ -271,8 +294,13 @@ export function evaluateQueueCompatibility({ job, printer, state, adapter, bedCl
       }
       const requiredColor = normalizeColor(required.color);
       const currentColor = normalizeColor(physical.filament?.color);
-      if (requiredColor && currentColor && requiredColor !== currentColor) {
-        blocked.push({ code:'color_mismatch', text:`Loaded filament colour ${currentColor} does not match required ${requiredColor}` });
+      const requiredFamily = resolveColorFamily({ color:requiredColor, family:required.colorFamily });
+      const currentFamily = resolveColorFamily({ color:currentColor, family:physical.filament?.colorFamily });
+      if (requiredFamily && currentFamily && requiredFamily !== currentFamily) {
+        blocked.push({
+          code:'color_mismatch',
+          text:`Loaded filament colour family ${currentFamily} does not match required ${requiredFamily}`
+        });
       }
     }
   }
@@ -296,4 +324,4 @@ export function evaluateQueueCompatibility({ job, printer, state, adapter, bedCl
   };
 }
 
-export const queueCompatibilityHelpers = { isBusy, mapLogicalMaterials, mapLogicalTools, normalizeColor, printerMatchesTarget, sameNozzle };
+export const queueCompatibilityHelpers = { colorDistance, colorFamily, colorsCompatible, isBusy, mapLogicalMaterials, mapLogicalTools, normalizeColor, printerMatchesTarget, resolveColorFamily, sameNozzle };

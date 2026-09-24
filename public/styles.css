@@ -331,10 +331,9 @@ input:focus,select:focus { border-color:#7a9fbe; }
 .ams-source small { grid-column:1 / -1; color:#8193a2; }
 .ams-source.active { border-color:#4b8f77; }
 .ams-source.empty { opacity:.62; }
-.u1-filament-config-control { display:grid; grid-template-columns:minmax(0,1fr) 74px; gap:6px 8px; align-items:end; margin-top:8px; padding-top:8px; border-top:1px solid #202a32; }
+.u1-filament-config-control { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:6px 8px; align-items:end; margin-top:8px; padding-top:8px; border-top:1px solid #202a32; }
 .u1-filament-config-control label { margin:0; color:#8493a1; font-size:.68rem; }
-.u1-filament-config-control select, .u1-filament-config-control input[type="color"] { display:block; width:100%; min-height:34px; margin-top:4px; }
-.u1-filament-config-control input[type="color"] { padding:3px; cursor:pointer; }
+.u1-filament-config-control select { display:block; width:100%; min-height:34px; margin-top:4px; }
 .u1-filament-config-control button { grid-column:1 / -1; min-height:34px; padding:6px 9px; }
 .u1-filament-config-control small { grid-column:1 / -1; color:#687986; font-size:.66rem; line-height:1.3; }
 .material-tool.filament-missing > span { color:#df9ba1; }
@@ -343,10 +342,23 @@ input:focus,select:focus { border-color:#7a9fbe; }
 .material-help { margin-top:10px; }
 .material-designation-control { margin-top:10px; padding-top:10px; border-top:1px solid #202a32; }
 .material-designation-control label { margin:0 0 8px; }
-.material-designation-control input { margin-top:6px; }
-.material-designation-fields { display:grid; grid-template-columns:minmax(0,1fr) 132px; gap:10px; align-items:end; }
+.material-designation-control input,
+.material-designation-control select { margin-top:6px; }
+.material-designation-fields { display:grid; grid-template-columns:minmax(0,1fr) minmax(160px,.8fr); gap:10px; align-items:end; }
 .material-designation-fields label { margin-top:0; }
-.material-designation-fields input[type="color"] { min-height:44px; padding:5px; cursor:pointer; }
+.color-family-dropdown { position:relative; margin-top:6px; }
+.color-family-dropdown summary { min-height:42px; display:flex; align-items:center; justify-content:space-between; gap:10px; border:1px solid #33404b; border-radius:8px; background:#0c1218; padding:8px 10px; cursor:pointer; list-style:none; user-select:none; }
+.color-family-dropdown summary::-webkit-details-marker { display:none; }
+.color-family-dropdown[open] summary { border-color:#7a9fbe; }
+.color-family-dropdown.disabled summary { opacity:.55; cursor:not-allowed; }
+.color-family-selected,.color-family-option { display:flex; align-items:center; gap:9px; min-width:0; }
+.color-family-selected.placeholder { color:#71818d; }
+.color-family-caret { color:#8493a1; font-size:.8rem; flex:0 0 auto; }
+.color-family-menu { position:absolute; z-index:40; left:0; right:0; top:calc(100% + 5px); display:grid; gap:4px; max-height:300px; overflow:auto; padding:5px; border:1px solid #33404b; border-radius:9px; background:#0c1218; box-shadow:0 16px 35px rgba(0,0,0,.45); }
+.color-family-option { width:100%; padding:8px 9px; border:1px solid transparent; border-radius:7px; background:#111820; color:#e4eaf0; text-align:left; }
+.color-family-option:hover,.color-family-option:focus-visible { border-color:#506171; background:#16212a; }
+.color-family-option.selected { border-color:#5c829e; background:#17242d; }
+.color-family-square { display:block; width:16px; height:16px; flex:0 0 16px; border-radius:2px; border:1px solid rgba(255,255,255,.35); box-shadow:inset 0 0 0 1px rgba(0,0,0,.2); }
 .material-designation-control .field-help { margin-top:8px; }
 @media (max-width:520px) { .material-designation-fields { grid-template-columns:1fr; gap:0; } }
 .printer-management-panel label { margin-top:0; }
@@ -697,6 +709,8 @@ button.library-file-preview { cursor:zoom-in; }
 :root[data-theme="light"] textarea,
 :root[data-theme="light"] .tool-map-picker summary,
 :root[data-theme="light"] .tool-map-menu,
+:root[data-theme="light"] .color-family-dropdown summary,
+:root[data-theme="light"] .color-family-menu,
 :root[data-theme="light"] .calibration-clean-tool,
 :root[data-theme="light"] .calibration-tool,
 :root[data-theme="light"] .reorder-button,
@@ -707,14 +721,18 @@ button.library-file-preview { cursor:zoom-in; }
   border-color:#bdcbd6;
 }
 :root[data-theme="light"] .discovery-result,
-:root[data-theme="light"] .tool-map-option {
+:root[data-theme="light"] .tool-map-option,
+:root[data-theme="light"] .color-family-option {
   background:#f3f7fa;
   border-color:#d5dee5;
   color:#17212b;
 }
 :root[data-theme="light"] .tool-map-option:hover,
 :root[data-theme="light"] .tool-map-option:focus-visible,
-:root[data-theme="light"] .tool-map-option.selected {
+:root[data-theme="light"] .tool-map-option.selected,
+:root[data-theme="light"] .color-family-option:hover,
+:root[data-theme="light"] .color-family-option:focus-visible,
+:root[data-theme="light"] .color-family-option.selected {
   background:#e8f1f8;
   border-color:#7ca8c9;
 }

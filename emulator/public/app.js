@@ -10,6 +10,95 @@ const integrated = location.pathname.startsWith('/simulator');
 const apiBase = integrated ? '/api/emulator' : '/api';
 const apiUrl = (pathname) => `${apiBase}${pathname}`;
 
+const BAMBU_COLOR_FAMILIES = Object.freeze([
+  { value:'black', label:'Black', representative:'#111111' },
+  { value:'white', label:'White', representative:'#FFFFFF' },
+  { value:'grey', label:'Grey', representative:'#808080' },
+  { value:'red', label:'Red', representative:'#FF0000' },
+  { value:'orange', label:'Orange', representative:'#FF6600' },
+  { value:'yellow', label:'Yellow', representative:'#FFD400' },
+  { value:'green', label:'Green', representative:'#00A651' },
+  { value:'cyan', label:'Cyan', representative:'#00B7EB' },
+  { value:'blue', label:'Blue', representative:'#0066FF' },
+  { value:'purple', label:'Purple', representative:'#8000FF' },
+  { value:'pink', label:'Pink', representative:'#FF69B4' },
+  { value:'brown', label:'Brown', representative:'#8B4513' }
+]);
+
+function bambuColorFamilyLabel(item) {
+  return item?.label || '';
+}
+
+function bambuColorFamilyOption(value) {
+  return BAMBU_COLOR_FAMILIES.find((item) => item.value === String(value || '').trim().toLowerCase()) || null;
+}
+
+function bambuColorFamilyFromHex(value) {
+  const text = String(value || '').trim().replace(/^#/, '').toUpperCase();
+  if (!/^[0-9A-F]{6}$/.test(text)) return null;
+  const rgb = { r:Number.parseInt(text.slice(0,2),16), g:Number.parseInt(text.slice(2,4),16), b:Number.parseInt(text.slice(4,6),16) };
+  const channels = [rgb.r,rgb.g,rgb.b].map((channel) => channel / 255);
+  const max = Math.max(...channels), min = Math.min(...channels), delta = max - min;
+  const lightness = (max + min) / 2;
+  const saturation = delta === 0 ? 0 : delta / (1 - Math.abs(2 * lightness - 1));
+  if (Math.max(rgb.r,rgb.g,rgb.b) < 32 && saturation < 0.5) return 'black';
+  if (Math.min(rgb.r,rgb.g,rgb.b) > 235 && Math.max(rgb.r,rgb.g,rgb.b) - Math.min(rgb.r,rgb.g,rgb.b) < 18) return 'white';
+  if (delta < (16 / 255) || saturation < 0.12) return lightness > 0.92 ? 'white' : 'grey';
+  let hue;
+  if (max === channels[0]) hue = 60 * (((channels[1] - channels[2]) / delta) % 6);
+  else if (max === channels[1]) hue = 60 * (((channels[2] - channels[0]) / delta) + 2);
+  else hue = 60 * (((channels[0] - channels[1]) / delta) + 4);
+  if (hue < 0) hue += 360;
+  if (hue >= 15 && hue < 50 && lightness < 0.45) return 'brown';
+  if ((hue >= 330 || hue < 15) && lightness >= 0.75) return 'pink';
+  if (hue >= 345 || hue < 15) return 'red';
+  if (hue < 45) return 'orange';
+  if (hue < 70) return 'yellow';
+  if (hue < 165) return 'green';
+  if (hue < 200) return 'cyan';
+  if (hue < 260) return 'blue';
+  if (hue < 315) return 'purple';
+  if (hue < 345) return 'pink';
+  return null;
+}
+
+function bambuColorFamilyDropdownMarkup(inputAttribute) {
+  return `<details class="color-family-dropdown" data-color-family-dropdown>
+    <summary><span class="color-family-selected placeholder"><span>Select colour family</span></span><span class="color-family-caret">▾</span></summary>
+    <div class="color-family-menu">${BAMBU_COLOR_FAMILIES.map((item) => `<button type="button" class="color-family-option" data-color-family-option="${item.value}"><i class="color-family-square" style="background:${item.representative}"></i><span>${item.label}</span></button>`).join('')}</div>
+    <input type="hidden" data-color-family-value ${inputAttribute}>
+  </details>`;
+}
+
+function setBambuColorFamilyDropdownValue(input, value) {
+  const option = bambuColorFamilyOption(value);
+  if (!input) return;
+  input.value = option?.value || '';
+  const dropdown = input.closest('[data-color-family-dropdown]');
+  if (!dropdown) return;
+  const selected = dropdown.querySelector('.color-family-selected');
+  if (selected) {
+    selected.classList.toggle('placeholder', !option);
+    selected.innerHTML = option
+      ? `<i class="color-family-square" style="background:${option.representative}"></i><span>${option.label}</span>`
+      : '<span>Select colour family</span>';
+  }
+  dropdown.querySelectorAll('[data-color-family-option]').forEach((button) => {
+    button.classList.toggle('selected', button.dataset.colorFamilyOption === option?.value);
+  });
+}
+
+function bindBambuColorFamilyDropdown(dropdown, onChange) {
+  dropdown?.querySelectorAll('[data-color-family-option]').forEach((button) => {
+    button.onclick = () => {
+      const input = dropdown.querySelector('[data-color-family-value]');
+      setBambuColorFamilyDropdownValue(input, button.dataset.colorFamilyOption);
+      dropdown.open = false;
+      onChange?.();
+    };
+  });
+}
+
 function showToast(message) {
   toast.textContent = message;
   toast.classList.add('visible');
@@ -84,36 +173,63 @@ function renderAmsControls(card, printer) {
   active.onchange = () => updatePrinter(printer.id, { activeMaterialSource:Number(active.value) });
   const grid = panel.querySelector('.ams-slot-grid');
   const slots = units.flatMap((unit) => unit.trays.map((tray) => ({ unit, tray })));
-  const structureSignature = JSON.stringify(slots.map(({ unit, tray }) => [Number(unit.id), Number(tray.slotIndex)]));
+  const structureSignature = JSON.stringify([['external'], ...slots.map(({ unit, tray }) => [Number(unit.id), Number(tray.slotIndex)])]);
   if (grid.dataset.structureSignature !== structureSignature && !grid.contains(document.activeElement)) {
-    grid.replaceChildren(...slots.map(({ unit, tray }) => {
+    const external = document.createElement('div');
+    external.className = 'ams-slot';
+    external.dataset.externalSpool = '1';
+    external.innerHTML = `<strong>External spool</strong>
+      <label class="check"><input data-external-present type="checkbox">Loaded</label>
+      <label>Material<select data-external-material>${['PLA','PETG','ABS','ASA','PA','PC','TPU','PVA'].map((value) => `<option>${value}</option>`).join('')}</select></label>
+      <label>Colour family${bambuColorFamilyDropdownMarkup('data-external-color-family')}</label>`;
+    const saveExternal = () => updatePrinter(printer.id, { externalSpool:{
+      present:external.querySelector('[data-external-present]').checked,
+      material:external.querySelector('[data-external-material]').value,
+      colorFamily:external.querySelector('[data-external-color-family]').value
+    } });
+    external.querySelectorAll('input:not([type="hidden"]),select').forEach((input) => input.addEventListener('change', saveExternal));
+    bindBambuColorFamilyDropdown(external.querySelector('[data-color-family-dropdown]'), saveExternal);
+    grid.replaceChildren(external, ...slots.map(({ unit, tray }) => {
       const slot = document.createElement('div');
       slot.className = 'ams-slot';
       slot.dataset.amsSlot = `${Number(unit.id)}:${Number(tray.slotIndex)}`;
       slot.innerHTML = `<strong>AMS ${Number(unit.id) + 1} · Slot ${Number(tray.slotIndex) + 1}</strong>
         <label class="check"><input data-ams-present type="checkbox">Loaded</label>
         <label>Material<select data-ams-material>${['PLA','PETG','ABS','ASA','PA','PC','TPU','PVA'].map((value) => `<option>${value}</option>`).join('')}</select></label>
-        <label>Colour<input data-ams-color type="color"></label>`;
+        <label>Colour family${bambuColorFamilyDropdownMarkup('data-ams-color-family')}</label>`;
       const save = () => updatePrinter(printer.id, { amsSlots:[{
         unitIndex:Number(unit.id), slotIndex:Number(tray.slotIndex),
         present:slot.querySelector('[data-ams-present]').checked,
         material:slot.querySelector('[data-ams-material]').value,
-        color:slot.querySelector('[data-ams-color]').value
+        colorFamily:slot.querySelector('[data-ams-color-family]').value
       }] });
-      slot.querySelectorAll('input,select').forEach((input) => input.addEventListener('change', save));
+      slot.querySelectorAll('input:not([type="hidden"]),select').forEach((input) => input.addEventListener('change', save));
+      bindBambuColorFamilyDropdown(slot.querySelector('[data-color-family-dropdown]'), save);
       return slot;
     }));
     grid.dataset.structureSignature = structureSignature;
+  }
+  const external = grid.querySelector('[data-external-spool]');
+  if (external) {
+    const spool = printer.externalSpool || {};
+    const present = external.querySelector('[data-external-present]');
+    const material = external.querySelector('[data-external-material]');
+    const colorFamily = external.querySelector('[data-external-color-family]');
+    const familyValue = spool.colorFamily || bambuColorFamilyFromHex(spool.color) || 'white';
+    if (document.activeElement !== present) present.checked = spool.present !== false;
+    if (document.activeElement !== material) material.value = spool.material || 'PLA';
+    if (!colorFamily?.closest('[data-color-family-dropdown]')?.open) setBambuColorFamilyDropdownValue(colorFamily, familyValue);
   }
   for (const { unit, tray } of slots) {
     const slot = [...grid.querySelectorAll('[data-ams-slot]')].find((item) => item.dataset.amsSlot === `${Number(unit.id)}:${Number(tray.slotIndex)}`);
     if (!slot) continue;
     const present = slot.querySelector('[data-ams-present]');
     const material = slot.querySelector('[data-ams-material]');
-    const color = slot.querySelector('[data-ams-color]');
+    const colorFamily = slot.querySelector('[data-ams-color-family]');
+    const familyValue = tray.colorFamily || bambuColorFamilyFromHex(tray.color) || 'white';
     if (document.activeElement !== present) present.checked = Boolean(tray.present);
     if (document.activeElement !== material) material.value = tray.material || 'PLA';
-    if (document.activeElement !== color) color.value = /^#[0-9A-F]{6}$/i.test(tray.color || '') ? tray.color : '#FFFFFF';
+    if (!colorFamily?.closest('[data-color-family-dropdown]')?.open) setBambuColorFamilyDropdownValue(colorFamily, familyValue);
   }
 }
 

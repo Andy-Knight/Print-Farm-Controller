@@ -109,7 +109,7 @@ test('Snapmaker U1 toolhead status puts RGB colour on a dedicated second line', 
   assert.match(app, /RGB\(\$\{red\}, \$\{green\}, \$\{blue\}\)/);
   assert.match(app, /data-material-rgb=/);
   assert.match(app, /\['snapmaker-u1','flashforge-ad5m','bambu-lab'\]\.includes\(printer\.adapterType\)/);
-  assert.match(app, /rgbLine\?\.classList\.toggle\('hidden', !rgbText\)/);
+  assert.match(app, /rgbLine\?\.classList\.toggle\('hidden', !colorDisplay\)/);
   assert.match(styles, /\.material-tool > small\.material-rgb/);
   assert.doesNotMatch(app, /const values = \[source, reported, filament\.vendor \|\| filament\.manufacturer, filamentColorText\(filament\.color\)\]/);
   assert.match(app, /const details = \[presence, colorText, nozzle\]/);
@@ -129,12 +129,23 @@ test('FlashForge assigned filament colour shows hexadecimal and RGB values in to
 test('Snapmaker U1 uses one control and one command for third-party filament type and colour', () => {
   assert.match(app, /function u1FilamentConfigEditState/);
   assert.match(app, /data-u1-filament-type-input/);
-  assert.match(app, /data-u1-filament-color-input/);
+  assert.match(app, /data-u1-filament-color-family-input/);
   assert.match(app, /data-u1-filament-config-save/);
+  assert.match(app, /data-u1-filament-config-control/);
+  assert.match(app, /u1FilamentDirty/);
+  assert.match(app, /u1EditPending/);
+  assert.match(app, /delete control\.dataset\.u1FilamentDirty/);
   assert.match(app, /Set filament on U1/);
   assert.match(app, /SNAPMAKER_U1_FILAMENT_TYPES/);
   assert.match(app, /\/filament-config/);
   assert.match(app, /Official Snapmaker RFID filament controls its own type and colour/);
+  assert.match(app, /FILAMENT_COLOR_FAMILIES/);
+  assert.match(app, /filamentColorFamilyLabel/);
+  assert.match(app, /data-color-family-option/);
+  assert.doesNotMatch(app, /data-u1-filament-color-family-swatch/);
+  assert.doesNotMatch(app, /icon:'🟦'/);
+  assert.match(app, /colorOption\?\.representative/);
+  assert.doesNotMatch(app, /data-u1-filament-color-input/);
   assert.doesNotMatch(app, /data-u1-filament-type-save/);
   assert.doesNotMatch(app, /data-u1-filament-color-save/);
   assert.match(styles, /\.u1-filament-config-control/);
@@ -506,6 +517,8 @@ test('Fleet operations does not expose manual temperature setting', () => {
 test('FlashForge detail exposes printer-reported filament type in Toolhead status', () => {
   const printerApi = fs.readFileSync(new URL('../src/printer-api.js', import.meta.url), 'utf8');
   const adapter = fs.readFileSync(new URL('../src/adapters/flashforge-ad5m-adapter.js', import.meta.url), 'utf8');
+  const server = fs.readFileSync(new URL('../src/server.js', import.meta.url), 'utf8');
+  const store = fs.readFileSync(new URL('../src/store.js', import.meta.url), 'utf8');
   assert.match(printerApi, /rightFilamentType/);
   assert.match(printerApi, /materialSource: rightFilamentType \? 'printer'/);
   assert.match(adapter, /materialStatus: true/);
@@ -513,13 +526,28 @@ test('FlashForge detail exposes printer-reported filament type in Toolhead statu
   assert.match(app, /Filament presence unavailable/);
   assert.match(app, /FlashForge 5M local \/detail API/);
   assert.match(app, /Controller material type/);
-  assert.match(app, /Controller filament colour/);
-  assert.match(app, /data-material-color-input/);
+  assert.match(app, /Controller colour family/);
+  assert.match(app, /data-material-color-family-input/);
+  assert.doesNotMatch(app, /Specify exact shade/);
+  assert.doesNotMatch(app, /data-material-color-shade-enabled/);
+  assert.doesNotMatch(app, /data-material-color-input/);
+  assert.match(app, /materialColorFamilyDesignation/);
   assert.match(app, /materialColorDesignation/);
+  assert.match(app, /color:null/);
   assert.match(app, /'ASA-CF'/);
   assert.match(app, /data-material-designation-save/);
   assert.match(app, /data-material-designation-clear/);
-  assert.match(app, /Material and colour are used by automatic queue compatibility/);
+  assert.match(app, /colour family is used for automatic queue compatibility/);
+  assert.match(app, /data-color-family-option/);
+  assert.match(app, /color-family-menu/);
+  assert.doesNotMatch(app, /data-material-color-family-swatch/);
+  assert.match(styles, /\.color-family-square/);
+  assert.doesNotMatch(app, /icon:'🟥'/);
+  assert.match(app, /filamentColorFamilyLabel/);
+  assert.match(server, /body\.colorFamily/);
+  assert.match(store, /filamentColorFamilyDesignation/);
+  assert.match(adapter, /filamentColorFamilyDesignation/);
+  assert.match(adapter, /colorFamilySource = 'manual'/);
 });
 
 
@@ -604,6 +632,18 @@ test('Bambu printer detail exposes AMS slots and material mapping setup', () => 
   assert.match(emulatorHtml, /AMS configuration/);
   assert.match(emulatorApp, /function renderAmsControls/);
   assert.match(emulatorApp, /amsSlots/);
+  assert.match(emulatorApp, /data-ams-color-family/);
+  assert.match(emulatorApp, /data-external-color-family/);
+  assert.match(emulatorApp, /BAMBU_COLOR_FAMILIES/);
+  assert.match(emulatorApp, /data-color-family-option/);
+  assert.match(emulatorApp, /color-family-menu/);
+  assert.doesNotMatch(emulatorApp, /data-ams-color-family-swatch/);
+  assert.doesNotMatch(emulatorApp, /data-external-color-family-swatch/);
+  assert.doesNotMatch(emulatorApp, /icon:'🟥'/);
+  assert.doesNotMatch(emulatorApp, /data-ams-color type="color"/);
+  assert.match(app, /filamentColorFamilyFromHex/);
+  assert.match(app, /filamentSourceFamily/);
+  assert.match(bambuAdapter, /colorFamily:colorFamily\(color\)/);
   assert.match(app, /P1P, P1S, X1C and A1 Mini/);
   assert.match(app, /X1C RTSPS\/H\.264 camera decoding is not yet supported/);
   assert.match(app, /Single-material A1 Mini \.gcode starts remain experimental/);
@@ -623,7 +663,7 @@ test('emulator AMS controls survive live refresh while a slot is being edited', 
   assert.match(emulatorApp, /structureSignature/);
   assert.match(emulatorApp, /grid\.contains\(document\.activeElement\)/);
   assert.match(emulatorApp, /document\.activeElement !== material/);
-  assert.match(emulatorApp, /document\.activeElement !== color/);
+  assert.match(emulatorApp, /closest\('\[data-color-family-dropdown\]'\)\?\.open/);
 });
 
 test('queue UI exposes production quantity and batch controls', () => {

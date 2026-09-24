@@ -3,6 +3,7 @@ import { PrinterAdapter, normalizeCapabilities } from './printer-adapter.js';
 import { getBambuReport, sendBambuCommand } from '../bambu-mqtt.js';
 import { downloadBambuFile, listBambuFiles, uploadBambuFile, verifyBambuFile } from '../bambu-ftps.js';
 import { createBambuCameraSource } from '../bambu-camera.js';
+import { colorFamily } from '../color-family.js';
 import { parse3mfPrintRequirements, parseGcodePrintRequirements } from '../file-print-requirements.js';
 
 export const BAMBU_LAB_ADAPTER_TYPE = 'bambu-lab';
@@ -89,10 +90,12 @@ function firstTray(print = {}) {
 }
 
 function trayMaterial(tray = {}) {
+  const color = rgbaColor(tray.tray_color);
   return {
     material:String(tray.tray_type || '').trim() || null,
     materialVariant:String(tray.tray_sub_brands || '').trim() || null,
-    color:rgbaColor(tray.tray_color),
+    color,
+    colorFamily:colorFamily(color),
     vendor:String(tray.tray_info_idx || '').trim() || null
   };
 }
@@ -169,6 +172,7 @@ export function normalizeBambuStatus(payload = {}, printer = {}) {
         material,
         materialVariant: selectedSource?.materialVariant || null,
         color,
+        colorFamily:selectedSource?.colorFamily || colorFamily(color),
         vendor: selectedSource?.vendor || null,
         manufacturer: null,
         materialSource: material ? 'printer' : null,

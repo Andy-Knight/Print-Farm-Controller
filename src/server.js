@@ -850,7 +850,8 @@ async function apiRoute(req, res, url) {
       const value = await setPrinterMaterialDesignation(
         id,
         req.method === 'POST' ? body.material : null,
-        req.method === 'POST' ? body.color : null
+        req.method === 'POST' ? body.color : null,
+        req.method === 'POST' ? body.colorFamily : null
       );
       if (!value) throw new Error('Printer not found');
       await fleetState.syncRegistry();
@@ -861,7 +862,8 @@ async function apiRoute(req, res, url) {
       ok: true,
       printer: publicPrinter(updated),
       materialDesignation: updated.adapterConfig?.filamentDesignation || null,
-      materialColorDesignation: updated.adapterConfig?.filamentColorDesignation || null
+      materialColorDesignation: updated.adapterConfig?.filamentColorDesignation || null,
+      materialColorFamilyDesignation: publicPrinter(updated).materialColorFamilyDesignation
     });
   }
 

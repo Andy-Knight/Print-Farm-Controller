@@ -66,6 +66,32 @@ test('legacy stored FlashForge printers are hydrated with adapter metadata witho
   }
 });
 
+test('legacy FlashForge hex-only colour designation derives a colour family', async () => {
+  const dir = await mkdtemp(path.join(os.tmpdir(), 'ff-fleet-colour-family-migration-'));
+  process.env.DATA_DIR = dir;
+  const legacy = [{
+    id:'legacy-colour-1',
+    name:'Legacy Colour',
+    host:'10.0.2.2',
+    serialNumber:'SN',
+    checkCode:'CODE',
+    adapterConfig:{ filamentDesignation:'PLA', filamentColorDesignation:'#D91E18' },
+    createdAt:'2026-01-01T00:00:00.000Z'
+  }];
+  await writeFile(path.join(dir, 'printers.json'), JSON.stringify(legacy));
+  const store = await import(`../src/store.js?colour-family-migration-test=${Date.now()}`);
+
+  try {
+    const [printer] = await store.listPrinters();
+    const publicValue = store.publicPrinter(printer);
+    assert.equal(publicValue.materialColorDesignation, '#D91E18');
+    assert.equal(publicValue.materialColorFamilyDesignation, 'red');
+  } finally {
+    delete process.env.DATA_DIR;
+    await rm(dir, { recursive:true, force:true });
+  }
+});
+
 test('FlashForge manual material designation persists without exposing adapter secrets', async () => {
   const dir = await mkdtemp(path.join(os.tmpdir(), 'ff-fleet-material-designation-'));
   process.env.DATA_DIR = dir;
@@ -79,18 +105,36 @@ test('FlashForge manual material designation persists without exposing adapter s
     const assigned = await store.setPrinterMaterialDesignation(printer.id, 'PETG-CF', '#12ab34');
     assert.equal(assigned.adapterConfig.filamentDesignation, 'PETG-CF');
     assert.equal(assigned.adapterConfig.filamentColorDesignation, '#12AB34');
+    assert.equal(assigned.adapterConfig.filamentColorFamilyDesignation, 'green');
     assert.equal(assigned.adapterConfig.secretValue, 'keep-private');
     assert.equal(store.publicPrinter(assigned).materialDesignation, 'PETG-CF');
     assert.equal(store.publicPrinter(assigned).materialColorDesignation, '#12AB34');
+    assert.equal(store.publicPrinter(assigned).materialColorFamilyDesignation, 'green');
     assert.equal('adapterConfig' in store.publicPrinter(assigned), false);
     await assert.rejects(() => store.setPrinterMaterialDesignation(printer.id, 'PETG-CF', 'green'), /6-digit hex colour/);
+
+    const familyOnly = await store.setPrinterMaterialDesignation(printer.id, 'PETG-CF', null, 'red');
+    assert.equal(familyOnly.adapterConfig.filamentColorDesignation, undefined);
+    assert.equal(familyOnly.adapterConfig.filamentColorFamilyDesignation, 'red');
+    assert.equal(store.publicPrinter(familyOnly).materialColorFamilyDesignation, 'red');
+
+    await assert.rejects(
+      () => store.setPrinterMaterialDesignation(printer.id, 'PETG-CF', '#0000FF', 'red'),
+      /shade must belong to the selected colour family/
+    );
+    await assert.rejects(
+      () => store.setPrinterMaterialDesignation(printer.id, 'PETG-CF', null, 'chartreuse'),
+      /colour family is not supported/
+    );
 
     const cleared = await store.setPrinterMaterialDesignation(printer.id, null, null);
     assert.equal(cleared.adapterConfig.filamentDesignation, undefined);
     assert.equal(cleared.adapterConfig.filamentColorDesignation, undefined);
+    assert.equal(cleared.adapterConfig.filamentColorFamilyDesignation, undefined);
     assert.equal(cleared.adapterConfig.secretValue, 'keep-private');
     assert.equal(store.publicPrinter(cleared).materialDesignation, null);
     assert.equal(store.publicPrinter(cleared).materialColorDesignation, null);
+    assert.equal(store.publicPrinter(cleared).materialColorFamilyDesignation, null);
   } finally {
     delete process.env.DATA_DIR;
     await rm(dir, { recursive:true, force:true });
