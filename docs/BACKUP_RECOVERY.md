@@ -518,7 +518,7 @@ A test should create controller state in one temporary data directory, produce a
 
 ## Implementation status
 
-Stages 1–4 are implemented on `feature/backup-recovery-v0230`:
+Stages 1–5 are implemented on `feature/backup-recovery-v0230`:
 
 - dependency-free ZIP32-compatible archive writer using stored entries and data descriptors;
 - streaming SHA-256/CRC verification of completed archives;
@@ -563,7 +563,21 @@ Stages 1–4 are implemented on `feature/backup-recovery-v0230`:
 - pending-journal filesystem paths are validated against controller-owned sibling restore paths before cleanup/rename;
 - staging can be cancelled before restart, leaving current controller data unchanged.
 
-Next: scheduled local/network/NAS backups, scheduled retention/status/diagnostics, then full disaster-recovery integration validation.
+- scheduled backup settings/API/UI support daily or weekly execution at a controller-local time, with weekday selection for weekly schedules;
+- scheduled destinations can be existing local directories, mapped drives or writable UNC/NAS paths;
+- enabling a schedule and the explicit **Test destination** action perform a real temporary write/fsync/delete probe;
+- manual and scheduled backup creation share a single operation lock, preventing overlapping backup snapshots and settings writes;
+- restore staging stops the scheduler first and refuses staging while a backup operation is in flight; cancellation re-arms the scheduler;
+- schedule status reports next run, running state, last attempt, last success, last error and retention result;
+- scheduled retention defaults to 14 and is configurable from 1–365;
+- retention runs only after the new scheduled backup has completed archive verification;
+- retention eligibility requires an embedded v0.23.0 backup manifest with `backupSource=scheduled` and the same persistent installation UUID;
+- manual backups, foreign-installation scheduled backups, non-backup files and unreadable/unrecognized archives are never auto-pruned;
+- the newly created backup and the chronologically newest eligible backup are protected even if system-clock movement makes them differ;
+- retention deletion failures are recorded but do not invalidate the newly verified backup;
+- scheduled destination diagnostics record destination type rather than the full path.
+
+Next: full end-to-end disaster-recovery integration validation and final Windows/UI live validation.
 
 ## Implementation order
 
