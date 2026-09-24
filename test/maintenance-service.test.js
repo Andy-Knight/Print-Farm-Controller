@@ -110,11 +110,11 @@ test('maintenance usage tracks observed print time and print cycles', async () =
       schedule:{ type:'print_hours', interval:1 }
     });
 
+    for (let minute = 0; minute < 60; minute++) {
+      now += 60_000;
+      fleet.emit([printer('printing')]);
+    }
     now += 60_000;
-    fleet.emit([printer('printing')]);
-    now += 48 * 60_000;
-    fleet.emit([printer('printing')]);
-    now += 12 * 60_000;
     fleet.emit([printer('idle')]);
 
     snapshot = await service.getSnapshot([printer()]);
