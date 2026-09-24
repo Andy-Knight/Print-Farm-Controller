@@ -130,6 +130,13 @@ export async function inspectRestoreBackup(filePath, {
     throw new Error('Backup installation ID does not match backup settings');
   }
 
+  if (archive.byName.has('state/maintenance.json')) {
+    const maintenance = await readJsonEntry(archive, 'state/maintenance.json');
+    if (!plainObject(maintenance) || maintenance.version !== 1 || !plainObject(maintenance.printers)) {
+      throw new Error('Backup maintenance store is invalid');
+    }
+  }
+
   if (archive.byName.has('state/emulator-settings.json')) {
     const emulatorSettings = await readJsonEntry(archive, 'state/emulator-settings.json');
     if (!plainObject(emulatorSettings)) throw new Error('Backup emulator settings are invalid');
