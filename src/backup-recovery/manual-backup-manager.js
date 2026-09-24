@@ -4,6 +4,7 @@ import path from 'node:path';
 import { pipeline } from 'node:stream/promises';
 import { createBackupInDirectory } from './backup-service.js';
 import { loadBackupSettings, saveBackupSettings } from './backup-settings-store.js';
+import { BackupOperationLock } from './backup-operation-lock.js';
 
 const DEFAULT_DOWNLOAD_TTL_MS = 15 * 60 * 1000;
 
@@ -19,7 +20,8 @@ export class ManualBackupManager {
     applicationDir,
     licensePath,
     controllerVersion = 'unknown',
-    downloadTtlMs = DEFAULT_DOWNLOAD_TTL_MS
+    downloadTtlMs = DEFAULT_DOWNLOAD_TTL_MS,
+    operationLock = null
   } = {}) {
     if (!dataDir) throw new Error('Manual backup manager requires a data directory');
     this.dataDir = path.resolve(dataDir);
@@ -27,6 +29,7 @@ export class ManualBackupManager {
     this.licensePath = licensePath ? path.resolve(licensePath) : path.join(this.dataDir, 'license.json');
     this.controllerVersion = String(controllerVersion || 'unknown');
     this.downloadTtlMs = Math.max(60_000, Number(downloadTtlMs) || DEFAULT_DOWNLOAD_TTL_MS);
+    this.operationLock = operationLock || new BackupOperationLock();
     this.stagingDir = path.join(this.dataDir, '.backup-staging');
     this.downloads = new Map();
     this.creating = false;
@@ -74,56 +77,59 @@ export class ManualBackupManager {
   async create() {
     await this.init();
     if (this.creating) throw backupBusyError();
-    this.creating = true;
-    const attemptedAt = new Date().toISOString();
-    let settings = await loadBackupSettings({ dataDir:this.dataDir, create:true });
-    settings = await saveBackupSettings({
-      ...settings,
-      lastAttemptedBackup:attemptedAt,
-      lastError:null
-    }, { dataDir:this.dataDir });
 
-    try {
-      await this.cleanupExpired();
-      const result = await createBackupInDirectory({
-        destinationDir:this.stagingDir,
-        dataDir:this.dataDir,
-        applicationDir:this.applicationDir,
-        licensePath:this.licensePath,
-        controllerVersion:this.controllerVersion,
-        source:'manual'
-      });
-      const id = crypto.randomUUID();
-      const expiresAtMs = Date.now() + this.downloadTtlMs;
-      const item = {
-        id,
-        filePath:result.filePath,
-        fileName:result.fileName,
-        size:result.size,
-        manifest:result.manifest,
-        expiresAtMs
-      };
-      this.downloads.set(id, item);
-      await saveBackupSettings({
+    return this.operationLock.run('manual', async () => {
+      this.creating = true;
+      const attemptedAt = new Date().toISOString();
+      let settings = await loadBackupSettings({ dataDir:this.dataDir, create:true });
+      settings = await saveBackupSettings({
         ...settings,
-        lastSuccessfulBackup:{
-          createdAt:result.manifest.createdAt,
-          fileName:result.fileName,
-          size:result.size,
-          source:'manual'
-        },
+        lastAttemptedBackup:attemptedAt,
         lastError:null
       }, { dataDir:this.dataDir });
-      return this.publicDownload(item);
-    } catch (error) {
-      await saveBackupSettings({
-        ...settings,
-        lastError:error?.message || String(error)
-      }, { dataDir:this.dataDir }).catch(() => {});
-      throw error;
-    } finally {
-      this.creating = false;
-    }
+
+      try {
+        await this.cleanupExpired();
+        const result = await createBackupInDirectory({
+          destinationDir:this.stagingDir,
+          dataDir:this.dataDir,
+          applicationDir:this.applicationDir,
+          licensePath:this.licensePath,
+          controllerVersion:this.controllerVersion,
+          source:'manual'
+        });
+        const id = crypto.randomUUID();
+        const expiresAtMs = Date.now() + this.downloadTtlMs;
+        const item = {
+          id,
+          filePath:result.filePath,
+          fileName:result.fileName,
+          size:result.size,
+          manifest:result.manifest,
+          expiresAtMs
+        };
+        this.downloads.set(id, item);
+        await saveBackupSettings({
+          ...settings,
+          lastSuccessfulBackup:{
+            createdAt:result.manifest.createdAt,
+            fileName:result.fileName,
+            size:result.size,
+            source:'manual'
+          },
+          lastError:null
+        }, { dataDir:this.dataDir });
+        return this.publicDownload(item);
+      } catch (error) {
+        await saveBackupSettings({
+          ...settings,
+          lastError:error?.message || String(error)
+        }, { dataDir:this.dataDir }).catch(() => {});
+        throw error;
+      } finally {
+        this.creating = false;
+      }
+    });
   }
 
   publicDownload(item) {
