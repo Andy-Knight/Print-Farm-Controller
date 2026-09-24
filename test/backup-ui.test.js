@@ -28,7 +28,7 @@ test('manual backup UI uses create/status API and one-time streamed download URL
   assert.match(server, /new ManualBackupManager/);
   assert.match(server, /url\.pathname === '\/api\/backup\/status'/);
   assert.match(server, /url\.pathname === '\/api\/backup\/create'/);
-  assert.match(server, /\/api\\\/backup\\\/download\\\/\(\[\^\/\]\+\)/);
+  assert.ok(server.includes("url.pathname.match(/^\\/api\\/backup\\/download\\/([^/]+)$/)"));
   assert.match(server, /manualBackupManager\.stream\(backupId, res\)/);
   assert.match(server, /Manual backup created and verified/);
 });
