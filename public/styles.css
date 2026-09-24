@@ -449,6 +449,8 @@ input:focus,select:focus { border-color:#7a9fbe; }
 .queue-status { flex:0 0 auto; border-radius:999px; padding:3px 7px; background:#222d36; color:#a7b6c2; font-size:.63rem; font-weight:850; text-transform:uppercase; letter-spacing:.04em; }
 .queue-status.starting,.queue-status.printing { background:#1b4035; color:#9be4c9; }
 .queue-status.needs_review { background:#493819; color:#f2d28a; }
+.queue-status.restore-hold { background:#4a351f; color:#ffd69a; }
+.queue-job-restore-hold { border-color:#7a5730; background:#1a130d; }
 .queue-status.completed { background:#203a32; color:#a6ddc6; }
 .queue-status.failed { background:#4b2528; color:#ffafb4; }
 .queue-status.cancelled { background:#342e28; color:#c6b6a7; }
@@ -1211,6 +1213,18 @@ button.library-file-preview { cursor:zoom-in; }
 }
 .restore-valid-banner strong { font-size:.82rem; }
 .restore-valid-banner span { font-size:.76rem; }
+.restore-staged-banner {
+  display:flex;
+  flex-direction:column;
+  gap:4px;
+  padding:12px 13px;
+  border:1px solid #6b5729;
+  border-radius:10px;
+  background:#201a0d;
+  color:#f0d18d;
+}
+.restore-staged-banner strong { font-size:.84rem; }
+.restore-staged-banner span { font-size:.76rem; line-height:1.45; }
 .restore-inspection-grid {
   display:grid;
   grid-template-columns:repeat(2,minmax(0,1fr));
@@ -1264,6 +1278,11 @@ button.library-file-preview { cursor:zoom-in; }
   background:#e9f6ed;
   border-color:#a7ceb2;
   color:#2d6940;
+}
+:root[data-theme="light"] .restore-staged-banner {
+  background:#fff7e5;
+  border-color:#d9b969;
+  color:#6c5010;
 }
 :root[data-theme="light"] .restore-warning-list {
   background:#fff7e5;
