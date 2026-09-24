@@ -534,7 +534,7 @@ test('FlashForge detail exposes printer-reported filament type in Toolhead statu
   assert.match(app, /data-material-designation-clear/);
   assert.match(app, /colour family is used for automatic queue compatibility/);
   assert.match(app, /data-material-color-family-swatch/);
-  assert.match(app, /\.color-family-square/);
+  assert.match(styles, /\.color-family-square/);
   assert.doesNotMatch(app, /icon:'🟥'/);
   assert.match(app, /filamentColorFamilyLabel/);
   assert.match(server, /body\.colorFamily/);
