@@ -48,6 +48,37 @@ async function readJson(filePath) {
   return JSON.parse(await fs.readFile(filePath, 'utf8'));
 }
 
+function validatePendingMarkerPaths(marker, dataDir, licensePath = null) {
+  const paths = restoreRuntimePaths(dataDir);
+  const base = restoreBaseName(dataDir);
+  if (!marker || marker.format !== 'print-farm-controller-pending-restore' || marker.version !== 1) {
+    throw new Error('Pending restore marker is invalid');
+  }
+  if (path.resolve(marker.dataDir) !== paths.dataDir) {
+    throw new Error('Pending restore marker data directory is invalid');
+  }
+  if (licensePath && path.resolve(marker.licensePath) !== path.resolve(licensePath)) {
+    throw new Error('Pending restore marker licence path is invalid');
+  }
+
+  const validateSibling = (value, prefix, label) => {
+    const resolved = path.resolve(String(value || ''));
+    if (path.dirname(resolved) !== paths.parentDir || !path.basename(resolved).startsWith(prefix)) {
+      throw new Error(`Pending restore marker ${label} path is invalid`);
+    }
+    return resolved;
+  };
+
+  marker.stageDir = validateSibling(marker.stageDir, `.pfc-${base}-restore-stage-`, 'stage');
+  marker.rollbackDir = validateSibling(marker.rollbackDir, `.pfc-${base}-restore-rollback-`, 'rollback');
+  marker.externalLicenseBackupPath = validateSibling(
+    marker.externalLicenseBackupPath,
+    `.pfc-${base}-license-rollback-`,
+    'licence rollback'
+  );
+  return marker;
+}
+
 function licenseInsideData(dataDir, licensePath) {
   const relative = path.relative(path.resolve(dataDir), path.resolve(licensePath));
   return relative && !relative.startsWith('..') && !path.isAbsolute(relative) ? relative : null;
@@ -312,13 +343,11 @@ async function rollbackActivatedMarker(marker, markerPath) {
 export async function activatePendingRestore({ dataDir, licensePath } = {}) {
   const paths = restoreRuntimePaths(dataDir);
   if (!await pathExists(paths.pendingMarkerPath)) return null;
-  const marker = await readJson(paths.pendingMarkerPath);
-  if (marker.format !== 'print-farm-controller-pending-restore' || marker.version !== 1) {
-    throw new Error('Pending restore marker is invalid');
-  }
-  if (path.resolve(marker.dataDir) !== path.resolve(dataDir) || path.resolve(marker.licensePath) !== path.resolve(licensePath)) {
-    throw new Error('Pending restore marker does not match this controller installation');
-  }
+  const marker = validatePendingMarkerPaths(
+    await readJson(paths.pendingMarkerPath),
+    dataDir,
+    licensePath
+  );
 
   if (marker.phase === 'activated' || marker.phase === 'activating') {
     await rollbackActivatedMarker(marker, paths.pendingMarkerPath);
@@ -384,7 +413,7 @@ export async function rollbackActivatedRestore(transaction) {
 export async function cancelStagedRestore(dataDir) {
   const paths = restoreRuntimePaths(dataDir);
   if (!await pathExists(paths.pendingMarkerPath)) return { cancelled:false, pending:false };
-  const marker = await readJson(paths.pendingMarkerPath);
+  const marker = validatePendingMarkerPaths(await readJson(paths.pendingMarkerPath), dataDir);
   if (marker.phase !== 'staged') {
     const error = new Error('Restore activation has already started and can no longer be cancelled from the running controller');
     error.statusCode = 409;
@@ -400,7 +429,7 @@ export async function cancelStagedRestore(dataDir) {
 export async function pendingRestoreStatus(dataDir) {
   const paths = restoreRuntimePaths(dataDir);
   if (!await pathExists(paths.pendingMarkerPath)) return { pending:false };
-  const marker = await readJson(paths.pendingMarkerPath);
+  const marker = validatePendingMarkerPaths(await readJson(paths.pendingMarkerPath), dataDir);
   return {
     pending:true,
     phase:marker.phase || 'unknown',
