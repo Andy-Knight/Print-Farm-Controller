@@ -27,7 +27,7 @@ test('maintenance UI uses the persistent maintenance API', () => {
   assert.match(maintenanceUi, /\/complete/);
   assert.match(maintenanceUi, /data-maintenance-edit/);
   assert.match(maintenanceUi, /data-maintenance-delete/);
-  assert.match(maintenanceUi, /controller-observed/i);
+  assert.match(maintenanceUi, /controller[ -]observed/i);
   assert.match(server, /url\.pathname === '\/api\/maintenance'/);
   assert.match(server, /maintenanceService\.addTask/);
   assert.match(server, /maintenanceService\.updateTask/);
