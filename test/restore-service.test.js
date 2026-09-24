@@ -10,6 +10,7 @@ import {
   commitActivatedRestore,
   pendingRestoreStatus,
   prepareRestoredJobs,
+  restoreRuntimePaths,
   rollbackActivatedRestore,
   stageRestoreBackup
 } from '../src/backup-recovery/restore-service.js';
@@ -208,6 +209,35 @@ test('explicit rollback restores previous data before commit', async () => {
     assert.equal((JSON.parse(await fs.readFile(path.join(liveData, 'printers.json'), 'utf8')))[0].id, 'after');
     await rollbackActivatedRestore(tx);
     assert.equal((JSON.parse(await fs.readFile(path.join(liveData, 'printers.json'), 'utf8')))[0].id, 'before');
+  } finally {
+    await fs.rm(root, { recursive:true, force:true });
+  }
+});
+
+
+test('tampered pending restore journal cannot redirect cleanup outside controller restore paths', async () => {
+  const root = await tempRoot('pfc-restore-marker-safety-');
+  const liveData = path.join(root, 'live-data');
+  const liveLicense = path.join(root, 'live-license.json');
+  try {
+    await fs.mkdir(liveData, { recursive:true });
+    await writeJson(path.join(liveData, 'printers.json'), [{ id:'live' }]);
+    await writeJson(path.join(liveData, 'print-jobs.json'), []);
+    const fixture = await createBackupFixture(root);
+    await stageRestoreBackup(fixture.backupPath, {
+      dataDir:liveData,
+      licensePath:liveLicense,
+      currentControllerVersion:'0.23.0'
+    });
+
+    const markerPath = restoreRuntimePaths(liveData).pendingMarkerPath;
+    const marker = JSON.parse(await fs.readFile(markerPath, 'utf8'));
+    marker.stageDir = root;
+    await fs.writeFile(markerPath, JSON.stringify(marker));
+
+    await assert.rejects(() => cancelStagedRestore(liveData), /stage path is invalid/);
+    assert.ok((await fs.stat(root)).isDirectory());
+    assert.ok((await fs.stat(liveData)).isDirectory());
   } finally {
     await fs.rm(root, { recursive:true, force:true });
   }
