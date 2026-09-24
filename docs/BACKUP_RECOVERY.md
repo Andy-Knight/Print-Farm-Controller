@@ -60,6 +60,7 @@ state/
   file-material-metadata.json
   emulator-settings.json          # optional
   backup-settings.json            # optional, schedule restored disabled
+  maintenance.json                # maintenance tasks, history and observed usage
   license.json                    # optional signed customer licence
 
 print-library/
@@ -155,6 +156,10 @@ Back up controller-remembered per-printer file material metadata.
 ### Emulator settings
 
 Back up integrated simulator enablement/settings where present. Restoring emulator settings does not turn simulator-only validation into physical printer validation.
+
+### Maintenance tracking
+
+Back up controller-owned `maintenance.json`, including recurring maintenance tasks, completion history, task interval baselines and controller-observed print-hour/print-cycle counters. These counters are controller observations rather than manufacturer lifetime odometers. Older backups without maintenance state restore with an empty maintenance store rather than retaining maintenance records from the target installation.
 
 ### Licence
 
