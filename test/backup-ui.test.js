@@ -7,6 +7,7 @@ const index = fs.readFileSync(new URL('../public/index.html', import.meta.url), 
 const styles = fs.readFileSync(new URL('../public/styles.css', import.meta.url), 'utf8');
 const server = fs.readFileSync(new URL('../src/server.js', import.meta.url), 'utf8');
 const restoreService = fs.readFileSync(new URL('../src/backup-recovery/restore-service.js', import.meta.url), 'utf8');
+const scheduledBackupService = fs.readFileSync(new URL('../src/backup-recovery/scheduled-backup-service.js', import.meta.url), 'utf8');
 
 test('Backup and Recovery is available from the controller overflow menu', () => {
   assert.match(index, /id="backupRecoveryBtn"[^>]*>Backup &amp; recovery<\/button>/);
@@ -74,4 +75,38 @@ test('restore inspection enables staged restart-based restore with cancel suppor
   assert.match(restoreService, /marker\.phase = 'committed'/);
   assert.match(restoreService, /RESTORE_ROLLBACK_RETENTION_MS = 24 \* 60 \* 60 \* 1000/);
   assert.match(restoreService, /restoreRecoveryHold = true/);
+});
+
+
+test('scheduled backup UI configures writable local or network destinations and retention', () => {
+  assert.match(index, /id="backupScheduleEnabled"/);
+  assert.match(index, /id="backupScheduleDestination"/);
+  assert.match(index, /id="backupScheduleFrequency"/);
+  assert.match(index, /id="backupScheduleTime"/);
+  assert.match(index, /id="backupScheduleWeekday"/);
+  assert.match(index, /id="backupScheduleRetention"[^>]*value="14"/);
+  assert.match(index, /id="backupTestDestinationBtn"[^>]*>Test destination<\/button>/);
+  assert.match(index, /id="backupSaveScheduleBtn"[^>]*>Save schedule<\/button>/);
+  assert.match(index, /Manual backups and backups from other installations are never pruned/);
+
+  assert.match(app, /async function testScheduledBackupDestination\(\)/);
+  assert.match(app, /api\('\/api\/backup\/test-destination'/);
+  assert.match(app, /async function saveScheduledBackupSettings\(\)/);
+  assert.match(app, /api\('\/api\/backup\/settings'/);
+  assert.match(app, /updateBackupWeekdayVisibility/);
+  assert.match(app, /Next scheduled backup/);
+
+  assert.match(server, /new ScheduledBackupService/);
+  assert.match(server, /new BackupOperationLock/);
+  assert.match(server, /url\.pathname === '\/api\/backup\/settings'/);
+  assert.match(server, /url\.pathname === '\/api\/backup\/test-destination'/);
+  assert.match(server, /scheduledBackupService\.start\(\)/);
+  assert.match(server, /scheduledBackupService\.stop\(\)/);
+
+  assert.match(scheduledBackupService, /source:'scheduled'/);
+  assert.match(scheduledBackupService, /manifest\.backupSource !== 'scheduled'/);
+  assert.match(scheduledBackupService, /manifest\.installationId/);
+  assert.match(scheduledBackupService, /retentionCount/);
+  assert.match(scheduledBackupService, /newestBackupPath/);
+  assert.match(styles, /\.backup-schedule-grid/);
 });
