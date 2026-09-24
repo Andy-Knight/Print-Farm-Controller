@@ -84,11 +84,15 @@ export function prepareRestoredJobs(jobs, { restoredAt = new Date().toISOString(
     job.finishedAt = null;
     job.maxProgress = 0;
     job.lastPrinterState = null;
-    if (automatic) {
+    const mayHavePrinted = PRINT_MAY_HAVE_STARTED_STATES.has(originalStatus);
+    if (automatic && !mayHavePrinted) {
       job.printerId = null;
       job.printerName = 'Next available compatible printer';
     }
-    if (job.bedClearanceRequired === true || PRINT_MAY_HAVE_STARTED_STATES.has(originalStatus)) {
+    // A restored automatic job that was already starting/printing keeps its
+    // last assigned printer only until bed clearance is acknowledged. This is
+    // necessary to preserve the physical interlock for the correct build plate.
+    if (job.bedClearanceRequired === true || mayHavePrinted) {
       job.bedClearanceRequired = true;
       job.bedClearedAt = null;
     }
