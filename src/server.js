@@ -171,7 +171,14 @@ function restorePhysicalActivityBlockers() {
   const activeQueue = printQueue?.getSnapshot?.().active || 0;
   if (activeQueue > 0) blockers.push(`${activeQueue} controller queue operation${activeQueue === 1 ? '' : 's'} are active`);
 
-  for (const printer of decoratedFleet()) {
+  const fleetById = new Map(decoratedFleet().map((printer) => [printer.id, printer]));
+  for (const operation of printerOperations.activeOperations()) {
+    const printer = fleetById.get(operation.printerId);
+    if (!printer || isControllerSimulator(printer)) continue;
+    blockers.push(`${printer.name || printer.id}: ${operation.label || 'controller operation'}`);
+  }
+
+  for (const printer of fleetById.values()) {
     if (isControllerSimulator(printer)) continue;
     const state = String(printer?.status?.status || '').trim().toLowerCase();
     const activePrint = ['printing','working','building_from_sd','pause','paused'].includes(state)
@@ -401,8 +408,10 @@ async function refreshAfterCommand(id) {
 async function apiRoute(req, res, url) {
   const mutation = ['POST','PUT','PATCH','DELETE'].includes(req.method);
   const mayCancelStagedRestore = req.method === 'DELETE' && url.pathname === '/api/restore/stage';
-  if (restorePendingRestart && mutation && !mayCancelStagedRestore) {
-    const error = new Error('A restore is staged and waiting for controller restart. Restart the controller to activate it, or cancel the staged restore before making further changes.');
+  if ((restorePendingRestart || restoreInspectionInProgress) && mutation && !mayCancelStagedRestore) {
+    const error = new Error(restorePendingRestart
+      ? 'A restore is staged and waiting for controller restart. Restart the controller to activate it, or cancel the staged restore before making further changes.'
+      : 'A restore backup operation is in progress. Try this change again after it finishes.');
     error.statusCode = 409;
     throw error;
   }
@@ -1375,6 +1384,13 @@ const server = http.createServer(async (req, res) => {
   const url = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
   try {
     if (url.pathname.startsWith('/api/emulator')) {
+      if ((restorePendingRestart || restoreInspectionInProgress) && ['POST','PUT','PATCH','DELETE'].includes(req.method)) {
+        return json(res, 409, {
+          error:restorePendingRestart
+            ? 'A restore is staged and waiting for controller restart. Restart or cancel the staged restore before changing simulator state.'
+            : 'A restore backup operation is in progress. Try this change again after it finishes.'
+        });
+      }
       await emulatorManager.handleApi(req, res, url);
       return;
     }
