@@ -59,14 +59,29 @@ export async function verifyBackupArchive(filePath) {
   if (manifest.format !== BACKUP_FORMAT_ID) throw new Error('Backup format identifier is not supported');
   if (manifest.formatVersion !== BACKUP_FORMAT_VERSION) throw new Error(`Backup format version ${manifest.formatVersion} is not supported`);
   const checksums = JSON.parse((await archive.read('checksums.json', { maxBytes:4 * 1024 * 1024 })).toString('utf8'));
-  if (!checksums || checksums.algorithm !== 'sha256' || typeof checksums.entries !== 'object') {
+  if (!checksums || checksums.algorithm !== 'sha256' || !checksums.entries
+    || typeof checksums.entries !== 'object' || Array.isArray(checksums.entries)) {
     throw new Error('Backup checksum document is invalid');
   }
+
+  const checksumNames = Object.keys(checksums.entries);
+  if (checksumNames.includes('checksums.json')) throw new Error('Backup checksum document must not checksum itself');
+  const expectedArchiveNames = new Set(['checksums.json', ...checksumNames]);
+  if (archive.entries.length !== expectedArchiveNames.size
+    || archive.entries.some((entry) => !expectedArchiveNames.has(entry.name))) {
+    throw new Error('Backup archive contains an entry that is not covered by the checksum document');
+  }
+
   for (const [name, expected] of Object.entries(checksums.entries)) {
+    if (!expected || typeof expected !== 'object'
+      || !/^[0-9a-f]{64}$/i.test(String(expected.sha256 || ''))
+      || !Number.isSafeInteger(Number(expected.size)) || Number(expected.size) < 0) {
+      throw new Error(`Backup checksum entry is invalid: ${name}`);
+    }
     const entry = archive.byName.get(name);
     if (!entry) throw new Error(`Backup archive entry is missing: ${name}`);
     const actual = await hashZipEntry(filePath, entry);
-    if (actual.size !== Number(expected.size) || actual.sha256 !== expected.sha256) {
+    if (actual.size !== Number(expected.size) || actual.sha256 !== String(expected.sha256).toLowerCase()) {
       throw new Error(`Backup checksum mismatch: ${name}`);
     }
   }
