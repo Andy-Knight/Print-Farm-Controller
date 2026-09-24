@@ -183,16 +183,17 @@ Every non-terminal restored queue job must be recovery-held and every restored p
 
 Initial v0.23.0 destinations are manual download/save plus scheduled local or OS-mounted/network/NAS paths. Scheduled retention is count-based and only prunes scheduler-owned backups from the same installation. Manual backups are never automatically deleted. Scheduled configuration is restored disabled until explicitly re-enabled.
 
-Implementation status: **stages 1–4 are implemented** — `.pfcbackup` creation/verification, manual backup/download/UI, read-only restore inspection, and staged restart-based restore with rollback. Staging revalidates the backup, pauses queue dispatch before checking for physical activity, refuses active physical printer/control work, writes transformed recovery-held state to a sibling staging directory, and leaves live data untouched until restart. Once staged, controller/emulator mutations are blocked until restart or cancellation. Restore workspace/journal state lives under the writable `data/.restore-control/` directory so packaged Windows installs do not require write access to the surrounding Program Files directory. Startup journals `staged -> activating -> installing -> activated -> committed`; interrupted/failed activation rolls back automatically. All unfinished jobs restore as `needs_review` with an explicit `restoreRecoveryHold`; production batches restore paused; jobs that may have started retain/force bed clearance on the correct printer; release requires deliberate review/recheck and fresh compatibility. Successful restored startup retains the old controller snapshot for a 24-hour recovery window. Pending-journal paths are constrained to controller-owned sibling paths before any rename/delete.
+Implementation status: **stages 1–5 are implemented** — `.pfcbackup` creation/verification, manual backup/download/UI, read-only restore inspection, staged restart-based restore with rollback/recovery holds, and scheduled local/network/NAS backup with retention. Restore staging revalidates the backup, pauses queue dispatch before physical-activity checks, leaves live persistent state untouched until restart, and stores stage/rollback/journal data under writable `data/.restore-control/`. Startup journals `staged -> activating -> installing -> activated -> committed`; interrupted/failed activation rolls back automatically, while successful restore retains the previous snapshot for 24 hours. All unfinished jobs restore as `needs_review` with `restoreRecoveryHold`, restored production batches remain paused, and jobs that may have printed retain/force bed clearance until deliberately reviewed.
+
+Scheduled backups use controller-local daily or weekly time/day settings and support any existing OS-writable directory, including local folders, mapped drives and UNC/NAS paths. Enabling a schedule performs a real write/delete probe. Manual and scheduled backups share one operation lock. Status reports next run, last attempt, last success, last error and retention result. Retention defaults to 14, runs only after a newly created scheduled backup has been completely verified, and only deletes older `backupSource=scheduled` archives whose embedded installation UUID matches the current controller. Manual backups and backups from other installations are never auto-pruned. Schedule configuration restored from a backup remains disabled until explicitly re-enabled. Diagnostic logging records destination type rather than the full local/network path.
 
 ## Next steps
 
-1. Add scheduled local/network/NAS backup settings and execution.
-2. Add scheduled-backup retention/pruning and status/diagnostics, while never pruning manual backups.
-3. Add full end-to-end disaster-recovery integration coverage using separate temporary controller data directories and startup/reinitialization.
-4. Run full Windows test/UI/live validation for v0.23.0, then update release documentation before merge.
-5. Continue physical validation of experimental Bambu behaviour before removing the experimental designation.
-6. Add Linux x64 and ARM64 packaging after the active backup/recovery work.
+1. Add the final end-to-end disaster-recovery integration test using separate temporary source/restored controller data directories and service reinitialization.
+2. Run the full Windows automated suite plus Backup & Recovery UI/live validation, including a real local/mapped/UNC destination where available.
+3. Update final v0.23.0 release notes/context and merge only after explicit approval.
+4. Continue physical validation of experimental Bambu behaviour before removing the experimental designation.
+5. Add Linux x64 and ARM64 packaging after the active backup/recovery work.
 
 ## Handoff rule
 
