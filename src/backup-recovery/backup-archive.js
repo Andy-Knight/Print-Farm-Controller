@@ -186,6 +186,7 @@ export async function readZipDirectory(filePath) {
     const directory = Buffer.alloc(directorySize);
     await handle.read(directory, 0, directory.length, directoryOffset);
     const entries = [];
+    const names = new Set();
     let offset = 0;
     for (let index = 0; index < count; index++) {
       if (offset + 46 > directory.length || directory.readUInt32LE(offset) !== CENTRAL_FILE_HEADER) {
@@ -203,7 +204,11 @@ export async function readZipDirectory(filePath) {
       const nameEnd = offset + 46 + nameLength;
       if (nameEnd > directory.length) throw new Error('Backup archive ZIP entry is invalid');
       const name = safeArchivePath(directory.subarray(offset + 46, nameEnd).toString('utf8'));
+      if (names.has(name)) throw new Error(`Duplicate backup archive entry: ${name}`);
+      names.add(name);
+      if ((flags & 0x0001) !== 0) throw new Error('Encrypted backup ZIP entries are not supported');
       if (compression !== 0) throw new Error(`Unsupported backup ZIP compression method ${compression}`);
+      if (compressedSize !== size) throw new Error(`Stored backup ZIP entry has inconsistent size: ${name}`);
       entries.push({ name, flags, compression, crc, compressedSize, size, localOffset });
       offset += 46 + nameLength + extraLength + commentLength;
     }
