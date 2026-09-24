@@ -38,6 +38,7 @@ import { publicAssetKey, readRuntimeAsset } from './runtime-assets.js';
 import { KeyedSerialExecutor, PrinterOperationCoordinator } from './concurrency.js';
 import { evaluatePrinterOperation, PrinterPhysicalActivityTracker, PRINTER_OPERATION_TYPES } from './printer-operation-policy.js';
 import { DiagnosticLogger } from './diagnostic-logger.js';
+import { MaintenanceService } from './maintenance-service.js';
 import { ManualBackupManager } from './backup-recovery/manual-backup-manager.js';
 import { BackupOperationLock } from './backup-recovery/backup-operation-lock.js';
 import { ScheduledBackupService } from './backup-recovery/scheduled-backup-service.js';
@@ -258,6 +259,7 @@ const printQueue = new PrintQueueService({
   onChange: () => fleetState.schedulePublish(),
   diagnosticFn:(level, message, meta) => diagnosticLogger[level]?.('queue', message, meta)
 });
+const maintenanceService = new MaintenanceService({ fleetState });
 const toolOffsetCalibrationLocks = new Map();
 
 const contentTypes = {
@@ -765,6 +767,11 @@ async function apiRoute(req, res, url) {
     return json(res, 200, printQueue.getSnapshot());
   }
 
+  if (req.method === 'GET' && url.pathname === '/api/maintenance') {
+    const printers = (await listPrinters()).map(publicPrinter);
+    return json(res, 200, { maintenance:await maintenanceService.getSnapshot(printers) });
+  }
+
   if (req.method === 'GET' && url.pathname === '/api/library') {
     const queueSnapshot = printQueue.getSnapshot();
     const files = (await listLibraryFiles()).map((file) => {
@@ -995,6 +1002,44 @@ async function apiRoute(req, res, url) {
       return { printer, status };
     });
     return json(res, 201, { printer: publicPrinter(result.printer), status:result.status });
+  }
+
+  const maintenanceTaskMatch = url.pathname.match(/^\/api\/printers\/([^/]+)\/maintenance\/tasks(?:\/([^/]+))?(?:\/(complete))?$/);
+  if (maintenanceTaskMatch) {
+    const printerId = decodeURIComponent(maintenanceTaskMatch[1]);
+    const taskId = maintenanceTaskMatch[2] ? decodeURIComponent(maintenanceTaskMatch[2]) : null;
+    const completeAction = maintenanceTaskMatch[3] === 'complete';
+    if (!await getPrinter(printerId)) return json(res, 404, { error:'Printer not found' });
+
+    if (req.method === 'POST' && !taskId) {
+      const body = await readJson(req);
+      const task = await controllerMutations.run('maintenance', () => maintenanceService.addTask(printerId, body));
+      fleetState.schedulePublish();
+      return json(res, 201, { task });
+    }
+    if (req.method === 'PATCH' && taskId && !completeAction) {
+      const body = await readJson(req);
+      const task = await controllerMutations.run('maintenance', () => maintenanceService.updateTask(printerId, taskId, body));
+      fleetState.schedulePublish();
+      return json(res, 200, { task });
+    }
+    if (req.method === 'DELETE' && taskId && !completeAction) {
+      await controllerMutations.run('maintenance', () => maintenanceService.deleteTask(printerId, taskId));
+      fleetState.schedulePublish();
+      return json(res, 200, { ok:true });
+    }
+    if (req.method === 'POST' && taskId && completeAction) {
+      const body = await readJson(req);
+      const result = await controllerMutations.run('maintenance', () => maintenanceService.completeTask(printerId, taskId, body.notes));
+      await diagnosticLogger.info('maintenance', 'Maintenance task completed', {
+        printerId,
+        taskId,
+        taskName:result.task?.name || null
+      });
+      fleetState.schedulePublish();
+      return json(res, 200, result);
+    }
+    return json(res, 405, { error:'Maintenance task operation is not supported' });
   }
 
   const match = url.pathname.match(/^\/api\/printers\/([^/]+)(?:\/(.+))?$/);
@@ -1494,6 +1539,7 @@ async function shutdown() {
   try { await chamberPreheat.stopAll({ reason: 'controller-shutdown', turnOff: true }); } catch {}
   chamberPreheat.stopService();
   scheduledBackupService.stop();
+  await maintenanceService.stop().catch(() => {});
   printQueue.stop();
   fleetState.stop();
   cameraManager.stop();
@@ -1564,6 +1610,7 @@ async function startController() {
     }
 
     await fleetState.start();
+    await maintenanceService.start();
     await printQueue.start();
     chamberPreheat.startService();
     await listenControllerServer();
@@ -1599,9 +1646,11 @@ async function startController() {
     console.log('Batch fleet control enabled');
     console.log('Verified multi-printer file distribution enabled');
     console.log('Persistent fleet print queue + history enabled');
+    console.log('Maintenance tracking + controller-observed printer usage enabled');
   } catch (error) {
     chamberPreheat.stopService();
     scheduledBackupService.stop();
+    await maintenanceService.stop().catch(() => {});
     printQueue.stop();
     fleetState.stop();
     cameraManager.stop();
