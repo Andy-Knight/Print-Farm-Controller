@@ -187,16 +187,15 @@ The Maintenance UI is available from the controller overflow menu and supports a
 
 Maintenance state participates in v0.23+ logical backup/recovery. New backups include `state/maintenance.json`; restore validates and stages it, while older backups without maintenance state restore an empty maintenance store rather than retaining unrelated target-machine maintenance data.
 
-Current implementation includes service-layer tests for persistence, day/hour/count scheduling and usage tracking; UI/API wiring tests; backup coverage; and disaster-recovery preservation coverage.
+Current implementation includes service-layer tests for persistence, day/hour/count scheduling and usage tracking; UI/API wiring tests; backup coverage; and disaster-recovery preservation coverage. Automated Windows/Node 24 validation completed on 24 September 2026 with **325 passing tests, 0 failures**, followed by a successful `npm run build:bundle` production-controller bundle build.
 
 ## Next steps
 
-1. Run the full automated `npm test` suite on Windows/Node 24 and correct any regressions.
-2. Live-test the Maintenance dialog in Dark and Light modes on desktop and mobile widths.
-3. Validate observed print-hour/cycle accounting with a real Snapmaker U1 and FlashForge AD5M Pro print, including pause/resume and controller restart behavior.
-4. Decide whether to add optional model-specific starter task templates after the generic workflow is validated.
-5. Continue physical validation of experimental Bambu behaviour before removing the experimental designation.
-6. Add Linux x64 and ARM64 packaging after the active maintenance work.
+1. Live-test the Maintenance dialog in Dark and Light modes on desktop and mobile widths.
+2. Validate observed print-hour/cycle accounting with a real Snapmaker U1 and FlashForge AD5M Pro print, including pause/resume and controller restart behavior.
+3. Decide whether to add optional model-specific starter task templates after the generic workflow is validated.
+4. Continue physical validation of experimental Bambu behaviour before removing the experimental designation.
+5. Add Linux x64 and ARM64 packaging after the active maintenance work.
 
 ## Handoff rule
 
