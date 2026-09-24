@@ -518,7 +518,7 @@ A test should create controller state in one temporary data directory, produce a
 
 ## Implementation status
 
-Stages 1 and 2 are implemented on `feature/backup-recovery-v0230`:
+Stages 1–3 are implemented on `feature/backup-recovery-v0230`:
 
 - dependency-free ZIP32-compatible archive writer using stored entries and data descriptors;
 - streaming SHA-256/CRC verification of completed archives;
@@ -534,9 +534,19 @@ Stages 1 and 2 are implemented on `feature/backup-recovery-v0230`:
 - diagnostic logging for manual backup creation/download;
 - Backup & Recovery overflow-menu entry and manual-backup UI;
 - explicit UI warning that v0.23.0 backups are integrity-checked but not encrypted;
-- Restore control intentionally disabled until the restore backend exists.
+- read-only restore upload/inspection API and UI;
+- exact checksum coverage enforcement (hidden/unchecksummed archive entries are rejected);
+- absolute, UNC-style and traversal archive-path rejection;
+- restore validation of format/schema/controller versions, manifest counts and payload size;
+- state JSON shape validation and optional signed-licence/emulator-settings validation;
+- Print Library ID/file/preview/size/SHA-256 relationship validation;
+- queue-to-Print-Library reference validation;
+- local staging-space check where the platform exposes filesystem free-space information;
+- explicit rejection of backups created by a newer controller version;
+- restore summary showing counts, warnings and migration requirement without mutating live state;
+- actual **Restore backup** action remains disabled until staging/activation exists.
 
-Next: restore inspection/validation, restore staging/startup activation with rollback, recovery-hold queue semantics, then scheduled local/network backups and retention.
+Next: restore migration and staged startup activation with rollback, recovery-hold queue semantics, then scheduled local/network backups and retention.
 
 ## Implementation order
 
