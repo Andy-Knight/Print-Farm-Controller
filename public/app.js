@@ -1974,13 +1974,20 @@ backupRecoveryBtn?.addEventListener('click', async () => {
   if (topbarOverflow) topbarOverflow.open = false;
   if (backupActionStatus) backupActionStatus.textContent = '';
   clearRestoreInspection();
-  if (restoreBackupFileInput) restoreBackupFileInput.value = '';
+  if (restoreBackupFileInput) {
+    restoreBackupFileInput.value = '';
+    restoreBackupFileInput.disabled = false;
+  }
+  if (restoreInspectBtn) restoreInspectBtn.disabled = false;
+  if (restoreCancelStageBtn) restoreCancelStageBtn.classList.add('hidden');
   backupRecoveryDialog?.showModal();
-  await loadBackupStatus();
+  await Promise.all([loadBackupStatus(), loadRestoreStatus()]);
 });
 document.querySelectorAll('[data-backup-close]').forEach((el) => el.addEventListener('click', () => backupRecoveryDialog?.close()));
 backupCreateBtn?.addEventListener('click', createManualBackup);
 restoreInspectBtn?.addEventListener('click', inspectRestoreFile);
+restoreStageBtn?.addEventListener('click', stageRestoreFile);
+restoreCancelStageBtn?.addEventListener('click', cancelStagedRestoreUi);
 restoreBackupFileInput?.addEventListener('change', clearRestoreInspection);
 document.querySelectorAll('[data-diagnostics-close]').forEach((el) => el.addEventListener('click', () => diagnosticsDialog?.close()));
 diagnosticsRefreshBtn?.addEventListener('click', loadDiagnostics);
