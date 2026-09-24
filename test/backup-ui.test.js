@@ -34,20 +34,33 @@ test('manual backup UI uses create/status API and one-time streamed download URL
 });
 
 
-test('restore inspection validates a pfcbackup without enabling restore activation', () => {
+test('restore inspection enables staged restart-based restore with cancel support', () => {
   assert.match(index, /id="restoreBackupFileInput"[^>]*accept="\.pfcbackup/);
   assert.match(index, /id="restoreInspectBtn"[^>]*>Inspect backup<\/button>/);
   assert.match(index, /id="restoreStageBtn"[^>]*disabled[^>]*>Restore backup<\/button>/);
+  assert.match(index, /id="restoreCancelStageBtn"[^>]*>Cancel staged restore<\/button>/);
   assert.match(index, /Inspection never changes controller data/);
+  assert.match(index, /staged restore activates only after Print Farm Controller is restarted/);
   assert.match(app, /async function inspectRestoreFile\(\)/);
   assert.match(app, /fetch\('\/api\/restore\/inspect'/);
   assert.match(app, /renderRestoreInspection\(payload\.inspection\)/);
-  assert.match(app, /Backup is valid/);
-  assert.match(app, /Actual restore\/staging is not enabled in this build yet/);
+  assert.match(app, /restoreStageBtn\.disabled = false/);
+  assert.match(app, /async function stageRestoreFile\(\)/);
+  assert.match(app, /fetch\('\/api\/restore\/stage'/);
+  assert.match(app, /async function cancelStagedRestoreUi\(\)/);
+  assert.match(app, /api\('\/api\/restore\/stage', \{ method:'DELETE' \}\)/);
+  assert.match(app, /Restore staged — restart required/);
+  assert.match(app, /Restored — review required/);
   assert.match(styles, /\.restore-inspection-summary/);
   assert.match(styles, /\.restore-valid-banner/);
+  assert.match(styles, /\.restore-staged-banner/);
+  assert.match(styles, /\.queue-status\.restore-hold/);
   assert.match(server, /url\.pathname === '\/api\/restore\/inspect'/);
-  assert.match(server, /inspectRestoreBackup\(staged\.filePath/);
-  assert.match(server, /restoreInspectionInProgress/);
-  assert.match(server, /Restore backup inspection passed/);
+  assert.match(server, /url\.pathname === '\/api\/restore\/stage'/);
+  assert.match(server, /stageRestoreBackup\(uploaded\.filePath/);
+  assert.match(server, /activatePendingRestore/);
+  assert.match(server, /commitActivatedRestore/);
+  assert.match(server, /rollbackActivatedRestore/);
+  assert.match(server, /restorePendingRestart/);
+  assert.match(server, /Restore staged; controller restart required/);
 });
