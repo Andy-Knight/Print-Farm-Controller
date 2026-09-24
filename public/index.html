@@ -195,15 +195,24 @@
         <div id="backupError" class="error hidden"></div>
       </section>
 
-      <section class="backup-section backup-disabled-section">
+      <section class="backup-section">
         <div class="backup-section-head">
           <div>
-            <strong>Restore</strong>
-            <div class="field-help">Restore validation, recovery holds and atomic restart activation are the next implementation stage.</div>
+            <strong>Restore inspection</strong>
+            <div class="field-help">Validate a .pfcbackup and review what it contains. Inspection never changes controller data.</div>
           </div>
-          <button type="button" class="secondary" disabled>Restore backup</button>
         </div>
-        <div class="subtle">Backups created by this build already use the v0.23.0 portable backup format and are intended for the restore engine being implemented next.</div>
+        <label class="backup-file-field">Backup file
+          <input id="restoreBackupFileInput" type="file" accept=".pfcbackup,application/vnd.print-farm-controller.backup+zip" />
+        </label>
+        <div class="mini-actions backup-restore-actions">
+          <button id="restoreInspectBtn" type="button" class="secondary">Inspect backup</button>
+          <button id="restoreStageBtn" type="button" class="primary" disabled>Restore backup</button>
+        </div>
+        <div id="restoreInspectStatus" class="subtle backup-action-status" aria-live="polite"></div>
+        <div id="restoreInspectError" class="error hidden"></div>
+        <div id="restoreInspectionSummary" class="restore-inspection-summary hidden"></div>
+        <div class="field-help">Restore activation is not enabled yet. A valid inspection only confirms that the backup is structurally safe and compatible with this controller version.</div>
       </section>
 
       <div class="actions">
