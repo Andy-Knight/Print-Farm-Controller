@@ -622,6 +622,14 @@ test('Bambu printer detail exposes AMS slots and material mapping setup', () => 
   assert.match(emulatorHtml, /AMS configuration/);
   assert.match(emulatorApp, /function renderAmsControls/);
   assert.match(emulatorApp, /amsSlots/);
+  assert.match(emulatorApp, /data-ams-color-family/);
+  assert.match(emulatorApp, /data-external-color-family/);
+  assert.match(emulatorApp, /BAMBU_COLOR_FAMILIES/);
+  assert.match(emulatorApp, /icon:'🟥'/);
+  assert.doesNotMatch(emulatorApp, /data-ams-color type="color"/);
+  assert.match(app, /filamentColorFamilyFromHex/);
+  assert.match(app, /filamentSourceFamily/);
+  assert.match(bambuAdapter, /colorFamily:colorFamily\(color\)/);
   assert.match(app, /P1P, P1S, X1C and A1 Mini/);
   assert.match(app, /X1C RTSPS\/H\.264 camera decoding is not yet supported/);
   assert.match(app, /Single-material A1 Mini \.gcode starts remain experimental/);
@@ -641,7 +649,7 @@ test('emulator AMS controls survive live refresh while a slot is being edited', 
   assert.match(emulatorApp, /structureSignature/);
   assert.match(emulatorApp, /grid\.contains\(document\.activeElement\)/);
   assert.match(emulatorApp, /document\.activeElement !== material/);
-  assert.match(emulatorApp, /document\.activeElement !== color/);
+  assert.match(emulatorApp, /document\.activeElement !== colorFamily/);
 });
 
 test('queue UI exposes production quantity and batch controls', () => {
