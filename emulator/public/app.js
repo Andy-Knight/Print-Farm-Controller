@@ -136,9 +136,22 @@ function renderAmsControls(card, printer) {
   active.onchange = () => updatePrinter(printer.id, { activeMaterialSource:Number(active.value) });
   const grid = panel.querySelector('.ams-slot-grid');
   const slots = units.flatMap((unit) => unit.trays.map((tray) => ({ unit, tray })));
-  const structureSignature = JSON.stringify(slots.map(({ unit, tray }) => [Number(unit.id), Number(tray.slotIndex)]));
+  const structureSignature = JSON.stringify([['external'], ...slots.map(({ unit, tray }) => [Number(unit.id), Number(tray.slotIndex)])]);
   if (grid.dataset.structureSignature !== structureSignature && !grid.contains(document.activeElement)) {
-    grid.replaceChildren(...slots.map(({ unit, tray }) => {
+    const external = document.createElement('div');
+    external.className = 'ams-slot';
+    external.dataset.externalSpool = '1';
+    external.innerHTML = `<strong>External spool</strong>
+      <label class="check"><input data-external-present type="checkbox">Loaded</label>
+      <label>Material<select data-external-material>${['PLA','PETG','ABS','ASA','PA','PC','TPU','PVA'].map((value) => `<option>${value}</option>`).join('')}</select></label>
+      <label>Colour family<select data-external-color-family>${bambuColorFamilyOptions()}</select></label>`;
+    const saveExternal = () => updatePrinter(printer.id, { externalSpool:{
+      present:external.querySelector('[data-external-present]').checked,
+      material:external.querySelector('[data-external-material]').value,
+      colorFamily:external.querySelector('[data-external-color-family]').value
+    } });
+    external.querySelectorAll('input,select').forEach((input) => input.addEventListener('change', saveExternal));
+    grid.replaceChildren(external, ...slots.map(({ unit, tray }) => {
       const slot = document.createElement('div');
       slot.className = 'ams-slot';
       slot.dataset.amsSlot = `${Number(unit.id)}:${Number(tray.slotIndex)}`;
@@ -156,6 +169,17 @@ function renderAmsControls(card, printer) {
       return slot;
     }));
     grid.dataset.structureSignature = structureSignature;
+  }
+  const external = grid.querySelector('[data-external-spool]');
+  if (external) {
+    const spool = printer.externalSpool || {};
+    const present = external.querySelector('[data-external-present]');
+    const material = external.querySelector('[data-external-material]');
+    const colorFamily = external.querySelector('[data-external-color-family]');
+    const familyValue = spool.colorFamily || bambuColorFamilyFromHex(spool.color) || 'white';
+    if (document.activeElement !== present) present.checked = spool.present !== false;
+    if (document.activeElement !== material) material.value = spool.material || 'PLA';
+    if (document.activeElement !== colorFamily) colorFamily.value = familyValue;
   }
   for (const { unit, tray } of slots) {
     const slot = [...grid.querySelectorAll('[data-ams-slot]')].find((item) => item.dataset.amsSlot === `${Number(unit.id)}:${Number(tray.slotIndex)}`);
