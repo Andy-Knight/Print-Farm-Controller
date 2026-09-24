@@ -301,7 +301,7 @@ test('scheduler queues a startup catch-up when the most recent run was missed wh
       frequency:'daily',
       scheduleTime:'02:00',
       scheduleWeekday:1,
-      scheduleEffectiveAt:'2026-09-23T12:00:00.000Z',
+      scheduleEffectiveAt:new Date(2026, 8, 23, 12, 0, 0, 0).toISOString(),
       retentionCount:14
     }, { dataDir });
 
@@ -313,9 +313,11 @@ test('scheduler queues a startup catch-up when the most recent run was missed wh
       clearTimeoutFn:timers.clearTimeoutFn,
       catchUpDelayMs:1_000
     });
-    const status = await service.start({ now:new Date('2026-09-24T12:00:00.000Z') });
+    const startupNow = new Date(2026, 8, 24, 12, 0, 0, 0);
+    const expectedDue = new Date(2026, 8, 24, 2, 0, 0, 0).toISOString();
+    const status = await service.start({ now:startupNow });
     assert.equal(status.catchUpPending, true);
-    assert.equal(status.catchUpScheduledFor, '2026-09-24T02:00:00.000Z');
+    assert.equal(status.catchUpScheduledFor, expectedDue);
     assert.ok(timers.timers.some((timer) => timer.delay === 1_000));
     service.stop();
   } finally {
@@ -336,7 +338,7 @@ test('scheduler does not catch up a slot from before the current schedule became
       frequency:'daily',
       scheduleTime:'02:00',
       scheduleWeekday:1,
-      scheduleEffectiveAt:'2026-09-24T10:00:00.000Z',
+      scheduleEffectiveAt:new Date(2026, 8, 24, 10, 0, 0, 0).toISOString(),
       retentionCount:14
     }, { dataDir });
 
@@ -348,7 +350,7 @@ test('scheduler does not catch up a slot from before the current schedule became
       clearTimeoutFn:timers.clearTimeoutFn,
       catchUpDelayMs:1_000
     });
-    const status = await service.start({ now:new Date('2026-09-24T12:00:00.000Z') });
+    const status = await service.start({ now:new Date(2026, 8, 24, 12, 0, 0, 0) });
     assert.equal(status.catchUpPending, false);
     assert.equal(status.catchUpScheduledFor, null);
     service.stop();
@@ -370,8 +372,8 @@ test('scheduler does not catch up a slot that already has a recorded attempt', a
       frequency:'daily',
       scheduleTime:'02:00',
       scheduleWeekday:1,
-      scheduleEffectiveAt:'2026-09-23T10:00:00.000Z',
-      lastScheduledAttemptAt:'2026-09-24T02:00:30.000Z',
+      scheduleEffectiveAt:new Date(2026, 8, 23, 10, 0, 0, 0).toISOString(),
+      lastScheduledAttemptAt:new Date(2026, 8, 24, 2, 0, 30, 0).toISOString(),
       retentionCount:14
     }, { dataDir });
 
@@ -383,7 +385,7 @@ test('scheduler does not catch up a slot that already has a recorded attempt', a
       clearTimeoutFn:timers.clearTimeoutFn,
       catchUpDelayMs:1_000
     });
-    const status = await service.start({ now:new Date('2026-09-24T12:00:00.000Z') });
+    const status = await service.start({ now:new Date(2026, 8, 24, 12, 0, 0, 0) });
     assert.equal(status.catchUpPending, false);
     service.stop();
   } finally {
@@ -405,7 +407,7 @@ test('busy backup operation retries a missed scheduled catch-up instead of dropp
       frequency:'daily',
       scheduleTime:'02:00',
       scheduleWeekday:1,
-      scheduleEffectiveAt:'2026-09-23T10:00:00.000Z',
+      scheduleEffectiveAt:new Date(2026, 8, 23, 10, 0, 0, 0).toISOString(),
       retentionCount:14
     }, { dataDir });
 
@@ -425,15 +427,16 @@ test('busy backup operation retries a missed scheduled catch-up instead of dropp
     const manual = lock.run('manual', () => gate);
     await new Promise((resolve) => setImmediate(resolve));
 
+    const expectedDue = new Date(2026, 8, 24, 2, 0, 0, 0).toISOString();
     const result = await service.runScheduledBackup({
-      now:new Date('2026-09-24T12:00:00.000Z'),
+      now:new Date(2026, 8, 24, 12, 0, 0, 0),
       trigger:'catch-up',
-      scheduledFor:'2026-09-24T02:00:00.000Z'
+      scheduledFor:expectedDue
     });
     assert.equal(result.skipped, true);
     assert.equal(result.reason, 'busy');
     assert.equal(result.retryScheduled, true);
-    assert.equal(service.catchUpScheduledFor, '2026-09-24T02:00:00.000Z');
+    assert.equal(service.catchUpScheduledFor, expectedDue);
     assert.ok(timers.timers.some((timer) => timer.delay === 2_000));
 
     release('done');
