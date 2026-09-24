@@ -58,6 +58,9 @@ function restoredFleet(printers) {
     },
     getPrinterState(id) {
       return states.get(id) || null;
+    },
+    getFleet() {
+      return [...states.values()];
     }
   };
 }
