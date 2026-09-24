@@ -79,18 +79,36 @@ test('FlashForge manual material designation persists without exposing adapter s
     const assigned = await store.setPrinterMaterialDesignation(printer.id, 'PETG-CF', '#12ab34');
     assert.equal(assigned.adapterConfig.filamentDesignation, 'PETG-CF');
     assert.equal(assigned.adapterConfig.filamentColorDesignation, '#12AB34');
+    assert.equal(assigned.adapterConfig.filamentColorFamilyDesignation, 'green');
     assert.equal(assigned.adapterConfig.secretValue, 'keep-private');
     assert.equal(store.publicPrinter(assigned).materialDesignation, 'PETG-CF');
     assert.equal(store.publicPrinter(assigned).materialColorDesignation, '#12AB34');
+    assert.equal(store.publicPrinter(assigned).materialColorFamilyDesignation, 'green');
     assert.equal('adapterConfig' in store.publicPrinter(assigned), false);
     await assert.rejects(() => store.setPrinterMaterialDesignation(printer.id, 'PETG-CF', 'green'), /6-digit hex colour/);
+
+    const familyOnly = await store.setPrinterMaterialDesignation(printer.id, 'PETG-CF', null, 'red');
+    assert.equal(familyOnly.adapterConfig.filamentColorDesignation, undefined);
+    assert.equal(familyOnly.adapterConfig.filamentColorFamilyDesignation, 'red');
+    assert.equal(store.publicPrinter(familyOnly).materialColorFamilyDesignation, 'red');
+
+    await assert.rejects(
+      () => store.setPrinterMaterialDesignation(printer.id, 'PETG-CF', '#0000FF', 'red'),
+      /shade must belong to the selected colour family/
+    );
+    await assert.rejects(
+      () => store.setPrinterMaterialDesignation(printer.id, 'PETG-CF', null, 'chartreuse'),
+      /colour family is not supported/
+    );
 
     const cleared = await store.setPrinterMaterialDesignation(printer.id, null, null);
     assert.equal(cleared.adapterConfig.filamentDesignation, undefined);
     assert.equal(cleared.adapterConfig.filamentColorDesignation, undefined);
+    assert.equal(cleared.adapterConfig.filamentColorFamilyDesignation, undefined);
     assert.equal(cleared.adapterConfig.secretValue, 'keep-private');
     assert.equal(store.publicPrinter(cleared).materialDesignation, null);
     assert.equal(store.publicPrinter(cleared).materialColorDesignation, null);
+    assert.equal(store.publicPrinter(cleared).materialColorFamilyDesignation, null);
   } finally {
     delete process.env.DATA_DIR;
     await rm(dir, { recursive:true, force:true });
