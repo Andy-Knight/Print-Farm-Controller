@@ -198,6 +198,56 @@
       <section class="backup-section">
         <div class="backup-section-head">
           <div>
+            <strong>Scheduled backups</strong>
+            <div class="field-help">Save verified backups automatically to a local folder, mapped drive or writable UNC/NAS path.</div>
+          </div>
+        </div>
+        <div class="backup-schedule-grid">
+          <label class="backup-schedule-toggle">
+            <input id="backupScheduleEnabled" type="checkbox" />
+            <span>Enable scheduled backups</span>
+          </label>
+          <label class="backup-schedule-destination">Destination folder
+            <input id="backupScheduleDestination" type="text" placeholder="D:\Backups\Print Farm Controller or \\NAS\Backups" autocomplete="off" />
+          </label>
+          <div class="mini-actions backup-destination-actions">
+            <button id="backupTestDestinationBtn" type="button" class="secondary">Test destination</button>
+          </div>
+          <label>Frequency
+            <select id="backupScheduleFrequency">
+              <option value="daily">Daily</option>
+              <option value="weekly">Weekly</option>
+            </select>
+          </label>
+          <label>Time
+            <input id="backupScheduleTime" type="time" value="02:00" />
+          </label>
+          <label id="backupScheduleWeekdayField">Day
+            <select id="backupScheduleWeekday">
+              <option value="1">Monday</option>
+              <option value="2">Tuesday</option>
+              <option value="3">Wednesday</option>
+              <option value="4">Thursday</option>
+              <option value="5">Friday</option>
+              <option value="6">Saturday</option>
+              <option value="0">Sunday</option>
+            </select>
+          </label>
+          <label>Retention
+            <input id="backupScheduleRetention" type="number" min="1" max="365" step="1" value="14" />
+          </label>
+        </div>
+        <div class="field-help">Retention applies only to scheduled backups created by this controller installation. Manual backups and backups from other installations are never pruned.</div>
+        <div class="mini-actions backup-schedule-actions">
+          <button id="backupSaveScheduleBtn" type="button" class="primary">Save schedule</button>
+        </div>
+        <div id="backupScheduleStatus" class="subtle backup-action-status" aria-live="polite"></div>
+        <div id="backupScheduleError" class="error hidden"></div>
+      </section>
+
+      <section class="backup-section">
+        <div class="backup-section-head">
+          <div>
             <strong>Restore inspection</strong>
             <div class="field-help">Validate a .pfcbackup and review what it contains. Inspection never changes controller data.</div>
           </div>
