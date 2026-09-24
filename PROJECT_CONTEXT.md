@@ -20,7 +20,7 @@
 - **v0.20.2 dashboard click reliability is merged into `main`** via PR #31. Live fleet reconciliation updates existing cards in place and only moves a card when its actual fleet order differs from the DOM, preventing a live status event from detaching an **Open printer** button between pointer-down and click.
 - **v0.21.0 Print Library printer targeting is in the current `main` baseline.** Print Library files can optionally store a canonical target printer adapter/model. The add/edit/queue-upload UI exposes the supported model list; library cards/search and queued jobs show the target; queue compatibility treats a target mismatch as incompatible; and files without a target remain unrestricted.
 - **v0.22.0 colour-family matching is merged into the current `main` baseline** via PR #33.
-- **Current v0.23.0 feature branch:** `feature/backup-recovery-v0230`. Backup/recovery architecture is defined in `docs/BACKUP_RECOVERY.md`. The target is a portable logical `.pfcbackup` format with manifest/checksums, manual and scheduled local/NAS backup, validated two-phase restore activated on restart with rollback, and explicit recovery holds so unfinished restored queue work can never auto-start. Cloud destinations and built-in encryption are deferred. Queue colour compatibility treats slicer hex values as shade metadata within practical colour families rather than requiring byte-for-byte hex equality. Same-family shades can run automatically; different families remain blocked. FlashForge manual filament designation stores an authoritative colour family only; existing hex-only designations automatically derive their family, and saving a new manual designation clears the legacy shade. FlashForge, editable/non-RFID Snapmaker U1, and simulated Bambu AMS/AMS Lite/external-spool selectors use the same custom family dropdown, with a consistent square swatch rendered inside each option and selected value. Pending U1 filament type/colour edits are protected from live telemetry until the Set filament operation succeeds. The U1 and simulator write representative hex colours internally; official U1 RFID filament and real Bambu tray colours remain printer-reported. U1/AMS candidate mapping prefers the closest compatible shade using CIELAB colour distance without turning shade distance itself into a hard requirement.
+- **v0.23.0 Backup & Recovery is complete on `feature/backup-recovery-v0230` and approved for merge into `main`.** The backup/recovery architecture is defined in `docs/BACKUP_RECOVERY.md`. The target is a portable logical `.pfcbackup` format with manifest/checksums, manual and scheduled local/NAS backup, validated two-phase restore activated on restart with rollback, and explicit recovery holds so unfinished restored queue work can never auto-start. Cloud destinations and built-in encryption are deferred. Queue colour compatibility treats slicer hex values as shade metadata within practical colour families rather than requiring byte-for-byte hex equality. Same-family shades can run automatically; different families remain blocked. FlashForge manual filament designation stores an authoritative colour family only; existing hex-only designations automatically derive their family, and saving a new manual designation clears the legacy shade. FlashForge, editable/non-RFID Snapmaker U1, and simulated Bambu AMS/AMS Lite/external-spool selectors use the same custom family dropdown, with a consistent square swatch rendered inside each option and selected value. Pending U1 filament type/colour edits are protected from live telemetry until the Set filament operation succeeds. The U1 and simulator write representative hex colours internally; official U1 RFID filament and real Bambu tray colours remain printer-reported. U1/AMS candidate mapping prefers the closest compatible shade using CIELAB colour distance without turning shade distance itself into a hard requirement.
 - Runtime: **Node.js 24+** (development baseline Node.js 24.21.0), ES modules, no npm runtime dependencies.
 - GitHub is the authoritative code baseline.
 
@@ -41,6 +41,7 @@ Local Fleet Controller (`src/`)
         +-- persistent Print Library store + cached slicer preview extraction
         +-- compatibility engine
         +-- persistent print queue + history + bed-clearance interlock
+        +-- logical `.pfcbackup` backup/recovery + scheduled local/network backups + staged restart restore/rollback
         +-- signed licence loader / verifier / edition + printer-slot enforcement
         |
         v
@@ -65,6 +66,8 @@ Manufacturer-specific discovery, capabilities, limits, status normalization, fil
 - Multiple manufacturers are supported through adapters rather than manufacturer logic in shared fleet code.
 - Default persistent controller data now lives in the application-local `data/` directory rather than the operating-system user profile. If `data/` does not yet exist, startup migrates the previous profile-based `Printer Fleet Controller` directory, falling back to the older `FlashForge Fleet` location. This moves printer configuration, queue/history, Print Library files, emulator settings and file material metadata together. Custom `DATA_DIR` locations are used exactly as configured and are never moved.
 - Print Library files, queue/history and their references persist across restarts. Queue/history cleanup never owns library-file deletion.
+- Backup/recovery uses portable logical `.pfcbackup` archives rather than raw `data/` copies. Archives carry a manifest and checksums, include controller configuration/state and Print Library content, and exclude logs, executables/build artifacts, transient files and private licensing keys.
+- Restore is two-phase and restart-activated: inspect/validate/migrate/stage while the live installation stays intact, then activate before normal services initialize. Activation retains rollback state and automatically restores it if startup validation fails. Restored unfinished queue work is recovery-held, restored production batches remain paused, transient reservations/start state is cleared, and existing/required bed-clearance interlocks are preserved until deliberate user review.
 - Print Library previews are derived from slicer-provided images only: Orca/Bambu-style 3MF plate thumbnails and supported embedded PNG/JPEG G-code thumbnail blocks. Cached preview images live beside the stored print file; unsupported/missing thumbnails use a UI placeholder rather than a generated render.
 - A completed/active-failed/cancelled print creates a **bed-clearance interlock**; no later queued job may start on that printer until **Bed cleared** is confirmed.
 - Queue jobs support two assignment modes: **fixed printer** and **Next available compatible printer**.
@@ -173,7 +176,7 @@ Manufacturer-specific discovery, capabilities, limits, status normalization, fil
 
 ## Current task
 
-**v0.23.0 Backup & Recovery** is the active feature on `feature/backup-recovery-v0230`.
+**v0.23.0 Backup & Recovery** is complete on `feature/backup-recovery-v0230` and approved for merge into `main`.
 
 The approved architecture is in `docs/BACKUP_RECOVERY.md`. Backups are logical/path-independent snapshots rather than raw copies of `data/`. They include printer configuration, Print Library files/metadata/previews, queue/history, file-material metadata, emulator settings, backup policy, and the installed signed licence when present. Logs, executable/build artifacts, transient files, and all private licensing keys are excluded.
 
@@ -189,12 +192,10 @@ Scheduled backups use controller-local daily or weekly time/day settings and sup
 
 ## Next steps
 
-1. Run the full Windows automated suite and Backup & Recovery UI/live validation for v0.23.0.
-2. Exercise at least one real scheduled destination (local folder, mapped drive or UNC/NAS path) where available.
-3. Exercise a manual backup and restore workflow through the UI on Windows, including restart activation and recovery-held queue review.
-4. Update final v0.23.0 release notes/context and merge only after explicit approval.
-5. Continue physical validation of experimental Bambu behaviour before removing the experimental designation.
-6. Add Linux x64 and ARM64 packaging after the active backup/recovery work.
+1. Monitor the v0.23.0 Backup & Recovery baseline for regressions after merge and keep `docs/BACKUP_RECOVERY.md` aligned with any future changes.
+2. Continue physical validation of experimental Bambu behaviour before removing the experimental designation.
+3. Add Linux x64 and ARM64 packaging now that the v0.23.0 backup/recovery work is complete.
+4. Keep cloud backup destinations and built-in backup encryption deferred unless product requirements change.
 
 ## Handoff rule
 
