@@ -213,19 +213,55 @@ export async function readZipDirectory(filePath) {
   }
 }
 
+async function zipEntryDataOffset(handle, entry) {
+  const header = Buffer.alloc(30);
+  const { bytesRead } = await handle.read(header, 0, header.length, entry.localOffset);
+  if (bytesRead !== header.length || header.readUInt32LE(0) !== LOCAL_FILE_HEADER) {
+    throw new Error('Backup archive local entry is invalid');
+  }
+  const nameLength = header.readUInt16LE(26);
+  const extraLength = header.readUInt16LE(28);
+  return entry.localOffset + 30 + nameLength + extraLength;
+}
+
+export async function hashZipEntry(filePath, entry) {
+  const handle = await fs.open(filePath, 'r');
+  try {
+    const start = await zipEntryDataOffset(handle, entry);
+    const hash = crypto.createHash('sha256');
+    let crc = 0;
+    let remaining = entry.size;
+    let position = start;
+    const chunk = Buffer.alloc(Math.min(1024 * 1024, Math.max(1, entry.size)));
+    while (remaining > 0) {
+      const length = Math.min(chunk.length, remaining);
+      const { bytesRead } = await handle.read(chunk, 0, length, position);
+      if (!bytesRead) throw new Error(`Backup archive entry is truncated: ${entry.name}`);
+      const data = chunk.subarray(0, bytesRead);
+      hash.update(data);
+      crc = crc32Update(crc, data);
+      remaining -= bytesRead;
+      position += bytesRead;
+    }
+    if ((crc >>> 0) !== (entry.crc >>> 0)) throw new Error(`Backup archive CRC mismatch: ${entry.name}`);
+    return { sha256:hash.digest('hex'), size:entry.size };
+  } finally {
+    await handle.close();
+  }
+}
+
 export async function readZipEntry(filePath, entry, { maxBytes = 512 * 1024 * 1024 } = {}) {
   if (entry.size > maxBytes) throw new Error(`Backup archive entry exceeds allowed size: ${entry.name}`);
   const handle = await fs.open(filePath, 'r');
   try {
-    const header = Buffer.alloc(30);
-    await handle.read(header, 0, header.length, entry.localOffset);
-    if (header.readUInt32LE(0) !== LOCAL_FILE_HEADER) throw new Error('Backup archive local entry is invalid');
-    const nameLength = header.readUInt16LE(26);
-    const extraLength = header.readUInt16LE(28);
-    const start = entry.localOffset + 30 + nameLength + extraLength;
+    const start = await zipEntryDataOffset(handle, entry);
     const data = Buffer.alloc(entry.size);
-    await handle.read(data, 0, data.length, start);
-    if (data.length !== entry.size) throw new Error('Backup archive entry is truncated');
+    let offset = 0;
+    while (offset < data.length) {
+      const { bytesRead } = await handle.read(data, offset, data.length - offset, start + offset);
+      if (!bytesRead) throw new Error(`Backup archive entry is truncated: ${entry.name}`);
+      offset += bytesRead;
+    }
     const crc = crc32Update(0, data);
     if ((crc >>> 0) !== (entry.crc >>> 0)) throw new Error(`Backup archive CRC mismatch: ${entry.name}`);
     return data;
