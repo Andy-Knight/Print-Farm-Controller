@@ -183,16 +183,16 @@ Every non-terminal restored queue job must be recovery-held and every restored p
 
 Initial v0.23.0 destinations are manual download/save plus scheduled local or OS-mounted/network/NAS paths. Scheduled retention is count-based and only prunes scheduler-owned backups from the same installation. Manual backups are never automatically deleted. Scheduled configuration is restored disabled until explicitly re-enabled.
 
-Implementation status: **stages 1–3 are implemented** — `.pfcbackup` archive/checksum creation, logical snapshot export, manual backup API/download/UI, and read-only restore inspection. Restore inspection rejects unchecksummed/hidden entries, absolute/traversal paths, unsupported/newer versions or schema versions, malformed state, manifest-count mismatches, missing/mismatched Print Library payloads/hashes, unresolved queue→library references and insufficient staging space. It reports counts, warnings and required version migration without changing live data. Actual restore staging/activation remains disabled. Next: staged restore activation on restart with rollback and recovery-hold semantics, then scheduled backup/retention.
+Implementation status: **stages 1–4 are implemented** — `.pfcbackup` creation/verification, manual backup/download/UI, read-only restore inspection, and staged restart-based restore with rollback. Staging revalidates the backup, pauses queue dispatch before checking for physical activity, refuses active physical printer/control work, writes transformed recovery-held state to a sibling staging directory, and leaves live data untouched until restart. Once staged, controller/emulator mutations are blocked until restart or cancellation. Startup journals `staged -> activating -> activated -> committed`; interrupted/failed activation rolls back automatically. All unfinished jobs restore as `needs_review` with an explicit `restoreRecoveryHold`; production batches restore paused; jobs that may have started retain/force bed clearance on the correct printer; release requires deliberate review/recheck and fresh compatibility. Successful restored startup retains the old controller snapshot for a 24-hour recovery window. Pending-journal paths are constrained to controller-owned sibling paths before any rename/delete.
 
 ## Next steps
 
-1. Add restore migration and staged startup activation with automatic rollback.
-2. Add queue recovery-hold semantics and UI.
-3. Add scheduled local/network/NAS backup settings, retention and diagnostics.
-4. Add end-to-end disaster-recovery tests using separate temporary data directories.
-7. Continue physical validation of experimental Bambu behaviour before removing the experimental designation.
-8. Add Linux x64 and ARM64 packaging after the active backup/recovery work.
+1. Add scheduled local/network/NAS backup settings and execution.
+2. Add scheduled-backup retention/pruning and status/diagnostics, while never pruning manual backups.
+3. Add full end-to-end disaster-recovery integration coverage using separate temporary controller data directories and startup/reinitialization.
+4. Run full Windows test/UI/live validation for v0.23.0, then update release documentation before merge.
+5. Continue physical validation of experimental Bambu behaviour before removing the experimental designation.
+6. Add Linux x64 and ARM64 packaging after the active backup/recovery work.
 
 ## Handoff rule
 
