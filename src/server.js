@@ -1516,10 +1516,11 @@ async function startController() {
     await listenControllerServer();
 
     if (restoreTransaction) {
-      await commitActivatedRestore(restoreTransaction);
+      const committedRestore = await commitActivatedRestore(restoreTransaction);
       await diagnosticLogger.info('restore', 'Staged restore activated successfully', {
         backupId:restoreTransaction.backupId || null,
-        fileName:restoreTransaction.fileName || null
+        fileName:restoreTransaction.fileName || null,
+        rollbackRetainUntil:committedRestore?.rollbackRetainUntil || null
       }).catch(() => {});
       restoreTransaction = null;
     }
