@@ -1193,6 +1193,34 @@ button.library-file-preview { cursor:zoom-in; }
   line-height:1.45;
 }
 .backup-action-status { margin-top:10px; }
+.backup-schedule-grid {
+  display:grid;
+  grid-template-columns:minmax(0,2fr) minmax(120px,1fr) minmax(120px,1fr);
+  gap:10px;
+  margin-top:12px;
+  align-items:end;
+}
+.backup-schedule-grid label { margin:0; }
+.backup-schedule-toggle {
+  grid-column:1 / -1;
+  display:flex;
+  align-items:center;
+  gap:9px;
+  min-height:36px;
+}
+.backup-schedule-toggle input {
+  width:auto;
+  margin:0;
+}
+.backup-schedule-destination { grid-column:1 / 3; }
+.backup-destination-actions {
+  align-self:end;
+  padding-bottom:1px;
+}
+.backup-schedule-actions {
+  margin-top:11px;
+  justify-content:flex-end;
+}
 .backup-disabled-section { opacity:.78; }
 .backup-file-field { margin-top:12px; }
 .backup-restore-actions { margin-top:10px; }
@@ -1296,6 +1324,11 @@ button.library-file-preview { cursor:zoom-in; }
 }
 @media (max-width:620px) {
   .backup-status-grid { grid-template-columns:1fr; }
+  .backup-schedule-grid { grid-template-columns:1fr; }
+  .backup-schedule-toggle,
+  .backup-schedule-destination { grid-column:1; }
+  .backup-destination-actions button,
+  .backup-schedule-actions button { width:100%; }
   .restore-inspection-grid { grid-template-columns:1fr; }
   .backup-section-head { align-items:stretch; flex-direction:column; }
   .backup-section-head > button { width:100%; }
