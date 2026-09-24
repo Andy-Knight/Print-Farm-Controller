@@ -208,6 +208,8 @@ export class MaintenanceService {
       }
 
       if (printer.online && session?.active) {
+        const delta = Math.max(0, Math.min(MAX_SAMPLE_MS, nowMs - session.lastSampleAt));
+        if (delta > 0) record.usage.printSeconds += delta / 1000;
         record.usage.printCount += 1;
         record.usage.updatedAt = nowIso(nowMs);
         this.sessions.delete(printer.id);
