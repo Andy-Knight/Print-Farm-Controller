@@ -32,6 +32,12 @@ const diagnosticsSearch = document.querySelector('#diagnosticsSearch');
 const diagnosticsRefreshBtn = document.querySelector('#diagnosticsRefreshBtn');
 const diagnosticsError = document.querySelector('#diagnosticsError');
 const diagnosticsLog = document.querySelector('#diagnosticsLog');
+const backupRecoveryBtn = document.querySelector('#backupRecoveryBtn');
+const backupRecoveryDialog = document.querySelector('#backupRecoveryDialog');
+const backupStatusGrid = document.querySelector('#backupStatusGrid');
+const backupCreateBtn = document.querySelector('#backupCreateBtn');
+const backupActionStatus = document.querySelector('#backupActionStatus');
+const backupError = document.querySelector('#backupError');
 const batchModeBtn = document.querySelector('#batchModeBtn');
 const batchModeMenuBtn = document.querySelector('#batchModeMenuBtn');
 const topbarOverflow = document.querySelector('#topbarOverflow');
@@ -665,6 +671,85 @@ function downloadDiagnosticBundle() {
   document.body.append(link);
   link.click();
   link.remove();
+}
+
+function backupStatusTime(value, empty = 'Never') {
+  if (!value) return empty;
+  const candidate = typeof value === 'object' ? value.createdAt : value;
+  const date = new Date(candidate);
+  return Number.isNaN(date.getTime()) ? String(candidate || empty) : date.toLocaleString();
+}
+
+function renderBackupStatus(payload) {
+  const backup = payload?.backup || {};
+  const last = backup.lastSuccessfulBackup || null;
+  const schedule = backup.schedule || {};
+  if (backupStatusGrid) {
+    backupStatusGrid.innerHTML = `
+      <div><span>Last successful backup</span><strong>${escapeHtml(backupStatusTime(last))}</strong></div>
+      <div><span>Last backup file</span><strong>${escapeHtml(last?.fileName || '—')}</strong></div>
+      <div><span>Last backup size</span><strong>${escapeHtml(last?.size ? formatBytes(last.size) : '—')}</strong></div>
+      <div><span>Scheduled backups</span><strong>${schedule.enabled ? 'Configured' : 'Not enabled'}</strong></div>
+    `;
+  }
+  if (backupCreateBtn) backupCreateBtn.disabled = backup.manualBackupInProgress === true;
+  if (backup.lastError && backupError) {
+    backupError.textContent = backup.lastError;
+    backupError.classList.remove('hidden');
+  }
+}
+
+async function loadBackupStatus() {
+  if (backupError) {
+    backupError.textContent = '';
+    backupError.classList.add('hidden');
+  }
+  try {
+    const result = await api('/api/backup/status');
+    renderBackupStatus(result);
+  } catch (error) {
+    if (backupError) {
+      backupError.textContent = error.message;
+      backupError.classList.remove('hidden');
+    }
+  }
+}
+
+async function createManualBackup() {
+  if (!backupCreateBtn) return;
+  backupCreateBtn.disabled = true;
+  const original = backupCreateBtn.textContent;
+  backupCreateBtn.textContent = 'Creating…';
+  if (backupActionStatus) backupActionStatus.textContent = 'Building and verifying backup…';
+  if (backupError) {
+    backupError.textContent = '';
+    backupError.classList.add('hidden');
+  }
+  try {
+    const result = await api('/api/backup/create', { method:'POST' });
+    const backup = result.backup;
+    if (!backup?.downloadUrl) throw new Error('Backup was created but no download was provided');
+    const counts = backup.manifest?.counts || {};
+    if (backupActionStatus) {
+      backupActionStatus.textContent = `Backup verified · ${formatBytes(backup.size)} · ${counts.printers || 0} printer${Number(counts.printers || 0) === 1 ? '' : 's'} · ${counts.printLibrary || 0} library file${Number(counts.printLibrary || 0) === 1 ? '' : 's'}. Starting download…`;
+    }
+    const link = document.createElement('a');
+    link.href = backup.downloadUrl;
+    link.download = backup.fileName || '';
+    document.body.append(link);
+    link.click();
+    link.remove();
+    await loadBackupStatus();
+  } catch (error) {
+    if (backupActionStatus) backupActionStatus.textContent = '';
+    if (backupError) {
+      backupError.textContent = error.message;
+      backupError.classList.remove('hidden');
+    }
+  } finally {
+    backupCreateBtn.disabled = false;
+    backupCreateBtn.textContent = original;
+  }
 }
 
 function setControllerLicense(license) {
@@ -1659,6 +1744,14 @@ diagnosticsBtn?.addEventListener('click', async () => {
   diagnosticsDialog?.showModal();
   await loadDiagnostics();
 });
+backupRecoveryBtn?.addEventListener('click', async () => {
+  if (topbarOverflow) topbarOverflow.open = false;
+  if (backupActionStatus) backupActionStatus.textContent = '';
+  backupRecoveryDialog?.showModal();
+  await loadBackupStatus();
+});
+document.querySelectorAll('[data-backup-close]').forEach((el) => el.addEventListener('click', () => backupRecoveryDialog?.close()));
+backupCreateBtn?.addEventListener('click', createManualBackup);
 document.querySelectorAll('[data-diagnostics-close]').forEach((el) => el.addEventListener('click', () => diagnosticsDialog?.close()));
 diagnosticsRefreshBtn?.addEventListener('click', loadDiagnostics);
 diagnosticsVerboseBtn?.addEventListener('click', toggleVerboseDiagnostics);
