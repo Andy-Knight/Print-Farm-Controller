@@ -28,11 +28,13 @@ function crc32Update(crc, buffer) {
 }
 
 export function safeArchivePath(value) {
-  const name = String(value || '').replace(/\\/g, '/').replace(/^\/+/, '');
-  if (!name || name.includes('\0') || name.split('/').some((part) => !part || part === '.' || part === '..')) {
+  const name = String(value || '').replace(/\\/g, '/');
+  if (!name || name.startsWith('/') || /^[A-Za-z]:\//.test(name)) {
+    throw new Error('Backup archive entry path must be relative');
+  }
+  if (name.includes('\0') || name.split('/').some((part) => !part || part === '.' || part === '..')) {
     throw new Error('Backup archive entry path is invalid');
   }
-  if (/^[A-Za-z]:\//.test(name)) throw new Error('Backup archive entry path must be relative');
   return name;
 }
 
