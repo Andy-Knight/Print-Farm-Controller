@@ -7,6 +7,7 @@ import { inspectRestoreBackup } from './restore-inspector.js';
 const TERMINAL_STATES = new Set(['completed','failed','cancelled']);
 const PRINT_MAY_HAVE_STARTED_STATES = new Set(['starting','printing']);
 const RESERVED_EXTERNAL_LICENSE = '.pfc-restore-external-license.json';
+export const RESTORE_ROLLBACK_RETENTION_MS = 24 * 60 * 60 * 1000;
 
 function restoreBaseName(dataDir) {
   return path.basename(path.resolve(dataDir)).replace(/[^0-9A-Za-z._-]/g, '_') || 'data';
@@ -166,9 +167,14 @@ export async function stageRestoreBackup(filePath, {
   if (!dataDir || !licensePath) throw new Error('Restore staging requires data and licence paths');
   const paths = restoreRuntimePaths(dataDir);
   if (await pathExists(paths.pendingMarkerPath)) {
-    const error = new Error('A restore is already staged and waiting for controller restart');
-    error.statusCode = 409;
-    throw error;
+    const existing = validatePendingMarkerPaths(await readJson(paths.pendingMarkerPath), dataDir);
+    if (existing.phase === 'committed') {
+      await cleanupCommittedRestore(existing, paths.pendingMarkerPath);
+    } else {
+      const error = new Error('A restore is already staged and waiting for controller restart');
+      error.statusCode = 409;
+      throw error;
+    }
   }
 
   const inspection = await inspectRestoreBackup(filePath, {
@@ -314,6 +320,13 @@ async function rollbackExternalLicense(marker) {
   }
 }
 
+async function cleanupCommittedRestore(marker, markerPath) {
+  await fs.rm(marker.rollbackDir, { recursive:true, force:true }).catch(() => {});
+  await fs.rm(marker.externalLicenseBackupPath, { force:true }).catch(() => {});
+  await fs.rm(marker.stageDir, { recursive:true, force:true }).catch(() => {});
+  await fs.rm(markerPath, { force:true }).catch(() => {});
+}
+
 async function rollbackActivatedMarker(marker, markerPath) {
   const dataDir = path.resolve(marker.dataDir);
   const rollbackDir = path.resolve(marker.rollbackDir);
@@ -348,6 +361,25 @@ export async function activatePendingRestore({ dataDir, licensePath } = {}) {
     dataDir,
     licensePath
   );
+
+  if (marker.phase === 'committed') {
+    const retainUntil = new Date(marker.rollbackRetainUntil || 0).getTime();
+    if (!Number.isFinite(retainUntil) || retainUntil <= Date.now()) {
+      await cleanupCommittedRestore(marker, paths.pendingMarkerPath);
+      return {
+        rollbackRetentionExpired:true,
+        backupId:marker.backupId,
+        fileName:marker.backupFileName
+      };
+    }
+    return {
+      committed:true,
+      rollbackRetained:true,
+      rollbackRetainUntil:marker.rollbackRetainUntil,
+      backupId:marker.backupId,
+      fileName:marker.backupFileName
+    };
+  }
 
   if (marker.phase === 'activated' || marker.phase === 'activating') {
     await rollbackActivatedMarker(marker, paths.pendingMarkerPath);
@@ -395,13 +427,20 @@ export async function activatePendingRestore({ dataDir, licensePath } = {}) {
   }
 }
 
-export async function commitActivatedRestore(transaction) {
+export async function commitActivatedRestore(transaction, {
+  now = new Date(),
+  retentionMs = RESTORE_ROLLBACK_RETENTION_MS
+} = {}) {
   if (!transaction?.activated || !transaction.marker) return false;
   const marker = transaction.marker;
-  await fs.rm(marker.rollbackDir, { recursive:true, force:true }).catch(() => {});
-  await fs.rm(marker.externalLicenseBackupPath, { force:true }).catch(() => {});
-  await fs.rm(transaction.markerPath, { force:true }).catch(() => {});
-  return true;
+  marker.phase = 'committed';
+  marker.committedAt = now.toISOString();
+  marker.rollbackRetainUntil = new Date(now.getTime() + Math.max(0, Number(retentionMs) || 0)).toISOString();
+  await writeJsonAtomic(transaction.markerPath, marker);
+  return {
+    committed:true,
+    rollbackRetainUntil:marker.rollbackRetainUntil
+  };
 }
 
 export async function rollbackActivatedRestore(transaction) {
@@ -430,6 +469,17 @@ export async function pendingRestoreStatus(dataDir) {
   const paths = restoreRuntimePaths(dataDir);
   if (!await pathExists(paths.pendingMarkerPath)) return { pending:false };
   const marker = validatePendingMarkerPaths(await readJson(paths.pendingMarkerPath), dataDir);
+  if (marker.phase === 'committed') {
+    return {
+      pending:false,
+      recentlyRestored:true,
+      phase:'committed',
+      committedAt:marker.committedAt || null,
+      rollbackRetainUntil:marker.rollbackRetainUntil || null,
+      backupId:marker.backupId || null,
+      fileName:marker.backupFileName || null
+    };
+  }
   return {
     pending:true,
     phase:marker.phase || 'unknown',
