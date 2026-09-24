@@ -2,6 +2,7 @@ import http from 'node:http';
 import crypto from 'node:crypto';
 import { createReadStream, promises as fs } from 'node:fs';
 import path from 'node:path';
+import { colorFamily } from './color-family.js';
 
 const DEFAULT_TIMEOUT_MS = 5000;
 const UPLOAD_TIMEOUT_MS = 180000;
@@ -192,7 +193,8 @@ export function normalizeSnapmakerFilament(objects = {}) {
       manufacturer,
       material,
       materialVariant,
-      color
+      color,
+      colorFamily:colorFamily(color)
     };
   });
 }
