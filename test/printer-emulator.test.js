@@ -328,6 +328,48 @@ test('Bambu P1S profile interoperates with the production controller adapter', a
   assert.equal((await adapter.getStatus()).status, 'cancelled');
 });
 
+test('Bambu simulator config uses colour families for AMS and external spool sources', async (t) => {
+  const emulator = createEmulator({ managementPort:0, withDefaults:false });
+  const address = await emulator.start();
+  t.after(() => emulator.stop());
+  const virtual = await emulator.addPrinter({
+    profileId:'bambu-p1s',
+    name:'Colour Family P1S',
+    ports:{ mqttPort:0, ftpsPort:0, cameraPort:0 }
+  });
+  const base = `http://127.0.0.1:${address.port}`;
+
+  const response = await fetch(`${base}/api/printers/${virtual.id}`, {
+    method:'PATCH',
+    headers:{ 'content-type':'application/json' },
+    body:JSON.stringify({
+      amsSlots:[{ unitIndex:0, slotIndex:1, present:true, material:'PLA', colorFamily:'red' }],
+      externalSpool:{ present:true, material:'PETG', colorFamily:'blue' }
+    })
+  });
+  assert.equal(response.status, 200);
+  const { printer } = await response.json();
+  assert.equal(printer.amsUnits[0].trays[1].colorFamily, 'red');
+  assert.equal(printer.amsUnits[0].trays[1].color, '#FF0000');
+  assert.equal(printer.externalSpool.colorFamily, 'blue');
+  assert.equal(printer.externalSpool.color, '#0066FF');
+
+  const config = prepareBambuLabConfig({
+    name:virtual.name,
+    model:virtual.model,
+    host:virtual.host,
+    serialNumber:virtual.serialNumber,
+    accessCode:virtual.checkCode,
+    mqttPort:virtual.ports.mqttPort,
+    ftpsPort:virtual.ports.ftpsPort,
+    cameraPort:virtual.ports.cameraPort
+  });
+  const adapter = getPrinterAdapter(config);
+  const status = await adapter.getStatus();
+  assert.equal(status.materialSources.find((source) => source.protocolIndex === 1).colorFamily, 'red');
+  assert.equal(status.materialSources.find((source) => source.protocolIndex === 254).colorFamily, 'blue');
+});
+
 test('Snapmaker profile interoperates with the production adapter', async (t) => {
   const emulator = createEmulator({ managementPort: 0, withDefaults: false });
   await emulator.start();
