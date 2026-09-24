@@ -1217,3 +1217,121 @@ test('production batches keep one editable priority across waiting copies', asyn
   assert.deepEqual(service.jobs.filter((job) => job.productionBatchId === first.productionBatchId).map((job) => job.priority), ['high','high','high']);
   service.stop();
 });
+
+
+test('restore staging dispatch pause prevents queued jobs from starting until released', async () => {
+  const fleetState = new FakeFleetState([{ id:'p1', online:true, status:{ status:'idle', fileName:null, progress:0 } }]);
+  const store = memoryStore();
+  const starts = [];
+  const service = new PrintQueueService({
+    fleetState,
+    chamberPreheat:{ isActive:() => false, stop:async () => {} },
+    getPrinterFn:async () => ({ id:'p1', name:'Printer' }),
+    adapterResolver:() => ({
+      capabilities:{ printLocalFile:true },
+      getStatus:async () => fleetState.getPrinterState('p1').status,
+      printLocalFile:async (fileName) => starts.push(fileName)
+    }),
+    loadJobsFn:store.load,
+    saveJobsFn:store.save
+  });
+
+  service.setDispatchPaused(true);
+  await service.start();
+  const job = await service.add({ printerId:'p1', fileName:'held.gcode' });
+  await new Promise((resolve) => setTimeout(resolve, 40));
+  assert.equal(service.getJob(job.id).status, 'queued');
+  assert.deepEqual(starts, []);
+
+  service.setDispatchPaused(false);
+  await waitFor(() => starts.length === 1);
+  assert.deepEqual(starts, ['held.gcode']);
+  service.stop();
+});
+
+test('restored automatic job stays recovery-held until deliberate recheck', async () => {
+  const restored = {
+    id:'restore-auto',
+    assignmentMode:'automatic',
+    printerId:null,
+    printerName:'Next available compatible printer',
+    fileName:'restored.gcode',
+    stagedFile:{ id:'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', fileName:'restored.gcode' },
+    requirements:null,
+    status:'needs_review',
+    restoreRecoveryHold:true,
+    restoreOriginalStatus:'queued',
+    restoredAt:'2026-09-24T18:00:00.000Z',
+    options:{ toolMap:{ 0:2 }, materialMap:{ 0:3 }, usedLogicalTools:[0] },
+    queuedAt:'2026-09-24T17:00:00.000Z',
+    updatedAt:'2026-09-24T18:00:00.000Z',
+    error:'Restored — review required.',
+    bedClearanceRequired:false,
+    bedClearedAt:null
+  };
+  const store = memoryStore([restored]);
+  const service = new PrintQueueService({
+    fleetState:new FakeFleetState([]),
+    chamberPreheat:{ isActive:() => false, stop:async () => {} },
+    loadJobsFn:store.load,
+    saveJobsFn:store.save
+  });
+
+  await service.start();
+  assert.equal(service.getJob('restore-auto').status, 'needs_review');
+  assert.equal(service.getJob('restore-auto').restoreRecoveryHold, true);
+
+  const released = await service.recheck('restore-auto');
+  assert.equal(released.status, 'queued');
+  assert.equal(released.restoreRecoveryHold, false);
+  assert.equal(released.printerId, null);
+  assert.equal(released.options.toolMap, null);
+  assert.equal(released.options.materialMap, null);
+  assert.deepEqual(released.options.usedLogicalTools, []);
+  service.stop();
+});
+
+test('restored active automatic job cannot be released before its assigned bed is cleared', async () => {
+  const restored = {
+    id:'restore-active',
+    assignmentMode:'automatic',
+    printerId:'p1',
+    printerName:'Printer 1',
+    fileName:'active-before-backup.gcode',
+    stagedFile:{ id:'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb', fileName:'active-before-backup.gcode' },
+    requirements:null,
+    status:'needs_review',
+    restoreRecoveryHold:true,
+    restoreOriginalStatus:'printing',
+    restoredAt:'2026-09-24T18:00:00.000Z',
+    options:{},
+    queuedAt:'2026-09-24T17:00:00.000Z',
+    updatedAt:'2026-09-24T18:00:00.000Z',
+    error:'Restored — review required.',
+    bedClearanceRequired:true,
+    bedClearedAt:null
+  };
+  const fleetState = new FakeFleetState([{ id:'p1', name:'Printer 1', online:false, status:null }]);
+  const store = memoryStore([restored]);
+  const service = new PrintQueueService({
+    fleetState,
+    chamberPreheat:{ isActive:() => false, stop:async () => {} },
+    loadJobsFn:store.load,
+    saveJobsFn:store.save
+  });
+
+  await service.start();
+  const blocked = await service.recheck('restore-active');
+  assert.equal(blocked.status, 'needs_review');
+  assert.equal(blocked.restoreRecoveryHold, true);
+  assert.match(blocked.error, /build plate is clear/i);
+  assert.equal(service.getSnapshot().awaitingClearance, 1);
+
+  await service.clearBed('p1');
+  const released = await service.recheck('restore-active');
+  assert.equal(released.status, 'queued');
+  assert.equal(released.restoreRecoveryHold, false);
+  assert.equal(released.printerId, null);
+  assert.equal(released.printerName, 'Next available compatible printer');
+  service.stop();
+});
