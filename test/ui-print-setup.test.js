@@ -506,6 +506,8 @@ test('Fleet operations does not expose manual temperature setting', () => {
 test('FlashForge detail exposes printer-reported filament type in Toolhead status', () => {
   const printerApi = fs.readFileSync(new URL('../src/printer-api.js', import.meta.url), 'utf8');
   const adapter = fs.readFileSync(new URL('../src/adapters/flashforge-ad5m-adapter.js', import.meta.url), 'utf8');
+  const server = fs.readFileSync(new URL('../src/server.js', import.meta.url), 'utf8');
+  const store = fs.readFileSync(new URL('../src/store.js', import.meta.url), 'utf8');
   assert.match(printerApi, /rightFilamentType/);
   assert.match(printerApi, /materialSource: rightFilamentType \? 'printer'/);
   assert.match(adapter, /materialStatus: true/);
@@ -524,6 +526,10 @@ test('FlashForge detail exposes printer-reported filament type in Toolhead statu
   assert.match(app, /data-material-designation-save/);
   assert.match(app, /data-material-designation-clear/);
   assert.match(app, /colour family is used for automatic queue compatibility/);
+  assert.match(server, /body\.colorFamily/);
+  assert.match(store, /filamentColorFamilyDesignation/);
+  assert.match(adapter, /filamentColorFamilyDesignation/);
+  assert.match(adapter, /colorFamilySource = 'manual'/);
 });
 
 
