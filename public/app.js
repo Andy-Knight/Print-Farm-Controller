@@ -2445,7 +2445,8 @@ function filamentColorText(value) {
 
 function filamentColorDisplayText(filament = {}) {
   const exact = filamentColorText(filament.color);
-  const family = filamentColorFamilyOption(filament.colorFamily)?.label || null;
+  const familyOption = filamentColorFamilyOption(filament.colorFamily);
+  const family = familyOption ? filamentColorFamilyLabel(familyOption) : null;
   if (family && exact) return `${family} · ${exact}`;
   return family || exact;
 }
