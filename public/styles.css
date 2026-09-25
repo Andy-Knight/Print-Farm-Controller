@@ -1493,3 +1493,166 @@ button.library-file-preview { cursor:zoom-in; }
   .maintenance-description-field { grid-column:auto; }
   .maintenance-history-entry > div { grid-column:auto; }
 }
+
+
+/* Dashboard maintenance alerts */
+.maintenance-alert-button {
+  position:relative;
+  width:40px;
+  height:40px;
+  flex:0 0 40px;
+  display:grid;
+  place-items:center;
+  padding:0;
+  border:1px solid #66502c;
+  border-radius:10px;
+  background:#211a0f;
+  color:#f2d28a;
+}
+.maintenance-alert-button[data-state="due"] {
+  border-color:#63353a;
+  background:#251416;
+  color:#ffafb4;
+}
+.maintenance-alert-button.active {
+  outline:2px solid currentColor;
+  outline-offset:2px;
+}
+.maintenance-alert-bell {
+  width:21px;
+  height:21px;
+  fill:none;
+  stroke:currentColor;
+  stroke-width:2;
+  stroke-linecap:round;
+  stroke-linejoin:round;
+}
+.maintenance-alert-count {
+  position:absolute;
+  top:-6px;
+  right:-6px;
+  min-width:18px;
+  height:18px;
+  display:grid;
+  place-items:center;
+  padding:0 5px;
+  border-radius:999px;
+  border:2px solid #0c1015;
+  background:#d6a93d;
+  color:#16130c;
+  font-size:.62rem;
+  font-weight:900;
+  line-height:1;
+}
+.maintenance-alert-button[data-state="due"] .maintenance-alert-count {
+  background:#ed7078;
+  color:#1e0d0f;
+}
+.maintenance-status-icon {
+  width:27px;
+  height:27px;
+  display:grid;
+  place-items:center;
+  flex:0 0 27px;
+  border:1px solid #36424c;
+  border-radius:8px;
+  background:#151d24;
+  color:#758895;
+}
+.maintenance-status-icon svg {
+  width:16px;
+  height:16px;
+  fill:none;
+  stroke:currentColor;
+  stroke-width:2;
+  stroke-linecap:round;
+  stroke-linejoin:round;
+}
+.maintenance-status-icon[data-state="current"] {
+  border-color:#315445;
+  background:#13231d;
+  color:#8fd6b9;
+}
+.maintenance-status-icon[data-state="due_soon"] {
+  border-color:#66502c;
+  background:#211a0f;
+  color:#f2d28a;
+}
+.maintenance-status-icon[data-state="due"] {
+  border-color:#63353a;
+  background:#251416;
+  color:#ffafb4;
+}
+.printer-detail-title-row {
+  display:flex;
+  align-items:center;
+  gap:9px;
+  flex-wrap:wrap;
+}
+.printer-detail-title-row h2 { margin-bottom:0; }
+.maintenance-status-icon-detail {
+  width:30px;
+  height:30px;
+  flex-basis:30px;
+}
+.maintenance-status-icon-detail svg {
+  width:18px;
+  height:18px;
+}
+.maintenance-tracking-summary {
+  margin:-3px 0 11px;
+  padding:8px 9px;
+  border:1px solid #29343d;
+  border-radius:9px;
+  background:#10171d;
+  color:#91a2af;
+  font-size:.76rem;
+  line-height:1.35;
+}
+
+:root[data-theme="light"] .maintenance-alert-button {
+  background:#fff9ec;
+  border-color:#d8bd70;
+  color:#8b6713;
+}
+:root[data-theme="light"] .maintenance-alert-button[data-state="due"] {
+  background:#fff3f4;
+  border-color:#dda8ad;
+  color:#a63c45;
+}
+:root[data-theme="light"] .maintenance-alert-count {
+  border-color:#eef3f7;
+}
+:root[data-theme="light"] .maintenance-status-icon {
+  background:#f4f7f9;
+  border-color:#cbd6de;
+  color:#748896;
+}
+:root[data-theme="light"] .maintenance-status-icon[data-state="current"] {
+  background:#edf8f3;
+  border-color:#afd6c5;
+  color:#39785f;
+}
+:root[data-theme="light"] .maintenance-status-icon[data-state="due_soon"] {
+  background:#fff9ec;
+  border-color:#d8bd70;
+  color:#8b6713;
+}
+:root[data-theme="light"] .maintenance-status-icon[data-state="due"] {
+  background:#fff3f4;
+  border-color:#dda8ad;
+  color:#a63c45;
+}
+:root[data-theme="light"] .maintenance-tracking-summary {
+  background:#f7fafc;
+  border-color:#d5dee5;
+  color:#617786;
+}
+
+@media (max-width:620px) {
+  .maintenance-alert-button {
+    width:38px;
+    height:38px;
+    flex-basis:38px;
+  }
+}
