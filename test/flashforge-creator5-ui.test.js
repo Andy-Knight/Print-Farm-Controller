@@ -29,3 +29,8 @@ test('Creator 5 local-file setup warns when firmware cannot reveal sliced tool r
   assert.match(adapter, /does not expose per-file tool\/material requirements/);
   assert.match(app, /does not expose its sliced tool requirements/);
 });
+
+
+test('Creator 5 does not coerce an unknown active tool to T0 in the dashboard', () => {
+  assert.match(app, /s\?\.activeTool != null && Number\.isInteger\(Number\(s\.activeTool\)\)/);
+});
