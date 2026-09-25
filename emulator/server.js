@@ -50,6 +50,16 @@ function controllerSettings(printer) {
       cameraPort: printer.ports.cameraPort
     };
   }
+  if (printer.adapterType === 'flashforge-creator5') {
+    return {
+      ...common,
+      model: printer.model,
+      serialNumber: printer.serialNumber,
+      checkCode: printer.checkCode,
+      httpPort: printer.ports.httpPort,
+      cameraPort: printer.ports.cameraPort
+    };
+  }
   if (printer.adapterType === 'bambu-lab') {
     return {
       ...common,
