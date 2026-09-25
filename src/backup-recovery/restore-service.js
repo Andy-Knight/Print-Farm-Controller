@@ -15,6 +15,7 @@ const BASE_MANAGED_ENTRIES = Object.freeze([
   'backup-settings.json',
   'emulator-settings.json',
   'maintenance.json',
+  'printer-groups.json',
   'print-library',
   // A historical queue-files directory must not survive a restore and then
   // migrate stale content back into the restored Print Library.
@@ -256,7 +257,14 @@ export async function stageRestoreBackup(filePath, {
       const maintenance = JSON.parse((await archive.read('state/maintenance.json')).toString('utf8'));
       await writeStateJson(stageDir, 'maintenance.json', maintenance);
     } else {
-      await writeStateJson(stageDir, 'maintenance.json', { version:1, printers:{} });
+      await writeStateJson(stageDir, 'maintenance.json', { version:1, modelTasks:[], groupTasks:[], printers:{} });
+    }
+
+    if (archive.byName.has('state/printer-groups.json')) {
+      const printerGroups = JSON.parse((await archive.read('state/printer-groups.json')).toString('utf8'));
+      await writeStateJson(stageDir, 'printer-groups.json', printerGroups);
+    } else {
+      await writeStateJson(stageDir, 'printer-groups.json', { version:1, groups:[] });
     }
 
     if (archive.byName.has('state/emulator-settings.json')) {
