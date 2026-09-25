@@ -85,6 +85,8 @@ export class EmulatorManager {
       if (adapterType === 'flashforge-ad5m') {
         if (Number(config.httpPort || 8898) === Number(ports.httpPort)
           && Number(config.tcpPort || config.commandPort || 8899) === Number(ports.tcpPort)) return true;
+      } else if (adapterType === 'flashforge-creator5') {
+        if (Number(config.httpPort || 8898) === Number(ports.httpPort)) return true;
       } else if (adapterType === 'bambu-lab') {
         if (Number(config.mqttPort || 8883) === Number(ports.mqttPort)
           && Number(config.ftpsPort || 990) === Number(ports.ftpsPort)) return true;
