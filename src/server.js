@@ -39,6 +39,7 @@ import { KeyedSerialExecutor, PrinterOperationCoordinator } from './concurrency.
 import { evaluatePrinterOperation, PrinterPhysicalActivityTracker, PRINTER_OPERATION_TYPES } from './printer-operation-policy.js';
 import { DiagnosticLogger } from './diagnostic-logger.js';
 import { MaintenanceService } from './maintenance-service.js';
+import { PrinterGroupService } from './printer-groups.js';
 import { ManualBackupManager } from './backup-recovery/manual-backup-manager.js';
 import { BackupOperationLock } from './backup-recovery/backup-operation-lock.js';
 import { ScheduledBackupService } from './backup-recovery/scheduled-backup-service.js';
@@ -256,15 +257,20 @@ const fileDistribution = new FileDistributionService({
   printerAllowedFn: printerLicensedForNewWork,
   operationCoordinator:printerOperations
 });
+const printerGroups = new PrinterGroupService({ dataDir:runtimePaths.dataDir });
 const printQueue = new PrintQueueService({
   fleetState,
   chamberPreheat,
+  getPrinterGroupFn:(groupId) => printerGroups.get(groupId),
   printerAllowedFn: printerLicensedForNewWork,
   operationCoordinator:printerOperations,
   onChange: () => fleetState.schedulePublish(),
   diagnosticFn:(level, message, meta) => diagnosticLogger[level]?.('queue', message, meta)
 });
-const maintenanceService = new MaintenanceService({ fleetState });
+const maintenanceService = new MaintenanceService({
+  fleetState,
+  groupLookupFn:(groupId) => printerGroups.get(groupId)
+});
 const toolOffsetCalibrationLocks = new Map();
 
 const contentTypes = {
@@ -392,6 +398,19 @@ function validatePrinterModelTarget(input, errorMessage = 'Choose a supported pr
 function validateLibraryPrinterTarget(input) {
   if (input == null || input === '') return null;
   return validatePrinterModelTarget(input, 'Choose a supported printer type for this Print Library file');
+}
+
+function validatePrinterGroupTarget(input, errorMessage = 'Choose a printer group') {
+  const groupId = typeof input === 'object' && input !== null
+    ? String(input.groupId || '').trim()
+    : String(input || '').trim();
+  const group = groupId ? printerGroups.get(groupId) : null;
+  if (!group) {
+    const error = new Error(errorMessage);
+    error.statusCode = 400;
+    throw error;
+  }
+  return { groupId:group.id };
 }
 
 function openEventStream(req, res) {
@@ -763,6 +782,69 @@ async function apiRoute(req, res, url) {
     });
   }
 
+  if (req.method === 'GET' && url.pathname === '/api/printer-groups') {
+    const printers = (await listPrinters()).map(publicPrinter);
+    return json(res, 200, printerGroups.snapshot(printers));
+  }
+
+  if (req.method === 'POST' && url.pathname === '/api/printer-groups') {
+    const body = await readJson(req);
+    const group = await controllerMutations.run('printer-groups', () => printerGroups.create({
+      name:body.name,
+      printerIds:body.printerIds
+    }));
+    await diagnosticLogger.info('printer-groups', 'Printer group created', {
+      groupId:group.id,
+      groupName:group.name,
+      members:group.printerIds.length
+    });
+    fleetState.schedulePublish();
+    return json(res, 201, { group });
+  }
+
+  const printerGroupMatch = url.pathname.match(/^\/api\/printer-groups\/([^/]+)$/);
+  if (printerGroupMatch) {
+    const groupId = decodeURIComponent(printerGroupMatch[1]);
+    if (req.method === 'PATCH') {
+      const body = await readJson(req);
+      const group = await controllerMutations.run('printer-groups', () => printerGroups.update(groupId, {
+        name:body.name,
+        printerIds:body.printerIds
+      }));
+      await diagnosticLogger.info('printer-groups', 'Printer group updated', {
+        groupId:group.id,
+        groupName:group.name,
+        members:group.printerIds.length
+      });
+      fleetState.schedulePublish();
+      return json(res, 200, { group });
+    }
+    if (req.method === 'DELETE') {
+      const activeGroupJobs = (printQueue.getSnapshot().jobs || []).filter((job) =>
+        job.groupId === groupId && !['completed','failed','cancelled'].includes(job.status)
+      );
+      if (activeGroupJobs.length) {
+        const error = new Error('This printer group is still referenced by active or queued print jobs');
+        error.statusCode = 409;
+        throw error;
+      }
+      if (maintenanceService.hasGroupTaskReference(groupId)) {
+        const error = new Error('Delete this group\'s maintenance rules before deleting the printer group');
+        error.statusCode = 409;
+        throw error;
+      }
+      const existing = printerGroups.get(groupId);
+      await controllerMutations.run('printer-groups', () => printerGroups.delete(groupId));
+      await diagnosticLogger.info('printer-groups', 'Printer group deleted', {
+        groupId,
+        groupName:existing?.name || null
+      });
+      fleetState.schedulePublish();
+      return json(res, 200, { ok:true });
+    }
+    return json(res, 405, { error:'Printer group operation is not supported' });
+  }
+
   if (req.method === 'GET' && url.pathname === '/api/printers') {
     const printers = decoratedFleet((await listPrinters()).map(publicPrinter));
     return json(res, 200, { printers, license:currentLicenseSnapshot(printers) });
@@ -878,6 +960,7 @@ async function apiRoute(req, res, url) {
       stagedFileId: body.libraryFileId || body.stagedFileId,
       quantity: body.quantity,
       priority: body.priority,
+      groupId: body.groupId || null,
       options: body.options || {}
     }));
     return json(res, 201, { job, queue: printQueue.getSnapshot() });
@@ -1068,7 +1151,47 @@ async function apiRoute(req, res, url) {
     return json(res, 405, { error:'Maintenance history operation is not supported' });
   }
 
-  const maintenanceTaskMatch = url.pathname.match(/^\/api\/printers\/([^/]+)\/maintenance\/tasks(?:\/([^/]+))?(?:\/(complete))?$/);
+  const maintenanceGroupTaskMatch = url.pathname.match(/^\/api\/maintenance\/group-tasks(?:\/([^/]+))?(?:\/(complete))?$/);
+  if (maintenanceGroupTaskMatch) {
+    const taskId = maintenanceGroupTaskMatch[1] ? decodeURIComponent(maintenanceGroupTaskMatch[1]) : null;
+    const completeAction = maintenanceGroupTaskMatch[2] === 'complete';
+    if (req.method === 'POST' && !taskId) {
+      const body = await readJson(req);
+      const target = validatePrinterGroupTarget(body.target);
+      const task = await controllerMutations.run('maintenance', () => maintenanceService.addGroupTask(target, body));
+      fleetState.schedulePublish();
+      return json(res, 201, { task });
+    }
+    if (req.method === 'PATCH' && taskId && !completeAction) {
+      const body = await readJson(req);
+      const target = body.target === undefined ? undefined : validatePrinterGroupTarget(body.target);
+      const task = await controllerMutations.run('maintenance', () => maintenanceService.updateGroupTask(taskId, body, target));
+      fleetState.schedulePublish();
+      return json(res, 200, { task });
+    }
+    if (req.method === 'POST' && taskId && completeAction) {
+      const body = await readJson(req);
+      const result = await controllerMutations.run('maintenance', () => maintenanceService.completeGroupTask(taskId, body.notes));
+      await diagnosticLogger.info('maintenance', 'Group-wide maintenance task completed', {
+        taskId,
+        taskName:result.task?.name || null,
+        groupId:result.task?.assignment?.groupId || null,
+        matching:result.summary?.matching || 0,
+        completed:result.summary?.completed || 0,
+        skipped:result.summary?.skipped || 0
+      });
+      fleetState.schedulePublish();
+      return json(res, 200, result);
+    }
+    if (req.method === 'DELETE' && taskId && !completeAction) {
+      await controllerMutations.run('maintenance', () => maintenanceService.deleteGroupTask(taskId));
+      fleetState.schedulePublish();
+      return json(res, 200, { ok:true });
+    }
+    return json(res, 405, { error:'Group maintenance task operation is not supported' });
+  }
+
+    const maintenanceTaskMatch = url.pathname.match(/^\/api\/printers\/([^/]+)\/maintenance\/tasks(?:\/([^/]+))?(?:\/(complete))?$/);
   if (maintenanceTaskMatch) {
     const printerId = decodeURIComponent(maintenanceTaskMatch[1]);
     const taskId = maintenanceTaskMatch[2] ? decodeURIComponent(maintenanceTaskMatch[2]) : null;
@@ -1158,6 +1281,7 @@ async function apiRoute(req, res, url) {
     await controllerMutations.run('printer-registry', () => printerOperations.run(id, 'printer removal', async () => {
       if (chamberPreheat.isActive(id)) await chamberPreheat.stop(id, { reason: 'printer-removed', turnOff: true });
       await removePrinter(id);
+      await printerGroups.removePrinter(id).catch(() => {});
       await removePrinterFileMaterialMetadata(id).catch(() => {});
       printerActivities.clear(id);
       cameraManager.remove(id);
@@ -1673,6 +1797,7 @@ async function startController() {
       console.error(`Could not start integrated printer simulator: ${error.message}`);
     }
 
+    await printerGroups.init();
     await fleetState.start();
     await maintenanceService.start();
     await printQueue.start();
@@ -1710,6 +1835,7 @@ async function startController() {
     console.log('Batch fleet control enabled');
     console.log('Verified multi-printer file distribution enabled');
     console.log('Persistent fleet print queue + history enabled');
+    console.log('Custom printer groups + group-restricted scheduling enabled');
     console.log('Maintenance tracking + controller-observed printer usage enabled');
   } catch (error) {
     chamberPreheat.stopService();
