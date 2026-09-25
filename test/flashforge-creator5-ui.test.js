@@ -9,7 +9,7 @@ const registry = fs.readFileSync(new URL('../src/adapters/adapter-registry.js', 
 
 test('Creator 5 models are exposed as a supported adapter with explicit model selection', () => {
   assert.match(registry, /flashForgeCreator5AdapterDefinition/);
-  assert.match(adapter, /models:\['Creator 5', 'Creator 5 Pro'\]/);
+  assert.match(adapter, /models:\[\.\.\.CREATOR5_MODELS\]/);
   assert.match(adapter, /name:'model'[\s\S]*type:'select'/);
   assert.doesNotMatch(adapter, /name:'tcpPort'/);
 });
