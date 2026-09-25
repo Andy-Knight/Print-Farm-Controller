@@ -233,6 +233,61 @@ test('live maintenance status exposes due-soon and due states for fleet indicato
   }
 });
 
+test('group-wide tasks follow current group membership and keep per-printer completion state', async () => {
+  const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'pfc-maintenance-group-'));
+  let now = Date.parse('2026-09-25T12:00:00Z');
+  const p1 = { ...printer(), id:'printer-1', name:'Printer A', adapterType:'test', model:'Model' };
+  const p2 = { ...printer(), id:'printer-2', name:'Printer B', adapterType:'test', model:'Model' };
+  const fleet = new FakeFleet([p1, p2]);
+  const lookup = new Map([[p1.id,p1],[p2.id,p2]]);
+  const group = { id:'group-1', name:'Production', printerIds:[p1.id] };
+  const service = new MaintenanceService({
+    fleetState:fleet,
+    dataDir:dir,
+    printerLookup:async (id) => lookup.get(id) || null,
+    groupLookupFn:(id) => id === group.id ? group : null,
+    nowFn:() => now,
+    persistDelayMs:1
+  });
+
+  try {
+    await service.start();
+    const task = await service.addGroupTask(
+      { groupId:group.id },
+      { name:'Clean build area', schedule:{ type:'days', interval:10 } }
+    );
+
+    let snapshot = await service.getSnapshot([p1,p2]);
+    assert.equal(snapshot.groupTasks.length, 1);
+    assert.equal(snapshot.groupTasks[0].assignment.scope, 'group');
+    assert.equal(snapshot.groupTasks[0].assignment.groupName, 'Production');
+    assert.equal(snapshot.printers[0].tasks.length, 1);
+    assert.equal(snapshot.printers[0].tasks[0].assignment.scope, 'group');
+    assert.equal(snapshot.printers[1].tasks.length, 0);
+
+    group.printerIds = [p2.id];
+    fleet.emit([p1,p2]);
+    snapshot = await service.getSnapshot([p1,p2]);
+    assert.equal(snapshot.printers[0].tasks.length, 0);
+    assert.equal(snapshot.printers[1].tasks.length, 1);
+    assert.equal(snapshot.groupTasks[0].completionSummary.matching, 1);
+
+    const completed = await service.completeTask(p2.id, task.id, 'Completed for group member');
+    assert.equal(completed.history.assignment.scope, 'group');
+    assert.equal(completed.history.assignment.groupId, group.id);
+    assert.equal(completed.history.assignment.groupName, 'Production');
+
+    snapshot = await service.getSnapshot([p1,p2]);
+    const p2Task = snapshot.printers[1].tasks[0];
+    assert.ok(p2Task.lastCompletedAt);
+    assert.equal(p2Task.completionAllowed, false);
+    assert.equal(snapshot.printers[1].history[0].notes, 'Completed for group member');
+  } finally {
+    await service.stop();
+    await fs.rm(dir, { recursive:true, force:true });
+  }
+});
+
 test('model-wide tasks are inherited without duplication and keep per-printer baselines', async () => {
   const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'pfc-maintenance-model-'));
   let now = Date.parse('2026-09-24T12:00:00Z');
