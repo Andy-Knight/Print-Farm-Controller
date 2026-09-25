@@ -76,6 +76,28 @@ test('U1 compatibility produces a logical-to-physical mapping from loaded tool s
   assert.deepEqual(result.toolMap, { '0':2, '1':0 });
 });
 
+test('Creator 5 compatibility maps multi-tool files across four loaded toolheads', () => {
+  const result = evaluateQueueCompatibility({
+    job:stagedJob,
+    printer:{ id:'c5', name:'Creator 5 Pro', adapterType:'flashforge-creator5', model:'Creator 5 Pro' },
+    state:{ id:'c5', name:'Creator 5 Pro', online:true, status:{ status:'idle', tools:[
+      { index:0, nozzleDiameter:0.6, filament:{ present:true, material:'PETG', color:'#00FF00' } },
+      { index:1, nozzleDiameter:0.4, filament:{ present:true, material:'PLA', color:'#0000FF' } },
+      { index:2, nozzleDiameter:0.4, filament:{ present:true, material:'PLA', color:'#FF0000' } },
+      { index:3, nozzleDiameter:0.4, filament:{ present:true, material:'ASA', color:'#FFFFFF' } }
+    ] } },
+    adapter:{
+      type:'flashforge-creator5',
+      model:'Creator 5 Pro',
+      capabilities:{ fileUpload:true, localFiles:true, printLocalFile:true, printToolMapping:true },
+      limits:{ toolCount:4 },
+      uploadExtensions:['.gcode','.3mf']
+    }
+  });
+  assert.equal(result.category, 'ready');
+  assert.deepEqual(result.toolMap, { '0':2, '1':0 });
+});
+
 test('single-tool printer is incompatible with a two-tool file', () => {
   const result = evaluateQueueCompatibility({
     job:stagedJob,

@@ -76,7 +76,7 @@ export class VirtualPrinter extends EventEmitter {
     this.autoProgress = true;
     this.maintenanceEndsAt = 0;
     this.bed = { actual: 25, target: 0 };
-    this.chamber = { actual: 25 };
+    this.chamber = { actual: 25, target: 0 };
     this.tools = defaultTools(profile.toolCount || 1);
     if (this.model === 'X1C') this.tools[0].nozzleVolumeType = 'hardened-steel';
     this.amsUnits = defaultAmsUnits(profile.adapterType === 'bambu-lab');
@@ -194,6 +194,7 @@ export class VirtualPrinter extends EventEmitter {
     this.remainingSeconds = 0;
     this.maintenanceEndsAt = 0;
     this.bed.target = 0;
+    this.chamber.target = 0;
     for (const tool of this.tools) tool.target = 0;
     for (const key of Object.keys(this.faults)) this.faults[key] = typeof this.faults[key] === 'boolean' ? false : 0;
     this.log('state', 'Printer reset');
@@ -215,6 +216,7 @@ export class VirtualPrinter extends EventEmitter {
     if (values.autoProgress !== undefined) this.autoProgress = Boolean(values.autoProgress);
     if (values.fileName !== undefined) this.fileName = values.fileName ? String(values.fileName) : null;
     if (values.bedTarget !== undefined) this.bed.target = clamp(values.bedTarget, 0, 150);
+    if (values.chamberTarget !== undefined) this.chamber.target = clamp(values.chamberTarget, 0, 100);
     if (values.toolTargets && typeof values.toolTargets === 'object') {
       for (const [index, target] of Object.entries(values.toolTargets)) {
         if (this.tools[Number(index)]) this.tools[Number(index)].target = clamp(target, 0, 400);
@@ -316,6 +318,7 @@ export class VirtualPrinter extends EventEmitter {
     const before = JSON.stringify({
       progress: Number(this.progress.toFixed(1)),
       bed: Number(this.bed.actual.toFixed(1)),
+      chamber: Number(this.chamber.actual.toFixed(1)),
       tools: this.tools.map((tool) => Number(tool.actual.toFixed(1)))
     });
     const approach = (actual, target) => {
@@ -324,6 +327,7 @@ export class VirtualPrinter extends EventEmitter {
       return actual + Math.sign(target - actual) * rate * delta;
     };
     this.bed.actual = approach(this.bed.actual, this.bed.target || 25);
+    this.chamber.actual = approach(this.chamber.actual, this.chamber.target || 25);
     for (const tool of this.tools) tool.actual = approach(tool.actual, tool.target || 25);
 
     if (this.status === 'leveling' && this.maintenanceEndsAt && now >= this.maintenanceEndsAt) {
@@ -343,6 +347,7 @@ export class VirtualPrinter extends EventEmitter {
     const after = JSON.stringify({
       progress: Number(this.progress.toFixed(1)),
       bed: Number(this.bed.actual.toFixed(1)),
+      chamber: Number(this.chamber.actual.toFixed(1)),
       tools: this.tools.map((tool) => Number(tool.actual.toFixed(1)))
     });
     if (before !== after) this.emitChange();
@@ -373,7 +378,7 @@ export class VirtualPrinter extends EventEmitter {
       speedMultiplier: this.speedMultiplier,
       autoProgress: this.autoProgress,
       bed: { actual: Number(this.bed.actual.toFixed(1)), target: this.bed.target },
-      chamber: { ...this.chamber },
+      chamber: { actual:Number(this.chamber.actual.toFixed(1)), target:this.chamber.target },
       tools: this.tools.map((tool) => ({ ...tool, filament: { ...tool.filament }, offset: [...tool.offset] })),
       amsUnits:this.amsUnits.map((unit) => ({ ...unit, trays:unit.trays.map((tray) => ({ ...tray })) })),
       externalSpool:{ ...this.externalSpool },

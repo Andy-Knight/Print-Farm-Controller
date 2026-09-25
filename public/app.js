@@ -12,6 +12,10 @@ const formError = document.querySelector('#formError');
 const scanNetworkBtn = document.querySelector('#scanNetworkBtn');
 const discoveryStatus = document.querySelector('#discoveryStatus');
 const discoveryResults = document.querySelector('#discoveryResults');
+const virtualPrinterStatus = document.querySelector('#virtualPrinterStatus');
+const virtualPrinterResults = document.querySelector('#virtualPrinterResults');
+const refreshVirtualPrintersBtn = document.querySelector('#refreshVirtualPrintersBtn');
+const openSimulatorBtn = document.querySelector('#openSimulatorBtn');
 const liveIndicator = document.querySelector('#liveIndicator');
 const controllerVersionEl = document.querySelector('#controllerVersion');
 const controllerEditionEl = document.querySelector('#controllerEdition');
@@ -1337,10 +1341,32 @@ function renderSummary() {
     ['printing', scopedFleet.filter(isPrinterPrinting).length],
     ['attention', scopedFleet.filter(printerNeedsAttention).length]
   ];
-  summaryEl.innerHTML = items.map(([filter, value]) => {
+
+  // Keep the filter button DOM nodes stable during live SSE refreshes. Replacing
+  // them between pointerdown and click can cause the browser to drop the click.
+  // This mirrors the same stability rule used for printer cards/open buttons.
+  const expectedFilters = new Set(items.map(([filter]) => filter));
+  const existingButtons = [...summaryEl.querySelectorAll('[data-dashboard-filter]')];
+  const structureValid = existingButtons.length === items.length
+    && existingButtons.every((button) => expectedFilters.has(button.dataset.dashboardFilter));
+
+  if (!structureValid) {
+    summaryEl.innerHTML = items.map(([filter]) =>
+      `<button type="button" class="summary-card" data-dashboard-filter="${filter}" aria-pressed="false"><span class="subtle"></span><b></b></button>`
+    ).join('');
+  }
+
+  for (const [filter, value] of items) {
+    const button = summaryEl.querySelector(`[data-dashboard-filter="${filter}"]`);
+    if (!button) continue;
     const active = dashboardFilter === filter;
-    return `<button type="button" class="summary-card${active ? ' active' : ''}" data-dashboard-filter="${filter}" aria-pressed="${active}"><span class="subtle">${DASHBOARD_FILTER_LABELS[filter]}</span><b>${value}</b></button>`;
-  }).join('');
+    button.classList.toggle('active', active);
+    button.setAttribute('aria-pressed', String(active));
+    const label = button.querySelector('.subtle');
+    const count = button.querySelector('b');
+    if (label) label.textContent = DASHBOARD_FILTER_LABELS[filter];
+    if (count) count.textContent = String(value);
+  }
 }
 
 function applyDashboardFilter() {
@@ -2048,7 +2074,7 @@ function updateCard(card, printer) {
   card.querySelector('[data-job-name]').textContent = s?.fileName || (printer.online ? 'No active job' : 'Printer offline');
   card.querySelector('[data-progress-value]').textContent = `${progress}%`;
   card.querySelector('[data-progress-bar]').style.width = `${progress}%`;
-  const activeTool = Number.isInteger(Number(s?.activeTool)) ? Number(s.activeTool) : null;
+  const activeTool = s?.activeTool != null && Number.isInteger(Number(s.activeTool)) ? Number(s.activeTool) : null;
   card.querySelector('[data-nozzle-label]').textContent = activeTool !== null && printer.capabilities?.toolTemperatures ? `Active T${activeTool}` : 'Nozzle';
   card.querySelector('[data-nozzle]').textContent = s ? `${s.nozzle.actual.toFixed(0)} / ${s.nozzle.target.toFixed(0)} °C` : '—';
   card.querySelector('[data-bed]').textContent = s ? `${s.bed.actual.toFixed(0)} / ${s.bed.target.toFixed(0)} °C` : '—';
@@ -2102,7 +2128,10 @@ function updateCard(card, printer) {
   const preheatStrip = card.querySelector('[data-preheat-strip]');
   preheatStrip.classList.toggle('hidden', !preheat?.active);
   if (preheat?.active) {
-    card.querySelector('[data-preheat-summary]').textContent = `${Number(preheat.bedTemperature).toFixed(0)} °C bed · ${formatCountdown(preheatRemainingSeconds(preheat))} remaining`;
+    const target = preheat.heatSource === 'chamber'
+      ? `${Number(preheat.chamberTemperature).toFixed(0)} °C chamber`
+      : `${Number(preheat.bedTemperature).toFixed(0)} °C bed`;
+    card.querySelector('[data-preheat-summary]').textContent = `${target} · ${formatCountdown(preheatRemainingSeconds(preheat))} remaining`;
   }
   const clearance = queueBedClearance(printer.id);
   const clearanceStrip = card.querySelector('[data-bed-clearance-strip]');
@@ -2301,6 +2330,109 @@ async function loadAdapters() {
   }
 }
 
+function virtualPrinterAlreadyAdded(virtualPrinter) {
+  const settings = virtualPrinter?.controllerSettings || {};
+  if (!settings.adapterType || !settings.host) return false;
+  const portNames = {
+    'flashforge-ad5m':['httpPort','tcpPort'],
+    'flashforge-creator5':['httpPort'],
+    'snapmaker-u1':['httpPort'],
+    'bambu-lab':['mqttPort','ftpsPort']
+  }[settings.adapterType] || [];
+
+  return fleet.some((printer) => {
+    if (printer.simulated !== true) return false;
+    if (String(printer.adapterType || '') !== String(settings.adapterType || '')) return false;
+    if (String(printer.host || '').trim().toLowerCase() !== String(settings.host || '').trim().toLowerCase()) return false;
+    if (settings.serialNumber && printer.serialNumber && String(printer.serialNumber) !== String(settings.serialNumber)) return false;
+    return portNames.every((name) => settings[name] == null || Number(printer[name]) === Number(settings[name]));
+  });
+}
+
+function virtualPrinterPortSummary(virtualPrinter) {
+  const ports = virtualPrinter?.ports || {};
+  return Object.entries(ports)
+    .filter(([name, value]) => name.endsWith('Port') && Number.isFinite(Number(value)))
+    .map(([name, value]) => `${name.replace(/Port$/, '')}:${value}`)
+    .join(' · ');
+}
+
+function renderVirtualPrinterResults(printers = []) {
+  if (!virtualPrinterResults) return;
+  virtualPrinterResults._printers = printers;
+  if (!printers.length) {
+    virtualPrinterResults.innerHTML = '<div class="discovery-empty">No virtual printers are currently running. Open the Printer simulator to create one.</div>';
+    return;
+  }
+  virtualPrinterResults.innerHTML = printers.map((printer, index) => {
+    const alreadyAdded = virtualPrinterAlreadyAdded(printer);
+    const settings = printer.controllerSettings || {};
+    const model = [printer.manufacturer, printer.model].filter(Boolean).join(' ');
+    const ports = virtualPrinterPortSummary(printer);
+    return `<div class="discovery-result ${alreadyAdded ? 'already-added' : ''}">
+      <div class="discovery-main">
+        <strong>${escapeHtml(printer.name || settings.name || printer.model || 'Virtual printer')}</strong>
+        <div class="subtle">${escapeHtml([model, settings.host || printer.host, ports].filter(Boolean).join(' · '))}</div>
+        <div class="serial-line">Integrated simulator · ${escapeHtml(settings.adapterType || printer.adapterType || 'unknown adapter')}${settings.serialNumber ? ` · ${escapeHtml(settings.serialNumber)}` : ''}</div>
+      </div>
+      <button type="button" class="secondary" data-add-virtual-printer="${index}" ${alreadyAdded || !settings.adapterType ? 'disabled' : ''}>${alreadyAdded ? 'Added' : 'Add'}</button>
+    </div>`;
+  }).join('');
+}
+
+async function loadVirtualPrinters() {
+  if (!virtualPrinterStatus || !virtualPrinterResults) return;
+  if (refreshVirtualPrintersBtn) {
+    refreshVirtualPrintersBtn.disabled = true;
+    refreshVirtualPrintersBtn.textContent = 'Refreshing…';
+  }
+  virtualPrinterStatus.textContent = 'Checking integrated simulator…';
+  try {
+    const status = await api('/api/emulator/status');
+    if (!status.enabled || !status.running) {
+      virtualPrinterStatus.textContent = 'Printer simulator is disabled. Open the simulator to enable it and create virtual printers.';
+      renderVirtualPrinterResults([]);
+      return;
+    }
+    const { printers = [] } = await api('/api/emulator/printers');
+    renderVirtualPrinterResults(printers);
+    virtualPrinterStatus.textContent = `${printers.length} virtual printer${printers.length === 1 ? '' : 's'} running · click Add to register one with the controller.`;
+  } catch (error) {
+    virtualPrinterStatus.textContent = `Could not read virtual printers: ${error.message}`;
+    renderVirtualPrinterResults([]);
+  } finally {
+    if (refreshVirtualPrintersBtn) {
+      refreshVirtualPrintersBtn.disabled = false;
+      refreshVirtualPrintersBtn.textContent = 'Refresh';
+    }
+  }
+}
+
+async function addVirtualPrinter(index, button) {
+  const printer = virtualPrinterResults?._printers?.[Number(index)];
+  const settings = printer?.controllerSettings;
+  if (!printer || !settings?.adapterType) return;
+  const original = button?.textContent || 'Add';
+  if (button) {
+    button.disabled = true;
+    button.textContent = 'Adding…';
+  }
+  formError.classList.add('hidden');
+  try {
+    await api('/api/printers', { method:'POST', body:JSON.stringify(settings) });
+    await loadInitialFleet();
+    await loadVirtualPrinters();
+    if (virtualPrinterStatus) virtualPrinterStatus.textContent = `${printer.name || printer.model || 'Virtual printer'} added to the controller.`;
+  } catch (error) {
+    formError.textContent = error.message;
+    formError.classList.remove('hidden');
+    if (button) {
+      button.disabled = false;
+      button.textContent = original;
+    }
+  }
+}
+
 function renderDiscoveryResults(printers) {
   if (!printers.length) {
     discoveryResults.innerHTML = '<div class="discovery-empty">No supported printers responded. Manual entry still works.</div>';
@@ -2344,6 +2476,7 @@ function openAdd() {
   formError.textContent = '';
   addDialog.showModal();
   renderAdapterFields(adapterTypeSelect.value);
+  loadVirtualPrinters().catch((error) => console.error('Could not load virtual printers', error));
   if (Date.now() - lastDiscoveryAt > 30000) scanNetwork();
 }
 
@@ -2832,14 +2965,15 @@ queueHistoryList?.addEventListener('click', async (event) => {
       renderPrintQueue();
       return;
     }
-    // A fixed U1 reprint must re-open Print setup because filament/nozzle state may
-    // have changed since the historical job was queued. This avoids silently
-    // reusing a stale physical tool mapping.
+    // Re-open Print setup for printers whose physical tool/material state may
+    // have changed since the historical job was queued. Never silently reuse
+    // a stale mapping.
     if (printer?.capabilities?.printToolMapping || printer?.capabilities?.materialSlotMapping) {
       queueDialog.close();
       await openPrinter(printer.id);
       const setup = await api(`/api/printers/${encodeURIComponent(printer.id)}/print-setup?fileName=${encodeURIComponent(job.fileName)}`);
       if (printer.capabilities?.materialSlotMapping) renderBambuPrintSetup(printer, setup, job.fileName, 'queue');
+      else if (printer.adapterType === 'flashforge-creator5') renderCreator5PrintSetup(printer, setup, job.fileName, 'queue');
       else renderU1PrintSetup(printer, setup, job.fileName, 'queue');
       return;
     }
@@ -2863,6 +2997,13 @@ document.addEventListener('click', (event) => {
 document.querySelectorAll('[data-add-printer]').forEach((el) => el.addEventListener('click', openAdd));
 document.querySelectorAll('[data-close]').forEach((el) => el.addEventListener('click', () => el.closest('dialog').close()));
 scanNetworkBtn.addEventListener('click', scanNetwork);
+refreshVirtualPrintersBtn?.addEventListener('click', () => loadVirtualPrinters());
+openSimulatorBtn?.addEventListener('click', () => window.open('/simulator/', '_blank', 'noopener'));
+virtualPrinterResults?.addEventListener('click', (event) => {
+  const button = event.target.closest('[data-add-virtual-printer]');
+  if (!button) return;
+  addVirtualPrinter(button.dataset.addVirtualPrinter, button);
+});
 adapterTypeSelect.addEventListener('change', () => renderAdapterFields(adapterTypeSelect.value));
 
 discoveryResults.addEventListener('click', (event) => {
@@ -3723,6 +3864,127 @@ function renderBambuPrintSetup(printer, setup, fileName, mode = 'print') {
   panel.scrollIntoView({ behavior:'smooth', block:'nearest' });
 }
 
+function creator5MappingAssessment(printer, setup, toolMap) {
+  const physicalTools = Array.isArray(printer.status?.tools) ? printer.status.tools : [];
+  const warnings = [];
+  const errors = [];
+  const used = new Set();
+  for (const logical of setup.logicalTools || []) {
+    const physicalIndex = Number(toolMap[logical.index]);
+    const physical = physicalTools.find((tool) => Number(tool.index) === physicalIndex);
+    if (!physical) {
+      errors.push(`File T${logical.index} has no valid Creator 5 toolhead selected.`);
+      continue;
+    }
+    if (used.has(physicalIndex)) errors.push(`Creator 5 T${physicalIndex} is assigned to more than one file tool.`);
+    used.add(physicalIndex);
+    const filament = physical.filament || {};
+    if (filament.present === false) warnings.push(`Creator 5 T${physicalIndex} is required for file T${logical.index}, but no filament is detected.`);
+    const wantedMaterial = normalizedMaterial(logical.material);
+    const loadedMaterial = normalizedMaterial(filament.material);
+    if (wantedMaterial && loadedMaterial && wantedMaterial !== loadedMaterial) {
+      warnings.push(`File T${logical.index} requests ${logical.material}, but Creator 5 T${physicalIndex} contains ${filament.material}.`);
+    }
+    const wantedColor = normalizeColor(logical.color);
+    const loadedColor = normalizeColor(filament.color);
+    if (wantedColor && loadedColor && wantedColor !== loadedColor) {
+      warnings.push(`File T${logical.index} requests ${wantedColor}, but Creator 5 T${physicalIndex} contains ${loadedColor}.`);
+    }
+    const wantedNozzle = Number(logical.nozzleDiameter);
+    const loadedNozzle = Number(physical.nozzleDiameter);
+    if (Number.isFinite(wantedNozzle) && Number.isFinite(loadedNozzle) && Math.abs(wantedNozzle - loadedNozzle) >= 0.001) {
+      warnings.push(`File T${logical.index} requests a ${wantedNozzle.toFixed(1)} mm nozzle, but Creator 5 T${physicalIndex} is designated ${loadedNozzle.toFixed(1)} mm.`);
+    }
+  }
+  return { warnings:[...new Set(warnings)], errors:[...new Set(errors)] };
+}
+
+function renderCreator5PrintSetup(printer, setup, fileName, mode = 'print') {
+  const panel = printerDetail.querySelector('#printSetupPanel');
+  if (!panel) return;
+  const queueMode = mode === 'queue';
+  const physicalTools = Array.isArray(printer.status?.tools) ? printer.status.tools : [];
+  const mapping = defaultU1ToolMap(printer, setup);
+  const logicalTools = Array.isArray(setup.logicalTools) ? setup.logicalTools : [];
+  const rows = logicalTools.map((logical) => {
+    const fileLabel = [
+      logical.material || 'material unknown',
+      logical.color || 'colour unknown',
+      logical.nozzleDiameter != null ? nozzleDiameterText(logical.nozzleDiameter) : null
+    ].filter(Boolean).join(' · ');
+    return `<div class="tool-map-row" data-tool-map-row="${logical.index}">
+      <div class="tool-map-file"><strong>File T${logical.index}</strong><span>${escapeHtml(fileLabel)}</span></div>
+      <label>Creator 5 toolhead${physicalToolPickerMarkup(logical.index, physicalTools, mapping[logical.index])}</label>
+    </div>`;
+  }).join('');
+  const slotSummary = physicalTools.map((tool) => {
+    const filament = tool.filament || {};
+    return `<div class="tool-map-file"><strong>T${tool.index}</strong><span>${escapeHtml([filamentMaterialName(filament), filamentColorText(filament.color), filamentPresenceText(filament)].filter(Boolean).join(' · '))}</span></div>`;
+  }).join('');
+  panel.innerHTML = `<div class="print-setup-head"><div><strong>${queueMode ? 'Queue setup' : 'Print setup'}</strong><span>${escapeHtml(fileName)}</span></div><button type="button" class="icon" data-print-setup-close>×</button></div>
+    <div class="field-help">Creator 5 uses four independent physical toolheads/material slots. Controller-managed Print Library jobs can map sliced logical tools to the loaded toolheads automatically.</div>
+    ${setup.warning ? `<div class="file-warning">${escapeHtml(setup.warning)}</div>` : ''}
+    <div class="tool-map-grid">${rows || `<div class="creator5-slot-summary">${slotSummary || '<div class="subtle">Live toolhead material data is unavailable.</div>'}</div>`}</div>
+    <label class="checkbox-label"><input type="checkbox" id="printSetupTimeLapse"> <span>Timelapse</span></label>
+    <div id="printSetupAssessment" class="print-setup-assessment"></div>
+    <div class="actions"><button type="button" class="secondary" data-print-setup-close>Cancel</button><button type="button" class="primary" data-print-setup-start>${queueMode ? 'Add to queue' : 'Start print'}</button></div>`;
+  panel.classList.remove('hidden');
+
+  const currentMap = () => {
+    const toolMap = {};
+    panel.querySelectorAll('[data-tool-map]').forEach((input) => { toolMap[Number(input.dataset.toolMap)] = Number(input.value); });
+    return toolMap;
+  };
+  const refresh = () => {
+    const assessment = creator5MappingAssessment(printer, setup, currentMap());
+    const target = panel.querySelector('#printSetupAssessment');
+    target.textContent = [...assessment.errors.map((text) => `BLOCK: ${text}`), ...assessment.warnings.map((text) => `Warning: ${text}`)].join('\n');
+    target.classList.toggle('has-errors', assessment.errors.length > 0);
+    panel.querySelector('[data-print-setup-start]').disabled = assessment.errors.length > 0;
+  };
+  panel.querySelectorAll('[data-tool-map]').forEach((input) => input.addEventListener('change', refresh));
+  panel.querySelectorAll('[data-tool-map-option]').forEach((option) => option.addEventListener('click', () => {
+    const picker = option.closest('[data-tool-map-picker]');
+    const logicalIndex = Number(picker?.dataset.toolMapPicker);
+    const input = panel.querySelector(`[data-tool-map="${logicalIndex}"]`);
+    const selectedTool = physicalTools.find((tool) => Number(tool.index) === Number(option.dataset.toolMapOption));
+    if (!picker || !input || !selectedTool) return;
+    input.value = String(selectedTool.index);
+    picker.querySelector('[data-tool-map-summary]').innerHTML = physicalToolChoiceMarkup(selectedTool, { summary:true });
+    picker.querySelectorAll('[data-tool-map-option]').forEach((item) => item.classList.toggle('selected', item === option));
+    picker.open = false;
+    input.dispatchEvent(new Event('change', { bubbles:true }));
+  }));
+  panel.querySelectorAll('[data-print-setup-close]').forEach((button) => button.onclick = () => panel.classList.add('hidden'));
+  panel.querySelector('[data-print-setup-start]').onclick = async () => {
+    const toolMap = currentMap();
+    const assessment = creator5MappingAssessment(printer, setup, toolMap);
+    if (assessment.errors.length) return;
+    const leveling = printerDetail.querySelector('#levelBeforePrint')?.checked ?? false;
+    const flowCalibration = printerDetail.querySelector('#flowCalibrationBeforePrint')?.checked ?? false;
+    const timeLapse = panel.querySelector('#printSetupTimeLapse')?.checked ?? false;
+    const warningText = assessment.warnings.length ? `\n\n${assessment.warnings.join('\n')}` : '';
+    const defaultsWarning = !logicalTools.length ? '\n\nThis printer-local file does not expose its sliced tool requirements, so the Creator 5 will use the mapping/defaults stored with the file.' : '';
+    if (!confirm(`${queueMode ? 'Add to queue' : 'Start'} ${fileName} ${queueMode ? `for ${printer.name}` : `on ${printer.name}`}?\n\nBed levelling: ${leveling ? 'yes' : 'no'}\nFlow calibration: ${flowCalibration ? 'yes' : 'no'}\nTimelapse: ${timeLapse ? 'yes' : 'no'}${defaultsWarning}${warningText}`)) return;
+    const options = {
+      levelingBeforePrint:leveling,
+      flowCalibrationBeforePrint:flowCalibration,
+      timeLapseBeforePrint:timeLapse,
+      toolMap:Object.keys(toolMap).length ? toolMap : null,
+      usedLogicalTools:setup.referencedTools || logicalTools.map((tool) => tool.index),
+      logicalTools
+    };
+    try {
+      if (queueMode) await addPrintQueueJob(printer, fileName, options);
+      else await command(printer.id, 'print', { fileName, ...options });
+      printerDialog.close();
+      if (queueMode) { renderPrintQueue(); queueDialog.showModal(); }
+    } catch (error) { showPrinterDetailError(error); }
+  };
+  refresh();
+  panel.scrollIntoView({ behavior:'smooth', block:'nearest' });
+}
+
 function renderU1PrintSetup(printer, setup, fileName, mode = 'print') {
   const panel = printerDetail.querySelector('#printSetupPanel');
   if (!panel) return;
@@ -3920,12 +4182,15 @@ function printerActivityStatus(printer) {
   const preheat = printer?.chamberPreheat;
   if (preheat?.active) {
     const chamber = Number(printer?.status?.chamber?.actual);
-    const chamberText = Number.isFinite(chamber) ? ` · chamber ${chamber.toFixed(1)} °C` : '';
+    const chamberText = Number.isFinite(chamber) ? ` · chamber now ${chamber.toFixed(1)} °C` : '';
+    const targetText = preheat.heatSource === 'chamber'
+      ? `chamber target ${Number(preheat.chamberTemperature).toFixed(0)} °C`
+      : `bed ${Number(preheat.bedTemperature).toFixed(0)} °C`;
     return {
       active:true,
       kind:'chamber-preheat',
       title:'CHAMBER PREHEAT',
-      text:`bed ${Number(preheat.bedTemperature).toFixed(0)} °C${chamberText} · ${formatCountdown(preheatRemainingSeconds(preheat))} remaining`
+      text:`${targetText}${chamberText} · ${formatCountdown(preheatRemainingSeconds(preheat))} remaining`
     };
   }
 
@@ -4121,20 +4386,23 @@ function updateOpenPrinterTelemetry() {
   const preheatStatus = printerDetail.querySelector('[data-preheat-status]');
   const preheatStart = printerDetail.querySelector('[data-preheat-start]');
   const preheatStop = printerDetail.querySelector('[data-preheat-stop]');
-  const preheatBed = printerDetail.querySelector('#preheatBedInput');
+  const preheatTemperature = printerDetail.querySelector('#preheatTemperatureInput');
   const preheatDuration = printerDetail.querySelector('#preheatDurationInput');
   if (preheatStatus) {
     const chamberText = preheat?.active && s?.chamber?.actual != null && Number.isFinite(Number(s.chamber.actual))
-      ? ` · chamber ${Number(s.chamber.actual).toFixed(1)} °C`
+      ? ` · chamber now ${Number(s.chamber.actual).toFixed(1)} °C`
       : '';
+    const targetText = preheat?.heatSource === 'chamber'
+      ? `chamber target ${Number(preheat.chamberTemperature).toFixed(0)} °C`
+      : `bed ${Number(preheat?.bedTemperature).toFixed(0)} °C`;
     preheatStatus.textContent = preheat?.active
-      ? `Active · bed ${Number(preheat.bedTemperature).toFixed(0)} °C${chamberText} · ${formatCountdown(preheatRemainingSeconds(preheat))} remaining · ${preheat.reassertions || 0} reassertion${Number(preheat.reassertions || 0) === 1 ? '' : 's'}`
+      ? `Active · ${targetText}${chamberText} · ${formatCountdown(preheatRemainingSeconds(preheat))} remaining · ${preheat.reassertions || 0} reassertion${Number(preheat.reassertions || 0) === 1 ? '' : 's'}`
       : 'Not active';
     preheatStatus.classList.toggle('active', Boolean(preheat?.active));
   }
   if (preheatStart) preheatStart.disabled = !printer.capabilities?.chamberPreheat || !printer.online || Boolean(preheat?.active);
   if (preheatStop) preheatStop.disabled = !preheat?.active;
-  if (preheatBed) preheatBed.disabled = !printer.capabilities?.chamberPreheat || Boolean(preheat?.active);
+  if (preheatTemperature) preheatTemperature.disabled = !printer.capabilities?.chamberPreheat || Boolean(preheat?.active);
   if (preheatDuration) preheatDuration.disabled = !printer.capabilities?.chamberPreheat || Boolean(preheat?.active);
   const bar = printerDetail.querySelector('[data-detail-progress-bar]');
   if (bar) bar.style.width = `${Math.round(s?.progress || 0)}%`;
@@ -4176,8 +4444,13 @@ async function openPrinter(id) {
   const limits = printer.limits || {};
   const maxNozzleC = Number(limits.nozzleTemperature?.max ?? 265);
   const maxBedC = Number(limits.bedTemperature?.max ?? 110);
-  const preheatMinBedC = Number(limits.chamberPreheatBedTemperature?.min ?? 30);
-  const preheatMaxBedC = Number(limits.chamberPreheatBedTemperature?.max ?? maxBedC);
+  const nativeChamberPreheat = Boolean(capabilities.chamberTemperatureControl && limits.chamberPreheatChamberTemperature);
+  const preheatMinC = Number(nativeChamberPreheat
+    ? limits.chamberPreheatChamberTemperature?.min ?? 30
+    : limits.chamberPreheatBedTemperature?.min ?? 30);
+  const preheatMaxC = Number(nativeChamberPreheat
+    ? limits.chamberPreheatChamberTemperature?.max ?? limits.chamberTemperature?.max ?? 65
+    : limits.chamberPreheatBedTemperature?.max ?? maxBedC);
   const preheatMaxMinutes = Number(limits.chamberPreheatMinutes?.max ?? 120);
   const disabled = (supported) => supported ? '' : ' disabled';
   let fileResult = { files: [], complete: true, source: 'tcp-m661', warning: null };
@@ -4214,13 +4487,17 @@ async function openPrinter(id) {
     ? s.tools.map((tool) => `<div class="control-row tool-temperature-row"><label>${escapeHtml(tool.name || `T${tool.index}`)} target<input data-tool-temp-input="${tool.index}" type="number" min="0" max="${maxNozzleC}" value="${Number(tool.target || 0)}" /></label><span class="subtle" data-tool-now="${tool.index}">${Number(tool.actual || 0).toFixed(0)} °C now${tool.active ? ' · active' : ''}</span><button class="secondary" data-set-tool-temp="${tool.index}">Set</button></div>`).join('')
     : `<div class="control-row"><label>Nozzle target<input id="nozzleInput" type="number" min="0" max="${maxNozzleC}" value="${s?.nozzle.target || 0}"${disabled(capabilities.nozzleTemperature)} /></label><span class="subtle" data-nozzle-now>${s?.nozzle.actual?.toFixed(0) || '—'} °C now</span><button class="secondary" data-set-temp="nozzle"${disabled(capabilities.nozzleTemperature)}>Set</button></div>`;
   const chamberTemperatureMarkup = capabilities.chamberTemperatureSensor && s?.chamber?.actual != null && Number.isFinite(Number(s.chamber.actual))
-    ? `<div class="sensor-readout"><span>Chamber / cavity</span><b data-chamber-now>${Number(s.chamber.actual).toFixed(1)} °C</b></div>`
+    ? capabilities.chamberTemperatureControl
+      ? `<div class="control-row"><label>Chamber target<input id="chamberInput" type="number" min="${Number(limits.chamberTemperature?.min ?? 0)}" max="${Number(limits.chamberTemperature?.max ?? 65)}" value="${Number(s?.chamber?.target || 0)}" /></label><span class="subtle" data-chamber-now>${Number(s.chamber.actual).toFixed(1)} °C now</span><button class="secondary" data-set-temp="chamber">Set</button></div>`
+      : `<div class="sensor-readout"><span>Chamber / cavity</span><b data-chamber-now>${Number(s.chamber.actual).toFixed(1)} °C</b></div>`
     : '';
   const materialStatusMarkup = capabilities.materialStatus ? (() => {
     const tools = Array.isArray(s?.tools) ? s.tools : [];
     if (!tools.length) return `<div class="panel material-panel"><h3>Toolhead status</h3><div class="subtle">Material status is unavailable while the printer is offline.</div>${flashForgeMaterialDesignationMarkup(printer)}${flashForgeNozzleDesignationMarkup(printer)}</div>`;
     const materialHelp = printer.adapterType === 'flashforge-ad5m'
       ? "Filament type uses the controller's manual designation when set, otherwise the value reported by the FlashForge 5M local /detail API. Installed nozzle size uses the controller nozzle designation when set because the 5M API does not reliably expose it. The 5M API also does not expose U1-style filament colour/RFID metadata or a reliable live filament-presence value."
+      : printer.adapterType === 'flashforge-creator5'
+        ? 'Creator 5 material type, colour and filament-presence state come from the four material-station/toolhead slots reported by the local /detail API. The installed nozzle size is controller-designated and currently applies to all four toolheads.'
       : printer.adapterType === 'bambu-lab'
         ? 'Material and colour come from the active external-spool or AMS/AMS Lite tray metadata reported by the Bambu LAN interface. Bambu support is experimental until checked against physical P1P, P1S, X1C and A1 Mini hardware.'
         : 'Filament presence comes from each U1 motion sensor. Third-party filament type and colour can be written to the idle printer and are verified by reading the effective per-tool configuration back. Official Snapmaker RFID filament remains locked. Nozzle size and XYZ offset come directly from each physical U1 extruder.';
@@ -4249,13 +4526,13 @@ async function openPrinter(id) {
           ${capabilities.toolheadNozzleStatus ? `<small data-tool-nozzle="${tool.index}">${escapeHtml(`${nozzleDiameterText(tool.nozzleDiameter)}${tool.nozzleVolumeType ? ` · ${tool.nozzleVolumeType}` : ''}`)}</small>` : ''}
           ${capabilities.toolheadNozzleStatus ? `<small data-tool-offset="${tool.index}">${escapeHtml(toolOffsetText(tool.offset))}</small>` : ''}
           <small data-material-meta="${tool.index}">${escapeHtml(filamentMetaText(filament))}</small>
-          ${['snapmaker-u1','flashforge-ad5m','bambu-lab'].includes(printer.adapterType) ? `<small class="material-rgb${filamentColorDisplayText(filament) ? '' : ' hidden'}" data-material-rgb="${tool.index}">${escapeHtml(filamentColorDisplayText(filament) || '')}</small>` : ''}
+          ${['snapmaker-u1','flashforge-ad5m','flashforge-creator5','bambu-lab'].includes(printer.adapterType) ? `<small class="material-rgb${filamentColorDisplayText(filament) ? '' : ' hidden'}" data-material-rgb="${tool.index}">${escapeHtml(filamentColorDisplayText(filament) || '')}</small>` : ''}
           ${printer.adapterType === 'snapmaker-u1' ? u1FilamentConfigControlMarkup(printer, tool) : ''}
         </div>`;
       }).join('')}</div>
       ${bambuSources}
       ${printer.adapterType === 'flashforge-ad5m' ? flashForgeMaterialDesignationMarkup(printer, tools[0]?.filament || {}) : ''}
-      ${printer.adapterType === 'flashforge-ad5m' ? flashForgeNozzleDesignationMarkup(printer, tools[0] || {}) : ''}
+      ${['flashforge-ad5m','flashforge-creator5'].includes(printer.adapterType) ? flashForgeNozzleDesignationMarkup(printer, tools[0] || {}) : ''}
       <div class="field-help material-help">${escapeHtml(materialHelp)}</div>
     </div>`;
   })() : '';
@@ -4339,11 +4616,13 @@ async function openPrinter(id) {
         ${materialStatusMarkup}
         ${capabilities.chamberPreheat ? `<div class="panel chamber-preheat-panel">
           <h3>Chamber preheat</h3>
-          <p class="subtle">${printer.adapterType === 'snapmaker-u1'
-            ? 'Uses the build plate as the heat source and the U1 stock PREHEAT_CHAMBER mode for circulation: 60% inner purifier fan, exhaust off. The controller keeps the session bounded and holds the bed setpoint.'
-            : 'Uses the build plate as the chamber heat source. The controller holds the normal bed setpoint for a bounded period and reasserts it if idle firmware clears it.'}</p>
+          <p class="subtle">${nativeChamberPreheat
+            ? 'Uses the Creator 5 Pro native heated chamber. The controller holds the chamber target for a bounded period and reasserts it if the printer clears the target.'
+            : printer.adapterType === 'snapmaker-u1'
+              ? 'Uses the build plate as the heat source and the U1 stock PREHEAT_CHAMBER mode for circulation: 60% inner purifier fan, exhaust off. The controller keeps the session bounded and holds the bed setpoint.'
+              : 'Uses the build plate as the chamber heat source. The controller holds the normal bed setpoint for a bounded period and reasserts it if idle firmware clears it.'}</p>
           <div class="preheat-fields">
-            <label>Bed setpoint °C<input id="preheatBedInput" type="number" min="${preheatMinBedC}" max="${preheatMaxBedC}" value="${Math.max(preheatMinBedC, Math.min(preheatMaxBedC, Number(s?.bed.target || 90) || 90))}" /></label>
+            <label>${nativeChamberPreheat ? 'Chamber target °C' : 'Bed setpoint °C'}<input id="preheatTemperatureInput" type="number" min="${preheatMinC}" max="${preheatMaxC}" value="${Math.max(preheatMinC, Math.min(preheatMaxC, Number(nativeChamberPreheat ? s?.chamber?.target || 50 : s?.bed?.target || 90) || (nativeChamberPreheat ? 50 : 90)))}" /></label>
             <label>Duration minutes<input id="preheatDurationInput" type="number" min="1" max="${preheatMaxMinutes}" value="45" /></label>
           </div>
           <div class="preheat-status" data-preheat-status>Not active</div>
@@ -4351,7 +4630,7 @@ async function openPrinter(id) {
             <button class="primary" data-preheat-start>Start chamber preheat</button>
             <button class="danger" data-preheat-stop disabled>Stop preheat</button>
           </div>
-          <div class="field-help">Maximum bed setpoint ${preheatMaxBedC} °C · maximum session ${preheatMaxMinutes} minutes · sessions never resume after controller restart.</div>
+          <div class="field-help">Maximum ${nativeChamberPreheat ? 'chamber target' : 'bed setpoint'} ${preheatMaxC} °C · maximum session ${preheatMaxMinutes} minutes · sessions never resume after controller restart.</div>
         </div>` : ''}
         <div class="panel fans-panel">
           <h3>Fans</h3>
@@ -4480,6 +4759,7 @@ async function openPrinter(id) {
         try {
           const setup = await api(`/api/printers/${encodeURIComponent(id)}/print-setup?fileName=${encodeURIComponent(btn.dataset.queueFile)}`);
           if (printer.capabilities?.materialSlotMapping) renderBambuPrintSetup(printer, setup, btn.dataset.queueFile, 'queue');
+          else if (printer.adapterType === 'flashforge-creator5') renderCreator5PrintSetup(printer, setup, btn.dataset.queueFile, 'queue');
           else renderU1PrintSetup(printer, setup, btn.dataset.queueFile, 'queue');
         } finally {
           btn.disabled = false;
@@ -4512,6 +4792,7 @@ The controller will start it automatically when this printer is idle and all saf
         try {
           const setup = await api(`/api/printers/${encodeURIComponent(id)}/print-setup?fileName=${encodeURIComponent(btn.dataset.printFile)}`);
           if (printer.capabilities?.materialSlotMapping) renderBambuPrintSetup(printer, setup, btn.dataset.printFile);
+          else if (printer.adapterType === 'flashforge-creator5') renderCreator5PrintSetup(printer, setup, btn.dataset.printFile);
           else renderU1PrintSetup(printer, setup, btn.dataset.printFile);
         } finally {
           btn.disabled = false;
@@ -4689,7 +4970,7 @@ ${flashForgePreflight}` : ''}`)) return;
 
   printerDetail.querySelectorAll('[data-set-temp]').forEach((btn) => btn.onclick = () => {
     const key = btn.dataset.setTemp;
-    const input = printerDetail.querySelector(key === 'nozzle' ? '#nozzleInput' : '#bedInput');
+    const input = printerDetail.querySelector(key === 'nozzle' ? '#nozzleInput' : key === 'chamber' ? '#chamberInput' : '#bedInput');
     command(id, 'temperature', { [key]: Number(input.value) }).catch(showError);
   });
   printerDetail.querySelectorAll('[data-set-tool-temp]').forEach((btn) => btn.onclick = () => {
@@ -4699,11 +4980,16 @@ ${flashForgePreflight}` : ''}`)) return;
   });
   const preheatStartButton = printerDetail.querySelector('[data-preheat-start]');
   if (preheatStartButton) preheatStartButton.onclick = async () => {
-    const bedTemperature = Number(printerDetail.querySelector('#preheatBedInput').value);
+    const temperature = Number(printerDetail.querySelector('#preheatTemperatureInput').value);
     const durationMinutes = Number(printerDetail.querySelector('#preheatDurationInput').value);
-    if (!confirm(`Preheat ${printer.name} using a ${bedTemperature} °C bed setpoint for ${durationMinutes} minutes?`)) return;
+    const nativeChamberPreheat = Boolean(printer.capabilities?.chamberTemperatureControl && printer.limits?.chamberPreheatChamberTemperature);
+    const targetLabel = nativeChamberPreheat ? 'chamber target' : 'bed setpoint';
+    if (!confirm(`Preheat ${printer.name} using a ${temperature} °C ${targetLabel} for ${durationMinutes} minutes?`)) return;
     try {
-      await api(`/api/printers/${id}/chamber-preheat`, { method:'POST', body: JSON.stringify({ bedTemperature, durationMinutes }) });
+      const body = nativeChamberPreheat
+        ? { chamberTemperature:temperature, durationMinutes }
+        : { bedTemperature:temperature, durationMinutes };
+      await api(`/api/printers/${id}/chamber-preheat`, { method:'POST', body:JSON.stringify(body) });
     } catch (error) { showError(error); }
   };
   const preheatStopButton = printerDetail.querySelector('[data-preheat-stop]');

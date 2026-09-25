@@ -2,13 +2,30 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { EventEmitter } from 'node:events';
 import tls from 'node:tls';
-import { createEmulator } from '../emulator/server.js';
+import { createEmulator, DEFAULT_EMULATOR_PRINTERS } from '../emulator/server.js';
 import { CameraManager } from '../src/camera-manager.js';
 import { getPrinterAdapter } from '../src/adapters/adapter-registry.js';
 import { prepareFlashForgeAd5mConfig } from '../src/adapters/flashforge-ad5m-adapter.js';
+import { prepareFlashForgeCreator5Config } from '../src/adapters/flashforge-creator5-adapter.js';
 import { prepareSnapmakerU1Config } from '../src/adapters/snapmaker-u1-adapter.js';
 import { prepareBambuLabConfig } from '../src/adapters/bambu-lab-adapter.js';
 import { listAllFilesTcp } from '../src/tcp-files.js';
+
+test('built-in simulator defaults include both Creator 5 models', () => {
+  assert.deepEqual(
+    DEFAULT_EMULATOR_PRINTERS.map((printer) => printer.profileId),
+    [
+      'flashforge-ad5m-pro',
+      'flashforge-creator-5',
+      'flashforge-creator-5-pro',
+      'snapmaker-u1',
+      'bambu-p1p',
+      'bambu-p1s',
+      'bambu-x1c',
+      'bambu-a1-mini'
+    ]
+  );
+});
 
 function fakeResponse() {
   const response = new EventEmitter();
@@ -29,7 +46,7 @@ test('emulator management API creates and controls a virtual printer', async (t)
   const base = `http://127.0.0.1:${address.port}`;
 
   const profiles = await fetch(`${base}/api/profiles`).then((response) => response.json());
-  assert.deepEqual(profiles.profiles.map((profile) => profile.id).sort(), ['bambu-a1-mini', 'bambu-p1p', 'bambu-p1s', 'bambu-x1c', 'flashforge-ad5m-pro', 'snapmaker-u1']);
+  assert.deepEqual(profiles.profiles.map((profile) => profile.id).sort(), ['bambu-a1-mini', 'bambu-p1p', 'bambu-p1s', 'bambu-x1c', 'flashforge-ad5m-pro', 'flashforge-creator-5', 'flashforge-creator-5-pro', 'snapmaker-u1']);
 
   const createdResponse = await fetch(`${base}/api/printers`, {
     method: 'POST',
@@ -471,6 +488,133 @@ test('FlashForge profile interoperates with HTTP and TCP production clients', as
   assert.equal(cameraResponse.body[0], 0xff);
   assert.equal(cameraResponse.body[1], 0xd8);
   cameraManager.stop();
+});
+
+test('Creator 5 Pro profile interoperates with four-tool HTTP production adapter', async (t) => {
+  const emulator = createEmulator({ managementPort:0, withDefaults:false });
+  await emulator.start();
+  t.after(() => emulator.stop());
+  const virtual = await emulator.addPrinter({
+    profileId:'flashforge-creator-5-pro',
+    name:'Adapter Test Creator 5 Pro',
+    ports:{ httpPort:0, cameraPort:0 }
+  });
+  assert.equal(virtual.tools.length, 4);
+  assert.equal(virtual.controllerSettings.adapterType, 'flashforge-creator5');
+  assert.equal(Object.hasOwn(virtual.controllerSettings, 'tcpPort'), false);
+
+  const config = prepareFlashForgeCreator5Config({
+    name:virtual.name,
+    model:virtual.model,
+    host:virtual.host,
+    serialNumber:virtual.serialNumber,
+    checkCode:virtual.checkCode,
+    httpPort:virtual.ports.httpPort,
+    cameraPort:virtual.ports.cameraPort
+  });
+  const adapter = getPrinterAdapter(config);
+  assert.equal(adapter.capabilities.printToolMapping, true);
+  assert.equal(adapter.capabilities.chamberTemperatureControl, true);
+  assert.equal(adapter.limits.toolCount, 4);
+  assert.equal(adapter.limits.nozzleTemperature.max, 320);
+  assert.equal(adapter.limits.bedTemperature.max, 120);
+  assert.equal(adapter.limits.chamberTemperature.max, 65);
+
+  const initial = await adapter.getStatus();
+  assert.equal(initial.status, 'idle');
+  assert.equal(initial.model, 'Creator 5 Pro');
+  assert.equal(initial.tools.length, 4);
+  assert.equal(initial.tools[0].filament.material, 'PLA');
+  assert.equal(initial.tools[0].filament.present, true);
+  assert.equal(initial.chamber.actual, 25);
+
+  const files = await adapter.getFiles();
+  assert.deepEqual(files.files, ['calibration-cube.gcode']);
+  assert.equal(files.complete, false);
+  assert.equal(files.source, 'http-recent');
+
+  await adapter.setTemperatures({ toolIndex:2, nozzle:275, bed:110, chamber:55 });
+  const heated = await adapter.getStatus();
+  assert.equal(heated.tools[2].target, 275);
+  assert.equal(heated.tools[0].target, 0);
+  assert.equal(heated.bed.target, 110);
+  assert.equal(heated.chamber.target, 55);
+
+  const simulated = emulator.printers.get(virtual.id);
+  const chamberBefore = simulated.chamber.actual;
+  simulated.tick(simulated._lastTick + 2000);
+  const warming = await adapter.getStatus();
+  assert.ok(warming.chamber.actual > chamberBefore, 'Creator 5 Pro simulated chamber should heat toward its target');
+
+  simulated.action('reset');
+  assert.equal(simulated.chamber.target, 0);
+
+  await adapter.printLocalFile('calibration-cube.gcode', {
+    levelingBeforePrint:true,
+    flowCalibrationBeforePrint:true,
+    timeLapseBeforePrint:true,
+    toolMap:{ 0:2, 1:0 },
+    usedLogicalTools:[0,1],
+    logicalTools:[
+      { index:0, material:'PLA', color:'#2EC4B6' },
+      { index:1, material:'PLA', color:'#FF6B35' }
+    ]
+  });
+  assert.equal((await adapter.getStatus()).status, 'printing');
+  const printLog = emulator.printers.get(virtual.id).logs.find((entry) => entry.protocol === 'flashforge-http' && entry.message === 'printGcode');
+  assert.ok(printLog);
+  assert.equal(printLog.detail.materialMappings.length, 2);
+  assert.deepEqual(printLog.detail.materialMappings.map((item) => [item.toolId, item.slotId]), [[0,3],[1,1]]);
+  assert.equal(printLog.detail.flowCalibration, true);
+  assert.equal(printLog.detail.timeLapseVideo, true);
+
+  await adapter.setJobState('pause');
+  assert.equal((await adapter.getStatus()).status, 'paused');
+  await adapter.setJobState('resume');
+  assert.equal((await adapter.getStatus()).status, 'printing');
+  await adapter.setJobState('cancel');
+  assert.equal((await adapter.getStatus()).status, 'cancelled');
+
+  const printer = { ...config, id:'simulated-creator5-camera' };
+  const cameraManager = new CameraManager({
+    lookupPrinter:async () => printer,
+    idleCloseMs:50,
+    connectTimeoutMs:1000,
+    frameTimeoutMs:2000
+  });
+  const response = fakeResponse();
+  await cameraManager.handleSnapshot(printer.id, response);
+  assert.equal(response.statusCode, 200);
+  assert.equal(response.headers['content-type'], 'image/jpeg');
+  assert.equal(response.body[0], 0xff);
+  assert.equal(response.body[1], 0xd8);
+  cameraManager.stop();
+});
+
+test('Creator 5 base profile has no heated chamber capability', async (t) => {
+  const emulator = createEmulator({ managementPort:0, withDefaults:false });
+  await emulator.start();
+  t.after(() => emulator.stop());
+  const virtual = await emulator.addPrinter({
+    profileId:'flashforge-creator-5',
+    ports:{ httpPort:0, cameraPort:0 }
+  });
+  const adapter = getPrinterAdapter(prepareFlashForgeCreator5Config({
+    name:virtual.name,
+    model:virtual.model,
+    host:virtual.host,
+    serialNumber:virtual.serialNumber,
+    checkCode:virtual.checkCode,
+    httpPort:virtual.ports.httpPort,
+    cameraPort:virtual.ports.cameraPort
+  }));
+  assert.equal(adapter.capabilities.chamberTemperatureSensor, false);
+  assert.equal(adapter.capabilities.chamberTemperatureControl, false);
+  assert.equal(adapter.limits.chamberTemperature, undefined);
+  const status = await adapter.getStatus();
+  assert.equal(status.tools.length, 4);
+  assert.equal(status.chamber.actual, null);
+  await assert.rejects(() => adapter.setTemperatures({ chamber:45 }), /only available on Creator 5 Pro/);
 });
 
 test('FlashForge port configuration validates emulator overrides', () => {

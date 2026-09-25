@@ -10,6 +10,17 @@ import { emulatorPublicAssetKey, readRuntimeAsset } from '../src/runtime-assets.
 const runtimePaths = resolveControllerRuntimePaths();
 const MIME = { '.html': 'text/html; charset=utf-8', '.css': 'text/css; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.svg': 'image/svg+xml' };
 
+export const DEFAULT_EMULATOR_PRINTERS = Object.freeze([
+  Object.freeze({ profileId:'flashforge-ad5m-pro', name:'Simulated AD5M Pro' }),
+  Object.freeze({ profileId:'flashforge-creator-5', name:'Simulated Creator 5' }),
+  Object.freeze({ profileId:'flashforge-creator-5-pro', name:'Simulated Creator 5 Pro' }),
+  Object.freeze({ profileId:'snapmaker-u1', name:'Simulated Snapmaker U1' }),
+  Object.freeze({ profileId:'bambu-p1p', name:'Simulated Bambu Lab P1P' }),
+  Object.freeze({ profileId:'bambu-p1s', name:'Simulated Bambu Lab P1S' }),
+  Object.freeze({ profileId:'bambu-x1c', name:'Simulated Bambu Lab X1 Carbon' }),
+  Object.freeze({ profileId:'bambu-a1-mini', name:'Simulated Bambu Lab A1 Mini' })
+]);
+
 function json(response, status, body) {
   const content = Buffer.from(JSON.stringify(body));
   response.writeHead(status, {
@@ -47,6 +58,16 @@ function controllerSettings(printer) {
       checkCode: printer.checkCode,
       httpPort: printer.ports.httpPort,
       tcpPort: printer.ports.tcpPort,
+      cameraPort: printer.ports.cameraPort
+    };
+  }
+  if (printer.adapterType === 'flashforge-creator5') {
+    return {
+      ...common,
+      model: printer.model,
+      serialNumber: printer.serialNumber,
+      checkCode: printer.checkCode,
+      httpPort: printer.ports.httpPort,
       cameraPort: printer.ports.cameraPort
     };
   }
@@ -186,12 +207,7 @@ export function createEmulator({
     protocolsStarted = true;
     try {
       if (withDefaults && printers.size === 0) {
-        await addPrinter({ profileId: 'flashforge-ad5m-pro', name: 'Simulated AD5M Pro' });
-        await addPrinter({ profileId: 'snapmaker-u1', name: 'Simulated Snapmaker U1' });
-        await addPrinter({ profileId: 'bambu-p1p', name: 'Simulated Bambu Lab P1P' });
-        await addPrinter({ profileId: 'bambu-p1s', name: 'Simulated Bambu Lab P1S' });
-        await addPrinter({ profileId: 'bambu-x1c', name: 'Simulated Bambu Lab X1 Carbon' });
-        await addPrinter({ profileId: 'bambu-a1-mini', name: 'Simulated Bambu Lab A1 Mini' });
+        for (const definition of DEFAULT_EMULATOR_PRINTERS) await addPrinter(definition);
       }
     } catch (error) {
       protocolsStarted = false;

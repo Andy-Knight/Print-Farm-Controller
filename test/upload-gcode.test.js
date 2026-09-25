@@ -54,6 +54,51 @@ test('uploadGcodeFile sends modern 5M multipart headers and file bytes to /uploa
   }
 });
 
+test('Creator 5 upload uses material-station tool count without legacy materialMappings header', async () => {
+  let captured = null;
+  const server = http.createServer();
+  const handle = async (req, res) => {
+    const chunks = [];
+    for await (const chunk of req) chunks.push(chunk);
+    captured = { url:req.url, headers:req.headers, body:Buffer.concat(chunks) };
+    res.writeHead(200, { 'content-type':'application/json' });
+    res.end(JSON.stringify({ code:0, message:'success' }));
+  };
+  server.on('checkContinue', (req, res) => { res.writeContinue(); handle(req, res); });
+  server.on('request', handle);
+  await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
+  const port = server.address().port;
+
+  try {
+    await withTempFile('creator-multi.gcode', '; multi tool\nT0\nT1\nT2\n', async (filePath) => {
+      await uploadGcodeFile({
+        id:'c5', host:'127.0.0.1', httpPort:port,
+        serialNumber:'CREATOR5SN', checkCode:'CREATOR5CODE'
+      }, filePath, {
+        creator5:true,
+        toolCount:3,
+        levelingBeforePrint:false,
+        flowCalibrationBeforePrint:true,
+        timeLapseBeforePrint:true,
+        expectWaitMs:50
+      });
+    });
+
+    assert.equal(captured.url, '/uploadGcode');
+    assert.equal(captured.headers.serialnumber, 'CREATOR5SN');
+    assert.equal(captured.headers.checkcode, 'CREATOR5CODE');
+    assert.equal(captured.headers.printnow, 'false');
+    assert.equal(captured.headers.levelingbeforeprint, 'false');
+    assert.equal(captured.headers.flowcalibration, 'true');
+    assert.equal(captured.headers.timelapsevideo, 'true');
+    assert.equal(captured.headers.usematlstation, 'true');
+    assert.equal(captured.headers.gcodetoolcnt, '3');
+    assert.equal(captured.headers.materialmappings, undefined);
+  } finally {
+    await new Promise((resolve) => server.close(resolve));
+  }
+});
+
 test('upload header version selection keeps pre-3.1.3 compatibility', () => {
   assert.equal(usesModernUploadHeaders('3.1.2'), false);
   assert.equal(usesModernUploadHeaders('3.1.3'), true);

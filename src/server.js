@@ -103,7 +103,7 @@ const cameraManager = new CameraManager({
   onHealthChange: (id, health) => fleetState.setCameraHealth(id, health)
 });
 chamberPreheat = new ChamberPreheatService({ fleetState, operationCoordinator:printerOperations });
-const emulatorManager = new EmulatorManager();
+const emulatorManager = new EmulatorManager({ registeredPrintersProvider:listPrinters });
 let licenseManager = null;
 let restoreInspectionInProgress = false;
 let restorePendingRestart = false;
@@ -1458,7 +1458,8 @@ async function apiRoute(req, res, url) {
         filamentEntangleSensitivity: body.filamentEntangleSensitivity ?? undefined,
         toolMap: body.toolMap ?? null,
         materialMap: body.materialMap ?? null,
-        usedLogicalTools: Array.isArray(body.usedLogicalTools) ? body.usedLogicalTools : []
+        usedLogicalTools: Array.isArray(body.usedLogicalTools) ? body.usedLogicalTools : [],
+        logicalTools:Array.isArray(body.logicalTools) ? body.logicalTools : []
       });
     }, { operationType:PRINTER_OPERATION_TYPES.PRINT_START });
     refreshAfterCommand(id);
@@ -1508,9 +1509,27 @@ async function apiRoute(req, res, url) {
       const max = Number(adapter.limits?.bedTemperature?.max ?? 110);
       if (body.bed < 0 || body.bed > max) throw new Error(`Bed must be 0-${max} C`);
     }
+    if (body.chamber !== undefined) {
+      if (!adapter.capabilities?.chamberTemperatureControl) throw new Error('Chamber temperature control is not supported by this printer');
+      const min = Number(adapter.limits?.chamberTemperature?.min ?? 0);
+      const max = Number(adapter.limits?.chamberTemperature?.max ?? 65);
+      if (!Number.isFinite(Number(body.chamber)) || Number(body.chamber) < min || Number(body.chamber) > max) {
+        throw new Error(`Chamber must be ${min}-${max} C`);
+      }
+      body.chamber = Number(body.chamber);
+    }
     await runPrinterMutation(id, 'temperature change', async (_currentPrinter, currentAdapter) => {
-      // A manual bed command is an explicit override of chamber preheat.
-      if (body.bed !== undefined && chamberPreheat.isActive(id)) await chamberPreheat.stop(id, { reason: 'manual-bed-override', turnOff: false });
+      const activePreheat = chamberPreheat.get(id);
+      const overridesActivePreheat = activePreheat?.active && (
+        (activePreheat.heatSource === 'chamber' && body.chamber !== undefined)
+        || (activePreheat.heatSource !== 'chamber' && body.bed !== undefined)
+      );
+      if (overridesActivePreheat) {
+        await chamberPreheat.stop(id, {
+          reason:activePreheat.heatSource === 'chamber' ? 'manual-chamber-override' : 'manual-bed-override',
+          turnOff:false
+        });
+      }
       await currentAdapter.setTemperatures(body);
     }, { operationType:PRINTER_OPERATION_TYPES.TEMPERATURE });
     refreshAfterCommand(id);
@@ -1525,8 +1544,9 @@ async function apiRoute(req, res, url) {
   if (req.method === 'POST' && action === 'chamber-preheat') {
     const body = await readJson(req);
     const session = await runPrinterMutation(id, 'chamber preheat start', () => chamberPreheat.start(id, {
-      bedTemperature: body.bedTemperature,
-      durationMinutes: body.durationMinutes
+      bedTemperature:body.bedTemperature,
+      chamberTemperature:body.chamberTemperature,
+      durationMinutes:body.durationMinutes
     }), { operationType:PRINTER_OPERATION_TYPES.CHAMBER_PREHEAT_START });
     refreshAfterCommand(id);
     return json(res, 200, { ok: true, chamberPreheat: session });

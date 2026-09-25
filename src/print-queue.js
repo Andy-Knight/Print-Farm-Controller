@@ -149,7 +149,16 @@ function sanitizeOptions(options = {}) {
     flowCalibrationBeforePrint: options.flowCalibrationBeforePrint === true,
     toolMap: options.toolMap && typeof options.toolMap === 'object' ? { ...options.toolMap } : null,
     materialMap: options.materialMap && typeof options.materialMap === 'object' ? { ...options.materialMap } : null,
-    usedLogicalTools: Array.isArray(options.usedLogicalTools) ? options.usedLogicalTools.map(Number).filter(Number.isFinite) : []
+    usedLogicalTools: Array.isArray(options.usedLogicalTools) ? options.usedLogicalTools.map(Number).filter(Number.isFinite) : [],
+    logicalTools:Array.isArray(options.logicalTools)
+      ? options.logicalTools.map((tool) => ({
+          index:Number(tool?.index),
+          material:tool?.material || null,
+          color:tool?.color || null,
+          colorFamily:tool?.colorFamily || null,
+          nozzleDiameter:Number.isFinite(Number(tool?.nozzleDiameter)) ? Number(tool.nozzleDiameter) : null
+        })).filter((tool) => Number.isFinite(tool.index))
+      : []
   };
   for (const key of ['timeLapseBeforePrint', 'autoReplenishFilament', 'filamentEntangleDetect']) {
     if (typeof options[key] === 'boolean') result[key] = options[key];
@@ -827,7 +836,8 @@ export class PrintQueueService {
         ...sanitizeOptions(job.options || {}),
         toolMap:evaluation.toolMap ? { ...evaluation.toolMap } : null,
         materialMap:evaluation.materialMap ? { ...evaluation.materialMap } : null,
-        usedLogicalTools:Array.isArray(job.requirements?.requiredTools) ? [...job.requirements.requiredTools] : []
+        usedLogicalTools:Array.isArray(job.requirements?.requiredTools) ? [...job.requirements.requiredTools] : [],
+        logicalTools:Array.isArray(job.requirements?.logicalTools) ? structuredClone(job.requirements.logicalTools) : []
       };
       job.toolSnapshot = adapter.capabilities?.printToolMapping ? buildToolSnapshot(state, job.options.toolMap) : [];
       job.status = 'queued';
@@ -1211,7 +1221,11 @@ export class PrintQueueService {
     await adapter.uploadFile(staged.filePath, {
       fileName:job.fileName,
       firmwareVersion:state?.status?.firmwareVersion,
-      levelingBeforePrint:job.options?.levelingBeforePrint !== false
+      levelingBeforePrint:job.options?.levelingBeforePrint !== false,
+      flowCalibrationBeforePrint:job.options?.flowCalibrationBeforePrint === true,
+      timeLapseBeforePrint:job.options?.timeLapseBeforePrint === true,
+      requirements:job.requirements || staged.requirements || null,
+      toolCount:Number(job.requirements?.toolCount || staged.requirements?.toolCount || job.requirements?.requiredTools?.length || 1)
     });
     verification = await adapter.verifyFile(job.fileName);
     if (!verification?.verified) throw new Error(verification?.warning || 'Upload completed, but the staged queue file could not be verified on the printer');
@@ -1301,7 +1315,8 @@ export class PrintQueueService {
         ...sanitizeOptions(job.options),
         toolMap:freshEvaluation.toolMap ? { ...freshEvaluation.toolMap } : null,
         materialMap:freshEvaluation.materialMap ? { ...freshEvaluation.materialMap } : null,
-        usedLogicalTools:Array.isArray(job.requirements?.requiredTools) ? [...job.requirements.requiredTools] : []
+        usedLogicalTools:Array.isArray(job.requirements?.requiredTools) ? [...job.requirements.requiredTools] : [],
+        logicalTools:Array.isArray(job.requirements?.logicalTools) ? structuredClone(job.requirements.logicalTools) : []
       };
       job.status = 'uploading';
       job.error = null;

@@ -28,7 +28,10 @@ function publicSession(session, now = Date.now()) {
   if (!session) return { active: false };
   return {
     active: true,
-    bedTemperature: session.bedTemperature,
+    heatSource: session.heatSource || 'bed',
+    ...(session.heatSource === 'chamber'
+      ? { chamberTemperature:session.chamberTemperature }
+      : { bedTemperature:session.bedTemperature }),
     durationMinutes: session.durationMinutes,
     startedAt: session.startedAt,
     endsAt: session.endsAt,
@@ -106,6 +109,18 @@ export class ChamberPreheatService {
     return { bedTemperature: bed, durationMinutes: duration };
   }
 
+  validateNativeChamber({ chamberTemperature, durationMinutes }, { minChamberTemperatureC = 30, maxChamberTemperatureC = 65 } = {}) {
+    const chamber = Number(chamberTemperature);
+    const duration = Number(durationMinutes);
+    if (!Number.isFinite(chamber) || chamber < minChamberTemperatureC || chamber > maxChamberTemperatureC) {
+      throw new Error(`Chamber preheat temperature must be ${minChamberTemperatureC}-${maxChamberTemperatureC} C`);
+    }
+    if (!Number.isFinite(duration) || duration < CHAMBER_PREHEAT_MIN_MINUTES || duration > CHAMBER_PREHEAT_MAX_MINUTES) {
+      throw new Error(`Chamber preheat duration must be ${CHAMBER_PREHEAT_MIN_MINUTES}-${CHAMBER_PREHEAT_MAX_MINUTES} minutes`);
+    }
+    return { chamberTemperature:chamber, durationMinutes:duration };
+  }
+
   adapterFor(printer) {
     return this.adapterResolver(printer);
   }
@@ -125,11 +140,42 @@ export class ChamberPreheatService {
     const printer = await this.getPrinter(id);
     if (!printer) throw new Error('Printer not found');
     const adapter = this.adapterFor(printer);
-    if (!adapter.capabilities?.chamberPreheat || !adapter.capabilities?.bedTemperature) {
+    if (!adapter.capabilities?.chamberPreheat) {
       throw new Error('Chamber preheat is not supported by this printer');
     }
-    const maxBedTemperatureC = Number(adapter.limits?.chamberPreheatBedTemperature?.max ?? adapter.limits?.bedTemperature?.max ?? DEFAULT_CHAMBER_PREHEAT_MAX_BED_C);
-    const { bedTemperature, durationMinutes } = this.validate(options, { maxBedTemperatureC });
+
+    const nativeLimits = adapter.limits?.chamberPreheatChamberTemperature;
+    const nativeChamber = Boolean(adapter.capabilities?.chamberTemperatureControl && nativeLimits);
+    if (!nativeChamber && !adapter.capabilities?.bedTemperature) {
+      throw new Error('Chamber preheat is not supported by this printer');
+    }
+
+    let heatSource;
+    let bedTemperature;
+    let chamberTemperature;
+    let durationMinutes;
+    let targetTemperature;
+    let maxTargetTemperatureC;
+    let temperatureCommand;
+    if (nativeChamber) {
+      const minChamberTemperatureC = Number(nativeLimits?.min ?? 30);
+      const maxChamberTemperatureC = Number(nativeLimits?.max ?? adapter.limits?.chamberTemperature?.max ?? 65);
+      ({ chamberTemperature, durationMinutes } = this.validateNativeChamber(options, {
+        minChamberTemperatureC,
+        maxChamberTemperatureC
+      }));
+      heatSource = 'chamber';
+      targetTemperature = chamberTemperature;
+      maxTargetTemperatureC = maxChamberTemperatureC;
+      temperatureCommand = { chamber:chamberTemperature };
+    } else {
+      const maxBedTemperatureC = Number(adapter.limits?.chamberPreheatBedTemperature?.max ?? adapter.limits?.bedTemperature?.max ?? DEFAULT_CHAMBER_PREHEAT_MAX_BED_C);
+      ({ bedTemperature, durationMinutes } = this.validate(options, { maxBedTemperatureC }));
+      heatSource = 'bed';
+      targetTemperature = bedTemperature;
+      maxTargetTemperatureC = maxBedTemperatureC;
+      temperatureCommand = { bed:bedTemperature };
+    }
 
     const status = await this.readStatus(printer, adapter);
     if (isPrinterFault(status)) throw new Error('Cannot start chamber preheat while the printer reports a fault');
@@ -137,9 +183,12 @@ export class ChamberPreheatService {
 
     let adapterPrepared = false;
     try {
-      await adapter.prepareChamberPreheat({ bedTemperature, durationMinutes }, { status });
+      const preheatOptions = heatSource === 'chamber'
+        ? { chamberTemperature, durationMinutes }
+        : { bedTemperature, durationMinutes };
+      await adapter.prepareChamberPreheat(preheatOptions, { status });
       adapterPrepared = true;
-      await this.writeTemperatures(printer, { bed: bedTemperature }, adapter);
+      await this.writeTemperatures(printer, temperatureCommand, adapter);
     } catch (error) {
       if (adapterPrepared) {
         try { await adapter.finishChamberPreheat({ reason: 'start-failed' }); } catch {}
@@ -150,7 +199,9 @@ export class ChamberPreheatService {
     const now = this.now();
     const session = {
       id,
-      bedTemperature,
+      heatSource,
+      targetTemperature,
+      ...(heatSource === 'chamber' ? { chamberTemperature } : { bedTemperature }),
       durationMinutes,
       startedAt: nowIso(now),
       endsAtMs: now + durationMinutes * 60_000,
@@ -158,7 +209,7 @@ export class ChamberPreheatService {
       reassertions: 0,
       lastReassertedAt: nowIso(now),
       lastCommandAtMs: now,
-      overTemperatureC: Math.min(this.overTemperatureC, maxBedTemperatureC + 5),
+      overTemperatureC: Math.min(this.overTemperatureC, maxTargetTemperatureC + 5),
       offlineSinceMs: null,
       lastError: null,
       busy: false
@@ -193,9 +244,11 @@ export class ChamberPreheatService {
 
     if (turnOff && printer) {
       try {
-        await this.writeTemperatures(printer, { bed: 0 });
+        const offCommand = session.heatSource === 'chamber' ? { chamber:0 } : { bed:0 };
+        await this.writeTemperatures(printer, offCommand);
       } catch (error) {
-        warnings.push(`could not turn the bed off: ${error.message}`);
+        const heater = session.heatSource === 'chamber' ? 'chamber heater' : 'bed';
+        warnings.push(`could not turn the ${heater} off: ${error.message}`);
       }
     }
 
@@ -252,19 +305,20 @@ export class ChamberPreheatService {
         return;
       }
       if (isPrintJobActive(status)) {
-        // Do not send bed-off here: the print job owns the heater from now on.
+        // Do not turn the active preheat heater off here: the print job owns it from now on.
         await this.stop(id, { reason: 'print-started', turnOff: false });
         return;
       }
 
-      const actualBed = Number(status.bed?.actual);
-      if (Number.isFinite(actualBed) && actualBed > Number(session.overTemperatureC ?? this.overTemperatureC)) {
+      const temperatureState = session.heatSource === 'chamber' ? status.chamber : status.bed;
+      const actualTemperature = Number(temperatureState?.actual);
+      if (Number.isFinite(actualTemperature) && actualTemperature > Number(session.overTemperatureC ?? this.overTemperatureC)) {
         await this.stop(id, { reason: 'over-temperature', turnOff: true });
         return;
       }
 
-      const reportedTarget = Number(status.bed?.target);
-      const targetCleared = Number.isFinite(reportedTarget) && reportedTarget < session.bedTemperature - 1;
+      const reportedTarget = Number(temperatureState?.target);
+      const targetCleared = Number.isFinite(reportedTarget) && reportedTarget < session.targetTemperature - 1;
       const heartbeatDue = now - session.lastCommandAtMs >= this.heartbeatMs;
       if (targetCleared || heartbeatDue) {
         const printer = await this.getPrinter(id);
@@ -273,13 +327,17 @@ export class ChamberPreheatService {
           return;
         }
         try {
-          await this.writeTemperatures(printer, { bed: session.bedTemperature });
+          const targetCommand = session.heatSource === 'chamber'
+            ? { chamber:session.chamberTemperature }
+            : { bed:session.bedTemperature };
+          await this.writeTemperatures(printer, targetCommand);
           session.reassertions += 1;
           session.lastReassertedAt = nowIso(now);
           session.lastCommandAtMs = now;
           session.lastError = null;
         } catch (error) {
-          session.lastError = error.message || 'Could not reassert bed temperature';
+          const heater = session.heatSource === 'chamber' ? 'chamber' : 'bed';
+          session.lastError = error.message || `Could not reassert ${heater} temperature`;
         }
       }
       this.publish(id, session);
