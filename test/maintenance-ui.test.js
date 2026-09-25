@@ -103,6 +103,21 @@ test('printer detail spanner opens maintenance focused on the selected printer',
   assert.match(app, /new CustomEvent\('pfc:open-maintenance',[\s\S]*detail:\{ printerId \}/);
 });
 
+test('individual printer maintenance history can be cleared without resetting schedules', () => {
+  assert.match(maintenanceUi, /data-maintenance-clear-history/);
+  assert.match(maintenanceUi, />Clear history<\/button>/);
+  assert.match(maintenanceUi, /No maintenance history to clear/);
+  assert.match(maintenanceUi, /Task schedules, last-completed dates, usage counters, baselines and due status will not be reset/);
+  assert.match(maintenanceUi, /This cannot be undone/);
+  assert.match(maintenanceUi, /\/api\/printers\/\$\{encodeURIComponent\(printerId\)\}\/maintenance\/history/);
+  assert.match(maintenanceUi, /method:'DELETE'/);
+  assert.match(server, /maintenanceHistoryMatch = url\.pathname\.match/);
+  assert.match(server, /maintenanceService\.clearHistory\(printerId\)/);
+  assert.match(server, /Maintenance history cleared/);
+  assert.match(styles, /\.maintenance-history-row/);
+  assert.match(styles, /\.maintenance-clear-history/);
+});
+
 test('maintenance completion is disabled after servicing until the task reaches Due soon', () => {
   assert.match(maintenanceUi, /task\.completionAllowed === false/);
   assert.match(maintenanceUi, /disabled aria-disabled="true"/);
