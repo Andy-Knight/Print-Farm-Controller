@@ -319,8 +319,19 @@ input:focus,select:focus { border-color:#7a9fbe; }
   background:#10171d;
   cursor:pointer;
 }
-.printer-group-member input { margin-top:2px; flex:0 0 auto; }
-.printer-group-member span { min-width:0; }
+.printer-group-member input[type="checkbox"] {
+  width:16px;
+  height:16px;
+  margin:2px 0 0;
+  padding:0;
+  flex:0 0 16px;
+  cursor:pointer;
+}
+.printer-group-member span {
+  min-width:0;
+  flex:1 1 auto;
+  overflow:hidden;
+}
 .printer-group-member strong,
 .printer-group-member small { display:block; }
 .printer-group-member strong { color:#dce4eb; font-size:.8rem; }
