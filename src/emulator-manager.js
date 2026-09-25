@@ -20,17 +20,75 @@ async function readJson(request) {
   return JSON.parse(Buffer.concat(chunks).toString('utf8'));
 }
 
+function definitionFromPrinter(printer) {
+  return {
+    profileId:String(printer.profileId || ''),
+    name:String(printer.name || ''),
+    ports:{ ...(printer.ports || {}) },
+    serialNumber:String(printer.serialNumber || ''),
+    checkCode:String(printer.checkCode || '')
+  };
+}
+
+function sameDefinition(printer, definition) {
+  if (String(printer.profileId || '') !== String(definition?.profileId || '')) return false;
+  const ports = definition?.ports || {};
+  for (const [key, value] of Object.entries(ports)) {
+    if (Number(printer.ports?.[key]) !== Number(value)) return false;
+  }
+  const serial = String(definition?.serialNumber || '').trim();
+  if (serial && serial !== String(printer.serialNumber || '').trim()) return false;
+  return true;
+}
+
+function profileIdFromControllerConfig(config = {}) {
+  const adapterType = String(config.adapterType || '').trim();
+  const model = String(config.model || '').trim().toLowerCase();
+  if (adapterType === 'flashforge-creator5') {
+    return model.includes('pro') ? 'flashforge-creator-5-pro' : 'flashforge-creator-5';
+  }
+  if (adapterType === 'flashforge-ad5m') return 'flashforge-ad5m-pro';
+  if (adapterType === 'snapmaker-u1') return 'snapmaker-u1';
+  if (adapterType === 'bambu-lab') {
+    if (model === 'p1p') return 'bambu-p1p';
+    if (model === 'p1s') return 'bambu-p1s';
+    if (model === 'x1c' || model.includes('x1 carbon')) return 'bambu-x1c';
+    if (model === 'a1 mini' || model === 'a1-mini') return 'bambu-a1-mini';
+  }
+  return null;
+}
+
+function definitionFromControllerConfig(config = {}) {
+  const profileId = profileIdFromControllerConfig(config);
+  if (!profileId) return null;
+  const ports = {};
+  for (const key of ['httpPort','tcpPort','mqttPort','ftpsPort','cameraPort']) {
+    const value = Number(config[key]);
+    if (Number.isInteger(value) && value > 0 && value <= 65535) ports[key] = value;
+  }
+  return {
+    profileId,
+    name:String(config.name || '').trim() || undefined,
+    ports,
+    serialNumber:String(config.serialNumber || '').trim() || undefined,
+    checkCode:String(config.checkCode || config.accessCode || '').trim() || undefined
+  };
+}
+
 export class EmulatorManager {
   constructor({
     settingsPath = resolveControllerRuntimePaths().emulatorSettingsPath,
     host = '127.0.0.1',
     withDefaults = process.env.EMULATOR_NO_DEFAULTS !== '1',
-    emulator = null
+    emulator = null,
+    registeredPrintersProvider = null
   } = {}) {
     const runtimePaths = resolveControllerRuntimePaths();
     this.settingsPath = settingsPath;
     this.host = host;
     this.enabled = false;
+    this.savedDefinitions = [];
+    this.registeredPrintersProvider = typeof registeredPrintersProvider === 'function' ? registeredPrintersProvider : null;
     this.emulator = emulator || createEmulator({
       host,
       withDefaults,
@@ -50,25 +108,97 @@ export class EmulatorManager {
     };
   }
 
+  currentDefinitions() {
+    return [...this.emulator.printers.values()].map(definitionFromPrinter);
+  }
+
+  async writeSettings({ capturePrinters = true } = {}) {
+    if (capturePrinters && this.emulator.printers.size) this.savedDefinitions = this.currentDefinitions();
+    await fs.mkdir(path.dirname(this.settingsPath), { recursive:true });
+    const settings = {
+      enabled:this.enabled,
+      printers:this.savedDefinitions
+    };
+    const tempPath = `${this.settingsPath}.tmp-${process.pid}`;
+    await fs.writeFile(tempPath, `${JSON.stringify(settings, null, 2)}\n`, 'utf8');
+    await fs.rename(tempPath, this.settingsPath);
+  }
+
+  async restoreSavedDefinitions() {
+    if (!this.emulator.running || !this.savedDefinitions.length) return;
+    for (const definition of this.savedDefinitions) {
+      if (!definition?.profileId) continue;
+      if ([...this.emulator.printers.values()].some((printer) => sameDefinition(printer, definition))) continue;
+      try {
+        await this.emulator.addPrinter(definition);
+      } catch (error) {
+        console.warn(`Could not restore simulated printer ${definition.name || definition.profileId}: ${error.message}`);
+      }
+    }
+  }
+
+  async restoreRegisteredSimulatedPrinters() {
+    if (!this.emulator.running || !this.registeredPrintersProvider) return;
+    let configured = [];
+    try {
+      configured = await this.registeredPrintersProvider();
+    } catch (error) {
+      console.warn(`Could not inspect registered printers for simulator recovery: ${error.message}`);
+      return;
+    }
+    for (const config of configured || []) {
+      if (config?.simulated !== true) continue;
+      if (this.isSimulatedConfig(config)) continue;
+      const definition = definitionFromControllerConfig(config);
+      if (!definition) continue;
+      if ([...this.emulator.printers.values()].some((printer) => sameDefinition(printer, definition))) continue;
+      try {
+        await this.emulator.addPrinter(definition);
+        console.log(`Recovered simulated printer definition: ${config.name || definition.profileId}`);
+      } catch (error) {
+        console.warn(`Could not recover simulated printer ${config.name || definition.profileId}: ${error.message}`);
+      }
+    }
+  }
+
+  async ensureRunningPrinters() {
+    if (!this.emulator.running) await this.emulator.startProtocols();
+    await this.restoreSavedDefinitions();
+    await this.restoreRegisteredSimulatedPrinters();
+    this.savedDefinitions = this.currentDefinitions();
+  }
+
   async init() {
     try {
       const settings = JSON.parse(await fs.readFile(this.settingsPath, 'utf8'));
       this.enabled = settings.enabled === true;
+      this.savedDefinitions = Array.isArray(settings.printers) ? settings.printers : [];
     } catch (error) {
       if (error?.code !== 'ENOENT') console.warn(`Could not read emulator settings: ${error.message}`);
     }
     if (process.env.CONTROLLER_EMULATOR_ENABLED === '1') this.enabled = true;
-    if (this.enabled) await this.emulator.startProtocols();
+    if (this.enabled) {
+      await this.ensureRunningPrinters();
+      await this.writeSettings();
+    }
     return this.snapshot();
   }
 
   async setEnabled(enabled) {
     const requested = enabled === true;
-    if (requested && !this.emulator.running) await this.emulator.startProtocols();
-    if (!requested && this.emulator.running) await this.emulator.stopProtocols();
-    this.enabled = requested;
-    await fs.mkdir(path.dirname(this.settingsPath), { recursive: true });
-    await fs.writeFile(this.settingsPath, `${JSON.stringify({ enabled: this.enabled }, null, 2)}\n`, 'utf8');
+    if (requested) {
+      this.enabled = true;
+      await this.ensureRunningPrinters();
+      await this.writeSettings();
+      return this.snapshot();
+    }
+
+    if (this.emulator.running) {
+      this.savedDefinitions = this.currentDefinitions();
+      await this.emulator.stopProtocols();
+    }
+    this.enabled = false;
+    await this.writeSettings({ capturePrinters:false });
     return this.snapshot();
   }
 
@@ -109,7 +239,16 @@ export class EmulatorManager {
     if (!this.enabled || !this.emulator.running) {
       return json(response, 503, { error: 'Printer simulator is disabled' });
     }
-    return this.emulator.handleApi(request, response, url, { basePath: '/api/emulator' });
+    const definitionMutation = (
+      (url.pathname === '/api/emulator/printers' && request.method === 'POST')
+      || (/^\/api\/emulator\/printers\/[^/]+$/.test(url.pathname) && ['DELETE','PATCH','PUT'].includes(request.method))
+    );
+    const result = await this.emulator.handleApi(request, response, url, { basePath: '/api/emulator' });
+    if (definitionMutation) {
+      this.savedDefinitions = this.currentDefinitions();
+      await this.writeSettings({ capturePrinters:false });
+    }
+    return result;
   }
 
   serveStatic(response, url) {
@@ -117,6 +256,10 @@ export class EmulatorManager {
   }
 
   async stop() {
+    if (this.emulator.running) {
+      this.savedDefinitions = this.currentDefinitions();
+      await this.writeSettings({ capturePrinters:false }).catch(() => {});
+    }
     await this.emulator.stop();
   }
 }
