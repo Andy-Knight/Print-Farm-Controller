@@ -354,6 +354,12 @@ async function openForPrinter(printerId) {
   resetForm();
   await refresh().catch(() => {});
 
+  if (printers.some((printer) => printer.id === id)) {
+    if (assignmentScopeInput) assignmentScopeInput.value = 'printer';
+    if (printerSelect) printerSelect.value = id;
+    updateAssignmentFields();
+  }
+
   const target = [...(list?.querySelectorAll?.('[data-maintenance-printer-card]') || [])]
     .find((card) => card.dataset.maintenancePrinterCard === id);
   if (!target) return;
