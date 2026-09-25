@@ -61,6 +61,13 @@ test('dashboard maintenance icon is not overwritten by printer state updates', (
   assert.match(app, /data-maintenance-status-icon data-state="\$\{escapeHtml\(state\)\}"/);
 });
 
+test('maintenance completion is disabled after servicing until the task reaches Due soon', () => {
+  assert.match(maintenanceUi, /task\.completionAllowed === false/);
+  assert.match(maintenanceUi, /disabled aria-disabled="true"/);
+  assert.match(maintenanceUi, /Complete again when Due soon \(80%\)/);
+  assert.match(maintenanceUi, /task\.completionReason/);
+});
+
 test('maintenance tasks can be assigned to individual printers or inherited by printer model', () => {
   assert.match(index, /id="maintenanceAssignmentScope"/);
   assert.match(index, /value="printer">Individual printer<\/option>/);
