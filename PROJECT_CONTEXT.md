@@ -187,7 +187,7 @@ The Maintenance UI is available from the controller overflow menu and supports a
 
 Maintenance state participates in v0.23+ logical backup/recovery. New backups include `state/maintenance.json`; restore validates and stages it, while older backups without maintenance state restore an empty maintenance store rather than retaining unrelated target-machine maintenance data.
 
-Current implementation includes service-layer tests for persistence, day/hour/count scheduling and usage tracking; live due-soon/due fleet status; UI/API wiring tests; dashboard alarm/filter/icon coverage; backup coverage; and disaster-recovery preservation coverage. Automated Windows/Node 24 validation completed on 25 September 2026 with **327 passing tests, 0 failures**, followed by a successful `npm run build:bundle` production-controller bundle build.
+Current implementation includes service-layer tests for persistence, day/hour/count scheduling and usage tracking; live due-soon/due fleet status; UI/API wiring tests; dashboard alarm/filter/icon coverage; backup coverage; and disaster-recovery preservation coverage. Automated Windows/Node 24 validation completed on 25 September 2026 with **328 passing tests, 0 failures**, followed by a successful `npm run build:bundle` production-controller bundle build. A dashboard maintenance-icon regression test specifically verifies that the wrench status icon and printer-state badge use separate selectors so live telemetry cannot overwrite the wrench.
 
 ## Next steps
 
