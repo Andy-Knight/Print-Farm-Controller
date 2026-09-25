@@ -19,10 +19,12 @@ const enabledInput = document.querySelector('#maintenanceEnabled');
 const formTitle = document.querySelector('#maintenanceFormTitle');
 const submitButton = document.querySelector('#maintenanceSubmitBtn');
 const cancelEditButton = document.querySelector('#maintenanceCancelEdit');
+const viewButtons = [...document.querySelectorAll('[data-maintenance-view]')];
 
 let printers = [];
 let adapters = [];
 let maintenance = { modelTasks:[], printers:[] };
+let activeMaintenanceView = 'printers';
 
 function escapeHtml(value) {
   return String(value ?? '')
@@ -241,7 +243,28 @@ function printerCardsMarkup() {
 
 function render() {
   if (!list) return;
-  list.innerHTML = modelTaskSection() + printerCardsMarkup();
+  form?.classList.toggle('hidden', activeMaintenanceView !== 'add');
+  list.classList.toggle('hidden', activeMaintenanceView === 'add');
+  if (activeMaintenanceView === 'model') {
+    list.innerHTML = modelTaskSection() || '<div class="empty maintenance-empty"><h3>No model-wide maintenance rules</h3><p>Create a model-wide rule from Add maintenance tasks.</p></div>';
+    return;
+  }
+  if (activeMaintenanceView === 'printers') {
+    list.innerHTML = printerCardsMarkup();
+    return;
+  }
+  list.innerHTML = '';
+}
+
+function setMaintenanceView(view) {
+  const next = ['add', 'model', 'printers'].includes(view) ? view : 'printers';
+  activeMaintenanceView = next;
+  for (const button of viewButtons) {
+    const active = button.dataset.maintenanceView === next;
+    button.classList.toggle('active', active);
+    button.setAttribute('aria-selected', active ? 'true' : 'false');
+  }
+  render();
 }
 
 function populatePrinters() {
@@ -327,6 +350,7 @@ function findPrinterTask(printerId, taskId) {
 
 function beginEdit(scope, task, printerId = '') {
   if (!task) return;
+  setMaintenanceView('add');
   assignmentScopeInput.value = scope;
   assignmentScopeInput.disabled = true;
   taskIdInput.value = task.id;
@@ -360,6 +384,7 @@ async function openForPrinter(printerId) {
   if (!id) return;
   if (!dialog?.open) dialog?.showModal();
   resetForm();
+  setMaintenanceView('printers');
   await refresh().catch(() => {});
 
   if (printers.some((printer) => printer.id === id)) {
@@ -386,8 +411,10 @@ async function openForPrinter(printerId) {
 
 button?.addEventListener('click', async () => {
   dialog?.showModal();
+  activeMaintenanceView = 'printers';
   await refresh().catch(() => {});
   resetForm();
+  setMaintenanceView('printers');
 });
 
 window.addEventListener('pfc:open-maintenance', (event) => {
@@ -395,6 +422,12 @@ window.addEventListener('pfc:open-maintenance', (event) => {
 });
 
 for (const close of closeButtons) close.addEventListener('click', () => dialog?.close());
+for (const viewButton of viewButtons) {
+  viewButton.addEventListener('click', () => {
+    if (viewButton.dataset.maintenanceView === 'add') resetForm();
+    setMaintenanceView(viewButton.dataset.maintenanceView);
+  });
+}
 assignmentScopeInput?.addEventListener('change', updateAssignmentFields);
 cancelEditButton?.addEventListener('click', () => resetForm());
 
@@ -438,8 +471,10 @@ form?.addEventListener('submit', async (event) => {
   submitButton.disabled = true;
   try {
     await api(url, { method, body:JSON.stringify(payload) });
+    const completedScope = scope;
     await refresh();
     resetForm();
+    setMaintenanceView(completedScope === 'model' ? 'model' : 'printers');
   } catch (error) {
     if (errorEl) { errorEl.textContent = error.message; errorEl.classList.remove('hidden'); }
   } finally {
