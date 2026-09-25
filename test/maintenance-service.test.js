@@ -111,7 +111,8 @@ test('clearing maintenance history preserves task scheduling state', async () =>
       name:'Lubricate rails',
       schedule:{ type:'days', interval:10 }
     });
-    await service.completeTask('printer-1', task.id, 'Initial service');
+    now += 8 * 86400000;
+    await service.completeTask('printer-1', task.id, 'Scheduled service');
 
     let snapshot = await service.getSnapshot([printer()]);
     const before = snapshot.printers[0].tasks[0];
@@ -139,7 +140,7 @@ test('clearing maintenance history preserves task scheduling state', async () =>
   }
 });
 
-test('completed maintenance cannot be completed again until Due soon', async () => {
+test('maintenance cannot be completed until Due soon after assignment or a prior completion', async () => {
   const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'pfc-maintenance-repeat-gate-'));
   let now = Date.parse('2026-09-24T12:00:00Z');
   const fleet = new FakeFleet([printer()]);
@@ -158,19 +159,32 @@ test('completed maintenance cannot be completed again until Due soon', async () 
       schedule:{ type:'days', interval:10 }
     });
 
-    assert.equal(task.completionAllowed, true);
-    await service.completeTask('printer-1', task.id, 'Initial service');
+    assert.equal(task.status.state, 'current');
+    assert.equal(task.completionAllowed, false);
+    assert.match(task.completionReason, /Due soon \(80%/);
 
+    await assert.rejects(
+      () => service.completeTask('printer-1', task.id, 'Too early after assignment'),
+      (error) => error?.statusCode === 409 && /Due soon \(80%/.test(error.message)
+    );
+
+    now += 7 * 86400000;
     let snapshot = await service.getSnapshot([printer()]);
     let current = snapshot.printers[0].tasks[0];
     assert.equal(current.status.state, 'current');
     assert.equal(current.completionAllowed, false);
-    assert.match(current.completionReason, /Due soon \(80%/);
+    assert.equal(snapshot.printers[0].history.length, 0);
 
-    await assert.rejects(
-      () => service.completeTask('printer-1', task.id, 'Too early'),
-      (error) => error?.statusCode === 409 && /Due soon \(80%/.test(error.message)
-    );
+    now += 1 * 86400000;
+    snapshot = await service.getSnapshot([printer()]);
+    current = snapshot.printers[0].tasks[0];
+    assert.equal(current.status.state, 'due_soon');
+    assert.equal(current.completionAllowed, true);
+
+    await service.completeTask('printer-1', task.id, 'Scheduled service');
+    snapshot = await service.getSnapshot([printer()]);
+    assert.equal(snapshot.printers[0].history.length, 1);
+    assert.equal(snapshot.printers[0].tasks[0].completionAllowed, false);
 
     now += 7 * 86400000;
     snapshot = await service.getSnapshot([printer()]);
@@ -184,7 +198,7 @@ test('completed maintenance cannot be completed again until Due soon', async () 
     assert.equal(current.status.state, 'due_soon');
     assert.equal(current.completionAllowed, true);
 
-    await service.completeTask('printer-1', task.id, 'Scheduled service');
+    await service.completeTask('printer-1', task.id, 'Next scheduled service');
     snapshot = await service.getSnapshot([printer()]);
     assert.equal(snapshot.printers[0].history.length, 2);
     assert.equal(snapshot.printers[0].tasks[0].completionAllowed, false);
@@ -270,7 +284,19 @@ test('group-wide tasks follow current group membership and keep per-printer comp
     snapshot = await service.getSnapshot([p1,p2]);
     assert.equal(snapshot.printers[0].tasks.length, 0);
     assert.equal(snapshot.printers[1].tasks.length, 1);
-    assert.equal(snapshot.groupTasks[0].completionSummary.matching, 1);
+    assert.deepEqual(snapshot.groupTasks[0].completionSummary, {
+      matching:1,
+      eligible:0,
+      locked:1
+    });
+
+    now += 8 * 86400000;
+    snapshot = await service.getSnapshot([p1,p2]);
+    assert.deepEqual(snapshot.groupTasks[0].completionSummary, {
+      matching:1,
+      eligible:1,
+      locked:0
+    });
 
     const completed = await service.completeTask(p2.id, task.id, 'Completed for group member');
     assert.equal(completed.history.assignment.scope, 'group');
@@ -375,11 +401,22 @@ test('model-wide maintenance completion applies to eligible matching printers an
     let snapshot = await service.getSnapshot([p1, p2, other]);
     assert.deepEqual(snapshot.modelTasks[0].completionSummary, {
       matching:2,
+      eligible:0,
+      locked:2
+    });
+
+    const tooEarly = await service.completeModelTask(task.id, 'Too early');
+    assert.deepEqual(tooEarly.summary, { matching:2, completed:0, skipped:2 });
+
+    now += 8 * 86400000;
+    snapshot = await service.getSnapshot([p1, p2, other]);
+    assert.deepEqual(snapshot.modelTasks[0].completionSummary, {
+      matching:2,
       eligible:2,
       locked:0
     });
 
-    const initial = await service.completeModelTask(task.id, 'Initial model service');
+    const initial = await service.completeModelTask(task.id, 'Scheduled model service');
     assert.deepEqual(initial.summary, { matching:2, completed:2, skipped:0 });
 
     snapshot = await service.getSnapshot([p1, p2, other]);
