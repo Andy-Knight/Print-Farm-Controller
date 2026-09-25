@@ -192,15 +192,16 @@ The Maintenance UI is available from the controller overflow menu and is split i
 
 Maintenance state participates in v0.23+ logical backup/recovery. New backups include `state/maintenance.json`; restore validates and stages it, while older backups without maintenance state restore an empty maintenance store rather than retaining unrelated target-machine maintenance data.
 
-Current implementation includes service-layer tests for persistence, day/hour/count scheduling and usage tracking; live due-soon/due fleet status; repeat-completion locking until the 80% Due-soon threshold; individual-printer and model-wide rule inheritance; independent per-printer model-rule baselines/completion; UI/API wiring tests; dashboard alarm/filter/icon coverage; backup coverage; and disaster-recovery preservation coverage. Automated Windows/Node 24 validation completed on 25 September 2026 with **341 passing tests, 0 failures**, followed by a successful `npm run build:bundle` production-controller bundle build. A dashboard maintenance-icon regression test specifically verifies that the wrench status icon and printer-state badge use separate selectors so live telemetry cannot overwrite the wrench.
+Current implementation includes service-layer tests for persistence, day/hour/count scheduling and usage tracking; live due-soon/due fleet status; repeat-completion locking until the 80% Due-soon threshold; individual-printer, group-wide and model-wide rule inheritance; independent per-printer inherited-rule baselines/completion; printer-group persistence and exclusive membership; group-restricted automatic queue scheduling; UI/API wiring; dashboard maintenance coverage; backup coverage; and disaster-recovery validation of group membership and queue/maintenance group references. Automated Windows/Node 24 validation completed on 25 September 2026 with **354 passing tests, 0 failures**, followed by a successful `npm run build:bundle` production-controller bundle build. A dashboard maintenance-icon regression test specifically verifies that the wrench status icon and printer-state badge use separate selectors so live telemetry cannot overwrite the wrench.
 
 ## Next steps
 
-1. Live-test the Maintenance dialog in Dark and Light modes on desktop and mobile widths.
-2. Validate observed print-hour/cycle accounting with a real Snapmaker U1 and FlashForge AD5M Pro print, including pause/resume and controller restart behavior.
-3. Decide whether to add optional model-specific starter task templates after the generic workflow is validated.
-4. Continue physical validation of experimental Bambu behaviour before removing the experimental designation.
-5. Add Linux x64 and ARM64 packaging after the active maintenance work.
+1. Live-test **Printer groups** in Dark and Light modes, including moving a printer directly from one group to another.
+2. Queue a Print Library file with a group restriction and verify that only current members of that group are considered, including changing membership while the job is waiting.
+3. Create and complete a group-wide maintenance rule and verify independent history/baselines across multiple real or simulated group members.
+4. Validate backup/restore with non-empty printer groups and group-restricted queue work.
+5. Continue physical validation of experimental Bambu behaviour before removing the experimental designation.
+6. Add Linux x64 and ARM64 packaging after the active printer-groups work.
 
 ## Handoff rule
 
