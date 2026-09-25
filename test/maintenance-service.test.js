@@ -81,6 +81,61 @@ test('maintenance tasks persist, become due, and completion creates history', as
   }
 });
 
+test('completed maintenance cannot be completed again until Due soon', async () => {
+  const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'pfc-maintenance-repeat-gate-'));
+  let now = Date.parse('2026-09-24T12:00:00Z');
+  const fleet = new FakeFleet([printer()]);
+  const service = new MaintenanceService({
+    fleetState:fleet,
+    dataDir:dir,
+    printerLookup:async () => ({ id:'printer-1' }),
+    nowFn:() => now,
+    persistDelayMs:1
+  });
+
+  try {
+    await service.start();
+    const task = await service.addTask('printer-1', {
+      name:'Lubricate rails',
+      schedule:{ type:'days', interval:10 }
+    });
+
+    assert.equal(task.completionAllowed, true);
+    await service.completeTask('printer-1', task.id, 'Initial service');
+
+    let snapshot = await service.getSnapshot([printer()]);
+    let current = snapshot.printers[0].tasks[0];
+    assert.equal(current.status.state, 'current');
+    assert.equal(current.completionAllowed, false);
+    assert.match(current.completionReason, /Due soon \(80%/);
+
+    await assert.rejects(
+      () => service.completeTask('printer-1', task.id, 'Too early'),
+      (error) => error?.statusCode === 409 && /Due soon \(80%/.test(error.message)
+    );
+
+    now += 7 * 86400000;
+    snapshot = await service.getSnapshot([printer()]);
+    current = snapshot.printers[0].tasks[0];
+    assert.equal(current.status.state, 'current');
+    assert.equal(current.completionAllowed, false);
+
+    now += 1 * 86400000;
+    snapshot = await service.getSnapshot([printer()]);
+    current = snapshot.printers[0].tasks[0];
+    assert.equal(current.status.state, 'due_soon');
+    assert.equal(current.completionAllowed, true);
+
+    await service.completeTask('printer-1', task.id, 'Scheduled service');
+    snapshot = await service.getSnapshot([printer()]);
+    assert.equal(snapshot.printers[0].history.length, 2);
+    assert.equal(snapshot.printers[0].tasks[0].completionAllowed, false);
+  } finally {
+    await service.stop();
+    await fs.rm(dir, { recursive:true, force:true });
+  }
+});
+
 test('live maintenance status exposes due-soon and due states for fleet indicators', async () => {
   const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'pfc-maintenance-live-status-'));
   let now = Date.parse('2026-09-24T12:00:00Z');
