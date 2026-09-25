@@ -37,6 +37,10 @@
       <button id="queueBtn" class="secondary">Queue &amp; history <span id="queueButtonCount" class="queue-button-count hidden">0</span></button>
       <button id="batchModeBtn" class="secondary topbar-fleet-action">Fleet operations</button>
       <button id="addPrinterBtn" class="primary">+ Add printer</button>
+      <button id="maintenanceAlertBtn" class="maintenance-alert-button hidden" type="button" aria-label="Filter printers with maintenance alerts" aria-pressed="false" title="Maintenance alerts">
+        <svg class="maintenance-alert-bell" viewBox="0 0 24 24" aria-hidden="true"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9"></path><path d="M10 21h4"></path></svg>
+        <span id="maintenanceAlertCount" class="maintenance-alert-count">0</span>
+      </button>
       <button id="themeToggle" class="theme-toggle" type="button" role="switch" aria-checked="true" aria-label="Switch to light mode">
         <span class="theme-toggle-track" aria-hidden="true"></span>
         <span class="theme-toggle-label">Dark</span>
