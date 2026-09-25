@@ -81,6 +81,45 @@ test('maintenance tasks persist, become due, and completion creates history', as
   }
 });
 
+test('live maintenance status exposes due-soon and due states for fleet indicators', async () => {
+  const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'pfc-maintenance-live-status-'));
+  let now = Date.parse('2026-09-24T12:00:00Z');
+  const fleet = new FakeFleet([printer()]);
+  const service = new MaintenanceService({
+    fleetState:fleet,
+    dataDir:dir,
+    printerLookup:async () => ({ id:'printer-1' }),
+    nowFn:() => now,
+    persistDelayMs:1
+  });
+
+  try {
+    await service.start();
+    await service.addTask('printer-1', {
+      name:'Lubricate rails',
+      schedule:{ type:'days', interval:10 }
+    });
+
+    assert.deepEqual(service.getPrinterStatus('printer-1'), {
+      state:'current',
+      total:1,
+      due:0,
+      dueSoon:0
+    });
+
+    now += 8 * 86400000;
+    assert.equal(service.getPrinterStatus('printer-1').state, 'due_soon');
+    assert.equal(service.getPrinterStatus('printer-1').dueSoon, 1);
+
+    now += 2 * 86400000;
+    assert.equal(service.getPrinterStatus('printer-1').state, 'due');
+    assert.equal(service.getPrinterStatus('printer-1').due, 1);
+  } finally {
+    await service.stop();
+    await fs.rm(dir, { recursive:true, force:true });
+  }
+});
+
 test('maintenance usage tracks observed print time and print cycles', async () => {
   const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'pfc-maintenance-usage-'));
   let now = Date.parse('2026-09-24T12:00:00Z');
