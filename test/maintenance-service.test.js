@@ -159,7 +159,7 @@ test('model-wide tasks are inherited without duplication and keep per-printer ba
     assert.notEqual(p1Task.assignedAt, p2Task.assignedAt);
     assert.equal(p2Task.status.state, 'current');
 
-    now += 20 * 86400000;
+    now += 24 * 86400000;
     await service.completeTask(p1.id, modelTask.id, 'Serviced first printer only');
     snapshot = await service.getSnapshot([p1, p2, other]);
     const afterP1 = snapshot.printers.find((item) => item.printerId === p1.id);
