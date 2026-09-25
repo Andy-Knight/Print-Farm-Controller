@@ -46,9 +46,18 @@ export function normalizeCreator5Status(detail = {}, { model = null, nozzleDiame
   const nozzleTargets = Array.isArray(detail.nozzleTargetTemps) ? detail.nozzleTargetTemps : [];
   const slots = slotInfoByIndex(detail);
   const currentSlotRaw = Number(detail.currentSlot ?? detail.matlStationInfo?.currentSlot);
-  const activeIndex = Number.isInteger(currentSlotRaw) && currentSlotRaw >= 1 && currentSlotRaw <= CREATOR5_TOOL_COUNT
+  const currentMaterialSlot = Number.isInteger(currentSlotRaw) && currentSlotRaw >= 1 && currentSlotRaw <= CREATOR5_TOOL_COUNT
     ? currentSlotRaw - 1
     : null;
+  // Creator 5 currentSlot identifies the material-station slot that is feeding,
+  // not the physical toolhead. Do not present it as an authoritative active
+  // extruder. A single non-zero nozzle target is a useful conservative hint;
+  // when several tools are heated, leave the active tool unknown.
+  const activeCandidates = nozzleTargets
+    .map((target, index) => ({ index, target:Number(target) }))
+    .filter((item) => Number.isFinite(item.target) && item.target > 0)
+    .map((item) => item.index);
+  const activeIndex = activeCandidates.length === 1 ? activeCandidates[0] : null;
   const designatedNozzle = Number(nozzleDiameter);
   const nozzleSize = Number.isFinite(designatedNozzle) && designatedNozzle > 0 ? designatedNozzle : null;
 
@@ -100,6 +109,9 @@ export function normalizeCreator5Status(detail = {}, { model = null, nozzleDiame
     remainingSeconds:numeric(detail.estimatedTime, 0),
     elapsedSeconds:numeric(detail.printDuration, 0),
     activeTool:activeIndex,
+    materialStation:{
+      currentSlot:currentMaterialSlot
+    },
     nozzle:{
       actual:numeric(activeTool?.actual, 0),
       target:numeric(activeTool?.target, 0)
@@ -281,6 +293,30 @@ export async function printCreator5File(printer, fileName, options = {}) {
   };
   if (mappings.length > 1) body.materialMappings = mappings;
   return postPrinterApi(printer, '/printGcode', body, 10000);
+}
+
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+export async function openCreator5Camera(printer, { warmupMs = 2300 } = {}) {
+  // Creator 5 firmware variants have been observed with both streamCtrl and
+  // streamCtrl_cmd naming. Unknown /control commands may still return Success,
+  // so send both harmless "open" variants and then connect to the MJPEG port.
+  // On firmware where the camera is always served, these calls are simply
+  // no-ops; on gated firmware they wake the one-shot stream.
+  for (const cmd of ['streamCtrl', 'streamCtrl_cmd']) {
+    try {
+      await controlCreator5(printer, cmd, { action:'open' });
+    } catch {
+      // Camera access itself is unauthenticated on :8080 and some firmware
+      // serves it even when /control rejects the activation request. Let the
+      // camera manager attempt the stream URL before declaring it unavailable.
+    }
+  }
+  const delay = Math.max(0, Number(warmupMs) || 0);
+  if (delay) await sleep(delay);
+  return creator5CameraUrl(printer);
 }
 
 export function creator5CameraUrl(printer) {
