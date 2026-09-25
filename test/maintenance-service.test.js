@@ -120,6 +120,67 @@ test('live maintenance status exposes due-soon and due states for fleet indicato
   }
 });
 
+test('model-wide tasks are inherited without duplication and keep per-printer baselines', async () => {
+  const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'pfc-maintenance-model-'));
+  let now = Date.parse('2026-09-24T12:00:00Z');
+  const p1 = { ...printer(), id:'printer-1', name:'U1 A', adapterType:'snapmaker-u1', model:'U1' };
+  const p2 = { ...printer(), id:'printer-2', name:'U1 B', adapterType:'snapmaker-u1', model:'U1' };
+  const other = { ...printer(), id:'printer-3', name:'5M', adapterType:'flashforge-ad5m', model:'Adventurer 5M Pro' };
+  const fleet = new FakeFleet([p1, other]);
+  const lookup = new Map([[p1.id,p1],[p2.id,p2],[other.id,other]]);
+  const service = new MaintenanceService({
+    fleetState:fleet,
+    dataDir:dir,
+    printerLookup:async (id) => lookup.get(id) || null,
+    nowFn:() => now,
+    persistDelayMs:1
+  });
+
+  try {
+    await service.start();
+    const modelTask = await service.addModelTask(
+      { adapterType:'snapmaker-u1', model:'U1' },
+      { name:'Lubricate rails', schedule:{ type:'days', interval:30 } }
+    );
+
+    let snapshot = await service.getSnapshot([p1, other]);
+    assert.equal(snapshot.modelTasks.length, 1);
+    assert.equal(snapshot.printers.find((item) => item.printerId === p1.id).tasks.length, 1);
+    assert.equal(snapshot.printers.find((item) => item.printerId === other.id).tasks.length, 0);
+    assert.equal(snapshot.printers.find((item) => item.printerId === p1.id).tasks[0].assignment.scope, 'model');
+
+    now += 10 * 86400000;
+    fleet.emit([p1, p2, other]);
+    snapshot = await service.getSnapshot([p1, p2, other]);
+    const p1Task = snapshot.printers.find((item) => item.printerId === p1.id).tasks[0];
+    const p2Task = snapshot.printers.find((item) => item.printerId === p2.id).tasks[0];
+    assert.equal(p1Task.id, modelTask.id);
+    assert.equal(p2Task.id, modelTask.id);
+    assert.notEqual(p1Task.assignedAt, p2Task.assignedAt);
+    assert.equal(p2Task.status.state, 'current');
+
+    now += 20 * 86400000;
+    await service.completeTask(p1.id, modelTask.id, 'Serviced first printer only');
+    snapshot = await service.getSnapshot([p1, p2, other]);
+    const afterP1 = snapshot.printers.find((item) => item.printerId === p1.id);
+    const afterP2 = snapshot.printers.find((item) => item.printerId === p2.id);
+    assert.equal(afterP1.tasks[0].status.state, 'current');
+    assert.equal(afterP1.history.length, 1);
+    assert.equal(afterP1.history[0].assignment.scope, 'model');
+    assert.equal(afterP2.tasks[0].status.state, 'due_soon');
+
+    const raw = JSON.parse(await fs.readFile(path.join(dir, 'maintenance.json'), 'utf8'));
+    assert.equal(raw.modelTasks.length, 1);
+    assert.equal(raw.printers[p1.id].tasks.length, 0);
+    assert.equal(raw.printers[p2.id].tasks.length, 0);
+    assert.ok(raw.printers[p1.id].modelTaskState[modelTask.id]);
+    assert.ok(raw.printers[p2.id].modelTaskState[modelTask.id]);
+  } finally {
+    await service.stop();
+    await fs.rm(dir, { recursive:true, force:true });
+  }
+});
+
 test('maintenance usage tracks observed print time and print cycles', async () => {
   const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'pfc-maintenance-usage-'));
   let now = Date.parse('2026-09-24T12:00:00Z');
