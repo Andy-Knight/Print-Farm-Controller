@@ -130,15 +130,18 @@ export async function inspectRestoreBackup(filePath, {
     throw new Error('Backup installation ID does not match backup settings');
   }
 
+  let maintenance = null;
   if (archive.byName.has('state/maintenance.json')) {
-    const maintenance = await readJsonEntry(archive, 'state/maintenance.json');
+    maintenance = await readJsonEntry(archive, 'state/maintenance.json');
     if (!plainObject(maintenance) || maintenance.version !== 1 || !plainObject(maintenance.printers)) {
       throw new Error('Backup maintenance store is invalid');
     }
   }
 
+  let printerGroups = null;
+  const printerGroupIds = new Set();
   if (archive.byName.has('state/printer-groups.json')) {
-    const printerGroups = await readJsonEntry(archive, 'state/printer-groups.json');
+    printerGroups = await readJsonEntry(archive, 'state/printer-groups.json');
     if (!plainObject(printerGroups) || printerGroups.version !== 1 || !Array.isArray(printerGroups.groups)) {
       throw new Error('Backup printer group store is invalid');
     }
@@ -152,6 +155,7 @@ export async function inspectRestoreBackup(filePath, {
       if (!groupId || !groupName || !Array.isArray(group?.printerIds)) throw new Error('Backup printer group definition is invalid');
       if (groupIds.has(groupId) || groupNames.has(groupName.toLowerCase())) throw new Error('Backup contains duplicate printer groups');
       groupIds.add(groupId);
+      printerGroupIds.add(groupId);
       groupNames.add(groupName.toLowerCase());
       for (const printerIdValue of group.printerIds) {
         const printerId = String(printerIdValue || '').trim();
@@ -162,7 +166,16 @@ export async function inspectRestoreBackup(filePath, {
     }
   }
 
-  if (archive.byName.has('state/emulator-settings.json')) {
+  if (maintenance && Array.isArray(maintenance.groupTasks)) {
+    for (const task of maintenance.groupTasks) {
+      const groupId = String(task?.target?.groupId || '').trim();
+      if (!groupId || !printerGroupIds.has(groupId)) {
+        throw new Error('Backup group maintenance task references a missing printer group');
+      }
+    }
+  }
+
+    if (archive.byName.has('state/emulator-settings.json')) {
     const emulatorSettings = await readJsonEntry(archive, 'state/emulator-settings.json');
     if (!plainObject(emulatorSettings)) throw new Error('Backup emulator settings are invalid');
   }
@@ -231,6 +244,10 @@ export async function inspectRestoreBackup(filePath, {
     const referencedId = String(job?.stagedFile?.id || '').trim().toLowerCase();
     if (referencedId && !libraryIds.has(referencedId)) {
       throw new Error(`Backup queue job ${job?.id || 'unknown'} references missing Print Library file ${referencedId}`);
+    }
+    const groupId = String(job?.groupId || '').trim();
+    if (groupId && !printerGroupIds.has(groupId)) {
+      throw new Error(`Backup queue job ${job?.id || 'unknown'} references missing printer group ${groupId}`);
     }
   }
 
