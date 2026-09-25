@@ -24,6 +24,10 @@ function auth(printer) {
   };
 }
 
+export function printerAuth(printer) {
+  return auth(printer);
+}
+
 async function post(printer, endpoint, body, timeoutMs = DEFAULT_TIMEOUT_MS) {
   return runPrinterHttpExclusive(printer, async () => {
     const controller = new AbortController();
@@ -63,6 +67,10 @@ async function post(printer, endpoint, body, timeoutMs = DEFAULT_TIMEOUT_MS) {
       clearTimeout(timer);
     }
   });
+}
+
+export async function postPrinterApi(printer, endpoint, body, timeoutMs = DEFAULT_TIMEOUT_MS) {
+  return post(printer, endpoint, body, timeoutMs);
 }
 
 function normalizeFilamentType(value) {
