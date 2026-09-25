@@ -5,6 +5,8 @@ import os from 'node:os';
 import path from 'node:path';
 import { MaintenanceService } from '../src/maintenance-service.js';
 
+const maintenanceServiceSource = await fs.readFile(new URL('../src/maintenance-service.js', import.meta.url), 'utf8');
+
 class FakeFleet {
   constructor(printers = []) {
     this.printers = printers;
@@ -31,6 +33,16 @@ function printer(status = 'idle', online = true) {
     status:{ status, fileName:status === 'printing' ? 'part.gcode' : null }
   };
 }
+
+test('maintenance persistence retries transient Windows renames and recovers the save queue', () => {
+  assert.match(maintenanceServiceSource, /WINDOWS_RENAME_RETRY_DELAYS_MS = \[10, 25, 50, 100, 200, 400\]/);
+  assert.match(maintenanceServiceSource, /TRANSIENT_RENAME_ERRORS = new Set\(\['EPERM', 'EACCES', 'EBUSY'\]\)/);
+  assert.match(maintenanceServiceSource, /async function replaceFileWithRetry\(source, destination\)/);
+  assert.match(maintenanceServiceSource, /await fs\.rename\(source, destination\)/);
+  assert.match(maintenanceServiceSource, /await delay\(WINDOWS_RENAME_RETRY_DELAYS_MS\[retry\]\)/);
+  assert.match(maintenanceServiceSource, /const previousSave = this\.saveChain\.catch\(\(\) => \{\}\)/);
+  assert.match(maintenanceServiceSource, /await replaceFileWithRetry\(temp, this\.filePath\)/);
+});
 
 test('maintenance tasks persist, become due, and completion creates history', async () => {
   const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'pfc-maintenance-'));
