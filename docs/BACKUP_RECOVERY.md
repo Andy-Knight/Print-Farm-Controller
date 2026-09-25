@@ -159,7 +159,7 @@ Back up integrated simulator enablement/settings where present. Restoring emulat
 
 ### Maintenance tracking
 
-Back up controller-owned `maintenance.json`, including recurring maintenance tasks, completion history, task interval baselines and controller-observed print-hour/print-cycle counters. These counters are controller observations rather than manufacturer lifetime odometers. Older backups without maintenance state restore with an empty maintenance store rather than retaining maintenance records from the target installation.
+Back up controller-owned `maintenance.json`, including individual-printer tasks, model-wide maintenance rules, per-printer inherited-rule assignment/baseline state, completion history, task interval baselines and controller-observed print-hour/print-cycle counters. These counters are controller observations rather than manufacturer lifetime odometers. Older backups without maintenance state restore with an empty maintenance store rather than retaining maintenance records from the target installation.
 
 ### Licence
 
