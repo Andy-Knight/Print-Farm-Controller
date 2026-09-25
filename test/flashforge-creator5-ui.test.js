@@ -34,3 +34,14 @@ test('Creator 5 local-file setup warns when firmware cannot reveal sliced tool r
 test('Creator 5 does not coerce an unknown active tool to T0 in the dashboard', () => {
   assert.match(app, /s\?\.activeTool != null && Number\.isInteger\(Number\(s\.activeTool\)\)/);
 });
+
+
+test('Creator 5 Pro exposes bounded native chamber preheat rather than bed-driven preheat', () => {
+  assert.match(adapter, /chamberPreheat:true/);
+  assert.match(adapter, /chamberPreheatChamberTemperature:\{ min:30, max:65 \}/);
+  assert.match(app, /nativeChamberPreheat/);
+  assert.match(app, /Uses the Creator 5 Pro native heated chamber/);
+  assert.match(app, /Chamber target °C/);
+  assert.match(app, /chamberTemperature:temperature/);
+  assert.match(server, /chamberTemperature:body\.chamberTemperature/);
+});
