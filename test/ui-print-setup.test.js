@@ -50,6 +50,8 @@ test('dashboard printer cards keep camera previews and footer actions aligned', 
   assert.match(styles, /\.card \{ display:flex; flex-direction:column;/);
   assert.match(styles, /\.card-head \{ min-height:104px;/);
   assert.match(styles, /\.card-footer \{ margin-top:auto;/);
+  assert.match(styles, /\.card-error \{ min-height:1\.15em;/);
+  assert.match(styles, /\.card-footer \.card-error\.hidden \{ display:block !important; visibility:hidden; \}/);
   assert.match(styles, /@media \(max-width:760px\)[\s\S]*\.fleet \{ grid-template-columns:1fr; \}[\s\S]*\.card-head \{ min-height:0; \}/);
 });
 
