@@ -93,6 +93,16 @@ test('dashboard spanner opens maintenance focused on the selected printer', () =
   assert.match(styles, /\.maintenance-printer-card-target/);
 });
 
+test('printer detail spanner opens maintenance focused on the selected printer', () => {
+  const detailIconMatches = app.match(/maintenanceIconMarkup\(printer, 'maintenance-status-icon-detail', true\)/g) || [];
+  assert.equal(detailIconMatches.length, 2);
+  assert.match(app, /printerDetail\.addEventListener\('click'/);
+  assert.match(app, /const maintenanceShortcut = event\.target\.closest\('\[data-maintenance-open-printer\]'\)/);
+  assert.match(app, /const printerId = maintenanceShortcut\.dataset\.maintenanceOpenPrinter/);
+  assert.match(app, /if \(printerDialog\.open\) printerDialog\.close\(\)/);
+  assert.match(app, /new CustomEvent\('pfc:open-maintenance',[\s\S]*detail:\{ printerId \}/);
+});
+
 test('maintenance completion is disabled after servicing until the task reaches Due soon', () => {
   assert.match(maintenanceUi, /task\.completionAllowed === false/);
   assert.match(maintenanceUi, /disabled aria-disabled="true"/);
