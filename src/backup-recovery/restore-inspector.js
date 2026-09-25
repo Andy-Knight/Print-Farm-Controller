@@ -246,7 +246,8 @@ export async function inspectRestoreBackup(filePath, {
       throw new Error(`Backup queue job ${job?.id || 'unknown'} references missing Print Library file ${referencedId}`);
     }
     const groupId = String(job?.groupId || '').trim();
-    if (groupId && !printerGroupIds.has(groupId)) {
+    const terminal = TERMINAL_QUEUE_STATES.has(String(job?.status || '').toLowerCase());
+    if (groupId && !terminal && !printerGroupIds.has(groupId)) {
       throw new Error(`Backup queue job ${job?.id || 'unknown'} references missing printer group ${groupId}`);
     }
   }
