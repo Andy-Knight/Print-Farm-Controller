@@ -169,7 +169,12 @@ function controllerActivityFor(printer) {
 function decoratedFleet(printers = fleetState.getFleet()) {
   return resolveLicensedFleet(printers).printers.map((printer) => {
     const controllerActivity = controllerActivityFor(printer);
-    return controllerActivity ? { ...printer, controllerActivity } : printer;
+    const maintenance = maintenanceService?.getPrinterStatus?.(printer.id) || { state:'none', total:0, due:0, dueSoon:0 };
+    return {
+      ...printer,
+      ...(controllerActivity ? { controllerActivity } : {}),
+      maintenance
+    };
   });
 }
 
