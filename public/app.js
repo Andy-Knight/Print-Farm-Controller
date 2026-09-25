@@ -1341,10 +1341,32 @@ function renderSummary() {
     ['printing', scopedFleet.filter(isPrinterPrinting).length],
     ['attention', scopedFleet.filter(printerNeedsAttention).length]
   ];
-  summaryEl.innerHTML = items.map(([filter, value]) => {
+
+  // Keep the filter button DOM nodes stable during live SSE refreshes. Replacing
+  // them between pointerdown and click can cause the browser to drop the click.
+  // This mirrors the same stability rule used for printer cards/open buttons.
+  const expectedFilters = new Set(items.map(([filter]) => filter));
+  const existingButtons = [...summaryEl.querySelectorAll('[data-dashboard-filter]')];
+  const structureValid = existingButtons.length === items.length
+    && existingButtons.every((button) => expectedFilters.has(button.dataset.dashboardFilter));
+
+  if (!structureValid) {
+    summaryEl.innerHTML = items.map(([filter]) =>
+      `<button type="button" class="summary-card" data-dashboard-filter="${filter}" aria-pressed="false"><span class="subtle"></span><b></b></button>`
+    ).join('');
+  }
+
+  for (const [filter, value] of items) {
+    const button = summaryEl.querySelector(`[data-dashboard-filter="${filter}"]`);
+    if (!button) continue;
     const active = dashboardFilter === filter;
-    return `<button type="button" class="summary-card${active ? ' active' : ''}" data-dashboard-filter="${filter}" aria-pressed="${active}"><span class="subtle">${DASHBOARD_FILTER_LABELS[filter]}</span><b>${value}</b></button>`;
-  }).join('');
+    button.classList.toggle('active', active);
+    button.setAttribute('aria-pressed', String(active));
+    const label = button.querySelector('.subtle');
+    const count = button.querySelector('b');
+    if (label) label.textContent = DASHBOARD_FILTER_LABELS[filter];
+    if (count) count.textContent = String(value);
+  }
 }
 
 function applyDashboardFilter() {
