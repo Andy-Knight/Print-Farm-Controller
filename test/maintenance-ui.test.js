@@ -101,6 +101,17 @@ test('maintenance tasks can be assigned to individual printers or inherited by p
   assert.match(styles, /\.maintenance-scope-pill/);
 });
 
+test('model-wide maintenance rules can be completed across eligible matching printers', () => {
+  assert.match(maintenanceUi, /data-maintenance-complete-model/);
+  assert.match(maintenanceUi, /Complete for model/);
+  assert.match(maintenanceUi, /completionSummary/);
+  assert.match(maintenanceUi, /matching · .*ready/);
+  assert.match(maintenanceUi, /not yet Due soon and will be skipped/);
+  assert.match(maintenanceUi, /\/api\/maintenance\/model-tasks\/\$\{encodeURIComponent\(taskId\)\}\/complete/);
+  assert.match(server, /maintenanceService\.completeModelTask/);
+  assert.match(server, /Model-wide maintenance task completed/);
+});
+
 test('maintenance persistent state participates in backup and restore', () => {
   assert.match(backupService, /state\/maintenance\.json/);
   assert.match(restoreService, /'maintenance\.json'/);
