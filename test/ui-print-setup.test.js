@@ -263,7 +263,7 @@ test('dashboard printer errors render below the Open printer button', () => {
   assert.ok(openButton > bodyEnd);
   assert.ok(cardError > openButton);
   assert.match(styles, /\.card-footer \{[^}]*flex-direction:column/);
-  assert.match(styles, /\.card-error \{ margin-top:0;/);
+  assert.match(styles, /\.card-error \{[^}]*margin-top:0;/);
 });
 
 test('printer detail opens immediately before slow file listing completes', () => {
