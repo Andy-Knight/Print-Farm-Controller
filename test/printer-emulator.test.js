@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { EventEmitter } from 'node:events';
 import tls from 'node:tls';
-import { createEmulator } from '../emulator/server.js';
+import { createEmulator, DEFAULT_EMULATOR_PRINTERS } from '../emulator/server.js';
 import { CameraManager } from '../src/camera-manager.js';
 import { getPrinterAdapter } from '../src/adapters/adapter-registry.js';
 import { prepareFlashForgeAd5mConfig } from '../src/adapters/flashforge-ad5m-adapter.js';
@@ -10,6 +10,22 @@ import { prepareFlashForgeCreator5Config } from '../src/adapters/flashforge-crea
 import { prepareSnapmakerU1Config } from '../src/adapters/snapmaker-u1-adapter.js';
 import { prepareBambuLabConfig } from '../src/adapters/bambu-lab-adapter.js';
 import { listAllFilesTcp } from '../src/tcp-files.js';
+
+test('built-in simulator defaults include both Creator 5 models', () => {
+  assert.deepEqual(
+    DEFAULT_EMULATOR_PRINTERS.map((printer) => printer.profileId),
+    [
+      'flashforge-ad5m-pro',
+      'flashforge-creator-5',
+      'flashforge-creator-5-pro',
+      'snapmaker-u1',
+      'bambu-p1p',
+      'bambu-p1s',
+      'bambu-x1c',
+      'bambu-a1-mini'
+    ]
+  );
+});
 
 function fakeResponse() {
   const response = new EventEmitter();
