@@ -25,6 +25,8 @@ let printers = [];
 let adapters = [];
 let maintenance = { modelTasks:[], printers:[] };
 let activeMaintenanceView = 'printers';
+let revealedModelCompletionPrinterIds = [];
+let revealedModelCompletionHistoryIds = [];
 
 function escapeHtml(value) {
   return String(value ?? '')
@@ -169,6 +171,7 @@ function printerCardsMarkup() {
   }
 
   return maintenance.printers.map((printer) => {
+    const revealModelCompletion = revealedModelCompletionPrinterIds.includes(printer.printerId);
     const tasks = [...(printer.tasks || [])].sort((a, b) => {
       const rank = { due:0, due_soon:1, current:2, disabled:3 };
       return (rank[a.status?.state] ?? 9) - (rank[b.status?.state] ?? 9)
@@ -177,7 +180,7 @@ function printerCardsMarkup() {
     const history = (printer.history || []).slice(0, 5);
 
     return `
-      <section class="maintenance-printer-card" data-maintenance-printer-card="${escapeHtml(printer.printerId)}" tabindex="-1">
+      <section class="maintenance-printer-card${revealModelCompletion ? ' maintenance-printer-card-model-completed' : ''}" data-maintenance-printer-card="${escapeHtml(printer.printerId)}" tabindex="-1">
         <div class="maintenance-printer-head">
           <div>
             <h3>${escapeHtml(printer.printerName)}</h3>
@@ -222,11 +225,11 @@ function printerCardsMarkup() {
           `).join('') : '<div class="subtle maintenance-no-tasks">No maintenance tasks configured for this printer.</div>'}
         </div>
 
-        <details class="maintenance-history">
+        <details class="maintenance-history" ${revealModelCompletion ? 'open' : ''}>
           <summary>Recent maintenance history (${Number(printer.history?.length || 0)})</summary>
           <div class="maintenance-history-list">
             ${history.length ? history.map((entry) => `
-              <div class="maintenance-history-entry">
+              <div class="maintenance-history-entry${revealedModelCompletionHistoryIds.includes(entry.id) ? ' maintenance-history-entry-new' : ''}">
                 <strong>${escapeHtml(entry.taskName)}</strong>
                 <span>${escapeHtml(formatDate(entry.completedAt))}</span>
                 <span>${formatHours(Number(entry.usageSnapshot?.printHours || 0))} / ${Number(entry.usageSnapshot?.printCount || 0)} prints</span>
@@ -411,6 +414,8 @@ async function openForPrinter(printerId) {
 
 button?.addEventListener('click', async () => {
   dialog?.showModal();
+  revealedModelCompletionPrinterIds = [];
+  revealedModelCompletionHistoryIds = [];
   activeMaintenanceView = 'printers';
   await refresh().catch(() => {});
   resetForm();
@@ -516,9 +521,17 @@ list?.addEventListener('click', async (event) => {
         method:'POST',
         body:JSON.stringify({ notes })
       });
+      const completedPrinters = Array.isArray(result.completed) ? result.completed : [];
+      revealedModelCompletionPrinterIds = completedPrinters.map((item) => item.printerId).filter(Boolean);
+      revealedModelCompletionHistoryIds = completedPrinters.map((item) => item.history?.id).filter(Boolean);
       await refresh();
       const completedCount = Number(result.summary?.completed || 0);
       const skippedCount = Number(result.summary?.skipped || 0);
+      if (completedCount > 0) {
+        setMaintenanceView('printers');
+        const firstUpdated = list?.querySelector('.maintenance-printer-card-model-completed');
+        firstUpdated?.scrollIntoView({ behavior:'smooth', block:'center' });
+      }
       if (statusEl) {
         statusEl.textContent = `Completed “${task.name}” on ${completedCount} printer${completedCount === 1 ? '' : 's'}`
           + (skippedCount ? `; ${skippedCount} skipped because ${skippedCount === 1 ? 'it was' : 'they were'} not yet eligible.` : '.');
