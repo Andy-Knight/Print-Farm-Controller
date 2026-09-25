@@ -348,7 +348,12 @@ export class PrintQueueService {
     const orderedJobs = this.jobs.map((job) => job.status === 'queued' ? orderedQueued[queuedIndex++] : job);
     const jobs = orderedJobs.map((job) => {
       const currentName = this.fleetState.getPrinterState(job.printerId)?.name;
-      return publicJob(currentName ? { ...job, printerName: currentName } : job);
+      const currentGroupName = job.groupId ? this.getPrinterGroup(job.groupId)?.name : null;
+      return publicJob({
+        ...job,
+        ...(currentName ? { printerName:currentName } : {}),
+        ...(currentGroupName ? { groupName:currentGroupName } : {})
+      });
     });
     const bedClearance = this.getBedClearance();
     return {
@@ -401,7 +406,7 @@ export class PrintQueueService {
         stagedFile: runs[0]?.stagedFile ? { ...runs[0].stagedFile } : null,
         printerTarget: runs[0]?.printerTarget ? { ...runs[0].printerTarget } : null,
         groupId:runs[0]?.groupId || null,
-        groupName:runs[0]?.groupName || null,
+        groupName:runs[0]?.groupId ? (this.getPrinterGroup(runs[0].groupId)?.name || runs[0]?.groupName || null) : null,
         queuedAt: runs.map((job) => job.queuedAt).filter(Boolean).sort()[0] || null,
         updatedAt: runs.map((job) => job.updatedAt).filter(Boolean).sort().at(-1) || null,
         runs: runs.map((job) => ({
@@ -1117,7 +1122,7 @@ export class PrintQueueService {
           reasons:[{
             code:restrictedGroup ? 'printer_group' : 'printer_group_missing',
             text:restrictedGroup
-              ? `Not a member of printer group ${job.groupName || restrictedGroup.name}`
+              ? `Not a member of printer group ${restrictedGroup.name || job.groupName || job.groupId}`
               : `Printer group ${job.groupName || job.groupId} no longer exists`
           }]
         });
