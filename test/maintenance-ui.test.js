@@ -22,6 +22,24 @@ test('maintenance tracking is available from the controller overflow menu', () =
   assert.match(styles, /\.maintenance-task\[data-state="due"\]/);
 });
 
+test('maintenance window has separate add, model-rule and individual-printer views', () => {
+  assert.match(index, /class="maintenance-view-selector"/);
+  assert.match(index, /data-maintenance-view="add"[^>]*>Add maintenance tasks<\/button>/);
+  assert.match(index, /data-maintenance-view="model"[^>]*>Model-wide maintenance rules<\/button>/);
+  assert.match(index, /data-maintenance-view="printers"[^>]*>Individual printers<\/button>/);
+  assert.match(index, /id="maintenanceTaskForm"[^>]*data-maintenance-view-panel="add"/);
+  assert.match(maintenanceUi, /let activeMaintenanceView = 'printers'/);
+  assert.match(maintenanceUi, /function setMaintenanceView\(view\)/);
+  assert.match(maintenanceUi, /activeMaintenanceView === 'model'/);
+  assert.match(maintenanceUi, /activeMaintenanceView === 'printers'/);
+  assert.match(maintenanceUi, /form\?\.classList\.toggle\('hidden', activeMaintenanceView !== 'add'\)/);
+  assert.match(maintenanceUi, /viewButton\.addEventListener\('click'/);
+  assert.match(maintenanceUi, /setMaintenanceView\('add'\)/);
+  assert.match(maintenanceUi, /setMaintenanceView\('printers'\)/);
+  assert.match(styles, /\.maintenance-view-selector/);
+  assert.match(styles, /\.maintenance-view-button\.active/);
+});
+
 test('maintenance UI uses the persistent maintenance API', () => {
   assert.match(maintenanceUi, /api\('\/api\/maintenance'\)/);
   assert.match(maintenanceUi, /\/maintenance\/tasks/);
