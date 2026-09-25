@@ -371,10 +371,9 @@ function validateAddPrinter(body) {
   return preparePrinterConfig(body);
 }
 
-function validateLibraryPrinterTarget(input) {
-  if (input == null || input === '') return null;
-  if (typeof input !== 'object' || Array.isArray(input)) {
-    const error = new Error('Print Library printer target is invalid');
+function validatePrinterModelTarget(input, errorMessage = 'Choose a supported printer model') {
+  if (input == null || input === '' || typeof input !== 'object' || Array.isArray(input)) {
+    const error = new Error(errorMessage);
     error.statusCode = 400;
     throw error;
   }
@@ -383,11 +382,16 @@ function validateLibraryPrinterTarget(input) {
   const adapter = listAdapterDefinitions().find((item) => String(item.type) === requestedType);
   const model = adapter?.models?.find((item) => String(item).toLowerCase() === requestedModel.toLowerCase());
   if (!adapter || !model) {
-    const error = new Error('Choose a supported printer type for this Print Library file');
+    const error = new Error(errorMessage);
     error.statusCode = 400;
     throw error;
   }
   return { adapterType:adapter.type, model };
+}
+
+function validateLibraryPrinterTarget(input) {
+  if (input == null || input === '') return null;
+  return validatePrinterModelTarget(input, 'Choose a supported printer type for this Print Library file');
 }
 
 function openEventStream(req, res) {
@@ -1007,6 +1011,31 @@ async function apiRoute(req, res, url) {
       return { printer, status };
     });
     return json(res, 201, { printer: publicPrinter(result.printer), status:result.status });
+  }
+
+  const maintenanceModelTaskMatch = url.pathname.match(/^\/api\/maintenance\/model-tasks(?:\/([^/]+))?$/);
+  if (maintenanceModelTaskMatch) {
+    const taskId = maintenanceModelTaskMatch[1] ? decodeURIComponent(maintenanceModelTaskMatch[1]) : null;
+    if (req.method === 'POST' && !taskId) {
+      const body = await readJson(req);
+      const target = validatePrinterModelTarget(body.target);
+      const task = await controllerMutations.run('maintenance', () => maintenanceService.addModelTask(target, body));
+      fleetState.schedulePublish();
+      return json(res, 201, { task });
+    }
+    if (req.method === 'PATCH' && taskId) {
+      const body = await readJson(req);
+      const target = body.target === undefined ? undefined : validatePrinterModelTarget(body.target);
+      const task = await controllerMutations.run('maintenance', () => maintenanceService.updateModelTask(taskId, body, target));
+      fleetState.schedulePublish();
+      return json(res, 200, { task });
+    }
+    if (req.method === 'DELETE' && taskId) {
+      await controllerMutations.run('maintenance', () => maintenanceService.deleteModelTask(taskId));
+      fleetState.schedulePublish();
+      return json(res, 200, { ok:true });
+    }
+    return json(res, 405, { error:'Model maintenance task operation is not supported' });
   }
 
   const maintenanceTaskMatch = url.pathname.match(/^\/api\/printers\/([^/]+)\/maintenance\/tasks(?:\/([^/]+))?(?:\/(complete))?$/);
