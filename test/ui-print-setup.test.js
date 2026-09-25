@@ -46,6 +46,13 @@ test('printer cards highlight with border, lift and shadow on hover or keyboard 
   assert.match(styles, /\.fleet \.card\.dragging \{ transform:none; \}/);
 });
 
+test('dashboard printer cards keep camera previews and footer actions aligned', () => {
+  assert.match(styles, /\.card \{ display:flex; flex-direction:column;/);
+  assert.match(styles, /\.card-head \{ min-height:104px;/);
+  assert.match(styles, /\.card-footer \{ margin-top:auto;/);
+  assert.match(styles, /@media \(max-width:760px\)[\s\S]*\.fleet \{ grid-template-columns:1fr; \}[\s\S]*\.card-head \{ min-height:0; \}/);
+});
+
 test('dashboard summary cards filter the visible printer fleet', () => {
   assert.match(index, /id="fleetFilterEmpty"/);
   assert.match(index, /data-dashboard-filter-reset/);
