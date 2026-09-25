@@ -798,6 +798,7 @@ async function apiRoute(req, res, url) {
       groupName:group.name,
       members:group.printerIds.length
     });
+    printQueue.scheduleReconcile();
     fleetState.schedulePublish();
     return json(res, 201, { group });
   }
@@ -816,6 +817,7 @@ async function apiRoute(req, res, url) {
         groupName:group.name,
         members:group.printerIds.length
       });
+      printQueue.scheduleReconcile();
       fleetState.schedulePublish();
       return json(res, 200, { group });
     }
