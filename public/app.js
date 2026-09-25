@@ -4336,7 +4336,9 @@ async function openPrinter(id) {
     ? s.tools.map((tool) => `<div class="control-row tool-temperature-row"><label>${escapeHtml(tool.name || `T${tool.index}`)} target<input data-tool-temp-input="${tool.index}" type="number" min="0" max="${maxNozzleC}" value="${Number(tool.target || 0)}" /></label><span class="subtle" data-tool-now="${tool.index}">${Number(tool.actual || 0).toFixed(0)} °C now${tool.active ? ' · active' : ''}</span><button class="secondary" data-set-tool-temp="${tool.index}">Set</button></div>`).join('')
     : `<div class="control-row"><label>Nozzle target<input id="nozzleInput" type="number" min="0" max="${maxNozzleC}" value="${s?.nozzle.target || 0}"${disabled(capabilities.nozzleTemperature)} /></label><span class="subtle" data-nozzle-now>${s?.nozzle.actual?.toFixed(0) || '—'} °C now</span><button class="secondary" data-set-temp="nozzle"${disabled(capabilities.nozzleTemperature)}>Set</button></div>`;
   const chamberTemperatureMarkup = capabilities.chamberTemperatureSensor && s?.chamber?.actual != null && Number.isFinite(Number(s.chamber.actual))
-    ? `<div class="sensor-readout"><span>Chamber / cavity</span><b data-chamber-now>${Number(s.chamber.actual).toFixed(1)} °C</b></div>`
+    ? capabilities.chamberTemperatureControl
+      ? `<div class="control-row"><label>Chamber target<input id="chamberInput" type="number" min="${Number(limits.chamberTemperature?.min ?? 0)}" max="${Number(limits.chamberTemperature?.max ?? 65)}" value="${Number(s?.chamber?.target || 0)}" /></label><span class="subtle" data-chamber-now>${Number(s.chamber.actual).toFixed(1)} °C now</span><button class="secondary" data-set-temp="chamber">Set</button></div>`
+      : `<div class="sensor-readout"><span>Chamber / cavity</span><b data-chamber-now>${Number(s.chamber.actual).toFixed(1)} °C</b></div>`
     : '';
   const materialStatusMarkup = capabilities.materialStatus ? (() => {
     const tools = Array.isArray(s?.tools) ? s.tools : [];
@@ -4815,7 +4817,7 @@ ${flashForgePreflight}` : ''}`)) return;
 
   printerDetail.querySelectorAll('[data-set-temp]').forEach((btn) => btn.onclick = () => {
     const key = btn.dataset.setTemp;
-    const input = printerDetail.querySelector(key === 'nozzle' ? '#nozzleInput' : '#bedInput');
+    const input = printerDetail.querySelector(key === 'nozzle' ? '#nozzleInput' : key === 'chamber' ? '#chamberInput' : '#bedInput');
     command(id, 'temperature', { [key]: Number(input.value) }).catch(showError);
   });
   printerDetail.querySelectorAll('[data-set-tool-temp]').forEach((btn) => btn.onclick = () => {
