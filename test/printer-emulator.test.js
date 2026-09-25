@@ -524,6 +524,15 @@ test('Creator 5 Pro profile interoperates with four-tool HTTP production adapter
   assert.equal(heated.bed.target, 110);
   assert.equal(heated.chamber.target, 55);
 
+  const simulated = emulator.printers.get(virtual.id);
+  const chamberBefore = simulated.chamber.actual;
+  simulated.tick(simulated._lastTick + 2000);
+  const warming = await adapter.getStatus();
+  assert.ok(warming.chamber.actual > chamberBefore, 'Creator 5 Pro simulated chamber should heat toward its target');
+
+  simulated.action('reset');
+  assert.equal(simulated.chamber.target, 0);
+
   await adapter.printLocalFile('calibration-cube.gcode', {
     levelingBeforePrint:true,
     flowCalibrationBeforePrint:true,
