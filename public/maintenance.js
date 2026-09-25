@@ -268,8 +268,8 @@ function printerCardsMarkup() {
                 <div class="maintenance-task-meta">
                   <span>${escapeHtml(scheduleLabel(task))}</span>
                   <span>${escapeHtml(remainingLabel(task))}</span>
-                  <span>Last completed: ${escapeHtml(formatDate(task.lastCompletedAt))}</span>
-                  ${task.lastCompletedAt && task.completionAllowed === false ? '<span>Complete again when Due soon (80%)</span>' : ''}
+                  <span>${task.lastCompletedAt ? `Last completed: ${escapeHtml(formatDate(task.lastCompletedAt))}` : `Tracking since: ${escapeHtml(formatDate(task.assignedAt || task.createdAt))}`}</span>
+                  ${task.enabled !== false && task.completionAllowed === false ? '<span>Complete when Due soon (80%)</span>' : ''}
                   ${['model','group'].includes(task.assignment?.scope) ? `<span>Assigned to this printer: ${escapeHtml(formatDate(task.assignedAt))}</span>` : ''}
                 </div>
               </div>
