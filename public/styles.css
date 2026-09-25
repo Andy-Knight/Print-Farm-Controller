@@ -133,6 +133,8 @@ input:focus,select:focus { border-color:#7a9fbe; }
 .error { background:#4b2528; color:#ffc1c5; padding:10px 12px; border-radius:9px; font-size:.85rem; }
 .add-dialog { width:min(680px,calc(100vw - 30px)); }
 .discovery-panel { border:1px solid #29343d; background:#0e141a; border-radius:13px; padding:13px; }
+.virtual-printer-panel { margin-bottom:12px; }
+.virtual-printer-panel .discovery-heading .mini-actions { flex:0 0 auto; }
 .discovery-heading { display:flex; justify-content:space-between; align-items:flex-start; gap:12px; margin-bottom:9px; }
 .discovery-heading strong { display:block; margin-bottom:3px; }
 .discovery-results { display:grid; gap:7px; margin-top:9px; max-height:220px; overflow:auto; }
