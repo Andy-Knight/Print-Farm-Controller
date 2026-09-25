@@ -1256,6 +1256,7 @@ function renderMaintenanceAlert() {
   const alerts = fleet.filter(printerHasMaintenanceAlert);
   const duePrinters = alerts.filter((printer) => printerMaintenanceState(printer) === 'due').length;
   const dueSoonPrinters = alerts.length - duePrinters;
+  if (dashboardFilter === 'maintenance' && alerts.length === 0) dashboardFilter = 'all';
   maintenanceAlertBtn.classList.toggle('hidden', alerts.length === 0);
   maintenanceAlertBtn.classList.toggle('active', dashboardFilter === 'maintenance');
   maintenanceAlertBtn.dataset.state = duePrinters > 0 ? 'due' : 'due_soon';
