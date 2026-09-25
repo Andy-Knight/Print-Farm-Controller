@@ -55,6 +55,32 @@ export const EMULATOR_PROFILES = Object.freeze({
       checkCode: '11223344'
     })
   }),
+  'flashforge-creator-5': Object.freeze({
+    id: 'flashforge-creator-5',
+    adapterType: 'flashforge-creator5',
+    manufacturer: 'FlashForge',
+    model: 'Creator 5',
+    toolCount: 4,
+    defaults: Object.freeze({
+      httpPort: 18908,
+      cameraPort: 18090,
+      serialNumber: 'SIM-FF-C5-001',
+      checkCode: 'SIMULATOR'
+    })
+  }),
+  'flashforge-creator-5-pro': Object.freeze({
+    id: 'flashforge-creator-5-pro',
+    adapterType: 'flashforge-creator5',
+    manufacturer: 'FlashForge',
+    model: 'Creator 5 Pro',
+    toolCount: 4,
+    defaults: Object.freeze({
+      httpPort: 18918,
+      cameraPort: 18100,
+      serialNumber: 'SIM-FF-C5P-001',
+      checkCode: 'SIMULATOR'
+    })
+  }),
   'flashforge-ad5m-pro': Object.freeze({
     id: 'flashforge-ad5m-pro',
     adapterType: 'flashforge-ad5m',
