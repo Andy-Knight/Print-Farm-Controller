@@ -197,6 +197,8 @@ export function createEmulator({
     try {
       if (withDefaults && printers.size === 0) {
         await addPrinter({ profileId: 'flashforge-ad5m-pro', name: 'Simulated AD5M Pro' });
+        await addPrinter({ profileId: 'flashforge-creator-5', name: 'Simulated Creator 5' });
+        await addPrinter({ profileId: 'flashforge-creator-5-pro', name: 'Simulated Creator 5 Pro' });
         await addPrinter({ profileId: 'snapmaker-u1', name: 'Simulated Snapmaker U1' });
         await addPrinter({ profileId: 'bambu-p1p', name: 'Simulated Bambu Lab P1P' });
         await addPrinter({ profileId: 'bambu-p1s', name: 'Simulated Bambu Lab P1S' });
