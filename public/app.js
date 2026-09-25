@@ -1823,7 +1823,7 @@ function cardMarkup(printer) {
           <button type="button" class="reorder-button" data-move-later title="Move later" aria-label="Move printer later">→</button>
         </div>
         ${maintenanceIconMarkup(printer)}
-        <div class="badge" data-state></div>
+        <div class="badge" data-printer-state></div>
       </div>
     </div>
     <div class="camera-slot" data-camera-slot></div>
@@ -1884,7 +1884,7 @@ function updateCard(card, printer) {
   const modelLabel = printerModelLabel(printer);
   card.querySelector('[data-host]').textContent = `${printer.host}${modelLabel ? ` · ${modelLabel}` : ''}`;
   updateMaintenanceIcon(card, printer);
-  const badge = card.querySelector('[data-state]');
+  const badge = card.querySelector('[data-printer-state]');
   badge.textContent = state;
   badge.className = `badge ${state.toLowerCase()}`;
   const rawState = rawStateName(printer);
