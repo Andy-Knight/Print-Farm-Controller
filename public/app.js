@@ -2048,7 +2048,7 @@ function updateCard(card, printer) {
   card.querySelector('[data-job-name]').textContent = s?.fileName || (printer.online ? 'No active job' : 'Printer offline');
   card.querySelector('[data-progress-value]').textContent = `${progress}%`;
   card.querySelector('[data-progress-bar]').style.width = `${progress}%`;
-  const activeTool = Number.isInteger(Number(s?.activeTool)) ? Number(s.activeTool) : null;
+  const activeTool = s?.activeTool != null && Number.isInteger(Number(s.activeTool)) ? Number(s.activeTool) : null;
   card.querySelector('[data-nozzle-label]').textContent = activeTool !== null && printer.capabilities?.toolTemperatures ? `Active T${activeTool}` : 'Nozzle';
   card.querySelector('[data-nozzle]').textContent = s ? `${s.nozzle.actual.toFixed(0)} / ${s.nozzle.target.toFixed(0)} °C` : '—';
   card.querySelector('[data-bed]').textContent = s ? `${s.bed.actual.toFixed(0)} / ${s.bed.target.toFixed(0)} °C` : '—';
