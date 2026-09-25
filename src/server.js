@@ -1458,7 +1458,8 @@ async function apiRoute(req, res, url) {
         filamentEntangleSensitivity: body.filamentEntangleSensitivity ?? undefined,
         toolMap: body.toolMap ?? null,
         materialMap: body.materialMap ?? null,
-        usedLogicalTools: Array.isArray(body.usedLogicalTools) ? body.usedLogicalTools : []
+        usedLogicalTools: Array.isArray(body.usedLogicalTools) ? body.usedLogicalTools : [],
+        logicalTools:Array.isArray(body.logicalTools) ? body.logicalTools : []
       });
     }, { operationType:PRINTER_OPERATION_TYPES.PRINT_START });
     refreshAfterCommand(id);
