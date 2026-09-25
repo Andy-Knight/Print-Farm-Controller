@@ -1013,9 +1013,10 @@ async function apiRoute(req, res, url) {
     return json(res, 201, { printer: publicPrinter(result.printer), status:result.status });
   }
 
-  const maintenanceModelTaskMatch = url.pathname.match(/^\/api\/maintenance\/model-tasks(?:\/([^/]+))?$/);
+  const maintenanceModelTaskMatch = url.pathname.match(/^\/api\/maintenance\/model-tasks(?:\/([^/]+))?(?:\/(complete))?$/);
   if (maintenanceModelTaskMatch) {
     const taskId = maintenanceModelTaskMatch[1] ? decodeURIComponent(maintenanceModelTaskMatch[1]) : null;
+    const completeAction = maintenanceModelTaskMatch[2] === 'complete';
     if (req.method === 'POST' && !taskId) {
       const body = await readJson(req);
       const target = validatePrinterModelTarget(body.target);
@@ -1023,14 +1024,27 @@ async function apiRoute(req, res, url) {
       fleetState.schedulePublish();
       return json(res, 201, { task });
     }
-    if (req.method === 'PATCH' && taskId) {
+    if (req.method === 'PATCH' && taskId && !completeAction) {
       const body = await readJson(req);
       const target = body.target === undefined ? undefined : validatePrinterModelTarget(body.target);
       const task = await controllerMutations.run('maintenance', () => maintenanceService.updateModelTask(taskId, body, target));
       fleetState.schedulePublish();
       return json(res, 200, { task });
     }
-    if (req.method === 'DELETE' && taskId) {
+    if (req.method === 'POST' && taskId && completeAction) {
+      const body = await readJson(req);
+      const result = await controllerMutations.run('maintenance', () => maintenanceService.completeModelTask(taskId, body.notes));
+      await diagnosticLogger.info('maintenance', 'Model-wide maintenance task completed', {
+        taskId,
+        taskName:result.task?.name || null,
+        matching:result.summary?.matching || 0,
+        completed:result.summary?.completed || 0,
+        skipped:result.summary?.skipped || 0
+      });
+      fleetState.schedulePublish();
+      return json(res, 200, result);
+    }
+    if (req.method === 'DELETE' && taskId && !completeAction) {
       await controllerMutations.run('maintenance', () => maintenanceService.deleteModelTask(taskId));
       fleetState.schedulePublish();
       return json(res, 200, { ok:true });
