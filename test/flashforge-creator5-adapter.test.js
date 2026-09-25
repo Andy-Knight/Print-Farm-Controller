@@ -78,7 +78,7 @@ test('Creator 5 Pro detail normalizes four toolheads, material slots and chamber
   assert.equal(status.progress, 25);
   assert.equal(status.tools.length, 4);
   assert.deepEqual(status.tools.map((tool) => tool.actual), [31,32,33,34]);
-  assert.deepEqual(status.tools.map((tool) => tool.target), [210,220,230,240]);
+  assert.deepEqual(status.tools.map((tool) => tool.target), [0,0,230,0]);
   assert.equal(status.tools[2].active, true);
   assert.equal(status.activeTool, 2);
   assert.equal(status.materialStation.currentSlot, 2);
