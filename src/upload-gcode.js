@@ -59,6 +59,10 @@ function parsePrinterResponse(statusCode, raw) {
 async function sendMultipartUpload(printer, filePath, {
   firmwareVersion,
   levelingBeforePrint = true,
+  flowCalibrationBeforePrint = false,
+  timeLapseBeforePrint = false,
+  creator5 = false,
+  toolCount = 1,
   timeoutMs = DEFAULT_TIMEOUT_MS,
   expectWaitMs = DEFAULT_EXPECT_WAIT_MS
 } = {}) {
@@ -85,7 +89,13 @@ async function sendMultipartUpload(printer, filePath, {
     Expect: '100-continue'
   };
 
-  if (usesModernUploadHeaders(firmwareVersion)) {
+  if (creator5) {
+    const normalizedToolCount = Math.max(1, Math.min(4, Number.isInteger(Number(toolCount)) ? Number(toolCount) : 1));
+    headers.flowCalibration = String(flowCalibrationBeforePrint === true).toLowerCase();
+    headers.timeLapseVideo = String(timeLapseBeforePrint === true).toLowerCase();
+    headers.useMatlStation = 'true';
+    headers.gcodeToolCnt = String(normalizedToolCount);
+  } else if (usesModernUploadHeaders(firmwareVersion)) {
     headers.flowCalibration = 'false';
     headers.useMatlStation = 'false';
     headers.gcodeToolCnt = '0';
@@ -160,7 +170,7 @@ async function sendMultipartUpload(printer, filePath, {
 }
 
 /**
- * Uploads a file to an Adventurer 5M-family printer using /uploadGcode.
+ * Uploads a file to a modern FlashForge printer using /uploadGcode.
  * printNow is deliberately false; callers may verify storage then start the
  * printer separately with /printGcode.
  */
