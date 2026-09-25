@@ -2,6 +2,8 @@ const fleetEl = document.querySelector('#fleet');
 const summaryEl = document.querySelector('#summary');
 const emptyEl = document.querySelector('#empty');
 const fleetFilterEmptyEl = document.querySelector('#fleetFilterEmpty');
+const dashboardGroupFilterBar = document.querySelector('#dashboardGroupFilterBar');
+const dashboardGroupFilter = document.querySelector('#dashboardGroupFilter');
 const addDialog = document.querySelector('#addPrinterDialog');
 const addForm = document.querySelector('#addPrinterForm');
 const printerDialog = document.querySelector('#printerDialog');
@@ -153,6 +155,7 @@ let selectionMode = false;
 let batchBusy = false;
 let pendingBatchAction = null;
 let dashboardFilter = 'all';
+let dashboardGroupId = '';
 const DASHBOARD_FILTER_LABELS = Object.freeze({ all:'Printers', online:'Online', printing:'Printing', attention:'Needs attention', maintenance:'Maintenance' });
 const FILAMENT_COLOR_FAMILIES = Object.freeze([
   { value:'black', label:'Black', representative:'#111111' },
@@ -1275,7 +1278,7 @@ function updateMaintenanceIcon(root, printer) {
 
 function renderMaintenanceAlert() {
   if (!maintenanceAlertBtn || !maintenanceAlertCount) return;
-  const alerts = fleet.filter(printerHasMaintenanceAlert);
+  const alerts = dashboardScopedFleet().filter(printerHasMaintenanceAlert);
   const duePrinters = alerts.filter((printer) => printerMaintenanceState(printer) === 'due').length;
   const dueSoonPrinters = alerts.length - duePrinters;
   if (dashboardFilter === 'maintenance' && alerts.length === 0) dashboardFilter = 'all';
@@ -1294,6 +1297,29 @@ function renderMaintenanceAlert() {
   maintenanceAlertBtn.title = description;
 }
 
+function matchesDashboardGroup(printer, groupId = dashboardGroupId) {
+  if (!groupId) return true;
+  const group = (printerGroupsState.groups || []).find((item) => item.id === groupId);
+  return Boolean(group?.printerIds?.includes(String(printer?.id || '')));
+}
+
+function dashboardScopedFleet() {
+  return fleet.filter((printer) => matchesDashboardGroup(printer));
+}
+
+function populateDashboardGroupFilterOptions() {
+  if (!dashboardGroupFilter || !dashboardGroupFilterBar) return;
+  const groups = [...(printerGroupsState.groups || [])]
+    .sort((a, b) => String(a.name).localeCompare(String(b.name)));
+  if (dashboardGroupId && !groups.some((group) => group.id === dashboardGroupId)) dashboardGroupId = '';
+  dashboardGroupFilter.innerHTML = '<option value="">All printers</option>'
+    + groups.map((group) =>
+      `<option value="${escapeHtml(group.id)}">${escapeHtml(group.name)} (${Number(group.printerIds?.length || 0)})</option>`
+    ).join('');
+  dashboardGroupFilter.value = dashboardGroupId;
+  dashboardGroupFilterBar.classList.toggle('hidden', groups.length === 0);
+}
+
 function matchesDashboardFilter(printer, filter = dashboardFilter) {
   if (filter === 'online') return printer?.online === true;
   if (filter === 'printing') return isPrinterPrinting(printer);
@@ -1304,11 +1330,12 @@ function matchesDashboardFilter(printer, filter = dashboardFilter) {
 
 function renderSummary() {
   renderMaintenanceAlert();
+  const scopedFleet = dashboardScopedFleet();
   const items = [
-    ['all', fleet.length],
-    ['online', fleet.filter((printer) => printer.online).length],
-    ['printing', fleet.filter(isPrinterPrinting).length],
-    ['attention', fleet.filter(printerNeedsAttention).length]
+    ['all', scopedFleet.length],
+    ['online', scopedFleet.filter((printer) => printer.online).length],
+    ['printing', scopedFleet.filter(isPrinterPrinting).length],
+    ['attention', scopedFleet.filter(printerNeedsAttention).length]
   ];
   summaryEl.innerHTML = items.map(([filter, value]) => {
     const active = dashboardFilter === filter;
@@ -1320,16 +1347,32 @@ function applyDashboardFilter() {
   let visible = 0;
   for (const card of fleetEl.querySelectorAll('[data-printer-card]')) {
     const printer = fleet.find((item) => item.id === card.dataset.printerCard);
-    const show = Boolean(printer && matchesDashboardFilter(printer));
+    const show = Boolean(printer && matchesDashboardGroup(printer) && matchesDashboardFilter(printer));
     card.classList.toggle('hidden', !show);
     if (show) visible += 1;
   }
-  fleetEl.classList.toggle('filtered', dashboardFilter !== 'all');
+  fleetEl.classList.toggle('filtered', dashboardFilter !== 'all' || Boolean(dashboardGroupId));
   fleetFilterEmptyEl?.classList.toggle('hidden', fleet.length === 0 || visible > 0);
 }
 
 function setDashboardFilter(filter) {
   dashboardFilter = Object.hasOwn(DASHBOARD_FILTER_LABELS, filter) ? filter : 'all';
+  renderSummary();
+  applyDashboardFilter();
+}
+
+function setDashboardGroupFilter(groupId) {
+  const requested = String(groupId || '');
+  dashboardGroupId = (printerGroupsState.groups || []).some((group) => group.id === requested) ? requested : '';
+  if (dashboardGroupFilter) dashboardGroupFilter.value = dashboardGroupId;
+  renderSummary();
+  applyDashboardFilter();
+}
+
+function resetDashboardFilters() {
+  dashboardGroupId = '';
+  dashboardFilter = 'all';
+  if (dashboardGroupFilter) dashboardGroupFilter.value = '';
   renderSummary();
   applyDashboardFilter();
 }
@@ -1810,6 +1853,9 @@ async function loadPrinterGroups({ preserveForm = false } = {}) {
   const selectedGroup = queueAddGroup?.value || '';
   printerGroupsState = await api('/api/printer-groups');
   populateQueueGroupOptions(selectedGroup);
+  populateDashboardGroupFilterOptions();
+  renderSummary();
+  applyDashboardFilter();
   renderPrinterGroups();
   if (!preserveForm) renderPrinterGroupMembers();
   window.dispatchEvent(new CustomEvent('pfc:printer-groups-changed', { detail:printerGroupsState }));
@@ -2873,9 +2919,13 @@ maintenanceAlertBtn?.addEventListener('click', () => {
   setDashboardFilter(dashboardFilter === 'maintenance' ? 'all' : 'maintenance');
 });
 
+dashboardGroupFilter?.addEventListener('change', () => {
+  setDashboardGroupFilter(dashboardGroupFilter.value);
+});
+
 fleetFilterEmptyEl?.addEventListener('click', (event) => {
   if (!event.target.closest('[data-dashboard-filter-reset]')) return;
-  setDashboardFilter('all');
+  resetDashboardFilters();
 });
 
 fleetEl.addEventListener('click', (event) => {

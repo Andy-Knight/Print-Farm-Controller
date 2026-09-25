@@ -151,12 +151,6 @@ function completionAvailability(task, status) {
       reason:'Enable this maintenance task before completing it'
     };
   }
-  if (!task.lastCompletedAt) {
-    return {
-      allowed:true,
-      reason:null
-    };
-  }
   if (status.state === 'due_soon' || status.state === 'due') {
     return {
       allowed:true,
@@ -165,7 +159,7 @@ function completionAvailability(task, status) {
   }
   return {
     allowed:false,
-    reason:'This task can be completed again when it reaches Due soon (80% of its interval)'
+    reason:'This task can be completed when it reaches Due soon (80% of its interval)'
   };
 }
 
@@ -567,6 +561,7 @@ export class MaintenanceService {
     const nowMs = this.nowFn();
     const task = {
       ...this.taskDefinition(input, nowMs),
+      assignedAt:nowIso(nowMs),
       baseline:{
         printSeconds:Number(record.usage.printSeconds || 0),
         printCount:Number(record.usage.printCount || 0)

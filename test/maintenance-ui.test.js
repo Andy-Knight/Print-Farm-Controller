@@ -120,11 +120,12 @@ test('individual printer maintenance history can be cleared without resetting sc
   assert.match(styles, /\.maintenance-clear-history/);
 });
 
-test('maintenance completion is disabled after servicing until the task reaches Due soon', () => {
+test('maintenance completion is disabled from assignment until the task reaches Due soon', () => {
   assert.match(maintenanceUi, /task\.completionAllowed === false/);
   assert.match(maintenanceUi, /disabled aria-disabled="true"/);
-  assert.match(maintenanceUi, /Complete again when Due soon \(80%\)/);
+  assert.match(maintenanceUi, /Complete when Due soon \(80%\)/);
   assert.match(maintenanceUi, /task\.completionReason/);
+  assert.match(maintenanceUi, /Tracking since:/);
 });
 
 test('maintenance tasks can be assigned to a printer, printer group or printer model', () => {
