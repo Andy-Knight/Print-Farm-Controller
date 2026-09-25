@@ -24,6 +24,7 @@ export const DEFAULT_CAPABILITIES = Object.freeze({
   camera: false,
   chamberPreheat: false,
   chamberTemperatureSensor: false,
+  chamberTemperatureControl: false,
   materialStatus: false,
   materialDesignation: false,
   filamentTypeControl: false,
