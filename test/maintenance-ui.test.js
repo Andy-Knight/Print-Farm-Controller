@@ -4,6 +4,7 @@ import fs from 'node:fs';
 
 const index = fs.readFileSync(new URL('../public/index.html', import.meta.url), 'utf8');
 const maintenanceUi = fs.readFileSync(new URL('../public/maintenance.js', import.meta.url), 'utf8');
+const app = fs.readFileSync(new URL('../public/app.js', import.meta.url), 'utf8');
 const styles = fs.readFileSync(new URL('../public/styles.css', import.meta.url), 'utf8');
 const server = fs.readFileSync(new URL('../src/server.js', import.meta.url), 'utf8');
 const backupService = fs.readFileSync(new URL('../src/backup-recovery/backup-service.js', import.meta.url), 'utf8');
@@ -33,6 +34,24 @@ test('maintenance UI uses the persistent maintenance API', () => {
   assert.match(server, /maintenanceService\.updateTask/);
   assert.match(server, /maintenanceService\.deleteTask/);
   assert.match(server, /maintenanceService\.completeTask/);
+});
+
+test('dashboard surfaces live maintenance alerts and filters affected printers', () => {
+  assert.match(index, /id="maintenanceAlertBtn"[^>]*maintenance-alert-button hidden/);
+  assert.match(index, /id="maintenanceAlertCount"/);
+  assert.match(app, /function printerHasMaintenanceAlert\(printer\)/);
+  assert.match(app, /filter === 'maintenance'\) return printerHasMaintenanceAlert\(printer\)/);
+  assert.match(app, /function renderMaintenanceAlert\(\)/);
+  assert.match(app, /maintenanceAlertBtn\.classList\.toggle\('hidden', alerts\.length === 0\)/);
+  assert.match(app, /maintenanceAlertBtn\?\.addEventListener\('click'/);
+  assert.match(app, /setDashboardFilter\(dashboardFilter === 'maintenance' \? 'all' : 'maintenance'\)/);
+  assert.match(app, /maintenanceIconMarkup\(printer\)/);
+  assert.match(app, /maintenanceIconMarkup\(printer, 'maintenance-status-icon-detail'\)/);
+  assert.match(app, /data-maintenance-tracking-summary/);
+  assert.match(styles, /\.maintenance-alert-button/);
+  assert.match(styles, /\.maintenance-status-icon\[data-state="due_soon"\]/);
+  assert.match(styles, /\.maintenance-status-icon\[data-state="due"\]/);
+  assert.match(server, /maintenanceService\?\.getPrinterStatus\?\.\(printer\.id\)/);
 });
 
 test('maintenance persistent state participates in backup and restore', () => {
