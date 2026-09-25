@@ -5,7 +5,11 @@ const list = document.querySelector('#maintenanceList');
 const statusEl = document.querySelector('#maintenanceStatus');
 const errorEl = document.querySelector('#maintenanceError');
 const form = document.querySelector('#maintenanceTaskForm');
+const assignmentScopeInput = document.querySelector('#maintenanceAssignmentScope');
+const printerField = document.querySelector('#maintenancePrinterField');
 const printerSelect = document.querySelector('#maintenancePrinter');
+const modelField = document.querySelector('#maintenanceModelField');
+const modelSelect = document.querySelector('#maintenanceModel');
 const taskIdInput = document.querySelector('#maintenanceTaskId');
 const nameInput = document.querySelector('#maintenanceName');
 const descriptionInput = document.querySelector('#maintenanceDescription');
@@ -17,7 +21,8 @@ const submitButton = document.querySelector('#maintenanceSubmitBtn');
 const cancelEditButton = document.querySelector('#maintenanceCancelEdit');
 
 let printers = [];
-let maintenance = { printers:[] };
+let adapters = [];
+let maintenance = { modelTasks:[], printers:[] };
 
 function escapeHtml(value) {
   return String(value ?? '')
@@ -77,14 +82,83 @@ function statusLabel(value) {
   return 'Current';
 }
 
-function render() {
-  if (!list) return;
+function modelTargets() {
+  return adapters.flatMap((adapter) => (adapter.models || []).map((model) => ({
+    adapterType:adapter.type,
+    model:String(model),
+    manufacturer:adapter.manufacturer || adapter.label || adapter.type,
+    label:`${adapter.manufacturer || adapter.label || adapter.type} · ${model}`
+  })));
+}
+
+function targetKey(target) {
+  return `${String(target?.adapterType || '')}::${String(target?.model || '')}`;
+}
+
+function targetFromKey(value) {
+  const target = modelTargets().find((item) => targetKey(item) === String(value || ''));
+  return target ? { adapterType:target.adapterType, model:target.model } : null;
+}
+
+function modelLabel(target) {
+  return modelTargets().find((item) => targetKey(item) === targetKey(target))?.label
+    || [target?.adapterType, target?.model].filter(Boolean).join(' · ')
+    || 'Unknown model';
+}
+
+function assignmentLabel(task, printer = null) {
+  if (task.assignment?.scope === 'model') return `Model · ${modelLabel(task.assignment)}`;
+  return printer ? `Printer · ${printer.printerName}` : 'Individual printer';
+}
+
+function modelTaskSection() {
+  const tasks = [...(maintenance.modelTasks || [])].sort((a, b) =>
+    modelLabel(a.assignment || a.target).localeCompare(modelLabel(b.assignment || b.target))
+    || String(a.name).localeCompare(String(b.name))
+  );
+  if (!tasks.length) return '';
+
+  return `
+    <section class="maintenance-model-rules">
+      <div class="maintenance-model-rules-head">
+        <div>
+          <h3>Model-wide maintenance rules</h3>
+          <div class="subtle">Inherited automatically by every current and future printer of the selected model. Completion state remains independent per printer.</div>
+        </div>
+        <span class="maintenance-pill">${tasks.length} shared</span>
+      </div>
+      <div class="maintenance-model-rule-list">
+        ${tasks.map((task) => `
+          <article class="maintenance-model-rule">
+            <div class="maintenance-task-main">
+              <div class="maintenance-task-title-row">
+                <strong>${escapeHtml(task.name)}</strong>
+                <span class="maintenance-scope-pill">Model · ${escapeHtml(modelLabel(task.assignment || task.target))}</span>
+                ${task.enabled === false ? '<span class="maintenance-pill" data-state="disabled">Disabled</span>' : ''}
+              </div>
+              ${task.description ? `<div class="maintenance-task-description">${escapeHtml(task.description)}</div>` : ''}
+              <div class="maintenance-task-meta">
+                <span>${escapeHtml(scheduleLabel(task))}</span>
+                <span>Applies to matching printers automatically</span>
+              </div>
+            </div>
+            <div class="mini-actions maintenance-task-actions">
+              <button type="button" class="secondary" data-maintenance-edit data-task-scope="model" data-task-id="${escapeHtml(task.id)}">Edit rule</button>
+              <button type="button" class="danger" data-maintenance-delete data-task-scope="model" data-task-id="${escapeHtml(task.id)}">Delete rule</button>
+            </div>
+          </article>
+        `).join('')}
+      </div>
+    </section>
+  `;
+}
+
+function printerCardsMarkup() {
   if (!maintenance.printers?.length) {
-    list.innerHTML = '<div class="empty maintenance-empty"><h3>No printers configured</h3><p>Add a printer before creating maintenance tasks.</p></div>';
-    return;
+    return '<div class="empty maintenance-empty"><h3>No printers configured</h3><p>Model-wide tasks can still be configured now and will be inherited when matching printers are added.</p></div>';
   }
 
-  list.innerHTML = maintenance.printers.map((printer) => {
+  return maintenance.printers.map((printer) => {
     const tasks = [...(printer.tasks || [])].sort((a, b) => {
       const rank = { due:0, due_soon:1, current:2, disabled:3 };
       return (rank[a.status?.state] ?? 9) - (rank[b.status?.state] ?? 9)
@@ -118,18 +192,20 @@ function render() {
                 <div class="maintenance-task-title-row">
                   <strong>${escapeHtml(task.name)}</strong>
                   <span class="maintenance-pill" data-state="${escapeHtml(task.status?.state || 'current')}">${statusLabel(task.status?.state)}</span>
+                  <span class="maintenance-scope-pill">${escapeHtml(assignmentLabel(task, printer))}</span>
                 </div>
                 ${task.description ? `<div class="maintenance-task-description">${escapeHtml(task.description)}</div>` : ''}
                 <div class="maintenance-task-meta">
                   <span>${escapeHtml(scheduleLabel(task))}</span>
                   <span>${escapeHtml(remainingLabel(task))}</span>
                   <span>Last completed: ${escapeHtml(formatDate(task.lastCompletedAt))}</span>
+                  ${task.assignment?.scope === 'model' ? `<span>Assigned to this printer: ${escapeHtml(formatDate(task.assignedAt))}</span>` : ''}
                 </div>
               </div>
               <div class="mini-actions maintenance-task-actions">
-                <button type="button" class="primary" data-maintenance-complete data-printer-id="${escapeHtml(printer.printerId)}" data-task-id="${escapeHtml(task.id)}">Complete</button>
-                <button type="button" class="secondary" data-maintenance-edit data-printer-id="${escapeHtml(printer.printerId)}" data-task-id="${escapeHtml(task.id)}">Edit</button>
-                <button type="button" class="danger" data-maintenance-delete data-printer-id="${escapeHtml(printer.printerId)}" data-task-id="${escapeHtml(task.id)}">Delete</button>
+                <button type="button" class="primary" data-maintenance-complete data-task-scope="${escapeHtml(task.assignment?.scope || 'printer')}" data-printer-id="${escapeHtml(printer.printerId)}" data-task-id="${escapeHtml(task.id)}">Complete</button>
+                <button type="button" class="secondary" data-maintenance-edit data-task-scope="${escapeHtml(task.assignment?.scope || 'printer')}" data-printer-id="${escapeHtml(printer.printerId)}" data-task-id="${escapeHtml(task.id)}">${task.assignment?.scope === 'model' ? 'Edit model rule' : 'Edit'}</button>
+                <button type="button" class="danger" data-maintenance-delete data-task-scope="${escapeHtml(task.assignment?.scope || 'printer')}" data-printer-id="${escapeHtml(printer.printerId)}" data-task-id="${escapeHtml(task.id)}">${task.assignment?.scope === 'model' ? 'Delete model rule' : 'Delete'}</button>
               </div>
             </article>
           `).join('') : '<div class="subtle maintenance-no-tasks">No maintenance tasks configured for this printer.</div>'}
@@ -143,6 +219,7 @@ function render() {
                 <strong>${escapeHtml(entry.taskName)}</strong>
                 <span>${escapeHtml(formatDate(entry.completedAt))}</span>
                 <span>${formatHours(Number(entry.usageSnapshot?.printHours || 0))} / ${Number(entry.usageSnapshot?.printCount || 0)} prints</span>
+                <small class="maintenance-history-scope">${escapeHtml(entry.assignment?.scope === 'model' ? `Model · ${modelLabel(entry.assignment)}` : 'Individual printer')}</small>
                 ${entry.notes ? `<div>${escapeHtml(entry.notes)}</div>` : ''}
               </div>
             `).join('') : '<div class="subtle">No maintenance has been recorded yet.</div>'}
@@ -153,13 +230,36 @@ function render() {
   }).join('');
 }
 
+function render() {
+  if (!list) return;
+  list.innerHTML = modelTaskSection() + printerCardsMarkup();
+}
+
 function populatePrinters() {
   if (!printerSelect) return;
   const previous = printerSelect.value;
-  printerSelect.innerHTML = printers
-    .map((printer) => `<option value="${escapeHtml(printer.id)}">${escapeHtml(printer.name)}</option>`)
-    .join('');
+  printerSelect.innerHTML = printers.length
+    ? printers.map((printer) => `<option value="${escapeHtml(printer.id)}">${escapeHtml(printer.name)}</option>`).join('')
+    : '<option value="">No printers configured</option>';
   if (printers.some((printer) => printer.id === previous)) printerSelect.value = previous;
+}
+
+function populateModels() {
+  if (!modelSelect) return;
+  const previous = modelSelect.value;
+  const targets = modelTargets();
+  modelSelect.innerHTML = targets.length
+    ? targets.map((target) => `<option value="${escapeHtml(targetKey(target))}">${escapeHtml(target.label)}</option>`).join('')
+    : '<option value="">No supported models available</option>';
+  if (targets.some((target) => targetKey(target) === previous)) modelSelect.value = previous;
+}
+
+function updateAssignmentFields() {
+  const scope = assignmentScopeInput?.value === 'model' ? 'model' : 'printer';
+  printerField?.classList.toggle('hidden', scope !== 'printer');
+  modelField?.classList.toggle('hidden', scope !== 'model');
+  if (printerSelect) printerSelect.required = scope === 'printer';
+  if (modelSelect) modelSelect.required = scope === 'model';
 }
 
 function resetForm() {
@@ -168,22 +268,33 @@ function resetForm() {
   if (formTitle) formTitle.textContent = 'Add maintenance task';
   if (submitButton) submitButton.textContent = 'Add task';
   cancelEditButton?.classList.add('hidden');
+  if (assignmentScopeInput) {
+    assignmentScopeInput.value = printers.length ? 'printer' : 'model';
+    assignmentScopeInput.disabled = false;
+  }
+  if (printerSelect) printerSelect.disabled = false;
+  if (modelSelect) modelSelect.disabled = false;
   if (enabledInput) enabledInput.checked = true;
   if (typeInput) typeInput.value = 'days';
   if (intervalInput) intervalInput.value = '30';
+  updateAssignmentFields();
 }
 
 async function refresh() {
   if (statusEl) statusEl.textContent = 'Loading maintenance data…';
   if (errorEl) { errorEl.textContent = ''; errorEl.classList.add('hidden'); }
   try {
-    const [printerResult, maintenanceResult] = await Promise.all([
+    const [printerResult, maintenanceResult, adapterResult] = await Promise.all([
       api('/api/printers'),
-      api('/api/maintenance')
+      api('/api/maintenance'),
+      api('/api/adapters')
     ]);
     printers = printerResult.printers || [];
-    maintenance = maintenanceResult.maintenance || { printers:[] };
+    maintenance = maintenanceResult.maintenance || { modelTasks:[], printers:[] };
+    adapters = adapterResult.adapters || [];
     populatePrinters();
+    populateModels();
+    updateAssignmentFields();
     render();
     if (statusEl) statusEl.textContent = '';
   } catch (error) {
@@ -193,20 +304,61 @@ async function refresh() {
   }
 }
 
+function findModelTask(taskId) {
+  return maintenance.modelTasks?.find((item) => item.id === taskId) || null;
+}
+
+function findPrinterTask(printerId, taskId) {
+  const record = maintenance.printers?.find((item) => item.printerId === printerId);
+  return {
+    record,
+    task:record?.tasks?.find((item) => item.id === taskId) || null
+  };
+}
+
+function beginEdit(scope, task, printerId = '') {
+  if (!task) return;
+  assignmentScopeInput.value = scope;
+  assignmentScopeInput.disabled = true;
+  taskIdInput.value = task.id;
+  nameInput.value = task.name || '';
+  descriptionInput.value = task.description || '';
+  typeInput.value = task.schedule?.type || 'days';
+  intervalInput.value = task.schedule?.interval || 1;
+  enabledInput.checked = task.enabled !== false;
+
+  if (scope === 'model') {
+    const target = task.assignment || task.target;
+    modelSelect.value = targetKey(target);
+    printerSelect.disabled = true;
+    modelSelect.disabled = false;
+    formTitle.textContent = 'Edit model-wide maintenance rule';
+  } else {
+    printerSelect.value = printerId;
+    printerSelect.disabled = true;
+    modelSelect.disabled = true;
+    formTitle.textContent = 'Edit printer maintenance task';
+  }
+
+  submitButton.textContent = 'Save changes';
+  cancelEditButton?.classList.remove('hidden');
+  updateAssignmentFields();
+  form?.scrollIntoView({ behavior:'smooth', block:'start' });
+}
+
 button?.addEventListener('click', async () => {
   dialog?.showModal();
-  resetForm();
   await refresh().catch(() => {});
+  resetForm();
 });
 
 for (const close of closeButtons) close.addEventListener('click', () => dialog?.close());
-
+assignmentScopeInput?.addEventListener('change', updateAssignmentFields);
 cancelEditButton?.addEventListener('click', () => resetForm());
 
 form?.addEventListener('submit', async (event) => {
   event.preventDefault();
-  const printerId = printerSelect?.value;
-  if (!printerId) return;
+  const scope = assignmentScopeInput?.value === 'model' ? 'model' : 'printer';
   const taskId = taskIdInput?.value || '';
   const payload = {
     name:nameInput?.value || '',
@@ -217,16 +369,35 @@ form?.addEventListener('submit', async (event) => {
     },
     enabled:enabledInput?.checked !== false
   };
+
+  let url;
+  let method = taskId ? 'PATCH' : 'POST';
+  if (scope === 'model') {
+    const target = targetFromKey(modelSelect?.value);
+    if (!target) {
+      if (errorEl) { errorEl.textContent = 'Choose a printer model'; errorEl.classList.remove('hidden'); }
+      return;
+    }
+    payload.target = target;
+    url = taskId
+      ? `/api/maintenance/model-tasks/${encodeURIComponent(taskId)}`
+      : '/api/maintenance/model-tasks';
+  } else {
+    const printerId = printerSelect?.value;
+    if (!printerId) {
+      if (errorEl) { errorEl.textContent = 'Choose a printer'; errorEl.classList.remove('hidden'); }
+      return;
+    }
+    url = taskId
+      ? `/api/printers/${encodeURIComponent(printerId)}/maintenance/tasks/${encodeURIComponent(taskId)}`
+      : `/api/printers/${encodeURIComponent(printerId)}/maintenance/tasks`;
+  }
+
   submitButton.disabled = true;
   try {
-    await api(
-      taskId
-        ? `/api/printers/${encodeURIComponent(printerId)}/maintenance/tasks/${encodeURIComponent(taskId)}`
-        : `/api/printers/${encodeURIComponent(printerId)}/maintenance/tasks`,
-      { method:taskId ? 'PATCH' : 'POST', body:JSON.stringify(payload) }
-    );
-    resetForm();
+    await api(url, { method, body:JSON.stringify(payload) });
     await refresh();
+    resetForm();
   } catch (error) {
     if (errorEl) { errorEl.textContent = error.message; errorEl.classList.remove('hidden'); }
   } finally {
@@ -240,39 +411,39 @@ list?.addEventListener('click', async (event) => {
   const remove = event.target.closest('[data-maintenance-delete]');
   const action = complete || edit || remove;
   if (!action) return;
-  const printerId = action.dataset.printerId;
+
+  const scope = action.dataset.taskScope === 'model' ? 'model' : 'printer';
+  const printerId = action.dataset.printerId || '';
   const taskId = action.dataset.taskId;
-  const record = maintenance.printers?.find((item) => item.printerId === printerId);
-  const task = record?.tasks?.find((item) => item.id === taskId);
-  if (!record || !task) return;
+  const { record, task:effectiveTask } = printerId ? findPrinterTask(printerId, taskId) : { record:null, task:null };
+  const task = scope === 'model' ? (findModelTask(taskId) || effectiveTask) : effectiveTask;
+  if (!task) return;
 
   if (edit) {
-    printerSelect.value = printerId;
-    taskIdInput.value = task.id;
-    nameInput.value = task.name || '';
-    descriptionInput.value = task.description || '';
-    typeInput.value = task.schedule?.type || 'days';
-    intervalInput.value = task.schedule?.interval || 1;
-    enabledInput.checked = task.enabled !== false;
-    formTitle.textContent = 'Edit maintenance task';
-    submitButton.textContent = 'Save changes';
-    cancelEditButton?.classList.remove('hidden');
-    form?.scrollIntoView({ behavior:'smooth', block:'start' });
+    beginEdit(scope, task, printerId);
     return;
   }
 
   if (remove) {
-    if (!confirm(`Delete maintenance task “${task.name}”? Its completed maintenance history will be retained.`)) return;
+    const message = scope === 'model'
+      ? `Delete model-wide maintenance rule “${task.name}”?\n\nIt will be removed from every current and future matching printer. Existing completed maintenance history will be retained on each printer.`
+      : `Delete maintenance task “${task.name}”? Its completed maintenance history will be retained.`;
+    if (!confirm(message)) return;
     try {
-      await api(`/api/printers/${encodeURIComponent(printerId)}/maintenance/tasks/${encodeURIComponent(taskId)}`, { method:'DELETE' });
+      const url = scope === 'model'
+        ? `/api/maintenance/model-tasks/${encodeURIComponent(taskId)}`
+        : `/api/printers/${encodeURIComponent(printerId)}/maintenance/tasks/${encodeURIComponent(taskId)}`;
+      await api(url, { method:'DELETE' });
       await refresh();
+      resetForm();
     } catch (error) {
       if (errorEl) { errorEl.textContent = error.message; errorEl.classList.remove('hidden'); }
     }
     return;
   }
 
-  const notes = prompt(`Complete “${task.name}” for ${record.printerName}?\n\nOptional maintenance notes:`, '');
+  if (!record || !effectiveTask) return;
+  const notes = prompt(`Complete “${effectiveTask.name}” for ${record.printerName}?\n\nOptional maintenance notes:`, '');
   if (notes === null) return;
   try {
     await api(`/api/printers/${encodeURIComponent(printerId)}/maintenance/tasks/${encodeURIComponent(taskId)}/complete`, {
