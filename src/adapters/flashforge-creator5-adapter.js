@@ -7,6 +7,7 @@ import {
   getCreator5Files,
   getCreator5Status,
   levelCreator5Bed,
+  openCreator5Camera,
   printCreator5File,
   setCreator5JobState,
   setCreator5Temperatures,
@@ -187,7 +188,7 @@ export class FlashForgeCreator5Adapter extends PrinterAdapter {
   async setTemperatures(values) { return setCreator5Temperatures(this.printer, values); }
   async setJobState(action) { return setCreator5JobState(this.printer, action); }
   async levelBed() { return levelCreator5Bed(this.printer); }
-  async activateCamera() { return null; }
+  async activateCamera() { return openCreator5Camera(this.printer); }
   fallbackCameraUrl() { return creator5CameraUrl(this.printer); }
 }
 
