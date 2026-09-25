@@ -2832,14 +2832,15 @@ queueHistoryList?.addEventListener('click', async (event) => {
       renderPrintQueue();
       return;
     }
-    // A fixed U1 reprint must re-open Print setup because filament/nozzle state may
-    // have changed since the historical job was queued. This avoids silently
-    // reusing a stale physical tool mapping.
+    // Re-open Print setup for printers whose physical tool/material state may
+    // have changed since the historical job was queued. Never silently reuse
+    // a stale mapping.
     if (printer?.capabilities?.printToolMapping || printer?.capabilities?.materialSlotMapping) {
       queueDialog.close();
       await openPrinter(printer.id);
       const setup = await api(`/api/printers/${encodeURIComponent(printer.id)}/print-setup?fileName=${encodeURIComponent(job.fileName)}`);
       if (printer.capabilities?.materialSlotMapping) renderBambuPrintSetup(printer, setup, job.fileName, 'queue');
+      else if (printer.adapterType === 'flashforge-creator5') renderCreator5PrintSetup(printer, setup, job.fileName, 'queue');
       else renderU1PrintSetup(printer, setup, job.fileName, 'queue');
       return;
     }
