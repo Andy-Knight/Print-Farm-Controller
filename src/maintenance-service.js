@@ -383,39 +383,59 @@ export class MaintenanceService {
   async getSnapshot(printers = []) {
     const nowMs = this.nowFn();
     const configured = Array.isArray(printers) ? printers : [];
-    const result = {
-      generatedAt:nowIso(nowMs),
-      modelTasks:(this.state.modelTasks || []).map((task) => ({
+    const printerSnapshots = configured.map((printer) => {
+      const record = printerRecord(this.state, printer.id);
+      const tasks = this.effectiveTasks(printer, nowMs);
+      return {
+        printerId:printer.id,
+        printerName:printer.name,
+        adapterType:printer.adapterType || null,
+        manufacturer:printer.manufacturer || null,
+        model:printer.model || null,
+        usage:{
+          printHours:Number((record.usage.printSeconds / 3600).toFixed(2)),
+          printSeconds:Number(record.usage.printSeconds.toFixed(1)),
+          printCount:record.usage.printCount,
+          updatedAt:record.usage.updatedAt || null,
+          source:'controller-observed'
+        },
+        summary:{
+          total:tasks.filter((task) => task.enabled !== false).length,
+          due:tasks.filter((task) => task.status.state === 'due').length,
+          dueSoon:tasks.filter((task) => task.status.state === 'due_soon').length
+        },
+        tasks,
+        history:[...record.history].sort((a, b) => String(b.completedAt).localeCompare(String(a.completedAt)))
+      };
+    });
+
+    const modelTasks = (this.state.modelTasks || []).map((task) => {
+      const matchingPrinters = printerSnapshots.filter((printer) =>
+        String(printer.adapterType || '').toLowerCase() === String(task.target?.adapterType || '').toLowerCase()
+        && String(printer.model || '').toLowerCase() === String(task.target?.model || '').toLowerCase()
+      );
+      const effective = matchingPrinters
+        .map((printer) => printer.tasks.find((candidate) =>
+          candidate.id === task.id && candidate.assignment?.scope === 'model'
+        ))
+        .filter(Boolean);
+      const eligible = effective.filter((candidate) => candidate.completionAllowed === true).length;
+      return {
         ...structuredClone(task),
-        assignment:{ scope:'model', ...structuredClone(task.target) }
-      })),
-      printers:configured.map((printer) => {
-        const record = printerRecord(this.state, printer.id);
-        const tasks = this.effectiveTasks(printer, nowMs);
-        return {
-          printerId:printer.id,
-          printerName:printer.name,
-          adapterType:printer.adapterType || null,
-          manufacturer:printer.manufacturer || null,
-          model:printer.model || null,
-          usage:{
-            printHours:Number((record.usage.printSeconds / 3600).toFixed(2)),
-            printSeconds:Number(record.usage.printSeconds.toFixed(1)),
-            printCount:record.usage.printCount,
-            updatedAt:record.usage.updatedAt || null,
-            source:'controller-observed'
-          },
-          summary:{
-            total:tasks.filter((task) => task.enabled !== false).length,
-            due:tasks.filter((task) => task.status.state === 'due').length,
-            dueSoon:tasks.filter((task) => task.status.state === 'due_soon').length
-          },
-          tasks,
-          history:[...record.history].sort((a, b) => String(b.completedAt).localeCompare(String(a.completedAt)))
-        };
-      })
+        assignment:{ scope:'model', ...structuredClone(task.target) },
+        completionSummary:{
+          matching:matchingPrinters.length,
+          eligible,
+          locked:Math.max(0, matchingPrinters.length - eligible)
+        }
+      };
+    });
+
+    return {
+      generatedAt:nowIso(nowMs),
+      modelTasks,
+      printers:printerSnapshots
     };
-    return result;
   }
 
   taskDefinition(input, nowMs) {
@@ -555,6 +575,83 @@ export class MaintenanceService {
     }
     await this.persistNow();
     return true;
+  }
+
+  async completeModelTask(taskId, notes = '') {
+    this.state.modelTasks ||= [];
+    const task = this.state.modelTasks.find((item) => item.id === taskId);
+    if (!task) {
+      const error = new Error('Model maintenance task not found');
+      error.statusCode = 404;
+      throw error;
+    }
+
+    const cleanNotes = cleanText(notes, { max:1000, label:'Maintenance notes', multiline:true });
+    const nowMs = this.nowFn();
+    const completedAt = nowIso(nowMs);
+    const matching = this.configuredFleet().filter((printer) => matchesModel(printer, task.target));
+    const completed = [];
+    const skipped = [];
+
+    for (const printer of matching) {
+      const record = printerRecord(this.state, printer.id);
+      const effective = effectiveModelTask(task, record, nowMs).task;
+      const status = taskStatus(effective, record.usage, nowMs);
+      const completion = completionAvailability(effective, status);
+      if (!completion.allowed) {
+        skipped.push({
+          printerId:printer.id,
+          printerName:printer.name || printer.id,
+          reason:completion.reason || 'Maintenance task cannot be completed yet'
+        });
+        continue;
+      }
+
+      const usageSnapshot = {
+        printSeconds:Number(record.usage.printSeconds || 0),
+        printHours:Number((Number(record.usage.printSeconds || 0) / 3600).toFixed(2)),
+        printCount:Number(record.usage.printCount || 0)
+      };
+      const entry = {
+        id:crypto.randomUUID(),
+        taskId:task.id,
+        taskName:task.name,
+        assignment:{ scope:'model', ...structuredClone(task.target) },
+        completedAt,
+        notes:cleanNotes,
+        usageSnapshot
+      };
+      record.history.unshift(entry);
+      record.history = record.history.slice(0, HISTORY_LIMIT);
+
+      const perPrinter = modelTaskState(record, task, nowMs).state;
+      perPrinter.lastCompletedAt = completedAt;
+      perPrinter.lastCompletedUsage = {
+        printSeconds:usageSnapshot.printSeconds,
+        printCount:usageSnapshot.printCount
+      };
+
+      completed.push({
+        printerId:printer.id,
+        printerName:printer.name || printer.id,
+        history:structuredClone(entry)
+      });
+    }
+
+    if (completed.length) await this.persistNow();
+    return {
+      task:{
+        ...structuredClone(task),
+        assignment:{ scope:'model', ...structuredClone(task.target) }
+      },
+      summary:{
+        matching:matching.length,
+        completed:completed.length,
+        skipped:skipped.length
+      },
+      completed,
+      skipped
+    };
   }
 
   async completeTask(printerId, taskId, notes = '') {
