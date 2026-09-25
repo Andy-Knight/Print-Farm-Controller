@@ -128,7 +128,12 @@ function modelTaskSection() {
         <span class="maintenance-pill">${tasks.length} shared</span>
       </div>
       <div class="maintenance-model-rule-list">
-        ${tasks.map((task) => `
+        ${tasks.map((task) => {
+          const completion = task.completionSummary || {};
+          const matching = Number(completion.matching || 0);
+          const eligible = Number(completion.eligible || 0);
+          const locked = Number(completion.locked || 0);
+          return `
           <article class="maintenance-model-rule">
             <div class="maintenance-task-main">
               <div class="maintenance-task-title-row">
@@ -140,14 +145,17 @@ function modelTaskSection() {
               <div class="maintenance-task-meta">
                 <span>${escapeHtml(scheduleLabel(task))}</span>
                 <span>Applies to matching printers automatically</span>
+                <span>${matching} matching · ${eligible} ready${locked ? ` · ${locked} locked` : ''}</span>
               </div>
             </div>
             <div class="mini-actions maintenance-task-actions">
+              <button type="button" class="primary" data-maintenance-complete-model data-task-id="${escapeHtml(task.id)}" ${eligible <= 0 ? `disabled aria-disabled="true" title="${escapeHtml(matching ? 'No matching printers are currently eligible for completion' : 'No matching printers are configured')}"` : ''}>Complete for model</button>
               <button type="button" class="secondary" data-maintenance-edit data-task-scope="model" data-task-id="${escapeHtml(task.id)}">Edit rule</button>
               <button type="button" class="danger" data-maintenance-delete data-task-scope="model" data-task-id="${escapeHtml(task.id)}">Delete rule</button>
             </div>
           </article>
-        `).join('')}
+        `;
+        }).join('')}
       </div>
     </section>
   `;
@@ -440,18 +448,52 @@ form?.addEventListener('submit', async (event) => {
 });
 
 list?.addEventListener('click', async (event) => {
+  const completeModel = event.target.closest('[data-maintenance-complete-model]');
   const complete = event.target.closest('[data-maintenance-complete]');
   const edit = event.target.closest('[data-maintenance-edit]');
   const remove = event.target.closest('[data-maintenance-delete]');
-  const action = complete || edit || remove;
+  const action = completeModel || complete || edit || remove;
   if (!action) return;
 
-  const scope = action.dataset.taskScope === 'model' ? 'model' : 'printer';
+  const scope = completeModel || action.dataset.taskScope === 'model' ? 'model' : 'printer';
   const printerId = action.dataset.printerId || '';
   const taskId = action.dataset.taskId;
   const { record, task:effectiveTask } = printerId ? findPrinterTask(printerId, taskId) : { record:null, task:null };
   const task = scope === 'model' ? (findModelTask(taskId) || effectiveTask) : effectiveTask;
   if (!task) return;
+
+  if (completeModel) {
+    const summary = task.completionSummary || {};
+    const matching = Number(summary.matching || 0);
+    const eligible = Number(summary.eligible || 0);
+    const locked = Number(summary.locked || 0);
+    if (eligible <= 0) return;
+    const notes = prompt(
+      `Complete “${task.name}” for ${eligible} eligible ${modelLabel(task.assignment || task.target)} printer${eligible === 1 ? '' : 's'}?`
+      + (locked ? `\n\n${locked} matching printer${locked === 1 ? '' : 's'} ${locked === 1 ? 'is' : 'are'} not yet Due soon and will be skipped.` : '')
+      + '\n\nOptional maintenance notes:',
+      ''
+    );
+    if (notes === null) return;
+    completeModel.disabled = true;
+    try {
+      const result = await api(`/api/maintenance/model-tasks/${encodeURIComponent(taskId)}/complete`, {
+        method:'POST',
+        body:JSON.stringify({ notes })
+      });
+      await refresh();
+      const completedCount = Number(result.summary?.completed || 0);
+      const skippedCount = Number(result.summary?.skipped || 0);
+      if (statusEl) {
+        statusEl.textContent = `Completed “${task.name}” on ${completedCount} printer${completedCount === 1 ? '' : 's'}`
+          + (skippedCount ? `; ${skippedCount} skipped because ${skippedCount === 1 ? 'it was' : 'they were'} not yet eligible.` : '.');
+      }
+    } catch (error) {
+      completeModel.disabled = false;
+      if (errorEl) { errorEl.textContent = error.message; errorEl.classList.remove('hidden'); }
+    }
+    return;
+  }
 
   if (edit) {
     beginEdit(scope, task, printerId);
