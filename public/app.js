@@ -2106,7 +2106,10 @@ function updateCard(card, printer) {
   const preheatStrip = card.querySelector('[data-preheat-strip]');
   preheatStrip.classList.toggle('hidden', !preheat?.active);
   if (preheat?.active) {
-    card.querySelector('[data-preheat-summary]').textContent = `${Number(preheat.bedTemperature).toFixed(0)} °C bed · ${formatCountdown(preheatRemainingSeconds(preheat))} remaining`;
+    const target = preheat.heatSource === 'chamber'
+      ? `${Number(preheat.chamberTemperature).toFixed(0)} °C chamber`
+      : `${Number(preheat.bedTemperature).toFixed(0)} °C bed`;
+    card.querySelector('[data-preheat-summary]').textContent = `${target} · ${formatCountdown(preheatRemainingSeconds(preheat))} remaining`;
   }
   const clearance = queueBedClearance(printer.id);
   const clearanceStrip = card.querySelector('[data-bed-clearance-strip]');
@@ -4157,12 +4160,15 @@ function printerActivityStatus(printer) {
   const preheat = printer?.chamberPreheat;
   if (preheat?.active) {
     const chamber = Number(printer?.status?.chamber?.actual);
-    const chamberText = Number.isFinite(chamber) ? ` · chamber ${chamber.toFixed(1)} °C` : '';
+    const chamberText = Number.isFinite(chamber) ? ` · chamber now ${chamber.toFixed(1)} °C` : '';
+    const targetText = preheat.heatSource === 'chamber'
+      ? `chamber target ${Number(preheat.chamberTemperature).toFixed(0)} °C`
+      : `bed ${Number(preheat.bedTemperature).toFixed(0)} °C`;
     return {
       active:true,
       kind:'chamber-preheat',
       title:'CHAMBER PREHEAT',
-      text:`bed ${Number(preheat.bedTemperature).toFixed(0)} °C${chamberText} · ${formatCountdown(preheatRemainingSeconds(preheat))} remaining`
+      text:`${targetText}${chamberText} · ${formatCountdown(preheatRemainingSeconds(preheat))} remaining`
     };
   }
 
@@ -4358,20 +4364,23 @@ function updateOpenPrinterTelemetry() {
   const preheatStatus = printerDetail.querySelector('[data-preheat-status]');
   const preheatStart = printerDetail.querySelector('[data-preheat-start]');
   const preheatStop = printerDetail.querySelector('[data-preheat-stop]');
-  const preheatBed = printerDetail.querySelector('#preheatBedInput');
+  const preheatTemperature = printerDetail.querySelector('#preheatTemperatureInput');
   const preheatDuration = printerDetail.querySelector('#preheatDurationInput');
   if (preheatStatus) {
     const chamberText = preheat?.active && s?.chamber?.actual != null && Number.isFinite(Number(s.chamber.actual))
-      ? ` · chamber ${Number(s.chamber.actual).toFixed(1)} °C`
+      ? ` · chamber now ${Number(s.chamber.actual).toFixed(1)} °C`
       : '';
+    const targetText = preheat?.heatSource === 'chamber'
+      ? `chamber target ${Number(preheat.chamberTemperature).toFixed(0)} °C`
+      : `bed ${Number(preheat?.bedTemperature).toFixed(0)} °C`;
     preheatStatus.textContent = preheat?.active
-      ? `Active · bed ${Number(preheat.bedTemperature).toFixed(0)} °C${chamberText} · ${formatCountdown(preheatRemainingSeconds(preheat))} remaining · ${preheat.reassertions || 0} reassertion${Number(preheat.reassertions || 0) === 1 ? '' : 's'}`
+      ? `Active · ${targetText}${chamberText} · ${formatCountdown(preheatRemainingSeconds(preheat))} remaining · ${preheat.reassertions || 0} reassertion${Number(preheat.reassertions || 0) === 1 ? '' : 's'}`
       : 'Not active';
     preheatStatus.classList.toggle('active', Boolean(preheat?.active));
   }
   if (preheatStart) preheatStart.disabled = !printer.capabilities?.chamberPreheat || !printer.online || Boolean(preheat?.active);
   if (preheatStop) preheatStop.disabled = !preheat?.active;
-  if (preheatBed) preheatBed.disabled = !printer.capabilities?.chamberPreheat || Boolean(preheat?.active);
+  if (preheatTemperature) preheatTemperature.disabled = !printer.capabilities?.chamberPreheat || Boolean(preheat?.active);
   if (preheatDuration) preheatDuration.disabled = !printer.capabilities?.chamberPreheat || Boolean(preheat?.active);
   const bar = printerDetail.querySelector('[data-detail-progress-bar]');
   if (bar) bar.style.width = `${Math.round(s?.progress || 0)}%`;
@@ -4413,8 +4422,13 @@ async function openPrinter(id) {
   const limits = printer.limits || {};
   const maxNozzleC = Number(limits.nozzleTemperature?.max ?? 265);
   const maxBedC = Number(limits.bedTemperature?.max ?? 110);
-  const preheatMinBedC = Number(limits.chamberPreheatBedTemperature?.min ?? 30);
-  const preheatMaxBedC = Number(limits.chamberPreheatBedTemperature?.max ?? maxBedC);
+  const nativeChamberPreheat = Boolean(capabilities.chamberTemperatureControl && limits.chamberPreheatChamberTemperature);
+  const preheatMinC = Number(nativeChamberPreheat
+    ? limits.chamberPreheatChamberTemperature?.min ?? 30
+    : limits.chamberPreheatBedTemperature?.min ?? 30);
+  const preheatMaxC = Number(nativeChamberPreheat
+    ? limits.chamberPreheatChamberTemperature?.max ?? limits.chamberTemperature?.max ?? 65
+    : limits.chamberPreheatBedTemperature?.max ?? maxBedC);
   const preheatMaxMinutes = Number(limits.chamberPreheatMinutes?.max ?? 120);
   const disabled = (supported) => supported ? '' : ' disabled';
   let fileResult = { files: [], complete: true, source: 'tcp-m661', warning: null };
@@ -4580,11 +4594,13 @@ async function openPrinter(id) {
         ${materialStatusMarkup}
         ${capabilities.chamberPreheat ? `<div class="panel chamber-preheat-panel">
           <h3>Chamber preheat</h3>
-          <p class="subtle">${printer.adapterType === 'snapmaker-u1'
-            ? 'Uses the build plate as the heat source and the U1 stock PREHEAT_CHAMBER mode for circulation: 60% inner purifier fan, exhaust off. The controller keeps the session bounded and holds the bed setpoint.'
-            : 'Uses the build plate as the chamber heat source. The controller holds the normal bed setpoint for a bounded period and reasserts it if idle firmware clears it.'}</p>
+          <p class="subtle">${nativeChamberPreheat
+            ? 'Uses the Creator 5 Pro native heated chamber. The controller holds the chamber target for a bounded period and reasserts it if the printer clears the target.'
+            : printer.adapterType === 'snapmaker-u1'
+              ? 'Uses the build plate as the heat source and the U1 stock PREHEAT_CHAMBER mode for circulation: 60% inner purifier fan, exhaust off. The controller keeps the session bounded and holds the bed setpoint.'
+              : 'Uses the build plate as the chamber heat source. The controller holds the normal bed setpoint for a bounded period and reasserts it if idle firmware clears it.'}</p>
           <div class="preheat-fields">
-            <label>Bed setpoint °C<input id="preheatBedInput" type="number" min="${preheatMinBedC}" max="${preheatMaxBedC}" value="${Math.max(preheatMinBedC, Math.min(preheatMaxBedC, Number(s?.bed.target || 90) || 90))}" /></label>
+            <label>${nativeChamberPreheat ? 'Chamber target °C' : 'Bed setpoint °C'}<input id="preheatTemperatureInput" type="number" min="${preheatMinC}" max="${preheatMaxC}" value="${Math.max(preheatMinC, Math.min(preheatMaxC, Number(nativeChamberPreheat ? s?.chamber?.target || 50 : s?.bed?.target || 90) || (nativeChamberPreheat ? 50 : 90)))}" /></label>
             <label>Duration minutes<input id="preheatDurationInput" type="number" min="1" max="${preheatMaxMinutes}" value="45" /></label>
           </div>
           <div class="preheat-status" data-preheat-status>Not active</div>
@@ -4592,7 +4608,7 @@ async function openPrinter(id) {
             <button class="primary" data-preheat-start>Start chamber preheat</button>
             <button class="danger" data-preheat-stop disabled>Stop preheat</button>
           </div>
-          <div class="field-help">Maximum bed setpoint ${preheatMaxBedC} °C · maximum session ${preheatMaxMinutes} minutes · sessions never resume after controller restart.</div>
+          <div class="field-help">Maximum ${nativeChamberPreheat ? 'chamber target' : 'bed setpoint'} ${preheatMaxC} °C · maximum session ${preheatMaxMinutes} minutes · sessions never resume after controller restart.</div>
         </div>` : ''}
         <div class="panel fans-panel">
           <h3>Fans</h3>
@@ -4942,11 +4958,16 @@ ${flashForgePreflight}` : ''}`)) return;
   });
   const preheatStartButton = printerDetail.querySelector('[data-preheat-start]');
   if (preheatStartButton) preheatStartButton.onclick = async () => {
-    const bedTemperature = Number(printerDetail.querySelector('#preheatBedInput').value);
+    const temperature = Number(printerDetail.querySelector('#preheatTemperatureInput').value);
     const durationMinutes = Number(printerDetail.querySelector('#preheatDurationInput').value);
-    if (!confirm(`Preheat ${printer.name} using a ${bedTemperature} °C bed setpoint for ${durationMinutes} minutes?`)) return;
+    const nativeChamberPreheat = Boolean(printer.capabilities?.chamberTemperatureControl && printer.limits?.chamberPreheatChamberTemperature);
+    const targetLabel = nativeChamberPreheat ? 'chamber target' : 'bed setpoint';
+    if (!confirm(`Preheat ${printer.name} using a ${temperature} °C ${targetLabel} for ${durationMinutes} minutes?`)) return;
     try {
-      await api(`/api/printers/${id}/chamber-preheat`, { method:'POST', body: JSON.stringify({ bedTemperature, durationMinutes }) });
+      const body = nativeChamberPreheat
+        ? { chamberTemperature:temperature, durationMinutes }
+        : { bedTemperature:temperature, durationMinutes };
+      await api(`/api/printers/${id}/chamber-preheat`, { method:'POST', body:JSON.stringify(body) });
     } catch (error) { showError(error); }
   };
   const preheatStopButton = printerDetail.querySelector('[data-preheat-stop]');
