@@ -113,10 +113,39 @@ function taskStatus(task, usage, nowMs) {
   };
 }
 
+function completionAvailability(task, status) {
+  if (task.enabled === false) {
+    return {
+      allowed:false,
+      reason:'Enable this maintenance task before completing it'
+    };
+  }
+  if (!task.lastCompletedAt) {
+    return {
+      allowed:true,
+      reason:null
+    };
+  }
+  if (status.state === 'due_soon' || status.state === 'due') {
+    return {
+      allowed:true,
+      reason:null
+    };
+  }
+  return {
+    allowed:false,
+    reason:'This task can be completed again when it reaches Due soon (80% of its interval)'
+  };
+}
+
 function publicTask(task, usage, nowMs) {
+  const status = taskStatus(task, usage, nowMs);
+  const completion = completionAvailability(task, status);
   return {
     ...structuredClone(task),
-    status:taskStatus(task, usage, nowMs)
+    status,
+    completionAllowed:completion.allowed,
+    completionReason:completion.reason
   };
 }
 
@@ -541,7 +570,19 @@ export class MaintenanceService {
       throw error;
     }
 
-    const completedAt = nowIso(this.nowFn());
+    const nowMs = this.nowFn();
+    const effectiveForCompletion = local
+      ? localTask(local, printerId)
+      : effectiveModelTask(model, record, nowMs).task;
+    const statusForCompletion = taskStatus(effectiveForCompletion, record.usage, nowMs);
+    const completion = completionAvailability(effectiveForCompletion, statusForCompletion);
+    if (!completion.allowed) {
+      const error = new Error(completion.reason || 'Maintenance task cannot be completed yet');
+      error.statusCode = 409;
+      throw error;
+    }
+
+    const completedAt = nowIso(nowMs);
     const usageSnapshot = {
       printSeconds:Number(record.usage.printSeconds || 0),
       printHours:Number((Number(record.usage.printSeconds || 0) / 3600).toFixed(2)),
