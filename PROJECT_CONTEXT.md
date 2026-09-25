@@ -7,7 +7,7 @@
 - Repository: `Andy-Knight/Print-Farm-Controller`
 - Project path: repository root (`/`)
 - Primary branch: `main` (current production baseline)
-- Current application version on this branch: **0.25.1**.
+- Current application version on this branch: **0.26.0**.
 - v0.15.5 Print Library previews are merged into `main`.
 - v0.15.6 includes dashboard summary filtering, application-local data storage, Snapmaker U1 display naming and printer-card hover/focus highlighting.
 - **v0.16.0 production packaging is merged into `main`** via PR #24 (squash commit `af8d8e493e2f311c1469ed5faddfffc2316ae727`): centralized runtime paths detect source vs Node SEA execution, esbuild produces a CommonJS controller bundle, and the Windows x64 SEA build embeds the controller UI, simulator UI/resources and trusted Ed25519 public verification keys directly into `PrintFarmController.exe`. The Windows installer targets Program Files, leaves the EXE protected, grants standard-user modify permission only to `data/`, and packaged builds store the signed customer licence at `data/license.json`. Inno Setup 7 is the preferred Windows installer compiler (Inno Setup 6 remains supported as a fallback), and optional Authenticode signing workflows are included.
@@ -23,7 +23,8 @@
 - **v0.23.0 Backup & Recovery is merged into the current `main` baseline via PR #34.** The backup/recovery architecture is defined in `docs/BACKUP_RECOVERY.md`. The target is a portable logical `.pfcbackup` format with manifest/checksums, manual and scheduled local/NAS backup, validated two-phase restore activated on restart with rollback, and explicit recovery holds so unfinished restored queue work can never auto-start. Cloud destinations and built-in encryption are deferred. Queue colour compatibility treats slicer hex values as shade metadata within practical colour families rather than requiring byte-for-byte hex equality. Same-family shades can run automatically; different families remain blocked. FlashForge manual filament designation stores an authoritative colour family only; existing hex-only designations automatically derive their family, and saving a new manual designation clears the legacy shade. FlashForge, editable/non-RFID Snapmaker U1, and simulated Bambu AMS/AMS Lite/external-spool selectors use the same custom family dropdown, with a consistent square swatch rendered inside each option and selected value. Pending U1 filament type/colour edits are protected from live telemetry until the Set filament operation succeeds. The U1 and simulator write representative hex colours internally; official U1 RFID filament and real Bambu tray colours remain printer-reported. U1/AMS candidate mapping prefers the closest compatible shade using CIELAB colour distance without turning shade distance itself into a hard requirement.
 - **v0.24.0 maintenance tracking is merged into `main`** via PR #35, with the follow-up fixes merged via PR #36.
 - **v0.25.0 printer groups are merged into `main`** via PR #37.
-- **Current v0.25.1 feature branch:** `feature/dashboard-group-filter-v0251`. The main dashboard has a custom printer-group selector. Group selection combines with the existing summary/status and maintenance filters, summary counts are scoped to the selected group, current membership changes refresh the dashboard filter immediately, and the dashboard reset action clears both group and status filters. Newly assigned maintenance tasks now use assignment time/current observed usage as the maintenance baseline and are not completable until Due soon (80%) or Due; this applies to printer-, group-, and model-scoped tasks without creating fake history.
+- **v0.25.1 dashboard group filtering and maintenance assignment baseline are merged into `main`** via PR #38 (squash commit `e8530aed5216e5aca58f59a690b7669351bd203e`).
+- **Current v0.26.0 feature branch:** `feature/flashforge-creator-5-support-v0260`. It adds dedicated FlashForge Creator 5 / Creator 5 Pro support through the modern HTTP-only local API. The family has four physical toolheads/material slots, 320 °C nozzle and 120 °C bed limits, per-tool temperature/status/material telemetry, camera, bed levelling, job control, `.gcode`/`.3mf` upload and automatic four-tool Print Library mapping. Creator 5 Pro additionally exposes its native chamber sensor/target up to 65 °C. Creator 5 has no live TCP 8899 endpoint, so printer-local file browsing/verification uses the HTTP recent-file list and does not pretend to provide full storage. Printer-local files do not expose sliced tool metadata; controller-managed Print Library jobs do retain requirements and can be mapped automatically. Creator 5 Pro filtration remains printer-managed/read-only because the local circulation-control command is documented/observed as ineffective. Emulator and automated protocol validation are included; physical Creator 5-series validation is pending.
 - Runtime: **Node.js 24+** (development baseline Node.js 24.21.0), ES modules, no npm runtime dependencies.
 - GitHub is the authoritative code baseline.
 
@@ -51,14 +52,16 @@ Local Fleet Controller (`src/`)
         |
         v
 PrinterAdapter boundary (`src/adapters/`)
-        +-- FlashForge Adventurer 5M / 5M Pro
+        +-- FlashForge Adventurer 5M / 5M Pro -> HTTP + TCP 8899 + MJPEG camera
+        +-- FlashForge Creator 5 / Creator 5 Pro -> modern HTTP-only API + four-tool material station + MJPEG camera
         +-- Snapmaker U1 -> Moonraker / Klipper
         +-- Bambu Lab P1P / P1S / X1C / A1 Mini -> experimental MQTT/FTPS adapter; P1/A1 Mini TLS-JPEG camera
 
 Development Printer Emulator (`emulator/`, loopback only)
         +-- management UI/API + SSE
         +-- shared virtual-printer state and scenarios
-        +-- FlashForge HTTP/TCP/camera endpoints
+        +-- FlashForge AD5M HTTP/TCP/camera endpoints
+        +-- FlashForge Creator 5 / Creator 5 Pro HTTP-only/camera endpoints
         +-- Snapmaker U1 Moonraker endpoints
         +-- Bambu P1P/P1S/X1C/A1 Mini MQTT TLS, FTPS TLS and camera test endpoints
 ```
@@ -69,6 +72,9 @@ Manufacturer-specific discovery, capabilities, limits, status normalization, fil
 
 - Local-first/LAN-only controller; printer credentials remain backend-side.
 - Multiple manufacturers are supported through adapters rather than manufacturer logic in shared fleet code.
+- Creator 5-series support uses a separate `flashforge-creator5` adapter rather than extending the AD5M adapter. Creator 5/Pro share the modern authenticated FlashForge HTTP API but do not expose the legacy TCP 8899 file/control service and have four physical toolheads/material slots, so inheriting AD5M single-tool/TCP assumptions would be unsafe. Creator 5 discovery PIDs are 40 (Creator 5) and 41 (Creator 5 Pro); discovery may still advertise 8899, but the adapter deliberately ignores it.
+- Creator 5 printer-local file browsing is recent-only through `/gcodeList`; full storage enumeration and per-file sliced tool requirements are not exposed by the local API. Automatic queue jobs originating from the controller Print Library carry their parsed logical-tool/material/nozzle metadata into compatibility, upload and print-start mapping. For an already-stored printer-local file, the controller warns that it must use the mapping/defaults saved with the file rather than inventing requirements.
+- Creator 5 Pro native chamber temperature control is distinct from the controller's generic bed-powered chamber-preheat feature. The Pro exposes a chamber sensor and direct target up to 65 °C; base Creator 5 does not. Creator 5 Pro filtration hardware is not exposed as a writable controller capability because the available local circulation command is ineffective.
 - Default persistent controller data now lives in the application-local `data/` directory rather than the operating-system user profile. If `data/` does not yet exist, startup migrates the previous profile-based `Printer Fleet Controller` directory, falling back to the older `FlashForge Fleet` location. This moves printer configuration, queue/history, Print Library files, emulator settings and file material metadata together. Custom `DATA_DIR` locations are used exactly as configured and are never moved.
 - Print Library files, queue/history and their references persist across restarts. Queue/history cleanup never owns library-file deletion.
 - Printer groups are controller-owned and manufacturer-agnostic. A printer may belong to zero or one group; selecting a printer for a different group moves it from its previous group. Group membership is not part of printer connection/adaptor configuration.
@@ -110,6 +116,7 @@ Manufacturer-specific discovery, capabilities, limits, status normalization, fil
 ## Completed work / current baseline
 
 - FlashForge Adventurer 5M / 5M Pro support.
+- FlashForge Creator 5 / Creator 5 Pro support on `feature/flashforge-creator-5-support-v0260`: dedicated HTTP-only adapter; four-tool status/material/nozzle compatibility and logical-to-physical mapping; per-tool and bed temperature control; Creator 5 Pro heated chamber sensing/control; recent-file HTTP listing; `.gcode`/`.3mf` upload with Creator-specific material-station headers; direct/queued print start with multi-tool material mappings; bed levelling, job control and built-in camera; Creator 5/Pro simulator profiles. Automated/emulator validation is complete; physical hardware validation remains pending.
 - Snapmaker U1 support via Moonraker/Klipper, including stock camera integration.
 - Experimental Bambu Lab P1P/P1S/X1C/A1 Mini controller support: MQTT TLS status, external-spool/AMS/AMS Lite material metadata and job/temperature/fan control; implicit FTPS list/upload/verification/download; embedded 3MF plate-G-code requirement parsing; interactive and automatic logical-filament-to-material-source mapping; `.3mf` print start on all supported Bambu models plus single-material `.gcode` start on P1P/P1S/X1C/A1 Mini; authenticated TLS/JPEG camera snapshots on P1P/P1S/A1 Mini; model-specific capabilities/limits and manual connection fields. A1 Mini uses an 80 °C bed limit and no chamber controls. X1C reports LiDAR availability, a hardened nozzle profile and a 120 °C bed limit, while its RTSPS/H.264 camera remains explicitly unsupported. FTPS upload verification checks the exact filename with `SIZE`, falls back to normalized directory entries and retries briefly for delayed storage visibility.
 - Automatic/local discovery, persistent printer registry and controller-side printer renaming.
@@ -193,16 +200,16 @@ The Maintenance UI is available from the controller overflow menu and is split i
 
 Maintenance state participates in v0.23+ logical backup/recovery. New backups include `state/maintenance.json`; restore validates and stages it, while older backups without maintenance state restore an empty maintenance store rather than retaining unrelated target-machine maintenance data.
 
-Current implementation includes service-layer tests for persistence, day/hour/count scheduling and usage tracking; live due-soon/due fleet status; repeat-completion locking until the 80% Due-soon threshold; individual-printer, group-wide and model-wide rule inheritance; independent per-printer inherited-rule baselines/completion; printer-group persistence and exclusive membership; group-restricted automatic queue scheduling; UI/API wiring; dashboard maintenance coverage; backup coverage; and disaster-recovery validation of group membership and queue/maintenance group references. Automated Windows/Node 24 validation completed on 25 September 2026 with **356 passing tests, 0 failures**, followed by a successful `npm run build:bundle` production-controller bundle build. The Printer groups member selector explicitly overrides the global full-width form-input styling for checkboxes so printer labels remain inside their member cards. A dashboard maintenance-icon regression test specifically verifies that the wrench status icon and printer-state badge use separate selectors so live telemetry cannot overwrite the wrench.
+Current implementation includes service-layer tests for persistence, day/hour/count scheduling and usage tracking; live due-soon/due fleet status; repeat-completion locking until the 80% Due-soon threshold; individual-printer, group-wide and model-wide rule inheritance; independent per-printer inherited-rule baselines/completion; printer-group persistence and exclusive membership; group-restricted automatic queue scheduling; Creator 5/Pro discovery/configuration/four-tool status/material mapping/upload headers/chamber controls/emulator interoperability; UI/API wiring; dashboard maintenance coverage; backup coverage; and disaster-recovery validation of group membership and queue/maintenance group references. Automated Windows/Node 24 validation completed on 25 September 2026 with **371 passing tests, 0 failures**, followed by a successful `npm run build:bundle` production-controller bundle build. The Printer groups member selector explicitly overrides the global full-width form-input styling for checkboxes so printer labels remain inside their member cards. A dashboard maintenance-icon regression test specifically verifies that the wrench status icon and printer-state badge use separate selectors so live telemetry cannot overwrite the wrench.
 
 ## Next steps
 
-1. Live-test **Printer groups** in Dark and Light modes, including moving a printer directly from one group to another.
-2. Queue a Print Library file with a group restriction and verify that only current members of that group are considered, including changing membership while the job is waiting.
-3. Create and complete a group-wide maintenance rule and verify independent history/baselines across multiple real or simulated group members.
-4. Validate backup/restore with non-empty printer groups and group-restricted queue work.
+1. Physically validate Creator 5 / Creator 5 Pro discovery, authentication and four-tool `/detail` telemetry against real hardware.
+2. Validate Creator 5-series upload/verification and both single-tool and multi-tool print starts from the Print Library, confirming 0-based logical tool → 1-based material-slot mapping.
+3. Validate per-tool temperature commands, bed levelling, pause/resume/cancel, camera and Creator 5 Pro native chamber targets on physical hardware.
+4. Confirm Creator 5 Pro filtration remains printer-managed on current firmware and do not expose writable filter controls unless the local API provides a verified command.
 5. Continue physical validation of experimental Bambu behaviour before removing the experimental designation.
-6. Add Linux x64 and ARM64 packaging after the active printer-groups work.
+6. Add Linux x64 and ARM64 packaging after the current printer-support work.
 
 ## Handoff rule
 
