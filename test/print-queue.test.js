@@ -785,6 +785,95 @@ test('automatic queue job remains queued and exposes why compatible printers are
   service.stop();
 });
 
+test('automatic queue group restriction only evaluates printers in the selected group', async () => {
+  const status = { status:'idle', fileName:null, tools:[{ index:0, nozzleDiameter:0.4, filament:{ present:true, material:'PLA', color:'#FF0000' } }] };
+  const fleetState = new FakeFleetState([
+    { id:'p1', name:'Printer 1', online:true, status },
+    { id:'p2', name:'Printer 2', online:true, status }
+  ]);
+  const store = memoryStore();
+  const staged = {
+    id:'34343434-3434-4343-8343-343434343434',
+    fileName:'group-job.gcode',
+    filePath:'/staged/group-job.gcode',
+    size:10,
+    sha256:'3'.repeat(64),
+    stagedAt:new Date().toISOString(),
+    requirements:{
+      requiredTools:[0],
+      toolCount:1,
+      usageReliable:true,
+      logicalTools:[{ index:0, material:'PLA', nozzleDiameter:0.4 }],
+      materialMetadata:{ metadataAvailable:true, requiredMaterial:'PLA', materials:['PLA'] }
+    }
+  };
+  const starts = [];
+  const uploaded = new Set(['p1','p2']);
+  const printers = new Map([
+    ['p1',{ id:'p1', name:'Printer 1' }],
+    ['p2',{ id:'p2', name:'Printer 2' }]
+  ]);
+  const group = { id:'group-a', name:'Production', printerIds:['p2'] };
+  const service = new PrintQueueService({
+    fleetState,
+    chamberPreheat:{ isActive:() => false, stop:async () => {} },
+    getPrinterFn:async (id) => printers.get(id) || null,
+    getPrinterGroupFn:(id) => id === group.id ? group : null,
+    adapterResolver:(printer) => ({
+      capabilities:{ fileUpload:true, localFiles:true, printLocalFile:true },
+      limits:{ toolCount:1 },
+      uploadExtensions:['.gcode'],
+      getStatus:async () => fleetState.getPrinterState(printer.id).status,
+      verifyFile:async () => ({ verified:uploaded.has(printer.id), source:'test' }),
+      uploadFile:async () => uploaded.add(printer.id),
+      printLocalFile:async (fileName) => starts.push({ printerId:printer.id, fileName })
+    }),
+    loadJobsFn:store.load,
+    saveJobsFn:store.save,
+    getQueueFileFn:async () => staged,
+    saveFileMaterialMetadataFn:async () => {}
+  });
+
+  await service.start();
+  const job = await service.add({ assignmentMode:'automatic', stagedFileId:staged.id, groupId:group.id });
+  await waitFor(() => starts.length === 1);
+  const current = service.getJob(job.id);
+  assert.equal(current.groupId, group.id);
+  assert.equal(current.groupName, 'Production');
+  assert.equal(current.printerId, 'p2');
+  assert.deepEqual(starts, [{ printerId:'p2', fileName:'group-job.gcode' }]);
+  assert.ok(current.compatibility.incompatible.some((item) =>
+    item.printerId === 'p1' && item.reasons.some((reason) => reason.code === 'printer_group')
+  ));
+  service.stop();
+});
+
+test('automatic queue rejects a missing selected printer group', async () => {
+  const staged = {
+    id:'45454545-4545-4454-8454-454545454545',
+    fileName:'missing-group.gcode',
+    filePath:'/staged/missing-group.gcode',
+    size:10,
+    sha256:'4'.repeat(64),
+    stagedAt:new Date().toISOString(),
+    requirements:{ requiredTools:[], toolCount:1, usageReliable:false, logicalTools:[], materialMetadata:{ metadataAvailable:false, materials:[] } }
+  };
+  const service = new PrintQueueService({
+    fleetState:new FakeFleetState([]),
+    chamberPreheat:{ isActive:() => false, stop:async () => {} },
+    getQueueFileFn:async () => staged,
+    getPrinterGroupFn:() => null,
+    loadJobsFn:async () => [],
+    saveJobsFn:async () => {}
+  });
+  await service.start();
+  await assert.rejects(
+    () => service.add({ assignmentMode:'automatic', stagedFileId:staged.id, groupId:'missing' }),
+    /group no longer exists/i
+  );
+  service.stop();
+});
+
 test('cancelling an automatic job during staged upload cannot race into print start', async () => {
   const fleetState = new FakeFleetState([{ id:'p1', name:'Printer', online:true, status:{ status:'idle', fileName:null, tools:[{ index:0, filament:{ material:'PLA' } }] } }]);
   const store = memoryStore();
