@@ -1716,3 +1716,28 @@ button.library-file-preview { cursor:zoom-in; }
   .maintenance-model-rules-head { flex-direction:column; }
   .maintenance-model-rule { grid-template-columns:1fr; }
 }
+
+
+/* Dashboard printer maintenance shortcut */
+.maintenance-status-icon-button {
+  appearance:none;
+  padding:0;
+  font:inherit;
+  cursor:pointer;
+}
+.maintenance-status-icon-button:hover {
+  filter:brightness(1.16);
+}
+.maintenance-status-icon-button:focus-visible {
+  outline:2px solid #76b7dc;
+  outline-offset:2px;
+}
+.maintenance-printer-card-target {
+  outline:2px solid #d6a93d;
+  outline-offset:3px;
+  box-shadow:0 0 0 5px rgba(214, 169, 61, .14);
+}
+:root[data-theme="light"] .maintenance-printer-card-target {
+  outline-color:#a77d17;
+  box-shadow:0 0 0 5px rgba(167, 125, 23, .12);
+}
