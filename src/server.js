@@ -1519,8 +1519,17 @@ async function apiRoute(req, res, url) {
       body.chamber = Number(body.chamber);
     }
     await runPrinterMutation(id, 'temperature change', async (_currentPrinter, currentAdapter) => {
-      // A manual bed command is an explicit override of chamber preheat.
-      if (body.bed !== undefined && chamberPreheat.isActive(id)) await chamberPreheat.stop(id, { reason: 'manual-bed-override', turnOff: false });
+      const activePreheat = chamberPreheat.get(id);
+      const overridesActivePreheat = activePreheat?.active && (
+        (activePreheat.heatSource === 'chamber' && body.chamber !== undefined)
+        || (activePreheat.heatSource !== 'chamber' && body.bed !== undefined)
+      );
+      if (overridesActivePreheat) {
+        await chamberPreheat.stop(id, {
+          reason:activePreheat.heatSource === 'chamber' ? 'manual-chamber-override' : 'manual-bed-override',
+          turnOff:false
+        });
+      }
       await currentAdapter.setTemperatures(body);
     }, { operationType:PRINTER_OPERATION_TYPES.TEMPERATURE });
     refreshAfterCommand(id);
@@ -1535,8 +1544,9 @@ async function apiRoute(req, res, url) {
   if (req.method === 'POST' && action === 'chamber-preheat') {
     const body = await readJson(req);
     const session = await runPrinterMutation(id, 'chamber preheat start', () => chamberPreheat.start(id, {
-      bedTemperature: body.bedTemperature,
-      durationMinutes: body.durationMinutes
+      bedTemperature:body.bedTemperature,
+      chamberTemperature:body.chamberTemperature,
+      durationMinutes:body.durationMinutes
     }), { operationType:PRINTER_OPERATION_TYPES.CHAMBER_PREHEAT_START });
     refreshAfterCommand(id);
     return json(res, 200, { ok: true, chamberPreheat: session });
