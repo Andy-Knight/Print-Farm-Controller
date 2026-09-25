@@ -164,6 +164,35 @@ test('restore inspection rejects queue references to missing printer groups', as
   }
 });
 
+test('restore inspection allows terminal queue history to retain a deleted group snapshot', async () => {
+  const { root, dataDir } = await makeRoot('pfc-restore-history-deleted-group-');
+  const backupPath = path.join(root, 'history-deleted-group.pfcbackup');
+  try {
+    await fs.writeFile(path.join(dataDir, 'print-jobs.json'), JSON.stringify([{
+      id:'history-group',
+      status:'completed',
+      assignmentMode:'automatic',
+      groupId:'deleted-group',
+      groupName:'Former production group'
+    }]));
+    await createBackupArchive({
+      destinationPath:backupPath,
+      dataDir,
+      applicationDir:root,
+      licensePath:path.join(root, 'none'),
+      controllerVersion:'0.25.0'
+    });
+    const inspection = await inspectRestoreBackup(backupPath, {
+      currentControllerVersion:'0.25.0',
+      targetDataDir:dataDir
+    });
+    assert.equal(inspection.valid, true);
+    assert.equal(inspection.counts.history, 1);
+  } finally {
+    await fs.rm(root, { recursive:true, force:true });
+  }
+});
+
 test('restore inspection rejects queue references to missing Print Library files', async () => {
   const { root, dataDir } = await makeRoot('pfc-restore-missing-library-');
   const backupPath = path.join(root, 'missing-library.pfcbackup');
