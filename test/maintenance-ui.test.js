@@ -64,7 +64,7 @@ test('dashboard surfaces live maintenance alerts and filters affected printers',
   assert.match(app, /maintenanceAlertBtn\?\.addEventListener\('click'/);
   assert.match(app, /setDashboardFilter\(dashboardFilter === 'maintenance' \? 'all' : 'maintenance'\)/);
   assert.match(app, /maintenanceIconMarkup\(printer, '', true\)/);
-  assert.match(app, /maintenanceIconMarkup\(printer, 'maintenance-status-icon-detail'\)/);
+  assert.match(app, /maintenanceIconMarkup\(printer, 'maintenance-status-icon-detail', true\)/);
   assert.match(app, /data-maintenance-tracking-summary/);
   assert.match(styles, /\.maintenance-alert-button/);
   assert.match(styles, /\.maintenance-status-icon\[data-state="due_soon"\]/);
