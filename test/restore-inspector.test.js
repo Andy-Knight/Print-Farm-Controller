@@ -137,6 +137,33 @@ test('restore inspection rejects a backup created by a newer controller version'
   }
 });
 
+test('restore inspection rejects queue references to missing printer groups', async () => {
+  const { root, dataDir } = await makeRoot('pfc-restore-missing-group-');
+  const backupPath = path.join(root, 'missing-group.pfcbackup');
+  try {
+    await fs.writeFile(path.join(dataDir, 'print-jobs.json'), JSON.stringify([{
+      id:'queued-group',
+      status:'queued',
+      assignmentMode:'automatic',
+      groupId:'missing-group',
+      groupName:'Missing group'
+    }]));
+    await createBackupArchive({
+      destinationPath:backupPath,
+      dataDir,
+      applicationDir:root,
+      licensePath:path.join(root, 'none'),
+      controllerVersion:'0.25.0'
+    });
+    await assert.rejects(
+      () => inspectRestoreBackup(backupPath, { currentControllerVersion:'0.25.0', targetDataDir:dataDir }),
+      /references missing printer group/i
+    );
+  } finally {
+    await fs.rm(root, { recursive:true, force:true });
+  }
+});
+
 test('restore inspection rejects queue references to missing Print Library files', async () => {
   const { root, dataDir } = await makeRoot('pfc-restore-missing-library-');
   const backupPath = path.join(root, 'missing-library.pfcbackup');
