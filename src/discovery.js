@@ -1,6 +1,7 @@
 import dgram from 'node:dgram';
 import { networkInterfaces } from 'node:os';
 const FLASHFORGE_AD5M_ADAPTER_TYPE = 'flashforge-ad5m';
+const FLASHFORGE_CREATOR5_ADAPTER_TYPE = 'flashforge-creator5';
 
 const MODERN_SIZE = 276;
 const LEGACY_SIZE = 140;
@@ -64,7 +65,9 @@ export function parseDiscoveryResponse(buffer, remoteAddress) {
     const model = modelFromModern(name, productId, productType);
     const adapterType = ['Adventurer 5M', 'Adventurer 5M Pro'].includes(model)
       ? FLASHFORGE_AD5M_ADAPTER_TYPE
-      : null;
+      : ['Creator 5', 'Creator 5 Pro'].includes(model)
+        ? FLASHFORGE_CREATOR5_ADAPTER_TYPE
+        : null;
 
     return {
       protocol: 'modern',
