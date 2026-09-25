@@ -1509,6 +1509,15 @@ async function apiRoute(req, res, url) {
       const max = Number(adapter.limits?.bedTemperature?.max ?? 110);
       if (body.bed < 0 || body.bed > max) throw new Error(`Bed must be 0-${max} C`);
     }
+    if (body.chamber !== undefined) {
+      if (!adapter.capabilities?.chamberTemperatureControl) throw new Error('Chamber temperature control is not supported by this printer');
+      const min = Number(adapter.limits?.chamberTemperature?.min ?? 0);
+      const max = Number(adapter.limits?.chamberTemperature?.max ?? 65);
+      if (!Number.isFinite(Number(body.chamber)) || Number(body.chamber) < min || Number(body.chamber) > max) {
+        throw new Error(`Chamber must be ${min}-${max} C`);
+      }
+      body.chamber = Number(body.chamber);
+    }
     await runPrinterMutation(id, 'temperature change', async (_currentPrinter, currentAdapter) => {
       // A manual bed command is an explicit override of chamber preheat.
       if (body.bed !== undefined && chamberPreheat.isActive(id)) await chamberPreheat.stop(id, { reason: 'manual-bed-override', turnOff: false });
