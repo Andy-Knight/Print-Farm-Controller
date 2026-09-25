@@ -84,6 +84,39 @@ test('restore inspection validates a current backup and reports contents without
   }
 });
 
+test('restore inspection validates printer groups and rejects duplicate membership', async () => {
+  const { root, dataDir } = await makeRoot('pfc-restore-groups-');
+  const backupPath = path.join(root, 'groups.pfcbackup');
+  try {
+    const printers = [{ id:'p1', name:'Printer 1' }, { id:'p2', name:'Printer 2' }];
+    await fs.writeFile(path.join(dataDir, 'printers.json'), JSON.stringify(printers));
+    await fs.writeFile(path.join(dataDir, 'print-jobs.json'), '[]');
+    await fs.writeFile(path.join(dataDir, 'file-material-metadata.json'), '{}');
+    await fs.writeFile(path.join(dataDir, 'printer-groups.json'), JSON.stringify({
+      version:1,
+      groups:[
+        { id:'g1', name:'Production', printerIds:['p1'] },
+        { id:'g2', name:'Prototype', printerIds:['p1','p2'] }
+      ]
+    }));
+
+    await createBackupArchive({
+      destinationPath:backupPath,
+      dataDir,
+      applicationDir:root,
+      licensePath:path.join(root, 'none'),
+      controllerVersion:'0.25.0'
+    });
+
+    await assert.rejects(
+      () => inspectRestoreBackup(backupPath, { currentControllerVersion:'0.25.0', targetDataDir:dataDir }),
+      /more than one printer group/i
+    );
+  } finally {
+    await fs.rm(root, { recursive:true, force:true });
+  }
+});
+
 test('restore inspection rejects a backup created by a newer controller version', async () => {
   const { root, dataDir } = await makeRoot('pfc-restore-newer-version-');
   const backupPath = path.join(root, 'newer.pfcbackup');
