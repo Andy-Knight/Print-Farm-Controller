@@ -3924,7 +3924,7 @@ async function openPrinter(id) {
       <div class="dialog-head">
         <div>
           <div class="eyebrow">PRINTER</div>
-          <div class="printer-detail-title-row"><h2>${escapeHtml(printer.name)}</h2>${maintenanceIconMarkup(printer, 'maintenance-status-icon-detail')}</div>
+          <div class="printer-detail-title-row"><h2>${escapeHtml(printer.name)}</h2>${maintenanceIconMarkup(printer, 'maintenance-status-icon-detail', true)}</div>
           <div class="subtle">${escapeHtml(printer.host)} · ${escapeHtml(stateName(printer))}</div>
         </div>
         <button class="icon" data-detail-close>×</button>
@@ -4056,7 +4056,7 @@ async function openPrinter(id) {
     <div class="dialog-head">
       <div>
         <div class="eyebrow">PRINTER</div>
-        <div class="printer-detail-title-row"><h2 data-detail-name>${escapeHtml(printer.name)}</h2>${maintenanceIconMarkup(printer, 'maintenance-status-icon-detail')}</div>
+        <div class="printer-detail-title-row"><h2 data-detail-name>${escapeHtml(printer.name)}</h2>${maintenanceIconMarkup(printer, 'maintenance-status-icon-detail', true)}</div>
         <div class="subtle"><span>${escapeHtml(printer.host)}</span> · <span data-detail-state>${escapeHtml(stateName(printer))}</span></div>
         <div class="detail-health" data-detail-health></div>
       </div>
@@ -4593,6 +4593,17 @@ ${flashForgePreflight}` : ''}`)) return;
     } catch (error) { showError(error); }
   };
 }
+
+printerDetail.addEventListener('click', (event) => {
+  const maintenanceShortcut = event.target.closest('[data-maintenance-open-printer]');
+  if (!maintenanceShortcut) return;
+  const printerId = maintenanceShortcut.dataset.maintenanceOpenPrinter;
+  if (!printerId) return;
+  if (printerDialog.open) printerDialog.close();
+  window.dispatchEvent(new CustomEvent('pfc:open-maintenance', {
+    detail:{ printerId }
+  }));
+});
 
 printerDialog.addEventListener('close', () => {
   currentPrinterId = null;

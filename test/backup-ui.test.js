@@ -13,7 +13,8 @@ test('Backup and Recovery is available from the controller overflow menu', () =>
   assert.match(index, /id="backupRecoveryBtn"[^>]*>Backup &amp; recovery<\/button>/);
   assert.match(index, /id="backupRecoveryDialog"/);
   assert.match(index, /id="backupCreateBtn"[^>]*>Create backup now<\/button>/);
-  assert.match(index, /v0\.23\.0 backups are integrity-checked but are not encrypted/);
+  assert.match(index, /Backups are integrity-checked but are not encrypted/);
+  assert.doesNotMatch(index, /backup-warning[\s\S]{0,400}v\d+\.\d+\.\d+/i);
   assert.match(index, /Restore backup<\/button>/);
   assert.match(index, /Restore backup<\/button>[\s\S]*disabled|disabled>Restore backup/);
   assert.match(app, /backupRecoveryBtn\?\.addEventListener/);

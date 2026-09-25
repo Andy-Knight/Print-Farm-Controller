@@ -93,6 +93,52 @@ test('maintenance tasks persist, become due, and completion creates history', as
   }
 });
 
+test('clearing maintenance history preserves task scheduling state', async () => {
+  const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'pfc-maintenance-clear-history-'));
+  let now = Date.parse('2026-09-24T12:00:00Z');
+  const fleet = new FakeFleet([printer()]);
+  const service = new MaintenanceService({
+    fleetState:fleet,
+    dataDir:dir,
+    printerLookup:async () => ({ id:'printer-1' }),
+    nowFn:() => now,
+    persistDelayMs:1
+  });
+
+  try {
+    await service.start();
+    const task = await service.addTask('printer-1', {
+      name:'Lubricate rails',
+      schedule:{ type:'days', interval:10 }
+    });
+    await service.completeTask('printer-1', task.id, 'Initial service');
+
+    let snapshot = await service.getSnapshot([printer()]);
+    const before = snapshot.printers[0].tasks[0];
+    assert.equal(snapshot.printers[0].history.length, 1);
+    assert.ok(before.lastCompletedAt);
+    assert.equal(before.completionAllowed, false);
+
+    const result = await service.clearHistory('printer-1');
+    assert.deepEqual(result, { cleared:1 });
+
+    snapshot = await service.getSnapshot([printer()]);
+    const after = snapshot.printers[0].tasks[0];
+    assert.equal(snapshot.printers[0].history.length, 0);
+    assert.equal(after.lastCompletedAt, before.lastCompletedAt);
+    assert.deepEqual(after.lastCompletedUsage, before.lastCompletedUsage);
+    assert.equal(after.status.state, before.status.state);
+    assert.equal(after.completionAllowed, false);
+
+    const raw = JSON.parse(await fs.readFile(path.join(dir, 'maintenance.json'), 'utf8'));
+    assert.equal(raw.printers['printer-1'].history.length, 0);
+    assert.equal(raw.printers['printer-1'].tasks[0].lastCompletedAt, before.lastCompletedAt);
+  } finally {
+    await service.stop();
+    await fs.rm(dir, { recursive:true, force:true });
+  }
+});
+
 test('completed maintenance cannot be completed again until Due soon', async () => {
   const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'pfc-maintenance-repeat-gate-'));
   let now = Date.parse('2026-09-24T12:00:00Z');
