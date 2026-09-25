@@ -197,6 +197,7 @@ export const flashForgeCreator5AdapterDefinition = Object.freeze({
   models:[...CREATOR5_MODELS],
   capabilities:COMMON_CAPABILITIES,
   configFields:[
+    { name:'model', label:'Model', required:true, type:'select', defaultValue:'Creator 5 Pro', options:[{ value:'Creator 5', label:'Creator 5' }, { value:'Creator 5 Pro', label:'Creator 5 Pro' }] },
     { name:'httpPort', label:'HTTP API port', required:true, type:'number', defaultValue:8898, min:1, max:65535, help:'Leave at 8898 for physical Creator 5 series printers. Creator 5 does not use the legacy TCP 8899 control/file interface.' },
     { name:'cameraPort', label:'Camera port', required:true, type:'number', defaultValue:8080, min:1, max:65535, help:'Leave at 8080 for the built-in Creator 5 camera.' },
     { name:'serialNumber', label:'Serial number', required:true, placeholder:'SN...' },
