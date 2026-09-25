@@ -332,24 +332,53 @@ function flashForgeStatus(printer) {
 
 function flashForgeDetail(printer) {
   const tool = printer.tools[0];
-  return {
+  const base = {
     status: flashForgeStatus(printer),
     name: printer.name,
     firmwareVersion: '3.1.3-simulator',
-    pid: 35,
     printFileName: printer.fileName || '',
     printProgress: printer.progress,
     printLayer: printer.currentLayer,
     targetPrintLayer: printer.totalLayers,
     estimatedTime: printer.remainingSeconds,
     printDuration: printer.elapsedSeconds,
-    rightTemp: tool.actual,
-    rightTargetTemp: tool.target,
     platTemp: printer.bed.actual,
     platTargetTemp: printer.bed.target,
-    coolingFanSpeed: printer.fans.cooling,
-    chamberFanSpeed: printer.fans.chamber,
     cameraStreamUrl: printer.faults.cameraUnavailable ? '' : `http://${printer.host}:${printer.ports.cameraPort}/?action=stream`
+  };
+  if (printer.adapterType === 'flashforge-creator5') {
+    const pro = printer.model === 'Creator 5 Pro';
+    return {
+      ...base,
+      pid:pro ? 41 : 40,
+      model:printer.model,
+      nozzleTemps:printer.tools.map((item) => item.actual),
+      nozzleTargetTemps:printer.tools.map((item) => item.target),
+      currentSlot:1,
+      hasMatlStation:true,
+      matlStationInfo:{
+        slotCnt:printer.tools.length,
+        currentSlot:1,
+        slotInfos:printer.tools.map((item, index) => ({
+          slotId:index + 1,
+          materialName:item.filament?.material || '',
+          materialColor:item.filament?.color || '',
+          hasFilament:item.filament?.present !== false
+        }))
+      },
+      ...(pro ? {
+        chamberTemp:printer.chamber.actual,
+        chamberTargetTemp:printer.chamber.target
+      } : {})
+    };
+  }
+  return {
+    ...base,
+    pid:35,
+    rightTemp:tool.actual,
+    rightTargetTemp:tool.target,
+    coolingFanSpeed:printer.fans.cooling,
+    chamberFanSpeed:printer.fans.chamber
   };
 }
 
@@ -378,6 +407,13 @@ function createFlashForgeHttpServer(printer) {
       return sendJson(response, 200, { code: 0, gcodeList: files });
     }
     if (url.pathname === '/printGcode') {
+      printer.log('flashforge-http', 'printGcode', {
+        fileName:data.fileName || null,
+        materialMappings:Array.isArray(data.materialMappings) ? data.materialMappings : [],
+        levelingBeforePrint:data.levelingBeforePrint !== false,
+        flowCalibration:data.flowCalibration === true,
+        timeLapseVideo:data.timeLapseVideo === true
+      });
       printer.startPrint(data.fileName);
       return sendJson(response, 200, { code: 0, message: 'success' });
     }
@@ -386,8 +422,14 @@ function createFlashForgeHttpServer(printer) {
       const args = data.payload?.args || {};
       if (command === 'jobCtl_cmd') printer.action({ pause: 'pause', continue: 'resume', cancel: 'cancel' }[args.action] || args.action);
       else if (command === 'temperatureCtl_cmd') {
+        if (Array.isArray(args.nozzles)) {
+          args.nozzles.slice(0, printer.tools.length).forEach((value, index) => {
+            if (Number.isFinite(Number(value)) && Number(value) >= 0) printer.tools[index].target = Number(value);
+          });
+        }
         if (args.rightNozzle !== undefined) printer.tools[0].target = Number(args.rightNozzle);
         if (args.platform !== undefined) printer.bed.target = Number(args.platform);
+        if (args.chamber !== undefined && printer.model === 'Creator 5 Pro') printer.chamber.target = Number(args.chamber);
       } else if (command === 'printerCtl_cmd') {
         if (args.coolingFan !== undefined) printer.fans.cooling = Number(args.coolingFan);
         if (args.chamberFan !== undefined) printer.fans.chamber = Number(args.chamberFan);
@@ -853,6 +895,13 @@ export async function startProtocolEndpoints(printer, { assetsDir } = {}) {
       const tcpServer = createFlashForgeTcpServer(printer);
       printer.ports.tcpPort = await listen(tcpServer, printer.host, Number(printer.ports.tcpPort));
       servers.push(tcpServer);
+      const cameraServer = createCameraServer(printer);
+      printer.ports.cameraPort = await listen(cameraServer, printer.host, Number(printer.ports.cameraPort));
+      servers.push(cameraServer);
+    } else if (printer.adapterType === 'flashforge-creator5') {
+      const httpServer = createFlashForgeHttpServer(printer);
+      printer.ports.httpPort = await listen(httpServer, printer.host, Number(printer.ports.httpPort));
+      servers.push(httpServer);
       const cameraServer = createCameraServer(printer);
       printer.ports.cameraPort = await listen(cameraServer, printer.host, Number(printer.ports.cameraPort));
       servers.push(cameraServer);
