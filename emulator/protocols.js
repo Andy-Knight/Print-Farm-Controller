@@ -348,17 +348,18 @@ function flashForgeDetail(printer) {
   };
   if (printer.adapterType === 'flashforge-creator5') {
     const pro = printer.model === 'Creator 5 Pro';
+    const feedingSlot = ['printing','paused'].includes(printer.status) ? 1 : 0;
     return {
       ...base,
       pid:pro ? 41 : 40,
       model:printer.model,
       nozzleTemps:printer.tools.map((item) => item.actual),
       nozzleTargetTemps:printer.tools.map((item) => item.target),
-      currentSlot:1,
+      currentSlot:feedingSlot,
       hasMatlStation:true,
       matlStationInfo:{
         slotCnt:printer.tools.length,
-        currentSlot:1,
+        currentSlot:feedingSlot,
         slotInfos:printer.tools.map((item, index) => ({
           slotId:index + 1,
           materialName:item.filament?.material || '',
