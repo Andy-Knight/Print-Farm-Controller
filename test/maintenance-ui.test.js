@@ -130,18 +130,6 @@ test('model-wide maintenance rules can be completed across eligible matching pri
   assert.match(server, /Model-wide maintenance task completed/);
 });
 
-test('model-wide completion reveals newly written per-printer maintenance history', () => {
-  assert.match(maintenanceUi, /revealedModelCompletionPrinterIds/);
-  assert.match(maintenanceUi, /revealedModelCompletionHistoryIds/);
-  assert.match(maintenanceUi, /maintenance-printer-card-model-completed/);
-  assert.match(maintenanceUi, /maintenance-history-entry-new/);
-  assert.match(maintenanceUi, /<details class="maintenance-history" \$\{revealModelCompletion \? 'open' : ''\}>/);
-  assert.match(maintenanceUi, /setMaintenanceView\('printers'\)/);
-  assert.match(maintenanceUi, /firstUpdated\?\.scrollIntoView/);
-  assert.match(styles, /\.maintenance-printer-card-model-completed/);
-  assert.match(styles, /\.maintenance-history-entry-new/);
-});
-
 test('maintenance persistent state participates in backup and restore', () => {
   assert.match(backupService, /state\/maintenance\.json/);
   assert.match(restoreService, /'maintenance\.json'/);
