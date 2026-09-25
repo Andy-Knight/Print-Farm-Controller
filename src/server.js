@@ -1052,6 +1052,22 @@ async function apiRoute(req, res, url) {
     return json(res, 405, { error:'Model maintenance task operation is not supported' });
   }
 
+  const maintenanceHistoryMatch = url.pathname.match(/^\/api\/printers\/([^/]+)\/maintenance\/history$/);
+  if (maintenanceHistoryMatch) {
+    const printerId = decodeURIComponent(maintenanceHistoryMatch[1]);
+    if (!await getPrinter(printerId)) return json(res, 404, { error:'Printer not found' });
+    if (req.method === 'DELETE') {
+      const result = await controllerMutations.run('maintenance', () => maintenanceService.clearHistory(printerId));
+      await diagnosticLogger.info('maintenance', 'Maintenance history cleared', {
+        printerId,
+        cleared:result.cleared
+      });
+      fleetState.schedulePublish();
+      return json(res, 200, { ok:true, ...result });
+    }
+    return json(res, 405, { error:'Maintenance history operation is not supported' });
+  }
+
   const maintenanceTaskMatch = url.pathname.match(/^\/api\/printers\/([^/]+)\/maintenance\/tasks(?:\/([^/]+))?(?:\/(complete))?$/);
   if (maintenanceTaskMatch) {
     const printerId = decodeURIComponent(maintenanceTaskMatch[1]);
