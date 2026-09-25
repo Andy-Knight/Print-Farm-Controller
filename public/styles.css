@@ -37,7 +37,7 @@ button.summary-card:focus-visible { filter:none; transform:translateY(-1px); bor
 .summary-card b { display:block; font-size:1.6rem; margin-top:5px; }
 .fleet.filtered .reorder-controls { display:none; }
 .fleet { display:grid; grid-template-columns:repeat(auto-fill,minmax(330px,1fr)); gap:16px; }
-.card { border:1px solid #29323b; background:rgba(18,24,31,.94); border-radius:18px; overflow:hidden; box-shadow:0 18px 45px rgba(0,0,0,.18); }
+.card { display:flex; flex-direction:column; border:1px solid #29323b; background:rgba(18,24,31,.94); border-radius:18px; overflow:hidden; box-shadow:0 18px 45px rgba(0,0,0,.18); }
 .fleet .card { transition:transform .14s ease, border-color .14s ease, box-shadow .14s ease; }
 .fleet .card:hover,
 .fleet .card:focus-within {
@@ -46,7 +46,7 @@ button.summary-card:focus-visible { filter:none; transform:translateY(-1px); bor
   box-shadow:0 0 0 1px rgba(128,191,255,.16),0 22px 50px rgba(0,0,0,.28);
 }
 .fleet .card.dragging { transform:none; }
-.card-head { padding:16px 16px 10px; display:flex; justify-content:space-between; gap:12px; }
+.card-head { min-height:104px; padding:16px 16px 10px; display:flex; justify-content:space-between; gap:12px; }
 .card h3 { margin:0; font-size:1.08rem; }
 .subtle { color:#8493a1; font-size:.86rem; }
 .badge { border-radius:999px; padding:5px 9px; font-size:.72rem; font-weight:800; text-transform:uppercase; letter-spacing:.06em; background:#22303b; align-self:flex-start; }
@@ -67,7 +67,7 @@ button.summary-card:focus-visible { filter:none; transform:translateY(-1px); bor
 .metric b { font-size:.95rem; }
 .health-line { display:flex; justify-content:space-between; gap:10px; color:#687986; font-size:.72rem; margin-top:12px; }
 .card-error { margin-top:0; font-size:.77rem; color:#ffafb4; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-.card-footer { padding:0 16px 16px; display:flex; flex-direction:column; gap:8px; }
+.card-footer { margin-top:auto; padding:0 16px 16px; display:flex; flex-direction:column; gap:8px; }
 .primary,.secondary,.danger,.icon { border:0; border-radius:10px; padding:10px 14px; font-weight:750; }
 .primary { background:#e8edf2; color:#10151a; }
 .secondary { background:#202831; color:#e8edf2; }
@@ -151,6 +151,7 @@ input:focus,select:focus { border-color:#7a9fbe; }
   .topbar,main { padding-left:16px; padding-right:16px; }
   .summary { grid-template-columns:1fr 1fr; }
   .fleet { grid-template-columns:1fr; }
+  .card-head { min-height:0; }
   .detail-grid { grid-template-columns:1fr; }
   .discovery-heading,.discovery-result { align-items:stretch; flex-direction:column; }
   .control-row { grid-template-columns:1fr auto; }
