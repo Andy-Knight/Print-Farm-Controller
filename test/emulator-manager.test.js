@@ -49,3 +49,26 @@ test('integrated emulator exposes management API and UI under controller paths',
   const app = await fetch(`${base}/simulator/app.js`).then((response) => response.text());
   assert.match(app, /\/api\/emulator/);
 });
+
+
+test('Creator 5 virtual printer settings are recognised as simulated controller devices', async (t) => {
+  const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'pfc-emulator-creator5-detect-'));
+  const manager = new EmulatorManager({ settingsPath:path.join(directory, 'settings.json'), withDefaults:false });
+  await manager.setEnabled(true);
+  t.after(async () => {
+    await manager.stop();
+    await fs.rm(directory, { recursive:true, force:true });
+  });
+
+  const virtual = await manager.emulator.addPrinter({
+    profileId:'flashforge-creator-5-pro',
+    name:'Virtual Creator 5 Pro',
+    ports:{ httpPort:0, cameraPort:0 }
+  });
+
+  assert.equal(manager.isSimulatedConfig(virtual.controllerSettings), true);
+  assert.equal(manager.isSimulatedConfig({
+    ...virtual.controllerSettings,
+    httpPort:Number(virtual.controllerSettings.httpPort) + 1
+  }), false);
+});
