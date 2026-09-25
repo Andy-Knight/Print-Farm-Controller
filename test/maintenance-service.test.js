@@ -303,6 +303,12 @@ test('model-wide maintenance completion applies to eligible matching printers an
       eligible:0,
       locked:2
     });
+
+    const persisted = JSON.parse(await fs.readFile(path.join(dir, 'maintenance.json'), 'utf8'));
+    assert.equal(persisted.printers[p1.id].history.length, 2);
+    assert.equal(persisted.printers[p2.id].history.length, 2);
+    assert.equal(persisted.printers[p2.id].history[0].taskId, task.id);
+    assert.equal(persisted.printers[p2.id].history[0].assignment.scope, 'model');
   } finally {
     await service.stop();
     await fs.rm(dir, { recursive:true, force:true });
