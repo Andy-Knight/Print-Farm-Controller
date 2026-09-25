@@ -61,6 +61,25 @@ test('dashboard maintenance icon is not overwritten by printer state updates', (
   assert.match(app, /data-maintenance-status-icon data-state="\$\{escapeHtml\(state\)\}"/);
 });
 
+test('maintenance tasks can be assigned to individual printers or inherited by printer model', () => {
+  assert.match(index, /id="maintenanceAssignmentScope"/);
+  assert.match(index, /value="printer">Individual printer<\/option>/);
+  assert.match(index, /value="model">Printer model<\/option>/);
+  assert.match(index, /id="maintenanceModel"/);
+  assert.match(maintenanceUi, /api\('\/api\/adapters'\)/);
+  assert.match(maintenanceUi, /function modelTaskSection\(\)/);
+  assert.match(maintenanceUi, /Model-wide maintenance rules/);
+  assert.match(maintenanceUi, /Applies to matching printers automatically/);
+  assert.match(maintenanceUi, /\/api\/maintenance\/model-tasks/);
+  assert.match(maintenanceUi, /data-task-scope="model"/);
+  assert.match(maintenanceUi, /Assigned to this printer:/);
+  assert.match(server, /maintenanceService\.addModelTask/);
+  assert.match(server, /maintenanceService\.updateModelTask/);
+  assert.match(server, /maintenanceService\.deleteModelTask/);
+  assert.match(styles, /\.maintenance-model-rules/);
+  assert.match(styles, /\.maintenance-scope-pill/);
+});
+
 test('maintenance persistent state participates in backup and restore', () => {
   assert.match(backupService, /state\/maintenance\.json/);
   assert.match(restoreService, /'maintenance\.json'/);
