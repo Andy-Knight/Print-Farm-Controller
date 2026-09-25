@@ -6,6 +6,7 @@ import {
   CREATOR5_TOOL_COUNT,
   creator5MaterialMappings,
   normalizeCreator5Status,
+  openCreator5Camera,
   setCreator5Temperatures
 } from '../src/creator5-api.js';
 import {
@@ -56,7 +57,7 @@ test('Creator 5 Pro detail normalizes four toolheads, material slots and chamber
     pid:41,
     model:'Creator 5 Pro',
     nozzleTemps:[31,32,33,34],
-    nozzleTargetTemps:[210,220,230,240],
+    nozzleTargetTemps:[0,0,230,0],
     platTemp:60,
     platTargetTemp:100,
     chamberTemp:44,
@@ -79,6 +80,8 @@ test('Creator 5 Pro detail normalizes four toolheads, material slots and chamber
   assert.deepEqual(status.tools.map((tool) => tool.actual), [31,32,33,34]);
   assert.deepEqual(status.tools.map((tool) => tool.target), [210,220,230,240]);
   assert.equal(status.tools[2].active, true);
+  assert.equal(status.activeTool, 2);
+  assert.equal(status.materialStation.currentSlot, 2);
   assert.equal(status.tools[2].filament.material, 'ASA');
   assert.equal(status.tools[2].filament.color, '#0000FF');
   assert.equal(status.tools[2].filament.present, false);
@@ -148,6 +151,57 @@ test('Creator 5 per-tool temperature control uses four-entry nozzle arrays', asy
     assert.deepEqual(body.payload.args.nozzles, [-200,-200,-200,300]);
     assert.equal(body.payload.args.platform, 115);
     assert.equal(body.payload.args.chamber, 60);
+  } finally {
+    global.fetch = originalFetch;
+  }
+});
+
+
+test('Creator 5 does not confuse the feeding material slot with the active toolhead', () => {
+  const status = normalizeCreator5Status({
+    status:'printing',
+    model:'Creator 5 Pro',
+    nozzleTemps:[210,35,35,35],
+    nozzleTargetTemps:[220,0,0,0],
+    currentSlot:4,
+    matlStationInfo:{
+      currentSlot:4,
+      slotInfos:[
+        { slotId:1, materialName:'PLA', materialColor:'#FFFFFF', hasFilament:true },
+        { slotId:2, materialName:'PLA', materialColor:'#FF0000', hasFilament:true },
+        { slotId:3, materialName:'PLA', materialColor:'#00FF00', hasFilament:true },
+        { slotId:4, materialName:'PLA', materialColor:'#0000FF', hasFilament:true }
+      ]
+    }
+  }, { model:'Creator 5 Pro' });
+
+  assert.equal(status.materialStation.currentSlot, 3);
+  assert.equal(status.activeTool, 0);
+  assert.equal(status.tools[0].active, true);
+  assert.equal(status.tools[3].active, false);
+});
+
+test('Creator 5 camera activation covers both observed firmware command names', async () => {
+  const originalFetch = global.fetch;
+  const commands = [];
+  global.fetch = async (_url, options) => {
+    const body = JSON.parse(options.body);
+    commands.push(body.payload?.cmd || null);
+    return {
+      ok:true,
+      async json() { return { code:0, message:'Success' }; }
+    };
+  };
+  try {
+    const url = await openCreator5Camera({
+      host:'127.0.0.1',
+      httpPort:8898,
+      cameraPort:8080,
+      serialNumber:'SN',
+      checkCode:'CODE'
+    }, { warmupMs:0 });
+    assert.deepEqual(commands, ['streamCtrl','streamCtrl_cmd']);
+    assert.equal(url, 'http://127.0.0.1:8080/?action=stream');
   } finally {
     global.fetch = originalFetch;
   }
