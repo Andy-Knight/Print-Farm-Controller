@@ -222,20 +222,23 @@ function printerCardsMarkup() {
           `).join('') : '<div class="subtle maintenance-no-tasks">No maintenance tasks configured for this printer.</div>'}
         </div>
 
-        <details class="maintenance-history">
-          <summary>Recent maintenance history (${Number(printer.history?.length || 0)})</summary>
-          <div class="maintenance-history-list">
-            ${history.length ? history.map((entry) => `
-              <div class="maintenance-history-entry">
-                <strong>${escapeHtml(entry.taskName)}</strong>
-                <span>${escapeHtml(formatDate(entry.completedAt))}</span>
-                <span>${formatHours(Number(entry.usageSnapshot?.printHours || 0))} / ${Number(entry.usageSnapshot?.printCount || 0)} prints</span>
-                <small class="maintenance-history-scope">${escapeHtml(entry.assignment?.scope === 'model' ? `Model · ${modelLabel(entry.assignment)}` : 'Individual printer')}</small>
-                ${entry.notes ? `<div>${escapeHtml(entry.notes)}</div>` : ''}
-              </div>
-            `).join('') : '<div class="subtle">No maintenance has been recorded yet.</div>'}
-          </div>
-        </details>
+        <div class="maintenance-history-row">
+          <details class="maintenance-history">
+            <summary>Recent maintenance history (${Number(printer.history?.length || 0)})</summary>
+            <div class="maintenance-history-list">
+              ${history.length ? history.map((entry) => `
+                <div class="maintenance-history-entry">
+                  <strong>${escapeHtml(entry.taskName)}</strong>
+                  <span>${escapeHtml(formatDate(entry.completedAt))}</span>
+                  <span>${formatHours(Number(entry.usageSnapshot?.printHours || 0))} / ${Number(entry.usageSnapshot?.printCount || 0)} prints</span>
+                  <small class="maintenance-history-scope">${escapeHtml(entry.assignment?.scope === 'model' ? `Model · ${modelLabel(entry.assignment)}` : 'Individual printer')}</small>
+                  ${entry.notes ? `<div>${escapeHtml(entry.notes)}</div>` : ''}
+                </div>
+              `).join('') : '<div class="subtle">No maintenance has been recorded yet.</div>'}
+            </div>
+          </details>
+          <button type="button" class="danger maintenance-clear-history" data-maintenance-clear-history data-printer-id="${escapeHtml(printer.printerId)}" ${Number(printer.history?.length || 0) === 0 ? 'disabled aria-disabled="true" title="No maintenance history to clear"' : ''}>Clear history</button>
+        </div>
       </section>
     `;
   }).join('');
@@ -483,10 +486,31 @@ form?.addEventListener('submit', async (event) => {
 });
 
 list?.addEventListener('click', async (event) => {
+  const clearHistory = event.target.closest('[data-maintenance-clear-history]');
   const completeModel = event.target.closest('[data-maintenance-complete-model]');
   const complete = event.target.closest('[data-maintenance-complete]');
   const edit = event.target.closest('[data-maintenance-edit]');
   const remove = event.target.closest('[data-maintenance-delete]');
+
+  if (clearHistory) {
+    const printerId = clearHistory.dataset.printerId || '';
+    const record = maintenance.printers?.find((item) => item.printerId === printerId);
+    const count = Number(record?.history?.length || 0);
+    if (!printerId || !record || count <= 0) return;
+    const message = `Clear all ${count} maintenance history ${count === 1 ? 'entry' : 'entries'} for ${record.printerName}?\n\nThis only removes the history log. Task schedules, last-completed dates, usage counters, baselines and due status will not be reset.\n\nThis cannot be undone.`;
+    if (!confirm(message)) return;
+    clearHistory.disabled = true;
+    try {
+      const result = await api(`/api/printers/${encodeURIComponent(printerId)}/maintenance/history`, { method:'DELETE' });
+      await refresh();
+      if (statusEl) statusEl.textContent = `Cleared ${Number(result.cleared || count)} maintenance history ${Number(result.cleared || count) === 1 ? 'entry' : 'entries'} for ${record.printerName}.`;
+    } catch (error) {
+      clearHistory.disabled = false;
+      if (errorEl) { errorEl.textContent = error.message; errorEl.classList.remove('hidden'); }
+    }
+    return;
+  }
+
   const action = completeModel || complete || edit || remove;
   if (!action) return;
 
