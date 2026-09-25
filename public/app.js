@@ -1235,10 +1235,15 @@ function maintenanceIconSvg() {
   return '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14.7 6.3a4 4 0 0 0-5 5L3 18l3 3 6.7-6.7a4 4 0 0 0 5-5l-2.4 2.4-3-3 2.4-2.4Z"></path></svg>';
 }
 
-function maintenanceIconMarkup(printer, extraClass = '') {
+function maintenanceIconMarkup(printer, extraClass = '', interactive = false) {
   const state = printerMaintenanceState(printer);
   const text = maintenanceStatusText(printer);
-  return `<span class="maintenance-status-icon${extraClass ? ` ${extraClass}` : ''}" data-maintenance-status-icon data-state="${escapeHtml(state)}" role="img" aria-label="${escapeHtml(text)}" title="${escapeHtml(text)}">${maintenanceIconSvg()}</span>`;
+  const classes = `maintenance-status-icon${interactive ? ' maintenance-status-icon-button' : ''}${extraClass ? ` ${extraClass}` : ''}`;
+  if (interactive) {
+    const actionText = `Open maintenance for ${printer.name}. ${text}`;
+    return `<button type="button" class="${classes}" data-maintenance-status-icon data-maintenance-open-printer="${escapeHtml(printer.id)}" data-state="${escapeHtml(state)}" aria-label="${escapeHtml(actionText)}" title="${escapeHtml(actionText)}">${maintenanceIconSvg()}</button>`;
+  }
+  return `<span class="${classes}" data-maintenance-status-icon data-state="${escapeHtml(state)}" role="img" aria-label="${escapeHtml(text)}" title="${escapeHtml(text)}">${maintenanceIconSvg()}</span>`;
 }
 
 function updateMaintenanceIcon(root, printer) {
@@ -1247,8 +1252,11 @@ function updateMaintenanceIcon(root, printer) {
   const state = printerMaintenanceState(printer);
   const text = maintenanceStatusText(printer);
   icon.dataset.state = state;
-  icon.setAttribute('aria-label', text);
-  icon.title = text;
+  const actionText = icon.hasAttribute('data-maintenance-open-printer')
+    ? `Open maintenance for ${printer.name}. ${text}`
+    : text;
+  icon.setAttribute('aria-label', actionText);
+  icon.title = actionText;
 }
 
 function renderMaintenanceAlert() {
@@ -1822,7 +1830,7 @@ function cardMarkup(printer) {
           <span class="drag-handle" data-drag-handle title="Drag to reorder" aria-label="Drag to reorder" role="button" tabindex="0">⋮⋮</span>
           <button type="button" class="reorder-button" data-move-later title="Move later" aria-label="Move printer later">→</button>
         </div>
-        ${maintenanceIconMarkup(printer)}
+        ${maintenanceIconMarkup(printer, '', true)}
         <div class="badge" data-printer-state></div>
       </div>
     </div>
@@ -2687,6 +2695,14 @@ fleetFilterEmptyEl?.addEventListener('click', (event) => {
 });
 
 fleetEl.addEventListener('click', (event) => {
+  const maintenanceShortcut = event.target.closest('[data-maintenance-open-printer]');
+  if (maintenanceShortcut) {
+    window.dispatchEvent(new CustomEvent('pfc:open-maintenance', {
+      detail:{ printerId:maintenanceShortcut.dataset.maintenanceOpenPrinter }
+    }));
+    return;
+  }
+
   const licenceToggle = event.target.closest('[data-license-slot-toggle]');
   if (licenceToggle) {
     const card = licenceToggle.closest('[data-printer-card]');
