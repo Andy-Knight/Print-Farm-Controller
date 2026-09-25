@@ -1656,3 +1656,63 @@ button.library-file-preview { cursor:zoom-in; }
     flex-basis:38px;
   }
 }
+
+
+/* Model-wide maintenance assignment */
+.maintenance-model-rules {
+  padding:14px;
+  border:1px solid #34516a;
+  border-radius:13px;
+  background:#0e171e;
+}
+.maintenance-model-rules-head {
+  display:flex;
+  align-items:flex-start;
+  justify-content:space-between;
+  gap:14px;
+  margin-bottom:10px;
+}
+.maintenance-model-rules-head h3 { margin:0 0 3px; }
+.maintenance-model-rule-list { display:grid; gap:8px; }
+.maintenance-model-rule {
+  display:grid;
+  grid-template-columns:minmax(0,1fr) auto;
+  gap:12px;
+  align-items:center;
+  padding:11px 12px;
+  border:1px solid #2d414f;
+  border-radius:11px;
+  background:#101b23;
+}
+.maintenance-scope-pill {
+  display:inline-flex;
+  align-items:center;
+  border-radius:999px;
+  padding:4px 8px;
+  background:#1b3342;
+  color:#9fc9e0;
+  font-size:.64rem;
+  font-weight:850;
+  letter-spacing:.02em;
+  white-space:nowrap;
+}
+.maintenance-history-scope {
+  color:#718795;
+  font-size:.67rem;
+}
+:root[data-theme="light"] .maintenance-model-rules {
+  background:#f2f8fb;
+  border-color:#b7d1e2;
+}
+:root[data-theme="light"] .maintenance-model-rule {
+  background:#f8fbfd;
+  border-color:#cadbe5;
+}
+:root[data-theme="light"] .maintenance-scope-pill {
+  background:#e5f1f7;
+  color:#416f88;
+}
+@media (max-width:620px) {
+  .maintenance-model-rules-head { flex-direction:column; }
+  .maintenance-model-rule { grid-template-columns:1fr; }
+}
