@@ -199,11 +199,12 @@ function printerCardsMarkup() {
                   <span>${escapeHtml(scheduleLabel(task))}</span>
                   <span>${escapeHtml(remainingLabel(task))}</span>
                   <span>Last completed: ${escapeHtml(formatDate(task.lastCompletedAt))}</span>
+                  ${task.lastCompletedAt && task.completionAllowed === false ? '<span>Complete again when Due soon (80%)</span>' : ''}
                   ${task.assignment?.scope === 'model' ? `<span>Assigned to this printer: ${escapeHtml(formatDate(task.assignedAt))}</span>` : ''}
                 </div>
               </div>
               <div class="mini-actions maintenance-task-actions">
-                <button type="button" class="primary" data-maintenance-complete data-task-scope="${escapeHtml(task.assignment?.scope || 'printer')}" data-printer-id="${escapeHtml(printer.printerId)}" data-task-id="${escapeHtml(task.id)}">Complete</button>
+                <button type="button" class="primary" data-maintenance-complete data-task-scope="${escapeHtml(task.assignment?.scope || 'printer')}" data-printer-id="${escapeHtml(printer.printerId)}" data-task-id="${escapeHtml(task.id)}" ${task.completionAllowed === false ? `disabled aria-disabled="true" title="${escapeHtml(task.completionReason || 'This maintenance task cannot be completed yet')}"` : ''}>Complete</button>
                 <button type="button" class="secondary" data-maintenance-edit data-task-scope="${escapeHtml(task.assignment?.scope || 'printer')}" data-printer-id="${escapeHtml(printer.printerId)}" data-task-id="${escapeHtml(task.id)}">${task.assignment?.scope === 'model' ? 'Edit model rule' : 'Edit'}</button>
                 <button type="button" class="danger" data-maintenance-delete data-task-scope="${escapeHtml(task.assignment?.scope || 'printer')}" data-printer-id="${escapeHtml(printer.printerId)}" data-task-id="${escapeHtml(task.id)}">${task.assignment?.scope === 'model' ? 'Delete model rule' : 'Delete'}</button>
               </div>
