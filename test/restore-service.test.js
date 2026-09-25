@@ -28,6 +28,7 @@ async function createBackupFixture(root, {
   version = '0.23.0',
   jobs = [],
   printers = [{ id:'restored-printer', name:'Restored printer' }],
+  printerGroups = { version:1, groups:[] },
   backupLicense = null
 } = {}) {
   const sourceData = path.join(root, 'backup-source');
@@ -37,6 +38,7 @@ async function createBackupFixture(root, {
   await writeJson(path.join(sourceData, 'printers.json'), printers);
   await writeJson(path.join(sourceData, 'print-jobs.json'), jobs);
   await writeJson(path.join(sourceData, 'file-material-metadata.json'), {});
+  await writeJson(path.join(sourceData, 'printer-groups.json'), printerGroups);
   if (backupLicense) await writeJson(sourceLicense, backupLicense);
   await createBackupArchive({
     destinationPath:backupPath,
@@ -128,8 +130,9 @@ test('activation swaps staged data and commit makes the restored state permanent
     await writeJson(liveLicense, { current:'old' });
 
     const fixture = await createBackupFixture(root, {
-      jobs:[{ id:'restored-job', status:'queued', assignmentMode:'automatic', productionBatchId:'batch-1' }],
+      jobs:[{ id:'restored-job', status:'queued', assignmentMode:'automatic', productionBatchId:'batch-1', groupId:'group-restored', groupName:'Restored production' }],
       printers:[{ id:'new-printer', name:'New printer' }],
+      printerGroups:{ version:1, groups:[{ id:'group-restored', name:'Restored production', printerIds:['new-printer'] }] },
       backupLicense:{ current:'restored' }
     });
     await stageRestoreBackup(fixture.backupPath, {
@@ -146,6 +149,10 @@ test('activation swaps staged data and commit makes the restored state permanent
     assert.equal(jobs[0].status, 'needs_review');
     assert.equal(jobs[0].restoreRecoveryHold, true);
     assert.equal(jobs[0].productionPaused, true);
+    assert.equal(jobs[0].groupId, 'group-restored');
+    const restoredGroups = JSON.parse(await fs.readFile(path.join(liveData, 'printer-groups.json'), 'utf8'));
+    assert.equal(restoredGroups.groups[0].name, 'Restored production');
+    assert.deepEqual(restoredGroups.groups[0].printerIds, ['new-printer']);
     assert.deepEqual(JSON.parse(await fs.readFile(liveLicense, 'utf8')), { current:'restored' });
 
     await commitActivatedRestore(tx);
