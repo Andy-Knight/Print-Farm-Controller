@@ -28,6 +28,14 @@ test('printer groups are manageable from the controller overflow menu', () => {
   assert.match(styles, /\.printer-group-member/);
 });
 
+test('printer group member checkboxes override global full-width input styling', () => {
+  assert.match(styles, /\.printer-group-member input\[type="checkbox"\]/);
+  assert.match(styles, /width:16px/);
+  assert.match(styles, /height:16px/);
+  assert.match(styles, /flex:0 0 16px/);
+  assert.match(styles, /\.printer-group-member span \{[\s\S]*flex:1 1 auto/);
+});
+
 test('automatic fleet queue can be restricted to a selected printer group', () => {
   assert.match(index, /id="queueAddGroup"[^>]*name="groupId"/);
   assert.match(index, /Any configured printer/);
