@@ -23,6 +23,7 @@ test('logical backup creates a verified portable pfcbackup with known persistent
     ]));
     await fs.writeFile(path.join(dataDir, 'file-material-metadata.json'), JSON.stringify({ p1:{ test:{ requiredMaterial:'PLA' } } }));
     await fs.writeFile(path.join(dataDir, 'emulator-settings.json'), JSON.stringify({ enabled:true }));
+    await fs.writeFile(path.join(dataDir, 'maintenance.json'), JSON.stringify({ version:1, printers:{ p1:{ usage:{ printSeconds:7200, printCount:4 }, tasks:[], history:[] } } }));
     await fs.writeFile(licensePath, JSON.stringify({ payload:'signed-test-document' }));
     const gcode = 'G28\nG1 X10\n';
     await fs.writeFile(path.join(libraryDir, 'part.gcode'), gcode);
@@ -58,12 +59,14 @@ test('logical backup creates a verified portable pfcbackup with known persistent
     const names = new Set(archive.entries.map((entry) => entry.name));
     for (const expected of [
       'manifest.json','checksums.json','state/printers.json','state/print-jobs.json',
-      'state/file-material-metadata.json','state/emulator-settings.json','state/backup-settings.json',
+      'state/file-material-metadata.json','state/emulator-settings.json','state/backup-settings.json','state/maintenance.json',
       'state/license.json',`print-library/${libraryId}/metadata.json`,
       `print-library/${libraryId}/part.gcode`,`print-library/${libraryId}/preview.png`
     ]) assert.ok(names.has(expected), expected);
     assert.equal([...names].some((name) => /log|private-signing-key/i.test(name)), false);
     assert.equal((await archive.read(`print-library/${libraryId}/part.gcode`)).toString(), gcode);
+    const maintenance = JSON.parse((await archive.read('state/maintenance.json')).toString('utf8'));
+    assert.equal(maintenance.printers.p1.usage.printSeconds, 7200);
   } finally {
     await fs.rm(root, { recursive:true, force:true });
   }

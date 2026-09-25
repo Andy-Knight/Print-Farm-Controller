@@ -46,6 +46,15 @@ test('printer cards highlight with border, lift and shadow on hover or keyboard 
   assert.match(styles, /\.fleet \.card\.dragging \{ transform:none; \}/);
 });
 
+test('dashboard printer cards keep camera previews and footer actions aligned', () => {
+  assert.match(styles, /\.card \{ display:flex; flex-direction:column;/);
+  assert.match(styles, /\.card-head \{ min-height:104px;/);
+  assert.match(styles, /\.card-footer \{ margin-top:auto;/);
+  assert.match(styles, /\.card-error \{ min-height:1\.15em;/);
+  assert.match(styles, /\.card-footer \.card-error\.hidden \{ display:block !important; visibility:hidden; \}/);
+  assert.match(styles, /@media \(max-width:760px\)[\s\S]*\.fleet \{ grid-template-columns:1fr; \}[\s\S]*\.card-head \{ min-height:0; \}/);
+});
+
 test('dashboard summary cards filter the visible printer fleet', () => {
   assert.match(index, /id="fleetFilterEmpty"/);
   assert.match(index, /data-dashboard-filter-reset/);
@@ -244,7 +253,8 @@ test('live fleet reconciliation does not reinsert cards when order is unchanged'
 
 test('dashboard printer errors render below the Open printer button', () => {
   const cardStart = app.indexOf('function cardMarkup(printer)');
-  const bodyEnd = app.indexOf('</div>\n    <div class="card-footer">', cardStart);
+  const bodyMatch = app.slice(cardStart).match(/<\/div>\r?\n    <div class="card-footer">/);
+  const bodyEnd = bodyMatch ? cardStart + bodyMatch.index : -1;
   const openButton = app.indexOf('>Open printer</button>', bodyEnd);
   const cardError = app.indexOf('data-card-error', openButton);
 
@@ -253,7 +263,7 @@ test('dashboard printer errors render below the Open printer button', () => {
   assert.ok(openButton > bodyEnd);
   assert.ok(cardError > openButton);
   assert.match(styles, /\.card-footer \{[^}]*flex-direction:column/);
-  assert.match(styles, /\.card-error \{ margin-top:0;/);
+  assert.match(styles, /\.card-error \{[^}]*margin-top:0;/);
 });
 
 test('printer detail opens immediately before slow file listing completes', () => {

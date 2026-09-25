@@ -37,7 +37,7 @@ button.summary-card:focus-visible { filter:none; transform:translateY(-1px); bor
 .summary-card b { display:block; font-size:1.6rem; margin-top:5px; }
 .fleet.filtered .reorder-controls { display:none; }
 .fleet { display:grid; grid-template-columns:repeat(auto-fill,minmax(330px,1fr)); gap:16px; }
-.card { border:1px solid #29323b; background:rgba(18,24,31,.94); border-radius:18px; overflow:hidden; box-shadow:0 18px 45px rgba(0,0,0,.18); }
+.card { display:flex; flex-direction:column; border:1px solid #29323b; background:rgba(18,24,31,.94); border-radius:18px; overflow:hidden; box-shadow:0 18px 45px rgba(0,0,0,.18); }
 .fleet .card { transition:transform .14s ease, border-color .14s ease, box-shadow .14s ease; }
 .fleet .card:hover,
 .fleet .card:focus-within {
@@ -46,7 +46,7 @@ button.summary-card:focus-visible { filter:none; transform:translateY(-1px); bor
   box-shadow:0 0 0 1px rgba(128,191,255,.16),0 22px 50px rgba(0,0,0,.28);
 }
 .fleet .card.dragging { transform:none; }
-.card-head { padding:16px 16px 10px; display:flex; justify-content:space-between; gap:12px; }
+.card-head { min-height:104px; padding:16px 16px 10px; display:flex; justify-content:space-between; gap:12px; }
 .card h3 { margin:0; font-size:1.08rem; }
 .subtle { color:#8493a1; font-size:.86rem; }
 .badge { border-radius:999px; padding:5px 9px; font-size:.72rem; font-weight:800; text-transform:uppercase; letter-spacing:.06em; background:#22303b; align-self:flex-start; }
@@ -66,8 +66,9 @@ button.summary-card:focus-visible { filter:none; transform:translateY(-1px); bor
 .metric span { display:block; color:#7f909f; font-size:.75rem; margin-bottom:4px; }
 .metric b { font-size:.95rem; }
 .health-line { display:flex; justify-content:space-between; gap:10px; color:#687986; font-size:.72rem; margin-top:12px; }
-.card-error { margin-top:0; font-size:.77rem; color:#ffafb4; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-.card-footer { padding:0 16px 16px; display:flex; flex-direction:column; gap:8px; }
+.card-error { min-height:1.15em; margin-top:0; font-size:.77rem; color:#ffafb4; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.card-footer .card-error.hidden { display:block !important; visibility:hidden; }
+.card-footer { margin-top:auto; padding:0 16px 16px; display:flex; flex-direction:column; gap:8px; }
 .primary,.secondary,.danger,.icon { border:0; border-radius:10px; padding:10px 14px; font-weight:750; }
 .primary { background:#e8edf2; color:#10151a; }
 .secondary { background:#202831; color:#e8edf2; }
@@ -151,6 +152,7 @@ input:focus,select:focus { border-color:#7a9fbe; }
   .topbar,main { padding-left:16px; padding-right:16px; }
   .summary { grid-template-columns:1fr 1fr; }
   .fleet { grid-template-columns:1fr; }
+  .card-head { min-height:0; }
   .detail-grid { grid-template-columns:1fr; }
   .discovery-heading,.discovery-result { align-items:stretch; flex-direction:column; }
   .control-row { grid-template-columns:1fr auto; }
@@ -1332,4 +1334,464 @@ button.library-file-preview { cursor:zoom-in; }
   .restore-inspection-grid { grid-template-columns:1fr; }
   .backup-section-head { align-items:stretch; flex-direction:column; }
   .backup-section-head > button { width:100%; }
+}
+
+
+/* Maintenance tracking */
+.maintenance-dialog { width:min(1040px,calc(100vw - 30px)); }
+.maintenance-shell { padding:22px; display:grid; gap:14px; }
+.maintenance-tracking-note {
+  padding:10px 11px;
+  border:1px solid #34516a;
+  border-radius:9px;
+  background:#101b24;
+  color:#9fc4dc;
+  font-size:.76rem;
+  line-height:1.45;
+}
+.maintenance-view-selector {
+  display:grid;
+  grid-template-columns:repeat(3,minmax(0,1fr));
+  gap:8px;
+  padding:5px;
+  border:1px solid #29343d;
+  border-radius:12px;
+  background:#0d141a;
+}
+.maintenance-view-button {
+  min-height:42px;
+  padding:9px 12px;
+  border:1px solid transparent;
+  border-radius:9px;
+  background:transparent;
+  color:#91a2af;
+  font-size:.76rem;
+  font-weight:800;
+  line-height:1.2;
+}
+.maintenance-view-button:hover {
+  background:#17222b;
+  color:#d9e3ea;
+}
+.maintenance-view-button.active {
+  border-color:#3f6680;
+  background:#172936;
+  color:#d5edf9;
+  box-shadow:inset 0 0 0 1px rgba(118,183,220,.08);
+}
+.maintenance-view-button:focus-visible {
+  outline:2px solid #76b7dc;
+  outline-offset:2px;
+}
+.maintenance-task-form {
+  padding:14px;
+  border:1px solid #29343d;
+  border-radius:12px;
+  background:#0e141a;
+}
+.maintenance-form-head { margin-bottom:11px; }
+.maintenance-form-grid {
+  display:grid;
+  grid-template-columns:minmax(160px,1fr) minmax(220px,2fr) minmax(150px,1fr) minmax(110px,.7fr);
+  gap:10px;
+  align-items:end;
+}
+.maintenance-form-grid label { margin:0; }
+.maintenance-description-field { grid-column:1 / -1; }
+.maintenance-enabled-field { min-height:39px; align-self:end; }
+.maintenance-list { display:grid; gap:12px; }
+.maintenance-printer-card {
+  padding:14px;
+  border:1px solid #29343d;
+  border-radius:13px;
+  background:#0e141a;
+}
+.maintenance-printer-head {
+  display:flex;
+  align-items:flex-start;
+  justify-content:space-between;
+  gap:14px;
+}
+.maintenance-printer-head h3 { margin:0 0 3px; }
+.maintenance-summary-badges { display:flex; gap:6px; flex-wrap:wrap; justify-content:flex-end; }
+.maintenance-pill {
+  display:inline-flex;
+  align-items:center;
+  border-radius:999px;
+  padding:4px 8px;
+  background:#24303a;
+  color:#adbdc9;
+  font-size:.64rem;
+  font-weight:850;
+  text-transform:uppercase;
+  letter-spacing:.04em;
+  white-space:nowrap;
+}
+.maintenance-pill[data-state="current"] { background:#1b4035; color:#9be4c9; }
+.maintenance-pill[data-state="due_soon"] { background:#493819; color:#f2d28a; }
+.maintenance-pill[data-state="due"] { background:#4b2528; color:#ffafb4; }
+.maintenance-pill[data-state="disabled"] { background:#2b3035; color:#929da6; }
+.maintenance-usage {
+  display:grid;
+  grid-template-columns:repeat(3,minmax(0,1fr));
+  gap:8px;
+  margin:12px 0;
+}
+.maintenance-usage > div {
+  display:flex;
+  flex-direction:column;
+  gap:3px;
+  min-width:0;
+  padding:9px 10px;
+  border:1px solid #29343d;
+  border-radius:9px;
+  background:#10171d;
+}
+.maintenance-usage span {
+  color:#748795;
+  font-size:.64rem;
+  font-weight:800;
+  letter-spacing:.05em;
+  text-transform:uppercase;
+}
+.maintenance-usage strong { font-size:.8rem; color:#dce4eb; overflow-wrap:anywhere; }
+.maintenance-task-list { display:grid; gap:8px; }
+.maintenance-task {
+  display:grid;
+  grid-template-columns:minmax(0,1fr) auto;
+  gap:12px;
+  align-items:center;
+  padding:11px 12px;
+  border:1px solid #29343d;
+  border-radius:11px;
+  background:#10171d;
+}
+.maintenance-task[data-state="due_soon"] { border-color:#66502c; background:#17130d; }
+.maintenance-task[data-state="due"] { border-color:#63353a; background:#1a1012; }
+.maintenance-task[data-state="disabled"] { opacity:.72; }
+.maintenance-task-main { min-width:0; }
+.maintenance-task-title-row { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+.maintenance-task-description { margin-top:5px; color:#a3b0ba; font-size:.76rem; line-height:1.4; white-space:pre-wrap; overflow-wrap:anywhere; }
+.maintenance-task-meta { display:flex; gap:10px; flex-wrap:wrap; margin-top:6px; color:#718391; font-size:.69rem; }
+.maintenance-task-actions { justify-content:flex-end; flex-wrap:wrap; }
+.maintenance-task-actions button { padding:7px 9px; }
+.maintenance-no-tasks { padding:12px 4px; }
+.maintenance-history { margin-top:12px; border-top:1px solid #29343d; padding-top:10px; }
+.maintenance-history summary { cursor:pointer; color:#a6b5c0; font-size:.76rem; font-weight:750; }
+.maintenance-history-list { display:grid; gap:7px; margin-top:9px; }
+.maintenance-history-entry {
+  display:grid;
+  grid-template-columns:minmax(0,1.4fr) minmax(130px,.8fr) minmax(110px,.7fr);
+  gap:6px 12px;
+  padding:9px 10px;
+  border:1px solid #29343d;
+  border-radius:9px;
+  background:#10171d;
+  font-size:.72rem;
+  color:#8495a2;
+}
+.maintenance-history-entry strong { color:#cbd6de; }
+.maintenance-history-entry > div { grid-column:1 / -1; color:#a7b3bc; white-space:pre-wrap; overflow-wrap:anywhere; }
+.maintenance-empty { margin:0; }
+
+:root[data-theme="light"] .maintenance-tracking-note {
+  background:#eef6fb;
+  border-color:#b7d1e2;
+  color:#496e85;
+}
+:root[data-theme="light"] .maintenance-view-selector {
+  background:#f3f7fa;
+  border-color:#d5dee5;
+}
+:root[data-theme="light"] .maintenance-view-button {
+  color:#647986;
+}
+:root[data-theme="light"] .maintenance-view-button:hover {
+  background:#eaf1f5;
+  color:#263744;
+}
+:root[data-theme="light"] .maintenance-view-button.active {
+  border-color:#8eb5cd;
+  background:#e4f1f8;
+  color:#285c78;
+}
+:root[data-theme="light"] .maintenance-task-form,
+:root[data-theme="light"] .maintenance-printer-card,
+:root[data-theme="light"] .maintenance-task,
+:root[data-theme="light"] .maintenance-usage > div,
+:root[data-theme="light"] .maintenance-history-entry {
+  background:#f7fafc;
+  border-color:#d5dee5;
+}
+:root[data-theme="light"] .maintenance-task[data-state="due_soon"] { background:#fff9ec; border-color:#ddc785; }
+:root[data-theme="light"] .maintenance-task[data-state="due"] { background:#fff3f4; border-color:#e0aeb2; }
+:root[data-theme="light"] .maintenance-usage strong,
+:root[data-theme="light"] .maintenance-history-entry strong { color:#263744; }
+:root[data-theme="light"] .maintenance-history { border-color:#d5dee5; }
+
+@media (max-width:820px) {
+  .maintenance-form-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }
+  .maintenance-description-field { grid-column:1 / -1; }
+  .maintenance-task { grid-template-columns:1fr; }
+  .maintenance-task-actions { justify-content:flex-start; }
+}
+@media (max-width:620px) {
+  .maintenance-shell { padding:16px; }
+  .maintenance-view-selector { grid-template-columns:1fr; }
+  .maintenance-view-button { text-align:left; }
+  .maintenance-printer-head { flex-direction:column; }
+  .maintenance-summary-badges { justify-content:flex-start; }
+  .maintenance-form-grid,
+  .maintenance-usage,
+  .maintenance-history-entry { grid-template-columns:1fr; }
+  .maintenance-description-field { grid-column:auto; }
+  .maintenance-history-entry > div { grid-column:auto; }
+}
+
+
+/* Dashboard maintenance alerts */
+.maintenance-alert-button {
+  position:relative;
+  width:40px;
+  height:40px;
+  flex:0 0 40px;
+  display:grid;
+  place-items:center;
+  padding:0;
+  border:1px solid #66502c;
+  border-radius:10px;
+  background:#211a0f;
+  color:#f2d28a;
+}
+.maintenance-alert-button[data-state="due"] {
+  border-color:#63353a;
+  background:#251416;
+  color:#ffafb4;
+}
+.maintenance-alert-button.active {
+  outline:2px solid currentColor;
+  outline-offset:2px;
+}
+.maintenance-alert-bell {
+  width:21px;
+  height:21px;
+  fill:none;
+  stroke:currentColor;
+  stroke-width:2;
+  stroke-linecap:round;
+  stroke-linejoin:round;
+}
+.maintenance-alert-count {
+  position:absolute;
+  top:-6px;
+  right:-6px;
+  min-width:18px;
+  height:18px;
+  display:grid;
+  place-items:center;
+  padding:0 5px;
+  border-radius:999px;
+  border:2px solid #0c1015;
+  background:#d6a93d;
+  color:#16130c;
+  font-size:.62rem;
+  font-weight:900;
+  line-height:1;
+}
+.maintenance-alert-button[data-state="due"] .maintenance-alert-count {
+  background:#ed7078;
+  color:#1e0d0f;
+}
+.maintenance-status-icon {
+  width:27px;
+  height:27px;
+  display:grid;
+  place-items:center;
+  flex:0 0 27px;
+  border:1px solid #36424c;
+  border-radius:8px;
+  background:#151d24;
+  color:#758895;
+}
+.maintenance-status-icon svg {
+  width:16px;
+  height:16px;
+  fill:none;
+  stroke:currentColor;
+  stroke-width:2;
+  stroke-linecap:round;
+  stroke-linejoin:round;
+}
+.maintenance-status-icon[data-state="current"] {
+  border-color:#315445;
+  background:#13231d;
+  color:#8fd6b9;
+}
+.maintenance-status-icon[data-state="due_soon"] {
+  border-color:#66502c;
+  background:#211a0f;
+  color:#f2d28a;
+}
+.maintenance-status-icon[data-state="due"] {
+  border-color:#63353a;
+  background:#251416;
+  color:#ffafb4;
+}
+.printer-detail-title-row {
+  display:flex;
+  align-items:center;
+  gap:9px;
+  flex-wrap:wrap;
+}
+.printer-detail-title-row h2 { margin-bottom:0; }
+.maintenance-status-icon-detail {
+  width:30px;
+  height:30px;
+  flex-basis:30px;
+}
+.maintenance-status-icon-detail svg {
+  width:18px;
+  height:18px;
+}
+.maintenance-tracking-summary {
+  margin:-3px 0 11px;
+  padding:8px 9px;
+  border:1px solid #29343d;
+  border-radius:9px;
+  background:#10171d;
+  color:#91a2af;
+  font-size:.76rem;
+  line-height:1.35;
+}
+
+:root[data-theme="light"] .maintenance-alert-button {
+  background:#fff9ec;
+  border-color:#d8bd70;
+  color:#8b6713;
+}
+:root[data-theme="light"] .maintenance-alert-button[data-state="due"] {
+  background:#fff3f4;
+  border-color:#dda8ad;
+  color:#a63c45;
+}
+:root[data-theme="light"] .maintenance-alert-count {
+  border-color:#eef3f7;
+}
+:root[data-theme="light"] .maintenance-status-icon {
+  background:#f4f7f9;
+  border-color:#cbd6de;
+  color:#748896;
+}
+:root[data-theme="light"] .maintenance-status-icon[data-state="current"] {
+  background:#edf8f3;
+  border-color:#afd6c5;
+  color:#39785f;
+}
+:root[data-theme="light"] .maintenance-status-icon[data-state="due_soon"] {
+  background:#fff9ec;
+  border-color:#d8bd70;
+  color:#8b6713;
+}
+:root[data-theme="light"] .maintenance-status-icon[data-state="due"] {
+  background:#fff3f4;
+  border-color:#dda8ad;
+  color:#a63c45;
+}
+:root[data-theme="light"] .maintenance-tracking-summary {
+  background:#f7fafc;
+  border-color:#d5dee5;
+  color:#617786;
+}
+
+@media (max-width:620px) {
+  .maintenance-alert-button {
+    width:38px;
+    height:38px;
+    flex-basis:38px;
+  }
+}
+
+
+/* Model-wide maintenance assignment */
+.maintenance-model-rules {
+  padding:14px;
+  border:1px solid #34516a;
+  border-radius:13px;
+  background:#0e171e;
+}
+.maintenance-model-rules-head {
+  display:flex;
+  align-items:flex-start;
+  justify-content:space-between;
+  gap:14px;
+  margin-bottom:10px;
+}
+.maintenance-model-rules-head h3 { margin:0 0 3px; }
+.maintenance-model-rule-list { display:grid; gap:8px; }
+.maintenance-model-rule {
+  display:grid;
+  grid-template-columns:minmax(0,1fr) auto;
+  gap:12px;
+  align-items:center;
+  padding:11px 12px;
+  border:1px solid #2d414f;
+  border-radius:11px;
+  background:#101b23;
+}
+.maintenance-scope-pill {
+  display:inline-flex;
+  align-items:center;
+  border-radius:999px;
+  padding:4px 8px;
+  background:#1b3342;
+  color:#9fc9e0;
+  font-size:.64rem;
+  font-weight:850;
+  letter-spacing:.02em;
+  white-space:nowrap;
+}
+.maintenance-history-scope {
+  color:#718795;
+  font-size:.67rem;
+}
+:root[data-theme="light"] .maintenance-model-rules {
+  background:#f2f8fb;
+  border-color:#b7d1e2;
+}
+:root[data-theme="light"] .maintenance-model-rule {
+  background:#f8fbfd;
+  border-color:#cadbe5;
+}
+:root[data-theme="light"] .maintenance-scope-pill {
+  background:#e5f1f7;
+  color:#416f88;
+}
+@media (max-width:620px) {
+  .maintenance-model-rules-head { flex-direction:column; }
+  .maintenance-model-rule { grid-template-columns:1fr; }
+}
+
+
+/* Dashboard printer maintenance shortcut */
+.maintenance-status-icon-button {
+  appearance:none;
+  padding:0;
+  font:inherit;
+  cursor:pointer;
+}
+.maintenance-status-icon-button:hover {
+  filter:brightness(1.16);
+}
+.maintenance-status-icon-button:focus-visible {
+  outline:2px solid #76b7dc;
+  outline-offset:2px;
+}
+.maintenance-printer-card-target {
+  outline:2px solid #d6a93d;
+  outline-offset:3px;
+  box-shadow:0 0 0 5px rgba(214, 169, 61, .14);
+}
+:root[data-theme="light"] .maintenance-printer-card-target {
+  outline-color:#a77d17;
+  box-shadow:0 0 0 5px rgba(167, 125, 23, .12);
 }

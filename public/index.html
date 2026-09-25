@@ -37,6 +37,10 @@
       <button id="queueBtn" class="secondary">Queue &amp; history <span id="queueButtonCount" class="queue-button-count hidden">0</span></button>
       <button id="batchModeBtn" class="secondary topbar-fleet-action">Fleet operations</button>
       <button id="addPrinterBtn" class="primary">+ Add printer</button>
+      <button id="maintenanceAlertBtn" class="maintenance-alert-button hidden" type="button" aria-label="Filter printers with maintenance alerts" aria-pressed="false" title="Maintenance alerts">
+        <svg class="maintenance-alert-bell" viewBox="0 0 24 24" aria-hidden="true"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9"></path><path d="M10 21h4"></path></svg>
+        <span id="maintenanceAlertCount" class="maintenance-alert-count">0</span>
+      </button>
       <button id="themeToggle" class="theme-toggle" type="button" role="switch" aria-checked="true" aria-label="Switch to light mode">
         <span class="theme-toggle-track" aria-hidden="true"></span>
         <span class="theme-toggle-label">Dark</span>
@@ -46,6 +50,7 @@
         <div class="topbar-overflow-menu" role="menu">
           <button type="button" class="topbar-overflow-item" role="menuitem" onclick="location.href='/simulator/'">Printer simulator</button>
           <button id="diagnosticsBtn" type="button" class="topbar-overflow-item" role="menuitem">Diagnostics</button>
+          <button id="maintenanceBtn" type="button" class="topbar-overflow-item" role="menuitem">Maintenance</button>
           <button id="backupRecoveryBtn" type="button" class="topbar-overflow-item" role="menuitem">Backup &amp; recovery</button>
           <button id="licenseBtn" type="button" class="topbar-overflow-item" role="menuitem">Licence</button>
           <button id="batchModeMenuBtn" type="button" class="topbar-overflow-item topbar-overflow-fleet" role="menuitem">Fleet operations</button>
@@ -163,6 +168,85 @@
 
       <div class="actions">
         <button type="button" class="secondary" data-diagnostics-close>Close</button>
+      </div>
+    </div>
+  </dialog>
+
+  <dialog id="maintenanceDialog" class="maintenance-dialog">
+    <div class="maintenance-shell">
+      <div class="dialog-head">
+        <div>
+          <div class="eyebrow">FLEET MAINTENANCE</div>
+          <h2>Maintenance tracking</h2>
+          <div class="subtle">Track recurring service by calendar time, controller-observed print hours, or observed print cycles.</div>
+        </div>
+        <button type="button" class="icon" data-maintenance-close>×</button>
+      </div>
+
+      <div class="maintenance-tracking-note">
+        Usage counters begin when this controller starts observing a printer. They are controller-observed values, not manufacturer lifetime counters.
+      </div>
+      <div class="maintenance-view-selector" role="tablist" aria-label="Maintenance view">
+        <button type="button" class="maintenance-view-button" data-maintenance-view="add" role="tab" aria-selected="false">Add maintenance tasks</button>
+        <button type="button" class="maintenance-view-button" data-maintenance-view="model" role="tab" aria-selected="false">Model-wide maintenance rules</button>
+        <button type="button" class="maintenance-view-button active" data-maintenance-view="printers" role="tab" aria-selected="true">Individual printers</button>
+      </div>
+
+      <div id="maintenanceStatus" class="subtle"></div>
+      <div id="maintenanceError" class="error hidden"></div>
+
+      <form id="maintenanceTaskForm" class="maintenance-task-form hidden" data-maintenance-view-panel="add">
+        <input id="maintenanceTaskId" type="hidden" />
+        <div class="maintenance-form-head">
+          <div>
+            <strong id="maintenanceFormTitle">Add maintenance task</strong>
+            <div class="field-help">Assign a task to one printer or inherit it across every current and future printer of the selected model. Completed history remains per printer even if the task is later deleted.</div>
+          </div>
+        </div>
+        <div class="maintenance-form-grid">
+          <label>Assignment
+            <select id="maintenanceAssignmentScope">
+              <option value="printer">Individual printer</option>
+              <option value="model">Printer model</option>
+            </select>
+          </label>
+          <label id="maintenancePrinterField">Printer
+            <select id="maintenancePrinter"></select>
+          </label>
+          <label id="maintenanceModelField" class="hidden">Printer model
+            <select id="maintenanceModel"></select>
+          </label>
+          <label>Task name
+            <input id="maintenanceName" type="text" maxlength="100" placeholder="Lubricate rails" required />
+          </label>
+          <label class="maintenance-description-field">Description
+            <textarea id="maintenanceDescription" rows="3" maxlength="1000" placeholder="Optional service instructions or inspection points"></textarea>
+          </label>
+          <label>Interval type
+            <select id="maintenanceType">
+              <option value="days">Calendar days</option>
+              <option value="print_hours">Observed print hours</option>
+              <option value="print_count">Observed print cycles</option>
+            </select>
+          </label>
+          <label>Interval
+            <input id="maintenanceInterval" type="number" min="1" step="1" value="30" required />
+          </label>
+          <label class="checkbox-label maintenance-enabled-field">
+            <input id="maintenanceEnabled" type="checkbox" checked />
+            Task enabled
+          </label>
+        </div>
+        <div class="actions">
+          <button id="maintenanceCancelEdit" type="button" class="secondary hidden">Cancel edit</button>
+          <button id="maintenanceSubmitBtn" type="submit" class="primary">Add task</button>
+        </div>
+      </form>
+
+      <div id="maintenanceList" class="maintenance-list"></div>
+
+      <div class="actions">
+        <button type="button" class="secondary" data-maintenance-close>Close</button>
       </div>
     </div>
   </dialog>
@@ -497,5 +581,6 @@
   </dialog>
 
   <script type="module" src="/app.js"></script>
+  <script type="module" src="/maintenance.js"></script>
 </body>
 </html>

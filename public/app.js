@@ -115,6 +115,8 @@ const queueAddDescriptionInput = document.querySelector('#queueAddDescriptionInp
 const queueAddSelectedFile = document.querySelector('#queueAddSelectedFile');
 const queueAddStatus = document.querySelector('#queueAddStatus');
 const queueAddError = document.querySelector('#queueAddError');
+const maintenanceAlertBtn = document.querySelector('#maintenanceAlertBtn');
+const maintenanceAlertCount = document.querySelector('#maintenanceAlertCount');
 const themeToggle = document.querySelector('#themeToggle');
 const themeColorMeta = document.querySelector('#themeColorMeta');
 
@@ -137,7 +139,7 @@ let selectionMode = false;
 let batchBusy = false;
 let pendingBatchAction = null;
 let dashboardFilter = 'all';
-const DASHBOARD_FILTER_LABELS = Object.freeze({ all:'Printers', online:'Online', printing:'Printing', attention:'Needs attention' });
+const DASHBOARD_FILTER_LABELS = Object.freeze({ all:'Printers', online:'Online', printing:'Printing', attention:'Needs attention', maintenance:'Maintenance' });
 const FILAMENT_COLOR_FAMILIES = Object.freeze([
   { value:'black', label:'Black', representative:'#111111' },
   { value:'white', label:'White', representative:'#FFFFFF' },
@@ -1203,14 +1205,91 @@ function printerNeedsAttention(printer) {
   return Boolean(queueBedClearance(printer?.id));
 }
 
+function printerMaintenanceState(printer) {
+  const state = String(printer?.maintenance?.state || 'none').toLowerCase();
+  return ['due', 'due_soon', 'current'].includes(state) ? state : 'none';
+}
+
+function printerHasMaintenanceAlert(printer) {
+  return ['due', 'due_soon'].includes(printerMaintenanceState(printer));
+}
+
+function maintenanceStatusText(printer) {
+  const maintenance = printer?.maintenance || {};
+  const state = printerMaintenanceState(printer);
+  const due = Number(maintenance.due || 0);
+  const dueSoon = Number(maintenance.dueSoon || 0);
+  const total = Number(maintenance.total || 0);
+  if (state === 'due') {
+    const parts = [];
+    if (due) parts.push(`${due} due`);
+    if (dueSoon) parts.push(`${dueSoon} due soon`);
+    return `Maintenance: ${parts.join(' · ') || 'due'}`;
+  }
+  if (state === 'due_soon') return `Maintenance: ${dueSoon || 1} due soon`;
+  if (state === 'current') return `Maintenance current · ${total} task${total === 1 ? '' : 's'}`;
+  return 'Maintenance tracking not configured';
+}
+
+function maintenanceIconSvg() {
+  return '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14.7 6.3a4 4 0 0 0-5 5L3 18l3 3 6.7-6.7a4 4 0 0 0 5-5l-2.4 2.4-3-3 2.4-2.4Z"></path></svg>';
+}
+
+function maintenanceIconMarkup(printer, extraClass = '', interactive = false) {
+  const state = printerMaintenanceState(printer);
+  const text = maintenanceStatusText(printer);
+  const classes = `maintenance-status-icon${interactive ? ' maintenance-status-icon-button' : ''}${extraClass ? ` ${extraClass}` : ''}`;
+  if (interactive) {
+    const actionText = `Open maintenance for ${printer.name}. ${text}`;
+    return `<button type="button" class="${classes}" data-maintenance-status-icon data-maintenance-open-printer="${escapeHtml(printer.id)}" data-state="${escapeHtml(state)}" aria-label="${escapeHtml(actionText)}" title="${escapeHtml(actionText)}">${maintenanceIconSvg()}</button>`;
+  }
+  return `<span class="${classes}" data-maintenance-status-icon data-state="${escapeHtml(state)}" role="img" aria-label="${escapeHtml(text)}" title="${escapeHtml(text)}">${maintenanceIconSvg()}</span>`;
+}
+
+function updateMaintenanceIcon(root, printer) {
+  const icon = root?.querySelector?.('[data-maintenance-status-icon]');
+  if (!icon) return;
+  const state = printerMaintenanceState(printer);
+  const text = maintenanceStatusText(printer);
+  icon.dataset.state = state;
+  const actionText = icon.hasAttribute('data-maintenance-open-printer')
+    ? `Open maintenance for ${printer.name}. ${text}`
+    : text;
+  icon.setAttribute('aria-label', actionText);
+  icon.title = actionText;
+}
+
+function renderMaintenanceAlert() {
+  if (!maintenanceAlertBtn || !maintenanceAlertCount) return;
+  const alerts = fleet.filter(printerHasMaintenanceAlert);
+  const duePrinters = alerts.filter((printer) => printerMaintenanceState(printer) === 'due').length;
+  const dueSoonPrinters = alerts.length - duePrinters;
+  if (dashboardFilter === 'maintenance' && alerts.length === 0) dashboardFilter = 'all';
+  maintenanceAlertBtn.classList.toggle('hidden', alerts.length === 0);
+  maintenanceAlertBtn.classList.toggle('active', dashboardFilter === 'maintenance');
+  maintenanceAlertBtn.dataset.state = duePrinters > 0 ? 'due' : 'due_soon';
+  maintenanceAlertBtn.setAttribute('aria-pressed', dashboardFilter === 'maintenance' ? 'true' : 'false');
+  maintenanceAlertCount.textContent = String(alerts.length);
+  const parts = [];
+  if (duePrinters) parts.push(`${duePrinters} due`);
+  if (dueSoonPrinters) parts.push(`${dueSoonPrinters} approaching`);
+  const description = alerts.length
+    ? `${alerts.length} printer${alerts.length === 1 ? '' : 's'} with maintenance alerts · ${parts.join(' · ')}`
+    : 'No maintenance alerts';
+  maintenanceAlertBtn.setAttribute('aria-label', `${description}. Filter dashboard.`);
+  maintenanceAlertBtn.title = description;
+}
+
 function matchesDashboardFilter(printer, filter = dashboardFilter) {
   if (filter === 'online') return printer?.online === true;
   if (filter === 'printing') return isPrinterPrinting(printer);
   if (filter === 'attention') return printerNeedsAttention(printer);
+  if (filter === 'maintenance') return printerHasMaintenanceAlert(printer);
   return true;
 }
 
 function renderSummary() {
+  renderMaintenanceAlert();
   const items = [
     ['all', fleet.length],
     ['online', fleet.filter((printer) => printer.online).length],
@@ -1751,7 +1830,8 @@ function cardMarkup(printer) {
           <span class="drag-handle" data-drag-handle title="Drag to reorder" aria-label="Drag to reorder" role="button" tabindex="0">⋮⋮</span>
           <button type="button" class="reorder-button" data-move-later title="Move later" aria-label="Move printer later">→</button>
         </div>
-        <div class="badge" data-state></div>
+        ${maintenanceIconMarkup(printer, '', true)}
+        <div class="badge" data-printer-state></div>
       </div>
     </div>
     <div class="camera-slot" data-camera-slot></div>
@@ -1811,7 +1891,8 @@ function updateCard(card, printer) {
   card.querySelector('[data-name]').textContent = printer.name;
   const modelLabel = printerModelLabel(printer);
   card.querySelector('[data-host]').textContent = `${printer.host}${modelLabel ? ` · ${modelLabel}` : ''}`;
-  const badge = card.querySelector('[data-state]');
+  updateMaintenanceIcon(card, printer);
+  const badge = card.querySelector('[data-printer-state]');
   badge.textContent = state;
   badge.className = `badge ${state.toLowerCase()}`;
   const rawState = rawStateName(printer);
@@ -2604,12 +2685,24 @@ summaryEl.addEventListener('click', (event) => {
   setDashboardFilter(filter.dataset.dashboardFilter);
 });
 
+maintenanceAlertBtn?.addEventListener('click', () => {
+  setDashboardFilter(dashboardFilter === 'maintenance' ? 'all' : 'maintenance');
+});
+
 fleetFilterEmptyEl?.addEventListener('click', (event) => {
   if (!event.target.closest('[data-dashboard-filter-reset]')) return;
   setDashboardFilter('all');
 });
 
 fleetEl.addEventListener('click', (event) => {
+  const maintenanceShortcut = event.target.closest('[data-maintenance-open-printer]');
+  if (maintenanceShortcut) {
+    window.dispatchEvent(new CustomEvent('pfc:open-maintenance', {
+      detail:{ printerId:maintenanceShortcut.dataset.maintenanceOpenPrinter }
+    }));
+    return;
+  }
+
   const licenceToggle = event.target.closest('[data-license-slot-toggle]');
   if (licenceToggle) {
     const card = licenceToggle.closest('[data-printer-card]');
@@ -3635,6 +3728,8 @@ function updateOpenPrinterTelemetry() {
   const displayState = stateName(printer);
   const rawState = rawStateName(printer);
   set('[data-detail-state]', displayState);
+  updateMaintenanceIcon(printerDetail, printer);
+  set('[data-maintenance-tracking-summary]', maintenanceStatusText(printer));
   set(
     '[data-detail-health]',
     printer.online
@@ -3829,7 +3924,7 @@ async function openPrinter(id) {
       <div class="dialog-head">
         <div>
           <div class="eyebrow">PRINTER</div>
-          <h2>${escapeHtml(printer.name)}</h2>
+          <div class="printer-detail-title-row"><h2>${escapeHtml(printer.name)}</h2>${maintenanceIconMarkup(printer, 'maintenance-status-icon-detail')}</div>
           <div class="subtle">${escapeHtml(printer.host)} · ${escapeHtml(stateName(printer))}</div>
         </div>
         <button class="icon" data-detail-close>×</button>
@@ -3961,7 +4056,7 @@ async function openPrinter(id) {
     <div class="dialog-head">
       <div>
         <div class="eyebrow">PRINTER</div>
-        <h2 data-detail-name>${escapeHtml(printer.name)}</h2>
+        <div class="printer-detail-title-row"><h2 data-detail-name>${escapeHtml(printer.name)}</h2>${maintenanceIconMarkup(printer, 'maintenance-status-icon-detail')}</div>
         <div class="subtle"><span>${escapeHtml(printer.host)}</span> · <span data-detail-state>${escapeHtml(stateName(printer))}</span></div>
         <div class="detail-health" data-detail-health></div>
       </div>
@@ -4036,6 +4131,7 @@ async function openPrinter(id) {
         </div>
         <div class="panel maintenance-panel">
           <h3>Maintenance</h3>
+          <div class="maintenance-tracking-summary" data-maintenance-tracking-summary>${escapeHtml(maintenanceStatusText(printer))}</div>
           <div class="mini-actions"><button class="secondary" data-level${disabled(capabilities.bedLeveling)}>Bed level</button><button class="secondary" data-camera-open${disabled(capabilities.camera)}>Restart camera</button>${capabilities.toolheadOffsetCalibration ? '<button class="secondary" data-tool-offset-open>XYZ tool offsets</button>' : ''}</div>
           ${printer.adapterType === 'snapmaker-u1' && capabilities.bedLeveling ? `<div class="field-help bed-level-status${u1BedLevelStatus(printer).active ? ' active' : ''}" data-bed-level-status>${escapeHtml(u1BedLevelStatus(printer).text)}</div>` : ''}
           ${toolOffsetCalibrationMarkup}

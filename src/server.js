@@ -38,6 +38,7 @@ import { publicAssetKey, readRuntimeAsset } from './runtime-assets.js';
 import { KeyedSerialExecutor, PrinterOperationCoordinator } from './concurrency.js';
 import { evaluatePrinterOperation, PrinterPhysicalActivityTracker, PRINTER_OPERATION_TYPES } from './printer-operation-policy.js';
 import { DiagnosticLogger } from './diagnostic-logger.js';
+import { MaintenanceService } from './maintenance-service.js';
 import { ManualBackupManager } from './backup-recovery/manual-backup-manager.js';
 import { BackupOperationLock } from './backup-recovery/backup-operation-lock.js';
 import { ScheduledBackupService } from './backup-recovery/scheduled-backup-service.js';
@@ -168,7 +169,12 @@ function controllerActivityFor(printer) {
 function decoratedFleet(printers = fleetState.getFleet()) {
   return resolveLicensedFleet(printers).printers.map((printer) => {
     const controllerActivity = controllerActivityFor(printer);
-    return controllerActivity ? { ...printer, controllerActivity } : printer;
+    const maintenance = maintenanceService?.getPrinterStatus?.(printer.id) || { state:'none', total:0, due:0, dueSoon:0 };
+    return {
+      ...printer,
+      ...(controllerActivity ? { controllerActivity } : {}),
+      maintenance
+    };
   });
 }
 
@@ -258,6 +264,7 @@ const printQueue = new PrintQueueService({
   onChange: () => fleetState.schedulePublish(),
   diagnosticFn:(level, message, meta) => diagnosticLogger[level]?.('queue', message, meta)
 });
+const maintenanceService = new MaintenanceService({ fleetState });
 const toolOffsetCalibrationLocks = new Map();
 
 const contentTypes = {
@@ -364,10 +371,9 @@ function validateAddPrinter(body) {
   return preparePrinterConfig(body);
 }
 
-function validateLibraryPrinterTarget(input) {
-  if (input == null || input === '') return null;
-  if (typeof input !== 'object' || Array.isArray(input)) {
-    const error = new Error('Print Library printer target is invalid');
+function validatePrinterModelTarget(input, errorMessage = 'Choose a supported printer model') {
+  if (input == null || input === '' || typeof input !== 'object' || Array.isArray(input)) {
+    const error = new Error(errorMessage);
     error.statusCode = 400;
     throw error;
   }
@@ -376,11 +382,16 @@ function validateLibraryPrinterTarget(input) {
   const adapter = listAdapterDefinitions().find((item) => String(item.type) === requestedType);
   const model = adapter?.models?.find((item) => String(item).toLowerCase() === requestedModel.toLowerCase());
   if (!adapter || !model) {
-    const error = new Error('Choose a supported printer type for this Print Library file');
+    const error = new Error(errorMessage);
     error.statusCode = 400;
     throw error;
   }
   return { adapterType:adapter.type, model };
+}
+
+function validateLibraryPrinterTarget(input) {
+  if (input == null || input === '') return null;
+  return validatePrinterModelTarget(input, 'Choose a supported printer type for this Print Library file');
 }
 
 function openEventStream(req, res) {
@@ -765,6 +776,11 @@ async function apiRoute(req, res, url) {
     return json(res, 200, printQueue.getSnapshot());
   }
 
+  if (req.method === 'GET' && url.pathname === '/api/maintenance') {
+    const printers = (await listPrinters()).map(publicPrinter);
+    return json(res, 200, { maintenance:await maintenanceService.getSnapshot(printers) });
+  }
+
   if (req.method === 'GET' && url.pathname === '/api/library') {
     const queueSnapshot = printQueue.getSnapshot();
     const files = (await listLibraryFiles()).map((file) => {
@@ -995,6 +1011,83 @@ async function apiRoute(req, res, url) {
       return { printer, status };
     });
     return json(res, 201, { printer: publicPrinter(result.printer), status:result.status });
+  }
+
+  const maintenanceModelTaskMatch = url.pathname.match(/^\/api\/maintenance\/model-tasks(?:\/([^/]+))?(?:\/(complete))?$/);
+  if (maintenanceModelTaskMatch) {
+    const taskId = maintenanceModelTaskMatch[1] ? decodeURIComponent(maintenanceModelTaskMatch[1]) : null;
+    const completeAction = maintenanceModelTaskMatch[2] === 'complete';
+    if (req.method === 'POST' && !taskId) {
+      const body = await readJson(req);
+      const target = validatePrinterModelTarget(body.target);
+      const task = await controllerMutations.run('maintenance', () => maintenanceService.addModelTask(target, body));
+      fleetState.schedulePublish();
+      return json(res, 201, { task });
+    }
+    if (req.method === 'PATCH' && taskId && !completeAction) {
+      const body = await readJson(req);
+      const target = body.target === undefined ? undefined : validatePrinterModelTarget(body.target);
+      const task = await controllerMutations.run('maintenance', () => maintenanceService.updateModelTask(taskId, body, target));
+      fleetState.schedulePublish();
+      return json(res, 200, { task });
+    }
+    if (req.method === 'POST' && taskId && completeAction) {
+      const body = await readJson(req);
+      const result = await controllerMutations.run('maintenance', () => maintenanceService.completeModelTask(taskId, body.notes));
+      await diagnosticLogger.info('maintenance', 'Model-wide maintenance task completed', {
+        taskId,
+        taskName:result.task?.name || null,
+        matching:result.summary?.matching || 0,
+        completed:result.summary?.completed || 0,
+        skipped:result.summary?.skipped || 0
+      });
+      fleetState.schedulePublish();
+      return json(res, 200, result);
+    }
+    if (req.method === 'DELETE' && taskId && !completeAction) {
+      await controllerMutations.run('maintenance', () => maintenanceService.deleteModelTask(taskId));
+      fleetState.schedulePublish();
+      return json(res, 200, { ok:true });
+    }
+    return json(res, 405, { error:'Model maintenance task operation is not supported' });
+  }
+
+  const maintenanceTaskMatch = url.pathname.match(/^\/api\/printers\/([^/]+)\/maintenance\/tasks(?:\/([^/]+))?(?:\/(complete))?$/);
+  if (maintenanceTaskMatch) {
+    const printerId = decodeURIComponent(maintenanceTaskMatch[1]);
+    const taskId = maintenanceTaskMatch[2] ? decodeURIComponent(maintenanceTaskMatch[2]) : null;
+    const completeAction = maintenanceTaskMatch[3] === 'complete';
+    if (!await getPrinter(printerId)) return json(res, 404, { error:'Printer not found' });
+
+    if (req.method === 'POST' && !taskId) {
+      const body = await readJson(req);
+      const task = await controllerMutations.run('maintenance', () => maintenanceService.addTask(printerId, body));
+      fleetState.schedulePublish();
+      return json(res, 201, { task });
+    }
+    if (req.method === 'PATCH' && taskId && !completeAction) {
+      const body = await readJson(req);
+      const task = await controllerMutations.run('maintenance', () => maintenanceService.updateTask(printerId, taskId, body));
+      fleetState.schedulePublish();
+      return json(res, 200, { task });
+    }
+    if (req.method === 'DELETE' && taskId && !completeAction) {
+      await controllerMutations.run('maintenance', () => maintenanceService.deleteTask(printerId, taskId));
+      fleetState.schedulePublish();
+      return json(res, 200, { ok:true });
+    }
+    if (req.method === 'POST' && taskId && completeAction) {
+      const body = await readJson(req);
+      const result = await controllerMutations.run('maintenance', () => maintenanceService.completeTask(printerId, taskId, body.notes));
+      await diagnosticLogger.info('maintenance', 'Maintenance task completed', {
+        printerId,
+        taskId,
+        taskName:result.task?.name || null
+      });
+      fleetState.schedulePublish();
+      return json(res, 200, result);
+    }
+    return json(res, 405, { error:'Maintenance task operation is not supported' });
   }
 
   const match = url.pathname.match(/^\/api\/printers\/([^/]+)(?:\/(.+))?$/);
@@ -1494,6 +1587,7 @@ async function shutdown() {
   try { await chamberPreheat.stopAll({ reason: 'controller-shutdown', turnOff: true }); } catch {}
   chamberPreheat.stopService();
   scheduledBackupService.stop();
+  await maintenanceService.stop().catch(() => {});
   printQueue.stop();
   fleetState.stop();
   cameraManager.stop();
@@ -1564,6 +1658,7 @@ async function startController() {
     }
 
     await fleetState.start();
+    await maintenanceService.start();
     await printQueue.start();
     chamberPreheat.startService();
     await listenControllerServer();
@@ -1599,9 +1694,11 @@ async function startController() {
     console.log('Batch fleet control enabled');
     console.log('Verified multi-printer file distribution enabled');
     console.log('Persistent fleet print queue + history enabled');
+    console.log('Maintenance tracking + controller-observed printer usage enabled');
   } catch (error) {
     chamberPreheat.stopService();
     scheduledBackupService.stop();
+    await maintenanceService.stop().catch(() => {});
     printQueue.stop();
     fleetState.stop();
     cameraManager.stop();
