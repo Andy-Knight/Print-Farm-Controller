@@ -3723,6 +3723,127 @@ function renderBambuPrintSetup(printer, setup, fileName, mode = 'print') {
   panel.scrollIntoView({ behavior:'smooth', block:'nearest' });
 }
 
+function creator5MappingAssessment(printer, setup, toolMap) {
+  const physicalTools = Array.isArray(printer.status?.tools) ? printer.status.tools : [];
+  const warnings = [];
+  const errors = [];
+  const used = new Set();
+  for (const logical of setup.logicalTools || []) {
+    const physicalIndex = Number(toolMap[logical.index]);
+    const physical = physicalTools.find((tool) => Number(tool.index) === physicalIndex);
+    if (!physical) {
+      errors.push(`File T${logical.index} has no valid Creator 5 toolhead selected.`);
+      continue;
+    }
+    if (used.has(physicalIndex)) errors.push(`Creator 5 T${physicalIndex} is assigned to more than one file tool.`);
+    used.add(physicalIndex);
+    const filament = physical.filament || {};
+    if (filament.present === false) warnings.push(`Creator 5 T${physicalIndex} is required for file T${logical.index}, but no filament is detected.`);
+    const wantedMaterial = normalizedMaterial(logical.material);
+    const loadedMaterial = normalizedMaterial(filament.material);
+    if (wantedMaterial && loadedMaterial && wantedMaterial !== loadedMaterial) {
+      warnings.push(`File T${logical.index} requests ${logical.material}, but Creator 5 T${physicalIndex} contains ${filament.material}.`);
+    }
+    const wantedColor = normalizeColor(logical.color);
+    const loadedColor = normalizeColor(filament.color);
+    if (wantedColor && loadedColor && wantedColor !== loadedColor) {
+      warnings.push(`File T${logical.index} requests ${wantedColor}, but Creator 5 T${physicalIndex} contains ${loadedColor}.`);
+    }
+    const wantedNozzle = Number(logical.nozzleDiameter);
+    const loadedNozzle = Number(physical.nozzleDiameter);
+    if (Number.isFinite(wantedNozzle) && Number.isFinite(loadedNozzle) && Math.abs(wantedNozzle - loadedNozzle) >= 0.001) {
+      warnings.push(`File T${logical.index} requests a ${wantedNozzle.toFixed(1)} mm nozzle, but Creator 5 T${physicalIndex} is designated ${loadedNozzle.toFixed(1)} mm.`);
+    }
+  }
+  return { warnings:[...new Set(warnings)], errors:[...new Set(errors)] };
+}
+
+function renderCreator5PrintSetup(printer, setup, fileName, mode = 'print') {
+  const panel = printerDetail.querySelector('#printSetupPanel');
+  if (!panel) return;
+  const queueMode = mode === 'queue';
+  const physicalTools = Array.isArray(printer.status?.tools) ? printer.status.tools : [];
+  const mapping = defaultU1ToolMap(printer, setup);
+  const logicalTools = Array.isArray(setup.logicalTools) ? setup.logicalTools : [];
+  const rows = logicalTools.map((logical) => {
+    const fileLabel = [
+      logical.material || 'material unknown',
+      logical.color || 'colour unknown',
+      logical.nozzleDiameter != null ? nozzleDiameterText(logical.nozzleDiameter) : null
+    ].filter(Boolean).join(' · ');
+    return `<div class="tool-map-row" data-tool-map-row="${logical.index}">
+      <div class="tool-map-file"><strong>File T${logical.index}</strong><span>${escapeHtml(fileLabel)}</span></div>
+      <label>Creator 5 toolhead${physicalToolPickerMarkup(logical.index, physicalTools, mapping[logical.index])}</label>
+    </div>`;
+  }).join('');
+  const slotSummary = physicalTools.map((tool) => {
+    const filament = tool.filament || {};
+    return `<div class="tool-map-file"><strong>T${tool.index}</strong><span>${escapeHtml([filamentMaterialName(filament), filamentColorText(filament.color), filamentPresenceText(filament)].filter(Boolean).join(' · '))}</span></div>`;
+  }).join('');
+  panel.innerHTML = `<div class="print-setup-head"><div><strong>${queueMode ? 'Queue setup' : 'Print setup'}</strong><span>${escapeHtml(fileName)}</span></div><button type="button" class="icon" data-print-setup-close>×</button></div>
+    <div class="field-help">Creator 5 uses four independent physical toolheads/material slots. Controller-managed Print Library jobs can map sliced logical tools to the loaded toolheads automatically.</div>
+    ${setup.warning ? `<div class="file-warning">${escapeHtml(setup.warning)}</div>` : ''}
+    <div class="tool-map-grid">${rows || `<div class="creator5-slot-summary">${slotSummary || '<div class="subtle">Live toolhead material data is unavailable.</div>'}</div>`}</div>
+    <label class="checkbox-label"><input type="checkbox" id="printSetupTimeLapse"> <span>Timelapse</span></label>
+    <div id="printSetupAssessment" class="print-setup-assessment"></div>
+    <div class="actions"><button type="button" class="secondary" data-print-setup-close>Cancel</button><button type="button" class="primary" data-print-setup-start>${queueMode ? 'Add to queue' : 'Start print'}</button></div>`;
+  panel.classList.remove('hidden');
+
+  const currentMap = () => {
+    const toolMap = {};
+    panel.querySelectorAll('[data-tool-map]').forEach((input) => { toolMap[Number(input.dataset.toolMap)] = Number(input.value); });
+    return toolMap;
+  };
+  const refresh = () => {
+    const assessment = creator5MappingAssessment(printer, setup, currentMap());
+    const target = panel.querySelector('#printSetupAssessment');
+    target.textContent = [...assessment.errors.map((text) => `BLOCK: ${text}`), ...assessment.warnings.map((text) => `Warning: ${text}`)].join('\n');
+    target.classList.toggle('has-errors', assessment.errors.length > 0);
+    panel.querySelector('[data-print-setup-start]').disabled = assessment.errors.length > 0;
+  };
+  panel.querySelectorAll('[data-tool-map]').forEach((input) => input.addEventListener('change', refresh));
+  panel.querySelectorAll('[data-tool-map-option]').forEach((option) => option.addEventListener('click', () => {
+    const picker = option.closest('[data-tool-map-picker]');
+    const logicalIndex = Number(picker?.dataset.toolMapPicker);
+    const input = panel.querySelector(`[data-tool-map="${logicalIndex}"]`);
+    const selectedTool = physicalTools.find((tool) => Number(tool.index) === Number(option.dataset.toolMapOption));
+    if (!picker || !input || !selectedTool) return;
+    input.value = String(selectedTool.index);
+    picker.querySelector('[data-tool-map-summary]').innerHTML = physicalToolChoiceMarkup(selectedTool, { summary:true });
+    picker.querySelectorAll('[data-tool-map-option]').forEach((item) => item.classList.toggle('selected', item === option));
+    picker.open = false;
+    input.dispatchEvent(new Event('change', { bubbles:true }));
+  }));
+  panel.querySelectorAll('[data-print-setup-close]').forEach((button) => button.onclick = () => panel.classList.add('hidden'));
+  panel.querySelector('[data-print-setup-start]').onclick = async () => {
+    const toolMap = currentMap();
+    const assessment = creator5MappingAssessment(printer, setup, toolMap);
+    if (assessment.errors.length) return;
+    const leveling = printerDetail.querySelector('#levelBeforePrint')?.checked ?? false;
+    const flowCalibration = printerDetail.querySelector('#flowCalibrationBeforePrint')?.checked ?? false;
+    const timeLapse = panel.querySelector('#printSetupTimeLapse')?.checked ?? false;
+    const warningText = assessment.warnings.length ? `\n\n${assessment.warnings.join('\n')}` : '';
+    const defaultsWarning = !logicalTools.length ? '\n\nThis printer-local file does not expose its sliced tool requirements, so the Creator 5 will use the mapping/defaults stored with the file.' : '';
+    if (!confirm(`${queueMode ? 'Add to queue' : 'Start'} ${fileName} ${queueMode ? `for ${printer.name}` : `on ${printer.name}`}?\n\nBed levelling: ${leveling ? 'yes' : 'no'}\nFlow calibration: ${flowCalibration ? 'yes' : 'no'}\nTimelapse: ${timeLapse ? 'yes' : 'no'}${defaultsWarning}${warningText}`)) return;
+    const options = {
+      levelingBeforePrint:leveling,
+      flowCalibrationBeforePrint:flowCalibration,
+      timeLapseBeforePrint:timeLapse,
+      toolMap:Object.keys(toolMap).length ? toolMap : null,
+      usedLogicalTools:setup.referencedTools || logicalTools.map((tool) => tool.index),
+      logicalTools
+    };
+    try {
+      if (queueMode) await addPrintQueueJob(printer, fileName, options);
+      else await command(printer.id, 'print', { fileName, ...options });
+      printerDialog.close();
+      if (queueMode) { renderPrintQueue(); queueDialog.showModal(); }
+    } catch (error) { showPrinterDetailError(error); }
+  };
+  refresh();
+  panel.scrollIntoView({ behavior:'smooth', block:'nearest' });
+}
+
 function renderU1PrintSetup(printer, setup, fileName, mode = 'print') {
   const panel = printerDetail.querySelector('#printSetupPanel');
   if (!panel) return;
@@ -4221,6 +4342,8 @@ async function openPrinter(id) {
     if (!tools.length) return `<div class="panel material-panel"><h3>Toolhead status</h3><div class="subtle">Material status is unavailable while the printer is offline.</div>${flashForgeMaterialDesignationMarkup(printer)}${flashForgeNozzleDesignationMarkup(printer)}</div>`;
     const materialHelp = printer.adapterType === 'flashforge-ad5m'
       ? "Filament type uses the controller's manual designation when set, otherwise the value reported by the FlashForge 5M local /detail API. Installed nozzle size uses the controller nozzle designation when set because the 5M API does not reliably expose it. The 5M API also does not expose U1-style filament colour/RFID metadata or a reliable live filament-presence value."
+      : printer.adapterType === 'flashforge-creator5'
+        ? 'Creator 5 material type, colour and filament-presence state come from the four material-station/toolhead slots reported by the local /detail API. The installed nozzle size is controller-designated and currently applies to all four toolheads.'
       : printer.adapterType === 'bambu-lab'
         ? 'Material and colour come from the active external-spool or AMS/AMS Lite tray metadata reported by the Bambu LAN interface. Bambu support is experimental until checked against physical P1P, P1S, X1C and A1 Mini hardware.'
         : 'Filament presence comes from each U1 motion sensor. Third-party filament type and colour can be written to the idle printer and are verified by reading the effective per-tool configuration back. Official Snapmaker RFID filament remains locked. Nozzle size and XYZ offset come directly from each physical U1 extruder.';
@@ -4249,13 +4372,13 @@ async function openPrinter(id) {
           ${capabilities.toolheadNozzleStatus ? `<small data-tool-nozzle="${tool.index}">${escapeHtml(`${nozzleDiameterText(tool.nozzleDiameter)}${tool.nozzleVolumeType ? ` · ${tool.nozzleVolumeType}` : ''}`)}</small>` : ''}
           ${capabilities.toolheadNozzleStatus ? `<small data-tool-offset="${tool.index}">${escapeHtml(toolOffsetText(tool.offset))}</small>` : ''}
           <small data-material-meta="${tool.index}">${escapeHtml(filamentMetaText(filament))}</small>
-          ${['snapmaker-u1','flashforge-ad5m','bambu-lab'].includes(printer.adapterType) ? `<small class="material-rgb${filamentColorDisplayText(filament) ? '' : ' hidden'}" data-material-rgb="${tool.index}">${escapeHtml(filamentColorDisplayText(filament) || '')}</small>` : ''}
+          ${['snapmaker-u1','flashforge-ad5m','flashforge-creator5','bambu-lab'].includes(printer.adapterType) ? `<small class="material-rgb${filamentColorDisplayText(filament) ? '' : ' hidden'}" data-material-rgb="${tool.index}">${escapeHtml(filamentColorDisplayText(filament) || '')}</small>` : ''}
           ${printer.adapterType === 'snapmaker-u1' ? u1FilamentConfigControlMarkup(printer, tool) : ''}
         </div>`;
       }).join('')}</div>
       ${bambuSources}
       ${printer.adapterType === 'flashforge-ad5m' ? flashForgeMaterialDesignationMarkup(printer, tools[0]?.filament || {}) : ''}
-      ${printer.adapterType === 'flashforge-ad5m' ? flashForgeNozzleDesignationMarkup(printer, tools[0] || {}) : ''}
+      ${['flashforge-ad5m','flashforge-creator5'].includes(printer.adapterType) ? flashForgeNozzleDesignationMarkup(printer, tools[0] || {}) : ''}
       <div class="field-help material-help">${escapeHtml(materialHelp)}</div>
     </div>`;
   })() : '';
@@ -4480,6 +4603,7 @@ async function openPrinter(id) {
         try {
           const setup = await api(`/api/printers/${encodeURIComponent(id)}/print-setup?fileName=${encodeURIComponent(btn.dataset.queueFile)}`);
           if (printer.capabilities?.materialSlotMapping) renderBambuPrintSetup(printer, setup, btn.dataset.queueFile, 'queue');
+          else if (printer.adapterType === 'flashforge-creator5') renderCreator5PrintSetup(printer, setup, btn.dataset.queueFile, 'queue');
           else renderU1PrintSetup(printer, setup, btn.dataset.queueFile, 'queue');
         } finally {
           btn.disabled = false;
@@ -4512,6 +4636,7 @@ The controller will start it automatically when this printer is idle and all saf
         try {
           const setup = await api(`/api/printers/${encodeURIComponent(id)}/print-setup?fileName=${encodeURIComponent(btn.dataset.printFile)}`);
           if (printer.capabilities?.materialSlotMapping) renderBambuPrintSetup(printer, setup, btn.dataset.printFile);
+          else if (printer.adapterType === 'flashforge-creator5') renderCreator5PrintSetup(printer, setup, btn.dataset.printFile);
           else renderU1PrintSetup(printer, setup, btn.dataset.printFile);
         } finally {
           btn.disabled = false;
