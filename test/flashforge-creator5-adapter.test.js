@@ -137,7 +137,7 @@ test('Creator 5 per-tool temperature control uses four-entry nozzle arrays', asy
     body = JSON.parse(options.body);
     return {
       ok:true,
-      async text() { return JSON.stringify({ code:0, message:'success' }); }
+      async json() { return { code:0, message:'success' }; }
     };
   };
   try {
