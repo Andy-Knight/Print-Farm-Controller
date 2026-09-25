@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   FLASHFORGE_AD5M_ADAPTER_TYPE,
+  FLASHFORGE_CREATOR5_ADAPTER_TYPE,
   BAMBU_LAB_ADAPTER_TYPE,
   getPrinterAdapter,
   listAdapterDefinitions,
@@ -30,6 +31,45 @@ test('FlashForge AD5M adapter exposes the current controller capabilities and li
   assert.equal(adapter.capabilities.nozzleDesignation, true);
   assert.equal(adapter.limits.bedTemperature.max, 110);
   assert.equal(adapter.limits.nozzleTemperature.max, 265);
+});
+
+test('FlashForge Creator 5 series exposes four-tool and model-specific chamber capabilities', () => {
+  const definitions = listAdapterDefinitions();
+  const definition = definitions.find((item) => item.type === FLASHFORGE_CREATOR5_ADAPTER_TYPE);
+  assert.ok(definition);
+  assert.deepEqual(definition.models, ['Creator 5','Creator 5 Pro']);
+  assert.equal(definition.configFields.find((field) => field.name === 'model').type, 'select');
+  assert.equal(definition.configFields.some((field) => field.name === 'tcpPort'), false);
+
+  const base = getPrinterAdapter(preparePrinterConfig({
+    adapterType:FLASHFORGE_CREATOR5_ADAPTER_TYPE,
+    name:'Creator 5',
+    host:'192.168.1.30',
+    model:'Creator 5',
+    serialNumber:'C5',
+    checkCode:'CODE'
+  }));
+  const pro = getPrinterAdapter(preparePrinterConfig({
+    adapterType:FLASHFORGE_CREATOR5_ADAPTER_TYPE,
+    name:'Creator 5 Pro',
+    host:'192.168.1.31',
+    model:'Creator 5 Pro',
+    serialNumber:'C5P',
+    checkCode:'CODE'
+  }));
+
+  assert.equal(base.capabilities.printToolMapping, true);
+  assert.equal(base.capabilities.toolTemperatures, true);
+  assert.equal(base.capabilities.chamberTemperatureSensor, false);
+  assert.equal(base.capabilities.chamberTemperatureControl, false);
+  assert.equal(base.limits.toolCount, 4);
+  assert.equal(base.limits.nozzleTemperature.max, 320);
+  assert.equal(base.limits.bedTemperature.max, 120);
+  assert.deepEqual(base.uploadExtensions, ['.gcode','.3mf']);
+
+  assert.equal(pro.capabilities.chamberTemperatureSensor, true);
+  assert.equal(pro.capabilities.chamberTemperatureControl, true);
+  assert.equal(pro.limits.chamberTemperature.max, 65);
 });
 
 test('FlashForge connection validation belongs to the adapter definition', () => {
