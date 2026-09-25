@@ -166,3 +166,91 @@ test('manual chamber preheat stop invokes adapter cleanup and turns the bed off'
     ['temp', { bed:0 }]
   ]);
 });
+
+
+test('native heated-chamber preheat holds the chamber target without heating the bed', async () => {
+  let now = Date.parse('2026-09-25T20:30:00Z');
+  const idle = {
+    status:'ready',
+    fileName:null,
+    bed:{ actual:25, target:0 },
+    chamber:{ actual:30, target:0 }
+  };
+  const fleetState = makeFleetState({ online:true, status:idle, error:null });
+  const calls = [];
+  const adapter = {
+    capabilities:{
+      chamberPreheat:true,
+      chamberTemperatureControl:true,
+      bedTemperature:true
+    },
+    limits:{
+      bedTemperature:{ min:0, max:120 },
+      chamberTemperature:{ min:0, max:65 },
+      chamberPreheatChamberTemperature:{ min:30, max:65 },
+      chamberPreheatMinutes:{ min:1, max:120 }
+    },
+    async getStatus() { return idle; },
+    async setTemperatures(values) { calls.push(values); },
+    async prepareChamberPreheat() {},
+    async finishChamberPreheat() {}
+  };
+  const service = new ChamberPreheatService({
+    fleetState,
+    getPrinterFn:async () => ({ id:'creator5-pro' }),
+    adapterResolver:() => adapter,
+    nowFn:() => now,
+    heartbeatMs:60_000
+  });
+
+  const session = await service.start('creator5-pro', {
+    chamberTemperature:55,
+    durationMinutes:45
+  });
+  assert.equal(session.heatSource, 'chamber');
+  assert.equal(session.chamberTemperature, 55);
+  assert.equal(session.bedTemperature, undefined);
+  assert.deepEqual(calls, [{ chamber:55 }]);
+
+  fleetState.setState({
+    online:true,
+    status:{ ...idle, chamber:{ actual:42, target:0 } },
+    error:null
+  });
+  now += 3_000;
+  await service.tickSession('creator5-pro');
+  assert.deepEqual(calls, [{ chamber:55 }, { chamber:55 }]);
+  assert.equal(service.get('creator5-pro').reassertions, 1);
+
+  await service.stop('creator5-pro', { reason:'manual', turnOff:true });
+  assert.deepEqual(calls.at(-1), { chamber:0 });
+});
+
+test('native heated-chamber preheat enforces the model chamber target limit', async () => {
+  const fleetState = makeFleetState({
+    online:true,
+    status:{ status:'ready', fileName:null, bed:{ actual:25, target:0 }, chamber:{ actual:25, target:0 } },
+    error:null
+  });
+  const adapter = {
+    capabilities:{ chamberPreheat:true, chamberTemperatureControl:true, bedTemperature:true },
+    limits:{
+      chamberTemperature:{ min:0, max:65 },
+      chamberPreheatChamberTemperature:{ min:30, max:65 }
+    },
+    async getStatus() { return fleetState.getPrinterState('creator5-pro').status; },
+    async setTemperatures() {},
+    async prepareChamberPreheat() {},
+    async finishChamberPreheat() {}
+  };
+  const service = new ChamberPreheatService({
+    fleetState,
+    getPrinterFn:async () => ({ id:'creator5-pro' }),
+    adapterResolver:() => adapter
+  });
+
+  await assert.rejects(
+    () => service.start('creator5-pro', { chamberTemperature:66, durationMinutes:30 }),
+    /Chamber preheat temperature must be 30-65 C/
+  );
+});
