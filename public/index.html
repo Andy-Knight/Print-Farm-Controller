@@ -194,12 +194,21 @@
         <div class="maintenance-form-head">
           <div>
             <strong id="maintenanceFormTitle">Add maintenance task</strong>
-            <div class="field-help">Completed tasks remain in maintenance history even if the task is later deleted.</div>
+            <div class="field-help">Assign a task to one printer or inherit it across every current and future printer of the selected model. Completed history remains per printer even if the task is later deleted.</div>
           </div>
         </div>
         <div class="maintenance-form-grid">
-          <label>Printer
-            <select id="maintenancePrinter" required></select>
+          <label>Assignment
+            <select id="maintenanceAssignmentScope">
+              <option value="printer">Individual printer</option>
+              <option value="model">Printer model</option>
+            </select>
+          </label>
+          <label id="maintenancePrinterField">Printer
+            <select id="maintenancePrinter"></select>
+          </label>
+          <label id="maintenanceModelField" class="hidden">Printer model
+            <select id="maintenanceModel"></select>
           </label>
           <label>Task name
             <input id="maintenanceName" type="text" maxlength="100" placeholder="Lubricate rails" required />
