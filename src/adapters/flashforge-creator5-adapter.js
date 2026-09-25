@@ -81,6 +81,7 @@ const COMMON_CAPABILITIES = normalizeCapabilities({
 
 const PRO_CAPABILITIES = normalizeCapabilities({
   ...COMMON_CAPABILITIES,
+  chamberPreheat:true,
   chamberTemperatureSensor:true,
   chamberTemperatureControl:true
 });
@@ -113,7 +114,11 @@ export class FlashForgeCreator5Adapter extends PrinterAdapter {
       bedTemperature:{ min:0, max:CREATOR5_BED_MAX_C },
       nozzleTemperature:{ min:0, max:CREATOR5_NOZZLE_MAX_C },
       toolCount:CREATOR5_TOOL_COUNT,
-      ...(isPro(this.model) ? { chamberTemperature:{ min:0, max:65 } } : {})
+      ...(isPro(this.model) ? {
+        chamberTemperature:{ min:0, max:65 },
+        chamberPreheatChamberTemperature:{ min:30, max:65 },
+        chamberPreheatMinutes:{ min:1, max:120 }
+      } : {})
     });
   }
 
