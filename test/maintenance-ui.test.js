@@ -45,7 +45,7 @@ test('dashboard surfaces live maintenance alerts and filters affected printers',
   assert.match(app, /maintenanceAlertBtn\.classList\.toggle\('hidden', alerts\.length === 0\)/);
   assert.match(app, /maintenanceAlertBtn\?\.addEventListener\('click'/);
   assert.match(app, /setDashboardFilter\(dashboardFilter === 'maintenance' \? 'all' : 'maintenance'\)/);
-  assert.match(app, /maintenanceIconMarkup\(printer\)/);
+  assert.match(app, /maintenanceIconMarkup\(printer, '', true\)/);
   assert.match(app, /maintenanceIconMarkup\(printer, 'maintenance-status-icon-detail'\)/);
   assert.match(app, /data-maintenance-tracking-summary/);
   assert.match(styles, /\.maintenance-alert-button/);
@@ -58,7 +58,21 @@ test('dashboard maintenance icon is not overwritten by printer state updates', (
   assert.match(app, /<div class="badge" data-printer-state><\/div>/);
   assert.match(app, /const badge = card\.querySelector\('\[data-printer-state\]'\)/);
   assert.doesNotMatch(app, /const badge = card\.querySelector\('\[data-state\]'\)/);
-  assert.match(app, /data-maintenance-status-icon data-state="\$\{escapeHtml\(state\)\}"/);
+  assert.match(app, /data-maintenance-status-icon data-maintenance-open-printer="\$\{escapeHtml\(printer\.id\)\}" data-state="\$\{escapeHtml\(state\)\}"/);
+});
+
+test('dashboard spanner opens maintenance focused on the selected printer', () => {
+  assert.match(app, /data-maintenance-open-printer="\$\{escapeHtml\(printer\.id\)\}"/);
+  assert.match(app, /new CustomEvent\('pfc:open-maintenance'/);
+  assert.match(app, /printerId:maintenanceShortcut\.dataset\.maintenanceOpenPrinter/);
+  assert.match(maintenanceUi, /data-maintenance-printer-card="\$\{escapeHtml\(printer\.printerId\)\}"/);
+  assert.match(maintenanceUi, /async function openForPrinter\(printerId\)/);
+  assert.match(maintenanceUi, /assignmentScopeInput\.value = 'printer'/);
+  assert.match(maintenanceUi, /printerSelect\.value = id/);
+  assert.match(maintenanceUi, /target\.scrollIntoView\(\{ behavior:'smooth', block:'center' \}\)/);
+  assert.match(maintenanceUi, /window\.addEventListener\('pfc:open-maintenance'/);
+  assert.match(styles, /\.maintenance-status-icon-button/);
+  assert.match(styles, /\.maintenance-printer-card-target/);
 });
 
 test('maintenance completion is disabled after servicing until the task reaches Due soon', () => {
