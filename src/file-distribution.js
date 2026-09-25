@@ -3,6 +3,7 @@ import { getPrinter } from './store.js';
 import { getPrinterAdapter } from './adapters/adapter-registry.js';
 import { isPrintJobActive } from './chamber-preheat.js';
 import { readFileMaterialMetadata, assessMaterialCompatibility } from './file-material-metadata.js';
+import { readFilePrintRequirements } from './file-print-requirements.js';
 import { savePrinterFileMaterialMetadata } from './file-material-store.js';
 import { PRINTER_OPERATION_TYPES } from './printer-operation-policy.js';
 
@@ -113,16 +114,22 @@ export class FileDistributionService {
     const queue = [...request.printerIds];
     const results = [];
     let fileMaterialMetadata = null;
+    let fileRequirements = null;
     try {
       fileMaterialMetadata = await this.fileMetadataReader(filePath);
     } catch {
       fileMaterialMetadata = null;
     }
+    try {
+      fileRequirements = await readFilePrintRequirements(filePath);
+    } catch {
+      fileRequirements = null;
+    }
 
     const worker = async () => {
       while (queue.length) {
         const id = queue.shift();
-        results.push(await this.distributeOne(id, { ...request, filePath, fileMaterialMetadata }));
+        results.push(await this.distributeOne(id, { ...request, filePath, fileMaterialMetadata, fileRequirements }));
       }
     };
     await Promise.all(Array.from({ length: Math.min(this.maxConcurrent, queue.length) }, () => worker()));
@@ -168,7 +175,7 @@ export class FileDistributionService {
     }
   }
 
-  async distributeOneUnlocked(id, { filePath, fileName, startPrint, levelingBeforePrint, flowCalibrationBeforePrint, fileMaterialMetadata = null }) {
+  async distributeOneUnlocked(id, { filePath, fileName, startPrint, levelingBeforePrint, flowCalibrationBeforePrint, fileMaterialMetadata = null, fileRequirements = null }) {
     const printer = await this.getPrinter(id);
     const name = printer?.name || id;
     if (!printer) return { id, name, ok: false, uploaded: false, verified: false, started: false, error: 'Printer not found' };
@@ -198,13 +205,19 @@ export class FileDistributionService {
       if (this.uploadFileOverride) {
         await this.uploadFileOverride(printer, filePath, {
           firmwareVersion: state.status?.firmwareVersion,
-          levelingBeforePrint
+          levelingBeforePrint,
+          flowCalibrationBeforePrint,
+          requirements:fileRequirements,
+          toolCount:Number(fileRequirements?.toolCount || fileRequirements?.requiredTools?.length || 1)
         });
       } else {
         await adapter.uploadFile(filePath, {
           fileName,
           firmwareVersion: state.status?.firmwareVersion,
-          levelingBeforePrint
+          levelingBeforePrint,
+          flowCalibrationBeforePrint,
+          requirements:fileRequirements,
+          toolCount:Number(fileRequirements?.toolCount || fileRequirements?.requiredTools?.length || 1)
         });
       }
       uploaded = true;
@@ -237,7 +250,12 @@ export class FileDistributionService {
           await this.chamberPreheat.stop(id, { reason: 'distribution-print-started', turnOff: false });
         }
         if (this.printLocalFileOverride) await this.printLocalFileOverride(printer, fileName, levelingBeforePrint);
-        else await adapter.printLocalFile(fileName, { levelingBeforePrint, flowCalibrationBeforePrint });
+        else await adapter.printLocalFile(fileName, {
+          levelingBeforePrint,
+          flowCalibrationBeforePrint,
+          usedLogicalTools:Array.isArray(fileRequirements?.requiredTools) ? [...fileRequirements.requiredTools] : [],
+          logicalTools:Array.isArray(fileRequirements?.logicalTools) ? structuredClone(fileRequirements.logicalTools) : []
+        });
         started = true;
       }
 
