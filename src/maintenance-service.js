@@ -6,6 +6,28 @@ import { controllerDataDir, getPrinter } from './store.js';
 const ACTIVE_PRINTER_STATES = new Set(['printing', 'working', 'building_from_sd', 'pause', 'paused']);
 const HISTORY_LIMIT = 500;
 const MAX_SAMPLE_MS = 120_000;
+const WINDOWS_RENAME_RETRY_DELAYS_MS = [10, 25, 50, 100, 200, 400];
+const TRANSIENT_RENAME_ERRORS = new Set(['EPERM', 'EACCES', 'EBUSY']);
+
+function delay(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function replaceFileWithRetry(source, destination) {
+  let retry = 0;
+  while (true) {
+    try {
+      await fs.rename(source, destination);
+      return;
+    } catch (error) {
+      const canRetry = TRANSIENT_RENAME_ERRORS.has(error?.code)
+        && retry < WINDOWS_RENAME_RETRY_DELAYS_MS.length;
+      if (!canRetry) throw error;
+      await delay(WINDOWS_RENAME_RETRY_DELAYS_MS[retry]);
+      retry += 1;
+    }
+  }
+}
 
 function nowIso(nowMs) {
   return new Date(nowMs).toISOString();
@@ -266,12 +288,13 @@ export class MaintenanceService {
 
   async persistNow() {
     const snapshot = structuredClone(this.state);
-    this.saveChain = this.saveChain.then(async () => {
+    const previousSave = this.saveChain.catch(() => {});
+    this.saveChain = previousSave.then(async () => {
       await fs.mkdir(path.dirname(this.filePath), { recursive:true });
       const temp = `${this.filePath}.${crypto.randomUUID()}.tmp`;
       try {
         await fs.writeFile(temp, `${JSON.stringify(snapshot, null, 2)}\n`, { mode:0o600 });
-        await fs.rename(temp, this.filePath);
+        await replaceFileWithRetry(temp, this.filePath);
       } finally {
         await fs.rm(temp, { force:true }).catch(() => {});
       }
