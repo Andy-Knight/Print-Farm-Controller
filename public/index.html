@@ -51,6 +51,7 @@
           <button type="button" class="topbar-overflow-item" role="menuitem" onclick="location.href='/simulator/'">Printer simulator</button>
           <button id="diagnosticsBtn" type="button" class="topbar-overflow-item" role="menuitem">Diagnostics</button>
           <button id="maintenanceBtn" type="button" class="topbar-overflow-item" role="menuitem">Maintenance</button>
+          <button id="printerGroupsBtn" type="button" class="topbar-overflow-item" role="menuitem">Printer groups</button>
           <button id="backupRecoveryBtn" type="button" class="topbar-overflow-item" role="menuitem">Backup &amp; recovery</button>
           <button id="licenseBtn" type="button" class="topbar-overflow-item" role="menuitem">Licence</button>
           <button id="batchModeMenuBtn" type="button" class="topbar-overflow-item topbar-overflow-fleet" role="menuitem">Fleet operations</button>
@@ -172,6 +173,46 @@
     </div>
   </dialog>
 
+  <dialog id="printerGroupsDialog" class="printer-groups-dialog">
+    <div class="printer-groups-shell">
+      <div class="dialog-head">
+        <div>
+          <div class="eyebrow">FLEET ORGANISATION</div>
+          <h2>Printer groups</h2>
+          <div class="subtle">Create custom groups for queue scheduling and maintenance assignment. A printer can belong to only one group at a time.</div>
+        </div>
+        <button type="button" class="icon" data-printer-groups-close>×</button>
+      </div>
+
+      <form id="printerGroupForm" class="printer-group-form">
+        <input id="printerGroupId" type="hidden" />
+        <div class="printer-group-form-head">
+          <strong id="printerGroupFormTitle">Add printer group</strong>
+          <div class="field-help">Selecting a printer that already belongs to another group moves it into this group.</div>
+        </div>
+        <label>Group name
+          <input id="printerGroupName" type="text" maxlength="80" placeholder="Production printers" required />
+        </label>
+        <div>
+          <span class="printer-group-members-label">Members</span>
+          <div id="printerGroupMembers" class="printer-group-members"></div>
+        </div>
+        <div id="printerGroupError" class="error hidden"></div>
+        <div class="actions">
+          <button id="printerGroupCancelEdit" type="button" class="secondary hidden">Cancel edit</button>
+          <button id="printerGroupSubmit" type="submit" class="primary">Create group</button>
+        </div>
+      </form>
+
+      <div id="printerGroupsStatus" class="subtle"></div>
+      <div id="printerGroupsList" class="printer-groups-list"></div>
+
+      <div class="actions">
+        <button type="button" class="secondary" data-printer-groups-close>Close</button>
+      </div>
+    </div>
+  </dialog>
+
   <dialog id="maintenanceDialog" class="maintenance-dialog">
     <div class="maintenance-shell">
       <div class="dialog-head">
@@ -189,6 +230,7 @@
       <div class="maintenance-view-selector" role="tablist" aria-label="Maintenance view">
         <button type="button" class="maintenance-view-button" data-maintenance-view="add" role="tab" aria-selected="false">Add maintenance tasks</button>
         <button type="button" class="maintenance-view-button" data-maintenance-view="model" role="tab" aria-selected="false">Model-wide maintenance rules</button>
+        <button type="button" class="maintenance-view-button" data-maintenance-view="group" role="tab" aria-selected="false">Group-wide maintenance rules</button>
         <button type="button" class="maintenance-view-button active" data-maintenance-view="printers" role="tab" aria-selected="true">Individual printers</button>
       </div>
 
@@ -200,18 +242,22 @@
         <div class="maintenance-form-head">
           <div>
             <strong id="maintenanceFormTitle">Add maintenance task</strong>
-            <div class="field-help">Assign a task to one printer or inherit it across every current and future printer of the selected model. Completed history remains per printer even if the task is later deleted.</div>
+            <div class="field-help">Assign a task to one printer, every current member of a custom printer group, or every current and future printer of a selected model. Completed history remains per printer even if the task is later deleted.</div>
           </div>
         </div>
         <div class="maintenance-form-grid">
           <label>Assignment
             <select id="maintenanceAssignmentScope">
               <option value="printer">Individual printer</option>
+              <option value="group">Printer group</option>
               <option value="model">Printer model</option>
             </select>
           </label>
           <label id="maintenancePrinterField">Printer
             <select id="maintenancePrinter"></select>
+          </label>
+          <label id="maintenanceGroupField" class="hidden">Printer group
+            <select id="maintenanceGroup"></select>
           </label>
           <label id="maintenanceModelField" class="hidden">Printer model
             <select id="maintenanceModel"></select>
@@ -535,6 +581,12 @@
       <label id="queueAddDescriptionField">Library description / notes
         <textarea id="queueAddDescriptionInput" name="description" rows="4" maxlength="4000" placeholder="Optional description stored with this new library file"></textarea>
       </label>
+      <label>Restrict to printer group
+        <select id="queueAddGroup" name="groupId">
+          <option value="">Any configured printer</option>
+        </select>
+      </label>
+      <div class="field-help">Optional. When selected, only printers currently in this group are evaluated for this queued job.</div>
       <label>Quantity<input id="queueAddQuantity" name="quantity" type="number" min="1" max="999" step="1" value="1" required /></label>
       <div class="field-help">Quantity 2 or more creates one production batch. Copies share one Print Library file and are distributed across compatible printers as they become available.</div>
       <label>Queue priority

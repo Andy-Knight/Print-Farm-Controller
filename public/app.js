@@ -32,6 +32,18 @@ const diagnosticsSearch = document.querySelector('#diagnosticsSearch');
 const diagnosticsRefreshBtn = document.querySelector('#diagnosticsRefreshBtn');
 const diagnosticsError = document.querySelector('#diagnosticsError');
 const diagnosticsLog = document.querySelector('#diagnosticsLog');
+const printerGroupsBtn = document.querySelector('#printerGroupsBtn');
+const printerGroupsDialog = document.querySelector('#printerGroupsDialog');
+const printerGroupForm = document.querySelector('#printerGroupForm');
+const printerGroupId = document.querySelector('#printerGroupId');
+const printerGroupName = document.querySelector('#printerGroupName');
+const printerGroupMembers = document.querySelector('#printerGroupMembers');
+const printerGroupError = document.querySelector('#printerGroupError');
+const printerGroupCancelEdit = document.querySelector('#printerGroupCancelEdit');
+const printerGroupSubmit = document.querySelector('#printerGroupSubmit');
+const printerGroupFormTitle = document.querySelector('#printerGroupFormTitle');
+const printerGroupsStatus = document.querySelector('#printerGroupsStatus');
+const printerGroupsList = document.querySelector('#printerGroupsList');
 const backupRecoveryBtn = document.querySelector('#backupRecoveryBtn');
 const backupRecoveryDialog = document.querySelector('#backupRecoveryDialog');
 const backupStatusGrid = document.querySelector('#backupStatusGrid');
@@ -112,6 +124,7 @@ const queueAddPrinterTargetHelp = document.querySelector('#queueAddPrinterTarget
 const queueAddPrinterTargetInput = document.querySelector('#queueAddPrinterTargetInput');
 const queueAddDescriptionField = document.querySelector('#queueAddDescriptionField');
 const queueAddDescriptionInput = document.querySelector('#queueAddDescriptionInput');
+const queueAddGroup = document.querySelector('#queueAddGroup');
 const queueAddSelectedFile = document.querySelector('#queueAddSelectedFile');
 const queueAddStatus = document.querySelector('#queueAddStatus');
 const queueAddError = document.querySelector('#queueAddError');
@@ -124,6 +137,7 @@ let fleet = [];
 let adapters = [];
 let queueState = { jobs:[], queued:0, active:0, history:0, needsReview:0, awaitingClearance:0, bedClearance:[], productionBatches:[] };
 let libraryState = { files:[] };
+let printerGroupsState = { version:1, groups:[] };
 let libraryMetadataFile = null;
 let queueAddLibraryFile = null;
 let licenseState = null;
@@ -1420,6 +1434,7 @@ function queueJobMarkup(job, { history = false, queuedIndex = -1, queuedCount = 
       </div>`;
   const printerLabel = job.assignmentMode === 'automatic' && !job.printerId ? 'Next available compatible printer' : (job.printerName || job.printerId || 'Unassigned');
   const printerTarget = job.printerTarget ? `Target printer: ${printerTargetLabel(job.printerTarget)}` : '';
+  const groupTarget = job.groupId ? `Printer group: ${job.groupName || job.groupId}` : '';
   const statusText = job.restoreRecoveryHold ? 'Restored — review required' : queueStatusLabel(job.status);
   const statusClass = job.restoreRecoveryHold ? 'restore-hold' : job.status;
   return `<article class="queue-job queue-job-${escapeHtml(job.status)}${job.restoreRecoveryHold ? ' queue-job-restore-hold' : ''}" data-queue-job="${escapeHtml(job.id)}">
@@ -1427,6 +1442,7 @@ function queueJobMarkup(job, { history = false, queuedIndex = -1, queuedCount = 
       <div class="queue-job-title"><strong>${escapeHtml(job.fileName)}</strong><span class="queue-job-badges">${queuePriorityBadge(job)}<span class="queue-status ${escapeHtml(statusClass)}">${escapeHtml(statusText)}${progress ? ` · ${progress}` : ''}</span></span></div>
       <div class="queue-job-printer">${escapeHtml(printerLabel)}</div>
       ${printerTarget ? `<div class="queue-job-meta">${escapeHtml(printerTarget)}</div>` : ''}
+      ${groupTarget ? `<div class="queue-job-meta">${escapeHtml(groupTarget)}</div>` : ''}
       <div class="queue-job-meta">${escapeHtml(meta)}</div>
       ${job.selectionReason ? `<div class="queue-selection-reason">${escapeHtml(job.selectionReason)}</div>` : ''}
       ${queueCompatibilityMarkup(job)}
@@ -1465,6 +1481,7 @@ function productionBatchMarkup(batch, { history = false } = {}) {
     : 'Queued';
   const runs = Array.isArray(batch.runs) ? batch.runs : [];
   const printerTarget = batch.printerTarget ? `Target printer: ${printerTargetLabel(batch.printerTarget)}` : '';
+  const groupTarget = batch.groupId ? `Printer group: ${batch.groupName || batch.groupId}` : '';
   const visibleRuns = runs.slice(0, 12);
   const runMarkup = visibleRuns.map((run) => {
     const printer = run.printerName || (run.status === 'queued' ? 'Waiting for compatible printer' : 'Unassigned');
@@ -1487,6 +1504,7 @@ function productionBatchMarkup(batch, { history = false } = {}) {
       <div class="queue-job-title"><strong>${escapeHtml(batch.fileName)}</strong><span class="queue-job-badges">${queuePriorityBadge(batch)}<span class="queue-status ${batch.paused ? 'paused' : batch.finished ? 'completed' : active ? 'printing' : 'queued'}">${escapeHtml(state)}</span></span></div>
       <div class="queue-job-printer">Production quantity ${quantity}</div>
       ${printerTarget ? `<div class="queue-job-meta">${escapeHtml(printerTarget)}</div>` : ''}
+      ${groupTarget ? `<div class="queue-job-meta">${escapeHtml(groupTarget)}</div>` : ''}
       <div class="production-counts">Completed ${completed} · Printing/preparing ${active} · Remaining ${remaining}${failed ? ` · Failed ${failed}` : ''}${cancelled ? ` · Cancelled ${cancelled}` : ''}</div>
       <div class="production-progress"><span style="width:${progress}%"></span></div>
       <div class="production-runs">${runMarkup}${more}</div>
@@ -1716,7 +1734,89 @@ async function updateLibraryMetadata(fileId, { description = '', printerTarget =
   return payload.file;
 }
 
-async function queueLibraryFile(libraryFileId, options = {}, quantity = 1, priority = 'normal') {
+function printerGroupLabel(group) {
+  const count = Number(group?.printerIds?.length || group?.members?.length || 0);
+  return `${group?.name || 'Unnamed group'} · ${count} printer${count === 1 ? '' : 's'}`;
+}
+
+function populateQueueGroupOptions(selected = queueAddGroup?.value || '') {
+  if (!queueAddGroup) return;
+  const groups = Array.isArray(printerGroupsState?.groups) ? printerGroupsState.groups : [];
+  queueAddGroup.innerHTML = '<option value="">Any configured printer</option>'
+    + groups
+      .slice()
+      .sort((a, b) => String(a.name).localeCompare(String(b.name)))
+      .map((group) => `<option value="${escapeHtml(group.id)}">${escapeHtml(printerGroupLabel(group))}</option>`)
+      .join('');
+  if (groups.some((group) => group.id === selected)) queueAddGroup.value = selected;
+}
+
+function resetPrinterGroupForm() {
+  printerGroupForm?.reset();
+  if (printerGroupId) printerGroupId.value = '';
+  if (printerGroupFormTitle) printerGroupFormTitle.textContent = 'Add printer group';
+  if (printerGroupSubmit) printerGroupSubmit.textContent = 'Create group';
+  printerGroupCancelEdit?.classList.add('hidden');
+  if (printerGroupError) {
+    printerGroupError.textContent = '';
+    printerGroupError.classList.add('hidden');
+  }
+  renderPrinterGroupMembers();
+}
+
+function groupForPrinter(printerId) {
+  return (printerGroupsState.groups || []).find((group) => (group.printerIds || []).includes(printerId)) || null;
+}
+
+function renderPrinterGroupMembers(selectedIds = null) {
+  if (!printerGroupMembers) return;
+  const editingId = printerGroupId?.value || '';
+  const editing = (printerGroupsState.groups || []).find((group) => group.id === editingId) || null;
+  const selected = new Set(selectedIds || editing?.printerIds || []);
+  const printers = [...fleet].sort((a, b) => String(a.name).localeCompare(String(b.name)));
+  printerGroupMembers.innerHTML = printers.length
+    ? printers.map((printer) => {
+        const current = groupForPrinter(printer.id);
+        const other = current && current.id !== editingId ? `<small>Currently in ${escapeHtml(current.name)} · selecting will move it</small>` : '';
+        return `<label class="printer-group-member">
+          <input type="checkbox" value="${escapeHtml(printer.id)}" data-printer-group-member${selected.has(printer.id) ? ' checked' : ''}>
+          <span><strong>${escapeHtml(printer.name)}</strong><small>${escapeHtml([printer.manufacturer, printer.model].filter(Boolean).join(' '))}</small>${other}</span>
+        </label>`;
+      }).join('')
+    : '<div class="subtle">No printers are configured.</div>';
+}
+
+function renderPrinterGroups() {
+  if (!printerGroupsList) return;
+  const groups = [...(printerGroupsState.groups || [])].sort((a, b) => String(a.name).localeCompare(String(b.name)));
+  printerGroupsList.innerHTML = groups.length
+    ? groups.map((group) => {
+        const members = (group.members || []).map((member) => member.printerName).sort((a, b) => String(a).localeCompare(String(b)));
+        return `<article class="printer-group-card" data-printer-group-card="${escapeHtml(group.id)}">
+          <div class="printer-group-card-main">
+            <div class="printer-group-card-title"><strong>${escapeHtml(group.name)}</strong><span>${group.printerIds?.length || 0} printer${Number(group.printerIds?.length || 0) === 1 ? '' : 's'}</span></div>
+            <div class="printer-group-card-members">${members.length ? members.map((name) => `<span>${escapeHtml(name)}</span>`).join('') : '<span class="subtle">No printers assigned</span>'}</div>
+          </div>
+          <div class="mini-actions">
+            <button type="button" class="secondary" data-printer-group-edit="${escapeHtml(group.id)}">Edit</button>
+            <button type="button" class="danger" data-printer-group-delete="${escapeHtml(group.id)}">Delete</button>
+          </div>
+        </article>`;
+      }).join('')
+    : '<div class="queue-empty">No printer groups configured. Create a group above to restrict automatic queue work or assign group-wide maintenance.</div>';
+}
+
+async function loadPrinterGroups({ preserveForm = false } = {}) {
+  const selectedGroup = queueAddGroup?.value || '';
+  printerGroupsState = await api('/api/printer-groups');
+  populateQueueGroupOptions(selectedGroup);
+  renderPrinterGroups();
+  if (!preserveForm) renderPrinterGroupMembers();
+  window.dispatchEvent(new CustomEvent('pfc:printer-groups-changed', { detail:printerGroupsState }));
+  return printerGroupsState;
+}
+
+async function queueLibraryFile(libraryFileId, options = {}, quantity = 1, priority = 'normal', groupId = null) {
   if (!libraryFileId) throw new Error('Choose a Print Library file to queue');
   const result = await api('/api/queue', {
     method:'POST',
@@ -1725,6 +1825,7 @@ async function queueLibraryFile(libraryFileId, options = {}, quantity = 1, prior
       libraryFileId,
       quantity,
       priority,
+      groupId:groupId || null,
       options
     })
   });
@@ -1737,6 +1838,7 @@ async function queueLibraryFile(libraryFileId, options = {}, quantity = 1, prior
 function openQueueAddDialog(libraryFile = null) {
   queueAddLibraryFile = libraryFile || null;
   queueAddForm?.reset();
+  populateQueueGroupOptions();
   if (queueAddStatus) queueAddStatus.textContent = '';
   if (queueAddError) {
     queueAddError.textContent = '';
@@ -1768,9 +1870,9 @@ async function addPrintQueueJob(printer, fileName, options = {}) {
   return result.job;
 }
 
-async function stageAutomaticQueueFile(file, options = {}, quantity = 1, priority = 'normal', description = '', printerTarget = null) {
+async function stageAutomaticQueueFile(file, options = {}, quantity = 1, priority = 'normal', description = '', printerTarget = null, groupId = null) {
   const libraryFile = await uploadLibraryFile(file, description, printerTarget);
-  return queueLibraryFile(libraryFile.id, options, quantity, priority);
+  return queueLibraryFile(libraryFile.id, options, quantity, priority, groupId);
 }
 
 function selectedPrinters() {
@@ -2205,6 +2307,86 @@ diagnosticsBtn?.addEventListener('click', async () => {
   diagnosticsDialog?.showModal();
   await loadDiagnostics();
 });
+printerGroupsBtn?.addEventListener('click', async () => {
+  if (topbarOverflow) topbarOverflow.open = false;
+  printerGroupsDialog?.showModal();
+  if (printerGroupsStatus) printerGroupsStatus.textContent = 'Loading printer groups…';
+  try {
+    await loadPrinterGroups();
+    resetPrinterGroupForm();
+    if (printerGroupsStatus) printerGroupsStatus.textContent = '';
+  } catch (error) {
+    if (printerGroupsStatus) printerGroupsStatus.textContent = '';
+    if (printerGroupError) {
+      printerGroupError.textContent = error.message;
+      printerGroupError.classList.remove('hidden');
+    }
+  }
+});
+document.querySelectorAll('[data-printer-groups-close]').forEach((el) => el.addEventListener('click', () => printerGroupsDialog?.close()));
+printerGroupCancelEdit?.addEventListener('click', resetPrinterGroupForm);
+printerGroupForm?.addEventListener('submit', async (event) => {
+  event.preventDefault();
+  const id = printerGroupId?.value || '';
+  const submit = printerGroupSubmit;
+  if (submit) submit.disabled = true;
+  if (printerGroupError) {
+    printerGroupError.textContent = '';
+    printerGroupError.classList.add('hidden');
+  }
+  const printerIds = [...(printerGroupMembers?.querySelectorAll('[data-printer-group-member]:checked') || [])].map((input) => input.value);
+  try {
+    await api(id ? `/api/printer-groups/${encodeURIComponent(id)}` : '/api/printer-groups', {
+      method:id ? 'PATCH' : 'POST',
+      body:JSON.stringify({ name:printerGroupName?.value || '', printerIds })
+    });
+    await loadPrinterGroups();
+    resetPrinterGroupForm();
+    if (printerGroupsStatus) printerGroupsStatus.textContent = id ? 'Printer group updated.' : 'Printer group created.';
+  } catch (error) {
+    if (printerGroupError) {
+      printerGroupError.textContent = error.message;
+      printerGroupError.classList.remove('hidden');
+    }
+  } finally {
+    if (submit) submit.disabled = false;
+  }
+});
+printerGroupsList?.addEventListener('click', async (event) => {
+  const edit = event.target.closest('[data-printer-group-edit]');
+  if (edit) {
+    const group = (printerGroupsState.groups || []).find((item) => item.id === edit.dataset.printerGroupEdit);
+    if (!group) return;
+    if (printerGroupId) printerGroupId.value = group.id;
+    if (printerGroupName) printerGroupName.value = group.name;
+    if (printerGroupFormTitle) printerGroupFormTitle.textContent = 'Edit printer group';
+    if (printerGroupSubmit) printerGroupSubmit.textContent = 'Save group';
+    printerGroupCancelEdit?.classList.remove('hidden');
+    renderPrinterGroupMembers(group.printerIds || []);
+    printerGroupName?.focus();
+    printerGroupForm?.scrollIntoView({ behavior:'smooth', block:'start' });
+    return;
+  }
+  const remove = event.target.closest('[data-printer-group-delete]');
+  if (!remove) return;
+  const group = (printerGroupsState.groups || []).find((item) => item.id === remove.dataset.printerGroupDelete);
+  if (!group) return;
+  if (!confirm(`Delete printer group “${group.name}”?\n\nThe printers themselves will not be removed. Active queue work or maintenance rules that still reference this group must be removed first.`)) return;
+  remove.disabled = true;
+  try {
+    await api(`/api/printer-groups/${encodeURIComponent(group.id)}`, { method:'DELETE' });
+    await loadPrinterGroups();
+    resetPrinterGroupForm();
+    if (printerGroupsStatus) printerGroupsStatus.textContent = `Deleted “${group.name}”.`;
+  } catch (error) {
+    remove.disabled = false;
+    if (printerGroupError) {
+      printerGroupError.textContent = error.message;
+      printerGroupError.classList.remove('hidden');
+    }
+  }
+});
+
 backupRecoveryBtn?.addEventListener('click', async () => {
   if (topbarOverflow) topbarOverflow.open = false;
   if (backupActionStatus) backupActionStatus.textContent = '';
@@ -2439,18 +2621,20 @@ queueAddForm?.addEventListener('submit', async (event) => {
     const data = new FormData(queueAddForm);
     const quantity = Number(data.get('quantity') || 1);
     const priority = String(data.get('priority') || 'normal');
+    const groupId = String(data.get('groupId') || '').trim() || null;
     const options = {
       levelingBeforePrint:data.get('levelingBeforePrint') === 'on',
       flowCalibrationBeforePrint:data.get('flowCalibrationBeforePrint') === 'on'
     };
-    if (queueAddLibraryFile) await queueLibraryFile(queueAddLibraryFile.id, options, quantity, priority);
+    if (queueAddLibraryFile) await queueLibraryFile(queueAddLibraryFile.id, options, quantity, priority, groupId);
     else await stageAutomaticQueueFile(
       file,
       options,
       quantity,
       priority,
       data.get('description') || '',
-      parsePrinterTargetValue(data.get('printerTarget') || '')
+      parsePrinterTargetValue(data.get('printerTarget') || ''),
+      groupId
     );
     if (queueAddStatus) queueAddStatus.textContent = quantity > 1 ? `Added ${quantity} copies as a production batch` : 'Added to fleet queue';
     queueAddDialog?.close();
@@ -4616,5 +4800,6 @@ window.addEventListener('beforeunload', () => eventSource?.close());
 
 await loadAdapters();
 await loadInitialFleet();
+await loadPrinterGroups().catch((error) => console.error('Could not load printer groups', error));
 await refreshPrintLibrary().catch((error) => console.error('Could not load Print Library', error));
 connectLiveUpdates();

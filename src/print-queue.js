@@ -120,6 +120,8 @@ function publicJob(job) {
     stagedFile,
     requirements: job.requirements ? structuredClone(job.requirements) : null,
     printerTarget: job.printerTarget ? { ...job.printerTarget } : null,
+    groupId: job.groupId || null,
+    groupName: job.groupName || null,
     compatibility: job.compatibility ? structuredClone(job.compatibility) : null,
     selectionReason: job.selectionReason || null,
     status: job.status,
@@ -248,6 +250,7 @@ export class PrintQueueService {
     getFileMaterialMetadataFn = getPrinterFileMaterialMetadata,
     saveFileMaterialMetadataFn = savePrinterFileMaterialMetadata,
     getQueueFileFn = getQueueFile,
+    getPrinterGroupFn = null,
     printerAllowedFn = null,
     operationCoordinator = null,
     onChange = null,
@@ -266,6 +269,7 @@ export class PrintQueueService {
     this.getFileMaterialMetadata = getFileMaterialMetadataFn;
     this.saveFileMaterialMetadata = saveFileMaterialMetadataFn;
     this.getQueueFile = getQueueFileFn;
+    this.getPrinterGroup = typeof getPrinterGroupFn === 'function' ? getPrinterGroupFn : () => null;
     this.printerAllowed = typeof printerAllowedFn === 'function' ? printerAllowedFn : () => true;
     this.operationCoordinator = operationCoordinator;
     this.onChange = onChange;
@@ -344,7 +348,12 @@ export class PrintQueueService {
     const orderedJobs = this.jobs.map((job) => job.status === 'queued' ? orderedQueued[queuedIndex++] : job);
     const jobs = orderedJobs.map((job) => {
       const currentName = this.fleetState.getPrinterState(job.printerId)?.name;
-      return publicJob(currentName ? { ...job, printerName: currentName } : job);
+      const currentGroupName = job.groupId ? this.getPrinterGroup(job.groupId)?.name : null;
+      return publicJob({
+        ...job,
+        ...(currentName ? { printerName:currentName } : {}),
+        ...(currentGroupName ? { groupName:currentGroupName } : {})
+      });
     });
     const bedClearance = this.getBedClearance();
     return {
@@ -396,6 +405,8 @@ export class PrintQueueService {
         finished,
         stagedFile: runs[0]?.stagedFile ? { ...runs[0].stagedFile } : null,
         printerTarget: runs[0]?.printerTarget ? { ...runs[0].printerTarget } : null,
+        groupId:runs[0]?.groupId || null,
+        groupName:runs[0]?.groupId ? (this.getPrinterGroup(runs[0].groupId)?.name || runs[0]?.groupName || null) : null,
         queuedAt: runs.map((job) => job.queuedAt).filter(Boolean).sort()[0] || null,
         updatedAt: runs.map((job) => job.updatedAt).filter(Boolean).sort().at(-1) || null,
         runs: runs.map((job) => ({
@@ -476,6 +487,7 @@ export class PrintQueueService {
       stagedFileId,
       quantity,
       priority:source.priority,
+      groupId:source.groupId || null,
       options
     });
   }
@@ -596,8 +608,12 @@ export class PrintQueueService {
     return job ? publicJob(job) : null;
   }
 
-  async add({ printerId, fileName, options = {}, assignmentMode = 'fixed', stagedFileId = null, quantity = 1, priority = 'normal' } = {}) {
+  async add({ printerId, fileName, options = {}, assignmentMode = 'fixed', stagedFileId = null, quantity = 1, priority = 'normal', groupId = null } = {}) {
     const mode = assignmentMode === 'automatic' ? 'automatic' : 'fixed';
+    const requestedGroupId = mode === 'automatic' && groupId ? String(groupId).trim() : null;
+    const requestedGroup = requestedGroupId ? this.getPrinterGroup(requestedGroupId) : null;
+    if (requestedGroupId && !requestedGroup) throw new Error('Selected printer group no longer exists');
+    if (requestedGroup && !Array.isArray(requestedGroup.printerIds)) throw new Error('Selected printer group is invalid');
     const requestedQuantity = Number(quantity ?? 1);
     if (!Number.isInteger(requestedQuantity) || requestedQuantity < 1 || requestedQuantity > 999) throw new Error('Production quantity must be a whole number from 1 to 999');
     if (requestedQuantity > 1 && mode !== 'automatic') throw new Error('Production quantities greater than one require Next available compatible printer scheduling');
@@ -671,6 +687,8 @@ export class PrintQueueService {
       } : null,
       requirements: stagedFile?.requirements ? structuredClone(stagedFile.requirements) : null,
       printerTarget: stagedFile?.printerTarget ? { ...stagedFile.printerTarget } : null,
+      groupId:requestedGroup?.id || null,
+      groupName:requestedGroup?.name || null,
       compatibility: null,
       selectionReason: null,
       options: sanitizeOptions(options),
@@ -708,6 +726,7 @@ export class PrintQueueService {
       fileName: source.fileName,
       stagedFileId: source.stagedFile?.id || null,
       priority:source.priority,
+      groupId:source.groupId || null,
       options: source.options
     });
   }
@@ -1092,7 +1111,23 @@ export class PrintQueueService {
 
   async refreshAutomaticCompatibility(job, fleet, jobIndex = this.jobs.indexOf(job)) {
     const results = [];
+    const restrictedGroup = job.groupId ? this.getPrinterGroup(job.groupId) : null;
     for (const state of fleet.values()) {
+      if (job.groupId && (!restrictedGroup || !restrictedGroup.printerIds.includes(state.id))) {
+        results.push({
+          printerId:state.id,
+          printerName:state.name,
+          ready:false,
+          category:'incompatible',
+          reasons:[{
+            code:restrictedGroup ? 'printer_group' : 'printer_group_missing',
+            text:restrictedGroup
+              ? `Not a member of printer group ${restrictedGroup.name || job.groupName || job.groupId}`
+              : `Printer group ${job.groupName || job.groupId} no longer exists`
+          }]
+        });
+        continue;
+      }
       if (!this.printerAllowed(state.id)) {
         results.push({
           printerId:state.id,

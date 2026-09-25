@@ -61,6 +61,7 @@ state/
   emulator-settings.json          # optional
   backup-settings.json            # optional, schedule restored disabled
   maintenance.json                # maintenance tasks, history and observed usage
+  printer-groups.json              # custom printer groups and exclusive membership
   license.json                    # optional signed customer licence
 
 print-library/
@@ -159,7 +160,11 @@ Back up integrated simulator enablement/settings where present. Restoring emulat
 
 ### Maintenance tracking
 
-Back up controller-owned `maintenance.json`, including individual-printer tasks, model-wide maintenance rules, per-printer inherited-rule assignment/baseline state, completion history, task interval baselines and controller-observed print-hour/print-cycle counters. These counters are controller observations rather than manufacturer lifetime odometers. Older backups without maintenance state restore with an empty maintenance store rather than retaining maintenance records from the target installation.
+Back up controller-owned `maintenance.json`, including individual-printer tasks, model-wide maintenance rules, group-wide maintenance rules, per-printer inherited-rule assignment/baseline state, completion history, task interval baselines and controller-observed print-hour/print-cycle counters. These counters are controller observations rather than manufacturer lifetime odometers. Older backups without maintenance state restore with an empty maintenance store rather than retaining maintenance records from the target installation.
+
+### Printer groups
+
+Back up controller-owned `printer-groups.json`, including group names and printer membership. Each printer may appear in at most one group. Queue jobs and group-wide maintenance rules reference groups by stable group ID. Restore inspection validates group definitions, exclusive membership, and queue/maintenance references before staging. Older backups created before printer groups existed restore with an empty group store.
 
 ### Licence
 

@@ -22,15 +22,17 @@ test('maintenance tracking is available from the controller overflow menu', () =
   assert.match(styles, /\.maintenance-task\[data-state="due"\]/);
 });
 
-test('maintenance window has separate add, model-rule and individual-printer views', () => {
+test('maintenance window has separate add, model-rule, group-rule and individual-printer views', () => {
   assert.match(index, /class="maintenance-view-selector"/);
   assert.match(index, /data-maintenance-view="add"[^>]*>Add maintenance tasks<\/button>/);
   assert.match(index, /data-maintenance-view="model"[^>]*>Model-wide maintenance rules<\/button>/);
+  assert.match(index, /data-maintenance-view="group"[^>]*>Group-wide maintenance rules<\/button>/);
   assert.match(index, /data-maintenance-view="printers"[^>]*>Individual printers<\/button>/);
   assert.match(index, /id="maintenanceTaskForm"[^>]*data-maintenance-view-panel="add"/);
   assert.match(maintenanceUi, /let activeMaintenanceView = 'printers'/);
   assert.match(maintenanceUi, /function setMaintenanceView\(view\)/);
   assert.match(maintenanceUi, /activeMaintenanceView === 'model'/);
+  assert.match(maintenanceUi, /activeMaintenanceView === 'group'/);
   assert.match(maintenanceUi, /activeMaintenanceView === 'printers'/);
   assert.match(maintenanceUi, /form\?\.classList\.toggle\('hidden', activeMaintenanceView !== 'add'\)/);
   assert.match(maintenanceUi, /viewButton\.addEventListener\('click'/);
@@ -125,23 +127,39 @@ test('maintenance completion is disabled after servicing until the task reaches 
   assert.match(maintenanceUi, /task\.completionReason/);
 });
 
-test('maintenance tasks can be assigned to individual printers or inherited by printer model', () => {
+test('maintenance tasks can be assigned to a printer, printer group or printer model', () => {
   assert.match(index, /id="maintenanceAssignmentScope"/);
   assert.match(index, /value="printer">Individual printer<\/option>/);
+  assert.match(index, /value="group">Printer group<\/option>/);
   assert.match(index, /value="model">Printer model<\/option>/);
+  assert.match(index, /id="maintenanceGroup"/);
   assert.match(index, /id="maintenanceModel"/);
   assert.match(maintenanceUi, /api\('\/api\/adapters'\)/);
   assert.match(maintenanceUi, /function modelTaskSection\(\)/);
   assert.match(maintenanceUi, /Model-wide maintenance rules/);
   assert.match(maintenanceUi, /Applies to matching printers automatically/);
   assert.match(maintenanceUi, /\/api\/maintenance\/model-tasks/);
+  assert.match(maintenanceUi, /\/api\/maintenance\/group-tasks/);
   assert.match(maintenanceUi, /data-task-scope="model"/);
+  assert.match(maintenanceUi, /data-task-scope="group"/);
   assert.match(maintenanceUi, /Assigned to this printer:/);
   assert.match(server, /maintenanceService\.addModelTask/);
   assert.match(server, /maintenanceService\.updateModelTask/);
   assert.match(server, /maintenanceService\.deleteModelTask/);
+  assert.match(server, /maintenanceService\.addGroupTask/);
+  assert.match(server, /maintenanceService\.updateGroupTask/);
+  assert.match(server, /maintenanceService\.deleteGroupTask/);
   assert.match(styles, /\.maintenance-model-rules/);
   assert.match(styles, /\.maintenance-scope-pill/);
+});
+
+test('group-wide maintenance rules can be completed across eligible group members', () => {
+  assert.match(maintenanceUi, /function groupTaskSection\(\)/);
+  assert.match(maintenanceUi, /data-maintenance-complete-group/);
+  assert.match(maintenanceUi, /Complete for group/);
+  assert.match(maintenanceUi, /\/api\/maintenance\/group-tasks\/\$\{encodeURIComponent\(taskId\)\}\/complete/);
+  assert.match(server, /maintenanceService\.completeGroupTask/);
+  assert.match(server, /Group-wide maintenance task completed/);
 });
 
 test('model-wide maintenance rules can be completed across eligible matching printers', () => {

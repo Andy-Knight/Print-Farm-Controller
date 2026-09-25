@@ -63,8 +63,13 @@ function normalizeModelTarget(value) {
   return { adapterType, model };
 }
 
+function normalizeGroupTarget(value) {
+  const groupId = cleanText(value?.groupId, { required:true, max:100, label:'Printer group' });
+  return { groupId };
+}
+
 function defaultState() {
-  return { version:1, modelTasks:[], printers:{} };
+  return { version:1, modelTasks:[], groupTasks:[], printers:{} };
 }
 
 function printerRecord(state, printerId) {
@@ -73,6 +78,7 @@ function printerRecord(state, printerId) {
       usage:{ printSeconds:0, printCount:0, updatedAt:null },
       tasks:[],
       modelTaskState:{},
+      groupTaskState:{},
       history:[]
     };
   }
@@ -81,6 +87,9 @@ function printerRecord(state, printerId) {
   record.tasks = Array.isArray(record.tasks) ? record.tasks : [];
   record.modelTaskState = record.modelTaskState && typeof record.modelTaskState === 'object' && !Array.isArray(record.modelTaskState)
     ? record.modelTaskState
+    : {};
+  record.groupTaskState = record.groupTaskState && typeof record.groupTaskState === 'object' && !Array.isArray(record.groupTaskState)
+    ? record.groupTaskState
     : {};
   record.history = Array.isArray(record.history) ? record.history : [];
   record.usage.printSeconds = Math.max(0, Number(record.usage.printSeconds || 0));
@@ -212,6 +221,47 @@ function effectiveModelTask(task, record, nowMs) {
   };
 }
 
+function groupTaskState(record, task, nowMs) {
+  let state = record.groupTaskState[task.id];
+  if (!state) {
+    state = {
+      assignedAt:nowIso(nowMs),
+      baseline:{
+        printSeconds:Number(record.usage.printSeconds || 0),
+        printCount:Number(record.usage.printCount || 0)
+      },
+      lastCompletedAt:null,
+      lastCompletedUsage:null
+    };
+    record.groupTaskState[task.id] = state;
+    return { state, created:true };
+  }
+  state.baseline ||= {
+    printSeconds:Number(record.usage.printSeconds || 0),
+    printCount:Number(record.usage.printCount || 0)
+  };
+  state.assignedAt ||= task.createdAt || nowIso(nowMs);
+  if (!Object.hasOwn(state, 'lastCompletedAt')) state.lastCompletedAt = null;
+  if (!Object.hasOwn(state, 'lastCompletedUsage')) state.lastCompletedUsage = null;
+  return { state, created:false };
+}
+
+function effectiveGroupTask(task, record, nowMs, groupName = null) {
+  const { state, created } = groupTaskState(record, task, nowMs);
+  return {
+    task:{
+      ...task,
+      assignedAt:state.assignedAt,
+      baseline:structuredClone(state.baseline),
+      lastCompletedAt:state.lastCompletedAt,
+      lastCompletedUsage:state.lastCompletedUsage ? structuredClone(state.lastCompletedUsage) : null,
+      assignment:{ scope:'group', ...structuredClone(task.target), groupName:groupName || null },
+      inherited:true
+    },
+    created
+  };
+}
+
 function localTask(task, printerId) {
   return {
     ...task,
@@ -225,12 +275,14 @@ export class MaintenanceService {
     fleetState,
     dataDir = controllerDataDir,
     printerLookup = getPrinter,
+    groupLookupFn = null,
     nowFn = () => Date.now(),
     persistDelayMs = 5000
   } = {}) {
     if (!fleetState) throw new Error('fleetState is required');
     this.fleetState = fleetState;
     this.printerLookup = printerLookup;
+    this.groupLookup = typeof groupLookupFn === 'function' ? groupLookupFn : () => null;
     this.nowFn = nowFn;
     this.persistDelayMs = persistDelayMs;
     this.filePath = path.join(path.resolve(dataDir), 'maintenance.json');
@@ -251,6 +303,7 @@ export class MaintenanceService {
         throw new Error('Maintenance store is invalid');
       }
       raw.modelTasks = Array.isArray(raw.modelTasks) ? raw.modelTasks : [];
+      raw.groupTasks = Array.isArray(raw.groupTasks) ? raw.groupTasks : [];
       this.state = raw;
     } catch (error) {
       if (error?.code !== 'ENOENT') throw error;
@@ -320,6 +373,11 @@ export class MaintenanceService {
         if (!matchesModel(printer, task.target)) continue;
         if (modelTaskState(record, task, nowMs).created) changed = true;
       }
+      for (const task of this.state.groupTasks || []) {
+        const group = this.groupLookup(task.target?.groupId);
+        if (!group?.printerIds?.includes(String(printer.id))) continue;
+        if (groupTaskState(record, task, nowMs).created) changed = true;
+      }
 
       const active = isPrintActive(printer);
       const session = this.sessions.get(printer.id);
@@ -384,8 +442,16 @@ export class MaintenanceService {
         if (effective.created) changed = true;
         return publicTask(effective.task, record.usage, nowMs);
       });
+    const groupInherited = (this.state.groupTasks || [])
+      .filter((task) => this.groupLookup(task.target?.groupId)?.printerIds?.includes(String(printer.id)))
+      .map((task) => {
+        const group = this.groupLookup(task.target?.groupId);
+        const effective = effectiveGroupTask(task, record, nowMs, group?.name || null);
+        if (effective.created) changed = true;
+        return publicTask(effective.task, record.usage, nowMs);
+      });
     if (changed) this.schedulePersist();
-    return [...local, ...inherited];
+    return [...local, ...inherited, ...groupInherited];
   }
 
   getPrinterStatus(printerOrId) {
@@ -454,9 +520,31 @@ export class MaintenanceService {
       };
     });
 
+    const groupTasks = (this.state.groupTasks || []).map((task) => {
+      const group = this.groupLookup(task.target?.groupId);
+      const memberIds = new Set(group?.printerIds || []);
+      const matchingPrinters = printerSnapshots.filter((printer) => memberIds.has(String(printer.printerId)));
+      const effective = matchingPrinters
+        .map((printer) => printer.tasks.find((candidate) =>
+          candidate.id === task.id && candidate.assignment?.scope === 'group'
+        ))
+        .filter(Boolean);
+      const eligible = effective.filter((candidate) => candidate.completionAllowed === true).length;
+      return {
+        ...structuredClone(task),
+        assignment:{ scope:'group', ...structuredClone(task.target), groupName:group?.name || null },
+        completionSummary:{
+          matching:matchingPrinters.length,
+          eligible,
+          locked:Math.max(0, matchingPrinters.length - eligible)
+        }
+      };
+    });
+
     return {
       generatedAt:nowIso(nowMs),
       modelTasks,
+      groupTasks,
       printers:printerSnapshots
     };
   }
@@ -511,6 +599,97 @@ export class MaintenanceService {
       ...structuredClone(task),
       assignment:{ scope:'model', ...structuredClone(task.target) }
     };
+  }
+
+  async addGroupTask(target, input = {}) {
+    const normalizedTarget = normalizeGroupTarget(target);
+    const group = this.groupLookup(normalizedTarget.groupId);
+    if (!group) {
+      const error = new Error('Printer group not found');
+      error.statusCode = 404;
+      throw error;
+    }
+    const nowMs = this.nowFn();
+    const task = {
+      ...this.taskDefinition(input, nowMs),
+      target:normalizedTarget
+    };
+    this.state.groupTasks ||= [];
+    this.state.groupTasks.push(task);
+    for (const printer of this.configuredFleet()) {
+      if (!group.printerIds?.includes(String(printer.id))) continue;
+      groupTaskState(printerRecord(this.state, printer.id), task, nowMs);
+    }
+    await this.persistNow();
+    return {
+      ...structuredClone(task),
+      assignment:{ scope:'group', ...structuredClone(task.target), groupName:group.name || null }
+    };
+  }
+
+  async updateGroupTask(taskId, input = {}, target = undefined) {
+    this.state.groupTasks ||= [];
+    const task = this.state.groupTasks.find((item) => item.id === taskId);
+    if (!task) {
+      const error = new Error('Group maintenance task not found');
+      error.statusCode = 404;
+      throw error;
+    }
+    let targetChanged = false;
+    if (target !== undefined) {
+      const normalized = normalizeGroupTarget(target);
+      if (!this.groupLookup(normalized.groupId)) {
+        const error = new Error('Printer group not found');
+        error.statusCode = 404;
+        throw error;
+      }
+      targetChanged = normalized.groupId !== task.target?.groupId;
+      task.target = normalized;
+    }
+    if (input.name !== undefined) task.name = cleanText(input.name, { required:true, max:100, label:'Maintenance task name' });
+    if (input.description !== undefined) task.description = cleanText(input.description, { max:1000, label:'Maintenance task description', multiline:true });
+    if (input.schedule !== undefined) task.schedule = normalizeSchedule(input.schedule);
+    if (input.enabled !== undefined) task.enabled = input.enabled !== false;
+    task.updatedAt = nowIso(this.nowFn());
+
+    if (targetChanged) {
+      for (const record of Object.values(this.state.printers)) {
+        if (record?.groupTaskState) delete record.groupTaskState[task.id];
+      }
+      const group = this.groupLookup(task.target.groupId);
+      const nowMs = this.nowFn();
+      for (const printer of this.configuredFleet()) {
+        if (!group?.printerIds?.includes(String(printer.id))) continue;
+        groupTaskState(printerRecord(this.state, printer.id), task, nowMs);
+      }
+    }
+
+    await this.persistNow();
+    const group = this.groupLookup(task.target.groupId);
+    return {
+      ...structuredClone(task),
+      assignment:{ scope:'group', ...structuredClone(task.target), groupName:group?.name || null }
+    };
+  }
+
+  async deleteGroupTask(taskId) {
+    this.state.groupTasks ||= [];
+    const before = this.state.groupTasks.length;
+    this.state.groupTasks = this.state.groupTasks.filter((item) => item.id !== taskId);
+    if (this.state.groupTasks.length === before) {
+      const error = new Error('Group maintenance task not found');
+      error.statusCode = 404;
+      throw error;
+    }
+    for (const record of Object.values(this.state.printers)) {
+      if (record?.groupTaskState) delete record.groupTaskState[taskId];
+    }
+    await this.persistNow();
+    return true;
+  }
+
+  hasGroupTaskReference(groupId) {
+    return (this.state.groupTasks || []).some((task) => task.target?.groupId === String(groupId || ''));
   }
 
   async updateTask(printerId, taskId, input = {}) {
@@ -609,6 +788,67 @@ export class MaintenanceService {
     return { cleared };
   }
 
+  async completeGroupTask(taskId, notes = '') {
+    this.state.groupTasks ||= [];
+    const task = this.state.groupTasks.find((item) => item.id === taskId);
+    if (!task) {
+      const error = new Error('Group maintenance task not found');
+      error.statusCode = 404;
+      throw error;
+    }
+    const group = this.groupLookup(task.target?.groupId);
+    if (!group) {
+      const error = new Error('Printer group not found');
+      error.statusCode = 404;
+      throw error;
+    }
+    const cleanNotes = cleanText(notes, { max:1000, label:'Maintenance notes', multiline:true });
+    const nowMs = this.nowFn();
+    const completedAt = nowIso(nowMs);
+    const matching = this.configuredFleet().filter((printer) => group.printerIds?.includes(String(printer.id)));
+    const completed = [];
+    const skipped = [];
+
+    for (const printer of matching) {
+      const record = printerRecord(this.state, printer.id);
+      const effective = effectiveGroupTask(task, record, nowMs, group.name).task;
+      const status = taskStatus(effective, record.usage, nowMs);
+      const completion = completionAvailability(effective, status);
+      if (!completion.allowed) {
+        skipped.push({ printerId:printer.id, printerName:printer.name || printer.id, reason:completion.reason || 'Maintenance task cannot be completed yet' });
+        continue;
+      }
+      const usageSnapshot = {
+        printSeconds:Number(record.usage.printSeconds || 0),
+        printHours:Number((Number(record.usage.printSeconds || 0) / 3600).toFixed(2)),
+        printCount:Number(record.usage.printCount || 0)
+      };
+      const entry = {
+        id:crypto.randomUUID(),
+        taskId:task.id,
+        taskName:task.name,
+        assignment:{ scope:'group', groupId:task.target.groupId, groupName:group.name || null },
+        completedAt,
+        notes:cleanNotes,
+        usageSnapshot
+      };
+      record.history.unshift(entry);
+      record.history = record.history.slice(0, HISTORY_LIMIT);
+      const perPrinter = groupTaskState(record, task, nowMs).state;
+      perPrinter.lastCompletedAt = completedAt;
+      perPrinter.lastCompletedUsage = { printSeconds:usageSnapshot.printSeconds, printCount:usageSnapshot.printCount };
+      completed.push({ printerId:printer.id, printerName:printer.name || printer.id, history:structuredClone(entry) });
+    }
+
+    if (completed.length) await this.persistNow();
+    return {
+      task:{ ...structuredClone(task), assignment:{ scope:'group', groupId:task.target.groupId, groupName:group.name || null } },
+      summary:{ matching:matching.length, completed:completed.length, skipped:skipped.length },
+      completed,
+      skipped
+    };
+  }
+
   async completeModelTask(taskId, notes = '') {
     this.state.modelTasks ||= [];
     const task = this.state.modelTasks.find((item) => item.id === taskId);
@@ -693,7 +933,12 @@ export class MaintenanceService {
     const model = local
       ? null
       : (this.state.modelTasks || []).find((item) => item.id === taskId && matchesModel(printer, item.target));
-    if (!local && !model) {
+    const group = local || model
+      ? null
+      : (this.state.groupTasks || []).find((item) =>
+          item.id === taskId && this.groupLookup(item.target?.groupId)?.printerIds?.includes(String(printer.id))
+        );
+    if (!local && !model && !group) {
       const error = new Error('Maintenance task not found for this printer');
       error.statusCode = 404;
       throw error;
@@ -702,7 +947,9 @@ export class MaintenanceService {
     const nowMs = this.nowFn();
     const effectiveForCompletion = local
       ? localTask(local, printerId)
-      : effectiveModelTask(model, record, nowMs).task;
+      : model
+        ? effectiveModelTask(model, record, nowMs).task
+        : effectiveGroupTask(group, record, nowMs, this.groupLookup(group.target?.groupId)?.name || null).task;
     const statusForCompletion = taskStatus(effectiveForCompletion, record.usage, nowMs);
     const completion = completionAvailability(effectiveForCompletion, statusForCompletion);
     if (!completion.allowed) {
@@ -719,8 +966,10 @@ export class MaintenanceService {
     };
     const assignment = model
       ? { scope:'model', ...structuredClone(model.target) }
-      : { scope:'printer', printerId };
-    const taskName = (local || model).name;
+      : group
+        ? { scope:'group', ...structuredClone(group.target), groupName:this.groupLookup(group.target?.groupId)?.name || null }
+        : { scope:'printer', printerId };
+    const taskName = (local || model || group).name;
     const entry = {
       id:crypto.randomUUID(),
       taskId,
@@ -742,7 +991,7 @@ export class MaintenanceService {
       };
       local.updatedAt = completedAt;
       resultTask = publicTask(localTask(local, printerId), record.usage, this.nowFn());
-    } else {
+    } else if (model) {
       const perPrinter = modelTaskState(record, model, this.nowFn()).state;
       perPrinter.lastCompletedAt = completedAt;
       perPrinter.lastCompletedUsage = {
@@ -750,6 +999,15 @@ export class MaintenanceService {
         printCount:usageSnapshot.printCount
       };
       const effective = effectiveModelTask(model, record, this.nowFn()).task;
+      resultTask = publicTask(effective, record.usage, this.nowFn());
+    } else {
+      const perPrinter = groupTaskState(record, group, this.nowFn()).state;
+      perPrinter.lastCompletedAt = completedAt;
+      perPrinter.lastCompletedUsage = {
+        printSeconds:usageSnapshot.printSeconds,
+        printCount:usageSnapshot.printCount
+      };
+      const effective = effectiveGroupTask(group, record, this.nowFn(), this.groupLookup(group.target?.groupId)?.name || null).task;
       resultTask = publicTask(effective, record.usage, this.nowFn());
     }
 
