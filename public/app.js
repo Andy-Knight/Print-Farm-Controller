@@ -12,6 +12,10 @@ const formError = document.querySelector('#formError');
 const scanNetworkBtn = document.querySelector('#scanNetworkBtn');
 const discoveryStatus = document.querySelector('#discoveryStatus');
 const discoveryResults = document.querySelector('#discoveryResults');
+const virtualPrinterStatus = document.querySelector('#virtualPrinterStatus');
+const virtualPrinterResults = document.querySelector('#virtualPrinterResults');
+const refreshVirtualPrintersBtn = document.querySelector('#refreshVirtualPrintersBtn');
+const openSimulatorBtn = document.querySelector('#openSimulatorBtn');
 const liveIndicator = document.querySelector('#liveIndicator');
 const controllerVersionEl = document.querySelector('#controllerVersion');
 const controllerEditionEl = document.querySelector('#controllerEdition');
@@ -2301,6 +2305,109 @@ async function loadAdapters() {
   }
 }
 
+function virtualPrinterAlreadyAdded(virtualPrinter) {
+  const settings = virtualPrinter?.controllerSettings || {};
+  if (!settings.adapterType || !settings.host) return false;
+  const portNames = {
+    'flashforge-ad5m':['httpPort','tcpPort'],
+    'flashforge-creator5':['httpPort'],
+    'snapmaker-u1':['httpPort'],
+    'bambu-lab':['mqttPort','ftpsPort']
+  }[settings.adapterType] || [];
+
+  return fleet.some((printer) => {
+    if (printer.simulated !== true) return false;
+    if (String(printer.adapterType || '') !== String(settings.adapterType || '')) return false;
+    if (String(printer.host || '').trim().toLowerCase() !== String(settings.host || '').trim().toLowerCase()) return false;
+    if (settings.serialNumber && printer.serialNumber && String(printer.serialNumber) !== String(settings.serialNumber)) return false;
+    return portNames.every((name) => settings[name] == null || Number(printer[name]) === Number(settings[name]));
+  });
+}
+
+function virtualPrinterPortSummary(virtualPrinter) {
+  const ports = virtualPrinter?.ports || {};
+  return Object.entries(ports)
+    .filter(([name, value]) => name.endsWith('Port') && Number.isFinite(Number(value)))
+    .map(([name, value]) => `${name.replace(/Port$/, '')}:${value}`)
+    .join(' · ');
+}
+
+function renderVirtualPrinterResults(printers = []) {
+  if (!virtualPrinterResults) return;
+  virtualPrinterResults._printers = printers;
+  if (!printers.length) {
+    virtualPrinterResults.innerHTML = '<div class="discovery-empty">No virtual printers are currently running. Open the Printer simulator to create one.</div>';
+    return;
+  }
+  virtualPrinterResults.innerHTML = printers.map((printer, index) => {
+    const alreadyAdded = virtualPrinterAlreadyAdded(printer);
+    const settings = printer.controllerSettings || {};
+    const model = [printer.manufacturer, printer.model].filter(Boolean).join(' ');
+    const ports = virtualPrinterPortSummary(printer);
+    return `<div class="discovery-result ${alreadyAdded ? 'already-added' : ''}">
+      <div class="discovery-main">
+        <strong>${escapeHtml(printer.name || settings.name || printer.model || 'Virtual printer')}</strong>
+        <div class="subtle">${escapeHtml([model, settings.host || printer.host, ports].filter(Boolean).join(' · '))}</div>
+        <div class="serial-line">Integrated simulator · ${escapeHtml(settings.adapterType || printer.adapterType || 'unknown adapter')}${settings.serialNumber ? ` · ${escapeHtml(settings.serialNumber)}` : ''}</div>
+      </div>
+      <button type="button" class="secondary" data-add-virtual-printer="${index}" ${alreadyAdded || !settings.adapterType ? 'disabled' : ''}>${alreadyAdded ? 'Added' : 'Add'}</button>
+    </div>`;
+  }).join('');
+}
+
+async function loadVirtualPrinters() {
+  if (!virtualPrinterStatus || !virtualPrinterResults) return;
+  if (refreshVirtualPrintersBtn) {
+    refreshVirtualPrintersBtn.disabled = true;
+    refreshVirtualPrintersBtn.textContent = 'Refreshing…';
+  }
+  virtualPrinterStatus.textContent = 'Checking integrated simulator…';
+  try {
+    const status = await api('/api/emulator/status');
+    if (!status.enabled || !status.running) {
+      virtualPrinterStatus.textContent = 'Printer simulator is disabled. Open the simulator to enable it and create virtual printers.';
+      renderVirtualPrinterResults([]);
+      return;
+    }
+    const { printers = [] } = await api('/api/emulator/printers');
+    renderVirtualPrinterResults(printers);
+    virtualPrinterStatus.textContent = `${printers.length} virtual printer${printers.length === 1 ? '' : 's'} running · click Add to register one with the controller.`;
+  } catch (error) {
+    virtualPrinterStatus.textContent = `Could not read virtual printers: ${error.message}`;
+    renderVirtualPrinterResults([]);
+  } finally {
+    if (refreshVirtualPrintersBtn) {
+      refreshVirtualPrintersBtn.disabled = false;
+      refreshVirtualPrintersBtn.textContent = 'Refresh';
+    }
+  }
+}
+
+async function addVirtualPrinter(index, button) {
+  const printer = virtualPrinterResults?._printers?.[Number(index)];
+  const settings = printer?.controllerSettings;
+  if (!printer || !settings?.adapterType) return;
+  const original = button?.textContent || 'Add';
+  if (button) {
+    button.disabled = true;
+    button.textContent = 'Adding…';
+  }
+  formError.classList.add('hidden');
+  try {
+    await api('/api/printers', { method:'POST', body:JSON.stringify(settings) });
+    await loadInitialFleet();
+    await loadVirtualPrinters();
+    if (virtualPrinterStatus) virtualPrinterStatus.textContent = `${printer.name || printer.model || 'Virtual printer'} added to the controller.`;
+  } catch (error) {
+    formError.textContent = error.message;
+    formError.classList.remove('hidden');
+    if (button) {
+      button.disabled = false;
+      button.textContent = original;
+    }
+  }
+}
+
 function renderDiscoveryResults(printers) {
   if (!printers.length) {
     discoveryResults.innerHTML = '<div class="discovery-empty">No supported printers responded. Manual entry still works.</div>';
@@ -2344,6 +2451,7 @@ function openAdd() {
   formError.textContent = '';
   addDialog.showModal();
   renderAdapterFields(adapterTypeSelect.value);
+  loadVirtualPrinters().catch((error) => console.error('Could not load virtual printers', error));
   if (Date.now() - lastDiscoveryAt > 30000) scanNetwork();
 }
 
@@ -2864,6 +2972,13 @@ document.addEventListener('click', (event) => {
 document.querySelectorAll('[data-add-printer]').forEach((el) => el.addEventListener('click', openAdd));
 document.querySelectorAll('[data-close]').forEach((el) => el.addEventListener('click', () => el.closest('dialog').close()));
 scanNetworkBtn.addEventListener('click', scanNetwork);
+refreshVirtualPrintersBtn?.addEventListener('click', () => loadVirtualPrinters());
+openSimulatorBtn?.addEventListener('click', () => window.open('/simulator/', '_blank', 'noopener'));
+virtualPrinterResults?.addEventListener('click', (event) => {
+  const button = event.target.closest('[data-add-virtual-printer]');
+  if (!button) return;
+  addVirtualPrinter(button.dataset.addVirtualPrinter, button);
+});
 adapterTypeSelect.addEventListener('change', () => renderAdapterFields(adapterTypeSelect.value));
 
 discoveryResults.addEventListener('click', (event) => {
