@@ -76,7 +76,7 @@ export class VirtualPrinter extends EventEmitter {
     this.autoProgress = true;
     this.maintenanceEndsAt = 0;
     this.bed = { actual: 25, target: 0 };
-    this.chamber = { actual: 25 };
+    this.chamber = { actual: 25, target: 0 };
     this.tools = defaultTools(profile.toolCount || 1);
     if (this.model === 'X1C') this.tools[0].nozzleVolumeType = 'hardened-steel';
     this.amsUnits = defaultAmsUnits(profile.adapterType === 'bambu-lab');
