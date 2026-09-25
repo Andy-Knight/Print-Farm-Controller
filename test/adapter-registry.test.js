@@ -67,8 +67,10 @@ test('FlashForge Creator 5 series exposes four-tool and model-specific chamber c
   assert.equal(base.limits.bedTemperature.max, 120);
   assert.deepEqual(base.uploadExtensions, ['.gcode','.3mf']);
 
+  assert.equal(pro.capabilities.chamberPreheat, true);
   assert.equal(pro.capabilities.chamberTemperatureSensor, true);
   assert.equal(pro.capabilities.chamberTemperatureControl, true);
+  assert.deepEqual(pro.limits.chamberPreheatChamberTemperature, { min:30, max:65 });
   assert.equal(pro.limits.chamberTemperature.max, 65);
 });
 
