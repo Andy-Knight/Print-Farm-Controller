@@ -186,10 +186,16 @@
       <div class="maintenance-tracking-note">
         Usage counters begin when this controller starts observing a printer. They are controller-observed values, not manufacturer lifetime counters.
       </div>
+      <div class="maintenance-view-selector" role="tablist" aria-label="Maintenance view">
+        <button type="button" class="maintenance-view-button" data-maintenance-view="add" role="tab" aria-selected="false">Add maintenance tasks</button>
+        <button type="button" class="maintenance-view-button" data-maintenance-view="model" role="tab" aria-selected="false">Model-wide maintenance rules</button>
+        <button type="button" class="maintenance-view-button active" data-maintenance-view="printers" role="tab" aria-selected="true">Individual printers</button>
+      </div>
+
       <div id="maintenanceStatus" class="subtle"></div>
       <div id="maintenanceError" class="error hidden"></div>
 
-      <form id="maintenanceTaskForm" class="maintenance-task-form">
+      <form id="maintenanceTaskForm" class="maintenance-task-form hidden" data-maintenance-view-panel="add">
         <input id="maintenanceTaskId" type="hidden" />
         <div class="maintenance-form-head">
           <div>
