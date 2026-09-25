@@ -236,6 +236,79 @@ test('model-wide tasks are inherited without duplication and keep per-printer ba
   }
 });
 
+test('model-wide maintenance completion applies to eligible matching printers and skips locked printers', async () => {
+  const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'pfc-maintenance-model-complete-'));
+  let now = Date.parse('2026-09-24T12:00:00Z');
+  const p1 = { ...printer(), id:'printer-1', name:'U1 A', adapterType:'snapmaker-u1', model:'U1' };
+  const p2 = { ...printer(), id:'printer-2', name:'U1 B', adapterType:'snapmaker-u1', model:'U1' };
+  const other = { ...printer(), id:'printer-3', name:'5M', adapterType:'flashforge-ad5m', model:'Adventurer 5M Pro' };
+  const fleet = new FakeFleet([p1, p2, other]);
+  const lookup = new Map([[p1.id,p1],[p2.id,p2],[other.id,other]]);
+  const service = new MaintenanceService({
+    fleetState:fleet,
+    dataDir:dir,
+    printerLookup:async (id) => lookup.get(id) || null,
+    nowFn:() => now,
+    persistDelayMs:1
+  });
+
+  try {
+    await service.start();
+    const task = await service.addModelTask(
+      { adapterType:'snapmaker-u1', model:'U1' },
+      { name:'Lubricate rails', schedule:{ type:'days', interval:10 } }
+    );
+
+    let snapshot = await service.getSnapshot([p1, p2, other]);
+    assert.deepEqual(snapshot.modelTasks[0].completionSummary, {
+      matching:2,
+      eligible:2,
+      locked:0
+    });
+
+    const initial = await service.completeModelTask(task.id, 'Initial model service');
+    assert.deepEqual(initial.summary, { matching:2, completed:2, skipped:0 });
+
+    snapshot = await service.getSnapshot([p1, p2, other]);
+    assert.deepEqual(snapshot.modelTasks[0].completionSummary, {
+      matching:2,
+      eligible:0,
+      locked:2
+    });
+    assert.equal(snapshot.printers.find((item) => item.printerId === p1.id).history.length, 1);
+    assert.equal(snapshot.printers.find((item) => item.printerId === p2.id).history.length, 1);
+    assert.equal(snapshot.printers.find((item) => item.printerId === other.id).history.length, 0);
+
+    now += 8 * 86400000;
+    await service.completeTask(p1.id, task.id, 'U1 A serviced separately');
+
+    snapshot = await service.getSnapshot([p1, p2, other]);
+    assert.deepEqual(snapshot.modelTasks[0].completionSummary, {
+      matching:2,
+      eligible:1,
+      locked:1
+    });
+
+    const partial = await service.completeModelTask(task.id, 'Complete remaining eligible printers');
+    assert.deepEqual(partial.summary, { matching:2, completed:1, skipped:1 });
+    assert.equal(partial.completed[0].printerId, p2.id);
+    assert.equal(partial.skipped[0].printerId, p1.id);
+    assert.match(partial.skipped[0].reason, /Due soon \(80%/);
+
+    snapshot = await service.getSnapshot([p1, p2, other]);
+    assert.equal(snapshot.printers.find((item) => item.printerId === p1.id).history.length, 2);
+    assert.equal(snapshot.printers.find((item) => item.printerId === p2.id).history.length, 2);
+    assert.deepEqual(snapshot.modelTasks[0].completionSummary, {
+      matching:2,
+      eligible:0,
+      locked:2
+    });
+  } finally {
+    await service.stop();
+    await fs.rm(dir, { recursive:true, force:true });
+  }
+});
+
 test('maintenance usage tracks observed print time and print cycles', async () => {
   const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'pfc-maintenance-usage-'));
   let now = Date.parse('2026-09-24T12:00:00Z');
