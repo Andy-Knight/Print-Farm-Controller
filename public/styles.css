@@ -1793,22 +1793,3 @@ button.library-file-preview { cursor:zoom-in; }
   outline-color:#a77d17;
   box-shadow:0 0 0 5px rgba(167, 125, 23, .12);
 }
-
-
-/* Reveal per-printer history after model-wide completion */
-.maintenance-printer-card-model-completed {
-  border-color:#3f6680;
-  box-shadow:0 0 0 3px rgba(118,183,220,.10);
-}
-.maintenance-history-entry-new {
-  border-color:#4c7d69;
-  background:#13231d;
-}
-:root[data-theme="light"] .maintenance-printer-card-model-completed {
-  border-color:#8eb5cd;
-  box-shadow:0 0 0 3px rgba(80,140,175,.10);
-}
-:root[data-theme="light"] .maintenance-history-entry-new {
-  border-color:#afd6c5;
-  background:#edf8f3;
-}
