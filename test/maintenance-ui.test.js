@@ -54,6 +54,13 @@ test('dashboard surfaces live maintenance alerts and filters affected printers',
   assert.match(server, /maintenanceService\?\.getPrinterStatus\?\.\(printer\.id\)/);
 });
 
+test('dashboard maintenance icon is not overwritten by printer state updates', () => {
+  assert.match(app, /<div class="badge" data-printer-state><\/div>/);
+  assert.match(app, /const badge = card\.querySelector\('\[data-printer-state\]'\)/);
+  assert.doesNotMatch(app, /const badge = card\.querySelector\('\[data-state\]'\)/);
+  assert.match(app, /data-maintenance-status-icon data-state="\$\{escapeHtml\(state\)\}"/);
+});
+
 test('maintenance persistent state participates in backup and restore', () => {
   assert.match(backupService, /state\/maintenance\.json/);
   assert.match(restoreService, /'maintenance\.json'/);
