@@ -239,6 +239,22 @@ export class MaintenanceService {
     return printer;
   }
 
+  getPrinterStatus(printerId) {
+    const nowMs = this.nowFn();
+    const record = printerRecord(this.state, printerId);
+    const tasks = record.tasks.map((task) => publicTask(task, record.usage, nowMs));
+    const enabled = tasks.filter((task) => task.enabled !== false);
+    const due = enabled.filter((task) => task.status.state === 'due').length;
+    const dueSoon = enabled.filter((task) => task.status.state === 'due_soon').length;
+    const state = due > 0 ? 'due' : dueSoon > 0 ? 'due_soon' : enabled.length > 0 ? 'current' : 'none';
+    return {
+      state,
+      total:enabled.length,
+      due,
+      dueSoon
+    };
+  }
+
   async getSnapshot(printers = []) {
     const nowMs = this.nowFn();
     const configured = Array.isArray(printers) ? printers : [];
