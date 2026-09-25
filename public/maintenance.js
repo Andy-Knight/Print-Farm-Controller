@@ -167,7 +167,7 @@ function printerCardsMarkup() {
     const history = (printer.history || []).slice(0, 5);
 
     return `
-      <section class="maintenance-printer-card">
+      <section class="maintenance-printer-card" data-maintenance-printer-card="${escapeHtml(printer.printerId)}" tabindex="-1">
         <div class="maintenance-printer-head">
           <div>
             <h3>${escapeHtml(printer.printerName)}</h3>
@@ -347,10 +347,37 @@ function beginEdit(scope, task, printerId = '') {
   form?.scrollIntoView({ behavior:'smooth', block:'start' });
 }
 
+async function openForPrinter(printerId) {
+  const id = String(printerId || '');
+  if (!id) return;
+  if (!dialog?.open) dialog?.showModal();
+  resetForm();
+  await refresh().catch(() => {});
+
+  const target = [...(list?.querySelectorAll?.('[data-maintenance-printer-card]') || [])]
+    .find((card) => card.dataset.maintenancePrinterCard === id);
+  if (!target) return;
+
+  for (const card of list.querySelectorAll('[data-maintenance-printer-card]')) {
+    card.classList.remove('maintenance-printer-card-target');
+  }
+  target.classList.add('maintenance-printer-card-target');
+  target.focus({ preventScroll:true });
+  target.scrollIntoView({ behavior:'smooth', block:'center' });
+
+  window.setTimeout(() => {
+    target.classList.remove('maintenance-printer-card-target');
+  }, 2400);
+}
+
 button?.addEventListener('click', async () => {
   dialog?.showModal();
   await refresh().catch(() => {});
   resetForm();
+});
+
+window.addEventListener('pfc:open-maintenance', (event) => {
+  openForPrinter(event.detail?.printerId).catch(() => {});
 });
 
 for (const close of closeButtons) close.addEventListener('click', () => dialog?.close());
