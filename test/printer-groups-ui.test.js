@@ -36,6 +36,22 @@ test('printer group member checkboxes override global full-width input styling',
   assert.match(styles, /\.printer-group-member span \{[\s\S]*flex:1 1 auto/);
 });
 
+test('dashboard printers can be filtered by custom printer group', () => {
+  assert.match(index, /id="dashboardGroupFilterBar"/);
+  assert.match(index, /id="dashboardGroupFilter"/);
+  assert.match(index, />All printers<\/option>/);
+  assert.match(app, /let dashboardGroupId = ''/);
+  assert.match(app, /function populateDashboardGroupFilterOptions\(\)/);
+  assert.match(app, /function matchesDashboardGroup\(printer, groupId = dashboardGroupId\)/);
+  assert.match(app, /function dashboardScopedFleet\(\)/);
+  assert.match(app, /matchesDashboardGroup\(printer\) && matchesDashboardFilter\(printer\)/);
+  assert.match(app, /dashboardGroupFilter\?\.addEventListener\('change'/);
+  assert.match(app, /function resetDashboardFilters\(\)/);
+  assert.match(app, /const scopedFleet = dashboardScopedFleet\(\)/);
+  assert.match(styles, /\.dashboard-group-filter/);
+  assert.match(styles, /\.dashboard-group-filter select/);
+});
+
 test('automatic fleet queue can be restricted to a selected printer group', () => {
   assert.match(index, /id="queueAddGroup"[^>]*name="groupId"/);
   assert.match(index, /Any configured printer/);
