@@ -80,7 +80,8 @@ const COMMON_CAPABILITIES = normalizeCapabilities({
 
 const PRO_CAPABILITIES = normalizeCapabilities({
   ...COMMON_CAPABILITIES,
-  chamberTemperatureSensor:true
+  chamberTemperatureSensor:true,
+  chamberTemperatureControl:true
 });
 
 function isPro(model) {
