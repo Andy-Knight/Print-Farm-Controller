@@ -103,7 +103,7 @@ const cameraManager = new CameraManager({
   onHealthChange: (id, health) => fleetState.setCameraHealth(id, health)
 });
 chamberPreheat = new ChamberPreheatService({ fleetState, operationCoordinator:printerOperations });
-const emulatorManager = new EmulatorManager();
+const emulatorManager = new EmulatorManager({ registeredPrintersProvider:listPrinters });
 let licenseManager = null;
 let restoreInspectionInProgress = false;
 let restorePendingRestart = false;
