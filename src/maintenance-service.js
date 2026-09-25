@@ -600,6 +600,15 @@ export class MaintenanceService {
     return true;
   }
 
+  async clearHistory(printerId) {
+    await this.assertPrinter(printerId);
+    const record = printerRecord(this.state, printerId);
+    const cleared = record.history.length;
+    record.history = [];
+    if (cleared > 0) await this.persistNow();
+    return { cleared };
+  }
+
   async completeModelTask(taskId, notes = '') {
     this.state.modelTasks ||= [];
     const task = this.state.modelTasks.find((item) => item.id === taskId);
