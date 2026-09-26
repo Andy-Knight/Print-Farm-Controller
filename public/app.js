@@ -1942,7 +1942,7 @@ function updateDashboardPrinterImage(card, printer) {
   if (slot.dataset.modelKey === imageKey) return;
   slot.dataset.modelKey = imageKey;
   slot.dataset.modelLabel = modelLabel;
-  slot.innerHTML = `<div class="printer-model-visual printer-model-${escapeHtml(imageKey)}" role="img" aria-label="${escapeHtml(modelLabel)}"></div>`;
+  slot.innerHTML = `<div class="printer-model-visual printer-model-${escapeHtml(imageKey)}" role="img" aria-label="${escapeHtml(modelLabel)}"><img class="printer-model-sprite" src="/assets/printers/printer-models.webp" alt="" aria-hidden="true" draggable="false"></div>`;
 }
 
 function updateCard(card, printer) {
