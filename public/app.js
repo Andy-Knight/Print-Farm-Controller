@@ -1716,8 +1716,8 @@ function resetPrinterGroupForm() {
   renderPrinterGroupMembers();
 }
 
-function groupForPrinter(printerId) {
-  return (printerGroupsState.groups || []).find((group) => (group.printerIds || []).includes(printerId)) || null;
+function groupsForPrinter(printerId) {
+  return (printerGroupsState.groups || []).filter((group) => (group.printerIds || []).includes(printerId));
 }
 
 function renderPrinterGroupMembers(selectedIds = null) {
@@ -1728,8 +1728,10 @@ function renderPrinterGroupMembers(selectedIds = null) {
   const printers = [...fleet].sort((a, b) => String(a.name).localeCompare(String(b.name)));
   printerGroupMembers.innerHTML = printers.length
     ? printers.map((printer) => {
-        const current = groupForPrinter(printer.id);
-        const other = current && current.id !== editingId ? `<small>Currently in ${escapeHtml(current.name)} · selecting will move it</small>` : '';
+        const otherGroups = groupsForPrinter(printer.id).filter((group) => group.id !== editingId);
+        const other = otherGroups.length
+          ? `<small>Also in ${otherGroups.map((group) => escapeHtml(group.name)).join(', ')}</small>`
+          : '';
         return `<label class="printer-group-member">
           <input type="checkbox" value="${escapeHtml(printer.id)}" data-printer-group-member${selected.has(printer.id) ? ' checked' : ''}>
           <span><strong>${escapeHtml(printer.name)}</strong><small>${escapeHtml([printer.manufacturer, printer.model].filter(Boolean).join(' '))}</small>${other}</span>

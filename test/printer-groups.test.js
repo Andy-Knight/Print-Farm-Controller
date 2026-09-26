@@ -13,7 +13,7 @@ function printers() {
   ];
 }
 
-test('printer groups persist and a printer can only belong to one group', async () => {
+test('printer groups persist and a printer can belong to multiple groups', async () => {
   const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'pfc-printer-groups-'));
   const now = new Date('2026-09-25T16:00:00Z');
   try {
@@ -25,16 +25,18 @@ test('printer groups persist and a printer can only belong to one group', async 
     await service.init();
 
     const first = await service.create({ name:'Production', printerIds:['p1','p2'] });
-    const second = await service.create({ name:'Prototype', printerIds:['p3'] });
+    const second = await service.create({ name:'Prototype', printerIds:['p2','p3'] });
     assert.deepEqual(first.printerIds, ['p1','p2']);
-    assert.deepEqual(second.printerIds, ['p3']);
-
-    await service.update(second.id, { printerIds:['p2','p3'] });
-    assert.deepEqual(service.get(first.id).printerIds, ['p1']);
-    assert.deepEqual(service.get(second.id).printerIds, ['p2','p3']);
-    assert.equal(service.groupForPrinter('p2').id, second.id);
-    assert.equal(service.isPrinterInGroup('p2', first.id), false);
+    assert.deepEqual(second.printerIds, ['p2','p3']);
+    assert.deepEqual(service.groupsForPrinter('p2').map((group) => group.id), [first.id, second.id]);
+    assert.equal(service.groupForPrinter('p2').id, first.id);
+    assert.equal(service.isPrinterInGroup('p2', first.id), true);
     assert.equal(service.isPrinterInGroup('p2', second.id), true);
+
+    await service.update(second.id, { printerIds:['p1','p2','p3'] });
+    assert.deepEqual(service.get(first.id).printerIds, ['p1','p2']);
+    assert.deepEqual(service.get(second.id).printerIds, ['p1','p2','p3']);
+    assert.deepEqual(service.groupsForPrinter('p1').map((group) => group.id), [first.id, second.id]);
 
     const reloaded = new PrinterGroupService({
       dataDir:dir,
@@ -43,7 +45,9 @@ test('printer groups persist and a printer can only belong to one group', async 
     });
     await reloaded.init();
     assert.equal(reloaded.list().length, 2);
-    assert.deepEqual(reloaded.get(second.id).printerIds, ['p2','p3']);
+    assert.deepEqual(reloaded.get(first.id).printerIds, ['p1','p2']);
+    assert.deepEqual(reloaded.get(second.id).printerIds, ['p1','p2','p3']);
+    assert.equal(reloaded.groupsForPrinter('p2').length, 2);
   } finally {
     await fs.rm(dir, { recursive:true, force:true });
   }

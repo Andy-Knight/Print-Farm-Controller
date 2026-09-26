@@ -28,6 +28,14 @@ test('printer groups are manageable from the controller overflow menu', () => {
   assert.match(styles, /\.printer-group-member/);
 });
 
+test('printer group editor supports printers belonging to multiple groups', () => {
+  assert.match(index, /A printer can belong to any number of groups/);
+  assert.match(index, /does not remove it from any other groups/);
+  assert.match(app, /function groupsForPrinter/);
+  assert.match(app, /Also in/);
+  assert.doesNotMatch(app, /selecting will move it/);
+});
+
 test('printer group member checkboxes override global full-width input styling', () => {
   assert.match(styles, /\.printer-group-member input\[type="checkbox"\]/);
   assert.match(styles, /width:16px/);

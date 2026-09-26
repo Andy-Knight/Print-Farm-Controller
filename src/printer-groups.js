@@ -45,7 +45,6 @@ function defaultState() {
 function normalizeState(raw) {
   if (!raw || raw.version !== 1 || !Array.isArray(raw.groups)) throw new Error('Printer group store is invalid');
   const names = new Set();
-  const members = new Set();
   const groups = raw.groups.map((source) => {
     const id = String(source?.id || '').trim();
     if (!id) throw new Error('Printer group store contains a group without an id');
@@ -54,10 +53,6 @@ function normalizeState(raw) {
     if (names.has(nameKey)) throw new Error('Printer group store contains duplicate group names');
     names.add(nameKey);
     const printerIds = normalizePrinterIds(source?.printerIds);
-    for (const printerId of printerIds) {
-      if (members.has(printerId)) throw new Error('A printer is assigned to more than one printer group');
-      members.add(printerId);
-    }
     return {
       id,
       name,
@@ -121,10 +116,13 @@ export class PrinterGroupService {
     return group ? structuredClone(group) : null;
   }
 
-  groupForPrinter(printerId) {
+  groupsForPrinter(printerId) {
     const id = String(printerId || '');
-    const group = (this.state.groups || []).find((item) => item.printerIds.includes(id));
-    return group ? structuredClone(group) : null;
+    return structuredClone((this.state.groups || []).filter((item) => item.printerIds.includes(id)));
+  }
+
+  groupForPrinter(printerId) {
+    return this.groupsForPrinter(printerId)[0] || null;
   }
 
   isPrinterInGroup(printerId, groupId) {
@@ -147,10 +145,6 @@ export class PrinterGroupService {
   }
 
   assignMembers(groupId, printerIds) {
-    for (const group of this.state.groups) {
-      if (group.id === groupId) continue;
-      group.printerIds = group.printerIds.filter((printerId) => !printerIds.includes(printerId));
-    }
     const group = this.state.groups.find((item) => item.id === groupId);
     group.printerIds = [...printerIds];
   }
