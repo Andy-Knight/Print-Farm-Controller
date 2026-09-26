@@ -33,7 +33,11 @@ test('dashboard has artwork mappings for every currently supported printer model
 });
 
 test('dashboard printer artwork is theme aware and bundled as a WebP asset', () => {
-  assert.match(styles, /printer-models\.webp/);
+  assert.match(app, /printer-models\.webp/);
+  assert.match(app, /class="printer-model-sprite"/);
+  assert.match(styles, /\.printer-model-sprite[\s\S]*width:1600px;[\s\S]*height:380px;/);
+  assert.match(styles, /--printer-sprite-x:-1200px/);
+  assert.match(styles, /--printer-sprite-y:-190px/);
   assert.match(styles, /\.printer-image-slot[\s\S]*background:linear-gradient\(145deg,#111922,#0b1016\)/);
   assert.match(styles, /:root\[data-theme="light"\] \.printer-image-slot[\s\S]*background:linear-gradient\(145deg,#f7fafc,#e8eff4\)/);
   assert.match(server, /'\.webp': 'image\/webp'/);
