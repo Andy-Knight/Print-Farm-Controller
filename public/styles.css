@@ -98,16 +98,18 @@ button.summary-card:focus-visible { filter:none; transform:translateY(-1px); bor
   height:100%;
   background-image:url('/assets/printers/printer-models.webp');
   background-repeat:no-repeat;
-  background-size:400% auto;
+  /* The source cells are 4:3. Scaling the two-row sprite to 200% of the
+     190px image well keeps each printer undistorted at 253.33 x 190px. */
+  background-size:auto 200%;
 }
-.printer-model-ad5m-pro { background-position:0 0; }
-.printer-model-creator-5 { background-position:33.333% 0; }
-.printer-model-creator-5-pro { background-position:66.667% 0; }
-.printer-model-snapmaker-u1 { background-position:100% 0; }
-.printer-model-a1-mini { background-position:0 100%; }
-.printer-model-p1p { background-position:33.333% 100%; }
-.printer-model-p1s { background-position:66.667% 100%; }
-.printer-model-x1c { background-position:100% 100%; }
+.printer-model-ad5m-pro { background-position:calc(50% - 126.667px) 0; }
+.printer-model-creator-5 { background-position:calc(50% - 380px) 0; }
+.printer-model-creator-5-pro { background-position:calc(50% - 633.333px) 0; }
+.printer-model-snapmaker-u1 { background-position:calc(50% - 886.667px) 0; }
+.printer-model-a1-mini { background-position:calc(50% - 126.667px) 100%; }
+.printer-model-p1p { background-position:calc(50% - 380px) 100%; }
+.printer-model-p1s { background-position:calc(50% - 633.333px) 100%; }
+.printer-model-x1c { background-position:calc(50% - 886.667px) 100%; }
 .printer-model-fallback {
   width:100%;
   height:100%;
