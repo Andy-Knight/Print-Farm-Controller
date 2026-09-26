@@ -1,0 +1,24 @@
+name: v0.28.0 validation
+
+on:
+  push:
+    branches:
+      - feature/multi-group-membership-v0280
+  workflow_dispatch:
+
+jobs:
+  validate:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Node 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Install
+        run: npm install
+      - name: Test
+        run: npm test
+      - name: Build bundle
+        run: npm run build:bundle
