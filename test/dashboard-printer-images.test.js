@@ -6,6 +6,17 @@ const app = fs.readFileSync(new URL('../public/app.js', import.meta.url), 'utf8'
 const styles = fs.readFileSync(new URL('../public/styles.css', import.meta.url), 'utf8');
 const server = fs.readFileSync(new URL('../src/server.js', import.meta.url), 'utf8');
 
+const printerImageKeys = [
+  'ad5m-pro',
+  'creator-5',
+  'creator-5-pro',
+  'snapmaker-u1',
+  'a1-mini',
+  'p1p',
+  'p1s',
+  'x1c'
+];
+
 test('dashboard uses static printer model artwork instead of live camera snapshots', () => {
   assert.match(app, /data-printer-image-slot/);
   assert.match(app, /function dashboardPrinterImageKey\(printer\)/);
@@ -17,31 +28,31 @@ test('dashboard uses static printer model artwork instead of live camera snapsho
 });
 
 test('dashboard has artwork mappings for every currently supported printer model', () => {
-  for (const key of [
-    'ad5m-pro',
-    'creator-5',
-    'creator-5-pro',
-    'snapmaker-u1',
-    'a1-mini',
-    'p1p',
-    'p1s',
-    'x1c'
-  ]) {
+  for (const key of printerImageKeys) {
     assert.match(app, new RegExp(`'${key}'`));
-    assert.match(styles, new RegExp(`\\.printer-model-${key}\\b`));
+  }
+  assert.match(app, /\/assets\/printers\/\$\{escapeHtml\(imageKey\)\}\.webp/);
+});
+
+test('each dashboard printer model has a real bundled WebP asset', () => {
+  for (const key of printerImageKeys) {
+    const asset = new URL(`../public/assets/printers/${key}.webp`, import.meta.url);
+    assert.ok(fs.existsSync(asset), `missing ${key}.webp`);
+    const data = fs.readFileSync(asset);
+    assert.ok(data.length > 1000, `${key}.webp is unexpectedly small`);
+    assert.equal(data.subarray(0, 4).toString('ascii'), 'RIFF');
+    assert.equal(data.subarray(8, 12).toString('ascii'), 'WEBP');
   }
 });
 
-test('dashboard printer artwork is theme aware and bundled as a WebP asset', () => {
-  assert.match(app, /printer-models\.webp/);
-  assert.match(app, /class="printer-model-sprite"/);
-  assert.match(styles, /\.printer-model-sprite[\s\S]*width:1600px;[\s\S]*height:380px;/);
-  assert.match(styles, /--printer-sprite-x:-1200px/);
-  assert.match(styles, /--printer-sprite-y:-190px/);
+test('dashboard printer artwork is theme aware and uses normal contained images', () => {
+  assert.match(app, /class="printer-model-image"/);
+  assert.match(styles, /\.printer-model-image[\s\S]*object-fit:contain;[\s\S]*object-position:center;/);
+  assert.doesNotMatch(styles, /printer-model-sprite/);
+  assert.doesNotMatch(app, /printer-models\.webp/);
   assert.match(styles, /\.printer-image-slot[\s\S]*background:linear-gradient\(145deg,#111922,#0b1016\)/);
   assert.match(styles, /:root\[data-theme="light"\] \.printer-image-slot[\s\S]*background:linear-gradient\(145deg,#f7fafc,#e8eff4\)/);
   assert.match(server, /'\.webp': 'image\/webp'/);
-  assert.ok(fs.existsSync(new URL('../public/assets/printers/printer-models.webp', import.meta.url)));
 });
 
 test('printer details retain the live camera stream and restart controls', () => {
