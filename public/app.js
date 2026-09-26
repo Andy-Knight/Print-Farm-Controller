@@ -1927,6 +1927,92 @@ function cardMarkup(printer) {
   </article>`;
 }
 
+const MAX_DASHBOARD_FILAMENT_SWATCHES = 4;
+
+function dashboardFilamentSources(printer) {
+  const status = printer?.status || {};
+  const adapterType = String(printer?.adapterType || '').trim().toLowerCase();
+
+  if (adapterType === 'bambu-lab' && Array.isArray(status.materialSources) && status.materialSources.length) {
+    return status.materialSources
+      .filter((source) => source && source.present !== false && (source.present === true || source.material || source.color || source.colorFamily))
+      .map((source, position) => ({
+        key:`source:${source.protocolIndex ?? position}`,
+        label:String(source.label || `Filament source ${position + 1}`),
+        material:String(source.material || '').trim(),
+        color:materialSwatchColor(source),
+        colorText:filamentColorDisplayText(source) || 'Colour unknown',
+        origin:'Printer reported'
+      }));
+  }
+
+  const tools = Array.isArray(status.tools) ? status.tools : [];
+  return tools
+    .filter((tool) => {
+      const filament = tool?.filament;
+      if (!filament || filament.present === false) return false;
+      return filament.present === true
+        || Boolean(filament.materialSource)
+        || Boolean(filament.material)
+        || Boolean(filament.color)
+        || Boolean(filament.colorFamily);
+    })
+    .map((tool, position) => {
+      const filament = tool.filament || {};
+      const origin = filament.materialSource === 'manual'
+        ? 'Controller assigned'
+        : filament.materialSource === 'rfid'
+          ? 'RFID detected'
+          : 'Printer reported';
+      return {
+        key:`tool:${tool.index ?? position}`,
+        label:`T${tool.index ?? position}`,
+        material:filamentMaterialName(filament),
+        color:materialSwatchColor(filament),
+        colorText:filamentColorDisplayText(filament) || 'Colour unknown',
+        origin
+      };
+    });
+}
+
+function dashboardFilamentTooltip(source) {
+  return [source.label, source.material, source.colorText, source.origin].filter(Boolean).join(' · ');
+}
+
+function updateDashboardFilamentOverlay(card, printer) {
+  const slot = card.querySelector('[data-printer-image-slot]');
+  if (!slot) return;
+
+  let overlay = slot.querySelector('[data-dashboard-filaments]');
+  if (!overlay) {
+    overlay = document.createElement('div');
+    overlay.className = 'dashboard-filament-overlay hidden';
+    overlay.dataset.dashboardFilaments = '';
+    overlay.setAttribute('aria-label', 'Loaded filament colours');
+    slot.appendChild(overlay);
+  }
+
+  const sources = dashboardFilamentSources(printer);
+  const signature = JSON.stringify(sources.map((source) => [source.key, source.color, source.material, source.colorText, source.origin]));
+  if (overlay.dataset.signature === signature) return;
+  overlay.dataset.signature = signature;
+
+  if (!sources.length) {
+    overlay.innerHTML = '';
+    overlay.classList.add('hidden');
+    return;
+  }
+
+  const visible = sources.slice(0, MAX_DASHBOARD_FILAMENT_SWATCHES);
+  const extra = Math.max(0, sources.length - visible.length);
+  overlay.innerHTML = visible.map((source) => {
+    const tooltip = dashboardFilamentTooltip(source);
+    const colorStyle = source.color ? ` style="background:${escapeHtml(source.color)}"` : '';
+    return `<span class="dashboard-filament-swatch${source.color ? '' : ' unknown'}" role="img" aria-label="${escapeHtml(tooltip)}" title="${escapeHtml(tooltip)}"${colorStyle}></span>`;
+  }).join('') + (extra ? `<span class="dashboard-filament-more" title="${extra} more loaded filament source${extra === 1 ? '' : 's'}">+${extra}</span>` : '');
+  overlay.classList.remove('hidden');
+}
+
 function updateDashboardPrinterImage(card, printer) {
   const slot = card.querySelector('[data-printer-image-slot]');
   if (!slot) return;
@@ -2033,6 +2119,7 @@ function updateCard(card, printer) {
     }
   }
   updateDashboardPrinterImage(card, printer);
+  updateDashboardFilamentOverlay(card, printer);
 }
 
 function reconcileFleet() {
