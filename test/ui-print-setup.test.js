@@ -504,17 +504,17 @@ test('queue UI exposes persistent bed-clearance interlock before automatic progr
 });
 
 
-test('dashboard labels fleet selection controls as fleet operations without redundant Done action', () => {
+test('dashboard labels farm selection controls as farm operations without redundant Done action', () => {
   const html = fs.readFileSync(new URL('../public/index.html', import.meta.url), 'utf8');
-  assert.match(html, /id="batchModeBtn"[^>]*>Fleet operations<\/button>/);
-  assert.match(app, /selectionMode \? 'Exit fleet ops' : 'Fleet operations'/);
+  assert.match(html, /id="batchModeBtn"[^>]*>Farm operations<\/button>/);
+  assert.match(app, /selectionMode \? 'Exit farm ops' : 'Farm operations'/);
   assert.doesNotMatch(app, /Exit selection/);
   assert.doesNotMatch(html, /data-batch-done|>Done<\/button>/);
   assert.doesNotMatch(app, /data-batch-done/);
 });
 
 
-test('Fleet operations does not expose manual temperature setting', () => {
+test('Farm operations does not expose manual temperature setting', () => {
   const html = fs.readFileSync(new URL('../public/index.html', import.meta.url), 'utf8');
   const batchControl = fs.readFileSync(new URL('../src/batch-control.js', import.meta.url), 'utf8');
   assert.doesNotMatch(html, /data-batch-open="temperature"|>Temperatures<\/button>/);

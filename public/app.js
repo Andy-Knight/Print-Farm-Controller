@@ -1842,7 +1842,7 @@ function updateBatchUi() {
   }
   fleetEl.classList.toggle('selection-mode', selectionMode);
   batchToolbar.classList.toggle('hidden', !selectionMode);
-  const fleetModeLabel = selectionMode ? 'Exit fleet ops' : 'Fleet operations';
+  const fleetModeLabel = selectionMode ? 'Exit farm ops' : 'Farm operations';
   batchModeBtn.textContent = fleetModeLabel;
   if (batchModeMenuBtn) batchModeMenuBtn.textContent = fleetModeLabel;
   batchSelectedCount.textContent = String(selectedPrinterIds.size);
