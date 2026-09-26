@@ -318,139 +318,6 @@ themeMedia.addEventListener('change', (event) => {
   if (!savedTheme()) applyTheme(event.matches ? 'light' : 'dark');
 });
 
-const cameraSnapshotRefreshMs = 5000;
-const cameraSnapshotRetryMs = 7000;
-const cameraSnapshotFailureThreshold = 3;
-
-function cameraInitialDelay(image) {
-  const id = image?.dataset.cameraId || '';
-  let hash = 0;
-  for (let i = 0; i < id.length; i++) hash = ((hash << 5) - hash + id.charCodeAt(i)) | 0;
-  return Math.abs(hash) % 1400;
-}
-
-const cameraObserver = 'IntersectionObserver' in window ? new IntersectionObserver((entries) => {
-  for (const entry of entries) {
-    const image = entry.target;
-    image.dataset.visible = entry.isIntersecting ? '1' : '0';
-    if (entry.isIntersecting) scheduleCameraSnapshot(image, cameraInitialDelay(image));
-    else {
-      if (image._cameraTimer) clearTimeout(image._cameraTimer);
-      image._cameraTimer = null;
-      image._cameraAbort?.abort();
-      image._cameraAbort = null;
-    }
-  }
-}, { rootMargin: '250px' }) : null;
-
-function scheduleCameraSnapshot(image, delay = cameraSnapshotRefreshMs) {
-  if (!image?.isConnected) return;
-  if (cameraObserver && image.dataset.visible !== '1') return;
-  if (image._cameraTimer) clearTimeout(image._cameraTimer);
-  image._cameraTimer = setTimeout(() => {
-    image._cameraTimer = null;
-    refreshCameraSnapshot(image);
-  }, delay);
-}
-
-async function loadImageObjectUrl(url) {
-  await new Promise((resolve, reject) => {
-    const probe = new Image();
-    probe.onload = resolve;
-    probe.onerror = () => reject(new Error('Invalid camera image'));
-    probe.src = url;
-  });
-}
-
-async function refreshCameraSnapshot(image) {
-  if (!image?.isConnected || (cameraObserver && image.dataset.visible !== '1')) return;
-  if (image._cameraLoading) return;
-
-  image._cameraLoading = true;
-  const controller = new AbortController();
-  image._cameraAbort = controller;
-  let timedOut = false;
-  const timeout = setTimeout(() => {
-    timedOut = true;
-    controller.abort();
-  }, 12000);
-  let nextDelay = cameraSnapshotRefreshMs;
-
-  try {
-    const base = image.dataset.cameraSrc;
-    const response = await fetch(`${base}${base.includes('?') ? '&' : '?'}_=${Date.now()}`, {
-      cache: 'no-store',
-      signal: controller.signal
-    });
-    if (!response.ok) throw new Error(`Camera snapshot failed (${response.status})`);
-    const blob = await response.blob();
-    if (!blob.size || !String(blob.type || '').toLowerCase().includes('image/jpeg')) {
-      throw new Error('Camera returned an invalid image');
-    }
-
-    const objectUrl = URL.createObjectURL(blob);
-    try {
-      await loadImageObjectUrl(objectUrl);
-    } catch (error) {
-      URL.revokeObjectURL(objectUrl);
-      throw error;
-    }
-
-    const oldObjectUrl = image._cameraObjectUrl;
-    image.src = objectUrl;
-    image._cameraObjectUrl = objectUrl;
-    if (oldObjectUrl) URL.revokeObjectURL(oldObjectUrl);
-
-    image._cameraFailures = 0;
-    image.classList.remove('camera-failed');
-    const message = image.parentElement?.querySelector('[data-camera-message]');
-    message?.classList.add('hidden');
-  } catch (error) {
-    if (error?.name !== 'AbortError' || timedOut) {
-      image._cameraFailures = (image._cameraFailures || 0) + 1;
-      nextDelay = cameraSnapshotRetryMs;
-      // Preserve the last successful image. Only surface a warning after
-      // repeated failures so a single slow camera frame does not make the
-      // whole dashboard appear broken.
-      if (image._cameraFailures >= cameraSnapshotFailureThreshold) {
-        image.classList.add('camera-failed');
-        const message = image.parentElement?.querySelector('[data-camera-message]');
-        if (message) {
-          message.textContent = 'Camera preview temporarily unavailable · retrying';
-          message.classList.remove('hidden');
-        }
-      }
-    }
-  } finally {
-    clearTimeout(timeout);
-    if (image._cameraAbort === controller) image._cameraAbort = null;
-    image._cameraLoading = false;
-    if (image.isConnected && (!cameraObserver || image.dataset.visible === '1')) {
-      scheduleCameraSnapshot(image, nextDelay);
-    }
-  }
-}
-
-function disposeCameraImage(image) {
-  if (!image) return;
-  if (image._cameraTimer) clearTimeout(image._cameraTimer);
-  image._cameraAbort?.abort();
-  if (image._cameraObjectUrl) URL.revokeObjectURL(image._cameraObjectUrl);
-  image._cameraTimer = null;
-  image._cameraAbort = null;
-  image._cameraObjectUrl = null;
-  if (cameraObserver) cameraObserver.unobserve(image);
-}
-
-function observeCameraSnapshot(image) {
-  image._cameraFailures = 0;
-  if (cameraObserver) cameraObserver.observe(image);
-  else {
-    image.dataset.visible = '1';
-    scheduleCameraSnapshot(image, cameraInitialDelay(image));
-  }
-}
-
 function escapeHtml(value = '') {
   return String(value).replace(/[&<>'"]/g, (ch) => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', "'":'&#39;', '"':'&quot;' }[ch]));
 }
@@ -458,6 +325,22 @@ function escapeHtml(value = '') {
 function printerModelLabel(printer) {
   if (printer?.adapterType === 'snapmaker-u1') return 'Snapmaker U1';
   return String(printer?.model || '');
+}
+
+function dashboardPrinterImageKey(printer) {
+  const adapterType = String(printer?.adapterType || '').trim().toLowerCase();
+  const model = String(printer?.model || '').trim().toLowerCase();
+
+  if (adapterType === 'snapmaker-u1') return 'snapmaker-u1';
+  if (adapterType === 'flashforge-ad5m') return 'ad5m-pro';
+  if (adapterType === 'flashforge-creator5') return model.includes('pro') ? 'creator-5-pro' : 'creator-5';
+  if (adapterType === 'bambu-lab') {
+    if (model === 'p1p') return 'p1p';
+    if (model === 'p1s') return 'p1s';
+    if (model === 'x1c' || model.includes('x1 carbon')) return 'x1c';
+    if (model === 'a1 mini' || model === 'a1-mini') return 'a1-mini';
+  }
+  return null;
 }
 
 function printerTargetValue(target) {
@@ -2008,7 +1891,7 @@ function cardMarkup(printer) {
         <div class="badge" data-printer-state></div>
       </div>
     </div>
-    <div class="camera-slot" data-camera-slot></div>
+    <div class="printer-image-slot" data-printer-image-slot></div>
     <div class="bed-level-strip hidden" data-bed-level-strip>
       <div><strong data-bed-level-title>PRINTER ACTIVITY</strong><span data-bed-level-summary></span></div>
     </div>
@@ -2042,20 +1925,24 @@ function cardMarkup(printer) {
   </article>`;
 }
 
-function updateCameraSlot(card, printer) {
-  const slot = card.querySelector('[data-camera-slot]');
-  const current = slot.querySelector('img[data-camera-id]');
-  if (!printer.capabilities?.camera || !printer.online || printer.cameraAvailable === false) {
-    disposeCameraImage(current);
-    if (!slot.querySelector('.camera-placeholder')) slot.innerHTML = '<div class="camera-placeholder">Camera unavailable</div>';
+function updateDashboardPrinterImage(card, printer) {
+  const slot = card.querySelector('[data-printer-image-slot]');
+  if (!slot) return;
+
+  const imageKey = dashboardPrinterImageKey(printer);
+  const modelLabel = printerModelLabel(printer) || printer.name || '3D printer';
+  if (!imageKey) {
+    if (slot.dataset.modelKey === 'fallback' && slot.dataset.modelLabel === modelLabel) return;
+    slot.dataset.modelKey = 'fallback';
+    slot.dataset.modelLabel = modelLabel;
+    slot.innerHTML = `<div class="printer-model-fallback"><span>3D PRINTER</span><strong>${escapeHtml(modelLabel)}</strong></div>`;
     return;
   }
 
-  const cameraSrc = `/api/printers/${encodeURIComponent(printer.id)}/camera/snapshot`;
-  if (current && current.dataset.cameraSrc === cameraSrc) return;
-  disposeCameraImage(current);
-  slot.innerHTML = `<img class="camera camera-snapshot" data-camera-id="${escapeHtml(printer.id)}" data-camera-src="${escapeHtml(cameraSrc)}" alt="${escapeHtml(printer.name)} camera preview"><div class="camera-message hidden" data-camera-message></div>`;
-  observeCameraSnapshot(slot.querySelector('img'));
+  if (slot.dataset.modelKey === imageKey) return;
+  slot.dataset.modelKey = imageKey;
+  slot.dataset.modelLabel = modelLabel;
+  slot.innerHTML = `<div class="printer-model-visual printer-model-${escapeHtml(imageKey)}" role="img" aria-label="${escapeHtml(modelLabel)}"></div>`;
 }
 
 function updateCard(card, printer) {
@@ -2143,7 +2030,7 @@ function updateCard(card, printer) {
       summary.textContent = `${clearance.fileName} ${outcome} · queue paused`;
     }
   }
-  updateCameraSlot(card, printer);
+  updateDashboardPrinterImage(card, printer);
 }
 
 function reconcileFleet() {
@@ -2154,7 +2041,6 @@ function reconcileFleet() {
   const wanted = new Set(fleet.map((printer) => printer.id));
   for (const card of fleetEl.querySelectorAll('[data-printer-card]')) {
     if (!wanted.has(card.dataset.printerCard)) {
-      disposeCameraImage(card.querySelector('img[data-camera-id]'));
       card.remove();
     }
   }
