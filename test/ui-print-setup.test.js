@@ -46,7 +46,7 @@ test('printer cards highlight with border, lift and shadow on hover or keyboard 
   assert.match(styles, /\.fleet \.card\.dragging \{ transform:none; \}/);
 });
 
-test('dashboard printer cards keep camera previews and footer actions aligned', () => {
+test('dashboard printer cards keep model images and footer actions aligned', () => {
   assert.match(styles, /\.card \{ display:flex; flex-direction:column;/);
   assert.match(styles, /\.card-head \{ min-height:104px;/);
   assert.match(styles, /\.card-footer \{ margin-top:auto;/);
