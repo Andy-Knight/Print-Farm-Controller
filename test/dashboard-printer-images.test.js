@@ -34,20 +34,29 @@ test('dashboard has artwork mappings for every currently supported printer model
   assert.match(app, /\/assets\/printers\/\$\{escapeHtml\(imageKey\)\}\.webp/);
 });
 
-test('each dashboard printer model has a real bundled WebP asset', () => {
+function vp8xDimensions(data) {
+  assert.equal(data.subarray(12, 16).toString('ascii'), 'VP8X');
+  const widthMinusOne = data[24] | (data[25] << 8) | (data[26] << 16);
+  const heightMinusOne = data[27] | (data[28] << 8) | (data[29] << 16);
+  return { width:widthMinusOne + 1, height:heightMinusOne + 1 };
+}
+
+test('each dashboard printer model has a high-resolution bundled WebP asset', () => {
   for (const key of printerImageKeys) {
     const asset = new URL(`../public/assets/printers/${key}.webp`, import.meta.url);
     assert.ok(fs.existsSync(asset), `missing ${key}.webp`);
     const data = fs.readFileSync(asset);
-    assert.ok(data.length > 1000, `${key}.webp is unexpectedly small`);
+    assert.ok(data.length > 6000, `${key}.webp is unexpectedly small for the high-resolution dashboard asset`);
     assert.equal(data.subarray(0, 4).toString('ascii'), 'RIFF');
     assert.equal(data.subarray(8, 12).toString('ascii'), 'WEBP');
+    assert.deepEqual(vp8xDimensions(data), { width:400, height:190 }, `${key}.webp must be 400x190`);
   }
 });
 
 test('dashboard printer artwork is theme aware and uses normal contained images', () => {
   assert.match(app, /class="printer-model-image"/);
   assert.match(styles, /\.printer-model-image[\s\S]*object-fit:contain;[\s\S]*object-position:center;/);
+  assert.doesNotMatch(styles, /image-rendering:\s*(pixelated|crisp-edges)/);
   assert.doesNotMatch(styles, /printer-model-sprite/);
   assert.doesNotMatch(app, /printer-models\.webp/);
   assert.match(styles, /\.printer-image-slot[\s\S]*background:linear-gradient\(145deg,#111922,#0b1016\)/);
