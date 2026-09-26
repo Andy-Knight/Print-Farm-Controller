@@ -26,6 +26,7 @@ test('dashboard filament swatches are overlaid without changing card height', ()
   assert.match(styles, /\.dashboard-filament-overlay\s*\{[\s\S]*bottom:10px/);
   assert.match(styles, /\.dashboard-filament-swatch\s*\{[\s\S]*width:16px/);
   assert.match(styles, /\.dashboard-filament-swatch\s*\{[\s\S]*height:16px/);
+  assert.match(styles, /\.dashboard-filament-swatch\s*\{[\s\S]*border-radius:50%/);
   assert.match(styles, /\.printer-image-slot\s*\{[\s\S]*height:190px/);
 });
 

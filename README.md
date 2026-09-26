@@ -1,4 +1,6 @@
-# Print Farm Controller v0.30.0
+# Print Farm Controller v0.30.1
+
+> **v0.30.1 circular dashboard filament swatches.** Dashboard filament colour indicators now render as circles instead of rounded squares. Swatch size, spacing, tooltip metadata, `+N` overflow behaviour, Light/Dark styling and printer-card dimensions are unchanged.
 
 > **v0.30.0 sharper dashboard printer imagery.** The eight bundled dashboard printer model assets have been upgraded from the reduced 260×124 versions to 400×190 transparent WebP images, matching the full height of the existing 190 px dashboard image well and avoiding browser upscaling that could make the printers look soft. The printer-card layout, model mapping, Light/Dark backgrounds, filament-colour overlay and live camera behaviour inside printer details are unchanged. The higher-resolution assets use high-quality WebP compression to retain fine printer detail while keeping the bundled files compact.
 
