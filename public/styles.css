@@ -94,22 +94,32 @@ button.summary-card:focus-visible { filter:none; transform:translateY(-1px); bor
   border-block:1px solid #232c35;
 }
 .printer-model-visual {
+  position:relative;
   width:100%;
   height:100%;
-  background-image:url('/assets/printers/printer-models.webp');
-  background-repeat:no-repeat;
-  /* The source cells are 4:3. Scaling the two-row sprite to 200% of the
-     190px image well keeps each printer undistorted at 253.33 x 190px. */
-  background-size:auto 200%;
+  overflow:hidden;
+  --printer-sprite-x:0px;
+  --printer-sprite-y:0px;
 }
-.printer-model-ad5m-pro { background-position:calc(50% - 126.667px) 0; }
-.printer-model-creator-5 { background-position:calc(50% - 380px) 0; }
-.printer-model-creator-5-pro { background-position:calc(50% - 633.333px) 0; }
-.printer-model-snapmaker-u1 { background-position:calc(50% - 886.667px) 0; }
-.printer-model-a1-mini { background-position:calc(50% - 126.667px) 100%; }
-.printer-model-p1p { background-position:calc(50% - 380px) 100%; }
-.printer-model-p1s { background-position:calc(50% - 633.333px) 100%; }
-.printer-model-x1c { background-position:calc(50% - 886.667px) 100%; }
+.printer-model-sprite {
+  position:absolute;
+  width:1600px;
+  height:380px;
+  max-width:none;
+  left:calc(50% - 200px + var(--printer-sprite-x));
+  top:var(--printer-sprite-y);
+  display:block;
+  pointer-events:none;
+  user-select:none;
+}
+.printer-model-ad5m-pro { --printer-sprite-x:0px; --printer-sprite-y:0px; }
+.printer-model-creator-5 { --printer-sprite-x:-400px; --printer-sprite-y:0px; }
+.printer-model-creator-5-pro { --printer-sprite-x:-800px; --printer-sprite-y:0px; }
+.printer-model-snapmaker-u1 { --printer-sprite-x:-1200px; --printer-sprite-y:0px; }
+.printer-model-a1-mini { --printer-sprite-x:0px; --printer-sprite-y:-190px; }
+.printer-model-p1p { --printer-sprite-x:-400px; --printer-sprite-y:-190px; }
+.printer-model-p1s { --printer-sprite-x:-800px; --printer-sprite-y:-190px; }
+.printer-model-x1c { --printer-sprite-x:-1200px; --printer-sprite-y:-190px; }
 .printer-model-fallback {
   width:100%;
   height:100%;
