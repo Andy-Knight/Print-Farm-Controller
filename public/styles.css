@@ -95,7 +95,7 @@ button.summary-card:focus-visible { filter:none; transform:translateY(-1px); bor
 }
 .printer-model-visual {
   position:relative;
-  width:100%;
+  width:min(400px,100%);
   height:100%;
   overflow:hidden;
   --printer-sprite-x:0px;
