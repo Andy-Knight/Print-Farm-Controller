@@ -351,6 +351,7 @@ async function installLicenseDocument(input) {
 
   const target = runtimePaths.licensePath;
   try {
+    await fs.mkdir(path.dirname(target), { recursive:true });
     await fs.writeFile(target, `${documentText}\n`, { encoding:'utf8', mode:0o600 });
   } catch (error) {
     if (error?.code === 'EACCES' || error?.code === 'EPERM') {
