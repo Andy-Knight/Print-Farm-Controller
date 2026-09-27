@@ -160,7 +160,7 @@ let batchBusy = false;
 let pendingBatchAction = null;
 let dashboardFilter = 'all';
 let dashboardGroupId = '';
-const DASHBOARD_FILTER_LABELS = Object.freeze({ all:'Printers', online:'Online', printing:'Printing', attention:'Needs attention', maintenance:'Maintenance' });
+const DASHBOARD_FILTER_LABELS = Object.freeze({ all:'All Printers', online:'Online', printing:'Printing', attention:'Needs attention', maintenance:'Maintenance' });
 const FILAMENT_COLOR_FAMILIES = Object.freeze([
   { value:'black', label:'Black', representative:'#111111' },
   { value:'white', label:'White', representative:'#FFFFFF' },
