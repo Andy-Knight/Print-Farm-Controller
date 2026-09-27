@@ -504,6 +504,16 @@ test('queue UI exposes persistent bed-clearance interlock before automatic progr
 });
 
 
+test('live dashboard event stream bounds slow-client buffering and coalesces fleet updates', () => {
+  const server = fs.readFileSync(new URL('../src/server.js', import.meta.url), 'utf8');
+  assert.match(server, /const MAX_EVENT_STREAM_BUFFER = 2 \* 1024 \* 1024/);
+  assert.match(server, /res\.writableLength/);
+  assert.match(server, /if \(blocked\) \{[\s\S]*pendingFleet = printers/);
+  assert.match(server, /res\.once\('drain', flushPending\)/);
+  assert.match(server, /pendingFleet = null/);
+  assert.match(server, /destroyStream\(\)/);
+});
+
 test('dashboard labels farm selection controls as farm operations without redundant Done action', () => {
   const html = fs.readFileSync(new URL('../public/index.html', import.meta.url), 'utf8');
   assert.match(html, /id="batchModeBtn"[^>]*>Farm operations<\/button>/);
