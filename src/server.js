@@ -414,6 +414,8 @@ function validatePrinterGroupTarget(input, errorMessage = 'Choose a printer grou
   return { groupId:group.id };
 }
 
+const MAX_EVENT_STREAM_BUFFER = 2 * 1024 * 1024;
+
 function openEventStream(req, res) {
   res.writeHead(200, {
     'content-type': 'text/event-stream; charset=utf-8',
@@ -421,27 +423,93 @@ function openEventStream(req, res) {
     connection: 'keep-alive',
     'x-accel-buffering': 'no'
   });
-  res.write('retry: 2000\n\n');
 
-  const unsubscribe = fleetState.subscribe((printers) => {
-    if (res.destroyed || res.writableEnded) return;
-    res.write(`event: fleet\ndata: ${JSON.stringify({
+  let closed = false;
+  let blocked = false;
+  let pendingFleet = null;
+  let keepAlive = null;
+  let unsubscribe = () => {};
+
+  const destroyStream = () => {
+    if (!res.destroyed) {
+      try { res.destroy(); } catch {}
+    }
+  };
+
+  const cleanup = () => {
+    if (closed) return;
+    closed = true;
+    if (keepAlive) clearInterval(keepAlive);
+    res.removeListener('drain', flushPending);
+    pendingFleet = null;
+    unsubscribe();
+  };
+
+  const flushPending = () => {
+    blocked = false;
+    if (closed || res.destroyed || res.writableEnded) return;
+    const printers = pendingFleet;
+    pendingFleet = null;
+    if (printers) sendFleet(printers);
+  };
+
+  const writeChunk = (chunk) => {
+    if (closed || res.destroyed || res.writableEnded) return false;
+    if ((res.writableLength || 0) > MAX_EVENT_STREAM_BUFFER) {
+      destroyStream();
+      return false;
+    }
+
+    let writable = false;
+    try {
+      writable = res.write(chunk);
+    } catch {
+      destroyStream();
+      return false;
+    }
+
+    if ((res.writableLength || 0) > MAX_EVENT_STREAM_BUFFER) {
+      destroyStream();
+      return false;
+    }
+
+    if (!writable && !blocked) {
+      blocked = true;
+      res.once('drain', flushPending);
+    }
+    return writable;
+  };
+
+  const sendFleet = (printers) => {
+    if (closed || res.destroyed || res.writableEnded) return;
+    if (blocked) {
+      // A slow/suspended dashboard only needs the newest state. Retaining every
+      // intermediate snapshot allows Node's HTTP write queue to grow without bound.
+      pendingFleet = printers;
+      return;
+    }
+    writeChunk(`event: fleet\ndata: ${JSON.stringify({
       printers:decoratedFleet(printers),
       queue:printQueue.getSnapshot(),
       version:CONTROLLER_VERSION,
       license:currentLicenseSnapshot(printers),
       serverTime:new Date().toISOString()
     })}\n\n`);
-  });
-  const keepAlive = setInterval(() => {
-    if (!res.destroyed && !res.writableEnded) res.write(`: keepalive ${Date.now()}\n\n`);
-  }, 15000);
-  const cleanup = () => {
-    clearInterval(keepAlive);
-    unsubscribe();
   };
-  req.once('close', cleanup);
+
   res.once('close', cleanup);
+  writeChunk('retry: 2000\n\n');
+
+  const subscribedUnsubscribe = fleetState.subscribe(sendFleet);
+  if (closed) subscribedUnsubscribe();
+  else unsubscribe = subscribedUnsubscribe;
+
+  keepAlive = setInterval(() => {
+    if (!blocked) writeChunk(`: keepalive ${Date.now()}\n\n`);
+  }, 15000);
+  keepAlive.unref?.();
+
+  req.once('close', cleanup);
 }
 
 async function refreshAfterCommand(id) {
