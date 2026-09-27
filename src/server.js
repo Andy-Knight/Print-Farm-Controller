@@ -325,14 +325,18 @@ async function installLicenseDocument(input) {
   }
 
   const validationDir = await fs.mkdtemp(path.join(os.tmpdir(), 'print-controller-license-install-'));
+  const validationDataDir = path.join(validationDir, 'data');
+  const validationLicensePath = path.join(validationDataDir, 'license.json');
   let candidate;
   try {
-    await fs.writeFile(path.join(validationDir, 'license.json'), `${documentText}\n`, { encoding:'utf8', mode:0o600 });
+    await fs.mkdir(validationDataDir, { recursive:true });
+    await fs.writeFile(validationLicensePath, `${documentText}\n`, { encoding:'utf8', mode:0o600 });
     candidate = await loadLicenseManager({
       appDir:validationDir,
-      dataDir:null,
+      dataDir:validationDataDir,
       env:{},
-      now:new Date()
+      now:new Date(),
+      preferredLicenseFile:validationLicensePath
     });
   } finally {
     await fs.rm(validationDir, { recursive:true, force:true }).catch(() => {});
@@ -347,6 +351,7 @@ async function installLicenseDocument(input) {
 
   const target = runtimePaths.licensePath;
   try {
+    await fs.mkdir(path.dirname(target), { recursive:true });
     await fs.writeFile(target, `${documentText}\n`, { encoding:'utf8', mode:0o600 });
   } catch (error) {
     if (error?.code === 'EACCES' || error?.code === 'EPERM') {

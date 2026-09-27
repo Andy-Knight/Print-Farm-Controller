@@ -23,6 +23,8 @@ export function resolveControllerRuntimePaths({
   const defaultLogDir = path.join(applicationDir, 'logs');
   const dataDir = path.resolve(requestedDataDir || defaultDataDir);
   const logDir = path.resolve(requestedLogDir || defaultLogDir);
+  const licensePath = path.join(dataDir, 'license.json');
+  const applicationLicensePath = path.join(applicationDir, 'license.json');
 
   return Object.freeze({
     runningAsSea:Boolean(runningAsSea),
@@ -39,8 +41,10 @@ export function resolveControllerRuntimePaths({
     emulatorAssetsDir:sourceRoot ? path.join(sourceRoot, 'emulator', 'assets') : null,
     trustedPublicKeysPath:sourceRoot ? path.join(sourceRoot, 'src', 'licensing', 'trusted-public-keys.json') : null,
     packageJsonPath:sourceRoot ? path.join(sourceRoot, 'package.json') : null,
-    licensePath:runningAsSea ? path.join(dataDir, 'license.json') : path.join(applicationDir, 'license.json'),
-    legacyApplicationLicensePath:runningAsSea ? path.join(applicationDir, 'license.json') : null,
+    licensePath,
+    legacyApplicationLicensePath:path.resolve(applicationLicensePath) === path.resolve(licensePath)
+      ? null
+      : applicationLicensePath,
     emulatorSettingsPath:path.join(dataDir, 'emulator-settings.json')
   });
 }

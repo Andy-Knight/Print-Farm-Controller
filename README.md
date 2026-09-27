@@ -1,4 +1,6 @@
-# Print Farm Controller v0.30.3
+# Print Farm Controller v0.30.4
+
+> **v0.30.4 standardises licence storage in the controller data directory.** Source/development and packaged deployments now use `DATA_DIR/license.json` as the canonical signed licence location. A valid legacy application-root `license.json` is verified before being automatically migrated into the data directory and the old copy is removed after a successful migration; invalid/tampered legacy files are never promoted. Licence installation/replacement also writes only to the canonical data location, and production ignores alternate licence-file environment paths. This gives Windows, source, Linux and future container deployments one persistent licence-storage model.
 
 > **v0.30.3 Community Edition supports 3 physical printers.** The unlicensed/Community fallback allowance is increased from 2 to 3 physical printers. Pro remains 10 and Farm remains 25. Simulator printers continue not to consume licence slots. Existing signed licences retain their explicitly signed `maxPrinters` value until deliberately reissued.
 
@@ -148,14 +150,13 @@ If an installed licence allows fewer physical printers than are already configur
 
 ### Licence file
 
-The normal licence location depends on how the controller is run:
+The signed licence is always stored in the controller data directory:
 
 ```text
-Source/development: <controller application directory>/license.json
-Packaged SEA:       <controller application directory>/data/license.json
+<DATA_DIR>/license.json
 ```
 
-Packaged builds prefer `data/license.json` so an installation under Program Files can remain read-only for normal users. A previous application-directory `license.json` is still accepted for migration; reinstalling the licence moves it to the current packaged data location.
+With the default application-local data directory this is `<controller application directory>/data/license.json` in both source/development and packaged SEA modes. A valid previous application-root `license.json` is accepted once for migration: the controller verifies it, copies it into the data directory, and removes the old copy after a successful migration. Invalid or tampered legacy licences are not promoted. A custom `DATA_DIR` therefore also determines the persistent licence location.
 
 A licence contains signed customer/licence metadata such as:
 
@@ -254,7 +255,7 @@ Start `PrintFarmController.exe` and open:
 http://localhost:4242
 ```
 
-The executable reads its built-in web/simulator resources and trusted licence public keys directly from the SEA payload. It creates `data/` beside the executable for persistent controller state. Packaged builds also store the replaceable signed customer licence at `data/license.json`, keeping the executable/application directory read-only for normal users. A previous application-directory `license.json` remains readable for migration.
+The executable reads its built-in web/simulator resources and trusted licence public keys directly from the SEA payload. It creates `data/` beside the executable for persistent controller state. All deployments store the replaceable signed customer licence at `data/license.json` by default, keeping executable/application files separate from persistent state. A valid previous application-directory `license.json` is automatically migrated into the data directory.
 
 The Ed25519 private signing key is never included in the controller. The Bambu simulator TLS key embedded in the executable is only a local simulator/test credential and is unrelated to production licence signing.
 

@@ -1,4 +1,5 @@
 # Print Farm Controller — Project Context
+- **v0.30.4 licence storage standardisation:** `DATA_DIR/license.json` is now the canonical signed licence location for source/development, packaged Windows and future container/Linux deployments. A valid legacy application-root `license.json` is verified and automatically migrated into the data directory, with the previous copy removed only after the canonical write succeeds. Invalid/tampered legacy licences remain in place and fail closed rather than being promoted. Licence installation/replacement writes to the data directory, and normal production startup ignores alternate licence-file environment paths.
 
 > Cross-chat handoff file. Read this first when continuing the project in a new chat. Keep it concise and update it whenever architecture/decisions change, a task is completed, or the current/next task changes.
 
@@ -115,7 +116,7 @@ Manufacturer-specific discovery, capabilities, limits, status normalization, fil
 - Production licensing is offline and Ed25519-signed. The controller ships trusted public verification keys only; production private keys live only in the separate private `Andy-Knight/Print-Farm-Licensing` application.
 - No valid signed licence means Community Edition. Current physical-printer allowances are Community 3, Pro 10, Farm 25; simulator printers do not consume licence slots.
 - Reducing the allowance never deletes configured printers. Over-limit fleets retain all printers and require selection of the physical printers that occupy active licence slots.
-- Source/development mode keeps the signed licence at `<application directory>/license.json`. Packaged SEA builds prefer `<application directory>/data/license.json` so Program Files can remain read-only; an older application-directory `license.json` is still accepted for migration.
+- Source/development and packaged SEA modes both keep the signed licence at `<DATA_DIR>/license.json` (default `<application directory>/data/license.json`). A valid older application-root `license.json` is verified and automatically migrated into the data directory; invalid/tampered legacy files are not promoted.
 - Production startup must not allow environment-variable licence bypasses. `PRINT_CONTROLLER_EDITION` and arbitrary public-key trust are ignored unless source/test code explicitly enables the internal development override path.
 - Licence installation/replacement reloads the signed licence immediately; a normal controller restart is not required.
 - The edition entitlement catalogue exists for future feature-by-feature enforcement. As of v0.14.8 the production enforcement path includes signature/expiry validation and physical-printer slot limits; do not describe every entitlement as fully gated unless the code has actually been wired to enforce it.
@@ -239,15 +240,15 @@ Andy-Knight/Print-Farm-Licensing
 ```
 
 Default licence location:
-- source/development mode: `<application directory>/license.json`
-- packaged SEA builds: `<application directory>/data/license.json`
+- all normal deployments: `<DATA_DIR>/license.json`
+- default source/development and packaged SEA path: `<application directory>/data/license.json`
 
-Packaged licence-file lookup order:
-1. `PRINT_CONTROLLER_LICENSE_FILE` explicit file override, when deliberately configured.
-2. Preferred packaged `data/license.json`.
-3. Previous application-directory `license.json` for migration compatibility.
-4. Other legacy data-directory location where applicable.
-5. No file -> Community Edition.
+Normal production licence-file lookup order:
+1. Canonical `<DATA_DIR>/license.json`.
+2. Previous application-root `license.json` only as a verified one-time migration source.
+3. No file -> Community Edition.
+
+`PRINT_CONTROLLER_LICENSE_FILE` is ignored by normal production startup and remains available only behind the explicit internal development-override gate.
 
 Signed editions:
 - Community: 3 physical printers
