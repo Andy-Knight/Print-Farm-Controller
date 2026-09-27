@@ -53,7 +53,7 @@ async function writeSignedLicense(directory, document) {
   await fs.writeFile(path.join(directory, 'license.json'), JSON.stringify(document), 'utf8');
 }
 
-test('no installed licence falls back to Community and points at application directory', async () => {
+test('no installed licence falls back to Community and points at the data directory', async () => {
   const appDir = await tempDir();
   const dataDir = await tempDir('print-controller-data-');
   const manager = await loadLicenseManager({ appDir, dataDir, env:{} });
@@ -62,20 +62,23 @@ test('no installed licence falls back to Community and points at application dir
   assert.equal(snapshot.edition, 'community');
   assert.equal(snapshot.licenseStatus, 'not-installed');
   assert.equal(snapshot.enforcementEnabled, true);
-  assert.equal(snapshot.licenseFile, path.join(appDir, 'license.json'));
+  assert.equal(snapshot.licenseFile, path.join(dataDir, 'license.json'));
   assert.match(snapshot.configurationWarning, /no signed licence/i);
 });
 
 test('production loading ignores the environment edition override', async () => {
   const appDir = await tempDir();
+  const dataDir = await tempDir('print-controller-data-');
   const manager = await loadLicenseManager({
     appDir,
+    dataDir,
     env:{ PRINT_CONTROLLER_EDITION:'development' }
   });
 
   assert.equal(manager.edition, 'community');
   assert.equal(manager.enforcementEnabled, true);
   assert.equal(manager.getSnapshot().licenseStatus, 'not-installed');
+  assert.equal(manager.getSnapshot().licenseFile, path.join(dataDir, 'license.json'));
 });
 
 test('development edition override requires the explicit internal development gate', async () => {
@@ -93,14 +96,16 @@ test('development edition override requires the explicit internal development ga
 
 test('production loading ignores an environment-supplied public verification key', async () => {
   const appDir = await tempDir();
+  const dataDir = await tempDir('print-controller-data-');
   const keyDir = await tempDir('print-controller-dev-key-');
   const { publicKey, privateKey } = crypto.generateKeyPairSync('ed25519');
   const publicKeyFile = path.join(keyDir, 'development-public.pem');
   await fs.writeFile(publicKeyFile, publicKey.export({ type:'spki', format:'pem' }), 'utf8');
-  await writeSignedLicense(appDir, createSignedDocument(proPayload(), privateKey, 'development-local'));
+  await writeSignedLicense(dataDir, createSignedDocument(proPayload(), privateKey, 'development-local'));
 
   const manager = await loadLicenseManager({
     appDir,
+    dataDir,
     env:{
       PRINT_CONTROLLER_LICENSE_PUBLIC_KEY_FILE:publicKeyFile,
       PRINT_CONTROLLER_LICENSE_KEY_ID:'development-local'
@@ -113,14 +118,16 @@ test('production loading ignores an environment-supplied public verification key
 
 test('environment-supplied public verification key requires the explicit internal development gate', async () => {
   const appDir = await tempDir();
+  const dataDir = await tempDir('print-controller-data-');
   const keyDir = await tempDir('print-controller-dev-key-');
   const { publicKey, privateKey } = crypto.generateKeyPairSync('ed25519');
   const publicKeyFile = path.join(keyDir, 'development-public.pem');
   await fs.writeFile(publicKeyFile, publicKey.export({ type:'spki', format:'pem' }), 'utf8');
-  await writeSignedLicense(appDir, createSignedDocument(proPayload(), privateKey, 'development-local'));
+  await writeSignedLicense(dataDir, createSignedDocument(proPayload(), privateKey, 'development-local'));
 
   const manager = await loadLicenseManager({
     appDir,
+    dataDir,
     env:{
       PRINT_CONTROLLER_LICENSE_PUBLIC_KEY_FILE:publicKeyFile,
       PRINT_CONTROLLER_LICENSE_KEY_ID:'development-local'
@@ -133,13 +140,13 @@ test('environment-supplied public verification key requires the explicit interna
   assert.equal(manager.getSnapshot().licenseStatus, 'valid');
 });
 
-test('valid signed licence is loaded from the application directory', async () => {
+test('valid signed licence is loaded from the data directory', async () => {
   const appDir = await tempDir();
   const dataDir = await tempDir('print-controller-data-');
   const { publicKey, privateKey } = crypto.generateKeyPairSync('ed25519');
   const publicPem = publicKey.export({ type:'spki', format:'pem' });
   const document = createSignedDocument(proPayload(), privateKey);
-  await writeSignedLicense(appDir, document);
+  await writeSignedLicense(dataDir, document);
 
   const manager = await loadLicenseManager({
     appDir,
@@ -155,27 +162,27 @@ test('valid signed licence is loaded from the application directory', async () =
   assert.equal(snapshot.licenseStatus, 'valid');
   assert.equal(snapshot.licenseId, 'PC-LOAD-0001');
   assert.equal(snapshot.customer, 'Loader Test Farm');
-  assert.equal(snapshot.licenseFile, path.join(appDir, 'license.json'));
+  assert.equal(snapshot.licenseFile, path.join(dataDir, 'license.json'));
   assert.equal(snapshot.configurationWarning, null);
   assert.equal(manager.hasFeature('automation.auto_transfer'), true);
   assert.equal(manager.hasFeature('printer.basic_control'), true);
 });
 
-test('application-directory licence takes priority over legacy data-directory licence', async () => {
+test('data-directory licence takes priority over a legacy application-root licence', async () => {
   const appDir = await tempDir();
   const dataDir = await tempDir('print-controller-data-');
   const { publicKey, privateKey } = crypto.generateKeyPairSync('ed25519');
   const publicPem = publicKey.export({ type:'spki', format:'pem' });
 
-  await writeSignedLicense(appDir, createSignedDocument(proPayload({
-    licenseId:'PC-APP-0001',
-    edition:'pro',
-    maxPrinters:10
-  }), privateKey));
   await writeSignedLicense(dataDir, createSignedDocument(proPayload({
     licenseId:'PC-DATA-0001',
     edition:'farm',
     maxPrinters:25
+  }), privateKey));
+  await writeSignedLicense(appDir, createSignedDocument(proPayload({
+    licenseId:'PC-LEGACY-0001',
+    edition:'pro',
+    maxPrinters:10
   }), privateKey));
 
   const manager = await loadLicenseManager({
@@ -185,18 +192,21 @@ test('application-directory licence takes priority over legacy data-directory li
     trustedPublicKeys:{ 'test-key':publicPem }
   });
 
-  assert.equal(manager.edition, 'pro');
-  assert.equal(manager.maxPrinters, 10);
-  assert.equal(manager.getSnapshot().licenseId, 'PC-APP-0001');
+  assert.equal(manager.edition, 'farm');
+  assert.equal(manager.maxPrinters, 25);
+  assert.equal(manager.getSnapshot().licenseId, 'PC-DATA-0001');
+  assert.equal(manager.getSnapshot().licenseFile, path.join(dataDir, 'license.json'));
 });
 
-test('legacy data-directory licence is accepted temporarily when application licence is absent', async () => {
+test('valid legacy application-root licence is automatically migrated into the data directory', async () => {
   const appDir = await tempDir();
   const dataDir = await tempDir('print-controller-data-');
   const { publicKey, privateKey } = crypto.generateKeyPairSync('ed25519');
   const publicPem = publicKey.export({ type:'spki', format:'pem' });
   const document = createSignedDocument(proPayload(), privateKey);
-  await writeSignedLicense(dataDir, document);
+  const legacyPath = path.join(appDir, 'license.json');
+  const canonicalPath = path.join(dataDir, 'license.json');
+  await writeSignedLicense(appDir, document);
 
   const manager = await loadLicenseManager({
     appDir,
@@ -207,12 +217,38 @@ test('legacy data-directory licence is accepted temporarily when application lic
   const snapshot = manager.getSnapshot();
 
   assert.equal(snapshot.edition, 'pro');
-  assert.equal(snapshot.licenseFile, path.join(dataDir, 'license.json'));
-  assert.match(snapshot.configurationWarning, /previous location/i);
+  assert.equal(snapshot.licenseFile, canonicalPath);
+  assert.equal(snapshot.configurationWarning, null);
+  assert.equal(JSON.parse(await fs.readFile(canonicalPath, 'utf8')).payload.licenseId, 'PC-LOAD-0001');
+  await assert.rejects(fs.access(legacyPath), (error) => error?.code === 'ENOENT');
 });
 
+test('invalid legacy application-root licence is not promoted into the data directory', async () => {
+  const appDir = await tempDir();
+  const dataDir = await tempDir('print-controller-data-');
+  const { publicKey, privateKey } = crypto.generateKeyPairSync('ed25519');
+  const publicPem = publicKey.export({ type:'spki', format:'pem' });
+  const document = createSignedDocument(proPayload(), privateKey);
+  document.payload.maxPrinters = 500;
+  const legacyPath = path.join(appDir, 'license.json');
+  const canonicalPath = path.join(dataDir, 'license.json');
+  await writeSignedLicense(appDir, document);
 
-test('preferred packaged licence path takes priority and becomes the not-installed target', async () => {
+  const manager = await loadLicenseManager({
+    appDir,
+    dataDir,
+    env:{},
+    trustedPublicKeys:{ 'test-key':publicPem }
+  });
+
+  assert.equal(manager.edition, 'community');
+  assert.equal(manager.getSnapshot().licenseStatus, 'invalid');
+  assert.equal(manager.getSnapshot().licenseFile, legacyPath);
+  await fs.access(legacyPath);
+  await assert.rejects(fs.access(canonicalPath), (error) => error?.code === 'ENOENT');
+});
+
+test('preferred data licence path becomes the not-installed and installed target', async () => {
   const appDir = await tempDir();
   const dataDir = await tempDir('print-controller-data-');
   const preferredLicenseFile = path.join(dataDir, 'license.json');
@@ -248,36 +284,41 @@ test('preferred packaged licence path takes priority and becomes the not-install
   assert.equal(licensed.getSnapshot().configurationWarning, null);
 });
 
-test('tampered signed licence fails closed to Community', async () => {
+test('production loading ignores an alternate licence-file environment variable', async () => {
   const appDir = await tempDir();
+  const dataDir = await tempDir('print-controller-data-');
+  const alternateDir = await tempDir('print-controller-alt-license-');
   const { publicKey, privateKey } = crypto.generateKeyPairSync('ed25519');
   const publicPem = publicKey.export({ type:'spki', format:'pem' });
-  const document = createSignedDocument(proPayload(), privateKey);
-  document.payload.maxPrinters = 500;
-  await writeSignedLicense(appDir, document);
+  const alternatePath = path.join(alternateDir, 'license.json');
+  await writeSignedLicense(alternateDir, createSignedDocument(proPayload(), privateKey));
 
   const manager = await loadLicenseManager({
     appDir,
-    env:{},
+    dataDir,
+    env:{ PRINT_CONTROLLER_LICENSE_FILE:alternatePath },
     trustedPublicKeys:{ 'test-key':publicPem }
   });
 
   assert.equal(manager.edition, 'community');
-  assert.equal(manager.getSnapshot().licenseStatus, 'invalid');
+  assert.equal(manager.getSnapshot().licenseStatus, 'not-installed');
+  assert.equal(manager.getSnapshot().licenseFile, path.join(dataDir, 'license.json'));
 });
 
 test('expired subscription fails closed to Community but retains licence identity', async () => {
   const appDir = await tempDir();
+  const dataDir = await tempDir('print-controller-data-');
   const { publicKey, privateKey } = crypto.generateKeyPairSync('ed25519');
   const publicPem = publicKey.export({ type:'spki', format:'pem' });
   const document = createSignedDocument(proPayload({
     licenseType:'subscription',
     expiresAt:'2026-09-17'
   }), privateKey);
-  await writeSignedLicense(appDir, document);
+  await writeSignedLicense(dataDir, document);
 
   const manager = await loadLicenseManager({
     appDir,
+    dataDir,
     env:{},
     trustedPublicKeys:{ 'test-key':publicPem },
     now:new Date('2026-09-18T12:00:00Z')
@@ -288,4 +329,5 @@ test('expired subscription fails closed to Community but retains licence identit
   assert.equal(snapshot.licenseStatus, 'expired');
   assert.equal(snapshot.licenseId, 'PC-LOAD-0001');
   assert.equal(snapshot.customer, 'Loader Test Farm');
+  assert.equal(snapshot.licenseFile, path.join(dataDir, 'license.json'));
 });
