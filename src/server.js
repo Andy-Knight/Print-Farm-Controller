@@ -38,6 +38,7 @@ import { publicAssetKey, readRuntimeAsset } from './runtime-assets.js';
 import { KeyedSerialExecutor, PrinterOperationCoordinator } from './concurrency.js';
 import { evaluatePrinterOperation, PrinterPhysicalActivityTracker, PRINTER_OPERATION_TYPES } from './printer-operation-policy.js';
 import { DiagnosticLogger } from './diagnostic-logger.js';
+import { MemoryMonitor } from './memory-monitor.js';
 import { MaintenanceService } from './maintenance-service.js';
 import { PrinterGroupService } from './printer-groups.js';
 import { ManualBackupManager } from './backup-recovery/manual-backup-manager.js';
@@ -64,6 +65,9 @@ const CONTROLLER_VERSION = String(bundledVersion || packageInfo.version || 'unkn
 const PORT = Number(process.env.PORT || 4242);
 const HOST = process.env.HOST || '0.0.0.0';
 const diagnosticLogger = new DiagnosticLogger({ logDir:runtimePaths.logDir, version:CONTROLLER_VERSION });
+const memoryMonitor = new MemoryMonitor({
+  diagnosticFn:(level, message, meta) => diagnosticLogger[level]?.('memory', message, meta)
+});
 const backupOperationLock = new BackupOperationLock();
 const manualBackupManager = new ManualBackupManager({
   dataDir:runtimePaths.dataDir,
@@ -732,7 +736,10 @@ async function apiRoute(req, res, url) {
       level:url.searchParams.get('level') || '',
       search:url.searchParams.get('search') || ''
     });
-    return json(res, 200, { status:diagnosticLogger.status(), entries });
+    return json(res, 200, {
+      status:{ ...diagnosticLogger.status(), memory:memoryMonitor.getSnapshot() },
+      entries
+    });
   }
 
   if (req.method === 'POST' && url.pathname === '/api/diagnostics/verbose') {
@@ -770,6 +777,7 @@ async function apiRoute(req, res, url) {
         platform:process.platform,
         architecture:process.arch,
         uptimeSeconds:Math.round(process.uptime()),
+        memory:memoryMonitor.getSnapshot(),
         runningAsSea:runtimePaths.runningAsSea,
         dataDirectoryMode:runtimePaths.customDataDir ? 'custom' : 'application-local',
         logDirectoryMode:runtimePaths.customLogDir ? 'custom' : 'application-local',
@@ -1815,6 +1823,7 @@ const server = http.createServer(async (req, res) => {
 
 async function shutdown() {
   await diagnosticLogger.info('controller', 'Controller shutdown requested').catch(() => {});
+  memoryMonitor.stop();
   try { await chamberPreheat.stopAll({ reason: 'controller-shutdown', turnOff: true }); } catch {}
   chamberPreheat.stopService();
   scheduledBackupService.stop();
@@ -1863,6 +1872,7 @@ async function startController() {
     try {
       await diagnosticLogger.init();
       diagnosticLogger.patchConsole();
+      memoryMonitor.start();
       console.log(`Diagnostic logging enabled (${runtimePaths.customLogDir ? 'LOG_DIR override' : 'application-local logs directory'})`);
     } catch (error) {
       console.warn(`Diagnostic file logging unavailable: ${error.message}`);
@@ -1929,6 +1939,7 @@ async function startController() {
     console.log('Custom printer groups + group-restricted scheduling enabled');
     console.log('Maintenance tracking + controller-observed printer usage enabled');
   } catch (error) {
+    memoryMonitor.stop();
     chamberPreheat.stopService();
     scheduledBackupService.stop();
     await maintenanceService.stop().catch(() => {});
