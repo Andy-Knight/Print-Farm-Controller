@@ -47,59 +47,86 @@ function communityFallback({ source, status, warning, licenseFile, verification 
   });
 }
 
-async function resolveLicenseFile({ appDir, dataDir, env, preferredLicenseFile = null }) {
-  const override = String(env.PRINT_CONTROLLER_LICENSE_FILE || '').trim();
-  if (override) {
+async function resolveLicenseFile({
+  appDir,
+  dataDir,
+  env,
+  preferredLicenseFile = null,
+  allowDevelopmentOverrides = false
+}) {
+  const developmentOverride = allowDevelopmentOverrides
+    ? String(env.PRINT_CONTROLLER_LICENSE_FILE || '').trim()
+    : '';
+  if (developmentOverride) {
+    const overridePath = path.resolve(developmentOverride);
     return {
-      licenseFile:path.resolve(override),
+      licenseFile:overridePath,
+      canonicalLicenseFile:overridePath,
       legacyLocation:false
     };
   }
 
-  const applicationLicenseFile = path.resolve(appDir, 'license.json');
-  const preferred = preferredLicenseFile ? path.resolve(preferredLicenseFile) : applicationLicenseFile;
+  const canonicalLicenseFile = preferredLicenseFile
+    ? path.resolve(preferredLicenseFile)
+    : path.resolve(dataDir || path.join(appDir, 'data'), 'license.json');
+  const legacyApplicationLicenseFile = path.resolve(appDir, 'license.json');
 
-  for (const candidate of [...new Set([preferred, applicationLicenseFile].filter(Boolean))]) {
+  for (const candidate of [...new Set([canonicalLicenseFile, legacyApplicationLicenseFile])]) {
     try {
       await fs.access(candidate);
       return {
         licenseFile:candidate,
-        legacyLocation:candidate !== preferred
+        canonicalLicenseFile,
+        legacyLocation:candidate !== canonicalLicenseFile
       };
     } catch (error) {
       if (error?.code !== 'ENOENT') {
         return {
           licenseFile:candidate,
-          legacyLocation:candidate !== preferred
+          canonicalLicenseFile,
+          legacyLocation:candidate !== canonicalLicenseFile
         };
-      }
-    }
-  }
-
-  if (dataDir) {
-    const legacyLicenseFile = path.resolve(dataDir, 'license.json');
-    if (legacyLicenseFile !== preferred && legacyLicenseFile !== applicationLicenseFile) {
-      try {
-        await fs.access(legacyLicenseFile);
-        return {
-          licenseFile:legacyLicenseFile,
-          legacyLocation:true
-        };
-      } catch (error) {
-        if (error?.code !== 'ENOENT') {
-          return {
-            licenseFile:legacyLicenseFile,
-            legacyLocation:true
-          };
-        }
       }
     }
   }
 
   return {
-    licenseFile:preferred,
+    licenseFile:canonicalLicenseFile,
+    canonicalLicenseFile,
     legacyLocation:false
   };
+}
+
+async function migrateValidLegacyLicense({ document, licenseFile, canonicalLicenseFile }) {
+  const source = path.resolve(licenseFile);
+  const target = path.resolve(canonicalLicenseFile);
+  if (source === target) {
+    return { licenseFile:target, warning:null };
+  }
+
+  try {
+    await fs.mkdir(path.dirname(target), { recursive:true });
+    await fs.writeFile(target, document.endsWith('\n') ? document : `${document}\n`, {
+      encoding:'utf8',
+      mode:0o600
+    });
+  } catch (error) {
+    return {
+      licenseFile:source,
+      warning:`Licence is valid but could not be migrated to the application data directory: ${error.message}`
+    };
+  }
+
+  try {
+    await fs.unlink(source);
+    return { licenseFile:target, warning:null };
+  } catch (error) {
+    if (error?.code === 'ENOENT') return { licenseFile:target, warning:null };
+    return {
+      licenseFile:target,
+      warning:`Licence was migrated to the application data directory, but the previous copy could not be removed: ${error.message}`
+    };
+  }
 }
 
 export async function loadLicenseManager({
@@ -123,12 +150,15 @@ export async function loadLicenseManager({
     });
   }
 
-  const { licenseFile, legacyLocation } = await resolveLicenseFile({
+  const resolvedLicense = await resolveLicenseFile({
     appDir,
     dataDir,
     env,
-    preferredLicenseFile
+    preferredLicenseFile,
+    allowDevelopmentOverrides
   });
+  let { licenseFile } = resolvedLicense;
+  const { canonicalLicenseFile, legacyLocation } = resolvedLicense;
 
   let keys = trustedPublicKeys && typeof trustedPublicKeys === 'object'
     ? { ...trustedPublicKeys }
@@ -186,13 +216,20 @@ export async function loadLicenseManager({
     });
   }
 
-  const payload = verification.payload;
   const warnings = [];
+  if (legacyLocation) {
+    const migration = await migrateValidLegacyLicense({
+      document,
+      licenseFile,
+      canonicalLicenseFile
+    });
+    licenseFile = migration.licenseFile;
+    if (migration.warning) warnings.push(migration.warning);
+  }
+
+  const payload = verification.payload;
   if (verification.updatesExpired) {
     warnings.push('This licence remains valid, but its feature-update entitlement has expired.');
-  }
-  if (legacyLocation) {
-    warnings.push('Licence loaded from a previous location. Reinstall the licence to move it to the current application data location.');
   }
 
   return new LicenseManager({
