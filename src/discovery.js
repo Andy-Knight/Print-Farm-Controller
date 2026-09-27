@@ -2,6 +2,7 @@ import dgram from 'node:dgram';
 import net from 'node:net';
 import { networkInterfaces } from 'node:os';
 import { configuredDiscoverySubnet, discoverySubnetHosts } from './discovery-network.js';
+
 const FLASHFORGE_AD5M_ADAPTER_TYPE = 'flashforge-ad5m';
 const FLASHFORGE_CREATOR5_ADAPTER_TYPE = 'flashforge-creator5';
 
@@ -9,23 +10,52 @@ const MODERN_SIZE = 276;
 const LEGACY_SIZE = 140;
 const MULTICAST_ADDRESS = '225.0.0.9';
 const DEFAULT_PORTS = [8899, 19000, 48899];
-
 const TCP_PROBE_PORT = 8899;
 const TCP_PROBE_TIMEOUT_MS = 300;
 const TCP_PROBE_CONCURRENCY = 64;
 
-function m115Field(response, label) {
-  const match = String(response || '').match(new RegExp(`^${label}\\s*:\\s*(.+)import dgram from 'node:dgram';
-import net from 'node:net';
-import { networkInterfaces } from 'node:os';
-import { configuredDiscoverySubnet, discoverySubnetHosts } from './discovery-network.js';
-const FLASHFORGE_AD5M_ADAPTER_TYPE = 'flashforge-ad5m';
-const FLASHFORGE_CREATOR5_ADAPTER_TYPE = 'flashforge-creator5';
+const MODERN_MODELS = new Map([
+  [0x0023, 'Adventurer 5M'],
+  [0x0024, 'Adventurer 5M Pro'],
+  [0x0026, 'AD5X'],
+  [0x0028, 'Creator 5'],
+  [0x0029, 'Creator 5 Pro']
+]);
 
-const MODERN_SIZE = 276;
-const LEGACY_SIZE = 140;
-const MULTICAST_ADDRESS = '225.0.0.9';
-, 'im'));
+function cleanString(buffer, start, end) {
+  return buffer.toString('utf8', start, end).replace(/\0.*$/s, '').trim();
+}
+
+function statusName(code) {
+  if (code === 0) return 'ready';
+  if (code === 1) return 'busy';
+  if (code === 2) return 'error';
+  return 'unknown';
+}
+
+function modelFromModern(name, productId, productType) {
+  if (MODERN_MODELS.has(productId)) return MODERN_MODELS.get(productId);
+  const upper = String(name || '').toUpperCase();
+  if (productType === 0x5a02 || upper.includes('ADVENTURER 5M') || upper.includes('AD5M')) {
+    return upper.includes('PRO') ? 'Adventurer 5M Pro' : 'Adventurer 5M';
+  }
+  if (upper === 'AD5X') return 'AD5X';
+  return 'Unknown';
+}
+
+function modelFromLegacy(name, productId) {
+  const upper = String(name || '').toUpperCase();
+  if (upper.includes('ADVENTURER 4') || upper.includes('ADVENTURER4') || upper.includes('AD4') || productId === 0x0016 || productId === 0x001e) {
+    return 'Adventurer 4';
+  }
+  if (upper.includes('ADVENTURER 3') || upper.includes('ADVENTURER3') || upper.includes('AD3') || productId === 0x0008) {
+    return 'Adventurer 3';
+  }
+  return 'Unknown';
+}
+
+function m115Field(response, label) {
+  const match = String(response || '').match(new RegExp(`^${label}\\s*:\\s*(.+)$`, 'im'));
   return match ? match[1].trim() : '';
 }
 
@@ -41,8 +71,8 @@ export function parseFlashForgeM115(response, host) {
 
   const normalizedType = machineType.toUpperCase();
   if (!normalizedType.includes('ADVENTURER 5M')) return null;
-  const model = normalizedType.includes('PRO') ? 'Adventurer 5M Pro' : 'Adventurer 5M';
 
+  const model = normalizedType.includes('PRO') ? 'Adventurer 5M Pro' : 'Adventurer 5M';
   return {
     protocol:'tcp-m115',
     adapterType:FLASHFORGE_AD5M_ADAPTER_TYPE,
@@ -102,54 +132,18 @@ export function probeFlashForgeM115(host, {
 async function probeConfiguredFlashForgeSubnet(subnet, onPrinter) {
   const queue = discoverySubnetHosts(subnet);
   if (!queue.length) return;
-  const workers = Array.from({ length: Math.min(TCP_PROBE_CONCURRENCY, queue.length) }, async () => {
+
+  const workers = Array.from({
+    length:Math.min(TCP_PROBE_CONCURRENCY, queue.length)
+  }, async () => {
     while (queue.length) {
       const host = queue.shift();
       const printer = await probeFlashForgeM115(host);
       if (printer) onPrinter(printer);
     }
   });
+
   await Promise.all(workers);
-}
-
-const MODERN_MODELS = new Map([
-  [0x0023, 'Adventurer 5M'],
-  [0x0024, 'Adventurer 5M Pro'],
-  [0x0026, 'AD5X'],
-  [0x0028, 'Creator 5'],
-  [0x0029, 'Creator 5 Pro']
-]);
-
-function cleanString(buffer, start, end) {
-  return buffer.toString('utf8', start, end).replace(/\0.*$/s, '').trim();
-}
-
-function statusName(code) {
-  if (code === 0) return 'ready';
-  if (code === 1) return 'busy';
-  if (code === 2) return 'error';
-  return 'unknown';
-}
-
-function modelFromModern(name, productId, productType) {
-  if (MODERN_MODELS.has(productId)) return MODERN_MODELS.get(productId);
-  const upper = String(name || '').toUpperCase();
-  if (productType === 0x5a02 || upper.includes('ADVENTURER 5M') || upper.includes('AD5M')) {
-    return upper.includes('PRO') ? 'Adventurer 5M Pro' : 'Adventurer 5M';
-  }
-  if (upper === 'AD5X') return 'AD5X';
-  return 'Unknown';
-}
-
-function modelFromLegacy(name, productId) {
-  const upper = String(name || '').toUpperCase();
-  if (upper.includes('ADVENTURER 4') || upper.includes('ADVENTURER4') || upper.includes('AD4') || productId === 0x0016 || productId === 0x001e) {
-    return 'Adventurer 4';
-  }
-  if (upper.includes('ADVENTURER 3') || upper.includes('ADVENTURER3') || upper.includes('AD3') || productId === 0x0008) {
-    return 'Adventurer 3';
-  }
-  return 'Unknown';
 }
 
 export function parseDiscoveryResponse(buffer, remoteAddress) {
@@ -174,20 +168,20 @@ export function parseDiscoveryResponse(buffer, remoteAddress) {
         : null;
 
     return {
-      protocol: 'modern',
+      protocol:'modern',
       adapterType,
-      manufacturer: 'FlashForge',
-      name: name || `FlashForge ${remoteAddress}`,
-      host: remoteAddress,
+      manufacturer:'FlashForge',
+      name:name || `FlashForge ${remoteAddress}`,
+      host:remoteAddress,
       serialNumber,
       model,
       commandPort,
-      httpPort: eventPort || 8898,
-      cameraPort: 8080,
+      httpPort:eventPort || 8898,
+      cameraPort:8080,
       vendorId,
       productId,
       productType,
-      status: statusName(statusCode),
+      status:statusName(statusCode),
       lanMode
     };
   }
@@ -197,22 +191,23 @@ export function parseDiscoveryResponse(buffer, remoteAddress) {
   const vendorId = buffer.readUInt16BE(0x86);
   const productId = buffer.readUInt16BE(0x88);
   const statusCode = buffer.readUInt16BE(0x8a);
+
   return {
-    protocol: 'legacy',
-    adapterType: null,
-    manufacturer: 'FlashForge',
-    name: name || `FlashForge ${remoteAddress}`,
-    host: remoteAddress,
-    serialNumber: '',
-    model: modelFromLegacy(name, productId),
+    protocol:'legacy',
+    adapterType:null,
+    manufacturer:'FlashForge',
+    name:name || `FlashForge ${remoteAddress}`,
+    host:remoteAddress,
+    serialNumber:'',
+    model:modelFromLegacy(name, productId),
     commandPort,
-    httpPort: null,
-    cameraPort: null,
+    httpPort:null,
+    cameraPort:null,
     vendorId,
     productId,
-    productType: null,
-    status: statusName(statusCode),
-    lanMode: null
+    productType:null,
+    status:statusName(statusCode),
+    lanMode:null
   };
 }
 
@@ -225,6 +220,7 @@ function broadcastAddress(address, netmask) {
 
 export function getBroadcastAddresses({ interfaces = networkInterfaces(), env = process.env } = {}) {
   const result = new Set(['255.255.255.255']);
+
   for (const group of Object.values(interfaces || {})) {
     for (const iface of group || []) {
       if (iface.family !== 'IPv4' || iface.internal || !iface.netmask) continue;
@@ -235,12 +231,16 @@ export function getBroadcastAddresses({ interfaces = networkInterfaces(), env = 
 
   const configuredSubnet = configuredDiscoverySubnet(env);
   if (configuredSubnet?.broadcast) result.add(configuredSubnet.broadcast);
-
   return [...result];
 }
 
-export async function discoverPrinters({ timeoutMs = 4000, idleTimeoutMs = 1200, ports = DEFAULT_PORTS, env = process.env } = {}) {
-  const socket = dgram.createSocket({ type: 'udp4', reuseAddr: true });
+export async function discoverPrinters({
+  timeoutMs = 4000,
+  idleTimeoutMs = 1200,
+  ports = DEFAULT_PORTS,
+  env = process.env
+} = {}) {
+  const socket = dgram.createSocket({ type:'udp4', reuseAddr:true });
   const printers = new Map();
 
   await new Promise((resolve, reject) => {
@@ -255,12 +255,13 @@ export async function discoverPrinters({ timeoutMs = 4000, idleTimeoutMs = 1200,
 
   return new Promise((resolve) => {
     let idleTimer = null;
+    let totalTimer = null;
     let finished = false;
 
     const finish = () => {
       if (finished) return;
       finished = true;
-      clearTimeout(totalTimer);
+      if (totalTimer) clearTimeout(totalTimer);
       if (idleTimer) clearTimeout(idleTimer);
       try { socket.close(); } catch {}
       resolve([...printers.values()].sort((a, b) => a.name.localeCompare(b.name)));
@@ -271,13 +272,16 @@ export async function discoverPrinters({ timeoutMs = 4000, idleTimeoutMs = 1200,
       idleTimer = setTimeout(finish, idleTimeoutMs);
     };
 
-    socket.on('message', (buffer, rinfo) => {
-      const printer = parseDiscoveryResponse(buffer, rinfo.address);
-      if (!printer) return;
+    const addPrinter = (printer) => {
+      if (!printer || finished) return;
       const key = `${printer.host}:${printer.commandPort || printer.httpPort || ''}`;
       const previous = printers.get(key);
       if (!previous || printer.protocol === 'modern') printers.set(key, printer);
       resetIdle();
+    };
+
+    socket.on('message', (buffer, rinfo) => {
+      addPrinter(parseDiscoveryResponse(buffer, rinfo.address));
     });
 
     socket.on('error', (error) => {
@@ -286,6 +290,10 @@ export async function discoverPrinters({ timeoutMs = 4000, idleTimeoutMs = 1200,
 
     try { socket.addMembership(MULTICAST_ADDRESS); } catch {}
     const packet = Buffer.alloc(0);
+    const configuredSubnet = configuredDiscoverySubnet(env);
+
+    totalTimer = setTimeout(finish, timeoutMs);
+    idleTimer = setTimeout(finish, idleTimeoutMs);
 
     for (const port of ports) {
       if (port === 8899 || port === 19000) {
@@ -299,7 +307,6 @@ export async function discoverPrinters({ timeoutMs = 4000, idleTimeoutMs = 1200,
       }
     }
 
-    const configuredSubnet = configuredDiscoverySubnet(env);
     for (const address of discoverySubnetHosts(configuredSubnet)) {
       for (const port of ports) {
         try { socket.send(packet, port, address); } catch {}
@@ -311,17 +318,9 @@ export async function discoverPrinters({ timeoutMs = 4000, idleTimeoutMs = 1200,
     }
 
     if (configuredSubnet) {
-      probeConfiguredFlashForgeSubnet(configuredSubnet, (printer) => {
-        if (finished) return;
-        const key = `${printer.host}:${printer.commandPort || printer.httpPort || ''}`;
-        if (!printers.has(key)) printers.set(key, printer);
-        resetIdle();
-      }).catch((error) => {
+      probeConfiguredFlashForgeSubnet(configuredSubnet, addPrinter).catch((error) => {
         console.warn(`Configured FlashForge TCP discovery failed: ${error.message}`);
       });
     }
-
-    const totalTimer = setTimeout(finish, timeoutMs);
-    idleTimer = setTimeout(finish, idleTimeoutMs);
   });
 }
