@@ -506,6 +506,12 @@ function diagnosticStatusTime(value) {
   return Number.isNaN(date.getTime()) ? String(value) : date.toLocaleString();
 }
 
+function formatDiagnosticBytes(value) {
+  const bytes = Number(value);
+  if (!Number.isFinite(bytes) || bytes < 0) return '—';
+  return `${Math.round(bytes / 1024 / 1024)} MB`;
+}
+
 function renderDiagnostics(payload) {
   diagnosticsState = payload?.status || diagnosticsState || {};
   const status = diagnosticsState || {};
@@ -517,6 +523,8 @@ function renderDiagnostics(payload) {
       <div><span>Verbose until</span><strong>${escapeHtml(status.verbose ? diagnosticStatusTime(status.verboseUntil) : 'Off')}</strong></div>
       <div><span>Log location</span><code>${escapeHtml(status.logDir || '—')}</code></div>
       <div><span>Rotation</span><strong>${escapeHtml(status.maxFileBytes ? `${Math.round(status.maxFileBytes / 1024 / 1024)} MB × ${status.retainedFiles || '—'} files` : '—')}</strong></div>
+      ${status.memory ? `<div><span>Heap memory</span><strong>${escapeHtml(`${formatDiagnosticBytes(status.memory.heapUsedBytes)} / ${formatDiagnosticBytes(status.memory.heapLimitBytes)} · ${status.memory.heapUsedPercent ?? '—'}% · ${String(status.memory.state || 'normal').toUpperCase()}`)}</strong></div>
+      <div><span>Process RSS</span><strong>${escapeHtml(formatDiagnosticBytes(status.memory.rssBytes))}</strong></div>` : ''}
     `;
   }
   if (diagnosticsVerboseBtn) {
