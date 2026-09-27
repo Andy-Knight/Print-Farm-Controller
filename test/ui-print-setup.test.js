@@ -73,6 +73,19 @@ test('dashboard summary cards filter the visible printer fleet', () => {
   assert.match(styles, /\.fleet\.filtered \.reorder-controls \{ display:none; \}/);
 });
 
+test('dashboard all filter is labelled All Printers', () => {
+  assert.match(app, /DASHBOARD_FILTER_LABELS = Object\.freeze\(\{ all:'All Printers'/);
+});
+
+test('dashboard places printer group selection above the summary filters', () => {
+  const groupFilterIndex = index.indexOf('id="dashboardGroupFilterBar"');
+  const summaryIndex = index.indexOf('id="summary"');
+  assert.ok(groupFilterIndex >= 0);
+  assert.ok(summaryIndex >= 0);
+  assert.ok(groupFilterIndex < summaryIndex);
+  assert.match(styles, /\.dashboard-group-filter \{[\s\S]*margin:0 0 14px;/);
+});
+
 test('Snapmaker U1 is named consistently on dashboard and printer details', () => {
   assert.match(app, /function printerModelLabel\(printer\)/);
   assert.match(app, /printer\?\.adapterType === 'snapmaker-u1'\) return 'Snapmaker U1'/);
