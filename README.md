@@ -1,4 +1,6 @@
-# Print Farm Controller v0.30.2
+# Print Farm Controller v0.30.3
+
+> **v0.30.3 Community Edition supports 3 physical printers.** The unlicensed/Community fallback allowance is increased from 2 to 3 physical printers. Pro remains 10 and Farm remains 25. Simulator printers continue not to consume licence slots. Existing signed licences retain their explicitly signed `maxPrinters` value until deliberately reissued.
 
 > **v0.30.2 long-running memory stability and dashboard filter hierarchy.** Dashboard live-event streaming now respects HTTP backpressure, coalesces pending fleet snapshots for slow or suspended clients and caps per-client buffering to prevent unbounded Node heap growth. Completed Bambu MQTT polling sockets are force-closed after DISCONNECT, and Diagnostics now exposes current V8 heap/RSS telemetry with warning, critical and danger logging thresholds plus recovery logging. The dashboard Printer group selector now appears above the summary/status filters, and the first summary filter is labelled **All Printers**. The full `npm test` suite passed and long-running memory utilisation was validated as stable before release.
 
@@ -135,7 +137,7 @@ If no valid signed licence is installed, the controller runs as **Community Edit
 
 | Edition | Physical printers | Notes |
 | --- | ---: | --- |
-| Community | 2 | Default when no valid licence is installed |
+| Community | 3 | Default when no valid licence is installed |
 | Pro | 10 | Signed Pro licence |
 | Farm | 25 | Signed Farm licence |
 | Development | Unlimited | Internal development mode only; not enabled by normal production startup |
