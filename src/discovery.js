@@ -1,6 +1,6 @@
 import dgram from 'node:dgram';
 import { networkInterfaces } from 'node:os';
-import { configuredDiscoverySubnet } from './discovery-network.js';
+import { configuredDiscoverySubnet, discoverySubnetHosts } from './discovery-network.js';
 const FLASHFORGE_AD5M_ADAPTER_TYPE = 'flashforge-ad5m';
 const FLASHFORGE_CREATOR5_ADAPTER_TYPE = 'flashforge-creator5';
 
@@ -136,7 +136,7 @@ export function getBroadcastAddresses({ interfaces = networkInterfaces(), env = 
   return [...result];
 }
 
-export async function discoverPrinters({ timeoutMs = 4000, idleTimeoutMs = 1200, ports = DEFAULT_PORTS } = {}) {
+export async function discoverPrinters({ timeoutMs = 4000, idleTimeoutMs = 1200, ports = DEFAULT_PORTS, env = process.env } = {}) {
   const socket = dgram.createSocket({ type: 'udp4', reuseAddr: true });
   const printers = new Map();
 
@@ -190,7 +190,14 @@ export async function discoverPrinters({ timeoutMs = 4000, idleTimeoutMs = 1200,
       }
     }
 
-    for (const address of getBroadcastAddresses()) {
+    for (const address of getBroadcastAddresses({ env })) {
+      for (const port of ports) {
+        try { socket.send(packet, port, address); } catch {}
+      }
+    }
+
+    const configuredSubnet = configuredDiscoverySubnet(env);
+    for (const address of discoverySubnetHosts(configuredSubnet)) {
       for (const port of ports) {
         try { socket.send(packet, port, address); } catch {}
       }
