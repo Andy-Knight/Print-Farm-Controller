@@ -1,5 +1,6 @@
 import dgram from 'node:dgram';
 import { networkInterfaces } from 'node:os';
+import { configuredDiscoverySubnet } from './discovery-network.js';
 const FLASHFORGE_AD5M_ADAPTER_TYPE = 'flashforge-ad5m';
 const FLASHFORGE_CREATOR5_ADAPTER_TYPE = 'flashforge-creator5';
 
@@ -119,15 +120,19 @@ function broadcastAddress(address, netmask) {
   return ip.map((octet, i) => ((octet & mask[i]) | ((~mask[i]) & 255)) & 255).join('.');
 }
 
-export function getBroadcastAddresses() {
+export function getBroadcastAddresses({ interfaces = networkInterfaces(), env = process.env } = {}) {
   const result = new Set(['255.255.255.255']);
-  for (const group of Object.values(networkInterfaces())) {
+  for (const group of Object.values(interfaces || {})) {
     for (const iface of group || []) {
       if (iface.family !== 'IPv4' || iface.internal || !iface.netmask) continue;
       const address = broadcastAddress(iface.address, iface.netmask);
       if (address) result.add(address);
     }
   }
+
+  const configuredSubnet = configuredDiscoverySubnet(env);
+  if (configuredSubnet?.broadcast) result.add(configuredSubnet.broadcast);
+
   return [...result];
 }
 
