@@ -153,8 +153,27 @@ async function openClient(printer, { timeoutMs = DEFAULT_TIMEOUT_MS } = {}) {
 }
 
 function closeClient(client) {
-  if (!client?.socket || client.socket.destroyed) return;
-  try { client.socket.end(mqttPacket(0xe0)); } catch { client.socket.destroy(); }
+  const socket = client?.socket;
+  if (!socket || socket.destroyed) return;
+
+  // MQTT DISCONNECT is advisory; do not rely on every printer/broker to close
+  // its side of the TLS session promptly. Once our DISCONNECT packet has been
+  // flushed, destroy the socket so high-frequency status polling cannot leave
+  // thousands of half-closed TLS sockets resident over a long controller run.
+  const forceClose = setTimeout(() => {
+    if (!socket.destroyed) socket.destroy();
+  }, 250);
+  forceClose.unref?.();
+
+  try {
+    socket.end(mqttPacket(0xe0), () => {
+      clearTimeout(forceClose);
+      if (!socket.destroyed) socket.destroy();
+    });
+  } catch {
+    clearTimeout(forceClose);
+    socket.destroy();
+  }
 }
 
 export async function getBambuReport(printer, { timeoutMs = DEFAULT_TIMEOUT_MS } = {}) {
@@ -195,4 +214,4 @@ export async function sendBambuCommand(printer, body, { timeoutMs = DEFAULT_TIME
   }
 }
 
-export const bambuMqttInternals = { mqttLength, mqttString, mqttPacket, takePackets, connectionSettings };
+export const bambuMqttInternals = { mqttLength, mqttString, mqttPacket, takePackets, connectionSettings, closeClient };
