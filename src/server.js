@@ -38,6 +38,7 @@ import { publicAssetKey, readRuntimeAsset } from './runtime-assets.js';
 import { KeyedSerialExecutor, PrinterOperationCoordinator } from './concurrency.js';
 import { evaluatePrinterOperation, PrinterPhysicalActivityTracker, PRINTER_OPERATION_TYPES } from './printer-operation-policy.js';
 import { DiagnosticLogger } from './diagnostic-logger.js';
+import { MemoryMonitor } from './memory-monitor.js';
 import { MaintenanceService } from './maintenance-service.js';
 import { PrinterGroupService } from './printer-groups.js';
 import { ManualBackupManager } from './backup-recovery/manual-backup-manager.js';
@@ -64,6 +65,9 @@ const CONTROLLER_VERSION = String(bundledVersion || packageInfo.version || 'unkn
 const PORT = Number(process.env.PORT || 4242);
 const HOST = process.env.HOST || '0.0.0.0';
 const diagnosticLogger = new DiagnosticLogger({ logDir:runtimePaths.logDir, version:CONTROLLER_VERSION });
+const memoryMonitor = new MemoryMonitor({
+  diagnosticFn:(level, message, meta) => diagnosticLogger[level]?.('memory', message, meta)
+});
 const backupOperationLock = new BackupOperationLock();
 const manualBackupManager = new ManualBackupManager({
   dataDir:runtimePaths.dataDir,
@@ -414,6 +418,8 @@ function validatePrinterGroupTarget(input, errorMessage = 'Choose a printer grou
   return { groupId:group.id };
 }
 
+const MAX_EVENT_STREAM_BUFFER = 2 * 1024 * 1024;
+
 function openEventStream(req, res) {
   res.writeHead(200, {
     'content-type': 'text/event-stream; charset=utf-8',
@@ -421,27 +427,93 @@ function openEventStream(req, res) {
     connection: 'keep-alive',
     'x-accel-buffering': 'no'
   });
-  res.write('retry: 2000\n\n');
 
-  const unsubscribe = fleetState.subscribe((printers) => {
-    if (res.destroyed || res.writableEnded) return;
-    res.write(`event: fleet\ndata: ${JSON.stringify({
+  let closed = false;
+  let blocked = false;
+  let pendingFleet = null;
+  let keepAlive = null;
+  let unsubscribe = () => {};
+
+  const destroyStream = () => {
+    if (!res.destroyed) {
+      try { res.destroy(); } catch {}
+    }
+  };
+
+  const cleanup = () => {
+    if (closed) return;
+    closed = true;
+    if (keepAlive) clearInterval(keepAlive);
+    res.removeListener('drain', flushPending);
+    pendingFleet = null;
+    unsubscribe();
+  };
+
+  const flushPending = () => {
+    blocked = false;
+    if (closed || res.destroyed || res.writableEnded) return;
+    const printers = pendingFleet;
+    pendingFleet = null;
+    if (printers) sendFleet(printers);
+  };
+
+  const writeChunk = (chunk) => {
+    if (closed || res.destroyed || res.writableEnded) return false;
+    if ((res.writableLength || 0) > MAX_EVENT_STREAM_BUFFER) {
+      destroyStream();
+      return false;
+    }
+
+    let writable = false;
+    try {
+      writable = res.write(chunk);
+    } catch {
+      destroyStream();
+      return false;
+    }
+
+    if ((res.writableLength || 0) > MAX_EVENT_STREAM_BUFFER) {
+      destroyStream();
+      return false;
+    }
+
+    if (!writable && !blocked) {
+      blocked = true;
+      res.once('drain', flushPending);
+    }
+    return writable;
+  };
+
+  const sendFleet = (printers) => {
+    if (closed || res.destroyed || res.writableEnded) return;
+    if (blocked) {
+      // A slow/suspended dashboard only needs the newest state. Retaining every
+      // intermediate snapshot allows Node's HTTP write queue to grow without bound.
+      pendingFleet = printers;
+      return;
+    }
+    writeChunk(`event: fleet\ndata: ${JSON.stringify({
       printers:decoratedFleet(printers),
       queue:printQueue.getSnapshot(),
       version:CONTROLLER_VERSION,
       license:currentLicenseSnapshot(printers),
       serverTime:new Date().toISOString()
     })}\n\n`);
-  });
-  const keepAlive = setInterval(() => {
-    if (!res.destroyed && !res.writableEnded) res.write(`: keepalive ${Date.now()}\n\n`);
-  }, 15000);
-  const cleanup = () => {
-    clearInterval(keepAlive);
-    unsubscribe();
   };
-  req.once('close', cleanup);
+
   res.once('close', cleanup);
+  writeChunk('retry: 2000\n\n');
+
+  const subscribedUnsubscribe = fleetState.subscribe(sendFleet);
+  if (closed) subscribedUnsubscribe();
+  else unsubscribe = subscribedUnsubscribe;
+
+  keepAlive = setInterval(() => {
+    if (!blocked) writeChunk(`: keepalive ${Date.now()}\n\n`);
+  }, 15000);
+  keepAlive.unref?.();
+
+  req.once('close', cleanup);
 }
 
 async function refreshAfterCommand(id) {
@@ -664,7 +736,10 @@ async function apiRoute(req, res, url) {
       level:url.searchParams.get('level') || '',
       search:url.searchParams.get('search') || ''
     });
-    return json(res, 200, { status:diagnosticLogger.status(), entries });
+    return json(res, 200, {
+      status:{ ...diagnosticLogger.status(), memory:memoryMonitor.getSnapshot() },
+      entries
+    });
   }
 
   if (req.method === 'POST' && url.pathname === '/api/diagnostics/verbose') {
@@ -702,6 +777,7 @@ async function apiRoute(req, res, url) {
         platform:process.platform,
         architecture:process.arch,
         uptimeSeconds:Math.round(process.uptime()),
+        memory:memoryMonitor.getSnapshot(),
         runningAsSea:runtimePaths.runningAsSea,
         dataDirectoryMode:runtimePaths.customDataDir ? 'custom' : 'application-local',
         logDirectoryMode:runtimePaths.customLogDir ? 'custom' : 'application-local',
@@ -1747,6 +1823,7 @@ const server = http.createServer(async (req, res) => {
 
 async function shutdown() {
   await diagnosticLogger.info('controller', 'Controller shutdown requested').catch(() => {});
+  memoryMonitor.stop();
   try { await chamberPreheat.stopAll({ reason: 'controller-shutdown', turnOff: true }); } catch {}
   chamberPreheat.stopService();
   scheduledBackupService.stop();
@@ -1795,6 +1872,7 @@ async function startController() {
     try {
       await diagnosticLogger.init();
       diagnosticLogger.patchConsole();
+      memoryMonitor.start();
       console.log(`Diagnostic logging enabled (${runtimePaths.customLogDir ? 'LOG_DIR override' : 'application-local logs directory'})`);
     } catch (error) {
       console.warn(`Diagnostic file logging unavailable: ${error.message}`);
@@ -1861,6 +1939,7 @@ async function startController() {
     console.log('Custom printer groups + group-restricted scheduling enabled');
     console.log('Maintenance tracking + controller-observed printer usage enabled');
   } catch (error) {
+    memoryMonitor.stop();
     chamberPreheat.stopService();
     scheduledBackupService.stop();
     await maintenanceService.stop().catch(() => {});

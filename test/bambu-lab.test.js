@@ -2,6 +2,30 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { normalizeBambuStatus, bambuAdapterInternals } from '../src/adapters/bambu-lab-adapter.js';
 import { bambuCameraInternals } from '../src/bambu-camera.js';
+import { bambuMqttInternals } from '../src/bambu-mqtt.js';
+
+
+test('Bambu MQTT polling fully destroys the TLS socket after sending DISCONNECT', () => {
+  let disconnectPacket = null;
+  let destroyed = false;
+  const socket = {
+    destroyed:false,
+    end(packet, callback) {
+      disconnectPacket = packet;
+      callback();
+    },
+    destroy() {
+      destroyed = true;
+      this.destroyed = true;
+    }
+  };
+
+  bambuMqttInternals.closeClient({ socket });
+
+  assert.equal(disconnectPacket?.[0], 0xe0);
+  assert.equal(destroyed, true);
+  assert.equal(socket.destroyed, true);
+});
 
 test('normalizes Bambu P1 telemetry and external-spool material metadata', () => {
   const status = normalizeBambuStatus({ print: {
