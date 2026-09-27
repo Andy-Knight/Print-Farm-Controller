@@ -11,7 +11,7 @@ test('default manager fails closed to Community rather than reading an environme
     const snapshot = manager.getSnapshot();
     assert.equal(snapshot.edition, 'community');
     assert.equal(snapshot.enforcementEnabled, true);
-    assert.equal(snapshot.maxPrinters, 2);
+    assert.equal(snapshot.maxPrinters, 3);
   } finally {
     if (previous === undefined) delete process.env.PRINT_CONTROLLER_EDITION;
     else process.env.PRINT_CONTROLLER_EDITION = previous;
@@ -33,7 +33,7 @@ test('commercial editions enable enforcement and expose planned entitlements', (
   const pro = new LicenseManager({ edition:'pro' });
   const farm = new LicenseManager({ edition:'farm' });
   assert.equal(community.enforcementEnabled, true);
-  assert.equal(community.maxPrinters, 2);
+  assert.equal(community.maxPrinters, 3);
   assert.equal(community.hasFeature(LICENSE_FEATURES.BASIC_CONTROL), true);
   assert.equal(community.hasFeature(LICENSE_FEATURES.SMART_ASSIGNMENT), false);
   assert.equal(pro.maxPrinters, 10);
@@ -48,8 +48,9 @@ test('printer limits prevent adding physical printers beyond the edition allowan
   const manager = new LicenseManager({ edition:'community' });
   assert.equal(manager.canAddPrinter(0), true);
   assert.equal(manager.canAddPrinter(1), true);
-  assert.equal(manager.canAddPrinter(2), false);
-  assert.throws(() => manager.requirePrinterCapacity(2), (error) => error.code === 'LICENSE_PRINTER_LIMIT');
+  assert.equal(manager.canAddPrinter(2), true);
+  assert.equal(manager.canAddPrinter(3), false);
+  assert.throws(() => manager.requirePrinterCapacity(3), (error) => error.code === 'LICENSE_PRINTER_LIMIT');
 });
 
 test('an over-limit fleet requires explicit licence-slot selection', () => {
@@ -58,10 +59,11 @@ test('an over-limit fleet requires explicit licence-slot selection', () => {
     { id:'a', licenseSlotActive:null },
     { id:'b', licenseSlotActive:null },
     { id:'c', licenseSlotActive:null },
+    { id:'d', licenseSlotActive:null },
     { id:'sim', simulated:true }
   ]);
   assert.equal(first.overLimit, true);
-  assert.equal(first.configuredPhysicalPrinters, 3);
+  assert.equal(first.configuredPhysicalPrinters, 4);
   assert.equal(first.activePhysicalPrinters, 0);
   assert.equal(first.simulatedPrinters, 1);
   assert.equal(first.selectionRequired, true);
@@ -71,23 +73,26 @@ test('an over-limit fleet requires explicit licence-slot selection', () => {
   const selected = manager.resolvePrinterAccess([
     { id:'a', licenseSlotActive:true },
     { id:'b', licenseSlotActive:true },
-    { id:'c', licenseSlotActive:false }
+    { id:'c', licenseSlotActive:true },
+    { id:'d', licenseSlotActive:false }
   ]);
-  assert.equal(selected.activePhysicalPrinters, 2);
+  assert.equal(selected.activePhysicalPrinters, 3);
   assert.equal(selected.slotsRemaining, 0);
   assert.equal(selected.selectionRequired, false);
   assert.equal(selected.printers.find((p) => p.id === 'a').licenseActive, true);
-  assert.equal(selected.printers.find((p) => p.id === 'c').licenseActive, false);
+  assert.equal(selected.printers.find((p) => p.id === 'c').licenseActive, true);
+  assert.equal(selected.printers.find((p) => p.id === 'd').licenseActive, false);
 });
 
 test('fleets within the edition limit remain active without explicit selections', () => {
   const manager = new LicenseManager({ edition:'community' });
   const usage = manager.resolvePrinterAccess([
     { id:'a', licenseSlotActive:false },
-    { id:'b', licenseSlotActive:null }
+    { id:'b', licenseSlotActive:null },
+    { id:'c', licenseSlotActive:false }
   ]);
   assert.equal(usage.overLimit, false);
-  assert.equal(usage.activePhysicalPrinters, 2);
+  assert.equal(usage.activePhysicalPrinters, 3);
   assert.ok(usage.printers.every((printer) => printer.licenseActive));
 });
 
