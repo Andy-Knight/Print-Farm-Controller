@@ -1,4 +1,6 @@
-# Print Farm Controller v0.30.1
+# Print Farm Controller v0.30.2
+
+> **v0.30.2 long-running memory stability and dashboard filter hierarchy.** Dashboard live-event streaming now respects HTTP backpressure, coalesces pending fleet snapshots for slow or suspended clients and caps per-client buffering to prevent unbounded Node heap growth. Completed Bambu MQTT polling sockets are force-closed after DISCONNECT, and Diagnostics now exposes current V8 heap/RSS telemetry with warning, critical and danger logging thresholds plus recovery logging. The dashboard Printer group selector now appears above the summary/status filters, and the first summary filter is labelled **All Printers**. The full `npm test` suite passed and long-running memory utilisation was validated as stable before release.
 
 > **v0.30.1 circular dashboard filament swatches.** Dashboard filament colour indicators now render as circles instead of rounded squares. Swatch size, spacing, tooltip metadata, `+N` overflow behaviour, Light/Dark styling and printer-card dimensions are unchanged.
 
