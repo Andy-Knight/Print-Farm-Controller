@@ -60,7 +60,7 @@ export const LICENSE_EDITIONS = Object.freeze({
   community: Object.freeze({
     id: 'community',
     name: 'Community',
-    maxPrinters: 2,
+    maxPrinters: 3,
     features: BASIC_FEATURES,
     commercial: true
   }),
