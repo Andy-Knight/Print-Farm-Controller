@@ -14,9 +14,11 @@ function isPrivateIpv4(address) {
 
 export function localDiscoveryCandidates(interfaces = os.networkInterfaces(), { env = process.env } = {}) {
   const candidates = new Set();
+  const localAddresses = new Set();
   for (const entries of Object.values(interfaces || {})) {
     for (const entry of entries || []) {
       if (entry.family !== 'IPv4' || entry.internal || !isPrivateIpv4(entry.address)) continue;
+      localAddresses.add(entry.address);
       const parts = entry.address.split('.').map(Number);
       // U1 installations are overwhelmingly on home/office LANs. A bounded /24
       // scan avoids sweeping large corporate networks while covering the normal
@@ -30,6 +32,7 @@ export function localDiscoveryCandidates(interfaces = os.networkInterfaces(), { 
 
   const configuredSubnet = configuredDiscoverySubnet(env);
   for (const host of discoverySubnetHosts(configuredSubnet)) candidates.add(host);
+  for (const localAddress of localAddresses) candidates.delete(localAddress);
 
   return [...candidates];
 }
