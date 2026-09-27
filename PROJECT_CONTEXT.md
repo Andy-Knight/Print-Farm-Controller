@@ -243,12 +243,12 @@ Default licence location:
 - all normal deployments: `<DATA_DIR>/license.json`
 - default source/development and packaged SEA path: `<application directory>/data/license.json`
 
-Packaged licence-file lookup order:
-1. `PRINT_CONTROLLER_LICENSE_FILE` explicit file override, when deliberately configured.
-2. Canonical `<DATA_DIR>/license.json`.
-3. Previous application-root `license.json` only as a verified one-time migration source.
-4. Other legacy data-directory location where applicable.
-5. No file -> Community Edition.
+Normal production licence-file lookup order:
+1. Canonical `<DATA_DIR>/license.json`.
+2. Previous application-root `license.json` only as a verified one-time migration source.
+3. No file -> Community Edition.
+
+`PRINT_CONTROLLER_LICENSE_FILE` is ignored by normal production startup and remains available only behind the explicit internal development-override gate.
 
 Signed editions:
 - Community: 3 physical printers
