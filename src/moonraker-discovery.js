@@ -1,5 +1,6 @@
 import os from 'node:os';
 import { moonrakerRequest, isSnapmakerU1ObjectList } from './moonraker-api.js';
+import { configuredDiscoverySubnet, discoverySubnetHosts } from './discovery-network.js';
 
 const DEFAULT_PORTS = [7125, 80];
 const DEFAULT_TIMEOUT_MS = 260;
@@ -11,7 +12,7 @@ function isPrivateIpv4(address) {
   return parts[0] === 10 || (parts[0] === 172 && parts[1] >= 16 && parts[1] <= 31) || (parts[0] === 192 && parts[1] === 168);
 }
 
-export function localDiscoveryCandidates(interfaces = os.networkInterfaces()) {
+export function localDiscoveryCandidates(interfaces = os.networkInterfaces(), { env = process.env } = {}) {
   const candidates = new Set();
   for (const entries of Object.values(interfaces || {})) {
     for (const entry of entries || []) {
@@ -26,6 +27,10 @@ export function localDiscoveryCandidates(interfaces = os.networkInterfaces()) {
       }
     }
   }
+
+  const configuredSubnet = configuredDiscoverySubnet(env);
+  for (const host of discoverySubnetHosts(configuredSubnet)) candidates.add(host);
+
   return [...candidates];
 }
 
