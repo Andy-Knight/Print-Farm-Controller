@@ -1,4 +1,6 @@
-# Print Farm Controller v0.30.4
+# Print Farm Controller v0.31.0
+
+> **v0.31.0 container deployment baseline.** The controller can run in a Node 24 Linux container with persistent `/data` and `/logs` mounts. Direct Snapmaker U1 and FlashForge AD5M Pro connectivity, including U1 camera access, has been validated through Docker Desktop. Container LAN discovery supports an optional bounded `DISCOVERY_SUBNET` CIDR (for example `192.168.1.0/24`): Snapmaker discovery actively probes Moonraker hosts on that subnet, while FlashForge discovery adds the subnet's directed broadcast plus bounded per-host UDP discovery probes, with an active TCP `~M115` identity fallback on port 8899 for Docker Desktop environments where UDP discovery replies do not traverse the virtual network. Native non-container discovery remains unchanged when the setting is omitted.
 
 > **v0.30.4 standardises licence storage in the controller data directory.** Source/development and packaged deployments now use `DATA_DIR/license.json` as the canonical signed licence location. A valid legacy application-root `license.json` is verified before being automatically migrated into the data directory and the old copy is removed after a successful migration; invalid/tampered legacy files are never promoted. Licence installation/replacement also writes only to the canonical data location, and production ignores alternate licence-file environment paths. This gives Windows, source, Linux and future container deployments one persistent licence-storage model.
 
@@ -204,6 +206,118 @@ Requires Node.js 24 or later. Development has been performed against Node.js 24.
 ```bash
 npm start
 ```
+
+## Docker
+
+### Published container image
+
+The production container is published to GitHub Container Registry as a multi-architecture image for:
+
+- `linux/amd64`
+- `linux/arm64`
+
+Pull the current release image:
+
+```bash
+docker pull ghcr.io/andy-knight/print-farm-controller:latest
+```
+
+Run it with portable named volumes:
+
+```bash
+docker run -d \
+  --name print-farm-controller \
+  --restart unless-stopped \
+  -p 4242:4242 \
+  -e DISCOVERY_SUBNET=192.168.1.0/24 \
+  -v pfc-data:/data \
+  -v pfc-logs:/logs \
+  ghcr.io/andy-knight/print-farm-controller:latest
+```
+
+Replace `192.168.1.0/24` with the subnet containing the printers. If LAN scanning is not required, `DISCOVERY_SUBNET` can be omitted and printers can still be added directly by IP.
+
+Versioned images are published from Git tags. For example, tag `v0.31.0` publishes:
+
+```text
+ghcr.io/andy-knight/print-farm-controller:0.31.0
+ghcr.io/andy-knight/print-farm-controller:0.31
+```
+
+The `latest` tag is published from the `main` branch.
+
+### Automated GHCR publishing
+
+`.github/workflows/container-image.yml` runs the Node regression suite, starts a real Linux smoke-test container, then builds `linux/amd64` and `linux/arm64` images with Docker Buildx. Publishing uses the repository-scoped GitHub `GITHUB_TOKEN`; no manually stored registry password or PAT is required.
+
+Pull requests build and validate without publishing. Pushes to `main` publish `latest`, while version tags such as `v0.31.0` publish versioned image tags.
+
+The repository includes a Linux-container `Dockerfile` based on Node.js 24. Controller state and diagnostic logs should be mounted separately so recreating the container does not lose configuration or Print Library data.
+
+Build the image:
+
+```powershell
+docker build -t print-farm-controller:0.31.0 .
+```
+
+Create persistent host directories:
+
+```powershell
+mkdir container-data
+mkdir container-logs
+```
+
+Run the controller:
+
+```powershell
+docker run --rm `
+  --name print-farm-controller `
+  -p 4242:4242 `
+  -v "${PWD}\container-data:/data" `
+  -v "${PWD}\container-logs:/logs" `
+  print-farm-controller:0.31.0
+```
+
+Open `http://localhost:4242`.
+
+The container uses:
+
+- `DATA_DIR=/data`
+- `LOG_DIR=/logs`
+- `HOST=0.0.0.0`
+- `PORT=4242`
+- the signed licence at `/data/license.json`
+
+### Docker LAN discovery
+
+Docker Desktop places containers on a virtual network, so the controller cannot reliably infer the Windows host's physical LAN subnet. Directly configured printers continue to work, but **Scan LAN** should be given the physical printer subnet with `DISCOVERY_SUBNET`.
+
+Find the Windows IPv4 address and subnet with:
+
+```powershell
+ipconfig
+```
+
+For a typical host address such as `192.168.1.25` with subnet mask `255.255.255.0`, use:
+
+```text
+DISCOVERY_SUBNET=192.168.1.0/24
+```
+
+Start the container with that value:
+
+```powershell
+docker run --rm `
+  --name print-farm-controller `
+  -p 4242:4242 `
+  -e DISCOVERY_SUBNET=192.168.1.0/24 `
+  -v "${PWD}\container-data:/data" `
+  -v "${PWD}\container-logs:/logs" `
+  print-farm-controller:0.31.0
+```
+
+`DISCOVERY_SUBNET` accepts bounded IPv4 CIDRs from `/22` through `/30`. It is optional; when omitted, native interface-based discovery behaves exactly as before. The setting affects discovery only and does not change normal printer connections.
+
 
 Open:
 
