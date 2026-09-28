@@ -2,6 +2,11 @@ FROM node:24-bookworm-slim
 
 WORKDIR /app
 
+LABEL org.opencontainers.image.source="https://github.com/Andy-Knight/Print-Farm-Controller"
+LABEL org.opencontainers.image.title="Print Farm Controller"
+LABEL org.opencontainers.image.description="Local-first multi-printer fleet controller"
+
+
 COPY package.json ./
 COPY src ./src
 COPY public ./public
