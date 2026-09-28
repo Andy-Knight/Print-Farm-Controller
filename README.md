@@ -209,6 +209,49 @@ npm start
 
 ## Docker
 
+### Published container image
+
+The production container is published to GitHub Container Registry as a multi-architecture image for:
+
+- `linux/amd64`
+- `linux/arm64`
+
+Pull the current release image:
+
+```bash
+docker pull ghcr.io/andy-knight/print-farm-controller:latest
+```
+
+Run it with portable named volumes:
+
+```bash
+docker run -d \
+  --name print-farm-controller \
+  --restart unless-stopped \
+  -p 4242:4242 \
+  -e DISCOVERY_SUBNET=192.168.1.0/24 \
+  -v pfc-data:/data \
+  -v pfc-logs:/logs \
+  ghcr.io/andy-knight/print-farm-controller:latest
+```
+
+Replace `192.168.1.0/24` with the subnet containing the printers. If LAN scanning is not required, `DISCOVERY_SUBNET` can be omitted and printers can still be added directly by IP.
+
+Versioned images are published from Git tags. For example, tag `v0.31.0` publishes:
+
+```text
+ghcr.io/andy-knight/print-farm-controller:0.31.0
+ghcr.io/andy-knight/print-farm-controller:0.31
+```
+
+The `latest` tag is published from the `main` branch.
+
+### Automated GHCR publishing
+
+`.github/workflows/container-image.yml` runs the Node regression suite, starts a real Linux smoke-test container, then builds `linux/amd64` and `linux/arm64` images with Docker Buildx. Publishing uses the repository-scoped GitHub `GITHUB_TOKEN`; no manually stored registry password or PAT is required.
+
+Pull requests build and validate without publishing. Pushes to `main` publish `latest`, while version tags such as `v0.31.0` publish versioned image tags.
+
 The repository includes a Linux-container `Dockerfile` based on Node.js 24. Controller state and diagnostic logs should be mounted separately so recreating the container does not lose configuration or Print Library data.
 
 Build the image:
