@@ -308,9 +308,9 @@ initContainers:
 
 Because the GHCR package is public, no `imagePullSecret` is required. Use the fully-qualified image name `ghcr.io/andy-knight/print-farm-controller:latest`; omitting `ghcr.io/` makes Kubernetes try Docker Hub instead.
 
-## Production packaging (development)
+## Windows production packaging
 
-The current `feature/production-packaging` branch contains the hardened Windows x64 Node SEA packaging pipeline. Development/source mode remains unchanged: `npm start` still runs directly from the repository.
+Print Farm Controller includes a Windows x64 Node SEA packaging pipeline for building a standalone executable and Windows installer. Development/source mode remains unchanged: `npm start` runs directly from the repository.
 
 Install the build-only dependencies once:
 
