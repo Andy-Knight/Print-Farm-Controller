@@ -1,4 +1,6 @@
-# Print Farm Controller v0.31.0
+# Print Farm Controller v0.31.1
+
+> **v0.31.1 restore compatibility fix.** Backup inspection now accepts a configured printer belonging to multiple custom printer groups, matching the multi-group membership model introduced in v0.28.0. Restore validation still rejects missing printers, duplicate group IDs/names, missing queue group references and missing maintenance group references. Backups created with valid multi-group membership can now be inspected and restored on replacement/container deployments.
 
 > **v0.31.0 container deployment baseline.** The controller can run in a Node 24 Linux container with persistent `/data` and `/logs` mounts. Direct Snapmaker U1 and FlashForge AD5M Pro connectivity, including U1 camera access, has been validated through Docker Desktop. Container LAN discovery supports an optional bounded `DISCOVERY_SUBNET` CIDR (for example `192.168.1.0/24`): Snapmaker discovery actively probes Moonraker hosts on that subnet, while FlashForge discovery adds the subnet's directed broadcast plus bounded per-host UDP discovery probes, with an active TCP `~M115` identity fallback on port 8899 for Docker Desktop environments where UDP discovery replies do not traverse the virtual network. Native non-container discovery remains unchanged when the setting is omitted.
 
