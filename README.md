@@ -15,6 +15,7 @@ For the complete version history, see [CHANGELOG.md](CHANGELOG.md).
 A local-first 3D printer fleet controller. It runs entirely on your LAN and currently supports:
 
 - **FlashForge Adventurer 5M / 5M Pro** through the local FlashForge HTTP/TCP APIs.
+- **FlashForge Creator 5 / Creator 5 Pro** through the supported local FlashForge control interfaces.
 - **Snapmaker U1** through its local Moonraker/Klipper API.
 - **Bambu Lab P1P / P1S / X1C / A1 Mini (experimental)** through the local MQTT TLS and FTPS TLS interfaces. P1P/P1S/A1 Mini use the TLS/JPEG camera path; X1C camera decoding remains unsupported.
 
