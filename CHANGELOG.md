@@ -74,7 +74,8 @@ Historical entries describe the behaviour of the controller at the time of that 
 
 ## v0.20.0
 
-- Diagnostic logging. Controller-wide structured diagnostic logs are stored independently under `logs/` by default, with `LOG_DIR` available separately from `DATA_DIR` for container/PV deployments. The overflow menu includes **Diagnostics** for recent-log viewing/filtering, temporary 30-minute verbose DEBUG logging, and downloading a sanitized ZIP support bundle. Credential-like fields are redacted, print files and licence contents are excluded, and packaged Windows installs grant normal-user write access to both `data/` and `logs/`. - `LOG_DIR` defaults to the application-local `logs/` directory and can be overridden independently (for example `LOG_DIR=/logs` in a container). Diagnostic logs are intentionally kept outside `data/` so the two locations can be mounted as separate persistent volumes.
+- Diagnostic logging. Controller-wide structured diagnostic logs are stored independently under `logs/` by default, with `LOG_DIR` available separately from `DATA_DIR` for container/PV deployments. The overflow menu includes **Diagnostics** for recent-log viewing/filtering, temporary 30-minute verbose DEBUG logging, and downloading a sanitized ZIP support bundle. Credential-like fields are redacted, print files and licence contents are excluded, and packaged Windows installs grant normal-user write access to both `data/` and `logs/`.
+- `LOG_DIR` defaults to the application-local `logs/` directory and can be overridden independently (for example `LOG_DIR=/logs` in a container). Diagnostic logs are intentionally kept outside `data/` so the two locations can be mounted as separate persistent volumes.
 
 ## v0.19.0
 
