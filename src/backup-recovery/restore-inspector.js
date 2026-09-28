@@ -148,7 +148,6 @@ export async function inspectRestoreBackup(filePath, {
     const configuredPrinterIds = new Set(printers.map((printer) => String(printer?.id || '')).filter(Boolean));
     const groupIds = new Set();
     const groupNames = new Set();
-    const groupedPrinters = new Set();
     for (const group of printerGroups.groups) {
       const groupId = String(group?.id || '').trim();
       const groupName = String(group?.name || '').trim();
@@ -160,8 +159,6 @@ export async function inspectRestoreBackup(filePath, {
       for (const printerIdValue of group.printerIds) {
         const printerId = String(printerIdValue || '').trim();
         if (!printerId || !configuredPrinterIds.has(printerId)) throw new Error('Backup printer group references a printer that is not configured');
-        if (groupedPrinters.has(printerId)) throw new Error('Backup assigns a printer to more than one printer group');
-        groupedPrinters.add(printerId);
       }
     }
   }

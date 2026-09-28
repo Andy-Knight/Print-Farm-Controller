@@ -84,7 +84,7 @@ test('restore inspection validates a current backup and reports contents without
   }
 });
 
-test('restore inspection validates printer groups and rejects duplicate membership', async () => {
+test('restore inspection accepts a printer assigned to multiple printer groups', async () => {
   const { root, dataDir } = await makeRoot('pfc-restore-groups-');
   const backupPath = path.join(root, 'groups.pfcbackup');
   try {
@@ -108,10 +108,12 @@ test('restore inspection validates printer groups and rejects duplicate membersh
       controllerVersion:'0.25.0'
     });
 
-    await assert.rejects(
-      () => inspectRestoreBackup(backupPath, { currentControllerVersion:'0.25.0', targetDataDir:dataDir }),
-      /more than one printer group/i
-    );
+    const inspection = await inspectRestoreBackup(backupPath, {
+      currentControllerVersion:'0.25.0',
+      targetDataDir:dataDir
+    });
+    assert.equal(inspection.valid, true);
+    assert.deepEqual(inspection.counts, { printers:2, printLibrary:0, queued:0, history:0 });
   } finally {
     await fs.rm(root, { recursive:true, force:true });
   }
