@@ -49,9 +49,44 @@ jobs:
       - name: Run regression suite
         run: npm test
 
+  smoke:
+    name: Container smoke test
+    needs: test
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Build smoke-test image
+        run: docker build -t print-farm-controller:smoke .
+
+      - name: Start smoke-test container
+        run: |
+          docker run -d --name pfc-smoke -p 4242:4242 print-farm-controller:smoke
+
+      - name: Verify controller responds
+        run: |
+          for attempt in {1..20}; do
+            if curl --fail --silent http://127.0.0.1:4242/ > /dev/null; then
+              exit 0
+            fi
+            sleep 1
+          done
+          docker logs pfc-smoke
+          exit 1
+
+      - name: Show container logs on failure
+        if: failure()
+        run: docker logs pfc-smoke || true
+
+      - name: Stop smoke-test container
+        if: always()
+        run: docker rm -f pfc-smoke || true
+
   build:
     name: Build and publish multi-architecture image
-    needs: test
+    needs: smoke
     runs-on: ubuntu-latest
 
     steps:
