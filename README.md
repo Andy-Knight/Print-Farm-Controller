@@ -90,6 +90,7 @@ The internal `allowDevelopmentOverrides:true` loader option exists for tests/dev
 ## Run
 
 Requires Node.js 24 or later. Development has been performed against Node.js 24.21.0. There are no npm runtime dependencies.
+To run from the source files launch with the following commands from the command line, making sure npm is available.
 
 ```bash
 npm start
@@ -308,9 +309,9 @@ initContainers:
 
 Because the GHCR package is public, no `imagePullSecret` is required. Use the fully-qualified image name `ghcr.io/andy-knight/print-farm-controller:latest`; omitting `ghcr.io/` makes Kubernetes try Docker Hub instead.
 
-## Running from source
+## Windows Portable Executable
 
-Print Farm Controller includes a Windows x64 Node SEA packaging pipeline for building a standalone executable and Windows installer. Development/source mode remains unchanged: `npm start` runs directly from the repository.
+Print Farm Controller includes a Windows x64 Node SEA packaging pipeline for building a standalone portable executable. Development/source mode remains unchanged: `npm start` runs directly from the repository.
 
 Install the build-only dependencies once:
 
@@ -372,52 +373,14 @@ dist/
 
 The installer creates a Start Menu shortcut and offers an optional desktop shortcut. Uninstalling the application does not explicitly delete the `data/` directory, so user data is not intentionally removed by the uninstall script.
 
-### Windows code signing
-
-Authenticode signing is performed **after** the SEA payload has been injected. For a signed release the workflow is:
-
-```text
-Build SEA executable
-→ sign PrintFarmController.exe
-→ build installer containing the signed EXE
-→ sign installer
-```
-
-The signing script supports either a certificate already installed in the Windows certificate store or a PFX file. Configure `signtool.exe` using `SIGNTOOL_PATH` if it is not already on PATH, and configure one signing identity:
-
-```powershell
-$env:PFC_SIGN_CERT_SHA1="<certificate thumbprint>"
-# or:
-$env:PFC_SIGN_PFX="C:\path\to\code-signing.pfx"
-$env:PFC_SIGN_PFX_PASSWORD="<password>"
-```
-
-Also set the RFC 3161 timestamp URL recommended by the code-signing certificate provider:
-
-```powershell
-$env:PFC_TIMESTAMP_URL="<timestamp URL>"
-```
-
-Then create the complete signed release with:
-
-```powershell
-npm run release:windows
-```
-
-The release script signs and verifies both the finished controller executable and the final installer.
-
 ## Printer Emulator
 
 Start the controller normally:
 
-```bash
-npm start
-```
-
 Open the controller and select **Printer simulator**, or go directly to:
 
 ```text
-http://localhost:4242/simulator/
+http://<Controller-IP>:4242/simulator/
 ```
 
 The simulator is disabled by default. Enable it from that page to start the loopback endpoints; the setting is remembered, the endpoints start with the controller on later launches, and they stop when the controller stops. It creates simulated FlashForge Adventurer 5M Pro, Snapmaker U1, Bambu Lab P1P, Bambu Lab P1S, Bambu Lab X1C and Bambu Lab A1 Mini printers, and displays the exact host, ports and credentials for each endpoint. Additional instances receive non-conflicting ports automatically.
