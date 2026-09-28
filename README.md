@@ -331,6 +331,95 @@ Other devices on the same LAN can use:
 http://<controller-computer-ip>:4242
 ```
 
+## K3s / Kubernetes deployment
+
+The published GHCR image can run directly in K3s or Kubernetes. The container runs as the non-root Node user (UID/GID 1000), so persistent volumes mounted at `/data` and `/logs` must be writable by that user. A pod-level `fsGroup: 1000` has been validated successfully with K3s PVCs.
+
+Example deployment:
+
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: controller
+  namespace: pfc
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: controller
+  template:
+    metadata:
+      labels:
+        app: controller
+    spec:
+      securityContext:
+        fsGroup: 1000
+
+      containers:
+        - name: controller
+          image: ghcr.io/andy-knight/print-farm-controller:latest
+          imagePullPolicy: Always
+
+          securityContext:
+            runAsUser: 1000
+            runAsGroup: 1000
+            runAsNonRoot: true
+
+          ports:
+            - containerPort: 4242
+
+          # Optional. Set this when LAN discovery needs the physical
+          # printer subnet rather than the pod/container network.
+          env:
+            - name: DISCOVERY_SUBNET
+              value: 192.168.1.0/24
+
+          volumeMounts:
+            - name: data
+              mountPath: /data
+            - name: logs
+              mountPath: /logs
+
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: pfc-data
+        - name: logs
+          persistentVolumeClaim:
+            claimName: pfc-logs
+```
+
+The image already defines `DATA_DIR=/data`, `LOG_DIR=/logs`, `HOST=0.0.0.0` and `PORT=4242`, so those environment variables do not need to be repeated in the Deployment unless you deliberately want to override them.
+
+If the pod enters `CrashLoopBackOff` and the logs contain errors such as:
+
+```text
+EACCES: permission denied, open '/logs/controller.log'
+EACCES: permission denied, mkdir '/data/.backup-staging'
+```
+
+the PVCs are not writable by the non-root controller process. Keep `fsGroup: 1000` on the pod. If the storage backend does not honour `fsGroup`, use a root init container to set ownership before the controller starts:
+
+```yaml
+initContainers:
+  - name: fix-permissions
+    image: busybox:1.36
+    command:
+      - sh
+      - -c
+      - chown -R 1000:1000 /data /logs
+    securityContext:
+      runAsUser: 0
+    volumeMounts:
+      - name: data
+        mountPath: /data
+      - name: logs
+        mountPath: /logs
+```
+
+Because the GHCR package is public, no `imagePullSecret` is required. Use the fully-qualified image name `ghcr.io/andy-knight/print-farm-controller:latest`; omitting `ghcr.io/` makes Kubernetes try Docker Hub instead.
+
 ## Production packaging (development)
 
 The current `feature/production-packaging` branch contains the hardened Windows x64 Node SEA packaging pipeline. Development/source mode remains unchanged: `npm start` still runs directly from the repository.
