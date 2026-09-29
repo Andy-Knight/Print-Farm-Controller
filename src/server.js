@@ -44,6 +44,7 @@ import { PrinterGroupService } from './printer-groups.js';
 import { ManualBackupManager } from './backup-recovery/manual-backup-manager.js';
 import { BackupOperationLock } from './backup-recovery/backup-operation-lock.js';
 import { ScheduledBackupService } from './backup-recovery/scheduled-backup-service.js';
+import { GoogleDriveClient } from './backup-recovery/google-drive-client.js';
 import { inspectRestoreBackup } from './backup-recovery/restore-inspector.js';
 import { stageRestoreUploadRequest } from './backup-recovery/restore-upload-staging.js';
 import {
@@ -69,12 +70,17 @@ const memoryMonitor = new MemoryMonitor({
   diagnosticFn:(level, message, meta) => diagnosticLogger[level]?.('memory', message, meta)
 });
 const backupOperationLock = new BackupOperationLock();
+const googleDriveClient = new GoogleDriveClient({
+  dataDir:runtimePaths.dataDir,
+  diagnosticFn:(level, message, meta) => diagnosticLogger[level]?.('backup', message, meta)
+});
 const manualBackupManager = new ManualBackupManager({
   dataDir:runtimePaths.dataDir,
   applicationDir:runtimePaths.applicationDir,
   licensePath:runtimePaths.licensePath,
   controllerVersion:CONTROLLER_VERSION,
-  operationLock:backupOperationLock
+  operationLock:backupOperationLock,
+  googleDriveClient
 });
 const scheduledBackupService = new ScheduledBackupService({
   dataDir:runtimePaths.dataDir,
@@ -82,7 +88,8 @@ const scheduledBackupService = new ScheduledBackupService({
   licensePath:runtimePaths.licensePath,
   controllerVersion:CONTROLLER_VERSION,
   operationLock:backupOperationLock,
-  diagnosticFn:(level, message, meta) => diagnosticLogger[level]?.('backup', message, meta)
+  diagnosticFn:(level, message, meta) => diagnosticLogger[level]?.('backup', message, meta),
+  googleDriveClient
 });
 const fleetState = new FleetStateService({
   diagnosticFn:(level, message, meta) => diagnosticLogger[level]?.('fleet', message, meta)
@@ -571,8 +578,37 @@ async function apiRoute(req, res, url) {
 
   if (req.method === 'POST' && url.pathname === '/api/backup/test-destination') {
     const body = await readJson(req);
-    const result = await scheduledBackupService.testDestination(body.destination);
+    const result = await scheduledBackupService.testDestination(body.destination, body.destinationType);
     return json(res, 200, { destination:result });
+  }
+
+  if (req.method === 'GET' && url.pathname === '/api/integrations/google-drive/status') {
+    return json(res, 200, { googleDrive:await googleDriveClient.status() });
+  }
+
+  if (req.method === 'POST' && url.pathname === '/api/integrations/google-drive/connect') {
+    const googleDrive = await googleDriveClient.startDeviceAuthorization();
+    return json(res, 200, { googleDrive });
+  }
+
+  if (req.method === 'POST' && url.pathname === '/api/integrations/google-drive/connect/poll') {
+    const googleDrive = await googleDriveClient.pollDeviceAuthorization();
+    return json(res, 200, { googleDrive });
+  }
+
+  if (req.method === 'POST' && url.pathname === '/api/integrations/google-drive/test') {
+    const connection = await googleDriveClient.testConnection();
+    return json(res, 200, { connection, googleDrive:await googleDriveClient.status() });
+  }
+
+  if (req.method === 'GET' && url.pathname === '/api/integrations/google-drive/backups') {
+    const backups = await googleDriveClient.listBackups();
+    return json(res, 200, { backups, googleDrive:await googleDriveClient.status() });
+  }
+
+  if (req.method === 'DELETE' && url.pathname === '/api/integrations/google-drive') {
+    const googleDrive = await googleDriveClient.disconnect();
+    return json(res, 200, { googleDrive });
   }
 
   if (req.method === 'POST' && url.pathname === '/api/backup/create') {
@@ -592,6 +628,26 @@ async function apiRoute(req, res, url) {
       return json(res, 201, { backup });
     } catch (error) {
       await diagnosticLogger.warn('backup', 'Manual backup creation failed', {
+        error:error?.message || String(error)
+      });
+      throw error;
+    }
+  }
+
+  if (req.method === 'POST' && url.pathname === '/api/backup/create/google-drive') {
+    await diagnosticLogger.info('backup', 'Manual Google Drive backup requested');
+    try {
+      const backup = await manualBackupManager.createGoogleDrive();
+      await diagnosticLogger.info('backup', 'Manual Google Drive backup created, verified and uploaded', {
+        fileName:backup.fileName,
+        size:backup.size,
+        createdAt:backup.manifest?.createdAt || null,
+        driveFileId:backup.driveFileId || null,
+        folderName:backup.folderName || null
+      });
+      return json(res, 201, { backup });
+    } catch (error) {
+      await diagnosticLogger.warn('backup', 'Manual Google Drive backup failed', {
         error:error?.message || String(error)
       });
       throw error;
