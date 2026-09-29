@@ -1,12 +1,12 @@
-# Print Farm Controller v0.31.1
+# Print Farm Controller v0.32.0
 
-**Current release: v0.31.1**
+**Current release: v0.32.0**
 
 Current highlights:
 
 - Container images for Linux AMD64 and ARM64, with Docker and K3s/Kubernetes deployment guidance.
 - Persistent Print Library, smart queueing, printer groups and maintenance tracking.
-- Backup and restore, including multi-group printer membership.
+- Compressed portable backup and restore, including multi-group printer membership and backwards-compatible restore of older backups.
 - Snapmaker U1 and FlashForge support, with experimental Bambu Lab support.
 - Offline signed licensing with Community, Pro and Farm editions.
 
