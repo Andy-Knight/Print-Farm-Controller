@@ -1,12 +1,12 @@
-# Print Farm Controller v0.33.0
+# Print Farm Controller v0.35.0
 
-**Current release: v0.33.0**
+**Current release: v0.35.0**
 
 Current highlights:
 
 - Container images for Linux AMD64 and ARM64, with Docker and K3s/Kubernetes deployment guidance.
 - Persistent Print Library, smart queueing, printer groups and maintenance tracking.
-- Compressed portable backup and restore, including local/NAS and Google Drive destinations, multi-group printer membership, and backwards-compatible restore of older backups.
+- Compressed portable backup and restore, including local/NAS, Google Drive and generic S3-compatible destinations, multi-group printer membership, and backwards-compatible restore of older backups.
 - Snapmaker U1 and FlashForge support, with experimental Bambu Lab support.
 - Offline signed licensing with Community, Pro and Farm editions.
 
@@ -144,7 +144,7 @@ Protect the controller data directory/PVC because the stored OAuth credentials c
 
 ### Backup behavior
 
-Cloud restore is provider-based rather than Google-specific. Google Drive is the first provider registered with the restore UI/API; additional providers can implement the same list/download interface without changing the restore engine.
+Cloud restore is provider-based rather than Google-specific. Google Drive and S3-compatible storage are registered providers; additional providers can implement the same list/download interface without changing the restore engine.
 
 - **Backup to Google Drive now** creates, verifies and compresses the canonical backup before uploading it.
 - Scheduled backups can select **Google Drive** instead of a local/mapped/NAS folder.
@@ -153,6 +153,36 @@ Cloud restore is provider-based rather than Google-specific. Google Drive is the
 - Saving a custom OAuth client or switching back to the default configuration clears the existing Google account authorization when the OAuth client changes because refresh tokens are client-specific.
 - If Google invalidates/revokes the refresh token, the controller reports **Reconnection required** instead of silently dropping scheduled backups.
 - Restore can use either a local `.pfcbackup` file or a backup selected directly from a connected cloud provider. Google Drive backups are listed in the restore source selector, downloaded to temporary staging, and passed through the same inspection, checksum/version validation, recovery-hold and restart-based restore pipeline as local files.
+
+
+## S3-compatible backups
+
+Print Farm Controller v0.35.0 can use generic S3-compatible object storage for manual backups, scheduled backups with retention, and direct cloud restore. The implementation uses the standard S3 REST API and AWS Signature Version 4 without adding an AWS SDK or any other runtime npm dependency.
+
+The S3 configuration in **Backup & recovery → S3-compatible storage** contains:
+
+- endpoint URL, for example `https://s3.example.com` or a local MinIO endpoint;
+- bucket name;
+- region, defaulting to `us-east-1`;
+- access key ID and secret access key;
+- optional object-key prefix, defaulting to `print-farm-controller/`;
+- path-style or virtual-hosted addressing.
+
+HTTPS is required by default. **Allow insecure HTTP** exists only for trusted local development services such as a MinIO instance on the LAN.
+
+S3 credentials are stored with restrictive permissions in:
+
+```text
+<DATA_DIR>/integrations/s3.json
+```
+
+The secret access key is never returned by the status API and the entire integration file is excluded from portable `.pfcbackup` archives and diagnostics. Protect the controller data directory/PVC because the saved credentials can authorize access to the configured bucket.
+
+PFC writes the canonical verified/compressed `.pfcbackup` unchanged. Each backup also receives a small adjacent `.pfcmeta.json` sidecar containing only backup ownership/retention metadata. This allows scheduled retention to delete only older scheduled backups created by the same controller installation; manual backups and backups owned by another installation are never pruned automatically.
+
+The implementation deliberately uses a common S3 subset—bucket access, `PutObject`, `ListObjectsV2`, `GetObject` and `DeleteObject`—so it is suitable for services such as MinIO, Amazon S3, Cloudflare R2, Backblaze B2, Wasabi and other compatible systems. Provider-specific features such as ACLs, object tagging and IAM-role discovery are not required.
+
+Connected S3-compatible storage appears automatically in the cloud restore selector. Restore downloads the selected object to temporary local staging and then uses the same inspection, checksum/version validation, recovery-hold, staged restart and rollback engine as local and Google Drive backups.
 
 ## Docker
 
