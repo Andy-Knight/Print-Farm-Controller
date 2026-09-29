@@ -586,6 +586,15 @@ async function apiRoute(req, res, url) {
     return json(res, 200, { googleDrive:await googleDriveClient.status() });
   }
 
+  if (req.method === 'PUT' && url.pathname === '/api/integrations/google-drive/config') {
+    const body = await readJson(req);
+    const googleDrive = await googleDriveClient.configure({
+      clientId:body.clientId,
+      clientSecret:body.clientSecret
+    });
+    return json(res, 200, { googleDrive });
+  }
+
   if (req.method === 'POST' && url.pathname === '/api/integrations/google-drive/connect') {
     const googleDrive = await googleDriveClient.startDeviceAuthorization();
     return json(res, 200, { googleDrive });
