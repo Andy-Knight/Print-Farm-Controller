@@ -32,7 +32,7 @@ export class ManualBackupManager {
     this.downloadTtlMs = Math.max(60_000, Number(downloadTtlMs) || DEFAULT_DOWNLOAD_TTL_MS);
     this.operationLock = operationLock || new BackupOperationLock();
     this.googleDriveClient = googleDriveClient || null;
-    this.stagingDir = path.join(this.dataDir, '.backup-staging');
+    this.stagingDir = path.join(this.dataDir, '.backup-staging', 'manual');
     this.downloads = new Map();
     this.creating = false;
     this.initialized = false;
