@@ -4,6 +4,10 @@ This file contains the version-by-version release history for Print Farm Control
 
 Historical entries describe the behaviour of the controller at the time of that release and may be superseded by later versions. For current installation, configuration and supported-hardware guidance, see [README.md](README.md).
 
+## v0.33.0
+
+- Google Drive backup destination. Backup & recovery can connect a Google account using Google's limited-input/device OAuth flow with the narrow `drive.file` scope, create and use a visible **Print Farm Controller Backups** folder, upload the existing verified/compressed `.pfcbackup` artifact manually or from the existing daily/weekly scheduler, test connectivity, disconnect/reconnect, and apply retention only to scheduled backups created by the same controller installation. Local, mapped-drive and NAS scheduled destinations remain supported unchanged. Google refresh-token/folder state is stored under `<DATA_DIR>/integrations/google-drive.json`, access tokens remain in memory, OAuth client credentials are supplied through `GOOGLE_DRIVE_CLIENT_ID` and `GOOGLE_DRIVE_CLIENT_SECRET`, and integration credentials are excluded from portable backups and diagnostic logging.
+
 ## v0.32.0
 
 - Backup compression. Portable `.pfcbackup` files remain ZIP-compatible but now use streaming DEFLATE compression for JSON, G-code, text and other compressible payloads while keeping already-compressed formats such as 3MF and PNG/JPEG/WebP stored without recompression. Restore remains backwards-compatible with older method-0 backups and now accepts both ZIP STORE and DEFLATE entries. CRC-32 and SHA-256 continue to validate the uncompressed logical payload, and decompression is bounded by each entry's declared uncompressed size. No additional runtime dependency is required because compression uses Node.js `node:zlib`.
