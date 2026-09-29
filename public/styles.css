@@ -1401,13 +1401,20 @@ button.library-file-preview { cursor:zoom-in; }
 .backup-google-backup-actions { margin-top:12px; justify-content:flex-end; }
 .google-drive-config {
   margin-top:12px;
-  display:grid;
-  gap:10px;
   padding:12px 13px;
   border:1px solid #29343d;
   border-radius:10px;
   background:#10171d;
 }
+.google-drive-config summary {
+  cursor:pointer;
+  font-size:.78rem;
+  font-weight:800;
+  color:#cbd8e1;
+  user-select:none;
+}
+.google-drive-config[open] summary { margin-bottom:10px; }
+.google-drive-config-intro { margin-bottom:10px; }
 .google-drive-config-grid {
   display:grid;
   grid-template-columns:repeat(2,minmax(0,1fr));
@@ -1590,6 +1597,7 @@ button.library-file-preview { cursor:zoom-in; }
   background:#f7fafc;
   border-color:#d5dee5;
 }
+:root[data-theme="light"] .google-drive-config summary { color:#2d3e49; }
 :root[data-theme="light"] .google-drive-auth {
   background:#eef7fc;
   border-color:#b9d6e7;
