@@ -27,6 +27,12 @@ test('S3 client completes backup, list, restore download and retention against M
       allowInsecureHttp:true
     });
 
+    const createBucket = await client.request({ method:'PUT' });
+    assert.ok(
+      createBucket.ok || createBucket.status === 409,
+      `MinIO test bucket creation failed with HTTP ${createBucket.status}`
+    );
+
     const connection = await client.testConnection();
     assert.equal(connection.connected, true);
 
