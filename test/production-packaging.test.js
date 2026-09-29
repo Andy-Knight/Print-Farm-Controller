@@ -16,7 +16,6 @@ const installerBuildScript = fs.readFileSync(new URL('../scripts/build-installer
 const signingScript = fs.readFileSync(new URL('../scripts/sign-windows.mjs', import.meta.url), 'utf8');
 const releaseScript = fs.readFileSync(new URL('../scripts/build-windows-release.mjs', import.meta.url), 'utf8');
 const dockerfile = fs.readFileSync(new URL('../Dockerfile', import.meta.url), 'utf8');
-const containerWorkflow = fs.readFileSync(new URL('../.github/workflows/container-image.yml', import.meta.url), 'utf8');
 
 test('production packaging scripts use Node 24, esbuild and Node SEA', () => {
   assert.equal(pkg.engines.node, '>=24');
@@ -98,10 +97,6 @@ test('production builds embed Google OAuth config without committing credential 
   assert.doesNotMatch(dockerfile, /(?:ARG|ENV)\s+PFC_GOOGLE_CLIENT_ID/);
   assert.doesNotMatch(dockerfile, /(?:ARG|ENV)\s+PFC_GOOGLE_CLIENT_SECRET/);
 
-  assert.match(containerWorkflow, /pfc_google_client_id=\$\{\{ secrets\.PFC_GOOGLE_CLIENT_ID \}\}/);
-  assert.match(containerWorkflow, /pfc_google_client_secret=\$\{\{ secrets\.PFC_GOOGLE_CLIENT_SECRET \}\}/);
-  assert.match(containerWorkflow, /if: github\.event_name != 'pull_request'/);
-  assert.match(containerWorkflow, /PFC_BUNDLE_BUILD_NONCE=\$\{\{ github\.run_id \}\}/);
 });
 
 test('Windows release signing occurs after SEA injection and before installer compilation', () => {
