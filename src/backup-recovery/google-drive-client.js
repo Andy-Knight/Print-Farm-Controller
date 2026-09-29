@@ -164,6 +164,14 @@ export class GoogleDriveClient {
     const currentCredentials = this.credentialsForState(current);
     const nextClientId = cleanString(clientId);
     const suppliedSecret = cleanString(clientSecret);
+    const clientIdChanged = Boolean(currentCredentials.clientId) && nextClientId !== currentCredentials.clientId;
+    if (clientIdChanged && !suppliedSecret) {
+      throw googleError(
+        'Enter the matching Google OAuth client secret when changing the client ID.',
+        400,
+        'GOOGLE_DRIVE_CLIENT_SECRET_REQUIRED'
+      );
+    }
     const nextClientSecret = suppliedSecret || currentCredentials.clientSecret;
 
     if (!nextClientId) {
