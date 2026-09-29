@@ -51,32 +51,33 @@ jobs:
       - name: Run regression suite
         run: npm test
 
+      - name: Set up Go for pinned MinIO
+        uses: actions/setup-go@v6
+        with:
+          go-version: '1.24.8'
+          cache: false
+
+      - name: Build pinned MinIO S3 test service
+        run: go install github.com/minio/minio@RELEASE.2025-10-15T17-29-55Z
+
       - name: Start MinIO S3 test service
         run: |
-          docker network create pfc-s3-test
-          docker run -d \
-            --name pfc-minio \
-            --network pfc-s3-test \
-            -p 9000:9000 \
-            -e MINIO_ROOT_USER=pfcadmin \
-            -e MINIO_ROOT_PASSWORD=pfc-test-secret \
-            minio/minio server /data
+          mkdir -p "$RUNNER_TEMP/pfc-minio-data"
+          MINIO_ROOT_USER=pfcadmin \
+          MINIO_ROOT_PASSWORD=pfc-test-secret \
+            "$HOME/go/bin/minio" server "$RUNNER_TEMP/pfc-minio-data" \
+              --address 127.0.0.1:9000 \
+              --console-address 127.0.0.1:9001 \
+              > "$RUNNER_TEMP/pfc-minio.log" 2>&1 &
+          echo "$!" > "$RUNNER_TEMP/pfc-minio.pid"
           for attempt in {1..30}; do
             if curl --fail --silent http://127.0.0.1:9000/minio/health/live > /dev/null; then
               exit 0
             fi
             sleep 1
           done
-          docker logs pfc-minio
+          cat "$RUNNER_TEMP/pfc-minio.log"
           exit 1
-
-      - name: Create MinIO test bucket
-        run: |
-          docker run --rm \
-            --network pfc-s3-test \
-            --entrypoint /bin/sh \
-            minio/mc \
-            -c "mc alias set local http://pfc-minio:9000 pfcadmin pfc-test-secret && mc mb local/pfc-backups"
 
       - name: Run MinIO S3 integration test
         env:
@@ -87,11 +88,16 @@ jobs:
           PFC_TEST_S3_SECRET_KEY: pfc-test-secret
         run: node --test test/s3-minio-integration.test.js
 
+      - name: Show MinIO logs on failure
+        if: failure()
+        run: cat "$RUNNER_TEMP/pfc-minio.log" || true
+
       - name: Stop MinIO S3 test service
         if: always()
         run: |
-          docker rm -f pfc-minio || true
-          docker network rm pfc-s3-test || true
+          if [ -f "$RUNNER_TEMP/pfc-minio.pid" ]; then
+            kill "$(cat "$RUNNER_TEMP/pfc-minio.pid")" || true
+          fi
 
   smoke:
     name: Container smoke test
