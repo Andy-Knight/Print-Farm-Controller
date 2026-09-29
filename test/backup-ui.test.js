@@ -147,7 +147,8 @@ test('Google Drive backup UI uses device authorization and limited Drive file ac
 
   assert.match(googleDriveClient, /https:\/\/www\.googleapis\.com\/auth\/drive\.file/);
   assert.match(googleDriveClient, /oauth2\.googleapis\.com\/device\/code/);
-  assert.match(googleDriveClient, /integrations.*google-drive\.json/);
+  assert.match(googleDriveClient, /path\.join\(this\.dataDir, 'integrations'\)/);
+  assert.match(googleDriveClient, /path\.join\(this\.integrationDir, 'google-drive\.json'\)/);
   assert.doesNotMatch(googleDriveClient, /auth\/drive['"]/);
   assert.match(styles, /\.google-drive-auth/);
   assert.match(styles, /\.google-drive-code/);
