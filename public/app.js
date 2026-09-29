@@ -56,9 +56,11 @@ const backupStatusGrid = document.querySelector('#backupStatusGrid');
 const backupCreateBtn = document.querySelector('#backupCreateBtn');
 const backupActionStatus = document.querySelector('#backupActionStatus');
 const backupError = document.querySelector('#backupError');
+const googleDriveAdvancedConfig = document.querySelector('#googleDriveAdvancedConfig');
 const googleDriveClientId = document.querySelector('#googleDriveClientId');
 const googleDriveClientSecret = document.querySelector('#googleDriveClientSecret');
 const googleDriveSaveConfigBtn = document.querySelector('#googleDriveSaveConfigBtn');
+const googleDriveUseDefaultConfigBtn = document.querySelector('#googleDriveUseDefaultConfigBtn');
 const googleDriveStatus = document.querySelector('#googleDriveStatus');
 const googleDriveAuth = document.querySelector('#googleDriveAuth');
 const googleDriveVerificationLink = document.querySelector('#googleDriveVerificationLink');
@@ -662,31 +664,43 @@ function renderGoogleDriveStatus(state = {}) {
   const configured = state.configured === true;
   const connected = state.connected === true;
   const pending = state.authorizationPending === true;
+  const customConfigured = state.customConfigured === true;
+  const defaultAvailable = state.defaultConfigurationAvailable === true;
 
   if (googleDriveClientId && document.activeElement !== googleDriveClientId) {
-    googleDriveClientId.value = state.clientId || '';
+    googleDriveClientId.value = state.customClientId || '';
   }
   if (googleDriveClientSecret && document.activeElement !== googleDriveClientSecret) {
-    googleDriveClientSecret.placeholder = state.clientSecretConfigured
+    googleDriveClientSecret.placeholder = customConfigured
       ? 'Saved — leave blank to keep existing secret'
       : 'Enter client secret';
   }
+  if (googleDriveAdvancedConfig && !defaultAvailable) googleDriveAdvancedConfig.open = true;
 
   if (googleDriveStatus) {
     if (!configured) {
-      googleDriveStatus.textContent = 'Enter and save the Google OAuth client ID and client secret to enable Google Drive.';
+      googleDriveStatus.textContent = 'Google Drive needs OAuth configuration. Open Advanced OAuth configuration and enter a client ID and secret.';
     } else if (state.reconnectRequired) {
       googleDriveStatus.textContent = 'Reconnection required. Connect Google Drive again to resume cloud backups.';
     } else if (connected) {
-      googleDriveStatus.textContent = `Connected · Folder: ${state.folderName || 'Print Farm Controller Backups'}`;
+      const source = state.configurationSource === 'ui'
+        ? 'custom OAuth'
+        : (state.configurationSource === 'environment' ? 'deployment OAuth' : 'built-in OAuth');
+      googleDriveStatus.textContent = `Connected using ${source} · Folder: ${state.folderName || 'Print Farm Controller Backups'}`;
     } else if (pending) {
       googleDriveStatus.textContent = 'Waiting for Google authorization…';
+    } else if (state.configurationSource === 'ui') {
+      googleDriveStatus.textContent = 'Custom Google OAuth configuration ready. Select Connect to authorize this controller.';
     } else {
-      googleDriveStatus.textContent = 'Configured but not connected.';
+      googleDriveStatus.textContent = 'Google Drive is ready. Select Connect to authorize your Google account.';
     }
   }
 
   if (googleDriveSaveConfigBtn) googleDriveSaveConfigBtn.disabled = false;
+  if (googleDriveUseDefaultConfigBtn) {
+    googleDriveUseDefaultConfigBtn.disabled = !customConfigured || !defaultAvailable;
+    googleDriveUseDefaultConfigBtn.classList.toggle('hidden', !defaultAvailable);
+  }
   if (googleDriveConnectBtn) googleDriveConnectBtn.disabled = !configured || connected || pending;
   if (googleDriveTestBtn) googleDriveTestBtn.disabled = !connected;
   if (googleDriveDisconnectBtn) googleDriveDisconnectBtn.disabled = !connected && !pending;
@@ -729,15 +743,15 @@ async function saveGoogleDriveConfiguration() {
 
   if (!clientId) {
     if (googleDriveError) {
-      googleDriveError.textContent = 'Enter the Google OAuth client ID.';
+      googleDriveError.textContent = 'Enter the custom Google OAuth client ID.';
       googleDriveError.classList.remove('hidden');
     }
     googleDriveClientId?.focus();
     return;
   }
-  if (!clientSecret && !googleDriveState?.clientSecretConfigured) {
+  if (!clientSecret && !googleDriveState?.customConfigured) {
     if (googleDriveError) {
-      googleDriveError.textContent = 'Enter the Google OAuth client secret.';
+      googleDriveError.textContent = 'Enter the custom Google OAuth client secret.';
       googleDriveError.classList.remove('hidden');
     }
     googleDriveClientSecret?.focus();
@@ -749,7 +763,7 @@ async function saveGoogleDriveConfiguration() {
     googleDriveError.textContent = '';
     googleDriveError.classList.add('hidden');
   }
-  if (googleDriveStatus) googleDriveStatus.textContent = 'Saving Google Drive configuration…';
+  if (googleDriveStatus) googleDriveStatus.textContent = 'Saving custom Google OAuth configuration…';
   try {
     const result = await api('/api/integrations/google-drive/config', {
       method:'PUT',
@@ -759,8 +773,8 @@ async function saveGoogleDriveConfiguration() {
     renderGoogleDriveStatus(result.googleDrive || {});
     if (googleDriveStatus) {
       googleDriveStatus.textContent = result.googleDrive?.connected
-        ? `Google configuration saved · Connected · Folder: ${result.googleDrive.folderName || 'Print Farm Controller Backups'}`
-        : 'Google configuration saved. Select Connect to authorize this controller.';
+        ? `Custom OAuth configuration saved · Connected · Folder: ${result.googleDrive.folderName || 'Print Farm Controller Backups'}`
+        : 'Custom OAuth configuration saved. Select Connect to authorize this controller.';
     }
   } catch (error) {
     if (googleDriveStatus) googleDriveStatus.textContent = '';
@@ -770,6 +784,36 @@ async function saveGoogleDriveConfiguration() {
     }
   } finally {
     googleDriveSaveConfigBtn.disabled = false;
+  }
+}
+
+async function useDefaultGoogleDriveConfiguration() {
+  if (!googleDriveUseDefaultConfigBtn || !googleDriveState?.customConfigured) return;
+  if (!confirm('Use the default Print Farm Controller Google OAuth configuration?\\n\\nThe current Google account authorization will be cleared and you will need to connect Google Drive again. Existing Google Drive backup files will not be deleted.')) return;
+
+  googleDriveUseDefaultConfigBtn.disabled = true;
+  clearGoogleDriveAuthPoll();
+  if (googleDriveError) {
+    googleDriveError.textContent = '';
+    googleDriveError.classList.add('hidden');
+  }
+  if (googleDriveStatus) googleDriveStatus.textContent = 'Switching to the default Google OAuth configuration…';
+  try {
+    const result = await api('/api/integrations/google-drive/config', { method:'DELETE' });
+    if (googleDriveClientId) googleDriveClientId.value = '';
+    if (googleDriveClientSecret) googleDriveClientSecret.value = '';
+    renderGoogleDriveStatus(result.googleDrive || {});
+    await loadCloudRestoreProviders();
+  } catch (error) {
+    if (googleDriveStatus) googleDriveStatus.textContent = '';
+    if (googleDriveError) {
+      googleDriveError.textContent = error.message;
+      googleDriveError.classList.remove('hidden');
+    }
+  } finally {
+    if (googleDriveUseDefaultConfigBtn) {
+      googleDriveUseDefaultConfigBtn.disabled = !googleDriveState?.customConfigured || !googleDriveState?.defaultConfigurationAvailable;
+    }
   }
 }
 
@@ -3014,6 +3058,7 @@ document.querySelectorAll('[data-backup-close]').forEach((el) => el.addEventList
 }));
 backupCreateBtn?.addEventListener('click', createManualBackup);
 googleDriveSaveConfigBtn?.addEventListener('click', saveGoogleDriveConfiguration);
+googleDriveUseDefaultConfigBtn?.addEventListener('click', useDefaultGoogleDriveConfiguration);
 googleDriveConnectBtn?.addEventListener('click', startGoogleDriveConnection);
 googleDriveCheckAuthBtn?.addEventListener('click', pollGoogleDriveAuthorization);
 googleDriveTestBtn?.addEventListener('click', testGoogleDriveConnection);
