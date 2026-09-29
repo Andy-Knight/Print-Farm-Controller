@@ -958,6 +958,7 @@ function renderS3Status(state = {}) {
   if (s3Bucket && document.activeElement !== s3Bucket) s3Bucket.value = state.bucket || '';
   if (s3Region && document.activeElement !== s3Region) s3Region.value = state.region || 'us-east-1';
   if (s3Prefix && document.activeElement !== s3Prefix) s3Prefix.value = state.prefix || 'print-farm-controller/';
+  if (s3AccessKeyId && document.activeElement !== s3AccessKeyId) s3AccessKeyId.value = state.accessKeyId || '';
   if (s3AddressingStyle) s3AddressingStyle.value = state.addressingStyle === 'virtual' ? 'virtual' : 'path';
   if (s3AllowInsecureHttp) s3AllowInsecureHttp.checked = state.allowInsecureHttp === true;
   if (s3SecretAccessKey && document.activeElement !== s3SecretAccessKey) {
