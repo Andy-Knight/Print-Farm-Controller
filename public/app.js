@@ -71,6 +71,21 @@ const googleDriveTestBtn = document.querySelector('#googleDriveTestBtn');
 const googleDriveDisconnectBtn = document.querySelector('#googleDriveDisconnectBtn');
 const googleDriveBackupBtn = document.querySelector('#googleDriveBackupBtn');
 const googleDriveError = document.querySelector('#googleDriveError');
+const s3AdvancedConfig = document.querySelector('#s3AdvancedConfig');
+const s3Endpoint = document.querySelector('#s3Endpoint');
+const s3Bucket = document.querySelector('#s3Bucket');
+const s3Region = document.querySelector('#s3Region');
+const s3Prefix = document.querySelector('#s3Prefix');
+const s3AccessKeyId = document.querySelector('#s3AccessKeyId');
+const s3SecretAccessKey = document.querySelector('#s3SecretAccessKey');
+const s3AddressingStyle = document.querySelector('#s3AddressingStyle');
+const s3AllowInsecureHttp = document.querySelector('#s3AllowInsecureHttp');
+const s3SaveConfigBtn = document.querySelector('#s3SaveConfigBtn');
+const s3TestBtn = document.querySelector('#s3TestBtn');
+const s3ClearConfigBtn = document.querySelector('#s3ClearConfigBtn');
+const s3BackupBtn = document.querySelector('#s3BackupBtn');
+const s3Status = document.querySelector('#s3Status');
+const s3Error = document.querySelector('#s3Error');
 const backupScheduleEnabled = document.querySelector('#backupScheduleEnabled');
 const backupScheduleDestinationType = document.querySelector('#backupScheduleDestinationType');
 const backupScheduleLocalDestinationField = document.querySelector('#backupScheduleLocalDestinationField');
@@ -637,6 +652,7 @@ function backupStatusTime(value, empty = 'Never') {
 
 let googleDriveAuthPollTimer = null;
 let googleDriveState = null;
+let s3State = null;
 
 function clearGoogleDriveAuthPoll() {
   if (googleDriveAuthPollTimer) clearTimeout(googleDriveAuthPollTimer);
@@ -644,9 +660,14 @@ function clearGoogleDriveAuthPoll() {
 }
 
 function updateBackupDestinationVisibility() {
-  const drive = backupScheduleDestinationType?.value === 'google-drive';
-  backupScheduleLocalDestinationField?.classList.toggle('hidden', drive);
-  if (backupTestDestinationBtn) backupTestDestinationBtn.textContent = drive ? 'Test Google Drive' : 'Test destination';
+  const destinationType = backupScheduleDestinationType?.value || 'local';
+  const cloud = destinationType === 'google-drive' || destinationType === 's3';
+  backupScheduleLocalDestinationField?.classList.toggle('hidden', cloud);
+  if (backupTestDestinationBtn) {
+    backupTestDestinationBtn.textContent = destinationType === 'google-drive'
+      ? 'Test Google Drive'
+      : (destinationType === 's3' ? 'Test S3' : 'Test destination');
+  }
 }
 
 function scheduleGoogleDriveAuthPoll(state) {
@@ -928,6 +949,180 @@ async function createGoogleDriveBackup() {
   }
 }
 
+
+function renderS3Status(state = {}) {
+  s3State = state || {};
+  const configured = state.configured === true;
+
+  if (s3Endpoint && document.activeElement !== s3Endpoint) s3Endpoint.value = state.endpoint || '';
+  if (s3Bucket && document.activeElement !== s3Bucket) s3Bucket.value = state.bucket || '';
+  if (s3Region && document.activeElement !== s3Region) s3Region.value = state.region || 'us-east-1';
+  if (s3Prefix && document.activeElement !== s3Prefix) s3Prefix.value = state.prefix || 'print-farm-controller/';
+  if (s3AddressingStyle) s3AddressingStyle.value = state.addressingStyle === 'virtual' ? 'virtual' : 'path';
+  if (s3AllowInsecureHttp) s3AllowInsecureHttp.checked = state.allowInsecureHttp === true;
+  if (s3SecretAccessKey && document.activeElement !== s3SecretAccessKey) {
+    s3SecretAccessKey.placeholder = configured
+      ? 'Saved — leave blank to keep existing secret'
+      : 'Enter secret access key';
+  }
+
+  if (s3Status) {
+    s3Status.textContent = configured
+      ? `Configured · ${state.bucket || 'bucket'} · ${state.region || 'us-east-1'} · ${state.prefix || 'print-farm-controller/'}`
+      : 'S3-compatible storage is not configured.';
+  }
+  if (s3TestBtn) s3TestBtn.disabled = !configured;
+  if (s3ClearConfigBtn) s3ClearConfigBtn.disabled = !configured;
+  if (s3BackupBtn) s3BackupBtn.disabled = !configured;
+  if (s3Error) {
+    s3Error.textContent = state.lastError || '';
+    s3Error.classList.toggle('hidden', !state.lastError);
+  }
+  if (s3AdvancedConfig && !configured) s3AdvancedConfig.open = true;
+  updateBackupDestinationVisibility();
+}
+
+async function loadS3Status() {
+  try {
+    const result = await api('/api/integrations/s3/status');
+    renderS3Status(result.s3 || {});
+    return result.s3 || {};
+  } catch (error) {
+    if (s3Error) {
+      s3Error.textContent = error.message;
+      s3Error.classList.remove('hidden');
+    }
+    return null;
+  }
+}
+
+async function saveS3Configuration() {
+  if (!s3SaveConfigBtn) return;
+  const payload = {
+    endpoint:s3Endpoint?.value?.trim() || '',
+    bucket:s3Bucket?.value?.trim() || '',
+    region:s3Region?.value?.trim() || 'us-east-1',
+    prefix:s3Prefix?.value?.trim() || 'print-farm-controller/',
+    accessKeyId:s3AccessKeyId?.value?.trim() || '',
+    secretAccessKey:s3SecretAccessKey?.value || '',
+    addressingStyle:s3AddressingStyle?.value || 'path',
+    allowInsecureHttp:s3AllowInsecureHttp?.checked === true
+  };
+
+  if (!payload.endpoint || !payload.bucket || !payload.accessKeyId) {
+    if (s3Error) {
+      s3Error.textContent = 'Enter the S3 endpoint, bucket and access key ID.';
+      s3Error.classList.remove('hidden');
+    }
+    return;
+  }
+  if (!payload.secretAccessKey && !s3State?.secretAccessKeyConfigured) {
+    if (s3Error) {
+      s3Error.textContent = 'Enter the S3 secret access key.';
+      s3Error.classList.remove('hidden');
+    }
+    return;
+  }
+
+  s3SaveConfigBtn.disabled = true;
+  if (s3Error) {
+    s3Error.textContent = '';
+    s3Error.classList.add('hidden');
+  }
+  if (s3Status) s3Status.textContent = 'Saving S3-compatible storage configuration…';
+  try {
+    const result = await api('/api/integrations/s3/config', {
+      method:'PUT',
+      body:JSON.stringify(payload)
+    });
+    if (s3SecretAccessKey) s3SecretAccessKey.value = '';
+    renderS3Status(result.s3 || {});
+    if (s3Status) s3Status.textContent = 'S3 configuration saved. Select Test to verify bucket access.';
+    await loadCloudRestoreProviders();
+  } catch (error) {
+    if (s3Status) s3Status.textContent = '';
+    if (s3Error) {
+      s3Error.textContent = error.message;
+      s3Error.classList.remove('hidden');
+    }
+  } finally {
+    s3SaveConfigBtn.disabled = false;
+  }
+}
+
+async function testS3Connection() {
+  if (!s3TestBtn) return;
+  s3TestBtn.disabled = true;
+  if (s3Error) {
+    s3Error.textContent = '';
+    s3Error.classList.add('hidden');
+  }
+  if (s3Status) s3Status.textContent = 'Testing S3 bucket access…';
+  try {
+    const result = await api('/api/integrations/s3/test', { method:'POST' });
+    renderS3Status(result.s3 || {});
+    if (s3Status) {
+      s3Status.textContent = `Connection successful · ${result.connection?.bucket || 'bucket'} · ${result.connection?.prefix || ''}`;
+    }
+    await loadCloudRestoreProviders();
+  } catch (error) {
+    if (s3Status) s3Status.textContent = '';
+    if (s3Error) {
+      s3Error.textContent = error.message;
+      s3Error.classList.remove('hidden');
+    }
+  } finally {
+    if (s3TestBtn) s3TestBtn.disabled = !s3State?.configured;
+  }
+}
+
+async function clearS3Configuration() {
+  if (!s3ClearConfigBtn || !s3State?.configured) return;
+  if (!confirm('Clear the S3-compatible storage configuration from this controller? Existing backup objects in the bucket will not be deleted.')) return;
+  s3ClearConfigBtn.disabled = true;
+  try {
+    const result = await api('/api/integrations/s3/config', { method:'DELETE' });
+    if (s3AccessKeyId) s3AccessKeyId.value = '';
+    if (s3SecretAccessKey) s3SecretAccessKey.value = '';
+    renderS3Status(result.s3 || {});
+    await Promise.all([loadBackupStatus(), loadCloudRestoreProviders()]);
+  } catch (error) {
+    if (s3Error) {
+      s3Error.textContent = error.message;
+      s3Error.classList.remove('hidden');
+    }
+  }
+}
+
+async function createS3Backup() {
+  if (!s3BackupBtn) return;
+  s3BackupBtn.disabled = true;
+  const original = s3BackupBtn.textContent;
+  s3BackupBtn.textContent = 'Backing up…';
+  if (s3Error) {
+    s3Error.textContent = '';
+    s3Error.classList.add('hidden');
+  }
+  if (s3Status) s3Status.textContent = 'Building, verifying and uploading backup…';
+  try {
+    const result = await api('/api/backup/create/s3', { method:'POST' });
+    const backup = result.backup || {};
+    if (s3Status) {
+      s3Status.textContent = `Backup uploaded · ${formatBytes(backup.size)} · ${backup.bucket || 'bucket'}/${backup.prefix || ''}`;
+    }
+    await Promise.all([loadBackupStatus(), loadS3Status(), loadCloudRestoreProviders()]);
+  } catch (error) {
+    if (s3Status) s3Status.textContent = '';
+    if (s3Error) {
+      s3Error.textContent = error.message;
+      s3Error.classList.remove('hidden');
+    }
+  } finally {
+    s3BackupBtn.textContent = original;
+    s3BackupBtn.disabled = !s3State?.configured;
+  }
+}
+
 function updateBackupWeekdayVisibility() {
   if (backupScheduleWeekdayField) {
     backupScheduleWeekdayField.classList.toggle('hidden', backupScheduleFrequency?.value !== 'weekly');
@@ -953,7 +1148,11 @@ function setBackupScheduleControlsDisabled(disabled) {
 
 function renderBackupSchedule(schedule = {}) {
   if (backupScheduleEnabled) backupScheduleEnabled.checked = schedule.enabled === true;
-  if (backupScheduleDestinationType) backupScheduleDestinationType.value = schedule.destinationType === 'google-drive' ? 'google-drive' : 'local';
+  if (backupScheduleDestinationType) {
+    backupScheduleDestinationType.value = ['google-drive','s3'].includes(schedule.destinationType)
+      ? schedule.destinationType
+      : 'local';
+  }
   if (backupScheduleDestination) backupScheduleDestination.value = schedule.destination || '';
   if (backupScheduleFrequency) backupScheduleFrequency.value = schedule.frequency === 'weekly' ? 'weekly' : 'daily';
   if (backupScheduleTime) backupScheduleTime.value = schedule.scheduleTime || '02:00';
@@ -991,7 +1190,9 @@ function renderBackupStatus(payload) {
       <div><span>Last backup file</span><strong>${escapeHtml(last?.fileName || '—')}</strong></div>
       <div><span>Last backup size</span><strong>${escapeHtml(last?.size ? formatBytes(last.size) : '—')}</strong></div>
       <div><span>Scheduled backups</span><strong>${schedule.enabled ? 'Enabled' : 'Not enabled'}</strong></div>
-      <div><span>Scheduled destination</span><strong>${escapeHtml(schedule.destinationType === 'google-drive' ? 'Google Drive' : (schedule.destination || '—'))}</strong></div>
+      <div><span>Scheduled destination</span><strong>${escapeHtml(schedule.destinationType === 'google-drive'
+        ? 'Google Drive'
+        : (schedule.destinationType === 's3' ? 'S3-compatible storage' : (schedule.destination || '—')))}</strong></div>
       <div><span>Next scheduled backup</span><strong>${escapeHtml(backupStatusTime(schedule.nextRunAt, '—'))}</strong></div>
       <div><span>Backup operation</span><strong>${escapeHtml(backup.operation?.kind ? `${backup.operation.kind} backup running` : 'Idle')}</strong></div>
     `;
@@ -1021,7 +1222,10 @@ async function loadBackupStatus() {
 }
 
 async function testScheduledBackupDestination() {
-  const destinationType = backupScheduleDestinationType?.value === 'google-drive' ? 'google-drive' : 'local';
+  const selectedDestinationType = backupScheduleDestinationType?.value || 'local';
+  const destinationType = ['google-drive','s3'].includes(selectedDestinationType)
+    ? selectedDestinationType
+    : 'local';
   const destination = backupScheduleDestination?.value?.trim() || '';
   if (destinationType === 'local' && !destination) {
     if (backupScheduleError) {
@@ -1038,7 +1242,7 @@ async function testScheduledBackupDestination() {
   if (backupScheduleStatus) {
     backupScheduleStatus.textContent = destinationType === 'google-drive'
       ? 'Testing Google Drive connection…'
-      : 'Testing destination write access…';
+      : (destinationType === 's3' ? 'Testing S3-compatible storage…' : 'Testing destination write access…');
   }
   try {
     await api('/api/backup/test-destination', {
@@ -1048,7 +1252,7 @@ async function testScheduledBackupDestination() {
     if (backupScheduleStatus) {
       backupScheduleStatus.textContent = destinationType === 'google-drive'
         ? 'Google Drive destination is available.'
-        : 'Destination is writable.';
+        : (destinationType === 's3' ? 'S3-compatible destination is available.' : 'Destination is writable.');
     }
   } catch (error) {
     if (backupScheduleStatus) backupScheduleStatus.textContent = '';
@@ -1085,7 +1289,9 @@ async function saveScheduledBackupSettings() {
       method:'PUT',
       body:JSON.stringify({
         enabled:backupScheduleEnabled?.checked === true,
-        destinationType:backupScheduleDestinationType?.value === 'google-drive' ? 'google-drive' : 'local',
+        destinationType:['google-drive','s3'].includes(backupScheduleDestinationType?.value)
+          ? backupScheduleDestinationType.value
+          : 'local',
         destination:backupScheduleDestination?.value?.trim() || null,
         frequency:backupScheduleFrequency?.value || 'daily',
         scheduleTime:backupScheduleTime?.value || '02:00',
@@ -3050,7 +3256,7 @@ backupRecoveryBtn?.addEventListener('click', async () => {
   if (restoreInspectBtn) restoreInspectBtn.disabled = false;
   if (restoreCancelStageBtn) restoreCancelStageBtn.classList.add('hidden');
   backupRecoveryDialog?.showModal();
-  await Promise.all([loadBackupStatus(), loadRestoreStatus(), loadGoogleDriveStatus(), loadCloudRestoreProviders()]);
+  await Promise.all([loadBackupStatus(), loadRestoreStatus(), loadGoogleDriveStatus(), loadS3Status(), loadCloudRestoreProviders()]);
 });
 document.querySelectorAll('[data-backup-close]').forEach((el) => el.addEventListener('click', () => {
   clearGoogleDriveAuthPoll();
@@ -3064,6 +3270,10 @@ googleDriveCheckAuthBtn?.addEventListener('click', pollGoogleDriveAuthorization)
 googleDriveTestBtn?.addEventListener('click', testGoogleDriveConnection);
 googleDriveDisconnectBtn?.addEventListener('click', disconnectGoogleDrive);
 googleDriveBackupBtn?.addEventListener('click', createGoogleDriveBackup);
+s3SaveConfigBtn?.addEventListener('click', saveS3Configuration);
+s3TestBtn?.addEventListener('click', testS3Connection);
+s3ClearConfigBtn?.addEventListener('click', clearS3Configuration);
+s3BackupBtn?.addEventListener('click', createS3Backup);
 restoreSourceSelect?.addEventListener('change', () => updateRestoreSourceUi());
 restoreCloudBackupSelect?.addEventListener('change', clearRestoreInspection);
 restoreCloudRefreshBtn?.addEventListener('click', async () => {
