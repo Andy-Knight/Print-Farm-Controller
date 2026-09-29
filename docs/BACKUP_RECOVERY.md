@@ -196,25 +196,36 @@ Google Drive is a destination for the canonical verified `.pfcbackup` artifact; 
 
 ### OAuth model
 
-The controller uses Google's OAuth flow for **TVs and Limited Input devices**. This is suitable for a headless/local controller because it does not require a public HTTPS callback URL on the controller. The controller requests only:
+The controller uses Google's OAuth flow for **TVs and Limited Input devices** and requests only:
 
 ```text
 https://www.googleapis.com/auth/drive.file
 ```
 
-The normal setup path is entirely inside **Backup & recovery**. The user enters the OAuth client ID and client secret created in Google Cloud, saves them, then starts authorization. The controller opens the device flow, displays Google's verification URL/code, and polls until access is granted.
+Released production builds use one shared **Print Farm Controller** OAuth client. Normal customers do not create their own Google Cloud project or enter a client ID/secret; they select **Connect** and authorize their own Google account.
 
-The saved OAuth client ID, OAuth client secret, long-lived refresh token and Drive folder metadata are persisted separately from backup data at:
+Production credentials are injected into compiled bundles at build time through `PFC_GOOGLE_CLIENT_ID` and `PFC_GOOGLE_CLIENT_SECRET`. GitHub Actions supplies those values from repository Actions secrets to production container builds using Docker BuildKit secret mounts. Pull-request builds deliberately receive no production credentials. The Windows SEA bundle builder consumes the same environment variables when they are present.
+
+The credentials are distributed application credentials: they are kept out of source control, Docker metadata and build command history, but a determined user can extract them from a released executable/container. They are therefore not a security boundary for customer data. Drive access still requires the customer's own OAuth authorization and refresh token.
+
+Source/development deployments can use **Advanced OAuth configuration** to save a custom OAuth client. Runtime `GOOGLE_DRIVE_CLIENT_ID` / `GOOGLE_DRIVE_CLIENT_SECRET` remain deployment-level overrides. Effective credential precedence is:
+
+1. UI-saved custom credentials;
+2. runtime environment override;
+3. built-in production credentials;
+4. unconfigured.
+
+Persistent integration state remains:
 
 ```text
 <DATA_DIR>/integrations/google-drive.json
 ```
 
-The file is created with restrictive controller-owned permissions and must live on persistent `DATA_DIR` storage for Docker/K3s deployments. The client secret and refresh token are never returned through the status API. The short-lived access token remains memory-only.
+This file contains the customer's refresh token, Drive folder state, and custom OAuth credentials only when the user deliberately configures an override. Built-in production OAuth credentials are not copied into persistent controller data. The short-lived access token remains memory-only. Custom client secrets and refresh tokens are never returned through the status API.
 
-`GOOGLE_DRIVE_CLIENT_ID` and `GOOGLE_DRIVE_CLIENT_SECRET` remain optional environment-variable fallbacks for automated deployments, but are not required for any install format. UI-saved credentials take precedence and persist across restarts.
+Selecting **Use default configuration** clears a custom OAuth override and its existing account authorization, returning the installation to the deployment/built-in credentials. The Google account must then be connected again because refresh tokens are client-specific.
 
-The integration file is never included in a portable backup or diagnostic bundle. If token refresh returns an authorization failure such as `invalid_grant`, the integration enters a **reconnection required** state and scheduled Drive backups fail visibly until the user reconnects. Changing the OAuth client credentials clears existing Google account authorization because refresh tokens are client-specific.
+The integration file is never included in a portable backup or diagnostic bundle. If token refresh returns an authorization failure such as `invalid_grant`, the integration enters a **reconnection required** state and scheduled Drive backups fail visibly until the user reconnects.
 
 ### Drive folder and upload
 
