@@ -137,13 +137,15 @@ Protect the controller data directory/PVC because the stored OAuth credentials c
 
 ### Backup behavior
 
+Cloud restore is provider-based rather than Google-specific. Google Drive is the first provider registered with the restore UI/API; additional providers can implement the same list/download interface without changing the restore engine.
+
 - **Backup to Google Drive now** creates, verifies and compresses the canonical backup before uploading it.
 - Scheduled backups can select **Google Drive** instead of a local/mapped/NAS folder.
 - Retention deletes only older **scheduled** Drive backups created by the same controller installation. Manual Drive backups and backups from another installation are left untouched.
 - **Disconnect** revokes/removes the Google account authorization but retains the saved OAuth client setup, so the controller can be reconnected without re-entering the client ID/secret.
 - Changing the saved OAuth client ID or secret clears the existing Google account authorization because refresh tokens are tied to the OAuth client.
 - If Google invalidates/revokes the refresh token, the controller reports **Reconnection required** instead of silently dropping scheduled backups.
-- Built-in browsing/downloading/restoring directly from Google Drive is not included in v0.33.0; restore continues to use the existing local `.pfcbackup` inspection/staging workflow.
+- Restore can use either a local `.pfcbackup` file or a backup selected directly from a connected cloud provider. Google Drive backups are listed in the restore source selector, downloaded to temporary staging, and passed through the same inspection, checksum/version validation, recovery-hold and restart-based restore pipeline as local files.
 
 ## Docker
 
