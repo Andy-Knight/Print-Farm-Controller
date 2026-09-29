@@ -129,7 +129,7 @@ export class GoogleDriveClient {
     const pending = this.pendingAuthorization;
     return {
       configured:this.configured(),
-      connected:Boolean(state?.refreshToken) && !this.reconnectRequired,
+      connected:this.configured() && Boolean(state?.refreshToken) && !this.reconnectRequired && !pending,
       reconnectRequired:this.reconnectRequired,
       folderId:state?.folderId || null,
       folderName:state?.folderName || this.folderName,
@@ -175,7 +175,9 @@ export class GoogleDriveClient {
       nextPollAtMs:now
     };
     this.lastError = null;
-    this.reconnectRequired = false;
+    // Preserve reconnectRequired until a replacement token is actually issued.
+    // This prevents an existing invalid refresh token from appearing connected
+    // while the replacement device authorization is still pending.
     await this.log('info', 'Google Drive authorization started');
     return this.status();
   }
