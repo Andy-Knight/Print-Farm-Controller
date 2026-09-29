@@ -379,8 +379,66 @@
       <section class="backup-section">
         <div class="backup-section-head">
           <div>
+            <strong>S3-compatible storage</strong>
+            <div class="field-help">Store backups in an S3-compatible bucket such as MinIO, Amazon S3, Cloudflare R2, Backblaze B2 or Wasabi. The controller uses Signature Version 4 and keeps credentials only in controller data.</div>
+          </div>
+          <div class="mini-actions backup-google-actions">
+            <button id="s3TestBtn" type="button" class="secondary">Test</button>
+            <button id="s3ClearConfigBtn" type="button" class="secondary">Clear</button>
+          </div>
+        </div>
+        <details id="s3AdvancedConfig" class="google-drive-config" open>
+          <summary>S3 connection configuration</summary>
+          <div class="field-help google-drive-config-intro">
+            Enter the S3 endpoint, bucket and credentials supplied by your storage provider. Use path-style addressing for MinIO and most S3-compatible services; virtual-hosted addressing is available for providers that require it.
+          </div>
+          <div class="google-drive-config-grid">
+            <label>S3 endpoint
+              <input id="s3Endpoint" type="url" autocomplete="off" spellcheck="false" placeholder="https://s3.example.com" />
+            </label>
+            <label>Bucket
+              <input id="s3Bucket" type="text" autocomplete="off" spellcheck="false" placeholder="print-farm-controller-backups" />
+            </label>
+            <label>Region
+              <input id="s3Region" type="text" autocomplete="off" spellcheck="false" value="us-east-1" placeholder="us-east-1" />
+            </label>
+            <label>Path prefix
+              <input id="s3Prefix" type="text" autocomplete="off" spellcheck="false" value="print-farm-controller/" placeholder="print-farm-controller/" />
+            </label>
+            <label>Access key ID
+              <input id="s3AccessKeyId" type="text" autocomplete="off" spellcheck="false" />
+            </label>
+            <label>Secret access key
+              <input id="s3SecretAccessKey" type="password" autocomplete="new-password" placeholder="Enter secret access key" />
+            </label>
+            <label>Addressing style
+              <select id="s3AddressingStyle">
+                <option value="path">Path-style</option>
+                <option value="virtual">Virtual-hosted</option>
+              </select>
+            </label>
+            <label class="backup-schedule-toggle">
+              <input id="s3AllowInsecureHttp" type="checkbox" />
+              <span>Allow insecure HTTP</span>
+            </label>
+          </div>
+          <div class="field-help">Leave the secret access key blank when saving an unchanged access key. Enable insecure HTTP only for a trusted local service such as a development MinIO instance.</div>
+          <div class="mini-actions backup-google-config-actions">
+            <button id="s3SaveConfigBtn" type="button" class="secondary">Save S3 configuration</button>
+          </div>
+        </details>
+        <div id="s3Status" class="subtle backup-action-status" aria-live="polite"></div>
+        <div class="mini-actions backup-google-backup-actions">
+          <button id="s3BackupBtn" type="button" class="primary">Backup to S3 now</button>
+        </div>
+        <div id="s3Error" class="error hidden"></div>
+      </section>
+
+      <section class="backup-section">
+        <div class="backup-section-head">
+          <div>
             <strong>Scheduled backups</strong>
-            <div class="field-help">Save verified backups automatically to a local/NAS destination or the connected Google Drive folder.</div>
+            <div class="field-help">Save verified backups automatically to a local/NAS destination, Google Drive or configured S3-compatible storage.</div>
           </div>
         </div>
         <div class="backup-schedule-grid">
@@ -392,6 +450,7 @@
             <select id="backupScheduleDestinationType">
               <option value="local">Local / mapped / NAS folder</option>
               <option value="google-drive">Google Drive</option>
+              <option value="s3">S3-compatible storage</option>
             </select>
           </label>
           <label id="backupScheduleLocalDestinationField" class="backup-schedule-destination">Destination folder
