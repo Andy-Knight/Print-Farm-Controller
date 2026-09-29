@@ -108,30 +108,37 @@ https://www.googleapis.com/auth/drive.file
 
 This limits the controller to files and folders it creates or has been granted access to rather than giving it unrestricted access to the whole Drive.
 
-### Google Cloud setup
+### Production OAuth configuration
 
-In a Google Cloud project:
+Released Print Farm Controller builds are intended to use one shared **Print Farm Controller** Google OAuth client. End users do not need to create a Google Cloud project or enter a client ID/secret: they open **Backup & recovery → Google Drive**, select **Connect**, and authorize their own Google account.
 
-1. Enable the **Google Drive API**.
-2. Configure the OAuth consent screen for the Google account(s) that will use the controller.
-3. Create an OAuth client with application type **TVs and Limited Input devices**.
-4. Copy the generated **client ID** and **client secret**.
+The production OAuth credentials are injected at build time and are not committed to the repository:
 
-No installation-specific environment configuration is required. In Print Farm Controller open **Backup & recovery → Google Drive**, enter the client ID and client secret, and select **Save Google configuration**. Then select **Connect**. The controller displays Google's verification address and a short user code; complete authorization in a browser and the controller creates or reuses a visible **Print Farm Controller Backups** folder in My Drive.
+- GitHub Actions repository secrets: `PFC_GOOGLE_CLIENT_ID` and `PFC_GOOGLE_CLIENT_SECRET`.
+- Published GHCR builds receive those values through Docker BuildKit secret mounts only on non-pull-request production builds.
+- The Windows SEA bundle builder reads the same `PFC_GOOGLE_CLIENT_ID` / `PFC_GOOGLE_CLIENT_SECRET` environment variables when producing an executable or installer.
+- The resulting production bundle contains the distributed OAuth client credentials. They must therefore be treated as extractable application credentials, not as a security boundary. Customer Drive access still requires that customer's own OAuth authorization/refresh token.
 
-This UI setup works the same way for source/development, the Windows executable/installer, Docker and K3s/Kubernetes deployments.
+Pull-request container builds deliberately do **not** receive the production OAuth secrets. A per-run build nonce also prevents a cached production bundle containing credentials from being reused by a non-production build.
 
-For automated deployments, `GOOGLE_DRIVE_CLIENT_ID` and `GOOGLE_DRIVE_CLIENT_SECRET` remain optional fallback environment variables. Values saved through the UI take precedence and persist with controller data.
+For source/development builds or installations that deliberately want their own Google project, **Advanced OAuth configuration** allows a custom OAuth client ID/secret. Runtime `GOOGLE_DRIVE_CLIENT_ID` and `GOOGLE_DRIVE_CLIENT_SECRET` remain supported as deployment-level overrides. Credential precedence is:
+
+1. custom credentials saved in the controller UI;
+2. runtime `GOOGLE_DRIVE_CLIENT_ID` / `GOOGLE_DRIVE_CLIENT_SECRET`;
+3. built-in production credentials;
+4. unconfigured.
+
+Selecting **Use default configuration** clears a saved custom OAuth client and its account authorization, then returns to the deployment/built-in application credentials. The Google account must be connected again because refresh tokens are tied to the OAuth client.
 
 ### Credential storage
 
-The OAuth client ID, OAuth client secret, long-lived refresh token and managed Drive folder ID are stored in:
+The customer's long-lived refresh token, managed Drive folder ID, and any deliberately saved **custom** OAuth client credentials are stored in:
 
 ```text
 <DATA_DIR>/integrations/google-drive.json
 ```
 
-The file is written with restrictive permissions inside the persistent controller data directory. The short-lived access token remains memory-only. The client secret and refresh token are never returned by the status API, are never shown again in the UI after saving, and the entire integration file is deliberately excluded from `.pfcbackup` archives and diagnostic logging.
+Built-in production OAuth credentials are not copied into this file. The file is written with restrictive permissions inside the persistent controller data directory. The short-lived access token remains memory-only. Custom client secrets and refresh tokens are never returned by the status API, are never shown again in the UI after saving, and the entire integration file is deliberately excluded from `.pfcbackup` archives and diagnostic logging.
 
 Protect the controller data directory/PVC because the stored OAuth credentials can authorize future Drive access. Google Drive also requires outbound HTTPS access to Google's OAuth and Drive API endpoints.
 
@@ -142,8 +149,8 @@ Cloud restore is provider-based rather than Google-specific. Google Drive is the
 - **Backup to Google Drive now** creates, verifies and compresses the canonical backup before uploading it.
 - Scheduled backups can select **Google Drive** instead of a local/mapped/NAS folder.
 - Retention deletes only older **scheduled** Drive backups created by the same controller installation. Manual Drive backups and backups from another installation are left untouched.
-- **Disconnect** revokes/removes the Google account authorization but retains the saved OAuth client setup, so the controller can be reconnected without re-entering the client ID/secret.
-- Changing the saved OAuth client ID or secret clears the existing Google account authorization because refresh tokens are tied to the OAuth client.
+- **Disconnect** revokes/removes the Google account authorization while retaining the selected OAuth configuration. With a production build, reconnecting normally requires only another Google authorization.
+- Saving a custom OAuth client or switching back to the default configuration clears the existing Google account authorization when the OAuth client changes because refresh tokens are client-specific.
 - If Google invalidates/revokes the refresh token, the controller reports **Reconnection required** instead of silently dropping scheduled backups.
 - Restore can use either a local `.pfcbackup` file or a backup selected directly from a connected cloud provider. Google Drive backups are listed in the restore source selector, downloaded to temporary staging, and passed through the same inspection, checksum/version validation, recovery-hold and restart-based restore pipeline as local files.
 
