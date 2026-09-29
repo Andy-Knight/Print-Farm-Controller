@@ -60,7 +60,7 @@ jobs:
             -p 9000:9000 \
             -e MINIO_ROOT_USER=pfcadmin \
             -e MINIO_ROOT_PASSWORD=pfc-test-secret \
-            quay.io/minio/minio server /data
+            minio/minio server /data
           for attempt in {1..30}; do
             if curl --fail --silent http://127.0.0.1:9000/minio/health/live > /dev/null; then
               exit 0
@@ -75,7 +75,7 @@ jobs:
           docker run --rm \
             --network pfc-s3-test \
             --entrypoint /bin/sh \
-            quay.io/minio/mc \
+            minio/mc \
             -c "mc alias set local http://pfc-minio:9000 pfcadmin pfc-test-secret && mc mb local/pfc-backups"
 
       - name: Run MinIO S3 integration test
