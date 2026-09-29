@@ -176,7 +176,7 @@ export class ScheduledBackupService {
     this.operationLock = operationLock || new BackupOperationLock();
     this.diagnostic = typeof diagnosticFn === 'function' ? diagnosticFn : null;
     this.googleDriveClient = googleDriveClient || null;
-    this.stagingDir = path.join(this.dataDir, '.backup-staging');
+    this.stagingDir = path.join(this.dataDir, '.backup-staging', 'scheduled');
     this.setTimeoutFn = setTimeoutFn;
     this.clearTimeoutFn = clearTimeoutFn;
     this.catchUpDelayMs = Math.max(0, Number(catchUpDelayMs) || 0);
