@@ -343,23 +343,25 @@
             <button id="googleDriveDisconnectBtn" type="button" class="secondary">Disconnect</button>
           </div>
         </div>
-        <div class="google-drive-config">
-          <div class="field-help">
-            First-time setup: in Google Cloud enable the Drive API and create an OAuth client of type <strong>TVs and Limited Input devices</strong>, then enter its credentials below. These settings are stored with controller data and work the same way for source, Windows, Docker and K3s installs.
+        <details id="googleDriveAdvancedConfig" class="google-drive-config">
+          <summary>Advanced OAuth configuration</summary>
+          <div class="field-help google-drive-config-intro">
+            Released Print Farm Controller builds include the application's Google OAuth configuration, so normal users only need to select <strong>Connect</strong>. Use this section only to override the built-in configuration or when running a source/development build without bundled credentials.
           </div>
           <div class="google-drive-config-grid">
-            <label>OAuth client ID
+            <label>Custom OAuth client ID
               <input id="googleDriveClientId" type="text" autocomplete="off" spellcheck="false" placeholder="xxxxxxxxxxxx.apps.googleusercontent.com" />
             </label>
-            <label>OAuth client secret
+            <label>Custom OAuth client secret
               <input id="googleDriveClientSecret" type="password" autocomplete="new-password" placeholder="Enter client secret" />
             </label>
           </div>
           <div class="mini-actions backup-google-config-actions">
-            <button id="googleDriveSaveConfigBtn" type="button" class="secondary">Save Google configuration</button>
+            <button id="googleDriveSaveConfigBtn" type="button" class="secondary">Save custom configuration</button>
+            <button id="googleDriveUseDefaultConfigBtn" type="button" class="secondary">Use default configuration</button>
           </div>
-          <div class="field-help">The client secret is never displayed again after saving. Leave it blank when saving later to keep the existing secret.</div>
-        </div>
+          <div class="field-help">Custom credentials are stored with controller data and take precedence over the built-in application credentials. The client secret is never displayed again after saving.</div>
+        </details>
         <div id="googleDriveStatus" class="subtle backup-action-status" aria-live="polite"></div>
         <div id="googleDriveAuth" class="google-drive-auth hidden">
           <div>Open <a id="googleDriveVerificationLink" href="#" target="_blank" rel="noopener noreferrer">Google device authorization</a> and enter this code:</div>
