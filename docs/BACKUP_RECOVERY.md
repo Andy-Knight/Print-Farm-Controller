@@ -24,7 +24,6 @@ The backup format is intentionally logical and path-independent. A backup is not
 
 ### Deferred
 
-- Built-in browsing/downloading/restoring directly from Google Drive; cloud files can still be downloaded outside the controller and restored through the existing inspection/staging path.
 - Additional cloud-provider-specific destinations beyond Google Drive.
 - Built-in backup encryption/password protection.
 - Incremental/differential backups.
@@ -253,6 +252,28 @@ Drive retention follows the same safety model as local scheduled retention:
 ### Disconnect
 
 Disconnecting attempts to revoke the Google refresh token, clears account authorization and memory-only access-token state, preserves the saved OAuth client configuration for later reconnection, and leaves existing Drive backup files untouched.
+
+### Cloud restore provider model
+
+Cloud restore does not implement a second restore engine. Providers implement a small storage-facing contract:
+
+- report provider status;
+- list eligible controller backups;
+- download a selected backup to temporary local staging.
+
+The controller then passes that temporary `.pfcbackup` through the existing `inspectRestoreBackup()` and `stageRestoreBackup()` paths. Google Drive is the first registered provider.
+
+The restore UI discovers connected providers dynamically, so future providers can appear as restore sources without changing restore validation logic. A cloud backup must be explicitly selected and inspected before Restore is enabled. If the user changes the provider or selected backup after inspection, the inspection is invalidated.
+
+Cloud staging deliberately downloads the selected backup again when **Restore backup** is pressed. This revalidates the exact artifact being staged rather than trusting the earlier inspection result. Temporary cloud downloads are deleted after inspection/staging.
+
+Google Drive downloads are restricted to files that:
+
+- are inside the controller-managed **Print Farm Controller Backups** folder visible to the app;
+- carry the PFC backup app-property marker;
+- have a valid `.pfcbackup` filename;
+- remain below the existing restore size limit.
+
 
 
 ## Data excluded
