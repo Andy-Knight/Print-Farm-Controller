@@ -12,7 +12,7 @@ function jsonResponse(value, status = 200, headers = {}) {
   });
 }
 
-test('Google Drive device authorization persists only the refresh token and controller folder metadata', async () => {
+test('Google Drive UI configuration persists OAuth client credentials without persisting access tokens', async () => {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), 'pfc-google-drive-auth-'));
   let now = Date.parse('2026-09-29T10:00:00.000Z');
   const requests = [];
@@ -53,11 +53,29 @@ test('Google Drive device authorization persists only the refresh token and cont
 
     const client = new GoogleDriveClient({
       dataDir:root,
-      clientId:'client-id',
-      clientSecret:'client-secret',
+      clientId:'',
+      clientSecret:'',
       fetchFn,
       nowFn:() => now
     });
+
+    const initial = await client.status();
+    assert.equal(initial.configured, false);
+    assert.equal(initial.clientSecretConfigured, false);
+
+    const configured = await client.configure({
+      clientId:'client-id.apps.googleusercontent.com',
+      clientSecret:'client-secret'
+    });
+    assert.equal(configured.configured, true);
+    assert.equal(configured.configurationSource, 'ui');
+    assert.equal(configured.clientId, 'client-id.apps.googleusercontent.com');
+    assert.equal(configured.clientSecretConfigured, true);
+    assert.equal(Object.hasOwn(configured, 'clientSecret'), false);
+
+    const configuredState = JSON.parse(await fs.readFile(path.join(root, 'integrations', 'google-drive.json'), 'utf8'));
+    assert.equal(configuredState.clientId, 'client-id.apps.googleusercontent.com');
+    assert.equal(configuredState.clientSecret, 'client-secret');
 
     const started = await client.startDeviceAuthorization();
     assert.equal(started.authorizationPending, true);
@@ -72,10 +90,12 @@ test('Google Drive device authorization persists only the refresh token and cont
     const stored = JSON.parse(await fs.readFile(path.join(root, 'integrations', 'google-drive.json'), 'utf8'));
     assert.equal(stored.refreshToken, 'long-lived-refresh-token');
     assert.equal(stored.folderId, 'folder-123');
+    assert.equal(stored.clientId, 'client-id.apps.googleusercontent.com');
+    assert.equal(stored.clientSecret, 'client-secret');
     assert.equal(JSON.stringify(stored).includes('short-lived-access-token'), false);
-    assert.equal(JSON.stringify(stored).includes('client-secret'), false);
 
     const deviceRequest = requests.find((item) => item.target.endsWith('/device/code'));
+    assert.match(String(deviceRequest.options.body), /client_id=client-id\.apps\.googleusercontent\.com/);
     assert.match(String(deviceRequest.options.body), /scope=https%3A%2F%2Fwww\.googleapis\.com%2Fauth%2Fdrive\.file/);
   } finally {
     await fs.rm(root, { recursive:true, force:true });
@@ -226,6 +246,46 @@ test('Google Drive uploads verified backup files and prunes only older scheduled
     assert.equal(retention.deleted.length, 1);
     assert.equal(retention.eligible, 3);
     assert.equal(retention.kept, 2);
+  } finally {
+    await fs.rm(root, { recursive:true, force:true });
+  }
+});
+
+
+test('Google Drive disconnect preserves UI OAuth configuration while removing account authorization', async () => {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), 'pfc-google-drive-disconnect-'));
+  try {
+    const client = new GoogleDriveClient({
+      dataDir:root,
+      clientId:'',
+      clientSecret:'',
+      fetchFn:async (url) => {
+        if (String(url).endsWith('/revoke')) return new Response('', { status:200 });
+        throw new Error(`Unexpected request: ${url}`);
+      }
+    });
+    await client.configure({
+      clientId:'saved-client-id.apps.googleusercontent.com',
+      clientSecret:'saved-client-secret'
+    });
+    await client.saveState({
+      ...(await client.loadState()),
+      refreshToken:'refresh-token',
+      folderId:'folder-1',
+      connectedAt:'2026-09-29T10:00:00.000Z'
+    });
+
+    const status = await client.disconnect();
+    assert.equal(status.configured, true);
+    assert.equal(status.connected, false);
+    assert.equal(status.clientId, 'saved-client-id.apps.googleusercontent.com');
+    assert.equal(status.clientSecretConfigured, true);
+
+    const stored = JSON.parse(await fs.readFile(path.join(root, 'integrations', 'google-drive.json'), 'utf8'));
+    assert.equal(stored.clientId, 'saved-client-id.apps.googleusercontent.com');
+    assert.equal(stored.clientSecret, 'saved-client-secret');
+    assert.equal(stored.refreshToken, null);
+    assert.equal(stored.folderId, null);
   } finally {
     await fs.rm(root, { recursive:true, force:true });
   }
