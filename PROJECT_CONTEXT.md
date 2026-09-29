@@ -119,12 +119,12 @@ Any further functional development should start from the current `main` baseline
 
 ## Next steps
 
-1. Physically validate Creator 5 / Creator 5 Pro discovery, authentication and four-tool `/detail` telemetry against real hardware.
-2. Validate Creator 5-series upload/verification and both single-tool and multi-tool print starts from the Print Library, confirming 0-based logical tool → 1-based material-slot mapping.
-3. Validate per-tool temperature commands, bed levelling, pause/resume/cancel, camera and Creator 5 Pro native chamber targets on physical hardware.
-4. Confirm Creator 5 Pro filtration remains printer-managed on current firmware and do not expose writable filter controls unless the local API provides a verified command.
-5. Continue physical validation of experimental Bambu behaviour before removing the experimental designation.
-6. Add Linux x64 and ARM64 packaging after the current printer-support work.
+1. Complete this `PROJECT_CONTEXT.md` cleanup and merge the documentation-only branch once reviewed.
+2. Validate the v0.33.0 built-in Google OAuth flow in the packaged Windows SEA/installer build, matching the production-container validation already completed.
+3. Physically validate FlashForge Creator 5 / Creator 5 Pro support against real hardware, including discovery/authentication, four-tool telemetry and mapping, upload/verification, single- and multi-tool print starts, temperature controls, bed levelling, camera, pause/resume/cancel and Creator 5 Pro chamber control.
+4. Keep Creator 5 Pro filtration printer-managed unless a writable local API command is verified on physical hardware.
+5. Continue physical validation of experimental Bambu P1P/P1S/X1C/A1 Mini behaviour before removing the experimental designation.
+6. Select the next product feature or hardening priority from the current `main` baseline and create a dedicated feature branch before implementation.
 
 ## Handoff rule
 
