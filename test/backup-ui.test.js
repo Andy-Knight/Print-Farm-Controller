@@ -128,15 +128,20 @@ test('scheduled backup UI configures local, network or Google Drive destinations
 
 test('Google Drive backup UI uses device authorization and limited Drive file access', () => {
   assert.match(index, /<strong>Google Drive<\/strong>/);
+  assert.match(index, /id="googleDriveAdvancedConfig"/);
+  assert.match(index, /Advanced OAuth configuration/);
   assert.match(index, /id="googleDriveClientId"/);
   assert.match(index, /id="googleDriveClientSecret"[^>]*type="password"/);
   assert.match(index, /id="googleDriveSaveConfigBtn"/);
+  assert.match(index, /id="googleDriveUseDefaultConfigBtn"/);
   assert.match(index, /id="googleDriveConnectBtn"/);
   assert.match(index, /id="googleDriveVerificationLink"/);
   assert.match(index, /id="googleDriveUserCode"/);
   assert.match(index, /id="googleDriveBackupBtn"[^>]*>Backup to Google Drive now<\/button>/);
 
   assert.match(app, /async function saveGoogleDriveConfiguration\(\)/);
+  assert.match(app, /async function useDefaultGoogleDriveConfiguration\(\)/);
+  assert.match(app, /defaultConfigurationAvailable/);
   assert.match(app, /api\('\/api\/integrations\/google-drive\/config'/);
   assert.match(app, /async function startGoogleDriveConnection\(\)/);
   assert.match(app, /api\('\/api\/integrations\/google-drive\/connect'/);
@@ -149,6 +154,8 @@ test('Google Drive backup UI uses device authorization and limited Drive file ac
   assert.match(server, /url\.pathname === '\/api\/integrations\/google-drive\/status'/);
   assert.match(server, /url\.pathname === '\/api\/integrations\/google-drive\/config'/);
   assert.match(server, /googleDriveClient\.configure/);
+  assert.match(server, /googleDriveClient\.resetConfiguration/);
+  assert.match(server, /builtInClientId:bundledGoogleClientId/);
   assert.match(server, /url\.pathname === '\/api\/integrations\/google-drive\/connect'/);
   assert.match(server, /url\.pathname === '\/api\/backup\/create\/google-drive'/);
 
