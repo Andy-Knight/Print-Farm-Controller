@@ -1399,6 +1399,22 @@ button.library-file-preview { cursor:zoom-in; }
 .backup-action-status { margin-top:10px; }
 .backup-google-actions { flex-wrap:wrap; justify-content:flex-end; }
 .backup-google-backup-actions { margin-top:12px; justify-content:flex-end; }
+.google-drive-config {
+  margin-top:12px;
+  display:grid;
+  gap:10px;
+  padding:12px 13px;
+  border:1px solid #29343d;
+  border-radius:10px;
+  background:#10171d;
+}
+.google-drive-config-grid {
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:10px;
+}
+.google-drive-config-grid label { margin:0; }
+.backup-google-config-actions { justify-content:flex-end; }
 .google-drive-auth {
   margin-top:12px;
   display:grid;
@@ -1555,6 +1571,10 @@ button.library-file-preview { cursor:zoom-in; }
   border-color:#d9b969;
   color:#6c5010;
 }
+:root[data-theme="light"] .google-drive-config {
+  background:#f7fafc;
+  border-color:#d5dee5;
+}
 :root[data-theme="light"] .google-drive-auth {
   background:#eef7fc;
   border-color:#b9d6e7;
@@ -1571,11 +1591,14 @@ button.library-file-preview { cursor:zoom-in; }
   .backup-schedule-grid { grid-template-columns:1fr; }
   .backup-schedule-toggle,
   .backup-schedule-destination { grid-column:1; }
+  .google-drive-config-grid { grid-template-columns:1fr; }
   .backup-destination-actions button,
   .backup-schedule-actions button,
   .backup-google-actions button,
+  .backup-google-config-actions button,
   .backup-google-backup-actions button { width:100%; }
   .backup-google-actions,
+  .backup-google-config-actions,
   .backup-google-backup-actions { width:100%; }
   .restore-inspection-grid { grid-template-columns:1fr; }
   .backup-section-head { align-items:stretch; flex-direction:column; }
