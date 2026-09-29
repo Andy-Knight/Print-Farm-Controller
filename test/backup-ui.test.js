@@ -128,11 +128,16 @@ test('scheduled backup UI configures local, network or Google Drive destinations
 
 test('Google Drive backup UI uses device authorization and limited Drive file access', () => {
   assert.match(index, /<strong>Google Drive<\/strong>/);
+  assert.match(index, /id="googleDriveClientId"/);
+  assert.match(index, /id="googleDriveClientSecret"[^>]*type="password"/);
+  assert.match(index, /id="googleDriveSaveConfigBtn"/);
   assert.match(index, /id="googleDriveConnectBtn"/);
   assert.match(index, /id="googleDriveVerificationLink"/);
   assert.match(index, /id="googleDriveUserCode"/);
   assert.match(index, /id="googleDriveBackupBtn"[^>]*>Backup to Google Drive now<\/button>/);
 
+  assert.match(app, /async function saveGoogleDriveConfiguration\(\)/);
+  assert.match(app, /api\('\/api\/integrations\/google-drive\/config'/);
   assert.match(app, /async function startGoogleDriveConnection\(\)/);
   assert.match(app, /api\('\/api\/integrations\/google-drive\/connect'/);
   assert.match(app, /async function pollGoogleDriveAuthorization\(\)/);
@@ -142,6 +147,8 @@ test('Google Drive backup UI uses device authorization and limited Drive file ac
 
   assert.match(server, /new GoogleDriveClient/);
   assert.match(server, /url\.pathname === '\/api\/integrations\/google-drive\/status'/);
+  assert.match(server, /url\.pathname === '\/api\/integrations\/google-drive\/config'/);
+  assert.match(server, /googleDriveClient\.configure/);
   assert.match(server, /url\.pathname === '\/api\/integrations\/google-drive\/connect'/);
   assert.match(server, /url\.pathname === '\/api\/backup\/create\/google-drive'/);
 
@@ -149,7 +156,11 @@ test('Google Drive backup UI uses device authorization and limited Drive file ac
   assert.match(googleDriveClient, /oauth2\.googleapis\.com\/device\/code/);
   assert.match(googleDriveClient, /path\.join\(this\.dataDir, 'integrations'\)/);
   assert.match(googleDriveClient, /path\.join\(this\.integrationDir, 'google-drive\.json'\)/);
+  assert.match(googleDriveClient, /async configure\(\{ clientId, clientSecret \}/);
+  assert.match(googleDriveClient, /clientSecretConfigured/);
   assert.doesNotMatch(googleDriveClient, /auth\/drive['"]/);
+  assert.match(styles, /\.google-drive-config/);
+  assert.match(styles, /\.google-drive-config-grid/);
   assert.match(styles, /\.google-drive-auth/);
   assert.match(styles, /\.google-drive-code/);
 });
