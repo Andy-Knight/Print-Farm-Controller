@@ -56,7 +56,19 @@ const backupStatusGrid = document.querySelector('#backupStatusGrid');
 const backupCreateBtn = document.querySelector('#backupCreateBtn');
 const backupActionStatus = document.querySelector('#backupActionStatus');
 const backupError = document.querySelector('#backupError');
+const googleDriveStatus = document.querySelector('#googleDriveStatus');
+const googleDriveAuth = document.querySelector('#googleDriveAuth');
+const googleDriveVerificationLink = document.querySelector('#googleDriveVerificationLink');
+const googleDriveUserCode = document.querySelector('#googleDriveUserCode');
+const googleDriveConnectBtn = document.querySelector('#googleDriveConnectBtn');
+const googleDriveCheckAuthBtn = document.querySelector('#googleDriveCheckAuthBtn');
+const googleDriveTestBtn = document.querySelector('#googleDriveTestBtn');
+const googleDriveDisconnectBtn = document.querySelector('#googleDriveDisconnectBtn');
+const googleDriveBackupBtn = document.querySelector('#googleDriveBackupBtn');
+const googleDriveError = document.querySelector('#googleDriveError');
 const backupScheduleEnabled = document.querySelector('#backupScheduleEnabled');
+const backupScheduleDestinationType = document.querySelector('#backupScheduleDestinationType');
+const backupScheduleLocalDestinationField = document.querySelector('#backupScheduleLocalDestinationField');
 const backupScheduleDestination = document.querySelector('#backupScheduleDestination');
 const backupScheduleFrequency = document.querySelector('#backupScheduleFrequency');
 const backupScheduleTime = document.querySelector('#backupScheduleTime');
@@ -612,15 +624,205 @@ function backupStatusTime(value, empty = 'Never') {
   return Number.isNaN(date.getTime()) ? String(candidate || empty) : date.toLocaleString();
 }
 
+let googleDriveAuthPollTimer = null;
+let googleDriveState = null;
+
+function clearGoogleDriveAuthPoll() {
+  if (googleDriveAuthPollTimer) clearTimeout(googleDriveAuthPollTimer);
+  googleDriveAuthPollTimer = null;
+}
+
+function updateBackupDestinationVisibility() {
+  const drive = backupScheduleDestinationType?.value === 'google-drive';
+  backupScheduleLocalDestinationField?.classList.toggle('hidden', drive);
+  if (backupTestDestinationBtn) backupTestDestinationBtn.textContent = drive ? 'Test Google Drive' : 'Test destination';
+}
+
+function scheduleGoogleDriveAuthPoll(state) {
+  clearGoogleDriveAuthPoll();
+  if (!state?.authorizationPending || state?.connected) return;
+  const delay = Math.max(5, Number(state.pollIntervalSeconds) || 5) * 1000;
+  googleDriveAuthPollTimer = setTimeout(() => {
+    googleDriveAuthPollTimer = null;
+    pollGoogleDriveAuthorization().catch(() => {});
+  }, delay);
+}
+
+function renderGoogleDriveStatus(state = {}) {
+  googleDriveState = state || {};
+  const configured = state.configured === true;
+  const connected = state.connected === true;
+  const pending = state.authorizationPending === true;
+
+  if (googleDriveStatus) {
+    if (!configured) {
+      googleDriveStatus.textContent = 'Not configured. Set GOOGLE_DRIVE_CLIENT_ID and GOOGLE_DRIVE_CLIENT_SECRET on the controller.';
+    } else if (state.reconnectRequired) {
+      googleDriveStatus.textContent = 'Reconnection required. Connect Google Drive again to resume cloud backups.';
+    } else if (connected) {
+      googleDriveStatus.textContent = `Connected · Folder: ${state.folderName || 'Print Farm Controller Backups'}`;
+    } else if (pending) {
+      googleDriveStatus.textContent = 'Waiting for Google authorization…';
+    } else {
+      googleDriveStatus.textContent = 'Configured but not connected.';
+    }
+  }
+
+  if (googleDriveConnectBtn) googleDriveConnectBtn.disabled = !configured || connected || pending;
+  if (googleDriveTestBtn) googleDriveTestBtn.disabled = !connected;
+  if (googleDriveDisconnectBtn) googleDriveDisconnectBtn.disabled = !connected && !pending;
+  if (googleDriveBackupBtn) googleDriveBackupBtn.disabled = !connected;
+  if (googleDriveCheckAuthBtn) googleDriveCheckAuthBtn.disabled = !pending;
+
+  if (googleDriveAuth) googleDriveAuth.classList.toggle('hidden', !pending);
+  if (googleDriveVerificationLink) {
+    googleDriveVerificationLink.href = state.verificationUrl || '#';
+    googleDriveVerificationLink.classList.toggle('disabled', !state.verificationUrl);
+  }
+  if (googleDriveUserCode) googleDriveUserCode.textContent = state.userCode || '';
+
+  if (googleDriveError) {
+    googleDriveError.textContent = state.lastError || '';
+    googleDriveError.classList.toggle('hidden', !state.lastError);
+  }
+  scheduleGoogleDriveAuthPoll(state);
+  updateBackupDestinationVisibility();
+}
+
+async function loadGoogleDriveStatus() {
+  try {
+    const result = await api('/api/integrations/google-drive/status');
+    renderGoogleDriveStatus(result.googleDrive || {});
+    return result.googleDrive || {};
+  } catch (error) {
+    if (googleDriveError) {
+      googleDriveError.textContent = error.message;
+      googleDriveError.classList.remove('hidden');
+    }
+    return null;
+  }
+}
+
+async function startGoogleDriveConnection() {
+  if (!googleDriveConnectBtn) return;
+  googleDriveConnectBtn.disabled = true;
+  if (googleDriveError) {
+    googleDriveError.textContent = '';
+    googleDriveError.classList.add('hidden');
+  }
+  if (googleDriveStatus) googleDriveStatus.textContent = 'Starting Google authorization…';
+  try {
+    const result = await api('/api/integrations/google-drive/connect', { method:'POST' });
+    renderGoogleDriveStatus(result.googleDrive || {});
+  } catch (error) {
+    if (googleDriveStatus) googleDriveStatus.textContent = '';
+    if (googleDriveError) {
+      googleDriveError.textContent = error.message;
+      googleDriveError.classList.remove('hidden');
+    }
+  } finally {
+    if (!googleDriveState?.authorizationPending && !googleDriveState?.connected) googleDriveConnectBtn.disabled = false;
+  }
+}
+
+async function pollGoogleDriveAuthorization() {
+  if (!googleDriveState?.authorizationPending) return;
+  if (googleDriveCheckAuthBtn) googleDriveCheckAuthBtn.disabled = true;
+  try {
+    const result = await api('/api/integrations/google-drive/connect/poll', { method:'POST' });
+    renderGoogleDriveStatus(result.googleDrive || {});
+    if (result.googleDrive?.connected) await loadBackupStatus();
+  } catch (error) {
+    clearGoogleDriveAuthPoll();
+    if (googleDriveError) {
+      googleDriveError.textContent = error.message;
+      googleDriveError.classList.remove('hidden');
+    }
+  } finally {
+    if (googleDriveCheckAuthBtn && googleDriveState?.authorizationPending) googleDriveCheckAuthBtn.disabled = false;
+  }
+}
+
+async function testGoogleDriveConnection() {
+  if (!googleDriveTestBtn) return;
+  googleDriveTestBtn.disabled = true;
+  if (googleDriveError) {
+    googleDriveError.textContent = '';
+    googleDriveError.classList.add('hidden');
+  }
+  if (googleDriveStatus) googleDriveStatus.textContent = 'Testing Google Drive connection…';
+  try {
+    const result = await api('/api/integrations/google-drive/test', { method:'POST' });
+    renderGoogleDriveStatus(result.googleDrive || {});
+    if (googleDriveStatus) googleDriveStatus.textContent = `Connection successful · Folder: ${result.connection?.folderName || 'Print Farm Controller Backups'}`;
+  } catch (error) {
+    if (googleDriveStatus) googleDriveStatus.textContent = '';
+    if (googleDriveError) {
+      googleDriveError.textContent = error.message;
+      googleDriveError.classList.remove('hidden');
+    }
+  } finally {
+    if (googleDriveTestBtn && googleDriveState?.connected) googleDriveTestBtn.disabled = false;
+  }
+}
+
+async function disconnectGoogleDrive() {
+  if (!googleDriveDisconnectBtn) return;
+  if (!confirm('Disconnect Google Drive from this controller? Existing backup files in Google Drive will not be deleted.')) return;
+  googleDriveDisconnectBtn.disabled = true;
+  clearGoogleDriveAuthPoll();
+  try {
+    const result = await api('/api/integrations/google-drive', { method:'DELETE' });
+    renderGoogleDriveStatus(result.googleDrive || {});
+    await loadBackupStatus();
+  } catch (error) {
+    if (googleDriveError) {
+      googleDriveError.textContent = error.message;
+      googleDriveError.classList.remove('hidden');
+    }
+  }
+}
+
+async function createGoogleDriveBackup() {
+  if (!googleDriveBackupBtn) return;
+  googleDriveBackupBtn.disabled = true;
+  const original = googleDriveBackupBtn.textContent;
+  googleDriveBackupBtn.textContent = 'Backing up…';
+  if (googleDriveError) {
+    googleDriveError.textContent = '';
+    googleDriveError.classList.add('hidden');
+  }
+  if (googleDriveStatus) googleDriveStatus.textContent = 'Building, verifying and uploading backup…';
+  try {
+    const result = await api('/api/backup/create/google-drive', { method:'POST' });
+    const backup = result.backup || {};
+    if (googleDriveStatus) {
+      googleDriveStatus.textContent = `Backup uploaded · ${formatBytes(backup.size)} · ${backup.folderName || 'Print Farm Controller Backups'}`;
+    }
+    await Promise.all([loadBackupStatus(), loadGoogleDriveStatus()]);
+  } catch (error) {
+    if (googleDriveStatus) googleDriveStatus.textContent = '';
+    if (googleDriveError) {
+      googleDriveError.textContent = error.message;
+      googleDriveError.classList.remove('hidden');
+    }
+  } finally {
+    googleDriveBackupBtn.textContent = original;
+    googleDriveBackupBtn.disabled = !googleDriveState?.connected;
+  }
+}
+
 function updateBackupWeekdayVisibility() {
   if (backupScheduleWeekdayField) {
     backupScheduleWeekdayField.classList.toggle('hidden', backupScheduleFrequency?.value !== 'weekly');
   }
+  updateBackupDestinationVisibility();
 }
 
 function setBackupScheduleControlsDisabled(disabled) {
   for (const element of [
     backupScheduleEnabled,
+    backupScheduleDestinationType,
     backupScheduleDestination,
     backupScheduleFrequency,
     backupScheduleTime,
@@ -635,6 +837,7 @@ function setBackupScheduleControlsDisabled(disabled) {
 
 function renderBackupSchedule(schedule = {}) {
   if (backupScheduleEnabled) backupScheduleEnabled.checked = schedule.enabled === true;
+  if (backupScheduleDestinationType) backupScheduleDestinationType.value = schedule.destinationType === 'google-drive' ? 'google-drive' : 'local';
   if (backupScheduleDestination) backupScheduleDestination.value = schedule.destination || '';
   if (backupScheduleFrequency) backupScheduleFrequency.value = schedule.frequency === 'weekly' ? 'weekly' : 'daily';
   if (backupScheduleTime) backupScheduleTime.value = schedule.scheduleTime || '02:00';
@@ -672,6 +875,7 @@ function renderBackupStatus(payload) {
       <div><span>Last backup file</span><strong>${escapeHtml(last?.fileName || '—')}</strong></div>
       <div><span>Last backup size</span><strong>${escapeHtml(last?.size ? formatBytes(last.size) : '—')}</strong></div>
       <div><span>Scheduled backups</span><strong>${schedule.enabled ? 'Enabled' : 'Not enabled'}</strong></div>
+      <div><span>Scheduled destination</span><strong>${escapeHtml(schedule.destinationType === 'google-drive' ? 'Google Drive' : (schedule.destination || '—'))}</strong></div>
       <div><span>Next scheduled backup</span><strong>${escapeHtml(backupStatusTime(schedule.nextRunAt, '—'))}</strong></div>
       <div><span>Backup operation</span><strong>${escapeHtml(backup.operation?.kind ? `${backup.operation.kind} backup running` : 'Idle')}</strong></div>
     `;
@@ -701,8 +905,9 @@ async function loadBackupStatus() {
 }
 
 async function testScheduledBackupDestination() {
+  const destinationType = backupScheduleDestinationType?.value === 'google-drive' ? 'google-drive' : 'local';
   const destination = backupScheduleDestination?.value?.trim() || '';
-  if (!destination) {
+  if (destinationType === 'local' && !destination) {
     if (backupScheduleError) {
       backupScheduleError.textContent = 'Enter a destination folder to test.';
       backupScheduleError.classList.remove('hidden');
@@ -714,13 +919,21 @@ async function testScheduledBackupDestination() {
     backupScheduleError.textContent = '';
     backupScheduleError.classList.add('hidden');
   }
-  if (backupScheduleStatus) backupScheduleStatus.textContent = 'Testing destination write access…';
+  if (backupScheduleStatus) {
+    backupScheduleStatus.textContent = destinationType === 'google-drive'
+      ? 'Testing Google Drive connection…'
+      : 'Testing destination write access…';
+  }
   try {
     await api('/api/backup/test-destination', {
       method:'POST',
-      body:JSON.stringify({ destination })
+      body:JSON.stringify({ destination, destinationType })
     });
-    if (backupScheduleStatus) backupScheduleStatus.textContent = 'Destination is writable.';
+    if (backupScheduleStatus) {
+      backupScheduleStatus.textContent = destinationType === 'google-drive'
+        ? 'Google Drive destination is available.'
+        : 'Destination is writable.';
+    }
   } catch (error) {
     if (backupScheduleStatus) backupScheduleStatus.textContent = '';
     if (backupScheduleError) {
@@ -756,6 +969,7 @@ async function saveScheduledBackupSettings() {
       method:'PUT',
       body:JSON.stringify({
         enabled:backupScheduleEnabled?.checked === true,
+        destinationType:backupScheduleDestinationType?.value === 'google-drive' ? 'google-drive' : 'local',
         destination:backupScheduleDestination?.value?.trim() || null,
         frequency:backupScheduleFrequency?.value || 'daily',
         scheduleTime:backupScheduleTime?.value || '02:00',
@@ -2560,11 +2774,20 @@ backupRecoveryBtn?.addEventListener('click', async () => {
   if (restoreInspectBtn) restoreInspectBtn.disabled = false;
   if (restoreCancelStageBtn) restoreCancelStageBtn.classList.add('hidden');
   backupRecoveryDialog?.showModal();
-  await Promise.all([loadBackupStatus(), loadRestoreStatus()]);
+  await Promise.all([loadBackupStatus(), loadRestoreStatus(), loadGoogleDriveStatus()]);
 });
-document.querySelectorAll('[data-backup-close]').forEach((el) => el.addEventListener('click', () => backupRecoveryDialog?.close()));
+document.querySelectorAll('[data-backup-close]').forEach((el) => el.addEventListener('click', () => {
+  clearGoogleDriveAuthPoll();
+  backupRecoveryDialog?.close();
+}));
 backupCreateBtn?.addEventListener('click', createManualBackup);
+googleDriveConnectBtn?.addEventListener('click', startGoogleDriveConnection);
+googleDriveCheckAuthBtn?.addEventListener('click', pollGoogleDriveAuthorization);
+googleDriveTestBtn?.addEventListener('click', testGoogleDriveConnection);
+googleDriveDisconnectBtn?.addEventListener('click', disconnectGoogleDrive);
+googleDriveBackupBtn?.addEventListener('click', createGoogleDriveBackup);
 backupScheduleFrequency?.addEventListener('change', updateBackupWeekdayVisibility);
+backupScheduleDestinationType?.addEventListener('change', updateBackupDestinationVisibility);
 backupTestDestinationBtn?.addEventListener('click', testScheduledBackupDestination);
 backupSaveScheduleBtn?.addEventListener('click', saveScheduledBackupSettings);
 restoreInspectBtn?.addEventListener('click', inspectRestoreFile);
