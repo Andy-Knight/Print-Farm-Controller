@@ -1102,7 +1102,12 @@ async function createManualBackup() {
   }
 }
 
+let restoreCloudProviders = [];
+let restoreCloudBackups = [];
+let restoreInspectedSelection = null;
+
 function clearRestoreInspection() {
+  restoreInspectedSelection = null;
   if (restoreInspectStatus) restoreInspectStatus.textContent = '';
   if (restoreInspectError) {
     restoreInspectError.textContent = '';
@@ -1113,6 +1118,114 @@ function clearRestoreInspection() {
     restoreInspectionSummary.classList.add('hidden');
   }
   if (restoreStageBtn) restoreStageBtn.disabled = true;
+}
+
+function currentRestoreSource() {
+  return restoreSourceSelect?.value || 'local';
+}
+
+function selectedCloudRestoreBackup() {
+  const id = restoreCloudBackupSelect?.value || '';
+  return restoreCloudBackups.find((item) => item.id === id) || null;
+}
+
+function currentRestoreSelection() {
+  const source = currentRestoreSource();
+  if (source === 'local') {
+    const file = restoreBackupFileInput?.files?.[0];
+    if (!(file instanceof File) || !file.size) return null;
+    return {
+      source:'local',
+      file,
+      key:`local:${file.name}:${file.size}:${file.lastModified || 0}`,
+      fileName:file.name,
+      size:file.size
+    };
+  }
+  const backup = selectedCloudRestoreBackup();
+  if (!backup) return null;
+  return {
+    source,
+    fileId:backup.id,
+    key:`${source}:${backup.id}`,
+    fileName:backup.name,
+    size:Number(backup.size || 0),
+    backup
+  };
+}
+
+function updateRestoreSourceUi({ clear = true } = {}) {
+  const source = currentRestoreSource();
+  const cloud = source !== 'local';
+  restoreLocalSource?.classList.toggle('hidden', cloud);
+  restoreCloudSource?.classList.toggle('hidden', !cloud);
+  if (clear) clearRestoreInspection();
+  if (cloud) loadCloudRestoreBackups().catch(() => {});
+}
+
+async function loadCloudRestoreProviders() {
+  try {
+    const result = await api('/api/restore/cloud/providers');
+    restoreCloudProviders = Array.isArray(result.providers) ? result.providers : [];
+    const selected = currentRestoreSource();
+    if (restoreSourceSelect) {
+      restoreSourceSelect.innerHTML = '<option value="local">Local backup file</option>';
+      for (const provider of restoreCloudProviders) {
+        const option = document.createElement('option');
+        option.value = provider.id;
+        option.textContent = provider.connected
+          ? provider.label
+          : `${provider.label} (connect first)`;
+        option.disabled = provider.connected !== true;
+        restoreSourceSelect.appendChild(option);
+      }
+      const canRestoreSelection = selected === 'local'
+        || restoreCloudProviders.some((provider) => provider.id === selected && provider.connected);
+      restoreSourceSelect.value = canRestoreSelection ? selected : 'local';
+    }
+    updateRestoreSourceUi({ clear:false });
+    return restoreCloudProviders;
+  } catch (error) {
+    if (restoreCloudStatus) restoreCloudStatus.textContent = `Cloud restore providers could not be loaded: ${error.message}`;
+    return [];
+  }
+}
+
+async function loadCloudRestoreBackups() {
+  const providerId = currentRestoreSource();
+  if (providerId === 'local') return [];
+  if (restoreCloudRefreshBtn) restoreCloudRefreshBtn.disabled = true;
+  if (restoreCloudStatus) restoreCloudStatus.textContent = 'Loading cloud backups…';
+  try {
+    const result = await api(`/api/restore/cloud/${encodeURIComponent(providerId)}/backups`);
+    restoreCloudBackups = Array.isArray(result.backups) ? result.backups : [];
+    if (restoreCloudBackupSelect) {
+      const previous = restoreCloudBackupSelect.value;
+      restoreCloudBackupSelect.innerHTML = '<option value="">Select a backup</option>';
+      for (const backup of restoreCloudBackups) {
+        const option = document.createElement('option');
+        option.value = backup.id;
+        const created = backup.appProperties?.createdAt || backup.createdTime || backup.modifiedTime;
+        const source = backup.appProperties?.backupSource || 'backup';
+        option.textContent = `${backupStatusTime(created, 'Unknown date')} · ${source} · ${formatBytes(backup.size)} · ${backup.name}`;
+        restoreCloudBackupSelect.appendChild(option);
+      }
+      if (restoreCloudBackups.some((item) => item.id === previous)) restoreCloudBackupSelect.value = previous;
+    }
+    if (restoreCloudStatus) {
+      restoreCloudStatus.textContent = restoreCloudBackups.length
+        ? `${restoreCloudBackups.length} backup${restoreCloudBackups.length === 1 ? '' : 's'} available.`
+        : 'No Print Farm Controller backups were found in this cloud destination.';
+    }
+    return restoreCloudBackups;
+  } catch (error) {
+    restoreCloudBackups = [];
+    if (restoreCloudBackupSelect) restoreCloudBackupSelect.innerHTML = '<option value="">Select a backup</option>';
+    if (restoreCloudStatus) restoreCloudStatus.textContent = error.message;
+    return [];
+  } finally {
+    if (restoreCloudRefreshBtn) restoreCloudRefreshBtn.disabled = false;
+  }
 }
 
 function renderRestoreInspection(inspection) {
@@ -1144,16 +1257,18 @@ function renderRestoreInspection(inspection) {
 }
 
 async function inspectRestoreFile() {
-  const file = restoreBackupFileInput?.files?.[0];
-  if (!(file instanceof File) || !file.size) {
+  const selection = currentRestoreSelection();
+  if (!selection) {
     clearRestoreInspection();
     if (restoreInspectError) {
-      restoreInspectError.textContent = 'Choose a .pfcbackup file to inspect.';
+      restoreInspectError.textContent = currentRestoreSource() === 'local'
+        ? 'Choose a .pfcbackup file to inspect.'
+        : 'Choose a cloud backup to inspect.';
       restoreInspectError.classList.remove('hidden');
     }
     return;
   }
-  if (!/\.pfcbackup$/i.test(file.name)) {
+  if (!/\.pfcbackup$/i.test(selection.fileName)) {
     clearRestoreInspection();
     if (restoreInspectError) {
       restoreInspectError.textContent = 'Choose a .pfcbackup file.';
@@ -1161,7 +1276,7 @@ async function inspectRestoreFile() {
     }
     return;
   }
-  if (file.size > (4 * 1024 * 1024 * 1024) - 1) {
+  if (selection.size > (4 * 1024 * 1024 * 1024) - 1) {
     clearRestoreInspection();
     if (restoreInspectError) {
       restoreInspectError.textContent = 'Backup file exceeds the supported restore size limit.';
@@ -1176,31 +1291,51 @@ async function inspectRestoreFile() {
     restoreInspectBtn.disabled = true;
     restoreInspectBtn.textContent = 'Inspecting…';
   }
+  if (restoreSourceSelect) restoreSourceSelect.disabled = true;
   if (restoreBackupFileInput) restoreBackupFileInput.disabled = true;
-  if (restoreInspectStatus) restoreInspectStatus.textContent = 'Uploading and validating backup…';
+  if (restoreCloudBackupSelect) restoreCloudBackupSelect.disabled = true;
+  if (restoreCloudRefreshBtn) restoreCloudRefreshBtn.disabled = true;
+  if (restoreInspectStatus) {
+    restoreInspectStatus.textContent = selection.source === 'local'
+      ? 'Uploading and validating backup…'
+      : 'Downloading and validating cloud backup…';
+  }
 
   try {
-    const response = await fetch('/api/restore/inspect', {
-      method:'POST',
-      headers:{
-        'x-file-name':encodeURIComponent(file.name),
-        'content-type':'application/octet-stream'
-      },
-      body:file
-    });
-    const payload = await response.json().catch(() => ({}));
-    if (!response.ok) throw new Error(payload.error || `Restore inspection failed (${response.status})`);
+    let payload;
+    if (selection.source === 'local') {
+      const response = await fetch('/api/restore/inspect', {
+        method:'POST',
+        headers:{
+          'x-file-name':encodeURIComponent(selection.file.name),
+          'content-type':'application/octet-stream'
+        },
+        body:selection.file
+      });
+      payload = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(payload.error || `Restore inspection failed (${response.status})`);
+    } else {
+      payload = await api(`/api/restore/cloud/${encodeURIComponent(selection.source)}/inspect`, {
+        method:'POST',
+        body:JSON.stringify({ fileId:selection.fileId })
+      });
+    }
     if (!payload.inspection?.valid) throw new Error('Backup inspection did not return a valid result');
+    restoreInspectedSelection = selection.key;
     renderRestoreInspection(payload.inspection);
     if (restoreInspectStatus) restoreInspectStatus.textContent = 'Backup inspection passed.';
   } catch (error) {
+    restoreInspectedSelection = null;
     if (restoreInspectStatus) restoreInspectStatus.textContent = '';
     if (restoreInspectError) {
       restoreInspectError.textContent = error.message;
       restoreInspectError.classList.remove('hidden');
     }
   } finally {
+    if (restoreSourceSelect) restoreSourceSelect.disabled = false;
     if (restoreBackupFileInput) restoreBackupFileInput.disabled = false;
+    if (restoreCloudBackupSelect) restoreCloudBackupSelect.disabled = false;
+    if (restoreCloudRefreshBtn) restoreCloudRefreshBtn.disabled = false;
     if (restoreInspectBtn) {
       restoreInspectBtn.disabled = false;
       restoreInspectBtn.textContent = original;
@@ -1241,12 +1376,13 @@ async function loadRestoreStatus() {
 }
 
 async function stageRestoreFile() {
-  const file = restoreBackupFileInput?.files?.[0];
-  if (!(file instanceof File) || !file.size) {
+  const selection = currentRestoreSelection();
+  if (!selection || selection.key !== restoreInspectedSelection) {
     if (restoreInspectError) {
-      restoreInspectError.textContent = 'Choose and inspect a .pfcbackup file before restoring.';
+      restoreInspectError.textContent = 'Inspect the currently selected backup before restoring it.';
       restoreInspectError.classList.remove('hidden');
     }
+    if (restoreStageBtn) restoreStageBtn.disabled = true;
     return;
   }
   if (!confirm('Stage this backup for restore?\\n\\nThe current controller data will not be replaced until Print Farm Controller is restarted. After staging, controller changes are blocked until you restart or cancel the staged restore. Unfinished queue jobs will be restored on recovery hold and will not auto-start.')) return;
@@ -1257,24 +1393,39 @@ async function stageRestoreFile() {
     restoreStageBtn.textContent = 'Staging…';
   }
   if (restoreInspectBtn) restoreInspectBtn.disabled = true;
+  if (restoreSourceSelect) restoreSourceSelect.disabled = true;
   if (restoreBackupFileInput) restoreBackupFileInput.disabled = true;
+  if (restoreCloudBackupSelect) restoreCloudBackupSelect.disabled = true;
+  if (restoreCloudRefreshBtn) restoreCloudRefreshBtn.disabled = true;
   if (restoreInspectError) {
     restoreInspectError.textContent = '';
     restoreInspectError.classList.add('hidden');
   }
-  if (restoreInspectStatus) restoreInspectStatus.textContent = 'Revalidating and staging restore…';
+  if (restoreInspectStatus) {
+    restoreInspectStatus.textContent = selection.source === 'local'
+      ? 'Revalidating and staging restore…'
+      : 'Downloading, revalidating and staging cloud restore…';
+  }
 
   try {
-    const response = await fetch('/api/restore/stage', {
-      method:'POST',
-      headers:{
-        'x-file-name':encodeURIComponent(file.name),
-        'content-type':'application/octet-stream'
-      },
-      body:file
-    });
-    const payload = await response.json().catch(() => ({}));
-    if (!response.ok) throw new Error(payload.error || `Restore staging failed (${response.status})`);
+    let payload;
+    if (selection.source === 'local') {
+      const response = await fetch('/api/restore/stage', {
+        method:'POST',
+        headers:{
+          'x-file-name':encodeURIComponent(selection.file.name),
+          'content-type':'application/octet-stream'
+        },
+        body:selection.file
+      });
+      payload = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(payload.error || `Restore staging failed (${response.status})`);
+    } else {
+      payload = await api(`/api/restore/cloud/${encodeURIComponent(selection.source)}/stage`, {
+        method:'POST',
+        body:JSON.stringify({ fileId:selection.fileId })
+      });
+    }
     if (!payload.restore?.staged) throw new Error('Restore staging did not complete');
     setRestorePendingUi(payload.restore);
     if (restoreInspectionSummary) {
@@ -1287,7 +1438,10 @@ async function stageRestoreFile() {
       restoreInspectionSummary.classList.remove('hidden');
     }
   } catch (error) {
+    if (restoreSourceSelect) restoreSourceSelect.disabled = false;
     if (restoreBackupFileInput) restoreBackupFileInput.disabled = false;
+    if (restoreCloudBackupSelect) restoreCloudBackupSelect.disabled = false;
+    if (restoreCloudRefreshBtn) restoreCloudRefreshBtn.disabled = false;
     if (restoreInspectBtn) restoreInspectBtn.disabled = false;
     if (restoreStageBtn) restoreStageBtn.disabled = false;
     if (restoreInspectStatus) restoreInspectStatus.textContent = '';
