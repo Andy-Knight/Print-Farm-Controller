@@ -1,6 +1,10 @@
 # Print Farm Controller — Project Context
 Cross-chat handoff file. Read this first when continuing the project in a new chat. Keep it concise and update it whenever architecture/decisions change, a task is completed, or the current/next task changes.
  
+## Handoff rule
+
+If chat context and this file disagree about the codebase, inspect current GitHub files and tests. **GitHub is authoritative for code; this document is authoritative for project intent/status until deliberately updated.**
+
 ## Source of truth
 - Repository: `Andy-Knight/Print-Farm-Controller`
 - Project path: repository root (`/`)
@@ -125,10 +129,6 @@ Any further functional development should start from the current `main` baseline
 4. Keep Creator 5 Pro filtration printer-managed unless a writable local API command is verified on physical hardware.
 5. Continue physical validation of experimental Bambu P1P/P1S/X1C/A1 Mini behaviour before removing the experimental designation.
 6. Select the next product feature or hardening priority from the current `main` baseline and create a dedicated feature branch before implementation.
-
-## Handoff rule
-
-If chat context and this file disagree about the codebase, inspect current GitHub files and tests. **GitHub is authoritative for code; this document is authoritative for project intent/status until deliberately updated.**
 
 ## Licensing baseline (v0.14.8)
 
