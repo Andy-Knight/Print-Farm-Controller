@@ -28,6 +28,14 @@ function cleanString(value) {
   return String(value || '').trim();
 }
 
+function safeBackupFileName(value) {
+  const fileName = cleanString(value);
+  if (!fileName || fileName.length > 240 || /[\\/\0\r\n]/.test(fileName) || !/\.pfcbackup$/i.test(fileName)) {
+    throw googleError('Google Drive backup has an invalid file name.', 400, 'GOOGLE_DRIVE_BACKUP_INVALID_NAME');
+  }
+  return fileName;
+}
+
 function escapeDriveQueryLiteral(value) {
   return String(value || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'");
 }
@@ -437,7 +445,8 @@ export class GoogleDriveClient {
         installationId:cleanString(manifest?.installationId),
         backupSource:cleanString(manifest?.backupSource),
         createdAt:cleanString(manifest?.createdAt),
-        formatVersion:String(manifest?.formatVersion ?? '')
+        formatVersion:String(manifest?.formatVersion ?? ''),
+        controllerVersion:cleanString(manifest?.sourceControllerVersion)
       }
     };
     const initiateUrl = `${DRIVE_UPLOAD_API}/files?uploadType=resumable&fields=id,name,size,createdTime,appProperties`;
@@ -531,7 +540,7 @@ export class GoogleDriveClient {
     }
 
     const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'pfc-google-drive-restore-'));
-    const safeName = path.basename(backup.name);
+    const safeName = safeBackupFileName(backup.name);
     const filePath = path.join(directory, safeName);
     let bytes = 0;
     const limiter = new Transform({
