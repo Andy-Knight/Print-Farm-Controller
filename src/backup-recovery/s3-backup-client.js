@@ -304,7 +304,17 @@ export class S3BackupClient {
     const nextRegion = normalizeRegion(region);
     const nextAccessKeyId = cleanString(accessKeyId);
     const suppliedSecret = cleanString(secretAccessKey);
-    const nextSecretAccessKey = suppliedSecret || cleanString(current?.secretAccessKey);
+    const currentAccessKeyId = cleanString(current?.accessKeyId);
+    if (currentAccessKeyId && nextAccessKeyId !== currentAccessKeyId && !suppliedSecret) {
+      throw s3Error(
+        'Enter the matching S3 secret access key when changing the access key ID.',
+        400,
+        'S3_SECRET_KEY_REQUIRED'
+      );
+    }
+    const nextSecretAccessKey = suppliedSecret || (nextAccessKeyId === currentAccessKeyId
+      ? cleanString(current?.secretAccessKey)
+      : '');
     const nextPrefix = normalizePrefix(prefix);
     const nextStyle = normalizeAddressingStyle(addressingStyle);
 
@@ -489,12 +499,12 @@ export class S3BackupClient {
     };
   }
 
-  objectKey(fileName) {
-    return `${this.currentPrefix || DEFAULT_PREFIX}${safeBackupFileName(fileName)}`;
+  objectKey(fileName, prefix = DEFAULT_PREFIX) {
+    return `${normalizePrefix(prefix)}${safeBackupFileName(fileName)}`;
   }
 
-  metadataKey(fileName) {
-    return `${this.objectKey(fileName)}${METADATA_SUFFIX}`;
+  metadataKey(fileName, prefix = DEFAULT_PREFIX) {
+    return `${this.objectKey(fileName, prefix)}${METADATA_SUFFIX}`;
   }
 
   async uploadBuffer(key, buffer, contentType = 'application/octet-stream', state = null) {
@@ -527,14 +537,13 @@ export class S3BackupClient {
     if (!filePath || !fileName) throw new Error('S3 backup upload requires a file path and name');
     const safeName = safeBackupFileName(fileName);
     const state = await this.requireConfigured();
-    this.currentPrefix = state.prefix;
     await this.testConnection();
 
     const stat = await fs.stat(filePath);
     if (!stat.isFile()) throw new Error('S3 backup upload source is not a file');
     const payloadHash = await hashFile(filePath);
-    const key = this.objectKey(safeName);
-    const metadataKey = this.metadataKey(safeName);
+    const key = this.objectKey(safeName, state.prefix);
+    const metadataKey = this.metadataKey(safeName, state.prefix);
     let backupUploaded = false;
     let metadataUploaded = false;
 
@@ -659,7 +668,6 @@ export class S3BackupClient {
 
   async listBackups() {
     const state = await this.requireConfigured();
-    this.currentPrefix = state.prefix;
     const objects = await this.listObjects(state);
     const backups = new Map(
       objects
