@@ -281,6 +281,7 @@ export class S3BackupClient {
       addressingStyle:configured ? state.addressingStyle : 'path',
       allowInsecureHttp:configured ? state.allowInsecureHttp === true : false,
       accessKeyConfigured:configured,
+      accessKeyId:configured ? state.accessKeyId : null,
       accessKeyHint:configured ? `${state.accessKeyId.slice(0, 4)}…${state.accessKeyId.slice(-4)}` : null,
       secretAccessKeyConfigured:configured,
       lastError:this.lastError
