@@ -1,12 +1,12 @@
-# Print Farm Controller v0.32.0
+# Print Farm Controller v0.33.0
 
-**Current release: v0.32.0**
+**Current release: v0.33.0**
 
 Current highlights:
 
 - Container images for Linux AMD64 and ARM64, with Docker and K3s/Kubernetes deployment guidance.
 - Persistent Print Library, smart queueing, printer groups and maintenance tracking.
-- Compressed portable backup and restore, including multi-group printer membership and backwards-compatible restore of older backups.
+- Compressed portable backup and restore, including local/NAS and Google Drive destinations, multi-group printer membership, and backwards-compatible restore of older backups.
 - Snapmaker U1 and FlashForge support, with experimental Bambu Lab support.
 - Offline signed licensing with Community, Pro and Farm editions.
 
@@ -96,6 +96,89 @@ To run from the source files launch with the following commands from the command
 npm start
 ```
 
+## Google Drive backups
+
+Print Farm Controller can upload the same verified, compressed `.pfcbackup` files used by local backup/recovery directly to Google Drive. Manual and scheduled Google Drive backups use the existing backup engine; Google Drive is only a storage destination.
+
+Google Drive integration uses Google's **TVs and Limited Input devices** OAuth client flow and requests only:
+
+```text
+https://www.googleapis.com/auth/drive.file
+```
+
+This limits the controller to files and folders it creates or has been granted access to rather than giving it unrestricted access to the whole Drive.
+
+### Google Cloud setup
+
+In a Google Cloud project:
+
+1. Enable the **Google Drive API**.
+2. Configure the OAuth consent screen as required for the Google account(s) that will use the controller.
+3. Create an OAuth client with application type **TVs and Limited Input devices**.
+4. Supply the generated client ID and client secret to the controller as:
+   - `GOOGLE_DRIVE_CLIENT_ID`
+   - `GOOGLE_DRIVE_CLIENT_SECRET`
+
+For source or the Windows portable executable these can be ordinary process environment variables. For Docker, pass them with `-e` or an environment file. For Kubernetes/K3s, store them in a Kubernetes Secret rather than writing them directly into the Deployment manifest.
+
+After the controller starts, open **Backup & recovery → Google Drive → Connect**. The controller displays Google's verification address and a short user code. Complete authorization in a browser; the controller then creates or reuses a visible **Print Farm Controller Backups** folder in My Drive.
+
+The OAuth access token remains in memory only. The long-lived refresh token and managed folder ID are stored in:
+
+```text
+<DATA_DIR>/integrations/google-drive.json
+```
+
+That file must remain persistent across container/pod replacement, so Google Drive does not normally need to be reconnected after a restart. It is deliberately excluded from `.pfcbackup` archives and is not written to diagnostic logs. Protect the controller data directory/PVC because the refresh token authorizes future Drive access.
+
+Google Drive requires outbound HTTPS access to Google's OAuth and Drive API endpoints.
+
+### Docker example
+
+Add the OAuth client values when starting the container:
+
+```bash
+docker run -d \
+  --name print-farm-controller \
+  --restart unless-stopped \
+  -p 4242:4242 \
+  -e GOOGLE_DRIVE_CLIENT_ID="<google-oauth-client-id>" \
+  -e GOOGLE_DRIVE_CLIENT_SECRET="<google-oauth-client-secret>" \
+  -v pfc-data:/data \
+  -v pfc-logs:/logs \
+  ghcr.io/andy-knight/print-farm-controller:latest
+```
+
+### K3s / Kubernetes secret
+
+Create a Secret containing the OAuth client values and expose it to the controller container:
+
+```yaml
+env:
+  - name: GOOGLE_DRIVE_CLIENT_ID
+    valueFrom:
+      secretKeyRef:
+        name: pfc-google-drive
+        key: client-id
+  - name: GOOGLE_DRIVE_CLIENT_SECRET
+    valueFrom:
+      secretKeyRef:
+        name: pfc-google-drive
+        key: client-secret
+```
+
+The existing persistent `/data` volume stores the refresh token/folder state. No additional volume is required.
+
+### Backup behavior
+
+- **Backup to Google Drive now** creates, verifies and compresses the canonical backup before uploading it.
+- Scheduled backups can select **Google Drive** instead of a local/mapped/NAS folder.
+- Retention deletes only older **scheduled** Drive backups created by the same controller installation. Manual Drive backups and backups from another installation are left untouched.
+- **Disconnect** removes the local authorization state and attempts to revoke the Google token. Existing backup files in Drive are not deleted.
+- If Google invalidates/revokes the refresh token, the controller reports **Reconnection required** instead of silently dropping scheduled backups.
+- Built-in browsing/downloading/restoring directly from Google Drive is not included in v0.33.0; restore continues to use the existing local `.pfcbackup` inspection/staging workflow.
+
+
 ## Docker
 
 ### Published container image
@@ -126,10 +209,10 @@ docker run -d \
 
 Replace `192.168.1.0/24` with the subnet containing the printers. If LAN scanning is not required, `DISCOVERY_SUBNET` can be omitted and printers can still be added directly by IP.
 
-Versioned images are published from Git tags. For example, tag `v0.31.0` publishes:
+Versioned images are published from Git tags. For example, tag `v0.33.0` publishes:
 
 ```text
-ghcr.io/andy-knight/print-farm-controller:0.31.0
+ghcr.io/andy-knight/print-farm-controller:0.33.0
 ghcr.io/andy-knight/print-farm-controller:0.31
 ```
 
@@ -139,14 +222,14 @@ The `latest` tag is published from the `main` branch.
 
 `.github/workflows/container-image.yml` runs the Node regression suite, starts a real Linux smoke-test container, then builds `linux/amd64` and `linux/arm64` images with Docker Buildx. Publishing uses the repository-scoped GitHub `GITHUB_TOKEN`; no manually stored registry password or PAT is required.
 
-Pull requests build and validate without publishing. Pushes to `main` publish `latest`, while version tags such as `v0.31.0` publish versioned image tags.
+Pull requests build and validate without publishing. Pushes to `main` publish `latest`, while version tags such as `v0.33.0` publish versioned image tags.
 
 The repository includes a Linux-container `Dockerfile` based on Node.js 24. Controller state and diagnostic logs should be mounted separately so recreating the container does not lose configuration or Print Library data.
 
 Build the image:
 
 ```powershell
-docker build -t print-farm-controller:0.31.0 .
+docker build -t print-farm-controller:0.33.0 .
 ```
 
 Create persistent host directories:
@@ -164,7 +247,7 @@ docker run --rm `
   -p 4242:4242 `
   -v "${PWD}\container-data:/data" `
   -v "${PWD}\container-logs:/logs" `
-  print-farm-controller:0.31.0
+  print-farm-controller:0.33.0
 ```
 
 Open `http://localhost:4242`.
@@ -202,7 +285,7 @@ docker run --rm `
   -e DISCOVERY_SUBNET=192.168.1.0/24 `
   -v "${PWD}\container-data:/data" `
   -v "${PWD}\container-logs:/logs" `
-  print-farm-controller:0.31.0
+  print-farm-controller:0.33.0
 ```
 
 `DISCOVERY_SUBNET` accepts bounded IPv4 CIDRs from `/22` through `/30`. It is optional; when omitted, native interface-based discovery behaves exactly as before. The setting affects discovery only and does not change normal printer connections.
@@ -263,6 +346,18 @@ spec:
           env:
             - name: DISCOVERY_SUBNET
               value: 192.168.1.0/24
+            # Optional Google Drive backup integration. Create the
+            # pfc-google-drive Secret before enabling these.
+            - name: GOOGLE_DRIVE_CLIENT_ID
+              valueFrom:
+                secretKeyRef:
+                  name: pfc-google-drive
+                  key: client-id
+            - name: GOOGLE_DRIVE_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: pfc-google-drive
+                  key: client-secret
 
           volumeMounts:
             - name: data
