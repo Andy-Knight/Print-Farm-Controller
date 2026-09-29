@@ -1345,7 +1345,10 @@ async function inspectRestoreFile() {
 
 function setRestorePendingUi(restore = {}) {
   const pending = restore?.pending === true || restore?.staged === true;
+  if (restoreSourceSelect) restoreSourceSelect.disabled = pending;
   if (restoreBackupFileInput) restoreBackupFileInput.disabled = pending;
+  if (restoreCloudBackupSelect) restoreCloudBackupSelect.disabled = pending;
+  if (restoreCloudRefreshBtn) restoreCloudRefreshBtn.disabled = pending;
   if (restoreInspectBtn) restoreInspectBtn.disabled = pending;
   if (restoreStageBtn) restoreStageBtn.disabled = true;
   if (restoreCancelStageBtn) restoreCancelStageBtn.classList.toggle('hidden', !pending);
@@ -1460,10 +1463,13 @@ async function cancelStagedRestoreUi() {
   try {
     const result = await api('/api/restore/stage', { method:'DELETE' });
     if (!result?.restore?.cancelled) throw new Error('No staged restore was cancelled');
+    if (restoreSourceSelect) restoreSourceSelect.disabled = false;
     if (restoreBackupFileInput) {
       restoreBackupFileInput.disabled = false;
       restoreBackupFileInput.value = '';
     }
+    if (restoreCloudBackupSelect) restoreCloudBackupSelect.disabled = false;
+    if (restoreCloudRefreshBtn) restoreCloudRefreshBtn.disabled = false;
     if (restoreInspectBtn) restoreInspectBtn.disabled = false;
     if (restoreStageBtn) restoreStageBtn.disabled = true;
     if (restoreCancelStageBtn) restoreCancelStageBtn.classList.add('hidden');
@@ -2998,7 +3004,7 @@ backupRecoveryBtn?.addEventListener('click', async () => {
   if (restoreInspectBtn) restoreInspectBtn.disabled = false;
   if (restoreCancelStageBtn) restoreCancelStageBtn.classList.add('hidden');
   backupRecoveryDialog?.showModal();
-  await Promise.all([loadBackupStatus(), loadRestoreStatus(), loadGoogleDriveStatus()]);
+  await Promise.all([loadBackupStatus(), loadRestoreStatus(), loadGoogleDriveStatus(), loadCloudRestoreProviders()]);
 });
 document.querySelectorAll('[data-backup-close]').forEach((el) => el.addEventListener('click', () => {
   clearGoogleDriveAuthPoll();
@@ -3011,6 +3017,12 @@ googleDriveCheckAuthBtn?.addEventListener('click', pollGoogleDriveAuthorization)
 googleDriveTestBtn?.addEventListener('click', testGoogleDriveConnection);
 googleDriveDisconnectBtn?.addEventListener('click', disconnectGoogleDrive);
 googleDriveBackupBtn?.addEventListener('click', createGoogleDriveBackup);
+restoreSourceSelect?.addEventListener('change', () => updateRestoreSourceUi());
+restoreCloudBackupSelect?.addEventListener('change', clearRestoreInspection);
+restoreCloudRefreshBtn?.addEventListener('click', async () => {
+  clearRestoreInspection();
+  await loadCloudRestoreBackups();
+});
 backupScheduleFrequency?.addEventListener('change', updateBackupWeekdayVisibility);
 backupScheduleDestinationType?.addEventListener('change', updateBackupDestinationVisibility);
 backupTestDestinationBtn?.addEventListener('click', testScheduledBackupDestination);
