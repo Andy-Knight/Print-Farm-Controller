@@ -1,6 +1,8 @@
 import crypto from 'node:crypto';
 import { createReadStream, promises as fs } from 'node:fs';
 import path from 'node:path';
+import { Readable } from 'node:stream';
+import { createDeflateRaw, createInflateRaw, constants as zlibConstants } from 'node:zlib';
 
 const LOCAL_FILE_HEADER = 0x04034b50;
 const CENTRAL_FILE_HEADER = 0x02014b50;
@@ -10,6 +12,18 @@ const UTF8_FLAG = 0x0800;
 const DATA_DESCRIPTOR_FLAG = 0x0008;
 const ZIP_VERSION = 20;
 const MAX_ZIP32 = 0xffffffff;
+const ZIP_STORE = 0;
+const ZIP_DEFLATE = 8;
+
+const PRECOMPRESSED_EXTENSIONS = new Set([
+  '.3mf', '.7z', '.bz2', '.gif', '.gz', '.jpeg', '.jpg', '.mp4',
+  '.png', '.rar', '.webp', '.xz', '.zip'
+]);
+
+function compressionMethodForEntry(name) {
+  const extension = path.extname(String(name || '')).toLowerCase();
+  return PRECOMPRESSED_EXTENSIONS.has(extension) ? ZIP_STORE : ZIP_DEFLATE;
+}
 
 const CRC_TABLE = (() => {
   const table = new Uint32Array(256);
@@ -78,7 +92,10 @@ export async function hashArchiveSource(entry) {
   return { sha256:hash.digest('hex'), size };
 }
 
-export async function writeZipArchive(destinationPath, entries, { timestamp = new Date() } = {}) {
+export async function writeZipArchive(destinationPath, entries, {
+  timestamp = new Date(),
+  compressionLevel = zlibConstants.Z_DEFAULT_COMPRESSION
+} = {}) {
   const names = new Set();
   const normalized = entries.map((entry) => {
     const name = safeArchivePath(entry.name);
@@ -101,12 +118,13 @@ export async function writeZipArchive(destinationPath, entries, { timestamp = ne
       if (source.size > MAX_ZIP32) throw new Error(`Backup entry is too large for ZIP32: ${entry.name}`);
       const localOffset = position;
       if (localOffset > MAX_ZIP32) throw new Error('Backup archive is too large for ZIP32');
+      const compression = compressionMethodForEntry(entry.name);
 
       const local = Buffer.alloc(30);
       local.writeUInt32LE(LOCAL_FILE_HEADER, 0);
       local.writeUInt16LE(ZIP_VERSION, 4);
       local.writeUInt16LE(UTF8_FLAG | DATA_DESCRIPTOR_FLAG, 6);
-      local.writeUInt16LE(0, 8);
+      local.writeUInt16LE(compression, 8);
       local.writeUInt16LE(time, 10);
       local.writeUInt16LE(day, 12);
       local.writeUInt16LE(nameBuffer.length, 26);
@@ -115,21 +133,34 @@ export async function writeZipArchive(destinationPath, entries, { timestamp = ne
 
       let crc = 0;
       let size = 0;
-      for await (const chunk of source.iterator) {
+      let compressedSize = 0;
+      const trackedSource = (async function* () {
+        for await (const chunk of source.iterator) {
+          const buffer = Buffer.from(chunk);
+          crc = crc32Update(crc, buffer);
+          size += buffer.length;
+          if (size > MAX_ZIP32) throw new Error(`Backup entry is too large for ZIP32: ${entry.name}`);
+          yield buffer;
+        }
+      })();
+      const output = compression === ZIP_DEFLATE
+        ? Readable.from(trackedSource).pipe(createDeflateRaw({ level:compressionLevel }))
+        : Readable.from(trackedSource);
+
+      for await (const chunk of output) {
         const buffer = Buffer.from(chunk);
-        crc = crc32Update(crc, buffer);
-        size += buffer.length;
-        if (size > MAX_ZIP32) throw new Error(`Backup entry is too large for ZIP32: ${entry.name}`);
+        compressedSize += buffer.length;
+        if (compressedSize > MAX_ZIP32) throw new Error(`Compressed backup entry is too large for ZIP32: ${entry.name}`);
         position = await writeAll(handle, buffer, position);
       }
 
       const descriptor = Buffer.alloc(16);
       descriptor.writeUInt32LE(DATA_DESCRIPTOR, 0);
       descriptor.writeUInt32LE(crc >>> 0, 4);
-      descriptor.writeUInt32LE(size, 8);
+      descriptor.writeUInt32LE(compressedSize, 8);
       descriptor.writeUInt32LE(size, 12);
       position = await writeAll(handle, descriptor, position);
-      central.push({ nameBuffer, crc, size, localOffset });
+      central.push({ nameBuffer, crc, compression, compressedSize, size, localOffset });
     }
 
     const centralOffset = position;
@@ -139,11 +170,11 @@ export async function writeZipArchive(destinationPath, entries, { timestamp = ne
       record.writeUInt16LE(ZIP_VERSION, 4);
       record.writeUInt16LE(ZIP_VERSION, 6);
       record.writeUInt16LE(UTF8_FLAG | DATA_DESCRIPTOR_FLAG, 8);
-      record.writeUInt16LE(0, 10);
+      record.writeUInt16LE(item.compression, 10);
       record.writeUInt16LE(time, 12);
       record.writeUInt16LE(day, 14);
       record.writeUInt32LE(item.crc >>> 0, 16);
-      record.writeUInt32LE(item.size, 20);
+      record.writeUInt32LE(item.compressedSize, 20);
       record.writeUInt32LE(item.size, 24);
       record.writeUInt16LE(item.nameBuffer.length, 28);
       record.writeUInt32LE(item.localOffset, 42);
@@ -209,8 +240,8 @@ export async function readZipDirectory(filePath) {
       if (names.has(name)) throw new Error(`Duplicate backup archive entry: ${name}`);
       names.add(name);
       if ((flags & 0x0001) !== 0) throw new Error('Encrypted backup ZIP entries are not supported');
-      if (compression !== 0) throw new Error(`Unsupported backup ZIP compression method ${compression}`);
-      if (compressedSize !== size) throw new Error(`Stored backup ZIP entry has inconsistent size: ${name}`);
+      if (compression !== ZIP_STORE && compression !== ZIP_DEFLATE) throw new Error(`Unsupported backup ZIP compression method ${compression}`);
+      if (compression === ZIP_STORE && compressedSize !== size) throw new Error(`Stored backup ZIP entry has inconsistent size: ${name}`);
       entries.push({ name, flags, compression, crc, compressedSize, size, localOffset });
       offset += 46 + nameLength + extraLength + commentLength;
     }
@@ -226,96 +257,98 @@ async function zipEntryDataOffset(handle, entry) {
   if (bytesRead !== header.length || header.readUInt32LE(0) !== LOCAL_FILE_HEADER) {
     throw new Error('Backup archive local entry is invalid');
   }
+  const flags = header.readUInt16LE(6);
+  const compression = header.readUInt16LE(8);
+  if ((flags & 0x0001) !== 0) throw new Error('Encrypted backup ZIP entries are not supported');
+  if (compression !== entry.compression) throw new Error(`Backup archive compression method mismatch: ${entry.name}`);
   const nameLength = header.readUInt16LE(26);
   const extraLength = header.readUInt16LE(28);
   return entry.localOffset + 30 + nameLength + extraLength;
 }
 
-export async function hashZipEntry(filePath, entry) {
+async function zipEntryReadable(filePath, entry) {
   const handle = await fs.open(filePath, 'r');
+  let start;
+  let fileSize;
   try {
-    const start = await zipEntryDataOffset(handle, entry);
-    const hash = crypto.createHash('sha256');
-    let crc = 0;
-    let remaining = entry.size;
-    let position = start;
-    const chunk = Buffer.alloc(Math.min(1024 * 1024, Math.max(1, entry.size)));
-    while (remaining > 0) {
-      const length = Math.min(chunk.length, remaining);
-      const { bytesRead } = await handle.read(chunk, 0, length, position);
-      if (!bytesRead) throw new Error(`Backup archive entry is truncated: ${entry.name}`);
-      const data = chunk.subarray(0, bytesRead);
-      hash.update(data);
-      crc = crc32Update(crc, data);
-      remaining -= bytesRead;
-      position += bytesRead;
-    }
-    if ((crc >>> 0) !== (entry.crc >>> 0)) throw new Error(`Backup archive CRC mismatch: ${entry.name}`);
-    return { sha256:hash.digest('hex'), size:entry.size };
+    start = await zipEntryDataOffset(handle, entry);
+    fileSize = (await handle.stat()).size;
   } finally {
     await handle.close();
   }
+
+  const endExclusive = start + entry.compressedSize;
+  if (endExclusive > fileSize) throw new Error(`Backup archive entry is truncated: ${entry.name}`);
+  const raw = entry.compressedSize === 0
+    ? Readable.from([])
+    : createReadStream(filePath, { start, end:endExclusive - 1 });
+  if (entry.compression === ZIP_STORE) return raw;
+  if (entry.compression === ZIP_DEFLATE) return raw.pipe(createInflateRaw());
+  throw new Error(`Unsupported backup ZIP compression method ${entry.compression}`);
+}
+
+async function consumeZipEntry(filePath, entry, onChunk = null) {
+  const stream = await zipEntryReadable(filePath, entry);
+  let crc = 0;
+  let size = 0;
+  for await (const chunk of stream) {
+    const data = Buffer.from(chunk);
+    if (size + data.length > entry.size) {
+      stream.destroy();
+      throw new Error(`Backup archive entry exceeds declared uncompressed size: ${entry.name}`);
+    }
+    crc = crc32Update(crc, data);
+    if (onChunk) await onChunk(data, size);
+    size += data.length;
+  }
+  if (size !== entry.size) throw new Error(`Backup archive entry has inconsistent uncompressed size: ${entry.name}`);
+  if ((crc >>> 0) !== (entry.crc >>> 0)) throw new Error(`Backup archive CRC mismatch: ${entry.name}`);
+  return { size };
+}
+
+export async function hashZipEntry(filePath, entry) {
+  const hash = crypto.createHash('sha256');
+  const result = await consumeZipEntry(filePath, entry, async (data) => {
+    hash.update(data);
+  });
+  return { sha256:hash.digest('hex'), size:result.size };
 }
 
 export async function extractZipEntryToFile(filePath, entry, destinationPath) {
-  const source = await fs.open(filePath, 'r');
   let destination = null;
   try {
-    const start = await zipEntryDataOffset(source, entry);
     await fs.mkdir(path.dirname(destinationPath), { recursive:true, mode:0o700 });
     destination = await fs.open(destinationPath, 'wx', 0o600);
     const hash = crypto.createHash('sha256');
-    let crc = 0;
-    let remaining = entry.size;
-    let sourcePosition = start;
     let destinationPosition = 0;
-    const chunk = Buffer.alloc(Math.min(1024 * 1024, Math.max(1, entry.size)));
-    while (remaining > 0) {
-      const length = Math.min(chunk.length, remaining);
-      const { bytesRead } = await source.read(chunk, 0, length, sourcePosition);
-      if (!bytesRead) throw new Error(`Backup archive entry is truncated: ${entry.name}`);
-      const data = chunk.subarray(0, bytesRead);
+    const result = await consumeZipEntry(filePath, entry, async (data) => {
       hash.update(data);
-      crc = crc32Update(crc, data);
       let written = 0;
       while (written < data.length) {
-        const result = await destination.write(data, written, data.length - written, destinationPosition + written);
-        written += result.bytesWritten;
+        const writeResult = await destination.write(data, written, data.length - written, destinationPosition + written);
+        written += writeResult.bytesWritten;
       }
-      remaining -= bytesRead;
-      sourcePosition += bytesRead;
-      destinationPosition += bytesRead;
-    }
+      destinationPosition += data.length;
+    });
     await destination.sync();
-    if ((crc >>> 0) !== (entry.crc >>> 0)) throw new Error(`Backup archive CRC mismatch: ${entry.name}`);
-    return { sha256:hash.digest('hex'), size:entry.size };
+    return { sha256:hash.digest('hex'), size:result.size };
   } catch (error) {
     await fs.rm(destinationPath, { force:true }).catch(() => {});
     throw error;
   } finally {
     await destination?.close().catch(() => {});
-    await source.close();
   }
 }
 
 export async function readZipEntry(filePath, entry, { maxBytes = 512 * 1024 * 1024 } = {}) {
   if (entry.size > maxBytes) throw new Error(`Backup archive entry exceeds allowed size: ${entry.name}`);
-  const handle = await fs.open(filePath, 'r');
-  try {
-    const start = await zipEntryDataOffset(handle, entry);
-    const data = Buffer.alloc(entry.size);
-    let offset = 0;
-    while (offset < data.length) {
-      const { bytesRead } = await handle.read(data, offset, data.length - offset, start + offset);
-      if (!bytesRead) throw new Error(`Backup archive entry is truncated: ${entry.name}`);
-      offset += bytesRead;
-    }
-    const crc = crc32Update(0, data);
-    if ((crc >>> 0) !== (entry.crc >>> 0)) throw new Error(`Backup archive CRC mismatch: ${entry.name}`);
-    return data;
-  } finally {
-    await handle.close();
-  }
+  const data = Buffer.alloc(entry.size);
+  let offset = 0;
+  await consumeZipEntry(filePath, entry, async (chunk) => {
+    chunk.copy(data, offset);
+    offset += chunk.length;
+  });
+  return data;
 }
 
 export async function inspectZipArchive(filePath) {

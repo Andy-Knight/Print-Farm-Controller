@@ -4,6 +4,10 @@ This file contains the version-by-version release history for Print Farm Control
 
 Historical entries describe the behaviour of the controller at the time of that release and may be superseded by later versions. For current installation, configuration and supported-hardware guidance, see [README.md](README.md).
 
+## v0.32.0
+
+- Backup compression. Portable `.pfcbackup` files remain ZIP-compatible but now use streaming DEFLATE compression for JSON, G-code, text and other compressible payloads while keeping already-compressed formats such as 3MF and PNG/JPEG/WebP stored without recompression. Restore remains backwards-compatible with older method-0 backups and now accepts both ZIP STORE and DEFLATE entries. CRC-32 and SHA-256 continue to validate the uncompressed logical payload, and decompression is bounded by each entry's declared uncompressed size. No additional runtime dependency is required because compression uses Node.js `node:zlib`.
+
 ## v0.31.1
 
 - Restore compatibility fix. Backup inspection now accepts a configured printer belonging to multiple custom printer groups, matching the multi-group membership model introduced in v0.28.0. Restore validation still rejects missing printers, duplicate group IDs/names, missing queue group references and missing maintenance group references. Backups created with valid multi-group membership can now be inspected and restored on replacement/container deployments.
