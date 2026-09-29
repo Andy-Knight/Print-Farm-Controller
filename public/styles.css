@@ -1471,7 +1471,22 @@ button.library-file-preview { cursor:zoom-in; }
   justify-content:flex-end;
 }
 .backup-disabled-section { opacity:.78; }
-.backup-file-field { margin-top:12px; }
+.restore-source-grid {
+  margin-top:12px;
+  display:grid;
+  gap:10px;
+}
+.restore-source-grid label { margin:0; }
+#restoreCloudSource {
+  display:grid;
+  grid-template-columns:minmax(0,1fr) auto;
+  gap:10px;
+  align-items:end;
+}
+#restoreCloudSource.hidden { display:none; }
+.restore-cloud-actions { align-self:end; }
+#restoreCloudStatus { grid-column:1 / -1; margin-top:-2px; }
+.backup-file-field { margin-top:0; }
 .backup-restore-actions { margin-top:10px; }
 .restore-inspection-summary {
   margin-top:12px;
@@ -1600,6 +1615,9 @@ button.library-file-preview { cursor:zoom-in; }
   .backup-google-actions,
   .backup-google-config-actions,
   .backup-google-backup-actions { width:100%; }
+  #restoreCloudSource { grid-template-columns:1fr; }
+  #restoreCloudStatus { grid-column:1; }
+  .restore-cloud-actions button { width:100%; }
   .restore-inspection-grid { grid-template-columns:1fr; }
   .backup-section-head { align-items:stretch; flex-direction:column; }
   .backup-section-head > button { width:100%; }
