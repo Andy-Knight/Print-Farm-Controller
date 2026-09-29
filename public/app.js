@@ -801,7 +801,9 @@ async function pollGoogleDriveAuthorization() {
   try {
     const result = await api('/api/integrations/google-drive/connect/poll', { method:'POST' });
     renderGoogleDriveStatus(result.googleDrive || {});
-    if (result.googleDrive?.connected) await loadBackupStatus();
+    if (result.googleDrive?.connected) {
+      await Promise.all([loadBackupStatus(), loadCloudRestoreProviders()]);
+    }
   } catch (error) {
     clearGoogleDriveAuthPoll();
     if (googleDriveError) {
@@ -844,7 +846,7 @@ async function disconnectGoogleDrive() {
   try {
     const result = await api('/api/integrations/google-drive', { method:'DELETE' });
     renderGoogleDriveStatus(result.googleDrive || {});
-    await loadBackupStatus();
+    await Promise.all([loadBackupStatus(), loadCloudRestoreProviders()]);
   } catch (error) {
     if (googleDriveError) {
       googleDriveError.textContent = error.message;
