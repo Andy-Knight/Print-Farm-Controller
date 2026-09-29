@@ -45,6 +45,7 @@ import { ManualBackupManager } from './backup-recovery/manual-backup-manager.js'
 import { BackupOperationLock } from './backup-recovery/backup-operation-lock.js';
 import { ScheduledBackupService } from './backup-recovery/scheduled-backup-service.js';
 import { GoogleDriveClient } from './backup-recovery/google-drive-client.js';
+import { CloudBackupProviderRegistry } from './backup-recovery/cloud-backup-providers.js';
 import { inspectRestoreBackup } from './backup-recovery/restore-inspector.js';
 import { stageRestoreUploadRequest } from './backup-recovery/restore-upload-staging.js';
 import {
@@ -74,6 +75,15 @@ const googleDriveClient = new GoogleDriveClient({
   dataDir:runtimePaths.dataDir,
   diagnosticFn:(level, message, meta) => diagnosticLogger[level]?.('backup', message, meta)
 });
+const cloudBackupProviders = new CloudBackupProviderRegistry([
+  {
+    id:'google-drive',
+    label:'Google Drive',
+    status:() => googleDriveClient.status(),
+    listBackups:() => googleDriveClient.listBackups(),
+    downloadBackup:(fileId, options) => googleDriveClient.downloadBackup(fileId, options)
+  }
+]);
 const manualBackupManager = new ManualBackupManager({
   dataDir:runtimePaths.dataDir,
   applicationDir:runtimePaths.applicationDir,
@@ -683,6 +693,130 @@ async function apiRoute(req, res, url) {
 
   if (req.method === 'GET' && url.pathname === '/api/restore/status') {
     return json(res, 200, { restore:await pendingRestoreStatus(runtimePaths.dataDir) });
+  }
+
+  if (req.method === 'GET' && url.pathname === '/api/restore/cloud/providers') {
+    return json(res, 200, { providers:await cloudBackupProviders.listProviders() });
+  }
+
+  const cloudBackupListMatch = url.pathname.match(/^\/api\/restore\/cloud\/([^/]+)\/backups$/);
+  if (cloudBackupListMatch && req.method === 'GET') {
+    const providerId = decodeURIComponent(cloudBackupListMatch[1]);
+    const result = await cloudBackupProviders.listBackups(providerId);
+    return json(res, 200, result);
+  }
+
+  const cloudRestoreInspectMatch = url.pathname.match(/^\/api\/restore\/cloud\/([^/]+)\/inspect$/);
+  if (cloudRestoreInspectMatch && req.method === 'POST') {
+    if (restoreInspectionInProgress) {
+      const error = new Error('A restore backup is already being inspected');
+      error.statusCode = 409;
+      throw error;
+    }
+    restoreInspectionInProgress = true;
+    let downloaded = null;
+    try {
+      const providerId = decodeURIComponent(cloudRestoreInspectMatch[1]);
+      const body = await readJson(req);
+      downloaded = await cloudBackupProviders.downloadBackup(providerId, body.fileId);
+      await diagnosticLogger.info('restore', 'Cloud restore backup inspection requested', {
+        provider:providerId,
+        fileName:downloaded.fileName,
+        size:downloaded.size
+      });
+      const inspection = await inspectRestoreBackup(downloaded.filePath, {
+        currentControllerVersion:CONTROLLER_VERSION,
+        targetDataDir:runtimePaths.dataDir,
+        originalFileName:downloaded.fileName
+      });
+      await diagnosticLogger.info('restore', 'Cloud restore backup inspection passed', {
+        provider:providerId,
+        fileName:inspection.fileName,
+        sourceControllerVersion:inspection.sourceControllerVersion,
+        createdAt:inspection.createdAt,
+        printers:inspection.counts.printers,
+        printLibrary:inspection.counts.printLibrary,
+        queued:inspection.counts.queued,
+        history:inspection.counts.history,
+        licenseIncluded:inspection.licenseIncluded,
+        migrationsRequired:inspection.migrationsRequired.length
+      });
+      return json(res, 200, { inspection });
+    } catch (error) {
+      await diagnosticLogger.warn('restore', 'Cloud restore backup inspection failed', {
+        fileName:downloaded?.fileName || null,
+        error:error?.message || String(error)
+      });
+      throw error;
+    } finally {
+      restoreInspectionInProgress = false;
+      await downloaded?.cleanup().catch(() => {});
+    }
+  }
+
+  const cloudRestoreStageMatch = url.pathname.match(/^\/api\/restore\/cloud\/([^/]+)\/stage$/);
+  if (cloudRestoreStageMatch && req.method === 'POST') {
+    if (restoreInspectionInProgress) {
+      const error = new Error('A restore backup operation is already in progress');
+      error.statusCode = 409;
+      throw error;
+    }
+
+    printQueue.setDispatchPaused(true);
+    scheduledBackupService.stop();
+    restoreInspectionInProgress = true;
+    const blockers = restorePhysicalActivityBlockers();
+    if (activeMutationRequests > 1) blockers.push('another controller change request is still in progress');
+    if (backupOperationLock.isBusy()) blockers.push(`${backupOperationLock.status()?.kind || 'backup'} backup operation is still in progress`);
+    if (blockers.length) {
+      restoreInspectionInProgress = false;
+      printQueue.setDispatchPaused(false);
+      scheduledBackupService.start().catch(() => {});
+      const error = new Error(`Restore cannot be staged while controller or physical printer work is active: ${blockers.join('; ')}`);
+      error.statusCode = 409;
+      throw error;
+    }
+
+    let downloaded = null;
+    let stagedSuccessfully = false;
+    try {
+      const providerId = decodeURIComponent(cloudRestoreStageMatch[1]);
+      const body = await readJson(req);
+      downloaded = await cloudBackupProviders.downloadBackup(providerId, body.fileId);
+      await diagnosticLogger.info('restore', 'Cloud restore staging requested', {
+        provider:providerId,
+        fileName:downloaded.fileName,
+        size:downloaded.size
+      });
+      const restore = await stageRestoreBackup(downloaded.filePath, {
+        dataDir:runtimePaths.dataDir,
+        licensePath:runtimePaths.licensePath,
+        currentControllerVersion:CONTROLLER_VERSION,
+        originalFileName:downloaded.fileName
+      });
+      restorePendingRestart = true;
+      stagedSuccessfully = true;
+      await diagnosticLogger.warn('restore', 'Cloud restore staged; controller restart required', {
+        provider:providerId,
+        fileName:restore.fileName,
+        backupId:restore.backupId,
+        recoveryHeldJobs:restore.recoveryHeldJobs
+      });
+      return json(res, 202, { restore });
+    } catch (error) {
+      await diagnosticLogger.warn('restore', 'Cloud restore staging failed', {
+        fileName:downloaded?.fileName || null,
+        error:error?.message || String(error)
+      });
+      throw error;
+    } finally {
+      restoreInspectionInProgress = false;
+      if (!stagedSuccessfully) {
+        printQueue.setDispatchPaused(false);
+        scheduledBackupService.start().catch(() => {});
+      }
+      await downloaded?.cleanup().catch(() => {});
+    }
   }
 
   if (req.method === 'POST' && url.pathname === '/api/restore/stage') {
