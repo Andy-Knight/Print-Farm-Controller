@@ -91,6 +91,15 @@ test('Google Drive refresh failure marks the integration as requiring reconnecti
       clientSecret:'client-secret',
       fetchFn:async (url) => {
         if (String(url).endsWith('/token')) return jsonResponse({ error:'invalid_grant' }, 400);
+        if (String(url).endsWith('/device/code')) {
+          return jsonResponse({
+            device_code:'replacement-device-code',
+            user_code:'WXYZ-1234',
+            verification_url:'https://www.google.com/device',
+            expires_in:1800,
+            interval:5
+          });
+        }
         throw new Error(`Unexpected request: ${url}`);
       }
     });
@@ -108,6 +117,11 @@ test('Google Drive refresh failure marks the integration as requiring reconnecti
     assert.equal(status.connected, false);
     assert.equal(status.reconnectRequired, true);
     assert.match(status.lastError, /Reconnect Google Drive/i);
+
+    const reconnecting = await client.startDeviceAuthorization();
+    assert.equal(reconnecting.authorizationPending, true);
+    assert.equal(reconnecting.connected, false);
+    assert.equal(reconnecting.reconnectRequired, true);
   } finally {
     await fs.rm(root, { recursive:true, force:true });
   }
