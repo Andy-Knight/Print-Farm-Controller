@@ -6,9 +6,9 @@ Cross-chat handoff file. Read this first when continuing the project in a new ch
 - Project path: repository root (`/`)
 - Primary branch: `main` (current production baseline)
 - Current application version on this branch: **0.33.0**.
-
 - Runtime: **Node.js 24+** (development baseline Node.js 24.21.0), ES modules, no npm runtime dependencies.
 - GitHub is the authoritative code baseline.
+
 ## Architecture
 
 ```text
@@ -108,6 +108,7 @@ Manufacturer-specific discovery, capabilities, limits, status normalization, fil
 - Material metadata/preflight for FlashForge and multi-tool print setup/preflight for U1.
 - U1 tool mapping, print preferences, material/nozzle readiness and XYZ offset calibration.
 - Bed-powered timed chamber preheat and applicable fan/purifier controls.
+
 ## Current task
 
 **v0.24.0 Maintenance Tracking** is the active feature on `feature/maintenance-tracking-v0240`.
