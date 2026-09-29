@@ -164,3 +164,27 @@ test('Google Drive backup UI uses device authorization and limited Drive file ac
   assert.match(styles, /\.google-drive-auth/);
   assert.match(styles, /\.google-drive-code/);
 });
+
+
+test('restore UI supports local and cloud backup providers through one restore pipeline', () => {
+  assert.match(index, /id="restoreSourceSelect"/);
+  assert.match(index, /Local backup file/);
+  assert.match(index, /id="restoreCloudBackupSelect"/);
+  assert.match(index, /id="restoreCloudRefreshBtn"/);
+
+  assert.match(app, /async function loadCloudRestoreProviders\(\)/);
+  assert.match(app, /api\('\/api\/restore\/cloud\/providers'/);
+  assert.match(app, /async function loadCloudRestoreBackups\(\)/);
+  assert.match(app, /\/api\/restore\/cloud\/\$\{encodeURIComponent\(providerId\)\}\/backups/);
+  assert.match(app, /Downloading and validating cloud backup/);
+  assert.match(app, /Downloading, revalidating and staging cloud restore/);
+  assert.match(app, /selection\.key !== restoreInspectedSelection/);
+
+  assert.match(server, /new CloudBackupProviderRegistry/);
+  assert.match(server, /\/api\/restore\/cloud\/providers/);
+  assert.match(server, /cloudBackupProviders\.downloadBackup/);
+  assert.match(server, /inspectRestoreBackup\(downloaded\.filePath/);
+  assert.match(server, /stageRestoreBackup\(downloaded\.filePath/);
+  assert.match(styles, /\.restore-source-grid/);
+  assert.match(styles, /#restoreCloudSource/);
+});
