@@ -12,7 +12,8 @@ const DEFAULT_CATCH_UP_DELAY_MS = 5_000;
 const BUSY_CATCH_UP_RETRY_MS = 60_000;
 const WEEKDAY_NAMES = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
 
-function backupDestinationType(value) {
+function backupDestinationType(value, destinationType = 'local') {
+  if (String(destinationType || '').trim().toLowerCase() === 'google-drive') return 'google-drive';
   const target = String(value || '').trim();
   if (/^(\\\\|\/\/)/.test(target)) return 'network';
   if (/^[A-Za-z]:[\\/]/.test(target)) return 'windows-drive';
@@ -161,6 +162,7 @@ export class ScheduledBackupService {
     controllerVersion = 'unknown',
     operationLock = null,
     diagnosticFn = null,
+    googleDriveClient = null,
     setTimeoutFn = setTimeout,
     clearTimeoutFn = clearTimeout,
     catchUpDelayMs = DEFAULT_CATCH_UP_DELAY_MS,
@@ -173,6 +175,8 @@ export class ScheduledBackupService {
     this.controllerVersion = String(controllerVersion || 'unknown');
     this.operationLock = operationLock || new BackupOperationLock();
     this.diagnostic = typeof diagnosticFn === 'function' ? diagnosticFn : null;
+    this.googleDriveClient = googleDriveClient || null;
+    this.stagingDir = path.join(this.dataDir, '.backup-staging');
     this.setTimeoutFn = setTimeoutFn;
     this.clearTimeoutFn = clearTimeoutFn;
     this.catchUpDelayMs = Math.max(0, Number(catchUpDelayMs) || 0);
@@ -288,6 +292,7 @@ export class ScheduledBackupService {
     }
     return {
       enabled:settings.enabled === true,
+      destinationType:settings.destinationType || 'local',
       destination:settings.destination || null,
       frequency:settings.frequency,
       scheduleTime:settings.scheduleTime,
@@ -313,6 +318,8 @@ export class ScheduledBackupService {
       const scheduleTime = String(input.scheduleTime ?? current.scheduleTime).trim();
       const scheduleWeekday = Number(input.scheduleWeekday ?? current.scheduleWeekday);
       const retentionCount = Number(input.retentionCount ?? current.retentionCount);
+      const destinationType = String(input.destinationType ?? current.destinationType ?? 'local').trim().toLowerCase();
+      if (!['local','google-drive'].includes(destinationType)) throw new Error('Backup destination type is invalid');
       if (!['daily','weekly'].includes(frequency)) throw new Error('Backup frequency must be daily or weekly');
       if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(scheduleTime)) throw new Error('Backup time must use HH:MM in 24-hour time');
       if (!Number.isInteger(scheduleWeekday) || scheduleWeekday < 0 || scheduleWeekday > 6) {
@@ -331,7 +338,10 @@ export class ScheduledBackupService {
       const requested = {
         ...current,
         enabled,
-        destination:String(input.destination ?? current.destination ?? '').trim() || null,
+        destinationType,
+        destination:destinationType === 'google-drive'
+          ? null
+          : (String(input.destination ?? current.destination ?? '').trim() || null),
         frequency,
         scheduleTime,
         scheduleWeekday,
@@ -342,7 +352,14 @@ export class ScheduledBackupService {
           ? null
           : current.lastError
       };
-      if (requested.enabled) await validateBackupDestination(requested.destination);
+      if (requested.enabled) {
+        if (requested.destinationType === 'google-drive') {
+          if (!this.googleDriveClient) throw new Error('Google Drive backup support is unavailable');
+          await this.googleDriveClient.testConnection();
+        } else {
+          await validateBackupDestination(requested.destination);
+        }
+      }
       const saved = await saveBackupSettings(requested, { dataDir:this.dataDir });
       if (this.catchUpTimer) this.clearTimeoutFn(this.catchUpTimer);
       this.catchUpTimer = null;
@@ -354,7 +371,7 @@ export class ScheduledBackupService {
         this.nextRunAt = null;
       }
       await this.log('info', saved.enabled ? 'Scheduled backups enabled or updated' : 'Scheduled backups disabled', {
-        destinationType:backupDestinationType(saved.destination),
+        destinationType:backupDestinationType(saved.destination, saved.destinationType),
         frequency:saved.frequency,
         scheduleTime:saved.scheduleTime,
         scheduleWeekday:saved.scheduleWeekday,
@@ -364,12 +381,21 @@ export class ScheduledBackupService {
     });
   }
 
-  async testDestination(destination) {
+  async testDestination(destination, destinationType = 'local') {
+    if (String(destinationType || '').trim().toLowerCase() === 'google-drive') {
+      if (!this.googleDriveClient) throw new Error('Google Drive backup support is unavailable');
+      const result = await this.googleDriveClient.testConnection();
+      await this.log('info', 'Scheduled Google Drive destination test passed', {
+        destinationType:'google-drive',
+        folderName:result.folderName || null
+      });
+      return { destinationType:'google-drive', ...result };
+    }
     const result = await validateBackupDestination(destination);
     await this.log('info', 'Scheduled backup destination write test passed', {
       destinationType:backupDestinationType(result.destination)
     });
-    return result;
+    return { destinationType:'local', ...result };
   }
 
   async runScheduledBackup({
@@ -400,16 +426,25 @@ export class ScheduledBackupService {
           lastScheduledError:null
         }, { dataDir:this.dataDir });
 
+        let result = null;
+        let uploaded = null;
         try {
-          await validateBackupDestination(updated.destination);
+          const destinationType = updated.destinationType === 'google-drive' ? 'google-drive' : 'local';
+          if (destinationType === 'google-drive') {
+            if (!this.googleDriveClient) throw new Error('Google Drive backup support is unavailable');
+            await this.googleDriveClient.testConnection();
+            await fs.mkdir(this.stagingDir, { recursive:true, mode:0o700 });
+          } else {
+            await validateBackupDestination(updated.destination);
+          }
           await this.log('info', trigger === 'catch-up' ? 'Missed scheduled backup catch-up started' : 'Scheduled backup started', {
-            destinationType:backupDestinationType(updated.destination),
+            destinationType:backupDestinationType(updated.destination, destinationType),
             attemptedAt,
             scheduledFor:scheduledFor || attemptedAt,
             trigger:trigger === 'catch-up' ? 'catch-up' : 'scheduled'
           });
-          const result = await createBackupInDirectory({
-            destinationDir:updated.destination,
+          result = await createBackupInDirectory({
+            destinationDir:destinationType === 'google-drive' ? this.stagingDir : updated.destination,
             dataDir:this.dataDir,
             applicationDir:this.applicationDir,
             licensePath:this.licensePath,
@@ -417,13 +452,24 @@ export class ScheduledBackupService {
             source:'scheduled',
             now
           });
+          if (destinationType === 'google-drive') {
+            uploaded = await this.googleDriveClient.uploadBackup({
+              filePath:result.filePath,
+              fileName:result.fileName,
+              manifest:result.manifest
+            });
+          }
 
           const success = {
             createdAt:result.manifest.createdAt,
             fileName:result.fileName,
             size:result.size,
             source:'scheduled',
-            destination:updated.destination
+            destinationType,
+            destination:destinationType === 'google-drive'
+              ? (uploaded?.folderName || 'Google Drive')
+              : updated.destination,
+            driveFileId:uploaded?.id || null
           };
           updated = await saveBackupSettings({
             ...updated,
@@ -434,12 +480,18 @@ export class ScheduledBackupService {
           }, { dataDir:this.dataDir });
 
           try {
-            const retention = await pruneScheduledBackups({
-              destination:updated.destination,
-              installationId:updated.installationId,
-              retentionCount:updated.retentionCount,
-              newestBackupPath:result.filePath
-            });
+            const retention = destinationType === 'google-drive'
+              ? await this.googleDriveClient.pruneScheduledBackups({
+                  installationId:updated.installationId,
+                  retentionCount:updated.retentionCount,
+                  newestFileId:uploaded?.id || null
+                })
+              : await pruneScheduledBackups({
+                  destination:updated.destination,
+                  installationId:updated.installationId,
+                  retentionCount:updated.retentionCount,
+                  newestBackupPath:result.filePath
+                });
             const retentionResult = {
               completedAt:new Date().toISOString(),
               deleted:retention.deleted.length,
@@ -452,7 +504,10 @@ export class ScheduledBackupService {
               ...updated,
               lastRetentionResult:retentionResult
             }, { dataDir:this.dataDir });
-            await this.log(retention.failed.length ? 'warn' : 'info', 'Scheduled backup retention completed', retentionResult);
+            await this.log(retention.failed.length ? 'warn' : 'info', 'Scheduled backup retention completed', {
+              ...retentionResult,
+              destinationType
+            });
           } catch (error) {
             const retentionResult = {
               completedAt:new Date().toISOString(),
@@ -464,6 +519,7 @@ export class ScheduledBackupService {
             };
             await saveBackupSettings({ ...updated, lastRetentionResult:retentionResult }, { dataDir:this.dataDir }).catch(() => {});
             await this.log('warn', 'Scheduled backup retention failed after successful backup', {
+              destinationType,
               error:error?.message || String(error)
             });
           }
@@ -474,7 +530,7 @@ export class ScheduledBackupService {
             fileName:result.fileName,
             size:result.size,
             createdAt:result.manifest.createdAt,
-            destinationType:backupDestinationType(updated.destination),
+            destinationType:backupDestinationType(updated.destination, destinationType),
             scheduledFor:scheduledFor || attemptedAt,
             trigger:trigger === 'catch-up' ? 'catch-up' : 'scheduled'
           });
@@ -487,10 +543,14 @@ export class ScheduledBackupService {
             lastError:message
           }, { dataDir:this.dataDir }).catch(() => {});
           await this.log('warn', 'Scheduled backup failed', {
-            destinationType:backupDestinationType(updated.destination),
+            destinationType:backupDestinationType(updated.destination, updated.destinationType),
             error:message
           });
           return { success:false, error:message };
+        } finally {
+          if (updated.destinationType === 'google-drive' && result?.filePath) {
+            await fs.rm(result.filePath, { force:true }).catch(() => {});
+          }
         }
       });
     } catch (error) {
