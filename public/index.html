@@ -343,6 +343,23 @@
             <button id="googleDriveDisconnectBtn" type="button" class="secondary">Disconnect</button>
           </div>
         </div>
+        <div class="google-drive-config">
+          <div class="field-help">
+            First-time setup: in Google Cloud enable the Drive API and create an OAuth client of type <strong>TVs and Limited Input devices</strong>, then enter its credentials below. These settings are stored with controller data and work the same way for source, Windows, Docker and K3s installs.
+          </div>
+          <div class="google-drive-config-grid">
+            <label>OAuth client ID
+              <input id="googleDriveClientId" type="text" autocomplete="off" spellcheck="false" placeholder="xxxxxxxxxxxx.apps.googleusercontent.com" />
+            </label>
+            <label>OAuth client secret
+              <input id="googleDriveClientSecret" type="password" autocomplete="new-password" placeholder="Enter client secret" />
+            </label>
+          </div>
+          <div class="mini-actions backup-google-config-actions">
+            <button id="googleDriveSaveConfigBtn" type="button" class="secondary">Save Google configuration</button>
+          </div>
+          <div class="field-help">The client secret is never displayed again after saving. Leave it blank when saving later to keep the existing secret.</div>
+        </div>
         <div id="googleDriveStatus" class="subtle backup-action-status" aria-live="polite"></div>
         <div id="googleDriveAuth" class="google-drive-auth hidden">
           <div>Open <a id="googleDriveVerificationLink" href="#" target="_blank" rel="noopener noreferrer">Google device authorization</a> and enter this code:</div>
