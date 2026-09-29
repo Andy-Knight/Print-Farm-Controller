@@ -62,6 +62,8 @@ const PUBLIC_DIR = runtimePaths.publicDir;
 const APP_DIR = runtimePaths.applicationDir;
 const PACKAGE_PATH = runtimePaths.packageJsonPath;
 const bundledVersion = typeof __PFC_VERSION__ === 'string' ? __PFC_VERSION__ : null;
+const bundledGoogleClientId = typeof __PFC_GOOGLE_CLIENT_ID__ === 'string' ? __PFC_GOOGLE_CLIENT_ID__ : '';
+const bundledGoogleClientSecret = typeof __PFC_GOOGLE_CLIENT_SECRET__ === 'string' ? __PFC_GOOGLE_CLIENT_SECRET__ : '';
 const packageInfo = PACKAGE_PATH ? JSON.parse(readFileSync(PACKAGE_PATH, 'utf8')) : {};
 const CONTROLLER_VERSION = String(bundledVersion || packageInfo.version || 'unknown');
 const PORT = Number(process.env.PORT || 4242);
@@ -73,6 +75,8 @@ const memoryMonitor = new MemoryMonitor({
 const backupOperationLock = new BackupOperationLock();
 const googleDriveClient = new GoogleDriveClient({
   dataDir:runtimePaths.dataDir,
+  builtInClientId:bundledGoogleClientId,
+  builtInClientSecret:bundledGoogleClientSecret,
   diagnosticFn:(level, message, meta) => diagnosticLogger[level]?.('backup', message, meta)
 });
 const cloudBackupProviders = new CloudBackupProviderRegistry([
@@ -602,6 +606,11 @@ async function apiRoute(req, res, url) {
       clientId:body.clientId,
       clientSecret:body.clientSecret
     });
+    return json(res, 200, { googleDrive });
+  }
+
+  if (req.method === 'DELETE' && url.pathname === '/api/integrations/google-drive/config') {
+    const googleDrive = await googleDriveClient.resetConfiguration();
     return json(res, 200, { googleDrive });
   }
 
