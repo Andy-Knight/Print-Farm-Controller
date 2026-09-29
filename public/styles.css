@@ -1397,6 +1397,35 @@ button.library-file-preview { cursor:zoom-in; }
   line-height:1.45;
 }
 .backup-action-status { margin-top:10px; }
+.backup-google-actions { flex-wrap:wrap; justify-content:flex-end; }
+.backup-google-backup-actions { margin-top:12px; justify-content:flex-end; }
+.google-drive-auth {
+  margin-top:12px;
+  display:grid;
+  gap:10px;
+  padding:12px 13px;
+  border:1px solid #34516a;
+  border-radius:10px;
+  background:#101b24;
+  color:#b6d5e8;
+  font-size:.78rem;
+  line-height:1.45;
+}
+.google-drive-auth a { color:#8cc9f0; font-weight:800; }
+.google-drive-code {
+  display:inline-block;
+  width:max-content;
+  max-width:100%;
+  padding:8px 11px;
+  border:1px solid #3b5264;
+  border-radius:8px;
+  background:#0b1218;
+  color:#e8f5ff;
+  font-size:1rem;
+  font-weight:900;
+  letter-spacing:.08em;
+  user-select:all;
+}
 .backup-schedule-grid {
   display:grid;
   grid-template-columns:minmax(0,2fr) minmax(120px,1fr) minmax(120px,1fr);
@@ -1526,13 +1555,28 @@ button.library-file-preview { cursor:zoom-in; }
   border-color:#d9b969;
   color:#6c5010;
 }
+:root[data-theme="light"] .google-drive-auth {
+  background:#eef7fc;
+  border-color:#b9d6e7;
+  color:#315b73;
+}
+:root[data-theme="light"] .google-drive-auth a { color:#176b9d; }
+:root[data-theme="light"] .google-drive-code {
+  background:#ffffff;
+  border-color:#bfd0db;
+  color:#18384a;
+}
 @media (max-width:620px) {
   .backup-status-grid { grid-template-columns:1fr; }
   .backup-schedule-grid { grid-template-columns:1fr; }
   .backup-schedule-toggle,
   .backup-schedule-destination { grid-column:1; }
   .backup-destination-actions button,
-  .backup-schedule-actions button { width:100%; }
+  .backup-schedule-actions button,
+  .backup-google-actions button,
+  .backup-google-backup-actions button { width:100%; }
+  .backup-google-actions,
+  .backup-google-backup-actions { width:100%; }
   .restore-inspection-grid { grid-template-columns:1fr; }
   .backup-section-head { align-items:stretch; flex-direction:column; }
   .backup-section-head > button { width:100%; }
