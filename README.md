@@ -113,71 +113,37 @@ This limits the controller to files and folders it creates or has been granted a
 In a Google Cloud project:
 
 1. Enable the **Google Drive API**.
-2. Configure the OAuth consent screen as required for the Google account(s) that will use the controller.
+2. Configure the OAuth consent screen for the Google account(s) that will use the controller.
 3. Create an OAuth client with application type **TVs and Limited Input devices**.
-4. Supply the generated client ID and client secret to the controller as:
-   - `GOOGLE_DRIVE_CLIENT_ID`
-   - `GOOGLE_DRIVE_CLIENT_SECRET`
+4. Copy the generated **client ID** and **client secret**.
 
-For source or the Windows portable executable these can be ordinary process environment variables. For Docker, pass them with `-e` or an environment file. For Kubernetes/K3s, store them in a Kubernetes Secret rather than writing them directly into the Deployment manifest.
+No installation-specific environment configuration is required. In Print Farm Controller open **Backup & recovery → Google Drive**, enter the client ID and client secret, and select **Save Google configuration**. Then select **Connect**. The controller displays Google's verification address and a short user code; complete authorization in a browser and the controller creates or reuses a visible **Print Farm Controller Backups** folder in My Drive.
 
-After the controller starts, open **Backup & recovery → Google Drive → Connect**. The controller displays Google's verification address and a short user code. Complete authorization in a browser; the controller then creates or reuses a visible **Print Farm Controller Backups** folder in My Drive.
+This UI setup works the same way for source/development, the Windows executable/installer, Docker and K3s/Kubernetes deployments.
 
-The OAuth access token remains in memory only. The long-lived refresh token and managed folder ID are stored in:
+For automated deployments, `GOOGLE_DRIVE_CLIENT_ID` and `GOOGLE_DRIVE_CLIENT_SECRET` remain optional fallback environment variables. Values saved through the UI take precedence and persist with controller data.
+
+### Credential storage
+
+The OAuth client ID, OAuth client secret, long-lived refresh token and managed Drive folder ID are stored in:
 
 ```text
 <DATA_DIR>/integrations/google-drive.json
 ```
 
-That file must remain persistent across container/pod replacement, so Google Drive does not normally need to be reconnected after a restart. It is deliberately excluded from `.pfcbackup` archives and is not written to diagnostic logs. Protect the controller data directory/PVC because the refresh token authorizes future Drive access.
+The file is written with restrictive permissions inside the persistent controller data directory. The short-lived access token remains memory-only. The client secret and refresh token are never returned by the status API, are never shown again in the UI after saving, and the entire integration file is deliberately excluded from `.pfcbackup` archives and diagnostic logging.
 
-Google Drive requires outbound HTTPS access to Google's OAuth and Drive API endpoints.
-
-### Docker example
-
-Add the OAuth client values when starting the container:
-
-```bash
-docker run -d \
-  --name print-farm-controller \
-  --restart unless-stopped \
-  -p 4242:4242 \
-  -e GOOGLE_DRIVE_CLIENT_ID="<google-oauth-client-id>" \
-  -e GOOGLE_DRIVE_CLIENT_SECRET="<google-oauth-client-secret>" \
-  -v pfc-data:/data \
-  -v pfc-logs:/logs \
-  ghcr.io/andy-knight/print-farm-controller:latest
-```
-
-### K3s / Kubernetes secret
-
-Create a Secret containing the OAuth client values and expose it to the controller container:
-
-```yaml
-env:
-  - name: GOOGLE_DRIVE_CLIENT_ID
-    valueFrom:
-      secretKeyRef:
-        name: pfc-google-drive
-        key: client-id
-  - name: GOOGLE_DRIVE_CLIENT_SECRET
-    valueFrom:
-      secretKeyRef:
-        name: pfc-google-drive
-        key: client-secret
-```
-
-The existing persistent `/data` volume stores the refresh token/folder state. No additional volume is required.
+Protect the controller data directory/PVC because the stored OAuth credentials can authorize future Drive access. Google Drive also requires outbound HTTPS access to Google's OAuth and Drive API endpoints.
 
 ### Backup behavior
 
 - **Backup to Google Drive now** creates, verifies and compresses the canonical backup before uploading it.
 - Scheduled backups can select **Google Drive** instead of a local/mapped/NAS folder.
 - Retention deletes only older **scheduled** Drive backups created by the same controller installation. Manual Drive backups and backups from another installation are left untouched.
-- **Disconnect** removes the local authorization state and attempts to revoke the Google token. Existing backup files in Drive are not deleted.
+- **Disconnect** revokes/removes the Google account authorization but retains the saved OAuth client setup, so the controller can be reconnected without re-entering the client ID/secret.
+- Changing the saved OAuth client ID or secret clears the existing Google account authorization because refresh tokens are tied to the OAuth client.
 - If Google invalidates/revokes the refresh token, the controller reports **Reconnection required** instead of silently dropping scheduled backups.
 - Built-in browsing/downloading/restoring directly from Google Drive is not included in v0.33.0; restore continues to use the existing local `.pfcbackup` inspection/staging workflow.
-
 
 ## Docker
 
@@ -213,7 +179,7 @@ Versioned images are published from Git tags. For example, tag `v0.33.0` publish
 
 ```text
 ghcr.io/andy-knight/print-farm-controller:0.33.0
-ghcr.io/andy-knight/print-farm-controller:0.31
+ghcr.io/andy-knight/print-farm-controller:0.33
 ```
 
 The `latest` tag is published from the `main` branch.
@@ -346,18 +312,6 @@ spec:
           env:
             - name: DISCOVERY_SUBNET
               value: 192.168.1.0/24
-            # Optional Google Drive backup integration. Create the
-            # pfc-google-drive Secret before enabling these.
-            - name: GOOGLE_DRIVE_CLIENT_ID
-              valueFrom:
-                secretKeyRef:
-                  name: pfc-google-drive
-                  key: client-id
-            - name: GOOGLE_DRIVE_CLIENT_SECRET
-              valueFrom:
-                secretKeyRef:
-                  name: pfc-google-drive
-                  key: client-secret
 
           volumeMounts:
             - name: data
