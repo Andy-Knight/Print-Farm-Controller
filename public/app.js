@@ -56,6 +56,9 @@ const backupStatusGrid = document.querySelector('#backupStatusGrid');
 const backupCreateBtn = document.querySelector('#backupCreateBtn');
 const backupActionStatus = document.querySelector('#backupActionStatus');
 const backupError = document.querySelector('#backupError');
+const googleDriveClientId = document.querySelector('#googleDriveClientId');
+const googleDriveClientSecret = document.querySelector('#googleDriveClientSecret');
+const googleDriveSaveConfigBtn = document.querySelector('#googleDriveSaveConfigBtn');
 const googleDriveStatus = document.querySelector('#googleDriveStatus');
 const googleDriveAuth = document.querySelector('#googleDriveAuth');
 const googleDriveVerificationLink = document.querySelector('#googleDriveVerificationLink');
@@ -654,9 +657,18 @@ function renderGoogleDriveStatus(state = {}) {
   const connected = state.connected === true;
   const pending = state.authorizationPending === true;
 
+  if (googleDriveClientId && document.activeElement !== googleDriveClientId) {
+    googleDriveClientId.value = state.clientId || '';
+  }
+  if (googleDriveClientSecret && document.activeElement !== googleDriveClientSecret) {
+    googleDriveClientSecret.placeholder = state.clientSecretConfigured
+      ? 'Saved — leave blank to keep existing secret'
+      : 'Enter client secret';
+  }
+
   if (googleDriveStatus) {
     if (!configured) {
-      googleDriveStatus.textContent = 'Not configured. Set GOOGLE_DRIVE_CLIENT_ID and GOOGLE_DRIVE_CLIENT_SECRET on the controller.';
+      googleDriveStatus.textContent = 'Enter and save the Google OAuth client ID and client secret to enable Google Drive.';
     } else if (state.reconnectRequired) {
       googleDriveStatus.textContent = 'Reconnection required. Connect Google Drive again to resume cloud backups.';
     } else if (connected) {
@@ -668,6 +680,7 @@ function renderGoogleDriveStatus(state = {}) {
     }
   }
 
+  if (googleDriveSaveConfigBtn) googleDriveSaveConfigBtn.disabled = false;
   if (googleDriveConnectBtn) googleDriveConnectBtn.disabled = !configured || connected || pending;
   if (googleDriveTestBtn) googleDriveTestBtn.disabled = !connected;
   if (googleDriveDisconnectBtn) googleDriveDisconnectBtn.disabled = !connected && !pending;
@@ -700,6 +713,57 @@ async function loadGoogleDriveStatus() {
       googleDriveError.classList.remove('hidden');
     }
     return null;
+  }
+}
+
+async function saveGoogleDriveConfiguration() {
+  if (!googleDriveSaveConfigBtn) return;
+  const clientId = googleDriveClientId?.value?.trim() || '';
+  const clientSecret = googleDriveClientSecret?.value?.trim() || '';
+
+  if (!clientId) {
+    if (googleDriveError) {
+      googleDriveError.textContent = 'Enter the Google OAuth client ID.';
+      googleDriveError.classList.remove('hidden');
+    }
+    googleDriveClientId?.focus();
+    return;
+  }
+  if (!clientSecret && !googleDriveState?.clientSecretConfigured) {
+    if (googleDriveError) {
+      googleDriveError.textContent = 'Enter the Google OAuth client secret.';
+      googleDriveError.classList.remove('hidden');
+    }
+    googleDriveClientSecret?.focus();
+    return;
+  }
+
+  googleDriveSaveConfigBtn.disabled = true;
+  if (googleDriveError) {
+    googleDriveError.textContent = '';
+    googleDriveError.classList.add('hidden');
+  }
+  if (googleDriveStatus) googleDriveStatus.textContent = 'Saving Google Drive configuration…';
+  try {
+    const result = await api('/api/integrations/google-drive/config', {
+      method:'PUT',
+      body:JSON.stringify({ clientId, clientSecret })
+    });
+    if (googleDriveClientSecret) googleDriveClientSecret.value = '';
+    renderGoogleDriveStatus(result.googleDrive || {});
+    if (googleDriveStatus) {
+      googleDriveStatus.textContent = result.googleDrive?.connected
+        ? `Google configuration saved · Connected · Folder: ${result.googleDrive.folderName || 'Print Farm Controller Backups'}`
+        : 'Google configuration saved. Select Connect to authorize this controller.';
+    }
+  } catch (error) {
+    if (googleDriveStatus) googleDriveStatus.textContent = '';
+    if (googleDriveError) {
+      googleDriveError.textContent = error.message;
+      googleDriveError.classList.remove('hidden');
+    }
+  } finally {
+    googleDriveSaveConfigBtn.disabled = false;
   }
 }
 
@@ -2781,6 +2845,7 @@ document.querySelectorAll('[data-backup-close]').forEach((el) => el.addEventList
   backupRecoveryDialog?.close();
 }));
 backupCreateBtn?.addEventListener('click', createManualBackup);
+googleDriveSaveConfigBtn?.addEventListener('click', saveGoogleDriveConfiguration);
 googleDriveConnectBtn?.addEventListener('click', startGoogleDriveConnection);
 googleDriveCheckAuthBtn?.addEventListener('click', pollGoogleDriveAuthorization);
 googleDriveTestBtn?.addEventListener('click', testGoogleDriveConnection);
