@@ -99,19 +99,19 @@ Manufacturer-specific discovery, capabilities, limits, status normalization, fil
 - Licence installation/replacement reloads the signed licence immediately; a normal controller restart is not required.
 - The edition entitlement catalogue exists for future feature-by-feature enforcement. As of v0.14.8 the production enforcement path includes signature/expiry validation and physical-printer slot limits; do not describe every entitlement as fully gated unless the code has actually been wired to enforce it.
 
-## Completed work / current baseline
+## Current baseline
 
-- FlashForge Adventurer 5M / 5M Pro support.
-- FlashForge Creator 5 / Creator 5 Pro support on `feature/flashforge-creator-5-support-v0260`: dedicated HTTP-only adapter; four-tool status/material/nozzle compatibility and logical-to-physical mapping; per-tool and bed temperature control; Creator 5 Pro heated chamber sensing/control; recent-file HTTP listing; `.gcode`/`.3mf` upload with Creator-specific material-station headers; direct/queued print start with multi-tool material mappings; bed levelling, job control and built-in camera; Creator 5/Pro simulator profiles. Automated/emulator validation is complete; physical hardware validation remains pending.
-- Snapmaker U1 support via Moonraker/Klipper, including stock camera integration.
-- Experimental Bambu Lab P1P/P1S/X1C/A1 Mini controller support: MQTT TLS status, external-spool/AMS/AMS Lite material metadata and job/temperature/fan control; implicit FTPS list/upload/verification/download; embedded 3MF plate-G-code requirement parsing; interactive and automatic logical-filament-to-material-source mapping; `.3mf` print start on all supported Bambu models plus single-material `.gcode` start on P1P/P1S/X1C/A1 Mini; authenticated TLS/JPEG camera snapshots on P1P/P1S/A1 Mini; model-specific capabilities/limits and manual connection fields. A1 Mini uses an 80 °C bed limit and no chamber controls. X1C reports LiDAR availability, a hardened nozzle profile and a 120 °C bed limit, while its RTSPS/H.264 camera remains explicitly unsupported. FTPS upload verification checks the exact filename with `SIZE`, falls back to normalized directory entries and retries briefly for delayed storage visibility.
-- Automatic/local discovery, persistent printer registry and controller-side printer renaming.
-- Dashboard ordering, SSE fleet state, diagnostics and batch actions.
-- Verified file distribution and printer-local file operations.
-- Persistent queue/history/reprint/review states and bed-clearance safety interlock.
-- Material metadata/preflight for FlashForge and multi-tool print setup/preflight for U1.
-- U1 tool mapping, print preferences, material/nozzle readiness and XYZ offset calibration.
-- Bed-powered timed chamber preheat and applicable fan/purifier controls.
+- Supported printers: FlashForge Adventurer 5M / 5M Pro, FlashForge Creator 5 / Creator 5 Pro, Snapmaker U1, and experimental Bambu Lab P1P / P1S / X1C / A1 Mini support.
+- Persistent printer registry with manufacturer-specific adapters, local discovery where supported, controller-side printer naming, live SSE fleet state, dashboard filtering and printer groups with overlapping membership.
+- Persistent Print Library with descriptions, previews, target-printer metadata, material/colour/nozzle requirements, verified file distribution and queue integration.
+- Persistent print queue/history with fixed-printer or next-compatible-printer assignment, priorities, production batches, reprint, compatibility/preflight checks, material/tool mapping and bed-clearance interlocks.
+- Maintenance tracking supports printer-, group- and model-scoped recurring tasks, due-soon/due status, per-printer history and controller-observed print usage.
+- Backup & recovery uses portable verified/compressed `.pfcbackup` archives with local/NAS and Google Drive destinations, scheduled backups, explicit inspection, staged restart restore, rollback and recovery holds for unfinished queue work.
+- Google Drive production deployments use the shared built-in OAuth configuration injected at build time; customers authorize their own Google account without supplying an OAuth client. Advanced custom OAuth remains available for source/development or bespoke deployments.
+- Offline Ed25519-signed licensing enforces physical-printer allowances: Community 3, Pro 10 and Farm 25; simulator printers do not consume licence slots.
+- Integrated printer simulator covers FlashForge, Snapmaker and experimental Bambu protocol paths for repeatable development and automated validation.
+- Production deployment supports the hardened Windows x64 Node SEA/installer path and the multi-architecture GHCR container image for `linux/amd64` and `linux/arm64`, with persistent `/data` and `/logs`.
+- Known validation limits: Creator 5 / Creator 5 Pro physical-hardware validation remains incomplete; Bambu support remains experimental; X1C RTSPS/H.264 camera streaming is not currently supported.
 
 ## Current task
 
