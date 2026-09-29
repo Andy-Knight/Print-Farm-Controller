@@ -95,7 +95,8 @@ test('production builds embed Google OAuth config without committing credential 
   assert.match(dockerfile, /--mount=type=secret,id=pfc_google_client_id/);
   assert.match(dockerfile, /--mount=type=secret,id=pfc_google_client_secret/);
   assert.match(dockerfile, /CMD \["node", "build\/controller\.cjs"\]/);
-  assert.doesNotMatch(dockerfile, /PFC_GOOGLE_CLIENT_ID=/);
+  assert.doesNotMatch(dockerfile, /(?:ARG|ENV)\s+PFC_GOOGLE_CLIENT_ID/);
+  assert.doesNotMatch(dockerfile, /(?:ARG|ENV)\s+PFC_GOOGLE_CLIENT_SECRET/);
 
   assert.match(containerWorkflow, /pfc_google_client_id=\$\{\{ secrets\.PFC_GOOGLE_CLIENT_ID \}\}/);
   assert.match(containerWorkflow, /pfc_google_client_secret=\$\{\{ secrets\.PFC_GOOGLE_CLIENT_SECRET \}\}/);
