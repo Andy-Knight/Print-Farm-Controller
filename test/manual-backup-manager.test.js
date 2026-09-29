@@ -87,3 +87,52 @@ test('manual backup manager removes stale staging files and blocks concurrent cr
     await fs.rm(root, { recursive:true, force:true });
   }
 });
+
+
+test('manual backup manager uploads the verified canonical backup to Google Drive and removes local staging', async () => {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), 'pfc-manual-google-drive-'));
+  const dataDir = path.join(root, 'data');
+  const calls = [];
+  try {
+    await fs.mkdir(dataDir, { recursive:true });
+    await fs.writeFile(path.join(dataDir, 'printers.json'), JSON.stringify([{ id:'printer-1', name:'Test printer' }]));
+    const googleDriveClient = {
+      async testConnection() {
+        calls.push('test');
+        return { connected:true, folderId:'folder-1', folderName:'Print Farm Controller Backups' };
+      },
+      async uploadBackup({ filePath, fileName, manifest }) {
+        calls.push('upload');
+        assert.ok((await fs.stat(filePath)).isFile());
+        assert.match(fileName, /\.pfcbackup$/);
+        const verified = await verifyBackupArchive(filePath);
+        assert.equal(verified.manifest.backupId, manifest.backupId);
+        assert.equal(manifest.backupSource, 'manual');
+        return { id:'drive-file-1', folderName:'Print Farm Controller Backups' };
+      }
+    };
+    const manager = new ManualBackupManager({
+      dataDir,
+      applicationDir:root,
+      licensePath:path.join(root, 'missing-license.json'),
+      controllerVersion:'0.33.0',
+      googleDriveClient
+    });
+
+    const created = await manager.createGoogleDrive();
+    assert.deepEqual(calls, ['test','upload']);
+    assert.equal(created.destinationType, 'google-drive');
+    assert.equal(created.driveFileId, 'drive-file-1');
+    assert.match(created.fileName, /\.pfcbackup$/);
+
+    const staging = await fs.readdir(path.join(dataDir, '.backup-staging'));
+    assert.equal(staging.some((name) => name.endsWith('.pfcbackup')), false);
+
+    const status = await manager.status();
+    assert.equal(status.lastSuccessfulBackup.destinationType, 'google-drive');
+    assert.equal(status.lastSuccessfulBackup.driveFileId, 'drive-file-1');
+    assert.equal(status.lastError, null);
+  } finally {
+    await fs.rm(root, { recursive:true, force:true });
+  }
+});
