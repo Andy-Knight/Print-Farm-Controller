@@ -1,6 +1,9 @@
 import crypto from 'node:crypto';
-import { createReadStream, promises as fs } from 'node:fs';
+import { createReadStream, createWriteStream, promises as fs } from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
+import { Readable, Transform } from 'node:stream';
+import { pipeline } from 'node:stream/promises';
 
 export const GOOGLE_DRIVE_SCOPE = 'https://www.googleapis.com/auth/drive.file';
 export const GOOGLE_DRIVE_FOLDER_NAME = 'Print Farm Controller Backups';
@@ -27,6 +30,10 @@ function cleanString(value) {
 
 function escapeDriveQueryLiteral(value) {
   return String(value || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+}
+
+function ReadableStreamToNode(stream) {
+  return Readable.fromWeb(stream);
 }
 
 async function responsePayload(response) {
@@ -500,6 +507,84 @@ export class GoogleDriveClient {
         modifiedTime:item.modifiedTime || null,
         appProperties:item.appProperties || {}
       }));
+  }
+
+  async getBackup(fileId) {
+    const id = cleanString(fileId);
+    if (!id) throw googleError('Google Drive backup file ID is required.', 400, 'GOOGLE_DRIVE_FILE_ID_REQUIRED');
+    const backups = await this.listBackups();
+    const backup = backups.find((item) => item.id === id);
+    if (!backup) {
+      throw googleError(
+        'The selected Google Drive backup is no longer available in the Print Farm Controller Backups folder.',
+        404,
+        'GOOGLE_DRIVE_BACKUP_NOT_FOUND'
+      );
+    }
+    return backup;
+  }
+
+  async downloadBackup(fileId, { maxBytes = (4 * 1024 * 1024 * 1024) - 1 } = {}) {
+    const backup = await this.getBackup(fileId);
+    if (backup.size && backup.size > maxBytes) {
+      throw googleError('Google Drive backup exceeds the supported restore size limit.', 413, 'GOOGLE_DRIVE_BACKUP_TOO_LARGE');
+    }
+
+    const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'pfc-google-drive-restore-'));
+    const safeName = path.basename(backup.name);
+    const filePath = path.join(directory, safeName);
+    let bytes = 0;
+    const limiter = new Transform({
+      transform(chunk, _encoding, callback) {
+        bytes += chunk.length;
+        if (bytes > maxBytes) callback(new Error('Google Drive backup exceeds the supported restore size limit.'));
+        else callback(null, chunk);
+      }
+    });
+
+    try {
+      const response = await this.authorizedFetch(
+        `${DRIVE_API}/files/${encodeURIComponent(backup.id)}?alt=media`
+      );
+      if (!response.ok) {
+        const payload = await responsePayload(response);
+        throw googleError(
+          `Google Drive backup download failed: ${responseMessage(payload, `HTTP ${response.status}`)}`,
+          502,
+          'GOOGLE_DRIVE_DOWNLOAD_FAILED'
+        );
+      }
+      if (!response.body) throw googleError('Google Drive backup download returned no data.', 502, 'GOOGLE_DRIVE_DOWNLOAD_FAILED');
+
+      await pipeline(
+        ReadableStreamToNode(response.body),
+        limiter,
+        createWriteStream(filePath, { flags:'wx', mode:0o600 })
+      );
+      if (!bytes) throw googleError('Google Drive backup is empty.', 400, 'GOOGLE_DRIVE_BACKUP_EMPTY');
+      if (backup.size && bytes !== backup.size) {
+        throw googleError('Google Drive backup download size did not match the file metadata.', 502, 'GOOGLE_DRIVE_DOWNLOAD_SIZE_MISMATCH');
+      }
+      await this.log('info', 'Google Drive backup downloaded for restore', {
+        fileName:backup.name,
+        size:bytes,
+        driveFileId:backup.id
+      });
+      return {
+        provider:'google-drive',
+        fileId:backup.id,
+        fileName:backup.name,
+        filePath,
+        size:bytes,
+        metadata:backup,
+        async cleanup() {
+          await fs.rm(directory, { recursive:true, force:true });
+        }
+      };
+    } catch (error) {
+      await fs.rm(directory, { recursive:true, force:true }).catch(() => {});
+      throw error;
+    }
   }
 
   async deleteBackup(fileId) {
