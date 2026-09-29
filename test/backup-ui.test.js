@@ -9,6 +9,7 @@ const server = fs.readFileSync(new URL('../src/server.js', import.meta.url), 'ut
 const restoreService = fs.readFileSync(new URL('../src/backup-recovery/restore-service.js', import.meta.url), 'utf8');
 const scheduledBackupService = fs.readFileSync(new URL('../src/backup-recovery/scheduled-backup-service.js', import.meta.url), 'utf8');
 const googleDriveClient = fs.readFileSync(new URL('../src/backup-recovery/google-drive-client.js', import.meta.url), 'utf8');
+const s3Client = fs.readFileSync(new URL('../src/backup-recovery/s3-backup-client.js', import.meta.url), 'utf8');
 
 test('Backup and Recovery is available from the controller overflow menu', () => {
   assert.match(index, /id="backupRecoveryBtn"[^>]*>Backup &amp; recovery<\/button>/);
@@ -80,10 +81,11 @@ test('restore inspection enables staged restart-based restore with cancel suppor
 });
 
 
-test('scheduled backup UI configures local, network or Google Drive destinations and retention', () => {
+test('scheduled backup UI configures local, network, Google Drive or S3-compatible destinations and retention', () => {
   assert.match(index, /id="backupScheduleEnabled"/);
   assert.match(index, /id="backupScheduleDestinationType"/);
   assert.match(index, /value="google-drive">Google Drive/);
+  assert.match(index, /value="s3">S3-compatible storage/);
   assert.match(index, /id="backupScheduleDestination"/);
   assert.match(index, /id="backupScheduleFrequency"/);
   assert.match(index, /id="backupScheduleTime"/);
@@ -99,7 +101,7 @@ test('scheduled backup UI configures local, network or Google Drive destinations
   assert.match(app, /api\('\/api\/backup\/settings'/);
   assert.match(app, /updateBackupWeekdayVisibility/);
   assert.match(app, /updateBackupDestinationVisibility/);
-  assert.match(app, /destinationType:backupScheduleDestinationType/);
+  assert.match(app, /destinationType:\['google-drive','s3'\]\.includes\(backupScheduleDestinationType\?\.value\)/);
   assert.match(app, /Next scheduled backup/);
   assert.match(app, /Missed backup catch-up pending for/);
 
@@ -111,9 +113,10 @@ test('scheduled backup UI configures local, network or Google Drive destinations
   assert.match(server, /scheduledBackupService\.stop\(\)/);
 
   assert.match(scheduledBackupService, /source:'scheduled'/);
-  assert.match(scheduledBackupService, /destinationType === 'google-drive'/);
-  assert.match(scheduledBackupService, /googleDriveClient\.uploadBackup/);
-  assert.match(scheduledBackupService, /googleDriveClient\.pruneScheduledBackups/);
+  assert.match(scheduledBackupService, /\['local','google-drive','s3'\]/);
+  assert.match(scheduledBackupService, /cloudClient\(destinationType\)/);
+  assert.match(scheduledBackupService, /cloudClient\.uploadBackup/);
+  assert.match(scheduledBackupService, /cloudClient\.pruneScheduledBackups/);
   assert.match(scheduledBackupService, /manifest\.backupSource !== 'scheduled'/);
   assert.match(scheduledBackupService, /manifest\.installationId/);
   assert.match(scheduledBackupService, /retentionCount/);
@@ -172,6 +175,45 @@ test('Google Drive backup UI uses device authorization and limited Drive file ac
   assert.match(styles, /\.google-drive-code/);
 });
 
+
+test('S3-compatible backup UI stores static credentials and uses the generic cloud restore registry', () => {
+  assert.match(index, /<strong>S3-compatible storage<\/strong>/);
+  assert.match(index, /id="s3Endpoint"/);
+  assert.match(index, /id="s3Bucket"/);
+  assert.match(index, /id="s3Region"/);
+  assert.match(index, /id="s3Prefix"/);
+  assert.match(index, /id="s3AccessKeyId"/);
+  assert.match(index, /id="s3SecretAccessKey"[^>]*type="password"/);
+  assert.match(index, /id="s3AddressingStyle"/);
+  assert.match(index, /id="s3AllowInsecureHttp"/);
+  assert.match(index, /id="s3SaveConfigBtn"/);
+  assert.match(index, /id="s3TestBtn"/);
+  assert.match(index, /id="s3ClearConfigBtn"/);
+  assert.match(index, /id="s3BackupBtn"[^>]*>Backup to S3 now<\/button>/);
+
+  assert.match(app, /async function saveS3Configuration\(\)/);
+  assert.match(app, /api\('\/api\/integrations\/s3\/config'/);
+  assert.match(app, /async function testS3Connection\(\)/);
+  assert.match(app, /api\('\/api\/integrations\/s3\/test'/);
+  assert.match(app, /async function createS3Backup\(\)/);
+  assert.match(app, /api\('\/api\/backup\/create\/s3'/);
+
+  assert.match(server, /new S3BackupClient/);
+  assert.match(server, /id:'s3'/);
+  assert.match(server, /url\.pathname === '\/api\/integrations\/s3\/status'/);
+  assert.match(server, /url\.pathname === '\/api\/integrations\/s3\/config'/);
+  assert.match(server, /s3Client\.configure/);
+  assert.match(server, /s3Client\.clearConfiguration/);
+  assert.match(server, /url\.pathname === '\/api\/integrations\/s3\/test'/);
+  assert.match(server, /url\.pathname === '\/api\/backup\/create\/s3'/);
+
+  assert.match(s3Client, /AWS4-HMAC-SHA256/);
+  assert.match(s3Client, /list-type/);
+  assert.match(s3Client, /\.pfcmeta\.json/);
+  assert.match(s3Client, /path\.join\(this\.integrationDir, 's3\.json'\)/);
+  assert.match(s3Client, /async pruneScheduledBackups/);
+  assert.doesNotMatch(s3Client, /@aws-sdk/);
+});
 
 test('restore UI supports local and cloud backup providers through one restore pipeline', () => {
   assert.match(index, /id="restoreSourceSelect"/);
