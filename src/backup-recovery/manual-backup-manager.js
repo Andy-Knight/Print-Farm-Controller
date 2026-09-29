@@ -32,7 +32,8 @@ export class ManualBackupManager {
     this.downloadTtlMs = Math.max(60_000, Number(downloadTtlMs) || DEFAULT_DOWNLOAD_TTL_MS);
     this.operationLock = operationLock || new BackupOperationLock();
     this.googleDriveClient = googleDriveClient || null;
-    this.stagingDir = path.join(this.dataDir, '.backup-staging', 'manual');
+    this.stagingRoot = path.join(this.dataDir, '.backup-staging');
+    this.stagingDir = path.join(this.stagingRoot, 'manual');
     this.downloads = new Map();
     this.creating = false;
     this.initialized = false;
@@ -45,6 +46,15 @@ export class ManualBackupManager {
     for (const entry of entries) {
       if (!entry.isFile()) continue;
       await fs.rm(path.join(this.stagingDir, entry.name), { force:true }).catch(() => {});
+    }
+
+    // v0.32 and earlier manual downloads were staged directly under
+    // .backup-staging. Remove only legacy files at that root; never recurse
+    // into the scheduled/manual subdirectories used by current builds.
+    const legacyEntries = await fs.readdir(this.stagingRoot, { withFileTypes:true }).catch(() => []);
+    for (const entry of legacyEntries) {
+      if (!entry.isFile()) continue;
+      await fs.rm(path.join(this.stagingRoot, entry.name), { force:true }).catch(() => {});
     }
     this.initialized = true;
   }
