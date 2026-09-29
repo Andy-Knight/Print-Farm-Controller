@@ -63,6 +63,8 @@ export class GoogleDriveClient {
     dataDir,
     clientId = process.env.GOOGLE_DRIVE_CLIENT_ID,
     clientSecret = process.env.GOOGLE_DRIVE_CLIENT_SECRET,
+    builtInClientId = '',
+    builtInClientSecret = '',
     fetchFn = globalThis.fetch,
     nowFn = Date.now,
     diagnosticFn = null,
@@ -73,6 +75,8 @@ export class GoogleDriveClient {
     this.dataDir = path.resolve(dataDir);
     this.environmentClientId = cleanString(clientId);
     this.environmentClientSecret = cleanString(clientSecret);
+    this.builtInClientId = cleanString(builtInClientId);
+    this.builtInClientSecret = cleanString(builtInClientSecret);
     this.fetchFn = fetchFn;
     this.nowFn = typeof nowFn === 'function' ? nowFn : Date.now;
     this.diagnostic = typeof diagnosticFn === 'function' ? diagnosticFn : null;
@@ -91,13 +95,26 @@ export class GoogleDriveClient {
   }
 
   credentialsForState(state) {
-    return {
-      clientId:cleanString(state?.clientId) || this.environmentClientId,
-      clientSecret:cleanString(state?.clientSecret) || this.environmentClientSecret,
-      source:cleanString(state?.clientId) && cleanString(state?.clientSecret)
-        ? 'ui'
-        : (this.environmentClientId && this.environmentClientSecret ? 'environment' : 'none')
-    };
+    const savedClientId = cleanString(state?.clientId);
+    const savedClientSecret = cleanString(state?.clientSecret);
+    if (savedClientId && savedClientSecret) {
+      return { clientId:savedClientId, clientSecret:savedClientSecret, source:'ui' };
+    }
+    if (this.environmentClientId && this.environmentClientSecret) {
+      return {
+        clientId:this.environmentClientId,
+        clientSecret:this.environmentClientSecret,
+        source:'environment'
+      };
+    }
+    if (this.builtInClientId && this.builtInClientSecret) {
+      return {
+        clientId:this.builtInClientId,
+        clientSecret:this.builtInClientSecret,
+        source:'built-in'
+      };
+    }
+    return { clientId:'', clientSecret:'', source:'none' };
   }
 
   async requireConfigured(state = null) {
@@ -156,11 +173,19 @@ export class GoogleDriveClient {
     const pending = this.pendingAuthorization;
     const credentials = this.credentialsForState(state);
     const configured = Boolean(credentials.clientId && credentials.clientSecret);
+    const customConfigured = Boolean(cleanString(state?.clientId) && cleanString(state?.clientSecret));
+    const environmentConfigured = Boolean(this.environmentClientId && this.environmentClientSecret);
+    const builtInConfigured = Boolean(this.builtInClientId && this.builtInClientSecret);
     return {
       configured,
       configurationSource:credentials.source,
-      clientId:credentials.clientId || null,
-      clientSecretConfigured:Boolean(credentials.clientSecret),
+      customConfigured,
+      customClientId:customConfigured ? cleanString(state?.clientId) : null,
+      clientId:customConfigured ? cleanString(state?.clientId) : null,
+      clientSecretConfigured:customConfigured,
+      environmentConfigured,
+      builtInConfigured,
+      defaultConfigurationAvailable:environmentConfigured || builtInConfigured,
       connected:configured && Boolean(state?.refreshToken) && !this.reconnectRequired && !pending,
       reconnectRequired:this.reconnectRequired,
       folderId:state?.folderId || null,
@@ -177,17 +202,20 @@ export class GoogleDriveClient {
   async configure({ clientId, clientSecret } = {}) {
     const current = await this.loadState();
     const currentCredentials = this.credentialsForState(current);
+    const savedClientId = cleanString(current?.clientId);
+    const savedClientSecret = cleanString(current?.clientSecret);
     const nextClientId = cleanString(clientId);
     const suppliedSecret = cleanString(clientSecret);
     const clientIdChanged = Boolean(currentCredentials.clientId) && nextClientId !== currentCredentials.clientId;
-    if (clientIdChanged && !suppliedSecret) {
+    const savedClientIdChanged = Boolean(savedClientId) && nextClientId !== savedClientId;
+    if (savedClientIdChanged && !suppliedSecret) {
       throw googleError(
         'Enter the matching Google OAuth client secret when changing the client ID.',
         400,
         'GOOGLE_DRIVE_CLIENT_SECRET_REQUIRED'
       );
     }
-    const nextClientSecret = suppliedSecret || currentCredentials.clientSecret;
+    const nextClientSecret = suppliedSecret || (nextClientId === savedClientId ? savedClientSecret : '');
 
     if (!nextClientId) {
       throw googleError('Google OAuth client ID is required.', 400, 'GOOGLE_DRIVE_CLIENT_ID_REQUIRED');
@@ -324,8 +352,8 @@ export class GoogleDriveClient {
     const credentials = this.credentialsForState(state);
     await this.saveState({
       ...state,
-      clientId:credentials.clientId,
-      clientSecret:credentials.clientSecret,
+      clientId:cleanString(state?.clientId) || null,
+      clientSecret:cleanString(state?.clientSecret) || null,
       refreshToken,
       folderId:null,
       folderName:this.folderName,
@@ -635,6 +663,38 @@ export class GoogleDriveClient {
       }
     }
     return { deleted, failed, eligible:candidates.length, kept:Math.max(0, candidates.length - deleted.length) };
+  }
+
+  async resetConfiguration() {
+    const current = await this.loadState();
+    if (!cleanString(current?.clientId) && !cleanString(current?.clientSecret)) return this.status();
+
+    if (current?.refreshToken) {
+      try {
+        await this.fetchFn(REVOKE_URL, {
+          method:'POST',
+          headers:{ 'content-type':'application/x-www-form-urlencoded' },
+          body:new URLSearchParams({ token:current.refreshToken })
+        });
+      } catch {}
+    }
+
+    this.pendingAuthorization = null;
+    this.accessToken = null;
+    this.accessTokenExpiresAtMs = 0;
+    this.reconnectRequired = false;
+    this.lastError = null;
+    await this.saveState({
+      ...current,
+      clientId:null,
+      clientSecret:null,
+      refreshToken:null,
+      folderId:null,
+      folderName:this.folderName,
+      connectedAt:null
+    });
+    await this.log('info', 'Google Drive custom OAuth configuration cleared');
+    return this.status();
   }
 
   async disconnect({ revoke = true } = {}) {
