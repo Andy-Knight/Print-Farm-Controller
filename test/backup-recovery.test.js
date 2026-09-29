@@ -130,7 +130,7 @@ test('backup verification rejects archive corruption', async () => {
 });
 
 
-test('Google Drive authorization state is never included in portable backups', async () => {
+test('cloud storage authorization state is never included in portable backups', async () => {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), 'pfc-backup-google-secret-'));
   const dataDir = path.join(root, 'data');
   const destination = path.join(root, 'secret-check.pfcbackup');
@@ -146,19 +146,27 @@ test('Google Drive authorization state is never included in portable backups', a
       refreshToken:'must-never-enter-a-backup-refresh-token',
       folderId:'folder-1'
     }));
+    await fs.writeFile(path.join(dataDir, 'integrations', 's3.json'), JSON.stringify({
+      version:1,
+      endpoint:'https://s3.example.test',
+      bucket:'pfc-backups',
+      accessKeyId:'must-never-enter-a-backup-access-key',
+      secretAccessKey:'must-never-enter-a-backup-s3-secret'
+    }));
 
     await createBackupArchive({
       destinationPath:destination,
       dataDir,
       applicationDir:root,
       licensePath:path.join(root, 'missing-license.json'),
-      controllerVersion:'0.33.0'
+      controllerVersion:'0.35.0'
     });
 
     const archive = await inspectZipArchive(destination);
     const names = archive.entries.map((entry) => entry.name);
     assert.equal(names.some((name) => name.startsWith('integrations/')), false);
     assert.equal(names.some((name) => /google-drive/i.test(name)), false);
+    assert.equal(names.some((name) => /s3/i.test(name)), false);
   } finally {
     await fs.rm(root, { recursive:true, force:true });
   }
