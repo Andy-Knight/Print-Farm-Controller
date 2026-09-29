@@ -40,8 +40,11 @@ Extension:
 Container:
 
 - ZIP-compatible archive.
+- Compressible entries use standard ZIP DEFLATE compression (method 8).
+- Formats that are already compressed, including 3MF and common image/archive formats, are stored without recompression (method 0).
+- Restore accepts both stored and DEFLATE entries so backups created before compression support remain compatible.
 - Backup format identifier: `print-farm-controller-backup`.
-- Initial format version: `1`.
+- Initial format version: `1`; compression does not change the logical backup schema or require a format-version increment.
 - Example filename:
 
 ```text
@@ -72,6 +75,13 @@ print-library/
 ```
 
 The archive must never contain absolute host paths.
+
+### Compression
+
+Compression is applied while the archive is streamed to disk; complete Print Library files are not loaded into memory just to compress them. JSON, G-code, text and other compressible payloads use the Node.js built-in raw-DEFLATE implementation. File types that are normally already compressed (for example `.3mf`, `.png`, `.jpg`, `.webp`, `.zip` and `.gz`) remain stored to avoid wasting controller CPU for little or no size reduction.
+
+CRC-32 and SHA-256 validation are calculated against the uncompressed logical payload. During verification and restore, DEFLATE output is bounded by the uncompressed size declared in the ZIP directory; an entry that expands beyond that size is rejected. This keeps the existing corruption checks and adds a guard against malformed compressed entries.
+
 
 ## Manifest
 

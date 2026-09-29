@@ -123,7 +123,7 @@ test('backup verification rejects archive corruption', async () => {
     } finally {
       await handle.close();
     }
-    await assert.rejects(() => verifyBackupArchive(destination), /CRC mismatch|checksum mismatch/i);
+    await assert.rejects(() => verifyBackupArchive(destination), /CRC mismatch|checksum mismatch|invalid|unexpected|distance|deflate|compressed data|inconsistent uncompressed size/i);
   } finally {
     await fs.rm(root, { recursive:true, force:true });
   }
