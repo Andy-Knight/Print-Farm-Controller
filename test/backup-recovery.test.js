@@ -141,7 +141,9 @@ test('Google Drive authorization state is never included in portable backups', a
     await fs.writeFile(path.join(dataDir, 'file-material-metadata.json'), '{}');
     await fs.writeFile(path.join(dataDir, 'integrations', 'google-drive.json'), JSON.stringify({
       version:1,
-      refreshToken:'must-never-enter-a-backup',
+      clientId:'must-never-enter-a-backup.apps.googleusercontent.com',
+      clientSecret:'must-never-enter-a-backup-secret',
+      refreshToken:'must-never-enter-a-backup-refresh-token',
       folderId:'folder-1'
     }));
 
