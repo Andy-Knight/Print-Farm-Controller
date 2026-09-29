@@ -118,14 +118,36 @@ jobs:
             type=semver,pattern={{major}}.{{minor}}
             type=sha,prefix=sha-
 
-      - name: Build and publish
+      - name: Build pull request image
+        if: github.event_name == 'pull_request'
         uses: docker/build-push-action@v6
         with:
           context: .
           platforms: linux/amd64,linux/arm64
-          push: ${{ github.event_name != 'pull_request' }}
+          push: false
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            PFC_BUNDLE_BUILD_NONCE=${{ github.run_id }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          provenance: mode=max
+          sbom: true
+
+      - name: Build and publish production image
+        if: github.event_name != 'pull_request'
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            PFC_BUNDLE_BUILD_NONCE=${{ github.run_id }}
+          secrets: |
+            pfc_google_client_id=${{ secrets.PFC_GOOGLE_CLIENT_ID }}
+            pfc_google_client_secret=${{ secrets.PFC_GOOGLE_CLIENT_SECRET }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
           provenance: mode=max
