@@ -130,7 +130,7 @@ Any further functional development should start from the current `main` baseline
 5. Continue physical validation of experimental Bambu P1P/P1S/X1C/A1 Mini behaviour before removing the experimental designation.
 6. Select the next product feature or hardening priority from the current `main` baseline and create a dedicated feature branch before implementation.
 
-## Licensing baseline (v0.14.8)
+## Licensing baseline
 
 The controller verifies offline Ed25519-signed `license.json` files.
 
