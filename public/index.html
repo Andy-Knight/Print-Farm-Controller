@@ -437,9 +437,29 @@
             <div class="field-help">Validate a .pfcbackup and review what it contains. Inspection never changes controller data.</div>
           </div>
         </div>
-        <label class="backup-file-field">Backup file
-          <input id="restoreBackupFileInput" type="file" accept=".pfcbackup,application/vnd.print-farm-controller.backup+zip" />
-        </label>
+        <div class="restore-source-grid">
+          <label>Restore source
+            <select id="restoreSourceSelect">
+              <option value="local">Local backup file</option>
+            </select>
+          </label>
+          <div id="restoreLocalSource">
+            <label class="backup-file-field">Backup file
+              <input id="restoreBackupFileInput" type="file" accept=".pfcbackup,application/vnd.print-farm-controller.backup+zip" />
+            </label>
+          </div>
+          <div id="restoreCloudSource" class="hidden">
+            <label>Cloud backup
+              <select id="restoreCloudBackupSelect">
+                <option value="">Select a backup</option>
+              </select>
+            </label>
+            <div class="mini-actions restore-cloud-actions">
+              <button id="restoreCloudRefreshBtn" type="button" class="secondary">Refresh backups</button>
+            </div>
+            <div id="restoreCloudStatus" class="field-help"></div>
+          </div>
+        </div>
         <div class="mini-actions backup-restore-actions">
           <button id="restoreInspectBtn" type="button" class="secondary">Inspect backup</button>
           <button id="restoreStageBtn" type="button" class="primary" disabled>Restore backup</button>
@@ -448,7 +468,7 @@
         <div id="restoreInspectStatus" class="subtle backup-action-status" aria-live="polite"></div>
         <div id="restoreInspectError" class="error hidden"></div>
         <div id="restoreInspectionSummary" class="restore-inspection-summary hidden"></div>
-        <div class="field-help">A valid inspection enables restore staging. The staged restore activates only after Print Farm Controller is restarted; unfinished jobs remain recovery-held until deliberately rechecked.</div>
+        <div class="field-help">Local and cloud backups use the same inspection, validation and staged restore pipeline. A valid inspection enables restore staging. The staged restore activates only after Print Farm Controller is restarted; unfinished jobs remain recovery-held until deliberately rechecked.</div>
       </section>
 
       <div class="actions">
