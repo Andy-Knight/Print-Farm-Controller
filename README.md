@@ -1,12 +1,12 @@
-# Print Farm Controller v0.32.0
+# Print Farm Controller v0.33.0
 
-**Current release: v0.32.0**
+**Current release: v0.33.0**
 
 Current highlights:
 
 - Container images for Linux AMD64 and ARM64, with Docker and K3s/Kubernetes deployment guidance.
 - Persistent Print Library, smart queueing, printer groups and maintenance tracking.
-- Compressed portable backup and restore, including multi-group printer membership and backwards-compatible restore of older backups.
+- Compressed portable backup and restore, including local/NAS and Google Drive destinations, multi-group printer membership, and backwards-compatible restore of older backups.
 - Snapmaker U1 and FlashForge support, with experimental Bambu Lab support.
 - Offline signed licensing with Community, Pro and Farm editions.
 
@@ -96,6 +96,64 @@ To run from the source files launch with the following commands from the command
 npm start
 ```
 
+## Google Drive backups
+
+Print Farm Controller can upload the same verified, compressed `.pfcbackup` files used by local backup/recovery directly to Google Drive. Manual and scheduled Google Drive backups use the existing backup engine; Google Drive is only a storage destination.
+
+Google Drive integration uses Google's **TVs and Limited Input devices** OAuth client flow and requests only:
+
+```text
+https://www.googleapis.com/auth/drive.file
+```
+
+This limits the controller to files and folders it creates or has been granted access to rather than giving it unrestricted access to the whole Drive.
+
+### Production OAuth configuration
+
+Released Print Farm Controller builds are intended to use one shared **Print Farm Controller** Google OAuth client. End users do not need to create a Google Cloud project or enter a client ID/secret: they open **Backup & recovery → Google Drive**, select **Connect**, and authorize their own Google account.
+
+The production OAuth credentials are injected at build time and are not committed to the repository:
+
+- GitHub Actions repository secrets: `PFC_GOOGLE_CLIENT_ID` and `PFC_GOOGLE_CLIENT_SECRET`.
+- Published GHCR builds receive those values through Docker BuildKit secret mounts only on non-pull-request production builds.
+- The Windows SEA bundle builder reads the same `PFC_GOOGLE_CLIENT_ID` / `PFC_GOOGLE_CLIENT_SECRET` environment variables when producing an executable or installer.
+- The resulting production bundle contains the distributed OAuth client credentials. They must therefore be treated as extractable application credentials, not as a security boundary. Customer Drive access still requires that customer's own OAuth authorization/refresh token.
+
+Pull-request container builds deliberately do **not** receive the production OAuth secrets. A per-run build nonce also prevents a cached production bundle containing credentials from being reused by a non-production build.
+
+For source/development builds or installations that deliberately want their own Google project, **Advanced OAuth configuration** allows a custom OAuth client ID/secret. Runtime `GOOGLE_DRIVE_CLIENT_ID` and `GOOGLE_DRIVE_CLIENT_SECRET` remain supported as deployment-level overrides. Credential precedence is:
+
+1. custom credentials saved in the controller UI;
+2. runtime `GOOGLE_DRIVE_CLIENT_ID` / `GOOGLE_DRIVE_CLIENT_SECRET`;
+3. built-in production credentials;
+4. unconfigured.
+
+Selecting **Use default configuration** clears a saved custom OAuth client and its account authorization, then returns to the deployment/built-in application credentials. The Google account must be connected again because refresh tokens are tied to the OAuth client.
+
+### Credential storage
+
+The customer's long-lived refresh token, managed Drive folder ID, and any deliberately saved **custom** OAuth client credentials are stored in:
+
+```text
+<DATA_DIR>/integrations/google-drive.json
+```
+
+Built-in production OAuth credentials are not copied into this file. The file is written with restrictive permissions inside the persistent controller data directory. The short-lived access token remains memory-only. Custom client secrets and refresh tokens are never returned by the status API, are never shown again in the UI after saving, and the entire integration file is deliberately excluded from `.pfcbackup` archives and diagnostic logging.
+
+Protect the controller data directory/PVC because the stored OAuth credentials can authorize future Drive access. Google Drive also requires outbound HTTPS access to Google's OAuth and Drive API endpoints.
+
+### Backup behavior
+
+Cloud restore is provider-based rather than Google-specific. Google Drive is the first provider registered with the restore UI/API; additional providers can implement the same list/download interface without changing the restore engine.
+
+- **Backup to Google Drive now** creates, verifies and compresses the canonical backup before uploading it.
+- Scheduled backups can select **Google Drive** instead of a local/mapped/NAS folder.
+- Retention deletes only older **scheduled** Drive backups created by the same controller installation. Manual Drive backups and backups from another installation are left untouched.
+- **Disconnect** revokes/removes the Google account authorization while retaining the selected OAuth configuration. With a production build, reconnecting normally requires only another Google authorization.
+- Saving a custom OAuth client or switching back to the default configuration clears the existing Google account authorization when the OAuth client changes because refresh tokens are client-specific.
+- If Google invalidates/revokes the refresh token, the controller reports **Reconnection required** instead of silently dropping scheduled backups.
+- Restore can use either a local `.pfcbackup` file or a backup selected directly from a connected cloud provider. Google Drive backups are listed in the restore source selector, downloaded to temporary staging, and passed through the same inspection, checksum/version validation, recovery-hold and restart-based restore pipeline as local files.
+
 ## Docker
 
 ### Published container image
@@ -126,11 +184,11 @@ docker run -d \
 
 Replace `192.168.1.0/24` with the subnet containing the printers. If LAN scanning is not required, `DISCOVERY_SUBNET` can be omitted and printers can still be added directly by IP.
 
-Versioned images are published from Git tags. For example, tag `v0.31.0` publishes:
+Versioned images are published from Git tags. For example, tag `v0.33.0` publishes:
 
 ```text
-ghcr.io/andy-knight/print-farm-controller:0.31.0
-ghcr.io/andy-knight/print-farm-controller:0.31
+ghcr.io/andy-knight/print-farm-controller:0.33.0
+ghcr.io/andy-knight/print-farm-controller:0.33
 ```
 
 The `latest` tag is published from the `main` branch.
@@ -139,14 +197,14 @@ The `latest` tag is published from the `main` branch.
 
 `.github/workflows/container-image.yml` runs the Node regression suite, starts a real Linux smoke-test container, then builds `linux/amd64` and `linux/arm64` images with Docker Buildx. Publishing uses the repository-scoped GitHub `GITHUB_TOKEN`; no manually stored registry password or PAT is required.
 
-Pull requests build and validate without publishing. Pushes to `main` publish `latest`, while version tags such as `v0.31.0` publish versioned image tags.
+Pull requests build and validate without publishing. Pushes to `main` publish `latest`, while version tags such as `v0.33.0` publish versioned image tags.
 
 The repository includes a Linux-container `Dockerfile` based on Node.js 24. Controller state and diagnostic logs should be mounted separately so recreating the container does not lose configuration or Print Library data.
 
 Build the image:
 
 ```powershell
-docker build -t print-farm-controller:0.31.0 .
+docker build -t print-farm-controller:0.33.0 .
 ```
 
 Create persistent host directories:
@@ -164,7 +222,7 @@ docker run --rm `
   -p 4242:4242 `
   -v "${PWD}\container-data:/data" `
   -v "${PWD}\container-logs:/logs" `
-  print-farm-controller:0.31.0
+  print-farm-controller:0.33.0
 ```
 
 Open `http://localhost:4242`.
@@ -202,7 +260,7 @@ docker run --rm `
   -e DISCOVERY_SUBNET=192.168.1.0/24 `
   -v "${PWD}\container-data:/data" `
   -v "${PWD}\container-logs:/logs" `
-  print-farm-controller:0.31.0
+  print-farm-controller:0.33.0
 ```
 
 `DISCOVERY_SUBNET` accepts bounded IPv4 CIDRs from `/22` through `/30`. It is optional; when omitted, native interface-based discovery behaves exactly as before. The setting affects discovery only and does not change normal printer connections.

@@ -27,9 +27,13 @@ export function normalizeBackupSettings(value = {}) {
     : crypto.randomUUID();
   const retention = Number(value.retentionCount);
   const weekday = Number(value.scheduleWeekday);
+  const destinationType = String(value.destinationType || '').trim().toLowerCase() === 'google-drive'
+    ? 'google-drive'
+    : 'local';
   return {
     installationId:validInstallationId,
     enabled:value.enabled === true,
+    destinationType,
     destination:String(value.destination || '').trim() || null,
     frequency:['daily','weekly'].includes(String(value.frequency || '').trim().toLowerCase())
       ? String(value.frequency).trim().toLowerCase()

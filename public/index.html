@@ -334,8 +334,53 @@
       <section class="backup-section">
         <div class="backup-section-head">
           <div>
+            <strong>Google Drive</strong>
+            <div class="field-help">Connect a Google account using Google's device authorization flow. Backups are stored in a controller-managed <strong>Print Farm Controller Backups</strong> folder using limited per-file Drive access.</div>
+          </div>
+          <div class="mini-actions backup-google-actions">
+            <button id="googleDriveConnectBtn" type="button" class="secondary">Connect</button>
+            <button id="googleDriveTestBtn" type="button" class="secondary">Test</button>
+            <button id="googleDriveDisconnectBtn" type="button" class="secondary">Disconnect</button>
+          </div>
+        </div>
+        <details id="googleDriveAdvancedConfig" class="google-drive-config">
+          <summary>Advanced OAuth configuration</summary>
+          <div class="field-help google-drive-config-intro">
+            Released Print Farm Controller builds include the application's Google OAuth configuration, so normal users only need to select <strong>Connect</strong>. Use this section only to override the built-in configuration or when running a source/development build without bundled credentials.
+          </div>
+          <div class="google-drive-config-grid">
+            <label>Custom OAuth client ID
+              <input id="googleDriveClientId" type="text" autocomplete="off" spellcheck="false" placeholder="xxxxxxxxxxxx.apps.googleusercontent.com" />
+            </label>
+            <label>Custom OAuth client secret
+              <input id="googleDriveClientSecret" type="password" autocomplete="new-password" placeholder="Enter client secret" />
+            </label>
+          </div>
+          <div class="mini-actions backup-google-config-actions">
+            <button id="googleDriveSaveConfigBtn" type="button" class="secondary">Save custom configuration</button>
+            <button id="googleDriveUseDefaultConfigBtn" type="button" class="secondary">Use default configuration</button>
+          </div>
+          <div class="field-help">Custom credentials are stored with controller data and take precedence over the built-in application credentials. The client secret is never displayed again after saving.</div>
+        </details>
+        <div id="googleDriveStatus" class="subtle backup-action-status" aria-live="polite"></div>
+        <div id="googleDriveAuth" class="google-drive-auth hidden">
+          <div>Open <a id="googleDriveVerificationLink" href="#" target="_blank" rel="noopener noreferrer">Google device authorization</a> and enter this code:</div>
+          <code id="googleDriveUserCode" class="google-drive-code"></code>
+          <div class="mini-actions">
+            <button id="googleDriveCheckAuthBtn" type="button" class="secondary">Check connection</button>
+          </div>
+        </div>
+        <div class="mini-actions backup-google-backup-actions">
+          <button id="googleDriveBackupBtn" type="button" class="primary">Backup to Google Drive now</button>
+        </div>
+        <div id="googleDriveError" class="error hidden"></div>
+      </section>
+
+      <section class="backup-section">
+        <div class="backup-section-head">
+          <div>
             <strong>Scheduled backups</strong>
-            <div class="field-help">Save verified backups automatically to a local folder, mapped drive or writable UNC/NAS path.</div>
+            <div class="field-help">Save verified backups automatically to a local/NAS destination or the connected Google Drive folder.</div>
           </div>
         </div>
         <div class="backup-schedule-grid">
@@ -343,7 +388,13 @@
             <input id="backupScheduleEnabled" type="checkbox" />
             <span>Enable scheduled backups</span>
           </label>
-          <label class="backup-schedule-destination">Destination folder
+          <label>Destination
+            <select id="backupScheduleDestinationType">
+              <option value="local">Local / mapped / NAS folder</option>
+              <option value="google-drive">Google Drive</option>
+            </select>
+          </label>
+          <label id="backupScheduleLocalDestinationField" class="backup-schedule-destination">Destination folder
             <input id="backupScheduleDestination" type="text" placeholder="D:\Backups\Print Farm Controller or \\NAS\Backups" autocomplete="off" />
           </label>
           <div class="mini-actions backup-destination-actions">
@@ -373,7 +424,7 @@
             <input id="backupScheduleRetention" type="number" min="1" max="365" step="1" value="14" />
           </label>
         </div>
-        <div class="field-help">Retention applies only to scheduled backups created by this controller installation. Manual backups and backups from other installations are never pruned.</div>
+        <div class="field-help">Retention applies only to scheduled backups created by this controller installation at the selected destination. Manual backups and backups from other installations are never pruned.</div>
         <div class="mini-actions backup-schedule-actions">
           <button id="backupSaveScheduleBtn" type="button" class="primary">Save schedule</button>
         </div>
@@ -388,9 +439,29 @@
             <div class="field-help">Validate a .pfcbackup and review what it contains. Inspection never changes controller data.</div>
           </div>
         </div>
-        <label class="backup-file-field">Backup file
-          <input id="restoreBackupFileInput" type="file" accept=".pfcbackup,application/vnd.print-farm-controller.backup+zip" />
-        </label>
+        <div class="restore-source-grid">
+          <label>Restore source
+            <select id="restoreSourceSelect">
+              <option value="local">Local backup file</option>
+            </select>
+          </label>
+          <div id="restoreLocalSource">
+            <label class="backup-file-field">Backup file
+              <input id="restoreBackupFileInput" type="file" accept=".pfcbackup,application/vnd.print-farm-controller.backup+zip" />
+            </label>
+          </div>
+          <div id="restoreCloudSource" class="hidden">
+            <label>Cloud backup
+              <select id="restoreCloudBackupSelect">
+                <option value="">Select a backup</option>
+              </select>
+            </label>
+            <div class="mini-actions restore-cloud-actions">
+              <button id="restoreCloudRefreshBtn" type="button" class="secondary">Refresh backups</button>
+            </div>
+            <div id="restoreCloudStatus" class="field-help"></div>
+          </div>
+        </div>
         <div class="mini-actions backup-restore-actions">
           <button id="restoreInspectBtn" type="button" class="secondary">Inspect backup</button>
           <button id="restoreStageBtn" type="button" class="primary" disabled>Restore backup</button>
@@ -399,7 +470,7 @@
         <div id="restoreInspectStatus" class="subtle backup-action-status" aria-live="polite"></div>
         <div id="restoreInspectError" class="error hidden"></div>
         <div id="restoreInspectionSummary" class="restore-inspection-summary hidden"></div>
-        <div class="field-help">A valid inspection enables restore staging. The staged restore activates only after Print Farm Controller is restarted; unfinished jobs remain recovery-held until deliberately rechecked.</div>
+        <div class="field-help">Local and cloud backups use the same inspection, validation and staged restore pipeline. A valid inspection enables restore staging. The staged restore activates only after Print Farm Controller is restarted; unfinished jobs remain recovery-held until deliberately rechecked.</div>
       </section>
 
       <div class="actions">

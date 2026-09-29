@@ -44,6 +44,8 @@ import { PrinterGroupService } from './printer-groups.js';
 import { ManualBackupManager } from './backup-recovery/manual-backup-manager.js';
 import { BackupOperationLock } from './backup-recovery/backup-operation-lock.js';
 import { ScheduledBackupService } from './backup-recovery/scheduled-backup-service.js';
+import { GoogleDriveClient } from './backup-recovery/google-drive-client.js';
+import { CloudBackupProviderRegistry } from './backup-recovery/cloud-backup-providers.js';
 import { inspectRestoreBackup } from './backup-recovery/restore-inspector.js';
 import { stageRestoreUploadRequest } from './backup-recovery/restore-upload-staging.js';
 import {
@@ -60,6 +62,8 @@ const PUBLIC_DIR = runtimePaths.publicDir;
 const APP_DIR = runtimePaths.applicationDir;
 const PACKAGE_PATH = runtimePaths.packageJsonPath;
 const bundledVersion = typeof __PFC_VERSION__ === 'string' ? __PFC_VERSION__ : null;
+const bundledGoogleClientId = typeof __PFC_GOOGLE_CLIENT_ID__ === 'string' ? __PFC_GOOGLE_CLIENT_ID__ : '';
+const bundledGoogleClientSecret = typeof __PFC_GOOGLE_CLIENT_SECRET__ === 'string' ? __PFC_GOOGLE_CLIENT_SECRET__ : '';
 const packageInfo = PACKAGE_PATH ? JSON.parse(readFileSync(PACKAGE_PATH, 'utf8')) : {};
 const CONTROLLER_VERSION = String(bundledVersion || packageInfo.version || 'unknown');
 const PORT = Number(process.env.PORT || 4242);
@@ -69,12 +73,28 @@ const memoryMonitor = new MemoryMonitor({
   diagnosticFn:(level, message, meta) => diagnosticLogger[level]?.('memory', message, meta)
 });
 const backupOperationLock = new BackupOperationLock();
+const googleDriveClient = new GoogleDriveClient({
+  dataDir:runtimePaths.dataDir,
+  builtInClientId:bundledGoogleClientId,
+  builtInClientSecret:bundledGoogleClientSecret,
+  diagnosticFn:(level, message, meta) => diagnosticLogger[level]?.('backup', message, meta)
+});
+const cloudBackupProviders = new CloudBackupProviderRegistry([
+  {
+    id:'google-drive',
+    label:'Google Drive',
+    status:() => googleDriveClient.status(),
+    listBackups:() => googleDriveClient.listBackups(),
+    downloadBackup:(fileId, options) => googleDriveClient.downloadBackup(fileId, options)
+  }
+]);
 const manualBackupManager = new ManualBackupManager({
   dataDir:runtimePaths.dataDir,
   applicationDir:runtimePaths.applicationDir,
   licensePath:runtimePaths.licensePath,
   controllerVersion:CONTROLLER_VERSION,
-  operationLock:backupOperationLock
+  operationLock:backupOperationLock,
+  googleDriveClient
 });
 const scheduledBackupService = new ScheduledBackupService({
   dataDir:runtimePaths.dataDir,
@@ -82,7 +102,8 @@ const scheduledBackupService = new ScheduledBackupService({
   licensePath:runtimePaths.licensePath,
   controllerVersion:CONTROLLER_VERSION,
   operationLock:backupOperationLock,
-  diagnosticFn:(level, message, meta) => diagnosticLogger[level]?.('backup', message, meta)
+  diagnosticFn:(level, message, meta) => diagnosticLogger[level]?.('backup', message, meta),
+  googleDriveClient
 });
 const fleetState = new FleetStateService({
   diagnosticFn:(level, message, meta) => diagnosticLogger[level]?.('fleet', message, meta)
@@ -571,8 +592,51 @@ async function apiRoute(req, res, url) {
 
   if (req.method === 'POST' && url.pathname === '/api/backup/test-destination') {
     const body = await readJson(req);
-    const result = await scheduledBackupService.testDestination(body.destination);
+    const result = await scheduledBackupService.testDestination(body.destination, body.destinationType);
     return json(res, 200, { destination:result });
+  }
+
+  if (req.method === 'GET' && url.pathname === '/api/integrations/google-drive/status') {
+    return json(res, 200, { googleDrive:await googleDriveClient.status() });
+  }
+
+  if (req.method === 'PUT' && url.pathname === '/api/integrations/google-drive/config') {
+    const body = await readJson(req);
+    const googleDrive = await googleDriveClient.configure({
+      clientId:body.clientId,
+      clientSecret:body.clientSecret
+    });
+    return json(res, 200, { googleDrive });
+  }
+
+  if (req.method === 'DELETE' && url.pathname === '/api/integrations/google-drive/config') {
+    const googleDrive = await googleDriveClient.resetConfiguration();
+    return json(res, 200, { googleDrive });
+  }
+
+  if (req.method === 'POST' && url.pathname === '/api/integrations/google-drive/connect') {
+    const googleDrive = await googleDriveClient.startDeviceAuthorization();
+    return json(res, 200, { googleDrive });
+  }
+
+  if (req.method === 'POST' && url.pathname === '/api/integrations/google-drive/connect/poll') {
+    const googleDrive = await googleDriveClient.pollDeviceAuthorization();
+    return json(res, 200, { googleDrive });
+  }
+
+  if (req.method === 'POST' && url.pathname === '/api/integrations/google-drive/test') {
+    const connection = await googleDriveClient.testConnection();
+    return json(res, 200, { connection, googleDrive:await googleDriveClient.status() });
+  }
+
+  if (req.method === 'GET' && url.pathname === '/api/integrations/google-drive/backups') {
+    const backups = await googleDriveClient.listBackups();
+    return json(res, 200, { backups, googleDrive:await googleDriveClient.status() });
+  }
+
+  if (req.method === 'DELETE' && url.pathname === '/api/integrations/google-drive') {
+    const googleDrive = await googleDriveClient.disconnect();
+    return json(res, 200, { googleDrive });
   }
 
   if (req.method === 'POST' && url.pathname === '/api/backup/create') {
@@ -592,6 +656,26 @@ async function apiRoute(req, res, url) {
       return json(res, 201, { backup });
     } catch (error) {
       await diagnosticLogger.warn('backup', 'Manual backup creation failed', {
+        error:error?.message || String(error)
+      });
+      throw error;
+    }
+  }
+
+  if (req.method === 'POST' && url.pathname === '/api/backup/create/google-drive') {
+    await diagnosticLogger.info('backup', 'Manual Google Drive backup requested');
+    try {
+      const backup = await manualBackupManager.createGoogleDrive();
+      await diagnosticLogger.info('backup', 'Manual Google Drive backup created, verified and uploaded', {
+        fileName:backup.fileName,
+        size:backup.size,
+        createdAt:backup.manifest?.createdAt || null,
+        driveFileId:backup.driveFileId || null,
+        folderName:backup.folderName || null
+      });
+      return json(res, 201, { backup });
+    } catch (error) {
+      await diagnosticLogger.warn('backup', 'Manual Google Drive backup failed', {
         error:error?.message || String(error)
       });
       throw error;
@@ -618,6 +702,130 @@ async function apiRoute(req, res, url) {
 
   if (req.method === 'GET' && url.pathname === '/api/restore/status') {
     return json(res, 200, { restore:await pendingRestoreStatus(runtimePaths.dataDir) });
+  }
+
+  if (req.method === 'GET' && url.pathname === '/api/restore/cloud/providers') {
+    return json(res, 200, { providers:await cloudBackupProviders.listProviders() });
+  }
+
+  const cloudBackupListMatch = url.pathname.match(/^\/api\/restore\/cloud\/([^/]+)\/backups$/);
+  if (cloudBackupListMatch && req.method === 'GET') {
+    const providerId = decodeURIComponent(cloudBackupListMatch[1]);
+    const result = await cloudBackupProviders.listBackups(providerId);
+    return json(res, 200, result);
+  }
+
+  const cloudRestoreInspectMatch = url.pathname.match(/^\/api\/restore\/cloud\/([^/]+)\/inspect$/);
+  if (cloudRestoreInspectMatch && req.method === 'POST') {
+    if (restoreInspectionInProgress) {
+      const error = new Error('A restore backup is already being inspected');
+      error.statusCode = 409;
+      throw error;
+    }
+    restoreInspectionInProgress = true;
+    let downloaded = null;
+    try {
+      const providerId = decodeURIComponent(cloudRestoreInspectMatch[1]);
+      const body = await readJson(req);
+      downloaded = await cloudBackupProviders.downloadBackup(providerId, body.fileId);
+      await diagnosticLogger.info('restore', 'Cloud restore backup inspection requested', {
+        provider:providerId,
+        fileName:downloaded.fileName,
+        size:downloaded.size
+      });
+      const inspection = await inspectRestoreBackup(downloaded.filePath, {
+        currentControllerVersion:CONTROLLER_VERSION,
+        targetDataDir:runtimePaths.dataDir,
+        originalFileName:downloaded.fileName
+      });
+      await diagnosticLogger.info('restore', 'Cloud restore backup inspection passed', {
+        provider:providerId,
+        fileName:inspection.fileName,
+        sourceControllerVersion:inspection.sourceControllerVersion,
+        createdAt:inspection.createdAt,
+        printers:inspection.counts.printers,
+        printLibrary:inspection.counts.printLibrary,
+        queued:inspection.counts.queued,
+        history:inspection.counts.history,
+        licenseIncluded:inspection.licenseIncluded,
+        migrationsRequired:inspection.migrationsRequired.length
+      });
+      return json(res, 200, { inspection });
+    } catch (error) {
+      await diagnosticLogger.warn('restore', 'Cloud restore backup inspection failed', {
+        fileName:downloaded?.fileName || null,
+        error:error?.message || String(error)
+      });
+      throw error;
+    } finally {
+      restoreInspectionInProgress = false;
+      await downloaded?.cleanup().catch(() => {});
+    }
+  }
+
+  const cloudRestoreStageMatch = url.pathname.match(/^\/api\/restore\/cloud\/([^/]+)\/stage$/);
+  if (cloudRestoreStageMatch && req.method === 'POST') {
+    if (restoreInspectionInProgress) {
+      const error = new Error('A restore backup operation is already in progress');
+      error.statusCode = 409;
+      throw error;
+    }
+
+    printQueue.setDispatchPaused(true);
+    scheduledBackupService.stop();
+    restoreInspectionInProgress = true;
+    const blockers = restorePhysicalActivityBlockers();
+    if (activeMutationRequests > 1) blockers.push('another controller change request is still in progress');
+    if (backupOperationLock.isBusy()) blockers.push(`${backupOperationLock.status()?.kind || 'backup'} backup operation is still in progress`);
+    if (blockers.length) {
+      restoreInspectionInProgress = false;
+      printQueue.setDispatchPaused(false);
+      scheduledBackupService.start().catch(() => {});
+      const error = new Error(`Restore cannot be staged while controller or physical printer work is active: ${blockers.join('; ')}`);
+      error.statusCode = 409;
+      throw error;
+    }
+
+    let downloaded = null;
+    let stagedSuccessfully = false;
+    try {
+      const providerId = decodeURIComponent(cloudRestoreStageMatch[1]);
+      const body = await readJson(req);
+      downloaded = await cloudBackupProviders.downloadBackup(providerId, body.fileId);
+      await diagnosticLogger.info('restore', 'Cloud restore staging requested', {
+        provider:providerId,
+        fileName:downloaded.fileName,
+        size:downloaded.size
+      });
+      const restore = await stageRestoreBackup(downloaded.filePath, {
+        dataDir:runtimePaths.dataDir,
+        licensePath:runtimePaths.licensePath,
+        currentControllerVersion:CONTROLLER_VERSION,
+        originalFileName:downloaded.fileName
+      });
+      restorePendingRestart = true;
+      stagedSuccessfully = true;
+      await diagnosticLogger.warn('restore', 'Cloud restore staged; controller restart required', {
+        provider:providerId,
+        fileName:restore.fileName,
+        backupId:restore.backupId,
+        recoveryHeldJobs:restore.recoveryHeldJobs
+      });
+      return json(res, 202, { restore });
+    } catch (error) {
+      await diagnosticLogger.warn('restore', 'Cloud restore staging failed', {
+        fileName:downloaded?.fileName || null,
+        error:error?.message || String(error)
+      });
+      throw error;
+    } finally {
+      restoreInspectionInProgress = false;
+      if (!stagedSuccessfully) {
+        printQueue.setDispatchPaused(false);
+        scheduledBackupService.start().catch(() => {});
+      }
+      await downloaded?.cleanup().catch(() => {});
+    }
   }
 
   if (req.method === 'POST' && url.pathname === '/api/restore/stage') {

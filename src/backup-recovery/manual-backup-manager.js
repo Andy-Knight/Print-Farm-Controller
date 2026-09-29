@@ -21,7 +21,8 @@ export class ManualBackupManager {
     licensePath,
     controllerVersion = 'unknown',
     downloadTtlMs = DEFAULT_DOWNLOAD_TTL_MS,
-    operationLock = null
+    operationLock = null,
+    googleDriveClient = null
   } = {}) {
     if (!dataDir) throw new Error('Manual backup manager requires a data directory');
     this.dataDir = path.resolve(dataDir);
@@ -30,7 +31,9 @@ export class ManualBackupManager {
     this.controllerVersion = String(controllerVersion || 'unknown');
     this.downloadTtlMs = Math.max(60_000, Number(downloadTtlMs) || DEFAULT_DOWNLOAD_TTL_MS);
     this.operationLock = operationLock || new BackupOperationLock();
-    this.stagingDir = path.join(this.dataDir, '.backup-staging');
+    this.googleDriveClient = googleDriveClient || null;
+    this.stagingRoot = path.join(this.dataDir, '.backup-staging');
+    this.stagingDir = path.join(this.stagingRoot, 'manual');
     this.downloads = new Map();
     this.creating = false;
     this.initialized = false;
@@ -43,6 +46,15 @@ export class ManualBackupManager {
     for (const entry of entries) {
       if (!entry.isFile()) continue;
       await fs.rm(path.join(this.stagingDir, entry.name), { force:true }).catch(() => {});
+    }
+
+    // v0.32 and earlier manual downloads were staged directly under
+    // .backup-staging. Remove only legacy files at that root; never recurse
+    // into the scheduled/manual subdirectories used by current builds.
+    const legacyEntries = await fs.readdir(this.stagingRoot, { withFileTypes:true }).catch(() => []);
+    for (const entry of legacyEntries) {
+      if (!entry.isFile()) continue;
+      await fs.rm(path.join(this.stagingRoot, entry.name), { force:true }).catch(() => {});
     }
     this.initialized = true;
   }
@@ -141,6 +153,77 @@ export class ManualBackupManager {
       expiresAt:new Date(item.expiresAtMs).toISOString(),
       downloadUrl:`/api/backup/download/${encodeURIComponent(item.id)}`
     };
+  }
+
+  async createGoogleDrive() {
+    await this.init();
+    if (!this.googleDriveClient) {
+      const error = new Error('Google Drive backup support is unavailable');
+      error.statusCode = 503;
+      throw error;
+    }
+    if (this.creating) throw backupBusyError();
+
+    return this.operationLock.run('manual-google-drive', async () => {
+      this.creating = true;
+      const attemptedAt = new Date().toISOString();
+      let settings = await loadBackupSettings({ dataDir:this.dataDir, create:true });
+      settings = await saveBackupSettings({
+        ...settings,
+        lastAttemptedBackup:attemptedAt,
+        lastError:null
+      }, { dataDir:this.dataDir });
+
+      let result = null;
+      try {
+        await this.cleanupExpired();
+        await this.googleDriveClient.testConnection();
+        result = await createBackupInDirectory({
+          destinationDir:this.stagingDir,
+          dataDir:this.dataDir,
+          applicationDir:this.applicationDir,
+          licensePath:this.licensePath,
+          controllerVersion:this.controllerVersion,
+          source:'manual'
+        });
+        const uploaded = await this.googleDriveClient.uploadBackup({
+          filePath:result.filePath,
+          fileName:result.fileName,
+          manifest:result.manifest
+        });
+        const success = {
+          createdAt:result.manifest.createdAt,
+          fileName:result.fileName,
+          size:result.size,
+          source:'manual',
+          destinationType:'google-drive',
+          destination:uploaded.folderName || 'Google Drive',
+          driveFileId:uploaded.id || null
+        };
+        await saveBackupSettings({
+          ...settings,
+          lastSuccessfulBackup:success,
+          lastError:null
+        }, { dataDir:this.dataDir });
+        return {
+          fileName:result.fileName,
+          size:result.size,
+          manifest:result.manifest,
+          destinationType:'google-drive',
+          folderName:uploaded.folderName || null,
+          driveFileId:uploaded.id || null
+        };
+      } catch (error) {
+        await saveBackupSettings({
+          ...settings,
+          lastError:error?.message || String(error)
+        }, { dataDir:this.dataDir }).catch(() => {});
+        throw error;
+      } finally {
+        if (result?.filePath) await fs.rm(result.filePath, { force:true }).catch(() => {});
+        this.creating = false;
+      }
+    });
   }
 
   async get(id) {

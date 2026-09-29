@@ -1,4 +1,4 @@
-# Backup and Recovery Design — v0.23.0
+# Backup and Recovery Design — v0.33.0
 
 ## Purpose
 
@@ -11,8 +11,9 @@ The backup format is intentionally logical and path-independent. A backup is not
 ### Included
 
 - Manual backup from the controller UI.
-- Scheduled backup to a local folder or an operating-system-mounted/network path such as a Windows UNC/NAS location.
-- Configurable scheduled-backup retention.
+- Scheduled backup to a local folder, an operating-system-mounted/network path such as a Windows UNC/NAS location, or Google Drive.
+- Google Drive manual/scheduled upload using the same verified `.pfcbackup` artifact.
+- Configurable scheduled-backup retention for local and Google Drive destinations.
 - Portable `.pfcbackup` package.
 - Manifest, format version, source controller version, counts and SHA-256 integrity checks.
 - Restore validation before any live data is changed.
@@ -23,7 +24,7 @@ The backup format is intentionally logical and path-independent. A backup is not
 
 ### Deferred
 
-- Cloud-provider-specific destinations.
+- Additional cloud-provider-specific destinations beyond Google Drive.
 - Built-in backup encryption/password protection.
 - Incremental/differential backups.
 - Remote replication between controller instances.
@@ -189,6 +190,103 @@ The installed signed customer `license.json` may be included.
 
 Back up backup-policy configuration so retention/path preferences can be recovered, but scheduled backup execution is restored **disabled** until the user explicitly confirms/re-enables it on the recovered installation. This prevents an old machine-specific or network path from being used unexpectedly.
 
+## Google Drive destination
+
+Google Drive is a destination for the canonical verified `.pfcbackup` artifact; it does not implement a second backup format or bypass backup verification.
+
+### OAuth model
+
+The controller uses Google's OAuth flow for **TVs and Limited Input devices** and requests only:
+
+```text
+https://www.googleapis.com/auth/drive.file
+```
+
+Released production builds use one shared **Print Farm Controller** OAuth client. Normal customers do not create their own Google Cloud project or enter a client ID/secret; they select **Connect** and authorize their own Google account.
+
+Production credentials are injected into compiled bundles at build time through `PFC_GOOGLE_CLIENT_ID` and `PFC_GOOGLE_CLIENT_SECRET`. GitHub Actions supplies those values from repository Actions secrets to production container builds using Docker BuildKit secret mounts. Pull-request builds deliberately receive no production credentials. The Windows SEA bundle builder consumes the same environment variables when they are present.
+
+The credentials are distributed application credentials: they are kept out of source control, Docker metadata and build command history, but a determined user can extract them from a released executable/container. They are therefore not a security boundary for customer data. Drive access still requires the customer's own OAuth authorization and refresh token.
+
+Source/development deployments can use **Advanced OAuth configuration** to save a custom OAuth client. Runtime `GOOGLE_DRIVE_CLIENT_ID` / `GOOGLE_DRIVE_CLIENT_SECRET` remain deployment-level overrides. Effective credential precedence is:
+
+1. UI-saved custom credentials;
+2. runtime environment override;
+3. built-in production credentials;
+4. unconfigured.
+
+Persistent integration state remains:
+
+```text
+<DATA_DIR>/integrations/google-drive.json
+```
+
+This file contains the customer's refresh token, Drive folder state, and custom OAuth credentials only when the user deliberately configures an override. Built-in production OAuth credentials are not copied into persistent controller data. The short-lived access token remains memory-only. Custom client secrets and refresh tokens are never returned through the status API.
+
+Selecting **Use default configuration** clears a custom OAuth override and its existing account authorization, returning the installation to the deployment/built-in credentials. The Google account must then be connected again because refresh tokens are client-specific.
+
+The integration file is never included in a portable backup or diagnostic bundle. If token refresh returns an authorization failure such as `invalid_grant`, the integration enters a **reconnection required** state and scheduled Drive backups fail visibly until the user reconnects.
+
+### Drive folder and upload
+
+PFC creates or reuses a visible My Drive folder named:
+
+```text
+Print Farm Controller Backups
+```
+
+Uploads use the Google Drive resumable-upload API and stream the already-created `.pfcbackup` file from controller staging. The cloud provider never compresses, modifies, or reconstructs backup contents.
+
+Each PFC-created Drive backup receives Drive `appProperties` containing controller metadata needed for safe retention, including:
+
+- PFC backup marker;
+- backup UUID;
+- installation UUID;
+- backup source (manual/scheduled);
+- creation timestamp;
+- backup-format version.
+
+These properties do not contain printer credentials, OAuth tokens, or file contents.
+
+### Scheduled Drive retention
+
+Drive retention follows the same safety model as local scheduled retention:
+
+- only `.pfcbackup` files created by PFC are eligible;
+- only backups with `backupSource=scheduled` are eligible;
+- only backups whose installation ID matches the current controller are eligible;
+- manual Drive backups are never pruned by scheduled retention;
+- backups created by another controller installation are never pruned;
+- retention runs only after the newest upload succeeds;
+- retention failure does not turn a successfully uploaded backup into a failed backup.
+
+### Disconnect
+
+Disconnecting attempts to revoke the Google refresh token, clears account authorization and memory-only access-token state, preserves the saved OAuth client configuration for later reconnection, and leaves existing Drive backup files untouched.
+
+### Cloud restore provider model
+
+Cloud restore does not implement a second restore engine. Providers implement a small storage-facing contract:
+
+- report provider status;
+- list eligible controller backups;
+- download a selected backup to temporary local staging.
+
+The controller then passes that temporary `.pfcbackup` through the existing `inspectRestoreBackup()` and `stageRestoreBackup()` paths. Google Drive is the first registered provider.
+
+The restore UI discovers connected providers dynamically, so future providers can appear as restore sources without changing restore validation logic. A cloud backup must be explicitly selected and inspected before Restore is enabled. If the user changes the provider or selected backup after inspection, the inspection is invalidated.
+
+Cloud staging deliberately downloads the selected backup again when **Restore backup** is pressed. This revalidates the exact artifact being staged rather than trusting the earlier inspection result. Temporary cloud downloads are deleted after inspection/staging.
+
+Google Drive downloads are restricted to files that:
+
+- are inside the controller-managed **Print Farm Controller Backups** folder visible to the app;
+- carry the PFC backup app-property marker;
+- have a valid `.pfcbackup` filename;
+- remain below the existing restore size limit.
+
+
+
 ## Data excluded
 
 v0.23.0 excludes:
@@ -204,6 +302,7 @@ v0.23.0 excludes:
 - runtime locks/reservations;
 - in-memory printer state;
 - private licence signing keys or License Manager data.
+- Google OAuth client credentials, refresh/access tokens, and `data/integrations/google-drive.json`.
 
 Diagnostic logs have their own sanitized diagnostic-bundle workflow and are deliberately separate from disaster-recovery backups.
 
@@ -222,6 +321,8 @@ Reasons:
 Current JSON stores are already written using temp-file + rename semantics, so each store can be read atomically.
 
 The Print Library uses immutable file IDs/content. Queue/history references protect referenced library entries from deletion. Backup code should still tolerate a concurrent unreferenced library change by retrying or omitting an entry only when it was removed before the snapshot was finalized.
+
+Google Drive integration state is intentionally outside the logical snapshot allowlist. Backup creation enumerates known logical stores rather than copying `DATA_DIR`, so introducing `data/integrations/google-drive.json` does not make the refresh token part of a backup.
 
 A backup must not send printer commands or interrupt an active physical print.
 

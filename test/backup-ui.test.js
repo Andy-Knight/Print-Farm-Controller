@@ -8,6 +8,7 @@ const styles = fs.readFileSync(new URL('../public/styles.css', import.meta.url),
 const server = fs.readFileSync(new URL('../src/server.js', import.meta.url), 'utf8');
 const restoreService = fs.readFileSync(new URL('../src/backup-recovery/restore-service.js', import.meta.url), 'utf8');
 const scheduledBackupService = fs.readFileSync(new URL('../src/backup-recovery/scheduled-backup-service.js', import.meta.url), 'utf8');
+const googleDriveClient = fs.readFileSync(new URL('../src/backup-recovery/google-drive-client.js', import.meta.url), 'utf8');
 
 test('Backup and Recovery is available from the controller overflow menu', () => {
   assert.match(index, /id="backupRecoveryBtn"[^>]*>Backup &amp; recovery<\/button>/);
@@ -79,8 +80,10 @@ test('restore inspection enables staged restart-based restore with cancel suppor
 });
 
 
-test('scheduled backup UI configures writable local or network destinations and retention', () => {
+test('scheduled backup UI configures local, network or Google Drive destinations and retention', () => {
   assert.match(index, /id="backupScheduleEnabled"/);
+  assert.match(index, /id="backupScheduleDestinationType"/);
+  assert.match(index, /value="google-drive">Google Drive/);
   assert.match(index, /id="backupScheduleDestination"/);
   assert.match(index, /id="backupScheduleFrequency"/);
   assert.match(index, /id="backupScheduleTime"/);
@@ -95,6 +98,8 @@ test('scheduled backup UI configures writable local or network destinations and 
   assert.match(app, /async function saveScheduledBackupSettings\(\)/);
   assert.match(app, /api\('\/api\/backup\/settings'/);
   assert.match(app, /updateBackupWeekdayVisibility/);
+  assert.match(app, /updateBackupDestinationVisibility/);
+  assert.match(app, /destinationType:backupScheduleDestinationType/);
   assert.match(app, /Next scheduled backup/);
   assert.match(app, /Missed backup catch-up pending for/);
 
@@ -106,6 +111,9 @@ test('scheduled backup UI configures writable local or network destinations and 
   assert.match(server, /scheduledBackupService\.stop\(\)/);
 
   assert.match(scheduledBackupService, /source:'scheduled'/);
+  assert.match(scheduledBackupService, /destinationType === 'google-drive'/);
+  assert.match(scheduledBackupService, /googleDriveClient\.uploadBackup/);
+  assert.match(scheduledBackupService, /googleDriveClient\.pruneScheduledBackups/);
   assert.match(scheduledBackupService, /manifest\.backupSource !== 'scheduled'/);
   assert.match(scheduledBackupService, /manifest\.installationId/);
   assert.match(scheduledBackupService, /retentionCount/);
@@ -115,4 +123,75 @@ test('scheduled backup UI configures writable local or network destinations and 
   assert.match(scheduledBackupService, /trigger:'catch-up'/);
   assert.match(scheduledBackupService, /lastScheduledFor/);
   assert.match(styles, /\.backup-schedule-grid/);
+});
+
+
+test('Google Drive backup UI uses device authorization and limited Drive file access', () => {
+  assert.match(index, /<strong>Google Drive<\/strong>/);
+  assert.match(index, /id="googleDriveAdvancedConfig"/);
+  assert.match(index, /Advanced OAuth configuration/);
+  assert.match(index, /id="googleDriveClientId"/);
+  assert.match(index, /id="googleDriveClientSecret"[^>]*type="password"/);
+  assert.match(index, /id="googleDriveSaveConfigBtn"/);
+  assert.match(index, /id="googleDriveUseDefaultConfigBtn"/);
+  assert.match(index, /id="googleDriveConnectBtn"/);
+  assert.match(index, /id="googleDriveVerificationLink"/);
+  assert.match(index, /id="googleDriveUserCode"/);
+  assert.match(index, /id="googleDriveBackupBtn"[^>]*>Backup to Google Drive now<\/button>/);
+
+  assert.match(app, /async function saveGoogleDriveConfiguration\(\)/);
+  assert.match(app, /async function useDefaultGoogleDriveConfiguration\(\)/);
+  assert.match(app, /defaultConfigurationAvailable/);
+  assert.match(app, /api\('\/api\/integrations\/google-drive\/config'/);
+  assert.match(app, /async function startGoogleDriveConnection\(\)/);
+  assert.match(app, /api\('\/api\/integrations\/google-drive\/connect'/);
+  assert.match(app, /async function pollGoogleDriveAuthorization\(\)/);
+  assert.match(app, /api\('\/api\/integrations\/google-drive\/connect\/poll'/);
+  assert.match(app, /async function createGoogleDriveBackup\(\)/);
+  assert.match(app, /api\('\/api\/backup\/create\/google-drive'/);
+
+  assert.match(server, /new GoogleDriveClient/);
+  assert.match(server, /url\.pathname === '\/api\/integrations\/google-drive\/status'/);
+  assert.match(server, /url\.pathname === '\/api\/integrations\/google-drive\/config'/);
+  assert.match(server, /googleDriveClient\.configure/);
+  assert.match(server, /googleDriveClient\.resetConfiguration/);
+  assert.match(server, /builtInClientId:bundledGoogleClientId/);
+  assert.match(server, /url\.pathname === '\/api\/integrations\/google-drive\/connect'/);
+  assert.match(server, /url\.pathname === '\/api\/backup\/create\/google-drive'/);
+
+  assert.match(googleDriveClient, /https:\/\/www\.googleapis\.com\/auth\/drive\.file/);
+  assert.match(googleDriveClient, /oauth2\.googleapis\.com\/device\/code/);
+  assert.match(googleDriveClient, /path\.join\(this\.dataDir, 'integrations'\)/);
+  assert.match(googleDriveClient, /path\.join\(this\.integrationDir, 'google-drive\.json'\)/);
+  assert.match(googleDriveClient, /async configure\(\{ clientId, clientSecret \}/);
+  assert.match(googleDriveClient, /clientSecretConfigured/);
+  assert.doesNotMatch(googleDriveClient, /auth\/drive['"]/);
+  assert.match(styles, /\.google-drive-config/);
+  assert.match(styles, /\.google-drive-config-grid/);
+  assert.match(styles, /\.google-drive-auth/);
+  assert.match(styles, /\.google-drive-code/);
+});
+
+
+test('restore UI supports local and cloud backup providers through one restore pipeline', () => {
+  assert.match(index, /id="restoreSourceSelect"/);
+  assert.match(index, /Local backup file/);
+  assert.match(index, /id="restoreCloudBackupSelect"/);
+  assert.match(index, /id="restoreCloudRefreshBtn"/);
+
+  assert.match(app, /async function loadCloudRestoreProviders\(\)/);
+  assert.match(app, /api\('\/api\/restore\/cloud\/providers'/);
+  assert.match(app, /async function loadCloudRestoreBackups\(\)/);
+  assert.match(app, /\/api\/restore\/cloud\/\$\{encodeURIComponent\(providerId\)\}\/backups/);
+  assert.match(app, /Downloading and validating cloud backup/);
+  assert.match(app, /Downloading, revalidating and staging cloud restore/);
+  assert.match(app, /selection\.key !== restoreInspectedSelection/);
+
+  assert.match(server, /new CloudBackupProviderRegistry/);
+  assert.match(server, /\/api\/restore\/cloud\/providers/);
+  assert.match(server, /cloudBackupProviders\.downloadBackup/);
+  assert.match(server, /inspectRestoreBackup\(downloaded\.filePath/);
+  assert.match(server, /stageRestoreBackup\(downloaded\.filePath/);
+  assert.match(styles, /\.restore-source-grid/);
+  assert.match(styles, /#restoreCloudSource/);
 });
