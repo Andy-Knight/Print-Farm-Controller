@@ -9,6 +9,7 @@ on:
       - src/**
       - public/**
       - emulator/**
+      - test/**
       - .github/workflows/container-image.yml
   push:
     branches:
@@ -22,6 +23,7 @@ on:
       - src/**
       - public/**
       - emulator/**
+      - test/**
       - .github/workflows/container-image.yml
   workflow_dispatch:
 
@@ -48,6 +50,48 @@ jobs:
 
       - name: Run regression suite
         run: npm test
+
+      - name: Start MinIO S3 test service
+        run: |
+          docker network create pfc-s3-test
+          docker run -d \
+            --name pfc-minio \
+            --network pfc-s3-test \
+            -p 9000:9000 \
+            -e MINIO_ROOT_USER=pfcadmin \
+            -e MINIO_ROOT_PASSWORD=pfc-test-secret \
+            quay.io/minio/minio server /data
+          for attempt in {1..30}; do
+            if curl --fail --silent http://127.0.0.1:9000/minio/health/live > /dev/null; then
+              exit 0
+            fi
+            sleep 1
+          done
+          docker logs pfc-minio
+          exit 1
+
+      - name: Create MinIO test bucket
+        run: |
+          docker run --rm \
+            --network pfc-s3-test \
+            --entrypoint /bin/sh \
+            quay.io/minio/mc \
+            -c "mc alias set local http://pfc-minio:9000 pfcadmin pfc-test-secret && mc mb local/pfc-backups"
+
+      - name: Run MinIO S3 integration test
+        env:
+          PFC_TEST_S3_ENDPOINT: http://127.0.0.1:9000
+          PFC_TEST_S3_BUCKET: pfc-backups
+          PFC_TEST_S3_REGION: us-east-1
+          PFC_TEST_S3_ACCESS_KEY: pfcadmin
+          PFC_TEST_S3_SECRET_KEY: pfc-test-secret
+        run: node --test test/s3-minio-integration.test.js
+
+      - name: Stop MinIO S3 test service
+        if: always()
+        run: |
+          docker rm -f pfc-minio || true
+          docker network rm pfc-s3-test || true
 
   smoke:
     name: Container smoke test
