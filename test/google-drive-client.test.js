@@ -290,3 +290,61 @@ test('Google Drive disconnect preserves UI OAuth configuration while removing ac
     await fs.rm(root, { recursive:true, force:true });
   }
 });
+
+
+test('Google Drive restore download only accepts controller backups and streams them to temporary staging', async () => {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), 'pfc-google-drive-restore-'));
+  try {
+    const payload = Buffer.from('restore-backup-bytes');
+    const client = new GoogleDriveClient({
+      dataDir:root,
+      clientId:'client-id',
+      clientSecret:'client-secret',
+      fetchFn:async (url) => {
+        const target = String(url);
+        if (target.includes('/drive/v3/files/folder-1?')) {
+          return jsonResponse({
+            id:'folder-1',
+            name:'Print Farm Controller Backups',
+            mimeType:'application/vnd.google-apps.folder',
+            trashed:false
+          });
+        }
+        if (target.startsWith('https://www.googleapis.com/drive/v3/files?') && target.includes('orderBy=createdTime+desc')) {
+          return jsonResponse({
+            files:[{
+              id:'restore-1',
+              name:'restore-1.pfcbackup',
+              size:String(payload.length),
+              createdTime:'2026-09-29T11:00:00.000Z',
+              appProperties:{ pfcBackup:'1', backupSource:'manual' }
+            }]
+          });
+        }
+        if (target === 'https://www.googleapis.com/drive/v3/files/restore-1?alt=media') {
+          return new Response(payload, { status:200 });
+        }
+        throw new Error(`Unexpected request: ${target}`);
+      }
+    });
+    await client.saveState({
+      clientId:'client-id',
+      clientSecret:'client-secret',
+      refreshToken:'refresh-token',
+      folderId:'folder-1',
+      folderName:'Print Farm Controller Backups'
+    });
+    client.accessToken = 'cached-token';
+    client.accessTokenExpiresAtMs = Date.now() + 3600000;
+
+    const staged = await client.downloadBackup('restore-1');
+    assert.equal(staged.fileName, 'restore-1.pfcbackup');
+    assert.deepEqual(await fs.readFile(staged.filePath), payload);
+    await staged.cleanup();
+    await assert.rejects(() => fs.stat(staged.filePath), /ENOENT/);
+
+    await assert.rejects(() => client.downloadBackup('missing'), /no longer available/i);
+  } finally {
+    await fs.rm(root, { recursive:true, force:true });
+  }
+});
