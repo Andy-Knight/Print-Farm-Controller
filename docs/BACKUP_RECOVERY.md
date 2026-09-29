@@ -203,22 +203,19 @@ The controller uses Google's OAuth flow for **TVs and Limited Input devices**. T
 https://www.googleapis.com/auth/drive.file
 ```
 
-The user starts authorization from **Backup & recovery**, opens Google's verification URL on any browser, enters the displayed code, and grants access. OAuth application credentials are provided to the controller through:
+The normal setup path is entirely inside **Backup & recovery**. The user enters the OAuth client ID and client secret created in Google Cloud, saves them, then starts authorization. The controller opens the device flow, displays Google's verification URL/code, and polls until access is granted.
 
-```text
-GOOGLE_DRIVE_CLIENT_ID
-GOOGLE_DRIVE_CLIENT_SECRET
-```
-
-They are not written to controller data files.
-
-The access token is memory-only. The long-lived refresh token and Drive folder metadata are persisted separately from backup data at:
+The saved OAuth client ID, OAuth client secret, long-lived refresh token and Drive folder metadata are persisted separately from backup data at:
 
 ```text
 <DATA_DIR>/integrations/google-drive.json
 ```
 
-The file is created with restrictive controller-owned permissions and must live on persistent `DATA_DIR` storage for Docker/K3s deployments. It is never included in a portable backup. If token refresh returns an authorization failure such as `invalid_grant`, the integration enters a **reconnection required** state and scheduled Drive backups fail visibly until the user reconnects.
+The file is created with restrictive controller-owned permissions and must live on persistent `DATA_DIR` storage for Docker/K3s deployments. The client secret and refresh token are never returned through the status API. The short-lived access token remains memory-only.
+
+`GOOGLE_DRIVE_CLIENT_ID` and `GOOGLE_DRIVE_CLIENT_SECRET` remain optional environment-variable fallbacks for automated deployments, but are not required for any install format. UI-saved credentials take precedence and persist across restarts.
+
+The integration file is never included in a portable backup or diagnostic bundle. If token refresh returns an authorization failure such as `invalid_grant`, the integration enters a **reconnection required** state and scheduled Drive backups fail visibly until the user reconnects. Changing the OAuth client credentials clears existing Google account authorization because refresh tokens are client-specific.
 
 ### Drive folder and upload
 
@@ -255,7 +252,7 @@ Drive retention follows the same safety model as local scheduled retention:
 
 ### Disconnect
 
-Disconnecting attempts to revoke the Google refresh token, removes local integration state, clears memory-only access-token state, and leaves existing Drive backup files untouched.
+Disconnecting attempts to revoke the Google refresh token, clears account authorization and memory-only access-token state, preserves the saved OAuth client configuration for later reconnection, and leaves existing Drive backup files untouched.
 
 
 ## Data excluded
