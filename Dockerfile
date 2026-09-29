@@ -9,6 +9,7 @@ RUN npm install --include=dev --no-audit --no-fund
 
 COPY scripts ./scripts
 COPY src ./src
+COPY emulator ./emulator
 
 ARG PFC_BUNDLE_BUILD_NONCE=local
 RUN --mount=type=secret,id=pfc_google_client_id,required=false \
