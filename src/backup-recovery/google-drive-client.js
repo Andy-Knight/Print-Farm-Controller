@@ -206,7 +206,6 @@ export class GoogleDriveClient {
     const savedClientSecret = cleanString(current?.clientSecret);
     const nextClientId = cleanString(clientId);
     const suppliedSecret = cleanString(clientSecret);
-    const clientIdChanged = Boolean(currentCredentials.clientId) && nextClientId !== currentCredentials.clientId;
     const savedClientIdChanged = Boolean(savedClientId) && nextClientId !== savedClientId;
     if (savedClientIdChanged && !suppliedSecret) {
       throw googleError(
