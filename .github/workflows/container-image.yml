@@ -59,16 +59,34 @@ jobs:
         uses: actions/checkout@v6
 
       - name: Build smoke-test image
-        run: docker build -t print-farm-controller:smoke .
+        run: |
+          printf '%s' 'smoke-client.apps.googleusercontent.com' > "$RUNNER_TEMP/pfc-google-client-id"
+          printf '%s' 'smoke-client-secret' > "$RUNNER_TEMP/pfc-google-client-secret"
+          docker build \
+            --secret id=pfc_google_client_id,src="$RUNNER_TEMP/pfc-google-client-id" \
+            --secret id=pfc_google_client_secret,src="$RUNNER_TEMP/pfc-google-client-secret" \
+            -t print-farm-controller:smoke .
 
       - name: Start smoke-test container
         run: |
           docker run -d --name pfc-smoke -p 4242:4242 print-farm-controller:smoke
 
-      - name: Verify controller responds
+      - name: Verify controller responds and bundled OAuth is active
         run: |
           for attempt in {1..20}; do
             if curl --fail --silent http://127.0.0.1:4242/ > /dev/null; then
+              status="$(curl --fail --silent http://127.0.0.1:4242/api/integrations/google-drive/status)"
+              node -e "
+                const status = JSON.parse(process.argv[1]).googleDrive;
+                if (!status?.configured || !status?.builtInConfigured || status?.configurationSource !== 'built-in') {
+                  console.error('Bundled Google OAuth configuration was not active in the smoke-test image');
+                  process.exit(1);
+                }
+                if (status?.customConfigured || status?.clientId || status?.clientSecretConfigured) {
+                  console.error('Built-in Google OAuth credentials leaked into custom configuration status');
+                  process.exit(1);
+                }
+              " "$status"
               exit 0
             fi
             sleep 1
