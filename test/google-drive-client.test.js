@@ -348,3 +348,115 @@ test('Google Drive restore download only accepts controller backups and streams 
     await fs.rm(root, { recursive:true, force:true });
   }
 });
+
+
+test('built-in Google OAuth config is the default and is never copied into integration state', async () => {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), 'pfc-google-drive-builtin-'));
+  try {
+    const client = new GoogleDriveClient({
+      dataDir:root,
+      clientId:'',
+      clientSecret:'',
+      builtInClientId:'builtin-client.apps.googleusercontent.com',
+      builtInClientSecret:'builtin-secret',
+      nowFn:() => Date.parse('2026-09-29T14:00:00.000Z'),
+      fetchFn:async (url) => {
+        const target = String(url);
+        if (target.endsWith('/device/code')) {
+          return jsonResponse({
+            device_code:'device-code',
+            user_code:'ABCD-EFGH',
+            verification_url:'https://www.google.com/device',
+            expires_in:1800,
+            interval:5
+          });
+        }
+        if (target.endsWith('/token')) {
+          return jsonResponse({
+            access_token:'access-token',
+            refresh_token:'refresh-token',
+            expires_in:3600
+          });
+        }
+        if (target.startsWith('https://www.googleapis.com/drive/v3/files?') && target.includes('orderBy=createdTime')) {
+          return jsonResponse({ files:[] });
+        }
+        if (target === 'https://www.googleapis.com/drive/v3/files?fields=id,name,mimeType') {
+          return jsonResponse({
+            id:'folder-builtin',
+            name:'Print Farm Controller Backups',
+            mimeType:'application/vnd.google-apps.folder'
+          });
+        }
+        throw new Error(`Unexpected request: ${target}`);
+      }
+    });
+
+    const before = await client.status();
+    assert.equal(before.configured, true);
+    assert.equal(before.configurationSource, 'built-in');
+    assert.equal(before.builtInConfigured, true);
+    assert.equal(before.defaultConfigurationAvailable, true);
+    assert.equal(before.customConfigured, false);
+    assert.equal(before.clientId, null);
+    assert.equal(before.clientSecretConfigured, false);
+
+    await client.startDeviceAuthorization();
+    const connected = await client.pollDeviceAuthorization();
+    assert.equal(connected.connected, true);
+    assert.equal(connected.configurationSource, 'built-in');
+
+    const stored = JSON.parse(await fs.readFile(path.join(root, 'integrations', 'google-drive.json'), 'utf8'));
+    assert.equal(stored.clientId, null);
+    assert.equal(stored.clientSecret, null);
+    assert.equal(stored.refreshToken, 'refresh-token');
+    assert.equal(JSON.stringify(stored).includes('builtin-client.apps.googleusercontent.com'), false);
+    assert.equal(JSON.stringify(stored).includes('builtin-secret'), false);
+  } finally {
+    await fs.rm(root, { recursive:true, force:true });
+  }
+});
+
+test('custom Google OAuth config overrides built-in config and can be reset back to the default', async () => {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), 'pfc-google-drive-builtin-reset-'));
+  try {
+    const client = new GoogleDriveClient({
+      dataDir:root,
+      clientId:'',
+      clientSecret:'',
+      builtInClientId:'builtin-client.apps.googleusercontent.com',
+      builtInClientSecret:'builtin-secret',
+      fetchFn:async (url) => {
+        if (String(url).endsWith('/revoke')) return new Response('', { status:200 });
+        throw new Error(`Unexpected request: ${url}`);
+      }
+    });
+
+    const custom = await client.configure({
+      clientId:'custom-client.apps.googleusercontent.com',
+      clientSecret:'custom-secret'
+    });
+    assert.equal(custom.configurationSource, 'ui');
+    assert.equal(custom.customConfigured, true);
+    assert.equal(custom.customClientId, 'custom-client.apps.googleusercontent.com');
+
+    await client.saveState({
+      ...(await client.loadState()),
+      refreshToken:'custom-refresh-token',
+      folderId:'custom-folder'
+    });
+
+    const reset = await client.resetConfiguration();
+    assert.equal(reset.configured, true);
+    assert.equal(reset.configurationSource, 'built-in');
+    assert.equal(reset.customConfigured, false);
+    assert.equal(reset.connected, false);
+
+    const stored = JSON.parse(await fs.readFile(path.join(root, 'integrations', 'google-drive.json'), 'utf8'));
+    assert.equal(stored.clientId, null);
+    assert.equal(stored.clientSecret, null);
+    assert.equal(stored.refreshToken, null);
+  } finally {
+    await fs.rm(root, { recursive:true, force:true });
+  }
+});
