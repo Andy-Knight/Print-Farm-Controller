@@ -7,6 +7,8 @@ test('G-code requirements retain per-tool filament grams and total usage', () =>
     '; filament_type = PLA; PETG',
     '; filament_colour = #FF0000; #0000FF',
     '; nozzle_diameter = 0.4; 0.4',
+    '; filament_settings_id = "eSUN PLA+ @U1"; "Polymaker PETG @U1"',
+    '; filament_vendor = eSUN; Polymaker',
     '; filament used [g] = 12.5; 3.25',
     'T0',
     'G1 X10',
@@ -16,7 +18,11 @@ test('G-code requirements retain per-tool filament grams and total usage', () =>
 
   assert.equal(parsed.logicalTools.length, 2);
   assert.equal(parsed.logicalTools[0].filamentGrams, 12.5);
+  assert.equal(parsed.logicalTools[0].filamentPreset, 'eSUN PLA+ @U1');
+  assert.equal(parsed.logicalTools[0].filamentVendor, 'eSUN');
   assert.equal(parsed.logicalTools[1].filamentGrams, 3.25);
+  assert.equal(parsed.logicalTools[1].filamentPreset, 'Polymaker PETG @U1');
+  assert.equal(parsed.logicalTools[1].filamentVendor, 'Polymaker');
   assert.equal(parsed.totalFilamentGrams, 15.75);
 });
 
@@ -29,5 +35,7 @@ test('missing filament gram metadata remains unknown rather than zero', () => {
   ].join('\n'));
 
   assert.equal(parsed.logicalTools[0].filamentGrams, null);
+  assert.equal(parsed.logicalTools[0].filamentPreset, null);
+  assert.equal(parsed.logicalTools[0].filamentVendor, null);
   assert.equal(parsed.totalFilamentGrams, 0);
 });
