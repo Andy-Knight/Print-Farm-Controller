@@ -199,7 +199,10 @@ async function readMetadata(directory, expectedId = null) {
   const logicalTools = Array.isArray(metadata.requirements?.logicalTools) ? metadata.requirements.logicalTools : [];
   const requiresUsageUpgrade = metadata.requirements
     && (metadata.requirements.totalFilamentGrams === undefined
-      || logicalTools.some((tool) => tool && typeof tool === 'object' && !Object.hasOwn(tool, 'filamentGrams')));
+      || logicalTools.some((tool) => tool && typeof tool === 'object'
+        && (!Object.hasOwn(tool, 'filamentGrams')
+          || !Object.hasOwn(tool, 'filamentPreset')
+          || !Object.hasOwn(tool, 'filamentVendor'))));
   if (requiresUsageUpgrade) {
     try {
       const refreshed = await readFilePrintRequirements(filePath);
