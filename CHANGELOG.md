@@ -4,6 +4,12 @@ This file contains the version-by-version release history for Print Farm Control
 
 Historical entries describe the behaviour of the controller at the time of that release and may be superseded by later versions. For current installation, configuration and supported-hardware guidance, see [README.md](README.md).
 
+## v0.38.0
+
+- Introduces a Stacked Layers branding prototype for the main controller header using a responsive vector interpretation of the supplied stacked-layer mark alongside the existing Print Farm Controller product name.
+- The brand mark follows the current Light/Dark theme automatically and collapses cleanly on smaller screens.
+- The existing embedded browser favicons are intentionally unchanged.
+
 ## v0.37.1
 
 - Replaces the free-text filament catalogue currency field with a controlled dropdown covering **36 commonly used world currencies**, including GBP, USD, EUR, JPY, CNY, CAD, AUD, CHF, INR, BRL and other major regional currencies.
