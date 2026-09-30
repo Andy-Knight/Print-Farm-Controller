@@ -23,6 +23,12 @@ function cleanCurrency(value) {
   return currency;
 }
 
+function cleanSupportedCurrency(value) {
+  const currency = cleanCurrency(value);
+  if (!['GBP', 'USD'].includes(currency)) throw new Error('Currency must be GBP or USD');
+  return currency;
+}
+
 function cleanCost(value) {
   const number = Number(value);
   if (!Number.isFinite(number) || number < 0) throw new Error('Filament cost per kg must be zero or greater');
@@ -109,6 +115,7 @@ export async function createFilament(input = {}) {
     const timestamp = new Date().toISOString();
     const entry = normalizeEntry({
       ...input,
+      currency:cleanSupportedCurrency(input.currency),
       id:crypto.randomUUID(),
       createdAt:timestamp,
       updatedAt:timestamp
@@ -134,7 +141,7 @@ export async function updateFilament(id, patch = {}) {
       ...(patch.product !== undefined ? { product:patch.product } : {}),
       ...(patch.colour !== undefined ? { colour:patch.colour } : {}),
       ...(patch.costPerKg !== undefined ? { costPerKg:patch.costPerKg } : {}),
-      ...(patch.currency !== undefined ? { currency:patch.currency } : {}),
+      ...(patch.currency !== undefined ? { currency:cleanSupportedCurrency(patch.currency) } : {}),
       id:current.id,
       createdAt:current.createdAt,
       updatedAt:new Date().toISOString()
