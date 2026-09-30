@@ -28,8 +28,18 @@ test('filament catalogue persists costs and supports update/removal', async () =
     const petg = await catalogue.createFilament({
       material:'PETG',
       costPerKg:21,
-      currency:'GBP'
+      currency:'USD'
     });
+    assert.equal(petg.currency, 'USD');
+
+    await assert.rejects(
+      () => catalogue.createFilament({ material:'ABS', costPerKg:25, currency:'EUR' }),
+      /Currency must be GBP or USD/
+    );
+    await assert.rejects(
+      () => catalogue.updateFilament(pla.id, { currency:'EUR' }),
+      /Currency must be GBP or USD/
+    );
     assert.equal((await catalogue.listFilaments()).length, 2);
     assert.equal((await catalogue.getFilament(pla.id)).brand, 'Example');
 
