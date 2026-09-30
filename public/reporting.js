@@ -30,7 +30,7 @@ let reportingPrintersState = [];
 let reportingGroupsState = [];
 let reportingFilamentsState = [];
 let currentReport = null;
-const FILAMENT_CURRENCIES = new Set(['GBP', 'USD']);
+const FILAMENT_CURRENCIES = new Set(['GBP', 'USD', 'EUR', 'JPY', 'CNY', 'CAD', 'AUD', 'NZD', 'CHF', 'HKD', 'SGD', 'INR', 'KRW', 'TWD', 'THB', 'MYR', 'IDR', 'PHP', 'VND', 'AED', 'SAR', 'ILS', 'ZAR', 'BRL', 'MXN', 'SEK', 'NOK', 'DKK', 'PLN', 'CZK', 'HUF', 'RON', 'TRY', 'RUB', 'CLP', 'COP']);
 
 function escapeHtml(value = '') {
   return String(value).replace(/[&<>'"]/g, (ch) => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', "'":'&#39;', '"':'&quot;' }[ch]));
@@ -253,7 +253,7 @@ function setFilamentCurrency(value = 'GBP') {
   if (!FILAMENT_CURRENCIES.has(currency)) {
     const legacy = document.createElement('option');
     legacy.value = currency;
-    legacy.textContent = `${currency} (legacy — choose GBP or USD)`;
+    legacy.textContent = `${currency} (legacy — choose a supported currency)`;
     legacy.disabled = true;
     legacy.dataset.legacyCurrency = 'true';
     filamentCurrency.append(legacy);
@@ -324,7 +324,7 @@ filamentForm?.addEventListener('submit', async (event) => {
   if (filamentError) { filamentError.textContent = ''; filamentError.classList.add('hidden'); }
   try {
     const currency = String(filamentCurrency?.value || 'GBP').trim().toUpperCase();
-    if (!FILAMENT_CURRENCIES.has(currency)) throw new Error('Currency must be GBP or USD');
+    if (!FILAMENT_CURRENCIES.has(currency)) throw new Error('Choose a supported filament currency');
     const payload = {
       material:filamentMaterial?.value || '',
       brand:filamentBrand?.value || '',
