@@ -7,7 +7,8 @@ Historical entries describe the behaviour of the controller at the time of that 
 ## v0.38.1
 
 - Fixes Print Library **Edit details** filament-cost assignments not being persisted. The form was collecting per-tool filament selections correctly but the browser metadata update helper omitted `filamentAssignments` from the PATCH request.
-- Adds regression coverage proving the UI sends filament assignments and that stored assignments survive subsequent Print Library reads/listing.
+- Print Library cost-filament dropdown labels now always include the material type (for example PLA/PETG/ASA) alongside brand, product, colour and cost.
+- Adds regression coverage proving the UI sends filament assignments, stored assignments survive subsequent Print Library reads/listing, and material type remains visible in filament option labels.
 
 ## v0.38.0
 
