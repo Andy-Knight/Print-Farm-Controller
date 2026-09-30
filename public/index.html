@@ -379,8 +379,8 @@
       <section class="backup-section">
         <div class="backup-section-head">
           <div>
-            <strong>Microsoft OneDrive</strong>
-            <div class="field-help">Connect a Microsoft account using device authorization. Backups are stored in Print Farm Controller's dedicated OneDrive app folder using limited app-folder access.</div>
+            <strong>Microsoft OneDrive (Experimental)</strong>
+            <div class="field-help">Experimental cloud integration: connect a Microsoft account using device authorization. Backups are stored in Print Farm Controller's dedicated OneDrive app folder using limited app-folder access. This provider has automated coverage but has not yet been validated against a live Microsoft account.</div>
           </div>
           <div class="mini-actions backup-google-actions">
             <button id="oneDriveConnectBtn" type="button" class="secondary">Connect</button>
@@ -492,7 +492,7 @@
             <select id="backupScheduleDestinationType">
               <option value="local">Local / mapped / NAS folder</option>
               <option value="google-drive">Google Drive</option>
-              <option value="one-drive">Microsoft OneDrive</option>
+              <option value="one-drive">Microsoft OneDrive (Experimental)</option>
               <option value="s3">S3-compatible storage</option>
             </select>
           </label>
