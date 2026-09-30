@@ -56,6 +56,8 @@ export function parseGcodePrintRequirements(text = '', { fileName = null } = {})
   const colors = splitList(first(config, ['filament_colour', 'filament_color', 'extruder_colour', 'extruder_color'])).map(normalizeColor);
   const nozzleDiameters = numberList(first(config, ['nozzle_diameter', 'nozzle_diameters']));
   const weights = numberList(first(config, ['filament used [g]', 'filament_used_g']));
+  const filamentPresets = splitList(first(config, ['filament_settings_id', 'filament_settings_ids', 'filament_preset', 'filament_presets']));
+  const filamentVendors = splitList(first(config, ['filament_vendor', 'filament_vendors']));
 
   const referenced = new Set();
   for (let index = 0; index < weights.length; index++) {
@@ -69,7 +71,7 @@ export function parseGcodePrintRequirements(text = '', { fileName = null } = {})
 
   let usageReliable = referenced.size > 0;
   if (!referenced.size) {
-    const detectedCount = Math.max(types.length, colors.length, nozzleDiameters.length, materialMetadata.materials?.length || 0, 1);
+    const detectedCount = Math.max(types.length, colors.length, nozzleDiameters.length, filamentPresets.length, filamentVendors.length, materialMetadata.materials?.length || 0, 1);
     for (let index = 0; index < detectedCount; index++) referenced.add(index);
     usageReliable = detectedCount === 1;
   }
@@ -85,6 +87,8 @@ export function parseGcodePrintRequirements(text = '', { fileName = null } = {})
       nozzleDiameter: Number.isFinite(Number(nozzleDiameters[index]))
         ? Number(nozzleDiameters[index])
         : (nozzleDiameters.length === 1 && Number.isFinite(Number(nozzleDiameters[0])) ? Number(nozzleDiameters[0]) : null),
+      filamentPreset:clean(filamentPresets[index] ?? (filamentPresets.length === 1 ? filamentPresets[0] : null)),
+      filamentVendor:clean(filamentVendors[index] ?? (filamentVendors.length === 1 ? filamentVendors[0] : null)),
       filamentGrams:filamentGrams != null && Number.isFinite(filamentGrams) && filamentGrams >= 0 ? filamentGrams : null
     };
   });
