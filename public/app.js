@@ -459,6 +459,37 @@ function libraryFilamentLabel(item = {}) {
   return suffix ? `${base} — ${suffix}` : base;
 }
 
+function normalizedLibraryProfileHint(value) {
+  return String(value || '').trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
+}
+
+function automaticLibraryFilamentMatch(tool, candidates) {
+  if (!Array.isArray(candidates) || candidates.length < 2) return candidates?.[0] || null;
+  const preset = normalizedLibraryProfileHint(tool?.filamentPreset);
+  const vendor = normalizedLibraryProfileHint(tool?.filamentVendor);
+  if (!preset && !vendor) return null;
+  const materialKey = canonicalLibraryMaterial(tool?.material);
+
+  const scored = candidates.map((item) => {
+    const brand = normalizedLibraryProfileHint(item?.brand);
+    const product = normalizedLibraryProfileHint(item?.product);
+    const brandMatchesVendor = Boolean(brand && vendor && (brand === vendor || brand.includes(vendor) || vendor.includes(brand)));
+    const brandInPreset = Boolean(brand && preset && preset.includes(brand));
+    const productIsSpecific = Boolean(product && product.length >= 4 && product !== materialKey);
+    const productInPreset = Boolean(productIsSpecific && preset && preset.includes(product));
+    return {
+      item,
+      strong:productInPreset && (!brand || brandInPreset || brandMatchesVendor),
+      brand:brandInPreset || brandMatchesVendor
+    };
+  });
+  const strong = scored.filter((entry) => entry.strong);
+  if (strong.length === 1) return strong[0].item;
+  if (strong.length > 1) return null;
+  const brandMatches = scored.filter((entry) => entry.brand);
+  return brandMatches.length === 1 ? brandMatches[0].item : null;
+}
+
 async function loadLibraryFilamentCatalogue() {
   const payload = await api('/api/filaments');
   libraryFilamentCatalogue = Array.isArray(payload.filaments) ? payload.filaments : [];
@@ -487,8 +518,11 @@ function renderLibraryFilamentAssignments(file = libraryMetadataFile) {
     const matching = libraryFilamentCatalogue.filter((item) => canonicalLibraryMaterial(item.material) === materialKey);
     const nonmatching = libraryFilamentCatalogue.filter((item) => canonicalLibraryMaterial(item.material) !== materialKey);
     const assignedExists = assignedId && libraryFilamentCatalogue.some((item) => item.id === assignedId);
+    const automaticMatch = automaticLibraryFilamentMatch(tool, matching);
     const automaticLabel = materialKey
-      ? (matching.length === 1 ? `Automatic — ${libraryFilamentLabel(matching[0])}` : matching.length > 1 ? `Choose ${material || 'material'} filament…` : `No ${material || 'matching'} catalogue entry`)
+      ? (automaticMatch
+        ? `Automatic${matching.length > 1 ? ' from slicer profile' : ''} — ${libraryFilamentLabel(automaticMatch)}`
+        : matching.length > 1 ? `Choose ${material || 'material'} filament…` : `No ${material || 'matching'} catalogue entry`)
       : 'No explicit assignment';
     const options = [
       `<option value="">${escapeHtml(automaticLabel)}</option>`,
@@ -497,13 +531,15 @@ function renderLibraryFilamentAssignments(file = libraryMetadataFile) {
       ...(!assignedExists && assignedId ? [`<option value="${escapeHtml(assignedId)}">Missing catalogue entry — clear or replace</option>`] : [])
     ].join('');
     const usageText = grams == null ? 'Filament usage unavailable' : `${grams.toLocaleString(undefined, { maximumFractionDigits:2 })} g sliced usage`;
-    const warning = materialKey && matching.length > 1 && !assignedId
-      ? `<div class="library-filament-assignment-warning">Multiple ${escapeHtml(material)} costs exist; choose the exact filament for reliable costing.</div>`
+    const profileText = [tool?.filamentVendor, tool?.filamentPreset].filter(Boolean).join(' · ');
+    const warning = materialKey && matching.length > 1 && !assignedId && !automaticMatch
+      ? `<div class="library-filament-assignment-warning">Multiple ${escapeHtml(material)} costs exist and the slicer profile did not identify one unique catalogue filament; choose the exact filament.</div>`
       : (!materialKey ? '<div class="library-filament-assignment-warning">The slicer did not identify this tool material; choose a catalogue entry explicitly.</div>' : '');
     return `<div class="library-filament-assignment">
       <div class="library-filament-tool-meta">
         <strong>T${Number.isInteger(index) ? index : '?'} · ${escapeHtml(material || 'Unknown material')}</strong>
         <span>${escapeHtml(usageText)}</span>
+        ${profileText ? `<span>Slicer: ${escapeHtml(profileText)}</span>` : ''}
         ${warning}
       </div>
       <label>Cost filament
