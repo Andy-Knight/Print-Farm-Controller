@@ -2174,6 +2174,7 @@ button.library-file-preview { cursor:zoom-in; }
   background:#121a21;
 }
 .reporting-printer-row.attention { border-color:#674249; background:#1b1518; }
+.reporting-printer-trend { margin-top:4px; color:#748897; font-size:.68rem; font-weight:700; }
 .reporting-printer-rate { text-align:right; min-width:72px; }
 .reporting-printer-rate b { display:block; font-size:1rem; }
 .reporting-printer-rate span { display:block; color:#748897; font-size:.68rem; }
