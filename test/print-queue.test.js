@@ -86,6 +86,55 @@ test('queued print starts on an idle printer and records completion', async () =
   service.stop();
 });
 
+test('material cost is snapshotted immediately before a queued print starts', async () => {
+  const fleetState = new FakeFleetState([{ id:'p1', online:true, status:{ status:'idle', fileName:null, progress:0 } }]);
+  const store = memoryStore();
+  const starts = [];
+  const snapshots = [];
+  const printer = { id:'p1', name:'Printer', adapterType:'test', adapterConfig:{} };
+  const service = new PrintQueueService({
+    fleetState,
+    chamberPreheat:{ isActive:() => false, stop:async () => {} },
+    getPrinterFn:async () => printer,
+    adapterResolver:() => ({
+      capabilities:{ printLocalFile:true },
+      getStatus:async () => fleetState.getPrinterState('p1').status,
+      printLocalFile:async (fileName) => starts.push(fileName)
+    }),
+    loadJobsFn:store.load,
+    saveJobsFn:store.save,
+    getFileMaterialMetadataFn:async () => null,
+    buildMaterialCostSnapshotFn:async (input) => {
+      snapshots.push(structuredClone(input));
+      return {
+        capturedAt:'2026-09-30T10:00:00.000Z',
+        complete:true,
+        usageComplete:true,
+        costComplete:true,
+        totalGrams:20,
+        currency:'GBP',
+        totalCost:0.4,
+        resolvedCost:0.4,
+        tools:[{ index:0, material:'PLA', grams:20, cost:0.4 }]
+      };
+    }
+  });
+
+  await service.start();
+  service.setDispatchPaused(true);
+  const queued = await service.add({ printerId:'p1', fileName:'costed.gcode' });
+  const internal = service.jobs.find((job) => job.id === queued.id);
+  internal.requirements = { logicalTools:[{ index:0, material:'PLA', filamentGrams:20 }] };
+  internal.filamentAssignments = { '0':'11111111-1111-4111-8111-111111111111' };
+  service.setDispatchPaused(false);
+
+  await waitFor(() => starts.length === 1);
+  assert.equal(snapshots.length, 1);
+  assert.deepEqual(snapshots[0].filamentAssignments, internal.filamentAssignments);
+  assert.equal(service.getJob(queued.id).materialCost.totalCost, 0.4);
+  service.stop();
+});
+
 test('reprinting the same filename ignores retained idle 100 percent until the new print becomes active', async () => {
   const fleetState = new FakeFleetState([{
     id:'p1',
