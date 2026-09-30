@@ -146,6 +146,14 @@ export async function inspectRestoreBackup(filePath, {
     }
   }
 
+  let reportingHistory = null;
+  if (archive.byName.has('state/reporting-history.json')) {
+    reportingHistory = await readJsonEntry(archive, 'state/reporting-history.json');
+    if (!plainObject(reportingHistory) || reportingHistory.version !== 1 || !Array.isArray(reportingHistory.records)) {
+      throw new Error('Backup reporting history store is invalid');
+    }
+  }
+
   let printerGroups = null;
   const printerGroupIds = new Set();
   if (archive.byName.has('state/printer-groups.json')) {
