@@ -148,6 +148,7 @@ export class ReportingService {
       const store = await this.load();
       const byId = new Map(store.records.map((record) => [record.id, record]));
       let changed = false;
+      let changedRecords = 0;
       for (const job of Array.isArray(jobs) ? jobs : []) {
         const record = compactRecord(job);
         if (!record) continue;
@@ -155,6 +156,7 @@ export class ReportingService {
         if (!previous || JSON.stringify(previous) !== JSON.stringify(record)) {
           byId.set(record.id, record);
           changed = true;
+          changedRecords += 1;
         }
       }
       if (!changed) return { recorded:0, total:store.records.length };
@@ -163,7 +165,7 @@ export class ReportingService {
         || left.id.localeCompare(right.id)
       );
       await this.save(store);
-      return { recorded:store.records.length - (store.records.length - [...byId.keys()].filter((id) => !store.records.find((r) => r.id === id)).length), total:store.records.length };
+      return { recorded:changedRecords, total:store.records.length };
     });
   }
 
