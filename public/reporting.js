@@ -56,6 +56,14 @@ function formatPercent(rate) {
   return Number.isFinite(value) ? `${Math.round(value * 100)}%` : '—';
 }
 
+function formatRateTrend(rate) {
+  const value = Number(rate);
+  if (!Number.isFinite(value)) return 'Trend unavailable';
+  const points = Math.round(value * 100);
+  if (points === 0) return 'No recent change';
+  return `${points > 0 ? '+' : ''}${points} pp recent trend`;
+}
+
 function formatCurrencyTotals(totals = {}) {
   const entries = Object.entries(totals || {}).filter(([, value]) => Number.isFinite(Number(value)));
   if (!entries.length) return '—';
@@ -152,6 +160,7 @@ function renderProblemPrinters(printers = []) {
       <div>
         <strong>${escapeHtml(printer.printerName || 'Unknown printer')}</strong>
         <div class="subtle">${printer.attempts} attempts · ${printer.completed} completed · ${printer.failed} failed · ${formatNumber(printer.runHours, 1)} h run time</div>
+        <div class="reporting-printer-trend">${escapeHtml(formatRateTrend(printer.failureRateTrend))}</div>
       </div>
       <div class="reporting-printer-rate">
         <b>${formatPercent(printer.failureRate)}</b>
