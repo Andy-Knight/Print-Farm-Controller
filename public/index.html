@@ -313,7 +313,10 @@
                 <input id="filamentCost" type="number" min="0" step="0.01" placeholder="18.95" required />
               </label>
               <label>Currency
-                <input id="filamentCurrency" type="text" minlength="3" maxlength="3" value="GBP" required />
+                <select id="filamentCurrency" required>
+                  <option value="GBP" selected>GBP (£)</option>
+                  <option value="USD">USD ($)</option>
+                </select>
               </label>
             </div>
             <div id="filamentError" class="error hidden"></div>
