@@ -224,7 +224,7 @@ test('OneDrive uploads backup plus controller metadata and prunes only this inst
         backupSource:'scheduled',
         createdAt:'2026-09-29T10:05:00.000Z',
         formatVersion:1,
-        sourceControllerVersion:'0.34.0'
+        sourceControllerVersion:'0.36.0'
       }
     });
     assert.equal(uploaded.id, 'uploaded-new');
