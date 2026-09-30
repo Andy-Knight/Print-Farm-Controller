@@ -2790,12 +2790,16 @@ async function uploadLibraryFile(file, description = '', printerTarget = null) {
   return stored;
 }
 
-async function updateLibraryMetadata(fileId, { description = '', printerTarget = null } = {}) {
+async function updateLibraryMetadata(fileId, { description = '', printerTarget = null, filamentAssignments = undefined } = {}) {
   const notes = String(description || '').trim();
   if (notes.length > 4000) throw new Error('Print Library description must be 4000 characters or fewer');
   const payload = await api(`/api/library/${encodeURIComponent(fileId)}`, {
     method:'PATCH',
-    body:JSON.stringify({ description:notes, printerTarget })
+    body:JSON.stringify({
+      description:notes,
+      printerTarget,
+      ...(filamentAssignments !== undefined ? { filamentAssignments } : {})
+    })
   });
   await refreshPrintLibrary();
   return payload.file;
