@@ -1477,7 +1477,7 @@ function renderBackupStatus(payload) {
       <div><span>Scheduled destination</span><strong>${escapeHtml(schedule.destinationType === 'google-drive'
         ? 'Google Drive'
         : (schedule.destinationType === 'one-drive'
-            ? 'Microsoft OneDrive'
+            ? 'Microsoft OneDrive (Experimental)'
             : (schedule.destinationType === 's3' ? 'S3-compatible storage' : (schedule.destination || '—'))))}</strong></div>
       <div><span>Next scheduled backup</span><strong>${escapeHtml(backupStatusTime(schedule.nextRunAt, '—'))}</strong></div>
       <div><span>Backup operation</span><strong>${escapeHtml(backup.operation?.kind ? `${backup.operation.kind} backup running` : 'Idle')}</strong></div>
