@@ -450,13 +450,16 @@ function canonicalLibraryMaterial(value) {
 }
 
 function libraryFilamentLabel(item = {}) {
-  const product = [item.brand, item.product].filter(Boolean).join(' · ');
-  const base = product || item.material || 'Filament';
+  const identity = [
+    item.material || 'Filament',
+    item.brand || null,
+    item.product || null
+  ].filter(Boolean).join(' · ');
   const suffix = [
     item.colour || null,
     Number.isFinite(Number(item.costPerKg)) ? `${item.currency || 'GBP'} ${Number(item.costPerKg).toFixed(2)}/kg` : null
   ].filter(Boolean).join(' · ');
-  return suffix ? `${base} — ${suffix}` : base;
+  return suffix ? `${identity} — ${suffix}` : identity;
 }
 
 function normalizedLibraryProfileHint(value) {
