@@ -21,7 +21,8 @@ function terminalStatus(value) {
 }
 
 function validDate(value) {
-  const time = new Date(value || 0).getTime();
+  if (value == null || value === '') return null;
+  const time = new Date(value).getTime();
   return Number.isFinite(time) ? time : null;
 }
 
@@ -35,7 +36,7 @@ function compactRecord(job) {
     printerId:job.printerId || null,
     printerName:job.printerName || null,
     fileName:String(job.fileName || '').trim() || 'Unknown file',
-    libraryFileId:job.stagedFile?.id || null,
+    libraryFileId:job.libraryFileId || job.stagedFile?.id || null,
     status,
     queuedAt:job.queuedAt || null,
     startedAt:job.startedAt || job.startRequestedAt || null,
