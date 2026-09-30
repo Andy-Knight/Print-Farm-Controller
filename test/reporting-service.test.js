@@ -88,6 +88,9 @@ test('reporting history deduplicates terminal jobs and aggregates farm metrics',
     assert.equal(report.files[0].attempts, 3);
     assert.equal(report.printers[0].printerId, 'p1');
     assert.equal(report.printers[0].failed, 2);
+    assert.equal(report.printers[0].failureRateTrend, 0.5);
+    assert.equal(report.printers[0].earlierAttempts, 2);
+    assert.equal(report.printers[0].recentAttempts, 1);
     assert.ok(report.printers[0].attentionReasons.some((reason) => /2 failed prints/.test(reason)));
     assert.equal(report.materials.length, 2);
     assert.equal(report.daily.length, 2);
