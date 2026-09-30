@@ -117,11 +117,16 @@ Manufacturer-specific discovery, capabilities, limits, status normalization, fil
 
 ## Current task
 
-The current production baseline is **v0.37.1** on `main`.
+The current production baseline is **v0.38.0** on `main`.
 
-Active development is **v0.38.0** on `feature/stacked-layers-branding`, a UI branding prototype based on the supplied Stacked Layers graphic. The main controller header now uses a compact stacked-layer vector mark with **STACKED LAYERS** and **Print Farm Controller**, adapts automatically to Light/Dark mode and remains responsive on narrow screens. The existing embedded favicons are intentionally unchanged.
+Active development is **v0.38.1** on `feature/print-library-filament-assignment-fix-v0381`. This fixes Print Library **Edit details** per-tool filament-cost selections not being persisted because the browser metadata PATCH helper omitted `filamentAssignments`. Backend persistence already supported the field correctly.
 
 ## Next steps
+
+1. Validate that selecting a cost filament in Print Library **Edit details**, saving, closing and reopening retains the selection.
+2. Run the full regression suite / PR workflow.
+3. Merge v0.38.1 after hands-on confirmation.
+
 
 1. Manually review the Stacked Layers header branding in Dark and Light modes on desktop and mobile-width layouts.
 2. Decide whether the compact header lockup should be retained as-is or adjusted in size/spacing before merge.
