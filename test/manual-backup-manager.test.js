@@ -186,3 +186,51 @@ test('manual backup manager uploads the verified canonical backup to S3 and remo
     await fs.rm(root, { recursive:true, force:true });
   }
 });
+
+test('manual backup manager uploads the verified canonical backup to OneDrive and removes local staging', async () => {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), 'pfc-manual-onedrive-'));
+  const dataDir = path.join(root, 'data');
+  const calls = [];
+  try {
+    await fs.mkdir(dataDir, { recursive:true });
+    await fs.writeFile(path.join(dataDir, 'printers.json'), JSON.stringify([{ id:'printer-1', name:'Test printer' }]));
+    const oneDriveClient = {
+      async testConnection() {
+        calls.push('test');
+        return { connected:true, folderId:'app-root', folderName:'Print Farm Controller' };
+      },
+      async uploadBackup({ filePath, fileName, manifest }) {
+        calls.push('upload');
+        assert.ok((await fs.stat(filePath)).isFile());
+        assert.match(fileName, /\.pfcbackup$/);
+        const verified = await verifyBackupArchive(filePath);
+        assert.equal(verified.manifest.backupId, manifest.backupId);
+        assert.equal(manifest.backupSource, 'manual');
+        return { id:'onedrive-file-1', folderName:'Print Farm Controller' };
+      }
+    };
+    const manager = new ManualBackupManager({
+      dataDir,
+      applicationDir:root,
+      licensePath:path.join(root, 'missing-license.json'),
+      controllerVersion:'0.36.0',
+      oneDriveClient
+    });
+
+    const created = await manager.createOneDrive();
+    assert.deepEqual(calls, ['test','upload']);
+    assert.equal(created.destinationType, 'one-drive');
+    assert.equal(created.oneDriveFileId, 'onedrive-file-1');
+    assert.match(created.fileName, /\.pfcbackup$/);
+
+    const staging = await fs.readdir(path.join(dataDir, '.backup-staging'));
+    assert.equal(staging.some((name) => name.endsWith('.pfcbackup')), false);
+
+    const status = await manager.status();
+    assert.equal(status.lastSuccessfulBackup.destinationType, 'one-drive');
+    assert.equal(status.lastSuccessfulBackup.oneDriveFileId, 'onedrive-file-1');
+    assert.equal(status.lastError, null);
+  } finally {
+    await fs.rm(root, { recursive:true, force:true });
+  }
+});
