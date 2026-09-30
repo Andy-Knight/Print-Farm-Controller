@@ -678,3 +678,73 @@ test('scheduled backups can target S3-compatible storage with controller-scoped 
     await fs.rm(root, { recursive:true, force:true });
   }
 });
+
+test('scheduled backups can target OneDrive with controller-scoped cloud retention', async () => {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), 'pfc-scheduled-onedrive-'));
+  const timers = fakeTimerApi();
+  const calls = [];
+  try {
+    const dataDir = await makeData(root, 'one-drive-controller');
+    const oneDriveClient = {
+      async testConnection() {
+        calls.push('test');
+        return { connected:true, folderId:'app-root', folderName:'Print Farm Controller' };
+      },
+      async uploadBackup({ filePath, fileName, manifest }) {
+        calls.push('upload');
+        assert.ok((await fs.stat(filePath)).isFile());
+        assert.match(fileName, /\.pfcbackup$/);
+        assert.equal(manifest.backupSource, 'scheduled');
+        return { id:'onedrive-scheduled-1', folderName:'Print Farm Controller' };
+      },
+      async pruneScheduledBackups({ installationId, retentionCount, newestFileId }) {
+        calls.push('prune');
+        assert.match(installationId, /^[0-9a-f-]{36}$/);
+        assert.equal(retentionCount, 3);
+        assert.equal(newestFileId, 'onedrive-scheduled-1');
+        return { deleted:['old-cloud-backup.pfcbackup'], failed:[], eligible:4, kept:3 };
+      }
+    };
+
+    const service = new ScheduledBackupService({
+      dataDir,
+      applicationDir:root,
+      licensePath:path.join(root, 'missing-license.json'),
+      controllerVersion:'0.36.0',
+      oneDriveClient,
+      setTimeoutFn:timers.setTimeoutFn,
+      clearTimeoutFn:timers.clearTimeoutFn
+    });
+
+    const configured = await service.updateSettings({
+      enabled:true,
+      destinationType:'one-drive',
+      frequency:'daily',
+      scheduleTime:'02:00',
+      scheduleWeekday:1,
+      retentionCount:3
+    });
+    assert.equal(configured.destinationType, 'one-drive');
+    assert.equal(configured.destination, null);
+
+    const result = await service.runScheduledBackup({
+      now:new Date('2026-09-29T10:00:00.000Z'),
+      scheduledFor:'2026-09-29T02:00:00.000Z'
+    });
+    assert.equal(result.success, true);
+    assert.equal(result.backup.destinationType, 'one-drive');
+    assert.equal(result.backup.oneDriveFileId, 'onedrive-scheduled-1');
+    assert.deepEqual(calls, ['test','test','upload','prune']);
+
+    const settings = await loadBackupSettings({ dataDir, create:false });
+    assert.equal(settings.destinationType, 'one-drive');
+    assert.equal(settings.lastScheduledSuccess.destinationType, 'one-drive');
+    assert.equal(settings.lastRetentionResult.deleted, 1);
+
+    const staging = await fs.readdir(path.join(dataDir, '.backup-staging'));
+    assert.equal(staging.some((name) => name.endsWith('.pfcbackup')), false);
+    service.stop();
+  } finally {
+    await fs.rm(root, { recursive:true, force:true });
+  }
+});
