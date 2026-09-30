@@ -4,6 +4,16 @@ This file contains the version-by-version release history for Print Farm Control
 
 Historical entries describe the behaviour of the controller at the time of that release and may be superseded by later versions. For current installation, configuration and supported-hardware guidance, see [README.md](README.md).
 
+## v0.37.0
+
+- Adds persistent **Reports & analytics** with graphical daily outcome trends, date/printer/group filters, print outcome rates, run hours, popular-file reporting, filament usage/spend and transparent per-printer reliability indicators. Problem-printer guidance is based on observable counts/rates and recent-vs-earlier failure-rate trends rather than an opaque health score.
+- Adds a persistent controller-owned filament catalogue with material, optional brand/product/colour, currency and cost per kg. Print Library files can explicitly map each logical tool to a catalogue entry, and sliced filament usage in grams is retained from supported G-code and embedded 3MF plate G-code.
+- Adds Orca/Bambu slicer profile auto-matching for costing. Per-tool `filament_settings_id` and `filament_vendor` metadata are retained and used to select an unambiguous matching catalogue brand/product before falling back to a unique material-only match. Ambiguous matches continue to require explicit selection.
+- Each print snapshots its material usage, catalogue identity, price/kg and estimated cost before start, so historical print costs remain stable when catalogue prices are changed later.
+- Adds an independent persistent `reporting-history.json` store so long-term analytics are not limited by the recent queue/history retention window. Existing terminal queue history seeds the reporting store and subsequent terminal jobs are deduplicated by job ID.
+- Portable backup/restore now includes the filament catalogue and reporting history in addition to Print Library metadata/files and print jobs. Older backups restore with backward-compatible empty defaults for the new stores.
+- Adds regression coverage for filament gram/profile parsing, catalogue persistence, slicer-profile cost auto-matching, immutable cost snapshots, reporting aggregation, reporting UI wiring, and backup/restore participation.
+
 ## v0.36.0
 
 - Experimental Microsoft OneDrive backup and restore is added on top of the v0.35.0 S3-compatible baseline. Backup & recovery now supports OneDrive for manual backups, daily/weekly scheduled backups with controller-scoped retention, and direct cloud restore through the same provider registry and unchanged inspection/staging/restart/rollback engine used by Google Drive and S3.
