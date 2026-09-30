@@ -155,9 +155,9 @@ Cloud restore is provider-based rather than Google-specific. Google Drive, Micro
 - Restore can use either a local `.pfcbackup` file or a backup selected directly from a connected cloud provider. Google Drive backups are listed in the restore source selector, downloaded to temporary staging, and passed through the same inspection, checksum/version validation, recovery-hold and restart-based restore pipeline as local files.
 
 
-## Microsoft OneDrive backups
+## Microsoft OneDrive backups (Experimental)
 
-Print Farm Controller v0.36.0 adds Microsoft OneDrive as a second cloud backup and restore provider. Manual and scheduled OneDrive backups use the same verified/compressed `.pfcbackup` format and the same restore inspection/staging engine as local and Google Drive backups.
+Print Farm Controller v0.36.0 includes Microsoft OneDrive as an **experimental** cloud backup and restore provider. Automated tests and packaging validation are complete, but the integration has not yet been validated against a live Microsoft account. Manual and scheduled OneDrive backups use the same verified/compressed `.pfcbackup` format and the same restore inspection/staging engine as local and Google Drive backups.
 
 OneDrive authorization uses Microsoft's device-code OAuth flow and requests:
 
@@ -180,7 +180,7 @@ Built-in client IDs are not copied into this file. The saved refresh token and i
 OneDrive stores controller backups in the Microsoft Graph `approot` application folder. Each uploaded backup has a small companion `.pfcmeta.json` item containing PFC ownership/retention metadata only. This lets scheduled retention safely remove only older scheduled backups belonging to the same controller installation while leaving manual and foreign-installation backups untouched.
 
 - **Backup to OneDrive now** creates and verifies the canonical backup before uploading it.
-- Scheduled backups can select **Microsoft OneDrive**.
+- Scheduled backups can select **Microsoft OneDrive (Experimental)**.
 - Connected OneDrive appears automatically as a cloud restore source.
 - Cloud restore downloads the selected backup to temporary staging and then uses the same inspection, checksum/version validation, recovery-hold, staged restart and rollback path as local/Google Drive restore.
 - Disconnecting removes the controller's stored Microsoft account authorization but leaves existing OneDrive backup files untouched.
