@@ -86,7 +86,7 @@ test('scheduled backup UI configures local, network, Google Drive, OneDrive or S
   assert.match(index, /id="backupScheduleEnabled"/);
   assert.match(index, /id="backupScheduleDestinationType"/);
   assert.match(index, /value="google-drive">Google Drive/);
-  assert.match(index, /value="one-drive">Microsoft OneDrive/);
+  assert.match(index, /value="one-drive">Microsoft OneDrive \(Experimental\)/);
   assert.match(index, /value="s3">S3-compatible storage/);
   assert.match(index, /id="backupScheduleDestination"/);
   assert.match(index, /id="backupScheduleFrequency"/);
@@ -179,7 +179,7 @@ test('Google Drive backup UI uses device authorization and limited Drive file ac
 
 
 test('OneDrive backup UI uses Microsoft device authorization and app-folder access', () => {
-  assert.match(index, /<strong>Microsoft OneDrive<\/strong>/);
+  assert.match(index, /<strong>Microsoft OneDrive \(Experimental\)<\/strong>/);
   assert.match(index, /id="oneDriveAdvancedConfig"/);
   assert.match(index, /id="oneDriveClientId"/);
   assert.match(index, /id="oneDriveSaveConfigBtn"/);
