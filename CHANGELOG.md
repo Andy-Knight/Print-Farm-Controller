@@ -4,6 +4,11 @@ This file contains the version-by-version release history for Print Farm Control
 
 Historical entries describe the behaviour of the controller at the time of that release and may be superseded by later versions. For current installation, configuration and supported-hardware guidance, see [README.md](README.md).
 
+## v0.38.1
+
+- Fixes Print Library **Edit details** filament-cost assignments not being persisted. The form was collecting per-tool filament selections correctly but the browser metadata update helper omitted `filamentAssignments` from the PATCH request.
+- Adds regression coverage proving the UI sends filament assignments and that stored assignments survive subsequent Print Library reads/listing.
+
 ## v0.38.0
 
 - Introduces a Stacked Layers branding prototype for the main controller header using a responsive vector interpretation of the supplied stacked-layer mark alongside the existing Print Farm Controller product name.
