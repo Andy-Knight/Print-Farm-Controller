@@ -128,12 +128,12 @@ The first reporting/analytics slice is implemented:
 - The **Reports & analytics** UI provides KPI cards, a daily outcomes SVG trend chart, transparent problem-printer indicators with recent-vs-earlier failure-rate trend, popular-file charts, material-usage/spend charts and filament catalogue management.
 - Print Library **Edit details** exposes per-tool filament-cost assignments, sliced gram usage and detected slicer vendor/preset metadata, and shows when an unambiguous slicer-profile match will be costed automatically.
 - Filament catalogue and reporting history are included in portable backup/restore, with backward-compatible empty defaults for older backups.
-- Regression coverage exists for gram parsing, catalogue persistence, material cost snapshots, queue snapshots, durable reporting aggregation/retention, backup/restore and the reporting UI. CI passed through the Print Library costing UI; the latest reporting UI test correction is awaiting the current PR workflow result.
+- Regression coverage exists for gram parsing, Orca/Bambu slicer preset/vendor parsing and auto-matching, catalogue persistence, material cost snapshots, queue snapshots, durable reporting aggregation/retention, backup/restore and the reporting UI. The full PR workflow passed after the slicer-profile matching changes.
 
 ## Next steps
 
-1. Confirm the latest PR #61 regression/container workflow is green after the reporting UI test correction.
-2. Manually validate the v0.37.0 Reports dialog in Dark and Light modes, including 7/30/90/365-day filters, printer/group filters, empty-state behaviour and responsive layout.
+1. Manually validate the v0.37.0 Reports dialog in Dark and Light modes, including 7/30/90/365-day filters, printer/group filters, empty-state behaviour and responsive layout.
+2. Validate the slicer-profile auto-match display in Print Library **Edit details** with real OrcaSlicer G-code and 3MF files.
 3. Validate filament-cost workflow with real OrcaSlicer G-code/3MF: catalogue creation, vendor/preset auto-matching across multiple same-material brands/products, explicit assignment for genuinely ambiguous presets, queue start snapshot and historical price stability after a catalogue price change.
 4. Decide whether failed/cancelled prints should gain a separate **estimated waste** metric. Current material spend intentionally counts completed prints only because sliced full-job grams would overstate material consumed by a job that failed part-way through.
 5. Add longer-term availability/downtime sampling if printer online/offline trend analysis is required; the current problem-printer indicators are based on retained print outcomes, run time and failure-rate trends.
