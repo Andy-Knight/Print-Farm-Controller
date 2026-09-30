@@ -159,6 +159,8 @@ function sanitizeOptions(options = {}) {
           material:tool?.material || null,
           color:tool?.color || null,
           colorFamily:tool?.colorFamily || null,
+          filamentPreset:tool?.filamentPreset || null,
+          filamentVendor:tool?.filamentVendor || null,
           nozzleDiameter:Number.isFinite(Number(tool?.nozzleDiameter)) ? Number(tool.nozzleDiameter) : null
         })).filter((tool) => Number.isFinite(tool.index))
       : []
