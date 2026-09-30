@@ -9,7 +9,7 @@ If chat context and this file disagree about the codebase, inspect current GitHu
 - Repository: `Andy-Knight/Print-Farm-Controller`
 - Project path: repository root (`/`)
 - Primary branch: `main` (current production baseline)
-- Current application version on this branch: **0.37.0** (reporting/analytics feature development). Production baseline on `main`: **0.36.0**.
+- Current application version on this branch: **0.37.0**. Production baseline on `main`: **0.37.0**.
 - Runtime: **Node.js 24+** (development baseline Node.js 24.21.0), ES modules, no npm runtime dependencies.
 - GitHub is the authoritative code baseline.
 
@@ -32,6 +32,7 @@ Local Fleet Controller (`src/`)
         +-- persistent custom printer groups + overlapping printer membership
         +-- persistent print queue + history + bed-clearance interlock + optional group restriction
         +-- persistent maintenance tasks + printer/group/model assignment + completion history + controller-observed printer usage
+        +-- persistent reporting history + graphical analytics + filament catalogue/material-cost snapshots
         +-- logical `.pfcbackup` backup/recovery + scheduled local/network backups + staged restart restore/rollback
         +-- signed licence loader / verifier / edition + printer-slot enforcement
         |
@@ -66,7 +67,7 @@ Manufacturer-specific discovery, capabilities, limits, status normalization, fil
 - Automatic queue work may optionally carry a printer-group restriction. The controller evaluates only current members of that group for assignment, and group membership changes trigger queue reevaluation. The group restriction narrows the candidate set but does not bypass model/file targeting, material/colour/nozzle compatibility, licensing, busy state, bed clearance, concurrency or any other safety/preflight rule.
 - Maintenance task assignment supports three scopes: individual printer, custom printer group, and printer model. Group-wide rules follow current group membership while maintaining independent per-printer assignment state, recurrence baseline, last-completed data and history.
 - Maintenance tracking is a controller-owned fleet service keyed by printer ID rather than adapter-specific state. `maintenance.json` stores task definitions, completion history, per-task interval baselines, and controller-observed print seconds/cycles. Observed counters begin when this controller tracks activity and must not be presented as manufacturer lifetime counters. A maintenance task may recur by calendar days, observed print hours, or observed print count; reaching 80% of an interval is **Due soon**, reaching 100% is **Due**. Completing a task creates a retained history entry with notes/usage snapshot before resetting only that task's baseline.
-- Backup/recovery uses portable logical `.pfcbackup` archives rather than raw `data/` copies. Archives carry a manifest and checksums, include controller configuration/state, printer-group definitions/membership and Print Library content, and exclude logs, executables/build artifacts, transient files and private licensing keys. Older backups without `printer-groups.json` restore with an empty group store.
+- Backup/recovery uses portable logical `.pfcbackup` archives rather than raw `data/` copies. Archives carry a manifest and checksums, include controller configuration/state, printer-group definitions/membership, Print Library content, the filament catalogue and persistent reporting history, and exclude logs, executables/build artifacts, transient files and private licensing keys. Older backups without newer stores such as `printer-groups.json`, `filaments.json` or `reporting-history.json` restore with compatible empty defaults.
 - Restore is two-phase and restart-activated: inspect/validate/migrate/stage while the live installation stays intact, then activate before normal services initialize. Activation retains rollback state and automatically restores it if startup validation fails. Restored unfinished queue work is recovery-held, restored production batches remain paused, transient reservations/start state is cleared, and existing/required bed-clearance interlocks are preserved until deliberate user review.
 - Print Library previews are derived from slicer-provided images only: Orca/Bambu-style 3MF plate thumbnails and supported embedded PNG/JPEG G-code thumbnail blocks. Cached preview images live beside the stored print file; unsupported/missing thumbnails use a UI placeholder rather than a generated render.
 - A completed/active-failed/cancelled print creates a **bed-clearance interlock**; no later queued job may start on that printer until **Bed cleared** is confirmed.
@@ -105,8 +106,9 @@ Manufacturer-specific discovery, capabilities, limits, status normalization, fil
 - Persistent printer registry with manufacturer-specific adapters, local discovery where supported, controller-side printer naming, live SSE fleet state, dashboard filtering and printer groups with overlapping membership.
 - Persistent Print Library with descriptions, previews, target-printer metadata, material/colour/nozzle requirements, verified file distribution and queue integration.
 - Persistent print queue/history with fixed-printer or next-compatible-printer assignment, priorities, production batches, reprint, compatibility/preflight checks, material/tool mapping and bed-clearance interlocks.
+- Persistent reporting/analytics history with graphical trends, printer reliability indicators, popular-file reporting, filament usage/spend, and controller-owned filament catalogue costing with slicer-profile auto-matching.
 - Maintenance tracking supports printer-, group- and model-scoped recurring tasks, due-soon/due status, per-printer history and controller-observed print usage.
-- Backup & recovery on the production baseline uses portable verified/compressed `.pfcbackup` archives with local/NAS, Google Drive and generic S3-compatible destinations, scheduled backups, explicit inspection, staged restart restore, rollback and recovery holds for unfinished queue work. Microsoft OneDrive is being reconciled on top of that baseline for v0.36.0.
+- Backup & recovery on the production baseline uses portable verified/compressed `.pfcbackup` archives with local/NAS, Google Drive, generic S3-compatible and **Experimental Microsoft OneDrive** destinations, scheduled backups, explicit inspection, staged restart restore, rollback and recovery holds for unfinished queue work. v0.37.0 backups also include the filament catalogue and persistent reporting history.
 - Google Drive production deployments use the shared built-in OAuth configuration injected at build time; customers authorize their own Google account without supplying an OAuth client. Advanced custom OAuth remains available for source/development or bespoke deployments.
 - Offline Ed25519-signed licensing enforces physical-printer allowances: Community 3, Pro 10 and Farm 25; simulator printers do not consume licence slots.
 - Integrated printer simulator covers FlashForge, Snapmaker and experimental Bambu protocol paths for repeatable development and automated validation.
@@ -115,20 +117,19 @@ Manufacturer-specific discovery, capabilities, limits, status normalization, fil
 
 ## Current task
 
-The current production baseline is **v0.36.0** on `main`, including Google Drive, generic S3-compatible backup/restore and **Experimental** Microsoft OneDrive support.
+The current production baseline is **v0.37.0** on `main`. PR #61 / `feature/reporting-analytics-v0370` has been merged.
 
-Active development is on **`feature/reporting-analytics-v0370`** / draft **PR #61** for **v0.37.0**.
+v0.37.0 adds:
+- persistent per-logical-tool sliced filament usage in grams for supported G-code and embedded 3MF plate G-code, with lazy upgrade of older Print Library metadata;
+- a controller-owned `filaments.json` catalogue with material, optional brand/product/colour, currency and cost per kg;
+- Orca/Bambu-style `filament_settings_id` and `filament_vendor` capture and unambiguous slicer-profile auto-matching before material-only fallback;
+- explicit Print Library per-tool filament assignment when automatic resolution remains ambiguous;
+- immutable per-run material usage/cost snapshots so later catalogue-price changes do not alter historical print costs;
+- independent persistent `reporting-history.json` analytics history;
+- **Reports & analytics** UI with date/printer/group filters, graphical trends, printer outcome/reliability metrics, popular files, filament usage and spend;
+- portable backup/restore coverage for the filament catalogue and reporting history, with backward-compatible defaults for older backups.
 
-The first reporting/analytics slice is implemented:
-- Print Library requirement parsing now retains per-logical-tool sliced filament usage in grams, including embedded 3MF plate G-code, and existing library metadata is upgraded lazily when files are read.
-- A persistent controller-owned `filaments.json` catalogue records material, optional brand/product/colour, currency and cost per kg. Print Library files can explicitly map each logical tool to a catalogue filament. Orca/Bambu-style `filament_settings_id` and `filament_vendor` metadata are retained per logical tool and used to auto-match an unambiguous brand/product catalogue entry before falling back to a unique material-only match; ambiguous matches still require an explicit choice.
-- Each queue run snapshots the applicable material usage/cost immediately before print start. Historical snapshots remain unchanged when catalogue prices are later edited.
-- Long-term analytics use an independent persistent `reporting-history.json` store rather than the queue's bounded 250-record recent-history window. Existing terminal queue history seeds the reporting store on first startup, and new terminal jobs are deduplicated by job ID.
-- `GET /api/reports` provides date-range, printer and printer-group filtered aggregates for outcomes, run time, printer failure rates/trends, popular files, material usage and spend.
-- The **Reports & analytics** UI provides KPI cards, a daily outcomes SVG trend chart, transparent problem-printer indicators with recent-vs-earlier failure-rate trend, popular-file charts, material-usage/spend charts and filament catalogue management.
-- Print Library **Edit details** exposes per-tool filament-cost assignments, sliced gram usage and detected slicer vendor/preset metadata, and shows when an unambiguous slicer-profile match will be costed automatically.
-- Filament catalogue and reporting history are included in portable backup/restore, with backward-compatible empty defaults for older backups.
-- Regression coverage exists for gram parsing, Orca/Bambu slicer preset/vendor parsing and auto-matching, catalogue persistence, material cost snapshots, queue snapshots, durable reporting aggregation/retention, backup/restore and the reporting UI. The full PR workflow passed after the slicer-profile matching changes.
+The full PR workflow passed before merge. Remaining work is hands-on validation and optional follow-on reporting enhancements rather than unfinished v0.37.0 implementation.
 
 ## Next steps
 
