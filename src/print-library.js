@@ -195,6 +195,23 @@ async function readMetadata(directory, expectedId = null) {
   const filePath = path.join(directory, fileName);
   const stat = await fs.stat(filePath);
   if (!stat.isFile()) throw new Error('Print library file is missing');
+
+  const logicalTools = Array.isArray(metadata.requirements?.logicalTools) ? metadata.requirements.logicalTools : [];
+  const requiresUsageUpgrade = metadata.requirements
+    && (metadata.requirements.totalFilamentGrams === undefined
+      || logicalTools.some((tool) => tool && typeof tool === 'object' && !Object.hasOwn(tool, 'filamentGrams')));
+  if (requiresUsageUpgrade) {
+    try {
+      const refreshed = await readFilePrintRequirements(filePath);
+      metadata.requirements = { ...refreshed, fileName };
+      metadata.updatedAt = new Date().toISOString();
+      await writeMetadata(directory, metadata);
+    } catch {
+      // Preserve the existing compatibility metadata if the historical file
+      // cannot be reparsed. Reporting will show usage/cost as unavailable.
+    }
+  }
+
   if (!normalizePreview(metadata.preview)) {
     metadata.preview = await cachePreview(directory, filePath).catch(() => ({
       available:false,
