@@ -136,3 +136,53 @@ test('manual backup manager uploads the verified canonical backup to Google Driv
     await fs.rm(root, { recursive:true, force:true });
   }
 });
+
+
+test('manual backup manager uploads the verified canonical backup to S3 and removes local staging', async () => {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), 'pfc-manual-s3-'));
+  const dataDir = path.join(root, 'data');
+  const calls = [];
+  try {
+    await fs.mkdir(dataDir, { recursive:true });
+    await fs.writeFile(path.join(dataDir, 'printers.json'), JSON.stringify([{ id:'printer-1', name:'Test printer' }]));
+    const s3Client = {
+      async testConnection() {
+        calls.push('test');
+        return { connected:true, bucket:'pfc-backups', prefix:'farm/' };
+      },
+      async uploadBackup({ filePath, fileName, manifest }) {
+        calls.push('upload');
+        assert.ok((await fs.stat(filePath)).isFile());
+        assert.match(fileName, /\.pfcbackup$/);
+        const verified = await verifyBackupArchive(filePath);
+        assert.equal(verified.manifest.backupId, manifest.backupId);
+        assert.equal(manifest.backupSource, 'manual');
+        return { id:`farm/${fileName}`, key:`farm/${fileName}` };
+      }
+    };
+    const manager = new ManualBackupManager({
+      dataDir,
+      applicationDir:root,
+      licensePath:path.join(root, 'missing-license.json'),
+      controllerVersion:'0.35.0',
+      s3Client
+    });
+
+    const created = await manager.createS3();
+    assert.deepEqual(calls, ['test','upload']);
+    assert.equal(created.destinationType, 's3');
+    assert.equal(created.bucket, 'pfc-backups');
+    assert.equal(created.prefix, 'farm/');
+    assert.match(created.s3ObjectKey, /^farm\/.*\.pfcbackup$/);
+
+    const staging = await fs.readdir(path.join(dataDir, '.backup-staging'));
+    assert.equal(staging.some((name) => name.endsWith('.pfcbackup')), false);
+
+    const status = await manager.status();
+    assert.equal(status.lastSuccessfulBackup.destinationType, 's3');
+    assert.match(status.lastSuccessfulBackup.s3ObjectKey, /^farm\/.*\.pfcbackup$/);
+    assert.equal(status.lastError, null);
+  } finally {
+    await fs.rm(root, { recursive:true, force:true });
+  }
+});

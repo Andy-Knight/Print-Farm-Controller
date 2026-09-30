@@ -4,6 +4,13 @@ This file contains the version-by-version release history for Print Farm Control
 
 Historical entries describe the behaviour of the controller at the time of that release and may be superseded by later versions. For current installation, configuration and supported-hardware guidance, see [README.md](README.md).
 
+## v0.35.0
+
+- Generic S3-compatible backup and restore. Backup & recovery can now store the canonical verified/compressed `.pfcbackup` in S3-compatible object storage for manual backups, daily/weekly scheduled backups with controller-scoped retention, and direct cloud restore through the existing provider registry and unchanged inspection/staging/restart/rollback engine.
+- The S3 client is implemented with Node built-ins and AWS Signature Version 4, preserving the controller's zero runtime npm-dependency model. Configuration supports endpoint, bucket, region, object-key prefix, path-style or virtual-hosted addressing, and access-key credentials. HTTPS is required unless the user explicitly enables insecure HTTP for a trusted local development service such as MinIO.
+- Each uploaded S3 backup has a small `.pfcmeta.json` sidecar containing PFC ownership/retention metadata. Scheduled retention therefore removes only older scheduled backups owned by the same controller installation while leaving manual and foreign-installation backups untouched. S3 credentials live under `<DATA_DIR>/integrations/s3.json`, are excluded from portable backups/diagnostics, and the secret key is never returned through the status API.
+- Automated validation includes Signature V4/unit coverage plus an integration test that starts a pinned MinIO server and performs real bucket creation, upload, listing, restore download and retention operations.
+
 ## v0.33.0
 
 - Cloud restore source support. Backup & recovery can now restore directly from connected cloud storage as well as a local `.pfcbackup`. The restore UI dynamically discovers cloud providers, lists eligible backups, requires explicit selection and inspection, downloads to temporary local staging, and then uses the unchanged existing restore inspection/staging/restart/rollback engine. Google Drive is the first provider. The selected cloud artifact is downloaded and revalidated again when restore is staged, and changing the selected source invalidates the previous inspection. The provider registry is intentionally generic so future cloud services can add list/download support without duplicating restore logic.

@@ -22,7 +22,8 @@ export class ManualBackupManager {
     controllerVersion = 'unknown',
     downloadTtlMs = DEFAULT_DOWNLOAD_TTL_MS,
     operationLock = null,
-    googleDriveClient = null
+    googleDriveClient = null,
+    s3Client = null
   } = {}) {
     if (!dataDir) throw new Error('Manual backup manager requires a data directory');
     this.dataDir = path.resolve(dataDir);
@@ -32,6 +33,7 @@ export class ManualBackupManager {
     this.downloadTtlMs = Math.max(60_000, Number(downloadTtlMs) || DEFAULT_DOWNLOAD_TTL_MS);
     this.operationLock = operationLock || new BackupOperationLock();
     this.googleDriveClient = googleDriveClient || null;
+    this.s3Client = s3Client || null;
     this.stagingRoot = path.join(this.dataDir, '.backup-staging');
     this.stagingDir = path.join(this.stagingRoot, 'manual');
     this.downloads = new Map();
@@ -212,6 +214,79 @@ export class ManualBackupManager {
           destinationType:'google-drive',
           folderName:uploaded.folderName || null,
           driveFileId:uploaded.id || null
+        };
+      } catch (error) {
+        await saveBackupSettings({
+          ...settings,
+          lastError:error?.message || String(error)
+        }, { dataDir:this.dataDir }).catch(() => {});
+        throw error;
+      } finally {
+        if (result?.filePath) await fs.rm(result.filePath, { force:true }).catch(() => {});
+        this.creating = false;
+      }
+    });
+  }
+
+
+  async createS3() {
+    await this.init();
+    if (!this.s3Client) {
+      const error = new Error('S3-compatible backup support is unavailable');
+      error.statusCode = 503;
+      throw error;
+    }
+    if (this.creating) throw backupBusyError();
+
+    return this.operationLock.run('manual-s3', async () => {
+      this.creating = true;
+      const attemptedAt = new Date().toISOString();
+      let settings = await loadBackupSettings({ dataDir:this.dataDir, create:true });
+      settings = await saveBackupSettings({
+        ...settings,
+        lastAttemptedBackup:attemptedAt,
+        lastError:null
+      }, { dataDir:this.dataDir });
+
+      let result = null;
+      try {
+        await this.cleanupExpired();
+        const connection = await this.s3Client.testConnection();
+        result = await createBackupInDirectory({
+          destinationDir:this.stagingDir,
+          dataDir:this.dataDir,
+          applicationDir:this.applicationDir,
+          licensePath:this.licensePath,
+          controllerVersion:this.controllerVersion,
+          source:'manual'
+        });
+        const uploaded = await this.s3Client.uploadBackup({
+          filePath:result.filePath,
+          fileName:result.fileName,
+          manifest:result.manifest
+        });
+        const success = {
+          createdAt:result.manifest.createdAt,
+          fileName:result.fileName,
+          size:result.size,
+          source:'manual',
+          destinationType:'s3',
+          destination:`${connection.bucket}/${connection.prefix}`,
+          s3ObjectKey:uploaded.key || uploaded.id || null
+        };
+        await saveBackupSettings({
+          ...settings,
+          lastSuccessfulBackup:success,
+          lastError:null
+        }, { dataDir:this.dataDir });
+        return {
+          fileName:result.fileName,
+          size:result.size,
+          manifest:result.manifest,
+          destinationType:'s3',
+          bucket:connection.bucket,
+          prefix:connection.prefix,
+          s3ObjectKey:uploaded.key || uploaded.id || null
         };
       } catch (error) {
         await saveBackupSettings({

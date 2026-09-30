@@ -607,3 +607,74 @@ test('scheduled backups can target Google Drive with controller-scoped cloud ret
     await fs.rm(root, { recursive:true, force:true });
   }
 });
+
+
+test('scheduled backups can target S3-compatible storage with controller-scoped retention', async () => {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), 'pfc-scheduled-s3-'));
+  const timers = fakeTimerApi();
+  const calls = [];
+  try {
+    const dataDir = await makeData(root, 's3-controller');
+    const s3Client = {
+      async testConnection() {
+        calls.push('test');
+        return { connected:true, bucket:'pfc-backups', prefix:'farm/' };
+      },
+      async uploadBackup({ filePath, fileName, manifest }) {
+        calls.push('upload');
+        assert.ok((await fs.stat(filePath)).isFile());
+        assert.match(fileName, /\.pfcbackup$/);
+        assert.equal(manifest.backupSource, 'scheduled');
+        return { id:`farm/${fileName}`, key:`farm/${fileName}` };
+      },
+      async pruneScheduledBackups({ installationId, retentionCount, newestFileId }) {
+        calls.push('prune');
+        assert.match(installationId, /^[0-9a-f-]{36}$/);
+        assert.equal(retentionCount, 3);
+        assert.match(newestFileId, /^farm\/.*\.pfcbackup$/);
+        return { deleted:['old-s3-backup.pfcbackup'], failed:[], eligible:4, kept:3 };
+      }
+    };
+
+    const service = new ScheduledBackupService({
+      dataDir,
+      applicationDir:root,
+      licensePath:path.join(root, 'missing-license.json'),
+      controllerVersion:'0.35.0',
+      s3Client,
+      setTimeoutFn:timers.setTimeoutFn,
+      clearTimeoutFn:timers.clearTimeoutFn
+    });
+
+    const configured = await service.updateSettings({
+      enabled:true,
+      destinationType:'s3',
+      frequency:'daily',
+      scheduleTime:'02:00',
+      scheduleWeekday:1,
+      retentionCount:3
+    });
+    assert.equal(configured.destinationType, 's3');
+    assert.equal(configured.destination, null);
+
+    const result = await service.runScheduledBackup({
+      now:new Date('2026-09-29T10:00:00.000Z'),
+      scheduledFor:'2026-09-29T02:00:00.000Z'
+    });
+    assert.equal(result.success, true);
+    assert.equal(result.backup.destinationType, 's3');
+    assert.match(result.backup.s3ObjectKey, /^farm\/.*\.pfcbackup$/);
+    assert.deepEqual(calls, ['test','test','upload','prune']);
+
+    const settings = await loadBackupSettings({ dataDir, create:false });
+    assert.equal(settings.destinationType, 's3');
+    assert.equal(settings.lastScheduledSuccess.destinationType, 's3');
+    assert.equal(settings.lastRetentionResult.deleted, 1);
+
+    const staging = await fs.readdir(path.join(dataDir, '.backup-staging'));
+    assert.equal(staging.some((name) => name.endsWith('.pfcbackup')), false);
+    service.stop();
+  } finally {
+    await fs.rm(root, { recursive:true, force:true });
+  }
+});

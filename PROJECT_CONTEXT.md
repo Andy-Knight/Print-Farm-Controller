@@ -106,7 +106,7 @@ Manufacturer-specific discovery, capabilities, limits, status normalization, fil
 - Persistent Print Library with descriptions, previews, target-printer metadata, material/colour/nozzle requirements, verified file distribution and queue integration.
 - Persistent print queue/history with fixed-printer or next-compatible-printer assignment, priorities, production batches, reprint, compatibility/preflight checks, material/tool mapping and bed-clearance interlocks.
 - Maintenance tracking supports printer-, group- and model-scoped recurring tasks, due-soon/due status, per-printer history and controller-observed print usage.
-- Backup & recovery uses portable verified/compressed `.pfcbackup` archives with local/NAS and Google Drive destinations, scheduled backups, explicit inspection, staged restart restore, rollback and recovery holds for unfinished queue work.
+- Backup & recovery on the production baseline uses portable verified/compressed `.pfcbackup` archives with local/NAS and Google Drive destinations, scheduled backups, explicit inspection, staged restart restore, rollback and recovery holds for unfinished queue work. Generic S3-compatible storage is under active v0.35.0 development on PR #60.
 - Google Drive production deployments use the shared built-in OAuth configuration injected at build time; customers authorize their own Google account without supplying an OAuth client. Advanced custom OAuth remains available for source/development or bespoke deployments.
 - Offline Ed25519-signed licensing enforces physical-printer allowances: Community 3, Pro 10 and Farm 25; simulator printers do not consume licence slots.
 - Integrated printer simulator covers FlashForge, Snapmaker and experimental Bambu protocol paths for repeatable development and automated validation.
@@ -115,20 +115,23 @@ Manufacturer-specific discovery, capabilities, limits, status normalization, fil
 
 ## Current task
 
-The current production baseline is **v0.33.0** on `main`. Google Drive backup and restore are complete, merged and production-validated from a deployed container using the built-in OAuth configuration injected by GitHub Actions. Manual cloud backup, cloud backup listing/inspection, staged restore through the existing recovery engine, and the self-contained customer connection flow have all been validated.
+The current production baseline remains **v0.33.0** on `main`. Google Drive backup and restore are merged and production-validated from a deployed container.
 
-There is **no active product feature branch** at present. The only active work is documentation cleanup on `docs/project-context-version-history`, specifically keeping `PROJECT_CONTEXT.md` aligned with the current production state and consolidating historical release notes into the ordered version-history section at the end of this file.
+Two cloud-storage feature branches are intentionally being developed independently from the v0.33.0 baseline:
 
-Any further functional development should start from the current `main` baseline on a new feature branch.
+- **`feature/onedrive-backup-v0340` / draft PR #59** adds Microsoft OneDrive as v0.34.0. Automated regression/container validation is green, but real Microsoft account/Graph validation is pending because Microsoft account creation is currently blocked for the test account.
+- **`feature/s3-backup-v0350` / draft PR #60** adds generic S3-compatible backup and restore as v0.35.0. It implements AWS Signature Version 4 directly with Node built-ins, manual/scheduled backup, controller-scoped retention metadata, cloud restore, configuration UI, and MinIO integration testing.
+
+Because both feature branches started independently from v0.33.0 and touch shared cloud-backup wiring, their eventual merge order must be reconciled deliberately. If OneDrive v0.34.0 merges first, the S3 branch should be rebased/merged against that new baseline before v0.35.0 is released. If S3 is released first instead, the OneDrive version/branch must be reconciled so a later merge cannot downgrade or overwrite shared provider changes.
 
 ## Next steps
 
-1. Complete this `PROJECT_CONTEXT.md` cleanup and merge the documentation-only branch once reviewed.
-2. Validate the v0.33.0 built-in Google OAuth flow in the packaged Windows SEA/installer build, matching the production-container validation already completed.
-3. Physically validate FlashForge Creator 5 / Creator 5 Pro support against real hardware, including discovery/authentication, four-tool telemetry and mapping, upload/verification, single- and multi-tool print starts, temperature controls, bed levelling, camera, pause/resume/cancel and Creator 5 Pro chamber control.
-4. Keep Creator 5 Pro filtration printer-managed unless a writable local API command is verified on physical hardware.
-5. Continue physical validation of experimental Bambu P1P/P1S/X1C/A1 Mini behaviour before removing the experimental designation.
-6. Select the next product feature or hardening priority from the current `main` baseline and create a dedicated feature branch before implementation.
+1. Complete PR #60 S3-compatible automated validation, including the pinned MinIO real-server integration test and multi-architecture container build.
+2. Validate S3 manually against a local MinIO instance or K3s MinIO service, then against at least one external S3-compatible provider before release.
+3. Keep OneDrive PR #59 draft until a real Microsoft account/Entra application can validate connect, manual/scheduled backup, retention, listing/inspection and restore.
+4. Reconcile the OneDrive/S3 feature branches against whichever cloud feature is merged first before releasing the second one.
+5. Validate the built-in Google OAuth flow in the packaged Windows SEA/installer build.
+6. Physically validate FlashForge Creator 5 / Creator 5 Pro support and continue experimental Bambu validation.
 
 ## Licensing baseline
 
@@ -524,3 +527,7 @@ Do not reintroduce a runtime environment flag that lets a distributed controller
 ### v0.33.0
 
 - **Google Drive backups:** Backup & recovery supports Google Drive for manual/scheduled backups and direct cloud restore while keeping the canonical compressed/verified `.pfcbackup` and existing restore engine authoritative. Authentication uses Google's limited-input/device OAuth flow with `drive.file`. Production bundles can embed one shared Print Farm Controller OAuth client from build-time `PFC_GOOGLE_CLIENT_ID` / `PFC_GOOGLE_CLIENT_SECRET`; GitHub Actions injects repository secrets into non-PR production container builds via BuildKit secret mounts, while Windows SEA builds consume the same environment variables. Normal customers therefore only select **Connect** and authorize their own Google account. UI-saved custom OAuth configuration and runtime `GOOGLE_DRIVE_CLIENT_ID` / `GOOGLE_DRIVE_CLIENT_SECRET` overrides remain available, with precedence custom → environment → built-in. Built-in credentials are not copied into `<DATA_DIR>/integrations/google-drive.json`; that file stores the customer refresh token/folder state plus custom overrides only, and remains excluded from backups/diagnostics. The cloud restore provider registry lists/downloads Google backups into temporary staging, then reuses the existing inspection/staging/restart/rollback path and re-downloads/revalidates at actual staging. The self-contained Google Drive flow has also been validated from a deployed production container using the built-in OAuth configuration injected by GitHub Actions.
+
+### v0.35.0 (feature branch)
+
+- **Generic S3-compatible backup and restore:** draft PR #60 adds an S3 provider for manual/scheduled backup and direct cloud restore while retaining the canonical `.pfcbackup` and existing restore engine. The client implements AWS Signature Version 4 with Node built-ins and no runtime AWS SDK dependency. Configuration supports endpoint, bucket, region, prefix, access-key credentials, path-style/virtual-hosted addressing, and an explicit insecure-HTTP opt-in for trusted local development. Each backup is paired with a small PFC metadata sidecar so scheduled retention can identify only scheduled backups owned by the same installation. `<DATA_DIR>/integrations/s3.json` is excluded from backups/diagnostics and the secret key is never exposed through status APIs. Automated coverage includes signing/configuration tests, manager/scheduler/UI coverage and a pinned MinIO integration test for real S3 bucket creation, upload, listing, download and retention. This branch is not yet merged and must be reconciled with the parallel OneDrive v0.34.0 branch before both can be released in sequence.

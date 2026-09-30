@@ -1,4 +1,4 @@
-# Backup and Recovery Design — v0.33.0
+# Backup and Recovery Design — v0.35.0
 
 ## Purpose
 
@@ -6,14 +6,14 @@ v0.23.0 adds controller-owned backup and disaster recovery for Print Farm Contro
 
 The backup format is intentionally logical and path-independent. A backup is not a raw copy of the application directory or `data/` directory.
 
-## Scope for v0.23.0
+## Current implemented scope
 
 ### Included
 
 - Manual backup from the controller UI.
-- Scheduled backup to a local folder, an operating-system-mounted/network path such as a Windows UNC/NAS location, or Google Drive.
-- Google Drive manual/scheduled upload using the same verified `.pfcbackup` artifact.
-- Configurable scheduled-backup retention for local and Google Drive destinations.
+- Scheduled backup to a local folder, an operating-system-mounted/network path such as a Windows UNC/NAS location, Google Drive, or generic S3-compatible storage.
+- Google Drive and S3-compatible manual/scheduled upload using the same verified `.pfcbackup` artifact.
+- Configurable scheduled-backup retention for local, Google Drive, and S3-compatible destinations.
 - Portable `.pfcbackup` package.
 - Manifest, format version, source controller version, counts and SHA-256 integrity checks.
 - Restore validation before any live data is changed.
@@ -24,7 +24,7 @@ The backup format is intentionally logical and path-independent. A backup is not
 
 ### Deferred
 
-- Additional cloud-provider-specific destinations beyond Google Drive.
+- Additional provider-specific cloud integrations beyond Google Drive and generic S3-compatible storage.
 - Built-in backup encryption/password protection.
 - Incremental/differential backups.
 - Remote replication between controller instances.
@@ -264,6 +264,64 @@ Drive retention follows the same safety model as local scheduled retention:
 
 Disconnecting attempts to revoke the Google refresh token, clears account authorization and memory-only access-token state, preserves the saved OAuth client configuration for later reconnection, and leaves existing Drive backup files untouched.
 
+## S3-compatible destination
+
+S3-compatible storage is a destination for the same canonical verified `.pfcbackup` artifact. The controller implements the common S3 REST operations directly with AWS Signature Version 4 and does not require an AWS SDK or another runtime npm dependency.
+
+### Configuration and credentials
+
+The integration accepts:
+
+- endpoint URL;
+- bucket;
+- region;
+- access key ID and secret access key;
+- object-key prefix;
+- path-style or virtual-hosted addressing.
+
+HTTPS is required by default. Plain HTTP is accepted only when the user explicitly enables **Allow insecure HTTP**, intended for a trusted local development service such as MinIO.
+
+Persistent configuration is stored at:
+
+```text
+<DATA_DIR>/integrations/s3.json
+```
+
+The secret access key is never returned through the status API, and the integration file is excluded from portable backups and diagnostic bundles.
+
+### S3 upload and metadata
+
+PFC uploads the verified `.pfcbackup` object unchanged using signed `PutObject` requests. A small adjacent `.pfcmeta.json` sidecar stores only controller ownership/retention metadata:
+
+- PFC backup marker;
+- backup UUID;
+- installation UUID;
+- backup source (manual/scheduled);
+- creation timestamp;
+- backup-format version;
+- source controller version;
+- backup byte size.
+
+The sidecar contains no printer credentials, cloud credentials, licence contents, or Print Library contents.
+
+Listing uses `ListObjectsV2`; restore uses `GetObject`; retention uses `DeleteObject`. A backup is offered for cloud restore only when its `.pfcbackup` object is paired with valid PFC metadata.
+
+### Scheduled S3 retention
+
+S3 retention follows the same ownership rules as local and Google Drive retention:
+
+- only PFC backup objects with valid metadata are eligible;
+- only `backupSource=scheduled` objects are eligible;
+- the installation ID must match the current controller;
+- manual backups and backups from another controller installation are never pruned;
+- backup and metadata sidecar are removed together;
+- retention runs only after the newest upload succeeds;
+- retention failure does not invalidate an otherwise successful backup.
+
+### Compatibility scope
+
+The implementation deliberately stays within the common S3 API subset so the same provider can be used with MinIO, Amazon S3, Cloudflare R2, Backblaze B2, Wasabi, and similar S3-compatible systems. Provider-specific ACLs, tagging, IAM-role discovery, lifecycle policies, or proprietary extensions are not required.
+
 ### Cloud restore provider model
 
 Cloud restore does not implement a second restore engine. Providers implement a small storage-facing contract:
@@ -272,7 +330,7 @@ Cloud restore does not implement a second restore engine. Providers implement a 
 - list eligible controller backups;
 - download a selected backup to temporary local staging.
 
-The controller then passes that temporary `.pfcbackup` through the existing `inspectRestoreBackup()` and `stageRestoreBackup()` paths. Google Drive is the first registered provider.
+The controller then passes that temporary `.pfcbackup` through the existing `inspectRestoreBackup()` and `stageRestoreBackup()` paths. Google Drive and S3-compatible storage are registered providers.
 
 The restore UI discovers connected providers dynamically, so future providers can appear as restore sources without changing restore validation logic. A cloud backup must be explicitly selected and inspected before Restore is enabled. If the user changes the provider or selected backup after inspection, the inspection is invalidated.
 
@@ -302,7 +360,8 @@ v0.23.0 excludes:
 - runtime locks/reservations;
 - in-memory printer state;
 - private licence signing keys or License Manager data.
-- Google OAuth client credentials, refresh/access tokens, and `data/integrations/google-drive.json`.
+- Google OAuth client credentials, refresh/access tokens, and `data/integrations/google-drive.json`;
+- S3 access credentials and `data/integrations/s3.json`.
 
 Diagnostic logs have their own sanitized diagnostic-bundle workflow and are deliberately separate from disaster-recovery backups.
 
@@ -322,7 +381,7 @@ Current JSON stores are already written using temp-file + rename semantics, so e
 
 The Print Library uses immutable file IDs/content. Queue/history references protect referenced library entries from deletion. Backup code should still tolerate a concurrent unreferenced library change by retrying or omitting an entry only when it was removed before the snapshot was finalized.
 
-Google Drive integration state is intentionally outside the logical snapshot allowlist. Backup creation enumerates known logical stores rather than copying `DATA_DIR`, so introducing `data/integrations/google-drive.json` does not make the refresh token part of a backup.
+Cloud integration state is intentionally outside the logical snapshot allowlist. Backup creation enumerates known logical stores rather than copying `DATA_DIR`, so neither `data/integrations/google-drive.json` nor `data/integrations/s3.json` can place cloud credentials into a portable backup.
 
 A backup must not send printer commands or interrupt an active physical print.
 
@@ -492,7 +551,7 @@ Backups are sensitive because they can contain:
 v0.23.0 therefore:
 
 - writes backup files with restrictive permissions where supported;
-- never sends backups to an external service;
+- sends backups to an external service only when the user explicitly configures/selects a cloud destination;
 - never contains private licence signing keys;
 - warns that unencrypted backups should be stored on trusted storage;
 - validates archive paths and size limits before extraction.

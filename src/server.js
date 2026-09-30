@@ -45,6 +45,7 @@ import { ManualBackupManager } from './backup-recovery/manual-backup-manager.js'
 import { BackupOperationLock } from './backup-recovery/backup-operation-lock.js';
 import { ScheduledBackupService } from './backup-recovery/scheduled-backup-service.js';
 import { GoogleDriveClient } from './backup-recovery/google-drive-client.js';
+import { S3BackupClient } from './backup-recovery/s3-backup-client.js';
 import { CloudBackupProviderRegistry } from './backup-recovery/cloud-backup-providers.js';
 import { inspectRestoreBackup } from './backup-recovery/restore-inspector.js';
 import { stageRestoreUploadRequest } from './backup-recovery/restore-upload-staging.js';
@@ -79,6 +80,10 @@ const googleDriveClient = new GoogleDriveClient({
   builtInClientSecret:bundledGoogleClientSecret,
   diagnosticFn:(level, message, meta) => diagnosticLogger[level]?.('backup', message, meta)
 });
+const s3Client = new S3BackupClient({
+  dataDir:runtimePaths.dataDir,
+  diagnosticFn:(level, message, meta) => diagnosticLogger[level]?.('backup', message, meta)
+});
 const cloudBackupProviders = new CloudBackupProviderRegistry([
   {
     id:'google-drive',
@@ -86,6 +91,13 @@ const cloudBackupProviders = new CloudBackupProviderRegistry([
     status:() => googleDriveClient.status(),
     listBackups:() => googleDriveClient.listBackups(),
     downloadBackup:(fileId, options) => googleDriveClient.downloadBackup(fileId, options)
+  },
+  {
+    id:'s3',
+    label:'S3-compatible storage',
+    status:() => s3Client.status(),
+    listBackups:() => s3Client.listBackups(),
+    downloadBackup:(fileId, options) => s3Client.downloadBackup(fileId, options)
   }
 ]);
 const manualBackupManager = new ManualBackupManager({
@@ -94,7 +106,8 @@ const manualBackupManager = new ManualBackupManager({
   licensePath:runtimePaths.licensePath,
   controllerVersion:CONTROLLER_VERSION,
   operationLock:backupOperationLock,
-  googleDriveClient
+  googleDriveClient,
+  s3Client
 });
 const scheduledBackupService = new ScheduledBackupService({
   dataDir:runtimePaths.dataDir,
@@ -103,7 +116,8 @@ const scheduledBackupService = new ScheduledBackupService({
   controllerVersion:CONTROLLER_VERSION,
   operationLock:backupOperationLock,
   diagnosticFn:(level, message, meta) => diagnosticLogger[level]?.('backup', message, meta),
-  googleDriveClient
+  googleDriveClient,
+  s3Client
 });
 const fleetState = new FleetStateService({
   diagnosticFn:(level, message, meta) => diagnosticLogger[level]?.('fleet', message, meta)
@@ -639,6 +653,40 @@ async function apiRoute(req, res, url) {
     return json(res, 200, { googleDrive });
   }
 
+  if (req.method === 'GET' && url.pathname === '/api/integrations/s3/status') {
+    return json(res, 200, { s3:await s3Client.status() });
+  }
+
+  if (req.method === 'PUT' && url.pathname === '/api/integrations/s3/config') {
+    const body = await readJson(req);
+    const s3 = await s3Client.configure({
+      endpoint:body.endpoint,
+      bucket:body.bucket,
+      region:body.region,
+      accessKeyId:body.accessKeyId,
+      secretAccessKey:body.secretAccessKey,
+      prefix:body.prefix,
+      addressingStyle:body.addressingStyle,
+      allowInsecureHttp:body.allowInsecureHttp === true
+    });
+    return json(res, 200, { s3 });
+  }
+
+  if (req.method === 'DELETE' && url.pathname === '/api/integrations/s3/config') {
+    const s3 = await s3Client.clearConfiguration();
+    return json(res, 200, { s3 });
+  }
+
+  if (req.method === 'POST' && url.pathname === '/api/integrations/s3/test') {
+    const connection = await s3Client.testConnection();
+    return json(res, 200, { connection, s3:await s3Client.status() });
+  }
+
+  if (req.method === 'GET' && url.pathname === '/api/integrations/s3/backups') {
+    const backups = await s3Client.listBackups();
+    return json(res, 200, { backups, s3:await s3Client.status() });
+  }
+
   if (req.method === 'POST' && url.pathname === '/api/backup/create') {
     await diagnosticLogger.info('backup', 'Manual backup requested');
     try {
@@ -676,6 +724,27 @@ async function apiRoute(req, res, url) {
       return json(res, 201, { backup });
     } catch (error) {
       await diagnosticLogger.warn('backup', 'Manual Google Drive backup failed', {
+        error:error?.message || String(error)
+      });
+      throw error;
+    }
+  }
+
+  if (req.method === 'POST' && url.pathname === '/api/backup/create/s3') {
+    await diagnosticLogger.info('backup', 'Manual S3-compatible backup requested');
+    try {
+      const backup = await manualBackupManager.createS3();
+      await diagnosticLogger.info('backup', 'Manual S3-compatible backup created, verified and uploaded', {
+        fileName:backup.fileName,
+        size:backup.size,
+        createdAt:backup.manifest?.createdAt || null,
+        bucket:backup.bucket || null,
+        prefix:backup.prefix || null,
+        s3ObjectKey:backup.s3ObjectKey || null
+      });
+      return json(res, 201, { backup });
+    } catch (error) {
+      await diagnosticLogger.warn('backup', 'Manual S3-compatible backup failed', {
         error:error?.message || String(error)
       });
       throw error;
