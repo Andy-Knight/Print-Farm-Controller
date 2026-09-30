@@ -7,6 +7,7 @@ import { KeyedSerialExecutor } from './concurrency.js';
 
 const CATALOGUE_PATH = path.join(path.dirname(printerStorePath), 'filaments.json');
 const EMPTY_STORE = Object.freeze({ version:1, filaments:[] });
+const SUPPORTED_CURRENCIES = new Set(['GBP', 'USD', 'EUR', 'JPY', 'CNY', 'CAD', 'AUD', 'NZD', 'CHF', 'HKD', 'SGD', 'INR', 'KRW', 'TWD', 'THB', 'MYR', 'IDR', 'PHP', 'VND', 'AED', 'SAR', 'ILS', 'ZAR', 'BRL', 'MXN', 'SEK', 'NOK', 'DKK', 'PLN', 'CZK', 'HUF', 'RON', 'TRY', 'RUB', 'CLP', 'COP']);
 const mutations = new KeyedSerialExecutor();
 let initialization = null;
 
@@ -20,6 +21,12 @@ function cleanText(value, { required = false, max = 120, label = 'Value' } = {})
 function cleanCurrency(value) {
   const currency = String(value || 'GBP').trim().toUpperCase();
   if (!/^[A-Z]{3}$/.test(currency)) throw new Error('Currency must be a three-letter code such as GBP');
+  return currency;
+}
+
+function cleanSupportedCurrency(value) {
+  const currency = cleanCurrency(value);
+  if (!SUPPORTED_CURRENCIES.has(currency)) throw new Error('Currency is not in the supported filament currency list');
   return currency;
 }
 
@@ -109,6 +116,7 @@ export async function createFilament(input = {}) {
     const timestamp = new Date().toISOString();
     const entry = normalizeEntry({
       ...input,
+      currency:cleanSupportedCurrency(input.currency),
       id:crypto.randomUUID(),
       createdAt:timestamp,
       updatedAt:timestamp
@@ -134,7 +142,7 @@ export async function updateFilament(id, patch = {}) {
       ...(patch.product !== undefined ? { product:patch.product } : {}),
       ...(patch.colour !== undefined ? { colour:patch.colour } : {}),
       ...(patch.costPerKg !== undefined ? { costPerKg:patch.costPerKg } : {}),
-      ...(patch.currency !== undefined ? { currency:patch.currency } : {}),
+      ...(patch.currency !== undefined ? { currency:cleanSupportedCurrency(patch.currency) } : {}),
       id:current.id,
       createdAt:current.createdAt,
       updatedAt:new Date().toISOString()

@@ -9,7 +9,7 @@ If chat context and this file disagree about the codebase, inspect current GitHu
 - Repository: `Andy-Knight/Print-Farm-Controller`
 - Project path: repository root (`/`)
 - Primary branch: `main` (current production baseline)
-- Current application version on this branch: **0.37.0**. Production baseline on `main`: **0.37.0**.
+- Current application version on this branch: **0.37.1**. Production baseline on `main`: **0.37.0**.
 - Runtime: **Node.js 24+** (development baseline Node.js 24.21.0), ES modules, no npm runtime dependencies.
 - GitHub is the authoritative code baseline.
 
@@ -117,7 +117,9 @@ Manufacturer-specific discovery, capabilities, limits, status normalization, fil
 
 ## Current task
 
-The current production baseline is **v0.37.0** on `main`. PR #61 / `feature/reporting-analytics-v0370` has been merged.
+The current production baseline is **v0.37.0** on `main`. Active development is **v0.37.1** on `feature/filament-currency-dropdown-v0371`, changing filament cost currency entry to a controlled selector covering 36 commonly used world currencies with matching server-side validation.
+
+PR #61 / `feature/reporting-analytics-v0370` has been merged.
 
 v0.37.0 adds:
 - persistent per-logical-tool sliced filament usage in grams for supported G-code and embedded 3MF plate G-code, with lazy upgrade of older Print Library metadata;

@@ -4,6 +4,12 @@ This file contains the version-by-version release history for Print Farm Control
 
 Historical entries describe the behaviour of the controller at the time of that release and may be superseded by later versions. For current installation, configuration and supported-hardware guidance, see [README.md](README.md).
 
+## v0.37.1
+
+- Replaces the free-text filament catalogue currency field with a controlled dropdown covering **36 commonly used world currencies**, including GBP, USD, EUR, JPY, CNY, CAD, AUD, CHF, INR, BRL and other major regional currencies.
+- New and changed filament catalogue entries are validated server-side against the supported currency list, while existing stored legacy three-letter currencies remain readable for backward compatibility and must be changed to a supported currency before saving through the UI.
+- Adds UI and catalogue regression coverage for the supported currency choices.
+
 ## v0.37.0
 
 - Adds persistent **Reports & analytics** with graphical daily outcome trends, date/printer/group filters, print outcome rates, run hours, popular-file reporting, filament usage/spend and transparent per-printer reliability indicators. Problem-printer guidance is based on observable counts/rates and recent-vs-earlier failure-rate trends rather than an opaque health score.

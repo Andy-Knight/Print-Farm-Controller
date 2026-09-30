@@ -313,7 +313,44 @@
                 <input id="filamentCost" type="number" min="0" step="0.01" placeholder="18.95" required />
               </label>
               <label>Currency
-                <input id="filamentCurrency" type="text" minlength="3" maxlength="3" value="GBP" required />
+                <select id="filamentCurrency" required>
+                  <option value="GBP" selected>GBP — British Pound (£)</option>
+                  <option value="USD">USD — US Dollar ($)</option>
+                  <option value="EUR">EUR — Euro (€)</option>
+                  <option value="JPY">JPY — Japanese Yen (¥)</option>
+                  <option value="CNY">CNY — Chinese Yuan (¥)</option>
+                  <option value="CAD">CAD — Canadian Dollar (C$)</option>
+                  <option value="AUD">AUD — Australian Dollar (A$)</option>
+                  <option value="NZD">NZD — New Zealand Dollar (NZ$)</option>
+                  <option value="CHF">CHF — Swiss Franc (CHF)</option>
+                  <option value="HKD">HKD — Hong Kong Dollar (HK$)</option>
+                  <option value="SGD">SGD — Singapore Dollar (S$)</option>
+                  <option value="INR">INR — Indian Rupee (₹)</option>
+                  <option value="KRW">KRW — South Korean Won (₩)</option>
+                  <option value="TWD">TWD — New Taiwan Dollar (NT$)</option>
+                  <option value="THB">THB — Thai Baht (฿)</option>
+                  <option value="MYR">MYR — Malaysian Ringgit (RM)</option>
+                  <option value="IDR">IDR — Indonesian Rupiah (Rp)</option>
+                  <option value="PHP">PHP — Philippine Peso (₱)</option>
+                  <option value="VND">VND — Vietnamese Dong (₫)</option>
+                  <option value="AED">AED — UAE Dirham (AED)</option>
+                  <option value="SAR">SAR — Saudi Riyal (SAR)</option>
+                  <option value="ILS">ILS — Israeli New Shekel (₪)</option>
+                  <option value="ZAR">ZAR — South African Rand (R)</option>
+                  <option value="BRL">BRL — Brazilian Real (R$)</option>
+                  <option value="MXN">MXN — Mexican Peso (MX$)</option>
+                  <option value="SEK">SEK — Swedish Krona (SEK)</option>
+                  <option value="NOK">NOK — Norwegian Krone (NOK)</option>
+                  <option value="DKK">DKK — Danish Krone (DKK)</option>
+                  <option value="PLN">PLN — Polish Zloty (zł)</option>
+                  <option value="CZK">CZK — Czech Koruna (Kč)</option>
+                  <option value="HUF">HUF — Hungarian Forint (Ft)</option>
+                  <option value="RON">RON — Romanian Leu (RON)</option>
+                  <option value="TRY">TRY — Turkish Lira (₺)</option>
+                  <option value="RUB">RUB — Russian Ruble (₽)</option>
+                  <option value="CLP">CLP — Chilean Peso (CLP)</option>
+                  <option value="COP">COP — Colombian Peso (COP)</option>
+                </select>
               </label>
             </div>
             <div id="filamentError" class="error hidden"></div>
