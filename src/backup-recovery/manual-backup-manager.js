@@ -23,6 +23,7 @@ export class ManualBackupManager {
     downloadTtlMs = DEFAULT_DOWNLOAD_TTL_MS,
     operationLock = null,
     googleDriveClient = null,
+    oneDriveClient = null,
     s3Client = null
   } = {}) {
     if (!dataDir) throw new Error('Manual backup manager requires a data directory');
@@ -33,6 +34,7 @@ export class ManualBackupManager {
     this.downloadTtlMs = Math.max(60_000, Number(downloadTtlMs) || DEFAULT_DOWNLOAD_TTL_MS);
     this.operationLock = operationLock || new BackupOperationLock();
     this.googleDriveClient = googleDriveClient || null;
+    this.oneDriveClient = oneDriveClient || null;
     this.s3Client = s3Client || null;
     this.stagingRoot = path.join(this.dataDir, '.backup-staging');
     this.stagingDir = path.join(this.stagingRoot, 'manual');
@@ -214,6 +216,78 @@ export class ManualBackupManager {
           destinationType:'google-drive',
           folderName:uploaded.folderName || null,
           driveFileId:uploaded.id || null
+        };
+      } catch (error) {
+        await saveBackupSettings({
+          ...settings,
+          lastError:error?.message || String(error)
+        }, { dataDir:this.dataDir }).catch(() => {});
+        throw error;
+      } finally {
+        if (result?.filePath) await fs.rm(result.filePath, { force:true }).catch(() => {});
+        this.creating = false;
+      }
+    });
+  }
+
+
+  async createOneDrive() {
+    await this.init();
+    if (!this.oneDriveClient) {
+      const error = new Error('OneDrive backup support is unavailable');
+      error.statusCode = 503;
+      throw error;
+    }
+    if (this.creating) throw backupBusyError();
+
+    return this.operationLock.run('manual-one-drive', async () => {
+      this.creating = true;
+      const attemptedAt = new Date().toISOString();
+      let settings = await loadBackupSettings({ dataDir:this.dataDir, create:true });
+      settings = await saveBackupSettings({
+        ...settings,
+        lastAttemptedBackup:attemptedAt,
+        lastError:null
+      }, { dataDir:this.dataDir });
+
+      let result = null;
+      try {
+        await this.cleanupExpired();
+        await this.oneDriveClient.testConnection();
+        result = await createBackupInDirectory({
+          destinationDir:this.stagingDir,
+          dataDir:this.dataDir,
+          applicationDir:this.applicationDir,
+          licensePath:this.licensePath,
+          controllerVersion:this.controllerVersion,
+          source:'manual'
+        });
+        const uploaded = await this.oneDriveClient.uploadBackup({
+          filePath:result.filePath,
+          fileName:result.fileName,
+          manifest:result.manifest
+        });
+        const success = {
+          createdAt:result.manifest.createdAt,
+          fileName:result.fileName,
+          size:result.size,
+          source:'manual',
+          destinationType:'one-drive',
+          destination:uploaded.folderName || 'OneDrive',
+          oneDriveFileId:uploaded.id || null
+        };
+        await saveBackupSettings({
+          ...settings,
+          lastSuccessfulBackup:success,
+          lastError:null
+        }, { dataDir:this.dataDir });
+        return {
+          fileName:result.fileName,
+          size:result.size,
+          manifest:result.manifest,
+          destinationType:'one-drive',
+          folderName:uploaded.folderName || null,
+          oneDriveFileId:uploaded.id || null
         };
       } catch (error) {
         await saveBackupSettings({
