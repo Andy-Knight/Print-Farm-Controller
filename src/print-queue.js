@@ -264,6 +264,7 @@ export class PrintQueueService {
     saveFileMaterialMetadataFn = savePrinterFileMaterialMetadata,
     getQueueFileFn = getQueueFile,
     buildMaterialCostSnapshotFn = buildMaterialCostSnapshot,
+    recordTerminalJobsFn = null,
     getPrinterGroupFn = null,
     printerAllowedFn = null,
     operationCoordinator = null,
@@ -284,6 +285,7 @@ export class PrintQueueService {
     this.saveFileMaterialMetadata = saveFileMaterialMetadataFn;
     this.getQueueFile = getQueueFileFn;
     this.buildMaterialCostSnapshot = buildMaterialCostSnapshotFn;
+    this.recordTerminalJobs = typeof recordTerminalJobsFn === 'function' ? recordTerminalJobsFn : null;
     this.getPrinterGroup = typeof getPrinterGroupFn === 'function' ? getPrinterGroupFn : () => null;
     this.printerAllowed = typeof printerAllowedFn === 'function' ? printerAllowedFn : () => true;
     this.operationCoordinator = operationCoordinator;
@@ -336,6 +338,11 @@ export class PrintQueueService {
         materialCost:job.materialCost ? structuredClone(job.materialCost) : null
       };
     });
+    if (this.recordTerminalJobs) {
+      await Promise.resolve(this.recordTerminalJobs(this.jobs)).catch((error) => {
+        console.warn(`Reporting history seed failed: ${error?.message || error}`);
+      });
+    }
     this.diagnosticJobs = new Map(this.jobs.map((job) => [job.id, {
       status:job.status,
       printerId:job.printerId || null,
@@ -1610,6 +1617,11 @@ export class PrintQueueService {
     const save = this.saveChain.then(() => this.saveJobs(snapshot));
     this.saveChain = save.catch(() => {});
     await save;
+    if (this.recordTerminalJobs) {
+      await Promise.resolve(this.recordTerminalJobs(snapshot)).catch((error) => {
+        console.warn(`Reporting history update failed: ${error?.message || error}`);
+      });
+    }
     this.emitDiagnosticTransitions();
     this.notify();
   }
