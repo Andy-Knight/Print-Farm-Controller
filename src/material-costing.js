@@ -10,6 +10,38 @@ function assignmentFor(assignments, index) {
   return assignments[index] || assignments[String(index)] || null;
 }
 
+function normalizedHint(value) {
+  return String(value || '').trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
+}
+
+function slicerProfileMatch(logicalTool, candidates) {
+  const preset = normalizedHint(logicalTool?.filamentPreset);
+  const vendor = normalizedHint(logicalTool?.filamentVendor);
+  if (!preset && !vendor) return null;
+
+  const materialKey = canonicalMaterial(logicalTool?.material);
+  const scored = candidates.map((candidate) => {
+    const brand = normalizedHint(candidate?.brand);
+    const product = normalizedHint(candidate?.product);
+    const brandMatchesVendor = Boolean(brand && vendor && (brand === vendor || brand.includes(vendor) || vendor.includes(brand)));
+    const brandInPreset = Boolean(brand && preset && preset.includes(brand));
+    const productIsSpecific = Boolean(product && product.length >= 4 && product !== materialKey);
+    const productInPreset = Boolean(productIsSpecific && preset && preset.includes(product));
+    return {
+      candidate,
+      strong:productInPreset && (!brand || brandInPreset || brandMatchesVendor),
+      brand:brandInPreset || brandMatchesVendor
+    };
+  });
+
+  const strong = scored.filter((item) => item.strong);
+  if (strong.length === 1) return strong[0].candidate;
+  if (strong.length > 1) return null;
+
+  const brandMatches = scored.filter((item) => item.brand);
+  return brandMatches.length === 1 ? brandMatches[0].candidate : null;
+}
+
 export async function buildMaterialCostSnapshot({
   requirements = null,
   filamentAssignments = null
@@ -46,7 +78,11 @@ export async function buildMaterialCostSnapshot({
     } else if (!entry) {
       const key = canonicalMaterial(logicalTool?.material);
       const matches = key ? catalogue.filter((candidate) => candidate.materialKey === key) : [];
-      if (matches.length === 1) {
+      const profileMatch = matches.length > 1 ? slicerProfileMatch(logicalTool, matches) : null;
+      if (profileMatch) {
+        entry = profileMatch;
+        resolution = 'slicer-profile-match';
+      } else if (matches.length === 1) {
         entry = matches[0];
         resolution = 'unique-material-match';
       } else if (!key) {
@@ -54,7 +90,10 @@ export async function buildMaterialCostSnapshot({
       } else if (!matches.length) {
         issue = `No ${logicalTool.material} filament cost is configured`;
       } else {
-        issue = `Multiple ${logicalTool.material} catalogue entries exist; assign one to this file`;
+        const profile = logicalTool?.filamentPreset || logicalTool?.filamentVendor;
+        issue = profile
+          ? `Slicer profile "${profile}" did not identify one unique ${logicalTool.material} catalogue entry; assign one to this file`
+          : `Multiple ${logicalTool.material} catalogue entries exist; assign one to this file`;
       }
     }
 
@@ -71,6 +110,8 @@ export async function buildMaterialCostSnapshot({
       index,
       material:logicalTool?.material || null,
       colour:logicalTool?.color || null,
+      filamentPreset:logicalTool?.filamentPreset || null,
+      filamentVendor:logicalTool?.filamentVendor || null,
       grams,
       filamentId:entry?.id || explicitId || null,
       filamentLabel:entry ? labelFor(entry) : null,
