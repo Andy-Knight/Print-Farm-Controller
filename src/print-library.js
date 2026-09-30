@@ -37,6 +37,22 @@ function normalizePrinterTarget(value) {
   return { adapterType, model };
 }
 
+function normalizeFilamentAssignments(value) {
+  if (value == null) return {};
+  if (typeof value !== 'object' || Array.isArray(value)) throw new Error('Print Library filament assignments are invalid');
+  const result = {};
+  for (const [rawIndex, rawId] of Object.entries(value)) {
+    const index = Number(rawIndex);
+    const id = String(rawId || '').trim().toLowerCase();
+    if (!Number.isInteger(index) || index < 0 || index > 99) throw new Error('Print Library filament assignment tool index is invalid');
+    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(id)) {
+      throw new Error('Print Library filament assignment id is invalid');
+    }
+    result[String(index)] = id;
+  }
+  return result;
+}
+
 function normalizePreview(preview) {
   if (!preview || typeof preview.available !== 'boolean') return null;
   if (preview.available !== true) {
@@ -162,6 +178,7 @@ function normalizeMetadata(metadata) {
     sha256: metadata.sha256 || null,
     description: normalizeDescription(metadata.description || ''),
     printerTarget: normalizePrinterTarget(metadata.printerTarget),
+    filamentAssignments: normalizeFilamentAssignments(metadata.filamentAssignments),
     preview: normalizePreview(metadata.preview),
     addedAt,
     updatedAt: metadata.updatedAt || null,
@@ -244,6 +261,7 @@ export async function addLibraryFile(sourcePath, rawFileName, { description = ''
       sha256: sourceHash,
       description: cleanDescription,
       printerTarget: cleanPrinterTarget,
+      filamentAssignments: {},
       preview,
       addedAt,
       updatedAt: null,
@@ -286,7 +304,7 @@ export async function getLibraryPreview(id) {
   }
 }
 
-export async function updateLibraryFileMetadata(id, { description, printerTarget } = {}) {
+export async function updateLibraryFileMetadata(id, { description, printerTarget, filamentAssignments } = {}) {
   return libraryMutations.run('catalog', async () => {
   await ensureRoot();
   const normalizedId = safeId(id);
@@ -296,6 +314,7 @@ export async function updateLibraryFileMetadata(id, { description, printerTarget
   if (metadata.id !== normalizedId) throw new Error('Print library metadata is invalid');
   if (description !== undefined) metadata.description = normalizeDescription(description);
   if (printerTarget !== undefined) metadata.printerTarget = normalizePrinterTarget(printerTarget);
+  if (filamentAssignments !== undefined) metadata.filamentAssignments = normalizeFilamentAssignments(filamentAssignments);
   metadata.updatedAt = new Date().toISOString();
   await writeMetadata(directory, metadata);
   return normalizeMetadata(metadata);
