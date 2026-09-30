@@ -153,13 +153,19 @@ test('cloud storage authorization state is never included in portable backups', 
       accessKeyId:'must-never-enter-a-backup-access-key',
       secretAccessKey:'must-never-enter-a-backup-s3-secret'
     }));
+    await fs.writeFile(path.join(dataDir, 'integrations', 'one-drive.json'), JSON.stringify({
+      version:1,
+      clientId:'must-never-enter-a-backup-microsoft-client-id',
+      refreshToken:'must-never-enter-a-backup-microsoft-refresh-token',
+      folderId:'app-root'
+    }));
 
     await createBackupArchive({
       destinationPath:destination,
       dataDir,
       applicationDir:root,
       licensePath:path.join(root, 'missing-license.json'),
-      controllerVersion:'0.35.0'
+      controllerVersion:'0.36.0'
     });
 
     const archive = await inspectZipArchive(destination);
@@ -167,6 +173,7 @@ test('cloud storage authorization state is never included in portable backups', 
     assert.equal(names.some((name) => name.startsWith('integrations/')), false);
     assert.equal(names.some((name) => /google-drive/i.test(name)), false);
     assert.equal(names.some((name) => /s3/i.test(name)), false);
+    assert.equal(names.some((name) => /one-drive/i.test(name)), false);
   } finally {
     await fs.rm(root, { recursive:true, force:true });
   }

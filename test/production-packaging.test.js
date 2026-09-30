@@ -83,19 +83,25 @@ test('Windows installer protects program files and grants modify access only to 
   assert.match(installerBuildScript, /PrintFarmController-Setup-v/);
 });
 
-test('production builds embed Google OAuth config without committing credential values', () => {
+test('production builds embed Google and Microsoft OAuth config without committing credential values', () => {
   assert.match(bundleScript, /PFC_GOOGLE_CLIENT_ID/);
   assert.match(bundleScript, /PFC_GOOGLE_CLIENT_SECRET/);
   assert.match(bundleScript, /__PFC_GOOGLE_CLIENT_ID__/);
   assert.match(bundleScript, /__PFC_GOOGLE_CLIENT_SECRET__/);
   assert.match(server, /typeof __PFC_GOOGLE_CLIENT_ID__ === 'string'/);
   assert.match(server, /builtInClientId:bundledGoogleClientId/);
+  assert.match(bundleScript, /PFC_MICROSOFT_CLIENT_ID/);
+  assert.match(bundleScript, /__PFC_MICROSOFT_CLIENT_ID__/);
+  assert.match(server, /typeof __PFC_MICROSOFT_CLIENT_ID__ === 'string'/);
+  assert.match(server, /builtInClientId:bundledMicrosoftClientId/);
 
   assert.match(dockerfile, /--mount=type=secret,id=pfc_google_client_id/);
   assert.match(dockerfile, /--mount=type=secret,id=pfc_google_client_secret/);
+  assert.match(dockerfile, /--mount=type=secret,id=pfc_microsoft_client_id/);
   assert.match(dockerfile, /CMD \["node", "build\/controller\.cjs"\]/);
   assert.doesNotMatch(dockerfile, /(?:ARG|ENV)\s+PFC_GOOGLE_CLIENT_ID/);
   assert.doesNotMatch(dockerfile, /(?:ARG|ENV)\s+PFC_GOOGLE_CLIENT_SECRET/);
+  assert.doesNotMatch(dockerfile, /(?:ARG|ENV)\s+PFC_MICROSOFT_CLIENT_ID/);
 
 });
 

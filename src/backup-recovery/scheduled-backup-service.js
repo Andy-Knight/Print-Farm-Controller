@@ -14,7 +14,7 @@ const WEEKDAY_NAMES = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Frida
 
 function backupDestinationType(value, destinationType = 'local') {
   const type = String(destinationType || '').trim().toLowerCase();
-  if (type === 'google-drive' || type === 's3') return type;
+  if (type === 'google-drive' || type === 'one-drive' || type === 's3') return type;
   const target = String(value || '').trim();
   if (/^(\\\\|\/\/)/.test(target)) return 'network';
   if (/^[A-Za-z]:[\\/]/.test(target)) return 'windows-drive';
@@ -164,6 +164,7 @@ export class ScheduledBackupService {
     operationLock = null,
     diagnosticFn = null,
     googleDriveClient = null,
+    oneDriveClient = null,
     s3Client = null,
     setTimeoutFn = setTimeout,
     clearTimeoutFn = clearTimeout,
@@ -178,6 +179,7 @@ export class ScheduledBackupService {
     this.operationLock = operationLock || new BackupOperationLock();
     this.diagnostic = typeof diagnosticFn === 'function' ? diagnosticFn : null;
     this.googleDriveClient = googleDriveClient || null;
+    this.oneDriveClient = oneDriveClient || null;
     this.s3Client = s3Client || null;
     this.stagingDir = path.join(this.dataDir, '.backup-staging', 'scheduled');
     this.setTimeoutFn = setTimeoutFn;
@@ -198,6 +200,7 @@ export class ScheduledBackupService {
 
   cloudClient(destinationType) {
     if (destinationType === 'google-drive') return this.googleDriveClient;
+    if (destinationType === 'one-drive') return this.oneDriveClient;
     if (destinationType === 's3') return this.s3Client;
     return null;
   }
@@ -328,7 +331,7 @@ export class ScheduledBackupService {
       const scheduleWeekday = Number(input.scheduleWeekday ?? current.scheduleWeekday);
       const retentionCount = Number(input.retentionCount ?? current.retentionCount);
       const destinationType = String(input.destinationType ?? current.destinationType ?? 'local').trim().toLowerCase();
-      if (!['local','google-drive','s3'].includes(destinationType)) throw new Error('Backup destination type is invalid');
+      if (!['local','google-drive','one-drive','s3'].includes(destinationType)) throw new Error('Backup destination type is invalid');
       if (!['daily','weekly'].includes(frequency)) throw new Error('Backup frequency must be daily or weekly');
       if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(scheduleTime)) throw new Error('Backup time must use HH:MM in 24-hour time');
       if (!Number.isInteger(scheduleWeekday) || scheduleWeekday < 0 || scheduleWeekday > 6) {
@@ -348,7 +351,7 @@ export class ScheduledBackupService {
         ...current,
         enabled,
         destinationType,
-        destination:['google-drive','s3'].includes(destinationType)
+        destination:['google-drive','one-drive','s3'].includes(destinationType)
           ? null
           : (String(input.destination ?? current.destination ?? '').trim() || null),
         frequency,
@@ -397,7 +400,7 @@ export class ScheduledBackupService {
     const cloudClient = this.cloudClient(requestedType);
     if (cloudClient) {
       const result = await cloudClient.testConnection();
-      await this.log('info', `Scheduled ${requestedType === 'google-drive' ? 'Google Drive' : 'S3-compatible'} destination test passed`, {
+      await this.log('info', `Scheduled ${requestedType === 'google-drive' ? 'Google Drive' : (requestedType === 'one-drive' ? 'OneDrive' : 'S3-compatible')} destination test passed`, {
         destinationType:requestedType,
         folderName:result.folderName || null,
         bucket:result.bucket || null,
@@ -444,7 +447,7 @@ export class ScheduledBackupService {
         let result = null;
         let uploaded = null;
         try {
-          const destinationType = ['google-drive','s3'].includes(updated.destinationType)
+          const destinationType = ['google-drive','one-drive','s3'].includes(updated.destinationType)
             ? updated.destinationType
             : 'local';
           const cloudClient = this.cloudClient(destinationType);
@@ -490,8 +493,11 @@ export class ScheduledBackupService {
               ? updated.destination
               : (destinationType === 'google-drive'
                   ? (uploaded?.folderName || 'Google Drive')
-                  : `${cloudConnection?.bucket || 'S3'}/${cloudConnection?.prefix || ''}`),
+                  : (destinationType === 'one-drive'
+                      ? (uploaded?.folderName || 'OneDrive')
+                      : `${cloudConnection?.bucket || 'S3'}/${cloudConnection?.prefix || ''}`)),
             driveFileId:destinationType === 'google-drive' ? (uploaded?.id || null) : null,
+            oneDriveFileId:destinationType === 'one-drive' ? (uploaded?.id || null) : null,
             s3ObjectKey:destinationType === 's3' ? (uploaded?.key || uploaded?.id || null) : null
           };
           updated = await saveBackupSettings({
@@ -571,7 +577,7 @@ export class ScheduledBackupService {
           });
           return { success:false, error:message };
         } finally {
-          if (['google-drive','s3'].includes(updated.destinationType) && result?.filePath) {
+          if (['google-drive','one-drive','s3'].includes(updated.destinationType) && result?.filePath) {
             await fs.rm(result.filePath, { force:true }).catch(() => {});
           }
         }

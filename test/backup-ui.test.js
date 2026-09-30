@@ -9,6 +9,7 @@ const server = fs.readFileSync(new URL('../src/server.js', import.meta.url), 'ut
 const restoreService = fs.readFileSync(new URL('../src/backup-recovery/restore-service.js', import.meta.url), 'utf8');
 const scheduledBackupService = fs.readFileSync(new URL('../src/backup-recovery/scheduled-backup-service.js', import.meta.url), 'utf8');
 const googleDriveClient = fs.readFileSync(new URL('../src/backup-recovery/google-drive-client.js', import.meta.url), 'utf8');
+const oneDriveClient = fs.readFileSync(new URL('../src/backup-recovery/one-drive-client.js', import.meta.url), 'utf8');
 const s3Client = fs.readFileSync(new URL('../src/backup-recovery/s3-backup-client.js', import.meta.url), 'utf8');
 
 test('Backup and Recovery is available from the controller overflow menu', () => {
@@ -81,10 +82,11 @@ test('restore inspection enables staged restart-based restore with cancel suppor
 });
 
 
-test('scheduled backup UI configures local, network, Google Drive or S3-compatible destinations and retention', () => {
+test('scheduled backup UI configures local, network, Google Drive, OneDrive or S3-compatible destinations and retention', () => {
   assert.match(index, /id="backupScheduleEnabled"/);
   assert.match(index, /id="backupScheduleDestinationType"/);
   assert.match(index, /value="google-drive">Google Drive/);
+  assert.match(index, /value="one-drive">Microsoft OneDrive \(Experimental\)/);
   assert.match(index, /value="s3">S3-compatible storage/);
   assert.match(index, /id="backupScheduleDestination"/);
   assert.match(index, /id="backupScheduleFrequency"/);
@@ -101,7 +103,7 @@ test('scheduled backup UI configures local, network, Google Drive or S3-compatib
   assert.match(app, /api\('\/api\/backup\/settings'/);
   assert.match(app, /updateBackupWeekdayVisibility/);
   assert.match(app, /updateBackupDestinationVisibility/);
-  assert.match(app, /destinationType:\['google-drive','s3'\]\.includes\(backupScheduleDestinationType\?\.value\)/);
+  assert.match(app, /destinationType:\['google-drive','one-drive','s3'\]\.includes\(backupScheduleDestinationType\?\.value\)/);
   assert.match(app, /Next scheduled backup/);
   assert.match(app, /Missed backup catch-up pending for/);
 
@@ -113,7 +115,7 @@ test('scheduled backup UI configures local, network, Google Drive or S3-compatib
   assert.match(server, /scheduledBackupService\.stop\(\)/);
 
   assert.match(scheduledBackupService, /source:'scheduled'/);
-  assert.match(scheduledBackupService, /\['local','google-drive','s3'\]/);
+  assert.match(scheduledBackupService, /\['local','google-drive','one-drive','s3'\]/);
   assert.match(scheduledBackupService, /cloudClient\(destinationType\)/);
   assert.match(scheduledBackupService, /cloudClient\.uploadBackup/);
   assert.match(scheduledBackupService, /cloudClient\.pruneScheduledBackups/);
@@ -175,6 +177,44 @@ test('Google Drive backup UI uses device authorization and limited Drive file ac
   assert.match(styles, /\.google-drive-code/);
 });
 
+
+test('OneDrive backup UI uses Microsoft device authorization and app-folder access', () => {
+  assert.match(index, /<strong>Microsoft OneDrive \(Experimental\)<\/strong>/);
+  assert.match(index, /id="oneDriveAdvancedConfig"/);
+  assert.match(index, /id="oneDriveClientId"/);
+  assert.match(index, /id="oneDriveSaveConfigBtn"/);
+  assert.match(index, /id="oneDriveUseDefaultConfigBtn"/);
+  assert.match(index, /id="oneDriveConnectBtn"/);
+  assert.match(index, /id="oneDriveVerificationLink"/);
+  assert.match(index, /id="oneDriveUserCode"/);
+  assert.match(index, /id="oneDriveBackupBtn"[^>]*>Backup to OneDrive now<\/button>/);
+  assert.doesNotMatch(index, /id="oneDriveClientSecret"/);
+
+  assert.match(app, /async function saveOneDriveConfiguration\(\)/);
+  assert.match(app, /api\('\/api\/integrations\/one-drive\/config'/);
+  assert.match(app, /async function startOneDriveConnection\(\)/);
+  assert.match(app, /api\('\/api\/integrations\/one-drive\/connect'/);
+  assert.match(app, /async function pollOneDriveAuthorization\(\)/);
+  assert.match(app, /api\('\/api\/integrations\/one-drive\/connect\/poll'/);
+  assert.match(app, /async function createOneDriveBackup\(\)/);
+  assert.match(app, /api\('\/api\/backup\/create\/one-drive'/);
+
+  assert.match(server, /new OneDriveClient/);
+  assert.match(server, /url\.pathname === '\/api\/integrations\/one-drive\/status'/);
+  assert.match(server, /url\.pathname === '\/api\/integrations\/one-drive\/config'/);
+  assert.match(server, /oneDriveClient\.configure/);
+  assert.match(server, /oneDriveClient\.resetConfiguration/);
+  assert.match(server, /builtInClientId:bundledMicrosoftClientId/);
+  assert.match(server, /url\.pathname === '\/api\/integrations\/one-drive\/connect'/);
+  assert.match(server, /url\.pathname === '\/api\/backup\/create\/one-drive'/);
+
+  assert.match(oneDriveClient, /offline_access Files\.ReadWrite\.AppFolder/);
+  assert.match(oneDriveClient, /login\.microsoftonline\.com/);
+  assert.match(oneDriveClient, /me\/drive\/special\/approot/);
+  assert.match(oneDriveClient, /path\.join\(this\.integrationDir, 'one-drive\.json'\)/);
+  assert.match(oneDriveClient, /async configure\(\{ clientId \}/);
+  assert.doesNotMatch(oneDriveClient, /clientSecret/);
+});
 
 test('S3-compatible backup UI stores static credentials and uses the generic cloud restore registry', () => {
   assert.match(index, /<strong>S3-compatible storage<\/strong>/);

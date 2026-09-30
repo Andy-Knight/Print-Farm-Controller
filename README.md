@@ -1,12 +1,12 @@
-# Print Farm Controller v0.35.0
+# Print Farm Controller v0.36.0
 
-**Current release: v0.35.0**
+**Current release: v0.36.0**
 
 Current highlights:
 
 - Container images for Linux AMD64 and ARM64, with Docker and K3s/Kubernetes deployment guidance.
 - Persistent Print Library, smart queueing, printer groups and maintenance tracking.
-- Compressed portable backup and restore, including local/NAS, Google Drive and generic S3-compatible destinations, multi-group printer membership, and backwards-compatible restore of older backups.
+- Compressed portable backup and restore, including local/NAS, Google Drive, Microsoft OneDrive and generic S3-compatible destinations, multi-group printer membership, and backwards-compatible restore of older backups.
 - Snapmaker U1 and FlashForge support, with experimental Bambu Lab support.
 - Offline signed licensing with Community, Pro and Farm editions.
 
@@ -144,7 +144,7 @@ Protect the controller data directory/PVC because the stored OAuth credentials c
 
 ### Backup behavior
 
-Cloud restore is provider-based rather than Google-specific. Google Drive and S3-compatible storage are registered providers; additional providers can implement the same list/download interface without changing the restore engine.
+Cloud restore is provider-based rather than Google-specific. Google Drive, Microsoft OneDrive and S3-compatible storage are registered providers; additional providers can implement the same list/download interface without changing the restore engine.
 
 - **Backup to Google Drive now** creates, verifies and compresses the canonical backup before uploading it.
 - Scheduled backups can select **Google Drive** instead of a local/mapped/NAS folder.
@@ -154,6 +154,36 @@ Cloud restore is provider-based rather than Google-specific. Google Drive and S3
 - If Google invalidates/revokes the refresh token, the controller reports **Reconnection required** instead of silently dropping scheduled backups.
 - Restore can use either a local `.pfcbackup` file or a backup selected directly from a connected cloud provider. Google Drive backups are listed in the restore source selector, downloaded to temporary staging, and passed through the same inspection, checksum/version validation, recovery-hold and restart-based restore pipeline as local files.
 
+
+## Microsoft OneDrive backups (Experimental)
+
+Print Farm Controller v0.36.0 includes Microsoft OneDrive as an **experimental** cloud backup and restore provider. Automated tests and packaging validation are complete, but the integration has not yet been validated against a live Microsoft account. Manual and scheduled OneDrive backups use the same verified/compressed `.pfcbackup` format and the same restore inspection/staging engine as local and Google Drive backups.
+
+OneDrive authorization uses Microsoft's device-code OAuth flow and requests:
+
+```text
+offline_access Files.ReadWrite.AppFolder
+```
+
+This limits Print Farm Controller to its dedicated OneDrive application folder and provides a refresh token for scheduled backups. The integration is a public-client flow, so **no Microsoft client secret is required**.
+
+Released builds can embed the shared Print Farm Controller Microsoft application client ID from `PFC_MICROSOFT_CLIENT_ID`. Production container builds receive that value through the GitHub Actions repository secret of the same name using a BuildKit secret mount. Source/development installations can instead use **Backup & recovery → Microsoft OneDrive → Advanced OAuth configuration** to enter a custom application client ID. Runtime `ONEDRIVE_CLIENT_ID` or `MICROSOFT_ONEDRIVE_CLIENT_ID` can also supply a deployment-specific client ID.
+
+The customer authorization state is stored in:
+
+```text
+<DATA_DIR>/integrations/one-drive.json
+```
+
+Built-in client IDs are not copied into this file. The saved refresh token and integration state are excluded from `.pfcbackup` archives and diagnostics.
+
+OneDrive stores controller backups in the Microsoft Graph `approot` application folder. Each uploaded backup has a small companion `.pfcmeta.json` item containing PFC ownership/retention metadata only. This lets scheduled retention safely remove only older scheduled backups belonging to the same controller installation while leaving manual and foreign-installation backups untouched.
+
+- **Backup to OneDrive now** creates and verifies the canonical backup before uploading it.
+- Scheduled backups can select **Microsoft OneDrive (Experimental)**.
+- Connected OneDrive appears automatically as a cloud restore source.
+- Cloud restore downloads the selected backup to temporary staging and then uses the same inspection, checksum/version validation, recovery-hold, staged restart and rollback path as local/Google Drive restore.
+- Disconnecting removes the controller's stored Microsoft account authorization but leaves existing OneDrive backup files untouched.
 
 ## S3-compatible backups
 

@@ -12,6 +12,7 @@ export async function buildControllerBundle() {
   const packageInfo = JSON.parse(await fs.readFile(path.join(projectRoot, 'package.json'), 'utf8'));
   const googleClientId = String(process.env.PFC_GOOGLE_CLIENT_ID || '').trim();
   const googleClientSecret = String(process.env.PFC_GOOGLE_CLIENT_SECRET || '').trim();
+  const microsoftClientId = String(process.env.PFC_MICROSOFT_CLIENT_ID || '').trim();
   if (Boolean(googleClientId) !== Boolean(googleClientSecret)) {
     throw new Error('PFC_GOOGLE_CLIENT_ID and PFC_GOOGLE_CLIENT_SECRET must either both be set or both be empty');
   }
@@ -30,7 +31,8 @@ export async function buildControllerBundle() {
     define:{
       __PFC_VERSION__:JSON.stringify(String(packageInfo.version || 'unknown')),
       __PFC_GOOGLE_CLIENT_ID__:JSON.stringify(googleClientId),
-      __PFC_GOOGLE_CLIENT_SECRET__:JSON.stringify(googleClientSecret)
+      __PFC_GOOGLE_CLIENT_SECRET__:JSON.stringify(googleClientSecret),
+      __PFC_MICROSOFT_CLIENT_ID__:JSON.stringify(microsoftClientId)
     },
     logLevel:'info'
   });
@@ -38,7 +40,8 @@ export async function buildControllerBundle() {
   return {
     version:String(packageInfo.version || 'unknown'),
     bundlePath:controllerBundlePath,
-    builtInGoogleOAuth:Boolean(googleClientId && googleClientSecret)
+    builtInGoogleOAuth:Boolean(googleClientId && googleClientSecret),
+    builtInMicrosoftOAuth:Boolean(microsoftClientId)
   };
 }
 

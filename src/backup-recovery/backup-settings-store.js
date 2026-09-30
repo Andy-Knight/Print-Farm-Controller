@@ -28,7 +28,7 @@ export function normalizeBackupSettings(value = {}) {
   const retention = Number(value.retentionCount);
   const weekday = Number(value.scheduleWeekday);
   const requestedDestinationType = String(value.destinationType || '').trim().toLowerCase();
-  const destinationType = ['google-drive','s3'].includes(requestedDestinationType)
+  const destinationType = ['google-drive','one-drive','s3'].includes(requestedDestinationType)
     ? requestedDestinationType
     : 'local';
   return {

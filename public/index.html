@@ -379,6 +379,48 @@
       <section class="backup-section">
         <div class="backup-section-head">
           <div>
+            <strong>Microsoft OneDrive (Experimental)</strong>
+            <div class="field-help">Experimental cloud integration: connect a Microsoft account using device authorization. Backups are stored in Print Farm Controller's dedicated OneDrive app folder using limited app-folder access. This provider has automated coverage but has not yet been validated against a live Microsoft account.</div>
+          </div>
+          <div class="mini-actions backup-google-actions">
+            <button id="oneDriveConnectBtn" type="button" class="secondary">Connect</button>
+            <button id="oneDriveTestBtn" type="button" class="secondary">Test</button>
+            <button id="oneDriveDisconnectBtn" type="button" class="secondary">Disconnect</button>
+          </div>
+        </div>
+        <details id="oneDriveAdvancedConfig" class="google-drive-config">
+          <summary>Advanced OAuth configuration</summary>
+          <div class="field-help google-drive-config-intro">
+            Released Print Farm Controller builds can include the application's Microsoft client ID, so normal users only need to select <strong>Connect</strong>. Use this section to override the built-in application registration or when running a source/development build without bundled configuration.
+          </div>
+          <div class="google-drive-config-grid">
+            <label>Custom Microsoft application client ID
+              <input id="oneDriveClientId" type="text" autocomplete="off" spellcheck="false" placeholder="00000000-0000-0000-0000-000000000000" />
+            </label>
+          </div>
+          <div class="mini-actions backup-google-config-actions">
+            <button id="oneDriveSaveConfigBtn" type="button" class="secondary">Save custom configuration</button>
+            <button id="oneDriveUseDefaultConfigBtn" type="button" class="secondary">Use default configuration</button>
+          </div>
+          <div class="field-help">Only the Microsoft application client ID is required. Account authorization is stored locally as a refresh token and is never included in controller backups or diagnostics.</div>
+        </details>
+        <div id="oneDriveStatus" class="subtle backup-action-status" aria-live="polite"></div>
+        <div id="oneDriveAuth" class="google-drive-auth hidden">
+          <div>Open <a id="oneDriveVerificationLink" href="#" target="_blank" rel="noopener noreferrer">Microsoft device authorization</a> and enter this code:</div>
+          <code id="oneDriveUserCode" class="google-drive-code"></code>
+          <div class="mini-actions">
+            <button id="oneDriveCheckAuthBtn" type="button" class="secondary">Check connection</button>
+          </div>
+        </div>
+        <div class="mini-actions backup-google-backup-actions">
+          <button id="oneDriveBackupBtn" type="button" class="primary">Backup to OneDrive now</button>
+        </div>
+        <div id="oneDriveError" class="error hidden"></div>
+      </section>
+
+      <section class="backup-section">
+        <div class="backup-section-head">
+          <div>
             <strong>S3-compatible storage</strong>
             <div class="field-help">Store backups in an S3-compatible bucket such as MinIO, Amazon S3, Cloudflare R2, Backblaze B2 or Wasabi. The controller uses Signature Version 4 and keeps credentials only in controller data.</div>
           </div>
@@ -438,7 +480,7 @@
         <div class="backup-section-head">
           <div>
             <strong>Scheduled backups</strong>
-            <div class="field-help">Save verified backups automatically to a local/NAS destination, Google Drive or configured S3-compatible storage.</div>
+            <div class="field-help">Save verified backups automatically to a local/NAS destination, Google Drive, Microsoft OneDrive or configured S3-compatible storage.</div>
           </div>
         </div>
         <div class="backup-schedule-grid">
@@ -450,6 +492,7 @@
             <select id="backupScheduleDestinationType">
               <option value="local">Local / mapped / NAS folder</option>
               <option value="google-drive">Google Drive</option>
+              <option value="one-drive">Microsoft OneDrive (Experimental)</option>
               <option value="s3">S3-compatible storage</option>
             </select>
           </label>

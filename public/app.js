@@ -71,6 +71,20 @@ const googleDriveTestBtn = document.querySelector('#googleDriveTestBtn');
 const googleDriveDisconnectBtn = document.querySelector('#googleDriveDisconnectBtn');
 const googleDriveBackupBtn = document.querySelector('#googleDriveBackupBtn');
 const googleDriveError = document.querySelector('#googleDriveError');
+const oneDriveAdvancedConfig = document.querySelector('#oneDriveAdvancedConfig');
+const oneDriveClientId = document.querySelector('#oneDriveClientId');
+const oneDriveSaveConfigBtn = document.querySelector('#oneDriveSaveConfigBtn');
+const oneDriveUseDefaultConfigBtn = document.querySelector('#oneDriveUseDefaultConfigBtn');
+const oneDriveStatus = document.querySelector('#oneDriveStatus');
+const oneDriveAuth = document.querySelector('#oneDriveAuth');
+const oneDriveVerificationLink = document.querySelector('#oneDriveVerificationLink');
+const oneDriveUserCode = document.querySelector('#oneDriveUserCode');
+const oneDriveConnectBtn = document.querySelector('#oneDriveConnectBtn');
+const oneDriveCheckAuthBtn = document.querySelector('#oneDriveCheckAuthBtn');
+const oneDriveTestBtn = document.querySelector('#oneDriveTestBtn');
+const oneDriveDisconnectBtn = document.querySelector('#oneDriveDisconnectBtn');
+const oneDriveBackupBtn = document.querySelector('#oneDriveBackupBtn');
+const oneDriveError = document.querySelector('#oneDriveError');
 const s3AdvancedConfig = document.querySelector('#s3AdvancedConfig');
 const s3Endpoint = document.querySelector('#s3Endpoint');
 const s3Bucket = document.querySelector('#s3Bucket');
@@ -652,6 +666,8 @@ function backupStatusTime(value, empty = 'Never') {
 
 let googleDriveAuthPollTimer = null;
 let googleDriveState = null;
+let oneDriveAuthPollTimer = null;
+let oneDriveState = null;
 let s3State = null;
 
 function clearGoogleDriveAuthPoll() {
@@ -661,12 +677,12 @@ function clearGoogleDriveAuthPoll() {
 
 function updateBackupDestinationVisibility() {
   const destinationType = backupScheduleDestinationType?.value || 'local';
-  const cloud = destinationType === 'google-drive' || destinationType === 's3';
+  const cloud = destinationType === 'google-drive' || destinationType === 'one-drive' || destinationType === 's3';
   backupScheduleLocalDestinationField?.classList.toggle('hidden', cloud);
   if (backupTestDestinationBtn) {
     backupTestDestinationBtn.textContent = destinationType === 'google-drive'
       ? 'Test Google Drive'
-      : (destinationType === 's3' ? 'Test S3' : 'Test destination');
+      : (destinationType === 'one-drive' ? 'Test OneDrive' : (destinationType === 's3' ? 'Test S3' : 'Test destination'));
   }
 }
 
@@ -950,6 +966,273 @@ async function createGoogleDriveBackup() {
 }
 
 
+function clearOneDriveAuthPoll() {
+  if (oneDriveAuthPollTimer) clearTimeout(oneDriveAuthPollTimer);
+  oneDriveAuthPollTimer = null;
+}
+
+function scheduleOneDriveAuthPoll(state) {
+  clearOneDriveAuthPoll();
+  if (!state?.authorizationPending || state?.connected) return;
+  const delay = Math.max(5, Number(state.pollIntervalSeconds) || 5) * 1000;
+  oneDriveAuthPollTimer = setTimeout(() => {
+    oneDriveAuthPollTimer = null;
+    pollOneDriveAuthorization().catch(() => {});
+  }, delay);
+}
+
+function renderOneDriveStatus(state = {}) {
+  oneDriveState = state || {};
+  const configured = state.configured === true;
+  const connected = state.connected === true;
+  const pending = state.authorizationPending === true;
+  const customConfigured = state.customConfigured === true;
+  const defaultAvailable = state.defaultConfigurationAvailable === true;
+
+  if (oneDriveClientId && document.activeElement !== oneDriveClientId) {
+    oneDriveClientId.value = state.customClientId || '';
+  }
+  if (oneDriveAdvancedConfig && !defaultAvailable) oneDriveAdvancedConfig.open = true;
+
+  if (oneDriveStatus) {
+    if (!configured) {
+      oneDriveStatus.textContent = 'OneDrive needs OAuth configuration. Open Advanced OAuth configuration and enter a Microsoft application client ID.';
+    } else if (state.reconnectRequired) {
+      oneDriveStatus.textContent = 'Reconnection required. Connect OneDrive again to resume cloud backups.';
+    } else if (connected) {
+      const source = state.configurationSource === 'ui'
+        ? 'custom OAuth'
+        : (state.configurationSource === 'environment' ? 'deployment OAuth' : 'built-in OAuth');
+      oneDriveStatus.textContent = `Connected using ${source} · Folder: ${state.folderName || 'Print Farm Controller'}`;
+    } else if (pending) {
+      oneDriveStatus.textContent = 'Waiting for Microsoft authorization…';
+    } else if (state.configurationSource === 'ui') {
+      oneDriveStatus.textContent = 'Custom Microsoft OAuth configuration ready. Select Connect to authorize this controller.';
+    } else {
+      oneDriveStatus.textContent = 'OneDrive is ready. Select Connect to authorize your Microsoft account.';
+    }
+  }
+
+  if (oneDriveSaveConfigBtn) oneDriveSaveConfigBtn.disabled = false;
+  if (oneDriveUseDefaultConfigBtn) {
+    oneDriveUseDefaultConfigBtn.disabled = !customConfigured || !defaultAvailable;
+    oneDriveUseDefaultConfigBtn.classList.toggle('hidden', !defaultAvailable);
+  }
+  if (oneDriveConnectBtn) oneDriveConnectBtn.disabled = !configured || connected || pending;
+  if (oneDriveTestBtn) oneDriveTestBtn.disabled = !connected;
+  if (oneDriveDisconnectBtn) oneDriveDisconnectBtn.disabled = !connected && !pending;
+  if (oneDriveBackupBtn) oneDriveBackupBtn.disabled = !connected;
+  if (oneDriveCheckAuthBtn) oneDriveCheckAuthBtn.disabled = !pending;
+
+  if (oneDriveAuth) oneDriveAuth.classList.toggle('hidden', !pending);
+  if (oneDriveVerificationLink) {
+    oneDriveVerificationLink.href = state.verificationUrl || '#';
+    oneDriveVerificationLink.classList.toggle('disabled', !state.verificationUrl);
+  }
+  if (oneDriveUserCode) oneDriveUserCode.textContent = state.userCode || '';
+
+  if (oneDriveError) {
+    oneDriveError.textContent = state.lastError || '';
+    oneDriveError.classList.toggle('hidden', !state.lastError);
+  }
+  scheduleOneDriveAuthPoll(state);
+  updateBackupDestinationVisibility();
+}
+
+async function loadOneDriveStatus() {
+  try {
+    const result = await api('/api/integrations/one-drive/status');
+    renderOneDriveStatus(result.oneDrive || {});
+    return result.oneDrive || {};
+  } catch (error) {
+    if (oneDriveError) {
+      oneDriveError.textContent = error.message;
+      oneDriveError.classList.remove('hidden');
+    }
+    return null;
+  }
+}
+
+async function saveOneDriveConfiguration() {
+  if (!oneDriveSaveConfigBtn) return;
+  const clientId = oneDriveClientId?.value?.trim() || '';
+  if (!clientId) {
+    if (oneDriveError) {
+      oneDriveError.textContent = 'Enter the custom Microsoft application client ID.';
+      oneDriveError.classList.remove('hidden');
+    }
+    oneDriveClientId?.focus();
+    return;
+  }
+
+  oneDriveSaveConfigBtn.disabled = true;
+  if (oneDriveError) {
+    oneDriveError.textContent = '';
+    oneDriveError.classList.add('hidden');
+  }
+  if (oneDriveStatus) oneDriveStatus.textContent = 'Saving custom Microsoft OAuth configuration…';
+  try {
+    const result = await api('/api/integrations/one-drive/config', {
+      method:'PUT',
+      body:JSON.stringify({ clientId })
+    });
+    renderOneDriveStatus(result.oneDrive || {});
+    if (oneDriveStatus) {
+      oneDriveStatus.textContent = result.oneDrive?.connected
+        ? `Custom OAuth configuration saved · Connected · Folder: ${result.oneDrive.folderName || 'Print Farm Controller'}`
+        : 'Custom OAuth configuration saved. Select Connect to authorize this controller.';
+    }
+  } catch (error) {
+    if (oneDriveStatus) oneDriveStatus.textContent = '';
+    if (oneDriveError) {
+      oneDriveError.textContent = error.message;
+      oneDriveError.classList.remove('hidden');
+    }
+  } finally {
+    oneDriveSaveConfigBtn.disabled = false;
+  }
+}
+
+async function useDefaultOneDriveConfiguration() {
+  if (!oneDriveUseDefaultConfigBtn || !oneDriveState?.customConfigured) return;
+  if (!confirm('Use the default Print Farm Controller Microsoft OAuth configuration?\\n\\nThe current Microsoft account authorization will be cleared and you will need to connect OneDrive again. Existing OneDrive backup files will not be deleted.')) return;
+
+  oneDriveUseDefaultConfigBtn.disabled = true;
+  clearOneDriveAuthPoll();
+  if (oneDriveError) {
+    oneDriveError.textContent = '';
+    oneDriveError.classList.add('hidden');
+  }
+  if (oneDriveStatus) oneDriveStatus.textContent = 'Switching to the default Microsoft OAuth configuration…';
+  try {
+    const result = await api('/api/integrations/one-drive/config', { method:'DELETE' });
+    if (oneDriveClientId) oneDriveClientId.value = '';
+    renderOneDriveStatus(result.oneDrive || {});
+    await loadCloudRestoreProviders();
+  } catch (error) {
+    if (oneDriveStatus) oneDriveStatus.textContent = '';
+    if (oneDriveError) {
+      oneDriveError.textContent = error.message;
+      oneDriveError.classList.remove('hidden');
+    }
+  } finally {
+    if (oneDriveUseDefaultConfigBtn) {
+      oneDriveUseDefaultConfigBtn.disabled = !oneDriveState?.customConfigured || !oneDriveState?.defaultConfigurationAvailable;
+    }
+  }
+}
+
+async function startOneDriveConnection() {
+  if (!oneDriveConnectBtn) return;
+  oneDriveConnectBtn.disabled = true;
+  if (oneDriveError) {
+    oneDriveError.textContent = '';
+    oneDriveError.classList.add('hidden');
+  }
+  if (oneDriveStatus) oneDriveStatus.textContent = 'Starting Microsoft authorization…';
+  try {
+    const result = await api('/api/integrations/one-drive/connect', { method:'POST' });
+    renderOneDriveStatus(result.oneDrive || {});
+  } catch (error) {
+    if (oneDriveStatus) oneDriveStatus.textContent = '';
+    if (oneDriveError) {
+      oneDriveError.textContent = error.message;
+      oneDriveError.classList.remove('hidden');
+    }
+  } finally {
+    if (!oneDriveState?.authorizationPending && !oneDriveState?.connected) oneDriveConnectBtn.disabled = false;
+  }
+}
+
+async function pollOneDriveAuthorization() {
+  if (!oneDriveState?.authorizationPending) return;
+  if (oneDriveCheckAuthBtn) oneDriveCheckAuthBtn.disabled = true;
+  try {
+    const result = await api('/api/integrations/one-drive/connect/poll', { method:'POST' });
+    renderOneDriveStatus(result.oneDrive || {});
+    if (result.oneDrive?.connected) {
+      await Promise.all([loadBackupStatus(), loadCloudRestoreProviders()]);
+    }
+  } catch (error) {
+    clearOneDriveAuthPoll();
+    if (oneDriveError) {
+      oneDriveError.textContent = error.message;
+      oneDriveError.classList.remove('hidden');
+    }
+  } finally {
+    if (oneDriveCheckAuthBtn && oneDriveState?.authorizationPending) oneDriveCheckAuthBtn.disabled = false;
+  }
+}
+
+async function testOneDriveConnection() {
+  if (!oneDriveTestBtn) return;
+  oneDriveTestBtn.disabled = true;
+  if (oneDriveError) {
+    oneDriveError.textContent = '';
+    oneDriveError.classList.add('hidden');
+  }
+  if (oneDriveStatus) oneDriveStatus.textContent = 'Testing OneDrive connection…';
+  try {
+    const result = await api('/api/integrations/one-drive/test', { method:'POST' });
+    renderOneDriveStatus(result.oneDrive || {});
+    if (oneDriveStatus) oneDriveStatus.textContent = `Connection successful · Folder: ${result.connection?.folderName || 'Print Farm Controller'}`;
+  } catch (error) {
+    if (oneDriveStatus) oneDriveStatus.textContent = '';
+    if (oneDriveError) {
+      oneDriveError.textContent = error.message;
+      oneDriveError.classList.remove('hidden');
+    }
+  } finally {
+    if (oneDriveTestBtn && oneDriveState?.connected) oneDriveTestBtn.disabled = false;
+  }
+}
+
+async function disconnectOneDrive() {
+  if (!oneDriveDisconnectBtn) return;
+  if (!confirm('Disconnect OneDrive from this controller? Existing backup files in OneDrive will not be deleted.')) return;
+  oneDriveDisconnectBtn.disabled = true;
+  clearOneDriveAuthPoll();
+  try {
+    const result = await api('/api/integrations/one-drive', { method:'DELETE' });
+    renderOneDriveStatus(result.oneDrive || {});
+    await Promise.all([loadBackupStatus(), loadCloudRestoreProviders()]);
+  } catch (error) {
+    if (oneDriveError) {
+      oneDriveError.textContent = error.message;
+      oneDriveError.classList.remove('hidden');
+    }
+  }
+}
+
+async function createOneDriveBackup() {
+  if (!oneDriveBackupBtn) return;
+  oneDriveBackupBtn.disabled = true;
+  const original = oneDriveBackupBtn.textContent;
+  oneDriveBackupBtn.textContent = 'Backing up…';
+  if (oneDriveError) {
+    oneDriveError.textContent = '';
+    oneDriveError.classList.add('hidden');
+  }
+  if (oneDriveStatus) oneDriveStatus.textContent = 'Building, verifying and uploading backup…';
+  try {
+    const result = await api('/api/backup/create/one-drive', { method:'POST' });
+    const backup = result.backup || {};
+    if (oneDriveStatus) {
+      oneDriveStatus.textContent = `Backup uploaded · ${formatBytes(backup.size)} · ${backup.folderName || 'Print Farm Controller'}`;
+    }
+    await Promise.all([loadBackupStatus(), loadOneDriveStatus()]);
+  } catch (error) {
+    if (oneDriveStatus) oneDriveStatus.textContent = '';
+    if (oneDriveError) {
+      oneDriveError.textContent = error.message;
+      oneDriveError.classList.remove('hidden');
+    }
+  } finally {
+    oneDriveBackupBtn.textContent = original;
+    oneDriveBackupBtn.disabled = !oneDriveState?.connected;
+  }
+}
+
 function renderS3Status(state = {}) {
   s3State = state || {};
   const configured = state.configured === true;
@@ -1150,7 +1433,7 @@ function setBackupScheduleControlsDisabled(disabled) {
 function renderBackupSchedule(schedule = {}) {
   if (backupScheduleEnabled) backupScheduleEnabled.checked = schedule.enabled === true;
   if (backupScheduleDestinationType) {
-    backupScheduleDestinationType.value = ['google-drive','s3'].includes(schedule.destinationType)
+    backupScheduleDestinationType.value = ['google-drive','one-drive','s3'].includes(schedule.destinationType)
       ? schedule.destinationType
       : 'local';
   }
@@ -1193,7 +1476,9 @@ function renderBackupStatus(payload) {
       <div><span>Scheduled backups</span><strong>${schedule.enabled ? 'Enabled' : 'Not enabled'}</strong></div>
       <div><span>Scheduled destination</span><strong>${escapeHtml(schedule.destinationType === 'google-drive'
         ? 'Google Drive'
-        : (schedule.destinationType === 's3' ? 'S3-compatible storage' : (schedule.destination || '—')))}</strong></div>
+        : (schedule.destinationType === 'one-drive'
+            ? 'Microsoft OneDrive (Experimental)'
+            : (schedule.destinationType === 's3' ? 'S3-compatible storage' : (schedule.destination || '—'))))}</strong></div>
       <div><span>Next scheduled backup</span><strong>${escapeHtml(backupStatusTime(schedule.nextRunAt, '—'))}</strong></div>
       <div><span>Backup operation</span><strong>${escapeHtml(backup.operation?.kind ? `${backup.operation.kind} backup running` : 'Idle')}</strong></div>
     `;
@@ -1224,7 +1509,7 @@ async function loadBackupStatus() {
 
 async function testScheduledBackupDestination() {
   const selectedDestinationType = backupScheduleDestinationType?.value || 'local';
-  const destinationType = ['google-drive','s3'].includes(selectedDestinationType)
+  const destinationType = ['google-drive','one-drive','s3'].includes(selectedDestinationType)
     ? selectedDestinationType
     : 'local';
   const destination = backupScheduleDestination?.value?.trim() || '';
@@ -1243,7 +1528,9 @@ async function testScheduledBackupDestination() {
   if (backupScheduleStatus) {
     backupScheduleStatus.textContent = destinationType === 'google-drive'
       ? 'Testing Google Drive connection…'
-      : (destinationType === 's3' ? 'Testing S3-compatible storage…' : 'Testing destination write access…');
+      : (destinationType === 'one-drive'
+          ? 'Testing OneDrive connection…'
+          : (destinationType === 's3' ? 'Testing S3-compatible storage…' : 'Testing destination write access…'));
   }
   try {
     await api('/api/backup/test-destination', {
@@ -1253,7 +1540,9 @@ async function testScheduledBackupDestination() {
     if (backupScheduleStatus) {
       backupScheduleStatus.textContent = destinationType === 'google-drive'
         ? 'Google Drive destination is available.'
-        : (destinationType === 's3' ? 'S3-compatible destination is available.' : 'Destination is writable.');
+        : (destinationType === 'one-drive'
+            ? 'OneDrive destination is available.'
+            : (destinationType === 's3' ? 'S3-compatible destination is available.' : 'Destination is writable.'));
     }
   } catch (error) {
     if (backupScheduleStatus) backupScheduleStatus.textContent = '';
@@ -1290,7 +1579,7 @@ async function saveScheduledBackupSettings() {
       method:'PUT',
       body:JSON.stringify({
         enabled:backupScheduleEnabled?.checked === true,
-        destinationType:['google-drive','s3'].includes(backupScheduleDestinationType?.value)
+        destinationType:['google-drive','one-drive','s3'].includes(backupScheduleDestinationType?.value)
           ? backupScheduleDestinationType.value
           : 'local',
         destination:backupScheduleDestination?.value?.trim() || null,
@@ -3257,10 +3546,11 @@ backupRecoveryBtn?.addEventListener('click', async () => {
   if (restoreInspectBtn) restoreInspectBtn.disabled = false;
   if (restoreCancelStageBtn) restoreCancelStageBtn.classList.add('hidden');
   backupRecoveryDialog?.showModal();
-  await Promise.all([loadBackupStatus(), loadRestoreStatus(), loadGoogleDriveStatus(), loadS3Status(), loadCloudRestoreProviders()]);
+  await Promise.all([loadBackupStatus(), loadRestoreStatus(), loadGoogleDriveStatus(), loadOneDriveStatus(), loadS3Status(), loadCloudRestoreProviders()]);
 });
 document.querySelectorAll('[data-backup-close]').forEach((el) => el.addEventListener('click', () => {
   clearGoogleDriveAuthPoll();
+  clearOneDriveAuthPoll();
   backupRecoveryDialog?.close();
 }));
 backupCreateBtn?.addEventListener('click', createManualBackup);
@@ -3271,6 +3561,13 @@ googleDriveCheckAuthBtn?.addEventListener('click', pollGoogleDriveAuthorization)
 googleDriveTestBtn?.addEventListener('click', testGoogleDriveConnection);
 googleDriveDisconnectBtn?.addEventListener('click', disconnectGoogleDrive);
 googleDriveBackupBtn?.addEventListener('click', createGoogleDriveBackup);
+oneDriveSaveConfigBtn?.addEventListener('click', saveOneDriveConfiguration);
+oneDriveUseDefaultConfigBtn?.addEventListener('click', useDefaultOneDriveConfiguration);
+oneDriveConnectBtn?.addEventListener('click', startOneDriveConnection);
+oneDriveCheckAuthBtn?.addEventListener('click', pollOneDriveAuthorization);
+oneDriveTestBtn?.addEventListener('click', testOneDriveConnection);
+oneDriveDisconnectBtn?.addEventListener('click', disconnectOneDrive);
+oneDriveBackupBtn?.addEventListener('click', createOneDriveBackup);
 s3SaveConfigBtn?.addEventListener('click', saveS3Configuration);
 s3TestBtn?.addEventListener('click', testS3Connection);
 s3ClearConfigBtn?.addEventListener('click', clearS3Configuration);

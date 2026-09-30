@@ -112,9 +112,11 @@ jobs:
         run: |
           printf '%s' 'smoke-client.apps.googleusercontent.com' > "$RUNNER_TEMP/pfc-google-client-id"
           printf '%s' 'smoke-client-secret' > "$RUNNER_TEMP/pfc-google-client-secret"
+          printf '%s' '00000000-0000-4000-8000-000000000036' > "$RUNNER_TEMP/pfc-microsoft-client-id"
           docker build \
             --secret id=pfc_google_client_id,src="$RUNNER_TEMP/pfc-google-client-id" \
             --secret id=pfc_google_client_secret,src="$RUNNER_TEMP/pfc-google-client-secret" \
+            --secret id=pfc_microsoft_client_id,src="$RUNNER_TEMP/pfc-microsoft-client-id" \
             -t print-farm-controller:smoke .
 
       - name: Start smoke-test container
@@ -125,18 +127,28 @@ jobs:
         run: |
           for attempt in {1..20}; do
             if curl --fail --silent http://127.0.0.1:4242/ > /dev/null; then
-              status="$(curl --fail --silent http://127.0.0.1:4242/api/integrations/google-drive/status)"
+              google_status="$(curl --fail --silent http://127.0.0.1:4242/api/integrations/google-drive/status)"
+              onedrive_status="$(curl --fail --silent http://127.0.0.1:4242/api/integrations/one-drive/status)"
               node -e "
-                const status = JSON.parse(process.argv[1]).googleDrive;
-                if (!status?.configured || !status?.builtInConfigured || status?.configurationSource !== 'built-in') {
+                const google = JSON.parse(process.argv[1]).googleDrive;
+                const oneDrive = JSON.parse(process.argv[2]).oneDrive;
+                if (!google?.configured || !google?.builtInConfigured || google?.configurationSource !== 'built-in') {
                   console.error('Bundled Google OAuth configuration was not active in the smoke-test image');
                   process.exit(1);
                 }
-                if (status?.customConfigured || status?.clientId || status?.clientSecretConfigured) {
+                if (google?.customConfigured || google?.clientId || google?.clientSecretConfigured) {
                   console.error('Built-in Google OAuth credentials leaked into custom configuration status');
                   process.exit(1);
                 }
-              " "$status"
+                if (!oneDrive?.configured || !oneDrive?.builtInConfigured || oneDrive?.configurationSource !== 'built-in') {
+                  console.error('Bundled Microsoft OAuth configuration was not active in the smoke-test image');
+                  process.exit(1);
+                }
+                if (oneDrive?.customConfigured || oneDrive?.clientId) {
+                  console.error('Built-in Microsoft OAuth client ID leaked into custom configuration status');
+                  process.exit(1);
+                }
+              " "$google_status" "$onedrive_status"
               exit 0
             fi
             sleep 1
@@ -216,6 +228,7 @@ jobs:
           secrets: |
             pfc_google_client_id=${{ secrets.PFC_GOOGLE_CLIENT_ID }}
             pfc_google_client_secret=${{ secrets.PFC_GOOGLE_CLIENT_SECRET }}
+            pfc_microsoft_client_id=${{ secrets.PFC_MICROSOFT_CLIENT_ID }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
           provenance: mode=max
