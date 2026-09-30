@@ -92,6 +92,8 @@ export async function collectLogicalBackupSnapshot({
   const emulatorSettings = await readJsonFile(path.join(resolvedDataDir, 'emulator-settings.json'), null);
   const maintenance = await readJsonFile(path.join(resolvedDataDir, 'maintenance.json'), { version:1, modelTasks:[], groupTasks:[], printers:{} });
   const printerGroups = await readJsonFile(path.join(resolvedDataDir, 'printer-groups.json'), { version:1, groups:[] });
+  const filaments = await readJsonFile(path.join(resolvedDataDir, 'filaments.json'), { version:1, filaments:[] });
+  const reportingHistory = await readJsonFile(path.join(resolvedDataDir, 'reporting-history.json'), { version:1, records:[] });
   const library = await collectLibraryEntries(resolvedDataDir);
 
   if (!Array.isArray(printers)) throw new Error('Printer store is invalid');
@@ -99,6 +101,8 @@ export async function collectLogicalBackupSnapshot({
   if (!fileMaterials || typeof fileMaterials !== 'object' || Array.isArray(fileMaterials)) throw new Error('File material metadata store is invalid');
   if (!maintenance || maintenance.version !== 1 || !maintenance.printers || typeof maintenance.printers !== 'object' || Array.isArray(maintenance.printers)) throw new Error('Maintenance store is invalid');
   if (!printerGroups || printerGroups.version !== 1 || !Array.isArray(printerGroups.groups)) throw new Error('Printer group store is invalid');
+  if (!filaments || filaments.version !== 1 || !Array.isArray(filaments.filaments)) throw new Error('Filament catalogue store is invalid');
+  if (!reportingHistory || reportingHistory.version !== 1 || !Array.isArray(reportingHistory.records)) throw new Error('Reporting history store is invalid');
 
   const payload = [
     jsonEntry('state/printers.json', printers),
@@ -107,6 +111,8 @@ export async function collectLogicalBackupSnapshot({
     jsonEntry('state/backup-settings.json', settings),
     jsonEntry('state/maintenance.json', maintenance),
     jsonEntry('state/printer-groups.json', printerGroups),
+    jsonEntry('state/filaments.json', filaments),
+    jsonEntry('state/reporting-history.json', reportingHistory),
     ...library.entries
   ];
   if (emulatorSettings && typeof emulatorSettings === 'object') payload.push(jsonEntry('state/emulator-settings.json', emulatorSettings));

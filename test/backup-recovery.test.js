@@ -28,6 +28,10 @@ test('logical backup creates a verified portable pfcbackup with known persistent
       version:1,
       groups:[{ id:'group-1', name:'Production', printerIds:['p1'], createdAt:'2026-09-24T16:00:00.000Z', updatedAt:'2026-09-24T16:00:00.000Z' }]
     }));
+    await fs.writeFile(path.join(dataDir, 'filaments.json'), JSON.stringify({
+      version:1,
+      filaments:[{ id:'11111111-1111-4111-8111-111111111111', material:'PLA', materialKey:'PLA', costPerKg:18.95, currency:'GBP' }]
+    }));
     await fs.writeFile(licensePath, JSON.stringify({ payload:'signed-test-document' }));
     const gcode = 'G28\nG1 X10\n';
     await fs.writeFile(path.join(libraryDir, 'part.gcode'), gcode);
@@ -63,7 +67,7 @@ test('logical backup creates a verified portable pfcbackup with known persistent
     const names = new Set(archive.entries.map((entry) => entry.name));
     for (const expected of [
       'manifest.json','checksums.json','state/printers.json','state/print-jobs.json',
-      'state/file-material-metadata.json','state/emulator-settings.json','state/backup-settings.json','state/maintenance.json','state/printer-groups.json',
+      'state/file-material-metadata.json','state/emulator-settings.json','state/backup-settings.json','state/maintenance.json','state/printer-groups.json','state/filaments.json',
       'state/license.json',`print-library/${libraryId}/metadata.json`,
       `print-library/${libraryId}/part.gcode`,`print-library/${libraryId}/preview.png`
     ]) assert.ok(names.has(expected), expected);
@@ -74,6 +78,8 @@ test('logical backup creates a verified portable pfcbackup with known persistent
     const printerGroups = JSON.parse((await archive.read('state/printer-groups.json')).toString('utf8'));
     assert.equal(printerGroups.groups[0].name, 'Production');
     assert.deepEqual(printerGroups.groups[0].printerIds, ['p1']);
+    const filaments = JSON.parse((await archive.read('state/filaments.json')).toString('utf8'));
+    assert.equal(filaments.filaments[0].costPerKg, 18.95);
   } finally {
     await fs.rm(root, { recursive:true, force:true });
   }

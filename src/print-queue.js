@@ -7,6 +7,7 @@ import { getPrinterFileMaterialMetadata, savePrinterFileMaterialMetadata } from 
 import { getQueueFile } from './queue-file-store.js';
 import { evaluateQueueCompatibility, queueCompatibilityHelpers } from './queue-compatibility.js';
 import { assessMaterialCompatibility } from './file-material-metadata.js';
+import { buildMaterialCostSnapshot } from './material-costing.js';
 import { PRINTER_OPERATION_TYPES } from './printer-operation-policy.js';
 
 const TERMINAL_STATES = new Set(['completed', 'failed', 'cancelled']);
@@ -120,6 +121,8 @@ function publicJob(job) {
     stagedFile,
     requirements: job.requirements ? structuredClone(job.requirements) : null,
     printerTarget: job.printerTarget ? { ...job.printerTarget } : null,
+    filamentAssignments: job.filamentAssignments ? { ...job.filamentAssignments } : {},
+    materialCost: job.materialCost ? structuredClone(job.materialCost) : null,
     groupId: job.groupId || null,
     groupName: job.groupName || null,
     compatibility: job.compatibility ? structuredClone(job.compatibility) : null,
@@ -156,6 +159,8 @@ function sanitizeOptions(options = {}) {
           material:tool?.material || null,
           color:tool?.color || null,
           colorFamily:tool?.colorFamily || null,
+          filamentPreset:tool?.filamentPreset || null,
+          filamentVendor:tool?.filamentVendor || null,
           nozzleDiameter:Number.isFinite(Number(tool?.nozzleDiameter)) ? Number(tool.nozzleDiameter) : null
         })).filter((tool) => Number.isFinite(tool.index))
       : []
@@ -233,6 +238,7 @@ function cloneProductionRun(template, sequence, quantity, paused = template.prod
     selectionReason: null,
     options: { ...sanitizeOptions(template.options), toolMap:null, materialMap:null, usedLogicalTools:[] },
     toolSnapshot: [],
+    materialCost: null,
     status: 'queued',
     queuedAt: timestamp,
     startRequestedAt: null,
@@ -259,6 +265,8 @@ export class PrintQueueService {
     getFileMaterialMetadataFn = getPrinterFileMaterialMetadata,
     saveFileMaterialMetadataFn = savePrinterFileMaterialMetadata,
     getQueueFileFn = getQueueFile,
+    buildMaterialCostSnapshotFn = buildMaterialCostSnapshot,
+    recordTerminalJobsFn = null,
     getPrinterGroupFn = null,
     printerAllowedFn = null,
     operationCoordinator = null,
@@ -278,6 +286,8 @@ export class PrintQueueService {
     this.getFileMaterialMetadata = getFileMaterialMetadataFn;
     this.saveFileMaterialMetadata = saveFileMaterialMetadataFn;
     this.getQueueFile = getQueueFileFn;
+    this.buildMaterialCostSnapshot = buildMaterialCostSnapshotFn;
+    this.recordTerminalJobs = typeof recordTerminalJobsFn === 'function' ? recordTerminalJobsFn : null;
     this.getPrinterGroup = typeof getPrinterGroupFn === 'function' ? getPrinterGroupFn : () => null;
     this.printerAllowed = typeof printerAllowedFn === 'function' ? printerAllowedFn : () => true;
     this.operationCoordinator = operationCoordinator;
@@ -323,9 +333,18 @@ export class PrintQueueService {
         bedClearedAt: job.bedClearedAt || null,
         restoreRecoveryHold:job.restoreRecoveryHold === true,
         restoreOriginalStatus:job.restoreOriginalStatus || null,
-        restoredAt:job.restoredAt || null
+        restoredAt:job.restoredAt || null,
+        filamentAssignments:job.filamentAssignments && typeof job.filamentAssignments === 'object' && !Array.isArray(job.filamentAssignments)
+          ? { ...job.filamentAssignments }
+          : {},
+        materialCost:job.materialCost ? structuredClone(job.materialCost) : null
       };
     });
+    if (this.recordTerminalJobs) {
+      await Promise.resolve(this.recordTerminalJobs(this.jobs)).catch((error) => {
+        console.warn(`Reporting history seed failed: ${error?.message || error}`);
+      });
+    }
     this.diagnosticJobs = new Map(this.jobs.map((job) => [job.id, {
       status:job.status,
       printerId:job.printerId || null,
@@ -696,6 +715,8 @@ export class PrintQueueService {
       } : null,
       requirements: stagedFile?.requirements ? structuredClone(stagedFile.requirements) : null,
       printerTarget: stagedFile?.printerTarget ? { ...stagedFile.printerTarget } : null,
+      filamentAssignments: stagedFile?.filamentAssignments ? { ...stagedFile.filamentAssignments } : {},
+      materialCost: null,
       groupId:requestedGroup?.id || null,
       groupName:requestedGroup?.name || null,
       compatibility: null,
@@ -1270,6 +1291,30 @@ export class PrintQueueService {
     }
   }
 
+  async captureMaterialCost(job) {
+    if (!job || job.materialCost || typeof this.buildMaterialCostSnapshot !== 'function') return job?.materialCost || null;
+    try {
+      job.materialCost = await this.buildMaterialCostSnapshot({
+        requirements:job.requirements || null,
+        filamentAssignments:job.filamentAssignments || {}
+      });
+    } catch (error) {
+      job.materialCost = {
+        capturedAt:nowIso(),
+        complete:false,
+        usageComplete:false,
+        costComplete:false,
+        totalGrams:null,
+        currency:null,
+        totalCost:null,
+        resolvedCost:null,
+        tools:[],
+        error:error?.message || 'Material cost snapshot could not be calculated'
+      };
+    }
+    return job.materialCost;
+  }
+
   async startAutomaticJobUnlocked(job, candidate) {
     if (this.dispatchPaused) return;
     if (!job || job.status !== 'queued' || job.assignmentMode !== 'automatic' || !candidate?.printerId) return;
@@ -1377,6 +1422,7 @@ export class PrintQueueService {
         await this.persistAndNotify();
         return;
       }
+      await this.captureMaterialCost(job);
       job.status = 'starting';
       job.startRequestedAt = nowIso();
       job.maxProgress = 0;
@@ -1490,6 +1536,7 @@ export class PrintQueueService {
         await this.chamberPreheat.stop(job.printerId, { reason: 'queued-print-started', turnOff: false });
       }
 
+      await this.captureMaterialCost(job);
       job.status = 'starting';
       job.startRequestedAt = nowIso();
       job.maxProgress = 0;
@@ -1572,6 +1619,11 @@ export class PrintQueueService {
     const save = this.saveChain.then(() => this.saveJobs(snapshot));
     this.saveChain = save.catch(() => {});
     await save;
+    if (this.recordTerminalJobs) {
+      await Promise.resolve(this.recordTerminalJobs(snapshot)).catch((error) => {
+        console.warn(`Reporting history update failed: ${error?.message || error}`);
+      });
+    }
     this.emitDiagnosticTransitions();
     this.notify();
   }

@@ -138,6 +138,22 @@ export async function inspectRestoreBackup(filePath, {
     }
   }
 
+  let filaments = null;
+  if (archive.byName.has('state/filaments.json')) {
+    filaments = await readJsonEntry(archive, 'state/filaments.json');
+    if (!plainObject(filaments) || filaments.version !== 1 || !Array.isArray(filaments.filaments)) {
+      throw new Error('Backup filament catalogue store is invalid');
+    }
+  }
+
+  let reportingHistory = null;
+  if (archive.byName.has('state/reporting-history.json')) {
+    reportingHistory = await readJsonEntry(archive, 'state/reporting-history.json');
+    if (!plainObject(reportingHistory) || reportingHistory.version !== 1 || !Array.isArray(reportingHistory.records)) {
+      throw new Error('Backup reporting history store is invalid');
+    }
+  }
+
   let printerGroups = null;
   const printerGroupIds = new Set();
   if (archive.byName.has('state/printer-groups.json')) {

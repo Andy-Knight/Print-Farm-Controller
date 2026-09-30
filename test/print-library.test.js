@@ -13,7 +13,7 @@ test('Print Library migrates staged queue files, deduplicates uploads and persis
   const legacyId = '11111111-1111-4111-8111-111111111111';
   const legacyDir = path.join(dir, 'queue-files', legacyId);
   const legacyName = 'legacy-part.gcode';
-  const legacyContent = '; filament_type = PLA\n; nozzle_diameter = 0.4\nT0\nG1 X10\n';
+  const legacyContent = '; filament_type = PLA\n; nozzle_diameter = 0.4\n; filament used [g] = 14.25\nT0\nG1 X10\n';
   const legacyHash = crypto.createHash('sha256').update(legacyContent).digest('hex');
   const stagedAt = '2026-09-20T12:00:00.000Z';
 
@@ -48,6 +48,8 @@ test('Print Library migrates staged queue files, deduplicates uploads and persis
   assert.equal(migrated[0].addedAt, stagedAt);
   assert.equal(migrated[0].preview?.available, false);
   assert.equal(migrated[0].printerTarget, null);
+  assert.equal(migrated[0].requirements.logicalTools[0].filamentGrams, 14.25);
+  assert.equal(migrated[0].requirements.totalFilamentGrams, 14.25);
   assert.equal(await fs.readFile((await library.getLibraryFile(legacyId)).filePath, 'utf8'), legacyContent);
   await assert.rejects(() => fs.access(path.join(dir, 'queue-files')));
   await fs.access(path.join(dir, 'print-library', legacyId));

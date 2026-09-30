@@ -29,6 +29,7 @@ async function createBackupFixture(root, {
   jobs = [],
   printers = [{ id:'restored-printer', name:'Restored printer' }],
   printerGroups = { version:1, groups:[] },
+  filaments = { version:1, filaments:[] },
   backupLicense = null
 } = {}) {
   const sourceData = path.join(root, 'backup-source');
@@ -39,6 +40,7 @@ async function createBackupFixture(root, {
   await writeJson(path.join(sourceData, 'print-jobs.json'), jobs);
   await writeJson(path.join(sourceData, 'file-material-metadata.json'), {});
   await writeJson(path.join(sourceData, 'printer-groups.json'), printerGroups);
+  await writeJson(path.join(sourceData, 'filaments.json'), filaments);
   if (backupLicense) await writeJson(sourceLicense, backupLicense);
   await createBackupArchive({
     destinationPath:backupPath,
@@ -133,6 +135,7 @@ test('activation swaps staged data and commit makes the restored state permanent
       jobs:[{ id:'restored-job', status:'queued', assignmentMode:'automatic', productionBatchId:'batch-1', groupId:'group-restored', groupName:'Restored production' }],
       printers:[{ id:'new-printer', name:'New printer' }],
       printerGroups:{ version:1, groups:[{ id:'group-restored', name:'Restored production', printerIds:['new-printer'] }] },
+      filaments:{ version:1, filaments:[{ id:'11111111-1111-4111-8111-111111111111', material:'PLA', materialKey:'PLA', costPerKg:19.5, currency:'GBP' }] },
       backupLicense:{ current:'restored' }
     });
     await stageRestoreBackup(fixture.backupPath, {
@@ -153,6 +156,8 @@ test('activation swaps staged data and commit makes the restored state permanent
     const restoredGroups = JSON.parse(await fs.readFile(path.join(liveData, 'printer-groups.json'), 'utf8'));
     assert.equal(restoredGroups.groups[0].name, 'Restored production');
     assert.deepEqual(restoredGroups.groups[0].printerIds, ['new-printer']);
+    const restoredFilaments = JSON.parse(await fs.readFile(path.join(liveData, 'filaments.json'), 'utf8'));
+    assert.equal(restoredFilaments.filaments[0].costPerKg, 19.5);
     assert.deepEqual(JSON.parse(await fs.readFile(liveLicense, 'utf8')), { current:'restored' });
 
     await commitActivatedRestore(tx);

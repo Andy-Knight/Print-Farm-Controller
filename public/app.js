@@ -164,6 +164,7 @@ const libraryMetadataForm = document.querySelector('#libraryMetadataForm');
 const libraryMetadataFileName = document.querySelector('#libraryMetadataFileName');
 const libraryMetadataPrinterTarget = document.querySelector('#libraryMetadataPrinterTarget');
 const libraryMetadataDescription = document.querySelector('#libraryMetadataDescription');
+const libraryFilamentAssignments = document.querySelector('#libraryFilamentAssignments');
 const libraryMetadataError = document.querySelector('#libraryMetadataError');
 const queueBtn = document.querySelector('#queueBtn');
 const queueButtonCount = document.querySelector('#queueButtonCount');
@@ -197,6 +198,7 @@ let queueState = { jobs:[], queued:0, active:0, history:0, needsReview:0, awaiti
 let libraryState = { files:[] };
 let printerGroupsState = { version:1, groups:[] };
 let libraryMetadataFile = null;
+let libraryFilamentCatalogue = [];
 let queueAddLibraryFile = null;
 let licenseState = null;
 let diagnosticsState = null;
@@ -440,6 +442,125 @@ function populateLibraryPrinterTargetOptions() {
     select.innerHTML = markup;
     if ([...select.options].some((option) => option.value === previous)) select.value = previous;
   }
+}
+
+function canonicalLibraryMaterial(value) {
+  const text = String(value || '').trim().toUpperCase();
+  return text ? text.replace(/[^A-Z0-9]/g, '') : '';
+}
+
+function libraryFilamentLabel(item = {}) {
+  const product = [item.brand, item.product].filter(Boolean).join(' · ');
+  const base = product || item.material || 'Filament';
+  const suffix = [
+    item.colour || null,
+    Number.isFinite(Number(item.costPerKg)) ? `${item.currency || 'GBP'} ${Number(item.costPerKg).toFixed(2)}/kg` : null
+  ].filter(Boolean).join(' · ');
+  return suffix ? `${base} — ${suffix}` : base;
+}
+
+function normalizedLibraryProfileHint(value) {
+  return String(value || '').trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
+}
+
+function automaticLibraryFilamentMatch(tool, candidates) {
+  if (!Array.isArray(candidates) || candidates.length < 2) return candidates?.[0] || null;
+  const preset = normalizedLibraryProfileHint(tool?.filamentPreset);
+  const vendor = normalizedLibraryProfileHint(tool?.filamentVendor);
+  if (!preset && !vendor) return null;
+  const materialKey = canonicalLibraryMaterial(tool?.material);
+
+  const scored = candidates.map((item) => {
+    const brand = normalizedLibraryProfileHint(item?.brand);
+    const product = normalizedLibraryProfileHint(item?.product);
+    const brandMatchesVendor = Boolean(brand && vendor && (brand === vendor || brand.includes(vendor) || vendor.includes(brand)));
+    const brandInPreset = Boolean(brand && preset && preset.includes(brand));
+    const productIsSpecific = Boolean(product && product.length >= 4 && product !== materialKey);
+    const productInPreset = Boolean(productIsSpecific && preset && preset.includes(product));
+    return {
+      item,
+      strong:productInPreset && (!brand || brandInPreset || brandMatchesVendor),
+      brand:brandInPreset || brandMatchesVendor
+    };
+  });
+  const strong = scored.filter((entry) => entry.strong);
+  if (strong.length === 1) return strong[0].item;
+  if (strong.length > 1) return null;
+  const brandMatches = scored.filter((entry) => entry.brand);
+  return brandMatches.length === 1 ? brandMatches[0].item : null;
+}
+
+async function loadLibraryFilamentCatalogue() {
+  const payload = await api('/api/filaments');
+  libraryFilamentCatalogue = Array.isArray(payload.filaments) ? payload.filaments : [];
+  return libraryFilamentCatalogue;
+}
+
+function renderLibraryFilamentAssignments(file = libraryMetadataFile) {
+  if (!libraryFilamentAssignments) return;
+  const tools = Array.isArray(file?.requirements?.logicalTools) ? file.requirements.logicalTools : [];
+  if (!tools.length) {
+    libraryFilamentAssignments.innerHTML = '<div class="subtle">This file does not expose logical filament metadata for costing.</div>';
+    return;
+  }
+
+  const assignments = file?.filamentAssignments && typeof file.filamentAssignments === 'object'
+    ? file.filamentAssignments
+    : {};
+  libraryFilamentAssignments.innerHTML = tools.map((tool) => {
+    const index = Number(tool?.index);
+    const material = String(tool?.material || '').trim();
+    const materialKey = canonicalLibraryMaterial(material);
+    const grams = tool?.filamentGrams == null || !Number.isFinite(Number(tool.filamentGrams))
+      ? null
+      : Number(tool.filamentGrams);
+    const assignedId = String(assignments[index] || assignments[String(index)] || '').trim();
+    const matching = libraryFilamentCatalogue.filter((item) => canonicalLibraryMaterial(item.material) === materialKey);
+    const nonmatching = libraryFilamentCatalogue.filter((item) => canonicalLibraryMaterial(item.material) !== materialKey);
+    const assignedExists = assignedId && libraryFilamentCatalogue.some((item) => item.id === assignedId);
+    const automaticMatch = automaticLibraryFilamentMatch(tool, matching);
+    const automaticLabel = materialKey
+      ? (automaticMatch
+        ? `Automatic${matching.length > 1 ? ' from slicer profile' : ''} — ${libraryFilamentLabel(automaticMatch)}`
+        : matching.length > 1 ? `Choose ${material || 'material'} filament…` : `No ${material || 'matching'} catalogue entry`)
+      : 'No explicit assignment';
+    const options = [
+      `<option value="">${escapeHtml(automaticLabel)}</option>`,
+      ...(matching.length ? ['<optgroup label="Matching material">', ...matching.map((item) => `<option value="${escapeHtml(item.id)}">${escapeHtml(libraryFilamentLabel(item))}</option>`), '</optgroup>'] : []),
+      ...(nonmatching.length ? ['<optgroup label="Other catalogue entries">', ...nonmatching.map((item) => `<option value="${escapeHtml(item.id)}">${escapeHtml(libraryFilamentLabel(item))}</option>`), '</optgroup>'] : []),
+      ...(!assignedExists && assignedId ? [`<option value="${escapeHtml(assignedId)}">Missing catalogue entry — clear or replace</option>`] : [])
+    ].join('');
+    const usageText = grams == null ? 'Filament usage unavailable' : `${grams.toLocaleString(undefined, { maximumFractionDigits:2 })} g sliced usage`;
+    const profileText = [tool?.filamentVendor, tool?.filamentPreset].filter(Boolean).join(' · ');
+    const warning = materialKey && matching.length > 1 && !assignedId && !automaticMatch
+      ? `<div class="library-filament-assignment-warning">Multiple ${escapeHtml(material)} costs exist and the slicer profile did not identify one unique catalogue filament; choose the exact filament.</div>`
+      : (!materialKey ? '<div class="library-filament-assignment-warning">The slicer did not identify this tool material; choose a catalogue entry explicitly.</div>' : '');
+    return `<div class="library-filament-assignment">
+      <div class="library-filament-tool-meta">
+        <strong>T${Number.isInteger(index) ? index : '?'} · ${escapeHtml(material || 'Unknown material')}</strong>
+        <span>${escapeHtml(usageText)}</span>
+        ${profileText ? `<span>Slicer: ${escapeHtml(profileText)}</span>` : ''}
+        ${warning}
+      </div>
+      <label>Cost filament
+        <select data-library-filament-tool-index="${escapeHtml(String(index))}">${options}</select>
+      </label>
+    </div>`;
+  }).join('');
+
+  for (const select of libraryFilamentAssignments.querySelectorAll('[data-library-filament-tool-index]')) {
+    const assigned = String(assignments[select.dataset.libraryFilamentToolIndex] || '').trim();
+    if ([...select.options].some((option) => option.value === assigned)) select.value = assigned;
+  }
+}
+
+function collectLibraryFilamentAssignments() {
+  const assignments = {};
+  for (const select of libraryFilamentAssignments?.querySelectorAll('[data-library-filament-tool-index]') || []) {
+    const id = String(select.value || '').trim();
+    if (id) assignments[String(select.dataset.libraryFilamentToolIndex)] = id;
+  }
+  return assignments;
 }
 
 async function api(url, options = {}) {
@@ -3717,7 +3838,8 @@ libraryMetadataForm?.addEventListener('submit', async (event) => {
     const editedFileName = libraryMetadataFile.fileName;
     await updateLibraryMetadata(libraryMetadataFile.id, {
       description:libraryMetadataDescription?.value || '',
-      printerTarget:parsePrinterTargetValue(libraryMetadataPrinterTarget?.value || '')
+      printerTarget:parsePrinterTargetValue(libraryMetadataPrinterTarget?.value || ''),
+      filamentAssignments:collectLibraryFilamentAssignments()
     });
     libraryMetadataDialog?.close();
     if (libraryStatus) libraryStatus.textContent = `${editedFileName} details updated.`;
@@ -3757,7 +3879,15 @@ libraryList?.addEventListener('click', async (event) => {
     if (libraryMetadataPrinterTarget) libraryMetadataPrinterTarget.value = printerTargetValue(file.printerTarget);
     if (libraryMetadataDescription) libraryMetadataDescription.value = String(file.description || '');
     if (libraryMetadataError) { libraryMetadataError.textContent = ''; libraryMetadataError.classList.add('hidden'); }
+    if (libraryFilamentAssignments) libraryFilamentAssignments.innerHTML = '<div class="subtle">Loading filament catalogue…</div>';
     libraryMetadataDialog?.showModal();
+    try {
+      await loadLibraryFilamentCatalogue();
+      renderLibraryFilamentAssignments(file);
+    } catch (error) {
+      if (libraryFilamentAssignments) libraryFilamentAssignments.innerHTML = '<div class="subtle">Filament catalogue could not be loaded.</div>';
+      if (libraryMetadataError) { libraryMetadataError.textContent = error.message; libraryMetadataError.classList.remove('hidden'); }
+    }
     return;
   }
   const deleteButton = event.target.closest('[data-library-delete]');

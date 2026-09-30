@@ -9,7 +9,7 @@ If chat context and this file disagree about the codebase, inspect current GitHu
 - Repository: `Andy-Knight/Print-Farm-Controller`
 - Project path: repository root (`/`)
 - Primary branch: `main` (current production baseline)
-- Current application version on this branch: **0.33.0**.
+- Current application version on this branch: **0.37.0** (reporting/analytics feature development). Production baseline on `main`: **0.36.0**.
 - Runtime: **Node.js 24+** (development baseline Node.js 24.21.0), ES modules, no npm runtime dependencies.
 - GitHub is the authoritative code baseline.
 
@@ -115,21 +115,30 @@ Manufacturer-specific discovery, capabilities, limits, status normalization, fil
 
 ## Current task
 
-The current production baseline is **v0.35.0** on `main`. Generic S3-compatible backup and restore are merged, with automated MinIO integration, container smoke and multi-architecture image validation passing. Google Drive remains production-validated from a deployed container.
+The current production baseline is **v0.36.0** on `main`, including Google Drive, generic S3-compatible backup/restore and **Experimental** Microsoft OneDrive support.
 
-The active feature branch is **`feature/onedrive-backup-v0340` / draft PR #59**, now reconciled against v0.35.0 and advanced to **v0.36.0**. OneDrive is explicitly marked **Experimental** until live Microsoft account/Graph validation is completed. The reconciled branch preserves Google Drive and the complete S3 provider while adding Microsoft OneDrive as another cloud provider. Shared scheduler, restore-provider registry, UI, packaging and test coverage now support Google Drive, OneDrive and S3 together.
+Active development is on **`feature/reporting-analytics-v0370`** / draft **PR #61** for **v0.37.0**.
 
-The original OneDrive branch was developed as v0.34.0 before S3 merged. After v0.35.0 became the production baseline, PR #59 was rebuilt from current `main` and the OneDrive changes were reapplied as v0.36.0 to avoid downgrading or overwriting S3 work.
-
-Real Microsoft account/Graph validation remains pending because Microsoft account creation for the test account is currently blocked. This is why the merged v0.36.0 OneDrive capability must remain labelled Experimental. Automated OneDrive regression coverage and production packaging validation remain the release gate available without a live Microsoft account.
+The first reporting/analytics slice is implemented:
+- Print Library requirement parsing now retains per-logical-tool sliced filament usage in grams, including embedded 3MF plate G-code, and existing library metadata is upgraded lazily when files are read.
+- A persistent controller-owned `filaments.json` catalogue records material, optional brand/product/colour, currency and cost per kg. Print Library files can explicitly map each logical tool to a catalogue filament. Orca/Bambu-style `filament_settings_id` and `filament_vendor` metadata are retained per logical tool and used to auto-match an unambiguous brand/product catalogue entry before falling back to a unique material-only match; ambiguous matches still require an explicit choice.
+- Each queue run snapshots the applicable material usage/cost immediately before print start. Historical snapshots remain unchanged when catalogue prices are later edited.
+- Long-term analytics use an independent persistent `reporting-history.json` store rather than the queue's bounded 250-record recent-history window. Existing terminal queue history seeds the reporting store on first startup, and new terminal jobs are deduplicated by job ID.
+- `GET /api/reports` provides date-range, printer and printer-group filtered aggregates for outcomes, run time, printer failure rates/trends, popular files, material usage and spend.
+- The **Reports & analytics** UI provides KPI cards, a daily outcomes SVG trend chart, transparent problem-printer indicators with recent-vs-earlier failure-rate trend, popular-file charts, material-usage/spend charts and filament catalogue management.
+- Print Library **Edit details** exposes per-tool filament-cost assignments, sliced gram usage and detected slicer vendor/preset metadata, and shows when an unambiguous slicer-profile match will be costed automatically.
+- Filament catalogue and reporting history are included in portable backup/restore, with backward-compatible empty defaults for older backups.
+- Regression coverage exists for gram parsing, Orca/Bambu slicer preset/vendor parsing and auto-matching, catalogue persistence, material cost snapshots, queue snapshots, durable reporting aggregation/retention, backup/restore and the reporting UI. The full PR workflow passed after the slicer-profile matching changes.
 
 ## Next steps
 
-1. Complete final v0.36.0 CI after the OneDrive/S3 reconciliation and documentation update.
-2. When Microsoft account creation becomes available, create/configure the Entra public-client application and validate OneDrive connect, manual backup, scheduled backup/retention, listing/inspection and staged restore against a real account.
-3. Validate S3 manually against a deployed/local MinIO or external S3-compatible service in addition to the automated MinIO CI coverage already passing.
-4. Validate the built-in Google OAuth flow in the packaged Windows SEA/installer build.
-5. Physically validate FlashForge Creator 5 / Creator 5 Pro support and continue experimental Bambu validation.
+1. Manually validate the v0.37.0 Reports dialog in Dark and Light modes, including 7/30/90/365-day filters, printer/group filters, empty-state behaviour and responsive layout.
+2. Validate the slicer-profile auto-match display in Print Library **Edit details** with real OrcaSlicer G-code and 3MF files.
+3. Validate filament-cost workflow with real OrcaSlicer G-code/3MF: catalogue creation, vendor/preset auto-matching across multiple same-material brands/products, explicit assignment for genuinely ambiguous presets, queue start snapshot and historical price stability after a catalogue price change.
+4. Decide whether failed/cancelled prints should gain a separate **estimated waste** metric. Current material spend intentionally counts completed prints only because sliced full-job grams would overstate material consumed by a job that failed part-way through.
+5. Add longer-term availability/downtime sampling if printer online/offline trend analysis is required; the current problem-printer indicators are based on retained print outcomes, run time and failure-rate trends.
+6. Consider custom date ranges/export after the first UI validation rather than expanding scope before the core reports are proven.
+7. Retain the existing hardware-validation backlog for Creator 5 / Creator 5 Pro and experimental Bambu support.
 
 ## Licensing baseline
 
