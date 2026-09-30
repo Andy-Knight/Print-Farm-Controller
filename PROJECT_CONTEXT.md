@@ -117,20 +117,28 @@ Manufacturer-specific discovery, capabilities, limits, status normalization, fil
 
 The current production baseline is **v0.36.0** on `main`, including Google Drive, generic S3-compatible backup/restore and **Experimental** Microsoft OneDrive support.
 
-Active development is on **`feature/reporting-analytics-v0370`** for **v0.37.0**. The reporting feature is intended to add persistent farm analytics with graphical charts and time trends covering printer reliability/problem identification, printer utilisation, print-file popularity and raw-material costs.
+Active development is on **`feature/reporting-analytics-v0370`** / draft **PR #61** for **v0.37.0**.
 
-Material-cost reporting will build on the existing Print Library requirement parser. Orca/Bambu-style G-code already exposes `filament used [g]` values and the parser already reads those values to determine referenced tools; v0.37.0 should retain the per-tool gram values, associate them with the parsed logical filament/material entries, and snapshot the resulting usage/cost into completed print history. A controller-owned filament catalogue will record material/filament definitions and cost per kg so historical cost remains stable even if catalogue prices are changed later.
+The first reporting/analytics slice is implemented:
+- Print Library requirement parsing now retains per-logical-tool sliced filament usage in grams, including embedded 3MF plate G-code, and existing library metadata is upgraded lazily when files are read.
+- A persistent controller-owned `filaments.json` catalogue records material, optional brand/product/colour, currency and cost per kg. Print Library files can explicitly map each logical tool to a catalogue filament; a unique material match may be resolved automatically, while ambiguous same-material catalogue entries require an explicit choice.
+- Each queue run snapshots the applicable material usage/cost immediately before print start. Historical snapshots remain unchanged when catalogue prices are later edited.
+- Long-term analytics use an independent persistent `reporting-history.json` store rather than the queue's bounded 250-record recent-history window. Existing terminal queue history seeds the reporting store on first startup, and new terminal jobs are deduplicated by job ID.
+- `GET /api/reports` provides date-range, printer and printer-group filtered aggregates for outcomes, run time, printer failure rates/trends, popular files, material usage and spend.
+- The **Reports & analytics** UI provides KPI cards, a daily outcomes SVG trend chart, transparent problem-printer indicators with recent-vs-earlier failure-rate trend, popular-file charts, material-usage/spend charts and filament catalogue management.
+- Print Library **Edit details** exposes per-tool filament-cost assignments and sliced gram usage.
+- Filament catalogue and reporting history are included in portable backup/restore, with backward-compatible empty defaults for older backups.
+- Regression coverage exists for gram parsing, catalogue persistence, material cost snapshots, queue snapshots, durable reporting aggregation/retention, backup/restore and the reporting UI. CI passed through the Print Library costing UI; the latest reporting UI test correction is awaiting the current PR workflow result.
 
 ## Next steps
 
-1. Add the reporting data foundation and migration-safe persistence, using completed print history as the primary source of immutable reporting facts.
-2. Extend Print Library parsing so per-logical-tool filament usage in grams is retained for G-code and embedded 3MF plate G-code.
-3. Add a controller-owned filament catalogue with material/type, optional brand/product/colour notes, currency and price per kg, and map Print Library logical materials to catalogue entries.
-4. Snapshot estimated material grams and cost onto each print run when it starts/completes so later price changes do not rewrite historical cost.
-5. Add reporting APIs and a new Reports UI with date-range/group/printer filters plus charts for success/failure rate, failures over time, printer utilisation, print duration, popular files, material usage and material spend.
-6. Add problem-printer indicators based on transparent metrics such as repeated failures/cancellations, failure-rate trend and downtime/availability observations; do not hide the underlying counts behind a single unexplained score.
-7. Add regression coverage for parsing, catalogue persistence, cost snapshots, aggregation and reporting APIs before UI validation.
-8. Retain the existing hardware-validation backlog for Creator 5 / Creator 5 Pro and experimental Bambu support.
+1. Confirm the latest PR #61 regression/container workflow is green after the reporting UI test correction.
+2. Manually validate the v0.37.0 Reports dialog in Dark and Light modes, including 7/30/90/365-day filters, printer/group filters, empty-state behaviour and responsive layout.
+3. Validate filament-cost workflow with real OrcaSlicer G-code/3MF: catalogue creation, automatic unique-material matching, explicit assignment where multiple same-material products exist, queue start snapshot and historical price stability after a catalogue price change.
+4. Decide whether failed/cancelled prints should gain a separate **estimated waste** metric. Current material spend intentionally counts completed prints only because sliced full-job grams would overstate material consumed by a job that failed part-way through.
+5. Add longer-term availability/downtime sampling if printer online/offline trend analysis is required; the current problem-printer indicators are based on retained print outcomes, run time and failure-rate trends.
+6. Consider custom date ranges/export after the first UI validation rather than expanding scope before the core reports are proven.
+7. Retain the existing hardware-validation backlog for Creator 5 / Creator 5 Pro and experimental Bambu support.
 
 ## Licensing baseline
 
