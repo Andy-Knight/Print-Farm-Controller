@@ -193,6 +193,7 @@ export class ReportingService {
     let uncostedPrints = 0;
     const spendByCurrency = {};
     const printers = new Map();
+    const periodMidpointMs = range.fromMs + ((range.toMs - range.fromMs) / 2);
     const files = new Map();
     const materials = new Map();
     const daily = new Map();
@@ -211,11 +212,23 @@ export class ReportingService {
           runSeconds:0,
           materialGrams:0,
           spendByCurrency:{},
+          earlierAttempts:0,
+          earlierFailed:0,
+          recentAttempts:0,
+          recentFailed:0,
           lastFinishedAt:null
         });
       }
       const printer = printers.get(printerKey);
       applyStatus(printer, record.status);
+      const finishedMs = validDate(record.finishedAt);
+      if (finishedMs != null && finishedMs < periodMidpointMs) {
+        printer.earlierAttempts += 1;
+        if (record.status === 'failed') printer.earlierFailed += 1;
+      } else {
+        printer.recentAttempts += 1;
+        if (record.status === 'failed') printer.recentFailed += 1;
+      }
       printer.runSeconds += duration;
       if (!printer.lastFinishedAt || String(record.finishedAt) > printer.lastFinishedAt) printer.lastFinishedAt = record.finishedAt;
 
@@ -296,15 +309,28 @@ export class ReportingService {
 
     const printerRows = [...printers.values()].map((printer) => {
       const decorated = decorateCounts(printer);
+      const earlierFailureRate = ratio(printer.earlierFailed, printer.earlierAttempts);
+      const recentFailureRate = ratio(printer.recentFailed, printer.recentAttempts);
+      const failureRateTrend = earlierFailureRate != null && recentFailureRate != null
+        ? Math.round((recentFailureRate - earlierFailureRate) * 1000) / 1000
+        : null;
       const attentionReasons = [];
       if (printer.failed >= 2) attentionReasons.push(`${printer.failed} failed prints in this period`);
       if (printer.attempts >= 5 && decorated.failureRate != null && decorated.failureRate >= 0.2) {
         attentionReasons.push(`${Math.round(decorated.failureRate * 100)}% failure rate across ${printer.attempts} attempts`);
       }
+      if (printer.recentAttempts >= 2 && failureRateTrend != null && failureRateTrend >= 0.15) {
+        attentionReasons.push(`Failure rate increased by ${Math.round(failureRateTrend * 100)} percentage points in the recent half of this period`);
+      }
       return {
         ...decorated,
         runHours:Math.round((printer.runSeconds / 3600) * 100) / 100,
         materialGrams:Math.round(printer.materialGrams * 1000) / 1000,
+        earlierFailureRate,
+        recentFailureRate,
+        failureRateTrend,
+        earlierAttempts:printer.earlierAttempts,
+        recentAttempts:printer.recentAttempts,
         attentionReasons
       };
     }).sort((left, right) =>
