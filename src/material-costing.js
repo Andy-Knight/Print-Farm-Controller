@@ -30,8 +30,9 @@ export async function buildMaterialCostSnapshot({
   for (const logicalTool of logicalTools) {
     const index = Number(logicalTool?.index);
     if (!Number.isInteger(index) || index < 0) continue;
-    const gramsValue = Number(logicalTool?.filamentGrams);
-    const grams = Number.isFinite(gramsValue) && gramsValue >= 0 ? gramsValue : null;
+    const rawGrams = logicalTool?.filamentGrams;
+    const gramsValue = rawGrams == null ? null : Number(rawGrams);
+    const grams = gramsValue != null && Number.isFinite(gramsValue) && gramsValue >= 0 ? gramsValue : null;
     if (grams == null) usageComplete = false;
     else totalGrams += grams;
 
