@@ -30,6 +30,7 @@ let reportingPrintersState = [];
 let reportingGroupsState = [];
 let reportingFilamentsState = [];
 let currentReport = null;
+const FILAMENT_CURRENCIES = new Set(['GBP', 'USD']);
 
 function escapeHtml(value = '') {
   return String(value).replace(/[&<>'"]/g, (ch) => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', "'":'&#39;', '"':'&quot;' }[ch]));
@@ -243,10 +244,27 @@ async function loadReport() {
   }
 }
 
+function setFilamentCurrency(value = 'GBP') {
+  if (!filamentCurrency) return;
+  for (const option of [...filamentCurrency.options]) {
+    if (option.dataset.legacyCurrency === 'true') option.remove();
+  }
+  const currency = String(value || 'GBP').trim().toUpperCase();
+  if (!FILAMENT_CURRENCIES.has(currency)) {
+    const legacy = document.createElement('option');
+    legacy.value = currency;
+    legacy.textContent = `${currency} (legacy — choose GBP or USD)`;
+    legacy.disabled = true;
+    legacy.dataset.legacyCurrency = 'true';
+    filamentCurrency.append(legacy);
+  }
+  filamentCurrency.value = currency;
+}
+
 function resetFilamentForm() {
   filamentForm?.reset();
   if (filamentId) filamentId.value = '';
-  if (filamentCurrency) filamentCurrency.value = 'GBP';
+  setFilamentCurrency('GBP');
   if (filamentFormTitle) filamentFormTitle.textContent = 'Add filament cost';
   if (filamentSubmitBtn) filamentSubmitBtn.textContent = 'Add filament';
   filamentCancelEdit?.classList.add('hidden');
@@ -305,13 +323,15 @@ filamentForm?.addEventListener('submit', async (event) => {
   if (filamentSubmitBtn) filamentSubmitBtn.disabled = true;
   if (filamentError) { filamentError.textContent = ''; filamentError.classList.add('hidden'); }
   try {
+    const currency = String(filamentCurrency?.value || 'GBP').trim().toUpperCase();
+    if (!FILAMENT_CURRENCIES.has(currency)) throw new Error('Currency must be GBP or USD');
     const payload = {
       material:filamentMaterial?.value || '',
       brand:filamentBrand?.value || '',
       product:filamentProduct?.value || '',
       colour:filamentColour?.value || '',
       costPerKg:Number(filamentCost?.value),
-      currency:filamentCurrency?.value || 'GBP'
+      currency
     };
     await requestJson(id ? `/api/filaments/${encodeURIComponent(id)}` : '/api/filaments', {
       method:id ? 'PATCH' : 'POST',
@@ -340,7 +360,7 @@ filamentList?.addEventListener('click', async (event) => {
     if (filamentProduct) filamentProduct.value = item.product || '';
     if (filamentColour) filamentColour.value = item.colour || '';
     if (filamentCost) filamentCost.value = String(item.costPerKg ?? '');
-    if (filamentCurrency) filamentCurrency.value = item.currency || 'GBP';
+    setFilamentCurrency(item.currency || 'GBP');
     if (filamentFormTitle) filamentFormTitle.textContent = 'Edit filament cost';
     if (filamentSubmitBtn) filamentSubmitBtn.textContent = 'Save filament';
     filamentCancelEdit?.classList.remove('hidden');
