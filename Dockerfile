@@ -14,8 +14,10 @@ COPY emulator ./emulator
 ARG PFC_BUNDLE_BUILD_NONCE=local
 RUN --mount=type=secret,id=pfc_google_client_id,required=false \
     --mount=type=secret,id=pfc_google_client_secret,required=false \
+    --mount=type=secret,id=pfc_microsoft_client_id,required=false \
     PFC_GOOGLE_CLIENT_ID="$(if [ -f /run/secrets/pfc_google_client_id ]; then cat /run/secrets/pfc_google_client_id; fi)" \
     PFC_GOOGLE_CLIENT_SECRET="$(if [ -f /run/secrets/pfc_google_client_secret ]; then cat /run/secrets/pfc_google_client_secret; fi)" \
+    PFC_MICROSOFT_CLIENT_ID="$(if [ -f /run/secrets/pfc_microsoft_client_id ]; then cat /run/secrets/pfc_microsoft_client_id; fi)" \
     PFC_BUNDLE_BUILD_NONCE="$PFC_BUNDLE_BUILD_NONCE" \
     npm run build:bundle
 
