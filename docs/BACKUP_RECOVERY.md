@@ -264,7 +264,9 @@ Drive retention follows the same safety model as local scheduled retention:
 
 Disconnecting attempts to revoke the Google refresh token, clears account authorization and memory-only access-token state, preserves the saved OAuth client configuration for later reconnection, and leaves existing Drive backup files untouched.
 
-## Microsoft OneDrive destination
+## Microsoft OneDrive destination (Experimental)
+
+The OneDrive provider is currently experimental. Its automated regression, packaging and combined-provider validation are complete, but live Microsoft account/Graph validation is still pending. The provider is therefore shipped for testing and evaluation rather than treated as a fully validated cloud destination.
 
 OneDrive uses the same canonical verified `.pfcbackup` artifact and the existing backup/restore engine.
 
