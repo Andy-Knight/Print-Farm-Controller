@@ -29,6 +29,7 @@ import { FileDistributionService } from './file-distribution.js';
 import { stageUploadRequest } from './upload-staging.js';
 import { addLibraryFile, getLibraryPreview, listLibraryFiles, removeLibraryFile, updateLibraryFileMetadata } from './print-library.js';
 import { createFilament, listFilaments, removeFilament, updateFilament } from './filament-catalogue.js';
+import { ReportingService } from './reporting-service.js';
 import { PrintQueueService } from './print-queue.js';
 import { assessMaterialCompatibility } from './file-material-metadata.js';
 import { getPrinterFileMaterialMetadata, removePrinterFileMaterialMetadata } from './file-material-store.js';
@@ -314,12 +315,14 @@ const fileDistribution = new FileDistributionService({
   operationCoordinator:printerOperations
 });
 const printerGroups = new PrinterGroupService({ dataDir:runtimePaths.dataDir });
+const reportingService = new ReportingService({ filePath:path.join(runtimePaths.dataDir, 'reporting-history.json') });
 const printQueue = new PrintQueueService({
   fleetState,
   chamberPreheat,
   getPrinterGroupFn:(groupId) => printerGroups.get(groupId),
   printerAllowedFn: printerLicensedForNewWork,
   operationCoordinator:printerOperations,
+  recordTerminalJobsFn:(jobs) => reportingService.recordTerminalJobs(jobs),
   onChange: () => fleetState.schedulePublish(),
   diagnosticFn:(level, message, meta) => diagnosticLogger[level]?.('queue', message, meta)
 });
@@ -1299,6 +1302,28 @@ async function apiRoute(req, res, url) {
   if (req.method === 'GET' && url.pathname === '/api/maintenance') {
     const printers = (await listPrinters()).map(publicPrinter);
     return json(res, 200, { maintenance:await maintenanceService.getSnapshot(printers) });
+  }
+
+  if (req.method === 'GET' && url.pathname === '/api/reports') {
+    const from = url.searchParams.get('from') || null;
+    const to = url.searchParams.get('to') || null;
+    const printerId = String(url.searchParams.get('printerId') || '').trim();
+    const groupId = String(url.searchParams.get('groupId') || '').trim();
+    let printerIds = null;
+
+    if (groupId) {
+      const group = printerGroups.get(groupId);
+      if (!group) return json(res, 404, { error:'Printer group not found' });
+      printerIds = Array.isArray(group.printerIds) ? [...group.printerIds] : [];
+    }
+    if (printerId) {
+      printerIds = printerIds == null
+        ? [printerId]
+        : printerIds.filter((id) => String(id) === printerId);
+    }
+
+    const report = await reportingService.getReport({ from, to, printerIds });
+    return json(res, 200, { report });
   }
 
   if (req.method === 'GET' && url.pathname === '/api/filaments') {
@@ -2282,6 +2307,7 @@ async function startController() {
     await printerGroups.init();
     await fleetState.start();
     await maintenanceService.start();
+    await reportingService.init();
     await printQueue.start();
     chamberPreheat.startService();
     await listenControllerServer();
