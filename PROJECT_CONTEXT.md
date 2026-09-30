@@ -117,23 +117,17 @@ Manufacturer-specific discovery, capabilities, limits, status normalization, fil
 
 ## Current task
 
-The current production baseline is **v0.37.0** on `main`. Active development is **v0.37.1** on `feature/filament-currency-dropdown-v0371`, changing filament cost currency entry to a controlled selector covering 36 commonly used world currencies with matching server-side validation.
+The current production baseline is **v0.37.1** on `main`.
 
-PR #61 / `feature/reporting-analytics-v0370` has been merged.
-
-v0.37.0 adds:
-- persistent per-logical-tool sliced filament usage in grams for supported G-code and embedded 3MF plate G-code, with lazy upgrade of older Print Library metadata;
-- a controller-owned `filaments.json` catalogue with material, optional brand/product/colour, currency and cost per kg;
-- Orca/Bambu-style `filament_settings_id` and `filament_vendor` capture and unambiguous slicer-profile auto-matching before material-only fallback;
-- explicit Print Library per-tool filament assignment when automatic resolution remains ambiguous;
-- immutable per-run material usage/cost snapshots so later catalogue-price changes do not alter historical print costs;
-- independent persistent `reporting-history.json` analytics history;
-- **Reports & analytics** UI with date/printer/group filters, graphical trends, printer outcome/reliability metrics, popular files, filament usage and spend;
-- portable backup/restore coverage for the filament catalogue and reporting history, with backward-compatible defaults for older backups.
-
-The full PR workflow passed before merge. Remaining work is hands-on validation and optional follow-on reporting enhancements rather than unfinished v0.37.0 implementation.
+Active development is **v0.38.0** on `feature/stacked-layers-branding`, a UI branding prototype based on the supplied Stacked Layers graphic. The main controller header now uses a compact stacked-layer vector mark with **STACKED LAYERS** and **Print Farm Controller**, adapts automatically to Light/Dark mode and remains responsive on narrow screens. The existing embedded favicons are intentionally unchanged.
 
 ## Next steps
+
+1. Manually review the Stacked Layers header branding in Dark and Light modes on desktop and mobile-width layouts.
+2. Decide whether the compact header lockup should be retained as-is or adjusted in size/spacing before merge.
+3. If approved, merge v0.38.0 and keep the supplied favicon unchanged.
+4. Continue the existing reporting/analytics validation backlog from v0.37.x.
+
 
 1. Manually validate the v0.37.0 Reports dialog in Dark and Light modes, including 7/30/90/365-day filters, printer/group filters, empty-state behaviour and responsive layout.
 2. Validate the slicer-profile auto-match display in Print Library **Edit details** with real OrcaSlicer G-code and 3MF files.
