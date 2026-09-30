@@ -1,4 +1,4 @@
-# Backup and Recovery Design — v0.35.0
+# Backup and Recovery Design — v0.36.0
 
 ## Purpose
 
@@ -11,9 +11,9 @@ The backup format is intentionally logical and path-independent. A backup is not
 ### Included
 
 - Manual backup from the controller UI.
-- Scheduled backup to a local folder, an operating-system-mounted/network path such as a Windows UNC/NAS location, Google Drive, or generic S3-compatible storage.
-- Google Drive and S3-compatible manual/scheduled upload using the same verified `.pfcbackup` artifact.
-- Configurable scheduled-backup retention for local, Google Drive, and S3-compatible destinations.
+- Scheduled backup to a local folder, an operating-system-mounted/network path such as a Windows UNC/NAS location, Google Drive, Microsoft OneDrive, or generic S3-compatible storage.
+- Google Drive, Microsoft OneDrive and S3-compatible manual/scheduled upload using the same verified `.pfcbackup` artifact.
+- Configurable scheduled-backup retention for local, Google Drive, Microsoft OneDrive, and S3-compatible destinations.
 - Portable `.pfcbackup` package.
 - Manifest, format version, source controller version, counts and SHA-256 integrity checks.
 - Restore validation before any live data is changed.
@@ -264,6 +264,61 @@ Drive retention follows the same safety model as local scheduled retention:
 
 Disconnecting attempts to revoke the Google refresh token, clears account authorization and memory-only access-token state, preserves the saved OAuth client configuration for later reconnection, and leaves existing Drive backup files untouched.
 
+## Microsoft OneDrive destination
+
+OneDrive uses the same canonical verified `.pfcbackup` artifact and the existing backup/restore engine.
+
+### Microsoft OAuth model
+
+The controller uses Microsoft's OAuth 2.0 device-code flow with the delegated scopes:
+
+```text
+offline_access Files.ReadWrite.AppFolder
+```
+
+`Files.ReadWrite.AppFolder` limits the controller to its dedicated OneDrive application folder rather than granting general access to the user's OneDrive. `offline_access` provides the refresh token required for unattended scheduled backups.
+
+The integration is a public-client/device authorization flow, so no Microsoft client secret is required. Production builds can embed the shared Print Farm Controller Microsoft application client ID from build-time `PFC_MICROSOFT_CLIENT_ID`. GitHub Actions passes the repository `PFC_MICROSOFT_CLIENT_ID` secret into production container builds through a BuildKit secret mount. Source/development deployments may instead save a custom Microsoft application client ID in **Advanced OAuth configuration**, while `ONEDRIVE_CLIENT_ID` / `MICROSOFT_ONEDRIVE_CLIENT_ID` remain deployment-level overrides.
+
+Effective client-ID precedence is:
+
+1. UI-saved custom Microsoft application client ID;
+2. runtime environment override;
+3. built-in production client ID;
+4. unconfigured.
+
+Persistent OneDrive integration state is stored at:
+
+```text
+<DATA_DIR>/integrations/one-drive.json
+```
+
+The file stores the customer's refresh token, app-folder state, and a custom client ID only when one is deliberately configured. Built-in client IDs are not copied into persistent state and short-lived access tokens remain memory-only. Microsoft may rotate refresh tokens during renewal; the replacement token is persisted atomically before later use.
+
+### OneDrive app folder and upload
+
+The controller opens the Microsoft Graph `approot` special folder, which maps to Print Farm Controller's dedicated OneDrive application folder. Backup files are not placed elsewhere in the user's OneDrive.
+
+Backup uploads use Microsoft Graph upload sessions and stream the verified `.pfcbackup` from local staging in sequential chunks. PFC also writes a small companion `.pfcmeta.json` item beside each uploaded backup. The sidecar contains only controller backup ownership metadata such as backup ID, installation ID, manual/scheduled source, creation time, format version and controller version. It does not contain printer credentials, licence contents, OAuth tokens or Print Library contents.
+
+The sidecar is used because safe retention must distinguish scheduled backups created by this controller installation from manual backups and backups created by another installation. A OneDrive backup is offered for cloud restore only when the backup file is paired with valid PFC metadata.
+
+### Scheduled OneDrive retention
+
+OneDrive retention follows the same ownership rules as local and Google Drive retention:
+
+- only paired PFC `.pfcbackup` files are eligible;
+- only `backupSource=scheduled` items are eligible;
+- the installation ID must match the current controller;
+- manual OneDrive backups and backups from another installation are never pruned;
+- the backup and its metadata sidecar are removed together;
+- retention starts only after the newest upload succeeds;
+- retention failure does not invalidate a successfully uploaded backup.
+
+### Disconnect
+
+Disconnecting OneDrive clears the locally stored Microsoft account authorization and memory-only access token while preserving the selected application client configuration for later reconnection. Existing OneDrive backup files are not deleted.
+
 ## S3-compatible destination
 
 S3-compatible storage is a destination for the same canonical verified `.pfcbackup` artifact. The controller implements the common S3 REST operations directly with AWS Signature Version 4 and does not require an AWS SDK or another runtime npm dependency.
@@ -330,7 +385,7 @@ Cloud restore does not implement a second restore engine. Providers implement a 
 - list eligible controller backups;
 - download a selected backup to temporary local staging.
 
-The controller then passes that temporary `.pfcbackup` through the existing `inspectRestoreBackup()` and `stageRestoreBackup()` paths. Google Drive and S3-compatible storage are registered providers.
+The controller then passes that temporary `.pfcbackup` through the existing `inspectRestoreBackup()` and `stageRestoreBackup()` paths. Google Drive, Microsoft OneDrive and S3-compatible storage are registered providers.
 
 The restore UI discovers connected providers dynamically, so future providers can appear as restore sources without changing restore validation logic. A cloud backup must be explicitly selected and inspected before Restore is enabled. If the user changes the provider or selected backup after inspection, the inspection is invalidated.
 
@@ -361,6 +416,7 @@ v0.23.0 excludes:
 - in-memory printer state;
 - private licence signing keys or License Manager data.
 - Google OAuth client credentials, refresh/access tokens, and `data/integrations/google-drive.json`;
+- Microsoft OneDrive client configuration, refresh/access tokens, and `data/integrations/one-drive.json`;
 - S3 access credentials and `data/integrations/s3.json`.
 
 Diagnostic logs have their own sanitized diagnostic-bundle workflow and are deliberately separate from disaster-recovery backups.
@@ -381,7 +437,7 @@ Current JSON stores are already written using temp-file + rename semantics, so e
 
 The Print Library uses immutable file IDs/content. Queue/history references protect referenced library entries from deletion. Backup code should still tolerate a concurrent unreferenced library change by retrying or omitting an entry only when it was removed before the snapshot was finalized.
 
-Cloud integration state is intentionally outside the logical snapshot allowlist. Backup creation enumerates known logical stores rather than copying `DATA_DIR`, so neither `data/integrations/google-drive.json` nor `data/integrations/s3.json` can place cloud credentials into a portable backup.
+Cloud integration state is intentionally outside the logical snapshot allowlist. Backup creation enumerates known logical stores rather than copying `DATA_DIR`, so `data/integrations/google-drive.json`, `data/integrations/one-drive.json` and `data/integrations/s3.json` cannot place cloud credentials into a portable backup.
 
 A backup must not send printer commands or interrupt an active physical print.
 
