@@ -22,7 +22,7 @@ button:disabled { cursor: not-allowed; opacity: .5; }
 .stacked-layers-mark { width:64px; height:auto; flex:0 0 auto; fill:currentColor; }
 .brand-copy { display:flex; flex-direction:column; justify-content:center; min-width:0; line-height:1; }
 .brand-name { font-size:clamp(1.45rem,2.4vw,2rem); font-weight:950; letter-spacing:-.045em; white-space:nowrap; }
-.brand-product { margin-top:5px; color:#8ea1b3; font-size:.68rem; font-weight:850; letter-spacing:.17em; text-transform:uppercase; white-space:nowrap; }
+.brand-product { margin-top:5px; color:#8ea1b3; font-size:.9067rem; font-weight:850; letter-spacing:.17em; text-transform:uppercase; white-space:nowrap; }
 h1,h2,h3,p { margin-top: 0; }
 .live-indicator { display:inline-flex; gap:7px; align-items:center; border:1px solid #2d3943; border-radius:999px; padding:5px 9px; color:#94a5b3; font-size:.72rem; font-weight:800; text-transform:uppercase; letter-spacing:.05em; }
 .live-indicator i { width:7px; height:7px; border-radius:50%; background:#8493a1; }
@@ -487,7 +487,7 @@ input:focus,select:focus { border-color:#7a9fbe; }
   .brand-lockup { gap:10px; }
   .stacked-layers-mark { width:50px; }
   .brand-name { font-size:1.18rem; }
-  .brand-product { font-size:.58rem; letter-spacing:.12em; }
+  .brand-product { font-size:.7733rem; letter-spacing:.12em; }
   .live-indicator { flex:0 0 auto; }
 }
 @media (max-width:760px) {
