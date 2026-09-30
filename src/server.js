@@ -45,6 +45,7 @@ import { ManualBackupManager } from './backup-recovery/manual-backup-manager.js'
 import { BackupOperationLock } from './backup-recovery/backup-operation-lock.js';
 import { ScheduledBackupService } from './backup-recovery/scheduled-backup-service.js';
 import { GoogleDriveClient } from './backup-recovery/google-drive-client.js';
+import { OneDriveClient } from './backup-recovery/one-drive-client.js';
 import { S3BackupClient } from './backup-recovery/s3-backup-client.js';
 import { CloudBackupProviderRegistry } from './backup-recovery/cloud-backup-providers.js';
 import { inspectRestoreBackup } from './backup-recovery/restore-inspector.js';
@@ -65,6 +66,7 @@ const PACKAGE_PATH = runtimePaths.packageJsonPath;
 const bundledVersion = typeof __PFC_VERSION__ === 'string' ? __PFC_VERSION__ : null;
 const bundledGoogleClientId = typeof __PFC_GOOGLE_CLIENT_ID__ === 'string' ? __PFC_GOOGLE_CLIENT_ID__ : '';
 const bundledGoogleClientSecret = typeof __PFC_GOOGLE_CLIENT_SECRET__ === 'string' ? __PFC_GOOGLE_CLIENT_SECRET__ : '';
+const bundledMicrosoftClientId = typeof __PFC_MICROSOFT_CLIENT_ID__ === 'string' ? __PFC_MICROSOFT_CLIENT_ID__ : '';
 const packageInfo = PACKAGE_PATH ? JSON.parse(readFileSync(PACKAGE_PATH, 'utf8')) : {};
 const CONTROLLER_VERSION = String(bundledVersion || packageInfo.version || 'unknown');
 const PORT = Number(process.env.PORT || 4242);
@@ -80,6 +82,11 @@ const googleDriveClient = new GoogleDriveClient({
   builtInClientSecret:bundledGoogleClientSecret,
   diagnosticFn:(level, message, meta) => diagnosticLogger[level]?.('backup', message, meta)
 });
+const oneDriveClient = new OneDriveClient({
+  dataDir:runtimePaths.dataDir,
+  builtInClientId:bundledMicrosoftClientId,
+  diagnosticFn:(level, message, meta) => diagnosticLogger[level]?.('backup', message, meta)
+});
 const s3Client = new S3BackupClient({
   dataDir:runtimePaths.dataDir,
   diagnosticFn:(level, message, meta) => diagnosticLogger[level]?.('backup', message, meta)
@@ -91,6 +98,13 @@ const cloudBackupProviders = new CloudBackupProviderRegistry([
     status:() => googleDriveClient.status(),
     listBackups:() => googleDriveClient.listBackups(),
     downloadBackup:(fileId, options) => googleDriveClient.downloadBackup(fileId, options)
+  },
+  {
+    id:'one-drive',
+    label:'OneDrive',
+    status:() => oneDriveClient.status(),
+    listBackups:() => oneDriveClient.listBackups(),
+    downloadBackup:(fileId, options) => oneDriveClient.downloadBackup(fileId, options)
   },
   {
     id:'s3',
@@ -107,6 +121,7 @@ const manualBackupManager = new ManualBackupManager({
   controllerVersion:CONTROLLER_VERSION,
   operationLock:backupOperationLock,
   googleDriveClient,
+  oneDriveClient,
   s3Client
 });
 const scheduledBackupService = new ScheduledBackupService({
@@ -117,6 +132,7 @@ const scheduledBackupService = new ScheduledBackupService({
   operationLock:backupOperationLock,
   diagnosticFn:(level, message, meta) => diagnosticLogger[level]?.('backup', message, meta),
   googleDriveClient,
+  oneDriveClient,
   s3Client
 });
 const fleetState = new FleetStateService({
@@ -653,6 +669,46 @@ async function apiRoute(req, res, url) {
     return json(res, 200, { googleDrive });
   }
 
+  if (req.method === 'GET' && url.pathname === '/api/integrations/one-drive/status') {
+    return json(res, 200, { oneDrive:await oneDriveClient.status() });
+  }
+
+  if (req.method === 'PUT' && url.pathname === '/api/integrations/one-drive/config') {
+    const body = await readJson(req);
+    const oneDrive = await oneDriveClient.configure({ clientId:body.clientId });
+    return json(res, 200, { oneDrive });
+  }
+
+  if (req.method === 'DELETE' && url.pathname === '/api/integrations/one-drive/config') {
+    const oneDrive = await oneDriveClient.resetConfiguration();
+    return json(res, 200, { oneDrive });
+  }
+
+  if (req.method === 'POST' && url.pathname === '/api/integrations/one-drive/connect') {
+    const oneDrive = await oneDriveClient.startDeviceAuthorization();
+    return json(res, 200, { oneDrive });
+  }
+
+  if (req.method === 'POST' && url.pathname === '/api/integrations/one-drive/connect/poll') {
+    const oneDrive = await oneDriveClient.pollDeviceAuthorization();
+    return json(res, 200, { oneDrive });
+  }
+
+  if (req.method === 'POST' && url.pathname === '/api/integrations/one-drive/test') {
+    const connection = await oneDriveClient.testConnection();
+    return json(res, 200, { connection, oneDrive:await oneDriveClient.status() });
+  }
+
+  if (req.method === 'GET' && url.pathname === '/api/integrations/one-drive/backups') {
+    const backups = await oneDriveClient.listBackups();
+    return json(res, 200, { backups, oneDrive:await oneDriveClient.status() });
+  }
+
+  if (req.method === 'DELETE' && url.pathname === '/api/integrations/one-drive') {
+    const oneDrive = await oneDriveClient.disconnect();
+    return json(res, 200, { oneDrive });
+  }
+
   if (req.method === 'GET' && url.pathname === '/api/integrations/s3/status') {
     return json(res, 200, { s3:await s3Client.status() });
   }
@@ -724,6 +780,26 @@ async function apiRoute(req, res, url) {
       return json(res, 201, { backup });
     } catch (error) {
       await diagnosticLogger.warn('backup', 'Manual Google Drive backup failed', {
+        error:error?.message || String(error)
+      });
+      throw error;
+    }
+  }
+
+  if (req.method === 'POST' && url.pathname === '/api/backup/create/one-drive') {
+    await diagnosticLogger.info('backup', 'Manual OneDrive backup requested');
+    try {
+      const backup = await manualBackupManager.createOneDrive();
+      await diagnosticLogger.info('backup', 'Manual OneDrive backup created, verified and uploaded', {
+        fileName:backup.fileName,
+        size:backup.size,
+        createdAt:backup.manifest?.createdAt || null,
+        oneDriveFileId:backup.oneDriveFileId || null,
+        folderName:backup.folderName || null
+      });
+      return json(res, 201, { backup });
+    } catch (error) {
+      await diagnosticLogger.warn('backup', 'Manual OneDrive backup failed', {
         error:error?.message || String(error)
       });
       throw error;
