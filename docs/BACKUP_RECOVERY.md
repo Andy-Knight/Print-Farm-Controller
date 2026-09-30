@@ -175,7 +175,7 @@ Back up controller-owned `maintenance.json`, including individual-printer tasks,
 
 ### Printer groups
 
-Back up controller-owned `printer-groups.json`, including group names and printer membership. Each printer may appear in at most one group. Queue jobs and group-wide maintenance rules reference groups by stable group ID. Restore inspection validates group definitions, exclusive membership, and queue/maintenance references before staging. Older backups created before printer groups existed restore with an empty group store.
+Back up controller-owned `printer-groups.json`, including group names and printer membership. A printer may belong to multiple groups. Queue jobs and group-wide maintenance rules reference groups by stable group ID. Restore inspection validates group definitions, printer references, and queue/maintenance group references before staging. Older backups created before printer groups existed restore with an empty group store.
 
 ### Licence
 
