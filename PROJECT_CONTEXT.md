@@ -117,7 +117,7 @@ Manufacturer-specific discovery, capabilities, limits, status normalization, fil
 
 ## Current task
 
-The current production baseline is **v0.37.0** on `main`. Active development is **v0.37.1** on `feature/filament-currency-dropdown-v0371`, changing filament cost currency entry to a fixed GBP/USD selector with matching server-side validation.
+The current production baseline is **v0.37.0** on `main`. Active development is **v0.37.1** on `feature/filament-currency-dropdown-v0371`, changing filament cost currency entry to a controlled selector covering 36 commonly used world currencies with matching server-side validation.
 
 PR #61 / `feature/reporting-analytics-v0370` has been merged.
 
