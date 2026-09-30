@@ -117,11 +117,11 @@ Manufacturer-specific discovery, capabilities, limits, status normalization, fil
 
 The current production baseline is **v0.35.0** on `main`. Generic S3-compatible backup and restore are merged, with automated MinIO integration, container smoke and multi-architecture image validation passing. Google Drive remains production-validated from a deployed container.
 
-The active feature branch is **`feature/onedrive-backup-v0340` / draft PR #59**, now reconciled against v0.35.0 and advanced to **v0.36.0**. The reconciled branch preserves Google Drive and the complete S3 provider while adding Microsoft OneDrive as another cloud provider. Shared scheduler, restore-provider registry, UI, packaging and test coverage now support Google Drive, OneDrive and S3 together.
+The active feature branch is **`feature/onedrive-backup-v0340` / draft PR #59**, now reconciled against v0.35.0 and advanced to **v0.36.0**. OneDrive is explicitly marked **Experimental** until live Microsoft account/Graph validation is completed. The reconciled branch preserves Google Drive and the complete S3 provider while adding Microsoft OneDrive as another cloud provider. Shared scheduler, restore-provider registry, UI, packaging and test coverage now support Google Drive, OneDrive and S3 together.
 
 The original OneDrive branch was developed as v0.34.0 before S3 merged. After v0.35.0 became the production baseline, PR #59 was rebuilt from current `main` and the OneDrive changes were reapplied as v0.36.0 to avoid downgrading or overwriting S3 work.
 
-Real Microsoft account/Graph validation remains pending because Microsoft account creation for the test account is currently blocked. Automated OneDrive regression coverage and production packaging validation remain the release gate available without a live Microsoft account.
+Real Microsoft account/Graph validation remains pending because Microsoft account creation for the test account is currently blocked. This is why the merged v0.36.0 OneDrive capability must remain labelled Experimental. Automated OneDrive regression coverage and production packaging validation remain the release gate available without a live Microsoft account.
 
 ## Next steps
 
