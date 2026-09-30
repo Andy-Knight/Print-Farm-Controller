@@ -121,12 +121,12 @@ Active development is on **`feature/reporting-analytics-v0370`** / draft **PR #6
 
 The first reporting/analytics slice is implemented:
 - Print Library requirement parsing now retains per-logical-tool sliced filament usage in grams, including embedded 3MF plate G-code, and existing library metadata is upgraded lazily when files are read.
-- A persistent controller-owned `filaments.json` catalogue records material, optional brand/product/colour, currency and cost per kg. Print Library files can explicitly map each logical tool to a catalogue filament; a unique material match may be resolved automatically, while ambiguous same-material catalogue entries require an explicit choice.
+- A persistent controller-owned `filaments.json` catalogue records material, optional brand/product/colour, currency and cost per kg. Print Library files can explicitly map each logical tool to a catalogue filament. Orca/Bambu-style `filament_settings_id` and `filament_vendor` metadata are retained per logical tool and used to auto-match an unambiguous brand/product catalogue entry before falling back to a unique material-only match; ambiguous matches still require an explicit choice.
 - Each queue run snapshots the applicable material usage/cost immediately before print start. Historical snapshots remain unchanged when catalogue prices are later edited.
 - Long-term analytics use an independent persistent `reporting-history.json` store rather than the queue's bounded 250-record recent-history window. Existing terminal queue history seeds the reporting store on first startup, and new terminal jobs are deduplicated by job ID.
 - `GET /api/reports` provides date-range, printer and printer-group filtered aggregates for outcomes, run time, printer failure rates/trends, popular files, material usage and spend.
 - The **Reports & analytics** UI provides KPI cards, a daily outcomes SVG trend chart, transparent problem-printer indicators with recent-vs-earlier failure-rate trend, popular-file charts, material-usage/spend charts and filament catalogue management.
-- Print Library **Edit details** exposes per-tool filament-cost assignments and sliced gram usage.
+- Print Library **Edit details** exposes per-tool filament-cost assignments, sliced gram usage and detected slicer vendor/preset metadata, and shows when an unambiguous slicer-profile match will be costed automatically.
 - Filament catalogue and reporting history are included in portable backup/restore, with backward-compatible empty defaults for older backups.
 - Regression coverage exists for gram parsing, catalogue persistence, material cost snapshots, queue snapshots, durable reporting aggregation/retention, backup/restore and the reporting UI. CI passed through the Print Library costing UI; the latest reporting UI test correction is awaiting the current PR workflow result.
 
@@ -134,7 +134,7 @@ The first reporting/analytics slice is implemented:
 
 1. Confirm the latest PR #61 regression/container workflow is green after the reporting UI test correction.
 2. Manually validate the v0.37.0 Reports dialog in Dark and Light modes, including 7/30/90/365-day filters, printer/group filters, empty-state behaviour and responsive layout.
-3. Validate filament-cost workflow with real OrcaSlicer G-code/3MF: catalogue creation, automatic unique-material matching, explicit assignment where multiple same-material products exist, queue start snapshot and historical price stability after a catalogue price change.
+3. Validate filament-cost workflow with real OrcaSlicer G-code/3MF: catalogue creation, vendor/preset auto-matching across multiple same-material brands/products, explicit assignment for genuinely ambiguous presets, queue start snapshot and historical price stability after a catalogue price change.
 4. Decide whether failed/cancelled prints should gain a separate **estimated waste** metric. Current material spend intentionally counts completed prints only because sliced full-job grams would overstate material consumed by a job that failed part-way through.
 5. Add longer-term availability/downtime sampling if printer online/offline trend analysis is required; the current problem-printer indicators are based on retained print outcomes, run time and failure-rate trends.
 6. Consider custom date ranges/export after the first UI validation rather than expanding scope before the core reports are proven.
