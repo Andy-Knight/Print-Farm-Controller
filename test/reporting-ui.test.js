@@ -30,7 +30,6 @@ test('reporting UI is available from the overflow menu with graphical farm analy
   assert.match(styles, /\.reporting-line-chart/);
   assert.match(styles, /\.reporting-printer-row\.attention/);
   new vm.Script(reportingUi);
-  new vm.Script(app);
 });
 
 test('reporting backend retains history independently of recent queue history', () => {
