@@ -6,8 +6,8 @@ Historical entries describe the behaviour of the controller at the time of that 
 
 ## v0.37.1
 
-- Replaces the free-text filament catalogue currency field with a dropdown limited to **GBP (£)** and **USD ($)**.
-- New and changed filament catalogue entries are validated server-side to allow only GBP or USD, while existing stored legacy three-letter currencies remain readable for backward compatibility and must be changed to GBP or USD before saving through the UI.
+- Replaces the free-text filament catalogue currency field with a controlled dropdown covering **36 commonly used world currencies**, including GBP, USD, EUR, JPY, CNY, CAD, AUD, CHF, INR, BRL and other major regional currencies.
+- New and changed filament catalogue entries are validated server-side against the supported currency list, while existing stored legacy three-letter currencies remain readable for backward compatibility and must be changed to a supported currency before saving through the UI.
 - Adds UI and catalogue regression coverage for the supported currency choices.
 
 ## v0.37.0
