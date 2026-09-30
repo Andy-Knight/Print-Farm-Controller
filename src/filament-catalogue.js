@@ -7,6 +7,7 @@ import { KeyedSerialExecutor } from './concurrency.js';
 
 const CATALOGUE_PATH = path.join(path.dirname(printerStorePath), 'filaments.json');
 const EMPTY_STORE = Object.freeze({ version:1, filaments:[] });
+const SUPPORTED_CURRENCIES = new Set(['GBP', 'USD', 'EUR', 'JPY', 'CNY', 'CAD', 'AUD', 'NZD', 'CHF', 'HKD', 'SGD', 'INR', 'KRW', 'TWD', 'THB', 'MYR', 'IDR', 'PHP', 'VND', 'AED', 'SAR', 'ILS', 'ZAR', 'BRL', 'MXN', 'SEK', 'NOK', 'DKK', 'PLN', 'CZK', 'HUF', 'RON', 'TRY', 'RUB', 'CLP', 'COP']);
 const mutations = new KeyedSerialExecutor();
 let initialization = null;
 
@@ -25,7 +26,7 @@ function cleanCurrency(value) {
 
 function cleanSupportedCurrency(value) {
   const currency = cleanCurrency(value);
-  if (!['GBP', 'USD'].includes(currency)) throw new Error('Currency must be GBP or USD');
+  if (!SUPPORTED_CURRENCIES.has(currency)) throw new Error('Currency is not in the supported filament currency list');
   return currency;
 }
 
