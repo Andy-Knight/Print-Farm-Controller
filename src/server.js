@@ -101,7 +101,7 @@ const cloudBackupProviders = new CloudBackupProviderRegistry([
   },
   {
     id:'one-drive',
-    label:'OneDrive',
+    label:'OneDrive (Experimental)',
     status:() => oneDriveClient.status(),
     listBackups:() => oneDriveClient.listBackups(),
     downloadBackup:(fileId, options) => oneDriveClient.downloadBackup(fileId, options)
