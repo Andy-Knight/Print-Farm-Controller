@@ -6,10 +6,10 @@ Historical entries describe the behaviour of the controller at the time of that 
 
 ## v0.36.0
 
-- Microsoft OneDrive backup and restore is added on top of the v0.35.0 S3-compatible baseline. Backup & recovery now supports OneDrive for manual backups, daily/weekly scheduled backups with controller-scoped retention, and direct cloud restore through the same provider registry and unchanged inspection/staging/restart/rollback engine used by Google Drive and S3.
+- Experimental Microsoft OneDrive backup and restore is added on top of the v0.35.0 S3-compatible baseline. Backup & recovery now supports OneDrive for manual backups, daily/weekly scheduled backups with controller-scoped retention, and direct cloud restore through the same provider registry and unchanged inspection/staging/restart/rollback engine used by Google Drive and S3.
 - Authentication uses Microsoft's device-code OAuth flow with delegated `offline_access Files.ReadWrite.AppFolder`. No Microsoft client secret is required, and PFC is limited to its dedicated OneDrive application folder. Production bundles can embed `PFC_MICROSOFT_CLIENT_ID`; source/development deployments can use a custom UI or environment client ID.
 - OneDrive uploads use Microsoft Graph upload sessions and pair the verified `.pfcbackup` with a small PFC metadata sidecar used for safe installation-scoped retention. Microsoft refresh-token rotation is persisted safely, `<DATA_DIR>/integrations/one-drive.json` is excluded from backups/diagnostics, and short-lived access tokens remain memory-only.
-- The reconciliation preserves the full v0.35.0 S3 implementation and MinIO CI integration. Automated coverage now validates Google Drive, OneDrive and S3 together in one controller baseline.
+- OneDrive is intentionally marked **Experimental** until live Microsoft account/Graph validation is completed. The reconciliation preserves the full v0.35.0 S3 implementation and MinIO CI integration. Automated coverage now validates Google Drive, OneDrive and S3 together in one controller baseline.
 
 ## v0.35.0
 
