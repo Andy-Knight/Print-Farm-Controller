@@ -76,7 +76,8 @@ export function parseGcodePrintRequirements(text = '', { fileName = null } = {})
 
   const requiredTools = [...referenced].filter((index) => Number.isInteger(index) && index >= 0).sort((a, b) => a - b);
   const logicalTools = requiredTools.map((index) => {
-    const filamentGrams = Number(weights[index]);
+    const rawFilamentGrams = weights[index];
+    const filamentGrams = rawFilamentGrams == null ? null : Number(rawFilamentGrams);
     return {
       index,
       material: clean(types[index] ?? (types.length === 1 ? types[0] : null) ?? (materialMetadata.materials?.length === 1 ? materialMetadata.materials[0] : null)),
@@ -84,11 +85,11 @@ export function parseGcodePrintRequirements(text = '', { fileName = null } = {})
       nozzleDiameter: Number.isFinite(Number(nozzleDiameters[index]))
         ? Number(nozzleDiameters[index])
         : (nozzleDiameters.length === 1 && Number.isFinite(Number(nozzleDiameters[0])) ? Number(nozzleDiameters[0]) : null),
-      filamentGrams:Number.isFinite(filamentGrams) && filamentGrams >= 0 ? filamentGrams : null
+      filamentGrams:filamentGrams != null && Number.isFinite(filamentGrams) && filamentGrams >= 0 ? filamentGrams : null
     };
   });
   const totalFilamentGrams = logicalTools.reduce((sum, tool) =>
-    sum + (Number.isFinite(Number(tool.filamentGrams)) ? Number(tool.filamentGrams) : 0), 0);
+    sum + (tool.filamentGrams != null && Number.isFinite(Number(tool.filamentGrams)) ? Number(tool.filamentGrams) : 0), 0);
 
   return {
     fileName: fileName ? String(fileName) : null,
