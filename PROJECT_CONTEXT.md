@@ -106,7 +106,7 @@ Manufacturer-specific discovery, capabilities, limits, status normalization, fil
 - Persistent Print Library with descriptions, previews, target-printer metadata, material/colour/nozzle requirements, verified file distribution and queue integration.
 - Persistent print queue/history with fixed-printer or next-compatible-printer assignment, priorities, production batches, reprint, compatibility/preflight checks, material/tool mapping and bed-clearance interlocks.
 - Maintenance tracking supports printer-, group- and model-scoped recurring tasks, due-soon/due status, per-printer history and controller-observed print usage.
-- Backup & recovery on the production baseline uses portable verified/compressed `.pfcbackup` archives with local/NAS and Google Drive destinations, scheduled backups, explicit inspection, staged restart restore, rollback and recovery holds for unfinished queue work. Generic S3-compatible storage is under active v0.35.0 development on PR #60.
+- Backup & recovery on the production baseline uses portable verified/compressed `.pfcbackup` archives with local/NAS, Google Drive and generic S3-compatible destinations, scheduled backups, explicit inspection, staged restart restore, rollback and recovery holds for unfinished queue work. Microsoft OneDrive is being reconciled on top of that baseline for v0.36.0.
 - Google Drive production deployments use the shared built-in OAuth configuration injected at build time; customers authorize their own Google account without supplying an OAuth client. Advanced custom OAuth remains available for source/development or bespoke deployments.
 - Offline Ed25519-signed licensing enforces physical-printer allowances: Community 3, Pro 10 and Farm 25; simulator printers do not consume licence slots.
 - Integrated printer simulator covers FlashForge, Snapmaker and experimental Bambu protocol paths for repeatable development and automated validation.
@@ -115,23 +115,21 @@ Manufacturer-specific discovery, capabilities, limits, status normalization, fil
 
 ## Current task
 
-The current production baseline remains **v0.33.0** on `main`. Google Drive backup and restore are merged and production-validated from a deployed container.
+The current production baseline is **v0.35.0** on `main`. Generic S3-compatible backup and restore are merged, with automated MinIO integration, container smoke and multi-architecture image validation passing. Google Drive remains production-validated from a deployed container.
 
-Two cloud-storage feature branches are intentionally being developed independently from the v0.33.0 baseline:
+The active feature branch is **`feature/onedrive-backup-v0340` / draft PR #59**, now reconciled against v0.35.0 and advanced to **v0.36.0**. The reconciled branch preserves Google Drive and the complete S3 provider while adding Microsoft OneDrive as another cloud provider. Shared scheduler, restore-provider registry, UI, packaging and test coverage now support Google Drive, OneDrive and S3 together.
 
-- **`feature/onedrive-backup-v0340` / draft PR #59** adds Microsoft OneDrive as v0.34.0. Automated regression/container validation is green, but real Microsoft account/Graph validation is pending because Microsoft account creation is currently blocked for the test account.
-- **`feature/s3-backup-v0350` / draft PR #60** adds generic S3-compatible backup and restore as v0.35.0. It implements AWS Signature Version 4 directly with Node built-ins, manual/scheduled backup, controller-scoped retention metadata, cloud restore, configuration UI, and MinIO integration testing.
+The original OneDrive branch was developed as v0.34.0 before S3 merged. After v0.35.0 became the production baseline, PR #59 was rebuilt from current `main` and the OneDrive changes were reapplied as v0.36.0 to avoid downgrading or overwriting S3 work.
 
-Because both feature branches started independently from v0.33.0 and touch shared cloud-backup wiring, their eventual merge order must be reconciled deliberately. If OneDrive v0.34.0 merges first, the S3 branch should be rebased/merged against that new baseline before v0.35.0 is released. If S3 is released first instead, the OneDrive version/branch must be reconciled so a later merge cannot downgrade or overwrite shared provider changes.
+Real Microsoft account/Graph validation remains pending because Microsoft account creation for the test account is currently blocked. Automated OneDrive regression coverage and production packaging validation remain the release gate available without a live Microsoft account.
 
 ## Next steps
 
-1. Complete PR #60 S3-compatible automated validation, including the pinned MinIO real-server integration test and multi-architecture container build.
-2. Validate S3 manually against a local MinIO instance or K3s MinIO service, then against at least one external S3-compatible provider before release.
-3. Keep OneDrive PR #59 draft until a real Microsoft account/Entra application can validate connect, manual/scheduled backup, retention, listing/inspection and restore.
-4. Reconcile the OneDrive/S3 feature branches against whichever cloud feature is merged first before releasing the second one.
-5. Validate the built-in Google OAuth flow in the packaged Windows SEA/installer build.
-6. Physically validate FlashForge Creator 5 / Creator 5 Pro support and continue experimental Bambu validation.
+1. Complete final v0.36.0 CI after the OneDrive/S3 reconciliation and documentation update.
+2. When Microsoft account creation becomes available, create/configure the Entra public-client application and validate OneDrive connect, manual backup, scheduled backup/retention, listing/inspection and staged restore against a real account.
+3. Validate S3 manually against a deployed/local MinIO or external S3-compatible service in addition to the automated MinIO CI coverage already passing.
+4. Validate the built-in Google OAuth flow in the packaged Windows SEA/installer build.
+5. Physically validate FlashForge Creator 5 / Creator 5 Pro support and continue experimental Bambu validation.
 
 ## Licensing baseline
 
@@ -528,6 +526,11 @@ Do not reintroduce a runtime environment flag that lets a distributed controller
 
 - **Google Drive backups:** Backup & recovery supports Google Drive for manual/scheduled backups and direct cloud restore while keeping the canonical compressed/verified `.pfcbackup` and existing restore engine authoritative. Authentication uses Google's limited-input/device OAuth flow with `drive.file`. Production bundles can embed one shared Print Farm Controller OAuth client from build-time `PFC_GOOGLE_CLIENT_ID` / `PFC_GOOGLE_CLIENT_SECRET`; GitHub Actions injects repository secrets into non-PR production container builds via BuildKit secret mounts, while Windows SEA builds consume the same environment variables. Normal customers therefore only select **Connect** and authorize their own Google account. UI-saved custom OAuth configuration and runtime `GOOGLE_DRIVE_CLIENT_ID` / `GOOGLE_DRIVE_CLIENT_SECRET` overrides remain available, with precedence custom → environment → built-in. Built-in credentials are not copied into `<DATA_DIR>/integrations/google-drive.json`; that file stores the customer refresh token/folder state plus custom overrides only, and remains excluded from backups/diagnostics. The cloud restore provider registry lists/downloads Google backups into temporary staging, then reuses the existing inspection/staging/restart/rollback path and re-downloads/revalidates at actual staging. The self-contained Google Drive flow has also been validated from a deployed production container using the built-in OAuth configuration injected by GitHub Actions.
 
-### v0.35.0 (feature branch)
+### v0.35.0
 
-- **Generic S3-compatible backup and restore:** draft PR #60 adds an S3 provider for manual/scheduled backup and direct cloud restore while retaining the canonical `.pfcbackup` and existing restore engine. The client implements AWS Signature Version 4 with Node built-ins and no runtime AWS SDK dependency. Configuration supports endpoint, bucket, region, prefix, access-key credentials, path-style/virtual-hosted addressing, and an explicit insecure-HTTP opt-in for trusted local development. Each backup is paired with a small PFC metadata sidecar so scheduled retention can identify only scheduled backups owned by the same installation. `<DATA_DIR>/integrations/s3.json` is excluded from backups/diagnostics and the secret key is never exposed through status APIs. Automated coverage includes signing/configuration tests, manager/scheduler/UI coverage and a pinned MinIO integration test for real S3 bucket creation, upload, listing, download and retention. This branch is not yet merged and must be reconciled with the parallel OneDrive v0.34.0 branch before both can be released in sequence.
+- **Generic S3-compatible backup and restore:** PR #60 is merged to `main`, adding an S3 provider for manual/scheduled backup and direct cloud restore while retaining the canonical `.pfcbackup` and existing restore engine. The client implements AWS Signature Version 4 with Node built-ins and no runtime AWS SDK dependency. Configuration supports endpoint, bucket, region, prefix, access-key credentials, path-style/virtual-hosted addressing, and an explicit insecure-HTTP opt-in for trusted local development. Each backup is paired with a small PFC metadata sidecar so scheduled retention can identify only scheduled backups owned by the same installation. `<DATA_DIR>/integrations/s3.json` is excluded from backups/diagnostics and the secret key is never exposed through status APIs. Automated coverage includes signing/configuration tests, manager/scheduler/UI coverage and a pinned MinIO integration test for real S3 bucket creation, upload, listing, download and retention.
+
+
+### v0.36.0
+
+- **Microsoft OneDrive reconciliation:** draft PR #59 is rebuilt on the merged v0.35.0 S3 baseline and advances the OneDrive feature from its original v0.34.0 development version to v0.36.0. OneDrive uses Microsoft device-code OAuth with `offline_access Files.ReadWrite.AppFolder`, Graph `approot`, large-file upload sessions, safe PFC metadata sidecars, manual/scheduled backup, controller-scoped retention and cloud restore through the existing provider registry. The reconciliation preserves Google Drive and S3 in the same scheduler/UI/server baseline, adds production bundle/container support for `PFC_MICROSOFT_CLIENT_ID`, and keeps OneDrive authorization state excluded from backups and diagnostics. Real Microsoft account validation remains pending; automated regression and packaging validation cover the implementation until live credentials are available.
