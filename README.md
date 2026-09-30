@@ -1,12 +1,14 @@
-# Print Farm Controller v0.36.0
+# Print Farm Controller v0.37.0
 
-**Current release: v0.36.0**
+**Current release: v0.37.0**
 
 Current highlights:
 
 - Container images for Linux AMD64 and ARM64, with Docker and K3s/Kubernetes deployment guidance.
 - Persistent Print Library, smart queueing, printer groups and maintenance tracking.
-- Compressed portable backup and restore, including local/NAS, Google Drive, Microsoft OneDrive and generic S3-compatible destinations, multi-group printer membership, and backwards-compatible restore of older backups.
+- Reports & analytics with graphical trends, printer reliability indicators, popular-file reporting, filament usage and material-cost tracking.
+- Filament catalogue costing with Orca/Bambu slicer vendor/preset auto-matching, explicit per-tool overrides, and immutable historical cost snapshots.
+- Compressed portable backup and restore, including local/NAS, Google Drive, Microsoft OneDrive and generic S3-compatible destinations, multi-group printer membership, reporting history/filament catalogue data, and backwards-compatible restore of older backups.
 - Snapmaker U1 and FlashForge support, with experimental Bambu Lab support.
 - Offline signed licensing with Community, Pro and Farm editions.
 
@@ -95,6 +97,31 @@ To run from the source files launch with the following commands from the command
 ```bash
 npm start
 ```
+
+## Reports and material costs
+
+Print Farm Controller v0.37.0 adds a persistent **Reports & analytics** view for operational and material-cost reporting. The reporting history is stored independently of the bounded recent queue history so long-term trends are retained.
+
+Reports can be filtered by date range, printer and printer group and include:
+
+- completed, failed and cancelled print counts and rates;
+- printer run hours and transparent printer failure-rate trends;
+- most frequently printed files;
+- filament usage by material/catalogue entry;
+- estimated material spend by currency.
+
+Material costing uses sliced filament usage in grams from supported G-code and embedded 3MF plate G-code. The controller-owned filament catalogue stores material, optional brand/product/colour, currency and cost per kg.
+
+For each logical slicer tool, cost resolution uses the following precedence:
+
+1. an explicit Print Library filament assignment;
+2. an unambiguous Orca/Bambu slicer vendor/preset match using metadata such as `filament_vendor` and `filament_settings_id`;
+3. a unique material-only catalogue match;
+4. explicit user selection when more than one plausible catalogue filament remains.
+
+The controller does not guess between ambiguous same-material/same-brand entries. When a print starts, the applicable grams, catalogue identity, price/kg and estimated cost are snapshotted into the print record. Later catalogue price changes therefore do not rewrite historical print costs.
+
+The filament catalogue, reporting history, Print Library metadata (including filament assignments and detected slicer profile metadata), Print Library files and print-job history are included in portable `.pfcbackup` archives. Older backups that predate these stores restore with compatible empty defaults, and older Print Library entries can be lazily reparsed from their restored source files where supported.
 
 ## Google Drive backups
 
