@@ -1,8 +1,10 @@
-# Print Farm Controller v0.37.1
+# Print Farm Controller v0.38.0
 
-**Current release: v0.37.1**
+**Current release: v0.38.0**
 
 Current highlights:
+
+- Stacked Layers header branding prototype with responsive Light/Dark treatment; the existing embedded favicon is unchanged.
 
 - Container images for Linux AMD64 and ARM64, with Docker and K3s/Kubernetes deployment guidance.
 - Persistent Print Library, smart queueing, printer groups and maintenance tracking.
