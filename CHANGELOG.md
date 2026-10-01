@@ -8,6 +8,7 @@ Historical entries describe the behaviour of the controller at the time of that 
 
 - Fixes Print Library **Edit details** filament-cost assignments not being persisted. The form was collecting per-tool filament selections correctly but the browser metadata update helper omitted `filamentAssignments` from the PATCH request.
 - Print Library cost-filament dropdown labels now always include the material type (for example PLA/PETG/ASA) alongside brand, product, colour and cost.
+- The Stacked Layers header mark now links to `https://www.stackedlayers.co.uk` in a new tab.
 - Adds regression coverage proving the UI sends filament assignments, stored assignments survive subsequent Print Library reads/listing, and material type remains visible in filament option labels.
 
 ## v0.38.0
