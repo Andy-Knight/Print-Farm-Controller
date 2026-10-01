@@ -13,7 +13,7 @@ test('Stacked Layers branding is applied to the controller header', () => {
   assert.match(index, /class="brand-name brand-name-link" href="https:\/\/www\.stackedlayers\.co\.uk"/);
   assert.match(index, /target="_blank"/);
   assert.match(index, /rel="noopener noreferrer"/);
-  assert.match(index, />STACKED LAYERS<\/div>/);
+  assert.match(index, />STACKED LAYERS<\/a>/);
   assert.match(index, />Print Farm Controller<\/div>/);
   assert.match(styles, /\.brand-lockup/);
   assert.match(styles, /\.stacked-layers-mark/);
