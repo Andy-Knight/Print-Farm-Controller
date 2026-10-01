@@ -1,6 +1,6 @@
-# Print Farm Controller v0.38.0
+# Print Farm Controller v0.38.1
 
-**Current release: v0.38.0**
+**Current release: v0.38.1**
 
 Current highlights:
 

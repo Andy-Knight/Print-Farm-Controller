@@ -96,6 +96,17 @@ test('Print Library migrates staged queue files, deduplicates uploads and persis
   assert.deepEqual(retargeted.printerTarget, { adapterType:'snapmaker-u1', model:'U1' });
   const unrestricted = await library.updateLibraryFileMetadata(second.id, { printerTarget:null });
   assert.equal(unrestricted.printerTarget, null);
+
+  const filamentId = '11111111-1111-4111-8111-111111111111';
+  const withFilament = await library.updateLibraryFileMetadata(second.id, {
+    filamentAssignments:{ '0':filamentId }
+  });
+  assert.deepEqual(withFilament.filamentAssignments, { '0':filamentId });
+  assert.deepEqual((await library.getLibraryFile(second.id)).filamentAssignments, { '0':filamentId });
+  assert.deepEqual(
+    (await library.listLibraryFiles()).find((item) => item.id === second.id)?.filamentAssignments,
+    { '0':filamentId }
+  );
   await assert.rejects(() => library.updateLibraryFileMetadata(second.id, { description:'x'.repeat(4001) }), /4000 characters/);
   await assert.rejects(
     () => library.updateLibraryFileMetadata(second.id, { printerTarget:{ adapterType:'snapmaker-u1', model:'' } }),

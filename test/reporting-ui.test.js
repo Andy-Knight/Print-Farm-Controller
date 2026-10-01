@@ -61,8 +61,14 @@ test('filament cost catalogue and Print Library mappings are exposed in the UI',
   assert.match(reportingUi, /Historical print costs already captured will not change/);
   assert.match(app, /loadLibraryFilamentCatalogue/);
   assert.match(app, /renderLibraryFilamentAssignments/);
+  assert.match(app, /function libraryFilamentLabel/);
+  assert.match(app, /item\.material \|\| 'Filament'/);
+  assert.match(app, /item\.brand \|\| null/);
+  assert.match(app, /item\.product \|\| null/);
   assert.match(app, /collectLibraryFilamentAssignments/);
   assert.match(app, /filamentAssignments:collectLibraryFilamentAssignments\(\)/);
+  assert.match(app, /async function updateLibraryMetadata\(fileId, \{ description = '', printerTarget = null, filamentAssignments = undefined \}/);
+  assert.match(app, /\.\.\.\(filamentAssignments !== undefined \? \{ filamentAssignments \} : \{\}\)/);
   assert.match(styles, /\.library-filament-assignment/);
 });
 
