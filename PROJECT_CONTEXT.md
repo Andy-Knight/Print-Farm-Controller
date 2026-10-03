@@ -51,6 +51,7 @@ Development Printer Emulator (`emulator/`, loopback only)
         +-- FlashForge Creator 5 / Creator 5 Pro HTTP-only/camera endpoints
         +-- Snapmaker U1 Moonraker endpoints
         +-- Bambu P1P/P1S/X1C/A1 Mini MQTT TLS, FTPS TLS and camera test endpoints
+        +-- Prusa CORE One+ PrusaLink HTTP/Digest-auth test endpoint
 ```
 
 Manufacturer-specific discovery, capabilities, limits, status normalization, files, print control, temperatures and camera selection belong behind the adapter boundary. Core fleet services should remain manufacturer-agnostic.
@@ -128,7 +129,8 @@ Active development is **v0.39.0** on `feature/prusa-core-one-plus-support-v0390`
 2. Validate against a physical Prusa CORE One+: add by IP, authenticate with Settings → Network → PrusaLink credentials, confirm idle/printing status, file list, upload/verify, print start, pause/resume/cancel and queue completion detection.
 3. Confirm the exact storage path and BGCODE behaviour on current CORE One+ firmware.
 4. After physical validation, investigate safe local support for chamber temperature/control, camera access and LAN discovery without relying on Prusa Connect cloud services.
-5. Add CORE One+ dashboard artwork and emulator coverage after the protocol baseline is proven.
+5. Validate the new virtual CORE One+ through the integrated simulator UI and controller Add flow; emulator coverage now exercises status, files, upload/verification, print start and pause/resume/cancel through the production Prusa adapter.
+6. Add CORE One+ dashboard artwork after the protocol baseline is proven on physical hardware.
 
 ## Licensing baseline
 
