@@ -99,9 +99,9 @@ function mapFixedLogicalTools(requirements = {}, status = {}) {
       reasons.push({ code:'material_mismatch', text:`Physical T${logicalIndex} material ${filament.material} does not match required ${logical.material}` });
     }
 
-    if (logical.nozzleDiameter != null && !Number.isFinite(Number(physical.nozzleDiameter))) {
+    if (logical.nozzleDiameter != null && (physical.nozzleDiameter == null || !Number.isFinite(Number(physical.nozzleDiameter)))) {
       review.push({ code:'nozzle_unknown', text:`Physical T${logicalIndex} nozzle size is not reported for file T${logicalIndex} (${Number(logical.nozzleDiameter).toFixed(1)} mm)` });
-    } else if (logical.nozzleDiameter != null && Number.isFinite(Number(physical.nozzleDiameter)) && !sameNozzle(logical.nozzleDiameter, physical.nozzleDiameter)) {
+    } else if (logical.nozzleDiameter != null && physical.nozzleDiameter != null && Number.isFinite(Number(physical.nozzleDiameter)) && !sameNozzle(logical.nozzleDiameter, physical.nozzleDiameter)) {
       reasons.push({ code:'nozzle_mismatch', text:`Physical T${logicalIndex} nozzle ${Number(physical.nozzleDiameter).toFixed(1)} mm does not match required ${Number(logical.nozzleDiameter).toFixed(1)} mm` });
     }
 
