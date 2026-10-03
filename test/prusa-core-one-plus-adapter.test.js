@@ -118,3 +118,66 @@ test('PrusaLink file tree flattens printable files without inventing non-print f
   });
   assert.deepEqual(files, ['cube.bgcode', 'jobs/bracket.gcode']);
 });
+
+
+test('Prusa CORE One+ status is normalized from PrusaLink v1 telemetry', async () => {
+  const originalFetch = global.fetch;
+  global.fetch = async (input) => {
+    const url = new URL(String(input));
+    const json = (body) => new Response(JSON.stringify(body), {
+      status:200,
+      headers:{ 'content-type':'application/json' }
+    });
+    if (url.pathname === '/api/v1/info') return json({
+      name:'Workshop CORE One+',
+      serial:'CZPXTEST123',
+      nozzle_diameter:0.4,
+      active_camera:false
+    });
+    if (url.pathname === '/api/version') return json({ firmware:'6.8.1', printer:'CORE One+' });
+    if (url.pathname === '/api/v1/status') return json({
+      printer:{
+        state:'PRINTING',
+        temp_nozzle:241.5,
+        target_nozzle:245,
+        temp_bed:89.5,
+        target_bed:90,
+        fan_print:55,
+        status_printer:{ ok:true, message:'OK' }
+      },
+      job:{ id:42, progress:35, time_remaining:1800, time_printing:900 }
+    });
+    if (url.pathname === '/api/v1/job') return json({
+      id:42,
+      state:'PRINTING',
+      progress:35,
+      time_remaining:1800,
+      time_printing:900,
+      file:{ name:'BRACKET.BGC', display_name:'bracket.bgcode', path:'/usb' }
+    });
+    throw new Error(`Unexpected request ${url.pathname}`);
+  };
+
+  try {
+    const adapter = getPrinterAdapter(preparePrinterConfig({
+      adapterType:PRUSA_CORE_ONE_PLUS_ADAPTER_TYPE,
+      name:'Prusa',
+      host:'192.168.1.70',
+      apiKey:'test-api-key'
+    }));
+    const status = await adapter.getStatus();
+    assert.equal(status.status, 'printing');
+    assert.equal(status.fileName, 'bracket.bgcode');
+    assert.equal(status.progress, 35);
+    assert.equal(status.remainingSeconds, 1800);
+    assert.equal(status.elapsedSeconds, 900);
+    assert.equal(status.nozzle.actual, 241.5);
+    assert.equal(status.nozzle.target, 245);
+    assert.equal(status.bed.actual, 89.5);
+    assert.equal(status.bed.target, 90);
+    assert.equal(status.tools[0].nozzleDiameter, 0.4);
+    assert.equal(status.firmwareVersion, '6.8.1');
+  } finally {
+    global.fetch = originalFetch;
+  }
+});
