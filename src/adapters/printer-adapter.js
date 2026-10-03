@@ -31,6 +31,7 @@ export const DEFAULT_CAPABILITIES = Object.freeze({
   filamentColorControl: false,
   nozzleDesignation: false,
   printToolMapping: false,
+  fixedToolMapping: false,
   materialSlotMapping: false,
   flowCalibrationBeforePrint: false,
   timeLapseBeforePrint: false,
