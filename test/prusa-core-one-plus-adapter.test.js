@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
 import {
   PRUSA_CORE_ONE_PLUS_ADAPTER_TYPE,
   getPrinterAdapter,
@@ -276,4 +277,21 @@ test('PrusaLink normalizes eight reported INDX tools without remapping tool indi
   } finally {
     global.fetch = originalFetch;
   }
+});
+
+
+test('CORE One+ UI exposes a persistent 1/4/8 upgrade selector', () => {
+  const app = fs.readFileSync(new URL('../public/app.js', import.meta.url), 'utf8');
+  const server = fs.readFileSync(new URL('../src/server.js', import.meta.url), 'utf8');
+  const store = fs.readFileSync(new URL('../src/store.js', import.meta.url), 'utf8');
+
+  assert.match(app, /data-prusa-tool-count-input/);
+  assert.match(app, /Standard · 1 tool/);
+  assert.match(app, /INDX · 4 tools/);
+  assert.match(app, /INDX · 8 tools/);
+  assert.match(app, /\/tool-configuration/);
+  assert.match(server, /action === 'tool-configuration'/);
+  assert.match(server, /setPrinterToolCount/);
+  assert.match(store, /export async function setPrinterToolCount/);
+  assert.match(store, /configuredToolCount/);
 });
