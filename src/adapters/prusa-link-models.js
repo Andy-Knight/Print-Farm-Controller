@@ -30,6 +30,7 @@ export const PRUSA_CORE_ONE_PLUS_PROFILE = Object.freeze({
   manufacturer:'Prusa',
   model:'CORE One+',
   label:'Prusa CORE One+',
+  experimental:true,
   defaultHttpPort:80,
   defaultUsername:'maker',
   uploadExtensions:Object.freeze(['.gcode', '.bgcode']),
