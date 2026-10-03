@@ -4728,24 +4728,22 @@ function flashForgeNozzleDesignationMarkup(printer, tool = {}) {
   </div>`;
 }
 
-function prusaToolConfigurationMarkup(printer, limits = {}) {
-  if (printer?.adapterType !== 'prusa-core-one-plus') return '';
-  const current = [1,4,8].includes(Number(printer.configuredToolCount))
+function toolConfigurationMarkup(printer, limits = {}) {
+  if (!printer?.capabilities?.toolConfiguration) return '';
+  const options = Array.isArray(limits.toolConfigurations) ? limits.toolConfigurations : [];
+  if (!options.length) return '';
+  const current = options.some((option) => Number(option.count) === Number(printer.configuredToolCount))
     ? Number(printer.configuredToolCount)
-    : ([1,4,8].includes(Number(limits.toolCount)) ? Number(limits.toolCount) : 1);
-  const options = [
-    { value:1, label:'Standard · 1 tool' },
-    { value:4, label:'INDX · 4 tools' },
-    { value:8, label:'INDX · 8 tools' }
-  ];
-  return `<div class="material-designation-control prusa-tool-configuration">
+    : Number(limits.toolCount || options[0].count);
+  const hasFixedMapping = options.some((option) => option.mappingMode === 'fixed-tool-index');
+  return `<div class="material-designation-control tool-configuration-control">
     <label>Installed tool system
-      <select data-prusa-tool-count-input>
-        ${options.map((option) => `<option value="${option.value}"${option.value === current ? ' selected' : ''}>${escapeHtml(option.label)}</option>`).join('')}
+      <select data-tool-configuration-input>
+        ${options.map((option) => `<option value="${Number(option.count)}"${Number(option.count) === current ? ' selected' : ''}>${escapeHtml(option.label || `${option.count} tools`)}</option>`).join('')}
       </select>
     </label>
-    <div class="mini-actions"><button type="button" class="secondary" data-prusa-tool-count-save>Save tool configuration</button></div>
-    <div class="field-help">Use this after installing or changing the CORE One+ INDX upgrade. It changes controller scheduling, tool-count and build-volume rules only; it does not modify the printer firmware. INDX tool indices remain fixed to the sliced file.</div>
+    <div class="mini-actions"><button type="button" class="secondary" data-tool-configuration-save>Save tool configuration</button></div>
+    <div class="field-help">Use this after changing the physical tool system on the printer. It changes controller scheduling, tool-count and model-limit rules only; it does not modify printer firmware.${hasFixedMapping ? ' Fixed-index tool configurations retain the tool numbers selected by the sliced file.' : ''}</div>
   </div>`;
 }
 
@@ -5663,8 +5661,8 @@ async function openPrinter(id) {
         ? 'Creator 5 material type, colour and filament-presence state come from the four material-station/toolhead slots reported by the local /detail API. The installed nozzle size is controller-designated and currently applies to all four toolheads.'
       : printer.adapterType === 'bambu-lab'
         ? 'Material and colour come from the active external-spool or AMS/AMS Lite tray metadata reported by the Bambu LAN interface. Bambu support is experimental until checked against physical P1P, P1S, X1C and A1 Mini hardware.'
-      : printer.adapterType === 'prusa-core-one-plus'
-        ? `CORE One+ is configured for ${Number(limits.toolCount || tools.length || 1)} tool${Number(limits.toolCount || tools.length || 1) === 1 ? '' : 's'}. INDX uses fixed sliced tool indices (T0→T0, T1→T1, etc.); the controller does not silently remap a file to different INDX tools. Per-tool material/nozzle data is used when PrusaLink reports it; unknown values require review before unattended multi-tool scheduling.`
+      : printer.manufacturer === 'Prusa'
+        ? `${printer.model || 'Prusa printer'} is configured for ${Number(limits.toolCount || tools.length || 1)} tool${Number(limits.toolCount || tools.length || 1) === 1 ? '' : 's'}. INDX uses fixed sliced tool indices (T0→T0, T1→T1, etc.); the controller does not silently remap a file to different INDX tools. Per-tool material/nozzle data is used when PrusaLink reports it; unknown values require review before unattended multi-tool scheduling.`
         : 'Filament presence comes from each U1 motion sensor. Third-party filament type and colour can be written to the idle printer and are verified by reading the effective per-tool configuration back. Official Snapmaker RFID filament remains locked. Nozzle size and XYZ offset come directly from each physical U1 extruder.';
     const bambuSources = printer.adapterType === 'bambu-lab' && Array.isArray(s?.materialSources)
       ? `<div class="ams-source-grid">${s.materialSources.map((source) => {
@@ -5696,9 +5694,9 @@ async function openPrinter(id) {
         </div>`;
       }).join('')}</div>
       ${bambuSources}
-      ${['flashforge-ad5m','prusa-core-one-plus'].includes(printer.adapterType) ? flashForgeMaterialDesignationMarkup(printer, tools[0]?.filament || {}) : ''}
-      ${['flashforge-ad5m','flashforge-creator5','prusa-core-one-plus'].includes(printer.adapterType) ? flashForgeNozzleDesignationMarkup(printer, tools[0] || {}) : ''}
-      ${prusaToolConfigurationMarkup(printer, limits)}
+      ${(printer.adapterType === 'flashforge-ad5m' || printer.manufacturer === 'Prusa') ? flashForgeMaterialDesignationMarkup(printer, tools[0]?.filament || {}) : ''}
+      ${(['flashforge-ad5m','flashforge-creator5'].includes(printer.adapterType) || printer.manufacturer === 'Prusa') ? flashForgeNozzleDesignationMarkup(printer, tools[0] || {}) : ''}
+      ${toolConfigurationMarkup(printer, limits)}
       <div class="field-help material-help">${escapeHtml(materialHelp)}</div>
     </div>`;
   })() : '';
@@ -6134,21 +6132,22 @@ ${flashForgePreflight}` : ''}`)) return;
     finally { nozzleDesignationClear.disabled = false; nozzleDesignationClear.textContent = original; }
   };
 
-  const prusaToolCountSave = printerDetail.querySelector('[data-prusa-tool-count-save]');
-  if (prusaToolCountSave) prusaToolCountSave.onclick = async () => {
-    const input = printerDetail.querySelector('[data-prusa-tool-count-input]');
+  const toolConfigurationSave = printerDetail.querySelector('[data-tool-configuration-save]');
+  if (toolConfigurationSave) toolConfigurationSave.onclick = async () => {
+    const input = printerDetail.querySelector('[data-tool-configuration-input]');
     const toolCount = Number(input?.value);
-    if (![1,4,8].includes(toolCount)) {
-      showError(new Error('Choose a valid CORE One+ tool configuration.'));
+    const options = Array.isArray(printer.limits?.toolConfigurations) ? printer.limits.toolConfigurations : [];
+    const selected = options.find((option) => Number(option.count) === toolCount);
+    if (!selected) {
+      showError(new Error('Choose a valid tool configuration for this printer.'));
       return;
     }
-    const current = Number(printer.configuredToolCount || printer.limits?.toolCount || 1);
+    const current = Number(printer.configuredToolCount || printer.limits?.toolCount || options[0]?.count || 1);
     if (toolCount === current) return;
-    const label = toolCount === 1 ? 'Standard 1-tool' : `INDX ${toolCount}-tool`;
-    if (!confirm(`Change ${printer.name} to the ${label} configuration?\n\nThis changes controller scheduling and compatibility rules. It does not install or configure INDX on the printer itself.`)) return;
-    const original = prusaToolCountSave.textContent;
-    prusaToolCountSave.disabled = true;
-    prusaToolCountSave.textContent = 'Saving…';
+    if (!confirm(`Change ${printer.name} to the ${selected.label || `${toolCount}-tool`} configuration?\n\nThis changes controller scheduling and compatibility rules. It does not change the printer firmware or install hardware.`)) return;
+    const original = toolConfigurationSave.textContent;
+    toolConfigurationSave.disabled = true;
+    toolConfigurationSave.textContent = 'Saving…';
     try {
       await api(`/api/printers/${id}/tool-configuration`, {
         method:'POST',
@@ -6158,8 +6157,8 @@ ${flashForgePreflight}` : ''}`)) return;
       await openPrinter(id);
     } catch (error) {
       showError(error);
-      prusaToolCountSave.disabled = false;
-      prusaToolCountSave.textContent = original;
+      toolConfigurationSave.disabled = false;
+      toolConfigurationSave.textContent = original;
     }
   };
 
