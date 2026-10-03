@@ -1863,12 +1863,19 @@ async function apiRoute(req, res, url) {
   }
 
   if (action === 'tool-configuration' && req.method === 'POST') {
-    if (String(printer.adapterType) !== 'prusa-core-one-plus') {
-      throw new Error('Tool configuration is only supported for Prusa CORE One+ printers');
+    if (!adapter.capabilities?.toolConfiguration) {
+      throw new Error('Tool configuration is not supported by this printer');
     }
     const body = await readJson(req);
+    const requestedToolCount = Number(body.toolCount);
+    const allowed = Array.isArray(adapter.limits?.toolConfigurations)
+      ? adapter.limits.toolConfigurations.map((item) => Number(item.count))
+      : [];
+    if (!allowed.includes(requestedToolCount)) {
+      throw new Error(`Unsupported tool configuration. Choose one of: ${allowed.join(', ')}`);
+    }
     const updated = await controllerMutations.run('printer-registry', () => runPrinterMutation(id, 'tool configuration change', async () => {
-      const value = await setPrinterToolCount(id, body.toolCount);
+      const value = await setPrinterToolCount(id, requestedToolCount);
       if (!value) throw new Error('Printer not found');
       await fleetState.syncRegistry();
       return value;
