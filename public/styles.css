@@ -526,6 +526,74 @@ input:focus,select:focus { border-color:#7a9fbe; }
 .material-tool > span { color:#9cacb8; font-size:.73rem; }
 .material-tool > small { color:#687986; font-size:.69rem; margin-top:4px; }
 .material-tool > small.material-rgb { color:#8193a2; margin-top:2px; }
+.material-panel-wide { margin-bottom:18px; }
+.material-table-head {
+  display:grid;
+  grid-template-columns:minmax(120px,.55fr) minmax(230px,.95fr) minmax(420px,1.8fr);
+  gap:14px;
+  padding:0 12px 7px;
+  color:#738694;
+  font-size:.68rem;
+  font-weight:850;
+  letter-spacing:.06em;
+  text-transform:uppercase;
+}
+.material-grid.multi-tool-table {
+  grid-template-columns:1fr;
+  gap:0;
+  border:1px solid #29343d;
+  border-radius:11px;
+  overflow:visible;
+}
+.multi-tool-table .material-tool {
+  display:grid;
+  grid-template-columns:minmax(120px,.55fr) minmax(230px,.95fr) minmax(420px,1.8fr);
+  gap:14px;
+  align-items:start;
+  border:0;
+  border-bottom:1px solid #29343d;
+  border-radius:0;
+  padding:12px;
+  min-width:0;
+}
+.multi-tool-table .material-tool:first-child { border-radius:10px 10px 0 0; }
+.multi-tool-table .material-tool:last-child { border-bottom:0; border-radius:0 0 10px 10px; }
+.multi-tool-table .material-tool:only-child { border-radius:10px; }
+.multi-tool-table .material-tool.filament-loaded { box-shadow:inset 3px 0 #355044; }
+.multi-tool-table .material-tool.filament-missing { box-shadow:inset 3px 0 #6a3d42; }
+.material-tool-cell { min-width:0; }
+.material-tool-identity .material-tool-head { justify-content:flex-start; margin-bottom:6px; }
+.material-tool-identity > span { display:block; color:#9cacb8; font-size:.73rem; line-height:1.35; }
+.material-tool-information > b,
+.material-tool-information > small { display:block; overflow:hidden; text-overflow:ellipsis; }
+.material-tool-information > b { color:#e4eaf0; font-size:.82rem; margin-bottom:5px; }
+.material-tool-information > small { color:#687986; font-size:.69rem; line-height:1.35; margin-top:3px; white-space:normal; }
+.material-tool-information > small.material-rgb { color:#8193a2; }
+.material-tool-configuration { min-width:0; }
+.material-tool-configuration.read-only { display:flex; align-items:center; min-height:36px; }
+.material-tool-configuration .u1-filament-config-control,
+.material-tool-configuration .prusa-tool-filament-control {
+  margin-top:0;
+  padding-top:0;
+  border-top:0;
+}
+.material-tool-configuration .prusa-tool-nozzle-control { margin-top:10px; }
+.multi-tool-table .material-tool.filament-missing .material-tool-identity > span { color:#df9ba1; }
+
+@media (max-width:900px) {
+  .material-table-head,
+  .multi-tool-table .material-tool {
+    grid-template-columns:minmax(105px,.45fr) minmax(190px,.8fr) minmax(330px,1.55fr);
+    gap:10px;
+  }
+}
+@media (max-width:760px) {
+  .material-table-head { display:none; }
+  .multi-tool-table .material-tool { grid-template-columns:1fr; gap:9px; }
+  .multi-tool-table .material-tool-information,
+  .multi-tool-table .material-tool-configuration { padding-top:9px; border-top:1px solid #202a32; }
+}
+
 .ams-source-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; margin-top:10px; }
 .ams-source { display:grid; grid-template-columns:1fr auto; gap:4px 8px; align-items:center; border:1px solid #29343d; border-radius:9px; padding:9px; }
 .ams-source > div { display:flex; align-items:center; gap:7px; }
@@ -1104,6 +1172,15 @@ button.library-file-preview { cursor:zoom-in; }
   background:#fff3f4;
   border-color:#d7a8ad;
 }
+:root[data-theme="light"] .material-table-head { color:#607585; }
+:root[data-theme="light"] .material-grid.multi-tool-table,
+:root[data-theme="light"] .multi-tool-table .material-tool { border-color:#d5dee5; }
+:root[data-theme="light"] .material-tool-identity > span,
+:root[data-theme="light"] .material-tool-information > small { color:#5e7281; }
+:root[data-theme="light"] .material-tool-information > b { color:#1c2a35; }
+:root[data-theme="light"] .material-tool-information > small.material-rgb { color:#607585; }
+:root[data-theme="light"] .multi-tool-table .material-tool-information,
+:root[data-theme="light"] .multi-tool-table .material-tool-configuration { border-top-color:#dce4ea; }
 :root[data-theme="light"] .material-swatch.unknown {
   background:repeating-linear-gradient(45deg,#d9e2e8,#d9e2e8 4px,#f4f7f9 4px,#f4f7f9 8px);
   border-color:#aebdca;
