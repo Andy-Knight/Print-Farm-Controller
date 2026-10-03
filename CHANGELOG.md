@@ -11,7 +11,8 @@ Historical entries describe the behaviour of the controller at the time of that 
 - Supports live printer/job status, nozzle and bed telemetry, printer-local printable-file browsing, streamed `.gcode` / `.bgcode` upload, post-upload file verification, print start, and pause/resume/cancel.
 - Exposes manual filament and nozzle designation to the existing queue compatibility system while retaining the nozzle diameter reported by PrusaLink when available.
 - Uses the published CORE One+ limits of 290 °C nozzle, 120 °C heatbed, 55 °C chamber, and 250 × 220 × 270 mm build volume as model metadata. Temperature/chamber control and camera streaming remain disabled until their local control paths are validated on physical hardware.
-- Adds regression coverage for adapter registration/configuration, capability boundaries, PrusaLink state normalization, Digest authorization construction, file-tree flattening and status telemetry normalization.
+- Adds a Prusa CORE One+ simulator profile with a local PrusaLink HTTP emulator covering Digest authentication, status, storage/files, upload verification, print start and pause/resume/cancel, plus end-to-end interoperability coverage against the production adapter.
+- Adds regression coverage for adapter registration/configuration, capability boundaries, PrusaLink state normalization, Digest authorization construction, file-tree flattening, status telemetry normalization and simulator interoperability.
 
 ## v0.38.1
 
