@@ -3443,7 +3443,6 @@ function virtualPrinterAlreadyAdded(virtualPrinter) {
   }[settings.adapterType] || (virtualPrinter?.protocol === 'prusalink' || virtualPrinter?.manufacturer === 'Prusa' ? ['httpPort'] : []);
 
   return fleet.some((printer) => {
-    if (printer.simulated !== true) return false;
     if (String(printer.adapterType || '') !== String(settings.adapterType || '')) return false;
     if (String(printer.host || '').trim().toLowerCase() !== String(settings.host || '').trim().toLowerCase()) return false;
     if (settings.serialNumber && printer.serialNumber && String(printer.serialNumber) !== String(settings.serialNumber)) return false;
