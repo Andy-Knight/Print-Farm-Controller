@@ -4748,24 +4748,24 @@ function prusaToolMaterialDesignationMarkup(printer, tool = {}) {
 }
 
 
-function prusaNozzleDiameterOptions(printer) {
+function printerNozzleDiameterOptions(printer) {
   const configured = Array.isArray(printer?.limits?.nozzleDiameters)
     ? printer.limits.nozzleDiameters.map(Number).filter((value) => Number.isFinite(value) && value > 0)
     : [];
-  return configured.length ? configured : [0.25, 0.4, 0.5, 0.6, 0.8, 1.0];
+  return configured.length ? configured : [0.25, 0.4, 0.6, 0.8];
 }
 
 function nozzleDiameterSelectMarkup({ options = [], value = '', inputAttributes = '', placeholder = 'Select nozzle size' } = {}) {
-  const normalized = [...new Set(options.map(Number).filter((item) => Number.isFinite(item) && item > 0))];
+  const normalized = [...new Set(options.map(Number).filter((item) => Number.isFinite(item) && item > 0))].sort((a, b) => a - b);
   const selected = Number(value);
-  if (Number.isFinite(selected) && selected > 0 && !normalized.some((item) => Math.abs(item - selected) < 0.0001)) {
-    normalized.push(selected);
-    normalized.sort((a, b) => a - b);
-  }
-  const selectedValue = Number.isFinite(selected) && selected > 0 ? selected : null;
+  const selectedValue = Number.isFinite(selected)
+    && selected > 0
+    && normalized.some((item) => Math.abs(item - selected) < 0.0001)
+      ? selected
+      : null;
   return `<select ${inputAttributes}>
     <option value=""${selectedValue == null ? ' selected' : ''}>${escapeHtml(placeholder)}</option>
-    ${normalized.map((item) => `<option value="${escapeHtml(item)}"${selectedValue != null && Math.abs(item - selectedValue) < 0.0001 ? ' selected' : ''}>${escapeHtml(item)} mm${!options.some((option) => Math.abs(Number(option) - item) < 0.0001) ? ' · current' : ''}</option>`).join('')}
+    ${normalized.map((item) => `<option value="${escapeHtml(item)}"${selectedValue != null && Math.abs(item - selectedValue) < 0.0001 ? ' selected' : ''}>${escapeHtml(item)} mm</option>`).join('')}
   </select>`;
 }
 
@@ -4775,7 +4775,7 @@ function prusaToolNozzleDesignationMarkup(printer, tool = {}, toolCount = 1) {
   const value = Number.isFinite(effective) && effective > 0 ? effective : '';
   const reported = Number(tool.reportedNozzleDiameter);
   const hasReported = Number.isFinite(reported) && reported > 0;
-  const options = prusaNozzleDiameterOptions(printer);
+  const options = printerNozzleDiameterOptions(printer);
   return `<div class="material-designation-control nozzle-designation-control prusa-tool-nozzle-control" data-prusa-tool-nozzle-control="${tool.index}">
     <label>Physical T${tool.index} nozzle
       ${nozzleDiameterSelectMarkup({
@@ -4831,21 +4831,16 @@ function flashForgeNozzleDesignationMarkup(printer, tool = {}) {
     ? Number(tool.reportedNozzleDiameter)
     : null;
   const clearLabel = reported ? 'Use printer value' : 'Clear designation';
-  const options = printer?.manufacturer === 'Prusa'
-    ? prusaNozzleDiameterOptions(printer)
-    : [0.25, 0.4, 0.6, 0.8];
+  const options = printerNozzleDiameterOptions(printer);
   const unavailableHelp = printer?.manufacturer === 'Prusa'
     ? 'PrusaLink may not report every installed nozzle size, so this controller designation is used when a supported single-tool Prusa model needs an explicit nozzle value.'
-    : 'FlashForge firmware does not reliably report the installed nozzle size, so set this whenever you change the nozzle.';
-  const selector = printer?.manufacturer === 'Prusa'
-    ? nozzleDiameterSelectMarkup({
-        options,
-        value:manualValue || reported || '',
-        inputAttributes:'data-nozzle-designation-input',
-        placeholder:'Select nozzle size'
-      })
-    : `<input type="number" data-nozzle-designation-input value="${escapeHtml(manualValue)}" list="flashforgeNozzleSizes" min="0.1" max="1.2" step="0.05" placeholder="e.g. 0.4" />
-       <datalist id="flashforgeNozzleSizes">${options.map((value) => `<option value="${value}"></option>`).join('')}</datalist>`;
+    : 'FlashForge firmware does not reliably report the installed nozzle size, so choose the fitted nozzle from the supported sizes whenever you change it.';
+  const selector = nozzleDiameterSelectMarkup({
+    options,
+    value:manualValue || reported || '',
+    inputAttributes:'data-nozzle-designation-input',
+    placeholder:'Select nozzle size'
+  });
   return `<div class="material-designation-control nozzle-designation-control">
     <label>Controller nozzle designation
       ${selector}
@@ -6217,7 +6212,7 @@ ${flashForgePreflight}` : ''}`)) return;
     const toolIndex = Number(button.dataset.prusaToolNozzleSave);
     const input = printerDetail.querySelector(`[data-prusa-tool-nozzle-input="${toolIndex}"]`);
     const nozzleDiameter = Number(input?.value);
-    const allowedNozzles = prusaNozzleDiameterOptions(printer);
+    const allowedNozzles = printerNozzleDiameterOptions(printer);
     if (!allowedNozzles.some((value) => Math.abs(value - nozzleDiameter) < 0.0001)) {
       showError(new Error('Choose a nozzle size from the list, or use Clear assignment.'));
       return;
@@ -6330,7 +6325,7 @@ ${flashForgePreflight}` : ''}`)) return;
   if (nozzleDesignationSave) nozzleDesignationSave.onclick = async () => {
     const input = printerDetail.querySelector('[data-nozzle-designation-input]');
     const nozzleDiameter = Number(input?.value);
-    const prusaNozzles = printer?.manufacturer === 'Prusa' ? prusaNozzleDiameterOptions(printer) : null;
+    const prusaNozzles = printer?.manufacturer === 'Prusa' ? printerNozzleDiameterOptions(printer) : null;
     const valid = prusaNozzles
       ? prusaNozzles.some((value) => Math.abs(value - nozzleDiameter) < 0.0001)
       : Number.isFinite(nozzleDiameter) && nozzleDiameter >= 0.1 && nozzleDiameter <= 1.2;
