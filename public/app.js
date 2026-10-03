@@ -386,6 +386,7 @@ function dashboardPrinterImageKey(printer) {
   const model = String(printer?.model || '').trim().toLowerCase();
 
   if (adapterType === 'snapmaker-u1') return 'snapmaker-u1';
+  if (adapterType === 'prusa-core-one-plus') return 'prusa-core-one-plus';
   if (adapterType === 'flashforge-ad5m') return 'ad5m-pro';
   if (adapterType === 'flashforge-creator5') return model.includes('pro') ? 'creator-5-pro' : 'creator-5';
   if (adapterType === 'bambu-lab') {
