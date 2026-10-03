@@ -5814,7 +5814,7 @@ async function openPrinter(id) {
         ].filter(Boolean).join('');
         if (wideToolheadLayout) {
           const configurationFallback = printer.adapterType === 'flashforge-creator5'
-            ? 'Live material state is reported by the Creator 5. The shared nozzle designation below applies to all toolheads.'
+            ? 'Live data only'
             : 'No per-tool controller configuration is available.';
           return `<div class="material-tool material-tool-row${stateClass}" data-material-tool="${tool.index}">
             <div class="material-tool-cell material-tool-identity">
