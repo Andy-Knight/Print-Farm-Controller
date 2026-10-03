@@ -4699,9 +4699,9 @@ function prusaToolMaterialDesignationMarkup(printer, tool = {}) {
     <datalist id="prusaMaterialTypes${tool.index}">${materialOptions.map((value) => `<option value="${escapeHtml(value)}"></option>`).join('')}</datalist>
     <div class="mini-actions">
       <button type="button" class="secondary" data-prusa-tool-material-save="${tool.index}">Assign T${tool.index}</button>
-      <button type="button" class="secondary" data-prusa-tool-material-clear="${tool.index}">${hasReported ? 'Use printer value' : 'Clear'}</button>
+      <button type="button" class="secondary" data-prusa-tool-material-clear="${tool.index}">Clear assignment</button>
     </div>
-    <small>Stored by Print Farm Controller for physical T${tool.index}. The selected colour family drives the dashboard swatch and automatic colour compatibility.${hasReported ? ' Clear returns this tool to PrusaLink-reported metadata.' : ''}</small>
+    <small>Stored by Print Farm Controller for physical T${tool.index}. The selected colour family drives the dashboard swatch and automatic colour compatibility. Clearing removes the controller assignment${hasReported ? ' and returns this tool to the values reported by PrusaLink.' : '; any values not reported by PrusaLink become unknown.'}</small>
   </div>`;
 }
 
