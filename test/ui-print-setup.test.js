@@ -159,7 +159,8 @@ test('Snapmaker U1 uses one control and one command for third-party filament typ
   assert.match(app, /u1EditPending/);
   assert.match(app, /delete control\.dataset\.u1FilamentDirty/);
   assert.match(app, /Set filament on U1/);
-  assert.match(app, /SNAPMAKER_U1_FILAMENT_TYPES/);
+  assert.match(app, /CONTROLLER_FILAMENT_TYPES/);
+  assert.match(app, /function filamentTypeSelectMarkup/);
   assert.match(app, /\/filament-config/);
   assert.match(app, /Official Snapmaker RFID filament controls its own type and colour/);
   assert.match(app, /FILAMENT_COLOR_FAMILIES/);
@@ -172,6 +173,19 @@ test('Snapmaker U1 uses one control and one command for third-party filament typ
   assert.doesNotMatch(app, /data-u1-filament-type-save/);
   assert.doesNotMatch(app, /data-u1-filament-color-save/);
   assert.match(styles, /\.u1-filament-config-control/);
+});
+
+test('all controller filament material editors use the U1-style fixed selector', () => {
+  assert.match(app, /const CONTROLLER_FILAMENT_TYPES = Object\.freeze/);
+  assert.match(app, /function filamentTypeSelectMarkup/);
+  assert.match(app, /inputAttributes:`data-u1-filament-type-input=/);
+  assert.match(app, /inputAttributes:`data-prusa-tool-material-input=/);
+  assert.match(app, /inputAttributes:'data-material-designation-input'/);
+  assert.doesNotMatch(app, /list="prusaMaterialTypes/);
+  assert.doesNotMatch(app, /list="flashforgeMaterialTypes/);
+  assert.doesNotMatch(app, /<datalist id="prusaMaterialTypes/);
+  assert.doesNotMatch(app, /<datalist id="flashforgeMaterialTypes/);
+  assert.match(app, /setFilamentTypeSelectValue/);
 });
 
 test('U1 print setup exposes native timelapse and filament safety controls', () => {
