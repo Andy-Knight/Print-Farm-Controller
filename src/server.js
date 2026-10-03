@@ -1566,9 +1566,20 @@ async function apiRoute(req, res, url) {
   if (req.method === 'POST' && url.pathname === '/api/printers') {
     const input = validateAddPrinter(await readJson(req));
     const result = await controllerMutations.run('printer-registry', async () => {
-      const simulatedCandidate = emulatorManager.isSimulatedConfig(input);
-      if (!simulatedCandidate) {
-        const configured = await listPrinters();
+      const simulatedInstanceId = emulatorManager.simulatedInstanceId(input);
+      const simulatedCandidate = Boolean(simulatedInstanceId);
+      const configured = await listPrinters();
+
+      if (simulatedCandidate) {
+        const duplicate = configured.find((printer) => (
+          emulatorManager.simulatedInstanceId(printer) === simulatedInstanceId
+        ));
+        if (duplicate) {
+          const error = new Error(`This virtual printer is already added as ${duplicate.name || 'a controller printer'}`);
+          error.statusCode = 409;
+          throw error;
+        }
+      } else {
         const physicalCount = configured.filter((printer) => !isControllerSimulator(printer)).length;
         licenseManager.requirePrinterCapacity(physicalCount);
       }
