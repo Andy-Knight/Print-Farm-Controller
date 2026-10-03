@@ -12,6 +12,7 @@ Historical entries describe the behaviour of the controller at the time of that 
 - Exposes manual filament and nozzle designation to the existing queue compatibility system while retaining the nozzle diameter reported by PrusaLink when available.
 - Uses the published CORE One+ limits of 290 °C nozzle, 120 °C heatbed, 55 °C chamber, and 250 × 220 × 270 mm build volume as model metadata. Temperature/chamber control and camera streaming remain disabled until their local control paths are validated on physical hardware.
 - Adds a Prusa CORE One+ simulator profile with a local PrusaLink HTTP emulator covering Digest authentication, status, storage/files, upload verification, print start and pause/resume/cancel, plus end-to-end interoperability coverage against the production adapter.
+- Adds matching **400 × 190** dashboard artwork for the Prusa CORE One+, using the same contained WebP asset treatment and regression checks as the existing supported-printer images.
 - Adds regression coverage for adapter registration/configuration, capability boundaries, PrusaLink state normalization, Digest authorization construction, file-tree flattening, status telemetry normalization and simulator interoperability.
 
 ## v0.38.1
