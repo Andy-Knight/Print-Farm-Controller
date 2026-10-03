@@ -7,6 +7,7 @@ Historical entries describe the behaviour of the controller at the time of that 
 ## v0.39.0
 
 - Adds initial **Prusa CORE One+** support through the printer's built-in local PrusaLink HTTP API, without requiring Prusa Connect cloud access.
+- Refactors Prusa support into a reusable **PrusaLink family adapter** plus model-profile catalogue. PrusaLink model profiles auto-register with the controller; CORE One+ is now a thin model-specific wrapper/profile rather than owning protocol/authentication/file/job-control logic.
 - Adds PrusaLink Digest authentication using the local username/password shown by the printer, with optional `X-Api-Key` authentication for firmware/configurations that expose an API key.
 - Supports live printer/job status, nozzle and bed telemetry, printer-local printable-file browsing, streamed `.gcode` / `.bgcode` upload, post-upload file verification, print start, and pause/resume/cancel.
 - Supports **Standard 1-tool**, **INDX 4-tool** and **INDX 8-tool** CORE One+ configurations. A printer can be switched between those controller configurations from printer details after an INDX hardware upgrade, without deleting/re-adding it; changes are blocked while the printer is active.
