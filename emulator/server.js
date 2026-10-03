@@ -91,6 +91,7 @@ function controllerSettings(printer) {
       model: printer.model,
       serialNumber: printer.serialNumber,
       httpPort: printer.ports.httpPort,
+      toolCount: printer.tools.length,
       prusaLinkUsername: 'maker',
       prusaLinkPassword: printer.checkCode
     };
