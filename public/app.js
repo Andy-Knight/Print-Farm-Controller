@@ -4712,11 +4712,11 @@ function flashForgeNozzleDesignationMarkup(printer, tool = {}) {
     ? Number(tool.reportedNozzleDiameter)
     : null;
   const clearLabel = reported ? 'Use printer value' : 'Clear designation';
-  const options = printer?.adapterType === 'prusa-core-one-plus'
+  const options = printer?.manufacturer === 'Prusa'
     ? [0.25, 0.4, 0.5, 0.6, 0.8, 1.0]
     : [0.25, 0.4, 0.6, 0.8];
-  const unavailableHelp = printer?.adapterType === 'prusa-core-one-plus'
-    ? 'PrusaLink may not report every installed nozzle size, so this controller designation is used for the standard single-tool configuration when needed.'
+  const unavailableHelp = printer?.manufacturer === 'Prusa'
+    ? 'PrusaLink may not report every installed nozzle size, so this controller designation is used when a supported single-tool Prusa model needs an explicit nozzle value.'
     : 'FlashForge firmware does not reliably report the installed nozzle size, so set this whenever you change the nozzle.';
   return `<div class="material-designation-control nozzle-designation-control">
     <label>Controller nozzle designation
@@ -5662,7 +5662,7 @@ async function openPrinter(id) {
       : printer.adapterType === 'bambu-lab'
         ? 'Material and colour come from the active external-spool or AMS/AMS Lite tray metadata reported by the Bambu LAN interface. Bambu support is experimental until checked against physical P1P, P1S, X1C and A1 Mini hardware.'
       : printer.manufacturer === 'Prusa'
-        ? `${printer.model || 'Prusa printer'} is configured for ${Number(limits.toolCount || tools.length || 1)} tool${Number(limits.toolCount || tools.length || 1) === 1 ? '' : 's'}. INDX uses fixed sliced tool indices (T0→T0, T1→T1, etc.); the controller does not silently remap a file to different INDX tools. Per-tool material/nozzle data is used when PrusaLink reports it; unknown values require review before unattended multi-tool scheduling.`
+        ? `${printer.model || 'Prusa printer'} is configured for ${Number(limits.toolCount || tools.length || 1)} tool${Number(limits.toolCount || tools.length || 1) === 1 ? '' : 's'}.${capabilities.fixedToolMapping ? ' This configuration uses fixed sliced tool indices; the controller does not silently remap a sliced tool to another physical tool.' : ''} Per-tool material/nozzle data is used when PrusaLink reports it; unknown values require review before unattended multi-tool scheduling.`
         : 'Filament presence comes from each U1 motion sensor. Third-party filament type and colour can be written to the idle printer and are verified by reading the effective per-tool configuration back. Official Snapmaker RFID filament remains locked. Nozzle size and XYZ offset come directly from each physical U1 extruder.';
     const bambuSources = printer.adapterType === 'bambu-lab' && Array.isArray(s?.materialSources)
       ? `<div class="ams-source-grid">${s.materialSources.map((source) => {
