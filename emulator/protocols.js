@@ -999,6 +999,14 @@ function createPrusaLinkServer(printer) {
         location:'Print Farm Controller Simulator',
         farm_mode:false,
         nozzle_diameter:printer.tools[0]?.nozzleDiameter || 0.4,
+        nozzle_diameters:printer.tools.map((tool) => tool.nozzleDiameter || 0.4),
+        tools:printer.tools.map((tool) => ({
+          index:tool.index,
+          nozzle_diameter:tool.nozzleDiameter || 0.4,
+          filament_type:tool.filament?.material || null,
+          filament_color:tool.filament?.color || null,
+          filament_present:tool.filament?.present !== false
+        })),
         min_extrusion_temp:170,
         serial:printer.serialNumber,
         sd_ready:true,
@@ -1012,8 +1020,18 @@ function createPrusaLinkServer(printer) {
       return sendJson(response, 200, {
         printer:{
           state:prusaState(printer),
+          active_tool:0,
           temp_nozzle:printer.tools[0]?.actual || 0,
           target_nozzle:printer.tools[0]?.target || 0,
+          tools:printer.tools.map((tool, index) => ({
+            index,
+            actual:tool.actual || 0,
+            target:tool.target || 0,
+            nozzle_diameter:tool.nozzleDiameter || 0.4,
+            filament_type:tool.filament?.material || null,
+            filament_color:tool.filament?.color || null,
+            filament_present:tool.filament?.present !== false
+          })),
           temp_bed:printer.bed.actual,
           target_bed:printer.bed.target,
           fan_print:Math.round(printer.fans.cooling || 0),
