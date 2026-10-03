@@ -4569,7 +4569,9 @@ batchActionDialog.addEventListener('close', () => {
 });
 
 function detailCameraMarkup(printer) {
-  if (!printer.capabilities?.camera || !printer.online || printer.cameraAvailable === false) return '<div class="detail-camera camera-placeholder">Camera unavailable while printer is offline</div>';
+  if (!printer.capabilities?.camera) return '';
+  if (!printer.online) return '<div class="detail-camera camera-placeholder">Camera unavailable while printer is offline</div>';
+  if (printer.cameraAvailable === false) return '<div class="detail-camera camera-placeholder">Camera unavailable</div>';
   const cameraUrl = `/api/printers/${encodeURIComponent(printer.id)}/camera/stream`;
   return `<img class="detail-camera" src="${escapeHtml(cameraUrl)}" alt="${escapeHtml(printer.name)} camera">`;
 }
@@ -5778,7 +5780,7 @@ async function openPrinter(id) {
     <div class="detail-grid">
       <div class="detail-column detail-column-left">
         ${detailCameraMarkup(printer)}
-        <div class="panel" style="margin-top:12px">
+        <div class="panel"${capabilities.camera ? ' style="margin-top:12px"' : ''}>
           <h3>Current job</h3>
           <div class="job"><span class="job-name" data-detail-file>${escapeHtml(s?.fileName || 'No active job')}</span><b data-detail-progress>${Math.round(s?.progress || 0)}%</b></div>
           <div class="progress"><span data-detail-progress-bar style="width:${Math.round(s?.progress || 0)}%"></span></div>
