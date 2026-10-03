@@ -121,7 +121,7 @@ Manufacturer-specific discovery, capabilities, limits, status normalization, fil
 
 The current production baseline is **v0.38.1** on `main`.
 
-Active development is **v0.39.0** on `feature/prusa-core-one-plus-support-v0390`. Prusa CORE One+ support uses the local PrusaLink HTTP API with Digest username/password or optional API-key authentication. Supported controller configurations are Standard 1-tool, INDX 4-tool and INDX 8-tool. Existing CORE One+ registrations can be changed between those configurations from printer details after a physical INDX upgrade. INDX scheduling uses fixed tool indices from the sliced file; PFC never silently remaps T0/T1/etc. to different INDX tools. Known per-tool material/nozzle/colour mismatches are blocked and unavailable per-tool metadata requires review. The integrated simulator has Standard, INDX 4 and INDX 8 profiles.
+Active development is **v0.39.0** on `feature/prusa-core-one-plus-support-v0390`. Prusa support is now split into a reusable `prusa-link-api.js` transport/control client, generic `prusa-link-adapter.js` family adapter, and `prusa-link-models.js` model-profile catalogue whose entries auto-register with the controller. CORE One+ is the first profile and retains a thin compatibility wrapper. Prusa CORE One+ support uses the local PrusaLink HTTP API with Digest username/password or optional API-key authentication. Supported controller configurations are Standard 1-tool, INDX 4-tool and INDX 8-tool. Existing CORE One+ registrations can be changed between those configurations from printer details after a physical INDX upgrade. INDX scheduling uses fixed tool indices from the sliced file; PFC never silently remaps T0/T1/etc. to different INDX tools. Known per-tool material/nozzle/colour mismatches are blocked and unavailable per-tool metadata requires review. The integrated simulator has Standard, INDX 4 and INDX 8 profiles.
 
 Initial local control scope remains status telemetry, printer-local files, streamed G-code/BGCODE upload and verification, print start, and pause/resume/cancel. Temperature/chamber controls, camera streaming and automatic discovery are not yet exposed.
 
@@ -133,7 +133,8 @@ Initial local control scope remains status telemetry, printer-local files, strea
 4. Confirm exact storage-path and BGCODE behaviour on current CORE One+/INDX firmware and verify sliced T0→T0 etc. behaviour.
 5. Validate changing an existing controller entry from Standard → INDX 4 → INDX 8 after the corresponding hardware upgrade.
 6. Review the CORE One+ 400 × 190 dashboard artwork in Dark and Light themes.
-7. After physical validation, investigate safe local chamber temperature/control, camera access and LAN discovery without relying on Prusa Connect cloud services.
+7. When adding the next Prusa printer, add its model profile to the shared PrusaLink catalogue first; only add protocol-specific code if hardware validation proves its PrusaLink implementation differs.
+8. After physical validation, investigate safe local chamber temperature/control, camera access and LAN discovery without relying on Prusa Connect cloud services.
 
 ## Licensing baseline
 
