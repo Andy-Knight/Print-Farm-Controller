@@ -26,6 +26,7 @@ test('Prusa CORE One+ is registered with safe first-pass local capabilities', ()
   assert.equal(config.model, 'CORE One+');
   assert.equal(config.adapterConfig.prusaLinkUsername, 'maker');
   assert.equal(config.adapterConfig.prusaLinkPassword, 'secret');
+  assert.equal(config.adapterConfig.toolCount, 1);
 
   const adapter = getPrinterAdapter(config);
   assert.equal(adapter.capabilities.status, true);
@@ -39,11 +40,43 @@ test('Prusa CORE One+ is registered with safe first-pass local capabilities', ()
   assert.equal(adapter.capabilities.chamberTemperatureControl, false);
   assert.equal(adapter.capabilities.materialDesignation, true);
   assert.equal(adapter.capabilities.nozzleDesignation, true);
+  assert.equal(adapter.capabilities.fixedToolMapping, false);
+  assert.equal(adapter.capabilities.toolheadNozzleStatus, true);
   assert.deepEqual(adapter.uploadExtensions, ['.gcode', '.bgcode']);
   assert.equal(adapter.limits.nozzleTemperature.max, 290);
   assert.equal(adapter.limits.bedTemperature.max, 120);
   assert.equal(adapter.limits.chamberTemperature.max, 55);
+  assert.equal(adapter.limits.toolCount, 1);
   assert.deepEqual(adapter.limits.buildVolume, { x:250, y:220, z:270 });
+});
+
+test('Prusa CORE One+ supports Standard, INDX 4-tool and INDX 8-tool configurations', () => {
+  for (const toolCount of [4, 8]) {
+    const config = preparePrinterConfig({
+      adapterType:PRUSA_CORE_ONE_PLUS_ADAPTER_TYPE,
+      name:`CORE One+ INDX ${toolCount}`,
+      host:'192.168.1.71',
+      prusaLinkPassword:'secret',
+      toolCount
+    });
+    assert.equal(config.adapterConfig.toolCount, toolCount);
+    const adapter = getPrinterAdapter(config);
+    assert.equal(adapter.limits.toolCount, toolCount);
+    assert.equal(adapter.limits.nozzleTemperature.max, 300);
+    assert.deepEqual(adapter.limits.buildVolume, { x:248, y:205, z:270 });
+    assert.equal(adapter.capabilities.fixedToolMapping, true);
+    assert.equal(adapter.capabilities.printToolMapping, false);
+    assert.equal(adapter.capabilities.materialDesignation, false);
+    assert.equal(adapter.capabilities.nozzleDesignation, false);
+  }
+
+  assert.throws(() => preparePrinterConfig({
+    adapterType:PRUSA_CORE_ONE_PLUS_ADAPTER_TYPE,
+    name:'Invalid CORE One+',
+    host:'192.168.1.72',
+    prusaLinkPassword:'secret',
+    toolCount:2
+  }), /1, 4 or 8 tools/);
 });
 
 test('Prusa CORE One+ requires local PrusaLink credentials', () => {
@@ -177,6 +210,69 @@ test('Prusa CORE One+ status is normalized from PrusaLink v1 telemetry', async (
     assert.equal(status.bed.target, 90);
     assert.equal(status.tools[0].nozzleDiameter, 0.4);
     assert.equal(status.firmwareVersion, '6.8.1');
+  } finally {
+    global.fetch = originalFetch;
+  }
+});
+
+
+test('PrusaLink normalizes eight reported INDX tools without remapping tool indices', async () => {
+  const originalFetch = global.fetch;
+  global.fetch = async (input) => {
+    const url = new URL(String(input));
+    const json = (body) => new Response(JSON.stringify(body), {
+      status:200,
+      headers:{ 'content-type':'application/json' }
+    });
+    const tools = Array.from({ length:8 }, (_, index) => ({
+      index,
+      nozzle_diameter:index === 3 ? 0.6 : 0.4,
+      filament_type:index === 3 ? 'PETG' : 'PLA',
+      filament_color:index === 3 ? '#00FF00' : '#FF0000',
+      filament_present:true,
+      actual:index === 0 ? 215 : 25,
+      target:index === 0 ? 215 : 0
+    }));
+    if (url.pathname === '/api/v1/info') return json({
+      name:'CORE One+ INDX 8',
+      serial:'INDX8',
+      nozzle_diameters:tools.map((tool) => tool.nozzle_diameter),
+      tools,
+      active_camera:false
+    });
+    if (url.pathname === '/api/version') return json({ firmware:'6.8.1', printer:'CORE One+' });
+    if (url.pathname === '/api/v1/status') return json({
+      printer:{
+        state:'IDLE',
+        active_tool:0,
+        temp_nozzle:215,
+        target_nozzle:215,
+        temp_bed:60,
+        target_bed:60,
+        tools,
+        status_printer:{ ok:true, message:'OK' }
+      }
+    });
+    if (url.pathname === '/api/v1/job') return new Response('', { status:404 });
+    throw new Error(`Unexpected request ${url.pathname}`);
+  };
+
+  try {
+    const adapter = getPrinterAdapter(preparePrinterConfig({
+      adapterType:PRUSA_CORE_ONE_PLUS_ADAPTER_TYPE,
+      name:'INDX 8',
+      host:'192.168.1.73',
+      apiKey:'test-api-key',
+      toolCount:8
+    }));
+    const status = await adapter.getStatus();
+    assert.equal(status.tools.length, 8);
+    assert.deepEqual(status.tools.map((tool) => tool.index), [0,1,2,3,4,5,6,7]);
+    assert.equal(status.tools[3].filament.material, 'PETG');
+    assert.equal(status.tools[3].filament.color, '#00FF00');
+    assert.equal(status.tools[3].nozzleDiameter, 0.6);
+    assert.equal(status.materials.toolCount, 8);
+    assert.equal(status.materials.loadedCount, 8);
   } finally {
     global.fetch = originalFetch;
   }
