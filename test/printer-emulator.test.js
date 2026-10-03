@@ -8,6 +8,7 @@ import { getPrinterAdapter } from '../src/adapters/adapter-registry.js';
 import { prepareFlashForgeAd5mConfig } from '../src/adapters/flashforge-ad5m-adapter.js';
 import { prepareFlashForgeCreator5Config } from '../src/adapters/flashforge-creator5-adapter.js';
 import { prepareSnapmakerU1Config } from '../src/adapters/snapmaker-u1-adapter.js';
+import { preparePrusaCoreOnePlusConfig } from '../src/adapters/prusa-core-one-plus-adapter.js';
 import { prepareBambuLabConfig } from '../src/adapters/bambu-lab-adapter.js';
 import { listAllFilesTcp } from '../src/tcp-files.js';
 
@@ -19,6 +20,7 @@ test('built-in simulator defaults include both Creator 5 models', () => {
       'flashforge-creator-5',
       'flashforge-creator-5-pro',
       'snapmaker-u1',
+      'prusa-core-one-plus',
       'bambu-p1p',
       'bambu-p1s',
       'bambu-x1c',
@@ -46,7 +48,7 @@ test('emulator management API creates and controls a virtual printer', async (t)
   const base = `http://127.0.0.1:${address.port}`;
 
   const profiles = await fetch(`${base}/api/profiles`).then((response) => response.json());
-  assert.deepEqual(profiles.profiles.map((profile) => profile.id).sort(), ['bambu-a1-mini', 'bambu-p1p', 'bambu-p1s', 'bambu-x1c', 'flashforge-ad5m-pro', 'flashforge-creator-5', 'flashforge-creator-5-pro', 'snapmaker-u1']);
+  assert.deepEqual(profiles.profiles.map((profile) => profile.id).sort(), ['bambu-a1-mini', 'bambu-p1p', 'bambu-p1s', 'bambu-x1c', 'flashforge-ad5m-pro', 'flashforge-creator-5', 'flashforge-creator-5-pro', 'prusa-core-one-plus', 'snapmaker-u1']);
 
   const createdResponse = await fetch(`${base}/api/printers`, {
     method: 'POST',
@@ -108,6 +110,54 @@ function waitForData(socket, predicate, timeoutMs = 2000) {
     socket.on('data', onData);
   });
 }
+
+test('Prusa CORE One+ simulator interoperates with the production PrusaLink adapter', async (t) => {
+  const emulator = createEmulator({ managementPort:0, withDefaults:false });
+  await emulator.start();
+  t.after(() => emulator.stop());
+
+  const virtual = await emulator.addPrinter({
+    profileId:'prusa-core-one-plus',
+    name:'Adapter Test CORE One+',
+    ports:{ httpPort:0 }
+  });
+
+  assert.equal(virtual.model, 'CORE One+');
+  assert.equal(virtual.controllerSettings.prusaLinkUsername, 'maker');
+  assert.equal(virtual.controllerSettings.prusaLinkPassword, 'prusa-simulator');
+  assert.ok(virtual.ports.httpPort > 0);
+
+  const config = preparePrusaCoreOnePlusConfig(virtual.controllerSettings);
+  const adapter = getPrinterAdapter(config);
+
+  const initial = await adapter.getStatus();
+  assert.equal(initial.status, 'idle');
+  assert.equal(initial.printerName, 'Adapter Test CORE One+');
+  assert.equal(initial.tools.length, 1);
+  assert.equal(initial.tools[0].nozzleDiameter, 0.4);
+  assert.equal(initial.firmwareVersion, '6.8.1-simulator');
+
+  const files = await adapter.getFiles();
+  assert.deepEqual(files.files, ['calibration-cube.gcode']);
+
+  await adapter.uploadFile(new URL('../README.md', import.meta.url), { fileName:'core-one-plus-test.bgcode' });
+  assert.equal((await adapter.verifyFile('core-one-plus-test.bgcode')).verified, true);
+  assert.ok((await adapter.getFiles()).files.includes('core-one-plus-test.bgcode'));
+
+  await adapter.printLocalFile('core-one-plus-test.bgcode');
+  const printing = await adapter.getStatus();
+  assert.equal(printing.status, 'printing');
+  assert.equal(printing.fileName, 'core-one-plus-test.bgcode');
+
+  await adapter.setJobState('pause');
+  assert.equal((await adapter.getStatus()).status, 'paused');
+
+  await adapter.setJobState('resume');
+  assert.equal((await adapter.getStatus()).status, 'printing');
+
+  await adapter.setJobState('cancel');
+  assert.equal((await adapter.getStatus()).status, 'cancelled');
+});
 
 test('Bambu P1P, P1S, X1C and A1 Mini profiles expose authenticated LAN protocol endpoints', async (t) => {
   const emulator = createEmulator({ managementPort: 0, withDefaults: false });
