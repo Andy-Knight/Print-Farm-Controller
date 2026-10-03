@@ -2,7 +2,10 @@ import { flashForgeAd5mAdapterDefinition, FLASHFORGE_AD5M_ADAPTER_TYPE } from '.
 import { flashForgeCreator5AdapterDefinition, FLASHFORGE_CREATOR5_ADAPTER_TYPE } from './flashforge-creator5-adapter.js';
 import { snapmakerU1AdapterDefinition, SNAPMAKER_U1_ADAPTER_TYPE } from './snapmaker-u1-adapter.js';
 import { bambuLabAdapterDefinition, BAMBU_LAB_ADAPTER_TYPE } from './bambu-lab-adapter.js';
-import { prusaCoreOnePlusAdapterDefinition, PRUSA_CORE_ONE_PLUS_ADAPTER_TYPE } from './prusa-core-one-plus-adapter.js';
+import { createPrusaLinkAdapterDefinition } from './prusa-link-adapter.js';
+import { listPrusaLinkModelProfiles, PRUSA_CORE_ONE_PLUS_PROFILE } from './prusa-link-models.js';
+
+const PRUSA_CORE_ONE_PLUS_ADAPTER_TYPE = PRUSA_CORE_ONE_PLUS_PROFILE.adapterType;
 
 const registry = new Map();
 
@@ -70,6 +73,6 @@ registerPrinterAdapter(flashForgeAd5mAdapterDefinition);
 registerPrinterAdapter(flashForgeCreator5AdapterDefinition);
 registerPrinterAdapter(snapmakerU1AdapterDefinition);
 registerPrinterAdapter(bambuLabAdapterDefinition);
-registerPrinterAdapter(prusaCoreOnePlusAdapterDefinition);
+for (const profile of listPrusaLinkModelProfiles()) registerPrinterAdapter(createPrusaLinkAdapterDefinition(profile));
 
 export { FLASHFORGE_AD5M_ADAPTER_TYPE, FLASHFORGE_CREATOR5_ADAPTER_TYPE, SNAPMAKER_U1_ADAPTER_TYPE, BAMBU_LAB_ADAPTER_TYPE, PRUSA_CORE_ONE_PLUS_ADAPTER_TYPE };
