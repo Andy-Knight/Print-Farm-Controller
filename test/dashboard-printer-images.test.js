@@ -11,6 +11,7 @@ const printerImageKeys = [
   'creator-5',
   'creator-5-pro',
   'snapmaker-u1',
+  'prusa-core-one-plus',
   'a1-mini',
   'p1p',
   'p1s',

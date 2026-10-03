@@ -1,6 +1,6 @@
-# Print Farm Controller v0.38.1
+# Print Farm Controller v0.39.0
 
-**Current release: v0.38.1**
+**Current release: v0.39.0**
 
 Current highlights:
 
@@ -11,7 +11,7 @@ Current highlights:
 - Reports & analytics with graphical trends, printer reliability indicators, popular-file reporting, filament usage and material-cost tracking.
 - Filament catalogue costing with Orca/Bambu slicer vendor/preset auto-matching, explicit per-tool overrides, immutable historical cost snapshots, and a controlled selector covering common world currencies.
 - Compressed portable backup and restore, including local/NAS, Google Drive, Microsoft OneDrive and generic S3-compatible destinations, multi-group printer membership, reporting history/filament catalogue data, and backwards-compatible restore of older backups.
-- Snapmaker U1 and FlashForge support, with experimental Bambu Lab support.
+- Snapmaker U1, FlashForge and Prusa CORE One+ support, with experimental Bambu Lab support.
 - Offline signed licensing with Community, Pro and Farm editions.
 
 For the complete version history, see [CHANGELOG.md](CHANGELOG.md).
@@ -21,6 +21,9 @@ A local-first 3D printer fleet controller. It runs entirely on your LAN and curr
 - **FlashForge Adventurer 5M / 5M Pro** through the local FlashForge HTTP/TCP APIs.
 - **FlashForge Creator 5 / Creator 5 Pro** through the supported local FlashForge control interfaces.
 - **Snapmaker U1** through its local Moonraker/Klipper API.
+- **Prusa CORE One+** through its built-in local PrusaLink HTTP API. v0.39.0 supports the standard 1-tool configuration plus **INDX 4-tool and 8-tool upgrades**. INDX uses fixed sliced tool indices (T0→T0, T1→T1, etc.); the controller validates per-tool material/nozzle state when PrusaLink exposes it and does not silently remap a sliced tool to another physical tool. Each physical Prusa tool also has a controller-side material and colour-family assignment, so T0–T7 can be labelled independently when PrusaLink does not provide reliable filament colour metadata; those assignments drive dashboard swatches and queue compatibility. Existing CORE One+ entries can be changed between Standard, INDX 4 and INDX 8 from printer details after a hardware upgrade. The integration also supports live status, printer-local file browsing, G-code/BGCODE upload and verification, print start, and pause/resume/cancel. PrusaLink credentials stay backend-side. The integrated Printer Simulator includes Standard, INDX 4 and INDX 8 CORE One+ profiles for repeatable controller testing. Temperature/chamber/camera control are intentionally not exposed until supported local interfaces are validated on hardware.
+
+Prusa support is implemented as a reusable **PrusaLink family layer**. Shared authentication, status, files, upload, verification and job-control behaviour lives outside individual printer models. Each supported Prusa model supplies a compact model profile containing its adapter ID, limits, valid tool configurations and capability differences; PrusaLink model profiles are registered automatically. This keeps future Prusa additions isolated to model metadata, simulator/artwork and hardware-specific validation unless their firmware genuinely differs from the shared PrusaLink API.
 - **Bambu Lab P1P / P1S / X1C / A1 Mini (experimental)** through the local MQTT TLS and FTPS TLS interfaces. P1P/P1S/A1 Mini use the TLS/JPEG camera path; X1C camera decoding remains unsupported.
 
 The application is named **Print Farm Controller**. The default application-data directory retains its historical **Printer Fleet Controller** / `printer-fleet-controller` folder name for compatibility; existing installations therefore continue to use the same configured printers, queued work and settings after the v0.14.9 branding rename.

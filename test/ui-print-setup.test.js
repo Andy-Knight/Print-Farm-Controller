@@ -131,7 +131,7 @@ test('Snapmaker U1 toolhead status puts RGB colour on a dedicated second line', 
   assert.match(app, /function filamentRgbText/);
   assert.match(app, /RGB\(\$\{red\}, \$\{green\}, \$\{blue\}\)/);
   assert.match(app, /data-material-rgb=/);
-  assert.match(app, /\['snapmaker-u1','flashforge-ad5m','flashforge-creator5','bambu-lab'\]\.includes\(printer\.adapterType\)/);
+  assert.match(app, /printer\.manufacturer === 'Prusa'/);
   assert.match(app, /rgbLine\?\.classList\.toggle\('hidden', !colorDisplay\)/);
   assert.match(styles, /\.material-tool > small\.material-rgb/);
   assert.doesNotMatch(app, /const values = \[source, reported, filament\.vendor \|\| filament\.manufacturer, filamentColorText\(filament\.color\)\]/);
@@ -142,7 +142,7 @@ test('Snapmaker U1 toolhead status puts RGB colour on a dedicated second line', 
 
 test('FlashForge assigned filament colour shows hexadecimal and RGB values in toolhead status', () => {
   assert.match(app, /const values = \[source, reported, filament\.vendor \|\| filament\.manufacturer, normalizeColor\(filament\.color\)\]/);
-  assert.match(app, /\['snapmaker-u1','flashforge-ad5m','flashforge-creator5','bambu-lab'\]\.includes\(printer\.adapterType\)/);
+  assert.match(app, /printer\.manufacturer === 'Prusa'/);
   assert.match(app, /data-material-rgb=/);
   assert.match(app, /return `RGB\(\$\{red\}, \$\{green\}, \$\{blue\}\)`/);
 });
@@ -159,7 +159,8 @@ test('Snapmaker U1 uses one control and one command for third-party filament typ
   assert.match(app, /u1EditPending/);
   assert.match(app, /delete control\.dataset\.u1FilamentDirty/);
   assert.match(app, /Set filament on U1/);
-  assert.match(app, /SNAPMAKER_U1_FILAMENT_TYPES/);
+  assert.match(app, /CONTROLLER_FILAMENT_TYPES/);
+  assert.match(app, /function filamentTypeSelectMarkup/);
   assert.match(app, /\/filament-config/);
   assert.match(app, /Official Snapmaker RFID filament controls its own type and colour/);
   assert.match(app, /FILAMENT_COLOR_FAMILIES/);
@@ -172,6 +173,19 @@ test('Snapmaker U1 uses one control and one command for third-party filament typ
   assert.doesNotMatch(app, /data-u1-filament-type-save/);
   assert.doesNotMatch(app, /data-u1-filament-color-save/);
   assert.match(styles, /\.u1-filament-config-control/);
+});
+
+test('all controller filament material editors use the U1-style fixed selector', () => {
+  assert.match(app, /const CONTROLLER_FILAMENT_TYPES = Object\.freeze/);
+  assert.match(app, /function filamentTypeSelectMarkup/);
+  assert.match(app, /inputAttributes:`data-u1-filament-type-input=/);
+  assert.match(app, /inputAttributes:`data-prusa-tool-material-input=/);
+  assert.match(app, /inputAttributes:'data-material-designation-input'/);
+  assert.doesNotMatch(app, /list="prusaMaterialTypes/);
+  assert.doesNotMatch(app, /list="flashforgeMaterialTypes/);
+  assert.doesNotMatch(app, /<datalist id="prusaMaterialTypes/);
+  assert.doesNotMatch(app, /<datalist id="flashforgeMaterialTypes/);
+  assert.match(app, /setFilamentTypeSelectValue/);
 });
 
 test('U1 print setup exposes native timelapse and filament safety controls', () => {
@@ -737,4 +751,12 @@ test('production batch controls occupy a separate responsive row below batch ite
   assert.match(styles, /\.production-batch\s*\{[\s\S]*?grid-template-columns:minmax\(0,1fr\)/);
   assert.match(styles, /\.production-actions\s*\{[\s\S]*?width:100%[\s\S]*?border-top/);
   assert.match(styles, /\.production-actions > button,[\s\S]*?\.production-actions > label \{ flex:1 1 170px; \}/);
+});
+
+
+test('unsupported cameras are hidden rather than shown as offline', () => {
+  assert.match(app, /if \(!printer\.capabilities\?\.camera\) return '';/);
+  assert.match(app, /if \(!printer\.online\) return '<div class="detail-camera camera-placeholder">Camera unavailable while printer is offline<\/div>';/);
+  assert.match(app, /if \(printer\.cameraAvailable === false\) return '<div class="detail-camera camera-placeholder">Camera unavailable<\/div>';/);
+  assert.match(app, /<div class="panel"\$\{capabilities\.camera \? ' style="margin-top:12px"' : ''\}>/);
 });

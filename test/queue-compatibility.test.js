@@ -98,6 +98,69 @@ test('Creator 5 compatibility maps multi-tool files across four loaded toolheads
   assert.deepEqual(result.toolMap, { '0':2, '1':0 });
 });
 
+test('Prusa INDX fixed-tool compatibility keeps logical and physical tool indices identical', () => {
+  const result = evaluateQueueCompatibility({
+    job:stagedJob,
+    printer:{ id:'prusa', name:'CORE One+ INDX 4' },
+    state:{ id:'prusa', name:'CORE One+ INDX 4', online:true, status:{ status:'idle', tools:[
+      { index:0, nozzleDiameter:0.4, filament:{ present:true, material:'PLA', color:'#FF0000' } },
+      { index:1, nozzleDiameter:0.6, filament:{ present:true, material:'PETG', color:'#00FF00' } },
+      { index:2, nozzleDiameter:0.4, filament:{ present:true, material:'PLA', color:'#0000FF' } },
+      { index:3, nozzleDiameter:0.4, filament:{ present:true, material:'ASA', color:'#FFFFFF' } }
+    ] } },
+    adapter:{
+      capabilities:{ fileUpload:true, localFiles:true, printLocalFile:true, fixedToolMapping:true },
+      limits:{ toolCount:4 },
+      uploadExtensions:['.gcode','.bgcode']
+    }
+  });
+  assert.equal(result.category, 'ready');
+  assert.deepEqual(result.toolMap, { '0':0, '1':1 });
+});
+
+test('Prusa INDX fixed-tool compatibility blocks a material loaded on the wrong tool index', () => {
+  const result = evaluateQueueCompatibility({
+    job:stagedJob,
+    printer:{ id:'prusa', name:'CORE One+ INDX 4' },
+    state:{ id:'prusa', name:'CORE One+ INDX 4', online:true, status:{ status:'idle', tools:[
+      { index:0, nozzleDiameter:0.6, filament:{ present:true, material:'PETG', color:'#00FF00' } },
+      { index:1, nozzleDiameter:0.4, filament:{ present:true, material:'PLA', color:'#FF0000' } },
+      { index:2, nozzleDiameter:0.4, filament:{ present:true, material:'PLA', color:'#0000FF' } },
+      { index:3, nozzleDiameter:0.4, filament:{ present:true, material:'ASA', color:'#FFFFFF' } }
+    ] } },
+    adapter:{
+      capabilities:{ fileUpload:true, localFiles:true, printLocalFile:true, fixedToolMapping:true },
+      limits:{ toolCount:4 },
+      uploadExtensions:['.gcode','.bgcode']
+    }
+  });
+  assert.equal(result.category, 'blocked');
+  assert.ok(result.reasons.some((reason) => reason.code === 'material_mismatch'));
+  assert.deepEqual(result.toolMap, { '0':0, '1':1 });
+});
+
+test('Prusa INDX fixed-tool compatibility requires review when per-tool metadata is unknown', () => {
+  const result = evaluateQueueCompatibility({
+    job:stagedJob,
+    printer:{ id:'prusa', name:'CORE One+ INDX 4' },
+    state:{ id:'prusa', name:'CORE One+ INDX 4', online:true, status:{ status:'idle', tools:[
+      { index:0, nozzleDiameter:null, filament:{ present:null, material:null, color:null } },
+      { index:1, nozzleDiameter:null, filament:{ present:null, material:null, color:null } },
+      { index:2, nozzleDiameter:null, filament:{ present:null, material:null, color:null } },
+      { index:3, nozzleDiameter:null, filament:{ present:null, material:null, color:null } }
+    ] } },
+    adapter:{
+      capabilities:{ fileUpload:true, localFiles:true, printLocalFile:true, fixedToolMapping:true },
+      limits:{ toolCount:4 },
+      uploadExtensions:['.gcode','.bgcode']
+    }
+  });
+  assert.equal(result.category, 'needs_review');
+  assert.ok(result.reasons.some((reason) => reason.code === 'material_unknown'));
+  assert.ok(result.reasons.some((reason) => reason.code === 'nozzle_unknown'));
+  assert.deepEqual(result.toolMap, { '0':0, '1':1 });
+});
+
 test('single-tool printer is incompatible with a two-tool file', () => {
   const result = evaluateQueueCompatibility({
     job:stagedJob,

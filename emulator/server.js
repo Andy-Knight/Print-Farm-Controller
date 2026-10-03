@@ -15,6 +15,7 @@ export const DEFAULT_EMULATOR_PRINTERS = Object.freeze([
   Object.freeze({ profileId:'flashforge-creator-5', name:'Simulated Creator 5' }),
   Object.freeze({ profileId:'flashforge-creator-5-pro', name:'Simulated Creator 5 Pro' }),
   Object.freeze({ profileId:'snapmaker-u1', name:'Simulated Snapmaker U1' }),
+  Object.freeze({ profileId:'prusa-core-one-plus', name:'Simulated Prusa CORE One+' }),
   Object.freeze({ profileId:'bambu-p1p', name:'Simulated Bambu Lab P1P' }),
   Object.freeze({ profileId:'bambu-p1s', name:'Simulated Bambu Lab P1S' }),
   Object.freeze({ profileId:'bambu-x1c', name:'Simulated Bambu Lab X1 Carbon' }),
@@ -82,6 +83,17 @@ function controllerSettings(printer) {
       cameraPort: printer.ports.cameraPort,
       tls: true,
       protocolStatus: 'simulated-unverified'
+    };
+  }
+  if (printer.protocol === 'prusalink') {
+    return {
+      ...common,
+      model: printer.model,
+      serialNumber: printer.serialNumber,
+      httpPort: printer.ports.httpPort,
+      toolCount: printer.tools.length,
+      prusaLinkUsername: 'maker',
+      prusaLinkPassword: printer.checkCode
     };
   }
   return { ...common, model: printer.model, httpPort: printer.ports.httpPort };

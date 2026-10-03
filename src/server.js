@@ -12,7 +12,9 @@ import {
   reorderPrinters,
   setPrinterLicenseSlotActive,
   setPrinterMaterialDesignation,
+  setPrinterToolMaterialDesignation,
   setPrinterNozzleDesignation,
+  setPrinterToolCount,
   controllerDataDir
 } from './store.js';
 import {
@@ -1564,9 +1566,20 @@ async function apiRoute(req, res, url) {
   if (req.method === 'POST' && url.pathname === '/api/printers') {
     const input = validateAddPrinter(await readJson(req));
     const result = await controllerMutations.run('printer-registry', async () => {
-      const simulatedCandidate = emulatorManager.isSimulatedConfig(input);
-      if (!simulatedCandidate) {
-        const configured = await listPrinters();
+      const simulatedInstanceId = emulatorManager.simulatedInstanceId(input);
+      const simulatedCandidate = Boolean(simulatedInstanceId);
+      const configured = await listPrinters();
+
+      if (simulatedCandidate) {
+        const duplicate = configured.find((printer) => (
+          emulatorManager.simulatedInstanceId(printer) === simulatedInstanceId
+        ));
+        if (duplicate) {
+          const error = new Error(`This virtual printer is already added as ${duplicate.name || 'a controller printer'}`);
+          error.statusCode = 409;
+          throw error;
+        }
+      } else {
         const physicalCount = configured.filter((printer) => !isControllerSimulator(printer)).length;
         licenseManager.requirePrinterCapacity(physicalCount);
       }
@@ -1757,7 +1770,7 @@ async function apiRoute(req, res, url) {
     || (req.method === 'POST' && action === 'camera')
     || (req.method === 'POST' && action === 'job')
     || (req.method === 'DELETE' && action === 'chamber-preheat')
-    || ['material-designation', 'nozzle-designation'].includes(action);
+    || ['material-designation', 'tool-material-designation', 'nozzle-designation', 'tool-configuration'].includes(action);
   if (licenseAccess?.licenseActive === false && !inactiveAllowed) {
     throw new Error('Printer is inactive because it does not currently have a licence slot. Select it for a licence slot before sending new control commands.');
   }
@@ -1842,6 +1855,36 @@ async function apiRoute(req, res, url) {
     });
   }
 
+  if (action === 'tool-material-designation' && (req.method === 'POST' || req.method === 'DELETE')) {
+    if (!adapter.capabilities?.toolMaterialDesignation) {
+      throw new Error('Per-tool material designation is not supported by this printer');
+    }
+    const body = req.method === 'POST' ? await readJson(req) : {};
+    const toolIndex = Number(req.method === 'POST' ? body.toolIndex : url.searchParams.get('toolIndex'));
+    if (!Number.isInteger(toolIndex)) throw new Error('toolIndex is required');
+
+    const updated = await controllerMutations.run('printer-registry', () => runPrinterMutation(id, 'tool material designation change', async () => {
+      const value = await setPrinterToolMaterialDesignation(
+        id,
+        toolIndex,
+        req.method === 'POST' ? body.material : null,
+        req.method === 'POST' ? body.color : null,
+        req.method === 'POST' ? body.colorFamily : null
+      );
+      if (!value) throw new Error('Printer not found');
+      await fleetState.syncRegistry();
+      return value;
+    }, { allowInactive:true, operationType:PRINTER_OPERATION_TYPES.MATERIAL_DESIGNATION }));
+
+    fleetState.refreshNow(id).catch(() => {});
+    return json(res, 200, {
+      ok:true,
+      printer:publicPrinter(updated),
+      toolIndex,
+      designation:updated.adapterConfig?.toolDesignations?.[String(toolIndex)] || null
+    });
+  }
+
   if (action === 'nozzle-designation' && (req.method === 'POST' || req.method === 'DELETE')) {
     if (!adapter.capabilities?.nozzleDesignation) throw new Error('Manual nozzle designation is not supported by this printer');
     const body = req.method === 'POST' ? await readJson(req) : {};
@@ -1858,6 +1901,32 @@ async function apiRoute(req, res, url) {
       nozzleDiameterDesignation: Number.isFinite(Number(updated.adapterConfig?.nozzleDiameterDesignation))
         ? Number(updated.adapterConfig.nozzleDiameterDesignation)
         : null
+    });
+  }
+
+  if (action === 'tool-configuration' && req.method === 'POST') {
+    if (!adapter.capabilities?.toolConfiguration) {
+      throw new Error('Tool configuration is not supported by this printer');
+    }
+    const body = await readJson(req);
+    const requestedToolCount = Number(body.toolCount);
+    const allowed = Array.isArray(adapter.limits?.toolConfigurations)
+      ? adapter.limits.toolConfigurations.map((item) => Number(item.count))
+      : [];
+    if (!allowed.includes(requestedToolCount)) {
+      throw new Error(`Unsupported tool configuration. Choose one of: ${allowed.join(', ')}`);
+    }
+    const updated = await controllerMutations.run('printer-registry', () => runPrinterMutation(id, 'tool configuration change', async () => {
+      const value = await setPrinterToolCount(id, requestedToolCount);
+      if (!value) throw new Error('Printer not found');
+      await fleetState.syncRegistry();
+      return value;
+    }, { allowInactive:true, operationType:PRINTER_OPERATION_TYPES.TOOL_CONFIGURATION }));
+    fleetState.refreshNow(id).catch(() => {});
+    return json(res, 200, {
+      ok:true,
+      printer:publicPrinter(updated),
+      configuredToolCount:Number(updated.adapterConfig?.toolCount || 1)
     });
   }
 
@@ -1901,7 +1970,7 @@ async function apiRoute(req, res, url) {
   }
 
   if (req.method === 'GET' && action === 'print-setup') {
-    if (!adapter.capabilities?.printToolMapping && !adapter.capabilities?.materialSlotMapping) throw new Error('Print material mapping is not supported by this printer');
+    if (!adapter.capabilities?.printToolMapping && !adapter.capabilities?.fixedToolMapping && !adapter.capabilities?.materialSlotMapping) throw new Error('Print material mapping is not supported by this printer');
     const fileName = String(url.searchParams.get('fileName') || '').trim();
     if (!fileName) throw new Error('fileName is required');
     return json(res, 200, await adapter.getPrintSetup(fileName));

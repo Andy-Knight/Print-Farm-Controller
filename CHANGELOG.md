@@ -4,6 +4,23 @@ This file contains the version-by-version release history for Print Farm Control
 
 Historical entries describe the behaviour of the controller at the time of that release and may be superseded by later versions. For current installation, configuration and supported-hardware guidance, see [README.md](README.md).
 
+## v0.39.0
+
+- Adds initial **Prusa CORE One+** support through the printer's built-in local PrusaLink HTTP API, without requiring Prusa Connect cloud access.
+- Marks CORE One+ support in the **Add Printer** dropdown as **Experimental** while physical validation is still pending.
+- Refactors Prusa support into a reusable **PrusaLink family adapter** plus model-profile catalogue. PrusaLink model profiles auto-register with the controller; CORE One+ is now a thin model-specific wrapper/profile rather than owning protocol/authentication/file/job-control logic.
+- Adds PrusaLink Digest authentication using the local username/password shown by the printer, with optional `X-Api-Key` authentication for firmware/configurations that expose an API key.
+- Supports live printer/job status, nozzle and bed telemetry, printer-local printable-file browsing, streamed `.gcode` / `.bgcode` upload, post-upload file verification, print start, and pause/resume/cancel.
+- Supports **Standard 1-tool**, **INDX 4-tool** and **INDX 8-tool** CORE One+ configurations. A printer can be switched between those controller configurations from printer details after an INDX hardware upgrade, without deleting/re-adding it; changes are blocked while the printer is active.
+- INDX queue compatibility uses fixed sliced tool indices (T0→T0, T1→T1, etc.) rather than U1-style remapping. Known per-tool material/nozzle/colour mismatches block unattended scheduling, while missing PrusaLink per-tool metadata requires review rather than being guessed.
+- Adds controller-side material/colour assignment for every Prusa physical tool. Standard T0 and INDX T0–T7 can each be assigned independently; the chosen colour family is stored persistently, rendered on dashboard/toolhead swatches and consumed by automatic queue colour compatibility. Clearing an assignment returns that tool to any PrusaLink-reported metadata.
+- Exposes manual filament and nozzle designation for the standard single-tool configuration while retaining the nozzle diameter reported by PrusaLink when available.
+- Uses the standard CORE One+ limits of 290 °C nozzle, 120 °C heatbed, 55 °C chamber and 250 × 220 × 270 mm build volume. INDX 4/8 configurations use 300 °C nozzle metadata and a 248 × 205 × 270 mm usable build volume. Temperature/chamber control and camera streaming remain disabled until their local control paths are validated on physical hardware.
+- Adds Prusa CORE One+ simulator profiles for Standard 1-tool, INDX 4-tool and INDX 8-tool configurations. The local PrusaLink emulator covers Digest authentication, per-tool status/metadata, storage/files, upload verification, print start and pause/resume/cancel, with end-to-end interoperability coverage against the production adapter.
+- Adds matching **400 × 190** dashboard artwork for the Prusa CORE One+, using the same contained WebP asset treatment and regression checks as the existing supported-printer images.
+- UI consistency: standardizes filament-type selection across U1, Prusa and FlashForge controller-managed filament assignments using the same fixed U1-style dropdown. The previous Prusa/FlashForge editable datalist fields are removed; unexpected printer-reported material names remain visible without becoming free-text choices.
+- Adds regression coverage for adapter registration/configuration, capability boundaries, PrusaLink state normalization, Digest authorization construction, file-tree flattening, status telemetry normalization and simulator interoperability.
+
 ## v0.38.1
 
 - Fixes Print Library **Edit details** filament-cost assignments not being persisted. The form was collecting per-tool filament selections correctly but the browser metadata update helper omitted `filamentAssignments` from the PATCH request.

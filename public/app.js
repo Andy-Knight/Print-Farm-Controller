@@ -386,6 +386,7 @@ function dashboardPrinterImageKey(printer) {
   const model = String(printer?.model || '').trim().toLowerCase();
 
   if (adapterType === 'snapmaker-u1') return 'snapmaker-u1';
+  if (adapterType === 'prusa-core-one-plus') return 'prusa-core-one-plus';
   if (adapterType === 'flashforge-ad5m') return 'ad5m-pro';
   if (adapterType === 'flashforge-creator5') return model.includes('pro') ? 'creator-5-pro' : 'creator-5';
   if (adapterType === 'bambu-lab') {
@@ -3414,7 +3415,11 @@ async function loadAdapters() {
   try {
     const result = await api('/api/adapters');
     adapters = result.adapters || [];
-    adapterTypeSelect.innerHTML = adapters.map((adapter) => `<option value="${escapeHtml(adapter.type)}">${escapeHtml(adapter.label || adapter.type)}</option>`).join('');
+    adapterTypeSelect.innerHTML = adapters.map((adapter) => {
+      const label = adapter.label || adapter.type;
+      const displayLabel = adapter.experimental ? `${label} (Experimental)` : label;
+      return `<option value="${escapeHtml(adapter.type)}">${escapeHtml(displayLabel)}</option>`;
+    }).join('');
     if (!adapterTypeSelect.value && adapters.length) adapterTypeSelect.value = adapters[0].type;
     renderAdapterFields(adapterTypeSelect.value);
     populateLibraryPrinterTargetOptions();
@@ -3435,10 +3440,9 @@ function virtualPrinterAlreadyAdded(virtualPrinter) {
     'flashforge-creator5':['httpPort'],
     'snapmaker-u1':['httpPort'],
     'bambu-lab':['mqttPort','ftpsPort']
-  }[settings.adapterType] || [];
+  }[settings.adapterType] || (virtualPrinter?.protocol === 'prusalink' || virtualPrinter?.manufacturer === 'Prusa' ? ['httpPort'] : []);
 
   return fleet.some((printer) => {
-    if (printer.simulated !== true) return false;
     if (String(printer.adapterType || '') !== String(settings.adapterType || '')) return false;
     if (String(printer.host || '').trim().toLowerCase() !== String(settings.host || '').trim().toLowerCase()) return false;
     if (settings.serialNumber && printer.serialNumber && String(printer.serialNumber) !== String(settings.serialNumber)) return false;
@@ -4568,7 +4572,9 @@ batchActionDialog.addEventListener('close', () => {
 });
 
 function detailCameraMarkup(printer) {
-  if (!printer.capabilities?.camera || !printer.online || printer.cameraAvailable === false) return '<div class="detail-camera camera-placeholder">Camera unavailable while printer is offline</div>';
+  if (!printer.capabilities?.camera) return '';
+  if (!printer.online) return '<div class="detail-camera camera-placeholder">Camera unavailable while printer is offline</div>';
+  if (printer.cameraAvailable === false) return '<div class="detail-camera camera-placeholder">Camera unavailable</div>';
   const cameraUrl = `/api/printers/${encodeURIComponent(printer.id)}/camera/stream`;
   return `<img class="detail-camera" src="${escapeHtml(cameraUrl)}" alt="${escapeHtml(printer.name)} camera">`;
 }
@@ -4636,10 +4642,44 @@ function filamentColorDisplayText(filament = {}) {
   return family || exact;
 }
 
-const SNAPMAKER_U1_FILAMENT_TYPES = [
-  'PLA', 'PETG', 'ABS', 'ASA', 'TPU', 'PVA', 'PA', 'PA-CF', 'PA-GF',
-  'PA6-CF', 'PA6-GF', 'PC', 'PC-ABS', 'PETG-CF', 'PLA-CF', 'PEBA'
-];
+const CONTROLLER_FILAMENT_TYPES = Object.freeze([
+  'PLA', 'PETG', 'ABS', 'ASA', 'TPU', 'PVA', 'PA', 'Nylon',
+  'PA-CF', 'PA-GF', 'PA6-CF', 'PA6-GF', 'PC', 'PC-ABS',
+  'PLA-CF', 'PETG-CF', 'ASA-CF', 'PC-CF', 'HIPS', 'PP', 'PET', 'PEBA'
+]);
+
+function filamentTypeSelectMarkup({
+  value = '',
+  inputAttributes = '',
+  disabled = false,
+  placeholder = 'Select type'
+} = {}) {
+  const raw = String(value || '').trim();
+  const match = CONTROLLER_FILAMENT_TYPES.find((item) => item.toLowerCase() === raw.toLowerCase()) || '';
+  const selectedValue = match || raw;
+  const options = selectedValue && !CONTROLLER_FILAMENT_TYPES.includes(selectedValue)
+    ? [selectedValue, ...CONTROLLER_FILAMENT_TYPES]
+    : [...CONTROLLER_FILAMENT_TYPES];
+  return `<select ${inputAttributes}${disabled ? ' disabled' : ''}>
+    <option value=""${selectedValue ? '' : ' selected'}>${escapeHtml(placeholder)}</option>
+    ${options.map((item) => `<option value="${escapeHtml(item)}"${item === selectedValue ? ' selected' : ''}>${escapeHtml(item)}</option>`).join('')}
+  </select>`;
+}
+
+function setFilamentTypeSelectValue(select, value) {
+  if (!select) return;
+  const raw = String(value || '').trim();
+  const normalized = CONTROLLER_FILAMENT_TYPES.find((item) => item.toLowerCase() === raw.toLowerCase()) || raw;
+  for (const option of [...select.querySelectorAll('option[data-dynamic-filament]')]) option.remove();
+  if (normalized && ![...select.options].some((option) => option.value === normalized)) {
+    const option = document.createElement('option');
+    option.value = normalized;
+    option.textContent = normalized;
+    option.dataset.dynamicFilament = '1';
+    select.append(option);
+  }
+  select.value = normalized;
+}
 
 function u1FilamentConfigEditState(printer, tool = {}) {
   const filament = tool.filament || {};
@@ -4660,17 +4700,50 @@ function u1FilamentConfigControlMarkup(printer, tool = {}) {
   if (printer?.adapterType !== 'snapmaker-u1' || !printer?.capabilities?.filamentTypeControl || !printer?.capabilities?.filamentColorControl) return '';
   const filament = tool.filament || {};
   const state = u1FilamentConfigEditState(printer, tool);
-  const material = String(filament.material || '').trim().toUpperCase();
-  const knownMaterial = SNAPMAKER_U1_FILAMENT_TYPES.includes(material);
+  const material = String(filament.material || '').trim();
   const familyOption = filamentColorFamilyOption(filament.colorFamily);
   return `<div class="u1-filament-config-control" data-u1-filament-config-control="${tool.index}">
-    <label>Filament type<select data-u1-filament-type-input="${tool.index}"${state.enabled ? '' : ' disabled'}>
-      <option value=""${knownMaterial ? '' : ' selected'}>Select type</option>
-      ${SNAPMAKER_U1_FILAMENT_TYPES.map((value) => `<option value="${value}"${value === material ? ' selected' : ''}>${value}</option>`).join('')}
-    </select></label>
+    <label>Filament type${filamentTypeSelectMarkup({
+      value:material,
+      inputAttributes:`data-u1-filament-type-input="${tool.index}"`,
+      disabled:!state.enabled,
+      placeholder:'Select type'
+    })}</label>
     <label>Colour family${colorFamilyDropdownMarkup({ value:familyOption?.value || '', inputAttributes:`data-u1-filament-color-family-input="${tool.index}"`, disabled:!state.enabled, placeholder:'Select colour' })}</label>
     <button type="button" class="secondary" data-u1-filament-config-save="${tool.index}"${state.enabled ? '' : ' disabled'}>Set filament on U1</button>
     <small data-u1-filament-config-help="${tool.index}">${escapeHtml(state.message)}</small>
+  </div>`;
+}
+
+function prusaToolMaterialDesignationMarkup(printer, tool = {}) {
+  if (printer?.manufacturer !== 'Prusa' || !printer?.capabilities?.toolMaterialDesignation) return '';
+  const filament = tool.filament || {};
+  const material = filament.materialSource === 'manual'
+    ? String(filament.material || '')
+    : String(filament.reportedMaterial || filament.material || '');
+  const family = filament.colorFamilySource === 'manual'
+    ? String(filament.colorFamily || '')
+    : String(filament.reportedColorFamily || filament.colorFamily || '');
+  const familyOption = filamentColorFamilyOption(family);
+  const reportedMaterial = String(filament.reportedMaterial || '').trim();
+  const reportedFamily = filamentColorFamilyOption(filament.reportedColorFamily);
+  const hasReported = Boolean(reportedMaterial || reportedFamily || filament.reportedColor);
+  return `<div class="prusa-tool-filament-control" data-prusa-tool-filament-control="${tool.index}">
+    <label>Material type
+      ${filamentTypeSelectMarkup({
+        value:material,
+        inputAttributes:`data-prusa-tool-material-input="${tool.index}"`,
+        placeholder:'Select type'
+      })}
+    </label>
+    <label>Colour family
+      ${colorFamilyDropdownMarkup({ value:familyOption?.value || '', inputAttributes:`data-prusa-tool-color-family-input="${tool.index}"`, placeholder:'Select colour' })}
+    </label>
+    <div class="mini-actions">
+      <button type="button" class="secondary" data-prusa-tool-material-save="${tool.index}">Assign T${tool.index}</button>
+      <button type="button" class="secondary" data-prusa-tool-material-clear="${tool.index}">Clear assignment</button>
+    </div>
+    <small>Stored by Print Farm Controller for physical T${tool.index}. The selected colour family drives the dashboard swatch and automatic colour compatibility. Clearing removes the controller assignment${hasReported ? ' and returns this tool to the values reported by PrusaLink.' : '; any values not reported by PrusaLink become unknown.'}</small>
   </div>`;
 }
 
@@ -4685,17 +4758,19 @@ function flashForgeMaterialDesignationMarkup(printer, filament = {}) {
   const familyOption = filamentColorFamilyOption(manualFamily);
   const reported = filament.reportedMaterial || (filament.materialSource === 'printer' ? filament.material : null);
   const clearLabel = reported ? 'Use printer value' : 'Clear designation';
-  const options = ['PLA','PETG','ABS','ASA','TPU','PC','PA','Nylon','PVA','HIPS','PP','PET','PLA-CF','PETG-CF','ASA-CF','PA-CF','PC-CF'];
   return `<div class="material-designation-control">
     <div class="material-designation-fields">
       <label>Controller material type
-        <input type="text" data-material-designation-input value="${escapeHtml(manualValue)}" list="flashforgeMaterialTypes" maxlength="48" placeholder="e.g. PLA, PETG, ASA" autocomplete="off" />
+        ${filamentTypeSelectMarkup({
+          value:manualValue,
+          inputAttributes:'data-material-designation-input',
+          placeholder:'Select type'
+        })}
       </label>
       <label>Controller colour family
         ${colorFamilyDropdownMarkup({ value:familyOption?.value || '', inputAttributes:'data-material-color-family-input', placeholder:'Select colour family' })}
       </label>
     </div>
-    <datalist id="flashforgeMaterialTypes">${options.map((value) => `<option value="${escapeHtml(value)}"></option>`).join('')}</datalist>
     <div class="mini-actions"><button type="button" class="secondary" data-material-designation-save>Assign filament</button><button type="button" class="secondary" data-material-designation-clear>${escapeHtml(clearLabel)}</button></div>
     <div class="field-help">The colour family is used for automatic queue compatibility. Exact shade selection is not required.${reported ? ` Printer currently reports material ${escapeHtml(reported)}.` : ''}</div>
   </div>`;
@@ -4710,14 +4785,38 @@ function flashForgeNozzleDesignationMarkup(printer, tool = {}) {
     ? Number(tool.reportedNozzleDiameter)
     : null;
   const clearLabel = reported ? 'Use printer value' : 'Clear designation';
-  const options = [0.25, 0.4, 0.6, 0.8];
+  const options = printer?.manufacturer === 'Prusa'
+    ? [0.25, 0.4, 0.5, 0.6, 0.8, 1.0]
+    : [0.25, 0.4, 0.6, 0.8];
+  const unavailableHelp = printer?.manufacturer === 'Prusa'
+    ? 'PrusaLink may not report every installed nozzle size, so this controller designation is used when a supported single-tool Prusa model needs an explicit nozzle value.'
+    : 'FlashForge firmware does not reliably report the installed nozzle size, so set this whenever you change the nozzle.';
   return `<div class="material-designation-control nozzle-designation-control">
     <label>Controller nozzle designation
       <input type="number" data-nozzle-designation-input value="${escapeHtml(manualValue)}" list="flashforgeNozzleSizes" min="0.1" max="1.2" step="0.05" placeholder="e.g. 0.4" />
     </label>
     <datalist id="flashforgeNozzleSizes">${options.map((value) => `<option value="${value}"></option>`).join('')}</datalist>
     <div class="mini-actions"><button type="button" class="secondary" data-nozzle-designation-save>Assign nozzle</button><button type="button" class="secondary" data-nozzle-designation-clear>${escapeHtml(clearLabel)}</button></div>
-    <div class="field-help">Stored by Print Farm Controller for this printer and used by automatic queue compatibility.${reported ? ` Printer currently reports ${escapeHtml(nozzleDiameterText(reported))}.` : ' FlashForge firmware does not reliably report the installed nozzle size, so set this whenever you change the nozzle.'}</div>
+    <div class="field-help">Stored by Print Farm Controller for this printer and used by automatic queue compatibility.${reported ? ` Printer currently reports ${escapeHtml(nozzleDiameterText(reported))}.` : ` ${escapeHtml(unavailableHelp)}`}</div>
+  </div>`;
+}
+
+function toolConfigurationMarkup(printer, limits = {}) {
+  if (!printer?.capabilities?.toolConfiguration) return '';
+  const options = Array.isArray(limits.toolConfigurations) ? limits.toolConfigurations : [];
+  if (!options.length) return '';
+  const current = options.some((option) => Number(option.count) === Number(printer.configuredToolCount))
+    ? Number(printer.configuredToolCount)
+    : Number(limits.toolCount || options[0].count);
+  const hasFixedMapping = options.some((option) => option.mappingMode === 'fixed-tool-index');
+  return `<div class="material-designation-control tool-configuration-control">
+    <label>Installed tool system
+      <select data-tool-configuration-input>
+        ${options.map((option) => `<option value="${Number(option.count)}"${Number(option.count) === current ? ' selected' : ''}>${escapeHtml(option.label || `${option.count} tools`)}</option>`).join('')}
+      </select>
+    </label>
+    <div class="mini-actions"><button type="button" class="secondary" data-tool-configuration-save>Save tool configuration</button></div>
+    <div class="field-help">Use this after changing the physical tool system on the printer. It changes controller scheduling, tool-count and model-limit rules only; it does not modify printer firmware.${hasFixedMapping ? ' Fixed-index tool configurations retain the tool numbers selected by the sliced file.' : ''}</div>
   </div>`;
 }
 
@@ -5425,7 +5524,7 @@ function updateOpenPrinterTelemetry() {
       if (u1TypeInput) {
         const reportedMaterial = String(filament.material || '').trim().toUpperCase();
         if (!u1EditPending && document.activeElement !== u1TypeInput) {
-          u1TypeInput.value = SNAPMAKER_U1_FILAMENT_TYPES.includes(reportedMaterial) ? reportedMaterial : '';
+          setFilamentTypeSelectValue(u1TypeInput, reportedMaterial);
         }
         u1TypeInput.disabled = !u1ConfigState.enabled;
       }
@@ -5635,6 +5734,8 @@ async function openPrinter(id) {
         ? 'Creator 5 material type, colour and filament-presence state come from the four material-station/toolhead slots reported by the local /detail API. The installed nozzle size is controller-designated and currently applies to all four toolheads.'
       : printer.adapterType === 'bambu-lab'
         ? 'Material and colour come from the active external-spool or AMS/AMS Lite tray metadata reported by the Bambu LAN interface. Bambu support is experimental until checked against physical P1P, P1S, X1C and A1 Mini hardware.'
+      : printer.manufacturer === 'Prusa'
+        ? `${printer.model || 'Prusa printer'} is configured for ${Number(limits.toolCount || tools.length || 1)} tool${Number(limits.toolCount || tools.length || 1) === 1 ? '' : 's'}.${capabilities.fixedToolMapping ? ' This configuration uses fixed sliced tool indices; the controller does not silently remap a sliced tool to another physical tool.' : ''} Per-tool material/nozzle data is used when PrusaLink reports it; unknown values require review before unattended multi-tool scheduling.`
         : 'Filament presence comes from each U1 motion sensor. Third-party filament type and colour can be written to the idle printer and are verified by reading the effective per-tool configuration back. Official Snapmaker RFID filament remains locked. Nozzle size and XYZ offset come directly from each physical U1 extruder.';
     const bambuSources = printer.adapterType === 'bambu-lab' && Array.isArray(s?.materialSources)
       ? `<div class="ams-source-grid">${s.materialSources.map((source) => {
@@ -5661,13 +5762,15 @@ async function openPrinter(id) {
           ${capabilities.toolheadNozzleStatus ? `<small data-tool-nozzle="${tool.index}">${escapeHtml(`${nozzleDiameterText(tool.nozzleDiameter)}${tool.nozzleVolumeType ? ` · ${tool.nozzleVolumeType}` : ''}`)}</small>` : ''}
           ${capabilities.toolheadNozzleStatus ? `<small data-tool-offset="${tool.index}">${escapeHtml(toolOffsetText(tool.offset))}</small>` : ''}
           <small data-material-meta="${tool.index}">${escapeHtml(filamentMetaText(filament))}</small>
-          ${['snapmaker-u1','flashforge-ad5m','flashforge-creator5','bambu-lab'].includes(printer.adapterType) ? `<small class="material-rgb${filamentColorDisplayText(filament) ? '' : ' hidden'}" data-material-rgb="${tool.index}">${escapeHtml(filamentColorDisplayText(filament) || '')}</small>` : ''}
+          ${(['snapmaker-u1','flashforge-ad5m','flashforge-creator5','bambu-lab'].includes(printer.adapterType) || printer.manufacturer === 'Prusa') ? `<small class="material-rgb${filamentColorDisplayText(filament) ? '' : ' hidden'}" data-material-rgb="${tool.index}">${escapeHtml(filamentColorDisplayText(filament) || '')}</small>` : ''}
           ${printer.adapterType === 'snapmaker-u1' ? u1FilamentConfigControlMarkup(printer, tool) : ''}
+          ${printer.manufacturer === 'Prusa' ? prusaToolMaterialDesignationMarkup(printer, tool) : ''}
         </div>`;
       }).join('')}</div>
       ${bambuSources}
       ${printer.adapterType === 'flashforge-ad5m' ? flashForgeMaterialDesignationMarkup(printer, tools[0]?.filament || {}) : ''}
-      ${['flashforge-ad5m','flashforge-creator5'].includes(printer.adapterType) ? flashForgeNozzleDesignationMarkup(printer, tools[0] || {}) : ''}
+      ${(['flashforge-ad5m','flashforge-creator5'].includes(printer.adapterType) || printer.manufacturer === 'Prusa') ? flashForgeNozzleDesignationMarkup(printer, tools[0] || {}) : ''}
+      ${toolConfigurationMarkup(printer, limits)}
       <div class="field-help material-help">${escapeHtml(materialHelp)}</div>
     </div>`;
   })() : '';
@@ -5719,7 +5822,7 @@ async function openPrinter(id) {
     <div class="detail-grid">
       <div class="detail-column detail-column-left">
         ${detailCameraMarkup(printer)}
-        <div class="panel" style="margin-top:12px">
+        <div class="panel"${capabilities.camera ? ' style="margin-top:12px"' : ''}>
           <h3>Current job</h3>
           <div class="job"><span class="job-name" data-detail-file>${escapeHtml(s?.fileName || 'No active job')}</span><b data-detail-progress>${Math.round(s?.progress || 0)}%</b></div>
           <div class="progress"><span data-detail-progress-bar style="width:${Math.round(s?.progress || 0)}%"></span></div>
@@ -5992,6 +6095,69 @@ ${flashForgePreflight}` : ''}`)) return;
     finally { button.textContent = original; updateOpenPrinterTelemetry(); }
   });
 
+  printerDetail.querySelectorAll('[data-prusa-tool-material-save]').forEach((button) => button.onclick = async () => {
+    const toolIndex = Number(button.dataset.prusaToolMaterialSave);
+    const materialInput = printerDetail.querySelector(`[data-prusa-tool-material-input="${toolIndex}"]`);
+    const colorFamilyInput = printerDetail.querySelector(`[data-prusa-tool-color-family-input="${toolIndex}"]`);
+    const material = String(materialInput?.value || '').trim();
+    const colorFamily = String(colorFamilyInput?.value || '').trim().toLowerCase();
+    const colorOption = filamentColorFamilyOption(colorFamily);
+    if (!colorOption) { showError(new Error('Choose a filament colour family.')); return; }
+
+    const original = button.textContent;
+    button.disabled = true;
+    button.textContent = 'Saving…';
+    try {
+      const result = await api(`/api/printers/${id}/tool-material-designation`, {
+        method:'POST',
+        body:JSON.stringify({ toolIndex, material:material || null, colorFamily, color:colorOption.representative })
+      });
+      const designation = result.designation || {};
+      const tool = printer.status?.tools?.find((item) => Number(item.index) === toolIndex);
+      const filament = tool?.filament;
+      if (filament) {
+        filament.material = designation.material || filament.reportedMaterial || null;
+        filament.materialSource = designation.material ? 'manual' : (filament.reportedMaterial ? 'printer' : null);
+        filament.color = designation.color || filament.reportedColor || null;
+        filament.colorSource = designation.color ? 'manual' : (filament.reportedColor ? 'printer' : null);
+        filament.colorFamily = designation.colorFamily || filament.reportedColorFamily || null;
+        filament.colorFamilySource = designation.colorFamily ? 'manual' : (filament.reportedColorFamily ? 'printer' : null);
+        filament.manuallyAssigned = Boolean(designation.material || designation.color || designation.colorFamily);
+        filament.metadataAvailable = Boolean(filament.material || filament.color || filament.colorFamily);
+      }
+      updateOpenPrinterTelemetry();
+    } catch (error) { showError(error); }
+    finally { button.disabled = false; button.textContent = original; }
+  });
+
+  printerDetail.querySelectorAll('[data-prusa-tool-material-clear]').forEach((button) => button.onclick = async () => {
+    const toolIndex = Number(button.dataset.prusaToolMaterialClear);
+    const original = button.textContent;
+    button.disabled = true;
+    button.textContent = 'Clearing…';
+    try {
+      await api(`/api/printers/${id}/tool-material-designation?toolIndex=${toolIndex}`, { method:'DELETE' });
+      const tool = printer.status?.tools?.find((item) => Number(item.index) === toolIndex);
+      const filament = tool?.filament;
+      if (filament) {
+        filament.material = filament.reportedMaterial || null;
+        filament.materialSource = filament.reportedMaterial ? 'printer' : null;
+        filament.color = filament.reportedColor || null;
+        filament.colorSource = filament.reportedColor ? 'printer' : null;
+        filament.colorFamily = filament.reportedColorFamily || null;
+        filament.colorFamilySource = filament.reportedColorFamily ? 'printer' : null;
+        filament.manuallyAssigned = false;
+        filament.metadataAvailable = Boolean(filament.material || filament.color || filament.colorFamily);
+      }
+      const materialInput = printerDetail.querySelector(`[data-prusa-tool-material-input="${toolIndex}"]`);
+      const colorFamilyInput = printerDetail.querySelector(`[data-prusa-tool-color-family-input="${toolIndex}"]`);
+      if (materialInput) setFilamentTypeSelectValue(materialInput, filament?.reportedMaterial || '');
+      if (colorFamilyInput) setColorFamilyDropdownValue(colorFamilyInput, filament?.reportedColorFamily || '');
+      updateOpenPrinterTelemetry();
+    } catch (error) { showError(error); }
+    finally { button.disabled = false; button.textContent = original; }
+  });
+
   const materialColorFamilyInput = printerDetail.querySelector('[data-material-color-family-input]');
 
   const materialDesignationSave = printerDetail.querySelector('[data-material-designation-save]');
@@ -6048,7 +6214,7 @@ ${flashForgePreflight}` : ''}`)) return;
         updateOpenPrinterTelemetry();
       }
       const input = printerDetail.querySelector('[data-material-designation-input]');
-      if (input) input.value = '';
+      if (input) setFilamentTypeSelectValue(input, '');
       if (materialColorFamilyInput) setColorFamilyDropdownValue(materialColorFamilyInput, '');
     } catch (error) { showError(error); }
     finally { materialDesignationClear.disabled = false; materialDesignationClear.textContent = original; }
@@ -6101,6 +6267,36 @@ ${flashForgePreflight}` : ''}`)) return;
       if (input) input.value = '';
     } catch (error) { showError(error); }
     finally { nozzleDesignationClear.disabled = false; nozzleDesignationClear.textContent = original; }
+  };
+
+  const toolConfigurationSave = printerDetail.querySelector('[data-tool-configuration-save]');
+  if (toolConfigurationSave) toolConfigurationSave.onclick = async () => {
+    const input = printerDetail.querySelector('[data-tool-configuration-input]');
+    const toolCount = Number(input?.value);
+    const options = Array.isArray(printer.limits?.toolConfigurations) ? printer.limits.toolConfigurations : [];
+    const selected = options.find((option) => Number(option.count) === toolCount);
+    if (!selected) {
+      showError(new Error('Choose a valid tool configuration for this printer.'));
+      return;
+    }
+    const current = Number(printer.configuredToolCount || printer.limits?.toolCount || options[0]?.count || 1);
+    if (toolCount === current) return;
+    if (!confirm(`Change ${printer.name} to the ${selected.label || `${toolCount}-tool`} configuration?\n\nThis changes controller scheduling and compatibility rules. It does not change the printer firmware or install hardware.`)) return;
+    const original = toolConfigurationSave.textContent;
+    toolConfigurationSave.disabled = true;
+    toolConfigurationSave.textContent = 'Saving…';
+    try {
+      await api(`/api/printers/${id}/tool-configuration`, {
+        method:'POST',
+        body:JSON.stringify({ toolCount })
+      });
+      await loadInitialFleet();
+      await openPrinter(id);
+    } catch (error) {
+      showError(error);
+      toolConfigurationSave.disabled = false;
+      toolConfigurationSave.textContent = original;
+    }
   };
 
   printerDetail.querySelectorAll('[data-set-temp]').forEach((btn) => btn.onclick = () => {

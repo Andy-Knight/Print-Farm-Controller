@@ -27,16 +27,19 @@ export const DEFAULT_CAPABILITIES = Object.freeze({
   chamberTemperatureControl: false,
   materialStatus: false,
   materialDesignation: false,
+  toolMaterialDesignation: false,
   filamentTypeControl: false,
   filamentColorControl: false,
   nozzleDesignation: false,
   printToolMapping: false,
+  fixedToolMapping: false,
   materialSlotMapping: false,
   flowCalibrationBeforePrint: false,
   timeLapseBeforePrint: false,
   autoFilamentReplenishment: false,
   filamentEntanglementDetection: false,
   toolheadNozzleStatus: false,
+  toolConfiguration: false,
   toolheadOffsetCalibration: false
 });
 

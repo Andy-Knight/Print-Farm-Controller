@@ -67,6 +67,59 @@ function toolMatches(required, physical) {
   return true;
 }
 
+function mapFixedLogicalTools(requirements = {}, status = {}) {
+  const logicalTools = Array.isArray(requirements.logicalTools) ? requirements.logicalTools : [];
+  const physicalTools = Array.isArray(status.tools) ? status.tools : [];
+  if (!logicalTools.length) return { ok:true, toolMap:null, reasons:[], review:[] };
+
+  const toolMap = {};
+  const reasons = [];
+  const review = [];
+
+  for (const logical of logicalTools) {
+    const logicalIndex = Number(logical?.index);
+    if (!Number.isInteger(logicalIndex) || logicalIndex < 0) continue;
+    const physical = physicalTools.find((tool) => Number(tool?.index) === logicalIndex);
+    if (!physical) {
+      reasons.push({ code:'tool_not_available', text:`File requires T${logicalIndex}, but that physical tool is not available` });
+      continue;
+    }
+    toolMap[String(logicalIndex)] = logicalIndex;
+    const filament = physical.filament || {};
+    if (filament.present === false) {
+      reasons.push({ code:'filament_absent', text:`Physical T${logicalIndex} has no filament loaded` });
+      continue;
+    }
+
+    const requiredMaterial = canonicalMaterial(logical.material);
+    const currentMaterial = canonicalMaterial(filament.material);
+    if (requiredMaterial && !currentMaterial) {
+      review.push({ code:'material_unknown', text:`Physical T${logicalIndex} material is unknown for file T${logicalIndex} (${logical.material})` });
+    } else if (requiredMaterial && currentMaterial && requiredMaterial !== currentMaterial) {
+      reasons.push({ code:'material_mismatch', text:`Physical T${logicalIndex} material ${filament.material} does not match required ${logical.material}` });
+    }
+
+    if (logical.nozzleDiameter != null && (physical.nozzleDiameter == null || !Number.isFinite(Number(physical.nozzleDiameter)))) {
+      review.push({ code:'nozzle_unknown', text:`Physical T${logicalIndex} nozzle size is not reported for file T${logicalIndex} (${Number(logical.nozzleDiameter).toFixed(1)} mm)` });
+    } else if (logical.nozzleDiameter != null && physical.nozzleDiameter != null && Number.isFinite(Number(physical.nozzleDiameter)) && !sameNozzle(logical.nozzleDiameter, physical.nozzleDiameter)) {
+      reasons.push({ code:'nozzle_mismatch', text:`Physical T${logicalIndex} nozzle ${Number(physical.nozzleDiameter).toFixed(1)} mm does not match required ${Number(logical.nozzleDiameter).toFixed(1)} mm` });
+    }
+
+    const requiredColor = normalizeColor(logical.color);
+    const currentColor = normalizeColor(filament.color);
+    const requiredFamily = resolveColorFamily({ color:requiredColor, family:logical.colorFamily });
+    const currentFamily = resolveColorFamily({ color:currentColor, family:filament.colorFamily });
+    if (requiredFamily && currentFamily && requiredFamily !== currentFamily) {
+      reasons.push({
+        code:'color_mismatch',
+        text:`Physical T${logicalIndex} filament colour family ${currentFamily} does not match required ${requiredFamily}`
+      });
+    }
+  }
+
+  return { ok:reasons.length === 0 && review.length === 0, toolMap, reasons, review };
+}
+
 function mapLogicalTools(requirements = {}, status = {}) {
   const logicalTools = Array.isArray(requirements.logicalTools) ? requirements.logicalTools : [];
   const physicalTools = Array.isArray(status.tools) ? status.tools : [];
@@ -248,7 +301,7 @@ export function evaluateQueueCompatibility({ job, printer, state, adapter, bedCl
   if (capabilities.materialSlotMapping && requiredToolCount > 1 && extension !== '.3mf') {
     incompatible.push({ code:'ams_requires_3mf', text:'Bambu multi-material AMS/AMS Lite jobs require a sliced .3mf project file' });
   }
-  if (requiredToolCount > 1 && !capabilities.printToolMapping && !capabilities.materialSlotMapping) {
+  if (requiredToolCount > 1 && !capabilities.printToolMapping && !capabilities.fixedToolMapping && !capabilities.materialSlotMapping) {
     incompatible.push({ code:'insufficient_tool_support', text:`File requires ${requiredToolCount} tools` });
   }
   if (!capabilities.materialSlotMapping && Number.isFinite(Number(limits.toolCount)) && requiredToolCount > Number(limits.toolCount)) {
@@ -257,7 +310,16 @@ export function evaluateQueueCompatibility({ job, printer, state, adapter, bedCl
 
   let toolMap = null;
   let materialMap = null;
-  if (!incompatible.length && capabilities.materialSlotMapping && requiredToolCount) {
+  if (!incompatible.length && capabilities.fixedToolMapping && requiredToolCount) {
+    if (requirements.usageReliable === false && requiredToolCount > 1) {
+      review.push({ code:'unreliable_tool_usage', text:'File tool usage could not be determined reliably for unattended fixed-tool scheduling' });
+    } else {
+      const mapped = mapFixedLogicalTools(requirements, state?.status || {});
+      toolMap = mapped.toolMap;
+      blocked.push(...mapped.reasons);
+      review.push(...mapped.review);
+    }
+  } else   if (!incompatible.length && capabilities.materialSlotMapping && requiredToolCount) {
     if (requirements.usageReliable === false && requiredToolCount > 1) {
       review.push({ code:'unreliable_material_usage', text:'File filament usage could not be determined reliably for unattended AMS scheduling' });
     } else {

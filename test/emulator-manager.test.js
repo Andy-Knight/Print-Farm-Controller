@@ -141,3 +141,73 @@ test('legacy emulator settings can recover a registered simulated Creator 5 Pro'
   assert.equal(recovered[0].serialNumber, 'SIM-RECOVERY-C5P');
   await manager.stop();
 });
+
+
+test('Prusa CORE One+ virtual printer settings are recognised as a single simulated controller instance', async (t) => {
+  const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'pfc-emulator-prusa-detect-'));
+  const manager = new EmulatorManager({ settingsPath:path.join(directory, 'settings.json'), withDefaults:false });
+  await manager.setEnabled(true);
+  t.after(async () => {
+    await manager.stop();
+    await fs.rm(directory, { recursive:true, force:true });
+  });
+
+  const virtual = await manager.emulator.addPrinter({
+    profileId:'prusa-core-one-plus',
+    name:'Virtual CORE One+',
+    ports:{ httpPort:0 }
+  });
+
+  assert.ok(virtual.controllerSettings.httpPort > 0);
+  assert.equal(manager.isSimulatedConfig(virtual.controllerSettings), true);
+  assert.equal(manager.simulatedInstanceId(virtual.controllerSettings), virtual.id);
+  assert.equal(manager.isSimulatedConfig({
+    ...virtual.controllerSettings,
+    httpPort:Number(virtual.controllerSettings.httpPort) + 1
+  }), false);
+});
+
+test('registered simulated Prusa INDX profile can be recovered from controller configuration', async (t) => {
+  const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'pfc-emulator-prusa-recovery-'));
+  const settingsPath = path.join(directory, 'emulator-settings.json');
+  await fs.writeFile(settingsPath, JSON.stringify({ enabled:true }), 'utf8');
+  t.after(() => fs.rm(directory, { recursive:true, force:true }));
+
+  const registered = [{
+    name:'Registered Virtual CORE One+ INDX 4',
+    adapterType:'prusa-core-one-plus',
+    manufacturer:'Prusa',
+    model:'CORE One+',
+    host:'127.0.0.1',
+    simulated:true,
+    serialNumber:'SIM-RECOVERY-PRUSA-INDX4',
+    httpPort:0,
+    adapterConfig:{ toolCount:4 }
+  }];
+  const manager = new EmulatorManager({
+    settingsPath,
+    withDefaults:false,
+    registeredPrintersProvider:async () => registered
+  });
+  await manager.init();
+  const recovered = [...manager.emulator.printers.values()];
+  assert.equal(recovered.length, 1);
+  assert.equal(recovered[0].profileId, 'prusa-core-one-plus-indx-4');
+  assert.equal(recovered[0].tools.length, 4);
+  await manager.stop();
+});
+
+test('virtual-printer add flow greys an endpoint already present in the controller and server blocks duplicate registration', async () => {
+  const app = await fs.readFile(new URL('../public/app.js', import.meta.url), 'utf8');
+  const server = await fs.readFile(new URL('../src/server.js', import.meta.url), 'utf8');
+
+  const helperStart = app.indexOf('function virtualPrinterAlreadyAdded');
+  const helperEnd = app.indexOf('function virtualPrinterPortSummary', helperStart);
+  const helper = app.slice(helperStart, helperEnd);
+  assert.doesNotMatch(helper, /printer\.simulated !== true/);
+  assert.match(helper, /settings\[name\].*Number\(printer\[name\]\)/);
+
+  assert.match(server, /const simulatedInstanceId = emulatorManager\.simulatedInstanceId\(input\)/);
+  assert.match(server, /emulatorManager\.simulatedInstanceId\(printer\) === simulatedInstanceId/);
+  assert.match(server, /This virtual printer is already added/);
+});

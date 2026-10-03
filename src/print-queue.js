@@ -679,6 +679,22 @@ export class PrintQueueService {
           }
         }
       }
+      if (adapter.capabilities?.fixedToolMapping) {
+        if (!liveState?.online || !Array.isArray(liveState.status?.tools) || !liveState.status.tools.length) {
+          throw new Error('Live fixed-tool status is required before queueing a multi-tool print');
+        }
+        const requiredLogical = Array.isArray(options.usedLogicalTools) && options.usedLogicalTools.length
+          ? options.usedLogicalTools.map(Number).filter(Number.isInteger)
+          : (Array.isArray(stagedFile?.requirements?.requiredTools) ? stagedFile.requirements.requiredTools.map(Number).filter(Number.isInteger) : []);
+        const fixedMap = {};
+        for (const logicalIndex of requiredLogical) {
+          if (!liveState.status.tools.some((tool) => Number(tool.index) === logicalIndex)) {
+            throw new Error(`Queued print requires physical T${logicalIndex}, but that fixed tool is not available`);
+          }
+          fixedMap[String(logicalIndex)] = logicalIndex;
+        }
+        options = { ...options, toolMap:fixedMap, usedLogicalTools:requiredLogical };
+      }
       if (adapter.capabilities?.materialSlotMapping) {
         if (!liveState?.online || !Array.isArray(liveState.status?.materialSources)) throw new Error('Live Bambu AMS status is required before queueing a mapped print');
         const requiredLogical = Array.isArray(options.usedLogicalTools) ? options.usedLogicalTools.map(Number).filter(Number.isFinite) : [];
@@ -688,7 +704,7 @@ export class PrintQueueService {
           }
         }
       }
-      toolSnapshot = adapter.capabilities?.printToolMapping ? buildToolSnapshot(liveState, options.toolMap) : [];
+      toolSnapshot = (adapter.capabilities?.printToolMapping || adapter.capabilities?.fixedToolMapping) ? buildToolSnapshot(liveState, options.toolMap) : [];
       if (!fileMaterial) {
         try { fileMaterial = await this.getFileMaterialMetadata(printer.id, cleanFileName); } catch { fileMaterial = null; }
       }
@@ -860,7 +876,7 @@ export class PrintQueueService {
         usedLogicalTools:Array.isArray(job.requirements?.requiredTools) ? [...job.requirements.requiredTools] : [],
         logicalTools:Array.isArray(job.requirements?.logicalTools) ? structuredClone(job.requirements.logicalTools) : []
       };
-      job.toolSnapshot = adapter.capabilities?.printToolMapping ? buildToolSnapshot(state, job.options.toolMap) : [];
+      job.toolSnapshot = (adapter.capabilities?.printToolMapping || adapter.capabilities?.fixedToolMapping) ? buildToolSnapshot(state, job.options.toolMap) : [];
       job.status = 'queued';
       job.restoreRecoveryHold = false;
       job.restoreOriginalStatus = null;
@@ -1407,7 +1423,7 @@ export class PrintQueueService {
         await this.persistAndNotify();
         return;
       }
-      job.toolSnapshot = adapter.capabilities?.printToolMapping ? buildToolSnapshot({ status:finalStatus }, job.options.toolMap) : [];
+      job.toolSnapshot = (adapter.capabilities?.printToolMapping || adapter.capabilities?.fixedToolMapping) ? buildToolSnapshot({ status:finalStatus }, job.options.toolMap) : [];
       if (job.productionPaused === true) {
         this.resetAutomaticAssignment(job);
         await this.persistAndNotify();
@@ -1519,10 +1535,10 @@ export class PrintQueueService {
         await this.persistAndNotify();
         return;
       }
-      if (adapter.capabilities?.printToolMapping && Array.isArray(job.toolSnapshot) && job.toolSnapshot.length) {
+      if ((adapter.capabilities?.printToolMapping || adapter.capabilities?.fixedToolMapping) && Array.isArray(job.toolSnapshot) && job.toolSnapshot.length) {
         const problems = checkToolSnapshot(job.toolSnapshot, freshStatus);
         if (problems.length) {
-          throw new Error(`U1 toolhead state changed since this job was queued: ${problems.join('; ')}. Review Print setup and queue the job again.`);
+          throw new Error(`Tool state changed since this job was queued: ${problems.join('; ')}. Review the printer tool setup and queue the job again.`);
         }
       }
       if (adapter.capabilities?.materialSlotMapping && job.options?.materialMap) {

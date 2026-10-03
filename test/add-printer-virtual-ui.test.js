@@ -21,8 +21,13 @@ test('virtual printer registration uses simulator-provided controller settings d
   assert.match(app, /api\('\/api\/printers', \{ method:'POST', body:JSON\.stringify\(settings\) \}\)/);
 });
 
-test('virtual printer list detects already configured simulator devices', () => {
+test('virtual printer list detects already configured simulator devices by endpoint identity', () => {
   assert.match(app, /function virtualPrinterAlreadyAdded\(/);
-  assert.match(app, /printer\.simulated !== true/);
-  assert.match(app, /'flashforge-creator5':\['httpPort'\]/);
+  const start = app.indexOf('function virtualPrinterAlreadyAdded');
+  const end = app.indexOf('function virtualPrinterPortSummary', start);
+  const helper = app.slice(start, end);
+  assert.doesNotMatch(helper, /printer\.simulated !== true/);
+  assert.match(helper, /'flashforge-creator5':\['httpPort'\]/);
+  assert.match(helper, /virtualPrinter\?\.protocol === 'prusalink'/);
+  assert.match(helper, /Number\(printer\[name\]\) === Number\(settings\[name\]\)/);
 });
