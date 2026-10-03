@@ -48,7 +48,7 @@ test('emulator management API creates and controls a virtual printer', async (t)
   const base = `http://127.0.0.1:${address.port}`;
 
   const profiles = await fetch(`${base}/api/profiles`).then((response) => response.json());
-  assert.deepEqual(profiles.profiles.map((profile) => profile.id).sort(), ['bambu-a1-mini', 'bambu-p1p', 'bambu-p1s', 'bambu-x1c', 'flashforge-ad5m-pro', 'flashforge-creator-5', 'flashforge-creator-5-pro', 'prusa-core-one-plus', 'snapmaker-u1']);
+  assert.deepEqual(profiles.profiles.map((profile) => profile.id).sort(), ['bambu-a1-mini', 'bambu-p1p', 'bambu-p1s', 'bambu-x1c', 'flashforge-ad5m-pro', 'flashforge-creator-5', 'flashforge-creator-5-pro', 'prusa-core-one-plus', 'prusa-core-one-plus-indx-4', 'prusa-core-one-plus-indx-8', 'snapmaker-u1']);
 
   const createdResponse = await fetch(`${base}/api/printers`, {
     method: 'POST',
@@ -157,6 +157,35 @@ test('Prusa CORE One+ simulator interoperates with the production PrusaLink adap
 
   await adapter.setJobState('cancel');
   assert.equal((await adapter.getStatus()).status, 'cancelled');
+});
+
+test('Prusa CORE One+ INDX simulator profiles expose four and eight fixed tools', async (t) => {
+  const emulator = createEmulator({ managementPort:0, withDefaults:false });
+  await emulator.start();
+  t.after(() => emulator.stop());
+
+  for (const [profileId, expectedTools] of [
+    ['prusa-core-one-plus-indx-4', 4],
+    ['prusa-core-one-plus-indx-8', 8]
+  ]) {
+    const virtual = await emulator.addPrinter({
+      profileId,
+      name:`Adapter Test INDX ${expectedTools}`,
+      ports:{ httpPort:0 }
+    });
+    assert.equal(virtual.tools.length, expectedTools);
+    assert.equal(virtual.controllerSettings.toolCount, expectedTools);
+
+    const adapter = getPrinterAdapter(preparePrusaCoreOnePlusConfig(virtual.controllerSettings));
+    assert.equal(adapter.limits.toolCount, expectedTools);
+    assert.equal(adapter.capabilities.fixedToolMapping, true);
+    const status = await adapter.getStatus();
+    assert.equal(status.tools.length, expectedTools);
+    assert.deepEqual(status.tools.map((tool) => tool.index), Array.from({ length:expectedTools }, (_, index) => index));
+    assert.equal(status.materials.toolCount, expectedTools);
+    assert.ok(status.tools.every((tool) => tool.filament.material === 'PLA'));
+    assert.ok(status.tools.every((tool) => tool.nozzleDiameter === 0.4));
+  }
 });
 
 test('Bambu P1P, P1S, X1C and A1 Mini profiles expose authenticated LAN protocol endpoints', async (t) => {
