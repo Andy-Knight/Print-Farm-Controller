@@ -197,9 +197,9 @@ test('registered simulated Prusa INDX profile can be recovered from controller c
   await manager.stop();
 });
 
-test('virtual-printer add flow greys an endpoint already present in the controller and server blocks duplicate registration', () => {
-  const app = fs.readFileSync(new URL('../public/app.js', import.meta.url), 'utf8');
-  const server = fs.readFileSync(new URL('../src/server.js', import.meta.url), 'utf8');
+test('virtual-printer add flow greys an endpoint already present in the controller and server blocks duplicate registration', async () => {
+  const app = await fs.readFile(new URL('../public/app.js', import.meta.url), 'utf8');
+  const server = await fs.readFile(new URL('../src/server.js', import.meta.url), 'utf8');
 
   const helperStart = app.indexOf('function virtualPrinterAlreadyAdded');
   const helperEnd = app.indexOf('function virtualPrinterPortSummary', helperStart);
