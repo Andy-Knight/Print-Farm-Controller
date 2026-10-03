@@ -4712,14 +4712,19 @@ function flashForgeNozzleDesignationMarkup(printer, tool = {}) {
     ? Number(tool.reportedNozzleDiameter)
     : null;
   const clearLabel = reported ? 'Use printer value' : 'Clear designation';
-  const options = [0.25, 0.4, 0.6, 0.8];
+  const options = printer?.adapterType === 'prusa-core-one-plus'
+    ? [0.25, 0.4, 0.5, 0.6, 0.8, 1.0]
+    : [0.25, 0.4, 0.6, 0.8];
+  const unavailableHelp = printer?.adapterType === 'prusa-core-one-plus'
+    ? 'PrusaLink may not report every installed nozzle size, so this controller designation is used for the standard single-tool configuration when needed.'
+    : 'FlashForge firmware does not reliably report the installed nozzle size, so set this whenever you change the nozzle.';
   return `<div class="material-designation-control nozzle-designation-control">
     <label>Controller nozzle designation
       <input type="number" data-nozzle-designation-input value="${escapeHtml(manualValue)}" list="flashforgeNozzleSizes" min="0.1" max="1.2" step="0.05" placeholder="e.g. 0.4" />
     </label>
     <datalist id="flashforgeNozzleSizes">${options.map((value) => `<option value="${value}"></option>`).join('')}</datalist>
     <div class="mini-actions"><button type="button" class="secondary" data-nozzle-designation-save>Assign nozzle</button><button type="button" class="secondary" data-nozzle-designation-clear>${escapeHtml(clearLabel)}</button></div>
-    <div class="field-help">Stored by Print Farm Controller for this printer and used by automatic queue compatibility.${reported ? ` Printer currently reports ${escapeHtml(nozzleDiameterText(reported))}.` : ' FlashForge firmware does not reliably report the installed nozzle size, so set this whenever you change the nozzle.'}</div>
+    <div class="field-help">Stored by Print Farm Controller for this printer and used by automatic queue compatibility.${reported ? ` Printer currently reports ${escapeHtml(nozzleDiameterText(reported))}.` : ` ${escapeHtml(unavailableHelp)}`}</div>
   </div>`;
 }
 
@@ -5637,6 +5642,8 @@ async function openPrinter(id) {
         ? 'Creator 5 material type, colour and filament-presence state come from the four material-station/toolhead slots reported by the local /detail API. The installed nozzle size is controller-designated and currently applies to all four toolheads.'
       : printer.adapterType === 'bambu-lab'
         ? 'Material and colour come from the active external-spool or AMS/AMS Lite tray metadata reported by the Bambu LAN interface. Bambu support is experimental until checked against physical P1P, P1S, X1C and A1 Mini hardware.'
+      : printer.adapterType === 'prusa-core-one-plus'
+        ? `CORE One+ is configured for ${Number(limits.toolCount || tools.length || 1)} tool${Number(limits.toolCount || tools.length || 1) === 1 ? '' : 's'}. INDX uses fixed sliced tool indices (T0→T0, T1→T1, etc.); the controller does not silently remap a file to different INDX tools. Per-tool material/nozzle data is used when PrusaLink reports it; unknown values require review before unattended multi-tool scheduling.`
         : 'Filament presence comes from each U1 motion sensor. Third-party filament type and colour can be written to the idle printer and are verified by reading the effective per-tool configuration back. Official Snapmaker RFID filament remains locked. Nozzle size and XYZ offset come directly from each physical U1 extruder.';
     const bambuSources = printer.adapterType === 'bambu-lab' && Array.isArray(s?.materialSources)
       ? `<div class="ams-source-grid">${s.materialSources.map((source) => {
@@ -5663,13 +5670,13 @@ async function openPrinter(id) {
           ${capabilities.toolheadNozzleStatus ? `<small data-tool-nozzle="${tool.index}">${escapeHtml(`${nozzleDiameterText(tool.nozzleDiameter)}${tool.nozzleVolumeType ? ` · ${tool.nozzleVolumeType}` : ''}`)}</small>` : ''}
           ${capabilities.toolheadNozzleStatus ? `<small data-tool-offset="${tool.index}">${escapeHtml(toolOffsetText(tool.offset))}</small>` : ''}
           <small data-material-meta="${tool.index}">${escapeHtml(filamentMetaText(filament))}</small>
-          ${['snapmaker-u1','flashforge-ad5m','flashforge-creator5','bambu-lab'].includes(printer.adapterType) ? `<small class="material-rgb${filamentColorDisplayText(filament) ? '' : ' hidden'}" data-material-rgb="${tool.index}">${escapeHtml(filamentColorDisplayText(filament) || '')}</small>` : ''}
+          ${['snapmaker-u1','flashforge-ad5m','flashforge-creator5','bambu-lab','prusa-core-one-plus'].includes(printer.adapterType) ? `<small class="material-rgb${filamentColorDisplayText(filament) ? '' : ' hidden'}" data-material-rgb="${tool.index}">${escapeHtml(filamentColorDisplayText(filament) || '')}</small>` : ''}
           ${printer.adapterType === 'snapmaker-u1' ? u1FilamentConfigControlMarkup(printer, tool) : ''}
         </div>`;
       }).join('')}</div>
       ${bambuSources}
-      ${printer.adapterType === 'flashforge-ad5m' ? flashForgeMaterialDesignationMarkup(printer, tools[0]?.filament || {}) : ''}
-      ${['flashforge-ad5m','flashforge-creator5'].includes(printer.adapterType) ? flashForgeNozzleDesignationMarkup(printer, tools[0] || {}) : ''}
+      ${['flashforge-ad5m','prusa-core-one-plus'].includes(printer.adapterType) ? flashForgeMaterialDesignationMarkup(printer, tools[0]?.filament || {}) : ''}
+      ${['flashforge-ad5m','flashforge-creator5','prusa-core-one-plus'].includes(printer.adapterType) ? flashForgeNozzleDesignationMarkup(printer, tools[0] || {}) : ''}
       <div class="field-help material-help">${escapeHtml(materialHelp)}</div>
     </div>`;
   })() : '';
