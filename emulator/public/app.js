@@ -135,6 +135,13 @@ function endpointLines(printer) {
       `Serial ${settings.serialNumber} · Access code ${settings.accessCode}`
     ];
   }
+  if (printer.adapterType === 'prusa-core-one-plus') {
+    return [
+      `Host ${settings.host}`,
+      `PrusaLink HTTP ${settings.httpPort}`,
+      `Serial ${settings.serialNumber} · User ${settings.prusaLinkUsername}`
+    ];
+  }
   return [`Host ${settings.host}`, `Moonraker ${settings.httpPort}`];
 }
 
