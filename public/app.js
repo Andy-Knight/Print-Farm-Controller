@@ -5774,9 +5774,11 @@ async function openPrinter(id) {
       ? `<div class="control-row"><label>Chamber target<input id="chamberInput" type="number" min="${Number(limits.chamberTemperature?.min ?? 0)}" max="${Number(limits.chamberTemperature?.max ?? 65)}" value="${Number(s?.chamber?.target || 0)}" /></label><span class="subtle" data-chamber-now>${Number(s.chamber.actual).toFixed(1)} °C now</span><button class="secondary" data-set-temp="chamber">Set</button></div>`
       : `<div class="sensor-readout"><span>Chamber / cavity</span><b data-chamber-now>${Number(s.chamber.actual).toFixed(1)} °C</b></div>`
     : '';
+  const configuredToolCount = Number(limits.toolCount || (Array.isArray(s?.tools) ? s.tools.length : 0));
+  const wideToolheadLayout = Boolean(capabilities.materialStatus && configuredToolCount > 1);
   const materialStatusMarkup = capabilities.materialStatus ? (() => {
     const tools = Array.isArray(s?.tools) ? s.tools : [];
-    if (!tools.length) return `<div class="panel material-panel"><h3>Toolhead status</h3><div class="subtle">Material status is unavailable while the printer is offline.</div>${flashForgeMaterialDesignationMarkup(printer)}${flashForgeNozzleDesignationMarkup(printer)}</div>`;
+    if (!tools.length) return `<div class="panel material-panel${wideToolheadLayout ? ' material-panel-wide' : ''}"><h3>Toolhead status</h3><div class="subtle">Material status is unavailable while the printer is offline.</div>${flashForgeMaterialDesignationMarkup(printer)}${flashForgeNozzleDesignationMarkup(printer)}</div>`;
     const materialHelp = printer.adapterType === 'flashforge-ad5m'
       ? "Filament type uses the controller's manual designation when set, otherwise the value reported by the FlashForge 5M local /detail API. Installed nozzle size uses the controller nozzle designation when set because the 5M API does not reliably expose it. The 5M API also does not expose U1-style filament colour/RFID metadata or a reliable live filament-presence value."
       : printer.adapterType === 'flashforge-creator5'
@@ -5797,13 +5799,40 @@ async function openPrinter(id) {
         return `<div class="ams-source${source.active ? ' active' : ''}${source.present === false ? ' empty' : ''}" data-ams-source="${source.protocolIndex}"><div><strong>${escapeHtml(source.label)}</strong><span data-ams-active>${source.active ? 'Active' : ''}</span></div><i class="material-swatch${swatchColor ? '' : ' unknown'}" data-ams-swatch${swatchColor ? ` style="background:${escapeHtml(swatchColor)}"` : ''}></i><small data-ams-state>${escapeHtml(state)}</small></div>`;
       }).join('')}</div>`
       : '';
-    return `<div class="panel material-panel">
+    return `<div class="panel material-panel${wideToolheadLayout ? ' material-panel-wide' : ''}">
       <h3>Toolhead status</h3>
       <div class="material-summary" data-material-summary>${escapeHtml(materialSummaryText(tools))}</div>
-      <div class="material-grid${tools.length === 1 ? ' single-tool' : ''}">${tools.map((tool) => {
+      ${wideToolheadLayout ? '<div class="material-table-head" aria-hidden="true"><span>Toolhead</span><span>Live information</span><span>Configuration</span></div>' : ''}
+      <div class="material-grid${tools.length === 1 ? ' single-tool' : ''}${wideToolheadLayout ? ' multi-tool-table' : ''}">${tools.map((tool) => {
         const filament = tool.filament || {};
         const color = materialSwatchColor(filament);
         const stateClass = filament.present === true ? ' filament-loaded' : filament.present === false ? ' filament-missing' : '';
+        const configuration = [
+          printer.adapterType === 'snapmaker-u1' ? u1FilamentConfigControlMarkup(printer, tool) : '',
+          printer.manufacturer === 'Prusa' ? prusaToolMaterialDesignationMarkup(printer, tool) : '',
+          printer.manufacturer === 'Prusa' ? prusaToolNozzleDesignationMarkup(printer, tool, tools.length) : ''
+        ].filter(Boolean).join('');
+        if (wideToolheadLayout) {
+          const configurationFallback = printer.adapterType === 'flashforge-creator5'
+            ? 'Live material state is reported by the Creator 5. The shared nozzle designation below applies to all toolheads.'
+            : 'No per-tool controller configuration is available.';
+          return `<div class="material-tool material-tool-row${stateClass}" data-material-tool="${tool.index}">
+            <div class="material-tool-cell material-tool-identity">
+              <div class="material-tool-head"><strong>T${tool.index}${tool.active ? ' · active' : ''}</strong><span class="material-swatch${color ? '' : ' unknown'}" data-material-swatch style="${color ? `background:${escapeHtml(color)}` : ''}" title="${escapeHtml(color || 'Colour unknown')}"></span></div>
+              <span data-material-presence="${tool.index}">${escapeHtml(filamentPresenceText(filament))}</span>
+            </div>
+            <div class="material-tool-cell material-tool-information">
+              <b data-material-name="${tool.index}">${escapeHtml(filamentMaterialName(filament))}</b>
+              ${capabilities.toolheadNozzleStatus ? `<small data-tool-nozzle="${tool.index}">${escapeHtml(`${nozzleDiameterText(tool.nozzleDiameter)}${tool.nozzleVolumeType ? ` · ${tool.nozzleVolumeType}` : ''}`)}</small>` : ''}
+              ${capabilities.toolheadNozzleStatus ? `<small data-tool-offset="${tool.index}">${escapeHtml(toolOffsetText(tool.offset))}</small>` : ''}
+              <small data-material-meta="${tool.index}">${escapeHtml(filamentMetaText(filament))}</small>
+              ${(['snapmaker-u1','flashforge-ad5m','flashforge-creator5','bambu-lab'].includes(printer.adapterType) || printer.manufacturer === 'Prusa') ? `<small class="material-rgb${filamentColorDisplayText(filament) ? '' : ' hidden'}" data-material-rgb="${tool.index}">${escapeHtml(filamentColorDisplayText(filament) || '')}</small>` : ''}
+            </div>
+            <div class="material-tool-cell material-tool-configuration${configuration ? '' : ' read-only'}">
+              ${configuration || `<span class="subtle">${escapeHtml(configurationFallback)}</span>`}
+            </div>
+          </div>`;
+        }
         return `<div class="material-tool${stateClass}" data-material-tool="${tool.index}">
           <div class="material-tool-head"><strong>T${tool.index}${tool.active ? ' · active' : ''}</strong><span class="material-swatch${color ? '' : ' unknown'}" data-material-swatch style="${color ? `background:${escapeHtml(color)}` : ''}" title="${escapeHtml(color || 'Colour unknown')}"></span></div>
           <b data-material-name="${tool.index}">${escapeHtml(filamentMaterialName(filament))}</b>
@@ -5812,9 +5841,7 @@ async function openPrinter(id) {
           ${capabilities.toolheadNozzleStatus ? `<small data-tool-offset="${tool.index}">${escapeHtml(toolOffsetText(tool.offset))}</small>` : ''}
           <small data-material-meta="${tool.index}">${escapeHtml(filamentMetaText(filament))}</small>
           ${(['snapmaker-u1','flashforge-ad5m','flashforge-creator5','bambu-lab'].includes(printer.adapterType) || printer.manufacturer === 'Prusa') ? `<small class="material-rgb${filamentColorDisplayText(filament) ? '' : ' hidden'}" data-material-rgb="${tool.index}">${escapeHtml(filamentColorDisplayText(filament) || '')}</small>` : ''}
-          ${printer.adapterType === 'snapmaker-u1' ? u1FilamentConfigControlMarkup(printer, tool) : ''}
-          ${printer.manufacturer === 'Prusa' ? prusaToolMaterialDesignationMarkup(printer, tool) : ''}
-          ${printer.manufacturer === 'Prusa' ? prusaToolNozzleDesignationMarkup(printer, tool, tools.length) : ''}
+          ${configuration}
         </div>`;
       }).join('')}</div>
       ${bambuSources}
@@ -5869,6 +5896,7 @@ async function openPrinter(id) {
     })()}
     ${printer.licenseActive === false ? '<div class="license-detail-warning">This printer is inactive because it does not have a selected licence slot. Live monitoring and safety controls remain available, but new jobs and normal controller commands are disabled.</div>' : ''}
     ${printer.adapterType === 'bambu-lab' ? `<div class="file-warning">Experimental Bambu ${escapeHtml(printer.model || '')} support: validate behavior carefully before relying on unattended printing.${printer.model === 'X1C' ? ' X1C RTSPS/H.264 camera decoding is not yet supported.' : ''}${printer.model === 'A1 Mini' ? ' Single-material A1 Mini .gcode starts remain experimental until validated on physical hardware; multi-material AMS Lite jobs require sliced .3mf.' : ''}</div>` : ''}
+    ${wideToolheadLayout ? materialStatusMarkup : ''}
     <div class="detail-grid">
       <div class="detail-column detail-column-left">
         ${detailCameraMarkup(printer)}
@@ -5901,7 +5929,7 @@ async function openPrinter(id) {
           <div class="control-row"><label>Bed target<input id="bedInput" type="number" min="0" max="${maxBedC}" value="${s?.bed.target || 0}"${disabled(capabilities.bedTemperature)} /></label><span class="subtle" data-bed-now>${s?.bed.actual?.toFixed(0) || '—'} °C now</span><button class="secondary" data-set-temp="bed"${disabled(capabilities.bedTemperature)}>Set</button></div>
           ${chamberTemperatureMarkup}
         </div>
-        ${materialStatusMarkup}
+        ${wideToolheadLayout ? '' : materialStatusMarkup}
         ${capabilities.chamberPreheat ? `<div class="panel chamber-preheat-panel">
           <h3>Chamber preheat</h3>
           <p class="subtle">${nativeChamberPreheat
