@@ -109,6 +109,7 @@ export const EMULATOR_PROFILES = Object.freeze({
   'prusa-core-one-plus': Object.freeze({
     id: 'prusa-core-one-plus',
     adapterType: 'prusa-core-one-plus',
+    protocol: 'prusalink',
     manufacturer: 'Prusa',
     model: 'CORE One+',
     toolCount: 1,
@@ -121,6 +122,7 @@ export const EMULATOR_PROFILES = Object.freeze({
   'prusa-core-one-plus-indx-4': Object.freeze({
     id: 'prusa-core-one-plus-indx-4',
     adapterType: 'prusa-core-one-plus',
+    protocol: 'prusalink',
     manufacturer: 'Prusa',
     model: 'CORE One+',
     toolCount: 4,
@@ -133,6 +135,7 @@ export const EMULATOR_PROFILES = Object.freeze({
   'prusa-core-one-plus-indx-8': Object.freeze({
     id: 'prusa-core-one-plus-indx-8',
     adapterType: 'prusa-core-one-plus',
+    protocol: 'prusalink',
     manufacturer: 'Prusa',
     model: 'CORE One+',
     toolCount: 8,
