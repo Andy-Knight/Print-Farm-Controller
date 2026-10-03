@@ -377,4 +377,14 @@ test('CORE One+ wrapper contains model identity while shared PrusaLink behavior 
   assert.match(family, /createPrusaLinkAdapterDefinition/);
   assert.match(models, /listPrusaLinkModelProfiles/);
   assert.match(registry, /for \(const profile of listPrusaLinkModelProfiles\(\)\)/);
+
+  for (const path of [
+    '../src/prusa-link-api.js',
+    '../src/server.js',
+    '../src/store.js',
+    '../emulator/protocols.js'
+  ]) {
+    const shared = fs.readFileSync(new URL(path, import.meta.url), 'utf8');
+    assert.doesNotMatch(shared, /prusa-core-one-plus/, `${path} must stay model-neutral`);
+  }
 });
