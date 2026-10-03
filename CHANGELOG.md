@@ -4,6 +4,15 @@ This file contains the version-by-version release history for Print Farm Control
 
 Historical entries describe the behaviour of the controller at the time of that release and may be superseded by later versions. For current installation, configuration and supported-hardware guidance, see [README.md](README.md).
 
+## v0.39.0
+
+- Adds initial **Prusa CORE One+** support through the printer's built-in local PrusaLink HTTP API, without requiring Prusa Connect cloud access.
+- Adds PrusaLink Digest authentication using the local username/password shown by the printer, with optional `X-Api-Key` authentication for firmware/configurations that expose an API key.
+- Supports live printer/job status, nozzle and bed telemetry, printer-local printable-file browsing, streamed `.gcode` / `.bgcode` upload, post-upload file verification, print start, and pause/resume/cancel.
+- Exposes manual filament and nozzle designation to the existing queue compatibility system while retaining the nozzle diameter reported by PrusaLink when available.
+- Uses the published CORE One+ limits of 290 °C nozzle, 120 °C heatbed, 55 °C chamber, and 250 × 220 × 270 mm build volume as model metadata. Temperature/chamber control and camera streaming remain disabled until their local control paths are validated on physical hardware.
+- Adds regression coverage for adapter registration/configuration, capability boundaries, PrusaLink state normalization, Digest authorization construction, file-tree flattening and status telemetry normalization.
+
 ## v0.38.1
 
 - Fixes Print Library **Edit details** filament-cost assignments not being persisted. The form was collecting per-tool filament selections correctly but the browser metadata update helper omitted `filamentAssignments` from the PATCH request.
