@@ -121,7 +121,7 @@ Manufacturer-specific discovery, capabilities, limits, status normalization, fil
 
 The current production baseline is **v0.39.0** on `main`.
 
-Active development is **v0.39.1** on `feature/prusa-indx-nozzle-designation-v0391`. This update adds a persistent nozzle-size designation for every physical CORE One+ INDX tool. INDX 4 exposes T0–T3 and INDX 8 exposes T0–T7; each tool can carry its own controller-side nozzle size and the existing fixed-index queue compatibility consumes the resulting effective per-tool nozzle metadata. Clearing a designation returns to PrusaLink-reported data when available and otherwise leaves the tool nozzle unknown.
+Active development is **v0.39.1** on `feature/prusa-indx-nozzle-designation-v0391`. This update adds a persistent nozzle-size designation for every physical CORE One+ INDX tool. Standard and INDX nozzle designations now use controlled dropdowns only; free-typed Prusa nozzle sizes are not accepted by either the browser UI or API. INDX 4 exposes T0–T3 and INDX 8 exposes T0–T7; each tool can carry its own controller-side nozzle size and the existing fixed-index queue compatibility consumes the resulting effective per-tool nozzle metadata. Clearing a designation returns to PrusaLink-reported data when available and otherwise leaves the tool nozzle unknown.
 
 Changing Standard 1-tool → INDX migrates the existing single-tool nozzle designation to T0. Changing INDX → Standard migrates T0 back to the standard nozzle designation while preserving other tool metadata for a later INDX re-enable.
 
