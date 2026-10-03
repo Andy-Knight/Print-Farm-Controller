@@ -3,6 +3,7 @@ import path from 'node:path';
 import os from 'node:os';
 import crypto from 'node:crypto';
 import { FLASHFORGE_AD5M_ADAPTER_TYPE } from './adapters/adapter-registry.js';
+import { getPrusaLinkModelProfile, prusaLinkToolConfiguration } from './adapters/prusa-link-models.js';
 import { resolveControllerRuntimePaths } from './runtime-paths.js';
 import { KeyedSerialExecutor } from './concurrency.js';
 import { colorFamily, normalizeColorFamily } from './color-family.js';
@@ -295,14 +296,14 @@ export async function setPrinterToolCount(id, toolCount) {
   const printers = await readAll();
   const index = printers.findIndex((printer) => printer.id === id);
   if (index < 0) return null;
-  if (String(printers[index].adapterType) !== 'prusa-core-one-plus') {
-    throw new Error('Tool configuration is only supported for Prusa CORE One+ printers');
+
+  const profile = getPrusaLinkModelProfile(printers[index].adapterType);
+  if (!profile || profile.toolConfigurations.length <= 1) {
+    throw new Error('Tool configuration is not supported by this printer');
   }
+  const configuration = prusaLinkToolConfiguration(profile, toolCount);
 
-  const count = Number(toolCount);
-  if (![1, 4, 8].includes(count)) throw new Error('CORE One+ tool configuration must be 1, 4 or 8 tools');
-
-  const adapterConfig = { ...(printers[index].adapterConfig || {}), toolCount:count };
+  const adapterConfig = { ...(printers[index].adapterConfig || {}), toolCount:configuration.count };
   printers[index] = { ...printers[index], adapterConfig };
   await writeAll(printers);
   return normalizeStoredPrinter(printers[index]);
@@ -374,9 +375,18 @@ export function publicPrinter(printer) {
     nozzleDiameterDesignation: Number.isFinite(Number(printer.adapterConfig?.nozzleDiameterDesignation))
       ? Number(printer.adapterConfig.nozzleDiameterDesignation)
       : null,
-    configuredToolCount:String(printer.adapterType) === 'prusa-core-one-plus' && [1,4,8].includes(Number(printer.adapterConfig?.toolCount))
-      ? Number(printer.adapterConfig.toolCount)
-      : null,
+    configuredToolCount:(() => {
+      const profile = getPrusaLinkModelProfile(printer.adapterType);
+      if (!profile) return null;
+      try {
+        return prusaLinkToolConfiguration(
+          profile,
+          printer.adapterConfig?.toolCount ?? profile.defaultToolCount
+        ).count;
+      } catch {
+        return Number(profile.defaultToolCount || 1);
+      }
+    })(),
     createdAt: printer.createdAt
   };
 }
