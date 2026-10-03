@@ -1,6 +1,7 @@
 import crypto from 'node:crypto';
 import { createReadStream, promises as fs } from 'node:fs';
 import path from 'node:path';
+import { getPrusaLinkModelProfile, prusaLinkToolConfiguration } from './adapters/prusa-link-models.js';
 
 const DEFAULT_TIMEOUT_MS = 10_000;
 const INFO_CACHE_MS = 300_000;
@@ -231,8 +232,19 @@ async function cachedInfo(printer) {
 }
 
 function configuredToolCount(printer) {
+  const profile = getPrusaLinkModelProfile(printer?.adapterType);
+  if (profile) {
+    try {
+      return prusaLinkToolConfiguration(
+        profile,
+        printer?.adapterConfig?.toolCount ?? profile.defaultToolCount
+      ).count;
+    } catch {
+      return Number(profile.defaultToolCount || 1);
+    }
+  }
   const count = Number(printer?.adapterConfig?.toolCount || 1);
-  return [1, 4, 8].includes(count) ? count : 1;
+  return Number.isInteger(count) && count > 0 ? count : 1;
 }
 
 function cleanHexColor(value) {
