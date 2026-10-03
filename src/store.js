@@ -290,6 +290,25 @@ export async function setPrinterNozzleDesignation(id, nozzleDiameter) {
   });
 }
 
+export async function setPrinterToolCount(id, toolCount) {
+  return storeMutations.run('printers', async () => {
+  const printers = await readAll();
+  const index = printers.findIndex((printer) => printer.id === id);
+  if (index < 0) return null;
+  if (String(printers[index].adapterType) !== 'prusa-core-one-plus') {
+    throw new Error('Tool configuration is only supported for Prusa CORE One+ printers');
+  }
+
+  const count = Number(toolCount);
+  if (![1, 4, 8].includes(count)) throw new Error('CORE One+ tool configuration must be 1, 4 or 8 tools');
+
+  const adapterConfig = { ...(printers[index].adapterConfig || {}), toolCount:count };
+  printers[index] = { ...printers[index], adapterConfig };
+  await writeAll(printers);
+  return normalizeStoredPrinter(printers[index]);
+  });
+}
+
 export async function setPrinterLicenseSlotActive(id, active) {
   return storeMutations.run('printers', async () => {
   const printers = await readAll();
@@ -354,6 +373,9 @@ export function publicPrinter(printer) {
       || null,
     nozzleDiameterDesignation: Number.isFinite(Number(printer.adapterConfig?.nozzleDiameterDesignation))
       ? Number(printer.adapterConfig.nozzleDiameterDesignation)
+      : null,
+    configuredToolCount:String(printer.adapterType) === 'prusa-core-one-plus' && [1,4,8].includes(Number(printer.adapterConfig?.toolCount))
+      ? Number(printer.adapterConfig.toolCount)
       : null,
     createdAt: printer.createdAt
   };
