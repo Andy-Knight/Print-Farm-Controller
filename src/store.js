@@ -6,7 +6,7 @@ import { FLASHFORGE_AD5M_ADAPTER_TYPE } from './adapters/adapter-registry.js';
 import { getPrusaLinkModelProfile, prusaLinkToolConfiguration } from './adapters/prusa-link-models.js';
 import { resolveControllerRuntimePaths } from './runtime-paths.js';
 import { KeyedSerialExecutor } from './concurrency.js';
-import { colorFamily, normalizeColorFamily } from './color-family.js';
+import { colorFamily, normalizeColorFamily, representativeColor } from './color-family.js';
 
 const runtimePaths = resolveControllerRuntimePaths();
 const APPLICATION_DIR = runtimePaths.applicationDir;
@@ -266,6 +266,75 @@ export async function setPrinterMaterialDesignation(id, material, color = undefi
   if (familyDesignation !== undefined) {
     if (familyDesignation) adapterConfig.filamentColorFamilyDesignation = familyDesignation;
     else delete adapterConfig.filamentColorFamilyDesignation;
+  }
+
+  printers[index] = { ...printers[index], adapterConfig };
+  await writeAll(printers);
+  return normalizeStoredPrinter(printers[index]);
+  });
+}
+
+export async function setPrinterToolMaterialDesignation(id, toolIndex, material, color = undefined, colorFamilyDesignation = undefined) {
+  return storeMutations.run('printers', async () => {
+  const printers = await readAll();
+  const index = printers.findIndex((printer) => printer.id === id);
+  if (index < 0) return null;
+
+  const profile = getPrusaLinkModelProfile(printers[index].adapterType);
+  if (!profile) throw new Error('Per-tool material designation is not supported by this printer');
+  const configuration = prusaLinkToolConfiguration(
+    profile,
+    printers[index].adapterConfig?.toolCount ?? profile.defaultToolCount
+  );
+  const physicalTool = Number(toolIndex);
+  if (!Number.isInteger(physicalTool) || physicalTool < 0 || physicalTool >= configuration.count) {
+    throw new Error(`Tool index must be between 0 and ${configuration.count - 1}`);
+  }
+
+  const designation = normalizeMaterialDesignation(material);
+  let familyDesignation = colorFamilyDesignation === undefined
+    ? undefined
+    : normalizeColorFamilyDesignation(colorFamilyDesignation);
+  let colorDesignation = color === undefined ? undefined : normalizeColorDesignation(color);
+
+  if (familyDesignation === undefined && colorDesignation) familyDesignation = colorFamily(colorDesignation);
+  if (familyDesignation && colorDesignation && colorFamily(colorDesignation) !== familyDesignation) {
+    throw new Error('Optional filament shade must belong to the selected colour family');
+  }
+  if (familyDesignation && !colorDesignation) colorDesignation = representativeColor(familyDesignation);
+
+  const adapterConfig = { ...(printers[index].adapterConfig || {}) };
+  const designations = {
+    ...(adapterConfig.toolDesignations && typeof adapterConfig.toolDesignations === 'object'
+      ? adapterConfig.toolDesignations
+      : {})
+  };
+  const previous = designations[String(physicalTool)] && typeof designations[String(physicalTool)] === 'object'
+    ? designations[String(physicalTool)]
+    : {};
+  const next = { ...previous };
+
+  if (designation) next.material = designation;
+  else delete next.material;
+
+  if (colorDesignation) next.color = colorDesignation;
+  else delete next.color;
+
+  if (familyDesignation) next.colorFamily = familyDesignation;
+  else delete next.colorFamily;
+
+  if (Object.keys(next).length) designations[String(physicalTool)] = next;
+  else delete designations[String(physicalTool)];
+
+  if (Object.keys(designations).length) adapterConfig.toolDesignations = designations;
+  else delete adapterConfig.toolDesignations;
+
+  // Migrate the original single-tool designation into the per-tool system so
+  // clearing T0 does not unexpectedly reveal an older hidden fallback.
+  if (physicalTool === 0) {
+    delete adapterConfig.filamentDesignation;
+    delete adapterConfig.filamentColorDesignation;
+    delete adapterConfig.filamentColorFamilyDesignation;
   }
 
   printers[index] = { ...printers[index], adapterConfig };
