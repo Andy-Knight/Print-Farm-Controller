@@ -1,6 +1,7 @@
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
 import { createEmulator } from '../emulator/server.js';
+import { listProfiles } from '../emulator/profiles.js';
 import { resolveControllerRuntimePaths } from './runtime-paths.js';
 
 function json(response, status, body) {
@@ -55,7 +56,24 @@ function profileIdFromControllerConfig(config = {}) {
     if (model === 'x1c' || model.includes('x1 carbon')) return 'bambu-x1c';
     if (model === 'a1 mini' || model === 'a1-mini') return 'bambu-a1-mini';
   }
-  return null;
+
+  const candidates = listProfiles().filter((profile) => {
+    if (String(profile.adapterType || '') !== adapterType) return false;
+    if (!model) return true;
+    return String(profile.model || '').trim().toLowerCase() === model;
+  });
+  if (!candidates.length) return null;
+
+  const requestedToolCount = Number(
+    config.adapterConfig?.toolCount
+    ?? config.configuredToolCount
+    ?? config.toolCount
+  );
+  if (Number.isInteger(requestedToolCount) && requestedToolCount > 0) {
+    const exact = candidates.find((profile) => Number(profile.toolCount) === requestedToolCount);
+    if (exact) return exact.id;
+  }
+  return candidates[0].id;
 }
 
 function definitionFromControllerConfig(config = {}) {
@@ -202,29 +220,33 @@ export class EmulatorManager {
     return this.snapshot();
   }
 
-  isSimulatedConfig(config = {}) {
+  simulatedInstanceId(config = {}) {
     const host = String(config.host || '').trim().toLowerCase();
     const adapterType = String(config.adapterType || '').trim();
-    if (!host || !adapterType) return false;
+    if (!host || !adapterType) return null;
+
     for (const printer of this.emulator.printers.values()) {
       if (String(printer.adapterType || '') !== adapterType) continue;
       if (String(printer.host || '').trim().toLowerCase() !== host) continue;
-      const ports = printer.ports || {};
+
       const serial = String(config.serialNumber || '').trim();
       if (serial && printer.serialNumber && serial !== String(printer.serialNumber)) continue;
-      if (adapterType === 'flashforge-ad5m') {
-        if (Number(config.httpPort || 8898) === Number(ports.httpPort)
-          && Number(config.tcpPort || config.commandPort || 8899) === Number(ports.tcpPort)) return true;
-      } else if (adapterType === 'flashforge-creator5') {
-        if (Number(config.httpPort || 8898) === Number(ports.httpPort)) return true;
-      } else if (adapterType === 'bambu-lab') {
-        if (Number(config.mqttPort || 8883) === Number(ports.mqttPort)
-          && Number(config.ftpsPort || 990) === Number(ports.ftpsPort)) return true;
-      } else if (adapterType === 'snapmaker-u1') {
-        if (Number(config.httpPort || 7125) === Number(ports.httpPort)) return true;
+
+      const ports = Object.entries(printer.ports || {})
+        .filter(([name, value]) => name.endsWith('Port') && Number.isFinite(Number(value)));
+      if (!ports.length) continue;
+
+      const comparable = ports.filter(([name]) => config[name] != null);
+      if (!comparable.length) continue;
+      if (comparable.every(([name, value]) => Number(config[name]) === Number(value))) {
+        return String(printer.id);
       }
     }
-    return false;
+    return null;
+  }
+
+  isSimulatedConfig(config = {}) {
+    return Boolean(this.simulatedInstanceId(config));
   }
 
   async handleApi(request, response, url) {
