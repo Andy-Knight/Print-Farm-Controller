@@ -130,7 +130,7 @@ Active development is **v0.39.0** on `feature/prusa-core-one-plus-support-v0390`
 3. Confirm the exact storage path and BGCODE behaviour on current CORE One+ firmware.
 4. After physical validation, investigate safe local support for chamber temperature/control, camera access and LAN discovery without relying on Prusa Connect cloud services.
 5. Validate the new virtual CORE One+ through the integrated simulator UI and controller Add flow; emulator coverage now exercises status, files, upload/verification, print start and pause/resume/cancel through the production Prusa adapter.
-6. Add CORE One+ dashboard artwork after the protocol baseline is proven on physical hardware.
+6. Review the new CORE One+ 400 × 190 dashboard artwork in Dark and Light themes during hands-on validation.
 
 ## Licensing baseline
 
