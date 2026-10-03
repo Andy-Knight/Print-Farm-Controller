@@ -45,6 +45,7 @@ test('Prusa CORE One+ is registered with safe first-pass local capabilities', ()
   assert.equal(adapter.capabilities.camera, false);
   assert.equal(adapter.capabilities.chamberTemperatureControl, false);
   assert.equal(adapter.capabilities.materialDesignation, true);
+  assert.equal(adapter.capabilities.toolMaterialDesignation, true);
   assert.equal(adapter.capabilities.nozzleDesignation, true);
   assert.equal(adapter.capabilities.fixedToolMapping, false);
   assert.equal(adapter.capabilities.toolheadNozzleStatus, true);
@@ -73,6 +74,7 @@ test('Prusa CORE One+ supports Standard, INDX 4-tool and INDX 8-tool configurati
     assert.equal(adapter.capabilities.fixedToolMapping, true);
     assert.equal(adapter.capabilities.printToolMapping, false);
     assert.equal(adapter.capabilities.materialDesignation, false);
+    assert.equal(adapter.capabilities.toolMaterialDesignation, true);
     assert.equal(adapter.capabilities.nozzleDesignation, false);
   }
 
@@ -284,6 +286,100 @@ test('PrusaLink normalizes eight reported INDX tools without remapping tool indi
   }
 });
 
+
+test('PrusaLink per-tool manual filament designation overrides reported material and colour', async () => {
+  const originalFetch = global.fetch;
+  global.fetch = async (input) => {
+    const url = new URL(String(input));
+    const json = (body) => new Response(JSON.stringify(body), {
+      status:200,
+      headers:{ 'content-type':'application/json' }
+    });
+    const tools = Array.from({ length:4 }, (_, index) => ({
+      index,
+      nozzle_diameter:0.4,
+      filament_type:'PLA',
+      filament_color:'#FF0000',
+      filament_present:true,
+      actual:index === 0 ? 215 : 25,
+      target:index === 0 ? 215 : 0
+    }));
+    if (url.pathname === '/api/v1/info') return json({
+      name:'CORE One+ INDX 4',
+      serial:'INDX4',
+      nozzle_diameters:[0.4,0.4,0.4,0.4],
+      tools,
+      active_camera:false
+    });
+    if (url.pathname === '/api/version') return json({ firmware:'6.8.1', printer:'CORE One+' });
+    if (url.pathname === '/api/v1/status') return json({
+      printer:{
+        state:'IDLE',
+        active_tool:0,
+        temp_nozzle:215,
+        target_nozzle:215,
+        temp_bed:60,
+        target_bed:60,
+        tools,
+        status_printer:{ ok:true, message:'OK' }
+      }
+    });
+    if (url.pathname === '/api/v1/job') return new Response('', { status:404 });
+    throw new Error(`Unexpected request ${url.pathname}`);
+  };
+
+  try {
+    const adapter = getPrinterAdapter(preparePrinterConfig({
+      adapterType:PRUSA_CORE_ONE_PLUS_ADAPTER_TYPE,
+      name:'INDX 4',
+      host:'192.168.1.74',
+      apiKey:'test-api-key',
+      toolCount:4,
+      adapterConfig:{
+        toolDesignations:{
+          '2':{ material:'ASA', color:'#0066FF', colorFamily:'blue' }
+        }
+      }
+    }));
+    const status = await adapter.getStatus();
+    const t2 = status.tools[2];
+    assert.equal(t2.filament.material, 'ASA');
+    assert.equal(t2.filament.materialSource, 'manual');
+    assert.equal(t2.filament.color, '#0066FF');
+    assert.equal(t2.filament.colorSource, 'manual');
+    assert.equal(t2.filament.colorFamily, 'blue');
+    assert.equal(t2.filament.colorFamilySource, 'manual');
+    assert.equal(t2.filament.reportedMaterial, 'PLA');
+    assert.equal(t2.filament.reportedColor, '#FF0000');
+    assert.equal(t2.filament.manuallyAssigned, true);
+    assert.equal(status.tools[1].filament.material, 'PLA');
+    assert.equal(status.tools[1].filament.materialSource, 'printer');
+  } finally {
+    global.fetch = originalFetch;
+  }
+});
+
+test('CORE One+ UI and API expose per-tool material and colour designation', () => {
+  const app = fs.readFileSync(new URL('../public/app.js', import.meta.url), 'utf8');
+  const styles = fs.readFileSync(new URL('../public/styles.css', import.meta.url), 'utf8');
+  const server = fs.readFileSync(new URL('../src/server.js', import.meta.url), 'utf8');
+  const store = fs.readFileSync(new URL('../src/store.js', import.meta.url), 'utf8');
+  const models = fs.readFileSync(new URL('../src/adapters/prusa-link-models.js', import.meta.url), 'utf8');
+
+  assert.match(models, /toolMaterialDesignation:true/);
+  assert.match(app, /function prusaToolMaterialDesignationMarkup/);
+  assert.match(app, /data-prusa-tool-material-input/);
+  assert.match(app, /data-prusa-tool-color-family-input/);
+  assert.match(app, /data-prusa-tool-material-save/);
+  assert.match(app, /data-prusa-tool-material-clear/);
+  assert.match(app, /\/tool-material-designation/);
+  assert.match(styles, /\.prusa-tool-filament-control/);
+  assert.match(server, /action === 'tool-material-designation'/);
+  assert.match(server, /setPrinterToolMaterialDesignation/);
+  assert.match(store, /export async function setPrinterToolMaterialDesignation/);
+  assert.match(store, /toolDesignations/);
+  assert.match(store, /representativeColor/);
+});
 
 test('CORE One+ UI exposes model-driven persistent tool configuration', () => {
   const app = fs.readFileSync(new URL('../public/app.js', import.meta.url), 'utf8');
