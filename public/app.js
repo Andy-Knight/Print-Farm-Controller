@@ -5689,7 +5689,7 @@ async function openPrinter(id) {
           ${capabilities.toolheadNozzleStatus ? `<small data-tool-nozzle="${tool.index}">${escapeHtml(`${nozzleDiameterText(tool.nozzleDiameter)}${tool.nozzleVolumeType ? ` · ${tool.nozzleVolumeType}` : ''}`)}</small>` : ''}
           ${capabilities.toolheadNozzleStatus ? `<small data-tool-offset="${tool.index}">${escapeHtml(toolOffsetText(tool.offset))}</small>` : ''}
           <small data-material-meta="${tool.index}">${escapeHtml(filamentMetaText(filament))}</small>
-          ${['snapmaker-u1','flashforge-ad5m','flashforge-creator5','bambu-lab','prusa-core-one-plus'].includes(printer.adapterType) ? `<small class="material-rgb${filamentColorDisplayText(filament) ? '' : ' hidden'}" data-material-rgb="${tool.index}">${escapeHtml(filamentColorDisplayText(filament) || '')}</small>` : ''}
+          ${(['snapmaker-u1','flashforge-ad5m','flashforge-creator5','bambu-lab'].includes(printer.adapterType) || printer.manufacturer === 'Prusa') ? `<small class="material-rgb${filamentColorDisplayText(filament) ? '' : ' hidden'}" data-material-rgb="${tool.index}">${escapeHtml(filamentColorDisplayText(filament) || '')}</small>` : ''}
           ${printer.adapterType === 'snapmaker-u1' ? u1FilamentConfigControlMarkup(printer, tool) : ''}
         </div>`;
       }).join('')}</div>
