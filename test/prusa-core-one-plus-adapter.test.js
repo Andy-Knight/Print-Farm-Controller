@@ -372,6 +372,13 @@ test('CORE One+ UI and API expose per-tool material and colour designation', () 
   assert.match(app, /data-prusa-tool-color-family-input/);
   assert.match(app, /data-prusa-tool-material-save/);
   assert.match(app, /data-prusa-tool-material-clear/);
+  assert.match(app, /data-prusa-tool-material-clear="\$\{tool\.index\}">Clear assignment<\/button>/);
+  const perToolMarkup = app.slice(
+    app.indexOf('function prusaToolMaterialDesignationMarkup'),
+    app.indexOf('function flashForgeMaterialDesignationMarkup')
+  );
+  assert.doesNotMatch(perToolMarkup, />Use printer value<\/button>/);
+  assert.match(perToolMarkup, /Clearing removes the controller assignment/);
   assert.match(app, /\/tool-material-designation/);
   assert.match(styles, /\.prusa-tool-filament-control/);
   assert.match(server, /action === 'tool-material-designation'/);
