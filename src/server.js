@@ -13,6 +13,7 @@ import {
   setPrinterLicenseSlotActive,
   setPrinterMaterialDesignation,
   setPrinterNozzleDesignation,
+  setPrinterToolCount,
   controllerDataDir
 } from './store.js';
 import {
@@ -1757,7 +1758,7 @@ async function apiRoute(req, res, url) {
     || (req.method === 'POST' && action === 'camera')
     || (req.method === 'POST' && action === 'job')
     || (req.method === 'DELETE' && action === 'chamber-preheat')
-    || ['material-designation', 'nozzle-designation'].includes(action);
+    || ['material-designation', 'nozzle-designation', 'tool-configuration'].includes(action);
   if (licenseAccess?.licenseActive === false && !inactiveAllowed) {
     throw new Error('Printer is inactive because it does not currently have a licence slot. Select it for a licence slot before sending new control commands.');
   }
@@ -1858,6 +1859,25 @@ async function apiRoute(req, res, url) {
       nozzleDiameterDesignation: Number.isFinite(Number(updated.adapterConfig?.nozzleDiameterDesignation))
         ? Number(updated.adapterConfig.nozzleDiameterDesignation)
         : null
+    });
+  }
+
+  if (action === 'tool-configuration' && req.method === 'POST') {
+    if (String(printer.adapterType) !== 'prusa-core-one-plus') {
+      throw new Error('Tool configuration is only supported for Prusa CORE One+ printers');
+    }
+    const body = await readJson(req);
+    const updated = await controllerMutations.run('printer-registry', () => runPrinterMutation(id, 'tool configuration change', async () => {
+      const value = await setPrinterToolCount(id, body.toolCount);
+      if (!value) throw new Error('Printer not found');
+      await fleetState.syncRegistry();
+      return value;
+    }, { allowInactive:true, operationType:PRINTER_OPERATION_TYPES.TOOL_CONFIGURATION }));
+    fleetState.refreshNow(id).catch(() => {});
+    return json(res, 200, {
+      ok:true,
+      printer:publicPrinter(updated),
+      configuredToolCount:Number(updated.adapterConfig?.toolCount || 1)
     });
   }
 
