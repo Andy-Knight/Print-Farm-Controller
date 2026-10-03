@@ -8,6 +8,9 @@ import {
   preparePrinterConfig
 } from '../src/adapters/adapter-registry.js';
 import { prusaLinkInternals } from '../src/prusa-link-api.js';
+import { createPrusaLinkAdapterDefinition, PrusaLinkAdapter } from '../src/adapters/prusa-link-adapter.js';
+import { PRUSA_CORE_ONE_PLUS_PROFILE, listPrusaLinkModelProfiles } from '../src/adapters/prusa-link-models.js';
+import { normalizeCapabilities } from '../src/adapters/printer-adapter.js';
 
 test('Prusa CORE One+ is registered with safe first-pass local capabilities', () => {
   const definition = listAdapterDefinitions().find((item) => item.type === PRUSA_CORE_ONE_PLUS_ADAPTER_TYPE);
@@ -15,6 +18,8 @@ test('Prusa CORE One+ is registered with safe first-pass local capabilities', ()
   assert.equal(definition.manufacturer, 'Prusa');
   assert.deepEqual(definition.models, ['CORE One+']);
   assert.equal(definition.discovery, false);
+  assert.equal(definition.capabilities.toolConfiguration, true);
+  assert.deepEqual(definition.configFields.find((field) => field.name === 'toolCount').options.map((item) => item.value), [1,4,8]);
 
   const config = preparePrinterConfig({
     adapterType:PRUSA_CORE_ONE_PLUS_ADAPTER_TYPE,
@@ -77,7 +82,7 @@ test('Prusa CORE One+ supports Standard, INDX 4-tool and INDX 8-tool configurati
     host:'192.168.1.72',
     prusaLinkPassword:'secret',
     toolCount:2
-  }), /1, 4 or 8 tools/);
+  }), /one of: 1, 4, 8/);
 });
 
 test('Prusa CORE One+ requires local PrusaLink credentials', () => {
@@ -280,18 +285,96 @@ test('PrusaLink normalizes eight reported INDX tools without remapping tool indi
 });
 
 
-test('CORE One+ UI exposes a persistent 1/4/8 upgrade selector', () => {
+test('CORE One+ UI exposes model-driven persistent tool configuration', () => {
   const app = fs.readFileSync(new URL('../public/app.js', import.meta.url), 'utf8');
   const server = fs.readFileSync(new URL('../src/server.js', import.meta.url), 'utf8');
   const store = fs.readFileSync(new URL('../src/store.js', import.meta.url), 'utf8');
+  const models = fs.readFileSync(new URL('../src/adapters/prusa-link-models.js', import.meta.url), 'utf8');
 
-  assert.match(app, /data-prusa-tool-count-input/);
-  assert.match(app, /Standard · 1 tool/);
-  assert.match(app, /INDX · 4 tools/);
-  assert.match(app, /INDX · 8 tools/);
+  assert.match(app, /data-tool-configuration-input/);
+  assert.match(app, /limits\.toolConfigurations/);
+  assert.match(app, /capabilities\?\.toolConfiguration/);
+  assert.match(models, /Standard · 1 tool/);
+  assert.match(models, /INDX · 4 tools/);
+  assert.match(models, /INDX · 8 tools/);
   assert.match(app, /\/tool-configuration/);
-  assert.match(server, /action === 'tool-configuration'/);
-  assert.match(server, /setPrinterToolCount/);
+  assert.match(server, /adapter\.capabilities\?\.toolConfiguration/);
+  assert.match(server, /adapter\.limits\?\.toolConfigurations/);
   assert.match(store, /export async function setPrinterToolCount/);
+  assert.match(store, /getPrusaLinkModelProfile/);
   assert.match(store, /configuredToolCount/);
+});
+
+
+test('PrusaLink family adapter can instantiate another model from profile data only', () => {
+  assert.ok(listPrusaLinkModelProfiles().some((profile) => profile.adapterType === PRUSA_CORE_ONE_PLUS_ADAPTER_TYPE));
+  assert.equal(PRUSA_CORE_ONE_PLUS_PROFILE.model, 'CORE One+');
+
+  const syntheticProfile = Object.freeze({
+    id:'test-prusa-model',
+    adapterType:'prusa-test-model',
+    manufacturer:'Prusa',
+    model:'Test Prusa',
+    label:'Prusa Test Prusa',
+    defaultHttpPort:80,
+    defaultUsername:'maker',
+    uploadExtensions:Object.freeze(['.gcode', '.bgcode']),
+    defaultToolCount:1,
+    toolConfigurations:Object.freeze([
+      Object.freeze({
+        count:1,
+        label:'Standard · 1 tool',
+        mappingMode:'single',
+        limits:Object.freeze({
+          toolCount:1,
+          bedTemperature:{ min:0, max:110 },
+          nozzleTemperature:{ min:0, max:300 },
+          chamberTemperature:{ min:0, max:0 },
+          buildVolume:{ x:180, y:180, z:180 }
+        }),
+        capabilities:normalizeCapabilities({
+          status:true,
+          localFiles:true,
+          fileUpload:true,
+          printLocalFile:true,
+          jobControl:true,
+          materialStatus:true,
+          materialDesignation:true,
+          nozzleDesignation:true,
+          toolheadNozzleStatus:true
+        })
+      })
+    ])
+  });
+
+  const definition = createPrusaLinkAdapterDefinition(syntheticProfile);
+  const config = definition.prepareConfig({
+    name:'Synthetic Prusa',
+    host:'192.168.1.88',
+    apiKey:'test-key'
+  });
+  const adapter = definition.create(config);
+
+  assert.ok(adapter instanceof PrusaLinkAdapter);
+  assert.equal(adapter.type, 'prusa-test-model');
+  assert.equal(adapter.manufacturer, 'Prusa');
+  assert.equal(adapter.model, 'Test Prusa');
+  assert.equal(adapter.limits.toolCount, 1);
+  assert.equal(adapter.limits.nozzleTemperature.max, 300);
+  assert.deepEqual(adapter.uploadExtensions, ['.gcode','.bgcode']);
+});
+
+test('CORE One+ wrapper contains model identity while shared PrusaLink behavior lives in family modules', () => {
+  const wrapper = fs.readFileSync(new URL('../src/adapters/prusa-core-one-plus-adapter.js', import.meta.url), 'utf8');
+  const family = fs.readFileSync(new URL('../src/adapters/prusa-link-adapter.js', import.meta.url), 'utf8');
+  const models = fs.readFileSync(new URL('../src/adapters/prusa-link-models.js', import.meta.url), 'utf8');
+  const registry = fs.readFileSync(new URL('../src/adapters/adapter-registry.js', import.meta.url), 'utf8');
+
+  assert.match(wrapper, /extends PrusaLinkAdapter/);
+  assert.match(wrapper, /PRUSA_CORE_ONE_PLUS_PROFILE/);
+  assert.doesNotMatch(wrapper, /getPrusaLinkStatus/);
+  assert.match(family, /class PrusaLinkAdapter/);
+  assert.match(family, /createPrusaLinkAdapterDefinition/);
+  assert.match(models, /listPrusaLinkModelProfiles/);
+  assert.match(registry, /for \(const profile of listPrusaLinkModelProfiles\(\)\)/);
 });
