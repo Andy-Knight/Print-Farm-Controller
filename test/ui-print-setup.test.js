@@ -771,3 +771,23 @@ test('unsupported cameras are hidden rather than shown as offline', () => {
   assert.match(app, /if \(printer\.cameraAvailable === false\) return '<div class="detail-camera camera-placeholder">Camera unavailable<\/div>';/);
   assert.match(app, /<div class="panel"\$\{capabilities\.camera \? ' style="margin-top:12px"' : ''\}>/);
 });
+
+
+test('multi-tool printers use a full-width toolhead information and configuration table', () => {
+  assert.match(app, /const configuredToolCount = Number\(limits\.toolCount/);
+  assert.match(app, /const wideToolheadLayout = Boolean\(capabilities\.materialStatus && configuredToolCount > 1\)/);
+  assert.match(app, /material-panel\$\{wideToolheadLayout \? ' material-panel-wide' : ''\}/);
+  assert.match(app, /class="material-table-head"/);
+  assert.match(app, /<span>Toolhead<\/span><span>Live information<\/span><span>Configuration<\/span>/);
+  assert.match(app, /multi-tool-table/);
+  assert.match(app, /material-tool-cell material-tool-identity/);
+  assert.match(app, /material-tool-cell material-tool-information/);
+  assert.match(app, /material-tool-cell material-tool-configuration/);
+  assert.match(app, /\$\{wideToolheadLayout \? materialStatusMarkup : ''\}[\s\S]*<div class="detail-grid">/);
+  assert.match(app, /\$\{wideToolheadLayout \? '' : materialStatusMarkup\}/);
+  assert.match(styles, /\.material-panel-wide \{ margin-bottom:18px; \}/);
+  assert.match(styles, /\.material-table-head \{/);
+  assert.match(styles, /\.material-grid\.multi-tool-table \{/);
+  assert.match(styles, /\.multi-tool-table \.material-tool \{[\s\S]*grid-template-columns:/);
+  assert.match(styles, /@media \(max-width:760px\)[\s\S]*\.material-table-head \{ display:none; \}/);
+});
