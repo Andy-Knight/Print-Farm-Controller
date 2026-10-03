@@ -17,6 +17,7 @@ Historical entries describe the behaviour of the controller at the time of that 
 - Uses the standard CORE One+ limits of 290 °C nozzle, 120 °C heatbed, 55 °C chamber and 250 × 220 × 270 mm build volume. INDX 4/8 configurations use 300 °C nozzle metadata and a 248 × 205 × 270 mm usable build volume. Temperature/chamber control and camera streaming remain disabled until their local control paths are validated on physical hardware.
 - Adds Prusa CORE One+ simulator profiles for Standard 1-tool, INDX 4-tool and INDX 8-tool configurations. The local PrusaLink emulator covers Digest authentication, per-tool status/metadata, storage/files, upload verification, print start and pause/resume/cancel, with end-to-end interoperability coverage against the production adapter.
 - Adds matching **400 × 190** dashboard artwork for the Prusa CORE One+, using the same contained WebP asset treatment and regression checks as the existing supported-printer images.
+- UI consistency: standardizes filament-type selection across U1, Prusa and FlashForge controller-managed filament assignments using the same fixed U1-style dropdown. The previous Prusa/FlashForge editable datalist fields are removed; unexpected printer-reported material names remain visible without becoming free-text choices.
 - Adds regression coverage for adapter registration/configuration, capability boundaries, PrusaLink state normalization, Digest authorization construction, file-tree flattening, status telemetry normalization and simulator interoperability.
 
 ## v0.38.1
