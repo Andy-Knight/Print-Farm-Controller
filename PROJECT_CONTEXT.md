@@ -121,16 +121,19 @@ Manufacturer-specific discovery, capabilities, limits, status normalization, fil
 
 The current production baseline is **v0.38.1** on `main`.
 
-Active development is **v0.39.0** on `feature/prusa-core-one-plus-support-v0390`. The first implementation adds a separate Prusa CORE One+ adapter using the printer's built-in local PrusaLink HTTP API. Initial scope is deliberately limited to documented/validated local functions: status telemetry, printer-local files, streamed G-code/BGCODE upload and verification, print start, and pause/resume/cancel. The adapter supports PrusaLink Digest username/password authentication and optional API-key authentication. Manual filament/nozzle designation is available for queue compatibility. Temperature/chamber controls, camera streaming and automatic discovery are not yet exposed.
+Active development is **v0.39.0** on `feature/prusa-core-one-plus-support-v0390`. Prusa CORE One+ support uses the local PrusaLink HTTP API with Digest username/password or optional API-key authentication. Supported controller configurations are Standard 1-tool, INDX 4-tool and INDX 8-tool. Existing CORE One+ registrations can be changed between those configurations from printer details after a physical INDX upgrade. INDX scheduling uses fixed tool indices from the sliced file; PFC never silently remaps T0/T1/etc. to different INDX tools. Known per-tool material/nozzle/colour mismatches are blocked and unavailable per-tool metadata requires review. The integrated simulator has Standard, INDX 4 and INDX 8 profiles.
+
+Initial local control scope remains status telemetry, printer-local files, streamed G-code/BGCODE upload and verification, print start, and pause/resume/cancel. Temperature/chamber controls, camera streaming and automatic discovery are not yet exposed.
 
 ## Next steps
 
-1. Run the full regression suite / GitHub Actions workflow for the v0.39.0 branch and fix any integration failures.
-2. Validate against a physical Prusa CORE One+: add by IP, authenticate with Settings → Network → PrusaLink credentials, confirm idle/printing status, file list, upload/verify, print start, pause/resume/cancel and queue completion detection.
-3. Confirm the exact storage path and BGCODE behaviour on current CORE One+ firmware.
-4. After physical validation, investigate safe local support for chamber temperature/control, camera access and LAN discovery without relying on Prusa Connect cloud services.
-5. Validate the new virtual CORE One+ through the integrated simulator UI and controller Add flow; emulator coverage now exercises status, files, upload/verification, print start and pause/resume/cancel through the production Prusa adapter.
-6. Review the new CORE One+ 400 × 190 dashboard artwork in Dark and Light themes during hands-on validation.
+1. Run the full regression suite / GitHub Actions workflow for the final v0.39.0 branch head and fix any integration failures.
+2. Validate a physical standard CORE One+: authentication, idle/printing status, file list, upload/verify, print start, pause/resume/cancel and queue completion detection.
+3. Validate physical INDX 4/8 PrusaLink telemetry, especially the exact per-tool fields exposed by current firmware; retain review-required behaviour wherever PrusaLink does not report a tool's loaded material/nozzle state.
+4. Confirm exact storage-path and BGCODE behaviour on current CORE One+/INDX firmware and verify sliced T0→T0 etc. behaviour.
+5. Validate changing an existing controller entry from Standard → INDX 4 → INDX 8 after the corresponding hardware upgrade.
+6. Review the CORE One+ 400 × 190 dashboard artwork in Dark and Light themes.
+7. After physical validation, investigate safe local chamber temperature/control, camera access and LAN discovery without relying on Prusa Connect cloud services.
 
 ## Licensing baseline
 
