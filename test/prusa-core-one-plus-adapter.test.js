@@ -18,6 +18,7 @@ test('Prusa CORE One+ is registered with safe first-pass local capabilities', ()
   assert.equal(definition.manufacturer, 'Prusa');
   assert.deepEqual(definition.models, ['CORE One+']);
   assert.equal(definition.discovery, false);
+  assert.equal(definition.experimental, true);
   assert.equal(definition.capabilities.toolConfiguration, true);
   assert.deepEqual(definition.configFields.find((field) => field.name === 'toolCount').options.map((item) => item.value), [1,4,8]);
 
@@ -492,4 +493,14 @@ test('CORE One+ wrapper contains model identity while shared PrusaLink behavior 
     const shared = fs.readFileSync(new URL(path, import.meta.url), 'utf8');
     assert.doesNotMatch(shared, /prusa-core-one-plus/, `${path} must stay model-neutral`);
   }
+});
+
+
+test('Add Printer dropdown marks CORE One+ support as experimental without renaming the model', () => {
+  const app = fs.readFileSync(new URL('../public/app.js', import.meta.url), 'utf8');
+  const definition = listAdapterDefinitions().find((item) => item.type === PRUSA_CORE_ONE_PLUS_ADAPTER_TYPE);
+  assert.equal(definition.label, 'Prusa CORE One+');
+  assert.equal(definition.models[0], 'CORE One+');
+  assert.equal(definition.experimental, true);
+  assert.match(app, /adapter\.experimental \? `\$\{label\} \(Experimental\)` : label/);
 });
