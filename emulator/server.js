@@ -85,7 +85,7 @@ function controllerSettings(printer) {
       protocolStatus: 'simulated-unverified'
     };
   }
-  if (printer.adapterType === 'prusa-core-one-plus') {
+  if (printer.protocol === 'prusalink') {
     return {
       ...common,
       model: printer.model,
