@@ -4639,10 +4639,44 @@ function filamentColorDisplayText(filament = {}) {
   return family || exact;
 }
 
-const SNAPMAKER_U1_FILAMENT_TYPES = [
-  'PLA', 'PETG', 'ABS', 'ASA', 'TPU', 'PVA', 'PA', 'PA-CF', 'PA-GF',
-  'PA6-CF', 'PA6-GF', 'PC', 'PC-ABS', 'PETG-CF', 'PLA-CF', 'PEBA'
-];
+const CONTROLLER_FILAMENT_TYPES = Object.freeze([
+  'PLA', 'PETG', 'ABS', 'ASA', 'TPU', 'PVA', 'PA', 'Nylon',
+  'PA-CF', 'PA-GF', 'PA6-CF', 'PA6-GF', 'PC', 'PC-ABS',
+  'PLA-CF', 'PETG-CF', 'ASA-CF', 'PC-CF', 'HIPS', 'PP', 'PET', 'PEBA'
+]);
+
+function filamentTypeSelectMarkup({
+  value = '',
+  inputAttributes = '',
+  disabled = false,
+  placeholder = 'Select type'
+} = {}) {
+  const raw = String(value || '').trim();
+  const match = CONTROLLER_FILAMENT_TYPES.find((item) => item.toLowerCase() === raw.toLowerCase()) || '';
+  const selectedValue = match || raw;
+  const options = selectedValue && !CONTROLLER_FILAMENT_TYPES.includes(selectedValue)
+    ? [selectedValue, ...CONTROLLER_FILAMENT_TYPES]
+    : [...CONTROLLER_FILAMENT_TYPES];
+  return `<select ${inputAttributes}${disabled ? ' disabled' : ''}>
+    <option value=""${selectedValue ? '' : ' selected'}>${escapeHtml(placeholder)}</option>
+    ${options.map((item) => `<option value="${escapeHtml(item)}"${item === selectedValue ? ' selected' : ''}>${escapeHtml(item)}</option>`).join('')}
+  </select>`;
+}
+
+function setFilamentTypeSelectValue(select, value) {
+  if (!select) return;
+  const raw = String(value || '').trim();
+  const normalized = CONTROLLER_FILAMENT_TYPES.find((item) => item.toLowerCase() === raw.toLowerCase()) || raw;
+  for (const option of [...select.querySelectorAll('option[data-dynamic-filament]')]) option.remove();
+  if (normalized && ![...select.options].some((option) => option.value === normalized)) {
+    const option = document.createElement('option');
+    option.value = normalized;
+    option.textContent = normalized;
+    option.dataset.dynamicFilament = '1';
+    select.append(option);
+  }
+  select.value = normalized;
+}
 
 function u1FilamentConfigEditState(printer, tool = {}) {
   const filament = tool.filament || {};
@@ -4663,14 +4697,15 @@ function u1FilamentConfigControlMarkup(printer, tool = {}) {
   if (printer?.adapterType !== 'snapmaker-u1' || !printer?.capabilities?.filamentTypeControl || !printer?.capabilities?.filamentColorControl) return '';
   const filament = tool.filament || {};
   const state = u1FilamentConfigEditState(printer, tool);
-  const material = String(filament.material || '').trim().toUpperCase();
-  const knownMaterial = SNAPMAKER_U1_FILAMENT_TYPES.includes(material);
+  const material = String(filament.material || '').trim();
   const familyOption = filamentColorFamilyOption(filament.colorFamily);
   return `<div class="u1-filament-config-control" data-u1-filament-config-control="${tool.index}">
-    <label>Filament type<select data-u1-filament-type-input="${tool.index}"${state.enabled ? '' : ' disabled'}>
-      <option value=""${knownMaterial ? '' : ' selected'}>Select type</option>
-      ${SNAPMAKER_U1_FILAMENT_TYPES.map((value) => `<option value="${value}"${value === material ? ' selected' : ''}>${value}</option>`).join('')}
-    </select></label>
+    <label>Filament type${filamentTypeSelectMarkup({
+      value:material,
+      inputAttributes:`data-u1-filament-type-input="${tool.index}"`,
+      disabled:!state.enabled,
+      placeholder:'Select type'
+    })}</label>
     <label>Colour family${colorFamilyDropdownMarkup({ value:familyOption?.value || '', inputAttributes:`data-u1-filament-color-family-input="${tool.index}"`, disabled:!state.enabled, placeholder:'Select colour' })}</label>
     <button type="button" class="secondary" data-u1-filament-config-save="${tool.index}"${state.enabled ? '' : ' disabled'}>Set filament on U1</button>
     <small data-u1-filament-config-help="${tool.index}">${escapeHtml(state.message)}</small>
@@ -4690,15 +4725,17 @@ function prusaToolMaterialDesignationMarkup(printer, tool = {}) {
   const reportedMaterial = String(filament.reportedMaterial || '').trim();
   const reportedFamily = filamentColorFamilyOption(filament.reportedColorFamily);
   const hasReported = Boolean(reportedMaterial || reportedFamily || filament.reportedColor);
-  const materialOptions = ['PLA','PETG','ABS','ASA','TPU','PC','PA','Nylon','PVA','HIPS','PP','PET','PLA-CF','PETG-CF','ASA-CF','PA-CF','PC-CF'];
   return `<div class="prusa-tool-filament-control" data-prusa-tool-filament-control="${tool.index}">
     <label>Material type
-      <input type="text" data-prusa-tool-material-input="${tool.index}" value="${escapeHtml(material)}" list="prusaMaterialTypes${tool.index}" maxlength="48" placeholder="e.g. PLA, PETG, ASA" autocomplete="off" />
+      ${filamentTypeSelectMarkup({
+        value:material,
+        inputAttributes:`data-prusa-tool-material-input="${tool.index}"`,
+        placeholder:'Select type'
+      })}
     </label>
     <label>Colour family
       ${colorFamilyDropdownMarkup({ value:familyOption?.value || '', inputAttributes:`data-prusa-tool-color-family-input="${tool.index}"`, placeholder:'Select colour' })}
     </label>
-    <datalist id="prusaMaterialTypes${tool.index}">${materialOptions.map((value) => `<option value="${escapeHtml(value)}"></option>`).join('')}</datalist>
     <div class="mini-actions">
       <button type="button" class="secondary" data-prusa-tool-material-save="${tool.index}">Assign T${tool.index}</button>
       <button type="button" class="secondary" data-prusa-tool-material-clear="${tool.index}">Clear assignment</button>
@@ -4718,17 +4755,19 @@ function flashForgeMaterialDesignationMarkup(printer, filament = {}) {
   const familyOption = filamentColorFamilyOption(manualFamily);
   const reported = filament.reportedMaterial || (filament.materialSource === 'printer' ? filament.material : null);
   const clearLabel = reported ? 'Use printer value' : 'Clear designation';
-  const options = ['PLA','PETG','ABS','ASA','TPU','PC','PA','Nylon','PVA','HIPS','PP','PET','PLA-CF','PETG-CF','ASA-CF','PA-CF','PC-CF'];
   return `<div class="material-designation-control">
     <div class="material-designation-fields">
       <label>Controller material type
-        <input type="text" data-material-designation-input value="${escapeHtml(manualValue)}" list="flashforgeMaterialTypes" maxlength="48" placeholder="e.g. PLA, PETG, ASA" autocomplete="off" />
+        ${filamentTypeSelectMarkup({
+          value:manualValue,
+          inputAttributes:'data-material-designation-input',
+          placeholder:'Select type'
+        })}
       </label>
       <label>Controller colour family
         ${colorFamilyDropdownMarkup({ value:familyOption?.value || '', inputAttributes:'data-material-color-family-input', placeholder:'Select colour family' })}
       </label>
     </div>
-    <datalist id="flashforgeMaterialTypes">${options.map((value) => `<option value="${escapeHtml(value)}"></option>`).join('')}</datalist>
     <div class="mini-actions"><button type="button" class="secondary" data-material-designation-save>Assign filament</button><button type="button" class="secondary" data-material-designation-clear>${escapeHtml(clearLabel)}</button></div>
     <div class="field-help">The colour family is used for automatic queue compatibility. Exact shade selection is not required.${reported ? ` Printer currently reports material ${escapeHtml(reported)}.` : ''}</div>
   </div>`;
@@ -5482,7 +5521,7 @@ function updateOpenPrinterTelemetry() {
       if (u1TypeInput) {
         const reportedMaterial = String(filament.material || '').trim().toUpperCase();
         if (!u1EditPending && document.activeElement !== u1TypeInput) {
-          u1TypeInput.value = SNAPMAKER_U1_FILAMENT_TYPES.includes(reportedMaterial) ? reportedMaterial : '';
+          setFilamentTypeSelectValue(u1TypeInput, reportedMaterial);
         }
         u1TypeInput.disabled = !u1ConfigState.enabled;
       }
@@ -6109,7 +6148,7 @@ ${flashForgePreflight}` : ''}`)) return;
       }
       const materialInput = printerDetail.querySelector(`[data-prusa-tool-material-input="${toolIndex}"]`);
       const colorFamilyInput = printerDetail.querySelector(`[data-prusa-tool-color-family-input="${toolIndex}"]`);
-      if (materialInput) materialInput.value = filament?.reportedMaterial || '';
+      if (materialInput) setFilamentTypeSelectValue(materialInput, filament?.reportedMaterial || '');
       if (colorFamilyInput) setColorFamilyDropdownValue(colorFamilyInput, filament?.reportedColorFamily || '');
       updateOpenPrinterTelemetry();
     } catch (error) { showError(error); }
@@ -6172,7 +6211,7 @@ ${flashForgePreflight}` : ''}`)) return;
         updateOpenPrinterTelemetry();
       }
       const input = printerDetail.querySelector('[data-material-designation-input]');
-      if (input) input.value = '';
+      if (input) setFilamentTypeSelectValue(input, '');
       if (materialColorFamilyInput) setColorFamilyDropdownValue(materialColorFamilyInput, '');
     } catch (error) { showError(error); }
     finally { materialDesignationClear.disabled = false; materialDesignationClear.textContent = original; }
