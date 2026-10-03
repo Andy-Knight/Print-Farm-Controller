@@ -738,3 +738,11 @@ test('production batch controls occupy a separate responsive row below batch ite
   assert.match(styles, /\.production-actions\s*\{[\s\S]*?width:100%[\s\S]*?border-top/);
   assert.match(styles, /\.production-actions > button,[\s\S]*?\.production-actions > label \{ flex:1 1 170px; \}/);
 });
+
+
+test('unsupported cameras are hidden rather than shown as offline', () => {
+  assert.match(app, /if \(!printer\.capabilities\?\.camera\) return '';/);
+  assert.match(app, /if \(!printer\.online\) return '<div class="detail-camera camera-placeholder">Camera unavailable while printer is offline<\/div>';/);
+  assert.match(app, /if \(printer\.cameraAvailable === false\) return '<div class="detail-camera camera-placeholder">Camera unavailable<\/div>';/);
+  assert.match(app, /<div class="panel"\$\{capabilities\.camera \? ' style="margin-top:12px"' : ''\}>/);
+});
