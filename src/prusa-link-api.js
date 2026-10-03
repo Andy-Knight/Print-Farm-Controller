@@ -230,23 +230,88 @@ async function cachedInfo(printer) {
   return value;
 }
 
-function manualFilament(printer) {
+function configuredToolCount(printer) {
+  const count = Number(printer?.adapterConfig?.toolCount || 1);
+  return [1, 4, 8].includes(count) ? count : 1;
+}
+
+function cleanHexColor(value) {
+  const text = String(value || '').trim().replace(/^#/, '').slice(0, 6).toUpperCase();
+  return /^[0-9A-F]{6}$/.test(text) ? `#${text}` : null;
+}
+
+function manualToolDesignation(printer, index) {
   const config = printer?.adapterConfig || {};
-  const material = String(config.filamentDesignation || '').trim() || null;
-  const colorText = String(config.filamentColorDesignation || '').trim().toUpperCase();
-  const color = /^#[0-9A-F]{6}$/.test(colorText) ? colorText : null;
-  const colorFamily = String(config.filamentColorFamilyDesignation || '').trim().toLowerCase() || null;
+  const multi = configuredToolCount(printer) > 1;
+  const stored = config.prusaToolDesignations && typeof config.prusaToolDesignations === 'object'
+    ? (config.prusaToolDesignations[String(index)] || config.prusaToolDesignations[index] || {})
+    : {};
+  const material = String(
+    stored.material ?? (!multi && index === 0 ? config.filamentDesignation : '') ?? ''
+  ).trim() || null;
+  const color = cleanHexColor(stored.color ?? (!multi && index === 0 ? config.filamentColorDesignation : null));
+  const colorFamily = String(
+    stored.colorFamily ?? (!multi && index === 0 ? config.filamentColorFamilyDesignation : '') ?? ''
+  ).trim().toLowerCase() || null;
+  const storedNozzle = Number(stored.nozzleDiameter ?? (!multi && index === 0 ? config.nozzleDiameterDesignation : null));
+  const nozzleDiameter = Number.isFinite(storedNozzle) && storedNozzle > 0 ? storedNozzle : null;
+  return { material, color, colorFamily, nozzleDiameter };
+}
+
+function reportedFilament(source = {}) {
+  const material = String(
+    source.filament_type ?? source.filamentType ?? source.material ?? source.material_type ?? ''
+  ).trim() || null;
+  const color = cleanHexColor(source.filament_color ?? source.filamentColor ?? source.color);
+  const colorFamily = String(source.color_family ?? source.colorFamily ?? '').trim().toLowerCase() || null;
+  const presentValue = source.filament_present ?? source.filamentPresent ?? source.present;
+  const present = typeof presentValue === 'boolean' ? presentValue : null;
   return {
-    present:null,
+    present,
     material,
-    materialSource:material ? 'manual' : null,
+    materialSource:material ? 'printer' : null,
     color,
-    colorSource:color ? 'manual' : null,
+    colorSource:color ? 'printer' : null,
     colorFamily,
-    colorFamilySource:colorFamily ? 'manual' : null,
+    colorFamilySource:colorFamily ? 'printer' : null,
     metadataAvailable:Boolean(material || color || colorFamily),
-    manuallyAssigned:Boolean(material || color || colorFamily)
+    manuallyAssigned:false,
+    reportedMaterial:material,
+    reportedColor:color,
+    reportedColorFamily:colorFamily
   };
+}
+
+function effectiveFilament(printer, index, source = {}) {
+  const reported = reportedFilament(source);
+  const manual = manualToolDesignation(printer, index);
+  return {
+    ...reported,
+    material:manual.material || reported.material,
+    materialSource:manual.material ? 'manual' : reported.materialSource,
+    color:manual.color || reported.color,
+    colorSource:manual.color ? 'manual' : reported.colorSource,
+    colorFamily:manual.colorFamily || reported.colorFamily,
+    colorFamilySource:manual.colorFamily ? 'manual' : reported.colorFamilySource,
+    metadataAvailable:Boolean(
+      manual.material || manual.color || manual.colorFamily
+      || reported.metadataAvailable
+    ),
+    manuallyAssigned:Boolean(manual.material || manual.color || manual.colorFamily)
+  };
+}
+
+function reportedTools(info = {}, status = {}, telemetry = {}) {
+  for (const candidate of [telemetry.tools, status.tools, info.tools, info.toolheads]) {
+    if (Array.isArray(candidate)) return candidate;
+  }
+  return [];
+}
+
+function activeToolIndex(status = {}, telemetry = {}) {
+  const value = telemetry.active_tool ?? telemetry.activeTool ?? status.active_tool ?? status.activeTool ?? 0;
+  const index = Number(value);
+  return Number.isInteger(index) && index >= 0 ? index : 0;
 }
 
 export async function getPrusaLinkStatus(printer) {
@@ -257,29 +322,55 @@ export async function getPrusaLinkStatus(printer) {
   ]);
   const telemetry = status?.printer || {};
   const activeJob = job || status?.job || null;
-  const filament = manualFilament(printer);
-  const reportedNozzle = Number(info?.nozzle_diameter);
-  const manualNozzle = Number(printer?.adapterConfig?.nozzleDiameterDesignation);
-  const nozzleDiameter = Number.isFinite(manualNozzle) && manualNozzle > 0
-    ? manualNozzle
-    : (Number.isFinite(reportedNozzle) && reportedNozzle > 0 ? reportedNozzle : null);
+  const toolCount = configuredToolCount(printer);
+  const sourceTools = reportedTools(info, status, telemetry);
+  const activeTool = Math.min(toolCount - 1, activeToolIndex(status, telemetry));
+  const nozzleArray = Array.isArray(info?.nozzle_diameters) ? info.nozzle_diameters : [];
+  const scalarReportedNozzle = Number(info?.nozzle_diameter);
+
+  const tools = Array.from({ length:toolCount }, (_, index) => {
+    const source = sourceTools.find((item, sourceIndex) => Number(item?.index ?? item?.tool ?? sourceIndex) === index) || {};
+    const manual = manualToolDesignation(printer, index);
+    const candidateNozzle = Number(
+      source.nozzle_diameter
+      ?? source.nozzleDiameter
+      ?? nozzleArray[index]
+      ?? (index === 0 ? scalarReportedNozzle : null)
+    );
+    const reportedNozzle = Number.isFinite(candidateNozzle) && candidateNozzle > 0 ? candidateNozzle : null;
+    const nozzleDiameter = manual.nozzleDiameter || reportedNozzle;
+    const isActive = index === activeTool;
+    const actual = numeric(
+      source.temp_nozzle ?? source.nozzle_temperature ?? source.actual
+      ?? (isActive ? telemetry.temp_nozzle : 0)
+    );
+    const target = numeric(
+      source.target_nozzle ?? source.nozzle_target ?? source.target
+      ?? (isActive ? telemetry.target_nozzle : 0)
+    );
+    return {
+      index,
+      name:`T${index}`,
+      actual,
+      target,
+      active:isActive,
+      nozzleDiameter,
+      reportedNozzleDiameter:reportedNozzle,
+      nozzleDiameterSource:manual.nozzleDiameter ? 'manual' : (reportedNozzle ? 'printer' : null),
+      nozzleManuallyAssigned:Boolean(manual.nozzleDiameter),
+      filament:effectiveFilament(printer, index, source)
+    };
+  });
+
   const jobState = activeJob?.state || telemetry.state;
   const state = normalizeState(jobState);
   const statusMessage = telemetry?.status_printer?.ok === false
     ? (telemetry.status_printer.message || 'Printer requires attention')
     : '';
-
-  const tool = {
-    index:0,
-    name:'T0',
-    actual:numeric(telemetry.temp_nozzle),
-    target:numeric(telemetry.target_nozzle),
-    active:true,
-    nozzleDiameter,
-    nozzleDiameterSource:Number.isFinite(manualNozzle) && manualNozzle > 0 ? 'manual' : (nozzleDiameter ? 'printer' : null),
-    nozzleManuallyAssigned:Number.isFinite(manualNozzle) && manualNozzle > 0,
-    filament
-  };
+  const active = tools[activeTool] || tools[0];
+  const materialTools = tools.map((tool) => ({ index:tool.index, ...tool.filament }));
+  const metadataCount = tools.filter((tool) => tool.filament?.metadataAvailable).length;
+  const loadedCount = tools.filter((tool) => tool.filament?.present === true).length;
 
   return {
     status:state,
@@ -293,16 +384,16 @@ export async function getPrusaLinkStatus(printer) {
     totalLayers:0,
     remainingSeconds:Math.max(0, numeric(activeJob?.time_remaining ?? status?.job?.time_remaining)),
     elapsedSeconds:Math.max(0, numeric(activeJob?.time_printing ?? status?.job?.time_printing)),
-    activeTool:0,
-    nozzle:{ actual:tool.actual, target:tool.target },
-    tools:[tool],
+    activeTool,
+    nozzle:{ actual:active?.actual || 0, target:active?.target || 0 },
+    tools,
     materials:{
-      available:filament.metadataAvailable,
-      loadedCount:0,
-      toolCount:1,
-      metadataCount:filament.metadataAvailable ? 1 : 0,
+      available:metadataCount > 0,
+      loadedCount,
+      toolCount,
+      metadataCount,
       detecting:false,
-      tools:[filament]
+      tools:materialTools
     },
     bed:{
       actual:numeric(telemetry.temp_bed),
