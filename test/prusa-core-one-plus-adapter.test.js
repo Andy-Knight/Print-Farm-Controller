@@ -369,6 +369,8 @@ test('CORE One+ UI and API expose per-tool material and colour designation', () 
   assert.match(models, /toolMaterialDesignation:true/);
   assert.match(app, /function prusaToolMaterialDesignationMarkup/);
   assert.match(app, /data-prusa-tool-material-input/);
+  assert.match(app, /filamentTypeSelectMarkup/);
+  assert.doesNotMatch(app, /prusaMaterialTypes/);
   assert.match(app, /data-prusa-tool-color-family-input/);
   assert.match(app, /data-prusa-tool-material-save/);
   assert.match(app, /data-prusa-tool-material-clear/);
