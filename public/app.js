@@ -4728,6 +4728,27 @@ function flashForgeNozzleDesignationMarkup(printer, tool = {}) {
   </div>`;
 }
 
+function prusaToolConfigurationMarkup(printer, limits = {}) {
+  if (printer?.adapterType !== 'prusa-core-one-plus') return '';
+  const current = [1,4,8].includes(Number(printer.configuredToolCount))
+    ? Number(printer.configuredToolCount)
+    : ([1,4,8].includes(Number(limits.toolCount)) ? Number(limits.toolCount) : 1);
+  const options = [
+    { value:1, label:'Standard · 1 tool' },
+    { value:4, label:'INDX · 4 tools' },
+    { value:8, label:'INDX · 8 tools' }
+  ];
+  return `<div class="material-designation-control prusa-tool-configuration">
+    <label>Installed tool system
+      <select data-prusa-tool-count-input>
+        ${options.map((option) => `<option value="${option.value}"${option.value === current ? ' selected' : ''}>${escapeHtml(option.label)}</option>`).join('')}
+      </select>
+    </label>
+    <div class="mini-actions"><button type="button" class="secondary" data-prusa-tool-count-save>Save tool configuration</button></div>
+    <div class="field-help">Use this after installing or changing the CORE One+ INDX upgrade. It changes controller scheduling, tool-count and build-volume rules only; it does not modify the printer firmware. INDX tool indices remain fixed to the sliced file.</div>
+  </div>`;
+}
+
 function nozzleDiameterText(value) {
   const diameter = Number(value);
   return Number.isFinite(diameter) && diameter > 0 ? `${diameter.toFixed(1)} mm nozzle` : 'nozzle size unknown';
@@ -5677,6 +5698,7 @@ async function openPrinter(id) {
       ${bambuSources}
       ${['flashforge-ad5m','prusa-core-one-plus'].includes(printer.adapterType) ? flashForgeMaterialDesignationMarkup(printer, tools[0]?.filament || {}) : ''}
       ${['flashforge-ad5m','flashforge-creator5','prusa-core-one-plus'].includes(printer.adapterType) ? flashForgeNozzleDesignationMarkup(printer, tools[0] || {}) : ''}
+      ${prusaToolConfigurationMarkup(printer, limits)}
       <div class="field-help material-help">${escapeHtml(materialHelp)}</div>
     </div>`;
   })() : '';
@@ -6110,6 +6132,35 @@ ${flashForgePreflight}` : ''}`)) return;
       if (input) input.value = '';
     } catch (error) { showError(error); }
     finally { nozzleDesignationClear.disabled = false; nozzleDesignationClear.textContent = original; }
+  };
+
+  const prusaToolCountSave = printerDetail.querySelector('[data-prusa-tool-count-save]');
+  if (prusaToolCountSave) prusaToolCountSave.onclick = async () => {
+    const input = printerDetail.querySelector('[data-prusa-tool-count-input]');
+    const toolCount = Number(input?.value);
+    if (![1,4,8].includes(toolCount)) {
+      showError(new Error('Choose a valid CORE One+ tool configuration.'));
+      return;
+    }
+    const current = Number(printer.configuredToolCount || printer.limits?.toolCount || 1);
+    if (toolCount === current) return;
+    const label = toolCount === 1 ? 'Standard 1-tool' : `INDX ${toolCount}-tool`;
+    if (!confirm(`Change ${printer.name} to the ${label} configuration?\n\nThis changes controller scheduling and compatibility rules. It does not install or configure INDX on the printer itself.`)) return;
+    const original = prusaToolCountSave.textContent;
+    prusaToolCountSave.disabled = true;
+    prusaToolCountSave.textContent = 'Saving…';
+    try {
+      await api(`/api/printers/${id}/tool-configuration`, {
+        method:'POST',
+        body:JSON.stringify({ toolCount })
+      });
+      await loadInitialFleet();
+      await openPrinter(id);
+    } catch (error) {
+      showError(error);
+      prusaToolCountSave.disabled = false;
+      prusaToolCountSave.textContent = original;
+    }
   };
 
   printerDetail.querySelectorAll('[data-set-temp]').forEach((btn) => btn.onclick = () => {
