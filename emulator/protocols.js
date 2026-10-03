@@ -881,12 +881,257 @@ function createBambuFtpsServer(printer) {
   return server;
 }
 
+
+function prusaState(printer) {
+  return {
+    idle:'IDLE',
+    printing:'PRINTING',
+    paused:'PAUSED',
+    completed:'FINISHED',
+    cancelled:'STOPPED',
+    failed:'ERROR',
+    leveling:'BUSY'
+  }[printer.status] || 'IDLE';
+}
+
+function prusaAuthorized(request) {
+  const apiKey = String(request.headers['x-api-key'] || '');
+  if (apiKey === 'simulator-api-key') return true;
+  const authorization = String(request.headers.authorization || '');
+  return /^Digest\s+/i.test(authorization) && /username="maker"/i.test(authorization);
+}
+
+function sendPrusaUnauthorized(response) {
+  response.writeHead(401, {
+    'content-type':'application/json; charset=utf-8',
+    'www-authenticate':'Digest realm="Printer API", nonce="printer-emulator-nonce", qop="auth", opaque="print-farm-controller"',
+    'cache-control':'no-store'
+  });
+  response.end(JSON.stringify({ title:'Unauthorized', text:'PrusaLink authentication required' }));
+}
+
+function prusaFileTree(printer) {
+  const root = { type:'FOLDER', name:'usb', display_name:'USB', read_only:false, m_timestamp:Math.floor(Date.now() / 1000), children:[] };
+  const folders = new Map([['', root]]);
+  for (const file of printer.files.values()) {
+    const parts = String(file.path || '').replace(/^\/+/, '').split('/').filter(Boolean);
+    if (!parts.length) continue;
+    let prefix = '';
+    let parent = root;
+    for (let index = 0; index < parts.length - 1; index++) {
+      const part = parts[index];
+      prefix = prefix ? `${prefix}/${part}` : part;
+      if (!folders.has(prefix)) {
+        const folder = {
+          type:'FOLDER',
+          name:part,
+          display_name:part,
+          read_only:false,
+          m_timestamp:Math.floor(file.modified || Date.now() / 1000),
+          children:[]
+        };
+        parent.children.push(folder);
+        folders.set(prefix, folder);
+      }
+      parent = folders.get(prefix);
+    }
+    const name = parts.at(-1);
+    parent.children.push({
+      type:'PRINT_FILE',
+      name,
+      display_name:name,
+      read_only:false,
+      size:Number(file.size || 0),
+      m_timestamp:Math.floor(file.modified || Date.now() / 1000),
+      refs:{
+        download:`/api/v1/files/usb/${parts.map(encodeURIComponent).join('/')}/raw`
+      }
+    });
+  }
+  return root;
+}
+
+function prusaJob(printer) {
+  if (!printer.fileName) return null;
+  const id = 1;
+  return {
+    id,
+    state:prusaState(printer),
+    progress:Number(printer.progress || 0),
+    time_remaining:Number(printer.remainingSeconds || 0),
+    time_printing:Number(printer.elapsedSeconds || 0),
+    inaccurate_estimates:false,
+    file:{
+      name:String(printer.fileName).split('/').at(-1),
+      display_name:String(printer.fileName).split('/').at(-1),
+      path:'/usb',
+      display_path:'/USB',
+      size:Number(printer.files.get(printer.fileName)?.size || 0),
+      m_timestamp:Math.floor(printer.files.get(printer.fileName)?.modified || Date.now() / 1000)
+    }
+  };
+}
+
+function createPrusaLinkServer(printer) {
+  return http.createServer(async (request, response) => {
+    const url = new URL(request.url, `http://${request.headers.host || 'localhost'}`);
+    if (!prusaAuthorized(request)) {
+      printer.log('prusalink', `${request.method} ${url.pathname} authentication challenge`);
+      return sendPrusaUnauthorized(response);
+    }
+    if (await applyFault(printer, 'prusalink', `${request.method} ${url.pathname}`, response)) return;
+
+    if (url.pathname === '/api/version' && request.method === 'GET') {
+      return sendJson(response, 200, {
+        api:'2.0.0-simulator',
+        server:'Print Farm Controller Printer Emulator',
+        original:'PrusaLink',
+        text:'Prusa CORE One+ simulator',
+        firmware:'6.8.1-simulator',
+        printer:'CORE One+'
+      });
+    }
+
+    if (url.pathname === '/api/v1/info' && request.method === 'GET') {
+      return sendJson(response, 200, {
+        mmu:false,
+        name:printer.name,
+        location:'Print Farm Controller Simulator',
+        farm_mode:false,
+        nozzle_diameter:printer.tools[0]?.nozzleDiameter || 0.4,
+        min_extrusion_temp:170,
+        serial:printer.serialNumber,
+        sd_ready:true,
+        active_camera:false,
+        hostname:printer.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
+      });
+    }
+
+    if (url.pathname === '/api/v1/status' && request.method === 'GET') {
+      const job = prusaJob(printer);
+      return sendJson(response, 200, {
+        printer:{
+          state:prusaState(printer),
+          temp_nozzle:printer.tools[0]?.actual || 0,
+          target_nozzle:printer.tools[0]?.target || 0,
+          temp_bed:printer.bed.actual,
+          target_bed:printer.bed.target,
+          fan_print:Math.round(printer.fans.cooling || 0),
+          status_printer:{
+            ok:printer.status !== 'failed',
+            message:printer.statusMessage || (printer.status === 'failed' ? 'Simulated printer error' : 'OK')
+          },
+          status_connect:{ ok:true, message:'Simulator local connection' }
+        },
+        ...(job ? { job:{
+          id:job.id,
+          progress:job.progress,
+          time_remaining:job.time_remaining,
+          time_printing:job.time_printing
+        } } : {}),
+        storage:{ name:'USB', path:'/usb', read_only:false, free_space:8_000_000_000 }
+      });
+    }
+
+    if (url.pathname === '/api/v1/job' && request.method === 'GET') {
+      const job = prusaJob(printer);
+      if (!job) return sendJson(response, 404, { title:'Not Found', text:'No active or recent job' });
+      return sendJson(response, 200, job);
+    }
+
+    if (url.pathname === '/api/v1/storage' && request.method === 'GET') {
+      return sendJson(response, 200, {
+        storage_list:[
+          {
+            name:'USB',
+            path:'/usb',
+            type:'USB',
+            read_only:false,
+            available:true,
+            free_space:8_000_000_000
+          }
+        ]
+      });
+    }
+
+    if ((url.pathname === '/api/v1/files/usb' || url.pathname === '/api/v1/files/usb/') && request.method === 'GET') {
+      return sendJson(response, 200, prusaFileTree(printer));
+    }
+
+    const fileMatch = url.pathname.match(/^\/api\/v1\/files\/usb\/(.+)$/);
+    if (fileMatch) {
+      const relative = fileMatch[1].split('/').map(decodeURIComponent).join('/').replace(/\/+$/, '');
+      if (request.method === 'PUT') {
+        const body = await readBodyPrefix(request);
+        printer.addFile(relative, {
+          size:body.total,
+          content:body.prefix
+        });
+        response.writeHead(201, {
+          'content-location':`/api/v1/files/usb/${fileMatch[1]}`,
+          'cache-control':'no-store'
+        });
+        response.end();
+        return;
+      }
+      if (request.method === 'HEAD') {
+        const exists = !printer.faults.failVerification && printer.files.has(relative);
+        response.writeHead(exists ? 200 : 404, {
+          'content-length':exists ? String(printer.files.get(relative)?.size || 0) : '0',
+          'cache-control':'no-store'
+        });
+        response.end();
+        return;
+      }
+      if (request.method === 'POST') {
+        if (!printer.files.has(relative)) return sendJson(response, 404, { title:'Not Found', text:'File not found' });
+        printer.startPrint(relative);
+        response.writeHead(204, { 'cache-control':'no-store' });
+        response.end();
+        return;
+      }
+      if (request.method === 'GET' && relative.endsWith('/raw')) {
+        const fileName = relative.slice(0, -4);
+        const file = printer.files.get(fileName);
+        if (!file) return sendJson(response, 404, { title:'Not Found', text:'File not found' });
+        const content = Buffer.isBuffer(file.content) ? file.content : Buffer.from(file.content || '');
+        response.writeHead(200, { 'content-type':'application/octet-stream', 'content-length':content.length });
+        response.end(content);
+        return;
+      }
+    }
+
+    const pauseMatch = url.pathname.match(/^\/api\/v1\/job\/(\d+)\/(pause|resume)$/);
+    if (pauseMatch && request.method === 'PUT') {
+      const action = pauseMatch[2];
+      printer.action(action);
+      response.writeHead(204, { 'cache-control':'no-store' });
+      response.end();
+      return;
+    }
+
+    const cancelMatch = url.pathname.match(/^\/api\/v1\/job\/(\d+)$/);
+    if (cancelMatch && request.method === 'DELETE') {
+      printer.action('cancel');
+      response.writeHead(204, { 'cache-control':'no-store' });
+      response.end();
+      return;
+    }
+
+    sendJson(response, 404, { title:'Not Found', text:`Unsupported simulated PrusaLink endpoint: ${url.pathname}` });
+  });
+}
+
 export async function startProtocolEndpoints(printer, { assetsDir } = {}) {
   loadProtocolAssets(assetsDir);
   const servers = [];
   try {
     if (printer.adapterType === 'snapmaker-u1') {
       const server = createMoonrakerServer(printer);
+      printer.ports.httpPort = await listen(server, printer.host, Number(printer.ports.httpPort));
+      servers.push(server);
+    } else if (printer.adapterType === 'prusa-core-one-plus') {
+      const server = createPrusaLinkServer(printer);
       printer.ports.httpPort = await listen(server, printer.host, Number(printer.ports.httpPort));
       servers.push(server);
     } else if (printer.adapterType === 'flashforge-ad5m') {
