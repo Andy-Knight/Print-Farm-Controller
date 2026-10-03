@@ -186,7 +186,10 @@ export function createPrusaLinkAdapterDefinition(profile, { AdapterClass = Prusa
     manufacturer:profile.manufacturer,
     label:profile.label,
     models:[profile.model],
-    capabilities:defaultConfiguration.capabilities,
+    capabilities:Object.freeze({
+      ...defaultConfiguration.capabilities,
+      toolConfiguration:profile.toolConfigurations.length > 1
+    }),
     configFields,
     prepareConfig:(input) => preparePrusaLinkConfig(profile, input),
     create:(printer) => new AdapterClass(printer, profile)
