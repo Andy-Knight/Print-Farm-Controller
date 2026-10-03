@@ -31,6 +31,7 @@ test('FlashForge AD5M adapter exposes the current controller capabilities and li
   assert.equal(adapter.capabilities.nozzleDesignation, true);
   assert.equal(adapter.limits.bedTemperature.max, 110);
   assert.equal(adapter.limits.nozzleTemperature.max, 265);
+  assert.deepEqual(adapter.limits.nozzleDiameters, [0.25, 0.4, 0.6, 0.8]);
 });
 
 test('FlashForge Creator 5 series exposes four-tool and model-specific chamber capabilities', () => {
@@ -65,6 +66,7 @@ test('FlashForge Creator 5 series exposes four-tool and model-specific chamber c
   assert.equal(base.limits.toolCount, 4);
   assert.equal(base.limits.nozzleTemperature.max, 320);
   assert.equal(base.limits.bedTemperature.max, 120);
+  assert.deepEqual(base.limits.nozzleDiameters, [0.25, 0.4, 0.6, 0.8]);
   assert.deepEqual(base.uploadExtensions, ['.gcode','.3mf']);
 
   assert.equal(pro.capabilities.chamberPreheat, true);
