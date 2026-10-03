@@ -3415,7 +3415,11 @@ async function loadAdapters() {
   try {
     const result = await api('/api/adapters');
     adapters = result.adapters || [];
-    adapterTypeSelect.innerHTML = adapters.map((adapter) => `<option value="${escapeHtml(adapter.type)}">${escapeHtml(adapter.label || adapter.type)}</option>`).join('');
+    adapterTypeSelect.innerHTML = adapters.map((adapter) => {
+      const label = adapter.label || adapter.type;
+      const displayLabel = adapter.experimental ? `${label} (Experimental)` : label;
+      return `<option value="${escapeHtml(adapter.type)}">${escapeHtml(displayLabel)}</option>`;
+    }).join('');
     if (!adapterTypeSelect.value && adapters.length) adapterTypeSelect.value = adapters[0].type;
     renderAdapterFields(adapterTypeSelect.value);
     populateLibraryPrinterTargetOptions();
