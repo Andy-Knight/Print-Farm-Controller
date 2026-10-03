@@ -3434,6 +3434,7 @@ function virtualPrinterAlreadyAdded(virtualPrinter) {
     'flashforge-ad5m':['httpPort','tcpPort'],
     'flashforge-creator5':['httpPort'],
     'snapmaker-u1':['httpPort'],
+    'prusa-core-one-plus':['httpPort'],
     'bambu-lab':['mqttPort','ftpsPort']
   }[settings.adapterType] || [];
 
