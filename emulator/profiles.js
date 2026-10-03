@@ -105,6 +105,18 @@ export const EMULATOR_PROFILES = Object.freeze({
       httpPort: 17125,
       serialNumber: 'SIM-U1-001'
     })
+  }),
+  'prusa-core-one-plus': Object.freeze({
+    id: 'prusa-core-one-plus',
+    adapterType: 'prusa-core-one-plus',
+    manufacturer: 'Prusa',
+    model: 'CORE One+',
+    toolCount: 1,
+    defaults: Object.freeze({
+      httpPort: 17135,
+      serialNumber: 'SIM-PRUSA-COREONEPLUS-001',
+      checkCode: 'prusa-simulator'
+    })
   })
 });
 
