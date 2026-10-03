@@ -55,6 +55,7 @@ test('Prusa CORE One+ is registered with safe first-pass local capabilities', ()
   assert.equal(adapter.limits.bedTemperature.max, 120);
   assert.equal(adapter.limits.chamberTemperature.max, 55);
   assert.equal(adapter.limits.toolCount, 1);
+  assert.deepEqual(adapter.limits.nozzleDiameters, [0.25, 0.4, 0.5, 0.6, 0.8, 1.0]);
   assert.deepEqual(adapter.limits.buildVolume, { x:250, y:220, z:270 });
 });
 
@@ -71,6 +72,7 @@ test('Prusa CORE One+ supports Standard, INDX 4-tool and INDX 8-tool configurati
     const adapter = getPrinterAdapter(config);
     assert.equal(adapter.limits.toolCount, toolCount);
     assert.equal(adapter.limits.nozzleTemperature.max, 300);
+    assert.deepEqual(adapter.limits.nozzleDiameters, [0.25, 0.4, 0.5, 0.6, 0.8, 1.0]);
     assert.deepEqual(adapter.limits.buildVolume, { x:248, y:205, z:270 });
     assert.equal(adapter.capabilities.fixedToolMapping, true);
     assert.equal(adapter.capabilities.printToolMapping, false);
@@ -467,7 +469,11 @@ test('CORE One+ INDX UI and API expose a nozzle designation for every physical t
   assert.match(base, /toolNozzleDesignation: false/);
   assert.match(models, /toolNozzleDesignation:true/);
   assert.match(app, /function prusaToolNozzleDesignationMarkup/);
+  assert.match(app, /function nozzleDiameterSelectMarkup/);
+  assert.match(app, /<select \${inputAttributes}>/);
   assert.match(app, /data-prusa-tool-nozzle-input/);
+  assert.doesNotMatch(app, /<input type="number" data-prusa-tool-nozzle-input/);
+  assert.doesNotMatch(app, /prusaToolNozzleSizes-/);
   assert.match(app, /data-prusa-tool-nozzle-save/);
   assert.match(app, /data-prusa-tool-nozzle-clear/);
   assert.match(app, /Assign T\$\{tool\.index\} nozzle/);
@@ -475,11 +481,24 @@ test('CORE One+ INDX UI and API expose a nozzle designation for every physical t
   assert.match(app, /prusaToolNozzleDesignationMarkup\(printer, tool, tools\.length\)/);
   assert.match(app, /\/tool-nozzle-designation/);
   assert.match(server, /action === 'tool-nozzle-designation'/);
+  assert.match(server, /adapter\.limits\?\.nozzleDiameters/);
+  assert.match(server, /Unsupported nozzle size\. Choose one of/);
   assert.match(server, /setPrinterToolNozzleDesignation/);
   assert.match(store, /export async function setPrinterToolNozzleDesignation/);
   assert.match(store, /next\.nozzleDiameter = designation/);
   assert.match(store, /previousConfiguration\.count === 1 && configuration\.count > 1/);
   assert.match(store, /previousConfiguration\.count > 1 && configuration\.count === 1/);
+});
+
+test('CORE One+ standard and INDX nozzle designations are controlled dropdowns only', () => {
+  const app = fs.readFileSync(new URL('../public/app.js', import.meta.url), 'utf8');
+  const models = fs.readFileSync(new URL('../src/adapters/prusa-link-models.js', import.meta.url), 'utf8');
+
+  assert.match(models, /nozzleDiameters:Object\.freeze\(\[0\.25, 0\.4, 0\.5, 0\.6, 0\.8, 1\.0\]\)/);
+  assert.match(app, /printer\?\.manufacturer === 'Prusa'[\s\S]*nozzleDiameterSelectMarkup/);
+  assert.match(app, /inputAttributes:'data-nozzle-designation-input'/);
+  assert.match(app, /inputAttributes:`data-prusa-tool-nozzle-input=/);
+  assert.match(app, /Choose a nozzle size from the list/);
 });
 
 test('CORE One+ UI exposes model-driven persistent tool configuration', () => {
