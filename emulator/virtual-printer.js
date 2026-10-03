@@ -55,6 +55,7 @@ export class VirtualPrinter extends EventEmitter {
     this.id = id || `sim-${crypto.randomUUID().slice(0, 8)}`;
     this.profileId = profile.id;
     this.adapterType = profile.adapterType;
+    this.protocol = profile.protocol || null;
     this.manufacturer = profile.manufacturer;
     this.model = profile.model;
     this.name = name || `Simulated ${profile.model}`;
@@ -358,6 +359,7 @@ export class VirtualPrinter extends EventEmitter {
       id: this.id,
       profileId: this.profileId,
       adapterType: this.adapterType,
+      protocol: this.protocol,
       manufacturer: this.manufacturer,
       model: this.model,
       name: this.name,
