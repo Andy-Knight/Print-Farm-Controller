@@ -7,6 +7,7 @@ export const PRUSA_LINK_COMMON_CAPABILITIES = Object.freeze({
   printLocalFile:true,
   jobControl:true,
   materialStatus:true,
+  toolMaterialDesignation:true,
   toolheadNozzleStatus:true
 });
 
