@@ -38,6 +38,7 @@ export const DEFAULT_CAPABILITIES = Object.freeze({
   autoFilamentReplenishment: false,
   filamentEntanglementDetection: false,
   toolheadNozzleStatus: false,
+  toolConfiguration: false,
   toolheadOffsetCalibration: false
 });
 
