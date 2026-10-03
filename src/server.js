@@ -1901,7 +1901,7 @@ async function apiRoute(req, res, url) {
   }
 
   if (req.method === 'GET' && action === 'print-setup') {
-    if (!adapter.capabilities?.printToolMapping && !adapter.capabilities?.materialSlotMapping) throw new Error('Print material mapping is not supported by this printer');
+    if (!adapter.capabilities?.printToolMapping && !adapter.capabilities?.fixedToolMapping && !adapter.capabilities?.materialSlotMapping) throw new Error('Print material mapping is not supported by this printer');
     const fileName = String(url.searchParams.get('fileName') || '').trim();
     if (!fileName) throw new Error('fileName is required');
     return json(res, 200, await adapter.getPrintSetup(fileName));
