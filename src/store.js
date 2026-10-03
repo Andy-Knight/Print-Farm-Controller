@@ -343,6 +343,50 @@ export async function setPrinterToolMaterialDesignation(id, toolIndex, material,
   });
 }
 
+export async function setPrinterToolNozzleDesignation(id, toolIndex, nozzleDiameter) {
+  return storeMutations.run('printers', async () => {
+  const printers = await readAll();
+  const index = printers.findIndex((printer) => printer.id === id);
+  if (index < 0) return null;
+
+  const profile = getPrusaLinkModelProfile(printers[index].adapterType);
+  if (!profile) throw new Error('Per-tool nozzle designation is not supported by this printer');
+  const configuration = prusaLinkToolConfiguration(
+    profile,
+    printers[index].adapterConfig?.toolCount ?? profile.defaultToolCount
+  );
+  const physicalTool = Number(toolIndex);
+  if (!Number.isInteger(physicalTool) || physicalTool < 0 || physicalTool >= configuration.count) {
+    throw new Error(`Tool index must be between 0 and ${configuration.count - 1}`);
+  }
+
+  const designation = normalizeNozzleDesignation(nozzleDiameter);
+  const adapterConfig = { ...(printers[index].adapterConfig || {}) };
+  const designations = {
+    ...(adapterConfig.toolDesignations && typeof adapterConfig.toolDesignations === 'object'
+      ? adapterConfig.toolDesignations
+      : {})
+  };
+  const previous = designations[String(physicalTool)] && typeof designations[String(physicalTool)] === 'object'
+    ? designations[String(physicalTool)]
+    : {};
+  const next = { ...previous };
+
+  if (designation != null) next.nozzleDiameter = designation;
+  else delete next.nozzleDiameter;
+
+  if (Object.keys(next).length) designations[String(physicalTool)] = next;
+  else delete designations[String(physicalTool)];
+
+  if (Object.keys(designations).length) adapterConfig.toolDesignations = designations;
+  else delete adapterConfig.toolDesignations;
+
+  printers[index] = { ...printers[index], adapterConfig };
+  await writeAll(printers);
+  return normalizeStoredPrinter(printers[index]);
+  });
+}
+
 export async function setPrinterNozzleDesignation(id, nozzleDiameter) {
   return storeMutations.run('printers', async () => {
   const printers = await readAll();
@@ -370,9 +414,40 @@ export async function setPrinterToolCount(id, toolCount) {
   if (!profile || profile.toolConfigurations.length <= 1) {
     throw new Error('Tool configuration is not supported by this printer');
   }
+  const previousConfiguration = prusaLinkToolConfiguration(
+    profile,
+    printers[index].adapterConfig?.toolCount ?? profile.defaultToolCount
+  );
   const configuration = prusaLinkToolConfiguration(profile, toolCount);
 
   const adapterConfig = { ...(printers[index].adapterConfig || {}), toolCount:configuration.count };
+  const designations = {
+    ...(adapterConfig.toolDesignations && typeof adapterConfig.toolDesignations === 'object'
+      ? adapterConfig.toolDesignations
+      : {})
+  };
+
+  if (previousConfiguration.count === 1 && configuration.count > 1) {
+    const legacyNozzle = normalizeNozzleDesignation(adapterConfig.nozzleDiameterDesignation);
+    if (legacyNozzle != null) {
+      const t0 = designations['0'] && typeof designations['0'] === 'object' ? designations['0'] : {};
+      if (normalizeNozzleDesignation(t0.nozzleDiameter) == null) {
+        designations['0'] = { ...t0, nozzleDiameter:legacyNozzle };
+      }
+      delete adapterConfig.nozzleDiameterDesignation;
+    }
+  } else if (previousConfiguration.count > 1 && configuration.count === 1) {
+    const t0 = designations['0'] && typeof designations['0'] === 'object' ? { ...designations['0'] } : {};
+    const t0Nozzle = normalizeNozzleDesignation(t0.nozzleDiameter);
+    if (t0Nozzle != null) adapterConfig.nozzleDiameterDesignation = t0Nozzle;
+    delete t0.nozzleDiameter;
+    if (Object.keys(t0).length) designations['0'] = t0;
+    else delete designations['0'];
+  }
+
+  if (Object.keys(designations).length) adapterConfig.toolDesignations = designations;
+  else delete adapterConfig.toolDesignations;
+
   printers[index] = { ...printers[index], adapterConfig };
   await writeAll(printers);
   return normalizeStoredPrinter(printers[index]);
