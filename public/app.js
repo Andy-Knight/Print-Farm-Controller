@@ -4675,6 +4675,36 @@ function u1FilamentConfigControlMarkup(printer, tool = {}) {
   </div>`;
 }
 
+function prusaToolMaterialDesignationMarkup(printer, tool = {}) {
+  if (printer?.manufacturer !== 'Prusa' || !printer?.capabilities?.toolMaterialDesignation) return '';
+  const filament = tool.filament || {};
+  const material = filament.materialSource === 'manual'
+    ? String(filament.material || '')
+    : String(filament.reportedMaterial || filament.material || '');
+  const family = filament.colorFamilySource === 'manual'
+    ? String(filament.colorFamily || '')
+    : String(filament.reportedColorFamily || filament.colorFamily || '');
+  const familyOption = filamentColorFamilyOption(family);
+  const reportedMaterial = String(filament.reportedMaterial || '').trim();
+  const reportedFamily = filamentColorFamilyOption(filament.reportedColorFamily);
+  const hasReported = Boolean(reportedMaterial || reportedFamily || filament.reportedColor);
+  const materialOptions = ['PLA','PETG','ABS','ASA','TPU','PC','PA','Nylon','PVA','HIPS','PP','PET','PLA-CF','PETG-CF','ASA-CF','PA-CF','PC-CF'];
+  return `<div class="prusa-tool-filament-control" data-prusa-tool-filament-control="${tool.index}">
+    <label>Material type
+      <input type="text" data-prusa-tool-material-input="${tool.index}" value="${escapeHtml(material)}" list="prusaMaterialTypes${tool.index}" maxlength="48" placeholder="e.g. PLA, PETG, ASA" autocomplete="off" />
+    </label>
+    <label>Colour family
+      ${colorFamilyDropdownMarkup({ value:familyOption?.value || '', inputAttributes:`data-prusa-tool-color-family-input="${tool.index}"`, placeholder:'Select colour' })}
+    </label>
+    <datalist id="prusaMaterialTypes${tool.index}">${materialOptions.map((value) => `<option value="${escapeHtml(value)}"></option>`).join('')}</datalist>
+    <div class="mini-actions">
+      <button type="button" class="secondary" data-prusa-tool-material-save="${tool.index}">Assign T${tool.index}</button>
+      <button type="button" class="secondary" data-prusa-tool-material-clear="${tool.index}">${hasReported ? 'Use printer value' : 'Clear'}</button>
+    </div>
+    <small>Stored by Print Farm Controller for physical T${tool.index}. The selected colour family drives the dashboard swatch and automatic colour compatibility.${hasReported ? ' Clear returns this tool to PrusaLink-reported metadata.' : ''}</small>
+  </div>`;
+}
+
 function flashForgeMaterialDesignationMarkup(printer, filament = {}) {
   if (!printer?.capabilities?.materialDesignation) return '';
   const manualValue = filament.materialSource === 'manual'
@@ -5690,10 +5720,11 @@ async function openPrinter(id) {
           <small data-material-meta="${tool.index}">${escapeHtml(filamentMetaText(filament))}</small>
           ${(['snapmaker-u1','flashforge-ad5m','flashforge-creator5','bambu-lab'].includes(printer.adapterType) || printer.manufacturer === 'Prusa') ? `<small class="material-rgb${filamentColorDisplayText(filament) ? '' : ' hidden'}" data-material-rgb="${tool.index}">${escapeHtml(filamentColorDisplayText(filament) || '')}</small>` : ''}
           ${printer.adapterType === 'snapmaker-u1' ? u1FilamentConfigControlMarkup(printer, tool) : ''}
+          ${printer.manufacturer === 'Prusa' ? prusaToolMaterialDesignationMarkup(printer, tool) : ''}
         </div>`;
       }).join('')}</div>
       ${bambuSources}
-      ${(printer.adapterType === 'flashforge-ad5m' || printer.manufacturer === 'Prusa') ? flashForgeMaterialDesignationMarkup(printer, tools[0]?.filament || {}) : ''}
+      ${printer.adapterType === 'flashforge-ad5m' ? flashForgeMaterialDesignationMarkup(printer, tools[0]?.filament || {}) : ''}
       ${(['flashforge-ad5m','flashforge-creator5'].includes(printer.adapterType) || printer.manufacturer === 'Prusa') ? flashForgeNozzleDesignationMarkup(printer, tools[0] || {}) : ''}
       ${toolConfigurationMarkup(printer, limits)}
       <div class="field-help material-help">${escapeHtml(materialHelp)}</div>
@@ -6018,6 +6049,69 @@ ${flashForgePreflight}` : ''}`)) return;
       updateOpenPrinterTelemetry();
     } catch (error) { showError(error); }
     finally { button.textContent = original; updateOpenPrinterTelemetry(); }
+  });
+
+  printerDetail.querySelectorAll('[data-prusa-tool-material-save]').forEach((button) => button.onclick = async () => {
+    const toolIndex = Number(button.dataset.prusaToolMaterialSave);
+    const materialInput = printerDetail.querySelector(`[data-prusa-tool-material-input="${toolIndex}"]`);
+    const colorFamilyInput = printerDetail.querySelector(`[data-prusa-tool-color-family-input="${toolIndex}"]`);
+    const material = String(materialInput?.value || '').trim();
+    const colorFamily = String(colorFamilyInput?.value || '').trim().toLowerCase();
+    const colorOption = filamentColorFamilyOption(colorFamily);
+    if (!colorOption) { showError(new Error('Choose a filament colour family.')); return; }
+
+    const original = button.textContent;
+    button.disabled = true;
+    button.textContent = 'Saving…';
+    try {
+      const result = await api(`/api/printers/${id}/tool-material-designation`, {
+        method:'POST',
+        body:JSON.stringify({ toolIndex, material:material || null, colorFamily, color:colorOption.representative })
+      });
+      const designation = result.designation || {};
+      const tool = printer.status?.tools?.find((item) => Number(item.index) === toolIndex);
+      const filament = tool?.filament;
+      if (filament) {
+        filament.material = designation.material || filament.reportedMaterial || null;
+        filament.materialSource = designation.material ? 'manual' : (filament.reportedMaterial ? 'printer' : null);
+        filament.color = designation.color || filament.reportedColor || null;
+        filament.colorSource = designation.color ? 'manual' : (filament.reportedColor ? 'printer' : null);
+        filament.colorFamily = designation.colorFamily || filament.reportedColorFamily || null;
+        filament.colorFamilySource = designation.colorFamily ? 'manual' : (filament.reportedColorFamily ? 'printer' : null);
+        filament.manuallyAssigned = Boolean(designation.material || designation.color || designation.colorFamily);
+        filament.metadataAvailable = Boolean(filament.material || filament.color || filament.colorFamily);
+      }
+      updateOpenPrinterTelemetry();
+    } catch (error) { showError(error); }
+    finally { button.disabled = false; button.textContent = original; }
+  });
+
+  printerDetail.querySelectorAll('[data-prusa-tool-material-clear]').forEach((button) => button.onclick = async () => {
+    const toolIndex = Number(button.dataset.prusaToolMaterialClear);
+    const original = button.textContent;
+    button.disabled = true;
+    button.textContent = 'Clearing…';
+    try {
+      await api(`/api/printers/${id}/tool-material-designation?toolIndex=${toolIndex}`, { method:'DELETE' });
+      const tool = printer.status?.tools?.find((item) => Number(item.index) === toolIndex);
+      const filament = tool?.filament;
+      if (filament) {
+        filament.material = filament.reportedMaterial || null;
+        filament.materialSource = filament.reportedMaterial ? 'printer' : null;
+        filament.color = filament.reportedColor || null;
+        filament.colorSource = filament.reportedColor ? 'printer' : null;
+        filament.colorFamily = filament.reportedColorFamily || null;
+        filament.colorFamilySource = filament.reportedColorFamily ? 'printer' : null;
+        filament.manuallyAssigned = false;
+        filament.metadataAvailable = Boolean(filament.material || filament.color || filament.colorFamily);
+      }
+      const materialInput = printerDetail.querySelector(`[data-prusa-tool-material-input="${toolIndex}"]`);
+      const colorFamilyInput = printerDetail.querySelector(`[data-prusa-tool-color-family-input="${toolIndex}"]`);
+      if (materialInput) materialInput.value = filament?.reportedMaterial || '';
+      if (colorFamilyInput) setColorFamilyDropdownValue(colorFamilyInput, filament?.reportedColorFamily || '');
+      updateOpenPrinterTelemetry();
+    } catch (error) { showError(error); }
+    finally { button.disabled = false; button.textContent = original; }
   });
 
   const materialColorFamilyInput = printerDetail.querySelector('[data-material-color-family-input]');
