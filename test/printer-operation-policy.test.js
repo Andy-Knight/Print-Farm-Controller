@@ -165,3 +165,11 @@ test('idle calibration step/exit remain available for recovery after controller 
   assert.equal(evaluatePrinterOperation(PRINTER_OPERATION_TYPES.TOOL_CALIBRATION_STEP, { status:idle }).allowed, true);
   assert.equal(evaluatePrinterOperation(PRINTER_OPERATION_TYPES.TOOL_CALIBRATION_EXIT, { status:idle }).allowed, true);
 });
+
+
+test('tool configuration changes are allowed only while idle', () => {
+  assert.equal(evaluatePrinterOperation(PRINTER_OPERATION_TYPES.TOOL_CONFIGURATION, { status:idle }).allowed, true);
+  assert.equal(evaluatePrinterOperation(PRINTER_OPERATION_TYPES.TOOL_CONFIGURATION, { status:printing }).allowed, false);
+  assert.equal(evaluatePrinterOperation(PRINTER_OPERATION_TYPES.TOOL_CONFIGURATION, { status:paused }).allowed, false);
+  assert.equal(evaluatePrinterOperation(PRINTER_OPERATION_TYPES.TOOL_CONFIGURATION, { status:{ status:'leveling' } }).allowed, false);
+});
