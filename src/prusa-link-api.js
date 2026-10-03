@@ -255,9 +255,10 @@ function cleanHexColor(value) {
 function manualToolDesignation(printer, index) {
   const config = printer?.adapterConfig || {};
   const multi = configuredToolCount(printer) > 1;
-  const stored = config.prusaToolDesignations && typeof config.prusaToolDesignations === 'object'
-    ? (config.prusaToolDesignations[String(index)] || config.prusaToolDesignations[index] || {})
-    : {};
+  const toolDesignations = config.toolDesignations && typeof config.toolDesignations === 'object'
+    ? config.toolDesignations
+    : (config.prusaToolDesignations && typeof config.prusaToolDesignations === 'object' ? config.prusaToolDesignations : {});
+  const stored = toolDesignations[String(index)] || toolDesignations[index] || {};
   const material = String(
     stored.material ?? (!multi && index === 0 ? config.filamentDesignation : '') ?? ''
   ).trim() || null;
