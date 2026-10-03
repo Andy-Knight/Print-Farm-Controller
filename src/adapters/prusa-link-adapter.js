@@ -185,6 +185,7 @@ export function createPrusaLinkAdapterDefinition(profile, { AdapterClass = Prusa
     type:profile.adapterType,
     manufacturer:profile.manufacturer,
     label:profile.label,
+    experimental:profile.experimental === true,
     models:[profile.model],
     capabilities:Object.freeze({
       ...defaultConfiguration.capabilities,
