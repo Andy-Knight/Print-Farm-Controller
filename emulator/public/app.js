@@ -138,7 +138,7 @@ function endpointLines(printer) {
   if (printer.adapterType === 'prusa-core-one-plus') {
     return [
       `Host ${settings.host}`,
-      `PrusaLink HTTP ${settings.httpPort}`,
+      `PrusaLink HTTP ${settings.httpPort} · ${settings.toolCount || printer.tools?.length || 1} tool${Number(settings.toolCount || printer.tools?.length || 1) === 1 ? '' : 's'}`,
       `Serial ${settings.serialNumber} · User ${settings.prusaLinkUsername}`
     ];
   }
