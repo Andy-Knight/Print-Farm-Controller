@@ -78,6 +78,7 @@ export class PrusaLinkAdapter extends PrinterAdapter {
     return Object.freeze({
       ...this.toolConfiguration.limits,
       toolCount:this.toolCount,
+      nozzleDiameters:Array.isArray(this.profile.nozzleDiameters) ? [...this.profile.nozzleDiameters] : [],
       toolConfigurations:this.profile.toolConfigurations.map(({ count, label, mappingMode }) => ({ count, label, mappingMode }))
     });
   }

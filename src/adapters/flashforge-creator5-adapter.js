@@ -113,6 +113,7 @@ export class FlashForgeCreator5Adapter extends PrinterAdapter {
     return Object.freeze({
       bedTemperature:{ min:0, max:CREATOR5_BED_MAX_C },
       nozzleTemperature:{ min:0, max:CREATOR5_NOZZLE_MAX_C },
+      nozzleDiameters:Object.freeze([0.25, 0.4, 0.6, 0.8]),
       toolCount:CREATOR5_TOOL_COUNT,
       ...(isPro(this.model) ? {
         chamberTemperature:{ min:0, max:65 },

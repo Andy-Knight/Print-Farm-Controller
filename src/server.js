@@ -13,6 +13,7 @@ import {
   setPrinterLicenseSlotActive,
   setPrinterMaterialDesignation,
   setPrinterToolMaterialDesignation,
+  setPrinterToolNozzleDesignation,
   setPrinterNozzleDesignation,
   setPrinterToolCount,
   controllerDataDir
@@ -1770,7 +1771,7 @@ async function apiRoute(req, res, url) {
     || (req.method === 'POST' && action === 'camera')
     || (req.method === 'POST' && action === 'job')
     || (req.method === 'DELETE' && action === 'chamber-preheat')
-    || ['material-designation', 'tool-material-designation', 'nozzle-designation', 'tool-configuration'].includes(action);
+    || ['material-designation', 'tool-material-designation', 'nozzle-designation', 'tool-nozzle-designation', 'tool-configuration'].includes(action);
   if (licenseAccess?.licenseActive === false && !inactiveAllowed) {
     throw new Error('Printer is inactive because it does not currently have a licence slot. Select it for a licence slot before sending new control commands.');
   }
@@ -1885,9 +1886,51 @@ async function apiRoute(req, res, url) {
     });
   }
 
+  if (action === 'tool-nozzle-designation' && (req.method === 'POST' || req.method === 'DELETE')) {
+    if (!adapter.capabilities?.toolNozzleDesignation) {
+      throw new Error('Per-tool nozzle designation is not supported by this printer');
+    }
+    const body = req.method === 'POST' ? await readJson(req) : {};
+    const toolIndex = Number(req.method === 'POST' ? body.toolIndex : url.searchParams.get('toolIndex'));
+    if (!Number.isInteger(toolIndex)) throw new Error('toolIndex is required');
+    if (req.method === 'POST' && Array.isArray(adapter.limits?.nozzleDiameters) && adapter.limits.nozzleDiameters.length) {
+      const requested = Number(body.nozzleDiameter);
+      const allowed = adapter.limits.nozzleDiameters.map(Number).filter(Number.isFinite);
+      if (!allowed.some((value) => Math.abs(value - requested) < 0.0001)) {
+        throw new Error(`Unsupported nozzle size. Choose one of: ${allowed.join(', ')} mm`);
+      }
+    }
+
+    const updated = await controllerMutations.run('printer-registry', () => runPrinterMutation(id, 'tool nozzle designation change', async () => {
+      const value = await setPrinterToolNozzleDesignation(
+        id,
+        toolIndex,
+        req.method === 'POST' ? body.nozzleDiameter : null
+      );
+      if (!value) throw new Error('Printer not found');
+      await fleetState.syncRegistry();
+      return value;
+    }, { allowInactive:true, operationType:PRINTER_OPERATION_TYPES.NOZZLE_DESIGNATION }));
+
+    fleetState.refreshNow(id).catch(() => {});
+    return json(res, 200, {
+      ok:true,
+      printer:publicPrinter(updated),
+      toolIndex,
+      designation:updated.adapterConfig?.toolDesignations?.[String(toolIndex)] || null
+    });
+  }
+
   if (action === 'nozzle-designation' && (req.method === 'POST' || req.method === 'DELETE')) {
     if (!adapter.capabilities?.nozzleDesignation) throw new Error('Manual nozzle designation is not supported by this printer');
     const body = req.method === 'POST' ? await readJson(req) : {};
+    if (req.method === 'POST' && Array.isArray(adapter.limits?.nozzleDiameters) && adapter.limits.nozzleDiameters.length) {
+      const requested = Number(body.nozzleDiameter);
+      const allowed = adapter.limits.nozzleDiameters.map(Number).filter(Number.isFinite);
+      if (!allowed.some((value) => Math.abs(value - requested) < 0.0001)) {
+        throw new Error(`Unsupported nozzle size. Choose one of: ${allowed.join(', ')} mm`);
+      }
+    }
     const updated = await controllerMutations.run('printer-registry', () => runPrinterMutation(id, 'nozzle designation change', async () => {
       const value = await setPrinterNozzleDesignation(id, req.method === 'POST' ? body.nozzleDiameter : null);
       if (!value) throw new Error('Printer not found');

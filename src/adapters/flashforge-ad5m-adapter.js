@@ -96,6 +96,7 @@ export class FlashForgeAd5mAdapter extends PrinterAdapter {
     return Object.freeze({
       bedTemperature: { min: 0, max: BED_MAX_C },
       nozzleTemperature: { min: 0, max: NOZZLE_MAX_C },
+      nozzleDiameters: Object.freeze([0.25, 0.4, 0.6, 0.8]),
       fanPercent: { min: 0, max: 100 },
       chamberPreheatBedTemperature: { min: 30, max: BED_MAX_C },
       chamberPreheatMinutes: { min: 1, max: 120 }

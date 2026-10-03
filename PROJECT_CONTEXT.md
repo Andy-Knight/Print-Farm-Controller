@@ -9,7 +9,7 @@ If chat context and this file disagree about the codebase, inspect current GitHu
 - Repository: `Andy-Knight/Print-Farm-Controller`
 - Project path: repository root (`/`)
 - Primary branch: `main` (current production baseline)
-- Current application version on this branch: **0.39.0**. Production baseline on `main`: **0.38.1**.
+- Current application version on this branch: **0.39.1**. Production baseline on `main`: **0.39.0**.
 - Runtime: **Node.js 24+** (development baseline Node.js 24.21.0), ES modules, no npm runtime dependencies.
 - GitHub is the authoritative code baseline.
 
@@ -119,22 +119,19 @@ Manufacturer-specific discovery, capabilities, limits, status normalization, fil
 
 ## Current task
 
-The current production baseline is **v0.38.1** on `main`.
+The current production baseline is **v0.39.0** on `main`.
 
-Active development is **v0.39.0** on `feature/prusa-core-one-plus-support-v0390`. Prusa support is now split into a reusable `prusa-link-api.js` transport/control client, generic `prusa-link-adapter.js` family adapter, and `prusa-link-models.js` model-profile catalogue whose entries auto-register with the controller. CORE One+ is the first profile and retains a thin compatibility wrapper. Prusa CORE One+ support uses the local PrusaLink HTTP API with Digest username/password or optional API-key authentication. Supported controller configurations are Standard 1-tool, INDX 4-tool and INDX 8-tool. Existing CORE One+ registrations can be changed between those configurations from printer details after a physical INDX upgrade. INDX scheduling uses fixed tool indices from the sliced file; PFC never silently remaps T0/T1/etc. to different INDX tools. Known per-tool material/nozzle/colour mismatches are blocked and unavailable per-tool metadata requires review. Every Prusa physical tool can also carry a persistent controller-side material and colour-family designation; this supplies dashboard/queue metadata when PrusaLink does not report it reliably. The integrated simulator has Standard, INDX 4 and INDX 8 profiles.
+Active development is **v0.39.1** on `feature/prusa-indx-nozzle-designation-v0391`. This update adds a persistent nozzle-size designation for every physical CORE One+ INDX tool. All controller-managed nozzle-size designations now use controlled dropdowns only: Prusa Standard/INDX use model-defined choices, while FlashForge AD5M/AD5M Pro and Creator 5/Creator 5 Pro use fixed 0.25 / 0.4 / 0.6 / 0.8 mm choices. Free-typed nozzle sizes are not accepted by either the browser UI or API. INDX 4 exposes T0–T3 and INDX 8 exposes T0–T7; each tool can carry its own controller-side nozzle size and the existing fixed-index queue compatibility consumes the resulting effective per-tool nozzle metadata. Clearing a designation returns to PrusaLink-reported data when available and otherwise leaves the tool nozzle unknown.
 
-Initial local control scope remains status telemetry, printer-local files, streamed G-code/BGCODE upload and verification, print start, and pause/resume/cancel. Temperature/chamber controls, camera streaming and automatic discovery are not yet exposed.
+Changing Standard 1-tool → INDX migrates the existing single-tool nozzle designation to T0. Changing INDX → Standard migrates T0 back to the standard nozzle designation while preserving other tool metadata for a later INDX re-enable.
 
 ## Next steps
 
-1. Run the full regression suite / GitHub Actions workflow for the final v0.39.0 branch head and fix any integration failures.
-2. Validate a physical standard CORE One+: authentication, idle/printing status, file list, upload/verify, print start, pause/resume/cancel and queue completion detection.
-3. Validate physical INDX 4/8 PrusaLink telemetry, especially the exact per-tool fields exposed by current firmware; retain review-required behaviour wherever PrusaLink does not report a tool's loaded material/nozzle state.
-4. Confirm exact storage-path and BGCODE behaviour on current CORE One+/INDX firmware and verify sliced T0→T0 etc. behaviour.
-5. Validate changing an existing controller entry from Standard → INDX 4 → INDX 8 after the corresponding hardware upgrade.
-6. Review the CORE One+ 400 × 190 dashboard artwork in Dark and Light themes.
-7. When adding the next Prusa printer, add its model profile to the shared PrusaLink catalogue first; only add protocol-specific code if hardware validation proves its PrusaLink implementation differs.
-8. After physical validation, investigate safe local chamber temperature/control, camera access and LAN discovery without relying on Prusa Connect cloud services.
+1. Run the complete regression/GitHub Actions workflow for v0.39.1.
+2. Validate INDX 4/8 per-tool nozzle assignment in the simulator, including mixed nozzle sizes and queue compatibility.
+3. On physical INDX hardware, confirm exactly which per-tool nozzle diameters current PrusaLink firmware reports and verify that clearing a controller designation correctly returns to those reported values.
+4. Verify Standard → INDX → Standard migration retains the expected T0 nozzle designation.
+5. Continue broader physical CORE One+ validation for camera, chamber/temperature controls and PrusaLink firmware differences before removing Experimental status.
 
 ## Licensing baseline
 

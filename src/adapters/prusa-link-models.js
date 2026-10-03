@@ -8,6 +8,7 @@ export const PRUSA_LINK_COMMON_CAPABILITIES = Object.freeze({
   jobControl:true,
   materialStatus:true,
   toolMaterialDesignation:true,
+  toolNozzleDesignation:true,
   toolheadNozzleStatus:true
 });
 
@@ -34,6 +35,7 @@ export const PRUSA_CORE_ONE_PLUS_PROFILE = Object.freeze({
   defaultHttpPort:80,
   defaultUsername:'maker',
   uploadExtensions:Object.freeze(['.gcode', '.bgcode']),
+  nozzleDiameters:Object.freeze([0.25, 0.4, 0.5, 0.6, 0.8, 1.0]),
   defaultToolCount:1,
   toolConfigurations:Object.freeze([
     toolConfiguration({

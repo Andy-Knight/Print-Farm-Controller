@@ -4,6 +4,14 @@ This file contains the version-by-version release history for Print Farm Control
 
 Historical entries describe the behaviour of the controller at the time of that release and may be superseded by later versions. For current installation, configuration and supported-hardware guidance, see [README.md](README.md).
 
+## v0.39.1
+
+- Adds persistent **per-tool nozzle-size designation** for Prusa CORE One+ INDX 4 and INDX 8. Every physical T0–T3/T0–T7 tool can be assigned independently and the effective nozzle size is consumed by existing fixed-tool queue compatibility.
+- Clearing a per-tool nozzle assignment falls back to the nozzle reported by PrusaLink when available; if no nozzle size is reported, it becomes unknown so unattended jobs requiring an explicit nozzle remain **Needs review** rather than being guessed.
+- Switching a CORE One+ from Standard 1-tool to INDX automatically migrates the existing single-tool nozzle designation to physical T0. Returning from INDX to Standard migrates T0 back to the single-tool designation, while preserving the other INDX tool metadata for a future upgrade.
+- Adds controller API/UI and regression coverage for per-tool nozzle persistence, manual-over-reported precedence, and the 1 ↔ 4/8 tool migration path.
+- Standardizes **all controller-managed nozzle-size designation controls** to fixed dropdown lists. FlashForge AD5M/AD5M Pro and Creator 5/Creator 5 Pro now use their declared 0.25 / 0.4 / 0.6 / 0.8 mm choices instead of a free-typed numeric field, and the API rejects unsupported designation values. Prusa keeps its model-specific 0.25 / 0.4 / 0.5 / 0.6 / 0.8 / 1.0 mm choices.
+
 ## v0.39.0
 
 - Adds initial **Prusa CORE One+** support through the printer's built-in local PrusaLink HTTP API, without requiring Prusa Connect cloud access.

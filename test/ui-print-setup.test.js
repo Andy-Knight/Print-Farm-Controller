@@ -599,18 +599,29 @@ test('FlashForge detail exposes printer-reported filament type in Toolhead statu
 });
 
 
-test('FlashForge detail exposes persistent controller nozzle designation for automatic queue compatibility', () => {
+test('all controller-managed nozzle designations use fixed dropdowns', () => {
   const server = fs.readFileSync(new URL('../src/server.js', import.meta.url), 'utf8');
   const store = fs.readFileSync(new URL('../src/store.js', import.meta.url), 'utf8');
-  const adapter = fs.readFileSync(new URL('../src/adapters/flashforge-ad5m-adapter.js', import.meta.url), 'utf8');
+  const ad5m = fs.readFileSync(new URL('../src/adapters/flashforge-ad5m-adapter.js', import.meta.url), 'utf8');
+  const creator5 = fs.readFileSync(new URL('../src/adapters/flashforge-creator5-adapter.js', import.meta.url), 'utf8');
+
   assert.match(app, /Controller nozzle designation/);
+  assert.match(app, /function nozzleDiameterSelectMarkup/);
+  assert.match(app, /inputAttributes:'data-nozzle-designation-input'/);
+  assert.match(app, /<select \$\{inputAttributes\}>/);
+  assert.doesNotMatch(app, /<input type="number" data-nozzle-designation-input/);
+  assert.doesNotMatch(app, /flashforgeNozzleSizes/);
   assert.match(app, /data-nozzle-designation-save/);
   assert.match(app, /data-nozzle-designation-clear/);
   assert.match(app, /\/api\/printers\/\$\{id\}\/nozzle-designation/);
   assert.match(server, /action === 'nozzle-designation'/);
+  assert.match(server, /adapter\.limits\?\.nozzleDiameters/);
+  assert.match(server, /Unsupported nozzle size\. Choose one of/);
   assert.match(store, /setPrinterNozzleDesignation/);
-  assert.match(adapter, /nozzleDiameterDesignation/);
-  assert.match(adapter, /nozzleDiameterSource = 'manual'/);
+  assert.match(ad5m, /nozzleDiameters: Object\.freeze\(\[0\.25, 0\.4, 0\.6, 0\.8\]\)/);
+  assert.match(creator5, /nozzleDiameters:Object\.freeze\(\[0\.25, 0\.4, 0\.6, 0\.8\]\)/);
+  assert.match(ad5m, /nozzleDiameterDesignation/);
+  assert.match(ad5m, /nozzleDiameterSource = 'manual'/);
 });
 
 test('FlashForge file material mismatch is warned for direct print and held for queue review', () => {
