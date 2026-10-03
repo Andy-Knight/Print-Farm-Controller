@@ -9,7 +9,7 @@ If chat context and this file disagree about the codebase, inspect current GitHu
 - Repository: `Andy-Knight/Print-Farm-Controller`
 - Project path: repository root (`/`)
 - Primary branch: `main` (current production baseline)
-- Current application version on this branch: **0.37.1**. Production baseline on `main`: **0.37.0**.
+- Current application version on this branch: **0.39.0**. Production baseline on `main`: **0.38.1**.
 - Runtime: **Node.js 24+** (development baseline Node.js 24.21.0), ES modules, no npm runtime dependencies.
 - GitHub is the authoritative code baseline.
 
@@ -41,6 +41,7 @@ PrinterAdapter boundary (`src/adapters/`)
         +-- FlashForge Adventurer 5M / 5M Pro -> HTTP + TCP 8899 + MJPEG camera
         +-- FlashForge Creator 5 / Creator 5 Pro -> modern HTTP-only API + four-tool material station + MJPEG camera
         +-- Snapmaker U1 -> Moonraker / Klipper
+        +-- Prusa CORE One+ -> local PrusaLink HTTP API (Digest/API-key auth)
         +-- Bambu Lab P1P / P1S / X1C / A1 Mini -> experimental MQTT/FTPS adapter; P1/A1 Mini TLS-JPEG camera
 
 Development Printer Emulator (`emulator/`, loopback only)
@@ -102,7 +103,7 @@ Manufacturer-specific discovery, capabilities, limits, status normalization, fil
 
 ## Current baseline
 
-- Supported printers: FlashForge Adventurer 5M / 5M Pro, FlashForge Creator 5 / Creator 5 Pro, Snapmaker U1, and experimental Bambu Lab P1P / P1S / X1C / A1 Mini support.
+- Supported printers: FlashForge Adventurer 5M / 5M Pro, FlashForge Creator 5 / Creator 5 Pro, Snapmaker U1, Prusa CORE One+ (v0.39.0 development), and experimental Bambu Lab P1P / P1S / X1C / A1 Mini support.
 - Persistent printer registry with manufacturer-specific adapters, local discovery where supported, controller-side printer naming, live SSE fleet state, dashboard filtering and printer groups with overlapping membership.
 - Persistent Print Library with descriptions, previews, target-printer metadata, material/colour/nozzle requirements, verified file distribution and queue integration.
 - Persistent print queue/history with fixed-printer or next-compatible-printer assignment, priorities, production batches, reprint, compatibility/preflight checks, material/tool mapping and bed-clearance interlocks.
@@ -117,30 +118,17 @@ Manufacturer-specific discovery, capabilities, limits, status normalization, fil
 
 ## Current task
 
-The current production baseline is **v0.38.0** on `main`.
+The current production baseline is **v0.38.1** on `main`.
 
-Active development is **v0.38.1** on `feature/print-library-filament-assignment-fix-v0381`. This fixes Print Library **Edit details** per-tool filament-cost selections not being persisted because the browser metadata PATCH helper omitted `filamentAssignments`. Backend persistence already supported the field correctly.
+Active development is **v0.39.0** on `feature/prusa-core-one-plus-support-v0390`. The first implementation adds a separate Prusa CORE One+ adapter using the printer's built-in local PrusaLink HTTP API. Initial scope is deliberately limited to documented/validated local functions: status telemetry, printer-local files, streamed G-code/BGCODE upload and verification, print start, and pause/resume/cancel. The adapter supports PrusaLink Digest username/password authentication and optional API-key authentication. Manual filament/nozzle designation is available for queue compatibility. Temperature/chamber controls, camera streaming and automatic discovery are not yet exposed.
 
 ## Next steps
 
-1. Validate that selecting a cost filament in Print Library **Edit details**, saving, closing and reopening retains the selection.
-2. Run the full regression suite / PR workflow.
-3. Merge v0.38.1 after hands-on confirmation.
-
-
-1. Manually review the Stacked Layers header branding in Dark and Light modes on desktop and mobile-width layouts.
-2. Decide whether the compact header lockup should be retained as-is or adjusted in size/spacing before merge.
-3. If approved, merge v0.38.0 and keep the supplied favicon unchanged.
-4. Continue the existing reporting/analytics validation backlog from v0.37.x.
-
-
-1. Manually validate the v0.37.0 Reports dialog in Dark and Light modes, including 7/30/90/365-day filters, printer/group filters, empty-state behaviour and responsive layout.
-2. Validate the slicer-profile auto-match display in Print Library **Edit details** with real OrcaSlicer G-code and 3MF files.
-3. Validate filament-cost workflow with real OrcaSlicer G-code/3MF: catalogue creation, vendor/preset auto-matching across multiple same-material brands/products, explicit assignment for genuinely ambiguous presets, queue start snapshot and historical price stability after a catalogue price change.
-4. Decide whether failed/cancelled prints should gain a separate **estimated waste** metric. Current material spend intentionally counts completed prints only because sliced full-job grams would overstate material consumed by a job that failed part-way through.
-5. Add longer-term availability/downtime sampling if printer online/offline trend analysis is required; the current problem-printer indicators are based on retained print outcomes, run time and failure-rate trends.
-6. Consider custom date ranges/export after the first UI validation rather than expanding scope before the core reports are proven.
-7. Retain the existing hardware-validation backlog for Creator 5 / Creator 5 Pro and experimental Bambu support.
+1. Run the full regression suite / GitHub Actions workflow for the v0.39.0 branch and fix any integration failures.
+2. Validate against a physical Prusa CORE One+: add by IP, authenticate with Settings → Network → PrusaLink credentials, confirm idle/printing status, file list, upload/verify, print start, pause/resume/cancel and queue completion detection.
+3. Confirm the exact storage path and BGCODE behaviour on current CORE One+ firmware.
+4. After physical validation, investigate safe local support for chamber temperature/control, camera access and LAN discovery without relying on Prusa Connect cloud services.
+5. Add CORE One+ dashboard artwork and emulator coverage after the protocol baseline is proven.
 
 ## Licensing baseline
 
