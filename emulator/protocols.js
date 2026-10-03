@@ -1148,7 +1148,7 @@ export async function startProtocolEndpoints(printer, { assetsDir } = {}) {
       const server = createMoonrakerServer(printer);
       printer.ports.httpPort = await listen(server, printer.host, Number(printer.ports.httpPort));
       servers.push(server);
-    } else if (printer.adapterType === 'prusa-core-one-plus') {
+    } else if (printer.protocol === 'prusalink') {
       const server = createPrusaLinkServer(printer);
       printer.ports.httpPort = await listen(server, printer.host, Number(printer.ports.httpPort));
       servers.push(server);
