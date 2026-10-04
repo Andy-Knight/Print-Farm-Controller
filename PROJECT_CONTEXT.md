@@ -124,14 +124,14 @@ The current production baseline is **v0.40.0** on `main`.
 
 Active development is **v0.40.1** on `feature/creator5-nozzle-behaviour`. Creator 5 / Creator 5 Pro now model nozzle designation independently for physical T0-T3 instead of sharing one printer-wide nozzle value. Existing shared Creator 5 nozzle configuration is migrated across all four tools while preserving any per-tool override. Queue compatibility continues to evaluate the effective nozzle on the mapped physical tool.
 
-The Creator 5-series Toolheads view is now a compact three-column **Toolhead / Live information / Nozzle** table. Its per-tool nozzle selectors use compact Assign/Clear actions, while the otherwise-applicable multi-tool **Configuration** heading has been renamed **Filament configuration**.
+Creator 5-series printer details now also expose writable per-tool **Filament configuration**. T0-T3 each use the firmware-confirmed Creator 5 21-material / 24-colour palette; the controller sends the native `msConfig_cmd` slot metadata command and verifies the change by reading `/detail` back before reporting success. The Toolheads table therefore uses **Toolhead / Live information / Filament configuration / Nozzle**, with compact nozzle actions.
 
 ## Next steps
 
 1. Run the complete `npm test` regression suite for v0.40.1.
-2. Validate independent T0-T3 nozzle designation and queue compatibility in the Creator 5 / Creator 5 Pro simulator.
-3. Confirm the compact Creator 5 Toolheads table in Light/Dark themes and at desktop/narrow widths.
-4. Continue physical Creator 5 / Creator 5 Pro validation when hardware access permits.
+2. Validate independent T0-T3 nozzle designation, remote filament type/colour writes, and queue compatibility in the Creator 5 / Creator 5 Pro simulator.
+3. Confirm the Creator 5 Toolheads table in Light/Dark themes and at desktop/narrow widths.
+4. On physical Creator 5 / Creator 5 Pro hardware, verify `msConfig_cmd` material/colour writes are reflected by `/detail` on current firmware.
 
 ## Licensing baseline
 
