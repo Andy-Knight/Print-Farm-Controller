@@ -805,7 +805,7 @@ test('printer details are organised into six consistent tabs', () => {
   assert.match(app, /data-detail-tab="toolheads"[\s\S]*>Toolheads<\/button>/);
   assert.match(app, /data-detail-tab="camera"[\s\S]*>Camera<\/button>/);
   assert.match(app, /data-detail-tab="files"[\s\S]*>Files<\/button>/);
-  assert.match(app, /data-detail-tab="temperature"[\s\S]*>Temperature &amp; Fans<\/button>/);
+  assert.match(app, /data-detail-tab="temperature"[\s\S]*>Temperature, Preheat &amp; Fans<\/button>/);
   assert.match(app, /data-detail-tab="job"[\s\S]*>Current Job<\/button>/);
   assert.match(app, /data-detail-tab="management"[\s\S]*>Maintenance &amp; Management<\/button>/);
   assert.match(app, /appendDetailPanel\('toolheads', materialPanel\)/);
