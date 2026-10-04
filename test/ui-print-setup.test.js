@@ -778,6 +778,16 @@ test('unsupported cameras are represented by the camera tab without a fake offli
 });
 
 
+test('all controller dropdown fields use one shared height', () => {
+  assert.match(styles, /--dropdown-field-height:42px/);
+  assert.match(styles, /select \{ height:var\(--dropdown-field-height\); min-height:var\(--dropdown-field-height\)/);
+  assert.match(styles, /\.color-family-dropdown summary \{ height:var\(--dropdown-field-height\); min-height:var\(--dropdown-field-height\)/);
+  assert.match(styles, /\.tool-map-picker summary \{ height:var\(--dropdown-field-height\); min-height:var\(--dropdown-field-height\)/);
+  assert.match(styles, /\.creator5-filament-config-control \.creator5-color-dropdown summary \{ height:var\(--dropdown-field-height\); min-height:var\(--dropdown-field-height\)/);
+  assert.match(styles, /\.prusa-tool-filament-control \.color-family-dropdown summary \{ height:var\(--dropdown-field-height\); min-height:var\(--dropdown-field-height\)/);
+  assert.doesNotMatch(styles, /(?:select|color-family-dropdown summary|tool-map-picker summary)[^{]*\{[^}]*min-height:(?:34|44)px/);
+});
+
 test('multi-tool printers use a full-width toolhead information and configuration table', () => {
   assert.match(app, /const configuredToolCount = Number\(limits\.toolCount/);
   assert.match(app, /const wideToolheadLayout = Boolean\(capabilities\.materialStatus && configuredToolCount > 1\)/);
