@@ -5912,7 +5912,7 @@ async function openPrinter(id) {
       <button type="button" role="tab" data-detail-tab="toolheads" aria-controls="detailTabToolheads">Toolheads</button>
       <button type="button" role="tab" data-detail-tab="camera" aria-controls="detailTabCamera">Camera</button>
       <button type="button" role="tab" data-detail-tab="files" aria-controls="detailTabFiles">Files</button>
-      <button type="button" role="tab" data-detail-tab="temperature" aria-controls="detailTabTemperature">Temperature &amp; Fans</button>
+      <button type="button" role="tab" data-detail-tab="temperature" aria-controls="detailTabTemperature">Temperature, Preheat &amp; Fans</button>
       <button type="button" role="tab" data-detail-tab="job" aria-controls="detailTabJob">Current Job</button>
       <button type="button" role="tab" data-detail-tab="management" aria-controls="detailTabManagement">Maintenance &amp; Management</button>
     </div>
