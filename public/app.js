@@ -8,6 +8,7 @@ const addDialog = document.querySelector('#addPrinterDialog');
 const addForm = document.querySelector('#addPrinterForm');
 const printerDialog = document.querySelector('#printerDialog');
 const printerDetail = document.querySelector('#printerDetail');
+const printerDetailTabByPrinter = new Map();
 const formError = document.querySelector('#formError');
 const scanNetworkBtn = document.querySelector('#scanNetworkBtn');
 const discoveryStatus = document.querySelector('#discoveryStatus');
@@ -5907,11 +5908,27 @@ async function openPrinter(id) {
     })()}
     ${printer.licenseActive === false ? '<div class="license-detail-warning">This printer is inactive because it does not have a selected licence slot. Live monitoring and safety controls remain available, but new jobs and normal controller commands are disabled.</div>' : ''}
     ${printer.adapterType === 'bambu-lab' ? `<div class="file-warning">Experimental Bambu ${escapeHtml(printer.model || '')} support: validate behavior carefully before relying on unattended printing.${printer.model === 'X1C' ? ' X1C RTSPS/H.264 camera decoding is not yet supported.' : ''}${printer.model === 'A1 Mini' ? ' Single-material A1 Mini .gcode starts remain experimental until validated on physical hardware; multi-material AMS Lite jobs require sliced .3mf.' : ''}</div>` : ''}
+    <div class="printer-detail-tabs" role="tablist" aria-label="Printer details">
+      <button type="button" role="tab" data-detail-tab="toolheads" aria-controls="detailTabToolheads">Toolheads</button>
+      <button type="button" role="tab" data-detail-tab="camera" aria-controls="detailTabCamera">Camera</button>
+      <button type="button" role="tab" data-detail-tab="files" aria-controls="detailTabFiles">Files</button>
+      <button type="button" role="tab" data-detail-tab="temperature" aria-controls="detailTabTemperature">Temperature &amp; Fans</button>
+      <button type="button" role="tab" data-detail-tab="job" aria-controls="detailTabJob">Current Job</button>
+      <button type="button" role="tab" data-detail-tab="management" aria-controls="detailTabManagement">Maintenance &amp; Management</button>
+    </div>
+    <div class="printer-detail-tab-panels">
+      <section id="detailTabToolheads" class="printer-detail-tab-panel" role="tabpanel" data-detail-panel="toolheads"></section>
+      <section id="detailTabCamera" class="printer-detail-tab-panel" role="tabpanel" data-detail-panel="camera"></section>
+      <section id="detailTabFiles" class="printer-detail-tab-panel" role="tabpanel" data-detail-panel="files"></section>
+      <section id="detailTabTemperature" class="printer-detail-tab-panel" role="tabpanel" data-detail-panel="temperature"></section>
+      <section id="detailTabJob" class="printer-detail-tab-panel" role="tabpanel" data-detail-panel="job"></section>
+      <section id="detailTabManagement" class="printer-detail-tab-panel" role="tabpanel" data-detail-panel="management"></section>
+    </div>
     ${wideToolheadLayout ? materialStatusMarkup : ''}
     <div class="detail-grid">
       <div class="detail-column detail-column-left">
         ${detailCameraMarkup(printer)}
-        <div class="panel"${capabilities.camera ? ' style="margin-top:12px"' : ''}>
+        <div class="panel current-job-panel"${capabilities.camera ? ' style="margin-top:12px"' : ''}>
           <h3>Current job</h3>
           <div class="job"><span class="job-name" data-detail-file>${escapeHtml(s?.fileName || 'No active job')}</span><b data-detail-progress>${Math.round(s?.progress || 0)}%</b></div>
           <div class="progress"><span data-detail-progress-bar style="width:${Math.round(s?.progress || 0)}%"></span></div>
@@ -5922,7 +5939,7 @@ async function openPrinter(id) {
             <button class="danger" data-job="cancel"${disabled(capabilities.jobControl)}>Cancel</button>
           </div>
         </div>
-        <div class="panel">
+        <div class="panel printer-files-panel">
           <div class="file-heading"><h3>Files on printer</h3><span class="subtle">${escapeHtml(fileSourceLabel)}</span></div>
           ${fileUploadMarkup}
           ${capabilities.levelBeforePrint ? '<label class="checkbox-label"><input type="checkbox" id="levelBeforePrint" checked /> Level bed before print</label>' : '<div class="field-help">This printer uses the start G-code embedded in the uploaded file; controller-side pre-print levelling is not available.</div>'}
@@ -5934,7 +5951,7 @@ async function openPrinter(id) {
         </div>
       </div>
       <div class="detail-column detail-column-right">
-        <div class="panel">
+        <div class="panel temperature-panel">
           <h3>Temperature</h3>
           ${toolTemperatureMarkup}
           <div class="control-row"><label>Bed target<input id="bedInput" type="number" min="0" max="${maxBedC}" value="${s?.bed.target || 0}"${disabled(capabilities.bedTemperature)} /></label><span class="subtle" data-bed-now>${s?.bed.actual?.toFixed(0) || '—'} °C now</span><button class="secondary" data-set-temp="bed"${disabled(capabilities.bedTemperature)}>Set</button></div>
@@ -5997,13 +6014,87 @@ async function openPrinter(id) {
       </div>
     </div>
   </div>`;
-  const leftDetailColumn = printerDetail.querySelector('.detail-column-left');
-  if (leftDetailColumn) {
-    for (const selector of ['.chamber-preheat-panel', '.fans-panel']) {
-      const panel = printerDetail.querySelector(selector);
-      if (panel) leftDetailColumn.append(panel);
+  const detailGrid = printerDetail.querySelector('.detail-grid');
+  const detailTabPanel = (name) => printerDetail.querySelector(`[data-detail-panel="${name}"]`);
+  const appendDetailPanel = (tabName, element) => {
+    if (element) detailTabPanel(tabName)?.append(element);
+  };
+  const appendUnavailablePanel = (tabName, title, message) => {
+    const panel = detailTabPanel(tabName);
+    if (!panel) return;
+    const placeholder = document.createElement('div');
+    placeholder.className = 'panel detail-tab-unavailable';
+    placeholder.innerHTML = `<h3>${escapeHtml(title)}</h3><div class="subtle">${escapeHtml(message)}</div>`;
+    panel.append(placeholder);
+  };
+
+  const materialPanel = printerDetail.querySelector('.material-panel');
+  if (materialPanel) appendDetailPanel('toolheads', materialPanel);
+  else appendUnavailablePanel('toolheads', 'Toolheads', 'Toolhead material and configuration information is not available for this printer.');
+
+  const cameraElement = printerDetail.querySelector('.detail-camera');
+  if (cameraElement) {
+    const cameraPanel = document.createElement('div');
+    cameraPanel.className = 'panel detail-camera-panel';
+    cameraPanel.innerHTML = '<h3>Camera</h3>';
+    cameraPanel.append(cameraElement);
+    appendDetailPanel('camera', cameraPanel);
+  } else {
+    appendUnavailablePanel('camera', 'Camera', 'Camera support is not available for this printer.');
+  }
+
+  appendDetailPanel('files', printerDetail.querySelector('.printer-files-panel'));
+  appendDetailPanel('temperature', printerDetail.querySelector('.temperature-panel'));
+  appendDetailPanel('temperature', printerDetail.querySelector('.chamber-preheat-panel'));
+  appendDetailPanel('temperature', printerDetail.querySelector('.fans-panel'));
+  appendDetailPanel('job', printerDetail.querySelector('.current-job-panel'));
+  appendDetailPanel('management', printerDetail.querySelector('.maintenance-panel'));
+  appendDetailPanel('management', printerDetail.querySelector('.diagnostics-panel'));
+  appendDetailPanel('management', printerDetail.querySelector('.printer-management-panel'));
+  detailGrid?.remove();
+
+  for (const name of ['files','temperature','job','management']) {
+    const panel = detailTabPanel(name);
+    if (panel && !panel.children.length) {
+      appendUnavailablePanel(name, name === 'job' ? 'Current job' : name[0].toUpperCase() + name.slice(1), 'No information is available for this printer.');
     }
   }
+
+  const detailTabs = Array.from(printerDetail.querySelectorAll('[data-detail-tab]'));
+  const detailPanels = Array.from(printerDetail.querySelectorAll('[data-detail-panel]'));
+  const activateDetailTab = (name, focus = false) => {
+    const selected = detailTabs.find((tab) => tab.dataset.detailTab === name) || detailTabs[0];
+    if (!selected) return;
+    const selectedName = selected.dataset.detailTab;
+    printerDetailTabByPrinter.set(id, selectedName);
+    for (const tab of detailTabs) {
+      const active = tab === selected;
+      tab.classList.toggle('active', active);
+      tab.setAttribute('aria-selected', active ? 'true' : 'false');
+      tab.tabIndex = active ? 0 : -1;
+    }
+    for (const panel of detailPanels) {
+      const active = panel.dataset.detailPanel === selectedName;
+      panel.hidden = !active;
+      panel.classList.toggle('active', active);
+    }
+    if (focus) selected.focus();
+  };
+  for (const tab of detailTabs) {
+    tab.onclick = () => activateDetailTab(tab.dataset.detailTab);
+    tab.onkeydown = (event) => {
+      if (!['ArrowLeft','ArrowRight','Home','End'].includes(event.key)) return;
+      event.preventDefault();
+      const currentIndex = detailTabs.indexOf(tab);
+      const nextIndex = event.key === 'Home'
+        ? 0
+        : event.key === 'End'
+          ? detailTabs.length - 1
+          : (currentIndex + (event.key === 'ArrowRight' ? 1 : -1) + detailTabs.length) % detailTabs.length;
+      activateDetailTab(detailTabs[nextIndex]?.dataset.detailTab, true);
+    };
+  }
+  activateDetailTab(printerDetailTabByPrinter.get(id) || 'toolheads');
   if (!printerDialog.open) printerDialog.showModal();
   updateOpenPrinterTelemetry();
 
