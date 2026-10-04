@@ -2,11 +2,14 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   CREATOR5_BED_MAX_C,
+  CREATOR5_FILAMENT_COLORS,
+  CREATOR5_FILAMENT_MATERIALS,
   CREATOR5_NOZZLE_MAX_C,
   CREATOR5_TOOL_COUNT,
   creator5MaterialMappings,
   normalizeCreator5Status,
   openCreator5Camera,
+  setCreator5FilamentConfig,
   setCreator5Temperatures
 } from '../src/creator5-api.js';
 import {
@@ -183,6 +186,65 @@ test('Creator 5 material mappings convert zero-based toolheads to one-based slot
     { toolId:0, slotId:3, materialName:'PLA', toolMaterialColor:'#2EC4B6', slotMaterialColor:'#2EC4B6' },
     { toolId:1, slotId:1, materialName:'PETG', toolMaterialColor:'#FF6B35', slotMaterialColor:'#FF6B35' }
   ]);
+});
+
+test('Creator 5 filament configuration uses the native palette command and verifies readback', async () => {
+  assert.equal(CREATOR5_FILAMENT_MATERIALS.length, 21);
+  assert.equal(CREATOR5_FILAMENT_COLORS.length, 24);
+  assert.ok(CREATOR5_FILAMENT_MATERIALS.includes('TPU-95A'));
+  assert.ok(CREATOR5_FILAMENT_COLORS.some((item) => item.name === 'Blue' && item.hex === '#4CAAF8'));
+
+  const originalFetch = global.fetch;
+  const slots = [
+    { slotId:1, materialName:'PLA', materialColor:'#FFFFFF', hasFilament:true },
+    { slotId:2, materialName:'PETG', materialColor:'#4CAAF8', hasFilament:true },
+    { slotId:3, materialName:'ASA', materialColor:'#1B1B1B', hasFilament:true },
+    { slotId:4, materialName:'PVA', materialColor:'#FFF245', hasFilament:true }
+  ];
+  let controlArgs = null;
+  global.fetch = async (url, options) => {
+    const body = JSON.parse(options.body);
+    if (String(url).endsWith('/detail')) {
+      return {
+        ok:true,
+        async json() {
+          return {
+            code:0,
+            detail:{
+              status:'ready',
+              model:'Creator 5 Pro',
+              nozzleTemps:[25,25,25,25],
+              nozzleTargetTemps:[0,0,0,0],
+              matlStationInfo:{ slotInfos:slots }
+            }
+          };
+        }
+      };
+    }
+    if (String(url).endsWith('/control')) {
+      controlArgs = body.payload?.args || null;
+      const index = Number(controlArgs?.slot) - 1;
+      slots[index] = {
+        ...slots[index],
+        materialName:controlArgs.mt,
+        materialColor:controlArgs.rgb
+      };
+      return { ok:true, async json() { return { code:0, message:'success' }; } };
+    }
+    throw new Error(`Unexpected URL ${url}`);
+  };
+
+  try {
+    const result = await setCreator5FilamentConfig({
+      host:'127.0.0.1', httpPort:8898, serialNumber:'SN', checkCode:'CODE', model:'Creator 5 Pro'
+    }, { toolIndex:1, material:'PLA-CF', color:'#F82D29' });
+    assert.deepEqual(controlArgs, { slot:2, mt:'PLA-CF', rgb:'#F82D29' });
+    assert.deepEqual(result, {
+      toolIndex:1, slot:2, material:'PLA-CF', color:'#F82D29', verified:true
+    });
+  } finally {
+    global.fetch = originalFetch;
+  }
 });
 
 test('Creator 5 per-tool temperature control uses four-entry nozzle arrays', async () => {
