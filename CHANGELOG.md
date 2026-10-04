@@ -20,6 +20,7 @@ Historical entries describe the behaviour of the controller at the time of that 
 - Adds the same 6 px field-to-action spacing to Toolheads nozzle controls as the filament configuration controls.
 - Standardizes normal primary, secondary and destructive action buttons to a shared 42 px height while retaining compact sizing for dedicated icon/utility controls.
 - Updates the shared per-tool nozzle UI and regression coverage so Prusa CORE One+ INDX and Creator 5-series printers use the same controlled per-tool nozzle component without changing their printer-specific behaviour.
+- Normalizes helper text beneath multi-tool filament and nozzle controls to one compact 0.68 rem style and short shared baseline wording, adding extra text only for model-specific behaviour such as PrusaLink fallback, U1 write conditions or Creator 5 firmware limitations.
 
 ## v0.40.0
 

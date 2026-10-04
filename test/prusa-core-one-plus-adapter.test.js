@@ -449,7 +449,9 @@ test('CORE One+ UI and API expose per-tool material and colour designation', () 
     app.indexOf('function flashForgeMaterialDesignationMarkup')
   );
   assert.doesNotMatch(perToolMarkup, />Use printer value<\/button>/);
-  assert.match(perToolMarkup, /Clearing removes the controller assignment/);
+  assert.match(perToolMarkup, /multiToolFilamentHelpText/);
+  assert.match(perToolMarkup, /Clear returns to the values reported by PrusaLink\./);
+  assert.match(perToolMarkup, /Clear makes values not reported by PrusaLink unknown\./);
   assert.match(app, /\/tool-material-designation/);
   assert.match(styles, /\.prusa-tool-filament-control/);
   assert.match(server, /action === 'tool-material-designation'/);
@@ -478,6 +480,8 @@ test('CORE One+ INDX UI and API expose a nozzle designation for every physical t
   assert.match(app, /data-tool-nozzle-clear/);
   assert.match(app, /data-tool-nozzle-save="\$\{tool\.index\}">Assign<\/button>/);
   assert.match(app, /data-tool-nozzle-clear="\$\{tool\.index\}">Clear<\/button>/);
+  assert.match(app, /multiToolNozzleHelpText\(nozzleHelpDetail\)/);
+  assert.match(app, /If PrusaLink does not report a nozzle size, Clear makes it unknown\./);
   assert.match(app, /toolNozzleDesignationMarkup\(printer, tool, tools\.length\)/);
   assert.match(app, /\/tool-nozzle-designation/);
   assert.match(server, /action === 'tool-nozzle-designation'/);

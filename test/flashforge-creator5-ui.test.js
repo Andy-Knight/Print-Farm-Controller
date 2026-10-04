@@ -37,6 +37,7 @@ test('Creator 5 printer details expose one fixed nozzle selector per physical to
   assert.match(app, /Set the fitted nozzle independently for T0-T3 using the Nozzle column/);
   assert.match(app, /<span>Toolhead<\/span><span>Live information<\/span><span>Filament configuration<\/span>/);
   assert.match(styles, /\.creator5-tool-nozzle-control \.mini-actions[\s\S]*grid-template-columns:repeat\(2,minmax\(0,1fr\)\)/);
+  assert.match(app, /Creator 5 firmware does not reliably report the installed nozzle size, so Clear makes it unknown\./);
 });
 
 test('Creator 5 filament type and colour can be written to each physical slot', () => {
@@ -45,6 +46,7 @@ test('Creator 5 filament type and colour can be written to each physical slot', 
   assert.match(adapter, /filamentMaterials:CREATOR5_FILAMENT_MATERIALS/);
   assert.match(adapter, /filamentColors:CREATOR5_FILAMENT_COLORS/);
   assert.match(app, /function creator5FilamentConfigControlMarkup\(/);
+  assert.match(app, /multiToolFilamentHelpText\('Changes are written to the printer and verified\.'\)/);
   assert.match(app, /data-creator5-filament-material-input/);
   assert.match(app, /data-creator5-filament-color-input/);
   assert.match(app, /data-creator5-color-dropdown/);

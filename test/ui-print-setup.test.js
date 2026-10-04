@@ -173,6 +173,9 @@ test('Snapmaker U1 uses one control and one command for third-party filament typ
   assert.doesNotMatch(app, /data-u1-filament-type-save/);
   assert.doesNotMatch(app, /data-u1-filament-color-save/);
   assert.match(styles, /\.u1-filament-config-control/);
+  assert.match(app, /function multiToolFilamentHelpText/);
+  assert.match(app, /Used by the controller for queue compatibility and dashboard colour\./);
+  assert.match(app, /u1ConfigHelp\.textContent = multiToolFilamentHelpText\(u1ConfigState\.message\)/);
 });
 
 test('all controller filament material editors use the U1-style fixed selector', () => {
@@ -828,6 +831,10 @@ test('multi-tool printers use a full-width toolhead information and configuratio
   assert.match(styles, /\.material-tool-nozzle \.nozzle-designation-control label,[\s\S]*\.material-tool-nozzle \.tool-nozzle-control label[\s\S]*font-size:\.68rem/);
   assert.match(styles, /\.material-tool-nozzle \.nozzle-designation-control select,[\s\S]*\.material-tool-nozzle \.tool-nozzle-control select[\s\S]*height:var\(--dropdown-field-height\)[\s\S]*margin-top:4px/);
   assert.match(styles, /\.material-tool-nozzle \.nozzle-designation-control > \.mini-actions,[\s\S]*\.material-tool-nozzle \.tool-nozzle-control > \.mini-actions[\s\S]*margin-top:6px/);
+  assert.match(app, /function multiToolControlHelpMarkup/);
+  assert.match(app, /function multiToolNozzleHelpText/);
+  assert.match(app, /Used by the controller for queue compatibility\./);
+  assert.match(styles, /\.multi-tool-control-help \{[\s\S]*font-size:\.68rem[\s\S]*line-height:1\.3/);
   assert.match(styles, /@media \(max-width:760px\)[\s\S]*\.material-table-head \{ display:none; \}/);
 });
 
