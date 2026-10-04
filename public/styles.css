@@ -698,6 +698,7 @@ input:focus,select:focus { border-color:#7a9fbe; }
 .u1-filament-config-control button { grid-column:1 / -1; height:var(--button-field-height); min-height:var(--button-field-height); padding:6px 9px; }
 .prusa-tool-filament-control { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:6px 8px; align-items:end; margin-top:8px; padding-top:8px; border-top:1px solid #202a32; }
 .prusa-tool-filament-control label { margin:0; color:#8493a1; font-size:.68rem; }
+.prusa-tool-filament-control select { display:block; width:100%; min-width:0; margin-top:4px; }
 .prusa-tool-filament-control input { display:block; width:100%; min-height:34px; margin-top:4px; }
 .prusa-tool-filament-control .color-family-dropdown { margin-top:4px; }
 .prusa-tool-filament-control .color-family-dropdown summary { height:var(--dropdown-field-height); min-height:var(--dropdown-field-height); padding:6px 8px; }

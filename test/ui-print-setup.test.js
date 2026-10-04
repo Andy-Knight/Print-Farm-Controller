@@ -831,6 +831,7 @@ test('multi-tool printers use a full-width toolhead information and configuratio
   assert.match(styles, /\.material-tool-nozzle \.nozzle-designation-control label,[\s\S]*\.material-tool-nozzle \.tool-nozzle-control label[\s\S]*font-size:\.68rem/);
   assert.match(styles, /\.material-tool-nozzle \.nozzle-designation-control select,[\s\S]*\.material-tool-nozzle \.tool-nozzle-control select[\s\S]*height:var\(--dropdown-field-height\)[\s\S]*margin-top:4px/);
   assert.match(styles, /\.material-tool-nozzle \.nozzle-designation-control > \.mini-actions,[\s\S]*\.material-tool-nozzle \.tool-nozzle-control > \.mini-actions[\s\S]*margin-top:6px/);
+  assert.match(styles, /\.prusa-tool-filament-control select \{[^}]*margin-top:4px/);
   assert.match(app, /function multiToolControlHelpMarkup/);
   assert.match(app, /function multiToolNozzleHelpText/);
   assert.match(app, /Used by the controller for queue compatibility\./);
