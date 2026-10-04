@@ -13,7 +13,7 @@ Current highlights:
 
 - Stacked Layers header branding prototype with responsive Light/Dark treatment; the existing embedded favicon is unchanged.
 - Tabbed printer details with dedicated Toolheads, Camera, Files, Temperature/Preheat/Fans, Current Job, and Maintenance/Management views using the same selector styling as the Maintenance screen. Multi-tool printers use a full-width toolhead table with manual nozzle assignment in its own column where supported.
-- Creator 5 / Creator 5 Pro now support independent nozzle-size designation for T0-T3 rather than one shared four-tool value; their Toolheads table uses a compact Toolhead / Live information / Nozzle layout.
+- Creator 5 / Creator 5 Pro now support independent nozzle-size designation for T0-T3 and remote per-tool filament type/colour configuration using the printer's native 21-material / 24-colour palette with read-back verification.
 
 - Container images for Linux AMD64 and ARM64, with Docker and K3s/Kubernetes deployment guidance.
 - Persistent Print Library, smart queueing, printer groups and maintenance tracking.
