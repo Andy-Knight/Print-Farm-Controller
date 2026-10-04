@@ -4682,19 +4682,38 @@ function setFilamentTypeSelectValue(select, value) {
   select.value = normalized;
 }
 
+function multiToolControlHelpText(baseText = '', detailText = '') {
+  return [String(baseText || '').trim(), String(detailText || '').trim()].filter(Boolean).join(' ');
+}
+
+function multiToolFilamentHelpText(detailText = '') {
+  return multiToolControlHelpText('Used by the controller for queue compatibility and dashboard colour.', detailText);
+}
+
+function multiToolNozzleHelpText(detailText = '') {
+  return multiToolControlHelpText('Used by the controller for queue compatibility.', detailText);
+}
+
+function multiToolControlHelpMarkup(text, attributes = '') {
+  const value = String(text || '').trim();
+  if (!value) return '';
+  const attrs = String(attributes || '').trim();
+  return `<small class="multi-tool-control-help"${attrs ? ` ${attrs}` : ''}>${escapeHtml(value)}</small>`;
+}
+
 function u1FilamentConfigEditState(printer, tool = {}) {
   const filament = tool.filament || {};
   if (printer?.adapterType !== 'snapmaker-u1' || !printer?.capabilities?.filamentTypeControl || !printer?.capabilities?.filamentColorControl) {
     return { enabled:false, message:'Filament editing is unavailable.' };
   }
   if (String(printer.status?.status || '').toLowerCase() !== 'idle') {
-    return { enabled:false, message:'Filament can be changed while the U1 is idle.' };
+    return { enabled:false, message:'Filament can be changed only while the U1 is idle.' };
   }
-  if (filament.present !== true) return { enabled:false, message:`Load filament in T${tool.index} before setting its type and colour.` };
+  if (filament.present !== true) return { enabled:false, message:`Load filament in T${tool.index} before changing it.` };
   if (filament.officialFilament === true || filament.editable === false) {
     return { enabled:false, message:'Official Snapmaker RFID filament controls its own type and colour.' };
   }
-  return { enabled:true, message:'Choose a colour family; the controller writes its representative colour to the U1 and verifies the result.' };
+  return { enabled:true, message:'Changes are written to the U1 and verified.' };
 }
 
 function u1FilamentConfigControlMarkup(printer, tool = {}) {
@@ -4712,7 +4731,7 @@ function u1FilamentConfigControlMarkup(printer, tool = {}) {
     })}</label>
     <label>Colour family${colorFamilyDropdownMarkup({ value:familyOption?.value || '', inputAttributes:`data-u1-filament-color-family-input="${tool.index}"`, disabled:!state.enabled, placeholder:'Select colour' })}</label>
     <button type="button" class="secondary" data-u1-filament-config-save="${tool.index}"${state.enabled ? '' : ' disabled'}>Set filament on U1</button>
-    <small data-u1-filament-config-help="${tool.index}">${escapeHtml(state.message)}</small>
+    ${multiToolControlHelpMarkup(multiToolFilamentHelpText(state.message), `data-u1-filament-config-help="${tool.index}"`)}
   </div>`;
 }
 
@@ -4808,6 +4827,7 @@ function creator5FilamentConfigControlMarkup(printer, tool = {}) {
       ${creator5FilamentColorDropdownMarkup(printer, { value:color || '', toolIndex:tool.index, disabled:!idle })}
     </label>
     <button type="button" class="secondary" data-creator5-filament-config-save="${tool.index}"${idle ? '' : ' disabled'}>Set on printer</button>
+    ${multiToolControlHelpMarkup(multiToolFilamentHelpText('Changes are written to the printer and verified.'))}
   </div>`;
 }
 
@@ -4839,7 +4859,11 @@ function prusaToolMaterialDesignationMarkup(printer, tool = {}) {
       <button type="button" class="secondary" data-prusa-tool-material-save="${tool.index}">Assign T${tool.index}</button>
       <button type="button" class="secondary" data-prusa-tool-material-clear="${tool.index}">Clear assignment</button>
     </div>
-    <small>Stored by Print Farm Controller for physical T${tool.index}. The selected colour family drives the dashboard swatch and automatic colour compatibility. Clearing removes the controller assignment${hasReported ? ' and returns this tool to the values reported by PrusaLink.' : '; any values not reported by PrusaLink become unknown.'}</small>
+    ${multiToolControlHelpMarkup(multiToolFilamentHelpText(
+      hasReported
+        ? 'Clear returns to the values reported by PrusaLink.'
+        : 'Clear makes values not reported by PrusaLink unknown.'
+    ))}
   </div>`;
 }
 
@@ -4873,14 +4897,13 @@ function toolNozzleDesignationMarkup(printer, tool = {}, toolCount = 1) {
   const hasReported = Number.isFinite(reported) && reported > 0;
   const options = printerNozzleDiameterOptions(printer);
   const creator5 = printer.adapterType === 'flashforge-creator5';
-  const reportedSource = creator5 ? 'the printer' : 'PrusaLink';
-  const unknownHelp = creator5
-    ? 'Creator 5 firmware does not reliably report the installed nozzle size, so clearing leaves that toolhead nozzle size unknown until another controller designation is assigned.'
-    : 'if PrusaLink does not report that nozzle, its size becomes unknown and unattended jobs requiring an explicit nozzle will need review.';
   const compactClass = creator5 ? ' creator5-tool-nozzle-control' : '';
-  const helpMarkup = creator5
-    ? ''
-    : `<div class="field-help">Choose one of the supported nozzle sizes for physical T${tool.index}. The controller stores the selection independently for this toolhead and uses it for queue compatibility; free-typed nozzle sizes are not accepted. Clearing removes the controller assignment${hasReported ? ` and returns T${tool.index} to the ${escapeHtml(nozzleDiameterText(reported))} value reported by ${escapeHtml(reportedSource)}.` : `; ${escapeHtml(unknownHelp)}`}</div>`;
+  const nozzleHelpDetail = creator5
+    ? 'Creator 5 firmware does not reliably report the installed nozzle size, so Clear makes it unknown.'
+    : hasReported
+      ? `Clear returns to the ${nozzleDiameterText(reported)} value reported by PrusaLink.`
+      : 'If PrusaLink does not report a nozzle size, Clear makes it unknown.';
+  const helpMarkup = multiToolControlHelpMarkup(multiToolNozzleHelpText(nozzleHelpDetail));
   return `<div class="material-designation-control nozzle-designation-control tool-nozzle-control${compactClass}" data-tool-nozzle-control="${tool.index}">
     <label>Physical T${tool.index} nozzle
       ${nozzleDiameterSelectMarkup({
@@ -5692,7 +5715,7 @@ function updateOpenPrinterTelemetry() {
         }
       }
       if (u1ConfigSave) u1ConfigSave.disabled = !u1ConfigState.enabled;
-      if (u1ConfigHelp) u1ConfigHelp.textContent = u1ConfigState.message;
+      if (u1ConfigHelp) u1ConfigHelp.textContent = multiToolFilamentHelpText(u1ConfigState.message);
       row.classList.toggle('filament-missing', filament.present === false);
       row.classList.toggle('filament-loaded', filament.present === true);
       const swatch = row.querySelector('[data-material-swatch]');
