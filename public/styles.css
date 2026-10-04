@@ -623,6 +623,11 @@ input:focus,select:focus { border-color:#7a9fbe; }
   border-top:0;
 }
 .material-tool-nozzle .field-help { white-space:normal; }
+.material-tool-nozzle .nozzle-designation-control label,
+.material-tool-nozzle .tool-nozzle-control label {
+  color:#8493a1;
+  font-size:.68rem;
+}
 .creator5-tool-nozzle-control label { margin-bottom:6px; }
 .creator5-tool-nozzle-control .mini-actions {
   display:grid;
