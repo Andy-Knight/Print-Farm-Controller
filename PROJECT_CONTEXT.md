@@ -9,7 +9,7 @@ If chat context and this file disagree about the codebase, inspect current GitHu
 - Repository: `Andy-Knight/Print-Farm-Controller`
 - Project path: repository root (`/`)
 - Primary branch: `main` (current production baseline)
-- Current application version on this branch: **0.39.1**. Production baseline on `main`: **0.39.0**.
+- Current application version on this branch: **0.40.0**. Production baseline on `main`: **0.40.0**.
 - Runtime: **Node.js 24+** (development baseline Node.js 24.21.0), ES modules, no npm runtime dependencies.
 - GitHub is the authoritative code baseline.
 
@@ -104,7 +104,7 @@ Manufacturer-specific discovery, capabilities, limits, status normalization, fil
 
 ## Current baseline
 
-- Supported printers: FlashForge Adventurer 5M / 5M Pro, FlashForge Creator 5 / Creator 5 Pro, Snapmaker U1, Prusa CORE One+ (v0.39.0 development), and experimental Bambu Lab P1P / P1S / X1C / A1 Mini support.
+- Supported printers: FlashForge Adventurer 5M / 5M Pro, FlashForge Creator 5 / Creator 5 Pro, Snapmaker U1, experimental Prusa CORE One+, and experimental Bambu Lab P1P / P1S / X1C / A1 Mini support.
 - Persistent printer registry with manufacturer-specific adapters, local discovery where supported, controller-side printer naming, live SSE fleet state, dashboard filtering and printer groups with overlapping membership.
 - Persistent Print Library with descriptions, previews, target-printer metadata, material/colour/nozzle requirements, verified file distribution and queue integration.
 - Persistent print queue/history with fixed-printer or next-compatible-printer assignment, priorities, production batches, reprint, compatibility/preflight checks, material/tool mapping and bed-clearance interlocks.
@@ -119,19 +119,18 @@ Manufacturer-specific discovery, capabilities, limits, status normalization, fil
 
 ## Current task
 
-The current production baseline is **v0.39.0** on `main`.
+The current production baseline is **v0.40.0** on `main`.
 
-Active development is **v0.39.1** on `feature/prusa-indx-nozzle-designation-v0391`. This update adds a persistent nozzle-size designation for every physical CORE One+ INDX tool. All controller-managed nozzle-size designations now use controlled dropdowns only: Prusa Standard/INDX use model-defined choices, while FlashForge AD5M/AD5M Pro and Creator 5/Creator 5 Pro use fixed 0.25 / 0.4 / 0.6 / 0.8 mm choices. Free-typed nozzle sizes are not accepted by either the browser UI or API. INDX 4 exposes T0–T3 and INDX 8 exposes T0–T7; each tool can carry its own controller-side nozzle size and the existing fixed-index queue compatibility consumes the resulting effective per-tool nozzle metadata. Clearing a designation returns to PrusaLink-reported data when available and otherwise leaves the tool nozzle unknown.
+No feature branch is currently active. v0.40.0 merged PR #67 (`feature/multitoolhead-double-wide-table`) and reorganizes printer details into six consistent tabs: Toolheads, Camera, Files, Temperature/Preheat/Fans, Current Job, and Maintenance/Management. Printer-detail tabs reuse the Maintenance screen selector styling and responsive behaviour.
 
-Changing Standard 1-tool → INDX migrates the existing single-tool nozzle designation to T0. Changing INDX → Standard migrates T0 back to the standard nozzle designation while preserving other tool metadata for a later INDX re-enable.
+Multi-tool printers use a full-width toolhead table. Prusa CORE One+ INDX exposes independent per-tool nozzle assignment in a dedicated Nozzle column; Creator 5 / Creator 5 Pro retain their existing shared four-tool nozzle designation but present it in the same dedicated column; Snapmaker U1 continues to use printer-reported nozzle data. Maintenance/Management is balanced into two columns with Maintenance + Printer management on the left and Diagnostics on the right, with corrected maintenance help/button spacing.
 
 ## Next steps
 
-1. Run the complete regression/GitHub Actions workflow for v0.39.1.
-2. Validate INDX 4/8 per-tool nozzle assignment in the simulator, including mixed nozzle sizes and queue compatibility.
-3. On physical INDX hardware, confirm exactly which per-tool nozzle diameters current PrusaLink firmware reports and verify that clearing a controller designation correctly returns to those reported values.
-4. Verify Standard → INDX → Standard migration retains the expected T0 nozzle designation.
-5. Continue broader physical CORE One+ validation for camera, chamber/temperature controls and PrusaLink firmware differences before removing Experimental status.
+1. Run/confirm the complete regression and release workflow against v0.40.0 before tagging a versioned production image/release.
+2. Continue broader physical CORE One+ validation, including INDX 4/8 nozzle/material reporting and PrusaLink firmware differences, before removing Experimental status.
+3. Continue physical Creator 5 / Creator 5 Pro validation and experimental Bambu validation.
+4. Cross-check the new tabbed printer-details layout on representative physical and simulated printer models at desktop and narrow/mobile widths.
 
 ## Licensing baseline
 
@@ -536,3 +535,31 @@ Do not reintroduce a runtime environment flag that lets a distributed controller
 ### v0.36.0
 
 - **Microsoft OneDrive reconciliation:** draft PR #59 is rebuilt on the merged v0.35.0 S3 baseline and advances the OneDrive feature from its original v0.34.0 development version to v0.36.0. OneDrive uses Microsoft device-code OAuth with `offline_access Files.ReadWrite.AppFolder`, Graph `approot`, large-file upload sessions, safe PFC metadata sidecars, manual/scheduled backup, controller-scoped retention and cloud restore through the existing provider registry. The reconciliation preserves Google Drive and S3 in the same scheduler/UI/server baseline, adds production bundle/container support for `PFC_MICROSOFT_CLIENT_ID`, and keeps OneDrive authorization state excluded from backups and diagnostics. Real Microsoft account validation remains pending; automated regression and packaging validation cover the implementation until live credentials are available.
+### v0.37.0
+
+- Added persistent Reports & analytics, filament catalogue costing, slicer-profile auto-matching, immutable print-cost snapshots, reporting-history persistence, and backup/restore participation for the new stores.
+
+### v0.37.1
+
+- Replaced free-text filament currency with the controlled 36-currency catalogue and server-side validation while preserving legacy stored values for compatibility.
+
+### v0.38.0
+
+- Added the responsive Stacked Layers header-branding prototype with Light/Dark treatment while leaving browser favicons unchanged.
+
+### v0.38.1
+
+- Fixed Print Library filament-cost assignment persistence, improved filament option labels, and linked the Stacked Layers header brand to the public website.
+
+### v0.39.0
+
+- Added experimental Prusa CORE One+ support through a reusable PrusaLink family adapter, including Standard, INDX 4 and INDX 8 configurations, fixed-index queue compatibility, per-tool material/colour assignment, simulator coverage and model artwork.
+
+### v0.39.1
+
+- Added persistent per-tool nozzle-size designation for CORE One+ INDX and standardized all controller-managed nozzle-size assignment controls to fixed supported-size dropdowns, including FlashForge models.
+
+### v0.40.0
+
+- PR #67 merged the tabbed printer-details redesign and full-width multi-toolhead table. Printer details now use six Maintenance-style tabs; manual nozzle assignment has a dedicated table column where supported; Maintenance/Management uses balanced columns with corrected maintenance button/help spacing.
+
