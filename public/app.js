@@ -6048,9 +6048,22 @@ async function openPrinter(id) {
   appendDetailPanel('temperature', printerDetail.querySelector('.chamber-preheat-panel'));
   appendDetailPanel('temperature', printerDetail.querySelector('.fans-panel'));
   appendDetailPanel('job', printerDetail.querySelector('.current-job-panel'));
-  appendDetailPanel('management', printerDetail.querySelector('.maintenance-panel'));
-  appendDetailPanel('management', printerDetail.querySelector('.diagnostics-panel'));
-  appendDetailPanel('management', printerDetail.querySelector('.printer-management-panel'));
+
+  const managementPanel = detailTabPanel('management');
+  if (managementPanel) {
+    const managementLeft = document.createElement('div');
+    managementLeft.className = 'management-tab-column management-tab-column-left';
+    const managementRight = document.createElement('div');
+    managementRight.className = 'management-tab-column management-tab-column-right';
+    managementPanel.append(managementLeft, managementRight);
+
+    const maintenancePanel = printerDetail.querySelector('.maintenance-panel');
+    const diagnosticsPanel = printerDetail.querySelector('.diagnostics-panel');
+    const printerManagementPanel = printerDetail.querySelector('.printer-management-panel');
+    if (maintenancePanel) managementLeft.append(maintenancePanel);
+    if (printerManagementPanel) managementLeft.append(printerManagementPanel);
+    if (diagnosticsPanel) managementRight.append(diagnosticsPanel);
+  }
   detailGrid?.remove();
 
   for (const name of ['files','temperature','job','management']) {
