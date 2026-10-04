@@ -622,6 +622,18 @@ input:focus,select:focus { border-color:#7a9fbe; }
   border-top:0;
 }
 .material-tool-nozzle .field-help { white-space:normal; }
+.creator5-tool-nozzle-control label { margin-bottom:6px; }
+.creator5-tool-nozzle-control .mini-actions {
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:6px;
+}
+.creator5-tool-nozzle-control .mini-actions > button {
+  width:100%;
+  min-width:0;
+  padding-left:10px;
+  padding-right:10px;
+}
 .material-tool-nozzle .shared-nozzle-help { margin-top:8px; }
 .multi-tool-table .material-tool.filament-missing .material-tool-identity > span { color:#df9ba1; }
 
