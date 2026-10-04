@@ -800,6 +800,8 @@ test('multi-tool printers use a full-width toolhead information and configuratio
   assert.match(styles, /\.material-panel-wide \{ margin-bottom:18px; \}/);
   assert.match(styles, /\.material-table-head \{/);
   assert.match(styles, /\.material-grid\.multi-tool-table \{/);
+  assert.match(app, /printer\.adapterType === 'snapmaker-u1' && wideToolheadLayout \? ' u1-tool-table' : ''/);
+  assert.match(styles, /\.multi-tool-table\.u1-tool-table \.material-tool\.filament-loaded,[\s\S]*\.material-tool\.filament-missing \{ box-shadow:none; \}/);
   assert.match(styles, /\.material-table-head\.has-nozzle-column,[\s\S]*\.multi-tool-table\.has-nozzle-column \.material-tool/);
   assert.match(app, /creator5FilamentConfigControlMarkup\(printer, tool\)/);
   assert.match(styles, /\.creator5-filament-config-control \{/);
