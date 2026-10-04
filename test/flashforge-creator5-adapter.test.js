@@ -11,6 +11,7 @@ import {
 } from '../src/creator5-api.js';
 import {
   FLASHFORGE_CREATOR5_ADAPTER_TYPE,
+  FlashForgeCreator5Adapter,
   flashForgeCreator5AdapterDefinition,
   prepareFlashForgeCreator5Config
 } from '../src/adapters/flashforge-creator5-adapter.js';
@@ -25,6 +26,57 @@ test('Creator 5 adapter definition exposes both four-tool models without TCP con
   assert.equal(CREATOR5_TOOL_COUNT, 4);
   assert.equal(CREATOR5_NOZZLE_MAX_C, 320);
   assert.equal(CREATOR5_BED_MAX_C, 120);
+});
+
+test('Creator 5 exposes independent per-tool nozzle designation capability', () => {
+  assert.equal(flashForgeCreator5AdapterDefinition.capabilities.nozzleDesignation, false);
+  assert.equal(flashForgeCreator5AdapterDefinition.capabilities.toolNozzleDesignation, true);
+  assert.deepEqual(new FlashForgeCreator5Adapter({
+    model:'Creator 5 Pro',
+    adapterConfig:{}
+  }).limits.nozzleDiameters, [0.25,0.4,0.6,0.8]);
+});
+
+test('Creator 5 applies controller nozzle designations independently to T0-T3', async () => {
+  const originalFetch = global.fetch;
+  global.fetch = async () => ({
+    ok:true,
+    async json() {
+      return {
+        code:0,
+        message:'success',
+        detail:{
+          status:'ready',
+          model:'Creator 5 Pro',
+          nozzleTemps:[25,25,25,25],
+          nozzleTargetTemps:[0,0,0,0]
+        }
+      };
+    }
+  });
+  try {
+    const adapter = new FlashForgeCreator5Adapter({
+      host:'127.0.0.1',
+      httpPort:8898,
+      serialNumber:'SN',
+      checkCode:'CODE',
+      model:'Creator 5 Pro',
+      adapterConfig:{
+        toolDesignations:{
+          '0':{ nozzleDiameter:0.25 },
+          '1':{ nozzleDiameter:0.4 },
+          '2':{ nozzleDiameter:0.6 },
+          '3':{ nozzleDiameter:0.8 }
+        }
+      }
+    });
+    const status = await adapter.getStatus();
+    assert.deepEqual(status.tools.map((tool) => tool.nozzleDiameter), [0.25,0.4,0.6,0.8]);
+    assert.deepEqual(status.tools.map((tool) => tool.nozzleDiameterSource), ['manual','manual','manual','manual']);
+    assert.deepEqual(status.tools.map((tool) => tool.nozzleManuallyAssigned), [true,true,true,true]);
+  } finally {
+    global.fetch = originalFetch;
+  }
 });
 
 test('Creator 5 configuration validates model and keeps HTTP/camera ports only', () => {
