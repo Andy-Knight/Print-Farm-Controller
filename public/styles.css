@@ -262,16 +262,26 @@ input:focus,select:focus { border-color:#7a9fbe; }
 .printer-detail-tab-panel[hidden] { display:none !important; }
 .printer-detail-tab-panel { min-width:0; }
 .printer-detail-tab-panel > .panel:last-child { margin-bottom:0; }
-.printer-detail-tab-panel[data-detail-panel="temperature"],
+.printer-detail-tab-panel[data-detail-panel="temperature"] {
+  display:grid;
+  grid-template-columns:minmax(0,1fr) minmax(0,1fr);
+  gap:12px;
+  align-items:start;
+}
+.printer-detail-tab-panel[data-detail-panel="temperature"] > .panel { margin-bottom:0; }
 .printer-detail-tab-panel[data-detail-panel="management"] {
   display:grid;
   grid-template-columns:minmax(0,1fr) minmax(0,1fr);
   gap:12px;
   align-items:start;
 }
-.printer-detail-tab-panel[data-detail-panel="temperature"] > .panel,
-.printer-detail-tab-panel[data-detail-panel="management"] > .panel { margin-bottom:0; }
-.printer-detail-tab-panel[data-detail-panel="management"] .printer-management-panel { grid-column:1 / -1; }
+.management-tab-column {
+  display:flex;
+  flex-direction:column;
+  gap:12px;
+  min-width:0;
+}
+.management-tab-column > .panel { margin-bottom:0; }
 .detail-camera-panel .detail-camera { display:block; }
 .detail-tab-unavailable { min-height:110px; display:flex; flex-direction:column; justify-content:center; }
 .detail-error-banner { position:sticky; top:0; z-index:6; margin:0 0 12px; border:1px solid #754047; box-shadow:0 8px 22px rgba(0,0,0,.22); }
@@ -310,7 +320,6 @@ input:focus,select:focus { border-color:#7a9fbe; }
   .detail-grid { grid-template-columns:1fr; }
   .printer-detail-tab-panel[data-detail-panel="temperature"],
   .printer-detail-tab-panel[data-detail-panel="management"] { grid-template-columns:1fr; }
-  .printer-detail-tab-panel[data-detail-panel="management"] .printer-management-panel { grid-column:auto; }
   .discovery-heading,.discovery-result { align-items:stretch; flex-direction:column; }
   .control-row { grid-template-columns:1fr auto; }
   .control-row > span { display:none; }
