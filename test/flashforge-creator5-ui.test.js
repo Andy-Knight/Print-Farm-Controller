@@ -25,6 +25,18 @@ test('Creator 5 printer details expose four-tool setup and Pro chamber controls'
   assert.match(server, /Chamber must be \$\{min\}-\$\{max\} C/);
 });
 
+test('Creator 5 printer details expose one fixed nozzle selector per physical toolhead', () => {
+  assert.match(adapter, /nozzleDesignation:false/);
+  assert.match(adapter, /toolNozzleDesignation:true/);
+  assert.match(app, /function toolNozzleDesignationMarkup\(/);
+  assert.match(app, /data-tool-nozzle-input="/);
+  assert.match(app, /data-tool-nozzle-save="/);
+  assert.match(app, /data-tool-nozzle-clear="/);
+  assert.match(app, /stores the selection independently for this toolhead/);
+  assert.match(app, /Each of the four physical toolheads has its own controller-designated installed nozzle size/);
+  assert.doesNotMatch(app, /This designation applies to all \$\{tools\.length\} toolheads/);
+});
+
 test('Creator 5 local-file setup warns when firmware cannot reveal sliced tool requirements', () => {
   assert.match(adapter, /does not expose per-file tool\/material requirements/);
   assert.match(app, /does not expose its sliced tool requirements/);
