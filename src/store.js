@@ -157,8 +157,36 @@ async function ensureStore() {
 
 function normalizeStoredPrinter(printer) {
   const adapterType = String(printer?.adapterType || FLASHFORGE_AD5M_ADAPTER_TYPE);
+  let adapterConfig = printer?.adapterConfig && typeof printer.adapterConfig === 'object'
+    ? { ...printer.adapterConfig }
+    : {};
+
+  // Creator 5 originally stored one nozzle designation for all four toolheads.
+  // Preserve that configuration when upgrading by expanding it into independent
+  // T0-T3 designations. A later write persists the migrated representation.
+  if (adapterType === 'flashforge-creator5') {
+    const legacyNozzle = normalizeNozzleDesignation(adapterConfig.nozzleDiameterDesignation);
+    if (legacyNozzle != null) {
+      const designations = {
+        ...(adapterConfig.toolDesignations && typeof adapterConfig.toolDesignations === 'object'
+          ? adapterConfig.toolDesignations
+          : {})
+      };
+      for (let toolIndex = 0; toolIndex < 4; toolIndex += 1) {
+        const key = String(toolIndex);
+        const previous = designations[key] && typeof designations[key] === 'object' ? designations[key] : {};
+        if (normalizeNozzleDesignation(previous.nozzleDiameter) == null) {
+          designations[key] = { ...previous, nozzleDiameter:legacyNozzle };
+        }
+      }
+      adapterConfig.toolDesignations = designations;
+      delete adapterConfig.nozzleDiameterDesignation;
+    }
+  }
+
   return {
     ...printer,
+    adapterConfig,
     adapterType,
     manufacturer: printer?.manufacturer || (adapterType === FLASHFORGE_AD5M_ADAPTER_TYPE ? 'FlashForge' : 'Unknown'),
     model: printer?.model || (adapterType === FLASHFORGE_AD5M_ADAPTER_TYPE ? 'Adventurer 5M Pro' : 'Unknown'),
@@ -350,14 +378,18 @@ export async function setPrinterToolNozzleDesignation(id, toolIndex, nozzleDiame
   if (index < 0) return null;
 
   const profile = getPrusaLinkModelProfile(printers[index].adapterType);
-  if (!profile) throw new Error('Per-tool nozzle designation is not supported by this printer');
-  const configuration = prusaLinkToolConfiguration(
-    profile,
-    printers[index].adapterConfig?.toolCount ?? profile.defaultToolCount
-  );
+  const toolCount = profile
+    ? prusaLinkToolConfiguration(
+        profile,
+        printers[index].adapterConfig?.toolCount ?? profile.defaultToolCount
+      ).count
+    : printers[index].adapterType === 'flashforge-creator5'
+      ? 4
+      : null;
+  if (!toolCount) throw new Error('Per-tool nozzle designation is not supported by this printer');
   const physicalTool = Number(toolIndex);
-  if (!Number.isInteger(physicalTool) || physicalTool < 0 || physicalTool >= configuration.count) {
-    throw new Error(`Tool index must be between 0 and ${configuration.count - 1}`);
+  if (!Number.isInteger(physicalTool) || physicalTool < 0 || physicalTool >= toolCount) {
+    throw new Error(`Tool index must be between 0 and ${toolCount - 1}`);
   }
 
   const designation = normalizeNozzleDesignation(nozzleDiameter);
