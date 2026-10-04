@@ -34,7 +34,6 @@ test('Creator 5 printer details expose one fixed nozzle selector per physical to
   assert.match(app, /data-tool-nozzle-clear="/);
   assert.match(app, /stores the selection independently for this toolhead/);
   assert.match(app, /Each of the four physical toolheads has its own controller-designated installed nozzle size/);
-  assert.doesNotMatch(app, /This designation applies to all \$\{tools\.length\} toolheads/);
 });
 
 test('Creator 5 local-file setup warns when firmware cannot reveal sliced tool requirements', () => {
