@@ -776,18 +776,26 @@ test('unsupported cameras are hidden rather than shown as offline', () => {
 test('multi-tool printers use a full-width toolhead information and configuration table', () => {
   assert.match(app, /const configuredToolCount = Number\(limits\.toolCount/);
   assert.match(app, /const wideToolheadLayout = Boolean\(capabilities\.materialStatus && configuredToolCount > 1\)/);
+  assert.match(app, /const manualNozzleColumn = Boolean\(wideToolheadLayout && \(capabilities\.toolNozzleDesignation \|\| capabilities\.nozzleDesignation\)\)/);
   assert.match(app, /material-panel\$\{wideToolheadLayout \? ' material-panel-wide' : ''\}/);
-  assert.match(app, /class="material-table-head"/);
+  assert.match(app, /material-table-head\$\{manualNozzleColumn \? ' has-nozzle-column' : ''\}/);
   assert.match(app, /<span>Toolhead<\/span><span>Live information<\/span><span>Configuration<\/span>/);
+  assert.match(app, /manualNozzleColumn \? '<span>Nozzle<\/span>' : ''/);
   assert.match(app, /multi-tool-table/);
   assert.match(app, /material-tool-cell material-tool-identity/);
   assert.match(app, /material-tool-cell material-tool-information/);
   assert.match(app, /material-tool-cell material-tool-configuration/);
+  assert.match(app, /material-tool-cell material-tool-nozzle/);
+  assert.match(app, /capabilities\.toolNozzleDesignation[\s\S]*prusaToolNozzleDesignationMarkup/);
+  assert.match(app, /capabilities\.nozzleDesignation && toolPosition === 0[\s\S]*flashForgeNozzleDesignationMarkup/);
+  assert.match(app, /This designation applies to all \$\{tools\.length\} toolheads/);
+  assert.match(app, /Uses shared printer designation/);
   assert.match(app, /\$\{wideToolheadLayout \? materialStatusMarkup : ''\}[\s\S]*<div class="detail-grid">/);
   assert.match(app, /\$\{wideToolheadLayout \? '' : materialStatusMarkup\}/);
   assert.match(styles, /\.material-panel-wide \{ margin-bottom:18px; \}/);
   assert.match(styles, /\.material-table-head \{/);
   assert.match(styles, /\.material-grid\.multi-tool-table \{/);
-  assert.match(styles, /\.multi-tool-table \.material-tool \{[\s\S]*grid-template-columns:/);
+  assert.match(styles, /\.material-table-head\.has-nozzle-column,[\s\S]*\.multi-tool-table\.has-nozzle-column \.material-tool/);
+  assert.match(styles, /\.material-tool-nozzle \.nozzle-designation-control/);
   assert.match(styles, /@media \(max-width:760px\)[\s\S]*\.material-table-head \{ display:none; \}/);
 });
