@@ -619,6 +619,12 @@ test('all controller-managed nozzle designations use fixed dropdowns', () => {
   assert.match(store, /setPrinterNozzleDesignation/);
   assert.match(ad5m, /nozzleDiameters: Object\.freeze\(\[0\.25, 0\.4, 0\.6, 0\.8\]\)/);
   assert.match(creator5, /nozzleDiameters:Object\.freeze\(\[0\.25, 0\.4, 0\.6, 0\.8\]\)/);
+  assert.match(creator5, /toolNozzleDesignation:true/);
+  assert.match(creator5, /toolDesignations\[String\(tool\.index\)\]\?\.nozzleDiameter/);
+  assert.match(app, /data-tool-nozzle-input/);
+  assert.match(app, /\/api\/printers\/\$\{id\}\/tool-nozzle-designation/);
+  assert.match(server, /action === 'tool-nozzle-designation'/);
+  assert.match(store, /printers\[index\]\.adapterType === 'flashforge-creator5'/);
   assert.match(ad5m, /nozzleDiameterDesignation/);
   assert.match(ad5m, /nozzleDiameterSource = 'manual'/);
 });
@@ -785,10 +791,10 @@ test('multi-tool printers use a full-width toolhead information and configuratio
   assert.match(app, /material-tool-cell material-tool-information/);
   assert.match(app, /material-tool-cell material-tool-configuration/);
   assert.match(app, /material-tool-cell material-tool-nozzle/);
-  assert.match(app, /capabilities\.toolNozzleDesignation[\s\S]*prusaToolNozzleDesignationMarkup/);
-  assert.match(app, /capabilities\.nozzleDesignation && toolPosition === 0[\s\S]*flashForgeNozzleDesignationMarkup/);
-  assert.match(app, /This designation applies to all \$\{tools\.length\} toolheads/);
-  assert.match(app, /Uses shared printer designation/);
+  assert.match(app, /capabilities\.toolNozzleDesignation[\s\S]*toolNozzleDesignationMarkup/);
+  assert.match(app, /data-tool-nozzle-input/);
+  assert.match(app, /stores the selection independently for this toolhead/);
+  assert.doesNotMatch(app, /This designation applies to all \$\{tools\.length\} toolheads/);
   assert.match(app, /\$\{wideToolheadLayout \? materialStatusMarkup : ''\}[\s\S]*<div class="detail-grid">/);
   assert.match(app, /\$\{wideToolheadLayout \? '' : materialStatusMarkup\}/);
   assert.match(styles, /\.material-panel-wide \{ margin-bottom:18px; \}/);
