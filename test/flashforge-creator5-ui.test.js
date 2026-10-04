@@ -37,10 +37,22 @@ test('Creator 5 printer details expose one fixed nozzle selector per physical to
   assert.match(app, /const assignLabel = creator5 \? 'Assign'/);
   assert.match(app, /const clearLabel = creator5 \? 'Clear'/);
   assert.match(app, /Set the fitted nozzle independently for T0-T3 using the Nozzle column/);
-  assert.match(app, /creator5ToolTable \? ' creator5-tool-table' : ''/);
-  assert.match(app, /showConfigurationColumn \? '<span>Filament configuration<\/span>' : ''/);
+  assert.match(app, /<span>Toolhead<\/span><span>Live information<\/span><span>Filament configuration<\/span>/);
   assert.match(styles, /\.creator5-tool-nozzle-control \.mini-actions[\s\S]*grid-template-columns:repeat\(2,minmax\(0,1fr\)\)/);
-  assert.match(styles, /\.material-table-head\.creator5-tool-table,[\s\S]*grid-template-columns:minmax\(110px,.45fr\) minmax\(320px,1.45fr\) minmax\(280px,1.05fr\)/);
+});
+
+test('Creator 5 filament type and colour can be written to each physical slot', () => {
+  assert.match(adapter, /filamentTypeControl:true/);
+  assert.match(adapter, /filamentColorControl:true/);
+  assert.match(adapter, /filamentMaterials:CREATOR5_FILAMENT_MATERIALS/);
+  assert.match(adapter, /filamentColors:CREATOR5_FILAMENT_COLORS/);
+  assert.match(app, /function creator5FilamentConfigControlMarkup\(/);
+  assert.match(app, /data-creator5-filament-material-input/);
+  assert.match(app, /data-creator5-filament-color-input/);
+  assert.match(app, /data-creator5-filament-config-save/);
+  assert.match(app, /\/api\/printers\/\$\{id\}\/filament-config/);
+  assert.match(app, /Set on printer/);
+  assert.match(styles, /\.creator5-filament-config-control \{[\s\S]*grid-template-columns:minmax\(0,1fr\) minmax\(0,1fr\)/);
 });
 
 test('Creator 5 local-file setup warns when firmware cannot reveal sliced tool requirements', () => {
