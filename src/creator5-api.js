@@ -5,6 +5,39 @@ export const CREATOR5_NOZZLE_MAX_C = 320;
 export const CREATOR5_BED_MAX_C = 120;
 export const CREATOR5_PRO_CHAMBER_MAX_C = 65;
 
+export const CREATOR5_FILAMENT_MATERIALS = Object.freeze([
+  'PLA', 'PETG', 'PLA-CF', 'PETG-CF', 'ABS', 'ASA', 'SILK', 'PET-CF',
+  'PAHT-CF', 'S-PAHT', 'S-Multi', 'PA-CF', 'HIPS', 'PVA', 'TPU-90A',
+  'TPU-95A', 'TPU-64D', 'PC', 'PA', 'PC-ABS', 'PPS-CF'
+]);
+
+export const CREATOR5_FILAMENT_COLORS = Object.freeze([
+  Object.freeze({ name:'White', hex:'#FFFFFF' }),
+  Object.freeze({ name:'Yellow', hex:'#FFF245' }),
+  Object.freeze({ name:'Light Green', hex:'#DEF578' }),
+  Object.freeze({ name:'Green', hex:'#21CC3D' }),
+  Object.freeze({ name:'Dark Green', hex:'#167A4B' }),
+  Object.freeze({ name:'Teal', hex:'#156682' }),
+  Object.freeze({ name:'Cyan', hex:'#24E4A0' }),
+  Object.freeze({ name:'Light Blue', hex:'#7BD9F0' }),
+  Object.freeze({ name:'Blue', hex:'#4CAAF8' }),
+  Object.freeze({ name:'Dark Blue', hex:'#2E54DD' }),
+  Object.freeze({ name:'Purple', hex:'#48358C' }),
+  Object.freeze({ name:'Violet', hex:'#A341F7' }),
+  Object.freeze({ name:'Magenta', hex:'#F435F6' }),
+  Object.freeze({ name:'Pink', hex:'#D5B4DE' }),
+  Object.freeze({ name:'Coral', hex:'#FA6173' }),
+  Object.freeze({ name:'Red', hex:'#F82D29' }),
+  Object.freeze({ name:'Brown', hex:'#805003' }),
+  Object.freeze({ name:'Orange', hex:'#F9903B' }),
+  Object.freeze({ name:'Cream', hex:'#FCEBD7' }),
+  Object.freeze({ name:'Tan', hex:'#D5C5A1' }),
+  Object.freeze({ name:'Dark Brown', hex:'#B17C38' }),
+  Object.freeze({ name:'Gray', hex:'#8C8C89' }),
+  Object.freeze({ name:'Light Gray', hex:'#BEBEBE' }),
+  Object.freeze({ name:'Black', hex:'#1B1B1B' })
+]);
+
 function numeric(value, fallback = 0) {
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : fallback;
@@ -41,7 +74,7 @@ function normalizeCreatorState(value) {
   return state;
 }
 
-export function normalizeCreator5Status(detail = {}, { model = null, nozzleDiameter = null } = {}) {
+export function normalizeCreator5Status(detail = {}, { model = null } = {}) {
   const nozzleTemps = Array.isArray(detail.nozzleTemps) ? detail.nozzleTemps : [];
   const nozzleTargets = Array.isArray(detail.nozzleTargetTemps) ? detail.nozzleTargetTemps : [];
   const slots = slotInfoByIndex(detail);
@@ -58,9 +91,6 @@ export function normalizeCreator5Status(detail = {}, { model = null, nozzleDiame
     .filter((item) => Number.isFinite(item.target) && item.target > 0)
     .map((item) => item.index);
   const activeIndex = activeCandidates.length === 1 ? activeCandidates[0] : null;
-  const designatedNozzle = Number(nozzleDiameter);
-  const nozzleSize = Number.isFinite(designatedNozzle) && designatedNozzle > 0 ? designatedNozzle : null;
-
   const tools = Array.from({ length:CREATOR5_TOOL_COUNT }, (_, index) => {
     const slot = slots.get(index) || {};
     const hasFilament = typeof slot.hasFilament === 'boolean'
@@ -74,7 +104,7 @@ export function normalizeCreator5Status(detail = {}, { model = null, nozzleDiame
       actual:numeric(nozzleTemps[index], index === 0 ? numeric(detail.rightTemp) : 0),
       target:numeric(nozzleTargets[index], index === 0 ? numeric(detail.rightTargetTemp) : 0),
       active:activeIndex === index,
-      nozzleDiameter:nozzleSize,
+      nozzleDiameter:null,
       filament:{
         present:hasFilament,
         detecting:false,
@@ -146,8 +176,7 @@ export function normalizeCreator5Status(detail = {}, { model = null, nozzleDiame
 export async function getCreator5Status(printer) {
   const response = await postPrinterApi(printer, '/detail', printerAuth(printer));
   return normalizeCreator5Status(response.detail || {}, {
-    model:printer.model,
-    nozzleDiameter:printer.adapterConfig?.nozzleDiameterDesignation
+    model:printer.model
   });
 }
 
@@ -194,6 +223,71 @@ export async function controlCreator5(printer, cmd, args) {
     ...printerAuth(printer),
     payload:{ cmd, args }
   }, 10000);
+}
+
+function creator5MaterialValue(value) {
+  const text = String(value || '').trim();
+  return CREATOR5_FILAMENT_MATERIALS.find((item) => item.toLowerCase() === text.toLowerCase()) || null;
+}
+
+function creator5ColorValue(value) {
+  const text = String(value || '').trim().toUpperCase();
+  return CREATOR5_FILAMENT_COLORS.find((item) => item.hex === text)?.hex || null;
+}
+
+export async function setCreator5FilamentConfig(printer, { toolIndex, material, color } = {}) {
+  const index = Number(toolIndex);
+  if (!Number.isInteger(index) || index < 0 || index >= CREATOR5_TOOL_COUNT) {
+    throw new Error(`Creator 5 tool index must be 0-${CREATOR5_TOOL_COUNT - 1}`);
+  }
+
+  const before = await getCreator5Status(printer);
+  if (String(before.status || '').toLowerCase() !== 'idle') {
+    throw new Error('Creator 5 filament configuration can only be changed while the printer is idle');
+  }
+  const current = before.tools?.find((tool) => Number(tool.index) === index)?.filament || {};
+  const selectedMaterial = creator5MaterialValue(material === undefined ? current.material : material);
+  const selectedColor = creator5ColorValue(color === undefined ? current.color : color);
+  if (!selectedMaterial) throw new Error('Choose a supported Creator 5 filament type');
+  if (!selectedColor) throw new Error('Choose a supported Creator 5 filament colour');
+
+  await controlCreator5(printer, 'msConfig_cmd', {
+    slot:index + 1,
+    mt:selectedMaterial,
+    rgb:selectedColor
+  });
+
+  let observed = null;
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    if (attempt) await new Promise((resolve) => setTimeout(resolve, 200 * attempt));
+    const status = await getCreator5Status(printer);
+    const filament = status.tools?.find((tool) => Number(tool.index) === index)?.filament || {};
+    const observedMaterial = String(filament.material || '').trim();
+    const observedColor = String(filament.color || '').trim().toUpperCase();
+    observed = { material:observedMaterial || null, color:observedColor || null };
+    if (observedMaterial === selectedMaterial && observedColor === selectedColor) {
+      return {
+        toolIndex:index,
+        slot:index + 1,
+        material:selectedMaterial,
+        color:selectedColor,
+        verified:true
+      };
+    }
+  }
+
+  throw new Error(
+    `Creator 5 did not confirm the filament configuration for T${index}. `
+    + `Requested ${selectedMaterial} ${selectedColor}; printer reports ${observed?.material || 'unknown'} ${observed?.color || 'unknown'}.`
+  );
+}
+
+export async function setCreator5FilamentType(printer, values = {}) {
+  return setCreator5FilamentConfig(printer, { ...values, color:undefined });
+}
+
+export async function setCreator5FilamentColor(printer, values = {}) {
+  return setCreator5FilamentConfig(printer, { ...values, material:undefined });
 }
 
 export async function setCreator5Temperatures(printer, { nozzle, toolIndex, bed, chamber } = {}) {

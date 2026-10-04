@@ -4,6 +4,23 @@ This file contains the version-by-version release history for Print Farm Control
 
 Historical entries describe the behaviour of the controller at the time of that release and may be superseded by later versions. For current installation, configuration and supported-hardware guidance, see [README.md](README.md).
 
+## v0.40.1
+
+- Corrects FlashForge Creator 5 / Creator 5 Pro nozzle handling so the four physical toolheads can each carry an independent controller-designated nozzle size. T0-T3 each use the supported 0.25 / 0.4 / 0.6 / 0.8 mm dropdown choices, and queue compatibility consumes the effective nozzle size of the corresponding physical toolhead.
+- Existing Creator 5 installations with the earlier single shared nozzle designation are migrated safely by applying that value to T0-T3 while preserving any already-stored per-tool value.
+- Adds remote Creator 5 / Creator 5 Pro filament metadata control for each physical T0-T3 slot. The Filament configuration column uses the Creator 5 firmware's exact 21-material and 24-colour palettes, sends `msConfig_cmd` with `{slot, mt, rgb}`, and re-reads `/detail` before reporting success so a silently ignored or palette-coerced command cannot be mistaken for a successful update.
+- Presents the Creator 5 / Creator 5 Pro 24-colour firmware palette with the same swatch-based dropdown styling used by other printer filament editors, while retaining the exact Creator 5 colour values underneath.
+- Removes the misleading dark left-edge filament-status strip from all multi-tool Toolheads tables, including Snapmaker U1, Creator 5-series and Prusa INDX, while retaining the existing filament-state text treatment.
+- Keeps Creator 5 / Creator 5 Pro Toolheads rows compact while restoring the now-useful **Filament configuration** column. Per-tool nozzle controls use compact Assign/Clear actions, and filament type/colour controls sit alongside them without repeating long help text in every tool row.
+- Renames the multi-tool table **Configuration** heading to **Filament configuration** on printers where that column is applicable.
+- Standardizes controller-managed nozzle action buttons across all supported printer models to the concise **Assign** and **Clear** labels, without changing the underlying assignment or fallback behaviour.
+- Standardizes all dropdown-list fields to a shared 42 px control height, including native selects, colour swatch dropdowns and logical-to-physical tool mapping selectors.
+- Aligns nozzle-control label typography in Toolheads tables with the **Filament configuration** labels for consistent column styling.
+- Aligns Toolheads nozzle selectors with the filament fields using the same 42 px height and 4 px label-to-field spacing.
+- Adds the same 6 px field-to-action spacing to Toolheads nozzle controls as the filament configuration controls.
+- Standardizes normal primary, secondary and destructive action buttons to a shared 42 px height while retaining compact sizing for dedicated icon/utility controls.
+- Updates the shared per-tool nozzle UI and regression coverage so Prusa CORE One+ INDX and Creator 5-series printers use the same controlled per-tool nozzle component without changing their printer-specific behaviour.
+
 ## v0.40.0
 
 - Reorganizes every printer-details dialog into six consistent tabs: **Toolheads**, **Camera**, **Files**, **Temperature, Preheat & Fans**, **Current Job**, and **Maintenance & Management**. The printer-detail tabs reuse the same selector/button component, active-state treatment, Light/Dark styling and responsive behaviour as the main Maintenance screen.

@@ -9,7 +9,7 @@ If chat context and this file disagree about the codebase, inspect current GitHu
 - Repository: `Andy-Knight/Print-Farm-Controller`
 - Project path: repository root (`/`)
 - Primary branch: `main` (current production baseline)
-- Current application version on this branch: **0.40.0**. Production baseline on `main`: **0.40.0**.
+- Current application version on this branch: **0.40.1**. Production baseline on `main`: **0.40.0**.
 - Runtime: **Node.js 24+** (development baseline Node.js 24.21.0), ES modules, no npm runtime dependencies.
 - GitHub is the authoritative code baseline.
 - Release/version history is maintained only in `CHANGELOG.md`; do not duplicate per-version history in this handoff file.
@@ -122,16 +122,16 @@ Manufacturer-specific discovery, capabilities, limits, status normalization, fil
 
 The current production baseline is **v0.40.0** on `main`.
 
-No feature branch is currently active. v0.40.0 merged PR #67 (`feature/multitoolhead-double-wide-table`) and reorganizes printer details into six consistent tabs: Toolheads, Camera, Files, Temperature/Preheat/Fans, Current Job, and Maintenance/Management. Printer-detail tabs reuse the Maintenance screen selector styling and responsive behaviour.
+Active development is **v0.40.1** on `feature/creator5-nozzle-behaviour`. Creator 5 / Creator 5 Pro now model nozzle designation independently for physical T0-T3 instead of sharing one printer-wide nozzle value. Existing shared Creator 5 nozzle configuration is migrated across all four tools while preserving any per-tool override. Queue compatibility continues to evaluate the effective nozzle on the mapped physical tool.
 
-Multi-tool printers use a full-width toolhead table. Prusa CORE One+ INDX exposes independent per-tool nozzle assignment in a dedicated Nozzle column; Creator 5 / Creator 5 Pro retain their existing shared four-tool nozzle designation but present it in the same dedicated column; Snapmaker U1 continues to use printer-reported nozzle data. Maintenance/Management is balanced into two columns with Maintenance + Printer management on the left and Diagnostics on the right, with corrected maintenance help/button spacing.
+Creator 5-series printer details now also expose writable per-tool **Filament configuration**. T0-T3 each use the firmware-confirmed Creator 5 21-material / 24-colour palette; the controller sends the native `msConfig_cmd` slot metadata command and verifies the change by reading `/detail` back before reporting success. The Toolheads table therefore uses **Toolhead / Live information / Filament configuration / Nozzle**, with compact nozzle actions.
 
 ## Next steps
 
-1. Run/confirm the complete regression and release workflow against v0.40.0 before tagging a versioned production image/release.
-2. Continue broader physical CORE One+ validation, including INDX 4/8 nozzle/material reporting and PrusaLink firmware differences, before removing Experimental status.
-3. Continue physical Creator 5 / Creator 5 Pro validation and experimental Bambu validation.
-4. Cross-check the new tabbed printer-details layout on representative physical and simulated printer models at desktop and narrow/mobile widths.
+1. Run the complete `npm test` regression suite for v0.40.1.
+2. Validate independent T0-T3 nozzle designation, remote filament type/colour writes, and queue compatibility in the Creator 5 / Creator 5 Pro simulator.
+3. Confirm the Creator 5 Toolheads table in Light/Dark themes and at desktop/narrow widths.
+4. On physical Creator 5 / Creator 5 Pro hardware, verify `msConfig_cmd` material/colour writes are reflected by `/detail` on current firmware.
 
 ## Licensing baseline
 

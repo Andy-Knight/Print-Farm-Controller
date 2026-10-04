@@ -431,6 +431,13 @@ function createFlashForgeHttpServer(printer) {
         if (args.rightNozzle !== undefined) printer.tools[0].target = Number(args.rightNozzle);
         if (args.platform !== undefined) printer.bed.target = Number(args.platform);
         if (args.chamber !== undefined && printer.model === 'Creator 5 Pro') printer.chamber.target = Number(args.chamber);
+      } else if (command === 'msConfig_cmd' && printer.adapterType === 'flashforge-creator5') {
+        const slot = Number(args.slot);
+        const index = slot - 1;
+        if (Number.isInteger(index) && index >= 0 && index < printer.tools.length) {
+          if (args.mt !== undefined) printer.tools[index].filament.material = String(args.mt);
+          if (args.rgb !== undefined) printer.tools[index].filament.color = String(args.rgb).toUpperCase();
+        }
       } else if (command === 'printerCtl_cmd') {
         if (args.coolingFan !== undefined) printer.fans.cooling = Number(args.coolingFan);
         if (args.chamberFan !== undefined) printer.fans.chamber = Number(args.chamberFan);

@@ -1,6 +1,8 @@
 import { PrinterAdapter, normalizeCapabilities } from './printer-adapter.js';
 import {
   CREATOR5_BED_MAX_C,
+  CREATOR5_FILAMENT_COLORS,
+  CREATOR5_FILAMENT_MATERIALS,
   CREATOR5_NOZZLE_MAX_C,
   CREATOR5_TOOL_COUNT,
   creator5CameraUrl,
@@ -9,6 +11,9 @@ import {
   levelCreator5Bed,
   openCreator5Camera,
   printCreator5File,
+  setCreator5FilamentColor,
+  setCreator5FilamentConfig,
+  setCreator5FilamentType,
   setCreator5JobState,
   setCreator5Temperatures,
   verifyCreator5File
@@ -73,7 +78,10 @@ const COMMON_CAPABILITIES = normalizeCapabilities({
   chamberTemperatureSensor:false,
   materialStatus:true,
   materialDesignation:false,
-  nozzleDesignation:true,
+  filamentTypeControl:true,
+  filamentColorControl:true,
+  nozzleDesignation:false,
+  toolNozzleDesignation:true,
   printToolMapping:true,
   flowCalibrationBeforePrint:true,
   timeLapseBeforePrint:true
@@ -114,6 +122,8 @@ export class FlashForgeCreator5Adapter extends PrinterAdapter {
       bedTemperature:{ min:0, max:CREATOR5_BED_MAX_C },
       nozzleTemperature:{ min:0, max:CREATOR5_NOZZLE_MAX_C },
       nozzleDiameters:Object.freeze([0.25, 0.4, 0.6, 0.8]),
+      filamentMaterials:CREATOR5_FILAMENT_MATERIALS,
+      filamentColors:CREATOR5_FILAMENT_COLORS,
       toolCount:CREATOR5_TOOL_COUNT,
       ...(isPro(this.model) ? {
         chamberTemperature:{ min:0, max:65 },
@@ -125,8 +135,9 @@ export class FlashForgeCreator5Adapter extends PrinterAdapter {
 
   async getStatus() {
     const status = await getCreator5Status(this.printer);
-    const manualNozzle = Number(this.printer.adapterConfig?.nozzleDiameterDesignation);
-    const manualNozzleDiameter = Number.isFinite(manualNozzle) && manualNozzle > 0 ? manualNozzle : null;
+    const toolDesignations = this.printer.adapterConfig?.toolDesignations && typeof this.printer.adapterConfig.toolDesignations === 'object'
+      ? this.printer.adapterConfig.toolDesignations
+      : {};
     for (const tool of status.tools || []) {
       const filament = tool.filament || {};
       const reportedColor = normalizeColor(filament.color);
@@ -137,6 +148,8 @@ export class FlashForgeCreator5Adapter extends PrinterAdapter {
 
       const reportedNozzle = Number(tool.nozzleDiameter);
       tool.reportedNozzleDiameter = Number.isFinite(reportedNozzle) && reportedNozzle > 0 ? reportedNozzle : null;
+      const manualNozzle = Number(toolDesignations[String(tool.index)]?.nozzleDiameter);
+      const manualNozzleDiameter = Number.isFinite(manualNozzle) && manualNozzle > 0 ? manualNozzle : null;
       if (manualNozzleDiameter) {
         tool.nozzleDiameter = manualNozzleDiameter;
         tool.nozzleDiameterSource = 'manual';
@@ -191,6 +204,9 @@ export class FlashForgeCreator5Adapter extends PrinterAdapter {
     });
   }
 
+  async setFilamentConfig(values) { return setCreator5FilamentConfig(this.printer, values); }
+  async setFilamentType(values) { return setCreator5FilamentType(this.printer, values); }
+  async setFilamentColor(values) { return setCreator5FilamentColor(this.printer, values); }
   async setTemperatures(values) { return setCreator5Temperatures(this.printer, values); }
   async setJobState(action) { return setCreator5JobState(this.printer, action); }
   async levelBed() { return levelCreator5Bed(this.printer); }

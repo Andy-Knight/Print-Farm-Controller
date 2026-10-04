@@ -610,8 +610,8 @@ test('all controller-managed nozzle designations use fixed dropdowns', () => {
   assert.match(app, /<select \$\{inputAttributes\}>/);
   assert.doesNotMatch(app, /<input type="number" data-nozzle-designation-input/);
   assert.doesNotMatch(app, /flashforgeNozzleSizes/);
-  assert.match(app, /data-nozzle-designation-save/);
-  assert.match(app, /data-nozzle-designation-clear/);
+  assert.match(app, /data-nozzle-designation-save>Assign<\/button>/);
+  assert.match(app, /data-nozzle-designation-clear>Clear<\/button>/);
   assert.match(app, /\/api\/printers\/\$\{id\}\/nozzle-designation/);
   assert.match(server, /action === 'nozzle-designation'/);
   assert.match(server, /adapter\.limits\?\.nozzleDiameters/);
@@ -619,6 +619,12 @@ test('all controller-managed nozzle designations use fixed dropdowns', () => {
   assert.match(store, /setPrinterNozzleDesignation/);
   assert.match(ad5m, /nozzleDiameters: Object\.freeze\(\[0\.25, 0\.4, 0\.6, 0\.8\]\)/);
   assert.match(creator5, /nozzleDiameters:Object\.freeze\(\[0\.25, 0\.4, 0\.6, 0\.8\]\)/);
+  assert.match(creator5, /toolNozzleDesignation:true/);
+  assert.match(creator5, /toolDesignations\[String\(tool\.index\)\]\?\.nozzleDiameter/);
+  assert.match(app, /data-tool-nozzle-input/);
+  assert.match(app, /\/api\/printers\/\$\{id\}\/tool-nozzle-designation/);
+  assert.match(server, /action === 'tool-nozzle-designation'/);
+  assert.match(store, /printers\[index\]\.adapterType === 'flashforge-creator5'/);
   assert.match(ad5m, /nozzleDiameterDesignation/);
   assert.match(ad5m, /nozzleDiameterSource = 'manual'/);
 });
@@ -772,30 +778,56 @@ test('unsupported cameras are represented by the camera tab without a fake offli
 });
 
 
+test('standard action buttons use one shared height', () => {
+  assert.match(styles, /--button-field-height:42px/);
+  assert.match(styles, /\.primary,\.secondary,\.danger \{ height:var\(--button-field-height\); min-height:var\(--button-field-height\); \}/);
+  assert.match(styles, /\.creator5-filament-config-control > button \{[^}]*height:var\(--button-field-height\)[^}]*min-height:var\(--button-field-height\)/);
+  assert.match(styles, /\.u1-filament-config-control button \{[^}]*height:var\(--button-field-height\)[^}]*min-height:var\(--button-field-height\)/);
+  assert.match(styles, /\.prusa-tool-filament-control button \{[^}]*height:var\(--button-field-height\)[^}]*min-height:var\(--button-field-height\)/);
+  assert.doesNotMatch(styles, /(?:creator5-filament-config-control|u1-filament-config-control|prusa-tool-filament-control)[^{]*button \{[^}]*min-height:34px/);
+});
+
+test('all controller dropdown fields use one shared height', () => {
+  assert.match(styles, /--dropdown-field-height:42px/);
+  assert.match(styles, /select \{ height:var\(--dropdown-field-height\); min-height:var\(--dropdown-field-height\)/);
+  assert.match(styles, /\.color-family-dropdown summary \{ height:var\(--dropdown-field-height\); min-height:var\(--dropdown-field-height\)/);
+  assert.match(styles, /\.tool-map-picker summary \{ height:var\(--dropdown-field-height\); min-height:var\(--dropdown-field-height\)/);
+  assert.match(styles, /\.creator5-filament-config-control \.creator5-color-dropdown summary \{ height:var\(--dropdown-field-height\); min-height:var\(--dropdown-field-height\)/);
+  assert.match(styles, /\.prusa-tool-filament-control \.color-family-dropdown summary \{ height:var\(--dropdown-field-height\); min-height:var\(--dropdown-field-height\)/);
+  assert.doesNotMatch(styles, /(?:select|color-family-dropdown summary|tool-map-picker summary)[^{]*\{[^}]*min-height:(?:34|44)px/);
+});
+
 test('multi-tool printers use a full-width toolhead information and configuration table', () => {
   assert.match(app, /const configuredToolCount = Number\(limits\.toolCount/);
   assert.match(app, /const wideToolheadLayout = Boolean\(capabilities\.materialStatus && configuredToolCount > 1\)/);
   assert.match(app, /const manualNozzleColumn = Boolean\(wideToolheadLayout && \(capabilities\.toolNozzleDesignation \|\| capabilities\.nozzleDesignation\)\)/);
   assert.match(app, /material-panel\$\{wideToolheadLayout \? ' material-panel-wide' : ''\}/);
   assert.match(app, /material-table-head\$\{manualNozzleColumn \? ' has-nozzle-column' : ''\}/);
-  assert.match(app, /<span>Toolhead<\/span><span>Live information<\/span><span>Configuration<\/span>/);
+  assert.match(app, /<span>Toolhead<\/span><span>Live information<\/span>/);
+  assert.match(app, /<span>Toolhead<\/span><span>Live information<\/span><span>Filament configuration<\/span>/);
   assert.match(app, /manualNozzleColumn \? '<span>Nozzle<\/span>' : ''/);
   assert.match(app, /multi-tool-table/);
   assert.match(app, /material-tool-cell material-tool-identity/);
   assert.match(app, /material-tool-cell material-tool-information/);
   assert.match(app, /material-tool-cell material-tool-configuration/);
   assert.match(app, /material-tool-cell material-tool-nozzle/);
-  assert.match(app, /capabilities\.toolNozzleDesignation[\s\S]*prusaToolNozzleDesignationMarkup/);
-  assert.match(app, /capabilities\.nozzleDesignation && toolPosition === 0[\s\S]*flashForgeNozzleDesignationMarkup/);
-  assert.match(app, /This designation applies to all \$\{tools\.length\} toolheads/);
-  assert.match(app, /Uses shared printer designation/);
+  assert.match(app, /capabilities\.toolNozzleDesignation[\s\S]*toolNozzleDesignationMarkup/);
+  assert.match(app, /data-tool-nozzle-input/);
+  assert.match(app, /creator5-tool-nozzle-control/);
   assert.match(app, /\$\{wideToolheadLayout \? materialStatusMarkup : ''\}[\s\S]*<div class="detail-grid">/);
   assert.match(app, /\$\{wideToolheadLayout \? '' : materialStatusMarkup\}/);
   assert.match(styles, /\.material-panel-wide \{ margin-bottom:18px; \}/);
   assert.match(styles, /\.material-table-head \{/);
   assert.match(styles, /\.material-grid\.multi-tool-table \{/);
+  assert.doesNotMatch(styles, /\.multi-tool-table \.material-tool\.filament-(?:loaded|missing) \{ box-shadow:inset/);
+  assert.doesNotMatch(app, /u1-tool-table/);
   assert.match(styles, /\.material-table-head\.has-nozzle-column,[\s\S]*\.multi-tool-table\.has-nozzle-column \.material-tool/);
+  assert.match(app, /creator5FilamentConfigControlMarkup\(printer, tool\)/);
+  assert.match(styles, /\.creator5-filament-config-control \{/);
   assert.match(styles, /\.material-tool-nozzle \.nozzle-designation-control/);
+  assert.match(styles, /\.material-tool-nozzle \.nozzle-designation-control label,[\s\S]*\.material-tool-nozzle \.tool-nozzle-control label[\s\S]*font-size:\.68rem/);
+  assert.match(styles, /\.material-tool-nozzle \.nozzle-designation-control select,[\s\S]*\.material-tool-nozzle \.tool-nozzle-control select[\s\S]*height:var\(--dropdown-field-height\)[\s\S]*margin-top:4px/);
+  assert.match(styles, /\.material-tool-nozzle \.nozzle-designation-control > \.mini-actions,[\s\S]*\.material-tool-nozzle \.tool-nozzle-control > \.mini-actions[\s\S]*margin-top:6px/);
   assert.match(styles, /@media \(max-width:760px\)[\s\S]*\.material-table-head \{ display:none; \}/);
 });
 

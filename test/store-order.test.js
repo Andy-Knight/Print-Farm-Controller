@@ -168,6 +168,53 @@ test('FlashForge controller nozzle designation persists without exposing adapter
   }
 });
 
+test('Creator 5 migrates a shared nozzle designation to independent T0-T3 values', async () => {
+  const dir = await mkdtemp(path.join(os.tmpdir(), 'pfc-creator5-tool-nozzles-'));
+  process.env.DATA_DIR = dir;
+  const legacy = [{
+    id:'creator5-nozzles',
+    name:'Creator 5 Pro',
+    adapterType:'flashforge-creator5',
+    manufacturer:'FlashForge',
+    model:'Creator 5 Pro',
+    host:'10.0.3.5',
+    serialNumber:'C5SN',
+    checkCode:'CODE',
+    adapterConfig:{
+      nozzleDiameterDesignation:0.6,
+      toolDesignations:{ '2':{ nozzleDiameter:0.8 } }
+    },
+    createdAt:'2026-10-04T00:00:00.000Z'
+  }];
+  await writeFile(path.join(dir, 'printers.json'), JSON.stringify(legacy));
+  const store = await import(`../src/store.js?creator5-tool-nozzles=${Date.now()}`);
+
+  try {
+    const [migrated] = await store.listPrinters();
+    assert.equal(migrated.adapterConfig.nozzleDiameterDesignation, undefined);
+    assert.deepEqual(
+      [0,1,2,3].map((index) => migrated.adapterConfig.toolDesignations[String(index)]?.nozzleDiameter),
+      [0.6,0.6,0.8,0.6]
+    );
+
+    const changed = await store.setPrinterToolNozzleDesignation(migrated.id, 1, 0.25);
+    assert.equal(changed.adapterConfig.toolDesignations['0'].nozzleDiameter, 0.6);
+    assert.equal(changed.adapterConfig.toolDesignations['1'].nozzleDiameter, 0.25);
+    assert.equal(changed.adapterConfig.toolDesignations['2'].nozzleDiameter, 0.8);
+    assert.equal(changed.adapterConfig.toolDesignations['3'].nozzleDiameter, 0.6);
+
+    const cleared = await store.setPrinterToolNozzleDesignation(migrated.id, 3, null);
+    assert.equal(cleared.adapterConfig.toolDesignations['3'], undefined);
+    await assert.rejects(
+      () => store.setPrinterToolNozzleDesignation(migrated.id, 4, 0.4),
+      /Tool index must be between 0 and 3/
+    );
+  } finally {
+    delete process.env.DATA_DIR;
+    await rm(dir, { recursive:true, force:true });
+  }
+});
+
 test('Bambu connection ports persist without exposing the LAN access code', async () => {
   const dir = await mkdtemp(path.join(os.tmpdir(), 'pfc-bambu-store-'));
   process.env.DATA_DIR = dir;

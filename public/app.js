@@ -4716,6 +4716,101 @@ function u1FilamentConfigControlMarkup(printer, tool = {}) {
   </div>`;
 }
 
+function creator5FilamentMaterialOptions(printer) {
+  return Array.isArray(printer?.limits?.filamentMaterials)
+    ? printer.limits.filamentMaterials.map((item) => String(item || '').trim()).filter(Boolean)
+    : [];
+}
+
+function creator5FilamentColorOptions(printer) {
+  return Array.isArray(printer?.limits?.filamentColors)
+    ? printer.limits.filamentColors
+      .map((item) => ({
+        name:String(item?.name || '').trim(),
+        hex:normalizeColor(item?.hex)
+      }))
+      .filter((item) => item.name && item.hex)
+    : [];
+}
+
+function creator5FilamentColorOption(printer, value) {
+  const color = normalizeColor(value);
+  return creator5FilamentColorOptions(printer).find((item) => item.hex === color) || null;
+}
+
+function creator5FilamentColorDropdownMarkup(printer, { value = '', toolIndex, disabled = false } = {}) {
+  const colors = creator5FilamentColorOptions(printer);
+  const selected = creator5FilamentColorOption(printer, value);
+  const selectedMarkup = selected
+    ? `<span class="color-family-selected"><i class="color-family-square" style="background:${escapeHtml(selected.hex)}"></i><span>${escapeHtml(selected.name)}</span></span>`
+    : '<span class="color-family-selected placeholder"><span>Select colour</span></span>';
+  return `<details class="color-family-dropdown creator5-color-dropdown${disabled ? ' disabled' : ''}" data-creator5-color-dropdown${disabled ? ' data-disabled="1"' : ''}>
+    <summary>${selectedMarkup}<span class="color-family-caret">▾</span></summary>
+    <div class="color-family-menu">
+      ${colors.map((item) => `<button type="button" class="color-family-option${item.hex === selected?.hex ? ' selected' : ''}" data-creator5-color-option="${escapeHtml(item.hex)}"><i class="color-family-square" style="background:${escapeHtml(item.hex)}"></i><span>${escapeHtml(item.name)}</span></button>`).join('')}
+    </div>
+    <input type="hidden" data-creator5-filament-color-input="${toolIndex}" value="${escapeHtml(selected?.hex || '')}"${disabled ? ' disabled' : ''}>
+  </details>`;
+}
+
+function setCreator5FilamentColorDropdownValue(input, printer, value) {
+  if (!input) return;
+  const dropdown = input.closest('[data-creator5-color-dropdown]');
+  const option = creator5FilamentColorOption(printer, value);
+  input.value = option?.hex || '';
+  if (!dropdown) return;
+  const selected = dropdown.querySelector('.color-family-selected');
+  if (selected) {
+    selected.classList.toggle('placeholder', !option);
+    selected.innerHTML = option
+      ? `<i class="color-family-square" style="background:${escapeHtml(option.hex)}"></i><span>${escapeHtml(option.name)}</span>`
+      : '<span>Select colour</span>';
+  }
+  dropdown.querySelectorAll('[data-creator5-color-option]').forEach((button) => {
+    button.classList.toggle('selected', button.dataset.creator5ColorOption === option?.hex);
+  });
+}
+
+function bindCreator5FilamentColorDropdowns(root, printer) {
+  root?.querySelectorAll('[data-creator5-color-dropdown]').forEach((dropdown) => {
+    if (dropdown.dataset.creator5Bound === '1') return;
+    dropdown.dataset.creator5Bound = '1';
+    dropdown.querySelectorAll('[data-creator5-color-option]').forEach((button) => {
+      button.onclick = () => {
+        if (dropdown.dataset.disabled === '1') return;
+        const input = dropdown.querySelector('[data-creator5-filament-color-input]');
+        setCreator5FilamentColorDropdownValue(input, printer, button.dataset.creator5ColorOption);
+        dropdown.open = false;
+        input?.dispatchEvent(new Event('change', { bubbles:true }));
+      };
+    });
+    dropdown.addEventListener('toggle', () => {
+      if (dropdown.open && dropdown.dataset.disabled === '1') dropdown.open = false;
+    });
+  });
+}
+
+function creator5FilamentConfigControlMarkup(printer, tool = {}) {
+  if (printer?.adapterType !== 'flashforge-creator5' || !printer?.capabilities?.filamentTypeControl || !printer?.capabilities?.filamentColorControl) return '';
+  const filament = tool.filament || {};
+  const idle = String(printer.status?.status || '').toLowerCase() === 'idle';
+  const materials = creator5FilamentMaterialOptions(printer);
+  const material = String(filament.material || '').trim();
+  const color = normalizeColor(filament.color);
+  return `<div class="creator5-filament-config-control" data-creator5-filament-config-control="${tool.index}">
+    <label>Filament type
+      <select data-creator5-filament-material-input="${tool.index}"${idle ? '' : ' disabled'}>
+        <option value=""${material ? '' : ' selected'}>Select type</option>
+        ${materials.map((item) => `<option value="${escapeHtml(item)}"${item === material ? ' selected' : ''}>${escapeHtml(item)}</option>`).join('')}
+      </select>
+    </label>
+    <label>Colour
+      ${creator5FilamentColorDropdownMarkup(printer, { value:color || '', toolIndex:tool.index, disabled:!idle })}
+    </label>
+    <button type="button" class="secondary" data-creator5-filament-config-save="${tool.index}"${idle ? '' : ' disabled'}>Set on printer</button>
+  </div>`;
+}
+
 function prusaToolMaterialDesignationMarkup(printer, tool = {}) {
   if (printer?.manufacturer !== 'Prusa' || !printer?.capabilities?.toolMaterialDesignation) return '';
   const filament = tool.filament || {};
@@ -4770,27 +4865,36 @@ function nozzleDiameterSelectMarkup({ options = [], value = '', inputAttributes 
   </select>`;
 }
 
-function prusaToolNozzleDesignationMarkup(printer, tool = {}, toolCount = 1) {
-  if (printer?.manufacturer !== 'Prusa' || !printer?.capabilities?.toolNozzleDesignation || Number(toolCount) <= 1) return '';
+function toolNozzleDesignationMarkup(printer, tool = {}, toolCount = 1) {
+  if (!printer?.capabilities?.toolNozzleDesignation || Number(toolCount) <= 1) return '';
   const effective = Number(tool.nozzleDiameter);
   const value = Number.isFinite(effective) && effective > 0 ? effective : '';
   const reported = Number(tool.reportedNozzleDiameter);
   const hasReported = Number.isFinite(reported) && reported > 0;
   const options = printerNozzleDiameterOptions(printer);
-  return `<div class="material-designation-control nozzle-designation-control prusa-tool-nozzle-control" data-prusa-tool-nozzle-control="${tool.index}">
+  const creator5 = printer.adapterType === 'flashforge-creator5';
+  const reportedSource = creator5 ? 'the printer' : 'PrusaLink';
+  const unknownHelp = creator5
+    ? 'Creator 5 firmware does not reliably report the installed nozzle size, so clearing leaves that toolhead nozzle size unknown until another controller designation is assigned.'
+    : 'if PrusaLink does not report that nozzle, its size becomes unknown and unattended jobs requiring an explicit nozzle will need review.';
+  const compactClass = creator5 ? ' creator5-tool-nozzle-control' : '';
+  const helpMarkup = creator5
+    ? ''
+    : `<div class="field-help">Choose one of the supported nozzle sizes for physical T${tool.index}. The controller stores the selection independently for this toolhead and uses it for queue compatibility; free-typed nozzle sizes are not accepted. Clearing removes the controller assignment${hasReported ? ` and returns T${tool.index} to the ${escapeHtml(nozzleDiameterText(reported))} value reported by ${escapeHtml(reportedSource)}.` : `; ${escapeHtml(unknownHelp)}`}</div>`;
+  return `<div class="material-designation-control nozzle-designation-control tool-nozzle-control${compactClass}" data-tool-nozzle-control="${tool.index}">
     <label>Physical T${tool.index} nozzle
       ${nozzleDiameterSelectMarkup({
         options,
         value,
-        inputAttributes:`data-prusa-tool-nozzle-input="${tool.index}"`,
+        inputAttributes:`data-tool-nozzle-input="${tool.index}"`,
         placeholder:'Select nozzle size'
       })}
     </label>
     <div class="mini-actions">
-      <button type="button" class="secondary" data-prusa-tool-nozzle-save="${tool.index}">Assign T${tool.index} nozzle</button>
-      <button type="button" class="secondary" data-prusa-tool-nozzle-clear="${tool.index}">Clear assignment</button>
+      <button type="button" class="secondary" data-tool-nozzle-save="${tool.index}">Assign</button>
+      <button type="button" class="secondary" data-tool-nozzle-clear="${tool.index}">Clear</button>
     </div>
-    <div class="field-help">Choose one of the supported nozzle sizes for physical T${tool.index}. The controller stores that fixed selection for queue compatibility; free-typed nozzle sizes are not accepted. Clearing removes the controller assignment${hasReported ? ` and returns T${tool.index} to the ${escapeHtml(nozzleDiameterText(reported))} value reported by PrusaLink.` : '; if PrusaLink does not report that nozzle, its size becomes unknown and unattended jobs requiring an explicit nozzle will need review.'}</div>
+    ${helpMarkup}
   </div>`;
 }
 
@@ -4831,7 +4935,6 @@ function flashForgeNozzleDesignationMarkup(printer, tool = {}) {
   const reported = Number.isFinite(Number(tool.reportedNozzleDiameter)) && Number(tool.reportedNozzleDiameter) > 0
     ? Number(tool.reportedNozzleDiameter)
     : null;
-  const clearLabel = reported ? 'Use printer value' : 'Clear designation';
   const options = printerNozzleDiameterOptions(printer);
   const unavailableHelp = printer?.manufacturer === 'Prusa'
     ? 'PrusaLink may not report every installed nozzle size, so this controller designation is used when a supported single-tool Prusa model needs an explicit nozzle value.'
@@ -4846,7 +4949,7 @@ function flashForgeNozzleDesignationMarkup(printer, tool = {}) {
     <label>Controller nozzle designation
       ${selector}
     </label>
-    <div class="mini-actions"><button type="button" class="secondary" data-nozzle-designation-save>Assign nozzle</button><button type="button" class="secondary" data-nozzle-designation-clear>${escapeHtml(clearLabel)}</button></div>
+    <div class="mini-actions"><button type="button" class="secondary" data-nozzle-designation-save>Assign</button><button type="button" class="secondary" data-nozzle-designation-clear>Clear</button></div>
     <div class="field-help">Stored by Print Farm Controller for this printer and used by automatic queue compatibility.${reported ? ` Printer currently reports ${escapeHtml(nozzleDiameterText(reported))}.` : ` ${escapeHtml(unavailableHelp)}`}</div>
   </div>`;
 }
@@ -5778,13 +5881,14 @@ async function openPrinter(id) {
   const configuredToolCount = Number(limits.toolCount || (Array.isArray(s?.tools) ? s.tools.length : 0));
   const wideToolheadLayout = Boolean(capabilities.materialStatus && configuredToolCount > 1);
   const manualNozzleColumn = Boolean(wideToolheadLayout && (capabilities.toolNozzleDesignation || capabilities.nozzleDesignation));
+  const showConfigurationColumn = true;
   const materialStatusMarkup = capabilities.materialStatus ? (() => {
     const tools = Array.isArray(s?.tools) ? s.tools : [];
     if (!tools.length) return `<div class="panel material-panel${wideToolheadLayout ? ' material-panel-wide' : ''}"><h3>Toolhead status</h3><div class="subtle">Material status is unavailable while the printer is offline.</div>${flashForgeMaterialDesignationMarkup(printer)}${flashForgeNozzleDesignationMarkup(printer)}</div>`;
     const materialHelp = printer.adapterType === 'flashforge-ad5m'
       ? "Filament type uses the controller's manual designation when set, otherwise the value reported by the FlashForge 5M local /detail API. Installed nozzle size uses the controller nozzle designation when set because the 5M API does not reliably expose it. The 5M API also does not expose U1-style filament colour/RFID metadata or a reliable live filament-presence value."
       : printer.adapterType === 'flashforge-creator5'
-        ? 'Creator 5 material type, colour and filament-presence state come from the four material-station/toolhead slots reported by the local /detail API. The installed nozzle size is controller-designated and currently applies to all four toolheads.'
+        ? 'Creator 5 material type, colour and filament-presence state come from the four material-station/toolhead slots reported by the local /detail API. Filament configuration writes the selected Creator 5 palette values back to the corresponding printer slot and verifies them by reading /detail again. Set the fitted nozzle independently for T0-T3 using the Nozzle column.'
       : printer.adapterType === 'bambu-lab'
         ? 'Material and colour come from the active external-spool or AMS/AMS Lite tray metadata reported by the Bambu LAN interface. Bambu support is experimental until checked against physical P1P, P1S, X1C and A1 Mini hardware.'
       : printer.manufacturer === 'Prusa'
@@ -5804,17 +5908,18 @@ async function openPrinter(id) {
     return `<div class="panel material-panel${wideToolheadLayout ? ' material-panel-wide' : ''}">
       <h3>Toolhead status</h3>
       <div class="material-summary" data-material-summary>${escapeHtml(materialSummaryText(tools))}</div>
-      ${wideToolheadLayout ? `<div class="material-table-head${manualNozzleColumn ? ' has-nozzle-column' : ''}" aria-hidden="true"><span>Toolhead</span><span>Live information</span><span>Configuration</span>${manualNozzleColumn ? '<span>Nozzle</span>' : ''}</div>` : ''}
+      ${wideToolheadLayout ? `<div class="material-table-head${manualNozzleColumn ? ' has-nozzle-column' : ''}" aria-hidden="true"><span>Toolhead</span><span>Live information</span><span>Filament configuration</span>${manualNozzleColumn ? '<span>Nozzle</span>' : ''}</div>` : ''}
       <div class="material-grid${tools.length === 1 ? ' single-tool' : ''}${wideToolheadLayout ? ' multi-tool-table' : ''}${manualNozzleColumn ? ' has-nozzle-column' : ''}">${tools.map((tool, toolPosition) => {
         const filament = tool.filament || {};
         const color = materialSwatchColor(filament);
         const stateClass = filament.present === true ? ' filament-loaded' : filament.present === false ? ' filament-missing' : '';
         const configuration = [
           printer.adapterType === 'snapmaker-u1' ? u1FilamentConfigControlMarkup(printer, tool) : '',
+          printer.adapterType === 'flashforge-creator5' ? creator5FilamentConfigControlMarkup(printer, tool) : '',
           printer.manufacturer === 'Prusa' ? prusaToolMaterialDesignationMarkup(printer, tool) : ''
         ].filter(Boolean).join('');
         const nozzleConfiguration = capabilities.toolNozzleDesignation
-          ? prusaToolNozzleDesignationMarkup(printer, tool, tools.length)
+          ? toolNozzleDesignationMarkup(printer, tool, tools.length)
           : capabilities.nozzleDesignation && toolPosition === 0
             ? `${flashForgeNozzleDesignationMarkup(printer, tool)}${tools.length > 1 ? `<div class="field-help shared-nozzle-help">This designation applies to all ${tools.length} toolheads.</div>` : ''}`
             : '';
@@ -5837,9 +5942,9 @@ async function openPrinter(id) {
               <small data-material-meta="${tool.index}">${escapeHtml(filamentMetaText(filament))}</small>
               ${(['snapmaker-u1','flashforge-ad5m','flashforge-creator5','bambu-lab'].includes(printer.adapterType) || printer.manufacturer === 'Prusa') ? `<small class="material-rgb${filamentColorDisplayText(filament) ? '' : ' hidden'}" data-material-rgb="${tool.index}">${escapeHtml(filamentColorDisplayText(filament) || '')}</small>` : ''}
             </div>
-            <div class="material-tool-cell material-tool-configuration${configuration ? '' : ' read-only'}">
+            ${showConfigurationColumn ? `<div class="material-tool-cell material-tool-configuration${configuration ? '' : ' read-only'}">
               ${configuration || `<span class="subtle">${escapeHtml(configurationFallback)}</span>`}
-            </div>
+            </div>` : ''}
             ${manualNozzleColumn ? `<div class="material-tool-cell material-tool-nozzle${nozzleConfiguration ? '' : ' read-only'}">
               ${nozzleConfiguration || `<span class="subtle">${escapeHtml(nozzleFallback)}</span>`}
             </div>` : ''}
@@ -6288,6 +6393,49 @@ ${flashForgePreflight}` : ''}`)) return;
     finally { button.textContent = original; updateOpenPrinterTelemetry(); }
   });
 
+  bindCreator5FilamentColorDropdowns(printerDetail, printer);
+
+  printerDetail.querySelectorAll('[data-creator5-filament-config-save]').forEach((button) => button.onclick = async () => {
+    const toolIndex = Number(button.dataset.creator5FilamentConfigSave);
+    const materialInput = printerDetail.querySelector(`[data-creator5-filament-material-input="${toolIndex}"]`);
+    const colorInput = printerDetail.querySelector(`[data-creator5-filament-color-input="${toolIndex}"]`);
+    const material = String(materialInput?.value || '').trim();
+    const color = normalizeColor(colorInput?.value);
+    const allowedMaterials = creator5FilamentMaterialOptions(printer);
+    const allowedColors = creator5FilamentColorOptions(printer).map((item) => item.hex);
+    if (!allowedMaterials.includes(material)) {
+      showError(new Error('Choose a Creator 5 filament type from the list.'));
+      return;
+    }
+    if (!color || !allowedColors.includes(color)) {
+      showError(new Error('Choose a Creator 5 filament colour from the list.'));
+      return;
+    }
+
+    const original = button.textContent;
+    button.disabled = true;
+    button.textContent = 'Setting…';
+    try {
+      const result = await api(`/api/printers/${id}/filament-config`, {
+        method:'POST',
+        body:JSON.stringify({ toolIndex, material, color })
+      });
+      const tool = printer.status?.tools?.find((item) => Number(item.index) === toolIndex);
+      if (tool?.filament) {
+        tool.filament.material = result.material;
+        tool.filament.materialSource = 'printer';
+        tool.filament.color = result.color;
+        tool.filament.colorSource = 'printer';
+        tool.filament.colorFamily = filamentColorFamilyFromHex(result.color);
+        tool.filament.colorFamilySource = tool.filament.colorFamily ? 'printer' : null;
+        tool.filament.manuallyAssigned = false;
+        tool.filament.metadataAvailable = true;
+      }
+      updateOpenPrinterTelemetry();
+    } catch (error) { showError(error); }
+    finally { button.disabled = false; button.textContent = original; }
+  });
+
   printerDetail.querySelectorAll('[data-prusa-tool-material-save]').forEach((button) => button.onclick = async () => {
     const toolIndex = Number(button.dataset.prusaToolMaterialSave);
     const materialInput = printerDetail.querySelector(`[data-prusa-tool-material-input="${toolIndex}"]`);
@@ -6351,13 +6499,13 @@ ${flashForgePreflight}` : ''}`)) return;
     finally { button.disabled = false; button.textContent = original; }
   });
 
-  printerDetail.querySelectorAll('[data-prusa-tool-nozzle-save]').forEach((button) => button.onclick = async () => {
-    const toolIndex = Number(button.dataset.prusaToolNozzleSave);
-    const input = printerDetail.querySelector(`[data-prusa-tool-nozzle-input="${toolIndex}"]`);
+  printerDetail.querySelectorAll('[data-tool-nozzle-save]').forEach((button) => button.onclick = async () => {
+    const toolIndex = Number(button.dataset.toolNozzleSave);
+    const input = printerDetail.querySelector(`[data-tool-nozzle-input="${toolIndex}"]`);
     const nozzleDiameter = Number(input?.value);
     const allowedNozzles = printerNozzleDiameterOptions(printer);
     if (!allowedNozzles.some((value) => Math.abs(value - nozzleDiameter) < 0.0001)) {
-      showError(new Error('Choose a nozzle size from the list, or use Clear assignment.'));
+      showError(new Error('Choose a nozzle size from the list, or use Clear.'));
       return;
     }
 
@@ -6381,8 +6529,8 @@ ${flashForgePreflight}` : ''}`)) return;
     finally { button.disabled = false; button.textContent = original; }
   });
 
-  printerDetail.querySelectorAll('[data-prusa-tool-nozzle-clear]').forEach((button) => button.onclick = async () => {
-    const toolIndex = Number(button.dataset.prusaToolNozzleClear);
+  printerDetail.querySelectorAll('[data-tool-nozzle-clear]').forEach((button) => button.onclick = async () => {
+    const toolIndex = Number(button.dataset.toolNozzleClear);
     const original = button.textContent;
     button.disabled = true;
     button.textContent = 'Clearing…';
@@ -6395,7 +6543,7 @@ ${flashForgePreflight}` : ''}`)) return;
         tool.nozzleDiameterSource = Number.isFinite(reported) && reported > 0 ? 'printer' : null;
         tool.nozzleManuallyAssigned = false;
       }
-      const input = printerDetail.querySelector(`[data-prusa-tool-nozzle-input="${toolIndex}"]`);
+      const input = printerDetail.querySelector(`[data-tool-nozzle-input="${toolIndex}"]`);
       if (input) input.value = Number.isFinite(reported) && reported > 0 ? String(reported) : '';
       updateOpenPrinterTelemetry();
     } catch (error) { showError(error); }
@@ -6473,7 +6621,7 @@ ${flashForgePreflight}` : ''}`)) return;
       ? prusaNozzles.some((value) => Math.abs(value - nozzleDiameter) < 0.0001)
       : Number.isFinite(nozzleDiameter) && nozzleDiameter >= 0.1 && nozzleDiameter <= 1.2;
     if (!valid) {
-      showError(new Error(prusaNozzles ? 'Choose a nozzle size from the list, or use Clear designation.' : 'Enter a nozzle diameter between 0.1 and 1.2 mm, or use Clear designation.'));
+      showError(new Error(prusaNozzles ? 'Choose a nozzle size from the list, or use Clear.' : 'Enter a nozzle diameter between 0.1 and 1.2 mm, or use Clear.'));
       return;
     }
     const original = nozzleDesignationSave.textContent;
