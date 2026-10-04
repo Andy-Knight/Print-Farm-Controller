@@ -6,6 +6,7 @@ const app = fs.readFileSync(new URL('../public/app.js', import.meta.url), 'utf8'
 const server = fs.readFileSync(new URL('../src/server.js', import.meta.url), 'utf8');
 const adapter = fs.readFileSync(new URL('../src/adapters/flashforge-creator5-adapter.js', import.meta.url), 'utf8');
 const registry = fs.readFileSync(new URL('../src/adapters/adapter-registry.js', import.meta.url), 'utf8');
+const styles = fs.readFileSync(new URL('../public/styles.css', import.meta.url), 'utf8');
 
 test('Creator 5 models are exposed as a supported adapter with explicit model selection', () => {
   assert.match(registry, /flashForgeCreator5AdapterDefinition/);
@@ -36,6 +37,10 @@ test('Creator 5 printer details expose one fixed nozzle selector per physical to
   assert.match(app, /const assignLabel = creator5 \? 'Assign'/);
   assert.match(app, /const clearLabel = creator5 \? 'Clear'/);
   assert.match(app, /Set the fitted nozzle independently for T0-T3 using the Nozzle column/);
+  assert.match(app, /creator5ToolTable \? ' creator5-tool-table' : ''/);
+  assert.match(app, /showConfigurationColumn \? '<span>Configuration<\/span>' : ''/);
+  assert.match(styles, /\.creator5-tool-nozzle-control \.mini-actions[\s\S]*grid-template-columns:repeat\(2,minmax\(0,1fr\)\)/);
+  assert.match(styles, /\.material-table-head\.creator5-tool-table,[\s\S]*grid-template-columns:minmax\(110px,.45fr\) minmax\(320px,1.45fr\) minmax\(280px,1.05fr\)/);
 });
 
 test('Creator 5 local-file setup warns when firmware cannot reveal sliced tool requirements', () => {
