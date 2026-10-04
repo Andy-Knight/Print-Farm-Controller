@@ -5817,7 +5817,7 @@ async function openPrinter(id) {
     return `<div class="panel material-panel${wideToolheadLayout ? ' material-panel-wide' : ''}">
       <h3>Toolhead status</h3>
       <div class="material-summary" data-material-summary>${escapeHtml(materialSummaryText(tools))}</div>
-      ${wideToolheadLayout ? `<div class="material-table-head${manualNozzleColumn ? ' has-nozzle-column' : ''}${creator5ToolTable ? ' creator5-tool-table' : ''}" aria-hidden="true"><span>Toolhead</span><span>Live information</span>${showConfigurationColumn ? '<span>Configuration</span>' : ''}${manualNozzleColumn ? '<span>Nozzle</span>' : ''}</div>` : ''}
+      ${wideToolheadLayout ? `<div class="material-table-head${manualNozzleColumn ? ' has-nozzle-column' : ''}${creator5ToolTable ? ' creator5-tool-table' : ''}" aria-hidden="true"><span>Toolhead</span><span>Live information</span>${showConfigurationColumn ? '<span>Filament configuration</span>' : ''}${manualNozzleColumn ? '<span>Nozzle</span>' : ''}</div>` : ''}
       <div class="material-grid${tools.length === 1 ? ' single-tool' : ''}${wideToolheadLayout ? ' multi-tool-table' : ''}${manualNozzleColumn ? ' has-nozzle-column' : ''}${creator5ToolTable ? ' creator5-tool-table' : ''}">${tools.map((tool, toolPosition) => {
         const filament = tool.filament || {};
         const color = materialSwatchColor(filament);
