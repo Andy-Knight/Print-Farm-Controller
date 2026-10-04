@@ -5908,13 +5908,13 @@ async function openPrinter(id) {
     })()}
     ${printer.licenseActive === false ? '<div class="license-detail-warning">This printer is inactive because it does not have a selected licence slot. Live monitoring and safety controls remain available, but new jobs and normal controller commands are disabled.</div>' : ''}
     ${printer.adapterType === 'bambu-lab' ? `<div class="file-warning">Experimental Bambu ${escapeHtml(printer.model || '')} support: validate behavior carefully before relying on unattended printing.${printer.model === 'X1C' ? ' X1C RTSPS/H.264 camera decoding is not yet supported.' : ''}${printer.model === 'A1 Mini' ? ' Single-material A1 Mini .gcode starts remain experimental until validated on physical hardware; multi-material AMS Lite jobs require sliced .3mf.' : ''}</div>` : ''}
-    <div class="printer-detail-tabs" role="tablist" aria-label="Printer details">
-      <button type="button" role="tab" data-detail-tab="toolheads" aria-controls="detailTabToolheads">Toolheads</button>
-      <button type="button" role="tab" data-detail-tab="camera" aria-controls="detailTabCamera">Camera</button>
-      <button type="button" role="tab" data-detail-tab="files" aria-controls="detailTabFiles">Files</button>
-      <button type="button" role="tab" data-detail-tab="temperature" aria-controls="detailTabTemperature">Temperature, Preheat &amp; Fans</button>
-      <button type="button" role="tab" data-detail-tab="job" aria-controls="detailTabJob">Current Job</button>
-      <button type="button" role="tab" data-detail-tab="management" aria-controls="detailTabManagement">Maintenance &amp; Management</button>
+    <div class="printer-detail-tabs maintenance-view-selector" role="tablist" aria-label="Printer details">
+      <button type="button" class="maintenance-view-button" role="tab" data-detail-tab="toolheads" aria-controls="detailTabToolheads">Toolheads</button>
+      <button type="button" class="maintenance-view-button" role="tab" data-detail-tab="camera" aria-controls="detailTabCamera">Camera</button>
+      <button type="button" class="maintenance-view-button" role="tab" data-detail-tab="files" aria-controls="detailTabFiles">Files</button>
+      <button type="button" class="maintenance-view-button" role="tab" data-detail-tab="temperature" aria-controls="detailTabTemperature">Temperature, Preheat &amp; Fans</button>
+      <button type="button" class="maintenance-view-button" role="tab" data-detail-tab="job" aria-controls="detailTabJob">Current Job</button>
+      <button type="button" class="maintenance-view-button" role="tab" data-detail-tab="management" aria-controls="detailTabManagement">Maintenance &amp; Management</button>
     </div>
     <div class="printer-detail-tab-panels">
       <section id="detailTabToolheads" class="printer-detail-tab-panel" role="tabpanel" data-detail-panel="toolheads"></section>
