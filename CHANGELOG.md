@@ -4,6 +4,15 @@ This file contains the version-by-version release history for Print Farm Control
 
 Historical entries describe the behaviour of the controller at the time of that release and may be superseded by later versions. For current installation, configuration and supported-hardware guidance, see [README.md](README.md).
 
+## v0.40.0
+
+- Reorganizes every printer-details dialog into six consistent tabs: **Toolheads**, **Camera**, **Files**, **Temperature, Preheat & Fans**, **Current Job**, and **Maintenance & Management**. The printer-detail tabs reuse the same selector/button component, active-state treatment, Light/Dark styling and responsive behaviour as the main Maintenance screen.
+- Adds keyboard-accessible tab navigation and remembers the last selected tab for each printer while the controller page remains open. Unsupported features such as camera or toolhead material status retain a consistent tab and show an explicit unavailable/not-supported message instead of changing the overall layout.
+- Multi-tool printers now use a full-width **Toolhead status** table instead of narrow cards in one half of the dialog. Toolhead identity, live information and configuration have dedicated columns; printers with controller-managed manual nozzle assignment also gain a dedicated **Nozzle** column.
+- Prusa CORE One+ INDX 4/8 exposes each physical tool's independent nozzle selector in the Nozzle column. FlashForge Creator 5 / Creator 5 Pro expose their existing shared four-tool nozzle designation in the same column with clear shared-assignment wording. Snapmaker U1 retains printer-reported nozzle information without a manual nozzle column.
+- Rebalances **Maintenance & Management** so Maintenance and Printer management stack in the left column while Diagnostics occupies the right column, collapsing to one column on narrow screens. Maintenance action/help spacing is also corrected so explanatory text no longer crowds or overlaps the buttons.
+- Adds regression coverage for the tab structure, maintenance-style selector reuse, responsive layouts, multi-tool/nozzle columns and maintenance-panel spacing.
+
 ## v0.39.1
 
 - Adds persistent **per-tool nozzle-size designation** for Prusa CORE One+ INDX 4 and INDX 8. Every physical T0–T3/T0–T7 tool can be assigned independently and the effective nozzle size is consumed by existing fixed-tool queue compatibility.
