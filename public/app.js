@@ -4733,15 +4733,70 @@ function creator5FilamentColorOptions(printer) {
     : [];
 }
 
+function creator5FilamentColorOption(printer, value) {
+  const color = normalizeColor(value);
+  return creator5FilamentColorOptions(printer).find((item) => item.hex === color) || null;
+}
+
+function creator5FilamentColorDropdownMarkup(printer, { value = '', toolIndex, disabled = false } = {}) {
+  const colors = creator5FilamentColorOptions(printer);
+  const selected = creator5FilamentColorOption(printer, value);
+  const selectedMarkup = selected
+    ? `<span class="color-family-selected"><i class="color-family-square" style="background:${escapeHtml(selected.hex)}"></i><span>${escapeHtml(selected.name)}</span></span>`
+    : '<span class="color-family-selected placeholder"><span>Select colour</span></span>';
+  return `<details class="color-family-dropdown creator5-color-dropdown${disabled ? ' disabled' : ''}" data-creator5-color-dropdown${disabled ? ' data-disabled="1"' : ''}>
+    <summary>${selectedMarkup}<span class="color-family-caret">▾</span></summary>
+    <div class="color-family-menu">
+      ${colors.map((item) => `<button type="button" class="color-family-option${item.hex === selected?.hex ? ' selected' : ''}" data-creator5-color-option="${escapeHtml(item.hex)}"><i class="color-family-square" style="background:${escapeHtml(item.hex)}"></i><span>${escapeHtml(item.name)}</span></button>`).join('')}
+    </div>
+    <input type="hidden" data-creator5-filament-color-input="${toolIndex}" value="${escapeHtml(selected?.hex || '')}"${disabled ? ' disabled' : ''}>
+  </details>`;
+}
+
+function setCreator5FilamentColorDropdownValue(input, printer, value) {
+  if (!input) return;
+  const dropdown = input.closest('[data-creator5-color-dropdown]');
+  const option = creator5FilamentColorOption(printer, value);
+  input.value = option?.hex || '';
+  if (!dropdown) return;
+  const selected = dropdown.querySelector('.color-family-selected');
+  if (selected) {
+    selected.classList.toggle('placeholder', !option);
+    selected.innerHTML = option
+      ? `<i class="color-family-square" style="background:${escapeHtml(option.hex)}"></i><span>${escapeHtml(option.name)}</span>`
+      : '<span>Select colour</span>';
+  }
+  dropdown.querySelectorAll('[data-creator5-color-option]').forEach((button) => {
+    button.classList.toggle('selected', button.dataset.creator5ColorOption === option?.hex);
+  });
+}
+
+function bindCreator5FilamentColorDropdowns(root, printer) {
+  root?.querySelectorAll('[data-creator5-color-dropdown]').forEach((dropdown) => {
+    if (dropdown.dataset.bound === '1') return;
+    dropdown.dataset.bound = '1';
+    dropdown.querySelectorAll('[data-creator5-color-option]').forEach((button) => {
+      button.onclick = () => {
+        if (dropdown.dataset.disabled === '1') return;
+        const input = dropdown.querySelector('[data-creator5-filament-color-input]');
+        setCreator5FilamentColorDropdownValue(input, printer, button.dataset.creator5ColorOption);
+        dropdown.open = false;
+        input?.dispatchEvent(new Event('change', { bubbles:true }));
+      };
+    });
+    dropdown.addEventListener('toggle', () => {
+      if (dropdown.open && dropdown.dataset.disabled === '1') dropdown.open = false;
+    });
+  });
+}
+
 function creator5FilamentConfigControlMarkup(printer, tool = {}) {
   if (printer?.adapterType !== 'flashforge-creator5' || !printer?.capabilities?.filamentTypeControl || !printer?.capabilities?.filamentColorControl) return '';
   const filament = tool.filament || {};
   const idle = String(printer.status?.status || '').toLowerCase() === 'idle';
   const materials = creator5FilamentMaterialOptions(printer);
-  const colors = creator5FilamentColorOptions(printer);
   const material = String(filament.material || '').trim();
   const color = normalizeColor(filament.color);
-  const selectedColor = colors.find((item) => item.hex === color) || null;
   return `<div class="creator5-filament-config-control" data-creator5-filament-config-control="${tool.index}">
     <label>Filament type
       <select data-creator5-filament-material-input="${tool.index}"${idle ? '' : ' disabled'}>
@@ -4750,13 +4805,7 @@ function creator5FilamentConfigControlMarkup(printer, tool = {}) {
       </select>
     </label>
     <label>Colour
-      <span class="creator5-filament-color-row">
-        <i class="material-swatch${selectedColor ? '' : ' unknown'}" data-creator5-filament-color-swatch="${tool.index}"${selectedColor ? ` style="background:${escapeHtml(selectedColor.hex)}"` : ''}></i>
-        <select data-creator5-filament-color-input="${tool.index}"${idle ? '' : ' disabled'}>
-          <option value=""${selectedColor ? '' : ' selected'}>Select colour</option>
-          ${colors.map((item) => `<option value="${escapeHtml(item.hex)}"${item.hex === selectedColor?.hex ? ' selected' : ''}>${escapeHtml(item.name)} · ${escapeHtml(item.hex)}</option>`).join('')}
-        </select>
-      </span>
+      ${creator5FilamentColorDropdownMarkup(printer, { value:color || '', toolIndex:tool.index, disabled:!idle })}
     </label>
     <button type="button" class="secondary" data-creator5-filament-config-save="${tool.index}"${idle ? '' : ' disabled'}>Set on printer</button>
   </div>`;
@@ -6347,17 +6396,7 @@ ${flashForgePreflight}` : ''}`)) return;
     finally { button.textContent = original; updateOpenPrinterTelemetry(); }
   });
 
-  printerDetail.querySelectorAll('[data-creator5-filament-color-input]').forEach((input) => {
-    input.onchange = () => {
-      const toolIndex = Number(input.dataset.creator5FilamentColorInput);
-      const swatch = printerDetail.querySelector(`[data-creator5-filament-color-swatch="${toolIndex}"]`);
-      const color = normalizeColor(input.value);
-      if (!swatch) return;
-      swatch.classList.toggle('unknown', !color);
-      if (color) swatch.style.background = color;
-      else swatch.style.removeProperty('background');
-    };
-  });
+  bindCreator5FilamentColorDropdowns(printerDetail, printer);
 
   printerDetail.querySelectorAll('[data-creator5-filament-config-save]').forEach((button) => button.onclick = async () => {
     const toolIndex = Number(button.dataset.creator5FilamentConfigSave);
