@@ -5776,6 +5776,7 @@ async function openPrinter(id) {
     : '';
   const configuredToolCount = Number(limits.toolCount || (Array.isArray(s?.tools) ? s.tools.length : 0));
   const wideToolheadLayout = Boolean(capabilities.materialStatus && configuredToolCount > 1);
+  const manualNozzleColumn = Boolean(wideToolheadLayout && (capabilities.toolNozzleDesignation || capabilities.nozzleDesignation));
   const materialStatusMarkup = capabilities.materialStatus ? (() => {
     const tools = Array.isArray(s?.tools) ? s.tools : [];
     if (!tools.length) return `<div class="panel material-panel${wideToolheadLayout ? ' material-panel-wide' : ''}"><h3>Toolhead status</h3><div class="subtle">Material status is unavailable while the printer is offline.</div>${flashForgeMaterialDesignationMarkup(printer)}${flashForgeNozzleDesignationMarkup(printer)}</div>`;
@@ -5802,16 +5803,23 @@ async function openPrinter(id) {
     return `<div class="panel material-panel${wideToolheadLayout ? ' material-panel-wide' : ''}">
       <h3>Toolhead status</h3>
       <div class="material-summary" data-material-summary>${escapeHtml(materialSummaryText(tools))}</div>
-      ${wideToolheadLayout ? '<div class="material-table-head" aria-hidden="true"><span>Toolhead</span><span>Live information</span><span>Configuration</span></div>' : ''}
-      <div class="material-grid${tools.length === 1 ? ' single-tool' : ''}${wideToolheadLayout ? ' multi-tool-table' : ''}">${tools.map((tool) => {
+      ${wideToolheadLayout ? `<div class="material-table-head${manualNozzleColumn ? ' has-nozzle-column' : ''}" aria-hidden="true"><span>Toolhead</span><span>Live information</span><span>Configuration</span>${manualNozzleColumn ? '<span>Nozzle</span>' : ''}</div>` : ''}
+      <div class="material-grid${tools.length === 1 ? ' single-tool' : ''}${wideToolheadLayout ? ' multi-tool-table' : ''}${manualNozzleColumn ? ' has-nozzle-column' : ''}">${tools.map((tool, toolPosition) => {
         const filament = tool.filament || {};
         const color = materialSwatchColor(filament);
         const stateClass = filament.present === true ? ' filament-loaded' : filament.present === false ? ' filament-missing' : '';
         const configuration = [
           printer.adapterType === 'snapmaker-u1' ? u1FilamentConfigControlMarkup(printer, tool) : '',
-          printer.manufacturer === 'Prusa' ? prusaToolMaterialDesignationMarkup(printer, tool) : '',
-          printer.manufacturer === 'Prusa' ? prusaToolNozzleDesignationMarkup(printer, tool, tools.length) : ''
+          printer.manufacturer === 'Prusa' ? prusaToolMaterialDesignationMarkup(printer, tool) : ''
         ].filter(Boolean).join('');
+        const nozzleConfiguration = capabilities.toolNozzleDesignation
+          ? prusaToolNozzleDesignationMarkup(printer, tool, tools.length)
+          : capabilities.nozzleDesignation && toolPosition === 0
+            ? `${flashForgeNozzleDesignationMarkup(printer, tool)}${tools.length > 1 ? `<div class="field-help shared-nozzle-help">This designation applies to all ${tools.length} toolheads.</div>` : ''}`
+            : '';
+        const nozzleFallback = capabilities.nozzleDesignation && toolPosition > 0
+          ? 'Uses shared printer designation'
+          : 'No manual nozzle assignment';
         if (wideToolheadLayout) {
           const configurationFallback = printer.adapterType === 'flashforge-creator5'
             ? 'Live data only'
@@ -5831,6 +5839,9 @@ async function openPrinter(id) {
             <div class="material-tool-cell material-tool-configuration${configuration ? '' : ' read-only'}">
               ${configuration || `<span class="subtle">${escapeHtml(configurationFallback)}</span>`}
             </div>
+            ${manualNozzleColumn ? `<div class="material-tool-cell material-tool-nozzle${nozzleConfiguration ? '' : ' read-only'}">
+              ${nozzleConfiguration || `<span class="subtle">${escapeHtml(nozzleFallback)}</span>`}
+            </div>` : ''}
           </div>`;
         }
         return `<div class="material-tool${stateClass}" data-material-tool="${tool.index}">
@@ -5846,7 +5857,7 @@ async function openPrinter(id) {
       }).join('')}</div>
       ${bambuSources}
       ${printer.adapterType === 'flashforge-ad5m' ? flashForgeMaterialDesignationMarkup(printer, tools[0]?.filament || {}) : ''}
-      ${(['flashforge-ad5m','flashforge-creator5'].includes(printer.adapterType) || printer.manufacturer === 'Prusa') ? flashForgeNozzleDesignationMarkup(printer, tools[0] || {}) : ''}
+      ${((['flashforge-ad5m','flashforge-creator5'].includes(printer.adapterType) || printer.manufacturer === 'Prusa') && !(wideToolheadLayout && capabilities.nozzleDesignation)) ? flashForgeNozzleDesignationMarkup(printer, tools[0] || {}) : ''}
       ${toolConfigurationMarkup(printer, limits)}
       <div class="field-help material-help">${escapeHtml(materialHelp)}</div>
     </div>`;
