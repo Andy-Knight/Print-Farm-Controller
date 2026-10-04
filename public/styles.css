@@ -592,6 +592,10 @@ input:focus,select:focus { border-color:#7a9fbe; }
 .multi-tool-table.has-nozzle-column .material-tool {
   grid-template-columns:minmax(100px,.4fr) minmax(190px,.8fr) minmax(340px,1.45fr) minmax(260px,1.05fr);
 }
+.material-table-head.creator5-tool-table,
+.multi-tool-table.creator5-tool-table .material-tool {
+  grid-template-columns:minmax(110px,.45fr) minmax(320px,1.45fr) minmax(280px,1.05fr);
+}
 .multi-tool-table .material-tool:first-child { border-radius:10px 10px 0 0; }
 .multi-tool-table .material-tool:last-child { border-bottom:0; border-radius:0 0 10px 10px; }
 .multi-tool-table .material-tool:only-child { border-radius:10px; }
@@ -646,6 +650,10 @@ input:focus,select:focus { border-color:#7a9fbe; }
   .material-table-head.has-nozzle-column,
   .multi-tool-table.has-nozzle-column .material-tool {
     grid-template-columns:minmax(85px,.35fr) minmax(150px,.65fr) minmax(270px,1.25fr) minmax(220px,1fr);
+  }
+  .material-table-head.creator5-tool-table,
+  .multi-tool-table.creator5-tool-table .material-tool {
+    grid-template-columns:minmax(90px,.4fr) minmax(230px,1.3fr) minmax(210px,1fr);
   }
 }
 @media (max-width:760px) {
