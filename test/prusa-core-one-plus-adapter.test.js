@@ -468,17 +468,17 @@ test('CORE One+ INDX UI and API expose a nozzle designation for every physical t
 
   assert.match(base, /toolNozzleDesignation: false/);
   assert.match(models, /toolNozzleDesignation:true/);
-  assert.match(app, /function prusaToolNozzleDesignationMarkup/);
+  assert.match(app, /function toolNozzleDesignationMarkup/);
   assert.match(app, /function nozzleDiameterSelectMarkup/);
   assert.match(app, /<select \${inputAttributes}>/);
-  assert.match(app, /data-prusa-tool-nozzle-input/);
-  assert.doesNotMatch(app, /<input type="number" data-prusa-tool-nozzle-input/);
+  assert.match(app, /data-tool-nozzle-input/);
+  assert.doesNotMatch(app, /<input type="number" data-tool-nozzle-input/);
   assert.doesNotMatch(app, /prusaToolNozzleSizes-/);
-  assert.match(app, /data-prusa-tool-nozzle-save/);
-  assert.match(app, /data-prusa-tool-nozzle-clear/);
+  assert.match(app, /data-tool-nozzle-save/);
+  assert.match(app, /data-tool-nozzle-clear/);
   assert.match(app, /Assign T\$\{tool\.index\} nozzle/);
-  assert.match(app, /data-prusa-tool-nozzle-clear="\$\{tool\.index\}">Clear assignment<\/button>/);
-  assert.match(app, /prusaToolNozzleDesignationMarkup\(printer, tool, tools\.length\)/);
+  assert.match(app, /data-tool-nozzle-clear="\$\{tool\.index\}">Clear assignment<\/button>/);
+  assert.match(app, /toolNozzleDesignationMarkup\(printer, tool, tools\.length\)/);
   assert.match(app, /\/tool-nozzle-designation/);
   assert.match(server, /action === 'tool-nozzle-designation'/);
   assert.match(server, /adapter\.limits\?\.nozzleDiameters/);
