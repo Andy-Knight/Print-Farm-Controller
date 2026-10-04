@@ -331,15 +331,14 @@ test('unsupported chamber controls are omitted rather than shown disabled', () =
   assert.match(app, /\$\{capabilities\.chamberFan \? `<div class="control-row"><label>Chamber fan %/);
 });
 
-test('printer detail uses stable desktop columns so expanding maintenance does not rebalance panels', () => {
+test('printer detail tab panels use stable responsive layouts', () => {
   assert.match(styles, /\.printer-dialog \{ width:min\(1200px,calc\(100vw - 30px\)\); \}/);
-  assert.match(styles, /\.detail-grid \{ display:grid; grid-template-columns:minmax\(0,1fr\) minmax\(0,1fr\); gap:18px; align-items:start; \}/);
-  assert.match(styles, /\.detail-grid > \.detail-column \{ min-width:0; \}/);
-  assert.match(styles, /@media \(max-width:760px\)[\s\S]*\.detail-grid \{ grid-template-columns:1fr; \}/);
-  assert.match(app, /class="detail-column detail-column-left"/);
-  assert.match(app, /class="detail-column detail-column-right"/);
+  assert.match(styles, /\.printer-detail-tab-panel\[data-detail-panel="temperature"\],[\s\S]*grid-template-columns:minmax\(0,1fr\) minmax\(0,1fr\)/);
+  assert.match(styles, /@media \(max-width:760px\)[\s\S]*\.printer-detail-tab-panel\[data-detail-panel="temperature"\],[\s\S]*grid-template-columns:1fr/);
   assert.match(app, /class="panel maintenance-panel"/);
-  assert.match(app, /for \(const selector of \['\.chamber-preheat-panel', '\.fans-panel'\]\)/);
+  assert.match(app, /appendDetailPanel\('temperature', printerDetail\.querySelector\('\.chamber-preheat-panel'\)\)/);
+  assert.match(app, /appendDetailPanel\('temperature', printerDetail\.querySelector\('\.fans-panel'\)\)/);
+  assert.match(app, /appendDetailPanel\('management', printerDetail\.querySelector\('\.maintenance-panel'\)\)/);
   assert.doesNotMatch(styles, /column-fill:balance/);
 });
 
