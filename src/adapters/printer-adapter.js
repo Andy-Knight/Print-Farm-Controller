@@ -74,6 +74,8 @@ export class PrinterAdapter {
   async setTemperatures() { return this.unsupported('Temperature control'); }
   async setFans() { return this.unsupported('Fan control'); }
   async setFiltration() { return this.unsupported('Filtration control'); }
+  async setFilamentConfig() { return this.unsupported('Combined filament control'); }
+  async setFilamentType() { return this.unsupported('Filament type control'); }
   async setFilamentColor() { return this.unsupported('Filament colour control'); }
   // Optional lifecycle hooks used by the generic bounded chamber-preheat service.
   // Adapters that need printer-native circulation/mode changes can override them.
