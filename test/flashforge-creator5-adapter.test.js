@@ -124,7 +124,7 @@ test('Creator 5 Pro detail normalizes four toolheads, material slots and chamber
         { slotId:4, materialName:'TPU', materialColor:'#FFFFFF', hasFilament:true }
       ]
     }
-  }, { model:'Creator 5 Pro', nozzleDiameter:0.6 });
+  }, { model:'Creator 5 Pro' });
 
   assert.equal(status.status, 'idle');
   assert.equal(status.progress, 25);
@@ -137,7 +137,7 @@ test('Creator 5 Pro detail normalizes four toolheads, material slots and chamber
   assert.equal(status.tools[2].filament.material, 'ASA');
   assert.equal(status.tools[2].filament.color, '#0000FF');
   assert.equal(status.tools[2].filament.present, false);
-  assert.equal(status.tools[0].nozzleDiameter, 0.6);
+  assert.deepEqual(status.tools.map((tool) => tool.nozzleDiameter), [null,null,null,null]);
   assert.equal(status.materials.loadedCount, 3);
   assert.equal(status.bed.target, 100);
   assert.equal(status.chamber.actual, 44);
