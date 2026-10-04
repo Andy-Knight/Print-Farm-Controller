@@ -816,6 +816,7 @@ test('multi-tool printers use a full-width toolhead information and configuratio
   assert.match(app, /creator5FilamentConfigControlMarkup\(printer, tool\)/);
   assert.match(styles, /\.creator5-filament-config-control \{/);
   assert.match(styles, /\.material-tool-nozzle \.nozzle-designation-control/);
+  assert.match(styles, /\.material-tool-nozzle \.nozzle-designation-control label,[\s\S]*\.material-tool-nozzle \.tool-nozzle-control label[\s\S]*font-size:\.68rem/);
   assert.match(styles, /@media \(max-width:760px\)[\s\S]*\.material-table-head \{ display:none; \}/);
 });
 
