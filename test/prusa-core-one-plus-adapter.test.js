@@ -495,9 +495,9 @@ test('CORE One+ standard and INDX nozzle designations are controlled dropdowns o
   const models = fs.readFileSync(new URL('../src/adapters/prusa-link-models.js', import.meta.url), 'utf8');
 
   assert.match(models, /nozzleDiameters:Object\.freeze\(\[0\.25, 0\.4, 0\.5, 0\.6, 0\.8, 1\.0\]\)/);
-  assert.match(app, /printer\?\.manufacturer === 'Prusa'[\s\S]*nozzleDiameterSelectMarkup/);
+  assert.match(app, /function toolNozzleDesignationMarkup[\s\S]*nozzleDiameterSelectMarkup/);
   assert.match(app, /inputAttributes:'data-nozzle-designation-input'/);
-  assert.match(app, /inputAttributes:`data-prusa-tool-nozzle-input=/);
+  assert.match(app, /inputAttributes:`data-tool-nozzle-input=/);
   assert.match(app, /Choose a nozzle size from the list/);
 });
 
