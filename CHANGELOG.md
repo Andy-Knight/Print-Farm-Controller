@@ -13,6 +13,7 @@ Historical entries describe the behaviour of the controller at the time of that 
 - Removes the misleading dark left-edge filament-status strip from all multi-tool Toolheads tables, including Snapmaker U1, Creator 5-series and Prusa INDX, while retaining the existing filament-state text treatment.
 - Keeps Creator 5 / Creator 5 Pro Toolheads rows compact while restoring the now-useful **Filament configuration** column. Per-tool nozzle controls use compact Assign/Clear actions, and filament type/colour controls sit alongside them without repeating long help text in every tool row.
 - Renames the multi-tool table **Configuration** heading to **Filament configuration** on printers where that column is applicable.
+- Standardizes controller-managed nozzle action buttons across all supported printer models to the concise **Assign** and **Clear** labels, without changing the underlying assignment or fallback behaviour.
 - Updates the shared per-tool nozzle UI and regression coverage so Prusa CORE One+ INDX and Creator 5-series printers use the same controlled per-tool nozzle component without changing their printer-specific behaviour.
 
 ## v0.40.0
