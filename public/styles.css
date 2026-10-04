@@ -625,10 +625,21 @@ input:focus,select:focus { border-color:#7a9fbe; }
 .material-tool-nozzle .field-help { white-space:normal; }
 .material-tool-nozzle .nozzle-designation-control label,
 .material-tool-nozzle .tool-nozzle-control label {
+  margin:0;
   color:#8493a1;
   font-size:.68rem;
 }
-.creator5-tool-nozzle-control label { margin-bottom:6px; }
+.material-tool-nozzle .nozzle-designation-control select,
+.material-tool-nozzle .tool-nozzle-control select {
+  display:block;
+  width:100%;
+  min-width:0;
+  height:var(--dropdown-field-height);
+  min-height:var(--dropdown-field-height);
+  margin-top:4px;
+  padding-top:0;
+  padding-bottom:0;
+}
 .creator5-tool-nozzle-control .mini-actions {
   display:grid;
   grid-template-columns:repeat(2,minmax(0,1fr));
