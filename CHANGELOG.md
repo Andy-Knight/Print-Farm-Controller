@@ -4,6 +4,14 @@ This file contains the version-by-version release history for Print Farm Control
 
 Historical entries describe the behaviour of the controller at the time of that release and may be superseded by later versions. For current installation, configuration and supported-hardware guidance, see [README.md](README.md).
 
+## v0.40.1
+
+- Corrects FlashForge Creator 5 / Creator 5 Pro nozzle handling so the four physical toolheads can each carry an independent controller-designated nozzle size. T0-T3 each use the supported 0.25 / 0.4 / 0.6 / 0.8 mm dropdown choices, and queue compatibility consumes the effective nozzle size of the corresponding physical toolhead.
+- Existing Creator 5 installations with the earlier single shared nozzle designation are migrated safely by applying that value to T0-T3 while preserving any already-stored per-tool value.
+- Removes the unused **Configuration** column from Creator 5 / Creator 5 Pro Toolheads views, leaving the compact **Toolhead / Live information / Nozzle** layout. Per-tool nozzle controls use a compact Assign/Clear action row instead of repeating long help text in every tool row.
+- Renames the multi-tool table **Configuration** heading to **Filament configuration** on printers where that column is applicable.
+- Updates the shared per-tool nozzle UI and regression coverage so Prusa CORE One+ INDX and Creator 5-series printers use the same controlled per-tool nozzle component without changing their printer-specific behaviour.
+
 ## v0.40.0
 
 - Reorganizes every printer-details dialog into six consistent tabs: **Toolheads**, **Camera**, **Files**, **Temperature, Preheat & Fans**, **Current Job**, and **Maintenance & Management**. The printer-detail tabs reuse the same selector/button component, active-state treatment, Light/Dark styling and responsive behaviour as the main Maintenance screen.
