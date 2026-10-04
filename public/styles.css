@@ -616,7 +616,7 @@ input:focus,select:focus { border-color:#7a9fbe; }
 .material-tool-nozzle { min-width:0; }
 .material-tool-nozzle.read-only { display:flex; align-items:center; min-height:36px; }
 .material-tool-nozzle .nozzle-designation-control,
-.material-tool-nozzle .prusa-tool-nozzle-control {
+.material-tool-nozzle .tool-nozzle-control {
   margin-top:0;
   padding-top:0;
   border-top:0;
