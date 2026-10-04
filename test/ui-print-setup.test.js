@@ -338,7 +338,7 @@ test('printer detail tab panels use stable responsive layouts', () => {
   assert.match(app, /class="panel maintenance-panel"/);
   assert.match(app, /appendDetailPanel\('temperature', printerDetail\.querySelector\('\.chamber-preheat-panel'\)\)/);
   assert.match(app, /appendDetailPanel\('temperature', printerDetail\.querySelector\('\.fans-panel'\)\)/);
-  assert.match(app, /appendDetailPanel\('management', printerDetail\.querySelector\('\.maintenance-panel'\)\)/);
+  assert.match(app, /if \(maintenancePanel\) managementLeft\.append\(maintenancePanel\)/);
   assert.doesNotMatch(styles, /column-fill:balance/);
 });
 
@@ -814,13 +814,16 @@ test('printer details are organised into six consistent tabs', () => {
   assert.match(app, /appendDetailPanel\('temperature', printerDetail\.querySelector\('\.chamber-preheat-panel'\)\)/);
   assert.match(app, /appendDetailPanel\('temperature', printerDetail\.querySelector\('\.fans-panel'\)\)/);
   assert.match(app, /appendDetailPanel\('job', printerDetail\.querySelector\('\.current-job-panel'\)\)/);
-  assert.match(app, /appendDetailPanel\('management', printerDetail\.querySelector\('\.maintenance-panel'\)\)/);
-  assert.match(app, /appendDetailPanel\('management', printerDetail\.querySelector\('\.diagnostics-panel'\)\)/);
-  assert.match(app, /appendDetailPanel\('management', printerDetail\.querySelector\('\.printer-management-panel'\)\)/);
+  assert.match(app, /management-tab-column management-tab-column-left/);
+  assert.match(app, /management-tab-column management-tab-column-right/);
+  assert.match(app, /if \(maintenancePanel\) managementLeft\.append\(maintenancePanel\)/);
+  assert.match(app, /if \(printerManagementPanel\) managementLeft\.append\(printerManagementPanel\)/);
+  assert.match(app, /if \(diagnosticsPanel\) managementRight\.append\(diagnosticsPanel\)/);
   assert.match(app, /detailGrid\?\.remove\(\)/);
   assert.match(app, /activateDetailTab\(printerDetailTabByPrinter\.get\(id\) \|\| 'toolheads'\)/);
   assert.match(styles, /\.printer-detail-tabs \{/);
   assert.match(styles, /\.printer-detail-tabs button\.active \{/);
   assert.match(styles, /\.printer-detail-tab-panel\[hidden\] \{ display:none !important; \}/);
-  assert.match(styles, /\.printer-detail-tab-panel\[data-detail-panel="temperature"\],[\s\S]*\.printer-detail-tab-panel\[data-detail-panel="management"\]/);
+  assert.match(styles, /\.printer-detail-tab-panel\[data-detail-panel="management"\] \{[\s\S]*grid-template-columns:minmax\(0,1fr\) minmax\(0,1fr\)/);
+  assert.match(styles, /\.management-tab-column \{[\s\S]*flex-direction:column/);
 });
