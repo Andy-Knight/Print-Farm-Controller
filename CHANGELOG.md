@@ -16,6 +16,7 @@ Historical entries describe the behaviour of the controller at the time of that 
 - Standardizes controller-managed nozzle action buttons across all supported printer models to the concise **Assign** and **Clear** labels, without changing the underlying assignment or fallback behaviour.
 - Standardizes all dropdown-list fields to a shared 42 px control height, including native selects, colour swatch dropdowns and logical-to-physical tool mapping selectors.
 - Aligns nozzle-control label typography in Toolheads tables with the **Filament configuration** labels for consistent column styling.
+- Aligns Toolheads nozzle selectors with the filament fields using the same 42 px height and 4 px label-to-field spacing.
 - Updates the shared per-tool nozzle UI and regression coverage so Prusa CORE One+ INDX and Creator 5-series printers use the same controlled per-tool nozzle component without changing their printer-specific behaviour.
 
 ## v0.40.0
