@@ -122,12 +122,12 @@ Manufacturer-specific discovery, capabilities, limits, status normalization, fil
 
 The current production baseline is **v0.40.1** on `main`.
 
-Active development is **v0.40.1** on `feature/multitool-nozzle-alignment`. Multi-tool Toolheads layout is being normalized so the Nozzle column mirrors Filament configuration: the full-width nozzle selector is followed by equal-width **Assign** and **Clear** buttons with the shared helper text aligned beneath.
+Active development is **v0.40.1** on `feature/multitool-nozzle-alignment`. Prusa CORE One+ INDX Toolheads vertical alignment is being corrected so the Filament configuration and Nozzle dropdown/button rows start at the same height. The cause was a 6 px inherited top margin on the Prusa material selector versus 4 px on the colour and nozzle selectors; the Prusa material selector now explicitly uses the same 4 px spacing.
 
 ## Next steps
 
-1. Let GitHub Actions run the complete regression suite through a pull request.
-2. Visually confirm Prusa CORE One+ INDX and Creator 5 / Creator 5 Pro nozzle controls align with the filament configuration column in Light and Dark themes.
+1. Let GitHub Actions run the complete regression suite through pull request #70.
+2. Visually confirm the Prusa CORE One+ INDX filament and nozzle dropdown/button rows align exactly in Light and Dark themes.
 3. Merge only after the PR checks pass.
 
 ## Licensing baseline
