@@ -4773,8 +4773,8 @@ function setCreator5FilamentColorDropdownValue(input, printer, value) {
 
 function bindCreator5FilamentColorDropdowns(root, printer) {
   root?.querySelectorAll('[data-creator5-color-dropdown]').forEach((dropdown) => {
-    if (dropdown.dataset.bound === '1') return;
-    dropdown.dataset.bound = '1';
+    if (dropdown.dataset.creator5Bound === '1') return;
+    dropdown.dataset.creator5Bound = '1';
     dropdown.querySelectorAll('[data-creator5-color-option]').forEach((button) => {
       button.onclick = () => {
         if (dropdown.dataset.disabled === '1') return;
