@@ -597,6 +597,8 @@ input:focus,select:focus { border-color:#7a9fbe; }
 .multi-tool-table .material-tool:only-child { border-radius:10px; }
 .multi-tool-table .material-tool.filament-loaded { box-shadow:inset 3px 0 #355044; }
 .multi-tool-table .material-tool.filament-missing { box-shadow:inset 3px 0 #6a3d42; }
+.multi-tool-table.u1-tool-table .material-tool.filament-loaded,
+.multi-tool-table.u1-tool-table .material-tool.filament-missing { box-shadow:none; }
 .material-tool-cell { min-width:0; }
 .material-tool-identity .material-tool-head { justify-content:flex-start; margin-bottom:6px; }
 .material-tool-identity > span { display:block; color:#9cacb8; font-size:.73rem; line-height:1.35; }
