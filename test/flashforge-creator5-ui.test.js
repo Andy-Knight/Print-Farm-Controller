@@ -49,10 +49,19 @@ test('Creator 5 filament type and colour can be written to each physical slot', 
   assert.match(app, /function creator5FilamentConfigControlMarkup\(/);
   assert.match(app, /data-creator5-filament-material-input/);
   assert.match(app, /data-creator5-filament-color-input/);
+  assert.match(app, /data-creator5-color-dropdown/);
+  assert.match(app, /data-creator5-color-option/);
+  assert.match(app, /class="color-family-dropdown creator5-color-dropdown/);
+  assert.match(app, /class="color-family-option/);
+  assert.match(app, /class="color-family-square"/);
+  assert.match(app, /function bindCreator5FilamentColorDropdowns\(/);
+  assert.match(app, /dataset\.creator5Bound/);
   assert.match(app, /data-creator5-filament-config-save/);
   assert.match(app, /\/api\/printers\/\$\{id\}\/filament-config/);
   assert.match(app, /Set on printer/);
   assert.match(styles, /\.creator5-filament-config-control \{[\s\S]*grid-template-columns:minmax\(0,1fr\) minmax\(0,1fr\)/);
+  assert.match(styles, /\.creator5-filament-config-control \.creator5-color-dropdown summary/);
+  assert.doesNotMatch(app, /<select data-creator5-filament-color-input/);
 });
 
 test('Creator 5 local-file setup warns when firmware cannot reveal sliced tool requirements', () => {
