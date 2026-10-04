@@ -784,7 +784,9 @@ test('multi-tool printers use a full-width toolhead information and configuratio
   assert.match(app, /const manualNozzleColumn = Boolean\(wideToolheadLayout && \(capabilities\.toolNozzleDesignation \|\| capabilities\.nozzleDesignation\)\)/);
   assert.match(app, /material-panel\$\{wideToolheadLayout \? ' material-panel-wide' : ''\}/);
   assert.match(app, /material-table-head\$\{manualNozzleColumn \? ' has-nozzle-column' : ''\}/);
-  assert.match(app, /<span>Toolhead<\/span><span>Live information<\/span><span>Configuration<\/span>/);
+  assert.match(app, /<span>Toolhead<\/span><span>Live information<\/span>/);
+  assert.match(app, /showConfigurationColumn \? '<span>Configuration<\/span>' : ''/);
+  assert.match(app, /const creator5ToolTable = Boolean\(wideToolheadLayout && printer\.adapterType === 'flashforge-creator5'\)/);
   assert.match(app, /manualNozzleColumn \? '<span>Nozzle<\/span>' : ''/);
   assert.match(app, /multi-tool-table/);
   assert.match(app, /material-tool-cell material-tool-identity/);
@@ -800,6 +802,7 @@ test('multi-tool printers use a full-width toolhead information and configuratio
   assert.match(styles, /\.material-table-head \{/);
   assert.match(styles, /\.material-grid\.multi-tool-table \{/);
   assert.match(styles, /\.material-table-head\.has-nozzle-column,[\s\S]*\.multi-tool-table\.has-nozzle-column \.material-tool/);
+  assert.match(styles, /\.material-table-head\.creator5-tool-table,[\s\S]*\.multi-tool-table\.creator5-tool-table \.material-tool[\s\S]*grid-template-columns:minmax\(110px,.45fr\) minmax\(320px,1.45fr\) minmax\(280px,1.05fr\)/);
   assert.match(styles, /\.material-tool-nozzle \.nozzle-designation-control/);
   assert.match(styles, /@media \(max-width:760px\)[\s\S]*\.material-table-head \{ display:none; \}/);
 });
