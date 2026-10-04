@@ -4782,7 +4782,13 @@ function toolNozzleDesignationMarkup(printer, tool = {}, toolCount = 1) {
   const unknownHelp = creator5
     ? 'Creator 5 firmware does not reliably report the installed nozzle size, so clearing leaves that toolhead nozzle size unknown until another controller designation is assigned.'
     : 'if PrusaLink does not report that nozzle, its size becomes unknown and unattended jobs requiring an explicit nozzle will need review.';
-  return `<div class="material-designation-control nozzle-designation-control tool-nozzle-control" data-tool-nozzle-control="${tool.index}">
+  const compactClass = creator5 ? ' creator5-tool-nozzle-control' : '';
+  const assignLabel = creator5 ? 'Assign' : `Assign T${tool.index} nozzle`;
+  const clearLabel = creator5 ? 'Clear' : 'Clear assignment';
+  const helpMarkup = creator5
+    ? ''
+    : `<div class="field-help">Choose one of the supported nozzle sizes for physical T${tool.index}. The controller stores the selection independently for this toolhead and uses it for queue compatibility; free-typed nozzle sizes are not accepted. Clearing removes the controller assignment${hasReported ? ` and returns T${tool.index} to the ${escapeHtml(nozzleDiameterText(reported))} value reported by ${escapeHtml(reportedSource)}.` : `; ${escapeHtml(unknownHelp)}`}</div>`;
+  return `<div class="material-designation-control nozzle-designation-control tool-nozzle-control${compactClass}" data-tool-nozzle-control="${tool.index}">
     <label>Physical T${tool.index} nozzle
       ${nozzleDiameterSelectMarkup({
         options,
@@ -4792,10 +4798,10 @@ function toolNozzleDesignationMarkup(printer, tool = {}, toolCount = 1) {
       })}
     </label>
     <div class="mini-actions">
-      <button type="button" class="secondary" data-tool-nozzle-save="${tool.index}">Assign T${tool.index} nozzle</button>
-      <button type="button" class="secondary" data-tool-nozzle-clear="${tool.index}">Clear assignment</button>
+      <button type="button" class="secondary" data-tool-nozzle-save="${tool.index}">${escapeHtml(assignLabel)}</button>
+      <button type="button" class="secondary" data-tool-nozzle-clear="${tool.index}">${escapeHtml(clearLabel)}</button>
     </div>
-    <div class="field-help">Choose one of the supported nozzle sizes for physical T${tool.index}. The controller stores the selection independently for this toolhead and uses it for queue compatibility; free-typed nozzle sizes are not accepted. Clearing removes the controller assignment${hasReported ? ` and returns T${tool.index} to the ${escapeHtml(nozzleDiameterText(reported))} value reported by ${escapeHtml(reportedSource)}.` : `; ${escapeHtml(unknownHelp)}`}</div>
+    ${helpMarkup}
   </div>`;
 }
 
@@ -5789,7 +5795,7 @@ async function openPrinter(id) {
     const materialHelp = printer.adapterType === 'flashforge-ad5m'
       ? "Filament type uses the controller's manual designation when set, otherwise the value reported by the FlashForge 5M local /detail API. Installed nozzle size uses the controller nozzle designation when set because the 5M API does not reliably expose it. The 5M API also does not expose U1-style filament colour/RFID metadata or a reliable live filament-presence value."
       : printer.adapterType === 'flashforge-creator5'
-        ? 'Creator 5 material type, colour and filament-presence state come from the four material-station/toolhead slots reported by the local /detail API. Each of the four physical toolheads has its own controller-designated installed nozzle size for display and queue compatibility.'
+        ? 'Creator 5 material type, colour and filament-presence state come from the four material-station/toolhead slots reported by the local /detail API. Set the fitted nozzle independently for T0-T3 using the Nozzle column; those controller designations are used for display and queue compatibility because the firmware does not reliably report installed nozzle size.'
       : printer.adapterType === 'bambu-lab'
         ? 'Material and colour come from the active external-spool or AMS/AMS Lite tray metadata reported by the Bambu LAN interface. Bambu support is experimental until checked against physical P1P, P1S, X1C and A1 Mini hardware.'
       : printer.manufacturer === 'Prusa'
