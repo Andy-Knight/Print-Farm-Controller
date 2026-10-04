@@ -610,8 +610,8 @@ test('all controller-managed nozzle designations use fixed dropdowns', () => {
   assert.match(app, /<select \$\{inputAttributes\}>/);
   assert.doesNotMatch(app, /<input type="number" data-nozzle-designation-input/);
   assert.doesNotMatch(app, /flashforgeNozzleSizes/);
-  assert.match(app, /data-nozzle-designation-save/);
-  assert.match(app, /data-nozzle-designation-clear/);
+  assert.match(app, /data-nozzle-designation-save>Assign<\/button>/);
+  assert.match(app, /data-nozzle-designation-clear>Clear<\/button>/);
   assert.match(app, /\/api\/printers\/\$\{id\}\/nozzle-designation/);
   assert.match(server, /action === 'nozzle-designation'/);
   assert.match(server, /adapter\.limits\?\.nozzleDiameters/);
