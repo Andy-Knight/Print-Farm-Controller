@@ -821,8 +821,10 @@ test('printer details are organised into six consistent tabs', () => {
   assert.match(app, /if \(diagnosticsPanel\) managementRight\.append\(diagnosticsPanel\)/);
   assert.match(app, /detailGrid\?\.remove\(\)/);
   assert.match(app, /activateDetailTab\(printerDetailTabByPrinter\.get\(id\) \|\| 'toolheads'\)/);
-  assert.match(styles, /\.printer-detail-tabs \{/);
-  assert.match(styles, /\.printer-detail-tabs button\.active \{/);
+  assert.match(app, /class="printer-detail-tabs maintenance-view-selector"/);
+  assert.match(app, /class="maintenance-view-button" role="tab" data-detail-tab="toolheads"/);
+  assert.match(styles, /\.printer-detail-tabs\.maintenance-view-selector \{[\s\S]*grid-template-columns:repeat\(6,minmax\(0,1fr\)\)/);
+  assert.match(styles, /\.maintenance-view-button\.active \{[\s\S]*border-color:#3f6680;[\s\S]*background:#172936;/);
   assert.match(styles, /\.printer-detail-tab-panel\[hidden\] \{ display:none !important; \}/);
   assert.match(styles, /\.printer-detail-tab-panel\[data-detail-panel="management"\] \{[\s\S]*grid-template-columns:minmax\(0,1fr\) minmax\(0,1fr\)/);
   assert.match(styles, /\.management-tab-column \{[\s\S]*flex-direction:column/);
