@@ -21,7 +21,7 @@ Historical entries describe the behaviour of the controller at the time of that 
 - Standardizes normal primary, secondary and destructive action buttons to a shared 42 px height while retaining compact sizing for dedicated icon/utility controls.
 - Updates the shared per-tool nozzle UI and regression coverage so Prusa CORE One+ INDX and Creator 5-series printers use the same controlled per-tool nozzle component without changing their printer-specific behaviour.
 - Normalizes helper text beneath multi-tool filament and nozzle controls to one compact 0.68 rem style and short shared baseline wording, adding extra text only for model-specific behaviour such as PrusaLink fallback, U1 write conditions or Creator 5 firmware limitations.
-- Aligns multi-tool Nozzle action rows with Filament configuration by making **Assign** and **Clear** fill two equal-width columns beneath the full-width nozzle selector on Prusa INDX and Creator 5-series layouts.
+- Corrects Prusa CORE One+ INDX Toolheads vertical alignment by giving the filament material selector the same 4 px label-to-field spacing as the colour and nozzle selectors, so the filament and nozzle dropdown/button rows line up exactly.
 
 ## v0.40.0
 
