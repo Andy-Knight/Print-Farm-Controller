@@ -644,14 +644,14 @@ input:focus,select:focus { border-color:#7a9fbe; }
 }
 .material-tool-nozzle .nozzle-designation-control > .mini-actions,
 .material-tool-nozzle .tool-nozzle-control > .mini-actions {
-  margin-top:6px;
-}
-.creator5-tool-nozzle-control .mini-actions {
   display:grid;
   grid-template-columns:repeat(2,minmax(0,1fr));
   gap:6px;
+  margin-top:6px;
+  width:100%;
 }
-.creator5-tool-nozzle-control .mini-actions > button {
+.material-tool-nozzle .nozzle-designation-control > .mini-actions > button,
+.material-tool-nozzle .tool-nozzle-control > .mini-actions > button {
   width:100%;
   min-width:0;
   padding-left:10px;
