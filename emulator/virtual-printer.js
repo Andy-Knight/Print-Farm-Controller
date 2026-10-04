@@ -79,6 +79,14 @@ export class VirtualPrinter extends EventEmitter {
     this.bed = { actual: 25, target: 0 };
     this.chamber = { actual: 25, target: 0 };
     this.tools = defaultTools(profile.toolCount || 1);
+    if (profile.adapterType === 'flashforge-creator5') {
+      const creator5Materials = ['PLA', 'PETG', 'ASA', 'PVA'];
+      const creator5Colors = ['#F9903B', '#4CAAF8', '#24E4A0', '#FFF245'];
+      this.tools.forEach((tool, index) => {
+        tool.filament.material = creator5Materials[index % creator5Materials.length];
+        tool.filament.color = creator5Colors[index % creator5Colors.length];
+      });
+    }
     if (this.model === 'X1C') this.tools[0].nozzleVolumeType = 'hardened-steel';
     this.amsUnits = defaultAmsUnits(profile.adapterType === 'bambu-lab');
     this.externalSpool = { present:true, material:'PLA', materialVariant:null, colorFamily:'white', color:representativeColor('white'), vendor:'Simulator' };
