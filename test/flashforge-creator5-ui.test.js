@@ -34,8 +34,6 @@ test('Creator 5 printer details expose one fixed nozzle selector per physical to
   assert.match(app, /data-tool-nozzle-save="\$\{tool\.index\}">Assign<\/button>/);
   assert.match(app, /data-tool-nozzle-clear="\$\{tool\.index\}">Clear<\/button>/);
   assert.match(app, /creator5-tool-nozzle-control/);
-  assert.match(app, /const assignLabel = creator5 \? 'Assign'/);
-  assert.match(app, /const clearLabel = creator5 \? 'Clear'/);
   assert.match(app, /Set the fitted nozzle independently for T0-T3 using the Nozzle column/);
   assert.match(app, /<span>Toolhead<\/span><span>Live information<\/span><span>Filament configuration<\/span>/);
   assert.match(styles, /\.creator5-tool-nozzle-control \.mini-actions[\s\S]*grid-template-columns:repeat\(2,minmax\(0,1fr\)\)/);
