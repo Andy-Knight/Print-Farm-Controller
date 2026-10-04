@@ -5928,7 +5928,7 @@ async function openPrinter(id) {
     <div class="detail-grid">
       <div class="detail-column detail-column-left">
         ${detailCameraMarkup(printer)}
-        <div class="panel current-job-panel"${capabilities.camera ? ' style="margin-top:12px"' : ''}>
+        <div class="panel current-job-panel">
           <h3>Current job</h3>
           <div class="job"><span class="job-name" data-detail-file>${escapeHtml(s?.fileName || 'No active job')}</span><b data-detail-progress>${Math.round(s?.progress || 0)}%</b></div>
           <div class="progress"><span data-detail-progress-bar style="width:${Math.round(s?.progress || 0)}%"></span></div>
