@@ -691,6 +691,11 @@ input:focus,select:focus { border-color:#7a9fbe; }
 .color-family-square { display:block; width:16px; height:16px; flex:0 0 16px; border-radius:2px; border:1px solid rgba(255,255,255,.35); box-shadow:inset 0 0 0 1px rgba(0,0,0,.2); }
 .material-designation-control .field-help { margin-top:8px; }
 @media (max-width:520px) { .material-designation-fields { grid-template-columns:1fr; gap:0; } }
+.maintenance-panel > .mini-actions { margin-top:10px; }
+.maintenance-panel > .field-help {
+  margin-top:10px;
+  line-height:1.4;
+}
 .printer-management-panel label { margin-top:0; }
 .printer-management-panel .mini-actions { margin-top:10px; }
 .printer-management-panel .field-help { margin-top:9px; }
