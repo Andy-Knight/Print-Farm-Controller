@@ -793,7 +793,7 @@ test('multi-tool printers use a full-width toolhead information and configuratio
   assert.match(app, /material-tool-cell material-tool-nozzle/);
   assert.match(app, /capabilities\.toolNozzleDesignation[\s\S]*toolNozzleDesignationMarkup/);
   assert.match(app, /data-tool-nozzle-input/);
-  assert.match(app, /stores the selection independently for this toolhead/);
+  assert.match(app, /creator5-tool-nozzle-control/);
   assert.match(app, /\$\{wideToolheadLayout \? materialStatusMarkup : ''\}[\s\S]*<div class="detail-grid">/);
   assert.match(app, /\$\{wideToolheadLayout \? '' : materialStatusMarkup\}/);
   assert.match(styles, /\.material-panel-wide \{ margin-bottom:18px; \}/);
