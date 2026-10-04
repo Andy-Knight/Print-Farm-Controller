@@ -4,6 +4,10 @@ This file contains the version-by-version release history for Print Farm Control
 
 Historical entries describe the behaviour of the controller at the time of that release and may be superseded by later versions. For current installation, configuration and supported-hardware guidance, see [README.md](README.md).
 
+## v0.40.2
+
+- Corrects Prusa CORE One+ INDX Toolheads vertical alignment by giving the filament material selector the same 4 px label-to-field spacing as the colour and nozzle selectors, so the filament and nozzle dropdown/button rows line up exactly.
+
 ## v0.40.1
 
 - Corrects FlashForge Creator 5 / Creator 5 Pro nozzle handling so the four physical toolheads can each carry an independent controller-designated nozzle size. T0-T3 each use the supported 0.25 / 0.4 / 0.6 / 0.8 mm dropdown choices, and queue compatibility consumes the effective nozzle size of the corresponding physical toolhead.
@@ -21,7 +25,6 @@ Historical entries describe the behaviour of the controller at the time of that 
 - Standardizes normal primary, secondary and destructive action buttons to a shared 42 px height while retaining compact sizing for dedicated icon/utility controls.
 - Updates the shared per-tool nozzle UI and regression coverage so Prusa CORE One+ INDX and Creator 5-series printers use the same controlled per-tool nozzle component without changing their printer-specific behaviour.
 - Normalizes helper text beneath multi-tool filament and nozzle controls to one compact 0.68 rem style and short shared baseline wording, adding extra text only for model-specific behaviour such as PrusaLink fallback, U1 write conditions or Creator 5 firmware limitations.
-- Corrects Prusa CORE One+ INDX Toolheads vertical alignment by giving the filament material selector the same 4 px label-to-field spacing as the colour and nozzle selectors, so the filament and nozzle dropdown/button rows line up exactly.
 
 ## v0.40.0
 
