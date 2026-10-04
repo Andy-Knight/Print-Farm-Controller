@@ -331,15 +331,14 @@ test('unsupported chamber controls are omitted rather than shown disabled', () =
   assert.match(app, /\$\{capabilities\.chamberFan \? `<div class="control-row"><label>Chamber fan %/);
 });
 
-test('printer detail uses stable desktop columns so expanding maintenance does not rebalance panels', () => {
+test('printer detail tab panels use stable responsive layouts', () => {
   assert.match(styles, /\.printer-dialog \{ width:min\(1200px,calc\(100vw - 30px\)\); \}/);
-  assert.match(styles, /\.detail-grid \{ display:grid; grid-template-columns:minmax\(0,1fr\) minmax\(0,1fr\); gap:18px; align-items:start; \}/);
-  assert.match(styles, /\.detail-grid > \.detail-column \{ min-width:0; \}/);
-  assert.match(styles, /@media \(max-width:760px\)[\s\S]*\.detail-grid \{ grid-template-columns:1fr; \}/);
-  assert.match(app, /class="detail-column detail-column-left"/);
-  assert.match(app, /class="detail-column detail-column-right"/);
+  assert.match(styles, /\.printer-detail-tab-panel\[data-detail-panel="temperature"\],[\s\S]*grid-template-columns:minmax\(0,1fr\) minmax\(0,1fr\)/);
+  assert.match(styles, /@media \(max-width:760px\)[\s\S]*\.printer-detail-tab-panel\[data-detail-panel="temperature"\],[\s\S]*grid-template-columns:1fr/);
   assert.match(app, /class="panel maintenance-panel"/);
-  assert.match(app, /for \(const selector of \['\.chamber-preheat-panel', '\.fans-panel'\]\)/);
+  assert.match(app, /appendDetailPanel\('temperature', printerDetail\.querySelector\('\.chamber-preheat-panel'\)\)/);
+  assert.match(app, /appendDetailPanel\('temperature', printerDetail\.querySelector\('\.fans-panel'\)\)/);
+  assert.match(app, /if \(maintenancePanel\) managementLeft\.append\(maintenancePanel\)/);
   assert.doesNotMatch(styles, /column-fill:balance/);
 });
 
@@ -765,9 +764,70 @@ test('production batch controls occupy a separate responsive row below batch ite
 });
 
 
-test('unsupported cameras are hidden rather than shown as offline', () => {
+test('unsupported cameras are represented by the camera tab without a fake offline stream', () => {
   assert.match(app, /if \(!printer\.capabilities\?\.camera\) return '';/);
   assert.match(app, /if \(!printer\.online\) return '<div class="detail-camera camera-placeholder">Camera unavailable while printer is offline<\/div>';/);
   assert.match(app, /if \(printer\.cameraAvailable === false\) return '<div class="detail-camera camera-placeholder">Camera unavailable<\/div>';/);
-  assert.match(app, /<div class="panel"\$\{capabilities\.camera \? ' style="margin-top:12px"' : ''\}>/);
+  assert.match(app, /appendUnavailablePanel\('camera', 'Camera', 'Camera support is not available for this printer\.'\)/);
+});
+
+
+test('multi-tool printers use a full-width toolhead information and configuration table', () => {
+  assert.match(app, /const configuredToolCount = Number\(limits\.toolCount/);
+  assert.match(app, /const wideToolheadLayout = Boolean\(capabilities\.materialStatus && configuredToolCount > 1\)/);
+  assert.match(app, /const manualNozzleColumn = Boolean\(wideToolheadLayout && \(capabilities\.toolNozzleDesignation \|\| capabilities\.nozzleDesignation\)\)/);
+  assert.match(app, /material-panel\$\{wideToolheadLayout \? ' material-panel-wide' : ''\}/);
+  assert.match(app, /material-table-head\$\{manualNozzleColumn \? ' has-nozzle-column' : ''\}/);
+  assert.match(app, /<span>Toolhead<\/span><span>Live information<\/span><span>Configuration<\/span>/);
+  assert.match(app, /manualNozzleColumn \? '<span>Nozzle<\/span>' : ''/);
+  assert.match(app, /multi-tool-table/);
+  assert.match(app, /material-tool-cell material-tool-identity/);
+  assert.match(app, /material-tool-cell material-tool-information/);
+  assert.match(app, /material-tool-cell material-tool-configuration/);
+  assert.match(app, /material-tool-cell material-tool-nozzle/);
+  assert.match(app, /capabilities\.toolNozzleDesignation[\s\S]*prusaToolNozzleDesignationMarkup/);
+  assert.match(app, /capabilities\.nozzleDesignation && toolPosition === 0[\s\S]*flashForgeNozzleDesignationMarkup/);
+  assert.match(app, /This designation applies to all \$\{tools\.length\} toolheads/);
+  assert.match(app, /Uses shared printer designation/);
+  assert.match(app, /\$\{wideToolheadLayout \? materialStatusMarkup : ''\}[\s\S]*<div class="detail-grid">/);
+  assert.match(app, /\$\{wideToolheadLayout \? '' : materialStatusMarkup\}/);
+  assert.match(styles, /\.material-panel-wide \{ margin-bottom:18px; \}/);
+  assert.match(styles, /\.material-table-head \{/);
+  assert.match(styles, /\.material-grid\.multi-tool-table \{/);
+  assert.match(styles, /\.material-table-head\.has-nozzle-column,[\s\S]*\.multi-tool-table\.has-nozzle-column \.material-tool/);
+  assert.match(styles, /\.material-tool-nozzle \.nozzle-designation-control/);
+  assert.match(styles, /@media \(max-width:760px\)[\s\S]*\.material-table-head \{ display:none; \}/);
+});
+
+
+test('printer details are organised into six consistent tabs', () => {
+  assert.match(app, /const printerDetailTabByPrinter = new Map\(\)/);
+  assert.match(app, /data-detail-tab="toolheads"[\s\S]*>Toolheads<\/button>/);
+  assert.match(app, /data-detail-tab="camera"[\s\S]*>Camera<\/button>/);
+  assert.match(app, /data-detail-tab="files"[\s\S]*>Files<\/button>/);
+  assert.match(app, /data-detail-tab="temperature"[\s\S]*>Temperature, Preheat &amp; Fans<\/button>/);
+  assert.match(app, /data-detail-tab="job"[\s\S]*>Current Job<\/button>/);
+  assert.match(app, /data-detail-tab="management"[\s\S]*>Maintenance &amp; Management<\/button>/);
+  assert.match(app, /appendDetailPanel\('toolheads', materialPanel\)/);
+  assert.match(app, /appendDetailPanel\('files', printerDetail\.querySelector\('\.printer-files-panel'\)\)/);
+  assert.match(app, /appendDetailPanel\('temperature', printerDetail\.querySelector\('\.temperature-panel'\)\)/);
+  assert.match(app, /appendDetailPanel\('temperature', printerDetail\.querySelector\('\.chamber-preheat-panel'\)\)/);
+  assert.match(app, /appendDetailPanel\('temperature', printerDetail\.querySelector\('\.fans-panel'\)\)/);
+  assert.match(app, /appendDetailPanel\('job', printerDetail\.querySelector\('\.current-job-panel'\)\)/);
+  assert.match(app, /management-tab-column management-tab-column-left/);
+  assert.match(app, /management-tab-column management-tab-column-right/);
+  assert.match(app, /if \(maintenancePanel\) managementLeft\.append\(maintenancePanel\)/);
+  assert.match(app, /if \(printerManagementPanel\) managementLeft\.append\(printerManagementPanel\)/);
+  assert.match(app, /if \(diagnosticsPanel\) managementRight\.append\(diagnosticsPanel\)/);
+  assert.match(app, /detailGrid\?\.remove\(\)/);
+  assert.match(app, /activateDetailTab\(printerDetailTabByPrinter\.get\(id\) \|\| 'toolheads'\)/);
+  assert.match(app, /class="printer-detail-tabs maintenance-view-selector"/);
+  assert.match(app, /class="maintenance-view-button" role="tab" data-detail-tab="toolheads"/);
+  assert.match(styles, /\.printer-detail-tabs\.maintenance-view-selector \{[\s\S]*grid-template-columns:repeat\(6,minmax\(0,1fr\)\)/);
+  assert.match(styles, /\.maintenance-view-button\.active \{[\s\S]*border-color:#3f6680;[\s\S]*background:#172936;/);
+  assert.match(styles, /\.printer-detail-tab-panel\[hidden\] \{ display:none !important; \}/);
+  assert.match(styles, /\.printer-detail-tab-panel\[data-detail-panel="management"\] \{[\s\S]*grid-template-columns:minmax\(0,1fr\) minmax\(0,1fr\)/);
+  assert.match(styles, /\.management-tab-column \{[\s\S]*flex-direction:column/);
+  assert.match(styles, /\.maintenance-panel > \.mini-actions \{ margin-top:10px; \}/);
+  assert.match(styles, /\.maintenance-panel > \.field-help \{[\s\S]*margin-top:10px;[\s\S]*line-height:1\.4;/);
 });

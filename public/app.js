@@ -8,6 +8,7 @@ const addDialog = document.querySelector('#addPrinterDialog');
 const addForm = document.querySelector('#addPrinterForm');
 const printerDialog = document.querySelector('#printerDialog');
 const printerDetail = document.querySelector('#printerDetail');
+const printerDetailTabByPrinter = new Map();
 const formError = document.querySelector('#formError');
 const scanNetworkBtn = document.querySelector('#scanNetworkBtn');
 const discoveryStatus = document.querySelector('#discoveryStatus');
@@ -5774,9 +5775,12 @@ async function openPrinter(id) {
       ? `<div class="control-row"><label>Chamber target<input id="chamberInput" type="number" min="${Number(limits.chamberTemperature?.min ?? 0)}" max="${Number(limits.chamberTemperature?.max ?? 65)}" value="${Number(s?.chamber?.target || 0)}" /></label><span class="subtle" data-chamber-now>${Number(s.chamber.actual).toFixed(1)} °C now</span><button class="secondary" data-set-temp="chamber">Set</button></div>`
       : `<div class="sensor-readout"><span>Chamber / cavity</span><b data-chamber-now>${Number(s.chamber.actual).toFixed(1)} °C</b></div>`
     : '';
+  const configuredToolCount = Number(limits.toolCount || (Array.isArray(s?.tools) ? s.tools.length : 0));
+  const wideToolheadLayout = Boolean(capabilities.materialStatus && configuredToolCount > 1);
+  const manualNozzleColumn = Boolean(wideToolheadLayout && (capabilities.toolNozzleDesignation || capabilities.nozzleDesignation));
   const materialStatusMarkup = capabilities.materialStatus ? (() => {
     const tools = Array.isArray(s?.tools) ? s.tools : [];
-    if (!tools.length) return `<div class="panel material-panel"><h3>Toolhead status</h3><div class="subtle">Material status is unavailable while the printer is offline.</div>${flashForgeMaterialDesignationMarkup(printer)}${flashForgeNozzleDesignationMarkup(printer)}</div>`;
+    if (!tools.length) return `<div class="panel material-panel${wideToolheadLayout ? ' material-panel-wide' : ''}"><h3>Toolhead status</h3><div class="subtle">Material status is unavailable while the printer is offline.</div>${flashForgeMaterialDesignationMarkup(printer)}${flashForgeNozzleDesignationMarkup(printer)}</div>`;
     const materialHelp = printer.adapterType === 'flashforge-ad5m'
       ? "Filament type uses the controller's manual designation when set, otherwise the value reported by the FlashForge 5M local /detail API. Installed nozzle size uses the controller nozzle designation when set because the 5M API does not reliably expose it. The 5M API also does not expose U1-style filament colour/RFID metadata or a reliable live filament-presence value."
       : printer.adapterType === 'flashforge-creator5'
@@ -5797,13 +5801,50 @@ async function openPrinter(id) {
         return `<div class="ams-source${source.active ? ' active' : ''}${source.present === false ? ' empty' : ''}" data-ams-source="${source.protocolIndex}"><div><strong>${escapeHtml(source.label)}</strong><span data-ams-active>${source.active ? 'Active' : ''}</span></div><i class="material-swatch${swatchColor ? '' : ' unknown'}" data-ams-swatch${swatchColor ? ` style="background:${escapeHtml(swatchColor)}"` : ''}></i><small data-ams-state>${escapeHtml(state)}</small></div>`;
       }).join('')}</div>`
       : '';
-    return `<div class="panel material-panel">
+    return `<div class="panel material-panel${wideToolheadLayout ? ' material-panel-wide' : ''}">
       <h3>Toolhead status</h3>
       <div class="material-summary" data-material-summary>${escapeHtml(materialSummaryText(tools))}</div>
-      <div class="material-grid${tools.length === 1 ? ' single-tool' : ''}">${tools.map((tool) => {
+      ${wideToolheadLayout ? `<div class="material-table-head${manualNozzleColumn ? ' has-nozzle-column' : ''}" aria-hidden="true"><span>Toolhead</span><span>Live information</span><span>Configuration</span>${manualNozzleColumn ? '<span>Nozzle</span>' : ''}</div>` : ''}
+      <div class="material-grid${tools.length === 1 ? ' single-tool' : ''}${wideToolheadLayout ? ' multi-tool-table' : ''}${manualNozzleColumn ? ' has-nozzle-column' : ''}">${tools.map((tool, toolPosition) => {
         const filament = tool.filament || {};
         const color = materialSwatchColor(filament);
         const stateClass = filament.present === true ? ' filament-loaded' : filament.present === false ? ' filament-missing' : '';
+        const configuration = [
+          printer.adapterType === 'snapmaker-u1' ? u1FilamentConfigControlMarkup(printer, tool) : '',
+          printer.manufacturer === 'Prusa' ? prusaToolMaterialDesignationMarkup(printer, tool) : ''
+        ].filter(Boolean).join('');
+        const nozzleConfiguration = capabilities.toolNozzleDesignation
+          ? prusaToolNozzleDesignationMarkup(printer, tool, tools.length)
+          : capabilities.nozzleDesignation && toolPosition === 0
+            ? `${flashForgeNozzleDesignationMarkup(printer, tool)}${tools.length > 1 ? `<div class="field-help shared-nozzle-help">This designation applies to all ${tools.length} toolheads.</div>` : ''}`
+            : '';
+        const nozzleFallback = capabilities.nozzleDesignation && toolPosition > 0
+          ? 'Uses shared printer designation'
+          : 'No manual nozzle assignment';
+        if (wideToolheadLayout) {
+          const configurationFallback = printer.adapterType === 'flashforge-creator5'
+            ? 'Live data only'
+            : 'No per-tool controller configuration is available.';
+          return `<div class="material-tool material-tool-row${stateClass}" data-material-tool="${tool.index}">
+            <div class="material-tool-cell material-tool-identity">
+              <div class="material-tool-head"><strong>T${tool.index}${tool.active ? ' · active' : ''}</strong><span class="material-swatch${color ? '' : ' unknown'}" data-material-swatch style="${color ? `background:${escapeHtml(color)}` : ''}" title="${escapeHtml(color || 'Colour unknown')}"></span></div>
+              <span data-material-presence="${tool.index}">${escapeHtml(filamentPresenceText(filament))}</span>
+            </div>
+            <div class="material-tool-cell material-tool-information">
+              <b data-material-name="${tool.index}">${escapeHtml(filamentMaterialName(filament))}</b>
+              ${capabilities.toolheadNozzleStatus ? `<small data-tool-nozzle="${tool.index}">${escapeHtml(`${nozzleDiameterText(tool.nozzleDiameter)}${tool.nozzleVolumeType ? ` · ${tool.nozzleVolumeType}` : ''}`)}</small>` : ''}
+              ${capabilities.toolheadNozzleStatus ? `<small data-tool-offset="${tool.index}">${escapeHtml(toolOffsetText(tool.offset))}</small>` : ''}
+              <small data-material-meta="${tool.index}">${escapeHtml(filamentMetaText(filament))}</small>
+              ${(['snapmaker-u1','flashforge-ad5m','flashforge-creator5','bambu-lab'].includes(printer.adapterType) || printer.manufacturer === 'Prusa') ? `<small class="material-rgb${filamentColorDisplayText(filament) ? '' : ' hidden'}" data-material-rgb="${tool.index}">${escapeHtml(filamentColorDisplayText(filament) || '')}</small>` : ''}
+            </div>
+            <div class="material-tool-cell material-tool-configuration${configuration ? '' : ' read-only'}">
+              ${configuration || `<span class="subtle">${escapeHtml(configurationFallback)}</span>`}
+            </div>
+            ${manualNozzleColumn ? `<div class="material-tool-cell material-tool-nozzle${nozzleConfiguration ? '' : ' read-only'}">
+              ${nozzleConfiguration || `<span class="subtle">${escapeHtml(nozzleFallback)}</span>`}
+            </div>` : ''}
+          </div>`;
+        }
         return `<div class="material-tool${stateClass}" data-material-tool="${tool.index}">
           <div class="material-tool-head"><strong>T${tool.index}${tool.active ? ' · active' : ''}</strong><span class="material-swatch${color ? '' : ' unknown'}" data-material-swatch style="${color ? `background:${escapeHtml(color)}` : ''}" title="${escapeHtml(color || 'Colour unknown')}"></span></div>
           <b data-material-name="${tool.index}">${escapeHtml(filamentMaterialName(filament))}</b>
@@ -5812,14 +5853,12 @@ async function openPrinter(id) {
           ${capabilities.toolheadNozzleStatus ? `<small data-tool-offset="${tool.index}">${escapeHtml(toolOffsetText(tool.offset))}</small>` : ''}
           <small data-material-meta="${tool.index}">${escapeHtml(filamentMetaText(filament))}</small>
           ${(['snapmaker-u1','flashforge-ad5m','flashforge-creator5','bambu-lab'].includes(printer.adapterType) || printer.manufacturer === 'Prusa') ? `<small class="material-rgb${filamentColorDisplayText(filament) ? '' : ' hidden'}" data-material-rgb="${tool.index}">${escapeHtml(filamentColorDisplayText(filament) || '')}</small>` : ''}
-          ${printer.adapterType === 'snapmaker-u1' ? u1FilamentConfigControlMarkup(printer, tool) : ''}
-          ${printer.manufacturer === 'Prusa' ? prusaToolMaterialDesignationMarkup(printer, tool) : ''}
-          ${printer.manufacturer === 'Prusa' ? prusaToolNozzleDesignationMarkup(printer, tool, tools.length) : ''}
+          ${configuration}
         </div>`;
       }).join('')}</div>
       ${bambuSources}
       ${printer.adapterType === 'flashforge-ad5m' ? flashForgeMaterialDesignationMarkup(printer, tools[0]?.filament || {}) : ''}
-      ${(['flashforge-ad5m','flashforge-creator5'].includes(printer.adapterType) || printer.manufacturer === 'Prusa') ? flashForgeNozzleDesignationMarkup(printer, tools[0] || {}) : ''}
+      ${((['flashforge-ad5m','flashforge-creator5'].includes(printer.adapterType) || printer.manufacturer === 'Prusa') && !(wideToolheadLayout && capabilities.nozzleDesignation)) ? flashForgeNozzleDesignationMarkup(printer, tools[0] || {}) : ''}
       ${toolConfigurationMarkup(printer, limits)}
       <div class="field-help material-help">${escapeHtml(materialHelp)}</div>
     </div>`;
@@ -5869,10 +5908,27 @@ async function openPrinter(id) {
     })()}
     ${printer.licenseActive === false ? '<div class="license-detail-warning">This printer is inactive because it does not have a selected licence slot. Live monitoring and safety controls remain available, but new jobs and normal controller commands are disabled.</div>' : ''}
     ${printer.adapterType === 'bambu-lab' ? `<div class="file-warning">Experimental Bambu ${escapeHtml(printer.model || '')} support: validate behavior carefully before relying on unattended printing.${printer.model === 'X1C' ? ' X1C RTSPS/H.264 camera decoding is not yet supported.' : ''}${printer.model === 'A1 Mini' ? ' Single-material A1 Mini .gcode starts remain experimental until validated on physical hardware; multi-material AMS Lite jobs require sliced .3mf.' : ''}</div>` : ''}
+    <div class="printer-detail-tabs maintenance-view-selector" role="tablist" aria-label="Printer details">
+      <button type="button" class="maintenance-view-button" role="tab" data-detail-tab="toolheads" aria-controls="detailTabToolheads">Toolheads</button>
+      <button type="button" class="maintenance-view-button" role="tab" data-detail-tab="camera" aria-controls="detailTabCamera">Camera</button>
+      <button type="button" class="maintenance-view-button" role="tab" data-detail-tab="files" aria-controls="detailTabFiles">Files</button>
+      <button type="button" class="maintenance-view-button" role="tab" data-detail-tab="temperature" aria-controls="detailTabTemperature">Temperature, Preheat &amp; Fans</button>
+      <button type="button" class="maintenance-view-button" role="tab" data-detail-tab="job" aria-controls="detailTabJob">Current Job</button>
+      <button type="button" class="maintenance-view-button" role="tab" data-detail-tab="management" aria-controls="detailTabManagement">Maintenance &amp; Management</button>
+    </div>
+    <div class="printer-detail-tab-panels">
+      <section id="detailTabToolheads" class="printer-detail-tab-panel" role="tabpanel" data-detail-panel="toolheads"></section>
+      <section id="detailTabCamera" class="printer-detail-tab-panel" role="tabpanel" data-detail-panel="camera"></section>
+      <section id="detailTabFiles" class="printer-detail-tab-panel" role="tabpanel" data-detail-panel="files"></section>
+      <section id="detailTabTemperature" class="printer-detail-tab-panel" role="tabpanel" data-detail-panel="temperature"></section>
+      <section id="detailTabJob" class="printer-detail-tab-panel" role="tabpanel" data-detail-panel="job"></section>
+      <section id="detailTabManagement" class="printer-detail-tab-panel" role="tabpanel" data-detail-panel="management"></section>
+    </div>
+    ${wideToolheadLayout ? materialStatusMarkup : ''}
     <div class="detail-grid">
       <div class="detail-column detail-column-left">
         ${detailCameraMarkup(printer)}
-        <div class="panel"${capabilities.camera ? ' style="margin-top:12px"' : ''}>
+        <div class="panel current-job-panel">
           <h3>Current job</h3>
           <div class="job"><span class="job-name" data-detail-file>${escapeHtml(s?.fileName || 'No active job')}</span><b data-detail-progress>${Math.round(s?.progress || 0)}%</b></div>
           <div class="progress"><span data-detail-progress-bar style="width:${Math.round(s?.progress || 0)}%"></span></div>
@@ -5883,7 +5939,7 @@ async function openPrinter(id) {
             <button class="danger" data-job="cancel"${disabled(capabilities.jobControl)}>Cancel</button>
           </div>
         </div>
-        <div class="panel">
+        <div class="panel printer-files-panel">
           <div class="file-heading"><h3>Files on printer</h3><span class="subtle">${escapeHtml(fileSourceLabel)}</span></div>
           ${fileUploadMarkup}
           ${capabilities.levelBeforePrint ? '<label class="checkbox-label"><input type="checkbox" id="levelBeforePrint" checked /> Level bed before print</label>' : '<div class="field-help">This printer uses the start G-code embedded in the uploaded file; controller-side pre-print levelling is not available.</div>'}
@@ -5895,13 +5951,13 @@ async function openPrinter(id) {
         </div>
       </div>
       <div class="detail-column detail-column-right">
-        <div class="panel">
+        <div class="panel temperature-panel">
           <h3>Temperature</h3>
           ${toolTemperatureMarkup}
           <div class="control-row"><label>Bed target<input id="bedInput" type="number" min="0" max="${maxBedC}" value="${s?.bed.target || 0}"${disabled(capabilities.bedTemperature)} /></label><span class="subtle" data-bed-now>${s?.bed.actual?.toFixed(0) || '—'} °C now</span><button class="secondary" data-set-temp="bed"${disabled(capabilities.bedTemperature)}>Set</button></div>
           ${chamberTemperatureMarkup}
         </div>
-        ${materialStatusMarkup}
+        ${wideToolheadLayout ? '' : materialStatusMarkup}
         ${capabilities.chamberPreheat ? `<div class="panel chamber-preheat-panel">
           <h3>Chamber preheat</h3>
           <p class="subtle">${nativeChamberPreheat
@@ -5958,13 +6014,100 @@ async function openPrinter(id) {
       </div>
     </div>
   </div>`;
-  const leftDetailColumn = printerDetail.querySelector('.detail-column-left');
-  if (leftDetailColumn) {
-    for (const selector of ['.chamber-preheat-panel', '.fans-panel']) {
-      const panel = printerDetail.querySelector(selector);
-      if (panel) leftDetailColumn.append(panel);
+  const detailGrid = printerDetail.querySelector('.detail-grid');
+  const detailTabPanel = (name) => printerDetail.querySelector(`[data-detail-panel="${name}"]`);
+  const appendDetailPanel = (tabName, element) => {
+    if (element) detailTabPanel(tabName)?.append(element);
+  };
+  const appendUnavailablePanel = (tabName, title, message) => {
+    const panel = detailTabPanel(tabName);
+    if (!panel) return;
+    const placeholder = document.createElement('div');
+    placeholder.className = 'panel detail-tab-unavailable';
+    placeholder.innerHTML = `<h3>${escapeHtml(title)}</h3><div class="subtle">${escapeHtml(message)}</div>`;
+    panel.append(placeholder);
+  };
+
+  const materialPanel = printerDetail.querySelector('.material-panel');
+  if (materialPanel) appendDetailPanel('toolheads', materialPanel);
+  else appendUnavailablePanel('toolheads', 'Toolheads', 'Toolhead material and configuration information is not available for this printer.');
+
+  const cameraElement = printerDetail.querySelector('.detail-camera');
+  if (cameraElement) {
+    const cameraPanel = document.createElement('div');
+    cameraPanel.className = 'panel detail-camera-panel';
+    cameraPanel.innerHTML = '<h3>Camera</h3>';
+    cameraPanel.append(cameraElement);
+    appendDetailPanel('camera', cameraPanel);
+  } else {
+    appendUnavailablePanel('camera', 'Camera', 'Camera support is not available for this printer.');
+  }
+
+  appendDetailPanel('files', printerDetail.querySelector('.printer-files-panel'));
+  appendDetailPanel('temperature', printerDetail.querySelector('.temperature-panel'));
+  appendDetailPanel('temperature', printerDetail.querySelector('.chamber-preheat-panel'));
+  appendDetailPanel('temperature', printerDetail.querySelector('.fans-panel'));
+  appendDetailPanel('job', printerDetail.querySelector('.current-job-panel'));
+
+  const managementPanel = detailTabPanel('management');
+  if (managementPanel) {
+    const managementLeft = document.createElement('div');
+    managementLeft.className = 'management-tab-column management-tab-column-left';
+    const managementRight = document.createElement('div');
+    managementRight.className = 'management-tab-column management-tab-column-right';
+    managementPanel.append(managementLeft, managementRight);
+
+    const maintenancePanel = printerDetail.querySelector('.maintenance-panel');
+    const diagnosticsPanel = printerDetail.querySelector('.diagnostics-panel');
+    const printerManagementPanel = printerDetail.querySelector('.printer-management-panel');
+    if (maintenancePanel) managementLeft.append(maintenancePanel);
+    if (printerManagementPanel) managementLeft.append(printerManagementPanel);
+    if (diagnosticsPanel) managementRight.append(diagnosticsPanel);
+  }
+  detailGrid?.remove();
+
+  for (const name of ['files','temperature','job','management']) {
+    const panel = detailTabPanel(name);
+    if (panel && !panel.children.length) {
+      appendUnavailablePanel(name, name === 'job' ? 'Current job' : name[0].toUpperCase() + name.slice(1), 'No information is available for this printer.');
     }
   }
+
+  const detailTabs = Array.from(printerDetail.querySelectorAll('[data-detail-tab]'));
+  const detailPanels = Array.from(printerDetail.querySelectorAll('[data-detail-panel]'));
+  const activateDetailTab = (name, focus = false) => {
+    const selected = detailTabs.find((tab) => tab.dataset.detailTab === name) || detailTabs[0];
+    if (!selected) return;
+    const selectedName = selected.dataset.detailTab;
+    printerDetailTabByPrinter.set(id, selectedName);
+    for (const tab of detailTabs) {
+      const active = tab === selected;
+      tab.classList.toggle('active', active);
+      tab.setAttribute('aria-selected', active ? 'true' : 'false');
+      tab.tabIndex = active ? 0 : -1;
+    }
+    for (const panel of detailPanels) {
+      const active = panel.dataset.detailPanel === selectedName;
+      panel.hidden = !active;
+      panel.classList.toggle('active', active);
+    }
+    if (focus) selected.focus();
+  };
+  for (const tab of detailTabs) {
+    tab.onclick = () => activateDetailTab(tab.dataset.detailTab);
+    tab.onkeydown = (event) => {
+      if (!['ArrowLeft','ArrowRight','Home','End'].includes(event.key)) return;
+      event.preventDefault();
+      const currentIndex = detailTabs.indexOf(tab);
+      const nextIndex = event.key === 'Home'
+        ? 0
+        : event.key === 'End'
+          ? detailTabs.length - 1
+          : (currentIndex + (event.key === 'ArrowRight' ? 1 : -1) + detailTabs.length) % detailTabs.length;
+      activateDetailTab(detailTabs[nextIndex]?.dataset.detailTab, true);
+    };
+  }
+  activateDetailTab(printerDetailTabByPrinter.get(id) || 'toolheads');
   if (!printerDialog.open) printerDialog.showModal();
   updateOpenPrinterTelemetry();
 
