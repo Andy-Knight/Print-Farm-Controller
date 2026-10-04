@@ -667,10 +667,9 @@ input:focus,select:focus { border-color:#7a9fbe; }
 .creator5-filament-config-control { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:6px 8px; align-items:end; margin-top:8px; padding-top:8px; border-top:1px solid #202a32; }
 .creator5-filament-config-control label { margin:0; color:#8493a1; font-size:.68rem; }
 .creator5-filament-config-control select { display:block; width:100%; min-width:0; min-height:34px; margin-top:4px; }
+.creator5-filament-config-control .creator5-color-dropdown { margin-top:4px; }
+.creator5-filament-config-control .creator5-color-dropdown summary { min-height:34px; padding:6px 8px; }
 .creator5-filament-config-control > button { grid-column:1 / -1; min-height:34px; padding:6px 9px; }
-.creator5-filament-color-row { display:flex; align-items:center; gap:6px; min-width:0; }
-.creator5-filament-color-row .material-swatch { flex:0 0 auto; margin-top:4px; }
-.creator5-filament-color-row select { flex:1 1 auto; }
 .u1-filament-config-control { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:6px 8px; align-items:end; margin-top:8px; padding-top:8px; border-top:1px solid #202a32; }
 .u1-filament-config-control label { margin:0; color:#8493a1; font-size:.68rem; }
 .u1-filament-config-control select { display:block; width:100%; min-height:34px; margin-top:4px; }
