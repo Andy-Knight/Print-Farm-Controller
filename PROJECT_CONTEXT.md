@@ -122,13 +122,13 @@ Manufacturer-specific discovery, capabilities, limits, status normalization, fil
 
 The current production baseline is **v0.40.1** on `main`.
 
-Active development is **v0.40.1** on `feature/multitool-help-text-normalization`. Multi-tool Toolheads controls are being visually normalized so filament and nozzle helper text use one compact style and concise shared wording. Printer-specific detail is shown only where behaviour differs, such as PrusaLink fallback, Snapmaker U1 write conditions or Creator 5 nozzle-reporting limitations.
+Active development is **v0.40.1** on `feature/multitool-nozzle-alignment`. Multi-tool Toolheads layout is being normalized so the Nozzle column mirrors Filament configuration: the full-width nozzle selector is followed by equal-width **Assign** and **Clear** buttons with the shared helper text aligned beneath.
 
 ## Next steps
 
-1. Run the complete `npm test` regression suite.
-2. Visually confirm helper text consistency on Snapmaker U1, Prusa CORE One+ INDX and Creator 5 / Creator 5 Pro Toolheads rows in Light and Dark themes.
-3. Confirm model-specific helper text appears only when it adds behaviour not covered by the shared baseline wording.
+1. Let GitHub Actions run the complete regression suite through a pull request.
+2. Visually confirm Prusa CORE One+ INDX and Creator 5 / Creator 5 Pro nozzle controls align with the filament configuration column in Light and Dark themes.
+3. Merge only after the PR checks pass.
 
 ## Licensing baseline
 
