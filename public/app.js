@@ -4878,8 +4878,6 @@ function toolNozzleDesignationMarkup(printer, tool = {}, toolCount = 1) {
     ? 'Creator 5 firmware does not reliably report the installed nozzle size, so clearing leaves that toolhead nozzle size unknown until another controller designation is assigned.'
     : 'if PrusaLink does not report that nozzle, its size becomes unknown and unattended jobs requiring an explicit nozzle will need review.';
   const compactClass = creator5 ? ' creator5-tool-nozzle-control' : '';
-  const assignLabel = creator5 ? 'Assign' : `Assign T${tool.index} nozzle`;
-  const clearLabel = creator5 ? 'Clear' : 'Clear assignment';
   const helpMarkup = creator5
     ? ''
     : `<div class="field-help">Choose one of the supported nozzle sizes for physical T${tool.index}. The controller stores the selection independently for this toolhead and uses it for queue compatibility; free-typed nozzle sizes are not accepted. Clearing removes the controller assignment${hasReported ? ` and returns T${tool.index} to the ${escapeHtml(nozzleDiameterText(reported))} value reported by ${escapeHtml(reportedSource)}.` : `; ${escapeHtml(unknownHelp)}`}</div>`;
@@ -4893,8 +4891,8 @@ function toolNozzleDesignationMarkup(printer, tool = {}, toolCount = 1) {
       })}
     </label>
     <div class="mini-actions">
-      <button type="button" class="secondary" data-tool-nozzle-save="${tool.index}">${escapeHtml(assignLabel)}</button>
-      <button type="button" class="secondary" data-tool-nozzle-clear="${tool.index}">${escapeHtml(clearLabel)}</button>
+      <button type="button" class="secondary" data-tool-nozzle-save="${tool.index}">Assign</button>
+      <button type="button" class="secondary" data-tool-nozzle-clear="${tool.index}">Clear</button>
     </div>
     ${helpMarkup}
   </div>`;
@@ -4937,7 +4935,6 @@ function flashForgeNozzleDesignationMarkup(printer, tool = {}) {
   const reported = Number.isFinite(Number(tool.reportedNozzleDiameter)) && Number(tool.reportedNozzleDiameter) > 0
     ? Number(tool.reportedNozzleDiameter)
     : null;
-  const clearLabel = reported ? 'Use printer value' : 'Clear designation';
   const options = printerNozzleDiameterOptions(printer);
   const unavailableHelp = printer?.manufacturer === 'Prusa'
     ? 'PrusaLink may not report every installed nozzle size, so this controller designation is used when a supported single-tool Prusa model needs an explicit nozzle value.'
@@ -4952,7 +4949,7 @@ function flashForgeNozzleDesignationMarkup(printer, tool = {}) {
     <label>Controller nozzle designation
       ${selector}
     </label>
-    <div class="mini-actions"><button type="button" class="secondary" data-nozzle-designation-save>Assign nozzle</button><button type="button" class="secondary" data-nozzle-designation-clear>${escapeHtml(clearLabel)}</button></div>
+    <div class="mini-actions"><button type="button" class="secondary" data-nozzle-designation-save>Assign</button><button type="button" class="secondary" data-nozzle-designation-clear>Clear</button></div>
     <div class="field-help">Stored by Print Farm Controller for this printer and used by automatic queue compatibility.${reported ? ` Printer currently reports ${escapeHtml(nozzleDiameterText(reported))}.` : ` ${escapeHtml(unavailableHelp)}`}</div>
   </div>`;
 }
@@ -6508,7 +6505,7 @@ ${flashForgePreflight}` : ''}`)) return;
     const nozzleDiameter = Number(input?.value);
     const allowedNozzles = printerNozzleDiameterOptions(printer);
     if (!allowedNozzles.some((value) => Math.abs(value - nozzleDiameter) < 0.0001)) {
-      showError(new Error('Choose a nozzle size from the list, or use Clear assignment.'));
+      showError(new Error('Choose a nozzle size from the list, or use Clear.'));
       return;
     }
 
@@ -6624,7 +6621,7 @@ ${flashForgePreflight}` : ''}`)) return;
       ? prusaNozzles.some((value) => Math.abs(value - nozzleDiameter) < 0.0001)
       : Number.isFinite(nozzleDiameter) && nozzleDiameter >= 0.1 && nozzleDiameter <= 1.2;
     if (!valid) {
-      showError(new Error(prusaNozzles ? 'Choose a nozzle size from the list, or use Clear designation.' : 'Enter a nozzle diameter between 0.1 and 1.2 mm, or use Clear designation.'));
+      showError(new Error(prusaNozzles ? 'Choose a nozzle size from the list, or use Clear.' : 'Enter a nozzle diameter between 0.1 and 1.2 mm, or use Clear.'));
       return;
     }
     const original = nozzleDesignationSave.textContent;
