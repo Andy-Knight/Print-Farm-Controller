@@ -73,7 +73,8 @@ const COMMON_CAPABILITIES = normalizeCapabilities({
   chamberTemperatureSensor:false,
   materialStatus:true,
   materialDesignation:false,
-  nozzleDesignation:true,
+  nozzleDesignation:false,
+  toolNozzleDesignation:true,
   printToolMapping:true,
   flowCalibrationBeforePrint:true,
   timeLapseBeforePrint:true
@@ -125,8 +126,9 @@ export class FlashForgeCreator5Adapter extends PrinterAdapter {
 
   async getStatus() {
     const status = await getCreator5Status(this.printer);
-    const manualNozzle = Number(this.printer.adapterConfig?.nozzleDiameterDesignation);
-    const manualNozzleDiameter = Number.isFinite(manualNozzle) && manualNozzle > 0 ? manualNozzle : null;
+    const toolDesignations = this.printer.adapterConfig?.toolDesignations && typeof this.printer.adapterConfig.toolDesignations === 'object'
+      ? this.printer.adapterConfig.toolDesignations
+      : {};
     for (const tool of status.tools || []) {
       const filament = tool.filament || {};
       const reportedColor = normalizeColor(filament.color);
@@ -137,6 +139,8 @@ export class FlashForgeCreator5Adapter extends PrinterAdapter {
 
       const reportedNozzle = Number(tool.nozzleDiameter);
       tool.reportedNozzleDiameter = Number.isFinite(reportedNozzle) && reportedNozzle > 0 ? reportedNozzle : null;
+      const manualNozzle = Number(toolDesignations[String(tool.index)]?.nozzleDiameter);
+      const manualNozzleDiameter = Number.isFinite(manualNozzle) && manualNozzle > 0 ? manualNozzle : null;
       if (manualNozzleDiameter) {
         tool.nozzleDiameter = manualNozzleDiameter;
         tool.nozzleDiameterSource = 'manual';
