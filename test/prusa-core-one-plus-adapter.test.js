@@ -476,8 +476,8 @@ test('CORE One+ INDX UI and API expose a nozzle designation for every physical t
   assert.doesNotMatch(app, /prusaToolNozzleSizes-/);
   assert.match(app, /data-tool-nozzle-save/);
   assert.match(app, /data-tool-nozzle-clear/);
-  assert.match(app, /Assign T\$\{tool\.index\} nozzle/);
-  assert.match(app, /data-tool-nozzle-clear="\$\{tool\.index\}">Clear assignment<\/button>/);
+  assert.match(app, /const assignLabel = creator5 \? 'Assign' : `Assign T\$\{tool\.index\} nozzle`/);
+  assert.match(app, /const clearLabel = creator5 \? 'Clear' : 'Clear assignment'/);
   assert.match(app, /toolNozzleDesignationMarkup\(printer, tool, tools\.length\)/);
   assert.match(app, /\/tool-nozzle-designation/);
   assert.match(server, /action === 'tool-nozzle-designation'/);
