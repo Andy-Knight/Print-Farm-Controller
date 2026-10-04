@@ -9,7 +9,7 @@ If chat context and this file disagree about the codebase, inspect current GitHu
 - Repository: `Andy-Knight/Print-Farm-Controller`
 - Project path: repository root (`/`)
 - Primary branch: `main` (current production baseline)
-- Current application version on this branch: **0.40.1**. Production baseline on `main`: **0.40.0**.
+- Current application version on this branch: **0.40.1**. Production baseline on `main`: **0.40.1**.
 - Runtime: **Node.js 24+** (development baseline Node.js 24.21.0), ES modules, no npm runtime dependencies.
 - GitHub is the authoritative code baseline.
 - Release/version history is maintained only in `CHANGELOG.md`; do not duplicate per-version history in this handoff file.
@@ -120,18 +120,15 @@ Manufacturer-specific discovery, capabilities, limits, status normalization, fil
 
 ## Current task
 
-The current production baseline is **v0.40.0** on `main`.
+The current production baseline is **v0.40.1** on `main`.
 
-Active development is **v0.40.1** on `feature/creator5-nozzle-behaviour`. Creator 5 / Creator 5 Pro now model nozzle designation independently for physical T0-T3 instead of sharing one printer-wide nozzle value. Existing shared Creator 5 nozzle configuration is migrated across all four tools while preserving any per-tool override. Queue compatibility continues to evaluate the effective nozzle on the mapped physical tool.
-
-Creator 5-series printer details now also expose writable per-tool **Filament configuration**. T0-T3 each use the firmware-confirmed Creator 5 21-material / 24-colour palette; the controller sends the native `msConfig_cmd` slot metadata command and verifies the change by reading `/detail` back before reporting success. The Toolheads table therefore uses **Toolhead / Live information / Filament configuration / Nozzle**, with compact nozzle actions.
+Active development is **v0.40.1** on `feature/multitool-help-text-normalization`. Multi-tool Toolheads controls are being visually normalized so filament and nozzle helper text use one compact style and concise shared wording. Printer-specific detail is shown only where behaviour differs, such as PrusaLink fallback, Snapmaker U1 write conditions or Creator 5 nozzle-reporting limitations.
 
 ## Next steps
 
-1. Run the complete `npm test` regression suite for v0.40.1.
-2. Validate independent T0-T3 nozzle designation, remote filament type/colour writes, and queue compatibility in the Creator 5 / Creator 5 Pro simulator.
-3. Confirm the Creator 5 Toolheads table in Light/Dark themes and at desktop/narrow widths.
-4. On physical Creator 5 / Creator 5 Pro hardware, verify `msConfig_cmd` material/colour writes are reflected by `/detail` on current firmware.
+1. Run the complete `npm test` regression suite.
+2. Visually confirm helper text consistency on Snapmaker U1, Prusa CORE One+ INDX and Creator 5 / Creator 5 Pro Toolheads rows in Light and Dark themes.
+3. Confirm model-specific helper text appears only when it adds behaviour not covered by the shared baseline wording.
 
 ## Licensing baseline
 
