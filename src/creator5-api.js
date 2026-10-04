@@ -41,7 +41,7 @@ function normalizeCreatorState(value) {
   return state;
 }
 
-export function normalizeCreator5Status(detail = {}, { model = null, nozzleDiameter = null } = {}) {
+export function normalizeCreator5Status(detail = {}, { model = null } = {}) {
   const nozzleTemps = Array.isArray(detail.nozzleTemps) ? detail.nozzleTemps : [];
   const nozzleTargets = Array.isArray(detail.nozzleTargetTemps) ? detail.nozzleTargetTemps : [];
   const slots = slotInfoByIndex(detail);
@@ -58,9 +58,6 @@ export function normalizeCreator5Status(detail = {}, { model = null, nozzleDiame
     .filter((item) => Number.isFinite(item.target) && item.target > 0)
     .map((item) => item.index);
   const activeIndex = activeCandidates.length === 1 ? activeCandidates[0] : null;
-  const designatedNozzle = Number(nozzleDiameter);
-  const nozzleSize = Number.isFinite(designatedNozzle) && designatedNozzle > 0 ? designatedNozzle : null;
-
   const tools = Array.from({ length:CREATOR5_TOOL_COUNT }, (_, index) => {
     const slot = slots.get(index) || {};
     const hasFilament = typeof slot.hasFilament === 'boolean'
@@ -74,7 +71,7 @@ export function normalizeCreator5Status(detail = {}, { model = null, nozzleDiame
       actual:numeric(nozzleTemps[index], index === 0 ? numeric(detail.rightTemp) : 0),
       target:numeric(nozzleTargets[index], index === 0 ? numeric(detail.rightTargetTemp) : 0),
       active:activeIndex === index,
-      nozzleDiameter:nozzleSize,
+      nozzleDiameter:null,
       filament:{
         present:hasFilament,
         detecting:false,
@@ -146,8 +143,7 @@ export function normalizeCreator5Status(detail = {}, { model = null, nozzleDiame
 export async function getCreator5Status(printer) {
   const response = await postPrinterApi(printer, '/detail', printerAuth(printer));
   return normalizeCreator5Status(response.detail || {}, {
-    model:printer.model,
-    nozzleDiameter:printer.adapterConfig?.nozzleDiameterDesignation
+    model:printer.model
   });
 }
 
