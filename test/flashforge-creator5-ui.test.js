@@ -31,8 +31,8 @@ test('Creator 5 printer details expose one fixed nozzle selector per physical to
   assert.match(adapter, /toolNozzleDesignation:true/);
   assert.match(app, /function toolNozzleDesignationMarkup\(/);
   assert.match(app, /data-tool-nozzle-input="/);
-  assert.match(app, /data-tool-nozzle-save="/);
-  assert.match(app, /data-tool-nozzle-clear="/);
+  assert.match(app, /data-tool-nozzle-save="\$\{tool\.index\}">Assign<\/button>/);
+  assert.match(app, /data-tool-nozzle-clear="\$\{tool\.index\}">Clear<\/button>/);
   assert.match(app, /creator5-tool-nozzle-control/);
   assert.match(app, /const assignLabel = creator5 \? 'Assign'/);
   assert.match(app, /const clearLabel = creator5 \? 'Clear'/);
