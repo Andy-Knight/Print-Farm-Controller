@@ -1198,7 +1198,8 @@ button.library-file-preview { cursor:zoom-in; }
 :root[data-theme="light"] .material-tool-information > b { color:#1c2a35; }
 :root[data-theme="light"] .material-tool-information > small.material-rgb { color:#607585; }
 :root[data-theme="light"] .multi-tool-table .material-tool-information,
-:root[data-theme="light"] .multi-tool-table .material-tool-configuration { border-top-color:#dce4ea; }
+:root[data-theme="light"] .multi-tool-table .material-tool-configuration,
+:root[data-theme="light"] .multi-tool-table .material-tool-nozzle { border-top-color:#dce4ea; }
 :root[data-theme="light"] .material-swatch.unknown {
   background:repeating-linear-gradient(45deg,#d9e2e8,#d9e2e8 4px,#f4f7f9 4px,#f4f7f9 8px);
   border-color:#aebdca;
