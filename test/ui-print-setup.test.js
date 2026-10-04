@@ -828,4 +828,6 @@ test('printer details are organised into six consistent tabs', () => {
   assert.match(styles, /\.printer-detail-tab-panel\[hidden\] \{ display:none !important; \}/);
   assert.match(styles, /\.printer-detail-tab-panel\[data-detail-panel="management"\] \{[\s\S]*grid-template-columns:minmax\(0,1fr\) minmax\(0,1fr\)/);
   assert.match(styles, /\.management-tab-column \{[\s\S]*flex-direction:column/);
+  assert.match(styles, /\.maintenance-panel > \.mini-actions \{ margin-top:10px; \}/);
+  assert.match(styles, /\.maintenance-panel > \.field-help \{[\s\S]*margin-top:10px;[\s\S]*line-height:1\.4;/);
 });
