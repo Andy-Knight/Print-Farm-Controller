@@ -785,7 +785,7 @@ test('multi-tool printers use a full-width toolhead information and configuratio
   assert.match(app, /material-panel\$\{wideToolheadLayout \? ' material-panel-wide' : ''\}/);
   assert.match(app, /material-table-head\$\{manualNozzleColumn \? ' has-nozzle-column' : ''\}/);
   assert.match(app, /<span>Toolhead<\/span><span>Live information<\/span>/);
-  assert.match(app, /showConfigurationColumn \? '<span>Configuration<\/span>' : ''/);
+  assert.match(app, /showConfigurationColumn \? '<span>Filament configuration<\/span>' : ''/);
   assert.match(app, /const creator5ToolTable = Boolean\(wideToolheadLayout && printer\.adapterType === 'flashforge-creator5'\)/);
   assert.match(app, /manualNozzleColumn \? '<span>Nozzle<\/span>' : ''/);
   assert.match(app, /multi-tool-table/);
