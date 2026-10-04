@@ -227,6 +227,53 @@ input:focus,select:focus { border-color:#7a9fbe; }
 .detail-camera { width:100%; aspect-ratio:16/9; height:auto; object-fit:cover; border-radius:14px; background:#090c10; border:1px solid #29323b; }
 .detail-camera.camera-placeholder { display:grid; place-items:center; }
 .detail-health { color:#687986; font-size:.76rem; margin-top:5px; }
+.printer-detail-tabs {
+  display:flex;
+  gap:6px;
+  overflow-x:auto;
+  padding:2px 0 10px;
+  margin:0 0 14px;
+  border-bottom:1px solid #29343d;
+  scrollbar-width:thin;
+}
+.printer-detail-tabs button {
+  flex:0 0 auto;
+  min-height:38px;
+  padding:8px 12px;
+  border:1px solid transparent;
+  border-radius:9px;
+  background:transparent;
+  color:#8293a0;
+  font-size:.74rem;
+  font-weight:850;
+  white-space:nowrap;
+}
+.printer-detail-tabs button:hover,
+.printer-detail-tabs button:focus-visible {
+  background:#182129;
+  color:#dce4eb;
+  border-color:#2d3943;
+}
+.printer-detail-tabs button.active {
+  background:#1c2b35;
+  color:#e8edf2;
+  border-color:#3a5263;
+}
+.printer-detail-tab-panel[hidden] { display:none !important; }
+.printer-detail-tab-panel { min-width:0; }
+.printer-detail-tab-panel > .panel:last-child { margin-bottom:0; }
+.printer-detail-tab-panel[data-detail-panel="temperature"],
+.printer-detail-tab-panel[data-detail-panel="management"] {
+  display:grid;
+  grid-template-columns:minmax(0,1fr) minmax(0,1fr);
+  gap:12px;
+  align-items:start;
+}
+.printer-detail-tab-panel[data-detail-panel="temperature"] > .panel,
+.printer-detail-tab-panel[data-detail-panel="management"] > .panel { margin-bottom:0; }
+.printer-detail-tab-panel[data-detail-panel="management"] .printer-management-panel { grid-column:1 / -1; }
+.detail-camera-panel .detail-camera { display:block; }
+.detail-tab-unavailable { min-height:110px; display:flex; flex-direction:column; justify-content:center; }
 .detail-error-banner { position:sticky; top:0; z-index:6; margin:0 0 12px; border:1px solid #754047; box-shadow:0 8px 22px rgba(0,0,0,.22); }
 .bed-level-status.active { margin-top:9px; color:#9fc9ea; font-weight:750; }
 .detail-activity-banner { display:flex; flex-direction:column; gap:3px; margin:0 0 12px; padding:10px 12px; border:1px solid #365a70; border-radius:10px; background:#13232d; color:#a9d5ee; }
@@ -261,6 +308,9 @@ input:focus,select:focus { border-color:#7a9fbe; }
   .fleet { grid-template-columns:1fr; }
   .card-head { min-height:0; }
   .detail-grid { grid-template-columns:1fr; }
+  .printer-detail-tab-panel[data-detail-panel="temperature"],
+  .printer-detail-tab-panel[data-detail-panel="management"] { grid-template-columns:1fr; }
+  .printer-detail-tab-panel[data-detail-panel="management"] .printer-management-panel { grid-column:auto; }
   .discovery-heading,.discovery-result { align-items:stretch; flex-direction:column; }
   .control-row { grid-template-columns:1fr auto; }
   .control-row > span { display:none; }
@@ -1189,6 +1239,19 @@ button.library-file-preview { cursor:zoom-in; }
 :root[data-theme="light"] .material-tool.filament-missing {
   background:#fff3f4;
   border-color:#d7a8ad;
+}
+:root[data-theme="light"] .printer-detail-tabs { border-bottom-color:#d5dee5; }
+:root[data-theme="light"] .printer-detail-tabs button { color:#607585; }
+:root[data-theme="light"] .printer-detail-tabs button:hover,
+:root[data-theme="light"] .printer-detail-tabs button:focus-visible {
+  background:#edf3f7;
+  color:#263744;
+  border-color:#cfd9e1;
+}
+:root[data-theme="light"] .printer-detail-tabs button.active {
+  background:#e3edf4;
+  color:#1d3443;
+  border-color:#b8cad7;
 }
 :root[data-theme="light"] .material-table-head { color:#607585; }
 :root[data-theme="light"] .material-grid.multi-tool-table,
