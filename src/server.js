@@ -325,13 +325,72 @@ const alertService = new AlertService({
   diagnosticFn:(level, message, meta) => diagnosticLogger[level]?.('alerts', message, meta)
 });
 const reportingService = new ReportingService({ filePath:path.join(runtimePaths.dataDir, 'reporting-history.json') });
+
+async function recordQueueHistoryAndAlerts(jobs = [], { seed = false } = {}) {
+  const reportingResult = await reportingService.recordTerminalJobs(jobs);
+  if (seed) return reportingResult;
+
+  const printersById = new Map(fleetState.getFleet().map((printer) => [String(printer.id), printer]));
+  let emitted = 0;
+  for (const job of Array.isArray(jobs) ? jobs : []) {
+    const status = String(job?.status || '').toLowerCase();
+    if (!['completed', 'failed', 'cancelled'].includes(status) || !job?.id) continue;
+
+    const livePrinter = printersById.get(String(job.printerId || '')) || null;
+    const printer = job.printerId ? {
+      id:String(job.printerId),
+      name:job.printerName || livePrinter?.name || null,
+      adapterType:livePrinter?.adapterType || null,
+      model:livePrinter?.model || null
+    } : null;
+    const fileName = String(job.fileName || 'Print job');
+    const printerName = job.printerName || livePrinter?.name || 'printer';
+    const event = status === 'completed'
+      ? {
+          severity:'info',
+          title:'Print completed',
+          message:`${fileName} completed on ${printerName}.`
+        }
+      : status === 'failed'
+        ? {
+            severity:'critical',
+            title:'Print failed',
+            message:`${fileName} failed on ${printerName}${job.error ? `: ${job.error}` : '.'}`
+          }
+        : {
+            severity:'info',
+            title:'Print cancelled',
+            message:`${fileName} was cancelled on ${printerName}.`
+          };
+
+    const result = await alertService.emit({
+      id:`queue-job:${job.id}:${status}`,
+      type:`print.${status}`,
+      severity:event.severity,
+      title:event.title,
+      message:event.message,
+      source:{ kind:'queue', id:String(job.id), name:fileName },
+      printer,
+      metadata:{
+        jobId:String(job.id),
+        productionBatchId:job.productionBatchId || null,
+        libraryFileId:job.libraryFileId || job.stagedFile?.id || null
+      }
+    });
+    if (!result.duplicate) emitted += 1;
+  }
+
+  if (emitted) fleetState.schedulePublish();
+  return reportingResult;
+}
+
 const printQueue = new PrintQueueService({
   fleetState,
   chamberPreheat,
   getPrinterGroupFn:(groupId) => printerGroups.get(groupId),
   printerAllowedFn: printerLicensedForNewWork,
   operationCoordinator:printerOperations,
-  recordTerminalJobsFn:(jobs) => reportingService.recordTerminalJobs(jobs),
+  recordTerminalJobsFn:recordQueueHistoryAndAlerts,
   onChange: () => fleetState.schedulePublish(),
   diagnosticFn:(level, message, meta) => diagnosticLogger[level]?.('queue', message, meta)
 });
