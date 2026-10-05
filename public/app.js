@@ -188,6 +188,8 @@ const queueAddGroup = document.querySelector('#queueAddGroup');
 const queueAddSelectedFile = document.querySelector('#queueAddSelectedFile');
 const queueAddStatus = document.querySelector('#queueAddStatus');
 const queueAddError = document.querySelector('#queueAddError');
+const alertsBtn = document.querySelector('#alertsBtn');
+const alertsButtonCount = document.querySelector('#alertsButtonCount');
 const maintenanceAlertBtn = document.querySelector('#maintenanceAlertBtn');
 const maintenanceAlertCount = document.querySelector('#maintenanceAlertCount');
 const themeToggle = document.querySelector('#themeToggle');
@@ -196,6 +198,7 @@ const themeColorMeta = document.querySelector('#themeColorMeta');
 let fleet = [];
 let adapters = [];
 let queueState = { jobs:[], queued:0, active:0, history:0, needsReview:0, awaitingClearance:0, bedClearance:[], productionBatches:[] };
+let alertsSummaryState = { unreadCount:0, recent:[] };
 let libraryState = { files:[] };
 let printerGroupsState = { version:1, groups:[] };
 let libraryMetadataFile = null;
@@ -2283,6 +2286,31 @@ function updateMaintenanceIcon(root, printer) {
   icon.title = actionText;
 }
 
+function setAlertsSummary(summary = {}) {
+  alertsSummaryState = {
+    unreadCount:Math.max(0, Number(summary?.unreadCount || 0)),
+    recent:Array.isArray(summary?.recent) ? summary.recent : []
+  };
+  if (alertsBtn && alertsButtonCount) {
+    const unread = alertsSummaryState.unreadCount;
+    alertsButtonCount.textContent = unread > 99 ? '99+' : String(unread);
+    alertsButtonCount.classList.toggle('hidden', unread === 0);
+    alertsBtn.classList.toggle('has-alerts', unread > 0);
+    const unreadRecent = alertsSummaryState.recent.filter((alert) => !alert?.readAt);
+    const severity = unreadRecent.some((alert) => alert?.severity === 'critical')
+      ? 'critical'
+      : unreadRecent.some((alert) => alert?.severity === 'warning')
+        ? 'warning'
+        : unread > 0 ? 'info' : 'none';
+    alertsBtn.dataset.state = severity;
+    alertsBtn.setAttribute('aria-label', unread
+      ? `Open farm alerts. ${unread} unread alert${unread === 1 ? '' : 's'}.`
+      : 'Open farm alerts. No unread alerts.');
+    alertsBtn.title = unread ? `${unread} unread farm alert${unread === 1 ? '' : 's'}` : 'Farm alerts';
+  }
+  window.dispatchEvent(new CustomEvent('pfc-alerts-live', { detail:structuredClone(alertsSummaryState) }));
+}
+
 function renderMaintenanceAlert() {
   if (!maintenanceAlertBtn || !maintenanceAlertCount) return;
   const alerts = dashboardScopedFleet().filter(printerHasMaintenanceAlert);
@@ -3340,6 +3368,7 @@ async function loadInitialFleet() {
     const result = await api('/api/fleet');
     fleet = result.printers || [];
     queueState = result.queue || queueState;
+    setAlertsSummary(result.alerts || alertsSummaryState);
     setControllerVersion(result.version);
     setControllerLicense(result.license);
     reconcileFleet();
@@ -3359,6 +3388,7 @@ function connectLiveUpdates() {
       const payload = JSON.parse(event.data);
       fleet = payload.printers || [];
       queueState = payload.queue || queueState;
+      setAlertsSummary(payload.alerts || alertsSummaryState);
       setControllerVersion(payload.version);
       setControllerLicense(payload.license);
       reconcileFleet();
