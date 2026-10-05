@@ -30,6 +30,7 @@ async function createBackupFixture(root, {
   printers = [{ id:'restored-printer', name:'Restored printer' }],
   printerGroups = { version:1, groups:[] },
   filaments = { version:1, filaments:[] },
+  alerts = { version:1, rules:[], destinations:[], history:[] },
   backupLicense = null
 } = {}) {
   const sourceData = path.join(root, 'backup-source');
@@ -41,6 +42,7 @@ async function createBackupFixture(root, {
   await writeJson(path.join(sourceData, 'file-material-metadata.json'), {});
   await writeJson(path.join(sourceData, 'printer-groups.json'), printerGroups);
   await writeJson(path.join(sourceData, 'filaments.json'), filaments);
+  await writeJson(path.join(sourceData, 'alerts.json'), alerts);
   if (backupLicense) await writeJson(sourceLicense, backupLicense);
   await createBackupArchive({
     destinationPath:backupPath,
@@ -136,6 +138,12 @@ test('activation swaps staged data and commit makes the restored state permanent
       printers:[{ id:'new-printer', name:'New printer' }],
       printerGroups:{ version:1, groups:[{ id:'group-restored', name:'Restored production', printerIds:['new-printer'] }] },
       filaments:{ version:1, filaments:[{ id:'11111111-1111-4111-8111-111111111111', material:'PLA', materialKey:'PLA', costPerKg:19.5, currency:'GBP' }] },
+      alerts:{
+        version:1,
+        destinations:[{ id:'dest-restored', name:'Mobile', provider:'ntfy', enabled:true, config:{ server:'https://ntfy.sh', topic:'restore-test', token:'secret' } }],
+        rules:[{ id:'rule-restored', name:'Failures', enabled:true, eventTypes:['print.failed'], severities:['critical'], scope:{ type:'group', groupId:'group-restored' }, destinationIds:['dest-restored'] }],
+        history:[{ id:'alert-restored', type:'print.failed', severity:'critical', title:'Print failed', message:'Restored alert', createdAt:'2026-09-24T18:00:00.000Z', readAt:null }]
+      },
       backupLicense:{ current:'restored' }
     });
     await stageRestoreBackup(fixture.backupPath, {
@@ -158,6 +166,10 @@ test('activation swaps staged data and commit makes the restored state permanent
     assert.deepEqual(restoredGroups.groups[0].printerIds, ['new-printer']);
     const restoredFilaments = JSON.parse(await fs.readFile(path.join(liveData, 'filaments.json'), 'utf8'));
     assert.equal(restoredFilaments.filaments[0].costPerKg, 19.5);
+    const restoredAlerts = JSON.parse(await fs.readFile(path.join(liveData, 'alerts.json'), 'utf8'));
+    assert.equal(restoredAlerts.rules[0].scope.groupId, 'group-restored');
+    assert.equal(restoredAlerts.destinations[0].config.token, 'secret');
+    assert.equal(restoredAlerts.history[0].id, 'alert-restored');
     assert.deepEqual(JSON.parse(await fs.readFile(liveLicense, 'utf8')), { current:'restored' });
 
     await commitActivatedRestore(tx);
