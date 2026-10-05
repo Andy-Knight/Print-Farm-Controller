@@ -122,13 +122,16 @@ Manufacturer-specific discovery, capabilities, limits, status normalization, fil
 
 The current production baseline is **v0.40.2** on `main`.
 
-No feature branch is currently designated as active development. The next controller feature should be selected before creating the next feature branch.
+Active development is **v0.41.0** on `feature/farm-alerts-notifications`. The feature will add a manufacturer-agnostic Farm Alerts & Notifications service with persistent alert history, configurable alert rules, controller UI notifications, ntfy mobile push delivery, generic outbound webhooks, and email delivery.
 
 ## Next steps
 
-1. Select the next controller feature for development.
-2. Create a dedicated feature branch from the current `main` baseline.
-3. Increment the application version with the next delivered feature and update README/context as part of the change.
+1. Define the alert/event model, severity levels, persistence format, and rule matching behaviour.
+2. Implement the central alert service and persistent alert history without coupling it to printer-specific adapters.
+3. Add notification providers beginning with controller UI alerts, ntfy and generic webhooks, followed by email.
+4. Wire print/queue, printer availability, maintenance and backup events into the alert service.
+5. Add configuration UI, test-notification controls, emulator coverage and regression tests.
+6. Increment the application version to v0.41.0 when the feature is ready for delivery and update README/CHANGELOG/context.
 
 ## Licensing baseline
 
