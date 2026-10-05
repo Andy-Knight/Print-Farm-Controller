@@ -109,12 +109,14 @@ test('scheduled backups are verified, retained by installation, and never prune 
     await fs.mkdir(destination, { recursive:true });
     const dataDir = await makeData(root, 'controller-a');
     const lock = new BackupOperationLock();
+    const outcomes = [];
     const service = new ScheduledBackupService({
       dataDir,
       applicationDir:root,
       licensePath:path.join(root, 'no-license-a.json'),
       controllerVersion:'0.23.0',
       operationLock:lock,
+      onResult:(result) => outcomes.push(structuredClone(result)),
       setTimeoutFn:timers.setTimeoutFn,
       clearTimeoutFn:timers.clearTimeoutFn
     });
@@ -138,6 +140,10 @@ test('scheduled backups are verified, retained by installation, and never prune 
       const result = await service.runScheduledBackup({ now });
       assert.equal(result.success, true);
     }
+
+    assert.equal(outcomes.length, 3);
+    assert.ok(outcomes.every((outcome) => outcome.success === true));
+    assert.ok(outcomes.every((outcome) => outcome.trigger === 'scheduled'));
 
     const settingsA = await loadBackupSettings({ dataDir, create:false });
     assert.equal(settingsA.lastScheduledSuccess.source, 'scheduled');
