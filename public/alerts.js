@@ -305,11 +305,20 @@ function resetDestinationForm() {
   if (alertDestinationEnabled) alertDestinationEnabled.checked = true;
   if (alertNtfyServer) alertNtfyServer.value = 'https://ntfy.sh';
   if (alertNtfyTopic) alertNtfyTopic.value = randomTopic();
-  if (alertNtfyToken) alertNtfyToken.value = '';
+  if (alertNtfyToken) {
+    alertNtfyToken.value = '';
+    alertNtfyToken.placeholder = 'Optional';
+  }
   if (alertNtfyUsername) alertNtfyUsername.value = '';
-  if (alertNtfyPassword) alertNtfyPassword.value = '';
+  if (alertNtfyPassword) {
+    alertNtfyPassword.value = '';
+    alertNtfyPassword.placeholder = 'Optional';
+  }
   if (alertWebhookUrl) alertWebhookUrl.value = '';
-  if (alertWebhookAuthorization) alertWebhookAuthorization.value = '';
+  if (alertWebhookAuthorization) {
+    alertWebhookAuthorization.value = '';
+    alertWebhookAuthorization.placeholder = 'Optional, for example Bearer ...';
+  }
   if (alertDestinationSubmit) alertDestinationSubmit.textContent = 'Add destination';
   alertDestinationCancelEdit?.classList.add('hidden');
   updateDestinationProviderFields();
