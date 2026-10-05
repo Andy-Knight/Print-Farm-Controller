@@ -122,15 +122,17 @@ Manufacturer-specific discovery, capabilities, limits, status normalization, fil
 
 The current production baseline is **v0.40.2** on `main`.
 
-Active development is **v0.41.0** on `feature/farm-alerts-notifications`. The feature will add a manufacturer-agnostic Farm Alerts & Notifications service with persistent alert history, configurable alert rules, controller UI notifications, ntfy mobile push delivery, generic outbound webhooks, and email delivery.
+Active development is **v0.41.0** on `feature/farm-alerts-notifications` through draft pull request **#71**. The manufacturer-agnostic alert core, persistent history, read/unread state, farm/printer/group/model rules, ntfy and generic webhook destinations, test-delivery API, controller alert UI, live SSE unread indicator, backup/restore inclusion, and alert events for print terminal states, printer-offline transitions, maintenance due transitions and scheduled-backup outcomes are implemented on the branch.
+
+External delivery is opt-in: every supported event is retained locally, while only explicitly configured matching rules send outbound notifications. Notification credentials are backend-side and redacted from API responses.
 
 ## Next steps
 
-1. Define the alert/event model, severity levels, persistence format, and rule matching behaviour.
-2. Implement the central alert service and persistent alert history without coupling it to printer-specific adapters.
-3. Add notification providers beginning with controller UI alerts, ntfy and generic webhooks, followed by email.
-4. Wire print/queue, printer availability, maintenance and backup events into the alert service.
-5. Add configuration UI, test-notification controls, emulator coverage and regression tests.
+1. Get the complete pull-request regression/container smoke suite green after the initial alert UI and backup-event wiring.
+2. Add queue-attention/bed-clearance alert transitions and decide whether printer-online recovery events are useful without creating notification noise.
+3. Add email delivery if it can be done without compromising the controller's no-runtime-dependency baseline; otherwise document ntfy/webhooks as the initial remote-delivery providers.
+4. Add emulator-driven alert scenarios and broader API/UI regression coverage.
+5. Perform a real ntfy mobile test from a controller deployment, including delivery while the phone is off the local Wi-Fi.
 6. Increment the application version to v0.41.0 when the feature is ready for delivery and update README/CHANGELOG/context.
 
 ## Licensing baseline
