@@ -1372,7 +1372,16 @@ async function apiRoute(req, res, url) {
   }
 
   if (req.method === 'GET' && url.pathname === '/api/fleet') {
-    return json(res, 200, { printers: decoratedFleet(), queue: printQueue.getSnapshot(), version: CONTROLLER_VERSION, license: currentLicenseSnapshot() });
+    return json(res, 200, {
+      printers:decoratedFleet(),
+      queue:printQueue.getSnapshot(),
+      alerts:{
+        unreadCount:alertService.unreadCount(),
+        recent:alertService.listHistory({ limit:5 })
+      },
+      version:CONTROLLER_VERSION,
+      license:currentLicenseSnapshot()
+    });
   }
 
   if (req.method === 'GET' && url.pathname === '/api/queue') {
