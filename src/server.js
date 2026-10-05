@@ -138,6 +138,7 @@ const scheduledBackupService = new ScheduledBackupService({
   controllerVersion:CONTROLLER_VERSION,
   operationLock:backupOperationLock,
   diagnosticFn:(level, message, meta) => diagnosticLogger[level]?.('backup', message, meta),
+  onResult:handleScheduledBackupResult,
   googleDriveClient,
   oneDriveClient,
   s3Client
@@ -326,6 +327,29 @@ const alertService = new AlertService({
   diagnosticFn:(level, message, meta) => diagnosticLogger[level]?.('alerts', message, meta)
 });
 const reportingService = new ReportingService({ filePath:path.join(runtimePaths.dataDir, 'reporting-history.json') });
+
+async function handleScheduledBackupResult(result = {}) {
+  if (result?.skipped || typeof result?.success !== 'boolean') return;
+  const scheduledFor = String(result.scheduledFor || new Date().toISOString());
+  const success = result.success === true;
+  const alertResult = await alertService.emit({
+    id:`scheduled-backup:${scheduledFor}:${success ? 'completed' : 'failed'}`,
+    type:success ? 'backup.completed' : 'backup.failed',
+    severity:success ? 'info' : 'critical',
+    title:success ? 'Scheduled backup completed' : 'Scheduled backup failed',
+    message:success
+      ? `Scheduled backup ${result.backup?.fileName || ''} completed successfully.`.replace(/\s+/g, ' ').trim()
+      : `Scheduled backup failed: ${result.error || 'Unknown error'}`,
+    source:{ kind:'backup', id:scheduledFor, name:'Scheduled backup' },
+    metadata:{
+      trigger:result.trigger || 'scheduled',
+      scheduledFor,
+      destinationType:result.backup?.destinationType || result.destinationType || null,
+      fileName:result.backup?.fileName || null
+    }
+  });
+  if (!alertResult?.duplicate) fleetState.schedulePublish();
+}
 
 async function recordQueueHistoryAndAlerts(jobs = [], { seed = false } = {}) {
   const reportingResult = await reportingService.recordTerminalJobs(jobs);
