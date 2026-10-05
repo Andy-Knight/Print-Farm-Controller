@@ -46,6 +46,10 @@
       <button id="queueBtn" class="secondary">Queue &amp; history <span id="queueButtonCount" class="queue-button-count hidden">0</span></button>
       <button id="batchModeBtn" class="secondary topbar-fleet-action">Farm operations</button>
       <button id="addPrinterBtn" class="primary">+ Add printer</button>
+      <button id="alertsBtn" class="controller-alert-button" type="button" aria-label="Open farm alerts" title="Farm alerts">
+        <svg class="controller-alert-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 2.8 19h18.4L12 3Z"></path><path d="M12 9v4"></path><path d="M12 16.5h.01"></path></svg>
+        <span id="alertsButtonCount" class="controller-alert-count hidden">0</span>
+      </button>
       <button id="maintenanceAlertBtn" class="maintenance-alert-button hidden" type="button" aria-label="Filter printers with maintenance alerts" aria-pressed="false" title="Maintenance alerts">
         <svg class="maintenance-alert-bell" viewBox="0 0 24 24" aria-hidden="true"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9"></path><path d="M10 21h4"></path></svg>
         <span id="maintenanceAlertCount" class="maintenance-alert-count">0</span>
@@ -62,6 +66,7 @@
           <button id="maintenanceBtn" type="button" class="topbar-overflow-item" role="menuitem">Maintenance</button>
           <button id="printerGroupsBtn" type="button" class="topbar-overflow-item" role="menuitem">Printer groups</button>
           <button id="reportsBtn" type="button" class="topbar-overflow-item" role="menuitem">Reports &amp; analytics</button>
+          <button id="alertsSettingsBtn" type="button" class="topbar-overflow-item" role="menuitem">Alerts &amp; notifications</button>
           <button id="backupRecoveryBtn" type="button" class="topbar-overflow-item" role="menuitem">Backup &amp; recovery</button>
           <button id="licenseBtn" type="button" class="topbar-overflow-item" role="menuitem">Licence</button>
           <button id="batchModeMenuBtn" type="button" class="topbar-overflow-item topbar-overflow-fleet" role="menuitem">Farm operations</button>
@@ -458,6 +463,164 @@
 
       <div class="actions">
         <button type="button" class="secondary" data-maintenance-close>Close</button>
+      </div>
+    </div>
+  </dialog>
+
+  <dialog id="alertsDialog" class="alerts-dialog">
+    <div class="alerts-shell">
+      <div class="dialog-head">
+        <div>
+          <div class="eyebrow">FARM ALERTS</div>
+          <h2>Alerts &amp; notifications</h2>
+          <div class="subtle">Review controller alerts and choose which events are delivered to external notification services.</div>
+        </div>
+        <button type="button" class="icon" data-alerts-close>×</button>
+      </div>
+
+      <div id="alertsStatus" class="subtle"></div>
+      <div id="alertsError" class="error hidden"></div>
+
+      <section class="alerts-section">
+        <div class="alerts-section-head">
+          <div>
+            <h3>Alert history</h3>
+            <div class="subtle">All controller alerts are retained locally, whether or not an external notification rule matches.</div>
+          </div>
+          <button id="alertsMarkAllReadBtn" type="button" class="secondary">Mark all read</button>
+        </div>
+        <div id="alertsHistory" class="alerts-history"></div>
+      </section>
+
+      <section class="alerts-section">
+        <div class="alerts-section-head">
+          <div>
+            <h3>Notification destinations</h3>
+            <div class="subtle">Destinations are outbound-only. The controller does not need to be exposed to the internet.</div>
+          </div>
+        </div>
+        <form id="alertDestinationForm" class="alerts-form">
+          <input id="alertDestinationId" type="hidden" />
+          <div class="alerts-form-grid">
+            <label>Name
+              <input id="alertDestinationName" type="text" maxlength="100" placeholder="My phone" required />
+            </label>
+            <label>Provider
+              <select id="alertDestinationProvider">
+                <option value="ntfy">ntfy</option>
+                <option value="webhook">Generic webhook</option>
+              </select>
+            </label>
+            <label class="checkbox-label alerts-enabled-field">
+              <input id="alertDestinationEnabled" type="checkbox" checked />
+              Destination enabled
+            </label>
+          </div>
+          <div id="alertDestinationNtfyFields" class="alerts-provider-fields">
+            <div class="alerts-form-grid">
+              <label>Server
+                <input id="alertNtfyServer" type="url" value="https://ntfy.sh" placeholder="https://ntfy.sh" />
+              </label>
+              <label>Topic
+                <input id="alertNtfyTopic" type="text" maxlength="128" placeholder="pfc-random-private-topic" />
+              </label>
+              <label>Access token
+                <input id="alertNtfyToken" type="password" autocomplete="new-password" placeholder="Optional" />
+              </label>
+              <label>Username
+                <input id="alertNtfyUsername" type="text" autocomplete="username" placeholder="Optional" />
+              </label>
+              <label>Password
+                <input id="alertNtfyPassword" type="password" autocomplete="new-password" placeholder="Optional" />
+              </label>
+            </div>
+            <div class="field-help">For ntfy.sh, use a long unguessable topic. Leave token and username/password blank for an anonymous topic.</div>
+          </div>
+          <div id="alertDestinationWebhookFields" class="alerts-provider-fields hidden">
+            <div class="alerts-form-grid">
+              <label class="alerts-wide-field">Webhook URL
+                <input id="alertWebhookUrl" type="url" placeholder="https://example.com/hooks/..." />
+              </label>
+              <label class="alerts-wide-field">Authorization header
+                <input id="alertWebhookAuthorization" type="password" autocomplete="new-password" placeholder="Optional, for example Bearer ..." />
+              </label>
+            </div>
+          </div>
+          <div class="actions">
+            <button id="alertDestinationCancelEdit" type="button" class="secondary hidden">Cancel edit</button>
+            <button id="alertDestinationSubmit" type="submit" class="primary">Add destination</button>
+          </div>
+        </form>
+        <div id="alertDestinationsList" class="alerts-card-list"></div>
+      </section>
+
+      <section class="alerts-section">
+        <div class="alerts-section-head">
+          <div>
+            <h3>Notification rules</h3>
+            <div class="subtle">Rules select which locally recorded events are sent to one or more destinations.</div>
+          </div>
+        </div>
+        <form id="alertRuleForm" class="alerts-form">
+          <input id="alertRuleId" type="hidden" />
+          <div class="alerts-form-grid">
+            <label>Name
+              <input id="alertRuleName" type="text" maxlength="100" placeholder="Production failures" required />
+            </label>
+            <label>Event
+              <select id="alertRuleEvent">
+                <option value="print.failed">Print failed</option>
+                <option value="print.completed">Print completed</option>
+                <option value="print.cancelled">Print cancelled</option>
+                <option value="printer.offline">Printer offline</option>
+                <option value="maintenance.due">Maintenance due</option>
+                <option value="maintenance.due_soon">Maintenance due soon</option>
+                <option value="*">All events</option>
+              </select>
+            </label>
+            <label>Severity
+              <select id="alertRuleSeverity">
+                <option value="critical">Critical</option>
+                <option value="warning">Warning</option>
+                <option value="info">Information</option>
+              </select>
+            </label>
+            <label>Scope
+              <select id="alertRuleScope">
+                <option value="all">All printers / controller</option>
+                <option value="printer">Individual printer</option>
+                <option value="group">Printer group</option>
+                <option value="model">Printer model</option>
+              </select>
+            </label>
+            <label id="alertRulePrinterField" class="hidden">Printer
+              <select id="alertRulePrinter"></select>
+            </label>
+            <label id="alertRuleGroupField" class="hidden">Printer group
+              <select id="alertRuleGroup"></select>
+            </label>
+            <label id="alertRuleModelField" class="hidden">Printer model
+              <select id="alertRuleModel"></select>
+            </label>
+            <label class="checkbox-label alerts-enabled-field">
+              <input id="alertRuleEnabled" type="checkbox" checked />
+              Rule enabled
+            </label>
+          </div>
+          <div>
+            <div class="field-label">Deliver to</div>
+            <div id="alertRuleDestinations" class="alerts-destination-options"></div>
+          </div>
+          <div class="actions">
+            <button id="alertRuleCancelEdit" type="button" class="secondary hidden">Cancel edit</button>
+            <button id="alertRuleSubmit" type="submit" class="primary">Add rule</button>
+          </div>
+        </form>
+        <div id="alertRulesList" class="alerts-card-list"></div>
+      </section>
+
+      <div class="actions">
+        <button type="button" class="secondary" data-alerts-close>Close</button>
       </div>
     </div>
   </dialog>
@@ -995,5 +1158,6 @@
   <script type="module" src="/app.js"></script>
   <script type="module" src="/maintenance.js"></script>
   <script type="module" src="/reporting.js"></script>
+  <script type="module" src="/alerts.js"></script>
 </body>
 </html>
