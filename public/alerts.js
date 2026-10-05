@@ -94,6 +94,8 @@ function eventLabel(type) {
     'print.completed':'Print completed',
     'print.cancelled':'Print cancelled',
     'printer.offline':'Printer offline',
+    'queue.needs_review':'Queue job needs review',
+    'queue.bed_clearance':'Bed clearance required',
     'maintenance.due':'Maintenance due',
     'maintenance.due_soon':'Maintenance due soon',
     'backup.failed':'Scheduled backup failed',
