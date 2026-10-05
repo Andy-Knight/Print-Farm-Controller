@@ -96,6 +96,8 @@ function eventLabel(type) {
     'printer.offline':'Printer offline',
     'maintenance.due':'Maintenance due',
     'maintenance.due_soon':'Maintenance due soon',
+    'backup.failed':'Scheduled backup failed',
+    'backup.completed':'Scheduled backup completed',
     '*':'All events'
   })[type] || String(type || 'Unknown event');
 }
