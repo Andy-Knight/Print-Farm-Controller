@@ -188,7 +188,45 @@ export async function inspectRestoreBackup(filePath, {
     }
   }
 
-    if (archive.byName.has('state/emulator-settings.json')) {
+  if (archive.byName.has('state/alerts.json')) {
+    const alerts = await readJsonEntry(archive, 'state/alerts.json');
+    if (!plainObject(alerts) || alerts.version !== 1
+      || !Array.isArray(alerts.rules) || !Array.isArray(alerts.destinations) || !Array.isArray(alerts.history)) {
+      throw new Error('Backup alert store is invalid');
+    }
+
+    const destinationIds = new Set();
+    for (const destination of alerts.destinations) {
+      const destinationId = String(destination?.id || '').trim();
+      if (!destinationId || destinationIds.has(destinationId)) {
+        throw new Error('Backup notification destination definition is invalid');
+      }
+      destinationIds.add(destinationId);
+    }
+
+    const ruleIds = new Set();
+    for (const rule of alerts.rules) {
+      const ruleId = String(rule?.id || '').trim();
+      if (!ruleId || ruleIds.has(ruleId) || !Array.isArray(rule?.destinationIds)) {
+        throw new Error('Backup alert rule definition is invalid');
+      }
+      ruleIds.add(ruleId);
+      for (const destinationIdValue of rule.destinationIds) {
+        const destinationId = String(destinationIdValue || '').trim();
+        if (!destinationId || !destinationIds.has(destinationId)) {
+          throw new Error('Backup alert rule references a missing notification destination');
+        }
+      }
+      if (String(rule?.scope?.type || '') === 'group') {
+        const groupId = String(rule?.scope?.groupId || '').trim();
+        if (!groupId || !printerGroupIds.has(groupId)) {
+          throw new Error('Backup alert rule references a missing printer group');
+        }
+      }
+    }
+  }
+
+  if (archive.byName.has('state/emulator-settings.json')) {
     const emulatorSettings = await readJsonEntry(archive, 'state/emulator-settings.json');
     if (!plainObject(emulatorSettings)) throw new Error('Backup emulator settings are invalid');
   }
