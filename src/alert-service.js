@@ -457,6 +457,15 @@ export class AlertService {
   async emit(input = {}) {
     await this.init();
     const alert = normalizeAlert(input, this.nowFn);
+    const existing = this.state.history.find((item) => item.id === alert.id);
+    if (existing) {
+      return {
+        alert:clone(existing),
+        matchedRuleIds:[],
+        deliveries:[],
+        duplicate:true
+      };
+    }
     this.state.history.unshift(alert);
     if (this.state.history.length > this.historyLimit) this.state.history.length = this.historyLimit;
     await this.persist();
