@@ -34,6 +34,7 @@ import { addLibraryFile, getLibraryPreview, listLibraryFiles, removeLibraryFile,
 import { createFilament, listFilaments, removeFilament, updateFilament } from './filament-catalogue.js';
 import { ReportingService } from './reporting-service.js';
 import { AlertService } from './alert-service.js';
+import { AlertEventBridge } from './alert-event-bridge.js';
 import { PrintQueueService } from './print-queue.js';
 import { assessMaterialCompatibility } from './file-material-metadata.js';
 import { getPrinterFileMaterialMetadata, removePrinterFileMaterialMetadata } from './file-material-store.js';
@@ -397,6 +398,13 @@ const printQueue = new PrintQueueService({
 const maintenanceService = new MaintenanceService({
   fleetState,
   groupLookupFn:(groupId) => printerGroups.get(groupId)
+});
+const alertEventBridge = new AlertEventBridge({
+  fleetState,
+  alertService,
+  maintenanceService,
+  onAlert:() => fleetState.schedulePublish(),
+  diagnosticFn:(level, message, meta) => diagnosticLogger[level]?.('alerts', message, meta)
 });
 const toolOffsetCalibrationLocks = new Map();
 
@@ -2481,6 +2489,7 @@ async function shutdown() {
   try { await chamberPreheat.stopAll({ reason: 'controller-shutdown', turnOff: true }); } catch {}
   chamberPreheat.stopService();
   scheduledBackupService.stop();
+  await alertEventBridge.stop().catch(() => {});
   await maintenanceService.stop().catch(() => {});
   printQueue.stop();
   fleetState.stop();
@@ -2556,6 +2565,7 @@ async function startController() {
     await alertService.init();
     await fleetState.start();
     await maintenanceService.start();
+    await alertEventBridge.start();
     await reportingService.init();
     await printQueue.start();
     chamberPreheat.startService();
@@ -2594,10 +2604,12 @@ async function startController() {
     console.log('Persistent fleet print queue + history enabled');
     console.log('Custom printer groups + group-restricted scheduling enabled');
     console.log('Maintenance tracking + controller-observed printer usage enabled');
+    console.log('Farm alerts + outbound notification framework enabled');
   } catch (error) {
     memoryMonitor.stop();
     chamberPreheat.stopService();
     scheduledBackupService.stop();
+    await alertEventBridge.stop().catch(() => {});
     await maintenanceService.stop().catch(() => {});
     printQueue.stop();
     fleetState.stop();
