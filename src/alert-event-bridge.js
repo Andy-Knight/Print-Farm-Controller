@@ -21,6 +21,7 @@ export class AlertEventBridge {
     fleetState,
     alertService,
     maintenanceService = null,
+    offlineFailureThreshold = 3,
     onAlert = null,
     diagnosticFn = null
   } = {}) {
@@ -29,6 +30,7 @@ export class AlertEventBridge {
     this.fleetState = fleetState;
     this.alertService = alertService;
     this.maintenanceService = maintenanceService;
+    this.offlineFailureThreshold = Math.max(1, Number(offlineFailureThreshold) || 3);
     this.onAlert = typeof onAlert === 'function' ? onAlert : () => {};
     this.diagnostic = typeof diagnosticFn === 'function' ? diagnosticFn : () => {};
     this.previous = new Map();
@@ -40,6 +42,7 @@ export class AlertEventBridge {
   snapshotFor(printer) {
     return {
       online:Boolean(printer?.online),
+      consecutiveFailures:Math.max(0, Number(printer?.consecutiveFailures || 0)),
       maintenanceState:maintenanceState(this.maintenanceService, printer)
     };
   }
@@ -71,15 +74,22 @@ export class AlertEventBridge {
       const previous = this.previous.get(id);
 
       if (!baseline && previous) {
-        if (previous.online && !current.online) {
+        const crossedOfflineThreshold = !current.online
+          && current.consecutiveFailures >= this.offlineFailureThreshold
+          && (previous.online || previous.consecutiveFailures < this.offlineFailureThreshold);
+        if (crossedOfflineThreshold) {
           await this.emit({
             type:'printer.offline',
             severity:'warning',
             title:'Printer offline',
-            message:`${printer.name || id} has gone offline.`,
+            message:`${printer.name || id} is offline after ${current.consecutiveFailures} consecutive connection failures.`,
             source:{ kind:'printer', id, name:printer.name || id },
             printer:printerReference(printer),
-            metadata:{ previousOnline:true }
+            metadata:{
+              previousOnline:previous.online,
+              consecutiveFailures:current.consecutiveFailures,
+              threshold:this.offlineFailureThreshold
+            }
           });
         }
 
