@@ -35,6 +35,7 @@ import { createFilament, listFilaments, removeFilament, updateFilament } from '.
 import { ReportingService } from './reporting-service.js';
 import { AlertService } from './alert-service.js';
 import { AlertEventBridge } from './alert-event-bridge.js';
+import { QueueAlertBridge } from './queue-alert-bridge.js';
 import { PrintQueueService } from './print-queue.js';
 import { assessMaterialCompatibility } from './file-material-metadata.js';
 import { getPrinterFileMaterialMetadata, removePrinterFileMaterialMetadata } from './file-material-store.js';
@@ -409,6 +410,7 @@ async function recordQueueHistoryAndAlerts(jobs = [], { seed = false } = {}) {
   return reportingResult;
 }
 
+let queueAlertBridge = null;
 const printQueue = new PrintQueueService({
   fleetState,
   chamberPreheat,
@@ -416,8 +418,17 @@ const printQueue = new PrintQueueService({
   printerAllowedFn: printerLicensedForNewWork,
   operationCoordinator:printerOperations,
   recordTerminalJobsFn:recordQueueHistoryAndAlerts,
-  onChange: () => fleetState.schedulePublish(),
+  onChange:(snapshot) => {
+    fleetState.schedulePublish();
+    queueAlertBridge?.schedule(snapshot).catch(() => {});
+  },
   diagnosticFn:(level, message, meta) => diagnosticLogger[level]?.('queue', message, meta)
+});
+queueAlertBridge = new QueueAlertBridge({
+  alertService,
+  printerLookupFn:(printerId) => fleetState.getPrinterState(printerId),
+  onAlert:() => fleetState.schedulePublish(),
+  diagnosticFn:(level, message, meta) => diagnosticLogger[level]?.('alerts', message, meta)
 });
 const maintenanceService = new MaintenanceService({
   fleetState,
@@ -2523,6 +2534,7 @@ async function shutdown() {
   chamberPreheat.stopService();
   scheduledBackupService.stop();
   await alertEventBridge.stop().catch(() => {});
+  await queueAlertBridge?.stop().catch(() => {});
   await maintenanceService.stop().catch(() => {});
   printQueue.stop();
   fleetState.stop();
@@ -2643,6 +2655,7 @@ async function startController() {
     chamberPreheat.stopService();
     scheduledBackupService.stop();
     await alertEventBridge.stop().catch(() => {});
+    await queueAlertBridge?.stop().catch(() => {});
     await maintenanceService.stop().catch(() => {});
     printQueue.stop();
     fleetState.stop();
