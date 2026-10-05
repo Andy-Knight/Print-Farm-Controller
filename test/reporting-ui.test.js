@@ -34,7 +34,8 @@ test('reporting UI is available from the overflow menu with graphical farm analy
 
 test('reporting backend retains history independently of recent queue history', () => {
   assert.match(server, /new ReportingService/);
-  assert.match(server, /recordTerminalJobsFn:\(jobs\) => reportingService\.recordTerminalJobs\(jobs\)/);
+  assert.match(server, /recordTerminalJobsFn:recordQueueHistoryAndAlerts/);
+  assert.match(server, /const reportingResult = await reportingService\.recordTerminalJobs\(jobs\)/);
   assert.match(server, /url\.pathname === '\/api\/reports'/);
   assert.match(reportingService, /class ReportingService/);
   assert.match(reportingService, /recordTerminalJobs/);
