@@ -9,7 +9,7 @@ If chat context and this file disagree about the codebase, inspect current GitHu
 - Repository: `Andy-Knight/Print-Farm-Controller`
 - Project path: repository root (`/`)
 - Primary branch: `main` (current production baseline)
-- Current application version on this branch: **0.40.2**. Production baseline on `main`: **0.40.1**.
+- Current application version on this branch: **0.40.2**. Production baseline on `main`: **0.40.2**.
 - Runtime: **Node.js 24+** (development baseline Node.js 24.21.0), ES modules, no npm runtime dependencies.
 - GitHub is the authoritative code baseline.
 - Release/version history is maintained only in `CHANGELOG.md`; do not duplicate per-version history in this handoff file.
@@ -120,15 +120,15 @@ Manufacturer-specific discovery, capabilities, limits, status normalization, fil
 
 ## Current task
 
-The current production baseline is **v0.40.1** on `main`.
+The current production baseline is **v0.40.2** on `main`.
 
-Active development is **v0.40.2** on `feature/multitool-nozzle-alignment`. Prusa CORE One+ INDX Toolheads vertical alignment is being corrected so the Filament configuration and Nozzle dropdown/button rows start at the same height. The cause was a 6 px inherited top margin on the Prusa material selector versus 4 px on the colour and nozzle selectors; the Prusa material selector now explicitly uses the same 4 px spacing.
+No feature branch is currently designated as active development. The next controller feature should be selected before creating the next feature branch.
 
 ## Next steps
 
-1. Let GitHub Actions run the complete regression suite through pull request #70.
-2. Visually confirm the Prusa CORE One+ INDX filament and nozzle dropdown/button rows align exactly in Light and Dark themes.
-3. Merge only after the PR checks pass.
+1. Select the next controller feature for development.
+2. Create a dedicated feature branch from the current `main` baseline.
+3. Increment the application version with the next delivered feature and update README/context as part of the change.
 
 ## Licensing baseline
 
