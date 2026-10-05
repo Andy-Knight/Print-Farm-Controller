@@ -25,7 +25,7 @@ class FakeFleetState {
 
 test('alert event bridge emits only live offline and maintenance transitions', async () => {
   const fleet = new FakeFleetState([
-    { id:'p1', name:'Printer 1', online:true, adapterType:'snapmaker-u1', model:'U1' }
+    { id:'p1', name:'Printer 1', online:true, consecutiveFailures:0, adapterType:'snapmaker-u1', model:'U1' }
   ]);
   let maintenance = 'current';
   const emitted = [];
@@ -47,22 +47,31 @@ test('alert event bridge emits only live offline and maintenance transitions', a
   await bridge.start();
   assert.equal(emitted.length, 0);
 
+  for (const consecutiveFailures of [1, 2]) {
+    fleet.publish([
+      { id:'p1', name:'Printer 1', online:false, consecutiveFailures, adapterType:'snapmaker-u1', model:'U1' }
+    ]);
+    await bridge.observationChain;
+    assert.equal(emitted.length, 0);
+  }
+
   fleet.publish([
-    { id:'p1', name:'Printer 1', online:false, adapterType:'snapmaker-u1', model:'U1' }
+    { id:'p1', name:'Printer 1', online:false, consecutiveFailures:3, adapterType:'snapmaker-u1', model:'U1' }
   ]);
   await bridge.observationChain;
   assert.equal(emitted.length, 1);
   assert.equal(emitted[0].type, 'printer.offline');
+  assert.equal(emitted[0].metadata.consecutiveFailures, 3);
 
   fleet.publish([
-    { id:'p1', name:'Printer 1', online:false, adapterType:'snapmaker-u1', model:'U1' }
+    { id:'p1', name:'Printer 1', online:false, consecutiveFailures:4, adapterType:'snapmaker-u1', model:'U1' }
   ]);
   await bridge.observationChain;
   assert.equal(emitted.length, 1);
 
   maintenance = 'due_soon';
   fleet.publish([
-    { id:'p1', name:'Printer 1', online:false, adapterType:'snapmaker-u1', model:'U1' }
+    { id:'p1', name:'Printer 1', online:false, consecutiveFailures:5, adapterType:'snapmaker-u1', model:'U1' }
   ]);
   await bridge.observationChain;
   assert.equal(emitted.length, 2);
@@ -70,7 +79,7 @@ test('alert event bridge emits only live offline and maintenance transitions', a
 
   maintenance = 'due';
   fleet.publish([
-    { id:'p1', name:'Printer 1', online:false, adapterType:'snapmaker-u1', model:'U1' }
+    { id:'p1', name:'Printer 1', online:false, consecutiveFailures:6, adapterType:'snapmaker-u1', model:'U1' }
   ]);
   await bridge.observationChain;
   assert.equal(emitted.length, 3);
