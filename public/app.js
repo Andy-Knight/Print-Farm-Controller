@@ -2295,6 +2295,7 @@ function setAlertsSummary(summary = {}) {
     const unread = alertsSummaryState.unreadCount;
     alertsButtonCount.textContent = unread > 99 ? '99+' : String(unread);
     alertsButtonCount.classList.toggle('hidden', unread === 0);
+    alertsBtn.classList.toggle('hidden', unread === 0);
     alertsBtn.classList.toggle('has-alerts', unread > 0);
     const unreadRecent = alertsSummaryState.recent.filter((alert) => !alert?.readAt);
     const severity = unreadRecent.some((alert) => alert?.severity === 'critical')
