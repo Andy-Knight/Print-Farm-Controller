@@ -245,6 +245,12 @@
         <button type="button" class="icon" data-reporting-close>×</button>
       </div>
 
+      <div class="reporting-tabs maintenance-view-selector" role="tablist" aria-label="Reports and analytics view">
+        <button id="reportingTabAnalytics" type="button" class="maintenance-view-button active" data-reporting-tab="analytics" role="tab" aria-selected="true" aria-controls="reportingPanelAnalytics">Analytics</button>
+        <button id="reportingTabFilament" type="button" class="maintenance-view-button" data-reporting-tab="filament" role="tab" aria-selected="false" aria-controls="reportingPanelFilament" tabindex="-1">Filament cost catalogue</button>
+      </div>
+
+      <section id="reportingPanelAnalytics" class="reporting-tab-panel" data-reporting-panel="analytics" role="tabpanel" aria-labelledby="reportingTabAnalytics">
       <div class="reporting-toolbar">
         <label>Period
           <select id="reportingRange">
@@ -297,8 +303,11 @@
           </div>
           <div id="reportingMaterials" class="reporting-bars"></div>
         </section>
+      </div>
+      </section>
 
-        <section class="reporting-section reporting-wide">
+      <section id="reportingPanelFilament" class="reporting-tab-panel" data-reporting-panel="filament" role="tabpanel" aria-labelledby="reportingTabFilament" hidden>
+        <section class="reporting-section">
           <div class="reporting-section-head">
             <div>
               <h3>Filament cost catalogue</h3>
@@ -375,7 +384,7 @@
           </form>
           <div id="filamentList" class="filament-cost-list"></div>
         </section>
-      </div>
+      </section>
 
       <div class="actions reporting-footer">
         <button type="button" class="secondary" data-reporting-close>Close</button>
