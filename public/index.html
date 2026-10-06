@@ -478,10 +478,16 @@
         <button type="button" class="icon" data-alerts-close>×</button>
       </div>
 
+      <div class="alerts-tabs maintenance-view-selector" role="tablist" aria-label="Alerts and notifications view">
+        <button id="alertsTabHistory" type="button" class="maintenance-view-button active" data-alerts-tab="history" role="tab" aria-selected="true" aria-controls="alertsPanelHistory">Alert history</button>
+        <button id="alertsTabDestinations" type="button" class="maintenance-view-button" data-alerts-tab="destinations" role="tab" aria-selected="false" aria-controls="alertsPanelDestinations" tabindex="-1">Notification destinations</button>
+        <button id="alertsTabRules" type="button" class="maintenance-view-button" data-alerts-tab="rules" role="tab" aria-selected="false" aria-controls="alertsPanelRules" tabindex="-1">Notification rules</button>
+      </div>
+
       <div id="alertsStatus" class="subtle"></div>
       <div id="alertsError" class="error hidden"></div>
 
-      <section class="alerts-section">
+      <section id="alertsPanelHistory" class="alerts-section alerts-tab-panel" data-alerts-panel="history" role="tabpanel" aria-labelledby="alertsTabHistory">
         <div class="alerts-section-head">
           <div>
             <h3>Alert history</h3>
@@ -492,7 +498,7 @@
         <div id="alertsHistory" class="alerts-history"></div>
       </section>
 
-      <section class="alerts-section">
+      <section id="alertsPanelDestinations" class="alerts-section alerts-tab-panel" data-alerts-panel="destinations" role="tabpanel" aria-labelledby="alertsTabDestinations" hidden>
         <div class="alerts-section-head">
           <div>
             <h3>Notification destinations</h3>
@@ -554,7 +560,7 @@
         <div id="alertDestinationsList" class="alerts-card-list"></div>
       </section>
 
-      <section class="alerts-section">
+      <section id="alertsPanelRules" class="alerts-section alerts-tab-panel" data-alerts-panel="rules" role="tabpanel" aria-labelledby="alertsTabRules" hidden>
         <div class="alerts-section-head">
           <div>
             <h3>Notification rules</h3>
