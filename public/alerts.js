@@ -6,6 +6,8 @@ const alertsStatus = document.querySelector('#alertsStatus');
 const alertsError = document.querySelector('#alertsError');
 const alertsHistory = document.querySelector('#alertsHistory');
 const alertsMarkAllReadBtn = document.querySelector('#alertsMarkAllReadBtn');
+const alertTabs = Array.from(document.querySelectorAll('[data-alerts-tab]'));
+const alertPanels = Array.from(document.querySelectorAll('[data-alerts-panel]'));
 
 const alertDestinationForm = document.querySelector('#alertDestinationForm');
 const alertDestinationId = document.querySelector('#alertDestinationId');
@@ -411,8 +413,26 @@ async function loadAlertUi({ preserveForms = false } = {}) {
   setStatus('');
 }
 
-async function openAlerts() {
+function activateAlertsTab(name, focus = false) {
+  const selected = alertTabs.find((tab) => tab.dataset.alertsTab === name) || alertTabs[0];
+  if (!selected) return;
+  const selectedName = selected.dataset.alertsTab;
+  for (const tab of alertTabs) {
+    const active = tab === selected;
+    tab.classList.toggle('active', active);
+    tab.setAttribute('aria-selected', active ? 'true' : 'false');
+    tab.tabIndex = active ? 0 : -1;
+  }
+  for (const panel of alertPanels) {
+    const active = panel.dataset.alertsPanel === selectedName;
+    panel.hidden = !active;
+  }
+  if (focus) selected.focus();
+}
+
+async function openAlerts(tab = 'history') {
   if (topbarOverflow) topbarOverflow.open = false;
+  activateAlertsTab(tab);
   alertsDialog?.showModal();
   try {
     await loadAlertUi();
@@ -467,9 +487,26 @@ function buildRulePayload() {
   };
 }
 
-alertsBtn?.addEventListener('click', openAlerts);
-alertsSettingsBtn?.addEventListener('click', openAlerts);
+alertsBtn?.addEventListener('click', () => openAlerts('history'));
+alertsSettingsBtn?.addEventListener('click', () => openAlerts('rules'));
 document.querySelectorAll('[data-alerts-close]').forEach((button) => button.addEventListener('click', () => alertsDialog?.close()));
+
+for (const tab of alertTabs) {
+  tab.addEventListener('click', () => activateAlertsTab(tab.dataset.alertsTab));
+  tab.addEventListener('keydown', (event) => {
+    if (!['ArrowLeft','ArrowRight','Home','End'].includes(event.key)) return;
+    event.preventDefault();
+    const currentIndex = alertTabs.indexOf(tab);
+    const nextIndex = event.key === 'Home'
+      ? 0
+      : event.key === 'End'
+        ? alertTabs.length - 1
+        : event.key === 'ArrowRight'
+          ? (currentIndex + 1) % alertTabs.length
+          : (currentIndex - 1 + alertTabs.length) % alertTabs.length;
+    activateAlertsTab(alertTabs[nextIndex]?.dataset.alertsTab, true);
+  });
+}
 
 alertDestinationProvider?.addEventListener('change', updateDestinationProviderFields);
 alertDestinationCancelEdit?.addEventListener('click', resetDestinationForm);
