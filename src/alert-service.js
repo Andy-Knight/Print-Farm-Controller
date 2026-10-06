@@ -229,6 +229,13 @@ function ruleMatches(rule, alert, groupLookup) {
   return scopeMatches(rule, alert, groupLookup);
 }
 
+function alertRequiresAttention(alert = {}) {
+  if (alert.readAt) return false;
+  if (!['warning', 'critical'].includes(String(alert.severity || '').toLowerCase())) return false;
+  if (String(alert.type || '').toLowerCase().startsWith('maintenance.')) return false;
+  return true;
+}
+
 export class AlertService {
   constructor({
     dataDir = controllerDataDir,
@@ -305,10 +312,15 @@ export class AlertService {
     return this.state.history.reduce((count, alert) => count + (alert.readAt ? 0 : 1), 0);
   }
 
+  attentionUnreadCount() {
+    return this.state.history.reduce((count, alert) => count + (alertRequiresAttention(alert) ? 1 : 0), 0);
+  }
+
   snapshot({ historyLimit = 20 } = {}) {
     return {
       version:1,
       unreadCount:this.unreadCount(),
+      attentionUnreadCount:this.attentionUnreadCount(),
       providers:this.providerDefinitions(),
       rules:this.listRules(),
       destinations:this.listDestinations(),
@@ -426,7 +438,11 @@ export class AlertService {
       throw error;
     }
     if (changed) await this.persist();
-    return { changed, unreadCount:this.unreadCount() };
+    return {
+      changed,
+      unreadCount:this.unreadCount(),
+      attentionUnreadCount:this.attentionUnreadCount()
+    };
   }
 
   async testDestination(destinationId) {
