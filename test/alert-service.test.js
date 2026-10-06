@@ -150,6 +150,88 @@ test('top-bar attention count excludes maintenance and informational alerts', as
   }
 });
 
+test('active condition alerts do not duplicate after restart even when already read', async () => {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), 'pfc-alert-condition-restart-'));
+  try {
+    const first = new AlertService({ dataDir:root, providers:new Map() });
+    await first.init();
+    const opened = await first.emitCondition('printer.offline:p1', {
+      type:'printer.offline',
+      severity:'warning',
+      title:'Printer offline',
+      message:'Printer 1 is offline',
+      printer:{ id:'p1', name:'Printer 1', adapterType:'snapmaker-u1', model:'U1' }
+    });
+    assert.equal(opened.duplicate, undefined);
+    assert.equal(first.listHistory().length, 1);
+
+    await first.markRead(opened.alert.id);
+    assert.equal(first.listHistory()[0].readAt !== null, true);
+
+    const restarted = new AlertService({ dataDir:root, providers:new Map() });
+    await restarted.init();
+    const repeated = await restarted.emitCondition('printer.offline:p1', {
+      type:'printer.offline',
+      severity:'warning',
+      title:'Printer offline',
+      message:'Printer 1 is offline',
+      printer:{ id:'p1', name:'Printer 1', adapterType:'snapmaker-u1', model:'U1' }
+    });
+    assert.equal(repeated.duplicate, true);
+    assert.equal(restarted.listHistory().length, 1);
+    assert.equal(restarted.listHistory()[0].readAt !== null, true);
+
+    await restarted.resolveCondition('printer.offline:p1');
+    const reopened = await restarted.emitCondition('printer.offline:p1', {
+      type:'printer.offline',
+      severity:'warning',
+      title:'Printer offline again',
+      message:'Printer 1 is offline again',
+      printer:{ id:'p1', name:'Printer 1', adapterType:'snapmaker-u1', model:'U1' }
+    });
+    assert.notEqual(reopened.alert.id, opened.alert.id);
+    assert.equal(restarted.listHistory().length, 2);
+  } finally {
+    await fs.rm(root, { recursive:true, force:true });
+  }
+});
+
+test('existing pre-condition-registry history can be adopted on restart', async () => {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), 'pfc-alert-condition-adopt-'));
+  try {
+    const legacy = new AlertService({ dataDir:root, providers:new Map() });
+    await legacy.init();
+    const old = await legacy.emit({
+      type:'maintenance.due',
+      severity:'warning',
+      title:'Maintenance due',
+      message:'Printer 1 maintenance due',
+      printer:{ id:'p1', name:'Printer 1', adapterType:'snapmaker-u1', model:'U1' }
+    });
+    await legacy.markRead(old.alert.id);
+
+    const restarted = new AlertService({ dataDir:root, providers:new Map() });
+    await restarted.init();
+    const adopted = await restarted.adoptCondition('maintenance.due:p1', {
+      type:'maintenance.due',
+      printerId:'p1'
+    });
+    assert.equal(adopted.adopted, true);
+
+    const repeated = await restarted.emitCondition('maintenance.due:p1', {
+      type:'maintenance.due',
+      severity:'warning',
+      title:'Maintenance due',
+      message:'Printer 1 maintenance due',
+      printer:{ id:'p1', name:'Printer 1', adapterType:'snapmaker-u1', model:'U1' }
+    });
+    assert.equal(repeated.duplicate, true);
+    assert.equal(restarted.listHistory().length, 1);
+  } finally {
+    await fs.rm(root, { recursive:true, force:true });
+  }
+});
+
 test('alert destinations cannot be deleted while referenced by a rule', async () => {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), 'pfc-alert-destination-'));
   const provider = fakeProvider([]);
