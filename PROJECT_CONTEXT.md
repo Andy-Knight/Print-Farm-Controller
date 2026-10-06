@@ -128,12 +128,11 @@ External delivery is opt-in: every supported event is retained locally, while on
 
 ## Next steps
 
-1. Get the complete pull-request regression/container smoke suite green after the initial alert UI, queue-intervention and backup-event wiring.
+1. Perform a real ntfy mobile test from a controller deployment, including delivery while the phone is off the local Wi-Fi. Pull request #71 currently has a green regression suite, container smoke test, and multi-architecture PR image build.
 2. Decide whether printer-online recovery events are useful without creating notification noise.
 3. Add email delivery if it can be done without compromising the controller's no-runtime-dependency baseline; otherwise document ntfy/webhooks as the initial remote-delivery providers.
 4. Add emulator-driven alert scenarios and broader API/UI regression coverage.
-5. Perform a real ntfy mobile test from a controller deployment, including delivery while the phone is off the local Wi-Fi.
-6. Increment the application version to v0.41.0 when the feature is ready for delivery and update README/CHANGELOG/context.
+5. Increment the application version to v0.41.0 when the feature is ready for delivery and update README/CHANGELOG/context.
 
 ## Licensing baseline
 
