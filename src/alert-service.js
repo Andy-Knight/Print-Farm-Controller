@@ -451,6 +451,25 @@ export class AlertService {
     };
   }
 
+  async adoptCondition(conditionKey, { type = null, printerId = null } = {}) {
+    await this.init();
+    const key = cleanText(conditionKey, { required:true, max:240, label:'Alert condition key' });
+    if (this.state.activeConditions?.[key]) {
+      return { adopted:true, alertId:this.state.activeConditions[key], existing:true };
+    }
+    const wantedType = type ? normalizeEventType(type) : null;
+    const wantedPrinterId = printerId == null ? null : String(printerId);
+    const existing = this.state.history.find((alert) => {
+      if (wantedType && alert.type !== wantedType) return false;
+      if (wantedPrinterId !== null && String(alert.printer?.id || '') !== wantedPrinterId) return false;
+      return true;
+    });
+    if (!existing) return { adopted:false, alertId:null, existing:false };
+    this.state.activeConditions[key] = existing.id;
+    await this.persist();
+    return { adopted:true, alertId:existing.id, existing:false };
+  }
+
   async emitCondition(conditionKey, input = {}) {
     await this.init();
     const key = cleanText(conditionKey, { required:true, max:240, label:'Alert condition key' });
