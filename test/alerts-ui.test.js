@@ -12,7 +12,7 @@ const alertService = fs.readFileSync(new URL('../src/alert-service.js', import.m
 const providers = fs.readFileSync(new URL('../src/notification-providers.js', import.meta.url), 'utf8');
 
 test('farm alerts UI exposes history, destinations and scoped notification rules', () => {
-  assert.match(index, /id="alertsBtn"/);
+  assert.match(index, /id="alertsBtn" class="controller-alert-button hidden"/);
   assert.match(index, /id="alertsButtonCount"/);
   assert.match(index, /id="alertsSettingsBtn"/);
   assert.match(index, /id="alertsDialog"/);
@@ -41,6 +41,7 @@ test('live fleet updates carry unread alert summaries to the top-bar indicator',
   assert.match(server, /alerts:\{\s*unreadCount:alertService\.unreadCount\(\)/);
   assert.match(server, /recent:alertService\.listHistory\(\{ limit:5 \}\)/);
   assert.match(app, /function setAlertsSummary/);
+  assert.match(app, /alertsBtn\.classList\.toggle\('hidden', unread === 0\)/);
   assert.match(app, /setAlertsSummary\(result\.alerts \|\| alertsSummaryState\)/);
   assert.match(app, /setAlertsSummary\(payload\.alerts \|\| alertsSummaryState\)/);
   assert.match(app, /new CustomEvent\('pfc-alerts-live'/);
