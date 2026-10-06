@@ -290,6 +290,8 @@ input:focus,select:focus { border-color:#7a9fbe; }
 .diagnostics-panel span { color:#8493a1; }
 .diagnostics-panel b { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 @media (max-width:760px) {
+  .reporting-tabs.maintenance-view-selector { grid-template-columns:1fr; }
+  .reporting-tabs .maintenance-view-button { text-align:left; }
   .topbar,main { padding-left:16px; padding-right:16px; }
   .summary { grid-template-columns:1fr 1fr; }
   .fleet { grid-template-columns:1fr; }
@@ -2328,6 +2330,11 @@ button.library-file-preview { cursor:zoom-in; }
 .reporting-dialog { width:min(1280px,calc(100vw - 30px)); max-height:calc(100vh - 30px); }
 .reporting-shell { padding:22px; max-height:calc(100vh - 32px); overflow:auto; }
 .reporting-head { margin-bottom:8px; }
+.reporting-tabs.maintenance-view-selector {
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  margin-bottom:12px;
+}
+.reporting-tab-panel[hidden] { display:none !important; }
 .reporting-toolbar {
   display:grid;
   grid-template-columns:repeat(3,minmax(150px,1fr)) auto;
