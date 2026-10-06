@@ -94,6 +94,7 @@ export async function collectLogicalBackupSnapshot({
   const printerGroups = await readJsonFile(path.join(resolvedDataDir, 'printer-groups.json'), { version:1, groups:[] });
   const filaments = await readJsonFile(path.join(resolvedDataDir, 'filaments.json'), { version:1, filaments:[] });
   const reportingHistory = await readJsonFile(path.join(resolvedDataDir, 'reporting-history.json'), { version:1, records:[] });
+  const alerts = await readJsonFile(path.join(resolvedDataDir, 'alerts.json'), { version:1, rules:[], destinations:[], history:[] });
   const library = await collectLibraryEntries(resolvedDataDir);
 
   if (!Array.isArray(printers)) throw new Error('Printer store is invalid');
@@ -103,6 +104,7 @@ export async function collectLogicalBackupSnapshot({
   if (!printerGroups || printerGroups.version !== 1 || !Array.isArray(printerGroups.groups)) throw new Error('Printer group store is invalid');
   if (!filaments || filaments.version !== 1 || !Array.isArray(filaments.filaments)) throw new Error('Filament catalogue store is invalid');
   if (!reportingHistory || reportingHistory.version !== 1 || !Array.isArray(reportingHistory.records)) throw new Error('Reporting history store is invalid');
+  if (!alerts || alerts.version !== 1 || !Array.isArray(alerts.rules) || !Array.isArray(alerts.destinations) || !Array.isArray(alerts.history)) throw new Error('Alert store is invalid');
 
   const payload = [
     jsonEntry('state/printers.json', printers),
@@ -113,6 +115,7 @@ export async function collectLogicalBackupSnapshot({
     jsonEntry('state/printer-groups.json', printerGroups),
     jsonEntry('state/filaments.json', filaments),
     jsonEntry('state/reporting-history.json', reportingHistory),
+    jsonEntry('state/alerts.json', alerts),
     ...library.entries
   ];
   if (emulatorSettings && typeof emulatorSettings === 'object') payload.push(jsonEntry('state/emulator-settings.json', emulatorSettings));

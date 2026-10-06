@@ -32,6 +32,12 @@ test('logical backup creates a verified portable pfcbackup with known persistent
       version:1,
       filaments:[{ id:'11111111-1111-4111-8111-111111111111', material:'PLA', materialKey:'PLA', costPerKg:18.95, currency:'GBP' }]
     }));
+    await fs.writeFile(path.join(dataDir, 'alerts.json'), JSON.stringify({
+      version:1,
+      destinations:[{ id:'dest-1', name:'Mobile', provider:'ntfy', enabled:true, config:{ server:'https://ntfy.sh', topic:'pfc-test', token:'secret' } }],
+      rules:[{ id:'rule-1', name:'Failures', enabled:true, eventTypes:['print.failed'], severities:['critical'], scope:{ type:'group', groupId:'group-1' }, destinationIds:['dest-1'] }],
+      history:[{ id:'alert-1', type:'print.failed', severity:'critical', title:'Print failed', message:'Test', createdAt:'2026-09-24T16:10:00.000Z', readAt:null }]
+    }));
     await fs.writeFile(licensePath, JSON.stringify({ payload:'signed-test-document' }));
     const gcode = 'G28\nG1 X10\n';
     await fs.writeFile(path.join(libraryDir, 'part.gcode'), gcode);
@@ -67,7 +73,7 @@ test('logical backup creates a verified portable pfcbackup with known persistent
     const names = new Set(archive.entries.map((entry) => entry.name));
     for (const expected of [
       'manifest.json','checksums.json','state/printers.json','state/print-jobs.json',
-      'state/file-material-metadata.json','state/emulator-settings.json','state/backup-settings.json','state/maintenance.json','state/printer-groups.json','state/filaments.json',
+      'state/file-material-metadata.json','state/emulator-settings.json','state/backup-settings.json','state/maintenance.json','state/printer-groups.json','state/filaments.json','state/alerts.json',
       'state/license.json',`print-library/${libraryId}/metadata.json`,
       `print-library/${libraryId}/part.gcode`,`print-library/${libraryId}/preview.png`
     ]) assert.ok(names.has(expected), expected);
@@ -80,6 +86,10 @@ test('logical backup creates a verified portable pfcbackup with known persistent
     assert.deepEqual(printerGroups.groups[0].printerIds, ['p1']);
     const filaments = JSON.parse((await archive.read('state/filaments.json')).toString('utf8'));
     assert.equal(filaments.filaments[0].costPerKg, 18.95);
+    const alerts = JSON.parse((await archive.read('state/alerts.json')).toString('utf8'));
+    assert.equal(alerts.rules[0].scope.groupId, 'group-1');
+    assert.equal(alerts.destinations[0].config.token, 'secret');
+    assert.equal(alerts.history[0].id, 'alert-1');
   } finally {
     await fs.rm(root, { recursive:true, force:true });
   }

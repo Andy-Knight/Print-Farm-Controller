@@ -341,7 +341,7 @@ export class PrintQueueService {
       };
     });
     if (this.recordTerminalJobs) {
-      await Promise.resolve(this.recordTerminalJobs(this.jobs)).catch((error) => {
+      await Promise.resolve(this.recordTerminalJobs(this.jobs, { seed:true })).catch((error) => {
         console.warn(`Reporting history seed failed: ${error?.message || error}`);
       });
     }
@@ -1636,7 +1636,7 @@ export class PrintQueueService {
     this.saveChain = save.catch(() => {});
     await save;
     if (this.recordTerminalJobs) {
-      await Promise.resolve(this.recordTerminalJobs(snapshot)).catch((error) => {
+      await Promise.resolve(this.recordTerminalJobs(snapshot, { seed:false })).catch((error) => {
         console.warn(`Reporting history update failed: ${error?.message || error}`);
       });
     }

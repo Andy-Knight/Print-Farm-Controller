@@ -33,6 +33,9 @@ import { stageUploadRequest } from './upload-staging.js';
 import { addLibraryFile, getLibraryPreview, listLibraryFiles, removeLibraryFile, updateLibraryFileMetadata } from './print-library.js';
 import { createFilament, listFilaments, removeFilament, updateFilament } from './filament-catalogue.js';
 import { ReportingService } from './reporting-service.js';
+import { AlertService } from './alert-service.js';
+import { AlertEventBridge } from './alert-event-bridge.js';
+import { QueueAlertBridge } from './queue-alert-bridge.js';
 import { PrintQueueService } from './print-queue.js';
 import { assessMaterialCompatibility } from './file-material-metadata.js';
 import { getPrinterFileMaterialMetadata, removePrinterFileMaterialMetadata } from './file-material-store.js';
@@ -136,6 +139,7 @@ const scheduledBackupService = new ScheduledBackupService({
   controllerVersion:CONTROLLER_VERSION,
   operationLock:backupOperationLock,
   diagnosticFn:(level, message, meta) => diagnosticLogger[level]?.('backup', message, meta),
+  onResult:handleScheduledBackupResult,
   googleDriveClient,
   oneDriveClient,
   s3Client
@@ -318,20 +322,124 @@ const fileDistribution = new FileDistributionService({
   operationCoordinator:printerOperations
 });
 const printerGroups = new PrinterGroupService({ dataDir:runtimePaths.dataDir });
+const alertService = new AlertService({
+  dataDir:runtimePaths.dataDir,
+  groupLookupFn:(groupId) => printerGroups.get(groupId),
+  diagnosticFn:(level, message, meta) => diagnosticLogger[level]?.('alerts', message, meta)
+});
 const reportingService = new ReportingService({ filePath:path.join(runtimePaths.dataDir, 'reporting-history.json') });
+
+async function handleScheduledBackupResult(result = {}) {
+  if (result?.skipped || typeof result?.success !== 'boolean') return;
+  const scheduledFor = String(result.scheduledFor || new Date().toISOString());
+  const success = result.success === true;
+  const alertResult = await alertService.emit({
+    id:`scheduled-backup:${scheduledFor}:${success ? 'completed' : 'failed'}`,
+    type:success ? 'backup.completed' : 'backup.failed',
+    severity:success ? 'info' : 'critical',
+    title:success ? 'Scheduled backup completed' : 'Scheduled backup failed',
+    message:success
+      ? `Scheduled backup ${result.backup?.fileName || ''} completed successfully.`.replace(/\s+/g, ' ').trim()
+      : `Scheduled backup failed: ${result.error || 'Unknown error'}`,
+    source:{ kind:'backup', id:scheduledFor, name:'Scheduled backup' },
+    metadata:{
+      trigger:result.trigger || 'scheduled',
+      scheduledFor,
+      destinationType:result.backup?.destinationType || result.destinationType || null,
+      fileName:result.backup?.fileName || null
+    }
+  });
+  if (!alertResult?.duplicate) fleetState.schedulePublish();
+}
+
+async function recordQueueHistoryAndAlerts(jobs = [], { seed = false } = {}) {
+  const reportingResult = await reportingService.recordTerminalJobs(jobs);
+  if (seed) return reportingResult;
+
+  const printersById = new Map(fleetState.getFleet().map((printer) => [String(printer.id), printer]));
+  let emitted = 0;
+  for (const job of Array.isArray(jobs) ? jobs : []) {
+    const status = String(job?.status || '').toLowerCase();
+    if (!['completed', 'failed', 'cancelled'].includes(status) || !job?.id) continue;
+
+    const livePrinter = printersById.get(String(job.printerId || '')) || null;
+    const printer = job.printerId ? {
+      id:String(job.printerId),
+      name:job.printerName || livePrinter?.name || null,
+      adapterType:livePrinter?.adapterType || null,
+      model:livePrinter?.model || null
+    } : null;
+    const fileName = String(job.fileName || 'Print job');
+    const printerName = job.printerName || livePrinter?.name || 'printer';
+    const event = status === 'completed'
+      ? {
+          severity:'info',
+          title:'Print completed',
+          message:`${fileName} completed on ${printerName}.`
+        }
+      : status === 'failed'
+        ? {
+            severity:'critical',
+            title:'Print failed',
+            message:`${fileName} failed on ${printerName}${job.error ? `: ${job.error}` : '.'}`
+          }
+        : {
+            severity:'info',
+            title:'Print cancelled',
+            message:`${fileName} was cancelled on ${printerName}.`
+          };
+
+    const result = await alertService.emit({
+      id:`queue-job:${job.id}:${status}`,
+      type:`print.${status}`,
+      severity:event.severity,
+      title:event.title,
+      message:event.message,
+      source:{ kind:'queue', id:String(job.id), name:fileName },
+      printer,
+      metadata:{
+        jobId:String(job.id),
+        productionBatchId:job.productionBatchId || null,
+        libraryFileId:job.libraryFileId || job.stagedFile?.id || null
+      }
+    });
+    if (!result.duplicate) emitted += 1;
+  }
+
+  if (emitted) fleetState.schedulePublish();
+  return reportingResult;
+}
+
+let queueAlertBridge = null;
 const printQueue = new PrintQueueService({
   fleetState,
   chamberPreheat,
   getPrinterGroupFn:(groupId) => printerGroups.get(groupId),
   printerAllowedFn: printerLicensedForNewWork,
   operationCoordinator:printerOperations,
-  recordTerminalJobsFn:(jobs) => reportingService.recordTerminalJobs(jobs),
-  onChange: () => fleetState.schedulePublish(),
+  recordTerminalJobsFn:recordQueueHistoryAndAlerts,
+  onChange:(snapshot) => {
+    fleetState.schedulePublish();
+    queueAlertBridge?.schedule(snapshot).catch(() => {});
+  },
   diagnosticFn:(level, message, meta) => diagnosticLogger[level]?.('queue', message, meta)
+});
+queueAlertBridge = new QueueAlertBridge({
+  alertService,
+  printerLookupFn:(printerId) => fleetState.getPrinterState(printerId),
+  onAlert:() => fleetState.schedulePublish(),
+  diagnosticFn:(level, message, meta) => diagnosticLogger[level]?.('alerts', message, meta)
 });
 const maintenanceService = new MaintenanceService({
   fleetState,
   groupLookupFn:(groupId) => printerGroups.get(groupId)
+});
+const alertEventBridge = new AlertEventBridge({
+  fleetState,
+  alertService,
+  maintenanceService,
+  onAlert:() => fleetState.schedulePublish(),
+  diagnosticFn:(level, message, meta) => diagnosticLogger[level]?.('alerts', message, meta)
 });
 const toolOffsetCalibrationLocks = new Map();
 
@@ -558,6 +666,11 @@ function openEventStream(req, res) {
     writeChunk(`event: fleet\ndata: ${JSON.stringify({
       printers:decoratedFleet(printers),
       queue:printQueue.getSnapshot(),
+      alerts:{
+        unreadCount:alertService.unreadCount(),
+        attentionUnreadCount:alertService.attentionUnreadCount(),
+        recent:alertService.listHistory({ limit:5 })
+      },
       version:CONTROLLER_VERSION,
       license:currentLicenseSnapshot(printers),
       serverTime:new Date().toISOString()
@@ -1295,7 +1408,17 @@ async function apiRoute(req, res, url) {
   }
 
   if (req.method === 'GET' && url.pathname === '/api/fleet') {
-    return json(res, 200, { printers: decoratedFleet(), queue: printQueue.getSnapshot(), version: CONTROLLER_VERSION, license: currentLicenseSnapshot() });
+    return json(res, 200, {
+      printers:decoratedFleet(),
+      queue:printQueue.getSnapshot(),
+      alerts:{
+        unreadCount:alertService.unreadCount(),
+        attentionUnreadCount:alertService.attentionUnreadCount(),
+        recent:alertService.listHistory({ limit:5 })
+      },
+      version:CONTROLLER_VERSION,
+      license:currentLicenseSnapshot()
+    });
   }
 
   if (req.method === 'GET' && url.pathname === '/api/queue') {
@@ -1305,6 +1428,73 @@ async function apiRoute(req, res, url) {
   if (req.method === 'GET' && url.pathname === '/api/maintenance') {
     const printers = (await listPrinters()).map(publicPrinter);
     return json(res, 200, { maintenance:await maintenanceService.getSnapshot(printers) });
+  }
+
+  if (req.method === 'GET' && url.pathname === '/api/alerts') {
+    const historyLimit = Number(url.searchParams.get('limit') || 100);
+    return json(res, 200, { alerts:alertService.snapshot({ historyLimit }) });
+  }
+
+  if (req.method === 'POST' && url.pathname === '/api/alerts/mark-read') {
+    const body = await readJson(req);
+    const result = await controllerMutations.run('alerts', () => alertService.markRead(body.alertId || null));
+    fleetState.schedulePublish();
+    return json(res, 200, result);
+  }
+
+  if (req.method === 'POST' && url.pathname === '/api/alerts/rules') {
+    const body = await readJson(req);
+    const rule = await controllerMutations.run('alerts', () => alertService.createRule(body));
+    fleetState.schedulePublish();
+    return json(res, 201, { rule });
+  }
+
+  const alertRuleMatch = url.pathname.match(/^\/api\/alerts\/rules\/([^/]+)$/);
+  if (alertRuleMatch) {
+    const ruleId = decodeURIComponent(alertRuleMatch[1]);
+    if (req.method === 'PATCH') {
+      const body = await readJson(req);
+      const rule = await controllerMutations.run('alerts', () => alertService.updateRule(ruleId, body));
+      fleetState.schedulePublish();
+      return json(res, 200, { rule });
+    }
+    if (req.method === 'DELETE') {
+      await controllerMutations.run('alerts', () => alertService.deleteRule(ruleId));
+      fleetState.schedulePublish();
+      return json(res, 200, { ok:true });
+    }
+    return json(res, 405, { error:'Alert rule operation is not supported' });
+  }
+
+  if (req.method === 'POST' && url.pathname === '/api/alerts/destinations') {
+    const body = await readJson(req);
+    const destination = await controllerMutations.run('alerts', () => alertService.createDestination(body));
+    fleetState.schedulePublish();
+    return json(res, 201, { destination });
+  }
+
+  const alertDestinationTestMatch = url.pathname.match(/^\/api\/alerts\/destinations\/([^/]+)\/test$/);
+  if (alertDestinationTestMatch && req.method === 'POST') {
+    const destinationId = decodeURIComponent(alertDestinationTestMatch[1]);
+    const result = await alertService.testDestination(destinationId);
+    return json(res, 200, result);
+  }
+
+  const alertDestinationMatch = url.pathname.match(/^\/api\/alerts\/destinations\/([^/]+)$/);
+  if (alertDestinationMatch) {
+    const destinationId = decodeURIComponent(alertDestinationMatch[1]);
+    if (req.method === 'PATCH') {
+      const body = await readJson(req);
+      const destination = await controllerMutations.run('alerts', () => alertService.updateDestination(destinationId, body));
+      fleetState.schedulePublish();
+      return json(res, 200, { destination });
+    }
+    if (req.method === 'DELETE') {
+      await controllerMutations.run('alerts', () => alertService.deleteDestination(destinationId));
+      fleetState.schedulePublish();
+      return json(res, 200, { ok:true });
+    }
+    return json(res, 405, { error:'Notification destination operation is not supported' });
   }
 
   if (req.method === 'GET' && url.pathname === '/api/reports') {
@@ -2345,6 +2535,8 @@ async function shutdown() {
   try { await chamberPreheat.stopAll({ reason: 'controller-shutdown', turnOff: true }); } catch {}
   chamberPreheat.stopService();
   scheduledBackupService.stop();
+  await alertEventBridge.stop().catch(() => {});
+  await queueAlertBridge?.stop().catch(() => {});
   await maintenanceService.stop().catch(() => {});
   printQueue.stop();
   fleetState.stop();
@@ -2417,8 +2609,10 @@ async function startController() {
     }
 
     await printerGroups.init();
+    await alertService.init();
     await fleetState.start();
     await maintenanceService.start();
+    await alertEventBridge.start();
     await reportingService.init();
     await printQueue.start();
     chamberPreheat.startService();
@@ -2457,10 +2651,13 @@ async function startController() {
     console.log('Persistent fleet print queue + history enabled');
     console.log('Custom printer groups + group-restricted scheduling enabled');
     console.log('Maintenance tracking + controller-observed printer usage enabled');
+    console.log('Farm alerts + outbound notification framework enabled');
   } catch (error) {
     memoryMonitor.stop();
     chamberPreheat.stopService();
     scheduledBackupService.stop();
+    await alertEventBridge.stop().catch(() => {});
+    await queueAlertBridge?.stop().catch(() => {});
     await maintenanceService.stop().catch(() => {});
     printQueue.stop();
     fleetState.stop();

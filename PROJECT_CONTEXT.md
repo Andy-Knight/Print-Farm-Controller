@@ -9,7 +9,7 @@ If chat context and this file disagree about the codebase, inspect current GitHu
 - Repository: `Andy-Knight/Print-Farm-Controller`
 - Project path: repository root (`/`)
 - Primary branch: `main` (current production baseline)
-- Current application version on this branch: **0.40.2**. Production baseline on `main`: **0.40.2**.
+- Current application version on this branch: **0.41.0**. Production baseline on `main`: **0.40.2**.
 - Runtime: **Node.js 24+** (development baseline Node.js 24.21.0), ES modules, no npm runtime dependencies.
 - GitHub is the authoritative code baseline.
 - Release/version history is maintained only in `CHANGELOG.md`; do not duplicate per-version history in this handoff file.
@@ -122,13 +122,16 @@ Manufacturer-specific discovery, capabilities, limits, status normalization, fil
 
 The current production baseline is **v0.40.2** on `main`.
 
-No feature branch is currently designated as active development. The next controller feature should be selected before creating the next feature branch.
+Active development is **v0.41.0** on `feature/farm-alerts-notifications` through draft pull request **#71**. The manufacturer-agnostic alert core, persistent history, read/unread state, farm/printer/group/model rules, ntfy and generic webhook destinations, test-delivery API, controller alert UI, live SSE unread indicator, backup/restore inclusion, and alert events for print terminal states, debounced printer-offline transitions, queue needs-review/bed-clearance intervention, maintenance due transitions and scheduled-backup outcomes are implemented on the branch.
+
+External delivery is opt-in: every supported event is retained locally, while only explicitly configured matching rules send outbound notifications. Notification credentials are backend-side and redacted from API responses. A real ntfy test notification has been successfully delivered to a mobile device, validating the outbound mobile-notification path.
 
 ## Next steps
 
-1. Select the next controller feature for development.
-2. Create a dedicated feature branch from the current `main` baseline.
-3. Increment the application version with the next delivered feature and update README/context as part of the change.
+1. Decide whether printer-online recovery events are useful without creating notification noise.
+2. Add email delivery if it can be done without compromising the controller's no-runtime-dependency baseline; otherwise document ntfy/webhooks as the initial remote-delivery providers.
+3. Add emulator-driven alert scenarios and broader API/UI regression coverage.
+4. Increment the application version to v0.41.0 when the feature is ready for delivery and update README/CHANGELOG/context.
 
 ## Licensing baseline
 

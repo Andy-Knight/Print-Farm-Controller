@@ -163,6 +163,7 @@ export class ScheduledBackupService {
     controllerVersion = 'unknown',
     operationLock = null,
     diagnosticFn = null,
+    onResult = null,
     googleDriveClient = null,
     oneDriveClient = null,
     s3Client = null,
@@ -178,6 +179,7 @@ export class ScheduledBackupService {
     this.controllerVersion = String(controllerVersion || 'unknown');
     this.operationLock = operationLock || new BackupOperationLock();
     this.diagnostic = typeof diagnosticFn === 'function' ? diagnosticFn : null;
+    this.onResult = typeof onResult === 'function' ? onResult : null;
     this.googleDriveClient = googleDriveClient || null;
     this.oneDriveClient = oneDriveClient || null;
     this.s3Client = s3Client || null;
@@ -196,6 +198,14 @@ export class ScheduledBackupService {
 
   async log(level, message, meta = {}) {
     try { await this.diagnostic?.(level, message, meta); } catch {}
+  }
+
+  async reportResult(result) {
+    try { await this.onResult?.(result); } catch (error) {
+      await this.log('warn', 'Scheduled backup result notification failed', {
+        error:error?.message || String(error)
+      });
+    }
   }
 
   cloudClient(destinationType) {
@@ -563,7 +573,9 @@ export class ScheduledBackupService {
             scheduledFor:scheduledFor || attemptedAt,
             trigger:trigger === 'catch-up' ? 'catch-up' : 'scheduled'
           });
-          return { success:true, backup:success };
+          const outcome = { success:true, backup:success, trigger:trigger === 'catch-up' ? 'catch-up' : 'scheduled', scheduledFor:scheduledFor || attemptedAt };
+          await this.reportResult(outcome);
+          return outcome;
         } catch (error) {
           const message = error?.message || String(error);
           await saveBackupSettings({
@@ -575,7 +587,15 @@ export class ScheduledBackupService {
             destinationType:backupDestinationType(updated.destination, updated.destinationType),
             error:message
           });
-          return { success:false, error:message };
+          const outcome = {
+            success:false,
+            error:message,
+            trigger:trigger === 'catch-up' ? 'catch-up' : 'scheduled',
+            scheduledFor:scheduledFor || attemptedAt,
+            destinationType:updated.destinationType || 'local'
+          };
+          await this.reportResult(outcome);
+          return outcome;
         } finally {
           if (['google-drive','one-drive','s3'].includes(updated.destinationType) && result?.filePath) {
             await fs.rm(result.filePath, { force:true }).catch(() => {});

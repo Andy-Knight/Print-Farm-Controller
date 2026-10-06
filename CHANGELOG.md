@@ -4,6 +4,20 @@ This file contains the version-by-version release history for Print Farm Control
 
 Historical entries describe the behaviour of the controller at the time of that release and may be superseded by later versions. For current installation, configuration and supported-hardware guidance, see [README.md](README.md).
 
+## v0.41.0
+
+- Adds persistent **Farm Alerts & Notifications** with manufacturer-agnostic local alert history, read/unread state, rule matching and scoped delivery by all printers/controller, individual printer, printer group or printer model.
+- Adds outbound **ntfy** mobile notifications and generic **webhook** delivery. Notification credentials remain backend-side and API responses expose only redacted configuration state. A real ntfy mobile test has been validated successfully.
+- Adds alert events for print completed/failed/cancelled, debounced printer-offline detection, queue jobs needing review, bed-clearance requirements, maintenance due/due-soon, and scheduled backup success/failure.
+- Separates alert history from top-bar attention state. Maintenance events continue to appear in alert history and may be delivered remotely but use the existing dedicated maintenance indicator locally; informational alerts such as print/backup completion do not light the general warning triangle.
+- Hides the general alert triangle when no unread operational warning/critical alerts require attention, while keeping Alerts & notifications permanently accessible from the overflow menu.
+- Persists active alert-condition identities across restarts so continuing offline/maintenance conditions do not create duplicate history entries after an already-read alert. Existing pre-registry history can be adopted safely on restart.
+- Includes alert rules, destinations, history and credentials in controller backup/restore with restore validation.
+- Reorganizes **Alerts & notifications** into controller-standard tabs for Alert history, Notification destinations and Notification rules, with Alert history as the default tab from every entry point.
+- Reorganizes **Reports & analytics** into dedicated Analytics and Filament cost catalogue tabs using the same controller tab component.
+- Slightly increases the shared tab-button text size across Maintenance, Printer details, Alerts & notifications and Reports & analytics for improved readability.
+- Adds regression coverage for alert persistence, restart deduplication, attention-only top-bar behavior, notification providers, alert/report tab navigation, and responsive/controller-consistent UI behavior.
+
 ## v0.40.2
 
 - Corrects Prusa CORE One+ INDX Toolheads vertical alignment by giving the filament material selector the same 4 px label-to-field spacing as the colour and nozzle selectors, so the filament and nozzle dropdown/button rows line up exactly.
