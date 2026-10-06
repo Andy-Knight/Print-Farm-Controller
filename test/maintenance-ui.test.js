@@ -40,8 +40,15 @@ test('maintenance window uses task terminology across all maintenance tabs', () 
   assert.match(maintenanceUi, /setMaintenanceView\('printers'\)/);
   assert.match(styles, /\.maintenance-view-selector/);
   assert.match(styles, /\.maintenance-view-button\.active/);
-  assert.doesNotMatch(maintenanceUi, />[^<]*\brules?\b[^<]*</i);
-  assert.doesNotMatch(maintenanceUi, /['"`]([^'"`]*\brules?\b[^'"`]*)['"`]/i);
+  assert.doesNotMatch(maintenanceUi, /Model-wide maintenance rules/);
+  assert.doesNotMatch(maintenanceUi, /Group-wide maintenance rules/);
+  assert.doesNotMatch(maintenanceUi, /Edit (?:model|group)? ?rule/);
+  assert.doesNotMatch(maintenanceUi, /Delete (?:model|group)? ?rule/);
+  assert.doesNotMatch(maintenanceUi, /maintenance rule/);
+  assert.match(maintenanceUi, /Model-wide maintenance tasks/);
+  assert.match(maintenanceUi, /Group-wide maintenance tasks/);
+  assert.match(maintenanceUi, /Edit model task/);
+  assert.match(maintenanceUi, /Delete group task/);
 });
 
 test('maintenance UI uses the persistent maintenance API', () => {
