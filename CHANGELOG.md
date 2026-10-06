@@ -4,6 +4,11 @@ This file contains the version-by-version release history for Print Farm Control
 
 Historical entries describe the behaviour of the controller at the time of that release and may be superseded by later versions. For current installation, configuration and supported-hardware guidance, see [README.md](README.md).
 
+## v0.41.2
+
+- Standardizes Maintenance tracking terminology on **tasks** throughout the window. Tab headings, section headings, empty states, edit/delete actions, form titles and confirmation messages now consistently refer to model-wide, group-wide and individual-printer maintenance tasks rather than mixing task and rule terminology.
+- Adds regression coverage to prevent user-facing maintenance wording from drifting back to rule/rules.
+
 ## v0.41.1
 
 - Fixes controller dialog scrollbars visually cutting through the rounded top-right and bottom-right corners. Dialog frames now clip to the shared rounded border while their immediate content containers own scrolling, preserving the existing rounded-corner appearance across controller windows.
