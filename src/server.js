@@ -1413,6 +1413,7 @@ async function apiRoute(req, res, url) {
       queue:printQueue.getSnapshot(),
       alerts:{
         unreadCount:alertService.unreadCount(),
+        attentionUnreadCount:alertService.attentionUnreadCount(),
         recent:alertService.listHistory({ limit:5 })
       },
       version:CONTROLLER_VERSION,
