@@ -132,7 +132,7 @@ function modelTaskSection() {
     <section class="maintenance-model-rules">
       <div class="maintenance-model-rules-head">
         <div>
-          <h3>Model-wide maintenance rules</h3>
+          <h3>Model-wide maintenance tasks</h3>
           <div class="subtle">Inherited automatically by every current and future printer of the selected model. Completion state remains independent per printer.</div>
         </div>
         <span class="maintenance-pill">${tasks.length} shared</span>
@@ -160,8 +160,8 @@ function modelTaskSection() {
             </div>
             <div class="mini-actions maintenance-task-actions">
               <button type="button" class="primary" data-maintenance-complete-model data-task-id="${escapeHtml(task.id)}" ${eligible <= 0 ? `disabled aria-disabled="true" title="${escapeHtml(matching ? 'No matching printers are currently eligible for completion' : 'No matching printers are configured')}"` : ''}>Complete for model</button>
-              <button type="button" class="secondary" data-maintenance-edit data-task-scope="model" data-task-id="${escapeHtml(task.id)}">Edit rule</button>
-              <button type="button" class="danger" data-maintenance-delete data-task-scope="model" data-task-id="${escapeHtml(task.id)}">Delete rule</button>
+              <button type="button" class="secondary" data-maintenance-edit data-task-scope="model" data-task-id="${escapeHtml(task.id)}">Edit task</button>
+              <button type="button" class="danger" data-maintenance-delete data-task-scope="model" data-task-id="${escapeHtml(task.id)}">Delete task</button>
             </div>
           </article>
         `;
@@ -183,7 +183,7 @@ function groupTaskSection() {
     <section class="maintenance-model-rules maintenance-group-rules">
       <div class="maintenance-model-rules-head">
         <div>
-          <h3>Group-wide maintenance rules</h3>
+          <h3>Group-wide maintenance tasks</h3>
           <div class="subtle">Inherited by the printers currently assigned to the selected custom group. Each printer keeps its own completion baseline and history.</div>
         </div>
         <span class="maintenance-pill">${tasks.length} shared</span>
@@ -212,8 +212,8 @@ function groupTaskSection() {
             </div>
             <div class="mini-actions maintenance-task-actions">
               <button type="button" class="primary" data-maintenance-complete-group data-task-id="${escapeHtml(task.id)}" ${eligible <= 0 ? `disabled aria-disabled="true" title="${escapeHtml(matching ? 'No group members are currently eligible for completion' : 'This group has no configured members')}"` : ''}>Complete for group</button>
-              <button type="button" class="secondary" data-maintenance-edit data-task-scope="group" data-task-id="${escapeHtml(task.id)}">Edit rule</button>
-              <button type="button" class="danger" data-maintenance-delete data-task-scope="group" data-task-id="${escapeHtml(task.id)}">Delete rule</button>
+              <button type="button" class="secondary" data-maintenance-edit data-task-scope="group" data-task-id="${escapeHtml(task.id)}">Edit task</button>
+              <button type="button" class="danger" data-maintenance-delete data-task-scope="group" data-task-id="${escapeHtml(task.id)}">Delete task</button>
             </div>
           </article>
         `;
@@ -275,8 +275,8 @@ function printerCardsMarkup() {
               </div>
               <div class="mini-actions maintenance-task-actions">
                 <button type="button" class="primary" data-maintenance-complete data-task-scope="${escapeHtml(task.assignment?.scope || 'printer')}" data-printer-id="${escapeHtml(printer.printerId)}" data-task-id="${escapeHtml(task.id)}" ${task.completionAllowed === false ? `disabled aria-disabled="true" title="${escapeHtml(task.completionReason || 'This maintenance task cannot be completed yet')}"` : ''}>Complete</button>
-                <button type="button" class="secondary" data-maintenance-edit data-task-scope="${escapeHtml(task.assignment?.scope || 'printer')}" data-printer-id="${escapeHtml(printer.printerId)}" data-task-id="${escapeHtml(task.id)}">${task.assignment?.scope === 'model' ? 'Edit model rule' : task.assignment?.scope === 'group' ? 'Edit group rule' : 'Edit'}</button>
-                <button type="button" class="danger" data-maintenance-delete data-task-scope="${escapeHtml(task.assignment?.scope || 'printer')}" data-printer-id="${escapeHtml(printer.printerId)}" data-task-id="${escapeHtml(task.id)}">${task.assignment?.scope === 'model' ? 'Delete model rule' : task.assignment?.scope === 'group' ? 'Delete group rule' : 'Delete'}</button>
+                <button type="button" class="secondary" data-maintenance-edit data-task-scope="${escapeHtml(task.assignment?.scope || 'printer')}" data-printer-id="${escapeHtml(printer.printerId)}" data-task-id="${escapeHtml(task.id)}">${task.assignment?.scope === 'model' ? 'Edit model task' : task.assignment?.scope === 'group' ? 'Edit group task' : 'Edit task'}</button>
+                <button type="button" class="danger" data-maintenance-delete data-task-scope="${escapeHtml(task.assignment?.scope || 'printer')}" data-printer-id="${escapeHtml(printer.printerId)}" data-task-id="${escapeHtml(task.id)}">${task.assignment?.scope === 'model' ? 'Delete model task' : task.assignment?.scope === 'group' ? 'Delete group task' : 'Delete task'}</button>
               </div>
             </article>
           `).join('') : '<div class="subtle maintenance-no-tasks">No maintenance tasks configured for this printer.</div>'}
@@ -309,11 +309,11 @@ function render() {
   form?.classList.toggle('hidden', activeMaintenanceView !== 'add');
   list.classList.toggle('hidden', activeMaintenanceView === 'add');
   if (activeMaintenanceView === 'model') {
-    list.innerHTML = modelTaskSection() || '<div class="empty maintenance-empty"><h3>No model-wide maintenance rules</h3><p>Create a model-wide rule from Add maintenance tasks.</p></div>';
+    list.innerHTML = modelTaskSection() || '<div class="empty maintenance-empty"><h3>No model-wide maintenance tasks</h3><p>Create a model-wide task from Add maintenance tasks.</p></div>';
     return;
   }
   if (activeMaintenanceView === 'group') {
-    list.innerHTML = groupTaskSection() || '<div class="empty maintenance-empty"><h3>No group-wide maintenance rules</h3><p>Create a group-wide rule from Add maintenance tasks.</p></div>';
+    list.innerHTML = groupTaskSection() || '<div class="empty maintenance-empty"><h3>No group-wide maintenance tasks</h3><p>Create a group-wide task from Add maintenance tasks.</p></div>';
     return;
   }
   if (activeMaintenanceView === 'printers') {
@@ -455,14 +455,14 @@ function beginEdit(scope, task, printerId = '') {
     printerSelect.disabled = true;
     groupSelect.disabled = true;
     modelSelect.disabled = false;
-    formTitle.textContent = 'Edit model-wide maintenance rule';
+    formTitle.textContent = 'Edit model-wide maintenance task';
   } else if (scope === 'group') {
     const target = task.assignment || task.target;
     groupSelect.value = target.groupId || '';
     printerSelect.disabled = true;
     groupSelect.disabled = false;
     modelSelect.disabled = true;
-    formTitle.textContent = 'Edit group-wide maintenance rule';
+    formTitle.textContent = 'Edit group-wide maintenance task';
   } else {
     printerSelect.value = printerId;
     printerSelect.disabled = true;
@@ -709,9 +709,9 @@ list?.addEventListener('click', async (event) => {
 
   if (remove) {
     const message = scope === 'model'
-      ? `Delete model-wide maintenance rule “${task.name}”?\n\nIt will be removed from every current and future matching printer. Existing completed maintenance history will be retained on each printer.`
+      ? `Delete model-wide maintenance task “${task.name}”?\n\nIt will be removed from every current and future matching printer. Existing completed maintenance history will be retained on each printer.`
       : scope === 'group'
-        ? `Delete group-wide maintenance rule “${task.name}”?\n\nIt will be removed from the current members of ${groupLabel(task.assignment?.groupId || task.target?.groupId, task.assignment?.groupName)}. Existing completed maintenance history will be retained on each printer.`
+        ? `Delete group-wide maintenance task “${task.name}”?\n\nIt will be removed from the current members of ${groupLabel(task.assignment?.groupId || task.target?.groupId, task.assignment?.groupName)}. Existing completed maintenance history will be retained on each printer.`
         : `Delete maintenance task “${task.name}”? Its completed maintenance history will be retained.`;
     if (!confirm(message)) return;
     try {
