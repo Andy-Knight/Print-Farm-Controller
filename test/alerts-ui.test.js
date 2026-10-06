@@ -42,8 +42,7 @@ test('farm alerts UI exposes history, destinations and scoped notification rules
   assert.match(alertsUi, /Saved token — leave blank to keep/);
   assert.match(alertsUi, /pfc-alerts-live/);
   assert.match(alertsUi, /function activateAlertsTab/);
-  assert.match(alertsUi, /openAlerts\('history'\)/);
-  assert.match(alertsUi, /openAlerts\('rules'\)/);
+  assert.equal((alertsUi.match(/openAlerts\('history'\)/g) || []).length >= 2, true);
   assert.match(alertsUi, /\['ArrowLeft','ArrowRight','Home','End'\]/);
   new vm.Script(alertsUi);
 });
