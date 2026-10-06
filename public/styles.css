@@ -194,7 +194,23 @@ button.summary-card:focus-visible { filter:none; transform:translateY(-1px); bor
 }
 .controller-footer span { color:#8fa0ae; font-weight:750; }
 
-dialog { width:min(520px,calc(100vw - 30px)); border:1px solid #35414b; border-radius:18px; background:#131a21; color:#e8edf2; padding:0; box-shadow:0 30px 90px rgba(0,0,0,.55); }
+dialog {
+  width:min(520px,calc(100vw - 30px));
+  max-height:calc(100vh - 30px);
+  overflow:hidden;
+  border:1px solid #35414b;
+  border-radius:18px;
+  background:#131a21;
+  color:#e8edf2;
+  padding:0;
+  box-shadow:0 30px 90px rgba(0,0,0,.55);
+}
+dialog > :first-child {
+  max-height:calc(100vh - 32px);
+  overflow:auto;
+  border-radius:17px;
+  overscroll-behavior:contain;
+}
 dialog::backdrop { background:rgba(0,0,0,.72); backdrop-filter:blur(3px); }
 form { padding:22px; }
 .dialog-head { display:flex; justify-content:space-between; align-items:flex-start; gap:12px; margin-bottom:16px; }

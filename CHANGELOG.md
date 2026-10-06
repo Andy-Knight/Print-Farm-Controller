@@ -4,6 +4,11 @@ This file contains the version-by-version release history for Print Farm Control
 
 Historical entries describe the behaviour of the controller at the time of that release and may be superseded by later versions. For current installation, configuration and supported-hardware guidance, see [README.md](README.md).
 
+## v0.41.1
+
+- Fixes controller dialog scrollbars visually cutting through the rounded top-right and bottom-right corners. Dialog frames now clip to the shared rounded border while their immediate content containers own scrolling, preserving the existing rounded-corner appearance across controller windows.
+- Adds regression coverage for the shared dialog scrollbar-clipping behaviour.
+
 ## v0.41.0
 
 - Adds persistent **Farm Alerts & Notifications** with manufacturer-agnostic local alert history, read/unread state, rule matching and scoped delivery by all printers/controller, individual printer, printer group or printer model.
