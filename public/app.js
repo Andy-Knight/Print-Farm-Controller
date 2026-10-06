@@ -198,7 +198,7 @@ const themeColorMeta = document.querySelector('#themeColorMeta');
 let fleet = [];
 let adapters = [];
 let queueState = { jobs:[], queued:0, active:0, history:0, needsReview:0, awaitingClearance:0, bedClearance:[], productionBatches:[] };
-let alertsSummaryState = { unreadCount:0, recent:[] };
+let alertsSummaryState = { unreadCount:0, attentionUnreadCount:0, recent:[] };
 let libraryState = { files:[] };
 let printerGroupsState = { version:1, groups:[] };
 let libraryMetadataFile = null;
@@ -2289,25 +2289,32 @@ function updateMaintenanceIcon(root, printer) {
 function setAlertsSummary(summary = {}) {
   alertsSummaryState = {
     unreadCount:Math.max(0, Number(summary?.unreadCount || 0)),
+    attentionUnreadCount:Math.max(0, Number(summary?.attentionUnreadCount || 0)),
     recent:Array.isArray(summary?.recent) ? summary.recent : []
   };
   if (alertsBtn && alertsButtonCount) {
-    const unread = alertsSummaryState.unreadCount;
-    alertsButtonCount.textContent = unread > 99 ? '99+' : String(unread);
-    alertsButtonCount.classList.toggle('hidden', unread === 0);
-    alertsBtn.classList.toggle('hidden', unread === 0);
-    alertsBtn.classList.toggle('has-alerts', unread > 0);
-    const unreadRecent = alertsSummaryState.recent.filter((alert) => !alert?.readAt);
-    const severity = unreadRecent.some((alert) => alert?.severity === 'critical')
+    const attentionUnread = alertsSummaryState.attentionUnreadCount;
+    alertsButtonCount.textContent = attentionUnread > 99 ? '99+' : String(attentionUnread);
+    alertsButtonCount.classList.toggle('hidden', attentionUnread === 0);
+    alertsBtn.classList.toggle('hidden', attentionUnread === 0);
+    alertsBtn.classList.toggle('has-alerts', attentionUnread > 0);
+    const attentionUnreadRecent = alertsSummaryState.recent.filter((alert) => {
+      if (alert?.readAt) return false;
+      if (!['warning', 'critical'].includes(String(alert?.severity || '').toLowerCase())) return false;
+      return !String(alert?.type || '').toLowerCase().startsWith('maintenance.');
+    });
+    const severity = attentionUnreadRecent.some((alert) => alert?.severity === 'critical')
       ? 'critical'
-      : unreadRecent.some((alert) => alert?.severity === 'warning')
+      : attentionUnreadRecent.some((alert) => alert?.severity === 'warning')
         ? 'warning'
-        : unread > 0 ? 'info' : 'none';
+        : 'none';
     alertsBtn.dataset.state = severity;
-    alertsBtn.setAttribute('aria-label', unread
-      ? `Open farm alerts. ${unread} unread alert${unread === 1 ? '' : 's'}.`
-      : 'Open farm alerts. No unread alerts.');
-    alertsBtn.title = unread ? `${unread} unread farm alert${unread === 1 ? '' : 's'}` : 'Farm alerts';
+    alertsBtn.setAttribute('aria-label', attentionUnread
+      ? `Open farm alerts. ${attentionUnread} alert${attentionUnread === 1 ? '' : 's'} need attention.`
+      : 'No operational alerts need attention.');
+    alertsBtn.title = attentionUnread
+      ? `${attentionUnread} farm alert${attentionUnread === 1 ? '' : 's'} need attention`
+      : 'No operational alerts need attention';
   }
   window.dispatchEvent(new CustomEvent('pfc-alerts-live', { detail:structuredClone(alertsSummaryState) }));
 }
