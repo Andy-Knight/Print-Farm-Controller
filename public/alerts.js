@@ -488,7 +488,7 @@ function buildRulePayload() {
 }
 
 alertsBtn?.addEventListener('click', () => openAlerts('history'));
-alertsSettingsBtn?.addEventListener('click', () => openAlerts('rules'));
+alertsSettingsBtn?.addEventListener('click', () => openAlerts('history'));
 document.querySelectorAll('[data-alerts-close]').forEach((button) => button.addEventListener('click', () => alertsDialog?.close()));
 
 for (const tab of alertTabs) {
