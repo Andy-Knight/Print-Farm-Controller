@@ -35,6 +35,16 @@ test('alert event bridge emits only live offline and maintenance transitions', a
       async emit(alert) {
         emitted.push(structuredClone(alert));
         return { alert, duplicate:false };
+      },
+      async emitCondition(_key, alert) {
+        emitted.push(structuredClone(alert));
+        return { alert, duplicate:false };
+      },
+      async adoptCondition() {
+        return { adopted:false };
+      },
+      async resolveCondition() {
+        return { resolved:false };
       }
     },
     maintenanceService:{
