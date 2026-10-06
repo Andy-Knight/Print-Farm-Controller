@@ -40,6 +40,8 @@ test('maintenance window uses task terminology across all maintenance tabs', () 
   assert.match(maintenanceUi, /setMaintenanceView\('printers'\)/);
   assert.match(styles, /\.maintenance-view-selector/);
   assert.match(styles, /\.maintenance-view-button\.active/);
+  assert.doesNotMatch(maintenanceUi, />[^<]*\brules?\b[^<]*</i);
+  assert.doesNotMatch(maintenanceUi, /['"`]([^'"`]*\brules?\b[^'"`]*)['"`]/i);
 });
 
 test('maintenance UI uses the persistent maintenance API', () => {
