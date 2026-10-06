@@ -1376,7 +1376,7 @@ button.library-file-preview { cursor:zoom-in; }
 .license-file-path { margin-top:10px; }
 .license-file-path code {
   color:#aebdca;
-  font-size:.76rem;
+  font-size:.82rem;
   overflow-wrap:anywhere;
   white-space:normal;
 }
