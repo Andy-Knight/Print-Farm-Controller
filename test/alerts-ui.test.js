@@ -37,11 +37,14 @@ test('farm alerts UI exposes history, destinations and scoped notification rules
   new vm.Script(alertsUi);
 });
 
-test('live fleet updates carry unread alert summaries to the top-bar indicator', () => {
-  assert.match(server, /alerts:\{\s*unreadCount:alertService\.unreadCount\(\)/);
+test('live fleet updates carry attention-only alert summaries to the top-bar indicator', () => {
+  assert.match(server, /unreadCount:alertService\.unreadCount\(\)/);
+  assert.match(server, /attentionUnreadCount:alertService\.attentionUnreadCount\(\)/);
   assert.match(server, /recent:alertService\.listHistory\(\{ limit:5 \}\)/);
   assert.match(app, /function setAlertsSummary/);
-  assert.match(app, /alertsBtn\.classList\.toggle\('hidden', unread === 0\)/);
+  assert.match(app, /attentionUnreadCount:Math\.max\(0, Number\(summary\?\.attentionUnreadCount \|\| 0\)\)/);
+  assert.match(app, /alertsBtn\.classList\.toggle\('hidden', attentionUnread === 0\)/);
+  assert.match(app, /startsWith\('maintenance\.'\)/);
   assert.match(app, /setAlertsSummary\(result\.alerts \|\| alertsSummaryState\)/);
   assert.match(app, /setAlertsSummary\(payload\.alerts \|\| alertsSummaryState\)/);
   assert.match(app, /new CustomEvent\('pfc-alerts-live'/);
@@ -56,6 +59,8 @@ test('alert backend provides persistent rules plus outbound ntfy and webhook pro
   assert.match(alertService, /class AlertService/);
   assert.match(alertService, /scope\.type === 'group'/);
   assert.match(alertService, /duplicate:true/);
+  assert.match(alertService, /attentionUnreadCount\(\)/);
+  assert.match(alertService, /startsWith\('maintenance\.'\)/);
   assert.match(providers, /class NtfyNotificationProvider/);
   assert.match(providers, /class WebhookNotificationProvider/);
   assert.match(providers, /hasToken:Boolean\(config\.token\)/);
