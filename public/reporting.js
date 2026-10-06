@@ -7,6 +7,8 @@ const reportingPrinter = document.querySelector('#reportingPrinter');
 const reportingRefreshBtn = document.querySelector('#reportingRefreshBtn');
 const reportingStatus = document.querySelector('#reportingStatus');
 const reportingError = document.querySelector('#reportingError');
+const reportingTabs = Array.from(document.querySelectorAll('[data-reporting-tab]'));
+const reportingPanels = Array.from(document.querySelectorAll('[data-reporting-panel]'));
 const reportingKpis = document.querySelector('#reportingKpis');
 const reportingTrend = document.querySelector('#reportingTrend');
 const reportingPrinters = document.querySelector('#reportingPrinters');
@@ -298,8 +300,42 @@ function renderFilamentCatalogue() {
   </div>`).join('');
 }
 
+function activateReportingTab(name, focus = false) {
+  const selected = reportingTabs.find((tab) => tab.dataset.reportingTab === name) || reportingTabs[0];
+  if (!selected) return;
+  const selectedName = selected.dataset.reportingTab;
+  for (const tab of reportingTabs) {
+    const active = tab === selected;
+    tab.classList.toggle('active', active);
+    tab.setAttribute('aria-selected', active ? 'true' : 'false');
+    tab.tabIndex = active ? 0 : -1;
+  }
+  for (const panel of reportingPanels) {
+    panel.hidden = panel.dataset.reportingPanel !== selectedName;
+  }
+  if (focus) selected.focus();
+}
+
+for (const tab of reportingTabs) {
+  tab.addEventListener('click', () => activateReportingTab(tab.dataset.reportingTab));
+  tab.addEventListener('keydown', (event) => {
+    if (!['ArrowLeft','ArrowRight','Home','End'].includes(event.key)) return;
+    event.preventDefault();
+    const currentIndex = reportingTabs.indexOf(tab);
+    const nextIndex = event.key === 'Home'
+      ? 0
+      : event.key === 'End'
+        ? reportingTabs.length - 1
+        : event.key === 'ArrowRight'
+          ? (currentIndex + 1) % reportingTabs.length
+          : (currentIndex - 1 + reportingTabs.length) % reportingTabs.length;
+    activateReportingTab(reportingTabs[nextIndex]?.dataset.reportingTab, true);
+  });
+}
+
 reportsBtn?.addEventListener('click', async () => {
   if (topbarOverflow) topbarOverflow.open = false;
+  activateReportingTab('analytics');
   reportingDialog?.showModal();
   if (reportingStatus) reportingStatus.textContent = 'Loading reporting data…';
   try {
