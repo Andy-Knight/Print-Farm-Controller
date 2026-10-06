@@ -16,6 +16,14 @@ function maintenanceState(service, printer) {
   }
 }
 
+function offlineConditionKey(printerId) {
+  return `printer.offline:${printerId}`;
+}
+
+function maintenanceConditionKey(printerId, state) {
+  return `maintenance.${state}:${printerId}`;
+}
+
 export class AlertEventBridge {
   constructor({
     fleetState,
@@ -73,29 +81,55 @@ export class AlertEventBridge {
       const current = this.snapshotFor(printer);
       const previous = this.previous.get(id);
 
-      if (!baseline && previous) {
-        const crossedOfflineThreshold = !current.online
-          && current.consecutiveFailures >= this.offlineFailureThreshold
-          && (previous.online || previous.consecutiveFailures < this.offlineFailureThreshold);
-        if (crossedOfflineThreshold) {
-          await this.emit({
-            type:'printer.offline',
-            severity:'warning',
-            title:'Printer offline',
-            message:`${printer.name || id} is offline after ${current.consecutiveFailures} consecutive connection failures.`,
-            source:{ kind:'printer', id, name:printer.name || id },
-            printer:printerReference(printer),
-            metadata:{
-              previousOnline:previous.online,
-              consecutiveFailures:current.consecutiveFailures,
-              threshold:this.offlineFailureThreshold
-            }
-          });
+      const offlineKey = offlineConditionKey(id);
+      const dueSoonKey = maintenanceConditionKey(id, 'due_soon');
+      const dueKey = maintenanceConditionKey(id, 'due');
+
+      if (baseline) {
+        if (!current.online) {
+          await this.alertService.adoptCondition(offlineKey, { type:'printer.offline', printerId:id }).catch(() => {});
+        } else {
+          await this.alertService.resolveCondition(offlineKey).catch(() => {});
+        }
+
+        if (current.maintenanceState === 'due_soon') {
+          await this.alertService.adoptCondition(dueSoonKey, { type:'maintenance.due_soon', printerId:id }).catch(() => {});
+          await this.alertService.resolveCondition(dueKey).catch(() => {});
+        } else if (current.maintenanceState === 'due') {
+          await this.alertService.adoptCondition(dueKey, { type:'maintenance.due', printerId:id }).catch(() => {});
+          await this.alertService.resolveCondition(dueSoonKey).catch(() => {});
+        } else {
+          await this.alertService.resolveCondition(dueSoonKey).catch(() => {});
+          await this.alertService.resolveCondition(dueKey).catch(() => {});
+        }
+      } else if (previous) {
+        if (current.online) {
+          await this.alertService.resolveCondition(offlineKey).catch(() => {});
+        } else {
+          const crossedOfflineThreshold = current.consecutiveFailures >= this.offlineFailureThreshold
+            && (previous.online || previous.consecutiveFailures < this.offlineFailureThreshold);
+          if (crossedOfflineThreshold) {
+            const result = await this.alertService.emitCondition(offlineKey, {
+              type:'printer.offline',
+              severity:'warning',
+              title:'Printer offline',
+              message:`${printer.name || id} is offline after ${current.consecutiveFailures} consecutive connection failures.`,
+              source:{ kind:'printer', id, name:printer.name || id },
+              printer:printerReference(printer),
+              metadata:{
+                previousOnline:previous.online,
+                consecutiveFailures:current.consecutiveFailures,
+                threshold:this.offlineFailureThreshold
+              }
+            });
+            if (!result?.duplicate) this.onAlert(result.alert);
+          }
         }
 
         if (previous.maintenanceState !== current.maintenanceState) {
           if (current.maintenanceState === 'due_soon') {
-            await this.emit({
+            await this.alertService.resolveCondition(dueKey).catch(() => {});
+            const result = await this.alertService.emitCondition(dueSoonKey, {
               type:'maintenance.due_soon',
               severity:'warning',
               title:'Maintenance due soon',
@@ -104,8 +138,10 @@ export class AlertEventBridge {
               printer:printerReference(printer),
               metadata:{ previousState:previous.maintenanceState, currentState:current.maintenanceState }
             });
+            if (!result?.duplicate) this.onAlert(result.alert);
           } else if (current.maintenanceState === 'due') {
-            await this.emit({
+            await this.alertService.resolveCondition(dueSoonKey).catch(() => {});
+            const result = await this.alertService.emitCondition(dueKey, {
               type:'maintenance.due',
               severity:'warning',
               title:'Maintenance due',
@@ -114,6 +150,10 @@ export class AlertEventBridge {
               printer:printerReference(printer),
               metadata:{ previousState:previous.maintenanceState, currentState:current.maintenanceState }
             });
+            if (!result?.duplicate) this.onAlert(result.alert);
+          } else {
+            await this.alertService.resolveCondition(dueSoonKey).catch(() => {});
+            await this.alertService.resolveCondition(dueKey).catch(() => {});
           }
         }
       }
