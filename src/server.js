@@ -668,6 +668,7 @@ function openEventStream(req, res) {
       queue:printQueue.getSnapshot(),
       alerts:{
         unreadCount:alertService.unreadCount(),
+        attentionUnreadCount:alertService.attentionUnreadCount(),
         recent:alertService.listHistory({ limit:5 })
       },
       version:CONTROLLER_VERSION,
