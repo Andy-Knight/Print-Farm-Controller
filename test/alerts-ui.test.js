@@ -16,6 +16,13 @@ test('farm alerts UI exposes history, destinations and scoped notification rules
   assert.match(index, /id="alertsButtonCount"/);
   assert.match(index, /id="alertsSettingsBtn"/);
   assert.match(index, /id="alertsDialog"/);
+  assert.match(index, /id="alertsTabHistory"/);
+  assert.match(index, /id="alertsTabDestinations"/);
+  assert.match(index, /id="alertsTabRules"/);
+  assert.match(index, /data-alerts-panel="history"/);
+  assert.match(index, /data-alerts-panel="destinations"/);
+  assert.match(index, /data-alerts-panel="rules"/);
+  assert.match(index, /class="alerts-tabs maintenance-view-selector"/);
   assert.match(index, /id="alertsHistory"/);
   assert.match(index, /id="alertDestinationForm"/);
   assert.match(index, /id="alertDestinationProvider"/);
@@ -34,6 +41,10 @@ test('farm alerts UI exposes history, destinations and scoped notification rules
   assert.match(alertsUi, /\/api\/alerts\/mark-read/);
   assert.match(alertsUi, /Saved token — leave blank to keep/);
   assert.match(alertsUi, /pfc-alerts-live/);
+  assert.match(alertsUi, /function activateAlertsTab/);
+  assert.match(alertsUi, /openAlerts\('history'\)/);
+  assert.match(alertsUi, /openAlerts\('rules'\)/);
+  assert.match(alertsUi, /\['ArrowLeft','ArrowRight','Home','End'\]/);
   new vm.Script(alertsUi);
 });
 
@@ -50,6 +61,8 @@ test('live fleet updates carry attention-only alert summaries to the top-bar ind
   assert.match(app, /new CustomEvent\('pfc-alerts-live'/);
   assert.match(styles, /\.controller-alert-button/);
   assert.match(styles, /\.alerts-dialog/);
+  assert.match(styles, /\.alerts-tabs\.maintenance-view-selector/);
+  assert.match(styles, /\.alerts-tab-panel\[hidden\]/);
 });
 
 test('alert backend provides persistent rules plus outbound ntfy and webhook providers', () => {
