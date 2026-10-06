@@ -15,6 +15,11 @@ const restoreService = fs.readFileSync(new URL('../src/backup-recovery/restore-s
 test('reporting UI is available from the overflow menu with graphical farm analytics', () => {
   assert.match(index, /id="reportsBtn"[^>]*>Reports &amp; analytics<\/button>/);
   assert.match(index, /id="reportingDialog"/);
+  assert.match(index, /id="reportingTabAnalytics"/);
+  assert.match(index, /id="reportingTabFilament"/);
+  assert.match(index, /data-reporting-panel="analytics"/);
+  assert.match(index, /data-reporting-panel="filament"/);
+  assert.match(index, /class="reporting-tabs maintenance-view-selector"/);
   assert.match(index, /id="reportingRange"/);
   assert.match(index, /id="reportingGroup"/);
   assert.match(index, /id="reportingPrinter"/);
@@ -24,11 +29,16 @@ test('reporting UI is available from the overflow menu with graphical farm analy
   assert.match(index, /id="reportingMaterials"/);
   assert.match(index, /src="\/reporting\.js"/);
   assert.match(reportingUi, /reportsBtn\?\.addEventListener/);
+  assert.match(reportingUi, /function activateReportingTab/);
+  assert.match(reportingUi, /activateReportingTab\('analytics'\)/);
+  assert.match(reportingUi, /\['ArrowLeft','ArrowRight','Home','End'\]/);
   assert.match(reportingUi, /function lineChartSvg/);
   assert.match(reportingUi, /function renderProblemPrinters/);
   assert.match(reportingUi, /\/api\/reports\?/);
   assert.match(styles, /\.reporting-line-chart/);
   assert.match(styles, /\.reporting-printer-row\.attention/);
+  assert.match(styles, /\.reporting-tabs\.maintenance-view-selector/);
+  assert.match(styles, /\.reporting-tab-panel\[hidden\]/);
   new vm.Script(reportingUi);
 });
 
