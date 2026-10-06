@@ -94,7 +94,8 @@ function defaultState() {
     version:1,
     rules:[],
     destinations:[],
-    history:[]
+    history:[],
+    activeConditions:{}
   };
 }
 
@@ -265,7 +266,12 @@ export class AlertService {
       if (!raw || raw.version !== 1 || !Array.isArray(raw.rules) || !Array.isArray(raw.destinations) || !Array.isArray(raw.history)) {
         throw new Error('Alert store is invalid');
       }
-      this.state = raw;
+      this.state = {
+        ...raw,
+        activeConditions:raw.activeConditions && typeof raw.activeConditions === 'object' && !Array.isArray(raw.activeConditions)
+          ? raw.activeConditions
+          : {}
+      };
     } catch (error) {
       if (error?.code !== 'ENOENT') throw error;
       this.state = defaultState();
@@ -443,6 +449,42 @@ export class AlertService {
       unreadCount:this.unreadCount(),
       attentionUnreadCount:this.attentionUnreadCount()
     };
+  }
+
+  async emitCondition(conditionKey, input = {}) {
+    await this.init();
+    const key = cleanText(conditionKey, { required:true, max:240, label:'Alert condition key' });
+    const activeAlertId = this.state.activeConditions?.[key] || null;
+    if (activeAlertId) {
+      const existing = this.state.history.find((alert) => alert.id === activeAlertId) || null;
+      if (existing) {
+        return {
+          alert:clone(existing),
+          matchedRuleIds:[],
+          deliveries:[],
+          duplicate:true,
+          conditionKey:key
+        };
+      }
+      delete this.state.activeConditions[key];
+    }
+
+    const result = await this.emit(input);
+    if (!result?.duplicate) {
+      this.state.activeConditions[key] = result.alert.id;
+      await this.persist();
+    }
+    return { ...result, conditionKey:key };
+  }
+
+  async resolveCondition(conditionKey) {
+    await this.init();
+    const key = cleanText(conditionKey, { required:true, max:240, label:'Alert condition key' });
+    if (!this.state.activeConditions?.[key]) return { resolved:false };
+    const alertId = this.state.activeConditions[key];
+    delete this.state.activeConditions[key];
+    await this.persist();
+    return { resolved:true, alertId };
   }
 
   async testDestination(destinationId) {
