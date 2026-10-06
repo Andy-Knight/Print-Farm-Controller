@@ -108,6 +108,48 @@ test('alert service persists history and sends only matching rules', async () =>
   }
 });
 
+test('top-bar attention count excludes maintenance and informational alerts', async () => {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), 'pfc-alert-attention-'));
+  try {
+    const service = new AlertService({ dataDir:root, providers:new Map() });
+    await service.init();
+
+    await service.emit({
+      type:'maintenance.due',
+      severity:'warning',
+      title:'Maintenance due',
+      message:'Printer maintenance is due'
+    });
+    await service.emit({
+      type:'print.completed',
+      severity:'info',
+      title:'Print completed',
+      message:'Part finished'
+    });
+
+    assert.equal(service.unreadCount(), 2);
+    assert.equal(service.attentionUnreadCount(), 0);
+
+    const operational = await service.emit({
+      type:'queue.bed_clearance',
+      severity:'warning',
+      title:'Bed clearance required',
+      message:'Clear the bed'
+    });
+
+    assert.equal(service.unreadCount(), 3);
+    assert.equal(service.attentionUnreadCount(), 1);
+    assert.equal(service.snapshot().attentionUnreadCount, 1);
+
+    const marked = await service.markRead(operational.alert.id);
+    assert.equal(marked.unreadCount, 2);
+    assert.equal(marked.attentionUnreadCount, 0);
+    assert.equal(service.unreadCount(), 2);
+  } finally {
+    await fs.rm(root, { recursive:true, force:true });
+  }
+});
+
 test('alert destinations cannot be deleted while referenced by a rule', async () => {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), 'pfc-alert-destination-'));
   const provider = fakeProvider([]);
