@@ -24,6 +24,11 @@ test('farm alerts UI exposes history, destinations and scoped notification rules
   assert.match(index, /data-alerts-panel="rules"/);
   assert.match(index, /class="alerts-tabs maintenance-view-selector"/);
   assert.match(index, /id="alertsHistory"/);
+  assert.match(index, /id="alertsSeverityFilter"/);
+  assert.match(index, /value="all">All severities/);
+  assert.match(index, /value="info">Information/);
+  assert.match(index, /value="warning">Warning/);
+  assert.match(index, /value="critical">Critical/);
   assert.match(index, /id="alertDestinationForm"/);
   assert.match(index, /id="alertDestinationProvider"/);
   assert.match(index, /value="ntfy">ntfy/);
@@ -39,6 +44,10 @@ test('farm alerts UI exposes history, destinations and scoped notification rules
   assert.match(alertsUi, /\/api\/alerts\/destinations/);
   assert.match(alertsUi, /\/api\/alerts\/rules/);
   assert.match(alertsUi, /\/api\/alerts\/mark-read/);
+  assert.match(alertsUi, /let alertHistorySeverity = 'all'/);
+  assert.match(alertsUi, /history\.filter\(\(alert\) => String\(alert\.severity \|\| 'info'\) === alertHistorySeverity\)/);
+  assert.match(alertsUi, /alertsSeverityFilter\?\.addEventListener\('change'/);
+  assert.match(alertsUi, /renderHistory\(\)/);
   assert.match(alertsUi, /Saved token — leave blank to keep/);
   assert.match(alertsUi, /pfc-alerts-live/);
   assert.match(alertsUi, /function activateAlertsTab/);
@@ -62,6 +71,7 @@ test('live fleet updates carry attention-only alert summaries to the top-bar ind
   assert.match(styles, /\.alerts-dialog/);
   assert.match(styles, /\.alerts-tabs\.maintenance-view-selector/);
   assert.match(styles, /\.alerts-tab-panel\[hidden\]/);
+  assert.match(styles, /\.alerts-history-actions/);
 });
 
 test('alert backend provides persistent rules plus outbound ntfy and webhook providers', () => {
