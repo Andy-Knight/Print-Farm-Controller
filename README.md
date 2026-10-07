@@ -1,4 +1,4 @@
-# Print Farm Controller v0.41.2
+# Print Farm Controller v0.42.0
 A local-first 3D printer fleet controller. It runs entirely on your LAN and currently supports:
 
 - **FlashForge Adventurer 5M / 5M Pro** through the local FlashForge HTTP/TCP APIs.
@@ -7,7 +7,7 @@ A local-first 3D printer fleet controller. It runs entirely on your LAN and curr
 - **Prusa CORE One+** through its built-in local PrusaLink HTTP API. The controller supports the standard 1-tool configuration plus **INDX 4-tool and 8-tool upgrades**. INDX uses fixed sliced tool indices (T0→T0, T1→T1, etc.); the controller validates per-tool material/nozzle state when PrusaLink exposes it and does not silently remap a sliced tool to another physical tool. Each physical Prusa tool also has controller-side material, colour-family and nozzle-size assignment, so T0–T7 can be described independently when PrusaLink does not provide reliable metadata; those assignments drive dashboard/toolhead display and queue compatibility. Existing CORE One+ entries can be changed between Standard, INDX 4 and INDX 8 from printer details after a hardware upgrade. In INDX mode, every physical tool has its own nozzle-size control; the controller preserves T0's existing single-tool nozzle designation when moving into INDX and migrates it back when returning to Standard. The integration also supports live status, printer-local file browsing, G-code/BGCODE upload and verification, print start, and pause/resume/cancel. PrusaLink credentials stay backend-side. The integrated Printer Simulator includes Standard, INDX 4 and INDX 8 CORE One+ profiles for repeatable controller testing. Temperature/chamber/camera control are intentionally not exposed until supported local interfaces are validated on hardware. Prusa support is implemented as a reusable **PrusaLink family layer**. Shared authentication, status, files, upload, verification and job-control behaviour lives outside individual printer models. Each supported Prusa model supplies a compact model profile containing its adapter ID, limits, valid tool configurations and capability differences; PrusaLink model profiles are registered automatically. This keeps future Prusa additions isolated to model metadata, simulator/artwork and hardware-specific validation unless their firmware genuinely differs from the shared PrusaLink API.
 - **Bambu Lab P1P / P1S / X1C / A1 Mini (experimental)** through the local MQTT TLS and FTPS TLS interfaces. P1P/P1S/A1 Mini use the TLS/JPEG camera path; X1C camera decoding remains unsupported.
 
-**Current release: v0.41.2**
+**Current release: v0.42.0**
 
 Current highlights:
 
