@@ -5,6 +5,7 @@ const alertsDialog = document.querySelector('#alertsDialog');
 const alertsStatus = document.querySelector('#alertsStatus');
 const alertsError = document.querySelector('#alertsError');
 const alertsHistory = document.querySelector('#alertsHistory');
+const alertsSeverityFilter = document.querySelector('#alertsSeverityFilter');
 const alertsMarkAllReadBtn = document.querySelector('#alertsMarkAllReadBtn');
 const alertTabs = Array.from(document.querySelectorAll('[data-alerts-tab]'));
 const alertPanels = Array.from(document.querySelectorAll('[data-alerts-panel]'));
@@ -57,6 +58,7 @@ let alertPrinters = [];
 let alertGroups = [];
 let alertAdapters = [];
 let currentLiveSummary = { unreadCount:0, recent:[] };
+let alertHistorySeverity = 'all';
 
 function escapeHtml(value = '') {
   return String(value).replace(/[&<>'"]/g, (ch) => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', "'":'&#39;', '"':'&quot;' }[ch]));
@@ -145,8 +147,18 @@ function renderHistory() {
   if (alertUiState.unreadCount > 0) alertsMarkAllReadBtn?.removeAttribute('disabled');
   else alertsMarkAllReadBtn?.setAttribute('disabled', '');
 
-  alertsHistory.innerHTML = history.map((alert) => {
-    const unread = !alert.readAt;
+  const filteredHistory = alertHistorySeverity === 'all'
+    ? history
+    : history.filter((alert) => String(alert.severity || 'info') === alertHistorySeverity);
+
+  if (!filteredHistory.length) {
+    alertsHistory.innerHTML = `<div class="alerts-empty">No ${escapeHtml(severityLabel(alertHistorySeverity).toLowerCase())} alerts match this filter.</div>`;
+    return;
+  }
+
+  alertsHistory.innerHTML = filteredHistory.map((alert) => {
+    const requiresRead = ['warning', 'critical'].includes(String(alert.severity || 'info'));
+    const unread = requiresRead && !alert.readAt;
     const printerName = alert.printer?.name ? ` · ${escapeHtml(alert.printer.name)}` : '';
     return `
       <article class="alert-history-row ${unread ? 'unread' : ''}" data-severity="${escapeHtml(alert.severity || 'info')}">
@@ -507,6 +519,11 @@ for (const tab of alertTabs) {
     activateAlertsTab(alertTabs[nextIndex]?.dataset.alertsTab, true);
   });
 }
+
+alertsSeverityFilter?.addEventListener('change', () => {
+  alertHistorySeverity = alertsSeverityFilter.value || 'all';
+  renderHistory();
+});
 
 alertDestinationProvider?.addEventListener('change', updateDestinationProviderFields);
 alertDestinationCancelEdit?.addEventListener('click', resetDestinationForm);

@@ -2596,6 +2596,17 @@ button.library-file-preview { cursor:zoom-in; }
   gap:14px;
 }
 .alerts-section-head h3 { margin:0 0 3px; }
+.alerts-history-actions {
+  display:flex;
+  align-items:flex-end;
+  gap:9px;
+  flex:0 0 auto;
+}
+.alerts-history-actions label {
+  width:180px;
+  margin:0;
+}
+.alerts-history-actions select { margin-top:5px; }
 .alerts-form {
   display:grid;
   gap:12px;
@@ -2790,6 +2801,9 @@ button.compact { min-height:32px; padding:6px 9px; }
   .alerts-card .mini-actions { justify-content:flex-start; }
   .alerts-section-head { align-items:stretch; flex-direction:column; }
   .alerts-section-head > button { width:100%; }
+  .alerts-history-actions { align-items:stretch; flex-direction:column; }
+  .alerts-history-actions label,
+  .alerts-history-actions button { width:100%; }
 }
 @media (max-width:620px) {
   .alerts-tabs.maintenance-view-selector { grid-template-columns:1fr; }

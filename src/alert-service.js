@@ -230,9 +230,13 @@ function ruleMatches(rule, alert, groupLookup) {
   return scopeMatches(rule, alert, groupLookup);
 }
 
+function alertRequiresRead(alert = {}) {
+  return ['warning', 'critical'].includes(String(alert.severity || '').toLowerCase());
+}
+
 function alertRequiresAttention(alert = {}) {
   if (alert.readAt) return false;
-  if (!['warning', 'critical'].includes(String(alert.severity || '').toLowerCase())) return false;
+  if (!alertRequiresRead(alert)) return false;
   if (String(alert.type || '').toLowerCase().startsWith('maintenance.')) return false;
   return true;
 }
@@ -310,12 +314,17 @@ export class AlertService {
 
   listHistory({ limit = 100, unreadOnly = false } = {}) {
     const bounded = Math.max(1, Math.min(this.historyLimit, Number(limit) || 100));
-    const source = unreadOnly ? this.state.history.filter((alert) => !alert.readAt) : this.state.history;
+    const source = unreadOnly
+      ? this.state.history.filter((alert) => alertRequiresRead(alert) && !alert.readAt)
+      : this.state.history;
     return clone(source.slice(0, bounded));
   }
 
   unreadCount() {
-    return this.state.history.reduce((count, alert) => count + (alert.readAt ? 0 : 1), 0);
+    return this.state.history.reduce(
+      (count, alert) => count + (alertRequiresRead(alert) && !alert.readAt ? 1 : 0),
+      0
+    );
   }
 
   attentionUnreadCount() {
@@ -433,7 +442,7 @@ export class AlertService {
     const now = this.nowFn().toISOString();
     let changed = 0;
     for (const alert of this.state.history) {
-      if (alert.readAt) continue;
+      if (alert.readAt || !alertRequiresRead(alert)) continue;
       if (alertId && alert.id !== String(alertId)) continue;
       alert.readAt = now;
       changed += 1;
