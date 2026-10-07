@@ -47,6 +47,8 @@ test('farm alerts UI exposes history, destinations and scoped notification rules
   assert.match(alertsUi, /let alertHistorySeverity = 'all'/);
   assert.match(alertsUi, /history\.filter\(\(alert\) => String\(alert\.severity \|\| 'info'\) === alertHistorySeverity\)/);
   assert.match(alertsUi, /alertsSeverityFilter\?\.addEventListener\('change'/);
+  assert.match(alertsUi, /const requiresRead = \['warning', 'critical'\]\.includes/);
+  assert.match(alertsUi, /const unread = requiresRead && !alert\.readAt/);
   assert.match(alertsUi, /renderHistory\(\)/);
   assert.match(alertsUi, /Saved token — leave blank to keep/);
   assert.match(alertsUi, /pfc-alerts-live/);
@@ -81,6 +83,7 @@ test('alert backend provides persistent rules plus outbound ntfy and webhook pro
   assert.match(alertService, /class AlertService/);
   assert.match(alertService, /scope\.type === 'group'/);
   assert.match(alertService, /duplicate:true/);
+  assert.match(alertService, /function alertRequiresRead/);
   assert.match(alertService, /attentionUnreadCount\(\)/);
   assert.match(alertService, /startsWith\('maintenance\.'\)/);
   assert.match(providers, /class NtfyNotificationProvider/);
