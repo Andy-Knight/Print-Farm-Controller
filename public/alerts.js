@@ -157,7 +157,8 @@ function renderHistory() {
   }
 
   alertsHistory.innerHTML = filteredHistory.map((alert) => {
-    const unread = !alert.readAt;
+    const requiresRead = ['warning', 'critical'].includes(String(alert.severity || 'info'));
+    const unread = requiresRead && !alert.readAt;
     const printerName = alert.printer?.name ? ` · ${escapeHtml(alert.printer.name)}` : '';
     return `
       <article class="alert-history-row ${unread ? 'unread' : ''}" data-severity="${escapeHtml(alert.severity || 'info')}">
