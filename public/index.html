@@ -502,7 +502,17 @@
             <h3>Alert history</h3>
             <div class="subtle">All controller alerts are retained locally, whether or not an external notification rule matches.</div>
           </div>
-          <button id="alertsMarkAllReadBtn" type="button" class="secondary">Mark all read</button>
+          <div class="alerts-history-actions">
+            <label for="alertsSeverityFilter">Severity
+              <select id="alertsSeverityFilter">
+                <option value="all">All severities</option>
+                <option value="info">Information</option>
+                <option value="warning">Warning</option>
+                <option value="critical">Critical</option>
+              </select>
+            </label>
+            <button id="alertsMarkAllReadBtn" type="button" class="secondary">Mark all read</button>
+          </div>
         </div>
         <div id="alertsHistory" class="alerts-history"></div>
       </section>
