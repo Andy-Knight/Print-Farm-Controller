@@ -127,7 +127,7 @@ test('top-bar attention count excludes maintenance and informational alerts', as
       message:'Part finished'
     });
 
-    assert.equal(service.unreadCount(), 2);
+    assert.equal(service.unreadCount(), 1);
     assert.equal(service.attentionUnreadCount(), 0);
 
     const operational = await service.emit({
@@ -137,14 +137,50 @@ test('top-bar attention count excludes maintenance and informational alerts', as
       message:'Clear the bed'
     });
 
-    assert.equal(service.unreadCount(), 3);
+    assert.equal(service.unreadCount(), 2);
     assert.equal(service.attentionUnreadCount(), 1);
     assert.equal(service.snapshot().attentionUnreadCount, 1);
 
     const marked = await service.markRead(operational.alert.id);
-    assert.equal(marked.unreadCount, 2);
+    assert.equal(marked.unreadCount, 1);
     assert.equal(marked.attentionUnreadCount, 0);
-    assert.equal(service.unreadCount(), 2);
+    assert.equal(service.unreadCount(), 1);
+  } finally {
+    await fs.rm(root, { recursive:true, force:true });
+  }
+});
+
+test('informational alerts stay in history without requiring read acknowledgement', async () => {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), 'pfc-alert-info-passive-'));
+  try {
+    const service = new AlertService({ dataDir:root, providers:new Map() });
+    await service.init();
+
+    const info = await service.emit({
+      type:'print.completed',
+      severity:'info',
+      title:'Print completed',
+      message:'Part finished'
+    });
+    const warning = await service.emit({
+      type:'queue.needs_review',
+      severity:'warning',
+      title:'Queue job needs review',
+      message:'Review required'
+    });
+
+    assert.equal(service.listHistory().length, 2);
+    assert.equal(service.unreadCount(), 1);
+    assert.deepEqual(service.listHistory({ unreadOnly:true }).map((alert) => alert.id), [warning.alert.id]);
+
+    const infoMark = await service.markRead(info.alert.id);
+    assert.equal(infoMark.changed, 0);
+    assert.equal(infoMark.unreadCount, 1);
+    assert.equal(service.listHistory().find((alert) => alert.id === info.alert.id)?.readAt, null);
+
+    const warningMark = await service.markRead(warning.alert.id);
+    assert.equal(warningMark.changed, 1);
+    assert.equal(warningMark.unreadCount, 0);
   } finally {
     await fs.rm(root, { recursive:true, force:true });
   }
