@@ -4,6 +4,13 @@ This file contains the version-by-version release history for Print Farm Control
 
 Historical entries describe the behaviour of the controller at the time of that release and may be superseded by later versions. For current installation, configuration and supported-hardware guidance, see [README.md](README.md).
 
+## v0.42.0
+
+- Adds an **Alert history severity filter** with All severities, Information, Warning and Critical views. Filtering is client-side against the loaded history and the selected severity is preserved while alerts refresh or are marked read.
+- Changes **Information** alerts to passive history entries. They remain stored and filterable but no longer count as unread, never show a Mark read action, and are ignored by Mark all read. Warning and Critical alerts retain the existing read/acknowledgement workflow.
+- Existing stored informational alerts adopt the passive behavior automatically without a data migration.
+- Adds backend and UI regression coverage for severity filtering and passive informational alerts.
+
 ## v0.41.2
 
 - Standardizes Maintenance tracking terminology on **tasks** throughout the window. Tab headings, section headings, empty states, edit/delete actions, form titles and confirmation messages now consistently refer to model-wide, group-wide and individual-printer maintenance tasks rather than mixing task and rule terminology.
