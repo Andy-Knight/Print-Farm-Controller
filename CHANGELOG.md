@@ -4,6 +4,12 @@ This file contains the version-by-version release history for Print Farm Control
 
 Historical entries describe the behaviour of the controller at the time of that release and may be superseded by later versions. For current installation, configuration and supported-hardware guidance, see [README.md](README.md).
 
+## v0.42.1
+
+- Fixes the **+ Queue file** action in the Print queue & history window so its label no longer wraps or overflows when the section header becomes tight.
+- Keeps the shared 42 px button height and standard button typography; the button now simply resists shrinking and stays on one line.
+- Adds regression coverage for the Queue file button sizing behavior.
+
 ## v0.42.0
 
 - Adds an **Alert history severity filter** with All severities, Information, Warning and Critical views. Filtering is client-side against the loaded history and the selected severity is preserved while alerts refresh or are marked read.
