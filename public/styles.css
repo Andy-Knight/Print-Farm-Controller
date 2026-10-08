@@ -840,6 +840,7 @@ input:focus,select:focus { border-color:#7a9fbe; }
 .queue-section + .queue-section { margin-top:20px; }
 .queue-section-head { display:flex; align-items:center; justify-content:space-between; gap:14px; margin-bottom:9px; }
 .queue-section-head h3 { margin:0; font-size:.96rem; }
+#queueAddFileBtn { flex:0 0 auto; white-space:nowrap; }
 .queue-list { display:grid; gap:8px; }
 .queue-empty { border:1px dashed #2c3944; border-radius:11px; padding:18px; text-align:center; color:#778895; font-size:.82rem; }
 .queue-job { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:12px; align-items:center; border:1px solid #29343d; background:#0e141a; border-radius:12px; padding:11px 12px; }
