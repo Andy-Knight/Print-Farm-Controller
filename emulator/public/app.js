@@ -368,6 +368,7 @@ function updateAddToolConfiguration() {
   const configurations = Array.isArray(profile?.toolConfigurations) ? profile.toolConfigurations : [];
   const configurable = configurations.length > 1;
   addToolConfiguration.classList.toggle('hidden', !configurable);
+  addToolConfiguration.closest('form')?.classList.toggle('has-tool-configuration', configurable);
   addToolCount.disabled = !configurable;
   if (!configurable) {
     addToolCount.replaceChildren();
