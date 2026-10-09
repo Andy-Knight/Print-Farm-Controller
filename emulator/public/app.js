@@ -3,8 +3,11 @@ const empty = document.querySelector('#empty-state');
 const template = document.querySelector('#printer-template');
 const toast = document.querySelector('#toast');
 const profileSelect = document.querySelector('#profile');
+const addToolConfiguration = document.querySelector('#add-tool-configuration');
+const addToolCount = document.querySelector('#add-tool-count');
 const cards = new Map();
 let printers = [];
+let profileDefinitions = [];
 let toastTimer = null;
 const integrated = location.pathname.startsWith('/simulator');
 const apiBase = integrated ? '/api/emulator' : '/api';
@@ -257,6 +260,7 @@ function bindCard(card, id) {
   card.querySelector('.state-select').addEventListener('change', (event) => updatePrinter(id, { status: event.target.value }));
   card.querySelector('.speed-input').addEventListener('change', (event) => updatePrinter(id, { speedMultiplier: Number(event.target.value) }));
   card.querySelector('.bed-input').addEventListener('change', (event) => updatePrinter(id, { bedTarget: Number(event.target.value) }));
+  card.querySelector('.tool-configuration-select').addEventListener('change', (event) => updatePrinter(id, { toolCount:Number(event.target.value) }));
   card.querySelector('.auto-progress').addEventListener('change', (event) => updatePrinter(id, { autoProgress: event.target.checked }));
   card.querySelectorAll('[data-fault]').forEach((input) => input.addEventListener('change', () => updateFaults(id, card)));
   card.querySelector('.delay-input').addEventListener('change', () => updateFaults(id, card));
@@ -312,6 +316,25 @@ function renderCard(printer) {
   card.querySelector('.state-select').value = printer.status;
   card.querySelector('.speed-input').value = printer.speedMultiplier;
   card.querySelector('.bed-input').value = printer.bed.target;
+  const toolConfigurationControl = card.querySelector('.tool-configuration-control');
+  const toolConfigurationSelect = card.querySelector('.tool-configuration-select');
+  const toolConfigurations = Array.isArray(printer.toolConfigurations) ? printer.toolConfigurations : [];
+  const configurableTools = toolConfigurations.length > 1;
+  toolConfigurationControl.classList.toggle('hidden', !configurableTools);
+  toolConfigurationSelect.disabled = !configurableTools;
+  if (configurableTools) {
+    const signature = JSON.stringify(toolConfigurations);
+    if (toolConfigurationSelect.dataset.signature !== signature && document.activeElement !== toolConfigurationSelect) {
+      toolConfigurationSelect.replaceChildren(...toolConfigurations.map((configuration) => {
+        const option = document.createElement('option');
+        option.value = String(configuration.count);
+        option.textContent = configuration.label;
+        return option;
+      }));
+      toolConfigurationSelect.dataset.signature = signature;
+    }
+    if (document.activeElement !== toolConfigurationSelect) toolConfigurationSelect.value = String(printer.tools?.length || 1);
+  }
   card.querySelector('.auto-progress').checked = printer.autoProgress;
   renderAmsControls(card, printer);
   card.querySelectorAll('[data-fault]').forEach((input) => { input.checked = Boolean(printer.faults[input.dataset.fault]); });
@@ -340,14 +363,35 @@ function render(nextPrinters) {
   document.querySelector('#fault-count').textContent = printers.reduce((count, printer) => count + Object.values(printer.faults).filter((value) => value === true || Number(value) > 0).length, 0);
 }
 
+function updateAddToolConfiguration() {
+  const profile = profileDefinitions.find((item) => item.id === profileSelect.value);
+  const configurations = Array.isArray(profile?.toolConfigurations) ? profile.toolConfigurations : [];
+  const configurable = configurations.length > 1;
+  addToolConfiguration.classList.toggle('hidden', !configurable);
+  addToolCount.disabled = !configurable;
+  if (!configurable) {
+    addToolCount.replaceChildren();
+    return;
+  }
+  addToolCount.replaceChildren(...configurations.map((configuration) => {
+    const option = document.createElement('option');
+    option.value = String(configuration.count);
+    option.textContent = configuration.label;
+    return option;
+  }));
+  addToolCount.value = String(profile.toolCount || configurations[0]?.count || 1);
+}
+
 async function loadProfiles() {
   const { profiles } = await request(apiUrl('/profiles'));
+  profileDefinitions = profiles;
   profileSelect.replaceChildren(...profiles.map((profile) => {
     const option = document.createElement('option');
     option.value = profile.id;
     option.textContent = `${profile.manufacturer} ${profile.model}`;
     return option;
   }));
+  updateAddToolConfiguration();
 }
 
 function connectEvents() {
@@ -358,6 +402,7 @@ function connectEvents() {
   events.onerror = () => { state.textContent = 'Reconnecting…'; state.classList.add('disconnected'); };
 }
 
+profileSelect.addEventListener('change', updateAddToolConfiguration);
 document.querySelector('#show-add').addEventListener('click', () => document.querySelector('#add-panel').classList.remove('hidden'));
 document.querySelector('#hide-add').addEventListener('click', () => document.querySelector('#add-panel').classList.add('hidden'));
 document.querySelector('#add-form').addEventListener('submit', async (event) => {
