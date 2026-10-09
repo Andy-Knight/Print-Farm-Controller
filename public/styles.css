@@ -231,6 +231,7 @@ input:focus,select:focus { border-color:#7a9fbe; }
 .virtual-printer-panel .discovery-heading .mini-actions { flex:0 0 auto; }
 .discovery-heading { display:flex; justify-content:space-between; align-items:flex-start; gap:12px; margin-bottom:9px; }
 .discovery-heading strong { display:block; margin-bottom:3px; }
+#scanNetworkBtn { flex:0 0 auto; white-space:nowrap; }
 .discovery-results { display:grid; gap:7px; margin-top:9px; max-height:220px; overflow:auto; }
 .discovery-result { display:flex; justify-content:space-between; align-items:center; gap:12px; padding:10px; background:#131b22; border:1px solid #26323b; border-radius:10px; }
 .discovery-result.already-added { opacity:.65; }
