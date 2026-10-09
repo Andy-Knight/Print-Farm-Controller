@@ -4,6 +4,15 @@ This file contains the version-by-version release history for Print Farm Control
 
 Historical entries describe the behaviour of the controller at the time of that release and may be superseded by later versions. For current installation, configuration and supported-hardware guidance, see [README.md](README.md).
 
+## v0.43.0
+
+- Consolidates the **Prusa CORE One+ simulator** into a single printer profile instead of separate Standard, INDX4 and INDX8 entries.
+- The unified CORE One+ simulator can be configured as **Standard · 1 tool**, **INDX · 4 tools** or **INDX · 8 tools** when it is created, and the same virtual endpoint can switch between those configurations later.
+- PrusaLink simulator telemetry, controller connection settings and simulator recovery now follow the selected 1/4/8-tool configuration without recreating the printer.
+- Preserves existing retained tool state for tool indices that remain present when resizing and rejects unsupported tool counts.
+- Fixes the **Scan LAN** action in the Add printer window so its label no longer wraps or overflows when the discovery header becomes tight.
+- Adds emulator behavior/UI regression coverage plus Add Printer UI coverage for the Scan LAN button sizing fix.
+
 ## v0.42.1
 
 - Fixes the **+ Queue file** action in the Print queue & history window so its label no longer wraps or overflows when the section header becomes tight.
