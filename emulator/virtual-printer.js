@@ -50,7 +50,7 @@ function defaultAmsUnits(enabled) {
 }
 
 export class VirtualPrinter extends EventEmitter {
-  constructor({ id, profile, name, host = '127.0.0.1', ports = {}, serialNumber, checkCode }) {
+  constructor({ id, profile, name, host = '127.0.0.1', ports = {}, serialNumber, checkCode, toolCount }) {
     super();
     this.id = id || `sim-${crypto.randomUUID().slice(0, 8)}`;
     this.profileId = profile.id;
@@ -78,7 +78,14 @@ export class VirtualPrinter extends EventEmitter {
     this.maintenanceEndsAt = 0;
     this.bed = { actual: 25, target: 0 };
     this.chamber = { actual: 25, target: 0 };
-    this.tools = defaultTools(profile.toolCount || 1);
+    this.toolConfigurations = Array.isArray(profile.toolConfigurations) && profile.toolConfigurations.length
+      ? profile.toolConfigurations.map((item) => ({ count:Number(item.count), label:String(item.label || `${item.count} tools`) }))
+      : [{ count:Number(profile.toolCount || 1), label:`${Number(profile.toolCount || 1)} tool${Number(profile.toolCount || 1) === 1 ? '' : 's'}` }];
+    const initialToolCount = Number(toolCount ?? profile.toolCount ?? this.toolConfigurations[0]?.count ?? 1);
+    if (!this.toolConfigurations.some((item) => item.count === initialToolCount)) {
+      throw new Error(`${profile.model} tool configuration must be one of: ${this.toolConfigurations.map((item) => item.count).join(', ')}`);
+    }
+    this.tools = defaultTools(initialToolCount);
     if (profile.adapterType === 'flashforge-creator5') {
       const creator5Materials = ['PLA', 'PETG', 'ASA', 'PVA'];
       const creator5Colors = ['#F9903B', '#4CAAF8', '#24E4A0', '#FFF245'];
@@ -192,6 +199,32 @@ export class VirtualPrinter extends EventEmitter {
     this.log('state', `Action: ${normalized}`);
   }
 
+  setToolCount(value) {
+    const count = Number(value);
+    const configuration = this.toolConfigurations.find((item) => item.count === count);
+    if (!configuration) {
+      throw new Error(`${this.model} tool configuration must be one of: ${this.toolConfigurations.map((item) => item.count).join(', ')}`);
+    }
+    if (count === this.tools.length) return false;
+
+    const previous = this.tools;
+    const next = defaultTools(count);
+    for (let index = 0; index < Math.min(previous.length, next.length); index += 1) {
+      next[index] = {
+        ...next[index],
+        ...previous[index],
+        index,
+        offset:Array.isArray(previous[index]?.offset) ? [...previous[index].offset] : [...next[index].offset],
+        filament:{
+          ...next[index].filament,
+          ...(previous[index]?.filament || {})
+        }
+      };
+    }
+    this.tools = next;
+    return true;
+  }
+
   reset() {
     this.online = true;
     this.status = 'idle';
@@ -226,6 +259,7 @@ export class VirtualPrinter extends EventEmitter {
     if (values.fileName !== undefined) this.fileName = values.fileName ? String(values.fileName) : null;
     if (values.bedTarget !== undefined) this.bed.target = clamp(values.bedTarget, 0, 150);
     if (values.chamberTarget !== undefined) this.chamber.target = clamp(values.chamberTarget, 0, 100);
+    if (values.toolCount !== undefined) this.setToolCount(values.toolCount);
     if (values.toolTargets && typeof values.toolTargets === 'object') {
       for (const [index, target] of Object.entries(values.toolTargets)) {
         if (this.tools[Number(index)]) this.tools[Number(index)].target = clamp(target, 0, 400);
@@ -390,6 +424,7 @@ export class VirtualPrinter extends EventEmitter {
       bed: { actual: Number(this.bed.actual.toFixed(1)), target: this.bed.target },
       chamber: { actual:Number(this.chamber.actual.toFixed(1)), target:this.chamber.target },
       tools: this.tools.map((tool) => ({ ...tool, filament: { ...tool.filament }, offset: [...tool.offset] })),
+      toolConfigurations:this.toolConfigurations.map((item) => ({ ...item })),
       amsUnits:this.amsUnits.map((unit) => ({ ...unit, trays:unit.trays.map((tray) => ({ ...tray })) })),
       externalSpool:{ ...this.externalSpool },
       activeMaterialSource:this.activeMaterialSource,
