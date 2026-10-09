@@ -4,6 +4,7 @@ import fs from 'node:fs';
 
 const index = fs.readFileSync(new URL('../public/index.html', import.meta.url), 'utf8');
 const app = fs.readFileSync(new URL('../public/app.js', import.meta.url), 'utf8');
+const styles = fs.readFileSync(new URL('../public/styles.css', import.meta.url), 'utf8');
 
 test('Add Printer dialog exposes running virtual printers separately from LAN discovery', () => {
   assert.match(index, /id="virtualPrinterStatus"/);
@@ -30,4 +31,10 @@ test('virtual printer list detects already configured simulator devices by endpo
   assert.match(helper, /'flashforge-creator5':\['httpPort'\]/);
   assert.match(helper, /virtualPrinter\?\.protocol === 'prusalink'/);
   assert.match(helper, /Number\(printer\[name\]\) === Number\(settings\[name\]\)/);
+});
+
+test('Scan LAN action keeps its label on one line at the standard button height', () => {
+  assert.match(index, /id="scanNetworkBtn"[^>]*class="secondary"[^>]*>Scan LAN<\/button>/);
+  assert.match(styles, /#scanNetworkBtn\s*\{[^}]*flex\s*:\s*0 0 auto;[^}]*white-space\s*:\s*nowrap;[^}]*\}/);
+  assert.match(styles, /\.primary,\.secondary,\.danger\s*\{[^}]*height\s*:\s*var\(--button-field-height\);/);
 });
