@@ -48,7 +48,9 @@ test('emulator management API creates and controls a virtual printer', async (t)
   const base = `http://127.0.0.1:${address.port}`;
 
   const profiles = await fetch(`${base}/api/profiles`).then((response) => response.json());
-  assert.deepEqual(profiles.profiles.map((profile) => profile.id).sort(), ['bambu-a1-mini', 'bambu-p1p', 'bambu-p1s', 'bambu-x1c', 'flashforge-ad5m-pro', 'flashforge-creator-5', 'flashforge-creator-5-pro', 'prusa-core-one-plus', 'prusa-core-one-plus-indx-4', 'prusa-core-one-plus-indx-8', 'snapmaker-u1']);
+  assert.deepEqual(profiles.profiles.map((profile) => profile.id).sort(), ['bambu-a1-mini', 'bambu-p1p', 'bambu-p1s', 'bambu-x1c', 'flashforge-ad5m-pro', 'flashforge-creator-5', 'flashforge-creator-5-pro', 'prusa-core-one-plus', 'snapmaker-u1']);
+  const coreOnePlusProfile = profiles.profiles.find((profile) => profile.id === 'prusa-core-one-plus');
+  assert.deepEqual(coreOnePlusProfile.toolConfigurations.map((item) => item.count), [1, 4, 8]);
 
   const createdResponse = await fetch(`${base}/api/printers`, {
     method: 'POST',
@@ -159,26 +161,41 @@ test('Prusa CORE One+ simulator interoperates with the production PrusaLink adap
   assert.equal((await adapter.getStatus()).status, 'cancelled');
 });
 
-test('Prusa CORE One+ INDX simulator profiles expose four and eight fixed tools', async (t) => {
+test('one Prusa CORE One+ simulator endpoint switches between Standard, INDX4 and INDX8', async (t) => {
   const emulator = createEmulator({ managementPort:0, withDefaults:false });
-  await emulator.start();
+  const address = await emulator.start();
   t.after(() => emulator.stop());
+  const base = `http://127.0.0.1:${address.port}`;
 
-  for (const [profileId, expectedTools] of [
-    ['prusa-core-one-plus-indx-4', 4],
-    ['prusa-core-one-plus-indx-8', 8]
-  ]) {
-    const virtual = await emulator.addPrinter({
-      profileId,
-      name:`Adapter Test INDX ${expectedTools}`,
-      ports:{ httpPort:0 }
-    });
+  let virtual = await emulator.addPrinter({
+    profileId:'prusa-core-one-plus',
+    name:'Configurable CORE One+',
+    ports:{ httpPort:0 },
+    toolCount:1
+  });
+
+  assert.equal(virtual.profileId, 'prusa-core-one-plus');
+  assert.deepEqual(virtual.toolConfigurations.map((item) => item.count), [1,4,8]);
+
+  for (const expectedTools of [1,4,8]) {
+    if (virtual.tools.length !== expectedTools) {
+      const response = await fetch(`${base}/api/printers/${virtual.id}`, {
+        method:'PATCH',
+        headers:{ 'content-type':'application/json' },
+        body:JSON.stringify({ toolCount:expectedTools })
+      });
+      assert.equal(response.status, 200);
+      ({ printer:virtual } = await response.json());
+    }
+
     assert.equal(virtual.tools.length, expectedTools);
     assert.equal(virtual.controllerSettings.toolCount, expectedTools);
+    assert.deepEqual(virtual.tools.map((tool) => tool.index), Array.from({ length:expectedTools }, (_, index) => index));
 
     const adapter = getPrinterAdapter(preparePrusaCoreOnePlusConfig(virtual.controllerSettings));
     assert.equal(adapter.limits.toolCount, expectedTools);
-    assert.equal(adapter.capabilities.fixedToolMapping, true);
+    assert.equal(adapter.capabilities.fixedToolMapping, expectedTools > 1);
+
     const status = await adapter.getStatus();
     assert.equal(status.tools.length, expectedTools);
     assert.deepEqual(status.tools.map((tool) => tool.index), Array.from({ length:expectedTools }, (_, index) => index));
@@ -186,6 +203,17 @@ test('Prusa CORE One+ INDX simulator profiles expose four and eight fixed tools'
     assert.ok(status.tools.every((tool) => tool.filament.material === 'PLA'));
     assert.ok(status.tools.every((tool) => tool.nozzleDiameter === 0.4));
   }
+
+  const invalid = await fetch(`${base}/api/printers/${virtual.id}`, {
+    method:'PATCH',
+    headers:{ 'content-type':'application/json' },
+    body:JSON.stringify({ toolCount:3 })
+  });
+  assert.equal(invalid.status, 400);
+  assert.match((await invalid.json()).error, /must be one of: 1, 4, 8/);
+
+  const afterInvalid = await fetch(`${base}/api/printers`).then((response) => response.json());
+  assert.equal(afterInvalid.printers.find((printer) => printer.id === virtual.id).tools.length, 8);
 });
 
 test('Bambu P1P, P1S, X1C and A1 Mini profiles expose authenticated LAN protocol endpoints', async (t) => {

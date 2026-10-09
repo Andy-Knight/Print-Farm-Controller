@@ -167,11 +167,10 @@ test('Prusa CORE One+ virtual printer settings are recognised as a single simula
   }), false);
 });
 
-test('registered simulated Prusa INDX profile can be recovered from controller configuration', async (t) => {
+test('registered simulated Prusa INDX configuration recovers through the unified CORE One+ profile', async (t) => {
   const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'pfc-emulator-prusa-recovery-'));
   const settingsPath = path.join(directory, 'emulator-settings.json');
   await fs.writeFile(settingsPath, JSON.stringify({ enabled:true }), 'utf8');
-  t.after(() => fs.rm(directory, { recursive:true, force:true }));
 
   const registered = [{
     name:'Registered Virtual CORE One+ INDX 4',
@@ -189,12 +188,17 @@ test('registered simulated Prusa INDX profile can be recovered from controller c
     withDefaults:false,
     registeredPrintersProvider:async () => registered
   });
+  t.after(async () => {
+    await manager.stop();
+    await fs.rm(directory, { recursive:true, force:true });
+  });
+
   await manager.init();
   const recovered = [...manager.emulator.printers.values()];
   assert.equal(recovered.length, 1);
-  assert.equal(recovered[0].profileId, 'prusa-core-one-plus-indx-4');
+  assert.equal(recovered[0].profileId, 'prusa-core-one-plus');
   assert.equal(recovered[0].tools.length, 4);
-  await manager.stop();
+  assert.equal(recovered[0].toolConfigurations.length, 3);
 });
 
 test('virtual-printer add flow greys an endpoint already present in the controller and server blocks duplicate registration', async () => {

@@ -73,6 +73,7 @@ main { max-width: 1500px; margin: 0 auto; padding: 0 30px 40px; }
 .integrated-control p:last-child { margin:.35rem 0 0; color:var(--muted); }
 .icon-button { background: transparent; color: var(--muted); font-size: 1.6rem; padding: .2rem .6rem; }
 .add-form { display: grid; grid-template-columns: 1fr 1fr auto; align-items: end; gap: 1rem; margin-top: 1rem; }
+.add-form.has-tool-configuration { grid-template-columns: 1fr 1fr 1fr auto; }
 .form-note { margin: .7rem 0 0; color: var(--muted); font-size: .85rem; }
 .hidden { display: none !important; }
 
@@ -145,7 +146,7 @@ label.check input { width: auto; }
   .theme-toggle-label { display:none; }
   .theme-toggle { padding:7px 8px; }
   .summary { grid-template-columns: repeat(2, 1fr); }
-  .add-form { grid-template-columns: 1fr; }
+  .add-form, .add-form.has-tool-configuration { grid-template-columns: 1fr; }
   .button-row { grid-template-columns: repeat(2, 1fr); }
   .control-grid, .fault-grid, .ams-toolbar, .ams-slot-grid { grid-template-columns: 1fr; }
 }

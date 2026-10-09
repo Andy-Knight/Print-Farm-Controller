@@ -27,7 +27,10 @@ function definitionFromPrinter(printer) {
     name:String(printer.name || ''),
     ports:{ ...(printer.ports || {}) },
     serialNumber:String(printer.serialNumber || ''),
-    checkCode:String(printer.checkCode || '')
+    checkCode:String(printer.checkCode || ''),
+    toolCount:Array.isArray(printer.toolConfigurations) && printer.toolConfigurations.length > 1
+      ? Number(printer.tools?.length || 1)
+      : undefined
   };
 }
 
@@ -39,6 +42,8 @@ function sameDefinition(printer, definition) {
   }
   const serial = String(definition?.serialNumber || '').trim();
   if (serial && serial !== String(printer.serialNumber || '').trim()) return false;
+  const toolCount = Number(definition?.toolCount);
+  if (Number.isInteger(toolCount) && toolCount > 0 && Number(printer.tools?.length || 0) !== toolCount) return false;
   return true;
 }
 
@@ -70,7 +75,11 @@ function profileIdFromControllerConfig(config = {}) {
     ?? config.toolCount
   );
   if (Number.isInteger(requestedToolCount) && requestedToolCount > 0) {
-    const exact = candidates.find((profile) => Number(profile.toolCount) === requestedToolCount);
+    const exact = candidates.find((profile) => {
+      if (Number(profile.toolCount) === requestedToolCount) return true;
+      return Array.isArray(profile.toolConfigurations)
+        && profile.toolConfigurations.some((item) => Number(item.count) === requestedToolCount);
+    });
     if (exact) return exact.id;
   }
   return candidates[0].id;
@@ -84,12 +93,26 @@ function definitionFromControllerConfig(config = {}) {
     const value = Number(config[key]);
     if (Number.isInteger(value) && value > 0 && value <= 65535) ports[key] = value;
   }
+  const profile = listProfiles().find((item) => item.id === profileId);
+  const requestedToolCount = Number(
+    config.adapterConfig?.toolCount
+    ?? config.configuredToolCount
+    ?? config.toolCount
+  );
+  const supportsRequestedToolCount = Number.isInteger(requestedToolCount)
+    && requestedToolCount > 0
+    && (
+      Number(profile?.toolCount) === requestedToolCount
+      || (Array.isArray(profile?.toolConfigurations)
+        && profile.toolConfigurations.some((item) => Number(item.count) === requestedToolCount))
+    );
   return {
     profileId,
     name:String(config.name || '').trim() || undefined,
     ports,
     serialNumber:String(config.serialNumber || '').trim() || undefined,
-    checkCode:String(config.checkCode || config.accessCode || '').trim() || undefined
+    checkCode:String(config.checkCode || config.accessCode || '').trim() || undefined,
+    ...(supportsRequestedToolCount ? { toolCount:requestedToolCount } : {})
   };
 }
 

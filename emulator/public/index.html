@@ -62,6 +62,7 @@
       </div>
       <form id="add-form" class="add-form">
         <label>Printer profile<select id="profile" name="profileId" required></select></label>
+        <label id="add-tool-configuration" class="hidden">Tool configuration<select id="add-tool-count" name="toolCount" disabled></select></label>
         <label>Display name<input id="printer-name" name="name" placeholder="Optional custom name"></label>
         <button type="submit">Start endpoint</button>
       </form>
@@ -109,6 +110,7 @@
           <label>State<select class="state-select"><option>idle</option><option>printing</option><option>paused</option><option>completed</option><option>cancelled</option><option>failed</option></select></label>
           <label>Speed<input class="speed-input" type="number" min="0.1" max="1000" step="0.1"><span>× real time</span></label>
           <label>Bed target<input class="bed-input" type="number" min="0" max="150"><span>°C</span></label>
+          <label class="tool-configuration-control hidden">Tool configuration<select class="tool-configuration-select"></select></label>
           <label class="check"><input class="auto-progress" type="checkbox">Automatic progress</label>
         </div>
       </details>

@@ -132,7 +132,8 @@ export function createEmulator({
       host,
       ports,
       serialNumber: input.serialNumber,
-      checkCode: input.checkCode
+      checkCode: input.checkCode,
+      toolCount: input.toolCount
     });
     printer.on('change', broadcast);
     try {
