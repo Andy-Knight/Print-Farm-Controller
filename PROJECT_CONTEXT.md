@@ -120,18 +120,18 @@ Manufacturer-specific discovery, capabilities, limits, status normalization, fil
 
 ## Current task
 
-The current production baseline is **v0.40.2** on `main`.
+The current production baseline is **v0.44.0** on `main`.
 
-Active development is **v0.41.0** on `feature/farm-alerts-notifications` through draft pull request **#71**. The manufacturer-agnostic alert core, persistent history, read/unread state, farm/printer/group/model rules, ntfy and generic webhook destinations, test-delivery API, controller alert UI, live SSE unread indicator, backup/restore inclusion, and alert events for print terminal states, debounced printer-offline transitions, queue needs-review/bed-clearance intervention, maintenance due transitions and scheduled-backup outcomes are implemented on the branch.
+The Modern Operations UI work has been completed and merged. The controller now uses persistent sidebar navigation and routed top-level pages, responsive dashboard/card layouts, consistent semantic action colours, contextual printer-tile Pause/Resume controls, a structured severity-aware Alert history with history clearing, compact printer file rows, and tabbed Backup & recovery pages.
 
-External delivery is opt-in: every supported event is retained locally, while only explicitly configured matching rules send outbound notifications. Notification credentials are backend-side and redacted from API responses. A real ntfy test notification has been successfully delivered to a mobile device, validating the outbound mobile-notification path.
+There is no active feature branch recorded as the current development task. New work should branch from the current `main` baseline.
 
 ## Next steps
 
-1. Decide whether printer-online recovery events are useful without creating notification noise.
-2. Add email delivery if it can be done without compromising the controller's no-runtime-dependency baseline; otherwise document ntfy/webhooks as the initial remote-delivery providers.
-3. Add emulator-driven alert scenarios and broader API/UI regression coverage.
-4. Increment the application version to v0.41.0 when the feature is ready for delivery and update README/CHANGELOG/context.
+1. Run/confirm the full automated test suite against the v0.44.0 `main` baseline after the Modern Operations UI merge.
+2. Validate direct browser refresh/deep-link behaviour for routed pages such as `/maintenance`, `/reports`, `/alerts` and `/backup`.
+3. Continue physical-hardware validation for Creator 5 / Creator 5 Pro and experimental Bambu support.
+4. Keep `README.md`, `CHANGELOG.md` and this context file synchronized whenever a release/version changes.
 
 ## Licensing baseline
 
