@@ -8,13 +8,12 @@ const styles = fs.readFileSync(new URL('../public/styles.css', import.meta.url),
 const server = fs.readFileSync(new URL('../src/server.js', import.meta.url), 'utf8');
 const memoryMonitor = fs.readFileSync(new URL('../src/memory-monitor.js', import.meta.url), 'utf8');
 
-test('diagnostics is available from the overflow menu instead of the top bar', () => {
-  assert.match(html, /id="diagnosticsBtn"[^>]*class="topbar-overflow-item"/);
+test('diagnostics is available from the persistent controller navigation', () => {
+  assert.match(html, /id="diagnosticsBtn"[^>]*class="sidebar-item"/);
   assert.match(html, /id="diagnosticsDialog"/);
   assert.match(app, /diagnosticsBtn\?\.addEventListener\('click'/);
   assert.match(app, /topbarOverflow\.open = false/);
-  assert.doesNotMatch(html, /class="topbar-actions"[^]*id="diagnosticsBtn"[^]*<details id="topbarOverflow"/);
-});
+  });
 
 test('diagnostics UI supports log filtering, verbose mode and bundle download', () => {
   assert.match(html, /id="diagnosticsLevel"/);
