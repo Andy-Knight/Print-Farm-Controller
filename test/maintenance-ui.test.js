@@ -92,7 +92,7 @@ test('dashboard maintenance icon is not overwritten by printer state updates', (
 
 test('dashboard spanner opens maintenance focused on the selected printer', () => {
   assert.match(app, /data-maintenance-open-printer="\$\{escapeHtml\(printer\.id\)\}"/);
-  assert.match(app, /new CustomEvent\('pfc:open-maintenance'/);
+  assert.match(app, /navigateController\('\/maintenance'\);[\s\S]*new CustomEvent\('pfc:open-maintenance'/);
   assert.match(app, /printerId:maintenanceShortcut\.dataset\.maintenanceOpenPrinter/);
   assert.match(maintenanceUi, /data-maintenance-printer-card="\$\{escapeHtml\(printer\.printerId\)\}"/);
   assert.match(maintenanceUi, /async function openForPrinter\(printerId\)/);
@@ -111,7 +111,7 @@ test('printer detail spanner opens maintenance focused on the selected printer',
   assert.match(app, /const maintenanceShortcut = event\.target\.closest\('\[data-maintenance-open-printer\]'\)/);
   assert.match(app, /const printerId = maintenanceShortcut\.dataset\.maintenanceOpenPrinter/);
   assert.match(app, /if \(printerDialog\.open\) printerDialog\.close\(\)/);
-  assert.match(app, /new CustomEvent\('pfc:open-maintenance',[\s\S]*detail:\{ printerId \}/);
+  assert.match(app, /navigateController\('\/maintenance'\);[\s\S]*new CustomEvent\('pfc:open-maintenance',[\s\S]*detail:\{ printerId \}/);
 });
 
 test('individual printer maintenance history can be cleared without resetting schedules', () => {
