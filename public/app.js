@@ -225,8 +225,6 @@ function renderControllerRoute(pathname, { invoke = true } = {}) {
   document.querySelectorAll('.sidebar-item[data-route]').forEach((item) => item.classList.toggle('active', item.dataset.route === routePath));
   document.querySelectorAll('dialog.route-page').forEach((page) => {
     page.hidden = page.id !== route.dialog;
-    if (page.id === route.dialog) page.setAttribute('open','');
-    else page.removeAttribute('open');
   });
   if (topbarContextTitle) topbarContextTitle.textContent = route.title;
   if (topbarContextSubtitle) topbarContextSubtitle.textContent = route.subtitle;
@@ -286,15 +284,11 @@ for (const route of Object.values(controllerRoutes)) {
   workspaceMain?.appendChild(page);
   page.showModal = () => {
     page.hidden = false;
-    page.setAttribute('open','');
   };
   page.show = page.showModal;
   page.close = () => {
     if (activeRoute !== '/') navigateController('/');
-    else {
-      page.hidden = true;
-      page.removeAttribute('open');
-    }
+    else page.hidden = true;
     page.dispatchEvent(new Event('close'));
   };
 }
