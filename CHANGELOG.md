@@ -4,6 +4,16 @@ This file contains the version-by-version release history for Print Farm Control
 
 Historical entries describe the behaviour of the controller at the time of that release and may be superseded by later versions. For current installation, configuration and supported-hardware guidance, see [README.md](README.md).
 
+## v0.44.0
+
+- Introduces the **Modern Operations UI** with persistent sidebar navigation, routed controller pages, responsive layouts and denser printer dashboard cards.
+- Adds consistent semantic action colours across controller workflows, including primary, secondary, positive, attention and destructive actions.
+- Adds contextual **Pause / Resume** controls directly to printer dashboard tiles and aligns Current Job controls with the same action styling.
+- Improves printer detail usability with clearer action hierarchy, compact printer file rows, and differentiated Queue / Print actions.
+- Redesigns **Alert history** as a structured, severity-aware table with improved readability and a confirmed **Clear history** action.
+- Reorganizes **Backup & recovery** into dedicated Overview, Google Drive, OneDrive, S3-compatible, Schedule and Restore tabs.
+- Preserves the existing printer, queue, maintenance, reporting, alert and backup functionality while moving top-level controller tools into the new navigation model.
+
 ## v0.43.0
 
 - Consolidates the **Prusa CORE One+ simulator** into a single printer profile instead of separate Standard, INDX4 and INDX8 entries.
