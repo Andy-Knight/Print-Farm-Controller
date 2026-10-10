@@ -230,7 +230,14 @@ function renderControllerRoute(pathname, { invoke = true } = {}) {
   });
   if (topbarContextTitle) topbarContextTitle.textContent = route.title;
   if (topbarContextSubtitle) topbarContextSubtitle.textContent = route.subtitle;
-  if (invoke && route.button) document.querySelector(`#${route.button}`)?.click();
+  if (invoke && route.button) {
+    const button = document.querySelector(`#${route.button}`);
+    if (button) {
+      const event = new MouseEvent('click', { bubbles:true, cancelable:true });
+      Object.defineProperty(event, '__controllerRouteInvoke', { value:true });
+      button.dispatchEvent(event);
+    }
+  }
   window.scrollTo({ top:0, behavior:'smooth' });
 }
 function navigateController(routePath) {
