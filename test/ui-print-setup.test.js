@@ -23,8 +23,9 @@ test('modern shell keeps primary actions visible and moves secondary actions int
   assert.match(app, /document\.body\.classList\.toggle\('sidebar-open'/);
   assert.match(app, /document\.body\.classList\.remove\('sidebar-open'\)/);
   assert.match(styles, /\.app-sidebar/);
-  assert.match(styles, /@media \(max-width:760px\)[\s\S]*\.app-sidebar[\s\S]*transform:translateX\(-100%\)/);
-  assert.match(styles, /body\.sidebar-open \.app-sidebar/);
+  assert.match(styles, /@media \(max-width:760px\)/);
+  assert.match(styles, /\.app-sidebar \{ width:260px; transform:translateX\(-\d+%\)/);
+  assert.match(styles, /body\.sidebar-open \.app-sidebar \{ transform:translateX\(0\); \}/);
 });
 test('offline printer badge remains red in light mode', () => {
   assert.match(styles, /:root\[data-theme="light"\] \.badge\.error,/);
