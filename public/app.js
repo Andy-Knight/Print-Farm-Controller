@@ -54,6 +54,8 @@ const printerGroupsList = document.querySelector('#printerGroupsList');
 const backupRecoveryBtn = document.querySelector('#backupRecoveryBtn');
 const backupRecoveryDialog = document.querySelector('#backupRecoveryDialog');
 const backupStatusGrid = document.querySelector('#backupStatusGrid');
+const backupTabs = Array.from(document.querySelectorAll('[data-backup-tab]'));
+const backupTabPanels = Array.from(document.querySelectorAll('[data-backup-panel]'));
 const backupCreateBtn = document.querySelector('#backupCreateBtn');
 const backupActionStatus = document.querySelector('#backupActionStatus');
 const backupError = document.querySelector('#backupError');
@@ -212,6 +214,33 @@ const workspaceMain = document.querySelector('body > main');
 const topbarContextTitle = document.querySelector('.topbar-context strong');
 const topbarContextSubtitle = document.querySelector('.topbar-context span');
 let activeRoute = '/';
+
+function activateBackupTab(name, focus = false) {
+  const selected = backupTabs.find((tab) => tab.dataset.backupTab === name) || backupTabs[0];
+  if (!selected) return;
+  const selectedName = selected.dataset.backupTab;
+  for (const tab of backupTabs) {
+    const active = tab === selected;
+    tab.classList.toggle('active', active);
+    tab.setAttribute('aria-selected', active ? 'true' : 'false');
+    tab.tabIndex = active ? 0 : -1;
+  }
+  for (const panel of backupTabPanels) panel.hidden = panel.dataset.backupPanel !== selectedName;
+  if (focus) selected.focus();
+}
+for (const tab of backupTabs) {
+  tab.addEventListener('click', () => activateBackupTab(tab.dataset.backupTab));
+  tab.addEventListener('keydown', (event) => {
+    if (!['ArrowLeft','ArrowRight','Home','End'].includes(event.key)) return;
+    event.preventDefault();
+    const current = backupTabs.indexOf(tab);
+    const next = event.key === 'Home' ? 0
+      : event.key === 'End' ? backupTabs.length - 1
+        : event.key === 'ArrowRight' ? (current + 1) % backupTabs.length
+          : (current - 1 + backupTabs.length) % backupTabs.length;
+    activateBackupTab(backupTabs[next]?.dataset.backupTab, true);
+  });
+}
 
 function normaliseControllerRoute(pathname) {
   const clean = pathname.replace(/\/+$/, '') || '/';
