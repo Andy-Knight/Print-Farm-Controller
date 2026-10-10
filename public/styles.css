@@ -2915,3 +2915,33 @@ body > main { max-width:calc(var(--workspace-max) + var(--sidebar-width)); margi
   .fleet { grid-template-columns:1fr; }
   .printer-image-slot { height:155px; }
 }
+
+
+/* Main workspace pages opened from persistent navigation */
+body.workspace-active > main > :not(dialog.workspace-page[open]) { display:none !important; }
+body.workspace-active > main { display:block; }
+dialog.workspace-page {
+  position:static;
+  inset:auto;
+  width:100%;
+  max-width:none;
+  max-height:none;
+  margin:0;
+  padding:0;
+  border:0;
+  background:transparent;
+  color:inherit;
+  overflow:visible;
+  box-shadow:none;
+}
+dialog.workspace-page[open] { display:block; }
+dialog.workspace-page::backdrop { display:none; }
+dialog.workspace-page > * {
+  width:100%;
+  max-width:none;
+  margin:0;
+}
+body.workspace-active .modern-topbar { z-index:31; }
+@media (max-width:760px) {
+  dialog.workspace-page { width:100%; }
+}
