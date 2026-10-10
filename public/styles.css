@@ -3135,3 +3135,49 @@ body:not([data-route="/"]) > main > :not(.route-page) { display:none !important;
 :root[data-theme="light"] .attention,
 :root[data-theme="light"] [data-maintenance-due] { background:linear-gradient(180deg,#b7801e,#92630f); color:#fff; }
 :root[data-theme="light"] .danger { background:linear-gradient(180deg,#d04b57,#ad303b); color:#fff; }
+
+
+.backup-tabs {
+  display:flex;
+  gap:6px;
+  overflow-x:auto;
+  padding:4px;
+  border:1px solid #29343d;
+  border-radius:11px;
+  background:#0e141a;
+}
+.backup-tab {
+  flex:1 0 auto;
+  min-height:38px;
+  padding:8px 13px;
+  border:1px solid transparent;
+  border-radius:8px;
+  background:transparent;
+  color:#9badba;
+  font-weight:750;
+  white-space:nowrap;
+}
+.backup-tab:hover,
+.backup-tab:focus-visible { color:#fff; background:#17222b; }
+.backup-tab.active {
+  background:#20384b;
+  border-color:#385a73;
+  color:#fff;
+}
+.backup-tab-panel[hidden] { display:none !important; }
+:root[data-theme="light"] .backup-tabs {
+  background:#f4f7f9;
+  border-color:#d5dee5;
+}
+:root[data-theme="light"] .backup-tab { color:#536b7b; }
+:root[data-theme="light"] .backup-tab:hover,
+:root[data-theme="light"] .backup-tab:focus-visible { color:#183a54; background:#e8f0f6; }
+:root[data-theme="light"] .backup-tab.active {
+  background:#e0edf7;
+  border-color:#a9c2d5;
+  color:#183a54;
+}
+@media (max-width:760px) {
+  .backup-tabs { justify-content:flex-start; }
+  .backup-tab { flex:0 0 auto; }
+}
