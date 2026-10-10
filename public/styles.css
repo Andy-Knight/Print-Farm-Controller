@@ -2800,7 +2800,7 @@ button.library-file-preview { cursor:zoom-in; }
   line-height:1.35;
   overflow-wrap:anywhere;
 }
-.alert-history-action { text-align:right; }
+.alert-history-action { text-align:left; }
 .alert-history-action button { white-space:nowrap; }
 
 .alerts-empty {
