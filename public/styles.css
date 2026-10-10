@@ -2964,19 +2964,45 @@ body:not([data-route="/"]) > main > :not(.route-page) { display:none !important;
 }
 
 /* Semantic action colours */
+.primary {
+  background:linear-gradient(180deg,#2f86e5,#1769bd);
+  color:#fff;
+  box-shadow:0 5px 14px rgba(23,105,189,.22);
+}
+.positive,
 [data-batch-direct="resume"],
 [data-printer-action="resume"],
 [data-maintenance-complete],
-[data-complete-maintenance] { background:#237a4b; color:#f2fff7; }
+[data-complete-maintenance] {
+  background:linear-gradient(180deg,#2c9560,#197044);
+  color:#fff;
+  box-shadow:0 5px 14px rgba(25,112,68,.18);
+}
+.attention,
+[data-maintenance-due] {
+  background:linear-gradient(180deg,#b48124,#8a641d);
+  color:#fff8e7;
+}
+.danger {
+  background:linear-gradient(180deg,#c54a55,#9b343d);
+  color:#fff;
+  box-shadow:0 5px 14px rgba(155,52,61,.18);
+}
+.primary:not(:disabled):hover,
+.positive:not(:disabled):hover,
+.attention:not(:disabled):hover,
+.danger:not(:disabled):hover { filter:brightness(1.12); }
+.primary:disabled,
+.positive:disabled,
+.attention:disabled,
+.danger:disabled { box-shadow:none; }
 
-[data-maintenance-due],
-.maintenance-alert-button:not(.hidden) { --action-attention:#8a641d; }
-
-html[data-theme="light"] .primary { background:#1769bd; color:#fff; }
-html[data-theme="light"] .positive,
-html[data-theme="light"] [data-batch-direct="resume"],
-html[data-theme="light"] [data-printer-action="resume"],
-html[data-theme="light"] [data-maintenance-complete],
-html[data-theme="light"] [data-complete-maintenance] { background:#197044; color:#fff; }
-html[data-theme="light"] .attention { background:#9a6a12; color:#fff; }
-html[data-theme="light"] .danger { background:#b73540; color:#fff; }
+:root[data-theme="light"] .primary { background:linear-gradient(180deg,#3188e4,#1769bd); color:#fff; }
+:root[data-theme="light"] .positive,
+:root[data-theme="light"] [data-batch-direct="resume"],
+:root[data-theme="light"] [data-printer-action="resume"],
+:root[data-theme="light"] [data-maintenance-complete],
+:root[data-theme="light"] [data-complete-maintenance] { background:linear-gradient(180deg,#2a915b,#197044); color:#fff; }
+:root[data-theme="light"] .attention,
+:root[data-theme="light"] [data-maintenance-due] { background:linear-gradient(180deg,#b7801e,#92630f); color:#fff; }
+:root[data-theme="light"] .danger { background:linear-gradient(180deg,#d04b57,#ad303b); color:#fff; }
