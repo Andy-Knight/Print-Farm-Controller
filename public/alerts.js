@@ -156,24 +156,43 @@ function renderHistory() {
     return;
   }
 
-  alertsHistory.innerHTML = filteredHistory.map((alert) => {
-    const requiresRead = ['warning', 'critical'].includes(String(alert.severity || 'info'));
+  const rows = filteredHistory.map((alert) => {
+    const severity = String(alert.severity || 'info');
+    const requiresRead = ['warning', 'critical'].includes(severity);
     const unread = requiresRead && !alert.readAt;
-    const printerName = alert.printer?.name ? ` · ${escapeHtml(alert.printer.name)}` : '';
+    const topic = alert.title || eventLabel(alert.type);
+    const source = alert.printer?.name || '';
+    const status = requiresRead ? (unread ? 'Unread' : 'Read') : 'History only';
     return `
-      <article class="alert-history-row ${unread ? 'unread' : ''}" data-severity="${escapeHtml(alert.severity || 'info')}">
-        <div class="alert-history-marker" aria-hidden="true"></div>
-        <div class="alert-history-copy">
-          <div class="alert-history-title-row">
-            <strong>${escapeHtml(alert.title || eventLabel(alert.type))}</strong>
-            <span class="alert-severity-pill" data-severity="${escapeHtml(alert.severity || 'info')}">${escapeHtml(severityLabel(alert.severity))}</span>
-          </div>
-          <div class="alert-history-message">${escapeHtml(alert.message || '')}</div>
-          <div class="subtle">${escapeHtml(formatTimestamp(alert.createdAt))}${printerName}</div>
+      <div class="alert-history-row ${unread ? 'unread' : ''}" data-severity="${escapeHtml(severity)}" role="row">
+        <div class="alert-history-cell alert-history-time" data-label="Time" role="cell">${escapeHtml(formatTimestamp(alert.createdAt))}</div>
+        <div class="alert-history-cell alert-history-topic" data-label="Source / Topic" role="cell">
+          <strong>${escapeHtml(topic)}</strong>
+          ${source ? `<span>${escapeHtml(source)}</span>` : ''}
         </div>
-        ${unread ? `<button type="button" class="secondary compact" data-alert-mark-read="${escapeHtml(alert.id)}">Mark read</button>` : ''}
-      </article>`;
+        <div class="alert-history-cell alert-history-severity" data-label="Severity" role="cell">
+          <span class="alert-severity-pill" data-severity="${escapeHtml(severity)}">${escapeHtml(severityLabel(severity))}</span>
+        </div>
+        <div class="alert-history-cell alert-history-message" data-label="Message" role="cell">${escapeHtml(alert.message || '')}</div>
+        <div class="alert-history-cell alert-history-status" data-label="Status" role="cell">${escapeHtml(status)}</div>
+        <div class="alert-history-cell alert-history-action" data-label="Actions" role="cell">
+          ${unread ? `<button type="button" class="secondary compact" data-alert-mark-read="${escapeHtml(alert.id)}">Mark read</button>` : '<span class="subtle">—</span>'}
+        </div>
+      </div>`;
   }).join('');
+
+  alertsHistory.innerHTML = `
+    <div class="alert-history-table" role="table" aria-label="Alert history">
+      <div class="alert-history-head" role="row">
+        <div role="columnheader">Time</div>
+        <div role="columnheader">Source / Topic</div>
+        <div role="columnheader">Severity</div>
+        <div role="columnheader">Message</div>
+        <div role="columnheader">Status</div>
+        <div role="columnheader">Actions</div>
+      </div>
+      <div class="alert-history-body" role="rowgroup">${rows}</div>
+    </div>`;
 }
 
 function renderDestinations() {
