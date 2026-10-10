@@ -196,51 +196,59 @@ const themeToggle = document.querySelector('#themeToggle');
 const themeColorMeta = document.querySelector('#themeColorMeta');
 const sidebarToggle = document.querySelector('#sidebarToggle');
 const dashboardHomeBtn = document.querySelector('[data-dashboard-home]');
-const workspaceDialogIds = ['queueDialog','libraryDialog','maintenanceDialog','printerGroupsDialog','reportingDialog','alertsDialog','backupRecoveryDialog','diagnosticsDialog','licenseDialog'];
-const workspaceButtonIds = {
-  queueDialog:'queueBtn', libraryDialog:'libraryBtn', maintenanceDialog:'maintenanceBtn',
-  printerGroupsDialog:'printerGroupsBtn', reportingDialog:'reportsBtn', alertsDialog:'alertsSettingsBtn',
-  backupRecoveryDialog:'backupRecoveryBtn', diagnosticsDialog:'diagnosticsBtn', licenseDialog:'licenseBtn'
-};
-const workspaceTitles = {
-  queueDialog:'Queue & history', libraryDialog:'Print library', maintenanceDialog:'Maintenance',
-  printerGroupsDialog:'Printer groups', reportingDialog:'Reports & analytics', alertsDialog:'Alerts & notifications',
-  backupRecoveryDialog:'Backup & recovery', diagnosticsDialog:'Diagnostics', licenseDialog:'Licence'
+const controllerRoutes = {
+  '/': { title:'Dashboard', subtitle:'Monitor and manage your print farm' },
+  '/queue': { button:'queueBtn', dialog:'queueDialog', title:'Queue & history', subtitle:'Manage queued, active and completed print jobs' },
+  '/library': { button:'libraryBtn', dialog:'libraryDialog', title:'Print library', subtitle:'Manage files available to your print farm' },
+  '/maintenance': { button:'maintenanceBtn', dialog:'maintenanceDialog', title:'Maintenance', subtitle:'Track maintenance tasks across the farm' },
+  '/groups': { button:'printerGroupsBtn', dialog:'printerGroupsDialog', title:'Printer groups', subtitle:'Organise printers for scheduling and maintenance' },
+  '/reports': { button:'reportsBtn', dialog:'reportingDialog', title:'Reports & analytics', subtitle:'Review farm performance and filament usage' },
+  '/alerts': { button:'alertsSettingsBtn', dialog:'alertsDialog', title:'Alerts & notifications', subtitle:'Review alerts and notification settings' },
+  '/backup': { button:'backupRecoveryBtn', dialog:'backupRecoveryDialog', title:'Backup & recovery', subtitle:'Protect and restore controller data' },
+  '/diagnostics': { button:'diagnosticsBtn', dialog:'diagnosticsDialog', title:'Diagnostics', subtitle:'Review controller health and diagnostic logs' },
+  '/licence': { button:'licenseBtn', dialog:'licenseDialog', title:'Licence', subtitle:'Review controller edition and licence status' }
 };
 const workspaceMain = document.querySelector('body > main');
 const topbarContextTitle = document.querySelector('.topbar-context strong');
 const topbarContextSubtitle = document.querySelector('.topbar-context span');
-let activeWorkspaceDialog = null;
+let activeRoute = '/';
 
-function setWorkspaceNavigation(dialog) {
-  if (!dialog || dialog.dataset.workspaceReady === 'true') return;
-  dialog.dataset.workspaceReady = 'true';
-  dialog.classList.add('workspace-page');
-  workspaceMain?.appendChild(dialog);
-  const nativeShowModal = dialog.showModal.bind(dialog);
-  dialog.showModal = () => {
-    if (activeWorkspaceDialog && activeWorkspaceDialog !== dialog && activeWorkspaceDialog.open) activeWorkspaceDialog.close();
-    document.body.classList.add('workspace-active');
-    activeWorkspaceDialog = dialog;
-    if (!dialog.open) dialog.show();
-    document.querySelectorAll('.sidebar-item').forEach((item) => item.classList.remove('active'));
-    const owner = document.querySelector(`#${workspaceButtonIds[dialog.id] || ''}`);
-    owner?.classList.add('active');
-    if (topbarContextTitle) topbarContextTitle.textContent = workspaceTitles[dialog.id] || 'Print Farm Controller';
-    if (topbarContextSubtitle) topbarContextSubtitle.textContent = 'Print Farm Controller';
-    window.scrollTo({ top:0, behavior:'smooth' });
-  };
-  dialog.dataset.nativeModalAvailable = nativeShowModal ? 'true' : 'false';
-  dialog.addEventListener('close', () => {
-    if (activeWorkspaceDialog !== dialog) return;
-    activeWorkspaceDialog = null;
-    document.body.classList.remove('workspace-active');
-    dashboardHomeBtn?.classList.add('active');
-    if (topbarContextTitle) topbarContextTitle.textContent = 'Dashboard';
-    if (topbarContextSubtitle) topbarContextSubtitle.textContent = 'Monitor and manage your print farm';
-  });
+function normaliseControllerRoute(pathname) {
+  const clean = pathname.replace(/\/+$/, '') || '/';
+  return controllerRoutes[clean] ? clean : '/';
 }
-workspaceDialogIds.forEach((id) => setWorkspaceNavigation(document.querySelector(`#${id}`)));
+function renderControllerRoute(pathname, { invoke = true } = {}) {
+  const routePath = normaliseControllerRoute(pathname);
+  const route = controllerRoutes[routePath];
+  activeRoute = routePath;
+  document.body.dataset.route = routePath;
+  document.querySelectorAll('.sidebar-item[data-route]').forEach((item) => item.classList.toggle('active', item.dataset.route === routePath));
+  document.querySelectorAll('dialog.route-page').forEach((page) => {
+    page.hidden = page.id !== route.dialog;
+    if (page.id === route.dialog) page.setAttribute('open','');
+    else page.removeAttribute('open');
+  });
+  if (topbarContextTitle) topbarContextTitle.textContent = route.title;
+  if (topbarContextSubtitle) topbarContextSubtitle.textContent = route.subtitle;
+  if (invoke && route.button) document.querySelector(`#${route.button}`)?.click();
+  window.scrollTo({ top:0, behavior:'smooth' });
+}
+function navigateController(routePath) {
+  const target = normaliseControllerRoute(routePath);
+  if (location.pathname !== target) history.pushState({}, '', target);
+  renderControllerRoute(target);
+}
+document.querySelectorAll('.sidebar-item[data-route]').forEach((item) => {
+  item.addEventListener('click', (event) => {
+    if (event.__controllerRouteInvoke) return;
+    event.preventDefault();
+    const routePath = item.dataset.route;
+    if (!routePath) return;
+    if (activeRoute === routePath && routePath !== '/') return;
+    navigateController(routePath);
+  }, true);
+});
+window.addEventListener('popstate', () => renderControllerRoute(location.pathname));
 
 function closeModernSidebar() {
   document.body.classList.remove('sidebar-open');
@@ -251,7 +259,6 @@ sidebarToggle?.addEventListener('click', () => {
   sidebarToggle.setAttribute('aria-expanded', open ? 'true' : 'false');
 });
 dashboardHomeBtn?.addEventListener('click', () => {
-  if (activeWorkspaceDialog?.open) activeWorkspaceDialog.close();
   closeModernSidebar();
   window.scrollTo({ top:0, behavior:'smooth' });
 });
@@ -264,6 +271,7 @@ document.addEventListener('keydown', (event) => {
   if (event.key === 'Escape') closeModernSidebar();
 });
 
+renderControllerRoute(location.pathname, { invoke:false });
 
 let fleet = [];
 let adapters = [];
