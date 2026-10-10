@@ -13,7 +13,7 @@ const backupService = fs.readFileSync(new URL('../src/backup-recovery/backup-ser
 const restoreService = fs.readFileSync(new URL('../src/backup-recovery/restore-service.js', import.meta.url), 'utf8');
 
 test('reporting UI is available from the persistent controller navigation with graphical farm analytics', () => {
-  assert.match(index, /id="reportsBtn"[^>]*>Reports &amp; analytics<\/button>/);
+  assert.match(index, /id="reportsBtn"[^>]*class="sidebar-item"/);
   assert.match(index, /id="reportingDialog"/);
   assert.match(index, /id="reportingTabAnalytics"/);
   assert.match(index, /id="reportingTabFilament"/);
