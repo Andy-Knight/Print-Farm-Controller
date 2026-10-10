@@ -194,6 +194,30 @@ const maintenanceAlertBtn = document.querySelector('#maintenanceAlertBtn');
 const maintenanceAlertCount = document.querySelector('#maintenanceAlertCount');
 const themeToggle = document.querySelector('#themeToggle');
 const themeColorMeta = document.querySelector('#themeColorMeta');
+const sidebarToggle = document.querySelector('#sidebarToggle');
+const dashboardHomeBtn = document.querySelector('[data-dashboard-home]');
+
+function closeModernSidebar() {
+  document.body.classList.remove('sidebar-open');
+  sidebarToggle?.setAttribute('aria-expanded', 'false');
+}
+sidebarToggle?.addEventListener('click', () => {
+  const open = document.body.classList.toggle('sidebar-open');
+  sidebarToggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+});
+dashboardHomeBtn?.addEventListener('click', () => {
+  closeModernSidebar();
+  window.scrollTo({ top:0, behavior:'smooth' });
+});
+document.querySelectorAll('.sidebar-nav .sidebar-item, .sidebar-foot .sidebar-item').forEach((item) => {
+  item.addEventListener('click', () => {
+    if (window.matchMedia('(max-width: 760px)').matches) closeModernSidebar();
+  });
+});
+document.addEventListener('keydown', (event) => {
+  if (event.key === 'Escape') closeModernSidebar();
+});
+
 
 let fleet = [];
 let adapters = [];
