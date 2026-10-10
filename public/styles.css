@@ -2963,6 +2963,34 @@ body:not([data-route="/"]) > main > :not(.route-page) { display:none !important;
   .route-page .dialog-head h2 { font-size:1.35rem; }
 }
 
+/* Secondary action treatment */
+.secondary {
+  background:linear-gradient(180deg,#30485d,#263b4d);
+  color:#e8f3fc;
+  border:1px solid #45627a;
+  box-shadow:0 3px 10px rgba(0,0,0,.12);
+}
+.secondary:not(:disabled):hover,
+.secondary:not(:disabled):focus-visible {
+  background:linear-gradient(180deg,#3a5871,#2d475d);
+  border-color:#6385a1;
+  color:#fff;
+  filter:none;
+}
+:root[data-theme="light"] .secondary {
+  background:linear-gradient(180deg,#edf4fa,#e1ebf3);
+  color:#29485f;
+  border:1px solid #aec2d2;
+  box-shadow:0 2px 8px rgba(43,72,95,.08);
+}
+:root[data-theme="light"] .secondary:not(:disabled):hover,
+:root[data-theme="light"] .secondary:not(:disabled):focus-visible {
+  background:linear-gradient(180deg,#e3eff8,#d5e5f1);
+  border-color:#829fb5;
+  color:#183a54;
+  filter:none;
+}
+
 /* Semantic action colours */
 .primary {
   background:linear-gradient(180deg,#2f86e5,#1769bd);
