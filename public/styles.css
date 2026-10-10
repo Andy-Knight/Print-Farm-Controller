@@ -184,6 +184,9 @@ button.summary-card:focus-visible { filter:none; transform:translateY(-1px); bor
 .attention { background:#8a641d; color:#fff8e7; }
 .danger { background:#9b343d; color:#fff4f5; }
 .icon { background:#202831; color:#e8edf2; font-size:1.2rem; line-height:1; padding:8px 11px; }
+.card-footer-actions { display:flex; gap:8px; width:100%; }
+.card-footer-actions button { flex:1; min-width:0; }
+.card-footer .card-job-control.positive { border:1px solid rgba(108,211,153,.35); }
 .card-footer button { flex:1; }
 .empty { border:1px dashed #35414b; border-radius:18px; padding:60px 20px; text-align:center; color:#8ea1b3; }
 .hidden { display:none !important; }
