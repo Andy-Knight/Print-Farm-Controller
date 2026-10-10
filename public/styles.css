@@ -176,11 +176,13 @@ button.summary-card:focus-visible { filter:none; transform:translateY(-1px); bor
 .card-error { min-height:1.15em; margin-top:0; font-size:.77rem; color:#ffafb4; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .card-footer .card-error.hidden { display:block !important; visibility:hidden; }
 .card-footer { margin-top:auto; padding:0 16px 16px; display:flex; flex-direction:column; gap:8px; }
-.primary,.secondary,.danger,.icon { border:0; border-radius:10px; padding:10px 14px; font-weight:750; }
-.primary,.secondary,.danger { height:var(--button-field-height); min-height:var(--button-field-height); }
-.primary { background:#e8edf2; color:#10151a; }
+.primary,.secondary,.positive,.attention,.danger,.icon { border:0; border-radius:10px; padding:10px 14px; font-weight:750; }
+.primary,.secondary,.positive,.attention,.danger { height:var(--button-field-height); min-height:var(--button-field-height); }
+.primary { background:#2878d0; color:#fff; }
 .secondary { background:#202831; color:#e8edf2; }
-.danger { background:#47262b; color:#ffb2ba; }
+.positive { background:#237a4b; color:#f2fff7; }
+.attention { background:#8a641d; color:#fff8e7; }
+.danger { background:#9b343d; color:#fff4f5; }
 .icon { background:#202831; color:#e8edf2; font-size:1.2rem; line-height:1; padding:8px 11px; }
 .card-footer button { flex:1; }
 .empty { border:1px dashed #35414b; border-radius:18px; padding:60px 20px; text-align:center; color:#8ea1b3; }
@@ -2960,3 +2962,21 @@ body:not([data-route="/"]) > main > :not(.route-page) { display:none !important;
   .route-page .dialog-head { margin-bottom:16px; }
   .route-page .dialog-head h2 { font-size:1.35rem; }
 }
+
+/* Semantic action colours */
+[data-batch-direct="resume"],
+[data-printer-action="resume"],
+[data-maintenance-complete],
+[data-complete-maintenance] { background:#237a4b; color:#f2fff7; }
+
+[data-maintenance-due],
+.maintenance-alert-button:not(.hidden) { --action-attention:#8a641d; }
+
+html[data-theme="light"] .primary { background:#1769bd; color:#fff; }
+html[data-theme="light"] .positive,
+html[data-theme="light"] [data-batch-direct="resume"],
+html[data-theme="light"] [data-printer-action="resume"],
+html[data-theme="light"] [data-maintenance-complete],
+html[data-theme="light"] [data-complete-maintenance] { background:#197044; color:#fff; }
+html[data-theme="light"] .attention { background:#9a6a12; color:#fff; }
+html[data-theme="light"] .danger { background:#b73540; color:#fff; }
