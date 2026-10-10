@@ -2917,10 +2917,11 @@ body > main { max-width:calc(var(--workspace-max) + var(--sidebar-width)); margi
 }
 
 
-/* Main workspace pages opened from persistent navigation */
-body.workspace-active > main > :not(dialog.workspace-page[open]) { display:none !important; }
-body.workspace-active > main { display:block; }
-dialog.workspace-page {
+
+
+/* Routed controller pages */
+body:not([data-route="/"]) > main > :not(.route-page) { display:none !important; }
+dialog.route-page {
   position:static;
   inset:auto;
   width:100%;
@@ -2934,14 +2935,16 @@ dialog.workspace-page {
   overflow:visible;
   box-shadow:none;
 }
-dialog.workspace-page[open] { display:block; }
-dialog.workspace-page::backdrop { display:none; }
-dialog.workspace-page > * {
-  width:100%;
-  max-width:none;
-  margin:0;
-}
-body.workspace-active .modern-topbar { z-index:31; }
-@media (max-width:760px) {
-  dialog.workspace-page { width:100%; }
-}
+dialog.route-page:not([open]), dialog.route-page[hidden] { display:none !important; }
+dialog.route-page[open]:not([hidden]) { display:block; }
+dialog.route-page::backdrop { display:none; }
+dialog.route-page > * { width:100%; max-width:none; margin:0; }
+dialog.route-page .dialog-head [data-diagnostics-close],
+dialog.route-page .dialog-head [data-printer-groups-close],
+dialog.route-page .dialog-head [data-reporting-close],
+dialog.route-page .dialog-head [data-maintenance-close],
+dialog.route-page .dialog-head [data-alerts-close],
+dialog.route-page .dialog-head [data-backup-recovery-close],
+dialog.route-page .dialog-head [data-library-close],
+dialog.route-page .dialog-head [data-queue-close],
+dialog.route-page .dialog-head [data-license-close] { display:none; }
