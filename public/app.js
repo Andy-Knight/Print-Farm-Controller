@@ -4361,6 +4361,10 @@ summaryEl.addEventListener('click', (event) => {
   setDashboardFilter(filter.dataset.dashboardFilter);
 });
 
+alertsBtn?.addEventListener('click', () => {
+  navigateController('/alerts');
+});
+
 maintenanceAlertBtn?.addEventListener('click', () => {
   setDashboardFilter(dashboardFilter === 'maintenance' ? 'all' : 'maintenance');
 });
