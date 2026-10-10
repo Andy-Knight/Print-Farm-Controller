@@ -222,6 +222,11 @@ function renderControllerRoute(pathname, { invoke = true } = {}) {
   const route = controllerRoutes[routePath];
   activeRoute = routePath;
   document.body.dataset.route = routePath;
+  if (batchModeBtn) {
+    batchModeBtn.disabled = routePath !== '/';
+    batchModeBtn.setAttribute('aria-disabled', routePath === '/' ? 'false' : 'true');
+    if (routePath !== '/' && selectionMode) setSelectionMode(false);
+  }
   document.querySelectorAll('.sidebar-item[data-route]').forEach((item) => item.classList.toggle('active', item.dataset.route === routePath));
   document.querySelectorAll('.route-page').forEach((page) => {
     page.hidden = page.id !== route.dialog;
