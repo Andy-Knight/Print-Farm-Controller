@@ -24,8 +24,8 @@
   <link rel="stylesheet" href="/styles.css" />
 </head>
 <body>
-  <header class="topbar">
-    <div class="brand-area">
+  <aside class="app-sidebar" aria-label="Controller navigation">
+    <div class="sidebar-brand">
       <div class="brand-lockup" aria-label="Stacked Layers — Print Farm Controller">
         <a class="stacked-layers-link" href="https://www.stackedlayers.co.uk" target="_blank" rel="noopener noreferrer" aria-label="Visit Stacked Layers website">
           <svg class="stacked-layers-mark" viewBox="0 0 120 92" aria-hidden="true" focusable="false">
@@ -39,13 +39,35 @@
           <div class="brand-product">Print Farm Controller</div>
         </div>
       </div>
+    </div>
+    <nav class="sidebar-nav">
+      <button type="button" class="sidebar-item active" data-dashboard-home><span class="sidebar-icon">⌂</span><span>Dashboard</span></button>
+      <button id="queueBtn" type="button" class="sidebar-item"><span class="sidebar-icon">☷</span><span>Queue &amp; history</span><span id="queueButtonCount" class="queue-button-count hidden">0</span></button>
+      <button id="libraryBtn" type="button" class="sidebar-item"><span class="sidebar-icon">▣</span><span>Print library</span><span id="libraryButtonCount" class="queue-button-count hidden">0</span></button>
+      <button id="batchModeBtn" type="button" class="sidebar-item"><span class="sidebar-icon">◫</span><span>Farm operations</span></button>
+      <div class="sidebar-divider"></div>
+      <button id="maintenanceBtn" type="button" class="sidebar-item"><span class="sidebar-icon">⌁</span><span>Maintenance</span></button>
+      <button id="printerGroupsBtn" type="button" class="sidebar-item"><span class="sidebar-icon">◎</span><span>Printer groups</span></button>
+      <button id="reportsBtn" type="button" class="sidebar-item"><span class="sidebar-icon">▥</span><span>Reports &amp; analytics</span></button>
+      <button id="alertsSettingsBtn" type="button" class="sidebar-item"><span class="sidebar-icon">◇</span><span>Alerts &amp; notifications</span></button>
+      <button id="backupRecoveryBtn" type="button" class="sidebar-item"><span class="sidebar-icon">⇩</span><span>Backup &amp; recovery</span></button>
+      <button id="diagnosticsBtn" type="button" class="sidebar-item"><span class="sidebar-icon">≡</span><span>Diagnostics</span></button>
+    </nav>
+    <div class="sidebar-foot">
       <span id="liveIndicator" class="live-indicator connecting"><i></i><span>Connecting</span></span>
+      <button id="licenseBtn" type="button" class="sidebar-item sidebar-licence"><span class="sidebar-icon">◇</span><span>Licence</span></button>
+      <button type="button" class="sidebar-item" onclick="location.href='/simulator/'"><span class="sidebar-icon">▤</span><span>Printer simulator</span></button>
+      <div class="sidebar-version">Print Farm Controller <span id="controllerVersion">v—</span><br><span id="controllerEdition">Development Edition</span></div>
+    </div>
+  </aside>
+
+  <header class="topbar modern-topbar">
+    <button id="sidebarToggle" class="sidebar-toggle" type="button" aria-label="Open navigation" aria-expanded="false">☰</button>
+    <div class="topbar-context">
+      <strong>Dashboard</strong>
+      <span>Monitor and manage your print farm</span>
     </div>
     <div class="topbar-actions">
-      <button id="libraryBtn" class="secondary">Print library <span id="libraryButtonCount" class="queue-button-count hidden">0</span></button>
-      <button id="queueBtn" class="secondary">Queue &amp; history <span id="queueButtonCount" class="queue-button-count hidden">0</span></button>
-      <button id="batchModeBtn" class="secondary topbar-fleet-action">Farm operations</button>
-      <button id="addPrinterBtn" class="primary">+ Add printer</button>
       <button id="alertsBtn" class="controller-alert-button hidden" type="button" aria-label="Open farm alerts" title="Farm alerts">
         <svg class="controller-alert-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 2.8 19h18.4L12 3Z"></path><path d="M12 9v4"></path><path d="M12 16.5h.01"></path></svg>
         <span id="alertsButtonCount" class="controller-alert-count hidden">0</span>
@@ -58,17 +80,10 @@
         <span class="theme-toggle-track" aria-hidden="true"></span>
         <span class="theme-toggle-label">Dark</span>
       </button>
+      <button id="addPrinterBtn" class="primary">+ Add printer</button>
       <details id="topbarOverflow" class="topbar-overflow">
         <summary aria-label="More controller actions" title="More controller actions">⋮</summary>
         <div class="topbar-overflow-menu" role="menu">
-          <button type="button" class="topbar-overflow-item" role="menuitem" onclick="location.href='/simulator/'">Printer simulator</button>
-          <button id="diagnosticsBtn" type="button" class="topbar-overflow-item" role="menuitem">Diagnostics</button>
-          <button id="maintenanceBtn" type="button" class="topbar-overflow-item" role="menuitem">Maintenance</button>
-          <button id="printerGroupsBtn" type="button" class="topbar-overflow-item" role="menuitem">Printer groups</button>
-          <button id="reportsBtn" type="button" class="topbar-overflow-item" role="menuitem">Reports &amp; analytics</button>
-          <button id="alertsSettingsBtn" type="button" class="topbar-overflow-item" role="menuitem">Alerts &amp; notifications</button>
-          <button id="backupRecoveryBtn" type="button" class="topbar-overflow-item" role="menuitem">Backup &amp; recovery</button>
-          <button id="licenseBtn" type="button" class="topbar-overflow-item" role="menuitem">Licence</button>
           <button id="batchModeMenuBtn" type="button" class="topbar-overflow-item topbar-overflow-fleet" role="menuitem">Farm operations</button>
         </div>
       </details>
@@ -114,7 +129,7 @@
       <p>Scan the local network for a supported printer or add one manually.</p>
       <button class="primary" data-add-printer>Find printers</button>
     </section>
-    <footer class="controller-footer" aria-label="Controller version and licence">Print Farm Controller <span id="controllerVersion">v—</span> · <span id="controllerEdition">Development Edition</span></footer>
+    <footer class="controller-footer" aria-label="Controller status">Stacked Layers · Print Farm Controller</footer>
   </main>
 
   <dialog id="licenseDialog" class="license-dialog">
