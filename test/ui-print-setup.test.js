@@ -9,23 +9,23 @@ const emulatorApp = fs.readFileSync(new URL('../emulator/public/app.js', import.
 const emulatorIndex = fs.readFileSync(new URL('../emulator/public/index.html', import.meta.url), 'utf8');
 const emulatorStyles = fs.readFileSync(new URL('../emulator/public/styles.css', import.meta.url), 'utf8');
 
-test('top bar keeps theme toggle visible and moves secondary actions into responsive overflow', () => {
+test('modern shell keeps primary actions visible and moves secondary actions into responsive sidebar navigation', () => {
+  assert.match(index, /class="app-sidebar"/);
+  assert.match(index, /class="sidebar-nav"/);
+  assert.match(index, /id="sidebarToggle"/);
   assert.match(index, /id="themeToggle"/);
-  assert.match(index, /id="topbarOverflow"/);
-  assert.match(index, /More controller actions/);
-  assert.match(index, />Printer simulator<\/button>/);
-  assert.match(index, /id="licenseBtn"[^>]*>Licence<\/button>/);
-  assert.match(index, /id="batchModeMenuBtn"/);
-  assert.match(index, /id="batchModeBtn"[^>]*topbar-fleet-action/);
-  assert.match(app, /const batchModeMenuBtn = document\.querySelector\('#batchModeMenuBtn'\)/);
-  assert.match(app, /if \(batchModeMenuBtn\) batchModeMenuBtn\.textContent = fleetModeLabel/);
-  assert.match(app, /batchModeMenuBtn\?\.addEventListener/);
-  assert.match(app, /topbarOverflow\.open = false/);
-  assert.match(styles, /\.topbar-overflow-menu/);
-  assert.match(styles, /@media \(max-width:1180px\)[\s\S]*\.topbar-fleet-action \{ display:none; \}[\s\S]*\.topbar-overflow-fleet \{ display:block; \}/);
-  assert.match(styles, /@media \(max-width:900px\)[\s\S]*\.topbar \{ align-items:flex-start; flex-direction:column; \}/);
+  assert.match(index, /id="licenseBtn"[^>]*class="sidebar-item sidebar-licence"/);
+  assert.match(index, /onclick="location\.href='\/simulator\/'"[^>]*>[\s\S]*Printer simulator<\/span><\/button>/);
+  assert.match(index, /id="batchModeBtn"[^>]*class="sidebar-item"/);
+  assert.match(index, /id="maintenanceBtn"[^>]*class="sidebar-item"/);
+  assert.match(index, /id="diagnosticsBtn"[^>]*class="sidebar-item"/);
+  assert.match(app, /const sidebarToggle = document\.querySelector\('#sidebarToggle'\)/);
+  assert.match(app, /document\.body\.classList\.toggle\('sidebar-open'/);
+  assert.match(app, /document\.body\.classList\.remove\('sidebar-open'\)/);
+  assert.match(styles, /\.app-sidebar/);
+  assert.match(styles, /@media \(max-width:760px\)[\s\S]*\.app-sidebar[\s\S]*transform:translateX\(-100%\)/);
+  assert.match(styles, /body\.sidebar-open \.app-sidebar/);
 });
-
 test('offline printer badge remains red in light mode', () => {
   assert.match(styles, /:root\[data-theme="light"\] \.badge\.error,/);
   assert.match(styles, /:root\[data-theme="light"\] \.badge\.offline \{ background:#4b2528; color:#ffafb4; \}/);
