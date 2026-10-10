@@ -4915,7 +4915,7 @@ function u1FilamentConfigControlMarkup(printer, tool = {}) {
       placeholder:'Select type'
     })}</label>
     <label>Colour family${colorFamilyDropdownMarkup({ value:familyOption?.value || '', inputAttributes:`data-u1-filament-color-family-input="${tool.index}"`, disabled:!state.enabled, placeholder:'Select colour' })}</label>
-    <button type="button" class="secondary" data-u1-filament-config-save="${tool.index}"${state.enabled ? '' : ' disabled'}>Set filament on U1</button>
+    <button type="button" class="primary" data-u1-filament-config-save="${tool.index}"${state.enabled ? '' : ' disabled'}>Set filament on U1</button>
     ${multiToolControlHelpMarkup(multiToolFilamentHelpText(state.message), `data-u1-filament-config-help="${tool.index}"`)}
   </div>`;
 }
@@ -5011,7 +5011,7 @@ function creator5FilamentConfigControlMarkup(printer, tool = {}) {
     <label>Colour
       ${creator5FilamentColorDropdownMarkup(printer, { value:color || '', toolIndex:tool.index, disabled:!idle })}
     </label>
-    <button type="button" class="secondary" data-creator5-filament-config-save="${tool.index}"${idle ? '' : ' disabled'}>Set on printer</button>
+    <button type="button" class="primary" data-creator5-filament-config-save="${tool.index}"${idle ? '' : ' disabled'}>Set on printer</button>
     ${multiToolControlHelpMarkup(multiToolFilamentHelpText('Changes are written to the printer and verified.'))}
   </div>`;
 }
