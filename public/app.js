@@ -4410,6 +4410,7 @@ fleetFilterEmptyEl?.addEventListener('click', (event) => {
 fleetEl.addEventListener('click', (event) => {
   const maintenanceShortcut = event.target.closest('[data-maintenance-open-printer]');
   if (maintenanceShortcut) {
+    navigateController('/maintenance');
     window.dispatchEvent(new CustomEvent('pfc:open-maintenance', {
       detail:{ printerId:maintenanceShortcut.dataset.maintenanceOpenPrinter }
     }));
@@ -7084,6 +7085,7 @@ printerDetail.addEventListener('click', (event) => {
   const printerId = maintenanceShortcut.dataset.maintenanceOpenPrinter;
   if (!printerId) return;
   if (printerDialog.open) printerDialog.close();
+  navigateController('/maintenance');
   window.dispatchEvent(new CustomEvent('pfc:open-maintenance', {
     detail:{ printerId }
   }));
