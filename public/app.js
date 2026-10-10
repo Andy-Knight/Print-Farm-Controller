@@ -3184,7 +3184,10 @@ function cardMarkup(printer) {
       <div class="health-line"><span data-last-seen></span><span data-latency></span></div>
     </div>
     <div class="card-footer">
-      <button class="secondary" data-open="${escapeHtml(printer.id)}">Open printer</button>
+      <div class="card-footer-actions">
+        <button type="button" class="secondary card-job-control hidden" data-card-job-control></button>
+        <button type="button" class="secondary" data-open="${escapeHtml(printer.id)}">Open printer</button>
+      </div>
       <div class="card-error hidden" data-card-error></div>
     </div>
   </article>`;
@@ -3356,6 +3359,26 @@ function updateCard(card, printer) {
     if (selector.disabled && selector.checked) {
       selector.checked = false;
       selectedPrinterIds.delete(printer.id);
+    }
+  }
+
+  const jobControl = card.querySelector('[data-card-job-control]');
+  if (jobControl) {
+    const status = String(s?.status || '').toLowerCase();
+    const paused = status === 'pause' || status === 'paused';
+    const printing = ['printing', 'print', 'running'].includes(status);
+    const canControlJob = Boolean(printer.online && printer.capabilities?.jobControl && printer.licenseActive !== false && (printing || paused));
+    jobControl.classList.toggle('hidden', !canControlJob);
+    if (canControlJob) {
+      jobControl.dataset.cardJobControl = paused ? 'resume' : 'pause';
+      jobControl.textContent = paused ? 'Resume' : 'Pause';
+      jobControl.classList.toggle('positive', paused);
+      jobControl.classList.toggle('secondary', !paused);
+      jobControl.title = paused ? 'Resume the current print' : 'Pause the current print';
+      jobControl.disabled = false;
+    } else {
+      jobControl.dataset.cardJobControl = '';
+      jobControl.disabled = true;
     }
   }
 
@@ -4426,6 +4449,22 @@ fleetEl.addEventListener('change', (event) => {
   const card = checkbox.closest('[data-printer-card]');
   if (!card) return;
   togglePrinterSelection(card.dataset.printerCard, checkbox.checked);
+});
+
+fleetEl.addEventListener('click', async (event) => {
+  const control = event.target.closest('[data-card-job-control]');
+  if (!control || !control.dataset.cardJobControl) return;
+  const card = control.closest('[data-printer-card]');
+  if (!card) return;
+  const action = control.dataset.cardJobControl;
+  control.disabled = true;
+  try {
+    await command(card.dataset.printerCard, 'job', { action });
+  } catch (error) {
+    showError(error);
+  } finally {
+    control.disabled = false;
+  }
 });
 
 fleetEl.addEventListener('pointerdown', (event) => {
