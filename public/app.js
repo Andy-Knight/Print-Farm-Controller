@@ -278,6 +278,26 @@ document.addEventListener('keydown', (event) => {
   if (event.key === 'Escape') closeModernSidebar();
 });
 
+for (const route of Object.values(controllerRoutes)) {
+  if (!route.dialog) continue;
+  const page = document.querySelector(`#${route.dialog}`);
+  if (!page) continue;
+  page.classList.add('route-page');
+  workspaceMain?.appendChild(page);
+  page.showModal = () => {
+    page.hidden = false;
+    page.setAttribute('open','');
+  };
+  page.show = page.showModal;
+  page.close = () => {
+    if (activeRoute !== '/') navigateController('/');
+    else {
+      page.hidden = true;
+      page.removeAttribute('open');
+    }
+    page.dispatchEvent(new Event('close'));
+  };
+}
 renderControllerRoute(location.pathname, { invoke:false });
 
 let fleet = [];
