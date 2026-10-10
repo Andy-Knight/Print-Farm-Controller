@@ -2919,32 +2919,44 @@ body > main { max-width:calc(var(--workspace-max) + var(--sidebar-width)); margi
 
 
 
+
+
 /* Routed controller pages */
 body:not([data-route="/"]) > main > :not(.route-page) { display:none !important; }
-dialog.route-page {
-  position:static;
-  inset:auto;
+.route-page {
+  display:block;
+  width:100%;
+  min-width:0;
+  margin:0;
+  padding:0;
+  background:transparent;
+  color:inherit;
+}
+.route-page[hidden] { display:none !important; }
+.route-page > [class$="-shell"],
+.route-page > .queue-shell {
   width:100%;
   max-width:none;
   max-height:none;
   margin:0;
   padding:0;
   border:0;
+  border-radius:0;
   background:transparent;
-  color:inherit;
-  overflow:visible;
   box-shadow:none;
+  overflow:visible;
 }
-dialog.route-page:not([open]), dialog.route-page[hidden] { display:none !important; }
-dialog.route-page[open]:not([hidden]) { display:block; }
-dialog.route-page::backdrop { display:none; }
-dialog.route-page > * { width:100%; max-width:none; margin:0; }
-dialog.route-page .dialog-head [data-diagnostics-close],
-dialog.route-page .dialog-head [data-printer-groups-close],
-dialog.route-page .dialog-head [data-reporting-close],
-dialog.route-page .dialog-head [data-maintenance-close],
-dialog.route-page .dialog-head [data-alerts-close],
-dialog.route-page .dialog-head [data-backup-recovery-close],
-dialog.route-page .dialog-head [data-library-close],
-dialog.route-page .dialog-head [data-queue-close],
-dialog.route-page .dialog-head [data-license-close] { display:none; }
+.route-page .dialog-head {
+  margin:0 0 22px;
+  padding:0 0 16px;
+  border-bottom:1px solid var(--border, #29343d);
+}
+.route-page .dialog-head .eyebrow { margin-bottom:5px; }
+.route-page .dialog-head h2 { margin:0 0 5px; font-size:1.65rem; }
+.route-page .dialog-head > .icon { display:none; }
+.route-page > [class$="-shell"] > .actions:last-child,
+.route-page > .queue-shell > .actions:last-child { display:none; }
+@media (max-width:760px) {
+  .route-page .dialog-head { margin-bottom:16px; }
+  .route-page .dialog-head h2 { font-size:1.35rem; }
+}
