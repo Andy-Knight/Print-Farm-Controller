@@ -6302,7 +6302,7 @@ async function openPrinter(id) {
         <div class="panel maintenance-panel">
           <h3>Maintenance</h3>
           <div class="maintenance-tracking-summary" data-maintenance-tracking-summary>${escapeHtml(maintenanceStatusText(printer))}</div>
-          <div class="mini-actions"><button class="secondary" data-level${disabled(capabilities.bedLeveling)}>Bed level</button><button class="secondary" data-camera-open${disabled(capabilities.camera)}>Restart camera</button>${capabilities.toolheadOffsetCalibration ? '<button class="secondary" data-tool-offset-open>XYZ tool offsets</button>' : ''}</div>
+          <div class="mini-actions"><button class="primary" data-level${disabled(capabilities.bedLeveling)}>Bed level</button><button class="secondary" data-camera-open${disabled(capabilities.camera)}>Restart camera</button>${capabilities.toolheadOffsetCalibration ? '<button class="secondary" data-tool-offset-open>XYZ tool offsets</button>' : ''}</div>
           ${printer.adapterType === 'snapmaker-u1' && capabilities.bedLeveling ? `<div class="field-help bed-level-status${u1BedLevelStatus(printer).active ? ' active' : ''}" data-bed-level-status>${escapeHtml(u1BedLevelStatus(printer).text)}</div>` : ''}
           ${toolOffsetCalibrationMarkup}
         </div>
