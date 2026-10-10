@@ -6247,8 +6247,8 @@ async function openPrinter(id) {
           <div class="progress"><span data-detail-progress-bar style="width:${Math.round(s?.progress || 0)}%"></span></div>
           <div class="job-meta"><span>Layer <b data-detail-layer>—</b></span><span>Remaining <b data-detail-remaining>—</b></span></div>
           <div class="mini-actions">
-            <button class="secondary" data-job="pause"${disabled(capabilities.jobControl)}>Pause</button>
-            <button class="secondary" data-job="resume"${disabled(capabilities.jobControl)}>Resume</button>
+            <button class="attention" data-job="pause"${disabled(capabilities.jobControl)}>Pause</button>
+            <button class="positive" data-job="resume"${disabled(capabilities.jobControl)}>Resume</button>
             <button class="danger" data-job="cancel"${disabled(capabilities.jobControl)}>Cancel</button>
           </div>
         </div>
