@@ -196,6 +196,46 @@ const themeToggle = document.querySelector('#themeToggle');
 const themeColorMeta = document.querySelector('#themeColorMeta');
 const sidebarToggle = document.querySelector('#sidebarToggle');
 const dashboardHomeBtn = document.querySelector('[data-dashboard-home]');
+const workspaceDialogIds = ['queueDialog','libraryDialog','maintenanceDialog','printerGroupsDialog','reportingDialog','alertsDialog','backupRecoveryDialog','diagnosticsDialog','licenseDialog'];
+const workspaceTitles = {
+  queueDialog:'Queue & history', libraryDialog:'Print library', maintenanceDialog:'Maintenance',
+  printerGroupsDialog:'Printer groups', reportingDialog:'Reports & analytics', alertsDialog:'Alerts & notifications',
+  backupRecoveryDialog:'Backup & recovery', diagnosticsDialog:'Diagnostics', licenseDialog:'Licence'
+};
+const workspaceMain = document.querySelector('body > main');
+const topbarContextTitle = document.querySelector('.topbar-context strong');
+const topbarContextSubtitle = document.querySelector('.topbar-context span');
+let activeWorkspaceDialog = null;
+
+function setWorkspaceNavigation(dialog) {
+  if (!dialog || dialog.dataset.workspaceReady === 'true') return;
+  dialog.dataset.workspaceReady = 'true';
+  dialog.classList.add('workspace-page');
+  workspaceMain?.appendChild(dialog);
+  const nativeShowModal = dialog.showModal.bind(dialog);
+  dialog.showModal = () => {
+    if (activeWorkspaceDialog && activeWorkspaceDialog !== dialog && activeWorkspaceDialog.open) activeWorkspaceDialog.close();
+    document.body.classList.add('workspace-active');
+    activeWorkspaceDialog = dialog;
+    if (!dialog.open) dialog.show();
+    document.querySelectorAll('.sidebar-item').forEach((item) => item.classList.remove('active'));
+    const owner = document.querySelector(`#${dialog.id.replace('Dialog','Btn')}`);
+    owner?.classList.add('active');
+    if (topbarContextTitle) topbarContextTitle.textContent = workspaceTitles[dialog.id] || 'Print Farm Controller';
+    if (topbarContextSubtitle) topbarContextSubtitle.textContent = 'Print Farm Controller';
+    window.scrollTo({ top:0, behavior:'smooth' });
+  };
+  dialog.dataset.nativeModalAvailable = nativeShowModal ? 'true' : 'false';
+  dialog.addEventListener('close', () => {
+    if (activeWorkspaceDialog !== dialog) return;
+    activeWorkspaceDialog = null;
+    document.body.classList.remove('workspace-active');
+    dashboardHomeBtn?.classList.add('active');
+    if (topbarContextTitle) topbarContextTitle.textContent = 'Dashboard';
+    if (topbarContextSubtitle) topbarContextSubtitle.textContent = 'Monitor and manage your print farm';
+  });
+}
+workspaceDialogIds.forEach((id) => setWorkspaceNavigation(document.querySelector(`#${id}`)));
 
 function closeModernSidebar() {
   document.body.classList.remove('sidebar-open');
@@ -206,6 +246,7 @@ sidebarToggle?.addEventListener('click', () => {
   sidebarToggle.setAttribute('aria-expanded', open ? 'true' : 'false');
 });
 dashboardHomeBtn?.addEventListener('click', () => {
+  if (activeWorkspaceDialog?.open) activeWorkspaceDialog.close();
   closeModernSidebar();
   window.scrollTo({ top:0, behavior:'smooth' });
 });
