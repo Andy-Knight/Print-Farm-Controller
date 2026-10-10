@@ -785,7 +785,7 @@ test('unsupported cameras are represented by the camera tab without a fake offli
 
 test('standard action buttons use one shared height', () => {
   assert.match(styles, /--button-field-height:42px/);
-  assert.match(styles, /\.primary,\.secondary,\.danger \{ height:var\(--button-field-height\); min-height:var\(--button-field-height\); \}/);
+  assert.match(styles, /\.primary,\.secondary,\.positive,\.attention,\.danger \{ height:var\(--button-field-height\); min-height:var\(--button-field-height\); \}/);
   assert.match(styles, /\.creator5-filament-config-control > button \{[^}]*height:var\(--button-field-height\)[^}]*min-height:var\(--button-field-height\)/);
   assert.match(styles, /\.u1-filament-config-control button \{[^}]*height:var\(--button-field-height\)[^}]*min-height:var\(--button-field-height\)/);
   assert.match(styles, /\.prusa-tool-filament-control button \{[^}]*height:var\(--button-field-height\)[^}]*min-height:var\(--button-field-height\)/);
