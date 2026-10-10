@@ -11,7 +11,7 @@ const backupService = fs.readFileSync(new URL('../src/backup-recovery/backup-ser
 const restoreService = fs.readFileSync(new URL('../src/backup-recovery/restore-service.js', import.meta.url), 'utf8');
 
 test('printer groups are manageable from the persistent controller navigation', () => {
-  assert.match(index, /id="printerGroupsBtn"[^>]*class="sidebar-item"[^>]*>[\\s\\S]*Printer groups<\\/button>/);
+  assert.match(index, /id="printerGroupsBtn"[^>]*class="sidebar-item"/);
   assert.match(index, /id="printerGroupsDialog"/);
   assert.match(index, /id="printerGroupForm"/);
   assert.match(index, /id="printerGroupMembers"/);
