@@ -12,7 +12,7 @@ const reportingService = fs.readFileSync(new URL('../src/reporting-service.js', 
 const backupService = fs.readFileSync(new URL('../src/backup-recovery/backup-service.js', import.meta.url), 'utf8');
 const restoreService = fs.readFileSync(new URL('../src/backup-recovery/restore-service.js', import.meta.url), 'utf8');
 
-test('reporting UI is available from the overflow menu with graphical farm analytics', () => {
+test('reporting UI is available from the persistent controller navigation with graphical farm analytics', () => {
   assert.match(index, /id="reportsBtn"[^>]*>Reports &amp; analytics<\/button>/);
   assert.match(index, /id="reportingDialog"/);
   assert.match(index, /id="reportingTabAnalytics"/);
