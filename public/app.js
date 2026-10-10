@@ -54,6 +54,8 @@ const printerGroupsList = document.querySelector('#printerGroupsList');
 const backupRecoveryBtn = document.querySelector('#backupRecoveryBtn');
 const backupRecoveryDialog = document.querySelector('#backupRecoveryDialog');
 const backupStatusGrid = document.querySelector('#backupStatusGrid');
+const backupTabs = Array.from(document.querySelectorAll('[data-backup-tab]'));
+const backupTabPanels = Array.from(document.querySelectorAll('[data-backup-panel]'));
 const backupCreateBtn = document.querySelector('#backupCreateBtn');
 const backupActionStatus = document.querySelector('#backupActionStatus');
 const backupError = document.querySelector('#backupError');
@@ -194,6 +196,136 @@ const maintenanceAlertBtn = document.querySelector('#maintenanceAlertBtn');
 const maintenanceAlertCount = document.querySelector('#maintenanceAlertCount');
 const themeToggle = document.querySelector('#themeToggle');
 const themeColorMeta = document.querySelector('#themeColorMeta');
+const sidebarToggle = document.querySelector('#sidebarToggle');
+const dashboardHomeBtn = document.querySelector('[data-dashboard-home]');
+const controllerRoutes = {
+  '/': { title:'Dashboard', subtitle:'Monitor and manage your print farm' },
+  '/queue': { button:'queueBtn', dialog:'queueDialog', title:'Queue & history', subtitle:'Manage queued, active and completed print jobs' },
+  '/library': { button:'libraryBtn', dialog:'libraryDialog', title:'Print library', subtitle:'Manage files available to your print farm' },
+  '/maintenance': { button:'maintenanceBtn', dialog:'maintenanceDialog', title:'Maintenance', subtitle:'Track maintenance tasks across the farm' },
+  '/groups': { button:'printerGroupsBtn', dialog:'printerGroupsDialog', title:'Printer groups', subtitle:'Organise printers for scheduling and maintenance' },
+  '/reports': { button:'reportsBtn', dialog:'reportingDialog', title:'Reports & analytics', subtitle:'Review farm performance and filament usage' },
+  '/alerts': { button:'alertsSettingsBtn', dialog:'alertsDialog', title:'Alerts & notifications', subtitle:'Review alerts and notification settings' },
+  '/backup': { button:'backupRecoveryBtn', dialog:'backupRecoveryDialog', title:'Backup & recovery', subtitle:'Protect and restore controller data' },
+  '/diagnostics': { button:'diagnosticsBtn', dialog:'diagnosticsDialog', title:'Diagnostics', subtitle:'Review controller health and diagnostic logs' },
+  '/licence': { button:'licenseBtn', dialog:'licenseDialog', title:'Licence', subtitle:'Review controller edition and licence status' }
+};
+const workspaceMain = document.querySelector('body > main');
+const topbarContextTitle = document.querySelector('.topbar-context strong');
+const topbarContextSubtitle = document.querySelector('.topbar-context span');
+let activeRoute = '/';
+
+function activateBackupTab(name, focus = false) {
+  const selected = backupTabs.find((tab) => tab.dataset.backupTab === name) || backupTabs[0];
+  if (!selected) return;
+  const selectedName = selected.dataset.backupTab;
+  for (const tab of backupTabs) {
+    const active = tab === selected;
+    tab.classList.toggle('active', active);
+    tab.setAttribute('aria-selected', active ? 'true' : 'false');
+    tab.tabIndex = active ? 0 : -1;
+  }
+  for (const panel of backupTabPanels) panel.hidden = panel.dataset.backupPanel !== selectedName;
+  if (focus) selected.focus();
+}
+for (const tab of backupTabs) {
+  tab.addEventListener('click', () => activateBackupTab(tab.dataset.backupTab));
+  tab.addEventListener('keydown', (event) => {
+    if (!['ArrowLeft','ArrowRight','Home','End'].includes(event.key)) return;
+    event.preventDefault();
+    const current = backupTabs.indexOf(tab);
+    const next = event.key === 'Home' ? 0
+      : event.key === 'End' ? backupTabs.length - 1
+        : event.key === 'ArrowRight' ? (current + 1) % backupTabs.length
+          : (current - 1 + backupTabs.length) % backupTabs.length;
+    activateBackupTab(backupTabs[next]?.dataset.backupTab, true);
+  });
+}
+
+function normaliseControllerRoute(pathname) {
+  const clean = pathname.replace(/\/+$/, '') || '/';
+  return controllerRoutes[clean] ? clean : '/';
+}
+function renderControllerRoute(pathname, { invoke = true } = {}) {
+  const routePath = normaliseControllerRoute(pathname);
+  const route = controllerRoutes[routePath];
+  activeRoute = routePath;
+  document.body.dataset.route = routePath;
+  if (batchModeBtn) {
+    batchModeBtn.disabled = routePath !== '/';
+    batchModeBtn.setAttribute('aria-disabled', routePath === '/' ? 'false' : 'true');
+    if (routePath !== '/' && selectionMode) setSelectionMode(false);
+  }
+  document.querySelectorAll('.sidebar-item[data-route]').forEach((item) => item.classList.toggle('active', item.dataset.route === routePath));
+  document.querySelectorAll('.route-page').forEach((page) => {
+    page.hidden = page.id !== route.dialog;
+  });
+  if (topbarContextTitle) topbarContextTitle.textContent = route.title;
+  if (topbarContextSubtitle) topbarContextSubtitle.textContent = route.subtitle;
+  if (invoke && route.button) {
+    const button = document.querySelector(`#${route.button}`);
+    if (button) {
+      const event = new MouseEvent('click', { bubbles:true, cancelable:true });
+      Object.defineProperty(event, '__controllerRouteInvoke', { value:true });
+      button.dispatchEvent(event);
+    }
+  }
+  window.scrollTo({ top:0, behavior:'smooth' });
+}
+function navigateController(routePath) {
+  const target = normaliseControllerRoute(routePath);
+  if (location.pathname !== target) history.pushState({}, '', target);
+  renderControllerRoute(target);
+}
+document.querySelectorAll('.sidebar-item[data-route]').forEach((item) => {
+  item.addEventListener('click', (event) => {
+    if (event.__controllerRouteInvoke) return;
+    event.preventDefault();
+    const routePath = item.dataset.route;
+    if (!routePath) return;
+    if (activeRoute === routePath && routePath !== '/') return;
+    navigateController(routePath);
+  }, true);
+});
+window.addEventListener('popstate', () => renderControllerRoute(location.pathname));
+
+function closeModernSidebar() {
+  document.body.classList.remove('sidebar-open');
+  sidebarToggle?.setAttribute('aria-expanded', 'false');
+}
+sidebarToggle?.addEventListener('click', () => {
+  const open = document.body.classList.toggle('sidebar-open');
+  sidebarToggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+});
+dashboardHomeBtn?.addEventListener('click', () => {
+  closeModernSidebar();
+  window.scrollTo({ top:0, behavior:'smooth' });
+});
+document.querySelectorAll('.sidebar-nav .sidebar-item, .sidebar-foot .sidebar-item').forEach((item) => {
+  item.addEventListener('click', () => {
+    if (window.matchMedia('(max-width: 760px)').matches) closeModernSidebar();
+  });
+});
+document.addEventListener('keydown', (event) => {
+  if (event.key === 'Escape') closeModernSidebar();
+});
+
+for (const route of Object.values(controllerRoutes)) {
+  if (!route.dialog) continue;
+  const page = document.querySelector(`#${route.dialog}`);
+  if (!page) continue;
+  page.classList.add('route-page');
+  workspaceMain?.appendChild(page);
+  page.showModal = () => {
+    page.hidden = false;
+  };
+  page.show = page.showModal;
+  page.close = () => {
+    page.hidden = true;
+    page.dispatchEvent(new Event('close'));
+  };
+}
+renderControllerRoute(location.pathname, { invoke:false });
 
 let fleet = [];
 let adapters = [];
@@ -3081,7 +3213,10 @@ function cardMarkup(printer) {
       <div class="health-line"><span data-last-seen></span><span data-latency></span></div>
     </div>
     <div class="card-footer">
-      <button class="secondary" data-open="${escapeHtml(printer.id)}">Open printer</button>
+      <div class="card-footer-actions">
+        <button type="button" class="secondary card-job-control hidden" data-card-job-control></button>
+        <button type="button" class="secondary" data-open="${escapeHtml(printer.id)}">Open printer</button>
+      </div>
       <div class="card-error hidden" data-card-error></div>
     </div>
   </article>`;
@@ -3253,6 +3388,27 @@ function updateCard(card, printer) {
     if (selector.disabled && selector.checked) {
       selector.checked = false;
       selectedPrinterIds.delete(printer.id);
+    }
+  }
+
+  const jobControl = card.querySelector('[data-card-job-control]');
+  if (jobControl) {
+    const status = String(s?.status || '').toLowerCase();
+    const paused = status === 'pause' || status === 'paused';
+    const printing = ['printing', 'print', 'running'].includes(status);
+    const canControlJob = Boolean(printer.online && printer.capabilities?.jobControl && printer.licenseActive !== false && (printing || paused));
+    jobControl.classList.toggle('hidden', !canControlJob);
+    if (canControlJob) {
+      jobControl.dataset.cardJobControl = paused ? 'resume' : 'pause';
+      jobControl.textContent = paused ? 'Resume' : 'Pause';
+      jobControl.classList.toggle('positive', paused);
+      jobControl.classList.toggle('attention', !paused);
+      jobControl.classList.remove('secondary');
+      jobControl.title = paused ? 'Resume the current print' : 'Pause the current print';
+      jobControl.disabled = false;
+    } else {
+      jobControl.dataset.cardJobControl = '';
+      jobControl.disabled = true;
     }
   }
 
@@ -4234,6 +4390,10 @@ summaryEl.addEventListener('click', (event) => {
   setDashboardFilter(filter.dataset.dashboardFilter);
 });
 
+alertsBtn?.addEventListener('click', () => {
+  navigateController('/alerts');
+});
+
 maintenanceAlertBtn?.addEventListener('click', () => {
   setDashboardFilter(dashboardFilter === 'maintenance' ? 'all' : 'maintenance');
 });
@@ -4323,6 +4483,22 @@ fleetEl.addEventListener('change', (event) => {
   const card = checkbox.closest('[data-printer-card]');
   if (!card) return;
   togglePrinterSelection(card.dataset.printerCard, checkbox.checked);
+});
+
+fleetEl.addEventListener('click', async (event) => {
+  const control = event.target.closest('[data-card-job-control]');
+  if (!control || !control.dataset.cardJobControl) return;
+  const card = control.closest('[data-printer-card]');
+  if (!card) return;
+  const action = control.dataset.cardJobControl;
+  control.disabled = true;
+  try {
+    await command(card.dataset.printerCard, 'job', { action });
+  } catch (error) {
+    showError(error);
+  } finally {
+    control.disabled = false;
+  }
 });
 
 fleetEl.addEventListener('pointerdown', (event) => {
@@ -4768,7 +4944,7 @@ function u1FilamentConfigControlMarkup(printer, tool = {}) {
       placeholder:'Select type'
     })}</label>
     <label>Colour family${colorFamilyDropdownMarkup({ value:familyOption?.value || '', inputAttributes:`data-u1-filament-color-family-input="${tool.index}"`, disabled:!state.enabled, placeholder:'Select colour' })}</label>
-    <button type="button" class="secondary" data-u1-filament-config-save="${tool.index}"${state.enabled ? '' : ' disabled'}>Set filament on U1</button>
+    <button type="button" class="primary" data-u1-filament-config-save="${tool.index}"${state.enabled ? '' : ' disabled'}>Set filament on U1</button>
     ${multiToolControlHelpMarkup(multiToolFilamentHelpText(state.message), `data-u1-filament-config-help="${tool.index}"`)}
   </div>`;
 }
@@ -4864,7 +5040,7 @@ function creator5FilamentConfigControlMarkup(printer, tool = {}) {
     <label>Colour
       ${creator5FilamentColorDropdownMarkup(printer, { value:color || '', toolIndex:tool.index, disabled:!idle })}
     </label>
-    <button type="button" class="secondary" data-creator5-filament-config-save="${tool.index}"${idle ? '' : ' disabled'}>Set on printer</button>
+    <button type="button" class="primary" data-creator5-filament-config-save="${tool.index}"${idle ? '' : ' disabled'}>Set on printer</button>
     ${multiToolControlHelpMarkup(multiToolFilamentHelpText('Changes are written to the printer and verified.'))}
   </div>`;
 }
@@ -5918,7 +6094,7 @@ async function openPrinter(id) {
 
   const files = fileResult.files || [];
   const fileListMarkup = files.length
-    ? files.map((file) => `<div class="file" data-file-entry><span class="file-name">${escapeHtml(file)}</span><div class="file-actions"><button class="secondary" data-queue-file="${escapeHtml(file)}">Queue</button><button class="secondary" data-print-file="${escapeHtml(file)}">Print</button></div></div>`).join('')
+    ? files.map((file) => `<div class="file" data-file-entry><span class="file-name">${escapeHtml(file)}</span><div class="file-actions"><button class="secondary" data-queue-file="${escapeHtml(file)}">Queue</button><button class="primary" data-print-file="${escapeHtml(file)}">Print</button></div></div>`).join('')
     : `<div class="subtle">${!capabilities.localFiles ? 'File browsing is not supported by this printer.' : printer.online ? (fileLoadError ? 'Files unavailable.' : 'No printable files returned by printer.') : 'Files unavailable while printer is offline.'}</div>`;
   const fileWarningMarkup = fileResult.warning ? `<div class="file-warning">${escapeHtml(fileResult.warning)}</div>` : '';
   const orderLabel = fileResult.ordering === 'last-printed-first' ? 'recent first' : '';
@@ -6100,8 +6276,8 @@ async function openPrinter(id) {
           <div class="progress"><span data-detail-progress-bar style="width:${Math.round(s?.progress || 0)}%"></span></div>
           <div class="job-meta"><span>Layer <b data-detail-layer>—</b></span><span>Remaining <b data-detail-remaining>—</b></span></div>
           <div class="mini-actions">
-            <button class="secondary" data-job="pause"${disabled(capabilities.jobControl)}>Pause</button>
-            <button class="secondary" data-job="resume"${disabled(capabilities.jobControl)}>Resume</button>
+            <button class="attention" data-job="pause"${disabled(capabilities.jobControl)}>Pause</button>
+            <button class="positive" data-job="resume"${disabled(capabilities.jobControl)}>Resume</button>
             <button class="danger" data-job="cancel"${disabled(capabilities.jobControl)}>Cancel</button>
           </div>
         </div>
@@ -6155,7 +6331,7 @@ async function openPrinter(id) {
         <div class="panel maintenance-panel">
           <h3>Maintenance</h3>
           <div class="maintenance-tracking-summary" data-maintenance-tracking-summary>${escapeHtml(maintenanceStatusText(printer))}</div>
-          <div class="mini-actions"><button class="secondary" data-level${disabled(capabilities.bedLeveling)}>Bed level</button><button class="secondary" data-camera-open${disabled(capabilities.camera)}>Restart camera</button>${capabilities.toolheadOffsetCalibration ? '<button class="secondary" data-tool-offset-open>XYZ tool offsets</button>' : ''}</div>
+          <div class="mini-actions"><button class="primary" data-level${disabled(capabilities.bedLeveling)}>Bed level</button><button class="secondary" data-camera-open${disabled(capabilities.camera)}>Restart camera</button>${capabilities.toolheadOffsetCalibration ? '<button class="primary" data-tool-offset-open>XYZ tool offsets</button>' : ''}</div>
           ${printer.adapterType === 'snapmaker-u1' && capabilities.bedLeveling ? `<div class="field-help bed-level-status${u1BedLevelStatus(printer).active ? ' active' : ''}" data-bed-level-status>${escapeHtml(u1BedLevelStatus(printer).text)}</div>` : ''}
           ${toolOffsetCalibrationMarkup}
         </div>

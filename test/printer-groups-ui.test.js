@@ -10,8 +10,8 @@ const queue = fs.readFileSync(new URL('../src/print-queue.js', import.meta.url),
 const backupService = fs.readFileSync(new URL('../src/backup-recovery/backup-service.js', import.meta.url), 'utf8');
 const restoreService = fs.readFileSync(new URL('../src/backup-recovery/restore-service.js', import.meta.url), 'utf8');
 
-test('printer groups are manageable from the controller overflow menu', () => {
-  assert.match(index, /id="printerGroupsBtn"[^>]*>Printer groups<\/button>/);
+test('printer groups are manageable from the persistent controller navigation', () => {
+  assert.match(index, /id="printerGroupsBtn"[^>]*class="sidebar-item"/);
   assert.match(index, /id="printerGroupsDialog"/);
   assert.match(index, /id="printerGroupForm"/);
   assert.match(index, /id="printerGroupMembers"/);

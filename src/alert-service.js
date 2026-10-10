@@ -437,6 +437,15 @@ export class AlertService {
     return true;
   }
 
+  async clearHistory() {
+    await this.init();
+    const changed = this.state.history.length;
+    this.state.history = [];
+    this.state.activeConditions = {};
+    if (changed) await this.persist();
+    return { changed, unreadCount:0, attentionUnreadCount:0 };
+  }
+
   async markRead(alertId = null) {
     await this.init();
     const now = this.nowFn().toISOString();

@@ -12,8 +12,8 @@ const googleDriveClient = fs.readFileSync(new URL('../src/backup-recovery/google
 const oneDriveClient = fs.readFileSync(new URL('../src/backup-recovery/one-drive-client.js', import.meta.url), 'utf8');
 const s3Client = fs.readFileSync(new URL('../src/backup-recovery/s3-backup-client.js', import.meta.url), 'utf8');
 
-test('Backup and Recovery is available from the controller overflow menu', () => {
-  assert.match(index, /id="backupRecoveryBtn"[^>]*>Backup &amp; recovery<\/button>/);
+test('Backup and Recovery is available from the persistent controller navigation', () => {
+  assert.match(index, /id="backupRecoveryBtn"[^>]*class="sidebar-item"/);
   assert.match(index, /id="backupRecoveryDialog"/);
   assert.match(index, /id="backupCreateBtn"[^>]*>Create backup now<\/button>/);
   assert.match(index, /Backups are integrity-checked but are not encrypted/);

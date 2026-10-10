@@ -24,8 +24,8 @@
   <link rel="stylesheet" href="/styles.css" />
 </head>
 <body>
-  <header class="topbar">
-    <div class="brand-area">
+  <aside class="app-sidebar" aria-label="Controller navigation">
+    <div class="sidebar-brand">
       <div class="brand-lockup" aria-label="Stacked Layers — Print Farm Controller">
         <a class="stacked-layers-link" href="https://www.stackedlayers.co.uk" target="_blank" rel="noopener noreferrer" aria-label="Visit Stacked Layers website">
           <svg class="stacked-layers-mark" viewBox="0 0 120 92" aria-hidden="true" focusable="false">
@@ -39,13 +39,35 @@
           <div class="brand-product">Print Farm Controller</div>
         </div>
       </div>
+    </div>
+    <nav class="sidebar-nav">
+      <button type="button" class="sidebar-item active" data-dashboard-home data-route="/"><span class="sidebar-icon">⌂</span><span>Dashboard</span></button>
+      <button id="queueBtn" type="button" class="sidebar-item" data-route="/queue"><span class="sidebar-icon">☷</span><span>Queue &amp; history</span><span id="queueButtonCount" class="queue-button-count hidden">0</span></button>
+      <button id="libraryBtn" type="button" class="sidebar-item" data-route="/library"><span class="sidebar-icon">▣</span><span>Print library</span><span id="libraryButtonCount" class="queue-button-count hidden">0</span></button>
+      <button id="batchModeBtn" type="button" class="sidebar-item"><span class="sidebar-icon">◫</span><span>Farm operations</span></button>
+      <div class="sidebar-divider"></div>
+      <button id="maintenanceBtn" type="button" class="sidebar-item" data-route="/maintenance"><span class="sidebar-icon">⌁</span><span>Maintenance</span></button>
+      <button id="printerGroupsBtn" type="button" class="sidebar-item" data-route="/groups"><span class="sidebar-icon">◎</span><span>Printer groups</span></button>
+      <button id="reportsBtn" type="button" class="sidebar-item" data-route="/reports"><span class="sidebar-icon">▥</span><span>Reports &amp; analytics</span></button>
+      <button id="alertsSettingsBtn" type="button" class="sidebar-item" data-route="/alerts"><span class="sidebar-icon">◇</span><span>Alerts &amp; notifications</span></button>
+      <button id="backupRecoveryBtn" type="button" class="sidebar-item" data-route="/backup"><span class="sidebar-icon">⇩</span><span>Backup &amp; recovery</span></button>
+      <button id="diagnosticsBtn" type="button" class="sidebar-item" data-route="/diagnostics"><span class="sidebar-icon">≡</span><span>Diagnostics</span></button>
+    </nav>
+    <div class="sidebar-foot">
       <span id="liveIndicator" class="live-indicator connecting"><i></i><span>Connecting</span></span>
+      <button id="licenseBtn" type="button" class="sidebar-item sidebar-licence" data-route="/licence"><span class="sidebar-icon">◇</span><span>Licence</span></button>
+      <button type="button" class="sidebar-item" onclick="location.href='/simulator/'"><span class="sidebar-icon">▤</span><span>Printer simulator</span></button>
+      <div class="sidebar-version">Print Farm Controller <span id="controllerVersion">v—</span><br><span id="controllerEdition">Development Edition</span></div>
+    </div>
+  </aside>
+
+  <header class="topbar modern-topbar">
+    <button id="sidebarToggle" class="sidebar-toggle" type="button" aria-label="Open navigation" aria-expanded="false">☰</button>
+    <div class="topbar-context">
+      <strong>Dashboard</strong>
+      <span>Monitor and manage your print farm</span>
     </div>
     <div class="topbar-actions">
-      <button id="libraryBtn" class="secondary">Print library <span id="libraryButtonCount" class="queue-button-count hidden">0</span></button>
-      <button id="queueBtn" class="secondary">Queue &amp; history <span id="queueButtonCount" class="queue-button-count hidden">0</span></button>
-      <button id="batchModeBtn" class="secondary topbar-fleet-action">Farm operations</button>
-      <button id="addPrinterBtn" class="primary">+ Add printer</button>
       <button id="alertsBtn" class="controller-alert-button hidden" type="button" aria-label="Open farm alerts" title="Farm alerts">
         <svg class="controller-alert-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 2.8 19h18.4L12 3Z"></path><path d="M12 9v4"></path><path d="M12 16.5h.01"></path></svg>
         <span id="alertsButtonCount" class="controller-alert-count hidden">0</span>
@@ -58,17 +80,10 @@
         <span class="theme-toggle-track" aria-hidden="true"></span>
         <span class="theme-toggle-label">Dark</span>
       </button>
+      <button id="addPrinterBtn" class="primary">+ Add printer</button>
       <details id="topbarOverflow" class="topbar-overflow">
         <summary aria-label="More controller actions" title="More controller actions">⋮</summary>
         <div class="topbar-overflow-menu" role="menu">
-          <button type="button" class="topbar-overflow-item" role="menuitem" onclick="location.href='/simulator/'">Printer simulator</button>
-          <button id="diagnosticsBtn" type="button" class="topbar-overflow-item" role="menuitem">Diagnostics</button>
-          <button id="maintenanceBtn" type="button" class="topbar-overflow-item" role="menuitem">Maintenance</button>
-          <button id="printerGroupsBtn" type="button" class="topbar-overflow-item" role="menuitem">Printer groups</button>
-          <button id="reportsBtn" type="button" class="topbar-overflow-item" role="menuitem">Reports &amp; analytics</button>
-          <button id="alertsSettingsBtn" type="button" class="topbar-overflow-item" role="menuitem">Alerts &amp; notifications</button>
-          <button id="backupRecoveryBtn" type="button" class="topbar-overflow-item" role="menuitem">Backup &amp; recovery</button>
-          <button id="licenseBtn" type="button" class="topbar-overflow-item" role="menuitem">Licence</button>
           <button id="batchModeMenuBtn" type="button" class="topbar-overflow-item topbar-overflow-fleet" role="menuitem">Farm operations</button>
         </div>
       </details>
@@ -114,10 +129,10 @@
       <p>Scan the local network for a supported printer or add one manually.</p>
       <button class="primary" data-add-printer>Find printers</button>
     </section>
-    <footer class="controller-footer" aria-label="Controller version and licence">Print Farm Controller <span id="controllerVersion">v—</span> · <span id="controllerEdition">Development Edition</span></footer>
+    <footer class="controller-footer" aria-label="Controller status">Stacked Layers · Print Farm Controller</footer>
   </main>
 
-  <dialog id="licenseDialog" class="license-dialog">
+  <section id="licenseDialog" class="license-dialog route-page" hidden>
     <div class="license-shell">
       <div class="dialog-head">
         <div>
@@ -140,9 +155,9 @@
         </div>
       </form>
     </div>
-  </dialog>
+  </section>
 
-  <dialog id="diagnosticsDialog" class="diagnostics-dialog">
+  <section id="diagnosticsDialog" class="diagnostics-dialog route-page" hidden>
     <div class="diagnostics-shell">
       <div class="dialog-head">
         <div>
@@ -192,9 +207,9 @@
         <button type="button" class="secondary" data-diagnostics-close>Close</button>
       </div>
     </div>
-  </dialog>
+  </section>
 
-  <dialog id="printerGroupsDialog" class="printer-groups-dialog">
+  <section id="printerGroupsDialog" class="printer-groups-dialog route-page" hidden>
     <div class="printer-groups-shell">
       <div class="dialog-head">
         <div>
@@ -232,9 +247,9 @@
         <button type="button" class="secondary" data-printer-groups-close>Close</button>
       </div>
     </div>
-  </dialog>
+  </section>
 
-  <dialog id="reportingDialog" class="reporting-dialog">
+  <section id="reportingDialog" class="reporting-dialog route-page" hidden>
     <div class="reporting-shell">
       <div class="dialog-head reporting-head">
         <div>
@@ -390,9 +405,9 @@
         <button type="button" class="secondary" data-reporting-close>Close</button>
       </div>
     </div>
-  </dialog>
+  </section>
 
-  <dialog id="maintenanceDialog" class="maintenance-dialog">
+  <section id="maintenanceDialog" class="maintenance-dialog route-page" hidden>
     <div class="maintenance-shell">
       <div class="dialog-head">
         <div>
@@ -474,9 +489,9 @@
         <button type="button" class="secondary" data-maintenance-close>Close</button>
       </div>
     </div>
-  </dialog>
+  </section>
 
-  <dialog id="alertsDialog" class="alerts-dialog">
+  <section id="alertsDialog" class="alerts-dialog route-page" hidden>
     <div class="alerts-shell">
       <div class="dialog-head">
         <div>
@@ -512,6 +527,7 @@
               </select>
             </label>
             <button id="alertsMarkAllReadBtn" type="button" class="secondary">Mark all read</button>
+            <button id="alertsClearHistoryBtn" type="button" class="danger">Clear history</button>
           </div>
         </div>
         <div id="alertsHistory" class="alerts-history"></div>
@@ -652,9 +668,9 @@
         <button type="button" class="secondary" data-alerts-close>Close</button>
       </div>
     </div>
-  </dialog>
+  </section>
 
-  <dialog id="backupRecoveryDialog" class="backup-recovery-dialog">
+  <section id="backupRecoveryDialog" class="backup-recovery-dialog route-page" hidden>
     <div class="backup-recovery-shell">
       <div class="dialog-head">
         <div>
@@ -667,6 +683,16 @@
 
       <div id="backupStatusGrid" class="backup-status-grid"></div>
 
+      <div class="backup-tabs" role="tablist" aria-label="Backup and recovery sections">
+        <button type="button" class="backup-tab active" data-backup-tab="overview" role="tab" aria-selected="true">Overview</button>
+        <button type="button" class="backup-tab" data-backup-tab="google-drive" role="tab" aria-selected="false">Google Drive</button>
+        <button type="button" class="backup-tab" data-backup-tab="one-drive" role="tab" aria-selected="false">OneDrive</button>
+        <button type="button" class="backup-tab" data-backup-tab="s3" role="tab" aria-selected="false">S3-compatible</button>
+        <button type="button" class="backup-tab" data-backup-tab="schedule" role="tab" aria-selected="false">Schedule</button>
+        <button type="button" class="backup-tab" data-backup-tab="restore" role="tab" aria-selected="false">Restore</button>
+      </div>
+
+      <div class="backup-tab-panel" data-backup-panel="overview" role="tabpanel">
       <section class="backup-section">
         <div class="backup-section-head">
           <div>
@@ -681,7 +707,9 @@
         <div id="backupActionStatus" class="subtle backup-action-status" aria-live="polite"></div>
         <div id="backupError" class="error hidden"></div>
       </section>
+      </div>
 
+      <div class="backup-tab-panel" data-backup-panel="google-drive" role="tabpanel" hidden>
       <section class="backup-section">
         <div class="backup-section-head">
           <div>
@@ -726,7 +754,9 @@
         </div>
         <div id="googleDriveError" class="error hidden"></div>
       </section>
+      </div>
 
+      <div class="backup-tab-panel" data-backup-panel="one-drive" role="tabpanel" hidden>
       <section class="backup-section">
         <div class="backup-section-head">
           <div>
@@ -768,7 +798,9 @@
         </div>
         <div id="oneDriveError" class="error hidden"></div>
       </section>
+      </div>
 
+      <div class="backup-tab-panel" data-backup-panel="s3" role="tabpanel" hidden>
       <section class="backup-section">
         <div class="backup-section-head">
           <div>
@@ -826,7 +858,9 @@
         </div>
         <div id="s3Error" class="error hidden"></div>
       </section>
+      </div>
 
+      <div class="backup-tab-panel" data-backup-panel="schedule" role="tabpanel" hidden>
       <section class="backup-section">
         <div class="backup-section-head">
           <div>
@@ -884,7 +918,9 @@
         <div id="backupScheduleStatus" class="subtle backup-action-status" aria-live="polite"></div>
         <div id="backupScheduleError" class="error hidden"></div>
       </section>
+      </div>
 
+      <div class="backup-tab-panel" data-backup-panel="restore" role="tabpanel" hidden>
       <section class="backup-section">
         <div class="backup-section-head">
           <div>
@@ -925,12 +961,12 @@
         <div id="restoreInspectionSummary" class="restore-inspection-summary hidden"></div>
         <div class="field-help">Local and cloud backups use the same inspection, validation and staged restore pipeline. A valid inspection enables restore staging. The staged restore activates only after Print Farm Controller is restarted; unfinished jobs remain recovery-held until deliberately rechecked.</div>
       </section>
-
+      </div>
       <div class="actions">
         <button type="button" class="secondary" data-backup-close>Close</button>
       </div>
     </div>
-  </dialog>
+  </section>
 
   <dialog id="addPrinterDialog" class="add-dialog">
     <form id="addPrinterForm" method="dialog">
@@ -986,7 +1022,7 @@
     <div id="printerDetail"></div>
   </dialog>
 
-  <dialog id="libraryDialog" class="queue-dialog library-dialog">
+  <section id="libraryDialog" class="queue-dialog library-dialog route-page" hidden>
     <div class="queue-shell">
       <div class="dialog-head">
         <div>
@@ -1006,7 +1042,7 @@
         <div id="libraryList" class="library-list"></div>
       </section>
     </div>
-  </dialog>
+  </section>
 
   <dialog id="libraryPreviewDialog" class="library-preview-dialog">
     <div class="library-preview-shell">
@@ -1088,7 +1124,7 @@
     </form>
   </dialog>
 
-  <dialog id="queueDialog" class="queue-dialog">
+  <section id="queueDialog" class="queue-dialog route-page" hidden>
     <div class="queue-shell">
       <div class="dialog-head">
         <div>
@@ -1110,7 +1146,7 @@
         <div id="queueHistoryList" class="queue-list"></div>
       </section>
     </div>
-  </dialog>
+  </section>
 
   <dialog id="queueAddDialog" class="batch-action-dialog">
     <form id="queueAddForm">

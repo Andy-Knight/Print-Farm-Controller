@@ -10,8 +10,8 @@ const server = fs.readFileSync(new URL('../src/server.js', import.meta.url), 'ut
 const backupService = fs.readFileSync(new URL('../src/backup-recovery/backup-service.js', import.meta.url), 'utf8');
 const restoreService = fs.readFileSync(new URL('../src/backup-recovery/restore-service.js', import.meta.url), 'utf8');
 
-test('maintenance tracking is available from the controller overflow menu', () => {
-  assert.match(index, /id="maintenanceBtn"[^>]*>Maintenance<\/button>/);
+test('maintenance tracking is available from the persistent controller navigation', () => {
+  assert.match(index, /id="maintenanceBtn"[^>]*class="sidebar-item"/);
   assert.match(index, /id="maintenanceDialog"/);
   assert.match(index, /id="maintenanceTaskForm"/);
   assert.match(index, /value="days">Calendar days<\/option>/);

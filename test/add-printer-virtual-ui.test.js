@@ -36,5 +36,5 @@ test('virtual printer list detects already configured simulator devices by endpo
 test('Scan LAN action keeps its label on one line at the standard button height', () => {
   assert.match(index, /id="scanNetworkBtn"[^>]*class="secondary"[^>]*>Scan LAN<\/button>/);
   assert.match(styles, /#scanNetworkBtn\s*\{[^}]*flex\s*:\s*0 0 auto;[^}]*white-space\s*:\s*nowrap;[^}]*\}/);
-  assert.match(styles, /\.primary,\.secondary,\.danger\s*\{[^}]*height\s*:\s*var\(--button-field-height\);/);
+  assert.match(styles, /\.primary,\.secondary,\.positive,\.attention,\.danger\s*\{[^}]*height\s*:\s*var\(--button-field-height\);/);
 });

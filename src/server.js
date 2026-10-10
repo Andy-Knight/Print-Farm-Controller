@@ -1435,6 +1435,12 @@ async function apiRoute(req, res, url) {
     return json(res, 200, { alerts:alertService.snapshot({ historyLimit }) });
   }
 
+  if (req.method === 'DELETE' && url.pathname === '/api/alerts/history') {
+    const result = await controllerMutations.run('alerts', () => alertService.clearHistory());
+    fleetState.schedulePublish();
+    return json(res, 200, result);
+  }
+
   if (req.method === 'POST' && url.pathname === '/api/alerts/mark-read') {
     const body = await readJson(req);
     const result = await controllerMutations.run('alerts', () => alertService.markRead(body.alertId || null));
