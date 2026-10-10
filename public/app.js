@@ -6065,7 +6065,7 @@ async function openPrinter(id) {
 
   const files = fileResult.files || [];
   const fileListMarkup = files.length
-    ? files.map((file) => `<div class="file" data-file-entry><span class="file-name">${escapeHtml(file)}</span><div class="file-actions"><button class="secondary" data-queue-file="${escapeHtml(file)}">Queue</button><button class="secondary" data-print-file="${escapeHtml(file)}">Print</button></div></div>`).join('')
+    ? files.map((file) => `<div class="file" data-file-entry><span class="file-name">${escapeHtml(file)}</span><div class="file-actions"><button class="secondary" data-queue-file="${escapeHtml(file)}">Queue</button><button class="primary" data-print-file="${escapeHtml(file)}">Print</button></div></div>`).join('')
     : `<div class="subtle">${!capabilities.localFiles ? 'File browsing is not supported by this printer.' : printer.online ? (fileLoadError ? 'Files unavailable.' : 'No printable files returned by printer.') : 'Files unavailable while printer is offline.'}</div>`;
   const fileWarningMarkup = fileResult.warning ? `<div class="file-warning">${escapeHtml(fileResult.warning)}</div>` : '';
   const orderLabel = fileResult.ordering === 'last-printed-first' ? 'recent first' : '';
