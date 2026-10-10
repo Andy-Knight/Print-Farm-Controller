@@ -223,7 +223,7 @@ function renderControllerRoute(pathname, { invoke = true } = {}) {
   activeRoute = routePath;
   document.body.dataset.route = routePath;
   document.querySelectorAll('.sidebar-item[data-route]').forEach((item) => item.classList.toggle('active', item.dataset.route === routePath));
-  document.querySelectorAll('dialog.route-page').forEach((page) => {
+  document.querySelectorAll('.route-page').forEach((page) => {
     page.hidden = page.id !== route.dialog;
   });
   if (topbarContextTitle) topbarContextTitle.textContent = route.title;
@@ -287,8 +287,7 @@ for (const route of Object.values(controllerRoutes)) {
   };
   page.show = page.showModal;
   page.close = () => {
-    if (activeRoute !== '/') navigateController('/');
-    else page.hidden = true;
+    page.hidden = true;
     page.dispatchEvent(new Event('close'));
   };
 }
