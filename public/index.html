@@ -683,6 +683,16 @@
 
       <div id="backupStatusGrid" class="backup-status-grid"></div>
 
+      <div class="backup-tabs" role="tablist" aria-label="Backup and recovery sections">
+        <button type="button" class="backup-tab active" data-backup-tab="overview" role="tab" aria-selected="true">Overview</button>
+        <button type="button" class="backup-tab" data-backup-tab="google-drive" role="tab" aria-selected="false">Google Drive</button>
+        <button type="button" class="backup-tab" data-backup-tab="one-drive" role="tab" aria-selected="false">OneDrive</button>
+        <button type="button" class="backup-tab" data-backup-tab="s3" role="tab" aria-selected="false">S3-compatible</button>
+        <button type="button" class="backup-tab" data-backup-tab="schedule" role="tab" aria-selected="false">Schedule</button>
+        <button type="button" class="backup-tab" data-backup-tab="restore" role="tab" aria-selected="false">Restore</button>
+      </div>
+
+      <div class="backup-tab-panel" data-backup-panel="overview" role="tabpanel">
       <section class="backup-section">
         <div class="backup-section-head">
           <div>
@@ -697,7 +707,9 @@
         <div id="backupActionStatus" class="subtle backup-action-status" aria-live="polite"></div>
         <div id="backupError" class="error hidden"></div>
       </section>
+      </div>
 
+      <div class="backup-tab-panel" data-backup-panel="google-drive" role="tabpanel" hidden>
       <section class="backup-section">
         <div class="backup-section-head">
           <div>
@@ -742,7 +754,9 @@
         </div>
         <div id="googleDriveError" class="error hidden"></div>
       </section>
+      </div>
 
+      <div class="backup-tab-panel" data-backup-panel="one-drive" role="tabpanel" hidden>
       <section class="backup-section">
         <div class="backup-section-head">
           <div>
@@ -784,7 +798,9 @@
         </div>
         <div id="oneDriveError" class="error hidden"></div>
       </section>
+      </div>
 
+      <div class="backup-tab-panel" data-backup-panel="s3" role="tabpanel" hidden>
       <section class="backup-section">
         <div class="backup-section-head">
           <div>
@@ -842,7 +858,9 @@
         </div>
         <div id="s3Error" class="error hidden"></div>
       </section>
+      </div>
 
+      <div class="backup-tab-panel" data-backup-panel="schedule" role="tabpanel" hidden>
       <section class="backup-section">
         <div class="backup-section-head">
           <div>
@@ -900,7 +918,9 @@
         <div id="backupScheduleStatus" class="subtle backup-action-status" aria-live="polite"></div>
         <div id="backupScheduleError" class="error hidden"></div>
       </section>
+      </div>
 
+      <div class="backup-tab-panel" data-backup-panel="restore" role="tabpanel" hidden>
       <section class="backup-section">
         <div class="backup-section-head">
           <div>
@@ -941,7 +961,7 @@
         <div id="restoreInspectionSummary" class="restore-inspection-summary hidden"></div>
         <div class="field-help">Local and cloud backups use the same inspection, validation and staged restore pipeline. A valid inspection enables restore staging. The staged restore activates only after Print Farm Controller is restarted; unfinished jobs remain recovery-held until deliberately rechecked.</div>
       </section>
-
+      </div>
       <div class="actions">
         <button type="button" class="secondary" data-backup-close>Close</button>
       </div>
