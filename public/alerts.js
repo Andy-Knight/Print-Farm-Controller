@@ -7,6 +7,7 @@ const alertsError = document.querySelector('#alertsError');
 const alertsHistory = document.querySelector('#alertsHistory');
 const alertsSeverityFilter = document.querySelector('#alertsSeverityFilter');
 const alertsMarkAllReadBtn = document.querySelector('#alertsMarkAllReadBtn');
+const alertsClearHistoryBtn = document.querySelector('#alertsClearHistoryBtn');
 const alertTabs = Array.from(document.querySelectorAll('[data-alerts-tab]'));
 const alertPanels = Array.from(document.querySelectorAll('[data-alerts-panel]'));
 
@@ -142,8 +143,10 @@ function renderHistory() {
   if (!history.length) {
     alertsHistory.innerHTML = '<div class="alerts-empty">No alerts have been recorded yet.</div>';
     alertsMarkAllReadBtn?.setAttribute('disabled', '');
+    alertsClearHistoryBtn?.setAttribute('disabled', '');
     return;
   }
+  alertsClearHistoryBtn?.removeAttribute('disabled');
   if (alertUiState.unreadCount > 0) alertsMarkAllReadBtn?.removeAttribute('disabled');
   else alertsMarkAllReadBtn?.setAttribute('disabled', '');
 
@@ -600,6 +603,22 @@ alertsHistory?.addEventListener('click', async (event) => {
   } catch (error) {
     button.disabled = false;
     showError(error);
+  }
+});
+
+alertsClearHistoryBtn?.addEventListener('click', async () => {
+  if (!alertUiState.history?.length) return;
+  if (!confirm('Clear all alert history? This cannot be undone.')) return;
+  alertsClearHistoryBtn.disabled = true;
+  showError();
+  try {
+    await requestJson('/api/alerts/history', { method:'DELETE' });
+    await loadAlertUi({ preserveForms:true });
+    setStatus('Alert history cleared.');
+  } catch (error) {
+    showError(error);
+  } finally {
+    alertsClearHistoryBtn.disabled = false;
   }
 });
 
