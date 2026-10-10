@@ -197,6 +197,11 @@ const themeColorMeta = document.querySelector('#themeColorMeta');
 const sidebarToggle = document.querySelector('#sidebarToggle');
 const dashboardHomeBtn = document.querySelector('[data-dashboard-home]');
 const workspaceDialogIds = ['queueDialog','libraryDialog','maintenanceDialog','printerGroupsDialog','reportingDialog','alertsDialog','backupRecoveryDialog','diagnosticsDialog','licenseDialog'];
+const workspaceButtonIds = {
+  queueDialog:'queueBtn', libraryDialog:'libraryBtn', maintenanceDialog:'maintenanceBtn',
+  printerGroupsDialog:'printerGroupsBtn', reportingDialog:'reportsBtn', alertsDialog:'alertsSettingsBtn',
+  backupRecoveryDialog:'backupRecoveryBtn', diagnosticsDialog:'diagnosticsBtn', licenseDialog:'licenseBtn'
+};
 const workspaceTitles = {
   queueDialog:'Queue & history', libraryDialog:'Print library', maintenanceDialog:'Maintenance',
   printerGroupsDialog:'Printer groups', reportingDialog:'Reports & analytics', alertsDialog:'Alerts & notifications',
@@ -219,7 +224,7 @@ function setWorkspaceNavigation(dialog) {
     activeWorkspaceDialog = dialog;
     if (!dialog.open) dialog.show();
     document.querySelectorAll('.sidebar-item').forEach((item) => item.classList.remove('active'));
-    const owner = document.querySelector(`#${dialog.id.replace('Dialog','Btn')}`);
+    const owner = document.querySelector(`#${workspaceButtonIds[dialog.id] || ''}`);
     owner?.classList.add('active');
     if (topbarContextTitle) topbarContextTitle.textContent = workspaceTitles[dialog.id] || 'Print Farm Controller';
     if (topbarContextSubtitle) topbarContextSubtitle.textContent = 'Print Farm Controller';
