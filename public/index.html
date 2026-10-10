@@ -41,21 +41,21 @@
       </div>
     </div>
     <nav class="sidebar-nav">
-      <button type="button" class="sidebar-item active" data-dashboard-home><span class="sidebar-icon">⌂</span><span>Dashboard</span></button>
-      <button id="queueBtn" type="button" class="sidebar-item"><span class="sidebar-icon">☷</span><span>Queue &amp; history</span><span id="queueButtonCount" class="queue-button-count hidden">0</span></button>
-      <button id="libraryBtn" type="button" class="sidebar-item"><span class="sidebar-icon">▣</span><span>Print library</span><span id="libraryButtonCount" class="queue-button-count hidden">0</span></button>
+      <button type="button" class="sidebar-item active" data-dashboard-home data-route="/"><span class="sidebar-icon">⌂</span><span>Dashboard</span></button>
+      <button id="queueBtn" type="button" class="sidebar-item" data-route="/queue"><span class="sidebar-icon">☷</span><span>Queue &amp; history</span><span id="queueButtonCount" class="queue-button-count hidden">0</span></button>
+      <button id="libraryBtn" type="button" class="sidebar-item" data-route="/library"><span class="sidebar-icon">▣</span><span>Print library</span><span id="libraryButtonCount" class="queue-button-count hidden">0</span></button>
       <button id="batchModeBtn" type="button" class="sidebar-item"><span class="sidebar-icon">◫</span><span>Farm operations</span></button>
       <div class="sidebar-divider"></div>
-      <button id="maintenanceBtn" type="button" class="sidebar-item"><span class="sidebar-icon">⌁</span><span>Maintenance</span></button>
-      <button id="printerGroupsBtn" type="button" class="sidebar-item"><span class="sidebar-icon">◎</span><span>Printer groups</span></button>
-      <button id="reportsBtn" type="button" class="sidebar-item"><span class="sidebar-icon">▥</span><span>Reports &amp; analytics</span></button>
-      <button id="alertsSettingsBtn" type="button" class="sidebar-item"><span class="sidebar-icon">◇</span><span>Alerts &amp; notifications</span></button>
-      <button id="backupRecoveryBtn" type="button" class="sidebar-item"><span class="sidebar-icon">⇩</span><span>Backup &amp; recovery</span></button>
-      <button id="diagnosticsBtn" type="button" class="sidebar-item"><span class="sidebar-icon">≡</span><span>Diagnostics</span></button>
+      <button id="maintenanceBtn" type="button" class="sidebar-item" data-route="/maintenance"><span class="sidebar-icon">⌁</span><span>Maintenance</span></button>
+      <button id="printerGroupsBtn" type="button" class="sidebar-item" data-route="/groups"><span class="sidebar-icon">◎</span><span>Printer groups</span></button>
+      <button id="reportsBtn" type="button" class="sidebar-item" data-route="/reports"><span class="sidebar-icon">▥</span><span>Reports &amp; analytics</span></button>
+      <button id="alertsSettingsBtn" type="button" class="sidebar-item" data-route="/alerts"><span class="sidebar-icon">◇</span><span>Alerts &amp; notifications</span></button>
+      <button id="backupRecoveryBtn" type="button" class="sidebar-item" data-route="/backup"><span class="sidebar-icon">⇩</span><span>Backup &amp; recovery</span></button>
+      <button id="diagnosticsBtn" type="button" class="sidebar-item" data-route="/diagnostics"><span class="sidebar-icon">≡</span><span>Diagnostics</span></button>
     </nav>
     <div class="sidebar-foot">
       <span id="liveIndicator" class="live-indicator connecting"><i></i><span>Connecting</span></span>
-      <button id="licenseBtn" type="button" class="sidebar-item sidebar-licence"><span class="sidebar-icon">◇</span><span>Licence</span></button>
+      <button id="licenseBtn" type="button" class="sidebar-item sidebar-licence" data-route="/licence"><span class="sidebar-icon">◇</span><span>Licence</span></button>
       <button type="button" class="sidebar-item" onclick="location.href='/simulator/'"><span class="sidebar-icon">▤</span><span>Printer simulator</span></button>
       <div class="sidebar-version">Print Farm Controller <span id="controllerVersion">v—</span><br><span id="controllerEdition">Development Edition</span></div>
     </div>
