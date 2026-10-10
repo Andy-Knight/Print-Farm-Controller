@@ -3373,7 +3373,8 @@ function updateCard(card, printer) {
       jobControl.dataset.cardJobControl = paused ? 'resume' : 'pause';
       jobControl.textContent = paused ? 'Resume' : 'Pause';
       jobControl.classList.toggle('positive', paused);
-      jobControl.classList.toggle('secondary', !paused);
+      jobControl.classList.toggle('attention', !paused);
+      jobControl.classList.remove('secondary');
       jobControl.title = paused ? 'Resume the current print' : 'Pause the current print';
       jobControl.disabled = false;
     } else {
