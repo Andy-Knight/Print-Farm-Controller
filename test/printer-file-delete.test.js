@@ -46,10 +46,14 @@ test('printer file deletion is opt-in and enabled only by adapters with an imple
     serialNumber:'TEST',
     checkCode:'12345678'
   }));
-  assert.equal(ad5m.capabilities.fileDelete, false);
+  assert.equal(ad5m.capabilities.fileDelete, true);
 });
 
 test('supported printer protocols implement destructive file operations', () => {
+  const tcpFiles = fs.readFileSync(new URL('../src/tcp-files.js', import.meta.url), 'utf8');
+  assert.match(tcpFiles, /export async function deleteFlashForgeFileTcp/);
+  assert.match(tcpFiles, /~M30 0:\/user\//);
+
   assert.match(moonraker, /export async function deleteMoonrakerFile/);
   assert.match(moonraker, /server\/files\/gcodes/);
   assert.match(moonraker, /method:'DELETE'/);
