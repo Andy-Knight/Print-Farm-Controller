@@ -11,7 +11,7 @@ A local-first 3D printer fleet controller. It runs entirely on your LAN and curr
 
 Current highlights:
 
-- Printer Files now supports confirmed deletion of printer-local files on Snapmaker U1, FlashForge Adventurer 5M/5M Pro, Prusa CORE One+ and experimental Bambu models. FlashForge Creator 5/5 Pro remains unsupported until a deletion API is validated.
+- Printer Files now supports confirmed deletion of printer-local files on Snapmaker U1, Prusa CORE One+ and experimental Bambu models. FlashForge Adventurer 5M/5M Pro and Creator 5/5 Pro remain unsupported because no validated stock-firmware deletion interface is available.
 
 - Stacked Layers header branding prototype with responsive Light/Dark treatment; the existing embedded favicon is unchanged.
 - Tabbed printer details with dedicated Toolheads, Camera, Files, Temperature/Preheat/Fans, Current Job, and Maintenance/Management views using the same selector styling as the Maintenance screen. Multi-tool printers use a full-width toolhead table with manual nozzle assignment in its own column where supported.
