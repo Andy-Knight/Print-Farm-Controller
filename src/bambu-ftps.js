@@ -199,6 +199,12 @@ class ImplicitFtpsClient {
     return { fileName: target, size: stat.size };
   }
 
+  async delete(remoteName) {
+    const target = safeRemoteName(remoteName);
+    await this.command(`DELE ${target}`, [250]);
+    return { deleted:true, fileName:target };
+  }
+
   async download(remoteName, { maxBytes = 64 * 1024 * 1024 } = {}) {
     const target = safeRemoteName(remoteName);
     const chunks = [];
@@ -252,6 +258,10 @@ export function listBambuFiles(printer, options = {}) {
 
 export function uploadBambuFile(printer, localPath, { fileName } = {}, options = {}) {
   return withClient(printer, (client) => client.upload(localPath, fileName), options);
+}
+
+export function deleteBambuFile(printer, fileName, options = {}) {
+  return withClient(printer, (client) => client.delete(fileName), options);
 }
 
 export function downloadBambuFile(printer, fileName, options = {}) {
