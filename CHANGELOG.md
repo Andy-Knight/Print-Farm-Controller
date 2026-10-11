@@ -7,8 +7,8 @@ Historical entries describe the behaviour of the controller at the time of that 
 ## v0.45.0
 
 - Adds capability-gated **Delete** actions to printer-local Files lists, with confirmation and list refresh after successful deletion.
-- Implements printer-local deletion via FlashForge AD5M/AD5M Pro TCP M30, Snapmaker U1 Moonraker, PrusaLink and experimental Bambu FTPS.
-- Keeps the controller Print Library separate from printer-local deletion; Creator 5/5 Pro deletion remains unavailable without a validated firmware interface.
+- Implements printer-local deletion via Snapmaker U1 Moonraker, PrusaLink and experimental Bambu FTPS.
+- Keeps the controller Print Library separate from printer-local deletion; FlashForge Adventurer 5M/5M Pro and Creator 5/5 Pro deletion remain unavailable without a validated stock-firmware interface. Physical AD5M Pro testing on firmware 3.2.7-2.2.3 showed TCP M30 acknowledging deletion requests without actually removing the file.
 - Adds simulator protocol support and regression tests for file deletion.
 
 ## v0.44.0
