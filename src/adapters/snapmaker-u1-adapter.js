@@ -19,6 +19,7 @@ import {
   levelMoonrakerBed,
   calibrateMoonrakerToolOffsets,
   uploadMoonrakerFile,
+  deleteMoonrakerFile,
   verifyMoonrakerFile
 } from '../moonraker-api.js';
 import { discoverSnapmakerU1 } from '../moonraker-discovery.js';
@@ -56,6 +57,7 @@ const CAPABILITIES = normalizeCapabilities({
   status: true,
   localFiles: true,
   fileUpload: true,
+  fileDelete: true,
   printLocalFile: true,
   jobControl: true,
   nozzleTemperature: true,
@@ -103,6 +105,7 @@ export class SnapmakerU1Adapter extends PrinterAdapter {
   async getFiles() { return getMoonrakerFiles(this.printer); }
   async getPrintSetup(fileName) { return getMoonrakerPrintSetup(this.printer, fileName); }
   async uploadFile(filePath, options = {}) { return uploadMoonrakerFile(this.printer, filePath, options); }
+  async deleteFile(fileName) { return deleteMoonrakerFile(this.printer, fileName); }
   async verifyFile(fileName) { return verifyMoonrakerFile(this.printer, fileName); }
   async printLocalFile(fileName, options = true) { return printMoonrakerFile(this.printer, fileName, options); }
   async setTemperatures(values) { return setMoonrakerTemperatures(this.printer, values); }
