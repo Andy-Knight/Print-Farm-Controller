@@ -14,7 +14,7 @@ import {
   setJobState,
   setTemperatures
 } from '../printer-api.js';
-import { deleteFlashForgeFileTcp, listAllFilesTcp } from '../tcp-files.js';
+import { listAllFilesTcp } from '../tcp-files.js';
 import { uploadGcodeFile } from '../upload-gcode.js';
 import { discoverPrinters } from '../discovery.js';
 import { colorFamily, normalizeColor, normalizeColorFamily } from '../color-family.js';
@@ -58,7 +58,6 @@ const CAPABILITIES = normalizeCapabilities({
   status: true,
   localFiles: true,
   fileUpload: true,
-  fileDelete: true,
   printLocalFile: true,
   jobControl: true,
   nozzleTemperature: true,
@@ -162,7 +161,6 @@ export class FlashForgeAd5mAdapter extends PrinterAdapter {
     return status;
   }
   async getFiles() { return getFiles(this.printer); }
-  async deleteFile(fileName) { return deleteFlashForgeFileTcp(this.printer, fileName); }
   async uploadFile(filePath, options = {}) { return uploadGcodeFile(this.printer, filePath, options); }
   async printLocalFile(fileName, options = true) {
     const levelingBeforePrint = typeof options === 'object' && options !== null
