@@ -52,11 +52,13 @@ test('printer file deletion is opt-in and enabled only by adapters with an imple
 test('supported printer protocols implement destructive file operations', () => {
   const tcpFiles = fs.readFileSync(new URL('../src/tcp-files.js', import.meta.url), 'utf8');
   assert.match(tcpFiles, /export async function deleteFlashForgeFileTcp/);
+  assert.match(tcpFiles, /\/data\/user\//);
   assert.match(tcpFiles, /0:\/data\/user\//);
   assert.match(tcpFiles, /0:\/user\//);
   assert.match(tcpFiles, /0:\/data\//);
   assert.match(tcpFiles, /if \(!await stillPresent\(\)\)/);
   assert.match(tcpFiles, /without\n    \/\/ first acquiring an M601 control session/);
+  assert.match(tcpFiles, /const commandTarget = \/\\\\s\/\.test\(target\)/);
 
   assert.match(moonraker, /export async function deleteMoonrakerFile/);
   assert.match(moonraker, /server\/files\/gcodes/);
