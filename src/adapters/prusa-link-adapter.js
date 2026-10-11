@@ -1,6 +1,7 @@
 import { PrinterAdapter } from './printer-adapter.js';
 import {
   getPrusaLinkFiles,
+  deletePrusaLinkFile,
   getPrusaLinkStatus,
   printPrusaLinkFile,
   setPrusaLinkJobState,
@@ -104,6 +105,7 @@ export class PrusaLinkAdapter extends PrinterAdapter {
   }
 
   async uploadFile(filePath, options = {}) { return uploadPrusaLinkFile(this.printer, filePath, options); }
+  async deleteFile(fileName) { return deletePrusaLinkFile(this.printer, fileName); }
   async verifyFile(fileName) { return verifyPrusaLinkFile(this.printer, fileName); }
 
   async printLocalFile(fileName, options = {}) {
