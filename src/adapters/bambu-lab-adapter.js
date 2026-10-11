@@ -1,7 +1,7 @@
 import path from 'node:path';
 import { PrinterAdapter, normalizeCapabilities } from './printer-adapter.js';
 import { getBambuReport, sendBambuCommand } from '../bambu-mqtt.js';
-import { downloadBambuFile, listBambuFiles, uploadBambuFile, verifyBambuFile } from '../bambu-ftps.js';
+import { deleteBambuFile, downloadBambuFile, listBambuFiles, uploadBambuFile, verifyBambuFile } from '../bambu-ftps.js';
 import { createBambuCameraSource } from '../bambu-camera.js';
 import { colorFamily } from '../color-family.js';
 import { parse3mfPrintRequirements, parseGcodePrintRequirements } from '../file-print-requirements.js';
@@ -237,6 +237,7 @@ const P1P_CAPABILITIES = normalizeCapabilities({
   status: true,
   localFiles: true,
   fileUpload: true,
+  fileDelete: true,
   printLocalFile: true,
   jobControl: true,
   nozzleTemperature: true,
@@ -298,6 +299,7 @@ export class BambuLabAdapter extends PrinterAdapter {
     return { files: files.sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' })), recentFiles: [], complete: true, source: 'bambu-ftps', ordering: 'alphabetical', warning: null };
   }
   async uploadFile(filePath, options = {}) { return uploadBambuFile(this.printer, filePath, { fileName: options.fileName || path.basename(filePath) }); }
+  async deleteFile(fileName) { return deleteBambuFile(this.printer, fileName); }
   async verifyFile(fileName, options = {}) { return verifyBambuFile(this.printer, fileName, options); }
   async getPrintSetup(fileName) {
     const content = await downloadBambuFile(this.printer, fileName);
