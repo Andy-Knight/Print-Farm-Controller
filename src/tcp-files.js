@@ -96,7 +96,8 @@ function connectSocket(host, port, timeoutMs) {
 function sendCommand(socket, command, {
   timeoutMs = COMMAND_TIMEOUT_MS,
   settleMs = 0,
-  requireOk = true
+  requireOk = true,
+  lineEnding = '\n'
 } = {}) {
   return new Promise((resolve, reject) => {
     let response = '';
@@ -150,7 +151,7 @@ function sendCommand(socket, command, {
     socket.on('data', onData);
     socket.once('error', onError);
     socket.once('close', onClose);
-    socket.write(`${command}\n`, 'ascii', (error) => {
+    socket.write(`${command}${lineEnding}`, 'utf8', (error) => {
       if (error) finish(new PrinterTcpError(`Could not send ${command}: ${error.message}`, { cause: error }));
     });
   });
@@ -226,7 +227,7 @@ export async function deleteFlashForgeFileTcp(printer, fileName, options = {}) {
   // different M661 path roots. Try the known /data/user form plus legacy variants and verify storage after
   // each acknowledgement rather than treating "ok" as proof of deletion.
   const candidates = [`0:/data/user/${normalized}`, `0:/user/${normalized}`, `0:/data/${normalized}`];
-  let lastResponse = '';
+  const attempts = [];
 
   for (const target of candidates) {
     const socket = await connectSocket(host, port, Number(options.connectTimeoutMs || CONNECT_TIMEOUT_MS));
@@ -236,7 +237,8 @@ export async function deleteFlashForgeFileTcp(printer, fileName, options = {}) {
         || (!/Control Success/i.test(login) && !hasOkTerminator(login))) {
         throw new PrinterTcpError('Printer TCP control is busy or unavailable.');
       }
-      lastResponse = await sendCommand(socket, `~M30 ${target}`, { timeoutMs });
+      const response = await sendCommand(socket, `~M30 ${target}`, { timeoutMs, lineEnding:'\r\n' });
+      attempts.push({ target, response:response.trim().replace(/[\r\n]+/g, ' ') });
     } finally {
       if (!socket.destroyed) {
         await sendCommand(socket, '~M602', { timeoutMs:1200 }).catch(() => {});
@@ -249,6 +251,6 @@ export async function deleteFlashForgeFileTcp(printer, fileName, options = {}) {
   }
 
   throw new PrinterTcpError(
-    `Printer did not remove the file after M30 deletion attempts${lastResponse ? `: ${lastResponse.trim()}` : ''}`
+    `Printer did not remove the file after M30 deletion attempts (CRLF framing): ${attempts.map(({target,response}) => `${target}: ${response}`).join(' | ')}`
   );
 }
