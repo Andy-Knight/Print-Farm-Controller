@@ -200,11 +200,7 @@ export async function listAllFilesTcp(printer, options = {}) {
   }
 }
 
-/**
- * Delete a printer-local file on Adventurer 5M/5M Pro via the TCP M30 command.
- * A successful acknowledgement is not enough: verify the file is absent.
- */
-export async function deleteFlashForgeFileTcp(printer, fileName, options = {}) {
+) {
   const normalized = String(fileName || '').replace(/\\/g, '/').trim()
     .replace(/^0:\/(?:user|data)\//i, '').replace(/^\/data\/(?:user\/)?/i, '')
     .replace(/^\/+/, '').replace(/^user\//i, '');
