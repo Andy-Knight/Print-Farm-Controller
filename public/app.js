@@ -6095,7 +6095,7 @@ async function openPrinter(id) {
 
   const files = fileResult.files || [];
   const fileListMarkup = files.length
-    ? files.map((file) => `<div class="file" data-file-entry><span class="file-name">${escapeHtml(file)}</span><div class="file-actions"><button class="secondary" data-queue-file="${escapeHtml(file)}">Queue</button><button class="primary" data-print-file="${escapeHtml(file)}">Print</button></div></div>`).join('')
+    ? files.map((file) => `<div class="file" data-file-entry><span class="file-name">${escapeHtml(file)}</span><div class="file-actions"><button class="secondary" data-queue-file="${escapeHtml(file)}">Queue</button><button class="primary" data-print-file="${escapeHtml(file)}">Print</button>${capabilities.fileDelete ? `<button class="danger" data-delete-printer-file="${escapeHtml(file)}">Delete</button>` : ''}</div></div>`).join('')
     : `<div class="subtle">${!capabilities.localFiles ? 'File browsing is not supported by this printer.' : printer.online ? (fileLoadError ? 'Files unavailable.' : 'No printable files returned by printer.') : 'Files unavailable while printer is offline.'}</div>`;
   const fileWarningMarkup = fileResult.warning ? `<div class="file-warning">${escapeHtml(fileResult.warning)}</div>` : '';
   const orderLabel = fileResult.ordering === 'last-printed-first' ? 'recent first' : '';
@@ -6556,6 +6556,21 @@ The controller will start it automatically when this printer is idle and all saf
       renderPrintQueue();
       queueDialog.showModal();
     } catch (error) { showError(error); }
+  });
+  printerDetail.querySelectorAll('[data-delete-printer-file]').forEach((btn) => btn.onclick = async () => {
+    const fileName = btn.dataset.deletePrinterFile;
+    if (!fileName || !confirm(`Delete ${fileName} from ${printer.name}?\n\nThis deletes only the copy stored on the printer. The Print Library is not affected.\n\nThis cannot be undone.`)) return;
+    const original = btn.textContent;
+    btn.disabled = true;
+    btn.textContent = 'Deleting…';
+    try {
+      await api(`/api/printers/${encodeURIComponent(id)}/files?fileName=${encodeURIComponent(fileName)}`, { method:'DELETE' });
+      await openPrinter(id);
+    } catch (error) {
+      btn.disabled = false;
+      btn.textContent = original;
+      showError(error);
+    }
   });
   printerDetail.querySelectorAll('[data-print-file]').forEach((btn) => btn.onclick = async () => {
     try {
