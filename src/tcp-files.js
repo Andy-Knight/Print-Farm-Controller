@@ -223,9 +223,9 @@ export async function deleteFlashForgeFileTcp(printer, fileName, options = {}) {
   const timeoutMs = Number(options.commandTimeoutMs || COMMAND_TIMEOUT_MS);
 
   // 5M-family firmware has been observed exposing printable files under
-  // different M661 path roots. Try both M30 forms and verify storage after
+  // different M661 path roots. Try the known /data/user form plus legacy variants and verify storage after
   // each acknowledgement rather than treating "ok" as proof of deletion.
-  const candidates = [`0:/user/${normalized}`, `0:/data/${normalized}`];
+  const candidates = [`0:/data/user/${normalized}`, `0:/user/${normalized}`, `0:/data/${normalized}`];
   let lastResponse = '';
 
   for (const target of candidates) {
