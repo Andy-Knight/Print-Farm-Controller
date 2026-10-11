@@ -2174,6 +2174,14 @@ async function apiRoute(req, res, url) {
     return json(res, 200, await adapter.getFiles());
   }
 
+  if (req.method === 'DELETE' && action === 'files') {
+    if (!adapter.capabilities?.fileDelete) throw new Error('File deletion is not supported by this printer');
+    const fileName = String(url.searchParams.get('fileName') || '').trim();
+    if (!fileName) throw new Error('fileName is required');
+    const result = await controllerMutations.run('printer-file-delete', () => adapter.deleteFile(fileName));
+    return json(res, 200, { ok:true, ...result });
+  }
+
   if (req.method === 'POST' && action === 'files') {
     if (!adapter.capabilities?.fileUpload) throw new Error('File upload is not supported by this printer');
     if (!adapter.capabilities?.localFiles) throw new Error('Printer storage verification is not supported by this printer');
