@@ -124,11 +124,11 @@ The current production baseline is **v0.44.0** on `main`.
 
 The Modern Operations UI work has been completed and merged. The controller now uses persistent sidebar navigation and routed top-level pages, responsive dashboard/card layouts, consistent semantic action colours, contextual printer-tile Pause/Resume controls, a structured severity-aware Alert history with history clearing, compact printer file rows, and tabbed Backup & recovery pages.
 
-Active development: **v0.45.0** on `feature/printer-file-delete`. Adds capability-gated printer-local file deletion to the Files tab for AD5M/AD5M Pro, Snapmaker U1, experimental Prusa CORE One+ and Bambu printers. Creator 5/5 Pro remains unsupported pending a validated deletion API. The feature is awaiting automated and physical/simulator validation; it is not yet merged.
+Active development: **v0.45.0** on `feature/printer-file-delete`. Adds capability-gated printer-local file deletion to the Files tab for Snapmaker U1, experimental Prusa CORE One+ and Bambu printers. FlashForge AD5M/AD5M Pro deletion was physically tested on stock firmware 3.2.7-2.2.3: TCP M30 returned `ok` for multiple path/framing variants but did not remove the file, and the documented 3.2.7 HTTP API exposes no delete endpoint. AD5M/AD5M Pro and Creator 5/5 Pro therefore remain unsupported for deletion. The feature is not yet merged.
 
 ## Next steps
 
-1. Run the full automated test suite and validate printer-local deletion with the simulator and real AD5M Pro/U1 hardware; confirm that Print Library entries remain untouched.
+1. Run the full automated test suite after the AD5M capability correction; Snapmaker U1 physical deletion is validated. Continue simulator/physical validation for Prusa and experimental Bambu where hardware is available, and confirm that Print Library entries remain untouched.
 2. Validate direct browser refresh/deep-link behaviour for routed pages such as `/maintenance`, `/reports`, `/alerts` and `/backup`.
 3. Continue physical-hardware validation for Creator 5 / Creator 5 Pro and experimental Bambu support.
 4. Keep `README.md`, `CHANGELOG.md` and this context file synchronized whenever a release/version changes.
