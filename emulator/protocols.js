@@ -245,6 +245,10 @@ function createMoonrakerServer(printer) {
       const filename = decodeURIComponent(url.pathname.slice('/server/files/gcodes/'.length));
       const file = printer.files.get(filename);
       if (!file) return sendJson(response, 404, { error: { message: 'File not found' } });
+      if (request.method === 'DELETE') {
+        printer.removeFile(filename);
+        return sendJson(response, 200, { result:{ item:{ path:filename, root:'gcodes' } } });
+      }
       const content = Buffer.from(file.content || '; simulated G-code\nG28\n');
       response.writeHead(200, { 'content-type': 'application/octet-stream', 'content-length': content.length });
       response.end(content);
@@ -1096,6 +1100,13 @@ function createPrusaLinkServer(printer) {
           'content-location':`/api/v1/files/usb/${fileMatch[1]}`,
           'cache-control':'no-store'
         });
+        response.end();
+        return;
+      }
+      if (request.method === 'DELETE') {
+        if (!printer.files.has(relative)) return sendJson(response, 404, { title:'Not Found', text:'File not found' });
+        printer.removeFile(relative);
+        response.writeHead(204, { 'cache-control':'no-store' });
         response.end();
         return;
       }
