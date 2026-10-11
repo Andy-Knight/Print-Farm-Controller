@@ -9,7 +9,7 @@ If chat context and this file disagree about the codebase, inspect current GitHu
 - Repository: `Andy-Knight/Print-Farm-Controller`
 - Project path: repository root (`/`)
 - Primary branch: `main` (current production baseline)
-- Current application version on this branch: **0.44.0**. Production baseline on `main`: **0.44.0**.
+- Current application version on `feature/printer-file-delete`: **0.45.0** (in development). Production baseline on `main`: **0.44.0**.
 - Runtime: **Node.js 24+** (development baseline Node.js 24.21.0), ES modules, no npm runtime dependencies.
 - GitHub is the authoritative code baseline.
 - Release/version history is maintained only in `CHANGELOG.md`; do not duplicate per-version history in this handoff file.
@@ -124,11 +124,11 @@ The current production baseline is **v0.44.0** on `main`.
 
 The Modern Operations UI work has been completed and merged. The controller now uses persistent sidebar navigation and routed top-level pages, responsive dashboard/card layouts, consistent semantic action colours, contextual printer-tile Pause/Resume controls, a structured severity-aware Alert history with history clearing, compact printer file rows, and tabbed Backup & recovery pages.
 
-There is no active feature branch recorded as the current development task. New work should branch from the current `main` baseline.
+Active development: **v0.45.0** on `feature/printer-file-delete`. Adds capability-gated printer-local file deletion to the Files tab for AD5M/AD5M Pro, Snapmaker U1, experimental Prusa CORE One+ and Bambu printers. Creator 5/5 Pro remains unsupported pending a validated deletion API. The feature is awaiting automated and physical/simulator validation; it is not yet merged.
 
 ## Next steps
 
-1. Run/confirm the full automated test suite against the v0.44.0 `main` baseline after the Modern Operations UI merge.
+1. Run the full automated test suite and validate printer-local deletion with the simulator and real AD5M Pro/U1 hardware; confirm that Print Library entries remain untouched.
 2. Validate direct browser refresh/deep-link behaviour for routed pages such as `/maintenance`, `/reports`, `/alerts` and `/backup`.
 3. Continue physical-hardware validation for Creator 5 / Creator 5 Pro and experimental Bambu support.
 4. Keep `README.md`, `CHANGELOG.md` and this context file synchronized whenever a release/version changes.
