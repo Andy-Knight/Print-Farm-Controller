@@ -205,7 +205,7 @@ export async function listAllFilesTcp(printer, options = {}) {
  */
 export async function deleteFlashForgeFileTcp(printer, fileName, options = {}) {
   const normalized = String(fileName || '').replace(/\\/g, '/').trim()
-    .replace(/^0:\/user\//i, '').replace(/^\/data\/user\//i, '').replace(/^\/+/, '');
+    .replace(/^0:\/user\//i, '').replace(/^\/data\/user\//i, '').replace(/^\/+/, '').replace(/^user\//i, '');
   if (!normalized || normalized.split('/').some((part) => !part || part === '.' || part === '..')
     || /[\r\n\0]/.test(normalized)) throw new PrinterTcpError('Invalid printer file name');
   const host = printer.host;
@@ -230,7 +230,7 @@ export async function deleteFlashForgeFileTcp(printer, fileName, options = {}) {
     }
   }
   const files = await listAllFilesTcp(printer, options);
-  const key = (name) => String(name || '').replace(/\\/g, '/').replace(/^\/data\/user\//i, '').replace(/^0:\/user\//i, '').replace(/^\/+/, '').toLowerCase();
+  const key = (name) => String(name || '').replace(/\\/g, '/').replace(/^\/data\/user\//i, '').replace(/^0:\/user\//i, '').replace(/^\/+/, '').replace(/^user\//i, '').toLowerCase();
   if (files.some((name) => key(name) === key(normalized))) {
     throw new PrinterTcpError('Printer acknowledged deletion but the file is still present.');
   }
