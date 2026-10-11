@@ -198,3 +198,41 @@ export async function listAllFilesTcp(printer, options = {}) {
     }
   }
 }
+
+/**
+ * Delete a printer-local file on Adventurer 5M/5M Pro via the TCP M30 command.
+ * A successful acknowledgement is not enough: verify the file is absent.
+ */
+export async function deleteFlashForgeFileTcp(printer, fileName, options = {}) {
+  const normalized = String(fileName || '').replace(/\\/g, '/').trim()
+    .replace(/^0:\/user\//i, '').replace(/^\/data\/user\//i, '').replace(/^\/+/, '');
+  if (!normalized || normalized.split('/').some((part) => !part || part === '.' || part === '..')
+    || /[\r\n\0]/.test(normalized)) throw new PrinterTcpError('Invalid printer file name');
+  const host = printer.host;
+  const port = Number(printer.tcpPort || printer.commandPort || DEFAULT_TCP_PORT);
+  const timeoutMs = Number(options.commandTimeoutMs || COMMAND_TIMEOUT_MS);
+  const socket = await connectSocket(host, port, Number(options.connectTimeoutMs || CONNECT_TIMEOUT_MS));
+  try {
+    const login = await sendCommand(socket, '~M601 S1', { timeoutMs });
+    if (/Control Failed|Error:\s*have been connected/i.test(login)
+      || (!/Control Success/i.test(login) && !hasOkTerminator(login))) {
+      throw new PrinterTcpError('Printer TCP control is busy or unavailable.');
+    }
+    const response = await sendCommand(socket, `~M30 0:/user/${normalized}`, { timeoutMs });
+    if (/\b(?:error|failed|denied)\b/i.test(response)) {
+      throw new PrinterTcpError(`Printer rejected file deletion: ${response.trim()}`);
+    }
+  } finally {
+    if (!socket.destroyed) {
+      await sendCommand(socket, '~M602', { timeoutMs:1200 }).catch(() => {});
+      socket.end();
+      setTimeout(() => { if (!socket.destroyed) socket.destroy(); }, 100).unref?.();
+    }
+  }
+  const files = await listAllFilesTcp(printer, options);
+  const key = (name) => String(name || '').replace(/\\/g, '/').replace(/^\/data\/user\//i, '').replace(/^0:\/user\//i, '').replace(/^\/+/, '').toLowerCase();
+  if (files.some((name) => key(name) === key(normalized))) {
+    throw new PrinterTcpError('Printer acknowledged deletion but the file is still present.');
+  }
+  return { deleted:true, fileName:normalized };
+}
