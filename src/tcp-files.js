@@ -230,27 +230,22 @@ export async function deleteFlashForgeFileTcp(printer, fileName, options = {}) {
   const attempts = [];
 
   for (const target of candidates) {
+    // Match the working third-party 5M implementation exactly: M30 is sent
+    // on a fresh short-lived TCP connection with CRLF framing and without
+    // first acquiring an M601 control session.
     const socket = await connectSocket(host, port, Number(options.connectTimeoutMs || CONNECT_TIMEOUT_MS));
     try {
-      const login = await sendCommand(socket, '~M601 S1', { timeoutMs });
-      if (/Control Failed|Error:\s*have been connected/i.test(login)
-        || (!/Control Success/i.test(login) && !hasOkTerminator(login))) {
-        throw new PrinterTcpError('Printer TCP control is busy or unavailable.');
-      }
       const response = await sendCommand(socket, `~M30 ${target}`, { timeoutMs, lineEnding:'\r\n' });
       attempts.push({ target, response:response.trim().replace(/[\r\n]+/g, ' ') });
     } finally {
-      if (!socket.destroyed) {
-        await sendCommand(socket, '~M602', { timeoutMs:1200 }).catch(() => {});
-        socket.end();
-        setTimeout(() => { if (!socket.destroyed) socket.destroy(); }, 100).unref?.();
-      }
+      socket.end();
+      setTimeout(() => { if (!socket.destroyed) socket.destroy(); }, 100).unref?.();
     }
 
     if (!await stillPresent()) return { deleted:true, fileName:normalized };
   }
 
   throw new PrinterTcpError(
-    `Printer did not remove the file after M30 deletion attempts (CRLF framing): ${attempts.map(({target,response}) => `${target}: ${response}`).join(' | ')}`
+    `Printer did not remove the file after direct M30 deletion attempts: ${attempts.map(({target,response}) => `${target}: ${response}`).join(' | ')}`
   );
 }
