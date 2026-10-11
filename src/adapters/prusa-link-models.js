@@ -4,6 +4,7 @@ export const PRUSA_LINK_COMMON_CAPABILITIES = Object.freeze({
   status:true,
   localFiles:true,
   fileUpload:true,
+  fileDelete:true,
   printLocalFile:true,
   jobControl:true,
   materialStatus:true,
