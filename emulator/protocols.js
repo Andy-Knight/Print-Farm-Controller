@@ -474,7 +474,7 @@ function createFlashForgeTcpServer(printer) {
           const files = printer.faults.failVerification ? [] : [...printer.files.keys()];
           socket.write(`CMD M661 Received.\ninfo_list.size: ${files.length}\n${files.map((file) => `::/data/${file}`).join('\n')}\nok\n`);
         } else if (/~M30\s+/i.test(line)) {
-          const fileName = line.replace(/^~M30\s+/i, '').replace(/^0:\/user\//i, '').replace(/^\/data\/user\//i, '').replace(/^user\//i, '');
+          const fileName = line.replace(/^~M30\s+/i, '').replace(/^0:\/(?:user|data)\//i, '').replace(/^\/data\/(?:user\/)?/i, '').replace(/^user\//i, '');
           if (printer.files.has(fileName)) {
             printer.removeFile(fileName);
             socket.write('CMD M30 Received.\nok\n');
