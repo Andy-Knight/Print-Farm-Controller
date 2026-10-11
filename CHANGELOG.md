@@ -4,6 +4,13 @@ This file contains the version-by-version release history for Print Farm Control
 
 Historical entries describe the behaviour of the controller at the time of that release and may be superseded by later versions. For current installation, configuration and supported-hardware guidance, see [README.md](README.md).
 
+## v0.45.0
+
+- Adds capability-gated **Delete** actions to printer-local Files lists, with confirmation and list refresh after successful deletion.
+- Implements printer-local deletion via Snapmaker U1 Moonraker, PrusaLink and experimental Bambu FTPS.
+- Keeps the controller Print Library separate from printer-local deletion; FlashForge Adventurer 5M/5M Pro and Creator 5/5 Pro deletion remain unavailable without a validated stock-firmware interface. Physical AD5M Pro testing on firmware 3.2.7-2.2.3 showed TCP M30 acknowledging deletion requests without actually removing the file.
+- Adds simulator protocol support and regression tests for file deletion.
+
 ## v0.44.0
 
 - Introduces the **Modern Operations UI** with persistent sidebar navigation, routed controller pages, responsive layouts and denser printer dashboard cards.

@@ -450,6 +450,13 @@ function encodedGcodePath(fileName) {
   return normalizeFileName(fileName).split('/').map((part) => encodeURIComponent(part)).join('/');
 }
 
+export async function deleteMoonrakerFile(printer, fileName) {
+  const normalized = normalizeFileName(fileName);
+  if (!normalized) throw new MoonrakerApiError('fileName is required');
+  await moonrakerRequest(printer, `/server/files/gcodes/${encodedGcodePath(normalized)}`, { method:'DELETE', timeoutMs:15000 });
+  return { deleted:true, fileName:normalized };
+}
+
 async function readMoonrakerFileRange(printer, fileName, start, end, { maxBytes = 262144 } = {}) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), DEFAULT_TIMEOUT_MS);

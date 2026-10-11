@@ -11,6 +11,7 @@ export const DEFAULT_CAPABILITIES = Object.freeze({
   status: false,
   localFiles: false,
   fileUpload: false,
+  fileDelete: false,
   printLocalFile: false,
   jobControl: false,
   nozzleTemperature: false,
@@ -68,6 +69,7 @@ export class PrinterAdapter {
   async getStatus() { return this.unsupported('Status'); }
   async getFiles() { return this.unsupported('File listing'); }
   async uploadFile() { return this.unsupported('File upload'); }
+  async deleteFile() { return this.unsupported('File deletion'); }
   async verifyFile() { return this.unsupported('File verification'); }
   async getPrintSetup() { return null; }
   async printLocalFile() { return this.unsupported('Printing local files'); }

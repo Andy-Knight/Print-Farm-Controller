@@ -478,6 +478,12 @@ async function targetPath(printer, fileName) {
   return { key, normalized, route:`/api/v1/files/${encodeURIComponent(key)}/${encodePath(normalized)}` };
 }
 
+export async function deletePrusaLinkFile(printer, fileName) {
+  const target = await targetPath(printer, fileName);
+  await prusaRequest(printer, target.route, { method:'DELETE', responseType:'none' });
+  return { deleted:true, fileName:target.normalized, storage:target.key };
+}
+
 export async function uploadPrusaLinkFile(printer, filePath, { fileName = null } = {}) {
   const stat = await fs.stat(filePath);
   if (!stat.isFile()) throw new PrusaLinkApiError('Upload source is not a file');

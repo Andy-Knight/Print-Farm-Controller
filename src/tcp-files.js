@@ -96,7 +96,8 @@ function connectSocket(host, port, timeoutMs) {
 function sendCommand(socket, command, {
   timeoutMs = COMMAND_TIMEOUT_MS,
   settleMs = 0,
-  requireOk = true
+  requireOk = true,
+  lineEnding = '\n'
 } = {}) {
   return new Promise((resolve, reject) => {
     let response = '';
@@ -150,7 +151,7 @@ function sendCommand(socket, command, {
     socket.on('data', onData);
     socket.once('error', onError);
     socket.once('close', onClose);
-    socket.write(`${command}\n`, 'ascii', (error) => {
+    socket.write(`${command}${lineEnding}`, 'utf8', (error) => {
       if (error) finish(new PrinterTcpError(`Could not send ${command}: ${error.message}`, { cause: error }));
     });
   });
