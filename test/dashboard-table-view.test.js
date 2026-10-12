@@ -10,7 +10,10 @@ test('dashboard exposes a card/table view switch with a tabular printer header',
   assert.match(html, /id="dashboardViewToggle"[^>]*role="switch"[^>]*aria-checked="false"/);
   assert.match(html, /id="fleetViewport"/);
   assert.match(html, /id="fleetTableHeader" class="fleet-table-header hidden"/);
-  for (const heading of ['Printer', 'Status', 'Current job', 'Progress', 'Nozzle', 'Bed', 'Layer', 'Remaining', 'Filament', 'Last seen', 'Actions']) {
+  for (const [key, heading] of [['name','Printer'], ['status','Status'], ['progress','Progress'], ['remaining','Remaining']]) {
+    assert.match(html, new RegExp(`data-table-sort="${key}"[^>]*>${heading} `));
+  }
+  for (const heading of ['Current job', 'Nozzle', 'Bed', 'Layer', 'Filament', 'Last seen', 'Actions']) {
     assert.match(html, new RegExp(`<span>${heading}<\\/span>`));
   }
 });
@@ -72,4 +75,30 @@ test('printer group and dashboard view controls share the same labelled 42px ali
 
 test('table filament swatches have no surrounding background treatment in light mode', () => {
   assert.match(styles, /:root\[data-theme="light"\] \.fleet\.table-view \.dashboard-filament-overlay\s*\{[\s\S]*background:transparent;[\s\S]*border-color:transparent;[\s\S]*box-shadow:none;/);
+});
+
+
+test('dashboard table sorts by printer name, status, progress and remaining time', () => {
+  assert.match(app, /let dashboardTableSort = \{ key:'', direction:'asc' \}/);
+  assert.match(app, /function dashboardTableSortValue\(printer, key\)/);
+  assert.match(app, /if \(key === 'name'\)/);
+  assert.match(app, /if \(key === 'status'\)/);
+  assert.match(app, /if \(key === 'progress'\)/);
+  assert.match(app, /if \(key === 'remaining'\)/);
+  assert.match(app, /function compareDashboardTablePrinters\(left, right\)/);
+  assert.match(app, /function applyDashboardTableSort\(\)/);
+  assert.match(app, /card\.style\.order = String/);
+  assert.match(app, /function setDashboardTableSort\(key\)/);
+  assert.match(app, /dashboardTableSort\.direction === 'asc' \? 'desc' : 'asc'/);
+  assert.match(app, /fleetTableHeader\?\.addEventListener\('click'/);
+  assert.match(app, /setDashboardTableSort\(button\.dataset\.tableSort\)/);
+});
+
+test('sortable dashboard headers show accessible sort direction indicators', () => {
+  assert.match(html, /role="columnheader" aria-sort="none"/);
+  assert.match(styles, /\.fleet-table-sort\s*\{/);
+  assert.match(styles, /\.fleet-table-sort-indicator\s*\{/);
+  assert.match(app, /header\?\.setAttribute\('aria-sort'/);
+  assert.match(app, /indicator\.textContent = !active \? '↕' : direction === 'desc' \? '▼' : '▲'/);
+  assert.match(styles, /\.fleet\.table-view\s*\{[\s\S]*display:flex;[\s\S]*flex-direction:column;/);
 });
