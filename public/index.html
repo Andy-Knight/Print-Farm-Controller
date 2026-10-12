@@ -91,11 +91,18 @@
   </header>
 
   <main>
-    <section id="dashboardGroupFilterBar" class="dashboard-group-filter hidden" aria-label="Dashboard printer group filter">
-      <label for="dashboardGroupFilter">Printer group</label>
-      <select id="dashboardGroupFilter">
-        <option value="">All printers</option>
-      </select>
+    <section class="dashboard-controls" aria-label="Dashboard controls">
+      <div id="dashboardGroupFilterBar" class="dashboard-group-filter hidden" aria-label="Dashboard printer group filter">
+        <label for="dashboardGroupFilter">Printer group</label>
+        <select id="dashboardGroupFilter">
+          <option value="">All printers</option>
+        </select>
+      </div>
+      <button id="dashboardViewToggle" class="dashboard-view-toggle" type="button" role="switch" aria-checked="false" aria-label="Switch dashboard to table view">
+        <span class="dashboard-view-toggle-title">Dashboard view</span>
+        <span class="dashboard-view-toggle-track" aria-hidden="true"></span>
+        <span class="dashboard-view-toggle-label">Cards</span>
+      </button>
     </section>
     <section id="summary" class="summary"></section>
     <section id="licenseNotice" class="license-notice hidden" aria-live="polite"></section>
@@ -118,7 +125,22 @@
         <button type="button" class="danger" data-batch-direct="cancel">Cancel prints</button>
       </div>
     </section>
-    <section id="fleet" class="fleet"></section>
+    <div id="fleetViewport" class="fleet-viewport">
+      <div id="fleetTableHeader" class="fleet-table-header hidden" aria-hidden="true">
+        <span>Printer</span>
+        <span>Status</span>
+        <span>Current job</span>
+        <span>Progress</span>
+        <span>Nozzle</span>
+        <span>Bed</span>
+        <span>Layer</span>
+        <span>Remaining</span>
+        <span>Filament</span>
+        <span>Last seen</span>
+        <span>Actions</span>
+      </div>
+      <section id="fleet" class="fleet"></section>
+    </div>
     <section id="fleetFilterEmpty" class="empty hidden" aria-live="polite">
       <h2>No printers match this filter</h2>
       <p>Choose another summary filter or show all configured printers.</p>
