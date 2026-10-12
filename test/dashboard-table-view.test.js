@@ -52,3 +52,8 @@ test('table presentation matches alerts header styling and aligns status/control
   assert.match(styles, /\.dashboard-group-filter\s*\{[\s\S]*min-height:var\(--dropdown-field-height\)/);
   assert.match(styles, /\.dashboard-view-toggle\s*\{[\s\S]*height:var\(--button-field-height\);[\s\S]*min-height:var\(--button-field-height\);/);
 });
+
+
+test('table metric and filament columns inherit the normal row background in light mode', () => {
+  assert.match(styles, /:root\[data-theme="light"\] \.fleet\.table-view \.metric,[\s\S]*:root\[data-theme="light"\] \.fleet\.table-view \.printer-image-slot\s*\{[\s\S]*background:transparent;/);
+});
