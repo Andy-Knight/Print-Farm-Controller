@@ -98,11 +98,13 @@
           <option value="">All printers</option>
         </select>
       </div>
-      <button id="dashboardViewToggle" class="dashboard-view-toggle" type="button" role="switch" aria-checked="false" aria-label="Switch dashboard to table view">
-        <span class="dashboard-view-toggle-title">Dashboard view</span>
-        <span class="dashboard-view-toggle-track" aria-hidden="true"></span>
-        <span class="dashboard-view-toggle-label">Cards</span>
-      </button>
+      <div class="dashboard-view-control">
+        <span class="dashboard-view-label">Dashboard view</span>
+        <button id="dashboardViewToggle" class="dashboard-view-toggle" type="button" role="switch" aria-checked="false" aria-label="Switch dashboard to table view">
+          <span class="dashboard-view-toggle-track" aria-hidden="true"></span>
+          <span class="dashboard-view-toggle-label">Cards</span>
+        </button>
+      </div>
     </section>
     <section id="summary" class="summary"></section>
     <section id="licenseNotice" class="license-notice hidden" aria-live="polite"></section>
