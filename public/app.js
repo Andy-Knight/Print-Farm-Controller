@@ -354,6 +354,7 @@ let pendingBatchAction = null;
 let dashboardFilter = 'all';
 let dashboardGroupId = '';
 let dashboardViewMode = 'cards';
+let dashboardTableSort = { key:'', direction:'asc' };
 const DASHBOARD_FILTER_LABELS = Object.freeze({ all:'All Printers', online:'Online', printing:'Printing', attention:'Needs attention', maintenance:'Maintenance' });
 const FILAMENT_COLOR_FAMILIES = Object.freeze([
   { value:'black', label:'Black', representative:'#111111' },
@@ -486,12 +487,84 @@ function savedDashboardViewMode() {
   }
 }
 
+function dashboardTableSortValue(printer, key) {
+  if (key === 'name') return String(printer?.name || '');
+  if (key === 'status') return String(stateName(printer) || '');
+  if (key === 'progress') return Number(printer?.status?.progress || 0);
+  if (key === 'remaining') {
+    const remaining = Number(printer?.status?.remainingSeconds);
+    return Number.isFinite(remaining) && remaining > 0 ? remaining : null;
+  }
+  return null;
+}
+
+function compareDashboardTablePrinters(left, right) {
+  const { key, direction } = dashboardTableSort;
+  const leftValue = dashboardTableSortValue(left, key);
+  const rightValue = dashboardTableSortValue(right, key);
+
+  if (key === 'remaining') {
+    const leftMissing = leftValue == null;
+    const rightMissing = rightValue == null;
+    if (leftMissing !== rightMissing) return leftMissing ? 1 : -1;
+  }
+
+  let result = 0;
+  if (typeof leftValue === 'number' && typeof rightValue === 'number') {
+    result = leftValue - rightValue;
+  } else {
+    result = String(leftValue ?? '').localeCompare(String(rightValue ?? ''), undefined, { numeric:true, sensitivity:'base' });
+  }
+  return direction === 'desc' ? -result : result;
+}
+
+function updateDashboardTableSortHeader() {
+  for (const button of fleetTableHeader?.querySelectorAll('[data-table-sort]') || []) {
+    const active = dashboardTableSort.key === button.dataset.tableSort;
+    const direction = active ? dashboardTableSort.direction : '';
+    const header = button.closest('[role="columnheader"]');
+    header?.setAttribute('aria-sort', active ? (direction === 'desc' ? 'descending' : 'ascending') : 'none');
+    button.classList.toggle('active', active);
+    button.setAttribute('aria-label', `Sort by ${button.textContent.trim().replace(/[↕▲▼]/g, '').trim()}${active ? `, currently ${direction === 'desc' ? 'descending' : 'ascending'}` : ''}`);
+    const indicator = button.querySelector('.fleet-table-sort-indicator');
+    if (indicator) indicator.textContent = !active ? '↕' : direction === 'desc' ? '▼' : '▲';
+  }
+}
+
+function applyDashboardTableSort() {
+  const cards = [...fleetEl.querySelectorAll('[data-printer-card]')];
+  if (dashboardViewMode !== 'table' || !dashboardTableSort.key) {
+    for (const card of cards) card.style.removeProperty('order');
+    updateDashboardTableSortHeader();
+    return;
+  }
+
+  const manualOrder = new Map(fleet.map((printer, index) => [printer.id, index]));
+  const sorted = fleet.slice().sort((left, right) => {
+    const result = compareDashboardTablePrinters(left, right);
+    if (result) return result;
+    return (manualOrder.get(left.id) ?? Number.MAX_SAFE_INTEGER) - (manualOrder.get(right.id) ?? Number.MAX_SAFE_INTEGER);
+  });
+  const order = new Map(sorted.map((printer, index) => [printer.id, index]));
+  for (const card of cards) card.style.order = String(order.get(card.dataset.printerCard) ?? Number.MAX_SAFE_INTEGER);
+  updateDashboardTableSortHeader();
+}
+
+function setDashboardTableSort(key) {
+  if (!['name','status','progress','remaining'].includes(key)) return;
+  dashboardTableSort = dashboardTableSort.key === key
+    ? { key, direction:dashboardTableSort.direction === 'asc' ? 'desc' : 'asc' }
+    : { key, direction:'asc' };
+  applyDashboardTableSort();
+}
+
 function applyDashboardViewMode(mode, { persist = false } = {}) {
   dashboardViewMode = mode === 'table' ? 'table' : 'cards';
   const tableView = dashboardViewMode === 'table';
   fleetViewport?.classList.toggle('table-view', tableView);
   fleetEl?.classList.toggle('table-view', tableView);
   fleetTableHeader?.classList.toggle('hidden', !tableView || fleet.length === 0);
+  applyDashboardTableSort();
   if (dashboardViewToggle) {
     dashboardViewToggle.setAttribute('aria-checked', String(tableView));
     dashboardViewToggle.setAttribute('aria-label', `Switch dashboard to ${tableView ? 'card' : 'table'} view`);
@@ -506,6 +579,12 @@ function applyDashboardViewMode(mode, { persist = false } = {}) {
 applyDashboardViewMode(savedDashboardViewMode() || 'cards');
 dashboardViewToggle?.addEventListener('click', () => {
   applyDashboardViewMode(dashboardViewMode === 'table' ? 'cards' : 'table', { persist:true });
+});
+
+fleetTableHeader?.addEventListener('click', (event) => {
+  const button = event.target.closest('[data-table-sort]');
+  if (!button) return;
+  setDashboardTableSort(button.dataset.tableSort);
 });
 
 const THEME_STORAGE_KEY = 'printer-fleet-theme';
@@ -2588,6 +2667,7 @@ function applyDashboardFilter() {
   fleetEl.classList.toggle('filtered', dashboardFilter !== 'all' || Boolean(dashboardGroupId));
   fleetFilterEmptyEl?.classList.toggle('hidden', fleet.length === 0 || visible > 0);
   fleetTableHeader?.classList.toggle('hidden', dashboardViewMode !== 'table' || visible === 0);
+  applyDashboardTableSort();
 }
 
 function setDashboardFilter(filter) {
