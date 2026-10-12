@@ -169,8 +169,40 @@ button.summary-card:focus-visible { filter:none; transform:translateY(-1px); bor
   text-transform:uppercase;
 }
 .fleet-table-header > span { padding:10px 12px; min-width:0; }
+.fleet-table-sort {
+  display:inline-flex;
+  align-items:center;
+  gap:5px;
+  margin:0;
+  padding:0;
+  border:0;
+  background:transparent;
+  color:inherit;
+  font:inherit;
+  font-weight:inherit;
+  letter-spacing:inherit;
+  text-transform:inherit;
+  white-space:nowrap;
+}
+.fleet-table-sort:hover,
+.fleet-table-sort:focus-visible {
+  filter:none;
+  color:#d7e9f7;
+}
+.fleet-table-sort:focus-visible {
+  outline:2px solid #80bfff;
+  outline-offset:3px;
+  border-radius:3px;
+}
+.fleet-table-sort-indicator {
+  color:#8fa0ae;
+  font-size:.72rem;
+  line-height:1;
+}
+.fleet-table-sort.active .fleet-table-sort-indicator { color:#fff; }
 .fleet.table-view {
-  display:block;
+  display:flex;
+  flex-direction:column;
   min-width:1390px;
 }
 .fleet.table-view .card {
