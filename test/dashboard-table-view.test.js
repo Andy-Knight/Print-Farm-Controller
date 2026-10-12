@@ -68,3 +68,8 @@ test('printer group and dashboard view controls share the same labelled 42px ali
   assert.match(styles, /\.dashboard-group-filter select\s*\{[\s\S]*height:var\(--dropdown-field-height\);/);
   assert.match(styles, /\.dashboard-view-toggle\s*\{[\s\S]*height:var\(--dropdown-field-height\);[\s\S]*margin:0;/);
 });
+
+
+test('table filament swatches have no surrounding background treatment in light mode', () => {
+  assert.match(styles, /:root\[data-theme="light"\] \.fleet\.table-view \.dashboard-filament-overlay\s*\{[\s\S]*background:transparent;[\s\S]*border-color:transparent;[\s\S]*box-shadow:none;/);
+});
