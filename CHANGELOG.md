@@ -4,6 +4,14 @@ This file contains the version-by-version release history for Print Farm Control
 
 Historical entries describe the behaviour of the controller at the time of that release and may be superseded by later versions. For current installation, configuration and supported-hardware guidance, see [README.md](README.md).
 
+## v0.46.0
+
+- Adds a persistent **Cards / Table** dashboard view switch for farms with larger printer counts.
+- The compact table keeps live state, current job, progress, temperatures, layer, remaining time, filament colours, last-seen/latency information and printer actions visible in one horizontally scrollable view.
+- Preserves the existing dashboard group/status filters and Farm operations selection behavior in table mode.
+- Stores the selected dashboard view in browser local storage so each browser resumes its previous view on the next session.
+- Adds regression coverage for the table switch, persistence, compact layout and filtering behavior.
+
 ## v0.45.0
 
 - Adds capability-gated **Delete** actions to printer-local Files lists, with confirmation and list refresh after successful deletion.
