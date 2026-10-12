@@ -1495,6 +1495,11 @@ button.library-file-preview { cursor:zoom-in; }
 :root[data-theme="light"] .fleet.table-view .printer-image-slot {
   background:transparent;
 }
+:root[data-theme="light"] .fleet.table-view .dashboard-filament-overlay {
+  background:transparent;
+  border-color:transparent;
+  box-shadow:none;
+}
 :root[data-theme="light"] .topbar-overflow > summary {
   background:#ffffff;
   border-color:#bdcbd6;
