@@ -4,6 +4,14 @@ This file contains the version-by-version release history for Print Farm Control
 
 Historical entries describe the behaviour of the controller at the time of that release and may be superseded by later versions. For current installation, configuration and supported-hardware guidance, see [README.md](README.md).
 
+## v0.46.1
+
+- Fixes the Print queue & history **Bed cleared · continue** action sometimes requiring multiple presses when live fleet SSE updates redraw the queue between pointer-down and click.
+- Defers destructive queue-list DOM replacement while a queue control is actively being pressed, then applies any pending live refresh immediately after the interaction completes.
+- Prevents duplicate bed-clearance submissions while confirmation is in progress and shows a temporary **Continuing…** state.
+- Re-enables bed-clearance buttons cleanly if the confirmation dialog is cancelled or the request fails.
+- Adds regression coverage for queue interaction deferral and bed-clearance action recovery.
+
 ## v0.46.0
 
 - Adds a persistent **Cards / Table** dashboard view switch for farms with larger printer counts.
