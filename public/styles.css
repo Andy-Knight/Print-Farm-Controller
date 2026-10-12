@@ -141,6 +141,9 @@ button.summary-card:focus-visible { filter:none; transform:translateY(-1px); bor
   background:rgba(18,24,31,.76);
 }
 .fleet-table-header {
+  position:sticky;
+  top:0;
+  z-index:3;
   display:grid;
   grid-template-columns:var(--dashboard-table-columns);
   min-width:1390px;
@@ -345,6 +348,10 @@ button.summary-card:focus-visible { filter:none; transform:translateY(-1px); bor
 .fleet.table-view .card-error.hidden { display:none !important; }
 .fleet.table-view .card-error:not(.hidden) { display:block; }
 .fleet.table-view .card.license-inactive { opacity:.72; }
+.fleet.table-view.selection-mode .card.selected {
+  border-color:#7ca8c9;
+  box-shadow:inset 3px 0 0 #7ca8c9;
+}
 .card { display:flex; flex-direction:column; border:1px solid #29323b; background:rgba(18,24,31,.94); border-radius:18px; overflow:hidden; box-shadow:0 18px 45px rgba(0,0,0,.18); }
 .fleet .card { transition:transform .14s ease, border-color .14s ease, box-shadow .14s ease; }
 .fleet .card:hover,
