@@ -491,7 +491,7 @@ function applyDashboardViewMode(mode, { persist = false } = {}) {
   const tableView = dashboardViewMode === 'table';
   fleetViewport?.classList.toggle('table-view', tableView);
   fleetEl?.classList.toggle('table-view', tableView);
-  fleetTableHeader?.classList.toggle('hidden', !tableView);
+  fleetTableHeader?.classList.toggle('hidden', !tableView || fleet.length === 0);
   if (dashboardViewToggle) {
     dashboardViewToggle.setAttribute('aria-checked', String(tableView));
     dashboardViewToggle.setAttribute('aria-label', `Switch dashboard to ${tableView ? 'card' : 'table'} view`);
@@ -2587,6 +2587,7 @@ function applyDashboardFilter() {
   }
   fleetEl.classList.toggle('filtered', dashboardFilter !== 'all' || Boolean(dashboardGroupId));
   fleetFilterEmptyEl?.classList.toggle('hidden', fleet.length === 0 || visible > 0);
+  fleetTableHeader?.classList.toggle('hidden', dashboardViewMode !== 'table' || visible === 0);
 }
 
 function setDashboardFilter(filter) {
