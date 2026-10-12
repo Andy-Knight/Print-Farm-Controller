@@ -51,6 +51,7 @@ button.summary-card:focus-visible { filter:none; transform:translateY(-1px); bor
   align-items:center;
   justify-content:flex-end;
   gap:12px;
+  min-height:var(--button-field-height);
   margin:0 0 14px;
 }
 .dashboard-group-filter {
@@ -58,6 +59,7 @@ button.summary-card:focus-visible { filter:none; transform:translateY(-1px); bor
   align-items:center;
   justify-content:flex-end;
   gap:10px;
+  min-height:var(--dropdown-field-height);
   margin:0;
 }
 .dashboard-group-filter label {
@@ -94,7 +96,8 @@ button.summary-card:focus-visible { filter:none; transform:translateY(-1px); bor
   display:inline-flex;
   align-items:center;
   gap:8px;
-  min-height:40px;
+  height:var(--button-field-height);
+  min-height:var(--button-field-height);
   border:1px solid #2d3943;
   border-radius:999px;
   padding:7px 11px;
@@ -148,12 +151,12 @@ button.summary-card:focus-visible { filter:none; transform:translateY(-1px); bor
   grid-template-columns:var(--dashboard-table-columns);
   min-width:1390px;
   align-items:center;
-  border-bottom:1px solid #29323b;
-  background:#10171e;
-  color:#738694;
+  border-bottom:1px solid #34424d;
+  background:#151e25;
+  color:#fff;
   font-size:.68rem;
-  font-weight:850;
-  letter-spacing:.06em;
+  font-weight:800;
+  letter-spacing:.04em;
   text-transform:uppercase;
 }
 .fleet-table-header > span { padding:10px 12px; min-width:0; }
@@ -215,6 +218,7 @@ button.summary-card:focus-visible { filter:none; transform:translateY(-1px); bor
 }
 .fleet.table-view .reorder-controls { display:none; }
 .fleet.table-view .badge {
+  align-self:center;
   max-width:82px;
   overflow:hidden;
   text-overflow:ellipsis;
@@ -223,9 +227,12 @@ button.summary-card:focus-visible { filter:none; transform:translateY(-1px); bor
   font-size:.62rem;
 }
 .fleet.table-view .maintenance-status-icon-button {
+  align-self:center;
   width:30px;
   height:30px;
+  min-height:30px;
   flex:0 0 30px;
+  padding:0;
 }
 .fleet.table-view .job {
   grid-column:3;
@@ -1468,11 +1475,6 @@ button.library-file-preview { cursor:zoom-in; }
 :root[data-theme="light"] .fleet-viewport.table-view {
   background:#ffffff;
   border-color:#cad5de;
-}
-:root[data-theme="light"] .fleet-table-header {
-  background:#f3f7fa;
-  border-color:#cad5de;
-  color:#617788;
 }
 :root[data-theme="light"] .fleet.table-view .card { border-color:#d5dee5; }
 :root[data-theme="light"] .fleet.table-view .card:hover,
