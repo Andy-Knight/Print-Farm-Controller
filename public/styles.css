@@ -54,26 +54,33 @@ button.summary-card:focus-visible { filter:none; transform:translateY(-1px); bor
   min-height:var(--button-field-height);
   margin:0 0 14px;
 }
-.dashboard-group-filter {
+.dashboard-group-filter,
+.dashboard-view-control {
   display:flex;
   align-items:center;
   justify-content:flex-end;
   gap:10px;
+  height:var(--dropdown-field-height);
   min-height:var(--dropdown-field-height);
   margin:0;
 }
-.dashboard-group-filter label {
+.dashboard-group-filter label,
+.dashboard-view-label {
   margin:0;
   color:#8493a1;
   font-size:.76rem;
   font-weight:800;
+  line-height:1;
   white-space:nowrap;
 }
 .dashboard-group-filter select {
+  display:block;
   width:min(320px,100%);
   min-width:210px;
+  height:var(--dropdown-field-height);
+  min-height:var(--dropdown-field-height);
   margin:0;
-  padding:9px 34px 9px 11px;
+  padding:0 34px 0 11px;
 }
 @media (max-width:620px) {
   .dashboard-controls {
@@ -81,7 +88,9 @@ button.summary-card:focus-visible { filter:none; transform:translateY(-1px); bor
     flex-direction:column;
     gap:8px;
   }
-  .dashboard-group-filter {
+  .dashboard-group-filter,
+  .dashboard-view-control {
+    height:auto;
     align-items:stretch;
     flex-direction:column;
     gap:6px;
@@ -90,14 +99,16 @@ button.summary-card:focus-visible { filter:none; transform:translateY(-1px); bor
     width:100%;
     min-width:0;
   }
+  .dashboard-view-control { align-self:stretch; }
   .dashboard-view-toggle { align-self:flex-end; }
 }
 .dashboard-view-toggle {
   display:inline-flex;
   align-items:center;
   gap:8px;
-  height:var(--button-field-height);
-  min-height:var(--button-field-height);
+  height:var(--dropdown-field-height);
+  min-height:var(--dropdown-field-height);
+  margin:0;
   border:1px solid #2d3943;
   border-radius:999px;
   padding:7px 11px;
@@ -106,7 +117,6 @@ button.summary-card:focus-visible { filter:none; transform:translateY(-1px); bor
   font-weight:800;
   white-space:nowrap;
 }
-.dashboard-view-toggle-title { color:#8493a1; font-size:.74rem; }
 .dashboard-view-toggle-track {
   position:relative;
   width:36px;
@@ -1470,7 +1480,7 @@ button.library-file-preview { cursor:zoom-in; }
   border-color:#bdcbd6;
   color:#263746;
 }
-:root[data-theme="light"] .dashboard-view-toggle-title { color:#617788; }
+:root[data-theme="light"] .dashboard-view-label { color:#617788; }
 :root[data-theme="light"] .dashboard-view-toggle-track { background:#9aabb8; }
 :root[data-theme="light"] .fleet-viewport.table-view {
   background:#ffffff;
