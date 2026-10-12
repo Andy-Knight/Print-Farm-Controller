@@ -42,3 +42,13 @@ test('table header follows existing dashboard filtering and empty-result state',
   assert.match(block, /visible \+= 1/);
   assert.match(block, /fleetTableHeader\?\.classList\.toggle\('hidden', dashboardViewMode !== 'table' \|\| visible === 0\)/);
 });
+
+
+test('table presentation matches alerts header styling and aligns status/control elements', () => {
+  assert.match(styles, /\.fleet-table-header\s*\{[\s\S]*background:#151e25;[\s\S]*color:#fff;[\s\S]*font-weight:800;[\s\S]*letter-spacing:\.04em;/);
+  assert.doesNotMatch(styles, /:root\[data-theme="light"\] \.fleet-table-header\s*\{/);
+  assert.match(styles, /\.fleet\.table-view \.badge\s*\{[\s\S]*align-self:center;/);
+  assert.match(styles, /\.fleet\.table-view \.maintenance-status-icon-button\s*\{[\s\S]*align-self:center;[\s\S]*padding:0;/);
+  assert.match(styles, /\.dashboard-group-filter\s*\{[\s\S]*min-height:var\(--dropdown-field-height\)/);
+  assert.match(styles, /\.dashboard-view-toggle\s*\{[\s\S]*height:var\(--button-field-height\);[\s\S]*min-height:var\(--button-field-height\);/);
+});
