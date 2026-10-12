@@ -29,7 +29,7 @@ test('integrated printer simulator uses the controller-style sidebar navigation'
   assert.match(index, /id="simulator-sidebar" class="simulator-sidebar"/);
   assert.match(index, /href="\/"[^>]*>[\s\S]*Dashboard<\/span><\/a>/);
   assert.match(index, /href="\/queue"[^>]*>[\s\S]*Queue &amp; history<\/span><\/a>/);
-  assert.match(index, /href="\/simulator\/"[^>]*class="simulator-sidebar-item active"[^>]*aria-current="page"/);
+  assert.match(index, /class="simulator-sidebar-item active"[^>]*href="\/simulator\/"[^>]*aria-current="page"/);
   assert.match(index, /id="simulator-sidebar-toggle"/);
   assert.match(app, /document\.body\.classList\.toggle\('integrated-simulator', integrated\)/);
   assert.match(app, /function closeSimulatorSidebar\(\)/);
