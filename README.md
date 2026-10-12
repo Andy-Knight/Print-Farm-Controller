@@ -11,7 +11,7 @@ A local-first 3D printer fleet controller. It runs entirely on your LAN and curr
 
 Current highlights:
 
-- Dashboard can switch between the existing printer cards and a compact tabular view for larger farms. The selected view is remembered in browser local storage across sessions, while existing filters, farm operations and printer actions remain available.
+- Dashboard can switch between the existing printer cards and a compact tabular view for larger farms. The table can be sorted by printer name, status, progress or remaining time, and the selected view is remembered in browser local storage across sessions while existing filters, farm operations and printer actions remain available.
 
 - Printer Files now supports confirmed deletion of printer-local files on Snapmaker U1, Prusa CORE One+ and experimental Bambu models. FlashForge Adventurer 5M/5M Pro and Creator 5/5 Pro remain unsupported because no validated stock-firmware deletion interface is available.
 
