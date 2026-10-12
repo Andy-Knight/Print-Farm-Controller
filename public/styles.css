@@ -1482,6 +1482,10 @@ button.library-file-preview { cursor:zoom-in; }
   background:#f6f9fb;
   border-color:#d5dee5;
 }
+:root[data-theme="light"] .fleet.table-view .metric,
+:root[data-theme="light"] .fleet.table-view .printer-image-slot {
+  background:transparent;
+}
 :root[data-theme="light"] .topbar-overflow > summary {
   background:#ffffff;
   border-color:#bdcbd6;
