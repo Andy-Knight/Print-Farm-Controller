@@ -49,8 +49,8 @@ test('table presentation matches alerts header styling and aligns status/control
   assert.doesNotMatch(styles, /:root\[data-theme="light"\] \.fleet-table-header\s*\{/);
   assert.match(styles, /\.fleet\.table-view \.badge\s*\{[\s\S]*align-self:center;/);
   assert.match(styles, /\.fleet\.table-view \.maintenance-status-icon-button\s*\{[\s\S]*align-self:center;[\s\S]*padding:0;/);
-  assert.match(styles, /\.dashboard-group-filter\s*\{[\s\S]*min-height:var\(--dropdown-field-height\)/);
-  assert.match(styles, /\.dashboard-view-toggle\s*\{[\s\S]*height:var\(--button-field-height\);[\s\S]*min-height:var\(--button-field-height\);/);
+  assert.match(styles, /\.dashboard-group-filter,\s*\.dashboard-view-control\s*\{[\s\S]*min-height:var\(--dropdown-field-height\)/);
+  assert.match(styles, /\.dashboard-view-toggle\s*\{[\s\S]*height:var\(--dropdown-field-height\);[\s\S]*min-height:var\(--dropdown-field-height\);/);
 });
 
 
