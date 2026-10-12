@@ -333,6 +333,10 @@ renderControllerRoute(location.pathname, { invoke:false });
 let fleet = [];
 let adapters = [];
 let queueState = { jobs:[], queued:0, active:0, history:0, needsReview:0, awaitingClearance:0, bedClearance:[], productionBatches:[] };
+let queuePointerInteractionActive = false;
+let queueRenderPending = false;
+let queueInteractionReleaseTimer = null;
+const pendingBedClearanceActions = new Set();
 let alertsSummaryState = { unreadCount:0, attentionUnreadCount:0, recent:[] };
 let libraryState = { files:[] };
 let printerGroupsState = { version:1, groups:[] };
@@ -2812,6 +2816,7 @@ function queueJobMarkup(job, { history = false, queuedIndex = -1, queuedCount = 
 
 function queueClearanceMarkup(item) {
   const status = queueStatusLabel(item.jobStatus);
+  const pending = pendingBedClearanceActions.has(item.printerId);
   return `<article class="queue-job queue-job-clearance" data-bed-clearance-printer="${escapeHtml(item.printerId)}">
     <div class="queue-job-main">
       <div class="queue-job-title"><strong>Clear build plate</strong><span class="queue-status clearance">Waiting</span></div>
@@ -2819,7 +2824,7 @@ function queueClearanceMarkup(item) {
       <div class="queue-job-meta">${escapeHtml(item.fileName)} · ${escapeHtml(status)} ${escapeHtml(formatQueueTime(item.finishedAt))}</div>
       <div class="queue-job-clearance-note">The next queued print is blocked until the build plate has been cleared.</div>
     </div>
-    <div class="queue-job-actions"><button type="button" class="secondary" data-bed-cleared="${escapeHtml(item.printerId)}">Bed cleared · continue</button></div>
+    <div class="queue-job-actions"><button type="button" class="secondary" data-bed-cleared="${escapeHtml(item.printerId)}"${pending ? ' disabled' : ''}>${pending ? 'Continuing…' : 'Bed cleared · continue'}</button></div>
   </article>`;
 }
 
@@ -2912,9 +2917,15 @@ function renderPrintQueue() {
         canMoveDown:queuedIndex >= 0 && queuedIndex < queuedJobs.length - 1 && String(queuedJobs[queuedIndex + 1]?.effectivePriority || queuedJobs[queuedIndex + 1]?.priority || 'normal') === effectivePriority
       });
     }).join('');
-    queueActiveList.innerHTML = clearanceMarkup || productionMarkup || jobsMarkup
+    const nextActiveMarkup = clearanceMarkup || productionMarkup || jobsMarkup
       ? `${clearanceMarkup}${productionMarkup}${jobsMarkup}`
       : '<div class="queue-empty">No active, queued or review-blocked jobs.</div>';
+    if (queuePointerInteractionActive) {
+      queueRenderPending = true;
+    } else {
+      queueActiveList.innerHTML = nextActiveMarkup;
+      queueRenderPending = false;
+    }
   }
   if (queueHistoryList) {
     const productionHistoryMarkup = historyProduction.map((batch) => productionBatchMarkup(batch, { history:true })).join('');
@@ -4308,6 +4319,28 @@ queueActiveList?.addEventListener('change', async (event) => {
   }
 });
 
+function beginQueuePointerInteraction(event) {
+  if (!event.target.closest('button,select,input')) return;
+  queuePointerInteractionActive = true;
+  if (queueInteractionReleaseTimer) {
+    clearTimeout(queueInteractionReleaseTimer);
+    queueInteractionReleaseTimer = null;
+  }
+}
+
+function releaseQueuePointerInteraction() {
+  if (queueInteractionReleaseTimer) clearTimeout(queueInteractionReleaseTimer);
+  queueInteractionReleaseTimer = setTimeout(() => {
+    queueInteractionReleaseTimer = null;
+    queuePointerInteractionActive = false;
+    if (queueRenderPending) renderPrintQueue();
+  }, 0);
+}
+
+queueActiveList?.addEventListener('pointerdown', beginQueuePointerInteraction, true);
+document.addEventListener('pointerup', releaseQueuePointerInteraction, true);
+document.addEventListener('pointercancel', releaseQueuePointerInteraction, true);
+
 queueActiveList?.addEventListener('click', async (event) => {
   const productionAction = event.target.closest('[data-production-action]');
   if (productionAction) {
@@ -4339,11 +4372,25 @@ queueActiveList?.addEventListener('click', async (event) => {
   const cleared = event.target.closest('[data-bed-cleared]');
   if (cleared) {
     const item = (queueState.bedClearance || []).find((entry) => entry.printerId === cleared.dataset.bedCleared);
-    if (!item) return;
+    if (!item || pendingBedClearanceActions.has(item.printerId)) return;
+    pendingBedClearanceActions.add(item.printerId);
     cleared.disabled = true;
+    cleared.textContent = 'Continuing…';
     try {
-      await confirmBedCleared(item.printerId, item.printerName);
-    } catch (error) { alert(error.message); cleared.disabled = false; }
+      const confirmed = await confirmBedCleared(item.printerId, item.printerName);
+      if (!confirmed) {
+        pendingBedClearanceActions.delete(item.printerId);
+        cleared.disabled = false;
+        cleared.textContent = 'Bed cleared · continue';
+      } else {
+        pendingBedClearanceActions.delete(item.printerId);
+      }
+    } catch (error) {
+      pendingBedClearanceActions.delete(item.printerId);
+      alert(error.message);
+      cleared.disabled = false;
+      cleared.textContent = 'Bed cleared · continue';
+    }
     return;
   }
   const recheck = event.target.closest('[data-queue-recheck]');
@@ -4562,6 +4609,7 @@ fleetEl.addEventListener('click', (event) => {
     const printer = fleet.find((item) => item.id === card.dataset.printerCard);
     bedCleared.disabled = true;
     confirmBedCleared(card.dataset.printerCard, printer?.name)
+      .then((confirmed) => { if (!confirmed) bedCleared.disabled = false; })
       .catch((error) => { alert(error.message); bedCleared.disabled = false; });
     return;
   }
