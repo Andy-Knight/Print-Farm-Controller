@@ -84,7 +84,8 @@ test('dashboard places printer group selection above the summary filters', () =>
   assert.ok(groupFilterIndex >= 0);
   assert.ok(summaryIndex >= 0);
   assert.ok(groupFilterIndex < summaryIndex);
-  assert.match(styles, /\.dashboard-group-filter \{[\s\S]*margin:0 0 14px;/);
+  assert.match(styles, /\.dashboard-controls \{[\s\S]*margin:0 0 14px;/);
+  assert.match(styles, /\.dashboard-group-filter,\s*\.dashboard-view-control \{[\s\S]*height:var\(--dropdown-field-height\);/);
 });
 
 test('Snapmaker U1 is named consistently on dashboard and printer details', () => {
