@@ -4,6 +4,13 @@ This file contains the version-by-version release history for Print Farm Control
 
 Historical entries describe the behaviour of the controller at the time of that release and may be superseded by later versions. For current installation, configuration and supported-hardware guidance, see [README.md](README.md).
 
+## v0.46.2
+
+- Adds the controller-style left navigation sidebar to the integrated Printer Simulator.
+- Marks **Printer simulator** as the active sidebar destination while providing direct links back to the controller dashboard and routed controller pages.
+- Adds responsive mobile sidebar open/close behaviour while leaving the standalone emulator layout unchanged.
+- Adds regression coverage for the integrated simulator navigation shell.
+
 ## v0.46.1
 
 - Fixes the Print queue & history **Bed cleared · continue** action sometimes requiring multiple presses when live fleet SSE updates redraw the queue between pointer-down and click.

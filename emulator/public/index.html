@@ -22,7 +22,43 @@
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
+  <aside id="simulator-sidebar" class="simulator-sidebar" aria-label="Controller navigation">
+    <div class="simulator-sidebar-brand">
+      <div class="simulator-brand-lockup" aria-label="Stacked Layers — Print Farm Controller">
+        <a class="simulator-stacked-layers-link" href="https://www.stackedlayers.co.uk" target="_blank" rel="noopener noreferrer" aria-label="Visit Stacked Layers website">
+          <svg class="simulator-stacked-layers-mark" viewBox="0 0 120 92" aria-hidden="true" focusable="false">
+            <polygon points="60,2 114,27 60,52 6,27"></polygon>
+            <polygon points="14,39 60,60 106,39 114,43 60,69 6,43"></polygon>
+            <polygon points="14,58 60,79 106,58 114,62 60,90 6,62"></polygon>
+          </svg>
+        </a>
+        <div class="simulator-brand-copy">
+          <a class="simulator-brand-name" href="https://www.stackedlayers.co.uk" target="_blank" rel="noopener noreferrer">STACKED LAYERS</a>
+          <div class="simulator-brand-product">Print Farm Controller</div>
+        </div>
+      </div>
+    </div>
+    <nav class="simulator-sidebar-nav">
+      <a class="simulator-sidebar-item" href="/"><span class="simulator-sidebar-icon">⌂</span><span>Dashboard</span></a>
+      <a class="simulator-sidebar-item" href="/queue"><span class="simulator-sidebar-icon">☷</span><span>Queue &amp; history</span></a>
+      <a class="simulator-sidebar-item" href="/library"><span class="simulator-sidebar-icon">▣</span><span>Print library</span></a>
+      <div class="simulator-sidebar-divider"></div>
+      <a class="simulator-sidebar-item" href="/maintenance"><span class="simulator-sidebar-icon">⌁</span><span>Maintenance</span></a>
+      <a class="simulator-sidebar-item" href="/groups"><span class="simulator-sidebar-icon">◎</span><span>Printer groups</span></a>
+      <a class="simulator-sidebar-item" href="/reports"><span class="simulator-sidebar-icon">▥</span><span>Reports &amp; analytics</span></a>
+      <a class="simulator-sidebar-item" href="/alerts"><span class="simulator-sidebar-icon">◇</span><span>Alerts &amp; notifications</span></a>
+      <a class="simulator-sidebar-item" href="/backup"><span class="simulator-sidebar-icon">⇩</span><span>Backup &amp; recovery</span></a>
+      <a class="simulator-sidebar-item" href="/diagnostics"><span class="simulator-sidebar-icon">≡</span><span>Diagnostics</span></a>
+    </nav>
+    <div class="simulator-sidebar-foot">
+      <a class="simulator-sidebar-item" href="/licence"><span class="simulator-sidebar-icon">◇</span><span>Licence</span></a>
+      <a class="simulator-sidebar-item active" href="/simulator/" aria-current="page"><span class="simulator-sidebar-icon">▤</span><span>Printer simulator</span></a>
+      <div class="simulator-sidebar-version">Print Farm Controller<br>Printer Simulator</div>
+    </div>
+  </aside>
+
   <header class="app-header">
+    <button id="simulator-sidebar-toggle" class="simulator-sidebar-toggle" type="button" aria-label="Open navigation" aria-expanded="false">☰</button>
     <div>
       <p class="eyebrow">DEVELOPMENT TOOL</p>
       <h1>Printer Simulator</h1>

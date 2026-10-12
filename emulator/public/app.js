@@ -10,6 +10,8 @@ let printers = [];
 let profileDefinitions = [];
 let toastTimer = null;
 const integrated = location.pathname.startsWith('/simulator');
+document.body.classList.toggle('integrated-simulator', integrated);
+const simulatorSidebarToggle = document.querySelector('#simulator-sidebar-toggle');
 const apiBase = integrated ? '/api/emulator' : '/api';
 const apiUrl = (pathname) => `${apiBase}${pathname}`;
 
@@ -403,6 +405,26 @@ function connectEvents() {
   events.onerror = () => { state.textContent = 'Reconnecting…'; state.classList.add('disconnected'); };
 }
 
+function closeSimulatorSidebar() {
+  document.body.classList.remove('simulator-sidebar-open');
+  simulatorSidebarToggle?.setAttribute('aria-expanded', 'false');
+}
+
+simulatorSidebarToggle?.addEventListener('click', () => {
+  const open = document.body.classList.toggle('simulator-sidebar-open');
+  simulatorSidebarToggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+});
+
+document.querySelectorAll('.simulator-sidebar-item').forEach((item) => {
+  item.addEventListener('click', () => {
+    if (window.matchMedia('(max-width:760px)').matches) closeSimulatorSidebar();
+  });
+});
+
+document.addEventListener('keydown', (event) => {
+  if (event.key === 'Escape') closeSimulatorSidebar();
+});
+
 profileSelect.addEventListener('change', updateAddToolConfiguration);
 document.querySelector('#show-add').addEventListener('click', () => document.querySelector('#add-panel').classList.remove('hidden'));
 document.querySelector('#hide-add').addEventListener('click', () => document.querySelector('#add-panel').classList.add('hidden'));
@@ -452,7 +474,6 @@ themeMedia.addEventListener('change', (event) => {
 
 async function initialize() {
   if (integrated) {
-    document.querySelector('#controller-link').classList.remove('hidden');
     const panel = document.querySelector('#integrated-control');
     const content = document.querySelector('#simulator-content');
     const toggle = document.querySelector('#simulator-toggle');
