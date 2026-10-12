@@ -9,7 +9,7 @@ If chat context and this file disagree about the codebase, inspect current GitHu
 - Repository: `Andy-Knight/Print-Farm-Controller`
 - Project path: repository root (`/`)
 - Primary branch: `main` (current production baseline)
-- Current application version on `feature/printer-file-delete`: **0.45.0** (in development). Production baseline on `main`: **0.44.0**.
+- Current application version on `feature/dashboard-table-view`: **0.46.0** (in development). Production baseline on `main`: **0.45.0**.
 - Runtime: **Node.js 24+** (development baseline Node.js 24.21.0), ES modules, no npm runtime dependencies.
 - GitHub is the authoritative code baseline.
 - Release/version history is maintained only in `CHANGELOG.md`; do not duplicate per-version history in this handoff file.
@@ -120,16 +120,16 @@ Manufacturer-specific discovery, capabilities, limits, status normalization, fil
 
 ## Current task
 
-The current production baseline is **v0.44.0** on `main`.
+The current production baseline is **v0.45.0** on `main`.
 
-The Modern Operations UI work has been completed and merged. The controller now uses persistent sidebar navigation and routed top-level pages, responsive dashboard/card layouts, consistent semantic action colours, contextual printer-tile Pause/Resume controls, a structured severity-aware Alert history with history clearing, compact printer file rows, and tabbed Backup & recovery pages.
+v0.45.0 printer-local file deletion has been completed and merged. Snapmaker U1 deletion is physically validated; experimental Prusa/Bambu deletion remains capability-gated, while FlashForge AD5M/AD5M Pro and Creator 5/5 Pro deletion remain disabled without a validated stock-firmware interface.
 
-Active development: **v0.45.0** on `feature/printer-file-delete`. Adds capability-gated printer-local file deletion to the Files tab for Snapmaker U1, experimental Prusa CORE One+ and Bambu printers. FlashForge AD5M/AD5M Pro deletion was physically tested on stock firmware 3.2.7-2.2.3: TCP M30 returned `ok` for multiple path/framing variants but did not remove the file, and the documented 3.2.7 HTTP API exposes no delete endpoint. AD5M/AD5M Pro and Creator 5/5 Pro therefore remain unsupported for deletion. The feature is not yet merged.
+Active development: **v0.46.0** on `feature/dashboard-table-view`. Adds a persistent dashboard switch between the existing card layout and a compact tabular layout intended for navigating larger farms. The table reuses the live printer card data and actions, preserves dashboard group/status filters and Farm operations selection, supports ascending/descending sorting by printer name, status, progress and remaining time, keeps filament swatches and operational warning strips, and stores the selected view in browser local storage. The feature is not yet merged.
 
 ## Next steps
 
-1. Run the full automated test suite after the AD5M capability correction; Snapmaker U1 physical deletion is validated. Continue simulator/physical validation for Prusa and experimental Bambu where hardware is available, and confirm that Print Library entries remain untouched.
-2. Validate direct browser refresh/deep-link behaviour for routed pages such as `/maintenance`, `/reports`, `/alerts` and `/backup`.
+1. Run the full automated test suite for v0.46.0 and validate the Cards / Table dashboard switch in desktop and narrow browser layouts with a larger simulated farm.
+2. Confirm table-mode live updates, filters, Farm operations selection, Open printer and Pause/Resume controls remain stable during SSE refreshes.
 3. Continue physical-hardware validation for Creator 5 / Creator 5 Pro and experimental Bambu support.
 4. Keep `README.md`, `CHANGELOG.md` and this context file synchronized whenever a release/version changes.
 

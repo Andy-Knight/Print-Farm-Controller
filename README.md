@@ -1,4 +1,4 @@
-# Print Farm Controller v0.45.0
+# Print Farm Controller v0.46.0
 A local-first 3D printer fleet controller. It runs entirely on your LAN and currently supports:
 
 - **FlashForge Adventurer 5M / 5M Pro** through the local FlashForge HTTP/TCP APIs.
@@ -7,9 +7,11 @@ A local-first 3D printer fleet controller. It runs entirely on your LAN and curr
 - **Prusa CORE One+ (experimental)** through the local PrusaLink API, supporting Standard (1-tool), INDX4 and INDX8 configurations.
 - **Bambu Lab P1P / P1S / X1C / A1 Mini (experimental)** through the local MQTT TLS and FTPS TLS interfaces. P1P/P1S/A1 Mini use the TLS/JPEG camera path; X1C camera decoding remains unsupported.
 
-**Current release: v0.45.0**
+**Current release: v0.46.0**
 
 Current highlights:
+
+- Dashboard can switch between the existing printer cards and a compact tabular view for larger farms. The table can be sorted by printer name, status, progress or remaining time, and the selected view is remembered in browser local storage across sessions while existing filters, farm operations and printer actions remain available.
 
 - Printer Files now supports confirmed deletion of printer-local files on Snapmaker U1, Prusa CORE One+ and experimental Bambu models. FlashForge Adventurer 5M/5M Pro and Creator 5/5 Pro remain unsupported because no validated stock-firmware deletion interface is available.
 
