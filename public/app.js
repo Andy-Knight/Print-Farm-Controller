@@ -1,9 +1,12 @@
 const fleetEl = document.querySelector('#fleet');
+const fleetViewport = document.querySelector('#fleetViewport');
+const fleetTableHeader = document.querySelector('#fleetTableHeader');
 const summaryEl = document.querySelector('#summary');
 const emptyEl = document.querySelector('#empty');
 const fleetFilterEmptyEl = document.querySelector('#fleetFilterEmpty');
 const dashboardGroupFilterBar = document.querySelector('#dashboardGroupFilterBar');
 const dashboardGroupFilter = document.querySelector('#dashboardGroupFilter');
+const dashboardViewToggle = document.querySelector('#dashboardViewToggle');
 const addDialog = document.querySelector('#addPrinterDialog');
 const addForm = document.querySelector('#addPrinterForm');
 const printerDialog = document.querySelector('#printerDialog');
@@ -350,6 +353,7 @@ let batchBusy = false;
 let pendingBatchAction = null;
 let dashboardFilter = 'all';
 let dashboardGroupId = '';
+let dashboardViewMode = 'cards';
 const DASHBOARD_FILTER_LABELS = Object.freeze({ all:'All Printers', online:'Online', printing:'Printing', attention:'Needs attention', maintenance:'Maintenance' });
 const FILAMENT_COLOR_FAMILIES = Object.freeze([
   { value:'black', label:'Black', representative:'#111111' },
@@ -470,6 +474,39 @@ function filamentSourceFamily(source = {}) {
 }
 const selectedPrinterIds = new Set();
 const toolOffsetActionLocks = new Map();
+
+const DASHBOARD_VIEW_STORAGE_KEY = 'printer-fleet-dashboard-view';
+
+function savedDashboardViewMode() {
+  try {
+    const value = localStorage.getItem(DASHBOARD_VIEW_STORAGE_KEY);
+    return value === 'table' || value === 'cards' ? value : null;
+  } catch {
+    return null;
+  }
+}
+
+function applyDashboardViewMode(mode, { persist = false } = {}) {
+  dashboardViewMode = mode === 'table' ? 'table' : 'cards';
+  const tableView = dashboardViewMode === 'table';
+  fleetViewport?.classList.toggle('table-view', tableView);
+  fleetEl?.classList.toggle('table-view', tableView);
+  fleetTableHeader?.classList.toggle('hidden', !tableView);
+  if (dashboardViewToggle) {
+    dashboardViewToggle.setAttribute('aria-checked', String(tableView));
+    dashboardViewToggle.setAttribute('aria-label', `Switch dashboard to ${tableView ? 'card' : 'table'} view`);
+    const label = dashboardViewToggle.querySelector('.dashboard-view-toggle-label');
+    if (label) label.textContent = tableView ? 'Table' : 'Cards';
+  }
+  if (persist) {
+    try { localStorage.setItem(DASHBOARD_VIEW_STORAGE_KEY, dashboardViewMode); } catch {}
+  }
+}
+
+applyDashboardViewMode(savedDashboardViewMode() || 'cards');
+dashboardViewToggle?.addEventListener('click', () => {
+  applyDashboardViewMode(dashboardViewMode === 'table' ? 'cards' : 'table', { persist:true });
+});
 
 const THEME_STORAGE_KEY = 'printer-fleet-theme';
 const themeMedia = window.matchMedia('(prefers-color-scheme: light)');
