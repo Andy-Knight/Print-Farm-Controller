@@ -9,10 +9,16 @@ If chat context and this file disagree about the codebase, inspect current GitHu
 - Repository: `Andy-Knight/Print-Farm-Controller`
 - Project path: repository root (`/`)
 - Primary branch: `main` (current production baseline)
-- Current application version on `feature/dashboard-table-view`: **0.46.0** (in development). Production baseline on `main`: **0.45.0**.
+- Current application version on `feature/queue-bed-cleared-reliability`: **0.46.1** (in development). Production baseline on `main`: **0.46.0**.
 - Runtime: **Node.js 24+** (development baseline Node.js 24.21.0), ES modules, no npm runtime dependencies.
 - GitHub is the authoritative code baseline.
 - Release/version history is maintained only in `CHANGELOG.md`; do not duplicate per-version history in this handoff file.
+
+## Current work
+
+v0.46.0 dashboard table view has been completed and merged to `main`.
+
+Active development: **v0.46.1** on `feature/queue-bed-cleared-reliability`. This fixes the Print queue & history **Bed cleared · continue** control being intermittently swallowed by live SSE queue redraws. Queue-list DOM replacement is deferred during pointer interaction, duplicate bed-clearance submissions are blocked while pending, and cancelled/failed confirmations restore the button cleanly. The branch is not yet merged.
 
 ## Architecture
 
