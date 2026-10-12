@@ -1,0 +1,44 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+
+const app = fs.readFileSync(new URL('../public/app.js', import.meta.url), 'utf8');
+const styles = fs.readFileSync(new URL('../public/styles.css', import.meta.url), 'utf8');
+const html = fs.readFileSync(new URL('../public/index.html', import.meta.url), 'utf8');
+
+test('dashboard exposes a card/table view switch with a tabular printer header', () => {
+  assert.match(html, /id="dashboardViewToggle"[^>]*role="switch"[^>]*aria-checked="false"/);
+  assert.match(html, /id="fleetViewport"/);
+  assert.match(html, /id="fleetTableHeader" class="fleet-table-header hidden"/);
+  for (const heading of ['Printer', 'Status', 'Current job', 'Progress', 'Nozzle', 'Bed', 'Layer', 'Remaining', 'Filament', 'Last seen', 'Actions']) {
+    assert.match(html, new RegExp(`<span>${heading}<\\/span>`));
+  }
+});
+
+test('dashboard view preference persists in browser local storage', () => {
+  assert.match(app, /const DASHBOARD_VIEW_STORAGE_KEY = 'printer-fleet-dashboard-view'/);
+  assert.match(app, /function savedDashboardViewMode\(\)/);
+  assert.match(app, /localStorage\.getItem\(DASHBOARD_VIEW_STORAGE_KEY\)/);
+  assert.match(app, /function applyDashboardViewMode\(mode, \{ persist = false \} = \{\}\)/);
+  assert.match(app, /localStorage\.setItem\(DASHBOARD_VIEW_STORAGE_KEY, dashboardViewMode\)/);
+  assert.match(app, /applyDashboardViewMode\(savedDashboardViewMode\(\) \|\| 'cards'\)/);
+  assert.match(app, /dashboardViewToggle\?\.addEventListener\('click'/);
+});
+
+test('table mode reuses live printer cards as compact rows without model artwork', () => {
+  assert.match(styles, /\.fleet-viewport\.table-view\s*\{[\s\S]*--dashboard-table-columns/);
+  assert.match(styles, /\.fleet-table-header\s*\{[\s\S]*grid-template-columns:var\(--dashboard-table-columns\)/);
+  assert.match(styles, /\.fleet\.table-view \.card\s*\{[\s\S]*grid-template-columns:var\(--dashboard-table-columns\)/);
+  assert.match(styles, /\.fleet\.table-view \.printer-model-image,[\s\S]*\.printer-model-fallback \{ display:none; \}/);
+  assert.match(styles, /\.fleet\.table-view \.dashboard-filament-overlay\s*\{[\s\S]*position:static/);
+  assert.match(styles, /\.fleet\.table-view \.card-footer-actions\s*\{[\s\S]*grid-column:11/);
+});
+
+test('table header follows existing dashboard filtering and empty-result state', () => {
+  const start = app.indexOf('function applyDashboardFilter()');
+  const end = app.indexOf('\nfunction setDashboardFilter', start);
+  assert.ok(start >= 0 && end > start, 'applyDashboardFilter should exist');
+  const block = app.slice(start, end);
+  assert.match(block, /visible \+= 1/);
+  assert.match(block, /fleetTableHeader\?\.classList\.toggle\('hidden', dashboardViewMode !== 'table' \|\| visible === 0\)/);
+});
