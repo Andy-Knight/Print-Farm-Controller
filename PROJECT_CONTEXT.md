@@ -124,7 +124,7 @@ The current production baseline is **v0.45.0** on `main`.
 
 v0.45.0 printer-local file deletion has been completed and merged. Snapmaker U1 deletion is physically validated; experimental Prusa/Bambu deletion remains capability-gated, while FlashForge AD5M/AD5M Pro and Creator 5/5 Pro deletion remain disabled without a validated stock-firmware interface.
 
-Active development: **v0.46.0** on `feature/dashboard-table-view`. Adds a persistent dashboard switch between the existing card layout and a compact tabular layout intended for navigating larger farms. The table reuses the live printer card data and actions, preserves dashboard group/status filters and Farm operations selection, keeps filament swatches and operational warning strips, and stores the selected view in browser local storage. The feature is not yet merged.
+Active development: **v0.46.0** on `feature/dashboard-table-view`. Adds a persistent dashboard switch between the existing card layout and a compact tabular layout intended for navigating larger farms. The table reuses the live printer card data and actions, preserves dashboard group/status filters and Farm operations selection, supports ascending/descending sorting by printer name, status, progress and remaining time, keeps filament swatches and operational warning strips, and stores the selected view in browser local storage. The feature is not yet merged.
 
 ## Next steps
 
