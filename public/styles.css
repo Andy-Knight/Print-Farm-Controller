@@ -47,22 +47,17 @@ button.summary-card:focus-visible { filter:none; transform:translateY(-1px); bor
 .summary-card.active { border-color:#4f8fc2; background:#162431; box-shadow:0 0 0 1px rgba(128,191,255,.14),0 10px 28px rgba(0,0,0,.16); }
 .summary-card b { display:block; font-size:1.6rem; margin-top:5px; }
 .dashboard-controls {
-  display:flex;
+  display:grid;
+  grid-template-columns:auto minmax(210px,320px) auto auto;
   align-items:center;
-  justify-content:flex-end;
-  gap:12px;
-  min-height:var(--button-field-height);
+  justify-content:end;
+  column-gap:10px;
+  min-height:var(--dropdown-field-height);
   margin:0 0 14px;
 }
 .dashboard-group-filter,
 .dashboard-view-control {
-  display:flex;
-  align-items:center;
-  justify-content:flex-end;
-  gap:10px;
-  height:var(--dropdown-field-height);
-  min-height:var(--dropdown-field-height);
-  margin:0;
+  display:contents;
 }
 .dashboard-group-filter label,
 .dashboard-view-label {
@@ -75,21 +70,24 @@ button.summary-card:focus-visible { filter:none; transform:translateY(-1px); bor
 }
 .dashboard-group-filter select {
   display:block;
-  width:min(320px,100%);
+  width:100%;
   min-width:210px;
   height:var(--dropdown-field-height);
   min-height:var(--dropdown-field-height);
   margin:0;
   padding:0 34px 0 11px;
 }
+.dashboard-view-label { margin-left:2px; }
 @media (max-width:620px) {
   .dashboard-controls {
+    display:flex;
     align-items:stretch;
     flex-direction:column;
     gap:8px;
   }
   .dashboard-group-filter,
   .dashboard-view-control {
+    display:flex;
     height:auto;
     align-items:stretch;
     flex-direction:column;
@@ -99,6 +97,7 @@ button.summary-card:focus-visible { filter:none; transform:translateY(-1px); bor
     width:100%;
     min-width:0;
   }
+  .dashboard-view-label { margin-left:0; }
   .dashboard-view-control { align-self:stretch; }
   .dashboard-view-toggle { align-self:flex-end; }
 }
