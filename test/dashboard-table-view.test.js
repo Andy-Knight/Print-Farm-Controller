@@ -57,3 +57,12 @@ test('table presentation matches alerts header styling and aligns status/control
 test('table metric and filament columns inherit the normal row background in light mode', () => {
   assert.match(styles, /:root\[data-theme="light"\] \.fleet\.table-view \.metric,[\s\S]*:root\[data-theme="light"\] \.fleet\.table-view \.printer-image-slot\s*\{[\s\S]*background:transparent;/);
 });
+
+
+test('printer group and dashboard view controls share the same labelled 42px alignment', () => {
+  assert.match(html, /class="dashboard-view-control"[\s\S]*class="dashboard-view-label">Dashboard view<[\s\S]*id="dashboardViewToggle"/);
+  assert.match(styles, /\.dashboard-group-filter,\s*\.dashboard-view-control\s*\{[\s\S]*height:var\(--dropdown-field-height\);[\s\S]*align-items:center;/);
+  assert.match(styles, /\.dashboard-group-filter label,\s*\.dashboard-view-label\s*\{[\s\S]*line-height:1;/);
+  assert.match(styles, /\.dashboard-group-filter select\s*\{[\s\S]*height:var\(--dropdown-field-height\);/);
+  assert.match(styles, /\.dashboard-view-toggle\s*\{[\s\S]*height:var\(--dropdown-field-height\);[\s\S]*margin:0;/);
+});
