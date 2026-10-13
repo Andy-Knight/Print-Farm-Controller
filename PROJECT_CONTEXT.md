@@ -9,16 +9,14 @@ If chat context and this file disagree about the codebase, inspect current GitHu
 - Repository: `Andy-Knight/Print-Farm-Controller`
 - Project path: repository root (`/`)
 - Primary branch: `main` (current production baseline)
-- Current application version on `feature/simulator-sidebar`: **0.46.2** (in development). Production baseline on `main`: **0.46.1**.
+- Current application version: **0.46.3**. Production baseline on `main`: **0.46.3**.
 - Runtime: **Node.js 24+** (development baseline Node.js 24.21.0), ES modules, no npm runtime dependencies.
 - GitHub is the authoritative code baseline.
 - Release/version history is maintained only in `CHANGELOG.md`; do not duplicate per-version history in this handoff file.
 
 ## Current work
 
-v0.46.1 queue action click reliability has been completed and merged to `main`.
-
-Active development: **v0.46.2** on `feature/simulator-sidebar`. This brings the integrated Printer Simulator into the same modern operations shell by adding the controller-style left navigation, simulator-active state and responsive mobile sidebar behaviour. The standalone emulator remains unchanged. The branch is not yet merged.
+v0.46.3 corrects the dashboard Table view horizontal-scroll presentation by keeping the table header and printer rows at the same minimum width as the defined grid columns. The release is merged to `main`.
 
 ## Architecture
 
