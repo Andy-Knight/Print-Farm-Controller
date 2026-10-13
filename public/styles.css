@@ -146,6 +146,7 @@ button.summary-card:focus-visible { filter:none; transform:translateY(-1px); bor
 .fleet-viewport { min-width:0; }
 .fleet { display:grid; grid-template-columns:repeat(auto-fill,minmax(330px,1fr)); gap:16px; }
 .fleet-viewport.table-view {
+  --dashboard-table-min-width:1528px;
   --dashboard-table-columns:minmax(210px,1.5fr) 120px minmax(210px,1.55fr) minmax(130px,.9fr) 122px 122px 92px 104px 118px 126px 174px;
   overflow-x:auto;
   border:1px solid #29323b;
@@ -158,7 +159,7 @@ button.summary-card:focus-visible { filter:none; transform:translateY(-1px); bor
   z-index:3;
   display:grid;
   grid-template-columns:var(--dashboard-table-columns);
-  min-width:1390px;
+  min-width:var(--dashboard-table-min-width);
   align-items:center;
   border-bottom:1px solid #34424d;
   background:#151e25;
@@ -203,7 +204,7 @@ button.summary-card:focus-visible { filter:none; transform:translateY(-1px); bor
 .fleet.table-view {
   display:flex;
   flex-direction:column;
-  min-width:1390px;
+  min-width:var(--dashboard-table-min-width);
 }
 .fleet.table-view .card {
   display:grid;

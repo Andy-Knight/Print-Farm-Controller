@@ -4,6 +4,12 @@ This file contains the version-by-version release history for Print Farm Control
 
 Historical entries describe the behaviour of the controller at the time of that release and may be superseded by later versions. For current installation, configuration and supported-hardware guidance, see [README.md](README.md).
 
+## v0.46.3
+
+- Fixes the dashboard Table view layout when the browser viewport is narrower than the full table width.
+- Makes the table header and printer rows use the same 1,528 px minimum width as the combined grid column minimums, preventing the right-hand columns from extending beyond their row/header backgrounds while horizontally scrolling.
+- Centralizes the table minimum width in a shared CSS variable so the header and rows remain synchronized.
+
 ## v0.46.2
 
 - Adds the controller-style left navigation sidebar to the integrated Printer Simulator.
