@@ -1,15 +1,16 @@
 {
   "name": "printer-fleet-controller",
-  "version": "0.46.3",
+  "version": "0.47.0",
   "private": true,
   "type": "module",
   "description": "Print Farm Controller: local-first FlashForge, Snapmaker, Prusa and experimental Bambu fleet control with printer emulation",
   "scripts": {
-    "start": "node src/server.js",
-    "dev": "node --watch src/server.js",
+    "start": "npm run build:frontend && node src/server.js",
+    "dev": "npm run build:frontend && node --watch src/server.js",
     "emulator": "node emulator/server.js",
     "test": "node --test",
-    "build:bundle": "node scripts/build-controller-bundle.mjs",
+    "build:frontend": "node scripts/build-frontend.mjs",
+    "build:bundle": "npm run build:frontend && node scripts/build-controller-bundle.mjs",
     "build:sea:windows": "node scripts/build-sea-windows.mjs",
     "build:installer:windows": "npm run build:sea:windows && node scripts/build-installer-windows.mjs",
     "sign:windows": "node scripts/sign-windows.mjs",
@@ -20,6 +21,7 @@
   },
   "devDependencies": {
     "esbuild": "0.28.2",
-    "postject": "1.0.0-alpha.6"
+    "postject": "1.0.0-alpha.6",
+    "preact": "11.0.1"
   }
 }
