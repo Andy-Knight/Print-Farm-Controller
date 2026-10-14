@@ -9,14 +9,16 @@ If chat context and this file disagree about the codebase, inspect current GitHu
 - Repository: `Andy-Knight/Print-Farm-Controller`
 - Project path: repository root (`/`)
 - Primary branch: `main` (current production baseline)
-- Current application version: **0.46.3**. Production baseline on `main`: **0.46.3**.
+- Current application version on `feature/preact-ui-foundation`: **0.47.0** (in development). Production baseline on `main`: **0.46.3**.
 - Runtime: **Node.js 24+** (development baseline Node.js 24.21.0), ES modules, no npm runtime dependencies.
 - GitHub is the authoritative code baseline.
 - Release/version history is maintained only in `CHANGELOG.md`; do not duplicate per-version history in this handoff file.
 
 ## Current work
 
-v0.46.3 corrects the dashboard Table view horizontal-scroll presentation by keeping the table header and printer rows at the same minimum width as the defined grid columns. The release is merged to `main`.
+Active development: **v0.47.0** on `feature/preact-ui-foundation`.
+
+This introduces Preact incrementally rather than rewriting the controller UI. The first Preact island owns the dashboard summary filters, printer-group selector and Cards/Table view switch, with state/actions bridged to the existing controller logic. Preact is bundled locally with esbuild for source, container and Windows SEA builds; the existing HTML/vanilla-JavaScript dashboard remains as a fallback and the rest of the controller UI is unchanged for this first migration step.
 
 ## Architecture
 
