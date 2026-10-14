@@ -1,4 +1,4 @@
-# Print Farm Controller v0.46.2
+# Print Farm Controller v0.47.0
 A local-first 3D printer fleet controller. It runs entirely on your LAN and currently supports:
 
 - **FlashForge Adventurer 5M / 5M Pro** through the local FlashForge HTTP/TCP APIs.
@@ -7,9 +7,12 @@ A local-first 3D printer fleet controller. It runs entirely on your LAN and curr
 - **Prusa CORE One+ (experimental)** through the local PrusaLink API, supporting Standard (1-tool), INDX4 and INDX8 configurations.
 - **Bambu Lab P1P / P1S / X1C / A1 Mini (experimental)** through the local MQTT TLS and FTPS TLS interfaces. P1P/P1S/A1 Mini use the TLS/JPEG camera path; X1C camera decoding remains unsupported.
 
-**Current release: v0.46.2**
+**Current development version: v0.47.0**
 
 Current highlights:
+
+- Preact-based dashboard UI foundation for the summary filters, printer-group selector and Cards/Table switch. Preact is bundled locally at build time with esbuild, keeps the existing HTML/vanilla-JavaScript dashboard as a fallback, and introduces no npm runtime dependency.
+
 
 - The integrated Printer Simulator now uses the same persistent left-hand navigation pattern as the controller, with the simulator marked active and responsive mobile sidebar behaviour.
 
@@ -104,7 +107,7 @@ The internal `allowDevelopmentOverrides:true` loader option exists for tests/dev
 
 ## Run
 
-Requires Node.js 24 or later. Development has been performed against Node.js 24.21.0. There are no npm runtime dependencies.
+Requires Node.js 24 or later. Development has been performed against Node.js 24.21.0. There are no npm runtime dependencies. Preact is a build-time development dependency and is bundled into the browser assets before the controller starts or is packaged.
 To run from the source files launch with the following commands from the command line, making sure npm is available.
 
 ```bash
