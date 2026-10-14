@@ -23,7 +23,7 @@ This introduces Preact incrementally rather than rewriting the controller UI. Th
 ## Architecture
 
 ```text
-Browser UI (`public/`)
+Browser UI (`public/`; build-time Preact sources in `ui/`)
         |
         v
 Local Fleet Controller (`src/`)
