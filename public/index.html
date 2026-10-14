@@ -91,22 +91,24 @@
   </header>
 
   <main>
-    <section class="dashboard-controls" aria-label="Dashboard controls">
-      <div id="dashboardGroupFilterBar" class="dashboard-group-filter hidden" aria-label="Dashboard printer group filter">
-        <label for="dashboardGroupFilter">Printer group</label>
-        <select id="dashboardGroupFilter">
-          <option value="">All printers</option>
-        </select>
-      </div>
-      <div class="dashboard-view-control">
-        <span class="dashboard-view-label">Dashboard view</span>
-        <button id="dashboardViewToggle" class="dashboard-view-toggle" type="button" role="switch" aria-checked="false" aria-label="Switch dashboard to table view">
-          <span class="dashboard-view-toggle-track" aria-hidden="true"></span>
-          <span class="dashboard-view-toggle-label">Cards</span>
-        </button>
-      </div>
-    </section>
-    <section id="summary" class="summary"></section>
+    <div id="dashboardPreactRoot" class="dashboard-preact-root">
+      <section class="dashboard-controls" aria-label="Dashboard controls">
+        <div id="dashboardGroupFilterBar" class="dashboard-group-filter hidden" aria-label="Dashboard printer group filter">
+          <label for="dashboardGroupFilter">Printer group</label>
+          <select id="dashboardGroupFilter">
+            <option value="">All printers</option>
+          </select>
+        </div>
+        <div class="dashboard-view-control">
+          <span class="dashboard-view-label">Dashboard view</span>
+          <button id="dashboardViewToggle" class="dashboard-view-toggle" type="button" role="switch" aria-checked="false" aria-label="Switch dashboard to table view">
+            <span class="dashboard-view-toggle-track" aria-hidden="true"></span>
+            <span class="dashboard-view-toggle-label">Cards</span>
+          </button>
+        </div>
+      </section>
+      <section id="summary" class="summary"></section>
+    </div>
     <section id="licenseNotice" class="license-notice hidden" aria-live="polite"></section>
     <section id="batchToolbar" class="batch-toolbar hidden" aria-label="Batch printer controls">
       <div class="batch-toolbar-head">
@@ -1244,6 +1246,7 @@
     </form>
   </dialog>
 
+  <script type="module" src="/dashboard-preact.js"></script>
   <script type="module" src="/app.js"></script>
   <script type="module" src="/maintenance.js"></script>
   <script type="module" src="/reporting.js"></script>
