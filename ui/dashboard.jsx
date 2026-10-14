@@ -128,6 +128,6 @@ function DashboardOverview() {
 
 const root = document.querySelector('#dashboardPreactRoot');
 if (root) {
-  window.__PFC_PREACT_DASHBOARD__ = true;
   render(<DashboardOverview />, root);
+  window.__PFC_PREACT_DASHBOARD__ = true;
 }
