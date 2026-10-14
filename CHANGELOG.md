@@ -4,6 +4,14 @@ This file contains the version-by-version release history for Print Farm Control
 
 Historical entries describe the behaviour of the controller at the time of that release and may be superseded by later versions. For current installation, configuration and supported-hardware guidance, see [README.md](README.md).
 
+## v0.47.0
+
+- Introduces the first Preact-based controller UI island while retaining the existing vanilla JavaScript interface as a fallback.
+- Migrates the dashboard summary filters, printer-group selector and Cards/Table view switch to reusable Preact components.
+- Adds a local esbuild frontend bundle so Preact is packaged with source, container and Windows SEA builds without a CDN or browser-time dependency.
+- Keeps Preact as a build-time development dependency; the production controller continues to run without npm runtime dependencies.
+- Adds regression coverage for the Preact dashboard integration and packaging paths.
+
 ## v0.46.3
 
 - Fixes the dashboard Table view layout when the browser viewport is narrower than the full table width.
