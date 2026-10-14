@@ -3,6 +3,7 @@ import { createRequire } from 'node:module';
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
 import { buildControllerBundle, buildDir, projectRoot } from './build-controller-bundle.mjs';
+import { buildFrontend } from './build-frontend.mjs';
 
 const require = createRequire(import.meta.url);
 const { inject } = require('postject');
@@ -63,6 +64,7 @@ async function embeddedAssets() {
 }
 async function buildWindowsSea() {
   requireWindowsX64Node24();
+  await buildFrontend();
   const { version, bundlePath } = await buildControllerBundle();
 
   await fs.rm(outputDir, { recursive:true, force:true });
