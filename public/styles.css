@@ -39,6 +39,7 @@ h1,h2,h3,p { margin-top: 0; }
 .live-indicator.offline { color:#ffafb4; border-color:#5b2c31; }
 .live-indicator.offline i { background:#ed7078; }
 main { max-width:1500px; margin:0 auto; padding:0 30px 40px; }
+.dashboard-preact-root { display:contents; }
 .summary { display:grid; grid-template-columns:repeat(4,minmax(120px,1fr)); gap:12px; margin:10px 0 22px; }
 .summary-card { width:100%; border:1px solid #29323b; background:#12181f; color:inherit; padding:16px 18px; border-radius:14px; text-align:left; appearance:none; transition:transform .14s ease, border-color .14s ease, box-shadow .14s ease, background .14s ease; }
 button.summary-card:hover,
