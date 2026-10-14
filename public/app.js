@@ -569,7 +569,7 @@ function applyDashboardViewMode(mode, { persist = false } = {}) {
   fleetEl?.classList.toggle('table-view', tableView);
   fleetTableHeader?.classList.toggle('hidden', !tableView || fleet.length === 0);
   applyDashboardTableSort();
-  if (dashboardViewToggle) {
+  if (!window.__PFC_PREACT_DASHBOARD__ && dashboardViewToggle) {
     dashboardViewToggle.setAttribute('aria-checked', String(tableView));
     dashboardViewToggle.setAttribute('aria-label', `Switch dashboard to ${tableView ? 'card' : 'table'} view`);
     const label = dashboardViewToggle.querySelector('.dashboard-view-toggle-label');
@@ -578,12 +578,15 @@ function applyDashboardViewMode(mode, { persist = false } = {}) {
   if (persist) {
     try { localStorage.setItem(DASHBOARD_VIEW_STORAGE_KEY, dashboardViewMode); } catch {}
   }
+  publishDashboardUiState();
 }
 
 applyDashboardViewMode(savedDashboardViewMode() || 'cards');
-dashboardViewToggle?.addEventListener('click', () => {
-  applyDashboardViewMode(dashboardViewMode === 'table' ? 'cards' : 'table', { persist:true });
-});
+if (!window.__PFC_PREACT_DASHBOARD__) {
+  dashboardViewToggle?.addEventListener('click', () => {
+    applyDashboardViewMode(dashboardViewMode === 'table' ? 'cards' : 'table', { persist:true });
+  });
+}
 
 fleetTableHeader?.addEventListener('click', (event) => {
   const button = event.target.closest('[data-table-sort]');
@@ -2603,10 +2606,14 @@ function dashboardScopedFleet() {
 }
 
 function populateDashboardGroupFilterOptions() {
-  if (!dashboardGroupFilter || !dashboardGroupFilterBar) return;
   const groups = [...(printerGroupsState.groups || [])]
     .sort((a, b) => String(a.name).localeCompare(String(b.name)));
   if (dashboardGroupId && !groups.some((group) => group.id === dashboardGroupId)) dashboardGroupId = '';
+  if (window.__PFC_PREACT_DASHBOARD__) {
+    publishDashboardUiState();
+    return;
+  }
+  if (!dashboardGroupFilter || !dashboardGroupFilterBar) return;
   dashboardGroupFilter.innerHTML = '<option value="">All printers</option>'
     + groups.map((group) =>
       `<option value="${escapeHtml(group.id)}">${escapeHtml(group.name)} (${Number(group.printerIds?.length || 0)})</option>`
@@ -2623,6 +2630,30 @@ function matchesDashboardFilter(printer, filter = dashboardFilter) {
   return true;
 }
 
+function publishDashboardUiState() {
+  const scopedFleet = dashboardScopedFleet();
+  const detail = {
+    counts:{
+      all:scopedFleet.length,
+      online:scopedFleet.filter((printer) => printer.online).length,
+      printing:scopedFleet.filter(isPrinterPrinting).length,
+      attention:scopedFleet.filter(printerNeedsAttention).length
+    },
+    activeFilter:dashboardFilter,
+    groups:[...(printerGroupsState.groups || [])]
+      .sort((a, b) => String(a.name).localeCompare(String(b.name)))
+      .map((group) => ({
+        id:String(group.id || ''),
+        name:String(group.name || ''),
+        printerCount:Number(group.printerIds?.length || 0)
+      })),
+    groupId:dashboardGroupId,
+    viewMode:dashboardViewMode
+  };
+  window.__PFC_DASHBOARD_STATE__ = detail;
+  window.dispatchEvent(new CustomEvent('pfc:dashboard-state', { detail }));
+}
+
 function renderSummary() {
   renderMaintenanceAlert();
   const scopedFleet = dashboardScopedFleet();
@@ -2632,6 +2663,11 @@ function renderSummary() {
     ['printing', scopedFleet.filter(isPrinterPrinting).length],
     ['attention', scopedFleet.filter(printerNeedsAttention).length]
   ];
+
+  if (window.__PFC_PREACT_DASHBOARD__) {
+    publishDashboardUiState();
+    return;
+  }
 
   // Keep the filter button DOM nodes stable during live SSE refreshes. Replacing
   // them between pointerdown and click can cause the browser to drop the click.
@@ -2683,7 +2719,7 @@ function setDashboardFilter(filter) {
 function setDashboardGroupFilter(groupId) {
   const requested = String(groupId || '');
   dashboardGroupId = (printerGroupsState.groups || []).some((group) => group.id === requested) ? requested : '';
-  if (dashboardGroupFilter) dashboardGroupFilter.value = dashboardGroupId;
+  if (!window.__PFC_PREACT_DASHBOARD__ && dashboardGroupFilter) dashboardGroupFilter.value = dashboardGroupId;
   renderSummary();
   applyDashboardFilter();
 }
@@ -2691,7 +2727,7 @@ function setDashboardGroupFilter(groupId) {
 function resetDashboardFilters() {
   dashboardGroupId = '';
   dashboardFilter = 'all';
-  if (dashboardGroupFilter) dashboardGroupFilter.value = '';
+  if (!window.__PFC_PREACT_DASHBOARD__ && dashboardGroupFilter) dashboardGroupFilter.value = '';
   renderSummary();
   applyDashboardFilter();
 }
@@ -4549,10 +4585,31 @@ addForm.addEventListener('submit', async (event) => {
   }
 });
 
-summaryEl.addEventListener('click', (event) => {
-  const filter = event.target.closest('[data-dashboard-filter]');
-  if (!filter) return;
-  setDashboardFilter(filter.dataset.dashboardFilter);
+if (!window.__PFC_PREACT_DASHBOARD__) {
+  summaryEl.addEventListener('click', (event) => {
+    const filter = event.target.closest('[data-dashboard-filter]');
+    if (!filter) return;
+    setDashboardFilter(filter.dataset.dashboardFilter);
+  });
+
+  dashboardGroupFilter?.addEventListener('change', () => {
+    setDashboardGroupFilter(dashboardGroupFilter.value);
+  });
+}
+
+window.addEventListener('pfc:dashboard-action', (event) => {
+  const action = event?.detail || {};
+  if (action.type === 'filter') {
+    setDashboardFilter(action.value);
+    return;
+  }
+  if (action.type === 'group') {
+    setDashboardGroupFilter(action.value);
+    return;
+  }
+  if (action.type === 'view') {
+    applyDashboardViewMode(action.value, { persist:true });
+  }
 });
 
 alertsBtn?.addEventListener('click', () => {
@@ -4561,10 +4618,6 @@ alertsBtn?.addEventListener('click', () => {
 
 maintenanceAlertBtn?.addEventListener('click', () => {
   setDashboardFilter(dashboardFilter === 'maintenance' ? 'all' : 'maintenance');
-});
-
-dashboardGroupFilter?.addEventListener('change', () => {
-  setDashboardGroupFilter(dashboardGroupFilter.value);
 });
 
 fleetFilterEmptyEl?.addEventListener('click', (event) => {
