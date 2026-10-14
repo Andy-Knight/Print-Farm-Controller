@@ -9,7 +9,7 @@ RUN npm install --include=dev --no-audit --no-fund
 
 COPY scripts ./scripts
 COPY src ./src
-COPY --from=builder /app/public ./public
+COPY public ./public
 COPY ui ./ui
 COPY emulator ./emulator
 
