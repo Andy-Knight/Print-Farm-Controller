@@ -35,6 +35,8 @@ test('Preact dashboard is bundled locally and loaded before the legacy controlle
 
   assert.match(frontendBuild, /jsxImportSource:'preact'/);
   assert.match(frontendBuild, /bundle:true/);
+  assert.match(frontendBuild, /preact-LICENSE\.txt/);
+  assert.match(frontendBuild, /copyFile\(installedPreactLicense/);
   assert.match(dockerfile, /COPY ui \.\/ui/);
   assert.match(dockerfile, /COPY --from=builder \/app\/public \.\/public/);
   assert.match(seaBuild, /buildFrontend/);
