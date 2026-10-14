@@ -25,7 +25,7 @@ function normalizeDashboardState(input = {}) {
       printing:Number(counts.printing || 0),
       attention:Number(counts.attention || 0)
     },
-    activeFilter:FILTERS.some((item) => item.key === input.activeFilter) ? input.activeFilter : 'all',
+    activeFilter:[...FILTERS.map((item) => item.key), 'maintenance'].includes(input.activeFilter) ? input.activeFilter : 'all',
     groups:Array.isArray(input.groups) ? input.groups.map((group) => ({
       id:String(group?.id || ''),
       name:String(group?.name || ''),
