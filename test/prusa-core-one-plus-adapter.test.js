@@ -479,7 +479,7 @@ test('CORE One+ INDX UI and API expose a nozzle designation for every physical t
   assert.match(app, /data-tool-nozzle-clear/);
   assert.match(app, /data-tool-nozzle-save="\$\{tool\.index\}">Assign<\/button>/);
   assert.match(app, /data-tool-nozzle-clear="\$\{tool\.index\}">Clear<\/button>/);
-  assert.match(app, /coreOnePlus \? '' : `<button type="button" class="secondary" data-tool-nozzle-clear=/);
+  assert.match(app, /coreOnePlus \|\| creator5 \? '' : `<button type="button" class="secondary" data-tool-nozzle-clear=/);
   assert.match(app, /singleAction \? '' : '<button type="button" class="secondary" data-nozzle-designation-clear>/);
   assert.match(app, /multiToolNozzleHelpText\(nozzleHelpDetail\)/);
   assert.match(app, /Assign saves the fitted nozzle size in the controller when PrusaLink does not report it\./);
