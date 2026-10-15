@@ -5924,14 +5924,12 @@ function prusaToolMaterialDesignationMarkup(printer, tool = {}) {
     <label>Colour family
       ${colorFamilyDropdownMarkup({ value:familyOption?.value || '', inputAttributes:`data-prusa-tool-color-family-input="${tool.index}"`, placeholder:'Select colour' })}
     </label>
-    <div class="mini-actions">
-      <button type="button" class="secondary" data-prusa-tool-material-save="${tool.index}">Assign T${tool.index}</button>
-      <button type="button" class="secondary" data-prusa-tool-material-clear="${tool.index}">Clear assignment</button>
-    </div>
+    <button type="button" class="primary" data-prusa-tool-material-save="${tool.index}">Set filament</button>
+    <button type="button" class="secondary prusa-filament-clear" data-prusa-tool-material-clear="${tool.index}">Clear assignment</button>
     ${multiToolControlHelpMarkup(multiToolFilamentHelpText(
       hasReported
-        ? 'Clear returns to the values reported by PrusaLink.'
-        : 'Clear makes values not reported by PrusaLink unknown.'
+        ? 'Set filament saves type and colour in the controller, not on the Prusa printer. Clear assignment returns to the values reported by PrusaLink.'
+        : 'Set filament saves type and colour in the controller, not on the Prusa printer. Clear assignment returns unreported values to unknown.'
     ))}
   </div>`;
 }
@@ -7606,6 +7604,7 @@ ${flashForgePreflight}` : ''}`)) return;
     const material = String(materialInput?.value || '').trim();
     const colorFamily = String(colorFamilyInput?.value || '').trim().toLowerCase();
     const colorOption = filamentColorFamilyOption(colorFamily);
+    if (!material) { showError(new Error('Choose a filament type.')); return; }
     if (!colorOption) { showError(new Error('Choose a filament colour family.')); return; }
 
     const original = button.textContent;
@@ -7614,7 +7613,7 @@ ${flashForgePreflight}` : ''}`)) return;
     try {
       const result = await api(`/api/printers/${id}/tool-material-designation`, {
         method:'POST',
-        body:JSON.stringify({ toolIndex, material:material || null, colorFamily, color:colorOption.representative })
+        body:JSON.stringify({ toolIndex, material, colorFamily, color:colorOption.representative })
       });
       const designation = result.designation || {};
       const tool = printer.status?.tools?.find((item) => Number(item.index) === toolIndex);
