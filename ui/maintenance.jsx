@@ -17,8 +17,20 @@ function dispatchMaintenanceAction(type, value = '') {
 function MaintenanceTabs({ activeView }) {
   return (
     <>
-      {VIEW_LABELS.map(([key, label]) => {
+      {VIEW_LABELS.map(([key, label], index) => {
         const active = key === activeView;
+        const activateFromKeyboard = (event) => {
+          if (!['ArrowLeft','ArrowRight','Home','End'].includes(event.key)) return;
+          event.preventDefault();
+          const nextIndex = event.key === 'Home'
+            ? 0
+            : event.key === 'End'
+              ? VIEW_LABELS.length - 1
+              : (index + (event.key === 'ArrowRight' ? 1 : -1) + VIEW_LABELS.length) % VIEW_LABELS.length;
+          const next = VIEW_LABELS[nextIndex][0];
+          dispatchMaintenanceAction('view', next);
+          requestAnimationFrame(() => document.querySelector(`[data-maintenance-view="${next}"]`)?.focus());
+        };
         return (
           <UiButton
             key={key}
@@ -29,6 +41,7 @@ function MaintenanceTabs({ activeView }) {
             aria-selected={active ? 'true' : 'false'}
             tabindex={active ? 0 : -1}
             onClick={() => dispatchMaintenanceAction('view', key)}
+            onKeyDown={activateFromKeyboard}
           >
             {label}
           </UiButton>
