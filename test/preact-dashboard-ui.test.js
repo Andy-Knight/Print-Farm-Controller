@@ -550,3 +550,14 @@ test('v0.47 Preact migration audit covers every persistent route page', async ()
     assert.match(dashboard, new RegExp(`${initializer}\\(\\)`));
   }
 });
+
+
+test('dashboard summary headings do not render decorative dots', async () => {
+  const [dashboard, styles] = await Promise.all([
+    read('ui/dashboard.jsx'),
+    read('public/styles.css')
+  ]);
+
+  assert.doesNotMatch(dashboard, /summary-card-label[^\n]*<i/);
+  assert.doesNotMatch(styles, /summary-card-label i/);
+});
