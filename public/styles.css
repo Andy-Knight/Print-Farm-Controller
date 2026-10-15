@@ -1003,31 +1003,15 @@ input:focus,select:focus { border-color:#7a9fbe; }
   grid-template-columns:minmax(0,1fr);
   gap:6px;
 }
-.creator5-tool-nozzle-control .mini-actions > button {
-  width:100%;
-  min-width:0;
-  padding-left:10px;
-  padding-right:10px;
-}
 .prusa-tool-nozzle-control .mini-actions,
 .prusa-nozzle-actions {
   display:grid;
   grid-template-columns:minmax(0,1fr);
 }
-.prusa-tool-nozzle-control .mini-actions > button,
-.prusa-nozzle-actions > button {
-  width:100%;
-  min-width:0;
-}
 .ad5m-material-actions,
 .ad5m-nozzle-actions {
   display:grid;
   grid-template-columns:minmax(0,1fr);
-}
-.ad5m-material-actions > button,
-.ad5m-nozzle-actions > button {
-  width:100%;
-  min-width:0;
 }
 .material-tool-nozzle .shared-nozzle-help { margin-top:8px; }
 .multi-tool-table .material-tool.filament-missing .material-tool-identity > span { color:#df9ba1; }
@@ -1074,7 +1058,21 @@ input:focus,select:focus { border-color:#7a9fbe; }
 .prusa-tool-filament-control input { display:block; width:100%; min-height:34px; margin-top:4px; }
 .prusa-tool-filament-control .color-family-dropdown { margin-top:4px; }
 .prusa-tool-filament-control .color-family-dropdown summary { height:var(--dropdown-field-height); min-height:var(--dropdown-field-height); padding:6px 8px; }
-.prusa-tool-filament-control > button { grid-column:1 / -1; width:100%; height:var(--button-field-height); min-height:var(--button-field-height); padding:6px 9px; }
+.prusa-tool-filament-control > button { grid-column:1 / -1; height:var(--button-field-height); min-height:var(--button-field-height); padding:6px 9px; }
+/* Use identical compact buttons for filament configuration and nozzle assignment
+   rather than stretching actions to match their surrounding table columns. */
+.material-panel button.toolhead-action-button {
+  box-sizing:border-box;
+  width:152px;
+  max-width:100%;
+  min-width:0;
+  height:var(--button-field-height);
+  min-height:var(--button-field-height);
+  padding:6px 12px;
+  justify-self:start;
+  align-self:start;
+  flex:0 0 auto;
+}
 .multi-tool-control-help {
   display:block;
   margin-top:6px;
