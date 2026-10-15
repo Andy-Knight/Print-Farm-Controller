@@ -6004,7 +6004,7 @@ function flashForgeMaterialDesignationMarkup(printer, filament = {}) {
         ${colorFamilyDropdownMarkup({ value:familyOption?.value || '', inputAttributes:'data-material-color-family-input', placeholder:'Select colour family' })}
       </label>
     </div>
-    <div class="mini-actions ad5m-material-actions"><button type="button" class="secondary" data-material-designation-save>Assign filament</button></div>
+    <div class="mini-actions ad5m-material-actions"><button type="button" class="primary" data-material-designation-save>Assign filament</button></div>
     <div class="field-help">The colour family is used for automatic queue compatibility. Exact shade selection is not required.${reported ? ` Printer currently reports material ${escapeHtml(reported)}.` : ''}</div>
   </div>`;
 }
@@ -6034,7 +6034,7 @@ function flashForgeNozzleDesignationMarkup(printer, tool = {}) {
     <label>Controller nozzle designation
       ${selector}
     </label>
-    <div class="mini-actions${coreOnePlus ? ' prusa-nozzle-actions' : ad5m ? ' ad5m-nozzle-actions' : ''}"><button type="button" class="${coreOnePlus ? 'primary' : 'secondary'}" data-nozzle-designation-save>Assign</button>${singleAction ? '' : '<button type="button" class="secondary" data-nozzle-designation-clear>Clear</button>'}</div>
+    <div class="mini-actions${coreOnePlus ? ' prusa-nozzle-actions' : ad5m ? ' ad5m-nozzle-actions' : ''}"><button type="button" class="${singleAction ? 'primary' : 'secondary'}" data-nozzle-designation-save>Assign</button>${singleAction ? '' : '<button type="button" class="secondary" data-nozzle-designation-clear>Clear</button>'}</div>
     <div class="field-help">Stored by Print Farm Controller for this printer and used by automatic queue compatibility.${reported ? ` Printer currently reports ${escapeHtml(nozzleDiameterText(reported))}.` : ` ${escapeHtml(unavailableHelp)}`}</div>
   </div>`;
 }
