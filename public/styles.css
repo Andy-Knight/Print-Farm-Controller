@@ -3606,10 +3606,6 @@ body:not([data-route="/"]) > main > :not(.route-page) { display:none !important;
 .ui-metric {
   transition:border-color .14s ease, background .14s ease;
 }
-.fleet:not(.table-view) .card:hover .ui-metric {
-  border-color:#2b3b48;
-  background:#101820;
-}
 .ui-toast-host {
   position:fixed;
   top:88px;
