@@ -433,3 +433,36 @@ test('Preact Printer Groups keeps the editor, multi-group membership and vanilla
   assert.match(app, /if \(window\.__PFC_PREACT_PRINTER_GROUPS__\) \{[\s\S]*publishPrinterGroupsUiState\(\);[\s\S]*return;/);
   assert.match(app, /printerGroupsList\.innerHTML = groups\.length/);
 });
+
+
+test('Preact Diagnostics preserves status and log presentation', async () => {
+  const [diagnosticsUi, dashboard, app] = await Promise.all([
+    read('ui/diagnostics.jsx'),
+    read('ui/dashboard.jsx'),
+    read('public/app.js')
+  ]);
+
+  assert.match(dashboard, /initDiagnosticsUi/);
+  assert.match(diagnosticsUi, /function DiagnosticsStatus/);
+  assert.match(diagnosticsUi, /function DiagnosticEntry/);
+  assert.match(diagnosticsUi, /function DiagnosticsLog/);
+  assert.match(diagnosticsUi, /diagnostic-entry/);
+  assert.match(diagnosticsUi, /diagnostic-level/);
+  assert.match(app, /function diagnosticsStatusViewModel/);
+  assert.match(app, /function diagnosticsEntriesViewModel/);
+  assert.match(app, /function publishDiagnosticsUiState/);
+  assert.match(app, /pfc:diagnostics-ui-state/);
+  assert.match(app, /window\.__PFC_PREACT_DIAGNOSTICS__/);
+});
+
+test('Preact Diagnostics keeps filters, verbose controls, bundle download and vanilla fallback', async () => {
+  const app = await read('public/app.js');
+  assert.match(app, /diagnosticsRefreshBtn\?\.addEventListener\('click', loadDiagnostics\)/);
+  assert.match(app, /diagnosticsVerboseBtn\?\.addEventListener\('click', toggleVerboseDiagnostics\)/);
+  assert.match(app, /diagnosticsBundleBtn\?\.addEventListener\('click', downloadDiagnosticBundle\)/);
+  assert.match(app, /diagnosticsLevel\?\.addEventListener\('change', loadDiagnostics\)/);
+  assert.match(app, /diagnosticsSearch\?\.addEventListener\('input'/);
+  assert.match(app, /if \(!window\.__PFC_PREACT_DIAGNOSTICS__ && diagnosticsStatus\)/);
+  assert.match(app, /diagnosticsStatus\.innerHTML =/);
+  assert.match(app, /diagnosticsLog\.innerHTML =/);
+});
