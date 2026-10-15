@@ -145,3 +145,43 @@ test('printer details stay vertically anchored while switching tabs', async () =
   const styles = await read('public/styles.css');
   assert.match(styles, /\.printer-dialog\s*\{[\s\S]*top:15px;[\s\S]*bottom:auto;[\s\S]*margin:0 auto;/);
 });
+
+
+test('Preact print queue preserves delegated controller actions and fallback rendering', async () => {
+  const [queueUi, dashboard, app] = await Promise.all([
+    read('ui/print-queue.jsx'),
+    read('ui/dashboard.jsx'),
+    read('public/app.js')
+  ]);
+
+  assert.match(dashboard, /initPrintQueueUi/);
+  assert.match(queueUi, /function QueueJob/);
+  assert.match(queueUi, /function ClearanceItem/);
+  assert.match(queueUi, /function ProductionBatch/);
+  assert.match(queueUi, /data-queue-cancel/);
+  assert.match(queueUi, /data-queue-recheck/);
+  assert.match(queueUi, /data-queue-up/);
+  assert.match(queueUi, /data-queue-down/);
+  assert.match(queueUi, /data-queue-priority/);
+  assert.match(queueUi, /data-bed-cleared/);
+  assert.match(queueUi, /data-production-action/);
+  assert.match(queueUi, /data-production-priority-select/);
+  assert.match(queueUi, /data-production-quantity/);
+  assert.match(queueUi, /data-queue-reprint/);
+  assert.match(queueUi, /data-production-reprint/);
+  assert.match(queueUi, /defaultValue=\{item\.priority \|\| 'normal'\}/);
+  assert.match(queueUi, /defaultValue=\{item\.quantity\}/);
+  assert.match(app, /function publishPrintQueueUiState/);
+  assert.match(app, /window\.__PFC_PREACT_QUEUE__/);
+  assert.match(app, /pfc:queue-ui-state/);
+  assert.match(app, /queueActiveList\?\.addEventListener\('click'/);
+  assert.match(app, /queueHistoryList\?\.addEventListener\('click'/);
+  assert.match(app, /queueActiveList\.innerHTML = nextActiveMarkup/);
+  assert.match(app, /queueHistoryList\.innerHTML = productionHistoryMarkup/);
+});
+
+test('Preact queue defers live rerenders while pointer controls are active', async () => {
+  const app = await read('public/app.js');
+  assert.match(app, /if \(window\.__PFC_PREACT_QUEUE__\) \{[\s\S]*if \(queuePointerInteractionActive\) \{[\s\S]*queueRenderPending = true;[\s\S]*return;[\s\S]*publishPrintQueueUiState/);
+  assert.match(app, /if \(queueRenderPending\) renderPrintQueue\(\)/);
+});
