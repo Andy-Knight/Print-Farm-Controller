@@ -308,10 +308,10 @@ function PrinterCard({ printer }) {
         </div>
         <ProgressBar value={printer.progress} label={`${printer.name} print progress`} />
         <div class="metrics">
-          <Metric label={printer.nozzleLabel} value={printer.nozzle} labelAttributes={{ 'data-nozzle-label':'' }} />
-          <Metric label="Bed" value={printer.bed} />
-          <Metric label="Layer" value={printer.layer} />
-          <Metric label="Remaining" value={printer.remaining} />
+          <Metric label={printer.nozzleLabel} value={printer.nozzle} labelAttributes={{ 'data-nozzle-label':'' }} valueAttributes={{ 'data-nozzle':'' }} />
+          <Metric label="Bed" value={printer.bed} valueAttributes={{ 'data-bed':'' }} />
+          <Metric label="Layer" value={printer.layer} valueAttributes={{ 'data-layer':'' }} />
+          <Metric label="Remaining" value={printer.remaining} valueAttributes={{ 'data-remaining':'' }} />
         </div>
         <div class="health-line">
           <span data-last-seen>{printer.lastSeen}</span>
