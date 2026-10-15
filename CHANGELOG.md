@@ -8,7 +8,8 @@ Historical entries describe the behaviour of the controller at the time of that 
 
 - Fixes blank routed controller pages after using the browser Refresh/Reload button on routes such as Queue & history, Print Library, Maintenance, Printer groups, Reports & analytics, Alerts & notifications, Backup & recovery, Diagnostics and Licence.
 - Moves the initial route render until after controller UI state initialization, preventing a startup temporal-dead-zone error on non-dashboard paths while retaining the existing SPA route fallback and in-app navigation behaviour.
-- Adds regression coverage that locks direct-route startup ordering after controller state initialization.
+- Re-activates the current route after all frontend modules have registered their handlers so direct refresh also runs the route's normal data-loading path; this restores populated Reports filters/KPIs and keeps other routed pages consistent.
+- Adds regression coverage for both direct-route startup ordering and routed data loading after module registration.
 
 ## v0.47.0
 
