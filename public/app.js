@@ -535,21 +535,32 @@ function updateDashboardTableSortHeader() {
   }
 }
 
-function applyDashboardTableSort() {
-  const cards = [...fleetEl.querySelectorAll('[data-printer-card]')];
-  if (dashboardViewMode !== 'table' || !dashboardTableSort.key) {
-    for (const card of cards) card.style.removeProperty('order');
-    updateDashboardTableSortHeader();
-    return;
-  }
-
+function dashboardTableOrderMap() {
+  if (dashboardViewMode !== 'table' || !dashboardTableSort.key) return null;
   const manualOrder = new Map(fleet.map((printer, index) => [printer.id, index]));
   const sorted = fleet.slice().sort((left, right) => {
     const result = compareDashboardTablePrinters(left, right);
     if (result) return result;
     return (manualOrder.get(left.id) ?? Number.MAX_SAFE_INTEGER) - (manualOrder.get(right.id) ?? Number.MAX_SAFE_INTEGER);
   });
-  const order = new Map(sorted.map((printer, index) => [printer.id, index]));
+  return new Map(sorted.map((printer, index) => [printer.id, index]));
+}
+
+function applyDashboardTableSort() {
+  if (window.__PFC_PREACT_FLEET__) {
+    updateDashboardTableSortHeader();
+    publishDashboardPrinterState();
+    return;
+  }
+
+  const cards = [...fleetEl.querySelectorAll('[data-printer-card]')];
+  const order = dashboardTableOrderMap();
+  if (!order) {
+    for (const card of cards) card.style.removeProperty('order');
+    updateDashboardTableSortHeader();
+    return;
+  }
+
   for (const card of cards) card.style.order = String(order.get(card.dataset.printerCard) ?? Number.MAX_SAFE_INTEGER);
   updateDashboardTableSortHeader();
 }
@@ -2697,16 +2708,22 @@ function renderSummary() {
 }
 
 function applyDashboardFilter() {
-  let visible = 0;
+  const visible = fleet.filter((printer) => matchesDashboardGroup(printer) && matchesDashboardFilter(printer)).length;
+  fleetEl.classList.toggle('filtered', dashboardFilter !== 'all' || Boolean(dashboardGroupId));
+  fleetFilterEmptyEl?.classList.toggle('hidden', fleet.length === 0 || visible > 0);
+  fleetTableHeader?.classList.toggle('hidden', dashboardViewMode !== 'table' || visible === 0);
+
+  if (window.__PFC_PREACT_FLEET__) {
+    updateDashboardTableSortHeader();
+    publishDashboardPrinterState();
+    return;
+  }
+
   for (const card of fleetEl.querySelectorAll('[data-printer-card]')) {
     const printer = fleet.find((item) => item.id === card.dataset.printerCard);
     const show = Boolean(printer && matchesDashboardGroup(printer) && matchesDashboardFilter(printer));
     card.classList.toggle('hidden', !show);
-    if (show) visible += 1;
   }
-  fleetEl.classList.toggle('filtered', dashboardFilter !== 'all' || Boolean(dashboardGroupId));
-  fleetFilterEmptyEl?.classList.toggle('hidden', fleet.length === 0 || visible > 0);
-  fleetTableHeader?.classList.toggle('hidden', dashboardViewMode !== 'table' || visible === 0);
   applyDashboardTableSort();
 }
 
@@ -3304,11 +3321,15 @@ function updateBatchUi() {
   if (batchModeMenuBtn) batchModeMenuBtn.textContent = fleetModeLabel;
   batchSelectedCount.textContent = String(selectedPrinterIds.size);
 
-  for (const card of fleetEl.querySelectorAll('[data-printer-card]')) {
-    const selected = selectedPrinterIds.has(card.dataset.printerCard);
-    card.classList.toggle('selected', selected);
-    const checkbox = card.querySelector('[data-printer-select]');
-    if (checkbox) checkbox.checked = selected;
+  if (window.__PFC_PREACT_FLEET__) {
+    publishDashboardPrinterState();
+  } else {
+    for (const card of fleetEl.querySelectorAll('[data-printer-card]')) {
+      const selected = selectedPrinterIds.has(card.dataset.printerCard);
+      card.classList.toggle('selected', selected);
+      const checkbox = card.querySelector('[data-printer-select]');
+      if (checkbox) checkbox.checked = selected;
+    }
   }
 
   batchToolbar.querySelectorAll('[data-batch-open],[data-batch-direct]').forEach((button) => {
@@ -3603,33 +3624,171 @@ function updateCard(card, printer) {
   updateDashboardFilamentOverlay(card, printer);
 }
 
+function dashboardTemperatureText(temperature) {
+  const actual = Number(temperature?.actual);
+  const target = Number(temperature?.target);
+  return Number.isFinite(actual) && Number.isFinite(target)
+    ? `${actual.toFixed(0)} / ${target.toFixed(0)} °C`
+    : '—';
+}
+
+function dashboardPrinterViewModel(printer, sortOrder = null) {
+  const status = printer?.status || null;
+  const state = stateName(printer);
+  const rawState = rawStateName(printer);
+  const progress = Math.max(0, Math.min(100, Math.round(Number(status?.progress || 0))));
+  const modelLabel = printerModelLabel(printer);
+  const maintenanceState = printerMaintenanceState(printer);
+  const maintenanceText = maintenanceStatusText(printer);
+  const activityStatus = printerActivityStatus(printer);
+  const showCardActivity = Boolean(activityStatus.active && activityStatus.kind !== 'chamber-preheat');
+  const showLicenseSlots = Boolean(licenseState?.enforcementEnabled && licenseState?.overLimit && !printer.simulated);
+  const licenceActive = printer.licenseActive !== false;
+  const printerSelected = selectedPrinterIds.has(printer.id) && licenceActive;
+  const preheat = printer.chamberPreheat;
+  const clearance = queueBedClearance(printer.id);
+  const activeTool = status?.activeTool != null && Number.isInteger(Number(status.activeTool))
+    ? Number(status.activeTool)
+    : null;
+  const jobStatus = String(status?.status || '').toLowerCase();
+  const paused = jobStatus === 'pause' || jobStatus === 'paused';
+  const printing = ['printing', 'print', 'running'].includes(jobStatus);
+  const canControlJob = Boolean(printer.online && printer.capabilities?.jobControl && licenceActive && (printing || paused));
+  const filamentSources = dashboardFilamentSources(printer);
+  const visibleFilaments = filamentSources.slice(0, MAX_DASHBOARD_FILAMENT_SWATCHES).map((source) => ({
+    key:source.key,
+    color:source.color || '',
+    tooltip:dashboardFilamentTooltip(source)
+  }));
+  const preheatTarget = preheat?.active
+    ? (preheat.heatSource === 'chamber'
+      ? `${Number(preheat.chamberTemperature).toFixed(0)} °C chamber`
+      : `${Number(preheat.bedTemperature).toFixed(0)} °C bed`)
+    : '';
+  const clearanceOutcome = String(clearance?.jobStatus || '').toLowerCase() === 'cancelled' ? 'cancelled' : 'finished';
+
+  return {
+    id:String(printer.id || ''),
+    name:String(printer.name || ''),
+    hostText:`${printer.host || ''}${modelLabel ? ` · ${modelLabel}` : ''}`,
+    visible:matchesDashboardGroup(printer) && matchesDashboardFilter(printer),
+    selected:printerSelected,
+    selectionDisabled:!licenceActive,
+    sortOrder:sortOrder?.get(printer.id) ?? null,
+    state,
+    stateClass:String(state || '').toLowerCase(),
+    badgeTitle:String(rawState || '').toLowerCase() !== String(state || '').toLowerCase() ? `Printer reports ${rawState}` : '',
+    maintenance:{
+      state:maintenanceState,
+      actionText:`Open maintenance for ${printer.name}. ${maintenanceText}`
+    },
+    image:{
+      key:dashboardPrinterImageKey(printer),
+      label:modelLabel || printer.name || '3D printer'
+    },
+    filaments:{
+      sources:visibleFilaments,
+      extra:Math.max(0, filamentSources.length - visibleFilaments.length)
+    },
+    activity:{
+      visible:showCardActivity,
+      title:showCardActivity ? activityStatus.title : 'PRINTER ACTIVITY',
+      summary:showCardActivity ? activityStatus.text : ''
+    },
+    licence:{
+      visible:showLicenseSlots,
+      inactive:!licenceActive,
+      title:showLicenseSlots ? (licenceActive ? 'LICENCE SLOT ACTIVE' : 'INACTIVE — LICENCE LIMIT') : '',
+      summary:showLicenseSlots
+        ? (licenceActive
+          ? 'This printer may receive new controller commands.'
+          : 'Monitoring remains available, but new jobs and control commands are blocked.')
+        : '',
+      toggleText:showLicenseSlots ? (licenceActive ? 'Release slot' : 'Use licence slot') : '',
+      toggleValue:showLicenseSlots ? (licenceActive ? 'off' : 'on') : '',
+      toggleDisabled:Boolean(showLicenseSlots && !licenceActive && Number(licenseState?.slotsRemaining || 0) <= 0),
+      toggleTitle:showLicenseSlots && !licenceActive && Number(licenseState?.slotsRemaining || 0) <= 0
+        ? 'Release a licence slot from another printer first'
+        : ''
+    },
+    preheat:{
+      visible:Boolean(preheat?.active),
+      summary:preheat?.active ? `${preheatTarget} · ${formatCountdown(preheatRemainingSeconds(preheat))} remaining` : ''
+    },
+    clearance:{
+      visible:Boolean(clearance),
+      summary:clearance ? `${clearance.fileName} ${clearanceOutcome} · queue paused` : ''
+    },
+    jobName:status?.fileName || (printer.online ? 'No active job' : 'Printer offline'),
+    progress,
+    progressText:`${progress}%`,
+    nozzleLabel:activeTool !== null && printer.capabilities?.toolTemperatures ? `Active T${activeTool}` : 'Nozzle',
+    nozzle:dashboardTemperatureText(status?.nozzle),
+    bed:dashboardTemperatureText(status?.bed),
+    layer:status?.totalLayers ? `${status.currentLayer} / ${status.totalLayers}` : '—',
+    remaining:formatDuration(status?.remainingSeconds),
+    lastSeen:printer.online ? `Seen ${formatLastSeen(printer.lastSeen)}` : `Last seen ${formatLastSeen(printer.lastSeen)}`,
+    latency:printer.latencyMs != null ? `${printer.latencyMs} ms` : '',
+    jobControl:{
+      visible:canControlJob,
+      action:canControlJob ? (paused ? 'resume' : 'pause') : '',
+      text:canControlJob ? (paused ? 'Resume' : 'Pause') : '',
+      title:canControlJob ? (paused ? 'Resume the current print' : 'Pause the current print') : '',
+      className:canControlJob
+        ? `card-job-control ${paused ? 'positive' : 'attention'}`
+        : 'secondary card-job-control hidden'
+    },
+    error:String(printer.error || ''),
+    errorVisible:Boolean(printer.error && !printer.online)
+  };
+}
+
+function publishDashboardPrinterState() {
+  if (!window.__PFC_PREACT_FLEET__ || reorderInProgress) return;
+
+  for (const printer of fleet) {
+    if (printer.licenseActive === false) selectedPrinterIds.delete(printer.id);
+  }
+
+  const sortOrder = dashboardTableOrderMap();
+  const detail = {
+    printers:fleet.map((printer) => dashboardPrinterViewModel(printer, sortOrder))
+  };
+  window.__PFC_DASHBOARD_FLEET_STATE__ = detail;
+  window.dispatchEvent(new CustomEvent('pfc:dashboard-fleet-state', { detail }));
+}
+
 function reconcileFleet() {
   emptyEl.classList.toggle('hidden', fleet.length !== 0);
   fleetEl.classList.toggle('hidden', fleet.length === 0);
   renderSummary();
 
-  const wanted = new Set(fleet.map((printer) => printer.id));
-  for (const card of fleetEl.querySelectorAll('[data-printer-card]')) {
-    if (!wanted.has(card.dataset.printerCard)) {
-      card.remove();
+  if (window.__PFC_PREACT_FLEET__) {
+    publishDashboardPrinterState();
+  } else {
+    const wanted = new Set(fleet.map((printer) => printer.id));
+    for (const card of fleetEl.querySelectorAll('[data-printer-card]')) {
+      if (!wanted.has(card.dataset.printerCard)) {
+        card.remove();
+      }
     }
-  }
 
-  for (const [index, printer] of fleet.entries()) {
-    let card = fleetEl.querySelector(`[data-printer-card="${CSS.escape(printer.id)}"]`);
-    if (!card) {
-      fleetEl.insertAdjacentHTML('beforeend', cardMarkup(printer));
-      card = fleetEl.lastElementChild;
-    }
-    updateCard(card, printer);
+    for (const [index, printer] of fleet.entries()) {
+      let card = fleetEl.querySelector(`[data-printer-card="${CSS.escape(printer.id)}"]`);
+      if (!card) {
+        fleetEl.insertAdjacentHTML('beforeend', cardMarkup(printer));
+        card = fleetEl.lastElementChild;
+      }
+      updateCard(card, printer);
 
-    // Do not detach/reinsert cards on every live fleet event. Moving a button's
-    // card between pointerdown and click can cause browsers to drop the click,
-    // making Open printer appear intermittently unresponsive. Only move a card
-    // when its actual fleet order differs from the DOM.
-    if (!reorderInProgress) {
-      const cardAtIndex = fleetEl.querySelectorAll('[data-printer-card]')[index];
-      if (cardAtIndex !== card) fleetEl.insertBefore(card, cardAtIndex || null);
+      // Do not detach/reinsert cards on every live fleet event. Moving a button's
+      // card between pointerdown and click can cause browsers to drop the click,
+      // making Open printer appear intermittently unresponsive. Only move a card
+      // when its actual fleet order differs from the DOM.
+      if (!reorderInProgress) {
+        const cardAtIndex = fleetEl.querySelectorAll('[data-printer-card]')[index];
+        if (cardAtIndex !== card) fleetEl.insertBefore(card, cardAtIndex || null);
+      }
     }
   }
 
@@ -3649,6 +3808,7 @@ async function persistDashboardOrder() {
     await api('/api/printers/order', { method:'PUT', body: JSON.stringify({ printerIds }) });
     const order = new Map(printerIds.map((id, index) => [id, index]));
     fleet.sort((a, b) => (order.get(a.id) ?? Number.MAX_SAFE_INTEGER) - (order.get(b.id) ?? Number.MAX_SAFE_INTEGER));
+    publishDashboardPrinterState();
   } catch (error) {
     console.error('Could not save printer order', error);
     await loadInitialFleet();
