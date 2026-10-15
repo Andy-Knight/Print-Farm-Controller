@@ -4,6 +4,7 @@ import { Metric, ProgressBar, StatusBadge, ToastHost, UiButton } from './compone
 import { initPrinterDetailsUi } from './printer-details.jsx';
 import { initPrintQueueUi } from './print-queue.jsx';
 import { initPrintLibraryUi } from './print-library.jsx';
+import { initMaintenanceUi } from './maintenance.jsx';
 
 const FILTERS = Object.freeze([
   { key:'all', label:'All Printers' },
@@ -372,3 +373,5 @@ initPrinterDetailsUi();
 initPrintQueueUi();
 
 initPrintLibraryUi();
+
+initMaintenanceUi();
