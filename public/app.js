@@ -3168,7 +3168,12 @@ function renderPrintQueue() {
     const nextActiveMarkup = clearanceMarkup || productionMarkup || jobsMarkup
       ? `${clearanceMarkup}${productionMarkup}${jobsMarkup}`
       : '<div class="queue-empty">No active, queued or review-blocked jobs.</div>';
-    queueActiveList.innerHTML = nextActiveMarkup;
+    if (queuePointerInteractionActive) {
+      queueRenderPending = true;
+    } else {
+      queueActiveList.innerHTML = nextActiveMarkup;
+      queueRenderPending = false;
+    }
   }
   if (queueHistoryList) {
     const productionHistoryMarkup = historyProduction.map((batch) => productionBatchMarkup(batch, { history:true })).join('');
