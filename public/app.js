@@ -995,11 +995,61 @@ function formatDiagnosticBytes(value) {
   return `${Math.round(bytes / 1024 / 1024)} MB`;
 }
 
+function diagnosticsStatusViewModel(status = {}) {
+  const loggingAvailable = status.enabled !== false;
+  const items = [
+    { label:'Logging', value:loggingAvailable ? 'Enabled' : 'Unavailable', code:false },
+    { label:'Logging level', value:String(status.level || 'info').toUpperCase(), code:false },
+    { label:'Verbose until', value:status.verbose ? diagnosticStatusTime(status.verboseUntil) : 'Off', code:false },
+    { label:'Log location', value:String(status.logDir || '—'), code:true },
+    {
+      label:'Rotation',
+      value:status.maxFileBytes
+        ? `${Math.round(status.maxFileBytes / 1024 / 1024)} MB × ${status.retainedFiles || '—'} files`
+        : '—',
+      code:false
+    }
+  ];
+  if (status.memory) {
+    items.push(
+      {
+        label:'Heap memory',
+        value:`${formatDiagnosticBytes(status.memory.heapUsedBytes)} / ${formatDiagnosticBytes(status.memory.heapLimitBytes)} · ${status.memory.heapUsedPercent ?? '—'}% · ${String(status.memory.state || 'normal').toUpperCase()}`,
+        code:false
+      },
+      { label:'Process RSS', value:formatDiagnosticBytes(status.memory.rssBytes), code:false }
+    );
+  }
+  return items;
+}
+
+function diagnosticsEntriesViewModel(entries = []) {
+  return entries.slice().reverse().map((entry, index) => ({
+    key:String(entry.id || `${entry.timestamp || ''}:${entry.subsystem || ''}:${index}`),
+    level:String(entry.level || 'INFO'),
+    levelClass:String(entry.level || 'INFO').toLowerCase(),
+    subsystem:String(entry.subsystem || 'controller'),
+    time:diagnosticStatusTime(entry.timestamp),
+    message:String(entry.message || ''),
+    meta:entry.meta && Object.keys(entry.meta).length ? JSON.stringify(entry.meta, null, 2) : ''
+  }));
+}
+
+function publishDiagnosticsUiState(payload = {}) {
+  if (!window.__PFC_PREACT_DIAGNOSTICS__) return;
+  const detail = {
+    statusItems:diagnosticsStatusViewModel(payload?.status || diagnosticsState || {}),
+    entries:diagnosticsEntriesViewModel(Array.isArray(payload?.entries) ? payload.entries : [])
+  };
+  window.__PFC_DIAGNOSTICS_UI_STATE__ = detail;
+  window.dispatchEvent(new CustomEvent('pfc:diagnostics-ui-state', { detail }));
+}
+
 function renderDiagnostics(payload) {
   diagnosticsState = payload?.status || diagnosticsState || {};
   const status = diagnosticsState || {};
   const loggingAvailable = status.enabled !== false;
-  if (diagnosticsStatus) {
+  if (!window.__PFC_PREACT_DIAGNOSTICS__ && diagnosticsStatus) {
     diagnosticsStatus.innerHTML = `
       <div><span>Logging</span><strong>${loggingAvailable ? 'Enabled' : 'Unavailable'}</strong></div>
       <div><span>Logging level</span><strong>${escapeHtml(String(status.level || 'info').toUpperCase())}</strong></div>
@@ -1023,7 +1073,9 @@ function renderDiagnostics(payload) {
   }
 
   const entries = Array.isArray(payload?.entries) ? payload.entries : [];
-  if (diagnosticsLog) {
+  if (window.__PFC_PREACT_DIAGNOSTICS__) {
+    publishDiagnosticsUiState({ status, entries });
+  } else if (diagnosticsLog) {
     diagnosticsLog.innerHTML = entries.length ? entries.slice().reverse().map((entry) => {
       const meta = entry.meta && Object.keys(entry.meta).length ? JSON.stringify(entry.meta, null, 2) : '';
       return `<article class="diagnostic-entry diagnostic-${escapeHtml(String(entry.level || 'INFO').toLowerCase())}">
