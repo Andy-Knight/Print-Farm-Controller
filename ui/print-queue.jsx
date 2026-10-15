@@ -61,7 +61,7 @@ function PrioritySelect({ item, production = false }) {
   return (
     <label class="queue-priority-control">
       Priority
-      <select value={item.priority || 'normal'} {...attr}>
+      <select key={`${item.id}:${item.priority || 'normal'}`} defaultValue={item.priority || 'normal'} {...attr}>
         <option value="high">High</option>
         <option value="normal">Normal</option>
         <option value="low">Low</option>
@@ -191,7 +191,7 @@ function ProductionBatch({ item }) {
           <PrioritySelect item={item} production />
           <label class="production-quantity-control">
             Quantity
-            <input type="number" min="1" max="999" step="1" value={item.quantity} data-production-quantity-input={item.id} />
+            <input key={`${item.id}:${item.quantity}`} type="number" min="1" max="999" step="1" defaultValue={item.quantity} data-production-quantity-input={item.id} />
           </label>
           <UiButton variant="secondary" data-production-quantity={item.id}>Update quantity</UiButton>
           {item.cancelable > 0 && (
