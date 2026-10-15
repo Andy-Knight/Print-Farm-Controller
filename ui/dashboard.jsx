@@ -388,6 +388,9 @@ function PrinterFleet() {
   return <>{state.printers.map((printer) => <PrinterCard key={printer.id} printer={printer} />)}</>;
 }
 
+// Set only after the optional Preact module (and its imports) evaluated successfully.
+window.__PFC_PREACT_BUNDLE_LOADED__ = true;
+
 const dashboardRoot = document.querySelector('#dashboardPreactRoot');
 if (dashboardRoot) {
   render(<DashboardOverview />, dashboardRoot);
