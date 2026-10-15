@@ -1054,8 +1054,8 @@ input:focus,select:focus { border-color:#7a9fbe; }
 .prusa-tool-filament-control input { display:block; width:100%; min-height:34px; margin-top:4px; }
 .prusa-tool-filament-control .color-family-dropdown { margin-top:4px; }
 .prusa-tool-filament-control .color-family-dropdown summary { height:var(--dropdown-field-height); min-height:var(--dropdown-field-height); padding:6px 8px; }
-.prusa-tool-filament-control .mini-actions { grid-column:1 / -1; display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:6px; margin-top:0; }
-.prusa-tool-filament-control button { height:var(--button-field-height); min-height:var(--button-field-height); padding:6px 9px; }
+.prusa-tool-filament-control > button { grid-column:1 / -1; width:100%; height:var(--button-field-height); min-height:var(--button-field-height); padding:6px 9px; }
+.prusa-tool-filament-control > .prusa-filament-clear { margin-top:0; }
 .multi-tool-control-help {
   display:block;
   margin-top:6px;
@@ -1071,7 +1071,7 @@ input:focus,select:focus { border-color:#7a9fbe; }
 .prusa-tool-filament-control > .multi-tool-control-help {
   grid-column:1 / -1;
 }
-@media (max-width:520px) { .prusa-tool-filament-control { grid-template-columns:1fr; } .prusa-tool-filament-control .mini-actions,.prusa-tool-filament-control > .multi-tool-control-help { grid-column:1; } }
+@media (max-width:520px) { .prusa-tool-filament-control { grid-template-columns:1fr; } .prusa-tool-filament-control > button,.prusa-tool-filament-control > .multi-tool-control-help { grid-column:1; } }
 
 .material-tool.filament-missing > span { color:#df9ba1; }
 .material-swatch { width:20px; height:20px; flex:0 0 auto; border-radius:50%; border:1px solid rgba(255,255,255,.3); box-shadow:inset 0 0 0 1px rgba(0,0,0,.25); }
