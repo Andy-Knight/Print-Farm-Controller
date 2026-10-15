@@ -561,3 +561,11 @@ test('dashboard summary headings do not render decorative dots', async () => {
   assert.doesNotMatch(dashboard, /summary-card-label[^\n]*<i/);
   assert.doesNotMatch(styles, /summary-card-label i/);
 });
+
+
+test('dashboard summary cards keep labels above counts', async () => {
+  const styles = await read('public/styles.css');
+  assert.match(styles, /\.summary-card \{[\s\S]*display:block;[\s\S]*text-align:left;/);
+  assert.match(styles, /\.summary-card-label \{[\s\S]*display:block;/);
+  assert.match(styles, /\.summary-card > b \{[\s\S]*display:block;/);
+});
