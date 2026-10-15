@@ -74,3 +74,33 @@ test('vanilla dashboard fallback remains in the HTML', async () => {
   assert.ok(html.includes('id="dashboardViewToggle"'));
   assert.ok(html.includes('id="summary"'));
 });
+
+
+test('reusable Preact design system preserves dashboard compatibility hooks', async () => {
+  const [components, dashboard, app, styles] = await Promise.all([
+    read('ui/components.jsx'),
+    read('ui/dashboard.jsx'),
+    read('public/app.js'),
+    read('public/styles.css')
+  ]);
+
+  for (const component of ['UiButton', 'StatusBadge', 'ProgressBar', 'Metric', 'ToastHost']) {
+    assert.match(components, new RegExp(`export function ${component}\\b`));
+  }
+  assert.match(components, /legacyVariantClass/);
+  assert.match(components, /data-printer-state/);
+  assert.match(components, /data-progress-bar/);
+  assert.match(dashboard, /<StatusBadge/);
+  assert.match(dashboard, /<ProgressBar/);
+  assert.match(dashboard, /<Metric/);
+  assert.match(dashboard, /<ToastHost/);
+  assert.match(dashboard, /data-nozzle/);
+  assert.match(dashboard, /data-bed/);
+  assert.match(dashboard, /data-layer/);
+  assert.match(dashboard, /data-remaining/);
+  assert.match(app, /function showUiToast/);
+  assert.match(app, /pfc:toast/);
+  assert.match(styles, /Preact UI design-system layer/);
+  assert.match(styles, /\.ui-toast-host/);
+  assert.match(styles, /\.ui-status-badge::before/);
+});
