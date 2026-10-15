@@ -246,3 +246,30 @@ test('All filament Set and nozzle Assign buttons share a compact fixed size inst
   assert.doesNotMatch(css, /\.creator5-tool-nozzle-control \.mini-actions > button \{[^}]*width:100%/);
   assert.doesNotMatch(css, /\.ad5m-(?:material|nozzle)-actions > button \{[^}]*width:100%/);
 });
+
+test('All printer toolhead filament type, colour and nozzle dropdowns share one width', () => {
+  const css = readFileSync(new URL('../public/styles.css', import.meta.url), 'utf8');
+  const start = css.indexOf('.material-panel { --toolhead-dropdown-width:160px; }');
+  const end = css.indexOf('\n}', start);
+  assert.ok(start >= 0 && end > start, 'shared dropdown width declaration exists');
+  const rule = css.slice(start, end + 2);
+  const controls = [
+    '.material-panel .u1-filament-config-control select',
+    '.material-panel .creator5-filament-config-control select',
+    '.material-panel .prusa-tool-filament-control select',
+    '.material-panel .material-designation-fields select',
+    '.material-panel .nozzle-designation-control select',
+    '.material-panel .u1-filament-config-control .color-family-dropdown',
+    '.material-panel .creator5-filament-config-control .creator5-color-dropdown',
+    '.material-panel .prusa-tool-filament-control .color-family-dropdown',
+    '.material-panel .material-designation-fields .color-family-dropdown'
+  ];
+  for (const selector of controls) {
+    assert.ok(rule.includes(selector), `Missing shared sizing rule for ${selector}`);
+  }
+  assert.match(rule, /width:var\(--toolhead-dropdown-width\);/);
+  assert.match(rule, /max-width:100%;/);
+  assert.match(rule, /min-width:0;/);
+  assert.ok(start > css.indexOf('.material-tool-nozzle .nozzle-designation-control select'),
+    'shared width needs to override older column-filling nozzle widths');
+});
