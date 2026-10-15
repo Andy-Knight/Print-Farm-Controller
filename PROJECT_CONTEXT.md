@@ -18,7 +18,7 @@ If chat context and this file disagree about the codebase, inspect current GitHu
 
 Active development: **v0.47.0** on `feature/preact-ui-foundation`.
 
-This introduces Preact incrementally rather than rewriting the controller UI. The first Preact island owns the dashboard summary filters, printer-group selector and Cards/Table view switch, with state/actions bridged to the existing controller logic. Preact is bundled locally with esbuild for source, container and Windows SEA builds. A fresh source ZIP runs `npm install --include=dev` once to generate the optional browser bundle; `npm start` itself remains dependency-free and the existing HTML/vanilla-JavaScript dashboard remains usable if the Preact bundle is absent.
+This introduces Preact incrementally rather than rewriting the controller UI. The dashboard Preact layer now owns the summary filters, printer-group selector, Cards/Table view switch, printer cards and compact table rows. Live printer data is normalized into a presentation view model while the existing controller command/event delegation continues to own printer actions, selection, sorting, maintenance shortcuts and drag/reorder. Preact is bundled locally with esbuild for source, container and Windows SEA builds. A fresh source ZIP runs `npm install --include=dev` once to generate the optional browser bundle; `npm start` itself remains dependency-free and the existing HTML/vanilla-JavaScript dashboard remains usable if the Preact bundle is absent.
 
 ## Architecture
 
