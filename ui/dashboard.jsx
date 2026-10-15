@@ -264,7 +264,6 @@ function PrinterCard({ printer }) {
     <article
       class={classes}
       data-printer-card={printer.id}
-      draggable={false}
       style={printer.sortOrder == null ? undefined : { order:printer.sortOrder }}
     >
       <div class="card-head">
