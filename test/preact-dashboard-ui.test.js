@@ -397,3 +397,35 @@ test('Preact Backup and Recovery keeps provider, schedule and restore execution 
   assert.match(app, /backupStatusGrid\.innerHTML =/);
   assert.match(app, /restoreInspectionSummary\.innerHTML =/);
 });
+
+
+test('Preact Printer Groups preserves group cards and delegated actions', async () => {
+  const [groupsUi, dashboard, app] = await Promise.all([
+    read('ui/printer-groups.jsx'),
+    read('ui/dashboard.jsx'),
+    read('public/app.js')
+  ]);
+
+  assert.match(dashboard, /initPrinterGroupsUi/);
+  assert.match(groupsUi, /function PrinterGroupCard/);
+  assert.match(groupsUi, /function PrinterGroupsList/);
+  assert.match(groupsUi, /data-printer-group-card/);
+  assert.match(groupsUi, /data-printer-group-edit/);
+  assert.match(groupsUi, /data-printer-group-delete/);
+  assert.match(app, /function printerGroupsViewModel/);
+  assert.match(app, /function publishPrinterGroupsUiState/);
+  assert.match(app, /pfc:printer-groups-ui-state/);
+  assert.match(app, /window\.__PFC_PREACT_PRINTER_GROUPS__/);
+  assert.match(app, /printerGroupsList\?\.addEventListener\('click'/);
+});
+
+test('Preact Printer Groups keeps the editor, multi-group membership and vanilla fallback', async () => {
+  const app = await read('public/app.js');
+  assert.match(app, /function renderPrinterGroupMembers/);
+  assert.match(app, /function groupsForPrinter/);
+  assert.match(app, /Also in/);
+  assert.match(app, /printerGroupForm\?\.addEventListener\('submit'/);
+  assert.match(app, /data-printer-group-member/);
+  assert.match(app, /if \(window\.__PFC_PREACT_PRINTER_GROUPS__\) \{[\s\S]*publishPrinterGroupsUiState\(\);[\s\S]*return;/);
+  assert.match(app, /printerGroupsList\.innerHTML = groups\.length/);
+});
