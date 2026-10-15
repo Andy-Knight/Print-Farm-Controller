@@ -139,3 +139,9 @@ test('Preact printer-detail chrome preserves six-tab behavior and vanilla fallba
   assert.match(styles, /Preact printer-detail chrome/);
   assert.match(styles, /\.printer-detail-preact-tabs/);
 });
+
+
+test('printer details stay vertically anchored while switching tabs', async () => {
+  const styles = await read('public/styles.css');
+  assert.match(styles, /\.printer-dialog\s*\{[\s\S]*top:15px;[\s\S]*bottom:auto;[\s\S]*margin:0 auto;/);
+});
