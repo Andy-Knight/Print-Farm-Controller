@@ -466,3 +466,34 @@ test('Preact Diagnostics keeps filters, verbose controls, bundle download and va
   assert.match(app, /diagnosticsStatus\.innerHTML =/);
   assert.match(app, /diagnosticsLog\.innerHTML =/);
 });
+
+
+test('Preact Licence preserves status, entitlement details and warnings', async () => {
+  const [licenseUi, dashboard, app] = await Promise.all([
+    read('ui/license.jsx'),
+    read('ui/dashboard.jsx'),
+    read('public/app.js')
+  ]);
+
+  assert.match(dashboard, /initLicenseUi/);
+  assert.match(licenseUi, /function LicenseStatus/);
+  assert.match(licenseUi, /function LicenseInfoGrid/);
+  assert.match(licenseUi, /function LicenseDetails/);
+  assert.match(licenseUi, /data-license-status/);
+  assert.match(licenseUi, /license-file-path/);
+  assert.match(licenseUi, /license-dialog-warning/);
+  assert.match(app, /function licenseViewModel/);
+  assert.match(app, /function publishLicenseUiState/);
+  assert.match(app, /pfc:license-ui-state/);
+  assert.match(app, /window\.__PFC_PREACT_LICENSE__/);
+});
+
+test('Preact Licence keeps install, signature verification and vanilla fallback in app logic', async () => {
+  const app = await read('public/app.js');
+  assert.match(app, /licenseInstallForm\?\.addEventListener\('submit'/);
+  assert.match(app, /api\('\/api\/license\/install'/);
+  assert.match(app, /Verifying licence signature/);
+  assert.match(app, /if \(window\.__PFC_PREACT_LICENSE__\) \{[\s\S]*publishLicenseUiState\(license\)/);
+  assert.match(app, /licenseDetails\.innerHTML =/);
+  assert.match(app, /submit\.textContent = license\.licenseStatus === 'valid' \? 'Replace licence' : 'Install licence'/);
+});
