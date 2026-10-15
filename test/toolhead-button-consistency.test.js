@@ -190,7 +190,7 @@ test('Creator 5 and Creator 5 Pro show Set filament for every toolhead, includin
         const html = render(printer, {index, filament:{material:'PLA', color:'#ff0000'}});
         assert.match(html, new RegExp(`<button type="button" class="primary" data-creator5-filament-config-save="${index}"${disabled ? ' disabled' : ''}>Set filament<\\/button>`));
         assert.doesNotMatch(html, /Set on printer/);
-        assert.equal((html.match(/<button\\b/g) || []).length, 1, 'exactly one filament action per toolhead');
+        assert.equal((html.match(/<button\b/g) || []).length, 1, 'exactly one filament action per toolhead');
       }
     }
   }
@@ -211,7 +211,7 @@ test('Creator 5 and Creator 5 Pro nozzle assignment is primary, full width, and 
       assert.match(html, new RegExp(`class="primary" data-tool-nozzle-save="${index}">Assign<\\/button>`));
       assert.doesNotMatch(html, /data-tool-nozzle-clear|>Clear<\/button>|Clear makes it unknown/);
       assert.match(html, /creator5-tool-nozzle-control/);
-      assert.equal((html.match(/<button\\b/g) || []).length, 1);
+      assert.equal((html.match(/<button\b/g) || []).length, 1);
     }
   }
   assert.match(css, /\.creator5-tool-nozzle-control \.mini-actions \{[^}]*grid-template-columns:minmax\(0,1fr\)/);
