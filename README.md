@@ -107,12 +107,21 @@ The internal `allowDevelopmentOverrides:true` loader option exists for tests/dev
 
 ## Run
 
-Requires Node.js 24 or later. Development has been performed against Node.js 24.21.0. There are no npm runtime dependencies. Preact is a build-time development dependency and is bundled into the browser assets before the controller starts or is packaged.
-To run from the source files launch with the following commands from the command line, making sure npm is available.
+Requires Node.js 24 or later. Development has been performed against Node.js 24.21.0. There are no npm runtime dependencies. Preact and esbuild are build-time development dependencies.
+
+After downloading a fresh source ZIP, or whenever `package.json` changes, install the development dependencies once:
+
+```bash
+npm install --include=dev
+```
+
+The install automatically builds the local Preact dashboard bundle. Start the controller normally after that:
 
 ```bash
 npm start
 ```
+
+If the optional Preact bundle is not present, the controller still starts and the existing vanilla-JavaScript dashboard fallback remains usable. Production container and Windows SEA builds generate and package the Preact bundle automatically.
 
 ## Reports and material costs
 
