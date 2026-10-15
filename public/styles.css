@@ -1019,6 +1019,16 @@ input:focus,select:focus { border-color:#7a9fbe; }
   width:100%;
   min-width:0;
 }
+.ad5m-material-actions,
+.ad5m-nozzle-actions {
+  display:grid;
+  grid-template-columns:minmax(0,1fr);
+}
+.ad5m-material-actions > button,
+.ad5m-nozzle-actions > button {
+  width:100%;
+  min-width:0;
+}
 .material-tool-nozzle .shared-nozzle-help { margin-top:8px; }
 .multi-tool-table .material-tool.filament-missing .material-tool-identity > span { color:#df9ba1; }
 
