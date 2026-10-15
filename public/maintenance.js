@@ -639,11 +639,21 @@ window.addEventListener('pfc:printer-groups-changed', () => {
 });
 
 for (const close of closeButtons) close.addEventListener('click', () => dialog?.close());
-for (const viewButton of viewButtons) {
-  viewButton.addEventListener('click', () => {
-    if (viewButton.dataset.maintenanceView === 'add') resetForm();
-    setMaintenanceView(viewButton.dataset.maintenanceView);
-  });
+
+window.addEventListener('pfc:maintenance-action', (event) => {
+  const action = event?.detail || {};
+  if (action.type !== 'view') return;
+  if (action.value === 'add') resetForm();
+  setMaintenanceView(action.value);
+});
+
+if (!window.__PFC_PREACT_MAINTENANCE__) {
+  for (const viewButton of viewButtons) {
+    viewButton.addEventListener('click', () => {
+      if (viewButton.dataset.maintenanceView === 'add') resetForm();
+      setMaintenanceView(viewButton.dataset.maintenanceView);
+    });
+  }
 }
 assignmentScopeInput?.addEventListener('change', updateAssignmentFields);
 cancelEditButton?.addEventListener('click', () => resetForm());
