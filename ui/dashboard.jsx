@@ -9,6 +9,7 @@ import { initAlertsUi } from './alerts.jsx';
 import { initReportingUi } from './reporting.jsx';
 import { initBackupRecoveryUi } from './backup-recovery.jsx';
 import { initPrinterGroupsUi } from './printer-groups.jsx';
+import { initDiagnosticsUi } from './diagnostics.jsx';
 
 const FILTERS = Object.freeze([
   { key:'all', label:'All Printers' },
@@ -387,3 +388,5 @@ initReportingUi();
 initBackupRecoveryUi();
 
 initPrinterGroupsUi();
+
+initDiagnosticsUi();
