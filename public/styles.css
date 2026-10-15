@@ -3596,18 +3596,6 @@ body:not([data-route="/"]) > main > :not(.route-page) { display:none !important;
   justify-content:space-between;
   gap:10px;
 }
-.summary-card-label i {
-  width:7px;
-  height:7px;
-  flex:0 0 7px;
-  border-radius:50%;
-  background:#45535e;
-  transition:background .16s ease, box-shadow .16s ease;
-}
-.summary-card.active .summary-card-label i {
-  background:#80bfff;
-  box-shadow:0 0 0 4px rgba(128,191,255,.10);
-}
 .ui-metric {
   transition:border-color .14s ease, background .14s ease;
 }
@@ -3686,8 +3674,6 @@ body:not([data-route="/"]) > main > :not(.route-page) { display:none !important;
   box-shadow:0 16px 36px rgba(42,58,72,.17);
 }
 :root[data-theme="light"] .ui-toast div > span { color:#60717f; }
-:root[data-theme="light"] .summary-card-label i { background:#9ba9b4; }
-:root[data-theme="light"] .summary-card.active .summary-card-label i { background:#377eb4; }
 
 
 /* Preact printer-detail chrome */
