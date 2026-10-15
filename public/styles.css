@@ -3572,7 +3572,15 @@ body:not([data-route="/"]) > main > :not(.route-page) { display:none !important;
 }
 .summary-card {
   position:relative;
+  display:block;
   overflow:hidden;
+  text-align:left;
+}
+.summary-card-label {
+  display:block;
+}
+.summary-card > b {
+  display:block;
 }
 .summary-card::after {
   content:"";
@@ -3589,12 +3597,6 @@ body:not([data-route="/"]) > main > :not(.route-page) { display:none !important;
 .summary-card.active::after {
   opacity:1;
   transform:scaleX(1);
-}
-.summary-card-label {
-  display:flex;
-  align-items:center;
-  justify-content:space-between;
-  gap:10px;
 }
 .ui-metric {
   transition:border-color .14s ease, background .14s ease;
