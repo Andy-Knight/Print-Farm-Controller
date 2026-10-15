@@ -359,3 +359,41 @@ test('Preact reporting keeps filters, filament form actions and vanilla fallback
   assert.match(reporting, /filamentList\.innerHTML = rows\.map/);
   assert.match(reporting, /if \(!window\.__PFC_PREACT_REPORTING__\) \{[\s\S]*tab\.addEventListener\('click'/);
 });
+
+
+test('Preact Backup and Recovery preserves tabs, status and restore inspection presentation', async () => {
+  const [backupPreact, dashboard, app] = await Promise.all([
+    read('ui/backup-recovery.jsx'),
+    read('ui/dashboard.jsx'),
+    read('public/app.js')
+  ]);
+
+  assert.match(dashboard, /initBackupRecoveryUi/);
+  assert.match(backupPreact, /function BackupTabs/);
+  assert.match(backupPreact, /function BackupStatus/);
+  assert.match(backupPreact, /function RestoreInspection/);
+  for (const tab of ['overview','google-drive','one-drive','s3','schedule','restore']) {
+    assert.match(backupPreact, new RegExp(`['"]${tab}['"]`));
+  }
+  assert.match(app, /function publishBackupRecoveryUiState/);
+  assert.match(app, /function backupStatusItemsViewModel/);
+  assert.match(app, /function restoreInspectionViewModel/);
+  assert.match(app, /pfc:backup-ui-state/);
+  assert.match(app, /pfc:backup-ui-action/);
+  assert.match(app, /window\.__PFC_PREACT_BACKUP__/);
+  assert.match(app, /backupUiInspection = null/);
+  assert.match(app, /backupUiInspection = restoreInspectionViewModel\(inspection\)/);
+});
+
+test('Preact Backup and Recovery keeps provider, schedule and restore execution controls in app logic', async () => {
+  const app = await read('public/app.js');
+  assert.match(app, /googleDriveConnectBtn\?\.addEventListener\('click', startGoogleDriveConnection\)/);
+  assert.match(app, /oneDriveConnectBtn\?\.addEventListener\('click', startOneDriveConnection\)/);
+  assert.match(app, /s3SaveConfigBtn\?\.addEventListener\('click', saveS3Configuration\)/);
+  assert.match(app, /backupSaveScheduleBtn\?\.addEventListener\('click', saveScheduledBackupSettings\)/);
+  assert.match(app, /restoreInspectBtn\?\.addEventListener\('click', inspectRestoreFile\)/);
+  assert.match(app, /restoreStageBtn\?\.addEventListener\('click', stageRestoreFile\)/);
+  assert.match(app, /if \(!window\.__PFC_PREACT_BACKUP__\) \{[\s\S]*tab\.addEventListener\('click'/);
+  assert.match(app, /backupStatusGrid\.innerHTML =/);
+  assert.match(app, /restoreInspectionSummary\.innerHTML =/);
+});
