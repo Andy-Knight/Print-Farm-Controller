@@ -116,7 +116,7 @@ function DashboardSummary({ state }) {
             aria-pressed={String(active)}
             onClick={() => dispatchDashboardAction('filter', item.key)}
           >
-            <span class="summary-card-label"><span class="subtle">{item.label}</span><i aria-hidden="true"></i></span>
+            <span class="summary-card-label"><span class="subtle">{item.label}</span></span>
             <b>{state.counts[item.key]}</b>
           </UiButton>
         );
