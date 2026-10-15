@@ -6,6 +6,7 @@ import { initPrintQueueUi } from './print-queue.jsx';
 import { initPrintLibraryUi } from './print-library.jsx';
 import { initMaintenanceUi } from './maintenance.jsx';
 import { initAlertsUi } from './alerts.jsx';
+import { initReportingUi } from './reporting.jsx';
 
 const FILTERS = Object.freeze([
   { key:'all', label:'All Printers' },
@@ -378,3 +379,5 @@ initPrintLibraryUi();
 initMaintenanceUi();
 
 initAlertsUi();
+
+initReportingUi();
