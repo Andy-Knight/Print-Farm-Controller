@@ -4,6 +4,13 @@ This file contains the version-by-version release history for Print Farm Control
 
 Historical entries describe the behaviour of the controller at the time of that release and may be superseded by later versions. For current installation, configuration and supported-hardware guidance, see [README.md](README.md).
 
+## v0.47.1
+
+- Fixes blank routed controller pages after using the browser Refresh/Reload button on routes such as Queue & history, Print Library, Maintenance, Printer groups, Reports & analytics, Alerts & notifications, Backup & recovery, Diagnostics and Licence.
+- Moves the initial route render until after controller UI state initialization, preventing a startup temporal-dead-zone error on non-dashboard paths while retaining the existing SPA route fallback and in-app navigation behaviour.
+- Re-activates the current route after all frontend modules have registered their handlers so direct refresh also runs the route's normal data-loading path; this restores populated Reports filters/KPIs and keeps other routed pages consistent.
+- Adds regression coverage for both direct-route startup ordering and routed data loading after module registration.
+
 ## v0.47.0
 
 - Introduces the first Preact-based controller UI island while retaining the existing vanilla JavaScript interface as a fallback.

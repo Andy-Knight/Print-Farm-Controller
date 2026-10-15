@@ -126,11 +126,11 @@ Manufacturer-specific discovery, capabilities, limits, status normalization, fil
 
 ## Current task
 
-The current release baseline is **v0.47.0**.
+The current release baseline is **v0.47.1**.
 
-v0.47.0 completes the first controller-wide Preact presentation migration. All persistent route pages now have Preact presentation coverage, with the Dashboard, Queue & History, Print Library, Maintenance, Alerts & Notifications, Reports & Analytics, Backup & Recovery, Printer Groups, Diagnostics and Licence interfaces migrated while preserving established controller/API behavior and vanilla fallbacks. Stateful Add Printer/discovery, Farm Operations forms, Print Library filament-assignment editing, provider authorization/configuration and specialist Printer Details controls remain deliberately on the established controller-managed DOM.
+v0.47.1 fixes direct browser refresh of routed controller pages after the v0.47.0 Preact presentation migration. v0.47.0 completed the first controller-wide Preact presentation migration. All persistent route pages now have Preact presentation coverage, with the Dashboard, Queue & History, Print Library, Maintenance, Alerts & Notifications, Reports & Analytics, Backup & Recovery, Printer Groups, Diagnostics and Licence interfaces migrated while preserving established controller/API behavior and vanilla fallbacks. Stateful Add Printer/discovery, Farm Operations forms, Print Library filament-assignment editing, provider authorization/configuration and specialist Printer Details controls remain deliberately on the established controller-managed DOM.
 
-The v0.47.0 release candidate has completed automated regression, MinIO S3 integration, container smoke-test and multi-architecture image validation. The final dashboard summary presentation uses four filters without decorative heading dots and keeps each label aligned above its count.
+The v0.47.1 patch keeps the v0.47.0 UI architecture and corrects startup ordering so direct loads of non-dashboard routes initialize controller state before rendering the active route. The final dashboard summary presentation uses four filters without decorative heading dots and keeps each label aligned above its count.
 
 ## Next steps
 
