@@ -5974,7 +5974,7 @@ function toolNozzleDesignationMarkup(printer, tool = {}, toolCount = 1) {
       })}
     </label>
     <div class="mini-actions">
-      <button type="button" class="secondary" data-tool-nozzle-save="${tool.index}">Assign</button>
+      <button type="button" class="${coreOnePlus ? 'primary' : 'secondary'}" data-tool-nozzle-save="${tool.index}">Assign</button>
       ${coreOnePlus ? '' : `<button type="button" class="secondary" data-tool-nozzle-clear="${tool.index}">Clear</button>`}
     </div>
     ${helpMarkup}
@@ -6033,7 +6033,7 @@ function flashForgeNozzleDesignationMarkup(printer, tool = {}) {
     <label>Controller nozzle designation
       ${selector}
     </label>
-    <div class="mini-actions${coreOnePlus ? ' prusa-nozzle-actions' : ''}"><button type="button" class="secondary" data-nozzle-designation-save>Assign</button>${coreOnePlus ? '' : '<button type="button" class="secondary" data-nozzle-designation-clear>Clear</button>'}</div>
+    <div class="mini-actions${coreOnePlus ? ' prusa-nozzle-actions' : ''}"><button type="button" class="${coreOnePlus ? 'primary' : 'secondary'}" data-nozzle-designation-save>Assign</button>${coreOnePlus ? '' : '<button type="button" class="secondary" data-nozzle-designation-clear>Clear</button>'}</div>
     <div class="field-help">Stored by Print Farm Controller for this printer and used by automatic queue compatibility.${reported ? ` Printer currently reports ${escapeHtml(nozzleDiameterText(reported))}.` : ` ${escapeHtml(unavailableHelp)}`}</div>
   </div>`;
 }
