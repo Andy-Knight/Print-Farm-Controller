@@ -15,6 +15,8 @@ Historical entries describe the behaviour of the controller at the time of that 
 - Preserves the vanilla-JavaScript Printer Details header/tab implementation as the fallback when the optional Preact bundle is unavailable.
 - Migrates Print Queue & History list rendering to keyed Preact components for queued jobs, active jobs, bed-clearance interlocks, production batches and recent history while preserving the existing queue scheduler APIs and delegated action handlers.
 - Keeps priority and production-quantity edits stable during live queue refreshes and defers Preact queue rerenders while pointer interactions are in progress.
+- Migrates Print Library file-card rendering to keyed Preact components for previews, descriptions, printer targets, detected requirements, filament colours, usage metadata and warnings while preserving the existing search, upload, queue, edit, preview and delete controller handlers.
+- Retains the vanilla Print Library card renderer as a fallback when the optional Preact bundle is unavailable.
 - Adds a local esbuild frontend bundle so Preact is packaged with source, container and Windows SEA builds without a CDN or browser-time dependency.
 - Keeps Preact and esbuild as build-time development dependencies; a fresh source ZIP uses `npm install --include=dev` once to build the optional Preact asset, while `npm start` itself remains dependency-free and falls back to the existing dashboard if that asset is absent.
 - Missing static assets now return HTTP 404 instead of the SPA HTML shell, allowing an absent optional Preact bundle to fail cleanly without disrupting the legacy dashboard.
