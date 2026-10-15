@@ -1,4 +1,4 @@
-# Print Farm Controller v0.47.1
+# Print Farm Controller v0.47.2
 A local-first 3D printer fleet controller. It runs entirely on your LAN and currently supports:
 
 - **FlashForge Adventurer 5M / 5M Pro** through the local FlashForge HTTP/TCP APIs.
@@ -7,9 +7,12 @@ A local-first 3D printer fleet controller. It runs entirely on your LAN and curr
 - **Prusa CORE One+ (experimental)** through the local PrusaLink API, supporting Standard (1-tool), INDX4 and INDX8 configurations.
 - **Bambu Lab P1P / P1S / X1C / A1 Mini (experimental)** through the local MQTT TLS and FTPS TLS interfaces. P1P/P1S/A1 Mini use the TLS/JPEG camera path; X1C camera decoding remains unsupported.
 
-**Current development version: v0.47.1**
+**Current development version: v0.47.2**
 
 Current highlights:
+
+- **Frontend renderer diagnostics:** Diagnostics now displays whether the optional Preact bundle initialised and which migrated UI components are running in Preact versus their legacy JavaScript fallback. It warns in the browser console if any expected Preact component is missing and provides a Recheck button. This is a client-side report of successful initialisation, not a server-wide health check or proof of live rendering correctness. Specialist forms and printer command handlers deliberately remain on the established JavaScript code. To confirm manually, open the browser console and inspect `window.__PFC_FRONTEND_RENDERER_STATUS__`.
+
 
 - Preact-based dashboard UI foundation for the summary filters, printer-group selector, Cards/Table switch, printer cards and compact table rows, with reusable buttons, status badges, progress bars, metrics and non-blocking toast notifications. Printer Details now also uses the same Preact layer for its live header/status presentation, activity state and six-tab navigation while retaining the established specialist controls inside each tab. Print Queue & History now uses keyed Preact components for active/queued jobs, bed-clearance interlocks, production batches and recent history without changing scheduler behaviour. Print Library file cards now use the same Preact layer for previews, metadata, printer targets, detected requirements, colour swatches and actions while existing library workflows remain unchanged. Maintenance now uses Preact for its view selector and model/group/printer task cards while retaining the existing task form and maintenance action logic. Alerts & Notifications now uses Preact for tab navigation, alert history, destination cards and rule cards while the existing filtering, acknowledgement and configuration workflows remain unchanged. Reports & Analytics now uses Preact for its tabs, KPI cards, charts, ranked summaries and filament-cost catalogue rows while the existing report filters, calculations and filament form workflows remain unchanged. Backup & Recovery now uses Preact for its tabs, backup-status cards and restore inspection summary while all cloud-provider, scheduling, backup and restore workflows remain on the established controller logic. Printer Groups now uses Preact for group-card presentation while its multi-group membership editor and group management workflows remain unchanged. Diagnostics now uses Preact for controller-status and log-entry presentation while its filtering, verbose logging and support-bundle workflows remain unchanged. Licence now uses Preact for edition/status and entitlement presentation while signed licence installation and verification remain unchanged. All persistent controller route pages now have Preact presentation coverage; stateful Add Printer, Farm Operations, provider configuration, Print Library assignment and specialist Printer Details controls remain deliberately on the established controller logic. Preact is bundled locally at build time with esbuild, keeps the existing HTML/vanilla-JavaScript dashboard as a fallback, and introduces no npm runtime dependency.
 
