@@ -117,7 +117,7 @@ test('CORE One+ Standard shows Assign without Clear on the single nozzle designa
     capabilities:{nozzleDesignation:true}
   };
   const flashforgeHtml = renderNozzle(flashforge, {index:0, nozzleDiameter:0.4});
-  assert.match(flashforgeHtml, /class="secondary" data-nozzle-designation-save>Assign<\/button>/, 'FlashForge secondary button remains unchanged');
+  assert.match(flashforgeHtml, /class="primary" data-nozzle-designation-save>Assign<\/button>/, 'AD5M nozzle button matches U1 primary blue');
   assert.doesNotMatch(flashforgeHtml, /data-nozzle-designation-clear|>Clear<\/button>/, 'AD5M nozzle Clear must be hidden');
 });
 
@@ -141,13 +141,13 @@ test('AD5M and AD5M Pro have only Assign buttons for material and nozzle size', 
       capabilities:{materialDesignation:true, nozzleDesignation:true}
     };
     const materialHtml = renderMaterial(printer, {material:'PLA', materialSource:'manual'});
-    assert.match(materialHtml, /class="secondary" data-material-designation-save>Assign filament<\/button>/);
+    assert.match(materialHtml, /class="primary" data-material-designation-save>Assign filament<\/button>/);
     assert.match(materialHtml, /ad5m-material-actions/);
     assert.doesNotMatch(materialHtml, /data-material-designation-clear|Clear designation|Use printer value/);
     assert.equal((materialHtml.match(/<button\b/g) || []).length, 1, `${model} should have one material action`);
 
     const nozzleHtml = renderNozzle(printer, {index:0, nozzleDiameter:0.4});
-    assert.match(nozzleHtml, /class="secondary" data-nozzle-designation-save>Assign<\/button>/);
+    assert.match(nozzleHtml, /class="primary" data-nozzle-designation-save>Assign<\/button>/);
     assert.match(nozzleHtml, /ad5m-nozzle-actions/);
     assert.doesNotMatch(nozzleHtml, /data-nozzle-designation-clear|>Clear<\/button>/);
     assert.equal((nozzleHtml.match(/<button\b/g) || []).length, 1, `${model} should have one nozzle action`);
