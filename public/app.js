@@ -2591,6 +2591,25 @@ async function cancelStagedRestoreUi() {
   }
 }
 
+function licenseNoticeViewModel(license = {}) {
+  const show = Boolean(license?.enforcementEnabled && license?.overLimit);
+  if (!show) return { visible:false, title:'', message:'', countText:'' };
+  const remaining = Number(license.slotsRemaining || 0);
+  return {
+    visible:true,
+    title:`${license.label || 'Licence'} printer limit`,
+    message:`${license.configuredPhysicalPrinters} physical printers are configured; this edition allows ${license.maxPrinters}. Choose the printers that may receive new controller commands.`,
+    countText:`${license.activePhysicalPrinters} / ${license.maxPrinters} selected${remaining ? ` · ${remaining} slot${remaining === 1 ? '' : 's'} free` : ''}`
+  };
+}
+
+function publishLicenseNoticeState(license = licenseState || {}) {
+  if (!window.__PFC_PREACT_LICENSE_NOTICE__) return;
+  const detail = licenseNoticeViewModel(license);
+  window.__PFC_LICENSE_NOTICE_STATE__ = detail;
+  window.dispatchEvent(new CustomEvent('pfc:license-notice-state', { detail }));
+}
+
 function setControllerLicense(license) {
   licenseState = license || null;
   if (controllerEditionEl && license?.label) {
@@ -2605,15 +2624,18 @@ function setControllerLicense(license) {
 
   if (licenseDialog?.open) renderLicenseDialog();
   if (!licenseNoticeEl) return;
-  const show = Boolean(license?.enforcementEnabled && license?.overLimit);
-  licenseNoticeEl.classList.toggle('hidden', !show);
-  if (!show) {
+  const notice = licenseNoticeViewModel(license || {});
+  licenseNoticeEl.classList.toggle('hidden', !notice.visible);
+  if (window.__PFC_PREACT_LICENSE_NOTICE__) {
+    publishLicenseNoticeState(license || {});
+    return;
+  }
+  if (!notice.visible) {
     licenseNoticeEl.innerHTML = '';
     return;
   }
 
-  const remaining = Number(license.slotsRemaining || 0);
-  licenseNoticeEl.innerHTML = `<div><strong>${escapeHtml(license.label)} printer limit</strong><span>${escapeHtml(String(license.configuredPhysicalPrinters))} physical printers are configured; this edition allows ${escapeHtml(String(license.maxPrinters))}. Choose the printers that may receive new controller commands.</span></div><span class="license-notice-count">${escapeHtml(String(license.activePhysicalPrinters))} / ${escapeHtml(String(license.maxPrinters))} selected${remaining ? ` · ${remaining} slot${remaining === 1 ? '' : 's'} free` : ''}</span>`;
+  licenseNoticeEl.innerHTML = `<div><strong>${escapeHtml(notice.title)}</strong><span>${escapeHtml(notice.message)}</span></div><span class="license-notice-count">${escapeHtml(notice.countText)}</span>`;
 }
 
 function setLiveState(state) {
