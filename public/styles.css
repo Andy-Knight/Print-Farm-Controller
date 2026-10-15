@@ -1009,6 +1009,16 @@ input:focus,select:focus { border-color:#7a9fbe; }
   padding-left:10px;
   padding-right:10px;
 }
+.prusa-tool-nozzle-control .mini-actions,
+.prusa-nozzle-actions {
+  display:grid;
+  grid-template-columns:minmax(0,1fr);
+}
+.prusa-tool-nozzle-control .mini-actions > button,
+.prusa-nozzle-actions > button {
+  width:100%;
+  min-width:0;
+}
 .material-tool-nozzle .shared-nozzle-help { margin-top:8px; }
 .multi-tool-table .material-tool.filament-missing .material-tool-identity > span { color:#df9ba1; }
 
