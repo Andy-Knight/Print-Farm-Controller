@@ -185,3 +185,45 @@ test('Preact queue defers live rerenders while pointer controls are active', asy
   assert.match(app, /if \(window\.__PFC_PREACT_QUEUE__\) \{[\s\S]*if \(queuePointerInteractionActive\) \{[\s\S]*queueRenderPending = true;[\s\S]*return;[\s\S]*publishPrintQueueUiState/);
   assert.match(app, /if \(queueRenderPending\) renderPrintQueue\(\)/);
 });
+
+
+test('Preact Print Library preserves delegated actions, search filtering and vanilla fallback', async () => {
+  const [libraryUi, dashboard, app] = await Promise.all([
+    read('ui/print-library.jsx'),
+    read('ui/dashboard.jsx'),
+    read('public/app.js')
+  ]);
+
+  assert.match(dashboard, /initPrintLibraryUi/);
+  assert.match(libraryUi, /function LibraryFile/);
+  assert.match(libraryUi, /function LibraryPreview/);
+  assert.match(libraryUi, /function LibraryColours/);
+  assert.match(libraryUi, /data-library-preview/);
+  assert.match(libraryUi, /data-library-queue/);
+  assert.match(libraryUi, /data-library-edit/);
+  assert.match(libraryUi, /data-library-delete/);
+  assert.match(app, /function libraryFileViewModel/);
+  assert.match(app, /function publishPrintLibraryUiState/);
+  assert.match(app, /window\.__PFC_PREACT_LIBRARY__/);
+  assert.match(app, /pfc:library-ui-state/);
+  assert.match(app, /const visible = query \? files\.filter\(\(file\) => librarySearchText\(file\)\.includes\(query\)\) : files/);
+  assert.match(app, /librarySearchInput\?\.addEventListener\('input', renderPrintLibrary\)/);
+  assert.match(app, /libraryList\?\.addEventListener\('click'/);
+  assert.match(app, /libraryList\.innerHTML = visible\.length/);
+});
+
+test('Preact Print Library preserves file metadata and delete interlock presentation', async () => {
+  const [libraryUi, app] = await Promise.all([
+    read('ui/print-library.jsx'),
+    read('public/app.js')
+  ]);
+  assert.match(app, /requirements:libraryRequirementSummary\(file\)/);
+  assert.match(app, /colours,/);
+  assert.match(app, /previewUrl:String\(file\?\.previewUrl \|\| ''\)/);
+  assert.match(app, /deleteDisabled:Number\(usage\.queueReferences \|\| 0\) > 0/);
+  assert.match(app, /Clear queue\/history references before deleting this file/);
+  assert.match(libraryUi, /disabled=\{file\.deleteDisabled\}/);
+  assert.match(libraryUi, /class="library-printer-target"/);
+  assert.match(libraryUi, /class="library-file-requirements"/);
+  assert.match(libraryUi, /class="library-warning"/);
+});
