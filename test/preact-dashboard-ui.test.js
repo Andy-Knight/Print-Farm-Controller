@@ -110,3 +110,32 @@ test('metric backgrounds remain unchanged on printer card hover', async () => {
   const styles = await read('public/styles.css');
   assert.doesNotMatch(styles, /\.fleet:not\(\.table-view\) \.card:hover \.ui-metric\s*\{[\s\S]*?background:/);
 });
+
+
+test('Preact printer-detail chrome preserves six-tab behavior and vanilla fallback', async () => {
+  const [detailUi, dashboard, app, styles] = await Promise.all([
+    read('ui/printer-details.jsx'),
+    read('ui/dashboard.jsx'),
+    read('public/app.js'),
+    read('public/styles.css')
+  ]);
+
+  assert.match(dashboard, /initPrinterDetailsUi/);
+  assert.match(detailUi, /PRINTER_DETAIL_TABS/);
+  for (const tab of ['toolheads','camera','files','temperature','job','management']) {
+    assert.match(detailUi, new RegExp(`key:'${tab}'`));
+  }
+  assert.match(detailUi, /PrinterDetailHeader/);
+  assert.match(detailUi, /PrinterDetailTabs/);
+  assert.match(detailUi, /PrinterDetailActivity/);
+  assert.match(detailUi, /pfc:printer-detail-action/);
+  assert.match(detailUi, /pfc:printer-detail-state/);
+  assert.match(app, /function publishPrinterDetailState/);
+  assert.match(app, /function activatePrinterDetailTab/);
+  assert.match(app, /function printerDetailHeaderMarkup/);
+  assert.match(app, /if \(window\.__PFC_PREACT_DETAIL__\) return '<div data-preact-detail-header><\/div>'/);
+  assert.match(app, /if \(window\.__PFC_PREACT_DETAIL__\) return '<div data-preact-detail-tabs><\/div>'/);
+  assert.match(app, /printerDetailTabsMarkup\(\)/);
+  assert.match(styles, /Preact printer-detail chrome/);
+  assert.match(styles, /\.printer-detail-preact-tabs/);
+});
