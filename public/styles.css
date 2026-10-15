@@ -1101,6 +1101,23 @@ input:focus,select:focus { border-color:#7a9fbe; }
 .material-designation-fields { display:grid; grid-template-columns:minmax(0,1fr) minmax(160px,.8fr); gap:10px; align-items:end; }
 .material-designation-fields label { margin-top:0; }
 .color-family-dropdown { position:relative; margin-top:6px; }
+/* Keep toolhead material, colour and nozzle selectors a consistent size on every
+   printer. Each control caps at its available width on narrow layouts. */
+.material-panel { --toolhead-dropdown-width:160px; }
+.material-panel .u1-filament-config-control select,
+.material-panel .creator5-filament-config-control select,
+.material-panel .prusa-tool-filament-control select,
+.material-panel .material-designation-fields select,
+.material-panel .nozzle-designation-control select,
+.material-panel .u1-filament-config-control .color-family-dropdown,
+.material-panel .creator5-filament-config-control .creator5-color-dropdown,
+.material-panel .prusa-tool-filament-control .color-family-dropdown,
+.material-panel .material-designation-fields .color-family-dropdown {
+  box-sizing:border-box;
+  width:var(--toolhead-dropdown-width);
+  max-width:100%;
+  min-width:0;
+}
 .color-family-dropdown summary { height:var(--dropdown-field-height); min-height:var(--dropdown-field-height); display:flex; align-items:center; justify-content:space-between; gap:10px; border:1px solid #33404b; border-radius:8px; background:#0c1218; padding:8px 10px; cursor:pointer; list-style:none; user-select:none; }
 .color-family-dropdown summary::-webkit-details-marker { display:none; }
 .color-family-dropdown[open] summary { border-color:#7a9fbe; }
