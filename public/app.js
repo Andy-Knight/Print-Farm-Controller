@@ -6345,6 +6345,7 @@ function updateOpenPrinterTelemetry() {
   const printer = fleet.find((p) => p.id === currentPrinterId);
   if (!printer) return;
   const s = printer.status;
+  publishPrinterDetailState(printer);
   const set = (selector, text) => {
     const el = printerDetail.querySelector(selector);
     if (el) el.textContent = text;
@@ -7576,6 +7577,7 @@ ${flashForgePreflight}` : ''}`)) return;
       const result = await api(`/api/printers/${id}/name`, { method:'PUT', body:JSON.stringify({ name:nextName }) });
       printer.name = result.printer.name;
       renameInput.value = printer.name;
+      publishPrinterDetailState(printer);
       const heading = printerDetail.querySelector('[data-detail-name]');
       if (heading) heading.textContent = printer.name;
       const status = printerDetail.querySelector('[data-rename-status]');
@@ -7594,6 +7596,17 @@ ${flashForgePreflight}` : ''}`)) return;
   };
 }
 
+window.addEventListener('pfc:printer-detail-action', (event) => {
+  const action = event?.detail || {};
+  if (action.type === 'close') {
+    if (printerDialog.open) printerDialog.close();
+    return;
+  }
+  if (action.type === 'tab') {
+    activatePrinterDetailTab(action.value);
+  }
+});
+
 printerDetail.addEventListener('click', (event) => {
   const maintenanceShortcut = event.target.closest('[data-maintenance-open-printer]');
   if (!maintenanceShortcut) return;
@@ -7609,6 +7622,7 @@ printerDetail.addEventListener('click', (event) => {
 printerDialog.addEventListener('close', () => {
   currentPrinterId = null;
   printerOpenRequestId += 1;
+  window.__PFC_PRINTER_DETAIL_STATE__ = null;
   // Removing the live image closes this browser's proxy subscription. The
   // backend keeps a shared upstream stream only while another viewer needs it.
   printerDetail.innerHTML = '';
