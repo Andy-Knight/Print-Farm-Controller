@@ -81,7 +81,7 @@ test('CORE One+ INDX4 and INDX8 show Assign without Clear on every nozzle', () =
   for (const count of [4, 8]) {
     for (let toolIndex = 0; toolIndex < count; toolIndex++) {
       const html = renderNozzle(coreOnePlus, {index:toolIndex, nozzleDiameter:0.4}, count);
-      assert.match(html, new RegExp(`data-tool-nozzle-save="${toolIndex}"\x3eAssign`));
+      assert.match(html, new RegExp(`<button type="button" class="primary" data-tool-nozzle-save="${toolIndex}">Assign`));
       assert.doesNotMatch(html, /data-tool-nozzle-clear|>Clear<|Clear makes it unknown/);
       assert.match(html, /prusa-tool-nozzle-control/);
     }
@@ -92,6 +92,7 @@ test('CORE One+ INDX4 and INDX8 show Assign without Clear on every nozzle', () =
     capabilities:{toolNozzleDesignation:true}
   };
   const creatorHtml = renderNozzle(creator5, {index:0, nozzleDiameter:0.4}, 4);
+  assert.match(creatorHtml, /class="secondary" data-tool-nozzle-save="0">Assign<\/button>/, 'Creator 5 secondary button remains unchanged');
   assert.match(creatorHtml, /data-tool-nozzle-clear="0">Clear<\/button>/, 'Creator 5 Clear remains available');
 });
 
@@ -104,7 +105,7 @@ test('CORE One+ Standard shows Assign without Clear on the single nozzle designa
     capabilities:{nozzleDesignation:true}
   };
   const coreHtml = renderNozzle(coreOnePlus, {index:0, nozzleDiameter:0.4});
-  assert.match(coreHtml, /data-nozzle-designation-save>Assign<\/button>/);
+  assert.match(coreHtml, /class="primary" data-nozzle-designation-save>Assign<\/button>/);
   assert.doesNotMatch(coreHtml, /data-nozzle-designation-clear|>Clear<\/button>/);
   assert.match(coreHtml, /prusa-nozzle-actions/);
   const flashforge = {
@@ -113,6 +114,7 @@ test('CORE One+ Standard shows Assign without Clear on the single nozzle designa
     capabilities:{nozzleDesignation:true}
   };
   const flashforgeHtml = renderNozzle(flashforge, {index:0, nozzleDiameter:0.4});
+  assert.match(flashforgeHtml, /class="secondary" data-nozzle-designation-save>Assign<\/button>/, 'FlashForge secondary button remains unchanged');
   assert.match(flashforgeHtml, /data-nozzle-designation-clear>Clear<\/button>/, 'FlashForge Clear remains available');
 });
 
