@@ -442,16 +442,15 @@ test('CORE One+ UI and API expose per-tool material and colour designation', () 
   assert.doesNotMatch(app, /prusaMaterialTypes/);
   assert.match(app, /data-prusa-tool-color-family-input/);
   assert.match(app, /data-prusa-tool-material-save/);
-  assert.match(app, /data-prusa-tool-material-clear/);
-  assert.match(app, /data-prusa-tool-material-clear="\$\{tool\.index\}">Clear assignment<\/button>/);
+  assert.doesNotMatch(app, /data-prusa-tool-material-clear|prusa-filament-reset/);
   const perToolMarkup = app.slice(
     app.indexOf('function prusaToolMaterialDesignationMarkup'),
     app.indexOf('function flashForgeMaterialDesignationMarkup')
   );
   assert.doesNotMatch(perToolMarkup, />Use printer value<\/button>/);
   assert.match(perToolMarkup, /multiToolFilamentHelpText/);
-  assert.match(perToolMarkup, /Clear assignment returns to the values reported by PrusaLink\./);
-  assert.match(perToolMarkup, /Clear assignment returns unreported values to unknown\./);
+  assert.match(perToolMarkup, /Set filament saves type and colour in the controller, not on the Prusa printer\./);
+  assert.doesNotMatch(perToolMarkup, /Clear assignment|Reset filament assignment/);
   assert.match(app, /\/tool-material-designation/);
   assert.match(styles, /\.prusa-tool-filament-control/);
   assert.match(server, /action === 'tool-material-designation'/);
