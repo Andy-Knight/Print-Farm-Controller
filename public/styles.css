@@ -1852,6 +1852,37 @@ button.library-file-preview { cursor:zoom-in; }
   gap:16px;
 }
 .diagnostics-control-row > div:first-child { min-width:0; }
+.frontend-renderer-summary {
+  margin:12px 0 8px;
+  color:#b9cedd;
+  font-size:.82rem;
+  font-weight:700;
+}
+.frontend-renderer-table {
+  width:100%;
+  border-collapse:collapse;
+  font-size:.8rem;
+}
+.frontend-renderer-table th,
+.frontend-renderer-table td {
+  padding:8px 10px;
+  border-bottom:1px solid #29343d;
+  text-align:left;
+}
+.frontend-renderer-table th {
+  color:#93a7b5;
+  font-size:.7rem;
+  text-transform:uppercase;
+  letter-spacing:.06em;
+}
+.frontend-renderer-table td:last-child { font-weight:700; }
+.frontend-renderer-active { color:#7fd2ae; }
+.frontend-renderer-warning { color:#f6be70; }
+:root[data-theme="light"] .frontend-renderer-summary { color:#334e60; }
+:root[data-theme="light"] .frontend-renderer-table th,
+:root[data-theme="light"] .frontend-renderer-table td { border-color:#d5dee5; }
+:root[data-theme="light"] .frontend-renderer-active { color:#146b49; }
+:root[data-theme="light"] .frontend-renderer-warning { color:#995311; }
 .diagnostics-log-toolbar {
   display:grid;
   grid-template-columns:150px minmax(220px,1fr) auto;

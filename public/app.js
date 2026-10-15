@@ -1,3 +1,8 @@
+import { initializeFrontendRendererDiagnostics } from './frontend-renderer-diagnostics.js';
+
+const refreshFrontendRendererStatus = initializeFrontendRendererDiagnostics();
+document.querySelector('#frontendRendererRefreshBtn')?.addEventListener('click', refreshFrontendRendererStatus);
+
 const fleetEl = document.querySelector('#fleet');
 const fleetViewport = document.querySelector('#fleetViewport');
 const fleetTableHeader = document.querySelector('#fleetTableHeader');
@@ -1126,6 +1131,7 @@ function renderDiagnostics(payload) {
 }
 
 async function loadDiagnostics() {
+  refreshFrontendRendererStatus();
   if (diagnosticsError) {
     diagnosticsError.textContent = '';
     diagnosticsError.classList.add('hidden');
