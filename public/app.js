@@ -3287,20 +3287,62 @@ function libraryFileMarkup(file) {
   </article>`;
 }
 
+function libraryFileViewModel(file) {
+  const usage = file?.usage || {};
+  const completedPrints = Number(usage.completedPrints || 0);
+  const lastPrinted = usage.lastPrintedAt ? `Last printed ${formatLastSeen(usage.lastPrintedAt)}` : 'Not printed from queue yet';
+  const colours = libraryFileColors(file).map((hex) => ({
+    hex,
+    rgb:filamentRgbText(hex) || ''
+  }));
+  return {
+    id:String(file?.id || ''),
+    fileName:String(file?.fileName || ''),
+    sizeText:formatBytes(file?.size),
+    description:String(file?.description || '').trim(),
+    printerTarget:file?.printerTarget ? printerTargetLabel(file.printerTarget) : '',
+    requirements:libraryRequirementSummary(file),
+    colours,
+    meta:`Added ${formatLastSeen(file?.addedAt || file?.stagedAt)} · ${completedPrints} completed print${completedPrints === 1 ? '' : 's'} · ${lastPrinted}`,
+    warning:String(file?.requirements?.warning || ''),
+    previewUrl:String(file?.previewUrl || ''),
+    deleteDisabled:Number(usage.queueReferences || 0) > 0,
+    deleteTitle:Number(usage.queueReferences || 0) > 0 ? 'Clear queue/history references before deleting this file' : ''
+  };
+}
+
+function publishPrintLibraryUiState({ files, visible, summary, query }) {
+  if (!window.__PFC_PREACT_LIBRARY__) return;
+  const detail = {
+    summary,
+    files:visible.map(libraryFileViewModel),
+    emptyText:files.length
+      ? `No library files match ${query ? `“${query}”` : 'this search'}.`
+      : 'No files in the Print Library yet. Add a G-code, GX or 3MF file to get started.'
+  };
+  window.__PFC_LIBRARY_UI_STATE__ = detail;
+  window.dispatchEvent(new CustomEvent('pfc:library-ui-state', { detail }));
+}
+
 function renderPrintLibrary() {
   if (!libraryList) return;
   const files = Array.isArray(libraryState?.files) ? libraryState.files : [];
   const query = String(librarySearchInput?.value || '').trim().toLowerCase();
   const visible = query ? files.filter((file) => librarySearchText(file).includes(query)) : files;
+  const bytes = files.reduce((sum, file) => sum + Number(file.size || 0), 0);
+  const summary = `${files.length} file${files.length === 1 ? '' : 's'} · ${formatBytes(bytes)} stored on this controller`;
 
   if (libraryButtonCount) {
     libraryButtonCount.textContent = String(files.length);
     libraryButtonCount.classList.toggle('hidden', files.length === 0);
   }
-  if (librarySummary) {
-    const bytes = files.reduce((sum, file) => sum + Number(file.size || 0), 0);
-    librarySummary.textContent = `${files.length} file${files.length === 1 ? '' : 's'} · ${formatBytes(bytes)} stored on this controller`;
+
+  if (window.__PFC_PREACT_LIBRARY__) {
+    publishPrintLibraryUiState({ files, visible, summary, query });
+    return;
   }
+
+  if (librarySummary) librarySummary.textContent = summary;
   libraryList.innerHTML = visible.length
     ? visible.map(libraryFileMarkup).join('')
     : `<div class="queue-empty">${files.length ? 'No library files match this search.' : 'No files in the Print Library yet. Add a G-code, GX or 3MF file to get started.'}</div>`;
