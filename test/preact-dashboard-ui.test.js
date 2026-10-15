@@ -275,3 +275,45 @@ test('Preact Maintenance keeps assignment form and vanilla list fallback', async
   assert.match(maintenance, /list\.innerHTML = printerCardsMarkup\(\)/);
   assert.match(maintenance, /form\?\.addEventListener\('submit'/);
 });
+
+
+test('Preact Alerts preserves tabs, history actions, destinations and rules', async () => {
+  const [alertsPreact, dashboard, alerts] = await Promise.all([
+    read('ui/alerts.jsx'),
+    read('ui/dashboard.jsx'),
+    read('public/alerts.js')
+  ]);
+
+  assert.match(dashboard, /initAlertsUi/);
+  assert.match(alertsPreact, /function AlertsTabs/);
+  assert.match(alertsPreact, /function AlertHistoryTable/);
+  assert.match(alertsPreact, /function DestinationCards/);
+  assert.match(alertsPreact, /function RuleCards/);
+  assert.match(alertsPreact, /data-alert-mark-read/);
+  assert.match(alertsPreact, /data-alert-destination-test/);
+  assert.match(alertsPreact, /data-alert-destination-edit/);
+  assert.match(alertsPreact, /data-alert-destination-delete/);
+  assert.match(alertsPreact, /data-alert-rule-edit/);
+  assert.match(alertsPreact, /data-alert-rule-delete/);
+  assert.match(alerts, /function publishAlertsUiState/);
+  assert.match(alerts, /pfc:alerts-ui-state/);
+  assert.match(alerts, /pfc:alerts-action/);
+  assert.match(alerts, /window\.__PFC_PREACT_ALERTS__/);
+  assert.match(alerts, /alertsHistory\?\.addEventListener\('click'/);
+  assert.match(alerts, /alertDestinationsList\?\.addEventListener\('click'/);
+  assert.match(alerts, /alertRulesList\?\.addEventListener\('click'/);
+});
+
+test('Preact Alerts keeps severity filtering, forms and vanilla fallbacks', async () => {
+  const alerts = await read('public/alerts.js');
+  assert.match(alerts, /function filteredAlertHistory/);
+  assert.match(alerts, /alertHistorySeverity === 'all'/);
+  assert.match(alerts, /alertsSeverityFilter\?\.addEventListener\('change'/);
+  assert.match(alerts, /alertDestinationForm\?\.addEventListener\('submit'/);
+  assert.match(alerts, /alertRuleForm\?\.addEventListener\('submit'/);
+  assert.match(alerts, /if \(window\.__PFC_PREACT_ALERTS__\) \{[\s\S]*publishAlertsUiState\(\)/);
+  assert.match(alerts, /alertsHistory\.innerHTML =/);
+  assert.match(alerts, /alertDestinationsList\.innerHTML =/);
+  assert.match(alerts, /alertRulesList\.innerHTML =/);
+  assert.match(alerts, /if \(!window\.__PFC_PREACT_ALERTS__\) \{[\s\S]*tab\.addEventListener\('click'/);
+});
