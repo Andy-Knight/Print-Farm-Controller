@@ -6004,7 +6004,7 @@ function flashForgeMaterialDesignationMarkup(printer, filament = {}) {
         ${colorFamilyDropdownMarkup({ value:familyOption?.value || '', inputAttributes:'data-material-color-family-input', placeholder:'Select colour family' })}
       </label>
     </div>
-    <div class="mini-actions ad5m-material-actions"><button type="button" class="primary" data-material-designation-save>Assign filament</button></div>
+    <div class="mini-actions ad5m-material-actions"><button type="button" class="primary" data-material-designation-save>Set filament</button></div>
     <div class="field-help">The colour family is used for automatic queue compatibility. Exact shade selection is not required.${reported ? ` Printer currently reports material ${escapeHtml(reported)}.` : ''}</div>
   </div>`;
 }
