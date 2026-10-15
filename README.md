@@ -11,7 +11,7 @@ A local-first 3D printer fleet controller. It runs entirely on your LAN and curr
 
 Current highlights:
 
-- Preact-based dashboard UI foundation for the summary filters, printer-group selector, Cards/Table switch, printer cards and compact table rows. Preact is bundled locally at build time with esbuild, keeps the existing HTML/vanilla-JavaScript dashboard as a fallback, and introduces no npm runtime dependency.
+- Preact-based dashboard UI foundation for the summary filters, printer-group selector, Cards/Table switch, printer cards and compact table rows, with reusable buttons, status badges, progress bars, metrics and non-blocking toast notifications. Preact is bundled locally at build time with esbuild, keeps the existing HTML/vanilla-JavaScript dashboard as a fallback, and introduces no npm runtime dependency.
 
 
 - The integrated Printer Simulator now uses the same persistent left-hand navigation pattern as the controller, with the simulator marked active and responsive mobile sidebar behaviour.
