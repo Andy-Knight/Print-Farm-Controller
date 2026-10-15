@@ -5,12 +5,12 @@ FROM node:24-bookworm-slim AS builder
 WORKDIR /app
 
 COPY package.json ./
-RUN npm install --include=dev --no-audit --no-fund
-
 COPY scripts ./scripts
-COPY src ./src
 COPY public ./public
 COPY ui ./ui
+RUN npm install --include=dev --no-audit --no-fund
+
+COPY src ./src
 COPY emulator ./emulator
 
 ARG PFC_BUNDLE_BUILD_NONCE=local
