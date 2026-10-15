@@ -357,7 +357,6 @@ for (const route of Object.values(controllerRoutes)) {
     page.dispatchEvent(new Event('close'));
   };
 }
-renderControllerRoute(location.pathname, { invoke:false });
 
 let fleet = [];
 let adapters = [];
@@ -389,6 +388,8 @@ let dashboardGroupId = '';
 let dashboardViewMode = 'cards';
 let dashboardTableSort = { key:'', direction:'asc' };
 const DASHBOARD_FILTER_LABELS = Object.freeze({ all:'All Printers', online:'Online', printing:'Printing', attention:'Needs attention', maintenance:'Maintenance' });
+renderControllerRoute(location.pathname, { invoke:false });
+
 const FILAMENT_COLOR_FAMILIES = Object.freeze([
   { value:'black', label:'Black', representative:'#111111' },
   { value:'white', label:'White', representative:'#FFFFFF' },
