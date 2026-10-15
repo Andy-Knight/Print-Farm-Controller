@@ -218,31 +218,60 @@ const topbarContextTitle = document.querySelector('.topbar-context strong');
 const topbarContextSubtitle = document.querySelector('.topbar-context span');
 let activeRoute = '/';
 
-function activateBackupTab(name, focus = false) {
-  const selected = backupTabs.find((tab) => tab.dataset.backupTab === name) || backupTabs[0];
-  if (!selected) return;
-  const selectedName = selected.dataset.backupTab;
-  for (const tab of backupTabs) {
-    const active = tab === selected;
-    tab.classList.toggle('active', active);
-    tab.setAttribute('aria-selected', active ? 'true' : 'false');
-    tab.tabIndex = active ? 0 : -1;
-  }
-  for (const panel of backupTabPanels) panel.hidden = panel.dataset.backupPanel !== selectedName;
-  if (focus) selected.focus();
+let activeBackupTab = 'overview';
+let backupUiStatusItems = [];
+let backupUiInspection = null;
+
+function publishBackupRecoveryUiState() {
+  if (!window.__PFC_PREACT_BACKUP__) return;
+  const detail = {
+    activeTab:activeBackupTab,
+    statusItems:backupUiStatusItems,
+    inspection:backupUiInspection
+  };
+  window.__PFC_BACKUP_UI_STATE__ = detail;
+  window.dispatchEvent(new CustomEvent('pfc:backup-ui-state', { detail }));
 }
-for (const tab of backupTabs) {
-  tab.addEventListener('click', () => activateBackupTab(tab.dataset.backupTab));
-  tab.addEventListener('keydown', (event) => {
-    if (!['ArrowLeft','ArrowRight','Home','End'].includes(event.key)) return;
-    event.preventDefault();
-    const current = backupTabs.indexOf(tab);
-    const next = event.key === 'Home' ? 0
-      : event.key === 'End' ? backupTabs.length - 1
-        : event.key === 'ArrowRight' ? (current + 1) % backupTabs.length
-          : (current - 1 + backupTabs.length) % backupTabs.length;
-    activateBackupTab(backupTabs[next]?.dataset.backupTab, true);
-  });
+
+function activateBackupTab(name, focus = false) {
+  const validTabs = ['overview','google-drive','one-drive','s3','schedule','restore'];
+  const selectedName = validTabs.includes(name) ? name : 'overview';
+  activeBackupTab = selectedName;
+
+  if (!window.__PFC_PREACT_BACKUP__) {
+    const tabs = Array.from(document.querySelectorAll('[data-backup-tab]'));
+    for (const tab of tabs) {
+      const active = tab.dataset.backupTab === selectedName;
+      tab.classList.toggle('active', active);
+      tab.setAttribute('aria-selected', active ? 'true' : 'false');
+      tab.tabIndex = active ? 0 : -1;
+    }
+  }
+
+  for (const panel of backupTabPanels) panel.hidden = panel.dataset.backupPanel !== selectedName;
+  if (window.__PFC_PREACT_BACKUP__) publishBackupRecoveryUiState();
+  if (focus) document.querySelector(`[data-backup-tab="${selectedName}"]`)?.focus();
+}
+
+window.addEventListener('pfc:backup-ui-action', (event) => {
+  const action = event?.detail || {};
+  if (action.type === 'tab') activateBackupTab(action.value);
+});
+
+if (!window.__PFC_PREACT_BACKUP__) {
+  for (const tab of backupTabs) {
+    tab.addEventListener('click', () => activateBackupTab(tab.dataset.backupTab));
+    tab.addEventListener('keydown', (event) => {
+      if (!['ArrowLeft','ArrowRight','Home','End'].includes(event.key)) return;
+      event.preventDefault();
+      const current = backupTabs.indexOf(tab);
+      const next = event.key === 'Home' ? 0
+        : event.key === 'End' ? backupTabs.length - 1
+          : event.key === 'ArrowRight' ? (current + 1) % backupTabs.length
+            : (current - 1 + backupTabs.length) % backupTabs.length;
+      activateBackupTab(backupTabs[next]?.dataset.backupTab, true);
+    });
+  }
 }
 
 function normaliseControllerRoute(pathname) {
@@ -1866,11 +1895,36 @@ function renderBackupSchedule(schedule = {}) {
   }
 }
 
+function backupStatusItemsViewModel(payload) {
+  const backup = payload?.backup || {};
+  const last = backup.lastSuccessfulBackup || null;
+  const schedule = backup.schedule || {};
+  const destination = schedule.destinationType === 'google-drive'
+    ? 'Google Drive'
+    : schedule.destinationType === 'one-drive'
+      ? 'Microsoft OneDrive (Experimental)'
+      : schedule.destinationType === 's3'
+        ? 'S3-compatible storage'
+        : (schedule.destination || '—');
+  return [
+    { label:'Last successful backup', value:backupStatusTime(last) },
+    { label:'Last backup file', value:String(last?.fileName || '—') },
+    { label:'Last backup size', value:last?.size ? formatBytes(last.size) : '—' },
+    { label:'Scheduled backups', value:schedule.enabled ? 'Enabled' : 'Not enabled' },
+    { label:'Scheduled destination', value:String(destination) },
+    { label:'Next scheduled backup', value:backupStatusTime(schedule.nextRunAt, '—') },
+    { label:'Backup operation', value:backup.operation?.kind ? `${backup.operation.kind} backup running` : 'Idle' }
+  ];
+}
+
 function renderBackupStatus(payload) {
   const backup = payload?.backup || {};
   const last = backup.lastSuccessfulBackup || null;
   const schedule = backup.schedule || {};
-  if (backupStatusGrid) {
+  backupUiStatusItems = backupStatusItemsViewModel(payload);
+  if (window.__PFC_PREACT_BACKUP__) {
+    publishBackupRecoveryUiState();
+  } else if (backupStatusGrid) {
     backupStatusGrid.innerHTML = `
       <div><span>Last successful backup</span><strong>${escapeHtml(backupStatusTime(last))}</strong></div>
       <div><span>Last backup file</span><strong>${escapeHtml(last?.fileName || '—')}</strong></div>
@@ -2057,8 +2111,10 @@ function clearRestoreInspection() {
     restoreInspectError.textContent = '';
     restoreInspectError.classList.add('hidden');
   }
+  backupUiInspection = null;
+  if (window.__PFC_PREACT_BACKUP__) publishBackupRecoveryUiState();
   if (restoreInspectionSummary) {
-    restoreInspectionSummary.innerHTML = '';
+    if (!window.__PFC_PREACT_BACKUP__) restoreInspectionSummary.innerHTML = '';
     restoreInspectionSummary.classList.add('hidden');
   }
   if (restoreStageBtn) restoreStageBtn.disabled = true;
@@ -2172,30 +2228,57 @@ async function loadCloudRestoreBackups() {
   }
 }
 
+function restoreInspectionViewModel(inspection = {}) {
+  const counts = inspection?.counts || {};
+  const migrations = Array.isArray(inspection?.migrationsRequired) ? inspection.migrationsRequired : [];
+  return {
+    items:[
+      { label:'Backup file', value:String(inspection.fileName || '—') },
+      { label:'Created', value:backupStatusTime(inspection.createdAt, '—') },
+      { label:'Source controller', value:`v${inspection.sourceControllerVersion || '—'}` },
+      { label:'Backup format', value:`v${String(inspection.formatVersion || '—')}` },
+      { label:'Archive size', value:formatBytes(inspection.archiveBytes) },
+      { label:'Payload size', value:formatBytes(inspection.payloadBytes) },
+      { label:'Printers', value:String(counts.printers ?? 0) },
+      { label:'Print Library', value:`${String(counts.printLibrary ?? 0)} file${Number(counts.printLibrary || 0) === 1 ? '' : 's'}` },
+      { label:'Unfinished queue', value:String(counts.queued ?? 0) },
+      { label:'History', value:String(counts.history ?? 0) },
+      { label:'Signed licence', value:inspection.licenseIncluded ? 'Included' : 'Not included' },
+      { label:'Migration', value:migrations.length ? 'Required' : 'Not required' }
+    ],
+    warnings:Array.isArray(inspection?.warnings) ? inspection.warnings.map(String) : []
+  };
+}
+
 function renderRestoreInspection(inspection) {
   if (!restoreInspectionSummary) return;
   const counts = inspection?.counts || {};
   const warnings = Array.isArray(inspection?.warnings) ? inspection.warnings : [];
   const migrations = Array.isArray(inspection?.migrationsRequired) ? inspection.migrationsRequired : [];
-  restoreInspectionSummary.innerHTML = `
-    <div class="restore-valid-banner"><strong>Backup is valid</strong><span>Inspection completed without changing controller data.</span></div>
-    <div class="restore-inspection-grid">
-      <div><span>Backup file</span><strong>${escapeHtml(inspection.fileName || '—')}</strong></div>
-      <div><span>Created</span><strong>${escapeHtml(backupStatusTime(inspection.createdAt, '—'))}</strong></div>
-      <div><span>Source controller</span><strong>v${escapeHtml(inspection.sourceControllerVersion || '—')}</strong></div>
-      <div><span>Backup format</span><strong>v${escapeHtml(String(inspection.formatVersion || '—'))}</strong></div>
-      <div><span>Archive size</span><strong>${escapeHtml(formatBytes(inspection.archiveBytes))}</strong></div>
-      <div><span>Payload size</span><strong>${escapeHtml(formatBytes(inspection.payloadBytes))}</strong></div>
-      <div><span>Printers</span><strong>${escapeHtml(String(counts.printers ?? 0))}</strong></div>
-      <div><span>Print Library</span><strong>${escapeHtml(String(counts.printLibrary ?? 0))} file${Number(counts.printLibrary || 0) === 1 ? '' : 's'}</strong></div>
-      <div><span>Unfinished queue</span><strong>${escapeHtml(String(counts.queued ?? 0))}</strong></div>
-      <div><span>History</span><strong>${escapeHtml(String(counts.history ?? 0))}</strong></div>
-      <div><span>Signed licence</span><strong>${inspection.licenseIncluded ? 'Included' : 'Not included'}</strong></div>
-      <div><span>Migration</span><strong>${migrations.length ? 'Required' : 'Not required'}</strong></div>
-    </div>
-    ${warnings.length ? `<div class="restore-warning-list"><strong>Restore notices</strong><ul>${warnings.map((warning) => `<li>${escapeHtml(warning)}</li>`).join('')}</ul></div>` : ''}
-    <div class="field-help">The backup has passed inspection. Choose Restore backup to stage it for activation on the next controller restart.</div>
-  `;
+  backupUiInspection = restoreInspectionViewModel(inspection);
+  if (window.__PFC_PREACT_BACKUP__) {
+    publishBackupRecoveryUiState();
+  } else {
+    restoreInspectionSummary.innerHTML = `
+      <div class="restore-valid-banner"><strong>Backup is valid</strong><span>Inspection completed without changing controller data.</span></div>
+      <div class="restore-inspection-grid">
+        <div><span>Backup file</span><strong>${escapeHtml(inspection.fileName || '—')}</strong></div>
+        <div><span>Created</span><strong>${escapeHtml(backupStatusTime(inspection.createdAt, '—'))}</strong></div>
+        <div><span>Source controller</span><strong>v${escapeHtml(inspection.sourceControllerVersion || '—')}</strong></div>
+        <div><span>Backup format</span><strong>v${escapeHtml(String(inspection.formatVersion || '—'))}</strong></div>
+        <div><span>Archive size</span><strong>${escapeHtml(formatBytes(inspection.archiveBytes))}</strong></div>
+        <div><span>Payload size</span><strong>${escapeHtml(formatBytes(inspection.payloadBytes))}</strong></div>
+        <div><span>Printers</span><strong>${escapeHtml(String(counts.printers ?? 0))}</strong></div>
+        <div><span>Print Library</span><strong>${escapeHtml(String(counts.printLibrary ?? 0))} file${Number(counts.printLibrary || 0) === 1 ? '' : 's'}</strong></div>
+        <div><span>Unfinished queue</span><strong>${escapeHtml(String(counts.queued ?? 0))}</strong></div>
+        <div><span>History</span><strong>${escapeHtml(String(counts.history ?? 0))}</strong></div>
+        <div><span>Signed licence</span><strong>${inspection.licenseIncluded ? 'Included' : 'Not included'}</strong></div>
+        <div><span>Migration</span><strong>${migrations.length ? 'Required' : 'Not required'}</strong></div>
+      </div>
+      ${warnings.length ? `<div class="restore-warning-list"><strong>Restore notices</strong><ul>${warnings.map((warning) => `<li>${escapeHtml(warning)}</li>`).join('')}</ul></div>` : ''}
+      <div class="field-help">The backup has passed inspection. Choose Restore backup to stage it for activation on the next controller restart.</div>
+    `;
+  }
   restoreInspectionSummary.classList.remove('hidden');
   if (restoreStageBtn) restoreStageBtn.disabled = false;
 }
