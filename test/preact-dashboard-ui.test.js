@@ -34,6 +34,12 @@ test('Preact dashboard is bundled locally and loaded before the legacy controlle
   assert.match(source, /id="dashboardViewToggle"/);
   assert.match(source, /id="dashboardGroupFilter"/);
   assert.match(source, /id="summary"/);
+  assert.match(source, /function PrinterCard/);
+  assert.match(source, /function PrinterFleet/);
+  assert.match(source, /pfc:dashboard-fleet-state/);
+  assert.match(source, /data-printer-card/);
+  assert.match(source, /data-card-job-control/);
+  assert.match(source, /data-maintenance-open-printer/);
 
   assert.match(frontendBuild, /jsxImportSource:'preact'/);
   assert.match(frontendBuild, /bundle:true/);
@@ -48,6 +54,17 @@ test('missing optional frontend assets return 404 while extensionless controller
   const server = await read('src/server.js');
   assert.match(server, /!path\.posix\.extname\(url\.pathname\)/);
   assert.match(server, /serveStatic\(res, '\/index\.html'\)/);
+});
+
+test('controller bridges live printer presentation into the Preact fleet without replacing command delegation', async () => {
+  const app = await read('public/app.js');
+  assert.match(app, /function dashboardPrinterViewModel/);
+  assert.match(app, /function publishDashboardPrinterState/);
+  assert.match(app, /window\.__PFC_PREACT_FLEET__/);
+  assert.match(app, /pfc:dashboard-fleet-state/);
+  assert.match(app, /fleetEl\.addEventListener\('click'/);
+  assert.match(app, /fleetEl\.addEventListener\('change'/);
+  assert.match(app, /dashboardTableOrderMap/);
 });
 
 test('vanilla dashboard fallback remains in the HTML', async () => {
