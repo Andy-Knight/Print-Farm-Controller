@@ -5895,7 +5895,7 @@ function creator5FilamentConfigControlMarkup(printer, tool = {}) {
     <label>Colour
       ${creator5FilamentColorDropdownMarkup(printer, { value:color || '', toolIndex:tool.index, disabled:!idle })}
     </label>
-    <button type="button" class="primary" data-creator5-filament-config-save="${tool.index}"${idle ? '' : ' disabled'}>Set on printer</button>
+    <button type="button" class="primary" data-creator5-filament-config-save="${tool.index}"${idle ? '' : ' disabled'}>Set filament</button>
     ${multiToolControlHelpMarkup(multiToolFilamentHelpText('Changes are written to the printer and verified.'))}
   </div>`;
 }
@@ -5959,7 +5959,7 @@ function toolNozzleDesignationMarkup(printer, tool = {}, toolCount = 1) {
   const coreOnePlus = printer.adapterType === 'prusa-core-one-plus';
   const compactClass = creator5 ? ' creator5-tool-nozzle-control' : coreOnePlus ? ' prusa-tool-nozzle-control' : '';
   const nozzleHelpDetail = creator5
-    ? 'Creator 5 firmware does not reliably report the installed nozzle size, so Clear makes it unknown.'
+    ? 'Creator 5 firmware does not reliably report the installed nozzle size, so assign the fitted nozzle size in the controller.'
     : hasReported
       ? `Assign saves a controller override of the ${nozzleDiameterText(reported)} value reported by PrusaLink.`
       : 'Assign saves the fitted nozzle size in the controller when PrusaLink does not report it.';
@@ -5974,8 +5974,8 @@ function toolNozzleDesignationMarkup(printer, tool = {}, toolCount = 1) {
       })}
     </label>
     <div class="mini-actions">
-      <button type="button" class="${coreOnePlus ? 'primary' : 'secondary'}" data-tool-nozzle-save="${tool.index}">Assign</button>
-      ${coreOnePlus ? '' : `<button type="button" class="secondary" data-tool-nozzle-clear="${tool.index}">Clear</button>`}
+      <button type="button" class="${coreOnePlus || creator5 ? 'primary' : 'secondary'}" data-tool-nozzle-save="${tool.index}">Assign</button>
+      ${coreOnePlus || creator5 ? '' : `<button type="button" class="secondary" data-tool-nozzle-clear="${tool.index}">Clear</button>`}
     </div>
     ${helpMarkup}
   </div>`;
@@ -7634,7 +7634,9 @@ ${flashForgePreflight}` : ''}`)) return;
     const nozzleDiameter = Number(input?.value);
     const allowedNozzles = printerNozzleDiameterOptions(printer);
     if (!allowedNozzles.some((value) => Math.abs(value - nozzleDiameter) < 0.0001)) {
-      showError(new Error(printer.adapterType === 'prusa-core-one-plus' ? 'Choose a nozzle size from the list.' : 'Choose a nozzle size from the list, or use Clear.'));
+      showError(new Error(['prusa-core-one-plus','flashforge-creator5'].includes(printer.adapterType)
+        ? 'Choose a nozzle size from the list.'
+        : 'Choose a nozzle size from the list, or use Clear.'));
       return;
     }
 
