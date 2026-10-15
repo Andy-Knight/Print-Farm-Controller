@@ -3,6 +3,7 @@ import { useEffect, useState } from 'preact/hooks';
 import { Metric, ProgressBar, StatusBadge, ToastHost, UiButton } from './components.jsx';
 import { initPrinterDetailsUi } from './printer-details.jsx';
 import { initPrintQueueUi } from './print-queue.jsx';
+import { initPrintLibraryUi } from './print-library.jsx';
 
 const FILTERS = Object.freeze([
   { key:'all', label:'All Printers' },
@@ -369,3 +370,5 @@ if (fleetRoot) {
 initPrinterDetailsUi();
 
 initPrintQueueUi();
+
+initPrintLibraryUi();
