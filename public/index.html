@@ -196,6 +196,17 @@
 
       <div id="diagnosticsStatus" class="diagnostics-status-grid"></div>
 
+      <section class="diagnostics-controls frontend-renderer-panel" aria-labelledby="frontendRendererHeading">
+        <div class="diagnostics-control-row">
+          <div>
+            <strong id="frontendRendererHeading">Frontend renderers</strong>
+            <div class="field-help">Shows which presentation components have successfully initialised Preact. Printer commands and specialist forms still use the established JavaScript controller.</div>
+          </div>
+          <button id="frontendRendererRefreshBtn" type="button" class="secondary">Recheck</button>
+        </div>
+        <div id="frontendRendererStatus" aria-live="polite">Checking frontend renderers…</div>
+      </section>
+
       <section class="diagnostics-controls">
         <div class="diagnostics-control-row">
           <div>
