@@ -141,7 +141,7 @@ test('AD5M and AD5M Pro have only Assign buttons for material and nozzle size', 
       capabilities:{materialDesignation:true, nozzleDesignation:true}
     };
     const materialHtml = renderMaterial(printer, {material:'PLA', materialSource:'manual'});
-    assert.match(materialHtml, /class="primary" data-material-designation-save>Assign filament<\/button>/);
+    assert.match(materialHtml, /class="primary" data-material-designation-save>Set filament<\/button>/);
     assert.match(materialHtml, /ad5m-material-actions/);
     assert.doesNotMatch(materialHtml, /data-material-designation-clear|Clear designation|Use printer value/);
     assert.equal((materialHtml.match(/<button\b/g) || []).length, 1, `${model} should have one material action`);
