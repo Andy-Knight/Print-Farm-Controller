@@ -450,8 +450,8 @@ test('CORE One+ UI and API expose per-tool material and colour designation', () 
   );
   assert.doesNotMatch(perToolMarkup, />Use printer value<\/button>/);
   assert.match(perToolMarkup, /multiToolFilamentHelpText/);
-  assert.match(perToolMarkup, /Clear returns to the values reported by PrusaLink\./);
-  assert.match(perToolMarkup, /Clear makes values not reported by PrusaLink unknown\./);
+  assert.match(perToolMarkup, /Clear assignment returns to the values reported by PrusaLink\./);
+  assert.match(perToolMarkup, /Clear assignment returns unreported values to unknown\./);
   assert.match(app, /\/tool-material-designation/);
   assert.match(styles, /\.prusa-tool-filament-control/);
   assert.match(server, /action === 'tool-material-designation'/);
