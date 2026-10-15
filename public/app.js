@@ -5925,7 +5925,10 @@ function prusaToolMaterialDesignationMarkup(printer, tool = {}) {
       ${colorFamilyDropdownMarkup({ value:familyOption?.value || '', inputAttributes:`data-prusa-tool-color-family-input="${tool.index}"`, placeholder:'Select colour' })}
     </label>
     <button type="button" class="primary" data-prusa-tool-material-save="${tool.index}">Set filament</button>
-    <button type="button" class="secondary prusa-filament-clear" data-prusa-tool-material-clear="${tool.index}">Clear assignment</button>
+    <details class="prusa-filament-reset">
+      <summary>Reset filament assignment</summary>
+      <button type="button" class="secondary" data-prusa-tool-material-clear="${tool.index}">Clear assignment</button>
+    </details>
     ${multiToolControlHelpMarkup(multiToolFilamentHelpText(
       hasReported
         ? 'Set filament saves type and colour in the controller, not on the Prusa printer. Clear assignment returns to the values reported by PrusaLink.'
