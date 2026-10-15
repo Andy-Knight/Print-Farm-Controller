@@ -390,6 +390,14 @@ let dashboardTableSort = { key:'', direction:'asc' };
 const DASHBOARD_FILTER_LABELS = Object.freeze({ all:'All Printers', online:'Online', printing:'Printing', attention:'Needs attention', maintenance:'Maintenance' });
 renderControllerRoute(location.pathname, { invoke:false });
 
+// The first route render makes the correct routed page visible without invoking
+// page-specific loaders before their module listeners are registered. Once all
+// module scripts have finished loading, re-activate the current route through
+// its normal open action so direct browser refreshes populate route data too.
+window.addEventListener('load', () => {
+  renderControllerRoute(location.pathname);
+}, { once:true });
+
 const FILAMENT_COLOR_FAMILIES = Object.freeze([
   { value:'black', label:'Black', representative:'#111111' },
   { value:'white', label:'White', representative:'#FFFFFF' },
