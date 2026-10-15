@@ -95,8 +95,8 @@ test('CORE One+ INDX4 and INDX8 show Assign without Clear on every nozzle', () =
     capabilities:{toolNozzleDesignation:true}
   };
   const creatorHtml = renderNozzle(creator5, {index:0, nozzleDiameter:0.4}, 4);
-  assert.match(creatorHtml, /class="secondary" data-tool-nozzle-save="0">Assign<\/button>/, 'Creator 5 secondary button remains unchanged');
-  assert.match(creatorHtml, /data-tool-nozzle-clear="0">Clear<\/button>/, 'Creator 5 Clear remains available');
+  assert.match(creatorHtml, /class="primary" data-tool-nozzle-save="0">Assign<\/button>/, 'Creator 5 nozzle Assign matches U1 primary blue');
+  assert.doesNotMatch(creatorHtml, /data-tool-nozzle-clear|>Clear<\/button>|Clear makes it unknown/, 'Creator 5 does not offer nozzle Clear');
 });
 
 test('CORE One+ Standard shows Assign without Clear on the single nozzle designation', () => {
@@ -154,11 +154,66 @@ test('AD5M and AD5M Pro have only Assign buttons for material and nozzle size', 
   }
 });
 
-test('AD5M single designation actions are full-width without affecting Creator 5', () => {
+test('AD5M and Creator 5 single designation actions are full-width', () => {
   const css = readFileSync(new URL('../public/styles.css', import.meta.url), 'utf8');
   assert.match(css, /\.ad5m-material-actions,/);
   assert.match(css, /\.ad5m-nozzle-actions \{/);
   assert.match(css, /\.ad5m-material-actions > button,/);
   assert.match(css, /\.ad5m-nozzle-actions > button \{/);
   assert.match(css, /\.creator5-tool-nozzle-control \.mini-actions/);
+});
+
+test('Creator 5 and Creator 5 Pro show Set filament for every toolhead, including disabled controls', () => {
+  const app = readFileSync(new URL('../public/app.js', import.meta.url), 'utf8');
+  const start = app.indexOf('function creator5FilamentConfigControlMarkup(');
+  const end = app.indexOf('function prusaToolMaterialDesignationMarkup(', start);
+  assert.ok(start !== -1 && end > start, 'Creator 5 filament markup function must exist');
+  const source = app.slice(start, end);
+  const stubs = {
+    creator5FilamentMaterialOptions:() => ['PLA', 'PETG'],
+    normalizeColor:() => '#ff0000',
+    creator5FilamentColorDropdownMarkup:() => '<details></details>',
+    multiToolControlHelpMarkup:() => '<small></small>',
+    multiToolFilamentHelpText:() => 'help',
+    escapeHtml:(value) => String(value)
+  };
+  const render = runInNewContext(source + '\ncreator5FilamentConfigControlMarkup', stubs);
+  for (const model of ['Creator 5', 'Creator 5 Pro']) {
+    for (const [state, disabled] of [['idle', false], ['printing', true]]) {
+      const printer = {
+        adapterType:'flashforge-creator5',
+        model,
+        capabilities:{filamentTypeControl:true, filamentColorControl:true},
+        status:{status:state}
+      };
+      for (let index = 0; index < 4; index++) {
+        const html = render(printer, {index, filament:{material:'PLA', color:'#ff0000'}});
+        assert.match(html, new RegExp(`<button type="button" class="primary" data-creator5-filament-config-save="${index}"${disabled ? ' disabled' : ''}>Set filament<\\/button>`));
+        assert.doesNotMatch(html, /Set on printer/);
+        assert.equal((html.match(/<button\\b/g) || []).length, 1, 'exactly one filament action per toolhead');
+      }
+    }
+  }
+});
+
+test('Creator 5 and Creator 5 Pro nozzle assignment is primary, full width, and has no Clear', () => {
+  const app = readFileSync(new URL('../public/app.js', import.meta.url), 'utf8');
+  const css = readFileSync(new URL('../public/styles.css', import.meta.url), 'utf8');
+  const renderNozzle = loadNozzleMarkupFunction(app, 'toolNozzleDesignationMarkup', 'flashForgeMaterialDesignationMarkup');
+  for (const model of ['Creator 5', 'Creator 5 Pro']) {
+    const printer = {
+      adapterType:'flashforge-creator5',
+      model,
+      capabilities:{toolNozzleDesignation:true}
+    };
+    for (let index = 0; index < 4; index++) {
+      const html = renderNozzle(printer, {index, nozzleDiameter:0.4}, 4);
+      assert.match(html, new RegExp(`class="primary" data-tool-nozzle-save="${index}">Assign<\\/button>`));
+      assert.doesNotMatch(html, /data-tool-nozzle-clear|>Clear<\/button>|Clear makes it unknown/);
+      assert.match(html, /creator5-tool-nozzle-control/);
+      assert.equal((html.match(/<button\\b/g) || []).length, 1);
+    }
+  }
+  assert.match(css, /\.creator5-tool-nozzle-control \.mini-actions \{[^}]*grid-template-columns:minmax\(0,1fr\)/);
+  assert.match(css, /\.creator5-tool-nozzle-control \.mini-actions > button \{[^}]*width:100%/);
 });
