@@ -304,10 +304,123 @@ function printerCardsMarkup() {
   }).join('');
 }
 
+function sharedTaskViewModel(task, scope) {
+  const completion = task.completionSummary || {};
+  const matching = Number(completion.matching || 0);
+  const eligible = Number(completion.eligible || 0);
+  const locked = Number(completion.locked || 0);
+  const modelScope = scope === 'model';
+  const groupName = modelScope ? '' : groupLabel(task.assignment?.groupId || task.target?.groupId, task.assignment?.groupName);
+  return {
+    id:String(task.id || ''),
+    scope,
+    name:String(task.name || ''),
+    description:String(task.description || ''),
+    disabled:task.enabled === false,
+    scopeLabel:modelScope
+      ? `Model · ${modelLabel(task.assignment || task.target)}`
+      : `Group · ${groupName}`,
+    scheduleLabel:scheduleLabel(task),
+    applicationText:modelScope
+      ? 'Applies to matching printers automatically'
+      : 'Applies to current group members automatically',
+    completionText:`${matching} matching · ${eligible} ready${locked ? ` · ${locked} locked` : ''}`,
+    completionAllowed:eligible > 0,
+    completionTitle:eligible > 0
+      ? ''
+      : modelScope
+        ? (matching ? 'No matching printers are currently eligible for completion' : 'No matching printers are configured')
+        : (matching ? 'No group members are currently eligible for completion' : 'This group has no configured members')
+  };
+}
+
+function printerTaskViewModel(task, printer) {
+  const scope = task.assignment?.scope || 'printer';
+  const meta = [
+    scheduleLabel(task),
+    remainingLabel(task),
+    task.lastCompletedAt
+      ? `Last completed: ${formatDate(task.lastCompletedAt)}`
+      : `Tracking since: ${formatDate(task.assignedAt || task.createdAt)}`
+  ];
+  if (task.enabled !== false && task.completionAllowed === false) meta.push('Complete when Due soon (80%)');
+  if (['model','group'].includes(scope)) meta.push(`Assigned to this printer: ${formatDate(task.assignedAt)}`);
+  return {
+    id:String(task.id || ''),
+    scope,
+    name:String(task.name || ''),
+    description:String(task.description || ''),
+    state:String(task.status?.state || 'current'),
+    statusLabel:statusLabel(task.status?.state),
+    scopeLabel:assignmentLabel(task, printer),
+    meta,
+    completionAllowed:task.completionAllowed !== false,
+    completionTitle:task.completionAllowed === false ? String(task.completionReason || 'This maintenance task cannot be completed yet') : '',
+    editText:scope === 'model' ? 'Edit model task' : scope === 'group' ? 'Edit group task' : 'Edit task',
+    deleteText:scope === 'model' ? 'Delete model task' : scope === 'group' ? 'Delete group task' : 'Delete task'
+  };
+}
+
+function maintenancePrinterViewModel(printer) {
+  const rank = { due:0, due_soon:1, current:2, disabled:3 };
+  const tasks = [...(printer.tasks || [])]
+    .sort((a, b) => (rank[a.status?.state] ?? 9) - (rank[b.status?.state] ?? 9) || String(a.name).localeCompare(String(b.name)))
+    .map((task) => printerTaskViewModel(task, printer));
+  const history = (printer.history || []).slice(0, 5).map((entry) => ({
+    taskName:String(entry.taskName || ''),
+    completedAt:formatDate(entry.completedAt),
+    usage:`${formatHours(Number(entry.usageSnapshot?.printHours || 0))} / ${Number(entry.usageSnapshot?.printCount || 0)} prints`,
+    scopeLabel:entry.assignment?.scope === 'model'
+      ? `Model · ${modelLabel(entry.assignment)}`
+      : entry.assignment?.scope === 'group'
+        ? `Group · ${groupLabel(entry.assignment?.groupId, entry.assignment?.groupName)}`
+        : 'Individual printer',
+    notes:String(entry.notes || '')
+  }));
+  return {
+    id:String(printer.printerId || ''),
+    name:String(printer.printerName || ''),
+    modelLabel:[printer.manufacturer, printer.model].filter(Boolean).join(' '),
+    due:Number(printer.summary?.due || 0),
+    dueSoon:Number(printer.summary?.dueSoon || 0),
+    printHours:formatHours(printer.usage?.printHours),
+    printCount:Number(printer.usage?.printCount || 0),
+    tasks,
+    history,
+    historyCount:Number(printer.history?.length || 0)
+  };
+}
+
+function publishMaintenanceUiState() {
+  if (!window.__PFC_PREACT_MAINTENANCE__) return;
+  const modelTasks = [...(maintenance.modelTasks || [])]
+    .sort((a, b) => modelLabel(a.assignment || a.target).localeCompare(modelLabel(b.assignment || b.target)) || String(a.name).localeCompare(String(b.name)))
+    .map((task) => sharedTaskViewModel(task, 'model'));
+  const groupTasks = [...(maintenance.groupTasks || [])]
+    .sort((a, b) => groupLabel(a.assignment?.groupId || a.target?.groupId, a.assignment?.groupName).localeCompare(
+      groupLabel(b.assignment?.groupId || b.target?.groupId, b.assignment?.groupName)
+    ) || String(a.name).localeCompare(String(b.name)))
+    .map((task) => sharedTaskViewModel(task, 'group'));
+  const detail = {
+    activeView:activeMaintenanceView,
+    modelTasks,
+    groupTasks,
+    printers:(maintenance.printers || []).map(maintenancePrinterViewModel)
+  };
+  window.__PFC_MAINTENANCE_UI_STATE__ = detail;
+  window.dispatchEvent(new CustomEvent('pfc:maintenance-ui-state', { detail }));
+}
+
 function render() {
   if (!list) return;
   form?.classList.toggle('hidden', activeMaintenanceView !== 'add');
   list.classList.toggle('hidden', activeMaintenanceView === 'add');
+
+  if (window.__PFC_PREACT_MAINTENANCE__) {
+    publishMaintenanceUiState();
+    return;
+  }
+
   if (activeMaintenanceView === 'model') {
     list.innerHTML = modelTaskSection() || '<div class="empty maintenance-empty"><h3>No model-wide maintenance tasks</h3><p>Create a model-wide task from Add maintenance tasks.</p></div>';
     return;
@@ -326,10 +439,12 @@ function render() {
 function setMaintenanceView(view) {
   const next = ['add', 'model', 'group', 'printers'].includes(view) ? view : 'printers';
   activeMaintenanceView = next;
-  for (const button of viewButtons) {
-    const active = button.dataset.maintenanceView === next;
-    button.classList.toggle('active', active);
-    button.setAttribute('aria-selected', active ? 'true' : 'false');
+  if (!window.__PFC_PREACT_MAINTENANCE__) {
+    for (const button of viewButtons) {
+      const active = button.dataset.maintenanceView === next;
+      button.classList.toggle('active', active);
+      button.setAttribute('aria-selected', active ? 'true' : 'false');
+    }
   }
   render();
 }
