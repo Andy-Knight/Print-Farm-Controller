@@ -5991,7 +5991,6 @@ function flashForgeMaterialDesignationMarkup(printer, filament = {}) {
     : String(printer.materialColorFamilyDesignation || '');
   const familyOption = filamentColorFamilyOption(manualFamily);
   const reported = filament.reportedMaterial || (filament.materialSource === 'printer' ? filament.material : null);
-  const clearLabel = reported ? 'Use printer value' : 'Clear designation';
   return `<div class="material-designation-control">
     <div class="material-designation-fields">
       <label>Controller material type
@@ -6005,7 +6004,7 @@ function flashForgeMaterialDesignationMarkup(printer, filament = {}) {
         ${colorFamilyDropdownMarkup({ value:familyOption?.value || '', inputAttributes:'data-material-color-family-input', placeholder:'Select colour family' })}
       </label>
     </div>
-    <div class="mini-actions"><button type="button" class="secondary" data-material-designation-save>Assign filament</button><button type="button" class="secondary" data-material-designation-clear>${escapeHtml(clearLabel)}</button></div>
+    <div class="mini-actions ad5m-material-actions"><button type="button" class="secondary" data-material-designation-save>Assign filament</button></div>
     <div class="field-help">The colour family is used for automatic queue compatibility. Exact shade selection is not required.${reported ? ` Printer currently reports material ${escapeHtml(reported)}.` : ''}</div>
   </div>`;
 }
@@ -6020,6 +6019,8 @@ function flashForgeNozzleDesignationMarkup(printer, tool = {}) {
     : null;
   const options = printerNozzleDiameterOptions(printer);
   const coreOnePlus = printer.adapterType === 'prusa-core-one-plus';
+  const ad5m = printer.adapterType === 'flashforge-ad5m';
+  const singleAction = coreOnePlus || ad5m;
   const unavailableHelp = printer?.manufacturer === 'Prusa'
     ? 'PrusaLink may not report every installed nozzle size, so this controller designation is used when a supported single-tool Prusa model needs an explicit nozzle value.'
     : 'FlashForge firmware does not reliably report the installed nozzle size, so choose the fitted nozzle from the supported sizes whenever you change it.';
@@ -6033,7 +6034,7 @@ function flashForgeNozzleDesignationMarkup(printer, tool = {}) {
     <label>Controller nozzle designation
       ${selector}
     </label>
-    <div class="mini-actions${coreOnePlus ? ' prusa-nozzle-actions' : ''}"><button type="button" class="${coreOnePlus ? 'primary' : 'secondary'}" data-nozzle-designation-save>Assign</button>${coreOnePlus ? '' : '<button type="button" class="secondary" data-nozzle-designation-clear>Clear</button>'}</div>
+    <div class="mini-actions${coreOnePlus ? ' prusa-nozzle-actions' : ad5m ? ' ad5m-nozzle-actions' : ''}"><button type="button" class="${coreOnePlus ? 'primary' : 'secondary'}" data-nozzle-designation-save>Assign</button>${singleAction ? '' : '<button type="button" class="secondary" data-nozzle-designation-clear>Clear</button>'}</div>
     <div class="field-help">Stored by Print Farm Controller for this printer and used by automatic queue compatibility.${reported ? ` Printer currently reports ${escapeHtml(nozzleDiameterText(reported))}.` : ` ${escapeHtml(unavailableHelp)}`}</div>
   </div>`;
 }
@@ -7685,7 +7686,7 @@ ${flashForgePreflight}` : ''}`)) return;
     const input = printerDetail.querySelector('[data-material-designation-input]');
     const material = String(input?.value || '').trim();
     const colorFamily = String(materialColorFamilyInput?.value || '').trim().toLowerCase();
-    if (!material) { showError(new Error('Enter a material type to assign, or use Clear designation.')); return; }
+    if (!material) { showError(new Error('Choose a filament type to assign.')); return; }
     if (!filamentColorFamilyOption(colorFamily)) { showError(new Error('Choose a filament colour family.')); return; }
     const original = materialDesignationSave.textContent;
     materialDesignationSave.disabled = true;
@@ -7712,34 +7713,6 @@ ${flashForgePreflight}` : ''}`)) return;
     } catch (error) { showError(error); }
     finally { materialDesignationSave.disabled = false; materialDesignationSave.textContent = original; }
   };
-  const materialDesignationClear = printerDetail.querySelector('[data-material-designation-clear]');
-  if (materialDesignationClear) materialDesignationClear.onclick = async () => {
-    const original = materialDesignationClear.textContent;
-    materialDesignationClear.disabled = true;
-    materialDesignationClear.textContent = 'Clearing…';
-    try {
-      await api(`/api/printers/${id}/material-designation`, { method:'DELETE' });
-      printer.materialDesignation = null;
-      printer.materialColorDesignation = null;
-      printer.materialColorFamilyDesignation = null;
-      const filament = printer.status?.tools?.[0]?.filament;
-      if (filament) {
-        filament.material = filament.reportedMaterial || null;
-        filament.materialSource = filament.reportedMaterial ? 'printer' : null;
-        filament.color = filament.reportedColor || null;
-        filament.colorSource = filament.reportedColor ? 'printer' : null;
-        filament.colorFamily = filament.reportedColorFamily || null;
-        filament.colorFamilySource = filament.reportedColorFamily ? 'printer' : null;
-        filament.manuallyAssigned = false;
-        updateOpenPrinterTelemetry();
-      }
-      const input = printerDetail.querySelector('[data-material-designation-input]');
-      if (input) setFilamentTypeSelectValue(input, '');
-      if (materialColorFamilyInput) setColorFamilyDropdownValue(materialColorFamilyInput, '');
-    } catch (error) { showError(error); }
-    finally { materialDesignationClear.disabled = false; materialDesignationClear.textContent = original; }
-  };
-
   const nozzleDesignationSave = printerDetail.querySelector('[data-nozzle-designation-save]');
   if (nozzleDesignationSave) nozzleDesignationSave.onclick = async () => {
     const input = printerDetail.querySelector('[data-nozzle-designation-input]');
@@ -7749,7 +7722,7 @@ ${flashForgePreflight}` : ''}`)) return;
       ? prusaNozzles.some((value) => Math.abs(value - nozzleDiameter) < 0.0001)
       : Number.isFinite(nozzleDiameter) && nozzleDiameter >= 0.1 && nozzleDiameter <= 1.2;
     if (!valid) {
-      showError(new Error(prusaNozzles && printer.adapterType === 'prusa-core-one-plus'
+      showError(new Error(['prusa-core-one-plus','flashforge-ad5m'].includes(printer.adapterType)
         ? 'Choose a nozzle size from the list.'
         : prusaNozzles
           ? 'Choose a nozzle size from the list, or use Clear.'
