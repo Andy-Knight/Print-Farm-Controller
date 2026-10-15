@@ -21,7 +21,7 @@ test('production packaging scripts use Node 24, esbuild and Node SEA', () => {
   assert.equal(pkg.engines.node, '>=24');
   assert.equal(pkg.devDependencies.esbuild, '0.28.2');
   assert.equal(pkg.devDependencies.postject, '1.0.0-alpha.6');
-  assert.equal(pkg.scripts['build:bundle'], 'node scripts/build-controller-bundle.mjs');
+  assert.equal(pkg.scripts['build:bundle'], 'npm run build:frontend && node scripts/build-controller-bundle.mjs');
   assert.equal(pkg.scripts['build:sea:windows'], 'node scripts/build-sea-windows.mjs');
   assert.equal(pkg.scripts['build:installer:windows'], 'npm run build:sea:windows && node scripts/build-installer-windows.mjs');
   assert.equal(pkg.scripts['sign:windows'], 'node scripts/sign-windows.mjs');

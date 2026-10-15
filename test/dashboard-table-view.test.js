@@ -42,8 +42,10 @@ test('table header follows existing dashboard filtering and empty-result state',
   const end = app.indexOf('\nfunction setDashboardFilter', start);
   assert.ok(start >= 0 && end > start, 'applyDashboardFilter should exist');
   const block = app.slice(start, end);
-  assert.match(block, /visible \+= 1/);
+  assert.match(block, /const visible = fleet\.filter\(\(printer\) => matchesDashboardGroup\(printer\) && matchesDashboardFilter\(printer\)\)\.length/);
   assert.match(block, /fleetTableHeader\?\.classList\.toggle\('hidden', dashboardViewMode !== 'table' \|\| visible === 0\)/);
+  assert.match(block, /window\.__PFC_PREACT_FLEET__/);
+  assert.match(block, /publishDashboardPrinterState\(\)/);
 });
 
 

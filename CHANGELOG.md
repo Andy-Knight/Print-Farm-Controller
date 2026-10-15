@@ -4,6 +4,41 @@ This file contains the version-by-version release history for Print Farm Control
 
 Historical entries describe the behaviour of the controller at the time of that release and may be superseded by later versions. For current installation, configuration and supported-hardware guidance, see [README.md](README.md).
 
+## v0.47.0
+
+- Introduces the first Preact-based controller UI island while retaining the existing vanilla JavaScript interface as a fallback.
+- Migrates the dashboard summary filters, printer-group selector, Cards/Table view switch, printer cards and compact table rows to reusable Preact components.
+- Drives printer cards from normalized live view-model state while retaining the established controller command/event delegation for printer actions, selection, sorting, maintenance shortcuts and drag/reorder.
+- Adds reusable Preact UI primitives for buttons, status badges, progress bars, metrics and toast notifications, and applies them to the dashboard for more consistent interaction and visual state.
+- Adds non-blocking dashboard feedback for pause/resume, chamber-preheat stop and bed-clearance actions while retaining existing error handling.
+- Extends the Preact migration into Printer Details: the live printer header, status/maintenance presentation, activity banner and six-tab navigation now use reusable Preact components while the existing toolhead, camera, file, temperature, job and management controls remain on their proven controller logic.
+- Preserves the vanilla-JavaScript Printer Details header/tab implementation as the fallback when the optional Preact bundle is unavailable.
+- Migrates Print Queue & History list rendering to keyed Preact components for queued jobs, active jobs, bed-clearance interlocks, production batches and recent history while preserving the existing queue scheduler APIs and delegated action handlers.
+- Keeps priority and production-quantity edits stable during live queue refreshes and defers Preact queue rerenders while pointer interactions are in progress.
+- Migrates Print Library file-card rendering to keyed Preact components for previews, descriptions, printer targets, detected requirements, filament colours, usage metadata and warnings while preserving the existing search, upload, queue, edit, preview and delete controller handlers.
+- Retains the vanilla Print Library card renderer as a fallback when the optional Preact bundle is unavailable.
+- Migrates Maintenance view tabs and model/group/printer task-card rendering to Preact while preserving the existing maintenance form, APIs, completion/edit/delete/history handlers and vanilla fallback renderer.
+- Adds keyboard navigation across Maintenance views and keeps printer-focused maintenance shortcuts compatible with the Preact-rendered cards.
+- Migrates Alerts & Notifications tab navigation plus alert-history rows, notification-destination cards and notification-rule cards to Preact while preserving severity filtering, acknowledgement, history clearing, destination forms/tests and rule forms on the existing controller logic.
+- Keeps the vanilla Alerts renderer and tab behavior as the fallback when the optional Preact bundle is unavailable.
+- Migrates Reports & Analytics tab navigation, KPI cards, outcome chart, printer-attention rows, popular-file/material bars and filament-cost catalogue rows to Preact while retaining reporting filters, calculations, data loading and filament form actions in the existing reporting controller.
+- Keeps the vanilla Reports renderers and tab behavior as fallbacks when the optional Preact bundle is unavailable.
+- Migrates Backup & Recovery tab navigation, controller backup-status cards and restore-inspection results to Preact while retaining cloud-provider configuration, OAuth/device authorization, backup scheduling, backup creation and restore staging/execution in the existing controller logic.
+- Keeps the vanilla Backup & Recovery tab, status and restore-inspection renderers as fallbacks when the optional Preact bundle is unavailable.
+- Migrates Printer Groups list/card presentation to Preact while preserving the existing group form, multi-group membership editor, queue/group filter integrations and create/edit/delete controller logic.
+- Keeps the vanilla Printer Groups renderer as a fallback when the optional Preact bundle is unavailable.
+- Migrates Diagnostics status-summary and log-entry presentation to Preact while retaining refresh, level/search filtering, verbose logging controls and support-bundle download logic in the existing controller.
+- Keeps the vanilla Diagnostics status/log renderers as fallbacks when the optional Preact bundle is unavailable.
+- Migrates Licence status, entitlement/detail grid, licence-file path and configuration-warning presentation to Preact while retaining licence-file upload, signature verification and activation in the existing controller logic.
+- Keeps the vanilla Licence renderer as a fallback when the optional Preact bundle is unavailable.
+- Completes the v0.47.0 Preact migration audit: all persistent controller route pages now have Preact presentation coverage, and the dashboard over-limit licence notice is also Preact-rendered.
+- Deliberately retains Add Printer/discovery, Farm Operations action forms, Print Library filament-assignment editing, cloud/provider forms and specialist Printer Details controls on the established controller-managed DOM because those areas are tightly coupled to stateful device or form workflows rather than being presentation-only remnants.
+- Adds a local esbuild frontend bundle so Preact is packaged with source, container and Windows SEA builds without a CDN or browser-time dependency.
+- Keeps Preact and esbuild as build-time development dependencies; a fresh source ZIP uses `npm install --include=dev` once to build the optional Preact asset, while `npm start` itself remains dependency-free and falls back to the existing dashboard if that asset is absent.
+- Missing static assets now return HTTP 404 instead of the SPA HTML shell, allowing an absent optional Preact bundle to fail cleanly without disrupting the legacy dashboard.
+- Removes the decorative dots from the four dashboard summary-filter headings and restores a consistent vertical label/count layout across all four cards.
+- Adds regression coverage for the Preact dashboard integration and packaging paths.
+
 ## v0.46.3
 
 - Fixes the dashboard Table view layout when the browser viewport is narrower than the full table width.

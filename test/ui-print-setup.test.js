@@ -338,7 +338,7 @@ test('unsupported chamber controls are omitted rather than shown disabled', () =
 });
 
 test('printer detail tab panels use stable responsive layouts', () => {
-  assert.match(styles, /\.printer-dialog \{ width:min\(1200px,calc\(100vw - 30px\)\); \}/);
+  assert.match(styles, /\.printer-dialog\s*\{[\s\S]*?width:min\(1200px,calc\(100vw - 30px\)\);[\s\S]*?top:15px;[\s\S]*?bottom:auto;[\s\S]*?margin:0 auto;[\s\S]*?\}/);
   assert.match(styles, /\.printer-detail-tab-panel\[data-detail-panel="temperature"\],[\s\S]*grid-template-columns:minmax\(0,1fr\) minmax\(0,1fr\)/);
   assert.match(styles, /@media \(max-width:760px\)[\s\S]*\.printer-detail-tab-panel\[data-detail-panel="temperature"\],[\s\S]*grid-template-columns:1fr/);
   assert.match(app, /class="panel maintenance-panel"/);
@@ -864,7 +864,7 @@ test('printer details are organised into six consistent tabs', () => {
   assert.match(app, /if \(printerManagementPanel\) managementLeft\.append\(printerManagementPanel\)/);
   assert.match(app, /if \(diagnosticsPanel\) managementRight\.append\(diagnosticsPanel\)/);
   assert.match(app, /detailGrid\?\.remove\(\)/);
-  assert.match(app, /activateDetailTab\(printerDetailTabByPrinter\.get\(id\) \|\| 'toolheads'\)/);
+  assert.match(app, /activatePrinterDetailTab\(printerDetailTabByPrinter\.get\(id\) \|\| 'toolheads'\)/);
   assert.match(app, /class="printer-detail-tabs maintenance-view-selector"/);
   assert.match(app, /class="maintenance-view-button" role="tab" data-detail-tab="toolheads"/);
   assert.match(styles, /\.printer-detail-tabs\.maintenance-view-selector \{[\s\S]*grid-template-columns:repeat\(6,minmax\(0,1fr\)\)/);

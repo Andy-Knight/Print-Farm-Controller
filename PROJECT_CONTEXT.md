@@ -9,19 +9,21 @@ If chat context and this file disagree about the codebase, inspect current GitHu
 - Repository: `Andy-Knight/Print-Farm-Controller`
 - Project path: repository root (`/`)
 - Primary branch: `main` (current production baseline)
-- Current application version: **0.46.3**. Production baseline on `main`: **0.46.3**.
+- Current application version on `feature/preact-ui-foundation`: **0.47.0** (in development). Production baseline on `main`: **0.46.3**.
 - Runtime: **Node.js 24+** (development baseline Node.js 24.21.0), ES modules, no npm runtime dependencies.
 - GitHub is the authoritative code baseline.
 - Release/version history is maintained only in `CHANGELOG.md`; do not duplicate per-version history in this handoff file.
 
 ## Current work
 
-v0.46.3 corrects the dashboard Table view horizontal-scroll presentation by keeping the table header and printer rows at the same minimum width as the defined grid columns. The release is merged to `main`.
+Active development: **v0.47.0** on `feature/preact-ui-foundation`.
+
+This introduces Preact incrementally rather than rewriting the controller UI. The dashboard Preact layer now owns the summary filters, printer-group selector, Cards/Table view switch, printer cards and compact table rows. Live printer data is normalized into a presentation view model while the existing controller command/event delegation continues to own printer actions, selection, sorting, maintenance shortcuts and drag/reorder. A reusable Preact UI layer now provides shared buttons, status badges, progress bars, metrics and toast notifications for incremental migration of the remaining controller screens. Printer Details now uses Preact for its live header/status/activity chrome and six-tab navigation, while the specialist controls inside each tab remain on the existing controller DOM/event logic for this migration stage. Print Queue & History now uses Preact for live job, bed-clearance, production-batch and history-card rendering while retaining the existing queue scheduler endpoints and delegated control logic. Print Library file cards now use Preact for preview, metadata, printer-target, requirement, colour and action presentation while search and all library mutations continue through the established controller logic. Maintenance now uses Preact for the four view tabs plus model-wide, group-wide and individual-printer task presentation; the task form and all maintenance mutations remain in the established maintenance controller module. Alerts & Notifications now uses Preact for its three-tab navigation, alert-history table, destination cards and rule cards while acknowledgement, filtering, forms, tests and notification mutations remain in the existing alerts controller module. Reports & Analytics now uses Preact for its tabs, KPI cards, outcome chart, printer attention rows, ranked file/material bars and filament catalogue rows while report calculations, filters and filament form mutations remain in reporting.js. Backup & Recovery now uses Preact for its six-tab navigation, controller backup-status cards and restore-inspection result presentation while provider credentials, OAuth/device authorization, schedules, backup creation and restore staging remain in the established app controller logic. Printer Groups now uses Preact for group-card/member-list presentation while the existing multi-group editor and create/edit/delete logic remain in app.js. Diagnostics now uses Preact for controller-status and log-entry presentation while filters, verbose logging and diagnostic-bundle actions remain in the established app controller logic. Licence now uses Preact for licence-status and entitlement/detail presentation while signed licence upload, signature verification and activation remain in app.js. The v0.47.0 Preact migration audit confirms every persistent route page has Preact presentation coverage, and the dashboard over-limit licence notice is also Preact-rendered. Add Printer/discovery, Farm Operations action forms, Print Library filament-assignment editing, provider configuration forms and specialist Printer Details controls are intentionally retained on the established controller-managed DOM because they are stateful workflow/control surfaces rather than presentation-only remnants. Preact is bundled locally with esbuild for source, container and Windows SEA builds. A fresh source ZIP runs `npm install --include=dev` once to generate the optional browser bundle; `npm start` itself remains dependency-free and the existing HTML/vanilla-JavaScript dashboard remains usable if the Preact bundle is absent.
 
 ## Architecture
 
 ```text
-Browser UI (`public/`)
+Browser UI (`public/`; build-time Preact sources in `ui/`)
         |
         v
 Local Fleet Controller (`src/`)
@@ -124,17 +126,17 @@ Manufacturer-specific discovery, capabilities, limits, status normalization, fil
 
 ## Current task
 
-The current production baseline is **v0.45.0** on `main`.
+The current release baseline is **v0.47.0**.
 
-v0.45.0 printer-local file deletion has been completed and merged. Snapmaker U1 deletion is physically validated; experimental Prusa/Bambu deletion remains capability-gated, while FlashForge AD5M/AD5M Pro and Creator 5/5 Pro deletion remain disabled without a validated stock-firmware interface.
+v0.47.0 completes the first controller-wide Preact presentation migration. All persistent route pages now have Preact presentation coverage, with the Dashboard, Queue & History, Print Library, Maintenance, Alerts & Notifications, Reports & Analytics, Backup & Recovery, Printer Groups, Diagnostics and Licence interfaces migrated while preserving established controller/API behavior and vanilla fallbacks. Stateful Add Printer/discovery, Farm Operations forms, Print Library filament-assignment editing, provider authorization/configuration and specialist Printer Details controls remain deliberately on the established controller-managed DOM.
 
-Active development: **v0.46.0** on `feature/dashboard-table-view`. Adds a persistent dashboard switch between the existing card layout and a compact tabular layout intended for navigating larger farms. The table reuses the live printer card data and actions, preserves dashboard group/status filters and Farm operations selection, supports ascending/descending sorting by printer name, status, progress and remaining time, keeps filament swatches and operational warning strips, and stores the selected view in browser local storage. The feature is not yet merged.
+The v0.47.0 release candidate has completed automated regression, MinIO S3 integration, container smoke-test and multi-architecture image validation. The final dashboard summary presentation uses four filters without decorative heading dots and keeps each label aligned above its count.
 
 ## Next steps
 
-1. Run the full automated test suite for v0.46.0 and validate the Cards / Table dashboard switch in desktop and narrow browser layouts with a larger simulated farm.
-2. Confirm table-mode live updates, filters, Farm operations selection, Open printer and Pause/Resume controls remain stable during SSE refreshes.
-3. Continue physical-hardware validation for Creator 5 / Creator 5 Pro and experimental Bambu support.
+1. Continue physical-hardware validation for Creator 5 / Creator 5 Pro and experimental Bambu support.
+2. Keep the retained stateful controller-managed UI boundaries deliberate; migrate them only where there is a clear product or maintainability benefit.
+3. Continue normal regression coverage for source, Windows SEA and multi-architecture container packaging as future features are added.
 4. Keep `README.md`, `CHANGELOG.md` and this context file synchronized whenever a release/version changes.
 
 ## Licensing baseline

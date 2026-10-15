@@ -32,6 +32,7 @@ let reportingPrintersState = [];
 let reportingGroupsState = [];
 let reportingFilamentsState = [];
 let currentReport = null;
+let activeReportingTab = 'analytics';
 const FILAMENT_CURRENCIES = new Set(['GBP', 'USD', 'EUR', 'JPY', 'CNY', 'CAD', 'AUD', 'NZD', 'CHF', 'HKD', 'SGD', 'INR', 'KRW', 'TWD', 'THB', 'MYR', 'IDR', 'PHP', 'VND', 'AED', 'SAR', 'ILS', 'ZAR', 'BRL', 'MXN', 'SEK', 'NOK', 'DKK', 'PLN', 'CZK', 'HUF', 'RON', 'TRY', 'RUB', 'CLP', 'COP']);
 
 function escapeHtml(value = '') {
@@ -99,6 +100,119 @@ function populateReportFilters() {
       + reportingPrintersState.map((printer) => `<option value="${escapeHtml(printer.id)}">${escapeHtml(printer.name || printer.model || printer.id)}</option>`).join('');
     if ([...reportingPrinter.options].some((option) => option.value === previous)) reportingPrinter.value = previous;
   }
+}
+
+function lineChartViewModel(rows = []) {
+  if (!rows.length) {
+    return { rows:[], grid:[], labels:[], viewBox:'0 0 760 230', completedPath:'', failedPath:'', cancelledPath:'' };
+  }
+  const width = 760;
+  const height = 230;
+  const pad = { left:42, right:18, top:18, bottom:34 };
+  const chartW = width - pad.left - pad.right;
+  const chartH = height - pad.top - pad.bottom;
+  const maxY = Math.max(1, ...rows.flatMap((row) => [Number(row.completed || 0), Number(row.failed || 0), Number(row.cancelled || 0)]));
+  const x = (index) => pad.left + (rows.length === 1 ? chartW / 2 : (index / (rows.length - 1)) * chartW);
+  const y = (value) => pad.top + chartH - (Number(value || 0) / maxY) * chartH;
+  const path = (key) => rows.map((row, index) => `${index ? 'L' : 'M'} ${x(index).toFixed(1)} ${y(row[key]).toFixed(1)}`).join(' ');
+  const tickIndexes = [...new Set([0, Math.floor((rows.length - 1) / 2), rows.length - 1])];
+  return {
+    rows,
+    viewBox:`0 0 ${width} ${height}`,
+    completedPath:path('completed'),
+    failedPath:path('failed'),
+    cancelledPath:path('cancelled'),
+    grid:[0, .25, .5, .75, 1].map((portion) => {
+      const yy = pad.top + chartH - portion * chartH;
+      return {
+        x1:pad.left,
+        x2:width - pad.right,
+        y:yy,
+        labelX:pad.left - 8,
+        labelY:yy + 4,
+        label:Math.round(maxY * portion)
+      };
+    }),
+    labels:tickIndexes.map((index) => ({
+      x:x(index),
+      y:height - 9,
+      text:rows[index]?.date
+        ? new Date(`${rows[index].date}T00:00:00`).toLocaleDateString(undefined, { month:'short', day:'numeric' })
+        : ''
+    }))
+  };
+}
+
+function reportingBarRowsViewModel(rows, { value, label, detail = null, maxRows = 8 } = {}) {
+  const sliced = (rows || []).slice(0, maxRows);
+  const values = sliced.map((row) => Math.max(0, Number(value(row) || 0)));
+  const max = Math.max(1, ...values);
+  return sliced.map((row, index) => {
+    const amount = values[index];
+    return {
+      key:String(row.id || row.fileName || row.label || index),
+      label:String(label(row)),
+      detail:String(detail ? detail(row) : amount),
+      percent:Number(Math.max(1.5, (amount / max) * 100).toFixed(2))
+    };
+  });
+}
+
+function reportingPrintersViewModel(printers = []) {
+  return printers.slice(0, 10).map((printer, index) => ({
+    id:String(printer.printerId || printer.id || index),
+    name:String(printer.printerName || 'Unknown printer'),
+    summary:`${printer.attempts} attempts · ${printer.completed} completed · ${printer.failed} failed · ${formatNumber(printer.runHours, 1)} h run time`,
+    trend:formatRateTrend(printer.failureRateTrend),
+    failureRate:formatPercent(printer.failureRate),
+    attention:Array.isArray(printer.attentionReasons) ? printer.attentionReasons.map(String) : []
+  }));
+}
+
+function reportingKpiViewModel(report = {}) {
+  const totals = report?.totals || {};
+  return [
+    ['Print attempts', formatNumber(totals.attempts)],
+    ['Completed', formatNumber(totals.completed)],
+    ['Completion rate', formatPercent(totals.completionRate)],
+    ['Failed', formatNumber(totals.failed)],
+    ['Run time', `${formatNumber(totals.runHours, 1)} h`],
+    ['Material used', totals.materialGrams ? `${formatNumber(totals.materialGrams, 1)} g` : '—'],
+    ['Material spend', formatCurrencyTotals(totals.spendByCurrency)],
+    ['Cost coverage', totals.completed ? `${formatNumber(totals.costedPrints)} / ${formatNumber(totals.completed)} prints` : '—']
+  ].map(([label, value]) => ({ label, value }));
+}
+
+function reportingFilamentsViewModel() {
+  return reportingFilamentsState.map((item) => ({
+    id:String(item.id || ''),
+    label:filamentLabel(item),
+    detail:`${item.material}${item.colour ? ` · ${item.colour}` : ''}`,
+    price:formatCurrencyTotals({ [item.currency]:item.costPerKg })
+  }));
+}
+
+function publishReportingUiState(report = currentReport || {}) {
+  if (!window.__PFC_PREACT_REPORTING__) return;
+  const detail = {
+    activeTab:activeReportingTab,
+    kpis:reportingKpiViewModel(report),
+    chart:lineChartViewModel(report?.daily || []),
+    printers:reportingPrintersViewModel(report?.printers || []),
+    files:reportingBarRowsViewModel(report?.files || [], {
+      value:(row) => row.completed,
+      label:(row) => row.fileName,
+      detail:(row) => `${row.completed} completed · ${row.failed} failed`
+    }),
+    materials:reportingBarRowsViewModel(report?.materials || [], {
+      value:(row) => row.grams,
+      label:(row) => row.label,
+      detail:(row) => `${formatNumber(row.grams, 1)} g · ${formatCurrencyTotals(row.spendByCurrency)}`
+    }),
+    filaments:reportingFilamentsViewModel()
+  };
+  window.__PFC_REPORTING_UI_STATE__ = detail;
+  window.dispatchEvent(new CustomEvent('pfc:reporting-ui-state', { detail }));
 }
 
 function lineChartSvg(rows = []) {
@@ -176,6 +290,10 @@ function renderProblemPrinters(printers = []) {
 
 function renderReport(report) {
   currentReport = report;
+  if (window.__PFC_PREACT_REPORTING__) {
+    publishReportingUiState(report);
+    return;
+  }
   const totals = report?.totals || {};
   if (reportingKpis) {
     reportingKpis.innerHTML = [
@@ -279,6 +397,10 @@ function filamentLabel(item) {
 
 function renderFilamentCatalogue() {
   if (!filamentList) return;
+  if (window.__PFC_PREACT_REPORTING__) {
+    publishReportingUiState(currentReport || {});
+    return;
+  }
   const rows = reportingFilamentsState;
   if (!rows.length) {
     filamentList.innerHTML = '<div class="reporting-empty">No filament costs configured yet. Add a material and its current cost per kg.</div>';
@@ -301,36 +423,48 @@ function renderFilamentCatalogue() {
 }
 
 function activateReportingTab(name, focus = false) {
-  const selected = reportingTabs.find((tab) => tab.dataset.reportingTab === name) || reportingTabs[0];
-  if (!selected) return;
-  const selectedName = selected.dataset.reportingTab;
-  for (const tab of reportingTabs) {
-    const active = tab === selected;
-    tab.classList.toggle('active', active);
-    tab.setAttribute('aria-selected', active ? 'true' : 'false');
-    tab.tabIndex = active ? 0 : -1;
+  const selectedName = ['analytics','filament'].includes(name) ? name : 'analytics';
+  activeReportingTab = selectedName;
+
+  if (!window.__PFC_PREACT_REPORTING__) {
+    const tabs = Array.from(document.querySelectorAll('[data-reporting-tab]'));
+    for (const tab of tabs) {
+      const active = tab.dataset.reportingTab === selectedName;
+      tab.classList.toggle('active', active);
+      tab.setAttribute('aria-selected', active ? 'true' : 'false');
+      tab.tabIndex = active ? 0 : -1;
+    }
   }
+
   for (const panel of reportingPanels) {
     panel.hidden = panel.dataset.reportingPanel !== selectedName;
   }
-  if (focus) selected.focus();
+  if (window.__PFC_PREACT_REPORTING__) publishReportingUiState(currentReport || {});
+  if (focus) document.querySelector(`[data-reporting-tab="${selectedName}"]`)?.focus();
 }
 
-for (const tab of reportingTabs) {
-  tab.addEventListener('click', () => activateReportingTab(tab.dataset.reportingTab));
-  tab.addEventListener('keydown', (event) => {
-    if (!['ArrowLeft','ArrowRight','Home','End'].includes(event.key)) return;
-    event.preventDefault();
-    const currentIndex = reportingTabs.indexOf(tab);
-    const nextIndex = event.key === 'Home'
-      ? 0
-      : event.key === 'End'
-        ? reportingTabs.length - 1
-        : event.key === 'ArrowRight'
-          ? (currentIndex + 1) % reportingTabs.length
-          : (currentIndex - 1 + reportingTabs.length) % reportingTabs.length;
-    activateReportingTab(reportingTabs[nextIndex]?.dataset.reportingTab, true);
-  });
+window.addEventListener('pfc:reporting-action', (event) => {
+  const action = event?.detail || {};
+  if (action.type === 'tab') activateReportingTab(action.value);
+});
+
+if (!window.__PFC_PREACT_REPORTING__) {
+  for (const tab of reportingTabs) {
+    tab.addEventListener('click', () => activateReportingTab(tab.dataset.reportingTab));
+    tab.addEventListener('keydown', (event) => {
+      if (!['ArrowLeft','ArrowRight','Home','End'].includes(event.key)) return;
+      event.preventDefault();
+      const currentIndex = reportingTabs.indexOf(tab);
+      const nextIndex = event.key === 'Home'
+        ? 0
+        : event.key === 'End'
+          ? reportingTabs.length - 1
+          : event.key === 'ArrowRight'
+            ? (currentIndex + 1) % reportingTabs.length
+            : (currentIndex - 1 + reportingTabs.length) % reportingTabs.length;
+      activateReportingTab(reportingTabs[nextIndex]?.dataset.reportingTab, true);
+    });
+  }
 }
 
 reportsBtn?.addEventListener('click', async () => {

@@ -5,9 +5,11 @@ FROM node:24-bookworm-slim AS builder
 WORKDIR /app
 
 COPY package.json ./
+COPY scripts ./scripts
+COPY public ./public
+COPY ui ./ui
 RUN npm install --include=dev --no-audit --no-fund
 
-COPY scripts ./scripts
 COPY src ./src
 COPY emulator ./emulator
 
@@ -31,7 +33,7 @@ LABEL org.opencontainers.image.description="Local-first multi-printer fleet cont
 
 COPY package.json ./
 COPY src ./src
-COPY public ./public
+COPY --from=builder /app/public ./public
 COPY emulator ./emulator
 COPY --from=builder /app/build/controller.cjs ./build/controller.cjs
 

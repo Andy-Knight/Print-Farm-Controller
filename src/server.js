@@ -2523,7 +2523,10 @@ const server = http.createServer(async (req, res) => {
     }
 
     if (await serveStatic(res, url.pathname)) return;
-    if (await serveStatic(res, '/index.html')) return;
+    // Controller routes are extensionless and may fall back to the SPA shell.
+    // Missing static assets must return 404 so an optional frontend bundle can
+    // fail cleanly without the server returning index.html as JavaScript.
+    if (!path.posix.extname(url.pathname) && await serveStatic(res, '/index.html')) return;
     res.writeHead(404);
     res.end('Not found');
   } catch (error) {

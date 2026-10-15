@@ -8,6 +8,8 @@ on:
       - package.json
       - src/**
       - public/**
+      - ui/**
+      - scripts/**
       - emulator/**
       - test/**
       - .github/workflows/container-image.yml
@@ -22,6 +24,8 @@ on:
       - package.json
       - src/**
       - public/**
+      - ui/**
+      - scripts/**
       - emulator/**
       - test/**
       - .github/workflows/container-image.yml

@@ -5,6 +5,7 @@ import fs from 'node:fs';
 const index = fs.readFileSync(new URL('../public/index.html', import.meta.url), 'utf8');
 const maintenanceUi = fs.readFileSync(new URL('../public/maintenance.js', import.meta.url), 'utf8');
 const app = fs.readFileSync(new URL('../public/app.js', import.meta.url), 'utf8');
+const printerDetailUi = fs.readFileSync(new URL('../ui/printer-details.jsx', import.meta.url), 'utf8');
 const styles = fs.readFileSync(new URL('../public/styles.css', import.meta.url), 'utf8');
 const server = fs.readFileSync(new URL('../src/server.js', import.meta.url), 'utf8');
 const backupService = fs.readFileSync(new URL('../src/backup-recovery/backup-service.js', import.meta.url), 'utf8');
@@ -105,8 +106,10 @@ test('dashboard spanner opens maintenance focused on the selected printer', () =
 });
 
 test('printer detail spanner opens maintenance focused on the selected printer', () => {
-  const detailIconMatches = app.match(/maintenanceIconMarkup\(printer, 'maintenance-status-icon-detail', true\)/g) || [];
-  assert.equal(detailIconMatches.length, 2);
+  const fallbackDetailIconMatches = app.match(/maintenanceIconMarkup\(printer, 'maintenance-status-icon-detail', true\)/g) || [];
+  assert.equal(fallbackDetailIconMatches.length, 1);
+  assert.match(printerDetailUi, /data-maintenance-open-printer=\{detail\.id\}/);
+  assert.match(printerDetailUi, /maintenance-status-icon-detail/);
   assert.match(app, /printerDetail\.addEventListener\('click'/);
   assert.match(app, /const maintenanceShortcut = event\.target\.closest\('\[data-maintenance-open-printer\]'\)/);
   assert.match(app, /const printerId = maintenanceShortcut\.dataset\.maintenanceOpenPrinter/);

@@ -218,31 +218,60 @@ const topbarContextTitle = document.querySelector('.topbar-context strong');
 const topbarContextSubtitle = document.querySelector('.topbar-context span');
 let activeRoute = '/';
 
-function activateBackupTab(name, focus = false) {
-  const selected = backupTabs.find((tab) => tab.dataset.backupTab === name) || backupTabs[0];
-  if (!selected) return;
-  const selectedName = selected.dataset.backupTab;
-  for (const tab of backupTabs) {
-    const active = tab === selected;
-    tab.classList.toggle('active', active);
-    tab.setAttribute('aria-selected', active ? 'true' : 'false');
-    tab.tabIndex = active ? 0 : -1;
-  }
-  for (const panel of backupTabPanels) panel.hidden = panel.dataset.backupPanel !== selectedName;
-  if (focus) selected.focus();
+let activeBackupTab = 'overview';
+let backupUiStatusItems = [];
+let backupUiInspection = null;
+
+function publishBackupRecoveryUiState() {
+  if (!window.__PFC_PREACT_BACKUP__) return;
+  const detail = {
+    activeTab:activeBackupTab,
+    statusItems:backupUiStatusItems,
+    inspection:backupUiInspection
+  };
+  window.__PFC_BACKUP_UI_STATE__ = detail;
+  window.dispatchEvent(new CustomEvent('pfc:backup-ui-state', { detail }));
 }
-for (const tab of backupTabs) {
-  tab.addEventListener('click', () => activateBackupTab(tab.dataset.backupTab));
-  tab.addEventListener('keydown', (event) => {
-    if (!['ArrowLeft','ArrowRight','Home','End'].includes(event.key)) return;
-    event.preventDefault();
-    const current = backupTabs.indexOf(tab);
-    const next = event.key === 'Home' ? 0
-      : event.key === 'End' ? backupTabs.length - 1
-        : event.key === 'ArrowRight' ? (current + 1) % backupTabs.length
-          : (current - 1 + backupTabs.length) % backupTabs.length;
-    activateBackupTab(backupTabs[next]?.dataset.backupTab, true);
-  });
+
+function activateBackupTab(name, focus = false) {
+  const validTabs = ['overview','google-drive','one-drive','s3','schedule','restore'];
+  const selectedName = validTabs.includes(name) ? name : 'overview';
+  activeBackupTab = selectedName;
+
+  if (!window.__PFC_PREACT_BACKUP__) {
+    const tabs = Array.from(document.querySelectorAll('[data-backup-tab]'));
+    for (const tab of tabs) {
+      const active = tab.dataset.backupTab === selectedName;
+      tab.classList.toggle('active', active);
+      tab.setAttribute('aria-selected', active ? 'true' : 'false');
+      tab.tabIndex = active ? 0 : -1;
+    }
+  }
+
+  for (const panel of backupTabPanels) panel.hidden = panel.dataset.backupPanel !== selectedName;
+  if (window.__PFC_PREACT_BACKUP__) publishBackupRecoveryUiState();
+  if (focus) document.querySelector(`[data-backup-tab="${selectedName}"]`)?.focus();
+}
+
+window.addEventListener('pfc:backup-ui-action', (event) => {
+  const action = event?.detail || {};
+  if (action.type === 'tab') activateBackupTab(action.value);
+});
+
+if (!window.__PFC_PREACT_BACKUP__) {
+  for (const tab of backupTabs) {
+    tab.addEventListener('click', () => activateBackupTab(tab.dataset.backupTab));
+    tab.addEventListener('keydown', (event) => {
+      if (!['ArrowLeft','ArrowRight','Home','End'].includes(event.key)) return;
+      event.preventDefault();
+      const current = backupTabs.indexOf(tab);
+      const next = event.key === 'Home' ? 0
+        : event.key === 'End' ? backupTabs.length - 1
+          : event.key === 'ArrowRight' ? (current + 1) % backupTabs.length
+            : (current - 1 + backupTabs.length) % backupTabs.length;
+      activateBackupTab(backupTabs[next]?.dataset.backupTab, true);
+    });
+  }
 }
 
 function normaliseControllerRoute(pathname) {
@@ -535,21 +564,32 @@ function updateDashboardTableSortHeader() {
   }
 }
 
-function applyDashboardTableSort() {
-  const cards = [...fleetEl.querySelectorAll('[data-printer-card]')];
-  if (dashboardViewMode !== 'table' || !dashboardTableSort.key) {
-    for (const card of cards) card.style.removeProperty('order');
-    updateDashboardTableSortHeader();
-    return;
-  }
-
+function dashboardTableOrderMap() {
+  if (dashboardViewMode !== 'table' || !dashboardTableSort.key) return null;
   const manualOrder = new Map(fleet.map((printer, index) => [printer.id, index]));
   const sorted = fleet.slice().sort((left, right) => {
     const result = compareDashboardTablePrinters(left, right);
     if (result) return result;
     return (manualOrder.get(left.id) ?? Number.MAX_SAFE_INTEGER) - (manualOrder.get(right.id) ?? Number.MAX_SAFE_INTEGER);
   });
-  const order = new Map(sorted.map((printer, index) => [printer.id, index]));
+  return new Map(sorted.map((printer, index) => [printer.id, index]));
+}
+
+function applyDashboardTableSort() {
+  if (window.__PFC_PREACT_FLEET__) {
+    updateDashboardTableSortHeader();
+    publishDashboardPrinterState();
+    return;
+  }
+
+  const cards = [...fleetEl.querySelectorAll('[data-printer-card]')];
+  const order = dashboardTableOrderMap();
+  if (!order) {
+    for (const card of cards) card.style.removeProperty('order');
+    updateDashboardTableSortHeader();
+    return;
+  }
+
   for (const card of cards) card.style.order = String(order.get(card.dataset.printerCard) ?? Number.MAX_SAFE_INTEGER);
   updateDashboardTableSortHeader();
 }
@@ -569,7 +609,7 @@ function applyDashboardViewMode(mode, { persist = false } = {}) {
   fleetEl?.classList.toggle('table-view', tableView);
   fleetTableHeader?.classList.toggle('hidden', !tableView || fleet.length === 0);
   applyDashboardTableSort();
-  if (dashboardViewToggle) {
+  if (!window.__PFC_PREACT_DASHBOARD__ && dashboardViewToggle) {
     dashboardViewToggle.setAttribute('aria-checked', String(tableView));
     dashboardViewToggle.setAttribute('aria-label', `Switch dashboard to ${tableView ? 'card' : 'table'} view`);
     const label = dashboardViewToggle.querySelector('.dashboard-view-toggle-label');
@@ -578,12 +618,15 @@ function applyDashboardViewMode(mode, { persist = false } = {}) {
   if (persist) {
     try { localStorage.setItem(DASHBOARD_VIEW_STORAGE_KEY, dashboardViewMode); } catch {}
   }
+  publishDashboardUiState();
 }
 
 applyDashboardViewMode(savedDashboardViewMode() || 'cards');
-dashboardViewToggle?.addEventListener('click', () => {
-  applyDashboardViewMode(dashboardViewMode === 'table' ? 'cards' : 'table', { persist:true });
-});
+if (!window.__PFC_PREACT_DASHBOARD__) {
+  dashboardViewToggle?.addEventListener('click', () => {
+    applyDashboardViewMode(dashboardViewMode === 'table' ? 'cards' : 'table', { persist:true });
+  });
+}
 
 fleetTableHeader?.addEventListener('click', (event) => {
   const button = event.target.closest('[data-table-sort]');
@@ -630,6 +673,13 @@ themeMedia.addEventListener('change', (event) => {
 
 function escapeHtml(value = '') {
   return String(value).replace(/[&<>'"]/g, (ch) => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', "'":'&#39;', '"':'&quot;' }[ch]));
+}
+
+function showUiToast(message, { title = '', tone = 'info', durationMs = 3600 } = {}) {
+  if (!window.__PFC_PREACT_DASHBOARD__) return;
+  window.dispatchEvent(new CustomEvent('pfc:toast', {
+    detail:{ title, message, tone, durationMs }
+  }));
 }
 
 function printerModelLabel(printer) {
@@ -889,9 +939,7 @@ function licenseStatusLabel(license) {
   return status ? status.replace(/-/g, ' ') : 'Unknown';
 }
 
-function renderLicenseDialog() {
-  if (!licenseDetails) return;
-  const license = licenseState || {};
+function licenseViewModel(license = {}) {
   const printerAllowance = license.maxPrinters == null
     ? 'Unlimited'
     : `${license.maxPrinters} physical printers`;
@@ -906,32 +954,59 @@ function renderLicenseDialog() {
     ? `${formatLicenseDate(license.updatesUntil)}${license.updatesExpired ? ' · expired' : ''}`
     : '—';
 
-  licenseDetails.innerHTML = `
-    <div class="license-status-card">
-      <div>
-        <span class="license-status-label">Current edition</span>
-        <strong>${escapeHtml(license.label || 'Community Edition')}</strong>
+  return {
+    edition:String(license.label || 'Community Edition'),
+    status:licenseStatusLabel(license),
+    statusKey:String(license.licenseStatus || 'unknown'),
+    items:[
+      { label:'Customer', value:String(customer) },
+      { label:'Licence ID', value:String(license.licenseId || '—') },
+      { label:'Licence type', value:String(type) },
+      { label:'Printer allowance', value:String(printerAllowance) },
+      { label:'Expires', value:String(expiry) },
+      { label:'Feature updates until', value:String(updateEntitlement) },
+      { label:'Signature key', value:String(license.signatureKeyId || '—') },
+      { label:'Source', value:String(license.source || '—') }
+    ],
+    filePath:String(license.licenseFile || 'Application directory / license.json'),
+    warning:String(license.configurationWarning || '')
+  };
+}
+
+function publishLicenseUiState(license = licenseState || {}) {
+  if (!window.__PFC_PREACT_LICENSE__) return;
+  const detail = licenseViewModel(license);
+  window.__PFC_LICENSE_UI_STATE__ = detail;
+  window.dispatchEvent(new CustomEvent('pfc:license-ui-state', { detail }));
+}
+
+function renderLicenseDialog() {
+  if (!licenseDetails) return;
+  const license = licenseState || {};
+
+  if (window.__PFC_PREACT_LICENSE__) {
+    publishLicenseUiState(license);
+  } else {
+    const view = licenseViewModel(license);
+    licenseDetails.innerHTML = `
+      <div class="license-status-card">
+        <div>
+          <span class="license-status-label">Current edition</span>
+          <strong>${escapeHtml(view.edition)}</strong>
+        </div>
+        <span class="license-status-pill" data-license-status="${escapeHtml(view.statusKey)}">${escapeHtml(view.status)}</span>
       </div>
-      <span class="license-status-pill" data-license-status="${escapeHtml(String(license.licenseStatus || 'unknown'))}">${escapeHtml(licenseStatusLabel(license))}</span>
-    </div>
-    <div class="license-info-grid">
-      <div><span>Customer</span><strong>${escapeHtml(customer)}</strong></div>
-      <div><span>Licence ID</span><strong>${escapeHtml(license.licenseId || '—')}</strong></div>
-      <div><span>Licence type</span><strong>${escapeHtml(type)}</strong></div>
-      <div><span>Printer allowance</span><strong>${escapeHtml(printerAllowance)}</strong></div>
-      <div><span>Expires</span><strong>${escapeHtml(expiry)}</strong></div>
-      <div><span>Feature updates until</span><strong>${escapeHtml(updateEntitlement)}</strong></div>
-      <div><span>Signature key</span><strong>${escapeHtml(license.signatureKeyId || '—')}</strong></div>
-      <div><span>Source</span><strong>${escapeHtml(license.source || '—')}</strong></div>
-    </div>
-    <div class="license-file-path"><span>Licence file</span><code>${escapeHtml(license.licenseFile || 'Application directory / license.json')}</code></div>
-    ${license.configurationWarning ? `<div class="license-dialog-warning">${escapeHtml(license.configurationWarning)}</div>` : ''}
-  `;
+      <div class="license-info-grid">
+        ${view.items.map((item) => `<div><span>${escapeHtml(item.label)}</span><strong>${escapeHtml(item.value)}</strong></div>`).join('')}
+      </div>
+      <div class="license-file-path"><span>Licence file</span><code>${escapeHtml(view.filePath)}</code></div>
+      ${view.warning ? `<div class="license-dialog-warning">${escapeHtml(view.warning)}</div>` : ''}
+    `;
+  }
 
   const submit = licenseInstallForm?.querySelector('button[type="submit"]');
   if (submit) submit.textContent = license.licenseStatus === 'valid' ? 'Replace licence' : 'Install licence';
 }
-
 
 function diagnosticStatusTime(value) {
   if (!value) return 'Off';
@@ -945,11 +1020,61 @@ function formatDiagnosticBytes(value) {
   return `${Math.round(bytes / 1024 / 1024)} MB`;
 }
 
+function diagnosticsStatusViewModel(status = {}) {
+  const loggingAvailable = status.enabled !== false;
+  const items = [
+    { label:'Logging', value:loggingAvailable ? 'Enabled' : 'Unavailable', code:false },
+    { label:'Logging level', value:String(status.level || 'info').toUpperCase(), code:false },
+    { label:'Verbose until', value:status.verbose ? diagnosticStatusTime(status.verboseUntil) : 'Off', code:false },
+    { label:'Log location', value:String(status.logDir || '—'), code:true },
+    {
+      label:'Rotation',
+      value:status.maxFileBytes
+        ? `${Math.round(status.maxFileBytes / 1024 / 1024)} MB × ${status.retainedFiles || '—'} files`
+        : '—',
+      code:false
+    }
+  ];
+  if (status.memory) {
+    items.push(
+      {
+        label:'Heap memory',
+        value:`${formatDiagnosticBytes(status.memory.heapUsedBytes)} / ${formatDiagnosticBytes(status.memory.heapLimitBytes)} · ${status.memory.heapUsedPercent ?? '—'}% · ${String(status.memory.state || 'normal').toUpperCase()}`,
+        code:false
+      },
+      { label:'Process RSS', value:formatDiagnosticBytes(status.memory.rssBytes), code:false }
+    );
+  }
+  return items;
+}
+
+function diagnosticsEntriesViewModel(entries = []) {
+  return entries.slice().reverse().map((entry, index) => ({
+    key:String(entry.id || `${entry.timestamp || ''}:${entry.subsystem || ''}:${index}`),
+    level:String(entry.level || 'INFO'),
+    levelClass:String(entry.level || 'INFO').toLowerCase(),
+    subsystem:String(entry.subsystem || 'controller'),
+    time:diagnosticStatusTime(entry.timestamp),
+    message:String(entry.message || ''),
+    meta:entry.meta && Object.keys(entry.meta).length ? JSON.stringify(entry.meta, null, 2) : ''
+  }));
+}
+
+function publishDiagnosticsUiState(payload = {}) {
+  if (!window.__PFC_PREACT_DIAGNOSTICS__) return;
+  const detail = {
+    statusItems:diagnosticsStatusViewModel(payload?.status || diagnosticsState || {}),
+    entries:diagnosticsEntriesViewModel(Array.isArray(payload?.entries) ? payload.entries : [])
+  };
+  window.__PFC_DIAGNOSTICS_UI_STATE__ = detail;
+  window.dispatchEvent(new CustomEvent('pfc:diagnostics-ui-state', { detail }));
+}
+
 function renderDiagnostics(payload) {
   diagnosticsState = payload?.status || diagnosticsState || {};
   const status = diagnosticsState || {};
   const loggingAvailable = status.enabled !== false;
-  if (diagnosticsStatus) {
+  if (!window.__PFC_PREACT_DIAGNOSTICS__ && diagnosticsStatus) {
     diagnosticsStatus.innerHTML = `
       <div><span>Logging</span><strong>${loggingAvailable ? 'Enabled' : 'Unavailable'}</strong></div>
       <div><span>Logging level</span><strong>${escapeHtml(String(status.level || 'info').toUpperCase())}</strong></div>
@@ -973,7 +1098,9 @@ function renderDiagnostics(payload) {
   }
 
   const entries = Array.isArray(payload?.entries) ? payload.entries : [];
-  if (diagnosticsLog) {
+  if (window.__PFC_PREACT_DIAGNOSTICS__) {
+    publishDiagnosticsUiState({ status, entries });
+  } else if (diagnosticsLog) {
     diagnosticsLog.innerHTML = entries.length ? entries.slice().reverse().map((entry) => {
       const meta = entry.meta && Object.keys(entry.meta).length ? JSON.stringify(entry.meta, null, 2) : '';
       return `<article class="diagnostic-entry diagnostic-${escapeHtml(String(entry.level || 'INFO').toLowerCase())}">
@@ -1845,11 +1972,36 @@ function renderBackupSchedule(schedule = {}) {
   }
 }
 
+function backupStatusItemsViewModel(payload) {
+  const backup = payload?.backup || {};
+  const last = backup.lastSuccessfulBackup || null;
+  const schedule = backup.schedule || {};
+  const destination = schedule.destinationType === 'google-drive'
+    ? 'Google Drive'
+    : schedule.destinationType === 'one-drive'
+      ? 'Microsoft OneDrive (Experimental)'
+      : schedule.destinationType === 's3'
+        ? 'S3-compatible storage'
+        : (schedule.destination || '—');
+  return [
+    { label:'Last successful backup', value:backupStatusTime(last) },
+    { label:'Last backup file', value:String(last?.fileName || '—') },
+    { label:'Last backup size', value:last?.size ? formatBytes(last.size) : '—' },
+    { label:'Scheduled backups', value:schedule.enabled ? 'Enabled' : 'Not enabled' },
+    { label:'Scheduled destination', value:String(destination) },
+    { label:'Next scheduled backup', value:backupStatusTime(schedule.nextRunAt, '—') },
+    { label:'Backup operation', value:backup.operation?.kind ? `${backup.operation.kind} backup running` : 'Idle' }
+  ];
+}
+
 function renderBackupStatus(payload) {
   const backup = payload?.backup || {};
   const last = backup.lastSuccessfulBackup || null;
   const schedule = backup.schedule || {};
-  if (backupStatusGrid) {
+  backupUiStatusItems = backupStatusItemsViewModel(payload);
+  if (window.__PFC_PREACT_BACKUP__) {
+    publishBackupRecoveryUiState();
+  } else if (backupStatusGrid) {
     backupStatusGrid.innerHTML = `
       <div><span>Last successful backup</span><strong>${escapeHtml(backupStatusTime(last))}</strong></div>
       <div><span>Last backup file</span><strong>${escapeHtml(last?.fileName || '—')}</strong></div>
@@ -2036,8 +2188,10 @@ function clearRestoreInspection() {
     restoreInspectError.textContent = '';
     restoreInspectError.classList.add('hidden');
   }
+  backupUiInspection = null;
+  if (window.__PFC_PREACT_BACKUP__) publishBackupRecoveryUiState();
   if (restoreInspectionSummary) {
-    restoreInspectionSummary.innerHTML = '';
+    if (!window.__PFC_PREACT_BACKUP__) restoreInspectionSummary.innerHTML = '';
     restoreInspectionSummary.classList.add('hidden');
   }
   if (restoreStageBtn) restoreStageBtn.disabled = true;
@@ -2151,30 +2305,57 @@ async function loadCloudRestoreBackups() {
   }
 }
 
+function restoreInspectionViewModel(inspection = {}) {
+  const counts = inspection?.counts || {};
+  const migrations = Array.isArray(inspection?.migrationsRequired) ? inspection.migrationsRequired : [];
+  return {
+    items:[
+      { label:'Backup file', value:String(inspection.fileName || '—') },
+      { label:'Created', value:backupStatusTime(inspection.createdAt, '—') },
+      { label:'Source controller', value:`v${inspection.sourceControllerVersion || '—'}` },
+      { label:'Backup format', value:`v${String(inspection.formatVersion || '—')}` },
+      { label:'Archive size', value:formatBytes(inspection.archiveBytes) },
+      { label:'Payload size', value:formatBytes(inspection.payloadBytes) },
+      { label:'Printers', value:String(counts.printers ?? 0) },
+      { label:'Print Library', value:`${String(counts.printLibrary ?? 0)} file${Number(counts.printLibrary || 0) === 1 ? '' : 's'}` },
+      { label:'Unfinished queue', value:String(counts.queued ?? 0) },
+      { label:'History', value:String(counts.history ?? 0) },
+      { label:'Signed licence', value:inspection.licenseIncluded ? 'Included' : 'Not included' },
+      { label:'Migration', value:migrations.length ? 'Required' : 'Not required' }
+    ],
+    warnings:Array.isArray(inspection?.warnings) ? inspection.warnings.map(String) : []
+  };
+}
+
 function renderRestoreInspection(inspection) {
   if (!restoreInspectionSummary) return;
   const counts = inspection?.counts || {};
   const warnings = Array.isArray(inspection?.warnings) ? inspection.warnings : [];
   const migrations = Array.isArray(inspection?.migrationsRequired) ? inspection.migrationsRequired : [];
-  restoreInspectionSummary.innerHTML = `
-    <div class="restore-valid-banner"><strong>Backup is valid</strong><span>Inspection completed without changing controller data.</span></div>
-    <div class="restore-inspection-grid">
-      <div><span>Backup file</span><strong>${escapeHtml(inspection.fileName || '—')}</strong></div>
-      <div><span>Created</span><strong>${escapeHtml(backupStatusTime(inspection.createdAt, '—'))}</strong></div>
-      <div><span>Source controller</span><strong>v${escapeHtml(inspection.sourceControllerVersion || '—')}</strong></div>
-      <div><span>Backup format</span><strong>v${escapeHtml(String(inspection.formatVersion || '—'))}</strong></div>
-      <div><span>Archive size</span><strong>${escapeHtml(formatBytes(inspection.archiveBytes))}</strong></div>
-      <div><span>Payload size</span><strong>${escapeHtml(formatBytes(inspection.payloadBytes))}</strong></div>
-      <div><span>Printers</span><strong>${escapeHtml(String(counts.printers ?? 0))}</strong></div>
-      <div><span>Print Library</span><strong>${escapeHtml(String(counts.printLibrary ?? 0))} file${Number(counts.printLibrary || 0) === 1 ? '' : 's'}</strong></div>
-      <div><span>Unfinished queue</span><strong>${escapeHtml(String(counts.queued ?? 0))}</strong></div>
-      <div><span>History</span><strong>${escapeHtml(String(counts.history ?? 0))}</strong></div>
-      <div><span>Signed licence</span><strong>${inspection.licenseIncluded ? 'Included' : 'Not included'}</strong></div>
-      <div><span>Migration</span><strong>${migrations.length ? 'Required' : 'Not required'}</strong></div>
-    </div>
-    ${warnings.length ? `<div class="restore-warning-list"><strong>Restore notices</strong><ul>${warnings.map((warning) => `<li>${escapeHtml(warning)}</li>`).join('')}</ul></div>` : ''}
-    <div class="field-help">The backup has passed inspection. Choose Restore backup to stage it for activation on the next controller restart.</div>
-  `;
+  backupUiInspection = restoreInspectionViewModel(inspection);
+  if (window.__PFC_PREACT_BACKUP__) {
+    publishBackupRecoveryUiState();
+  } else {
+    restoreInspectionSummary.innerHTML = `
+      <div class="restore-valid-banner"><strong>Backup is valid</strong><span>Inspection completed without changing controller data.</span></div>
+      <div class="restore-inspection-grid">
+        <div><span>Backup file</span><strong>${escapeHtml(inspection.fileName || '—')}</strong></div>
+        <div><span>Created</span><strong>${escapeHtml(backupStatusTime(inspection.createdAt, '—'))}</strong></div>
+        <div><span>Source controller</span><strong>v${escapeHtml(inspection.sourceControllerVersion || '—')}</strong></div>
+        <div><span>Backup format</span><strong>v${escapeHtml(String(inspection.formatVersion || '—'))}</strong></div>
+        <div><span>Archive size</span><strong>${escapeHtml(formatBytes(inspection.archiveBytes))}</strong></div>
+        <div><span>Payload size</span><strong>${escapeHtml(formatBytes(inspection.payloadBytes))}</strong></div>
+        <div><span>Printers</span><strong>${escapeHtml(String(counts.printers ?? 0))}</strong></div>
+        <div><span>Print Library</span><strong>${escapeHtml(String(counts.printLibrary ?? 0))} file${Number(counts.printLibrary || 0) === 1 ? '' : 's'}</strong></div>
+        <div><span>Unfinished queue</span><strong>${escapeHtml(String(counts.queued ?? 0))}</strong></div>
+        <div><span>History</span><strong>${escapeHtml(String(counts.history ?? 0))}</strong></div>
+        <div><span>Signed licence</span><strong>${inspection.licenseIncluded ? 'Included' : 'Not included'}</strong></div>
+        <div><span>Migration</span><strong>${migrations.length ? 'Required' : 'Not required'}</strong></div>
+      </div>
+      ${warnings.length ? `<div class="restore-warning-list"><strong>Restore notices</strong><ul>${warnings.map((warning) => `<li>${escapeHtml(warning)}</li>`).join('')}</ul></div>` : ''}
+      <div class="field-help">The backup has passed inspection. Choose Restore backup to stage it for activation on the next controller restart.</div>
+    `;
+  }
   restoreInspectionSummary.classList.remove('hidden');
   if (restoreStageBtn) restoreStageBtn.disabled = false;
 }
@@ -2410,6 +2591,25 @@ async function cancelStagedRestoreUi() {
   }
 }
 
+function licenseNoticeViewModel(license = {}) {
+  const show = Boolean(license?.enforcementEnabled && license?.overLimit);
+  if (!show) return { visible:false, title:'', message:'', countText:'' };
+  const remaining = Number(license.slotsRemaining || 0);
+  return {
+    visible:true,
+    title:`${license.label || 'Licence'} printer limit`,
+    message:`${license.configuredPhysicalPrinters} physical printers are configured; this edition allows ${license.maxPrinters}. Choose the printers that may receive new controller commands.`,
+    countText:`${license.activePhysicalPrinters} / ${license.maxPrinters} selected${remaining ? ` · ${remaining} slot${remaining === 1 ? '' : 's'} free` : ''}`
+  };
+}
+
+function publishLicenseNoticeState(license = licenseState || {}) {
+  if (!window.__PFC_PREACT_LICENSE_NOTICE__) return;
+  const detail = licenseNoticeViewModel(license);
+  window.__PFC_LICENSE_NOTICE_STATE__ = detail;
+  window.dispatchEvent(new CustomEvent('pfc:license-notice-state', { detail }));
+}
+
 function setControllerLicense(license) {
   licenseState = license || null;
   if (controllerEditionEl && license?.label) {
@@ -2424,15 +2624,18 @@ function setControllerLicense(license) {
 
   if (licenseDialog?.open) renderLicenseDialog();
   if (!licenseNoticeEl) return;
-  const show = Boolean(license?.enforcementEnabled && license?.overLimit);
-  licenseNoticeEl.classList.toggle('hidden', !show);
-  if (!show) {
+  const notice = licenseNoticeViewModel(license || {});
+  licenseNoticeEl.classList.toggle('hidden', !notice.visible);
+  if (window.__PFC_PREACT_LICENSE_NOTICE__) {
+    publishLicenseNoticeState(license || {});
+    return;
+  }
+  if (!notice.visible) {
     licenseNoticeEl.innerHTML = '';
     return;
   }
 
-  const remaining = Number(license.slotsRemaining || 0);
-  licenseNoticeEl.innerHTML = `<div><strong>${escapeHtml(license.label)} printer limit</strong><span>${escapeHtml(String(license.configuredPhysicalPrinters))} physical printers are configured; this edition allows ${escapeHtml(String(license.maxPrinters))}. Choose the printers that may receive new controller commands.</span></div><span class="license-notice-count">${escapeHtml(String(license.activePhysicalPrinters))} / ${escapeHtml(String(license.maxPrinters))} selected${remaining ? ` · ${remaining} slot${remaining === 1 ? '' : 's'} free` : ''}</span>`;
+  licenseNoticeEl.innerHTML = `<div><strong>${escapeHtml(notice.title)}</strong><span>${escapeHtml(notice.message)}</span></div><span class="license-notice-count">${escapeHtml(notice.countText)}</span>`;
 }
 
 function setLiveState(state) {
@@ -2469,6 +2672,10 @@ async function confirmBedCleared(printerId, printerName) {
   queueState = result.queue || queueState;
   reconcileFleet();
   renderPrintQueue();
+  showUiToast('Queue clearance accepted. The next eligible job may start.', {
+    title:printerName || 'Bed cleared',
+    tone:'success'
+  });
   return true;
 }
 
@@ -2603,10 +2810,14 @@ function dashboardScopedFleet() {
 }
 
 function populateDashboardGroupFilterOptions() {
-  if (!dashboardGroupFilter || !dashboardGroupFilterBar) return;
   const groups = [...(printerGroupsState.groups || [])]
     .sort((a, b) => String(a.name).localeCompare(String(b.name)));
   if (dashboardGroupId && !groups.some((group) => group.id === dashboardGroupId)) dashboardGroupId = '';
+  if (window.__PFC_PREACT_DASHBOARD__) {
+    publishDashboardUiState();
+    return;
+  }
+  if (!dashboardGroupFilter || !dashboardGroupFilterBar) return;
   dashboardGroupFilter.innerHTML = '<option value="">All printers</option>'
     + groups.map((group) =>
       `<option value="${escapeHtml(group.id)}">${escapeHtml(group.name)} (${Number(group.printerIds?.length || 0)})</option>`
@@ -2623,6 +2834,30 @@ function matchesDashboardFilter(printer, filter = dashboardFilter) {
   return true;
 }
 
+function publishDashboardUiState() {
+  const scopedFleet = dashboardScopedFleet();
+  const detail = {
+    counts:{
+      all:scopedFleet.length,
+      online:scopedFleet.filter((printer) => printer.online).length,
+      printing:scopedFleet.filter(isPrinterPrinting).length,
+      attention:scopedFleet.filter(printerNeedsAttention).length
+    },
+    activeFilter:dashboardFilter,
+    groups:[...(printerGroupsState.groups || [])]
+      .sort((a, b) => String(a.name).localeCompare(String(b.name)))
+      .map((group) => ({
+        id:String(group.id || ''),
+        name:String(group.name || ''),
+        printerCount:Number(group.printerIds?.length || 0)
+      })),
+    groupId:dashboardGroupId,
+    viewMode:dashboardViewMode
+  };
+  window.__PFC_DASHBOARD_STATE__ = detail;
+  window.dispatchEvent(new CustomEvent('pfc:dashboard-state', { detail }));
+}
+
 function renderSummary() {
   renderMaintenanceAlert();
   const scopedFleet = dashboardScopedFleet();
@@ -2632,6 +2867,11 @@ function renderSummary() {
     ['printing', scopedFleet.filter(isPrinterPrinting).length],
     ['attention', scopedFleet.filter(printerNeedsAttention).length]
   ];
+
+  if (window.__PFC_PREACT_DASHBOARD__) {
+    publishDashboardUiState();
+    return;
+  }
 
   // Keep the filter button DOM nodes stable during live SSE refreshes. Replacing
   // them between pointerdown and click can cause the browser to drop the click.
@@ -2661,16 +2901,22 @@ function renderSummary() {
 }
 
 function applyDashboardFilter() {
-  let visible = 0;
+  const visible = fleet.filter((printer) => matchesDashboardGroup(printer) && matchesDashboardFilter(printer)).length;
+  fleetEl.classList.toggle('filtered', dashboardFilter !== 'all' || Boolean(dashboardGroupId));
+  fleetFilterEmptyEl?.classList.toggle('hidden', fleet.length === 0 || visible > 0);
+  fleetTableHeader?.classList.toggle('hidden', dashboardViewMode !== 'table' || visible === 0);
+
+  if (window.__PFC_PREACT_FLEET__) {
+    updateDashboardTableSortHeader();
+    publishDashboardPrinterState();
+    return;
+  }
+
   for (const card of fleetEl.querySelectorAll('[data-printer-card]')) {
     const printer = fleet.find((item) => item.id === card.dataset.printerCard);
     const show = Boolean(printer && matchesDashboardGroup(printer) && matchesDashboardFilter(printer));
     card.classList.toggle('hidden', !show);
-    if (show) visible += 1;
   }
-  fleetEl.classList.toggle('filtered', dashboardFilter !== 'all' || Boolean(dashboardGroupId));
-  fleetFilterEmptyEl?.classList.toggle('hidden', fleet.length === 0 || visible > 0);
-  fleetTableHeader?.classList.toggle('hidden', dashboardViewMode !== 'table' || visible === 0);
   applyDashboardTableSort();
 }
 
@@ -2683,7 +2929,7 @@ function setDashboardFilter(filter) {
 function setDashboardGroupFilter(groupId) {
   const requested = String(groupId || '');
   dashboardGroupId = (printerGroupsState.groups || []).some((group) => group.id === requested) ? requested : '';
-  if (dashboardGroupFilter) dashboardGroupFilter.value = dashboardGroupId;
+  if (!window.__PFC_PREACT_DASHBOARD__ && dashboardGroupFilter) dashboardGroupFilter.value = dashboardGroupId;
   renderSummary();
   applyDashboardFilter();
 }
@@ -2691,7 +2937,7 @@ function setDashboardGroupFilter(groupId) {
 function resetDashboardFilters() {
   dashboardGroupId = '';
   dashboardFilter = 'all';
-  if (dashboardGroupFilter) dashboardGroupFilter.value = '';
+  if (!window.__PFC_PREACT_DASHBOARD__ && dashboardGroupFilter) dashboardGroupFilter.value = '';
   renderSummary();
   applyDashboardFilter();
 }
@@ -2876,6 +3122,167 @@ function productionBatchMarkup(batch, { history = false } = {}) {
   </article>`;
 }
 
+function queuePriorityView(job) {
+  const priority = String(job?.priority || 'normal').toLowerCase();
+  const effective = String(job?.effectivePriority || priority).toLowerCase();
+  const aged = job?.priorityAged === true && effective !== priority;
+  return {
+    priority,
+    priorityEffective:effective,
+    priorityEffectiveLabel:queuePriorityLabel(effective),
+    priorityTitle:aged
+      ? `Originally ${queuePriorityLabel(priority)}; promoted automatically while waiting`
+      : `${queuePriorityLabel(priority)} queue priority`,
+    priorityText:aged ? `${queuePriorityLabel(effective)} effective` : `${queuePriorityLabel(priority)} priority`
+  };
+}
+
+function queueCompatibilityView(job) {
+  if (job?.assignmentMode !== 'automatic' || !job?.compatibility || job?.status !== 'queued') return [];
+  const groups = [
+    ['ready', 'Eligible'],
+    ['blocked', 'Waiting'],
+    ['needsReview', 'Needs review'],
+    ['incompatible', 'Not compatible']
+  ];
+  return groups.flatMap(([key, label]) => {
+    const items = Array.isArray(job.compatibility[key]) ? job.compatibility[key] : [];
+    if (!items.length) return [];
+    return [{
+      key,
+      label,
+      items:items.map((item, index) => {
+        const reasons = Array.isArray(item.reasons) && item.reasons.length
+          ? ` — ${item.reasons.map((reason) => reason.text).join(' · ')}`
+          : '';
+        return {
+          key:`${item.printerId || item.printerName || index}`,
+          text:`${item.printerName || item.printerId}${reasons}`
+        };
+      })
+    }];
+  });
+}
+
+function queueJobViewModel(job, { history = false, canMoveUp = false, canMoveDown = false } = {}) {
+  const terminalTime = history ? (job.finishedAt || job.updatedAt) : job.queuedAt;
+  const elapsed = queueElapsed(job);
+  const progressText = job.status === 'printing' ? `${Math.round(Number(job.maxProgress || 0))}%` : '';
+  const meta = history
+    ? `${formatQueueTime(terminalTime)}${elapsed ? ` · ${elapsed}` : ''}`
+    : `${formatQueueTime(job.queuedAt)} · ${queueOptionsText(job)}`;
+  const printerLabel = job.assignmentMode === 'automatic' && !job.printerId
+    ? 'Next available compatible printer'
+    : (job.printerName || job.printerId || 'Unassigned');
+  const priority = queuePriorityView(job);
+  return {
+    kind:'job',
+    id:String(job.id || ''),
+    fileName:String(job.fileName || ''),
+    status:String(job.status || ''),
+    history,
+    restoreRecoveryHold:job.restoreRecoveryHold === true,
+    statusText:job.restoreRecoveryHold ? 'Restored — review required' : queueStatusLabel(job.status),
+    statusClass:job.restoreRecoveryHold ? 'restore-hold' : String(job.status || ''),
+    progressText,
+    printerLabel:String(printerLabel),
+    printerTarget:job.printerTarget ? `Target printer: ${printerTargetLabel(job.printerTarget)}` : '',
+    groupTarget:job.groupId ? `Printer group: ${job.groupName || job.groupId}` : '',
+    meta,
+    selectionReason:String(job.selectionReason || ''),
+    error:String(job.error || ''),
+    compatibility:queueCompatibilityView(job),
+    canMoveUp:Boolean(canMoveUp),
+    canMoveDown:Boolean(canMoveDown),
+    ...priority
+  };
+}
+
+function queueClearanceViewModel(item) {
+  const status = queueStatusLabel(item.jobStatus);
+  return {
+    kind:'clearance',
+    id:String(item.printerId || ''),
+    printerId:String(item.printerId || ''),
+    printerName:String(item.printerName || item.printerId || ''),
+    meta:`${item.fileName || ''} · ${status} ${formatQueueTime(item.finishedAt)}`,
+    pending:pendingBedClearanceActions.has(item.printerId)
+  };
+}
+
+function productionBatchViewModel(batch, { history = false } = {}) {
+  const quantity = Math.max(1, Number(batch.quantity || 1));
+  const completed = Number(batch.completed || 0);
+  const active = Number(batch.active || 0);
+  const remaining = Number(batch.remaining || 0);
+  const cancelable = Number(batch.cancelable || remaining);
+  const failed = Number(batch.failed || 0);
+  const cancelled = Number(batch.cancelled || 0);
+  const progress = Math.max(0, Math.min(100, Math.round((completed / quantity) * 100)));
+  const statusText = batch.paused ? 'Paused'
+    : batch.finished ? (failed ? 'Completed with failures' : cancelled && !completed ? 'Cancelled' : 'Completed')
+    : active ? 'Printing'
+    : batch.needsReview ? 'Needs review'
+    : 'Queued';
+  const statusClass = batch.paused ? 'paused'
+    : batch.finished ? 'completed'
+    : active ? 'printing'
+    : batch.needsReview ? 'needs_review'
+    : 'queued';
+  const runs = Array.isArray(batch.runs) ? batch.runs : [];
+  const visibleRuns = runs.slice(0, 12).map((run, index) => {
+    const printer = run.printerName || (run.status === 'queued' ? 'Waiting for compatible printer' : 'Unassigned');
+    const pct = run.status === 'printing' ? ` · ${Math.round(Number(run.progress || 0))}%` : '';
+    const runStatus = run.restoreRecoveryHold ? 'Restored — review required' : queueStatusLabel(run.status);
+    return {
+      key:String(run.id || run.sequence || index),
+      statusText:`#${run.sequence} · ${runStatus}${pct}`,
+      printer:String(printer)
+    };
+  });
+  return {
+    kind:'production',
+    id:String(batch.id || ''),
+    fileName:String(batch.fileName || ''),
+    history,
+    paused:Boolean(batch.paused),
+    quantity,
+    cancelable,
+    progress,
+    statusText,
+    statusClass,
+    printerTarget:batch.printerTarget ? `Target printer: ${printerTargetLabel(batch.printerTarget)}` : '',
+    groupTarget:batch.groupId ? `Printer group: ${batch.groupName || batch.groupId}` : '',
+    countsText:`Completed ${completed} · Printing/preparing ${active} · Remaining ${remaining}${failed ? ` · Failed ${failed}` : ''}${cancelled ? ` · Cancelled ${cancelled}` : ''}`,
+    runs:visibleRuns,
+    moreRuns:Math.max(0, runs.length - visibleRuns.length),
+    ...queuePriorityView(batch)
+  };
+}
+
+function publishPrintQueueUiState({ summary, currentJobs, queuedJobs, activeProduction, historyJobs, historyProduction, clearanceItems }) {
+  if (!window.__PFC_PREACT_QUEUE__) return;
+  const activeItems = [
+    ...clearanceItems.map(queueClearanceViewModel),
+    ...activeProduction.map((batch) => productionBatchViewModel(batch)),
+    ...currentJobs.map((job) => {
+      const queuedIndex = job.status === 'queued' ? queuedJobs.findIndex((queued) => queued.id === job.id) : -1;
+      const effectivePriority = String(job.effectivePriority || job.priority || 'normal');
+      return queueJobViewModel(job, {
+        canMoveUp:queuedIndex > 0 && String(queuedJobs[queuedIndex - 1]?.effectivePriority || queuedJobs[queuedIndex - 1]?.priority || 'normal') === effectivePriority,
+        canMoveDown:queuedIndex >= 0 && queuedIndex < queuedJobs.length - 1 && String(queuedJobs[queuedIndex + 1]?.effectivePriority || queuedJobs[queuedIndex + 1]?.priority || 'normal') === effectivePriority
+      });
+    })
+  ];
+  const historyItems = [
+    ...historyProduction.map((batch) => productionBatchViewModel(batch, { history:true })),
+    ...historyJobs.map((job) => queueJobViewModel(job, { history:true }))
+  ];
+  const detail = { summary, activeItems, historyItems };
+  window.__PFC_QUEUE_UI_STATE__ = detail;
+  window.dispatchEvent(new CustomEvent('pfc:queue-ui-state', { detail }));
+}
+
 function renderPrintQueue() {
   if (!queueDialog) return;
   const jobs = Array.isArray(queueState?.jobs) ? queueState.jobs : [];
@@ -2893,17 +3300,40 @@ function renderPrintQueue() {
   const clearableHistoryJobs = allHistoryJobs.filter((job) => !(job.bedClearanceRequired === true && !job.bedClearedAt));
   const outstanding = currentJobs.length + activeProduction.length + clearanceItems.length;
   const historyCount = historyJobs.length + historyProduction.length;
+  const productionText = activeProduction.length ? ` · ${activeProduction.length} production batch${activeProduction.length === 1 ? '' : 'es'}` : '';
+  const summary = outstanding
+    ? `${activeJobs.length} active · ${queuedJobs.length} queued copies · ${reviewJobs.length} needs review${productionText} · ${clearanceItems.length} awaiting bed clearance · ${historyCount} recent history`
+    : `${historyCount ? `${historyCount} history item${historyCount === 1 ? '' : 's'}` : 'No queued prints'}`;
 
   if (queueButtonCount) {
     queueButtonCount.textContent = String(outstanding);
     queueButtonCount.classList.toggle('hidden', outstanding === 0);
   }
-  if (queueSummary) {
-    const productionText = activeProduction.length ? ` · ${activeProduction.length} production batch${activeProduction.length === 1 ? '' : 'es'}` : '';
-    queueSummary.textContent = outstanding
-      ? `${activeJobs.length} active · ${queuedJobs.length} queued copies · ${reviewJobs.length} needs review${productionText} · ${clearanceItems.length} awaiting bed clearance · ${historyCount} recent history`
-      : `${historyCount ? `${historyCount} history item${historyCount === 1 ? '' : 's'}` : 'No queued prints'}`;
+
+  if (clearQueueHistoryBtn) {
+    clearQueueHistoryBtn.disabled = clearableHistoryJobs.length === 0;
+    clearQueueHistoryBtn.title = clearanceItems.length ? 'History items holding an uncleared-bed interlock are retained until the bed is confirmed clear.' : '';
   }
+
+  if (window.__PFC_PREACT_QUEUE__) {
+    if (queuePointerInteractionActive) {
+      queueRenderPending = true;
+      return;
+    }
+    publishPrintQueueUiState({
+      summary,
+      currentJobs,
+      queuedJobs,
+      activeProduction,
+      historyJobs,
+      historyProduction,
+      clearanceItems
+    });
+    queueRenderPending = false;
+    return;
+  }
+
+  if (queueSummary) queueSummary.textContent = summary;
   if (queueActiveList) {
     const clearanceMarkup = clearanceItems.map(queueClearanceMarkup).join('');
     const productionMarkup = activeProduction.map((batch) => productionBatchMarkup(batch)).join('');
@@ -2933,10 +3363,6 @@ function renderPrintQueue() {
     queueHistoryList.innerHTML = productionHistoryMarkup || jobHistoryMarkup
       ? `${productionHistoryMarkup}${jobHistoryMarkup}`
       : '<div class="queue-empty">Completed, failed and cancelled queued prints will appear here.</div>';
-  }
-  if (clearQueueHistoryBtn) {
-    clearQueueHistoryBtn.disabled = clearableHistoryJobs.length === 0;
-    clearQueueHistoryBtn.title = clearanceItems.length ? 'History items holding an uncleared-bed interlock are retained until the bed is confirmed clear.' : '';
   }
 }
 
@@ -3043,20 +3469,62 @@ function libraryFileMarkup(file) {
   </article>`;
 }
 
+function libraryFileViewModel(file) {
+  const usage = file?.usage || {};
+  const completedPrints = Number(usage.completedPrints || 0);
+  const lastPrinted = usage.lastPrintedAt ? `Last printed ${formatLastSeen(usage.lastPrintedAt)}` : 'Not printed from queue yet';
+  const colours = libraryFileColors(file).map((hex) => ({
+    hex,
+    rgb:filamentRgbText(hex) || ''
+  }));
+  return {
+    id:String(file?.id || ''),
+    fileName:String(file?.fileName || ''),
+    sizeText:formatBytes(file?.size),
+    description:String(file?.description || '').trim(),
+    printerTarget:file?.printerTarget ? printerTargetLabel(file.printerTarget) : '',
+    requirements:libraryRequirementSummary(file),
+    colours,
+    meta:`Added ${formatLastSeen(file?.addedAt || file?.stagedAt)} · ${completedPrints} completed print${completedPrints === 1 ? '' : 's'} · ${lastPrinted}`,
+    warning:String(file?.requirements?.warning || ''),
+    previewUrl:String(file?.previewUrl || ''),
+    deleteDisabled:Number(usage.queueReferences || 0) > 0,
+    deleteTitle:Number(usage.queueReferences || 0) > 0 ? 'Clear queue/history references before deleting this file' : ''
+  };
+}
+
+function publishPrintLibraryUiState({ files, visible, summary, query }) {
+  if (!window.__PFC_PREACT_LIBRARY__) return;
+  const detail = {
+    summary,
+    files:visible.map(libraryFileViewModel),
+    emptyText:files.length
+      ? 'No library files match this search.'
+      : 'No files in the Print Library yet. Add a G-code, GX or 3MF file to get started.'
+  };
+  window.__PFC_LIBRARY_UI_STATE__ = detail;
+  window.dispatchEvent(new CustomEvent('pfc:library-ui-state', { detail }));
+}
+
 function renderPrintLibrary() {
   if (!libraryList) return;
   const files = Array.isArray(libraryState?.files) ? libraryState.files : [];
   const query = String(librarySearchInput?.value || '').trim().toLowerCase();
   const visible = query ? files.filter((file) => librarySearchText(file).includes(query)) : files;
+  const bytes = files.reduce((sum, file) => sum + Number(file.size || 0), 0);
+  const summary = `${files.length} file${files.length === 1 ? '' : 's'} · ${formatBytes(bytes)} stored on this controller`;
 
   if (libraryButtonCount) {
     libraryButtonCount.textContent = String(files.length);
     libraryButtonCount.classList.toggle('hidden', files.length === 0);
   }
-  if (librarySummary) {
-    const bytes = files.reduce((sum, file) => sum + Number(file.size || 0), 0);
-    librarySummary.textContent = `${files.length} file${files.length === 1 ? '' : 's'} · ${formatBytes(bytes)} stored on this controller`;
+
+  if (window.__PFC_PREACT_LIBRARY__) {
+    publishPrintLibraryUiState({ files, visible, summary, query });
+    return;
   }
+
+  if (librarySummary) librarySummary.textContent = summary;
   libraryList.innerHTML = visible.length
     ? visible.map(libraryFileMarkup).join('')
     : `<div class="queue-empty">${files.length ? 'No library files match this search.' : 'No files in the Print Library yet. Add a G-code, GX or 3MF file to get started.'}</div>`;
@@ -3161,8 +3629,37 @@ function renderPrinterGroupMembers(selectedIds = null) {
     : '<div class="subtle">No printers are configured.</div>';
 }
 
+function printerGroupsViewModel() {
+  return [...(printerGroupsState.groups || [])]
+    .sort((a, b) => String(a.name).localeCompare(String(b.name)))
+    .map((group) => {
+      const members = (group.members || [])
+        .map((member) => String(member.printerName || ''))
+        .filter(Boolean)
+        .sort((a, b) => a.localeCompare(b));
+      const count = Number(group.printerIds?.length || 0);
+      return {
+        id:String(group.id || ''),
+        name:String(group.name || ''),
+        members,
+        countLabel:`${count} printer${count === 1 ? '' : 's'}`
+      };
+    });
+}
+
+function publishPrinterGroupsUiState() {
+  if (!window.__PFC_PREACT_PRINTER_GROUPS__) return;
+  const detail = { groups:printerGroupsViewModel() };
+  window.__PFC_PRINTER_GROUPS_UI_STATE__ = detail;
+  window.dispatchEvent(new CustomEvent('pfc:printer-groups-ui-state', { detail }));
+}
+
 function renderPrinterGroups() {
   if (!printerGroupsList) return;
+  if (window.__PFC_PREACT_PRINTER_GROUPS__) {
+    publishPrinterGroupsUiState();
+    return;
+  }
   const groups = [...(printerGroupsState.groups || [])].sort((a, b) => String(a.name).localeCompare(String(b.name)));
   printerGroupsList.innerHTML = groups.length
     ? groups.map((group) => {
@@ -3268,11 +3765,15 @@ function updateBatchUi() {
   if (batchModeMenuBtn) batchModeMenuBtn.textContent = fleetModeLabel;
   batchSelectedCount.textContent = String(selectedPrinterIds.size);
 
-  for (const card of fleetEl.querySelectorAll('[data-printer-card]')) {
-    const selected = selectedPrinterIds.has(card.dataset.printerCard);
-    card.classList.toggle('selected', selected);
-    const checkbox = card.querySelector('[data-printer-select]');
-    if (checkbox) checkbox.checked = selected;
+  if (window.__PFC_PREACT_FLEET__) {
+    publishDashboardPrinterState();
+  } else {
+    for (const card of fleetEl.querySelectorAll('[data-printer-card]')) {
+      const selected = selectedPrinterIds.has(card.dataset.printerCard);
+      card.classList.toggle('selected', selected);
+      const checkbox = card.querySelector('[data-printer-select]');
+      if (checkbox) checkbox.checked = selected;
+    }
   }
 
   batchToolbar.querySelectorAll('[data-batch-open],[data-batch-direct]').forEach((button) => {
@@ -3567,33 +4068,171 @@ function updateCard(card, printer) {
   updateDashboardFilamentOverlay(card, printer);
 }
 
+function dashboardTemperatureText(temperature) {
+  const actual = Number(temperature?.actual);
+  const target = Number(temperature?.target);
+  return Number.isFinite(actual) && Number.isFinite(target)
+    ? `${actual.toFixed(0)} / ${target.toFixed(0)} °C`
+    : '—';
+}
+
+function dashboardPrinterViewModel(printer, sortOrder = null) {
+  const status = printer?.status || null;
+  const state = stateName(printer);
+  const rawState = rawStateName(printer);
+  const progress = Math.max(0, Math.min(100, Math.round(Number(status?.progress || 0))));
+  const modelLabel = printerModelLabel(printer);
+  const maintenanceState = printerMaintenanceState(printer);
+  const maintenanceText = maintenanceStatusText(printer);
+  const activityStatus = printerActivityStatus(printer);
+  const showCardActivity = Boolean(activityStatus.active && activityStatus.kind !== 'chamber-preheat');
+  const showLicenseSlots = Boolean(licenseState?.enforcementEnabled && licenseState?.overLimit && !printer.simulated);
+  const licenceActive = printer.licenseActive !== false;
+  const printerSelected = selectedPrinterIds.has(printer.id) && licenceActive;
+  const preheat = printer.chamberPreheat;
+  const clearance = queueBedClearance(printer.id);
+  const activeTool = status?.activeTool != null && Number.isInteger(Number(status.activeTool))
+    ? Number(status.activeTool)
+    : null;
+  const jobStatus = String(status?.status || '').toLowerCase();
+  const paused = jobStatus === 'pause' || jobStatus === 'paused';
+  const printing = ['printing', 'print', 'running'].includes(jobStatus);
+  const canControlJob = Boolean(printer.online && printer.capabilities?.jobControl && licenceActive && (printing || paused));
+  const filamentSources = dashboardFilamentSources(printer);
+  const visibleFilaments = filamentSources.slice(0, MAX_DASHBOARD_FILAMENT_SWATCHES).map((source) => ({
+    key:source.key,
+    color:source.color || '',
+    tooltip:dashboardFilamentTooltip(source)
+  }));
+  const preheatTarget = preheat?.active
+    ? (preheat.heatSource === 'chamber'
+      ? `${Number(preheat.chamberTemperature).toFixed(0)} °C chamber`
+      : `${Number(preheat.bedTemperature).toFixed(0)} °C bed`)
+    : '';
+  const clearanceOutcome = String(clearance?.jobStatus || '').toLowerCase() === 'cancelled' ? 'cancelled' : 'finished';
+
+  return {
+    id:String(printer.id || ''),
+    name:String(printer.name || ''),
+    hostText:`${printer.host || ''}${modelLabel ? ` · ${modelLabel}` : ''}`,
+    visible:matchesDashboardGroup(printer) && matchesDashboardFilter(printer),
+    selected:printerSelected,
+    selectionDisabled:!licenceActive,
+    sortOrder:sortOrder?.get(printer.id) ?? null,
+    state,
+    stateClass:String(state || '').toLowerCase(),
+    badgeTitle:String(rawState || '').toLowerCase() !== String(state || '').toLowerCase() ? `Printer reports ${rawState}` : '',
+    maintenance:{
+      state:maintenanceState,
+      actionText:`Open maintenance for ${printer.name}. ${maintenanceText}`
+    },
+    image:{
+      key:dashboardPrinterImageKey(printer),
+      label:modelLabel || printer.name || '3D printer'
+    },
+    filaments:{
+      sources:visibleFilaments,
+      extra:Math.max(0, filamentSources.length - visibleFilaments.length)
+    },
+    activity:{
+      visible:showCardActivity,
+      title:showCardActivity ? activityStatus.title : 'PRINTER ACTIVITY',
+      summary:showCardActivity ? activityStatus.text : ''
+    },
+    licence:{
+      visible:showLicenseSlots,
+      inactive:!licenceActive,
+      title:showLicenseSlots ? (licenceActive ? 'LICENCE SLOT ACTIVE' : 'INACTIVE — LICENCE LIMIT') : '',
+      summary:showLicenseSlots
+        ? (licenceActive
+          ? 'This printer may receive new controller commands.'
+          : 'Monitoring remains available, but new jobs and control commands are blocked.')
+        : '',
+      toggleText:showLicenseSlots ? (licenceActive ? 'Release slot' : 'Use licence slot') : '',
+      toggleValue:showLicenseSlots ? (licenceActive ? 'off' : 'on') : '',
+      toggleDisabled:Boolean(showLicenseSlots && !licenceActive && Number(licenseState?.slotsRemaining || 0) <= 0),
+      toggleTitle:showLicenseSlots && !licenceActive && Number(licenseState?.slotsRemaining || 0) <= 0
+        ? 'Release a licence slot from another printer first'
+        : ''
+    },
+    preheat:{
+      visible:Boolean(preheat?.active),
+      summary:preheat?.active ? `${preheatTarget} · ${formatCountdown(preheatRemainingSeconds(preheat))} remaining` : ''
+    },
+    clearance:{
+      visible:Boolean(clearance),
+      summary:clearance ? `${clearance.fileName} ${clearanceOutcome} · queue paused` : ''
+    },
+    jobName:status?.fileName || (printer.online ? 'No active job' : 'Printer offline'),
+    progress,
+    progressText:`${progress}%`,
+    nozzleLabel:activeTool !== null && printer.capabilities?.toolTemperatures ? `Active T${activeTool}` : 'Nozzle',
+    nozzle:dashboardTemperatureText(status?.nozzle),
+    bed:dashboardTemperatureText(status?.bed),
+    layer:status?.totalLayers ? `${status.currentLayer} / ${status.totalLayers}` : '—',
+    remaining:formatDuration(status?.remainingSeconds),
+    lastSeen:printer.online ? `Seen ${formatLastSeen(printer.lastSeen)}` : `Last seen ${formatLastSeen(printer.lastSeen)}`,
+    latency:printer.latencyMs != null ? `${printer.latencyMs} ms` : '',
+    jobControl:{
+      visible:canControlJob,
+      action:canControlJob ? (paused ? 'resume' : 'pause') : '',
+      text:canControlJob ? (paused ? 'Resume' : 'Pause') : '',
+      title:canControlJob ? (paused ? 'Resume the current print' : 'Pause the current print') : '',
+      className:canControlJob
+        ? `card-job-control ${paused ? 'positive' : 'attention'}`
+        : 'secondary card-job-control hidden'
+    },
+    error:String(printer.error || ''),
+    errorVisible:Boolean(printer.error && !printer.online)
+  };
+}
+
+function publishDashboardPrinterState() {
+  if (!window.__PFC_PREACT_FLEET__ || reorderInProgress) return;
+
+  for (const printer of fleet) {
+    if (printer.licenseActive === false) selectedPrinterIds.delete(printer.id);
+  }
+
+  const sortOrder = dashboardTableOrderMap();
+  const detail = {
+    printers:fleet.map((printer) => dashboardPrinterViewModel(printer, sortOrder))
+  };
+  window.__PFC_DASHBOARD_FLEET_STATE__ = detail;
+  window.dispatchEvent(new CustomEvent('pfc:dashboard-fleet-state', { detail }));
+}
+
 function reconcileFleet() {
   emptyEl.classList.toggle('hidden', fleet.length !== 0);
   fleetEl.classList.toggle('hidden', fleet.length === 0);
   renderSummary();
 
-  const wanted = new Set(fleet.map((printer) => printer.id));
-  for (const card of fleetEl.querySelectorAll('[data-printer-card]')) {
-    if (!wanted.has(card.dataset.printerCard)) {
-      card.remove();
+  if (window.__PFC_PREACT_FLEET__) {
+    publishDashboardPrinterState();
+  } else {
+    const wanted = new Set(fleet.map((printer) => printer.id));
+    for (const card of fleetEl.querySelectorAll('[data-printer-card]')) {
+      if (!wanted.has(card.dataset.printerCard)) {
+        card.remove();
+      }
     }
-  }
 
-  for (const [index, printer] of fleet.entries()) {
-    let card = fleetEl.querySelector(`[data-printer-card="${CSS.escape(printer.id)}"]`);
-    if (!card) {
-      fleetEl.insertAdjacentHTML('beforeend', cardMarkup(printer));
-      card = fleetEl.lastElementChild;
-    }
-    updateCard(card, printer);
+    for (const [index, printer] of fleet.entries()) {
+      let card = fleetEl.querySelector(`[data-printer-card="${CSS.escape(printer.id)}"]`);
+      if (!card) {
+        fleetEl.insertAdjacentHTML('beforeend', cardMarkup(printer));
+        card = fleetEl.lastElementChild;
+      }
+      updateCard(card, printer);
 
-    // Do not detach/reinsert cards on every live fleet event. Moving a button's
-    // card between pointerdown and click can cause browsers to drop the click,
-    // making Open printer appear intermittently unresponsive. Only move a card
-    // when its actual fleet order differs from the DOM.
-    if (!reorderInProgress) {
-      const cardAtIndex = fleetEl.querySelectorAll('[data-printer-card]')[index];
-      if (cardAtIndex !== card) fleetEl.insertBefore(card, cardAtIndex || null);
+      // Do not detach/reinsert cards on every live fleet event. Moving a button's
+      // card between pointerdown and click can cause browsers to drop the click,
+      // making Open printer appear intermittently unresponsive. Only move a card
+      // when its actual fleet order differs from the DOM.
+      if (!reorderInProgress) {
+        const cardAtIndex = fleetEl.querySelectorAll('[data-printer-card]')[index];
+        if (cardAtIndex !== card) fleetEl.insertBefore(card, cardAtIndex || null);
+      }
     }
   }
 
@@ -3613,6 +4252,7 @@ async function persistDashboardOrder() {
     await api('/api/printers/order', { method:'PUT', body: JSON.stringify({ printerIds }) });
     const order = new Map(printerIds.map((id, index) => [id, index]));
     fleet.sort((a, b) => (order.get(a.id) ?? Number.MAX_SAFE_INTEGER) - (order.get(b.id) ?? Number.MAX_SAFE_INTEGER));
+    publishDashboardPrinterState();
   } catch (error) {
     console.error('Could not save printer order', error);
     await loadInitialFleet();
@@ -4201,7 +4841,6 @@ libraryList?.addEventListener('click', async (event) => {
   if (queueButton) {
     const file = (libraryState.files || []).find((item) => item.id === queueButton.dataset.libraryQueue);
     if (!file) return;
-    libraryDialog?.close();
     openQueueAddDialog(file);
     return;
   }
@@ -4549,10 +5188,31 @@ addForm.addEventListener('submit', async (event) => {
   }
 });
 
-summaryEl.addEventListener('click', (event) => {
-  const filter = event.target.closest('[data-dashboard-filter]');
-  if (!filter) return;
-  setDashboardFilter(filter.dataset.dashboardFilter);
+if (!window.__PFC_PREACT_DASHBOARD__) {
+  summaryEl.addEventListener('click', (event) => {
+    const filter = event.target.closest('[data-dashboard-filter]');
+    if (!filter) return;
+    setDashboardFilter(filter.dataset.dashboardFilter);
+  });
+
+  dashboardGroupFilter?.addEventListener('change', () => {
+    setDashboardGroupFilter(dashboardGroupFilter.value);
+  });
+}
+
+window.addEventListener('pfc:dashboard-action', (event) => {
+  const action = event?.detail || {};
+  if (action.type === 'filter') {
+    setDashboardFilter(action.value);
+    return;
+  }
+  if (action.type === 'group') {
+    setDashboardGroupFilter(action.value);
+    return;
+  }
+  if (action.type === 'view') {
+    applyDashboardViewMode(action.value, { persist:true });
+  }
 });
 
 alertsBtn?.addEventListener('click', () => {
@@ -4561,10 +5221,6 @@ alertsBtn?.addEventListener('click', () => {
 
 maintenanceAlertBtn?.addEventListener('click', () => {
   setDashboardFilter(dashboardFilter === 'maintenance' ? 'all' : 'maintenance');
-});
-
-dashboardGroupFilter?.addEventListener('change', () => {
-  setDashboardGroupFilter(dashboardGroupFilter.value);
 });
 
 fleetFilterEmptyEl?.addEventListener('click', (event) => {
@@ -4619,8 +5275,16 @@ fleetEl.addEventListener('click', (event) => {
     if (!card) return;
     stopPreheat.disabled = true;
     api(`/api/printers/${encodeURIComponent(card.dataset.printerCard)}/chamber-preheat`, { method:'DELETE' })
-      .then((result) => { if (result.warning) alert(result.warning); })
-      .catch((error) => { alert(error.message); stopPreheat.disabled = false; });
+      .then((result) => {
+        if (result.warning) alert(result.warning);
+        const printer = fleet.find((item) => item.id === card.dataset.printerCard);
+        showUiToast('Chamber preheat stop requested.', { title:printer?.name || 'Printer', tone:'success' });
+      })
+      .catch((error) => {
+        showUiToast(error.message, { title:'Could not stop preheat', tone:'error' });
+        alert(error.message);
+        stopPreheat.disabled = false;
+      });
     return;
   }
   const earlier = event.target.closest('[data-move-earlier]');
@@ -4661,7 +5325,16 @@ fleetEl.addEventListener('click', async (event) => {
   control.disabled = true;
   try {
     await command(card.dataset.printerCard, 'job', { action });
+    const printer = fleet.find((item) => item.id === card.dataset.printerCard);
+    showUiToast(
+      action === 'resume' ? 'Resume requested for the current print.' : 'Pause requested for the current print.',
+      { title:printer?.name || 'Printer', tone:'success' }
+    );
   } catch (error) {
+    showUiToast(error.message, {
+      title:action === 'resume' ? 'Could not resume print' : 'Could not pause print',
+      tone:'error'
+    });
     showError(error);
   } finally {
     control.disabled = false;
@@ -5988,6 +6661,99 @@ function printerActivityStatus(printer) {
   return { active:false, kind:null, title:'', text:'' };
 }
 
+const PRINTER_DETAIL_TAB_NAMES = Object.freeze(['toolheads','camera','files','temperature','job','management']);
+
+function printerDetailHealthText(printer) {
+  const displayState = stateName(printer);
+  const rawState = rawStateName(printer);
+  return printer.online
+    ? `Last response ${formatLastSeen(printer.lastSeen)} · ${printer.latencyMs ?? '—'} ms${rawState.toLowerCase() !== displayState.toLowerCase() ? ` · Printer reports ${rawState}` : ''}`
+    : `Offline · last seen ${formatLastSeen(printer.lastSeen)}`;
+}
+
+function printerDetailChromeState(printer, { loading = false } = {}) {
+  const state = stateName(printer);
+  const rawState = rawStateName(printer);
+  const maintenanceText = maintenanceStatusText(printer);
+  return {
+    id:String(printer.id || ''),
+    name:String(printer.name || ''),
+    host:String(printer.host || ''),
+    state,
+    stateClass:String(state || '').toLowerCase(),
+    badgeTitle:String(rawState || '').toLowerCase() !== String(state || '').toLowerCase() ? `Printer reports ${rawState}` : '',
+    health:loading ? `Loading printer details from ${printer.name}…` : printerDetailHealthText(printer),
+    activeTab:printerDetailTabByPrinter.get(printer.id) || 'toolheads',
+    maintenance:{
+      state:printerMaintenanceState(printer),
+      actionText:`Open maintenance for ${printer.name}. ${maintenanceText}`
+    },
+    activity:printerActivityStatus(printer)
+  };
+}
+
+function publishPrinterDetailState(printer, options = {}) {
+  if (!window.__PFC_PREACT_DETAIL__ || !printer) return;
+  const detail = printerDetailChromeState(printer, options);
+  window.__PFC_PRINTER_DETAIL_STATE__ = detail;
+  window.dispatchEvent(new CustomEvent('pfc:printer-detail-state', { detail }));
+}
+
+function printerDetailHeaderMarkup(printer) {
+  if (window.__PFC_PREACT_DETAIL__) return '<div data-preact-detail-header></div>';
+  return `<div class="dialog-head">
+    <div>
+      <div class="eyebrow">PRINTER</div>
+      <div class="printer-detail-title-row"><h2 data-detail-name>${escapeHtml(printer.name)}</h2>${maintenanceIconMarkup(printer, 'maintenance-status-icon-detail', true)}</div>
+      <div class="subtle"><span>${escapeHtml(printer.host)}</span> · <span data-detail-state>${escapeHtml(stateName(printer))}</span></div>
+      <div class="detail-health" data-detail-health></div>
+    </div>
+    <button class="icon" data-detail-close>×</button>
+  </div>`;
+}
+
+function printerDetailActivityMarkup(printer) {
+  if (window.__PFC_PREACT_DETAIL__) return '<div data-preact-detail-activity></div>';
+  const activity = printerActivityStatus(printer);
+  return `<div class="detail-activity-banner${activity.active ? '' : ' hidden'}" data-detail-activity-banner><strong data-detail-activity-title>${escapeHtml(activity.title || 'PRINTER ACTIVITY')}</strong><span data-detail-activity-summary>${escapeHtml(activity.text || '')}</span></div>`;
+}
+
+function printerDetailTabsMarkup() {
+  if (window.__PFC_PREACT_DETAIL__) return '<div data-preact-detail-tabs></div>';
+  return `<div class="printer-detail-tabs maintenance-view-selector" role="tablist" aria-label="Printer details">
+    <button type="button" class="maintenance-view-button" role="tab" data-detail-tab="toolheads" aria-controls="detailTabToolheads">Toolheads</button>
+    <button type="button" class="maintenance-view-button" role="tab" data-detail-tab="camera" aria-controls="detailTabCamera">Camera</button>
+    <button type="button" class="maintenance-view-button" role="tab" data-detail-tab="files" aria-controls="detailTabFiles">Files</button>
+    <button type="button" class="maintenance-view-button" role="tab" data-detail-tab="temperature" aria-controls="detailTabTemperature">Temperature, Preheat &amp; Fans</button>
+    <button type="button" class="maintenance-view-button" role="tab" data-detail-tab="job" aria-controls="detailTabJob">Current Job</button>
+    <button type="button" class="maintenance-view-button" role="tab" data-detail-tab="management" aria-controls="detailTabManagement">Maintenance &amp; Management</button>
+  </div>`;
+}
+
+function activatePrinterDetailTab(name, { focus = false } = {}) {
+  if (!currentPrinterId) return;
+  const selectedName = PRINTER_DETAIL_TAB_NAMES.includes(name) ? name : 'toolheads';
+  printerDetailTabByPrinter.set(currentPrinterId, selectedName);
+
+  const detailTabs = Array.from(printerDetail.querySelectorAll('[data-detail-tab]'));
+  const detailPanels = Array.from(printerDetail.querySelectorAll('[data-detail-panel]'));
+  for (const tab of detailTabs) {
+    const active = tab.dataset.detailTab === selectedName;
+    tab.classList.toggle('active', active);
+    tab.setAttribute('aria-selected', active ? 'true' : 'false');
+    tab.tabIndex = active ? 0 : -1;
+  }
+  for (const panel of detailPanels) {
+    const active = panel.dataset.detailPanel === selectedName;
+    panel.hidden = !active;
+    panel.classList.toggle('active', active);
+  }
+
+  const printer = fleet.find((item) => item.id === currentPrinterId);
+  if (printer) publishPrinterDetailState(printer);
+  if (focus) printerDetail.querySelector(`[data-detail-tab="${CSS.escape(selectedName)}"]`)?.focus();
+}
+
 function applyLicenseReadOnly(printer) {
   if (!printerDetail || printer?.licenseActive !== false) return;
   const safeSelectors = [
@@ -6011,6 +6777,7 @@ function updateOpenPrinterTelemetry() {
   const printer = fleet.find((p) => p.id === currentPrinterId);
   if (!printer) return;
   const s = printer.status;
+  publishPrinterDetailState(printer);
   const set = (selector, text) => {
     const el = printerDetail.querySelector(selector);
     if (el) el.textContent = text;
@@ -6214,21 +6981,17 @@ async function openPrinter(id) {
 
   if (showLoadingState) {
     printerDetail.innerHTML = `<div class="detail-shell">
-      <div class="dialog-head">
-        <div>
-          <div class="eyebrow">PRINTER</div>
-          <div class="printer-detail-title-row"><h2>${escapeHtml(printer.name)}</h2>${maintenanceIconMarkup(printer, 'maintenance-status-icon-detail', true)}</div>
-          <div class="subtle">${escapeHtml(printer.host)} · ${escapeHtml(stateName(printer))}</div>
-        </div>
-        <button class="icon" data-detail-close>×</button>
-      </div>
+      ${printerDetailHeaderMarkup(printer)}
       <div class="panel">
         <h3>Loading printer details…</h3>
         <div class="subtle">Reading files and controls from ${escapeHtml(printer.name)}.</div>
       </div>
     </div>`;
-    printerDetail.querySelector('[data-detail-close]').onclick = () => printerDialog.close();
+    if (!window.__PFC_PREACT_DETAIL__) {
+      printerDetail.querySelector('[data-detail-close]').onclick = () => printerDialog.close();
+    }
     if (!printerDialog.open) printerDialog.showModal();
+    publishPrinterDetailState(printer, { loading:true });
   }
 
   const capabilities = printer.capabilities || {};
@@ -6400,31 +7163,13 @@ async function openPrinter(id) {
     </div>`;
   })() : '';
   printerDetail.innerHTML = `<div class="detail-shell">
-    <div class="dialog-head">
-      <div>
-        <div class="eyebrow">PRINTER</div>
-        <div class="printer-detail-title-row"><h2 data-detail-name>${escapeHtml(printer.name)}</h2>${maintenanceIconMarkup(printer, 'maintenance-status-icon-detail', true)}</div>
-        <div class="subtle"><span>${escapeHtml(printer.host)}</span> · <span data-detail-state>${escapeHtml(stateName(printer))}</span></div>
-        <div class="detail-health" data-detail-health></div>
-      </div>
-      <button class="icon" data-detail-close>×</button>
-    </div>
+    ${printerDetailHeaderMarkup(printer)}
     <div id="detailError" class="error detail-error-banner${fileLoadError ? '' : ' hidden'}" role="alert" aria-live="assertive">${fileLoadError ? escapeHtml(`Could not load files: ${fileLoadError}`) : ''}</div>
     <div id="detailConnectionError" class="error hidden" role="alert" aria-live="assertive"></div>
-    ${(() => {
-      const activity = printerActivityStatus(printer);
-      return `<div class="detail-activity-banner${activity.active ? '' : ' hidden'}" data-detail-activity-banner><strong data-detail-activity-title>${escapeHtml(activity.title || 'PRINTER ACTIVITY')}</strong><span data-detail-activity-summary>${escapeHtml(activity.text || '')}</span></div>`;
-    })()}
+    ${printerDetailActivityMarkup(printer)}
     ${printer.licenseActive === false ? '<div class="license-detail-warning">This printer is inactive because it does not have a selected licence slot. Live monitoring and safety controls remain available, but new jobs and normal controller commands are disabled.</div>' : ''}
     ${printer.adapterType === 'bambu-lab' ? `<div class="file-warning">Experimental Bambu ${escapeHtml(printer.model || '')} support: validate behavior carefully before relying on unattended printing.${printer.model === 'X1C' ? ' X1C RTSPS/H.264 camera decoding is not yet supported.' : ''}${printer.model === 'A1 Mini' ? ' Single-material A1 Mini .gcode starts remain experimental until validated on physical hardware; multi-material AMS Lite jobs require sliced .3mf.' : ''}</div>` : ''}
-    <div class="printer-detail-tabs maintenance-view-selector" role="tablist" aria-label="Printer details">
-      <button type="button" class="maintenance-view-button" role="tab" data-detail-tab="toolheads" aria-controls="detailTabToolheads">Toolheads</button>
-      <button type="button" class="maintenance-view-button" role="tab" data-detail-tab="camera" aria-controls="detailTabCamera">Camera</button>
-      <button type="button" class="maintenance-view-button" role="tab" data-detail-tab="files" aria-controls="detailTabFiles">Files</button>
-      <button type="button" class="maintenance-view-button" role="tab" data-detail-tab="temperature" aria-controls="detailTabTemperature">Temperature, Preheat &amp; Fans</button>
-      <button type="button" class="maintenance-view-button" role="tab" data-detail-tab="job" aria-controls="detailTabJob">Current Job</button>
-      <button type="button" class="maintenance-view-button" role="tab" data-detail-tab="management" aria-controls="detailTabManagement">Maintenance &amp; Management</button>
-    </div>
+    ${printerDetailTabsMarkup()}
     <div class="printer-detail-tab-panels">
       <section id="detailTabToolheads" class="printer-detail-tab-panel" role="tabpanel" data-detail-panel="toolheads"></section>
       <section id="detailTabCamera" class="printer-detail-tab-panel" role="tabpanel" data-detail-panel="camera"></section>
@@ -6582,42 +7327,26 @@ async function openPrinter(id) {
     }
   }
 
-  const detailTabs = Array.from(printerDetail.querySelectorAll('[data-detail-tab]'));
-  const detailPanels = Array.from(printerDetail.querySelectorAll('[data-detail-panel]'));
-  const activateDetailTab = (name, focus = false) => {
-    const selected = detailTabs.find((tab) => tab.dataset.detailTab === name) || detailTabs[0];
-    if (!selected) return;
-    const selectedName = selected.dataset.detailTab;
-    printerDetailTabByPrinter.set(id, selectedName);
+  if (!window.__PFC_PREACT_DETAIL__) {
+    const detailTabs = Array.from(printerDetail.querySelectorAll('[data-detail-tab]'));
     for (const tab of detailTabs) {
-      const active = tab === selected;
-      tab.classList.toggle('active', active);
-      tab.setAttribute('aria-selected', active ? 'true' : 'false');
-      tab.tabIndex = active ? 0 : -1;
+      tab.onclick = () => activatePrinterDetailTab(tab.dataset.detailTab);
+      tab.onkeydown = (event) => {
+        if (!['ArrowLeft','ArrowRight','Home','End'].includes(event.key)) return;
+        event.preventDefault();
+        const currentIndex = detailTabs.indexOf(tab);
+        const nextIndex = event.key === 'Home'
+          ? 0
+          : event.key === 'End'
+            ? detailTabs.length - 1
+            : (currentIndex + (event.key === 'ArrowRight' ? 1 : -1) + detailTabs.length) % detailTabs.length;
+        activatePrinterDetailTab(detailTabs[nextIndex]?.dataset.detailTab, { focus:true });
+      };
     }
-    for (const panel of detailPanels) {
-      const active = panel.dataset.detailPanel === selectedName;
-      panel.hidden = !active;
-      panel.classList.toggle('active', active);
-    }
-    if (focus) selected.focus();
-  };
-  for (const tab of detailTabs) {
-    tab.onclick = () => activateDetailTab(tab.dataset.detailTab);
-    tab.onkeydown = (event) => {
-      if (!['ArrowLeft','ArrowRight','Home','End'].includes(event.key)) return;
-      event.preventDefault();
-      const currentIndex = detailTabs.indexOf(tab);
-      const nextIndex = event.key === 'Home'
-        ? 0
-        : event.key === 'End'
-          ? detailTabs.length - 1
-          : (currentIndex + (event.key === 'ArrowRight' ? 1 : -1) + detailTabs.length) % detailTabs.length;
-      activateDetailTab(detailTabs[nextIndex]?.dataset.detailTab, true);
-    };
   }
-  activateDetailTab(printerDetailTabByPrinter.get(id) || 'toolheads');
+  activatePrinterDetailTab(printerDetailTabByPrinter.get(id) || 'toolheads');
   if (!printerDialog.open) printerDialog.showModal();
+  publishPrinterDetailState(printer);
   updateOpenPrinterTelemetry();
 
   const printerUploadButton = printerDetail.querySelector('[data-printer-file-upload]');
@@ -7242,6 +7971,7 @@ ${flashForgePreflight}` : ''}`)) return;
       const result = await api(`/api/printers/${id}/name`, { method:'PUT', body:JSON.stringify({ name:nextName }) });
       printer.name = result.printer.name;
       renameInput.value = printer.name;
+      publishPrinterDetailState(printer);
       const heading = printerDetail.querySelector('[data-detail-name]');
       if (heading) heading.textContent = printer.name;
       const status = printerDetail.querySelector('[data-rename-status]');
@@ -7260,6 +7990,17 @@ ${flashForgePreflight}` : ''}`)) return;
   };
 }
 
+window.addEventListener('pfc:printer-detail-action', (event) => {
+  const action = event?.detail || {};
+  if (action.type === 'close') {
+    if (printerDialog.open) printerDialog.close();
+    return;
+  }
+  if (action.type === 'tab') {
+    activatePrinterDetailTab(action.value);
+  }
+});
+
 printerDetail.addEventListener('click', (event) => {
   const maintenanceShortcut = event.target.closest('[data-maintenance-open-printer]');
   if (!maintenanceShortcut) return;
@@ -7275,6 +8016,7 @@ printerDetail.addEventListener('click', (event) => {
 printerDialog.addEventListener('close', () => {
   currentPrinterId = null;
   printerOpenRequestId += 1;
+  window.__PFC_PRINTER_DETAIL_STATE__ = null;
   // Removing the live image closes this browser's proxy subscription. The
   // backend keeps a shared upstream stream only while another viewer needs it.
   printerDetail.innerHTML = '';
