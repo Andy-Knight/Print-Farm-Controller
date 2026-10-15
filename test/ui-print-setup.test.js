@@ -864,7 +864,7 @@ test('printer details are organised into six consistent tabs', () => {
   assert.match(app, /if \(printerManagementPanel\) managementLeft\.append\(printerManagementPanel\)/);
   assert.match(app, /if \(diagnosticsPanel\) managementRight\.append\(diagnosticsPanel\)/);
   assert.match(app, /detailGrid\?\.remove\(\)/);
-  assert.match(app, /activateDetailTab\(printerDetailTabByPrinter\.get\(id\) \|\| 'toolheads'\)/);
+  assert.match(app, /activatePrinterDetailTab\(printerDetailTabByPrinter\.get\(id\) \|\| 'toolheads'\)/);
   assert.match(app, /class="printer-detail-tabs maintenance-view-selector"/);
   assert.match(app, /class="maintenance-view-button" role="tab" data-detail-tab="toolheads"/);
   assert.match(styles, /\.printer-detail-tabs\.maintenance-view-selector \{[\s\S]*grid-template-columns:repeat\(6,minmax\(0,1fr\)\)/);
