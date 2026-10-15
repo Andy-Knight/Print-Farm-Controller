@@ -7,7 +7,7 @@ test('Snapmaker U1 filament configuration button uses the shared label and retai
   const app = readFileSync(new URL('../public/app.js', import.meta.url), 'utf8');
   const buttonMarkup = app.split('\n').find((line) => line.includes('data-u1-filament-config-save='));
   assert.ok(buttonMarkup, 'U1 filament configuration button must remain present');
-  assert.match(buttonMarkup, /<button type="button" class="primary"/);
+  assert.match(buttonMarkup, /<button type="button" class="primary toolhead-action-button"/);
   assert.match(buttonMarkup, />Set filament<\/button>/);
   assert.doesNotMatch(buttonMarkup, /Set filament on U1/);
 });
@@ -23,7 +23,7 @@ test('Prusa CORE One+ applies filament type and colour together using the U1-sty
   assert.match(markup, /<label>Colour family/);
   assert.match(markup, /data-prusa-tool-material-input/);
   assert.match(markup, /data-prusa-tool-color-family-input/);
-  assert.match(markup, /<button type="button" class="primary" data-prusa-tool-material-save=/);
+  assert.match(markup, /<button type="button" class="primary toolhead-action-button" data-prusa-tool-material-save=/);
   assert.match(markup, />Set filament<\/button>/);
   assert.doesNotMatch(markup, /Assign T\$\{tool\.index\}/);
   assert.doesNotMatch(markup, /Clear assignment|Reset filament assignment|prusa-filament-reset|data-prusa-tool-material-clear/);
@@ -50,7 +50,7 @@ test('CORE One+ saves material and colour in one controller designation request 
 test('CORE One+ primary filament button matches U1 dimensions without reset controls', () => {
   const css = readFileSync(new URL('../public/styles.css', import.meta.url), 'utf8');
   assert.match(css, /\.u1-filament-config-control button \{ grid-column:1 \/ -1; height:var\(--button-field-height\)/);
-  assert.match(css, /\.prusa-tool-filament-control > button \{ grid-column:1 \/ -1; width:100%; height:var\(--button-field-height\)/);
+  assert.match(css, /\.prusa-tool-filament-control > button \{ grid-column:1 \/ -1; height:var\(--button-field-height\)/);
   assert.doesNotMatch(css, /prusa-filament-reset/);
   assert.doesNotMatch(css, /\.prusa-tool-filament-control \.mini-actions \{/);
 });
@@ -84,7 +84,7 @@ test('CORE One+ INDX4 and INDX8 show Assign without Clear on every nozzle', () =
   for (const count of [4, 8]) {
     for (let toolIndex = 0; toolIndex < count; toolIndex++) {
       const html = renderNozzle(coreOnePlus, {index:toolIndex, nozzleDiameter:0.4}, count);
-      assert.match(html, new RegExp(`<button type="button" class="primary" data-tool-nozzle-save="${toolIndex}">Assign`));
+      assert.match(html, new RegExp(`<button type="button" class="primary toolhead-action-button" data-tool-nozzle-save="${toolIndex}">Assign`));
       assert.doesNotMatch(html, /data-tool-nozzle-clear|>Clear<|Clear makes it unknown/);
       assert.match(html, /prusa-tool-nozzle-control/);
     }
@@ -95,7 +95,7 @@ test('CORE One+ INDX4 and INDX8 show Assign without Clear on every nozzle', () =
     capabilities:{toolNozzleDesignation:true}
   };
   const creatorHtml = renderNozzle(creator5, {index:0, nozzleDiameter:0.4}, 4);
-  assert.match(creatorHtml, /class="primary" data-tool-nozzle-save="0">Assign<\/button>/, 'Creator 5 nozzle Assign matches U1 primary blue');
+  assert.match(creatorHtml, /class="primary toolhead-action-button" data-tool-nozzle-save="0">Assign<\/button>/, 'Creator 5 nozzle Assign matches U1 primary blue');
   assert.doesNotMatch(creatorHtml, /data-tool-nozzle-clear|>Clear<\/button>|Clear makes it unknown/, 'Creator 5 does not offer nozzle Clear');
 });
 
@@ -108,7 +108,7 @@ test('CORE One+ Standard shows Assign without Clear on the single nozzle designa
     capabilities:{nozzleDesignation:true}
   };
   const coreHtml = renderNozzle(coreOnePlus, {index:0, nozzleDiameter:0.4});
-  assert.match(coreHtml, /class="primary" data-nozzle-designation-save>Assign<\/button>/);
+  assert.match(coreHtml, /class="primary toolhead-action-button" data-nozzle-designation-save>Assign<\/button>/);
   assert.doesNotMatch(coreHtml, /data-nozzle-designation-clear|>Clear<\/button>/);
   assert.match(coreHtml, /prusa-nozzle-actions/);
   const flashforge = {
@@ -117,16 +117,15 @@ test('CORE One+ Standard shows Assign without Clear on the single nozzle designa
     capabilities:{nozzleDesignation:true}
   };
   const flashforgeHtml = renderNozzle(flashforge, {index:0, nozzleDiameter:0.4});
-  assert.match(flashforgeHtml, /class="primary" data-nozzle-designation-save>Assign<\/button>/, 'AD5M nozzle button matches U1 primary blue');
+  assert.match(flashforgeHtml, /class="primary toolhead-action-button" data-nozzle-designation-save>Assign<\/button>/, 'AD5M nozzle button matches U1 primary blue');
   assert.doesNotMatch(flashforgeHtml, /data-nozzle-designation-clear|>Clear<\/button>/, 'AD5M nozzle Clear must be hidden');
 });
 
-test('CORE One+ nozzle controls use the full-width single button style', () => {
+test('CORE One+ nozzle controls use a single compact action', () => {
   const css = readFileSync(new URL('../public/styles.css', import.meta.url), 'utf8');
   assert.match(css, /\.prusa-tool-nozzle-control \.mini-actions,/);
   assert.match(css, /\.prusa-nozzle-actions/);
-  assert.match(css, /\.prusa-tool-nozzle-control \.mini-actions > button,/);
-  assert.match(css, /\.prusa-nozzle-actions > button \{/);
+  assert.match(css, /\.material-panel button\.toolhead-action-button \{/);
 });
 
 test('AD5M and AD5M Pro have only Assign buttons for material and nozzle size', () => {
@@ -141,25 +140,24 @@ test('AD5M and AD5M Pro have only Assign buttons for material and nozzle size', 
       capabilities:{materialDesignation:true, nozzleDesignation:true}
     };
     const materialHtml = renderMaterial(printer, {material:'PLA', materialSource:'manual'});
-    assert.match(materialHtml, /class="primary" data-material-designation-save>Set filament<\/button>/);
+    assert.match(materialHtml, /class="primary toolhead-action-button" data-material-designation-save>Set filament<\/button>/);
     assert.match(materialHtml, /ad5m-material-actions/);
     assert.doesNotMatch(materialHtml, /data-material-designation-clear|Clear designation|Use printer value/);
     assert.equal((materialHtml.match(/<button\b/g) || []).length, 1, `${model} should have one material action`);
 
     const nozzleHtml = renderNozzle(printer, {index:0, nozzleDiameter:0.4});
-    assert.match(nozzleHtml, /class="primary" data-nozzle-designation-save>Assign<\/button>/);
+    assert.match(nozzleHtml, /class="primary toolhead-action-button" data-nozzle-designation-save>Assign<\/button>/);
     assert.match(nozzleHtml, /ad5m-nozzle-actions/);
     assert.doesNotMatch(nozzleHtml, /data-nozzle-designation-clear|>Clear<\/button>/);
     assert.equal((nozzleHtml.match(/<button\b/g) || []).length, 1, `${model} should have one nozzle action`);
   }
 });
 
-test('AD5M and Creator 5 single designation actions are full-width', () => {
+test('AD5M and Creator 5 designation actions use the compact shared size', () => {
   const css = readFileSync(new URL('../public/styles.css', import.meta.url), 'utf8');
   assert.match(css, /\.ad5m-material-actions,/);
   assert.match(css, /\.ad5m-nozzle-actions \{/);
-  assert.match(css, /\.ad5m-material-actions > button,/);
-  assert.match(css, /\.ad5m-nozzle-actions > button \{/);
+  assert.match(css, /\.material-panel button\.toolhead-action-button \{/);
   assert.match(css, /\.creator5-tool-nozzle-control \.mini-actions/);
 });
 
@@ -188,7 +186,7 @@ test('Creator 5 and Creator 5 Pro show Set filament for every toolhead, includin
       };
       for (let index = 0; index < 4; index++) {
         const html = render(printer, {index, filament:{material:'PLA', color:'#ff0000'}});
-        assert.match(html, new RegExp(`<button type="button" class="primary" data-creator5-filament-config-save="${index}"${disabled ? ' disabled' : ''}>Set filament<\\/button>`));
+        assert.match(html, new RegExp(`<button type="button" class="primary toolhead-action-button" data-creator5-filament-config-save="${index}"${disabled ? ' disabled' : ''}>Set filament<\\/button>`));
         assert.doesNotMatch(html, /Set on printer/);
         assert.equal((html.match(/<button\b/g) || []).length, 1, 'exactly one filament action per toolhead');
       }
@@ -196,7 +194,7 @@ test('Creator 5 and Creator 5 Pro show Set filament for every toolhead, includin
   }
 });
 
-test('Creator 5 and Creator 5 Pro nozzle assignment is primary, full width, and has no Clear', () => {
+test('Creator 5 and Creator 5 Pro nozzle assignment uses a compact primary action and has no Clear', () => {
   const app = readFileSync(new URL('../public/app.js', import.meta.url), 'utf8');
   const css = readFileSync(new URL('../public/styles.css', import.meta.url), 'utf8');
   const renderNozzle = loadNozzleMarkupFunction(app, 'toolNozzleDesignationMarkup', 'flashForgeMaterialDesignationMarkup');
@@ -208,12 +206,43 @@ test('Creator 5 and Creator 5 Pro nozzle assignment is primary, full width, and 
     };
     for (let index = 0; index < 4; index++) {
       const html = renderNozzle(printer, {index, nozzleDiameter:0.4}, 4);
-      assert.match(html, new RegExp(`class="primary" data-tool-nozzle-save="${index}">Assign<\\/button>`));
+      assert.match(html, new RegExp(`class="primary toolhead-action-button" data-tool-nozzle-save="${index}">Assign<\\/button>`));
       assert.doesNotMatch(html, /data-tool-nozzle-clear|>Clear<\/button>|Clear makes it unknown/);
       assert.match(html, /creator5-tool-nozzle-control/);
       assert.equal((html.match(/<button\b/g) || []).length, 1);
     }
   }
   assert.match(css, /\.creator5-tool-nozzle-control \.mini-actions \{[^}]*grid-template-columns:minmax\(0,1fr\)/);
-  assert.match(css, /\.creator5-tool-nozzle-control \.mini-actions > button \{[^}]*width:100%/);
+  assert.match(css, /\.material-panel button\.toolhead-action-button \{/);
+});
+
+test('All filament Set and nozzle Assign buttons share a compact fixed size instead of stretching to their columns', () => {
+  const app = readFileSync(new URL('../public/app.js', import.meta.url), 'utf8');
+  const css = readFileSync(new URL('../public/styles.css', import.meta.url), 'utf8');
+  const selectors = [
+    'u1-filament-config-save',
+    'creator5-filament-config-save',
+    'prusa-tool-material-save',
+    'material-designation-save',
+    'tool-nozzle-save',
+    'nozzle-designation-save'
+  ];
+  for (const selector of selectors) {
+    const buttonLine = app.split('\\n').find((line) => line.includes('data-' + selector) && line.includes('<button'));
+    assert.ok(buttonLine, `${selector} must render a button`);
+    assert.match(buttonLine, /toolhead-action-button/, `${selector} should share the compact button style`);
+  }
+  const start = css.indexOf('.material-panel button.toolhead-action-button {');
+  const end = css.indexOf('}', start);
+  assert.ok(start >= 0 && end > start, 'Shared toolhead action CSS rule exists');
+  const rule = css.slice(start, end);
+  assert.match(rule, /width:152px;/);
+  assert.match(rule, /max-width:100%;/);
+  assert.match(rule, /height:var\(--button-field-height\);/);
+  assert.match(rule, /min-height:var\(--button-field-height\);/);
+  assert.match(rule, /justify-self:start;/);
+  assert.doesNotMatch(rule, /width:100%;/);
+  assert.doesNotMatch(css, /\.prusa-tool-filament-control > button \{[^}]*width:100%/);
+  assert.doesNotMatch(css, /\.creator5-tool-nozzle-control \.mini-actions > button \{[^}]*width:100%/);
+  assert.doesNotMatch(css, /\.ad5m-(?:material|nozzle)-actions > button \{[^}]*width:100%/);
 });
