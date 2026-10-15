@@ -569,3 +569,17 @@ test('dashboard summary cards keep labels above counts', async () => {
   assert.match(styles, /\.summary-card-label \{[\s\S]*display:block;/);
   assert.match(styles, /\.summary-card > b \{[\s\S]*display:block;/);
 });
+
+
+test('direct route refresh initializes controller state before rendering the route', async () => {
+  const app = await read('public/app.js');
+  const stateIndex = app.indexOf('let selectionMode = false;');
+  const routeIndex = app.indexOf('renderControllerRoute(location.pathname, { invoke:false });');
+
+  assert.ok(stateIndex >= 0, 'selection mode state should exist');
+  assert.ok(routeIndex > stateIndex, 'initial route render must occur after controller state initialization');
+
+  for (const route of ['/queue','/library','/maintenance','/groups','/reports','/alerts','/backup','/diagnostics','/licence']) {
+    assert.match(app, new RegExp(`['"]${route.replace('/', '\\/')}['"]`));
+  }
+});
