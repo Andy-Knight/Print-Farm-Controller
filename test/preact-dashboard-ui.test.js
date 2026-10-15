@@ -317,3 +317,45 @@ test('Preact Alerts keeps severity filtering, forms and vanilla fallbacks', asyn
   assert.match(alerts, /alertRulesList\.innerHTML =/);
   assert.match(alerts, /if \(!window\.__PFC_PREACT_ALERTS__\) \{[\s\S]*tab\.addEventListener\('click'/);
 });
+
+
+test('Preact reporting preserves analytics, chart and filament catalogue presentation', async () => {
+  const [reportingPreact, dashboard, reporting] = await Promise.all([
+    read('ui/reporting.jsx'),
+    read('ui/dashboard.jsx'),
+    read('public/reporting.js')
+  ]);
+
+  assert.match(dashboard, /initReportingUi/);
+  assert.match(reportingPreact, /function ReportingTabs/);
+  assert.match(reportingPreact, /function ReportingKpis/);
+  assert.match(reportingPreact, /function ReportingTrend/);
+  assert.match(reportingPreact, /function ProblemPrinters/);
+  assert.match(reportingPreact, /function BarRows/);
+  assert.match(reportingPreact, /function FilamentCatalogue/);
+  assert.match(reportingPreact, /data-filament-edit/);
+  assert.match(reportingPreact, /data-filament-delete/);
+  assert.match(reporting, /function lineChartViewModel/);
+  assert.match(reporting, /function reportingBarRowsViewModel/);
+  assert.match(reporting, /function reportingPrintersViewModel/);
+  assert.match(reporting, /function reportingKpiViewModel/);
+  assert.match(reporting, /function publishReportingUiState/);
+  assert.match(reporting, /pfc:reporting-ui-state/);
+  assert.match(reporting, /pfc:reporting-action/);
+  assert.match(reporting, /window\.__PFC_PREACT_REPORTING__/);
+});
+
+test('Preact reporting keeps filters, filament form actions and vanilla fallbacks', async () => {
+  const reporting = await read('public/reporting.js');
+  assert.match(reporting, /reportingRefreshBtn\?\.addEventListener\('click', loadReport\)/);
+  assert.match(reporting, /reportingRange\?\.addEventListener\('change', loadReport\)/);
+  assert.match(reporting, /reportingGroup\?\.addEventListener\('change', loadReport\)/);
+  assert.match(reporting, /reportingPrinter\?\.addEventListener\('change', loadReport\)/);
+  assert.match(reporting, /filamentForm\?\.addEventListener\('submit'/);
+  assert.match(reporting, /filamentList\?\.addEventListener\('click'/);
+  assert.match(reporting, /if \(window\.__PFC_PREACT_REPORTING__\) \{[\s\S]*publishReportingUiState\(report\);[\s\S]*return;/);
+  assert.match(reporting, /reportingKpis\.innerHTML =/);
+  assert.match(reporting, /reportingTrend\.innerHTML = lineChartSvg/);
+  assert.match(reporting, /filamentList\.innerHTML = rows\.map/);
+  assert.match(reporting, /if \(!window\.__PFC_PREACT_REPORTING__\) \{[\s\S]*tab\.addEventListener\('click'/);
+});
