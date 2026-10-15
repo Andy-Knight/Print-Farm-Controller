@@ -590,7 +590,7 @@ test('FlashForge detail exposes printer-reported filament type in Toolhead statu
   assert.match(app, /color:null/);
   assert.match(app, /'ASA-CF'/);
   assert.match(app, /data-material-designation-save/);
-  assert.match(app, /data-material-designation-clear/);
+  assert.doesNotMatch(app, /data-material-designation-clear/);
   assert.match(app, /colour family is used for automatic queue compatibility/);
   assert.match(app, /data-color-family-option/);
   assert.match(app, /color-family-menu/);
