@@ -583,3 +583,15 @@ test('direct route refresh initializes controller state before rendering the rou
     assert.match(app, new RegExp(`['"]${route.replace('/', '\\/')}['"]`));
   }
 });
+
+
+test('direct route refresh invokes page loaders after module registration', async () => {
+  const [app, reporting] = await Promise.all([
+    read('public/app.js'),
+    read('public/reporting.js')
+  ]);
+
+  assert.match(app, /renderControllerRoute\(location\.pathname, \{ invoke:false \}\);/);
+  assert.match(app, /window\.addEventListener\('load', \(\) => \{[\s\S]*renderControllerRoute\(location\.pathname\);[\s\S]*\}, \{ once:true \}\);/);
+  assert.match(reporting, /reportsBtn\?\.addEventListener\('click', async \(\) => \{[\s\S]*await loadReportingContext\(\);[\s\S]*await loadReport\(\);/);
+});
