@@ -115,7 +115,7 @@ After downloading a fresh source ZIP, or whenever `package.json` changes, instal
 npm install --include=dev
 ```
 
-The install automatically builds the local Preact dashboard bundle. Start the controller normally after that:
+The project explicitly approves the pinned `esbuild@0.28.2` install script in `package.json`; no blanket install-script approval is required. The install automatically builds the local Preact dashboard bundle. Start the controller normally after that:
 
 ```bash
 npm start
