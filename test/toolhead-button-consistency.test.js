@@ -228,7 +228,7 @@ test('All filament Set and nozzle Assign buttons share a compact fixed size inst
     'nozzle-designation-save'
   ];
   for (const selector of selectors) {
-    const buttonLine = app.split('\\n').find((line) => line.includes('data-' + selector) && line.includes('<button'));
+    const buttonLine = app.split('\n').find((line) => line.includes('data-' + selector) && line.includes('<button'));
     assert.ok(buttonLine, `${selector} must render a button`);
     assert.match(buttonLine, /toolhead-action-button/, `${selector} should share the compact button style`);
   }
