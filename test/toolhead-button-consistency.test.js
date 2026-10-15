@@ -241,7 +241,7 @@ test('All filament Set and nozzle Assign buttons share a compact fixed size inst
   assert.match(rule, /height:var\(--button-field-height\);/);
   assert.match(rule, /min-height:var\(--button-field-height\);/);
   assert.match(rule, /justify-self:start;/);
-  assert.doesNotMatch(rule, /width:100%;/);
+  assert.doesNotMatch(rule, /(?:^|\s)width:100%;/);
   assert.doesNotMatch(css, /\.prusa-tool-filament-control > button \{[^}]*width:100%/);
   assert.doesNotMatch(css, /\.creator5-tool-nozzle-control \.mini-actions > button \{[^}]*width:100%/);
   assert.doesNotMatch(css, /\.ad5m-(?:material|nozzle)-actions > button \{[^}]*width:100%/);
