@@ -11,6 +11,8 @@ Historical entries describe the behaviour of the controller at the time of that 
 - Drives printer cards from normalized live view-model state while retaining the established controller command/event delegation for printer actions, selection, sorting, maintenance shortcuts and drag/reorder.
 - Adds reusable Preact UI primitives for buttons, status badges, progress bars, metrics and toast notifications, and applies them to the dashboard for more consistent interaction and visual state.
 - Adds non-blocking dashboard feedback for pause/resume, chamber-preheat stop and bed-clearance actions while retaining existing error handling.
+- Extends the Preact migration into Printer Details: the live printer header, status/maintenance presentation, activity banner and six-tab navigation now use reusable Preact components while the existing toolhead, camera, file, temperature, job and management controls remain on their proven controller logic.
+- Preserves the vanilla-JavaScript Printer Details header/tab implementation as the fallback when the optional Preact bundle is unavailable.
 - Adds a local esbuild frontend bundle so Preact is packaged with source, container and Windows SEA builds without a CDN or browser-time dependency.
 - Keeps Preact and esbuild as build-time development dependencies; a fresh source ZIP uses `npm install --include=dev` once to build the optional Preact asset, while `npm start` itself remains dependency-free and falls back to the existing dashboard if that asset is absent.
 - Missing static assets now return HTTP 404 instead of the SPA HTML shell, allowing an absent optional Preact bundle to fail cleanly without disrupting the legacy dashboard.
