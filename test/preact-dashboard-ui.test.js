@@ -235,3 +235,43 @@ test('queuing from Print Library keeps the library route visible behind the moda
   assert.match(handler, /openQueueAddDialog\(file\)/);
   assert.doesNotMatch(handler, /libraryDialog\?\.close\(\)/);
 });
+
+
+test('Preact Maintenance preserves task views and delegated action hooks', async () => {
+  const [maintenanceUi, dashboard, maintenance] = await Promise.all([
+    read('ui/maintenance.jsx'),
+    read('ui/dashboard.jsx'),
+    read('public/maintenance.js')
+  ]);
+
+  assert.match(dashboard, /initMaintenanceUi/);
+  assert.match(maintenanceUi, /function MaintenanceTabs/);
+  assert.match(maintenanceUi, /function SharedTaskCard/);
+  assert.match(maintenanceUi, /function PrinterCard/);
+  assert.match(maintenanceUi, /function MaintenanceHistory/);
+  for (const view of ['add','model','group','printers']) {
+    assert.match(maintenanceUi, new RegExp(`['"]${view}['"]`));
+  }
+  assert.match(maintenanceUi, /data-maintenance-complete-model/);
+  assert.match(maintenanceUi, /data-maintenance-complete-group/);
+  assert.match(maintenanceUi, /data-maintenance-complete/);
+  assert.match(maintenanceUi, /data-maintenance-edit/);
+  assert.match(maintenanceUi, /data-maintenance-delete/);
+  assert.match(maintenanceUi, /data-maintenance-clear-history/);
+  assert.match(maintenanceUi, /data-maintenance-printer-card/);
+  assert.match(maintenance, /function publishMaintenanceUiState/);
+  assert.match(maintenance, /pfc:maintenance-ui-state/);
+  assert.match(maintenance, /pfc:maintenance-action/);
+  assert.match(maintenance, /window\.__PFC_PREACT_MAINTENANCE__/);
+  assert.match(maintenance, /list\?\.addEventListener\('click'/);
+});
+
+test('Preact Maintenance keeps assignment form and vanilla list fallback', async () => {
+  const maintenance = await read('public/maintenance.js');
+  assert.match(maintenance, /form\?\.classList\.toggle\('hidden', activeMaintenanceView !== 'add'\)/);
+  assert.match(maintenance, /if \(window\.__PFC_PREACT_MAINTENANCE__\) \{[\s\S]*publishMaintenanceUiState\(\);[\s\S]*return;/);
+  assert.match(maintenance, /list\.innerHTML = modelTaskSection\(\)/);
+  assert.match(maintenance, /list\.innerHTML = groupTaskSection\(\)/);
+  assert.match(maintenance, /list\.innerHTML = printerCardsMarkup\(\)/);
+  assert.match(maintenance, /form\?\.addEventListener\('submit'/);
+});
