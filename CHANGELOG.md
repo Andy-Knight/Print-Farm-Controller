@@ -4,6 +4,13 @@ This file contains the version-by-version release history for Print Farm Control
 
 Historical entries describe the behaviour of the controller at the time of that release and may be superseded by later versions. For current installation, configuration and supported-hardware guidance, see [README.md](README.md).
 
+## v0.47.2
+
+- Adds a fallback-safe **Frontend renderers** section under Diagnostics showing the Preact bundle evaluation marker and renderer status of all 13 migrated presentation areas, with a manual Recheck action.
+- Reports unexpected use of the legacy JavaScript renderer as a browser-console warning while leaving the fallback operational when the optional Preact bundle is missing.
+- Adds Node regression tests for successful, partial and missing Preact initialisation, diagnostics rendering, console warnings, module inclusion and live dashboard event-bridge wiring.
+- Keeps the existing intentionally vanilla JavaScript control and specialist form workflows unchanged. Renderer status indicates successful component initialisation, not an end-to-end assertion that every live update rendered correctly.
+
 ## v0.47.1
 
 - Fixes blank routed controller pages after using the browser Refresh/Reload button on routes such as Queue & history, Print Library, Maintenance, Printer groups, Reports & analytics, Alerts & notifications, Backup & recovery, Diagnostics and Licence.
