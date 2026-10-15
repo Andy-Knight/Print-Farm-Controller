@@ -6549,21 +6549,17 @@ async function openPrinter(id) {
 
   if (showLoadingState) {
     printerDetail.innerHTML = `<div class="detail-shell">
-      <div class="dialog-head">
-        <div>
-          <div class="eyebrow">PRINTER</div>
-          <div class="printer-detail-title-row"><h2>${escapeHtml(printer.name)}</h2>${maintenanceIconMarkup(printer, 'maintenance-status-icon-detail', true)}</div>
-          <div class="subtle">${escapeHtml(printer.host)} · ${escapeHtml(stateName(printer))}</div>
-        </div>
-        <button class="icon" data-detail-close>×</button>
-      </div>
+      ${printerDetailHeaderMarkup(printer)}
       <div class="panel">
         <h3>Loading printer details…</h3>
         <div class="subtle">Reading files and controls from ${escapeHtml(printer.name)}.</div>
       </div>
     </div>`;
-    printerDetail.querySelector('[data-detail-close]').onclick = () => printerDialog.close();
+    if (!window.__PFC_PREACT_DETAIL__) {
+      printerDetail.querySelector('[data-detail-close]').onclick = () => printerDialog.close();
+    }
     if (!printerDialog.open) printerDialog.showModal();
+    publishPrinterDetailState(printer, { loading:true });
   }
 
   const capabilities = printer.capabilities || {};
@@ -6735,31 +6731,13 @@ async function openPrinter(id) {
     </div>`;
   })() : '';
   printerDetail.innerHTML = `<div class="detail-shell">
-    <div class="dialog-head">
-      <div>
-        <div class="eyebrow">PRINTER</div>
-        <div class="printer-detail-title-row"><h2 data-detail-name>${escapeHtml(printer.name)}</h2>${maintenanceIconMarkup(printer, 'maintenance-status-icon-detail', true)}</div>
-        <div class="subtle"><span>${escapeHtml(printer.host)}</span> · <span data-detail-state>${escapeHtml(stateName(printer))}</span></div>
-        <div class="detail-health" data-detail-health></div>
-      </div>
-      <button class="icon" data-detail-close>×</button>
-    </div>
+    ${printerDetailHeaderMarkup(printer)}
     <div id="detailError" class="error detail-error-banner${fileLoadError ? '' : ' hidden'}" role="alert" aria-live="assertive">${fileLoadError ? escapeHtml(`Could not load files: ${fileLoadError}`) : ''}</div>
     <div id="detailConnectionError" class="error hidden" role="alert" aria-live="assertive"></div>
-    ${(() => {
-      const activity = printerActivityStatus(printer);
-      return `<div class="detail-activity-banner${activity.active ? '' : ' hidden'}" data-detail-activity-banner><strong data-detail-activity-title>${escapeHtml(activity.title || 'PRINTER ACTIVITY')}</strong><span data-detail-activity-summary>${escapeHtml(activity.text || '')}</span></div>`;
-    })()}
+    ${printerDetailActivityMarkup(printer)}
     ${printer.licenseActive === false ? '<div class="license-detail-warning">This printer is inactive because it does not have a selected licence slot. Live monitoring and safety controls remain available, but new jobs and normal controller commands are disabled.</div>' : ''}
     ${printer.adapterType === 'bambu-lab' ? `<div class="file-warning">Experimental Bambu ${escapeHtml(printer.model || '')} support: validate behavior carefully before relying on unattended printing.${printer.model === 'X1C' ? ' X1C RTSPS/H.264 camera decoding is not yet supported.' : ''}${printer.model === 'A1 Mini' ? ' Single-material A1 Mini .gcode starts remain experimental until validated on physical hardware; multi-material AMS Lite jobs require sliced .3mf.' : ''}</div>` : ''}
-    <div class="printer-detail-tabs maintenance-view-selector" role="tablist" aria-label="Printer details">
-      <button type="button" class="maintenance-view-button" role="tab" data-detail-tab="toolheads" aria-controls="detailTabToolheads">Toolheads</button>
-      <button type="button" class="maintenance-view-button" role="tab" data-detail-tab="camera" aria-controls="detailTabCamera">Camera</button>
-      <button type="button" class="maintenance-view-button" role="tab" data-detail-tab="files" aria-controls="detailTabFiles">Files</button>
-      <button type="button" class="maintenance-view-button" role="tab" data-detail-tab="temperature" aria-controls="detailTabTemperature">Temperature, Preheat &amp; Fans</button>
-      <button type="button" class="maintenance-view-button" role="tab" data-detail-tab="job" aria-controls="detailTabJob">Current Job</button>
-      <button type="button" class="maintenance-view-button" role="tab" data-detail-tab="management" aria-controls="detailTabManagement">Maintenance &amp; Management</button>
-    </div>
+    ${printerDetailTabsMarkup()}
     <div class="printer-detail-tab-panels">
       <section id="detailTabToolheads" class="printer-detail-tab-panel" role="tabpanel" data-detail-panel="toolheads"></section>
       <section id="detailTabCamera" class="printer-detail-tab-panel" role="tabpanel" data-detail-panel="camera"></section>
