@@ -28,11 +28,11 @@ export function StatusBadge({ state = '', title = '', children }) {
   );
 }
 
-export function ProgressBar({ value = 0, label = 'Progress' }) {
+export function ProgressBar({ value = 0, label = 'Progress', class:className = '' }) {
   const progress = Math.max(0, Math.min(100, Number(value) || 0));
   return (
     <div
-      class="progress ui-progress"
+      class={`progress ui-progress${className ? ` ${className}` : ''}`}
       role="progressbar"
       aria-label={label}
       aria-valuemin="0"
