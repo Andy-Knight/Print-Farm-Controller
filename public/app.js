@@ -3530,8 +3530,37 @@ function renderPrinterGroupMembers(selectedIds = null) {
     : '<div class="subtle">No printers are configured.</div>';
 }
 
+function printerGroupsViewModel() {
+  return [...(printerGroupsState.groups || [])]
+    .sort((a, b) => String(a.name).localeCompare(String(b.name)))
+    .map((group) => {
+      const members = (group.members || [])
+        .map((member) => String(member.printerName || ''))
+        .filter(Boolean)
+        .sort((a, b) => a.localeCompare(b));
+      const count = Number(group.printerIds?.length || 0);
+      return {
+        id:String(group.id || ''),
+        name:String(group.name || ''),
+        members,
+        countLabel:`${count} printer${count === 1 ? '' : 's'}`
+      };
+    });
+}
+
+function publishPrinterGroupsUiState() {
+  if (!window.__PFC_PREACT_PRINTER_GROUPS__) return;
+  const detail = { groups:printerGroupsViewModel() };
+  window.__PFC_PRINTER_GROUPS_UI_STATE__ = detail;
+  window.dispatchEvent(new CustomEvent('pfc:printer-groups-ui-state', { detail }));
+}
+
 function renderPrinterGroups() {
   if (!printerGroupsList) return;
+  if (window.__PFC_PREACT_PRINTER_GROUPS__) {
+    publishPrinterGroupsUiState();
+    return;
+  }
   const groups = [...(printerGroupsState.groups || [])].sort((a, b) => String(a.name).localeCompare(String(b.name)));
   printerGroupsList.innerHTML = groups.length
     ? groups.map((group) => {
