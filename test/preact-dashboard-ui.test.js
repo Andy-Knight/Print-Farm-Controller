@@ -20,7 +20,8 @@ test('Preact dashboard is bundled locally and loaded before the legacy controlle
   assert.equal(pkg.version, '0.47.0');
   assert.equal(pkg.devDependencies?.preact, '11.0.1');
   assert.match(pkg.scripts?.['build:frontend'] || '', /build-frontend\.mjs/);
-  assert.match(pkg.scripts?.start || '', /build:frontend/);
+  assert.equal(pkg.scripts?.start, 'node src/server.js');
+  assert.match(pkg.scripts?.postinstall || '', /build:frontend/);
   assert.match(pkg.scripts?.['build:bundle'] || '', /build:frontend/);
 
   assert.ok(html.includes('id="dashboardPreactRoot"'));
@@ -40,6 +41,12 @@ test('Preact dashboard is bundled locally and loaded before the legacy controlle
   assert.match(dockerfile, /COPY ui \.\/ui/);
   assert.match(dockerfile, /COPY --from=builder \/app\/public \.\/public/);
   assert.match(seaBuild, /buildFrontend/);
+});
+
+test('missing optional frontend assets return 404 while extensionless controller routes retain SPA fallback', async () => {
+  const server = await read('src/server.js');
+  assert.match(server, /!path\.posix\.extname\(url\.pathname\)/);
+  assert.match(server, /serveStatic\(res, '\/index\.html'\)/);
 });
 
 test('vanilla dashboard fallback remains in the HTML', async () => {
