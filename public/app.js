@@ -4630,7 +4630,6 @@ libraryList?.addEventListener('click', async (event) => {
   if (queueButton) {
     const file = (libraryState.files || []).find((item) => item.id === queueButton.dataset.libraryQueue);
     if (!file) return;
-    libraryDialog?.close();
     openQueueAddDialog(file);
     return;
   }
