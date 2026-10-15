@@ -25,13 +25,13 @@ test('Prusa CORE One+ applies filament type and colour together using the U1-sty
   assert.match(markup, /<button type="button" class="primary" data-prusa-tool-material-save=/);
   assert.match(markup, />Set filament<\/button>/);
   assert.doesNotMatch(markup, /Assign T\$\{tool\.index\}/);
-  assert.match(markup, /<details class="prusa-filament-reset">/);
-  assert.match(markup, /data-prusa-tool-material-clear/);
+  assert.doesNotMatch(markup, /Clear assignment|Reset filament assignment|prusa-filament-reset|data-prusa-tool-material-clear/);
+  assert.equal((markup.match(/<button\b/g) || []).length, 1, 'only one filament action per toolhead');
   assert.match(markup, /not on the Prusa printer/);
   assert.equal((markup.match(/data-prusa-tool-material-save=/g) || []).length, 1);
 });
 
-test('CORE One+ saves material and colour in one controller designation request and retains reset', () => {
+test('CORE One+ saves material and colour in one controller designation request without a clear handler', () => {
   const app = readFileSync(new URL('../public/app.js', import.meta.url), 'utf8');
   const start = app.indexOf("printerDetail.querySelectorAll('[data-prusa-tool-material-save]')");
   const end = app.indexOf("printerDetail.querySelectorAll('[data-tool-nozzle-save]')", start);
@@ -43,14 +43,13 @@ test('CORE One+ saves material and colour in one controller designation request 
   assert.match(handlers, /if \(!colorOption\).*Choose a filament colour family/);
   assert.match(handlers, /method:'POST'/);
   assert.match(handlers, /body:JSON\.stringify\(\{ toolIndex, material, colorFamily, color:colorOption\.representative \}\)/);
-  assert.match(handlers, /data-prusa-tool-material-clear/);
-  assert.match(handlers, /method:'DELETE'/);
+  assert.doesNotMatch(handlers, /data-prusa-tool-material-clear|prusaToolMaterialClear|method:'DELETE'/);
 });
 
-test('CORE One+ primary filament button matches U1 dimensions with reset out of the main action row', () => {
+test('CORE One+ primary filament button matches U1 dimensions without reset controls', () => {
   const css = readFileSync(new URL('../public/styles.css', import.meta.url), 'utf8');
   assert.match(css, /\.u1-filament-config-control button \{ grid-column:1 \/ -1; height:var\(--button-field-height\)/);
   assert.match(css, /\.prusa-tool-filament-control > button \{ grid-column:1 \/ -1; width:100%; height:var\(--button-field-height\)/);
-  assert.match(css, /\.prusa-filament-reset > button/);
+  assert.doesNotMatch(css, /prusa-filament-reset/);
   assert.doesNotMatch(css, /\.prusa-tool-filament-control \.mini-actions \{/);
 });
