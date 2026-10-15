@@ -5956,12 +5956,13 @@ function toolNozzleDesignationMarkup(printer, tool = {}, toolCount = 1) {
   const hasReported = Number.isFinite(reported) && reported > 0;
   const options = printerNozzleDiameterOptions(printer);
   const creator5 = printer.adapterType === 'flashforge-creator5';
-  const compactClass = creator5 ? ' creator5-tool-nozzle-control' : '';
+  const coreOnePlus = printer.adapterType === 'prusa-core-one-plus';
+  const compactClass = creator5 ? ' creator5-tool-nozzle-control' : coreOnePlus ? ' prusa-tool-nozzle-control' : '';
   const nozzleHelpDetail = creator5
     ? 'Creator 5 firmware does not reliably report the installed nozzle size, so Clear makes it unknown.'
     : hasReported
-      ? `Clear returns to the ${nozzleDiameterText(reported)} value reported by PrusaLink.`
-      : 'If PrusaLink does not report a nozzle size, Clear makes it unknown.';
+      ? `Assign saves a controller override of the ${nozzleDiameterText(reported)} value reported by PrusaLink.`
+      : 'Assign saves the fitted nozzle size in the controller when PrusaLink does not report it.';
   const helpMarkup = multiToolControlHelpMarkup(multiToolNozzleHelpText(nozzleHelpDetail));
   return `<div class="material-designation-control nozzle-designation-control tool-nozzle-control${compactClass}" data-tool-nozzle-control="${tool.index}">
     <label>Physical T${tool.index} nozzle
@@ -5974,7 +5975,7 @@ function toolNozzleDesignationMarkup(printer, tool = {}, toolCount = 1) {
     </label>
     <div class="mini-actions">
       <button type="button" class="secondary" data-tool-nozzle-save="${tool.index}">Assign</button>
-      <button type="button" class="secondary" data-tool-nozzle-clear="${tool.index}">Clear</button>
+      ${coreOnePlus ? '' : `<button type="button" class="secondary" data-tool-nozzle-clear="${tool.index}">Clear</button>`}
     </div>
     ${helpMarkup}
   </div>`;
@@ -6018,6 +6019,7 @@ function flashForgeNozzleDesignationMarkup(printer, tool = {}) {
     ? Number(tool.reportedNozzleDiameter)
     : null;
   const options = printerNozzleDiameterOptions(printer);
+  const coreOnePlus = printer.adapterType === 'prusa-core-one-plus';
   const unavailableHelp = printer?.manufacturer === 'Prusa'
     ? 'PrusaLink may not report every installed nozzle size, so this controller designation is used when a supported single-tool Prusa model needs an explicit nozzle value.'
     : 'FlashForge firmware does not reliably report the installed nozzle size, so choose the fitted nozzle from the supported sizes whenever you change it.';
@@ -6031,7 +6033,7 @@ function flashForgeNozzleDesignationMarkup(printer, tool = {}) {
     <label>Controller nozzle designation
       ${selector}
     </label>
-    <div class="mini-actions"><button type="button" class="secondary" data-nozzle-designation-save>Assign</button><button type="button" class="secondary" data-nozzle-designation-clear>Clear</button></div>
+    <div class="mini-actions${coreOnePlus ? ' prusa-nozzle-actions' : ''}"><button type="button" class="secondary" data-nozzle-designation-save>Assign</button>${coreOnePlus ? '' : '<button type="button" class="secondary" data-nozzle-designation-clear>Clear</button>'}</div>
     <div class="field-help">Stored by Print Farm Controller for this printer and used by automatic queue compatibility.${reported ? ` Printer currently reports ${escapeHtml(nozzleDiameterText(reported))}.` : ` ${escapeHtml(unavailableHelp)}`}</div>
   </div>`;
 }
@@ -7631,7 +7633,7 @@ ${flashForgePreflight}` : ''}`)) return;
     const nozzleDiameter = Number(input?.value);
     const allowedNozzles = printerNozzleDiameterOptions(printer);
     if (!allowedNozzles.some((value) => Math.abs(value - nozzleDiameter) < 0.0001)) {
-      showError(new Error('Choose a nozzle size from the list, or use Clear.'));
+      showError(new Error(printer.adapterType === 'prusa-core-one-plus' ? 'Choose a nozzle size from the list.' : 'Choose a nozzle size from the list, or use Clear.'));
       return;
     }
 
@@ -7747,7 +7749,11 @@ ${flashForgePreflight}` : ''}`)) return;
       ? prusaNozzles.some((value) => Math.abs(value - nozzleDiameter) < 0.0001)
       : Number.isFinite(nozzleDiameter) && nozzleDiameter >= 0.1 && nozzleDiameter <= 1.2;
     if (!valid) {
-      showError(new Error(prusaNozzles ? 'Choose a nozzle size from the list, or use Clear.' : 'Enter a nozzle diameter between 0.1 and 1.2 mm, or use Clear.'));
+      showError(new Error(prusaNozzles && printer.adapterType === 'prusa-core-one-plus'
+        ? 'Choose a nozzle size from the list.'
+        : prusaNozzles
+          ? 'Choose a nozzle size from the list, or use Clear.'
+          : 'Enter a nozzle diameter between 0.1 and 1.2 mm, or use Clear.'));
       return;
     }
     const original = nozzleDesignationSave.textContent;
