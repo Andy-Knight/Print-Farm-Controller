@@ -5799,7 +5799,7 @@ function u1FilamentConfigControlMarkup(printer, tool = {}) {
       placeholder:'Select type'
     })}</label>
     <label>Colour family${colorFamilyDropdownMarkup({ value:familyOption?.value || '', inputAttributes:`data-u1-filament-color-family-input="${tool.index}"`, disabled:!state.enabled, placeholder:'Select colour' })}</label>
-    <button type="button" class="primary" data-u1-filament-config-save="${tool.index}"${state.enabled ? '' : ' disabled'}>Set filament on U1</button>
+    <button type="button" class="primary" data-u1-filament-config-save="${tool.index}"${state.enabled ? '' : ' disabled'}>Set filament</button>
     ${multiToolControlHelpMarkup(multiToolFilamentHelpText(state.message), `data-u1-filament-config-help="${tool.index}"`)}
   </div>`;
 }
