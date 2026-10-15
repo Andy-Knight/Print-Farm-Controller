@@ -7,7 +7,8 @@ Historical entries describe the behaviour of the controller at the time of that 
 ## v0.47.0
 
 - Introduces the first Preact-based controller UI island while retaining the existing vanilla JavaScript interface as a fallback.
-- Migrates the dashboard summary filters, printer-group selector and Cards/Table view switch to reusable Preact components.
+- Migrates the dashboard summary filters, printer-group selector, Cards/Table view switch, printer cards and compact table rows to reusable Preact components.
+- Drives printer cards from normalized live view-model state while retaining the established controller command/event delegation for printer actions, selection, sorting, maintenance shortcuts and drag/reorder.
 - Adds a local esbuild frontend bundle so Preact is packaged with source, container and Windows SEA builds without a CDN or browser-time dependency.
 - Keeps Preact and esbuild as build-time development dependencies; a fresh source ZIP uses `npm install --include=dev` once to build the optional Preact asset, while `npm start` itself remains dependency-free and falls back to the existing dashboard if that asset is absent.
 - Missing static assets now return HTTP 404 instead of the SPA HTML shell, allowing an absent optional Preact bundle to fail cleanly without disrupting the legacy dashboard.
