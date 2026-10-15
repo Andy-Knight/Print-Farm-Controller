@@ -939,9 +939,7 @@ function licenseStatusLabel(license) {
   return status ? status.replace(/-/g, ' ') : 'Unknown';
 }
 
-function renderLicenseDialog() {
-  if (!licenseDetails) return;
-  const license = licenseState || {};
+function licenseViewModel(license = {}) {
   const printerAllowance = license.maxPrinters == null
     ? 'Unlimited'
     : `${license.maxPrinters} physical printers`;
@@ -956,32 +954,59 @@ function renderLicenseDialog() {
     ? `${formatLicenseDate(license.updatesUntil)}${license.updatesExpired ? ' · expired' : ''}`
     : '—';
 
-  licenseDetails.innerHTML = `
-    <div class="license-status-card">
-      <div>
-        <span class="license-status-label">Current edition</span>
-        <strong>${escapeHtml(license.label || 'Community Edition')}</strong>
+  return {
+    edition:String(license.label || 'Community Edition'),
+    status:licenseStatusLabel(license),
+    statusKey:String(license.licenseStatus || 'unknown'),
+    items:[
+      { label:'Customer', value:String(customer) },
+      { label:'Licence ID', value:String(license.licenseId || '—') },
+      { label:'Licence type', value:String(type) },
+      { label:'Printer allowance', value:String(printerAllowance) },
+      { label:'Expires', value:String(expiry) },
+      { label:'Feature updates until', value:String(updateEntitlement) },
+      { label:'Signature key', value:String(license.signatureKeyId || '—') },
+      { label:'Source', value:String(license.source || '—') }
+    ],
+    filePath:String(license.licenseFile || 'Application directory / license.json'),
+    warning:String(license.configurationWarning || '')
+  };
+}
+
+function publishLicenseUiState(license = licenseState || {}) {
+  if (!window.__PFC_PREACT_LICENSE__) return;
+  const detail = licenseViewModel(license);
+  window.__PFC_LICENSE_UI_STATE__ = detail;
+  window.dispatchEvent(new CustomEvent('pfc:license-ui-state', { detail }));
+}
+
+function renderLicenseDialog() {
+  if (!licenseDetails) return;
+  const license = licenseState || {};
+
+  if (window.__PFC_PREACT_LICENSE__) {
+    publishLicenseUiState(license);
+  } else {
+    const view = licenseViewModel(license);
+    licenseDetails.innerHTML = `
+      <div class="license-status-card">
+        <div>
+          <span class="license-status-label">Current edition</span>
+          <strong>${escapeHtml(view.edition)}</strong>
+        </div>
+        <span class="license-status-pill" data-license-status="${escapeHtml(view.statusKey)}">${escapeHtml(view.status)}</span>
       </div>
-      <span class="license-status-pill" data-license-status="${escapeHtml(String(license.licenseStatus || 'unknown'))}">${escapeHtml(licenseStatusLabel(license))}</span>
-    </div>
-    <div class="license-info-grid">
-      <div><span>Customer</span><strong>${escapeHtml(customer)}</strong></div>
-      <div><span>Licence ID</span><strong>${escapeHtml(license.licenseId || '—')}</strong></div>
-      <div><span>Licence type</span><strong>${escapeHtml(type)}</strong></div>
-      <div><span>Printer allowance</span><strong>${escapeHtml(printerAllowance)}</strong></div>
-      <div><span>Expires</span><strong>${escapeHtml(expiry)}</strong></div>
-      <div><span>Feature updates until</span><strong>${escapeHtml(updateEntitlement)}</strong></div>
-      <div><span>Signature key</span><strong>${escapeHtml(license.signatureKeyId || '—')}</strong></div>
-      <div><span>Source</span><strong>${escapeHtml(license.source || '—')}</strong></div>
-    </div>
-    <div class="license-file-path"><span>Licence file</span><code>${escapeHtml(license.licenseFile || 'Application directory / license.json')}</code></div>
-    ${license.configurationWarning ? `<div class="license-dialog-warning">${escapeHtml(license.configurationWarning)}</div>` : ''}
-  `;
+      <div class="license-info-grid">
+        ${view.items.map((item) => `<div><span>${escapeHtml(item.label)}</span><strong>${escapeHtml(item.value)}</strong></div>`).join('')}
+      </div>
+      <div class="license-file-path"><span>Licence file</span><code>${escapeHtml(view.filePath)}</code></div>
+      ${view.warning ? `<div class="license-dialog-warning">${escapeHtml(view.warning)}</div>` : ''}
+    `;
+  }
 
   const submit = licenseInstallForm?.querySelector('button[type="submit"]');
   if (submit) submit.textContent = license.licenseStatus === 'valid' ? 'Replace licence' : 'Install licence';
 }
-
 
 function diagnosticStatusTime(value) {
   if (!value) return 'Off';
