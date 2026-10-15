@@ -47,6 +47,10 @@ test('Preact dashboard is bundled locally and loaded before the legacy controlle
   assert.match(frontendBuild, /copyFile\(installedPreactLicense/);
   assert.match(dockerfile, /COPY ui \.\/ui/);
   assert.match(dockerfile, /COPY --from=builder \/app\/public \.\/public/);
+  const dockerInstallIndex = dockerfile.indexOf('RUN npm install --include=dev --no-audit --no-fund');
+  assert.ok(dockerInstallIndex > dockerfile.indexOf('COPY scripts ./scripts'));
+  assert.ok(dockerInstallIndex > dockerfile.indexOf('COPY public ./public'));
+  assert.ok(dockerInstallIndex > dockerfile.indexOf('COPY ui ./ui'));
   assert.match(seaBuild, /buildFrontend/);
 });
 
