@@ -569,7 +569,12 @@ input:focus,select:focus { border-color:#7a9fbe; }
 .discovery-empty { color:#8493a1; padding:8px 2px 2px; font-size:.82rem; }
 .form-divider { display:flex; align-items:center; gap:10px; color:#687986; font-size:.7rem; font-weight:800; text-transform:uppercase; letter-spacing:.1em; margin:18px 0 4px; }
 .form-divider::before,.form-divider::after { content:""; height:1px; background:#29343d; flex:1; }
-.printer-dialog { width:min(1200px,calc(100vw - 30px)); }
+.printer-dialog {
+  width:min(1200px,calc(100vw - 30px));
+  top:15px;
+  bottom:auto;
+  margin:0 auto;
+}
 .detail-shell { padding:22px; }
 .detail-grid { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:18px; align-items:start; }
 .detail-grid > .detail-column { min-width:0; }
