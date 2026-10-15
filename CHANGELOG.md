@@ -36,6 +36,7 @@ Historical entries describe the behaviour of the controller at the time of that 
 - Adds a local esbuild frontend bundle so Preact is packaged with source, container and Windows SEA builds without a CDN or browser-time dependency.
 - Keeps Preact and esbuild as build-time development dependencies; a fresh source ZIP uses `npm install --include=dev` once to build the optional Preact asset, while `npm start` itself remains dependency-free and falls back to the existing dashboard if that asset is absent.
 - Missing static assets now return HTTP 404 instead of the SPA HTML shell, allowing an absent optional Preact bundle to fail cleanly without disrupting the legacy dashboard.
+- Removes the decorative dots from the four dashboard summary-filter headings and restores a consistent vertical label/count layout across all four cards.
 - Adds regression coverage for the Preact dashboard integration and packaging paths.
 
 ## v0.46.3
