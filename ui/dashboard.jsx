@@ -144,6 +144,33 @@ function DashboardOverview() {
   );
 }
 
+function normalizeLicenseNoticeState(input = {}) {
+  return {
+    title:String(input.title || ''),
+    message:String(input.message || ''),
+    countText:String(input.countText || '')
+  };
+}
+
+function LicenseNotice() {
+  const [state, setState] = useState(() => normalizeLicenseNoticeState(window.__PFC_LICENSE_NOTICE_STATE__ || {}));
+
+  useEffect(() => {
+    const update = (event) => setState(normalizeLicenseNoticeState(event?.detail || window.__PFC_LICENSE_NOTICE_STATE__ || {}));
+    window.addEventListener('pfc:license-notice-state', update);
+    if (window.__PFC_LICENSE_NOTICE_STATE__) setState(normalizeLicenseNoticeState(window.__PFC_LICENSE_NOTICE_STATE__));
+    return () => window.removeEventListener('pfc:license-notice-state', update);
+  }, []);
+
+  if (!state.title) return null;
+  return (
+    <>
+      <div><strong>{state.title}</strong><span>{state.message}</span></div>
+      <span class="license-notice-count">{state.countText}</span>
+    </>
+  );
+}
+
 function MaintenanceIcon({ printer }) {
   const maintenance = printer.maintenance || {};
   return (
@@ -365,6 +392,12 @@ const dashboardRoot = document.querySelector('#dashboardPreactRoot');
 if (dashboardRoot) {
   render(<DashboardOverview />, dashboardRoot);
   window.__PFC_PREACT_DASHBOARD__ = true;
+}
+
+const licenseNoticeRoot = document.querySelector('#licenseNotice');
+if (licenseNoticeRoot) {
+  render(<LicenseNotice />, licenseNoticeRoot);
+  window.__PFC_PREACT_LICENSE_NOTICE__ = true;
 }
 
 const fleetRoot = document.querySelector('#fleet');
