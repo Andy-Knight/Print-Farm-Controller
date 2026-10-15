@@ -227,3 +227,11 @@ test('Preact Print Library preserves file metadata and delete interlock presenta
   assert.match(libraryUi, /class="library-file-requirements"/);
   assert.match(libraryUi, /class="library-warning"/);
 });
+
+
+test('queuing from Print Library keeps the library route visible behind the modal', async () => {
+  const app = await read('public/app.js');
+  const handler = app.match(/const queueButton = event\.target\.closest\('\[data-library-queue\]'\);[\s\S]*?openQueueAddDialog\(file\);[\s\S]*?return;/)?.[0] || '';
+  assert.match(handler, /openQueueAddDialog\(file\)/);
+  assert.doesNotMatch(handler, /libraryDialog\?\.close\(\)/);
+});
