@@ -338,7 +338,7 @@ test('unsupported chamber controls are omitted rather than shown disabled', () =
 });
 
 test('printer detail tab panels use stable responsive layouts', () => {
-  assert.match(styles, /\.printer-dialog \{ width:min\(1200px,calc\(100vw - 30px\)\); \}/);
+  assert.match(styles, /\.printer-dialog\s*\{[\s\S]*?width:min\(1200px,calc\(100vw - 30px\)\);[\s\S]*?top:15px;[\s\S]*?bottom:auto;[\s\S]*?margin:0 auto;[\s\S]*?\}/);
   assert.match(styles, /\.printer-detail-tab-panel\[data-detail-panel="temperature"\],[\s\S]*grid-template-columns:minmax\(0,1fr\) minmax\(0,1fr\)/);
   assert.match(styles, /@media \(max-width:760px\)[\s\S]*\.printer-detail-tab-panel\[data-detail-panel="temperature"\],[\s\S]*grid-template-columns:1fr/);
   assert.match(app, /class="panel maintenance-panel"/);
