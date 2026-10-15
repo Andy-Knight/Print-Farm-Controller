@@ -65,7 +65,10 @@ function loadNozzleMarkupFunction(app, startName, nextName) {
     nozzleDiameterSelectMarkup:() => '<select></select>',
     multiToolNozzleHelpText:(value) => value,
     multiToolControlHelpMarkup:(value) => `<small>${value}</small>`,
-    escapeHtml:(value) => String(value)
+    escapeHtml:(value) => String(value),
+    filamentColorFamilyOption:() => null,
+    filamentTypeSelectMarkup:() => '<select></select>',
+    colorFamilyDropdownMarkup:() => '<details></details>'
   };
   return runInNewContext(app.slice(start, end) + '\n' + startName, helpers);
 }
@@ -115,7 +118,7 @@ test('CORE One+ Standard shows Assign without Clear on the single nozzle designa
   };
   const flashforgeHtml = renderNozzle(flashforge, {index:0, nozzleDiameter:0.4});
   assert.match(flashforgeHtml, /class="secondary" data-nozzle-designation-save>Assign<\/button>/, 'FlashForge secondary button remains unchanged');
-  assert.match(flashforgeHtml, /data-nozzle-designation-clear>Clear<\/button>/, 'FlashForge Clear remains available');
+  assert.doesNotMatch(flashforgeHtml, /data-nozzle-designation-clear|>Clear<\/button>/, 'AD5M nozzle Clear must be hidden');
 });
 
 test('CORE One+ nozzle controls use the full-width single button style', () => {
@@ -124,4 +127,38 @@ test('CORE One+ nozzle controls use the full-width single button style', () => {
   assert.match(css, /\.prusa-nozzle-actions/);
   assert.match(css, /\.prusa-tool-nozzle-control \.mini-actions > button,/);
   assert.match(css, /\.prusa-nozzle-actions > button \{/);
+});
+
+test('AD5M and AD5M Pro have only Assign buttons for material and nozzle size', () => {
+  const app = readFileSync(new URL('../public/app.js', import.meta.url), 'utf8');
+  const renderMaterial = loadNozzleMarkupFunction(app, 'flashForgeMaterialDesignationMarkup', 'flashForgeNozzleDesignationMarkup');
+  const renderNozzle = loadNozzleMarkupFunction(app, 'flashForgeNozzleDesignationMarkup', 'toolConfigurationMarkup');
+  for (const model of ['Adventurer 5M', 'Adventurer 5M Pro']) {
+    const printer = {
+      adapterType:'flashforge-ad5m',
+      manufacturer:'FlashForge',
+      model,
+      capabilities:{materialDesignation:true, nozzleDesignation:true}
+    };
+    const materialHtml = renderMaterial(printer, {material:'PLA', materialSource:'manual'});
+    assert.match(materialHtml, /class="secondary" data-material-designation-save>Assign filament<\/button>/);
+    assert.match(materialHtml, /ad5m-material-actions/);
+    assert.doesNotMatch(materialHtml, /data-material-designation-clear|Clear designation|Use printer value/);
+    assert.equal((materialHtml.match(/<button\b/g) || []).length, 1, `${model} should have one material action`);
+
+    const nozzleHtml = renderNozzle(printer, {index:0, nozzleDiameter:0.4});
+    assert.match(nozzleHtml, /class="secondary" data-nozzle-designation-save>Assign<\/button>/);
+    assert.match(nozzleHtml, /ad5m-nozzle-actions/);
+    assert.doesNotMatch(nozzleHtml, /data-nozzle-designation-clear|>Clear<\/button>/);
+    assert.equal((nozzleHtml.match(/<button\b/g) || []).length, 1, `${model} should have one nozzle action`);
+  }
+});
+
+test('AD5M single designation actions are full-width without affecting Creator 5', () => {
+  const css = readFileSync(new URL('../public/styles.css', import.meta.url), 'utf8');
+  assert.match(css, /\.ad5m-material-actions,/);
+  assert.match(css, /\.ad5m-nozzle-actions \{/);
+  assert.match(css, /\.ad5m-material-actions > button,/);
+  assert.match(css, /\.ad5m-nozzle-actions > button \{/);
+  assert.match(css, /\.creator5-tool-nozzle-control \.mini-actions/);
 });
