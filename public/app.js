@@ -3118,17 +3118,40 @@ function renderPrintQueue() {
   const clearableHistoryJobs = allHistoryJobs.filter((job) => !(job.bedClearanceRequired === true && !job.bedClearedAt));
   const outstanding = currentJobs.length + activeProduction.length + clearanceItems.length;
   const historyCount = historyJobs.length + historyProduction.length;
+  const productionText = activeProduction.length ? ` · ${activeProduction.length} production batch${activeProduction.length === 1 ? '' : 'es'}` : '';
+  const summary = outstanding
+    ? `${activeJobs.length} active · ${queuedJobs.length} queued copies · ${reviewJobs.length} needs review${productionText} · ${clearanceItems.length} awaiting bed clearance · ${historyCount} recent history`
+    : `${historyCount ? `${historyCount} history item${historyCount === 1 ? '' : 's'}` : 'No queued prints'}`;
 
   if (queueButtonCount) {
     queueButtonCount.textContent = String(outstanding);
     queueButtonCount.classList.toggle('hidden', outstanding === 0);
   }
-  if (queueSummary) {
-    const productionText = activeProduction.length ? ` · ${activeProduction.length} production batch${activeProduction.length === 1 ? '' : 'es'}` : '';
-    queueSummary.textContent = outstanding
-      ? `${activeJobs.length} active · ${queuedJobs.length} queued copies · ${reviewJobs.length} needs review${productionText} · ${clearanceItems.length} awaiting bed clearance · ${historyCount} recent history`
-      : `${historyCount ? `${historyCount} history item${historyCount === 1 ? '' : 's'}` : 'No queued prints'}`;
+
+  if (clearQueueHistoryBtn) {
+    clearQueueHistoryBtn.disabled = clearableHistoryJobs.length === 0;
+    clearQueueHistoryBtn.title = clearanceItems.length ? 'History items holding an uncleared-bed interlock are retained until the bed is confirmed clear.' : '';
   }
+
+  if (window.__PFC_PREACT_QUEUE__) {
+    if (queuePointerInteractionActive) {
+      queueRenderPending = true;
+      return;
+    }
+    publishPrintQueueUiState({
+      summary,
+      currentJobs,
+      queuedJobs,
+      activeProduction,
+      historyJobs,
+      historyProduction,
+      clearanceItems
+    });
+    queueRenderPending = false;
+    return;
+  }
+
+  if (queueSummary) queueSummary.textContent = summary;
   if (queueActiveList) {
     const clearanceMarkup = clearanceItems.map(queueClearanceMarkup).join('');
     const productionMarkup = activeProduction.map((batch) => productionBatchMarkup(batch)).join('');
@@ -3145,12 +3168,7 @@ function renderPrintQueue() {
     const nextActiveMarkup = clearanceMarkup || productionMarkup || jobsMarkup
       ? `${clearanceMarkup}${productionMarkup}${jobsMarkup}`
       : '<div class="queue-empty">No active, queued or review-blocked jobs.</div>';
-    if (queuePointerInteractionActive) {
-      queueRenderPending = true;
-    } else {
-      queueActiveList.innerHTML = nextActiveMarkup;
-      queueRenderPending = false;
-    }
+    queueActiveList.innerHTML = nextActiveMarkup;
   }
   if (queueHistoryList) {
     const productionHistoryMarkup = historyProduction.map((batch) => productionBatchMarkup(batch, { history:true })).join('');
@@ -3158,10 +3176,6 @@ function renderPrintQueue() {
     queueHistoryList.innerHTML = productionHistoryMarkup || jobHistoryMarkup
       ? `${productionHistoryMarkup}${jobHistoryMarkup}`
       : '<div class="queue-empty">Completed, failed and cancelled queued prints will appear here.</div>';
-  }
-  if (clearQueueHistoryBtn) {
-    clearQueueHistoryBtn.disabled = clearableHistoryJobs.length === 0;
-    clearQueueHistoryBtn.title = clearanceItems.length ? 'History items holding an uncleared-bed interlock are retained until the bed is confirmed clear.' : '';
   }
 }
 
