@@ -5910,9 +5910,6 @@ function prusaToolMaterialDesignationMarkup(printer, tool = {}) {
     ? String(filament.colorFamily || '')
     : String(filament.reportedColorFamily || filament.colorFamily || '');
   const familyOption = filamentColorFamilyOption(family);
-  const reportedMaterial = String(filament.reportedMaterial || '').trim();
-  const reportedFamily = filamentColorFamilyOption(filament.reportedColorFamily);
-  const hasReported = Boolean(reportedMaterial || reportedFamily || filament.reportedColor);
   return `<div class="prusa-tool-filament-control" data-prusa-tool-filament-control="${tool.index}">
     <label>Filament type
       ${filamentTypeSelectMarkup({
@@ -5925,15 +5922,7 @@ function prusaToolMaterialDesignationMarkup(printer, tool = {}) {
       ${colorFamilyDropdownMarkup({ value:familyOption?.value || '', inputAttributes:`data-prusa-tool-color-family-input="${tool.index}"`, placeholder:'Select colour' })}
     </label>
     <button type="button" class="primary" data-prusa-tool-material-save="${tool.index}">Set filament</button>
-    ${multiToolControlHelpMarkup(multiToolFilamentHelpText(
-      hasReported
-        ? 'Set filament saves type and colour in the controller, not on the Prusa printer. Clear assignment returns to the values reported by PrusaLink.'
-        : 'Set filament saves type and colour in the controller, not on the Prusa printer. Clear assignment returns unreported values to unknown.'
-    ))}
-    <details class="prusa-filament-reset">
-      <summary>Reset filament assignment</summary>
-      <button type="button" class="secondary" data-prusa-tool-material-clear="${tool.index}">Clear assignment</button>
-    </details>
+    ${multiToolControlHelpMarkup(multiToolFilamentHelpText('Set filament saves type and colour in the controller, not on the Prusa printer.'))}
   </div>`;
 }
 
@@ -7631,34 +7620,6 @@ ${flashForgePreflight}` : ''}`)) return;
         filament.manuallyAssigned = Boolean(designation.material || designation.color || designation.colorFamily);
         filament.metadataAvailable = Boolean(filament.material || filament.color || filament.colorFamily);
       }
-      updateOpenPrinterTelemetry();
-    } catch (error) { showError(error); }
-    finally { button.disabled = false; button.textContent = original; }
-  });
-
-  printerDetail.querySelectorAll('[data-prusa-tool-material-clear]').forEach((button) => button.onclick = async () => {
-    const toolIndex = Number(button.dataset.prusaToolMaterialClear);
-    const original = button.textContent;
-    button.disabled = true;
-    button.textContent = 'Clearing…';
-    try {
-      await api(`/api/printers/${id}/tool-material-designation?toolIndex=${toolIndex}`, { method:'DELETE' });
-      const tool = printer.status?.tools?.find((item) => Number(item.index) === toolIndex);
-      const filament = tool?.filament;
-      if (filament) {
-        filament.material = filament.reportedMaterial || null;
-        filament.materialSource = filament.reportedMaterial ? 'printer' : null;
-        filament.color = filament.reportedColor || null;
-        filament.colorSource = filament.reportedColor ? 'printer' : null;
-        filament.colorFamily = filament.reportedColorFamily || null;
-        filament.colorFamilySource = filament.reportedColorFamily ? 'printer' : null;
-        filament.manuallyAssigned = false;
-        filament.metadataAvailable = Boolean(filament.material || filament.color || filament.colorFamily);
-      }
-      const materialInput = printerDetail.querySelector(`[data-prusa-tool-material-input="${toolIndex}"]`);
-      const colorFamilyInput = printerDetail.querySelector(`[data-prusa-tool-color-family-input="${toolIndex}"]`);
-      if (materialInput) setFilamentTypeSelectValue(materialInput, filament?.reportedMaterial || '');
-      if (colorFamilyInput) setColorFamilyDropdownValue(colorFamilyInput, filament?.reportedColorFamily || '');
       updateOpenPrinterTelemetry();
     } catch (error) { showError(error); }
     finally { button.disabled = false; button.textContent = original; }
