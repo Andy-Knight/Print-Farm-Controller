@@ -3526,3 +3526,164 @@ body:not([data-route="/"]) > main > :not(.route-page) { display:none !important;
   .backup-tabs { justify-content:flex-start; }
   .backup-tab { flex:0 0 auto; }
 }
+
+
+/* Preact UI design-system layer */
+.ui-button {
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  gap:7px;
+  font:inherit;
+  line-height:1;
+  transition:transform .12s ease, border-color .14s ease, background .14s ease, box-shadow .14s ease, opacity .14s ease;
+}
+.ui-button:not(:disabled):active { transform:translateY(1px); }
+.ui-button:disabled { cursor:not-allowed; opacity:.55; }
+.ui-button-small { min-height:32px; height:32px; padding:5px 9px; border-radius:8px; font-size:.72rem; }
+.ui-button-ghost:not(.dashboard-view-toggle):not(.summary-card) {
+  border:1px solid transparent;
+  background:transparent;
+  color:inherit;
+}
+.ui-status-badge {
+  display:inline-flex;
+  align-items:center;
+  gap:6px;
+}
+.ui-status-badge::before {
+  content:"";
+  width:7px;
+  height:7px;
+  flex:0 0 7px;
+  border-radius:50%;
+  background:currentColor;
+  opacity:.88;
+  box-shadow:0 0 0 3px color-mix(in srgb,currentColor 12%,transparent);
+}
+.ui-progress > span {
+  background:linear-gradient(90deg,#4f8fc2,#80bfff);
+  box-shadow:0 0 12px rgba(128,191,255,.28);
+}
+.summary-card {
+  position:relative;
+  overflow:hidden;
+}
+.summary-card::after {
+  content:"";
+  position:absolute;
+  inset:auto 16px 0;
+  height:2px;
+  border-radius:999px 999px 0 0;
+  background:#80bfff;
+  opacity:0;
+  transform:scaleX(.55);
+  transform-origin:center;
+  transition:opacity .16s ease, transform .16s ease;
+}
+.summary-card.active::after {
+  opacity:1;
+  transform:scaleX(1);
+}
+.summary-card-label {
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+}
+.summary-card-label i {
+  width:7px;
+  height:7px;
+  flex:0 0 7px;
+  border-radius:50%;
+  background:#45535e;
+  transition:background .16s ease, box-shadow .16s ease;
+}
+.summary-card.active .summary-card-label i {
+  background:#80bfff;
+  box-shadow:0 0 0 4px rgba(128,191,255,.10);
+}
+.ui-metric {
+  transition:border-color .14s ease, background .14s ease;
+}
+.fleet:not(.table-view) .card:hover .ui-metric {
+  border-color:#2b3b48;
+  background:#101820;
+}
+.ui-toast-host {
+  position:fixed;
+  top:88px;
+  right:24px;
+  z-index:260;
+  display:grid;
+  width:min(380px,calc(100vw - 32px));
+  gap:10px;
+  pointer-events:none;
+}
+.ui-toast {
+  display:grid;
+  grid-template-columns:auto minmax(0,1fr) auto;
+  align-items:start;
+  gap:10px;
+  padding:12px 12px 12px 13px;
+  border:1px solid #31404c;
+  border-radius:12px;
+  background:rgba(18,25,32,.97);
+  box-shadow:0 18px 45px rgba(0,0,0,.28);
+  backdrop-filter:blur(8px);
+  pointer-events:auto;
+  animation:ui-toast-enter .18s ease-out both;
+}
+.ui-toast-icon {
+  width:9px;
+  height:9px;
+  margin-top:5px;
+  border-radius:50%;
+  background:#80bfff;
+  box-shadow:0 0 0 4px rgba(128,191,255,.10);
+}
+.ui-toast-success .ui-toast-icon { background:#55d6a4; box-shadow:0 0 0 4px rgba(85,214,164,.10); }
+.ui-toast-warning .ui-toast-icon { background:#e6c65b; box-shadow:0 0 0 4px rgba(230,198,91,.10); }
+.ui-toast-error .ui-toast-icon { background:#ed7078; box-shadow:0 0 0 4px rgba(237,112,120,.10); }
+.ui-toast strong {
+  display:block;
+  margin-bottom:3px;
+  font-size:.82rem;
+}
+.ui-toast div > span {
+  display:block;
+  color:#9aaab7;
+  font-size:.76rem;
+  line-height:1.35;
+}
+.ui-toast-close {
+  width:28px;
+  height:28px;
+  min-height:28px;
+  padding:0;
+  border-radius:8px;
+  color:#8fa0ae;
+  font-size:1rem;
+}
+.ui-toast-close:hover,
+.ui-toast-close:focus-visible {
+  border-color:#41515e !important;
+  background:#202a32 !important;
+  color:#e3edf5;
+  filter:none;
+}
+@keyframes ui-toast-enter {
+  from { opacity:0; transform:translateY(-6px) scale(.98); }
+  to { opacity:1; transform:translateY(0) scale(1); }
+}
+@media (max-width:760px) {
+  .ui-toast-host { top:78px; right:16px; }
+}
+:root[data-theme="light"] .ui-toast {
+  border-color:#cbd7e1;
+  background:rgba(255,255,255,.97);
+  box-shadow:0 16px 36px rgba(42,58,72,.17);
+}
+:root[data-theme="light"] .ui-toast div > span { color:#60717f; }
+:root[data-theme="light"] .summary-card-label i { background:#9ba9b4; }
+:root[data-theme="light"] .summary-card.active .summary-card-label i { background:#377eb4; }
