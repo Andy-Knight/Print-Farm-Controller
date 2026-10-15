@@ -168,7 +168,7 @@ function ProductionBatch({ item }) {
         {item.printerTarget && <div class="queue-job-meta">{item.printerTarget}</div>}
         {item.groupTarget && <div class="queue-job-meta">{item.groupTarget}</div>}
         <div class="production-counts">{item.countsText}</div>
-        <ProgressBar value={item.progress} label={`${item.fileName} production progress`} />
+        <ProgressBar class="production-progress" value={item.progress} label={`${item.fileName} production progress`} />
         <div class="production-runs">
           {item.runs.map((run) => (
             <div class="production-run" key={run.key}>
