@@ -5914,7 +5914,7 @@ function prusaToolMaterialDesignationMarkup(printer, tool = {}) {
   const reportedFamily = filamentColorFamilyOption(filament.reportedColorFamily);
   const hasReported = Boolean(reportedMaterial || reportedFamily || filament.reportedColor);
   return `<div class="prusa-tool-filament-control" data-prusa-tool-filament-control="${tool.index}">
-    <label>Material type
+    <label>Filament type
       ${filamentTypeSelectMarkup({
         value:material,
         inputAttributes:`data-prusa-tool-material-input="${tool.index}"`,
