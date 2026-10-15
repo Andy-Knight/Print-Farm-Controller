@@ -1,5 +1,6 @@
 import { render } from 'preact';
 import { useEffect, useState } from 'preact/hooks';
+import { Metric, ProgressBar, StatusBadge, ToastHost, UiButton } from './components.jsx';
 
 const FILTERS = Object.freeze([
   { key:'all', label:'All Printers' },
@@ -74,10 +75,10 @@ function DashboardControls({ state }) {
       </div>
       <div class="dashboard-view-control">
         <span class="dashboard-view-label">Dashboard view</span>
-        <button
+        <UiButton
           id="dashboardViewToggle"
           class="dashboard-view-toggle"
-          type="button"
+          variant="ghost"
           role="switch"
           aria-checked={String(tableView)}
           aria-label={`Switch dashboard to ${tableView ? 'card' : 'table'} view`}
@@ -85,7 +86,7 @@ function DashboardControls({ state }) {
         >
           <span class="dashboard-view-toggle-track" aria-hidden="true"></span>
           <span class="dashboard-view-toggle-label">{tableView ? 'Table' : 'Cards'}</span>
-        </button>
+        </UiButton>
       </div>
     </section>
   );
@@ -97,17 +98,17 @@ function DashboardSummary({ state }) {
       {FILTERS.map((item) => {
         const active = state.activeFilter === item.key;
         return (
-          <button
+          <UiButton
             key={item.key}
-            type="button"
+            variant="ghost"
             class={`summary-card${active ? ' active' : ''}`}
             data-dashboard-filter={item.key}
             aria-pressed={String(active)}
             onClick={() => dispatchDashboardAction('filter', item.key)}
           >
-            <span class="subtle">{item.label}</span>
+            <span class="summary-card-label"><span class="subtle">{item.label}</span><i aria-hidden="true"></i></span>
             <b>{state.counts[item.key]}</b>
-          </button>
+          </UiButton>
         );
       })}
     </section>
@@ -128,6 +129,7 @@ function DashboardOverview() {
     <>
       <DashboardControls state={state} />
       <DashboardSummary state={state} />
+      <ToastHost />
     </>
   );
 }
@@ -212,15 +214,14 @@ function LicenceStrip({ printer }) {
         <strong data-license-title>{licence.title || ''}</strong>
         <span data-license-summary>{licence.summary || ''}</span>
       </div>
-      <button
-        type="button"
-        class="secondary"
+      <UiButton
+        variant="secondary"
         data-license-slot-toggle={licence.toggleValue || ''}
         disabled={Boolean(licence.toggleDisabled)}
         title={licence.toggleTitle || ''}
       >
         {licence.toggleText || ''}
-      </button>
+      </UiButton>
     </div>
   );
 }
@@ -233,7 +234,7 @@ function PreheatStrip({ printer }) {
         <strong>CHAMBER PREHEAT</strong>
         <span data-preheat-summary>{preheat.summary || ''}</span>
       </div>
-      <button type="button" class="preheat-stop" data-stop-preheat>Stop</button>
+      <UiButton variant="secondary" size="small" class="preheat-stop" data-stop-preheat>Stop</UiButton>
     </div>
   );
 }
@@ -246,7 +247,7 @@ function ClearanceStrip({ printer }) {
         <strong>BED CLEARANCE REQUIRED</strong>
         <span data-bed-clearance-summary>{clearance.summary || ''}</span>
       </div>
-      <button type="button" class="secondary" data-bed-cleared-card>Bed cleared</button>
+      <UiButton variant="secondary" size="small" data-bed-cleared-card>Bed cleared</UiButton>
     </div>
   );
 }
@@ -290,7 +291,7 @@ function PrinterCard({ printer }) {
             <button type="button" class="reorder-button" data-move-later title="Move later" aria-label="Move printer later">→</button>
           </div>
           <MaintenanceIcon printer={printer} />
-          <div class={`badge ${printer.stateClass || ''}`} data-printer-state title={printer.badgeTitle || ''}>{printer.state}</div>
+          <StatusBadge state={printer.stateClass} title={printer.badgeTitle || ''}>{printer.state}</StatusBadge>
         </div>
       </div>
 
@@ -305,12 +306,12 @@ function PrinterCard({ printer }) {
           <span class="job-name" data-job-name>{printer.jobName}</span>
           <b data-progress-value>{printer.progressText}</b>
         </div>
-        <div class="progress"><span data-progress-bar style={{ width:`${printer.progress}%` }}></span></div>
+        <ProgressBar value={printer.progress} label={`${printer.name} print progress`} />
         <div class="metrics">
-          <div class="metric"><span data-nozzle-label>{printer.nozzleLabel}</span><b data-nozzle>{printer.nozzle}</b></div>
-          <div class="metric"><span>Bed</span><b data-bed>{printer.bed}</b></div>
-          <div class="metric"><span>Layer</span><b data-layer>{printer.layer}</b></div>
-          <div class="metric"><span>Remaining</span><b data-remaining>{printer.remaining}</b></div>
+          <Metric label={printer.nozzleLabel} value={printer.nozzle} labelAttributes={{ 'data-nozzle-label':'' }} />
+          <Metric label="Bed" value={printer.bed} />
+          <Metric label="Layer" value={printer.layer} />
+          <Metric label="Remaining" value={printer.remaining} />
         </div>
         <div class="health-line">
           <span data-last-seen>{printer.lastSeen}</span>
@@ -320,16 +321,16 @@ function PrinterCard({ printer }) {
 
       <div class="card-footer">
         <div class="card-footer-actions">
-          <button
-            type="button"
+          <UiButton
+            variant={jobControl.action === 'resume' ? 'positive' : 'attention'}
             class={jobControl.className || 'secondary card-job-control hidden'}
             data-card-job-control={jobControl.action || ''}
             disabled={!jobControl.visible}
             title={jobControl.title || ''}
           >
             {jobControl.text || ''}
-          </button>
-          <button type="button" class="secondary" data-open={printer.id}>Open printer</button>
+          </UiButton>
+          <UiButton variant="secondary" data-open={printer.id}>Open printer</UiButton>
         </div>
         <div class={`card-error${printer.errorVisible ? '' : ' hidden'}`} data-card-error>{printer.error || ''}</div>
       </div>
