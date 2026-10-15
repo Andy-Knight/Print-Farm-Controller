@@ -6229,6 +6229,99 @@ function printerActivityStatus(printer) {
   return { active:false, kind:null, title:'', text:'' };
 }
 
+const PRINTER_DETAIL_TAB_NAMES = Object.freeze(['toolheads','camera','files','temperature','job','management']);
+
+function printerDetailHealthText(printer) {
+  const displayState = stateName(printer);
+  const rawState = rawStateName(printer);
+  return printer.online
+    ? `Last response ${formatLastSeen(printer.lastSeen)} · ${printer.latencyMs ?? '—'} ms${rawState.toLowerCase() !== displayState.toLowerCase() ? ` · Printer reports ${rawState}` : ''}`
+    : `Offline · last seen ${formatLastSeen(printer.lastSeen)}`;
+}
+
+function printerDetailChromeState(printer, { loading = false } = {}) {
+  const state = stateName(printer);
+  const rawState = rawStateName(printer);
+  const maintenanceText = maintenanceStatusText(printer);
+  return {
+    id:String(printer.id || ''),
+    name:String(printer.name || ''),
+    host:String(printer.host || ''),
+    state,
+    stateClass:String(state || '').toLowerCase(),
+    badgeTitle:String(rawState || '').toLowerCase() !== String(state || '').toLowerCase() ? `Printer reports ${rawState}` : '',
+    health:loading ? `Loading printer details from ${printer.name}…` : printerDetailHealthText(printer),
+    activeTab:printerDetailTabByPrinter.get(printer.id) || 'toolheads',
+    maintenance:{
+      state:printerMaintenanceState(printer),
+      actionText:`Open maintenance for ${printer.name}. ${maintenanceText}`
+    },
+    activity:printerActivityStatus(printer)
+  };
+}
+
+function publishPrinterDetailState(printer, options = {}) {
+  if (!window.__PFC_PREACT_DETAIL__ || !printer) return;
+  const detail = printerDetailChromeState(printer, options);
+  window.__PFC_PRINTER_DETAIL_STATE__ = detail;
+  window.dispatchEvent(new CustomEvent('pfc:printer-detail-state', { detail }));
+}
+
+function printerDetailHeaderMarkup(printer) {
+  if (window.__PFC_PREACT_DETAIL__) return '<div data-preact-detail-header></div>';
+  return `<div class="dialog-head">
+    <div>
+      <div class="eyebrow">PRINTER</div>
+      <div class="printer-detail-title-row"><h2 data-detail-name>${escapeHtml(printer.name)}</h2>${maintenanceIconMarkup(printer, 'maintenance-status-icon-detail', true)}</div>
+      <div class="subtle"><span>${escapeHtml(printer.host)}</span> · <span data-detail-state>${escapeHtml(stateName(printer))}</span></div>
+      <div class="detail-health" data-detail-health></div>
+    </div>
+    <button class="icon" data-detail-close>×</button>
+  </div>`;
+}
+
+function printerDetailActivityMarkup(printer) {
+  if (window.__PFC_PREACT_DETAIL__) return '<div data-preact-detail-activity></div>';
+  const activity = printerActivityStatus(printer);
+  return `<div class="detail-activity-banner${activity.active ? '' : ' hidden'}" data-detail-activity-banner><strong data-detail-activity-title>${escapeHtml(activity.title || 'PRINTER ACTIVITY')}</strong><span data-detail-activity-summary>${escapeHtml(activity.text || '')}</span></div>`;
+}
+
+function printerDetailTabsMarkup() {
+  if (window.__PFC_PREACT_DETAIL__) return '<div data-preact-detail-tabs></div>';
+  return `<div class="printer-detail-tabs maintenance-view-selector" role="tablist" aria-label="Printer details">
+    <button type="button" class="maintenance-view-button" role="tab" data-detail-tab="toolheads" aria-controls="detailTabToolheads">Toolheads</button>
+    <button type="button" class="maintenance-view-button" role="tab" data-detail-tab="camera" aria-controls="detailTabCamera">Camera</button>
+    <button type="button" class="maintenance-view-button" role="tab" data-detail-tab="files" aria-controls="detailTabFiles">Files</button>
+    <button type="button" class="maintenance-view-button" role="tab" data-detail-tab="temperature" aria-controls="detailTabTemperature">Temperature, Preheat &amp; Fans</button>
+    <button type="button" class="maintenance-view-button" role="tab" data-detail-tab="job" aria-controls="detailTabJob">Current Job</button>
+    <button type="button" class="maintenance-view-button" role="tab" data-detail-tab="management" aria-controls="detailTabManagement">Maintenance &amp; Management</button>
+  </div>`;
+}
+
+function activatePrinterDetailTab(name, { focus = false } = {}) {
+  if (!currentPrinterId) return;
+  const selectedName = PRINTER_DETAIL_TAB_NAMES.includes(name) ? name : 'toolheads';
+  printerDetailTabByPrinter.set(currentPrinterId, selectedName);
+
+  const detailTabs = Array.from(printerDetail.querySelectorAll('[data-detail-tab]'));
+  const detailPanels = Array.from(printerDetail.querySelectorAll('[data-detail-panel]'));
+  for (const tab of detailTabs) {
+    const active = tab.dataset.detailTab === selectedName;
+    tab.classList.toggle('active', active);
+    tab.setAttribute('aria-selected', active ? 'true' : 'false');
+    tab.tabIndex = active ? 0 : -1;
+  }
+  for (const panel of detailPanels) {
+    const active = panel.dataset.detailPanel === selectedName;
+    panel.hidden = !active;
+    panel.classList.toggle('active', active);
+  }
+
+  const printer = fleet.find((item) => item.id === currentPrinterId);
+  if (printer) publishPrinterDetailState(printer);
+  if (focus) printerDetail.querySelector(`[data-detail-tab="${CSS.escape(selectedName)}"]`)?.focus();
+}
+
 function applyLicenseReadOnly(printer) {
   if (!printerDetail || printer?.licenseActive !== false) return;
   const safeSelectors = [
