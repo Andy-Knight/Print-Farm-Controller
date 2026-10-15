@@ -646,6 +646,13 @@ function escapeHtml(value = '') {
   return String(value).replace(/[&<>'"]/g, (ch) => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', "'":'&#39;', '"':'&quot;' }[ch]));
 }
 
+function showUiToast(message, { title = '', tone = 'info', durationMs = 3600 } = {}) {
+  if (!window.__PFC_PREACT_DASHBOARD__) return;
+  window.dispatchEvent(new CustomEvent('pfc:toast', {
+    detail:{ title, message, tone, durationMs }
+  }));
+}
+
 function printerModelLabel(printer) {
   if (printer?.adapterType === 'snapmaker-u1') return 'Snapmaker U1';
   return String(printer?.model || '');
@@ -2483,6 +2490,10 @@ async function confirmBedCleared(printerId, printerName) {
   queueState = result.queue || queueState;
   reconcileFleet();
   renderPrintQueue();
+  showUiToast('Queue clearance accepted. The next eligible job may start.', {
+    title:printerName || 'Bed cleared',
+    tone:'success'
+  });
   return true;
 }
 
@@ -4832,8 +4843,16 @@ fleetEl.addEventListener('click', (event) => {
     if (!card) return;
     stopPreheat.disabled = true;
     api(`/api/printers/${encodeURIComponent(card.dataset.printerCard)}/chamber-preheat`, { method:'DELETE' })
-      .then((result) => { if (result.warning) alert(result.warning); })
-      .catch((error) => { alert(error.message); stopPreheat.disabled = false; });
+      .then((result) => {
+        if (result.warning) alert(result.warning);
+        const printer = fleet.find((item) => item.id === card.dataset.printerCard);
+        showUiToast('Chamber preheat stop requested.', { title:printer?.name || 'Printer', tone:'success' });
+      })
+      .catch((error) => {
+        showUiToast(error.message, { title:'Could not stop preheat', tone:'error' });
+        alert(error.message);
+        stopPreheat.disabled = false;
+      });
     return;
   }
   const earlier = event.target.closest('[data-move-earlier]');
@@ -4874,7 +4893,16 @@ fleetEl.addEventListener('click', async (event) => {
   control.disabled = true;
   try {
     await command(card.dataset.printerCard, 'job', { action });
+    const printer = fleet.find((item) => item.id === card.dataset.printerCard);
+    showUiToast(
+      action === 'resume' ? 'Resume requested for the current print.' : 'Pause requested for the current print.',
+      { title:printer?.name || 'Printer', tone:'success' }
+    );
   } catch (error) {
+    showUiToast(error.message, {
+      title:action === 'resume' ? 'Could not resume print' : 'Could not pause print',
+      tone:'error'
+    });
     showError(error);
   } finally {
     control.disabled = false;
