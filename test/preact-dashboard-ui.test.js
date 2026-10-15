@@ -104,3 +104,9 @@ test('reusable Preact design system preserves dashboard compatibility hooks', as
   assert.match(styles, /\.ui-toast-host/);
   assert.match(styles, /\.ui-status-badge::before/);
 });
+
+
+test('metric backgrounds remain unchanged on printer card hover', async () => {
+  const styles = await read('public/styles.css');
+  assert.doesNotMatch(styles, /\.fleet:not\(\.table-view\) \.card:hover \.ui-metric\s*\{[\s\S]*?background:/);
+});
