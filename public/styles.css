@@ -3683,3 +3683,70 @@ body:not([data-route="/"]) > main > :not(.route-page) { display:none !important;
 :root[data-theme="light"] .ui-toast div > span { color:#60717f; }
 :root[data-theme="light"] .summary-card-label i { background:#9ba9b4; }
 :root[data-theme="light"] .summary-card.active .summary-card-label i { background:#377eb4; }
+
+
+/* Preact printer-detail chrome */
+.printer-detail-preact-head {
+  align-items:flex-start;
+  margin-bottom:12px;
+  padding:0 0 14px;
+  border-bottom:1px solid #26323b;
+}
+.printer-detail-head-main { min-width:0; }
+.printer-detail-title-row .ui-status-badge {
+  align-self:center;
+  margin-left:2px;
+}
+.printer-detail-host {
+  margin-top:5px;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+}
+.printer-detail-close {
+  width:34px;
+  min-width:34px;
+  height:34px;
+  min-height:34px;
+  padding:0;
+  font-size:1.15rem;
+}
+.printer-detail-preact-tabs {
+  gap:6px;
+  padding:5px;
+  border:1px solid #29343d;
+  border-radius:12px;
+  background:#10171d;
+}
+.printer-detail-preact-tabs .maintenance-view-button {
+  min-height:40px;
+  border-radius:8px;
+  border-color:transparent;
+}
+.printer-detail-preact-tabs .maintenance-view-button.active {
+  border-color:#426d8d;
+  background:#1b2b37;
+  box-shadow:0 0 0 1px rgba(128,191,255,.08);
+}
+.printer-detail-preact-tabs .maintenance-view-button:focus-visible {
+  outline:2px solid #80bfff;
+  outline-offset:1px;
+}
+:root[data-theme="light"] .printer-detail-preact-head { border-bottom-color:#d7e0e6; }
+:root[data-theme="light"] .printer-detail-preact-tabs {
+  border-color:#ccd8e1;
+  background:#f4f7f9;
+}
+:root[data-theme="light"] .printer-detail-preact-tabs .maintenance-view-button.active {
+  border-color:#8fb6d0;
+  background:#e4f0f7;
+}
+@media (max-width:760px) {
+  .printer-detail-preact-head .printer-detail-title-row { align-items:flex-start; }
+  .printer-detail-preact-tabs {
+    grid-template-columns:repeat(2,minmax(0,1fr));
+  }
+}
+@media (max-width:480px) {
+  .printer-detail-preact-tabs { grid-template-columns:1fr; }
+}
