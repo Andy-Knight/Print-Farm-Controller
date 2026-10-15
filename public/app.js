@@ -3317,7 +3317,7 @@ function publishPrintLibraryUiState({ files, visible, summary, query }) {
     summary,
     files:visible.map(libraryFileViewModel),
     emptyText:files.length
-      ? `No library files match ${query ? `“${query}”` : 'this search'}.`
+      ? 'No library files match this search.'
       : 'No files in the Print Library yet. Add a G-code, GX or 3MF file to get started.'
   };
   window.__PFC_LIBRARY_UI_STATE__ = detail;
