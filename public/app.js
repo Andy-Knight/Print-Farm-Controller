@@ -2940,6 +2940,167 @@ function productionBatchMarkup(batch, { history = false } = {}) {
   </article>`;
 }
 
+function queuePriorityView(job) {
+  const priority = String(job?.priority || 'normal').toLowerCase();
+  const effective = String(job?.effectivePriority || priority).toLowerCase();
+  const aged = job?.priorityAged === true && effective !== priority;
+  return {
+    priority,
+    priorityEffective:effective,
+    priorityEffectiveLabel:queuePriorityLabel(effective),
+    priorityTitle:aged
+      ? `Originally ${queuePriorityLabel(priority)}; promoted automatically while waiting`
+      : `${queuePriorityLabel(priority)} queue priority`,
+    priorityText:aged ? `${queuePriorityLabel(effective)} effective` : `${queuePriorityLabel(priority)} priority`
+  };
+}
+
+function queueCompatibilityView(job) {
+  if (job?.assignmentMode !== 'automatic' || !job?.compatibility || job?.status !== 'queued') return [];
+  const groups = [
+    ['ready', 'Eligible'],
+    ['blocked', 'Waiting'],
+    ['needsReview', 'Needs review'],
+    ['incompatible', 'Not compatible']
+  ];
+  return groups.flatMap(([key, label]) => {
+    const items = Array.isArray(job.compatibility[key]) ? job.compatibility[key] : [];
+    if (!items.length) return [];
+    return [{
+      key,
+      label,
+      items:items.map((item, index) => {
+        const reasons = Array.isArray(item.reasons) && item.reasons.length
+          ? ` — ${item.reasons.map((reason) => reason.text).join(' · ')}`
+          : '';
+        return {
+          key:`${item.printerId || item.printerName || index}`,
+          text:`${item.printerName || item.printerId}${reasons}`
+        };
+      })
+    }];
+  });
+}
+
+function queueJobViewModel(job, { history = false, canMoveUp = false, canMoveDown = false } = {}) {
+  const terminalTime = history ? (job.finishedAt || job.updatedAt) : job.queuedAt;
+  const elapsed = queueElapsed(job);
+  const progressText = job.status === 'printing' ? `${Math.round(Number(job.maxProgress || 0))}%` : '';
+  const meta = history
+    ? `${formatQueueTime(terminalTime)}${elapsed ? ` · ${elapsed}` : ''}`
+    : `${formatQueueTime(job.queuedAt)} · ${queueOptionsText(job)}`;
+  const printerLabel = job.assignmentMode === 'automatic' && !job.printerId
+    ? 'Next available compatible printer'
+    : (job.printerName || job.printerId || 'Unassigned');
+  const priority = queuePriorityView(job);
+  return {
+    kind:'job',
+    id:String(job.id || ''),
+    fileName:String(job.fileName || ''),
+    status:String(job.status || ''),
+    history,
+    restoreRecoveryHold:job.restoreRecoveryHold === true,
+    statusText:job.restoreRecoveryHold ? 'Restored — review required' : queueStatusLabel(job.status),
+    statusClass:job.restoreRecoveryHold ? 'restore-hold' : String(job.status || ''),
+    progressText,
+    printerLabel:String(printerLabel),
+    printerTarget:job.printerTarget ? `Target printer: ${printerTargetLabel(job.printerTarget)}` : '',
+    groupTarget:job.groupId ? `Printer group: ${job.groupName || job.groupId}` : '',
+    meta,
+    selectionReason:String(job.selectionReason || ''),
+    error:String(job.error || ''),
+    compatibility:queueCompatibilityView(job),
+    canMoveUp:Boolean(canMoveUp),
+    canMoveDown:Boolean(canMoveDown),
+    ...priority
+  };
+}
+
+function queueClearanceViewModel(item) {
+  const status = queueStatusLabel(item.jobStatus);
+  return {
+    kind:'clearance',
+    id:String(item.printerId || ''),
+    printerId:String(item.printerId || ''),
+    printerName:String(item.printerName || item.printerId || ''),
+    meta:`${item.fileName || ''} · ${status} ${formatQueueTime(item.finishedAt)}`,
+    pending:pendingBedClearanceActions.has(item.printerId)
+  };
+}
+
+function productionBatchViewModel(batch, { history = false } = {}) {
+  const quantity = Math.max(1, Number(batch.quantity || 1));
+  const completed = Number(batch.completed || 0);
+  const active = Number(batch.active || 0);
+  const remaining = Number(batch.remaining || 0);
+  const cancelable = Number(batch.cancelable || remaining);
+  const failed = Number(batch.failed || 0);
+  const cancelled = Number(batch.cancelled || 0);
+  const progress = Math.max(0, Math.min(100, Math.round((completed / quantity) * 100)));
+  const statusText = batch.paused ? 'Paused'
+    : batch.finished ? (failed ? 'Completed with failures' : cancelled && !completed ? 'Cancelled' : 'Completed')
+    : active ? 'Printing'
+    : batch.needsReview ? 'Needs review'
+    : 'Queued';
+  const statusClass = batch.paused ? 'paused'
+    : batch.finished ? 'completed'
+    : active ? 'printing'
+    : batch.needsReview ? 'needs_review'
+    : 'queued';
+  const runs = Array.isArray(batch.runs) ? batch.runs : [];
+  const visibleRuns = runs.slice(0, 12).map((run, index) => {
+    const printer = run.printerName || (run.status === 'queued' ? 'Waiting for compatible printer' : 'Unassigned');
+    const pct = run.status === 'printing' ? ` · ${Math.round(Number(run.progress || 0))}%` : '';
+    const runStatus = run.restoreRecoveryHold ? 'Restored — review required' : queueStatusLabel(run.status);
+    return {
+      key:String(run.id || run.sequence || index),
+      statusText:`#${run.sequence} · ${runStatus}${pct}`,
+      printer:String(printer)
+    };
+  });
+  return {
+    kind:'production',
+    id:String(batch.id || ''),
+    fileName:String(batch.fileName || ''),
+    history,
+    paused:Boolean(batch.paused),
+    quantity,
+    cancelable,
+    progress,
+    statusText,
+    statusClass,
+    printerTarget:batch.printerTarget ? `Target printer: ${printerTargetLabel(batch.printerTarget)}` : '',
+    groupTarget:batch.groupId ? `Printer group: ${batch.groupName || batch.groupId}` : '',
+    countsText:`Completed ${completed} · Printing/preparing ${active} · Remaining ${remaining}${failed ? ` · Failed ${failed}` : ''}${cancelled ? ` · Cancelled ${cancelled}` : ''}`,
+    runs:visibleRuns,
+    moreRuns:Math.max(0, runs.length - visibleRuns.length),
+    ...queuePriorityView(batch)
+  };
+}
+
+function publishPrintQueueUiState({ summary, currentJobs, queuedJobs, activeProduction, historyJobs, historyProduction, clearanceItems }) {
+  if (!window.__PFC_PREACT_QUEUE__) return;
+  const activeItems = [
+    ...clearanceItems.map(queueClearanceViewModel),
+    ...activeProduction.map((batch) => productionBatchViewModel(batch)),
+    ...currentJobs.map((job) => {
+      const queuedIndex = job.status === 'queued' ? queuedJobs.findIndex((queued) => queued.id === job.id) : -1;
+      const effectivePriority = String(job.effectivePriority || job.priority || 'normal');
+      return queueJobViewModel(job, {
+        canMoveUp:queuedIndex > 0 && String(queuedJobs[queuedIndex - 1]?.effectivePriority || queuedJobs[queuedIndex - 1]?.priority || 'normal') === effectivePriority,
+        canMoveDown:queuedIndex >= 0 && queuedIndex < queuedJobs.length - 1 && String(queuedJobs[queuedIndex + 1]?.effectivePriority || queuedJobs[queuedIndex + 1]?.priority || 'normal') === effectivePriority
+      });
+    })
+  ];
+  const historyItems = [
+    ...historyProduction.map((batch) => productionBatchViewModel(batch, { history:true })),
+    ...historyJobs.map((job) => queueJobViewModel(job, { history:true }))
+  ];
+  const detail = { summary, activeItems, historyItems };
+  window.__PFC_QUEUE_UI_STATE__ = detail;
+  window.dispatchEvent(new CustomEvent('pfc:queue-ui-state', { detail }));
+}
+
 function renderPrintQueue() {
   if (!queueDialog) return;
   const jobs = Array.isArray(queueState?.jobs) ? queueState.jobs : [];
