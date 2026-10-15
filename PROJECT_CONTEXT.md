@@ -126,17 +126,17 @@ Manufacturer-specific discovery, capabilities, limits, status normalization, fil
 
 ## Current task
 
-The current production baseline is **v0.45.0** on `main`.
+The current release baseline is **v0.47.0**.
 
-v0.45.0 printer-local file deletion has been completed and merged. Snapmaker U1 deletion is physically validated; experimental Prusa/Bambu deletion remains capability-gated, while FlashForge AD5M/AD5M Pro and Creator 5/5 Pro deletion remain disabled without a validated stock-firmware interface.
+v0.47.0 completes the first controller-wide Preact presentation migration. All persistent route pages now have Preact presentation coverage, with the Dashboard, Queue & History, Print Library, Maintenance, Alerts & Notifications, Reports & Analytics, Backup & Recovery, Printer Groups, Diagnostics and Licence interfaces migrated while preserving established controller/API behavior and vanilla fallbacks. Stateful Add Printer/discovery, Farm Operations forms, Print Library filament-assignment editing, provider authorization/configuration and specialist Printer Details controls remain deliberately on the established controller-managed DOM.
 
-Active development: **v0.46.0** on `feature/dashboard-table-view`. Adds a persistent dashboard switch between the existing card layout and a compact tabular layout intended for navigating larger farms. The table reuses the live printer card data and actions, preserves dashboard group/status filters and Farm operations selection, supports ascending/descending sorting by printer name, status, progress and remaining time, keeps filament swatches and operational warning strips, and stores the selected view in browser local storage. The feature is not yet merged.
+The v0.47.0 release candidate has completed automated regression, MinIO S3 integration, container smoke-test and multi-architecture image validation. The final dashboard summary presentation uses four filters without decorative heading dots and keeps each label aligned above its count.
 
 ## Next steps
 
-1. Run the full automated test suite for v0.46.0 and validate the Cards / Table dashboard switch in desktop and narrow browser layouts with a larger simulated farm.
-2. Confirm table-mode live updates, filters, Farm operations selection, Open printer and Pause/Resume controls remain stable during SSE refreshes.
-3. Continue physical-hardware validation for Creator 5 / Creator 5 Pro and experimental Bambu support.
+1. Continue physical-hardware validation for Creator 5 / Creator 5 Pro and experimental Bambu support.
+2. Keep the retained stateful controller-managed UI boundaries deliberate; migrate them only where there is a clear product or maintainability benefit.
+3. Continue normal regression coverage for source, Windows SEA and multi-architecture container packaging as future features are added.
 4. Keep `README.md`, `CHANGELOG.md` and this context file synchronized whenever a release/version changes.
 
 ## Licensing baseline
