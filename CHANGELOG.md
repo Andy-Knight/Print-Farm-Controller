@@ -31,6 +31,8 @@ Historical entries describe the behaviour of the controller at the time of that 
 - Keeps the vanilla Diagnostics status/log renderers as fallbacks when the optional Preact bundle is unavailable.
 - Migrates Licence status, entitlement/detail grid, licence-file path and configuration-warning presentation to Preact while retaining licence-file upload, signature verification and activation in the existing controller logic.
 - Keeps the vanilla Licence renderer as a fallback when the optional Preact bundle is unavailable.
+- Completes the v0.47.0 Preact migration audit: all persistent controller route pages now have Preact presentation coverage, and the dashboard over-limit licence notice is also Preact-rendered.
+- Deliberately retains Add Printer/discovery, Farm Operations action forms, Print Library filament-assignment editing, cloud/provider forms and specialist Printer Details controls on the established controller-managed DOM because those areas are tightly coupled to stateful device or form workflows rather than being presentation-only remnants.
 - Adds a local esbuild frontend bundle so Preact is packaged with source, container and Windows SEA builds without a CDN or browser-time dependency.
 - Keeps Preact and esbuild as build-time development dependencies; a fresh source ZIP uses `npm install --include=dev` once to build the optional Preact asset, while `npm start` itself remains dependency-free and falls back to the existing dashboard if that asset is absent.
 - Missing static assets now return HTTP 404 instead of the SPA HTML shell, allowing an absent optional Preact bundle to fail cleanly without disrupting the legacy dashboard.
