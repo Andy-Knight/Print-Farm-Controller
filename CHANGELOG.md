@@ -25,6 +25,8 @@ Historical entries describe the behaviour of the controller at the time of that 
 - Keeps the vanilla Reports renderers and tab behavior as fallbacks when the optional Preact bundle is unavailable.
 - Migrates Backup & Recovery tab navigation, controller backup-status cards and restore-inspection results to Preact while retaining cloud-provider configuration, OAuth/device authorization, backup scheduling, backup creation and restore staging/execution in the existing controller logic.
 - Keeps the vanilla Backup & Recovery tab, status and restore-inspection renderers as fallbacks when the optional Preact bundle is unavailable.
+- Migrates Printer Groups list/card presentation to Preact while preserving the existing group form, multi-group membership editor, queue/group filter integrations and create/edit/delete controller logic.
+- Keeps the vanilla Printer Groups renderer as a fallback when the optional Preact bundle is unavailable.
 - Adds a local esbuild frontend bundle so Preact is packaged with source, container and Windows SEA builds without a CDN or browser-time dependency.
 - Keeps Preact and esbuild as build-time development dependencies; a fresh source ZIP uses `npm install --include=dev` once to build the optional Preact asset, while `npm start` itself remains dependency-free and falls back to the existing dashboard if that asset is absent.
 - Missing static assets now return HTTP 404 instead of the SPA HTML shell, allowing an absent optional Preact bundle to fail cleanly without disrupting the legacy dashboard.
