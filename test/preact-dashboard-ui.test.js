@@ -497,3 +497,56 @@ test('Preact Licence keeps install, signature verification and vanilla fallback 
   assert.match(app, /licenseDetails\.innerHTML =/);
   assert.match(app, /submit\.textContent = license\.licenseStatus === 'valid' \? 'Replace licence' : 'Install licence'/);
 });
+
+
+test('Preact dashboard owns the licence-limit notice presentation with vanilla fallback', async () => {
+  const [dashboard, app] = await Promise.all([
+    read('ui/dashboard.jsx'),
+    read('public/app.js')
+  ]);
+
+  assert.match(dashboard, /function LicenseNotice/);
+  assert.match(dashboard, /pfc:license-notice-state/);
+  assert.match(dashboard, /__PFC_PREACT_LICENSE_NOTICE__/);
+  assert.match(app, /function licenseNoticeViewModel/);
+  assert.match(app, /function publishLicenseNoticeState/);
+  assert.match(app, /window\.__PFC_PREACT_LICENSE_NOTICE__/);
+  assert.match(app, /licenseNoticeEl\.innerHTML =/);
+});
+
+test('v0.47 Preact migration audit covers every persistent route page', async () => {
+  const [html, dashboard] = await Promise.all([
+    read('public/index.html'),
+    read('ui/dashboard.jsx')
+  ]);
+
+  const routePageIds = [...html.matchAll(/<section id="([^"]+)"[^>]*class="[^"]*\broute-page\b[^"]*"/g)]
+    .map((match) => match[1])
+    .sort();
+
+  assert.deepEqual(routePageIds, [
+    'alertsDialog',
+    'backupRecoveryDialog',
+    'diagnosticsDialog',
+    'libraryDialog',
+    'licenseDialog',
+    'maintenanceDialog',
+    'printerGroupsDialog',
+    'queueDialog',
+    'reportingDialog'
+  ]);
+
+  for (const initializer of [
+    'initPrintQueueUi',
+    'initPrintLibraryUi',
+    'initMaintenanceUi',
+    'initAlertsUi',
+    'initReportingUi',
+    'initBackupRecoveryUi',
+    'initPrinterGroupsUi',
+    'initDiagnosticsUi',
+    'initLicenseUi'
+  ]) {
+    assert.match(dashboard, new RegExp(`${initializer}\\(\\)`));
+  }
+});
