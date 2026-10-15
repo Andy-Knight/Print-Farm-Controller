@@ -5,10 +5,11 @@
   "type": "module",
   "description": "Print Farm Controller: local-first FlashForge, Snapmaker, Prusa and experimental Bambu fleet control with printer emulation",
   "scripts": {
-    "start": "npm run build:frontend && node src/server.js",
-    "dev": "npm run build:frontend && node --watch src/server.js",
+    "start": "node src/server.js",
+    "dev": "node --watch src/server.js",
     "emulator": "node emulator/server.js",
     "test": "node --test",
+    "postinstall": "npm run build:frontend",
     "build:frontend": "node scripts/build-frontend.mjs",
     "build:bundle": "npm run build:frontend && node scripts/build-controller-bundle.mjs",
     "build:sea:windows": "node scripts/build-sea-windows.mjs",
