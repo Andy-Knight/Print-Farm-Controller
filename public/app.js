@@ -6895,42 +6895,26 @@ async function openPrinter(id) {
     }
   }
 
-  const detailTabs = Array.from(printerDetail.querySelectorAll('[data-detail-tab]'));
-  const detailPanels = Array.from(printerDetail.querySelectorAll('[data-detail-panel]'));
-  const activateDetailTab = (name, focus = false) => {
-    const selected = detailTabs.find((tab) => tab.dataset.detailTab === name) || detailTabs[0];
-    if (!selected) return;
-    const selectedName = selected.dataset.detailTab;
-    printerDetailTabByPrinter.set(id, selectedName);
+  if (!window.__PFC_PREACT_DETAIL__) {
+    const detailTabs = Array.from(printerDetail.querySelectorAll('[data-detail-tab]'));
     for (const tab of detailTabs) {
-      const active = tab === selected;
-      tab.classList.toggle('active', active);
-      tab.setAttribute('aria-selected', active ? 'true' : 'false');
-      tab.tabIndex = active ? 0 : -1;
+      tab.onclick = () => activatePrinterDetailTab(tab.dataset.detailTab);
+      tab.onkeydown = (event) => {
+        if (!['ArrowLeft','ArrowRight','Home','End'].includes(event.key)) return;
+        event.preventDefault();
+        const currentIndex = detailTabs.indexOf(tab);
+        const nextIndex = event.key === 'Home'
+          ? 0
+          : event.key === 'End'
+            ? detailTabs.length - 1
+            : (currentIndex + (event.key === 'ArrowRight' ? 1 : -1) + detailTabs.length) % detailTabs.length;
+        activatePrinterDetailTab(detailTabs[nextIndex]?.dataset.detailTab, { focus:true });
+      };
     }
-    for (const panel of detailPanels) {
-      const active = panel.dataset.detailPanel === selectedName;
-      panel.hidden = !active;
-      panel.classList.toggle('active', active);
-    }
-    if (focus) selected.focus();
-  };
-  for (const tab of detailTabs) {
-    tab.onclick = () => activateDetailTab(tab.dataset.detailTab);
-    tab.onkeydown = (event) => {
-      if (!['ArrowLeft','ArrowRight','Home','End'].includes(event.key)) return;
-      event.preventDefault();
-      const currentIndex = detailTabs.indexOf(tab);
-      const nextIndex = event.key === 'Home'
-        ? 0
-        : event.key === 'End'
-          ? detailTabs.length - 1
-          : (currentIndex + (event.key === 'ArrowRight' ? 1 : -1) + detailTabs.length) % detailTabs.length;
-      activateDetailTab(detailTabs[nextIndex]?.dataset.detailTab, true);
-    };
   }
-  activateDetailTab(printerDetailTabByPrinter.get(id) || 'toolheads');
+  activatePrinterDetailTab(printerDetailTabByPrinter.get(id) || 'toolheads');
   if (!printerDialog.open) printerDialog.showModal();
+  publishPrinterDetailState(printer);
   updateOpenPrinterTelemetry();
 
   const printerUploadButton = printerDetail.querySelector('[data-printer-file-upload]');
