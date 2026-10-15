@@ -7,7 +7,8 @@ export function UiButton({
   children,
   ...props
 }) {
-  const classes = ['ui-button', `ui-button-${variant}`, `ui-button-${size}`, className]
+  const legacyVariantClass = ['primary','secondary','positive','attention','danger'].includes(variant) ? variant : '';
+  const classes = ['ui-button', `ui-button-${variant}`, `ui-button-${size}`, legacyVariantClass, className]
     .filter(Boolean)
     .join(' ');
   return <button type="button" class={classes} {...props}>{children}</button>;
@@ -43,11 +44,11 @@ export function ProgressBar({ value = 0, label = 'Progress' }) {
   );
 }
 
-export function Metric({ label, value, labelAttributes = {} }) {
+export function Metric({ label, value, labelAttributes = {}, valueAttributes = {} }) {
   return (
     <div class="metric ui-metric">
       <span {...labelAttributes}>{label}</span>
-      <b>{value}</b>
+      <b {...valueAttributes}>{value}</b>
     </div>
   );
 }
