@@ -1,6 +1,6 @@
 import { render } from 'preact';
 import { useEffect, useState } from 'preact/hooks';
-import { ProgressBar, UiButton } from './components.jsx';
+import { UiButton } from './components.jsx';
 
 const DEFAULT_QUEUE_STATE = Object.freeze({
   summary:'No queued prints',
@@ -168,7 +168,16 @@ function ProductionBatch({ item }) {
         {item.printerTarget && <div class="queue-job-meta">{item.printerTarget}</div>}
         {item.groupTarget && <div class="queue-job-meta">{item.groupTarget}</div>}
         <div class="production-counts">{item.countsText}</div>
-        <ProgressBar class="production-progress" value={item.progress} label={`${item.fileName} production progress`} />
+        <div
+          class="production-progress"
+          role="progressbar"
+          aria-label={`${item.fileName} production progress`}
+          aria-valuemin="0"
+          aria-valuemax="100"
+          aria-valuenow={String(item.progress)}
+        >
+          <span style={{ width:`${item.progress}%` }}></span>
+        </div>
         <div class="production-runs">
           {item.runs.map((run) => (
             <div class="production-run" key={run.key}>
