@@ -5799,7 +5799,7 @@ function u1FilamentConfigControlMarkup(printer, tool = {}) {
       placeholder:'Select type'
     })}</label>
     <label>Colour family${colorFamilyDropdownMarkup({ value:familyOption?.value || '', inputAttributes:`data-u1-filament-color-family-input="${tool.index}"`, disabled:!state.enabled, placeholder:'Select colour' })}</label>
-    <button type="button" class="primary" data-u1-filament-config-save="${tool.index}"${state.enabled ? '' : ' disabled'}>Set filament</button>
+    <button type="button" class="primary toolhead-action-button" data-u1-filament-config-save="${tool.index}"${state.enabled ? '' : ' disabled'}>Set filament</button>
     ${multiToolControlHelpMarkup(multiToolFilamentHelpText(state.message), `data-u1-filament-config-help="${tool.index}"`)}
   </div>`;
 }
@@ -5895,7 +5895,7 @@ function creator5FilamentConfigControlMarkup(printer, tool = {}) {
     <label>Colour
       ${creator5FilamentColorDropdownMarkup(printer, { value:color || '', toolIndex:tool.index, disabled:!idle })}
     </label>
-    <button type="button" class="primary" data-creator5-filament-config-save="${tool.index}"${idle ? '' : ' disabled'}>Set filament</button>
+    <button type="button" class="primary toolhead-action-button" data-creator5-filament-config-save="${tool.index}"${idle ? '' : ' disabled'}>Set filament</button>
     ${multiToolControlHelpMarkup(multiToolFilamentHelpText('Changes are written to the printer and verified.'))}
   </div>`;
 }
@@ -5921,7 +5921,7 @@ function prusaToolMaterialDesignationMarkup(printer, tool = {}) {
     <label>Colour family
       ${colorFamilyDropdownMarkup({ value:familyOption?.value || '', inputAttributes:`data-prusa-tool-color-family-input="${tool.index}"`, placeholder:'Select colour' })}
     </label>
-    <button type="button" class="primary" data-prusa-tool-material-save="${tool.index}">Set filament</button>
+    <button type="button" class="primary toolhead-action-button" data-prusa-tool-material-save="${tool.index}">Set filament</button>
     ${multiToolControlHelpMarkup(multiToolFilamentHelpText('Set filament saves type and colour in the controller, not on the Prusa printer.'))}
   </div>`;
 }
@@ -5974,7 +5974,7 @@ function toolNozzleDesignationMarkup(printer, tool = {}, toolCount = 1) {
       })}
     </label>
     <div class="mini-actions">
-      <button type="button" class="${coreOnePlus || creator5 ? 'primary' : 'secondary'}" data-tool-nozzle-save="${tool.index}">Assign</button>
+      <button type="button" class="${coreOnePlus || creator5 ? 'primary' : 'secondary'} toolhead-action-button" data-tool-nozzle-save="${tool.index}">Assign</button>
       ${coreOnePlus || creator5 ? '' : `<button type="button" class="secondary" data-tool-nozzle-clear="${tool.index}">Clear</button>`}
     </div>
     ${helpMarkup}
@@ -6004,7 +6004,7 @@ function flashForgeMaterialDesignationMarkup(printer, filament = {}) {
         ${colorFamilyDropdownMarkup({ value:familyOption?.value || '', inputAttributes:'data-material-color-family-input', placeholder:'Select colour family' })}
       </label>
     </div>
-    <div class="mini-actions ad5m-material-actions"><button type="button" class="primary" data-material-designation-save>Set filament</button></div>
+    <div class="mini-actions ad5m-material-actions"><button type="button" class="primary toolhead-action-button" data-material-designation-save>Set filament</button></div>
     <div class="field-help">The colour family is used for automatic queue compatibility. Exact shade selection is not required.${reported ? ` Printer currently reports material ${escapeHtml(reported)}.` : ''}</div>
   </div>`;
 }
@@ -6034,7 +6034,7 @@ function flashForgeNozzleDesignationMarkup(printer, tool = {}) {
     <label>Controller nozzle designation
       ${selector}
     </label>
-    <div class="mini-actions${coreOnePlus ? ' prusa-nozzle-actions' : ad5m ? ' ad5m-nozzle-actions' : ''}"><button type="button" class="${singleAction ? 'primary' : 'secondary'}" data-nozzle-designation-save>Assign</button>${singleAction ? '' : '<button type="button" class="secondary" data-nozzle-designation-clear>Clear</button>'}</div>
+    <div class="mini-actions${coreOnePlus ? ' prusa-nozzle-actions' : ad5m ? ' ad5m-nozzle-actions' : ''}"><button type="button" class="${singleAction ? 'primary' : 'secondary'} toolhead-action-button" data-nozzle-designation-save>Assign</button>${singleAction ? '' : '<button type="button" class="secondary" data-nozzle-designation-clear>Clear</button>'}</div>
     <div class="field-help">Stored by Print Farm Controller for this printer and used by automatic queue compatibility.${reported ? ` Printer currently reports ${escapeHtml(nozzleDiameterText(reported))}.` : ` ${escapeHtml(unavailableHelp)}`}</div>
   </div>`;
 }
