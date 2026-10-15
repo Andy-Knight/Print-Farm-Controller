@@ -19,6 +19,7 @@ test('Preact dashboard is bundled locally and loaded before the legacy controlle
 
   assert.equal(pkg.version, '0.47.0');
   assert.equal(pkg.devDependencies?.preact, '11.0.1');
+  assert.equal(pkg.allowScripts?.['esbuild@0.28.2'], true);
   assert.match(pkg.scripts?.['build:frontend'] || '', /build-frontend\.mjs/);
   assert.equal(pkg.scripts?.start, 'node src/server.js');
   assert.match(pkg.scripts?.postinstall || '', /build:frontend/);
