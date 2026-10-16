@@ -897,16 +897,11 @@ input:focus,select:focus { border-color:#7a9fbe; }
   font-size:.67rem;
 }
 :root[data-theme="light"] .printer-group-form,
-:root[data-theme="light"] .printer-group-card,
-:root[data-theme="light"] .printer-group-members {
+:root[data-theme="light"] .printer-group-card {
   background:#f7fafc;
   border-color:#d5dee5;
 }
-:root[data-theme="light"] .printer-group-members-table th { background:#e8f0f5; color:#375366; }
-:root[data-theme="light"] .printer-group-members-table th,
-:root[data-theme="light"] .printer-group-members-table td { border-color:#d5dee5; }
-:root[data-theme="light"] .printer-group-members-table tbody tr:hover { background:#eaf3f8; }
-:root[data-theme="light"] .printer-group-members-table tbody tr.is-selected { background:#dceef8; }
+/* Table header, surface, dividers and selected rows are theme-token driven below. */
 :root[data-theme="light"] .printer-group-member-name,
 :root[data-theme="light"] .printer-group-card-title strong { color:#263744; }
 :root[data-theme="light"] .printer-group-members-table td { color:#526773; }
@@ -1776,8 +1771,6 @@ button.library-file-preview { cursor:zoom-in; }
   background:#fff3f4;
   border-color:#d7a8ad;
 }
-:root[data-theme="light"] .material-table-head { color:#607585; }
-:root[data-theme="light"] .material-grid.multi-tool-table,
 :root[data-theme="light"] .multi-tool-table .material-tool { border-color:#d5dee5; }
 :root[data-theme="light"] .material-tool-identity > span,
 :root[data-theme="light"] .material-tool-information > small { color:#5e7281; }
@@ -1997,7 +1990,6 @@ button.library-file-preview { cursor:zoom-in; }
 .frontend-renderer-active { color:#7fd2ae; }
 .frontend-renderer-warning { color:#f6be70; }
 :root[data-theme="light"] .frontend-renderer-summary { color:#334e60; }
-:root[data-theme="light"] .frontend-renderer-table th,
 :root[data-theme="light"] .frontend-renderer-table td { border-color:#d5dee5; }
 :root[data-theme="light"] .frontend-renderer-active { color:#146b49; }
 :root[data-theme="light"] .frontend-renderer-warning { color:#995311; }
