@@ -199,6 +199,100 @@ async function queueClickSmoke(browser,url) {
   } finally { await context.close(); }
 }
 
+async function simulatorSseSmoke(browser,url) {
+  console.log('Chromium: real controller SSE with protocol-backed simulated printer');
+  const jsonPost=async (endpoint,body)=>{
+    const response=await fetch(url+endpoint,{
+      method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(body)
+    });
+    const payload=await response.json();
+    assert.ok(response.ok,endpoint+' failed ('+response.status+'): '+JSON.stringify(payload));
+    return payload;
+  };
+  const context=await browser.newContext({viewport:{width:1365,height:900}});
+  const page=await context.newPage();
+  const failures=[];
+  page.on('pageerror',(error)=>failures.push(error.message));
+  await page.addInitScript(()=>{
+    window.__PFC_SSE_TEST__={connections:0,events:[],errors:0};
+    const NativeEventSource=window.EventSource;
+    window.EventSource=class extends NativeEventSource {
+      constructor(url,options){
+        super(url,options);
+        if (String(url).includes('/api/events')) {
+          window.__PFC_SSE_TEST__.connections++;
+          this.addEventListener('fleet',(event)=>{
+            try {
+              const payload=JSON.parse(event.data);
+              window.__PFC_SSE_TEST__.events.push({
+                printers:(payload.printers||[]).map((printer)=>({
+                  id:printer.id,online:printer.online,
+                  status:printer.status?.status||null,
+                  fileName:printer.status?.fileName||null
+                }))
+              });
+              if(window.__PFC_SSE_TEST__.events.length>60)window.__PFC_SSE_TEST__.events.shift();
+            } catch(e) {window.__PFC_SSE_TEST__.errors++;}
+          });
+        }
+      }
+    };
+  });
+  try {
+    const status=await jsonPost('/api/emulator/status',{enabled:true});
+    assert.equal(status.running,true,'integrated simulator starts within the isolated controller');
+    const created=await jsonPost('/api/emulator/printers',{
+      profileId:'snapmaker-u1',name:'SSE simulator U1',
+      ports:{httpPort:0}
+    });
+    assert.ok(created.printer?.controllerSettings,'simulator provides adapter registration details');
+
+    // Load the actual dashboard through the server. This page is NOT served
+    // mocked /api/fleet or /api/events responses; both connect to the running
+    // controller's fleet service and true EventSource transport.
+    await page.goto(url+'/',{waitUntil:'load'});
+    await preactReady(page);
+    await page.waitForFunction(()=>window.__PFC_SSE_TEST__?.connections>=1
+      && window.__PFC_SSE_TEST__?.events?.length>=1,null,{timeout:12000});
+    const registration=await jsonPost('/api/printers',created.printer.controllerSettings);
+    const printerId=registration.printer?.id;
+    assert.ok(printerId,'virtual printer must be registered with the real controller');
+    await page.waitForFunction((id)=>
+      document.querySelector('[data-printer-card="'+id+'"] [data-name]')?.textContent==='SSE simulator U1'
+      && window.__PFC_SSE_TEST__.events.some((e)=>e.printers.some((p)=>p.id===id&&p.online===true))
+    ,printerId,{timeout:25000});
+
+    const count=await page.locator('[data-printer-card="'+printerId+'"]').count();
+    assert.equal(count,1,'only one registered printer card rendered');
+    const started=await jsonPost('/api/emulator/printers/'+encodeURIComponent(created.printer.id)+'/actions',{
+      action:'start',fileName:'calibration-cube.gcode'
+    });
+    assert.equal(started.printer?.status,'printing','virtual device entered printing state');
+
+    await page.waitForFunction((id)=>{
+      const events=window.__PFC_SSE_TEST__?.events||[];
+      const received=events.some((e)=>e.printers.some((p)=>p.id===id&&p.status==='printing'));
+      const card=document.querySelector('[data-printer-card="'+id+'"]');
+      return received && card && card.querySelector('[data-job-name]')?.textContent?.includes('calibration-cube.gcode');
+    },printerId,{timeout:30000});
+    assert.equal(await page.locator('[data-printer-card="'+printerId+'"]').count(),1,
+      'same Preact card updates in place after true protocol polling and SSE');
+    const diagnostic=await page.evaluate(()=>({
+      connections:window.__PFC_SSE_TEST__.connections,
+      events:window.__PFC_SSE_TEST__.events.length,
+      errors:window.__PFC_SSE_TEST__.errors
+    }));
+    assert.ok(diagnostic.events>=2,'SSE must publish both connection and simulator state changes');
+    assert.equal(diagnostic.errors,0,'no invalid controller SSE payloads');
+    assert.deepEqual(failures,[],'real simulator SSE browser errors');
+    console.log('Chromium: simulator protocol -> fleet poll -> real SSE -> Preact card PASS');
+  } finally {
+    await context.close();
+    // Isolated controller process teardown is the safety boundary; no external
+    // printer or persistent user configuration is touched by this test.
+  }
+}
+
 async function main() {
   const externalUrl=process.env.PFC_BROWSER_TEST_BASE_URL||null;
   const dir=externalUrl?null:await fs.mkdtemp(path.join(os.tmpdir(),'pfc-chromium-'));
@@ -209,7 +303,7 @@ async function main() {
     if (!externalUrl) {
       processHandle=spawn(process.execPath,['src/server.js'],{
         cwd:root,env:{...process.env,HOST:'127.0.0.1',PORT:url.split(':').at(-1),
-          DATA_DIR:path.join(dir,'data'),LOG_DIR:path.join(dir,'logs'),DISCOVERY_SUBNET:''},
+          DATA_DIR:path.join(dir,'data'),LOG_DIR:path.join(dir,'logs'),DISCOVERY_SUBNET:'',EMULATOR_NO_DEFAULTS:'1'},
         stdio:['ignore','pipe','pipe']
       });
       processHandle.stdout.on('data',(x)=>logs.push(String(x)));
@@ -227,6 +321,7 @@ async function main() {
     page.on('pageerror',(e)=>errors.push(e.message));
     await routeSmoke(page,url);
     await queueClickSmoke(browser,url);
+    if(!externalUrl) await simulatorSseSmoke(browser,url);
     assert.deepEqual(errors,[],'browser Javascript errors');
     console.log('Chromium browser regression: PASSED');
   } catch (error) {
