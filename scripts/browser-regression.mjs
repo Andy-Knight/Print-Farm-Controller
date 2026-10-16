@@ -468,7 +468,7 @@ async function checkToolheadFieldAlignment(page, name, {filamentMode, nozzleMode
   const measured=await page.evaluate(({filamentMode,nozzleMode})=>{
     const panel=document.querySelector('#printerDialog #detailTabToolheads .material-panel');
     const headings=[...(panel?.querySelector('.material-table-head')?.children||[])];
-    const row=panel?.querySelector('.material-tool-row');
+    const row=panel?.querySelector('.material-tool-row') || panel?.querySelector('.material-tool');
     const filament=row?.querySelector(`[data-preact-toolhead-editor="${filamentMode}"]`);
     const nozzle=nozzleMode?row?.querySelector(`[data-preact-toolhead-editor="${nozzleMode}"]`):null;
     const x=(element)=>element?.getBoundingClientRect().left ?? null;
