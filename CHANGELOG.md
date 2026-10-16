@@ -6,7 +6,7 @@ Historical entries describe the behaviour of the controller at the time of that 
 
 ## v0.49.0
 
-- Vertically aligns the **Set filament** and **Assign** buttons for Flashforge AD5M and AD5M Pro Toolheads. The Preact filament editor previously inherited an extra 8px label-bottom margin and 6px material-select margin from legacy designation CSS, while the nozzle editor used zero and 4px. Normalising these in the inline form keeps fields and buttons on the same row; Chromium regression compares their exact rendered positions on both models.
+- Vertically aligns the **Set filament** and **Assign** buttons for Flashforge AD5M and AD5M Pro Toolheads. The Preact filament editor previously inherited an extra 8px label-bottom margin and 6px material-select margin from legacy designation CSS, while the nozzle editor used zero and 4px. Normalising these in the inline form keeps fields and buttons on the same row; Chromium regression compares the actual button and field positions using the shared AD5M/Pro adapter simulator.
 
 - Aligns the guidance below **Assign** with the guidance below **Set filament** in the CORE One+ and Creator 5 / Creator 5 Pro Toolheads rows. A generic nozzle-designation helper margin had shifted the Preact nozzle text 13px lower; both Preact editors now use the same helper top margin. Browser regression checks actual button and text positions for CORE One+ Standard/INDX4/INDX8 and Creator 5/Pro, without altering the legacy fallback.
 

@@ -194,6 +194,7 @@ test('Preact printer-detail chrome preserves six-tab behavior and vanilla fallba
   // different select spacing than the adjacent nozzle control. Preact must
   // normalise both to align Set filament and Assign in the same table row.
   assert.match(styles, /\.material-panel \.toolhead-designation-editor \.toolhead-dropdown-pair label\s*\{[^}]*margin:0;/);
+  assert.match(styles, /\.material-panel \.toolhead-designation-editor \.toolhead-dropdown-pair label\s*\{[^}]*font-size:\.68rem;/);
   assert.match(styles, /\.material-panel \.toolhead-designation-editor \.toolhead-dropdown-pair select\s*\{[^}]*margin-top:4px;/);
   assert.match(styles, /\.material-panel \.toolhead-designation-editor\s*\{[^}]*padding:0;[^}]*margin:0;/);
   // Each Preact form spans the entire legacy two-column wrapper. Otherwise
