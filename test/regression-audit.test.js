@@ -36,6 +36,17 @@ test('test inventory distinguishes production execution from source-only checks'
     "test('markup runs', () => runInNewContext(app, {}));"
   ].join('\n');
   assert.equal(inspectTestSource(extracted).category, 'mixed');
+
+  const urlImport = [
+    "import { pathToFileURL } from 'node:url';",
+    "const moduleUrl = pathToFileURL(path.resolve('src/print-library.js'));",
+    "test('migrates library files', async () => {",
+    "  const library = await import(moduleUrl.href);",
+    "  assert.ok(library);",
+    "});"
+  ].join('\\n');
+  assert.equal(inspectTestSource(urlImport).category, 'runtime',
+    'runtime imports assembled as URLs must not be misclassified as source-only');
 });
 
 test('test inventory separately reports skipped, todo and focused cases', () => {
