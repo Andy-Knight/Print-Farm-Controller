@@ -4,6 +4,7 @@ import tls from 'node:tls';
 import crypto from 'node:crypto';
 import path from 'node:path';
 import { readRuntimeAssetSync, runtimeAssetKeys } from '../src/runtime-assets.js';
+import { colorFamily } from '../src/color-family.js';
 
 const WEBSOCKET_GUID = '258EAFA5-E914-47DA-95CA-C5AB0DC85B11';
 
