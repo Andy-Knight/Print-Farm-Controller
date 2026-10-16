@@ -45,7 +45,7 @@ function mockEvents() {
   };
 }
 
-function makeHarness({ preact = false, confirmed = true, request = null } = {}) {
+function makeHarness({ preact = false, confirmed = true, request = null, transformController = null } = {}) {
   const events = mockEvents();
   const document = mockEvents();
   const calls = [];
@@ -119,7 +119,8 @@ function makeHarness({ preact = false, confirmed = true, request = null } = {}) 
     CustomEvent:class {}
   };
   const context = createContext(sandbox);
-  runInContext(controllerLogic, context, { filename:'public/app.js (queue handler execution)' });
+  runInContext(transformController ? transformController(controllerLogic) : controllerLogic, context,
+    { filename:'public/app.js (queue handler execution)' });
 
   return {
     queue,
@@ -259,4 +260,27 @@ test('a live refresh while waiting for API confirmation retains a disabled/pendi
   assert.equal(h.viewModel().pending, true, 'Preact view model also flags pending action');
   resolveRequest({ queue:{ jobs:[], productionBatches:[], bedClearance:[] } });
   await first;
+});
+
+
+test('fault injection: removing the live-refresh guard really loses the pre-click target', () => {
+  const h = makeHarness({transformController:(source) => {
+    // Change only the legacy queue rendering guard in the extracted real code,
+    // without modifying production files. This confirms why an existence-only
+    // regex assertion cannot substitute for the event/DOM-state test above.
+    const renderMarkup = source.indexOf('const nextActiveMarkup =');
+    assert.ok(renderMarkup >= 0);
+    const guard = 'if (queuePointerInteractionActive) {';
+    const index = source.indexOf(guard, renderMarkup);
+    assert.ok(index > renderMarkup);
+    return source.slice(0, index) + source.slice(index).replace(guard, 'if (false) {');
+  }});
+  h.render();
+  const originalButton = h.queue.button;
+  h.pointerDown(originalButton);
+  h.render(); // Unprotected redraw replaces the targeted button.
+  assert.equal(originalButton.connected, false, 'mutant disconnects the clicked node');
+  h.pointerUp(originalButton);
+  assert.equal(h.queue.click(originalButton), false, 'disconnected button cannot send the delegated click');
+  assert.equal(h.calls.length, 0, 'no clearance request reaches the controller');
 });
