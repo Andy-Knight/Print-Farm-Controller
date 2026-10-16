@@ -258,6 +258,17 @@
       </div>
 
       <div id="printerGroupsWorkspace">
+      <div class="printer-groups-tabs maintenance-view-selector" role="tablist" aria-label="Printer groups views">
+        <button id="printerGroupsTabCreate" type="button" class="maintenance-view-button active"
+          role="tab" aria-selected="true" aria-controls="printerGroupsCreatePanel"
+          data-printer-groups-tab="create">Create group</button>
+        <button id="printerGroupsTabExisting" type="button" class="maintenance-view-button"
+          role="tab" aria-selected="false" aria-controls="printerGroupsExistingPanel"
+          data-printer-groups-tab="groups">Existing groups</button>
+      </div>
+      <div id="printerGroupsStatus" class="subtle" role="status" aria-live="polite"></div>
+      <section id="printerGroupsCreatePanel" class="printer-groups-tab-panel" role="tabpanel"
+        aria-labelledby="printerGroupsTabCreate">
       <form id="printerGroupForm" class="printer-group-form">
         <input id="printerGroupId" type="hidden" />
         <div class="printer-group-form-head">
@@ -278,8 +289,12 @@
         </div>
       </form>
 
-      <div id="printerGroupsStatus" class="subtle"></div>
-      <div id="printerGroupsList" class="printer-groups-list"></div>
+      </section>
+      <section id="printerGroupsExistingPanel" class="printer-groups-tab-panel" role="tabpanel"
+        aria-labelledby="printerGroupsTabExisting" hidden>
+        <div id="printerGroupEditWorkspace" class="printer-groups-edit-workspace hidden"></div>
+        <div id="printerGroupsList" class="printer-groups-list"></div>
+      </section>
       </div>
 
       <div class="actions">
