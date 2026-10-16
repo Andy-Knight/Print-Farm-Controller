@@ -511,6 +511,39 @@ async function checkToolheadFieldAlignment(page, name, {filamentMode, nozzleMode
   return measured;
 }
 
+// Guidance under the nozzle Assign action should begin at the same
+// vertical offset as guidance under Set filament. The generic nozzle
+// wrapper otherwise overrides the shared .field-help margin by 13px.
+async function checkToolheadHelpAlignment(page,name,{filamentMode,nozzleMode}) {
+  const measurement=await page.evaluate(({filamentMode,nozzleMode})=>{
+    const row=document.querySelector('#printerDialog #detailTabToolheads .material-tool-row');
+    const metrics=(mode)=>{
+      const form=row?.querySelector(`[data-preact-toolhead-editor="${mode}"]`);
+      const action=form?.querySelector('[data-toolhead-save]');
+      const help=form?.querySelector(':scope > .field-help');
+      return {
+        buttonBottom:action?.getBoundingClientRect().bottom??null,
+        helpTop:help?.getBoundingClientRect().top??null,
+        helpMargin:help?getComputedStyle(help).marginTop:null
+      };
+    };
+    return {filament:metrics(filamentMode),nozzle:metrics(nozzleMode)};
+  },{filamentMode,nozzleMode});
+  const {filament,nozzle}=measurement;
+  for (const [kind,part] of Object.entries(measurement)) {
+    assert.ok(part.buttonBottom!==null&&part.helpTop!==null,
+      name+' '+kind+' button and helper must be visible: '+JSON.stringify(measurement));
+    assert.equal(part.helpMargin,'-5px',
+      name+' '+kind+' helper must have the same top margin');
+  }
+  const filamentGap=filament.helpTop-filament.buttonBottom;
+  const nozzleGap=nozzle.helpTop-nozzle.buttonBottom;
+  assert.ok(Math.abs(filamentGap-nozzleGap)<=2,
+    name+' guidance must start at the same offset beneath each button: '+JSON.stringify(measurement));
+  assert.ok(Math.abs(filament.helpTop-nozzle.helpTop)<=2,
+    name+' filament/nozzle help text must have aligned top edges: '+JSON.stringify(measurement));
+}
+
 async function simulatorSseSmoke(browser,url) {
   console.log('Chromium: real controller SSE with protocol-backed simulated printer');
   const jsonPost=async (endpoint,body)=>{
@@ -785,6 +818,9 @@ async function simulatorSseSmoke(browser,url) {
     await checkToolheadFieldAlignment(page,'Prusa CORE One+ Standard',{
       filamentMode:'prusa-filament',nozzleMode:'controller-nozzle'
     });
+    await checkToolheadHelpAlignment(page,'Prusa CORE One+ Standard',{
+      filamentMode:'prusa-filament',nozzleMode:'controller-nozzle'
+    });
     const coreOneLayout=await page.evaluate(()=>{
       const panel=document.querySelector('#printerDialog #detailTabToolheads .material-panel');
       const row=panel?.querySelector('.material-tool-row[data-material-tool="0"]');
@@ -847,7 +883,13 @@ async function simulatorSseSmoke(browser,url) {
       assert.equal(await page.locator('#printerDialog #detailTabToolheads .material-tool-row').count(),count,
         'the displayed INDX rows match the saved tool count immediately');
     };
-    for(const count of [4,8,1]) await switchCoreOneTools(count);
+    for(const count of [4,8,1]) {
+      await switchCoreOneTools(count);
+      await checkToolheadHelpAlignment(page,'Prusa CORE One+ '+count+' tools',{
+        filamentMode:'prusa-filament',
+        nozzleMode:count===1?'controller-nozzle':'tool-nozzle'
+      });
+    }
     console.log('Chromium: CORE One+ live INDX 1/4/8/1 configuration transitions PASS');
     await page.locator('#printerDialog [data-detail-close]').click();
     console.log('Chromium: CORE One+ filament dropdown width PASS');
