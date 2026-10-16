@@ -202,9 +202,14 @@ async function groupEditorSmoke(browser,url) {
   try {
     await page.goto(url+'/groups',{waitUntil:'load'});
     await preactReady(page);
+    await page.locator('#printerGroupsTabCreate[aria-selected="true"]').waitFor();
+    assert.equal(await page.locator('#printerGroupForm').count(),1,'create tab owns its form');
+    assert.equal(await page.locator('#printerGroupsList').count(),0,'existing list not rendered in create tab');
+    await page.locator('#printerGroupsTabExisting').click();
     await page.locator('[data-printer-group-edit="seed-group"]').waitFor();
-    assert.equal(await page.locator('#printerGroupForm').count(),1,'single active group form');
-    assert.equal(await page.locator('#printerGroupsList').count(),1,'single active group list');
+    assert.equal(await page.locator('#printerGroupForm').count(),0,'list tab starts without an editor');
+    assert.equal(await page.locator('#printerGroupsList').count(),1,'existing list is visible in second tab');
+    await page.locator('#printerGroupsTabCreate').click();
 
     // An SSE/reload-style state publication must not overwrite unsaved inputs.
     await page.evaluate(()=>{
@@ -326,6 +331,13 @@ async function groupEditorSmoke(browser,url) {
       && stickyHeader.headerTop<=stickyHeader.wrapperTop+4,
       'the table header stays visible while its body is scrolled');
     await page.locator('#printerGroupName').fill('Unsubmitted draft');
+    await page.locator('#printerGroupsTabExisting').click();
+    assert.equal(await page.locator('#printerGroupForm').count(),0,'tab switch hides create form');
+    await page.locator('#printerGroupsTabCreate').click();
+    assert.equal(await page.locator('#printerGroupName').inputValue(),'Unsubmitted draft',
+      'switching tabs does not discard a create draft');
+    assert.ok(await page.locator('[data-printer-group-member][value="sample-one"]').isChecked(),
+      'switching tabs retains selected members');
     await page.evaluate(()=>window.dispatchEvent(new CustomEvent('pfc:printer-groups-ui-state',{
       detail:window.__PFC_TEST_GROUP_STATE__
     })));
@@ -338,14 +350,22 @@ async function groupEditorSmoke(browser,url) {
     // in-memory group API without a real configured printer.
     await page.reload({waitUntil:'load'});
     await preactReady(page);
+    await page.locator('#printerGroupsTabCreate[aria-selected="true"]').waitFor();
+    await page.locator('#printerGroupsTabExisting').click();
     await page.locator('[data-printer-group-edit="seed-group"]').waitFor();
+    await page.locator('#printerGroupsTabCreate').click();
     await page.locator('#printerGroupName').fill('Production');
     await page.locator('#printerGroupSubmit').click();
     await page.waitForFunction(()=>
       document.querySelector('#printerGroupsStatus')?.textContent?.includes('created.'));
     await page.locator('[data-printer-group-edit="created-group"]').waitFor();
+    assert.equal(await page.locator('#printerGroupsTabExisting').getAttribute('aria-selected'),'true',
+      'successfully created groups appear immediately on the existing-groups tab');
+    assert.equal(await page.locator('#printerGroupForm').count(),0,
+      'successful create does not leave an edit form in the existing-groups tab');
     assert.equal(counts.post,1,'one submit creates exactly one group');
 
+    await page.locator('#printerGroupsTabCreate').click();
     await page.locator('#printerGroupName').fill('Production');
     await page.locator('#printerGroupSubmit').click();
     await page.locator('#printerGroupError[role="alert"]').getByText('already exists').waitFor();
@@ -353,14 +373,30 @@ async function groupEditorSmoke(browser,url) {
       'failed create keeps entered name');
     assert.equal(counts.post,2,'duplicate submission is rejected without resetting form');
 
+    await page.locator('#printerGroupsTabExisting').click();
     await page.locator('[data-printer-group-edit="created-group"]').click();
     assert.equal(await page.locator('#printerGroupName').inputValue(),'Production');
     await page.locator('#printerGroupName').fill('Production A');
+    await page.locator('#printerGroupsTabCreate').click();
+    assert.equal(await page.locator('#printerGroupForm').count(),1,
+      'create tab stays independent from the in-progress group edit');
+    await page.locator('#printerGroupsTabExisting').click();
+    assert.equal(await page.locator('#printerGroupName').inputValue(),'Production A',
+      'in-progress edit draft survives tab switching');
     await page.locator('#printerGroupSubmit').click();
     await page.waitForFunction(()=>
       document.querySelector('#printerGroupsStatus')?.textContent?.includes('updated.'));
     await page.locator('[data-printer-group-card="created-group"] strong').getByText('Production A').waitFor();
     assert.equal(counts.patch,1,'one edit submits exactly one patch');
+    assert.equal(await page.locator('#printerGroupForm').count(),0,
+      'saving an edit closes the edit form while retaining the existing-groups list');
+
+    await page.locator('[data-printer-group-edit="seed-group"]').click();
+    await page.locator('#printerGroupCancelEdit').click();
+    assert.equal(await page.locator('#printerGroupsTabExisting').getAttribute('aria-selected'),'true',
+      'cancel edit remains on the group-management tab');
+    assert.equal(await page.locator('#printerGroupForm').count(),0,
+      'cancel edit closes the edit form');
 
     await page.locator('[data-printer-group-delete="created-group"]').click();
     await page.waitForFunction(()=>!document.querySelector('[data-printer-group-card="created-group"]'));
