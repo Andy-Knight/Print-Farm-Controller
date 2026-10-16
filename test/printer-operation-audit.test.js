@@ -144,3 +144,38 @@ test('printer operation coordinator rejects empty targets and does not invoke th
   assert.equal(executed, false);
   assert.equal(coordinator.activeOperations().length, 0);
 });
+
+
+test('fault injection exposes a same-printer transaction overlap when the lock check is bypassed', async () => {
+  const source = readFileSync(new URL('../src/concurrency.js', import.meta.url), 'utf8');
+  const lockGuard = 'if (active) throw new PrinterBusyError(id, active);';
+  assert.equal(source.split(lockGuard).length, 2, 'locate production transaction guard');
+  const mutatedSource = source.replace(lockGuard, 'if (false) throw new PrinterBusyError(id, active);')
+    .replaceAll('export ', '');
+  const MutatedCoordinator = runInNewContext(
+    mutatedSource + '\nPrinterOperationCoordinator;',
+    { Date, Map, Promise, String, Error }
+  );
+
+  const normal = new PrinterOperationCoordinator();
+  const normalGate = deferred();
+  const firstNormal = normal.run('p1', 'level', () => normalGate.promise);
+  await assert.rejects(normal.run('p1', 'start print', async () => 'unexpected'), (error) =>
+    error.code === 'PRINTER_BUSY' && error.statusCode === 409);
+  normalGate.resolve('done');
+  await firstNormal;
+
+  const mutated = new MutatedCoordinator();
+  const mutantGate = deferred();
+  let overlappingStarted = false;
+  const firstMutant = mutated.run('p1', 'level', () => mutantGate.promise);
+  const secondMutant = mutated.run('p1', 'start print', async () => {
+    overlappingStarted = true;
+    return 'unsafe overlap';
+  });
+  assert.equal(await secondMutant, 'unsafe overlap');
+  assert.equal(overlappingStarted, true,
+    'the isolated mutant allows a print start while levelling is still running');
+  mutantGate.resolve('done');
+  await firstMutant;
+});
