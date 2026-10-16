@@ -12,6 +12,11 @@ Run:
 npm test
 npm run test:audit
 npm run test:audit -- --json
+
+# Real browser checks (requires dev dependencies and installed Chromium):
+npm install --include=dev
+npx playwright install chromium
+npm run test:browser
 ```
 
 The audit command dynamically counts test files and declarations, identifies explicit `skip`, `todo` and `only` declarations, and reports repeated test descriptions. A committed `test.only` causes the audit command to fail. GitHub Actions now runs the inventory alongside the normal suite.
@@ -60,6 +65,23 @@ The queue scheduling / printer-operation tests directly execute production servi
 
 Existing `test/disaster-recovery-e2e.test.js` already verifies multi-resource restore, recovery-held jobs, disabled restored schedules, and Community fallback for an invalid signed licence. No duplicate standalone end-to-end workflow was added. New scenarios use temporary local directories and synthetic licence keys, **not real customer data or remote backup providers**. These checks do not replace physical recovery drills, access-permission testing on NAS/K3s, browser tests, or cloud-provider authentication tests.
 
+## Phase 2: live Chromium/Preact validation (2026-10-16)
+
+Added `scripts/browser-regression.mjs` and a dedicated **Chromium Preact regression** GitHub Actions job. Unlike the existing source-pattern assertions, this starts a real controller server using a temporary, isolated data directory, loads the **built frontend bundle**, drives an actual Chromium session, and fails on browser JavaScript exceptions. The test can also target a user-supplied controller URL via `PFC_BROWSER_TEST_BASE_URL`; use only an isolated testing instance for this option.
+
+| Area | Verification |
+| --- | --- |
+| Preact build/fallback | Verifies `/dashboard-preact.js` is actually served as JavaScript and the browser reports **13/13 Preact presenters** initialized, with zero legacy fallbacks. A fresh ZIP without a frontend build must fail this test. |
+| Direct route load and refresh | Visits **all 10 controller routes** directly, reloads each with Chromium's actual browser refresh, checks the selected route and visible nonempty routed UI. |
+| Reporting | Waits for populated Preact KPI cards and the reporting-period indicator after opening **/reports** directly and after browser refresh. Exercises both reporting tabs. |
+| Navigation/history | Uses actual sidebar clicks and browser Back/Forward, checking URL and route visibility. |
+| Live UI presentation | Publishes report and fleet state events through the existing Preact event bridge; verifies KPI updates, in-place printer-card progress/tool/job updates and keyed-card removal without duplicate cards. |
+| Queue Bed cleared action | Injects an isolated backend queue fixture, verifies a rendered Preact clearance button, publishes a Preact queue summary update, clicks via Chromium and verifies **exactly one** intercepted POST and clearance-row removal. Real firmware is never contacted. |
+
+**CI requirements:** The browser job installs development dependencies (which rebuild the bundle), downloads pinned Playwright Chromium and system libraries, runs `npm run test:browser`, and saves a screenshot artifact if a browser check fails. The container smoke stage now requires **both** the existing Node/MinIO job and the browser job.
+
+**Remaining limits:** Fleet/report live updates are synthetic **browser events** at the established Preact event bridge, not a live-device SSE transport test. Queue HTTP responses are isolated fixtures. No physical printer, cloud account or production data is used. A real SSE transport test with a running simulator and UI-level interaction under concurrent telemetry remains a useful follow-up.
+
 ## Work stages
 
 1. **Inventory** — enumerate the entire suite and annotate runtime, mixed, source-only, skipped and duplicate-description cases. **Baseline complete.** Manually triage suites with misleading heuristic classification and compare suspicious duplicates/absent assertions.
@@ -84,3 +106,5 @@ Existing `test/disaster-recovery-e2e.test.js` already verifies multi-resource re
 - **2026-10-16:** Validated queue-priority aging boundaries, ordering and review-block scheduling with executable service tests; validated operation safety decisions across physical activity states and concurrent-client lock handling. Confirmed fault sensitivity to a doubled aging interval, unsafe print-start allowance during bed levelling, and bypass of the same-printer transaction lock. Tests run against the v0.48.0 code without modifying application behaviour.
 
 - **2026-10-16:** Added six restore-safety and five licence-integrity behavioural checks. Demonstrated the consequences of suppressing the restored-job recovery hold and Ed25519 verification via isolated VM mutants, plus actual stage/cancel/activate/rollback and fail-closed signed-licence loading. The Node regression suite and inventory checks passed on the audit branch; follow-up MinIO and container smoke checks run independently in GitHub Actions.
+- **2026-10-16:** Added real Chromium regression tests for all route refreshes, reporting, navigation/history, Preact fleet/queue event handling and bed-clearance POSTs. Browser builds run independently in CI and gate the container smoke job. This closes the previous gap where source-only Preact assertions passed despite an absent bundle; SSE transport and real-firmware verification remain outstanding.
+
