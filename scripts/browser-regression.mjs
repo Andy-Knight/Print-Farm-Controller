@@ -637,6 +637,9 @@ async function simulatorSseSmoke(browser,url) {
         rowCount:panel?.querySelectorAll('.material-tool-row').length,
         cellCount:row?.children.length,
         material:!!material,nozzle:!!nozzle,
+        materialBorder:material?getComputedStyle(material).borderTopWidth:null,
+        materialMargin:material?getComputedStyle(material).marginTop:null,
+        materialPadding:material?getComputedStyle(material).paddingTop:null,
         identity:rect(row?.querySelector('.material-tool-identity')),
         information:rect(row?.querySelector('.material-tool-information')),
         configuration:rect(row?.querySelector('.material-tool-configuration')),
@@ -652,6 +655,12 @@ async function simulatorSseSmoke(browser,url) {
     assert.equal(ad5mLayout.cellCount,4,'T0 row contains identity, live info, filament and nozzle cells');
     assert.ok(ad5mLayout.material&&ad5mLayout.nozzle,
       'filament and nozzle Preact editors are inside T0 rather than separate below the table');
+    assert.equal(ad5mLayout.materialBorder,'0px',
+      'the in-row filament designation must not draw a stray horizontal divider');
+    assert.equal(ad5mLayout.materialMargin,'0px',
+      'in-row filament designation must align with adjacent toolhead fields');
+    assert.equal(ad5mLayout.materialPadding,'0px',
+      'in-row filament designation does not need legacy section spacing');
     const positions=[ad5mLayout.identity,ad5mLayout.information,
       ad5mLayout.configuration,ad5mLayout.nozzleCell];
     assert.ok(positions.every((box)=>box&&Math.abs(box.top-positions[0].top)<3),
