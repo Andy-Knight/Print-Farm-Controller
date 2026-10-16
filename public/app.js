@@ -7261,7 +7261,15 @@ async function openPrinter(id) {
       : `<div class="sensor-readout"><span>Chamber / cavity</span><b data-chamber-now>${Number(s.chamber.actual).toFixed(1)} °C</b></div>`
     : '';
   const configuredToolCount = Number(limits.toolCount || (Array.isArray(s?.tools) ? s.tools.length : 0));
-  const wideToolheadLayout = Boolean(capabilities.materialStatus && configuredToolCount > 1);
+  // Display the single-tool AD5M and AD5M Pro with the same horizontal
+  // Toolhead / Live information / Filament configuration / Nozzle table as
+  // other toolhead-capable printers. This must work in Preact and the
+  // no-bundle fallback, with all controls inside the T0 row.
+  const ad5mToolheadTable = printer.adapterType === 'flashforge-ad5m'
+    && capabilities.materialStatus
+    && (capabilities.materialDesignation || capabilities.nozzleDesignation);
+  const wideToolheadLayout = Boolean(capabilities.materialStatus
+    && (configuredToolCount > 1 || ad5mToolheadTable));
   const manualNozzleColumn = Boolean(wideToolheadLayout && (capabilities.toolNozzleDesignation || capabilities.nozzleDesignation));
   const showConfigurationColumn = true;
   const materialStatusMarkup = capabilities.materialStatus ? (() => {
@@ -7298,7 +7306,9 @@ async function openPrinter(id) {
         const configuration = [
           printer.adapterType === 'snapmaker-u1' ? u1FilamentConfigControlMarkup(printer, tool) : '',
           printer.adapterType === 'flashforge-creator5' ? creator5FilamentConfigControlMarkup(printer, tool) : '',
-          printer.manufacturer === 'Prusa' ? prusaToolMaterialDesignationMarkup(printer, tool) : ''
+          printer.manufacturer === 'Prusa' ? prusaToolMaterialDesignationMarkup(printer, tool) : '',
+          ad5mToolheadTable && toolPosition === 0
+            ? flashForgeMaterialDesignationMarkup(printer, filament) : ''
         ].filter(Boolean).join('');
         const nozzleConfiguration = capabilities.toolNozzleDesignation
           ? toolNozzleDesignationMarkup(printer, tool, tools.length)
@@ -7344,7 +7354,7 @@ async function openPrinter(id) {
         </div>`;
       }).join('')}</div>
       ${bambuSources}
-      ${printer.adapterType === 'flashforge-ad5m' ? flashForgeMaterialDesignationMarkup(printer, tools[0]?.filament || {}) : ''}
+      ${printer.adapterType === 'flashforge-ad5m' && !ad5mToolheadTable ? flashForgeMaterialDesignationMarkup(printer, tools[0]?.filament || {}) : ''}
       ${((['flashforge-ad5m','flashforge-creator5'].includes(printer.adapterType) || printer.manufacturer === 'Prusa') && !(wideToolheadLayout && capabilities.nozzleDesignation)) ? flashForgeNozzleDesignationMarkup(printer, tools[0] || {}) : ''}
       ${toolConfigurationMarkup(printer, limits)}
       <div class="field-help material-help">${escapeHtml(materialHelp)}</div>
