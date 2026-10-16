@@ -63,8 +63,12 @@ function makeHarness({ preact = false, confirmed = true, request = null } = {}) 
       if (this.button) this.button.connected = false;
       this.markup = value;
       this.writes += 1;
-      const id = value.match(/data-bed-cleared="([^"]+)"/)?.[1];
-      this.button = id ? makeButton(id) : null;
+      const buttonMarkup = value.match(/<button[^>]*data-bed-cleared="([^"]+)"([^>]*)>([^<]*)<\/button>/);
+      this.button = buttonMarkup ? makeButton(buttonMarkup[1]) : null;
+      if (this.button) {
+        this.button.disabled = /\sdisabled\b/.test(buttonMarkup[2]);
+        this.button.textContent = buttonMarkup[3];
+      }
     },
     get innerHTML() { return this.markup; },
     click(button) {
@@ -251,7 +255,7 @@ test('a live refresh while waiting for API confirmation retains a disabled/pendi
   h.render();
   assert.match(h.queue.markup, /data-bed-cleared="ad5m-1" disabled/);
   assert.match(h.queue.markup, /Continuing…/);
-  assert.equal(h.queue.button?.disabled, false, 'harness nodes do not parse disabled HTML attributes');
+  assert.equal(h.queue.button?.disabled, true, 'refresh renders a disabled action while API is pending');
   assert.equal(h.viewModel().pending, true, 'Preact view model also flags pending action');
   resolveRequest({ queue:{ jobs:[], productionBatches:[], bedClearance:[] } });
   await first;
