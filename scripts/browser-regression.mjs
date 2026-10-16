@@ -968,12 +968,16 @@ async function simulatorSseSmoke(browser,url) {
     }
     // Also check the standard AD5M profile, not just AD5M Pro. Both have
     // identical inline material/nozzle editors but distinct model profiles.
+    // The simulator exposes the shared AD5M/Pro protocol as one profile.
+    // Register a second instance as the base AD5M model to check its UI.
     const basicAd5m=await jsonPost('/api/emulator/printers',{
-      profileId:'flashforge-ad5m',name:'AD5M action alignment',
+      profileId:'flashforge-ad5m-pro',name:'AD5M action alignment',
       ports:{httpPort:0,tcpPort:0,cameraPort:0}
     });
     assert.ok(basicAd5m.printer?.controllerSettings,'AD5M simulator registration details');
-    const basicRegistration=await jsonPost('/api/printers',basicAd5m.printer.controllerSettings);
+    const basicRegistration=await jsonPost('/api/printers',{
+      ...basicAd5m.printer.controllerSettings,model:'Adventurer 5M'
+    });
     const basicId=basicRegistration.printer?.id;
     assert.ok(basicId,'AD5M simulator is registered with the isolated controller');
     await page.waitForFunction((id)=>Boolean(
