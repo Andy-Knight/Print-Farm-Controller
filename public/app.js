@@ -8132,6 +8132,134 @@ ${flashForgePreflight}` : ''}`)) return;
   };
 }
 
+
+const pendingToolheadDesignations=new Set();
+
+// These are controller-metadata operations, not motion/heater commands.
+// Device-side Snapmaker U1 and Creator 5 filament writes intentionally stay
+// with their existing idle/RFID/palette/verification handlers.
+async function performToolheadDesignation(action) {
+  const printerId=String(action.printerId||'');
+  const printer=fleet.find((item)=>item.id===printerId);
+  if(!printer || !printerDialog.open || currentPrinterId!==printerId || printer.licenseActive===false)
+    throw new Error('Printer is no longer open or is read-only.');
+  const mode=String(action.mode||'');
+  const operation=action.operation==='clear'?'clear':'save';
+  const toolIndex=Number(action.toolIndex);
+  const data=action.values||{};
+  const options=printerToolheadControlState(printer);
+  const control=options.find((item)=>item.mode===mode&&item.toolIndex===toolIndex);
+  if(!control||!control.enabled)throw new Error('This printer does not support that designation.');
+  if(operation==='clear'&&!control.canClear)throw new Error('Clearing this designation is not supported.');
+  const tool=printer.status?.tools?.find((item)=>Number(item.index)===toolIndex);
+  const key=`${printerId}:${mode}:${toolIndex}`;
+  if(pendingToolheadDesignations.has(key))throw new Error('A designation change is already in progress.');
+  pendingToolheadDesignations.add(key);
+  try {
+    if(mode==='prusa-filament'||mode==='controller-filament'){
+      const material=String(data.material||'').trim();
+      const colorFamily=String(data.colorFamily||'').trim().toLowerCase();
+      const colorOption=filamentColorFamilyOption(colorFamily);
+      if(!material || !colorOption)throw new Error('Choose a filament type and colour family.');
+      if(mode==='prusa-filament'){
+        const result=await api(`/api/printers/${encodeURIComponent(printerId)}/tool-material-designation`,{
+          method:'POST',body:JSON.stringify({
+            toolIndex,material,colorFamily,color:colorOption.representative
+          })
+        });
+        const designation=result.designation||{};
+        if(tool?.filament){
+          const filament=tool.filament;
+          filament.material=designation.material||filament.reportedMaterial||null;
+          filament.materialSource=designation.material?'manual':(filament.reportedMaterial?'printer':null);
+          filament.color=designation.color||filament.reportedColor||null;
+          filament.colorSource=designation.color?'manual':(filament.reportedColor?'printer':null);
+          filament.colorFamily=designation.colorFamily||filament.reportedColorFamily||null;
+          filament.colorFamilySource=designation.colorFamily?'manual':(filament.reportedColorFamily?'printer':null);
+          filament.manuallyAssigned=Boolean(designation.material||designation.color||designation.colorFamily);
+          filament.metadataAvailable=Boolean(filament.material||filament.color||filament.colorFamily);
+        }
+      } else {
+        const result=await api(`/api/printers/${encodeURIComponent(printerId)}/material-designation`,{
+          method:'POST',body:JSON.stringify({material,colorFamily,color:null})
+        });
+        printer.materialDesignation=material;
+        printer.materialColorFamilyDesignation=result.materialColorFamilyDesignation||colorFamily;
+        printer.materialColorDesignation=null;
+        const filament=printer.status?.tools?.[0]?.filament;
+        if(filament){
+          if(!filament.reportedMaterial&&filament.materialSource==='printer')
+            filament.reportedMaterial=filament.material||null;
+          if(!filament.reportedColor&&filament.colorSource==='printer')
+            filament.reportedColor=filament.color||null;
+          filament.material=material;filament.materialSource='manual';
+          filament.colorFamily=printer.materialColorFamilyDesignation;
+          filament.colorFamilySource='manual';
+          filament.color=null;filament.colorSource=null;
+          filament.manuallyAssigned=true;filament.metadataAvailable=true;
+        }
+      }
+    } else if(mode==='tool-nozzle'||mode==='controller-nozzle'){
+      const diameter=Number(data.nozzleDiameter);
+      if(operation!=='clear' && !printerNozzleDiameterOptions(printer).some(
+        (size)=>Math.abs(size-diameter)<0.0001))
+        throw new Error('Choose a nozzle size from the list.');
+      if(mode==='tool-nozzle'){
+        if(operation==='clear'){
+          await api(`/api/printers/${encodeURIComponent(printerId)}/tool-nozzle-designation?toolIndex=${toolIndex}`,{
+            method:'DELETE'
+          });
+          const reported=Number(tool?.reportedNozzleDiameter);
+          if(tool){
+            tool.nozzleDiameter=Number.isFinite(reported)&&reported>0?reported:null;
+            tool.nozzleDiameterSource=tool.nozzleDiameter?'printer':null;
+            tool.nozzleManuallyAssigned=false;
+          }
+        } else {
+          const result=await api(`/api/printers/${encodeURIComponent(printerId)}/tool-nozzle-designation`,{
+            method:'POST',body:JSON.stringify({toolIndex,nozzleDiameter:diameter})
+          });
+          if(tool){
+            tool.nozzleDiameter=Number(result.designation?.nozzleDiameter||diameter);
+            tool.nozzleDiameterSource='manual';tool.nozzleManuallyAssigned=true;
+          }
+        }
+      } else if(operation==='clear'){
+        await api(`/api/printers/${encodeURIComponent(printerId)}/nozzle-designation`,{
+          method:'DELETE'
+        });
+        printer.nozzleDiameterDesignation=null;
+        const reported=Number(tool?.reportedNozzleDiameter);
+        if(tool){
+          tool.nozzleDiameter=Number.isFinite(reported)&&reported>0?reported:null;
+          tool.nozzleDiameterSource=tool.nozzleDiameter?'printer':null;
+          tool.nozzleManuallyAssigned=false;
+        }
+      } else {
+        const result=await api(`/api/printers/${encodeURIComponent(printerId)}/nozzle-designation`,{
+          method:'POST',body:JSON.stringify({nozzleDiameter:diameter})
+        });
+        printer.nozzleDiameterDesignation=result.nozzleDiameterDesignation;
+        if(tool){
+          if(!Number.isFinite(Number(tool.reportedNozzleDiameter))
+            &&tool.nozzleDiameterSource==='printer'
+            &&Number.isFinite(Number(tool.nozzleDiameter)))
+            tool.reportedNozzleDiameter=Number(tool.nozzleDiameter);
+          tool.nozzleDiameter=result.nozzleDiameterDesignation;
+          tool.nozzleDiameterSource='manual';tool.nozzleManuallyAssigned=true;
+        }
+      }
+    } else throw new Error('Unsupported toolhead designation.');
+    if(!printerDialog.open || currentPrinterId!==printerId)throw new Error('Printer details were closed during the update.');
+    updateOpenPrinterTelemetry();
+    const saved=printerToolheadControlState(printer)
+      .find((item)=>item.mode===mode&&item.toolIndex===toolIndex);
+    return saved?.values||{};
+  } finally {
+    pendingToolheadDesignations.delete(key);
+  }
+}
+
 window.addEventListener('pfc:printer-detail-action', (event) => {
   const action = event?.detail || {};
   if (action.type === 'close') {
@@ -8140,6 +8268,12 @@ window.addEventListener('pfc:printer-detail-action', (event) => {
   }
   if (action.type === 'tab') {
     activatePrinterDetailTab(action.value);
+    return;
+  }
+  if (action.type === 'toolhead-designation') {
+    performToolheadDesignation(action).then(
+      (saved)=>action.resolve?.(saved),(failure)=>action.reject?.(failure)
+    );
     return;
   }
   if (action.type === 'rename') {
