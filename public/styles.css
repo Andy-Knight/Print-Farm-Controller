@@ -1024,7 +1024,8 @@ input:focus,select:focus { border-color:#7a9fbe; }
 .material-tool-configuration.read-only { display:flex; align-items:center; min-height:36px; }
 .material-tool-configuration .u1-filament-config-control,
 .material-tool-configuration .creator5-filament-config-control,
-.material-tool-configuration .prusa-tool-filament-control {
+.material-tool-configuration .prusa-tool-filament-control,
+.material-tool-configuration .material-designation-control {
   margin-top:0;
   padding-top:0;
   border-top:0;
