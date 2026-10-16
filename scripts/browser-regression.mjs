@@ -213,13 +213,57 @@ async function groupEditorSmoke(browser,url) {
         ...current,
         printers:[
           {id:'sample-one',name:'Sample One',manufacturer:'Snapmaker',model:'U1'},
-          {id:'sample-two',name:'Sample Two',manufacturer:'FlashForge',model:'AD5M Pro'}
+          {id:'sample-two',name:'Sample Two',manufacturer:'FlashForge',model:'AD5M Pro'},
+          ...Array.from({length:180},(_,i)=>({
+            id:'bulk-'+i,name:'Printer '+String(i).padStart(3,'0'),
+            manufacturer:'Test manufacturer',model:'Model '+i
+          }))
         ]
       };
       window.dispatchEvent(new CustomEvent('pfc:printer-groups-ui-state',{detail:withPrinters}));
       window.__PFC_TEST_GROUP_STATE__=withPrinters;
     });
+    const layout=await page.locator('#printerGroupMembers').evaluate((panel)=>{
+      const header=panel.querySelector('th');
+      return {
+        rowCount:panel.querySelectorAll('tbody tr').length,
+        scrollHeight:panel.scrollHeight,clientHeight:panel.clientHeight,
+        overflowY:getComputedStyle(panel).overflowY,
+        headerPosition:getComputedStyle(header).position
+      };
+    });
+    assert.equal(layout.rowCount,182,'all 182 simulated printer choices are in one table');
+    assert.ok(layout.scrollHeight>layout.clientHeight,'large membership list scrolls inside a bounded panel');
+    assert.equal(layout.overflowY,'auto','membership table is independently scrollable');
+    assert.equal(layout.headerPosition,'sticky','membership column headers stay in place');
+
     await page.locator('[data-printer-group-member][value="sample-one"]').check();
+    await page.locator('[data-printer-group-member][value="bulk-179"]').check();
+    await page.locator('#printerGroupMemberSearch').fill('Printer 179');
+    assert.equal(await page.locator('#printerGroupMembers tbody tr').count(),1,
+      'search narrows choices to the matching printer');
+    assert.ok(await page.locator('[data-printer-group-member][value="bulk-179"]').isChecked(),
+      'matching printer retains selection during filtering');
+    await page.locator('[data-printer-group-clear-visible]').click();
+    assert.equal(await page.locator('[data-printer-group-member][value="bulk-179"]').isChecked(),false,
+      'clear visible deselects the filtered printer');
+    await page.locator('[data-printer-group-select-visible]').click();
+    assert.ok(await page.locator('[data-printer-group-member][value="bulk-179"]').isChecked(),
+      'select visible restores filtered selection');
+    await page.locator('#printerGroupMemberSearch').fill('');
+    assert.ok(await page.locator('[data-printer-group-member][value="sample-one"]').isChecked(),
+      'select/clear filtered items must not change hidden selections');
+    assert.match(await page.locator('#printerGroupMemberCount').innerText(),/2 selected/);
+    const stickyHeader=await page.locator('#printerGroupMembers').evaluate((panel)=>{
+      panel.scrollTop=220;
+      return {
+        wrapperTop:panel.getBoundingClientRect().top,
+        headerTop:panel.querySelector('th').getBoundingClientRect().top
+      };
+    });
+    assert.ok(stickyHeader.headerTop>=stickyHeader.wrapperTop-2
+      && stickyHeader.headerTop<=stickyHeader.wrapperTop+4,
+      'the table header stays visible while its body is scrolled');
     await page.locator('#printerGroupName').fill('Unsubmitted draft');
     await page.evaluate(()=>window.dispatchEvent(new CustomEvent('pfc:printer-groups-ui-state',{
       detail:window.__PFC_TEST_GROUP_STATE__
