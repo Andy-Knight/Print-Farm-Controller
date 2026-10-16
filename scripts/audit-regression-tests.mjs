@@ -11,7 +11,8 @@ export function inspectTestSource(source, filename = '') {
     name:match[3],
     mode:match[1] ? match[1].slice(1) : 'normal'
   }));
-  const importsImplementation = /(?:from\s*|import\s*\(|require\s*\()\s*['"]\.\.\/(?:src|public|ui|emulator|scripts)\//.test(source);
+  const importsImplementation = /(?:from\s*|import\s*\(|require\s*\()\s*['"]\.\.\/(?:src|public|ui|emulator|scripts)\//.test(source)
+    || /\bimport\s*\(/.test(source); // Includes template-string and URL-based dynamic imports.
   const executesExtractedCode = /\brunIn(?:New)?Context\s*\(|\bvm\.runIn(?:New)?Context\s*\(|\bnew\s+Function\s*\(/.test(source);
   const launchesProcessOrServer = /\b(?:spawn|spawnSync|execFile|execFileSync|createServer)\s*\(/.test(source);
   const inspectsFiles = /\b(?:readFile|readFileSync|read)\s*\(/.test(source);
