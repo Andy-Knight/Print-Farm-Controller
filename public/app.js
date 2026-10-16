@@ -3734,11 +3734,13 @@ function publishPrinterGroupsUiState() {
 }
 
 function renderPrinterGroups() {
-  if (!printerGroupsList) return;
+  // The Preact Create tab deliberately does not mount the existing-group list.
+  // Publish cache changes before checking for the legacy list node.
   if (window.__PFC_PREACT_PRINTER_GROUPS__) {
     publishPrinterGroupsUiState();
     return;
   }
+  if (!printerGroupsList) return;
   const groups = [...(printerGroupsState.groups || [])].sort((a, b) => String(a.name).localeCompare(String(b.name)));
   printerGroupsList.innerHTML = groups.length
     ? groups.map((group) => {
