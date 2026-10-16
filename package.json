@@ -9,6 +9,7 @@
     "dev": "node --watch src/server.js",
     "emulator": "node emulator/server.js",
     "test": "node --test",
+    "test:audit": "node scripts/audit-regression-tests.mjs",
     "postinstall": "npm run build:frontend",
     "build:frontend": "node scripts/build-frontend.mjs",
     "build:bundle": "npm run build:frontend && node scripts/build-controller-bundle.mjs",
