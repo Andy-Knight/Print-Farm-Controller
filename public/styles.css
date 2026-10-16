@@ -4055,6 +4055,21 @@ body:not([data-route="/"]) > main > :not(.route-page) { display:none !important;
 .material-panel .toolhead-designation-editor .toolhead-dropdown-pair label {
   min-width:0;
 }
+
+/* Legacy filament wrappers use a two-column grid because their original
+   selects were direct children. Preact mounts a whole form as one child:
+   without spanning the grid, that form gets only half the available column
+   and its type/colour dropdowns shrink to roughly half the standard 160px.
+   Span both wrapper tracks for all Preact printers; leave the no-bundle
+   legacy layout untouched. */
+.material-panel .u1-filament-config-control > .toolhead-designation-editor,
+.material-panel .creator5-filament-config-control > .toolhead-designation-editor,
+.material-panel .prusa-tool-filament-control > .toolhead-designation-editor {
+  grid-column:1 / -1;
+  min-width:0;
+  width:100%;
+}
+
 .material-panel .toolhead-designation-editor .color-family-dropdown {
   margin-top:4px;
 }

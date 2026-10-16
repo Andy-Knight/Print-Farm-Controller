@@ -176,6 +176,13 @@ test('Preact printer-detail chrome preserves six-tab behavior and vanilla fallba
   assert.match(app, /printerDetailTabsMarkup\(\)/);
   assert.match(styles, /Preact printer-detail chrome/);
   assert.match(styles, /\.printer-detail-preact-tabs/);
+  // Each Preact form spans the entire legacy two-column wrapper. Otherwise
+  // its nested material and colour selects each receive only ~half the width.
+  for (const kind of ['u1-filament-config-control','creator5-filament-config-control',
+    'prusa-tool-filament-control']) {
+    assert.match(styles, new RegExp(kind + ' > \\\\.toolhead-designation-editor'));
+  }
+  assert.match(styles, /grid-column:1 \\/ -1;/);
 });
 
 

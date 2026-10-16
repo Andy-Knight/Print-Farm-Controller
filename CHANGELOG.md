@@ -6,6 +6,8 @@ Historical entries describe the behaviour of the controller at the time of that 
 
 ## v0.49.0
 
+- Corrects undersized filament type and colour-family selectors on Prusa CORE One+ Toolheads (Standard/INDX4/INDX8). Preact editor forms now span both tracks of the legacy wrapper grid, restoring the shared 160px field widths, consistent with U1, Creator 5 and Flashforge; the no-bundle fallback is unaffected.
+
 - Aligns Flashforge **AD5M and AD5M Pro** Toolheads presentation with the U1-style table. The single T0 row contains its identity, live material information, filament designation controls and nozzle-size selector/Assign button, under the same shared table headers and visual styling. The controls no longer appear as separate blocks below the toolhead. Works with Preact and the legacy frontend fallback; no printer commands or designation APIs change.
 
 - Continues Printer Details Preact migration in **Toolheads** for controller-side filament type/colour-family metadata and nozzle designations: the Prusa per-tool and Flashforge AD5M controller selectors, plus per-tool nozzle designation controls, now use controlled Preact form islands with dirty-state handling, pending/error status, clear where supported and safety-checked API event bridges. Values survive routine status refreshes; original fallback remains. U1 and Creator 5 filament type/colour selection is also now Preact-controlled, but still uses the established printer-side filament-config API for verification. U1's idle, loaded third-party/non-RFID constraints and Creator 5's idle/palette constraints are checked before issuing any write and revalidated by the server. Other hardware commands remain unchanged.
