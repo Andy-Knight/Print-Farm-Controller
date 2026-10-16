@@ -203,6 +203,10 @@ async function groupEditorSmoke(browser,url) {
     await page.goto(url+'/groups',{waitUntil:'load'});
     await preactReady(page);
     await page.locator('#printerGroupsTabCreate[aria-selected="true"]').waitFor();
+    // The direct /groups route initializes while app.js is still fetching the
+    // group cache. Do not click another tab before that first publication.
+    await page.waitForFunction(() => document.querySelector('#printerGroupsTabExisting')
+      ?.textContent?.includes('(1)'));
     assert.equal(await page.locator('#printerGroupForm').count(),1,'create tab owns its form');
     assert.equal(await page.locator('#printerGroupsList').count(),0,'existing list not rendered in create tab');
     await page.locator('#printerGroupsTabExisting').click();
@@ -351,6 +355,10 @@ async function groupEditorSmoke(browser,url) {
     await page.reload({waitUntil:'load'});
     await preactReady(page);
     await page.locator('#printerGroupsTabCreate[aria-selected="true"]').waitFor();
+    // The direct /groups route initializes while app.js is still fetching the
+    // group cache. Do not click another tab before that first publication.
+    await page.waitForFunction(() => document.querySelector('#printerGroupsTabExisting')
+      ?.textContent?.includes('(1)'));
     await page.locator('#printerGroupsTabExisting').click();
     await page.locator('[data-printer-group-edit="seed-group"]').waitFor();
     await page.locator('#printerGroupsTabCreate').click();
