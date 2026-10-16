@@ -4050,7 +4050,14 @@ body:not([data-route="/"]) > main > :not(.route-page) { display:none !important;
 .toolhead-designation-editor .mini-actions { margin:0; }
 .toolhead-designation-editor .color-family-dropdown { width:100%; }
 .toolhead-designation-editor [data-toolhead-error] { margin:0; }
-.toolhead-designation-editor .field-help { overflow-wrap:anywhere; }
+/* The generic nozzle-designation wrapper gives helper text an extra
+   8px top margin, while the filament editor inherits -5px. Match the
+   inline Preact editors so their guidance begins at the same vertical
+   position beneath the aligned Set filament / Assign buttons. */
+.material-panel .toolhead-designation-editor > .field-help {
+  margin-top:-5px;
+  overflow-wrap:anywhere;
+}
 
 /* Keep Preact islands visually consistent with the established U1, Prusa,
    Creator 5 and Flashforge nozzle fields and compact actions. */
