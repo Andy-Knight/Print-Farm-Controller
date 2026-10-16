@@ -1000,14 +1000,18 @@ input:focus,select:focus { border-color:#7a9fbe; }
 }
 .creator5-tool-nozzle-control .mini-actions {
   display:grid;
-  grid-template-columns:repeat(2,minmax(0,1fr));
+  grid-template-columns:minmax(0,1fr);
   gap:6px;
 }
-.creator5-tool-nozzle-control .mini-actions > button {
-  width:100%;
-  min-width:0;
-  padding-left:10px;
-  padding-right:10px;
+.prusa-tool-nozzle-control .mini-actions,
+.prusa-nozzle-actions {
+  display:grid;
+  grid-template-columns:minmax(0,1fr);
+}
+.ad5m-material-actions,
+.ad5m-nozzle-actions {
+  display:grid;
+  grid-template-columns:minmax(0,1fr);
 }
 .material-tool-nozzle .shared-nozzle-help { margin-top:8px; }
 .multi-tool-table .material-tool.filament-missing .material-tool-identity > span { color:#df9ba1; }
@@ -1054,8 +1058,21 @@ input:focus,select:focus { border-color:#7a9fbe; }
 .prusa-tool-filament-control input { display:block; width:100%; min-height:34px; margin-top:4px; }
 .prusa-tool-filament-control .color-family-dropdown { margin-top:4px; }
 .prusa-tool-filament-control .color-family-dropdown summary { height:var(--dropdown-field-height); min-height:var(--dropdown-field-height); padding:6px 8px; }
-.prusa-tool-filament-control .mini-actions { grid-column:1 / -1; display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:6px; margin-top:0; }
-.prusa-tool-filament-control button { height:var(--button-field-height); min-height:var(--button-field-height); padding:6px 9px; }
+.prusa-tool-filament-control > button { grid-column:1 / -1; height:var(--button-field-height); min-height:var(--button-field-height); padding:6px 9px; }
+/* Use identical compact buttons for filament configuration and nozzle assignment
+   rather than stretching actions to match their surrounding table columns. */
+.material-panel button.toolhead-action-button {
+  box-sizing:border-box;
+  width:var(--toolhead-dropdown-width);
+  max-width:100%;
+  min-width:0;
+  height:var(--button-field-height);
+  min-height:var(--button-field-height);
+  padding:6px 12px;
+  justify-self:start;
+  align-self:start;
+  flex:0 0 auto;
+}
 .multi-tool-control-help {
   display:block;
   margin-top:6px;
@@ -1071,7 +1088,7 @@ input:focus,select:focus { border-color:#7a9fbe; }
 .prusa-tool-filament-control > .multi-tool-control-help {
   grid-column:1 / -1;
 }
-@media (max-width:520px) { .prusa-tool-filament-control { grid-template-columns:1fr; } .prusa-tool-filament-control .mini-actions,.prusa-tool-filament-control > .multi-tool-control-help { grid-column:1; } }
+@media (max-width:520px) { .prusa-tool-filament-control { grid-template-columns:1fr; } .prusa-tool-filament-control > button,.prusa-tool-filament-control > .multi-tool-control-help { grid-column:1; } }
 
 .material-tool.filament-missing > span { color:#df9ba1; }
 .material-swatch { width:20px; height:20px; flex:0 0 auto; border-radius:50%; border:1px solid rgba(255,255,255,.3); box-shadow:inset 0 0 0 1px rgba(0,0,0,.25); }
@@ -1079,11 +1096,58 @@ input:focus,select:focus { border-color:#7a9fbe; }
 .material-help { margin-top:10px; }
 .material-designation-control { margin-top:10px; padding-top:10px; border-top:1px solid #202a32; }
 .material-designation-control label { margin:0 0 8px; }
+/* Keep the single-nozzle selector below its caption, including when AD5M
+   status is offline and the control is outside the toolhead table. */
+.material-panel .nozzle-designation-control > label { display:block; }
+.material-panel .nozzle-designation-control > label > select {
+  display:block;
+  margin-top:6px;
+}
 .material-designation-control input,
 .material-designation-control select { margin-top:6px; }
 .material-designation-fields { display:grid; grid-template-columns:minmax(0,1fr) minmax(160px,.8fr); gap:10px; align-items:end; }
 .material-designation-fields label { margin-top:0; }
 .color-family-dropdown { position:relative; margin-top:6px; }
+/* Keep toolhead material, colour and nozzle selectors a consistent size on every
+   printer. Each control caps at its available width on narrow layouts. */
+.material-panel {
+  --toolhead-dropdown-width:160px;
+  --toolhead-dropdown-gap:8px;
+}
+.material-panel .u1-filament-config-control select,
+.material-panel .creator5-filament-config-control select,
+.material-panel .prusa-tool-filament-control select,
+.material-panel .material-designation-fields select,
+.material-panel .nozzle-designation-control select,
+.material-panel .u1-filament-config-control .color-family-dropdown,
+.material-panel .creator5-filament-config-control .creator5-color-dropdown,
+.material-panel .prusa-tool-filament-control .color-family-dropdown,
+.material-panel .material-designation-fields .color-family-dropdown {
+  box-sizing:border-box;
+  width:var(--toolhead-dropdown-width);
+  max-width:100%;
+  min-width:0;
+}
+/* Use one compact, consistent type/colour field pair in every printer.
+   Keep the Set filament action and guidance below the pair at full column width. */
+.material-panel .toolhead-dropdown-pair {
+  display:grid;
+  grid-column:1 / -1;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  column-gap:var(--toolhead-dropdown-gap);
+  row-gap:6px;
+  align-items:end;
+  width:100%;
+  max-width:calc(var(--toolhead-dropdown-width) + var(--toolhead-dropdown-width) + var(--toolhead-dropdown-gap));
+}
+@media (max-width:520px) {
+  .material-panel .toolhead-dropdown-pair {
+    grid-template-columns:minmax(0,1fr);
+    max-width:var(--toolhead-dropdown-width);
+    row-gap:8px;
+  }
+}
+
 .color-family-dropdown summary { height:var(--dropdown-field-height); min-height:var(--dropdown-field-height); display:flex; align-items:center; justify-content:space-between; gap:10px; border:1px solid #33404b; border-radius:8px; background:#0c1218; padding:8px 10px; cursor:pointer; list-style:none; user-select:none; }
 .color-family-dropdown summary::-webkit-details-marker { display:none; }
 .color-family-dropdown[open] summary { border-color:#7a9fbe; }

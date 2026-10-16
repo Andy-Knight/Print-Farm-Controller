@@ -32,12 +32,12 @@ test('Creator 5 printer details expose one fixed nozzle selector per physical to
   assert.match(app, /function toolNozzleDesignationMarkup\(/);
   assert.match(app, /data-tool-nozzle-input="/);
   assert.match(app, /data-tool-nozzle-save="\$\{tool\.index\}">Assign<\/button>/);
-  assert.match(app, /data-tool-nozzle-clear="\$\{tool\.index\}">Clear<\/button>/);
+  assert.match(app, /coreOnePlus \|\| creator5 \? '' :/);
   assert.match(app, /creator5-tool-nozzle-control/);
   assert.match(app, /Set the fitted nozzle independently for T0-T3 using the Nozzle column/);
   assert.match(app, /<span>Toolhead<\/span><span>Live information<\/span><span>Filament configuration<\/span>/);
-  assert.match(styles, /\.creator5-tool-nozzle-control \.mini-actions[\s\S]*grid-template-columns:repeat\(2,minmax\(0,1fr\)\)/);
-  assert.match(app, /Creator 5 firmware does not reliably report the installed nozzle size, so Clear makes it unknown\./);
+  assert.match(styles, /\.creator5-tool-nozzle-control \.mini-actions[\s\S]*grid-template-columns:minmax\(0,1fr\)/);
+  assert.match(app, /Creator 5 firmware does not reliably report the installed nozzle size, so assign the fitted nozzle size in the controller\./);
 });
 
 test('Creator 5 filament type and colour can be written to each physical slot', () => {
@@ -58,7 +58,8 @@ test('Creator 5 filament type and colour can be written to each physical slot', 
   assert.match(app, /dataset\.creator5Bound/);
   assert.match(app, /data-creator5-filament-config-save/);
   assert.match(app, /\/api\/printers\/\$\{id\}\/filament-config/);
-  assert.match(app, /Set on printer/);
+  assert.match(app, /data-creator5-filament-config-save="\$\{tool\.index\}"[^>]*>Set filament<\/button>/);
+  assert.doesNotMatch(app, /Set on printer/);
   assert.match(styles, /\.creator5-filament-config-control \{[\s\S]*grid-template-columns:minmax\(0,1fr\) minmax\(0,1fr\)/);
   assert.match(styles, /\.creator5-filament-config-control \.creator5-color-dropdown summary/);
   assert.doesNotMatch(app, /<select data-creator5-filament-color-input/);

@@ -161,7 +161,7 @@ test('Snapmaker U1 uses one control and one command for third-party filament typ
   assert.match(app, /u1FilamentDirty/);
   assert.match(app, /u1EditPending/);
   assert.match(app, /delete control\.dataset\.u1FilamentDirty/);
-  assert.match(app, /Set filament on U1/);
+  assert.match(app, /data-u1-filament-config-save="\$\{tool.index\}"[^>]*>Set filament<\/button>/);
   assert.match(app, /CONTROLLER_FILAMENT_TYPES/);
   assert.match(app, /function filamentTypeSelectMarkup/);
   assert.match(app, /\/filament-config/);
@@ -590,7 +590,7 @@ test('FlashForge detail exposes printer-reported filament type in Toolhead statu
   assert.match(app, /color:null/);
   assert.match(app, /'ASA-CF'/);
   assert.match(app, /data-material-designation-save/);
-  assert.match(app, /data-material-designation-clear/);
+  assert.doesNotMatch(app, /data-material-designation-clear/);
   assert.match(app, /colour family is used for automatic queue compatibility/);
   assert.match(app, /data-color-family-option/);
   assert.match(app, /color-family-menu/);
@@ -790,7 +790,7 @@ test('standard action buttons use one shared height', () => {
   assert.match(styles, /\.primary,\.secondary,\.positive,\.attention,\.danger \{ height:var\(--button-field-height\); min-height:var\(--button-field-height\); \}/);
   assert.match(styles, /\.creator5-filament-config-control > button \{[^}]*height:var\(--button-field-height\)[^}]*min-height:var\(--button-field-height\)/);
   assert.match(styles, /\.u1-filament-config-control button \{[^}]*height:var\(--button-field-height\)[^}]*min-height:var\(--button-field-height\)/);
-  assert.match(styles, /\.prusa-tool-filament-control button \{[^}]*height:var\(--button-field-height\)[^}]*min-height:var\(--button-field-height\)/);
+  assert.match(styles, /\.prusa-tool-filament-control > button \{[^}]*height:var\(--button-field-height\)[^}]*min-height:var\(--button-field-height\)/);
   assert.doesNotMatch(styles, /(?:creator5-filament-config-control|u1-filament-config-control|prusa-tool-filament-control)[^{]*button \{[^}]*min-height:34px/);
 });
 
