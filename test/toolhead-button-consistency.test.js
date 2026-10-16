@@ -249,8 +249,8 @@ test('All filament Set and nozzle Assign buttons share a compact fixed size inst
 
 test('All printer toolhead filament type, colour and nozzle dropdowns share one width', () => {
   const css = readFileSync(new URL('../public/styles.css', import.meta.url), 'utf8');
-  const start = css.indexOf('.material-panel { --toolhead-dropdown-width:160px; }');
-  const end = css.indexOf('\n}', start);
+  const start = css.indexOf('.material-panel {\n  --toolhead-dropdown-width:160px;');
+  const end = css.indexOf('/* Use one compact, consistent type/colour field pair', start);
   assert.ok(start >= 0 && end > start, 'shared dropdown width declaration exists');
   const rule = css.slice(start, end + 2);
   const controls = [
@@ -272,4 +272,36 @@ test('All printer toolhead filament type, colour and nozzle dropdowns share one 
   assert.match(rule, /min-width:0;/);
   assert.ok(start > css.indexOf('.material-tool-nozzle .nozzle-designation-control select'),
     'shared width needs to override older column-filling nozzle widths');
+});
+
+test('All printer families keep the material and colour selectors adjacent with the same 8px gap', () => {
+  const app = readFileSync(new URL('../public/app.js', import.meta.url), 'utf8');
+  const css = readFileSync(new URL('../public/styles.css', import.meta.url), 'utf8');
+  const configFns = [
+    ['u1FilamentConfigControlMarkup', 'creator5FilamentMaterialOptions', 'data-u1-filament-config-save'],
+    ['creator5FilamentConfigControlMarkup', 'prusaToolMaterialDesignationMarkup', 'data-creator5-filament-config-save'],
+    ['prusaToolMaterialDesignationMarkup', 'printerNozzleDiameterOptions', 'data-prusa-tool-material-save'],
+    ['flashForgeMaterialDesignationMarkup', 'flashForgeNozzleDesignationMarkup', 'data-material-designation-save']
+  ];
+  for (const [name, nextName, action] of configFns) {
+    const start = app.indexOf('function ' + name + '(');
+    const end = app.indexOf('function ' + nextName + '(', start);
+    assert.ok(start >= 0 && end > start, name + ' renderer must exist');
+    const markup = app.slice(start, end);
+    const pair = markup.indexOf('toolhead-dropdown-pair');
+    const button = markup.indexOf(action);
+    assert.ok(pair !== -1 && button > pair, name + ' must group selectors before the shared Set filament button');
+    assert.match(markup, /<label>Filament type|<label>Controller material type/, name + ' keeps type selector');
+    assert.match(markup, /<label>Colour|<label>Controller colour family/, name + ' keeps colour selector');
+  }
+  assert.match(css, /--toolhead-dropdown-gap:8px;/);
+  const start = css.indexOf('.material-panel .toolhead-dropdown-pair {');
+  const end = css.indexOf('\n}', start);
+  assert.ok(start !== -1 && end > start, 'Shared paired-field CSS should exist');
+  const rule = css.slice(start, end + 2);
+  assert.match(rule, /grid-column:1 \/ -1;/);
+  assert.match(rule, /grid-template-columns:repeat\(2,minmax\(0,1fr\)\);/);
+  assert.match(rule, /column-gap:var\(--toolhead-dropdown-gap\);/);
+  assert.match(rule, /max-width:calc\(var\(--toolhead-dropdown-width\) \+ var\(--toolhead-dropdown-width\) \+ var\(--toolhead-dropdown-gap\)\);/);
+  assert.match(css, /@media \(max-width:520px\) \{\s*\.material-panel \.toolhead-dropdown-pair \{\s*grid-template-columns:minmax\(0,1fr\);/);
 });
