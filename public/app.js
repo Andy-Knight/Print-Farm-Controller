@@ -4590,19 +4590,26 @@ diagnosticsBtn?.addEventListener('click', async () => {
 printerGroupsBtn?.addEventListener('click', async () => {
   if (topbarOverflow) topbarOverflow.open = false;
   printerGroupsDialog?.showModal();
-  if (printerGroupsStatus) printerGroupsStatus.textContent = 'Loading printer groups…';
+  // Reset immediately on navigation, never after an async load. A slow group
+  // refresh must not erase a draft the user has already started typing.
+  resetPrinterGroupForm();
+  if (printerGroupsStatus && !window.__PFC_PREACT_PRINTER_GROUPS__) {
+    printerGroupsStatus.textContent = 'Loading printer groups…';
+  }
   try {
     await loadPrinterGroups();
-    resetPrinterGroupForm();
-    if (printerGroupsStatus) printerGroupsStatus.textContent = '';
+    if (printerGroupsStatus && !window.__PFC_PREACT_PRINTER_GROUPS__) {
+      printerGroupsStatus.textContent = '';
+    }
   } catch (error) {
     if (window.__PFC_PREACT_PRINTER_GROUPS__) {
       window.dispatchEvent(new CustomEvent('pfc:printer-groups-load-error', { detail:{message:error.message} }));
-    }
-    if (printerGroupsStatus) printerGroupsStatus.textContent = '';
-    if (printerGroupError) {
-      printerGroupError.textContent = error.message;
-      printerGroupError.classList.remove('hidden');
+    } else {
+      if (printerGroupsStatus) printerGroupsStatus.textContent = '';
+      if (printerGroupError) {
+        printerGroupError.textContent = error.message;
+        printerGroupError.classList.remove('hidden');
+      }
     }
   }
 });
