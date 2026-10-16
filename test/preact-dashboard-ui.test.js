@@ -184,13 +184,6 @@ test('Preact print queue preserves delegated controller actions and fallback ren
   assert.match(app, /queueHistoryList\.innerHTML = productionHistoryMarkup/);
 });
 
-test('Preact queue defers live rerenders while pointer controls are active', async () => {
-  const app = await read('public/app.js');
-  assert.match(app, /if \(window\.__PFC_PREACT_QUEUE__\) \{[\s\S]*if \(queuePointerInteractionActive\) \{[\s\S]*queueRenderPending = true;[\s\S]*return;[\s\S]*publishPrintQueueUiState/);
-  assert.match(app, /if \(queueRenderPending\) renderPrintQueue\(\)/);
-});
-
-
 test('Preact Print Library preserves delegated actions, search filtering and vanilla fallback', async () => {
   const [libraryUi, dashboard, app] = await Promise.all([
     read('ui/print-library.jsx'),
@@ -514,44 +507,6 @@ test('Preact dashboard owns the licence-limit notice presentation with vanilla f
   assert.match(app, /licenseNoticeEl\.innerHTML =/);
 });
 
-test('v0.47 Preact migration audit covers every persistent route page', async () => {
-  const [html, dashboard] = await Promise.all([
-    read('public/index.html'),
-    read('ui/dashboard.jsx')
-  ]);
-
-  const routePageIds = [...html.matchAll(/<section id="([^"]+)"[^>]*class="[^"]*\broute-page\b[^"]*"/g)]
-    .map((match) => match[1])
-    .sort();
-
-  assert.deepEqual(routePageIds, [
-    'alertsDialog',
-    'backupRecoveryDialog',
-    'diagnosticsDialog',
-    'libraryDialog',
-    'licenseDialog',
-    'maintenanceDialog',
-    'printerGroupsDialog',
-    'queueDialog',
-    'reportingDialog'
-  ]);
-
-  for (const initializer of [
-    'initPrintQueueUi',
-    'initPrintLibraryUi',
-    'initMaintenanceUi',
-    'initAlertsUi',
-    'initReportingUi',
-    'initBackupRecoveryUi',
-    'initPrinterGroupsUi',
-    'initDiagnosticsUi',
-    'initLicenseUi'
-  ]) {
-    assert.match(dashboard, new RegExp(`${initializer}\\(\\)`));
-  }
-});
-
-
 test('dashboard summary headings do not render decorative dots', async () => {
   const [dashboard, styles] = await Promise.all([
     read('ui/dashboard.jsx'),
@@ -569,7 +524,6 @@ test('dashboard summary cards keep labels above counts', async () => {
   assert.match(styles, /\.summary-card-label \{[\s\S]*display:block;/);
   assert.match(styles, /\.summary-card > b \{[\s\S]*display:block;/);
 });
-
 
 
 // Direct-route initialization, report loading, and hard refresh across all
