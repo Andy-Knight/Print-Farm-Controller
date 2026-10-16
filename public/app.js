@@ -6000,7 +6000,7 @@ function creator5FilamentConfigControlMarkup(printer, tool = {}) {
 
 function prusaToolMaterialDesignationMarkup(printer, tool = {}) {
   if (printer?.manufacturer !== 'Prusa' || !printer?.capabilities?.toolMaterialDesignation) return '';
-  if (window.__PFC_PREACT_DETAIL__)
+  if (typeof window !== 'undefined' && window.__PFC_PREACT_DETAIL__)
     return `<div class="prusa-tool-filament-control" data-preact-toolhead-control="prusa-filament" data-tool-index="${Number(tool.index)}"></div>`;
   const filament = tool.filament || {};
   const material = filament.materialSource === 'manual'
@@ -6052,7 +6052,7 @@ function nozzleDiameterSelectMarkup({ options = [], value = '', inputAttributes 
 
 function toolNozzleDesignationMarkup(printer, tool = {}, toolCount = 1) {
   if (!printer?.capabilities?.toolNozzleDesignation || Number(toolCount) <= 1) return '';
-  if (window.__PFC_PREACT_DETAIL__) {
+  if (typeof window !== 'undefined' && window.__PFC_PREACT_DETAIL__) {
     const kind=['prusa-core-one-plus','flashforge-creator5'].includes(printer.adapterType)?' primary-nozzle':'';
     return `<div class="material-designation-control nozzle-designation-control tool-nozzle-control${kind}" data-preact-toolhead-control="tool-nozzle" data-tool-index="${Number(tool.index)}"></div>`;
   }
@@ -6089,7 +6089,7 @@ function toolNozzleDesignationMarkup(printer, tool = {}, toolCount = 1) {
 
 function flashForgeMaterialDesignationMarkup(printer, filament = {}) {
   if (!printer?.capabilities?.materialDesignation) return '';
-  if (window.__PFC_PREACT_DETAIL__)
+  if (typeof window !== 'undefined' && window.__PFC_PREACT_DETAIL__)
     return '<div class="material-designation-control" data-preact-toolhead-control="controller-filament" data-tool-index="0"></div>';
   const manualValue = filament.materialSource === 'manual'
     ? String(filament.material || '')
@@ -6119,7 +6119,7 @@ function flashForgeMaterialDesignationMarkup(printer, filament = {}) {
 
 function flashForgeNozzleDesignationMarkup(printer, tool = {}) {
   if (!printer?.capabilities?.nozzleDesignation) return '';
-  if (window.__PFC_PREACT_DETAIL__)
+  if (typeof window !== 'undefined' && window.__PFC_PREACT_DETAIL__)
     return `<div class="material-designation-control nozzle-designation-control" data-preact-toolhead-control="controller-nozzle" data-tool-index="${Number(tool.index||0)}"></div>`;
   const manualValue = tool.nozzleDiameterSource === 'manual' && Number.isFinite(Number(tool.nozzleDiameter))
     ? Number(tool.nozzleDiameter)
