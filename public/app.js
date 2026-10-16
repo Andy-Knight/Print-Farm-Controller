@@ -6000,6 +6000,8 @@ function creator5FilamentConfigControlMarkup(printer, tool = {}) {
 
 function prusaToolMaterialDesignationMarkup(printer, tool = {}) {
   if (printer?.manufacturer !== 'Prusa' || !printer?.capabilities?.toolMaterialDesignation) return '';
+  if (window.__PFC_PREACT_DETAIL__)
+    return `<div class="prusa-tool-filament-control" data-preact-toolhead-control="prusa-filament" data-tool-index="${Number(tool.index)}"></div>`;
   const filament = tool.filament || {};
   const material = filament.materialSource === 'manual'
     ? String(filament.material || '')
@@ -6050,6 +6052,10 @@ function nozzleDiameterSelectMarkup({ options = [], value = '', inputAttributes 
 
 function toolNozzleDesignationMarkup(printer, tool = {}, toolCount = 1) {
   if (!printer?.capabilities?.toolNozzleDesignation || Number(toolCount) <= 1) return '';
+  if (window.__PFC_PREACT_DETAIL__) {
+    const kind=['prusa-core-one-plus','flashforge-creator5'].includes(printer.adapterType)?' primary-nozzle':'';
+    return `<div class="material-designation-control nozzle-designation-control tool-nozzle-control${kind}" data-preact-toolhead-control="tool-nozzle" data-tool-index="${Number(tool.index)}"></div>`;
+  }
   const effective = Number(tool.nozzleDiameter);
   const value = Number.isFinite(effective) && effective > 0 ? effective : '';
   const reported = Number(tool.reportedNozzleDiameter);
@@ -6083,6 +6089,8 @@ function toolNozzleDesignationMarkup(printer, tool = {}, toolCount = 1) {
 
 function flashForgeMaterialDesignationMarkup(printer, filament = {}) {
   if (!printer?.capabilities?.materialDesignation) return '';
+  if (window.__PFC_PREACT_DETAIL__)
+    return '<div class="material-designation-control" data-preact-toolhead-control="controller-filament" data-tool-index="0"></div>';
   const manualValue = filament.materialSource === 'manual'
     ? String(filament.material || '')
     : String(printer.materialDesignation || '');
@@ -6111,6 +6119,8 @@ function flashForgeMaterialDesignationMarkup(printer, filament = {}) {
 
 function flashForgeNozzleDesignationMarkup(printer, tool = {}) {
   if (!printer?.capabilities?.nozzleDesignation) return '';
+  if (window.__PFC_PREACT_DETAIL__)
+    return `<div class="material-designation-control nozzle-designation-control" data-preact-toolhead-control="controller-nozzle" data-tool-index="${Number(tool.index||0)}"></div>`;
   const manualValue = tool.nozzleDiameterSource === 'manual' && Number.isFinite(Number(tool.nozzleDiameter))
     ? Number(tool.nozzleDiameter)
     : (Number.isFinite(Number(printer.nozzleDiameterDesignation)) ? Number(printer.nozzleDiameterDesignation) : '');
@@ -6779,6 +6789,72 @@ function printerDetailHealthText(printer) {
     : `Offline · last seen ${formatLastSeen(printer.lastSeen)}`;
 }
 
+
+function printerToolheadControlState(printer) {
+  const capabilities=printer.capabilities || {};
+  const tools=Array.isArray(printer.status?.tools)?printer.status.tools:[];
+  const nozzleOptions=printerNozzleDiameterOptions(printer);
+  const colors=FILAMENT_COLOR_FAMILIES;
+  const filamentHelp='Used by the controller for queue compatibility and dashboard colour.';
+  const result=[];
+  for(const [position,tool] of tools.entries()){
+    const filament=tool.filament || {};
+    const family=(filament.colorFamilySource==='manual'
+      ? filament.colorFamily : filament.reportedColorFamily||filament.colorFamily)||'';
+    if(printer.manufacturer==='Prusa' && capabilities.toolMaterialDesignation){
+      result.push({
+        mode:'prusa-filament',toolIndex:Number(tool.index),
+        values:{
+          material:String(filament.materialSource==='manual'?filament.material||'':
+            filament.reportedMaterial||filament.material||''),
+          colorFamily:filamentColorFamilyOption(family)?.value||''
+        },colors,enabled:true,
+        help:filamentHelp+' Set filament saves type and colour in the controller, not on the Prusa printer.'
+      });
+    }
+    if(capabilities.toolNozzleDesignation && tools.length>1){
+      const diameter=Number(tool.nozzleDiameter);
+      const valid=nozzleOptions.some((size)=>Math.abs(size-diameter)<0.0001);
+      const reported=Number(tool.reportedNozzleDiameter);
+      const details=printer.adapterType==='flashforge-creator5'
+        ? 'Creator 5 firmware does not reliably report the installed nozzle size, so assign the fitted nozzle size in the controller.'
+        : Number.isFinite(reported)&&reported>0
+          ? `Assign saves a controller override of the ${nozzleDiameterText(reported)} value reported by PrusaLink.`
+          : 'Assign saves the fitted nozzle size in the controller when PrusaLink does not report it.';
+      result.push({
+        mode:'tool-nozzle',toolIndex:Number(tool.index),
+        values:{nozzleDiameter:valid?String(diameter):''},
+        nozzles:nozzleOptions,enabled:true,
+        canClear:!['prusa-core-one-plus','flashforge-creator5'].includes(printer.adapterType),
+        help:multiToolNozzleHelpText(details)
+      });
+    } else if(position===0 && capabilities.nozzleDesignation){
+      const designated=Number(tool.nozzleDiameterSource==='manual'?tool.nozzleDiameter:printer.nozzleDiameterDesignation);
+      const reported=Number(tool.reportedNozzleDiameter);
+      const selected=[designated,reported].find((size)=>nozzleOptions.some((option)=>Math.abs(option-size)<0.0001));
+      result.push({
+        mode:'controller-nozzle',toolIndex:Number(tool.index),
+        values:{nozzleDiameter:selected?String(selected):''},
+        nozzles:nozzleOptions,enabled:true,
+        canClear:!['prusa-core-one-plus','flashforge-ad5m'].includes(printer.adapterType),
+        help:'Stored by Print Farm Controller for automatic queue compatibility.'
+      });
+    }
+  }
+  if(capabilities.materialDesignation){
+    const filament=tools[0]?.filament||{};
+    const material=filament.materialSource==='manual'?filament.material:printer.materialDesignation;
+    const family=filament.colorFamilySource==='manual'?filament.colorFamily:printer.materialColorFamilyDesignation;
+    result.push({
+      mode:'controller-filament',toolIndex:Number(tools[0]?.index??0),
+      values:{material:String(material||''),colorFamily:filamentColorFamilyOption(family)?.value||''},
+      colors,enabled:true,
+      help:'The colour family is used for automatic queue compatibility. Exact shade selection is not required.'
+    });
+  }
+  return result;
+}
+
 function printerDetailChromeState(printer, { loading = false } = {}) {
   const state = stateName(printer);
   const rawState = rawStateName(printer);
@@ -6797,7 +6873,8 @@ function printerDetailChromeState(printer, { loading = false } = {}) {
       actionText:`Open maintenance for ${printer.name}. ${maintenanceText}`
     },
     activity:printerActivityStatus(printer),
-    canManage:printer.licenseActive !== false
+    canManage:printer.licenseActive !== false,
+    toolheadControls:printerToolheadControlState(printer)
   };
 }
 
