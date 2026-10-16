@@ -4076,6 +4076,8 @@ body:not([data-route="/"]) > main > :not(.route-page) { display:none !important;
 .material-panel .toolhead-designation-editor .toolhead-dropdown-pair label {
   margin:0;
   min-width:0;
+  color:#8493a1;
+  font-size:.68rem;
 }
 .material-panel .toolhead-designation-editor .toolhead-dropdown-pair select {
   margin-top:4px;
