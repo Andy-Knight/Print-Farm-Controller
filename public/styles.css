@@ -1024,6 +1024,7 @@ input:focus,select:focus { border-color:#7a9fbe; }
 .material-tool-configuration.read-only { display:flex; align-items:center; min-height:36px; }
 .material-tool-configuration .u1-filament-config-control,
 .material-tool-configuration .creator5-filament-config-control,
+.material-tool-configuration .bambu-external-filament-control,
 .material-tool-configuration .prusa-tool-filament-control,
 .material-tool-configuration .material-designation-control {
   margin-top:0;
@@ -1104,6 +1105,10 @@ input:focus,select:focus { border-color:#7a9fbe; }
 .ams-source small { grid-column:1 / -1; color:#8193a2; }
 .ams-source.active { border-color:#4b8f77; }
 .ams-source.empty { opacity:.62; }
+.bambu-external-filament-control { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:6px 8px; align-items:end; margin-top:8px; padding-top:8px; border-top:1px solid #202a32; }
+.bambu-external-filament-control label { margin:0; color:#8493a1; font-size:.68rem; }
+.bambu-external-filament-control select { display:block; margin-top:4px; }
+.bambu-external-filament-control > button { grid-column:1 / -1; height:var(--button-field-height); min-height:var(--button-field-height); }
 .creator5-filament-config-control { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:6px 8px; align-items:end; margin-top:8px; padding-top:8px; border-top:1px solid #202a32; }
 .creator5-filament-config-control label { margin:0; color:#8493a1; font-size:.68rem; }
 .creator5-filament-config-control select { display:block; width:100%; min-width:0; margin-top:4px; }
@@ -1146,6 +1151,7 @@ input:focus,select:focus { border-color:#7a9fbe; }
   text-overflow:clip;
 }
 .creator5-filament-config-control > .multi-tool-control-help,
+.bambu-external-filament-control > .multi-tool-control-help,
 .u1-filament-config-control > .multi-tool-control-help,
 .prusa-tool-filament-control > .multi-tool-control-help {
   grid-column:1 / -1;
@@ -1178,11 +1184,13 @@ input:focus,select:focus { border-color:#7a9fbe; }
 }
 .material-panel .u1-filament-config-control select,
 .material-panel .creator5-filament-config-control select,
+.material-panel .bambu-external-filament-control select,
 .material-panel .prusa-tool-filament-control select,
 .material-panel .material-designation-fields select,
 .material-panel .nozzle-designation-control select,
 .material-panel .u1-filament-config-control .color-family-dropdown,
 .material-panel .creator5-filament-config-control .creator5-color-dropdown,
+.material-panel .bambu-external-filament-control .color-family-dropdown,
 .material-panel .prusa-tool-filament-control .color-family-dropdown,
 .material-panel .material-designation-fields .color-family-dropdown {
   box-sizing:border-box;
@@ -4091,6 +4099,7 @@ body:not([data-route="/"]) > main > :not(.route-page) { display:none !important;
    legacy layout untouched. */
 .material-panel .u1-filament-config-control > .toolhead-designation-editor,
 .material-panel .creator5-filament-config-control > .toolhead-designation-editor,
+.material-panel .bambu-external-filament-control > .toolhead-designation-editor,
 .material-panel .prusa-tool-filament-control > .toolhead-designation-editor {
   grid-column:1 / -1;
   min-width:0;
