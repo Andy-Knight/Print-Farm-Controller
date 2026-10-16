@@ -571,27 +571,8 @@ test('dashboard summary cards keep labels above counts', async () => {
 });
 
 
-test('direct route refresh initializes controller state before rendering the route', async () => {
-  const app = await read('public/app.js');
-  const stateIndex = app.indexOf('let selectionMode = false;');
-  const routeIndex = app.indexOf('renderControllerRoute(location.pathname, { invoke:false });');
 
-  assert.ok(stateIndex >= 0, 'selection mode state should exist');
-  assert.ok(routeIndex > stateIndex, 'initial route render must occur after controller state initialization');
-
-  for (const route of ['/queue','/library','/maintenance','/groups','/reports','/alerts','/backup','/diagnostics','/licence']) {
-    assert.match(app, new RegExp(`['"]${route.replace('/', '\\/')}['"]`));
-  }
-});
-
-
-test('direct route refresh invokes page loaders after module registration', async () => {
-  const [app, reporting] = await Promise.all([
-    read('public/app.js'),
-    read('public/reporting.js')
-  ]);
-
-  assert.match(app, /renderControllerRoute\(location\.pathname, \{ invoke:false \}\);/);
-  assert.match(app, /window\.addEventListener\('load', \(\) => \{[\s\S]*renderControllerRoute\(location\.pathname\);[\s\S]*\}, \{ once:true \}\);/);
-  assert.match(reporting, /reportsBtn\?\.addEventListener\('click', async \(\) => \{[\s\S]*await loadReportingContext\(\);[\s\S]*await loadReport\(\);/);
-});
+// Direct-route initialization, report loading, and hard refresh across all
+// controller routes are exercised in real Chromium by npm run test:browser.
+// The previous source-index/regex checks were removed because they could pass
+// even when those routes rendered blank or never populated their data.
