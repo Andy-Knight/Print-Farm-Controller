@@ -1,4 +1,4 @@
-# Print Farm Controller v0.48.1
+# Print Farm Controller v0.49.0
 A local-first 3D printer fleet controller. It runs entirely on your LAN and currently supports:
 
 - **FlashForge Adventurer 5M / 5M Pro** through the local FlashForge HTTP/TCP APIs.
@@ -7,9 +7,11 @@ A local-first 3D printer fleet controller. It runs entirely on your LAN and curr
 - **Prusa CORE One+ (experimental)** through the local PrusaLink API, supporting Standard (1-tool), INDX4 and INDX8 configurations.
 - **Bambu Lab P1P / P1S / X1C / A1 Mini (experimental)** through the local MQTT TLS and FTPS TLS interfaces. P1P/P1S/A1 Mini use the TLS/JPEG camera path; X1C camera decoding remains unsupported.
 
-**Current development version: v0.48.1**
+**Current development version: v0.49.0**
 
 Current highlights:
+
+- **Interactive Preact workflows (v0.49.0 in development):** The Printer Groups screen is the first workflow whose form inputs, unsaved edits, membership selections, validation, busy states and create/edit/delete actions are owned by Preact. Shared Preact text/checkbox form controls introduce a reusable controlled-input pattern. Controller-owned API/group-cache updates remain authoritative and the no-bundle vanilla JavaScript fallback is preserved. Chromium regression now tests drafts during state refresh and real browser form actions against an isolated API fixture. This feature remains on a development branch pending validation.
 
 - **Stronger regression protection (v0.48.1):** Automated Chromium tests now validate all controller route reloads, all 13 Preact presenters, queue button interactions, and genuine Snapmaker U1 simulator → controller polling → SSE → Preact status updates. Additional behavioural tests cover scheduler priorities, printer-operation concurrency, backup/rollback safety and Ed25519 licence enforcement. Six obsolete source-only test cases were removed after their behaviour was covered by executable tests. No controller functionality was changed.
 
