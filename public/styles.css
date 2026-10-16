@@ -4069,8 +4069,16 @@ body:not([data-route="/"]) > main > :not(.route-page) { display:none !important;
   min-height:var(--button-field-height);
   justify-self:start;
 }
+/* The AD5M material-designation wrapper normally adds 8px below each
+   label and 6px above the material select. Its Preact form must use the
+   same compact label/field spacing as the adjacent nozzle editor so the
+   Set filament and Assign actions remain on the same horizontal line. */
 .material-panel .toolhead-designation-editor .toolhead-dropdown-pair label {
+  margin:0;
   min-width:0;
+}
+.material-panel .toolhead-designation-editor .toolhead-dropdown-pair select {
+  margin-top:4px;
 }
 
 /* Legacy filament wrappers use a two-column grid because their original
