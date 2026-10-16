@@ -5864,6 +5864,56 @@ function multiToolControlHelpMarkup(text, attributes = '') {
   return `<small class="multi-tool-control-help"${attrs ? ` ${attrs}` : ''}>${escapeHtml(value)}</small>`;
 }
 
+function bambuExternalFilamentPalette(source = {}) {
+  const colors=FILAMENT_COLOR_FAMILIES.map((item)=>({
+    value:item.representative, label:item.label, representative:item.representative
+  }));
+  const current=normalizeColor(source.color);
+  if(current && !colors.some((item)=>item.value===current))
+    colors.unshift({value:current,label:`Current (${current})`,representative:current});
+  return colors;
+}
+
+const BAMBU_EXTERNAL_FILAMENT_TYPES = Object.freeze([
+  'PLA','PLA-CF','PETG','PETG-CF','ABS','ASA','TPU','PVA','PA','PA-CF','PC'
+]);
+
+function bambuExternalFilamentEditState(printer) {
+  if(printer?.adapterType!=='bambu-lab' || !['P1P','P1S'].includes(String(printer.model||'').toUpperCase())
+    || !printer.capabilities?.filamentTypeControl || !printer.capabilities?.filamentColorControl)
+    return {enabled:false,message:'External spool configuration is unavailable.'};
+  if(String(printer.status?.status||'').toLowerCase()!=='idle')
+    return {enabled:false,message:'External spool filament can be changed only while the printer is idle.'};
+  return {enabled:true,message:'Writes the external spool to the printer and verifies its reported type and colour. AMS slots are unchanged.'};
+}
+
+function bambuExternalFilamentControlMarkup(printer) {
+  const state=bambuExternalFilamentEditState(printer);
+  if(printer?.adapterType!=='bambu-lab' || !['P1P','P1S'].includes(String(printer.model||'').toUpperCase())
+    || !printer.capabilities?.filamentTypeControl || !printer.capabilities?.filamentColorControl) return '';
+  if(typeof window!=='undefined' && window.__PFC_PREACT_DETAIL__)
+    return '<div class="bambu-external-filament-control" data-preact-toolhead-control="bambu-filament" data-tool-index="0"></div>';
+  const source=(printer.status?.materialSources||[]).find((item)=>item.kind==='external')||{};
+  const material=String(source.material||'').trim().toUpperCase();
+  const family=filamentColorFamilyOption(source.colorFamily);
+  return `<div class="bambu-external-filament-control">
+    <div class="toolhead-dropdown-pair">
+      <label>Filament type
+        <select data-bambu-external-material${state.enabled?'':' disabled'}>
+          <option value="">Select type</option>
+          ${[...new Set([material,...BAMBU_EXTERNAL_FILAMENT_TYPES].filter(Boolean))].map((type)=>
+            `<option value="${escapeHtml(type)}"${type===material?' selected':''}>${escapeHtml(type)}</option>`).join('')}
+        </select>
+      </label>
+      <label>Colour
+        ${colorFamilyDropdownMarkup({value:family?.value||'',inputAttributes:'data-bambu-external-colour',disabled:!state.enabled})}
+      </label>
+    </div>
+    <button type="button" class="primary toolhead-action-button" data-bambu-external-save${state.enabled?'':' disabled'}>Set filament</button>
+    ${multiToolControlHelpMarkup(state.message)}
+  </div>`;
+}
+
 function u1FilamentConfigEditState(printer, tool = {}) {
   const filament = tool.filament || {};
   if (printer?.adapterType !== 'snapmaker-u1' || !printer?.capabilities?.filamentTypeControl || !printer?.capabilities?.filamentColorControl) {
@@ -5999,56 +6049,6 @@ function creator5FilamentConfigControlMarkup(printer, tool = {}) {
     </div>
     <button type="button" class="primary toolhead-action-button" data-creator5-filament-config-save="${tool.index}"${idle ? '' : ' disabled'}>Set filament</button>
     ${multiToolControlHelpMarkup(multiToolFilamentHelpText('Changes are written to the printer and verified.'))}
-  </div>`;
-}
-
-function bambuExternalFilamentPalette(source = {}) {
-  const colors=FILAMENT_COLOR_FAMILIES.map((item)=>({
-    value:item.representative, label:item.label, representative:item.representative
-  }));
-  const current=normalizeColor(source.color);
-  if(current && !colors.some((item)=>item.value===current))
-    colors.unshift({value:current,label:`Current (${current})`,representative:current});
-  return colors;
-}
-
-const BAMBU_EXTERNAL_FILAMENT_TYPES = Object.freeze([
-  'PLA','PLA-CF','PETG','PETG-CF','ABS','ASA','TPU','PVA','PA','PA-CF','PC'
-]);
-
-function bambuExternalFilamentEditState(printer) {
-  if(printer?.adapterType!=='bambu-lab' || !['P1P','P1S'].includes(String(printer.model||'').toUpperCase())
-    || !printer.capabilities?.filamentTypeControl || !printer.capabilities?.filamentColorControl)
-    return {enabled:false,message:'External spool configuration is unavailable.'};
-  if(String(printer.status?.status||'').toLowerCase()!=='idle')
-    return {enabled:false,message:'External spool filament can be changed only while the printer is idle.'};
-  return {enabled:true,message:'Writes the external spool to the printer and verifies its reported type and colour. AMS slots are unchanged.'};
-}
-
-function bambuExternalFilamentControlMarkup(printer) {
-  const state=bambuExternalFilamentEditState(printer);
-  if(printer?.adapterType!=='bambu-lab' || !['P1P','P1S'].includes(String(printer.model||'').toUpperCase())
-    || !printer.capabilities?.filamentTypeControl || !printer.capabilities?.filamentColorControl) return '';
-  if(typeof window!=='undefined' && window.__PFC_PREACT_DETAIL__)
-    return '<div class="bambu-external-filament-control" data-preact-toolhead-control="bambu-filament" data-tool-index="0"></div>';
-  const source=(printer.status?.materialSources||[]).find((item)=>item.kind==='external')||{};
-  const material=String(source.material||'').trim().toUpperCase();
-  const family=filamentColorFamilyOption(source.colorFamily);
-  return `<div class="bambu-external-filament-control">
-    <div class="toolhead-dropdown-pair">
-      <label>Filament type
-        <select data-bambu-external-material${state.enabled?'':' disabled'}>
-          <option value="">Select type</option>
-          ${[...new Set([material,...BAMBU_EXTERNAL_FILAMENT_TYPES].filter(Boolean))].map((type)=>
-            `<option value="${escapeHtml(type)}"${type===material?' selected':''}>${escapeHtml(type)}</option>`).join('')}
-        </select>
-      </label>
-      <label>Colour
-        ${colorFamilyDropdownMarkup({value:family?.value||'',inputAttributes:'data-bambu-external-colour',disabled:!state.enabled})}
-      </label>
-    </div>
-    <button type="button" class="primary toolhead-action-button" data-bambu-external-save${state.enabled?'':' disabled'}>Set filament</button>
-    ${multiToolControlHelpMarkup(state.message)}
   </div>`;
 }
 
