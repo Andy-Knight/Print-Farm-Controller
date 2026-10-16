@@ -1106,6 +1106,7 @@ input:focus,select:focus { border-color:#7a9fbe; }
 .ams-source.active { border-color:#4b8f77; }
 .ams-source.empty { opacity:.62; }
 .bambu-external-filament-control { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:6px 8px; align-items:end; margin-top:8px; padding-top:8px; border-top:1px solid #202a32; }
+.material-panel .bambu-external-title { grid-column:1 / -1; color:#b3c2cf; font-size:.72rem; }
 .bambu-external-filament-control label { margin:0; color:#8493a1; font-size:.68rem; }
 .bambu-external-filament-control select { display:block; margin-top:4px; }
 .bambu-external-filament-control > button { grid-column:1 / -1; height:var(--button-field-height); min-height:var(--button-field-height); }
