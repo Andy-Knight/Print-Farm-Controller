@@ -1,5 +1,6 @@
 import { render } from 'preact';
-import { StatusBadge, UiButton } from './components.jsx';
+import { useEffect, useRef, useState } from 'preact/hooks';
+import { StatusBadge, UiButton, UiTextField } from './components.jsx';
 
 export const PRINTER_DETAIL_TABS = Object.freeze([
   { key:'toolheads', label:'Toolheads', controls:'detailTabToolheads' },
@@ -119,11 +120,104 @@ function PrinterDetailTabs({ detail }) {
   );
 }
 
+// The controller retains ownership of printer caches and the name API. Preact
+// owns only the editable draft and the submit lifecycle; telemetry must never
+// replace the text while a user is editing it.
+function requestControllerRename(printerId, name) {
+  return new Promise((resolve,reject) => {
+    window.dispatchEvent(new CustomEvent('pfc:printer-detail-action', {
+      detail:{type:'rename',printerId,value:name,resolve,reject}
+    }));
+  });
+}
+
+function PrinterNameEditor({ detail }) {
+  const [draft,setDraft] = useState(() => ({base:detail.name,value:detail.name}));
+  const [busy,setBusy] = useState(false);
+  const [error,setError] = useState('');
+  const [status,setStatus] = useState('');
+  const activeRequest = useRef(false);
+  const mounted = useRef(true);
+
+  useEffect(() => {
+    mounted.current = true;
+    return () => { mounted.current = false; };
+  }, []);
+
+  useEffect(() => {
+    setDraft((current) => ({
+      base:detail.name,
+      value:current.value === current.base ? detail.name : current.value
+    }));
+  }, [detail.name]);
+
+  const name = draft.value.trim();
+  const canEdit = detail.canManage !== false;
+  const dirty = name !== draft.base;
+  const submit = async (event) => {
+    event.preventDefault();
+    if (activeRequest.current || !canEdit || !dirty) return;
+    if (!name || name.length > 80) {
+      setError('Enter a printer name of up to 80 characters.');
+      return;
+    }
+    activeRequest.current = true;
+    setBusy(true);
+    setError('');
+    setStatus('');
+    try {
+      const saved = await requestControllerRename(detail.id,name);
+      if (mounted.current) {
+        setDraft({base:saved,value:saved});
+        setStatus('Controller name changed to '+saved+'. Printer-reported name is unchanged.');
+      }
+    } catch (failure) {
+      if (mounted.current) setError(failure?.message || 'Unable to rename this printer.');
+    } finally {
+      activeRequest.current = false;
+      if (mounted.current) setBusy(false);
+    }
+  };
+
+  return (
+    <form class="printer-name-editor" data-preact-printer-name-editor onSubmit={submit}>
+      <UiTextField label="Controller name" id="printerControllerName"
+        data-printer-name value={draft.value} maxlength={80} autocomplete="off"
+        disabled={busy || !canEdit}
+        onInput={(event) => {
+          setDraft((current) => ({...current,value:event.currentTarget.value}));
+          setError('');
+          setStatus('');
+        }}
+      />
+      <div class="mini-actions">
+        <UiButton variant="secondary" type="submit" data-rename
+          disabled={busy || !canEdit || !dirty || !name || name.length > 80}>
+          {busy ? 'Renaming…' : 'Rename printer'}
+        </UiButton>
+        <UiButton variant="secondary" data-printer-name-reset
+          disabled={busy || !canEdit || !dirty}
+          onClick={() => {
+            setDraft((current) => ({...current,value:current.base}));
+            setError('');
+            setStatus('');
+          }}>Reset</UiButton>
+      </div>
+      <div class="field-help" data-rename-status role="status" aria-live="polite">
+        {status || 'This changes only the name shown by Print Farm Controller; the printer\'s own name is not modified.'}
+      </div>
+      {error && <div class="error" role="alert" data-printer-name-error>{error}</div>}
+    </form>
+  );
+}
+
 function renderDetailState(detail) {
   const headerRoot = document.querySelector('[data-preact-detail-header]');
   const activityRoot = document.querySelector('[data-preact-detail-activity]');
   const tabsRoot = document.querySelector('[data-preact-detail-tabs]');
+  const nameRoot = document.querySelector('[data-preact-printer-management]');
   if (headerRoot) render(<PrinterDetailHeader detail={detail} />, headerRoot);
+  if (nameRoot) render(<PrinterNameEditor key={detail.id} detail={detail} />,nameRoot);
   if (activityRoot) render(<PrinterDetailActivity detail={detail} />, activityRoot);
   if (tabsRoot) render(<PrinterDetailTabs detail={detail} />, tabsRoot);
 }

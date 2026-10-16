@@ -132,6 +132,16 @@ test('Preact printer-detail chrome preserves six-tab behavior and vanilla fallba
   assert.match(detailUi, /PrinterDetailHeader/);
   assert.match(detailUi, /PrinterDetailTabs/);
   assert.match(detailUi, /PrinterDetailActivity/);
+  assert.match(detailUi, /function PrinterNameEditor/);
+  assert.match(detailUi, /data-preact-printer-name-editor/);
+  assert.match(detailUi, /data-printer-name-reset/);
+  assert.match(detailUi, /requestControllerRename/);
+  assert.match(detailUi, /current.value === current.base/);
+  assert.match(detailUi, /activeRequest.current/);
+  assert.match(app, /data-preact-printer-management/);
+  assert.match(app, /if \(action.type === 'rename'\)/);
+  assert.match(app, /currentPrinterId !== targetId/);
+  assert.match(app, /window.__PFC_PREACT_DETAIL__ \? null : printerDetail.querySelector\('\[data-rename\]'\)/);
   assert.match(detailUi, /pfc:printer-detail-action/);
   assert.match(detailUi, /pfc:printer-detail-state/);
   assert.match(app, /function publishPrinterDetailState/);

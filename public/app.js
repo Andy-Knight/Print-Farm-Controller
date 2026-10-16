@@ -6796,7 +6796,8 @@ function printerDetailChromeState(printer, { loading = false } = {}) {
       state:printerMaintenanceState(printer),
       actionText:`Open maintenance for ${printer.name}. ${maintenanceText}`
     },
-    activity:printerActivityStatus(printer)
+    activity:printerActivityStatus(printer),
+    canManage:printer.licenseActive !== false
   };
 }
 
@@ -7369,9 +7370,12 @@ async function openPrinter(id) {
         </div>
         <div class="panel printer-management-panel">
           <h3>Printer management</h3>
-          <label>Controller name<input data-printer-name type="text" maxlength="80" value="${escapeHtml(printer.name)}" autocomplete="off" /></label>
+          ${window.__PFC_PREACT_DETAIL__ ? `<div class="printer-management-control-row">
+            <div data-preact-printer-management></div>
+            <div class="mini-actions printer-management-remove"><button class="danger" data-remove>Remove printer</button></div>
+          </div>` : `<label>Controller name<input data-printer-name type="text" maxlength="80" value="${escapeHtml(printer.name)}" autocomplete="off" /></label>
           <div class="mini-actions"><button class="secondary" data-rename>Rename printer</button><button class="danger" data-remove>Remove printer</button></div>
-          <div class="field-help" data-rename-status>This changes only the name shown by Print Farm Controller; the printer's own name is not modified.</div>
+          <div class="field-help" data-rename-status>This changes only the name shown by Print Farm Controller; the printer's own name is not modified.</div>`}
         </div>
       </div>
     </div>
@@ -8017,7 +8021,9 @@ ${flashForgePreflight}` : ''}`)) return;
       }
     } catch (error) { showError(error); }
   };
-  const renameButton = printerDetail.querySelector('[data-rename]');
+  // No Preact rename button exists at this point; a single async event bridge
+  // handles the controlled editor. The legacy handler remains the fallback.
+  const renameButton = window.__PFC_PREACT_DETAIL__ ? null : printerDetail.querySelector('[data-rename]');
   const renameInput = printerDetail.querySelector('[data-printer-name]');
   if (renameButton && renameInput) renameButton.onclick = async () => {
     const nextName = renameInput.value.trim();
@@ -8057,6 +8063,45 @@ window.addEventListener('pfc:printer-detail-action', (event) => {
   }
   if (action.type === 'tab') {
     activatePrinterDetailTab(action.value);
+    return;
+  }
+  if (action.type === 'rename') {
+    const targetId = String(action.printerId || '');
+    const printer = fleet.find((item) => item.id === targetId);
+    const nextName = String(action.value || '').trim();
+    if (!printer || !printerDialog.open || currentPrinterId !== targetId || printer.licenseActive === false) {
+      action.reject?.(new Error('Printer details are no longer active or are read-only.'));
+      return;
+    }
+    if (!nextName || nextName.length > 80) {
+      action.reject?.(new Error('Enter a printer name of up to 80 characters.'));
+      return;
+    }
+    if (nextName === printer.name) {
+      action.resolve?.(printer.name);
+      return;
+    }
+    (async () => {
+      try {
+        const result = await api(`/api/printers/${encodeURIComponent(targetId)}/name`, {
+          method:'PUT',body:JSON.stringify({name:nextName})
+        });
+        if (!result.printer?.name) throw new Error('Printer rename response did not include the saved name.');
+        // Do not apply a response to a different printer if the dialog has
+        // closed or switched while the network request was outstanding.
+        if (!printerDialog.open || currentPrinterId !== targetId) {
+          action.reject?.(new Error('Printer details were closed during the rename.'));
+          return;
+        }
+        printer.name = result.printer.name;
+        publishPrinterDetailState(printer);
+        renderSummary();
+        applyDashboardFilter();
+        action.resolve?.(printer.name);
+      } catch (error) {
+        action.reject?.(error);
+      }
+    })();
   }
 });
 

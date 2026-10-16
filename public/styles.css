@@ -4019,3 +4019,14 @@ body:not([data-route="/"]) > main > :not(.route-page) { display:none !important;
   /* Alerts deliberately become individual cards on narrow screens. */
   .alert-history-table { border:0; border-radius:0; background:transparent; }
 }
+
+/* Preact-owned printer name editor: same layout as the legacy controller
+   management panel, with an independent, telemetry-safe draft. */
+.printer-management-control-row { min-width:0; }
+.printer-management-control-row > [data-preact-printer-management] { min-width:0; }
+.printer-name-editor { display:grid; gap:9px; min-width:0; }
+.printer-name-editor label { display:block; min-width:0; }
+.printer-name-editor input { width:100%; }
+.printer-name-editor .mini-actions { margin:0; }
+.printer-management-remove { margin-top:8px; }
+.printer-name-editor [data-printer-name-error] { margin:0; }
