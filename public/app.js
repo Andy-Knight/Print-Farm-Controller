@@ -6794,9 +6794,24 @@ function printerDetailHealthText(printer) {
 }
 
 
+// Tool configurations change in the controller immediately, but PrusaLink
+// telemetry is polled asynchronously. During the transition, the cached
+// status can still contain the old number of tools. Render the *configured*
+// tool count right away, without inventing live readings, and let the next
+// telemetry publication fill the new rows in place.
+function printerToolheadDisplayTools(printer) {
+  const reported = Array.isArray(printer.status?.tools) ? printer.status.tools : [];
+  if (printer.adapterType !== 'prusa-core-one-plus' || !reported.length) return reported;
+  const configured = Number(printer.limits?.toolCount || printer.configuredToolCount || reported.length);
+  if (![1,4,8].includes(configured) || reported.length === configured) return reported;
+  const byIndex = new Map(reported.map((tool, position) => [Number(tool.index ?? position), tool]));
+  return Array.from({ length:configured }, (_, index) =>
+    byIndex.get(index) || { index, name:`T${index}`, active:false, filament:{ present:null } });
+}
+
 function printerToolheadControlState(printer) {
   const capabilities=printer.capabilities || {};
-  const tools=Array.isArray(printer.status?.tools)?printer.status.tools:[];
+  const tools=printerToolheadDisplayTools(printer);
   const nozzleOptions=printerNozzleDiameterOptions(printer);
   const colors=FILAMENT_COLOR_FAMILIES;
   const filamentHelp='Used by the controller for queue compatibility and dashboard colour.';
@@ -7276,7 +7291,7 @@ async function openPrinter(id) {
   const manualNozzleColumn = Boolean(wideToolheadLayout && (capabilities.toolNozzleDesignation || capabilities.nozzleDesignation));
   const showConfigurationColumn = true;
   const materialStatusMarkup = capabilities.materialStatus ? (() => {
-    const tools = Array.isArray(s?.tools) ? s.tools : [];
+    const tools = printerToolheadDisplayTools(printer);
     if (!tools.length) return `<div class="panel material-panel${wideToolheadLayout ? ' material-panel-wide' : ''}"><h3>Toolhead status</h3><div class="subtle">Material status is unavailable while the printer is offline.</div>${flashForgeMaterialDesignationMarkup(printer)}${flashForgeNozzleDesignationMarkup(printer)}</div>`;
     const materialHelp = printer.adapterType === 'flashforge-ad5m'
       ? "Filament type uses the controller's manual designation when set, otherwise the value reported by the FlashForge 5M local /detail API. Installed nozzle size uses the controller nozzle designation when set because the 5M API does not reliably expose it. The 5M API also does not expose U1-style filament colour/RFID metadata or a reliable live filament-presence value."
