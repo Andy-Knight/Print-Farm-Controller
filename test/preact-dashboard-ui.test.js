@@ -132,6 +132,48 @@ test('Preact printer-detail chrome preserves six-tab behavior and vanilla fallba
   assert.match(detailUi, /PrinterDetailHeader/);
   assert.match(detailUi, /PrinterDetailTabs/);
   assert.match(detailUi, /PrinterDetailActivity/);
+  assert.match(detailUi, /function PrinterNameEditor/);
+  assert.match(detailUi, /function ToolheadDesignationEditor/);
+  assert.match(detailUi, /data-preact-toolhead-editor/);
+  assert.match(detailUi, /requestToolheadDesignation/);
+  assert.match(detailUi, /data-toolhead-color-option/);
+  assert.match(detailUi, /data-toolhead-nozzle/);
+  assert.match(detailUi, /pending.current/);
+  assert.match(app, /function printerToolheadDisplayTools\(printer\)/);
+  assert.match(app, /if \(printer.adapterType !== 'prusa-core-one-plus' \|\| !reported.length\) return reported/);
+  assert.match(app, /\[1,4,8\]\.includes\(configured\)/);
+  assert.match(app, /byIndex\.get\(index\) \|\| \{ index/);
+  assert.match(app, /const tools=printerToolheadDisplayTools\(printer\)/);
+  assert.match(app, /const tools = printerToolheadDisplayTools\(printer\)/);
+  assert.match(app, /function printerToolheadControlState/);
+  assert.match(app, /const ad5mToolheadTable = printer.adapterType === 'flashforge-ad5m'/);
+  assert.match(app, /configuredToolCount > 1 \|\| ad5mToolheadTable \|\| coreOneSingleToolheadTable/);
+  assert.match(app, /const coreOneSingleToolheadTable = printer.adapterType === 'prusa-core-one-plus'/);
+  assert.match(app, /capabilities\.toolNozzleDesignation && tools\.length > 1/);
+  assert.match(app, /ad5mToolheadTable && toolPosition === 0/);
+  assert.match(app, /flashForgeMaterialDesignationMarkup\(printer, filament\)/);
+  assert.match(app, /printer.adapterType === 'flashforge-ad5m' && !ad5mToolheadTable/);
+  assert.match(app, /function performToolheadDesignation/);
+  assert.match(app, /pendingToolheadDesignations/);
+  assert.match(app, /if \(action.type === 'toolhead-designation'\)/);
+  assert.match(app, /data-preact-toolhead-control="prusa-filament"/);
+  assert.match(app, /data-preact-toolhead-control="controller-filament"/);
+  assert.match(app, /data-preact-toolhead-control="tool-nozzle"/);
+  assert.match(app, /data-preact-toolhead-control="controller-nozzle"/);
+  assert.match(app, /data-preact-toolhead-control="u1-filament"/);
+  assert.match(app, /data-preact-toolhead-control="creator5-filament"/);
+  assert.match(app, /u1FilamentConfigEditState\(printer,tool\)/);
+  assert.match(app, /creator5FilamentColorOptions\(printer\)/);
+  assert.match(app, /\['u1-filament','creator5-filament'\]\.includes\(mode\)/);
+  assert.match(detailUi, /data-preact-printer-name-editor/);
+  assert.match(detailUi, /data-printer-name-reset/);
+  assert.match(detailUi, /requestControllerRename/);
+  assert.match(detailUi, /current.value === current.base/);
+  assert.match(detailUi, /activeRequest.current/);
+  assert.match(app, /data-preact-printer-management/);
+  assert.match(app, /if \(action.type === 'rename'\)/);
+  assert.match(app, /currentPrinterId !== targetId/);
+  assert.match(app, /window.__PFC_PREACT_DETAIL__ \? null : printerDetail.querySelector\('\[data-rename\]'\)/);
   assert.match(detailUi, /pfc:printer-detail-action/);
   assert.match(detailUi, /pfc:printer-detail-state/);
   assert.match(app, /function publishPrinterDetailState/);
@@ -142,6 +184,27 @@ test('Preact printer-detail chrome preserves six-tab behavior and vanilla fallba
   assert.match(app, /printerDetailTabsMarkup\(\)/);
   assert.match(styles, /Preact printer-detail chrome/);
   assert.match(styles, /\.printer-detail-preact-tabs/);
+  // All Preact Toolheads islands are forms inside table cells, unlike dialog
+  // forms. Their padding must explicitly override the global 22px rule.
+  assert.match(styles, /form \{ padding:22px; \}/);
+  // Nozzle designation wrappers must not push help text lower than the
+  // Set filament guidance in the adjacent Toolheads table column.
+  assert.match(styles, /\.material-panel \.toolhead-designation-editor > \.field-help\s*\{[^}]*margin-top:-5px;/);
+  // AD5M generic designation wrappers add label bottom margins and use a
+  // different select spacing than the adjacent nozzle control. Preact must
+  // normalise both to align Set filament and Assign in the same table row.
+  assert.match(styles, /\.material-panel \.toolhead-designation-editor \.toolhead-dropdown-pair label\s*\{[^}]*margin:0;/);
+  assert.match(styles, /\.material-panel \.toolhead-designation-editor \.toolhead-dropdown-pair label\s*\{[^}]*font-size:\.68rem;/);
+  assert.match(styles, /\.material-panel \.toolhead-designation-editor \.toolhead-dropdown-pair select\s*\{[^}]*margin-top:4px;/);
+  assert.match(styles, /\.material-panel \.toolhead-designation-editor\s*\{[^}]*padding:0;[^}]*margin:0;/);
+  // Each Preact form spans the entire legacy two-column wrapper. Otherwise
+  // its nested material and colour selects each receive only ~half the width.
+  for (const kind of ['u1-filament-config-control','creator5-filament-config-control',
+    'prusa-tool-filament-control']) {
+    assert.ok(styles.includes(kind + ' > .toolhead-designation-editor'),
+      kind + ' must span the full toolhead configuration column');
+  }
+  assert.match(styles, /grid-column:1 \/ -1;/);
 });
 
 
@@ -406,6 +469,14 @@ test('Preact Printer Groups preserves group cards and delegated actions', async 
   assert.match(dashboard, /initPrinterGroupsUi/);
   assert.match(groupsUi, /function PrinterGroupCard/);
   assert.match(groupsUi, /function PrinterGroupsList/);
+  assert.match(groupsUi, /id="printerGroupsTabCreate"/);
+  assert.match(groupsUi, /id="printerGroupsTabExisting"/);
+  assert.match(groupsUi, /id="printerGroupsCreatePanel"/);
+  assert.match(groupsUi, /id="printerGroupsExistingPanel"/);
+  assert.match(groupsUi, /const \[createDraft,setCreateDraft\]/);
+  assert.match(groupsUi, /const \[editDraft,setEditDraft\]/);
+  assert.match(groupsUi, /onTabsKeyDown/);
+  assert.match(groupsUi, /if \(!draft\.id\) setTab\('groups'\)/);
   assert.match(groupsUi, /data-printer-group-card/);
   assert.match(groupsUi, /data-printer-group-edit/);
   assert.match(groupsUi, /data-printer-group-delete/);
@@ -420,7 +491,8 @@ test('Preact Printer Groups keeps the editor, multi-group membership and vanilla
   const app = await read('public/app.js');
   assert.match(app, /function renderPrinterGroupMembers/);
   assert.match(app, /function groupsForPrinter/);
-  assert.match(app, /Also in/);
+  assert.match(app, /const otherNames = otherGroups\.map/);
+  assert.match(app, /printer-group-member-groups/);
   assert.match(app, /printerGroupForm\?\.addEventListener\('submit'/);
   assert.match(app, /data-printer-group-member/);
   assert.match(app, /if \(window\.__PFC_PREACT_PRINTER_GROUPS__\) \{[\s\S]*publishPrinterGroupsUiState\(\);[\s\S]*return;/);

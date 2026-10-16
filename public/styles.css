@@ -785,6 +785,18 @@ input:focus,select:focus { border-color:#7a9fbe; }
 /* Custom printer groups */
 .printer-groups-dialog { width:min(860px,calc(100vw - 30px)); }
 .printer-groups-shell { padding:22px; display:grid; gap:14px; }
+.printer-groups-tabs.maintenance-view-selector {
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  margin:0;
+}
+.printer-groups-tab-panel { min-width:0; }
+.printer-groups-tab-panel[hidden] { display:none !important; }
+.printer-groups-edit-workspace { margin-bottom:14px; }
+.printer-groups-tabs .maintenance-view-button { min-width:0; white-space:normal; }
+@media (max-width:620px) {
+  .printer-groups-tabs.maintenance-view-selector { grid-template-columns:repeat(2,minmax(0,1fr)); }
+}
+
 .printer-group-form {
   display:grid;
   gap:12px;
@@ -795,39 +807,84 @@ input:focus,select:focus { border-color:#7a9fbe; }
 }
 .printer-group-form-head { display:flex; justify-content:space-between; align-items:flex-start; gap:14px; flex-wrap:wrap; }
 .printer-group-members-label { display:block; margin-bottom:7px; color:#8fa0ae; font-size:.72rem; font-weight:800; text-transform:uppercase; letter-spacing:.05em; }
-.printer-group-members {
-  display:grid;
-  grid-template-columns:repeat(2,minmax(0,1fr));
-  gap:8px;
-}
-.printer-group-member {
+/* The membership grid scrolls independently of the edit form and group list. */
+.printer-group-members-section { min-width:0; }
+.printer-group-member-toolbar {
   display:flex;
-  align-items:flex-start;
-  gap:9px;
-  margin:0;
-  padding:10px;
+  align-items:end;
+  justify-content:space-between;
+  gap:12px;
+  flex-wrap:wrap;
+  margin-bottom:10px;
+}
+.printer-group-member-search { flex:1 1 260px; min-width:0; }
+.printer-group-member-search input { width:100%; min-width:0; }
+.printer-group-member-count { color:#8fa0ae; font-size:.75rem; white-space:nowrap; padding-bottom:10px; }
+.printer-group-member-actions {
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+  margin-bottom:7px;
+}
+.printer-group-member-actions .printer-group-members-label { margin:0; }
+.printer-group-member-actions .mini-actions { display:flex; flex-wrap:wrap; gap:7px; }
+.printer-group-members {
+  max-height:340px;
+  overflow:auto;
+  min-width:0;
   border:1px solid #29343d;
   border-radius:10px;
   background:#10171d;
-  cursor:pointer;
+  overscroll-behavior:contain;
+  scrollbar-gutter:stable;
 }
-.printer-group-member input[type="checkbox"] {
+.printer-group-members-table {
+  border-collapse:separate;
+  border-spacing:0;
+  width:100%;
+  min-width:580px;
+  table-layout:fixed;
+  text-align:left;
+}
+.printer-group-members-table th,
+.printer-group-members-table td {
+  padding:9px 11px;
+  border-bottom:1px solid #29343d;
+  vertical-align:middle;
+  overflow-wrap:anywhere;
+}
+.printer-group-members-table th {
+  position:sticky;
+  top:0;
+  z-index:1;
+  background:#17232c;
+  color:#9cb4c5;
+  font-size:.73rem;
+  font-weight:700;
+  white-space:nowrap;
+}
+.printer-group-members-table tbody tr:last-child td { border-bottom:0; }
+.printer-group-members-table tbody tr:hover { background:#1a2932; }
+.printer-group-members-table tbody tr.is-selected { background:#152e39; }
+.printer-group-members-table .printer-group-member-select-col { width:74px; text-align:center; }
+.printer-group-member-checkbox {
   width:16px;
   height:16px;
-  margin:2px 0 0;
+  margin:0;
   padding:0;
-  flex:0 0 16px;
+  vertical-align:middle;
   cursor:pointer;
 }
-.printer-group-member span {
-  min-width:0;
-  flex:1 1 auto;
-  overflow:hidden;
+.printer-group-member-name {
+  cursor:pointer;
+  color:#dce4eb;
+  font-weight:600;
+  font-size:.82rem;
 }
-.printer-group-member strong,
-.printer-group-member small { display:block; }
-.printer-group-member strong { color:#dce4eb; font-size:.8rem; }
-.printer-group-member small { margin-top:2px; color:#748795; font-size:.68rem; line-height:1.35; }
+.printer-group-members-table td { color:#9babb8; font-size:.78rem; }
+.printer-group-members-table .printer-group-member-groups { color:#8095a4; }
+.printer-group-members-table .printer-group-members-empty { color:#8fa0ae; text-align:center; padding:20px 12px; }
 .printer-groups-list { display:grid; gap:9px; }
 .printer-group-card {
   display:grid;
@@ -852,19 +909,23 @@ input:focus,select:focus { border-color:#7a9fbe; }
   font-size:.67rem;
 }
 :root[data-theme="light"] .printer-group-form,
-:root[data-theme="light"] .printer-group-card,
-:root[data-theme="light"] .printer-group-member {
+:root[data-theme="light"] .printer-group-card {
   background:#f7fafc;
   border-color:#d5dee5;
 }
-:root[data-theme="light"] .printer-group-member strong,
+/* Table header, surface, dividers and selected rows are theme-token driven below. */
+:root[data-theme="light"] .printer-group-member-name,
 :root[data-theme="light"] .printer-group-card-title strong { color:#263744; }
+:root[data-theme="light"] .printer-group-members-table td { color:#526773; }
 :root[data-theme="light"] .printer-group-card-members > span:not(.subtle) {
   background:#e5f1f7;
   color:#416f88;
 }
 @media (max-width:620px) {
-  .printer-group-members { grid-template-columns:1fr; }
+  .printer-group-members { max-height: min(340px,45vh); }
+  .printer-group-member-toolbar { align-items:stretch; }
+  .printer-group-member-count { padding-bottom:0; }
+  .printer-group-member-actions { flex-wrap:wrap; }
   .printer-group-card { grid-template-columns:1fr; }
   .printer-group-card .mini-actions { justify-content:flex-start; }
 }
@@ -963,7 +1024,8 @@ input:focus,select:focus { border-color:#7a9fbe; }
 .material-tool-configuration.read-only { display:flex; align-items:center; min-height:36px; }
 .material-tool-configuration .u1-filament-config-control,
 .material-tool-configuration .creator5-filament-config-control,
-.material-tool-configuration .prusa-tool-filament-control {
+.material-tool-configuration .prusa-tool-filament-control,
+.material-tool-configuration .material-designation-control {
   margin-top:0;
   padding-top:0;
   border-top:0;
@@ -1722,8 +1784,6 @@ button.library-file-preview { cursor:zoom-in; }
   background:#fff3f4;
   border-color:#d7a8ad;
 }
-:root[data-theme="light"] .material-table-head { color:#607585; }
-:root[data-theme="light"] .material-grid.multi-tool-table,
 :root[data-theme="light"] .multi-tool-table .material-tool { border-color:#d5dee5; }
 :root[data-theme="light"] .material-tool-identity > span,
 :root[data-theme="light"] .material-tool-information > small { color:#5e7281; }
@@ -1943,7 +2003,6 @@ button.library-file-preview { cursor:zoom-in; }
 .frontend-renderer-active { color:#7fd2ae; }
 .frontend-renderer-warning { color:#f6be70; }
 :root[data-theme="light"] .frontend-renderer-summary { color:#334e60; }
-:root[data-theme="light"] .frontend-renderer-table th,
 :root[data-theme="light"] .frontend-renderer-table td { border-color:#d5dee5; }
 :root[data-theme="light"] .frontend-renderer-active { color:#146b49; }
 :root[data-theme="light"] .frontend-renderer-warning { color:#995311; }
@@ -3837,4 +3896,207 @@ body:not([data-route="/"]) > main > :not(.route-page) { display:none !important;
 }
 @media (max-width:480px) {
   .printer-detail-preact-tabs { grid-template-columns:1fr; }
+}
+
+
+/* Controller table design system.
+ * A single skin covers Dashboard table view, Alerts history, Printer Groups
+ * membership, Diagnostics renderers and multi-toolhead configuration tables.
+ * Column layouts and responsive behaviour remain specific to each view.
+ */
+:root {
+  --pfc-table-surface:#10171d;
+  --pfc-table-border:#29343d;
+  --pfc-table-divider:#25313a;
+  --pfc-table-header-divider:#34424d;
+  --pfc-table-header-background:#151e25;
+  --pfc-table-header-text:#fff;
+  --pfc-table-hover:#151f28;
+  --pfc-table-selected:#152e39;
+  --pfc-table-secondary:#91a3b1;
+  --pfc-table-radius:11px;
+}
+:root[data-theme="light"] {
+  --pfc-table-surface:#fff;
+  --pfc-table-border:#cad5de;
+  --pfc-table-divider:#d5dee5;
+  --pfc-table-header-divider:#34424d;
+  --pfc-table-hover:#f6f9fb;
+  --pfc-table-selected:#dceef8;
+  --pfc-table-secondary:#526773;
+}
+/* Shared panel appearance (the dashboard gains this only in table view). */
+.fleet-viewport.table-view,
+.alert-history-table,
+.printer-group-members,
+.frontend-renderer-table,
+.material-grid.multi-tool-table {
+  border:1px solid var(--pfc-table-border);
+  border-radius:var(--pfc-table-radius);
+  background:var(--pfc-table-surface);
+}
+.fleet-table-header,
+.alert-history-head,
+.printer-group-members-table thead th,
+.frontend-renderer-table th,
+.material-table-head {
+  background:var(--pfc-table-header-background);
+  color:var(--pfc-table-header-text);
+  font-size:.68rem;
+  font-weight:800;
+  letter-spacing:.04em;
+  text-transform:uppercase;
+}
+.fleet-table-header,
+.alert-history-head,
+.material-table-head {
+  border-bottom:1px solid var(--pfc-table-header-divider);
+}
+.printer-group-members-table thead th,
+.frontend-renderer-table th {
+  border-bottom:1px solid var(--pfc-table-header-divider);
+}
+.printer-group-members-table thead th {
+  padding:9px 12px;
+  text-align:left;
+}
+.printer-group-members-table td {
+  padding:9px 12px;
+  border-bottom:1px solid var(--pfc-table-divider);
+}
+.printer-group-members-table tbody tr:last-child td { border-bottom:0; }
+.frontend-renderer-table {
+  border-collapse:separate;
+  border-spacing:0;
+  overflow:hidden;
+}
+.frontend-renderer-table th,
+.frontend-renderer-table td { border-bottom-color:var(--pfc-table-divider); }
+.frontend-renderer-table tr:last-child td { border-bottom:0; }
+.fleet.table-view .card,
+.alert-history-row,
+.multi-tool-table .material-tool {
+  border-bottom-color:var(--pfc-table-divider);
+}
+.fleet.table-view .card:hover,
+.fleet.table-view .card:focus-within,
+.alert-history-row:not(.unread):hover,
+.printer-group-members-table tbody tr:hover,
+.frontend-renderer-table tbody tr:hover,
+.multi-tool-table .material-tool:not(.filament-missing):hover {
+  background:var(--pfc-table-hover);
+}
+.printer-group-members-table tbody tr.is-selected,
+.printer-group-members-table tbody tr.is-selected:hover {
+  background:var(--pfc-table-selected);
+}
+.printer-group-members-table td,
+.printer-group-members-table .printer-group-member-groups {
+  color:var(--pfc-table-secondary);
+}
+.printer-group-members-table .printer-group-member-name {
+  color:inherit;
+}
+.printer-group-members-table td:nth-child(2) {
+  color:#dce4eb;
+}
+:root[data-theme="light"] .printer-group-members-table td:nth-child(2) {
+  color:#263744;
+}
+/* Toolhead tables use the same header block and connected panel treatment. */
+.material-table-head {
+  padding:9px 12px;
+  border:1px solid var(--pfc-table-border);
+  border-radius:var(--pfc-table-radius) var(--pfc-table-radius) 0 0;
+}
+.material-table-head + .material-grid.multi-tool-table {
+  border-top:0;
+  border-radius:0 0 var(--pfc-table-radius) var(--pfc-table-radius);
+}
+.multi-tool-table .material-tool:not(.filament-missing) {
+  background:transparent;
+}
+@media (max-width:760px) {
+  /* Alerts deliberately become individual cards on narrow screens. */
+  .alert-history-table { border:0; border-radius:0; background:transparent; }
+}
+
+/* Preact-owned printer name editor: same layout as the legacy controller
+   management panel, with an independent, telemetry-safe draft. */
+.printer-management-control-row { min-width:0; }
+.printer-management-control-row > [data-preact-printer-management] { min-width:0; }
+.printer-name-editor { display:grid; gap:9px; min-width:0; }
+.printer-name-editor label { display:block; min-width:0; }
+.printer-name-editor input { width:100%; }
+.printer-name-editor .mini-actions { margin:0; }
+.printer-management-remove { margin-top:8px; }
+.printer-name-editor [data-printer-name-error] { margin:0; }
+
+/* Preact-controlled toolhead metadata assignments retain the existing
+   filament/nozzle field widths and colour-dropdown visual treatment. */
+/* This form sits inside a Toolheads table cell, not a dialog body.
+   Override the global "form { padding:22px }" rule so controls begin at the
+   column heading edge instead of being indented on every printer model. */
+.material-panel .toolhead-designation-editor {
+  display:grid;
+  gap:9px;
+  min-width:0;
+  width:100%;
+  padding:0;
+  margin:0;
+}
+.toolhead-designation-editor > label { display:block; min-width:0; }
+.toolhead-designation-editor select { width:100%; min-width:0; }
+.toolhead-designation-editor .mini-actions { margin:0; }
+.toolhead-designation-editor .color-family-dropdown { width:100%; }
+.toolhead-designation-editor [data-toolhead-error] { margin:0; }
+/* The generic nozzle-designation wrapper gives helper text an extra
+   8px top margin, while the filament editor inherits -5px. Match the
+   inline Preact editors so their guidance begins at the same vertical
+   position beneath the aligned Set filament / Assign buttons. */
+.material-panel .toolhead-designation-editor > .field-help {
+  margin-top:-5px;
+  overflow-wrap:anywhere;
+}
+
+/* Keep Preact islands visually consistent with the established U1, Prusa,
+   Creator 5 and Flashforge nozzle fields and compact actions. */
+.material-panel .toolhead-designation-editor .mini-actions { margin-top:6px; }
+.material-panel .toolhead-designation-editor .toolhead-action-button {
+  width:var(--toolhead-dropdown-width);
+  max-width:100%;
+  height:var(--button-field-height);
+  min-height:var(--button-field-height);
+  justify-self:start;
+}
+/* The AD5M material-designation wrapper normally adds 8px below each
+   label and 6px above the material select. Its Preact form must use the
+   same compact label/field spacing as the adjacent nozzle editor so the
+   Set filament and Assign actions remain on the same horizontal line. */
+.material-panel .toolhead-designation-editor .toolhead-dropdown-pair label {
+  margin:0;
+  min-width:0;
+  color:#8493a1;
+  font-size:.68rem;
+}
+.material-panel .toolhead-designation-editor .toolhead-dropdown-pair select {
+  margin-top:4px;
+}
+
+/* Legacy filament wrappers use a two-column grid because their original
+   selects were direct children. Preact mounts a whole form as one child:
+   without spanning the grid, that form gets only half the available column
+   and its type/colour dropdowns shrink to roughly half the standard 160px.
+   Span both wrapper tracks for all Preact printers; leave the no-bundle
+   legacy layout untouched. */
+.material-panel .u1-filament-config-control > .toolhead-designation-editor,
+.material-panel .creator5-filament-config-control > .toolhead-designation-editor,
+.material-panel .prusa-tool-filament-control > .toolhead-designation-editor {
+  grid-column:1 / -1;
+  min-width:0;
+  width:100%;
+}
+
+.material-panel .toolhead-designation-editor .color-family-dropdown {
+  margin-top:4px;
 }

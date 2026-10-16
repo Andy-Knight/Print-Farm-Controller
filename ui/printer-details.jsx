@@ -1,5 +1,6 @@
 import { render } from 'preact';
-import { StatusBadge, UiButton } from './components.jsx';
+import { useEffect, useRef, useState } from 'preact/hooks';
+import { StatusBadge, UiButton, UiTextField } from './components.jsx';
 
 export const PRINTER_DETAIL_TABS = Object.freeze([
   { key:'toolheads', label:'Toolheads', controls:'detailTabToolheads' },
@@ -119,11 +120,258 @@ function PrinterDetailTabs({ detail }) {
   );
 }
 
+// The controller retains ownership of printer caches and the name API. Preact
+// owns only the editable draft and the submit lifecycle; telemetry must never
+// replace the text while a user is editing it.
+function requestControllerRename(printerId, name) {
+  return new Promise((resolve,reject) => {
+    window.dispatchEvent(new CustomEvent('pfc:printer-detail-action', {
+      detail:{type:'rename',printerId,value:name,resolve,reject}
+    }));
+  });
+}
+
+function PrinterNameEditor({ detail }) {
+  const [draft,setDraft] = useState(() => ({base:detail.name,value:detail.name}));
+  const [busy,setBusy] = useState(false);
+  const [error,setError] = useState('');
+  const [status,setStatus] = useState('');
+  const activeRequest = useRef(false);
+  const mounted = useRef(true);
+
+  useEffect(() => {
+    mounted.current = true;
+    return () => { mounted.current = false; };
+  }, []);
+
+  useEffect(() => {
+    setDraft((current) => ({
+      base:detail.name,
+      value:current.value === current.base ? detail.name : current.value
+    }));
+  }, [detail.name]);
+
+  const name = draft.value.trim();
+  const canEdit = detail.canManage !== false;
+  const dirty = name !== draft.base;
+  const submit = async (event) => {
+    event.preventDefault();
+    if (activeRequest.current || !canEdit || !dirty) return;
+    if (!name || name.length > 80) {
+      setError('Enter a printer name of up to 80 characters.');
+      return;
+    }
+    activeRequest.current = true;
+    setBusy(true);
+    setError('');
+    setStatus('');
+    try {
+      const saved = await requestControllerRename(detail.id,name);
+      if (mounted.current) {
+        setDraft({base:saved,value:saved});
+        setStatus('Controller name changed to '+saved+'. Printer-reported name is unchanged.');
+      }
+    } catch (failure) {
+      if (mounted.current) setError(failure?.message || 'Unable to rename this printer.');
+    } finally {
+      activeRequest.current = false;
+      if (mounted.current) setBusy(false);
+    }
+  };
+
+  return (
+    <form class="printer-name-editor" data-preact-printer-name-editor onSubmit={submit}>
+      <UiTextField label="Controller name" id="printerControllerName"
+        data-printer-name value={draft.value} maxlength={80} autocomplete="off"
+        disabled={busy || !canEdit}
+        onInput={(event) => {
+          setDraft((current) => ({...current,value:event.currentTarget.value}));
+          setError('');
+          setStatus('');
+        }}
+      />
+      <div class="mini-actions">
+        <UiButton variant="secondary" type="submit" data-rename
+          disabled={busy || !canEdit || !dirty || !name || name.length > 80}>
+          {busy ? 'Renaming…' : 'Rename printer'}
+        </UiButton>
+        <UiButton variant="secondary" data-printer-name-reset
+          disabled={busy || !canEdit || !dirty}
+          onClick={() => {
+            setDraft((current) => ({...current,value:current.base}));
+            setError('');
+            setStatus('');
+          }}>Reset</UiButton>
+      </div>
+      <div class="field-help" data-rename-status role="status" aria-live="polite">
+        {status || 'This changes only the name shown by Print Farm Controller; the printer\'s own name is not modified.'}
+      </div>
+      {error && <div class="error" role="alert" data-printer-name-error>{error}</div>}
+    </form>
+  );
+}
+
+
+const DEFAULT_MATERIALS = [
+  'PLA','PETG','ABS','ASA','TPU','PVA','PA','Nylon','PA-CF','PA-GF',
+  'PA6-CF','PA6-GF','PC','PC-ABS','PLA-CF','PETG-CF','ASA-CF',
+  'PC-CF','HIPS','PP','PET','PEBA'
+];
+
+function requestToolheadDesignation({printerId,mode,toolIndex,operation,values}) {
+  return new Promise((resolve,reject) => {
+    window.dispatchEvent(new CustomEvent('pfc:printer-detail-action', {
+      detail:{type:'toolhead-designation',printerId,mode,toolIndex,operation,values,resolve,reject}
+    }));
+  });
+}
+
+function ToolheadDesignationEditor({printerId,control,readOnly}) {
+  const [draft,setDraft] = useState(() => ({...control.values}));
+  const [baseline,setBaseline] = useState(() => ({...control.values}));
+  const [busy,setBusy] = useState(false);
+  const [error,setError] = useState('');
+  const [status,setStatus] = useState('');
+  const pending = useRef(false);
+  const mounted = useRef(true);
+  const menuRef = useRef(null);
+
+  useEffect(() => {
+    mounted.current = true;
+    return () => { mounted.current = false; };
+  }, []);
+  // Telemetry can change reported values, but it must not clobber edits.
+  useEffect(() => {
+    setDraft((previous) => {
+      const next={...previous};
+      for(const key of Object.keys(control.values)){
+        if(previous[key] === baseline[key]) next[key] = control.values[key];
+      }
+      return next;
+    });
+    setBaseline({...control.values});
+  },[control.values.material,control.values.colorFamily,control.values.color,control.values.nozzleDiameter]);
+
+  const disabled = readOnly || control.enabled === false || busy;
+  const dirty = Object.keys(control.values).some((key) => String(draft[key]??'') !== String(baseline[key]??''));
+  const filament = control.mode.endsWith('filament');
+  const palette = control.mode==='creator5-filament';
+  const colourKey = palette ? 'color' : 'colorFamily';
+  const allowedMaterials=[...new Set([draft.material, ...(control.materials||DEFAULT_MATERIALS)].filter(Boolean))];
+  const nozzleOptions=control.nozzles || [];
+  const colour=(control.colors || []).find((item)=>item.value===draft[colourKey]);
+  const set=(key,value)=>{
+    setDraft((current)=>({...current,[key]:value}));
+    setError('');setStatus('');
+  };
+  const valid = filament
+    ? Boolean(draft.material && colour)
+    : nozzleOptions.some((size)=>String(size)===String(draft.nozzleDiameter));
+  const perform=async (operation) => {
+    if(disabled || pending.current) return;
+    if(operation==='save' && !valid){
+      setError(filament?'Choose a filament type and colour family.':'Choose a nozzle size from the list.');
+      return;
+    }
+    pending.current=true;
+    setBusy(true);setError('');setStatus('');
+    try {
+      const saved=await requestToolheadDesignation({
+        printerId,mode:control.mode,toolIndex:control.toolIndex,
+        operation,values:{...draft}
+      });
+      if(mounted.current){
+        const next={...saved};
+        setBaseline(next);setDraft(next);
+        setStatus(operation==='clear'?'Nozzle designation cleared.':
+          filament?'Filament designation saved.':'Nozzle designation saved.');
+      }
+    } catch(failure) {
+      if(mounted.current)setError(failure?.message||'Unable to save designation.');
+    } finally {
+      pending.current=false;
+      if(mounted.current)setBusy(false);
+    }
+  };
+  const onSubmit=(event)=>{event.preventDefault();perform('save');};
+  return (
+    <form class={`toolhead-designation-editor ${filament?'toolhead-designation-filament':'toolhead-designation-nozzle'}`}
+      data-preact-toolhead-editor={control.mode} data-tool-index={control.toolIndex}
+      onSubmit={onSubmit}>
+      {filament ? <div class="toolhead-dropdown-pair">
+        <label>{control.mode==='controller-filament'?'Controller material type':'Filament type'}
+          <select data-toolhead-material value={draft.material} disabled={disabled}
+            onChange={(event)=>set('material',event.currentTarget.value)}>
+            <option value="">Select type</option>
+            {allowedMaterials.map((option)=><option key={option} value={option}>{option}</option>)}
+          </select>
+        </label>
+        <label>{control.mode==='controller-filament'?'Controller colour family':palette?'Colour':'Colour family'}
+          <details class={`color-family-dropdown${palette?' creator5-color-dropdown':''}${disabled?' disabled':''}`}
+            data-color-family-dropdown ref={menuRef}
+            onToggle={(event)=>{if(disabled&&event.currentTarget.open) event.currentTarget.open=false;}}>
+            <summary aria-disabled={disabled?'true':'false'}>
+              <span class={`color-family-selected${colour?'':' placeholder'}`}>
+                {colour && <i class="color-family-square" style={{background:colour.representative}} />}
+                <span>{colour?.label||'Select colour'}</span>
+              </span>
+              <span class="color-family-caret">▾</span>
+            </summary>
+            <div class="color-family-menu">
+              {(control.colors||[]).map((item)=>
+                <button type="button" key={item.value}
+                  class={`color-family-option${item.value===draft[colourKey]?' selected':''}`}
+                  disabled={disabled} data-toolhead-color-option={item.value}
+                  onClick={()=>{
+                    if(disabled)return;
+                    set(colourKey,item.value);
+                    if(menuRef.current) menuRef.current.open=false;
+                  }}>
+                  <i class="color-family-square" style={{background:item.representative}} />
+                  <span>{item.label}</span>
+                </button>)}
+            </div>
+          </details>
+        </label>
+      </div> : <label>{control.mode==='tool-nozzle'
+        ? `Physical T${control.toolIndex} nozzle`:'Controller nozzle designation'}
+        <select data-toolhead-nozzle value={draft.nozzleDiameter} disabled={disabled}
+          onChange={(event)=>set('nozzleDiameter',event.currentTarget.value)}>
+          <option value="">Select nozzle size</option>
+          {nozzleOptions.map((size)=><option key={size} value={size}>{size} mm</option>)}
+        </select>
+      </label>}
+      <div class="mini-actions">
+        <UiButton variant="primary" class="toolhead-action-button" type="submit" data-toolhead-save
+          disabled={disabled||!valid||!dirty}>
+          {busy?'Saving…':filament?'Set filament':'Assign'}
+        </UiButton>
+        {!filament&&control.canClear&&<UiButton variant="secondary" class="toolhead-action-button" data-toolhead-clear
+          disabled={disabled} onClick={()=>perform('clear')}>Clear</UiButton>}
+      </div>
+      {control.help && <div class="field-help">{control.help}</div>}
+      {status && <div class="field-help" role="status" aria-live="polite">{status}</div>}
+      {error && <div class="error" role="alert" data-toolhead-error>{error}</div>}
+    </form>
+  );
+}
+
 function renderDetailState(detail) {
   const headerRoot = document.querySelector('[data-preact-detail-header]');
   const activityRoot = document.querySelector('[data-preact-detail-activity]');
   const tabsRoot = document.querySelector('[data-preact-detail-tabs]');
+  const nameRoot = document.querySelector('[data-preact-printer-management]');
   if (headerRoot) render(<PrinterDetailHeader detail={detail} />, headerRoot);
+  if (nameRoot) render(<PrinterNameEditor key={detail.id} detail={detail} />,nameRoot);
+  // Each editable island is keyed by printer, tool and control mode, so a
+  // refresh of live toolhead status does not recreate its unsaved form state.
+  for (const root of document.querySelectorAll('[data-preact-toolhead-control]')) {
+    const mode=root.dataset.preactToolheadControl;
+    const index=Number(root.dataset.toolIndex||0);
+    const control=detail.toolheadControls?.find((item)=>item.mode===mode&&item.toolIndex===index);
+    if(control) render(<ToolheadDesignationEditor key={`${detail.id}:${mode}:${index}`}
+      printerId={detail.id} control={control} readOnly={detail.canManage===false}/>,root);
+  }
   if (activityRoot) render(<PrinterDetailActivity detail={detail} />, activityRoot);
   if (tabsRoot) render(<PrinterDetailTabs detail={detail} />, tabsRoot);
 }

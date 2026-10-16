@@ -98,3 +98,25 @@ export function ToastHost() {
     </div>
   );
 }
+
+/**
+ * Controlled form primitives. Each workflow owns its draft state, rather than
+ * mutating form DOM from SSE or application-level redraw handlers.
+ */
+export function UiTextField({ label, id, inputRef, class:className = '', ...props }) {
+  return (
+    <label class={className}>
+      {label}
+      <input id={id} ref={inputRef} type="text" {...props} />
+    </label>
+  );
+}
+
+export function UiCheckboxField({ class:className = '', children, ...props }) {
+  return (
+    <label class={className}>
+      <input type="checkbox" {...props} />
+      <span>{children}</span>
+    </label>
+  );
+}

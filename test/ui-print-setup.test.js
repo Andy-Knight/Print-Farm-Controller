@@ -804,7 +804,17 @@ test('all controller dropdown fields use one shared height', () => {
 
 test('multi-tool printers use a full-width toolhead information and configuration table', () => {
   assert.match(app, /const configuredToolCount = Number\(limits\.toolCount/);
-  assert.match(app, /const wideToolheadLayout = Boolean\(capabilities\.materialStatus && configuredToolCount > 1\)/);
+  // Single-tool AD5M/Pro now share the same full-width row layout.
+  assert.match(app, /const ad5mToolheadTable = printer.adapterType === 'flashforge-ad5m'/);
+  assert.match(app, /const wideToolheadLayout = Boolean\(capabilities\.materialStatus/);
+  assert.match(app, /configuredToolCount > 1 \|\| ad5mToolheadTable \|\| coreOneSingleToolheadTable/);
+  assert.match(app, /const coreOneSingleToolheadTable = printer.adapterType === 'prusa-core-one-plus'/);
+  assert.match(app, /configuredToolCount === 1[\s\S]*capabilities\.toolMaterialDesignation[\s\S]*capabilities\.nozzleDesignation/);
+  assert.match(app, /capabilities\.toolNozzleDesignation && tools\.length > 1/);
+  assert.match(app, /capabilities\.nozzleDesignation && toolPosition === 0/);
+  assert.match(app, /ad5mToolheadTable && toolPosition === 0/);
+  assert.match(app, /flashForgeMaterialDesignationMarkup\(printer, filament\)/);
+  assert.match(app, /printer.adapterType === 'flashforge-ad5m' && !ad5mToolheadTable/);
   assert.match(app, /const manualNozzleColumn = Boolean\(wideToolheadLayout && \(capabilities\.toolNozzleDesignation \|\| capabilities\.nozzleDesignation\)\)/);
   assert.match(app, /material-panel\$\{wideToolheadLayout \? ' material-panel-wide' : ''\}/);
   assert.match(app, /material-table-head\$\{manualNozzleColumn \? ' has-nozzle-column' : ''\}/);

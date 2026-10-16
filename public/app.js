@@ -59,6 +59,47 @@ const printerGroupSubmit = document.querySelector('#printerGroupSubmit');
 const printerGroupFormTitle = document.querySelector('#printerGroupFormTitle');
 const printerGroupsStatus = document.querySelector('#printerGroupsStatus');
 const printerGroupsList = document.querySelector('#printerGroupsList');
+const printerGroupsCreatePanel = document.querySelector('#printerGroupsCreatePanel');
+const printerGroupsExistingPanel = document.querySelector('#printerGroupsExistingPanel');
+const printerGroupEditWorkspace = document.querySelector('#printerGroupEditWorkspace');
+const printerGroupsTabs = Array.from(document.querySelectorAll('[data-printer-groups-tab]'));
+let printerGroupsActiveTab = 'create';
+
+// With Preact disabled the original form is moved between tab panels for edit.
+// The Preact build instead owns both drafts and both tab panels outright.
+function showLegacyPrinterGroupsTab(next) {
+  if (window.__PFC_PREACT_PRINTER_GROUPS__ || !['create','groups'].includes(next)) return;
+  printerGroupsActiveTab = next;
+  printerGroupsTabs.forEach((button) => {
+    const active = button.dataset.printerGroupsTab === next;
+    button.classList.toggle('active',active);
+    button.setAttribute('aria-selected',String(active));
+    button.tabIndex = active ? 0 : -1;
+  });
+  if (printerGroupsCreatePanel) printerGroupsCreatePanel.hidden = next !== 'create';
+  if (printerGroupsExistingPanel) printerGroupsExistingPanel.hidden = next !== 'groups';
+  const editing = Boolean(printerGroupId?.value);
+  if (printerGroupForm) {
+    if (next === 'groups' && editing) printerGroupEditWorkspace?.append(printerGroupForm);
+    else printerGroupsCreatePanel?.append(printerGroupForm);
+  }
+  printerGroupEditWorkspace?.classList.toggle('hidden',next !== 'groups' || !editing);
+}
+printerGroupsTabs.forEach((button) => button.addEventListener('click', () => {
+  if (window.__PFC_PREACT_PRINTER_GROUPS__) return;
+  const next = button.dataset.printerGroupsTab;
+  if (next === 'create' && printerGroupId?.value) resetPrinterGroupForm();
+  showLegacyPrinterGroupsTab(next);
+}));
+document.querySelector('.printer-groups-tabs')?.addEventListener('keydown', (event) => {
+  if (window.__PFC_PREACT_PRINTER_GROUPS__ || !['ArrowLeft','ArrowRight','Home','End'].includes(event.key)) return;
+  event.preventDefault();
+  const next = event.key === 'Home' ? 'create' : event.key === 'End' ? 'groups'
+    : printerGroupsActiveTab === 'create' ? 'groups' : 'create';
+  if (next === 'create' && printerGroupId?.value) resetPrinterGroupForm();
+  showLegacyPrinterGroupsTab(next);
+  document.querySelector(next === 'create' ? '#printerGroupsTabCreate' : '#printerGroupsTabExisting')?.focus();
+});
 const backupRecoveryBtn = document.querySelector('#backupRecoveryBtn');
 const backupRecoveryDialog = document.querySelector('#backupRecoveryDialog');
 const backupStatusGrid = document.querySelector('#backupStatusGrid');
@@ -3608,6 +3649,10 @@ function populateQueueGroupOptions(selected = queueAddGroup?.value || '') {
 }
 
 function resetPrinterGroupForm() {
+  if (window.__PFC_PREACT_PRINTER_GROUPS__) {
+    window.dispatchEvent(new Event('pfc:printer-groups-editor-reset'));
+    return;
+  }
   printerGroupForm?.reset();
   if (printerGroupId) printerGroupId.value = '';
   if (printerGroupFormTitle) printerGroupFormTitle.textContent = 'Add printer group';
@@ -3618,6 +3663,7 @@ function resetPrinterGroupForm() {
     printerGroupError.classList.add('hidden');
   }
   renderPrinterGroupMembers();
+  showLegacyPrinterGroupsTab(printerGroupsActiveTab);
 }
 
 function groupsForPrinter(printerId) {
@@ -3625,23 +3671,34 @@ function groupsForPrinter(printerId) {
 }
 
 function renderPrinterGroupMembers(selectedIds = null) {
+  if (window.__PFC_PREACT_PRINTER_GROUPS__) return;
   if (!printerGroupMembers) return;
   const editingId = printerGroupId?.value || '';
   const editing = (printerGroupsState.groups || []).find((group) => group.id === editingId) || null;
   const selected = new Set(selectedIds || editing?.printerIds || []);
   const printers = [...fleet].sort((a, b) => String(a.name).localeCompare(String(b.name)));
-  printerGroupMembers.innerHTML = printers.length
-    ? printers.map((printer) => {
+  const rows = printers.length
+    ? printers.map((printer, index) => {
         const otherGroups = groupsForPrinter(printer.id).filter((group) => group.id !== editingId);
-        const other = otherGroups.length
-          ? `<small>Also in ${otherGroups.map((group) => escapeHtml(group.name)).join(', ')}</small>`
-          : '';
-        return `<label class="printer-group-member">
-          <input type="checkbox" value="${escapeHtml(printer.id)}" data-printer-group-member${selected.has(printer.id) ? ' checked' : ''}>
-          <span><strong>${escapeHtml(printer.name)}</strong><small>${escapeHtml([printer.manufacturer, printer.model].filter(Boolean).join(' '))}</small>${other}</span>
-        </label>`;
+        const otherNames = otherGroups.map((group) => group.name).join(', ');
+        const checkboxId = `printerGroupMember-${index}`;
+        return `<tr${selected.has(printer.id) ? ' class="is-selected"' : ''}>
+          <td class="printer-group-member-select-col">
+            <input id="${checkboxId}" type="checkbox" class="printer-group-member-checkbox"
+              value="${escapeHtml(printer.id)}" data-printer-group-member
+              aria-label="Select ${escapeHtml(printer.name)}"${selected.has(printer.id) ? ' checked' : ''}>
+          </td>
+          <td><label class="printer-group-member-name" for="${checkboxId}">${escapeHtml(printer.name)}</label></td>
+          <td>${escapeHtml([printer.manufacturer, printer.model].filter(Boolean).join(' ') || '—')}</td>
+          <td class="printer-group-member-groups">${otherNames ? escapeHtml(otherNames) : '—'}</td>
+        </tr>`;
       }).join('')
-    : '<div class="subtle">No printers are configured.</div>';
+    : '<tr><td class="printer-group-members-empty" colspan="4">No printers are configured.</td></tr>';
+  printerGroupMembers.innerHTML = `<table class="printer-group-members-table">
+    <thead><tr><th scope="col" class="printer-group-member-select-col">Select</th>
+      <th scope="col">Printer</th><th scope="col">Model</th><th scope="col">Other groups</th></tr></thead>
+    <tbody>${rows}</tbody>
+  </table>`;
 }
 
 function printerGroupsViewModel() {
@@ -3657,24 +3714,33 @@ function printerGroupsViewModel() {
         id:String(group.id || ''),
         name:String(group.name || ''),
         members,
-        countLabel:`${count} printer${count === 1 ? '' : 's'}`
+        countLabel:`${count} printer${count === 1 ? '' : 's'}`,
+        printerIds:[...(group.printerIds || [])]
       };
     });
 }
 
 function publishPrinterGroupsUiState() {
   if (!window.__PFC_PREACT_PRINTER_GROUPS__) return;
-  const detail = { groups:printerGroupsViewModel() };
+  const detail = {
+    groups:printerGroupsViewModel(),
+    printers:[...fleet].sort((a,b) => String(a.name).localeCompare(String(b.name))).map((printer) => ({
+      id:String(printer.id), name:String(printer.name || ''),
+      manufacturer:String(printer.manufacturer || ''), model:String(printer.model || '')
+    }))
+  };
   window.__PFC_PRINTER_GROUPS_UI_STATE__ = detail;
   window.dispatchEvent(new CustomEvent('pfc:printer-groups-ui-state', { detail }));
 }
 
 function renderPrinterGroups() {
-  if (!printerGroupsList) return;
+  // The Preact Create tab deliberately does not mount the existing-group list.
+  // Publish cache changes before checking for the legacy list node.
   if (window.__PFC_PREACT_PRINTER_GROUPS__) {
     publishPrinterGroupsUiState();
     return;
   }
+  if (!printerGroupsList) return;
   const groups = [...(printerGroupsState.groups || [])].sort((a, b) => String(a.name).localeCompare(String(b.name)));
   printerGroupsList.innerHTML = groups.length
     ? groups.map((group) => {
@@ -3690,7 +3756,7 @@ function renderPrinterGroups() {
           </div>
         </article>`;
       }).join('')
-    : '<div class="queue-empty">No printer groups configured. Create a group above to restrict automatic queue work or assign group-wide maintenance.</div>';
+    : '<div class="queue-empty">No printer groups configured. Use the Create group tab to add your first group.</div>';
 }
 
 async function loadPrinterGroups({ preserveForm = false } = {}) {
@@ -3705,6 +3771,15 @@ async function loadPrinterGroups({ preserveForm = false } = {}) {
   window.dispatchEvent(new CustomEvent('pfc:printer-groups-changed', { detail:printerGroupsState }));
   return printerGroupsState;
 }
+
+// The Preact editor performs mutations; this bridge refreshes the shared
+// controller cache, dashboard group filter and queue selectors exactly once.
+window.addEventListener('pfc:printer-groups-reload', (event) => {
+  loadPrinterGroups({preserveForm:true}).then(
+    () => event.detail?.resolve?.(),
+    (error) => event.detail?.reject?.(error)
+  );
+});
 
 async function queueLibraryFile(libraryFileId, options = {}, quantity = 1, priority = 'normal', groupId = null) {
   if (!libraryFileId) throw new Error('Choose a Print Library file to queue');
@@ -4569,22 +4644,37 @@ diagnosticsBtn?.addEventListener('click', async () => {
 printerGroupsBtn?.addEventListener('click', async () => {
   if (topbarOverflow) topbarOverflow.open = false;
   printerGroupsDialog?.showModal();
-  if (printerGroupsStatus) printerGroupsStatus.textContent = 'Loading printer groups…';
+  // Reset immediately on navigation, never after an async load. A slow group
+  // refresh must not erase a draft the user has already started typing.
+  resetPrinterGroupForm();
+  showLegacyPrinterGroupsTab('create');
+  if (printerGroupsStatus && !window.__PFC_PREACT_PRINTER_GROUPS__) {
+    printerGroupsStatus.textContent = 'Loading printer groups…';
+  }
   try {
     await loadPrinterGroups();
-    resetPrinterGroupForm();
-    if (printerGroupsStatus) printerGroupsStatus.textContent = '';
+    if (printerGroupsStatus && !window.__PFC_PREACT_PRINTER_GROUPS__) {
+      printerGroupsStatus.textContent = '';
+    }
   } catch (error) {
-    if (printerGroupsStatus) printerGroupsStatus.textContent = '';
-    if (printerGroupError) {
-      printerGroupError.textContent = error.message;
-      printerGroupError.classList.remove('hidden');
+    if (window.__PFC_PREACT_PRINTER_GROUPS__) {
+      window.dispatchEvent(new CustomEvent('pfc:printer-groups-load-error', { detail:{message:error.message} }));
+    } else {
+      if (printerGroupsStatus) printerGroupsStatus.textContent = '';
+      if (printerGroupError) {
+        printerGroupError.textContent = error.message;
+        printerGroupError.classList.remove('hidden');
+      }
     }
   }
 });
 document.querySelectorAll('[data-printer-groups-close]').forEach((el) => el.addEventListener('click', () => printerGroupsDialog?.close()));
-printerGroupCancelEdit?.addEventListener('click', resetPrinterGroupForm);
+printerGroupCancelEdit?.addEventListener('click', () => {
+  resetPrinterGroupForm();
+  showLegacyPrinterGroupsTab('groups');
+});
 printerGroupForm?.addEventListener('submit', async (event) => {
+  if (window.__PFC_PREACT_PRINTER_GROUPS__) return;
   event.preventDefault();
   const id = printerGroupId?.value || '';
   const submit = printerGroupSubmit;
@@ -4601,6 +4691,7 @@ printerGroupForm?.addEventListener('submit', async (event) => {
     });
     await loadPrinterGroups();
     resetPrinterGroupForm();
+    showLegacyPrinterGroupsTab('groups');
     if (printerGroupsStatus) printerGroupsStatus.textContent = id ? 'Printer group updated.' : 'Printer group created.';
   } catch (error) {
     if (printerGroupError) {
@@ -4612,6 +4703,7 @@ printerGroupForm?.addEventListener('submit', async (event) => {
   }
 });
 printerGroupsList?.addEventListener('click', async (event) => {
+  if (window.__PFC_PREACT_PRINTER_GROUPS__) return;
   const edit = event.target.closest('[data-printer-group-edit]');
   if (edit) {
     const group = (printerGroupsState.groups || []).find((item) => item.id === edit.dataset.printerGroupEdit);
@@ -4622,6 +4714,7 @@ printerGroupsList?.addEventListener('click', async (event) => {
     if (printerGroupSubmit) printerGroupSubmit.textContent = 'Save group';
     printerGroupCancelEdit?.classList.remove('hidden');
     renderPrinterGroupMembers(group.printerIds || []);
+    showLegacyPrinterGroupsTab('groups');
     printerGroupName?.focus();
     printerGroupForm?.scrollIntoView({ behavior:'smooth', block:'start' });
     return;
@@ -4636,6 +4729,7 @@ printerGroupsList?.addEventListener('click', async (event) => {
     await api(`/api/printer-groups/${encodeURIComponent(group.id)}`, { method:'DELETE' });
     await loadPrinterGroups();
     resetPrinterGroupForm();
+    showLegacyPrinterGroupsTab('groups');
     if (printerGroupsStatus) printerGroupsStatus.textContent = `Deleted “${group.name}”.`;
   } catch (error) {
     remove.disabled = false;
@@ -5787,6 +5881,8 @@ function u1FilamentConfigEditState(printer, tool = {}) {
 
 function u1FilamentConfigControlMarkup(printer, tool = {}) {
   if (printer?.adapterType !== 'snapmaker-u1' || !printer?.capabilities?.filamentTypeControl || !printer?.capabilities?.filamentColorControl) return '';
+  if (typeof window !== 'undefined' && window.__PFC_PREACT_DETAIL__)
+    return `<div class="u1-filament-config-control" data-preact-toolhead-control="u1-filament" data-tool-index="${Number(tool.index)}"></div>`;
   const filament = tool.filament || {};
   const state = u1FilamentConfigEditState(printer, tool);
   const material = String(filament.material || '').trim();
@@ -5882,6 +5978,8 @@ function bindCreator5FilamentColorDropdowns(root, printer) {
 
 function creator5FilamentConfigControlMarkup(printer, tool = {}) {
   if (printer?.adapterType !== 'flashforge-creator5' || !printer?.capabilities?.filamentTypeControl || !printer?.capabilities?.filamentColorControl) return '';
+  if (typeof window !== 'undefined' && window.__PFC_PREACT_DETAIL__)
+    return `<div class="creator5-filament-config-control" data-preact-toolhead-control="creator5-filament" data-tool-index="${Number(tool.index)}"></div>`;
   const filament = tool.filament || {};
   const idle = String(printer.status?.status || '').toLowerCase() === 'idle';
   const materials = creator5FilamentMaterialOptions(printer);
@@ -5906,6 +6004,8 @@ function creator5FilamentConfigControlMarkup(printer, tool = {}) {
 
 function prusaToolMaterialDesignationMarkup(printer, tool = {}) {
   if (printer?.manufacturer !== 'Prusa' || !printer?.capabilities?.toolMaterialDesignation) return '';
+  if (typeof window !== 'undefined' && window.__PFC_PREACT_DETAIL__)
+    return `<div class="prusa-tool-filament-control" data-preact-toolhead-control="prusa-filament" data-tool-index="${Number(tool.index)}"></div>`;
   const filament = tool.filament || {};
   const material = filament.materialSource === 'manual'
     ? String(filament.material || '')
@@ -5956,6 +6056,10 @@ function nozzleDiameterSelectMarkup({ options = [], value = '', inputAttributes 
 
 function toolNozzleDesignationMarkup(printer, tool = {}, toolCount = 1) {
   if (!printer?.capabilities?.toolNozzleDesignation || Number(toolCount) <= 1) return '';
+  if (typeof window !== 'undefined' && window.__PFC_PREACT_DETAIL__) {
+    const kind=['prusa-core-one-plus','flashforge-creator5'].includes(printer.adapterType)?' primary-nozzle':'';
+    return `<div class="material-designation-control nozzle-designation-control tool-nozzle-control${kind}" data-preact-toolhead-control="tool-nozzle" data-tool-index="${Number(tool.index)}"></div>`;
+  }
   const effective = Number(tool.nozzleDiameter);
   const value = Number.isFinite(effective) && effective > 0 ? effective : '';
   const reported = Number(tool.reportedNozzleDiameter);
@@ -5989,6 +6093,8 @@ function toolNozzleDesignationMarkup(printer, tool = {}, toolCount = 1) {
 
 function flashForgeMaterialDesignationMarkup(printer, filament = {}) {
   if (!printer?.capabilities?.materialDesignation) return '';
+  if (typeof window !== 'undefined' && window.__PFC_PREACT_DETAIL__)
+    return '<div class="material-designation-control" data-preact-toolhead-control="controller-filament" data-tool-index="0"></div>';
   const manualValue = filament.materialSource === 'manual'
     ? String(filament.material || '')
     : String(printer.materialDesignation || '');
@@ -6017,6 +6123,8 @@ function flashForgeMaterialDesignationMarkup(printer, filament = {}) {
 
 function flashForgeNozzleDesignationMarkup(printer, tool = {}) {
   if (!printer?.capabilities?.nozzleDesignation) return '';
+  if (typeof window !== 'undefined' && window.__PFC_PREACT_DETAIL__)
+    return `<div class="material-designation-control nozzle-designation-control" data-preact-toolhead-control="controller-nozzle" data-tool-index="${Number(tool.index||0)}"></div>`;
   const manualValue = tool.nozzleDiameterSource === 'manual' && Number.isFinite(Number(tool.nozzleDiameter))
     ? Number(tool.nozzleDiameter)
     : (Number.isFinite(Number(printer.nozzleDiameterDesignation)) ? Number(printer.nozzleDiameterDesignation) : '');
@@ -6685,6 +6793,112 @@ function printerDetailHealthText(printer) {
     : `Offline · last seen ${formatLastSeen(printer.lastSeen)}`;
 }
 
+
+// Tool configurations change in the controller immediately, but PrusaLink
+// telemetry is polled asynchronously. During the transition, the cached
+// status can still contain the old number of tools. Render the *configured*
+// tool count right away, without inventing live readings, and let the next
+// telemetry publication fill the new rows in place.
+function printerToolheadDisplayTools(printer) {
+  const reported = Array.isArray(printer.status?.tools) ? printer.status.tools : [];
+  if (printer.adapterType !== 'prusa-core-one-plus' || !reported.length) return reported;
+  const configured = Number(printer.limits?.toolCount || printer.configuredToolCount || reported.length);
+  if (![1,4,8].includes(configured) || reported.length === configured) return reported;
+  const byIndex = new Map(reported.map((tool, position) => [Number(tool.index ?? position), tool]));
+  return Array.from({ length:configured }, (_, index) =>
+    byIndex.get(index) || { index, name:`T${index}`, active:false, filament:{ present:null } });
+}
+
+function printerToolheadControlState(printer) {
+  const capabilities=printer.capabilities || {};
+  const tools=printerToolheadDisplayTools(printer);
+  const nozzleOptions=printerNozzleDiameterOptions(printer);
+  const colors=FILAMENT_COLOR_FAMILIES;
+  const filamentHelp='Used by the controller for queue compatibility and dashboard colour.';
+  const result=[];
+  for(const [position,tool] of tools.entries()){
+    const filament=tool.filament || {};
+    const family=(filament.colorFamilySource==='manual'
+      ? filament.colorFamily : filament.reportedColorFamily||filament.colorFamily)||'';
+    if(printer.adapterType==='snapmaker-u1'
+      &&capabilities.filamentTypeControl&&capabilities.filamentColorControl){
+      const editState=u1FilamentConfigEditState(printer,tool);
+      result.push({
+        mode:'u1-filament',toolIndex:Number(tool.index),
+        values:{material:String(filament.material||'').trim().toUpperCase(),
+          colorFamily:filamentColorFamilyOption(filament.colorFamily)?.value||''},
+        colors,enabled:editState.enabled,
+        help:multiToolFilamentHelpText(editState.message)
+      });
+    }
+    if(printer.adapterType==='flashforge-creator5'
+      &&capabilities.filamentTypeControl&&capabilities.filamentColorControl){
+      const palette=creator5FilamentColorOptions(printer);
+      const actual=normalizeColor(filament.color);
+      result.push({
+        mode:'creator5-filament',toolIndex:Number(tool.index),
+        values:{material:String(filament.material||'').trim(),
+          color:palette.some((item)=>item.hex===actual)?actual||'':''},
+        colors:palette.map((item)=>({value:item.hex,label:item.name,representative:item.hex})),
+        materials:creator5FilamentMaterialOptions(printer),
+        enabled:String(printer.status?.status||'').toLowerCase()==='idle',
+        help:multiToolFilamentHelpText('Changes are written to the printer and verified.')
+      });
+    }
+    if(printer.manufacturer==='Prusa' && capabilities.toolMaterialDesignation){
+      result.push({
+        mode:'prusa-filament',toolIndex:Number(tool.index),
+        values:{
+          material:String(filament.materialSource==='manual'?filament.material||'':
+            filament.reportedMaterial||filament.material||''),
+          colorFamily:filamentColorFamilyOption(family)?.value||''
+        },colors,enabled:true,
+        help:filamentHelp+' Set filament saves type and colour in the controller, not on the Prusa printer.'
+      });
+    }
+    if(capabilities.toolNozzleDesignation && tools.length>1){
+      const diameter=Number(tool.nozzleDiameter);
+      const valid=nozzleOptions.some((size)=>Math.abs(size-diameter)<0.0001);
+      const reported=Number(tool.reportedNozzleDiameter);
+      const details=printer.adapterType==='flashforge-creator5'
+        ? 'Creator 5 firmware does not reliably report the installed nozzle size, so assign the fitted nozzle size in the controller.'
+        : Number.isFinite(reported)&&reported>0
+          ? `Assign saves a controller override of the ${nozzleDiameterText(reported)} value reported by PrusaLink.`
+          : 'Assign saves the fitted nozzle size in the controller when PrusaLink does not report it.';
+      result.push({
+        mode:'tool-nozzle',toolIndex:Number(tool.index),
+        values:{nozzleDiameter:valid?String(diameter):''},
+        nozzles:nozzleOptions,enabled:true,
+        canClear:!['prusa-core-one-plus','flashforge-creator5'].includes(printer.adapterType),
+        help:multiToolNozzleHelpText(details)
+      });
+    } else if(position===0 && capabilities.nozzleDesignation){
+      const designated=Number(tool.nozzleDiameterSource==='manual'?tool.nozzleDiameter:printer.nozzleDiameterDesignation);
+      const reported=Number(tool.reportedNozzleDiameter);
+      const selected=[designated,reported].find((size)=>nozzleOptions.some((option)=>Math.abs(option-size)<0.0001));
+      result.push({
+        mode:'controller-nozzle',toolIndex:Number(tool.index),
+        values:{nozzleDiameter:selected?String(selected):''},
+        nozzles:nozzleOptions,enabled:true,
+        canClear:!['prusa-core-one-plus','flashforge-ad5m'].includes(printer.adapterType),
+        help:'Stored by Print Farm Controller for automatic queue compatibility.'
+      });
+    }
+  }
+  if(capabilities.materialDesignation){
+    const filament=tools[0]?.filament||{};
+    const material=filament.materialSource==='manual'?filament.material:printer.materialDesignation;
+    const family=filament.colorFamilySource==='manual'?filament.colorFamily:printer.materialColorFamilyDesignation;
+    result.push({
+      mode:'controller-filament',toolIndex:Number(tools[0]?.index??0),
+      values:{material:String(material||''),colorFamily:filamentColorFamilyOption(family)?.value||''},
+      colors,enabled:true,
+      help:'The colour family is used for automatic queue compatibility. Exact shade selection is not required.'
+    });
+  }
+  return result;
+}
+
 function printerDetailChromeState(printer, { loading = false } = {}) {
   const state = stateName(printer);
   const rawState = rawStateName(printer);
@@ -6702,7 +6916,9 @@ function printerDetailChromeState(printer, { loading = false } = {}) {
       state:printerMaintenanceState(printer),
       actionText:`Open maintenance for ${printer.name}. ${maintenanceText}`
     },
-    activity:printerActivityStatus(printer)
+    activity:printerActivityStatus(printer),
+    canManage:printer.licenseActive !== false,
+    toolheadControls:printerToolheadControlState(printer)
   };
 }
 
@@ -7060,11 +7276,22 @@ async function openPrinter(id) {
       : `<div class="sensor-readout"><span>Chamber / cavity</span><b data-chamber-now>${Number(s.chamber.actual).toFixed(1)} °C</b></div>`
     : '';
   const configuredToolCount = Number(limits.toolCount || (Array.isArray(s?.tools) ? s.tools.length : 0));
-  const wideToolheadLayout = Boolean(capabilities.materialStatus && configuredToolCount > 1);
+  // Single-tool AD5M/Pro and CORE One+ use the same full-width table
+  // layout as multi-toolhead printers. Filament and nozzle controls must
+  // share the T0 row in Preact and the no-bundle fallback.
+  const ad5mToolheadTable = printer.adapterType === 'flashforge-ad5m'
+    && capabilities.materialStatus
+    && (capabilities.materialDesignation || capabilities.nozzleDesignation);
+  const coreOneSingleToolheadTable = printer.adapterType === 'prusa-core-one-plus'
+    && configuredToolCount === 1
+    && capabilities.toolMaterialDesignation
+    && capabilities.nozzleDesignation;
+  const wideToolheadLayout = Boolean(capabilities.materialStatus
+    && (configuredToolCount > 1 || ad5mToolheadTable || coreOneSingleToolheadTable));
   const manualNozzleColumn = Boolean(wideToolheadLayout && (capabilities.toolNozzleDesignation || capabilities.nozzleDesignation));
   const showConfigurationColumn = true;
   const materialStatusMarkup = capabilities.materialStatus ? (() => {
-    const tools = Array.isArray(s?.tools) ? s.tools : [];
+    const tools = printerToolheadDisplayTools(printer);
     if (!tools.length) return `<div class="panel material-panel${wideToolheadLayout ? ' material-panel-wide' : ''}"><h3>Toolhead status</h3><div class="subtle">Material status is unavailable while the printer is offline.</div>${flashForgeMaterialDesignationMarkup(printer)}${flashForgeNozzleDesignationMarkup(printer)}</div>`;
     const materialHelp = printer.adapterType === 'flashforge-ad5m'
       ? "Filament type uses the controller's manual designation when set, otherwise the value reported by the FlashForge 5M local /detail API. Installed nozzle size uses the controller nozzle designation when set because the 5M API does not reliably expose it. The 5M API also does not expose U1-style filament colour/RFID metadata or a reliable live filament-presence value."
@@ -7097,9 +7324,15 @@ async function openPrinter(id) {
         const configuration = [
           printer.adapterType === 'snapmaker-u1' ? u1FilamentConfigControlMarkup(printer, tool) : '',
           printer.adapterType === 'flashforge-creator5' ? creator5FilamentConfigControlMarkup(printer, tool) : '',
-          printer.manufacturer === 'Prusa' ? prusaToolMaterialDesignationMarkup(printer, tool) : ''
+          printer.manufacturer === 'Prusa' ? prusaToolMaterialDesignationMarkup(printer, tool) : '',
+          ad5mToolheadTable && toolPosition === 0
+            ? flashForgeMaterialDesignationMarkup(printer, filament) : ''
         ].filter(Boolean).join('');
-        const nozzleConfiguration = capabilities.toolNozzleDesignation
+        // Per-tool nozzle designation is only shown with multiple tools.
+        // In CORE One+ Standard mode the printer has toolNozzleDesignation
+        // capability too, but the actual single nozzle uses the shared
+        // nozzleDesignation API/control instead.
+        const nozzleConfiguration = capabilities.toolNozzleDesignation && tools.length > 1
           ? toolNozzleDesignationMarkup(printer, tool, tools.length)
           : capabilities.nozzleDesignation && toolPosition === 0
             ? `${flashForgeNozzleDesignationMarkup(printer, tool)}${tools.length > 1 ? `<div class="field-help shared-nozzle-help">This designation applies to all ${tools.length} toolheads.</div>` : ''}`
@@ -7143,7 +7376,7 @@ async function openPrinter(id) {
         </div>`;
       }).join('')}</div>
       ${bambuSources}
-      ${printer.adapterType === 'flashforge-ad5m' ? flashForgeMaterialDesignationMarkup(printer, tools[0]?.filament || {}) : ''}
+      ${printer.adapterType === 'flashforge-ad5m' && !ad5mToolheadTable ? flashForgeMaterialDesignationMarkup(printer, tools[0]?.filament || {}) : ''}
       ${((['flashforge-ad5m','flashforge-creator5'].includes(printer.adapterType) || printer.manufacturer === 'Prusa') && !(wideToolheadLayout && capabilities.nozzleDesignation)) ? flashForgeNozzleDesignationMarkup(printer, tools[0] || {}) : ''}
       ${toolConfigurationMarkup(printer, limits)}
       <div class="field-help material-help">${escapeHtml(materialHelp)}</div>
@@ -7275,9 +7508,12 @@ async function openPrinter(id) {
         </div>
         <div class="panel printer-management-panel">
           <h3>Printer management</h3>
-          <label>Controller name<input data-printer-name type="text" maxlength="80" value="${escapeHtml(printer.name)}" autocomplete="off" /></label>
+          ${window.__PFC_PREACT_DETAIL__ ? `<div class="printer-management-control-row">
+            <div data-preact-printer-management></div>
+            <div class="mini-actions printer-management-remove"><button class="danger" data-remove>Remove printer</button></div>
+          </div>` : `<label>Controller name<input data-printer-name type="text" maxlength="80" value="${escapeHtml(printer.name)}" autocomplete="off" /></label>
           <div class="mini-actions"><button class="secondary" data-rename>Rename printer</button><button class="danger" data-remove>Remove printer</button></div>
-          <div class="field-help" data-rename-status>This changes only the name shown by Print Farm Controller; the printer's own name is not modified.</div>
+          <div class="field-help" data-rename-status>This changes only the name shown by Print Farm Controller; the printer's own name is not modified.</div>`}
         </div>
       </div>
     </div>
@@ -7923,7 +8159,9 @@ ${flashForgePreflight}` : ''}`)) return;
       }
     } catch (error) { showError(error); }
   };
-  const renameButton = printerDetail.querySelector('[data-rename]');
+  // No Preact rename button exists at this point; a single async event bridge
+  // handles the controlled editor. The legacy handler remains the fallback.
+  const renameButton = window.__PFC_PREACT_DETAIL__ ? null : printerDetail.querySelector('[data-rename]');
   const renameInput = printerDetail.querySelector('[data-printer-name]');
   if (renameButton && renameInput) renameButton.onclick = async () => {
     const nextName = renameInput.value.trim();
@@ -7955,6 +8193,176 @@ ${flashForgePreflight}` : ''}`)) return;
   };
 }
 
+
+const pendingToolheadDesignations=new Set();
+
+// These are controller-metadata operations, not motion/heater commands.
+// Device-side Snapmaker U1 and Creator 5 filament writes intentionally stay
+// with their existing idle/RFID/palette/verification handlers.
+async function performToolheadDesignation(action) {
+  const printerId=String(action.printerId||'');
+  const printer=fleet.find((item)=>item.id===printerId);
+  if(!printer || !printerDialog.open || currentPrinterId!==printerId || printer.licenseActive===false)
+    throw new Error('Printer is no longer open or is read-only.');
+  const mode=String(action.mode||'');
+  const operation=action.operation==='clear'?'clear':'save';
+  const toolIndex=Number(action.toolIndex);
+  const data=action.values||{};
+  const options=printerToolheadControlState(printer);
+  const control=options.find((item)=>item.mode===mode&&item.toolIndex===toolIndex);
+  if(!control||!control.enabled)throw new Error('This printer does not support that designation.');
+  if(operation==='clear'&&!control.canClear)throw new Error('Clearing this designation is not supported.');
+  const tool=printer.status?.tools?.find((item)=>Number(item.index)===toolIndex);
+  const key=`${printerId}:${mode}:${toolIndex}`;
+  if(pendingToolheadDesignations.has(key))throw new Error('A designation change is already in progress.');
+  pendingToolheadDesignations.add(key);
+  try {
+    if(['u1-filament','creator5-filament'].includes(mode)){
+      const material=String(data.material||'').trim();
+      let color='';
+      let colorFamily='';
+      if(mode==='u1-filament'){
+        const toolState=u1FilamentConfigEditState(printer,tool);
+        if(!toolState.enabled)throw new Error(toolState.message);
+        colorFamily=String(data.colorFamily||'').trim().toLowerCase();
+        const colorOption=filamentColorFamilyOption(colorFamily);
+        if(!material || !colorOption)throw new Error('Choose a filament type and colour family.');
+        if(!CONTROLLER_FILAMENT_TYPES.some((item)=>item.toLowerCase()===material.toLowerCase()))
+          throw new Error('Choose a supported filament type.');
+        color=colorOption.representative;
+      } else {
+        if(String(printer.status?.status||'').toLowerCase()!=='idle')
+          throw new Error('Filament can only be set when Creator 5 is idle.');
+        color=normalizeColor(data.color);
+        if(!creator5FilamentMaterialOptions(printer).includes(material))
+          throw new Error('Choose a Creator 5 filament type from the list.');
+        if(!creator5FilamentColorOptions(printer).some((item)=>item.hex===color))
+          throw new Error('Choose a Creator 5 filament colour from the list.');
+      }
+      const result=await api(`/api/printers/${encodeURIComponent(printerId)}/filament-config`,{
+        method:'POST',body:JSON.stringify({toolIndex,material,color})
+      });
+      if(tool?.filament){
+        const filament=tool.filament;
+        filament.material=result.material;
+        filament.color=result.color;
+        filament.metadataAvailable=true;
+        if(mode==='u1-filament'){
+          filament.materialVariant=result.subtype;filament.vendor=result.vendor;
+          filament.colorFamily=colorFamily;
+          filament.materialSource='manual';filament.manuallyAssigned=true;
+          filament.officialFilament=false;
+        } else {
+          filament.materialSource='printer';filament.colorSource='printer';
+          filament.colorFamily=filamentColorFamilyFromHex(result.color);
+          filament.colorFamilySource=filament.colorFamily?'printer':null;
+          filament.manuallyAssigned=false;
+        }
+      }
+    } else if(mode==='prusa-filament'||mode==='controller-filament'){
+      const material=String(data.material||'').trim();
+      const colorFamily=String(data.colorFamily||'').trim().toLowerCase();
+      const colorOption=filamentColorFamilyOption(colorFamily);
+      if(!material || !colorOption)throw new Error('Choose a filament type and colour family.');
+      if(mode==='prusa-filament'){
+        const result=await api(`/api/printers/${encodeURIComponent(printerId)}/tool-material-designation`,{
+          method:'POST',body:JSON.stringify({
+            toolIndex,material,colorFamily,color:colorOption.representative
+          })
+        });
+        const designation=result.designation||{};
+        if(tool?.filament){
+          const filament=tool.filament;
+          filament.material=designation.material||filament.reportedMaterial||null;
+          filament.materialSource=designation.material?'manual':(filament.reportedMaterial?'printer':null);
+          filament.color=designation.color||filament.reportedColor||null;
+          filament.colorSource=designation.color?'manual':(filament.reportedColor?'printer':null);
+          filament.colorFamily=designation.colorFamily||filament.reportedColorFamily||null;
+          filament.colorFamilySource=designation.colorFamily?'manual':(filament.reportedColorFamily?'printer':null);
+          filament.manuallyAssigned=Boolean(designation.material||designation.color||designation.colorFamily);
+          filament.metadataAvailable=Boolean(filament.material||filament.color||filament.colorFamily);
+        }
+      } else {
+        const result=await api(`/api/printers/${encodeURIComponent(printerId)}/material-designation`,{
+          method:'POST',body:JSON.stringify({material,colorFamily,color:null})
+        });
+        printer.materialDesignation=material;
+        printer.materialColorFamilyDesignation=result.materialColorFamilyDesignation||colorFamily;
+        printer.materialColorDesignation=null;
+        const filament=printer.status?.tools?.[0]?.filament;
+        if(filament){
+          if(!filament.reportedMaterial&&filament.materialSource==='printer')
+            filament.reportedMaterial=filament.material||null;
+          if(!filament.reportedColor&&filament.colorSource==='printer')
+            filament.reportedColor=filament.color||null;
+          filament.material=material;filament.materialSource='manual';
+          filament.colorFamily=printer.materialColorFamilyDesignation;
+          filament.colorFamilySource='manual';
+          filament.color=null;filament.colorSource=null;
+          filament.manuallyAssigned=true;filament.metadataAvailable=true;
+        }
+      }
+    } else if(mode==='tool-nozzle'||mode==='controller-nozzle'){
+      const diameter=Number(data.nozzleDiameter);
+      if(operation!=='clear' && !printerNozzleDiameterOptions(printer).some(
+        (size)=>Math.abs(size-diameter)<0.0001))
+        throw new Error('Choose a nozzle size from the list.');
+      if(mode==='tool-nozzle'){
+        if(operation==='clear'){
+          await api(`/api/printers/${encodeURIComponent(printerId)}/tool-nozzle-designation?toolIndex=${toolIndex}`,{
+            method:'DELETE'
+          });
+          const reported=Number(tool?.reportedNozzleDiameter);
+          if(tool){
+            tool.nozzleDiameter=Number.isFinite(reported)&&reported>0?reported:null;
+            tool.nozzleDiameterSource=tool.nozzleDiameter?'printer':null;
+            tool.nozzleManuallyAssigned=false;
+          }
+        } else {
+          const result=await api(`/api/printers/${encodeURIComponent(printerId)}/tool-nozzle-designation`,{
+            method:'POST',body:JSON.stringify({toolIndex,nozzleDiameter:diameter})
+          });
+          if(tool){
+            tool.nozzleDiameter=Number(result.designation?.nozzleDiameter||diameter);
+            tool.nozzleDiameterSource='manual';tool.nozzleManuallyAssigned=true;
+          }
+        }
+      } else if(operation==='clear'){
+        await api(`/api/printers/${encodeURIComponent(printerId)}/nozzle-designation`,{
+          method:'DELETE'
+        });
+        printer.nozzleDiameterDesignation=null;
+        const reported=Number(tool?.reportedNozzleDiameter);
+        if(tool){
+          tool.nozzleDiameter=Number.isFinite(reported)&&reported>0?reported:null;
+          tool.nozzleDiameterSource=tool.nozzleDiameter?'printer':null;
+          tool.nozzleManuallyAssigned=false;
+        }
+      } else {
+        const result=await api(`/api/printers/${encodeURIComponent(printerId)}/nozzle-designation`,{
+          method:'POST',body:JSON.stringify({nozzleDiameter:diameter})
+        });
+        printer.nozzleDiameterDesignation=result.nozzleDiameterDesignation;
+        if(tool){
+          if(!Number.isFinite(Number(tool.reportedNozzleDiameter))
+            &&tool.nozzleDiameterSource==='printer'
+            &&Number.isFinite(Number(tool.nozzleDiameter)))
+            tool.reportedNozzleDiameter=Number(tool.nozzleDiameter);
+          tool.nozzleDiameter=result.nozzleDiameterDesignation;
+          tool.nozzleDiameterSource='manual';tool.nozzleManuallyAssigned=true;
+        }
+      }
+    } else throw new Error('Unsupported toolhead designation.');
+    if(!printerDialog.open || currentPrinterId!==printerId)throw new Error('Printer details were closed during the update.');
+    updateOpenPrinterTelemetry();
+    const saved=printerToolheadControlState(printer)
+      .find((item)=>item.mode===mode&&item.toolIndex===toolIndex);
+    return saved?.values||{};
+  } finally {
+    pendingToolheadDesignations.delete(key);
+  }
+}
+
 window.addEventListener('pfc:printer-detail-action', (event) => {
   const action = event?.detail || {};
   if (action.type === 'close') {
@@ -7963,6 +8371,51 @@ window.addEventListener('pfc:printer-detail-action', (event) => {
   }
   if (action.type === 'tab') {
     activatePrinterDetailTab(action.value);
+    return;
+  }
+  if (action.type === 'toolhead-designation') {
+    performToolheadDesignation(action).then(
+      (saved)=>action.resolve?.(saved),(failure)=>action.reject?.(failure)
+    );
+    return;
+  }
+  if (action.type === 'rename') {
+    const targetId = String(action.printerId || '');
+    const printer = fleet.find((item) => item.id === targetId);
+    const nextName = String(action.value || '').trim();
+    if (!printer || !printerDialog.open || currentPrinterId !== targetId || printer.licenseActive === false) {
+      action.reject?.(new Error('Printer details are no longer active or are read-only.'));
+      return;
+    }
+    if (!nextName || nextName.length > 80) {
+      action.reject?.(new Error('Enter a printer name of up to 80 characters.'));
+      return;
+    }
+    if (nextName === printer.name) {
+      action.resolve?.(printer.name);
+      return;
+    }
+    (async () => {
+      try {
+        const result = await api(`/api/printers/${encodeURIComponent(targetId)}/name`, {
+          method:'PUT',body:JSON.stringify({name:nextName})
+        });
+        if (!result.printer?.name) throw new Error('Printer rename response did not include the saved name.');
+        // Do not apply a response to a different printer if the dialog has
+        // closed or switched while the network request was outstanding.
+        if (!printerDialog.open || currentPrinterId !== targetId) {
+          action.reject?.(new Error('Printer details were closed during the rename.'));
+          return;
+        }
+        printer.name = result.printer.name;
+        publishPrinterDetailState(printer);
+        renderSummary();
+        applyDashboardFilter();
+        action.resolve?.(printer.name);
+      } catch (error) {
+        action.reject?.(error);
+      }
+    })();
   }
 });
 

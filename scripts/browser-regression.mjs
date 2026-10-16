@@ -154,6 +154,267 @@ async function routeSmoke(page,url) {
   await page.unroute('**/api/events');
 }
 
+async function groupEditorSmoke(browser,url) {
+  console.log('Chromium: Preact printer group editor owns create/edit/delete and preserves drafts');
+  const context=await browser.newContext({viewport:{width:1365,height:900}});
+  const page=await context.newPage();
+  const errors=[];
+  page.on('pageerror',(e)=>errors.push(e.message));
+  page.on('dialog',(dialog)=>dialog.accept());
+  let groups=[{id:'seed-group',name:'Existing group',printerIds:[],members:[]}];
+  const counts={post:0,patch:0,delete:0};
+  await context.route('**/api/events',(route)=>route.fulfill({
+    status:200,headers:{'content-type':'text/event-stream'},
+    body:': isolated group editor fixture\\n\\n'
+  }));
+  // Keep this regression safe even when PFC_BROWSER_TEST_BASE_URL is set.
+  // All group mutations go to this in-memory Playwright fixture.
+  await context.route('**/api/printer-groups**',async (route)=>{
+    const request=route.request();
+    const method=request.method();
+    const pathname=new URL(request.url()).pathname;
+    const id=pathname.split('/')[3]||'';
+    let status=200,payload={};
+    const body=['POST','PATCH'].includes(method) ? request.postDataJSON() : {};
+    if(method==='GET' && pathname==='/api/printer-groups'){
+      payload={version:1,groups};
+    } else if(method==='POST'){
+      counts.post++;
+      if(groups.some((item)=>item.name.toLowerCase()===String(body.name).toLowerCase())){
+        status=400;payload={error:'A printer group with this name already exists'};
+      } else {
+        const created={id:'created-group',name:body.name,printerIds:body.printerIds,members:[]};
+        groups=[...groups,created];payload={group:created};
+      }
+    } else if(method==='PATCH' && id){
+      counts.patch++;
+      groups=groups.map((item)=>item.id===id?{...item,name:body.name,printerIds:body.printerIds}:item);
+      payload={group:groups.find((item)=>item.id===id)};
+    } else if(method==='DELETE' && id){
+      counts.delete++;
+      groups=groups.filter((item)=>item.id!==id);
+      payload={success:true};
+    } else {
+      status=404;payload={error:'Unknown fixture request'};
+    }
+    await route.fulfill({status,contentType:'application/json',body:JSON.stringify(payload)});
+  });
+  try {
+    await page.goto(url+'/groups',{waitUntil:'load'});
+    await preactReady(page);
+    await page.locator('#printerGroupsTabCreate[aria-selected="true"]').waitFor();
+    // The direct /groups route initializes while app.js is still fetching the
+    // group cache. Do not click another tab before that first publication.
+    await page.waitForFunction(() => document.querySelector('#printerGroupsTabExisting')
+      ?.textContent?.includes('(1)'));
+    assert.equal(await page.locator('#printerGroupForm').count(),1,'create tab owns its form');
+    assert.equal(await page.locator('#printerGroupsList').count(),0,'existing list not rendered in create tab');
+    await page.locator('#printerGroupsTabExisting').click();
+    await page.locator('[data-printer-group-edit="seed-group"]').waitFor();
+    assert.equal(await page.locator('#printerGroupForm').count(),0,'list tab starts without an editor');
+    assert.equal(await page.locator('#printerGroupsList').count(),1,'existing list is visible in second tab');
+    await page.locator('#printerGroupsTabCreate').click();
+
+    // An SSE/reload-style state publication must not overwrite unsaved inputs.
+    await page.evaluate(()=>{
+      const current=window.__PFC_PRINTER_GROUPS_UI_STATE__;
+      const withPrinters={
+        ...current,
+        printers:[
+          {id:'sample-one',name:'Sample One',manufacturer:'Snapmaker',model:'U1'},
+          {id:'sample-two',name:'Sample Two',manufacturer:'FlashForge',model:'AD5M Pro'},
+          ...Array.from({length:180},(_,i)=>({
+            id:'bulk-'+i,name:'Printer '+String(i).padStart(3,'0'),
+            manufacturer:'Test manufacturer',model:'Model '+i
+          }))
+        ]
+      };
+      window.dispatchEvent(new CustomEvent('pfc:printer-groups-ui-state',{detail:withPrinters}));
+      window.__PFC_TEST_GROUP_STATE__=withPrinters;
+    });
+    const layout=await page.locator('#printerGroupMembers').evaluate((panel)=>{
+      const header=panel.querySelector('th');
+      return {
+        rowCount:panel.querySelectorAll('tbody tr').length,
+        scrollHeight:panel.scrollHeight,clientHeight:panel.clientHeight,
+        overflowY:getComputedStyle(panel).overflowY,
+        headerPosition:getComputedStyle(header).position
+      };
+    });
+    assert.equal(layout.rowCount,182,'all 182 simulated printer choices are in one table');
+    assert.ok(layout.scrollHeight>layout.clientHeight,'large membership list scrolls inside a bounded panel');
+    assert.equal(layout.overflowY,'auto','membership table is independently scrollable');
+    assert.equal(layout.headerPosition,'sticky','membership column headers stay in place');
+
+    // All tabular surfaces use the same controller table design system in
+    // both themes. The empty Alerts view has no table, so use a detached
+    // DOM fixture with the production class names to exercise its CSS.
+    const tableStyles=await page.evaluate(()=>{
+      const wrapper=document.createElement('div');
+      wrapper.style.position='fixed';
+      wrapper.style.left='-5000px';
+      wrapper.innerHTML=`<div class="alert-history-table">
+        <div class="alert-history-head">Alert heading</div>
+      </div><div class="frontend-renderer-table">
+        <table><thead><tr><th>Renderer</th></tr></thead></table>
+      </div><div class="material-table-head">Toolhead</div>`;
+      document.body.append(wrapper);
+      const root=document.documentElement;
+      const initial=root.getAttribute('data-theme');
+      const props=(el)=>{
+        const computed=getComputedStyle(el);
+        return {
+          background:computed.backgroundColor,
+          color:computed.color,
+          size:computed.fontSize,
+          weight:computed.fontWeight,
+          spacing:computed.letterSpacing,
+          transform:computed.textTransform
+        };
+      };
+      const result={};
+      try {
+        for(const theme of ['dark','light']){
+          root.setAttribute('data-theme',theme);
+          const group=props(document.querySelector('.printer-group-members-table th'));
+          const dashboard=props(document.querySelector('.fleet-table-header'));
+          const alerts=props(wrapper.querySelector('.alert-history-head'));
+          const renderer=props(wrapper.querySelector('.frontend-renderer-table th'));
+          const toolhead=props(wrapper.querySelector('.material-table-head'));
+          const memberSurface=getComputedStyle(document.querySelector('#printerGroupMembers'));
+          const alertSurface=getComputedStyle(wrapper.querySelector('.alert-history-table'));
+          result[theme]={group,dashboard,alerts,renderer,toolhead,
+            memberSurface:{background:memberSurface.backgroundColor,border:memberSurface.borderTopColor},
+            alertSurface:{background:alertSurface.backgroundColor,border:alertSurface.borderTopColor}};
+        }
+      } finally {
+        if(initial===null)root.removeAttribute('data-theme');
+        else root.setAttribute('data-theme',initial);
+        wrapper.remove();
+      }
+      return result;
+    });
+    for(const [theme,styles] of Object.entries(tableStyles)){
+      for(const type of ['dashboard','alerts','renderer','toolhead']){
+        assert.deepEqual(styles.group,styles[type],
+          theme+' table headings must use the shared header appearance: '+type);
+      }
+      assert.deepEqual(styles.memberSurface,styles.alertSurface,
+        theme+' printer membership panel must match alert table surface and border');
+      assert.equal(styles.group.transform,'uppercase',
+        theme+' table header labels must be uppercase');
+      assert.equal(styles.group.weight,'800',
+        theme+' table header labels must use the common weight');
+    }
+
+    await page.locator('[data-printer-group-member][value="sample-one"]').check();
+    await page.locator('[data-printer-group-member][value="bulk-179"]').check();
+    await page.locator('#printerGroupMemberSearch').fill('Printer 179');
+    assert.equal(await page.locator('#printerGroupMembers tbody tr').count(),1,
+      'search narrows choices to the matching printer');
+    assert.ok(await page.locator('[data-printer-group-member][value="bulk-179"]').isChecked(),
+      'matching printer retains selection during filtering');
+    await page.locator('[data-printer-group-clear-visible]').click();
+    assert.equal(await page.locator('[data-printer-group-member][value="bulk-179"]').isChecked(),false,
+      'clear visible deselects the filtered printer');
+    await page.locator('[data-printer-group-select-visible]').click();
+    assert.ok(await page.locator('[data-printer-group-member][value="bulk-179"]').isChecked(),
+      'select visible restores filtered selection');
+    await page.locator('#printerGroupMemberSearch').fill('');
+    assert.ok(await page.locator('[data-printer-group-member][value="sample-one"]').isChecked(),
+      'select/clear filtered items must not change hidden selections');
+    assert.match(await page.locator('#printerGroupMemberCount').innerText(),/2 selected/);
+    const stickyHeader=await page.locator('#printerGroupMembers').evaluate((panel)=>{
+      panel.scrollTop=220;
+      return {
+        wrapperTop:panel.getBoundingClientRect().top,
+        headerTop:panel.querySelector('th').getBoundingClientRect().top
+      };
+    });
+    assert.ok(stickyHeader.headerTop>=stickyHeader.wrapperTop-2
+      && stickyHeader.headerTop<=stickyHeader.wrapperTop+4,
+      'the table header stays visible while its body is scrolled');
+    await page.locator('#printerGroupName').fill('Unsubmitted draft');
+    await page.locator('#printerGroupsTabExisting').click();
+    assert.equal(await page.locator('#printerGroupForm').count(),0,'tab switch hides create form');
+    await page.locator('#printerGroupsTabCreate').click();
+    assert.equal(await page.locator('#printerGroupName').inputValue(),'Unsubmitted draft',
+      'switching tabs does not discard a create draft');
+    assert.ok(await page.locator('[data-printer-group-member][value="sample-one"]').isChecked(),
+      'switching tabs retains selected members');
+    await page.evaluate(()=>window.dispatchEvent(new CustomEvent('pfc:printer-groups-ui-state',{
+      detail:window.__PFC_TEST_GROUP_STATE__
+    })));
+    assert.equal(await page.locator('#printerGroupName').inputValue(),'Unsubmitted draft',
+      'external group snapshot must preserve the user draft');
+    assert.ok(await page.locator('[data-printer-group-member][value="sample-one"]').isChecked(),
+      'group membership draft must survive an external update');
+
+    // Reload to discard the synthetic printer IDs; exercise CRUD against the
+    // in-memory group API without a real configured printer.
+    await page.reload({waitUntil:'load'});
+    await preactReady(page);
+    await page.locator('#printerGroupsTabCreate[aria-selected="true"]').waitFor();
+    // The direct /groups route initializes while app.js is still fetching the
+    // group cache. Do not click another tab before that first publication.
+    await page.waitForFunction(() => document.querySelector('#printerGroupsTabExisting')
+      ?.textContent?.includes('(1)'));
+    await page.locator('#printerGroupsTabExisting').click();
+    await page.locator('[data-printer-group-edit="seed-group"]').waitFor();
+    await page.locator('#printerGroupsTabCreate').click();
+    await page.locator('#printerGroupName').fill('Production');
+    await page.locator('#printerGroupSubmit').click();
+    await page.waitForFunction(()=>
+      document.querySelector('#printerGroupsStatus')?.textContent?.includes('created.'));
+    await page.locator('[data-printer-group-edit="created-group"]').waitFor();
+    assert.equal(await page.locator('#printerGroupsTabExisting').getAttribute('aria-selected'),'true',
+      'successfully created groups appear immediately on the existing-groups tab');
+    assert.equal(await page.locator('#printerGroupForm').count(),0,
+      'successful create does not leave an edit form in the existing-groups tab');
+    assert.equal(counts.post,1,'one submit creates exactly one group');
+
+    await page.locator('#printerGroupsTabCreate').click();
+    await page.locator('#printerGroupName').fill('Production');
+    await page.locator('#printerGroupSubmit').click();
+    await page.locator('#printerGroupError[role="alert"]').getByText('already exists').waitFor();
+    assert.equal(await page.locator('#printerGroupName').inputValue(),'Production',
+      'failed create keeps entered name');
+    assert.equal(counts.post,2,'duplicate submission is rejected without resetting form');
+
+    await page.locator('#printerGroupsTabExisting').click();
+    await page.locator('[data-printer-group-edit="created-group"]').click();
+    assert.equal(await page.locator('#printerGroupName').inputValue(),'Production');
+    await page.locator('#printerGroupName').fill('Production A');
+    await page.locator('#printerGroupsTabCreate').click();
+    assert.equal(await page.locator('#printerGroupForm').count(),1,
+      'create tab stays independent from the in-progress group edit');
+    await page.locator('#printerGroupsTabExisting').click();
+    assert.equal(await page.locator('#printerGroupName').inputValue(),'Production A',
+      'in-progress edit draft survives tab switching');
+    await page.locator('#printerGroupSubmit').click();
+    await page.waitForFunction(()=>
+      document.querySelector('#printerGroupsStatus')?.textContent?.includes('updated.'));
+    await page.locator('[data-printer-group-card="created-group"] strong').getByText('Production A').waitFor();
+    assert.equal(counts.patch,1,'one edit submits exactly one patch');
+    assert.equal(await page.locator('#printerGroupForm').count(),0,
+      'saving an edit closes the edit form while retaining the existing-groups list');
+
+    await page.locator('[data-printer-group-edit="seed-group"]').click();
+    await page.locator('#printerGroupCancelEdit').click();
+    assert.equal(await page.locator('#printerGroupsTabExisting').getAttribute('aria-selected'),'true',
+      'cancel edit remains on the group-management tab');
+    assert.equal(await page.locator('#printerGroupForm').count(),0,
+      'cancel edit closes the edit form');
+
+    await page.locator('[data-printer-group-delete="created-group"]').click();
+    await page.waitForFunction(()=>!document.querySelector('[data-printer-group-card="created-group"]'));
+    assert.equal(counts.delete,1,'one delete performs exactly one request');
+    assert.ok(await page.locator('[data-printer-group-edit="seed-group"]').count(),
+      'deleting one group does not remove unrelated groups');
+    assert.deepEqual(errors,[],'group editor browser page must not throw');
+  } finally {await context.close();}
+}
+
 async function queueClickSmoke(browser,url) {
   console.log('Chromium: Preact queue clearance uses a real delegated click and only one POST');
   const context=await browser.newContext({viewport:{width:1365,height:900}});
@@ -198,6 +459,130 @@ async function queueClickSmoke(browser,url) {
     assert.equal(submissions,1,'one click should submit one clearance request');
     assert.deepEqual(errors,[],'queue browser page must not throw');
   } finally { await context.close(); }
+}
+
+// Compare the actual control edges (not just the outer table cells) with
+// the shared Toolhead table headings. A generic dialog "form {padding:22px}"
+// previously indented every Preact form independently of the grid.
+async function checkToolheadFieldAlignment(page, name, {filamentMode, nozzleMode=null, headingRequired=true}) {
+  const measured=await page.evaluate(({filamentMode,nozzleMode})=>{
+    const panel=document.querySelector('#printerDialog #detailTabToolheads .material-panel');
+    const headings=[...(panel?.querySelector('.material-table-head')?.children||[])];
+    const row=panel?.querySelector('.material-tool-row') || panel?.querySelector('.material-tool');
+    const filament=row?.querySelector(`[data-preact-toolhead-editor="${filamentMode}"]`);
+    const nozzle=nozzleMode?row?.querySelector(`[data-preact-toolhead-editor="${nozzleMode}"]`):null;
+    const x=(element)=>element?.getBoundingClientRect().left ?? null;
+    const formPadding=(element)=>element?getComputedStyle(element).paddingLeft:null;
+    return {
+      headers:headings.map(x),
+      materialField:x(filament?.querySelector('[data-toolhead-material]')),
+      colourField:x(filament?.querySelector('.color-family-dropdown')),
+      nozzleField:x(nozzle?.querySelector('[data-toolhead-nozzle]')),
+      filamentFormPadding:formPadding(filament),
+      nozzleFormPadding:formPadding(nozzle),
+      materialCell:x(row?.querySelector('.material-tool-configuration')),
+      nozzleCell:x(row?.querySelector('.material-tool-nozzle')),
+    };
+  },{filamentMode,nozzleMode});
+  if (headingRequired) assert.ok(measured.headers.length>=3,
+    name+' must show the shared Toolhead, Live information and Filament configuration headings');
+  if (nozzleMode) assert.equal(measured.headers.length,4,
+    name+' must show Nozzle as the fourth heading');
+  if (measured.headers.length>=3) {
+    assert.ok(measured.materialField!==null
+      &&Math.abs(measured.materialField-measured.headers[2])<=3,
+      name+' filament-type field must start at the Filament configuration column edge: '+JSON.stringify(measured));
+    // Colour is the second field of a single Filament configuration column,
+    // so its x-coordinate is one field width + shared gap after the first.
+    assert.ok(measured.colourField!==null
+      &&measured.colourField>measured.materialField
+      &&measured.colourField-measured.materialField<=180,
+      name+' colour field must stay within the Filament configuration group: '+JSON.stringify(measured));
+    if(nozzleMode) {
+      assert.ok(measured.colourField<measured.headers[3],
+        name+' colour must not overlap the Nozzle column: '+JSON.stringify(measured));
+      assert.ok(measured.nozzleField!==null&&Math.abs(measured.nozzleField-measured.headers[3])<=3,
+        name+' nozzle selector must begin under Nozzle heading: '+JSON.stringify(measured));
+    }
+  }
+  assert.equal(measured.filamentFormPadding,'0px',name+' filament editor needs no dialogue-form indentation');
+  if(nozzleMode) assert.equal(measured.nozzleFormPadding,'0px',
+    name+' nozzle editor needs no dialogue-form indentation');
+  return measured;
+}
+
+// Guidance under the nozzle Assign action should begin at the same
+// vertical offset as guidance under Set filament. The generic nozzle
+// wrapper otherwise overrides the shared .field-help margin by 13px.
+// All four-column Toolheads tables keep the two actions on the same row,
+// irrespective of the generic designation control's legacy label margins.
+async function checkToolheadButtonAlignment(page,name,{filamentMode,nozzleMode}) {
+  const geometry=await page.evaluate(({filamentMode,nozzleMode})=>{
+    const row=document.querySelector('#printerDialog #detailTabToolheads .material-tool-row');
+    const measure=(mode)=>{
+      const form=row?.querySelector(`[data-preact-toolhead-editor="${mode}"]`);
+      const button=form?.querySelector('[data-toolhead-save]');
+      const select=form?.querySelector('select');
+      const label=form?.querySelector('label');
+      const pair=form?.querySelector('.toolhead-dropdown-pair');
+      const rect=(e)=>e?.getBoundingClientRect().toJSON()??null;
+      return {
+        form:rect(form),pair:rect(pair),label:rect(label),
+        colorLabel:rect(form?.querySelector('.toolhead-dropdown-pair > label:nth-child(2)')),
+        colorBox:rect(form?.querySelector('.color-family-dropdown')),
+        colorSummary:rect(form?.querySelector('.color-family-dropdown summary')),
+        select:rect(select),action:rect(button),
+        top:button?.getBoundingClientRect().top??null,
+        bottom:button?.getBoundingClientRect().bottom??null,
+        fieldBottom:select?.getBoundingClientRect().bottom??null,
+        labelMargin:label?getComputedStyle(label).marginBottom:null,
+        labelFont:label?getComputedStyle(label).fontSize:null,
+        fieldMargin:select?getComputedStyle(select).marginTop:null
+      };
+    };
+    return {filament:measure(filamentMode),nozzle:measure(nozzleMode)};
+  },{filamentMode,nozzleMode});
+  const {filament,nozzle}=geometry;
+  for(const [kind,action] of Object.entries(geometry)) {
+    assert.ok(action.top!==null&&action.bottom!==null,
+      name+' must show '+kind+' button: '+JSON.stringify(geometry));
+  }
+  assert.ok(Math.abs(filament.top-nozzle.top)<=2
+    &&Math.abs(filament.bottom-nozzle.bottom)<=2,
+    name+' Set filament and Assign buttons must be vertically aligned: '+JSON.stringify(geometry));
+  assert.ok(Math.abs(filament.fieldBottom-nozzle.fieldBottom)<=2,
+    name+' material and nozzle dropdowns must have aligned bottoms: '+JSON.stringify(geometry));
+  return geometry;
+}
+
+async function checkToolheadHelpAlignment(page,name,{filamentMode,nozzleMode}) {
+  const measurement=await page.evaluate(({filamentMode,nozzleMode})=>{
+    const row=document.querySelector('#printerDialog #detailTabToolheads .material-tool-row');
+    const metrics=(mode)=>{
+      const form=row?.querySelector(`[data-preact-toolhead-editor="${mode}"]`);
+      const action=form?.querySelector('[data-toolhead-save]');
+      const help=form?.querySelector(':scope > .field-help');
+      return {
+        buttonBottom:action?.getBoundingClientRect().bottom??null,
+        helpTop:help?.getBoundingClientRect().top??null,
+        helpMargin:help?getComputedStyle(help).marginTop:null
+      };
+    };
+    return {filament:metrics(filamentMode),nozzle:metrics(nozzleMode)};
+  },{filamentMode,nozzleMode});
+  const {filament,nozzle}=measurement;
+  for (const [kind,part] of Object.entries(measurement)) {
+    assert.ok(part.buttonBottom!==null&&part.helpTop!==null,
+      name+' '+kind+' button and helper must be visible: '+JSON.stringify(measurement));
+    assert.equal(part.helpMargin,'-5px',
+      name+' '+kind+' helper must have the same top margin');
+  }
+  const filamentGap=filament.helpTop-filament.buttonBottom;
+  const nozzleGap=nozzle.helpTop-nozzle.buttonBottom;
+  assert.ok(Math.abs(filamentGap-nozzleGap)<=2,
+    name+' guidance must start at the same offset beneath each button: '+JSON.stringify(measurement));
+  assert.ok(Math.abs(filament.helpTop-nozzle.helpTop)<=2,
+    name+' filament/nozzle help text must have aligned top edges: '+JSON.stringify(measurement));
 }
 
 async function simulatorSseSmoke(browser,url) {
@@ -265,6 +650,64 @@ async function simulatorSseSmoke(browser,url) {
 
     const count=await page.locator('[data-printer-card="'+printerId+'"]').count();
     assert.equal(count,1,'only one registered printer card rendered');
+
+    // Exercise the real printer-details UI and controller name API against the
+    // isolated simulated printer. No physical printer receives this request.
+    console.log('Chromium: interactive Preact printer details controller-name editor');
+    await page.locator('[data-printer-card="'+printerId+'"] [data-open]').click();
+    await page.locator('[data-preact-toolhead-editor="u1-filament"]').first().waitFor({state:'visible',timeout:15000});
+    assert.equal(await page.locator('[data-preact-toolhead-editor="u1-filament"]').count(),4,
+      'every U1 toolhead has a Preact-controlled filament configuration form');
+    assert.equal(await page.locator('[data-preact-toolhead-editor="u1-filament"] [data-toolhead-save]').count(),4,
+      'each U1 tool has its own save button and pending state');
+    await checkToolheadFieldAlignment(page,'Snapmaker U1',{
+      filamentMode:'u1-filament',nozzleMode:null,headingRequired:true
+    });
+    await page.locator('#printerDialog[open] [data-detail-tab="management"]').click();
+    const renameField=page.locator('#printerDialog [data-preact-printer-name-editor] [data-printer-name]');
+    await renameField.waitFor({state:'visible',timeout:15000});
+    assert.equal(await renameField.inputValue(),'SSE simulator U1');
+    assert.ok(await page.locator('#printerDialog [data-rename]').isDisabled(),
+      'unchanged name is not submitted');
+    await renameField.fill('Unsaved U1 name');
+    await page.evaluate(()=>{
+      const state=window.__PFC_PRINTER_DETAIL_STATE__;
+      window.dispatchEvent(new CustomEvent('pfc:printer-detail-state',{
+        detail:{...state,health:'Synthetic ongoing telemetry refresh'}
+      }));
+    });
+    assert.equal(await renameField.inputValue(),'Unsaved U1 name',
+      'telemetry publication must preserve an unsaved controller name');
+    await page.locator('#printerDialog [data-printer-name-reset]').click();
+    assert.equal(await renameField.inputValue(),'SSE simulator U1','reset restores the controller name');
+
+    await page.route('**/api/printers/*/name',async (route)=>{
+      await route.fulfill({status:409,contentType:'application/json',
+        body:JSON.stringify({error:'Simulated name conflict'})});
+    });
+    await renameField.fill('Conflict U1');
+    await page.locator('#printerDialog [data-rename]').click();
+    await page.locator('#printerDialog [data-printer-name-error]').getByText('Simulated name conflict').waitFor();
+    assert.equal(await renameField.inputValue(),'Conflict U1',
+      'failed rename retains the unsaved name for correction');
+    await page.unroute('**/api/printers/*/name');
+
+    let renameRequests=0;
+    page.on('request',(request)=>{
+      if(request.method()==='PUT'&&request.url().endsWith('/api/printers/'+encodeURIComponent(printerId)+'/name'))
+        renameRequests++;
+    });
+    await renameField.fill('Preact renamed U1');
+    await page.locator('#printerDialog [data-rename]').click();
+    await page.waitForFunction(()=>
+      document.querySelector('#printerDialog [data-detail-name]')?.textContent==='Preact renamed U1'
+      && document.querySelector('#printerDialog [data-rename-status]')?.textContent?.includes('Controller name changed')
+    ,null,{timeout:15000});
+    assert.equal(await renameField.inputValue(),'Preact renamed U1');
+    assert.equal(renameRequests,1,'one save must issue exactly one controller rename request');
+    await page.locator('#printerDialog [data-detail-close]').click();
+    await page.locator('#printerDialog').waitFor({state:'hidden'});
+
     const started=await jsonPost('/api/emulator/printers/'+encodeURIComponent(created.printer.id)+'/actions',{
       action:'start',fileName:'calibration-cube.gcode'
     });
@@ -287,6 +730,256 @@ async function simulatorSseSmoke(browser,url) {
     assert.equal(diagnostic.errors,0,'no invalid controller SSE payloads');
     assert.deepEqual(failures,[],'real simulator SSE browser errors');
     console.log('Chromium: simulator protocol -> fleet poll -> real SSE -> Preact card PASS');
+    console.log('Chromium: Preact toolhead controller designations via simulated AD5M Pro');
+    const ad5m=await jsonPost('/api/emulator/printers',{
+      profileId:'flashforge-ad5m-pro',name:'Controller metadata test AD5M',
+      ports:{httpPort:0,tcpPort:0,cameraPort:0}
+    });
+    assert.ok(ad5m.printer?.controllerSettings,'AD5M emulator registration details');
+    const ad5mRegistered=await jsonPost('/api/printers',ad5m.printer.controllerSettings);
+    const ad5mId=ad5mRegistered.printer?.id;
+    assert.ok(ad5mId,'AD5M emulator is registered with the isolated controller');
+    await page.waitForFunction((id)=>
+      Boolean(document.querySelector('[data-printer-card="'+id+'"] [data-open]'))
+    ,ad5mId,{timeout:30000});
+    await page.locator('[data-printer-card="'+ad5mId+'"] [data-open]').click();
+    const materialEditor=page.locator('[data-preact-toolhead-editor="controller-filament"]');
+    const nozzleEditor=page.locator('[data-preact-toolhead-editor="controller-nozzle"]');
+    await materialEditor.waitFor({state:'visible',timeout:15000});
+    await nozzleEditor.waitFor({state:'visible'});
+    await checkToolheadFieldAlignment(page,'Flashforge AD5M Pro',{
+      filamentMode:'controller-filament',nozzleMode:'controller-nozzle'
+    });
+    await checkToolheadButtonAlignment(page,'Flashforge AD5M Pro',{
+      filamentMode:'controller-filament',nozzleMode:'controller-nozzle'
+    });
+    // AD5M/AD5M Pro have a single T0 row, not a card with the designation
+    // panels positioned underneath. Both forms must stay in that same row,
+    // sharing column alignment with the U1-style toolhead tables.
+    const ad5mLayout=await page.evaluate(() => {
+      const panel=document.querySelector('#printerDialog #detailTabToolheads .material-panel');
+      const head=panel?.querySelector('.material-table-head');
+      const row=panel?.querySelector('.material-tool-row[data-material-tool="0"]');
+      const material=row?.querySelector('.material-tool-configuration [data-preact-toolhead-control="controller-filament"]');
+      const nozzle=row?.querySelector('.material-tool-nozzle [data-preact-toolhead-control="controller-nozzle"]');
+      const rect=(element)=>element?.getBoundingClientRect().toJSON();
+      return {
+        panelWide:panel?.classList.contains('material-panel-wide'),
+        table:panel?.querySelector('.material-grid')?.classList.contains('multi-tool-table'),
+        headingLabels:[...(head?.children||[])].map((node)=>node.textContent.trim()),
+        rowCount:panel?.querySelectorAll('.material-tool-row').length,
+        cellCount:row?.children.length,
+        material:!!material,nozzle:!!nozzle,
+        materialBorder:material?getComputedStyle(material).borderTopWidth:null,
+        materialMargin:material?getComputedStyle(material).marginTop:null,
+        materialPadding:material?getComputedStyle(material).paddingTop:null,
+        identity:rect(row?.querySelector('.material-tool-identity')),
+        information:rect(row?.querySelector('.material-tool-information')),
+        configuration:rect(row?.querySelector('.material-tool-configuration')),
+        nozzleCell:rect(row?.querySelector('.material-tool-nozzle'))
+      };
+    });
+    assert.equal(ad5mLayout.panelWide,true,'AD5M uses full-width toolhead panel');
+    assert.equal(ad5mLayout.table,true,'AD5M uses shared U1-style toolhead table');
+    assert.deepEqual(ad5mLayout.headingLabels,
+      ['Toolhead','Live information','Filament configuration','Nozzle'],
+      'AD5M table uses same four headings as multi-toolhead variants');
+    assert.equal(ad5mLayout.rowCount,1,'AD5M displays exactly one T0 row');
+    assert.equal(ad5mLayout.cellCount,4,'T0 row contains identity, live info, filament and nozzle cells');
+    assert.ok(ad5mLayout.material&&ad5mLayout.nozzle,
+      'filament and nozzle Preact editors are inside T0 rather than separate below the table');
+    assert.equal(ad5mLayout.materialBorder,'0px',
+      'the in-row filament designation must not draw a stray horizontal divider');
+    assert.equal(ad5mLayout.materialMargin,'0px',
+      'in-row filament designation must align with adjacent toolhead fields');
+    assert.equal(ad5mLayout.materialPadding,'0px',
+      'in-row filament designation does not need legacy section spacing');
+    const positions=[ad5mLayout.identity,ad5mLayout.information,
+      ad5mLayout.configuration,ad5mLayout.nozzleCell];
+    assert.ok(positions.every((box)=>box&&Math.abs(box.top-positions[0].top)<3),
+      'toolhead number, live material, filament controls and nozzle share one visual row');
+    assert.ok(positions.every((box,i)=>i===0||box.left>=positions[i-1].right-3),
+      'toolhead controls must not overlap adjacent columns');
+
+    const materialSelect=materialEditor.locator('[data-toolhead-material]');
+    await materialSelect.selectOption('PETG');
+    await materialEditor.locator('.color-family-dropdown summary').click();
+    await materialEditor.locator('[data-toolhead-color-option="blue"]').click();
+    assert.ok(await materialEditor.locator('[data-toolhead-save]').isEnabled(),
+      'changed filament type and colour can be submitted');
+    await page.evaluate(()=>{
+      const detail=window.__PFC_PRINTER_DETAIL_STATE__;
+      window.dispatchEvent(new CustomEvent('pfc:printer-detail-state',{
+        detail:{...detail,health:'Updated while editing',toolheadControls:detail.toolheadControls}
+      }));
+    });
+    assert.equal(await materialSelect.inputValue(),'PETG',
+      'toolhead filament selection survives telemetry publications');
+    assert.ok((await materialEditor.locator('.color-family-selected').innerText()).includes('Blue'),
+      'toolhead colour family is preserved as well');
+    await page.route('**/api/printers/*/material-designation',(route)=>route.fulfill({
+      status:409,contentType:'application/json',
+      body:JSON.stringify({error:'Synthetic designation conflict'})
+    }));
+    await materialEditor.locator('[data-toolhead-save]').click();
+    await materialEditor.locator('[data-toolhead-error]').getByText('Synthetic designation conflict').waitFor();
+    assert.equal(await materialSelect.inputValue(),'PETG','failed submit keeps pending values');
+    await page.unroute('**/api/printers/*/material-designation');
+    await materialEditor.locator('[data-toolhead-save]').click();
+    await materialEditor.getByText('Filament designation saved.').waitFor({timeout:12000});
+    assert.ok(await materialEditor.locator('[data-toolhead-save]').isDisabled(),
+      'success resets the dirty flag');
+    const nozzleSelect=nozzleEditor.locator('[data-toolhead-nozzle]');
+    await nozzleSelect.selectOption('0.6');
+    await nozzleEditor.locator('[data-toolhead-save]').click();
+    await nozzleEditor.getByText('Nozzle designation saved.').waitFor({timeout:12000});
+    assert.equal(await nozzleSelect.inputValue(),'0.6');
+    assert.ok(await nozzleEditor.locator('[data-toolhead-save]').isDisabled(),
+      'success resets nozzle selection dirty state');
+    await page.locator('#printerDialog [data-detail-close]').click();
+    console.log('Chromium: simulated AD5M Preact toolhead designations PASS');
+
+    // Regression for CORE One+ compact fields. Legacy Prusa wrappers are
+    // two-column grids: the Preact form must span both tracks so material and
+    // colour controls use the same 160px standard as the other printers.
+    console.log('Chromium: Prusa CORE One+ toolhead filament field widths');
+    const prusa=await jsonPost('/api/emulator/printers',{
+      profileId:'prusa-core-one-plus',name:'Width regression CORE One+',
+      ports:{httpPort:0}
+    });
+    assert.ok(prusa.printer?.controllerSettings,'Prusa simulator registration details');
+    const prusaRegistered=await jsonPost('/api/printers',prusa.printer.controllerSettings);
+    const prusaId=prusaRegistered.printer?.id;
+    assert.ok(prusaId,'Prusa emulator registered with isolated controller');
+    await page.waitForFunction((id)=>Boolean(
+      document.querySelector('[data-printer-card="'+id+'"] [data-open]')
+    ),prusaId,{timeout:30000});
+    await page.locator('[data-printer-card="'+prusaId+'"] [data-open]').click();
+    const prusaForm=page.locator('#printerDialog [data-preact-toolhead-editor="prusa-filament"]').first();
+    await prusaForm.waitFor({state:'visible',timeout:15000});
+    await page.locator('#printerDialog [data-preact-toolhead-editor="controller-nozzle"]')
+      .waitFor({state:'visible',timeout:15000});
+    await checkToolheadFieldAlignment(page,'Prusa CORE One+ Standard',{
+      filamentMode:'prusa-filament',nozzleMode:'controller-nozzle'
+    });
+    await checkToolheadHelpAlignment(page,'Prusa CORE One+ Standard',{
+      filamentMode:'prusa-filament',nozzleMode:'controller-nozzle'
+    });
+    const coreOneLayout=await page.evaluate(()=>{
+      const panel=document.querySelector('#printerDialog #detailTabToolheads .material-panel');
+      const row=panel?.querySelector('.material-tool-row[data-material-tool="0"]');
+      return {
+        table:panel?.querySelector('.material-grid')?.classList.contains('multi-tool-table'),
+        rows:panel?.querySelectorAll('.material-tool-row').length,
+        columns:row?.children.length,
+        filament:!!row?.querySelector('.material-tool-configuration [data-preact-toolhead-control="prusa-filament"]'),
+        nozzle:!!row?.querySelector('.material-tool-nozzle [data-preact-toolhead-control="controller-nozzle"]'),
+        extraNozzle:panel?.querySelectorAll('[data-preact-toolhead-control="controller-nozzle"]').length
+      };
+    });
+    assert.equal(coreOneLayout.table,true,'CORE One+ Standard uses the shared full-width table');
+    assert.equal(coreOneLayout.rows,1,'CORE One+ Standard has a single T0 row');
+    assert.equal(coreOneLayout.columns,4,'CORE One+ Standard displays four aligned columns');
+    assert.ok(coreOneLayout.filament&&coreOneLayout.nozzle,
+      'filament and nozzle selectors occupy the same T0 table row');
+    assert.equal(coreOneLayout.extraNozzle,1,
+      'the single-nozzle configuration is not duplicated below the table');
+    const widths=await prusaForm.evaluate((form)=>{
+      const bounds=(selector)=>form.querySelector(selector)?.getBoundingClientRect().width||0;
+      return {
+        type:bounds('[data-toolhead-material]'),
+        color:bounds('.color-family-dropdown'),
+        form:form.getBoundingClientRect().width,
+        wrapper:form.parentElement?.getBoundingClientRect().width||0
+      };
+    });
+    assert.ok(widths.form>=widths.type*2,
+      'Prusa Preact editor spans full legacy wrapper width');
+    for(const key of ['type','color']) {
+      assert.ok(Math.abs(widths[key]-160)<=2,
+        'CORE One+ '+key+' field width matches standard 160px control, got '+JSON.stringify(widths));
+    }
+    // Changing the CORE One+ installed system must rebuild the open dialog,
+    // rather than forcing the operator to close/reopen it. Exercise all three
+    // configurations using the isolated protocol-backed printer, including
+    // the short interval where the new controller limits precede live polling.
+    page.on('dialog',(dialog)=>dialog.accept());
+    const switchCoreOneTools=async (count)=>{
+      await page.locator('#printerDialog [data-tool-configuration-input]')
+        .selectOption(String(count));
+      await page.locator('#printerDialog [data-tool-configuration-save]').click();
+      await page.waitForFunction((expected)=>{
+        const dialog=document.querySelector('#printerDialog');
+        const panel=dialog?.querySelector('#detailTabToolheads');
+        const rows=panel?.querySelectorAll('.material-tool-row');
+        const config=panel?.querySelector('[data-tool-configuration-input]');
+        const filamentEditors=panel?.querySelectorAll('[data-preact-toolhead-editor="prusa-filament"]');
+        const nozzleEditors=panel?.querySelectorAll('[data-preact-toolhead-editor="tool-nozzle"]');
+        const singleNozzle=panel?.querySelectorAll('[data-preact-toolhead-editor="controller-nozzle"]');
+        return dialog?.open && !panel?.hidden && rows?.length===expected
+          && filamentEditors?.length===expected
+          && nozzleEditors?.length===(expected===1?0:expected)
+          && singleNozzle?.length===(expected===1?1:0)
+          && Number(config?.value)===expected;
+      },count,{timeout:15000});
+      assert.ok(await page.locator('#printerDialog').evaluate((dialog)=>dialog.open),
+        'CORE One+ details dialog stays open after configuring '+count+' tools');
+      assert.equal(await page.locator('#printerDialog #detailTabToolheads .material-tool-row').count(),count,
+        'the displayed INDX rows match the saved tool count immediately');
+    };
+    for(const count of [4,8,1]) {
+      await switchCoreOneTools(count);
+      await checkToolheadHelpAlignment(page,'Prusa CORE One+ '+count+' tools',{
+        filamentMode:'prusa-filament',
+        nozzleMode:count===1?'controller-nozzle':'tool-nozzle'
+      });
+    }
+    console.log('Chromium: CORE One+ live INDX 1/4/8/1 configuration transitions PASS');
+    await page.locator('#printerDialog [data-detail-close]').click();
+    console.log('Chromium: CORE One+ filament dropdown width PASS');
+
+    // The Community licence has three printer slots. Release the AD5M used
+    // above before exercising both Creator variants through the real frontend
+    // and simulator, without changing the production test licence.
+    const removeTestPrinter=async (id)=>{
+      const response=await fetch(url+'/api/printers/'+encodeURIComponent(id),{method:'DELETE'});
+      assert.equal(response.status,200,'isolated simulator printer removal succeeds');
+    };
+    await removeTestPrinter(ad5mId);
+    for(const profileId of ['flashforge-creator-5','flashforge-creator-5-pro']) {
+      const creator=await jsonPost('/api/emulator/printers',{
+        profileId,name:'Guidance alignment '+profileId,
+        ports:{httpPort:0,cameraPort:0}
+      });
+      assert.ok(creator.printer?.controllerSettings,
+        profileId+' simulator registration details');
+      const registered=await jsonPost('/api/printers',creator.printer.controllerSettings);
+      const creatorId=registered.printer?.id;
+      assert.ok(creatorId,profileId+' registered with isolated controller');
+      await page.waitForFunction((id)=>Boolean(
+        document.querySelector('[data-printer-card="'+id+'"] [data-open]')
+      ),creatorId,{timeout:30000});
+      await page.locator('[data-printer-card="'+creatorId+'"] [data-open]').click();
+      await page.locator('#printerDialog [data-preact-toolhead-editor="creator5-filament"]')
+        .first().waitFor({state:'visible',timeout:15000});
+      await page.locator('#printerDialog [data-preact-toolhead-editor="tool-nozzle"]')
+        .first().waitFor({state:'visible',timeout:15000});
+      assert.equal(await page.locator('#printerDialog [data-preact-toolhead-editor="creator5-filament"]').count(),4,
+        profileId+' must show all four filament editors');
+      assert.equal(await page.locator('#printerDialog [data-preact-toolhead-editor="tool-nozzle"]').count(),4,
+        profileId+' must show all four nozzle editors');
+      await checkToolheadHelpAlignment(page,profileId,{
+        filamentMode:'creator5-filament',nozzleMode:'tool-nozzle'
+      });
+      await page.locator('#printerDialog [data-detail-close]').click();
+      await removeTestPrinter(creatorId);
+      console.log('Chromium: '+profileId+' filament/nozzle guidance aligned PASS');
+    }
+    // Standard AD5M and AD5M Pro share the flashforge-ad5m adapter and
+    // exactly the same material/nozzle editor controls. The Pro emulator
+    // verifies the shared table geometry without registering a second
+    // simulator instance with a duplicate serial number.
+    console.log('Chromium: AD5M / Pro shared filament/nozzle action alignment PASS');
   } finally {
     await context.close();
     // Isolated controller process teardown is the safety boundary; no external
@@ -322,6 +1015,7 @@ async function main() {
     page.on('pageerror',(e)=>errors.push(e.message));
     await routeSmoke(page,url);
     await queueClickSmoke(browser,url);
+    await groupEditorSmoke(browser,url);
     if(!externalUrl) await simulatorSseSmoke(browser,url);
     assert.deepEqual(errors,[],'browser Javascript errors');
     console.log('Chromium browser regression: PASSED');
