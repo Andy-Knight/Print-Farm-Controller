@@ -3608,6 +3608,10 @@ function populateQueueGroupOptions(selected = queueAddGroup?.value || '') {
 }
 
 function resetPrinterGroupForm() {
+  if (window.__PFC_PREACT_PRINTER_GROUPS__) {
+    window.dispatchEvent(new Event('pfc:printer-groups-editor-reset'));
+    return;
+  }
   printerGroupForm?.reset();
   if (printerGroupId) printerGroupId.value = '';
   if (printerGroupFormTitle) printerGroupFormTitle.textContent = 'Add printer group';
@@ -3625,6 +3629,7 @@ function groupsForPrinter(printerId) {
 }
 
 function renderPrinterGroupMembers(selectedIds = null) {
+  if (window.__PFC_PREACT_PRINTER_GROUPS__) return;
   if (!printerGroupMembers) return;
   const editingId = printerGroupId?.value || '';
   const editing = (printerGroupsState.groups || []).find((group) => group.id === editingId) || null;
@@ -3657,14 +3662,21 @@ function printerGroupsViewModel() {
         id:String(group.id || ''),
         name:String(group.name || ''),
         members,
-        countLabel:`${count} printer${count === 1 ? '' : 's'}`
+        countLabel:`${count} printer${count === 1 ? '' : 's'}`,
+        printerIds:[...(group.printerIds || [])]
       };
     });
 }
 
 function publishPrinterGroupsUiState() {
   if (!window.__PFC_PREACT_PRINTER_GROUPS__) return;
-  const detail = { groups:printerGroupsViewModel() };
+  const detail = {
+    groups:printerGroupsViewModel(),
+    printers:[...fleet].sort((a,b) => String(a.name).localeCompare(String(b.name))).map((printer) => ({
+      id:String(printer.id), name:String(printer.name || ''),
+      manufacturer:String(printer.manufacturer || ''), model:String(printer.model || '')
+    }))
+  };
   window.__PFC_PRINTER_GROUPS_UI_STATE__ = detail;
   window.dispatchEvent(new CustomEvent('pfc:printer-groups-ui-state', { detail }));
 }
@@ -3705,6 +3717,15 @@ async function loadPrinterGroups({ preserveForm = false } = {}) {
   window.dispatchEvent(new CustomEvent('pfc:printer-groups-changed', { detail:printerGroupsState }));
   return printerGroupsState;
 }
+
+// The Preact editor performs mutations; this bridge refreshes the shared
+// controller cache, dashboard group filter and queue selectors exactly once.
+window.addEventListener('pfc:printer-groups-reload', (event) => {
+  loadPrinterGroups({preserveForm:true}).then(
+    () => event.detail?.resolve?.(),
+    (error) => event.detail?.reject?.(error)
+  );
+});
 
 async function queueLibraryFile(libraryFileId, options = {}, quantity = 1, priority = 'normal', groupId = null) {
   if (!libraryFileId) throw new Error('Choose a Print Library file to queue');
@@ -4575,6 +4596,9 @@ printerGroupsBtn?.addEventListener('click', async () => {
     resetPrinterGroupForm();
     if (printerGroupsStatus) printerGroupsStatus.textContent = '';
   } catch (error) {
+    if (window.__PFC_PREACT_PRINTER_GROUPS__) {
+      window.dispatchEvent(new CustomEvent('pfc:printer-groups-load-error', { detail:{message:error.message} }));
+    }
     if (printerGroupsStatus) printerGroupsStatus.textContent = '';
     if (printerGroupError) {
       printerGroupError.textContent = error.message;
