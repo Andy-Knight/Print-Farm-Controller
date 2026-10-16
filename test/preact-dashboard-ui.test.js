@@ -180,9 +180,10 @@ test('Preact printer-detail chrome preserves six-tab behavior and vanilla fallba
   // its nested material and colour selects each receive only ~half the width.
   for (const kind of ['u1-filament-config-control','creator5-filament-config-control',
     'prusa-tool-filament-control']) {
-    assert.match(styles, new RegExp(kind + ' > \\\\.toolhead-designation-editor'));
+    assert.ok(styles.includes(kind + ' > .toolhead-designation-editor'),
+      kind + ' must span the full toolhead configuration column');
   }
-  assert.match(styles, /grid-column:1 \\/ -1;/);
+  assert.match(styles, /grid-column:1 \/ -1;/);
 });
 
 
