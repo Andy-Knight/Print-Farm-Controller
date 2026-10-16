@@ -598,6 +598,60 @@ async function simulatorSseSmoke(browser,url) {
     assert.equal(diagnostic.errors,0,'no invalid controller SSE payloads');
     assert.deepEqual(failures,[],'real simulator SSE browser errors');
     console.log('Chromium: simulator protocol -> fleet poll -> real SSE -> Preact card PASS');
+    console.log('Chromium: Preact toolhead controller designations via simulated AD5M Pro');
+    const ad5m=await jsonPost('/api/emulator/printers',{
+      profileId:'flashforge-ad5m-pro',name:'Controller metadata test AD5M',
+      ports:{httpPort:0,tcpPort:0,cameraPort:0}
+    });
+    assert.ok(ad5m.printer?.controllerSettings,'AD5M emulator registration details');
+    const ad5mRegistered=await jsonPost('/api/printers',ad5m.printer.controllerSettings);
+    const ad5mId=ad5mRegistered.printer?.id;
+    assert.ok(ad5mId,'AD5M emulator is registered with the isolated controller');
+    await page.waitForFunction((id)=>
+      Boolean(document.querySelector('[data-printer-card="'+id+'"] [data-open]'))
+    ,ad5mId,{timeout:30000});
+    await page.locator('[data-printer-card="'+ad5mId+'"] [data-open]').click();
+    const materialEditor=page.locator('[data-preact-toolhead-editor="controller-filament"]');
+    const nozzleEditor=page.locator('[data-preact-toolhead-editor="controller-nozzle"]');
+    await materialEditor.waitFor({state:'visible',timeout:15000});
+    await nozzleEditor.waitFor({state:'visible'});
+    const materialSelect=materialEditor.locator('[data-toolhead-material]');
+    await materialSelect.selectOption('PETG');
+    await materialEditor.locator('.color-family-dropdown summary').click();
+    await materialEditor.locator('[data-toolhead-color-option="blue"]').click();
+    assert.ok(await materialEditor.locator('[data-toolhead-save]').isEnabled(),
+      'changed filament type and colour can be submitted');
+    await page.evaluate(()=>{
+      const detail=window.__PFC_PRINTER_DETAIL_STATE__;
+      window.dispatchEvent(new CustomEvent('pfc:printer-detail-state',{
+        detail:{...detail,health:'Updated while editing',toolheadControls:detail.toolheadControls}
+      }));
+    });
+    assert.equal(await materialSelect.inputValue(),'PETG',
+      'toolhead filament selection survives telemetry publications');
+    assert.ok((await materialEditor.locator('.color-family-selected').innerText()).includes('Blue'),
+      'toolhead colour family is preserved as well');
+    await page.route('**/api/printers/*/material-designation',(route)=>route.fulfill({
+      status:409,contentType:'application/json',
+      body:JSON.stringify({error:'Synthetic designation conflict'})
+    }));
+    await materialEditor.locator('[data-toolhead-save]').click();
+    await materialEditor.locator('[data-toolhead-error]').getByText('Synthetic designation conflict').waitFor();
+    assert.equal(await materialSelect.inputValue(),'PETG','failed submit keeps pending values');
+    await page.unroute('**/api/printers/*/material-designation');
+    await materialEditor.locator('[data-toolhead-save]').click();
+    await materialEditor.getByText('Filament designation saved.').waitFor({timeout:12000});
+    assert.ok(await materialEditor.locator('[data-toolhead-save]').isDisabled(),
+      'success resets the dirty flag');
+    const nozzleSelect=nozzleEditor.locator('[data-toolhead-nozzle]');
+    await nozzleSelect.selectOption('0.6');
+    await nozzleEditor.locator('[data-toolhead-save]').click();
+    await nozzleEditor.getByText('Nozzle designation saved.').waitFor({timeout:12000});
+    assert.equal(await nozzleSelect.inputValue(),'0.6');
+    assert.ok(await nozzleEditor.locator('[data-toolhead-save]').isDisabled(),
+      'success resets nozzle selection dirty state');
+    await page.locator('#printerDialog [data-detail-close]').click();
+    console.log('Chromium: simulated AD5M Preact toolhead designations PASS');
   } finally {
     await context.close();
     // Isolated controller process teardown is the safety boundary; no external
