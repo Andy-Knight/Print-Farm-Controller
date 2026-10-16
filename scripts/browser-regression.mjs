@@ -531,6 +531,11 @@ async function simulatorSseSmoke(browser,url) {
     // isolated simulated printer. No physical printer receives this request.
     console.log('Chromium: interactive Preact printer details controller-name editor');
     await page.locator('[data-printer-card="'+printerId+'"] [data-open]').click();
+    await page.locator('[data-preact-toolhead-editor="u1-filament"]').first().waitFor({state:'visible',timeout:15000});
+    assert.equal(await page.locator('[data-preact-toolhead-editor="u1-filament"]').count(),4,
+      'every U1 toolhead has a Preact-controlled filament configuration form');
+    assert.equal(await page.locator('[data-preact-toolhead-editor="u1-filament"] [data-toolhead-save]').count(),4,
+      'each U1 tool has its own save button and pending state');
     await page.locator('#printerDialog[open] [data-detail-tab="management"]').click();
     const renameField=page.locator('#printerDialog [data-preact-printer-name-editor] [data-printer-name]');
     await renameField.waitFor({state:'visible',timeout:15000});
