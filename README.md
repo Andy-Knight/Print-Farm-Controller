@@ -1,4 +1,4 @@
-# Print Farm Controller v0.48.0
+# Print Farm Controller v0.48.1
 A local-first 3D printer fleet controller. It runs entirely on your LAN and currently supports:
 
 - **FlashForge Adventurer 5M / 5M Pro** through the local FlashForge HTTP/TCP APIs.
@@ -7,9 +7,11 @@ A local-first 3D printer fleet controller. It runs entirely on your LAN and curr
 - **Prusa CORE One+ (experimental)** through the local PrusaLink API, supporting Standard (1-tool), INDX4 and INDX8 configurations.
 - **Bambu Lab P1P / P1S / X1C / A1 Mini (experimental)** through the local MQTT TLS and FTPS TLS interfaces. P1P/P1S/A1 Mini use the TLS/JPEG camera path; X1C camera decoding remains unsupported.
 
-**Current development version: v0.48.0**
+**Current development version: v0.48.1**
 
 Current highlights:
+
+- **Stronger regression protection (v0.48.1):** Automated Chromium tests now validate all controller route reloads, all 13 Preact presenters, queue button interactions, and genuine Snapmaker U1 simulator → controller polling → SSE → Preact status updates. Additional behavioural tests cover scheduler priorities, printer-operation concurrency, backup/rollback safety and Ed25519 licence enforcement. Six obsolete source-only test cases were removed after their behaviour was covered by executable tests. No controller functionality was changed.
 
 - **Consistent printer toolhead controls:** Snapmaker U1, FlashForge AD5M/AD5M Pro, Creator 5/Creator 5 Pro and Prusa CORE One+ now share consistent **Set filament** and nozzle **Assign** button styling. Filament type, colour and nozzle selectors are standardised to 160px; filament type and colour have an 8px gap, and buttons use matching 160px sizing without stretching across columns. Unneeded **Clear** actions have been removed where appropriate. U1 and Creator 5 write filament settings to printer firmware, while Prusa/AD5M manual designations remain controller-side.
 

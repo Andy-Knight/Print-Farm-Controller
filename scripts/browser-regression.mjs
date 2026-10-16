@@ -10,6 +10,7 @@ import { fileURLToPath } from 'node:url';
 import { chromium } from 'playwright';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+const controllerVersion = JSON.parse(await fs.readFile(path.join(root, 'package.json'), 'utf8')).version;
 const routes = [
   ['/',null],['/queue','queueDialog'],['/library','libraryDialog'],
   ['/maintenance','maintenanceDialog'],['/groups','printerGroupsDialog'],
@@ -167,7 +168,7 @@ async function queueClickSmoke(browser,url) {
   }]};
   await context.route('**/api/fleet',(route)=>route.fulfill({
     status:200,contentType:'application/json',
-    body:JSON.stringify({printers:[],version:'0.48.0',queue})
+    body:JSON.stringify({printers:[],version:controllerVersion,queue})
   }));
   // Suppress real server telemetry in this isolated browser context so the
   // synthetic pending-clearance fixture is not replaced by the empty fleet.
