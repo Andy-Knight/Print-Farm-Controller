@@ -1,5 +1,5 @@
 import { render } from 'preact';
-import { useEffect, useRef, useState } from 'preact/hooks';
+import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { UiButton, UiCheckboxField, UiTextField } from './components.jsx';
 
 const emptyDraft = () => ({ id:'', name:'', printerIds:[] });
@@ -63,6 +63,7 @@ function PrinterGroupsList({ groups, busy, onEdit, onDelete }) {
 function PrinterGroupsWorkspace() {
   const [state,setState] = useState(() => normalizeState(window.__PFC_PRINTER_GROUPS_UI_STATE__));
   const [draft,setDraft] = useState(emptyDraft);
+  const [membersQuery,setMembersQuery] = useState('');
   const [busy,setBusy] = useState(false);
   const [error,setError] = useState('');
   const [status,setStatus] = useState('');
@@ -71,6 +72,7 @@ function PrinterGroupsWorkspace() {
   const formRef = useRef(null);
 
   const resetDraft = () => {
+    setMembersQuery('');
     setDraft(emptyDraft());
     setError('');
   };
@@ -92,6 +94,7 @@ function PrinterGroupsWorkspace() {
 
   const edit = (group) => {
     if (activeRequest.current) return;
+    setMembersQuery('');
     setDraft({id:group.id, name:group.name, printerIds:[...(group.printerIds || [])]});
     setError('');
     setStatus('');
@@ -147,6 +150,50 @@ function PrinterGroupsWorkspace() {
   };
 
   const selected = new Set(draft.printerIds);
+  // A membership lookup avoids scanning every group for every printer.
+  // A selected printer stays selected even when hidden by the search filter.
+  const otherGroupsByPrinter = useMemo(() => {
+    const lookup = new Map();
+    for (const group of state.groups) {
+      if (group.id === draft.id) continue;
+      for (const printerId of group.printerIds || []) {
+        if (!lookup.has(printerId)) lookup.set(printerId, []);
+        lookup.get(printerId).push(group.name);
+      }
+    }
+    return lookup;
+  }, [state.groups, draft.id]);
+
+  const filteredPrinters = useMemo(() => {
+    const query = membersQuery.trim().toLocaleLowerCase();
+    if (!query) return state.printers;
+    return state.printers.filter((printer) =>
+      [printer.name, printer.manufacturer, printer.model,
+        ...(otherGroupsByPrinter.get(printer.id) || [])]
+        .some((value) => String(value || '').toLocaleLowerCase().includes(query))
+    );
+  }, [membersQuery, state.printers, otherGroupsByPrinter]);
+
+  const updateMembership = (printerId, checked) => {
+    setDraft((current) => ({
+      ...current,
+      printerIds:checked
+        ? [...new Set([...current.printerIds, printerId])]
+        : current.printerIds.filter((id) => id !== printerId)
+    }));
+  };
+
+  const updateVisibleMembership = (checked) => {
+    if (busy || !filteredPrinters.length) return;
+    const visibleIds = new Set(filteredPrinters.map((printer) => printer.id));
+    setDraft((current) => ({
+      ...current,
+      printerIds:checked
+        ? [...new Set([...current.printerIds, ...visibleIds])]
+        : current.printerIds.filter((id) => !visibleIds.has(id))
+    }));
+  };
+
   return (
     <>
       <form id="printerGroupForm" class="printer-group-form" ref={formRef} onSubmit={submit}>
@@ -160,34 +207,60 @@ function PrinterGroupsWorkspace() {
           onInput={(event) => setDraft((current) => ({...current,name:event.currentTarget.value}))}
           disabled={busy}
         />
-        <div>
-          <span class="printer-group-members-label">Members</span>
-          <div id="printerGroupMembers" class="printer-group-members">
-            {state.printers.length ? state.printers.map((printer) => {
-              const otherGroups = state.groups
-                .filter((group) => group.id !== draft.id && group.printerIds.includes(printer.id))
-                .map((group) => group.name);
-              return (
-                <UiCheckboxField
-                  key={printer.id} class="printer-group-member"
-                  data-printer-group-member value={printer.id} checked={selected.has(printer.id)}
-                  disabled={busy}
-                  onChange={(event) => {
-                    const checked = event.currentTarget.checked;
-                    setDraft((current) => ({
-                      ...current,
-                      printerIds:checked
-                        ? [...new Set([...current.printerIds,printer.id])]
-                        : current.printerIds.filter((id) => id !== printer.id)
-                    }));
-                  }}
-                >
-                  <strong>{printer.name}</strong>
-                  <small>{[printer.manufacturer,printer.model].filter(Boolean).join(' ')}</small>
-                  {otherGroups.length > 0 && <small>Also in {otherGroups.join(', ')}</small>}
-                </UiCheckboxField>
-              );
-            }) : <div class="subtle">No printers are configured.</div>}
+        <div class="printer-group-members-section">
+          <div class="printer-group-member-toolbar">
+            <UiTextField
+              id="printerGroupMemberSearch" class="printer-group-member-search"
+              label="Find a printer" type="search" value={membersQuery}
+              placeholder="Search printer name, model or group"
+              aria-controls="printerGroupMembers"
+              onInput={(event) => setMembersQuery(event.currentTarget.value)}
+              disabled={busy}
+            />
+            <span id="printerGroupMemberCount" class="printer-group-member-count" aria-live="polite">
+              {selected.size} selected · {filteredPrinters.length} of {state.printers.length} shown
+            </span>
+          </div>
+          <div class="printer-group-member-actions">
+            <span class="printer-group-members-label">Members</span>
+            <div class="mini-actions">
+              <UiButton variant="secondary" size="small" data-printer-group-select-visible
+                disabled={busy || !filteredPrinters.length}
+                onClick={() => updateVisibleMembership(true)}>Select visible</UiButton>
+              <UiButton variant="secondary" size="small" data-printer-group-clear-visible
+                disabled={busy || !filteredPrinters.length}
+                onClick={() => updateVisibleMembership(false)}>Clear visible</UiButton>
+            </div>
+          </div>
+          <div id="printerGroupMembers" class="printer-group-members"
+            role="region" aria-label="Printer group membership table" tabIndex={0}>
+            <table class="printer-group-members-table">
+              <thead>
+                <tr><th scope="col" class="printer-group-member-select-col">Select</th>
+                  <th scope="col">Printer</th><th scope="col">Model</th><th scope="col">Other groups</th></tr>
+              </thead>
+              <tbody>
+                {filteredPrinters.length ? filteredPrinters.map((printer,index) => {
+                  const otherGroups = otherGroupsByPrinter.get(printer.id) || [];
+                  const checkboxId = 'printerGroupMember-' + index;
+                  return (
+                    <tr key={printer.id} class={selected.has(printer.id) ? 'is-selected' : ''}>
+                      <td class="printer-group-member-select-col">
+                        <input id={checkboxId} type="checkbox" class="printer-group-member-checkbox"
+                          data-printer-group-member value={printer.id} checked={selected.has(printer.id)}
+                          aria-label={`Select ${printer.name}`} disabled={busy}
+                          onChange={(event) => updateMembership(printer.id, event.currentTarget.checked)} />
+                      </td>
+                      <td><label class="printer-group-member-name" htmlFor={checkboxId}>{printer.name}</label></td>
+                      <td>{[printer.manufacturer,printer.model].filter(Boolean).join(' ') || '—'}</td>
+                      <td class="printer-group-member-groups">{otherGroups.join(', ') || '—'}</td>
+                    </tr>
+                  );
+                }) : <tr><td class="printer-group-members-empty" colspan="4">
+                  {state.printers.length ? 'No printers match your search.' : 'No printers are configured.'}
+                </td></tr>}
+              </tbody>
+            </table>
           </div>
         </div>
         <div id="printerGroupError" class={'error' + (error ? '' : ' hidden')} role={error ? 'alert' : undefined}>{error}</div>

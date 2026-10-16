@@ -7,7 +7,7 @@ Historical entries describe the behaviour of the controller at the time of that 
 ## v0.49.0
 
 - Begins the interactive Preact migration: Printer Groups creation, editing, overlapping membership selection and deletion now use a Preact-managed form, local draft state and request lifecycle rather than legacy DOM mutations when the frontend bundle is available.
-- Introduces shared controlled text and checkbox components and retains the pre-existing vanilla JavaScript form/list implementation when Preact is unavailable.
+- Introduces shared controlled text and checkbox components, with a bounded-height, independently scrollable printer membership table, sticky column headings, live search, selected/visible counts and select/clear visible controls. The vanilla fallback uses the same scrollable table layout.
 - Keeps printer-group API enforcement, queue/dashboard group choices and backend scheduling unchanged; a narrow bridge refreshes the existing application cache after successful Preact mutations.
 - Extends the real Chromium suite to check unsaved drafts during state publications, create/edit/delete requests, error retention and absence of duplicate submissions using an isolated API fixture.
 - **Development branch milestone:** follow-up review and browser validation are required before merging or shipping.

@@ -3635,18 +3635,28 @@ function renderPrinterGroupMembers(selectedIds = null) {
   const editing = (printerGroupsState.groups || []).find((group) => group.id === editingId) || null;
   const selected = new Set(selectedIds || editing?.printerIds || []);
   const printers = [...fleet].sort((a, b) => String(a.name).localeCompare(String(b.name)));
-  printerGroupMembers.innerHTML = printers.length
-    ? printers.map((printer) => {
+  const rows = printers.length
+    ? printers.map((printer, index) => {
         const otherGroups = groupsForPrinter(printer.id).filter((group) => group.id !== editingId);
-        const other = otherGroups.length
-          ? `<small>Also in ${otherGroups.map((group) => escapeHtml(group.name)).join(', ')}</small>`
-          : '';
-        return `<label class="printer-group-member">
-          <input type="checkbox" value="${escapeHtml(printer.id)}" data-printer-group-member${selected.has(printer.id) ? ' checked' : ''}>
-          <span><strong>${escapeHtml(printer.name)}</strong><small>${escapeHtml([printer.manufacturer, printer.model].filter(Boolean).join(' '))}</small>${other}</span>
-        </label>`;
+        const otherNames = otherGroups.map((group) => group.name).join(', ');
+        const checkboxId = `printerGroupMember-${index}`;
+        return `<tr${selected.has(printer.id) ? ' class="is-selected"' : ''}>
+          <td class="printer-group-member-select-col">
+            <input id="${checkboxId}" type="checkbox" class="printer-group-member-checkbox"
+              value="${escapeHtml(printer.id)}" data-printer-group-member
+              aria-label="Select ${escapeHtml(printer.name)}"${selected.has(printer.id) ? ' checked' : ''}>
+          </td>
+          <td><label class="printer-group-member-name" for="${checkboxId}">${escapeHtml(printer.name)}</label></td>
+          <td>${escapeHtml([printer.manufacturer, printer.model].filter(Boolean).join(' ') || '—')}</td>
+          <td class="printer-group-member-groups">${otherNames ? escapeHtml(otherNames) : '—'}</td>
+        </tr>`;
       }).join('')
-    : '<div class="subtle">No printers are configured.</div>';
+    : '<tr><td class="printer-group-members-empty" colspan="4">No printers are configured.</td></tr>';
+  printerGroupMembers.innerHTML = `<table class="printer-group-members-table">
+    <thead><tr><th scope="col" class="printer-group-member-select-col">Select</th>
+      <th scope="col">Printer</th><th scope="col">Model</th><th scope="col">Other groups</th></tr></thead>
+    <tbody>${rows}</tbody>
+  </table>`;
 }
 
 function printerGroupsViewModel() {

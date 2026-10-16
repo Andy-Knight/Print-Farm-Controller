@@ -36,12 +36,18 @@ test('printer group editor supports printers belonging to multiple groups', () =
   assert.doesNotMatch(app, /selecting will move it/);
 });
 
-test('printer group member checkboxes override global full-width input styling', () => {
-  assert.match(styles, /\.printer-group-member input\[type="checkbox"\]/);
-  assert.match(styles, /width:16px/);
-  assert.match(styles, /height:16px/);
-  assert.match(styles, /flex:0 0 16px/);
-  assert.match(styles, /\.printer-group-member span \{[\s\S]*flex:1 1 auto/);
+test('group membership is a scrollable and accessible table in Preact and fallback modes', () => {
+  const preact = fs.readFileSync(new URL('../ui/printer-groups.jsx', import.meta.url), 'utf8');
+  assert.match(styles, /\.printer-group-members \{[\s\S]*max-height:340px;[\s\S]*overflow:auto;/);
+  assert.match(styles, /\.printer-group-members-table th \{[\s\S]*position:sticky;[\s\S]*top:0;/);
+  assert.match(styles, /\.printer-group-member-checkbox \{[\s\S]*width:16px;[\s\S]*height:16px;/);
+  assert.match(index, /id="printerGroupMembers"[^>]*role="region"/);
+  assert.match(app, /printerGroupMembers\.innerHTML = `<table class="printer-group-members-table"/);
+  assert.match(preact, /<table class="printer-group-members-table">/);
+  assert.match(preact, /id="printerGroupMemberSearch"/);
+  assert.match(preact, /data-printer-group-select-visible/);
+  assert.match(preact, /data-printer-group-clear-visible/);
+  assert.match(preact, /otherGroupsByPrinter/);
 });
 
 test('dashboard printers can be filtered by custom printer group', () => {
