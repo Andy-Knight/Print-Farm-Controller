@@ -406,6 +406,14 @@ test('Preact Printer Groups preserves group cards and delegated actions', async 
   assert.match(dashboard, /initPrinterGroupsUi/);
   assert.match(groupsUi, /function PrinterGroupCard/);
   assert.match(groupsUi, /function PrinterGroupsList/);
+  assert.match(groupsUi, /id="printerGroupsTabCreate"/);
+  assert.match(groupsUi, /id="printerGroupsTabExisting"/);
+  assert.match(groupsUi, /id="printerGroupsCreatePanel"/);
+  assert.match(groupsUi, /id="printerGroupsExistingPanel"/);
+  assert.match(groupsUi, /const \[createDraft,setCreateDraft\]/);
+  assert.match(groupsUi, /const \[editDraft,setEditDraft\]/);
+  assert.match(groupsUi, /onTabsKeyDown/);
+  assert.match(groupsUi, /if \(!draft\.id\) setTab\('groups'\)/);
   assert.match(groupsUi, /data-printer-group-card/);
   assert.match(groupsUi, /data-printer-group-edit/);
   assert.match(groupsUi, /data-printer-group-delete/);
