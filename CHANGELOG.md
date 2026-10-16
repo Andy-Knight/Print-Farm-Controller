@@ -6,6 +6,8 @@ Historical entries describe the behaviour of the controller at the time of that 
 
 ## v0.49.0
 
+- Continues Printer Details Preact migration in **Toolheads** for controller-side filament type/colour-family metadata and nozzle designations: the Prusa per-tool and Flashforge AD5M controller selectors, plus per-tool nozzle designation controls, now use controlled Preact form islands with dirty-state handling, pending/error status, clear where supported and safety-checked API event bridges. Values survive routine status refreshes; original fallback remains. Device-write U1/Creator 5 filament controls and other hardware commands deliberately remain on their existing firmware-verified paths until individually validated.
+
 - Starts interactive Preact migration in **Printer Details → Maintenance & Management**: Controller name is now a controlled input with Reset, dirty-state tracking, single-flight rename, inline success/error and licence read-only handling. Controller-owned API and printer cache remain authoritative, while the Remove printer action and device operations stay on the established code paths. Unsaved names survive ordinary telemetry refreshes. The legacy rename form remains available when the Preact bundle is absent.
 
 - Splits Printer Groups into **Create group** and **Existing groups** tabs. Creation has its own membership editor; existing groups are listed with edit/delete actions and an inline editor only when editing. Separate Preact create/edit drafts persist across tab switches, with keyboard tab navigation and equivalent legacy fallback behaviour.

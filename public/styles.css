@@ -4030,3 +4030,13 @@ body:not([data-route="/"]) > main > :not(.route-page) { display:none !important;
 .printer-name-editor .mini-actions { margin:0; }
 .printer-management-remove { margin-top:8px; }
 .printer-name-editor [data-printer-name-error] { margin:0; }
+
+/* Preact-controlled toolhead metadata assignments retain the existing
+   filament/nozzle field widths and colour-dropdown visual treatment. */
+.toolhead-designation-editor { display:grid; gap:9px; min-width:0; width:100%; }
+.toolhead-designation-editor > label { display:block; min-width:0; }
+.toolhead-designation-editor select { width:100%; min-width:0; }
+.toolhead-designation-editor .mini-actions { margin:0; }
+.toolhead-designation-editor .color-family-dropdown { width:100%; }
+.toolhead-designation-editor [data-toolhead-error] { margin:0; }
+.toolhead-designation-editor .field-help { overflow-wrap:anywhere; }
