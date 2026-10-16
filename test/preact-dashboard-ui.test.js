@@ -184,13 +184,6 @@ test('Preact print queue preserves delegated controller actions and fallback ren
   assert.match(app, /queueHistoryList\.innerHTML = productionHistoryMarkup/);
 });
 
-test('Preact queue defers live rerenders while pointer controls are active', async () => {
-  const app = await read('public/app.js');
-  assert.match(app, /if \(window\.__PFC_PREACT_QUEUE__\) \{[\s\S]*if \(queuePointerInteractionActive\) \{[\s\S]*queueRenderPending = true;[\s\S]*return;[\s\S]*publishPrintQueueUiState/);
-  assert.match(app, /if \(queueRenderPending\) renderPrintQueue\(\)/);
-});
-
-
 test('Preact Print Library preserves delegated actions, search filtering and vanilla fallback', async () => {
   const [libraryUi, dashboard, app] = await Promise.all([
     read('ui/print-library.jsx'),
@@ -514,44 +507,6 @@ test('Preact dashboard owns the licence-limit notice presentation with vanilla f
   assert.match(app, /licenseNoticeEl\.innerHTML =/);
 });
 
-test('v0.47 Preact migration audit covers every persistent route page', async () => {
-  const [html, dashboard] = await Promise.all([
-    read('public/index.html'),
-    read('ui/dashboard.jsx')
-  ]);
-
-  const routePageIds = [...html.matchAll(/<section id="([^"]+)"[^>]*class="[^"]*\broute-page\b[^"]*"/g)]
-    .map((match) => match[1])
-    .sort();
-
-  assert.deepEqual(routePageIds, [
-    'alertsDialog',
-    'backupRecoveryDialog',
-    'diagnosticsDialog',
-    'libraryDialog',
-    'licenseDialog',
-    'maintenanceDialog',
-    'printerGroupsDialog',
-    'queueDialog',
-    'reportingDialog'
-  ]);
-
-  for (const initializer of [
-    'initPrintQueueUi',
-    'initPrintLibraryUi',
-    'initMaintenanceUi',
-    'initAlertsUi',
-    'initReportingUi',
-    'initBackupRecoveryUi',
-    'initPrinterGroupsUi',
-    'initDiagnosticsUi',
-    'initLicenseUi'
-  ]) {
-    assert.match(dashboard, new RegExp(`${initializer}\\(\\)`));
-  }
-});
-
-
 test('dashboard summary headings do not render decorative dots', async () => {
   const [dashboard, styles] = await Promise.all([
     read('ui/dashboard.jsx'),
@@ -571,27 +526,7 @@ test('dashboard summary cards keep labels above counts', async () => {
 });
 
 
-test('direct route refresh initializes controller state before rendering the route', async () => {
-  const app = await read('public/app.js');
-  const stateIndex = app.indexOf('let selectionMode = false;');
-  const routeIndex = app.indexOf('renderControllerRoute(location.pathname, { invoke:false });');
-
-  assert.ok(stateIndex >= 0, 'selection mode state should exist');
-  assert.ok(routeIndex > stateIndex, 'initial route render must occur after controller state initialization');
-
-  for (const route of ['/queue','/library','/maintenance','/groups','/reports','/alerts','/backup','/diagnostics','/licence']) {
-    assert.match(app, new RegExp(`['"]${route.replace('/', '\\/')}['"]`));
-  }
-});
-
-
-test('direct route refresh invokes page loaders after module registration', async () => {
-  const [app, reporting] = await Promise.all([
-    read('public/app.js'),
-    read('public/reporting.js')
-  ]);
-
-  assert.match(app, /renderControllerRoute\(location\.pathname, \{ invoke:false \}\);/);
-  assert.match(app, /window\.addEventListener\('load', \(\) => \{[\s\S]*renderControllerRoute\(location\.pathname\);[\s\S]*\}, \{ once:true \}\);/);
-  assert.match(reporting, /reportsBtn\?\.addEventListener\('click', async \(\) => \{[\s\S]*await loadReportingContext\(\);[\s\S]*await loadReport\(\);/);
-});
+// Direct-route initialization, report loading, and hard refresh across all
+// controller routes are exercised in real Chromium by npm run test:browser.
+// The previous source-index/regex checks were removed because they could pass
+// even when those routes rendered blank or never populated their data.

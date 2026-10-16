@@ -65,10 +65,8 @@ test('dashboard summary cards filter the visible printer fleet', () => {
   assert.match(app, /function matchesDashboardFilter\(printer, filter = dashboardFilter\)/);
   assert.match(app, /data-dashboard-filter="\$\{filter\}"/);
   assert.match(app, /button\.setAttribute\('aria-pressed', String\(active\)\)/);
-  assert.match(app, /structureValid/);
   assert.match(app, /card\.classList\.toggle\('hidden', !show\)/);
   assert.match(app, /fleetEl\.classList\.toggle\('filtered', dashboardFilter !== 'all' \|\| Boolean\(dashboardGroupId\)\)/);
-  assert.match(app, /summaryEl\.addEventListener\('click'/);
   assert.match(app, /setDashboardFilter\(filter\.dataset\.dashboardFilter\)/);
   assert.match(styles, /\.summary-card\.active/);
   assert.match(styles, /\.fleet\.filtered \.reorder-controls \{ display:none; \}/);

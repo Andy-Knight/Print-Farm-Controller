@@ -4,6 +4,14 @@ This file contains the version-by-version release history for Print Farm Control
 
 Historical entries describe the behaviour of the controller at the time of that release and may be superseded by later versions. For current installation, configuration and supported-hardware guidance, see [README.md](README.md).
 
+## v0.48.1
+
+- Completes a validity audit of the regression suite, adding a dependency-free `npm run test:audit` inventory and strengthening tests for queue scheduling and fairness, bed-clearance interactions, printer-operation conflicts, recovery/rollback protection and signed-licence enforcement.
+- Adds `npm run test:browser` with a dedicated real-Chromium GitHub Actions job to verify all ten direct routes and browser refreshes, Reports data loading, navigation history, Preact initialisation without legacy fallbacks, live presentation updates and one-click queue clearance requests.
+- Tests the live controller SSE path end-to-end using an isolated simulated Snapmaker U1: protocol status polling, `/api/events` delivery and in-place Preact printer-card updates. These tests do not claim physical printer firmware validation.
+- Removes six obsolete/redundant source-only test cases and two repeated assertions after replacing their coverage with behavioural tests; retains the legacy renderer, printer-model UI and packaging contracts.
+- Keeps the runtime controller features unchanged. The regression suite, browser tests and container smoke checks now form separate CI quality gates.
+
 ## v0.48.0
 
 - Standardises the **Set filament** and nozzle **Assign** button labels, primary-blue styling and shared dimensions across Snapmaker U1, Prusa CORE One+ (Standard, INDX4 and INDX8), FlashForge Adventurer 5M/5M Pro and Creator 5/Creator 5 Pro.
