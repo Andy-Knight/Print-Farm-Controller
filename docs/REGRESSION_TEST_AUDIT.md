@@ -4,7 +4,7 @@
 
 ## Purpose and baseline
 
-The existing v0.48.0 baseline on `main` contains **81 `test/*.test.js` files** (GitHub tree inventory). This branch introduces an additional test suite for the audit utility. The workflow runs the normal Node regression suite, a separate MinIO S3 integration test, and a Docker container smoke test. All of those verify different things; a passing Node suite does **not** prove that browser interactions or printer firmware integrations behave correctly.
+The existing v0.48.0 baseline on `main` contains **81 `test/*.test.js` files** (GitHub tree inventory). This branch introduces an additional test suite for the audit utility, bringing the automated inventory to **82 test files and 595 recognised test declarations**. The first green inventory run found **no explicit skipped, todo or focused declarations, and no repeated test descriptions**. These are static, heuristic counts rather than a statement of behavioural coverage. The workflow runs the normal Node regression suite, a separate MinIO S3 integration test, and a Docker container smoke test. All of those verify different things; a passing Node suite does **not** prove that browser interactions or printer firmware integrations behave correctly.
 
 Run:
 
