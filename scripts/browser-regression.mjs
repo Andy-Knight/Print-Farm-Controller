@@ -523,11 +523,17 @@ async function checkToolheadButtonAlignment(page,name,{filamentMode,nozzleMode})
       const form=row?.querySelector(`[data-preact-toolhead-editor="${mode}"]`);
       const button=form?.querySelector('[data-toolhead-save]');
       const select=form?.querySelector('select');
+      const label=form?.querySelector('label');
+      const pair=form?.querySelector('.toolhead-dropdown-pair');
+      const rect=(e)=>e?.getBoundingClientRect().toJSON()??null;
       return {
+        form:rect(form),pair:rect(pair),label:rect(label),
+        select:rect(select),action:rect(button),
         top:button?.getBoundingClientRect().top??null,
         bottom:button?.getBoundingClientRect().bottom??null,
         fieldBottom:select?.getBoundingClientRect().bottom??null,
-        labelMargin:form?.querySelector('label')?getComputedStyle(form.querySelector('label')).marginBottom:null,
+        labelMargin:label?getComputedStyle(label).marginBottom:null,
+        labelFont:label?getComputedStyle(label).fontSize:null,
         fieldMargin:select?getComputedStyle(select).marginTop:null
       };
     };
