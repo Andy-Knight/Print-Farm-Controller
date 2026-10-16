@@ -705,6 +705,42 @@ async function simulatorSseSmoke(browser,url) {
       'success resets nozzle selection dirty state');
     await page.locator('#printerDialog [data-detail-close]').click();
     console.log('Chromium: simulated AD5M Preact toolhead designations PASS');
+
+    // Regression for CORE One+ compact fields. Legacy Prusa wrappers are
+    // two-column grids: the Preact form must span both tracks so material and
+    // colour controls use the same 160px standard as the other printers.
+    console.log('Chromium: Prusa CORE One+ toolhead filament field widths');
+    const prusa=await jsonPost('/api/emulator/printers',{
+      profileId:'prusa-core-one-plus',name:'Width regression CORE One+',
+      ports:{httpPort:0}
+    });
+    assert.ok(prusa.printer?.controllerSettings,'Prusa simulator registration details');
+    const prusaRegistered=await jsonPost('/api/printers',prusa.printer.controllerSettings);
+    const prusaId=prusaRegistered.printer?.id;
+    assert.ok(prusaId,'Prusa emulator registered with isolated controller');
+    await page.waitForFunction((id)=>Boolean(
+      document.querySelector('[data-printer-card="'+id+'"] [data-open]')
+    ),prusaId,{timeout:30000});
+    await page.locator('[data-printer-card="'+prusaId+'"] [data-open]').click();
+    const prusaForm=page.locator('#printerDialog [data-preact-toolhead-editor="prusa-filament"]').first();
+    await prusaForm.waitFor({state:'visible',timeout:15000});
+    const widths=await prusaForm.evaluate((form)=>{
+      const bounds=(selector)=>form.querySelector(selector)?.getBoundingClientRect().width||0;
+      return {
+        type:bounds('[data-toolhead-material]'),
+        color:bounds('.color-family-dropdown'),
+        form:form.getBoundingClientRect().width,
+        wrapper:form.parentElement?.getBoundingClientRect().width||0
+      };
+    });
+    assert.ok(widths.form>=widths.type*2,
+      'Prusa Preact editor spans full legacy wrapper width');
+    for(const key of ['type','color']) {
+      assert.ok(Math.abs(widths[key]-160)<=2,
+        'CORE One+ '+key+' field width matches standard 160px control, got '+JSON.stringify(widths));
+    }
+    await page.locator('#printerDialog [data-detail-close]').click();
+    console.log('Chromium: CORE One+ filament dropdown width PASS');
   } finally {
     await context.close();
     // Isolated controller process teardown is the safety boundary; no external
