@@ -893,6 +893,44 @@ async function simulatorSseSmoke(browser,url) {
     console.log('Chromium: CORE One+ live INDX 1/4/8/1 configuration transitions PASS');
     await page.locator('#printerDialog [data-detail-close]').click();
     console.log('Chromium: CORE One+ filament dropdown width PASS');
+
+    // The Community licence has three printer slots. Release the AD5M used
+    // above before exercising both Creator variants through the real frontend
+    // and simulator, without changing the production test licence.
+    const removeTestPrinter=async (id)=>{
+      const response=await fetch(url+'/api/printers/'+encodeURIComponent(id),{method:'DELETE'});
+      assert.equal(response.status,200,'isolated simulator printer removal succeeds');
+    };
+    await removeTestPrinter(ad5mId);
+    for(const profileId of ['flashforge-creator-5','flashforge-creator-5-pro']) {
+      const creator=await jsonPost('/api/emulator/printers',{
+        profileId,name:'Guidance alignment '+profileId,
+        ports:{httpPort:0,cameraPort:0}
+      });
+      assert.ok(creator.printer?.controllerSettings,
+        profileId+' simulator registration details');
+      const registered=await jsonPost('/api/printers',creator.printer.controllerSettings);
+      const creatorId=registered.printer?.id;
+      assert.ok(creatorId,profileId+' registered with isolated controller');
+      await page.waitForFunction((id)=>Boolean(
+        document.querySelector('[data-printer-card="'+id+'"] [data-open]')
+      ),creatorId,{timeout:30000});
+      await page.locator('[data-printer-card="'+creatorId+'"] [data-open]').click();
+      await page.locator('#printerDialog [data-preact-toolhead-editor="creator5-filament"]')
+        .first().waitFor({state:'visible',timeout:15000});
+      await page.locator('#printerDialog [data-preact-toolhead-editor="tool-nozzle"]')
+        .first().waitFor({state:'visible',timeout:15000});
+      assert.equal(await page.locator('#printerDialog [data-preact-toolhead-editor="creator5-filament"]').count(),4,
+        profileId+' must show all four filament editors');
+      assert.equal(await page.locator('#printerDialog [data-preact-toolhead-editor="tool-nozzle"]').count(),4,
+        profileId+' must show all four nozzle editors');
+      await checkToolheadHelpAlignment(page,profileId,{
+        filamentMode:'creator5-filament',nozzleMode:'tool-nozzle'
+      });
+      await page.locator('#printerDialog [data-detail-close]').click();
+      await removeTestPrinter(creatorId);
+      console.log('Chromium: '+profileId+' filament/nozzle guidance aligned PASS');
+    }
   } finally {
     await context.close();
     // Isolated controller process teardown is the safety boundary; no external
