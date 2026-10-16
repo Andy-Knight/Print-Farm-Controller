@@ -103,11 +103,11 @@ export function ToastHost() {
  * Controlled form primitives. Each workflow owns its draft state, rather than
  * mutating form DOM from SSE or application-level redraw handlers.
  */
-export function UiTextField({ label, id, class:className = '', ...props }) {
+export function UiTextField({ label, id, inputRef, class:className = '', ...props }) {
   return (
     <label class={className}>
       {label}
-      <input id={id} type="text" {...props} />
+      <input id={id} ref={inputRef} type="text" {...props} />
     </label>
   );
 }
