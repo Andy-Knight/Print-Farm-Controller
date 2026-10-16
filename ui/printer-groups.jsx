@@ -54,7 +54,7 @@ function PrinterGroupCard({ group, busy, onEdit, onDelete }) {
 function PrinterGroupsList({ groups, busy, onEdit, onDelete }) {
   if (!groups.length) return (
     <div class="queue-empty">
-      No printer groups configured. Create a group above to restrict automatic queue work or assign group-wide maintenance.
+      No printer groups configured. Use the Create group tab to add your first group.
     </div>
   );
   return <>{groups.map((group) => <PrinterGroupCard key={group.id} group={group} busy={busy} onEdit={onEdit} onDelete={onDelete} />)}</>;
@@ -62,8 +62,17 @@ function PrinterGroupsList({ groups, busy, onEdit, onDelete }) {
 
 function PrinterGroupsWorkspace() {
   const [state,setState] = useState(() => normalizeState(window.__PFC_PRINTER_GROUPS_UI_STATE__));
-  const [draft,setDraft] = useState(emptyDraft);
-  const [membersQuery,setMembersQuery] = useState('');
+  const [tab,setTab] = useState('create');
+  const [createDraft,setCreateDraft] = useState(emptyDraft);
+  const [editDraft,setEditDraft] = useState(emptyDraft);
+  const [createQuery,setCreateQuery] = useState('');
+  const [editQuery,setEditQuery] = useState('');
+  // Creation and editing have separate drafts. Switching tabs preserves
+  // unfinished create selections, including selections hidden by search.
+  const draft = tab === 'create' ? createDraft : editDraft;
+  const setDraft = tab === 'create' ? setCreateDraft : setEditDraft;
+  const membersQuery = tab === 'create' ? createQuery : editQuery;
+  const setMembersQuery = tab === 'create' ? setCreateQuery : setEditQuery;
   const [busy,setBusy] = useState(false);
   const [error,setError] = useState('');
   const [status,setStatus] = useState('');
@@ -79,7 +88,16 @@ function PrinterGroupsWorkspace() {
 
   useEffect(() => {
     const update = (event) => setState(normalizeState(event?.detail));
-    const reset = () => { resetDraft(); setStatus(''); };
+    const reset = () => {
+      if (activeRequest.current) return;
+      setTab('create');
+      setCreateDraft(emptyDraft());
+      setEditDraft(emptyDraft());
+      setCreateQuery('');
+      setEditQuery('');
+      setError('');
+      setStatus('');
+    };
     const loadingError = (event) => setError(String(event?.detail?.message || 'Unable to load printer groups'));
     window.addEventListener('pfc:printer-groups-ui-state',update);
     window.addEventListener('pfc:printer-groups-editor-reset',reset);
@@ -92,10 +110,28 @@ function PrinterGroupsWorkspace() {
     };
   }, []);
 
+  const switchTab = (next) => {
+    if (activeRequest.current || !['create','groups'].includes(next)) return;
+    setTab(next);
+    setError('');
+  };
+
+  const onTabsKeyDown = (event) => {
+    if (!['ArrowLeft','ArrowRight','Home','End'].includes(event.key)) return;
+    event.preventDefault();
+    const next = event.key === 'Home' ? 'create' : event.key === 'End' ? 'groups'
+      : tab === 'create' ? 'groups' : 'create';
+    switchTab(next);
+    requestAnimationFrame(() => document.querySelector(
+      next === 'create' ? '#printerGroupsTabCreate' : '#printerGroupsTabExisting'
+    )?.focus());
+  };
+
   const edit = (group) => {
     if (activeRequest.current) return;
-    setMembersQuery('');
-    setDraft({id:group.id, name:group.name, printerIds:[...(group.printerIds || [])]});
+    setTab('groups');
+    setEditQuery('');
+    setEditDraft({id:group.id, name:group.name, printerIds:[...(group.printerIds || [])]});
     setError('');
     setStatus('');
     requestAnimationFrame(() => {
@@ -121,6 +157,7 @@ function PrinterGroupsWorkspace() {
       await refreshApplicationGroups();
       setStatus(draft.id ? 'Printer group updated.' : 'Printer group created.');
       resetDraft();
+      if (!draft.id) setTab('groups');
     } catch (failure) {
       setError(failure.message);
     } finally {
@@ -194,9 +231,8 @@ function PrinterGroupsWorkspace() {
     }));
   };
 
-  return (
-    <>
-      <form id="printerGroupForm" class="printer-group-form" ref={formRef} onSubmit={submit}>
+  const editor = (
+    <form id="printerGroupForm" class="printer-group-form" ref={formRef} onSubmit={submit}>
         <div class="printer-group-form-head">
           <strong id="printerGroupFormTitle">{draft.id ? 'Edit printer group' : 'Add printer group'}</strong>
           <div class="field-help">Group membership is independent. Selecting a printer here does not remove it from any other groups.</div>
@@ -274,10 +310,42 @@ function PrinterGroupsWorkspace() {
           </UiButton>
         </div>
       </form>
-      <div id="printerGroupsStatus" class="subtle" role="status" aria-live="polite">{status}</div>
-      <div id="printerGroupsList" class="printer-groups-list">
-        <PrinterGroupsList groups={state.groups} busy={busy} onEdit={edit} onDelete={remove} />
+  );
+
+  return (
+    <>
+      <div class="printer-groups-tabs maintenance-view-selector" role="tablist"
+        aria-label="Printer groups views" onKeyDown={onTabsKeyDown}>
+        <button id="printerGroupsTabCreate" type="button" role="tab"
+          class={'maintenance-view-button' + (tab === 'create' ? ' active' : '')}
+          aria-controls="printerGroupsCreatePanel" aria-selected={tab === 'create'}
+          tabIndex={tab === 'create' ? 0 : -1} data-printer-groups-tab="create"
+          disabled={busy} onClick={() => switchTab('create')}>Create group</button>
+        <button id="printerGroupsTabExisting" type="button" role="tab"
+          class={'maintenance-view-button' + (tab === 'groups' ? ' active' : '')}
+          aria-controls="printerGroupsExistingPanel" aria-selected={tab === 'groups'}
+          tabIndex={tab === 'groups' ? 0 : -1} data-printer-groups-tab="groups"
+          disabled={busy} onClick={() => switchTab('groups')}>
+          Existing groups ({state.groups.length})
+        </button>
       </div>
+      <div id="printerGroupsStatus" class="subtle" role="status" aria-live="polite">{status}</div>
+      <section id="printerGroupsCreatePanel" class="printer-groups-tab-panel" role="tabpanel"
+        aria-labelledby="printerGroupsTabCreate" hidden={tab !== 'create'}>
+        {tab === 'create' && editor}
+      </section>
+      <section id="printerGroupsExistingPanel" class="printer-groups-tab-panel" role="tabpanel"
+        aria-labelledby="printerGroupsTabExisting" hidden={tab !== 'groups'}>
+        {tab === 'groups' && (
+          <>
+            {draft.id && <div class="printer-groups-edit-workspace">{editor}</div>}
+            {!draft.id && error && <div class="error" role="alert">{error}</div>}
+            <div id="printerGroupsList" class="printer-groups-list">
+              <PrinterGroupsList groups={state.groups} busy={busy} onEdit={edit} onDelete={remove} />
+            </div>
+          </>
+        )}
+      </section>
     </>
   );
 }
