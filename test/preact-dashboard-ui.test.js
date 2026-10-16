@@ -190,6 +190,11 @@ test('Preact printer-detail chrome preserves six-tab behavior and vanilla fallba
   // Nozzle designation wrappers must not push help text lower than the
   // Set filament guidance in the adjacent Toolheads table column.
   assert.match(styles, /\.material-panel \.toolhead-designation-editor > \.field-help\s*\{[^}]*margin-top:-5px;/);
+  // AD5M generic designation wrappers add label bottom margins and use a
+  // different select spacing than the adjacent nozzle control. Preact must
+  // normalise both to align Set filament and Assign in the same table row.
+  assert.match(styles, /\.material-panel \.toolhead-designation-editor \.toolhead-dropdown-pair label\s*\{[^}]*margin:0;/);
+  assert.match(styles, /\.material-panel \.toolhead-designation-editor \.toolhead-dropdown-pair select\s*\{[^}]*margin-top:4px;/);
   assert.match(styles, /\.material-panel \.toolhead-designation-editor\s*\{[^}]*padding:0;[^}]*margin:0;/);
   // Each Preact form spans the entire legacy two-column wrapper. Otherwise
   // its nested material and colour selects each receive only ~half the width.
