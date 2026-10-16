@@ -420,7 +420,8 @@ test('Preact Printer Groups keeps the editor, multi-group membership and vanilla
   const app = await read('public/app.js');
   assert.match(app, /function renderPrinterGroupMembers/);
   assert.match(app, /function groupsForPrinter/);
-  assert.match(app, /Also in/);
+  assert.match(app, /const otherNames = otherGroups\.map/);
+  assert.match(app, /printer-group-member-groups/);
   assert.match(app, /printerGroupForm\?\.addEventListener\('submit'/);
   assert.match(app, /data-printer-group-member/);
   assert.match(app, /if \(window\.__PFC_PREACT_PRINTER_GROUPS__\) \{[\s\S]*publishPrinterGroupsUiState\(\);[\s\S]*return;/);
