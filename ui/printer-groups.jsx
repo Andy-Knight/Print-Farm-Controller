@@ -155,7 +155,7 @@ function PrinterGroupsWorkspace() {
           <div class="field-help">Group membership is independent. Selecting a printer here does not remove it from any other groups.</div>
         </div>
         <UiTextField
-          id="printerGroupName" label="Group name" ref={nameInput}
+          id="printerGroupName" label="Group name" inputRef={nameInput}
           value={draft.name} maxlength={80} placeholder="Production printers" required
           onInput={(event) => setDraft((current) => ({...current,name:event.currentTarget.value}))}
           disabled={busy}
