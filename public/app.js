@@ -5794,11 +5794,11 @@ function u1FilamentConfigControlMarkup(printer, tool = {}) {
   return `<div class="u1-filament-config-control" data-u1-filament-config-control="${tool.index}">
     <div class="toolhead-dropdown-pair">
       <label>Filament type${filamentTypeSelectMarkup({
-      value:material,
-      inputAttributes:`data-u1-filament-type-input="${tool.index}"`,
-      disabled:!state.enabled,
-      placeholder:'Select type'
-    })}</label>
+        value:material,
+        inputAttributes:`data-u1-filament-type-input="${tool.index}"`,
+        disabled:!state.enabled,
+        placeholder:'Select type'
+      })}</label>
       <label>Colour family${colorFamilyDropdownMarkup({ value:familyOption?.value || '', inputAttributes:`data-u1-filament-color-family-input="${tool.index}"`, disabled:!state.enabled, placeholder:'Select colour' })}</label>
     </div>
     <button type="button" class="primary toolhead-action-button" data-u1-filament-config-save="${tool.index}"${state.enabled ? '' : ' disabled'}>Set filament</button>
@@ -5890,13 +5890,13 @@ function creator5FilamentConfigControlMarkup(printer, tool = {}) {
   return `<div class="creator5-filament-config-control" data-creator5-filament-config-control="${tool.index}">
     <div class="toolhead-dropdown-pair">
       <label>Filament type
-      <select data-creator5-filament-material-input="${tool.index}"${idle ? '' : ' disabled'}>
-        <option value=""${material ? '' : ' selected'}>Select type</option>
-        ${materials.map((item) => `<option value="${escapeHtml(item)}"${item === material ? ' selected' : ''}>${escapeHtml(item)}</option>`).join('')}
-      </select>
-    </label>
-    <label>Colour
-      ${creator5FilamentColorDropdownMarkup(printer, { value:color || '', toolIndex:tool.index, disabled:!idle })}
+        <select data-creator5-filament-material-input="${tool.index}"${idle ? '' : ' disabled'}>
+          <option value=""${material ? '' : ' selected'}>Select type</option>
+          ${materials.map((item) => `<option value="${escapeHtml(item)}"${item === material ? ' selected' : ''}>${escapeHtml(item)}</option>`).join('')}
+        </select>
+      </label>
+      <label>Colour
+        ${creator5FilamentColorDropdownMarkup(printer, { value:color || '', toolIndex:tool.index, disabled:!idle })}
       </label>
     </div>
     <button type="button" class="primary toolhead-action-button" data-creator5-filament-config-save="${tool.index}"${idle ? '' : ' disabled'}>Set filament</button>
@@ -5917,14 +5917,14 @@ function prusaToolMaterialDesignationMarkup(printer, tool = {}) {
   return `<div class="prusa-tool-filament-control" data-prusa-tool-filament-control="${tool.index}">
     <div class="toolhead-dropdown-pair">
       <label>Filament type
-      ${filamentTypeSelectMarkup({
-        value:material,
-        inputAttributes:`data-prusa-tool-material-input="${tool.index}"`,
-        placeholder:'Select type'
-      })}
-    </label>
-    <label>Colour family
-      ${colorFamilyDropdownMarkup({ value:familyOption?.value || '', inputAttributes:`data-prusa-tool-color-family-input="${tool.index}"`, placeholder:'Select colour' })}
+        ${filamentTypeSelectMarkup({
+          value:material,
+          inputAttributes:`data-prusa-tool-material-input="${tool.index}"`,
+          placeholder:'Select type'
+        })}
+      </label>
+      <label>Colour family
+        ${colorFamilyDropdownMarkup({ value:familyOption?.value || '', inputAttributes:`data-prusa-tool-color-family-input="${tool.index}"`, placeholder:'Select colour' })}
       </label>
     </div>
     <button type="button" class="primary toolhead-action-button" data-prusa-tool-material-save="${tool.index}">Set filament</button>
