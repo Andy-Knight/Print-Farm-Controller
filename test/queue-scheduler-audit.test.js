@@ -40,14 +40,14 @@ test('scheduler orders by effective priority before saved manual position and do
   const positions = new Map([
     [lowAged.id, 0], [high.id, 1], [normal.id, 2]
   ]);
-  const original = [lowAged, high, normal];
+  const original = [normal, high, lowAged];
   const sorted = [...original].sort((a, b) => printQueueHelpers.compareQueuePriority(a, b, positions, at));
   assert.deepEqual(sorted.map((item) => item.id), [
     'low-aged', 'new-high', 'new-normal'
   ], 'an aged low-priority job ties high and keeps its earlier manual position');
   assert.deepEqual(original.map((item) => item.id), [
-    'low-aged', 'new-high', 'new-normal'
-  ], 'sorting a copy must not change saved order');
+    'new-normal', 'new-high', 'low-aged'
+  ], 'sorting a copy must not change the original array');
 
   const tie = [job('newer', 'high', 0), job('older', 'high', 0)]
     .sort((a, b) => printQueueHelpers.compareQueuePriority(a, b,
