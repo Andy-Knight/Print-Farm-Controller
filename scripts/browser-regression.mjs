@@ -236,6 +236,17 @@ async function groupEditorSmoke(browser,url) {
     await page.locator('[data-printer-group-edit="seed-group"]').waitFor();
     await page.locator('#printerGroupName').fill('Production');
     await page.locator('#printerGroupSubmit').click();
+    await page.waitForTimeout(300);
+    console.log('Group editor POST diagnostics:',JSON.stringify({
+      counts,dom:await page.evaluate(()=>({
+        preact:window.__PFC_PREACT_PRINTER_GROUPS__,
+        name:document.querySelector('#printerGroupName')?.value,
+        type:document.querySelector('#printerGroupSubmit')?.type,
+        error:document.querySelector('#printerGroupError')?.textContent,
+        status:document.querySelector('#printerGroupsStatus')?.textContent,
+        cards:[...document.querySelectorAll('[data-printer-group-card]')].map(x=>x.dataset.printerGroupCard)
+      }))
+    }));
     await page.waitForFunction(()=>
       document.querySelector('#printerGroupsStatus')?.textContent?.includes('created.'));
     await page.locator('[data-printer-group-edit="created-group"]').waitFor();
