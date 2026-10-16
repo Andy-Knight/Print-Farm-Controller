@@ -93,7 +93,7 @@ test('P1P and P1S simulator updates the external spool through real TLS MQTT wit
         ports:{mqttPort:0,ftpsPort:0,cameraPort:0}});
       const adapter=new BambuLabAdapter({
         model,host:virtual.host,serialNumber:virtual.serialNumber,
-        checkCode:virtual.accessCode,mqttPort:virtual.ports.mqttPort
+        checkCode:virtual.checkCode,mqttPort:virtual.ports.mqttPort
       });
       assert.equal(adapter.capabilities.filamentTypeControl,true);
       assert.equal(adapter.capabilities.filamentColorControl,true);
