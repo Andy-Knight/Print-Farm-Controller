@@ -5897,6 +5897,7 @@ function bambuExternalFilamentControlMarkup(printer) {
   const material=String(source.material||'').trim().toUpperCase();
   const family=filamentColorFamilyOption(source.colorFamily);
   return `<div class="bambu-external-filament-control">
+    <strong class="bambu-external-title">External spool</strong>
     <div class="toolhead-dropdown-pair">
       <label>Filament type
         <select data-bambu-external-material${state.enabled?'':' disabled'}>
