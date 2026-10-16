@@ -461,6 +461,46 @@ async function queueClickSmoke(browser,url) {
   } finally { await context.close(); }
 }
 
+// Compare the actual control edges (not just the outer table cells) with
+// the shared Toolhead table headings. A generic dialog "form {padding:22px}"
+// previously indented every Preact form independently of the grid.
+async function checkToolheadFieldAlignment(page, name, {filamentMode, nozzleMode=null, headingRequired=true}) {
+  const measured=await page.evaluate(({filamentMode,nozzleMode})=>{
+    const panel=document.querySelector('#printerDialog #detailTabToolheads .material-panel');
+    const headings=[...(panel?.querySelector('.material-table-head')?.children||[])];
+    const row=panel?.querySelector('.material-tool-row');
+    const filament=row?.querySelector(`[data-preact-toolhead-editor="${filamentMode}"]`);
+    const nozzle=nozzleMode?row?.querySelector(`[data-preact-toolhead-editor="${nozzleMode}"]`):null;
+    const x=(element)=>element?.getBoundingClientRect().left ?? null;
+    const formPadding=(element)=>element?getComputedStyle(element).paddingLeft:null;
+    return {
+      headers:headings.map(x),
+      materialField:x(filament?.querySelector('[data-toolhead-material]')),
+      colourField:x(filament?.querySelector('.color-family-dropdown')),
+      nozzleField:x(nozzle?.querySelector('[data-toolhead-nozzle]')),
+      filamentFormPadding:formPadding(filament),
+      nozzleFormPadding:formPadding(nozzle),
+      materialCell:x(row?.querySelector('.material-tool-configuration')),
+      nozzleCell:x(row?.querySelector('.material-tool-nozzle')),
+    };
+  },{filamentMode,nozzleMode});
+  if (headingRequired) assert.equal(measured.headers.length,4,name+' must show four table headings');
+  if (measured.headers.length===4) {
+    for(const key of ['materialField','colourField']) {
+      assert.ok(measured[key]!==null&&Math.abs(measured[key]-measured.headers[2])<=3,
+        name+' '+key+' must begin under Filament configuration heading: '+JSON.stringify(measured));
+    }
+    if(nozzleMode) {
+      assert.ok(measured.nozzleField!==null&&Math.abs(measured.nozzleField-measured.headers[3])<=3,
+        name+' nozzle selector must begin under Nozzle heading: '+JSON.stringify(measured));
+    }
+  }
+  assert.equal(measured.filamentFormPadding,'0px',name+' filament editor needs no dialogue-form indentation');
+  if(nozzleMode) assert.equal(measured.nozzleFormPadding,'0px',
+    name+' nozzle editor needs no dialogue-form indentation');
+  return measured;
+}
+
 async function simulatorSseSmoke(browser,url) {
   console.log('Chromium: real controller SSE with protocol-backed simulated printer');
   const jsonPost=async (endpoint,body)=>{
@@ -536,6 +576,9 @@ async function simulatorSseSmoke(browser,url) {
       'every U1 toolhead has a Preact-controlled filament configuration form');
     assert.equal(await page.locator('[data-preact-toolhead-editor="u1-filament"] [data-toolhead-save]').count(),4,
       'each U1 tool has its own save button and pending state');
+    await checkToolheadFieldAlignment(page,'Snapmaker U1',{
+      filamentMode:'u1-filament',nozzleMode:null,headingRequired:true
+    });
     await page.locator('#printerDialog[open] [data-detail-tab="management"]').click();
     const renameField=page.locator('#printerDialog [data-preact-printer-name-editor] [data-printer-name]');
     await renameField.waitFor({state:'visible',timeout:15000});
@@ -620,6 +663,9 @@ async function simulatorSseSmoke(browser,url) {
     const nozzleEditor=page.locator('[data-preact-toolhead-editor="controller-nozzle"]');
     await materialEditor.waitFor({state:'visible',timeout:15000});
     await nozzleEditor.waitFor({state:'visible'});
+    await checkToolheadFieldAlignment(page,'Flashforge AD5M Pro',{
+      filamentMode:'controller-filament',nozzleMode:'controller-nozzle'
+    });
     // AD5M/AD5M Pro have a single T0 row, not a card with the designation
     // panels positioned underneath. Both forms must stay in that same row,
     // sharing column alignment with the U1-style toolhead tables.
@@ -724,6 +770,9 @@ async function simulatorSseSmoke(browser,url) {
     await page.locator('[data-printer-card="'+prusaId+'"] [data-open]').click();
     const prusaForm=page.locator('#printerDialog [data-preact-toolhead-editor="prusa-filament"]').first();
     await prusaForm.waitFor({state:'visible',timeout:15000});
+    await checkToolheadFieldAlignment(page,'Prusa CORE One+',{
+      filamentMode:'prusa-filament',headingRequired:false
+    });
     const widths=await prusaForm.evaluate((form)=>{
       const bounds=(selector)=>form.querySelector(selector)?.getBoundingClientRect().width||0;
       return {
