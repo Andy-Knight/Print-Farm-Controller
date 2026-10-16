@@ -17,5 +17,6 @@ test('README, changelog and project context agree with the package release versi
   assert.match(changelog, /^# Changelog[\s\S]*?## v(\d+\.\d+\.\d+)/);
   const firstRelease = changelog.match(/^## v(\d+\.\d+\.\d+)/m);
   assert.equal(firstRelease?.[1], version, 'most recent changelog entry must match package version');
-  assert.ok(context.includes('**' + version + '**'), 'project handoff must reference the current package version');
+  assert.ok(context.includes('- Current controller source version: **' + version + '**'),
+    'project handoff current source version must exactly match the package version');
 });
