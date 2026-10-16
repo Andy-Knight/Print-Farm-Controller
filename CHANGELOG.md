@@ -6,6 +6,8 @@ Historical entries describe the behaviour of the controller at the time of that 
 
 ## v0.49.0
 
+- Aligns filament type, colour and nozzle selection controls directly beneath their Toolheads table headings across U1, Creator 5 / Creator 5 Pro, CORE One+, and AD5M / AD5M Pro. Preact nested editor forms now override the global dialog form padding (22px) inside table cells. Adds real-browser alignment checks for U1 and AD5M Pro and form-padding checks for Prusa, without affecting the legacy fallback or print/device commands.
+
 - Corrects undersized filament type and colour-family selectors on Prusa CORE One+ Toolheads (Standard/INDX4/INDX8). Preact editor forms now span both tracks of the legacy wrapper grid, restoring the shared 160px field widths, consistent with U1, Creator 5 and Flashforge; the no-bundle fallback is unaffected.
 
 - Aligns Flashforge **AD5M and AD5M Pro** Toolheads presentation with the U1-style table. The single T0 row contains its identity, live material information, filament designation controls and nozzle-size selector/Assign button, under the same shared table headers and visual styling. The controls no longer appear as separate blocks below the toolhead. Works with Preact and the legacy frontend fallback; no printer commands or designation APIs change.

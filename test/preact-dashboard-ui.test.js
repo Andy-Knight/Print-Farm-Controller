@@ -176,6 +176,10 @@ test('Preact printer-detail chrome preserves six-tab behavior and vanilla fallba
   assert.match(app, /printerDetailTabsMarkup\(\)/);
   assert.match(styles, /Preact printer-detail chrome/);
   assert.match(styles, /\.printer-detail-preact-tabs/);
+  // All Preact Toolheads islands are forms inside table cells, unlike dialog
+  // forms. Their padding must explicitly override the global 22px rule.
+  assert.match(styles, /form \{ padding:22px; \}/);
+  assert.match(styles, /\.material-panel \.toolhead-designation-editor\s*\{[^}]*padding:0;[^}]*margin:0;/);
   // Each Preact form spans the entire legacy two-column wrapper. Otherwise
   // its nested material and colour selects each receive only ~half the width.
   for (const kind of ['u1-filament-config-control','creator5-filament-config-control',
