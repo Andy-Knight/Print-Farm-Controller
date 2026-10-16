@@ -5792,13 +5792,15 @@ function u1FilamentConfigControlMarkup(printer, tool = {}) {
   const material = String(filament.material || '').trim();
   const familyOption = filamentColorFamilyOption(filament.colorFamily);
   return `<div class="u1-filament-config-control" data-u1-filament-config-control="${tool.index}">
-    <label>Filament type${filamentTypeSelectMarkup({
+    <div class="toolhead-dropdown-pair">
+      <label>Filament type${filamentTypeSelectMarkup({
       value:material,
       inputAttributes:`data-u1-filament-type-input="${tool.index}"`,
       disabled:!state.enabled,
       placeholder:'Select type'
     })}</label>
-    <label>Colour family${colorFamilyDropdownMarkup({ value:familyOption?.value || '', inputAttributes:`data-u1-filament-color-family-input="${tool.index}"`, disabled:!state.enabled, placeholder:'Select colour' })}</label>
+      <label>Colour family${colorFamilyDropdownMarkup({ value:familyOption?.value || '', inputAttributes:`data-u1-filament-color-family-input="${tool.index}"`, disabled:!state.enabled, placeholder:'Select colour' })}</label>
+    </div>
     <button type="button" class="primary toolhead-action-button" data-u1-filament-config-save="${tool.index}"${state.enabled ? '' : ' disabled'}>Set filament</button>
     ${multiToolControlHelpMarkup(multiToolFilamentHelpText(state.message), `data-u1-filament-config-help="${tool.index}"`)}
   </div>`;
@@ -5886,7 +5888,8 @@ function creator5FilamentConfigControlMarkup(printer, tool = {}) {
   const material = String(filament.material || '').trim();
   const color = normalizeColor(filament.color);
   return `<div class="creator5-filament-config-control" data-creator5-filament-config-control="${tool.index}">
-    <label>Filament type
+    <div class="toolhead-dropdown-pair">
+      <label>Filament type
       <select data-creator5-filament-material-input="${tool.index}"${idle ? '' : ' disabled'}>
         <option value=""${material ? '' : ' selected'}>Select type</option>
         ${materials.map((item) => `<option value="${escapeHtml(item)}"${item === material ? ' selected' : ''}>${escapeHtml(item)}</option>`).join('')}
@@ -5894,7 +5897,8 @@ function creator5FilamentConfigControlMarkup(printer, tool = {}) {
     </label>
     <label>Colour
       ${creator5FilamentColorDropdownMarkup(printer, { value:color || '', toolIndex:tool.index, disabled:!idle })}
-    </label>
+      </label>
+    </div>
     <button type="button" class="primary toolhead-action-button" data-creator5-filament-config-save="${tool.index}"${idle ? '' : ' disabled'}>Set filament</button>
     ${multiToolControlHelpMarkup(multiToolFilamentHelpText('Changes are written to the printer and verified.'))}
   </div>`;
@@ -5911,7 +5915,8 @@ function prusaToolMaterialDesignationMarkup(printer, tool = {}) {
     : String(filament.reportedColorFamily || filament.colorFamily || '');
   const familyOption = filamentColorFamilyOption(family);
   return `<div class="prusa-tool-filament-control" data-prusa-tool-filament-control="${tool.index}">
-    <label>Filament type
+    <div class="toolhead-dropdown-pair">
+      <label>Filament type
       ${filamentTypeSelectMarkup({
         value:material,
         inputAttributes:`data-prusa-tool-material-input="${tool.index}"`,
@@ -5920,7 +5925,8 @@ function prusaToolMaterialDesignationMarkup(printer, tool = {}) {
     </label>
     <label>Colour family
       ${colorFamilyDropdownMarkup({ value:familyOption?.value || '', inputAttributes:`data-prusa-tool-color-family-input="${tool.index}"`, placeholder:'Select colour' })}
-    </label>
+      </label>
+    </div>
     <button type="button" class="primary toolhead-action-button" data-prusa-tool-material-save="${tool.index}">Set filament</button>
     ${multiToolControlHelpMarkup(multiToolFilamentHelpText('Set filament saves type and colour in the controller, not on the Prusa printer.'))}
   </div>`;
@@ -5992,7 +5998,7 @@ function flashForgeMaterialDesignationMarkup(printer, filament = {}) {
   const familyOption = filamentColorFamilyOption(manualFamily);
   const reported = filament.reportedMaterial || (filament.materialSource === 'printer' ? filament.material : null);
   return `<div class="material-designation-control">
-    <div class="material-designation-fields">
+    <div class="material-designation-fields toolhead-dropdown-pair">
       <label>Controller material type
         ${filamentTypeSelectMarkup({
           value:manualValue,
