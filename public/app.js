@@ -59,6 +59,47 @@ const printerGroupSubmit = document.querySelector('#printerGroupSubmit');
 const printerGroupFormTitle = document.querySelector('#printerGroupFormTitle');
 const printerGroupsStatus = document.querySelector('#printerGroupsStatus');
 const printerGroupsList = document.querySelector('#printerGroupsList');
+const printerGroupsCreatePanel = document.querySelector('#printerGroupsCreatePanel');
+const printerGroupsExistingPanel = document.querySelector('#printerGroupsExistingPanel');
+const printerGroupEditWorkspace = document.querySelector('#printerGroupEditWorkspace');
+const printerGroupsTabs = Array.from(document.querySelectorAll('[data-printer-groups-tab]'));
+let printerGroupsActiveTab = 'create';
+
+// With Preact disabled the original form is moved between tab panels for edit.
+// The Preact build instead owns both drafts and both tab panels outright.
+function showLegacyPrinterGroupsTab(next) {
+  if (window.__PFC_PREACT_PRINTER_GROUPS__ || !['create','groups'].includes(next)) return;
+  printerGroupsActiveTab = next;
+  printerGroupsTabs.forEach((button) => {
+    const active = button.dataset.printerGroupsTab === next;
+    button.classList.toggle('active',active);
+    button.setAttribute('aria-selected',String(active));
+    button.tabIndex = active ? 0 : -1;
+  });
+  if (printerGroupsCreatePanel) printerGroupsCreatePanel.hidden = next !== 'create';
+  if (printerGroupsExistingPanel) printerGroupsExistingPanel.hidden = next !== 'groups';
+  const editing = Boolean(printerGroupId?.value);
+  if (printerGroupForm) {
+    if (next === 'groups' && editing) printerGroupEditWorkspace?.append(printerGroupForm);
+    else printerGroupsCreatePanel?.append(printerGroupForm);
+  }
+  printerGroupEditWorkspace?.classList.toggle('hidden',next !== 'groups' || !editing);
+}
+printerGroupsTabs.forEach((button) => button.addEventListener('click', () => {
+  if (window.__PFC_PREACT_PRINTER_GROUPS__) return;
+  const next = button.dataset.printerGroupsTab;
+  if (next === 'create' && printerGroupId?.value) resetPrinterGroupForm();
+  showLegacyPrinterGroupsTab(next);
+}));
+document.querySelector('.printer-groups-tabs')?.addEventListener('keydown', (event) => {
+  if (window.__PFC_PREACT_PRINTER_GROUPS__ || !['ArrowLeft','ArrowRight','Home','End'].includes(event.key)) return;
+  event.preventDefault();
+  const next = event.key === 'Home' ? 'create' : event.key === 'End' ? 'groups'
+    : printerGroupsActiveTab === 'create' ? 'groups' : 'create';
+  if (next === 'create' && printerGroupId?.value) resetPrinterGroupForm();
+  showLegacyPrinterGroupsTab(next);
+  document.querySelector(next === 'create' ? '#printerGroupsTabCreate' : '#printerGroupsTabExisting')?.focus();
+});
 const backupRecoveryBtn = document.querySelector('#backupRecoveryBtn');
 const backupRecoveryDialog = document.querySelector('#backupRecoveryDialog');
 const backupStatusGrid = document.querySelector('#backupStatusGrid');
@@ -3622,6 +3663,7 @@ function resetPrinterGroupForm() {
     printerGroupError.classList.add('hidden');
   }
   renderPrinterGroupMembers();
+  showLegacyPrinterGroupsTab(printerGroupsActiveTab);
 }
 
 function groupsForPrinter(printerId) {
@@ -3712,7 +3754,7 @@ function renderPrinterGroups() {
           </div>
         </article>`;
       }).join('')
-    : '<div class="queue-empty">No printer groups configured. Create a group above to restrict automatic queue work or assign group-wide maintenance.</div>';
+    : '<div class="queue-empty">No printer groups configured. Use the Create group tab to add your first group.</div>';
 }
 
 async function loadPrinterGroups({ preserveForm = false } = {}) {
@@ -4603,6 +4645,7 @@ printerGroupsBtn?.addEventListener('click', async () => {
   // Reset immediately on navigation, never after an async load. A slow group
   // refresh must not erase a draft the user has already started typing.
   resetPrinterGroupForm();
+  showLegacyPrinterGroupsTab('create');
   if (printerGroupsStatus && !window.__PFC_PREACT_PRINTER_GROUPS__) {
     printerGroupsStatus.textContent = 'Loading printer groups…';
   }
@@ -4624,7 +4667,10 @@ printerGroupsBtn?.addEventListener('click', async () => {
   }
 });
 document.querySelectorAll('[data-printer-groups-close]').forEach((el) => el.addEventListener('click', () => printerGroupsDialog?.close()));
-printerGroupCancelEdit?.addEventListener('click', resetPrinterGroupForm);
+printerGroupCancelEdit?.addEventListener('click', () => {
+  resetPrinterGroupForm();
+  showLegacyPrinterGroupsTab('groups');
+});
 printerGroupForm?.addEventListener('submit', async (event) => {
   if (window.__PFC_PREACT_PRINTER_GROUPS__) return;
   event.preventDefault();
@@ -4643,6 +4689,7 @@ printerGroupForm?.addEventListener('submit', async (event) => {
     });
     await loadPrinterGroups();
     resetPrinterGroupForm();
+    showLegacyPrinterGroupsTab('groups');
     if (printerGroupsStatus) printerGroupsStatus.textContent = id ? 'Printer group updated.' : 'Printer group created.';
   } catch (error) {
     if (printerGroupError) {
@@ -4665,6 +4712,7 @@ printerGroupsList?.addEventListener('click', async (event) => {
     if (printerGroupSubmit) printerGroupSubmit.textContent = 'Save group';
     printerGroupCancelEdit?.classList.remove('hidden');
     renderPrinterGroupMembers(group.printerIds || []);
+    showLegacyPrinterGroupsTab('groups');
     printerGroupName?.focus();
     printerGroupForm?.scrollIntoView({ behavior:'smooth', block:'start' });
     return;
@@ -4679,6 +4727,7 @@ printerGroupsList?.addEventListener('click', async (event) => {
     await api(`/api/printer-groups/${encodeURIComponent(group.id)}`, { method:'DELETE' });
     await loadPrinterGroups();
     resetPrinterGroupForm();
+    showLegacyPrinterGroupsTab('groups');
     if (printerGroupsStatus) printerGroupsStatus.textContent = `Deleted “${group.name}”.`;
   } catch (error) {
     remove.disabled = false;
