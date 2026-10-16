@@ -139,6 +139,12 @@ test('Preact printer-detail chrome preserves six-tab behavior and vanilla fallba
   assert.match(detailUi, /data-toolhead-color-option/);
   assert.match(detailUi, /data-toolhead-nozzle/);
   assert.match(detailUi, /pending.current/);
+  assert.match(app, /function printerToolheadDisplayTools\(printer\)/);
+  assert.match(app, /if \(printer.adapterType !== 'prusa-core-one-plus' \|\| !reported.length\) return reported/);
+  assert.match(app, /\[1,4,8\]\.includes\(configured\)/);
+  assert.match(app, /byIndex\.get\(index\) \|\| \{ index/);
+  assert.match(app, /const tools=printerToolheadDisplayTools\(printer\)/);
+  assert.match(app, /const tools = printerToolheadDisplayTools\(printer\)/);
   assert.match(app, /function printerToolheadControlState/);
   assert.match(app, /const ad5mToolheadTable = printer.adapterType === 'flashforge-ad5m'/);
   assert.match(app, /configuredToolCount > 1 \|\| ad5mToolheadTable \|\| coreOneSingleToolheadTable/);
