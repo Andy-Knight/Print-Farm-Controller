@@ -6,6 +6,7 @@ Historical entries describe the behaviour of the controller at the time of that 
 
 ## v0.49.0
 
+- Splits Printer Groups into **Create group** and **Existing groups** tabs. Creation has its own membership editor; existing groups are listed with edit/delete actions and an inline editor only when editing. Separate Preact create/edit drafts persist across tab switches, with keyboard tab navigation and equivalent legacy fallback behaviour.
 - Begins the interactive Preact migration: Printer Groups creation, editing, overlapping membership selection and deletion now use a Preact-managed form, local draft state and request lifecycle rather than legacy DOM mutations when the frontend bundle is available.
 - Introduces shared controlled text and checkbox components, with a bounded-height, independently scrollable printer membership table, sticky column headings, live search, selected/visible counts and select/clear visible controls. The vanilla fallback uses the same scrollable table layout.
 - Unifies table headers, typography, background, borders, dividers and hover treatments using shared dark/light CSS tokens across Dashboard table view, Alerts history, Printer Groups membership, Diagnostics renderer status and multi-toolhead configuration tables. Preserves each table's column layout and small-screen behavior.
