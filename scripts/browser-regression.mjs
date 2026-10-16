@@ -514,6 +514,38 @@ async function checkToolheadFieldAlignment(page, name, {filamentMode, nozzleMode
 // Guidance under the nozzle Assign action should begin at the same
 // vertical offset as guidance under Set filament. The generic nozzle
 // wrapper otherwise overrides the shared .field-help margin by 13px.
+// All four-column Toolheads tables keep the two actions on the same row,
+// irrespective of the generic designation control's legacy label margins.
+async function checkToolheadButtonAlignment(page,name,{filamentMode,nozzleMode}) {
+  const geometry=await page.evaluate(({filamentMode,nozzleMode})=>{
+    const row=document.querySelector('#printerDialog #detailTabToolheads .material-tool-row');
+    const measure=(mode)=>{
+      const form=row?.querySelector(`[data-preact-toolhead-editor="${mode}"]`);
+      const button=form?.querySelector('[data-toolhead-save]');
+      const select=form?.querySelector('select');
+      return {
+        top:button?.getBoundingClientRect().top??null,
+        bottom:button?.getBoundingClientRect().bottom??null,
+        fieldBottom:select?.getBoundingClientRect().bottom??null,
+        labelMargin:form?.querySelector('label')?getComputedStyle(form.querySelector('label')).marginBottom:null,
+        fieldMargin:select?getComputedStyle(select).marginTop:null
+      };
+    };
+    return {filament:measure(filamentMode),nozzle:measure(nozzleMode)};
+  },{filamentMode,nozzleMode});
+  const {filament,nozzle}=geometry;
+  for(const [kind,action] of Object.entries(geometry)) {
+    assert.ok(action.top!==null&&action.bottom!==null,
+      name+' must show '+kind+' button: '+JSON.stringify(geometry));
+  }
+  assert.ok(Math.abs(filament.top-nozzle.top)<=2
+    &&Math.abs(filament.bottom-nozzle.bottom)<=2,
+    name+' Set filament and Assign buttons must be vertically aligned: '+JSON.stringify(geometry));
+  assert.ok(Math.abs(filament.fieldBottom-nozzle.fieldBottom)<=2,
+    name+' material and nozzle dropdowns must have aligned bottoms: '+JSON.stringify(geometry));
+  return geometry;
+}
+
 async function checkToolheadHelpAlignment(page,name,{filamentMode,nozzleMode}) {
   const measurement=await page.evaluate(({filamentMode,nozzleMode})=>{
     const row=document.querySelector('#printerDialog #detailTabToolheads .material-tool-row');
@@ -707,6 +739,9 @@ async function simulatorSseSmoke(browser,url) {
     await materialEditor.waitFor({state:'visible',timeout:15000});
     await nozzleEditor.waitFor({state:'visible'});
     await checkToolheadFieldAlignment(page,'Flashforge AD5M Pro',{
+      filamentMode:'controller-filament',nozzleMode:'controller-nozzle'
+    });
+    await checkToolheadButtonAlignment(page,'Flashforge AD5M Pro',{
       filamentMode:'controller-filament',nozzleMode:'controller-nozzle'
     });
     // AD5M/AD5M Pro have a single T0 row, not a card with the designation
@@ -931,6 +966,30 @@ async function simulatorSseSmoke(browser,url) {
       await removeTestPrinter(creatorId);
       console.log('Chromium: '+profileId+' filament/nozzle guidance aligned PASS');
     }
+    // Also check the standard AD5M profile, not just AD5M Pro. Both have
+    // identical inline material/nozzle editors but distinct model profiles.
+    const basicAd5m=await jsonPost('/api/emulator/printers',{
+      profileId:'flashforge-ad5m',name:'AD5M action alignment',
+      ports:{httpPort:0,tcpPort:0,cameraPort:0}
+    });
+    assert.ok(basicAd5m.printer?.controllerSettings,'AD5M simulator registration details');
+    const basicRegistration=await jsonPost('/api/printers',basicAd5m.printer.controllerSettings);
+    const basicId=basicRegistration.printer?.id;
+    assert.ok(basicId,'AD5M simulator is registered with the isolated controller');
+    await page.waitForFunction((id)=>Boolean(
+      document.querySelector('[data-printer-card="'+id+'"] [data-open]')
+    ),basicId,{timeout:30000});
+    await page.locator('[data-printer-card="'+basicId+'"] [data-open]').click();
+    await page.locator('#printerDialog [data-preact-toolhead-editor="controller-filament"]')
+      .waitFor({state:'visible',timeout:15000});
+    await page.locator('#printerDialog [data-preact-toolhead-editor="controller-nozzle"]')
+      .waitFor({state:'visible',timeout:15000});
+    await checkToolheadButtonAlignment(page,'Flashforge AD5M',{
+      filamentMode:'controller-filament',nozzleMode:'controller-nozzle'
+    });
+    await page.locator('#printerDialog [data-detail-close]').click();
+    await removeTestPrinter(basicId);
+    console.log('Chromium: AD5M and AD5M Pro vertical action alignment PASS');
   } finally {
     await context.close();
     // Isolated controller process teardown is the safety boundary; no external
