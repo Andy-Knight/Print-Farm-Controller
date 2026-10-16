@@ -528,6 +528,9 @@ async function checkToolheadButtonAlignment(page,name,{filamentMode,nozzleMode})
       const rect=(e)=>e?.getBoundingClientRect().toJSON()??null;
       return {
         form:rect(form),pair:rect(pair),label:rect(label),
+        colorLabel:rect(form?.querySelector('.toolhead-dropdown-pair > label:nth-child(2)')),
+        colorBox:rect(form?.querySelector('.color-family-dropdown')),
+        colorSummary:rect(form?.querySelector('.color-family-dropdown summary')),
         select:rect(select),action:rect(button),
         top:button?.getBoundingClientRect().top??null,
         bottom:button?.getBoundingClientRect().bottom??null,
