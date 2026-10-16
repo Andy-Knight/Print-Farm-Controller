@@ -105,8 +105,16 @@ async function routeSmoke(page,url) {
     && document.querySelector('#reportingKpis')?.textContent?.includes('2718'));
 
   console.log('Chromium: live fleet presentation updates the same keyed printer card');
+  // Isolate the Preact bridge check from a real empty-fleet SSE update racing
+  // the synthetic test row, while retaining actual Chromium DOM reconciliation.
+  await page.route('**/api/events',(route)=>route.fulfill({
+    status:200,headers:{'content-type':'text/event-stream'},
+    body:': fleet bridge fixture\n\n'
+  }));
   await page.goto(url+'/',{waitUntil:'load'});
   await preactReady(page);
+  // Preact hooks register event subscriptions in an effect after first paint.
+  await page.waitForTimeout(250);
   await page.evaluate(()=>{
     const printer={
       id:'synthetic-fleet-printer',name:'Synthetic printer',visible:true,
@@ -142,6 +150,7 @@ async function routeSmoke(page,url) {
     'Preact reconciles an existing printer rather than duplicating its card');
   await page.evaluate(()=>window.dispatchEvent(new CustomEvent('pfc:dashboard-fleet-state',{detail:{printers:[]}})));
   await page.waitForFunction(()=>!document.querySelector('[data-printer-card="synthetic-fleet-printer"]'));
+  await page.unroute('**/api/events');
 }
 
 async function queueClickSmoke(browser,url) {
