@@ -6,3 +6,5 @@ build/
 dist/
 public/dashboard-preact.js
 public/third-party/preact-LICENSE.txt
+
+test-artifacts/
