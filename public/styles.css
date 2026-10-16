@@ -785,6 +785,18 @@ input:focus,select:focus { border-color:#7a9fbe; }
 /* Custom printer groups */
 .printer-groups-dialog { width:min(860px,calc(100vw - 30px)); }
 .printer-groups-shell { padding:22px; display:grid; gap:14px; }
+.printer-groups-tabs.maintenance-view-selector {
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  margin:0;
+}
+.printer-groups-tab-panel { min-width:0; }
+.printer-groups-tab-panel[hidden] { display:none !important; }
+.printer-groups-edit-workspace { margin-bottom:14px; }
+.printer-groups-tabs .maintenance-view-button { min-width:0; white-space:normal; }
+@media (max-width:620px) {
+  .printer-groups-tabs.maintenance-view-selector { grid-template-columns:repeat(2,minmax(0,1fr)); }
+}
+
 .printer-group-form {
   display:grid;
   gap:12px;
