@@ -216,7 +216,7 @@ test('Creator 5 and Creator 5 Pro nozzle assignment uses a compact primary actio
   assert.match(css, /\.material-panel button\.toolhead-action-button \{/);
 });
 
-test('All filament Set and nozzle Assign buttons share a compact fixed size instead of stretching to their columns', () => {
+test('All Set filament and nozzle Assign buttons match the 160px dropdown width without stretching to columns', () => {
   const app = readFileSync(new URL('../public/app.js', import.meta.url), 'utf8');
   const css = readFileSync(new URL('../public/styles.css', import.meta.url), 'utf8');
   const selectors = [
@@ -236,7 +236,8 @@ test('All filament Set and nozzle Assign buttons share a compact fixed size inst
   const end = css.indexOf('}', start);
   assert.ok(start >= 0 && end > start, 'Shared toolhead action CSS rule exists');
   const rule = css.slice(start, end);
-  assert.match(rule, /width:152px;/);
+  assert.match(rule, /width:var\(--toolhead-dropdown-width\);/);
+  assert.match(css, /--toolhead-dropdown-width:160px;/);
   assert.match(rule, /max-width:100%;/);
   assert.match(rule, /height:var\(--button-field-height\);/);
   assert.match(rule, /min-height:var\(--button-field-height\);/);
