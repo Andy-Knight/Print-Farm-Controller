@@ -305,3 +305,26 @@ test('All printer families keep the material and colour selectors adjacent with 
   assert.match(rule, /max-width:calc\(var\(--toolhead-dropdown-width\) \+ var\(--toolhead-dropdown-width\) \+ var\(--toolhead-dropdown-gap\)\);/);
   assert.match(css, /@media \(max-width:520px\) \{\s*\.material-panel \.toolhead-dropdown-pair \{\s*grid-template-columns:minmax\(0,1fr\);/);
 });
+
+test('AD5M and AD5M Pro nozzle dropdown appears beneath its heading, including while offline', () => {
+  const app = readFileSync(new URL('../public/app.js', import.meta.url), 'utf8');
+  const css = readFileSync(new URL('../public/styles.css', import.meta.url), 'utf8');
+  const renderNozzle = loadNozzleMarkupFunction(app, 'flashForgeNozzleDesignationMarkup', 'toolConfigurationMarkup');
+  for (const model of ['Adventurer 5M', 'Adventurer 5M Pro']) {
+    for (const online of [false, true]) {
+      const printer = {
+        adapterType:'flashforge-ad5m',
+        manufacturer:'FlashForge',
+        model,
+        online,
+        capabilities:{nozzleDesignation:true}
+      };
+      const html = renderNozzle(printer, {index:0, nozzleDiameter:0.4});
+      assert.match(html, /<label>Controller nozzle designation\s*<select><\/select>\s*<\/label>/);
+      assert.match(html, /data-nozzle-designation-save>Assign<\/button>/);
+    }
+  }
+  assert.match(css, /\.material-panel \.nozzle-designation-control > label \{ display:block; \}/);
+  assert.match(css, /\.material-panel \.nozzle-designation-control > label > select \{\s*display:block;\s*margin-top:6px;/);
+  assert.match(css, /\.material-panel \.nozzle-designation-control select,[\s\S]*width:var\(--toolhead-dropdown-width\);/);
+});
