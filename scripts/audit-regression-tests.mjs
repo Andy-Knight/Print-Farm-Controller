@@ -7,7 +7,7 @@ const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '
 // This is a lightweight inventory, not a proof of test validity. A source-based
 // test can protect important UI contracts, but it cannot prove runtime behavior.
 export function inspectTestSource(source, filename = '') {
-  const declarations = [...source.matchAll(/\b(?:test|it)(\.(?:skip|todo|only))?\s*\(\s*(['"`])(.+?)\2/g)].map((match) => ({
+  const declarations = [...source.matchAll(/^\s*(?:test|it)(\.(?:skip|todo|only))?\s*\(\s*(['"`])(.+?)\2/gm)].map((match) => ({
     name:match[3],
     mode:match[1] ? match[1].slice(1) : 'normal'
   }));
