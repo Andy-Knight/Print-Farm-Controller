@@ -1096,6 +1096,13 @@ input:focus,select:focus { border-color:#7a9fbe; }
 .material-help { margin-top:10px; }
 .material-designation-control { margin-top:10px; padding-top:10px; border-top:1px solid #202a32; }
 .material-designation-control label { margin:0 0 8px; }
+/* Keep the single-nozzle selector below its caption, including when AD5M
+   status is offline and the control is outside the toolhead table. */
+.material-panel .nozzle-designation-control > label { display:block; }
+.material-panel .nozzle-designation-control > label > select {
+  display:block;
+  margin-top:6px;
+}
 .material-designation-control input,
 .material-designation-control select { margin-top:6px; }
 .material-designation-fields { display:grid; grid-template-columns:minmax(0,1fr) minmax(160px,.8fr); gap:10px; align-items:end; }
