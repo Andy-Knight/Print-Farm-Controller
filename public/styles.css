@@ -4040,3 +4040,20 @@ body:not([data-route="/"]) > main > :not(.route-page) { display:none !important;
 .toolhead-designation-editor .color-family-dropdown { width:100%; }
 .toolhead-designation-editor [data-toolhead-error] { margin:0; }
 .toolhead-designation-editor .field-help { overflow-wrap:anywhere; }
+
+/* Keep Preact islands visually consistent with the established U1, Prusa,
+   Creator 5 and Flashforge nozzle fields and compact actions. */
+.material-panel .toolhead-designation-editor .mini-actions { margin-top:6px; }
+.material-panel .toolhead-designation-editor .toolhead-action-button {
+  width:var(--toolhead-dropdown-width);
+  max-width:100%;
+  height:var(--button-field-height);
+  min-height:var(--button-field-height);
+  justify-self:start;
+}
+.material-panel .toolhead-designation-editor .toolhead-dropdown-pair label {
+  min-width:0;
+}
+.material-panel .toolhead-designation-editor .color-family-dropdown {
+  margin-top:4px;
+}

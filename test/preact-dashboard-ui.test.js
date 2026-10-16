@@ -147,6 +147,11 @@ test('Preact printer-detail chrome preserves six-tab behavior and vanilla fallba
   assert.match(app, /data-preact-toolhead-control="controller-filament"/);
   assert.match(app, /data-preact-toolhead-control="tool-nozzle"/);
   assert.match(app, /data-preact-toolhead-control="controller-nozzle"/);
+  assert.match(app, /data-preact-toolhead-control="u1-filament"/);
+  assert.match(app, /data-preact-toolhead-control="creator5-filament"/);
+  assert.match(app, /u1FilamentConfigEditState\(printer,tool\)/);
+  assert.match(app, /creator5FilamentColorOptions\(printer\)/);
+  assert.match(app, /if \(\['u1-filament','creator5-filament'\]\.includes\(mode\)\)/);
   assert.match(detailUi, /data-preact-printer-name-editor/);
   assert.match(detailUi, /data-printer-name-reset/);
   assert.match(detailUi, /requestControllerRename/);

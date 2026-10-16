@@ -342,11 +342,11 @@ function ToolheadDesignationEditor({printerId,control,readOnly}) {
         </select>
       </label>}
       <div class="mini-actions">
-        <UiButton variant="primary" type="submit" data-toolhead-save
+        <UiButton variant="primary" class="toolhead-action-button" type="submit" data-toolhead-save
           disabled={disabled||!valid||!dirty}>
           {busy?'Saving…':filament?'Set filament':'Assign'}
         </UiButton>
-        {!filament&&control.canClear&&<UiButton variant="secondary" data-toolhead-clear
+        {!filament&&control.canClear&&<UiButton variant="secondary" class="toolhead-action-button" data-toolhead-clear
           disabled={disabled} onClick={()=>perform('clear')}>Clear</UiButton>}
       </div>
       {control.help && <div class="field-help">{control.help}</div>}
