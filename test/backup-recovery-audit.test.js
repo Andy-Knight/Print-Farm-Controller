@@ -26,7 +26,7 @@ async function withBackup(callback) {
     await write(dataDir, 'printers.json', [{ id:'live', name:'Existing controller' }]);
     await write(dataDir, 'print-jobs.json', [{ id:'live-job', status:'completed' }]);
     await write(dataDir, 'print-library/old-lib/old.gcode', 'G28\n; ORIGINAL ONLY\n');
-    await write(licensePath === '' ? sourceDir : root, 'active-license.json', { id:'existing-license' });
+    await write(root, 'active-license.json', { id:'existing-license' });
 
     await write(sourceDir, 'printers.json', [{ id:'restored', name:'Recovered controller' }]);
     await write(sourceDir, 'print-jobs.json', [
