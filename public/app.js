@@ -6002,6 +6002,56 @@ function creator5FilamentConfigControlMarkup(printer, tool = {}) {
   </div>`;
 }
 
+function bambuExternalFilamentPalette(source = {}) {
+  const colors=FILAMENT_COLOR_FAMILIES.map((item)=>({
+    value:item.representative, label:item.label, representative:item.representative
+  }));
+  const current=normalizeColor(source.color);
+  if(current && !colors.some((item)=>item.value===current))
+    colors.unshift({value:current,label:`Current (${current})`,representative:current});
+  return colors;
+}
+
+const BAMBU_EXTERNAL_FILAMENT_TYPES = Object.freeze([
+  'PLA','PLA-CF','PETG','PETG-CF','ABS','ASA','TPU','PVA','PA','PA-CF','PC'
+]);
+
+function bambuExternalFilamentEditState(printer) {
+  if(printer?.adapterType!=='bambu-lab' || !['P1P','P1S'].includes(String(printer.model||'').toUpperCase())
+    || !printer.capabilities?.filamentTypeControl || !printer.capabilities?.filamentColorControl)
+    return {enabled:false,message:'External spool configuration is unavailable.'};
+  if(String(printer.status?.status||'').toLowerCase()!=='idle')
+    return {enabled:false,message:'External spool filament can be changed only while the printer is idle.'};
+  return {enabled:true,message:'Writes the external spool to the printer and verifies its reported type and colour. AMS slots are unchanged.'};
+}
+
+function bambuExternalFilamentControlMarkup(printer) {
+  const state=bambuExternalFilamentEditState(printer);
+  if(printer?.adapterType!=='bambu-lab' || !['P1P','P1S'].includes(String(printer.model||'').toUpperCase())
+    || !printer.capabilities?.filamentTypeControl || !printer.capabilities?.filamentColorControl) return '';
+  if(typeof window!=='undefined' && window.__PFC_PREACT_DETAIL__)
+    return '<div class="bambu-external-filament-control" data-preact-toolhead-control="bambu-filament" data-tool-index="0"></div>';
+  const source=(printer.status?.materialSources||[]).find((item)=>item.kind==='external')||{};
+  const material=String(source.material||'').trim().toUpperCase();
+  const family=filamentColorFamilyOption(source.colorFamily);
+  return `<div class="bambu-external-filament-control">
+    <div class="toolhead-dropdown-pair">
+      <label>Filament type
+        <select data-bambu-external-material${state.enabled?'':' disabled'}>
+          <option value="">Select type</option>
+          ${[...new Set([material,...BAMBU_EXTERNAL_FILAMENT_TYPES].filter(Boolean))].map((type)=>
+            `<option value="${escapeHtml(type)}"${type===material?' selected':''}>${escapeHtml(type)}</option>`).join('')}
+        </select>
+      </label>
+      <label>Colour
+        ${colorFamilyDropdownMarkup({value:family?.value||'',inputAttributes:'data-bambu-external-colour',disabled:!state.enabled})}
+      </label>
+    </div>
+    <button type="button" class="primary toolhead-action-button" data-bambu-external-save${state.enabled?'':' disabled'}>Set filament</button>
+    ${multiToolControlHelpMarkup(state.message)}
+  </div>`;
+}
+
 function prusaToolMaterialDesignationMarkup(printer, tool = {}) {
   if (printer?.manufacturer !== 'Prusa' || !printer?.capabilities?.toolMaterialDesignation) return '';
   if (typeof window !== 'undefined' && window.__PFC_PREACT_DETAIL__)
@@ -6845,6 +6895,19 @@ function printerToolheadControlState(printer) {
         help:multiToolFilamentHelpText('Changes are written to the printer and verified.')
       });
     }
+    if(printer.adapterType==='bambu-lab' && ['P1P','P1S'].includes(String(printer.model||'').toUpperCase())
+      && capabilities.filamentTypeControl && capabilities.filamentColorControl && position===0){
+      const source=(printer.status?.materialSources||[]).find((item)=>item.kind==='external')||{};
+      const editState=bambuExternalFilamentEditState(printer);
+      result.push({
+        mode:'bambu-filament',toolIndex:0,
+        values:{material:String(source.material||'').trim().toUpperCase(),
+          color:normalizeColor(source.color)||''},
+        colors:bambuExternalFilamentPalette(source),
+        materials:BAMBU_EXTERNAL_FILAMENT_TYPES,
+        enabled:editState.enabled,help:editState.message
+      });
+    }
     if(printer.manufacturer==='Prusa' && capabilities.toolMaterialDesignation){
       result.push({
         mode:'prusa-filament',toolIndex:Number(tool.index),
@@ -7298,7 +7361,7 @@ async function openPrinter(id) {
       : printer.adapterType === 'flashforge-creator5'
         ? 'Creator 5 material type, colour and filament-presence state come from the four material-station/toolhead slots reported by the local /detail API. Filament configuration writes the selected Creator 5 palette values back to the corresponding printer slot and verifies them by reading /detail again. Set the fitted nozzle independently for T0-T3 using the Nozzle column.'
       : printer.adapterType === 'bambu-lab'
-        ? 'Material and colour come from the active external-spool or AMS/AMS Lite tray metadata reported by the Bambu LAN interface. Bambu support is experimental until checked against physical P1P, P1S, X1C and A1 Mini hardware.'
+        ? 'Material and colour come from the active external-spool or AMS/AMS Lite tray metadata reported by the Bambu LAN interface. P1P/P1S external-spool filament can be set separately while idle; these writes do not modify AMS slots. Bambu support is experimental until checked against physical hardware.'
       : printer.manufacturer === 'Prusa'
         ? `${printer.model || 'Prusa printer'} is configured for ${Number(limits.toolCount || tools.length || 1)} tool${Number(limits.toolCount || tools.length || 1) === 1 ? '' : 's'}.${capabilities.fixedToolMapping ? ' This configuration uses fixed sliced tool indices; the controller does not silently remap a sliced tool to another physical tool.' : ''} Per-tool material/nozzle data is used when PrusaLink reports it; unknown values require review before unattended multi-tool scheduling.`
         : 'Filament presence comes from each U1 motion sensor. Third-party filament type and colour can be written to the idle printer and are verified by reading the effective per-tool configuration back. Official Snapmaker RFID filament remains locked. Nozzle size and XYZ offset come directly from each physical U1 extruder.';
@@ -7324,6 +7387,7 @@ async function openPrinter(id) {
         const configuration = [
           printer.adapterType === 'snapmaker-u1' ? u1FilamentConfigControlMarkup(printer, tool) : '',
           printer.adapterType === 'flashforge-creator5' ? creator5FilamentConfigControlMarkup(printer, tool) : '',
+          printer.adapterType === 'bambu-lab' && toolPosition === 0 ? bambuExternalFilamentControlMarkup(printer) : '',
           printer.manufacturer === 'Prusa' ? prusaToolMaterialDesignationMarkup(printer, tool) : '',
           ad5mToolheadTable && toolPosition === 0
             ? flashForgeMaterialDesignationMarkup(printer, filament) : ''
@@ -7834,6 +7898,24 @@ ${flashForgePreflight}` : ''}`)) return;
     finally { button.disabled = false; button.textContent = original; }
   });
 
+  printerDetail.querySelectorAll('[data-bambu-external-save]').forEach((button)=>button.onclick=async()=>{
+    const material=String(printerDetail.querySelector('[data-bambu-external-material]')?.value||'').trim();
+    const family=String(printerDetail.querySelector('[data-bambu-external-colour]')?.value||'').trim();
+    const color=filamentColorFamilyOption(family)?.representative;
+    if(!BAMBU_EXTERNAL_FILAMENT_TYPES.includes(material)||!color){
+      showError(new Error('Choose a supported filament type and colour.'));return;
+    }
+    button.disabled=true;
+    try {
+      const result=await api(`/api/printers/${id}/filament-config`,{
+        method:'POST',body:JSON.stringify({toolIndex:0,material,color})
+      });
+      applyBambuExternalFilamentResult(printer,result);
+      updateOpenPrinterTelemetry();
+    } catch(error){showError(error);}
+    finally {button.disabled=false;}
+  });
+
   printerDetail.querySelectorAll('[data-prusa-tool-material-save]').forEach((button) => button.onclick = async () => {
     const toolIndex = Number(button.dataset.prusaToolMaterialSave);
     const materialInput = printerDetail.querySelector(`[data-prusa-tool-material-input="${toolIndex}"]`);
@@ -8194,6 +8276,27 @@ ${flashForgePreflight}` : ''}`)) return;
 }
 
 
+function applyBambuExternalFilamentResult(printer,result) {
+  const color=normalizeColor(result.color);
+  const material=String(result.material||'').trim().toUpperCase();
+  const source=printer.status?.materialSources?.find((item)=>item.kind==='external');
+  if(source){
+    source.material=material;
+    source.color=color;
+    source.colorFamily=filamentColorFamilyFromHex(color);
+    source.present=true;
+  }
+  if(source?.active){
+    const filament=printer.status?.tools?.[0]?.filament;
+    if(filament){
+      filament.material=material;filament.color=color;
+      filament.colorFamily=filamentColorFamilyFromHex(color);
+      filament.materialSource='printer';filament.colorSource='printer';
+      filament.metadataAvailable=true;
+    }
+  }
+}
+
 const pendingToolheadDesignations=new Set();
 
 // These are controller-metadata operations, not motion/heater commands.
@@ -8217,7 +8320,7 @@ async function performToolheadDesignation(action) {
   if(pendingToolheadDesignations.has(key))throw new Error('A designation change is already in progress.');
   pendingToolheadDesignations.add(key);
   try {
-    if(['u1-filament','creator5-filament'].includes(mode)){
+    if(['u1-filament','creator5-filament','bambu-filament'].includes(mode)){
       const material=String(data.material||'').trim();
       let color='';
       let colorFamily='';
@@ -8230,6 +8333,15 @@ async function performToolheadDesignation(action) {
         if(!CONTROLLER_FILAMENT_TYPES.some((item)=>item.toLowerCase()===material.toLowerCase()))
           throw new Error('Choose a supported filament type.');
         color=colorOption.representative;
+      } else if(mode==='bambu-filament'){
+        const editState=bambuExternalFilamentEditState(printer);
+        if(!editState.enabled)throw new Error(editState.message);
+        color=normalizeColor(data.color);
+        if(!BAMBU_EXTERNAL_FILAMENT_TYPES.includes(material))
+          throw new Error('Choose a supported Bambu external-spool filament type.');
+        if(!color || !bambuExternalFilamentPalette(
+          (printer.status?.materialSources||[]).find((item)=>item.kind==='external')
+        ).some((item)=>item.value===color))throw new Error('Choose a filament colour.');
       } else {
         if(String(printer.status?.status||'').toLowerCase()!=='idle')
           throw new Error('Filament can only be set when Creator 5 is idle.');
@@ -8242,7 +8354,8 @@ async function performToolheadDesignation(action) {
       const result=await api(`/api/printers/${encodeURIComponent(printerId)}/filament-config`,{
         method:'POST',body:JSON.stringify({toolIndex,material,color})
       });
-      if(tool?.filament){
+      if(mode==='bambu-filament')applyBambuExternalFilamentResult(printer,result);
+      if(tool?.filament && mode!=='bambu-filament'){
         const filament=tool.filament;
         filament.material=result.material;
         filament.color=result.color;
