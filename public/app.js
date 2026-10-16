@@ -5881,6 +5881,8 @@ function u1FilamentConfigEditState(printer, tool = {}) {
 
 function u1FilamentConfigControlMarkup(printer, tool = {}) {
   if (printer?.adapterType !== 'snapmaker-u1' || !printer?.capabilities?.filamentTypeControl || !printer?.capabilities?.filamentColorControl) return '';
+  if (typeof window !== 'undefined' && window.__PFC_PREACT_DETAIL__)
+    return `<div class="u1-filament-config-control" data-preact-toolhead-control="u1-filament" data-tool-index="${Number(tool.index)}"></div>`;
   const filament = tool.filament || {};
   const state = u1FilamentConfigEditState(printer, tool);
   const material = String(filament.material || '').trim();
@@ -5976,6 +5978,8 @@ function bindCreator5FilamentColorDropdowns(root, printer) {
 
 function creator5FilamentConfigControlMarkup(printer, tool = {}) {
   if (printer?.adapterType !== 'flashforge-creator5' || !printer?.capabilities?.filamentTypeControl || !printer?.capabilities?.filamentColorControl) return '';
+  if (typeof window !== 'undefined' && window.__PFC_PREACT_DETAIL__)
+    return `<div class="creator5-filament-config-control" data-preact-toolhead-control="creator5-filament" data-tool-index="${Number(tool.index)}"></div>`;
   const filament = tool.filament || {};
   const idle = String(printer.status?.status || '').toLowerCase() === 'idle';
   const materials = creator5FilamentMaterialOptions(printer);
@@ -6801,6 +6805,31 @@ function printerToolheadControlState(printer) {
     const filament=tool.filament || {};
     const family=(filament.colorFamilySource==='manual'
       ? filament.colorFamily : filament.reportedColorFamily||filament.colorFamily)||'';
+    if(printer.adapterType==='snapmaker-u1'
+      &&capabilities.filamentTypeControl&&capabilities.filamentColorControl){
+      const editState=u1FilamentConfigEditState(printer,tool);
+      result.push({
+        mode:'u1-filament',toolIndex:Number(tool.index),
+        values:{material:String(filament.material||'').trim().toUpperCase(),
+          colorFamily:filamentColorFamilyOption(filament.colorFamily)?.value||''},
+        colors,enabled:editState.enabled,
+        help:multiToolFilamentHelpText(editState.message)
+      });
+    }
+    if(printer.adapterType==='flashforge-creator5'
+      &&capabilities.filamentTypeControl&&capabilities.filamentColorControl){
+      const palette=creator5FilamentColorOptions(printer);
+      const actual=normalizeColor(filament.color);
+      result.push({
+        mode:'creator5-filament',toolIndex:Number(tool.index),
+        values:{material:String(filament.material||'').trim(),
+          color:palette.some((item)=>item.hex===actual)?actual||'':''},
+        colors:palette.map((item)=>({value:item.hex,label:item.name,representative:item.hex})),
+        materials:creator5FilamentMaterialOptions(printer),
+        enabled:String(printer.status?.status||'').toLowerCase()==='idle',
+        help:multiToolFilamentHelpText('Changes are written to the printer and verified.')
+      });
+    }
     if(printer.manufacturer==='Prusa' && capabilities.toolMaterialDesignation){
       result.push({
         mode:'prusa-filament',toolIndex:Number(tool.index),
@@ -8156,7 +8185,49 @@ async function performToolheadDesignation(action) {
   if(pendingToolheadDesignations.has(key))throw new Error('A designation change is already in progress.');
   pendingToolheadDesignations.add(key);
   try {
-    if(mode==='prusa-filament'||mode==='controller-filament'){
+    if(['u1-filament','creator5-filament'].includes(mode)){
+      const material=String(data.material||'').trim();
+      let color='';
+      let colorFamily='';
+      if(mode==='u1-filament'){
+        const toolState=u1FilamentConfigEditState(printer,tool);
+        if(!toolState.enabled)throw new Error(toolState.message);
+        colorFamily=String(data.colorFamily||'').trim().toLowerCase();
+        const colorOption=filamentColorFamilyOption(colorFamily);
+        if(!material || !colorOption)throw new Error('Choose a filament type and colour family.');
+        if(!CONTROLLER_FILAMENT_TYPES.some((item)=>item.toLowerCase()===material.toLowerCase()))
+          throw new Error('Choose a supported filament type.');
+        color=colorOption.representative;
+      } else {
+        if(String(printer.status?.status||'').toLowerCase()!=='idle')
+          throw new Error('Filament can only be set when Creator 5 is idle.');
+        color=normalizeColor(data.color);
+        if(!creator5FilamentMaterialOptions(printer).includes(material))
+          throw new Error('Choose a Creator 5 filament type from the list.');
+        if(!creator5FilamentColorOptions(printer).some((item)=>item.hex===color))
+          throw new Error('Choose a Creator 5 filament colour from the list.');
+      }
+      const result=await api(`/api/printers/${encodeURIComponent(printerId)}/filament-config`,{
+        method:'POST',body:JSON.stringify({toolIndex,material,color})
+      });
+      if(tool?.filament){
+        const filament=tool.filament;
+        filament.material=result.material;
+        filament.color=result.color;
+        filament.metadataAvailable=true;
+        if(mode==='u1-filament'){
+          filament.materialVariant=result.subtype;filament.vendor=result.vendor;
+          filament.colorFamily=colorFamily;
+          filament.materialSource='manual';filament.manuallyAssigned=true;
+          filament.officialFilament=false;
+        } else {
+          filament.materialSource='printer';filament.colorSource='printer';
+          filament.colorFamily=filamentColorFamilyFromHex(result.color);
+          filament.colorFamilySource=filament.colorFamily?'printer':null;
+          filament.manuallyAssigned=false;
+        }
+      }
+    } else if(mode==='prusa-filament'||mode==='controller-filament'){
       const material=String(data.material||'').trim();
       const colorFamily=String(data.colorFamily||'').trim().toLowerCase();
       const colorOption=filamentColorFamilyOption(colorFamily);

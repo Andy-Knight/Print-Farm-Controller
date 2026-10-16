@@ -250,14 +250,16 @@ function ToolheadDesignationEditor({printerId,control,readOnly}) {
       return next;
     });
     setBaseline({...control.values});
-  },[control.values.material,control.values.colorFamily,control.values.nozzleDiameter]);
+  },[control.values.material,control.values.colorFamily,control.values.color,control.values.nozzleDiameter]);
 
   const disabled = readOnly || control.enabled === false || busy;
   const dirty = Object.keys(control.values).some((key) => String(draft[key]??'') !== String(baseline[key]??''));
   const filament = control.mode.endsWith('filament');
-  const allowedMaterials=[...new Set([draft.material, ...DEFAULT_MATERIALS].filter(Boolean))];
+  const palette = control.mode==='creator5-filament';
+  const colourKey = palette ? 'color' : 'colorFamily';
+  const allowedMaterials=[...new Set([draft.material, ...(control.materials||DEFAULT_MATERIALS)].filter(Boolean))];
   const nozzleOptions=control.nozzles || [];
-  const colour=(control.colors || []).find((item)=>item.value===draft.colorFamily);
+  const colour=(control.colors || []).find((item)=>item.value===draft[colourKey]);
   const set=(key,value)=>{
     setDraft((current)=>({...current,[key]:value}));
     setError('');setStatus('');
@@ -304,8 +306,8 @@ function ToolheadDesignationEditor({printerId,control,readOnly}) {
             {allowedMaterials.map((option)=><option key={option} value={option}>{option}</option>)}
           </select>
         </label>
-        <label>{control.mode==='controller-filament'?'Controller colour family':'Colour family'}
-          <details class={`color-family-dropdown${disabled?' disabled':''}`}
+        <label>{control.mode==='controller-filament'?'Controller colour family':palette?'Colour':'Colour family'}
+          <details class={`color-family-dropdown${palette?' creator5-color-dropdown':''}${disabled?' disabled':''}`}
             data-color-family-dropdown ref={menuRef}
             onToggle={(event)=>{if(disabled&&event.currentTarget.open) event.currentTarget.open=false;}}>
             <summary aria-disabled={disabled?'true':'false'}>
@@ -318,11 +320,11 @@ function ToolheadDesignationEditor({printerId,control,readOnly}) {
             <div class="color-family-menu">
               {(control.colors||[]).map((item)=>
                 <button type="button" key={item.value}
-                  class={`color-family-option${item.value===draft.colorFamily?' selected':''}`}
+                  class={`color-family-option${item.value===draft[colourKey]?' selected':''}`}
                   disabled={disabled} data-toolhead-color-option={item.value}
                   onClick={()=>{
                     if(disabled)return;
-                    set('colorFamily',item.value);
+                    set(colourKey,item.value);
                     if(menuRef.current) menuRef.current.open=false;
                   }}>
                   <i class="color-family-square" style={{background:item.representative}} />
