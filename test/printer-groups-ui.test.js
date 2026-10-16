@@ -51,6 +51,24 @@ test('group membership is a scrollable and accessible table in Preact and fallba
   assert.match(preact, /otherGroupsByPrinter/);
 });
 
+test('printer group creation and management use separate accessible tabs with fallback handling', () => {
+  const preact = fs.readFileSync(new URL('../ui/printer-groups.jsx', import.meta.url), 'utf8');
+  assert.match(index, /id="printerGroupsTabCreate"[^>]*type="button"/);
+  assert.match(index, /id="printerGroupsTabExisting"[^>]*type="button"/);
+  assert.match(index, /id="printerGroupsCreatePanel"/);
+  assert.match(index, /id="printerGroupsExistingPanel"/);
+  assert.match(index, /id="printerGroupEditWorkspace"/);
+  assert.match(preact, /role="tablist"/);
+  assert.match(preact, /role="tabpanel"/);
+  assert.match(preact, /data-printer-groups-tab="create"/);
+  assert.match(preact, /data-printer-groups-tab="groups"/);
+  assert.match(preact, /setTab\('groups'\)/);
+  assert.match(app, /function showLegacyPrinterGroupsTab/);
+  assert.match(app, /printerGroupEditWorkspace\?\.append\(printerGroupForm\)/);
+  assert.match(app, /printerGroupsCreatePanel\?\.append\(printerGroupForm\)/);
+  assert.match(styles, /\.printer-groups-tab-panel\[hidden\] \{ display:none !important; \}/);
+});
+
 test('dashboard printers can be filtered by custom printer group', () => {
   assert.match(index, /id="dashboardGroupFilterBar"/);
   assert.match(index, /id="dashboardGroupFilter"/);
