@@ -1063,7 +1063,7 @@ input:focus,select:focus { border-color:#7a9fbe; }
    rather than stretching actions to match their surrounding table columns. */
 .material-panel button.toolhead-action-button {
   box-sizing:border-box;
-  width:152px;
+  width:var(--toolhead-dropdown-width);
   max-width:100%;
   min-width:0;
   height:var(--button-field-height);
