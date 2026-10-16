@@ -489,11 +489,18 @@ async function checkToolheadFieldAlignment(page, name, {filamentMode, nozzleMode
   if (nozzleMode) assert.equal(measured.headers.length,4,
     name+' must show Nozzle as the fourth heading');
   if (measured.headers.length>=3) {
-    for(const key of ['materialField','colourField']) {
-      assert.ok(measured[key]!==null&&Math.abs(measured[key]-measured.headers[2])<=3,
-        name+' '+key+' must begin under Filament configuration heading: '+JSON.stringify(measured));
-    }
+    assert.ok(measured.materialField!==null
+      &&Math.abs(measured.materialField-measured.headers[2])<=3,
+      name+' filament-type field must start at the Filament configuration column edge: '+JSON.stringify(measured));
+    // Colour is the second field of a single Filament configuration column,
+    // so its x-coordinate is one field width + shared gap after the first.
+    assert.ok(measured.colourField!==null
+      &&measured.colourField>measured.materialField
+      &&measured.colourField-measured.materialField<=180,
+      name+' colour field must stay within the Filament configuration group: '+JSON.stringify(measured));
     if(nozzleMode) {
+      assert.ok(measured.colourField<measured.headers[3],
+        name+' colour must not overlap the Nozzle column: '+JSON.stringify(measured));
       assert.ok(measured.nozzleField!==null&&Math.abs(measured.nozzleField-measured.headers[3])<=3,
         name+' nozzle selector must begin under Nozzle heading: '+JSON.stringify(measured));
     }
