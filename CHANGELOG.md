@@ -6,6 +6,8 @@ Historical entries describe the behaviour of the controller at the time of that 
 
 ## v0.49.0
 
+- Aligns the guidance below **Assign** with the guidance below **Set filament** in the CORE One+ and Creator 5 / Creator 5 Pro Toolheads rows. A generic nozzle-designation helper margin had shifted the Preact nozzle text 13px lower; both Preact editors now use the same helper top margin. Browser regression checks actual button and text positions for CORE One+ Standard/INDX4/INDX8 and Creator 5/Pro, without altering the legacy fallback.
+
 - CORE One+ **Installed tool system** changes now immediately rebuild the open Toolheads panel (Standard ⇄ INDX4 ⇄ INDX8), without closing the dialog. Since PrusaLink telemetry is polled asynchronously after the saved controller change, the UI temporarily fills newly configured tool slots with unknown live values rather than retaining the old tool count; the next telemetry publication supplies the actual readings. Preact editors and legacy rendering share the same configured-tool display, while controller assignment/firmware operations remain unchanged. Chromium regression verifies 1→4→8→1 without closing the dialog.
 
 - Displays **Prusa CORE One+ Standard (single toolhead)** using the same full-width Toolheads table as INDX and other supported printers. Filament type/colour and the controller nozzle designation/Assign control now occupy the same T0 row under separate Filament configuration and Nozzle headings. Correctly selects the single-nozzle designation control rather than the multi-tool nozzle handler; no duplicated control below the table. Preserves INDX4/INDX8 and legacy no-bundle functionality. Adds Chromium layout/column geometry regression coverage.

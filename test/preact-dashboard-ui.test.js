@@ -187,6 +187,9 @@ test('Preact printer-detail chrome preserves six-tab behavior and vanilla fallba
   // All Preact Toolheads islands are forms inside table cells, unlike dialog
   // forms. Their padding must explicitly override the global 22px rule.
   assert.match(styles, /form \{ padding:22px; \}/);
+  // Nozzle designation wrappers must not push help text lower than the
+  // Set filament guidance in the adjacent Toolheads table column.
+  assert.match(styles, /\.material-panel \.toolhead-designation-editor > \.field-help\s*\{[^}]*margin-top:-5px;/);
   assert.match(styles, /\.material-panel \.toolhead-designation-editor\s*\{[^}]*padding:0;[^}]*margin:0;/);
   // Each Preact form spans the entire legacy two-column wrapper. Otherwise
   // its nested material and colour selects each receive only ~half the width.
