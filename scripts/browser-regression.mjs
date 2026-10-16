@@ -819,6 +819,36 @@ async function simulatorSseSmoke(browser,url) {
       assert.ok(Math.abs(widths[key]-160)<=2,
         'CORE One+ '+key+' field width matches standard 160px control, got '+JSON.stringify(widths));
     }
+    // Changing the CORE One+ installed system must rebuild the open dialog,
+    // rather than forcing the operator to close/reopen it. Exercise all three
+    // configurations using the isolated protocol-backed printer, including
+    // the short interval where the new controller limits precede live polling.
+    page.on('dialog',(dialog)=>dialog.accept());
+    const switchCoreOneTools=async (count)=>{
+      await page.locator('#printerDialog [data-tool-configuration-input]')
+        .selectOption(String(count));
+      await page.locator('#printerDialog [data-tool-configuration-save]').click();
+      await page.waitForFunction((expected)=>{
+        const dialog=document.querySelector('#printerDialog');
+        const panel=dialog?.querySelector('#detailTabToolheads');
+        const rows=panel?.querySelectorAll('.material-tool-row');
+        const config=panel?.querySelector('[data-tool-configuration-input]');
+        const filamentEditors=panel?.querySelectorAll('[data-preact-toolhead-editor="prusa-filament"]');
+        const nozzleEditors=panel?.querySelectorAll('[data-preact-toolhead-editor="tool-nozzle"]');
+        const singleNozzle=panel?.querySelectorAll('[data-preact-toolhead-editor="controller-nozzle"]');
+        return dialog?.open && !panel?.hidden && rows?.length===expected
+          && filamentEditors?.length===expected
+          && nozzleEditors?.length===(expected===1?0:expected)
+          && singleNozzle?.length===(expected===1?1:0)
+          && Number(config?.value)===expected;
+      },count,{timeout:15000});
+      assert.ok(await page.locator('#printerDialog').evaluate((dialog)=>dialog.open),
+        'CORE One+ details dialog stays open after configuring '+count+' tools');
+      assert.equal(await page.locator('#printerDialog #detailTabToolheads .material-tool-row').count(),count,
+        'the displayed INDX rows match the saved tool count immediately');
+    };
+    for(const count of [4,8,1]) await switchCoreOneTools(count);
+    console.log('Chromium: CORE One+ live INDX 1/4/8/1 configuration transitions PASS');
     await page.locator('#printerDialog [data-detail-close]').click();
     console.log('Chromium: CORE One+ filament dropdown width PASS');
   } finally {
