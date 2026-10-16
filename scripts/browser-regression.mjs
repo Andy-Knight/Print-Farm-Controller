@@ -237,6 +237,67 @@ async function groupEditorSmoke(browser,url) {
     assert.equal(layout.overflowY,'auto','membership table is independently scrollable');
     assert.equal(layout.headerPosition,'sticky','membership column headers stay in place');
 
+    // All tabular surfaces use the same controller table design system in
+    // both themes. The empty Alerts view has no table, so use a detached
+    // DOM fixture with the production class names to exercise its CSS.
+    const tableStyles=await page.evaluate(()=>{
+      const wrapper=document.createElement('div');
+      wrapper.style.position='fixed';
+      wrapper.style.left='-5000px';
+      wrapper.innerHTML=`<div class="alert-history-table">
+        <div class="alert-history-head">Alert heading</div>
+      </div><div class="frontend-renderer-table">
+        <table><thead><tr><th>Renderer</th></tr></thead></table>
+      </div><div class="material-table-head">Toolhead</div>`;
+      document.body.append(wrapper);
+      const root=document.documentElement;
+      const initial=root.getAttribute('data-theme');
+      const props=(el)=>{
+        const computed=getComputedStyle(el);
+        return {
+          background:computed.backgroundColor,
+          color:computed.color,
+          size:computed.fontSize,
+          weight:computed.fontWeight,
+          spacing:computed.letterSpacing,
+          transform:computed.textTransform
+        };
+      };
+      const result={};
+      try {
+        for(const theme of ['dark','light']){
+          root.setAttribute('data-theme',theme);
+          const group=props(document.querySelector('.printer-group-members-table th'));
+          const dashboard=props(document.querySelector('.fleet-table-header'));
+          const alerts=props(wrapper.querySelector('.alert-history-head'));
+          const renderer=props(wrapper.querySelector('.frontend-renderer-table th'));
+          const toolhead=props(wrapper.querySelector('.material-table-head'));
+          const memberSurface=getComputedStyle(document.querySelector('#printerGroupMembers'));
+          const alertSurface=getComputedStyle(wrapper.querySelector('.alert-history-table'));
+          result[theme]={group,dashboard,alerts,renderer,toolhead,
+            memberSurface:{background:memberSurface.backgroundColor,border:memberSurface.borderTopColor},
+            alertSurface:{background:alertSurface.backgroundColor,border:alertSurface.borderTopColor}};
+        }
+      } finally {
+        if(initial===null)root.removeAttribute('data-theme');
+        else root.setAttribute('data-theme',initial);
+        wrapper.remove();
+      }
+      return result;
+    });
+    for(const [theme,styles] of Object.entries(tableStyles)){
+      for(const type of ['dashboard','alerts','renderer','toolhead']){
+        assert.deepEqual(styles.group,styles[type],
+          theme+' table headings must use the shared header appearance: '+type);
+      }
+      assert.deepEqual(styles.memberSurface,styles.alertSurface,
+        theme+' printer membership panel must match alert table surface and border');
+      assert.equal(styles.group.transform,'uppercase',
+        theme+' table header labels must be uppercase');
+      assert.equal(styles.group.weight,'800',
+        theme+' table header labels must use the common weight');
+    }
+
     await page.locator('[data-printer-group-member][value="sample-one"]').check();
     await page.locator('[data-printer-group-member][value="bulk-179"]').check();
     await page.locator('#printerGroupMemberSearch').fill('Printer 179');

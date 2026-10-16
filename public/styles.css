@@ -3892,3 +3892,126 @@ body:not([data-route="/"]) > main > :not(.route-page) { display:none !important;
 @media (max-width:480px) {
   .printer-detail-preact-tabs { grid-template-columns:1fr; }
 }
+
+
+/* Controller table design system.
+ * A single skin covers Dashboard table view, Alerts history, Printer Groups
+ * membership, Diagnostics renderers and multi-toolhead configuration tables.
+ * Column layouts and responsive behaviour remain specific to each view.
+ */
+:root {
+  --pfc-table-surface:#10171d;
+  --pfc-table-border:#29343d;
+  --pfc-table-divider:#25313a;
+  --pfc-table-header-divider:#34424d;
+  --pfc-table-header-background:#151e25;
+  --pfc-table-header-text:#fff;
+  --pfc-table-hover:#151f28;
+  --pfc-table-selected:#152e39;
+  --pfc-table-secondary:#91a3b1;
+  --pfc-table-radius:11px;
+}
+:root[data-theme="light"] {
+  --pfc-table-surface:#fff;
+  --pfc-table-border:#cad5de;
+  --pfc-table-divider:#d5dee5;
+  --pfc-table-header-divider:#34424d;
+  --pfc-table-hover:#f6f9fb;
+  --pfc-table-selected:#dceef8;
+  --pfc-table-secondary:#526773;
+}
+/* Shared panel appearance (the dashboard gains this only in table view). */
+.fleet-viewport.table-view,
+.alert-history-table,
+.printer-group-members,
+.frontend-renderer-table,
+.material-grid.multi-tool-table {
+  border:1px solid var(--pfc-table-border);
+  border-radius:var(--pfc-table-radius);
+  background:var(--pfc-table-surface);
+}
+.fleet-table-header,
+.alert-history-head,
+.printer-group-members-table thead th,
+.frontend-renderer-table th,
+.material-table-head {
+  background:var(--pfc-table-header-background);
+  color:var(--pfc-table-header-text);
+  font-size:.68rem;
+  font-weight:800;
+  letter-spacing:.04em;
+  text-transform:uppercase;
+}
+.fleet-table-header,
+.alert-history-head,
+.material-table-head {
+  border-bottom:1px solid var(--pfc-table-header-divider);
+}
+.printer-group-members-table thead th,
+.frontend-renderer-table th {
+  border-bottom:1px solid var(--pfc-table-header-divider);
+}
+.printer-group-members-table thead th {
+  padding:9px 12px;
+  text-align:left;
+}
+.printer-group-members-table td {
+  padding:9px 12px;
+  border-bottom:1px solid var(--pfc-table-divider);
+}
+.printer-group-members-table tbody tr:last-child td { border-bottom:0; }
+.frontend-renderer-table {
+  border-collapse:separate;
+  border-spacing:0;
+  overflow:hidden;
+}
+.frontend-renderer-table th,
+.frontend-renderer-table td { border-bottom-color:var(--pfc-table-divider); }
+.frontend-renderer-table tr:last-child td { border-bottom:0; }
+.fleet.table-view .card,
+.alert-history-row,
+.multi-tool-table .material-tool {
+  border-bottom-color:var(--pfc-table-divider);
+}
+.fleet.table-view .card:hover,
+.fleet.table-view .card:focus-within,
+.alert-history-row:not(.unread):hover,
+.printer-group-members-table tbody tr:hover,
+.frontend-renderer-table tbody tr:hover,
+.multi-tool-table .material-tool:not(.filament-missing):hover {
+  background:var(--pfc-table-hover);
+}
+.printer-group-members-table tbody tr.is-selected,
+.printer-group-members-table tbody tr.is-selected:hover {
+  background:var(--pfc-table-selected);
+}
+.printer-group-members-table td,
+.printer-group-members-table .printer-group-member-groups {
+  color:var(--pfc-table-secondary);
+}
+.printer-group-members-table .printer-group-member-name {
+  color:inherit;
+}
+.printer-group-members-table td:nth-child(2) {
+  color:#dce4eb;
+}
+:root[data-theme="light"] .printer-group-members-table td:nth-child(2) {
+  color:#263744;
+}
+/* Toolhead tables use the same header block and connected panel treatment. */
+.material-table-head {
+  padding:9px 12px;
+  border:1px solid var(--pfc-table-border);
+  border-radius:var(--pfc-table-radius) var(--pfc-table-radius) 0 0;
+}
+.material-table-head + .material-grid.multi-tool-table {
+  border-top:0;
+  border-radius:0 0 var(--pfc-table-radius) var(--pfc-table-radius);
+}
+.multi-tool-table .material-tool:not(.filament-missing) {
+  background:transparent;
+}
+@media (max-width:760px) {
+  /* Alerts deliberately become individual cards on narrow screens. */
+  .alert-history-table { border:0; border-radius:0; background:transparent; }
+}
