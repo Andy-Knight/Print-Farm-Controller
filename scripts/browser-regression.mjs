@@ -484,8 +484,11 @@ async function checkToolheadFieldAlignment(page, name, {filamentMode, nozzleMode
       nozzleCell:x(row?.querySelector('.material-tool-nozzle')),
     };
   },{filamentMode,nozzleMode});
-  if (headingRequired) assert.equal(measured.headers.length,4,name+' must show four table headings');
-  if (measured.headers.length===4) {
+  if (headingRequired) assert.ok(measured.headers.length>=3,
+    name+' must show the shared Toolhead, Live information and Filament configuration headings');
+  if (nozzleMode) assert.equal(measured.headers.length,4,
+    name+' must show Nozzle as the fourth heading');
+  if (measured.headers.length>=3) {
     for(const key of ['materialField','colourField']) {
       assert.ok(measured[key]!==null&&Math.abs(measured[key]-measured.headers[2])<=3,
         name+' '+key+' must begin under Filament configuration heading: '+JSON.stringify(measured));
