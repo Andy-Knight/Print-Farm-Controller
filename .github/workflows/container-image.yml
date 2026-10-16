@@ -55,6 +55,9 @@ jobs:
       - name: Run regression suite
         run: npm test
 
+      - name: Summarise regression test inventory
+        run: npm run test:audit
+
       - name: Set up Go for pinned MinIO
         uses: actions/setup-go@v6
         with:
