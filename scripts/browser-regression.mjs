@@ -620,6 +620,45 @@ async function simulatorSseSmoke(browser,url) {
     const nozzleEditor=page.locator('[data-preact-toolhead-editor="controller-nozzle"]');
     await materialEditor.waitFor({state:'visible',timeout:15000});
     await nozzleEditor.waitFor({state:'visible'});
+    // AD5M/AD5M Pro have a single T0 row, not a card with the designation
+    // panels positioned underneath. Both forms must stay in that same row,
+    // sharing column alignment with the U1-style toolhead tables.
+    const ad5mLayout=await page.evaluate(() => {
+      const panel=document.querySelector('#printerDialog #detailTabToolheads .material-panel');
+      const head=panel?.querySelector('.material-table-head');
+      const row=panel?.querySelector('.material-tool-row[data-material-tool="0"]');
+      const material=row?.querySelector('.material-tool-configuration [data-preact-toolhead-control="controller-filament"]');
+      const nozzle=row?.querySelector('.material-tool-nozzle [data-preact-toolhead-control="controller-nozzle"]');
+      const rect=(element)=>element?.getBoundingClientRect().toJSON();
+      return {
+        panelWide:panel?.classList.contains('material-panel-wide'),
+        table:panel?.querySelector('.material-grid')?.classList.contains('multi-tool-table'),
+        headingLabels:[...(head?.children||[])].map((node)=>node.textContent.trim()),
+        rowCount:panel?.querySelectorAll('.material-tool-row').length,
+        cellCount:row?.children.length,
+        material:!!material,nozzle:!!nozzle,
+        identity:rect(row?.querySelector('.material-tool-identity')),
+        information:rect(row?.querySelector('.material-tool-information')),
+        configuration:rect(row?.querySelector('.material-tool-configuration')),
+        nozzleCell:rect(row?.querySelector('.material-tool-nozzle'))
+      };
+    });
+    assert.equal(ad5mLayout.panelWide,true,'AD5M uses full-width toolhead panel');
+    assert.equal(ad5mLayout.table,true,'AD5M uses shared U1-style toolhead table');
+    assert.deepEqual(ad5mLayout.headingLabels,
+      ['Toolhead','Live information','Filament configuration','Nozzle'],
+      'AD5M table uses same four headings as multi-toolhead variants');
+    assert.equal(ad5mLayout.rowCount,1,'AD5M displays exactly one T0 row');
+    assert.equal(ad5mLayout.cellCount,4,'T0 row contains identity, live info, filament and nozzle cells');
+    assert.ok(ad5mLayout.material&&ad5mLayout.nozzle,
+      'filament and nozzle Preact editors are inside T0 rather than separate below the table');
+    const positions=[ad5mLayout.identity,ad5mLayout.information,
+      ad5mLayout.configuration,ad5mLayout.nozzleCell];
+    assert.ok(positions.every((box)=>box&&Math.abs(box.top-positions[0].top)<3),
+      'toolhead number, live material, filament controls and nozzle share one visual row');
+    assert.ok(positions.every((box,i)=>i===0||box.left>=positions[i-1].right-3),
+      'toolhead controls must not overlap adjacent columns');
+
     const materialSelect=materialEditor.locator('[data-toolhead-material]');
     await materialSelect.selectOption('PETG');
     await materialEditor.locator('.color-family-dropdown summary').click();
