@@ -44,7 +44,7 @@ test('test inventory distinguishes production execution from source-only checks'
     "  const library = await import(moduleUrl.href);",
     "  assert.ok(library);",
     "});"
-  ].join('\\n');
+  ].join('\n');
   assert.equal(inspectTestSource(urlImport).category, 'runtime',
     'runtime imports assembled as URLs must not be misclassified as source-only');
 });
