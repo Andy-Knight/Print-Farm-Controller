@@ -4609,6 +4609,7 @@ printerGroupsBtn?.addEventListener('click', async () => {
 document.querySelectorAll('[data-printer-groups-close]').forEach((el) => el.addEventListener('click', () => printerGroupsDialog?.close()));
 printerGroupCancelEdit?.addEventListener('click', resetPrinterGroupForm);
 printerGroupForm?.addEventListener('submit', async (event) => {
+  if (window.__PFC_PREACT_PRINTER_GROUPS__) return;
   event.preventDefault();
   const id = printerGroupId?.value || '';
   const submit = printerGroupSubmit;
@@ -4636,6 +4637,7 @@ printerGroupForm?.addEventListener('submit', async (event) => {
   }
 });
 printerGroupsList?.addEventListener('click', async (event) => {
+  if (window.__PFC_PREACT_PRINTER_GROUPS__) return;
   const edit = event.target.closest('[data-printer-group-edit]');
   if (edit) {
     const group = (printerGroupsState.groups || []).find((item) => item.id === edit.dataset.printerGroupEdit);
