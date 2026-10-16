@@ -526,6 +526,56 @@ async function simulatorSseSmoke(browser,url) {
 
     const count=await page.locator('[data-printer-card="'+printerId+'"]').count();
     assert.equal(count,1,'only one registered printer card rendered');
+
+    // Exercise the real printer-details UI and controller name API against the
+    // isolated simulated printer. No physical printer receives this request.
+    console.log('Chromium: interactive Preact printer details controller-name editor');
+    await page.locator('[data-printer-card="'+printerId+'"] [data-open]').click();
+    await page.locator('#printerDialog[open] [data-detail-tab="management"]').click();
+    const renameField=page.locator('#printerDialog [data-preact-printer-name-editor] [data-printer-name]');
+    await renameField.waitFor({state:'visible',timeout:15000});
+    assert.equal(await renameField.inputValue(),'SSE simulator U1');
+    assert.ok(await page.locator('#printerDialog [data-rename]').isDisabled(),
+      'unchanged name is not submitted');
+    await renameField.fill('Unsaved U1 name');
+    await page.evaluate(()=>{
+      const state=window.__PFC_PRINTER_DETAIL_STATE__;
+      window.dispatchEvent(new CustomEvent('pfc:printer-detail-state',{
+        detail:{...state,health:'Synthetic ongoing telemetry refresh'}
+      }));
+    });
+    assert.equal(await renameField.inputValue(),'Unsaved U1 name',
+      'telemetry publication must preserve an unsaved controller name');
+    await page.locator('#printerDialog [data-printer-name-reset]').click();
+    assert.equal(await renameField.inputValue(),'SSE simulator U1','reset restores the controller name');
+
+    await page.route('**/api/printers/*/name',async (route)=>{
+      await route.fulfill({status:409,contentType:'application/json',
+        body:JSON.stringify({error:'Simulated name conflict'})});
+    });
+    await renameField.fill('Conflict U1');
+    await page.locator('#printerDialog [data-rename]').click();
+    await page.locator('#printerDialog [data-printer-name-error]').getByText('Simulated name conflict').waitFor();
+    assert.equal(await renameField.inputValue(),'Conflict U1',
+      'failed rename retains the unsaved name for correction');
+    await page.unroute('**/api/printers/*/name');
+
+    let renameRequests=0;
+    page.on('request',(request)=>{
+      if(request.method()==='PUT'&&request.url().endsWith('/api/printers/'+encodeURIComponent(printerId)+'/name'))
+        renameRequests++;
+    });
+    await renameField.fill('Preact renamed U1');
+    await page.locator('#printerDialog [data-rename]').click();
+    await page.waitForFunction(()=>
+      document.querySelector('#printerDialog [data-detail-name]')?.textContent==='Preact renamed U1'
+      && document.querySelector('#printerDialog [data-rename-status]')?.textContent?.includes('Controller name changed')
+    ,null,{timeout:15000});
+    assert.equal(await renameField.inputValue(),'Preact renamed U1');
+    assert.equal(renameRequests,1,'one save must issue exactly one controller rename request');
+    await page.locator('#printerDialog [data-detail-close]').click();
+    await page.locator('#printerDialog').waitFor({state:'hidden'});
+
     const started=await jsonPost('/api/emulator/printers/'+encodeURIComponent(created.printer.id)+'/actions',{
       action:'start',fileName:'calibration-cube.gcode'
     });
