@@ -298,6 +298,7 @@ function ToolheadDesignationEditor({printerId,control,readOnly}) {
     <form class={`toolhead-designation-editor ${filament?'toolhead-designation-filament':'toolhead-designation-nozzle'}`}
       data-preact-toolhead-editor={control.mode} data-tool-index={control.toolIndex}
       onSubmit={onSubmit}>
+      {control.mode==='bambu-filament' && <strong class="bambu-external-title">External spool</strong>}
       {filament ? <div class="toolhead-dropdown-pair">
         <label>{control.mode==='controller-filament'?'Controller material type':'Filament type'}
           <select data-toolhead-material value={draft.material} disabled={disabled}
