@@ -6,6 +6,8 @@ Historical entries describe the behaviour of the controller at the time of that 
 
 ## v0.49.0
 
+- Displays **Prusa CORE One+ Standard (single toolhead)** using the same full-width Toolheads table as INDX and other supported printers. Filament type/colour and the controller nozzle designation/Assign control now occupy the same T0 row under separate Filament configuration and Nozzle headings. Correctly selects the single-nozzle designation control rather than the multi-tool nozzle handler; no duplicated control below the table. Preserves INDX4/INDX8 and legacy no-bundle functionality. Adds Chromium layout/column geometry regression coverage.
+
 - Aligns filament type, colour and nozzle selection controls directly beneath their Toolheads table headings across U1, Creator 5 / Creator 5 Pro, CORE One+, and AD5M / AD5M Pro. Preact nested editor forms now override the global dialog form padding (22px) inside table cells. Adds real-browser alignment checks for U1 and AD5M Pro and form-padding checks for Prusa, without affecting the legacy fallback or print/device commands.
 
 - Corrects undersized filament type and colour-family selectors on Prusa CORE One+ Toolheads (Standard/INDX4/INDX8). Preact editor forms now span both tracks of the legacy wrapper grid, restoring the shared 160px field widths, consistent with U1, Creator 5 and Flashforge; the no-bundle fallback is unaffected.

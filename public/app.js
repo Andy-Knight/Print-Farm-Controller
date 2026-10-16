@@ -7261,15 +7261,18 @@ async function openPrinter(id) {
       : `<div class="sensor-readout"><span>Chamber / cavity</span><b data-chamber-now>${Number(s.chamber.actual).toFixed(1)} °C</b></div>`
     : '';
   const configuredToolCount = Number(limits.toolCount || (Array.isArray(s?.tools) ? s.tools.length : 0));
-  // Display the single-tool AD5M and AD5M Pro with the same horizontal
-  // Toolhead / Live information / Filament configuration / Nozzle table as
-  // other toolhead-capable printers. This must work in Preact and the
-  // no-bundle fallback, with all controls inside the T0 row.
+  // Single-tool AD5M/Pro and CORE One+ use the same full-width table
+  // layout as multi-toolhead printers. Filament and nozzle controls must
+  // share the T0 row in Preact and the no-bundle fallback.
   const ad5mToolheadTable = printer.adapterType === 'flashforge-ad5m'
     && capabilities.materialStatus
     && (capabilities.materialDesignation || capabilities.nozzleDesignation);
+  const coreOneSingleToolheadTable = printer.adapterType === 'prusa-core-one-plus'
+    && configuredToolCount === 1
+    && capabilities.toolMaterialDesignation
+    && capabilities.nozzleDesignation;
   const wideToolheadLayout = Boolean(capabilities.materialStatus
-    && (configuredToolCount > 1 || ad5mToolheadTable));
+    && (configuredToolCount > 1 || ad5mToolheadTable || coreOneSingleToolheadTable));
   const manualNozzleColumn = Boolean(wideToolheadLayout && (capabilities.toolNozzleDesignation || capabilities.nozzleDesignation));
   const showConfigurationColumn = true;
   const materialStatusMarkup = capabilities.materialStatus ? (() => {
@@ -7310,7 +7313,11 @@ async function openPrinter(id) {
           ad5mToolheadTable && toolPosition === 0
             ? flashForgeMaterialDesignationMarkup(printer, filament) : ''
         ].filter(Boolean).join('');
-        const nozzleConfiguration = capabilities.toolNozzleDesignation
+        // Per-tool nozzle designation is only shown with multiple tools.
+        // In CORE One+ Standard mode the printer has toolNozzleDesignation
+        // capability too, but the actual single nozzle uses the shared
+        // nozzleDesignation API/control instead.
+        const nozzleConfiguration = capabilities.toolNozzleDesignation && tools.length > 1
           ? toolNozzleDesignationMarkup(printer, tool, tools.length)
           : capabilities.nozzleDesignation && toolPosition === 0
             ? `${flashForgeNozzleDesignationMarkup(printer, tool)}${tools.length > 1 ? `<div class="field-help shared-nozzle-help">This designation applies to all ${tools.length} toolheads.</div>` : ''}`

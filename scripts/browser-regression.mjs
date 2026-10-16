@@ -780,9 +780,30 @@ async function simulatorSseSmoke(browser,url) {
     await page.locator('[data-printer-card="'+prusaId+'"] [data-open]').click();
     const prusaForm=page.locator('#printerDialog [data-preact-toolhead-editor="prusa-filament"]').first();
     await prusaForm.waitFor({state:'visible',timeout:15000});
-    await checkToolheadFieldAlignment(page,'Prusa CORE One+',{
-      filamentMode:'prusa-filament',headingRequired:false
+    await page.locator('#printerDialog [data-preact-toolhead-editor="controller-nozzle"]')
+      .waitFor({state:'visible',timeout:15000});
+    await checkToolheadFieldAlignment(page,'Prusa CORE One+ Standard',{
+      filamentMode:'prusa-filament',nozzleMode:'controller-nozzle'
     });
+    const coreOneLayout=await page.evaluate(()=>{
+      const panel=document.querySelector('#printerDialog #detailTabToolheads .material-panel');
+      const row=panel?.querySelector('.material-tool-row[data-material-tool="0"]');
+      return {
+        table:panel?.querySelector('.material-grid')?.classList.contains('multi-tool-table'),
+        rows:panel?.querySelectorAll('.material-tool-row').length,
+        columns:row?.children.length,
+        filament:!!row?.querySelector('.material-tool-configuration [data-preact-toolhead-control="prusa-filament"]'),
+        nozzle:!!row?.querySelector('.material-tool-nozzle [data-preact-toolhead-control="controller-nozzle"]'),
+        extraNozzle:panel?.querySelectorAll('[data-preact-toolhead-control="controller-nozzle"]').length
+      };
+    });
+    assert.equal(coreOneLayout.table,true,'CORE One+ Standard uses the shared full-width table');
+    assert.equal(coreOneLayout.rows,1,'CORE One+ Standard has a single T0 row');
+    assert.equal(coreOneLayout.columns,4,'CORE One+ Standard displays four aligned columns');
+    assert.ok(coreOneLayout.filament&&coreOneLayout.nozzle,
+      'filament and nozzle selectors occupy the same T0 table row');
+    assert.equal(coreOneLayout.extraNozzle,1,
+      'the single-nozzle configuration is not duplicated below the table');
     const widths=await prusaForm.evaluate((form)=>{
       const bounds=(selector)=>form.querySelector(selector)?.getBoundingClientRect().width||0;
       return {
