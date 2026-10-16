@@ -4,6 +4,14 @@ This file contains the version-by-version release history for Print Farm Control
 
 Historical entries describe the behaviour of the controller at the time of that release and may be superseded by later versions. For current installation, configuration and supported-hardware guidance, see [README.md](README.md).
 
+## v0.48.0
+
+- Standardises the **Set filament** and nozzle **Assign** button labels, primary-blue styling and shared dimensions across Snapmaker U1, Prusa CORE One+ (Standard, INDX4 and INDX8), FlashForge Adventurer 5M/5M Pro and Creator 5/Creator 5 Pro.
+- Sets all relevant filament-type, filament-colour and nozzle-size selectors and their matching action buttons to a shared **160px width** and **42px height**, aligned to the start of their columns rather than stretched to fill them.
+- Groups filament type and colour selectors with a consistent **8px gap**, and keeps the AD5M-series nozzle-size dropdown directly below its designation heading.
+- Removes obsolete **Clear** designation/assignment buttons from supported controls, while preserving each printer family's existing write-to-printer or controller-only designation behaviour.
+- Expands model-specific UI regression tests for button labels, styling, field sizing, layout and absence of removed actions.
+
 ## v0.47.2
 
 - Adds a fallback-safe **Frontend renderers** section under Diagnostics showing the Preact bundle evaluation marker and renderer status of all 13 migrated presentation areas, with a manual Recheck action.

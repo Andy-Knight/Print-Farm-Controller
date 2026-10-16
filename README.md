@@ -1,4 +1,4 @@
-# Print Farm Controller v0.47.2
+# Print Farm Controller v0.48.0
 A local-first 3D printer fleet controller. It runs entirely on your LAN and currently supports:
 
 - **FlashForge Adventurer 5M / 5M Pro** through the local FlashForge HTTP/TCP APIs.
@@ -7,9 +7,11 @@ A local-first 3D printer fleet controller. It runs entirely on your LAN and curr
 - **Prusa CORE One+ (experimental)** through the local PrusaLink API, supporting Standard (1-tool), INDX4 and INDX8 configurations.
 - **Bambu Lab P1P / P1S / X1C / A1 Mini (experimental)** through the local MQTT TLS and FTPS TLS interfaces. P1P/P1S/A1 Mini use the TLS/JPEG camera path; X1C camera decoding remains unsupported.
 
-**Current development version: v0.47.2**
+**Current development version: v0.48.0**
 
 Current highlights:
+
+- **Consistent printer toolhead controls:** Snapmaker U1, FlashForge AD5M/AD5M Pro, Creator 5/Creator 5 Pro and Prusa CORE One+ now share consistent **Set filament** and nozzle **Assign** button styling. Filament type, colour and nozzle selectors are standardised to 160px; filament type and colour have an 8px gap, and buttons use matching 160px sizing without stretching across columns. Unneeded **Clear** actions have been removed where appropriate. U1 and Creator 5 write filament settings to printer firmware, while Prusa/AD5M manual designations remain controller-side.
 
 - **Frontend renderer diagnostics:** Diagnostics now displays whether the optional Preact bundle initialised and which migrated UI components are running in Preact versus their legacy JavaScript fallback. It warns in the browser console if any expected Preact component is missing and provides a Recheck button. This is a client-side report of successful initialisation, not a server-wide health check or proof of live rendering correctness. Specialist forms and printer command handlers deliberately remain on the established JavaScript code. To confirm manually, open the browser console and inspect `window.__PFC_FRONTEND_RENDERER_STATUS__`.
 
