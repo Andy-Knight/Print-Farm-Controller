@@ -154,6 +154,118 @@ async function routeSmoke(page,url) {
   await page.unroute('**/api/events');
 }
 
+async function groupEditorSmoke(browser,url) {
+  console.log('Chromium: Preact printer group editor owns create/edit/delete and preserves drafts');
+  const context=await browser.newContext({viewport:{width:1365,height:900}});
+  const page=await context.newPage();
+  const errors=[];
+  page.on('pageerror',(e)=>errors.push(e.message));
+  page.on('dialog',(dialog)=>dialog.accept());
+  let groups=[{id:'seed-group',name:'Existing group',printerIds:[],members:[]}];
+  const counts={post:0,patch:0,delete:0};
+  await context.route('**/api/events',(route)=>route.fulfill({
+    status:200,headers:{'content-type':'text/event-stream'},
+    body:': isolated group editor fixture\\n\\n'
+  }));
+  // Keep this regression safe even when PFC_BROWSER_TEST_BASE_URL is set.
+  // All group mutations go to this in-memory Playwright fixture.
+  await context.route('**/api/printer-groups**',async (route)=>{
+    const request=route.request();
+    const method=request.method();
+    const pathname=new URL(request.url()).pathname;
+    const id=pathname.split('/')[3]||'';
+    let status=200,payload={};
+    const body=['POST','PATCH'].includes(method) ? request.postDataJSON() : {};
+    if(method==='GET' && pathname==='/api/printer-groups'){
+      payload={version:1,groups};
+    } else if(method==='POST'){
+      counts.post++;
+      if(groups.some((item)=>item.name.toLowerCase()===String(body.name).toLowerCase())){
+        status=400;payload={error:'A printer group with this name already exists'};
+      } else {
+        const created={id:'created-group',name:body.name,printerIds:body.printerIds,members:[]};
+        groups=[...groups,created];payload={group:created};
+      }
+    } else if(method==='PATCH' && id){
+      counts.patch++;
+      groups=groups.map((item)=>item.id===id?{...item,name:body.name,printerIds:body.printerIds}:item);
+      payload={group:groups.find((item)=>item.id===id)};
+    } else if(method==='DELETE' && id){
+      counts.delete++;
+      groups=groups.filter((item)=>item.id!==id);
+      payload={success:true};
+    } else {
+      status=404;payload={error:'Unknown fixture request'};
+    }
+    await route.fulfill({status,contentType:'application/json',body:JSON.stringify(payload)});
+  });
+  try {
+    await page.goto(url+'/groups',{waitUntil:'load'});
+    await preactReady(page);
+    await page.locator('[data-printer-group-edit="seed-group"]').waitFor();
+    assert.equal(await page.locator('#printerGroupForm').count(),1,'single active group form');
+    assert.equal(await page.locator('#printerGroupsList').count(),1,'single active group list');
+
+    // An SSE/reload-style state publication must not overwrite unsaved inputs.
+    await page.evaluate(()=>{
+      const current=window.__PFC_PRINTER_GROUPS_UI_STATE__;
+      const withPrinters={
+        ...current,
+        printers:[
+          {id:'sample-one',name:'Sample One',manufacturer:'Snapmaker',model:'U1'},
+          {id:'sample-two',name:'Sample Two',manufacturer:'FlashForge',model:'AD5M Pro'}
+        ]
+      };
+      window.dispatchEvent(new CustomEvent('pfc:printer-groups-ui-state',{detail:withPrinters}));
+      window.__PFC_TEST_GROUP_STATE__=withPrinters;
+    });
+    await page.locator('[data-printer-group-member][value="sample-one"]').check();
+    await page.locator('#printerGroupName').fill('Unsubmitted draft');
+    await page.evaluate(()=>window.dispatchEvent(new CustomEvent('pfc:printer-groups-ui-state',{
+      detail:window.__PFC_TEST_GROUP_STATE__
+    })));
+    assert.equal(await page.locator('#printerGroupName').inputValue(),'Unsubmitted draft',
+      'external group snapshot must preserve the user draft');
+    assert.ok(await page.locator('[data-printer-group-member][value="sample-one"]').isChecked(),
+      'group membership draft must survive an external update');
+
+    // Reload to discard the synthetic printer IDs; exercise CRUD against the
+    // in-memory group API without a real configured printer.
+    await page.reload({waitUntil:'load'});
+    await preactReady(page);
+    await page.locator('[data-printer-group-edit="seed-group"]').waitFor();
+    await page.locator('#printerGroupName').fill('Production');
+    await page.locator('#printerGroupSubmit').click();
+    await page.waitForFunction(()=>
+      document.querySelector('#printerGroupsStatus')?.textContent?.includes('created.'));
+    await page.locator('[data-printer-group-edit="created-group"]').waitFor();
+    assert.equal(counts.post,1,'one submit creates exactly one group');
+
+    await page.locator('#printerGroupName').fill('Production');
+    await page.locator('#printerGroupSubmit').click();
+    await page.locator('#printerGroupError[role="alert"]').getByText('already exists').waitFor();
+    assert.equal(await page.locator('#printerGroupName').inputValue(),'Production',
+      'failed create keeps entered name');
+    assert.equal(counts.post,2,'duplicate submission is rejected without resetting form');
+
+    await page.locator('[data-printer-group-edit="created-group"]').click();
+    assert.equal(await page.locator('#printerGroupName').inputValue(),'Production');
+    await page.locator('#printerGroupName').fill('Production A');
+    await page.locator('#printerGroupSubmit').click();
+    await page.waitForFunction(()=>
+      document.querySelector('#printerGroupsStatus')?.textContent?.includes('updated.'));
+    await page.locator('[data-printer-group-card="created-group"] strong').getByText('Production A').waitFor();
+    assert.equal(counts.patch,1,'one edit submits exactly one patch');
+
+    await page.locator('[data-printer-group-delete="created-group"]').click();
+    await page.waitForFunction(()=>!document.querySelector('[data-printer-group-card="created-group"]'));
+    assert.equal(counts.delete,1,'one delete performs exactly one request');
+    assert.ok(await page.locator('[data-printer-group-edit="seed-group"]').count(),
+      'deleting one group does not remove unrelated groups');
+    assert.deepEqual(errors,[],'group editor browser page must not throw');
+  } finally {await context.close();}
+}
+
 async function queueClickSmoke(browser,url) {
   console.log('Chromium: Preact queue clearance uses a real delegated click and only one POST');
   const context=await browser.newContext({viewport:{width:1365,height:900}});
@@ -322,6 +434,7 @@ async function main() {
     page.on('pageerror',(e)=>errors.push(e.message));
     await routeSmoke(page,url);
     await queueClickSmoke(browser,url);
+    await groupEditorSmoke(browser,url);
     if(!externalUrl) await simulatorSseSmoke(browser,url);
     assert.deepEqual(errors,[],'browser Javascript errors');
     console.log('Chromium browser regression: PASSED');
