@@ -64,6 +64,13 @@ async function routeSmoke(page,url) {
     if (id) {
       assert.ok((await page.locator('#'+id).innerText()).trim().length>20,route+' must not be blank');
     }
+    // Exercise the actual browser refresh on every direct route, not merely
+    // a fresh navigation from the dashboard.
+    await page.reload({waitUntil:'load'});
+    await preactReady(page);
+    await page.waitForFunction(([r,pageId])=>
+      document.body.dataset.route===r && (!pageId || document.getElementById(pageId)?.hidden===false)
+    ,[route,id]);
   }
 
   console.log('Chromium: report data after direct navigation, page reload and tab changes');
@@ -96,6 +103,45 @@ async function routeSmoke(page,url) {
   });
   await page.waitForFunction(()=>document.querySelector('#reportingKpis')?.textContent?.includes('Synthetic telemetry')
     && document.querySelector('#reportingKpis')?.textContent?.includes('2718'));
+
+  console.log('Chromium: live fleet presentation updates the same keyed printer card');
+  await page.goto(url+'/',{waitUntil:'load'});
+  await preactReady(page);
+  await page.evaluate(()=>{
+    const printer={
+      id:'synthetic-fleet-printer',name:'Synthetic printer',visible:true,
+      state:'Idle',stateClass:'idle',progress:0,progressText:'0%',
+      jobName:'No active job',hostText:'localhost',nozzleLabel:'Nozzle',
+      nozzle:'25°C',bed:'25°C',layer:'—',remaining:'—',
+      lastSeen:'just now',latency:'1 ms',image:{label:'Synthetic'}
+    };
+    window.dispatchEvent(new CustomEvent('pfc:dashboard-fleet-state',{
+      detail:{printers:[printer]}
+    }));
+  });
+  await page.waitForFunction(()=>document.querySelector('[data-printer-card="synthetic-fleet-printer"] [data-name]')?.textContent==='Synthetic printer');
+  await page.evaluate(()=>{
+    const printer={
+      id:'synthetic-fleet-printer',name:'Synthetic printer',visible:true,
+      state:'Printing',stateClass:'printing',progress:46,progressText:'46%',
+      jobName:'sample.gcode',hostText:'localhost',nozzleLabel:'Nozzle',
+      nozzle:'205°C',bed:'60°C',layer:'22',remaining:'00:30',
+      lastSeen:'just now',latency:'2 ms',image:{label:'Synthetic'}
+    };
+    window.dispatchEvent(new CustomEvent('pfc:dashboard-fleet-state',{
+      detail:{printers:[printer]}
+    }));
+  });
+  await page.waitForFunction(()=>{
+    const card=document.querySelector('[data-printer-card="synthetic-fleet-printer"]');
+    return card && card.querySelector('[data-progress-value]')?.textContent==='46%'
+      && card.querySelector('[data-job-name]')?.textContent==='sample.gcode'
+      && card.querySelector('[data-nozzle]')?.textContent==='205°C';
+  });
+  assert.equal(await page.locator('[data-printer-card="synthetic-fleet-printer"]').count(),1,
+    'Preact reconciles an existing printer rather than duplicating its card');
+  await page.evaluate(()=>window.dispatchEvent(new CustomEvent('pfc:dashboard-fleet-state',{detail:{printers:[]}})));
+  await page.waitForFunction(()=>!document.querySelector('[data-printer-card="synthetic-fleet-printer"]'));
 }
 
 async function queueClickSmoke(browser,url) {
