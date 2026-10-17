@@ -147,8 +147,8 @@ button.summary-card:focus-visible { filter:none; transform:translateY(-1px); bor
 .fleet-viewport { min-width:0; }
 .fleet { display:grid; grid-template-columns:repeat(auto-fill,minmax(330px,1fr)); gap:16px; }
 .fleet-viewport.table-view {
-  --dashboard-table-min-width:1528px;
-  --dashboard-table-columns:minmax(210px,1.5fr) 120px minmax(210px,1.55fr) minmax(130px,.9fr) 122px 122px 92px 104px 118px 126px 174px;
+  --dashboard-table-min-width:1556px;
+  --dashboard-table-columns:minmax(210px,1.5fr) 148px minmax(210px,1.55fr) minmax(130px,.9fr) 122px 122px 92px 104px 118px 126px 174px;
   overflow-x:auto;
   border:1px solid #29323b;
   border-radius:14px;
@@ -262,7 +262,10 @@ button.summary-card:focus-visible { filter:none; transform:translateY(-1px); bor
 .fleet.table-view .reorder-controls { display:none; }
 .fleet.table-view .badge {
   align-self:center;
-  max-width:82px;
+  /* Include the coloured dot and full OFFLINE text without squeezing the pill. */
+  flex:0 1 auto;
+  min-width:0;
+  max-width:calc(100% - 36px);
   overflow:hidden;
   text-overflow:ellipsis;
   white-space:nowrap;
