@@ -61,3 +61,16 @@ test('visual redesign leaves table geometry and multi-row card image alignment u
   assert.match(browser,/images must align for wrapped and short names/);
   assert.match(browser,/dashboardPhase3Smoke\(browser,url\)/);
 });
+
+test('table status column can display OFFLINE pill and maintenance icon together',()=>{
+  const source=read('public/styles.css');
+  assert.match(source,/--dashboard-table-columns:[^\n]* 148px /,
+    'status grid column needs enough width for icon plus OFFLINE pill');
+  assert.match(source,/--dashboard-table-min-width:1556px/);
+  const badge=source.slice(source.indexOf('.fleet.table-view .badge {'),
+    source.indexOf('.fleet.table-view .maintenance-status-icon-button {'));
+  assert.match(badge,/max-width:calc\(100% - 36px\)/);
+  assert.doesNotMatch(badge,/max-width:82px/);
+  assert.match(browser,/OFFLINE text should fit inside the coloured badge/);
+  assert.match(browser,/OFFLINE badge should fit in its table column/);
+});
