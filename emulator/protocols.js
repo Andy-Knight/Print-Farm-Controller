@@ -631,9 +631,9 @@ function applyBambuCommand(printer, body) {
   } else if (command === 'gcode_file') {
     printer.startPrint(payload.param || payload.file || 'uploaded.gcode');
   } else if (command === 'ams_filament_setting') {
-    // P1P/P1S external spool is tray 254 of AMS address 255.
+    // P1P/P1S/X1C external spool is tray 254 of AMS address 255.
     // Do not accidentally write an AMS slot or change filament while busy.
-    if (['P1P','P1S'].includes(printer.model) && printer.status === 'idle'
+    if (['P1P','P1S','X1C'].includes(printer.model) && printer.status === 'idle'
       && Number(payload.ams_id) === 255 && Number(payload.tray_id) === 254
       && /^[0-9a-f]{8}$/i.test(String(payload.tray_color || ''))
       && String(payload.tray_type || '').trim()) {
