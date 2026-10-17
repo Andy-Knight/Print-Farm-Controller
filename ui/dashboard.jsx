@@ -2,6 +2,7 @@ import { render } from 'preact';
 import { useEffect, useState } from 'preact/hooks';
 import { Metric, ProgressBar, StatusBadge, ToastHost, UiButton } from './components.jsx';
 import { initPrinterDetailsUi } from './printer-details.jsx';
+import { initWorkspaceShell } from './workspace-shell.jsx';
 import { initPrintQueueUi } from './print-queue.jsx';
 import { initPrintLibraryUi } from './print-library.jsx';
 import { initMaintenanceUi } from './maintenance.jsx';
@@ -13,10 +14,10 @@ import { initDiagnosticsUi } from './diagnostics.jsx';
 import { initLicenseUi } from './license.jsx';
 
 const FILTERS = Object.freeze([
-  { key:'all', label:'All Printers' },
-  { key:'online', label:'Online' },
-  { key:'printing', label:'Printing' },
-  { key:'attention', label:'Needs attention' }
+  { key:'all', label:'All Printers', tone:'neutral', detail:'Configured in this view' },
+  { key:'online', label:'Online', tone:'success', detail:'Connected printers' },
+  { key:'printing', label:'Printing', tone:'working', detail:'Currently printing' },
+  { key:'attention', label:'Needs attention', tone:'warning', detail:'Requires a closer look' }
 ]);
 
 const DEFAULT_STATE = Object.freeze({
@@ -104,20 +105,22 @@ function DashboardControls({ state }) {
 
 function DashboardSummary({ state }) {
   return (
-    <section id="summary" class="summary">
+    <section id="summary" class="summary" aria-label="Farm status filters">
       {FILTERS.map((item) => {
         const active = state.activeFilter === item.key;
         return (
           <UiButton
             key={item.key}
             variant="ghost"
-            class={`summary-card${active ? ' active' : ''}`}
+            class={`summary-card ui-stat-card${active ? ' active' : ''}`}
+            data-tone={item.tone}
             data-dashboard-filter={item.key}
             aria-pressed={String(active)}
             onClick={() => dispatchDashboardAction('filter', item.key)}
           >
             <span class="summary-card-label"><span class="subtle">{item.label}</span></span>
             <b>{state.counts[item.key]}</b>
+            <span class="dashboard-stat-detail">{item.detail}</span>
           </UiButton>
         );
       })}
@@ -137,11 +140,53 @@ function DashboardOverview() {
 
   return (
     <>
-      <DashboardControls state={state} />
+      <div class="dashboard-hero">
+        <div class="dashboard-hero-copy">
+          <span class="dashboard-eyebrow">FARM OPERATIONS</span>
+          <h2>Farm overview</h2>
+          <p>Printer availability, active work and items needing attention.</p>
+        </div>
+        <DashboardControls state={state} />
+      </div>
       <DashboardSummary state={state} />
       <ToastHost />
     </>
   );
+}
+
+/** Small reactive section heading; the controller remains the source of fleet state. */
+function DashboardFleetHeading() {
+  const [overview,setOverview] = useState(() =>
+    normalizeDashboardState(window.__PFC_DASHBOARD_STATE__ || DEFAULT_STATE));
+  const [fleetState,setFleetState] = useState(() =>
+    normalizeFleetState(window.__PFC_DASHBOARD_FLEET_STATE__ || {}));
+  useEffect(() => {
+    const updateOverview = (event) => setOverview(
+      normalizeDashboardState(event?.detail || window.__PFC_DASHBOARD_STATE__ || DEFAULT_STATE));
+    const updateFleet = (event) => setFleetState(
+      normalizeFleetState(event?.detail || window.__PFC_DASHBOARD_FLEET_STATE__ || {}));
+    window.addEventListener('pfc:dashboard-state',updateOverview);
+    window.addEventListener('pfc:dashboard-fleet-state',updateFleet);
+    updateOverview();updateFleet();
+    return () => {
+      window.removeEventListener('pfc:dashboard-state',updateOverview);
+      window.removeEventListener('pfc:dashboard-fleet-state',updateFleet);
+    };
+  }, []);
+  const shown = fleetState.printers.filter((printer)=>printer.visible !== false).length;
+  const hasFilter = overview.activeFilter !== 'all' || Boolean(overview.groupId);
+  const description = hasFilter
+    ? `Showing ${shown} of ${overview.counts.all} printers in the selected view`
+    : `${overview.counts.all} configured printer${overview.counts.all===1?'':'s'}`;
+  return <div class="dashboard-fleet-heading">
+    <div class="dashboard-fleet-heading-copy">
+      <h2>Printers</h2>
+      <span data-dashboard-fleet-summary>{description}</span>
+    </div>
+    <span class="dashboard-fleet-view-badge" data-dashboard-current-view>
+      {overview.viewMode === 'table' ? 'Table view' : 'Card view'}
+    </span>
+  </div>;
 }
 
 function normalizeLicenseNoticeState(input = {}) {
@@ -292,6 +337,7 @@ function ClearanceStrip({ printer }) {
 function PrinterCard({ printer }) {
   const classes = [
     'card',
+    'ui-printer-surface',
     printer.visible ? '' : 'hidden',
     printer.selected ? 'selected' : '',
     printer.licence?.inactive ? 'license-inactive' : ''
@@ -397,6 +443,12 @@ if (dashboardRoot) {
   window.__PFC_PREACT_DASHBOARD__ = true;
 }
 
+const fleetHeadingRoot = document.querySelector('#dashboardFleetHeadingRoot');
+if (fleetHeadingRoot) {
+  render(<DashboardFleetHeading />, fleetHeadingRoot);
+  window.__PFC_PREACT_FLEET_HEADING__ = true;
+}
+
 const licenseNoticeRoot = document.querySelector('#licenseNotice');
 if (licenseNoticeRoot) {
   render(<LicenseNotice />, licenseNoticeRoot);
@@ -409,6 +461,8 @@ if (fleetRoot) {
   window.__PFC_PREACT_FLEET__ = true;
 }
 
+
+initWorkspaceShell();
 
 initPrinterDetailsUi();
 

@@ -4,14 +4,21 @@ export function UiButton({
   variant = 'secondary',
   size = 'medium',
   class:className = '',
+  busy = false,
   children,
   ...props
 }) {
+  // Preserve legacy action classes and data-* attributes for delegated clicks
+  // while all newly migrated workflows gain a consistent pending state.
   const legacyVariantClass = ['primary','secondary','positive','attention','danger'].includes(variant) ? variant : '';
   const classes = ['ui-button', `ui-button-${variant}`, `ui-button-${size}`, legacyVariantClass, className]
     .filter(Boolean)
     .join(' ');
-  return <button type="button" class={classes} {...props}>{children}</button>;
+  return <button type="button" class={classes} {...props}
+    disabled={Boolean(props.disabled || busy)} aria-busy={busy ? 'true' : undefined}>
+    {busy && <span class="ui-button-spinner" aria-hidden="true"></span>}
+    {children}
+  </button>;
 }
 
 export function StatusBadge({ state = '', title = '', children }) {
@@ -44,12 +51,49 @@ export function ProgressBar({ value = 0, label = 'Progress', class:className = '
   );
 }
 
+/**
+ * Shared noninteractive panel primitive. Use the same surface class and
+ * tokens in every new Preact screen, without changing existing controllers.
+ */
+export function UiSurface({ as:Tag = 'div', tone = 'default', padded = false, class:className = '', children, ...props }) {
+  const classes = ['ui-surface', `ui-surface-${tone}`, padded ? 'ui-surface-pad' : '', className]
+    .filter(Boolean).join(' ');
+  return <Tag class={classes} {...props}>{children}</Tag>;
+}
+
+export function UiSectionHeading({ title, description, actions, as:Tag = 'h2', class:className = '' }) {
+  return <header class={['ui-section-heading',className].filter(Boolean).join(' ')}>
+    <div><Tag>{title}</Tag>{description && <p>{description}</p>}</div>
+    {actions && <div class="ui-section-actions">{actions}</div>}
+  </header>;
+}
+
+export function UiEmptyState({ title, description, children, class:className = '' }) {
+  return <div class={['ui-empty-state',className].filter(Boolean).join(' ')}>
+    <strong>{title}</strong>
+    {description && <p>{description}</p>}
+    {children}
+  </div>;
+}
+
+export function UiInlineMessage({ tone = 'info', children, ...props }) {
+  const safeTone = ['success','warning','error','info'].includes(tone) ? tone : 'info';
+  return <div class="ui-inline-message" data-tone={safeTone}
+    role={safeTone === 'error' ? 'alert' : 'status'} {...props}>{children}</div>;
+}
+
+export function UiSkeleton({ width = '100%', height = '16px', class:className = '' }) {
+  // Decorative placeholder only; the surrounding region owns loading text.
+  return <span class={['ui-skeleton',className].filter(Boolean).join(' ')}
+    style={{width,height}} aria-hidden="true"></span>;
+}
+
 export function Metric({ label, value, labelAttributes = {}, valueAttributes = {} }) {
   return (
-    <div class="metric ui-metric">
+    <UiSurface tone="muted" class="metric ui-metric">
       <span {...labelAttributes}>{label}</span>
       <b {...valueAttributes}>{value}</b>
-    </div>
+    </UiSurface>
   );
 }
 
@@ -110,6 +154,19 @@ export function UiTextField({ label, id, inputRef, class:className = '', ...prop
       <input id={id} ref={inputRef} type="text" {...props} />
     </label>
   );
+}
+
+export function UiSelectField({ label, id, hint = '', error = '', options = [], class:className = '', ...props }) {
+  const describedBy = (error || hint) && id ? `${id}-hint` : undefined;
+  return <label class={['ui-form-field',className].filter(Boolean).join(' ')}>
+    <span class="ui-form-label">{label}</span>
+    <select id={id} aria-invalid={error ? 'true' : undefined}
+      aria-describedby={describedBy} {...props}>
+      {options.map((item) => <option key={item.value} value={item.value}
+        disabled={Boolean(item.disabled)}>{item.label}</option>)}
+    </select>
+    {(error || hint) && <small id={describedBy} class="ui-field-hint">{error || hint}</small>}
+  </label>;
 }
 
 export function UiCheckboxField({ class:className = '', children, ...props }) {

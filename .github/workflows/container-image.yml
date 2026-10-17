@@ -126,7 +126,18 @@ jobs:
         run: npx playwright install --with-deps chromium
 
       - name: Run real-browser Preact regression
+        env:
+          PFC_VISUAL_CAPTURE_DIR: test-artifacts/visual-regression
         run: npm run test:browser
+
+      - name: Preserve visual theme previews
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pfc-design-system-previews
+          path: test-artifacts/visual-regression/*.png
+          if-no-files-found: error
+          retention-days: 14
 
       - name: Preserve browser screenshot on failure
         if: failure()

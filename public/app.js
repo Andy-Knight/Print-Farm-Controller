@@ -246,6 +246,10 @@ const maintenanceAlertCount = document.querySelector('#maintenanceAlertCount');
 const themeToggle = document.querySelector('#themeToggle');
 const themeColorMeta = document.querySelector('#themeColorMeta');
 const sidebarToggle = document.querySelector('#sidebarToggle');
+const sidebarEl = document.querySelector('#controllerSidebar');
+const sidebarBackdrop = document.querySelector('#sidebarBackdrop');
+const mobileSidebarQuery = window.matchMedia('(max-width: 760px)');
+const workspaceTrailActive = document.querySelector('#workspaceTrailActive');
 const dashboardHomeBtn = document.querySelector('[data-dashboard-home]');
 const controllerRoutes = {
   '/': { title:'Dashboard', subtitle:'Monitor and manage your print farm' },
@@ -334,12 +338,22 @@ function renderControllerRoute(pathname, { invoke = true } = {}) {
     batchModeBtn.setAttribute('aria-disabled', routePath === '/' ? 'false' : 'true');
     if (routePath !== '/' && selectionMode) setSelectionMode(false);
   }
-  document.querySelectorAll('.sidebar-item[data-route]').forEach((item) => item.classList.toggle('active', item.dataset.route === routePath));
+  document.querySelectorAll('.sidebar-item[data-route]').forEach((item) => {
+    const current = item.dataset.route === routePath;
+    item.classList.toggle('active', current);
+    if (current) item.setAttribute('aria-current','page');
+    else item.removeAttribute('aria-current');
+  });
   document.querySelectorAll('.route-page').forEach((page) => {
     page.hidden = page.id !== route.dialog;
   });
   if (topbarContextTitle) topbarContextTitle.textContent = route.title;
   if (topbarContextSubtitle) topbarContextSubtitle.textContent = route.subtitle;
+  if (workspaceTrailActive) workspaceTrailActive.textContent = route.title;
+  window.__PFC_SHELL_ROUTE_STATE__ = { path:routePath, title:route.title, subtitle:route.subtitle };
+  window.dispatchEvent(new CustomEvent('pfc:shell-route-state',{
+    detail:window.__PFC_SHELL_ROUTE_STATE__
+  }));
   if (invoke && route.button) {
     const button = document.querySelector(`#${route.button}`);
     if (button) {
@@ -367,27 +381,79 @@ document.querySelectorAll('.sidebar-item[data-route]').forEach((item) => {
 });
 window.addEventListener('popstate', () => renderControllerRoute(location.pathname));
 
-function closeModernSidebar() {
+function syncModernSidebar(open = document.body.classList.contains('sidebar-open')) {
+  const visible = mobileSidebarQuery.matches && Boolean(open);
+  document.body.classList.toggle('sidebar-open', visible);
+  sidebarToggle?.setAttribute('aria-expanded', String(visible));
+  sidebarToggle?.setAttribute('aria-label', visible ? 'Close navigation' : 'Open navigation');
+  // Off-screen mobile navigation must never be reachable with keyboard Tab.
+  // Desktop sidebar remains available regardless of drawer state.
+  if (sidebarEl) {
+    sidebarEl.inert = mobileSidebarQuery.matches && !visible;
+    if (visible) {
+      sidebarEl.setAttribute('role','dialog');
+      sidebarEl.setAttribute('aria-modal','true');
+    } else {
+      sidebarEl.removeAttribute('role');
+      sidebarEl.removeAttribute('aria-modal');
+    }
+  }
+}
+function closeModernSidebar({ restoreFocus = false } = {}) {
   document.body.classList.remove('sidebar-open');
   sidebarToggle?.setAttribute('aria-expanded', 'false');
+  syncModernSidebar(false);
+  if (restoreFocus && mobileSidebarQuery.matches) sidebarToggle?.focus({preventScroll:true});
 }
 sidebarToggle?.addEventListener('click', () => {
   const open = document.body.classList.toggle('sidebar-open');
   sidebarToggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+  syncModernSidebar(open);
+  if (open) {
+    const current = sidebarEl?.querySelector('.sidebar-item.active');
+    (current || sidebarEl?.querySelector('.sidebar-item'))?.focus({preventScroll:true});
+  } else sidebarToggle?.focus({preventScroll:true});
 });
+sidebarBackdrop?.addEventListener('click', () => closeModernSidebar({restoreFocus:true}));
+mobileSidebarQuery.addEventListener('change', () => syncModernSidebar(false));
+syncModernSidebar(false);
 dashboardHomeBtn?.addEventListener('click', () => {
   closeModernSidebar();
   window.scrollTo({ top:0, behavior:'smooth' });
 });
-document.querySelectorAll('.sidebar-nav .sidebar-item, .sidebar-foot .sidebar-item').forEach((item) => {
-  item.addEventListener('click', () => {
-    if (window.matchMedia('(max-width: 760px)').matches) closeModernSidebar();
+document.querySelectorAll('.sidebar-nav .sidebar-item, .sidebar-foot .sidebar-item, .sidebar-quick-add')
+  .forEach((item) => {
+    item.addEventListener('click', () => {
+      if (mobileSidebarQuery.matches) {
+        closeModernSidebar();
+        // Moving the keyboard position to page context makes mobile route
+        // changes understandable to keyboard and screen-reader users.
+        if (item.dataset.route) topbarContextTitle?.focus({preventScroll:true});
+      }
+    });
   });
+window.addEventListener('pfc:shell-navigate', (event) => {
+  navigateController(event?.detail?.route || '/');
+  if (mobileSidebarQuery.matches) closeModernSidebar();
+  topbarContextTitle?.focus({preventScroll:true});
 });
 document.addEventListener('keydown', (event) => {
-  if (event.key === 'Escape') closeModernSidebar();
+  if (event.key === 'Escape' && document.body.classList.contains('sidebar-open')) {
+    event.preventDefault();
+    closeModernSidebar({restoreFocus:true});
+  }
+  if (event.key !== 'Tab' || !mobileSidebarQuery.matches
+    || !document.body.classList.contains('sidebar-open') || !sidebarEl) return;
+  const focusable = [...sidebarEl.querySelectorAll('a[href],button:not(:disabled),[tabindex]:not([tabindex="-1"])')]
+    .filter((node) => !node.inert && node.getClientRects().length);
+  const first = focusable[0], last = focusable.at(-1);
+  if (!first || !last) return;
+  if (event.shiftKey && document.activeElement === first) {
+    event.preventDefault();last.focus();
+  } else if (!event.shiftKey && document.activeElement === last) {
+    event.preventDefault();first.focus();
+  }
 });
-
 for (const route of Object.values(controllerRoutes)) {
   if (!route.dialog) continue;
   const page = document.querySelector(`#${route.dialog}`);

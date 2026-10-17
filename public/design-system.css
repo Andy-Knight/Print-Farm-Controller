@@ -1,0 +1,251 @@
+/*
+ * Print Farm Controller design-system foundation.
+ * Loaded AFTER styles.css. Existing controller API selectors, layout hooks and
+ * per-printer toolhead geometry remain owned by styles.css.
+ * Use --ds-* in all new Preact components; avoid hard-coded theme colours.
+ */
+:root {
+  color-scheme:dark;
+  --ds-font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+  --ds-font-xs:.72rem;
+  --ds-font-sm:.8rem;
+  --ds-font-md:.9rem;
+  --ds-font-lg:1.15rem;
+  --ds-font-xl:1.5rem;
+  --ds-weight-semibold:650;
+  --ds-weight-bold:780;
+  --ds-leading-body:1.5;
+  --ds-space-1:4px;
+  --ds-space-2:8px;
+  --ds-space-3:12px;
+  --ds-space-4:16px;
+  --ds-space-5:20px;
+  --ds-space-6:24px;
+  --ds-radius-sm:8px;
+  --ds-radius-md:12px;
+  --ds-radius-lg:16px;
+  --ds-radius-pill:999px;
+  --ds-input-height:var(--dropdown-field-height,42px);
+  --ds-button-height:var(--button-field-height,42px);
+  --ds-page:#0c1015;
+  --ds-surface:#141c24;
+  --ds-surface-raised:#1a2631;
+  --ds-surface-muted:#0e151c;
+  --ds-surface-hover:#1d2a36;
+  --ds-border:#2d3c4a;
+  --ds-border-strong:#466175;
+  --ds-text:#edf5fb;
+  --ds-text-muted:#abbecd;
+  --ds-text-subtle:#849bab;
+  --ds-brand:#80bfff;
+  --ds-brand-strong:#287cda;
+  --ds-brand-soft:rgba(101,172,253,.13);
+  --ds-success:#57d4a5;
+  --ds-warning:#f1c771;
+  --ds-danger:#fc8993;
+  --ds-info:#8dbdfa;
+  --ds-focus:#98cfff;
+  --ds-shadow-sm:0 3px 12px rgba(0,0,0,.14);
+  --ds-shadow-md:0 14px 34px rgba(0,0,0,.19);
+  --ds-shadow-pop:0 22px 55px rgba(0,0,0,.35);
+  --ds-duration-fast:140ms;
+  --ds-duration-normal:220ms;
+  --ds-easing:cubic-bezier(.2,.8,.2,1);
+}
+:root[data-theme="light"] {
+  color-scheme:light;
+  --ds-page:#f1f5f9;
+  --ds-surface:#ffffff;
+  --ds-surface-raised:#f6f9fd;
+  --ds-surface-muted:#f3f7fa;
+  --ds-surface-hover:#edf4fb;
+  --ds-border:#cedce6;
+  --ds-border-strong:#92adc3;
+  --ds-text:#243849;
+  --ds-text-muted:#496477;
+  --ds-text-subtle:#637d8e;
+  --ds-brand:#1466bc;
+  --ds-brand-strong:#1769bd;
+  --ds-brand-soft:rgba(25,111,205,.10);
+  --ds-success:#217c55;
+  --ds-warning:#8d6117;
+  --ds-danger:#ad3441;
+  --ds-info:#186aa9;
+  --ds-focus:#176cbd;
+  --ds-shadow-sm:0 3px 10px rgba(30,63,89,.055);
+  --ds-shadow-md:0 15px 36px rgba(30,63,89,.10);
+  --ds-shadow-pop:0 22px 55px rgba(30,63,89,.18);
+}
+/* Shared surface primitive used by existing printer metrics and future views. */
+.ui-surface {
+  min-width:0;
+  border:1px solid var(--ds-border);
+  border-radius:var(--ds-radius-md);
+  background:var(--ds-surface);
+  color:var(--ds-text);
+}
+.ui-surface-raised { background:var(--ds-surface-raised);box-shadow:var(--ds-shadow-sm); }
+.ui-surface-muted { background:var(--ds-surface-muted); }
+.ui-surface-pad { padding:var(--ds-space-4); }
+.ui-section-heading {
+  display:flex;
+  align-items:flex-start;
+  justify-content:space-between;
+  gap:var(--ds-space-4);
+  min-width:0;
+  margin:0 0 var(--ds-space-4);
+}
+.ui-section-heading h2,.ui-section-heading h3 { margin:0;color:var(--ds-text);letter-spacing:-.018em; }
+.ui-section-heading p { margin:4px 0 0;font-size:var(--ds-font-sm);color:var(--ds-text-muted); }
+.ui-empty-state {
+  display:grid;justify-items:center;gap:var(--ds-space-2);
+  padding:var(--ds-space-6);text-align:center;
+  border:1px dashed var(--ds-border-strong);border-radius:var(--ds-radius-lg);
+  background:var(--ds-surface-muted);color:var(--ds-text-muted);
+}
+.ui-empty-state strong { color:var(--ds-text);font-size:var(--ds-font-md); }
+.ui-empty-state p { margin:0;font-size:var(--ds-font-sm);max-width:45ch;line-height:var(--ds-leading-body); }
+.ui-inline-message {
+  display:flex;gap:var(--ds-space-2);align-items:flex-start;
+  padding:var(--ds-space-3);border:1px solid var(--ds-border);
+  border-radius:var(--ds-radius-md);background:var(--ds-surface-muted);
+  color:var(--ds-text-muted);font-size:var(--ds-font-sm);
+}
+.ui-inline-message[data-tone="success"] { border-color:color-mix(in srgb,var(--ds-success) 38%,var(--ds-border));color:var(--ds-success); }
+.ui-inline-message[data-tone="warning"] { border-color:color-mix(in srgb,var(--ds-warning) 38%,var(--ds-border));color:var(--ds-warning); }
+.ui-inline-message[data-tone="error"] { border-color:color-mix(in srgb,var(--ds-danger) 38%,var(--ds-border));color:var(--ds-danger); }
+.ui-inline-message[data-tone="info"] { border-color:color-mix(in srgb,var(--ds-info) 38%,var(--ds-border));color:var(--ds-info); }
+.ui-form-field { display:grid;gap:6px;min-width:0;margin:0; }
+.ui-form-label { color:var(--ds-text-muted);font-size:var(--ds-font-sm);font-weight:var(--ds-weight-semibold); }
+.ui-form-field select,.ui-form-field input {
+  width:100%;min-width:0;height:var(--ds-input-height);margin:0;
+  border:1px solid var(--ds-border);border-radius:var(--ds-radius-sm);
+  color:var(--ds-text);background:var(--ds-surface-muted);
+}
+.ui-field-hint { margin:0;color:var(--ds-text-subtle);font-size:var(--ds-font-xs);line-height:var(--ds-leading-body); }
+.ui-form-field [aria-invalid="true"] { border-color:var(--ds-danger); }
+.ui-form-field [aria-invalid="true"] + .ui-field-hint { color:var(--ds-danger); }
+.ui-button {
+  white-space:normal;
+  border-radius:var(--ds-radius-sm);
+  font-weight:var(--ds-weight-semibold);
+  letter-spacing:.005em;
+}
+.ui-button:not(.ui-button-small):not(.dashboard-view-toggle):not(.summary-card) {
+  min-height:var(--ds-button-height);
+}
+.ui-button:focus-visible,
+.ui-form-field input:focus-visible,
+.ui-form-field select:focus-visible {
+  outline:2px solid var(--ds-focus);
+  outline-offset:2px;
+}
+.ui-button[aria-busy="true"] { cursor:progress; }
+.ui-button-spinner {
+  width:14px;height:14px;flex:0 0 14px;display:inline-block;
+  border:2px solid currentColor;border-right-color:transparent;
+  border-radius:50%;animation:ds-spin .8s linear infinite;
+}
+@keyframes ds-spin { to { transform:rotate(360deg); } }
+.ui-skeleton {
+  display:block;border-radius:var(--ds-radius-sm);
+  background:linear-gradient(90deg,var(--ds-surface-muted),var(--ds-surface-raised),var(--ds-surface-muted));
+  background-size:200% 100%;animation:ds-shimmer 1.6s ease-in-out infinite;
+}
+@keyframes ds-shimmer { to { background-position-x:-200%; } }
+
+/* First design-system adoption: polished dashboard surfaces, not an API rewrite.
+   Restrict card treatment to the actual card view; table row presentation stays
+   dense and continues to share its established column/grid geometry. */
+.summary-card.ui-stat-card {
+  border:1px solid var(--ds-border);
+  border-radius:var(--ds-radius-lg);
+  background:linear-gradient(145deg,var(--ds-surface-raised),var(--ds-surface));
+  color:var(--ds-text);
+  box-shadow:var(--ds-shadow-sm);
+  transition:border-color var(--ds-duration-fast) ease,
+    box-shadow var(--ds-duration-normal) var(--ds-easing),
+    transform var(--ds-duration-normal) var(--ds-easing);
+}
+.summary-card.ui-stat-card .summary-card-label > span { color:var(--ds-text-muted); }
+.summary-card.ui-stat-card > b { color:var(--ds-text);font-variant-numeric:tabular-nums;letter-spacing:-.035em; }
+.summary-card.ui-stat-card::before {
+  content:"";position:absolute;inset:0 auto 0 0;width:3px;
+  background:var(--ds-stat-accent,var(--ds-brand));opacity:.68;
+}
+.summary-card.ui-stat-card[data-tone="success"] { --ds-stat-accent:var(--ds-success); }
+.summary-card.ui-stat-card[data-tone="working"] { --ds-stat-accent:var(--ds-info); }
+.summary-card.ui-stat-card[data-tone="warning"] { --ds-stat-accent:var(--ds-warning); }
+.summary-card.ui-stat-card.active {
+  border-color:var(--ds-brand);
+  background:linear-gradient(145deg,var(--ds-brand-soft),var(--ds-surface));
+  box-shadow:inset 0 0 0 1px var(--ds-brand-soft),var(--ds-shadow-md);
+}
+.summary-card.ui-stat-card::after { background:var(--ds-stat-accent,var(--ds-brand)); }
+.summary-card.ui-stat-card:hover:not(:disabled),
+.summary-card.ui-stat-card:focus-visible { border-color:var(--ds-border-strong);filter:none;box-shadow:var(--ds-shadow-md); }
+/* The hover highlight never paints over metric text or filament colours. */
+.fleet:not(.table-view) .card.ui-printer-surface {
+  border-color:var(--ds-border);
+  box-shadow:var(--ds-shadow-sm);
+  transition:border-color var(--ds-duration-fast) ease,box-shadow var(--ds-duration-normal) var(--ds-easing),transform var(--ds-duration-normal) var(--ds-easing);
+}
+.fleet:not(.table-view) .card.ui-printer-surface:hover,
+.fleet:not(.table-view) .card.ui-printer-surface:focus-within {
+  border-color:var(--ds-border-strong);
+  box-shadow:var(--ds-shadow-md);
+}
+/*
+ * Card-view row alignment (fix for differing printer name/model lengths).
+ * Each card spans eight shared CSS Grid rows.  The tallest header in a
+ * dashboard grid row determines the image start for EVERY printer in that row.
+ * This also aligns status strips and progress metrics without imposing a large
+ * global fixed header height or truncating long printer names.  Table mode
+ * retains its existing compact column layout and is not affected.
+ */
+@supports (grid-template-rows:subgrid) {
+  .fleet:not(.table-view) > .card.ui-printer-surface {
+    display:grid;
+    grid-row:span 8;
+    grid-template-rows:subgrid;
+    align-content:stretch;
+  }
+  .fleet:not(.table-view) > .card.ui-printer-surface > .card-head { grid-row:1; }
+  .fleet:not(.table-view) > .card.ui-printer-surface > .printer-image-slot { grid-row:2; }
+  .fleet:not(.table-view) > .card.ui-printer-surface > .bed-level-strip { grid-row:3; }
+  .fleet:not(.table-view) > .card.ui-printer-surface > .license-strip { grid-row:4; }
+  .fleet:not(.table-view) > .card.ui-printer-surface > .preheat-strip { grid-row:5; }
+  .fleet:not(.table-view) > .card.ui-printer-surface > .bed-clearance-strip { grid-row:6; }
+  .fleet:not(.table-view) > .card.ui-printer-surface > .card-body { grid-row:7; }
+  .fleet:not(.table-view) > .card.ui-printer-surface > .card-footer {
+    grid-row:8;
+    margin-top:0;
+  }
+}
+/* Browsers without row subgrid still align images using a bounded header
+   baseline, rather than reverting to independently sized headers. */
+@supports not (grid-template-rows:subgrid) {
+  @media (min-width:761px) {
+    .fleet:not(.table-view) > .card.ui-printer-surface > .card-head {
+      min-height:150px;
+    }
+  }
+}
+.ui-metric.ui-surface { background:var(--ds-surface-muted);border-color:var(--ds-border); }
+.ui-metric.ui-surface span { color:var(--ds-text-muted); }
+.ui-metric.ui-surface b { color:var(--ds-text);font-variant-numeric:tabular-nums; }
+:root[data-theme="light"] .ui-toast { border-color:var(--ds-border);background:var(--ds-surface); }
+.ui-toast { border-radius:var(--ds-radius-md);box-shadow:var(--ds-shadow-pop); }
+:root[data-theme="light"] .ui-toast strong { color:var(--ds-text); }
+
+/* Respect both OS and browser accessibility settings. The application remains
+   usable with all decorative motion disabled (telemetry still updates). */
+@media (prefers-reduced-motion:reduce) {
+  .ui-button,.ui-surface,.ui-stat-card,.ui-printer-surface,.ui-progress > span,
+  .ui-toast,.ui-skeleton,.ui-button-spinner { animation:none!important;transition:none!important; }
+  .summary-card.ui-stat-card:hover { transform:none; }
+}
+@media (max-width:620px) {
+  .ui-section-heading { flex-wrap:wrap; }
+  .ui-surface-pad { padding:var(--ds-space-3); }
+}
