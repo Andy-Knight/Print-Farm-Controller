@@ -4,6 +4,12 @@ This file contains the version-by-version release history for Print Farm Control
 
 Historical entries describe the behaviour of the controller at the time of that release and may be superseded by later versions. For current installation, configuration and supported-hardware guidance, see [README.md](README.md).
 
+## v0.51.0
+
+- Extended experimental **Bambu X1 Carbon (X1C) external-spool filament type and colour configuration** to use the same Printer Details → Toolheads dropdowns and blue **Set filament** button as the P1P/P1S. Preact and legacy fallback retain the established layout.
+- X1C now supports printer-side idle-only `ams_filament_setting` MQTT writes targeting the external virtual tray (254) with read-back verification; AMS slots remain printer-reported and are not modified. The X1C camera remains unsupported, and the A1 Mini is unchanged.
+- Extended virtual X1C TLS MQTT integration and UI/safety regressions, including verifying that busy printers reject updates and AMS slot data remains unaffected. The final PR #93 Node.js 24 / Chromium Preact / container CI checks passed, and the virtual X1 Carbon was user-tested. Physical X1C hardware and firmware validation remain outstanding.
+
 ## v0.50.0
 
 - Added **Bambu Lab P1P / P1S external-spool filament configuration** in Printer Details, with selectable material type and colour, using the same blue **Set filament** button styling as other printers. This is a printer-side write via the Bambu LAN MQTT `ams_filament_setting` command addressed to virtual tray 254, rather than a controller-only designation.
