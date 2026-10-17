@@ -60,3 +60,22 @@ test('motion and visual regression safeguards cover both themes and narrow displ
   assert.match(regression,/reducedMotion:'reduce'/);
   assert.match(regression,/PFC_VISUAL_CAPTURE_DIR/);
 });
+
+test('card-view printer images align on shared CSS subgrid rows without changing table mode',()=>{
+  assert.match(css,/@supports \(grid-template-rows:subgrid\)/);
+  assert.match(css,/\.fleet:not\(\.table-view\) > \.card\.ui-printer-surface \{/);
+  assert.match(css,/grid-row:span 8;/);
+  assert.match(css,/grid-template-rows:subgrid;/);
+  for(const [section,row] of [
+    ['card-head',1],['printer-image-slot',2],['bed-level-strip',3],
+    ['license-strip',4],['preheat-strip',5],['bed-clearance-strip',6],
+    ['card-body',7],['card-footer',8]
+  ]){
+    assert.ok(css.includes(`> .${section} { grid-row:${row}; }`) ||
+      (section==='card-footer'&&css.includes('> .card-footer {\n    grid-row:8;')),
+      'card section needs stable shared grid row: '+section);
+  }
+  assert.doesNotMatch(css,/\.fleet\.table-view > \.card\.ui-printer-surface \{/);
+  assert.match(regression,/for\(const width of \[1365,1800\]\)/);
+  assert.match(regression,/images must align for wrapped and short names/);
+});
