@@ -388,7 +388,16 @@ function syncModernSidebar(open = document.body.classList.contains('sidebar-open
   sidebarToggle?.setAttribute('aria-label', visible ? 'Close navigation' : 'Open navigation');
   // Off-screen mobile navigation must never be reachable with keyboard Tab.
   // Desktop sidebar remains available regardless of drawer state.
-  if (sidebarEl) sidebarEl.inert = mobileSidebarQuery.matches && !visible;
+  if (sidebarEl) {
+    sidebarEl.inert = mobileSidebarQuery.matches && !visible;
+    if (visible) {
+      sidebarEl.setAttribute('role','dialog');
+      sidebarEl.setAttribute('aria-modal','true');
+    } else {
+      sidebarEl.removeAttribute('role');
+      sidebarEl.removeAttribute('aria-modal');
+    }
+  }
 }
 function closeModernSidebar({ restoreFocus = false } = {}) {
   document.body.classList.remove('sidebar-open');
