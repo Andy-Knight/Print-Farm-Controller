@@ -126,7 +126,7 @@ test('X1C external-spool write rejects busy printer and does not touch AMS', asy
     const before=await adapter.getStatus();
     const oldSpool=before.materialSources.find((source)=>source.kind==='external');
     const oldAms=before.materialSources.filter((source)=>source.kind==='ams');
-    virtual.startPrint('x1c-spool-write-guard.3mf');
+    emulator.printers.get(virtual.id).startPrint('x1c-spool-write-guard.3mf');
     await assert.rejects(adapter.setFilamentConfig({toolIndex:0,material:'ASA',color:'#00AAFF'}),/idle/);
     const after=await adapter.getStatus();
     assert.deepEqual(after.materialSources.find((source)=>source.kind==='external'),oldSpool);
