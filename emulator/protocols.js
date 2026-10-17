@@ -590,10 +590,13 @@ function bambuStatus(printer, sequenceId = '0') {
           tray:unit.trays.map((tray) => ({
             id:String(tray.slotIndex),
             tray_exist_bits:tray.present ? '1' : '0',
+            tag_uid:tray.tagUid ?? '0000000000000000',
             tray_type:tray.present ? tray.material || '' : '',
             tray_sub_brands:tray.present ? tray.materialVariant || '' : '',
             tray_color:tray.present && tray.color ? `${tray.color.replace('#', '').toUpperCase()}FF` : '',
-            tray_info_idx:tray.present ? tray.vendor || 'Simulator' : ''
+            tray_info_idx:tray.present ? tray.vendor || 'Simulator' : '',
+            nozzle_temp_min:tray.nozzle_temp_min ?? 190,
+            nozzle_temp_max:tray.nozzle_temp_max ?? 250
           }))
         }))
       },
@@ -648,6 +651,25 @@ function applyBambuCommand(printer, body) {
       if (Number(printer.activeMaterialSource) === 254)
         printer.tools[0].filament = { ...printer.tools[0].filament, ...spool };
       printer.emitChange();
+    } else if (['P1P','P1S','X1C'].includes(printer.model) && printer.status === 'idle'
+      && Number.isInteger(Number(payload.ams_id)) && Number(payload.ams_id) >= 0 && Number(payload.ams_id) < 4
+      && Number.isInteger(Number(payload.slot_id)) && Number(payload.slot_id) >= 0 && Number(payload.slot_id) < 4
+      && Number(payload.tray_id) === Number(payload.slot_id)
+      && /^[0-9a-f]{8}$/i.test(String(payload.tray_color || ''))
+      && String(payload.tray_type || '').trim()) {
+      const unit=Number(payload.ams_id), slot=Number(payload.slot_id);
+      const tray=printer.amsUnits?.[unit]?.trays?.[slot];
+      if (tray?.present && /^0+$/.test(String(tray.tagUid || ''))) {
+        tray.material=String(payload.tray_type).toUpperCase();
+        tray.color='#'+String(payload.tray_color).slice(0,6).toUpperCase();
+        tray.colorFamily=colorFamily(tray.color);
+        tray.vendor=String(payload.tray_info_idx || '');
+        tray.nozzle_temp_min=Number(payload.nozzle_temp_min);
+        tray.nozzle_temp_max=Number(payload.nozzle_temp_max);
+        if (Number(printer.activeMaterialSource)===unit*4+slot)
+          printer.tools[0].filament={ ...printer.tools[0].filament,...tray };
+        printer.emitChange();
+      }
     }
   } else if (command === 'gcode_line') {
     for (const line of String(payload.param || '').split(/\r?\n/)) {
