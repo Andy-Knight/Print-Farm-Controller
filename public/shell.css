@@ -3,6 +3,24 @@
  * Decorative only: route ownership, printer commands and event delegation
  * stay in public/app.js. This stylesheet follows design-system.css.
  */
+.workspace-skip-link {
+  position:fixed;
+  top:8px;left:12px;z-index:300;
+  display:inline-block;
+  padding:10px 15px;
+  border:2px solid var(--ds-focus);
+  border-radius:var(--ds-radius-sm);
+  background:var(--ds-surface);
+  color:var(--ds-text);
+  font-weight:750;
+  text-decoration:none;
+  transform:translateY(-160%);
+}
+.workspace-skip-link:focus {
+  transform:translateY(0);
+  outline:2px solid var(--ds-focus);
+  outline-offset:2px;
+}
 :root {
   --sidebar-width:252px;
   --shell-topbar-height:74px;
