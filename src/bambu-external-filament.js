@@ -55,7 +55,7 @@ export async function setBambuExternalFilament(printer, request, {
   sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
 } = {}) {
   const model = String(printer?.model || '').trim().toUpperCase();
-  if (!['P1P', 'P1S'].includes(model)) throw new Error('External-spool filament control is supported only for P1P/P1S.');
+  if (!['P1P', 'P1S', 'X1C'].includes(model)) throw new Error('External-spool filament control is supported only for P1P/P1S/X1C.');
   const before = await getReport(printer);
   const state = String((before.print || before).gcode_state || '').trim().toUpperCase();
   if (!['IDLE', 'READY'].includes(state)) throw new Error('Set external-spool filament only while the Bambu printer is idle.');
