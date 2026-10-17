@@ -236,7 +236,7 @@ async function workspaceShellSmoke(browser,url) {
     assert.equal(await toggle.getAttribute('aria-expanded'),'true');
     assert.equal(await page.locator('body').evaluate(n=>n.classList.contains('sidebar-open')),true);
     assert.equal(await page.locator('#controllerSidebar').evaluate(n=>n.inert),false);
-    assert.ok(await page.locator('.sidebar-item.active').isFocused(),
+    assert.ok(await page.locator('.sidebar-item.active').evaluate(el=>document.activeElement===el),
       'drawer autofocuses active navigation for keyboard users');
     if(captureDir)await page.screenshot({path:path.join(captureDir,'workspace-light-mobile-drawer.png'),
       animations:'disabled',fullPage:true});
@@ -249,7 +249,7 @@ async function workspaceShellSmoke(browser,url) {
     await toggle.click();
     await page.keyboard.press('Escape');
     assert.equal(await toggle.getAttribute('aria-expanded'),'false','Escape closes drawer');
-    assert.ok(await toggle.isFocused(),'Escape returns focus to menu toggle');
+    assert.ok(await toggle.evaluate(el=>document.activeElement===el),'Escape returns focus to menu toggle');
     await toggle.click();
     await page.locator('#sidebarBackdrop').click({position:{x:370,y:430},force:true});
     assert.equal(await toggle.getAttribute('aria-expanded'),'false','backdrop closes drawer');
