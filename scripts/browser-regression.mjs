@@ -54,6 +54,111 @@ async function reportsLoaded(page,where) {
   assert.ok(await page.locator('#reportingPrinter option').count()>0,where+' printer choices');
 }
 
+/**
+ * Phase-1 visual contract: computed design tokens, semantic filter states,
+ * keyboard focus, reduced motion and responsive cards in BOTH themes.
+ * Optional full-page captures are written only if PFC_VISUAL_CAPTURE_DIR is set;
+ * the test never compares screenshots against brittle machine-specific pixels.
+ */
+async function designSystemSmoke(browser,url) {
+  console.log('Chromium: SaaS design-system light/dark + desktop/mobile visual contract');
+  const context=await browser.newContext({viewport:{width:1365,height:900}});
+  const page=await context.newPage();
+  const errors=[];
+  page.on('pageerror',(event)=>errors.push(event.message));
+  await context.route('**/api/events',(route)=>route.fulfill({
+    status:200,headers:{'content-type':'text/event-stream'},
+    body:': design-system fixture\\n\\n'
+  }));
+  const captureDir=process.env.PFC_VISUAL_CAPTURE_DIR
+    ? path.resolve(process.env.PFC_VISUAL_CAPTURE_DIR) : null;
+  if(captureDir)await fs.mkdir(captureDir,{recursive:true});
+  try {
+    await page.goto(url+'/',{waitUntil:'load'});
+    await preactReady(page);
+    assert.equal(await page.locator('link[href="/design-system.css"]').count(),1,
+      'the design-system stylesheet must load after existing styles');
+    await page.waitForFunction(()=>document.querySelectorAll('#summary .ui-stat-card').length===4);
+    const css=await page.evaluate(()=>({
+      tokens:getComputedStyle(document.documentElement).getPropertyValue('--ds-surface').trim(),
+      source:[...document.styleSheets].some(s=>s.href?.endsWith('/design-system.css'))
+    }));
+    assert.ok(css.tokens,'tokens resolve from the loaded design system');
+    assert.equal(css.source,true,'design system must be a real stylesheet, not a route fallback');
+    // Synthetic presentation only. Device commands remain owned by app.js.
+    await page.evaluate(()=>{
+      window.dispatchEvent(new CustomEvent('pfc:dashboard-fleet-state',{detail:{printers:[{
+        id:'design-system-example',name:'Design system printer',visible:true,
+        state:'Idle',stateClass:'idle',progress:25,progressText:'25%',
+        jobName:'demo.gcode',hostText:'127.0.0.1',nozzleLabel:'Nozzle',
+        nozzle:'210°C',bed:'60°C',layer:'10',remaining:'01:25',
+        lastSeen:'just now',latency:'2 ms',image:{label:'Synthetic'}
+      }]}}));
+    });
+    await page.locator('[data-printer-card="design-system-example"] .ui-metric').first()
+      .waitFor({state:'visible',timeout:12000});
+    for(const theme of ['dark','light']){
+      await page.evaluate((name)=>{document.documentElement.dataset.theme=name;},theme);
+      const result=await page.evaluate(()=>{
+        const root=document.documentElement;
+        const cards=[...document.querySelectorAll('#summary .ui-stat-card')];
+        const printer=document.querySelector('[data-printer-card="design-system-example"]');
+        const metric=printer?.querySelector('.ui-metric');
+        const sheet=getComputedStyle(root);
+        return {
+          scheme:sheet.colorScheme,
+          surface:sheet.getPropertyValue('--ds-surface').trim(),
+          text:sheet.getPropertyValue('--ds-text').trim(),
+          cards:cards.map(x=>({
+            tone:x.dataset.tone,
+            label:x.querySelector('.summary-card-label')?.textContent?.trim(),
+            count:x.querySelector('b')?.textContent?.trim(),
+            background:getComputedStyle(x).backgroundImage,
+            bounds:x.getBoundingClientRect().toJSON()
+          })),
+          printer:printer?.getBoundingClientRect().toJSON(),
+          metricBackground:metric&&getComputedStyle(metric).backgroundColor,
+          metricText:metric&&getComputedStyle(metric.querySelector('b')).color
+        };
+      });
+      assert.equal(result.scheme,theme,'browser computes '+theme+' colour scheme');
+      assert.ok(result.surface&&result.text,'theme tokens resolve');
+      assert.deepEqual(result.cards.map(x=>x.tone),['neutral','success','working','warning']);
+      assert.ok(result.cards.every(x=>x.label&&x.count),
+        'summary status labels remain above counts');
+      assert.ok(result.printer?.width>=295,'desktop printer card retains usable width');
+      assert.ok(result.metricBackground&&result.metricText,
+        'printer metrics have readable themed foreground/background');
+      if(captureDir)await page.screenshot({
+        path:path.join(captureDir,`dashboard-${theme}-desktop.png`),fullPage:true,
+        animations:'disabled'
+      });
+    }
+    await page.setViewportSize({width:390,height:844});
+    await page.evaluate(()=>{document.documentElement.dataset.theme='light';});
+    const mobile=await page.evaluate(()=>{
+      const cards=[...document.querySelectorAll('#summary .ui-stat-card')];
+      return cards.map(x=>x.getBoundingClientRect().toJSON());
+    });
+    assert.equal(mobile.length,4,'mobile summary retains all four actionable filters');
+    assert.ok(mobile.every(b=>b.left>=0&&b.right<=390.5),
+      'summary cards do not overflow phone viewport: '+JSON.stringify(mobile));
+    if(captureDir)await page.screenshot({
+      path:path.join(captureDir,'dashboard-light-mobile.png'),fullPage:true,
+      animations:'disabled'
+    });
+    await page.emulateMedia({reducedMotion:'reduce'});
+    const motion=await page.evaluate(()=>{
+      const target=document.querySelector('#summary .ui-stat-card');
+      const styles=getComputedStyle(target);
+      return {animation:styles.animationDuration,transition:styles.transitionDuration};
+    });
+    assert.ok(motion.transition.split(',').every(s=>Number.parseFloat(s)===0),
+      'reduced-motion mode disables decorative card transitions');
+    assert.deepEqual(errors,[],'design-system browser interactions must not throw');
+  }finally{await context.close();}
+}
+
 async function routeSmoke(page,url) {
   console.log('Chromium: checking direct load of all controller routes');
   for (const [route,id] of routes) {
@@ -1013,6 +1118,7 @@ async function main() {
     const context=await browser.newContext({viewport:{width:1365,height:900}});
     page=await context.newPage();
     page.on('pageerror',(e)=>errors.push(e.message));
+    await designSystemSmoke(browser,url);
     await routeSmoke(page,url);
     await queueClickSmoke(browser,url);
     await groupEditorSmoke(browser,url);
