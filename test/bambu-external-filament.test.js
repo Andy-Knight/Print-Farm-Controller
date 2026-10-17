@@ -135,3 +135,30 @@ test('X1C external-spool write rejects busy printer and does not touch AMS', asy
     await emulator.stop();
   }
 });
+
+test('A1 Mini external spool can be configured without AMS Lite and refuses busy writes',async()=>{
+  const emulator=createEmulator({managementPort:0,withDefaults:false});
+  await emulator.start();
+  try{
+    const virtual=await emulator.addPrinter({profileId:'bambu-a1-mini',
+      ports:{mqttPort:0,ftpsPort:0,cameraPort:0}});
+    const internal=emulator.printers.get(virtual.id);
+    internal.configure({amsUnits:0});
+    const adapter=new BambuLabAdapter({
+      model:'A1 Mini',host:virtual.host,serialNumber:virtual.serialNumber,
+      checkCode:virtual.checkCode,mqttPort:virtual.ports.mqttPort
+    });
+    const before=await adapter.getStatus();
+    assert.equal(before.amsAttached,false);
+    assert.equal(before.materialSources.filter(source=>source.kind==='ams').length,0);
+    const saved=await adapter.setFilamentConfig({toolIndex:0,material:'PETG',color:'#0066FF'});
+    assert.deepEqual(saved,{material:'PETG',color:'#0066FF',verified:true});
+    const after=await adapter.getStatus();
+    assert.equal(after.materialSources.find(source=>source.kind==='external').material,'PETG');
+    assert.equal(after.materialSources.find(source=>source.kind==='external').color,'#0066FF');
+    internal.startPrint('a1-mini-external-spool-guard.3mf');
+    await assert.rejects(adapter.setFilamentConfig({toolIndex:0,material:'PLA',color:'#FF0000'}),/idle/);
+    const unchanged=await adapter.getStatus();
+    assert.equal(unchanged.materialSources.find(source=>source.kind==='external').material,'PETG');
+  }finally{await emulator.stop();}
+});
