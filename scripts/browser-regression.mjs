@@ -175,6 +175,94 @@ async function designSystemSmoke(browser,url) {
   }finally{await context.close();}
 }
 
+
+async function workspaceShellSmoke(browser,url) {
+  console.log('Chromium: Phase 2 workspace sidebar, breadcrumbs and mobile navigation');
+  const context=await browser.newContext({viewport:{width:1365,height:900}});
+  const page=await context.newPage();
+  const errors=[];
+  page.on('pageerror',(error)=>errors.push(error.message));
+  const captureDir=process.env.PFC_VISUAL_CAPTURE_DIR
+    ? path.resolve(process.env.PFC_VISUAL_CAPTURE_DIR) : null;
+  if(captureDir)await fs.mkdir(captureDir,{recursive:true});
+  await context.route('**/api/events',(route)=>route.fulfill({
+    status:200,headers:{'content-type':'text/event-stream'},
+    body:': shell fixture\\n\\n'
+  }));
+  try {
+    await page.goto(url+'/reports',{waitUntil:'load'});
+    await preactReady(page);
+    const crumb=page.locator('#workspaceTrailRoot [data-preact-workspace-trail]');
+    await crumb.waitFor({state:'visible'});
+    await page.waitForFunction(()=>document.querySelector('#workspaceTrailRoot [aria-current="page"]')
+      ?.textContent==='Reports & analytics');
+    assert.equal(await page.locator('#reportsBtn').getAttribute('aria-current'),'page',
+      'active navigation item has current-page semantics');
+    assert.equal(await page.locator('.sidebar-section-label').count(),2,
+      'operations and farm management are visually grouped');
+    assert.ok(await page.locator('.sidebar-nav .sidebar-icon svg').count()>=9,
+      'main sidebar uses consistently sized SVG navigation icons');
+    assert.equal(await page.locator('#controllerSidebar').evaluate(n=>n.inert),false,
+      'desktop navigation is always available');
+    await crumb.getByRole('button',{name:'Go to dashboard'}).click();
+    await page.waitForFunction(()=>location.pathname==='/'&&document.body.dataset.route==='/' &&
+      document.querySelector('.topbar-context strong')?.textContent==='Dashboard');
+    assert.equal(await page.locator('[data-dashboard-home]').getAttribute('aria-current'),'page',
+      'breadcrumb uses normal controller routing to activate Dashboard');
+    const desktop=await page.evaluate(()=>({
+      sidebar:document.querySelector('#controllerSidebar').getBoundingClientRect().toJSON(),
+      header:document.querySelector('.modern-topbar').getBoundingClientRect().toJSON(),
+      main:document.querySelector('body > main').getBoundingClientRect().toJSON()
+    }));
+    assert.ok(desktop.sidebar.width>=215&&desktop.sidebar.width<=275,
+      'desktop sidebar retains practical width');
+    assert.ok(desktop.main.left>=desktop.sidebar.right-2,'workspace does not overlap fixed sidebar');
+    assert.ok(desktop.header.left>=desktop.sidebar.right-2,'header aligns with workspace');
+    if(captureDir){
+      await page.screenshot({path:path.join(captureDir,'workspace-dark-desktop.png'),
+        animations:'disabled',fullPage:true});
+      await page.locator('#themeToggle').click();
+      await page.screenshot({path:path.join(captureDir,'workspace-light-desktop.png'),
+        animations:'disabled',fullPage:true});
+    }
+    await page.setViewportSize({width:390,height:844});
+    await page.reload({waitUntil:'load'});
+    await preactReady(page);
+    const toggle=page.locator('#sidebarToggle');
+    assert.ok(await toggle.isVisible(),'mobile navigation toggle is available');
+    assert.equal(await page.locator('#controllerSidebar').evaluate(n=>n.inert),true,
+      'closed offscreen mobile navigation is inert');
+    await toggle.click();
+    assert.equal(await toggle.getAttribute('aria-expanded'),'true');
+    assert.equal(await page.locator('body').evaluate(n=>n.classList.contains('sidebar-open')),true);
+    assert.equal(await page.locator('#controllerSidebar').evaluate(n=>n.inert),false);
+    assert.ok(await page.locator('.sidebar-item.active').isFocused(),
+      'drawer autofocuses active navigation for keyboard users');
+    if(captureDir)await page.screenshot({path:path.join(captureDir,'workspace-light-mobile-drawer.png'),
+      animations:'disabled',fullPage:true});
+    await page.locator('#reportsBtn').click();
+    await page.waitForFunction(()=>location.pathname==='/reports'
+      &&document.body.dataset.route==='/reports');
+    assert.equal(await toggle.getAttribute('aria-expanded'),'false',
+      'navigation selection closes drawer');
+    assert.equal(await page.locator('#controllerSidebar').evaluate(n=>n.inert),true);
+    await toggle.click();
+    await page.keyboard.press('Escape');
+    assert.equal(await toggle.getAttribute('aria-expanded'),'false','Escape closes drawer');
+    assert.ok(await toggle.isFocused(),'Escape returns focus to menu toggle');
+    await toggle.click();
+    await page.locator('#sidebarBackdrop').click({position:{x:370,y:430},force:true});
+    assert.equal(await toggle.getAttribute('aria-expanded'),'false','backdrop closes drawer');
+    await toggle.click();
+    await page.locator('.sidebar-quick-add').click();
+    await page.locator('#addPrinterDialog[open]').waitFor({state:'visible'});
+    assert.equal(await toggle.getAttribute('aria-expanded'),'false',
+      'quick add uses existing add printer dialog and closes navigation');
+    await page.keyboard.press('Escape');
+    assert.deepEqual(errors,[],'new shell interactions must not produce page errors');
+  }finally {await context.close();}
+}
+
 async function routeSmoke(page,url) {
   console.log('Chromium: checking direct load of all controller routes');
   for (const [route,id] of routes) {
@@ -1135,6 +1223,7 @@ async function main() {
     page=await context.newPage();
     page.on('pageerror',(e)=>errors.push(e.message));
     await designSystemSmoke(browser,url);
+    await workspaceShellSmoke(browser,url);
     await routeSmoke(page,url);
     await queueClickSmoke(browser,url);
     await groupEditorSmoke(browser,url);
