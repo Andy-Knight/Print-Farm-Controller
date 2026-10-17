@@ -11,6 +11,8 @@ A local-first 3D printer fleet controller. It runs entirely on your LAN and curr
 
 Current highlights:
 
+- **Phase 3 — Preact dashboard visual redesign (feature branch):** Adds a structured Farm overview header, refined group/view toolbar, four operational status summaries with supporting text, a live Printer section heading, and consistent printer cards/metrics/action treatments. This is a presentation-only improvement; existing image-row subgrid alignment, queue/card actions, table columns and sorting are preserved. Desktop/mobile and light/dark Chromium regressions cover the updates. See [Design System](docs/DESIGN_SYSTEM.md).
+
 - **SaaS application shell (Phase 2, active feature branch):** Refines desktop/mobile sidebar and topbar layout with consistent SVG navigation icons, visually grouped routes, clearly marked current page and a reactive Preact breadcrumb. Mobile navigation now has an accessible backdrop, focus handling and direct Add printer action. Builds on the Phase 1 design-token layer; functional routes, printer commands, Preact fallback and controller data handling are unchanged. See [Design System](docs/DESIGN_SYSTEM.md).
 
 - **Preact SaaS design system (active feature branch):** Introduces a `--ds-*` light/dark design-token layer, reusable Preact surfaces and form/feedback primitives, a visual polish pass on dashboard status summaries and printer metrics, reduced-motion support and an opt-in screenshot capture path in Chromium regression testing. See [Design System](docs/DESIGN_SYSTEM.md). No printer protocols or controller workflows are changed; pending full CI and visual review before merge.
