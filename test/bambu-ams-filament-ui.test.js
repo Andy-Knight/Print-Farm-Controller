@@ -8,14 +8,14 @@ const styles=readFileSync(new URL('../public/styles.css',import.meta.url),'utf8'
 const preact=readFileSync(new URL('../ui/printer-details.jsx',import.meta.url),'utf8');
 const server=readFileSync(new URL('../src/server.js',import.meta.url),'utf8');
 
-test('AMS slot editor permits manual non-RFID spools only on idle supported printers',()=>{
+test('AMS slot editor permits manual non-RFID spools only on idle supported printers including A1 Mini',()=>{
   const a=app.indexOf('function bambuAmsFilamentEditState(');
   const b=app.indexOf('function bambuAmsFilamentControlMarkup(',a);
   const fn=runInNewContext(app.slice(a,b)+'\nbambuAmsFilamentEditState',{});
   const printer=(model,status)=>({adapterType:'bambu-lab',model,status:{status},
     capabilities:{filamentTypeControl:true,filamentColorControl:true}});
   const manual={kind:'ams',present:true,rfidState:'manual'};
-  for(const model of ['P1P','P1S','X1C']){
+  for(const model of ['P1P','P1S','X1C','A1 Mini']){
     assert.equal(fn(printer(model,'idle'),manual).enabled,true);
     assert.equal(fn(printer(model,'printing'),manual).enabled,false);
     assert.equal(fn(printer(model,'paused'),manual).enabled,false);
@@ -23,7 +23,7 @@ test('AMS slot editor permits manual non-RFID spools only on idle supported prin
     assert.equal(fn(printer(model,'idle'),{...manual,rfidState:'unknown'}).enabled,false);
     assert.equal(fn(printer(model,'idle'),{...manual,present:false}).enabled,false);
   }
-  assert.equal(fn(printer('A1 Mini','idle'),manual).enabled,false);
+  assert.equal(fn(printer('Unsupported','idle'),manual).enabled,false);
 });
 
 test('AMS renders per-slot controls in Preact and fallback while reusing theme and dropdown spacing',()=>{
