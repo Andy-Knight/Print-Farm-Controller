@@ -47,6 +47,10 @@ test('mobile drawer guards hidden focus, Escape and backdrop interactions',()=>{
   assert.match(app,/closeModernSidebar\(\{restoreFocus:true\}\)/);
   assert.match(styles,/body\.sidebar-open \.sidebar-backdrop/);
   assert.match(styles,/body\.sidebar-open \{ overflow:hidden; \}/);
+  assert.match(html,/class="workspace-skip-link" href="#workspaceMain"/);
+  assert.match(html,/<main id="workspaceMain" tabindex="-1">/);
+  assert.match(styles,/\.workspace-skip-link:focus/);
+  assert.match(app,/sidebarEl\.setAttribute\('aria-modal','true'\)/);
 });
 
 test('Preact breadcrumb is a passive subscribed shell island, and legacy breadcrumb is usable',()=>{
