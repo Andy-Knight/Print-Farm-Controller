@@ -98,7 +98,10 @@ async function designSystemSmoke(browser,url) {
         ['short-model-2','FF1-Virt','127.0.0.1 · Adventurer 5M Pro'],
         ['short-model-3','A1-Mini','127.0.0.1 · A1 Mini']
       ].map(([id,name,hostText])=>({
-        id,name,hostText,visible:true,state:'Idle',stateClass:'idle',
+        id,name,hostText,visible:true,
+        state:id==='design-system-example' ? 'OFFLINE' : 'Idle',
+        stateClass:id==='design-system-example' ? 'offline' : 'idle',
+        maintenance:{state:id==='design-system-example' ? 'due' : 'none',actionText:'Maintenance'},
         progress:25,progressText:'25%',jobName:'demo.gcode',nozzleLabel:'Nozzle',
         nozzle:'210°C',bed:'60°C',layer:'10',remaining:'01:25',
         lastSeen:'just now',latency:'2 ms',image:{label:'Synthetic'}
@@ -153,6 +156,48 @@ async function designSystemSmoke(browser,url) {
       }
     }
     await page.setViewportSize({width:1365,height:900});
+    // Regression: table status pills must show the entire OFFLINE label
+    // alongside the maintenance icon, including the coloured dot.
+    await page.evaluate(()=>{
+      document.querySelector('#fleetViewport')?.classList.add('table-view');
+      document.querySelector('#fleet')?.classList.add('table-view');
+    });
+    for(const theme of ['dark','light']){
+      await page.evaluate((name)=>{
+        if(document.documentElement.dataset.theme!==name)
+          document.querySelector('#themeToggle')?.click();
+      },theme);
+      const pill=await page.evaluate(()=>{
+        const row=document.querySelector('[data-printer-card="design-system-example"]');
+        const badge=row.querySelector('[data-printer-state]');
+        const actions=row.querySelector('.card-head-actions');
+        const maintenance=row.querySelector('[data-maintenance-status-icon]');
+        const r=badge.getBoundingClientRect(), a=actions.getBoundingClientRect();
+        const m=maintenance.getBoundingClientRect();
+        const pseudo=getComputedStyle(badge,'::before');
+        return {
+          label:badge.textContent.trim(),
+          textWidth:badge.scrollWidth,badgeWidth:badge.clientWidth,
+          badgeRight:r.right,actionsRight:a.right,
+          badgeLeft:r.left,maintenanceRight:m.right,
+          dotWidth:pseudo.width,
+          overflow:getComputedStyle(badge).textOverflow
+        };
+      });
+      assert.equal(pill.label,'OFFLINE');
+      assert.ok(pill.textWidth<=pill.badgeWidth+1,
+        theme+' OFFLINE text should fit inside the coloured badge: '+JSON.stringify(pill));
+      assert.ok(pill.badgeRight<=pill.actionsRight+1,
+        theme+' OFFLINE badge should fit in its table column: '+JSON.stringify(pill));
+      assert.ok(Number.parseFloat(pill.dotWidth)>=6,
+        theme+' OFFLINE status dot should remain visible: '+JSON.stringify(pill));
+      assert.ok(pill.badgeLeft>=pill.maintenanceRight,
+        theme+' OFFLINE status should not overlap maintenance icon: '+JSON.stringify(pill));
+    }
+    await page.evaluate(()=>{
+      document.querySelector('#fleetViewport')?.classList.remove('table-view');
+      document.querySelector('#fleet')?.classList.remove('table-view');
+    });
     for(const theme of ['dark','light']){
       // Use the real controller theme action: app.js also updates the inline
       // colorScheme style and accessible toggle, not only data-theme.
