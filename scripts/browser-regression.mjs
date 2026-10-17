@@ -88,21 +88,71 @@ async function designSystemSmoke(browser,url) {
     // The Preact fleet subscription uses useEffect; wait for it to attach
     // before firing the isolated synthetic telemetry fixture.
     await page.waitForTimeout(250);
-    // Synthetic presentation only. Device commands remain owned by app.js.
+    // Mixed-length names and model descriptions recreate the user's screenshot.
+    // Synthetic presentation only; no hardware or printer APIs are modified.
     await page.evaluate(()=>{
-      window.dispatchEvent(new CustomEvent('pfc:dashboard-fleet-state',{detail:{printers:[{
-        id:'design-system-example',name:'Design system printer',visible:true,
-        state:'Idle',stateClass:'idle',progress:25,progressText:'25%',
-        jobName:'demo.gcode',hostText:'127.0.0.1',nozzleLabel:'Nozzle',
+      const printers=[
+        ['design-system-example','A5M-Pro1','192.168.4.114 · Adventurer 5M Pro'],
+        ['long-model','A5M-Pro2','192.168.4.116 · Adventurer 5M Pro'],
+        ['short-model','U1-1','192.168.4.187 · Snapmaker U1'],
+        ['short-model-2','FF1-Virt','127.0.0.1 · Adventurer 5M Pro'],
+        ['short-model-3','A1-Mini','127.0.0.1 · A1 Mini']
+      ].map(([id,name,hostText])=>({
+        id,name,hostText,visible:true,state:'Idle',stateClass:'idle',
+        progress:25,progressText:'25%',jobName:'demo.gcode',nozzleLabel:'Nozzle',
         nozzle:'210°C',bed:'60°C',layer:'10',remaining:'01:25',
         lastSeen:'just now',latency:'2 ms',image:{label:'Synthetic'}
-      }]}}));
+      }));
+      window.dispatchEvent(new CustomEvent('pfc:dashboard-fleet-state',{detail:{printers}}));
+      // The no-printers backend response hides the fleet container; reveal
+      // our in-memory Preact fixture to measure the real layout geometry.
+      document.querySelector('#fleetViewport')?.classList.remove('hidden');
+      document.querySelector('#fleet')?.classList.remove('hidden');
+      document.querySelector('#empty')?.classList.add('hidden');
     });
     // The original empty-farm controller can keep #fleet hidden while a
     // synthetic Preact state is mounted; verify the component and computed
     // token styling without pretending the controller registered hardware.
     await page.locator('[data-printer-card="design-system-example"] .ui-metric').first()
       .waitFor({state:'attached',timeout:12000});
+    // Measure rendered Chromium geometry rather than inspecting CSS source.
+    // Cards sharing a grid row must always share one image baseline.
+    for(const width of [1365,1800]){
+      await page.setViewportSize({width,height:980});
+      const groups=await page.evaluate(()=>{
+        const cards=[...document.querySelectorAll('#fleet:not(.table-view) > .card.ui-printer-surface')]
+          .filter(card=>getComputedStyle(card).display!=='none');
+        const rows=new Map();
+        for(const card of cards){
+          const cardBox=card.getBoundingClientRect();
+          const imageBox=card.querySelector('[data-printer-image-slot]').getBoundingClientRect();
+          const head=card.querySelector('.card-head');
+          const headBox=head.getBoundingClientRect();
+          const key=Math.round(cardBox.top);
+          if(!rows.has(key))rows.set(key,[]);
+          rows.get(key).push({
+            name:card.querySelector('[data-name]')?.textContent,
+            imageTop:imageBox.top,imageBottom:imageBox.bottom,
+            headBottom:headBox.bottom,headScroll:head.scrollHeight,headHeight:head.clientHeight
+          });
+        }
+        return [...rows.values()];
+      });
+      assert.equal(groups.flat().length,5,'all five synthetic printers must be rendered');
+      assert.ok(groups.some(group=>group.length>=3),'desktop layout should show 3+ cards per row');
+      for(const group of groups){
+        const y=group.map(item=>item.imageTop);
+        assert.ok(Math.max(...y)-Math.min(...y)<=1.5,
+          'images must align for wrapped and short names at '+width+'px: '+JSON.stringify(group));
+        for(const card of group) {
+          assert.ok(card.headScroll<=card.headHeight+1,
+            'long printer headings must grow rather than clip: '+JSON.stringify(card));
+          assert.ok(card.headBottom<=card.imageTop+1.5,
+            'card heading must not overlap its image');
+        }
+      }
+    }
+    await page.setViewportSize({width:1365,height:900});
     for(const theme of ['dark','light']){
       // Use the real controller theme action: app.js also updates the inline
       // colorScheme style and accessible toggle, not only data-theme.
