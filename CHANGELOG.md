@@ -4,6 +4,13 @@ This file contains the version-by-version release history for Print Farm Control
 
 Historical entries describe the behaviour of the controller at the time of that release and may be superseded by later versions. For current installation, configuration and supported-hardware guidance, see [README.md](README.md).
 
+## v0.53.0
+
+- Extended **Bambu A1 Mini external-spool filament editing** with the same filament type, colour and blue **Set filament** controls already available for the P1P/P1S/X1C, using printer-side LAN MQTT `ams_filament_setting` on the external virtual tray (AMS 255, tray 254) and verified printer read-back.
+- Enabled **AMS Lite individual slot filament configuration** on the A1 Mini for occupied slots explicitly reported as non-RFID. Preserved read-only protections for RFID-managed, missing/unknown RFID-tag and empty slots, as well as idle-only writes, per-slot targeting, and verification of printer-reported material and colour. The printer remains the authoritative source; other AMS Lite slots and the external spool are not modified by a slot change.
+- Kept A1 Mini-specific 80 °C bed limit, TLS/JPEG camera and lack of chamber controls. Added AMS Lite filament-handling compatibility guidance without applying the same material restrictions to the external spool.
+- Extended virtual A1 Mini TLS MQTT end-to-end tests for standalone external-spool usage, AMS Lite updates, RFID/empty slot safety, busy-state rejection and unaffected material sources. PR #95 Node.js 24, Chromium Preact and container smoke tests passed. **Physical A1 Mini and AMS Lite hardware/firmware validation is still required**, and support remains experimental.
+
 ## v0.52.0
 
 - Added optional **Bambu P1P/P1S/X1 Carbon AMS slot filament configuration** in Printer Details → Toolheads. Occupied, explicitly identified third-party/non-RFID slots expose filament type and colour dropdowns and the standard blue **Set filament** button, in both Preact and the legacy frontend.

@@ -1,4 +1,4 @@
-# Print Farm Controller v0.52.0
+# Print Farm Controller v0.53.0
 A local-first 3D printer fleet controller. It runs entirely on your LAN and currently supports:
 
 - **FlashForge Adventurer 5M / 5M Pro** through the local FlashForge HTTP/TCP APIs.
@@ -7,13 +7,13 @@ A local-first 3D printer fleet controller. It runs entirely on your LAN and curr
 - **Prusa CORE One+ (experimental)** through the local PrusaLink API, supporting Standard (1-tool), INDX4 and INDX8 configurations.
 - **Bambu Lab P1P / P1S / X1C / A1 Mini (experimental)** through the local MQTT TLS and FTPS TLS interfaces. P1P/P1S/A1 Mini use the TLS/JPEG camera path; X1C camera decoding remains unsupported.
 
-**Current development version: v0.52.0**
+**Current development version: v0.53.0**
 
 Current highlights:
 
-- **A1 Mini AMS Lite and external-spool filament editing (feature branch):** Extends existing Bambu filament type, colour and blue **Set filament** controls to the experimental A1 Mini, for its external spool and manually configured, occupied AMS Lite slots. Uses the same LAN MQTT commands and printer-reported read-back as P1P/P1S/X1C. RFID-managed, empty, unknown-tag and busy-printer AMS slots remain read-only. External spool writes use the single-nozzle virtual tray (AMS ID 255 / tray 254). Preact and vanilla fallback share the controls. No version increment until merged; **physical A1 Mini/AMS Lite validation remains outstanding**.
+- **A1 Mini AMS Lite and external-spool filament editing (v0.53.0):** Extends existing Bambu filament type, colour and blue **Set filament** controls to the experimental A1 Mini, for its external spool and manually configured, occupied AMS Lite slots. Uses the same LAN MQTT commands and printer-reported read-back as P1P/P1S/X1C. RFID-managed, empty, unknown-tag and busy-printer AMS slots remain read-only. External spool writes use the single-nozzle virtual tray (AMS ID 255 / tray 254). Preact and vanilla fallback share the controls. Automated Node.js 24, Chromium Preact, and container smoke checks passed; **physical A1 Mini/AMS Lite validation remains outstanding**.
 
-- **Bambu AMS slot configuration (v0.52.0):** For Bambu P1P/P1S/X1 Carbon, Printer Details → Toolheads offers material type, colour and blue **Set filament** controls for occupied non-RFID AMS slots when the printer explicitly reports an all-zero RFID tag UID. RFID-managed and unknown-tag slots are read-only. Changes are sent to the specific AMS unit/slot using LAN MQTT and accepted only after the printer reports the new values. The printer remains the source of truth; AMS data is not stored independently. A1 Mini is read-only in v0.52.0; the separate A1 Mini feature branch extends those controls. Virtual printer and automated regression tests passed; physical Bambu AMS/firmware validation is still outstanding.
+- **Bambu AMS slot configuration (v0.52.0):** For Bambu P1P/P1S/X1 Carbon, Printer Details → Toolheads offers material type, colour and blue **Set filament** controls for occupied non-RFID AMS slots when the printer explicitly reports an all-zero RFID tag UID. RFID-managed and unknown-tag slots are read-only. Changes are sent to the specific AMS unit/slot using LAN MQTT and accepted only after the printer reports the new values. The printer remains the source of truth; AMS data is not stored independently. A1 Mini support was subsequently added in v0.53.0. Virtual printer and automated regression tests passed; physical Bambu AMS/firmware validation is still outstanding.
 
 - **X1 Carbon external-spool configuration (v0.51.0):** Extended the existing P1P/P1S filament type and colour selectors plus the blue **Set filament** button to the experimental Bambu X1 Carbon (X1C). The controller writes the external tray setting over Bambu LAN MQTT while idle and verifies the printer-reported value; AMS slots are unaffected. X1C protocol/simulator, Preact and Node.js 24 regression checks passed. Physical X1C verification is outstanding; the X1C RTSPS camera remains unsupported.
 
