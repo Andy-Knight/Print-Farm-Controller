@@ -195,6 +195,42 @@
   border-color:var(--ds-border-strong);
   box-shadow:var(--ds-shadow-md);
 }
+/*
+ * Card-view row alignment (fix for differing printer name/model lengths).
+ * Each card spans eight shared CSS Grid rows.  The tallest header in a
+ * dashboard grid row determines the image start for EVERY printer in that row.
+ * This also aligns status strips and progress metrics without imposing a large
+ * global fixed header height or truncating long printer names.  Table mode
+ * retains its existing compact column layout and is not affected.
+ */
+@supports (grid-template-rows:subgrid) {
+  .fleet:not(.table-view) > .card.ui-printer-surface {
+    display:grid;
+    grid-row:span 8;
+    grid-template-rows:subgrid;
+    align-content:stretch;
+  }
+  .fleet:not(.table-view) > .card.ui-printer-surface > .card-head { grid-row:1; }
+  .fleet:not(.table-view) > .card.ui-printer-surface > .printer-image-slot { grid-row:2; }
+  .fleet:not(.table-view) > .card.ui-printer-surface > .bed-level-strip { grid-row:3; }
+  .fleet:not(.table-view) > .card.ui-printer-surface > .license-strip { grid-row:4; }
+  .fleet:not(.table-view) > .card.ui-printer-surface > .preheat-strip { grid-row:5; }
+  .fleet:not(.table-view) > .card.ui-printer-surface > .bed-clearance-strip { grid-row:6; }
+  .fleet:not(.table-view) > .card.ui-printer-surface > .card-body { grid-row:7; }
+  .fleet:not(.table-view) > .card.ui-printer-surface > .card-footer {
+    grid-row:8;
+    margin-top:0;
+  }
+}
+/* Browsers without row subgrid still align images using a bounded header
+   baseline, rather than reverting to independently sized headers. */
+@supports not (grid-template-rows:subgrid) {
+  @media (min-width:761px) {
+    .fleet:not(.table-view) > .card.ui-printer-surface > .card-head {
+      min-height:150px;
+    }
+  }
+}
 .ui-metric.ui-surface { background:var(--ds-surface-muted);border-color:var(--ds-border); }
 .ui-metric.ui-surface span { color:var(--ds-text-muted); }
 .ui-metric.ui-surface b { color:var(--ds-text);font-variant-numeric:tabular-nums; }
