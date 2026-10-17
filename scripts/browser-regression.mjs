@@ -85,6 +85,9 @@ async function designSystemSmoke(browser,url) {
     }));
     assert.ok(css.tokens,'tokens resolve from the loaded design system');
     assert.equal(css.source,true,'design system must be a real stylesheet, not a route fallback');
+    // The Preact fleet subscription uses useEffect; wait for it to attach
+    // before firing the isolated synthetic telemetry fixture.
+    await page.waitForTimeout(250);
     // Synthetic presentation only. Device commands remain owned by app.js.
     await page.evaluate(()=>{
       window.dispatchEvent(new CustomEvent('pfc:dashboard-fleet-state',{detail:{printers:[{
