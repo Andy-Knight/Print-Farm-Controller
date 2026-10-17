@@ -5879,7 +5879,7 @@ const BAMBU_EXTERNAL_FILAMENT_TYPES = Object.freeze([
 ]);
 
 function bambuExternalFilamentEditState(printer) {
-  if(printer?.adapterType!=='bambu-lab' || !['P1P','P1S','X1C'].includes(String(printer.model||'').toUpperCase())
+  if(printer?.adapterType!=='bambu-lab' || !['P1P','P1S','X1C','A1 MINI'].includes(String(printer.model||'').toUpperCase())
     || !printer.capabilities?.filamentTypeControl || !printer.capabilities?.filamentColorControl)
     return {enabled:false,message:'External spool configuration is unavailable.'};
   if(String(printer.status?.status||'').toLowerCase()!=='idle')
@@ -5889,7 +5889,7 @@ function bambuExternalFilamentEditState(printer) {
 
 function bambuExternalFilamentControlMarkup(printer) {
   const state=bambuExternalFilamentEditState(printer);
-  if(printer?.adapterType!=='bambu-lab' || !['P1P','P1S','X1C'].includes(String(printer.model||'').toUpperCase())
+  if(printer?.adapterType!=='bambu-lab' || !['P1P','P1S','X1C','A1 MINI'].includes(String(printer.model||'').toUpperCase())
     || !printer.capabilities?.filamentTypeControl || !printer.capabilities?.filamentColorControl) return '';
   if(typeof window!=='undefined' && window.__PFC_PREACT_DETAIL__)
     return '<div class="bambu-external-filament-control" data-preact-toolhead-control="bambu-filament" data-tool-index="0"></div>';
@@ -5918,7 +5918,7 @@ function bambuExternalFilamentControlMarkup(printer) {
 
 function bambuAmsFilamentEditState(printer,source={}) {
   if(printer?.adapterType!=='bambu-lab'
-    || !['P1P','P1S','X1C'].includes(String(printer.model||'').toUpperCase())
+    || !['P1P','P1S','X1C','A1 MINI'].includes(String(printer.model||'').toUpperCase())
     || !printer.capabilities?.filamentTypeControl || !printer.capabilities?.filamentColorControl)
     return {enabled:false,message:'AMS slot editing is unsupported on this printer.'};
   if(source.present!==true)return {enabled:false,message:'Empty AMS slot — insert a spool first.'};
@@ -5931,7 +5931,7 @@ function bambuAmsFilamentEditState(printer,source={}) {
 
 function bambuAmsFilamentControlMarkup(printer,source={}) {
   if(source.kind!=='ams' || printer?.adapterType!=='bambu-lab'
-    || !['P1P','P1S','X1C'].includes(String(printer.model||'').toUpperCase()))return '';
+    || !['P1P','P1S','X1C','A1 MINI'].includes(String(printer.model||'').toUpperCase()))return '';
   const state=bambuAmsFilamentEditState(printer,source);
   if(typeof window!=='undefined' && window.__PFC_PREACT_DETAIL__)
     return `<div class="bambu-ams-filament-control" data-preact-toolhead-control="bambu-ams-filament" data-tool-index="${source.protocolIndex}"></div>`;
@@ -6936,7 +6936,7 @@ function printerToolheadControlState(printer) {
         help:multiToolFilamentHelpText('Changes are written to the printer and verified.')
       });
     }
-    if(printer.adapterType==='bambu-lab' && ['P1P','P1S','X1C'].includes(String(printer.model||'').toUpperCase())
+    if(printer.adapterType==='bambu-lab' && ['P1P','P1S','X1C','A1 MINI'].includes(String(printer.model||'').toUpperCase())
       && capabilities.filamentTypeControl && capabilities.filamentColorControl && position===0){
       const source=(printer.status?.materialSources||[]).find((item)=>item.kind==='external')||{};
       const editState=bambuExternalFilamentEditState(printer);
@@ -6989,7 +6989,7 @@ function printerToolheadControlState(printer) {
       });
     }
   }
-  if(printer.adapterType==='bambu-lab' && ['P1P','P1S','X1C'].includes(String(printer.model||'').toUpperCase())
+  if(printer.adapterType==='bambu-lab' && ['P1P','P1S','X1C','A1 MINI'].includes(String(printer.model||'').toUpperCase())
     && capabilities.filamentTypeControl && capabilities.filamentColorControl){
     for(const source of printer.status?.materialSources||[]){
       if(source.kind!=='ams')continue;
@@ -7434,7 +7434,7 @@ async function openPrinter(id) {
       : printer.adapterType === 'flashforge-creator5'
         ? 'Creator 5 material type, colour and filament-presence state come from the four material-station/toolhead slots reported by the local /detail API. Filament configuration writes the selected Creator 5 palette values back to the corresponding printer slot and verifies them by reading /detail again. Set the fitted nozzle independently for T0-T3 using the Nozzle column.'
       : printer.adapterType === 'bambu-lab'
-        ? 'Material and colour come from the active external-spool or AMS/AMS Lite tray metadata reported by the Bambu LAN interface. P1P/P1S/X1C external-spool filament can be set while idle; non-RFID AMS slots can be configured here only when the printer reports manually editable status. RFID and unknown-tag slots are read-only. Bambu support remains experimental.'
+        ? 'Material and colour come from the active external-spool or AMS/AMS Lite tray metadata reported by the Bambu LAN interface. P1P/P1S/X1C/A1 Mini external-spool filament can be set while idle; non-RFID AMS slots can be configured here only when the printer reports manually editable status. RFID and unknown-tag slots are read-only. Bambu support remains experimental.'
       : printer.manufacturer === 'Prusa'
         ? `${printer.model || 'Prusa printer'} is configured for ${Number(limits.toolCount || tools.length || 1)} tool${Number(limits.toolCount || tools.length || 1) === 1 ? '' : 's'}.${capabilities.fixedToolMapping ? ' This configuration uses fixed sliced tool indices; the controller does not silently remap a sliced tool to another physical tool.' : ''} Per-tool material/nozzle data is used when PrusaLink reports it; unknown values require review before unattended multi-tool scheduling.`
         : 'Filament presence comes from each U1 motion sensor. Third-party filament type and colour can be written to the idle printer and are verified by reading the effective per-tool configuration back. Official Snapmaker RFID filament remains locked. Nozzle size and XYZ offset come directly from each physical U1 extruder.';
