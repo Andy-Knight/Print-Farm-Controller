@@ -7240,6 +7240,25 @@ function updateOpenPrinterTelemetry() {
       }
       row.classList.toggle('active', source.active === true);
       row.classList.toggle('empty', source.present === false);
+      const control=row.querySelector('[data-bambu-ams-control]');
+      if(control){
+        const edit=bambuAmsFilamentEditState(printer,source);
+        const type=control.querySelector('[data-bambu-ams-material]');
+        const familyInput=control.querySelector('[data-bambu-ams-colour]');
+        const dropdown=familyInput?.closest('[data-color-family-dropdown]');
+        if(control.dataset.dirty!=='1' && !dropdown?.open){
+          if(type)setFilamentTypeSelectValue(type,String(source.material||'').toUpperCase());
+          if(familyInput)setColorFamilyDropdownValue(familyInput,
+            filamentColorFamilyOption(source.colorFamily)?.value||'');
+        }
+        if(type)type.disabled=!edit.enabled;
+        if(familyInput)familyInput.disabled=!edit.enabled;
+        if(dropdown)dropdown.classList.toggle('disabled',!edit.enabled);
+        const button=control.querySelector('[data-bambu-ams-save]');
+        if(button)button.disabled=!edit.enabled;
+        const help=control.querySelector('[data-bambu-ams-help]');
+        if(help)help.textContent=edit.message;
+      }
     }
   }
   if (s?.chamber?.actual != null && Number.isFinite(Number(s.chamber.actual))) set('[data-chamber-now]', `${Number(s.chamber.actual).toFixed(1)} °C`);
@@ -7970,6 +7989,37 @@ ${flashForgePreflight}` : ''}`)) return;
     finally {button.disabled=false;}
   });
 
+
+  // Legacy fallback, Preact uses the common toolhead-designation save event.
+  printerDetail.querySelectorAll('[data-bambu-ams-control]').forEach((control)=>{
+    control.addEventListener('change',()=>{control.dataset.dirty='1';});
+    const button=control.querySelector('[data-bambu-ams-save]');
+    if(!button)return;
+    button.onclick=async()=>{
+      const unitIndex=Number(control.dataset.amsUnit),slotIndex=Number(control.dataset.amsSlot);
+      const source=printer.status?.materialSources?.find((s)=>s.kind==='ams'&&s.unitIndex===unitIndex&&s.slotIndex===slotIndex);
+      const edit=bambuAmsFilamentEditState(printer,source);
+      if(!edit.enabled){showError(new Error(edit.message));return;}
+      const material=String(control.querySelector('[data-bambu-ams-material]')?.value||'').trim();
+      const family=String(control.querySelector('[data-bambu-ams-colour]')?.value||'').trim();
+      const color=filamentColorFamilyOption(family)?.representative;
+      if(!BAMBU_EXTERNAL_FILAMENT_TYPES.includes(material)||!color){
+        showError(new Error('Choose a supported AMS filament type and colour.'));return;
+      }
+      button.disabled=true;
+      try{
+        const result=await api(`/api/printers/${id}/filament-config`,{
+          method:'POST',body:JSON.stringify({toolIndex:0,amsUnitIndex:unitIndex,amsSlotIndex:slotIndex,material,color})
+        });
+        applyBambuAmsFilamentResult(printer,result);
+        control.dataset.dirty='0';
+        updateOpenPrinterTelemetry();
+      }catch(error){showError(error);}
+      finally{button.disabled=!bambuAmsFilamentEditState(printer,
+        printer.status?.materialSources?.find((s)=>s.kind==='ams'&&s.unitIndex===unitIndex&&s.slotIndex===slotIndex)).enabled;}
+    };
+  });
+
   printerDetail.querySelectorAll('[data-prusa-tool-material-save]').forEach((button) => button.onclick = async () => {
     const toolIndex = Number(button.dataset.prusaToolMaterialSave);
     const materialInput = printerDetail.querySelector(`[data-prusa-tool-material-input="${toolIndex}"]`);
@@ -8351,6 +8401,26 @@ function applyBambuExternalFilamentResult(printer,result) {
   }
 }
 
+
+function applyBambuAmsFilamentResult(printer,result) {
+  const source=printer.status?.materialSources?.find((item)=>item.kind==='ams'
+    && item.unitIndex===result.unitIndex && item.slotIndex===result.slotIndex);
+  if(!source)return;
+  const material=String(result.material||'').trim().toUpperCase();
+  const color=normalizeColor(result.color);
+  source.material=material;source.color=color;
+  source.colorFamily=filamentColorFamilyFromHex(color);
+  if(source.active){
+    const filament=printer.status?.tools?.[0]?.filament;
+    if(filament){
+      filament.material=material;filament.color=color;
+      filament.colorFamily=filamentColorFamilyFromHex(color);
+      filament.materialSource='printer';filament.colorSource='printer';
+      filament.metadataAvailable=true;
+    }
+  }
+}
+
 const pendingToolheadDesignations=new Set();
 
 // These are controller-metadata operations, not motion/heater commands.
@@ -8374,7 +8444,7 @@ async function performToolheadDesignation(action) {
   if(pendingToolheadDesignations.has(key))throw new Error('A designation change is already in progress.');
   pendingToolheadDesignations.add(key);
   try {
-    if(['u1-filament','creator5-filament','bambu-filament'].includes(mode)){
+    if(['u1-filament','creator5-filament','bambu-filament','bambu-ams-filament'].includes(mode)){
       const material=String(data.material||'').trim();
       let color='';
       let colorFamily='';
@@ -8387,13 +8457,17 @@ async function performToolheadDesignation(action) {
         if(!CONTROLLER_FILAMENT_TYPES.some((item)=>item.toLowerCase()===material.toLowerCase()))
           throw new Error('Choose a supported filament type.');
         color=colorOption.representative;
-      } else if(mode==='bambu-filament'){
-        const editState=bambuExternalFilamentEditState(printer);
+      } else if(mode==='bambu-filament'||mode==='bambu-ams-filament'){
+        const amsSource=mode==='bambu-ams-filament'
+          ? printer.status?.materialSources?.find((s)=>s.kind==='ams'&&s.protocolIndex===toolIndex)
+          : null;
+        const editState=mode==='bambu-ams-filament'
+          ? bambuAmsFilamentEditState(printer,amsSource) : bambuExternalFilamentEditState(printer);
         if(!editState.enabled)throw new Error(editState.message);
         color=normalizeColor(data.color);
         if(!BAMBU_EXTERNAL_FILAMENT_TYPES.includes(material))
           throw new Error('Choose a supported Bambu external-spool filament type.');
-        if(!color || !bambuExternalFilamentPalette(
+        if(!color || !bambuExternalFilamentPalette(amsSource ||
           (printer.status?.materialSources||[]).find((item)=>item.kind==='external')
         ).some((item)=>item.value===color))throw new Error('Choose a filament colour.');
       } else {
@@ -8406,10 +8480,15 @@ async function performToolheadDesignation(action) {
           throw new Error('Choose a Creator 5 filament colour from the list.');
       }
       const result=await api(`/api/printers/${encodeURIComponent(printerId)}/filament-config`,{
-        method:'POST',body:JSON.stringify({toolIndex,material,color})
+        method:'POST',body:JSON.stringify({
+          toolIndex:mode==='bambu-ams-filament'?0:toolIndex,material,color,
+          ...(mode==='bambu-ams-filament'
+            ? {amsUnitIndex:Math.floor(toolIndex/4),amsSlotIndex:toolIndex%4} : {})
+        })
       });
       if(mode==='bambu-filament')applyBambuExternalFilamentResult(printer,result);
-      if(tool?.filament && mode!=='bambu-filament'){
+      if(mode==='bambu-ams-filament')applyBambuAmsFilamentResult(printer,result);
+      if(tool?.filament && mode!=='bambu-filament' && mode!=='bambu-ams-filament'){
         const filament=tool.filament;
         filament.material=result.material;
         filament.color=result.color;
