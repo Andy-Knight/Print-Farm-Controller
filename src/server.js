@@ -2023,7 +2023,7 @@ async function apiRoute(req, res, url) {
       throw new Error('Combined filament control is not supported by this printer');
     }
     const body = await readJson(req);
-    const result = await runPrinterMutation(id, 'filament configuration change', (_currentPrinter, currentAdapter) => currentAdapter.setFilamentConfig({ toolIndex:body.toolIndex, material:body.material, color:body.color }), { operationType:PRINTER_OPERATION_TYPES.FILAMENT_CONFIG });
+    const result = await runPrinterMutation(id, 'filament configuration change', (_currentPrinter, currentAdapter) => currentAdapter.setFilamentConfig({ toolIndex:body.toolIndex, material:body.material, color:body.color, amsUnitIndex:body.amsUnitIndex, amsSlotIndex:body.amsSlotIndex }), { operationType:PRINTER_OPERATION_TYPES.FILAMENT_CONFIG });
     refreshAfterCommand(id);
     return json(res, 200, { ok:true, ...result });
   }

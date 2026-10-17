@@ -255,7 +255,7 @@ function ToolheadDesignationEditor({printerId,control,readOnly}) {
   const disabled = readOnly || control.enabled === false || busy;
   const dirty = Object.keys(control.values).some((key) => String(draft[key]??'') !== String(baseline[key]??''));
   const filament = control.mode.endsWith('filament');
-  const palette = control.mode==='creator5-filament' || control.mode==='bambu-filament';
+  const palette = ['creator5-filament','bambu-filament','bambu-ams-filament'].includes(control.mode);
   const colourKey = palette ? 'color' : 'colorFamily';
   const allowedMaterials=[...new Set([draft.material, ...(control.materials||DEFAULT_MATERIALS)].filter(Boolean))];
   const nozzleOptions=control.nozzles || [];
@@ -284,7 +284,7 @@ function ToolheadDesignationEditor({printerId,control,readOnly}) {
         const next={...saved};
         setBaseline(next);setDraft(next);
         setStatus(operation==='clear'?'Nozzle designation cleared.':
-          filament?(control.mode==='bambu-filament'?'External spool updated and verified on the printer.':'Filament designation saved.'):'Nozzle designation saved.');
+          filament?(control.mode==='bambu-filament'?'External spool updated and verified on the printer.':control.mode==='bambu-ams-filament'?'AMS slot updated and verified on the printer.':'Filament designation saved.'):'Nozzle designation saved.');
       }
     } catch(failure) {
       if(mounted.current)setError(failure?.message||'Unable to save designation.');
@@ -344,7 +344,7 @@ function ToolheadDesignationEditor({printerId,control,readOnly}) {
       </label>}
       <div class="mini-actions">
         <UiButton variant="primary" class="toolhead-action-button" type="submit" data-toolhead-save
-          disabled={disabled||!valid||(!dirty&&control.mode!=='bambu-filament')}>
+          disabled={disabled||!valid||(!dirty&&!['bambu-filament','bambu-ams-filament'].includes(control.mode))}>
           {busy?'Saving…':filament?'Set filament':'Assign'}
         </UiButton>
         {!filament&&control.canClear&&<UiButton variant="secondary" class="toolhead-action-button" data-toolhead-clear

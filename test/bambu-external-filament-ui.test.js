@@ -67,7 +67,7 @@ test('save flow applies Bambu external spool state separately and retains AMS sl
 test('external spool Set filament remains blue when valid and idle, matching other printers', () => {
   assert.match(preact, /<UiButton variant="primary" class="toolhead-action-button" type="submit"/,
     'Preact Set filament buttons use the shared primary theme');
-  assert.match(preact, /disabled=\{disabled\|\|!valid\|\|\(!dirty&&control\.mode!=='bambu-filament'\)\}/,
+  assert.match(preact, /disabled=\{disabled\|\|!valid\|\|\(!dirty&&!\['bambu-filament','bambu-ams-filament'\]\.includes\(control\.mode\)\)\}/,
     'the external-spool button must not appear disabled just because current values match');
   assert.match(app, /class="primary toolhead-action-button" data-bambu-external-save/,
     'legacy external-spool button uses the same primary style');

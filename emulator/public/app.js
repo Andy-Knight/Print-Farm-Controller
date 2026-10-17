@@ -207,11 +207,13 @@ function renderAmsControls(card, printer) {
       slot.dataset.amsSlot = `${Number(unit.id)}:${Number(tray.slotIndex)}`;
       slot.innerHTML = `<strong>AMS ${Number(unit.id) + 1} · Slot ${Number(tray.slotIndex) + 1}</strong>
         <label class="check"><input data-ams-present type="checkbox">Loaded</label>
+        <label class="check"><input data-ams-rfid type="checkbox">RFID-managed (read-only)</label>
         <label>Material<select data-ams-material>${['PLA','PETG','ABS','ASA','PA','PC','TPU','PVA'].map((value) => `<option>${value}</option>`).join('')}</select></label>
         <label>Colour family${bambuColorFamilyDropdownMarkup('data-ams-color-family')}</label>`;
       const save = () => updatePrinter(printer.id, { amsSlots:[{
         unitIndex:Number(unit.id), slotIndex:Number(tray.slotIndex),
         present:slot.querySelector('[data-ams-present]').checked,
+        rfid:slot.querySelector('[data-ams-rfid]').checked,
         material:slot.querySelector('[data-ams-material]').value,
         colorFamily:slot.querySelector('[data-ams-color-family]').value
       }] });
@@ -236,10 +238,12 @@ function renderAmsControls(card, printer) {
     const slot = [...grid.querySelectorAll('[data-ams-slot]')].find((item) => item.dataset.amsSlot === `${Number(unit.id)}:${Number(tray.slotIndex)}`);
     if (!slot) continue;
     const present = slot.querySelector('[data-ams-present]');
+    const rfid = slot.querySelector('[data-ams-rfid]');
     const material = slot.querySelector('[data-ams-material]');
     const colorFamily = slot.querySelector('[data-ams-color-family]');
     const familyValue = tray.colorFamily || bambuColorFamilyFromHex(tray.color) || 'white';
     if (document.activeElement !== present) present.checked = Boolean(tray.present);
+    if (document.activeElement !== rfid) rfid.checked = Boolean(tray.tagUid && !/^0+$/.test(tray.tagUid));
     if (document.activeElement !== material) material.value = tray.material || 'PLA';
     if (!colorFamily?.closest('[data-color-family-dropdown]')?.open) setBambuColorFamilyDropdownValue(colorFamily, familyValue);
   }

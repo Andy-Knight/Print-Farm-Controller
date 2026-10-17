@@ -2,6 +2,7 @@ import path from 'node:path';
 import { PrinterAdapter, normalizeCapabilities } from './printer-adapter.js';
 import { getBambuReport, sendBambuCommand } from '../bambu-mqtt.js';
 import { setBambuExternalFilament } from '../bambu-external-filament.js';
+import { bambuAmsRfidState, bambuAmsSlotPresent, setBambuAmsFilament } from '../bambu-ams-filament.js';
 import { deleteBambuFile, downloadBambuFile, listBambuFiles, uploadBambuFile, verifyBambuFile } from '../bambu-ftps.js';
 import { createBambuCameraSource } from '../bambu-camera.js';
 import { colorFamily } from '../color-family.js';
@@ -112,14 +113,13 @@ export function normalizeBambuMaterialSources(print = {}) {
       const slotIndex = Number.isInteger(Number(tray?.id)) ? Number(tray.id) : slotPosition;
       const protocolIndex = unitIndex * 4 + slotIndex;
       const material = trayMaterial(tray);
-      const present = tray?.tray_exist_bits !== undefined
-        ? Boolean(Number(tray.tray_exist_bits))
-        : Boolean(material.material || material.color);
+      const present = bambuAmsSlotPresent(print,unitIndex,slotIndex,tray);
+      const rfidState = bambuAmsRfidState(tray);
       sources.push({
         id:`ams-${unitIndex}-${slotIndex}`,
         kind:'ams', unitIndex, slotIndex, protocolIndex,
         label:`AMS ${unitIndex + 1} · Slot ${slotIndex + 1}`,
-        present,
+        present,rfidState,editable:present && rfidState==='manual',
         active:activeId === String(protocolIndex) || (units.length === 1 && activeId === String(slotIndex)),
         ...material
       });
@@ -299,8 +299,10 @@ export class BambuLabAdapter extends PrinterAdapter {
   }
 
   async getStatus() { return normalizeBambuStatus(await getBambuReport(this.printer), this.printer); }
-  async setFilamentConfig({ toolIndex, material, color } = {}) {
-    if (!['P1P', 'P1S', 'X1C'].includes(this.model)) return this.unsupported('External spool filament control');
+  async setFilamentConfig({ toolIndex, material, color, amsUnitIndex, amsSlotIndex } = {}) {
+    if (!['P1P', 'P1S', 'X1C'].includes(this.model)) return this.unsupported('Bambu filament control');
+    if (amsUnitIndex !== undefined || amsSlotIndex !== undefined)
+      return setBambuAmsFilament(this.printer, { toolIndex, material, color, unitIndex:amsUnitIndex, slotIndex:amsSlotIndex });
     return setBambuExternalFilament(this.printer, { toolIndex, material, color });
   }
   async getFiles() {
