@@ -13,10 +13,10 @@ import { initDiagnosticsUi } from './diagnostics.jsx';
 import { initLicenseUi } from './license.jsx';
 
 const FILTERS = Object.freeze([
-  { key:'all', label:'All Printers' },
-  { key:'online', label:'Online' },
-  { key:'printing', label:'Printing' },
-  { key:'attention', label:'Needs attention' }
+  { key:'all', label:'All Printers', tone:'neutral' },
+  { key:'online', label:'Online', tone:'success' },
+  { key:'printing', label:'Printing', tone:'working' },
+  { key:'attention', label:'Needs attention', tone:'warning' }
 ]);
 
 const DEFAULT_STATE = Object.freeze({
@@ -104,14 +104,15 @@ function DashboardControls({ state }) {
 
 function DashboardSummary({ state }) {
   return (
-    <section id="summary" class="summary">
+    <section id="summary" class="summary" aria-label="Farm status filters">
       {FILTERS.map((item) => {
         const active = state.activeFilter === item.key;
         return (
           <UiButton
             key={item.key}
             variant="ghost"
-            class={`summary-card${active ? ' active' : ''}`}
+            class={`summary-card ui-stat-card${active ? ' active' : ''}`}
+            data-tone={item.tone}
             data-dashboard-filter={item.key}
             aria-pressed={String(active)}
             onClick={() => dispatchDashboardAction('filter', item.key)}
@@ -292,6 +293,7 @@ function ClearanceStrip({ printer }) {
 function PrinterCard({ printer }) {
   const classes = [
     'card',
+    'ui-printer-surface',
     printer.visible ? '' : 'hidden',
     printer.selected ? 'selected' : '',
     printer.licence?.inactive ? 'license-inactive' : ''
