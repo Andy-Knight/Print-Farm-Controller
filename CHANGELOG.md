@@ -4,6 +4,13 @@ This file contains the version-by-version release history for Print Farm Control
 
 Historical entries describe the behaviour of the controller at the time of that release and may be superseded by later versions. For current installation, configuration and supported-hardware guidance, see [README.md](README.md).
 
+## v0.52.0
+
+- Added optional **Bambu P1P/P1S/X1 Carbon AMS slot filament configuration** in Printer Details → Toolheads. Occupied, explicitly identified third-party/non-RFID slots expose filament type and colour dropdowns and the standard blue **Set filament** button, in both Preact and the legacy frontend.
+- Changes are sent to the selected AMS unit and slot via LAN MQTT `ams_filament_setting`, and are confirmed only when the printer reports the updated values. Other slots and the external spool are unaffected; printer telemetry remains authoritative for display and scheduling.
+- The controller allows AMS edits only while idle and fails closed for RFID-managed filament, unoccupied slots and missing/unknown RFID identity. A1 Mini AMS Lite editing remains disabled; X1 Carbon H.264 camera support is unchanged.
+- Added simulator RFID-managed toggles and regression coverage for multiple AMS units, slot addressing, blocked writes and UI behaviour. Stage 2 was tested with virtual printers; GitHub Actions Node.js 24, Chromium Preact, container smoke and container build checks passed on PR #94. **Real Bambu AMS hardware and firmware validation remains outstanding.**
+
 ## v0.51.0
 
 - Extended experimental **Bambu X1 Carbon (X1C) external-spool filament type and colour configuration** to use the same Printer Details → Toolheads dropdowns and blue **Set filament** button as the P1P/P1S. Preact and legacy fallback retain the established layout.
