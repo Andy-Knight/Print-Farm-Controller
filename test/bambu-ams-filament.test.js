@@ -135,3 +135,53 @@ test('P1P, P1S and X1C virtual TLS MQTT AMS writes preserve RFID, other slots an
     }
   }finally{await emulator.stop();}
 });
+
+test('A1 Mini AMS Lite virtual TLS MQTT writes the selected manual slot and protects RFID, other slots and external holder',async()=>{
+  const emulator=createEmulator({managementPort:0,withDefaults:false});
+  await emulator.start();
+  try{
+    const virtual=await emulator.addPrinter({profileId:'bambu-a1-mini',
+      ports:{mqttPort:0,ftpsPort:0,cameraPort:0}});
+    const internal=emulator.printers.get(virtual.id);
+    // AMS Lite has four numbered slots in its first unit. Only the slot
+    // explicitly marked as non-RFID may be edited by the controller.
+    internal.configure({amsSlots:[
+      {unitIndex:0,slotIndex:0,present:true,material:'PETG',color:'#111111',rfid:true},
+      {unitIndex:0,slotIndex:1,present:true,material:'PLA',color:'#FFFFFF',rfid:false},
+      {unitIndex:0,slotIndex:2,present:false},
+      {unitIndex:0,slotIndex:3,present:true,material:'PLA',color:'#FF0000',rfid:false}
+    ]});
+    const adapter=new BambuLabAdapter({model:'A1 Mini',host:virtual.host,
+      serialNumber:virtual.serialNumber,checkCode:virtual.checkCode,
+      mqttPort:virtual.ports.mqttPort});
+    assert.equal(adapter.capabilities.filamentTypeControl,true);
+    assert.equal(adapter.capabilities.filamentColorControl,true);
+    assert.equal(adapter.capabilities.camera,true);
+    assert.equal(adapter.capabilities.chamberFan,false);
+    assert.equal(adapter.limits.bedTemperature.max,80);
+    const before=await adapter.getStatus();
+    assert.equal(before.materialSources.filter(x=>x.kind==='ams').length,4);
+    assert.equal(before.materialSources.find(x=>x.id==='ams-0-0').rfidState,'rfid');
+    assert.equal(before.materialSources.find(x=>x.id==='ams-0-1').editable,true);
+    assert.equal(before.materialSources.find(x=>x.id==='ams-0-2').editable,false);
+    const amsBefore=before.materialSources.filter(x=>x.kind==='ams');
+    const extBefore=before.materialSources.find(x=>x.kind==='external');
+    const result=await adapter.setFilamentConfig({toolIndex:0,
+      amsUnitIndex:0,amsSlotIndex:1,material:'PETG',color:'#33AA66'});
+    assert.deepEqual(result,{unitIndex:0,slotIndex:1,material:'PETG',color:'#33AA66',verified:true});
+    const after=await adapter.getStatus();
+    assert.equal(after.materialSources.find(x=>x.id==='ams-0-1').material,'PETG');
+    assert.equal(after.materialSources.find(x=>x.id==='ams-0-1').color,'#33AA66');
+    for(const slot of [0,2,3])
+      assert.deepEqual(after.materialSources.find(x=>x.id===`ams-0-${slot}`),amsBefore[slot]);
+    assert.deepEqual(after.materialSources.find(x=>x.kind==='external'),extBefore);
+    await assert.rejects(adapter.setFilamentConfig({toolIndex:0,
+      amsUnitIndex:0,amsSlotIndex:0,material:'PLA',color:'#FFFFFF'}),/RFID-managed/);
+    await assert.rejects(adapter.setFilamentConfig({toolIndex:0,
+      amsUnitIndex:0,amsSlotIndex:2,material:'PLA',color:'#FFFFFF'}),/empty/);
+    internal.configure({status:'printing'});
+    await assert.rejects(adapter.setFilamentConfig({toolIndex:0,
+      amsUnitIndex:0,amsSlotIndex:1,material:'PLA',color:'#FFFFFF'}),/idle/);
+    assert.equal((await adapter.getStatus()).materialSources.find(x=>x.id==='ams-0-1').material,'PETG');
+  }finally{await emulator.stop();}
+});
