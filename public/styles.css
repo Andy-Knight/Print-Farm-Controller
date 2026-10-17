@@ -1105,6 +1105,23 @@ input:focus,select:focus { border-color:#7a9fbe; }
 .ams-source small { grid-column:1 / -1; color:#8193a2; }
 .ams-source.active { border-color:#4b8f77; }
 .ams-source.empty { opacity:.62; }
+.ams-source > .bambu-ams-filament-control {
+  grid-column:1 / -1;
+  display:block;
+  min-width:0;
+  margin-top:5px;
+  padding-top:9px;
+  border-top:1px solid #26333e;
+}
+.ams-source .bambu-ams-filament-control .toolhead-designation-editor {
+  width:100%;
+  min-width:0;
+  padding:0;
+  margin:0;
+}
+.ams-source .bambu-ams-filament-control .toolhead-dropdown-pair { min-width:0; }
+.ams-source .bambu-ams-filament-control .multi-tool-control-help { display:block; margin-top:5px; }
+@media(max-width:680px) { .ams-source-grid { grid-template-columns:1fr; } }
 .bambu-external-filament-control { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:6px 8px; align-items:end; margin-top:8px; padding-top:8px; border-top:1px solid #202a32; }
 .material-panel .bambu-external-title { grid-column:1 / -1; color:#b3c2cf; font-size:.72rem; }
 .bambu-external-filament-control label { margin:0; color:#8493a1; font-size:.68rem; }
