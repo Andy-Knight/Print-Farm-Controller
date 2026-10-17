@@ -67,3 +67,9 @@ test('AMS save includes selected unit and slot, preserves other AMS sources and 
   apply(printer,{unitIndex:1,slotIndex:2,material:'ABS',color:'#0066FF'});
   assert.equal(printer.status.tools[0].filament.material,'ABS');
 });
+
+test('simulator exposes RFID-managed toggle to validate read-only AMS slot UX',()=>{
+  const simulator=readFileSync(new URL('../emulator/public/app.js',import.meta.url),'utf8');
+  assert.match(simulator,/data-ams-rfid type="checkbox"/);
+  assert.match(simulator,/rfid:slot\.querySelector\('\[data-ams-rfid\]'\)\.checked/);
+});
