@@ -104,7 +104,10 @@ async function designSystemSmoke(browser,url) {
     await page.locator('[data-printer-card="design-system-example"] .ui-metric').first()
       .waitFor({state:'attached',timeout:12000});
     for(const theme of ['dark','light']){
-      await page.evaluate((name)=>{document.documentElement.dataset.theme=name;},theme);
+      await page.evaluate((name)=>{
+        localStorage.setItem('printer-fleet-theme',name);
+        document.documentElement.dataset.theme=name;
+      },theme);
       const result=await page.evaluate(()=>{
         const root=document.documentElement;
         const cards=[...document.querySelectorAll('#summary .ui-stat-card')];
@@ -112,6 +115,7 @@ async function designSystemSmoke(browser,url) {
         const metric=printer?.querySelector('.ui-metric');
         const sheet=getComputedStyle(root);
         return {
+          theme:root.dataset.theme,
           scheme:sheet.colorScheme,
           surface:sheet.getPropertyValue('--ds-surface').trim(),
           text:sheet.getPropertyValue('--ds-text').trim(),
@@ -127,6 +131,7 @@ async function designSystemSmoke(browser,url) {
           metricText:metric&&getComputedStyle(metric.querySelector('b')).color
         };
       });
+      assert.equal(result.theme,theme,'controller has switched to '+theme+' theme');
       assert.equal(result.scheme,theme,'browser computes '+theme+' colour scheme');
       assert.ok(result.surface&&result.text,'theme tokens resolve');
       assert.deepEqual(result.cards.map(x=>x.tone),['neutral','success','working','warning']);
@@ -141,7 +146,10 @@ async function designSystemSmoke(browser,url) {
       });
     }
     await page.setViewportSize({width:390,height:844});
-    await page.evaluate(()=>{document.documentElement.dataset.theme='light';});
+    await page.evaluate(()=>{
+      localStorage.setItem('printer-fleet-theme','light');
+      document.documentElement.dataset.theme='light';
+    });
     const mobile=await page.evaluate(()=>{
       const cards=[...document.querySelectorAll('#summary .ui-stat-card')];
       return cards.map(x=>x.getBoundingClientRect().toJSON());
