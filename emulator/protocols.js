@@ -4,6 +4,7 @@ import tls from 'node:tls';
 import crypto from 'node:crypto';
 import path from 'node:path';
 import { readRuntimeAssetSync, runtimeAssetKeys } from '../src/runtime-assets.js';
+import { colorFamily } from '../src/color-family.js';
 
 const WEBSOCKET_GUID = '258EAFA5-E914-47DA-95CA-C5AB0DC85B11';
 
@@ -601,7 +602,9 @@ function bambuStatus(printer, sequenceId = '0') {
         tray_type: printer.externalSpool?.present ? printer.externalSpool.material || '' : '',
         tray_sub_brands: printer.externalSpool?.present ? printer.externalSpool.materialVariant || '' : '',
         tray_color: printer.externalSpool?.present && printer.externalSpool.color ? `${printer.externalSpool.color.replace('#', '').toUpperCase()}FF` : '',
-        tray_info_idx: printer.externalSpool?.present ? printer.externalSpool.vendor || 'Simulator' : ''
+        tray_info_idx: printer.externalSpool?.present ? printer.externalSpool.vendor || 'Simulator' : '',
+        nozzle_temp_min:printer.externalSpool?.nozzle_temp_min ?? 190,
+        nozzle_temp_max:printer.externalSpool?.nozzle_temp_max ?? 250
       },
       upgrade_state: { sequence_id: 0, progress: '', status: 'IDLE' }
     }
@@ -627,6 +630,25 @@ function applyBambuCommand(printer, body) {
     printer.startPrint(payload.subtask_name || payload.file || urlName || 'uploaded.3mf');
   } else if (command === 'gcode_file') {
     printer.startPrint(payload.param || payload.file || 'uploaded.gcode');
+  } else if (command === 'ams_filament_setting') {
+    // P1P/P1S external spool is tray 254 of AMS address 255.
+    // Do not accidentally write an AMS slot or change filament while busy.
+    if (['P1P','P1S'].includes(printer.model) && printer.status === 'idle'
+      && Number(payload.ams_id) === 255 && Number(payload.tray_id) === 254
+      && /^[0-9a-f]{8}$/i.test(String(payload.tray_color || ''))
+      && String(payload.tray_type || '').trim()) {
+      const spool = printer.externalSpool;
+      spool.present = true;
+      spool.material = String(payload.tray_type).toUpperCase();
+      spool.color = '#' + String(payload.tray_color).slice(0,6).toUpperCase();
+      spool.colorFamily = colorFamily(spool.color);
+      spool.vendor = String(payload.tray_info_idx || '');
+      spool.nozzle_temp_min = Number(payload.nozzle_temp_min);
+      spool.nozzle_temp_max = Number(payload.nozzle_temp_max);
+      if (Number(printer.activeMaterialSource) === 254)
+        printer.tools[0].filament = { ...printer.tools[0].filament, ...spool };
+      printer.emitChange();
+    }
   } else if (command === 'gcode_line') {
     for (const line of String(payload.param || '').split(/\r?\n/)) {
       const nozzle = line.match(/^M104\s+S([\d.]+)/i);

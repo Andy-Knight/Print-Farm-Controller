@@ -1,6 +1,7 @@
 import path from 'node:path';
 import { PrinterAdapter, normalizeCapabilities } from './printer-adapter.js';
 import { getBambuReport, sendBambuCommand } from '../bambu-mqtt.js';
+import { setBambuExternalFilament } from '../bambu-external-filament.js';
 import { deleteBambuFile, downloadBambuFile, listBambuFiles, uploadBambuFile, verifyBambuFile } from '../bambu-ftps.js';
 import { createBambuCameraSource } from '../bambu-camera.js';
 import { colorFamily } from '../color-family.js';
@@ -245,6 +246,8 @@ const P1P_CAPABILITIES = normalizeCapabilities({
   coolingFan: true,
   camera: true,
   materialStatus: true,
+  filamentTypeControl: true,
+  filamentColorControl: true,
   materialSlotMapping: true,
   levelBeforePrint: true,
   flowCalibrationBeforePrint: true,
@@ -253,7 +256,9 @@ const P1P_CAPABILITIES = normalizeCapabilities({
 });
 
 const A1_MINI_CAPABILITIES = normalizeCapabilities({
-  ...P1P_CAPABILITIES
+  ...P1P_CAPABILITIES,
+  filamentTypeControl:false,
+  filamentColorControl:false
 });
 
 const P1S_CAPABILITIES = normalizeCapabilities({
@@ -267,7 +272,9 @@ const X1C_CAPABILITIES = normalizeCapabilities({
   ...P1S_CAPABILITIES,
   // X1C exposes H.264 over RTSPS rather than the P1 TLS/JPEG stream. The
   // controller has no native H.264 decoder, so do not advertise camera support.
-  camera: false
+  camera: false,
+  filamentTypeControl:false,
+  filamentColorControl:false
 });
 
 export class BambuLabAdapter extends PrinterAdapter {
@@ -294,6 +301,10 @@ export class BambuLabAdapter extends PrinterAdapter {
   }
 
   async getStatus() { return normalizeBambuStatus(await getBambuReport(this.printer), this.printer); }
+  async setFilamentConfig({ toolIndex, material, color } = {}) {
+    if (!['P1P', 'P1S'].includes(this.model)) return this.unsupported('External spool filament control');
+    return setBambuExternalFilament(this.printer, { toolIndex, material, color });
+  }
   async getFiles() {
     const files = await listBambuFiles(this.printer);
     return { files: files.sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' })), recentFiles: [], complete: true, source: 'bambu-ftps', ordering: 'alphabetical', warning: null };

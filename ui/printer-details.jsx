@@ -255,7 +255,7 @@ function ToolheadDesignationEditor({printerId,control,readOnly}) {
   const disabled = readOnly || control.enabled === false || busy;
   const dirty = Object.keys(control.values).some((key) => String(draft[key]??'') !== String(baseline[key]??''));
   const filament = control.mode.endsWith('filament');
-  const palette = control.mode==='creator5-filament';
+  const palette = control.mode==='creator5-filament' || control.mode==='bambu-filament';
   const colourKey = palette ? 'color' : 'colorFamily';
   const allowedMaterials=[...new Set([draft.material, ...(control.materials||DEFAULT_MATERIALS)].filter(Boolean))];
   const nozzleOptions=control.nozzles || [];
@@ -270,7 +270,7 @@ function ToolheadDesignationEditor({printerId,control,readOnly}) {
   const perform=async (operation) => {
     if(disabled || pending.current) return;
     if(operation==='save' && !valid){
-      setError(filament?'Choose a filament type and colour family.':'Choose a nozzle size from the list.');
+      setError(filament?(palette?'Choose a filament type and colour.':'Choose a filament type and colour family.'):'Choose a nozzle size from the list.');
       return;
     }
     pending.current=true;
@@ -284,7 +284,7 @@ function ToolheadDesignationEditor({printerId,control,readOnly}) {
         const next={...saved};
         setBaseline(next);setDraft(next);
         setStatus(operation==='clear'?'Nozzle designation cleared.':
-          filament?'Filament designation saved.':'Nozzle designation saved.');
+          filament?(control.mode==='bambu-filament'?'External spool updated and verified on the printer.':'Filament designation saved.'):'Nozzle designation saved.');
       }
     } catch(failure) {
       if(mounted.current)setError(failure?.message||'Unable to save designation.');
@@ -298,6 +298,7 @@ function ToolheadDesignationEditor({printerId,control,readOnly}) {
     <form class={`toolhead-designation-editor ${filament?'toolhead-designation-filament':'toolhead-designation-nozzle'}`}
       data-preact-toolhead-editor={control.mode} data-tool-index={control.toolIndex}
       onSubmit={onSubmit}>
+      {control.mode==='bambu-filament' && <strong class="bambu-external-title">External spool</strong>}
       {filament ? <div class="toolhead-dropdown-pair">
         <label>{control.mode==='controller-filament'?'Controller material type':'Filament type'}
           <select data-toolhead-material value={draft.material} disabled={disabled}
@@ -343,7 +344,7 @@ function ToolheadDesignationEditor({printerId,control,readOnly}) {
       </label>}
       <div class="mini-actions">
         <UiButton variant="primary" class="toolhead-action-button" type="submit" data-toolhead-save
-          disabled={disabled||!valid||!dirty}>
+          disabled={disabled||!valid||(!dirty&&control.mode!=='bambu-filament')}>
           {busy?'Saving…':filament?'Set filament':'Assign'}
         </UiButton>
         {!filament&&control.canClear&&<UiButton variant="secondary" class="toolhead-action-button" data-toolhead-clear
