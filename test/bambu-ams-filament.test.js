@@ -62,7 +62,7 @@ test('writer refuses empty, RFID, unknown UID, printing and unsupported models w
       getReport:async()=>status,sendCommand,sleep
     }),expression);
   }
-  await assert.rejects(setBambuAmsFilament({model:'A1 Mini'},request,{getReport:async()=>report(),sendCommand,sleep}),/only for/);
+  await assert.rejects(setBambuAmsFilament({model:'Unsupported'},request,{getReport:async()=>report(),sendCommand,sleep}),/only for/);
   await assert.rejects(setBambuAmsFilament({model:'P1S'},{...request,unitIndex:99},{getReport:async()=>report(),sendCommand,sleep}),/valid AMS unit/);
   assert.equal(writes,0);
 });
