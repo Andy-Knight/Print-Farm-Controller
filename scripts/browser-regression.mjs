@@ -226,6 +226,99 @@ async function designSystemSmoke(browser,url) {
 }
 
 
+async function dashboardPhase3Smoke(browser,url) {
+  console.log('Chromium: Phase 3 dashboard hierarchy, filters, card/table and mobile layout');
+  const context=await browser.newContext({viewport:{width:1365,height:900}});
+  const page=await context.newPage();
+  const errors=[];
+  page.on('pageerror',(error)=>errors.push(error.message));
+  await context.route('**/api/events',(route)=>route.fulfill({
+    status:200,headers:{'content-type':'text/event-stream'},
+    body:': dashboard visual fixture\\n\\n'
+  }));
+  const captureDir=process.env.PFC_VISUAL_CAPTURE_DIR
+    ? path.resolve(process.env.PFC_VISUAL_CAPTURE_DIR) : null;
+  if(captureDir)await fs.mkdir(captureDir,{recursive:true});
+  try{
+    await page.goto(url+'/',{waitUntil:'load'});
+    await preactReady(page);
+    await page.locator('.dashboard-hero-copy h2').getByText('Farm overview').waitFor();
+    await page.waitForFunction(()=>document.querySelectorAll('#summary .dashboard-stat-detail').length===4);
+    assert.equal(await page.locator('#dashboardFleetHeadingRoot h2').innerText(),'Printers');
+    const initial=await page.evaluate(()=>({
+      stats:[...document.querySelectorAll('#summary [data-dashboard-filter]')].map(n=>n.dataset.dashboardFilter),
+      hero:document.querySelector('.dashboard-hero').getBoundingClientRect().toJSON(),
+      cards:[...document.querySelectorAll('#summary [data-dashboard-filter]')].map(n=>n.getBoundingClientRect().toJSON()),
+      summaries:[...document.querySelectorAll('#summary .dashboard-stat-detail')].map(n=>n.textContent)
+    }));
+    assert.deepEqual(initial.stats,['all','online','printing','attention']);
+    assert.equal(initial.summaries.length,4,'every operational metric has useful supporting context');
+    assert.ok(initial.hero.width>600,'hero fills the available workspace');
+    assert.ok(Math.max(...initial.cards.map(n=>n.top))-Math.min(...initial.cards.map(n=>n.top))<=1,
+      'all four summary cards align on desktop');
+    await page.evaluate(()=>{
+      const state={counts:{all:12,online:10,printing:1,attention:2},
+        activeFilter:'all',groups:[],groupId:'',viewMode:'cards'};
+      window.__PFC_DASHBOARD_STATE__=state;
+      window.dispatchEvent(new CustomEvent('pfc:dashboard-state',{detail:state}));
+    });
+    await page.waitForFunction(()=>document.querySelector('#summary [data-dashboard-filter="all"] b')?.textContent==='12'
+      &&document.querySelector('#dashboardFleetHeadingRoot [data-dashboard-fleet-summary]')?.textContent?.includes('12'));
+    await page.evaluate(()=>{
+      window.__PFC_PHASE3_ACTIONS__=[];
+      window.addEventListener('pfc:dashboard-action',(event)=>{
+        window.__PFC_PHASE3_ACTIONS__.push(event.detail);
+      });
+    });
+    await page.locator('#summary [data-dashboard-filter="attention"]').click();
+    assert.ok((await page.evaluate(()=>window.__PFC_PHASE3_ACTIONS__))
+      .some(event=>event.type==='filter'&&event.value==='attention'),
+      'summary stat uses controller filter event');
+    const toggle=page.locator('#dashboardViewToggle');
+    await toggle.click();
+    await page.waitForFunction(()=>document.querySelector('#fleetViewport')?.classList.contains('table-view')
+      &&document.querySelector('#dashboardFleetHeadingRoot [data-dashboard-current-view]')?.textContent==='Table view');
+    await toggle.click();
+    await page.waitForFunction(()=>!document.querySelector('#fleetViewport')?.classList.contains('table-view')
+      &&document.querySelector('#dashboardFleetHeadingRoot [data-dashboard-current-view]')?.textContent==='Card view');
+    for(const theme of ['dark','light']){
+      await page.evaluate((name)=>{
+        if(document.documentElement.dataset.theme!==name)
+          document.querySelector('#themeToggle')?.click();
+      },theme);
+      const info=await page.evaluate(()=>{
+        const card=document.querySelector('#summary .ui-stat-card');
+        const head=document.querySelector('.dashboard-hero-copy h2');
+        return {
+          colorScheme:getComputedStyle(document.documentElement).colorScheme,
+          statBackground:getComputedStyle(card).backgroundImage,
+          statBorder:getComputedStyle(card).borderTopColor,
+          headColor:getComputedStyle(head).color,
+          detailColor:getComputedStyle(document.querySelector('#summary .dashboard-stat-detail')).color
+        };
+      });
+      assert.equal(info.colorScheme,theme);
+      assert.ok(info.statBackground!=='none'&&info.statBorder&&info.headColor&&info.detailColor);
+      if(captureDir)await page.screenshot({path:path.join(captureDir,`dashboard-phase3-${theme}-desktop.png`),
+        animations:'disabled',fullPage:true});
+    }
+    await page.setViewportSize({width:390,height:844});
+    const mobile=await page.evaluate(()=>({
+      hero:document.querySelector('.dashboard-hero').getBoundingClientRect().toJSON(),
+      cards:[...document.querySelectorAll('#summary [data-dashboard-filter]')].map(n=>n.getBoundingClientRect().toJSON()),
+      view:document.querySelector('#dashboardViewToggle').getBoundingClientRect().toJSON(),
+      heading:document.querySelector('#dashboardFleetHeadingRoot').getBoundingClientRect().toJSON()
+    }));
+    assert.ok(mobile.cards.every(r=>r.left>=-1&&r.right<=391),
+      'summary cards remain inside a 390px phone viewport');
+    assert.ok(mobile.view.left>=0&&mobile.view.right<=391,'dashboard view switch stays visible on mobile');
+    assert.ok(mobile.heading.left>=0&&mobile.heading.right<=391);
+    if(captureDir)await page.screenshot({path:path.join(captureDir,'dashboard-phase3-light-mobile.png'),
+      animations:'disabled',fullPage:true});
+    assert.deepEqual(errors,[]);
+  }finally{await context.close();}
+}
+
 async function workspaceShellSmoke(browser,url) {
   console.log('Chromium: Phase 2 workspace sidebar, breadcrumbs and mobile navigation');
   const context=await browser.newContext({viewport:{width:1365,height:900}});
@@ -1273,6 +1366,7 @@ async function main() {
     page=await context.newPage();
     page.on('pageerror',(e)=>errors.push(e.message));
     await designSystemSmoke(browser,url);
+    await dashboardPhase3Smoke(browser,url);
     await workspaceShellSmoke(browser,url);
     await routeSmoke(page,url);
     await queueClickSmoke(browser,url);
