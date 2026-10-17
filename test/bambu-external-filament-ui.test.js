@@ -7,12 +7,12 @@ const app=readFileSync(new URL('../public/app.js',import.meta.url),'utf8');
 const css=readFileSync(new URL('../public/styles.css',import.meta.url),'utf8');
 const preact=readFileSync(new URL('../ui/printer-details.jsx',import.meta.url),'utf8');
 
-test('P1P, P1S and X1C external-spool controls use the shared compact Set filament design', () => {
+test('P1P, P1S, X1C and A1 Mini external-spool controls use the shared compact Set filament design', () => {
   const start=app.indexOf('function bambuExternalFilamentControlMarkup(');
   const end=app.indexOf('function u1FilamentConfigEditState(',start);
   const markup=app.slice(start,end);
   assert.ok(start!==-1 && end>start);
-  assert.match(markup,/P1P','P1S','X1C/);
+  assert.match(markup,/P1P','P1S','X1C','A1 MINI/);
   assert.match(markup,/bambu-external-title/);
   assert.match(markup,/data-preact-toolhead-control="bambu-filament"/);
   assert.match(markup,/toolhead-dropdown-pair/);
@@ -26,7 +26,7 @@ test('P1P, P1S and X1C external-spool controls use the shared compact Set filame
   assert.match(preact,/control\.mode==='bambu-filament'/);
 });
 
-test('P1P/P1S/X1C external spool is editable only when idle; A1 Mini remains disabled', () => {
+test('P1P/P1S/X1C/A1 Mini external spool is editable only when idle', () => {
   const start=app.indexOf('function bambuExternalFilamentEditState(');
   const end=app.indexOf('function bambuExternalFilamentControlMarkup(',start);
   assert.ok(start>=0 && end>start);
@@ -35,13 +35,12 @@ test('P1P/P1S/X1C external spool is editable only when idle; A1 Mini remains dis
     adapterType:'bambu-lab',model,status:{status},
     capabilities:{filamentTypeControl:true,filamentColorControl:true}
   });
-  for(const model of ['P1P','P1S','X1C']){
+  for(const model of ['P1P','P1S','X1C','A1 Mini']){
     assert.equal(getState(printer(model,'idle')).enabled,true);
     assert.equal(getState(printer(model,'printing')).enabled,false);
     assert.equal(getState(printer(model,'paused')).enabled,false);
   }
-  for(const model of ['A1 Mini'])
-    assert.equal(getState(printer(model,'idle')).enabled,false);
+  assert.equal(getState(printer('Unsupported','idle')).enabled,false);
 });
 
 test('save flow applies Bambu external spool state separately and retains AMS slot data', () => {
@@ -82,12 +81,12 @@ test('X1C Preact and legacy editors expose the existing external spool controls'
   const stateStart=app.indexOf('function bambuExternalFilamentEditState(');
   const markupEnd=app.indexOf('function u1FilamentConfigEditState(',stateStart);
   const markup=app.slice(stateStart,markupEnd);
-  assert.match(markup,/P1P','P1S','X1C/);
+  assert.match(markup,/P1P','P1S','X1C','A1 MINI/);
   assert.match(markup,/data-preact-toolhead-control="bambu-filament"/);
   assert.match(markup,/data-bambu-external-material/);
   assert.match(markup,/data-bambu-external-colour/);
   assert.match(markup,/data-bambu-external-save/);
-  assert.match(app,/if\(printer\.adapterType==='bambu-lab' && \['P1P','P1S','X1C'\]\.includes/);
+  assert.match(app,/if\(printer\.adapterType==='bambu-lab' && \['P1P','P1S','X1C','A1 MINI'\]\.includes/);
   assert.match(app,/mode:'bambu-filament',toolIndex:0/);
   assert.match(preact,/control\.mode==='bambu-filament'/);
 });
