@@ -44,7 +44,8 @@ function defaultAmsUnits(enabled) {
       materialVariant:null,
       colorFamily:colorFamilyValue,
       color:representativeColor(colorFamilyValue),
-      vendor:'Simulator'
+      vendor:'Simulator',
+      tagUid:'0000000000000000'
     }))
   }];
 }
@@ -270,7 +271,7 @@ export class VirtualPrinter extends EventEmitter {
       const current = this.amsUnits;
       this.amsUnits = Array.from({ length:count }, (_, unitIndex) => current[unitIndex] || {
         id:unitIndex, humidity:3,
-        trays:Array.from({ length:4 }, (_unused, slotIndex) => ({ slotIndex, present:false, material:null, materialVariant:null, colorFamily:null, color:null, vendor:'Simulator' }))
+        trays:Array.from({ length:4 }, (_unused, slotIndex) => ({ slotIndex, present:false, material:null, materialVariant:null, colorFamily:null, color:null, vendor:'Simulator', tagUid:'0000000000000000' }))
       });
       if (!this.amsUnits.length) this.activeMaterialSource = 254;
     }
@@ -281,6 +282,7 @@ export class VirtualPrinter extends EventEmitter {
         const tray = this.amsUnits[unitIndex]?.trays?.[slotIndex];
         if (!tray) continue;
         if (value.present !== undefined) tray.present = Boolean(value.present);
+        if (value.rfid !== undefined) tray.tagUid = value.rfid ? '0102030405060708' : '0000000000000000';
         if (value.material !== undefined) tray.material = String(value.material || '').trim().toUpperCase() || null;
         if (value.colorFamily !== undefined) {
           tray.colorFamily = normalizeColorFamily(value.colorFamily);
