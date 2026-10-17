@@ -55,11 +55,9 @@ test('writer refuses empty, RFID, unknown UID, printing and unsupported models w
   for(const [status,expression] of [
     [report(tray(2),'RUNNING'),/idle/],
     [report(tray(2,'12345678')),/RFID-managed/],
-    [report(tray(2,'0000000000000000','PLA','FFFFFF00')),{skip:true}],
     [report({...tray(2),tray_exist_bits:'0'}),/empty/],
     [report((({tag_uid,...rest})=>rest)(tray(2))),/RFID status/]
   ]){
-    if(typeof expression==='object')continue;
     await assert.rejects(setBambuAmsFilament({model:'X1C'},request,{
       getReport:async()=>status,sendCommand,sleep
     }),expression);
