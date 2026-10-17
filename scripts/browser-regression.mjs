@@ -104,9 +104,11 @@ async function designSystemSmoke(browser,url) {
     await page.locator('[data-printer-card="design-system-example"] .ui-metric').first()
       .waitFor({state:'attached',timeout:12000});
     for(const theme of ['dark','light']){
+      // Use the real controller theme action: app.js also updates the inline
+      // colorScheme style and accessible toggle, not only data-theme.
       await page.evaluate((name)=>{
-        localStorage.setItem('printer-fleet-theme',name);
-        document.documentElement.dataset.theme=name;
+        if(document.documentElement.dataset.theme!==name)
+          document.querySelector('#themeToggle')?.click();
       },theme);
       const result=await page.evaluate(()=>{
         const root=document.documentElement;
@@ -147,8 +149,8 @@ async function designSystemSmoke(browser,url) {
     }
     await page.setViewportSize({width:390,height:844});
     await page.evaluate(()=>{
-      localStorage.setItem('printer-fleet-theme','light');
-      document.documentElement.dataset.theme='light';
+      if(document.documentElement.dataset.theme!=='light')
+        document.querySelector('#themeToggle')?.click();
     });
     const mobile=await page.evaluate(()=>{
       const cards=[...document.querySelectorAll('#summary .ui-stat-card')];
