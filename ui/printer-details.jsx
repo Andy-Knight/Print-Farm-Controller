@@ -344,7 +344,7 @@ function ToolheadDesignationEditor({printerId,control,readOnly}) {
       </label>}
       <div class="mini-actions">
         <UiButton variant="primary" class="toolhead-action-button" type="submit" data-toolhead-save
-          disabled={disabled||!valid||!dirty}>
+          disabled={disabled||!valid||(!dirty&&control.mode!=='bambu-filament')}>
           {busy?'Saving…':filament?'Set filament':'Assign'}
         </UiButton>
         {!filament&&control.canClear&&<UiButton variant="secondary" class="toolhead-action-button" data-toolhead-clear
