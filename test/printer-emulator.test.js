@@ -307,6 +307,8 @@ test('Bambu X1C profile interoperates with controller status, files, controls an
   assert.equal(initial.cameraAvailable, false);
   assert.equal(initial.materialSources.filter((source) => source.kind === 'ams').length, 4);
   assert.equal(adapter.capabilities.camera, false);
+  assert.equal(adapter.capabilities.filamentTypeControl, true);
+  assert.equal(adapter.capabilities.filamentColorControl, true);
   assert.equal(adapter.limits.bedTemperature.max, 120);
   assert.deepEqual((await adapter.getFiles()).files, ['calibration-cube.gcode']);
   await adapter.uploadFile(new URL('../README.md', import.meta.url), { fileName:'X1C upload test.3mf' });

@@ -272,9 +272,7 @@ const X1C_CAPABILITIES = normalizeCapabilities({
   ...P1S_CAPABILITIES,
   // X1C exposes H.264 over RTSPS rather than the P1 TLS/JPEG stream. The
   // controller has no native H.264 decoder, so do not advertise camera support.
-  camera: false,
-  filamentTypeControl:false,
-  filamentColorControl:false
+  camera: false
 });
 
 export class BambuLabAdapter extends PrinterAdapter {
@@ -302,7 +300,7 @@ export class BambuLabAdapter extends PrinterAdapter {
 
   async getStatus() { return normalizeBambuStatus(await getBambuReport(this.printer), this.printer); }
   async setFilamentConfig({ toolIndex, material, color } = {}) {
-    if (!['P1P', 'P1S'].includes(this.model)) return this.unsupported('External spool filament control');
+    if (!['P1P', 'P1S', 'X1C'].includes(this.model)) return this.unsupported('External spool filament control');
     return setBambuExternalFilament(this.printer, { toolIndex, material, color });
   }
   async getFiles() {
