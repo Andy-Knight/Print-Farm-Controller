@@ -4,6 +4,12 @@ This file contains the version-by-version release history for Print Farm Control
 
 Historical entries describe the behaviour of the controller at the time of that release and may be superseded by later versions. For current installation, configuration and supported-hardware guidance, see [README.md](README.md).
 
+## v0.50.0
+
+- Added **Bambu Lab P1P / P1S external-spool filament configuration** in Printer Details, with selectable material type and colour, using the same blue **Set filament** button styling as other printers. This is a printer-side write via the Bambu LAN MQTT `ams_filament_setting` command addressed to virtual tray 254, rather than a controller-only designation.
+- Requires the printer to be idle, preserves applicable existing filament preset information when changing only the colour, and checks reported external-spool telemetry before confirming success. AMS/AMS Lite slots remain untouched. X1C and A1 Mini external-spool editing is not enabled by this release.
+- Added Bambu MQTT simulator support and regression tests for write payloads, validation, idle-state protection, read-back verification, Preact/legacy UI consistency, and AMS isolation. Automated Node.js 24, Chromium Preact and container smoke tests passed on the feature PR; physical P1P/P1S validation is still required.
+
 ## v0.49.0
 
 - Vertically aligns the **Set filament** and **Assign** buttons for Flashforge AD5M and AD5M Pro Toolheads. The Preact filament editor previously inherited an extra 8px label-bottom margin and 6px material-select margin from legacy designation CSS, while the nozzle editor used zero and 4px. Normalising these in the inline form keeps fields and buttons on the same row; Chromium regression compares the actual button and field positions using the shared AD5M/Pro adapter simulator.
