@@ -4,7 +4,7 @@ import { bambuExternalFilamentCommand, setBambuExternalFilament, BAMBU_EXTERNAL_
 import { BambuLabAdapter } from '../src/adapters/bambu-lab-adapter.js';
 import { createEmulator } from '../emulator/server.js';
 
-test('P1P/P1S/X1C external spool has correct MQTT address, generic preset and opaque RGBA colour', () => {
+test('P1P/P1S/X1C/A1 Mini external spool has correct MQTT address, generic preset and opaque RGBA colour', () => {
   const command=bambuExternalFilamentCommand({toolIndex:0,material:'PETG',color:'#12ab34'});
   assert.equal(command.print.command,'ams_filament_setting');
   assert.equal(command.print.ams_id,255);
@@ -81,15 +81,15 @@ test('write rejects non-idle printers and refuses to claim success without repor
     sleep:async()=>{}
   }),/did not confirm/);
   assert.equal(sendCalls,1);
-  await assert.rejects(setBambuExternalFilament({model:'A1 Mini'},{toolIndex:0,material:'PLA',color:'#FF0000'}),/only for P1P\/P1S\/X1C/);
+  await assert.rejects(setBambuExternalFilament({model:'Unsupported'},{toolIndex:0,material:'PLA',color:'#FF0000'}),/only for P1P\/P1S\/X1C\/A1 Mini/);
 });
 
-test('P1P, P1S and X1C simulators update the external spool through real TLS MQTT without editing AMS', async () => {
+test('P1P, P1S, X1C and A1 Mini simulators update the external spool through real TLS MQTT without editing AMS', async () => {
   const emulator=createEmulator({managementPort:0,withDefaults:false});
   await emulator.start();
   try {
-    for (const model of ['P1P','P1S','X1C']) {
-      const virtual=await emulator.addPrinter({profileId:`bambu-${model.toLowerCase()}`,
+    for (const model of ['P1P','P1S','X1C','A1 Mini']) {
+      const virtual=await emulator.addPrinter({profileId:model==='A1 Mini'?'bambu-a1-mini':`bambu-${model.toLowerCase()}`,
         ports:{mqttPort:0,ftpsPort:0,cameraPort:0}});
       const adapter=new BambuLabAdapter({
         model,host:virtual.host,serialNumber:virtual.serialNumber,
