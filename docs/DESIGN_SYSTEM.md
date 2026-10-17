@@ -46,3 +46,12 @@ Dashboard summary filters gain semantic-tone panel surfaces and the cards/metric
 
 ## Next steps
 After Phase 1 baseline passes all tests: apply shared `UiSurface` and typography to application shell/navigation, then dashboard details and Printer Details, then Print Queue/Library, gradually. Only consider Signals after profiling shows reactive-state work is a real bottleneck. Do not add an additional front-end UI framework.
+
+## Phase 2: persistent workspace shell
+The second development phase uses `public/shell.css`, loaded after `design-system.css`. The sidebar now uses consistent inline SVG navigation icons, grouped navigation categories, responsive spacing, clear active/current-page treatments and a persistent footer for connectivity, licensing and version information.
+
+The **Preact workspace breadcrumb** in `ui/workspace-shell.jsx` subscribes to `pfc:shell-route-state` emitted by the existing `renderControllerRoute()` function. Breadcrumb navigation dispatches `pfc:shell-navigate` and is resolved through existing `navigateController()`: the controller still owns history, APIs, dialogs, and command safety. With the Preact bundle absent, the inline breadcrumb text is still refreshed by `app.js`.
+
+On screens <=760px, the sidebar becomes a modal-like drawer with a dimmed backdrop, Escape and backdrop dismissal, focus restoration, keyboard Tab containment and `inert` while closed. Mobile users gain an explicit Add printer button inside the drawer that delegates to the pre-existing Add Printer action. Desktop sidebar navigation is always available. This preserves existing HTML element IDs, route data attributes, keyboard actions and SSR-free behaviour.
+
+Chromium browser tests cover desktop shell geometry, deep-link breadcrumbs, dashboard return navigation, active route semantics, mobile focus/close behaviour and opening Add Printer from mobile. Under `PFC_VISUAL_CAPTURE_DIR`, GitHub Actions captures both themes on the desktop and a light-mode open drawer on mobile for review. No print/protocol/backend modifications.
