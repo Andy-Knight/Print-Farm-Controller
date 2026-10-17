@@ -11,6 +11,8 @@ A local-first 3D printer fleet controller. It runs entirely on your LAN and curr
 
 Current highlights:
 
+- **Stage 2 — optional AMS slot configuration (feature branch, not yet released):** For Bambu P1P/P1S/X1 Carbon, Printer Details → Toolheads offers material type, colour and blue **Set filament** controls for occupied non-RFID AMS slots when the printer explicitly reports an all-zero RFID tag UID. RFID-managed and unknown-tag slots are read-only. Changes are sent to the specific AMS unit/slot using LAN MQTT and accepted only after the printer reports the new values. The printer remains the source of truth; AMS data is not stored independently. A1 Mini remains read-only. Requires physical-printer validation before merging.
+
 - **X1 Carbon external-spool configuration (v0.51.0):** Extended the existing P1P/P1S filament type and colour selectors plus the blue **Set filament** button to the experimental Bambu X1 Carbon (X1C). The controller writes the external tray setting over Bambu LAN MQTT while idle and verifies the printer-reported value; AMS slots are unaffected. X1C protocol/simulator, Preact and Node.js 24 regression checks passed. Physical X1C verification is outstanding; the X1C RTSPS camera remains unsupported.
 
 - **Bambu external-spool filament configuration (v0.50.0):** P1P and P1S can set external-spool material type and colour in Printer Details using the shared blue **Set filament** button. The controller sends a Bambu LAN MQTT command only while the printer is idle and confirms the reported external-tray metadata before reporting success. AMS slots are not modified. Available in Preact and vanilla fallback, with simulator, UI and protocol regression coverage. Physical Bambu hardware validation remains outstanding.
