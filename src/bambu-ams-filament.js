@@ -1,7 +1,7 @@
 import { getBambuReport, sendBambuCommand } from './bambu-mqtt.js';
 import { bambuExternalFilamentCommand } from './bambu-external-filament.js';
 
-const MODELS = new Set(['P1P', 'P1S', 'X1C']);
+const MODELS = new Set(['P1P', 'P1S', 'X1C', 'A1 MINI']);
 const ZERO_TAG = /^0+$/;
 
 /** Fail closed: a missing tag UID means the printer has not proved the slot is manually editable. */
@@ -61,7 +61,7 @@ export async function setBambuAmsFilament(printer, request = {}, {
   sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
 } = {}) {
   if (!MODELS.has(String(printer?.model || '').trim().toUpperCase()))
-    throw new Error('AMS slot editing is supported only for P1P, P1S and X1C.');
+    throw new Error('AMS slot editing is supported only for P1P, P1S, X1C and A1 Mini.');
   const { unitIndex, slotIndex, toolIndex = 0 } = request;
   if (toolIndex !== 0) throw new Error('Bambu printers have one physical toolhead.');
   assertSlotIndex(unitIndex, slotIndex);

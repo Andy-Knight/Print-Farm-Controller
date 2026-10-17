@@ -350,6 +350,8 @@ test('Bambu A1 Mini profile interoperates with the production controller adapter
   assert.equal(adapter.model, 'A1 Mini');
   assert.equal(adapter.limits.bedTemperature.max, 80);
   assert.equal(adapter.capabilities.camera, true);
+  assert.equal(adapter.capabilities.filamentTypeControl, true);
+  assert.equal(adapter.capabilities.filamentColorControl, true);
   assert.equal(adapter.capabilities.chamberFan, false);
   assert.equal(adapter.capabilities.chamberPreheat, false);
 

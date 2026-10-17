@@ -255,10 +255,11 @@ const P1P_CAPABILITIES = normalizeCapabilities({
   toolheadNozzleStatus: true
 });
 
+// A1 Mini uses the same MQTT external tray (254) and AMS Lite slot
+// configuration operations as other single-nozzle Bambu models.
+// Keep its independently normalized capability set for other A1-specific limits.
 const A1_MINI_CAPABILITIES = normalizeCapabilities({
-  ...P1P_CAPABILITIES,
-  filamentTypeControl:false,
-  filamentColorControl:false
+  ...P1P_CAPABILITIES
 });
 
 const P1S_CAPABILITIES = normalizeCapabilities({
@@ -300,7 +301,7 @@ export class BambuLabAdapter extends PrinterAdapter {
 
   async getStatus() { return normalizeBambuStatus(await getBambuReport(this.printer), this.printer); }
   async setFilamentConfig({ toolIndex, material, color, amsUnitIndex, amsSlotIndex } = {}) {
-    if (!['P1P', 'P1S', 'X1C'].includes(this.model)) return this.unsupported('Bambu filament control');
+    if (!['P1P', 'P1S', 'X1C', 'A1 Mini'].includes(this.model)) return this.unsupported('Bambu filament control');
     if (amsUnitIndex !== undefined || amsSlotIndex !== undefined)
       return setBambuAmsFilament(this.printer, { toolIndex, material, color, unitIndex:amsUnitIndex, slotIndex:amsSlotIndex });
     return setBambuExternalFilament(this.printer, { toolIndex, material, color });
