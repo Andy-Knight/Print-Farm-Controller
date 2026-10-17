@@ -63,3 +63,16 @@ test('save flow applies P1 external spool state separately and retains AMS slot 
   assert.equal(printer.status.materialSources[1].material,'PETG');
   assert.equal(printer.status.tools[0].filament.material,'PETG');
 });
+
+test('external spool Set filament remains blue when valid and idle, matching other printers', () => {
+  assert.match(preact, /<UiButton variant="primary" class="toolhead-action-button" type="submit"/,
+    'Preact Set filament buttons use the shared primary theme');
+  assert.match(preact, /disabled=\{disabled\|\|!valid\|\|\(!dirty&&control\.mode!=='bambu-filament'\)\}/,
+    'the external-spool button must not appear disabled just because current values match');
+  assert.match(app, /class="primary toolhead-action-button" data-bambu-external-save/,
+    'legacy external-spool button uses the same primary style');
+  assert.match(css, /\.primary \{\s*background:linear-gradient\(180deg,#2f86e5,#1769bd\)/,
+    'the button inherits the common blue theme, without a Bambu-specific colour');
+  assert.doesNotMatch(css, /\.bambu-external-filament-control[^\{]*\{[^}]*background:/,
+    'no separate Bambu button background overrides the primary theme');
+});
