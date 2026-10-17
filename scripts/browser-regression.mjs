@@ -394,7 +394,15 @@ async function workspaceShellSmoke(browser,url) {
     assert.equal(await toggle.getAttribute('aria-expanded'),'false','Escape closes drawer');
     assert.ok(await toggle.evaluate(el=>document.activeElement===el),'Escape returns focus to menu toggle');
     await toggle.click();
-    await page.locator('#sidebarBackdrop').click({position:{x:370,y:430},force:true});
+    // Wait for the real painted backdrop before a pointer dismissal. Forcing
+    // clicks through the opening transition can target underlying content.
+    await page.waitForFunction(()=>{
+      const backdrop=document.querySelector('#sidebarBackdrop');
+      return backdrop && Number.parseFloat(getComputedStyle(backdrop).opacity)>=.98
+        && getComputedStyle(backdrop).visibility==='visible';
+    });
+    await page.mouse.click(370,430);
+    await page.waitForFunction(()=>document.querySelector('#sidebarToggle')?.getAttribute('aria-expanded')==='false');
     assert.equal(await toggle.getAttribute('aria-expanded'),'false','backdrop closes drawer');
     await toggle.click();
     await page.locator('.sidebar-quick-add').click();
