@@ -5926,7 +5926,9 @@ function bambuAmsFilamentEditState(printer,source={}) {
   if(source.rfidState!=='manual')return {enabled:false,message:'RFID status not reported — read-only for safety.'};
   if(String(printer.status?.status||'').toLowerCase()!=='idle')
     return {enabled:false,message:'Set AMS filament only while the printer is idle.'};
-  return {enabled:true,message:'Updates this non-RFID AMS slot on the printer and verifies the result.'};
+  return {enabled:true,message:String(printer.model||'').toUpperCase()==='A1 MINI'
+    ? 'Updates this AMS Lite slot and verifies it on the printer. Only use AMS Lite-compatible filament (standard flexible TPU and PETG-CF are unsuitable).'
+    : 'Updates this non-RFID AMS slot on the printer and verifies the result.'};
 }
 
 function bambuAmsFilamentControlMarkup(printer,source={}) {
