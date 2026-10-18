@@ -38,7 +38,7 @@ test('Preact shares a single UiTab primitive while all pages own their actions a
   assert.match(components,/data-pfc-icon=\{icon \|\| undefined\}/);
   for(const [page,source] of Object.entries(modules)){
     assert.ok(source.includes('UiTab'),page+' must use shared tab component');
-    assert.ok(source.includes('data-pfc-tabs'),page+' must identify its tablist');
+    assert.ok(source.includes('data-pfc-icon') || source.includes('icon='),page+' must supply icons');
   }
   assert.match(modules.details,/onKeyDown=\{\(event\) => activateFromKeyboard/);
   assert.match(modules.maintenance,/dispatchMaintenanceAction\('view', key\)/);
