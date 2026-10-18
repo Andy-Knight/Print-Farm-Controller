@@ -40,13 +40,16 @@ function PrinterDetailHeader({ detail }) {
   return (
     <div class="dialog-head printer-detail-preact-head">
       <div class="printer-detail-head-main">
-        <div class="eyebrow">PRINTER</div>
+        <div class="eyebrow">PRINTER DETAILS</div>
         <div class="printer-detail-title-row">
           <h2 data-detail-name>{detail.name}</h2>
           <DetailMaintenanceButton detail={detail} />
           <StatusBadge state={detail.stateClass} title={detail.badgeTitle || ''}>{detail.state}</StatusBadge>
         </div>
-        <div class="subtle printer-detail-host">{detail.host}</div>
+        <div class="printer-detail-context">
+          {detail.model && <span class="printer-detail-model">{detail.model}</span>}
+          {detail.host && <span class="subtle printer-detail-host">{detail.host}</span>}
+        </div>
         <div class="detail-health" data-detail-health>{detail.health}</div>
       </div>
       <UiButton
@@ -105,6 +108,7 @@ function PrinterDetailTabs({ detail }) {
             variant="ghost"
             class={`maintenance-view-button${active ? ' active' : ''}`}
             role="tab"
+            id={'printer-detail-tab-' + tab.key}
             data-detail-tab={tab.key}
             aria-controls={tab.controls}
             aria-selected={active ? 'true' : 'false'}
