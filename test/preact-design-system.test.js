@@ -79,3 +79,13 @@ test('card-view printer images align on shared CSS subgrid rows without changing
   assert.match(regression,/for\(const width of \[1365,1800\]\)/);
   assert.match(regression,/images must align for wrapped and short names/);
 });
+
+test('GitHub visual-regression artifacts use a native Node.js 24 action',()=>{
+  const workflow=read(' .github/workflows/container-image.yml'.trim());
+  assert.equal((workflow.match(/uses: actions\/upload-artifact@v7/g)||[]).length,2,
+    'visual screenshot and failure artifact uploads must use the Node.js 24 action');
+  assert.doesNotMatch(workflow,/uses: actions\/upload-artifact@v[1-5](?:\s|$)/m,
+    'Node 20 artifact upload actions cause deprecated runtime warnings');
+  assert.match(workflow,/PFC_VISUAL_CAPTURE_DIR:/,
+    'browser regression should still produce theme review screenshots');
+});
