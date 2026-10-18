@@ -384,6 +384,18 @@ async function workspaceShellSmoke(browser,url) {
     await crumb.waitFor({state:'visible'});
     await page.waitForFunction(()=>document.querySelector('#workspaceTrailRoot [aria-current="page"]')
       ?.textContent==='Reports & analytics');
+    const reportContext=await page.evaluate(()=>({
+      crumb:document.querySelector('#workspaceTrailRoot')?.innerText,
+      title:document.querySelector('#topbarContextTitle')?.textContent,
+      subtitle:document.querySelector('#topbarContextSubtitle')?.textContent,
+      parent:document.querySelector('#workspaceTrailRoot .workspace-trail-link')?.textContent
+    }));
+    assert.equal(reportContext.parent,'Workspace');
+    assert.equal(reportContext.title,'Reports & analytics');
+    assert.equal(reportContext.subtitle,'Review farm performance and filament usage');
+    assert.ok(reportContext.crumb.includes('Workspace')&&reportContext.crumb.includes('Reports & analytics'));
+    assert.ok(!reportContext.crumb.includes(reportContext.subtitle),
+      'subtitle must not overwrite the breadcrumb parent on route changes');
     assert.equal(await page.locator('#reportsBtn').getAttribute('aria-current'),'page',
       'active navigation item has current-page semantics');
     assert.equal(await page.locator('.sidebar-section-label').count(),2,
@@ -397,6 +409,21 @@ async function workspaceShellSmoke(browser,url) {
       document.querySelector('.topbar-context strong')?.textContent==='Dashboard');
     assert.equal(await page.locator('[data-dashboard-home]').getAttribute('aria-current'),'page',
       'breadcrumb uses normal controller routing to activate Dashboard');
+    await page.waitForFunction(()=>document.querySelector('#workspaceTrailRoot .workspace-trail-home'));
+    const dashHeader=await page.evaluate(()=>({
+      root:document.querySelector('#workspaceTrailRoot')?.innerText?.trim(),
+      title:document.querySelector('#topbarContextTitle')?.textContent,
+      subtitle:document.querySelector('#topbarContextSubtitle')?.textContent,
+      trail:document.querySelector('#workspaceTrailRoot')?.dataset.home,
+      duplicate:document.querySelector('#workspaceTrailRoot .workspace-trail-current')
+    }));
+    assert.equal(dashHeader.root,'Workspace',
+      'dashboard header shows only the Workspace eyebrow, not a second Dashboard');
+    assert.equal(dashHeader.title,'Dashboard');
+    assert.equal(dashHeader.subtitle,'Monitor and manage your print farm');
+    assert.equal(dashHeader.trail,'true');
+    assert.equal(dashHeader.duplicate,null,
+      'root route should not render a redundant Dashboard breadcrumb');
     const desktop=await page.evaluate(()=>({
       sidebar:document.querySelector('#controllerSidebar').getBoundingClientRect().toJSON(),
       header:document.querySelector('.modern-topbar').getBoundingClientRect().toJSON(),
