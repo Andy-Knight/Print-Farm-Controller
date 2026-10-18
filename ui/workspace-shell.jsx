@@ -28,6 +28,15 @@ function WorkspaceTrail() {
   function dashboard() {
     window.dispatchEvent(new CustomEvent('pfc:shell-navigate',{detail:{route:'/'}}));
   }
+  // The Dashboard is the root of the workspace. A breadcrumb reading
+  // Workspace / Dashboard above a large Dashboard heading repeats itself.
+  // Use a small section eyebrow on the home route; retain a navigable
+  // breadcrumb for deeper routes.
+  if(route.path==='/') {
+    return <div class="workspace-trail-home" data-preact-workspace-trail>
+      <span class="workspace-trail-parent">Workspace</span>
+    </div>;
+  }
   return (
     <nav aria-label="Breadcrumb" data-preact-workspace-trail>
       <button type="button" class="workspace-trail-link"
