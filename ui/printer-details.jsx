@@ -1,13 +1,13 @@
 import { render } from 'preact';
 import { useEffect, useRef, useState } from 'preact/hooks';
-import { StatusBadge, UiButton, UiTextField } from './components.jsx';
+import { StatusBadge, UiButton, UiTab, UiTextField } from './components.jsx';
 
 export const PRINTER_DETAIL_TABS = Object.freeze([
-  { key:'toolheads', label:'Toolheads', controls:'detailTabToolheads' },
-  { key:'camera', label:'Camera', controls:'detailTabCamera' },
-  { key:'files', label:'Files', controls:'detailTabFiles' },
-  { key:'temperature', label:'Temperature', fullLabel:'Temperature, Preheat & Fans', controls:'detailTabTemperature' },
-  { key:'job', label:'Current Job', controls:'detailTabJob' },
+  { key:'toolheads', label:'Toolheads', controls:'detailTabToolheads', icon:'sliders' },
+  { key:'camera', label:'Camera', controls:'detailTabCamera', icon:'camera' },
+  { key:'files', label:'Files', controls:'detailTabFiles', icon:'files' },
+  { key:'temperature', label:'Temperature', fullLabel:'Temperature, Preheat & Fans', controls:'detailTabTemperature', icon:'thermometer' },
+  { key:'job', label:'Current Job', controls:'detailTabJob', icon:'clock' },
   { key:'management', label:'Management', fullLabel:'Maintenance & Management', controls:'detailTabManagement' }
 ]);
 
@@ -123,13 +123,13 @@ function PrinterDetailTabs({ detail }) {
   };
 
   return (
-    <div class="printer-detail-tabs maintenance-view-selector printer-detail-preact-tabs" role="tablist" aria-label="Printer details">
+    <div class="printer-detail-tabs maintenance-view-selector printer-detail-preact-tabs" data-pfc-tabs role="tablist" aria-label="Printer details">
       {PRINTER_DETAIL_TABS.map((tab, index) => {
         const active = tab.key === activeTab;
         return (
-          <UiButton
+          <UiTab
+            icon={tab.icon}
             key={tab.key}
-            variant="ghost"
             class={`maintenance-view-button${active ? ' active' : ''}`}
             role="tab"
             id={'printer-detail-tab-' + tab.key}
@@ -142,7 +142,7 @@ function PrinterDetailTabs({ detail }) {
             onKeyDown={(event) => activateFromKeyboard(event, index)}
           >
             {tab.label}
-          </UiButton>
+          </UiTab>
         );
       })}
     </div>

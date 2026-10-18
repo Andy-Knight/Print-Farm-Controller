@@ -1,6 +1,6 @@
 import { render } from 'preact';
 import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
-import { UiButton, UiCheckboxField, UiTextField } from './components.jsx';
+import { UiButton, UiTab, UiCheckboxField, UiTextField } from './components.jsx';
 
 const emptyDraft = () => ({ id:'', name:'', printerIds:[] });
 const normalizeState = (detail = {}) => ({
@@ -314,20 +314,20 @@ function PrinterGroupsWorkspace() {
 
   return (
     <>
-      <div class="printer-groups-tabs maintenance-view-selector" role="tablist"
+      <div class="printer-groups-tabs maintenance-view-selector" data-pfc-tabs role="tablist"
         aria-label="Printer groups views" onKeyDown={onTabsKeyDown}>
-        <button id="printerGroupsTabCreate" type="button" role="tab"
+        <UiTab icon="plus" id="printerGroupsTabCreate" type="button" role="tab"
           class={'maintenance-view-button' + (tab === 'create' ? ' active' : '')}
           aria-controls="printerGroupsCreatePanel" aria-selected={tab === 'create'}
           tabIndex={tab === 'create' ? 0 : -1} data-printer-groups-tab="create"
-          disabled={busy} onClick={() => switchTab('create')}>Create group</button>
-        <button id="printerGroupsTabExisting" type="button" role="tab"
+          disabled={busy} onClick={() => switchTab('create')}>Create group</UiTab>
+        <UiTab icon="layers" id="printerGroupsTabExisting" type="button" role="tab"
           class={'maintenance-view-button' + (tab === 'groups' ? ' active' : '')}
           aria-controls="printerGroupsExistingPanel" aria-selected={tab === 'groups'}
           tabIndex={tab === 'groups' ? 0 : -1} data-printer-groups-tab="groups"
           disabled={busy} onClick={() => switchTab('groups')}>
           Existing groups ({state.groups.length})
-        </button>
+        </UiTab>
       </div>
       <div id="printerGroupsStatus" class="subtle" role="status" aria-live="polite">{status}</div>
       <section id="printerGroupsCreatePanel" class="printer-groups-tab-panel" role="tabpanel"

@@ -1,10 +1,10 @@
 import { render } from 'preact';
-import { UiButton } from './components.jsx';
+import { UiButton, UiTab } from './components.jsx';
 
 const ALERT_TABS = Object.freeze([
-  { key:'history', label:'Alert history', id:'alertsTabHistory', panel:'alertsPanelHistory' },
-  { key:'destinations', label:'Notification destinations', id:'alertsTabDestinations', panel:'alertsPanelDestinations' },
-  { key:'rules', label:'Notification rules', id:'alertsTabRules', panel:'alertsPanelRules' }
+  { key:'history', icon:'clock', label:'Alert history', id:'alertsTabHistory', panel:'alertsPanelHistory' },
+  { key:'destinations', icon:'bell', label:'Notification destinations', id:'alertsTabDestinations', panel:'alertsPanelDestinations' },
+  { key:'rules', icon:'sliders', label:'Notification rules', id:'alertsTabRules', panel:'alertsPanelRules' }
 ]);
 
 function dispatchAlertsAction(type, value = '') {
@@ -29,10 +29,10 @@ function AlertsTabs({ activeTab }) {
           requestAnimationFrame(() => document.querySelector(`[data-alerts-tab="${next.key}"]`)?.focus());
         };
         return (
-          <UiButton
+          <UiTab
+            icon={tab.icon}
             key={tab.key}
             id={tab.id}
-            variant="ghost"
             class={`maintenance-view-button${active ? ' active' : ''}`}
             data-alerts-tab={tab.key}
             role="tab"
@@ -43,7 +43,7 @@ function AlertsTabs({ activeTab }) {
             onKeyDown={onKeyDown}
           >
             {tab.label}
-          </UiButton>
+          </UiTab>
         );
       })}
     </>

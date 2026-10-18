@@ -1,9 +1,9 @@
 import { render } from 'preact';
-import { UiButton } from './components.jsx';
+import { UiButton, UiTab } from './components.jsx';
 
 const REPORT_TABS = Object.freeze([
-  { key:'analytics', label:'Analytics', id:'reportingTabAnalytics', panel:'reportingPanelAnalytics' },
-  { key:'filament', label:'Filament cost catalogue', id:'reportingTabFilament', panel:'reportingPanelFilament' }
+  { key:'analytics', icon:'chart', label:'Analytics', id:'reportingTabAnalytics', panel:'reportingPanelAnalytics' },
+  { key:'filament', icon:'spool', label:'Filament cost catalogue', id:'reportingTabFilament', panel:'reportingPanelFilament' }
 ]);
 
 function dispatchReportingAction(type, value = '') {
@@ -26,10 +26,10 @@ function ReportingTabs({ activeTab }) {
         dispatchReportingAction('tab', next.key);
         requestAnimationFrame(() => document.querySelector(`[data-reporting-tab="${next.key}"]`)?.focus());
       };
-      return <UiButton
+      return <UiTab
+        icon={tab.icon}
         key={tab.key}
         id={tab.id}
-        variant="ghost"
         class={`maintenance-view-button${active ? ' active' : ''}`}
         data-reporting-tab={tab.key}
         role="tab"
@@ -38,7 +38,7 @@ function ReportingTabs({ activeTab }) {
         tabindex={active ? 0 : -1}
         onClick={() => dispatchReportingAction('tab', tab.key)}
         onKeyDown={onKeyDown}
-      >{tab.label}</UiButton>;
+      >{tab.label}</UiTab>;
     })}
   </>;
 }

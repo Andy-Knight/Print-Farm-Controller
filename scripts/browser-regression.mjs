@@ -558,6 +558,89 @@ async function workspaceHeadingSmoke(page,url) {
   await page.setViewportSize({width:1365,height:900});
 }
 
+// Phase 4.1: verify that the same real Preact icon-tab treatment is applied
+// on all five route pages, rather than just the Printer Details modal.
+async function sharedTabNavigationSmoke(page,url) {
+  const views=[
+    ['/maintenance','maintenanceDialog'],
+    ['/groups','printerGroupsDialog'],
+    ['/reports','reportingDialog'],
+    ['/alerts','alertsDialog'],
+    ['/backup','backupRecoveryDialog']
+  ];
+  const captureDir=process.env.PFC_VISUAL_CAPTURE_DIR
+    ? path.resolve(process.env.PFC_VISUAL_CAPTURE_DIR) : null;
+  if(captureDir)await fs.mkdir(captureDir,{recursive:true});
+  for(const theme of ['dark','light']){
+    for(const [route,id] of views){
+      await page.setViewportSize({width:1365,height:900});
+      await page.goto(url+route,{waitUntil:'load'});
+      await preactReady(page);
+      await page.waitForFunction((id)=>document.getElementById(id)?.hidden===false,id);
+      await page.evaluate((theme)=>{document.documentElement.dataset.theme=theme;},theme);
+      const selector='#'+id+' [data-pfc-tabs][role="tablist"]';
+      await page.locator(selector+' [role="tab"]').first().waitFor({state:'visible'});
+      const state=await page.evaluate((id)=>{
+        const nav=document.querySelector('#'+id+' [data-pfc-tabs]');
+        const items=[...nav.querySelectorAll('[role="tab"]')];
+        const selected=items.filter(tab=>tab.getAttribute('aria-selected')==='true');
+        const style=selected[0]?getComputedStyle(selected[0]):null;
+        return {
+          count:items.length,
+          missingIcons:items.filter(tab=>
+            !String(getComputedStyle(tab,'::before').maskImage||'').includes('data:image/svg+xml')).length,
+          selected:selected.length,
+          background:getComputedStyle(nav).backgroundColor,
+          activeBackground:style?.backgroundColor,
+          textColor:style?.color,
+          underlineColor:style?.borderBottomColor,
+          underlineWidth:style?.borderBottomWidth
+        };
+      },id);
+      assert.ok(state.count>=2,route+' must have multiple real tabs');
+      assert.equal(state.missingIcons,0,route+' all tabs must display local monochrome icons');
+      assert.equal(state.selected,1,route+' must have one selected tab');
+      assert.equal(state.background,'rgba(0, 0, 0, 0)',route+' navigation rail should be transparent');
+      assert.equal(state.activeBackground,'rgba(0, 0, 0, 0)',route+' selected tab should not be filled');
+      assert.equal(state.textColor,state.underlineColor,route+' active blue underline should match label');
+      assert.ok(parseFloat(state.underlineWidth)>=2,route+' active underline must be visible');
+      if(captureDir && (route==='/maintenance'||route==='/backup')){
+        await page.screenshot({path:path.join(captureDir,
+          'phase4-1-'+id+'-'+theme+'-desktop.png')});
+      }
+      // Existing page-specific keyboard navigation remains authoritative.
+      await page.locator(selector+' [role="tab"]').last().focus();
+      await page.keyboard.press('Home');
+      await page.waitForFunction((id)=>{
+        const tabs=[...document.querySelectorAll('#'+id+' [data-pfc-tabs] [role="tab"]')];
+        return tabs[0]?.getAttribute('aria-selected')==='true';
+      },id);
+    }
+  }
+  // The longest rail is Backup: one row with horizontal scrolling on Android.
+  await page.setViewportSize({width:390,height:844});
+  await page.goto(url+'/backup',{waitUntil:'load'});
+  await preactReady(page);
+  await page.waitForFunction(()=>document.querySelector('#backupRecoveryDialog')?.hidden===false);
+  const mobile=await page.evaluate(()=>{
+    const rail=document.querySelector('#backupRecoveryDialog [data-pfc-tabs]');
+    const tabs=[...rail.querySelectorAll('[role="tab"]')];
+    const tops=tabs.map(x=>x.getBoundingClientRect().top);
+    return {
+      overflow:getComputedStyle(rail).overflowX,
+      scrollWidth:rail.scrollWidth,
+      clientWidth:rail.clientWidth,
+      rows:Math.max(...tops)-Math.min(...tops)
+    };
+  });
+  assert.equal(mobile.overflow,'auto','mobile backup tab rail must scroll');
+  assert.ok(mobile.scrollWidth>mobile.clientWidth,'mobile backup tabs must overflow on one scrollable row');
+  assert.ok(mobile.rows<=2,'mobile tabs must stay aligned on a single row');
+  if(captureDir)await page.screenshot({path:path.join(captureDir,'phase4-1-backup-light-mobile.png')});
+  await page.setViewportSize({width:1365,height:900});
+  console.log('Chromium: Phase 4.1 shared icon tabs, themes, keyboard, mobile PASS');
+}
+
 async function routeSmoke(page,url) {
   console.log('Chromium: checking direct load of all controller routes');
   for (const [route,id] of routes) {
@@ -1647,6 +1730,7 @@ async function main() {
     await dashboardPhase3Smoke(browser,url);
     await workspaceShellSmoke(browser,url);
     await workspaceHeadingSmoke(page,url);
+    await sharedTabNavigationSmoke(page,url);
     await routeSmoke(page,url);
     await queueClickSmoke(browser,url);
     await groupEditorSmoke(browser,url);

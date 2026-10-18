@@ -26,6 +26,7 @@
   <link rel="stylesheet" href="/shell.css" />
   <link rel="stylesheet" href="/dashboard-polish.css" />
   <link rel="stylesheet" href="/printer-details-polish.css" />
+  <link rel="stylesheet" href="/tab-navigation.css" />
 </head>
 <body>
   <a class="workspace-skip-link" href="#workspaceMain">Skip to main content</a>
@@ -273,13 +274,13 @@
       </div>
 
       <div id="printerGroupsWorkspace">
-      <div class="printer-groups-tabs maintenance-view-selector" role="tablist" aria-label="Printer groups views">
+      <div class="printer-groups-tabs maintenance-view-selector" data-pfc-tabs role="tablist" aria-label="Printer groups views">
         <button id="printerGroupsTabCreate" type="button" class="maintenance-view-button active"
           role="tab" aria-selected="true" aria-controls="printerGroupsCreatePanel"
-          data-printer-groups-tab="create">Create group</button>
+          data-printer-groups-tab="create" data-pfc-icon="plus">Create group</button>
         <button id="printerGroupsTabExisting" type="button" class="maintenance-view-button"
           role="tab" aria-selected="false" aria-controls="printerGroupsExistingPanel"
-          data-printer-groups-tab="groups">Existing groups</button>
+          data-printer-groups-tab="groups" data-pfc-icon="layers">Existing groups</button>
       </div>
       <div id="printerGroupsStatus" class="subtle" role="status" aria-live="polite"></div>
       <section id="printerGroupsCreatePanel" class="printer-groups-tab-panel" role="tabpanel"
@@ -329,9 +330,9 @@
         <button type="button" class="icon" data-reporting-close>×</button>
       </div>
 
-      <div class="reporting-tabs maintenance-view-selector" role="tablist" aria-label="Reports and analytics view">
-        <button id="reportingTabAnalytics" type="button" class="maintenance-view-button active" data-reporting-tab="analytics" role="tab" aria-selected="true" aria-controls="reportingPanelAnalytics">Analytics</button>
-        <button id="reportingTabFilament" type="button" class="maintenance-view-button" data-reporting-tab="filament" role="tab" aria-selected="false" aria-controls="reportingPanelFilament" tabindex="-1">Filament cost catalogue</button>
+      <div class="reporting-tabs maintenance-view-selector" data-pfc-tabs role="tablist" aria-label="Reports and analytics view">
+        <button id="reportingTabAnalytics" type="button" class="maintenance-view-button active" data-reporting-tab="analytics" data-pfc-icon="chart" role="tab" aria-selected="true" aria-controls="reportingPanelAnalytics">Analytics</button>
+        <button id="reportingTabFilament" type="button" class="maintenance-view-button" data-reporting-tab="filament" data-pfc-icon="spool" role="tab" aria-selected="false" aria-controls="reportingPanelFilament" tabindex="-1">Filament cost catalogue</button>
       </div>
 
       <section id="reportingPanelAnalytics" class="reporting-tab-panel" data-reporting-panel="analytics" role="tabpanel" aria-labelledby="reportingTabAnalytics">
@@ -490,11 +491,11 @@
       <div class="maintenance-tracking-note">
         Usage counters begin when this controller starts observing a printer. They are controller-observed values, not manufacturer lifetime counters.
       </div>
-      <div class="maintenance-view-selector" role="tablist" aria-label="Maintenance view">
-        <button type="button" class="maintenance-view-button" data-maintenance-view="add" role="tab" aria-selected="false">Add maintenance tasks</button>
-        <button type="button" class="maintenance-view-button" data-maintenance-view="model" role="tab" aria-selected="false">Model-wide maintenance tasks</button>
-        <button type="button" class="maintenance-view-button" data-maintenance-view="group" role="tab" aria-selected="false">Group-wide maintenance tasks</button>
-        <button type="button" class="maintenance-view-button active" data-maintenance-view="printers" role="tab" aria-selected="true">Individual printer tasks</button>
+      <div class="maintenance-view-selector" data-pfc-tabs role="tablist" aria-label="Maintenance view">
+        <button type="button" class="maintenance-view-button" data-maintenance-view="add" data-pfc-icon="plus" role="tab" aria-selected="false">Add maintenance tasks</button>
+        <button type="button" class="maintenance-view-button" data-maintenance-view="model" data-pfc-icon="printer" role="tab" aria-selected="false">Model-wide maintenance tasks</button>
+        <button type="button" class="maintenance-view-button" data-maintenance-view="group" data-pfc-icon="layers" role="tab" aria-selected="false">Group-wide maintenance tasks</button>
+        <button type="button" class="maintenance-view-button active" data-maintenance-view="printers" data-pfc-icon="wrench" role="tab" aria-selected="true">Individual printer tasks</button>
       </div>
 
       <div id="maintenanceStatus" class="subtle"></div>
@@ -571,10 +572,10 @@
         <button type="button" class="icon" data-alerts-close>×</button>
       </div>
 
-      <div class="alerts-tabs maintenance-view-selector" role="tablist" aria-label="Alerts and notifications view">
-        <button id="alertsTabHistory" type="button" class="maintenance-view-button active" data-alerts-tab="history" role="tab" aria-selected="true" aria-controls="alertsPanelHistory">Alert history</button>
-        <button id="alertsTabDestinations" type="button" class="maintenance-view-button" data-alerts-tab="destinations" role="tab" aria-selected="false" aria-controls="alertsPanelDestinations" tabindex="-1">Notification destinations</button>
-        <button id="alertsTabRules" type="button" class="maintenance-view-button" data-alerts-tab="rules" role="tab" aria-selected="false" aria-controls="alertsPanelRules" tabindex="-1">Notification rules</button>
+      <div class="alerts-tabs maintenance-view-selector" data-pfc-tabs role="tablist" aria-label="Alerts and notifications view">
+        <button id="alertsTabHistory" type="button" class="maintenance-view-button active" data-alerts-tab="history" data-pfc-icon="clock" role="tab" aria-selected="true" aria-controls="alertsPanelHistory">Alert history</button>
+        <button id="alertsTabDestinations" type="button" class="maintenance-view-button" data-alerts-tab="destinations" data-pfc-icon="bell" role="tab" aria-selected="false" aria-controls="alertsPanelDestinations" tabindex="-1">Notification destinations</button>
+        <button id="alertsTabRules" type="button" class="maintenance-view-button" data-alerts-tab="rules" data-pfc-icon="sliders" role="tab" aria-selected="false" aria-controls="alertsPanelRules" tabindex="-1">Notification rules</button>
       </div>
 
       <div id="alertsStatus" class="subtle"></div>
@@ -752,13 +753,13 @@
 
       <div id="backupStatusGrid" class="backup-status-grid"></div>
 
-      <div class="backup-tabs" role="tablist" aria-label="Backup and recovery sections">
-        <button type="button" class="backup-tab active" data-backup-tab="overview" role="tab" aria-selected="true">Overview</button>
-        <button type="button" class="backup-tab" data-backup-tab="google-drive" role="tab" aria-selected="false">Google Drive</button>
-        <button type="button" class="backup-tab" data-backup-tab="one-drive" role="tab" aria-selected="false">OneDrive</button>
-        <button type="button" class="backup-tab" data-backup-tab="s3" role="tab" aria-selected="false">S3-compatible</button>
-        <button type="button" class="backup-tab" data-backup-tab="schedule" role="tab" aria-selected="false">Schedule</button>
-        <button type="button" class="backup-tab" data-backup-tab="restore" role="tab" aria-selected="false">Restore</button>
+      <div class="backup-tabs" data-pfc-tabs role="tablist" aria-label="Backup and recovery sections">
+        <button type="button" class="backup-tab active" data-backup-tab="overview" data-pfc-icon="database" role="tab" aria-selected="true">Overview</button>
+        <button type="button" class="backup-tab" data-backup-tab="google-drive" data-pfc-icon="cloud" role="tab" aria-selected="false">Google Drive</button>
+        <button type="button" class="backup-tab" data-backup-tab="one-drive" data-pfc-icon="cloud" role="tab" aria-selected="false">OneDrive</button>
+        <button type="button" class="backup-tab" data-backup-tab="s3" data-pfc-icon="server" role="tab" aria-selected="false">S3-compatible</button>
+        <button type="button" class="backup-tab" data-backup-tab="schedule" data-pfc-icon="calendar" role="tab" aria-selected="false">Schedule</button>
+        <button type="button" class="backup-tab" data-backup-tab="restore" data-pfc-icon="restore" role="tab" aria-selected="false">Restore</button>
       </div>
 
       <div class="backup-tab-panel" data-backup-panel="overview" role="tabpanel">

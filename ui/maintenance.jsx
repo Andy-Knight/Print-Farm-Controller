@@ -1,11 +1,11 @@
 import { render } from 'preact';
-import { UiButton } from './components.jsx';
+import { UiButton, UiTab } from './components.jsx';
 
 const VIEW_LABELS = Object.freeze([
-  ['add','Add maintenance tasks'],
-  ['model','Model-wide maintenance tasks'],
-  ['group','Group-wide maintenance tasks'],
-  ['printers','Individual printer tasks']
+  ['add','Add maintenance tasks','plus'],
+  ['model','Model-wide maintenance tasks','printer'],
+  ['group','Group-wide maintenance tasks','layers'],
+  ['printers','Individual printer tasks','wrench']
 ]);
 
 function dispatchMaintenanceAction(type, value = '') {
@@ -17,7 +17,7 @@ function dispatchMaintenanceAction(type, value = '') {
 function MaintenanceTabs({ activeView }) {
   return (
     <>
-      {VIEW_LABELS.map(([key, label], index) => {
+      {VIEW_LABELS.map(([key, label, icon], index) => {
         const active = key === activeView;
         const activateFromKeyboard = (event) => {
           if (!['ArrowLeft','ArrowRight','Home','End'].includes(event.key)) return;
@@ -32,9 +32,9 @@ function MaintenanceTabs({ activeView }) {
           requestAnimationFrame(() => document.querySelector(`[data-maintenance-view="${next}"]`)?.focus());
         };
         return (
-          <UiButton
+          <UiTab
+            icon={icon}
             key={key}
-            variant="ghost"
             class={`maintenance-view-button${active ? ' active' : ''}`}
             data-maintenance-view={key}
             role="tab"
@@ -44,7 +44,7 @@ function MaintenanceTabs({ activeView }) {
             onKeyDown={activateFromKeyboard}
           >
             {label}
-          </UiButton>
+          </UiTab>
         );
       })}
     </>

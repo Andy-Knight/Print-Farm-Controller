@@ -1,6 +1,6 @@
 # Print Farm Controller — SaaS UI design system (Phase 1)
 
-**Status:** Phases 1–3 were merged as v0.54.0 (PR #96), and Phase 4 (Printer Details) was accepted as v0.55.0 (PR #98). No printer-control protocols, endpoint contracts or edition limits change.
+**Status:** Phases 1–3 merged as v0.54.0 (PR #96); Phase 4 landed as v0.55.0 (PR #98); Printer Details follow-up PR #99 and standardised tabs PR #100 comprise v0.56.0. No printer-control protocols, endpoint contracts or edition limits change.
 
 ## Product direction
 A professional, calm, information-first operations workspace that resembles established SaaS applications while remaining *local-first*: no CDN, external fonts, remote assets or third-party analytics. Dense fleet operations stay legible and users can keep working when printer SSE telemetry refreshes during an edit.
@@ -102,3 +102,15 @@ Visible labels shorten only two entries to **Temperature** and **Management**. T
 User review of mockup A requested the upper identity region in addition to the icon underline tabs. The header now reuses the controller's **existing local model image assets** and displays six labelled facts with consistently styled outline icons: Model, Connection, Host / IP, Uptime, Firmware and Connection health. The printer name, existing live status, maintenance action, and last-response/latency diagnostics remain visible. The two-column metadata panel adapts to a single column on narrower/mobile displays; existing toolhead controls below the tabs are not changed.
 
 **Data integrity:** firmware comes from printer status `firmwareVersion` and shows “Not reported” when absent. Uptime is shown only if an adapter explicitly supplies nonnegative `uptimeSeconds`; last-seen and connection duration are not printer uptime and must never be substituted. “Connection health” describes the controller's online/poll-failure state, not mechanical health. Both Preact and the no-bundle fallback use the same source fields and update during telemetry refresh. No new printer protocol reads or backend changes were introduced.
+
+## Phase 4.1 — standardised icon underline navigation (v0.56.0)
+
+The **Option A** selected for Printer Details is now the shared style across every existing multi-panel navigation: Printer Details, Maintenance Tracking, Printer Groups, Reports, Alerts & Notifications and Backup & Recovery. Each area retains its own tab labels, saved active-selection behaviour, controller APIs, form state and keyboard handlers. View toggles such as dashboard card/table switching are **not** tabs and deliberately keep their button treatment.
+
+`public/tab-navigation.css` is loaded after the existing design system and all legacy/printer-specific styles. Its scoped `[data-pfc-tabs]` contract supplies transparent backgrounds, a thin tab-rail divider, a selected blue underline, uniform icon/label spacing, keyboard focus indication, reduced-motion support and a single horizontal scrolling row at narrow widths. Locally embedded monochrome SVG masks inherit text colours and never request assets from the network. Each tab declares a semantic `data-pfc-icon` name. No global override of `.maintenance-view-button` or `.backup-tab` affects non-tab controls.
+
+`UiTab` in `ui/components.jsx` is the common Preact tab primitive; it composes the established `UiButton` without changing delegated controller events or page-owned selection. Static/no-bundle fallback navigation uses the same `data-pfc-tabs` / `data-pfc-icon` presentation contract and retains its working handlers. This rollout is intentionally visual, not a replacement of maintenance/queue/backup business logic.
+
+### Validation and release sequencing
+
+User acceptance and feature-branch test gates have completed for both parts. PR #99 (Printer Details) was merged first. PR #100 was then retargeted to `main`, the application version advanced to v0.56.0 and the combined release submitted for its final CI gate. Continue to test printer-specific UI on physical hardware where available.

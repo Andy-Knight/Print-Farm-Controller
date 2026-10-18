@@ -21,6 +21,17 @@ export function UiButton({
   </button>;
 }
 
+/**
+ * Shared Preact tab button. Page-owned selection, click handlers and ARIA
+ * relationships are preserved; the same data-pfc-icon contract is used by
+ * the static/no-bundle fallback. Styling lives in tab-navigation.css.
+ */
+export function UiTab({ icon = '', class:className = '', children, ...props }) {
+  return <UiButton variant="ghost" class={className} data-pfc-icon={icon || undefined} {...props}>
+    {children}
+  </UiButton>;
+}
+
 export function StatusBadge({ state = '', title = '', children }) {
   const normalized = String(state || '').toLowerCase().replace(/\s+/g, '_');
   return (
