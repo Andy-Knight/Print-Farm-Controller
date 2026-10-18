@@ -50,6 +50,11 @@ function WorkspaceTrail() {
 export function initWorkspaceShell() {
   const root=document.querySelector('#workspaceTrailRoot');
   if(!root) return;
+  // Preact render() appends to existing server/legacy markup rather than
+  // automatically adopting it. Remove the static fallback before mounting,
+  // otherwise both breadcrumb versions are visible in the topbar.
+  // The fallback remains intact when the Preact bundle is unavailable.
+  root.replaceChildren();
   render(<WorkspaceTrail />,root);
   window.__PFC_PREACT_SHELL__=true;
 }
