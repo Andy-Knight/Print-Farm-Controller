@@ -1,6 +1,6 @@
 # Print Farm Controller — SaaS UI design system (Phase 1)
 
-**Status:** Phases 1–3 were merged as v0.54.0 (PR #96), and Phase 4 (Printer Details) was accepted as v0.55.0 (PR #98). No printer-control protocols, endpoint contracts or edition limits change.
+**Status:** Phases 1–3 merged as v0.54.0 (PR #96); Phase 4 landed as v0.55.0 (PR #98); Printer Details follow-up PR #99 and standardised tabs PR #100 comprise v0.56.0. No printer-control protocols, endpoint contracts or edition limits change.
 
 ## Product direction
 A professional, calm, information-first operations workspace that resembles established SaaS applications while remaining *local-first*: no CDN, external fonts, remote assets or third-party analytics. Dense fleet operations stay legible and users can keep working when printer SSE telemetry refreshes during an edit.
@@ -103,7 +103,7 @@ User review of mockup A requested the upper identity region in addition to the i
 
 **Data integrity:** firmware comes from printer status `firmwareVersion` and shows “Not reported” when absent. Uptime is shown only if an adapter explicitly supplies nonnegative `uptimeSeconds`; last-seen and connection duration are not printer uptime and must never be substituted. “Connection health” describes the controller's online/poll-failure state, not mechanical health. Both Preact and the no-bundle fallback use the same source fields and update during telemetry refresh. No new printer protocol reads or backend changes were introduced.
 
-## Phase 4.1 — standardised icon underline navigation (feature branch)
+## Phase 4.1 — standardised icon underline navigation (v0.56.0)
 
 The **Option A** selected for Printer Details is now the shared style across every existing multi-panel navigation: Printer Details, Maintenance Tracking, Printer Groups, Reports, Alerts & Notifications and Backup & Recovery. Each area retains its own tab labels, saved active-selection behaviour, controller APIs, form state and keyboard handlers. View toggles such as dashboard card/table switching are **not** tabs and deliberately keep their button treatment.
 
@@ -113,4 +113,4 @@ The **Option A** selected for Printer Details is now the shared style across eve
 
 ### Validation and release sequencing
 
-The initial Printer Details underline tabs and expanded identity header remain on draft PR #99 (v0.55.0). **Phase 4.1 branches from PR #99**, so the new standard can be reviewed as a stacked feature without prematurely merging PR #99 to `main`. Verify Node.js 24 unit/contract checks, real Chromium route/theme/mobile/keyboard tests and container smoke before merging in that order. Keep the application version at v0.55.0 during feature review; increment it when the combined changes are accepted for release.
+User acceptance and feature-branch test gates have completed for both parts. PR #99 (Printer Details) was merged first. PR #100 was then retargeted to `main`, the application version advanced to v0.56.0 and the combined release submitted for its final CI gate. Continue to test printer-specific UI on physical hardware where available.

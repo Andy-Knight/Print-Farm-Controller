@@ -4,6 +4,15 @@ This file contains the version-by-version release history for Print Farm Control
 
 Historical entries describe the behaviour of the controller at the time of that release and may be superseded by later versions. For current installation, configuration and supported-hardware guidance, see [README.md](README.md).
 
+## v0.56.0
+
+- Adopted **Phase 4.1 standard tab navigation** throughout Printer Details, Maintenance Tracking, Printer Groups, Reports & Analytics, Alerts & Notifications and Backup & Recovery: icons, selected blue underline and matching text, transparent background, focus outlines and one-row horizontally scrolling navigation on narrow screens.
+- Created a reusable `UiTab` Preact component in the shared design system and loaded a single last-applied `public/tab-navigation.css` stylesheet. Maintained identical styling for legacy/no-bundle fallbacks with tab-level `data-pfc-tabs` and `data-pfc-icon` contracts.
+- Extended the **Printer Details identity header** with existing local model imagery and six icon-labelled live data fields (model, connection, host/IP, uptime when actually reported, firmware when reported and connection health). Preserved current status, maintenance actions, connectivity/latency diagnostics, existing printer controls and all six tabs. Shortened two visible tab labels without changing their full accessible names.
+- Preserved all printer protocols, toolhead filament/nozzle widths and alignment, queue/report/backup actions, route switching, management forms and dashboard card/table view toggle.
+- Added Node.js structure/regression checks plus Chromium checks for shared tab styling, accessibility, keyboard navigation, mobile scroll and both colour themes. User reviewed the feature changes on PRs #99 and #100; all feature-branch Node.js 24, Chromium, MinIO integration and container smoke gates passed.
+- Increased source release from v0.55.0 to v0.56.0.
+
 ## v0.55.0
 
 - Completed **Phase 4 of the polished SaaS migration** with a redesigned Printer Details modal: clearer printer name/model/host identification, live status, maintenance/health context, theme-aware dialog and tab/section surfaces.

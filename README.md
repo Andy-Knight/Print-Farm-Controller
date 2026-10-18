@@ -1,4 +1,4 @@
-# Print Farm Controller v0.55.0
+# Print Farm Controller v0.56.0
 A local-first 3D printer fleet controller. It runs entirely on your LAN and currently supports:
 
 - **FlashForge Adventurer 5M / 5M Pro** through the local FlashForge HTTP/TCP APIs.
@@ -7,9 +7,12 @@ A local-first 3D printer fleet controller. It runs entirely on your LAN and curr
 - **Prusa CORE One+ (experimental)** through the local PrusaLink API, supporting Standard (1-tool), INDX4 and INDX8 configurations.
 - **Bambu Lab P1P / P1S / X1C / A1 Mini (experimental)** through the local MQTT TLS and FTPS TLS interfaces. P1P/P1S/A1 Mini use the TLS/JPEG camera path; X1C camera decoding remains unsupported.
 
-**Current development version: v0.55.0**
+**Current development version: v0.56.0**
 
 Current highlights:
+
+- **Unified icon underline tabs (v0.56.0):** Phase 4.1 makes minimal blue-underline navigation with local monochrome outline icons the controller-wide standard in Printer Details, Maintenance Tracking, Printer Groups, Reports, Alerts & Notifications, and Backup & Recovery. All tabbed sections retain their actions, Preact/vanilla fallback, keyboard and focus behaviour, and single-row horizontal mobile scrolling. The Dashboard card/table control is deliberately unchanged because it is a view switch, not tabs. A reusable Preact `UiTab` and one last-loaded `tab-navigation.css` keep styles consistent and maintainable.
+- **Printer Details header follow-up (v0.56.0):** A richer printer identity summary pairs the actual local printer-model image with icons for model, connection, host/IP, uptime, firmware and connection health, plus the existing live status and maintenance action. Firmware and uptime only display printer-reported data; missing values show “Not reported”. The six Printer Details navigation sections use the newly standardised icon underline tabs, including the shorter Temperature and Management labels with full accessible names. User-approved on PRs #99 and #100, with Node.js 24, Chromium light/dark desktop/mobile and container smoke regression checks passing on the feature heads.
 
 - **Polished Printer Details workspace (v0.55.0):** Phase 4 of the Preact SaaS migration improves the printer-details header with printer/model/host identity, live health and maintenance/status context; applies consistent light/dark design-system styling to content and tabs; and uses a horizontally scrollable single-row tab navigation on narrow screens. All six sections retain existing printer operations, filament/nozzle configuration, 160px toolhead fields and alignment, controller telemetry, keyboard navigation and no-bundle fallback. Automated Node.js 24, Chromium desktop/mobile, responsive layout and container smoke checks passed on PR #98. See [Design System](docs/DESIGN_SYSTEM.md).
 
