@@ -74,3 +74,11 @@ test('table status column can display OFFLINE pill and maintenance icon together
   assert.match(browser,/OFFLINE text should fit inside the coloured badge/);
   assert.match(browser,/OFFLINE badge should fit in its table column/);
 });
+
+test('printer groups page uses Farm Organisation terminology in its shared page heading',()=>{
+  const html=read('public/index.html');
+  const section=html.match(/<section id="printerGroupsDialog"[\s\S]*?<\/header>/)?.[0] || '';
+  assert.match(section,/<div class="eyebrow ui-page-eyebrow">FARM ORGANISATION<\/div>/);
+  assert.doesNotMatch(section,/FLEET ORGANISATION/);
+  assert.match(section,/<h2 class="ui-page-title">Printer groups<\/h2>/);
+});
