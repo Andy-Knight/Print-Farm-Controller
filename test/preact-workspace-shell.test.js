@@ -65,3 +65,17 @@ test('Preact breadcrumb is a passive subscribed shell island, and legacy breadcr
   assert.match(dashboard,/initWorkspaceShell\(\)/);
   assert.match(browser,/workspaceShellSmoke\(browser,url\)/);
 });
+
+test('dashboard topbar has one visible Dashboard label with a dedicated route subtitle',()=>{
+  assert.match(html,/id="topbarContextTitle" tabindex="-1">Dashboard<\/strong>/);
+  assert.match(html,/id="topbarContextSubtitle">Monitor and manage your print farm<\/span>/);
+  assert.match(html,/id="workspaceTrailRoot" class="workspace-trail-root" data-home="true"/);
+  assert.match(app,/document\.querySelector\('#topbarContextSubtitle'\)/);
+  assert.doesNotMatch(app,/querySelector\('\.topbar-context span'\)/,
+    'a generic span selector overwrites the Workspace breadcrumb with the subtitle');
+  assert.match(app,/workspaceTrailRoot\.dataset\.home = String\(routePath === '\/'\)/);
+  assert.match(preact,/if\(route\.path==='\/'\)/);
+  assert.match(preact,/class="workspace-trail-home"/);
+  assert.match(styles,/\.workspace-trail-root\[data-home="true"\] \.workspace-trail-current \{ display:none; \}/);
+  assert.match(browser,/dashboard header shows only the Workspace eyebrow/);
+});
