@@ -326,9 +326,11 @@ The `latest` tag is published from the `main` branch.
 
 ### Automated GHCR publishing
 
-`.github/workflows/container-image.yml` runs the Node regression suite, starts a real Linux smoke-test container, then builds `linux/amd64` and `linux/arm64` images with Docker Buildx. Publishing uses the repository-scoped GitHub `GITHUB_TOKEN`; no manually stored registry password or PAT is required.
+`.github/workflows/container-image.yml` has separate **test**, **Chromium browser**, **container smoke**, and **release image** jobs. Every relevant feature-branch pull-request update runs the Node.js 24 regression tests, Chromium/Preact visual checks and a disposable **single-architecture** local Docker smoke test. It **does not** build a multi-architecture release image or push anything to the registry on each commit.
 
-Pull requests build and validate without publishing. Pushes to `main` publish `latest`, while version tags such as `v0.33.0` publish versioned image tags.
+The full `linux/amd64` + `linux/arm64` release build runs **after merging to `main`**, publishing `latest`, or when pushing a version tag such as `v0.54.0`, publishing versioned tags. Publishing uses the repository-scoped GitHub `GITHUB_TOKEN`; no manually stored registry password or PAT is required.
+
+For a one-off final multi-architecture **verification build on a completed feature branch**, open GitHub **Actions → Controller CI and Container Release → Run workflow**, and choose the feature branch. Manual runs on feature branches build the image **without publishing** and without production OAuth secrets. This allows a full architectural build check before merging without creating intermediate GHCR releases.
 
 The repository includes a Linux-container `Dockerfile` based on Node.js 24. Controller state and diagnostic logs should be mounted separately so recreating the container does not lose configuration or Print Library data.
 
