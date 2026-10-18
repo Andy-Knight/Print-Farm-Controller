@@ -76,6 +76,8 @@ test('dashboard topbar has one visible Dashboard label with a dedicated route su
   assert.match(app,/workspaceTrailRoot\.dataset\.home = String\(routePath === '\/'\)/);
   assert.match(preact,/if\(route\.path==='\/'\)/);
   assert.match(preact,/class="workspace-trail-home"/);
+  assert.match(preact,/root\.replaceChildren\(\)/,
+    'Preact should replace the static breadcrumb fallback rather than displaying both');
   assert.match(styles,/\.workspace-trail-root\[data-home="true"\] \.workspace-trail-current \{ display:none; \}/);
   assert.match(browser,/dashboard header shows only the Workspace eyebrow/);
 });
