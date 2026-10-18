@@ -486,6 +486,78 @@ async function workspaceShellSmoke(browser,url) {
   }finally {await context.close();}
 }
 
+async function workspaceHeadingSmoke(page,url) {
+  console.log('Chromium: shared page heading visual contract across all main routes');
+  const headingStyle=async(selector)=>page.evaluate((selector)=>{
+    const wrapper=document.querySelector(selector);
+    if(!wrapper)throw new Error('Missing page heading: '+selector);
+    const eyebrow=wrapper.querySelector('.ui-page-eyebrow');
+    const title=wrapper.querySelector('.ui-page-title');
+    const description=wrapper.querySelector('.ui-page-description');
+    if(!eyebrow||!title||!description)throw new Error('Incomplete page heading '+selector);
+    function metrics(el){
+      const css=getComputedStyle(el);
+      return {
+        fontFamily:css.fontFamily,
+        fontSize:css.fontSize,
+        fontWeight:css.fontWeight,
+        lineHeight:css.lineHeight,
+        letterSpacing:css.letterSpacing,
+        color:css.color,
+        marginTop:css.marginTop,
+        marginBottom:css.marginBottom
+      };
+    }
+    return {
+      eyebrow:metrics(eyebrow),title:metrics(title),description:metrics(description),
+      eyebrowText:eyebrow.textContent.trim(),
+      headingText:title.textContent.trim()
+    };
+  },selector);
+  for(const theme of ['dark','light']){
+    await page.goto(url+'/',{waitUntil:'load'});
+    await preactReady(page);
+    await page.evaluate((name)=>{
+      if(document.documentElement.dataset.theme!==name)
+        document.querySelector('#themeToggle')?.click();
+    },theme);
+    const expected=await headingStyle('.dashboard-hero.ui-page-heading');
+    assert.equal(expected.headingText,'Farm overview');
+    for(const [route,id] of routes.filter(([route,id])=>Boolean(id))){
+      await page.goto(url+route,{waitUntil:'load'});
+      await preactReady(page);
+      await page.waitForFunction((id)=>document.getElementById(id)?.hidden===false,id);
+      const actual=await headingStyle('#'+id+' .dialog-head.ui-page-heading');
+      for(const part of ['eyebrow','title','description']){
+        assert.deepEqual(actual[part],expected[part],
+          theme+' '+route+' '+part+' style must match Dashboard heading');
+      }
+      assert.ok(actual.headingText,'route page must retain its own title: '+route);
+      assert.ok(actual.eyebrowText,'route page must retain its category: '+route);
+    }
+    // Queue and library own reactive summary elements; they must not
+    // disappear when styles are standardised.
+    await page.goto(url+'/queue',{waitUntil:'load'});
+    await preactReady(page);
+    assert.equal(await page.locator('#queueSummary.ui-page-description').count(),1);
+    await page.goto(url+'/library',{waitUntil:'load'});
+    await preactReady(page);
+    assert.equal(await page.locator('#librarySummary.ui-page-description').count(),1);
+  }
+  // Mobile heading typography must be the same on each page as well.
+  await page.setViewportSize({width:390,height:844});
+  await page.goto(url+'/',{waitUntil:'load'});
+  await preactReady(page);
+  const mobile=await headingStyle('.dashboard-hero.ui-page-heading');
+  await page.goto(url+'/queue',{waitUntil:'load'});
+  await preactReady(page);
+  const queueMobile=await headingStyle('#queueDialog .dialog-head.ui-page-heading');
+  for(const part of ['eyebrow','title','description'])
+    assert.deepEqual(queueMobile[part],mobile[part],
+      'mobile queue page '+part+' must match Dashboard');
+  await page.setViewportSize({width:1365,height:900});
+}
+
 async function routeSmoke(page,url) {
   console.log('Chromium: checking direct load of all controller routes');
   for (const [route,id] of routes) {
@@ -1448,6 +1520,7 @@ async function main() {
     await designSystemSmoke(browser,url);
     await dashboardPhase3Smoke(browser,url);
     await workspaceShellSmoke(browser,url);
+    await workspaceHeadingSmoke(page,url);
     await routeSmoke(page,url);
     await queueClickSmoke(browser,url);
     await groupEditorSmoke(browser,url);
