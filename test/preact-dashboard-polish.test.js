@@ -77,7 +77,7 @@ test('table status column can display OFFLINE pill and maintenance icon together
 
 test('printer groups page uses Farm Organisation terminology in its shared page heading',()=>{
   const html=read('public/index.html');
-  const section=html.match(/<section id="printerGroupsDialog"[\s\S]*?<\/header>/)?.[0] || '';
+  const section=html.match(/<section id="printerGroupsDialog"[\s\S]*?<div id="printerGroupsWorkspace">/)?.[0] || '';
   assert.match(section,/<div class="eyebrow ui-page-eyebrow">FARM ORGANISATION<\/div>/);
   assert.doesNotMatch(section,/FLEET ORGANISATION/);
   assert.match(section,/<h2 class="ui-page-title">Printer groups<\/h2>/);
