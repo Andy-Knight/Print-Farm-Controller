@@ -140,11 +140,11 @@ function DashboardOverview() {
 
   return (
     <>
-      <div class="dashboard-hero">
-        <div class="dashboard-hero-copy">
-          <span class="dashboard-eyebrow">FARM OPERATIONS</span>
-          <h2>Farm overview</h2>
-          <p>Printer availability, active work and items needing attention.</p>
+      <div class="dashboard-hero ui-page-heading">
+        <div class="dashboard-hero-copy ui-page-heading-copy">
+          <span class="dashboard-eyebrow ui-page-eyebrow">FARM OPERATIONS</span>
+          <h2 class="ui-page-title">Farm overview</h2>
+          <p class="ui-page-description">Printer availability, active work and items needing attention.</p>
         </div>
         <DashboardControls state={state} />
       </div>
