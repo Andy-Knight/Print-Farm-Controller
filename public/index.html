@@ -72,9 +72,9 @@
   <header class="topbar modern-topbar">
     <button id="sidebarToggle" class="sidebar-toggle" type="button" aria-label="Open navigation" aria-expanded="false" aria-controls="controllerSidebar">☰</button>
     <div class="topbar-context">
-      <div id="workspaceTrailRoot" class="workspace-trail-root"><span class="workspace-trail-parent">Workspace</span><span aria-hidden="true">/</span><span id="workspaceTrailActive" aria-current="page">Dashboard</span></div>
-      <strong tabindex="-1">Dashboard</strong>
-      <span>Monitor and manage your print farm</span>
+      <div id="workspaceTrailRoot" class="workspace-trail-root" data-home="true"><span class="workspace-trail-parent">Workspace</span><span class="workspace-trail-separator" aria-hidden="true">/</span><span id="workspaceTrailActive" class="workspace-trail-current" aria-current="page">Dashboard</span></div>
+      <strong id="topbarContextTitle" tabindex="-1">Dashboard</strong>
+      <span id="topbarContextSubtitle">Monitor and manage your print farm</span>
     </div>
     <div class="topbar-actions">
       <button id="alertsBtn" class="controller-alert-button hidden" type="button" aria-label="Open farm alerts" title="Farm alerts">
