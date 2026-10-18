@@ -1,0 +1,161 @@
+/* Phase 4.1: shared navigation rules for real tablists only.
+ * The dashboard's card/table switch and other action buttons are excluded.
+ * Loaded after legacy styles and printer-details-polish.css.
+ */
+:is(#printerDialog,#maintenanceDialog,#printerGroupsDialog,#alertsDialog,#reportingDialog,#backupRecoveryDialog) [data-pfc-tabs][role="tablist"] {
+  display:flex;
+  flex-wrap:nowrap;
+  align-items:stretch;
+  justify-content:flex-start;
+  gap:clamp(3px,.8vw,16px);
+  min-width:0;
+  margin:0 0 18px;
+  padding:0;
+  border:0;
+  border-bottom:1px solid var(--ds-border);
+  border-radius:0;
+  background:transparent;
+  box-shadow:none;
+  overflow-x:auto;
+  overscroll-behavior-x:contain;
+  -webkit-overflow-scrolling:touch;
+  scrollbar-width:thin;
+}
+:is(#printerDialog,#maintenanceDialog,#printerGroupsDialog,#alertsDialog,#reportingDialog,#backupRecoveryDialog) [data-pfc-tabs] [role="tab"] {
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  flex:0 0 auto;
+  gap:8px;
+  min-height:46px;
+  height:auto;
+  min-width:0;
+  margin:0;
+  padding:10px clamp(10px,1vw,15px) 11px;
+  border:0;
+  border-bottom:3px solid transparent;
+  border-radius:0;
+  background:transparent;
+  box-shadow:none;
+  color:var(--ds-text-muted);
+  font-size:.8rem;
+  font-weight:700;
+  line-height:1.2;
+  text-align:center;
+  white-space:nowrap;
+  transition:color var(--ds-duration-fast) var(--ds-easing), border-color var(--ds-duration-fast) var(--ds-easing);
+}
+:is(#printerDialog,#maintenanceDialog,#printerGroupsDialog,#alertsDialog,#reportingDialog,#backupRecoveryDialog) [data-pfc-tabs] [role="tab"]:hover:not(:disabled) {
+  border-color:transparent;
+  border-bottom-color:var(--ds-border-strong);
+  background:transparent;
+  color:var(--ds-text);
+  box-shadow:none;
+  filter:none;
+}
+:is(#printerDialog,#maintenanceDialog,#printerGroupsDialog,#alertsDialog,#reportingDialog,#backupRecoveryDialog) [data-pfc-tabs] [role="tab"].active,
+:is(#printerDialog,#maintenanceDialog,#printerGroupsDialog,#alertsDialog,#reportingDialog,#backupRecoveryDialog) [data-pfc-tabs] [role="tab"][aria-selected="true"],
+:is(#printerDialog,#maintenanceDialog,#printerGroupsDialog,#alertsDialog,#reportingDialog,#backupRecoveryDialog) [data-pfc-tabs] [role="tab"].active:hover,
+:is(#printerDialog,#maintenanceDialog,#printerGroupsDialog,#alertsDialog,#reportingDialog,#backupRecoveryDialog) [data-pfc-tabs] [role="tab"][aria-selected="true"]:hover {
+  border-color:transparent;
+  border-bottom-color:var(--ds-brand);
+  background:transparent;
+  color:var(--ds-brand);
+  box-shadow:none;
+  filter:none;
+}
+:is(#printerDialog,#maintenanceDialog,#printerGroupsDialog,#alertsDialog,#reportingDialog,#backupRecoveryDialog) [data-pfc-tabs] [role="tab"]:focus-visible {
+  outline:2px solid var(--ds-focus);
+  outline-offset:-5px;
+  border-radius:3px 3px 0 0;
+}
+:is(#printerDialog,#maintenanceDialog,#printerGroupsDialog,#alertsDialog,#reportingDialog,#backupRecoveryDialog) [data-pfc-tabs] [role="tab"]:disabled { opacity:.56; cursor:not-allowed; }
+:is(#printerDialog,#maintenanceDialog,#printerGroupsDialog,#alertsDialog,#reportingDialog,#backupRecoveryDialog) [data-pfc-tabs] [role="tab"][data-pfc-icon]::before {
+  content:"";
+  display:block;
+  flex:0 0 17px;
+  width:17px;
+  height:17px;
+  background-color:currentColor;
+  -webkit-mask-repeat:no-repeat;
+  mask-repeat:no-repeat;
+  -webkit-mask-position:center;
+  mask-position:center;
+  -webkit-mask-size:contain;
+  mask-size:contain;
+}
+:is(#printerDialog,#maintenanceDialog,#printerGroupsDialog,#alertsDialog,#reportingDialog,#backupRecoveryDialog) [data-pfc-tabs] [role="tab"][data-pfc-icon="sliders"]::before {
+  -webkit-mask-image:url("data:image/svg+xml,%3Csvg%20xmlns%3D'http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg'%20viewBox%3D'0%200%2024%2024'%20fill%3D'none'%20stroke%3D'black'%20stroke-width%3D'1.8'%20stroke-linecap%3D'round'%20stroke-linejoin%3D'round'%3E%3Cpath%20d%3D'M4%207h16M8%204v6M4%2017h16M16%2014v6'%2F%3E%3C%2Fsvg%3E");
+  mask-image:url("data:image/svg+xml,%3Csvg%20xmlns%3D'http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg'%20viewBox%3D'0%200%2024%2024'%20fill%3D'none'%20stroke%3D'black'%20stroke-width%3D'1.8'%20stroke-linecap%3D'round'%20stroke-linejoin%3D'round'%3E%3Cpath%20d%3D'M4%207h16M8%204v6M4%2017h16M16%2014v6'%2F%3E%3C%2Fsvg%3E");
+}
+:is(#printerDialog,#maintenanceDialog,#printerGroupsDialog,#alertsDialog,#reportingDialog,#backupRecoveryDialog) [data-pfc-tabs] [role="tab"][data-pfc-icon="camera"]::before {
+  -webkit-mask-image:url("data:image/svg+xml,%3Csvg%20xmlns%3D'http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg'%20viewBox%3D'0%200%2024%2024'%20fill%3D'none'%20stroke%3D'black'%20stroke-width%3D'1.8'%20stroke-linecap%3D'round'%20stroke-linejoin%3D'round'%3E%3Crect%20x%3D'3'%20y%3D'5'%20width%3D'18'%20height%3D'14'%20rx%3D'2'%2F%3E%3Ccircle%20cx%3D'12'%20cy%3D'12'%20r%3D'3.5'%2F%3E%3Cpath%20d%3D'M7%205l1.5-2h7L17%205'%2F%3E%3C%2Fsvg%3E");
+  mask-image:url("data:image/svg+xml,%3Csvg%20xmlns%3D'http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg'%20viewBox%3D'0%200%2024%2024'%20fill%3D'none'%20stroke%3D'black'%20stroke-width%3D'1.8'%20stroke-linecap%3D'round'%20stroke-linejoin%3D'round'%3E%3Crect%20x%3D'3'%20y%3D'5'%20width%3D'18'%20height%3D'14'%20rx%3D'2'%2F%3E%3Ccircle%20cx%3D'12'%20cy%3D'12'%20r%3D'3.5'%2F%3E%3Cpath%20d%3D'M7%205l1.5-2h7L17%205'%2F%3E%3C%2Fsvg%3E");
+}
+:is(#printerDialog,#maintenanceDialog,#printerGroupsDialog,#alertsDialog,#reportingDialog,#backupRecoveryDialog) [data-pfc-tabs] [role="tab"][data-pfc-icon="files"]::before {
+  -webkit-mask-image:url("data:image/svg+xml,%3Csvg%20xmlns%3D'http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg'%20viewBox%3D'0%200%2024%2024'%20fill%3D'none'%20stroke%3D'black'%20stroke-width%3D'1.8'%20stroke-linecap%3D'round'%20stroke-linejoin%3D'round'%3E%3Cpath%20d%3D'M6%203h8l5%205v13H6zM14%203v5h5M9%2013h7M9%2017h7'%2F%3E%3C%2Fsvg%3E");
+  mask-image:url("data:image/svg+xml,%3Csvg%20xmlns%3D'http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg'%20viewBox%3D'0%200%2024%2024'%20fill%3D'none'%20stroke%3D'black'%20stroke-width%3D'1.8'%20stroke-linecap%3D'round'%20stroke-linejoin%3D'round'%3E%3Cpath%20d%3D'M6%203h8l5%205v13H6zM14%203v5h5M9%2013h7M9%2017h7'%2F%3E%3C%2Fsvg%3E");
+}
+:is(#printerDialog,#maintenanceDialog,#printerGroupsDialog,#alertsDialog,#reportingDialog,#backupRecoveryDialog) [data-pfc-tabs] [role="tab"][data-pfc-icon="thermometer"]::before {
+  -webkit-mask-image:url("data:image/svg+xml,%3Csvg%20xmlns%3D'http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg'%20viewBox%3D'0%200%2024%2024'%20fill%3D'none'%20stroke%3D'black'%20stroke-width%3D'1.8'%20stroke-linecap%3D'round'%20stroke-linejoin%3D'round'%3E%3Cpath%20d%3D'M14%2014.8V5a3%203%200%200%200-6%200v9.8a5%205%200%201%200%206%200Z'%2F%3E%3Cpath%20d%3D'M11%209v9'%2F%3E%3C%2Fsvg%3E");
+  mask-image:url("data:image/svg+xml,%3Csvg%20xmlns%3D'http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg'%20viewBox%3D'0%200%2024%2024'%20fill%3D'none'%20stroke%3D'black'%20stroke-width%3D'1.8'%20stroke-linecap%3D'round'%20stroke-linejoin%3D'round'%3E%3Cpath%20d%3D'M14%2014.8V5a3%203%200%200%200-6%200v9.8a5%205%200%201%200%206%200Z'%2F%3E%3Cpath%20d%3D'M11%209v9'%2F%3E%3C%2Fsvg%3E");
+}
+:is(#printerDialog,#maintenanceDialog,#printerGroupsDialog,#alertsDialog,#reportingDialog,#backupRecoveryDialog) [data-pfc-tabs] [role="tab"][data-pfc-icon="clock"]::before {
+  -webkit-mask-image:url("data:image/svg+xml,%3Csvg%20xmlns%3D'http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg'%20viewBox%3D'0%200%2024%2024'%20fill%3D'none'%20stroke%3D'black'%20stroke-width%3D'1.8'%20stroke-linecap%3D'round'%20stroke-linejoin%3D'round'%3E%3Ccircle%20cx%3D'12'%20cy%3D'12'%20r%3D'9'%2F%3E%3Cpath%20d%3D'M12%207v5l4%202'%2F%3E%3C%2Fsvg%3E");
+  mask-image:url("data:image/svg+xml,%3Csvg%20xmlns%3D'http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg'%20viewBox%3D'0%200%2024%2024'%20fill%3D'none'%20stroke%3D'black'%20stroke-width%3D'1.8'%20stroke-linecap%3D'round'%20stroke-linejoin%3D'round'%3E%3Ccircle%20cx%3D'12'%20cy%3D'12'%20r%3D'9'%2F%3E%3Cpath%20d%3D'M12%207v5l4%202'%2F%3E%3C%2Fsvg%3E");
+}
+:is(#printerDialog,#maintenanceDialog,#printerGroupsDialog,#alertsDialog,#reportingDialog,#backupRecoveryDialog) [data-pfc-tabs] [role="tab"][data-pfc-icon="wrench"]::before {
+  -webkit-mask-image:url("data:image/svg+xml,%3Csvg%20xmlns%3D'http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg'%20viewBox%3D'0%200%2024%2024'%20fill%3D'none'%20stroke%3D'black'%20stroke-width%3D'1.8'%20stroke-linecap%3D'round'%20stroke-linejoin%3D'round'%3E%3Cpath%20d%3D'M21%207.5a6%206%200%200%201-7.6%205.8L7%2019.7a2%202%200%200%201-2.8-2.8l6.4-6.4A6%206%200%200%201%2016.5%203l-3.3%203.3%203.5%203.5L21%207.5Z'%2F%3E%3C%2Fsvg%3E");
+  mask-image:url("data:image/svg+xml,%3Csvg%20xmlns%3D'http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg'%20viewBox%3D'0%200%2024%2024'%20fill%3D'none'%20stroke%3D'black'%20stroke-width%3D'1.8'%20stroke-linecap%3D'round'%20stroke-linejoin%3D'round'%3E%3Cpath%20d%3D'M21%207.5a6%206%200%200%201-7.6%205.8L7%2019.7a2%202%200%200%201-2.8-2.8l6.4-6.4A6%206%200%200%201%2016.5%203l-3.3%203.3%203.5%203.5L21%207.5Z'%2F%3E%3C%2Fsvg%3E");
+}
+:is(#printerDialog,#maintenanceDialog,#printerGroupsDialog,#alertsDialog,#reportingDialog,#backupRecoveryDialog) [data-pfc-tabs] [role="tab"][data-pfc-icon="plus"]::before {
+  -webkit-mask-image:url("data:image/svg+xml,%3Csvg%20xmlns%3D'http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg'%20viewBox%3D'0%200%2024%2024'%20fill%3D'none'%20stroke%3D'black'%20stroke-width%3D'1.8'%20stroke-linecap%3D'round'%20stroke-linejoin%3D'round'%3E%3Ccircle%20cx%3D'12'%20cy%3D'12'%20r%3D'9'%2F%3E%3Cpath%20d%3D'M12%208v8M8%2012h8'%2F%3E%3C%2Fsvg%3E");
+  mask-image:url("data:image/svg+xml,%3Csvg%20xmlns%3D'http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg'%20viewBox%3D'0%200%2024%2024'%20fill%3D'none'%20stroke%3D'black'%20stroke-width%3D'1.8'%20stroke-linecap%3D'round'%20stroke-linejoin%3D'round'%3E%3Ccircle%20cx%3D'12'%20cy%3D'12'%20r%3D'9'%2F%3E%3Cpath%20d%3D'M12%208v8M8%2012h8'%2F%3E%3C%2Fsvg%3E");
+}
+:is(#printerDialog,#maintenanceDialog,#printerGroupsDialog,#alertsDialog,#reportingDialog,#backupRecoveryDialog) [data-pfc-tabs] [role="tab"][data-pfc-icon="printer"]::before {
+  -webkit-mask-image:url("data:image/svg+xml,%3Csvg%20xmlns%3D'http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg'%20viewBox%3D'0%200%2024%2024'%20fill%3D'none'%20stroke%3D'black'%20stroke-width%3D'1.8'%20stroke-linecap%3D'round'%20stroke-linejoin%3D'round'%3E%3Crect%20x%3D'4'%20y%3D'7'%20width%3D'16'%20height%3D'12'%20rx%3D'2'%2F%3E%3Cpath%20d%3D'M8%207V4h8v3M8%2015h8M8%2019v2h8v-2'%2F%3E%3C%2Fsvg%3E");
+  mask-image:url("data:image/svg+xml,%3Csvg%20xmlns%3D'http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg'%20viewBox%3D'0%200%2024%2024'%20fill%3D'none'%20stroke%3D'black'%20stroke-width%3D'1.8'%20stroke-linecap%3D'round'%20stroke-linejoin%3D'round'%3E%3Crect%20x%3D'4'%20y%3D'7'%20width%3D'16'%20height%3D'12'%20rx%3D'2'%2F%3E%3Cpath%20d%3D'M8%207V4h8v3M8%2015h8M8%2019v2h8v-2'%2F%3E%3C%2Fsvg%3E");
+}
+:is(#printerDialog,#maintenanceDialog,#printerGroupsDialog,#alertsDialog,#reportingDialog,#backupRecoveryDialog) [data-pfc-tabs] [role="tab"][data-pfc-icon="layers"]::before {
+  -webkit-mask-image:url("data:image/svg+xml,%3Csvg%20xmlns%3D'http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg'%20viewBox%3D'0%200%2024%2024'%20fill%3D'none'%20stroke%3D'black'%20stroke-width%3D'1.8'%20stroke-linecap%3D'round'%20stroke-linejoin%3D'round'%3E%3Cpath%20d%3D'm12%203%209%205-9%205-9-5%209-5ZM3%2012l9%205%209-5M3%2016l9%205%209-5'%2F%3E%3C%2Fsvg%3E");
+  mask-image:url("data:image/svg+xml,%3Csvg%20xmlns%3D'http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg'%20viewBox%3D'0%200%2024%2024'%20fill%3D'none'%20stroke%3D'black'%20stroke-width%3D'1.8'%20stroke-linecap%3D'round'%20stroke-linejoin%3D'round'%3E%3Cpath%20d%3D'm12%203%209%205-9%205-9-5%209-5ZM3%2012l9%205%209-5M3%2016l9%205%209-5'%2F%3E%3C%2Fsvg%3E");
+}
+:is(#printerDialog,#maintenanceDialog,#printerGroupsDialog,#alertsDialog,#reportingDialog,#backupRecoveryDialog) [data-pfc-tabs] [role="tab"][data-pfc-icon="chart"]::before {
+  -webkit-mask-image:url("data:image/svg+xml,%3Csvg%20xmlns%3D'http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg'%20viewBox%3D'0%200%2024%2024'%20fill%3D'none'%20stroke%3D'black'%20stroke-width%3D'1.8'%20stroke-linecap%3D'round'%20stroke-linejoin%3D'round'%3E%3Cpath%20d%3D'M3%2020h18M6%2016V9M11%2016V5M16%2016v-7M21%2016v-4'%2F%3E%3C%2Fsvg%3E");
+  mask-image:url("data:image/svg+xml,%3Csvg%20xmlns%3D'http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg'%20viewBox%3D'0%200%2024%2024'%20fill%3D'none'%20stroke%3D'black'%20stroke-width%3D'1.8'%20stroke-linecap%3D'round'%20stroke-linejoin%3D'round'%3E%3Cpath%20d%3D'M3%2020h18M6%2016V9M11%2016V5M16%2016v-7M21%2016v-4'%2F%3E%3C%2Fsvg%3E");
+}
+:is(#printerDialog,#maintenanceDialog,#printerGroupsDialog,#alertsDialog,#reportingDialog,#backupRecoveryDialog) [data-pfc-tabs] [role="tab"][data-pfc-icon="spool"]::before {
+  -webkit-mask-image:url("data:image/svg+xml,%3Csvg%20xmlns%3D'http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg'%20viewBox%3D'0%200%2024%2024'%20fill%3D'none'%20stroke%3D'black'%20stroke-width%3D'1.8'%20stroke-linecap%3D'round'%20stroke-linejoin%3D'round'%3E%3Ccircle%20cx%3D'12'%20cy%3D'12'%20r%3D'7'%2F%3E%3Ccircle%20cx%3D'12'%20cy%3D'12'%20r%3D'2'%2F%3E%3Cpath%20d%3D'M5%205%203%203m16%2016%202%202'%2F%3E%3C%2Fsvg%3E");
+  mask-image:url("data:image/svg+xml,%3Csvg%20xmlns%3D'http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg'%20viewBox%3D'0%200%2024%2024'%20fill%3D'none'%20stroke%3D'black'%20stroke-width%3D'1.8'%20stroke-linecap%3D'round'%20stroke-linejoin%3D'round'%3E%3Ccircle%20cx%3D'12'%20cy%3D'12'%20r%3D'7'%2F%3E%3Ccircle%20cx%3D'12'%20cy%3D'12'%20r%3D'2'%2F%3E%3Cpath%20d%3D'M5%205%203%203m16%2016%202%202'%2F%3E%3C%2Fsvg%3E");
+}
+:is(#printerDialog,#maintenanceDialog,#printerGroupsDialog,#alertsDialog,#reportingDialog,#backupRecoveryDialog) [data-pfc-tabs] [role="tab"][data-pfc-icon="bell"]::before {
+  -webkit-mask-image:url("data:image/svg+xml,%3Csvg%20xmlns%3D'http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg'%20viewBox%3D'0%200%2024%2024'%20fill%3D'none'%20stroke%3D'black'%20stroke-width%3D'1.8'%20stroke-linecap%3D'round'%20stroke-linejoin%3D'round'%3E%3Cpath%20d%3D'M18%208a6%206%200%200%200-12%200v5l-2%203h16l-2-3V8ZM10%2020h4'%2F%3E%3C%2Fsvg%3E");
+  mask-image:url("data:image/svg+xml,%3Csvg%20xmlns%3D'http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg'%20viewBox%3D'0%200%2024%2024'%20fill%3D'none'%20stroke%3D'black'%20stroke-width%3D'1.8'%20stroke-linecap%3D'round'%20stroke-linejoin%3D'round'%3E%3Cpath%20d%3D'M18%208a6%206%200%200%200-12%200v5l-2%203h16l-2-3V8ZM10%2020h4'%2F%3E%3C%2Fsvg%3E");
+}
+:is(#printerDialog,#maintenanceDialog,#printerGroupsDialog,#alertsDialog,#reportingDialog,#backupRecoveryDialog) [data-pfc-tabs] [role="tab"][data-pfc-icon="database"]::before {
+  -webkit-mask-image:url("data:image/svg+xml,%3Csvg%20xmlns%3D'http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg'%20viewBox%3D'0%200%2024%2024'%20fill%3D'none'%20stroke%3D'black'%20stroke-width%3D'1.8'%20stroke-linecap%3D'round'%20stroke-linejoin%3D'round'%3E%3Cellipse%20cx%3D'12'%20cy%3D'5'%20rx%3D'8'%20ry%3D'3'%2F%3E%3Cpath%20d%3D'M4%205v14c0%201.7%203.6%203%208%203s8-1.3%208-3V5M4%2012c0%204%2016%204%2016%200'%2F%3E%3C%2Fsvg%3E");
+  mask-image:url("data:image/svg+xml,%3Csvg%20xmlns%3D'http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg'%20viewBox%3D'0%200%2024%2024'%20fill%3D'none'%20stroke%3D'black'%20stroke-width%3D'1.8'%20stroke-linecap%3D'round'%20stroke-linejoin%3D'round'%3E%3Cellipse%20cx%3D'12'%20cy%3D'5'%20rx%3D'8'%20ry%3D'3'%2F%3E%3Cpath%20d%3D'M4%205v14c0%201.7%203.6%203%208%203s8-1.3%208-3V5M4%2012c0%204%2016%204%2016%200'%2F%3E%3C%2Fsvg%3E");
+}
+:is(#printerDialog,#maintenanceDialog,#printerGroupsDialog,#alertsDialog,#reportingDialog,#backupRecoveryDialog) [data-pfc-tabs] [role="tab"][data-pfc-icon="cloud"]::before {
+  -webkit-mask-image:url("data:image/svg+xml,%3Csvg%20xmlns%3D'http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg'%20viewBox%3D'0%200%2024%2024'%20fill%3D'none'%20stroke%3D'black'%20stroke-width%3D'1.8'%20stroke-linecap%3D'round'%20stroke-linejoin%3D'round'%3E%3Cpath%20d%3D'M6%2018a4%204%200%200%201-1-7.9A7%207%200%200%201%2018%209a4.5%204.5%200%200%201%200%209Z'%2F%3E%3C%2Fsvg%3E");
+  mask-image:url("data:image/svg+xml,%3Csvg%20xmlns%3D'http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg'%20viewBox%3D'0%200%2024%2024'%20fill%3D'none'%20stroke%3D'black'%20stroke-width%3D'1.8'%20stroke-linecap%3D'round'%20stroke-linejoin%3D'round'%3E%3Cpath%20d%3D'M6%2018a4%204%200%200%201-1-7.9A7%207%200%200%201%2018%209a4.5%204.5%200%200%201%200%209Z'%2F%3E%3C%2Fsvg%3E");
+}
+:is(#printerDialog,#maintenanceDialog,#printerGroupsDialog,#alertsDialog,#reportingDialog,#backupRecoveryDialog) [data-pfc-tabs] [role="tab"][data-pfc-icon="server"]::before {
+  -webkit-mask-image:url("data:image/svg+xml,%3Csvg%20xmlns%3D'http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg'%20viewBox%3D'0%200%2024%2024'%20fill%3D'none'%20stroke%3D'black'%20stroke-width%3D'1.8'%20stroke-linecap%3D'round'%20stroke-linejoin%3D'round'%3E%3Crect%20x%3D'4'%20y%3D'3'%20width%3D'16'%20height%3D'8'%20rx%3D'2'%2F%3E%3Crect%20x%3D'4'%20y%3D'13'%20width%3D'16'%20height%3D'8'%20rx%3D'2'%2F%3E%3Cpath%20d%3D'M8%207h.01M8%2017h.01'%2F%3E%3C%2Fsvg%3E");
+  mask-image:url("data:image/svg+xml,%3Csvg%20xmlns%3D'http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg'%20viewBox%3D'0%200%2024%2024'%20fill%3D'none'%20stroke%3D'black'%20stroke-width%3D'1.8'%20stroke-linecap%3D'round'%20stroke-linejoin%3D'round'%3E%3Crect%20x%3D'4'%20y%3D'3'%20width%3D'16'%20height%3D'8'%20rx%3D'2'%2F%3E%3Crect%20x%3D'4'%20y%3D'13'%20width%3D'16'%20height%3D'8'%20rx%3D'2'%2F%3E%3Cpath%20d%3D'M8%207h.01M8%2017h.01'%2F%3E%3C%2Fsvg%3E");
+}
+:is(#printerDialog,#maintenanceDialog,#printerGroupsDialog,#alertsDialog,#reportingDialog,#backupRecoveryDialog) [data-pfc-tabs] [role="tab"][data-pfc-icon="calendar"]::before {
+  -webkit-mask-image:url("data:image/svg+xml,%3Csvg%20xmlns%3D'http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg'%20viewBox%3D'0%200%2024%2024'%20fill%3D'none'%20stroke%3D'black'%20stroke-width%3D'1.8'%20stroke-linecap%3D'round'%20stroke-linejoin%3D'round'%3E%3Crect%20x%3D'3'%20y%3D'5'%20width%3D'18'%20height%3D'16'%20rx%3D'2'%2F%3E%3Cpath%20d%3D'M7%203v4m10-4v4M3%2010h18'%2F%3E%3C%2Fsvg%3E");
+  mask-image:url("data:image/svg+xml,%3Csvg%20xmlns%3D'http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg'%20viewBox%3D'0%200%2024%2024'%20fill%3D'none'%20stroke%3D'black'%20stroke-width%3D'1.8'%20stroke-linecap%3D'round'%20stroke-linejoin%3D'round'%3E%3Crect%20x%3D'3'%20y%3D'5'%20width%3D'18'%20height%3D'16'%20rx%3D'2'%2F%3E%3Cpath%20d%3D'M7%203v4m10-4v4M3%2010h18'%2F%3E%3C%2Fsvg%3E");
+}
+:is(#printerDialog,#maintenanceDialog,#printerGroupsDialog,#alertsDialog,#reportingDialog,#backupRecoveryDialog) [data-pfc-tabs] [role="tab"][data-pfc-icon="restore"]::before {
+  -webkit-mask-image:url("data:image/svg+xml,%3Csvg%20xmlns%3D'http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg'%20viewBox%3D'0%200%2024%2024'%20fill%3D'none'%20stroke%3D'black'%20stroke-width%3D'1.8'%20stroke-linecap%3D'round'%20stroke-linejoin%3D'round'%3E%3Cpath%20d%3D'M4%2010a8%208%200%201%201%200%205M4%205v5h5M12%208v5l3%202'%2F%3E%3C%2Fsvg%3E");
+  mask-image:url("data:image/svg+xml,%3Csvg%20xmlns%3D'http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg'%20viewBox%3D'0%200%2024%2024'%20fill%3D'none'%20stroke%3D'black'%20stroke-width%3D'1.8'%20stroke-linecap%3D'round'%20stroke-linejoin%3D'round'%3E%3Cpath%20d%3D'M4%2010a8%208%200%201%201%200%205M4%205v5h5M12%208v5l3%202'%2F%3E%3C%2Fsvg%3E");
+}
+@media(max-width:960px) {
+  :is(#printerDialog,#maintenanceDialog,#printerGroupsDialog,#alertsDialog,#reportingDialog,#backupRecoveryDialog) [data-pfc-tabs][role="tablist"] { gap:4px; }
+  :is(#printerDialog,#maintenanceDialog,#printerGroupsDialog,#alertsDialog,#reportingDialog,#backupRecoveryDialog) [data-pfc-tabs] [role="tab"] { padding-inline:14px; }
+}
+@media(prefers-reduced-motion:reduce) {
+  :is(#printerDialog,#maintenanceDialog,#printerGroupsDialog,#alertsDialog,#reportingDialog,#backupRecoveryDialog) [data-pfc-tabs] [role="tab"] { transition:none; }
+}
