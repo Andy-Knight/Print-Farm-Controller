@@ -90,3 +90,9 @@ Run `npm test`, `npm run build:frontend`, and `npm run test:browser` with Node 2
 - `printer-details-phase4-light-mobile.png`
 
 Manually review Snapmaker U1, Flashforge AD5M/Pro, Creator 5/Pro, Prusa CORE One+ (Standard/INDX4/INDX8) and Bambu external spool/AMS in Chrome desktop and Android Chrome, both themes. Confirm all tabs and enabled/disabled states, live telemetry during unsaved changes, error messages, mobile scroll/keyboard access and full-width table positioning. The Phase 4 redesign was accepted after user review and included in the v0.55.0 merge; continue physical-hardware validation as equipment is available.
+
+## Printer Details navigation follow-up — minimal underline tabs
+
+After reviewing four visual examples, the chosen **Option A** replaces the filled segmented navigation with a restrained six-tab text-and-icon strip. All sections have a 17px monochrome outline icon (Toolheads sliders, Camera, Files, Temperature thermometer, Current Job clock, Management wrench). Icons inherit the active/inactive text colour through locally embedded CSS SVG masks, requiring no internet assets; they are purely decorative and do not change accessible names. The active tab has a blue bottom underline instead of a filled button.
+
+Visible labels shorten only two entries to **Temperature** and **Management**. Their complete original scope is maintained with accessible labels ("Temperature, Preheat & Fans" and "Maintenance & Management") in both Preact and no-bundle fallback. All six original tab and tabpanel IDs, click handlers, selected states and arrow/Home/End keyboard navigation are retained. The underline navigation stays on a single horizontally scrollable row at narrow widths. This change is presentation-only; it does not touch toolhead tables, printer protocols, status, control forms or action button geometry.

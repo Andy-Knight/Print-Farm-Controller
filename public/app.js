@@ -7149,9 +7149,9 @@ function printerDetailTabsMarkup() {
     <button type="button" class="maintenance-view-button" role="tab" data-detail-tab="toolheads" aria-controls="detailTabToolheads" id="printer-detail-tab-toolheads">Toolheads</button>
     <button type="button" class="maintenance-view-button" role="tab" data-detail-tab="camera" aria-controls="detailTabCamera" id="printer-detail-tab-camera">Camera</button>
     <button type="button" class="maintenance-view-button" role="tab" data-detail-tab="files" aria-controls="detailTabFiles" id="printer-detail-tab-files">Files</button>
-    <button type="button" class="maintenance-view-button" role="tab" data-detail-tab="temperature" aria-controls="detailTabTemperature" id="printer-detail-tab-temperature">Temperature, Preheat &amp; Fans</button>
+    <button type="button" class="maintenance-view-button" role="tab" data-detail-tab="temperature" aria-controls="detailTabTemperature" id="printer-detail-tab-temperature" aria-label="Temperature, Preheat &amp; Fans">Temperature</button>
     <button type="button" class="maintenance-view-button" role="tab" data-detail-tab="job" aria-controls="detailTabJob" id="printer-detail-tab-job">Current Job</button>
-    <button type="button" class="maintenance-view-button" role="tab" data-detail-tab="management" aria-controls="detailTabManagement" id="printer-detail-tab-management">Maintenance &amp; Management</button>
+    <button type="button" class="maintenance-view-button" role="tab" data-detail-tab="management" aria-controls="detailTabManagement" id="printer-detail-tab-management" aria-label="Maintenance &amp; Management">Management</button>
   </div>`;
 }
 

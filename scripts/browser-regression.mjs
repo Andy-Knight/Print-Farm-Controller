@@ -1269,8 +1269,22 @@ async function simulatorSseSmoke(browser,url) {
           name:tab.dataset.detailTab,
           panel:tab.getAttribute('aria-controls'),
           labelled:document.getElementById(tab.getAttribute('aria-controls'))
-            ?.getAttribute('aria-labelledby')===tab.id
+            ?.getAttribute('aria-labelledby')===tab.id,
+          hasOutlineIcon:(getComputedStyle(tab,'::before').maskImage||'').includes('data:image/svg+xml'),
+          label:tab.textContent.trim(),
+          fullLabel:tab.getAttribute('aria-label')
         })),
+        navigationBackground:getComputedStyle(dialog.querySelector('.printer-detail-tabs')).backgroundColor,
+        activeTabStyle:(()=>{
+          const active=tabs.find(tab=>tab.getAttribute('aria-selected')==='true');
+          const style=getComputedStyle(active);
+          return {
+            underline:style.borderBottomWidth,
+            underlineColor:style.borderBottomColor,
+            labelColor:style.color,
+            background:style.backgroundColor
+          };
+        })(),
         panels:panels.length,
         shellBackground:getComputedStyle(dialog).backgroundColor,
         token:getComputedStyle(document.documentElement).getPropertyValue('--ds-page').trim()
@@ -1282,6 +1296,20 @@ async function simulatorSseSmoke(browser,url) {
     assert.equal(detailDesktop.panels,6,'all detail panels remain available');
     assert.ok(detailDesktop.tabs.every((tab)=>tab.labelled),
       'ARIA tab and panel IDs must correspond');
+    assert.ok(detailDesktop.tabs.every((tab)=>tab.hasOutlineIcon),
+      'all six minimal navigation tabs must display their monochrome outline icons');
+    assert.equal(detailDesktop.tabs.find(tab=>tab.name==='temperature')?.label,'Temperature');
+    assert.equal(detailDesktop.tabs.find(tab=>tab.name==='management')?.label,'Management');
+    assert.equal(detailDesktop.tabs.find(tab=>tab.name==='temperature')?.fullLabel,'Temperature, Preheat & Fans');
+    assert.equal(detailDesktop.tabs.find(tab=>tab.name==='management')?.fullLabel,'Maintenance & Management');
+    assert.ok(parseFloat(detailDesktop.activeTabStyle.underline)>=2,
+      'selected Printer Details tab must have a visible bottom underline');
+    assert.equal(detailDesktop.activeTabStyle.underlineColor,detailDesktop.activeTabStyle.labelColor,
+      'selected tab icon, text and underline should share the brand colour');
+    assert.equal(detailDesktop.activeTabStyle.background,'rgba(0, 0, 0, 0)',
+      'selected tab should not use filled segmented-button styling');
+    assert.equal(detailDesktop.navigationBackground,'rgba(0, 0, 0, 0)',
+      'tab rail should remain a minimal transparent navigation strip');
     assert.ok(detailDesktop.token,'dialog must load the shared design tokens');
 
     const detailCaptureDir=process.env.PFC_VISUAL_CAPTURE_DIR

@@ -104,49 +104,111 @@
   outline:2px solid var(--ds-focus);
   outline-offset:2px;
 }
+/*
+ * Phase 4 follow-up: Option A, lightweight underline navigation with six
+ * monochrome outline icons. Decorative CSS masks mean Preact and no-bundle
+ * tabs use the same assets without adding duplicate markup or spoken labels.
+ */
 #printerDialog .printer-detail-tabs.maintenance-view-selector {
-  display:grid;
-  grid-template-columns:repeat(6,minmax(0,1fr));
-  gap:6px;
+  display:flex;
+  flex-wrap:nowrap;
+  align-items:stretch;
+  gap:clamp(3px,.8vw,16px);
   margin:0 0 18px;
-  padding:5px;
-  border:1px solid var(--ds-border);
-  border-radius:var(--ds-radius-md);
-  background:var(--ds-surface-muted);
-  box-shadow:var(--ds-shadow-sm);
+  padding:0;
+  border:0;
+  border-bottom:1px solid var(--ds-border);
+  border-radius:0;
+  background:transparent;
+  box-shadow:none;
+  overflow-x:auto;
+  overscroll-behavior-x:contain;
+  -webkit-overflow-scrolling:touch;
+  scrollbar-width:thin;
 }
 #printerDialog .printer-detail-tabs [data-detail-tab] {
-  min-height:44px;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  flex:0 0 auto;
+  gap:8px;
+  min-height:46px;
   height:auto;
-  padding:10px 9px;
-  border:1px solid transparent;
-  border-radius:var(--ds-radius-sm);
+  padding:10px clamp(10px,1vw,15px) 11px;
+  border:0;
+  border-bottom:3px solid transparent;
+  border-radius:0;
   background:transparent;
+  box-shadow:none;
   color:var(--ds-text-muted);
-  font-size:.78rem;
+  font-size:.8rem;
   font-weight:700;
-  line-height:1.25;
+  line-height:1.2;
   text-align:center;
-  white-space:normal;
-  transition:background var(--ds-duration-fast) var(--ds-easing),
-    color var(--ds-duration-fast) var(--ds-easing);
+  white-space:nowrap;
+  transition:color var(--ds-duration-fast) var(--ds-easing),
+    border-color var(--ds-duration-fast) var(--ds-easing);
 }
 #printerDialog .printer-detail-tabs [data-detail-tab]:hover {
-  background:var(--ds-surface-hover);
+  border-bottom-color:var(--ds-border-strong);
+  background:transparent;
   color:var(--ds-text);
+  box-shadow:none;
   filter:none;
 }
 #printerDialog .printer-detail-tabs [data-detail-tab].active,
-#printerDialog .printer-detail-tabs [data-detail-tab][aria-selected="true"] {
-  border-color:var(--ds-border-strong);
-  background:var(--ds-brand-soft);
+#printerDialog .printer-detail-tabs [data-detail-tab][aria-selected="true"],
+#printerDialog .printer-detail-tabs [data-detail-tab].active:hover,
+#printerDialog .printer-detail-tabs [data-detail-tab][aria-selected="true"]:hover {
+  border-color:transparent;
+  border-bottom-color:var(--ds-brand);
+  background:transparent;
   color:var(--ds-brand);
-  box-shadow:inset 0 -2px 0 var(--ds-brand);
+  box-shadow:none;
   filter:none;
 }
 #printerDialog .printer-detail-tabs [data-detail-tab]:focus-visible {
   outline:2px solid var(--ds-focus);
-  outline-offset:2px;
+  outline-offset:-5px;
+  border-radius:3px 3px 0 0;
+}
+#printerDialog .printer-detail-tabs [data-detail-tab]::before {
+  content:"";
+  display:block;
+  flex:0 0 17px;
+  width:17px;
+  height:17px;
+  background-color:currentColor;
+  -webkit-mask-repeat:no-repeat;
+  mask-repeat:no-repeat;
+  -webkit-mask-position:center;
+  mask-position:center;
+  -webkit-mask-size:contain;
+  mask-size:contain;
+}
+#printerDialog .printer-detail-tabs [data-detail-tab="toolheads"]::before {
+  -webkit-mask-image:url("data:image/svg+xml,%3Csvg%20xmlns%3D'http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg'%20viewBox%3D'0%200%2024%2024'%20fill%3D'none'%20stroke%3D'black'%20stroke-width%3D'1.8'%20stroke-linecap%3D'round'%20stroke-linejoin%3D'round'%3E%3Cpath%20d%3D'M4%207h16M8%204v6M4%2017h16M16%2014v6'%2F%3E%3C%2Fsvg%3E");
+  mask-image:url("data:image/svg+xml,%3Csvg%20xmlns%3D'http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg'%20viewBox%3D'0%200%2024%2024'%20fill%3D'none'%20stroke%3D'black'%20stroke-width%3D'1.8'%20stroke-linecap%3D'round'%20stroke-linejoin%3D'round'%3E%3Cpath%20d%3D'M4%207h16M8%204v6M4%2017h16M16%2014v6'%2F%3E%3C%2Fsvg%3E");
+}
+#printerDialog .printer-detail-tabs [data-detail-tab="camera"]::before {
+  -webkit-mask-image:url("data:image/svg+xml,%3Csvg%20xmlns%3D'http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg'%20viewBox%3D'0%200%2024%2024'%20fill%3D'none'%20stroke%3D'black'%20stroke-width%3D'1.8'%20stroke-linecap%3D'round'%20stroke-linejoin%3D'round'%3E%3Crect%20x%3D'3'%20y%3D'5'%20width%3D'18'%20height%3D'14'%20rx%3D'2'%2F%3E%3Ccircle%20cx%3D'12'%20cy%3D'12'%20r%3D'3.5'%2F%3E%3Cpath%20d%3D'M7%205l1.5-2h7L17%205'%2F%3E%3C%2Fsvg%3E");
+  mask-image:url("data:image/svg+xml,%3Csvg%20xmlns%3D'http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg'%20viewBox%3D'0%200%2024%2024'%20fill%3D'none'%20stroke%3D'black'%20stroke-width%3D'1.8'%20stroke-linecap%3D'round'%20stroke-linejoin%3D'round'%3E%3Crect%20x%3D'3'%20y%3D'5'%20width%3D'18'%20height%3D'14'%20rx%3D'2'%2F%3E%3Ccircle%20cx%3D'12'%20cy%3D'12'%20r%3D'3.5'%2F%3E%3Cpath%20d%3D'M7%205l1.5-2h7L17%205'%2F%3E%3C%2Fsvg%3E");
+}
+#printerDialog .printer-detail-tabs [data-detail-tab="files"]::before {
+  -webkit-mask-image:url("data:image/svg+xml,%3Csvg%20xmlns%3D'http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg'%20viewBox%3D'0%200%2024%2024'%20fill%3D'none'%20stroke%3D'black'%20stroke-width%3D'1.8'%20stroke-linecap%3D'round'%20stroke-linejoin%3D'round'%3E%3Cpath%20d%3D'M6%203h8l5%205v13H6zM14%203v5h5M9%2013h7M9%2017h7'%2F%3E%3C%2Fsvg%3E");
+  mask-image:url("data:image/svg+xml,%3Csvg%20xmlns%3D'http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg'%20viewBox%3D'0%200%2024%2024'%20fill%3D'none'%20stroke%3D'black'%20stroke-width%3D'1.8'%20stroke-linecap%3D'round'%20stroke-linejoin%3D'round'%3E%3Cpath%20d%3D'M6%203h8l5%205v13H6zM14%203v5h5M9%2013h7M9%2017h7'%2F%3E%3C%2Fsvg%3E");
+}
+#printerDialog .printer-detail-tabs [data-detail-tab="temperature"]::before {
+  -webkit-mask-image:url("data:image/svg+xml,%3Csvg%20xmlns%3D'http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg'%20viewBox%3D'0%200%2024%2024'%20fill%3D'none'%20stroke%3D'black'%20stroke-width%3D'1.8'%20stroke-linecap%3D'round'%20stroke-linejoin%3D'round'%3E%3Cpath%20d%3D'M14%2014.8V5a3%203%200%200%200-6%200v9.8a5%205%200%201%200%206%200Z'%2F%3E%3Cpath%20d%3D'M11%209v9'%2F%3E%3C%2Fsvg%3E");
+  mask-image:url("data:image/svg+xml,%3Csvg%20xmlns%3D'http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg'%20viewBox%3D'0%200%2024%2024'%20fill%3D'none'%20stroke%3D'black'%20stroke-width%3D'1.8'%20stroke-linecap%3D'round'%20stroke-linejoin%3D'round'%3E%3Cpath%20d%3D'M14%2014.8V5a3%203%200%200%200-6%200v9.8a5%205%200%201%200%206%200Z'%2F%3E%3Cpath%20d%3D'M11%209v9'%2F%3E%3C%2Fsvg%3E");
+}
+#printerDialog .printer-detail-tabs [data-detail-tab="job"]::before {
+  -webkit-mask-image:url("data:image/svg+xml,%3Csvg%20xmlns%3D'http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg'%20viewBox%3D'0%200%2024%2024'%20fill%3D'none'%20stroke%3D'black'%20stroke-width%3D'1.8'%20stroke-linecap%3D'round'%20stroke-linejoin%3D'round'%3E%3Ccircle%20cx%3D'12'%20cy%3D'12'%20r%3D'9'%2F%3E%3Cpath%20d%3D'M12%207v5l4%202'%2F%3E%3C%2Fsvg%3E");
+  mask-image:url("data:image/svg+xml,%3Csvg%20xmlns%3D'http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg'%20viewBox%3D'0%200%2024%2024'%20fill%3D'none'%20stroke%3D'black'%20stroke-width%3D'1.8'%20stroke-linecap%3D'round'%20stroke-linejoin%3D'round'%3E%3Ccircle%20cx%3D'12'%20cy%3D'12'%20r%3D'9'%2F%3E%3Cpath%20d%3D'M12%207v5l4%202'%2F%3E%3C%2Fsvg%3E");
+}
+#printerDialog .printer-detail-tabs [data-detail-tab="management"]::before {
+  -webkit-mask-image:url("data:image/svg+xml,%3Csvg%20xmlns%3D'http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg'%20viewBox%3D'0%200%2024%2024'%20fill%3D'none'%20stroke%3D'black'%20stroke-width%3D'1.8'%20stroke-linecap%3D'round'%20stroke-linejoin%3D'round'%3E%3Cpath%20d%3D'M21%207.5a6%206%200%200%201-7.6%205.8L7%2019.7a2%202%200%200%201-2.8-2.8l6.4-6.4A6%206%200%200%201%2016.5%203l-3.3%203.3%203.5%203.5L21%207.5Z'%2F%3E%3C%2Fsvg%3E");
+  mask-image:url("data:image/svg+xml,%3Csvg%20xmlns%3D'http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg'%20viewBox%3D'0%200%2024%2024'%20fill%3D'none'%20stroke%3D'black'%20stroke-width%3D'1.8'%20stroke-linecap%3D'round'%20stroke-linejoin%3D'round'%3E%3Cpath%20d%3D'M21%207.5a6%206%200%200%201-7.6%205.8L7%2019.7a2%202%200%200%201-2.8-2.8l6.4-6.4A6%206%200%200%201%2016.5%203l-3.3%203.3%203.5%203.5L21%207.5Z'%2F%3E%3C%2Fsvg%3E");
 }
 #printerDialog .printer-detail-tab-panels { min-width:0; }
 #printerDialog .printer-detail-tab-panel { min-width:0; }
@@ -192,21 +254,8 @@
   line-height:1.4;
 }
 @media(max-width:960px) {
-  /* Horizontal scrolling avoids 2–6 rows of navigation consuming the modal
-     on Android; focus/arrow navigation already follows the active tab. */
-  #printerDialog .printer-detail-tabs.maintenance-view-selector {
-    display:flex;
-    flex-wrap:nowrap;
-    overflow-x:auto;
-    overscroll-behavior-x:contain;
-    -webkit-overflow-scrolling:touch;
-    scrollbar-width:thin;
-  }
-  #printerDialog .printer-detail-tabs [data-detail-tab] {
-    flex:0 0 auto;
-    padding-inline:14px;
-    white-space:nowrap;
-  }
+  #printerDialog .printer-detail-tabs.maintenance-view-selector { gap:4px; }
+  #printerDialog .printer-detail-tabs [data-detail-tab] { padding-inline:14px; }
 }
 @media(max-width:620px) {
   #printerDialog .detail-shell > .dialog-head,

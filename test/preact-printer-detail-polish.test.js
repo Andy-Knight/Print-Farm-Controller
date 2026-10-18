@@ -60,3 +60,22 @@ test('Legacy and Preact tab interfaces share the same panel associations',()=>{
   assert.match(app,/data-preact-printer-management/);
   assert.match(app,/data-preact-toolhead-control/);
 });
+
+test('Printer Details uses minimal underline tabs and matching monochrome icons in both renderers',()=>{
+  const keys=['toolheads','camera','files','temperature','job','management'];
+  assert.match(css,/#printerDialog \.printer-detail-tabs\.maintenance-view-selector\s*\{[\s\S]*?border-bottom:1px solid var\(--ds-border\)/);
+  assert.match(css,/#printerDialog \.printer-detail-tabs \[data-detail-tab\]\.active[\s\S]*?border-bottom-color:var\(--ds-brand\)/);
+  assert.match(css,/border-radius:0;/);
+  assert.match(css,/background:transparent;/);
+  assert.match(css,/-webkit-mask-image:url\("data:image\/svg\+xml,/);
+  for(const key of keys){
+    assert.ok(css.includes('[data-detail-tab="'+key+'"]::before'),key+' must have a dedicated icon');
+    assert.ok(app.includes('data-detail-tab="'+key+'"'),key+' must exist in legacy navigation');
+    assert.ok(jsx.includes("key:'"+key+"'"),key+' must exist in Preact navigation');
+  }
+  assert.match(jsx,/label:'Temperature', fullLabel:'Temperature, Preheat & Fans'/);
+  assert.match(jsx,/label:'Management', fullLabel:'Maintenance & Management'/);
+  assert.match(jsx,/aria-label=\{tab\.fullLabel \|\| undefined\}/);
+  assert.match(app,/id="printer-detail-tab-temperature" aria-label="Temperature, Preheat &amp; Fans">Temperature<\/button>/);
+  assert.match(app,/id="printer-detail-tab-management" aria-label="Maintenance &amp; Management">Management<\/button>/);
+});

@@ -6,9 +6,9 @@ export const PRINTER_DETAIL_TABS = Object.freeze([
   { key:'toolheads', label:'Toolheads', controls:'detailTabToolheads' },
   { key:'camera', label:'Camera', controls:'detailTabCamera' },
   { key:'files', label:'Files', controls:'detailTabFiles' },
-  { key:'temperature', label:'Temperature, Preheat & Fans', controls:'detailTabTemperature' },
+  { key:'temperature', label:'Temperature', fullLabel:'Temperature, Preheat & Fans', controls:'detailTabTemperature' },
   { key:'job', label:'Current Job', controls:'detailTabJob' },
-  { key:'management', label:'Maintenance & Management', controls:'detailTabManagement' }
+  { key:'management', label:'Management', fullLabel:'Maintenance & Management', controls:'detailTabManagement' }
 ]);
 
 function dispatchDetailAction(type, value = '') {
@@ -111,6 +111,7 @@ function PrinterDetailTabs({ detail }) {
             id={'printer-detail-tab-' + tab.key}
             data-detail-tab={tab.key}
             aria-controls={tab.controls}
+            aria-label={tab.fullLabel || undefined}
             aria-selected={active ? 'true' : 'false'}
             tabindex={active ? 0 : -1}
             onClick={() => dispatchDetailAction('tab', tab.key)}
