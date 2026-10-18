@@ -12,7 +12,8 @@
 #printerDialog .detail-shell {
   padding:clamp(14px,2vw,24px);
 }
-#printerDialog .detail-shell > .dialog-head {
+#printerDialog .detail-shell > .dialog-head,
+#printerDialog [data-preact-detail-header] > .dialog-head {
   align-items:flex-start;
   gap:16px;
   margin-bottom:18px;
@@ -98,7 +99,8 @@
   font-size:1.45rem;
   line-height:1;
 }
-#printerDialog .detail-shell > .dialog-head > [data-detail-close]:focus-visible {
+#printerDialog .detail-shell > .dialog-head > [data-detail-close]:focus-visible,
+#printerDialog .printer-detail-close:focus-visible {
   outline:2px solid var(--ds-focus);
   outline-offset:2px;
 }
@@ -207,7 +209,8 @@
   }
 }
 @media(max-width:620px) {
-  #printerDialog .detail-shell > .dialog-head { margin-bottom:14px; padding-bottom:14px; }
+  #printerDialog .detail-shell > .dialog-head,
+  #printerDialog [data-preact-detail-header] > .dialog-head { margin-bottom:14px; padding-bottom:14px; }
   #printerDialog .printer-detail-tabs.maintenance-view-selector { margin-bottom:14px; }
   #printerDialog .printer-detail-tab-panel > .panel,
   #printerDialog .printer-detail-tab-panel .management-tab-column > .panel { padding:14px; }
