@@ -5,6 +5,7 @@ import fs from 'node:fs';
 const app = fs.readFileSync(new URL('../public/app.js', import.meta.url), 'utf8');
 const index = fs.readFileSync(new URL('../public/index.html', import.meta.url), 'utf8');
 const styles = fs.readFileSync(new URL('../public/styles.css', import.meta.url), 'utf8');
+const detailPolish = fs.readFileSync(new URL('../public/printer-details-polish.css', import.meta.url), 'utf8');
 const emulatorApp = fs.readFileSync(new URL('../emulator/public/app.js', import.meta.url), 'utf8');
 const emulatorIndex = fs.readFileSync(new URL('../emulator/public/index.html', import.meta.url), 'utf8');
 const emulatorStyles = fs.readFileSync(new URL('../emulator/public/styles.css', import.meta.url), 'utf8');
@@ -857,9 +858,9 @@ test('printer details are organised into six consistent tabs', () => {
   assert.match(app, /data-detail-tab="toolheads"[\s\S]*>Toolheads<\/button>/);
   assert.match(app, /data-detail-tab="camera"[\s\S]*>Camera<\/button>/);
   assert.match(app, /data-detail-tab="files"[\s\S]*>Files<\/button>/);
-  assert.match(app, /data-detail-tab="temperature"[\s\S]*>Temperature, Preheat &amp; Fans<\/button>/);
+  assert.match(app, /data-detail-tab="temperature"[^>]*aria-label="Temperature, Preheat &amp; Fans">Temperature<\/button>/);
   assert.match(app, /data-detail-tab="job"[\s\S]*>Current Job<\/button>/);
-  assert.match(app, /data-detail-tab="management"[\s\S]*>Maintenance &amp; Management<\/button>/);
+  assert.match(app, /data-detail-tab="management"[^>]*aria-label="Maintenance &amp; Management">Management<\/button>/);
   assert.match(app, /appendDetailPanel\('toolheads', materialPanel\)/);
   assert.match(app, /appendDetailPanel\('files', printerDetail\.querySelector\('\.printer-files-panel'\)\)/);
   assert.match(app, /appendDetailPanel\('temperature', printerDetail\.querySelector\('\.temperature-panel'\)\)/);
@@ -875,8 +876,10 @@ test('printer details are organised into six consistent tabs', () => {
   assert.match(app, /activatePrinterDetailTab\(printerDetailTabByPrinter\.get\(id\) \|\| 'toolheads'\)/);
   assert.match(app, /class="printer-detail-tabs maintenance-view-selector"/);
   assert.match(app, /class="maintenance-view-button" role="tab" data-detail-tab="toolheads"/);
-  assert.match(styles, /\.printer-detail-tabs\.maintenance-view-selector \{[\s\S]*grid-template-columns:repeat\(6,minmax\(0,1fr\)\)/);
-  assert.match(styles, /\.maintenance-view-button\.active \{[\s\S]*border-color:#3f6680;[\s\S]*background:#172936;/);
+  // Old generic maintenance tab rules still serve other pages, but the
+  // Printer Details stylesheet now overrides them with Option A underline tabs.
+  assert.match(detailPolish, /#printerDialog \.printer-detail-tabs\.maintenance-view-selector \{[\s\S]*display:flex;[\s\S]*border-bottom:1px solid var\(--ds-border\)/);
+  assert.match(detailPolish, /#printerDialog \.printer-detail-tabs \[data-detail-tab\]\.active[\s\S]*border-bottom-color:var\(--ds-brand\)/);
   assert.match(styles, /\.printer-detail-tab-panel\[hidden\] \{ display:none !important; \}/);
   assert.match(styles, /\.printer-detail-tab-panel\[data-detail-panel="management"\] \{[\s\S]*grid-template-columns:minmax\(0,1fr\) minmax\(0,1fr\)/);
   assert.match(styles, /\.management-tab-column \{[\s\S]*flex-direction:column/);
