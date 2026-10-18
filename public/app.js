@@ -7146,12 +7146,12 @@ function printerDetailActivityMarkup(printer) {
 function printerDetailTabsMarkup() {
   if (window.__PFC_PREACT_DETAIL__) return '<div data-preact-detail-tabs></div>';
   return `<div class="printer-detail-tabs maintenance-view-selector" role="tablist" aria-label="Printer details">
-    <button type="button" class="maintenance-view-button" role="tab" id="printer-detail-tab-toolheads" data-detail-tab="toolheads" aria-controls="detailTabToolheads">Toolheads</button>
-    <button type="button" class="maintenance-view-button" role="tab" id="printer-detail-tab-camera" data-detail-tab="camera" aria-controls="detailTabCamera">Camera</button>
-    <button type="button" class="maintenance-view-button" role="tab" id="printer-detail-tab-files" data-detail-tab="files" aria-controls="detailTabFiles">Files</button>
-    <button type="button" class="maintenance-view-button" role="tab" id="printer-detail-tab-temperature" data-detail-tab="temperature" aria-controls="detailTabTemperature">Temperature, Preheat &amp; Fans</button>
-    <button type="button" class="maintenance-view-button" role="tab" id="printer-detail-tab-job" data-detail-tab="job" aria-controls="detailTabJob">Current Job</button>
-    <button type="button" class="maintenance-view-button" role="tab" id="printer-detail-tab-management" data-detail-tab="management" aria-controls="detailTabManagement">Maintenance &amp; Management</button>
+    <button type="button" class="maintenance-view-button" role="tab" data-detail-tab="toolheads" aria-controls="detailTabToolheads" id="printer-detail-tab-toolheads">Toolheads</button>
+    <button type="button" class="maintenance-view-button" role="tab" data-detail-tab="camera" aria-controls="detailTabCamera" id="printer-detail-tab-camera">Camera</button>
+    <button type="button" class="maintenance-view-button" role="tab" data-detail-tab="files" aria-controls="detailTabFiles" id="printer-detail-tab-files">Files</button>
+    <button type="button" class="maintenance-view-button" role="tab" data-detail-tab="temperature" aria-controls="detailTabTemperature" id="printer-detail-tab-temperature">Temperature, Preheat &amp; Fans</button>
+    <button type="button" class="maintenance-view-button" role="tab" data-detail-tab="job" aria-controls="detailTabJob" id="printer-detail-tab-job">Current Job</button>
+    <button type="button" class="maintenance-view-button" role="tab" data-detail-tab="management" aria-controls="detailTabManagement" id="printer-detail-tab-management">Maintenance &amp; Management</button>
   </div>`;
 }
 
