@@ -1,6 +1,6 @@
 # Print Farm Controller — SaaS UI design system (Phase 1)
 
-**Status:** In development on `feature/preact-saas-design-system`, based on v0.53.0. No printer-control protocols, endpoint contracts or edition limits change in this phase.
+**Status:** Phases 1–3 were merged to `main` as v0.54.0. Phase 4 (Printer Details) is in development on `feature/preact-saas-printer-details`. No printer-control protocols, endpoint contracts or edition limits change.
 
 ## Product direction
 A professional, calm, information-first operations workspace that resembles established SaaS applications while remaining *local-first*: no CDN, external fonts, remote assets or third-party analytics. Dense fleet operations stay legible and users can keep working when printer SSE telemetry refreshes during an edit.
@@ -72,3 +72,21 @@ Use Chrome desktop and Android Chrome in both light/dark modes to confirm the vi
 Dashboard and all nine main routed pages now share the same `ui-page-heading`, `ui-page-heading-copy`, `ui-page-eyebrow`, `ui-page-title` and `ui-page-description` classes. The single token-driven definition lives in `public/dashboard-polish.css`, loaded after legacy layout rules. Eyebrow colour and casing, title size/weight, caption typography, vertical rhythm and dark/light appearance are the same on Dashboard, Queue & History, Print Library, Printer Groups, Maintenance, Reports, Alerts, Backup, Diagnostics and Licence.
 
 The old modal-style divider and oversized heading on route pages are removed, but live page-specific subtitles (such as queue/history totals) and existing action/control IDs are preserved. Pop-up dialog titles remain independent of the workspace page-heading layout. Unit tests cover all nine main routes; the Chromium visual contract compares the actual computed eyebrow, title and description styles against the Dashboard in both themes plus the 390px mobile viewport.
+
+## Phase 4: Printer Details visual redesign
+
+Printer Details now uses a dedicated, locally served `public/printer-details-polish.css` stylesheet loaded after the shared design system, shell and dashboard styles. The modal displays the controller printer name, reported model, connection host, status badge, actionable maintenance icon and live health text as a clear identity block. Light and dark themes reuse `--ds-*` tokens for headers, surfaces, tabs, activity and muted captions.
+
+The existing six tabs (Toolheads, Camera, Files, Temperature/Preheat/Fans, Current Job and Maintenance/Management) are unchanged; selected tabs use a more legible active indicator. On narrower screens the tab rail is **one horizontally scrollable row**, avoiding a six-row stack that obscures the content on Android. Home/End/left/right keyboard handling is retained, and both the Preact tabs and legacy fallback now label their tab panels explicitly using `aria-labelledby`.
+
+All existing controller operations remain wired to the original event handlers and APIs, including filament and nozzle assignments, camera, files, bed/fan/chamber temperature and preheat controls, jobs, rename, maintenance and diagnostics. The calibrated **160px toolhead selector widths**, aligned Set filament/Assign buttons, colour swatches, dense per-toolhead table, pending drafts and live telemetry refresh must remain unchanged. The existing no-bundle fallback remains supported.
+
+### Verification
+
+Run `npm test`, `npm run build:frontend`, and `npm run test:browser` with Node 24. Chromium's simulated AD5M checks assert the printer identity header, all six labelled panels, token styling, responsive one-row tab scrolling, Home/End keyboard navigation, and existing filament/nozzle alignment and state-preservation behaviour. With `PFC_VISUAL_CAPTURE_DIR` set, it also writes:
+
+- `printer-details-phase4-dark-desktop.png`
+- `printer-details-phase4-light-desktop.png`
+- `printer-details-phase4-light-mobile.png`
+
+Manually review Snapmaker U1, Flashforge AD5M/Pro, Creator 5/Pro, Prusa CORE One+ (Standard/INDX4/INDX8) and Bambu external spool/AMS in Chrome desktop and Android Chrome, both themes. Confirm all tabs and enabled/disabled states, live telemetry during unsaved changes, error messages, mobile scroll/keyboard access and full-width table positioning. This branch remains separate from `main` until user acceptance.
