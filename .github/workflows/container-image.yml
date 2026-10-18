@@ -132,7 +132,7 @@ jobs:
 
       - name: Preserve visual theme previews
         if: success()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: pfc-design-system-previews
           path: test-artifacts/visual-regression/*.png
@@ -141,7 +141,7 @@ jobs:
 
       - name: Preserve browser screenshot on failure
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: pfc-browser-failure
           path: test-artifacts/
