@@ -179,6 +179,10 @@
 .topbar-context strong:focus { outline:none; }
 .topbar-context span { color:var(--ds-text-muted);font-size:.72rem; }
 .workspace-trail-root { min-height:14px;font-size:.65rem;line-height:1.4; }
+.workspace-trail-root[data-home="true"] .workspace-trail-separator,
+.workspace-trail-root[data-home="true"] .workspace-trail-current { display:none; }
+.workspace-trail-home { color:var(--ds-text-muted);font-size:.66rem;font-weight:750;letter-spacing:.07em; }
+.topbar-context #topbarContextSubtitle { color:var(--ds-text-muted);font-size:.72rem; }
 .workspace-trail-root nav {
   display:flex;
   align-items:center;
