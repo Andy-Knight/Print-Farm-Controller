@@ -1,0 +1,220 @@
+/*
+ * Phase 4: Printer Details visual polish.
+ * Presentation-only, scoped to the printer dialog. Live telemetry, command
+ * handlers, toolhead widths and table columns remain owned by the controller.
+ * Tokens come from design-system.css; this file loads after legacy styles.
+ */
+#printerDialog.printer-dialog {
+  background:var(--ds-page);
+  border-color:var(--ds-border);
+  box-shadow:var(--ds-shadow-pop);
+}
+#printerDialog .detail-shell {
+  padding:clamp(14px,2vw,24px);
+}
+#printerDialog .detail-shell > .dialog-head,
+#printerDialog [data-preact-detail-header] > .dialog-head {
+  align-items:flex-start;
+  gap:16px;
+  margin-bottom:18px;
+  padding-bottom:18px;
+  border-bottom:1px solid var(--ds-border);
+}
+#printerDialog .printer-detail-head-main { flex:1 1 auto; min-width:0; }
+#printerDialog .printer-detail-head-main > .eyebrow,
+#printerDialog .detail-shell > .dialog-head .eyebrow {
+  margin:0 0 8px;
+  color:var(--ds-brand);
+  font-size:.66rem;
+  font-weight:800;
+  letter-spacing:.14em;
+  line-height:1.3;
+  text-transform:uppercase;
+}
+#printerDialog .printer-detail-title-row {
+  display:flex;
+  align-items:center;
+  gap:8px 10px;
+  flex-wrap:wrap;
+}
+#printerDialog .printer-detail-title-row h2 {
+  margin:0;
+  min-width:0;
+  overflow-wrap:anywhere;
+  color:var(--ds-text);
+  font-size:clamp(1.32rem,2vw,1.75rem);
+  font-weight:800;
+  letter-spacing:-.03em;
+  line-height:1.2;
+}
+#printerDialog .printer-detail-context {
+  display:flex;
+  flex-wrap:wrap;
+  align-items:center;
+  gap:7px 12px;
+  margin-top:10px;
+  min-width:0;
+}
+#printerDialog .printer-detail-model {
+  max-width:100%;
+  padding:4px 9px;
+  border:1px solid var(--ds-border);
+  border-radius:var(--ds-radius-pill);
+  background:var(--ds-surface-muted);
+  color:var(--ds-text-muted);
+  font-size:var(--ds-font-xs);
+  font-weight:700;
+  overflow-wrap:anywhere;
+}
+#printerDialog .printer-detail-host {
+  margin:0;
+  max-width:100%;
+  white-space:normal;
+  overflow-wrap:anywhere;
+  color:var(--ds-text-muted);
+  font-size:var(--ds-font-sm);
+}
+#printerDialog .detail-health {
+  margin-top:9px;
+  max-width:85ch;
+  color:var(--ds-text-muted);
+  font-size:var(--ds-font-sm);
+  line-height:1.5;
+}
+#printerDialog .printer-detail-close,
+#printerDialog .detail-shell > .dialog-head > [data-detail-close] {
+  display:grid;
+  place-items:center;
+  flex:0 0 44px;
+  width:44px;
+  min-width:44px;
+  height:44px;
+  min-height:44px;
+  padding:0;
+  border:1px solid var(--ds-border);
+  border-radius:var(--ds-radius-md);
+  background:var(--ds-surface);
+  color:var(--ds-text-muted);
+  box-shadow:var(--ds-shadow-sm);
+  font-size:1.45rem;
+  line-height:1;
+}
+#printerDialog .detail-shell > .dialog-head > [data-detail-close]:focus-visible,
+#printerDialog .printer-detail-close:focus-visible {
+  outline:2px solid var(--ds-focus);
+  outline-offset:2px;
+}
+#printerDialog .printer-detail-tabs.maintenance-view-selector {
+  display:grid;
+  grid-template-columns:repeat(6,minmax(0,1fr));
+  gap:6px;
+  margin:0 0 18px;
+  padding:5px;
+  border:1px solid var(--ds-border);
+  border-radius:var(--ds-radius-md);
+  background:var(--ds-surface-muted);
+  box-shadow:var(--ds-shadow-sm);
+}
+#printerDialog .printer-detail-tabs [data-detail-tab] {
+  min-height:44px;
+  height:auto;
+  padding:10px 9px;
+  border:1px solid transparent;
+  border-radius:var(--ds-radius-sm);
+  background:transparent;
+  color:var(--ds-text-muted);
+  font-size:.78rem;
+  font-weight:700;
+  line-height:1.25;
+  text-align:center;
+  white-space:normal;
+  transition:background var(--ds-duration-fast) var(--ds-easing),
+    color var(--ds-duration-fast) var(--ds-easing);
+}
+#printerDialog .printer-detail-tabs [data-detail-tab]:hover {
+  background:var(--ds-surface-hover);
+  color:var(--ds-text);
+  filter:none;
+}
+#printerDialog .printer-detail-tabs [data-detail-tab].active,
+#printerDialog .printer-detail-tabs [data-detail-tab][aria-selected="true"] {
+  border-color:var(--ds-border-strong);
+  background:var(--ds-brand-soft);
+  color:var(--ds-brand);
+  box-shadow:inset 0 -2px 0 var(--ds-brand);
+  filter:none;
+}
+#printerDialog .printer-detail-tabs [data-detail-tab]:focus-visible {
+  outline:2px solid var(--ds-focus);
+  outline-offset:2px;
+}
+#printerDialog .printer-detail-tab-panels { min-width:0; }
+#printerDialog .printer-detail-tab-panel { min-width:0; }
+#printerDialog .printer-detail-tab-panel > .panel,
+#printerDialog .printer-detail-tab-panel .management-tab-column > .panel {
+  min-width:0;
+  padding:clamp(14px,1.6vw,20px);
+  border:1px solid var(--ds-border);
+  border-radius:var(--ds-radius-lg);
+  background:var(--ds-surface);
+  box-shadow:var(--ds-shadow-sm);
+}
+#printerDialog .printer-detail-tab-panel .panel > h3,
+#printerDialog .printer-detail-tab-panel .file-heading > h3 {
+  margin:0 0 14px;
+  color:var(--ds-text);
+  font-size:1rem;
+  font-weight:780;
+  letter-spacing:-.015em;
+  line-height:1.35;
+}
+#printerDialog .printer-detail-tab-panel .subtle,
+#printerDialog .printer-detail-tab-panel .field-help,
+#printerDialog .printer-detail-tab-panel .job-meta,
+#printerDialog .printer-detail-tab-panel .diagnostics-panel span {
+  color:var(--ds-text-muted);
+}
+#printerDialog .printer-detail-tab-panel .diagnostics-panel > div {
+  border-bottom-color:var(--ds-border);
+}
+#printerDialog .detail-activity-banner {
+  margin-bottom:14px;
+  padding:12px 14px;
+  border:1px solid var(--ds-border-strong);
+  border-left:3px solid var(--ds-brand);
+  border-radius:var(--ds-radius-md);
+  background:var(--ds-brand-soft);
+  color:var(--ds-text);
+}
+#printerDialog .detail-activity-banner strong { color:var(--ds-brand); }
+#printerDialog .detail-activity-banner span {
+  color:var(--ds-text);
+  line-height:1.4;
+}
+@media(max-width:960px) {
+  /* Horizontal scrolling avoids 2–6 rows of navigation consuming the modal
+     on Android; focus/arrow navigation already follows the active tab. */
+  #printerDialog .printer-detail-tabs.maintenance-view-selector {
+    display:flex;
+    flex-wrap:nowrap;
+    overflow-x:auto;
+    overscroll-behavior-x:contain;
+    -webkit-overflow-scrolling:touch;
+    scrollbar-width:thin;
+  }
+  #printerDialog .printer-detail-tabs [data-detail-tab] {
+    flex:0 0 auto;
+    padding-inline:14px;
+    white-space:nowrap;
+  }
+}
+@media(max-width:620px) {
+  #printerDialog .detail-shell > .dialog-head,
+  #printerDialog [data-preact-detail-header] > .dialog-head { margin-bottom:14px; padding-bottom:14px; }
+  #printerDialog .printer-detail-tabs.maintenance-view-selector { margin-bottom:14px; }
+  #printerDialog .printer-detail-tab-panel > .panel,
+  #printerDialog .printer-detail-tab-panel .management-tab-column > .panel { padding:14px; }
+}
+@media(prefers-reduced-motion:reduce) {
+  #printerDialog .printer-detail-tabs [data-detail-tab] { transition:none; }
+}

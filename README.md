@@ -1,4 +1,4 @@
-# Print Farm Controller v0.54.0
+# Print Farm Controller v0.55.0
 A local-first 3D printer fleet controller. It runs entirely on your LAN and currently supports:
 
 - **FlashForge Adventurer 5M / 5M Pro** through the local FlashForge HTTP/TCP APIs.
@@ -7,9 +7,11 @@ A local-first 3D printer fleet controller. It runs entirely on your LAN and curr
 - **Prusa CORE One+ (experimental)** through the local PrusaLink API, supporting Standard (1-tool), INDX4 and INDX8 configurations.
 - **Bambu Lab P1P / P1S / X1C / A1 Mini (experimental)** through the local MQTT TLS and FTPS TLS interfaces. P1P/P1S/A1 Mini use the TLS/JPEG camera path; X1C camera decoding remains unsupported.
 
-**Current development version: v0.54.0**
+**Current development version: v0.55.0**
 
 Current highlights:
+
+- **Polished Printer Details workspace (v0.55.0):** Phase 4 of the Preact SaaS migration improves the printer-details header with printer/model/host identity, live health and maintenance/status context; applies consistent light/dark design-system styling to content and tabs; and uses a horizontally scrollable single-row tab navigation on narrow screens. All six sections retain existing printer operations, filament/nozzle configuration, 160px toolhead fields and alignment, controller telemetry, keyboard navigation and no-bundle fallback. Automated Node.js 24, Chromium desktop/mobile, responsive layout and container smoke checks passed on PR #98. See [Design System](docs/DESIGN_SYSTEM.md).
 
 - **Polished Preact SaaS interface (v0.54.0):** Phase 1 introduces local-only light/dark design tokens and reusable Preact surfaces, form controls, feedback and loading states. Phase 2 modernises the app shell, grouped sidebar with SVG icons, accessible mobile navigation and route-aware breadcrumbs. Phase 3 updates dashboard headings, farm summary, group/view controls and printer cards without changing printer control or table functionality. The update standardises headings across routes (including **Farm Organisation** for Printer Groups), fixes duplicated Dashboard breadcrumbs/subtitles, aligns images despite wrapped printer names, and ensures the full OFFLINE pill fits in table view. Node.js 24, Chromium Preact, container smoke and build checks passed on PR #96. See [Design System](docs/DESIGN_SYSTEM.md).
 

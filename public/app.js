@@ -7096,6 +7096,7 @@ function printerDetailChromeState(printer, { loading = false } = {}) {
   return {
     id:String(printer.id || ''),
     name:String(printer.name || ''),
+    model:String(printerModelLabel(printer) || printer.model || ''),
     host:String(printer.host || ''),
     state,
     stateClass:String(state || '').toLowerCase(),
@@ -7123,9 +7124,13 @@ function printerDetailHeaderMarkup(printer) {
   if (window.__PFC_PREACT_DETAIL__) return '<div data-preact-detail-header></div>';
   return `<div class="dialog-head">
     <div>
-      <div class="eyebrow">PRINTER</div>
+      <div class="eyebrow">PRINTER DETAILS</div>
       <div class="printer-detail-title-row"><h2 data-detail-name>${escapeHtml(printer.name)}</h2>${maintenanceIconMarkup(printer, 'maintenance-status-icon-detail', true)}</div>
-      <div class="subtle"><span>${escapeHtml(printer.host)}</span> · <span data-detail-state>${escapeHtml(stateName(printer))}</span></div>
+      <div class="printer-detail-context">
+        <span class="printer-detail-model">${escapeHtml(printerModelLabel(printer) || printer.model || 'Unknown model')}</span>
+        <span class="subtle printer-detail-host">${escapeHtml(printer.host)}</span>
+        <span class="subtle" data-detail-state>${escapeHtml(stateName(printer))}</span>
+      </div>
       <div class="detail-health" data-detail-health></div>
     </div>
     <button class="icon" data-detail-close>×</button>
@@ -7141,12 +7146,12 @@ function printerDetailActivityMarkup(printer) {
 function printerDetailTabsMarkup() {
   if (window.__PFC_PREACT_DETAIL__) return '<div data-preact-detail-tabs></div>';
   return `<div class="printer-detail-tabs maintenance-view-selector" role="tablist" aria-label="Printer details">
-    <button type="button" class="maintenance-view-button" role="tab" data-detail-tab="toolheads" aria-controls="detailTabToolheads">Toolheads</button>
-    <button type="button" class="maintenance-view-button" role="tab" data-detail-tab="camera" aria-controls="detailTabCamera">Camera</button>
-    <button type="button" class="maintenance-view-button" role="tab" data-detail-tab="files" aria-controls="detailTabFiles">Files</button>
-    <button type="button" class="maintenance-view-button" role="tab" data-detail-tab="temperature" aria-controls="detailTabTemperature">Temperature, Preheat &amp; Fans</button>
-    <button type="button" class="maintenance-view-button" role="tab" data-detail-tab="job" aria-controls="detailTabJob">Current Job</button>
-    <button type="button" class="maintenance-view-button" role="tab" data-detail-tab="management" aria-controls="detailTabManagement">Maintenance &amp; Management</button>
+    <button type="button" class="maintenance-view-button" role="tab" data-detail-tab="toolheads" aria-controls="detailTabToolheads" id="printer-detail-tab-toolheads">Toolheads</button>
+    <button type="button" class="maintenance-view-button" role="tab" data-detail-tab="camera" aria-controls="detailTabCamera" id="printer-detail-tab-camera">Camera</button>
+    <button type="button" class="maintenance-view-button" role="tab" data-detail-tab="files" aria-controls="detailTabFiles" id="printer-detail-tab-files">Files</button>
+    <button type="button" class="maintenance-view-button" role="tab" data-detail-tab="temperature" aria-controls="detailTabTemperature" id="printer-detail-tab-temperature">Temperature, Preheat &amp; Fans</button>
+    <button type="button" class="maintenance-view-button" role="tab" data-detail-tab="job" aria-controls="detailTabJob" id="printer-detail-tab-job">Current Job</button>
+    <button type="button" class="maintenance-view-button" role="tab" data-detail-tab="management" aria-controls="detailTabManagement" id="printer-detail-tab-management">Maintenance &amp; Management</button>
   </div>`;
 }
 
@@ -7628,12 +7633,12 @@ async function openPrinter(id) {
     ${printer.adapterType === 'bambu-lab' ? `<div class="file-warning">Experimental Bambu ${escapeHtml(printer.model || '')} support: validate behavior carefully before relying on unattended printing.${printer.model === 'X1C' ? ' X1C RTSPS/H.264 camera decoding is not yet supported.' : ''}${printer.model === 'A1 Mini' ? ' Single-material A1 Mini .gcode starts remain experimental until validated on physical hardware; multi-material AMS Lite jobs require sliced .3mf.' : ''}</div>` : ''}
     ${printerDetailTabsMarkup()}
     <div class="printer-detail-tab-panels">
-      <section id="detailTabToolheads" class="printer-detail-tab-panel" role="tabpanel" data-detail-panel="toolheads"></section>
-      <section id="detailTabCamera" class="printer-detail-tab-panel" role="tabpanel" data-detail-panel="camera"></section>
-      <section id="detailTabFiles" class="printer-detail-tab-panel" role="tabpanel" data-detail-panel="files"></section>
-      <section id="detailTabTemperature" class="printer-detail-tab-panel" role="tabpanel" data-detail-panel="temperature"></section>
-      <section id="detailTabJob" class="printer-detail-tab-panel" role="tabpanel" data-detail-panel="job"></section>
-      <section id="detailTabManagement" class="printer-detail-tab-panel" role="tabpanel" data-detail-panel="management"></section>
+      <section id="detailTabToolheads" class="printer-detail-tab-panel" role="tabpanel" aria-labelledby="printer-detail-tab-toolheads" data-detail-panel="toolheads"></section>
+      <section id="detailTabCamera" class="printer-detail-tab-panel" role="tabpanel" aria-labelledby="printer-detail-tab-camera" data-detail-panel="camera"></section>
+      <section id="detailTabFiles" class="printer-detail-tab-panel" role="tabpanel" aria-labelledby="printer-detail-tab-files" data-detail-panel="files"></section>
+      <section id="detailTabTemperature" class="printer-detail-tab-panel" role="tabpanel" aria-labelledby="printer-detail-tab-temperature" data-detail-panel="temperature"></section>
+      <section id="detailTabJob" class="printer-detail-tab-panel" role="tabpanel" aria-labelledby="printer-detail-tab-job" data-detail-panel="job"></section>
+      <section id="detailTabManagement" class="printer-detail-tab-panel" role="tabpanel" aria-labelledby="printer-detail-tab-management" data-detail-panel="management"></section>
     </div>
     ${wideToolheadLayout ? materialStatusMarkup : ''}
     <div class="detail-grid">

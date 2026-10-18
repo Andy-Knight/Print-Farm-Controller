@@ -1251,6 +1251,89 @@ async function simulatorSseSmoke(browser,url) {
     const nozzleEditor=page.locator('[data-preact-toolhead-editor="controller-nozzle"]');
     await materialEditor.waitFor({state:'visible',timeout:15000});
     await nozzleEditor.waitFor({state:'visible'});
+
+    // Phase 4: the printer dialog uses theme tokens, identifies the actual
+    // model and maintains a single-row, keyboard-accessible tab rail on mobile.
+    // These checks run against the real Preact component and AD5M simulator.
+    const detailDesktop=await page.evaluate(()=>{
+      const dialog=document.querySelector('#printerDialog');
+      const tabs=[...dialog.querySelectorAll('[data-detail-tab]')];
+      const panels=[...dialog.querySelectorAll('[data-detail-panel]')];
+      const heading=dialog.querySelector('[data-detail-name]');
+      const context=dialog.querySelector('.printer-detail-context');
+      return {
+        heading:heading?.textContent,
+        model:context?.querySelector('.printer-detail-model')?.textContent,
+        host:context?.querySelector('.printer-detail-host')?.textContent,
+        tabs:tabs.map((tab)=>({
+          name:tab.dataset.detailTab,
+          panel:tab.getAttribute('aria-controls'),
+          labelled:document.getElementById(tab.getAttribute('aria-controls'))
+            ?.getAttribute('aria-labelledby')===tab.id
+        })),
+        panels:panels.length,
+        shellBackground:getComputedStyle(dialog).backgroundColor,
+        token:getComputedStyle(document.documentElement).getPropertyValue('--ds-page').trim()
+      };
+    });
+    assert.ok(detailDesktop.heading?.length&&detailDesktop.model?.length&&detailDesktop.host?.length,
+      'Printer Details hero must show name, model and connection');
+    assert.equal(detailDesktop.tabs.length,6,'all six detail tabs remain available');
+    assert.equal(detailDesktop.panels,6,'all detail panels remain available');
+    assert.ok(detailDesktop.tabs.every((tab)=>tab.labelled),
+      'ARIA tab and panel IDs must correspond');
+    assert.ok(detailDesktop.token,'dialog must load the shared design tokens');
+
+    const detailCaptureDir=process.env.PFC_VISUAL_CAPTURE_DIR
+      ? path.resolve(process.env.PFC_VISUAL_CAPTURE_DIR) : null;
+    if(detailCaptureDir){
+      await fs.mkdir(detailCaptureDir,{recursive:true});
+      await page.screenshot({path:path.join(detailCaptureDir,'printer-details-phase4-dark-desktop.png')});
+    }
+    const initialTheme=await page.evaluate(()=>document.documentElement.dataset.theme||'dark');
+    await page.evaluate(()=>{document.documentElement.dataset.theme='light';});
+    const lightSurface=await page.evaluate(()=>getComputedStyle(
+      document.querySelector('#printerDialog .printer-detail-tab-panel > .panel')).backgroundColor);
+    assert.ok(lightSurface&&lightSurface!=='rgba(0, 0, 0, 0)',
+      'light theme must colour the detail panel surface');
+    if(detailCaptureDir){
+      await page.screenshot({path:path.join(detailCaptureDir,'printer-details-phase4-light-desktop.png')});
+    }
+    await page.setViewportSize({width:390,height:844});
+    const mobileTabs=await page.evaluate(()=>{
+      const nav=document.querySelector('#printerDialog .printer-detail-tabs');
+      const buttons=[...nav.querySelectorAll('[data-detail-tab]')];
+      return {
+        scrollWidth:nav.scrollWidth,clientWidth:nav.clientWidth,
+        rows:Math.max(...buttons.map((button)=>button.getBoundingClientRect().top))
+          -Math.min(...buttons.map((button)=>button.getBoundingClientRect().top)),
+        closeWidth:document.querySelector('#printerDialog [data-detail-close]')
+          ?.getBoundingClientRect().width,
+        selected:buttons.filter((button)=>button.getAttribute('aria-selected')==='true').length
+      };
+    });
+    assert.ok(mobileTabs.scrollWidth>mobileTabs.clientWidth,
+      'mobile detail tab rail should scroll horizontally instead of stacking six rows');
+    assert.ok(mobileTabs.rows<=2,'all mobile tabs should occupy one row');
+    assert.ok(mobileTabs.closeWidth>=42,'mobile close target should be accessible');
+    assert.equal(mobileTabs.selected,1,'one detail tab remains selected');
+    await page.locator('#printerDialog [data-detail-tab="toolheads"]').focus();
+    await page.keyboard.press('End');
+    await page.waitForFunction(()=>
+      document.querySelector('#printerDialog [data-detail-tab="management"]')
+        ?.getAttribute('aria-selected')==='true');
+    await page.keyboard.press('Home');
+    await page.waitForFunction(()=>
+      document.querySelector('#printerDialog [data-detail-tab="toolheads"]')
+        ?.getAttribute('aria-selected')==='true');
+    if(detailCaptureDir){
+      await page.screenshot({path:path.join(detailCaptureDir,'printer-details-phase4-light-mobile.png')});
+    }
+    await page.setViewportSize({width:1365,height:900});
+    await page.evaluate((theme)=>{document.documentElement.dataset.theme=theme;},initialTheme);
+    await materialEditor.waitFor({state:'visible'});
+    console.log('Chromium: Phase 4 Printer Details desktop/mobile and keyboard PASS');
+
     await checkToolheadFieldAlignment(page,'Flashforge AD5M Pro',{
       filamentMode:'controller-filament',nozzleMode:'controller-nozzle'
     });
