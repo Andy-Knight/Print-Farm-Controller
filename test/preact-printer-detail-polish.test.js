@@ -51,7 +51,7 @@ test('Legacy and Preact tab interfaces share the same panel associations',()=>{
     ['temperature','Temperature'],['job','Job'],['management','Management']
   ];
   for(const [key,suffix] of ids){
-    assert.ok(app.includes('id="printer-detail-tab-'+key+'" data-detail-tab="'+key+'"'));
+    assert.ok(app.includes('data-detail-tab="'+key+'" aria-controls="detailTab'+suffix+'" id="printer-detail-tab-'+key+'"'));
     assert.ok(app.includes('id="detailTab'+suffix+'" class="printer-detail-tab-panel" role="tabpanel" aria-labelledby="printer-detail-tab-'+key+'"'));
   }
   assert.match(app,/model:String\(printerModelLabel\(printer\)/);
