@@ -18,6 +18,7 @@
  */
 .ui-page-heading-copy { display:grid;gap:5px;min-width:0;align-content:start; }
 .ui-page-heading .ui-page-eyebrow,
+.route-page .dialog-head.ui-page-heading .ui-page-eyebrow,
 :root[data-theme="light"] .ui-page-heading .ui-page-eyebrow {
   margin:0;
   color:var(--ds-brand);
@@ -37,6 +38,7 @@
   line-height:1.25;
 }
 .ui-page-heading .ui-page-description,
+.route-page .dialog-head.ui-page-heading .ui-page-description,
 :root[data-theme="light"] .ui-page-heading .ui-page-description {
   margin:0;
   color:var(--ds-text-muted);
