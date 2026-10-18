@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 
 const read=(path)=>readFileSync(new URL('../'+path,import.meta.url),'utf8');
 const css=read('public/design-system.css');
@@ -80,8 +80,18 @@ test('card-view printer images align on shared CSS subgrid rows without changing
   assert.match(regression,/images must align for wrapped and short names/);
 });
 
-test('GitHub visual-regression artifacts use a native Node.js 24 action',()=>{
-  const workflow=read(' .github/workflows/container-image.yml'.trim());
+test('GitHub visual-regression artifacts use a native Node.js 24 action',(t)=>{
+  // Packaged Windows/container source installations can omit .github entirely.
+  // The CI contract is meaningful only when repository workflow files exist.
+  const workflowPath=new URL('../.github/workflows/container-image.yml',import.meta.url);
+  if(!existsSync(workflowPath)){
+    if(process.env.GITHUB_ACTIONS){
+      assert.fail('GitHub Actions checkout must include .github/workflows/container-image.yml');
+    }
+    t.skip('GitHub workflow metadata is not shipped with this installation');
+    return;
+  }
+  const workflow=readFileSync(workflowPath,'utf8');
   assert.equal((workflow.match(/uses: actions\/upload-artifact@v7/g)||[]).length,2,
     'visual screenshot and failure artifact uploads must use the Node.js 24 action');
   assert.doesNotMatch(workflow,/uses: actions\/upload-artifact@v[1-5](?:\s|$)/m,
