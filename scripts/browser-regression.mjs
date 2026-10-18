@@ -54,6 +54,510 @@ async function reportsLoaded(page,where) {
   assert.ok(await page.locator('#reportingPrinter option').count()>0,where+' printer choices');
 }
 
+/**
+ * Phase-1 visual contract: computed design tokens, semantic filter states,
+ * keyboard focus, reduced motion and responsive cards in BOTH themes.
+ * Optional full-page captures are written only if PFC_VISUAL_CAPTURE_DIR is set;
+ * the test never compares screenshots against brittle machine-specific pixels.
+ */
+async function designSystemSmoke(browser,url) {
+  console.log('Chromium: SaaS design-system light/dark + desktop/mobile visual contract');
+  const context=await browser.newContext({viewport:{width:1365,height:900}});
+  const page=await context.newPage();
+  const errors=[];
+  page.on('pageerror',(event)=>errors.push(event.message));
+  await context.route('**/api/events',(route)=>route.fulfill({
+    status:200,headers:{'content-type':'text/event-stream'},
+    body:': design-system fixture\\n\\n'
+  }));
+  const captureDir=process.env.PFC_VISUAL_CAPTURE_DIR
+    ? path.resolve(process.env.PFC_VISUAL_CAPTURE_DIR) : null;
+  if(captureDir)await fs.mkdir(captureDir,{recursive:true});
+  try {
+    await page.goto(url+'/',{waitUntil:'load'});
+    await preactReady(page);
+    assert.equal(await page.locator('link[href="/design-system.css"]').count(),1,
+      'the design-system stylesheet must load after existing styles');
+    await page.waitForFunction(()=>document.querySelectorAll('#summary .ui-stat-card').length===4);
+    const css=await page.evaluate(()=>({
+      tokens:getComputedStyle(document.documentElement).getPropertyValue('--ds-surface').trim(),
+      source:[...document.styleSheets].some(s=>s.href?.endsWith('/design-system.css'))
+    }));
+    assert.ok(css.tokens,'tokens resolve from the loaded design system');
+    assert.equal(css.source,true,'design system must be a real stylesheet, not a route fallback');
+    // The Preact fleet subscription uses useEffect; wait for it to attach
+    // before firing the isolated synthetic telemetry fixture.
+    await page.waitForTimeout(250);
+    // Mixed-length names and model descriptions recreate the user's screenshot.
+    // Synthetic presentation only; no hardware or printer APIs are modified.
+    await page.evaluate(()=>{
+      const printers=[
+        ['design-system-example','A5M-Pro1','192.168.4.114 · Adventurer 5M Pro'],
+        ['long-model','A5M-Pro2','192.168.4.116 · Adventurer 5M Pro'],
+        ['short-model','U1-1','192.168.4.187 · Snapmaker U1'],
+        ['short-model-2','FF1-Virt','127.0.0.1 · Adventurer 5M Pro'],
+        ['short-model-3','A1-Mini','127.0.0.1 · A1 Mini']
+      ].map(([id,name,hostText])=>({
+        id,name,hostText,visible:true,
+        state:id==='design-system-example' ? 'OFFLINE' : 'Idle',
+        stateClass:id==='design-system-example' ? 'offline' : 'idle',
+        maintenance:{state:id==='design-system-example' ? 'due' : 'none',actionText:'Maintenance'},
+        progress:25,progressText:'25%',jobName:'demo.gcode',nozzleLabel:'Nozzle',
+        nozzle:'210°C',bed:'60°C',layer:'10',remaining:'01:25',
+        lastSeen:'just now',latency:'2 ms',image:{label:'Synthetic'}
+      }));
+      window.dispatchEvent(new CustomEvent('pfc:dashboard-fleet-state',{detail:{printers}}));
+      // The no-printers backend response hides the fleet container; reveal
+      // our in-memory Preact fixture to measure the real layout geometry.
+      document.querySelector('#fleetViewport')?.classList.remove('hidden');
+      document.querySelector('#fleet')?.classList.remove('hidden');
+      document.querySelector('#empty')?.classList.add('hidden');
+    });
+    // The original empty-farm controller can keep #fleet hidden while a
+    // synthetic Preact state is mounted; verify the component and computed
+    // token styling without pretending the controller registered hardware.
+    await page.locator('[data-printer-card="design-system-example"] .ui-metric').first()
+      .waitFor({state:'attached',timeout:12000});
+    // Measure rendered Chromium geometry rather than inspecting CSS source.
+    // Cards sharing a grid row must always share one image baseline.
+    for(const width of [1365,1800]){
+      await page.setViewportSize({width,height:980});
+      const groups=await page.evaluate(()=>{
+        const cards=[...document.querySelectorAll('#fleet:not(.table-view) > .card.ui-printer-surface')]
+          .filter(card=>getComputedStyle(card).display!=='none');
+        const rows=new Map();
+        for(const card of cards){
+          const cardBox=card.getBoundingClientRect();
+          const imageBox=card.querySelector('[data-printer-image-slot]').getBoundingClientRect();
+          const head=card.querySelector('.card-head');
+          const headBox=head.getBoundingClientRect();
+          const key=Math.round(cardBox.top);
+          if(!rows.has(key))rows.set(key,[]);
+          rows.get(key).push({
+            name:card.querySelector('[data-name]')?.textContent,
+            imageTop:imageBox.top,imageBottom:imageBox.bottom,
+            headBottom:headBox.bottom,headScroll:head.scrollHeight,headHeight:head.clientHeight
+          });
+        }
+        return [...rows.values()];
+      });
+      assert.equal(groups.flat().length,5,'all five synthetic printers must be rendered');
+      assert.ok(groups.some(group=>group.length>=3),'desktop layout should show 3+ cards per row');
+      for(const group of groups){
+        const y=group.map(item=>item.imageTop);
+        assert.ok(Math.max(...y)-Math.min(...y)<=1.5,
+          'images must align for wrapped and short names at '+width+'px: '+JSON.stringify(group));
+        for(const card of group) {
+          assert.ok(card.headScroll<=card.headHeight+1,
+            'long printer headings must grow rather than clip: '+JSON.stringify(card));
+          assert.ok(card.headBottom<=card.imageTop+1.5,
+            'card heading must not overlap its image');
+        }
+      }
+    }
+    await page.setViewportSize({width:1365,height:900});
+    // Regression: table status pills must show the entire OFFLINE label
+    // alongside the maintenance icon, including the coloured dot.
+    await page.evaluate(()=>{
+      document.querySelector('#fleetViewport')?.classList.add('table-view');
+      document.querySelector('#fleet')?.classList.add('table-view');
+    });
+    for(const theme of ['dark','light']){
+      await page.evaluate((name)=>{
+        if(document.documentElement.dataset.theme!==name)
+          document.querySelector('#themeToggle')?.click();
+      },theme);
+      const pill=await page.evaluate(()=>{
+        const row=document.querySelector('[data-printer-card="design-system-example"]');
+        const badge=row.querySelector('[data-printer-state]');
+        const actions=row.querySelector('.card-head-actions');
+        const maintenance=row.querySelector('[data-maintenance-status-icon]');
+        const r=badge.getBoundingClientRect(), a=actions.getBoundingClientRect();
+        const m=maintenance.getBoundingClientRect();
+        const pseudo=getComputedStyle(badge,'::before');
+        return {
+          label:badge.textContent.trim(),
+          textWidth:badge.scrollWidth,badgeWidth:badge.clientWidth,
+          badgeRight:r.right,actionsRight:a.right,
+          badgeLeft:r.left,maintenanceRight:m.right,
+          dotWidth:pseudo.width,
+          overflow:getComputedStyle(badge).textOverflow
+        };
+      });
+      assert.equal(pill.label,'OFFLINE');
+      assert.ok(pill.textWidth<=pill.badgeWidth+1,
+        theme+' OFFLINE text should fit inside the coloured badge: '+JSON.stringify(pill));
+      assert.ok(pill.badgeRight<=pill.actionsRight+1,
+        theme+' OFFLINE badge should fit in its table column: '+JSON.stringify(pill));
+      assert.ok(Number.parseFloat(pill.dotWidth)>=6,
+        theme+' OFFLINE status dot should remain visible: '+JSON.stringify(pill));
+      assert.ok(pill.badgeLeft>=pill.maintenanceRight,
+        theme+' OFFLINE status should not overlap maintenance icon: '+JSON.stringify(pill));
+    }
+    await page.evaluate(()=>{
+      document.querySelector('#fleetViewport')?.classList.remove('table-view');
+      document.querySelector('#fleet')?.classList.remove('table-view');
+    });
+    for(const theme of ['dark','light']){
+      // Use the real controller theme action: app.js also updates the inline
+      // colorScheme style and accessible toggle, not only data-theme.
+      await page.evaluate((name)=>{
+        if(document.documentElement.dataset.theme!==name)
+          document.querySelector('#themeToggle')?.click();
+      },theme);
+      const result=await page.evaluate(()=>{
+        const root=document.documentElement;
+        const cards=[...document.querySelectorAll('#summary .ui-stat-card')];
+        const printer=document.querySelector('[data-printer-card="design-system-example"]');
+        const metric=printer?.querySelector('.ui-metric');
+        const sheet=getComputedStyle(root);
+        return {
+          theme:root.dataset.theme,
+          scheme:sheet.colorScheme,
+          surface:sheet.getPropertyValue('--ds-surface').trim(),
+          text:sheet.getPropertyValue('--ds-text').trim(),
+          cards:cards.map(x=>({
+            tone:x.dataset.tone,
+            label:x.querySelector('.summary-card-label')?.textContent?.trim(),
+            count:x.querySelector('b')?.textContent?.trim(),
+            background:getComputedStyle(x).backgroundImage,
+            bounds:x.getBoundingClientRect().toJSON()
+          })),
+          printer:printer?.getBoundingClientRect().toJSON(),
+          metricBackground:metric&&getComputedStyle(metric).backgroundColor,
+          metricText:metric&&getComputedStyle(metric.querySelector('b')).color
+        };
+      });
+      assert.equal(result.theme,theme,'controller has switched to '+theme+' theme');
+      assert.equal(result.scheme,theme,'browser computes '+theme+' colour scheme');
+      assert.ok(result.surface&&result.text,'theme tokens resolve');
+      assert.deepEqual(result.cards.map(x=>x.tone),['neutral','success','working','warning']);
+      assert.ok(result.cards.every(x=>x.label&&x.count),
+        'summary status labels remain above counts');
+      assert.ok(result.printer,'synthetic Preact printer card remains mounted on the dashboard');
+      assert.ok(result.metricBackground&&result.metricText,
+        'printer metrics have readable themed foreground/background');
+      if(captureDir)await page.screenshot({
+        path:path.join(captureDir,`dashboard-${theme}-desktop.png`),fullPage:true,
+        animations:'disabled'
+      });
+    }
+    await page.setViewportSize({width:390,height:844});
+    await page.evaluate(()=>{
+      if(document.documentElement.dataset.theme!=='light')
+        document.querySelector('#themeToggle')?.click();
+    });
+    const mobile=await page.evaluate(()=>{
+      const cards=[...document.querySelectorAll('#summary .ui-stat-card')];
+      return cards.map(x=>x.getBoundingClientRect().toJSON());
+    });
+    assert.equal(mobile.length,4,'mobile summary retains all four actionable filters');
+    assert.ok(mobile.every(b=>b.left>=0&&b.right<=390.5),
+      'summary cards do not overflow phone viewport: '+JSON.stringify(mobile));
+    if(captureDir)await page.screenshot({
+      path:path.join(captureDir,'dashboard-light-mobile.png'),fullPage:true,
+      animations:'disabled'
+    });
+    await page.emulateMedia({reducedMotion:'reduce'});
+    const motion=await page.evaluate(()=>{
+      const target=document.querySelector('#summary .ui-stat-card');
+      const styles=getComputedStyle(target);
+      return {animation:styles.animationDuration,transition:styles.transitionDuration};
+    });
+    assert.ok(motion.transition.split(',').every(s=>Number.parseFloat(s)===0),
+      'reduced-motion mode disables decorative card transitions');
+    assert.deepEqual(errors,[],'design-system browser interactions must not throw');
+  }finally{await context.close();}
+}
+
+
+async function dashboardPhase3Smoke(browser,url) {
+  console.log('Chromium: Phase 3 dashboard hierarchy, filters, card/table and mobile layout');
+  const context=await browser.newContext({viewport:{width:1365,height:900}});
+  const page=await context.newPage();
+  const errors=[];
+  page.on('pageerror',(error)=>errors.push(error.message));
+  await context.route('**/api/events',(route)=>route.fulfill({
+    status:200,headers:{'content-type':'text/event-stream'},
+    body:': dashboard visual fixture\\n\\n'
+  }));
+  const captureDir=process.env.PFC_VISUAL_CAPTURE_DIR
+    ? path.resolve(process.env.PFC_VISUAL_CAPTURE_DIR) : null;
+  if(captureDir)await fs.mkdir(captureDir,{recursive:true});
+  try{
+    await page.goto(url+'/',{waitUntil:'load'});
+    await preactReady(page);
+    await page.locator('.dashboard-hero-copy h2').getByText('Farm overview').waitFor();
+    await page.waitForFunction(()=>document.querySelectorAll('#summary .dashboard-stat-detail').length===4);
+    assert.equal(await page.locator('#dashboardFleetHeadingRoot h2').innerText(),'Printers');
+    const initial=await page.evaluate(()=>({
+      stats:[...document.querySelectorAll('#summary [data-dashboard-filter]')].map(n=>n.dataset.dashboardFilter),
+      hero:document.querySelector('.dashboard-hero').getBoundingClientRect().toJSON(),
+      cards:[...document.querySelectorAll('#summary [data-dashboard-filter]')].map(n=>n.getBoundingClientRect().toJSON()),
+      summaries:[...document.querySelectorAll('#summary .dashboard-stat-detail')].map(n=>n.textContent)
+    }));
+    assert.deepEqual(initial.stats,['all','online','printing','attention']);
+    assert.equal(initial.summaries.length,4,'every operational metric has useful supporting context');
+    assert.ok(initial.hero.width>600,'hero fills the available workspace');
+    assert.ok(Math.max(...initial.cards.map(n=>n.top))-Math.min(...initial.cards.map(n=>n.top))<=1,
+      'all four summary cards align on desktop');
+    await page.evaluate(()=>{
+      const state={counts:{all:12,online:10,printing:1,attention:2},
+        activeFilter:'all',groups:[],groupId:'',viewMode:'cards'};
+      window.__PFC_DASHBOARD_STATE__=state;
+      window.dispatchEvent(new CustomEvent('pfc:dashboard-state',{detail:state}));
+    });
+    await page.waitForFunction(()=>document.querySelector('#summary [data-dashboard-filter="all"] b')?.textContent==='12'
+      &&document.querySelector('#dashboardFleetHeadingRoot [data-dashboard-fleet-summary]')?.textContent?.includes('12'));
+    await page.evaluate(()=>{
+      window.__PFC_PHASE3_ACTIONS__=[];
+      window.addEventListener('pfc:dashboard-action',(event)=>{
+        window.__PFC_PHASE3_ACTIONS__.push(event.detail);
+      });
+    });
+    await page.locator('#summary [data-dashboard-filter="attention"]').click();
+    assert.ok((await page.evaluate(()=>window.__PFC_PHASE3_ACTIONS__))
+      .some(event=>event.type==='filter'&&event.value==='attention'),
+      'summary stat uses controller filter event');
+    const toggle=page.locator('#dashboardViewToggle');
+    await toggle.click();
+    await page.waitForFunction(()=>document.querySelector('#fleetViewport')?.classList.contains('table-view')
+      &&document.querySelector('#dashboardFleetHeadingRoot [data-dashboard-current-view]')?.textContent==='Table view');
+    await toggle.click();
+    await page.waitForFunction(()=>!document.querySelector('#fleetViewport')?.classList.contains('table-view')
+      &&document.querySelector('#dashboardFleetHeadingRoot [data-dashboard-current-view]')?.textContent==='Card view');
+    for(const theme of ['dark','light']){
+      await page.evaluate((name)=>{
+        if(document.documentElement.dataset.theme!==name)
+          document.querySelector('#themeToggle')?.click();
+      },theme);
+      const info=await page.evaluate(()=>{
+        const card=document.querySelector('#summary .ui-stat-card');
+        const head=document.querySelector('.dashboard-hero-copy h2');
+        return {
+          colorScheme:getComputedStyle(document.documentElement).colorScheme,
+          statBackground:getComputedStyle(card).backgroundImage,
+          statBorder:getComputedStyle(card).borderTopColor,
+          headColor:getComputedStyle(head).color,
+          detailColor:getComputedStyle(document.querySelector('#summary .dashboard-stat-detail')).color
+        };
+      });
+      assert.equal(info.colorScheme,theme);
+      assert.ok(info.statBackground!=='none'&&info.statBorder&&info.headColor&&info.detailColor);
+      if(captureDir)await page.screenshot({path:path.join(captureDir,`dashboard-phase3-${theme}-desktop.png`),
+        animations:'disabled',fullPage:true});
+    }
+    await page.setViewportSize({width:390,height:844});
+    const mobile=await page.evaluate(()=>({
+      hero:document.querySelector('.dashboard-hero').getBoundingClientRect().toJSON(),
+      cards:[...document.querySelectorAll('#summary [data-dashboard-filter]')].map(n=>n.getBoundingClientRect().toJSON()),
+      view:document.querySelector('#dashboardViewToggle').getBoundingClientRect().toJSON(),
+      heading:document.querySelector('#dashboardFleetHeadingRoot').getBoundingClientRect().toJSON()
+    }));
+    assert.ok(mobile.cards.every(r=>r.left>=-1&&r.right<=391),
+      'summary cards remain inside a 390px phone viewport');
+    assert.ok(mobile.view.left>=0&&mobile.view.right<=391,'dashboard view switch stays visible on mobile');
+    assert.ok(mobile.heading.left>=0&&mobile.heading.right<=391);
+    if(captureDir)await page.screenshot({path:path.join(captureDir,'dashboard-phase3-light-mobile.png'),
+      animations:'disabled',fullPage:true});
+    assert.deepEqual(errors,[]);
+  }finally{await context.close();}
+}
+
+async function workspaceShellSmoke(browser,url) {
+  console.log('Chromium: Phase 2 workspace sidebar, breadcrumbs and mobile navigation');
+  const context=await browser.newContext({viewport:{width:1365,height:900}});
+  const page=await context.newPage();
+  const errors=[];
+  page.on('pageerror',(error)=>errors.push(error.message));
+  const captureDir=process.env.PFC_VISUAL_CAPTURE_DIR
+    ? path.resolve(process.env.PFC_VISUAL_CAPTURE_DIR) : null;
+  if(captureDir)await fs.mkdir(captureDir,{recursive:true});
+  await context.route('**/api/events',(route)=>route.fulfill({
+    status:200,headers:{'content-type':'text/event-stream'},
+    body:': shell fixture\\n\\n'
+  }));
+  try {
+    await page.goto(url+'/reports',{waitUntil:'load'});
+    await preactReady(page);
+    const crumb=page.locator('#workspaceTrailRoot [data-preact-workspace-trail]');
+    await crumb.waitFor({state:'visible'});
+    await page.waitForFunction(()=>document.querySelector('#workspaceTrailRoot [aria-current="page"]')
+      ?.textContent==='Reports & analytics');
+    const reportContext=await page.evaluate(()=>({
+      crumb:document.querySelector('#workspaceTrailRoot')?.innerText,
+      title:document.querySelector('#topbarContextTitle')?.textContent,
+      subtitle:document.querySelector('#topbarContextSubtitle')?.textContent,
+      parent:document.querySelector('#workspaceTrailRoot .workspace-trail-link')?.textContent
+    }));
+    assert.equal(reportContext.parent,'Workspace');
+    assert.equal(reportContext.title,'Reports & analytics');
+    assert.equal(reportContext.subtitle,'Review farm performance and filament usage');
+    assert.ok(reportContext.crumb.includes('Workspace')&&reportContext.crumb.includes('Reports & analytics'));
+    assert.ok(!reportContext.crumb.includes(reportContext.subtitle),
+      'subtitle must not overwrite the breadcrumb parent on route changes');
+    assert.equal(await page.locator('#reportsBtn').getAttribute('aria-current'),'page',
+      'active navigation item has current-page semantics');
+    assert.equal(await page.locator('.sidebar-section-label').count(),2,
+      'operations and farm management are visually grouped');
+    assert.ok(await page.locator('.sidebar-nav .sidebar-icon svg').count()>=9,
+      'main sidebar uses consistently sized SVG navigation icons');
+    assert.equal(await page.locator('#controllerSidebar').evaluate(n=>n.inert),false,
+      'desktop navigation is always available');
+    await crumb.getByRole('button',{name:'Go to dashboard'}).click();
+    await page.waitForFunction(()=>location.pathname==='/'&&document.body.dataset.route==='/' &&
+      document.querySelector('.topbar-context strong')?.textContent==='Dashboard');
+    assert.equal(await page.locator('[data-dashboard-home]').getAttribute('aria-current'),'page',
+      'breadcrumb uses normal controller routing to activate Dashboard');
+    await page.waitForFunction(()=>document.querySelector('#workspaceTrailRoot .workspace-trail-home'));
+    const dashHeader=await page.evaluate(()=>({
+      root:document.querySelector('#workspaceTrailRoot')?.innerText?.trim(),
+      title:document.querySelector('#topbarContextTitle')?.textContent,
+      subtitle:document.querySelector('#topbarContextSubtitle')?.textContent,
+      trail:document.querySelector('#workspaceTrailRoot')?.dataset.home,
+      duplicate:document.querySelector('#workspaceTrailRoot .workspace-trail-current')
+    }));
+    assert.equal(dashHeader.root,'Workspace',
+      'dashboard header shows only the Workspace eyebrow, not a second Dashboard');
+    assert.equal(dashHeader.title,'Dashboard');
+    assert.equal(dashHeader.subtitle,'Monitor and manage your print farm');
+    assert.equal(dashHeader.trail,'true');
+    assert.equal(dashHeader.duplicate,null,
+      'root route should not render a redundant Dashboard breadcrumb');
+    const desktop=await page.evaluate(()=>({
+      sidebar:document.querySelector('#controllerSidebar').getBoundingClientRect().toJSON(),
+      header:document.querySelector('.modern-topbar').getBoundingClientRect().toJSON(),
+      main:document.querySelector('body > main').getBoundingClientRect().toJSON()
+    }));
+    assert.ok(desktop.sidebar.width>=215&&desktop.sidebar.width<=275,
+      'desktop sidebar retains practical width');
+    assert.ok(desktop.main.left>=desktop.sidebar.right-2,'workspace does not overlap fixed sidebar');
+    assert.ok(desktop.header.left>=desktop.sidebar.right-2,'header aligns with workspace');
+    if(captureDir){
+      await page.screenshot({path:path.join(captureDir,'workspace-dark-desktop.png'),
+        animations:'disabled',fullPage:true});
+      await page.locator('#themeToggle').click();
+      await page.screenshot({path:path.join(captureDir,'workspace-light-desktop.png'),
+        animations:'disabled',fullPage:true});
+    }
+    await page.setViewportSize({width:390,height:844});
+    await page.reload({waitUntil:'load'});
+    await preactReady(page);
+    const toggle=page.locator('#sidebarToggle');
+    assert.ok(await toggle.isVisible(),'mobile navigation toggle is available');
+    assert.equal(await page.locator('#controllerSidebar').evaluate(n=>n.inert),true,
+      'closed offscreen mobile navigation is inert');
+    await toggle.click();
+    assert.equal(await toggle.getAttribute('aria-expanded'),'true');
+    assert.equal(await page.locator('body').evaluate(n=>n.classList.contains('sidebar-open')),true);
+    assert.equal(await page.locator('#controllerSidebar').evaluate(n=>n.inert),false);
+    assert.ok(await page.locator('.sidebar-item.active').evaluate(el=>document.activeElement===el),
+      'drawer autofocuses active navigation for keyboard users');
+    if(captureDir)await page.screenshot({path:path.join(captureDir,'workspace-light-mobile-drawer.png'),
+      animations:'disabled',fullPage:true});
+    await page.locator('#reportsBtn').click();
+    await page.waitForFunction(()=>location.pathname==='/reports'
+      &&document.body.dataset.route==='/reports');
+    assert.equal(await toggle.getAttribute('aria-expanded'),'false',
+      'navigation selection closes drawer');
+    assert.equal(await page.locator('#controllerSidebar').evaluate(n=>n.inert),true);
+    await toggle.click();
+    await page.keyboard.press('Escape');
+    assert.equal(await toggle.getAttribute('aria-expanded'),'false','Escape closes drawer');
+    assert.ok(await toggle.evaluate(el=>document.activeElement===el),'Escape returns focus to menu toggle');
+    await toggle.click();
+    // Wait for the real painted backdrop before a pointer dismissal. Forcing
+    // clicks through the opening transition can target underlying content.
+    await page.waitForFunction(()=>{
+      const backdrop=document.querySelector('#sidebarBackdrop');
+      return backdrop && Number.parseFloat(getComputedStyle(backdrop).opacity)>=.98
+        && getComputedStyle(backdrop).visibility==='visible';
+    });
+    await page.mouse.click(370,430);
+    await page.waitForFunction(()=>document.querySelector('#sidebarToggle')?.getAttribute('aria-expanded')==='false');
+    assert.equal(await toggle.getAttribute('aria-expanded'),'false','backdrop closes drawer');
+    await toggle.click();
+    await page.locator('.sidebar-quick-add').click();
+    await page.locator('#addPrinterDialog[open]').waitFor({state:'visible'});
+    assert.equal(await toggle.getAttribute('aria-expanded'),'false',
+      'quick add uses existing add printer dialog and closes navigation');
+    await page.keyboard.press('Escape');
+    assert.deepEqual(errors,[],'new shell interactions must not produce page errors');
+  }finally {await context.close();}
+}
+
+async function workspaceHeadingSmoke(page,url) {
+  console.log('Chromium: shared page heading visual contract across all main routes');
+  const headingStyle=async(selector)=>page.evaluate((selector)=>{
+    const wrapper=document.querySelector(selector);
+    if(!wrapper)throw new Error('Missing page heading: '+selector);
+    const eyebrow=wrapper.querySelector('.ui-page-eyebrow');
+    const title=wrapper.querySelector('.ui-page-title');
+    const description=wrapper.querySelector('.ui-page-description');
+    if(!eyebrow||!title||!description)throw new Error('Incomplete page heading '+selector);
+    function metrics(el){
+      const css=getComputedStyle(el);
+      return {
+        fontFamily:css.fontFamily,
+        fontSize:css.fontSize,
+        fontWeight:css.fontWeight,
+        lineHeight:css.lineHeight,
+        letterSpacing:css.letterSpacing,
+        color:css.color,
+        marginTop:css.marginTop,
+        marginBottom:css.marginBottom
+      };
+    }
+    return {
+      eyebrow:metrics(eyebrow),title:metrics(title),description:metrics(description),
+      eyebrowText:eyebrow.textContent.trim(),
+      headingText:title.textContent.trim()
+    };
+  },selector);
+  for(const theme of ['dark','light']){
+    await page.goto(url+'/',{waitUntil:'load'});
+    await preactReady(page);
+    await page.evaluate((name)=>{
+      if(document.documentElement.dataset.theme!==name)
+        document.querySelector('#themeToggle')?.click();
+    },theme);
+    const expected=await headingStyle('.dashboard-hero.ui-page-heading');
+    assert.equal(expected.headingText,'Farm overview');
+    for(const [route,id] of routes.filter(([route,id])=>Boolean(id))){
+      await page.goto(url+route,{waitUntil:'load'});
+      await preactReady(page);
+      await page.waitForFunction((id)=>document.getElementById(id)?.hidden===false,id);
+      const actual=await headingStyle('#'+id+' .dialog-head.ui-page-heading');
+      for(const part of ['eyebrow','title','description']){
+        assert.deepEqual(actual[part],expected[part],
+          theme+' '+route+' '+part+' style must match Dashboard heading');
+      }
+      assert.ok(actual.headingText,'route page must retain its own title: '+route);
+      assert.ok(actual.eyebrowText,'route page must retain its category: '+route);
+    }
+    // Queue and library own reactive summary elements; they must not
+    // disappear when styles are standardised.
+    await page.goto(url+'/queue',{waitUntil:'load'});
+    await preactReady(page);
+    assert.equal(await page.locator('#queueSummary.ui-page-description').count(),1);
+    await page.goto(url+'/library',{waitUntil:'load'});
+    await preactReady(page);
+    assert.equal(await page.locator('#librarySummary.ui-page-description').count(),1);
+  }
+  // Mobile heading typography must be the same on each page as well.
+  await page.setViewportSize({width:390,height:844});
+  await page.goto(url+'/',{waitUntil:'load'});
+  await preactReady(page);
+  const mobile=await headingStyle('.dashboard-hero.ui-page-heading');
+  await page.goto(url+'/queue',{waitUntil:'load'});
+  await preactReady(page);
+  const queueMobile=await headingStyle('#queueDialog .dialog-head.ui-page-heading');
+  for(const part of ['eyebrow','title','description'])
+    assert.deepEqual(queueMobile[part],mobile[part],
+      'mobile queue page '+part+' must match Dashboard');
+  await page.setViewportSize({width:1365,height:900});
+}
+
 async function routeSmoke(page,url) {
   console.log('Chromium: checking direct load of all controller routes');
   for (const [route,id] of routes) {
@@ -1013,6 +1517,10 @@ async function main() {
     const context=await browser.newContext({viewport:{width:1365,height:900}});
     page=await context.newPage();
     page.on('pageerror',(e)=>errors.push(e.message));
+    await designSystemSmoke(browser,url);
+    await dashboardPhase3Smoke(browser,url);
+    await workspaceShellSmoke(browser,url);
+    await workspaceHeadingSmoke(page,url);
     await routeSmoke(page,url);
     await queueClickSmoke(browser,url);
     await groupEditorSmoke(browser,url);

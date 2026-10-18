@@ -22,9 +22,13 @@
     })();
   </script>
   <link rel="stylesheet" href="/styles.css" />
+  <link rel="stylesheet" href="/design-system.css" />
+  <link rel="stylesheet" href="/shell.css" />
+  <link rel="stylesheet" href="/dashboard-polish.css" />
 </head>
 <body>
-  <aside class="app-sidebar" aria-label="Controller navigation">
+  <a class="workspace-skip-link" href="#workspaceMain">Skip to main content</a>
+  <aside id="controllerSidebar" class="app-sidebar" aria-label="Controller navigation">
     <div class="sidebar-brand">
       <div class="brand-lockup" aria-label="Stacked Layers — Print Farm Controller">
         <a class="stacked-layers-link" href="https://www.stackedlayers.co.uk" target="_blank" rel="noopener noreferrer" aria-label="Visit Stacked Layers website">
@@ -40,32 +44,37 @@
         </div>
       </div>
     </div>
-    <nav class="sidebar-nav">
-      <button type="button" class="sidebar-item active" data-dashboard-home data-route="/"><span class="sidebar-icon">⌂</span><span>Dashboard</span></button>
-      <button id="queueBtn" type="button" class="sidebar-item" data-route="/queue"><span class="sidebar-icon">☷</span><span>Queue &amp; history</span><span id="queueButtonCount" class="queue-button-count hidden">0</span></button>
-      <button id="libraryBtn" type="button" class="sidebar-item" data-route="/library"><span class="sidebar-icon">▣</span><span>Print library</span><span id="libraryButtonCount" class="queue-button-count hidden">0</span></button>
-      <button id="batchModeBtn" type="button" class="sidebar-item"><span class="sidebar-icon">◫</span><span>Farm operations</span></button>
-      <div class="sidebar-divider"></div>
-      <button id="maintenanceBtn" type="button" class="sidebar-item" data-route="/maintenance"><span class="sidebar-icon">⌁</span><span>Maintenance</span></button>
-      <button id="printerGroupsBtn" type="button" class="sidebar-item" data-route="/groups"><span class="sidebar-icon">◎</span><span>Printer groups</span></button>
-      <button id="reportsBtn" type="button" class="sidebar-item" data-route="/reports"><span class="sidebar-icon">▥</span><span>Reports &amp; analytics</span></button>
-      <button id="alertsSettingsBtn" type="button" class="sidebar-item" data-route="/alerts"><span class="sidebar-icon">◇</span><span>Alerts &amp; notifications</span></button>
-      <button id="backupRecoveryBtn" type="button" class="sidebar-item" data-route="/backup"><span class="sidebar-icon">⇩</span><span>Backup &amp; recovery</span></button>
-      <button id="diagnosticsBtn" type="button" class="sidebar-item" data-route="/diagnostics"><span class="sidebar-icon">≡</span><span>Diagnostics</span></button>
+    <nav class="sidebar-nav" aria-label="Main navigation">
+      <span class="sidebar-section-label">WORKSPACE</span>
+      <button type="button" class="sidebar-item active" data-dashboard-home data-route="/"><span class="sidebar-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 3 10h2v10h6v-6h2v6h6V10h2L12 3Z"/></svg></span><span>Dashboard</span></button>
+      <button id="queueBtn" type="button" class="sidebar-item" data-route="/queue"><span class="sidebar-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M4 12h16M4 17h10"/></svg></span><span>Queue &amp; history</span><span id="queueButtonCount" class="queue-button-count hidden">0</span></button>
+      <button id="libraryBtn" type="button" class="sidebar-item" data-route="/library"><span class="sidebar-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h7v7H4z M13 5h7v7h-7z M4 14h7v6H4z M13 14h7v6h-7z"/></svg></span><span>Print library</span><span id="libraryButtonCount" class="queue-button-count hidden">0</span></button>
+      <button id="batchModeBtn" type="button" class="sidebar-item"><span class="sidebar-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11h7V4h4v7h7v9H3v-9z"/></svg></span><span>Farm operations</span></button>
+      <div class="sidebar-divider" aria-hidden="true"></div>
+      <span class="sidebar-section-label">FARM MANAGEMENT</span>
+      <button id="maintenanceBtn" type="button" class="sidebar-item" data-route="/maintenance"><span class="sidebar-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 6.5a4 4 0 0 0-5 5L3 18l3 3 6.5-6.5a4 4 0 0 0 5-5l-2.3 2.3-3-3 2.3-2.3Z"/></svg></span><span>Maintenance</span></button>
+      <button id="printerGroupsBtn" type="button" class="sidebar-item" data-route="/groups"><span class="sidebar-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M8 6h8l4 6-4 6H8l-4-6 4-6Z M9 12h6"/></svg></span><span>Printer groups</span></button>
+      <button id="reportsBtn" type="button" class="sidebar-item" data-route="/reports"><span class="sidebar-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20V10 M10 20V4 M16 20v-7 M22 20V8"/></svg></span><span>Reports &amp; analytics</span></button>
+      <button id="alertsSettingsBtn" type="button" class="sidebar-item" data-route="/alerts"><span class="sidebar-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4a8 8 0 1 0 0 16a8 8 0 0 0 0-16Z M12 8v5 M12 16h.01"/></svg></span><span>Alerts &amp; notifications</span></button>
+      <button id="backupRecoveryBtn" type="button" class="sidebar-item" data-route="/backup"><span class="sidebar-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v12 M8 12l4 4 4-4 M4 20h16"/></svg></span><span>Backup &amp; recovery</span></button>
+      <button id="diagnosticsBtn" type="button" class="sidebar-item" data-route="/diagnostics"><span class="sidebar-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h16 M4 10h16 M4 15h10 M4 20h7"/></svg></span><span>Diagnostics</span></button>
     </nav>
     <div class="sidebar-foot">
+      <button type="button" class="sidebar-quick-add" data-add-printer aria-label="Add a printer to the farm">+ Add printer</button>
       <span id="liveIndicator" class="live-indicator connecting"><i></i><span>Connecting</span></span>
-      <button id="licenseBtn" type="button" class="sidebar-item sidebar-licence" data-route="/licence"><span class="sidebar-icon">◇</span><span>Licence</span></button>
-      <button type="button" class="sidebar-item" onclick="location.href='/simulator/'"><span class="sidebar-icon">▤</span><span>Printer simulator</span></button>
+      <button id="licenseBtn" type="button" class="sidebar-item sidebar-licence" data-route="/licence"><span class="sidebar-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h16v12H4z M8 5h8 M8 13h8"/></svg></span><span>Licence</span></button>
+      <button type="button" class="sidebar-item" onclick="location.href='/simulator/'"><span class="sidebar-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16v16H4z M8 8h8v8H8z"/></svg></span><span>Printer simulator</span></button>
       <div class="sidebar-version">Print Farm Controller <span id="controllerVersion">v—</span><br><span id="controllerEdition">Development Edition</span></div>
     </div>
   </aside>
+  <div id="sidebarBackdrop" class="sidebar-backdrop" aria-hidden="true"></div>
 
   <header class="topbar modern-topbar">
-    <button id="sidebarToggle" class="sidebar-toggle" type="button" aria-label="Open navigation" aria-expanded="false">☰</button>
+    <button id="sidebarToggle" class="sidebar-toggle" type="button" aria-label="Open navigation" aria-expanded="false" aria-controls="controllerSidebar">☰</button>
     <div class="topbar-context">
-      <strong>Dashboard</strong>
-      <span>Monitor and manage your print farm</span>
+      <div id="workspaceTrailRoot" class="workspace-trail-root" data-home="true"><span class="workspace-trail-parent">Workspace</span><span class="workspace-trail-separator" aria-hidden="true">/</span><span id="workspaceTrailActive" class="workspace-trail-current" aria-current="page">Dashboard</span></div>
+      <strong id="topbarContextTitle" tabindex="-1">Dashboard</strong>
+      <span id="topbarContextSubtitle">Monitor and manage your print farm</span>
     </div>
     <div class="topbar-actions">
       <button id="alertsBtn" class="controller-alert-button hidden" type="button" aria-label="Open farm alerts" title="Farm alerts">
@@ -90,7 +99,7 @@
     </div>
   </header>
 
-  <main>
+  <main id="workspaceMain" tabindex="-1">
     <div id="dashboardPreactRoot" class="dashboard-preact-root">
       <section class="dashboard-controls" aria-label="Dashboard controls">
         <div id="dashboardGroupFilterBar" class="dashboard-group-filter hidden" aria-label="Dashboard printer group filter">
@@ -129,6 +138,11 @@
         <button type="button" class="danger" data-batch-direct="cancel">Cancel prints</button>
       </div>
     </section>
+    <div id="dashboardFleetHeadingRoot" class="dashboard-fleet-heading-root">
+      <div class="dashboard-fleet-heading">
+        <div class="dashboard-fleet-heading-copy"><h2>Printers</h2><span>Printer activity and current jobs</span></div>
+      </div>
+    </div>
     <div id="fleetViewport" class="fleet-viewport">
       <div id="fleetTableHeader" class="fleet-table-header hidden">
         <span role="columnheader" aria-sort="none"><button type="button" class="fleet-table-sort" data-table-sort="name">Printer <span class="fleet-table-sort-indicator" aria-hidden="true">↕</span></button></span>
@@ -160,11 +174,11 @@
 
   <section id="licenseDialog" class="license-dialog route-page" hidden>
     <div class="license-shell">
-      <div class="dialog-head">
-        <div>
-          <div class="eyebrow">CONTROLLER LICENCE</div>
-          <h2>Licence</h2>
-          <div class="subtle">Signed licences control the controller edition and physical-printer allowance.</div>
+      <div class="dialog-head ui-page-heading">
+        <div class="ui-page-heading-copy">
+          <div class="eyebrow ui-page-eyebrow">CONTROLLER LICENCE</div>
+          <h2 class="ui-page-title">Licence</h2>
+          <div class="ui-page-description subtle">Signed licences control the controller edition and physical-printer allowance.</div>
         </div>
         <button type="button" class="icon" data-license-close>×</button>
       </div>
@@ -185,11 +199,11 @@
 
   <section id="diagnosticsDialog" class="diagnostics-dialog route-page" hidden>
     <div class="diagnostics-shell">
-      <div class="dialog-head">
-        <div>
-          <div class="eyebrow">CONTROLLER DIAGNOSTICS</div>
-          <h2>Diagnostics</h2>
-          <div class="subtle">Review recent controller activity, temporarily increase logging detail, or export a sanitized support bundle.</div>
+      <div class="dialog-head ui-page-heading">
+        <div class="ui-page-heading-copy">
+          <div class="eyebrow ui-page-eyebrow">CONTROLLER DIAGNOSTICS</div>
+          <h2 class="ui-page-title">Diagnostics</h2>
+          <div class="ui-page-description subtle">Review recent controller activity, temporarily increase logging detail, or export a sanitized support bundle.</div>
         </div>
         <button type="button" class="icon" data-diagnostics-close>×</button>
       </div>
@@ -248,11 +262,11 @@
 
   <section id="printerGroupsDialog" class="printer-groups-dialog route-page" hidden>
     <div class="printer-groups-shell">
-      <div class="dialog-head">
-        <div>
-          <div class="eyebrow">FLEET ORGANISATION</div>
-          <h2>Printer groups</h2>
-          <div class="subtle">Create custom groups for queue scheduling and maintenance assignment. A printer can belong to any number of groups.</div>
+      <div class="dialog-head ui-page-heading">
+        <div class="ui-page-heading-copy">
+          <div class="eyebrow ui-page-eyebrow">FARM ORGANISATION</div>
+          <h2 class="ui-page-title">Printer groups</h2>
+          <div class="ui-page-description subtle">Create custom groups for queue scheduling and maintenance assignment. A printer can belong to any number of groups.</div>
         </div>
         <button type="button" class="icon" data-printer-groups-close>×</button>
       </div>
@@ -305,11 +319,11 @@
 
   <section id="reportingDialog" class="reporting-dialog route-page" hidden>
     <div class="reporting-shell">
-      <div class="dialog-head reporting-head">
-        <div>
-          <div class="eyebrow">FARM ANALYTICS</div>
-          <h2>Reports &amp; analytics</h2>
-          <div class="subtle">Track production trends, identify printers needing attention, see popular files and monitor filament usage and spend.</div>
+      <div class="dialog-head ui-page-heading reporting-head">
+        <div class="ui-page-heading-copy">
+          <div class="eyebrow ui-page-eyebrow">FARM ANALYTICS</div>
+          <h2 class="ui-page-title">Reports &amp; analytics</h2>
+          <div class="ui-page-description subtle">Track production trends, identify printers needing attention, see popular files and monitor filament usage and spend.</div>
         </div>
         <button type="button" class="icon" data-reporting-close>×</button>
       </div>
@@ -463,11 +477,11 @@
 
   <section id="maintenanceDialog" class="maintenance-dialog route-page" hidden>
     <div class="maintenance-shell">
-      <div class="dialog-head">
-        <div>
-          <div class="eyebrow">FARM MAINTENANCE</div>
-          <h2>Maintenance tracking</h2>
-          <div class="subtle">Track recurring service by calendar time, controller-observed print hours, or observed print cycles.</div>
+      <div class="dialog-head ui-page-heading">
+        <div class="ui-page-heading-copy">
+          <div class="eyebrow ui-page-eyebrow">FARM MAINTENANCE</div>
+          <h2 class="ui-page-title">Maintenance tracking</h2>
+          <div class="ui-page-description subtle">Track recurring service by calendar time, controller-observed print hours, or observed print cycles.</div>
         </div>
         <button type="button" class="icon" data-maintenance-close>×</button>
       </div>
@@ -547,11 +561,11 @@
 
   <section id="alertsDialog" class="alerts-dialog route-page" hidden>
     <div class="alerts-shell">
-      <div class="dialog-head">
-        <div>
-          <div class="eyebrow">FARM ALERTS</div>
-          <h2>Alerts &amp; notifications</h2>
-          <div class="subtle">Review controller alerts and choose which events are delivered to external notification services.</div>
+      <div class="dialog-head ui-page-heading">
+        <div class="ui-page-heading-copy">
+          <div class="eyebrow ui-page-eyebrow">FARM ALERTS</div>
+          <h2 class="ui-page-title">Alerts &amp; notifications</h2>
+          <div class="ui-page-description subtle">Review controller alerts and choose which events are delivered to external notification services.</div>
         </div>
         <button type="button" class="icon" data-alerts-close>×</button>
       </div>
@@ -726,11 +740,11 @@
 
   <section id="backupRecoveryDialog" class="backup-recovery-dialog route-page" hidden>
     <div class="backup-recovery-shell">
-      <div class="dialog-head">
-        <div>
-          <div class="eyebrow">CONTROLLER DATA</div>
-          <h2>Backup &amp; recovery</h2>
-          <div class="subtle">Create a portable backup of controller configuration, Print Library content, queue/history and related persistent state.</div>
+      <div class="dialog-head ui-page-heading">
+        <div class="ui-page-heading-copy">
+          <div class="eyebrow ui-page-eyebrow">CONTROLLER DATA</div>
+          <h2 class="ui-page-title">Backup &amp; recovery</h2>
+          <div class="ui-page-description subtle">Create a portable backup of controller configuration, Print Library content, queue/history and related persistent state.</div>
         </div>
         <button type="button" class="icon" data-backup-close>×</button>
       </div>
@@ -1078,11 +1092,11 @@
 
   <section id="libraryDialog" class="queue-dialog library-dialog route-page" hidden>
     <div class="queue-shell">
-      <div class="dialog-head">
-        <div>
-          <div class="eyebrow">PRINT LIBRARY</div>
-          <h2>Print library</h2>
-          <div id="librarySummary" class="subtle">Loading library…</div>
+      <div class="dialog-head ui-page-heading">
+        <div class="ui-page-heading-copy">
+          <div class="eyebrow ui-page-eyebrow">PRINT LIBRARY</div>
+          <h2 class="ui-page-title">Print library</h2>
+          <div id="librarySummary" class="ui-page-description subtle">Loading library…</div>
         </div>
         <button type="button" class="icon" data-library-close>×</button>
       </div>
@@ -1180,11 +1194,11 @@
 
   <section id="queueDialog" class="queue-dialog route-page" hidden>
     <div class="queue-shell">
-      <div class="dialog-head">
-        <div>
-          <div class="eyebrow">FARM SCHEDULER</div>
-          <h2>Print queue &amp; history</h2>
-          <div id="queueSummary" class="subtle">No queued prints</div>
+      <div class="dialog-head ui-page-heading">
+        <div class="ui-page-heading-copy">
+          <div class="eyebrow ui-page-eyebrow">FARM SCHEDULER</div>
+          <h2 class="ui-page-title">Print queue &amp; history</h2>
+          <div id="queueSummary" class="ui-page-description subtle">No queued prints</div>
         </div>
         <button type="button" class="icon" data-queue-close>×</button>
       </div>
