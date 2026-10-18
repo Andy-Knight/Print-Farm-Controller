@@ -249,6 +249,7 @@ const sidebarToggle = document.querySelector('#sidebarToggle');
 const sidebarEl = document.querySelector('#controllerSidebar');
 const sidebarBackdrop = document.querySelector('#sidebarBackdrop');
 const mobileSidebarQuery = window.matchMedia('(max-width: 760px)');
+const workspaceTrailRoot = document.querySelector('#workspaceTrailRoot');
 const workspaceTrailActive = document.querySelector('#workspaceTrailActive');
 const dashboardHomeBtn = document.querySelector('[data-dashboard-home]');
 const controllerRoutes = {
@@ -264,8 +265,11 @@ const controllerRoutes = {
   '/licence': { button:'licenseBtn', dialog:'licenseDialog', title:'Licence', subtitle:'Review controller edition and licence status' }
 };
 const workspaceMain = document.querySelector('body > main');
-const topbarContextTitle = document.querySelector('.topbar-context strong');
-const topbarContextSubtitle = document.querySelector('.topbar-context span');
+// Query by dedicated IDs: the breadcrumb also contains spans. A broad
+// .topbar-context span selector incorrectly overwrites 'Workspace' with the
+// current route subtitle, duplicating headings in the visible header.
+const topbarContextTitle = document.querySelector('#topbarContextTitle');
+const topbarContextSubtitle = document.querySelector('#topbarContextSubtitle');
 let activeRoute = '/';
 
 let activeBackupTab = 'overview';
@@ -350,6 +354,7 @@ function renderControllerRoute(pathname, { invoke = true } = {}) {
   if (topbarContextTitle) topbarContextTitle.textContent = route.title;
   if (topbarContextSubtitle) topbarContextSubtitle.textContent = route.subtitle;
   if (workspaceTrailActive) workspaceTrailActive.textContent = route.title;
+  if (workspaceTrailRoot) workspaceTrailRoot.dataset.home = String(routePath === '/');
   window.__PFC_SHELL_ROUTE_STATE__ = { path:routePath, title:route.title, subtitle:route.subtitle };
   window.dispatchEvent(new CustomEvent('pfc:shell-route-state',{
     detail:window.__PFC_SHELL_ROUTE_STATE__
