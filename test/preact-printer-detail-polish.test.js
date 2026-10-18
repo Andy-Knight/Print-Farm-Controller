@@ -11,7 +11,7 @@ const app=read('public/app.js');
 test('Phase 4 stylesheet loads after the shared SaaS design system and dashboard polish',()=>{
   const styles=[
     '/styles.css','/design-system.css','/shell.css',
-    '/dashboard-polish.css','/printer-details-polish.css'
+    '/dashboard-polish.css','/printer-details-polish.css','/tab-navigation.css'
   ];
   let previous=-1;
   for(const style of styles){
@@ -51,7 +51,8 @@ test('Legacy and Preact tab interfaces share the same panel associations',()=>{
     ['temperature','Temperature'],['job','Job'],['management','Management']
   ];
   for(const [key,suffix] of ids){
-    assert.ok(app.includes('data-detail-tab="'+key+'" aria-controls="detailTab'+suffix+'" id="printer-detail-tab-'+key+'"'));
+    assert.ok(app.includes('data-detail-tab="'+key+'" data-pfc-icon=') &&
+      app.includes('aria-controls="detailTab'+suffix+'" id="printer-detail-tab-'+key+'"'));
     assert.ok(app.includes('id="detailTab'+suffix+'" class="printer-detail-tab-panel" role="tabpanel" aria-labelledby="printer-detail-tab-'+key+'"'));
   }
   assert.match(app,/model:String\(printerModelLabel\(printer\)/);
