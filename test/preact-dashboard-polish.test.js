@@ -21,9 +21,9 @@ test('dashboard stylesheet loads after design-system and workspace shell without
 });
 
 test('Phase 3 presents clear farm and printer hierarchy with detailed operational metrics',()=>{
-  assert.match(dashboard,/class="dashboard-hero"/);
+  assert.match(dashboard,/class="dashboard-hero ui-page-heading"/);
   assert.match(dashboard,/Farm overview/);
-  assert.match(dashboard,/class="dashboard-eyebrow"/);
+  assert.match(dashboard,/class="dashboard-eyebrow ui-page-eyebrow"/);
   assert.match(dashboard,/class="dashboard-stat-detail"/);
   assert.match(dashboard,/class="dashboard-fleet-heading"/);
   assert.match(dashboard,/data-dashboard-fleet-summary/);
