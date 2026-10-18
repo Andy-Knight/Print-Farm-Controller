@@ -318,9 +318,11 @@ test('printer detail opens immediately before slow file listing completes', () =
 });
 
 test('printer detail errors are surfaced in a sticky top banner', () => {
-  const head = app.indexOf('class="dialog-head"');
-  const error = app.indexOf('id="detailError"');
-  const grid = app.indexOf('class="detail-grid"');
+  // The header is composed by printerDetailHeaderMarkup (Preact or fallback),
+  // so verify that it is inserted above the sticky error and the detail grid.
+  const head = app.indexOf('${printerDetailHeaderMarkup(printer)}');
+  const error = app.indexOf('id="detailError"', head);
+  const grid = app.indexOf('class="detail-grid"', error);
   assert.ok(head >= 0 && error > head && grid > error);
   assert.match(app, /function showPrinterDetailError\(error\)/);
   assert.match(app, /el\.scrollIntoView\(\{ behavior:'smooth', block:'nearest' \}\)/);
