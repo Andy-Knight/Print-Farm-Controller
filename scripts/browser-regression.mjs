@@ -1265,12 +1265,32 @@ async function simulatorSseSmoke(browser,url) {
         heading:heading?.textContent,
         model:context?.querySelector('.printer-detail-model')?.textContent,
         host:context?.querySelector('.printer-detail-host')?.textContent,
+        thumbnail:dialog.querySelector('.printer-detail-thumbnail img')?.getAttribute('src'),
+        headerFacts:[...dialog.querySelectorAll('.printer-detail-fact')].map(node=>({
+          kind:node.dataset.detailFact,
+          value:node.querySelector('.printer-detail-fact-value')?.textContent?.trim(),
+          hasIcon:(getComputedStyle(node,'::before').maskImage||'').includes('data:image/svg+xml')
+        })),
         tabs:tabs.map((tab)=>({
           name:tab.dataset.detailTab,
           panel:tab.getAttribute('aria-controls'),
           labelled:document.getElementById(tab.getAttribute('aria-controls'))
-            ?.getAttribute('aria-labelledby')===tab.id
+            ?.getAttribute('aria-labelledby')===tab.id,
+          hasOutlineIcon:(getComputedStyle(tab,'::before').maskImage||'').includes('data:image/svg+xml'),
+          label:tab.textContent.trim(),
+          fullLabel:tab.getAttribute('aria-label')
         })),
+        navigationBackground:getComputedStyle(dialog.querySelector('.printer-detail-tabs')).backgroundColor,
+        activeTabStyle:(()=>{
+          const active=tabs.find(tab=>tab.getAttribute('aria-selected')==='true');
+          const style=getComputedStyle(active);
+          return {
+            underline:style.borderBottomWidth,
+            underlineColor:style.borderBottomColor,
+            labelColor:style.color,
+            background:style.backgroundColor
+          };
+        })(),
         panels:panels.length,
         shellBackground:getComputedStyle(dialog).backgroundColor,
         token:getComputedStyle(document.documentElement).getPropertyValue('--ds-page').trim()
@@ -1278,10 +1298,33 @@ async function simulatorSseSmoke(browser,url) {
     });
     assert.ok(detailDesktop.heading?.length&&detailDesktop.model?.length&&detailDesktop.host?.length,
       'Printer Details hero must show name, model and connection');
+    assert.ok(detailDesktop.thumbnail?.startsWith('/assets/printers/'),
+      'real printer header must show its local model image, not a remote asset');
+    assert.deepEqual(detailDesktop.headerFacts.map(f=>f.kind),
+      ['model','connection','host','uptime','firmware','health'],
+      'printer identity shows the six available mockup-style metadata fields');
+    assert.ok(detailDesktop.headerFacts.every(f=>f.hasIcon),
+      'all header metadata rows have monochrome outline icons');
+    assert.ok(detailDesktop.headerFacts.every(f=>f.value?.length),
+      'missing firmware/uptime should show honest unavailable values');
     assert.equal(detailDesktop.tabs.length,6,'all six detail tabs remain available');
     assert.equal(detailDesktop.panels,6,'all detail panels remain available');
     assert.ok(detailDesktop.tabs.every((tab)=>tab.labelled),
       'ARIA tab and panel IDs must correspond');
+    assert.ok(detailDesktop.tabs.every((tab)=>tab.hasOutlineIcon),
+      'all six minimal navigation tabs must display their monochrome outline icons');
+    assert.equal(detailDesktop.tabs.find(tab=>tab.name==='temperature')?.label,'Temperature');
+    assert.equal(detailDesktop.tabs.find(tab=>tab.name==='management')?.label,'Management');
+    assert.equal(detailDesktop.tabs.find(tab=>tab.name==='temperature')?.fullLabel,'Temperature, Preheat & Fans');
+    assert.equal(detailDesktop.tabs.find(tab=>tab.name==='management')?.fullLabel,'Maintenance & Management');
+    assert.ok(parseFloat(detailDesktop.activeTabStyle.underline)>=2,
+      'selected Printer Details tab must have a visible bottom underline');
+    assert.equal(detailDesktop.activeTabStyle.underlineColor,detailDesktop.activeTabStyle.labelColor,
+      'selected tab icon, text and underline should share the brand colour');
+    assert.equal(detailDesktop.activeTabStyle.background,'rgba(0, 0, 0, 0)',
+      'selected tab should not use filled segmented-button styling');
+    assert.equal(detailDesktop.navigationBackground,'rgba(0, 0, 0, 0)',
+      'tab rail should remain a minimal transparent navigation strip');
     assert.ok(detailDesktop.token,'dialog must load the shared design tokens');
 
     const detailCaptureDir=process.env.PFC_VISUAL_CAPTURE_DIR

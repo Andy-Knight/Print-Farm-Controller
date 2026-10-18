@@ -6949,6 +6949,27 @@ function printerActivityStatus(printer) {
 
 const PRINTER_DETAIL_TAB_NAMES = Object.freeze(['toolheads','camera','files','temperature','job','management']);
 
+function printerDetailConnectionInfo(printer) {
+  const firmware=String(printer.status?.firmwareVersion || '').trim();
+  // The controller does not currently infer uptime from lastSeen or connection age.
+  // Only display uptime if a future/model-specific adapter supplies it explicitly.
+  const reportedUptime=printer.status?.uptimeSeconds;
+  const uptimeSeconds=reportedUptime == null || reportedUptime === ''
+    ? null : Number(reportedUptime);
+  const uptime=uptimeSeconds != null && Number.isFinite(uptimeSeconds) && uptimeSeconds >= 0
+    ? formatDuration(uptimeSeconds)
+    : 'Not reported';
+  const failures=Number(printer.consecutiveFailures || 0);
+  return {
+    imageKey:dashboardPrinterImageKey(printer),
+    firmware:firmware || 'Not reported',
+    connection:printer.online ? 'Connected' : 'Offline',
+    uptime,
+    condition:printer.online ? (failures > 0 ? 'Connection issues' : 'Responding') : 'Offline',
+    lastSeen:formatLastSeen(printer.lastSeen)
+  };
+}
+
 function printerDetailHealthText(printer) {
   const displayState = stateName(printer);
   const rawState = rawStateName(printer);
@@ -7098,6 +7119,7 @@ function printerDetailChromeState(printer, { loading = false } = {}) {
     name:String(printer.name || ''),
     model:String(printerModelLabel(printer) || printer.model || ''),
     host:String(printer.host || ''),
+    ...printerDetailConnectionInfo(printer),
     state,
     stateClass:String(state || '').toLowerCase(),
     badgeTitle:String(rawState || '').toLowerCase() !== String(state || '').toLowerCase() ? `Printer reports ${rawState}` : '',
@@ -7122,18 +7144,36 @@ function publishPrinterDetailState(printer, options = {}) {
 
 function printerDetailHeaderMarkup(printer) {
   if (window.__PFC_PREACT_DETAIL__) return '<div data-preact-detail-header></div>';
-  return `<div class="dialog-head">
-    <div>
-      <div class="eyebrow">PRINTER DETAILS</div>
-      <div class="printer-detail-title-row"><h2 data-detail-name>${escapeHtml(printer.name)}</h2>${maintenanceIconMarkup(printer, 'maintenance-status-icon-detail', true)}</div>
-      <div class="printer-detail-context">
-        <span class="printer-detail-model">${escapeHtml(printerModelLabel(printer) || printer.model || 'Unknown model')}</span>
-        <span class="subtle printer-detail-host">${escapeHtml(printer.host)}</span>
-        <span class="subtle" data-detail-state>${escapeHtml(stateName(printer))}</span>
+  const info=printerDetailConnectionInfo(printer);
+  const model=printerModelLabel(printer) || printer.model || 'Unknown model';
+  const image=info.imageKey
+    ? `<img class="printer-detail-model-image" src="/assets/printers/${escapeHtml(info.imageKey)}.webp" alt="${escapeHtml(model)}" draggable="false">`
+    : `<span class="printer-detail-model-fallback" aria-hidden="true">3D<br>PRINTER</span>`;
+  const fact=(key,label,value,selector='')=>`<div class="printer-detail-fact" data-detail-fact="${key}">
+    <span class="printer-detail-fact-copy"><span class="printer-detail-fact-label">${label}</span><strong class="printer-detail-fact-value ${selector}">${escapeHtml(value)}</strong></span>
+  </div>`;
+  return `<div class="dialog-head printer-detail-rich-head">
+    <div class="printer-detail-head-layout">
+      <div class="printer-detail-thumbnail">${image}</div>
+      <div class="printer-detail-head-main">
+        <div class="eyebrow">PRINTER DETAILS</div>
+        <div class="printer-detail-title-row">
+          <h2 data-detail-name>${escapeHtml(printer.name)}</h2>
+          <span class="printer-detail-state" data-detail-state>${escapeHtml(stateName(printer))}</span>
+          ${maintenanceIconMarkup(printer, 'maintenance-status-icon-detail', true)}
+        </div>
+        <div class="printer-detail-context printer-detail-facts" aria-label="Printer information">
+          ${fact('model','Model',model,'printer-detail-model')}
+          ${fact('connection','Connection',info.connection,'printer-detail-connection')}
+          ${fact('host','Host / IP',printer.host || '—','printer-detail-host')}
+          ${fact('uptime','Uptime',info.uptime,'printer-detail-uptime')}
+          ${fact('firmware','Firmware',info.firmware,'printer-detail-firmware')}
+          ${fact('health','Connection health',info.condition,'printer-detail-condition')}
+        </div>
+        <div class="detail-health" data-detail-health>${escapeHtml(printerDetailHealthText(printer))}</div>
       </div>
-      <div class="detail-health" data-detail-health></div>
     </div>
-    <button class="icon" data-detail-close>×</button>
+    <button type="button" class="icon printer-detail-close" data-detail-close aria-label="Close printer details" title="Close printer details">×</button>
   </div>`;
 }
 
@@ -7149,9 +7189,9 @@ function printerDetailTabsMarkup() {
     <button type="button" class="maintenance-view-button" role="tab" data-detail-tab="toolheads" aria-controls="detailTabToolheads" id="printer-detail-tab-toolheads">Toolheads</button>
     <button type="button" class="maintenance-view-button" role="tab" data-detail-tab="camera" aria-controls="detailTabCamera" id="printer-detail-tab-camera">Camera</button>
     <button type="button" class="maintenance-view-button" role="tab" data-detail-tab="files" aria-controls="detailTabFiles" id="printer-detail-tab-files">Files</button>
-    <button type="button" class="maintenance-view-button" role="tab" data-detail-tab="temperature" aria-controls="detailTabTemperature" id="printer-detail-tab-temperature">Temperature, Preheat &amp; Fans</button>
+    <button type="button" class="maintenance-view-button" role="tab" data-detail-tab="temperature" aria-controls="detailTabTemperature" id="printer-detail-tab-temperature" aria-label="Temperature, Preheat &amp; Fans">Temperature</button>
     <button type="button" class="maintenance-view-button" role="tab" data-detail-tab="job" aria-controls="detailTabJob" id="printer-detail-tab-job">Current Job</button>
-    <button type="button" class="maintenance-view-button" role="tab" data-detail-tab="management" aria-controls="detailTabManagement" id="printer-detail-tab-management">Maintenance &amp; Management</button>
+    <button type="button" class="maintenance-view-button" role="tab" data-detail-tab="management" aria-controls="detailTabManagement" id="printer-detail-tab-management" aria-label="Maintenance &amp; Management">Management</button>
   </div>`;
 }
 
@@ -7210,6 +7250,11 @@ function updateOpenPrinterTelemetry() {
   const displayState = stateName(printer);
   const rawState = rawStateName(printer);
   set('[data-detail-state]', displayState);
+  const headerInfo=printerDetailConnectionInfo(printer);
+  set('.printer-detail-connection',headerInfo.connection);
+  set('.printer-detail-uptime',headerInfo.uptime);
+  set('.printer-detail-firmware',headerInfo.firmware);
+  set('.printer-detail-condition',headerInfo.condition);
   updateMaintenanceIcon(printerDetail, printer);
   set('[data-maintenance-tracking-summary]', maintenanceStatusText(printer));
   set(

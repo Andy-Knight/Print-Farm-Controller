@@ -60,3 +60,44 @@ test('Legacy and Preact tab interfaces share the same panel associations',()=>{
   assert.match(app,/data-preact-printer-management/);
   assert.match(app,/data-preact-toolhead-control/);
 });
+
+test('Printer Details uses minimal underline tabs and matching monochrome icons in both renderers',()=>{
+  const keys=['toolheads','camera','files','temperature','job','management'];
+  assert.match(css,/#printerDialog \.printer-detail-tabs\.maintenance-view-selector\s*\{[\s\S]*?border-bottom:1px solid var\(--ds-border\)/);
+  assert.match(css,/#printerDialog \.printer-detail-tabs \[data-detail-tab\]\.active[\s\S]*?border-bottom-color:var\(--ds-brand\)/);
+  assert.match(css,/border-radius:0;/);
+  assert.match(css,/background:transparent;/);
+  assert.match(css,/-webkit-mask-image:url\("data:image\/svg\+xml,/);
+  for(const key of keys){
+    assert.ok(css.includes('[data-detail-tab="'+key+'"]::before'),key+' must have a dedicated icon');
+    assert.ok(app.includes('data-detail-tab="'+key+'"'),key+' must exist in legacy navigation');
+    assert.ok(jsx.includes("key:'"+key+"'"),key+' must exist in Preact navigation');
+  }
+  assert.match(jsx,/label:'Temperature', fullLabel:'Temperature, Preheat & Fans'/);
+  assert.match(jsx,/label:'Management', fullLabel:'Maintenance & Management'/);
+  assert.match(jsx,/aria-label=\{tab\.fullLabel \|\| undefined\}/);
+  assert.match(app,/id="printer-detail-tab-temperature" aria-label="Temperature, Preheat &amp; Fans">Temperature<\/button>/);
+  assert.match(app,/id="printer-detail-tab-management" aria-label="Maintenance &amp; Management">Management<\/button>/);
+});
+
+test('Printer Details header presents real model image and icon-backed facts in Preact and fallback',()=>{
+  assert.match(jsx,/printer-detail-head-layout/);
+  assert.match(jsx,/printer-detail-thumbnail/);
+  assert.match(jsx,/src=\{\`\/assets\/printers\//);
+  assert.match(app,/function printerDetailConnectionInfo\(printer\)/);
+  assert.match(app,/dashboardPrinterImageKey\(printer\)/);
+  assert.match(app,/printer\.status\?\.firmwareVersion/);
+  assert.match(app,/printer\.status\?\.uptimeSeconds/);
+  assert.match(app,/Not reported/);
+  assert.match(app,/\.\.\.printerDetailConnectionInfo\(printer\)/);
+  assert.match(app,/set\('\.printer-detail-firmware',headerInfo\.firmware\)/);
+  assert.match(jsx,/class="printer-detail-context printer-detail-facts"/);
+  for(const key of ['model','connection','host','uptime','firmware','health']){
+    assert.ok(css.includes('.printer-detail-fact[data-detail-fact="'+key+'"]::before'),
+      key+' must have its own decorative outline icon');
+    assert.ok(jsx.includes('type="'+key+'"'),key+' must be visible in Preact');
+    assert.ok(app.includes("fact('"+key+"'"),key+' must be visible without Preact');
+  }
+  assert.match(css,/@media\(max-width:540px\)/);
+  assert.doesNotMatch(css,/--toolhead-dropdown-width\s*:/);
+});

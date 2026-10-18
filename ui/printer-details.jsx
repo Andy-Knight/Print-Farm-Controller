@@ -6,9 +6,9 @@ export const PRINTER_DETAIL_TABS = Object.freeze([
   { key:'toolheads', label:'Toolheads', controls:'detailTabToolheads' },
   { key:'camera', label:'Camera', controls:'detailTabCamera' },
   { key:'files', label:'Files', controls:'detailTabFiles' },
-  { key:'temperature', label:'Temperature, Preheat & Fans', controls:'detailTabTemperature' },
+  { key:'temperature', label:'Temperature', fullLabel:'Temperature, Preheat & Fans', controls:'detailTabTemperature' },
   { key:'job', label:'Current Job', controls:'detailTabJob' },
-  { key:'management', label:'Maintenance & Management', controls:'detailTabManagement' }
+  { key:'management', label:'Management', fullLabel:'Maintenance & Management', controls:'detailTabManagement' }
 ]);
 
 function dispatchDetailAction(type, value = '') {
@@ -36,21 +36,45 @@ function DetailMaintenanceButton({ detail }) {
   );
 }
 
+function PrinterDetailFact({ type, label, value, className = '' }) {
+  return (
+    <div class="printer-detail-fact" data-detail-fact={type}>
+      <span class="printer-detail-fact-copy">
+        <span class="printer-detail-fact-label">{label}</span>
+        <strong class={`printer-detail-fact-value${className ? ' ' + className : ''}`}>{value}</strong>
+      </span>
+    </div>
+  );
+}
+
 function PrinterDetailHeader({ detail }) {
   return (
-    <div class="dialog-head printer-detail-preact-head">
-      <div class="printer-detail-head-main">
-        <div class="eyebrow">PRINTER DETAILS</div>
-        <div class="printer-detail-title-row">
-          <h2 data-detail-name>{detail.name}</h2>
-          <DetailMaintenanceButton detail={detail} />
-          <StatusBadge state={detail.stateClass} title={detail.badgeTitle || ''}>{detail.state}</StatusBadge>
+    <div class="dialog-head printer-detail-preact-head printer-detail-rich-head">
+      <div class="printer-detail-head-layout">
+        <div class="printer-detail-thumbnail">
+          {detail.imageKey
+            ? <img class="printer-detail-model-image"
+                src={`/assets/printers/${detail.imageKey}.webp`}
+                alt={detail.model || detail.name || '3D printer'} draggable="false" />
+            : <span class="printer-detail-model-fallback" aria-hidden="true">3D<br/>PRINTER</span>}
         </div>
-        <div class="printer-detail-context">
-          {detail.model && <span class="printer-detail-model">{detail.model}</span>}
-          {detail.host && <span class="subtle printer-detail-host">{detail.host}</span>}
+        <div class="printer-detail-head-main">
+          <div class="eyebrow">PRINTER DETAILS</div>
+          <div class="printer-detail-title-row">
+            <h2 data-detail-name>{detail.name}</h2>
+            <StatusBadge state={detail.stateClass} title={detail.badgeTitle || ''}>{detail.state}</StatusBadge>
+            <DetailMaintenanceButton detail={detail} />
+          </div>
+          <div class="printer-detail-context printer-detail-facts" aria-label="Printer information">
+            <PrinterDetailFact type="model" label="Model" value={detail.model || 'Unknown model'} className="printer-detail-model" />
+            <PrinterDetailFact type="connection" label="Connection" value={detail.connection} className="printer-detail-connection" />
+            <PrinterDetailFact type="host" label="Host / IP" value={detail.host || '—'} className="printer-detail-host" />
+            <PrinterDetailFact type="uptime" label="Uptime" value={detail.uptime} className="printer-detail-uptime" />
+            <PrinterDetailFact type="firmware" label="Firmware" value={detail.firmware} className="printer-detail-firmware" />
+            <PrinterDetailFact type="health" label="Connection health" value={detail.condition} className="printer-detail-condition" />
+          </div>
+          <div class="detail-health" data-detail-health>{detail.health}</div>
         </div>
-        <div class="detail-health" data-detail-health>{detail.health}</div>
       </div>
       <UiButton
         variant="ghost"
@@ -111,6 +135,7 @@ function PrinterDetailTabs({ detail }) {
             id={'printer-detail-tab-' + tab.key}
             data-detail-tab={tab.key}
             aria-controls={tab.controls}
+            aria-label={tab.fullLabel || undefined}
             aria-selected={active ? 'true' : 'false'}
             tabindex={active ? 0 : -1}
             onClick={() => dispatchDetailAction('tab', tab.key)}
