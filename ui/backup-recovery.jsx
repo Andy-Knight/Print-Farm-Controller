@@ -1,13 +1,13 @@
 import { render } from 'preact';
-import { UiButton } from './components.jsx';
+import { UiButton, UiTab } from './components.jsx';
 
 const BACKUP_TABS = Object.freeze([
-  ['overview','Overview'],
-  ['google-drive','Google Drive'],
-  ['one-drive','OneDrive'],
-  ['s3','S3-compatible'],
-  ['schedule','Schedule'],
-  ['restore','Restore']
+  ['overview','Overview','database'],
+  ['google-drive','Google Drive','cloud'],
+  ['one-drive','OneDrive','cloud'],
+  ['s3','S3-compatible','server'],
+  ['schedule','Schedule','calendar'],
+  ['restore','Restore','restore']
 ]);
 
 function dispatchBackupAction(type, value = '') {
@@ -16,7 +16,7 @@ function dispatchBackupAction(type, value = '') {
 
 function BackupTabs({ activeTab }) {
   return <>
-    {BACKUP_TABS.map(([key, label], index) => {
+    {BACKUP_TABS.map(([key, label, icon], index) => {
       const active = key === activeTab;
       const onKeyDown = (event) => {
         if (!['ArrowLeft','ArrowRight','Home','End'].includes(event.key)) return;
@@ -30,9 +30,9 @@ function BackupTabs({ activeTab }) {
         dispatchBackupAction('tab', next);
         requestAnimationFrame(() => document.querySelector(`[data-backup-tab="${next}"]`)?.focus());
       };
-      return <UiButton
+      return <UiTab
+        icon={icon}
         key={key}
-        variant="ghost"
         class={`backup-tab${active ? ' active' : ''}`}
         data-backup-tab={key}
         role="tab"
@@ -40,7 +40,7 @@ function BackupTabs({ activeTab }) {
         tabindex={active ? 0 : -1}
         onClick={() => dispatchBackupAction('tab', key)}
         onKeyDown={onKeyDown}
-      >{label}</UiButton>;
+      >{label}</UiTab>;
     })}
   </>;
 }
