@@ -1,4 +1,4 @@
-# Print Farm Controller v0.53.0
+# Print Farm Controller v0.54.0
 A local-first 3D printer fleet controller. It runs entirely on your LAN and currently supports:
 
 - **FlashForge Adventurer 5M / 5M Pro** through the local FlashForge HTTP/TCP APIs.
@@ -7,15 +7,11 @@ A local-first 3D printer fleet controller. It runs entirely on your LAN and curr
 - **Prusa CORE One+ (experimental)** through the local PrusaLink API, supporting Standard (1-tool), INDX4 and INDX8 configurations.
 - **Bambu Lab P1P / P1S / X1C / A1 Mini (experimental)** through the local MQTT TLS and FTPS TLS interfaces. P1P/P1S/A1 Mini use the TLS/JPEG camera path; X1C camera decoding remains unsupported.
 
-**Current development version: v0.53.0**
+**Current development version: v0.54.0**
 
 Current highlights:
 
-- **Phase 3 — Preact dashboard visual redesign (feature branch):** Adds a structured Farm overview header, refined group/view toolbar, four operational status summaries with supporting text, a live Printer section heading, and consistent printer cards/metrics/action treatments. This is a presentation-only improvement; existing image-row subgrid alignment, queue/card actions, table columns and sorting are preserved. Desktop/mobile and light/dark Chromium regressions cover the updates. See [Design System](docs/DESIGN_SYSTEM.md).
-
-- **SaaS application shell (Phase 2, active feature branch):** Refines desktop/mobile sidebar and topbar layout with consistent SVG navigation icons, visually grouped routes, clearly marked current page and a reactive Preact breadcrumb. Mobile navigation now has an accessible backdrop, focus handling and direct Add printer action. Builds on the Phase 1 design-token layer; functional routes, printer commands, Preact fallback and controller data handling are unchanged. See [Design System](docs/DESIGN_SYSTEM.md).
-
-- **Preact SaaS design system (active feature branch):** Introduces a `--ds-*` light/dark design-token layer, reusable Preact surfaces and form/feedback primitives, a visual polish pass on dashboard status summaries and printer metrics, reduced-motion support and an opt-in screenshot capture path in Chromium regression testing. See [Design System](docs/DESIGN_SYSTEM.md). No printer protocols or controller workflows are changed; pending full CI and visual review before merge.
+- **Polished Preact SaaS interface (v0.54.0):** Phase 1 introduces local-only light/dark design tokens and reusable Preact surfaces, form controls, feedback and loading states. Phase 2 modernises the app shell, grouped sidebar with SVG icons, accessible mobile navigation and route-aware breadcrumbs. Phase 3 updates dashboard headings, farm summary, group/view controls and printer cards without changing printer control or table functionality. The update standardises headings across routes (including **Farm Organisation** for Printer Groups), fixes duplicated Dashboard breadcrumbs/subtitles, aligns images despite wrapped printer names, and ensures the full OFFLINE pill fits in table view. Node.js 24, Chromium Preact, container smoke and build checks passed on PR #96. See [Design System](docs/DESIGN_SYSTEM.md).
 
 - **A1 Mini AMS Lite and external-spool filament editing (v0.53.0):** Extends existing Bambu filament type, colour and blue **Set filament** controls to the experimental A1 Mini, for its external spool and manually configured, occupied AMS Lite slots. Uses the same LAN MQTT commands and printer-reported read-back as P1P/P1S/X1C. RFID-managed, empty, unknown-tag and busy-printer AMS slots remain read-only. External spool writes use the single-nozzle virtual tray (AMS ID 255 / tray 254). Preact and vanilla fallback share the controls. Automated Node.js 24, Chromium Preact, and container smoke checks passed; **physical A1 Mini/AMS Lite validation remains outstanding**.
 

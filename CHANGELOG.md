@@ -4,6 +4,15 @@ This file contains the version-by-version release history for Print Farm Control
 
 Historical entries describe the behaviour of the controller at the time of that release and may be superseded by later versions. For current installation, configuration and supported-hardware guidance, see [README.md](README.md).
 
+## v0.54.0
+
+- Introduced a cohesive **Preact SaaS-style design system** with a shared `--ds-*` theme-token layer, consistent typography/spacing, reusable surfaces, button busy indicators, inline messages, field controls, empty states and loading placeholders. Preserved local-first operation without CDN dependencies, existing API contracts and no-bundle fallback.
+- Redesigned the **application shell** with grouped, SVG-icon sidebar navigation, desktop and mobile layouts, accessible keyboard-driven mobile drawer, backdrop dismissal, focus management and a route-aware Preact breadcrumb. Corrected the Dashboard header so the title, breadcrumb and subtitle do not repeat or overwrite each other.
+- Refined **dashboard layout and information hierarchy**: Farm overview, contextual status summary cards, group/card-table controls, live Printers heading, and themed printer-card metric/progress/action treatments. Preserved sorting, queue/maintenance actions, filament swatches, existing controls and printer-card/table mode switching.
+- Standardised **page headings** across controller routes and updated the Printer Groups category heading to **Farm Organisation**. Fixed card-view printer image misalignment caused by wrapped model/name text via shared CSS subgrid tracks, and widened the table-view status column so the OFFLINE pill, coloured dot and maintenance icon fit properly.
+- Added Node.js unit/contract tests and real Chromium browser checks for desktop/mobile, dark/light, reduced motion, navigation/keyboard accessibility, page-heading consistency, table-status visibility and image alignment. Optional visual screenshots are uploaded using the Node.js 24-capable GitHub `actions/upload-artifact@v7`; local installation tests tolerate missing GitHub workflow metadata. GitHub Actions checks passed on PR #96.
+- No changes to printer protocols, scheduler, licensing, queue semantics or authoritative telemetry. Mainline source release bumped from v0.53.0 to v0.54.0.
+
 ## v0.53.0
 
 - Extended **Bambu A1 Mini external-spool filament editing** with the same filament type, colour and blue **Set filament** controls already available for the P1P/P1S/X1C, using printer-side LAN MQTT `ams_filament_setting` on the external virtual tray (AMS 255, tray 254) and verified printer read-back.
