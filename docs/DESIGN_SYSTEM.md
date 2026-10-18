@@ -1,6 +1,6 @@
 # Print Farm Controller — SaaS UI design system (Phase 1)
 
-**Status:** Phases 1–3 were merged to `main` as v0.54.0. Phase 4 (Printer Details) is in development on `feature/preact-saas-printer-details`. No printer-control protocols, endpoint contracts or edition limits change.
+**Status:** Phases 1–3 were merged as v0.54.0 (PR #96), and Phase 4 (Printer Details) was accepted as v0.55.0 (PR #98). No printer-control protocols, endpoint contracts or edition limits change.
 
 ## Product direction
 A professional, calm, information-first operations workspace that resembles established SaaS applications while remaining *local-first*: no CDN, external fonts, remote assets or third-party analytics. Dense fleet operations stay legible and users can keep working when printer SSE telemetry refreshes during an edit.
@@ -89,4 +89,4 @@ Run `npm test`, `npm run build:frontend`, and `npm run test:browser` with Node 2
 - `printer-details-phase4-light-desktop.png`
 - `printer-details-phase4-light-mobile.png`
 
-Manually review Snapmaker U1, Flashforge AD5M/Pro, Creator 5/Pro, Prusa CORE One+ (Standard/INDX4/INDX8) and Bambu external spool/AMS in Chrome desktop and Android Chrome, both themes. Confirm all tabs and enabled/disabled states, live telemetry during unsaved changes, error messages, mobile scroll/keyboard access and full-width table positioning. This branch remains separate from `main` until user acceptance.
+Manually review Snapmaker U1, Flashforge AD5M/Pro, Creator 5/Pro, Prusa CORE One+ (Standard/INDX4/INDX8) and Bambu external spool/AMS in Chrome desktop and Android Chrome, both themes. Confirm all tabs and enabled/disabled states, live telemetry during unsaved changes, error messages, mobile scroll/keyboard access and full-width table positioning. The Phase 4 redesign was accepted after user review and included in the v0.55.0 merge; continue physical-hardware validation as equipment is available.

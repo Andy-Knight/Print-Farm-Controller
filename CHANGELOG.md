@@ -4,6 +4,14 @@ This file contains the version-by-version release history for Print Farm Control
 
 Historical entries describe the behaviour of the controller at the time of that release and may be superseded by later versions. For current installation, configuration and supported-hardware guidance, see [README.md](README.md).
 
+## v0.55.0
+
+- Completed **Phase 4 of the polished SaaS migration** with a redesigned Printer Details modal: clearer printer name/model/host identification, live status, maintenance/health context, theme-aware dialog and tab/section surfaces.
+- Improved usability on desktop and Android-sized viewports with a single horizontally scrollable tab rail, accessible selected/focus indicators, labelled tab panels in Preact and vanilla fallback, maintained arrow/Home/End keyboard navigation and a 44px close touch target.
+- Preserved all six Printer Details sections, printer API/protocol behaviour, stateful controls and telemetry, management drafts, Bambu spool/AMS and multi-tool configurations, calibrated 160px material/nozzle input alignment and no-bundle fallback.
+- Added regression contracts and Chromium desktop/mobile light/dark, keyboard, ARIA and layout coverage. Node.js 24 tests, Chromium Preact and container smoke checks passed on PR #98; physical-printer checks remain a separate ongoing hardware validation activity.
+- Raised controller source version from v0.54.0 to v0.55.0.
+
 ## v0.54.0
 
 - Introduced a cohesive **Preact SaaS-style design system** with a shared `--ds-*` theme-token layer, consistent typography/spacing, reusable surfaces, button busy indicators, inline messages, field controls, empty states and loading placeholders. Preserved local-first operation without CDN dependencies, existing API contracts and no-bundle fallback.
