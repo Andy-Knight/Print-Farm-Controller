@@ -78,7 +78,13 @@ test('Live readiness uses actual compatibility evaluator and does not bypass que
   const offline=attachLibraryReadiness([file('ok')],printers,{
     resolveAdapter:()=>adapter,getState:()=>({online:false,status:{status:'offline'}})
   });
-  assert.equal(offline[0].readiness.level,'attention');
+  assert.equal(offline[0].readiness.level,'offline');
+  assert.match(offline[0].readiness.message,/offline/i);
+  const busy=attachLibraryReadiness([file('ok')],printers,{
+    resolveAdapter:()=>adapter,
+    getState:()=>({online:true,status:{status:'printing',tools:[{index:0,nozzleDiameter:.4,filament:{present:true,material:'ASA'}}]}})
+  });
+  assert.equal(busy[0].readiness.level,'busy');
   const incompatible=attachLibraryReadiness([file('bad',{printerTarget:{adapterType:'other',model:'other'}})],printers,{
     resolveAdapter:()=>adapter,getState:()=>({online:true,status:{status:'idle'}})
   });
@@ -87,6 +93,38 @@ test('Live readiness uses actual compatibility evaluator and does not bypass que
     resolveAdapter:()=>adapter,getState:()=>null
   })[0].readiness.level,'attention');
 });
+test('Print Library readiness does not mistake an offline matching printer for a file problem',()=>{
+  const configured=[
+    {id:'target',name:'Offline ASA Printer',adapterType:'sample',model:'Model A'},
+    {id:'different',name:'Other Printer',adapterType:'sample',model:'Model B'}
+  ];
+  const adapter={capabilities:{fileUpload:true,localFiles:true,printLocalFile:true},uploadExtensions:['.3mf'],limits:{toolCount:1}};
+  const target=file('motor',{printerTarget:{adapterType:'sample',model:'Model A'}});
+  const run=(files,states,printers=configured)=>attachLibraryReadiness(files,printers,{
+    resolveAdapter:()=>adapter,
+    getState:(id)=>states[id] || {online:false,status:{status:'offline'}}
+  })[0].readiness;
+  const offline=run([target],{
+    target:{online:false,status:{status:'offline',tools:[{filament:{material:'PETG',present:false},nozzleDiameter:.6}]}},
+    different:{online:true,status:{status:'idle'}}
+  });
+  assert.equal(offline.level,'offline');
+  assert.equal(offline.readyPrinters,0);
+  assert.equal(offline.checkedPrinters,2);
+  const active={online:true,status:{status:'idle',tools:[{filament:{material:'ASA',present:true},nozzleDiameter:.4}]}};
+  assert.equal(run([target],{target:active,different:{online:false}},configured).level,'ready');
+  const busy={online:true,status:{status:'printing',tools:[{filament:{material:'ASA',present:true},nozzleDiameter:.4}]}};
+  assert.equal(run([target],{target:busy},configured).level,'busy');
+  const mismatch={online:true,status:{status:'idle',tools:[{filament:{material:'PETG',present:true},nozzleDiameter:.4}]}};
+  assert.equal(run([target],{target:mismatch}).level,'attention');
+  const wrongFile=file('bad',{fileName:'unsupported.stl'});
+  assert.equal(run([wrongFile],{target:{online:false}},[configured[0]]).level,'incompatible');
+  const missingMaterial=file('unknown',{requirements:{source:'gcode-bounded-scan',logicalTools:[{index:0,material:null}]}});
+  assert.equal(run([missingMaterial],{target:active},[configured[0]]).level,'attention');
+  // Queue preflight is unchanged; only the display classification changes.
+  assert.equal(target.requirements.logicalTools[0].material,'ASA');
+});
+
 test('Library UI binds all sorting, filters, tags, favourites and pagers to Preact and fallback',()=>{
   const read=(p)=>readFileSync(new URL('../'+p,import.meta.url),'utf8');
   const html=read('public/index.html'),app=read('public/app.js'),preact=read('ui/print-library.jsx'),css=read('public/print-library-polish.css'),server=read('src/server.js');
