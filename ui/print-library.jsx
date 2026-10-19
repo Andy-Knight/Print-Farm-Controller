@@ -57,13 +57,14 @@ function LibraryColours({ colours = [] }) {
   );
 }
 
-function LibraryCost({ cost }) {
+function LibraryCost({ cost, batchCost='', batchQuantity=1 }) {
   return (
     <div class={`library-print-cost${cost?.available ? '' : ' unavailable'}`} data-library-cost>
       <span class="library-print-cost-icon" aria-hidden="true"></span>
       <div class="library-print-cost-copy">
         <span class="library-print-cost-label">Estimated material cost / print</span>
         <strong class="library-print-cost-value">{cost?.value || 'Unavailable'}</strong>
+        {batchCost && <small class="library-batch-estimate">Batch ×{batchQuantity}: {batchCost} material</small>}
         <small class="library-print-cost-detail">{cost?.detail || 'Filament cost data is unavailable.'}</small>
       </div>
     </div>
@@ -90,6 +91,7 @@ function LibraryFile({ file }) {
         <div class="library-file-title"><strong title={file.fileName}>{file.fileName}</strong>
           {file.favourite && <span class="library-fav-mark" title="Favourite">★</span>}
         </div>
+        {file.category && <span class="library-category">{file.category}</span>}
         <span class={`library-readiness library-readiness-${file.readiness?.level || 'attention'}`}
           title={file.readiness?.detail || 'Compatibility checked when queued'}>{file.readiness?.label || 'Needs attention'}</span>
         {file.tags?.length>0 && <div class="library-tags">
@@ -113,7 +115,7 @@ function LibraryFile({ file }) {
         <LibraryColours colours={file.colours} />
       </div>
       <div class="library-cell library-cost-cell">
-        <LibraryCost cost={file.cost} />
+        <LibraryCost cost={file.cost} batchCost={file.batchCost} batchQuantity={file.batchQuantity} />
       </div>
       <div class="library-cell library-history-cell">
         <span class="library-cell-label">History</span>
