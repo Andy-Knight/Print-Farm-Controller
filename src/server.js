@@ -1617,6 +1617,7 @@ async function apiRoute(req, res, url) {
       description:body.description,
       printerTarget:body.printerTarget === undefined ? undefined : validateLibraryPrinterTarget(body.printerTarget),
       filamentAssignments:body.filamentAssignments,
+      category:body.category,
       tags:body.tags,
       favourite:body.favourite
     }));
