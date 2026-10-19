@@ -2,6 +2,7 @@ import { promises as fs } from 'node:fs';
 import path from 'node:path';
 import { inspectZipArchive } from './backup-archive.js';
 import { BACKUP_FORMAT_VERSION, verifyBackupArchive } from './backup-format.js';
+import { normalizePricingSettings } from '../library-pricing.js';
 
 const CURRENT_SCHEMA_VERSION = 1;
 const TERMINAL_QUEUE_STATES = new Set(['completed', 'failed', 'cancelled']);
@@ -151,6 +152,15 @@ export async function inspectRestoreBackup(filePath, {
     reportingHistory = await readJsonEntry(archive, 'state/reporting-history.json');
     if (!plainObject(reportingHistory) || reportingHistory.version !== 1 || !Array.isArray(reportingHistory.records)) {
       throw new Error('Backup reporting history store is invalid');
+    }
+  }
+
+  if (archive.byName.has('state/library-pricing.json')) {
+    const pricing=await readJsonEntry(archive,'state/library-pricing.json');
+    try {
+      normalizePricingSettings(pricing);
+    } catch (error) {
+      throw new Error('Backup Print Library global pricing settings are invalid: '+error.message);
     }
   }
 
