@@ -81,6 +81,9 @@ test('Print Library migrates staged queue files, deduplicates uploads and persis
   assert.equal(second.description, 'Replacement caravan blind clip. Print two.');
   assert.deepEqual(second.printerTarget, { adapterType:'flashforge-ad5m', model:'Adventurer 5M Pro' });
   assert.equal(second.preview?.available, true);
+  assert.deepEqual(second.sundryCosts,[]);
+  assert.equal(second.sundryCurrency,'GBP');
+  assert.equal(second.lotsPerPrint,1);
   assert.equal(second.preview?.mimeType, 'image/png');
   const storedPreview = await library.getLibraryPreview(second.id);
   assert.equal(storedPreview?.mimeType, 'image/png');
@@ -117,12 +120,30 @@ test('Print Library migrates staged queue files, deduplicates uploads and persis
   assert.equal(persisted.category,'VW T6 interior');
   assert.deepEqual(persisted.tags,['ASA','Production']);
   assert.equal(persisted.favourite,true);
+  const priced=await library.updateLibraryFileMetadata(second.id,{
+    sundryCosts:[{label:'M4 brass inserts',quantity:4,unitCost:0.12},
+      {label:'Packaging',quantity:1,unitCost:0.5}],
+    sundryCurrency:'GBP',lotsPerPrint:4
+  });
+  assert.deepEqual(priced.sundryCosts,[{label:'M4 brass inserts',quantity:4,unitCost:0.12},
+    {label:'Packaging',quantity:1,unitCost:0.5}]);
+  assert.equal(priced.lotsPerPrint,4);
+  assert.equal(priced.sundryCurrency,'GBP');
+  const pricedFromDisk=await library.getLibraryFile(second.id);
+  assert.deepEqual(pricedFromDisk.sundryCosts,priced.sundryCosts);
+  assert.equal(pricedFromDisk.lotsPerPrint,4);
+  assert.equal((await library.listLibraryFiles()).find(x=>x.id===second.id)?.sundryCosts.length,2);
+  await assert.rejects(()=>library.updateLibraryFileMetadata(second.id,{
+    sundryCosts:[{label:'Invalid negative',quantity:2,unitCost:-1}]
+  }),/Sundry unit cost/);
+  await assert.rejects(()=>library.updateLibraryFileMetadata(second.id,{lotsPerPrint:0}),/1 and 999/);
   const cleared=await library.updateLibraryFileMetadata(second.id,{
     category:'',tags:[],favourite:false
   });
   assert.equal(cleared.category,'');
   assert.deepEqual(cleared.tags,[]);
   assert.equal(cleared.favourite,false);
+  assert.equal(cleared.lotsPerPrint,4,'Editing ordinary metadata must not reset saved sale lots');
   await assert.rejects(()=>library.updateLibraryFileMetadata(second.id,{tags:['x'.repeat(41)]}),/tag is invalid/);
   await assert.rejects(()=>library.updateLibraryFileMetadata(second.id,{category:'x'.repeat(61)}),/60 characters/);
   await assert.rejects(()=>library.updateLibraryFileMetadata(second.id,{favourite:'true'}),/true or false/);
