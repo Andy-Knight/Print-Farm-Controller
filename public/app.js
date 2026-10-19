@@ -3661,8 +3661,7 @@ function librarySaleView(file) {
   const money=(amount)=>{
     if (!Number.isFinite(amount) || !sale.currency) return 'Unavailable';
     try {
-      return new Intl.NumberFormat('en-GB',{style:'currency',currency:sale.currency,
-        minimumFractionDigits:2,maximumFractionDigits:2}).format(amount);
+      return new Intl.NumberFormat('en-GB',{style:'currency',currency:sale.currency}).format(amount);
     } catch {return sale.currency+' '+amount.toFixed(2);}
   };
   const available=sale.complete===true && Number.isFinite(sale.sellingPrice);
