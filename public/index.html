@@ -1250,11 +1250,13 @@
             <p>Add hardware, inserts, packaging or other costs for the entire sliced print. These costs are shared across its sale lots.</p>
           </div>
         </div>
-        <label>Sundry currency<select id="libraryAddSundryCurrency" name="sundryCurrency"><option value="GBP">GBP</option></select></label>
+        <div class="library-pricing-config">
+          <label>Sundry currency<select id="libraryAddSundryCurrency" name="sundryCurrency"><option value="GBP">GBP</option></select></label>
+          <label>Sale lots per print<input id="libraryAddLotsPerPrint" type="number" name="lotsPerPrint" min="1" max="999" step="1" value="1" required /></label>
+        </div>
+        <p class="library-pricing-note">1 = sell the entire print as one item. For example, 4 divides the batch across four sale lots.</p>
         <div id="libraryAddSundries" class="library-sundries" aria-label="Sundry cost items"></div>
         <button type="button" class="secondary library-add-sundry" data-library-add-sundry="add">+ Add sundry cost</button>
-        <label>Sale lots per print<input id="libraryAddLotsPerPrint" type="number" name="lotsPerPrint" min="1" max="999" step="1" value="1" required /></label>
-        <div class="field-help">1 = sell the entire print as one item. For example, 4 = divide the total batch cost and selling price across 4 sale lots.</div>
       </section>
       <label>Description / notes
         <textarea id="libraryDescriptionInput" name="description" rows="5" maxlength="4000" placeholder="Example: Replacement wardrobe latch for Swift caravan. Print two for each door."></textarea>
@@ -1310,10 +1312,12 @@
             <p>Costs are for one complete sliced print, not for each selling lot.</p>
           </div>
         </div>
-        <label>Sundry currency<select id="libraryMetadataSundryCurrency" name="sundryCurrency"><option value="GBP">GBP</option></select></label>
+        <div class="library-pricing-config">
+          <label>Sundry currency<select id="libraryMetadataSundryCurrency" name="sundryCurrency"><option value="GBP">GBP</option></select></label>
+          <label>Sale lots per print<input id="libraryMetadataLotsPerPrint" type="number" name="lotsPerPrint" min="1" max="999" step="1" value="1" required /></label>
+        </div>
         <div id="libraryMetadataSundries" class="library-sundries" aria-label="Sundry cost items"></div>
         <button type="button" class="secondary library-add-sundry" data-library-add-sundry="metadata">+ Add sundry cost</button>
-        <label>Sale lots per print<input id="libraryMetadataLotsPerPrint" type="number" name="lotsPerPrint" min="1" max="999" step="1" value="1" required /></label>
       </section>
       <label class="library-favourite-input">
         <input id="libraryMetadataFavourite" name="favourite" type="checkbox" />
