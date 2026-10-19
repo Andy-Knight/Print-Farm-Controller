@@ -1,0 +1,66 @@
+/*
+ * Print Library — current estimated raw-material cost per print.
+ * Neutral until known, never mistaken for an exact manufacturing cost.
+ * Scoped to the library cards; shared light/dark design system tokens.
+ */
+#libraryDialog .library-print-cost {
+  display:flex;
+  align-items:center;
+  gap:10px;
+  min-width:0;
+  margin-top:11px;
+  padding:10px 12px;
+  border:1px solid var(--ds-border);
+  border-radius:var(--ds-radius-md);
+  background:var(--ds-surface-muted);
+}
+#libraryDialog .library-print-cost-icon {
+  display:block;
+  flex:0 0 19px;
+  width:19px;
+  height:19px;
+  align-self:flex-start;
+  margin-top:2px;
+  background:var(--ds-brand);
+  -webkit-mask:url("data:image/svg+xml,%3Csvg%20xmlns='http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg'%20viewBox='0%200%2024%2024'%20fill='none'%20stroke='black'%20stroke-width='1.8'%20stroke-linecap='round'%20stroke-linejoin='round'%3E%3Ccircle%20cx='12'%20cy='12'%20r='9'%2F%3E%3Cpath%20d='M15.5%208.5a4%204%200%200%200-6.9%203M8.5%2012.5H14M8.5%2015H14'/%3E%3C%2Fsvg%3E") center/contain no-repeat;
+  mask:url("data:image/svg+xml,%3Csvg%20xmlns='http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg'%20viewBox='0%200%2024%2024'%20fill='none'%20stroke='black'%20stroke-width='1.8'%20stroke-linecap='round'%20stroke-linejoin='round'%3E%3Ccircle%20cx='12'%20cy='12'%20r='9'%2F%3E%3Cpath%20d='M15.5%208.5a4%204%200%200%200-6.9%203M8.5%2012.5H14M8.5%2015H14'/%3E%3C%2Fsvg%3E") center/contain no-repeat;
+}
+#libraryDialog .library-print-cost.unavailable .library-print-cost-icon {
+  background:var(--ds-text-muted);
+}
+#libraryDialog .library-print-cost-copy {
+  display:grid;
+  grid-template-columns:minmax(0,1fr) auto;
+  gap:3px 14px;
+  flex:1 1 auto;
+  min-width:0;
+  align-items:center;
+}
+#libraryDialog .library-print-cost-label {
+  color:var(--ds-text-muted);
+  font-size:.72rem;
+  font-weight:700;
+}
+#libraryDialog .library-print-cost-value {
+  color:var(--ds-brand);
+  font-size:1.03rem;
+  font-weight:800;
+  white-space:nowrap;
+  text-align:right;
+}
+#libraryDialog .library-print-cost.unavailable .library-print-cost-value {
+  color:var(--ds-text-muted);
+  font-size:.84rem;
+}
+#libraryDialog .library-print-cost-detail {
+  grid-column:1 / -1;
+  color:var(--ds-text-muted);
+  font-size:.7rem;
+  line-height:1.4;
+  overflow-wrap:anywhere;
+}
+@media(max-width:620px) {
+  #libraryDialog .library-print-cost { padding:9px; }
+  #libraryDialog .library-print-cost-copy { grid-template-columns:minmax(0,1fr); gap:3px; }
+  #libraryDialog .library-print-cost-value { text-align:left; }
+}
