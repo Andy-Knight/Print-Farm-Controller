@@ -1,4 +1,4 @@
-# Print Farm Controller v0.57.2
+# Print Farm Controller v0.58.0
 A local-first 3D printer fleet controller. It runs entirely on your LAN and currently supports:
 
 - **FlashForge Adventurer 5M / 5M Pro** through the local FlashForge HTTP/TCP APIs.
@@ -7,9 +7,11 @@ A local-first 3D printer fleet controller. It runs entirely on your LAN and curr
 - **Prusa CORE One+ (experimental)** through the local PrusaLink API, supporting Standard (1-tool), INDX4 and INDX8 configurations.
 - **Bambu Lab P1P / P1S / X1C / A1 Mini (experimental)** through the local MQTT TLS and FTPS TLS interfaces. P1P/P1S/A1 Mini use the TLS/JPEG camera path; X1C camera decoding remains unsupported.
 
-**Current development version: v0.57.2**
+**Current development version: v0.58.0**
 
 Current highlights:
+
+- **Product pricing and costing (v0.58.0):** Print Library Add File now supports category and tags immediately. Add/edit per-file sundries with descriptions, quantities and unit prices for a whole sliced print, and define 1–999 sale lots. The currency for every sundry is inherited from the file's current *complete* filament cost estimate, never selected separately or converted silently. The library shows estimated total and per-lot selling prices using global profit settings (cost markup or gross margin) configured on the new **Pricing settings** tab of **Reports & costing**. Incomplete filament pricing prevents selling price quotes. Settings are included in backup/restore; earlier library metadata remains compatible. Add/Edit forms use the shared UI styling, fixed header and footer and scrollable detail body. No printer dispatch or queue costing snapshot changes.
 
 - **Print Library refinements (v0.57.2):** Readiness labels are clickable filters for Ready now, Printer busy, Printer offline, Needs attention and Incompatible. The selected status is shown in Advanced Filters, other active facets remain in effect, and Clear filters restores the view. Selecting/deselecting a file row no longer jumps the scrollable library list to the top (including keyboard selection). Fixed the Ascending/Descending control alignment with Sort by and Batch quantity while preserving the shared 42px field height and light/dark themes. No printer communication or queue preflight changes.
 
