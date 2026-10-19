@@ -1044,6 +1044,8 @@ async function libraryAvailabilityBadgeSmoke(page,url) {
     assert.equal(await badge.innerText(),label);
     assert.ok((await badge.getAttribute('class')).includes('library-readiness-'+level));
     assert.match(await badge.getAttribute('title'),/printer status preview/);
+    assert.equal(await badge.getAttribute('data-library-filter-readiness'),level);
+    assert.equal(await badge.getAttribute('aria-label'),'Filter library by status: '+label);
   }
   const values=await page.locator('#libraryReadinessFilter option').evaluateAll(
     options=>options.map(option=>option.value));
@@ -1059,6 +1061,30 @@ async function libraryAvailabilityBadgeSmoke(page,url) {
       assert.ok(style.color && style.bg,'availability badge must use theme-aware styles');
     }
   }
+  // Status chips use the same delegated facet handler as category/tag chips.
+  // Real controller state may contain fewer matching files than this temporary
+  // display fixture; all subsequently visible rows must match the selected
+  // status, and the dropdown must expose the active filter.
+  await page.locator('[data-library-file="availability-offline"] .library-readiness').click();
+  assert.equal(await page.locator('#libraryReadinessFilter').inputValue(),'offline');
+  assert.equal(await page.locator('#libraryAdvancedFilters').evaluate(element=>element.open),true);
+  const displayed=await page.locator('#libraryList [data-library-file] .library-readiness').evaluateAll(
+    items=>items.map(item=>item.dataset.libraryFilterReadiness));
+  assert.ok(displayed.every(level=>level==='offline'),'click must show only matching readiness');
+  await page.locator('#libraryClearFiltersBtn').click();
+  assert.equal(await page.locator('#libraryReadinessFilter').inputValue(),'','clear filters must restore all statuses');
+
+  // Also verify native keyboard activation, without selecting the file row.
+  await page.evaluate(files=>window.dispatchEvent(new CustomEvent('pfc:library-ui-state',{
+    detail:{summary:'5 readiness cases',files,emptyText:'No files'}
+  })),files);
+  const keyboardBadge=page.locator('[data-library-file="availability-attention"] .library-readiness');
+  await keyboardBadge.focus();
+  await page.keyboard.press('Enter');
+  assert.equal(await page.locator('#libraryReadinessFilter').inputValue(),'attention');
+  assert.equal(await page.locator('#libraryQueueSelectedBtn').isDisabled(),true,
+    'using status badges must not select a file');
+  await page.locator('#libraryClearFiltersBtn').click();
   console.log('Chromium: Print Library readiness availability badges PASS');
 }
 
