@@ -107,7 +107,26 @@ test('Print Library migrates staged queue files, deduplicates uploads and persis
     (await library.listLibraryFiles()).find((item) => item.id === second.id)?.filamentAssignments,
     { '0':filamentId }
   );
-  await assert.rejects(() => library.updateLibraryFileMetadata(second.id, { description:'x'.repeat(4001) }), /4000 characters/);
+  const organised=await library.updateLibraryFileMetadata(second.id,{
+    category:'VW T6 interior',tags:['ASA','Production','ASA'],favourite:true
+  });
+  assert.equal(organised.category,'VW T6 interior');
+  assert.deepEqual(organised.tags,['ASA','Production']);
+  assert.equal(organised.favourite,true);
+  const persisted=(await library.listLibraryFiles()).find(item=>item.id===second.id);
+  assert.equal(persisted.category,'VW T6 interior');
+  assert.deepEqual(persisted.tags,['ASA','Production']);
+  assert.equal(persisted.favourite,true);
+  const cleared=await library.updateLibraryFileMetadata(second.id,{
+    category:'',tags:[],favourite:false
+  });
+  assert.equal(cleared.category,'');
+  assert.deepEqual(cleared.tags,[]);
+  assert.equal(cleared.favourite,false);
+  await assert.rejects(()=>library.updateLibraryFileMetadata(second.id,{tags:['x'.repeat(41)]}),/tag is invalid/);
+  await assert.rejects(()=>library.updateLibraryFileMetadata(second.id,{category:'x'.repeat(61)}),/60 characters/);
+  await assert.rejects(()=>library.updateLibraryFileMetadata(second.id,{favourite:'true'}),/true or false/);
+    await assert.rejects(() => library.updateLibraryFileMetadata(second.id, { description:'x'.repeat(4001) }), /4000 characters/);
   await assert.rejects(
     () => library.updateLibraryFileMetadata(second.id, { printerTarget:{ adapterType:'snapmaker-u1', model:'' } }),
     /requires adapter type and model/
