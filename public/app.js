@@ -3816,7 +3816,9 @@ function updateLibrarySelectionToolbar() {
 function selectLibraryFile(id, { focus = false } = {}) {
   if (!(libraryState.files || []).some((file) => file.id === id)) return;
   librarySelectedFileId = librarySelectedFileId === id ? null : id;
-  renderPrintLibrary();
+  // Selection changes must not reset the row-only scroll position. Sorting,
+  // paging and filtering still scroll to the first result intentionally.
+  renderPrintLibrary({ preserveScroll:true });
   if (focus) libraryList?.querySelector(`[data-library-select="${CSS.escape(id)}"]`)?.focus({ preventScroll:true });
 }
 
