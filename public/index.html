@@ -334,6 +334,7 @@
       <div class="reporting-tabs maintenance-view-selector" data-pfc-tabs role="tablist" aria-label="Reports and analytics view">
         <button id="reportingTabAnalytics" type="button" class="maintenance-view-button active" data-reporting-tab="analytics" data-pfc-icon="chart" role="tab" aria-selected="true" aria-controls="reportingPanelAnalytics">Analytics</button>
         <button id="reportingTabFilament" type="button" class="maintenance-view-button" data-reporting-tab="filament" data-pfc-icon="spool" role="tab" aria-selected="false" aria-controls="reportingPanelFilament" tabindex="-1">Filament cost catalogue</button>
+        <button id="reportingTabPricing" type="button" class="maintenance-view-button" data-reporting-tab="pricing" data-pfc-icon="chart" role="tab" aria-selected="false" aria-controls="reportingPanelPricing" tabindex="-1">Pricing settings</button>
       </div>
 
       <section id="reportingPanelAnalytics" class="reporting-tab-panel" data-reporting-panel="analytics" role="tabpanel" aria-labelledby="reportingTabAnalytics">
@@ -469,6 +470,45 @@
             </div>
           </form>
           <div id="filamentList" class="filament-cost-list"></div>
+        </section>
+      </section>
+
+      <section id="reportingPanelPricing" class="reporting-tab-panel" data-reporting-panel="pricing"
+        role="tabpanel" aria-labelledby="reportingTabPricing" hidden>
+        <section class="reporting-section">
+          <div class="reporting-section-head">
+            <div>
+              <h3>Global pricing settings</h3>
+              <span class="subtle">Set the profit percentage used to calculate suggested selling prices for every Print Library file.</span>
+            </div>
+          </div>
+          <form id="reportingPricingForm" class="reporting-pricing-form">
+            <fieldset id="reportingPricingFields" class="reporting-pricing-fields" disabled>
+              <div class="reporting-pricing-grid">
+                <label>Profit percentage
+                  <input id="reportingProfitPercent" name="profitPercent" type="number" min="0" max="1000" step="0.01"
+                    placeholder="Example: 35" />
+                </label>
+                <label>Calculation method
+                  <select id="reportingProfitMethod" name="profitMethod">
+                    <option value="markup">Markup on cost — £10 + 30% = £13</option>
+                    <option value="margin">Gross margin on selling price — £10 at 30% = £14.29</option>
+                  </select>
+                </label>
+              </div>
+              <div class="field-help reporting-pricing-help">
+                Selling prices include the current sliced filament cost plus all sundry costs for the complete print.
+                The total is divided across the configured number of sale lots, rounded to the currency's smallest unit.
+                Leave the profit percentage blank to disable selling price estimates.
+                VAT, labour, electricity and shipping are excluded unless entered as sundries.
+              </div>
+              <div class="actions reporting-pricing-actions">
+                <button id="reportingPricingSaveBtn" type="submit" class="primary">Save pricing settings</button>
+              </div>
+            </fieldset>
+            <div id="reportingPricingStatus" class="subtle" role="status" aria-live="polite">Open this tab to load saved pricing settings.</div>
+            <div id="reportingPricingError" class="error hidden" role="alert"></div>
+          </form>
         </section>
       </section>
 
@@ -1106,7 +1146,6 @@
       <section class="queue-section">
         <div class="library-toolbar">
           <label class="library-search">Search<input id="librarySearchInput" type="search" placeholder="Search filenames, printer types, descriptions, materials or nozzle size" autocomplete="off" /></label>
-          <button id="libraryPricingSettingsBtn" type="button" class="secondary">Pricing settings</button>
           <button id="libraryUploadBtn" type="button" class="primary">+ Add file</button>
         </div>
         <details class="library-advanced-filters" id="libraryAdvancedFilters">
@@ -1225,31 +1264,6 @@
         <button type="button" class="secondary" data-library-add-close>Cancel</button>
         <button type="submit" class="primary">Add to library</button>
       </div>
-      </div>
-    </form>
-  </dialog>
-
-  <dialog id="libraryPricingSettingsDialog" class="batch-action-dialog">
-    <form id="libraryPricingSettingsForm">
-      <div class="dialog-head">
-        <div><div class="eyebrow">PRINT LIBRARY</div><h2>Global pricing settings</h2>
-          <div class="subtle">A single profit percentage is used for all Print Library selling price estimates.</div></div>
-        <button type="button" class="icon" data-library-pricing-close>×</button>
-      </div>
-      <label>Profit percentage
-        <input id="libraryProfitPercent" name="profitPercent" type="number" min="0" max="1000" step="0.01" placeholder="Example: 35" />
-      </label>
-      <label>Calculation method
-        <select id="libraryProfitMethod" name="profitMethod">
-          <option value="markup">Markup on cost — £10 + 30% = £13</option>
-          <option value="margin">Gross margin on selling price — £10 at 30% = £14.29</option>
-        </select>
-      </label>
-      <div class="field-help">Includes sliced filament and all sundry costs per print. The price is divided by the number of sale lots. Leave profit percentage blank to disable selling price estimates. VAT, electricity, labour and shipping are excluded unless entered as sundries.</div>
-      <div id="libraryPricingSettingsError" class="error hidden"></div>
-      <div class="actions">
-        <button type="button" class="secondary" data-library-pricing-close>Cancel</button>
-        <button type="submit" class="primary">Save pricing</button>
       </div>
     </form>
   </dialog>
