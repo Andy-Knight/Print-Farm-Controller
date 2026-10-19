@@ -3567,7 +3567,47 @@ function libraryPreviewMarkup(file) {
   </div>`;
 }
 
+// A current raw-material estimate: no printer electricity, labour or historical
+// queue price is implied. Never format unknown/partial totals as zero.
+function libraryCostView(file) {
+  const estimate = file?.costEstimate;
+  const amount = estimate?.totalCost;
+  const currency = String(estimate?.currency || '').trim().toUpperCase();
+  const complete = estimate?.complete === true
+    && typeof amount === 'number' && Number.isFinite(amount) && amount >= 0
+    && /^[A-Z]{3}$/.test(currency);
+  if (!complete) {
+    return {
+      available:false,
+      value:'Unavailable',
+      detail:String(estimate?.issue || 'No reliable sliced filament usage and catalogue prices are available')
+        + ' · Check Edit details or the Reports filament cost catalogue.'
+    };
+  }
+  const precision = amount > 0 && amount < 0.01 ? 4 : 2;
+  let value;
+  try {
+    value = new Intl.NumberFormat('en-GB', {
+      style:'currency', currency,
+      minimumFractionDigits:precision === 4 ? 2 : 2,
+      maximumFractionDigits:precision
+    }).format(amount);
+  } catch {
+    value = currency + ' ' + amount.toFixed(precision);
+  }
+  const weight = estimate.grams;
+  const weightText = typeof weight === 'number' && Number.isFinite(weight) && weight >= 0
+    ? ' · ' + weight.toLocaleString('en-GB', { maximumFractionDigits:3 }) + ' g sliced'
+    : '';
+  return {
+    available:true,
+    value,
+    detail:'Current filament catalogue prices' + weightText + ' · Estimate only, excludes overheads.'
+  };
+}
+
 function libraryFileMarkup(file) {
+  const cost = libraryCostView(file);
   const usage = file.usage || {};
   const lastPrinted = usage.lastPrintedAt ? `Last printed ${formatLastSeen(usage.lastPrintedAt)}` : 'Not printed from queue yet';
   const warning = file.requirements?.warning ? `<div class="library-warning">${escapeHtml(file.requirements.warning)}</div>` : '';
@@ -3584,6 +3624,14 @@ function libraryFileMarkup(file) {
         ${printerTarget}
         <div class="library-file-requirements">${escapeHtml(libraryRequirementSummary(file))}</div>
         ${libraryColorsMarkup(file)}
+        <div class="library-print-cost${cost.available ? '' : ' unavailable'}" data-library-cost>
+          <span class="library-print-cost-icon" aria-hidden="true"></span>
+          <div class="library-print-cost-copy">
+            <span class="library-print-cost-label">Estimated material cost / print</span>
+            <strong class="library-print-cost-value">${escapeHtml(cost.value)}</strong>
+            <small class="library-print-cost-detail">${escapeHtml(cost.detail)}</small>
+          </div>
+        </div>
         <div class="library-file-meta">Added ${escapeHtml(formatLastSeen(file.addedAt || file.stagedAt))} · ${Number(usage.completedPrints || 0)} completed print${Number(usage.completedPrints || 0) === 1 ? '' : 's'} · ${escapeHtml(lastPrinted)}</div>
         ${warning}
       </div>
@@ -3597,6 +3645,7 @@ function libraryFileMarkup(file) {
 }
 
 function libraryFileViewModel(file) {
+  const cost = libraryCostView(file);
   const usage = file?.usage || {};
   const completedPrints = Number(usage.completedPrints || 0);
   const lastPrinted = usage.lastPrintedAt ? `Last printed ${formatLastSeen(usage.lastPrintedAt)}` : 'Not printed from queue yet';
@@ -3612,6 +3661,7 @@ function libraryFileViewModel(file) {
     printerTarget:file?.printerTarget ? printerTargetLabel(file.printerTarget) : '',
     requirements:libraryRequirementSummary(file),
     colours,
+    cost,
     meta:`Added ${formatLastSeen(file?.addedAt || file?.stagedAt)} · ${completedPrints} completed print${completedPrints === 1 ? '' : 's'} · ${lastPrinted}`,
     warning:String(file?.requirements?.warning || ''),
     previewUrl:String(file?.previewUrl || ''),
