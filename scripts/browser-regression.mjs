@@ -955,6 +955,62 @@ async function librarySelectionSmoke(page,url,{mutateFixture = true} = {}) {
   console.log('Chromium: Print Library table, selection, toolbar, queue/edit/delete and mobile PASS');
 }
 
+// Edit/Add modal: the label sits above its input, only the central form
+// body scrolls, and header and save/cancel remain visible on small screens.
+async function verifyLibraryEditorLayout(page,editor) {
+  const prefix=editor==='add'?'libraryAdd':'libraryMetadata';
+  const metrics=await page.evaluate(prefix=>{
+    const modal=document.getElementById(prefix+'Dialog');
+    const header=modal.querySelector('.dialog-head');
+    const body=modal.querySelector('.library-editor-body');
+    const footer=modal.querySelector('.library-editor-footer');
+    const currency=document.getElementById(prefix+'SundryCurrency');
+    const lots=document.getElementById(prefix+'LotsPerPrint');
+    const rect=node=>{
+      const r=node.getBoundingClientRect();
+      return {top:r.top,bottom:r.bottom,left:r.left,right:r.right};
+    };
+    const fields=[currency,lots].map(control=>{
+      const label=control.closest('label');
+      const range=document.createRange();
+      range.selectNodeContents(label.firstChild);
+      return {
+        text:rect(range),
+        input:rect(control),
+        label:rect(label),
+        display:getComputedStyle(label).display,
+        direction:getComputedStyle(label).flexDirection
+      };
+    });
+    const start={head:rect(header),foot:rect(footer),body:rect(body)};
+    const maxScroll=body.scrollHeight-body.clientHeight;
+    body.scrollTop=maxScroll;
+    const end={head:rect(header),foot:rect(footer),scrollTop:body.scrollTop};
+    body.scrollTop=0;
+    return {fields,start,end,maxScroll,bodyOverflow:getComputedStyle(body).overflowY,
+      footerButtons:[...footer.querySelectorAll('button')].map(btn=>rect(btn)),
+      dialogRect:rect(modal)};
+  },prefix);
+  for (const [index,field] of metrics.fields.entries()) {
+    const label=index===0?'Sundry currency':'Sale lots per print';
+    assert.equal(field.display,'flex',editor+': '+label+' stacks in a flex label');
+    assert.equal(field.direction,'column',editor+': '+label+' uses a column');
+    assert.ok(field.input.top>=field.text.bottom+3,
+      editor+': '+label+' input sits underneath its heading: '+JSON.stringify(field));
+    assert.ok(Math.abs(field.input.left-field.label.left)<=2,
+      editor+': '+label+' input has same left alignment as its label');
+  }
+  assert.equal(metrics.bodyOverflow,'auto',editor+': central body should scroll');
+  assert.ok(metrics.maxScroll>20,editor+': fixture must have overflowing fields');
+  assert.ok(metrics.end.scrollTop>20,editor+': only form fields should scroll');
+  assert.ok(Math.abs(metrics.start.head.top-metrics.end.head.top)<1
+    && Math.abs(metrics.start.foot.bottom-metrics.end.foot.bottom)<1,
+    editor+': header and action footer must not move on body scroll');
+  assert.ok(metrics.footerButtons.every(b=>b.top>=metrics.dialogRect.top-1
+    && b.bottom<=metrics.dialogRect.bottom+1),
+    editor+': action buttons must be visible within the dialog viewport');
+}
+
 // The add dialog must capture product metadata on first upload, while the edit
 // dialog can modify sundries and sales-lot allocations for existing files.
 async function libraryPricingSmoke(page,url,{mutateFixture=true}={}) {
@@ -971,7 +1027,9 @@ async function libraryPricingSmoke(page,url,{mutateFixture=true}={}) {
   assert.equal(settings.profitPercent,30);
   assert.equal(settings.profitMethod,'markup');
 
+  await page.setViewportSize({width:1024,height:600});
   await page.locator('#libraryUploadBtn').click();
+  await verifyLibraryEditorLayout(page,'add');
   const name='pricing-sundry-browser-fixture.gcode';
   const sliced='; filament_type = ASA\n; filament used [g] = 12\nT0\nG1 X20\n';
   await page.locator('#libraryFileInput').setInputFiles({
@@ -1002,6 +1060,7 @@ async function libraryPricingSmoke(page,url,{mutateFixture=true}={}) {
   await page.locator('[data-library-file="'+added.id+'"] [data-library-select]').click();
   await page.locator('#libraryEditSelectedBtn').click();
   await page.waitForFunction(()=>document.querySelector('#libraryMetadataDialog')?.open===true);
+  await verifyLibraryEditorLayout(page,'metadata');
   assert.equal(await page.locator('#libraryMetadataLotsPerPrint').inputValue(),'4');
   assert.equal(await page.locator('#libraryMetadataSundries .library-sundry-row').count(),1);
   await page.locator('#libraryMetadataLotsPerPrint').fill('2');
@@ -1027,6 +1086,7 @@ async function libraryPricingSmoke(page,url,{mutateFixture=true}={}) {
       body:JSON.stringify({profitPercent:null,profitMethod:'markup'})});
     if (!response.ok) throw Error('Unable to reset test pricing settings');
   });
+  await page.setViewportSize({width:1365,height:900});
   console.log('Chromium: Print Library global profit, add/edit sundries and sale-lot pricing PASS');
 }
 
