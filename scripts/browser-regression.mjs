@@ -802,7 +802,12 @@ async function librarySelectionSmoke(page,url,{mutateFixture = true} = {}) {
     });
     assert.equal(dimensions.display,'grid');
     assert.ok(dimensions.columns.split(' ').length>=7,'desktop library has seven aligned columns');
-    assert.equal(dimensions.columns,dimensions.headerColumns,'headings and rows use precisely the same columns');
+    const tracks=(value)=>value.split(' ').map(parseFloat);
+    const headTracks=tracks(dimensions.headerColumns);
+    const rowTracks=tracks(dimensions.columns);
+    assert.equal(headTracks.length,rowTracks.length,'heading and body must have identical column count');
+    assert.ok(headTracks.every((width,i)=>Math.abs(width-rowTracks[i])<=0.25),
+      'heading and row columns must align within subpixel rendering tolerance');
     assert.equal(dimensions.headingTextTransform,'uppercase','heading follows canonical uppercase convention');
     assert.equal(dimensions.textColor,'rgb(255, 255, 255)','all table headings must stay white in both themes');
     assert.equal(dimensions.rowBackground,'rgba(0, 0, 0, 0)','rows must not introduce extra cell backgrounds');
