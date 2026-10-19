@@ -641,6 +641,74 @@ async function sharedTabNavigationSmoke(page,url) {
   console.log('Chromium: Phase 4.1 shared icon tabs, themes, keyboard, mobile PASS');
 }
 
+// Print Library live Preact cost cards: current material estimate vs genuinely
+// unavailable cost, visually consistent on light/dark desktop and mobile.
+async function libraryCostSmoke(page,url) {
+  await page.goto(url+'/library',{waitUntil:'load'});
+  await preactReady(page);
+  await page.waitForFunction(()=>window.__PFC_PREACT_LIBRARY__===true);
+  assert.equal(await page.locator('link[href="/print-library-polish.css"]').count(),1,
+    'Print Library cost styling must load');
+  const rows=[
+    {id:'browser-cost-available',fileName:'Sample part.3mf',sizeText:'14 KB',description:'Sample print',
+      printerTarget:'',requirements:'PLA · 1 tool',colours:[],meta:'Not printed yet',warning:'',
+      previewUrl:'',deleteDisabled:false,deleteTitle:'',
+      cost:{available:true,value:'£0.55',detail:'Current filament catalogue prices · 25 g sliced · Estimate only, excludes overheads.'}},
+    {id:'browser-cost-unavailable',fileName:'Unknown cost.gcode',sizeText:'8 KB',description:'',
+      printerTarget:'',requirements:'PLA · 1 tool',colours:[],meta:'Not printed yet',warning:'',
+      previewUrl:'',deleteDisabled:false,deleteTitle:'',
+      cost:{available:false,value:'Unavailable',detail:'Multiple PLA catalogue entries exist; assign one to this file'}}
+  ];
+  const inject=async()=>{
+    await page.evaluate((files)=>{
+      window.dispatchEvent(new CustomEvent('pfc:library-ui-state',{
+        detail:{summary:'2 files · test fixtures',files,emptyText:'No files'}
+      }));
+    },rows);
+    await page.locator('[data-library-file="browser-cost-available"] [data-library-cost]').waitFor();
+  };
+  const dir=process.env.PFC_VISUAL_CAPTURE_DIR
+    ? path.resolve(process.env.PFC_VISUAL_CAPTURE_DIR) : null;
+  if(dir)await fs.mkdir(dir,{recursive:true});
+  for(const theme of ['dark','light']){
+    await page.setViewportSize({width:1365,height:900});
+    await page.evaluate(name=>{document.documentElement.dataset.theme=name;},theme);
+    await inject();
+    const observed=await page.evaluate(()=>{
+      const complete=document.querySelector('[data-library-file="browser-cost-available"] [data-library-cost]');
+      const missing=document.querySelector('[data-library-file="browser-cost-unavailable"] [data-library-cost]');
+      return {
+        title:complete?.querySelector('.library-print-cost-label')?.textContent,
+        available:complete?.querySelector('.library-print-cost-value')?.textContent,
+        unavailable:missing?.querySelector('.library-print-cost-value')?.textContent,
+        note:complete?.querySelector('.library-print-cost-detail')?.textContent,
+        background:complete?getComputedStyle(complete).backgroundColor:null,
+        icon:complete?getComputedStyle(complete.querySelector('.library-print-cost-icon')).maskImage:null
+      };
+    });
+    assert.equal(observed.title,'Estimated material cost / print');
+    assert.equal(observed.available,'£0.55');
+    assert.equal(observed.unavailable,'Unavailable');
+    assert.match(observed.note,/excludes overheads/);
+    assert.notEqual(observed.background,'rgba(0, 0, 0, 0)','cost surface must be theme-aware');
+    assert.ok(observed.icon?.includes('data:image/svg+xml'),'cost icon should come from local CSS');
+    if(dir)await page.screenshot({path:path.join(dir,'print-library-cost-'+theme+'-desktop.png')});
+  }
+  await page.setViewportSize({width:390,height:844});
+  await inject();
+  const card=page.locator('[data-library-file="browser-cost-available"]');
+  const geometry=await card.evaluate((element)=>{
+    const card=element.getBoundingClientRect();
+    const cost=element.querySelector('[data-library-cost]').getBoundingClientRect();
+    return {cardRight:card.right,costRight:cost.right,costLeft:cost.left,cardLeft:card.left};
+  });
+  assert.ok(geometry.costLeft>=geometry.cardLeft-2 && geometry.costRight<=geometry.cardRight+2,
+    'mobile cost card should not overflow the print library entry');
+  if(dir)await page.screenshot({path:path.join(dir,'print-library-cost-light-mobile.png')});
+  await page.setViewportSize({width:1365,height:900});
+  console.log('Chromium: Print Library current material cost display PASS');
+}
+
 async function routeSmoke(page,url) {
   console.log('Chromium: checking direct load of all controller routes');
   for (const [route,id] of routes) {
@@ -1731,6 +1799,7 @@ async function main() {
     await workspaceShellSmoke(browser,url);
     await workspaceHeadingSmoke(page,url);
     await sharedTabNavigationSmoke(page,url);
+    await libraryCostSmoke(page,url);
     await routeSmoke(page,url);
     await queueClickSmoke(browser,url);
     await groupEditorSmoke(browser,url);
