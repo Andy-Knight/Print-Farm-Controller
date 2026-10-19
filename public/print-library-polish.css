@@ -473,3 +473,10 @@
 #libraryDialog .library-production-meta {display:flex;flex-wrap:wrap;gap:4px 10px;margin-top:6px;font-size:.7rem;color:var(--pfc-table-secondary)}
 #libraryDialog .library-production-meta > span {white-space:nowrap}
 @media(max-width:760px) {#libraryDialog .library-production-meta > span {white-space:normal}}
+
+#libraryDialog .library-advanced-filters {flex:0 0 auto;margin:0 0 8px;padding:0;border:1px solid var(--ds-border);border-radius:var(--ds-radius-sm);background:var(--ds-surface)}
+#libraryDialog .library-advanced-filters > summary {padding:8px 12px;cursor:pointer;color:var(--ds-text-muted);font-size:.73rem;font-weight:800;min-height:36px}
+#libraryDialog .library-advanced-filters > summary:focus-visible {outline:2px solid var(--ds-focus);outline-offset:-3px}
+#libraryDialog .library-advanced-filters[open] > .library-filters {padding:10px 12px;margin-bottom:0}
+#libraryDialog > .queue-shell {max-height:max(570px,calc(100dvh - var(--shell-topbar-height,74px) - 34px))}
+@media(max-width:700px) {#libraryDialog > .queue-shell {max-height:max(580px,calc(100dvh - var(--shell-topbar-height,64px) - 24px))}}
