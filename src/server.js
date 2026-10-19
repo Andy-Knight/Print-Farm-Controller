@@ -31,6 +31,7 @@ import { BatchControlService } from './batch-control.js';
 import { FileDistributionService } from './file-distribution.js';
 import { stageUploadRequest } from './upload-staging.js';
 import { addLibraryFile, getLibraryPreview, listLibraryFiles, removeLibraryFile, updateLibraryFileMetadata } from './print-library.js';
+import { estimateLibraryFileCosts } from './library-cost-preview.js';
 import { createFilament, listFilaments, removeFilament, updateFilament } from './filament-catalogue.js';
 import { ReportingService } from './reporting-service.js';
 import { AlertService } from './alert-service.js';
@@ -1548,7 +1549,7 @@ async function apiRoute(req, res, url) {
 
   if (req.method === 'GET' && url.pathname === '/api/library') {
     const queueSnapshot = printQueue.getSnapshot();
-    const files = (await listLibraryFiles()).map((file) => {
+    const filesWithUsage = (await listLibraryFiles()).map((file) => {
       const references = (queueSnapshot.jobs || []).filter((job) => job.stagedFile?.id === file.id);
       const completed = references.filter((job) => job.status === 'completed');
       const finished = references
@@ -1566,6 +1567,7 @@ async function apiRoute(req, res, url) {
         }
       };
     });
+    const files = await estimateLibraryFileCosts(filesWithUsage);
     return json(res, 200, { files });
   }
 
