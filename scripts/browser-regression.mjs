@@ -682,7 +682,7 @@ async function libraryCostSmoke(page,url) {
         available:complete?.querySelector('.library-print-cost-value')?.textContent,
         unavailable:missing?.querySelector('.library-print-cost-value')?.textContent,
         note:complete?.querySelector('.library-print-cost-detail')?.textContent,
-        background:complete?getComputedStyle(complete).backgroundColor:null,
+        background:complete?getComputedStyle(complete.closest('.library-file-row')).backgroundColor:null,
         icon:complete?getComputedStyle(complete.querySelector('.library-print-cost-icon')).maskImage:null
       };
     });
@@ -690,7 +690,7 @@ async function libraryCostSmoke(page,url) {
     assert.equal(observed.available,'£0.55');
     assert.equal(observed.unavailable,'Unavailable');
     assert.match(observed.note,/excludes overheads/);
-    assert.notEqual(observed.background,'rgba(0, 0, 0, 0)','cost surface must be theme-aware');
+    assert.notEqual(observed.background,'rgba(0, 0, 0, 0)','library row surface must be theme-aware');
     assert.ok(observed.icon?.includes('data:image/svg+xml'),'cost icon should come from local CSS');
     if(dir)await page.screenshot({path:path.join(dir,'print-library-cost-'+theme+'-desktop.png')});
   }
@@ -707,6 +707,112 @@ async function libraryCostSmoke(page,url) {
   if(dir)await page.screenshot({path:path.join(dir,'print-library-cost-light-mobile.png')});
   await page.setViewportSize({width:1365,height:900});
   console.log('Chromium: Print Library current material cost display PASS');
+}
+
+// Browser smoke against real API-backed temporary library files (never run
+// mutations against an external configured controller). Verifies that the
+// selected row, toolbar and existing queue/edit/delete workflows still work.
+async function librarySelectionSmoke(page,url,{mutateFixture = true} = {}) {
+  await page.setViewportSize({width:1365,height:900});
+  await page.goto(url+'/library',{waitUntil:'load'});
+  await preactReady(page);
+  if(!mutateFixture) return;
+  const names=['ui-selection-first.gcode','ui-selection-second.gcode'];
+  for(const [i,name] of names.entries()){
+    const response=await page.evaluate(async ({name,i})=>{
+      const body='; filament_type = PLA\\n; filament used [g] = '+(10+i)+'\\nT0\\nG1 X10\\n';
+      const request=await fetch('/api/library',{
+        method:'POST',
+        headers:{'x-file-name':name},
+        body:new Blob([body],{type:'application/octet-stream'})
+      });
+      return {status:request.status,data:await request.json()};
+    },{name,i});
+    assert.ok([200,201].includes(response.status),'fixture upload must succeed');
+  }
+  await page.reload({waitUntil:'load'});
+  await preactReady(page);
+  await page.waitForFunction(()=>document.querySelectorAll('#libraryList [data-library-file]').length===2);
+  assert.equal(await page.locator('#libraryQueueSelectedBtn').isDisabled(),true);
+  assert.equal(await page.locator('#libraryEditSelectedBtn').isDisabled(),true);
+  assert.equal(await page.locator('#libraryDeleteSelectedBtn').isDisabled(),true);
+  assert.equal(await page.locator('#libraryTableHead').isVisible(),true);
+  assert.ok((await page.locator('#libraryTableHead').innerText()).includes('Estimated cost'));
+  const rows=page.locator('#libraryList .library-file-row');
+  const firstId=await rows.nth(0).getAttribute('data-library-file');
+  const secondId=await rows.nth(1).getAttribute('data-library-file');
+  await rows.nth(0).locator('[data-library-select]').click();
+  assert.equal(await page.locator('#libraryQueueSelectedBtn').isEnabled(),true);
+  assert.equal(await page.locator('#libraryEditSelectedBtn').isEnabled(),true);
+  assert.equal(await page.locator('#libraryDeleteSelectedBtn').isEnabled(),true);
+  assert.equal(await page.locator('[data-library-file="'+firstId+'"]').getAttribute('data-library-selected'),'true');
+  await page.locator('#libraryQueueSelectedBtn').click();
+  await page.waitForFunction(()=>document.querySelector('#queueAddDialog')?.open===true);
+  assert.equal(await page.locator('#libraryDialog').isVisible(),true,'library route stays visible behind queue modal');
+  await page.locator('[data-queue-add-close]').first().click();
+  await page.locator('#libraryEditSelectedBtn').click();
+  await page.waitForFunction(()=>document.querySelector('#libraryMetadataDialog')?.open===true);
+  await page.locator('[data-library-metadata-close]').first().click();
+  await page.locator('[data-library-file="'+secondId+'"]').click();
+  assert.equal(await page.locator('[data-library-file="'+secondId+'"]').getAttribute('data-library-selected'),'true');
+  assert.equal(await page.locator('[data-library-file="'+firstId+'"]').getAttribute('data-library-selected'),'false');
+  // Clicking the same selection button a second time clears the selection.
+  await page.locator('[data-library-file="'+secondId+'"] [data-library-select]').click();
+  assert.equal(await page.locator('#libraryQueueSelectedBtn').isDisabled(),true);
+  await page.locator('[data-library-file="'+firstId+'"] [data-library-select]').focus();
+  await page.keyboard.press('Space');
+  assert.equal(await page.locator('#libraryQueueSelectedBtn').isEnabled(),true,'keyboard activation selects the row');
+  // An item hidden by search must not remain queueable or deletable.
+  await page.locator('#librarySearchInput').fill('ui-selection-second');
+  assert.equal(await page.locator('#libraryQueueSelectedBtn').isDisabled(),true);
+  assert.equal(await page.locator('#librarySelectionStatus').innerText(),'Select a file to enable actions');
+  await page.locator('#librarySearchInput').fill('');
+  await page.locator('[data-library-file="'+firstId+'"] [data-library-select]').click();
+  await page.reload({waitUntil:'load'});
+  await preactReady(page);
+  await page.waitForFunction(()=>document.querySelectorAll('#libraryList [data-library-file]').length===2);
+  // The initial state after a full browser reload is intentionally unselected.
+  assert.equal(await page.locator('#libraryQueueSelectedBtn').isDisabled(),true);
+  for(const theme of ['dark','light']){
+    await page.evaluate(x=>{document.documentElement.dataset.theme=x;},theme);
+    const dimensions=await page.locator('.library-file-row').first().evaluate((node)=>{
+      return { display:getComputedStyle(node).display, columns:getComputedStyle(node).gridTemplateColumns,
+        background:getComputedStyle(node).backgroundColor };
+    });
+    assert.equal(dimensions.display,'grid');
+    assert.ok(dimensions.columns.split(' ').length>=7,'desktop library has seven aligned columns');
+    assert.ok(dimensions.background!=='rgba(0, 0, 0, 0)');
+  }
+  await page.setViewportSize({width:390,height:844});
+  await page.waitForFunction(()=>getComputedStyle(document.querySelector('#libraryTableHead')).display==='none');
+  const overflow=await page.evaluate(()=>{
+    const list=document.querySelector('#libraryList').getBoundingClientRect();
+    const card=document.querySelector('.library-file-row').getBoundingClientRect();
+    return {listLeft:list.left,listRight:list.right,cardLeft:card.left,cardRight:card.right};
+  });
+  assert.ok(overflow.cardLeft>=overflow.listLeft-2 && overflow.cardRight<=overflow.listRight+2,
+    'mobile rows must fit in the scroll-free list');
+  await page.locator('[data-library-select]').first().click();
+  assert.equal(await page.locator('#libraryDeleteSelectedBtn').isEnabled(),true);
+  if(process.env.PFC_VISUAL_CAPTURE_DIR){
+    const output=path.resolve(process.env.PFC_VISUAL_CAPTURE_DIR);
+    await fs.mkdir(output,{recursive:true});
+    await page.screenshot({path:path.join(output,'library-selected-mobile.png'),fullPage:true});
+  }
+  // Clean up fixture files, preserving other records.
+  for(const id of [firstId,secondId]){
+    await page.locator('#librarySearchInput').fill('');
+    await page.locator('[data-library-file="'+id+'"] [data-library-select]').click();
+    if(await page.locator('#libraryDeleteSelectedBtn').isDisabled()){
+      await page.locator('[data-library-file="'+id+'"] [data-library-select]').click();
+    }
+    page.once('dialog',dialog=>dialog.accept());
+    await page.locator('#libraryDeleteSelectedBtn').click();
+    await page.waitForFunction((id)=>!document.querySelector('[data-library-file="'+id+'"]'),id);
+  }
+  assert.equal(await page.locator('#libraryQueueSelectedBtn').isDisabled(),true);
+  await page.setViewportSize({width:1365,height:900});
+  console.log('Chromium: Print Library table, selection, toolbar, queue/edit/delete and mobile PASS');
 }
 
 async function routeSmoke(page,url) {
@@ -1800,6 +1906,7 @@ async function main() {
     await workspaceHeadingSmoke(page,url);
     await sharedTabNavigationSmoke(page,url);
     await libraryCostSmoke(page,url);
+    await librarySelectionSmoke(page,url,{ mutateFixture:!externalUrl });
     await routeSmoke(page,url);
     await queueClickSmoke(browser,url);
     await groupEditorSmoke(browser,url);
