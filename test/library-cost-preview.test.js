@@ -94,7 +94,7 @@ test('Print Library API and both UI renderers expose a clearly-labelled per-prin
   assert.match(app,/NumberFormat\('en-GB'/);
   assert.match(app,/costEstimate/);
   assert.match(app,/data-library-cost/);
-  assert.match(app,/cost,\n    selected:/);
+  assert.match(app,/cost,\n    production,/);
   assert.match(preact,/<LibraryCost cost=\{file\.cost\} \/>/);
   assert.match(preact,/Estimated material cost \/ print/);
   assert.match(css,/#libraryDialog \.library-print-cost/);
