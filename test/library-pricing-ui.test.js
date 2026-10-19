@@ -36,3 +36,27 @@ test('Selling-price settings and Preact/fallback sale view use the same server e
   assert.match(css,/#libraryDialog \.library-sale-price/);
   assert.match(css,/\.library-sundry-row/);
 });
+
+test('Add and Edit details use a scrolling body and fixed action header/footer',()=>{
+  const html=read('public/index.html');
+  const css=read('public/print-library-polish.css');
+  for (const name of ['libraryAdd','libraryMetadata']) {
+    const section=html.split('<dialog id="'+name+'Dialog"')[1]?.split('</dialog>')[0] || '';
+    assert.match(section,/<div class="dialog-head">/);
+    assert.match(section,/<div class="library-editor-body"[^>]*>/);
+    assert.match(section,/<div class="library-editor-footer">/);
+    const header=section.indexOf('class="dialog-head"');
+    const body=section.indexOf('class="library-editor-body"');
+    const footer=section.indexOf('class="library-editor-footer"');
+    const actions=section.indexOf('class="actions"');
+    assert.ok(header<body && body<footer && footer<actions,
+      name+' form header, fields and fixed footer should be in that order');
+  }
+  assert.match(css,/#libraryAddDialog > form,#libraryMetadataDialog > form \{/);
+  assert.match(css,/#libraryAddDialog \.library-editor-body,#libraryMetadataDialog \.library-editor-body \{/);
+  assert.match(css,/#libraryAddDialog \.library-editor-footer,#libraryMetadataDialog \.library-editor-footer \{/);
+  assert.match(css,/overflow-y:auto;/);
+  assert.match(css,/#libraryAddDialog \.library-pricing-fields label,#libraryMetadataDialog \.library-pricing-fields label \{[\s\S]*?flex-direction:column;/);
+  assert.match(css,/#libraryAddDialog \.library-pricing-fields label > select/);
+  assert.match(css,/#libraryMetadataDialog \.library-pricing-fields label > input/);
+});
