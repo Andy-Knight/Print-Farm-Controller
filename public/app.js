@@ -209,11 +209,13 @@ const libraryFavouriteSelectedBtn = document.querySelector('#libraryFavouriteSel
 const libraryPrinterFilter = document.querySelector('#libraryPrinterFilter');
 const libraryMaterialFilter = document.querySelector('#libraryMaterialFilter');
 const libraryTagFilter = document.querySelector('#libraryTagFilter');
+const libraryCategoryFilter = document.querySelector('#libraryCategoryFilter');
 const libraryCostFilter = document.querySelector('#libraryCostFilter');
 const libraryReadinessFilter = document.querySelector('#libraryReadinessFilter');
 const libraryFavouritesFilter = document.querySelector('#libraryFavouritesFilter');
 const libraryClearFiltersBtn = document.querySelector('#libraryClearFiltersBtn');
 const librarySortSelect = document.querySelector('#librarySortSelect');
+const libraryEstimateQuantity = document.querySelector('#libraryEstimateQuantity');
 const librarySortDirectionBtn = document.querySelector('#librarySortDirectionBtn');
 const libraryResultCount = document.querySelector('#libraryResultCount');
 const librarySelectionStatus = document.querySelector('#librarySelectionStatus');
@@ -237,6 +239,7 @@ const libraryMetadataFileName = document.querySelector('#libraryMetadataFileName
 const libraryMetadataPrinterTarget = document.querySelector('#libraryMetadataPrinterTarget');
 const libraryMetadataDescription = document.querySelector('#libraryMetadataDescription');
 const libraryMetadataTags = document.querySelector('#libraryMetadataTags');
+const libraryMetadataCategory = document.querySelector('#libraryMetadataCategory');
 const libraryMetadataFavourite = document.querySelector('#libraryMetadataFavourite');
 const libraryFilamentAssignments = document.querySelector('#libraryFilamentAssignments');
 const libraryMetadataError = document.querySelector('#libraryMetadataError');
@@ -3634,6 +3637,20 @@ function libraryCostView(file) {
   };
 }
 
+function libraryBatchQuantity() {
+  return Math.max(1,Math.min(999,Math.trunc(Number(libraryEstimateQuantity?.value)||1)));
+}
+function libraryBatchCostView(file) {
+  const estimate=file?.costEstimate || {};
+  const quantity=libraryBatchQuantity();
+  if(quantity===1 || !estimate.complete || !Number.isFinite(estimate.totalCost)) return '';
+  const currency=String(estimate.currency || '');
+  const total=estimate.totalCost*quantity;
+  try {
+    return new Intl.NumberFormat('en-GB',{style:'currency',currency,
+      minimumFractionDigits:2,maximumFractionDigits:total>0&&total<.01?4:2}).format(total);
+  } catch {return currency+' '+total.toFixed(2);}
+}
 function libraryProductionInfo(file) {
   const weight=libraryWeightGrams(file);
   const duration=libraryPrintSeconds(file);
@@ -3655,6 +3672,7 @@ function libraryReadinessView(file) {
 function libraryFileMarkup(file) {
   const cost = libraryCostView(file);
   const production = libraryProductionInfo(file);
+  const batchCost = libraryBatchCostView(file);
   const readiness = libraryReadinessView(file);
   const usage = file.usage || {};
   const lastPrinted = usage.lastPrintedAt ? `Last printed ${formatLastSeen(usage.lastPrintedAt)}` : 'Not printed yet';
@@ -3673,6 +3691,7 @@ function libraryFileMarkup(file) {
     <div class="library-cell library-preview-cell">${libraryPreviewMarkup(file)}</div>
     <div class="library-cell library-file-cell library-file-main">
       <div class="library-file-title"><strong title="${escapeHtml(file.fileName)}">${escapeHtml(file.fileName)}</strong>${file.favourite ? '<span class="library-fav-mark" title="Favourite">★</span>' : ''}</div>
+      ${file.category ? `<span class="library-category">${escapeHtml(file.category)}</span>` : ''}
       <span class="library-readiness library-readiness-${readiness.level}" title="${escapeHtml(readiness.detail)}">${escapeHtml(readiness.label)}</span>
       ${Array.isArray(file.tags)&&file.tags.length ? `<div class="library-tags">${file.tags.map((tag)=>`<span class="library-tag">${escapeHtml(tag)}</span>`).join('')}</div>` : ''}
       <small class="library-file-size">${escapeHtml(formatBytes(file.size))}</small>
@@ -3695,6 +3714,7 @@ function libraryFileMarkup(file) {
         <div class="library-print-cost-copy">
           <span class="library-print-cost-label">Estimated material cost / print</span>
           <strong class="library-print-cost-value">${escapeHtml(cost.value)}</strong>
+          ${batchCost ? `<small class="library-batch-estimate">Batch ×${libraryBatchQuantity()}: ${escapeHtml(batchCost)} material</small>` : ''}
           <small class="library-print-cost-detail">${escapeHtml(cost.detail)}</small>
         </div>
       </div>
@@ -3711,6 +3731,7 @@ function libraryFileMarkup(file) {
 function libraryFileViewModel(file) {
   const cost = libraryCostView(file);
   const production = libraryProductionInfo(file);
+  const batchCost = libraryBatchCostView(file);
   const readiness = libraryReadinessView(file);
   const usage = file?.usage || {};
   const completedPrints = Number(usage.completedPrints || 0);
@@ -3728,6 +3749,9 @@ function libraryFileViewModel(file) {
     requirements:libraryRequirementSummary(file),
     colours,
     cost,
+    batchCost,
+    batchQuantity:libraryBatchQuantity(),
+    category:String(file?.category || ''),
     production,
     readiness,
     tags:Array.isArray(file?.tags) ? file.tags : [],
@@ -3796,6 +3820,7 @@ function libraryFilters() {
     printer:libraryPrinterFilter?.value || '',
     material:libraryMaterialFilter?.value || '',
     tag:libraryTagFilter?.value || '',
+    category:libraryCategoryFilter?.value || '',
     cost:libraryCostFilter?.value || '',
     readiness:libraryReadinessFilter?.value || '',
     favourites:libraryFavouritesFilter?.checked === true,
@@ -3808,10 +3833,12 @@ function libraryFacetOptions() {
     ? [x.printerTarget.adapterType,x.printerTarget.model].filter(Boolean).join(':') : '').filter(Boolean))].sort();
   const materials=[...new Set(files.flatMap(libraryMaterials))].sort((a,b)=>a.localeCompare(b));
   const tags=[...new Set(files.flatMap(x=>x.tags || []))].sort((a,b)=>a.localeCompare(b));
+  const categories=[...new Set(files.map(x=>x.category).filter(Boolean))].sort((a,b)=>a.localeCompare(b));
   for(const [el,items,label] of [
     [libraryPrinterFilter,printers,'All printer types'],
     [libraryMaterialFilter,materials,'All materials'],
-    [libraryTagFilter,tags,'All tags']
+    [libraryTagFilter,tags,'All tags'],
+    [libraryCategoryFilter,categories,'All categories']
   ]) {
     if (!el) continue;
     const previous=el.value;
@@ -3898,7 +3925,7 @@ async function uploadLibraryFile(file, description = '', printerTarget = null) {
   return stored;
 }
 
-async function updateLibraryMetadata(fileId, { description = '', printerTarget = null, filamentAssignments = undefined, tags = undefined, favourite = undefined } = {}) {
+async function updateLibraryMetadata(fileId, { description = '', printerTarget = null, filamentAssignments = undefined, category = undefined, tags = undefined, favourite = undefined } = {}) {
   const notes = String(description || '').trim();
   if (notes.length > 4000) throw new Error('Print Library description must be 4000 characters or fewer');
   const payload = await api(`/api/library/${encodeURIComponent(fileId)}`, {
@@ -3907,6 +3934,7 @@ async function updateLibraryMetadata(fileId, { description = '', printerTarget =
       description:notes,
       printerTarget,
       ...(filamentAssignments !== undefined ? { filamentAssignments } : {}),
+      ...(category !== undefined ? {category} : {}),
       ...(tags !== undefined ? {tags} : {}),
       ...(favourite !== undefined ? {favourite} : {})
     })
@@ -5157,16 +5185,20 @@ libraryBtn?.addEventListener('click', async () => {
 document.querySelectorAll('[data-library-close]').forEach((el) => el.addEventListener('click', () => libraryDialog?.close()));
 function resetLibraryPagination() { libraryCurrentPage=0; renderPrintLibrary(); }
 librarySearchInput?.addEventListener('input', resetLibraryPagination);
-for(const element of [libraryPrinterFilter,libraryMaterialFilter,libraryTagFilter,
+for(const element of [libraryPrinterFilter,libraryMaterialFilter,libraryTagFilter,libraryCategoryFilter,
   libraryCostFilter,libraryReadinessFilter,libraryFavouritesFilter]) {
   element?.addEventListener('change',resetLibraryPagination);
 }
 libraryClearFiltersBtn?.addEventListener('click',()=>{
   if (librarySearchInput) librarySearchInput.value='';
-  for(const field of [libraryPrinterFilter,libraryMaterialFilter,libraryTagFilter,
+  for(const field of [libraryPrinterFilter,libraryMaterialFilter,libraryTagFilter,libraryCategoryFilter,
     libraryCostFilter,libraryReadinessFilter]) if(field) field.value='';
   if(libraryFavouritesFilter) libraryFavouritesFilter.checked=false;
   resetLibraryPagination();
+});
+libraryEstimateQuantity?.addEventListener('change',()=>{
+  if(libraryEstimateQuantity) libraryEstimateQuantity.value=String(libraryBatchQuantity());
+  renderPrintLibrary({preserveScroll:true});
 });
 librarySortSelect?.addEventListener('change',()=>{
   librarySortKey=librarySortSelect.value;
@@ -5239,6 +5271,7 @@ libraryMetadataForm?.addEventListener('submit', async (event) => {
       description:libraryMetadataDescription?.value || '',
       printerTarget:parsePrinterTargetValue(libraryMetadataPrinterTarget?.value || ''),
       filamentAssignments:collectLibraryFilamentAssignments(),
+      category:libraryMetadataCategory?.value || '',
       tags:String(libraryMetadataTags?.value || '').split(',').map(x=>x.trim()).filter(Boolean),
       favourite:libraryMetadataFavourite?.checked===true
     });
@@ -5257,6 +5290,7 @@ async function openLibrarySelectedEditor(file) {
   if (libraryMetadataPrinterTarget) libraryMetadataPrinterTarget.value = printerTargetValue(file.printerTarget);
   if (libraryMetadataDescription) libraryMetadataDescription.value = String(file.description || '');
   if (libraryMetadataTags) libraryMetadataTags.value = (file.tags || []).join(', ');
+  if (libraryMetadataCategory) libraryMetadataCategory.value=String(file.category || '');
   if (libraryMetadataFavourite) libraryMetadataFavourite.checked = file.favourite===true;
   if (libraryMetadataError) { libraryMetadataError.textContent = ''; libraryMetadataError.classList.add('hidden'); }
   if (libraryFilamentAssignments) libraryFilamentAssignments.innerHTML = '<div class="subtle">Loading filament catalogue…</div>';
