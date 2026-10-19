@@ -847,6 +847,111 @@ async function librarySelectionSmoke(page,url,{mutateFixture = true} = {}) {
   console.log('Chromium: Print Library table, selection, toolbar, queue/edit/delete and mobile PASS');
 }
 
+// Only the Print Library data rows should scroll. Toolbar, search and the
+// standard desktop table headings remain visible on long lists in either
+// theme, and mobile keeps its action bar above a scrollable card stack.
+async function libraryScrollingSmoke(page,url) {
+  await page.setViewportSize({width:1365,height:900});
+  await page.goto(url+'/library',{waitUntil:'load'});
+  await preactReady(page);
+  await page.waitForFunction(()=>window.__PFC_PREACT_LIBRARY__ === true);
+  const sample=Array.from({length:65},(_,i)=>({
+    id:'scroll-sample-'+i,
+    fileName:'Workshop component '+String(i+1).padStart(3,'0')+'.3mf',
+    sizeText:'28 KB',description:'Reusable print file',
+    printerTarget:'Any supported printer',requirements:'PLA · 0.4 mm',
+    colours:[],warning:'',previewUrl:'',selected:false,
+    cost:{available:true,value:'£0.62',detail:'Current filament catalogue prices'},
+    historyCount:'2 completed prints',historyLast:'Not printed yet',historyAdded:'Added recently'
+  }));
+  for(const viewport of [
+    {width:1365,height:900,desktop:true},
+    {width:390,height:844,desktop:false}
+  ]) {
+    await page.setViewportSize(viewport);
+    for(const theme of ['dark','light']) {
+      await page.evaluate(([files,theme])=>{
+        document.documentElement.dataset.theme=theme;
+        window.dispatchEvent(new CustomEvent('pfc:library-ui-state',{
+          detail:{summary:files.length+' files',files,emptyText:'No files'}
+        }));
+      },[sample,theme]);
+      await page.waitForFunction(()=>document.querySelectorAll('#libraryList .library-file-row').length===65);
+      const before=await page.evaluate(()=>{
+        const header=document.querySelector('#libraryTableHead');
+        const list=document.querySelector('#libraryList');
+        const actions=document.querySelector('#libraryQueueSelectedBtn');
+        const search=document.querySelector('#librarySearchInput');
+        return {
+          headerTop:header.getBoundingClientRect().top,
+          headerBottom:header.getBoundingClientRect().bottom,
+          actionsTop:actions.getBoundingClientRect().top,
+          searchTop:search.getBoundingClientRect().top,
+          listTop:list.getBoundingClientRect().top,
+          listBottom:list.getBoundingClientRect().bottom,
+          listClient:list.clientHeight,
+          listContent:list.scrollHeight,
+          listOverflow:getComputedStyle(list).overflowY,
+          headDisplay:getComputedStyle(header).display,
+          pageScroll:window.scrollY,
+          headingScrollGutter:getComputedStyle(header).scrollbarGutter,
+          bodyScrollGutter:getComputedStyle(list).scrollbarGutter,
+          headerCols:getComputedStyle(header).gridTemplateColumns,
+          firstRowCols:getComputedStyle(list.querySelector('.library-file-row')).gridTemplateColumns
+        };
+      });
+      assert.ok(before.listContent>before.listClient+100,'long list must scroll inside its region');
+      assert.equal(before.listOverflow,'auto','only the library rows should scroll');
+      assert.ok(before.listClient>=125,'file region must remain usable at '+viewport.width+'px');
+      assert.ok(before.actionsTop>=0 && before.actionsTop<viewport.height,
+        'selected-file actions remain onscreen above long lists');
+      assert.ok(before.searchTop>=0 && before.searchTop<viewport.height,
+        'search remains onscreen above long lists');
+      assert.ok(before.listTop<viewport.height,'scrollable rows start inside viewport');
+      if(viewport.desktop) {
+        assert.notEqual(before.headDisplay,'none','desktop headings remain visible');
+        assert.ok(before.headerTop>=0 && before.headerBottom<viewport.height,
+          'desktop table headings stay visible');
+        assert.equal(before.headingScrollGutter,before.bodyScrollGutter,
+          'heading and list reserve matching scrollbar gutter');
+        const h=before.headerCols.split(' ').map(parseFloat);
+        const r=before.firstRowCols.split(' ').map(parseFloat);
+        assert.ok(h.every((width,i)=>Math.abs(width-r[i])<1),
+          'headers and rows remain column-aligned with native scrollbar');
+      } else {
+        assert.equal(before.headDisplay,'none','mobile retains labelled cards');
+      }
+      await page.evaluate(()=>{const list=document.querySelector('#libraryList');list.scrollTop=list.scrollHeight;});
+      await page.waitForFunction(()=>document.querySelector('#libraryList')?.scrollTop>100);
+      const after=await page.evaluate(()=>{
+        const header=document.querySelector('#libraryTableHead');
+        const list=document.querySelector('#libraryList');
+        return {
+          headerTop:header.getBoundingClientRect().top,
+          actionsTop:document.querySelector('#libraryQueueSelectedBtn').getBoundingClientRect().top,
+          searchTop:document.querySelector('#librarySearchInput').getBoundingClientRect().top,
+          pageScroll:window.scrollY,
+          listScroll:list.scrollTop,
+          firstRowTop:list.querySelector('.library-file-row').getBoundingClientRect().top
+        };
+      });
+      assert.equal(after.headerTop,before.headerTop,'heading must not move with rows');
+      assert.equal(after.actionsTop,before.actionsTop,'toolbar must not move with rows');
+      assert.equal(after.searchTop,before.searchTop,'search must not move with rows');
+      assert.equal(after.pageScroll,before.pageScroll,'inner wheel should not move the page');
+      assert.ok(after.firstRowTop<before.listTop,'file rows must move independently of heading');
+      if(process.env.PFC_VISUAL_CAPTURE_DIR && viewport.desktop) {
+        const out=path.resolve(process.env.PFC_VISUAL_CAPTURE_DIR);
+        await fs.mkdir(out,{recursive:true});
+        await page.screenshot({path:path.join(out,
+          'library-fixed-toolbar-'+theme+'-desktop.png'),fullPage:true});
+      }
+    }
+  }
+  await page.setViewportSize({width:1365,height:900});
+  console.log('Chromium: Print Library fixed headings and actions, inner scrolling PASS');
+}
+
 async function routeSmoke(page,url) {
   console.log('Chromium: checking direct load of all controller routes');
   for (const [route,id] of routes) {
@@ -1939,6 +2044,7 @@ async function main() {
     await sharedTabNavigationSmoke(page,url);
     await libraryCostSmoke(page,url);
     await librarySelectionSmoke(page,url,{ mutateFixture:!externalUrl });
+    await libraryScrollingSmoke(page,url);
     await routeSmoke(page,url);
     await queueClickSmoke(browser,url);
     await groupEditorSmoke(browser,url);
