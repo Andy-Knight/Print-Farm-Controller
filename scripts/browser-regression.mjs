@@ -737,7 +737,7 @@ async function librarySelectionSmoke(page,url,{mutateFixture = true} = {}) {
   assert.equal(await page.locator('#libraryEditSelectedBtn').isDisabled(),true);
   assert.equal(await page.locator('#libraryDeleteSelectedBtn').isDisabled(),true);
   assert.equal(await page.locator('#libraryTableHead').isVisible(),true);
-  assert.ok((await page.locator('#libraryTableHead').innerText()).includes('Estimated cost'));
+  assert.ok((await page.locator('#libraryTableHead').textContent()).includes('Estimated cost'));
   const rows=page.locator('#libraryList .library-file-row');
   const firstId=await rows.nth(0).getAttribute('data-library-file');
   const secondId=await rows.nth(1).getAttribute('data-library-file');
