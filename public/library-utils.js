@@ -84,6 +84,14 @@ export function librarySortAndFilter(files, options={}) {
   return filtered.sort((a,b)=>{
     if (['added','lastPrinted','cost','prints','duration','weight'].includes(sort)) {
       const left=numeric(a,sort),right=numeric(b,sort);
+      // Monetary figures in different currencies are not directly
+      // comparable. Group currency codes first without inventing FX rates.
+      if (sort==='cost' && left!==null && right!==null) {
+        const leftCurrency=String(a.costEstimate?.currency || '');
+        const rightCurrency=String(b.costEstimate?.currency || '');
+        const currencyOrder=leftCurrency.localeCompare(rightCurrency);
+        if(currencyOrder) return currencyOrder;
+      }
       // Unknowns always below known values, in either sort direction.
       if (left===null && right!==null) return 1;
       if (right===null && left!==null) return -1;
