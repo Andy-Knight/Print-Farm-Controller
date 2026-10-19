@@ -268,10 +268,10 @@ test('Preact Print Library preserves delegated actions, search filtering and van
   assert.match(app, /function publishPrintLibraryUiState/);
   assert.match(app, /window\.__PFC_PREACT_LIBRARY__/);
   assert.match(app, /pfc:library-ui-state/);
-  assert.match(app, /const visible = query \? files\.filter\(\(file\) => librarySearchText\(file\)\.includes\(query\)\) : files/);
-  assert.match(app, /librarySearchInput\?\.addEventListener\('input', renderPrintLibrary\)/);
+  assert.match(app, /const visible = librarySortAndFilter\(files, libraryFilters\(\)\)/);
+  assert.match(app, /librarySearchInput\?\.addEventListener\('input', resetLibraryPagination\)/);
   assert.match(app, /libraryList\?\.addEventListener\('click'/);
-  assert.match(app, /libraryList\.innerHTML = visible\.length/);
+  assert.match(app, /libraryList\.innerHTML=pagination\.items\.length/);
 });
 
 test('Preact Print Library preserves file metadata and delete interlock presentation', async () => {
