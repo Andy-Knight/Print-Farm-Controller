@@ -460,3 +460,16 @@
 @media(max-width:1390px) {#libraryDialog .library-filters {grid-template-columns:repeat(3,minmax(0,1fr))}}
 @media(max-width:760px) {#libraryDialog .library-filters {grid-template-columns:repeat(2,minmax(0,1fr))}#libraryDialog .library-sort-extras {justify-content:flex-start}#libraryDialog .library-table-head {display:none}}
 @media(max-width:460px) {#libraryDialog .library-filters .library-favourites-filter {white-space:normal}}
+
+/* Production information and readiness. Readiness reflects only currently
+ * verified printer state and is re-evaluated by the queue at print time. */
+#libraryDialog .library-readiness {display:inline-flex;align-items:center;max-width:100%;margin-top:7px;padding:3px 7px;border:1px solid var(--ds-border);border-radius:999px;font-size:.68rem;font-weight:750;line-height:1.3;overflow-wrap:anywhere}
+#libraryDialog .library-readiness-ready {border-color:#326d4d;background:rgba(24,118,66,.14);color:var(--ds-success,#51bd84)}
+#libraryDialog .library-readiness-attention {border-color:#927033;background:rgba(158,115,35,.13);color:var(--ds-warning,#e7b35e)}
+#libraryDialog .library-readiness-incompatible {border-color:#984249;background:rgba(162,52,63,.14);color:var(--ds-danger,#f18087)}
+#libraryDialog .library-fav-mark {color:#d6a84c;font-weight:800;font-size:.9rem}
+#libraryDialog .library-tags {display:flex;flex-wrap:wrap;gap:4px;margin-top:6px}
+#libraryDialog .library-tag {display:inline-block;padding:3px 6px;border:1px solid var(--pfc-table-border);border-radius:5px;background:transparent;color:var(--ds-text-muted);font-size:.67rem;overflow-wrap:anywhere}
+#libraryDialog .library-production-meta {display:flex;flex-wrap:wrap;gap:4px 10px;margin-top:6px;font-size:.7rem;color:var(--pfc-table-secondary)}
+#libraryDialog .library-production-meta > span {white-space:nowrap}
+@media(max-width:760px) {#libraryDialog .library-production-meta > span {white-space:normal}}
