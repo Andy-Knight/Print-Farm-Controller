@@ -1,6 +1,6 @@
 # Print Farm Controller — SaaS UI design system (Phase 1)
 
-**Status:** Phases 1–3 merged as v0.54.0 (PR #96); Phase 4 landed as v0.55.0 (PR #98); Printer Details follow-up PR #99 and standardised tabs PR #100 comprise v0.56.0. No printer-control protocols, endpoint contracts or edition limits change.
+**Status:** Phases 1–3 merged as v0.54.0 (PR #96); Phase 4 landed as v0.55.0 (PR #98); Printer Details follow-up PR #99 and standardised tabs PR #100 comprise v0.56.0. The Print Library workbench, live readiness and cost workflow (PR #101) comprise v0.57.0. No printer-control protocols, endpoint contracts or edition limits change.
 
 ## Product direction
 A professional, calm, information-first operations workspace that resembles established SaaS applications while remaining *local-first*: no CDN, external fonts, remote assets or third-party analytics. Dense fleet operations stay legible and users can keep working when printer SSE telemetry refreshes during an edit.
