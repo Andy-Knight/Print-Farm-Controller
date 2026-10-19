@@ -198,6 +198,11 @@ const libraryDialog = document.querySelector('#libraryDialog');
 const librarySummary = document.querySelector('#librarySummary');
 const librarySearchInput = document.querySelector('#librarySearchInput');
 const libraryUploadBtn = document.querySelector('#libraryUploadBtn');
+const libraryQueueSelectedBtn = document.querySelector('#libraryQueueSelectedBtn');
+const libraryEditSelectedBtn = document.querySelector('#libraryEditSelectedBtn');
+const libraryDeleteSelectedBtn = document.querySelector('#libraryDeleteSelectedBtn');
+const librarySelectionStatus = document.querySelector('#librarySelectionStatus');
+const libraryTableHead = document.querySelector('#libraryTableHead');
 const libraryStatus = document.querySelector('#libraryStatus');
 const libraryError = document.querySelector('#libraryError');
 const libraryList = document.querySelector('#libraryList');
@@ -484,6 +489,8 @@ let queueInteractionReleaseTimer = null;
 const pendingBedClearanceActions = new Set();
 let alertsSummaryState = { unreadCount:0, attentionUnreadCount:0, recent:[] };
 let libraryState = { files:[] };
+let librarySelectedFileId = null;
+let libraryActionBusy = false;
 let printerGroupsState = { version:1, groups:[] };
 let libraryMetadataFile = null;
 let libraryFilamentCatalogue = [];
@@ -3609,37 +3616,50 @@ function libraryCostView(file) {
 function libraryFileMarkup(file) {
   const cost = libraryCostView(file);
   const usage = file.usage || {};
-  const lastPrinted = usage.lastPrintedAt ? `Last printed ${formatLastSeen(usage.lastPrintedAt)}` : 'Not printed from queue yet';
+  const lastPrinted = usage.lastPrintedAt ? `Last printed ${formatLastSeen(usage.lastPrintedAt)}` : 'Not printed yet';
+  const count = Number(usage.completedPrints || 0);
+  const historyCount = `${count} completed print${count === 1 ? '' : 's'}`;
   const warning = file.requirements?.warning ? `<div class="library-warning">${escapeHtml(file.requirements.warning)}</div>` : '';
   const description = String(file.description || '').trim();
-  const printerTarget = file.printerTarget
-    ? `<div class="library-printer-target"><span>Printer</span><strong>${escapeHtml(printerTargetLabel(file.printerTarget))}</strong></div>`
-    : '';
-  return `<article class="library-file" data-library-file="${escapeHtml(file.id)}">
-    <div class="library-file-content">
-      ${libraryPreviewMarkup(file)}
-      <div class="library-file-main">
-        <div class="library-file-title"><strong>${escapeHtml(file.fileName)}</strong><span>${escapeHtml(formatBytes(file.size))}</span></div>
-        ${description ? `<div class="library-file-description">${escapeHtml(description)}</div>` : ''}
-        ${printerTarget}
-        <div class="library-file-requirements">${escapeHtml(libraryRequirementSummary(file))}</div>
-        ${libraryColorsMarkup(file)}
-        <div class="library-print-cost${cost.available ? '' : ' unavailable'}" data-library-cost>
-          <span class="library-print-cost-icon" aria-hidden="true"></span>
-          <div class="library-print-cost-copy">
-            <span class="library-print-cost-label">Estimated material cost / print</span>
-            <strong class="library-print-cost-value">${escapeHtml(cost.value)}</strong>
-            <small class="library-print-cost-detail">${escapeHtml(cost.detail)}</small>
-          </div>
+  const printer = file.printerTarget ? printerTargetLabel(file.printerTarget) : 'Any supported printer';
+  const selected = file.id === librarySelectedFileId;
+  return `<article class="library-file library-file-row${selected ? ' is-selected' : ''}" data-library-file="${escapeHtml(file.id)}" role="listitem" data-library-selected="${selected}">
+    <div class="library-cell library-selection-cell">
+      <button type="button" class="library-select-button" data-library-select="${escapeHtml(file.id)}"
+        aria-pressed="${selected}" aria-label="${escapeHtml(selected ? 'Deselect ' : 'Select ')}${escapeHtml(file.fileName)}"
+        title="${selected ? 'Deselect file' : 'Select file'}"><span class="library-selection-indicator" aria-hidden="true"></span></button>
+    </div>
+    <div class="library-cell library-preview-cell">${libraryPreviewMarkup(file)}</div>
+    <div class="library-cell library-file-cell library-file-main">
+      <div class="library-file-title"><strong title="${escapeHtml(file.fileName)}">${escapeHtml(file.fileName)}</strong></div>
+      <small class="library-file-size">${escapeHtml(formatBytes(file.size))}</small>
+      ${description ? `<div class="library-file-description">${escapeHtml(description)}</div>` : ''}
+      ${warning}
+    </div>
+    <div class="library-cell library-target-cell">
+      <span class="library-cell-label">Printer</span>
+      <span class="library-target-value">${escapeHtml(printer)}</span>
+    </div>
+    <div class="library-cell library-requirements-cell">
+      <span class="library-cell-label">Filament &amp; requirements</span>
+      <div class="library-file-requirements">${escapeHtml(libraryRequirementSummary(file))}</div>
+      ${libraryColorsMarkup(file)}
+    </div>
+    <div class="library-cell library-cost-cell">
+      <div class="library-print-cost${cost.available ? '' : ' unavailable'}" data-library-cost>
+        <span class="library-print-cost-icon" aria-hidden="true"></span>
+        <div class="library-print-cost-copy">
+          <span class="library-print-cost-label">Estimated material cost / print</span>
+          <strong class="library-print-cost-value">${escapeHtml(cost.value)}</strong>
+          <small class="library-print-cost-detail">${escapeHtml(cost.detail)}</small>
         </div>
-        <div class="library-file-meta">Added ${escapeHtml(formatLastSeen(file.addedAt || file.stagedAt))} · ${Number(usage.completedPrints || 0)} completed print${Number(usage.completedPrints || 0) === 1 ? '' : 's'} · ${escapeHtml(lastPrinted)}</div>
-        ${warning}
       </div>
     </div>
-    <div class="library-file-actions">
-      <button type="button" class="primary" data-library-queue="${escapeHtml(file.id)}">Queue</button>
-      <button type="button" class="secondary" data-library-edit="${escapeHtml(file.id)}">Edit details</button>
-      <button type="button" class="danger" data-library-delete="${escapeHtml(file.id)}"${Number(usage.queueReferences || 0) > 0 ? ' disabled title="Clear queue/history references before deleting this file"' : ''}>Delete</button>
+    <div class="library-cell library-history-cell">
+      <span class="library-cell-label">History</span>
+      <strong>${escapeHtml(historyCount)}</strong>
+      <span>${escapeHtml(lastPrinted)}</span>
+      <small>Added ${escapeHtml(formatLastSeen(file.addedAt || file.stagedAt))}</small>
     </div>
   </article>`;
 }
@@ -3662,6 +3682,10 @@ function libraryFileViewModel(file) {
     requirements:libraryRequirementSummary(file),
     colours,
     cost,
+    selected:file?.id === librarySelectedFileId,
+    historyCount:`${completedPrints} completed print${completedPrints === 1 ? '' : 's'}`,
+    historyLast:usage.lastPrintedAt ? `Last printed ${formatLastSeen(usage.lastPrintedAt)}` : 'Not printed yet',
+    historyAdded:`Added ${formatLastSeen(file?.addedAt || file?.stagedAt)}`,
     meta:`Added ${formatLastSeen(file?.addedAt || file?.stagedAt)} · ${completedPrints} completed print${completedPrints === 1 ? '' : 's'} · ${lastPrinted}`,
     warning:String(file?.requirements?.warning || ''),
     previewUrl:String(file?.previewUrl || ''),
@@ -3683,11 +3707,43 @@ function publishPrintLibraryUiState({ files, visible, summary, query }) {
   window.dispatchEvent(new CustomEvent('pfc:library-ui-state', { detail }));
 }
 
+function selectedLibraryFile() {
+  return (libraryState.files || []).find((file) => file.id === librarySelectedFileId) || null;
+}
+
+function updateLibrarySelectionToolbar() {
+  const file = selectedLibraryFile();
+  const ready = Boolean(file) && !libraryActionBusy;
+  if (librarySelectionStatus) librarySelectionStatus.textContent = file
+    ? `Selected: ${file.fileName}`
+    : 'Select a file to enable actions';
+  if (libraryQueueSelectedBtn) libraryQueueSelectedBtn.disabled = !ready;
+  if (libraryEditSelectedBtn) libraryEditSelectedBtn.disabled = !ready;
+  const referenced = Number(file?.usage?.queueReferences || 0) > 0;
+  if (libraryDeleteSelectedBtn) {
+    libraryDeleteSelectedBtn.disabled = !ready || referenced;
+    libraryDeleteSelectedBtn.title = referenced
+      ? 'Clear queue/history references before deleting this file'
+      : (file ? 'Delete the selected library file' : 'Select a file to delete');
+  }
+}
+
+function selectLibraryFile(id, { focus = false } = {}) {
+  if (!(libraryState.files || []).some((file) => file.id === id)) return;
+  librarySelectedFileId = librarySelectedFileId === id ? null : id;
+  renderPrintLibrary();
+  if (focus) libraryList?.querySelector(`[data-library-select="${CSS.escape(id)}"]`)?.focus({ preventScroll:true });
+}
+
 function renderPrintLibrary() {
   if (!libraryList) return;
   const files = Array.isArray(libraryState?.files) ? libraryState.files : [];
   const query = String(librarySearchInput?.value || '').trim().toLowerCase();
   const visible = query ? files.filter((file) => librarySearchText(file).includes(query)) : files;
+  // Never allow hidden or deleted items to remain actionable.
+  if (librarySelectedFileId && !visible.some((file) => file.id === librarySelectedFileId)) librarySelectedFileId = null;
+  updateLibrarySelectionToolbar();
+  if (libraryTableHead) libraryTableHead.hidden = visible.length === 0;
   const bytes = files.reduce((sum, file) => sum + Number(file.size || 0), 0);
   const summary = `${files.length} file${files.length === 1 ? '' : 's'} · ${formatBytes(bytes)} stored on this controller`;
 
