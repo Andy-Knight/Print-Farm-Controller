@@ -74,3 +74,27 @@ test('Add and Edit details use a scrolling body and fixed action header/footer',
   assert.match(css,/#libraryAddDialog \.library-pricing-fields label > select/);
   assert.match(css,/#libraryMetadataDialog \.library-pricing-fields label > input/);
 });
+
+test('Print Library costing sections use design-system headings without clipped legends',()=>{
+  const html=read('public/index.html');
+  const css=read('public/print-library-polish.css');
+  const design=read('public/design-system.css');
+  for (const editor of ['Add','Metadata']) {
+    const segment=html.split('<dialog id="library'+editor+'Dialog"')[1]?.split('</dialog>')[0] || '';
+    const id='library'+editor+'SundryHeading';
+    assert.match(segment,new RegExp('<section class="library-pricing-fields ui-surface ui-surface-muted" aria-labelledby="'+id+'">'));
+    assert.match(segment,new RegExp('<h3 id="'+id+'">Sundry costs and sale lots</h3>'));
+    assert.doesNotMatch(segment,/<legend>Sundry costs and sale lots<\/legend>/);
+    assert.match(segment,/class="library-pricing-config"/);
+    assert.match(segment,/class="library-editor-title"/);
+  }
+  assert.match(html,/class="library-costing-section ui-surface ui-surface-muted"/);
+  assert.match(html,/<h3 id="libraryFilamentCostHeading">Filament costing<\/h3>/);
+  assert.match(css,/#libraryAddDialog \.library-pricing-head h3/);
+  assert.match(css,/grid-template-columns:repeat\(2,minmax\(0,1fr\)\)/);
+  assert.match(css,/#libraryAddDialog \.library-editor-title,#libraryMetadataDialog \.library-editor-title \{/);
+  assert.match(css,/color:var\(--ds-brand\);/);
+  assert.match(css,/grid-template-columns:minmax\(0,1fr\)/);
+  assert.match(design,/\.ui-section-heading h2,\.ui-section-heading h3/);
+  assert.match(design,/\.ui-surface-muted/);
+});
