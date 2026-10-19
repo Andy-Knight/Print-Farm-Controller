@@ -34,7 +34,23 @@ export function attachLibraryReadiness(files, printers, {
         printer,state,adapter
       })
     );
-    const ready = results.filter((x)=>x.category==='ready');
+    // The queue evaluator deliberately tolerates printers that do not report
+    // every filament field. A green indicator, however, must NOT imply these
+    // unverified conditions have already been checked.
+    const unverifiedMaterial=logical.some((tool)=>!tool.material);
+    const ready = results.filter((x,index)=>{
+      if(x.category!=='ready' || unverifiedMaterial) return false;
+      const {state,adapter}=candidates[index];
+      const status=state?.status || {};
+      if (adapter?.capabilities?.materialSlotMapping) {
+        return Array.isArray(status.materialSources) && status.materialSources.length>0;
+      }
+      return Array.isArray(status.tools) && status.tools.length>0
+        && logical.every((tool)=>status.tools.some((head)=>
+          head?.filament?.material &&
+          head?.filament?.present!==false &&
+          (tool.nozzleDiameter==null || Number.isFinite(Number(head.nozzleDiameter)))));
+    });
     const maybe = results.filter((x)=>x.category!=='incompatible');
     let level, message;
     if (ready.length) {
