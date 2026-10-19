@@ -37,6 +37,7 @@ export function librarySortAndFilter(files, options={}) {
   const printer=String(options.printer || '');
   const material=String(options.material || '');
   const tag=String(options.tag || '');
+  const category=String(options.category || '');
   const cost=String(options.cost || '');
   const readiness=String(options.readiness || '');
   const favourites=options.favourites===true;
@@ -48,13 +49,14 @@ export function librarySortAndFilter(files, options={}) {
     if (printer && (printer==='any' ? Boolean(file.printerTarget) : printerText!==printer)) return false;
     if (material && !mats.some(x=>x.toLocaleLowerCase()===material.toLocaleLowerCase())) return false;
     if (tag && !(file.tags || []).some(x=>x.toLocaleLowerCase()===tag.toLocaleLowerCase())) return false;
+    if (category && String(file.category || '').toLocaleLowerCase()!==category.toLocaleLowerCase()) return false;
     if (favourites && file.favourite!==true) return false;
     if (cost==='available' && file.costEstimate?.complete!==true) return false;
     if (cost==='missing' && file.costEstimate?.complete===true) return false;
     if (readiness && file.readiness?.level!==readiness) return false;
     if (query) {
       const fields=[
-        file.fileName,file.description,printerText, ...(file.tags || []),
+        file.fileName,file.description,file.category,printerText, ...(file.tags || []),
         ...mats, ...(file.requirements?.logicalTools || []).flatMap(x=>
           [x.color,x.nozzleDiameter,x.filamentPreset,x.filamentVendor]),file.sha256
       ].filter(x=>x!=null).join(' ').toLocaleLowerCase();
