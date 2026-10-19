@@ -3,6 +3,7 @@ import { promises as fs } from 'node:fs';
 import path from 'node:path';
 import { printerStorePath } from './store.js';
 import { KeyedSerialExecutor } from './concurrency.js';
+import { listSupportedFilamentCurrencies } from './filament-catalogue.js';
 
 const SETTINGS_FILE = path.join(path.dirname(printerStorePath), 'library-pricing.json');
 const executor = new KeyedSerialExecutor();
@@ -23,7 +24,9 @@ export function normalizeSaleLots(value) {
 
 export function normalizeSundryCurrency(value) {
   const currency = String(value || 'GBP').trim().toUpperCase();
-  if (!/^[A-Z]{3}$/.test(currency)) throw new Error('Sundry currency must use a three-letter ISO code');
+  if (!/^[A-Z]{3}$/.test(currency) || !listSupportedFilamentCurrencies().includes(currency)) {
+    throw new Error('Sundry currency must be one of the supported filament catalogue currencies');
+  }
   return currency;
 }
 
