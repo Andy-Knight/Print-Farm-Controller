@@ -1192,6 +1192,7 @@
         </div>
         <button type="button" class="icon" data-library-add-close>×</button>
       </div>
+      <div class="library-editor-body" tabindex="0" aria-label="File details fields">
       <label>Print file<input id="libraryFileInput" name="file" type="file" accept=".gcode,.gx,.3mf" required /></label>
       <label>Printer type
         <select id="libraryPrinterTargetInput" name="printerTarget">
@@ -1216,11 +1217,14 @@
         <textarea id="libraryDescriptionInput" name="description" rows="5" maxlength="4000" placeholder="Example: Replacement wardrobe latch for Swift caravan. Print two for each door."></textarea>
       </label>
       <div class="field-help">Optional · up to 4000 characters. This text is stored with the library file and is searchable.</div>
+      </div>
+      <div class="library-editor-footer">
       <div id="libraryAddStatus" class="subtle"></div>
       <div id="libraryAddError" class="error hidden"></div>
       <div class="actions">
         <button type="button" class="secondary" data-library-add-close>Cancel</button>
         <button type="submit" class="primary">Add to library</button>
+      </div>
       </div>
     </form>
   </dialog>
@@ -1260,6 +1264,7 @@
         </div>
         <button type="button" class="icon" data-library-metadata-close>×</button>
       </div>
+      <div class="library-editor-body" tabindex="0" aria-label="File details fields">
       <label>Printer type
         <select id="libraryMetadataPrinterTarget" name="printerTarget">
           <option value="">Any supported printer</option>
@@ -1294,10 +1299,13 @@
         <textarea id="libraryMetadataDescription" name="description" rows="6" maxlength="4000"></textarea>
       </label>
       <div class="field-help">Optional · up to 4000 characters. This text is searchable in the Print Library.</div>
+      </div>
+      <div class="library-editor-footer">
       <div id="libraryMetadataError" class="error hidden"></div>
       <div class="actions">
         <button type="button" class="secondary" data-library-metadata-close>Cancel</button>
         <button type="submit" class="primary">Save details</button>
+      </div>
       </div>
     </form>
   </dialog>
