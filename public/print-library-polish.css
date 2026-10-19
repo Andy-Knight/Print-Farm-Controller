@@ -557,12 +557,51 @@
 #libraryDialog .library-sale-price small {color:var(--ds-text-muted);font-size:.69rem;overflow-wrap:anywhere}
 #libraryDialog .library-sale-price.unavailable > strong {color:var(--ds-text-muted);font-size:.8rem}
 
-#libraryAddDialog .library-pricing-fields,#libraryMetadataDialog .library-pricing-fields {
-  border:1px solid var(--ds-border);border-radius:var(--ds-radius-md);
-  padding:12px;margin:14px 0;min-width:0;background:var(--ds-surface-muted);
+/* These panels use the shared ui-surface/ui-section-heading primitives instead
+ * of the browser-dependent fieldset/legend layout that clipped the heading. */
+#libraryAddDialog .library-pricing-fields,#libraryMetadataDialog .library-pricing-fields,
+#libraryMetadataDialog .library-costing-section {
+  min-width:0;
+  border:1px solid var(--ds-border);
+  border-radius:var(--ds-radius-md);
+  background:var(--ds-surface-muted);
+  padding:var(--ds-space-4);
+  margin:var(--ds-space-4) 0;
 }
-#libraryAddDialog .library-pricing-fields > legend,#libraryMetadataDialog .library-pricing-fields > legend {
-  color:var(--ds-text);font-weight:800;font-size:.85rem;padding:0 5px;
+#libraryAddDialog .library-pricing-head,#libraryMetadataDialog .library-pricing-head,
+#libraryMetadataDialog .library-costing-head {
+  margin:0 0 var(--ds-space-3);
+  min-width:0;
+}
+#libraryAddDialog .library-pricing-head > div,#libraryMetadataDialog .library-pricing-head > div,
+#libraryMetadataDialog .library-costing-head > div {min-width:0;}
+#libraryAddDialog .library-pricing-head h3,#libraryMetadataDialog .library-pricing-head h3,
+#libraryMetadataDialog .library-costing-head h3 {
+  font-size:var(--ds-font-md);
+  font-weight:var(--ds-weight-bold);
+  line-height:1.4;
+  color:var(--ds-text);
+  overflow-wrap:break-word;
+}
+#libraryAddDialog .library-pricing-head p,#libraryMetadataDialog .library-pricing-head p,
+#libraryMetadataDialog .library-costing-head p {
+  margin:var(--ds-space-1) 0 0;
+  color:var(--ds-text-muted);
+  font-size:var(--ds-font-xs);
+  line-height:var(--ds-leading-body);
+}
+#libraryAddDialog .library-pricing-config,#libraryMetadataDialog .library-pricing-config {
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:var(--ds-space-3);
+  align-items:start;
+  margin:var(--ds-space-3) 0 0;
+}
+#libraryAddDialog .library-pricing-note,#libraryMetadataDialog .library-pricing-note {
+  margin:var(--ds-space-2) 0 0;
+  font-size:var(--ds-font-xs);
+  color:var(--ds-text-muted);
+  line-height:var(--ds-leading-body);
 }
 #libraryAddDialog .library-pricing-fields label,#libraryMetadataDialog .library-pricing-fields label {
   display:flex;
@@ -584,14 +623,14 @@
   align-self:flex-start;
 }
 #libraryAddDialog .library-pricing-fields select,#libraryMetadataDialog .library-pricing-fields select {
-  max-width:220px;
+  max-width:none;
 }
 #libraryAddDialog .library-pricing-fields input,#libraryMetadataDialog .library-pricing-fields input,
 #libraryAddDialog .library-pricing-fields select,#libraryMetadataDialog .library-pricing-fields select {
   min-width:0;height:42px;
 }
 #libraryAddDialog .library-pricing-fields input[name="lotsPerPrint"],
-#libraryMetadataDialog .library-pricing-fields input[name="lotsPerPrint"] {max-width:140px}
+#libraryMetadataDialog .library-pricing-fields input[name="lotsPerPrint"] {max-width:none}
 .library-sundries {display:grid;gap:8px;margin-top:10px}
 .library-sundry-row {
   display:grid;grid-template-columns:minmax(110px,2fr) minmax(66px,.55fr) minmax(95px,1fr) auto;
@@ -600,9 +639,20 @@
 .library-sundry-row label {margin:0!important}
 .library-sundry-row input {width:100%;margin-top:4px}
 .library-sundry-row > button {min-height:42px;height:42px;white-space:nowrap}
-.library-add-sundry {margin-top:9px}
+.library-add-sundry {margin-top:var(--ds-space-3)}
 /* Keep the add/edit header and actions visible, scrolling only form fields.
  * Scope this to the two long Library editors so other dialogs are untouched. */
+/* The modal header uses the same blue title accent as page headings. */
+#libraryAddDialog .library-editor-title,#libraryMetadataDialog .library-editor-title {
+  color:var(--ds-brand);
+  font-size:clamp(1.2rem,2.2vw,1.45rem);
+  letter-spacing:-.025em;
+  line-height:1.25;
+  font-weight:800;
+}
+#libraryAddDialog .dialog-head .eyebrow,#libraryMetadataDialog .dialog-head .eyebrow {
+  color:var(--ds-text-subtle);
+}
 #libraryAddDialog,#libraryMetadataDialog {
   max-height:min(88dvh,calc(100vh - 32px));
   overflow:hidden;
@@ -653,6 +703,9 @@
 }
 
 @media(max-width:560px) {
+  #libraryAddDialog .library-pricing-config,#libraryMetadataDialog .library-pricing-config {
+    grid-template-columns:minmax(0,1fr);
+  }
   .library-sundry-row {grid-template-columns:minmax(0,1fr) minmax(0,1fr)}
   .library-sundry-row > label:first-child {grid-column:1/-1}
   .library-sundry-row > button {grid-column:1/-1}
