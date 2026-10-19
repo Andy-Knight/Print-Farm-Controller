@@ -259,6 +259,21 @@ test('Library selection preserves the current list scroll without altering filte
   assert.match(app,/function resetLibraryPagination\(\) \{ libraryCurrentPage=0; renderPrintLibrary\(\); \}/);
 });
 
+test('Library Advanced Filters sort row neutralizes global label margins for aligned controls',()=>{
+  const read=(p)=>readFileSync(new URL('../'+p,import.meta.url),'utf8');
+  const global=read('public/styles.css');
+  const polish=read('public/print-library-polish.css');
+  const html=read('public/index.html');
+  assert.match(global,/label \{[^}]*margin:12px 0;/,
+    'global label margins remain in place for forms elsewhere');
+  assert.match(polish,/#libraryDialog \.library-sort-extras > label \{margin:0\}/,
+    'sort-row labels must not move their inputs above the adjacent direction button');
+  assert.match(polish,/#libraryDialog \.library-sort-extras \{[^}]*align-items:end;/);
+  assert.match(html,/id="librarySortSelect"/);
+  assert.match(html,/id="librarySortDirectionBtn"/);
+  assert.match(html,/id="libraryEstimateQuantity"/);
+});
+
 test('Library UI binds all sorting, filters, tags, favourites and pagers to Preact and fallback',()=>{
   const read=(p)=>readFileSync(new URL('../'+p,import.meta.url),'utf8');
   const html=read('public/index.html'),app=read('public/app.js'),preact=read('ui/print-library.jsx'),css=read('public/print-library-polish.css'),server=read('src/server.js');
