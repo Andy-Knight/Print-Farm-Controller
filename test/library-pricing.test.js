@@ -35,7 +35,7 @@ test('Total sundries and selling price are computed per sliced print, then divid
   assert.equal(markup.sundriesCost,1.5);
   assert.equal(markup.filamentCost,6);
   assert.equal(markup.totalCost,7.5);
-  assert.equal(markup.sellingPrice,9.75);
+  assert.equal(markup.sellingPrice,9.76,'four lots at £2.44 must total £9.76 after cent rounding');
   assert.equal(markup.lotsPerPrint,4);
   assert.equal(markup.sellingPricePerLot,2.44);
   assert.equal(markup.profitMethod,'markup');
