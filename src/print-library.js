@@ -7,6 +7,7 @@ import { validateUploadFilename } from './upload-staging.js';
 import { readFilePrintRequirements } from './file-print-requirements.js';
 import { extractFilePreview } from './file-preview.js';
 import { KeyedSerialExecutor } from './concurrency.js';
+import { normalizeSundryCosts, normalizeSundryCurrency, normalizeSaleLots } from './library-pricing.js';
 
 const DATA_ROOT = path.dirname(printerStorePath);
 const ROOT = path.join(DATA_ROOT, 'print-library');
@@ -208,6 +209,9 @@ function normalizeMetadata(metadata) {
     category:normalizeLibraryCategory(metadata.category),
     tags:normalizeLibraryTags(metadata.tags),
     favourite:normalizeLibraryFavourite(metadata.favourite),
+    sundryCosts:normalizeSundryCosts(metadata.sundryCosts),
+    sundryCurrency:normalizeSundryCurrency(metadata.sundryCurrency),
+    lotsPerPrint:normalizeSaleLots(metadata.lotsPerPrint),
     printerTarget: normalizePrinterTarget(metadata.printerTarget),
     filamentAssignments: normalizeFilamentAssignments(metadata.filamentAssignments),
     preview: normalizePreview(metadata.preview),
@@ -322,6 +326,9 @@ export async function addLibraryFile(sourcePath, rawFileName, { description = ''
       category:'',
       tags:[],
       favourite:false,
+      sundryCosts:[],
+      sundryCurrency:'GBP',
+      lotsPerPrint:1,
       printerTarget: cleanPrinterTarget,
       filamentAssignments: {},
       preview,
@@ -366,7 +373,7 @@ export async function getLibraryPreview(id) {
   }
 }
 
-export async function updateLibraryFileMetadata(id, { description, printerTarget, filamentAssignments, category, tags, favourite } = {}) {
+export async function updateLibraryFileMetadata(id, { description, printerTarget, filamentAssignments, category, tags, favourite, sundryCosts, sundryCurrency, lotsPerPrint } = {}) {
   return libraryMutations.run('catalog', async () => {
   await ensureRoot();
   const normalizedId = safeId(id);
@@ -380,6 +387,9 @@ export async function updateLibraryFileMetadata(id, { description, printerTarget
   if (category !== undefined) metadata.category = normalizeLibraryCategory(category);
   if (tags !== undefined) metadata.tags = normalizeLibraryTags(tags);
   if (favourite !== undefined) metadata.favourite = normalizeLibraryFavourite(favourite);
+  if (sundryCosts !== undefined) metadata.sundryCosts = normalizeSundryCosts(sundryCosts);
+  if (sundryCurrency !== undefined) metadata.sundryCurrency = normalizeSundryCurrency(sundryCurrency);
+  if (lotsPerPrint !== undefined) metadata.lotsPerPrint = normalizeSaleLots(lotsPerPrint);
   metadata.updatedAt = new Date().toISOString();
   await writeMetadata(directory, metadata);
   return normalizeMetadata(metadata);
