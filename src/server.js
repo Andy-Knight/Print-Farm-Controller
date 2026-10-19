@@ -31,6 +31,8 @@ import { BatchControlService } from './batch-control.js';
 import { FileDistributionService } from './file-distribution.js';
 import { stageUploadRequest } from './upload-staging.js';
 import { addLibraryFile, getLibraryPreview, listLibraryFiles, removeLibraryFile, updateLibraryFileMetadata } from './print-library.js';
+import { estimateLibraryFileCosts } from './library-cost-preview.js';
+import { attachLibraryReadiness } from './library-readiness.js';
 import { createFilament, listFilaments, removeFilament, updateFilament } from './filament-catalogue.js';
 import { ReportingService } from './reporting-service.js';
 import { AlertService } from './alert-service.js';
@@ -1546,10 +1548,28 @@ async function apiRoute(req, res, url) {
     return json(res, removed ? 200 : 404, removed ? { ok:true } : { error:'Filament not found' });
   }
 
+  // Lightweight status-only refresh for the Library while fleet SSE changes;
+  // avoid repeatedly computing the full filament catalogue and queue history.
+  if (req.method === 'GET' && url.pathname === '/api/library/readiness') {
+    const files=attachLibraryReadiness(await listLibraryFiles(),decoratedFleet(),{
+      resolveAdapter:getPrinterAdapter,
+      getState:(id)=>fleetState.getPrinterState(id)
+    });
+    return json(res,200,{files:files.map(({id,readiness})=>({id,readiness}))});
+  }
+
   if (req.method === 'GET' && url.pathname === '/api/library') {
     const queueSnapshot = printQueue.getSnapshot();
-    const files = (await listLibraryFiles()).map((file) => {
-      const references = (queueSnapshot.jobs || []).filter((job) => job.stagedFile?.id === file.id);
+    // Index references once instead of scanning every job for each file.
+    const byLibraryId = new Map();
+    for (const job of queueSnapshot.jobs || []) {
+      const id = job.stagedFile?.id;
+      if (!id) continue;
+      if (!byLibraryId.has(id)) byLibraryId.set(id,[]);
+      byLibraryId.get(id).push(job);
+    }
+    const filesWithUsage = (await listLibraryFiles()).map((file) => {
+      const references = byLibraryId.get(file.id) || [];
       const completed = references.filter((job) => job.status === 'completed');
       const finished = references
         .map((job) => job.finishedAt)
@@ -1565,6 +1585,11 @@ async function apiRoute(req, res, url) {
           lastPrintedAt: finished.length ? finished[finished.length - 1] : null
         }
       };
+    });
+    const estimates = await estimateLibraryFileCosts(filesWithUsage);
+    const files = attachLibraryReadiness(estimates,decoratedFleet(),{
+      resolveAdapter:getPrinterAdapter,
+      getState:(id)=>fleetState.getPrinterState(id)
     });
     return json(res, 200, { files });
   }
@@ -1601,7 +1626,10 @@ async function apiRoute(req, res, url) {
     const file = await controllerMutations.run('library-queue', () => updateLibraryFileMetadata(fileId, {
       description:body.description,
       printerTarget:body.printerTarget === undefined ? undefined : validateLibraryPrinterTarget(body.printerTarget),
-      filamentAssignments:body.filamentAssignments
+      filamentAssignments:body.filamentAssignments,
+      category:body.category,
+      tags:body.tags,
+      favourite:body.favourite
     }));
     return json(res, 200, { file });
   }

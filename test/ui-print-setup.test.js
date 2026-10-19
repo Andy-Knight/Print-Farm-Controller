@@ -418,7 +418,8 @@ test('Print Library supports searchable editable free-text descriptions', () => 
   assert.match(index, /id="queueAddDescriptionInput"/);
   assert.match(app, /file\?\.description/);
   assert.match(app, /library-file-description/);
-  assert.match(app, /data-library-edit/);
+  assert.match(index, /id="libraryEditSelectedBtn"/);
+  assert.match(app, /openLibrarySelectedEditor\(file\)/);
   assert.match(app, /async function updateLibraryMetadata/);
   assert.match(app, /method:'PATCH'/);
   assert.match(app, /else await stageAutomaticQueueFile\([\s\S]*?data\.get\('description'\) \|\| '',[\s\S]*?parsePrinterTargetValue\(data\.get\('printerTarget'\) \|\| ''\)[\s\S]*?\);/);
@@ -444,7 +445,7 @@ test('Print Library supports optional target printer models and automatic compat
   assert.match(app, /function printerTargetOptionsMarkup/);
   assert.match(app, /function parsePrinterTargetValue/);
   assert.match(app, /function printerTargetLabel/);
-  assert.match(app, /library-printer-target/);
+  assert.match(app, /library-target-value/);
   assert.match(app, /printerTarget:parsePrinterTargetValue/);
   assert.match(server, /printerTarget:body\.printerTarget/);
   assert.match(library, /function normalizePrinterTarget/);
@@ -481,8 +482,10 @@ test('Print Library persists files independently and queues selected library ent
   assert.match(app, /async function uploadLibraryFile/);
   assert.match(app, /async function queueLibraryFile/);
   assert.match(app, /libraryFileId/);
-  assert.match(app, /data-library-queue/);
-  assert.match(app, /data-library-delete/);
+  assert.match(index, /id="libraryQueueSelectedBtn"/);
+  assert.match(index, /id="libraryDeleteSelectedBtn"/);
+  assert.match(app, /data-library-select/);
+  assert.match(app, /openQueueAddDialog\(file\)/);
   assert.match(server, /url\.pathname === '\/api\/library'/);
   assert.match(server, /addLibraryFile/);
   assert.match(server, /listLibraryFiles/);

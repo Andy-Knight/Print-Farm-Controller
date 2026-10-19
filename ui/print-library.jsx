@@ -11,7 +11,8 @@ function normalizeLibraryState(input = {}) {
   return {
     summary:String(input.summary || 'Loading library…'),
     files:Array.isArray(input.files) ? input.files : [],
-    emptyText:String(input.emptyText || DEFAULT_LIBRARY_STATE.emptyText)
+    emptyText:String(input.emptyText || DEFAULT_LIBRARY_STATE.emptyText),
+    pagination:input.pagination || null
   };
 }
 
@@ -56,40 +57,71 @@ function LibraryColours({ colours = [] }) {
   );
 }
 
+function LibraryCost({ cost, batchCost='', batchQuantity=1 }) {
+  return (
+    <div class={`library-print-cost${cost?.available ? '' : ' unavailable'}`} data-library-cost>
+      <span class="library-print-cost-icon" aria-hidden="true"></span>
+      <div class="library-print-cost-copy">
+        <span class="library-print-cost-label">Estimated material cost / print</span>
+        <strong class="library-print-cost-value">{cost?.value || 'Unavailable'}</strong>
+        {batchCost && <small class="library-batch-estimate">Batch ×{batchQuantity}: {batchCost} material</small>}
+        <small class="library-print-cost-detail">{cost?.detail || 'Filament cost data is unavailable.'}</small>
+      </div>
+    </div>
+  );
+}
+
 function LibraryFile({ file }) {
   return (
-    <article class="library-file" data-library-file={file.id}>
-      <div class="library-file-content">
-        <LibraryPreview file={file} />
-        <div class="library-file-main">
-          <div class="library-file-title">
-            <strong>{file.fileName}</strong>
-            <span>{file.sizeText}</span>
-          </div>
-          {file.description && <div class="library-file-description">{file.description}</div>}
-          {file.printerTarget && (
-            <div class="library-printer-target">
-              <span>Printer</span>
-              <strong>{file.printerTarget}</strong>
-            </div>
-          )}
-          <div class="library-file-requirements">{file.requirements}</div>
-          <LibraryColours colours={file.colours} />
-          <div class="library-file-meta">{file.meta}</div>
-          {file.warning && <div class="library-warning">{file.warning}</div>}
-        </div>
+    <article class={`library-file library-file-row${file.selected ? ' is-selected' : ''}`}
+      data-library-file={file.id} data-library-selected={file.selected ? 'true' : 'false'} role="listitem">
+      <div class="library-cell library-selection-cell">
+        <button type="button" class="library-select-button"
+          data-library-select={file.id}
+          aria-pressed={file.selected ? 'true' : 'false'}
+          aria-label={`${file.selected ? 'Deselect' : 'Select'} ${file.fileName}`}
+          title={file.selected ? 'Deselect file' : 'Select file'}>
+          <span class="library-selection-indicator" aria-hidden="true"></span>
+        </button>
       </div>
-      <div class="library-file-actions">
-        <UiButton variant="primary" data-library-queue={file.id}>Queue</UiButton>
-        <UiButton variant="secondary" data-library-edit={file.id}>Edit details</UiButton>
-        <UiButton
-          variant="danger"
-          data-library-delete={file.id}
-          disabled={file.deleteDisabled}
-          title={file.deleteTitle || ''}
-        >
-          Delete
-        </UiButton>
+      <div class="library-cell library-preview-cell">
+        <LibraryPreview file={file} />
+      </div>
+      <div class="library-cell library-file-cell library-file-main">
+        <div class="library-file-title"><strong title={file.fileName}>{file.fileName}</strong>
+          {file.favourite && <span class="library-fav-mark" title="Favourite">★</span>}
+        </div>
+        {file.category && <span class="library-category">{file.category}</span>}
+        <span class={`library-readiness library-readiness-${file.readiness?.level || 'attention'}`}
+          title={file.readiness?.detail || 'Compatibility checked when queued'}>{file.readiness?.label || 'Needs attention'}</span>
+        {file.tags?.length>0 && <div class="library-tags">
+          {file.tags.map(tag=><span class="library-tag" key={tag}>{tag}</span>)}
+        </div>}
+        <small class="library-file-size">{file.sizeText}</small>
+        {file.description && <div class="library-file-description">{file.description}</div>}
+        {file.warning && <div class="library-warning">{file.warning}</div>}
+      </div>
+      <div class="library-cell library-target-cell">
+        <span class="library-cell-label">Printer</span>
+        <span class="library-target-value">{file.printerTarget || 'Any supported printer'}</span>
+      </div>
+      <div class="library-cell library-requirements-cell">
+        <span class="library-cell-label">Filament &amp; requirements</span>
+        <div class="library-file-requirements">{file.requirements}</div>
+        <div class="library-production-meta">
+          <span title="Estimated print duration">⏱ {file.production?.duration || 'Not reported'}</span>
+          <span title="Sliced filament usage">◉ {file.production?.weight || 'Not reported'}</span>
+        </div>
+        <LibraryColours colours={file.colours} />
+      </div>
+      <div class="library-cell library-cost-cell">
+        <LibraryCost cost={file.cost} batchCost={file.batchCost} batchQuantity={file.batchQuantity} />
+      </div>
+      <div class="library-cell library-history-cell">
+        <span class="library-cell-label">History</span>
+        <strong>{file.historyCount}</strong>
+        <span>{file.historyLast}</span>
+        <small>{file.historyAdded}</small>
       </div>
     </article>
   );
@@ -99,9 +131,25 @@ function LibrarySummary({ state }) {
   return <>{state.summary}</>;
 }
 
+function LibraryPagination({ pagination }) {
+  if(!pagination || pagination.pages<=1) return null;
+  return (
+    <nav class="library-pagination" role="listitem" aria-label="Library result pages">
+      <span>Showing {pagination.from}–{pagination.to} of {pagination.count}</span>
+      <button type="button" class="secondary" data-library-page="previous"
+        disabled={pagination.page===0}>Previous</button>
+      <span>Page {pagination.page+1} / {pagination.pages}</span>
+      <button type="button" class="secondary" data-library-page="next"
+        disabled={pagination.page===pagination.pages-1}>Next</button>
+    </nav>
+  );
+}
+
 function LibraryList({ state }) {
   if (!state.files.length) return <div class="queue-empty">{state.emptyText}</div>;
-  return <>{state.files.map((file) => <LibraryFile key={file.id} file={file} />)}</>;
+  return <>{state.files.map((file) => <LibraryFile key={file.id} file={file} />)}
+    <LibraryPagination pagination={state.pagination} />
+  </>;
 }
 
 export function initPrintLibraryUi() {

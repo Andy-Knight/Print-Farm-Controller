@@ -9,13 +9,15 @@ If chat context and this file disagree about the codebase, inspect current GitHu
 - Repository: `Andy-Knight/Print-Farm-Controller`
 - Project path: repository root (`/`)
 - Primary branch: `main` (current production baseline)
-- Current controller source version: **0.56.0** (Printer Details icon/header improvements PR #99 and Phase 4.1 shared icon underline tabs PR #100; prior SaaS phases 1–4 PRs #96/#98).
+- Current controller source version: **0.57.0** (Print Library cost, selection workbench, filtering/organisation, production estimates, readiness and paging PR #101; prior v0.56.0 standard tab UI PRs #99/#100).
 - Previous baseline audited: **0.48.0** (main before the regression test audit release).
 - Runtime: **Node.js 24+** (development baseline Node.js 24.21.0), ES modules, no npm runtime dependencies.
 - GitHub is the authoritative code baseline.
 - Release/version history is maintained only in `CHANGELOG.md`; do not duplicate per-version history in this handoff file.
 
 ## Current work
+
+**v0.57.0 Print Library:** On feature branch `feature/print-library-improvements` (PR #101) users validated the new raw-filament cost estimates, selected-file action toolbar, shared table styling and fixed headings/buttons with scrollable contents. The release adds sorting, facets, category/tags/favourites, trustworthy slicer duration/gram estimates, batch material costs, 80-file pages and read-only queue-compatibility readiness. A compatible printer being offline now shows a neutral **Printer offline** badge, or **Printer busy** when temporarily occupied, instead of flagging the file **Needs attention**. Readiness follows fleet SSE through a throttled status-only endpoint; printer preflight still runs before dispatch. Node.js 24, Chromium Preact and container smoke gates passed on the feature head; release bump and merge tracked with PR #101. Physical-printer spot checks remain useful for live readiness transitions. The release intentionally omits versioned file revisions.
 
 **v0.56.0 Phase 4.1:** Standardised Option A minimalist icon-and-underline tabs across all six existing tabbed views using new `public/tab-navigation.css` and shared Preact `UiTab`. Browser/mobile/light/dark/keyboard and Node.js regression contracts verify consistent Preact and legacy fallback behaviour. The Dashboard card/table toggle remains separate and unchanged. Printer Details (PR #99) also now has a rich image/icon identity header (model, connection, IP, reported firmware/uptime, connection health), retains six sections and original printer controls, and does not fabricate missing printer data. User tested and accepted PR #99 and Phase 4.1 PR #100. All feature branch checks (Node.js 24, Chromium, MinIO and container smoke) passed. Branch #100 was retargeted to main after PR #99 merged; release version advanced to v0.56.0 for the combined release. No printer firmware protocol or scheduling changes.
 

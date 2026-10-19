@@ -27,6 +27,34 @@ function normalizeDescription(value) {
   return description;
 }
 
+function normalizeLibraryCategory(value) {
+  if (value == null || value === '') return '';
+  if (typeof value !== 'string') throw new Error('Library category must be text');
+  const name=value.trim().replace(/\s+/g,' ');
+  if (name.length>60 || /[<>]/.test(name)) throw new Error('Library category must be 60 characters or fewer');
+  return name;
+}
+
+function normalizeLibraryTags(value) {
+  if (value == null) return [];
+  if (!Array.isArray(value)) throw new Error('Library tags must be an array');
+  if (value.length > 20) throw new Error('Library can have at most 20 tags');
+  const tags = [...new Set(value.map((item) => {
+    if (typeof item !== 'string') throw new Error('Library tags must be text');
+    const text = item.trim().replace(/\s+/g,' ');
+    if (!text || text.length > 40 || /[<>]/.test(text)) throw new Error('Library tag is invalid (1–40 characters)');
+    return text;
+  }))];
+  if (tags.join(',').length > 800) throw new Error('Library tags are too long');
+  return tags;
+}
+
+function normalizeLibraryFavourite(value) {
+  if (value === undefined || value === null) return false;
+  if (typeof value !== 'boolean') throw new Error('Library favourite must be true or false');
+  return value;
+}
+
 function normalizePrinterTarget(value) {
   if (value == null || value === '') return null;
   if (typeof value !== 'object' || Array.isArray(value)) throw new Error('Print Library printer target is invalid');
@@ -177,6 +205,9 @@ function normalizeMetadata(metadata) {
     size: Number(metadata.size || 0),
     sha256: metadata.sha256 || null,
     description: normalizeDescription(metadata.description || ''),
+    category:normalizeLibraryCategory(metadata.category),
+    tags:normalizeLibraryTags(metadata.tags),
+    favourite:normalizeLibraryFavourite(metadata.favourite),
     printerTarget: normalizePrinterTarget(metadata.printerTarget),
     filamentAssignments: normalizeFilamentAssignments(metadata.filamentAssignments),
     preview: normalizePreview(metadata.preview),
@@ -199,6 +230,7 @@ async function readMetadata(directory, expectedId = null) {
   const logicalTools = Array.isArray(metadata.requirements?.logicalTools) ? metadata.requirements.logicalTools : [];
   const requiresUsageUpgrade = metadata.requirements
     && (metadata.requirements.totalFilamentGrams === undefined
+      || metadata.requirements.estimatedPrintSeconds === undefined
       || logicalTools.some((tool) => tool && typeof tool === 'object'
         && (!Object.hasOwn(tool, 'filamentGrams')
           || !Object.hasOwn(tool, 'filamentPreset')
@@ -229,15 +261,22 @@ async function readMetadata(directory, expectedId = null) {
 export async function listLibraryFiles() {
   await ensureRoot();
   const entries = await fs.readdir(ROOT, { withFileTypes:true });
+  // Bounded concurrent metadata reads avoid N serial filesystem round trips
+  // on production libraries without overwhelming slower k3s/PVC storage.
+  const directories = entries.filter((entry) => entry.isDirectory());
   const files = [];
-  for (const entry of entries) {
-    if (!entry.isDirectory()) continue;
-    try {
-      files.push(normalizeMetadata(await readMetadata(path.join(ROOT, entry.name), entry.name)));
-    } catch {
-      // A damaged entry is ignored by listing but remains on disk for manual recovery.
+  const concurrency = Math.min(12,directories.length);
+  let next = 0;
+  await Promise.all(Array.from({length:concurrency},async ()=>{
+    while(next < directories.length) {
+      const entry = directories[next++];
+      try {
+        files.push(normalizeMetadata(await readMetadata(path.join(ROOT,entry.name),entry.name)));
+      } catch {
+        // A damaged entry is ignored but remains on disk for recovery.
+      }
     }
-  }
+  }));
   return files.sort((left, right) => {
     const leftAt = new Date(left.addedAt || 0).getTime();
     const rightAt = new Date(right.addedAt || 0).getTime();
@@ -280,6 +319,9 @@ export async function addLibraryFile(sourcePath, rawFileName, { description = ''
       size: sourceStat.size,
       sha256: sourceHash,
       description: cleanDescription,
+      category:'',
+      tags:[],
+      favourite:false,
       printerTarget: cleanPrinterTarget,
       filamentAssignments: {},
       preview,
@@ -324,7 +366,7 @@ export async function getLibraryPreview(id) {
   }
 }
 
-export async function updateLibraryFileMetadata(id, { description, printerTarget, filamentAssignments } = {}) {
+export async function updateLibraryFileMetadata(id, { description, printerTarget, filamentAssignments, category, tags, favourite } = {}) {
   return libraryMutations.run('catalog', async () => {
   await ensureRoot();
   const normalizedId = safeId(id);
@@ -335,6 +377,9 @@ export async function updateLibraryFileMetadata(id, { description, printerTarget
   if (description !== undefined) metadata.description = normalizeDescription(description);
   if (printerTarget !== undefined) metadata.printerTarget = normalizePrinterTarget(printerTarget);
   if (filamentAssignments !== undefined) metadata.filamentAssignments = normalizeFilamentAssignments(filamentAssignments);
+  if (category !== undefined) metadata.category = normalizeLibraryCategory(category);
+  if (tags !== undefined) metadata.tags = normalizeLibraryTags(tags);
+  if (favourite !== undefined) metadata.favourite = normalizeLibraryFavourite(favourite);
   metadata.updatedAt = new Date().toISOString();
   await writeMetadata(directory, metadata);
   return normalizeMetadata(metadata);

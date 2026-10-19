@@ -27,6 +27,7 @@
   <link rel="stylesheet" href="/dashboard-polish.css" />
   <link rel="stylesheet" href="/printer-details-polish.css" />
   <link rel="stylesheet" href="/tab-navigation.css" />
+  <link rel="stylesheet" href="/print-library-polish.css" />
 </head>
 <body>
   <a class="workspace-skip-link" href="#workspaceMain">Skip to main content</a>
@@ -1107,9 +1108,60 @@
           <label class="library-search">Search<input id="librarySearchInput" type="search" placeholder="Search filenames, printer types, descriptions, materials or nozzle size" autocomplete="off" /></label>
           <button id="libraryUploadBtn" type="button" class="primary">+ Add file</button>
         </div>
+        <details class="library-advanced-filters" id="libraryAdvancedFilters">
+          <summary>Advanced filters</summary>
+          <div class="library-filters" role="group" aria-label="Filter print library">
+          <label>Printer<select id="libraryPrinterFilter"><option value="">All printer types</option></select></label>
+          <label>Material<select id="libraryMaterialFilter"><option value="">All materials</option></select></label>
+          <label>Category<select id="libraryCategoryFilter"><option value="">All categories</option></select></label>
+          <label>Tag<select id="libraryTagFilter"><option value="">All tags</option></select></label>
+          <label>Cost<select id="libraryCostFilter">
+            <option value="">Any cost</option><option value="available">Cost known</option><option value="missing">Cost unavailable</option>
+          </select></label>
+          <label>Readiness<select id="libraryReadinessFilter">
+            <option value="">Any readiness</option><option value="ready">Ready now</option>
+            <option value="busy">Printer busy</option><option value="offline">Printer offline</option>
+            <option value="attention">Needs attention</option><option value="incompatible">Incompatible</option>
+          </select></label>
+          <label class="library-favourites-filter"><input type="checkbox" id="libraryFavouritesFilter" /> Favourites only</label>
+          <button type="button" id="libraryClearFiltersBtn" class="secondary">Clear filters</button>
+          </div>
+        <div class="library-sort-extras">
+          <label>Sort by
+            <select id="librarySortSelect">
+              <option value="added">Date added</option><option value="name">Filename</option>
+              <option value="printer">Printer type</option><option value="material">Material</option>
+              <option value="cost">Estimated cost</option><option value="duration">Print time</option>
+              <option value="weight">Filament weight</option><option value="prints">Completed prints</option>
+              <option value="lastPrinted">Last printed</option><option value="readiness">Readiness</option>
+            </select>
+          </label>
+          <button type="button" class="secondary" id="librarySortDirectionBtn" aria-label="Reverse sort direction">↓ Descending</button>
+          <label>Batch quantity (estimate)<input id="libraryEstimateQuantity" type="number" min="1" max="999" step="1" value="1" /></label>
+          
+        </div>
+        </details>
+        <div class="library-action-toolbar" role="group" aria-label="Actions for the selected library file">
+          <div id="librarySelectionStatus" class="library-selection-status" aria-live="polite">Select a file to enable actions</div>
+          <div class="library-action-buttons">
+            <button id="libraryQueueSelectedBtn" type="button" class="primary" disabled>Queue selected</button>
+            <button id="libraryEditSelectedBtn" type="button" class="secondary" disabled>Edit details</button>
+            <button id="libraryFavouriteSelectedBtn" type="button" class="secondary" disabled>☆ Favourite</button>
+            <button id="libraryDeleteSelectedBtn" type="button" class="danger" disabled>Delete selected</button>
+          </div>
+        </div>
         <div id="libraryStatus" class="subtle"></div>
         <div id="libraryError" class="error hidden"></div>
-        <div id="libraryList" class="library-list"></div>
+        <div class="library-filter-results"><span id="libraryResultCount" class="subtle" aria-live="polite"></span></div>
+        <div id="libraryTableHead" class="library-table-head" aria-label="Sortable Print Library column headings" hidden>
+          <span>Select</span><span>Preview</span>
+          <button type="button" data-library-sort="name" aria-label="Sort by filename">File</button>
+          <button type="button" data-library-sort="printer" aria-label="Sort by printer type">Printer</button>
+          <button type="button" data-library-sort="material" aria-label="Sort by filament material">Filament &amp; requirements</button>
+          <button type="button" data-library-sort="cost" aria-label="Sort by estimated material cost">Estimated cost</button>
+          <button type="button" data-library-sort="prints" aria-label="Sort by number of completed prints">History</button>
+        </div>
+        <div id="libraryList" class="library-list" role="list" aria-label="Stored print files" tabindex="0"></div>
       </section>
     </div>
   </section>
@@ -1182,6 +1234,15 @@
         </div>
         <div id="libraryFilamentAssignments" class="library-filament-assignments"></div>
       </div>
+      <label>Category<input id="libraryMetadataCategory" name="category" maxlength="60" placeholder="Product family, e.g. VW T6 interior" /></label>
+      <label>Tags (comma-separated, up to 20)
+        <input id="libraryMetadataTags" name="tags" maxlength="800"
+          placeholder="Production, VW T6, replacement parts" />
+      </label>
+      <label class="library-favourite-input">
+        <input id="libraryMetadataFavourite" name="favourite" type="checkbox" />
+        Favourite — keep this file easy to find
+      </label>
       <label>Description / notes
         <textarea id="libraryMetadataDescription" name="description" rows="6" maxlength="4000"></textarea>
       </label>

@@ -4,6 +4,16 @@ This file contains the version-by-version release history for Print Farm Control
 
 Historical entries describe the behaviour of the controller at the time of that release and may be superseded by later versions. For current installation, configuration and supported-hardware guidance, see [README.md](README.md).
 
+## v0.57.0
+
+- Redesigned the **Print Library** as a selected-file production workbench with a central **Queue selected / Edit details / Delete selected** action toolbar, independent thumbnail previews, printer/material/requirements/cost/history columns and one selected file at a time. Reused the shared controller table skin, white uppercase headers, blue selection and consistent light/dark colours, with responsive mobile cards.
+- Kept the page title, search/add controls, contextual buttons and desktop column headings visible while the **file rows alone scroll** inside a viewport-aware region. Fixed column alignment with native scrollbars and retained keyboard selection and accessible interaction.
+- Added **current estimated raw-filament cost per print** based on reliable sliced filament weights, explicit assignment or unambiguous filament catalogue matching. Distinguishes unavailable/partial/multi-currency data from known zero costs, supports a 1–999 quantity raw-material cost estimate and never overwrites historical queue cost snapshots.
+- Added **sorting and advanced filters** for name, printer, material, estimated cost, date, print count, time, weight, category, tags, favourites and readiness. Added persistent category/tags/favourite metadata, a selected-file favourite action and batch estimate quantity controls.
+- Exposed slicer-derived **estimated duration and material weight** when reliably available, with an explicit unknown state otherwise. Added a read-only **printer readiness** preview using existing queue compatibility rules and verified live telemetry; separated genuinely incompatible/needs-attention files from temporarily **Printer offline** and **Printer busy** states. Status-only updates while viewing the library are throttled via existing fleet SSE and a lightweight endpoint, preserving selection, filtering, page and scroll state. Actual queue preflight remains authoritative.
+- Bounded large-library rendering to **80-file pages** with efficient metadata and queue-history lookups. Added Node.js 24 regression tests and Chromium Preact tests for the new UI, live readiness, costing, metadata persistence, keyboard and mobile interactions, long-list scrolling, both colour themes and container smoke. No printer-control protocol, scheduler safety gate or licence-limit changes.
+- Increased source release from v0.56.0 to v0.57.0.
+
 ## v0.56.0
 
 - Adopted **Phase 4.1 standard tab navigation** throughout Printer Details, Maintenance Tracking, Printer Groups, Reports & Analytics, Alerts & Notifications and Backup & Recovery: icons, selected blue underline and matching text, transparent background, focus outlines and one-row horizontally scrolling navigation on narrow screens.

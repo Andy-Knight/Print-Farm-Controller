@@ -641,6 +641,427 @@ async function sharedTabNavigationSmoke(page,url) {
   console.log('Chromium: Phase 4.1 shared icon tabs, themes, keyboard, mobile PASS');
 }
 
+// Print Library live Preact cost cards: current material estimate vs genuinely
+// unavailable cost, visually consistent on light/dark desktop and mobile.
+async function libraryCostSmoke(page,url) {
+  await page.goto(url+'/library',{waitUntil:'load'});
+  await preactReady(page);
+  await page.waitForFunction(()=>window.__PFC_PREACT_LIBRARY__===true);
+  assert.equal(await page.locator('link[href="/print-library-polish.css"]').count(),1,
+    'Print Library cost styling must load');
+  const rows=[
+    {id:'browser-cost-available',fileName:'Sample part.3mf',sizeText:'14 KB',description:'Sample print',
+      printerTarget:'',requirements:'PLA · 1 tool',colours:[],meta:'Not printed yet',warning:'',
+      previewUrl:'',deleteDisabled:false,deleteTitle:'',
+      cost:{available:true,value:'£0.55',detail:'Current filament catalogue prices · 25 g sliced · Estimate only, excludes overheads.'}},
+    {id:'browser-cost-unavailable',fileName:'Unknown cost.gcode',sizeText:'8 KB',description:'',
+      printerTarget:'',requirements:'PLA · 1 tool',colours:[],meta:'Not printed yet',warning:'',
+      previewUrl:'',deleteDisabled:false,deleteTitle:'',
+      cost:{available:false,value:'Unavailable',detail:'Multiple PLA catalogue entries exist; assign one to this file'}}
+  ];
+  const inject=async()=>{
+    await page.evaluate((files)=>{
+      window.dispatchEvent(new CustomEvent('pfc:library-ui-state',{
+        detail:{summary:'2 files · test fixtures',files,emptyText:'No files'}
+      }));
+    },rows);
+    await page.locator('[data-library-file="browser-cost-available"] [data-library-cost]').waitFor();
+  };
+  const dir=process.env.PFC_VISUAL_CAPTURE_DIR
+    ? path.resolve(process.env.PFC_VISUAL_CAPTURE_DIR) : null;
+  if(dir)await fs.mkdir(dir,{recursive:true});
+  for(const theme of ['dark','light']){
+    await page.setViewportSize({width:1365,height:900});
+    await page.evaluate(name=>{document.documentElement.dataset.theme=name;},theme);
+    await inject();
+    const observed=await page.evaluate(()=>{
+      const complete=document.querySelector('[data-library-file="browser-cost-available"] [data-library-cost]');
+      const missing=document.querySelector('[data-library-file="browser-cost-unavailable"] [data-library-cost]');
+      return {
+        title:complete?.querySelector('.library-print-cost-label')?.textContent,
+        available:complete?.querySelector('.library-print-cost-value')?.textContent,
+        unavailable:missing?.querySelector('.library-print-cost-value')?.textContent,
+        note:complete?.querySelector('.library-print-cost-detail')?.textContent,
+        background:complete?getComputedStyle(complete.closest('.library-list')).backgroundColor:null,
+        icon:complete?getComputedStyle(complete.querySelector('.library-print-cost-icon')).maskImage:null
+      };
+    });
+    assert.equal(observed.title,'Estimated material cost / print');
+    assert.equal(observed.available,'£0.55');
+    assert.equal(observed.unavailable,'Unavailable');
+    assert.match(observed.note,/excludes overheads/);
+    assert.notEqual(observed.background,'rgba(0, 0, 0, 0)','library table surface must be theme-aware');
+    assert.ok(observed.icon?.includes('data:image/svg+xml'),'cost icon should come from local CSS');
+    if(dir)await page.screenshot({path:path.join(dir,'print-library-cost-'+theme+'-desktop.png')});
+  }
+  await page.setViewportSize({width:390,height:844});
+  await inject();
+  const card=page.locator('[data-library-file="browser-cost-available"]');
+  const geometry=await card.evaluate((element)=>{
+    const card=element.getBoundingClientRect();
+    const cost=element.querySelector('[data-library-cost]').getBoundingClientRect();
+    return {cardRight:card.right,costRight:cost.right,costLeft:cost.left,cardLeft:card.left};
+  });
+  assert.ok(geometry.costLeft>=geometry.cardLeft-2 && geometry.costRight<=geometry.cardRight+2,
+    'mobile cost card should not overflow the print library entry');
+  if(dir)await page.screenshot({path:path.join(dir,'print-library-cost-light-mobile.png')});
+  await page.setViewportSize({width:1365,height:900});
+  console.log('Chromium: Print Library current material cost display PASS');
+}
+
+// Browser smoke against real API-backed temporary library files (never run
+// mutations against an external configured controller). Verifies that the
+// selected row, toolbar and existing queue/edit/delete workflows still work.
+async function librarySelectionSmoke(page,url,{mutateFixture = true} = {}) {
+  await page.setViewportSize({width:1365,height:900});
+  await page.goto(url+'/library',{waitUntil:'load'});
+  await preactReady(page);
+  if(!mutateFixture) return;
+  const names=['ui-selection-first.gcode','ui-selection-second.gcode'];
+  for(const [i,name] of names.entries()){
+    const response=await page.evaluate(async ({name,i})=>{
+      const body='; filament_type = PLA\\n; filament used [g] = '+(10+i)+'\\nT0\\nG1 X10\\n';
+      const request=await fetch('/api/library',{
+        method:'POST',
+        headers:{'x-file-name':name},
+        body:new Blob([body],{type:'application/octet-stream'})
+      });
+      return {status:request.status,data:await request.json()};
+    },{name,i});
+    assert.ok([200,201].includes(response.status),'fixture upload must succeed');
+  }
+  await page.reload({waitUntil:'load'});
+  await preactReady(page);
+  await page.waitForFunction(()=>document.querySelectorAll('#libraryList [data-library-file]').length===2);
+  assert.equal(await page.locator('#libraryQueueSelectedBtn').isDisabled(),true);
+  assert.equal(await page.locator('#libraryEditSelectedBtn').isDisabled(),true);
+  assert.equal(await page.locator('#libraryDeleteSelectedBtn').isDisabled(),true);
+  assert.equal(await page.locator('#libraryTableHead').isVisible(),true);
+  assert.ok((await page.locator('#libraryTableHead').textContent()).includes('Estimated cost'));
+  const rows=page.locator('#libraryList .library-file-row');
+  const firstId=await rows.nth(0).getAttribute('data-library-file');
+  const secondId=await rows.nth(1).getAttribute('data-library-file');
+  await rows.nth(0).locator('[data-library-select]').click();
+  assert.equal(await page.locator('#libraryQueueSelectedBtn').isEnabled(),true);
+  assert.equal(await page.locator('#libraryEditSelectedBtn').isEnabled(),true);
+  assert.equal(await page.locator('#libraryDeleteSelectedBtn').isEnabled(),true);
+  assert.equal(await page.locator('[data-library-file="'+firstId+'"]').getAttribute('data-library-selected'),'true');
+  await page.locator('#libraryQueueSelectedBtn').click();
+  await page.waitForFunction(()=>document.querySelector('#queueAddDialog')?.open===true);
+  assert.equal(await page.locator('#libraryDialog').isVisible(),true,'library route stays visible behind queue modal');
+  await page.locator('[data-queue-add-close]').first().click();
+  await page.locator('#libraryEditSelectedBtn').click();
+  await page.waitForFunction(()=>document.querySelector('#libraryMetadataDialog')?.open===true);
+  await page.locator('[data-library-metadata-close]').first().click();
+  await page.locator('[data-library-file="'+secondId+'"]').click();
+  assert.equal(await page.locator('[data-library-file="'+secondId+'"]').getAttribute('data-library-selected'),'true');
+  assert.equal(await page.locator('[data-library-file="'+firstId+'"]').getAttribute('data-library-selected'),'false');
+  // Clicking the same selection button a second time clears the selection.
+  await page.locator('[data-library-file="'+secondId+'"] [data-library-select]').click();
+  assert.equal(await page.locator('#libraryQueueSelectedBtn').isDisabled(),true);
+  await page.locator('[data-library-file="'+firstId+'"] [data-library-select]').focus();
+  await page.keyboard.press('Space');
+  assert.equal(await page.locator('#libraryQueueSelectedBtn').isEnabled(),true,'keyboard activation selects the row');
+  // An item hidden by search must not remain queueable or deletable.
+  const otherFileName=await page.locator('[data-library-file="'+secondId+'"] .library-file-title').innerText();
+  await page.locator('#librarySearchInput').fill(otherFileName.trim());
+  assert.equal(await page.locator('#libraryQueueSelectedBtn').isDisabled(),true);
+  assert.equal(await page.locator('#librarySelectionStatus').innerText(),'Select a file to enable actions');
+  await page.locator('#librarySearchInput').fill('');
+  await page.locator('[data-library-file="'+firstId+'"] [data-library-select]').click();
+  await page.reload({waitUntil:'load'});
+  await preactReady(page);
+  await page.waitForFunction(()=>document.querySelectorAll('#libraryList [data-library-file]').length===2);
+  // The initial state after a full browser reload is intentionally unselected.
+  assert.equal(await page.locator('#libraryQueueSelectedBtn').isDisabled(),true);
+  // Test category/tags/favourites against persisted file metadata, not just
+  // synthetic DOM fixtures. All controls must keep the table and actions safe.
+  const patched=await page.evaluate(async (id)=>{
+    const response=await fetch('/api/library/'+encodeURIComponent(id),{
+      method:'PATCH',headers:{'content-type':'application/json'},
+      body:JSON.stringify({category:'Production fixtures',tags:['Test ASA','Production'],favourite:true})
+    });
+    return {status:response.status,data:await response.json()};
+  },firstId);
+  assert.equal(patched.status,200,'editing category/tag metadata should persist');
+  await page.reload({waitUntil:'load'});
+  await preactReady(page);
+  await page.waitForFunction(()=>document.querySelectorAll('#libraryList .library-file-row').length===2);
+  assert.ok(await page.locator('[data-library-file="'+firstId+'"] .library-category').count());
+  assert.ok(await page.locator('[data-library-file="'+firstId+'"] .library-fav-mark').count());
+  assert.ok((await page.locator('[data-library-file="'+firstId+'"] .library-tags').innerText()).includes('Production'));
+  await page.locator('#libraryAdvancedFilters > summary').click();
+  await page.locator('#libraryCategoryFilter').selectOption('Production fixtures');
+  assert.equal(await page.locator('.library-file-row').count(),1,'category filter narrows rows');
+  await page.locator('#libraryTagFilter').selectOption('Test ASA');
+  assert.equal(await page.locator('.library-file-row').count(),1,'tag facet combines with category');
+  await page.locator('#libraryFavouritesFilter').check();
+  assert.equal(await page.locator('.library-file-row').count(),1,'favourites facet restricts rows');
+  await page.locator('#libraryFavouritesFilter').uncheck();
+  await page.locator('#libraryCategoryFilter').selectOption('');
+  await page.locator('#libraryTagFilter').selectOption('');
+  const materials=await page.locator('#libraryMaterialFilter option').evaluateAll((items)=>
+    items.map((item)=>item.value).filter(Boolean));
+  if(materials.length){
+    await page.locator('#libraryMaterialFilter').selectOption(materials[0]);
+    const count=await page.locator('.library-file-row').count();
+    assert.ok(count>=1 && count<=2,'material filter narrows to matching sliced files');
+  }
+  await page.locator('#libraryClearFiltersBtn').click();
+  assert.equal(await page.locator('.library-file-row').count(),2,'clear filters restores full set');
+  await page.locator('[data-library-sort="name"]').click();
+  assert.equal(await page.locator('[data-library-sort="name"]').getAttribute('aria-pressed'),'true');
+  assert.match(await page.locator('.library-file-row').first().locator('.library-file-title').innerText(),/ui-selection-first|ui-selection-second/);
+  await page.locator('#librarySortSelect').selectOption('added');
+  await page.locator('#libraryEstimateQuantity').fill('5');
+  await page.locator('#libraryEstimateQuantity').dispatchEvent('change');
+  assert.equal(await page.locator('#libraryEstimateQuantity').inputValue(),'5','batch quantity remains user-editable');
+  await page.locator('#libraryAdvancedFilters > summary').click();
+  assert.equal(await page.locator('.library-file-row').count(),2);
+  for(const theme of ['dark','light']){
+    await page.evaluate(x=>{document.documentElement.dataset.theme=x;},theme);
+    const dimensions=await page.locator('.library-file-row').first().evaluate((node)=>{
+      const tableHead=document.querySelector('#libraryTableHead');
+      const root=getComputedStyle(document.documentElement);
+      const heading=getComputedStyle(tableHead);
+      const row=getComputedStyle(node);
+      const parent=getComputedStyle(node.parentElement);
+      const first=tableHead.firstElementChild;
+      return {
+        display:row.display,
+        columns:row.gridTemplateColumns,
+        headerColumns:heading.gridTemplateColumns,
+        textColor:heading.color,
+        headerBackground:heading.backgroundColor,
+        sharedText:root.getPropertyValue('--pfc-table-header-text').trim(),
+        sharedBackground:root.getPropertyValue('--pfc-table-header-background').trim(),
+        sharedHover:root.getPropertyValue('--pfc-table-hover').trim(),
+        sharedSelected:root.getPropertyValue('--pfc-table-selected').trim(),
+        rowBackground:row.backgroundColor,
+        cellBackground:getComputedStyle(node.querySelector('.library-target-cell')).backgroundColor,
+        parentBackground:parent.backgroundColor,
+        headingFontWeight:heading.fontWeight,
+        headingTextTransform:heading.textTransform,
+        headingPadding:getComputedStyle(first).padding
+      };
+    });
+    assert.equal(dimensions.display,'grid');
+    assert.ok(dimensions.columns.split(' ').length>=7,'desktop library has seven aligned columns');
+    const tracks=(value)=>value.split(' ').map(parseFloat);
+    const headTracks=tracks(dimensions.headerColumns);
+    const rowTracks=tracks(dimensions.columns);
+    assert.equal(headTracks.length,rowTracks.length,'heading and body must have identical column count');
+    assert.ok(headTracks.every((width,i)=>Math.abs(width-rowTracks[i])<=0.25),
+      'heading and row columns must align within subpixel rendering tolerance');
+    assert.equal(dimensions.headingTextTransform,'uppercase','heading follows canonical uppercase convention');
+    assert.equal(dimensions.textColor,'rgb(255, 255, 255)','all table headings must stay white in both themes');
+    assert.equal(dimensions.cellBackground,'rgba(0, 0, 0, 0)','table cells must not introduce individual coloured backgrounds');
+    assert.ok(dimensions.sharedText && dimensions.sharedBackground && dimensions.sharedHover && dimensions.sharedSelected,
+      'library should inherit existing shared table system tokens');
+  }
+  await page.setViewportSize({width:390,height:844});
+  await page.waitForFunction(()=>getComputedStyle(document.querySelector('#libraryTableHead')).display==='none');
+  const overflow=await page.evaluate(()=>{
+    const list=document.querySelector('#libraryList').getBoundingClientRect();
+    const card=document.querySelector('.library-file-row').getBoundingClientRect();
+    return {listLeft:list.left,listRight:list.right,cardLeft:card.left,cardRight:card.right};
+  });
+  assert.ok(overflow.cardLeft>=overflow.listLeft-2 && overflow.cardRight<=overflow.listRight+2,
+    'mobile rows must fit in the scroll-free list');
+  await page.locator('[data-library-select]').first().click();
+  assert.equal(await page.locator('#libraryDeleteSelectedBtn').isEnabled(),true);
+  if(process.env.PFC_VISUAL_CAPTURE_DIR){
+    const output=path.resolve(process.env.PFC_VISUAL_CAPTURE_DIR);
+    await fs.mkdir(output,{recursive:true});
+    await page.screenshot({path:path.join(output,'library-selected-mobile.png'),fullPage:true});
+  }
+  // Clean up fixture files, preserving other records.
+  for(const id of [firstId,secondId]){
+    await page.locator('#librarySearchInput').fill('');
+    await page.locator('[data-library-file="'+id+'"] [data-library-select]').click();
+    if(await page.locator('#libraryDeleteSelectedBtn').isDisabled()){
+      await page.locator('[data-library-file="'+id+'"] [data-library-select]').click();
+    }
+    page.once('dialog',dialog=>dialog.accept());
+    await page.locator('#libraryDeleteSelectedBtn').click();
+    await page.waitForFunction((id)=>!document.querySelector('[data-library-file="'+id+'"]'),id);
+  }
+  assert.equal(await page.locator('#libraryQueueSelectedBtn').isDisabled(),true);
+  await page.setViewportSize({width:1365,height:900});
+  console.log('Chromium: Print Library table, selection, toolbar, queue/edit/delete and mobile PASS');
+}
+
+// Only the Print Library data rows should scroll. Toolbar, search and the
+// standard desktop table headings remain visible on long lists in either
+// theme, and mobile keeps its action bar above a scrollable card stack.
+async function libraryScrollingSmoke(page,url) {
+  await page.setViewportSize({width:1365,height:900});
+  await page.goto(url+'/library',{waitUntil:'load'});
+  await preactReady(page);
+  await page.waitForFunction(()=>window.__PFC_PREACT_LIBRARY__ === true);
+  const sample=Array.from({length:65},(_,i)=>({
+    id:'scroll-sample-'+i,
+    fileName:'Workshop component '+String(i+1).padStart(3,'0')+'.3mf',
+    sizeText:'28 KB',description:'Reusable print file',
+    printerTarget:'Any supported printer',requirements:'PLA · 0.4 mm',
+    colours:[],warning:'',previewUrl:'',selected:false,
+    cost:{available:true,value:'£0.62',detail:'Current filament catalogue prices'},
+    historyCount:'2 completed prints',historyLast:'Not printed yet',historyAdded:'Added recently'
+  }));
+  for(const viewport of [
+    {width:1365,height:900,desktop:true},
+    {width:390,height:844,desktop:false}
+  ]) {
+    await page.setViewportSize(viewport);
+    for(const theme of ['dark','light']) {
+      await page.evaluate(([files,theme])=>{
+        document.documentElement.dataset.theme=theme;
+        // In live usage renderPrintLibrary() unhides the header when files
+        // arrive from the API. Mirror that state in the synthetic UI fixture.
+        document.querySelector('#libraryTableHead').hidden=false;
+        window.dispatchEvent(new CustomEvent('pfc:library-ui-state',{
+          detail:{summary:files.length+' files',files,emptyText:'No files'}
+        }));
+      },[sample,theme]);
+      await page.waitForFunction(()=>document.querySelectorAll('#libraryList .library-file-row').length===65);
+      const before=await page.evaluate(()=>{
+        const header=document.querySelector('#libraryTableHead');
+        const list=document.querySelector('#libraryList');
+        const actions=document.querySelector('#libraryQueueSelectedBtn');
+        const search=document.querySelector('#librarySearchInput');
+        return {
+          headerTop:header.getBoundingClientRect().top,
+          headerBottom:header.getBoundingClientRect().bottom,
+          actionsTop:actions.getBoundingClientRect().top,
+          searchTop:search.getBoundingClientRect().top,
+          listTop:list.getBoundingClientRect().top,
+          listBottom:list.getBoundingClientRect().bottom,
+          listClient:list.clientHeight,
+          listContent:list.scrollHeight,
+          listOverflow:getComputedStyle(list).overflowY,
+          headDisplay:getComputedStyle(header).display,
+          pageScroll:window.scrollY,
+          headingScrollGutter:getComputedStyle(header).scrollbarGutter,
+          bodyScrollGutter:getComputedStyle(list).scrollbarGutter,
+          headerCols:getComputedStyle(header).gridTemplateColumns,
+          firstRowCols:getComputedStyle(list.querySelector('.library-file-row')).gridTemplateColumns
+        };
+      });
+      assert.ok(before.listContent>before.listClient+100,'long list must scroll inside its region');
+      assert.equal(before.listOverflow,'auto','only the library rows should scroll');
+      console.log('LIBRARY SCROLL RESIZE DEBUG',JSON.stringify({viewport,theme,before}));
+      assert.ok(before.listClient>=125,'file region must remain usable at '+viewport.width+'px');
+      assert.ok(before.actionsTop>=0 && before.actionsTop<viewport.height,
+        'selected-file actions remain onscreen above long lists');
+      assert.ok(before.searchTop>=0 && before.searchTop<viewport.height,
+        'search remains onscreen above long lists');
+      assert.ok(before.listTop<viewport.height,'scrollable rows start inside viewport');
+      if(viewport.desktop) {
+        assert.notEqual(before.headDisplay,'none','desktop headings remain visible');
+        assert.ok(before.headerTop>=0 && before.headerBottom<viewport.height,
+          'desktop table headings stay visible');
+        assert.equal(before.headingScrollGutter,before.bodyScrollGutter,
+          'heading and list reserve matching scrollbar gutter');
+        const h=before.headerCols.split(' ').map(parseFloat);
+        const r=before.firstRowCols.split(' ').map(parseFloat);
+        assert.ok(h.every((width,i)=>Math.abs(width-r[i])<1),
+          'headers and rows remain column-aligned with native scrollbar');
+      } else {
+        assert.equal(before.headDisplay,'none','mobile retains labelled cards');
+      }
+      await page.evaluate(()=>{const list=document.querySelector('#libraryList');list.scrollTop=list.scrollHeight;});
+      await page.waitForFunction(()=>document.querySelector('#libraryList')?.scrollTop>100);
+      const after=await page.evaluate(()=>{
+        const header=document.querySelector('#libraryTableHead');
+        const list=document.querySelector('#libraryList');
+        return {
+          headerTop:header.getBoundingClientRect().top,
+          actionsTop:document.querySelector('#libraryQueueSelectedBtn').getBoundingClientRect().top,
+          searchTop:document.querySelector('#librarySearchInput').getBoundingClientRect().top,
+          pageScroll:window.scrollY,
+          listScroll:list.scrollTop,
+          firstRowTop:list.querySelector('.library-file-row').getBoundingClientRect().top
+        };
+      });
+      assert.equal(after.headerTop,before.headerTop,'heading must not move with rows');
+      assert.equal(after.actionsTop,before.actionsTop,'toolbar must not move with rows');
+      assert.equal(after.searchTop,before.searchTop,'search must not move with rows');
+      assert.equal(after.pageScroll,before.pageScroll,'inner wheel should not move the page');
+      assert.ok(after.firstRowTop<before.listTop,'file rows must move independently of heading');
+      if(process.env.PFC_VISUAL_CAPTURE_DIR && viewport.desktop) {
+        const out=path.resolve(process.env.PFC_VISUAL_CAPTURE_DIR);
+        await fs.mkdir(out,{recursive:true});
+        await page.screenshot({path:path.join(out,
+          'library-fixed-toolbar-'+theme+'-desktop.png'),fullPage:true});
+      }
+    }
+  }
+  await page.setViewportSize({width:1365,height:900});
+  console.log('Chromium: Print Library fixed headings and actions, inner scrolling PASS');
+}
+
+// The library must distinguish file problems from a printer that is merely
+// offline or printing, with consistent Preact badges and facet values.
+async function libraryAvailabilityBadgeSmoke(page,url) {
+  await page.setViewportSize({width:1365,height:900});
+  await page.goto(url+'/library',{waitUntil:'load'});
+  await preactReady(page);
+  // The initial /api/library response is asynchronous. Wait until the
+  // controller has published it before injecting synthetic badge cases,
+  // otherwise that response can overwrite the fixture during CI.
+  await page.waitForFunction(()=>window.__PFC_PREACT_LIBRARY__===true
+    && window.__PFC_LIBRARY_UI_STATE__?.summary?.includes('stored on this controller'));
+  const endpoint=await page.evaluate(async()=>{
+    const result=await fetch('/api/library/readiness');
+    return {status:result.status,data:await result.json()};
+  });
+  assert.equal(endpoint.status,200);
+  assert.ok(Array.isArray(endpoint.data.files),'status-only endpoint must be available');
+  const cases=[
+    ['ready','Ready now'],['offline','Printer offline'],['busy','Printer busy'],
+    ['attention','Needs attention'],['incompatible','Incompatible']
+  ];
+  const files=cases.map(([level,label],i)=>({
+    id:'availability-'+level,
+    fileName:'Availability '+label+'.3mf',
+    sizeText:'10 KB',description:'',
+    printerTarget:'Any supported printer',requirements:'ASA · 0.4 mm',
+    cost:{available:false,value:'Unavailable',detail:'No price'},
+    colours:[],warning:'',previewUrl:'',
+    readiness:{level,label,detail:level+' printer status preview'},
+    historyCount:'0 completed prints',historyLast:'Not printed yet',
+    historyAdded:'Added recently'
+  }));
+  await page.evaluate(files=>{
+    document.querySelector('#libraryTableHead').hidden=false;
+    window.dispatchEvent(new CustomEvent('pfc:library-ui-state',{
+      detail:{summary:'5 readiness cases',files,emptyText:'No files'}
+    }));
+  },files);
+  await page.waitForFunction(()=>document.querySelectorAll('#libraryList .library-readiness').length===5);
+  for(const [level,label] of cases){
+    const badge=page.locator('[data-library-file="availability-'+level+'"] .library-readiness');
+    assert.equal(await badge.innerText(),label);
+    assert.ok((await badge.getAttribute('class')).includes('library-readiness-'+level));
+    assert.match(await badge.getAttribute('title'),/printer status preview/);
+  }
+  const values=await page.locator('#libraryReadinessFilter option').evaluateAll(
+    options=>options.map(option=>option.value));
+  assert.ok(values.includes('offline') && values.includes('busy'),'availability filters must be offered');
+  for(const theme of ['dark','light']){
+    await page.evaluate(theme=>{document.documentElement.dataset.theme=theme;},theme);
+    for(const level of ['busy','offline']){
+      const badge=page.locator('[data-library-file="availability-'+level+'"] .library-readiness');
+      const style=await badge.evaluate(element=>({
+        bg:getComputedStyle(element).backgroundColor,
+        color:getComputedStyle(element).color
+      }));
+      assert.ok(style.color && style.bg,'availability badge must use theme-aware styles');
+    }
+  }
+  console.log('Chromium: Print Library readiness availability badges PASS');
+}
+
 async function routeSmoke(page,url) {
   console.log('Chromium: checking direct load of all controller routes');
   for (const [route,id] of routes) {
@@ -1731,6 +2152,10 @@ async function main() {
     await workspaceShellSmoke(browser,url);
     await workspaceHeadingSmoke(page,url);
     await sharedTabNavigationSmoke(page,url);
+    await libraryCostSmoke(page,url);
+    await librarySelectionSmoke(page,url,{ mutateFixture:!externalUrl });
+    await libraryScrollingSmoke(page,url);
+    await libraryAvailabilityBadgeSmoke(page,url);
     await routeSmoke(page,url);
     await queueClickSmoke(browser,url);
     await groupEditorSmoke(browser,url);

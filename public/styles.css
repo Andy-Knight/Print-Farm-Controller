@@ -3959,7 +3959,9 @@ body:not([data-route="/"]) > main > :not(.route-page) { display:none !important;
 .alert-history-table,
 .printer-group-members,
 .frontend-renderer-table,
-.material-grid.multi-tool-table {
+.material-grid.multi-tool-table,
+#libraryDialog .library-table-head,
+#libraryDialog .library-list {
   border:1px solid var(--pfc-table-border);
   border-radius:var(--pfc-table-radius);
   background:var(--pfc-table-surface);
@@ -3968,7 +3970,8 @@ body:not([data-route="/"]) > main > :not(.route-page) { display:none !important;
 .alert-history-head,
 .printer-group-members-table thead th,
 .frontend-renderer-table th,
-.material-table-head {
+.material-table-head,
+#libraryDialog .library-table-head {
   background:var(--pfc-table-header-background);
   color:var(--pfc-table-header-text);
   font-size:.68rem;
@@ -3978,7 +3981,8 @@ body:not([data-route="/"]) > main > :not(.route-page) { display:none !important;
 }
 .fleet-table-header,
 .alert-history-head,
-.material-table-head {
+.material-table-head,
+#libraryDialog .library-table-head {
   border-bottom:1px solid var(--pfc-table-header-divider);
 }
 .printer-group-members-table thead th,
@@ -4004,7 +4008,8 @@ body:not([data-route="/"]) > main > :not(.route-page) { display:none !important;
 .frontend-renderer-table tr:last-child td { border-bottom:0; }
 .fleet.table-view .card,
 .alert-history-row,
-.multi-tool-table .material-tool {
+.multi-tool-table .material-tool,
+#libraryDialog .library-file-row {
   border-bottom-color:var(--pfc-table-divider);
 }
 .fleet.table-view .card:hover,
@@ -4012,11 +4017,14 @@ body:not([data-route="/"]) > main > :not(.route-page) { display:none !important;
 .alert-history-row:not(.unread):hover,
 .printer-group-members-table tbody tr:hover,
 .frontend-renderer-table tbody tr:hover,
-.multi-tool-table .material-tool:not(.filament-missing):hover {
+.multi-tool-table .material-tool:not(.filament-missing):hover,
+#libraryDialog .library-file-row:hover {
   background:var(--pfc-table-hover);
 }
 .printer-group-members-table tbody tr.is-selected,
-.printer-group-members-table tbody tr.is-selected:hover {
+.printer-group-members-table tbody tr.is-selected:hover,
+#libraryDialog .library-file-row.is-selected,
+#libraryDialog .library-file-row.is-selected:hover {
   background:var(--pfc-table-selected);
 }
 .printer-group-members-table td,

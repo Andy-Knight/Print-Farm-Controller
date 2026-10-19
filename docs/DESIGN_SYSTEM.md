@@ -1,6 +1,6 @@
 # Print Farm Controller — SaaS UI design system (Phase 1)
 
-**Status:** Phases 1–3 merged as v0.54.0 (PR #96); Phase 4 landed as v0.55.0 (PR #98); Printer Details follow-up PR #99 and standardised tabs PR #100 comprise v0.56.0. No printer-control protocols, endpoint contracts or edition limits change.
+**Status:** Phases 1–3 merged as v0.54.0 (PR #96); Phase 4 landed as v0.55.0 (PR #98); Printer Details follow-up PR #99 and standardised tabs PR #100 comprise v0.56.0. The Print Library workbench, live readiness and cost workflow (PR #101) comprise v0.57.0. No printer-control protocols, endpoint contracts or edition limits change.
 
 ## Product direction
 A professional, calm, information-first operations workspace that resembles established SaaS applications while remaining *local-first*: no CDN, external fonts, remote assets or third-party analytics. Dense fleet operations stay legible and users can keep working when printer SSE telemetry refreshes during an edit.
@@ -103,6 +103,12 @@ User review of mockup A requested the upper identity region in addition to the i
 
 **Data integrity:** firmware comes from printer status `firmwareVersion` and shows “Not reported” when absent. Uptime is shown only if an adapter explicitly supplies nonnegative `uptimeSeconds`; last-seen and connection duration are not printer uptime and must never be substituted. “Connection health” describes the controller's online/poll-failure state, not mechanical health. Both Preact and the no-bundle fallback use the same source fields and update during telemetry refresh. No new printer protocol reads or backend changes were introduced.
 
+## Print Library workbench — feature branch
+
+The Print Library now uses a **single-selection workbench** rather than action buttons inside each item. The contextual action toolbar is directly below Search / Add file, has an `aria-live` selected-file indicator, and only enables Queue/Edit when a visible file is selected. Delete remains disabled while queue/history references exist. Clicking a row or its dedicated selection button selects it; clicking again clears the selection. Thumbnail preview is independent. Keyboard selection uses a focusable `aria-pressed` button, not a non-semantic row-only click target.
+
+At desktop widths, a fixed shared CSS grid aligns column headings and entries: Select, Preview, File, Printer, Filament & requirements, Estimated cost and History. The library deliberately inherits **the controller-wide table skin in `public/styles.css`** via `--pfc-table-*` tokens rather than independently defining header colours or row states: white uppercase bold heading text on the existing dark header, canonical border/divider spacing, table surface, hover and selected row highlighting, in light and dark themes. Below 1180px the presentation becomes row-labelled cards and below 700px it stacks key fields without horizontal scrolling. The same row structure is produced by Preact and the no-bundle HTML renderer, using shared CSS in `public/print-library-polish.css`; existing light/dark design-system colours and minimum 42px action buttons are retained. The library's flex-column route shell has a viewport-aware maximum height; the headings, search field and contextual buttons are outside the sole scrolling region (`#libraryList`). Desktop heading and body reserve matching thin scrollbar gutters so grid columns remain aligned on non-overlay Windows scrollbars. Mobile keeps its labelled card layout and internally scrolls the cards, with touch momentum and overscroll containment; short libraries keep a natural content height rather than a large forced empty scroll panel. Filament costs remain current raw-material estimates, not historical queue snapshots or total manufacturing costs.
+
 ## Phase 4.1 — standardised icon underline navigation (v0.56.0)
 
 The **Option A** selected for Printer Details is now the shared style across every existing multi-panel navigation: Printer Details, Maintenance Tracking, Printer Groups, Reports, Alerts & Notifications and Backup & Recovery. Each area retains its own tab labels, saved active-selection behaviour, controller APIs, form state and keyboard handlers. View toggles such as dashboard card/table switching are **not** tabs and deliberately keep their button treatment.
@@ -114,3 +120,22 @@ The **Option A** selected for Printer Details is now the shared style across eve
 ### Validation and release sequencing
 
 User acceptance and feature-branch test gates have completed for both parts. PR #99 (Printer Details) was merged first. PR #100 was then retargeted to `main`, the application version advanced to v0.56.0 and the combined release submitted for its final CI gate. Continue to test printer-specific UI on physical hardware where available.
+
+## Print Library Phase 2 — production search, sorting and scale
+
+On top of the selected-file toolbar and canonical seven-column `--pfc-table-*` styling, the Print Library now has:
+
+- Click-to-sort desktop header buttons for filename, target printer, filament, material cost and completed jobs, with direction reversal and keyboard focus states. Other fields (date added, last printed, duration, weight and readiness) are available from a named sort dropdown inside **Advanced filters**.
+- Multi-facet filtering by designated printer type, slicer filament material, primary category, tags, known vs unavailable costing, live readiness and favourites, combined with the existing full-text search.
+- Validated per-file `category`, `tags` and `favourite` fields persisted in the existing print-library metadata JSON, maintained with the current PATCH API; legacy backups/files default to a blank category, no tags and not-favourite. Category and tags are searchable and visible in the file row. No revisions/version history has been introduced.
+- Slicer-estimated duration from explicit Orca/Prusa-style estimate lines and Cura `;TIME:` (including embedded 3MF G-code), with `Not reported` for unknown values; filament grams show only if each logical tool reports a reliable weight. User-selected **batch quantity** multiplies the current raw-material cost estimate without initiating prints or changing historical queue cost snapshots.
+- A **readiness preview** derived from the existing `evaluateQueueCompatibility` implementation and current printer status; green is reserved for verified online printer/material/tool evidence. Unknown metadata, no suitable online printer and other review conditions are amber; known incompatibility is red. This is a snapshot, not an authorization to bypass the real job's queue-time preflight. The current printer configuration can change at any time.
+- 80 rows per client page to bound Preact/legacy DOM size, with Previous/Next controls in the table's scrolling region. Backend library metadata reads are capped at 12 concurrent filesystem operations, and usage references are indexed once per snapshot; cost catalogue prices are still read once per request. Pagination currently occurs **client-side**, so the API still returns the full listing, which remains necessary for fleet history and search consistency. Server-side pagination may be considered if very large libraries become common.
+
+The advanced filters are collapsed by default, keeping Search/Add, the selected-file toolbar, live item count and canonical heading row permanently visible on long lists, including on narrow screens. The table's file body alone scrolls.
+
+### Print Library printer availability badges
+
+A compatible file targeting an offline printer now displays **Printer offline** rather than **Needs attention**. Files whose suitable printer is temporarily occupied display **Printer busy**. Actual material/nozzle configuration conflicts or incomplete sliced metadata still display **Needs attention**; static printer/file incompatibility remains **Incompatible**. The **Ready now** state continues to require verified, online tooling and filament information, and queue preflight remains authoritative. Offline spool/nozzle telemetry is treated as unverified rather than as a current defect.
+
+The existing fleet Server-Sent Events trigger a trailing, throttled (at most every eight seconds) refresh of **GET /api/library/readiness** only while the Library route is active. That endpoint computes compatibility from current printer state without recalculating prices or full queue history. Only readiness is merged into the existing library data, preserving file selection, search/filter state, page and scrolling. The advanced readiness filter includes the two new statuses; separate neutral and blue badge styles follow the shared light/dark design system. 

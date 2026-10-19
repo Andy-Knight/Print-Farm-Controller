@@ -49,6 +49,35 @@ function first(config, keys) {
   return null;
 }
 
+/**
+ * Slicer estimates only. Do not infer duration from layer count or G-code
+ * moves; without a known slicer duration field return null.
+ */
+export function parseEstimatedPrintSeconds(text = '') {
+  const source = String(text || '');
+  // Cura and compatible post-processors use ;TIME:<seconds>.
+  const cura = source.match(/^\s*;\s*TIME\s*:\s*(\d+(?:\.\d+)?)\s*$/im);
+  if (cura) {
+    const seconds = Number(cura[1]);
+    return Number.isFinite(seconds) && seconds > 0 && seconds < 365 * 86400 ? Math.round(seconds) : null;
+  }
+  // OrcaSlicer / PrusaSlicer use estimated printing time (normal mode).
+  const time = source.match(/^\s*;\s*(?:estimated printing time\s*\((?:normal|standard) mode\)|estimated printing time|total estimated time)\s*[:=]\s*([^\r\n]+)/im);
+  if (!time) return null;
+  const value = time[1].trim();
+  if (/^\d+(?:\.\d+)?$/.test(value)) return null; // unitless text is ambiguous.
+  const units = [...value.matchAll(/(\d+(?:\.\d+)?)\s*(d(?:ays?)?|h(?:ours?)?|m(?:in(?:utes?)?)?|s(?:ec(?:onds?)?)?)\b/gi)];
+  if (!units.length) return null;
+  const remaining = value.replace(/(\d+(?:\.\d+)?)\s*(?:d(?:ays?)?|h(?:ours?)?|m(?:in(?:utes?)?)?|s(?:ec(?:onds?)?)?)\b/gi,'').replace(/[\s,]+/g,'');
+  if (remaining) return null;
+  let total = 0;
+  for (const [, amount, unit] of units) {
+    const kind = unit[0].toLowerCase();
+    total += Number(amount) * ({d:86400,h:3600,m:60,s:1})[kind];
+  }
+  return Number.isFinite(total) && total > 0 && total < 365 * 86400 ? Math.round(total) : null;
+}
+
 export function parseGcodePrintRequirements(text = '', { fileName = null } = {}) {
   const config = parseConfig(text);
   const materialMetadata = parseGcodeMaterialMetadata(text);
@@ -101,6 +130,7 @@ export function parseGcodePrintRequirements(text = '', { fileName = null } = {})
     toolCount: requiredTools.length,
     logicalTools,
     totalFilamentGrams,
+    estimatedPrintSeconds:parseEstimatedPrintSeconds(text),
     usageReliable,
     materialMetadata,
     source: 'gcode-bounded-scan',
@@ -167,7 +197,7 @@ export async function readFilePrintRequirements(filePath, { maxChunkBytes = MAX_
     } catch (error) {
       return {
         fileName:path.basename(String(filePath || '')) || null,
-        requiredTools:[], toolCount:0, logicalTools:[], usageReliable:false,
+        requiredTools:[], toolCount:0, logicalTools:[], estimatedPrintSeconds:null, usageReliable:false,
         materialMetadata:{ metadataAvailable:false, requiredMaterial:null, materials:[], source:null, warning:error.message },
         source:null,
         warning:`Automatic compatibility could not inspect this 3MF: ${error.message}`
@@ -180,6 +210,7 @@ export async function readFilePrintRequirements(filePath, { maxChunkBytes = MAX_
       requiredTools: [],
       toolCount: 0,
       logicalTools: [],
+      estimatedPrintSeconds:null,
       usageReliable: false,
       materialMetadata: {
         metadataAvailable: false,

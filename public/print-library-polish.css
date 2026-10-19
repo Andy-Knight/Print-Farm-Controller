@@ -1,0 +1,494 @@
+/*
+ * Print Library — current estimated raw-material cost per print.
+ * Neutral until known, never mistaken for an exact manufacturing cost.
+ * Scoped to the library cards; shared light/dark design system tokens.
+ */
+#libraryDialog .library-print-cost {
+  display:flex;
+  align-items:center;
+  gap:10px;
+  min-width:0;
+  margin-top:11px;
+  padding:10px 12px;
+  border:1px solid var(--ds-border);
+  border-radius:var(--ds-radius-md);
+  background:var(--ds-surface-muted);
+}
+#libraryDialog .library-print-cost-icon {
+  display:block;
+  flex:0 0 19px;
+  width:19px;
+  height:19px;
+  align-self:flex-start;
+  margin-top:2px;
+  background:var(--ds-brand);
+  -webkit-mask:url("data:image/svg+xml,%3Csvg%20xmlns%3D'http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg'%20viewBox%3D'0%200%2024%2024'%20fill%3D'none'%20stroke%3D'black'%20stroke-width%3D'1.8'%20stroke-linecap%3D'round'%20stroke-linejoin%3D'round'%3E%3Cpath%20d%3D'M6%202h12v20l-3-2-3%202-3-2-3%202Z'%2F%3E%3Cpath%20d%3D'M9%207h6M9%2011h6M9%2015h4'%2F%3E%3C%2Fsvg%3E") center/contain no-repeat;
+  mask:url("data:image/svg+xml,%3Csvg%20xmlns%3D'http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg'%20viewBox%3D'0%200%2024%2024'%20fill%3D'none'%20stroke%3D'black'%20stroke-width%3D'1.8'%20stroke-linecap%3D'round'%20stroke-linejoin%3D'round'%3E%3Cpath%20d%3D'M6%202h12v20l-3-2-3%202-3-2-3%202Z'%2F%3E%3Cpath%20d%3D'M9%207h6M9%2011h6M9%2015h4'%2F%3E%3C%2Fsvg%3E") center/contain no-repeat;
+}
+#libraryDialog .library-print-cost.unavailable .library-print-cost-icon {
+  background:var(--ds-text-muted);
+}
+#libraryDialog .library-print-cost-copy {
+  display:grid;
+  grid-template-columns:minmax(0,1fr) auto;
+  gap:3px 14px;
+  flex:1 1 auto;
+  min-width:0;
+  align-items:center;
+}
+#libraryDialog .library-print-cost-label {
+  color:var(--ds-text-muted);
+  font-size:.72rem;
+  font-weight:700;
+}
+#libraryDialog .library-print-cost-value {
+  color:var(--ds-brand);
+  font-size:1.03rem;
+  font-weight:800;
+  white-space:nowrap;
+  text-align:right;
+}
+#libraryDialog .library-print-cost.unavailable .library-print-cost-value {
+  color:var(--ds-text-muted);
+  font-size:.84rem;
+}
+#libraryDialog .library-print-cost-detail {
+  grid-column:1 / -1;
+  color:var(--ds-text-muted);
+  font-size:.7rem;
+  line-height:1.4;
+  overflow-wrap:anywhere;
+}
+@media(max-width:620px) {
+  #libraryDialog .library-print-cost { padding:9px; }
+  #libraryDialog .library-print-cost-copy { grid-template-columns:minmax(0,1fr); gap:3px; }
+  #libraryDialog .library-print-cost-value { text-align:left; }
+}
+
+/* Library workbench — one selected file, shared contextual actions.
+ * Dense desktop columns become descriptive cards below 1180px; no
+ * horizontal page scrolling on Android. Preview remains a separate action.
+ */
+/* Uses the canonical --pfc-table-* tokens declared for Dashboard, Alerts,
+ * Printer Groups, Diagnostics and multi-toolhead tables in styles.css.
+ * Row geometry and responsive card behaviour stay local to this view. */
+#libraryDialog.library-dialog {
+  width:min(1500px,calc(100vw - 30px));
+  --library-table-cols:38px 68px minmax(170px,1.65fr) minmax(125px,.95fr) minmax(170px,1.3fr) minmax(150px,1fr) minmax(125px,1fr);
+}
+#libraryDialog .library-action-toolbar {
+  display:flex;
+  flex-wrap:wrap;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  margin:0 0 12px;
+  padding:10px 12px;
+  border:1px solid var(--ds-border);
+  border-radius:var(--ds-radius-md);
+  background:var(--ds-surface-muted);
+}
+#libraryDialog .library-selection-status {
+  flex:1 1 210px;
+  min-width:0;
+  color:var(--ds-text-muted);
+  font-size:.8rem;
+  font-weight:700;
+  overflow-wrap:anywhere;
+}
+#libraryDialog .library-action-buttons {
+  display:flex;
+  flex-wrap:wrap;
+  gap:8px;
+}
+#libraryDialog .library-action-buttons button {
+  min-height:42px;
+  white-space:nowrap;
+}
+#libraryDialog .library-action-buttons button:disabled {
+  opacity:.5;
+  cursor:not-allowed;
+}
+#libraryDialog .library-table-head {
+  display:grid;
+  grid-template-columns:var(--library-table-cols);
+  align-items:center;
+  gap:12px;
+  margin-top:13px;
+  padding:9px 12px;
+  border:1px solid var(--pfc-table-border);
+  border-bottom:1px solid var(--pfc-table-header-divider);
+  border-radius:var(--pfc-table-radius) var(--pfc-table-radius) 0 0;
+  background:var(--pfc-table-header-background);
+  color:var(--pfc-table-header-text);
+  font-size:.68rem;
+  font-weight:800;
+  letter-spacing:.04em;
+  text-transform:uppercase;
+  line-height:1.3;
+}
+#libraryDialog .library-table-head[hidden] { display:none!important; }
+#libraryDialog .library-list {
+  display:grid;
+  gap:0;
+  margin-top:0;
+  overflow:hidden;
+  border:1px solid var(--pfc-table-border);
+  border-top:0;
+  border-radius:0 0 var(--pfc-table-radius) var(--pfc-table-radius);
+  background:var(--pfc-table-surface);
+}
+#libraryDialog .library-table-head[hidden] + .library-list {
+  border:0;
+  border-radius:0;
+}
+#libraryDialog .library-file-row {
+  display:grid;
+  grid-template-columns:var(--library-table-cols);
+  align-items:start;
+  gap:12px;
+  min-width:0;
+  margin:0;
+  /* Same 12px side inset as the table header once the list's 1px frame
+   * is accounted for; heading and body grid tracks then match exactly. */
+  padding:14px 12px;
+  border:0;
+  border-bottom:1px solid var(--pfc-table-divider);
+  border-radius:0;
+  background:transparent;
+  cursor:pointer;
+  transition:background var(--ds-duration-fast) var(--ds-easing);
+}
+#libraryDialog .library-file-row:last-child { border-bottom:0; }
+#libraryDialog .library-file-row:hover { background:var(--pfc-table-hover); }
+#libraryDialog .library-file-row.is-selected {
+  background:var(--pfc-table-selected);
+  box-shadow:inset 3px 0 0 var(--ds-brand);
+}
+#libraryDialog .library-file-row:focus-within { outline-offset:-3px; }
+#libraryDialog .library-file-row.is-selected:hover { background:var(--pfc-table-selected); }
+#libraryDialog .library-cell { min-width:0; }
+#libraryDialog .library-cell-label { display:none; }
+#libraryDialog .library-select-button {
+  display:grid;
+  place-items:center;
+  width:36px;
+  height:40px;
+  min-height:40px;
+  margin:0;
+  padding:0;
+  border:1px solid transparent;
+  border-radius:8px;
+  background:transparent;
+  cursor:pointer;
+  color:var(--ds-text-muted);
+}
+#libraryDialog .library-select-button:hover {
+  border-color:var(--ds-border-strong);
+  background:var(--ds-surface-hover);
+}
+#libraryDialog .library-select-button:focus-visible {
+  outline:2px solid var(--ds-focus);
+  outline-offset:2px;
+}
+#libraryDialog .library-selection-indicator {
+  display:block;
+  width:20px;
+  height:20px;
+  flex:0 0 20px;
+  border:2px solid var(--ds-border-strong);
+  border-radius:50%;
+  background:var(--ds-surface);
+}
+#libraryDialog .library-select-button[aria-pressed="true"] .library-selection-indicator {
+  border:6px solid var(--ds-brand);
+  background:var(--ds-surface);
+}
+#libraryDialog .library-preview-cell .library-file-preview {
+  width:66px;
+  height:66px;
+  min-height:66px;
+  min-width:66px;
+  aspect-ratio:1;
+  flex:0 0 66px;
+  padding:4px;
+}
+#libraryDialog .library-preview-cell .library-file-preview-empty { padding:7px 4px; }
+#libraryDialog .library-preview-cell .library-file-preview-empty span { font-size:1.35rem; }
+#libraryDialog .library-preview-cell .library-file-preview-empty small { font-size:.62rem; }
+#libraryDialog .library-file-title strong {
+  display:block;
+  white-space:normal;
+  overflow-wrap:anywhere;
+  line-height:1.32;
+  font-size:.86rem;
+}
+#libraryDialog .library-file-size {
+  display:block;
+  margin-top:4px;
+  color:var(--ds-text-muted);
+  font-size:.7rem;
+}
+#libraryDialog .library-file-description {
+  margin-top:6px;
+  font-size:.73rem;
+  line-height:1.45;
+  display:-webkit-box;
+  -webkit-line-clamp:3;
+  -webkit-box-orient:vertical;
+  overflow:hidden;
+}
+#libraryDialog .library-target-value {
+  color:var(--ds-text);
+  font-size:.79rem;
+  font-weight:700;
+  overflow-wrap:anywhere;
+}
+#libraryDialog .library-requirements-cell .library-file-requirements {
+  margin:0;
+  font-size:.76rem;
+  line-height:1.4;
+}
+#libraryDialog .library-requirements-cell .library-file-colors {
+  display:block;
+  margin-top:7px;
+}
+#libraryDialog .library-requirements-cell .library-file-colors-label { display:none; }
+#libraryDialog .library-requirements-cell .library-color-list { gap:4px; }
+#libraryDialog .library-requirements-cell .library-color-item { padding:3px 5px; gap:5px; }
+#libraryDialog .library-requirements-cell .library-color-item .material-swatch {
+  width:13px;
+  height:13px;
+}
+#libraryDialog .library-requirements-cell .library-color-item small { display:none; }
+#libraryDialog .library-cost-cell .library-print-cost {
+  margin:0;
+  padding:0;
+  gap:5px;
+  align-items:flex-start;
+  border:0;
+  background:transparent;
+}
+#libraryDialog .library-cost-cell .library-print-cost-icon {
+  flex-basis:16px;
+  width:16px;
+  height:16px;
+  margin-top:1px;
+}
+#libraryDialog .library-cost-cell .library-print-cost-copy {
+  display:flex;
+  flex-direction:column;
+  align-items:flex-start;
+  gap:3px;
+  min-width:0;
+}
+#libraryDialog .library-cost-cell .library-print-cost-label { display:none; }
+#libraryDialog .library-cost-cell .library-print-cost-value {
+  font-size:.9rem;
+  text-align:left;
+  white-space:normal;
+  overflow-wrap:anywhere;
+}
+#libraryDialog .library-cost-cell .library-print-cost-detail {
+  display:-webkit-box;
+  -webkit-box-orient:vertical;
+  -webkit-line-clamp:3;
+  overflow:hidden;
+  line-height:1.3;
+  font-size:.67rem;
+}
+#libraryDialog .library-history-cell {
+  display:flex;
+  flex-direction:column;
+  gap:5px;
+  font-size:.73rem;
+  color:var(--ds-text-muted);
+  overflow-wrap:anywhere;
+}
+#libraryDialog .library-history-cell strong { color:var(--ds-text); font-size:.77rem; }
+#libraryDialog .library-history-cell small { font-size:.7rem; }
+@media(max-width:1180px) {
+  #libraryDialog .library-table-head { display:none; }
+  #libraryDialog .library-list {
+    display:grid;
+    gap:10px;
+    border:0;
+    border-radius:0;
+    overflow:visible;
+    background:transparent;
+  }
+  #libraryDialog .library-file-row {
+    grid-template-columns:36px 74px minmax(0,1fr) minmax(150px,.65fr);
+    grid-template-areas:
+      "selection preview filename cost"
+      "selection preview target cost"
+      "selection preview requirements history";
+    align-items:start;
+    border:1px solid var(--pfc-table-border);
+    border-radius:var(--pfc-table-radius);
+    padding:12px;
+  }
+  #libraryDialog .library-file-row:last-child { border-bottom:1px solid var(--pfc-table-border); }
+  #libraryDialog .library-selection-cell { grid-area:selection; }
+  #libraryDialog .library-preview-cell { grid-area:preview; }
+  #libraryDialog .library-file-cell { grid-area:filename; }
+  #libraryDialog .library-target-cell { grid-area:target; }
+  #libraryDialog .library-requirements-cell { grid-area:requirements; }
+  #libraryDialog .library-cost-cell { grid-area:cost; }
+  #libraryDialog .library-history-cell { grid-area:history; }
+  #libraryDialog .library-cell-label {
+    display:block;
+    margin-bottom:4px;
+    color:var(--ds-text-muted);
+    font-size:.68rem;
+    font-weight:800;
+  }
+  #libraryDialog .library-cost-cell .library-print-cost-label { display:block; }
+}
+@media(max-width:700px) {
+  #libraryDialog .library-action-toolbar { align-items:stretch; }
+  #libraryDialog .library-action-buttons {
+    display:grid;
+    width:100%;
+    grid-template-columns:repeat(2,minmax(0,1fr));
+  }
+  #libraryDialog .library-action-buttons #libraryQueueSelectedBtn { grid-column:1/-1; }
+  #libraryDialog .library-action-buttons button { min-width:0; }
+  #libraryDialog .library-file-row {
+    grid-template-columns:34px 72px minmax(0,1fr);
+    grid-template-areas:
+      "selection preview filename"
+      ". preview target"
+      ". requirements requirements"
+      ". cost cost"
+      ". history history";
+    gap:7px 9px;
+  }
+  #libraryDialog .library-cost-cell .library-print-cost-detail {
+    -webkit-line-clamp:4;
+  }
+}
+
+/* Long library navigation: keep the page heading, search/Add, selected-file
+ * action toolbar and standard table header in normal flow. Constrain only
+ * the row region to the visible workspace, with its own vertical scrollbar.
+ *
+ * The route's outer .queue-shell is given a max-height (not a fixed height):
+ * short libraries retain their natural content height, large ones flex-shrink
+ * the list instead of moving the command toolbar offscreen.
+ */
+#libraryDialog > .queue-shell {
+  display:flex;
+  flex-direction:column;
+  min-height:0;
+  max-height:max(490px,calc(100dvh - var(--shell-topbar-height,74px) - 96px));
+}
+#libraryDialog > .queue-shell > .dialog-head {
+  flex:0 0 auto;
+}
+#libraryDialog > .queue-shell > .queue-section {
+  display:flex;
+  flex:1 1 auto;
+  flex-direction:column;
+  min-height:0;
+}
+#libraryDialog .library-toolbar,
+#libraryDialog .library-action-toolbar,
+#libraryDialog #libraryStatus,
+#libraryDialog #libraryError,
+#libraryDialog .library-table-head {
+  flex:0 0 auto;
+}
+#libraryDialog .library-list {
+  flex:0 1 auto;
+  min-height:0;
+  overflow-x:hidden;
+  overflow-y:auto;
+  overscroll-behavior-y:contain;
+  scrollbar-width:thin;
+  scrollbar-color:var(--pfc-table-border) transparent;
+  scrollbar-gutter:stable;
+  align-content:start;
+  grid-auto-rows:max-content;
+}
+#libraryDialog .library-table-head {
+  /* Reserve the same classic scrollbar gutter AND scrollbar width as the
+   * scrollable body. Otherwise a thin list scrollbar and a normal header
+   * gutter differ by ~5px, shifting column tracks on Windows/Linux. */
+  overflow:hidden;
+  scrollbar-width:thin;
+  scrollbar-gutter:stable;
+}
+#libraryDialog .library-list:focus-visible {
+  outline:2px solid var(--ds-focus);
+  outline-offset:-2px;
+}
+@media(max-width:1180px) {
+  /* Responsive cards do not have a visible column header, but the
+   * actions remain outside the scrollable card stack. */
+  #libraryDialog .library-list {
+    padding:2px 2px 4px;
+    scrollbar-gutter:auto;
+  }
+}
+@media(max-width:700px) {
+  #libraryDialog > .queue-shell {
+    max-height:max(510px,calc(100dvh - var(--shell-topbar-height,64px) - 54px));
+  }
+  #libraryDialog .library-list {
+    -webkit-overflow-scrolling:touch;
+    scrollbar-width:thin;
+  }
+}
+
+/* Library facets and bounded-pagination controls */
+#libraryDialog .library-filters {display:grid;grid-template-columns:repeat(5,minmax(100px,1fr)) auto auto;gap:9px;align-items:end;flex:0 0 auto;margin:0 0 12px}
+#libraryDialog .library-filters label,#libraryDialog .library-sort-extras label {display:flex;flex-direction:column;gap:5px;min-width:0;font-size:.69rem;font-weight:700;color:var(--ds-text-muted)}
+#libraryDialog .library-filters select,#libraryDialog .library-sort-extras select {width:100%;min-width:0;height:42px}
+#libraryDialog .library-filters .library-favourites-filter,#libraryMetadataForm .library-favourite-input {display:flex;flex-direction:row;gap:7px;align-items:center;min-height:42px;white-space:nowrap;color:var(--ds-text)}
+#libraryDialog .library-filters .library-favourites-filter input,#libraryMetadataForm .library-favourite-input input {width:18px;height:18px;margin:0}
+#libraryDialog .library-sort-extras {display:flex;flex-wrap:wrap;gap:10px;align-items:end;justify-content:flex-end;min-width:0;flex:0 0 auto;padding-bottom:2px}
+#libraryDialog .library-sort-extras label {flex:0 1 185px}
+#libraryDialog .library-sort-extras #libraryResultCount {align-self:center;font-size:.72rem}
+#libraryDialog .library-table-head [data-library-sort] {display:flex;justify-content:space-between;align-items:center;gap:6px;min-width:0;padding:0;border:0;border-radius:0;background:transparent;box-shadow:none;color:inherit;font-size:inherit;font-weight:inherit;letter-spacing:inherit;text-transform:inherit;text-align:left;cursor:pointer}
+#libraryDialog .library-table-head [data-library-sort]:hover {color:#bcdeff;background:transparent}
+#libraryDialog .library-table-head [data-library-sort].sorted::after {content:"↑";color:#8bc7ff;font-size:.85rem}
+#libraryDialog .library-table-head [data-library-sort].sorted-desc::after {content:"↓"}
+#libraryDialog .library-table-head [data-library-sort]:focus-visible {outline:2px solid #90caff;outline-offset:3px}
+#libraryDialog .library-pagination {display:flex;grid-column:1/-1;justify-content:flex-end;align-items:center;flex-wrap:wrap;gap:8px;padding:12px;border-top:1px solid var(--pfc-table-divider);color:var(--pfc-table-secondary);font-size:.74rem}
+#libraryDialog .library-pagination button {min-height:42px}
+#libraryDialog #libraryMetadataTags {width:100%}
+@media(max-width:1390px) {#libraryDialog .library-filters {grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media(max-width:760px) {#libraryDialog .library-filters {grid-template-columns:repeat(2,minmax(0,1fr))}#libraryDialog .library-sort-extras {justify-content:flex-start}#libraryDialog .library-table-head {display:none}}
+@media(max-width:460px) {#libraryDialog .library-filters .library-favourites-filter {white-space:normal}}
+
+/* Production information and readiness. Readiness reflects only currently
+ * verified printer state and is re-evaluated by the queue at print time. */
+#libraryDialog .library-readiness {display:inline-flex;align-items:center;max-width:100%;margin-top:7px;padding:3px 7px;border:1px solid var(--ds-border);border-radius:999px;font-size:.68rem;font-weight:750;line-height:1.3;overflow-wrap:anywhere}
+#libraryDialog .library-readiness-ready {border-color:#326d4d;background:rgba(24,118,66,.14);color:var(--ds-success,#51bd84)}
+#libraryDialog .library-readiness-busy {border-color:var(--ds-brand);background:var(--ds-brand-soft);color:var(--ds-brand)}
+#libraryDialog .library-readiness-offline {border-color:var(--pfc-table-border);background:var(--ds-surface-muted);color:var(--ds-text-muted)}
+#libraryDialog .library-readiness-attention {border-color:#927033;background:rgba(158,115,35,.13);color:var(--ds-warning,#e7b35e)}
+#libraryDialog .library-readiness-incompatible {border-color:#984249;background:rgba(162,52,63,.14);color:var(--ds-danger,#f18087)}
+#libraryDialog .library-fav-mark {color:#d6a84c;font-weight:800;font-size:.9rem}
+#libraryDialog .library-tags {display:flex;flex-wrap:wrap;gap:4px;margin-top:6px}
+#libraryDialog .library-tag {display:inline-block;padding:3px 6px;border:1px solid var(--pfc-table-border);border-radius:5px;background:transparent;color:var(--ds-text-muted);font-size:.67rem;overflow-wrap:anywhere}
+#libraryDialog .library-production-meta {display:flex;flex-wrap:wrap;gap:4px 10px;margin-top:6px;font-size:.7rem;color:var(--pfc-table-secondary)}
+#libraryDialog .library-production-meta > span {white-space:nowrap}
+@media(max-width:760px) {#libraryDialog .library-production-meta > span {white-space:normal}}
+
+#libraryDialog .library-advanced-filters {flex:0 0 auto;margin:0 0 8px;padding:0;border:1px solid var(--ds-border);border-radius:var(--ds-radius-sm);background:var(--ds-surface)}
+#libraryDialog .library-advanced-filters > summary {padding:8px 12px;cursor:pointer;color:var(--ds-text-muted);font-size:.73rem;font-weight:800;min-height:36px}
+#libraryDialog .library-advanced-filters > summary:focus-visible {outline:2px solid var(--ds-focus);outline-offset:-3px}
+#libraryDialog .library-advanced-filters[open] > .library-filters {padding:10px 12px;margin-bottom:0}
+#libraryDialog > .queue-shell {max-height:max(570px,calc(100dvh - var(--shell-topbar-height,74px) - 34px))}
+@media(max-width:700px) {#libraryDialog > .queue-shell {max-height:max(580px,calc(100dvh - var(--shell-topbar-height,64px) - 24px))}}
+
+#libraryDialog .library-category {display:inline-block;margin:6px 5px 0 0;padding:3px 7px;border:1px solid var(--ds-brand);border-radius:6px;color:var(--ds-brand);font-size:.67rem;font-weight:750;overflow-wrap:anywhere}
+#libraryDialog .library-batch-estimate {font-size:.75rem;line-height:1.4;color:var(--ds-text);font-weight:750;overflow-wrap:anywhere}
+#libraryDialog #libraryEstimateQuantity {max-width:135px;width:100%;height:42px}
+#libraryDialog .library-sort-extras label:has(#libraryEstimateQuantity) {flex-basis:150px}
+
+#libraryDialog .library-filter-results {flex:0 0 auto;min-height:18px;margin-bottom:5px;font-size:.72rem;color:var(--ds-text-muted)}
+#libraryDialog .library-advanced-filters .library-sort-extras {margin:0 12px 10px;padding:10px 0 0;border-top:1px solid var(--ds-border)}
+@media(max-width:700px){#libraryDialog .library-action-toolbar {gap:6px;padding:7px 9px}#libraryDialog .library-action-buttons {gap:6px}}
