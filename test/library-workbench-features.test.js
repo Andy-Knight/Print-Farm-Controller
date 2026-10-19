@@ -210,6 +210,70 @@ test('Clicking a Library category or tag chip uses its existing filter facet',()
   assert.match(css,/#libraryDialog button\.library-tag:focus-visible/);
 });
 
+test('Print Library status badges filter by the matching live-readiness facet',()=>{
+  const entries=[
+    file('ready-a',{readiness:{level:'ready'}}),
+    file('ready-b',{readiness:{level:'ready'},category:'Production',tags:['Urgent']}),
+    file('busy',{readiness:{level:'busy'},category:'Production'}),
+    file('offline',{readiness:{level:'offline'}}),
+    file('review',{readiness:{level:'attention'}}),
+    file('unsupported',{readiness:{level:'incompatible'}})
+  ];
+  const levels=['ready','busy','offline','attention','incompatible'];
+  for (const level of levels) {
+    const matching=librarySortAndFilter(entries,{readiness:level});
+    assert.ok(matching.length>0,level+' should return matching files');
+    assert.ok(matching.every((entry)=>entry.readiness.level===level),level+' must not include other statuses');
+  }
+  assert.deepEqual(librarySortAndFilter(entries,{readiness:'ready',category:'Production'}).map(x=>x.id),['ready-b']);
+  assert.deepEqual(librarySortAndFilter(entries,{readiness:'ready',tag:'Urgent'}).map(x=>x.id),['ready-b']);
+  assert.equal(librarySortAndFilter(entries,{readiness:'ready',category:'Not present'}).length,0);
+
+  const read=(p)=>readFileSync(new URL('../'+p,import.meta.url),'utf8');
+  const preact=read('ui/print-library.jsx');
+  const app=read('public/app.js');
+  const css=read('public/print-library-polish.css');
+  const html=read('public/index.html');
+  assert.match(preact,/<button type="button" class={`library-readiness/);
+  assert.match(preact,/data-library-filter-readiness={file\.readiness\?\.level \|\| 'attention'}/);
+  assert.match(preact,/title={file\.readiness\?\.detail \|\| 'Compatibility checked when queued'}/,
+    'status tooltip should continue to explain the actual readiness reason');
+  assert.match(app,/<button type="button" class="library-readiness/);
+  assert.match(app,/data-library-filter-readiness=/);
+  assert.match(app,/const readinessBadge=event\.target\.closest\('\[data-library-filter-readiness\]'\)/);
+  assert.match(app,/readinessBadge\.dataset\.libraryFilterReadiness/);
+  assert.match(app,/readinessBadge \? libraryReadinessFilter|: libraryReadinessFilter/);
+  assert.match(app,/field\.value=value;[\s\S]*?resetLibraryPagination\(\);/);
+  assert.match(html,/id="libraryReadinessFilter"/);
+  assert.match(css,/#libraryDialog button\.library-readiness:focus-visible/);
+  assert.match(css,/#libraryDialog button\.library-readiness:hover/);
+});
+
+test('Library selection preserves the current list scroll without altering filter/page scroll resets',()=>{
+  const app=readFileSync(new URL('../public/app.js',import.meta.url),'utf8');
+  assert.match(app,/function selectLibraryFile\(id,[\s\S]*?renderPrintLibrary\(\{ preserveScroll:true \}\)/,
+    'row/checkbox selection must restore the current list scroll position');
+  assert.match(app,/const scroll=preserveScroll \? libraryList\.scrollTop : 0/);
+  assert.match(app,/if \(preserveScroll\) libraryList\.scrollTop=scroll;\s*else libraryList\.scrollTop=0;/,
+    'intentional filter, sort and page changes should still reset scroll');
+  assert.match(app,/function resetLibraryPagination\(\) \{ libraryCurrentPage=0; renderPrintLibrary\(\); \}/);
+});
+
+test('Library Advanced Filters sort row neutralizes global label margins for aligned controls',()=>{
+  const read=(p)=>readFileSync(new URL('../'+p,import.meta.url),'utf8');
+  const global=read('public/styles.css');
+  const polish=read('public/print-library-polish.css');
+  const html=read('public/index.html');
+  assert.match(global,/label \{[^}]*margin:12px 0;/,
+    'global label margins remain in place for forms elsewhere');
+  assert.match(polish,/#libraryDialog \.library-sort-extras > label \{margin:0\}/,
+    'sort-row labels must not move their inputs above the adjacent direction button');
+  assert.match(polish,/#libraryDialog \.library-sort-extras \{[^}]*align-items:end;/);
+  assert.match(html,/id="librarySortSelect"/);
+  assert.match(html,/id="librarySortDirectionBtn"/);
+  assert.match(html,/id="libraryEstimateQuantity"/);
+});
+
 test('Library UI binds all sorting, filters, tags, favourites and pagers to Preact and fallback',()=>{
   const read=(p)=>readFileSync(new URL('../'+p,import.meta.url),'utf8');
   const html=read('public/index.html'),app=read('public/app.js'),preact=read('ui/print-library.jsx'),css=read('public/print-library-polish.css'),server=read('src/server.js');

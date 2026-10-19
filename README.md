@@ -1,4 +1,4 @@
-# Print Farm Controller v0.57.1
+# Print Farm Controller v0.57.2
 A local-first 3D printer fleet controller. It runs entirely on your LAN and currently supports:
 
 - **FlashForge Adventurer 5M / 5M Pro** through the local FlashForge HTTP/TCP APIs.
@@ -7,9 +7,11 @@ A local-first 3D printer fleet controller. It runs entirely on your LAN and curr
 - **Prusa CORE One+ (experimental)** through the local PrusaLink API, supporting Standard (1-tool), INDX4 and INDX8 configurations.
 - **Bambu Lab P1P / P1S / X1C / A1 Mini (experimental)** through the local MQTT TLS and FTPS TLS interfaces. P1P/P1S/A1 Mini use the TLS/JPEG camera path; X1C camera decoding remains unsupported.
 
-**Current development version: v0.57.1**
+**Current development version: v0.57.2**
 
 Current highlights:
+
+- **Print Library refinements (v0.57.2):** Readiness labels are clickable filters for Ready now, Printer busy, Printer offline, Needs attention and Incompatible. The selected status is shown in Advanced Filters, other active facets remain in effect, and Clear filters restores the view. Selecting/deselecting a file row no longer jumps the scrollable library list to the top (including keyboard selection). Fixed the Ascending/Descending control alignment with Sort by and Batch quantity while preserving the shared 42px field height and light/dark themes. No printer communication or queue preflight changes.
 
 - **Print Library patch (v0.57.1):** Printer-type filter now shows readable manufacturer/model names. Readiness incompatibility tooltips prefer the actual reason from the designated printer rather than another model's designation mismatch (Snapmaker U1 still needs supported sliced G-code rather than uploading a 3MF). Category and tag badges are clickable shortcuts to the existing filters, with accessible keyboard controls, preserved other facets, a first-page reset and the active Advanced Filters shown. No queue safety or printer protocol changes.
 

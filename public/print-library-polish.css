@@ -449,6 +449,10 @@
 #libraryDialog .library-filters .library-favourites-filter input,#libraryMetadataForm .library-favourite-input input {width:18px;height:18px;margin:0}
 #libraryDialog .library-sort-extras {display:flex;flex-wrap:wrap;gap:10px;align-items:end;justify-content:flex-end;min-width:0;flex:0 0 auto;padding-bottom:2px}
 #libraryDialog .library-sort-extras label {flex:0 1 185px}
+/* The global label rule adds 12px top/bottom margins. Flex end-alignment
+ * places the button against the label's margin box, leaving the direction
+ * button 12px below both inputs. Remove that margin on this control row. */
+#libraryDialog .library-sort-extras > label {margin:0}
 #libraryDialog .library-sort-extras #libraryResultCount {align-self:center;font-size:.72rem}
 #libraryDialog .library-table-head [data-library-sort] {display:flex;justify-content:space-between;align-items:center;gap:6px;min-width:0;padding:0;border:0;border-radius:0;background:transparent;box-shadow:none;color:inherit;font-size:inherit;font-weight:inherit;letter-spacing:inherit;text-transform:inherit;text-align:left;cursor:pointer}
 #libraryDialog .library-table-head [data-library-sort]:hover {color:#bcdeff;background:transparent}
@@ -470,6 +474,31 @@
 #libraryDialog .library-readiness-offline {border-color:var(--pfc-table-border);background:var(--ds-surface-muted);color:var(--ds-text-muted)}
 #libraryDialog .library-readiness-attention {border-color:#927033;background:rgba(158,115,35,.13);color:var(--ds-warning,#e7b35e)}
 #libraryDialog .library-readiness-incompatible {border-color:#984249;background:rgba(162,52,63,.14);color:var(--ds-danger,#f18087)}
+
+/* Readiness badges remain colour-coded status indicators while also offering
+ * the same one-click filtering affordance as category and tag chips. */
+#libraryDialog button.library-readiness {
+  font:inherit;
+  font-size:.68rem;
+  font-weight:750;
+  line-height:1.3;
+  min-width:0;
+  min-height:0;
+  width:auto;
+  height:auto;
+  text-align:left;
+  cursor:pointer;
+  appearance:none;
+  box-shadow:none;
+}
+#libraryDialog button.library-readiness:hover {
+  box-shadow:0 0 0 1px currentColor;
+}
+#libraryDialog button.library-readiness:focus-visible {
+  outline:2px solid var(--ds-focus);
+  outline-offset:2px;
+}
+
 #libraryDialog .library-fav-mark {color:#d6a84c;font-weight:800;font-size:.9rem}
 #libraryDialog .library-tags {display:flex;flex-wrap:wrap;gap:4px;margin-top:6px}
 #libraryDialog .library-tag {display:inline-block;padding:3px 6px;border:1px solid var(--pfc-table-border);border-radius:5px;background:transparent;color:var(--ds-text-muted);font-size:.67rem;overflow-wrap:anywhere}

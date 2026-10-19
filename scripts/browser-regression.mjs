@@ -741,6 +741,46 @@ async function librarySelectionSmoke(page,url,{mutateFixture = true} = {}) {
   const rows=page.locator('#libraryList .library-file-row');
   const firstId=await rows.nth(0).getAttribute('data-library-file');
   const secondId=await rows.nth(1).getAttribute('data-library-file');
+
+  // Regression: selecting a row deep within a scrollable Print Library must
+  // keep its position, including selection-button and keyboard activation.
+  // Stretch these *real library records* inside an isolated browser fixture
+  // so two files are enough to exercise the overflowing viewport reliably.
+  await page.evaluate(()=>{
+    const list=document.querySelector('#libraryList');
+    list.style.maxHeight='250px';
+    list.style.overflowY='auto';
+    list.querySelectorAll('.library-file-row').forEach(row=>{row.style.minHeight='360px';});
+    list.scrollTop=345;
+  });
+  const scrollBefore=await page.locator('#libraryList').evaluate(node=>node.scrollTop);
+  assert.ok(scrollBefore>200,'fixture must be scrolled well below the top row');
+  const secondRow=page.locator('[data-library-file="'+secondId+'"]');
+  const stillScrolled=async label=>{
+    const current=await page.locator('#libraryList').evaluate(node=>node.scrollTop);
+    assert.ok(Math.abs(current-scrollBefore)<=3,label+' must not reset the Print Library scroll offset');
+  };
+  await secondRow.locator('.library-file-title').click();
+  assert.equal(await secondRow.getAttribute('data-library-selected'),'true');
+  await stillScrolled('row click');
+  await secondRow.locator('[data-library-select]').click();
+  assert.equal(await secondRow.getAttribute('data-library-selected'),'false');
+  await stillScrolled('selection-button deselect');
+  await secondRow.locator('[data-library-select]').click();
+  assert.equal(await secondRow.getAttribute('data-library-selected'),'true');
+  await stillScrolled('selection-button select');
+  await secondRow.locator('[data-library-select]').focus();
+  await page.keyboard.press('Space');
+  assert.equal(await secondRow.getAttribute('data-library-selected'),'false');
+  await stillScrolled('keyboard deselect');
+  await page.evaluate(()=>{
+    const list=document.querySelector('#libraryList');
+    list.style.removeProperty('max-height');
+    list.style.removeProperty('overflow-y');
+    list.querySelectorAll('.library-file-row').forEach(row=>{row.style.removeProperty('min-height');});
+    list.scrollTop=0;
+  });
+
   await rows.nth(0).locator('[data-library-select]').click();
   assert.equal(await page.locator('#libraryQueueSelectedBtn').isEnabled(),true);
   assert.equal(await page.locator('#libraryEditSelectedBtn').isEnabled(),true);
@@ -791,6 +831,30 @@ async function librarySelectionSmoke(page,url,{mutateFixture = true} = {}) {
   assert.ok(await page.locator('[data-library-file="'+firstId+'"] .library-fav-mark').count());
   assert.ok((await page.locator('[data-library-file="'+firstId+'"] .library-tags').innerText()).includes('Production'));
   await page.locator('#libraryAdvancedFilters > summary').click();
+  // The direction button is a peer of the labelled sort/batch fields. Their
+  // native input boxes must share the same top and bottom in both themes:
+  // global label margins previously pushed the button 12px too low.
+  for (const theme of ['dark','light']) {
+    await page.evaluate(theme=>{document.documentElement.dataset.theme=theme;},theme);
+    const bounds=await page.evaluate(()=>{
+      const rect=(id)=>{
+        const box=document.getElementById(id).getBoundingClientRect();
+        return {top:box.top,bottom:box.bottom,height:box.height};
+      };
+      return {
+        sort:rect('librarySortSelect'),
+        direction:rect('librarySortDirectionBtn'),
+        quantity:rect('libraryEstimateQuantity')
+      };
+    });
+    for (const [name,box] of [['direction',bounds.direction],['quantity',bounds.quantity]]) {
+      assert.ok(Math.abs(box.top-bounds.sort.top)<=1,
+        theme+': '+name+' should align with Sort by top edge: '+JSON.stringify(bounds));
+      assert.ok(Math.abs(box.bottom-bounds.sort.bottom)<=1,
+        theme+': '+name+' should align with Sort by bottom edge: '+JSON.stringify(bounds));
+      assert.ok(Math.abs(box.height-42)<=1,theme+': '+name+' should use standard 42px control height');
+    }
+  }
   await page.locator('#libraryCategoryFilter').selectOption('Production fixtures');
   assert.equal(await page.locator('.library-file-row').count(),1,'category filter narrows rows');
   await page.locator('#libraryTagFilter').selectOption('Test ASA');
@@ -1044,6 +1108,8 @@ async function libraryAvailabilityBadgeSmoke(page,url) {
     assert.equal(await badge.innerText(),label);
     assert.ok((await badge.getAttribute('class')).includes('library-readiness-'+level));
     assert.match(await badge.getAttribute('title'),/printer status preview/);
+    assert.equal(await badge.getAttribute('data-library-filter-readiness'),level);
+    assert.equal(await badge.getAttribute('aria-label'),'Filter library by status: '+label);
   }
   const values=await page.locator('#libraryReadinessFilter option').evaluateAll(
     options=>options.map(option=>option.value));
@@ -1059,6 +1125,30 @@ async function libraryAvailabilityBadgeSmoke(page,url) {
       assert.ok(style.color && style.bg,'availability badge must use theme-aware styles');
     }
   }
+  // Status chips use the same delegated facet handler as category/tag chips.
+  // Real controller state may contain fewer matching files than this temporary
+  // display fixture; all subsequently visible rows must match the selected
+  // status, and the dropdown must expose the active filter.
+  await page.locator('[data-library-file="availability-offline"] .library-readiness').click();
+  assert.equal(await page.locator('#libraryReadinessFilter').inputValue(),'offline');
+  assert.equal(await page.locator('#libraryAdvancedFilters').evaluate(element=>element.open),true);
+  const displayed=await page.locator('#libraryList [data-library-file] .library-readiness').evaluateAll(
+    items=>items.map(item=>item.dataset.libraryFilterReadiness));
+  assert.ok(displayed.every(level=>level==='offline'),'click must show only matching readiness');
+  await page.locator('#libraryClearFiltersBtn').click();
+  assert.equal(await page.locator('#libraryReadinessFilter').inputValue(),'','clear filters must restore all statuses');
+
+  // Also verify native keyboard activation, without selecting the file row.
+  await page.evaluate(files=>window.dispatchEvent(new CustomEvent('pfc:library-ui-state',{
+    detail:{summary:'5 readiness cases',files,emptyText:'No files'}
+  })),files);
+  const keyboardBadge=page.locator('[data-library-file="availability-attention"] .library-readiness');
+  await keyboardBadge.focus();
+  await page.keyboard.press('Enter');
+  assert.equal(await page.locator('#libraryReadinessFilter').inputValue(),'attention');
+  assert.equal(await page.locator('#libraryQueueSelectedBtn').isDisabled(),true,
+    'using status badges must not select a file');
+  await page.locator('#libraryClearFiltersBtn').click();
   console.log('Chromium: Print Library readiness availability badges PASS');
 }
 

@@ -3698,7 +3698,7 @@ function libraryFileMarkup(file) {
     <div class="library-cell library-file-cell library-file-main">
       <div class="library-file-title"><strong title="${escapeHtml(file.fileName)}">${escapeHtml(file.fileName)}</strong>${file.favourite ? '<span class="library-fav-mark" title="Favourite">★</span>' : ''}</div>
       ${file.category ? `<button type="button" class="library-category" data-library-filter-category="${escapeHtml(file.category)}" aria-label="Filter library by category: ${escapeHtml(file.category)}" title="Show files in category: ${escapeHtml(file.category)}">${escapeHtml(file.category)}</button>` : ''}
-      <span class="library-readiness library-readiness-${readiness.level}" title="${escapeHtml(readiness.detail)}">${escapeHtml(readiness.label)}</span>
+      <button type="button" class="library-readiness library-readiness-${readiness.level}" data-library-filter-readiness="${escapeHtml(readiness.level)}" aria-label="Filter library by status: ${escapeHtml(readiness.label)}" title="${escapeHtml(readiness.detail)}">${escapeHtml(readiness.label)}</button>
       ${Array.isArray(file.tags)&&file.tags.length ? `<div class="library-tags">${file.tags.map((tag)=>`<button type="button" class="library-tag" data-library-filter-tag="${escapeHtml(tag)}" aria-label="Filter library by tag: ${escapeHtml(tag)}" title="Show files tagged: ${escapeHtml(tag)}">${escapeHtml(tag)}</button>`).join('')}</div>` : ''}
       <small class="library-file-size">${escapeHtml(formatBytes(file.size))}</small>
       ${description ? `<div class="library-file-description">${escapeHtml(description)}</div>` : ''}
@@ -3816,7 +3816,9 @@ function updateLibrarySelectionToolbar() {
 function selectLibraryFile(id, { focus = false } = {}) {
   if (!(libraryState.files || []).some((file) => file.id === id)) return;
   librarySelectedFileId = librarySelectedFileId === id ? null : id;
-  renderPrintLibrary();
+  // Selection changes must not reset the row-only scroll position. Sorting,
+  // paging and filtering still scroll to the first result intentionally.
+  renderPrintLibrary({ preserveScroll:true });
   if (focus) libraryList?.querySelector(`[data-library-select="${CSS.escape(id)}"]`)?.focus({ preventScroll:true });
 }
 
@@ -5406,13 +5408,16 @@ libraryDeleteSelectedBtn?.addEventListener('click', async () => {
 });
 
 libraryList?.addEventListener('click', (event) => {
-  // A category or tag badge is a shortcut to its Advanced Filters facet.
-  // Delegate from the shared list so Preact and fallback behave identically.
+  // Category, tag and status badges shortcut to the existing Advanced Filters.
+  // This delegated handler works identically for Preact and fallback rows.
   const categoryBadge=event.target.closest('[data-library-filter-category]');
   const tagBadge=event.target.closest('[data-library-filter-tag]');
-  if (categoryBadge || tagBadge) {
-    const field=categoryBadge ? libraryCategoryFilter : libraryTagFilter;
-    const value=categoryBadge ? categoryBadge.dataset.libraryFilterCategory : tagBadge.dataset.libraryFilterTag;
+  const readinessBadge=event.target.closest('[data-library-filter-readiness]');
+  if (categoryBadge || tagBadge || readinessBadge) {
+    const field=categoryBadge ? libraryCategoryFilter
+      : tagBadge ? libraryTagFilter : libraryReadinessFilter;
+    const value=categoryBadge ? categoryBadge.dataset.libraryFilterCategory
+      : tagBadge ? tagBadge.dataset.libraryFilterTag : readinessBadge.dataset.libraryFilterReadiness;
     if (!field || !value || ![...field.options].some((option)=>option.value===value)) return;
     field.value=value;
     document.querySelector('#libraryAdvancedFilters')?.setAttribute('open','');
