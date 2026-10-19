@@ -682,7 +682,7 @@ async function libraryCostSmoke(page,url) {
         available:complete?.querySelector('.library-print-cost-value')?.textContent,
         unavailable:missing?.querySelector('.library-print-cost-value')?.textContent,
         note:complete?.querySelector('.library-print-cost-detail')?.textContent,
-        background:complete?getComputedStyle(complete.closest('.library-file-row')).backgroundColor:null,
+        background:complete?getComputedStyle(complete.closest('.library-list')).backgroundColor:null,
         icon:complete?getComputedStyle(complete.querySelector('.library-print-cost-icon')).maskImage:null
       };
     });
@@ -690,7 +690,7 @@ async function libraryCostSmoke(page,url) {
     assert.equal(observed.available,'£0.55');
     assert.equal(observed.unavailable,'Unavailable');
     assert.match(observed.note,/excludes overheads/);
-    assert.notEqual(observed.background,'rgba(0, 0, 0, 0)','library row surface must be theme-aware');
+    assert.notEqual(observed.background,'rgba(0, 0, 0, 0)','library table surface must be theme-aware');
     assert.ok(observed.icon?.includes('data:image/svg+xml'),'cost icon should come from local CSS');
     if(dir)await page.screenshot({path:path.join(dir,'print-library-cost-'+theme+'-desktop.png')});
   }
