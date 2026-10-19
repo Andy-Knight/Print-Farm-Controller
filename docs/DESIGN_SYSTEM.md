@@ -103,6 +103,12 @@ User review of mockup A requested the upper identity region in addition to the i
 
 **Data integrity:** firmware comes from printer status `firmwareVersion` and shows “Not reported” when absent. Uptime is shown only if an adapter explicitly supplies nonnegative `uptimeSeconds`; last-seen and connection duration are not printer uptime and must never be substituted. “Connection health” describes the controller's online/poll-failure state, not mechanical health. Both Preact and the no-bundle fallback use the same source fields and update during telemetry refresh. No new printer protocol reads or backend changes were introduced.
 
+## Print Library workbench — feature branch
+
+The Print Library now uses a **single-selection workbench** rather than action buttons inside each item. The contextual action toolbar is directly below Search / Add file, has an `aria-live` selected-file indicator, and only enables Queue/Edit when a visible file is selected. Delete remains disabled while queue/history references exist. Clicking a row or its dedicated selection button selects it; clicking again clears the selection. Thumbnail preview is independent. Keyboard selection uses a focusable `aria-pressed` button, not a non-semantic row-only click target.
+
+At desktop widths, a fixed shared CSS grid aligns column headings and entries: Select, Preview, File, Printer, Filament & requirements, Estimated cost and History. Below 1180px the presentation becomes row-labelled cards and below 700px it stacks key fields without horizontal scrolling. The same row structure is produced by Preact and the no-bundle HTML renderer, using shared CSS in `public/print-library-polish.css`; existing light/dark design-system colours and minimum 42px action buttons are retained. Filament costs remain current raw-material estimates, not historical queue snapshots or total manufacturing costs.
+
 ## Phase 4.1 — standardised icon underline navigation (v0.56.0)
 
 The **Option A** selected for Printer Details is now the shared style across every existing multi-panel navigation: Printer Details, Maintenance Tracking, Printer Groups, Reports, Alerts & Notifications and Backup & Recovery. Each area retains its own tab labels, saved active-selection behaviour, controller APIs, form state and keyboard handlers. View toggles such as dashboard card/table switching are **not** tabs and deliberately keep their button treatment.
