@@ -973,7 +973,7 @@ async function libraryPricingSmoke(page,url,{mutateFixture=true}={}) {
 
   await page.locator('#libraryUploadBtn').click();
   const name='pricing-sundry-browser-fixture.gcode';
-  const sliced='; filament_type = ASA\\n; filament used [g] = 12\\nT0\\nG1 X20\\n';
+  const sliced='; filament_type = ASA\n; filament used [g] = 12\nT0\nG1 X20\n';
   await page.locator('#libraryFileInput').setInputFiles({
     name,mimeType:'application/octet-stream',buffer:Buffer.from(sliced)
   });
