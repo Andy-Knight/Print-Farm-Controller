@@ -93,8 +93,10 @@ function LibraryFile({ file }) {
         </div>
         {file.category && <button type="button" class="library-category" data-library-filter-category={file.category}
           aria-label={`Filter library by category: ${file.category}`} title={`Show files in category: ${file.category}`}>{file.category}</button>}
-        <span class={`library-readiness library-readiness-${file.readiness?.level || 'attention'}`}
-          title={file.readiness?.detail || 'Compatibility checked when queued'}>{file.readiness?.label || 'Needs attention'}</span>
+        <button type="button" class={`library-readiness library-readiness-${file.readiness?.level || 'attention'}`}
+          data-library-filter-readiness={file.readiness?.level || 'attention'}
+          aria-label={`Filter library by status: ${file.readiness?.label || 'Needs attention'}`}
+          title={file.readiness?.detail || 'Compatibility checked when queued'}>{file.readiness?.label || 'Needs attention'}</button>
         {file.tags?.length>0 && <div class="library-tags">
           {file.tags.map(tag=><button type="button" class="library-tag" key={tag} data-library-filter-tag={tag}
             aria-label={`Filter library by tag: ${tag}`} title={`Show files tagged: ${tag}`}>{tag}</button>)}
