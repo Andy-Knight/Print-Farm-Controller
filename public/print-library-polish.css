@@ -64,3 +64,296 @@
   #libraryDialog .library-print-cost-copy { grid-template-columns:minmax(0,1fr); gap:3px; }
   #libraryDialog .library-print-cost-value { text-align:left; }
 }
+
+/* Library workbench — one selected file, shared contextual actions.
+ * Dense desktop columns become descriptive cards below 1180px; no
+ * horizontal page scrolling on Android. Preview remains a separate action.
+ */
+#libraryDialog.library-dialog {
+  width:min(1500px,calc(100vw - 30px));
+  --library-table-cols:38px 68px minmax(170px,1.65fr) minmax(125px,.95fr) minmax(170px,1.3fr) minmax(150px,1fr) minmax(125px,1fr);
+}
+#libraryDialog .library-action-toolbar {
+  display:flex;
+  flex-wrap:wrap;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  margin:0 0 12px;
+  padding:10px 12px;
+  border:1px solid var(--ds-border);
+  border-radius:var(--ds-radius-md);
+  background:var(--ds-surface-muted);
+}
+#libraryDialog .library-selection-status {
+  flex:1 1 210px;
+  min-width:0;
+  color:var(--ds-text-muted);
+  font-size:.8rem;
+  font-weight:700;
+  overflow-wrap:anywhere;
+}
+#libraryDialog .library-action-buttons {
+  display:flex;
+  flex-wrap:wrap;
+  gap:8px;
+}
+#libraryDialog .library-action-buttons button {
+  min-height:42px;
+  white-space:nowrap;
+}
+#libraryDialog .library-action-buttons button:disabled {
+  opacity:.5;
+  cursor:not-allowed;
+}
+#libraryDialog .library-table-head {
+  display:grid;
+  grid-template-columns:var(--library-table-cols);
+  align-items:center;
+  gap:12px;
+  margin-top:13px;
+  padding:12px 13px;
+  border:1px solid var(--ds-border);
+  border-bottom:0;
+  border-radius:var(--ds-radius-md) var(--ds-radius-md) 0 0;
+  background:var(--ds-surface-muted);
+  color:var(--ds-text);
+  font-size:.73rem;
+  font-weight:800;
+  line-height:1.3;
+}
+#libraryDialog .library-table-head[hidden] { display:none!important; }
+#libraryDialog .library-list {
+  display:grid;
+  gap:0;
+  margin-top:0;
+  overflow:hidden;
+  border:1px solid var(--ds-border);
+  border-radius:0 0 var(--ds-radius-md) var(--ds-radius-md);
+}
+#libraryDialog .library-table-head[hidden] + .library-list {
+  border:0;
+  border-radius:0;
+}
+#libraryDialog .library-file-row {
+  display:grid;
+  grid-template-columns:var(--library-table-cols);
+  align-items:start;
+  gap:12px;
+  min-width:0;
+  margin:0;
+  padding:14px 13px;
+  border:0;
+  border-bottom:1px solid var(--ds-border);
+  border-radius:0;
+  background:var(--ds-surface);
+  cursor:pointer;
+  transition:background var(--ds-duration-fast) var(--ds-easing);
+}
+#libraryDialog .library-file-row:last-child { border-bottom:0; }
+#libraryDialog .library-file-row:hover { background:var(--ds-surface-hover); }
+#libraryDialog .library-file-row.is-selected {
+  background:var(--ds-brand-soft);
+  box-shadow:inset 3px 0 0 var(--ds-brand);
+}
+#libraryDialog .library-file-row:focus-within { outline-offset:-3px; }
+#libraryDialog .library-cell { min-width:0; }
+#libraryDialog .library-cell-label { display:none; }
+#libraryDialog .library-select-button {
+  display:grid;
+  place-items:center;
+  width:36px;
+  height:40px;
+  min-height:40px;
+  margin:0;
+  padding:0;
+  border:1px solid transparent;
+  border-radius:8px;
+  background:transparent;
+  cursor:pointer;
+  color:var(--ds-text-muted);
+}
+#libraryDialog .library-select-button:hover {
+  border-color:var(--ds-border-strong);
+  background:var(--ds-surface-hover);
+}
+#libraryDialog .library-select-button:focus-visible {
+  outline:2px solid var(--ds-focus);
+  outline-offset:2px;
+}
+#libraryDialog .library-selection-indicator {
+  display:block;
+  width:20px;
+  height:20px;
+  flex:0 0 20px;
+  border:2px solid var(--ds-border-strong);
+  border-radius:50%;
+  background:var(--ds-surface);
+}
+#libraryDialog .library-select-button[aria-pressed="true"] .library-selection-indicator {
+  border:6px solid var(--ds-brand);
+  background:var(--ds-surface);
+}
+#libraryDialog .library-preview-cell .library-file-preview {
+  width:66px;
+  height:66px;
+  min-height:66px;
+  min-width:66px;
+  aspect-ratio:1;
+  flex:0 0 66px;
+  padding:4px;
+}
+#libraryDialog .library-preview-cell .library-file-preview-empty { padding:7px 4px; }
+#libraryDialog .library-preview-cell .library-file-preview-empty span { font-size:1.35rem; }
+#libraryDialog .library-preview-cell .library-file-preview-empty small { font-size:.62rem; }
+#libraryDialog .library-file-title strong {
+  display:block;
+  white-space:normal;
+  overflow-wrap:anywhere;
+  line-height:1.32;
+  font-size:.86rem;
+}
+#libraryDialog .library-file-size {
+  display:block;
+  margin-top:4px;
+  color:var(--ds-text-muted);
+  font-size:.7rem;
+}
+#libraryDialog .library-file-description {
+  margin-top:6px;
+  font-size:.73rem;
+  line-height:1.45;
+  display:-webkit-box;
+  -webkit-line-clamp:3;
+  -webkit-box-orient:vertical;
+  overflow:hidden;
+}
+#libraryDialog .library-target-value {
+  color:var(--ds-text);
+  font-size:.79rem;
+  font-weight:700;
+  overflow-wrap:anywhere;
+}
+#libraryDialog .library-requirements-cell .library-file-requirements {
+  margin:0;
+  font-size:.76rem;
+  line-height:1.4;
+}
+#libraryDialog .library-requirements-cell .library-file-colors {
+  display:block;
+  margin-top:7px;
+}
+#libraryDialog .library-requirements-cell .library-file-colors-label { display:none; }
+#libraryDialog .library-requirements-cell .library-color-list { gap:4px; }
+#libraryDialog .library-requirements-cell .library-color-item { padding:3px 5px; gap:5px; }
+#libraryDialog .library-requirements-cell .library-color-item .material-swatch {
+  width:13px;
+  height:13px;
+}
+#libraryDialog .library-requirements-cell .library-color-item small { display:none; }
+#libraryDialog .library-cost-cell .library-print-cost {
+  margin:0;
+  padding:0;
+  gap:5px;
+  align-items:flex-start;
+  border:0;
+  background:transparent;
+}
+#libraryDialog .library-cost-cell .library-print-cost-icon {
+  flex-basis:16px;
+  width:16px;
+  height:16px;
+  margin-top:1px;
+}
+#libraryDialog .library-cost-cell .library-print-cost-copy {
+  display:flex;
+  flex-direction:column;
+  align-items:flex-start;
+  gap:3px;
+  min-width:0;
+}
+#libraryDialog .library-cost-cell .library-print-cost-label { display:none; }
+#libraryDialog .library-cost-cell .library-print-cost-value {
+  font-size:.9rem;
+  text-align:left;
+  white-space:normal;
+  overflow-wrap:anywhere;
+}
+#libraryDialog .library-cost-cell .library-print-cost-detail {
+  display:-webkit-box;
+  -webkit-box-orient:vertical;
+  -webkit-line-clamp:3;
+  overflow:hidden;
+  line-height:1.3;
+  font-size:.67rem;
+}
+#libraryDialog .library-history-cell {
+  display:flex;
+  flex-direction:column;
+  gap:5px;
+  font-size:.73rem;
+  color:var(--ds-text-muted);
+  overflow-wrap:anywhere;
+}
+#libraryDialog .library-history-cell strong { color:var(--ds-text); font-size:.77rem; }
+#libraryDialog .library-history-cell small { font-size:.7rem; }
+@media(max-width:1180px) {
+  #libraryDialog .library-table-head { display:none; }
+  #libraryDialog .library-list {
+    display:grid;
+    gap:10px;
+    border:0;
+    border-radius:0;
+    overflow:visible;
+  }
+  #libraryDialog .library-file-row {
+    grid-template-columns:36px 74px minmax(0,1fr) minmax(150px,.65fr);
+    grid-template-areas:
+      "selection preview filename cost"
+      "selection preview target cost"
+      "selection preview requirements history";
+    align-items:start;
+    border:1px solid var(--ds-border);
+    border-radius:var(--ds-radius-md);
+    padding:12px;
+  }
+  #libraryDialog .library-file-row:last-child { border-bottom:1px solid var(--ds-border); }
+  #libraryDialog .library-selection-cell { grid-area:selection; }
+  #libraryDialog .library-preview-cell { grid-area:preview; }
+  #libraryDialog .library-file-cell { grid-area:filename; }
+  #libraryDialog .library-target-cell { grid-area:target; }
+  #libraryDialog .library-requirements-cell { grid-area:requirements; }
+  #libraryDialog .library-cost-cell { grid-area:cost; }
+  #libraryDialog .library-history-cell { grid-area:history; }
+  #libraryDialog .library-cell-label {
+    display:block;
+    margin-bottom:4px;
+    color:var(--ds-text-muted);
+    font-size:.68rem;
+    font-weight:800;
+  }
+  #libraryDialog .library-cost-cell .library-print-cost-label { display:block; }
+}
+@media(max-width:700px) {
+  #libraryDialog .library-action-toolbar { align-items:stretch; }
+  #libraryDialog .library-action-buttons {
+    display:grid;
+    width:100%;
+    grid-template-columns:repeat(2,minmax(0,1fr));
+  }
+  #libraryDialog .library-action-buttons #libraryQueueSelectedBtn { grid-column:1/-1; }
+  #libraryDialog .library-action-buttons button { min-width:0; }
+  #libraryDialog .library-file-row {
+    grid-template-columns:34px 72px minmax(0,1fr);
+    grid-template-areas:
+      "selection preview filename"
+      ". preview target"
+      ". requirements requirements"
+      ". cost cost"
+      ". history history";
+    gap:7px 9px;
+  }
+  #libraryDialog .library-cost-cell .library-print-cost-detail {
+    -webkit-line-clamp:4;
+  }
+}
