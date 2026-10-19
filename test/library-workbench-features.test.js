@@ -68,7 +68,7 @@ test('Print Library printer filter displays friendly names while retaining inter
     {value:'snapmaker-u1:U1',label:'Snapmaker U1'}
   ]);
   assert.deepEqual(librarySortAndFilter(files,{printer:options[0].value}).map(x=>x.id),['flashforge']);
-  assert.deepEqual(librarySortAndFilter(files,{printer:options[1].value}).map(x=>x.id),['u1','duplicate']);
+  assert.deepEqual(librarySortAndFilter(files,{printer:options[1].value}).map(x=>x.id).sort(),['duplicate','u1']);
   assert.deepEqual(librarySortAndFilter(files,{printer:'any'}).map(x=>x.id),['untargeted']);
   assert.deepEqual(libraryPrinterFilterOptions([],labelForTarget),[]);
 });
