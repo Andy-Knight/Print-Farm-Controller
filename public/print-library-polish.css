@@ -412,10 +412,11 @@
   grid-auto-rows:max-content;
 }
 #libraryDialog .library-table-head {
-  /* Reserve exactly the same classic scrollbar gutter on the heading
-   * as on the scrolling body to preserve aligned column tracks on Windows.
-   * In browsers with overlay scrollbars no gutter is needed in either. */
+  /* Reserve the same classic scrollbar gutter AND scrollbar width as the
+   * scrollable body. Otherwise a thin list scrollbar and a normal header
+   * gutter differ by ~5px, shifting column tracks on Windows/Linux. */
   overflow:hidden;
+  scrollbar-width:thin;
   scrollbar-gutter:stable;
 }
 #libraryDialog .library-list:focus-visible {
