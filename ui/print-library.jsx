@@ -120,6 +120,13 @@ function LibraryFile({ file }) {
       </div>
       <div class="library-cell library-cost-cell">
         <LibraryCost cost={file.cost} batchCost={file.batchCost} batchQuantity={file.batchQuantity} />
+        <div class={`library-sale-price${file.sale?.available ? '' : ' unavailable'}`}
+          title={file.sale?.detail || ''}>
+          <span>Suggested selling price / print</span>
+          <strong>{file.sale?.price || 'Unavailable'}</strong>
+          <small>{file.sale?.detail || ''}</small>
+          {file.sale?.lots>1 && <small>{file.sale.lots} sale lots · {file.sale.perLot || 'Unavailable'} per lot</small>}
+        </div>
       </div>
       <div class="library-cell library-history-cell">
         <span class="library-cell-label">History</span>
