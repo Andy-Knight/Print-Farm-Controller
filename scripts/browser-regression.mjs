@@ -763,7 +763,8 @@ async function librarySelectionSmoke(page,url,{mutateFixture = true} = {}) {
   await page.keyboard.press('Space');
   assert.equal(await page.locator('#libraryQueueSelectedBtn').isEnabled(),true,'keyboard activation selects the row');
   // An item hidden by search must not remain queueable or deletable.
-  await page.locator('#librarySearchInput').fill('ui-selection-second');
+  const otherFileName=await page.locator('[data-library-file="'+secondId+'"] .library-file-title').innerText();
+  await page.locator('#librarySearchInput').fill(otherFileName.trim());
   assert.equal(await page.locator('#libraryQueueSelectedBtn').isDisabled(),true);
   assert.equal(await page.locator('#librarySelectionStatus').innerText(),'Select a file to enable actions');
   await page.locator('#librarySearchInput').fill('');
