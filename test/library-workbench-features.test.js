@@ -145,6 +145,41 @@ test('Print Library readiness does not mistake an offline matching printer for a
   assert.equal(target.requirements.logicalTools[0].material,'ASA');
 });
 
+test('Targeted U1 3MF reports unsupported format, not a different printer model mismatch',()=>{
+  const target=file('U1-batch',{
+    fileName:'U1-batch.3mf',
+    printerTarget:{adapterType:'snapmaker-u1',model:'U1'},
+    requirements:{source:'3mf-embedded-gcode',toolCount:1,requiredTools:[0],
+      usageReliable:true,logicalTools:[{index:0,material:'ASA',nozzleDiameter:.4}]}
+  });
+  // Intentionally put the non-matching printer first to reproduce the
+  // misleading tooltip "File is designated for U1" seen in v0.57.0.
+  const printers=[
+    {id:'ad5m',name:'Flashforge',adapterType:'flashforge-ad5m',model:'Adventurer 5M Pro'},
+    {id:'u1',name:'Snapmaker U1',adapterType:'snapmaker-u1',model:'U1'}
+  ];
+  const state={online:true,status:{status:'idle',tools:[
+    {index:0,nozzleDiameter:.4,filament:{present:true,material:'ASA'}}
+  ]}};
+  const adapters={
+    'flashforge-ad5m':{capabilities:{fileUpload:true,localFiles:true,printLocalFile:true},
+      uploadExtensions:['.3mf','.gcode'],limits:{toolCount:1}},
+    'snapmaker-u1':{capabilities:{fileUpload:true,localFiles:true,printLocalFile:true,printToolMapping:true},
+      uploadExtensions:['.gcode','.gco','.g'],limits:{toolCount:4}}
+  };
+  const run=(record,fleet=printers)=>attachLibraryReadiness([record],fleet,{
+    resolveAdapter:(printer)=>adapters[printer.adapterType],getState:()=>state
+  })[0].readiness;
+  const incompatible=run(target);
+  assert.equal(incompatible.level,'incompatible');
+  assert.match(incompatible.message,/does not support \\.3mf uploads/i);
+  assert.doesNotMatch(incompatible.message,/designated for U1/i);
+  assert.equal(run({...target,fileName:'U1-batch.gcode'}).level,'ready');
+  const missing=run(target,[printers[0]]);
+  assert.equal(missing.level,'incompatible');
+  assert.match(missing.message,/No configured printer matches the designated model U1/);
+});
+
 test('Library UI binds all sorting, filters, tags, favourites and pagers to Preact and fallback',()=>{
   const read=(p)=>readFileSync(new URL('../'+p,import.meta.url),'utf8');
   const html=read('public/index.html'),app=read('public/app.js'),preact=read('ui/print-library.jsx'),css=read('public/print-library-polish.css'),server=read('src/server.js');
