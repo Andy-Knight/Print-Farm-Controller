@@ -3662,10 +3662,13 @@ function libraryProductionInfo(file) {
 }
 function libraryReadinessView(file) {
   const readiness=file?.readiness || {};
-  const level=['ready','attention','incompatible'].includes(readiness.level) ? readiness.level : 'attention';
+  const level=['ready','busy','offline','attention','incompatible'].includes(readiness.level)
+    ? readiness.level : 'attention';
+  const labels={ready:'Ready now',busy:'Printer busy',offline:'Printer offline',
+    attention:'Needs attention',incompatible:'Incompatible'};
   return {
     level,
-    label:level==='ready' ? 'Ready now' : level==='incompatible' ? 'Incompatible' : 'Needs attention',
+    label:labels[level],
     detail:String(readiness.message || 'Compatibility is checked when queued')
   };
 }
