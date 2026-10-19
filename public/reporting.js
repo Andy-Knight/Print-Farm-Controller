@@ -27,12 +27,51 @@ const filamentSubmitBtn = document.querySelector('#filamentSubmitBtn');
 const filamentCancelEdit = document.querySelector('#filamentCancelEdit');
 const filamentList = document.querySelector('#filamentList');
 const filamentError = document.querySelector('#filamentError');
+const reportingPricingForm = document.querySelector('#reportingPricingForm');
+const reportingPricingFields = document.querySelector('#reportingPricingFields');
+const reportingProfitPercent = document.querySelector('#reportingProfitPercent');
+const reportingProfitMethod = document.querySelector('#reportingProfitMethod');
+const reportingPricingStatus = document.querySelector('#reportingPricingStatus');
+const reportingPricingError = document.querySelector('#reportingPricingError');
+const reportingPricingSaveBtn = document.querySelector('#reportingPricingSaveBtn');
 
 let reportingPrintersState = [];
 let reportingGroupsState = [];
 let reportingFilamentsState = [];
 let currentReport = null;
 let activeReportingTab = 'analytics';
+let reportingPricingLoadSerial = 0;
+let reportingPricingSaving = false;
+
+function clearReportingPricingMessages() {
+  if (reportingPricingError) {
+    reportingPricingError.textContent = '';
+    reportingPricingError.classList.add('hidden');
+  }
+}
+async function loadReportingPricingSettings() {
+  if (!reportingPricingFields || reportingPricingSaving) return;
+  const requestId=++reportingPricingLoadSerial;
+  reportingPricingFields.disabled=true;
+  clearReportingPricingMessages();
+  if (reportingPricingStatus) reportingPricingStatus.textContent='Loading saved pricing settings…';
+  try {
+    const response=await requestJson('/api/library/pricing');
+    if (requestId !== reportingPricingLoadSerial) return;
+    if (reportingProfitPercent) reportingProfitPercent.value=response.settings?.profitPercent ?? '';
+    if (reportingProfitMethod) reportingProfitMethod.value=response.settings?.profitMethod || 'markup';
+    reportingPricingFields.disabled=false;
+    if (reportingPricingStatus) reportingPricingStatus.textContent='Saved settings loaded. Changes affect current Print Library selling price estimates.';
+  } catch(error) {
+    if (requestId !== reportingPricingLoadSerial) return;
+    if (reportingPricingError) {
+      reportingPricingError.textContent=error.message;
+      reportingPricingError.classList.remove('hidden');
+    }
+    if (reportingPricingStatus) reportingPricingStatus.textContent='Could not load pricing settings. Select the tab again to retry.';
+  }
+}
+
 const FILAMENT_CURRENCIES = new Set(['GBP', 'USD', 'EUR', 'JPY', 'CNY', 'CAD', 'AUD', 'NZD', 'CHF', 'HKD', 'SGD', 'INR', 'KRW', 'TWD', 'THB', 'MYR', 'IDR', 'PHP', 'VND', 'AED', 'SAR', 'ILS', 'ZAR', 'BRL', 'MXN', 'SEK', 'NOK', 'DKK', 'PLN', 'CZK', 'HUF', 'RON', 'TRY', 'RUB', 'CLP', 'COP']);
 
 function escapeHtml(value = '') {
@@ -423,7 +462,7 @@ function renderFilamentCatalogue() {
 }
 
 function activateReportingTab(name, focus = false) {
-  const selectedName = ['analytics','filament'].includes(name) ? name : 'analytics';
+  const selectedName = ['analytics','filament','pricing'].includes(name) ? name : 'analytics';
   activeReportingTab = selectedName;
 
   if (!window.__PFC_PREACT_REPORTING__) {
@@ -440,6 +479,7 @@ function activateReportingTab(name, focus = false) {
     panel.hidden = panel.dataset.reportingPanel !== selectedName;
   }
   if (window.__PFC_PREACT_REPORTING__) publishReportingUiState(currentReport || {});
+  if (selectedName === 'pricing') void loadReportingPricingSettings();
   if (focus) document.querySelector(`[data-reporting-tab="${selectedName}"]`)?.focus();
 }
 
@@ -486,6 +526,34 @@ reportingRefreshBtn?.addEventListener('click', loadReport);
 reportingRange?.addEventListener('change', loadReport);
 reportingGroup?.addEventListener('change', loadReport);
 reportingPrinter?.addEventListener('change', loadReport);
+
+reportingPricingForm?.addEventListener('submit',async event=>{
+  event.preventDefault();
+  if (reportingPricingSaving || reportingPricingFields?.disabled) return;
+  reportingPricingSaving=true;
+  reportingPricingLoadSerial++; // Any earlier GET must not overwrite saved form values.
+  reportingPricingFields.disabled=true;
+  clearReportingPricingMessages();
+  if (reportingPricingStatus) reportingPricingStatus.textContent='Saving global pricing settings…';
+  try {
+    await requestJson('/api/library/pricing',{method:'PUT',body:JSON.stringify({
+      profitPercent:reportingProfitPercent?.value === '' ? null : Number(reportingProfitPercent?.value),
+      profitMethod:reportingProfitMethod?.value || 'markup'
+    })});
+    if (reportingPricingStatus) reportingPricingStatus.textContent='Pricing settings saved. Print Library selling price estimates will use these values.';
+    window.dispatchEvent(new Event('pfc:library-pricing-updated'));
+  } catch(error) {
+    if (reportingPricingStatus) reportingPricingStatus.textContent='';
+    if (reportingPricingError) {
+      reportingPricingError.textContent=error.message;
+      reportingPricingError.classList.remove('hidden');
+    }
+  } finally {
+    reportingPricingSaving=false;
+    reportingPricingFields.disabled=false;
+    if (reportingPricingSaveBtn) reportingPricingSaveBtn.disabled=false;
+  }
+});
 
 filamentForm?.addEventListener('submit', async (event) => {
   event.preventDefault();
