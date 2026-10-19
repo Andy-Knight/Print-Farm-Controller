@@ -3872,6 +3872,8 @@ function renderPrintLibrary({preserveScroll=false} = {}) {
   libraryTableHead?.querySelectorAll('[data-library-sort]').forEach(button=>{
     const active=button.dataset.librarySort===librarySortKey;
     button.classList.toggle('sorted',active);
+    button.classList.toggle('sorted-asc',active && librarySortDirection==='asc');
+    button.classList.toggle('sorted-desc',active && librarySortDirection==='desc');
     button.setAttribute('aria-label',`Sort by ${button.textContent.trim()}${active?', '+librarySortDirection:''}`);
     button.setAttribute('aria-pressed',String(active));
   });
