@@ -955,6 +955,81 @@ async function librarySelectionSmoke(page,url,{mutateFixture = true} = {}) {
   console.log('Chromium: Print Library table, selection, toolbar, queue/edit/delete and mobile PASS');
 }
 
+// The add dialog must capture product metadata on first upload, while the edit
+// dialog can modify sundries and sales-lot allocations for existing files.
+async function libraryPricingSmoke(page,url,{mutateFixture=true}={}) {
+  if(!mutateFixture) return;
+  await page.setViewportSize({width:1365,height:900});
+  await page.goto(url+'/library',{waitUntil:'load'});
+  await preactReady(page);
+  await page.locator('#libraryPricingSettingsBtn').click();
+  await page.locator('#libraryProfitPercent').fill('30');
+  await page.locator('#libraryProfitMethod').selectOption('markup');
+  await page.locator('#libraryPricingSettingsForm button[type="submit"]').click();
+  await page.waitForFunction(()=>document.querySelector('#libraryPricingSettingsDialog')?.open===false);
+  const settings=await page.evaluate(async()=> (await (await fetch('/api/library/pricing')).json()).settings);
+  assert.equal(settings.profitPercent,30);
+  assert.equal(settings.profitMethod,'markup');
+
+  await page.locator('#libraryUploadBtn').click();
+  const name='pricing-sundry-browser-fixture.gcode';
+  const sliced='; filament_type = ASA\\n; filament used [g] = 12\\nT0\\nG1 X20\\n';
+  await page.locator('#libraryFileInput').setInputFiles({
+    name,mimeType:'application/octet-stream',buffer:Buffer.from(sliced)
+  });
+  await page.locator('#libraryAddCategory').fill('Production pricing');
+  await page.locator('#libraryAddTags').fill('Hardware, Bulk lot');
+  await page.locator('#libraryAddLotsPerPrint').fill('4');
+  await page.locator('[data-library-add-sundry="add"]').click();
+  await page.locator('#libraryAddSundries [data-sundry-label]').fill('Brass insert');
+  await page.locator('#libraryAddSundries [data-sundry-qty]').fill('4');
+  await page.locator('#libraryAddSundries [data-sundry-cost]').fill('0.25');
+  await page.locator('#libraryAddForm button[type="submit"]').click();
+  await page.waitForFunction(()=>document.querySelector('#libraryAddDialog')?.open===false);
+
+  const list=async()=>page.evaluate(async()=> (await (await fetch('/api/library')).json()).files);
+  const files=await list();
+  const added=files.find(file=>file.fileName===name);
+  assert.ok(added,'file created using add-dialog metadata inputs');
+  assert.equal(added.category,'Production pricing');
+  assert.deepEqual(added.tags,['Hardware','Bulk lot']);
+  assert.deepEqual(added.sundryCosts,[{label:'Brass insert',quantity:4,unitCost:0.25}]);
+  assert.equal(added.lotsPerPrint,4);
+  assert.equal(added.saleEstimate.sundriesCost,1);
+  assert.equal(added.saleEstimate.profitPercent,30);
+  assert.equal(await page.locator('[data-library-file="'+added.id+'"] .library-sale-price').count(),1);
+
+  await page.locator('[data-library-file="'+added.id+'"] [data-library-select]').click();
+  await page.locator('#libraryEditSelectedBtn').click();
+  await page.waitForFunction(()=>document.querySelector('#libraryMetadataDialog')?.open===true);
+  assert.equal(await page.locator('#libraryMetadataLotsPerPrint').inputValue(),'4');
+  assert.equal(await page.locator('#libraryMetadataSundries .library-sundry-row').count(),1);
+  await page.locator('#libraryMetadataLotsPerPrint').fill('2');
+  await page.locator('[data-library-add-sundry="metadata"]').click();
+  await page.locator('#libraryMetadataSundries .library-sundry-row').nth(1).locator('[data-sundry-label]').fill('Mailer');
+  await page.locator('#libraryMetadataSundries .library-sundry-row').nth(1).locator('[data-sundry-qty]').fill('1');
+  await page.locator('#libraryMetadataSundries .library-sundry-row').nth(1).locator('[data-sundry-cost]').fill('0.50');
+  await page.locator('#libraryMetadataForm button[type="submit"]').click();
+  await page.waitForFunction(()=>document.querySelector('#libraryMetadataDialog')?.open===false);
+  const edited=(await list()).find(file=>file.id===added.id);
+  assert.equal(edited.lotsPerPrint,2);
+  assert.equal(edited.sundryCosts.length,2);
+  assert.equal(edited.saleEstimate.sundriesCost,1.5);
+
+  // The fixture is isolated. Remove it and restore default global profit.
+  await page.locator('#libraryDeleteSelectedBtn').waitFor({state:'visible'});
+  page.once('dialog',dialog=>dialog.accept());
+  await page.locator('#libraryDeleteSelectedBtn').click();
+  await page.waitForFunction(id=>!document.querySelector('[data-library-file="'+id+'"]'),added.id);
+  await page.evaluate(async()=> {
+    const response=await fetch('/api/library/pricing',{method:'PUT',
+      headers:{'content-type':'application/json'},
+      body:JSON.stringify({profitPercent:null,profitMethod:'markup'})});
+    if (!response.ok) throw Error('Unable to reset test pricing settings');
+  });
+  console.log('Chromium: Print Library global profit, add/edit sundries and sale-lot pricing PASS');
+}
+
 // Only the Print Library data rows should scroll. Toolbar, search and the
 // standard desktop table headings remain visible on long lists in either
 // theme, and mobile keeps its action bar above a scrollable card stack.
@@ -2244,6 +2319,7 @@ async function main() {
     await sharedTabNavigationSmoke(page,url);
     await libraryCostSmoke(page,url);
     await librarySelectionSmoke(page,url,{ mutateFixture:!externalUrl });
+    await libraryPricingSmoke(page,url,{ mutateFixture:!externalUrl });
     await libraryScrollingSmoke(page,url);
     await libraryAvailabilityBadgeSmoke(page,url);
     await routeSmoke(page,url);
