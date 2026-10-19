@@ -89,7 +89,7 @@ test('Invalid sundries, lot counts and profit margins fail closed',()=>{
   assert.throws(()=>pricing.normalizePricingSettings({profitPercent:100,profitMethod:'margin'}),/below 100/);
   assert.throws(()=>pricing.normalizePricingSettings({profitPercent:-1,profitMethod:'markup'}),/non-negative/);
   assert.throws(()=>pricing.normalizePricingSettings({profitPercent:20,profitMethod:'unknown'}),/profit method/i);
-  assert.throws(()=>pricing.normalizeSundryCurrency('USD<script>'),/ISO/);
+  assert.throws(()=>pricing.normalizeSundryCurrency('USD<script>'),/supported filament catalogue currencies/);
 });
 
 test('Clearing saved profit percentage prevents presenting a stale sales price',async()=>{
