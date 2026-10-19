@@ -831,6 +831,30 @@ async function librarySelectionSmoke(page,url,{mutateFixture = true} = {}) {
   assert.ok(await page.locator('[data-library-file="'+firstId+'"] .library-fav-mark').count());
   assert.ok((await page.locator('[data-library-file="'+firstId+'"] .library-tags').innerText()).includes('Production'));
   await page.locator('#libraryAdvancedFilters > summary').click();
+  // The direction button is a peer of the labelled sort/batch fields. Their
+  // native input boxes must share the same top and bottom in both themes:
+  // global label margins previously pushed the button 12px too low.
+  for (const theme of ['dark','light']) {
+    await page.evaluate(theme=>{document.documentElement.dataset.theme=theme;},theme);
+    const bounds=await page.evaluate(()=>{
+      const rect=(id)=>{
+        const box=document.getElementById(id).getBoundingClientRect();
+        return {top:box.top,bottom:box.bottom,height:box.height};
+      };
+      return {
+        sort:rect('librarySortSelect'),
+        direction:rect('librarySortDirectionBtn'),
+        quantity:rect('libraryEstimateQuantity')
+      };
+    });
+    for (const [name,box] of [['direction',bounds.direction],['quantity',bounds.quantity]]) {
+      assert.ok(Math.abs(box.top-bounds.sort.top)<=1,
+        theme+': '+name+' should align with Sort by top edge: '+JSON.stringify(bounds));
+      assert.ok(Math.abs(box.bottom-bounds.sort.bottom)<=1,
+        theme+': '+name+' should align with Sort by bottom edge: '+JSON.stringify(bounds));
+      assert.ok(Math.abs(box.height-42)<=1,theme+': '+name+' should use standard 42px control height');
+    }
+  }
   await page.locator('#libraryCategoryFilter').selectOption('Production fixtures');
   assert.equal(await page.locator('.library-file-row').count(),1,'category filter narrows rows');
   await page.locator('#libraryTagFilter').selectOption('Test ASA');
