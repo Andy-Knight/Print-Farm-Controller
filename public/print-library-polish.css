@@ -449,6 +449,10 @@
 #libraryDialog .library-filters .library-favourites-filter input,#libraryMetadataForm .library-favourite-input input {width:18px;height:18px;margin:0}
 #libraryDialog .library-sort-extras {display:flex;flex-wrap:wrap;gap:10px;align-items:end;justify-content:flex-end;min-width:0;flex:0 0 auto;padding-bottom:2px}
 #libraryDialog .library-sort-extras label {flex:0 1 185px}
+/* The global label rule adds 12px top/bottom margins. Flex end-alignment
+ * places the button against the label's margin box, leaving the direction
+ * button 12px below both inputs. Remove that margin on this control row. */
+#libraryDialog .library-sort-extras > label {margin:0}
 #libraryDialog .library-sort-extras #libraryResultCount {align-self:center;font-size:.72rem}
 #libraryDialog .library-table-head [data-library-sort] {display:flex;justify-content:space-between;align-items:center;gap:6px;min-width:0;padding:0;border:0;border-radius:0;background:transparent;box-shadow:none;color:inherit;font-size:inherit;font-weight:inherit;letter-spacing:inherit;text-transform:inherit;text-align:left;cursor:pointer}
 #libraryDialog .library-table-head [data-library-sort]:hover {color:#bcdeff;background:transparent}
