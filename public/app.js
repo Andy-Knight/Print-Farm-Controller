@@ -511,6 +511,8 @@ let alertsSummaryState = { unreadCount:0, attentionUnreadCount:0, recent:[] };
 let libraryState = { files:[] };
 let librarySelectedFileId = null;
 let libraryActionBusy = false;
+let libraryReadinessRequestInFlight = false;
+let libraryReadinessLastRequest = 0;
 let librarySortKey = 'added';
 let librarySortDirection = 'desc';
 let libraryCurrentPage = 0;
@@ -3901,9 +3903,40 @@ function renderPrintLibrary({preserveScroll=false} = {}) {
 
 async function refreshPrintLibrary() {
   libraryState = await api('/api/library');
+  libraryReadinessLastRequest = Date.now();
   libraryFacetOptions();
   renderPrintLibrary({preserveScroll:true});
   return libraryState;
+}
+
+// Printer status is live, but stored library metadata and catalogue costs
+// aren't live telemetry. Only re-fetch readiness while viewing the Library;
+// throttle fleet SSE events to avoid reading hundreds of files per poll.
+async function refreshLiveLibraryReadiness() {
+  if (activeRoute !== '/library' || libraryReadinessRequestInFlight
+      || !Array.isArray(libraryState.files) || !libraryState.files.length) return;
+  if (Date.now() - libraryReadinessLastRequest < 8000) return;
+  libraryReadinessRequestInFlight = true;
+  libraryReadinessLastRequest = Date.now();
+  try {
+    const payload = await api('/api/library/readiness');
+    if (activeRoute !== '/library' || !Array.isArray(payload?.files)) return;
+    const statusById = new Map(payload.files.map((item) => [item.id, item.readiness]));
+    let changed = false;
+    for (const file of libraryState.files) {
+      const next = statusById.get(file.id);
+      if (!next || JSON.stringify(file.readiness) === JSON.stringify(next)) continue;
+      file.readiness = next;
+      changed = true;
+    }
+    if (changed) renderPrintLibrary({preserveScroll:true});
+  } catch (error) {
+    // Retain the file list, selected item, filters and scrollbar on connection
+    // errors. The next fleet update retries the status-only request.
+    console.debug('Print Library readiness could not be refreshed:', error.message);
+  } finally {
+    libraryReadinessRequestInFlight = false;
+  }
 }
 
 async function uploadLibraryFile(file, description = '', printerTarget = null) {
@@ -4734,6 +4767,7 @@ function connectLiveUpdates() {
       reconcileFleet();
       renderPrintQueue();
       setLiveState('live');
+      void refreshLiveLibraryReadiness();
     } catch (error) {
       console.error('Bad fleet event', error);
     }
