@@ -1,7 +1,7 @@
 import { initializeFrontendRendererDiagnostics } from './frontend-renderer-diagnostics.js';
 import {
   LIBRARY_PAGE_SIZE,libraryMaterials,libraryPrintSeconds,libraryWeightGrams,
-  libraryTimeLabel,libraryWeightLabel,librarySortAndFilter,libraryPage
+  libraryTimeLabel,libraryWeightLabel,librarySortAndFilter,libraryPage,libraryPrinterFilterOptions
 } from './library-utils.js';
 
 const refreshFrontendRendererStatus = initializeFrontendRendererDiagnostics();
@@ -3835,13 +3835,17 @@ function libraryFilters() {
 }
 function libraryFacetOptions() {
   const files=Array.isArray(libraryState?.files) ? libraryState.files : [];
-  const printers=[...new Set(files.map((x)=>x.printerTarget
-    ? [x.printerTarget.adapterType,x.printerTarget.model].filter(Boolean).join(':') : '').filter(Boolean))].sort();
+  const printers=libraryPrinterFilterOptions(files, printerTargetLabel);
   const materials=[...new Set(files.flatMap(libraryMaterials))].sort((a,b)=>a.localeCompare(b));
   const tags=[...new Set(files.flatMap(x=>x.tags || []))].sort((a,b)=>a.localeCompare(b));
   const categories=[...new Set(files.map(x=>x.category).filter(Boolean))].sort((a,b)=>a.localeCompare(b));
+  if (libraryPrinterFilter) {
+    const previous=libraryPrinterFilter.value;
+    libraryPrinterFilter.innerHTML='<option value="">All printer types</option>'
+      +printers.map(({value,label})=>`<option value="${escapeHtml(value)}">${escapeHtml(label)}</option>`).join('');
+    if (printers.some((option)=>option.value===previous)) libraryPrinterFilter.value=previous;
+  }
   for(const [el,items,label] of [
-    [libraryPrinterFilter,printers,'All printer types'],
     [libraryMaterialFilter,materials,'All materials'],
     [libraryTagFilter,tags,'All tags'],
     [libraryCategoryFilter,categories,'All categories']
