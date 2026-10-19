@@ -513,6 +513,7 @@ let librarySelectedFileId = null;
 let libraryActionBusy = false;
 let libraryReadinessRequestInFlight = false;
 let libraryReadinessLastRequest = 0;
+let libraryReadinessRefreshTimer = null;
 let librarySortKey = 'added';
 let librarySortDirection = 'desc';
 let libraryCurrentPage = 0;
@@ -3910,8 +3911,19 @@ async function refreshPrintLibrary() {
 }
 
 // Printer status is live, but stored library metadata and catalogue costs
-// aren't live telemetry. Only re-fetch readiness while viewing the Library;
-// throttle fleet SSE events to avoid reading hundreds of files per poll.
+// aren't live telemetry. Only re-fetch readiness while viewing the Library.
+// A trailing timer guarantees a one-off fleet change is reflected, even when
+// it arrives immediately after the complete library load.
+function scheduleLiveLibraryReadinessRefresh() {
+  if (activeRoute !== '/library' || !libraryState.files?.length
+      || libraryReadinessRefreshTimer) return;
+  const delay=Math.max(0,8000-(Date.now()-libraryReadinessLastRequest));
+  libraryReadinessRefreshTimer=setTimeout(()=>{
+    libraryReadinessRefreshTimer=null;
+    void refreshLiveLibraryReadiness();
+  },delay);
+}
+
 async function refreshLiveLibraryReadiness() {
   if (activeRoute !== '/library' || libraryReadinessRequestInFlight
       || !Array.isArray(libraryState.files) || !libraryState.files.length) return;
@@ -4767,7 +4779,7 @@ function connectLiveUpdates() {
       reconcileFleet();
       renderPrintQueue();
       setLiveState('live');
-      void refreshLiveLibraryReadiness();
+      scheduleLiveLibraryReadinessRefresh();
     } catch (error) {
       console.error('Bad fleet event', error);
     }
