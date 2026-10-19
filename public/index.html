@@ -1226,7 +1226,7 @@
       <div class="dialog-head">
         <div>
           <div class="eyebrow">PRINT LIBRARY</div>
-          <h2>Add file</h2>
+          <h2 class="library-editor-title">Add file</h2>
           <div class="subtle">Add a printable file and optional notes describing what it is or how it should be used.</div>
         </div>
         <button type="button" class="icon" data-library-add-close>×</button>
@@ -1243,15 +1243,19 @@
       <label>Tags (comma-separated, up to 20)
         <input id="libraryAddTags" name="tags" maxlength="800" placeholder="Production, VW T6, replacement parts" />
       </label>
-      <fieldset class="library-pricing-fields">
-        <legend>Sundry costs and sale lots</legend>
-        <div class="field-help">Add hardware, inserts, packaging or other costs for the entire sliced print. These costs are shared across its sale lots.</div>
+      <section class="library-pricing-fields ui-surface ui-surface-muted" aria-labelledby="libraryAddSundryHeading">
+        <div class="library-pricing-head ui-section-heading">
+          <div>
+            <h3 id="libraryAddSundryHeading">Sundry costs and sale lots</h3>
+            <p>Add hardware, inserts, packaging or other costs for the entire sliced print. These costs are shared across its sale lots.</p>
+          </div>
+        </div>
         <label>Sundry currency<select id="libraryAddSundryCurrency" name="sundryCurrency"><option value="GBP">GBP</option></select></label>
         <div id="libraryAddSundries" class="library-sundries" aria-label="Sundry cost items"></div>
         <button type="button" class="secondary library-add-sundry" data-library-add-sundry="add">+ Add sundry cost</button>
         <label>Sale lots per print<input id="libraryAddLotsPerPrint" type="number" name="lotsPerPrint" min="1" max="999" step="1" value="1" required /></label>
         <div class="field-help">1 = sell the entire print as one item. For example, 4 = divide the total batch cost and selling price across 4 sale lots.</div>
-      </fieldset>
+      </section>
       <label>Description / notes
         <textarea id="libraryDescriptionInput" name="description" rows="5" maxlength="4000" placeholder="Example: Replacement wardrobe latch for Swift caravan. Print two for each door."></textarea>
       </label>
@@ -1273,7 +1277,7 @@
       <div class="dialog-head">
         <div>
           <div class="eyebrow">PRINT LIBRARY</div>
-          <h2>Edit details</h2>
+          <h2 class="library-editor-title">Edit details</h2>
           <div id="libraryMetadataFileName" class="subtle"></div>
         </div>
         <button type="button" class="icon" data-library-metadata-close>×</button>
@@ -1285,26 +1289,32 @@
         </select>
       </label>
       <div class="field-help">Optional. Automatic queue assignment will only use matching printer models when a target is selected.</div>
-      <div class="library-costing-section">
-        <div class="library-costing-head">
-          <strong>Filament costing</strong>
-          <span class="field-help">Map each sliced logical filament to a catalogue entry. If exactly one catalogue entry matches a material, the controller can select it automatically.</span>
+      <section class="library-costing-section ui-surface ui-surface-muted" aria-labelledby="libraryFilamentCostHeading">
+        <div class="library-costing-head ui-section-heading">
+          <div>
+            <h3 id="libraryFilamentCostHeading">Filament costing</h3>
+            <p>Map each sliced logical filament to a catalogue entry. If exactly one catalogue entry matches a material, the controller can select it automatically.</p>
+          </div>
         </div>
         <div id="libraryFilamentAssignments" class="library-filament-assignments"></div>
-      </div>
+      </section>
       <label>Category<input id="libraryMetadataCategory" name="category" maxlength="60" placeholder="Product family, e.g. VW T6 interior" /></label>
       <label>Tags (comma-separated, up to 20)
         <input id="libraryMetadataTags" name="tags" maxlength="800"
           placeholder="Production, VW T6, replacement parts" />
       </label>
-      <fieldset class="library-pricing-fields">
-        <legend>Sundry costs and sale lots</legend>
-        <div class="field-help">Costs are for one complete sliced print, not for each selling lot.</div>
+      <section class="library-pricing-fields ui-surface ui-surface-muted" aria-labelledby="libraryMetadataSundryHeading">
+        <div class="library-pricing-head ui-section-heading">
+          <div>
+            <h3 id="libraryMetadataSundryHeading">Sundry costs and sale lots</h3>
+            <p>Costs are for one complete sliced print, not for each selling lot.</p>
+          </div>
+        </div>
         <label>Sundry currency<select id="libraryMetadataSundryCurrency" name="sundryCurrency"><option value="GBP">GBP</option></select></label>
         <div id="libraryMetadataSundries" class="library-sundries" aria-label="Sundry cost items"></div>
         <button type="button" class="secondary library-add-sundry" data-library-add-sundry="metadata">+ Add sundry cost</button>
         <label>Sale lots per print<input id="libraryMetadataLotsPerPrint" type="number" name="lotsPerPrint" min="1" max="999" step="1" value="1" required /></label>
-      </fieldset>
+      </section>
       <label class="library-favourite-input">
         <input id="libraryMetadataFavourite" name="favourite" type="checkbox" />
         Favourite — keep this file easy to find
