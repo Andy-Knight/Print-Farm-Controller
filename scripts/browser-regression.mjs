@@ -741,6 +741,46 @@ async function librarySelectionSmoke(page,url,{mutateFixture = true} = {}) {
   const rows=page.locator('#libraryList .library-file-row');
   const firstId=await rows.nth(0).getAttribute('data-library-file');
   const secondId=await rows.nth(1).getAttribute('data-library-file');
+
+  // Regression: selecting a row deep within a scrollable Print Library must
+  // keep its position, including selection-button and keyboard activation.
+  // Stretch these *real library records* inside an isolated browser fixture
+  // so two files are enough to exercise the overflowing viewport reliably.
+  await page.evaluate(()=>{
+    const list=document.querySelector('#libraryList');
+    list.style.maxHeight='250px';
+    list.style.overflowY='auto';
+    list.querySelectorAll('.library-file-row').forEach(row=>{row.style.minHeight='360px';});
+    list.scrollTop=345;
+  });
+  const scrollBefore=await page.locator('#libraryList').evaluate(node=>node.scrollTop);
+  assert.ok(scrollBefore>200,'fixture must be scrolled well below the top row');
+  const secondRow=page.locator('[data-library-file="'+secondId+'"]');
+  const stillScrolled=async label=>{
+    const current=await page.locator('#libraryList').evaluate(node=>node.scrollTop);
+    assert.ok(Math.abs(current-scrollBefore)<=3,label+' must not reset the Print Library scroll offset');
+  };
+  await secondRow.locator('.library-file-title').click();
+  assert.equal(await secondRow.getAttribute('data-library-selected'),'true');
+  await stillScrolled('row click');
+  await secondRow.locator('[data-library-select]').click();
+  assert.equal(await secondRow.getAttribute('data-library-selected'),'false');
+  await stillScrolled('selection-button deselect');
+  await secondRow.locator('[data-library-select]').click();
+  assert.equal(await secondRow.getAttribute('data-library-selected'),'true');
+  await stillScrolled('selection-button select');
+  await secondRow.locator('[data-library-select]').focus();
+  await page.keyboard.press('Space');
+  assert.equal(await secondRow.getAttribute('data-library-selected'),'false');
+  await stillScrolled('keyboard deselect');
+  await page.evaluate(()=>{
+    const list=document.querySelector('#libraryList');
+    list.style.removeProperty('max-height');
+    list.style.removeProperty('overflow-y');
+    list.querySelectorAll('.library-file-row').forEach(row=>{row.style.removeProperty('min-height');});
+    list.scrollTop=0;
+  });
+
   await rows.nth(0).locator('[data-library-select]').click();
   assert.equal(await page.locator('#libraryQueueSelectedBtn').isEnabled(),true);
   assert.equal(await page.locator('#libraryEditSelectedBtn').isEnabled(),true);
