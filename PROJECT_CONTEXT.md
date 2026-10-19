@@ -9,13 +9,15 @@ If chat context and this file disagree about the codebase, inspect current GitHu
 - Repository: `Andy-Knight/Print-Farm-Controller`
 - Project path: repository root (`/`)
 - Primary branch: `main` (current production baseline)
-- Current controller source version: **0.57.1** (Print Library hotfix PR #102: readable printer filter names, designated-printer readiness messages, clickable category/tag badges; builds on v0.57.0 Print Library production workbench PR #101).
+- Current controller source version: **0.57.2** (Print Library refinements PR #103: clickable readiness status filter, preserved row-selection scroll position, aligned sort/batch controls; following v0.57.1 hotfix PR #102).
 - Previous baseline audited: **0.48.0** (main before the regression test audit release).
 - Runtime: **Node.js 24+** (development baseline Node.js 24.21.0), ES modules, no npm runtime dependencies.
 - GitHub is the authoritative code baseline.
 - Release/version history is maintained only in `CHANGELOG.md`; do not duplicate per-version history in this handoff file.
 
 ## Current work
+
+**v0.57.2 Print Library refinements:** PR #103 from `feature/library-clickable-readiness` adds clickable Readiness status badges for the five existing filter states, preserving other active filter facets and keyboard accessibility in both Preact and fallback. It also preserves the inner library list scroll on mouse/keyboard row selection and deselection while deliberate filter/sort/page changes still reset the view. Removes a 12px label-margin offset in the Advanced Filters sort controls, aligning the 42px Sort by, Ascending/Descending and Batch quantity inputs without changing global form styles. Unit/contract and Chromium geometry/interaction regression tests cover the fixes. User approved increasing version to 0.57.2 and merging PR #103; protect main by checking updated CI state before integration. No printer-control, queue-safety or scheduler changes.
 
 **v0.57.1 Print Library hotfix:** On `hotfix/0.57.1` (PR #102), standardised Print Library printer filter names, corrected compatibility tooltips to report the designated printer's actual rejection reason instead of unrelated printer-model mismatches, and enabled category/tag badges to filter directly (Preact and fallback). Existing queue safety/format restrictions remain intact, including Snapmaker U1 accepting sliced G-code rather than 3MF uploads. User accepted the hotfix for merging after CI passed on the feature head; release metadata advanced to 0.57.1. Existing full regression and browser/container gates must pass on the version-bump commit before merging.
 

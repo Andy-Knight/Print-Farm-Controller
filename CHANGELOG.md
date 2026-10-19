@@ -4,6 +4,14 @@ This file contains the version-by-version release history for Print Farm Control
 
 Historical entries describe the behaviour of the controller at the time of that release and may be superseded by later versions. For current installation, configuration and supported-hardware guidance, see [README.md](README.md).
 
+## v0.57.2
+
+- Made Print Library **readiness/status badges clickable** to filter the visible files by Ready now, Printer busy, Printer offline, Needs attention or Incompatible. Shows the matching selection in Advanced Filters, combines it with other active search/facets, resets pagination, and supports accessible keyboard activation in both Preact and fallback UI while keeping status colours and diagnostic tooltips.
+- Preserved the Print Library's **current scroll position when selecting or deselecting a file** with a row click, selection button or keyboard. Deliberate filtering, sorting and page changes continue to reset to the first result.
+- Fixed **Ascending/Descending button alignment** with the Sort by selector and Batch quantity field by removing the global label margin only within the Print Library sort controls. Maintained standard 42px control heights and light/dark styling.
+- Added Node.js regression contracts and Chromium tests for status filtering, mouse/keyboard selection without scroll jump and sort-control geometry. No printer protocol, queuing, dispatch or compatibility safety changes.
+- Increased patch version from v0.57.1 to v0.57.2.
+
 ## v0.57.1
 
 - Corrected the Print Library **Printer** advanced filter to show readable manufacturer/model labels rather than internal adapter-type identifiers, while preserving matching keys and existing filter data.
