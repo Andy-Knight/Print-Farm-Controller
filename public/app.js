@@ -202,12 +202,6 @@ const libraryDialog = document.querySelector('#libraryDialog');
 const librarySummary = document.querySelector('#librarySummary');
 const librarySearchInput = document.querySelector('#librarySearchInput');
 const libraryUploadBtn = document.querySelector('#libraryUploadBtn');
-const libraryPricingSettingsBtn = document.querySelector('#libraryPricingSettingsBtn');
-const libraryPricingSettingsDialog = document.querySelector('#libraryPricingSettingsDialog');
-const libraryPricingSettingsForm = document.querySelector('#libraryPricingSettingsForm');
-const libraryPricingSettingsError = document.querySelector('#libraryPricingSettingsError');
-const libraryProfitPercent = document.querySelector('#libraryProfitPercent');
-const libraryProfitMethod = document.querySelector('#libraryProfitMethod');
 const libraryQueueSelectedBtn = document.querySelector('#libraryQueueSelectedBtn');
 const libraryEditSelectedBtn = document.querySelector('#libraryEditSelectedBtn');
 const libraryDeleteSelectedBtn = document.querySelector('#libraryDeleteSelectedBtn');
@@ -5393,38 +5387,12 @@ libraryUploadBtn?.addEventListener('click', () => {
   if (libraryAddError) { libraryAddError.textContent = ''; libraryAddError.classList.add('hidden'); }
   libraryAddDialog?.showModal();
 });
-libraryPricingSettingsBtn?.addEventListener('click',async ()=>{
-  if (libraryPricingSettingsError) { libraryPricingSettingsError.textContent='';libraryPricingSettingsError.classList.add('hidden'); }
-  // Hydrate before showing: late GET responses must never overwrite an
-  // operator's freshly typed profit percentage or calculation method.
-  if (libraryPricingSettingsBtn) libraryPricingSettingsBtn.disabled=true;
-  try {
-    const settings=await loadLibraryPricingSettings();
-    if (libraryProfitPercent) libraryProfitPercent.value=settings.profitPercent ?? '';
-    if (libraryProfitMethod) libraryProfitMethod.value=settings.profitMethod || 'markup';
-  } catch(error) {
-    if (libraryPricingSettingsError) {libraryPricingSettingsError.textContent=error.message;libraryPricingSettingsError.classList.remove('hidden');}
-  } finally {
-    if (libraryPricingSettingsBtn) libraryPricingSettingsBtn.disabled=false;
-    libraryPricingSettingsDialog?.showModal();
-  }
-});
-document.querySelectorAll('[data-library-pricing-close]').forEach(el=>el.addEventListener('click',()=>libraryPricingSettingsDialog?.close()));
-libraryPricingSettingsForm?.addEventListener('submit',async event=>{
-  event.preventDefault();
-  const submit=libraryPricingSettingsForm.querySelector('button[type="submit"]');
-  if (submit) submit.disabled=true;
-  try {
-    await api('/api/library/pricing',{method:'PUT',body:JSON.stringify({
-      profitPercent:libraryProfitPercent?.value === '' ? null : Number(libraryProfitPercent?.value),
-      profitMethod:libraryProfitMethod?.value || 'markup'
-    })});
-    await refreshPrintLibrary();
-    libraryPricingSettingsDialog?.close();
-    if (libraryStatus) libraryStatus.textContent='Global profit settings updated.';
-  } catch(error) {
-    if (libraryPricingSettingsError) {libraryPricingSettingsError.textContent=error.message;libraryPricingSettingsError.classList.remove('hidden');}
-  } finally {if (submit) submit.disabled=false;}
+// Reports & analytics owns global profit settings. Keep any already-mounted
+// Print Library estimates in sync when an operator saves those settings.
+window.addEventListener('pfc:library-pricing-updated',()=>{
+  void refreshPrintLibrary().catch(error=>{
+    if (libraryStatus) libraryStatus.textContent='Pricing saved, but library estimates could not refresh: '+error.message;
+  });
 });
 document.querySelectorAll('[data-library-preview-close]').forEach((el) => el.addEventListener('click', () => libraryPreviewDialog?.close()));
 libraryPreviewDialog?.addEventListener('close', () => {
