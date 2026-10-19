@@ -5396,13 +5396,18 @@ libraryUploadBtn?.addEventListener('click', () => {
 });
 libraryPricingSettingsBtn?.addEventListener('click',async ()=>{
   if (libraryPricingSettingsError) { libraryPricingSettingsError.textContent='';libraryPricingSettingsError.classList.add('hidden'); }
-  libraryPricingSettingsDialog?.showModal();
+  // Hydrate before showing: late GET responses must never overwrite an
+  // operator's freshly typed profit percentage or calculation method.
+  if (libraryPricingSettingsBtn) libraryPricingSettingsBtn.disabled=true;
   try {
     const settings=await loadLibraryPricingSettings();
     if (libraryProfitPercent) libraryProfitPercent.value=settings.profitPercent ?? '';
     if (libraryProfitMethod) libraryProfitMethod.value=settings.profitMethod || 'markup';
   } catch(error) {
     if (libraryPricingSettingsError) {libraryPricingSettingsError.textContent=error.message;libraryPricingSettingsError.classList.remove('hidden');}
+  } finally {
+    if (libraryPricingSettingsBtn) libraryPricingSettingsBtn.disabled=false;
+    libraryPricingSettingsDialog?.showModal();
   }
 });
 document.querySelectorAll('[data-library-pricing-close]').forEach(el=>el.addEventListener('click',()=>libraryPricingSettingsDialog?.close()));
