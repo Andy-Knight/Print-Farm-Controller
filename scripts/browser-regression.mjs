@@ -901,6 +901,7 @@ async function libraryScrollingSmoke(page,url) {
           firstRowCols:getComputedStyle(list.querySelector('.library-file-row')).gridTemplateColumns
         };
       });
+      console.log('LIBRARY SCROLL DEBUG',JSON.stringify({viewport,theme,before}));
       assert.ok(before.listContent>before.listClient+100,'long list must scroll inside its region');
       assert.equal(before.listOverflow,'auto','only the library rows should scroll');
       assert.ok(before.listClient>=125,'file region must remain usable at '+viewport.width+'px');
