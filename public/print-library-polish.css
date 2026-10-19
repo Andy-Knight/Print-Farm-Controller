@@ -565,7 +565,23 @@
   color:var(--ds-text);font-weight:800;font-size:.85rem;padding:0 5px;
 }
 #libraryAddDialog .library-pricing-fields label,#libraryMetadataDialog .library-pricing-fields label {
-  color:var(--ds-text-muted);font-size:.72rem;font-weight:700;display:block;margin:9px 0;
+  display:flex;
+  flex-direction:column;
+  align-items:flex-start;
+  gap:6px;
+  min-width:0;
+  color:var(--ds-text-muted);
+  font-size:.72rem;
+  font-weight:700;
+  line-height:1.35;
+  margin:12px 0;
+}
+#libraryAddDialog .library-pricing-fields label > select,#libraryMetadataDialog .library-pricing-fields label > select,
+#libraryAddDialog .library-pricing-fields label > input,#libraryMetadataDialog .library-pricing-fields label > input {
+  display:block;
+  width:100%;
+  margin:0;
+  align-self:flex-start;
 }
 #libraryAddDialog .library-pricing-fields select,#libraryMetadataDialog .library-pricing-fields select {
   max-width:220px;
@@ -585,7 +601,57 @@
 .library-sundry-row input {width:100%;margin-top:4px}
 .library-sundry-row > button {min-height:42px;height:42px;white-space:nowrap}
 .library-add-sundry {margin-top:9px}
-#libraryAddDialog,#libraryMetadataDialog,#libraryPricingSettingsDialog {max-height:88dvh;overflow-y:auto}
+/* Keep the add/edit header and actions visible, scrolling only form fields.
+ * Scope this to the two long Library editors so other dialogs are untouched. */
+#libraryAddDialog,#libraryMetadataDialog {
+  max-height:min(88dvh,calc(100vh - 32px));
+  overflow:hidden;
+}
+#libraryAddDialog > form,#libraryMetadataDialog > form {
+  display:flex;
+  flex-direction:column;
+  min-height:0;
+  max-height:min(88dvh,calc(100vh - 32px));
+  overflow:hidden; /* overrides global dialog > :first-child overflow:auto */
+  padding:0;
+}
+#libraryAddDialog .dialog-head,#libraryMetadataDialog .dialog-head {
+  flex:0 0 auto;
+  padding:20px 22px 14px;
+  margin:0;
+  border-bottom:1px solid var(--ds-border);
+}
+#libraryAddDialog .library-editor-body,#libraryMetadataDialog .library-editor-body {
+  flex:1 1 auto;
+  min-height:0;
+  overflow-x:hidden;
+  overflow-y:auto;
+  overscroll-behavior:contain;
+  scrollbar-width:thin;
+  scrollbar-gutter:stable;
+  padding:14px 22px 18px;
+}
+#libraryAddDialog .library-editor-body:focus-visible,#libraryMetadataDialog .library-editor-body:focus-visible {
+  outline:2px solid var(--ds-focus);
+  outline-offset:-3px;
+}
+#libraryAddDialog .library-editor-footer,#libraryMetadataDialog .library-editor-footer {
+  flex:0 0 auto;
+  padding:12px 22px 16px;
+  border-top:1px solid var(--ds-border);
+  background:var(--ds-surface);
+}
+#libraryAddDialog .library-editor-footer .actions,#libraryMetadataDialog .library-editor-footer .actions {
+  margin:0;
+}
+#libraryAddDialog .library-editor-footer #libraryAddError,
+#libraryMetadataDialog .library-editor-footer #libraryMetadataError {
+  margin:0 0 10px;
+}
+#libraryAddDialog .library-editor-footer #libraryAddStatus:not(:empty) {
+  margin:0 0 8px;
+}
+#libraryPricingSettingsDialog {max-height:88dvh;overflow-y:auto}
 @media(max-width:560px) {
   .library-sundry-row {grid-template-columns:minmax(0,1fr) minmax(0,1fr)}
   .library-sundry-row > label:first-child {grid-column:1/-1}
