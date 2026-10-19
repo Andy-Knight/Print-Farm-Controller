@@ -120,3 +120,16 @@ The **Option A** selected for Printer Details is now the shared style across eve
 ### Validation and release sequencing
 
 User acceptance and feature-branch test gates have completed for both parts. PR #99 (Printer Details) was merged first. PR #100 was then retargeted to `main`, the application version advanced to v0.56.0 and the combined release submitted for its final CI gate. Continue to test printer-specific UI on physical hardware where available.
+
+## Print Library Phase 2 — production search, sorting and scale
+
+On top of the selected-file toolbar and canonical seven-column `--pfc-table-*` styling, the Print Library now has:
+
+- Click-to-sort desktop header buttons for filename, target printer, filament, material cost and completed jobs, with direction reversal and keyboard focus states. Other fields (date added, last printed, duration, weight and readiness) are available from a named sort dropdown inside **Advanced filters**.
+- Multi-facet filtering by designated printer type, slicer filament material, primary category, tags, known vs unavailable costing, live readiness and favourites, combined with the existing full-text search.
+- Validated per-file `category`, `tags` and `favourite` fields persisted in the existing print-library metadata JSON, maintained with the current PATCH API; legacy backups/files default to a blank category, no tags and not-favourite. Category and tags are searchable and visible in the file row. No revisions/version history has been introduced.
+- Slicer-estimated duration from explicit Orca/Prusa-style estimate lines and Cura `;TIME:` (including embedded 3MF G-code), with `Not reported` for unknown values; filament grams show only if each logical tool reports a reliable weight. User-selected **batch quantity** multiplies the current raw-material cost estimate without initiating prints or changing historical queue cost snapshots.
+- A **readiness preview** derived from the existing `evaluateQueueCompatibility` implementation and current printer status; green is reserved for verified online printer/material/tool evidence. Unknown metadata, no suitable online printer and other review conditions are amber; known incompatibility is red. This is a snapshot, not an authorization to bypass the real job's queue-time preflight. The current printer configuration can change at any time.
+- 80 rows per client page to bound Preact/legacy DOM size, with Previous/Next controls in the table's scrolling region. Backend library metadata reads are capped at 12 concurrent filesystem operations, and usage references are indexed once per snapshot; cost catalogue prices are still read once per request. Pagination currently occurs **client-side**, so the API still returns the full listing, which remains necessary for fleet history and search consistency. Server-side pagination may be considered if very large libraries become common.
+
+The advanced filters are collapsed by default, keeping Search/Add, the selected-file toolbar, live item count and canonical heading row permanently visible on long lists, including on narrow screens. The table's file body alone scrolls.
