@@ -774,6 +774,45 @@ async function librarySelectionSmoke(page,url,{mutateFixture = true} = {}) {
   await page.waitForFunction(()=>document.querySelectorAll('#libraryList [data-library-file]').length===2);
   // The initial state after a full browser reload is intentionally unselected.
   assert.equal(await page.locator('#libraryQueueSelectedBtn').isDisabled(),true);
+  // Test category/tags/favourites against persisted file metadata, not just
+  // synthetic DOM fixtures. All controls must keep the table and actions safe.
+  const patched=await page.evaluate(async (id)=>{
+    const response=await fetch('/api/library/'+encodeURIComponent(id),{
+      method:'PATCH',headers:{'content-type':'application/json'},
+      body:JSON.stringify({category:'Production fixtures',tags:['Test ASA','Production'],favourite:true})
+    });
+    return {status:response.status,data:await response.json()};
+  },firstId);
+  assert.equal(patched.status,200,'editing category/tag metadata should persist');
+  await page.reload({waitUntil:'load'});
+  await preactReady(page);
+  await page.waitForFunction(()=>document.querySelectorAll('#libraryList .library-file-row').length===2);
+  assert.ok(await page.locator('[data-library-file="'+firstId+'"] .library-category').count());
+  assert.ok(await page.locator('[data-library-file="'+firstId+'"] .library-fav-mark').count());
+  assert.ok((await page.locator('[data-library-file="'+firstId+'"] .library-tags').innerText()).includes('Production'));
+  await page.locator('#libraryAdvancedFilters > summary').click();
+  await page.locator('#libraryCategoryFilter').selectOption('Production fixtures');
+  assert.equal(await page.locator('.library-file-row').count(),1,'category filter narrows rows');
+  await page.locator('#libraryTagFilter').selectOption('Test ASA');
+  assert.equal(await page.locator('.library-file-row').count(),1,'tag facet combines with category');
+  await page.locator('#libraryFavouritesFilter').check();
+  assert.equal(await page.locator('.library-file-row').count(),1,'favourites facet restricts rows');
+  await page.locator('#libraryFavouritesFilter').uncheck();
+  await page.locator('#libraryCategoryFilter').selectOption('');
+  await page.locator('#libraryTagFilter').selectOption('');
+  await page.locator('#libraryMaterialFilter').selectOption('PLA');
+  assert.equal(await page.locator('.library-file-row').count(),2,'material facet includes both sliced files');
+  await page.locator('#libraryClearFiltersBtn').click();
+  assert.equal(await page.locator('.library-file-row').count(),2,'clear filters restores full set');
+  await page.locator('[data-library-sort="name"]').click();
+  assert.equal(await page.locator('[data-library-sort="name"]').getAttribute('aria-pressed'),'true');
+  assert.match(await page.locator('.library-file-row').first().locator('.library-file-title').innerText(),/ui-selection-first|ui-selection-second/);
+  await page.locator('#librarySortSelect').selectOption('added');
+  await page.locator('#libraryEstimateQuantity').fill('5');
+  await page.locator('#libraryEstimateQuantity').dispatchEvent('change');
+  assert.equal(await page.locator('#libraryEstimateQuantity').inputValue(),'5','batch quantity remains user-editable');
+  await page.locator('#libraryAdvancedFilters > summary').click();
+  assert.equal(await page.locator('.library-file-row').count(),2);
   for(const theme of ['dark','light']){
     await page.evaluate(x=>{document.documentElement.dataset.theme=x;},theme);
     const dimensions=await page.locator('.library-file-row').first().evaluate((node)=>{
