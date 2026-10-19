@@ -3654,6 +3654,29 @@ function libraryCostView(file) {
   };
 }
 
+function librarySaleView(file) {
+  const sale=file?.saleEstimate || {};
+  const lots=Number(sale.lotsPerPrint || file?.lotsPerPrint || 1);
+  const sundries=Number(sale.sundriesCost || 0);
+  const money=(amount)=>{
+    if (!Number.isFinite(amount) || !sale.currency) return 'Unavailable';
+    try {
+      return new Intl.NumberFormat('en-GB',{style:'currency',currency:sale.currency,
+        minimumFractionDigits:2,maximumFractionDigits:2}).format(amount);
+    } catch {return sale.currency+' '+amount.toFixed(2);}
+  };
+  const available=sale.complete===true && Number.isFinite(sale.sellingPrice);
+  return {
+    available,
+    price:available ? money(sale.sellingPrice) : 'Unavailable',
+    perLot:available && lots>1 ? money(sale.sellingPricePerLot) : '',
+    detail:available
+      ? `Filament ${money(sale.filamentCost)} + sundries ${money(sundries)} · ${sale.profitPercent}% ${sale.profitMethod==='margin'?'gross margin':'markup'}`
+      : (sale.issue || 'Selling price estimate is not configured'),
+    lots
+  };
+}
+
 let libraryPricingCurrencies = ['GBP'];
 async function loadLibraryPricingSettings() {
   const result=await api('/api/library/pricing');
@@ -3749,6 +3772,7 @@ function libraryFileMarkup(file) {
   const production = libraryProductionInfo(file);
   const batchCost = libraryBatchCostView(file);
   const readiness = libraryReadinessView(file);
+  const sale = librarySaleView(file);
   const usage = file.usage || {};
   const lastPrinted = usage.lastPrintedAt ? `Last printed ${formatLastSeen(usage.lastPrintedAt)}` : 'Not printed yet';
   const count = Number(usage.completedPrints || 0);
@@ -3793,6 +3817,11 @@ function libraryFileMarkup(file) {
           <small class="library-print-cost-detail">${escapeHtml(cost.detail)}</small>
         </div>
       </div>
+      <div class="library-sale-price${sale.available?'':' unavailable'}" title="${escapeHtml(sale.detail)}">
+        <span>Suggested selling price / print</span><strong>${escapeHtml(sale.price)}</strong>
+        <small>${escapeHtml(sale.detail)}</small>
+        ${sale.lots>1 ? `<small>${sale.lots} sale lots · ${escapeHtml(sale.perLot || 'Unavailable')} per lot</small>` : ''}
+      </div>
     </div>
     <div class="library-cell library-history-cell">
       <span class="library-cell-label">History</span>
@@ -3808,6 +3837,7 @@ function libraryFileViewModel(file) {
   const production = libraryProductionInfo(file);
   const batchCost = libraryBatchCostView(file);
   const readiness = libraryReadinessView(file);
+  const sale = librarySaleView(file);
   const usage = file?.usage || {};
   const completedPrints = Number(usage.completedPrints || 0);
   const lastPrinted = usage.lastPrintedAt ? `Last printed ${formatLastSeen(usage.lastPrintedAt)}` : 'Not printed from queue yet';
@@ -3829,6 +3859,7 @@ function libraryFileViewModel(file) {
     category:String(file?.category || ''),
     production,
     readiness,
+    sale,
     tags:Array.isArray(file?.tags) ? file.tags : [],
     favourite:file?.favourite===true,
     selected:file?.id === librarySelectedFileId,
