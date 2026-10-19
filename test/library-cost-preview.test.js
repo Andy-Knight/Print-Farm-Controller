@@ -107,4 +107,12 @@ test('Print Library API and both UI renderers expose a clearly-labelled per-prin
   assert.match(css,/#libraryDialog \.library-table-head \{[\s\S]*?text-transform:uppercase/);
   assert.match(css,/#libraryDialog \.library-file-row \{[\s\S]*?border-bottom:1px solid var\(--pfc-table-divider\)/);
   assert.match(css,/#libraryDialog \.library-file-row\.is-selected \{[\s\S]*?background:var\(--pfc-table-selected\)/);
+  // Only the file rows scroll: controls and table headings remain outside
+  // the scrollbar, which must not compromise desktop column alignment.
+  assert.match(css,/#libraryDialog > \.queue-shell \{[\s\S]*?max-height:max\(490px,calc\(100dvh/);
+  assert.match(css,/#libraryDialog > \.queue-shell > \.queue-section \{[\s\S]*?min-height:0/);
+  assert.match(css,/#libraryDialog \.library-list \{[\s\S]*?overflow-y:auto/);
+  assert.match(css,/#libraryDialog \.library-list \{[\s\S]*?scrollbar-gutter:stable/);
+  assert.match(css,/#libraryDialog \.library-table-head \{[\s\S]*?scrollbar-width:thin/);
+  assert.match(css,/#libraryDialog \.library-table-head \{[\s\S]*?scrollbar-gutter:stable/);
 });
