@@ -966,6 +966,9 @@ async function verifyLibraryEditorLayout(page,editor) {
     const footer=modal.querySelector('.library-editor-footer');
     const currency=document.getElementById(prefix+'SundryCurrency');
     const lots=document.getElementById(prefix+'LotsPerPrint');
+    const sundrySection=modal.querySelector('.library-pricing-fields');
+    const sectionHeading=sundrySection.querySelector('.library-pricing-head h3');
+    const config=sundrySection.querySelector('.library-pricing-config');
     const rect=node=>{
       const r=node.getBoundingClientRect();
       return {top:r.top,bottom:r.bottom,left:r.left,right:r.right};
@@ -989,7 +992,15 @@ async function verifyLibraryEditorLayout(page,editor) {
     body.scrollTop=0;
     return {fields,start,end,maxScroll,bodyOverflow:getComputedStyle(body).overflowY,
       footerButtons:[...footer.querySelectorAll('button')].map(btn=>rect(btn)),
-      dialogRect:rect(modal)};
+      dialogRect:rect(modal),
+      pricingSection:rect(sundrySection),pricingHeading:rect(sectionHeading),
+      pricingHeadingTag:sectionHeading.tagName,
+      pricingHeadingText:sectionHeading.textContent.trim(),
+      pricingConfigStyle:getComputedStyle(config).display,
+      pricingColumns:getComputedStyle(config).gridTemplateColumns,
+      pricingConfigLabels:[...config.querySelectorAll(':scope > label')].map(label=>rect(label)),
+      pricingBackground:getComputedStyle(sundrySection).backgroundColor,
+      pricingPanelBorder:getComputedStyle(sundrySection).borderTopWidth};
   },prefix);
   for (const [index,field] of metrics.fields.entries()) {
     const label=index===0?'Sundry currency':'Sale lots per print';
@@ -1000,6 +1011,20 @@ async function verifyLibraryEditorLayout(page,editor) {
     assert.ok(Math.abs(field.input.left-field.label.left)<=2,
       editor+': '+label+' input has same left alignment as its label');
   }
+  assert.equal(metrics.pricingHeadingTag,'H3',editor+': pricing panel uses a semantic section heading');
+  assert.equal(metrics.pricingHeadingText,'Sundry costs and sale lots');
+  assert.ok(metrics.pricingHeading.top>=metrics.pricingSection.top+8,
+    editor+': section title must be inside the panel, not clipped into the top border');
+  assert.ok(metrics.pricingHeading.left>=metrics.pricingSection.left+8
+    && metrics.pricingHeading.right<=metrics.pricingSection.right-8,
+    editor+': section title should remain within the panel horizontally');
+  assert.ok(metrics.pricingHeading.bottom<metrics.pricingConfigLabels[0].top,
+    editor+': section title must not overlap its controls');
+  assert.equal(metrics.pricingConfigStyle,'grid',editor+': currency and sale lots use aligned grid');
+  assert.ok(Math.abs(metrics.pricingConfigLabels[0].top-metrics.pricingConfigLabels[1].top)<=2,
+    editor+': settings labels should align along the same row');
+  assert.ok(metrics.pricingBackground!=='rgba(0, 0, 0, 0)' && metrics.pricingPanelBorder!=='0px',
+    editor+': standard panel has a surface and border');
   assert.equal(metrics.bodyOverflow,'auto',editor+': central body should scroll');
   assert.ok(metrics.maxScroll>20,editor+': fixture must have overflowing fields');
   assert.ok(metrics.end.scrollTop>20,editor+': only form fields should scroll');
