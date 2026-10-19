@@ -149,7 +149,9 @@
   gap:12px;
   min-width:0;
   margin:0;
-  padding:14px 13px;
+  /* Same 12px side inset as the table header once the list's 1px frame
+   * is accounted for; heading and body grid tracks then match exactly. */
+  padding:14px 12px;
   border:0;
   border-bottom:1px solid var(--pfc-table-divider);
   border-radius:0;
