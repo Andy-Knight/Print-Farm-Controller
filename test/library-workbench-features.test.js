@@ -172,7 +172,7 @@ test('Targeted U1 3MF reports unsupported format, not a different printer model 
   })[0].readiness;
   const incompatible=run(target);
   assert.equal(incompatible.level,'incompatible');
-  assert.match(incompatible.message,/does not support \\.3mf uploads/i);
+  assert.match(incompatible.message,/does not support \.3mf uploads/i);
   assert.doesNotMatch(incompatible.message,/designated for U1/i);
   assert.equal(run({...target,fileName:'U1-batch.gcode'}).level,'ready');
   const missing=run(target,[printers[0]]);
