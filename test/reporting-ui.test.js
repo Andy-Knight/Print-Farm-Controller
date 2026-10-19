@@ -78,7 +78,7 @@ test('filament cost catalogue and Print Library mappings are exposed in the UI',
   assert.match(app, /item\.product \|\| null/);
   assert.match(app, /collectLibraryFilamentAssignments/);
   assert.match(app, /filamentAssignments:collectLibraryFilamentAssignments\(\)/);
-  assert.match(app, /async function updateLibraryMetadata\(fileId, \{ description = '', printerTarget = null, filamentAssignments = undefined \}/);
+  assert.match(app, /async function updateLibraryMetadata\(fileId, \{ description = '', printerTarget = null, filamentAssignments = undefined, tags = undefined, favourite = undefined \}/);
   assert.match(app, /\.\.\.\(filamentAssignments !== undefined \? \{ filamentAssignments \} : \{\}\)/);
   assert.match(styles, /\.library-filament-assignment/);
 });
