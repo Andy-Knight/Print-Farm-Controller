@@ -66,6 +66,11 @@ test('Never derive a misleading sales price with unknown filament, missing marku
   assert.equal(noSundries.complete,true);
   assert.equal(noSundries.currency,'GBP');
   assert.equal(noSundries.sellingPrice,7.2);
+  const yen=pricing.estimateLibrarySalePrice({
+    sundryCosts:[],lotsPerPrint:3,costEstimate:{complete:true,totalCost:1000,currency:'JPY'}
+  },{profitPercent:20,profitMethod:'markup'});
+  assert.equal(yen.sellingPricePerLot,400);
+  assert.equal(yen.sellingPrice,1200);
 });
 
 test('Legacy library files default safely to one lot and zero sundries',()=>{
