@@ -1125,18 +1125,6 @@
           <label class="library-favourites-filter"><input type="checkbox" id="libraryFavouritesFilter" /> Favourites only</label>
           <button type="button" id="libraryClearFiltersBtn" class="secondary">Clear filters</button>
           </div>
-        </details>
-        <div class="library-action-toolbar" role="group" aria-label="Actions for the selected library file">
-          <div id="librarySelectionStatus" class="library-selection-status" aria-live="polite">Select a file to enable actions</div>
-          <div class="library-action-buttons">
-            <button id="libraryQueueSelectedBtn" type="button" class="primary" disabled>Queue selected</button>
-            <button id="libraryEditSelectedBtn" type="button" class="secondary" disabled>Edit details</button>
-            <button id="libraryFavouriteSelectedBtn" type="button" class="secondary" disabled>☆ Favourite</button>
-            <button id="libraryDeleteSelectedBtn" type="button" class="danger" disabled>Delete selected</button>
-          </div>
-        </div>
-        <div id="libraryStatus" class="subtle"></div>
-        <div id="libraryError" class="error hidden"></div>
         <div class="library-sort-extras">
           <label>Sort by
             <select id="librarySortSelect">
@@ -1149,8 +1137,21 @@
           </label>
           <button type="button" class="secondary" id="librarySortDirectionBtn" aria-label="Reverse sort direction">↓ Descending</button>
           <label>Batch quantity (estimate)<input id="libraryEstimateQuantity" type="number" min="1" max="999" step="1" value="1" /></label>
-          <span id="libraryResultCount" class="subtle" aria-live="polite"></span>
+          
         </div>
+        </details>
+        <div class="library-action-toolbar" role="group" aria-label="Actions for the selected library file">
+          <div id="librarySelectionStatus" class="library-selection-status" aria-live="polite">Select a file to enable actions</div>
+          <div class="library-action-buttons">
+            <button id="libraryQueueSelectedBtn" type="button" class="primary" disabled>Queue selected</button>
+            <button id="libraryEditSelectedBtn" type="button" class="secondary" disabled>Edit details</button>
+            <button id="libraryFavouriteSelectedBtn" type="button" class="secondary" disabled>☆ Favourite</button>
+            <button id="libraryDeleteSelectedBtn" type="button" class="danger" disabled>Delete selected</button>
+          </div>
+        </div>
+        <div id="libraryStatus" class="subtle"></div>
+        <div id="libraryError" class="error hidden"></div>
+        <div class="library-filter-results"><span id="libraryResultCount" class="subtle" aria-live="polite"></span></div>
         <div id="libraryTableHead" class="library-table-head" aria-label="Sortable Print Library column headings" hidden>
           <span>Select</span><span>Preview</span>
           <button type="button" data-library-sort="name" aria-label="Sort by filename">File</button>
