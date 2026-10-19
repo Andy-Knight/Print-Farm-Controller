@@ -440,3 +440,23 @@
     scrollbar-width:thin;
   }
 }
+
+/* Library facets and bounded-pagination controls */
+#libraryDialog .library-filters {display:grid;grid-template-columns:repeat(5,minmax(100px,1fr)) auto auto;gap:9px;align-items:end;flex:0 0 auto;margin:0 0 12px}
+#libraryDialog .library-filters label,#libraryDialog .library-sort-extras label {display:flex;flex-direction:column;gap:5px;min-width:0;font-size:.69rem;font-weight:700;color:var(--ds-text-muted)}
+#libraryDialog .library-filters select,#libraryDialog .library-sort-extras select {width:100%;min-width:0;height:42px}
+#libraryDialog .library-filters .library-favourites-filter,#libraryMetadataForm .library-favourite-input {display:flex;flex-direction:row;gap:7px;align-items:center;min-height:42px;white-space:nowrap;color:var(--ds-text)}
+#libraryDialog .library-filters .library-favourites-filter input,#libraryMetadataForm .library-favourite-input input {width:18px;height:18px;margin:0}
+#libraryDialog .library-sort-extras {display:flex;flex-wrap:wrap;gap:10px;align-items:end;justify-content:flex-end;min-width:0;flex:0 0 auto;padding-bottom:2px}
+#libraryDialog .library-sort-extras label {flex:0 1 185px}
+#libraryDialog .library-sort-extras #libraryResultCount {align-self:center;font-size:.72rem}
+#libraryDialog .library-table-head [data-library-sort] {display:flex;justify-content:space-between;align-items:center;gap:6px;min-width:0;padding:0;border:0;border-radius:0;background:transparent;box-shadow:none;color:inherit;font-size:inherit;font-weight:inherit;letter-spacing:inherit;text-transform:inherit;text-align:left;cursor:pointer}
+#libraryDialog .library-table-head [data-library-sort]:hover {color:#bcdeff;background:transparent}
+#libraryDialog .library-table-head [data-library-sort].sorted::after {content:"↑↓";color:#8bc7ff;font-size:.85rem}
+#libraryDialog .library-table-head [data-library-sort]:focus-visible {outline:2px solid #90caff;outline-offset:3px}
+#libraryDialog .library-pagination {display:flex;grid-column:1/-1;justify-content:flex-end;align-items:center;flex-wrap:wrap;gap:8px;padding:12px;border-top:1px solid var(--pfc-table-divider);color:var(--pfc-table-secondary);font-size:.74rem}
+#libraryDialog .library-pagination button {min-height:42px}
+#libraryDialog #libraryMetadataTags {width:100%}
+@media(max-width:1390px) {#libraryDialog .library-filters {grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media(max-width:760px) {#libraryDialog .library-filters {grid-template-columns:repeat(2,minmax(0,1fr))}#libraryDialog .library-sort-extras {justify-content:flex-start}#libraryDialog .library-table-head {display:none}}
+@media(max-width:460px) {#libraryDialog .library-filters .library-favourites-filter {white-space:normal}}
