@@ -202,6 +202,12 @@ const libraryDialog = document.querySelector('#libraryDialog');
 const librarySummary = document.querySelector('#librarySummary');
 const librarySearchInput = document.querySelector('#librarySearchInput');
 const libraryUploadBtn = document.querySelector('#libraryUploadBtn');
+const libraryPricingSettingsBtn = document.querySelector('#libraryPricingSettingsBtn');
+const libraryPricingSettingsDialog = document.querySelector('#libraryPricingSettingsDialog');
+const libraryPricingSettingsForm = document.querySelector('#libraryPricingSettingsForm');
+const libraryPricingSettingsError = document.querySelector('#libraryPricingSettingsError');
+const libraryProfitPercent = document.querySelector('#libraryProfitPercent');
+const libraryProfitMethod = document.querySelector('#libraryProfitMethod');
 const libraryQueueSelectedBtn = document.querySelector('#libraryQueueSelectedBtn');
 const libraryEditSelectedBtn = document.querySelector('#libraryEditSelectedBtn');
 const libraryDeleteSelectedBtn = document.querySelector('#libraryDeleteSelectedBtn');
@@ -231,6 +237,11 @@ const libraryAddForm = document.querySelector('#libraryAddForm');
 const libraryFileInput = document.querySelector('#libraryFileInput');
 const libraryPrinterTargetInput = document.querySelector('#libraryPrinterTargetInput');
 const libraryDescriptionInput = document.querySelector('#libraryDescriptionInput');
+const libraryAddCategory = document.querySelector('#libraryAddCategory');
+const libraryAddTags = document.querySelector('#libraryAddTags');
+const libraryAddSundries = document.querySelector('#libraryAddSundries');
+const libraryAddSundryCurrency = document.querySelector('#libraryAddSundryCurrency');
+const libraryAddLotsPerPrint = document.querySelector('#libraryAddLotsPerPrint');
 const libraryAddStatus = document.querySelector('#libraryAddStatus');
 const libraryAddError = document.querySelector('#libraryAddError');
 const libraryMetadataDialog = document.querySelector('#libraryMetadataDialog');
@@ -240,6 +251,9 @@ const libraryMetadataPrinterTarget = document.querySelector('#libraryMetadataPri
 const libraryMetadataDescription = document.querySelector('#libraryMetadataDescription');
 const libraryMetadataTags = document.querySelector('#libraryMetadataTags');
 const libraryMetadataCategory = document.querySelector('#libraryMetadataCategory');
+const libraryMetadataSundries = document.querySelector('#libraryMetadataSundries');
+const libraryMetadataSundryCurrency = document.querySelector('#libraryMetadataSundryCurrency');
+const libraryMetadataLotsPerPrint = document.querySelector('#libraryMetadataLotsPerPrint');
 const libraryMetadataFavourite = document.querySelector('#libraryMetadataFavourite');
 const libraryFilamentAssignments = document.querySelector('#libraryFilamentAssignments');
 const libraryMetadataError = document.querySelector('#libraryMetadataError');
@@ -3639,6 +3653,61 @@ function libraryCostView(file) {
     detail:'Current filament catalogue prices' + weightText + ' · Estimate only, excludes overheads.'
   };
 }
+
+let libraryPricingCurrencies = ['GBP'];
+async function loadLibraryPricingSettings() {
+  const result=await api('/api/library/pricing');
+  libraryPricingCurrencies=Array.isArray(result.currencies) && result.currencies.length
+    ? result.currencies : ['GBP'];
+  for (const select of [libraryAddSundryCurrency,libraryMetadataSundryCurrency]) {
+    if (!select) continue;
+    const previous=select.value || 'GBP';
+    select.innerHTML=libraryPricingCurrencies.map(currency=>
+      `<option value="${escapeHtml(currency)}">${escapeHtml(currency)}</option>`).join('');
+    select.value=libraryPricingCurrencies.includes(previous) ? previous : 'GBP';
+  }
+  return result.settings || {};
+}
+function addLibrarySundryRow(root, entry = {}) {
+  if (!root || root.children.length >= 30) return;
+  const row=document.createElement('div');
+  row.className='library-sundry-row';
+  row.innerHTML=`<label>Description<input data-sundry-label maxlength="100" required placeholder="Bolts, inserts, packaging" value="${escapeHtml(entry.label || '')}" /></label>
+    <label>Qty<input data-sundry-qty type="number" min="1" max="10000" step="1" required value="${escapeHtml(String(entry.quantity ?? 1))}" /></label>
+    <label>Unit cost<input data-sundry-cost type="number" min="0" max="1000000" step="0.0001" required value="${escapeHtml(String(entry.unitCost ?? 0))}" /></label>
+    <button type="button" class="secondary" data-remove-sundry aria-label="Remove sundry cost">Remove</button>`;
+  root.append(row);
+}
+function renderLibrarySundries(root, entries = []) {
+  if (!root) return;
+  root.replaceChildren();
+  for (const entry of entries) addLibrarySundryRow(root,entry);
+}
+function collectLibrarySundries(root) {
+  return [...(root?.querySelectorAll('.library-sundry-row') || [])].map(row=>{
+    const label=row.querySelector('[data-sundry-label]')?.value.trim() || '';
+    const quantity=Number(row.querySelector('[data-sundry-qty]')?.value);
+    const unitCostValue=row.querySelector('[data-sundry-cost]')?.value;
+    const unitCost=Number(unitCostValue);
+    if (!label || label.length>100) throw new Error('Sundry costs need a description of at most 100 characters');
+    if (!Number.isInteger(quantity) || quantity<1 || quantity>10000) throw new Error('Sundry quantity must be 1–10000');
+    if (unitCostValue==='' || !Number.isFinite(unitCost) || unitCost<0 || unitCost>1000000) {
+      throw new Error('Sundry unit cost must be between zero and 1000000');
+    }
+    return {label,quantity,unitCost};
+  });
+}
+for (const container of [libraryAddSundries,libraryMetadataSundries]) {
+  container?.addEventListener('click',event=>{
+    const remove=event.target.closest('[data-remove-sundry]');
+    if (remove) remove.closest('.library-sundry-row')?.remove();
+  });
+}
+document.querySelectorAll('[data-library-add-sundry]').forEach(button=>button.addEventListener('click',()=>{
+  const container=button.dataset.libraryAddSundry==='add' ? libraryAddSundries : libraryMetadataSundries;
+  addLibrarySundryRow(container);
+  container?.lastElementChild?.querySelector('[data-sundry-label]')?.focus();
+}));
 
 function libraryBatchQuantity() {
   return Math.max(1,Math.min(999,Math.trunc(Number(libraryEstimateQuantity?.value)||1)));
