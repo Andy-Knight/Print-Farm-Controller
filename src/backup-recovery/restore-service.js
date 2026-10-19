@@ -18,6 +18,7 @@ const BASE_MANAGED_ENTRIES = Object.freeze([
   'printer-groups.json',
   'filaments.json',
   'reporting-history.json',
+  'library-pricing.json',
   'alerts.json',
   'print-library',
   // A historical queue-files directory must not survive a restore and then
@@ -282,6 +283,15 @@ export async function stageRestoreBackup(filePath, {
       await writeStateJson(stageDir, 'reporting-history.json', reportingHistory);
     } else {
       await writeStateJson(stageDir, 'reporting-history.json', { version:1, records:[] });
+    }
+
+    // Backups created before product pricing existed retain the unconfigured
+    // default instead of keeping settings from the running controller.
+    if (archive.byName.has('state/library-pricing.json')) {
+      const pricing=JSON.parse((await archive.read('state/library-pricing.json')).toString('utf8'));
+      await writeStateJson(stageDir, 'library-pricing.json', pricing);
+    } else {
+      await writeStateJson(stageDir, 'library-pricing.json', {profitPercent:null,profitMethod:'markup'});
     }
 
     if (archive.byName.has('state/alerts.json')) {
