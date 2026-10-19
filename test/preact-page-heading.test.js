@@ -12,7 +12,7 @@ const routes = {
   licenseDialog:'Licence',
   diagnosticsDialog:'Diagnostics',
   printerGroupsDialog:'Printer groups',
-  reportingDialog:'Reports &amp; analytics',
+  reportingDialog:'Reports &amp; costing',
   maintenanceDialog:'Maintenance tracking',
   alertsDialog:'Alerts &amp; notifications',
   backupRecoveryDialog:'Backup &amp; recovery',
