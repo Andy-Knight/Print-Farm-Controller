@@ -603,6 +603,9 @@
   color:var(--ds-text-muted);
   line-height:var(--ds-leading-body);
 }
+#libraryAddDialog .library-pricing-config > label,#libraryMetadataDialog .library-pricing-config > label {
+  margin:0;
+}
 #libraryAddDialog .library-pricing-fields label,#libraryMetadataDialog .library-pricing-fields label {
   display:flex;
   flex-direction:column;
