@@ -127,10 +127,12 @@ export function estimateLibrarySalePrice(file, settings) {
   const nominalSale=issue ? null : options.profitMethod==='margin'
     ? totalCost/(1-options.profitPercent/100)
     : totalCost*(1+options.profitPercent/100);
-  // A batch of individually sold lots must add up to its quoted total:
-  // round each lot to currency cents, then calculate the batch price.
-  const sellingPricePerLot=nominalSale===null ? null : round(nominalSale/lotsPerPrint,2);
-  const sellingPrice=sellingPricePerLot===null ? null : round(sellingPricePerLot*lotsPerPrint,2);
+  // Individually sold lots must add up to the displayed batch price.
+  // Honour ISO currency minor units (e.g. JPY/KRW have no decimal cents).
+  const currencyDigits=currency ? new Intl.NumberFormat('en-GB',{style:'currency',currency})
+    .resolvedOptions().maximumFractionDigits : 2;
+  const sellingPricePerLot=nominalSale===null ? null : round(nominalSale/lotsPerPrint,currencyDigits);
+  const sellingPrice=sellingPricePerLot===null ? null : round(sellingPricePerLot*lotsPerPrint,currencyDigits);
   return {
     complete:!issue,
     issue,
