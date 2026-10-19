@@ -592,7 +592,7 @@
 }
 #libraryAddDialog .library-pricing-config,#libraryMetadataDialog .library-pricing-config {
   display:grid;
-  grid-template-columns:repeat(2,minmax(0,1fr));
+  grid-template-columns:minmax(0,1fr);
   gap:var(--ds-space-3);
   align-items:start;
   margin:var(--ds-space-3) 0 0;
@@ -633,7 +633,8 @@
   min-width:0;height:42px;
 }
 #libraryAddDialog .library-pricing-fields input[name="lotsPerPrint"],
-#libraryMetadataDialog .library-pricing-fields input[name="lotsPerPrint"] {max-width:none}
+#libraryMetadataDialog .library-pricing-fields input[name="lotsPerPrint"] {max-width:180px}
+#libraryMetadataCostCurrency {color:var(--ds-text);font-weight:var(--ds-weight-semibold);}
 .library-sundries {display:grid;gap:8px;margin-top:10px}
 .library-sundry-row {
   display:grid;grid-template-columns:minmax(110px,2fr) minmax(66px,.55fr) minmax(95px,1fr) auto;

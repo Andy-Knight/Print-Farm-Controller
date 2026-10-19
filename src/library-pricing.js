@@ -3,7 +3,6 @@ import { promises as fs } from 'node:fs';
 import path from 'node:path';
 import { printerStorePath } from './store.js';
 import { KeyedSerialExecutor } from './concurrency.js';
-import { listSupportedFilamentCurrencies } from './filament-catalogue.js';
 
 const SETTINGS_FILE = path.join(path.dirname(printerStorePath), 'library-pricing.json');
 const executor = new KeyedSerialExecutor();
@@ -20,14 +19,6 @@ export function normalizeSaleLots(value) {
     throw new Error('Sale lots per print must be an integer between 1 and 999');
   }
   return Number(value);
-}
-
-export function normalizeSundryCurrency(value) {
-  const currency = String(value || 'GBP').trim().toUpperCase();
-  if (!/^[A-Z]{3}$/.test(currency) || !listSupportedFilamentCurrencies().includes(currency)) {
-    throw new Error('Sundry currency must be one of the supported filament catalogue currencies');
-  }
-  return currency;
 }
 
 export function normalizeSundryCosts(value) {
@@ -105,23 +96,22 @@ export async function saveLibraryPricingSettings(input) {
 /**
  * Estimate only. Does not affect print-queue historical filament cost snapshots.
  * Sundry entries are quantities required PER SLICED PRINT (not per selling lot).
- * Only price a print when the complete filament estimate exists and currencies
- * are consistent; otherwise never silently understate the real cost.
+ * Sundry unit prices are denominated in the same currency as the current
+ * completed filament-cost estimate. An older saved sundryCurrency field is
+ * deliberately ignored (no implicit FX conversion). Without a complete
+ * filament estimate, no currency or selling price is assumed.
  */
 export function estimateLibrarySalePrice(file, settings) {
   const costs=normalizeSundryCosts(file?.sundryCosts);
   const lotsPerPrint=normalizeSaleLots(file?.lotsPerPrint);
-  const sundryCurrency=normalizeSundryCurrency(file?.sundryCurrency);
   const options=normalizePricingSettings(settings);
   const sundriesCost=round(costs.reduce((sum,entry)=>sum+entry.quantity*entry.unitCost,0));
   const filament=file?.costEstimate || {};
-  const currency=filament.currency || (sundriesCost ? sundryCurrency : null);
+  const currency=filament.complete===true && filament.currency ? filament.currency : null;
   let issue=null;
   if (options.profitPercent === null) issue='Set a global profit percentage to calculate selling prices';
   else if (filament.complete!==true || !Number.isFinite(filament.totalCost) || !filament.currency) {
     issue='Filament cost is unavailable; a complete selling price cannot be calculated';
-  } else if (sundriesCost>0 && sundryCurrency!==filament.currency) {
-    issue='Sundry currency '+sundryCurrency+' does not match filament currency '+filament.currency;
   }
   const totalCost=issue ? null : round(filament.totalCost + sundriesCost);
   const nominalSale=issue ? null : options.profitMethod==='margin'

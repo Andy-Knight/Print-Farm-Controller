@@ -1251,10 +1251,9 @@
           </div>
         </div>
         <div class="library-pricing-config">
-          <label>Sundry currency<select id="libraryAddSundryCurrency" name="sundryCurrency"><option value="GBP">GBP</option></select></label>
           <label>Sale lots per print<input id="libraryAddLotsPerPrint" type="number" name="lotsPerPrint" min="1" max="999" step="1" value="1" required /></label>
         </div>
-        <p class="library-pricing-note">1 = sell the entire print as one item. For example, 4 divides the batch across four sale lots.</p>
+        <p class="library-pricing-note">Sundry amounts use the currency of the filament cost once available; no separate currency is needed. 1 sale lot means selling the entire print as one item.</p>
         <div id="libraryAddSundries" class="library-sundries" aria-label="Sundry cost items"></div>
         <button type="button" class="secondary library-add-sundry" data-library-add-sundry="add">+ Add sundry cost</button>
       </section>
@@ -1313,9 +1312,9 @@
           </div>
         </div>
         <div class="library-pricing-config">
-          <label>Sundry currency<select id="libraryMetadataSundryCurrency" name="sundryCurrency"><option value="GBP">GBP</option></select></label>
           <label>Sale lots per print<input id="libraryMetadataLotsPerPrint" type="number" name="lotsPerPrint" min="1" max="999" step="1" value="1" required /></label>
         </div>
+        <p class="library-pricing-note">Sundry amounts inherit the filament cost currency: <strong id="libraryMetadataCostCurrency">Not available until filament costing is complete</strong>. If the filament cost is unavailable, selling price estimates remain unavailable.</p>
         <div id="libraryMetadataSundries" class="library-sundries" aria-label="Sundry cost items"></div>
         <button type="button" class="secondary library-add-sundry" data-library-add-sundry="metadata">+ Add sundry cost</button>
       </section>

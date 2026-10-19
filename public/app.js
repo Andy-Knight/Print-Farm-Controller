@@ -234,7 +234,6 @@ const libraryDescriptionInput = document.querySelector('#libraryDescriptionInput
 const libraryAddCategory = document.querySelector('#libraryAddCategory');
 const libraryAddTags = document.querySelector('#libraryAddTags');
 const libraryAddSundries = document.querySelector('#libraryAddSundries');
-const libraryAddSundryCurrency = document.querySelector('#libraryAddSundryCurrency');
 const libraryAddLotsPerPrint = document.querySelector('#libraryAddLotsPerPrint');
 const libraryAddStatus = document.querySelector('#libraryAddStatus');
 const libraryAddError = document.querySelector('#libraryAddError');
@@ -246,7 +245,7 @@ const libraryMetadataDescription = document.querySelector('#libraryMetadataDescr
 const libraryMetadataTags = document.querySelector('#libraryMetadataTags');
 const libraryMetadataCategory = document.querySelector('#libraryMetadataCategory');
 const libraryMetadataSundries = document.querySelector('#libraryMetadataSundries');
-const libraryMetadataSundryCurrency = document.querySelector('#libraryMetadataSundryCurrency');
+const libraryMetadataCostCurrency = document.querySelector('#libraryMetadataCostCurrency');
 const libraryMetadataLotsPerPrint = document.querySelector('#libraryMetadataLotsPerPrint');
 const libraryMetadataFavourite = document.querySelector('#libraryMetadataFavourite');
 const libraryFilamentAssignments = document.querySelector('#libraryFilamentAssignments');
@@ -3670,20 +3669,6 @@ function librarySaleView(file) {
   };
 }
 
-let libraryPricingCurrencies = ['GBP'];
-async function loadLibraryPricingSettings() {
-  const result=await api('/api/library/pricing');
-  libraryPricingCurrencies=Array.isArray(result.currencies) && result.currencies.length
-    ? result.currencies : ['GBP'];
-  for (const select of [libraryAddSundryCurrency,libraryMetadataSundryCurrency]) {
-    if (!select) continue;
-    const previous=select.value || 'GBP';
-    select.innerHTML=libraryPricingCurrencies.map(currency=>
-      `<option value="${escapeHtml(currency)}">${escapeHtml(currency)}</option>`).join('');
-    select.value=libraryPricingCurrencies.includes(previous) ? previous : 'GBP';
-  }
-  return result.settings || {};
-}
 function addLibrarySundryRow(root, entry = {}) {
   if (!root || root.children.length >= 30) return;
   const row=document.createElement('div');
@@ -4079,7 +4064,7 @@ async function uploadLibraryFile(file, description = '', printerTarget = null, m
   return stored;
 }
 
-async function updateLibraryMetadata(fileId, { description = '', printerTarget = null, filamentAssignments = undefined, category = undefined, tags = undefined, favourite = undefined, sundryCosts = undefined, sundryCurrency = undefined, lotsPerPrint = undefined } = {}) {
+async function updateLibraryMetadata(fileId, { description = '', printerTarget = null, filamentAssignments = undefined, category = undefined, tags = undefined, favourite = undefined, sundryCosts = undefined, lotsPerPrint = undefined } = {}) {
   const notes = String(description || '').trim();
   if (notes.length > 4000) throw new Error('Print Library description must be 4000 characters or fewer');
   const payload = await api(`/api/library/${encodeURIComponent(fileId)}`, {
@@ -4092,7 +4077,6 @@ async function updateLibraryMetadata(fileId, { description = '', printerTarget =
       ...(tags !== undefined ? {tags} : {}),
       ...(favourite !== undefined ? {favourite} : {}),
       ...(sundryCosts !== undefined ? {sundryCosts} : {}),
-      ...(sundryCurrency !== undefined ? {sundryCurrency} : {}),
       ...(lotsPerPrint !== undefined ? {lotsPerPrint} : {})
     })
   });
@@ -5380,9 +5364,6 @@ libraryTableHead?.addEventListener('click',(event)=>{
 libraryUploadBtn?.addEventListener('click', () => {
   libraryAddForm?.reset();
   renderLibrarySundries(libraryAddSundries);
-  void loadLibraryPricingSettings().catch(error=>{
-    if (libraryAddError) {libraryAddError.textContent=error.message;libraryAddError.classList.remove('hidden');}
-  });
   if (libraryAddStatus) libraryAddStatus.textContent = '';
   if (libraryAddError) { libraryAddError.textContent = ''; libraryAddError.classList.add('hidden'); }
   libraryAddDialog?.showModal();
@@ -5418,7 +5399,6 @@ libraryAddForm?.addEventListener('submit', async (event) => {
         category:libraryAddCategory?.value || '',
         tags:String(libraryAddTags?.value || '').split(',').map(x=>x.trim()).filter(Boolean),
         sundryCosts:collectLibrarySundries(libraryAddSundries),
-        sundryCurrency:libraryAddSundryCurrency?.value || 'GBP',
         lotsPerPrint:Number(libraryAddLotsPerPrint?.value || 1)
       }
     );
@@ -5451,7 +5431,6 @@ libraryMetadataForm?.addEventListener('submit', async (event) => {
       tags:String(libraryMetadataTags?.value || '').split(',').map(x=>x.trim()).filter(Boolean),
       favourite:libraryMetadataFavourite?.checked===true,
       sundryCosts:collectLibrarySundries(libraryMetadataSundries),
-      sundryCurrency:libraryMetadataSundryCurrency?.value || 'GBP',
       lotsPerPrint:Number(libraryMetadataLotsPerPrint?.value || 1)
     });
     libraryMetadataDialog?.close();
@@ -5472,13 +5451,16 @@ async function openLibrarySelectedEditor(file) {
   if (libraryMetadataCategory) libraryMetadataCategory.value=String(file.category || '');
   if (libraryMetadataFavourite) libraryMetadataFavourite.checked = file.favourite===true;
   renderLibrarySundries(libraryMetadataSundries,file.sundryCosts || []);
+  if (libraryMetadataCostCurrency) {
+    libraryMetadataCostCurrency.textContent=file.costEstimate?.complete && file.costEstimate.currency
+      ? file.costEstimate.currency : 'Not available until filament costing is complete';
+  }
   if (libraryMetadataLotsPerPrint) libraryMetadataLotsPerPrint.value=String(file.lotsPerPrint || 1);
   if (libraryMetadataError) { libraryMetadataError.textContent = ''; libraryMetadataError.classList.add('hidden'); }
   if (libraryFilamentAssignments) libraryFilamentAssignments.innerHTML = '<div class="subtle">Loading filament catalogue…</div>';
   libraryMetadataDialog?.showModal();
   try {
-    await Promise.all([loadLibraryFilamentCatalogue(),loadLibraryPricingSettings()]);
-    if (libraryMetadataSundryCurrency) libraryMetadataSundryCurrency.value=file.sundryCurrency || 'GBP';
+    await loadLibraryFilamentCatalogue();
     renderLibraryFilamentAssignments(file);
   } catch (error) {
     if (libraryFilamentAssignments) libraryFilamentAssignments.innerHTML = '<div class="subtle">Filament catalogue could not be loaded.</div>';

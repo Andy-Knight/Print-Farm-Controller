@@ -34,7 +34,7 @@ import { addLibraryFile, getLibraryPreview, listLibraryFiles, removeLibraryFile,
 import { estimateLibraryFileCosts } from './library-cost-preview.js';
 import { getLibraryPricingSettings, saveLibraryPricingSettings, estimateLibrarySalePrice } from './library-pricing.js';
 import { attachLibraryReadiness } from './library-readiness.js';
-import { createFilament, listFilaments, removeFilament, updateFilament, listSupportedFilamentCurrencies } from './filament-catalogue.js';
+import { createFilament, listFilaments, removeFilament, updateFilament } from './filament-catalogue.js';
 import { ReportingService } from './reporting-service.js';
 import { AlertService } from './alert-service.js';
 import { AlertEventBridge } from './alert-event-bridge.js';
@@ -1550,8 +1550,7 @@ async function apiRoute(req, res, url) {
   }
 
   if (url.pathname === '/api/library/pricing' && req.method === 'GET') {
-    return json(res,200,{ settings:await getLibraryPricingSettings(),
-      currencies:listSupportedFilamentCurrencies() });
+    return json(res,200,{settings:await getLibraryPricingSettings()});
   }
   if (url.pathname === '/api/library/pricing' && req.method === 'PUT') {
     const body=await readJson(req);
@@ -1647,7 +1646,6 @@ async function apiRoute(req, res, url) {
       tags:body.tags,
       favourite:body.favourite,
       sundryCosts:body.sundryCosts,
-      sundryCurrency:body.sundryCurrency,
       lotsPerPrint:body.lotsPerPrint
     }));
     return json(res, 200, { file });
