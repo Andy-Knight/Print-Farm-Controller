@@ -11,6 +11,10 @@ const SUPPORTED_CURRENCIES = new Set(['GBP', 'USD', 'EUR', 'JPY', 'CNY', 'CAD', 
 const mutations = new KeyedSerialExecutor();
 let initialization = null;
 
+export function listSupportedFilamentCurrencies() {
+  return [...SUPPORTED_CURRENCIES].sort((a,b)=>a.localeCompare(b));
+}
+
 function cleanText(value, { required = false, max = 120, label = 'Value' } = {}) {
   const text = String(value ?? '').trim();
   if (required && !text) throw new Error(`${label} is required`);
