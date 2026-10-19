@@ -71,39 +71,43 @@ function LibraryCost({ cost }) {
 
 function LibraryFile({ file }) {
   return (
-    <article class="library-file" data-library-file={file.id}>
-      <div class="library-file-content">
-        <LibraryPreview file={file} />
-        <div class="library-file-main">
-          <div class="library-file-title">
-            <strong>{file.fileName}</strong>
-            <span>{file.sizeText}</span>
-          </div>
-          {file.description && <div class="library-file-description">{file.description}</div>}
-          {file.printerTarget && (
-            <div class="library-printer-target">
-              <span>Printer</span>
-              <strong>{file.printerTarget}</strong>
-            </div>
-          )}
-          <div class="library-file-requirements">{file.requirements}</div>
-          <LibraryColours colours={file.colours} />
-          <LibraryCost cost={file.cost} />
-          <div class="library-file-meta">{file.meta}</div>
-          {file.warning && <div class="library-warning">{file.warning}</div>}
-        </div>
+    <article class={`library-file library-file-row${file.selected ? ' is-selected' : ''}`}
+      data-library-file={file.id} data-library-selected={file.selected ? 'true' : 'false'} role="listitem">
+      <div class="library-cell library-selection-cell">
+        <button type="button" class="library-select-button"
+          data-library-select={file.id}
+          aria-pressed={file.selected ? 'true' : 'false'}
+          aria-label={`${file.selected ? 'Deselect' : 'Select'} ${file.fileName}`}
+          title={file.selected ? 'Deselect file' : 'Select file'}>
+          <span class="library-selection-indicator" aria-hidden="true"></span>
+        </button>
       </div>
-      <div class="library-file-actions">
-        <UiButton variant="primary" data-library-queue={file.id}>Queue</UiButton>
-        <UiButton variant="secondary" data-library-edit={file.id}>Edit details</UiButton>
-        <UiButton
-          variant="danger"
-          data-library-delete={file.id}
-          disabled={file.deleteDisabled}
-          title={file.deleteTitle || ''}
-        >
-          Delete
-        </UiButton>
+      <div class="library-cell library-preview-cell">
+        <LibraryPreview file={file} />
+      </div>
+      <div class="library-cell library-file-cell library-file-main">
+        <div class="library-file-title"><strong title={file.fileName}>{file.fileName}</strong></div>
+        <small class="library-file-size">{file.sizeText}</small>
+        {file.description && <div class="library-file-description">{file.description}</div>}
+        {file.warning && <div class="library-warning">{file.warning}</div>}
+      </div>
+      <div class="library-cell library-target-cell">
+        <span class="library-cell-label">Printer</span>
+        <span class="library-target-value">{file.printerTarget || 'Any supported printer'}</span>
+      </div>
+      <div class="library-cell library-requirements-cell">
+        <span class="library-cell-label">Filament &amp; requirements</span>
+        <div class="library-file-requirements">{file.requirements}</div>
+        <LibraryColours colours={file.colours} />
+      </div>
+      <div class="library-cell library-cost-cell">
+        <LibraryCost cost={file.cost} />
+      </div>
+      <div class="library-cell library-history-cell">
+        <span class="library-cell-label">History</span>
+        <strong>{file.historyCount}</strong>
+        <span>{file.historyLast}</span>
+        <small>{file.historyAdded}</small>
       </div>
     </article>
   );
