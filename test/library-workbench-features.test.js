@@ -5,7 +5,7 @@ import {parseEstimatedPrintSeconds,parseGcodePrintRequirements} from '../src/fil
 import {attachLibraryReadiness} from '../src/library-readiness.js';
 import {
   libraryMaterials,libraryPrintSeconds,libraryWeightGrams,libraryTimeLabel,
-  libraryWeightLabel,librarySortAndFilter,libraryPage,LIBRARY_PAGE_SIZE
+  libraryWeightLabel,librarySortAndFilter,libraryPage,LIBRARY_PAGE_SIZE,libraryPrinterFilterOptions
 } from '../public/library-utils.js';
 
 const file=(id,extra={})=>({
@@ -53,6 +53,26 @@ test('Facet filtering and stable numeric/lexical sorting preserve input records'
   assert.deepEqual(librarySortAndFilter(files,{query:'Camping'}).map(x=>x.id),['Alpha']);
   assert.equal(files[0].fileName,'bravo.3mf','sorting must not change the input objects');
 });
+test('Print Library printer filter displays friendly names while retaining internal matching keys',()=>{
+  const files=[
+    file('u1',{printerTarget:{adapterType:'snapmaker-u1',model:'U1'}}),
+    file('flashforge',{printerTarget:{adapterType:'flashforge-ad5m',model:'Adventurer 5M Pro'}}),
+    file('duplicate',{printerTarget:{adapterType:'snapmaker-u1',model:'U1'}}),
+    file('untargeted')
+  ];
+  const manufacturer={'snapmaker-u1':'Snapmaker','flashforge-ad5m':'Flashforge'};
+  const labelForTarget=(target)=>[manufacturer[target.adapterType],target.model].filter(Boolean).join(' ');
+  const options=libraryPrinterFilterOptions(files,labelForTarget);
+  assert.deepEqual(options,[
+    {value:'flashforge-ad5m:Adventurer 5M Pro',label:'Flashforge Adventurer 5M Pro'},
+    {value:'snapmaker-u1:U1',label:'Snapmaker U1'}
+  ]);
+  assert.deepEqual(librarySortAndFilter(files,{printer:options[0].value}).map(x=>x.id),['flashforge']);
+  assert.deepEqual(librarySortAndFilter(files,{printer:options[1].value}).map(x=>x.id),['u1','duplicate']);
+  assert.deepEqual(librarySortAndFilter(files,{printer:'any'}).map(x=>x.id),['untargeted']);
+  assert.deepEqual(libraryPrinterFilterOptions([],labelForTarget),[]);
+});
+
 test('Client-side paging never renders thousands of rows at once',()=>{
   const all=Array.from({length:550},(_,i)=>file('part-'+i));
   assert.equal(LIBRARY_PAGE_SIZE,80);
