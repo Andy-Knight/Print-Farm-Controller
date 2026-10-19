@@ -1548,6 +1548,16 @@ async function apiRoute(req, res, url) {
     return json(res, removed ? 200 : 404, removed ? { ok:true } : { error:'Filament not found' });
   }
 
+  // Lightweight status-only refresh for the Library while fleet SSE changes;
+  // avoid repeatedly computing the full filament catalogue and queue history.
+  if (req.method === 'GET' && url.pathname === '/api/library/readiness') {
+    const files=attachLibraryReadiness(await listLibraryFiles(),decoratedFleet(),{
+      resolveAdapter:getPrinterAdapter,
+      getState:(id)=>fleetState.getPrinterState(id)
+    });
+    return json(res,200,{files:files.map(({id,readiness})=>({id,readiness}))});
+  }
+
   if (req.method === 'GET' && url.pathname === '/api/library') {
     const queueSnapshot = printQueue.getSnapshot();
     // Index references once instead of scanning every job for each file.
