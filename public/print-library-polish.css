@@ -651,7 +651,7 @@
 #libraryAddDialog .library-editor-footer #libraryAddStatus:not(:empty) {
   margin:0 0 8px;
 }
-#libraryPricingSettingsDialog {max-height:88dvh;overflow-y:auto}
+
 @media(max-width:560px) {
   .library-sundry-row {grid-template-columns:minmax(0,1fr) minmax(0,1fr)}
   .library-sundry-row > label:first-child {grid-column:1/-1}
