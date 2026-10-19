@@ -121,9 +121,13 @@ export function estimateLibrarySalePrice(file, settings) {
     issue='Sundry currency '+sundryCurrency+' does not match filament currency '+filament.currency;
   }
   const totalCost=issue ? null : round(filament.totalCost + sundriesCost);
-  const sellingPrice=issue ? null : round(options.profitMethod==='margin'
+  const nominalSale=issue ? null : options.profitMethod==='margin'
     ? totalCost/(1-options.profitPercent/100)
-    : totalCost*(1+options.profitPercent/100),2);
+    : totalCost*(1+options.profitPercent/100);
+  // A batch of individually sold lots must add up to its quoted total:
+  // round each lot to currency cents, then calculate the batch price.
+  const sellingPricePerLot=nominalSale===null ? null : round(nominalSale/lotsPerPrint,2);
+  const sellingPrice=sellingPricePerLot===null ? null : round(sellingPricePerLot*lotsPerPrint,2);
   return {
     complete:!issue,
     issue,
@@ -135,7 +139,7 @@ export function estimateLibrarySalePrice(file, settings) {
     profitMethod:options.profitMethod,
     lotsPerPrint,
     sellingPrice,
-    sellingPricePerLot:sellingPrice === null ? null : round(sellingPrice/lotsPerPrint,2)
+    sellingPricePerLot
   };
 }
 
