@@ -3,7 +3,8 @@ import { UiButton, UiTab } from './components.jsx';
 
 const REPORT_TABS = Object.freeze([
   { key:'analytics', icon:'chart', label:'Analytics', id:'reportingTabAnalytics', panel:'reportingPanelAnalytics' },
-  { key:'filament', icon:'spool', label:'Filament cost catalogue', id:'reportingTabFilament', panel:'reportingPanelFilament' }
+  { key:'filament', icon:'spool', label:'Filament cost catalogue', id:'reportingTabFilament', panel:'reportingPanelFilament' },
+  { key:'pricing', icon:'chart', label:'Pricing settings', id:'reportingTabPricing', panel:'reportingPanelPricing' }
 ]);
 
 function dispatchReportingAction(type, value = '') {
@@ -111,7 +112,7 @@ function FilamentCatalogue({ items }) {
 
 function normalizeState(detail = {}) {
   return {
-    activeTab:['analytics','filament'].includes(detail.activeTab) ? detail.activeTab : 'analytics',
+    activeTab:['analytics','filament','pricing'].includes(detail.activeTab) ? detail.activeTab : 'analytics',
     kpis:Array.isArray(detail.kpis) ? detail.kpis : [],
     chart:detail.chart || { rows:[], grid:[], labels:[], viewBox:'0 0 760 230', completedPath:'', failedPath:'', cancelledPath:'' },
     printers:Array.isArray(detail.printers) ? detail.printers : [],
