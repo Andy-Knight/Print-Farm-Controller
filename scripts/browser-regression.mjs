@@ -383,7 +383,7 @@ async function workspaceShellSmoke(browser,url) {
     const crumb=page.locator('#workspaceTrailRoot [data-preact-workspace-trail]');
     await crumb.waitFor({state:'visible'});
     await page.waitForFunction(()=>document.querySelector('#workspaceTrailRoot [aria-current="page"]')
-      ?.textContent==='Reports & analytics');
+      ?.textContent==='Reports & costing');
     const reportContext=await page.evaluate(()=>({
       crumb:document.querySelector('#workspaceTrailRoot')?.innerText,
       title:document.querySelector('#topbarContextTitle')?.textContent,
@@ -391,9 +391,9 @@ async function workspaceShellSmoke(browser,url) {
       parent:document.querySelector('#workspaceTrailRoot .workspace-trail-link')?.textContent
     }));
     assert.equal(reportContext.parent,'Workspace');
-    assert.equal(reportContext.title,'Reports & analytics');
-    assert.equal(reportContext.subtitle,'Review farm performance and filament usage');
-    assert.ok(reportContext.crumb.includes('Workspace')&&reportContext.crumb.includes('Reports & analytics'));
+    assert.equal(reportContext.title,'Reports & costing');
+    assert.equal(reportContext.subtitle,'Review farm performance, material costs and selling prices');
+    assert.ok(reportContext.crumb.includes('Workspace')&&reportContext.crumb.includes('Reports & costing'));
     assert.ok(!reportContext.crumb.includes(reportContext.subtitle),
       'subtitle must not overwrite the breadcrumb parent on route changes');
     assert.equal(await page.locator('#reportsBtn').getAttribute('aria-current'),'page',

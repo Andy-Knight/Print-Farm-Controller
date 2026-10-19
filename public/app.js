@@ -291,7 +291,7 @@ const controllerRoutes = {
   '/library': { button:'libraryBtn', dialog:'libraryDialog', title:'Print library', subtitle:'Manage files available to your print farm' },
   '/maintenance': { button:'maintenanceBtn', dialog:'maintenanceDialog', title:'Maintenance', subtitle:'Track maintenance tasks across the farm' },
   '/groups': { button:'printerGroupsBtn', dialog:'printerGroupsDialog', title:'Printer groups', subtitle:'Organise printers for scheduling and maintenance' },
-  '/reports': { button:'reportsBtn', dialog:'reportingDialog', title:'Reports & analytics', subtitle:'Review farm performance and filament usage' },
+  '/reports': { button:'reportsBtn', dialog:'reportingDialog', title:'Reports & costing', subtitle:'Review farm performance, material costs and selling prices' },
   '/alerts': { button:'alertsSettingsBtn', dialog:'alertsDialog', title:'Alerts & notifications', subtitle:'Review alerts and notification settings' },
   '/backup': { button:'backupRecoveryBtn', dialog:'backupRecoveryDialog', title:'Backup & recovery', subtitle:'Protect and restore controller data' },
   '/diagnostics': { button:'diagnosticsBtn', dialog:'diagnosticsDialog', title:'Diagnostics', subtitle:'Review controller health and diagnostic logs' },
@@ -5387,7 +5387,7 @@ libraryUploadBtn?.addEventListener('click', () => {
   if (libraryAddError) { libraryAddError.textContent = ''; libraryAddError.classList.add('hidden'); }
   libraryAddDialog?.showModal();
 });
-// Reports & analytics owns global profit settings. Keep any already-mounted
+// Reports & costing owns global profit settings. Keep any already-mounted
 // Print Library estimates in sync when an operator saves those settings.
 window.addEventListener('pfc:library-pricing-updated',()=>{
   void refreshPrintLibrary().catch(error=>{

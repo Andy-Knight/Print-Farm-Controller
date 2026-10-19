@@ -64,7 +64,7 @@ Current highlights:
 - Container images for Linux AMD64 and ARM64, with Docker and K3s/Kubernetes deployment guidance.
 - Persistent Print Library, smart queueing, printer groups and maintenance tracking.
 - Farm alerts & notifications with persistent local history, attention-only top-bar warnings, scoped rules, ntfy mobile push and generic outbound webhooks.
-- Reports & analytics with graphical trends, printer reliability indicators, popular-file reporting, filament usage and material-cost tracking, now split into dedicated Analytics and Filament cost catalogue tabs.
+- Reports & costing with graphical trends, printer reliability indicators, popular-file reporting, filament usage and material-cost tracking, now split into Analytics, Filament cost catalogue and Pricing settings tabs.
 - Filament catalogue costing with Orca/Bambu slicer vendor/preset auto-matching, explicit per-tool overrides, immutable historical cost snapshots, and a controlled selector covering common world currencies.
 - Compressed portable backup and restore, including local/NAS, Google Drive, Microsoft OneDrive and generic S3-compatible destinations, multi-group printer membership, reporting history/filament catalogue data, and backwards-compatible restore of older backups.
 - Snapmaker U1, FlashForge and Prusa CORE One+ support, with experimental Bambu Lab support.
@@ -160,7 +160,7 @@ If the optional Preact bundle is not present, the controller still starts and th
 
 ## Reports and material costs
 
-Print Farm Controller v0.37.0 adds a persistent **Reports & analytics** view for operational and material-cost reporting. The reporting history is stored independently of the bounded recent queue history so long-term trends are retained.
+Print Farm Controller v0.37.0 adds a persistent **Reports & costing** view for operational and material-cost reporting. The reporting history is stored independently of the bounded recent queue history so long-term trends are retained.
 
 Reports can be filtered by date range, printer and printer group and include:
 
