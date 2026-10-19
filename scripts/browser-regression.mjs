@@ -794,6 +794,7 @@ async function librarySelectionSmoke(page,url,{mutateFixture = true} = {}) {
         sharedHover:root.getPropertyValue('--pfc-table-hover').trim(),
         sharedSelected:root.getPropertyValue('--pfc-table-selected').trim(),
         rowBackground:row.backgroundColor,
+        cellBackground:getComputedStyle(node.querySelector('.library-target-cell')).backgroundColor,
         parentBackground:parent.backgroundColor,
         headingFontWeight:heading.fontWeight,
         headingTextTransform:heading.textTransform,
@@ -810,7 +811,7 @@ async function librarySelectionSmoke(page,url,{mutateFixture = true} = {}) {
       'heading and row columns must align within subpixel rendering tolerance');
     assert.equal(dimensions.headingTextTransform,'uppercase','heading follows canonical uppercase convention');
     assert.equal(dimensions.textColor,'rgb(255, 255, 255)','all table headings must stay white in both themes');
-    assert.equal(dimensions.rowBackground,'rgba(0, 0, 0, 0)','rows must not introduce extra cell backgrounds');
+    assert.equal(dimensions.cellBackground,'rgba(0, 0, 0, 0)','table cells must not introduce individual coloured backgrounds');
     assert.ok(dimensions.sharedText && dimensions.sharedBackground && dimensions.sharedHover && dimensions.sharedSelected,
       'library should inherit existing shared table system tokens');
   }
