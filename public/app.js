@@ -5110,7 +5110,57 @@ libraryMetadataForm?.addEventListener('submit', async (event) => {
     if (submit) submit.disabled = false;
   }
 });
-libraryList?.addEventListener('click', async (event) => {
+async function openLibrarySelectedEditor(file) {
+  if (!file) return;
+  libraryMetadataFile = file;
+  if (libraryMetadataFileName) libraryMetadataFileName.textContent = file.fileName;
+  if (libraryMetadataPrinterTarget) libraryMetadataPrinterTarget.value = printerTargetValue(file.printerTarget);
+  if (libraryMetadataDescription) libraryMetadataDescription.value = String(file.description || '');
+  if (libraryMetadataError) { libraryMetadataError.textContent = ''; libraryMetadataError.classList.add('hidden'); }
+  if (libraryFilamentAssignments) libraryFilamentAssignments.innerHTML = '<div class="subtle">Loading filament catalogue…</div>';
+  libraryMetadataDialog?.showModal();
+  try {
+    await loadLibraryFilamentCatalogue();
+    renderLibraryFilamentAssignments(file);
+  } catch (error) {
+    if (libraryFilamentAssignments) libraryFilamentAssignments.innerHTML = '<div class="subtle">Filament catalogue could not be loaded.</div>';
+    if (libraryMetadataError) { libraryMetadataError.textContent = error.message; libraryMetadataError.classList.remove('hidden'); }
+  }
+}
+
+libraryQueueSelectedBtn?.addEventListener('click', () => {
+  if (libraryActionBusy) return;
+  const file = selectedLibraryFile();
+  if (file) openQueueAddDialog(file);
+});
+
+libraryEditSelectedBtn?.addEventListener('click', () => {
+  if (libraryActionBusy) return;
+  const file = selectedLibraryFile();
+  if (file) void openLibrarySelectedEditor(file);
+});
+
+libraryDeleteSelectedBtn?.addEventListener('click', async () => {
+  if (libraryActionBusy) return;
+  const file = selectedLibraryFile();
+  if (!file || Number(file.usage?.queueReferences || 0) > 0) return;
+  if (!confirm(`Delete ${file.fileName} from the Print Library? The stored controller copy will be removed.`)) return;
+  libraryActionBusy = true;
+  updateLibrarySelectionToolbar();
+  try {
+    await api(`/api/library/${encodeURIComponent(file.id)}`, { method:'DELETE' });
+    librarySelectedFileId = null;
+    await refreshPrintLibrary();
+    if (libraryStatus) libraryStatus.textContent = `${file.fileName} deleted from the Print Library.`;
+  } catch (error) {
+    alert(error.message);
+  } finally {
+    libraryActionBusy = false;
+    updateLibrarySelectionToolbar();
+  }
+});
+
+libraryList?.addEventListener('click', (event) => {
   const previewButton = event.target.closest('[data-library-preview]');
   if (previewButton) {
     const file = (libraryState.files || []).find((item) => item.id === previewButton.dataset.libraryPreview);
@@ -5123,45 +5173,15 @@ libraryList?.addEventListener('click', async (event) => {
     libraryPreviewDialog?.showModal();
     return;
   }
-  const queueButton = event.target.closest('[data-library-queue]');
-  if (queueButton) {
-    const file = (libraryState.files || []).find((item) => item.id === queueButton.dataset.libraryQueue);
-    if (!file) return;
-    openQueueAddDialog(file);
+  const selectButton = event.target.closest('[data-library-select]');
+  if (selectButton) {
+    selectLibraryFile(selectButton.dataset.librarySelect, { focus:event.detail === 0 });
     return;
   }
-  const editButton = event.target.closest('[data-library-edit]');
-  if (editButton) {
-    const file = (libraryState.files || []).find((item) => item.id === editButton.dataset.libraryEdit);
-    if (!file) return;
-    libraryMetadataFile = file;
-    if (libraryMetadataFileName) libraryMetadataFileName.textContent = file.fileName;
-    if (libraryMetadataPrinterTarget) libraryMetadataPrinterTarget.value = printerTargetValue(file.printerTarget);
-    if (libraryMetadataDescription) libraryMetadataDescription.value = String(file.description || '');
-    if (libraryMetadataError) { libraryMetadataError.textContent = ''; libraryMetadataError.classList.add('hidden'); }
-    if (libraryFilamentAssignments) libraryFilamentAssignments.innerHTML = '<div class="subtle">Loading filament catalogue…</div>';
-    libraryMetadataDialog?.showModal();
-    try {
-      await loadLibraryFilamentCatalogue();
-      renderLibraryFilamentAssignments(file);
-    } catch (error) {
-      if (libraryFilamentAssignments) libraryFilamentAssignments.innerHTML = '<div class="subtle">Filament catalogue could not be loaded.</div>';
-      if (libraryMetadataError) { libraryMetadataError.textContent = error.message; libraryMetadataError.classList.remove('hidden'); }
-    }
-    return;
-  }
-  const deleteButton = event.target.closest('[data-library-delete]');
-  if (!deleteButton) return;
-  const file = (libraryState.files || []).find((item) => item.id === deleteButton.dataset.libraryDelete);
-  if (!file || !confirm(`Delete ${file.fileName} from the Print Library? The stored controller copy will be removed.`)) return;
-  deleteButton.disabled = true;
-  try {
-    await api(`/api/library/${encodeURIComponent(file.id)}`, { method:'DELETE' });
-    await refreshPrintLibrary();
-  } catch (error) {
-    alert(error.message);
-    deleteButton.disabled = false;
-  }
+  // Clicking a row selects it. Non-selection interactive controls remain independent.
+  if (event.target.closest('button, a, input, select, textarea')) return;
+  const row = event.target.closest('[data-library-file]');
+  if (row) selectLibraryFile(row.dataset.libraryFile);
 });
 
 queueBtn?.addEventListener('click', () => { renderPrintQueue(); queueDialog.showModal(); });
