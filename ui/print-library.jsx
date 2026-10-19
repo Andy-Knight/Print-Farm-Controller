@@ -91,11 +91,13 @@ function LibraryFile({ file }) {
         <div class="library-file-title"><strong title={file.fileName}>{file.fileName}</strong>
           {file.favourite && <span class="library-fav-mark" title="Favourite">★</span>}
         </div>
-        {file.category && <span class="library-category">{file.category}</span>}
+        {file.category && <button type="button" class="library-category" data-library-filter-category={file.category}
+          aria-label={`Filter library by category: ${file.category}`} title={`Show files in category: ${file.category}`}>{file.category}</button>}
         <span class={`library-readiness library-readiness-${file.readiness?.level || 'attention'}`}
           title={file.readiness?.detail || 'Compatibility checked when queued'}>{file.readiness?.label || 'Needs attention'}</span>
         {file.tags?.length>0 && <div class="library-tags">
-          {file.tags.map(tag=><span class="library-tag" key={tag}>{tag}</span>)}
+          {file.tags.map(tag=><button type="button" class="library-tag" key={tag} data-library-filter-tag={tag}
+            aria-label={`Filter library by tag: ${tag}`} title={`Show files tagged: ${tag}`}>{tag}</button>)}
         </div>}
         <small class="library-file-size">{file.sizeText}</small>
         {file.description && <div class="library-file-description">{file.description}</div>}

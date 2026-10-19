@@ -59,7 +59,17 @@ export function attachLibraryReadiness(files, printers, {
       message=ready.length+' printer'+(ready.length===1?' is':'s are')+' currently eligible; queue preflight will recheck';
     } else if(!eligible.length) {
       level='incompatible';
-      message=results.flatMap((x)=>x.reasons || []).find((x)=>x.text)?.text || 'No configured printer supports this file';
+      // When a file targets a specific model, unrelated printers will fail
+      // with printer_target_mismatch. These are not useful diagnostics: show
+      // the actual reason from a matching printer (e.g. unsupported .3mf).
+      const matchingResults=file.printerTarget
+        ? results.filter((result)=>!(result.reasons || []).some(
+          (reason)=>reason.code==='printer_target_mismatch'))
+        : results;
+      message=matchingResults.length
+        ? matchingResults.flatMap((result)=>result.reasons || []).find((reason)=>reason.text)?.text
+          || 'No configured printer supports this file'
+        : `No configured printer matches the designated model ${file.printerTarget.model}`;
     } else {
       // An offline compatible printer cannot verify its current spool state.
       // Do not mistake stale telemetry for a problem with the stored file.

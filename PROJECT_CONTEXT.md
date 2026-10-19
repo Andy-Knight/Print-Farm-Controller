@@ -9,13 +9,15 @@ If chat context and this file disagree about the codebase, inspect current GitHu
 - Repository: `Andy-Knight/Print-Farm-Controller`
 - Project path: repository root (`/`)
 - Primary branch: `main` (current production baseline)
-- Current controller source version: **0.57.0** (Print Library cost, selection workbench, filtering/organisation, production estimates, readiness and paging PR #101; prior v0.56.0 standard tab UI PRs #99/#100).
+- Current controller source version: **0.57.1** (Print Library hotfix PR #102: readable printer filter names, designated-printer readiness messages, clickable category/tag badges; builds on v0.57.0 Print Library production workbench PR #101).
 - Previous baseline audited: **0.48.0** (main before the regression test audit release).
 - Runtime: **Node.js 24+** (development baseline Node.js 24.21.0), ES modules, no npm runtime dependencies.
 - GitHub is the authoritative code baseline.
 - Release/version history is maintained only in `CHANGELOG.md`; do not duplicate per-version history in this handoff file.
 
 ## Current work
+
+**v0.57.1 Print Library hotfix:** On `hotfix/0.57.1` (PR #102), standardised Print Library printer filter names, corrected compatibility tooltips to report the designated printer's actual rejection reason instead of unrelated printer-model mismatches, and enabled category/tag badges to filter directly (Preact and fallback). Existing queue safety/format restrictions remain intact, including Snapmaker U1 accepting sliced G-code rather than 3MF uploads. User accepted the hotfix for merging after CI passed on the feature head; release metadata advanced to 0.57.1. Existing full regression and browser/container gates must pass on the version-bump commit before merging.
 
 **v0.57.0 Print Library:** On feature branch `feature/print-library-improvements` (PR #101) users validated the new raw-filament cost estimates, selected-file action toolbar, shared table styling and fixed headings/buttons with scrollable contents. The release adds sorting, facets, category/tags/favourites, trustworthy slicer duration/gram estimates, batch material costs, 80-file pages and read-only queue-compatibility readiness. A compatible printer being offline now shows a neutral **Printer offline** badge, or **Printer busy** when temporarily occupied, instead of flagging the file **Needs attention**. Readiness follows fleet SSE through a throttled status-only endpoint; printer preflight still runs before dispatch. Node.js 24, Chromium Preact and container smoke gates passed on the feature head; release bump and merge tracked with PR #101. Physical-printer spot checks remain useful for live readiness transitions. The release intentionally omits versioned file revisions.
 

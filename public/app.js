@@ -1,7 +1,7 @@
 import { initializeFrontendRendererDiagnostics } from './frontend-renderer-diagnostics.js';
 import {
   LIBRARY_PAGE_SIZE,libraryMaterials,libraryPrintSeconds,libraryWeightGrams,
-  libraryTimeLabel,libraryWeightLabel,librarySortAndFilter,libraryPage
+  libraryTimeLabel,libraryWeightLabel,librarySortAndFilter,libraryPage,libraryPrinterFilterOptions
 } from './library-utils.js';
 
 const refreshFrontendRendererStatus = initializeFrontendRendererDiagnostics();
@@ -3697,9 +3697,9 @@ function libraryFileMarkup(file) {
     <div class="library-cell library-preview-cell">${libraryPreviewMarkup(file)}</div>
     <div class="library-cell library-file-cell library-file-main">
       <div class="library-file-title"><strong title="${escapeHtml(file.fileName)}">${escapeHtml(file.fileName)}</strong>${file.favourite ? '<span class="library-fav-mark" title="Favourite">★</span>' : ''}</div>
-      ${file.category ? `<span class="library-category">${escapeHtml(file.category)}</span>` : ''}
+      ${file.category ? `<button type="button" class="library-category" data-library-filter-category="${escapeHtml(file.category)}" aria-label="Filter library by category: ${escapeHtml(file.category)}" title="Show files in category: ${escapeHtml(file.category)}">${escapeHtml(file.category)}</button>` : ''}
       <span class="library-readiness library-readiness-${readiness.level}" title="${escapeHtml(readiness.detail)}">${escapeHtml(readiness.label)}</span>
-      ${Array.isArray(file.tags)&&file.tags.length ? `<div class="library-tags">${file.tags.map((tag)=>`<span class="library-tag">${escapeHtml(tag)}</span>`).join('')}</div>` : ''}
+      ${Array.isArray(file.tags)&&file.tags.length ? `<div class="library-tags">${file.tags.map((tag)=>`<button type="button" class="library-tag" data-library-filter-tag="${escapeHtml(tag)}" aria-label="Filter library by tag: ${escapeHtml(tag)}" title="Show files tagged: ${escapeHtml(tag)}">${escapeHtml(tag)}</button>`).join('')}</div>` : ''}
       <small class="library-file-size">${escapeHtml(formatBytes(file.size))}</small>
       ${description ? `<div class="library-file-description">${escapeHtml(description)}</div>` : ''}
       ${warning}
@@ -3835,13 +3835,17 @@ function libraryFilters() {
 }
 function libraryFacetOptions() {
   const files=Array.isArray(libraryState?.files) ? libraryState.files : [];
-  const printers=[...new Set(files.map((x)=>x.printerTarget
-    ? [x.printerTarget.adapterType,x.printerTarget.model].filter(Boolean).join(':') : '').filter(Boolean))].sort();
+  const printers=libraryPrinterFilterOptions(files, printerTargetLabel);
   const materials=[...new Set(files.flatMap(libraryMaterials))].sort((a,b)=>a.localeCompare(b));
   const tags=[...new Set(files.flatMap(x=>x.tags || []))].sort((a,b)=>a.localeCompare(b));
   const categories=[...new Set(files.map(x=>x.category).filter(Boolean))].sort((a,b)=>a.localeCompare(b));
+  if (libraryPrinterFilter) {
+    const previous=libraryPrinterFilter.value;
+    libraryPrinterFilter.innerHTML='<option value="">All printer types</option>'
+      +printers.map(({value,label})=>`<option value="${escapeHtml(value)}">${escapeHtml(label)}</option>`).join('');
+    if (printers.some((option)=>option.value===previous)) libraryPrinterFilter.value=previous;
+  }
   for(const [el,items,label] of [
-    [libraryPrinterFilter,printers,'All printer types'],
     [libraryMaterialFilter,materials,'All materials'],
     [libraryTagFilter,tags,'All tags'],
     [libraryCategoryFilter,categories,'All categories']
@@ -5402,6 +5406,20 @@ libraryDeleteSelectedBtn?.addEventListener('click', async () => {
 });
 
 libraryList?.addEventListener('click', (event) => {
+  // A category or tag badge is a shortcut to its Advanced Filters facet.
+  // Delegate from the shared list so Preact and fallback behave identically.
+  const categoryBadge=event.target.closest('[data-library-filter-category]');
+  const tagBadge=event.target.closest('[data-library-filter-tag]');
+  if (categoryBadge || tagBadge) {
+    const field=categoryBadge ? libraryCategoryFilter : libraryTagFilter;
+    const value=categoryBadge ? categoryBadge.dataset.libraryFilterCategory : tagBadge.dataset.libraryFilterTag;
+    if (!field || !value || ![...field.options].some((option)=>option.value===value)) return;
+    field.value=value;
+    document.querySelector('#libraryAdvancedFilters')?.setAttribute('open','');
+    resetLibraryPagination();
+    field.focus({preventScroll:true});
+    return;
+  }
   const pageButton=event.target.closest('[data-library-page]');
   if (pageButton) {
     libraryCurrentPage+=pageButton.dataset.libraryPage==='next'?1:-1;

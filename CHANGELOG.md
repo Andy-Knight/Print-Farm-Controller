@@ -4,6 +4,14 @@ This file contains the version-by-version release history for Print Farm Control
 
 Historical entries describe the behaviour of the controller at the time of that release and may be superseded by later versions. For current installation, configuration and supported-hardware guidance, see [README.md](README.md).
 
+## v0.57.1
+
+- Corrected the Print Library **Printer** advanced filter to show readable manufacturer/model labels rather than internal adapter-type identifiers, while preserving matching keys and existing filter data.
+- Fixed misleading **Incompatible** explanations for designated printer models: use the matching printer's actual incompatibility reason (such as Snapmaker U1 not supporting direct `.3mf` uploads) instead of a different printer's designation mismatch, or clearly state when the targeted model is not configured. Queue compatibility and upload formats remain enforced.
+- Made per-file **category and tag badges clickable** to immediately filter the Print Library. The selected facet appears in Advanced Filters, other filters remain active, result paging restarts at page one, and accessible keyboard interactions work in both Preact and fallback renderers.
+- Added regression coverage for filter labels/keys, designated-printer readiness messages and clickable category/tag interactions; no printer protocol or scheduling safety changes.
+- Increased patch version from v0.57.0 to v0.57.1.
+
 ## v0.57.0
 
 - Redesigned the **Print Library** as a selected-file production workbench with a central **Queue selected / Edit details / Delete selected** action toolbar, independent thumbnail previews, printer/material/requirements/cost/history columns and one selected file at a time. Reused the shared controller table skin, white uppercase headers, blue selection and consistent light/dark colours, with responsive mobile cards.

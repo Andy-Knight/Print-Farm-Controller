@@ -5,7 +5,7 @@ import {parseEstimatedPrintSeconds,parseGcodePrintRequirements} from '../src/fil
 import {attachLibraryReadiness} from '../src/library-readiness.js';
 import {
   libraryMaterials,libraryPrintSeconds,libraryWeightGrams,libraryTimeLabel,
-  libraryWeightLabel,librarySortAndFilter,libraryPage,LIBRARY_PAGE_SIZE
+  libraryWeightLabel,librarySortAndFilter,libraryPage,LIBRARY_PAGE_SIZE,libraryPrinterFilterOptions
 } from '../public/library-utils.js';
 
 const file=(id,extra={})=>({
@@ -53,6 +53,26 @@ test('Facet filtering and stable numeric/lexical sorting preserve input records'
   assert.deepEqual(librarySortAndFilter(files,{query:'Camping'}).map(x=>x.id),['Alpha']);
   assert.equal(files[0].fileName,'bravo.3mf','sorting must not change the input objects');
 });
+test('Print Library printer filter displays friendly names while retaining internal matching keys',()=>{
+  const files=[
+    file('u1',{printerTarget:{adapterType:'snapmaker-u1',model:'U1'}}),
+    file('flashforge',{printerTarget:{adapterType:'flashforge-ad5m',model:'Adventurer 5M Pro'}}),
+    file('duplicate',{printerTarget:{adapterType:'snapmaker-u1',model:'U1'}}),
+    file('untargeted')
+  ];
+  const manufacturer={'snapmaker-u1':'Snapmaker','flashforge-ad5m':'Flashforge'};
+  const labelForTarget=(target)=>[manufacturer[target.adapterType],target.model].filter(Boolean).join(' ');
+  const options=libraryPrinterFilterOptions(files,labelForTarget);
+  assert.deepEqual(options,[
+    {value:'flashforge-ad5m:Adventurer 5M Pro',label:'Flashforge Adventurer 5M Pro'},
+    {value:'snapmaker-u1:U1',label:'Snapmaker U1'}
+  ]);
+  assert.deepEqual(librarySortAndFilter(files,{printer:options[0].value}).map(x=>x.id),['flashforge']);
+  assert.deepEqual(librarySortAndFilter(files,{printer:options[1].value}).map(x=>x.id).sort(),['duplicate','u1']);
+  assert.deepEqual(librarySortAndFilter(files,{printer:'any'}).map(x=>x.id),['untargeted']);
+  assert.deepEqual(libraryPrinterFilterOptions([],labelForTarget),[]);
+});
+
 test('Client-side paging never renders thousands of rows at once',()=>{
   const all=Array.from({length:550},(_,i)=>file('part-'+i));
   assert.equal(LIBRARY_PAGE_SIZE,80);
@@ -123,6 +143,71 @@ test('Print Library readiness does not mistake an offline matching printer for a
   assert.equal(run([missingMaterial],{target:active},[configured[0]]).level,'attention');
   // Queue preflight is unchanged; only the display classification changes.
   assert.equal(target.requirements.logicalTools[0].material,'ASA');
+});
+
+test('Targeted U1 3MF reports unsupported format, not a different printer model mismatch',()=>{
+  const target=file('U1-batch',{
+    fileName:'U1-batch.3mf',
+    printerTarget:{adapterType:'snapmaker-u1',model:'U1'},
+    requirements:{source:'3mf-embedded-gcode',toolCount:1,requiredTools:[0],
+      usageReliable:true,logicalTools:[{index:0,material:'ASA',nozzleDiameter:.4}]}
+  });
+  // Intentionally put the non-matching printer first to reproduce the
+  // misleading tooltip "File is designated for U1" seen in v0.57.0.
+  const printers=[
+    {id:'ad5m',name:'Flashforge',adapterType:'flashforge-ad5m',model:'Adventurer 5M Pro'},
+    {id:'u1',name:'Snapmaker U1',adapterType:'snapmaker-u1',model:'U1'}
+  ];
+  const state={online:true,status:{status:'idle',tools:[
+    {index:0,nozzleDiameter:.4,filament:{present:true,material:'ASA'}}
+  ]}};
+  const adapters={
+    'flashforge-ad5m':{capabilities:{fileUpload:true,localFiles:true,printLocalFile:true},
+      uploadExtensions:['.3mf','.gcode'],limits:{toolCount:1}},
+    'snapmaker-u1':{capabilities:{fileUpload:true,localFiles:true,printLocalFile:true,printToolMapping:true},
+      uploadExtensions:['.gcode','.gco','.g'],limits:{toolCount:4}}
+  };
+  const run=(record,fleet=printers)=>attachLibraryReadiness([record],fleet,{
+    resolveAdapter:(printer)=>adapters[printer.adapterType],getState:()=>state
+  })[0].readiness;
+  const incompatible=run(target);
+  assert.equal(incompatible.level,'incompatible');
+  assert.match(incompatible.message,/does not support \.3mf uploads/i);
+  assert.doesNotMatch(incompatible.message,/designated for U1/i);
+  assert.equal(run({...target,fileName:'U1-batch.gcode'}).level,'ready');
+  const missing=run(target,[printers[0]]);
+  assert.equal(missing.level,'incompatible');
+  assert.match(missing.message,/No configured printer matches the designated model U1/);
+});
+
+test('Clicking a Library category or tag chip uses its existing filter facet',()=>{
+  const entries=[
+    file('camper-1',{category:'Campervan',tags:['VW T6','Production']}),
+    file('camper-2',{category:'Campervan',tags:['VW T5']}),
+    file('caravan',{category:'Caravan',tags:['Production']})
+  ];
+  assert.deepEqual(librarySortAndFilter(entries,{category:'Campervan',sort:'name',direction:'asc'}).map(x=>x.id),
+    ['camper-1','camper-2']);
+  assert.deepEqual(librarySortAndFilter(entries,{tag:'Production',sort:'name',direction:'asc'}).map(x=>x.id),
+    ['camper-1','caravan']);
+  assert.deepEqual(librarySortAndFilter(entries,{category:'Campervan',tag:'Production'}).map(x=>x.id),
+    ['camper-1']);
+  const read=(p)=>readFileSync(new URL('../'+p,import.meta.url),'utf8');
+  const preact=read('ui/print-library.jsx');
+  const app=read('public/app.js');
+  const css=read('public/print-library-polish.css');
+  for(const selector of ['data-library-filter-category','data-library-filter-tag']) {
+    assert.match(preact,new RegExp(selector),'Preact exposes '+selector);
+    assert.match(app,new RegExp(selector),'fallback and shared click handler expose '+selector);
+  }
+  assert.match(preact,/class="library-category"[^>]*data-library-filter-category/);
+  assert.match(preact,/class="library-tag"[^>]*data-library-filter-tag/);
+  assert.match(app,/event\.target\.closest\('\[data-library-filter-category\]'\)/);
+  assert.match(app,/event\.target\.closest\('\[data-library-filter-tag\]'\)/);
+  assert.match(app,/field\.value=value;[\s\S]*?resetLibraryPagination\(\);/);
+  assert.match(app,/libraryAdvancedFilters'\)\?\.setAttribute\('open',''\)/);
+  assert.match(css,/#libraryDialog button\.library-category:focus-visible/);
+  assert.match(css,/#libraryDialog button\.library-tag:focus-visible/);
 });
 
 test('Library UI binds all sorting, filters, tags, favourites and pagers to Preact and fallback',()=>{
