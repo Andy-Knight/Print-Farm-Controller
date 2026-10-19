@@ -1133,14 +1133,6 @@
         </div>
         <div id="libraryStatus" class="subtle"></div>
         <div id="libraryError" class="error hidden"></div>
-        <div id="libraryTableHead" class="library-table-head" aria-label="Sortable Print Library column headings" hidden>
-          <span>Select</span><span>Preview</span>
-          <button type="button" data-library-sort="name" aria-label="Sort by filename">File</button>
-          <button type="button" data-library-sort="printer" aria-label="Sort by printer type">Printer</button>
-          <button type="button" data-library-sort="material" aria-label="Sort by filament material">Filament &amp; requirements</button>
-          <button type="button" data-library-sort="cost" aria-label="Sort by estimated material cost">Estimated cost</button>
-          <button type="button" data-library-sort="prints" aria-label="Sort by number of completed prints">History</button>
-        </div>
         <div class="library-sort-extras">
           <label>Sort by
             <select id="librarySortSelect">
@@ -1153,6 +1145,14 @@
           </label>
           <button type="button" class="secondary" id="librarySortDirectionBtn" aria-label="Reverse sort direction">↓ Descending</button>
           <span id="libraryResultCount" class="subtle" aria-live="polite"></span>
+        </div>
+        <div id="libraryTableHead" class="library-table-head" aria-label="Sortable Print Library column headings" hidden>
+          <span>Select</span><span>Preview</span>
+          <button type="button" data-library-sort="name" aria-label="Sort by filename">File</button>
+          <button type="button" data-library-sort="printer" aria-label="Sort by printer type">Printer</button>
+          <button type="button" data-library-sort="material" aria-label="Sort by filament material">Filament &amp; requirements</button>
+          <button type="button" data-library-sort="cost" aria-label="Sort by estimated material cost">Estimated cost</button>
+          <button type="button" data-library-sort="prints" aria-label="Sort by number of completed prints">History</button>
         </div>
         <div id="libraryList" class="library-list" role="list" aria-label="Stored print files" tabindex="0"></div>
       </section>
