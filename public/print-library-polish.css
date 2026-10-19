@@ -452,7 +452,8 @@
 #libraryDialog .library-sort-extras #libraryResultCount {align-self:center;font-size:.72rem}
 #libraryDialog .library-table-head [data-library-sort] {display:flex;justify-content:space-between;align-items:center;gap:6px;min-width:0;padding:0;border:0;border-radius:0;background:transparent;box-shadow:none;color:inherit;font-size:inherit;font-weight:inherit;letter-spacing:inherit;text-transform:inherit;text-align:left;cursor:pointer}
 #libraryDialog .library-table-head [data-library-sort]:hover {color:#bcdeff;background:transparent}
-#libraryDialog .library-table-head [data-library-sort].sorted::after {content:"↑↓";color:#8bc7ff;font-size:.85rem}
+#libraryDialog .library-table-head [data-library-sort].sorted::after {content:"↑";color:#8bc7ff;font-size:.85rem}
+#libraryDialog .library-table-head [data-library-sort].sorted-desc::after {content:"↓"}
 #libraryDialog .library-table-head [data-library-sort]:focus-visible {outline:2px solid #90caff;outline-offset:3px}
 #libraryDialog .library-pagination {display:flex;grid-column:1/-1;justify-content:flex-end;align-items:center;flex-wrap:wrap;gap:8px;padding:12px;border-top:1px solid var(--pfc-table-divider);color:var(--pfc-table-secondary);font-size:.74rem}
 #libraryDialog .library-pagination button {min-height:42px}
