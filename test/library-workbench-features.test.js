@@ -180,6 +180,36 @@ test('Targeted U1 3MF reports unsupported format, not a different printer model 
   assert.match(missing.message,/No configured printer matches the designated model U1/);
 });
 
+test('Clicking a Library category or tag chip uses its existing filter facet',()=>{
+  const entries=[
+    file('camper-1',{category:'Campervan',tags:['VW T6','Production']}),
+    file('camper-2',{category:'Campervan',tags:['VW T5']}),
+    file('caravan',{category:'Caravan',tags:['Production']})
+  ];
+  assert.deepEqual(librarySortAndFilter(entries,{category:'Campervan',sort:'name',direction:'asc'}).map(x=>x.id),
+    ['camper-1','camper-2']);
+  assert.deepEqual(librarySortAndFilter(entries,{tag:'Production',sort:'name',direction:'asc'}).map(x=>x.id),
+    ['camper-1','caravan']);
+  assert.deepEqual(librarySortAndFilter(entries,{category:'Campervan',tag:'Production'}).map(x=>x.id),
+    ['camper-1']);
+  const read=(p)=>readFileSync(new URL('../'+p,import.meta.url),'utf8');
+  const preact=read('ui/print-library.jsx');
+  const app=read('public/app.js');
+  const css=read('public/print-library-polish.css');
+  for(const selector of ['data-library-filter-category','data-library-filter-tag']) {
+    assert.match(preact,new RegExp(selector),'Preact exposes '+selector);
+    assert.match(app,new RegExp(selector),'fallback and shared click handler expose '+selector);
+  }
+  assert.match(preact,/class="library-category"[^>]*data-library-filter-category/);
+  assert.match(preact,/class="library-tag"[^>]*data-library-filter-tag/);
+  assert.match(app,/event\.target\.closest\('\[data-library-filter-category\]'\)/);
+  assert.match(app,/event\.target\.closest\('\[data-library-filter-tag\]'\)/);
+  assert.match(app,/field\.value=value;[\s\S]*?resetLibraryPagination\(\);/);
+  assert.match(app,/libraryAdvancedFilters'\)\?\.setAttribute\('open',''\)/);
+  assert.match(css,/#libraryDialog button\.library-category:focus-visible/);
+  assert.match(css,/#libraryDialog button\.library-tag:focus-visible/);
+});
+
 test('Library UI binds all sorting, filters, tags, favourites and pagers to Preact and fallback',()=>{
   const read=(p)=>readFileSync(new URL('../'+p,import.meta.url),'utf8');
   const html=read('public/index.html'),app=read('public/app.js'),preact=read('ui/print-library.jsx'),css=read('public/print-library-polish.css'),server=read('src/server.js');
