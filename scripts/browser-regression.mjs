@@ -1016,17 +1016,33 @@ async function verifyLibraryEditorLayout(page,editor) {
 async function libraryPricingSmoke(page,url,{mutateFixture=true}={}) {
   if(!mutateFixture) return;
   await page.setViewportSize({width:1365,height:900});
-  await page.goto(url+'/library',{waitUntil:'load'});
+  await page.goto(url+'/reports',{waitUntil:'load'});
   await preactReady(page);
-  await page.locator('#libraryPricingSettingsBtn').click();
-  await page.locator('#libraryProfitPercent').fill('30');
-  await page.locator('#libraryProfitMethod').selectOption('markup');
-  await page.locator('#libraryPricingSettingsForm button[type="submit"]').click();
-  await page.waitForFunction(()=>document.querySelector('#libraryPricingSettingsDialog')?.open===false);
+  await page.locator('[data-reporting-tab="pricing"]').click();
+  await page.waitForFunction(()=>{
+    const panel=document.querySelector('#reportingPanelPricing');
+    return panel?.hidden===false && !document.querySelector('#reportingPricingFields')?.disabled;
+  });
+  assert.equal(await page.locator('#reportingPanelAnalytics').evaluate(node=>node.hidden),true);
+  assert.equal(await page.locator('#reportingPanelFilament').evaluate(node=>node.hidden),true);
+  await page.locator('#reportingProfitPercent').fill('30');
+  await page.locator('#reportingProfitMethod').selectOption('markup');
+  await page.locator('#reportingPricingSaveBtn').click();
+  await page.waitForFunction(()=>document.querySelector('#reportingPricingStatus')?.textContent.includes('saved'));
   const settings=await page.evaluate(async()=> (await (await fetch('/api/library/pricing')).json()).settings);
   assert.equal(settings.profitPercent,30);
   assert.equal(settings.profitMethod,'markup');
-
+  await page.locator('[data-reporting-tab="filament"]').click();
+  await page.locator('[data-reporting-tab="pricing"]').click();
+  await page.waitForFunction(()=>
+    document.querySelector('#reportingProfitPercent')?.value==='30' &&
+    !document.querySelector('#reportingPricingFields')?.disabled);
+  assert.equal(await page.locator('#reportingProfitMethod').inputValue(),'markup',
+    'pricing tab must load persisted global settings after switching tabs');
+  await page.goto(url+'/library',{waitUntil:'load'});
+  await preactReady(page);
+  assert.equal(await page.locator('#libraryPricingSettingsBtn').count(),0,
+    'global price settings no longer belong in the Print Library toolbar');
   await page.setViewportSize({width:1024,height:600});
   await page.locator('#libraryUploadBtn').click();
   await verifyLibraryEditorLayout(page,'add');
@@ -1314,6 +1330,9 @@ async function routeSmoke(page,url) {
   await reportsLoaded(page,'refreshed report');
   await page.locator('[data-reporting-tab="filament"]').click();
   await page.waitForFunction(()=>document.querySelector('#reportingPanelFilament')?.hidden===false);
+  await page.locator('[data-reporting-tab="pricing"]').click();
+  await page.waitForFunction(()=>document.querySelector('#reportingPanelPricing')?.hidden===false);
+  await page.waitForFunction(()=>document.querySelector('#reportingPricingFields')?.disabled===false);
   await page.locator('[data-reporting-tab="analytics"]').click();
   await page.waitForFunction(()=>document.querySelector('#reportingPanelAnalytics')?.hidden===false);
 
