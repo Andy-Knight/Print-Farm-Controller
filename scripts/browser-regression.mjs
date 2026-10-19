@@ -873,6 +873,9 @@ async function libraryScrollingSmoke(page,url) {
     for(const theme of ['dark','light']) {
       await page.evaluate(([files,theme])=>{
         document.documentElement.dataset.theme=theme;
+        // In live usage renderPrintLibrary() unhides the header when files
+        // arrive from the API. Mirror that state in the synthetic UI fixture.
+        document.querySelector('#libraryTableHead').hidden=false;
         window.dispatchEvent(new CustomEvent('pfc:library-ui-state',{
           detail:{summary:files.length+' files',files,emptyText:'No files'}
         }));
