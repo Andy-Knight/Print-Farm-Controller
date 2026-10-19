@@ -545,3 +545,49 @@
 #libraryDialog .library-filter-results {flex:0 0 auto;min-height:18px;margin-bottom:5px;font-size:.72rem;color:var(--ds-text-muted)}
 #libraryDialog .library-advanced-filters .library-sort-extras {margin:0 12px 10px;padding:10px 0 0;border-top:1px solid var(--ds-border)}
 @media(max-width:700px){#libraryDialog .library-action-toolbar {gap:6px;padding:7px 9px}#libraryDialog .library-action-buttons {gap:6px}}
+
+/* Print Library product pricing: full-batch sundries and per-sale-lot estimates. */
+#libraryDialog .library-sale-price {
+  display:flex;flex-direction:column;gap:4px;margin-top:6px;padding:9px 11px;
+  border:1px solid var(--ds-border);border-radius:var(--ds-radius-sm);
+  color:var(--ds-text);background:var(--ds-surface-muted);
+}
+#libraryDialog .library-sale-price > span {color:var(--ds-text-muted);font-size:.7rem;font-weight:750}
+#libraryDialog .library-sale-price > strong {color:var(--ds-brand);font-size:1rem}
+#libraryDialog .library-sale-price small {color:var(--ds-text-muted);font-size:.69rem;overflow-wrap:anywhere}
+#libraryDialog .library-sale-price.unavailable > strong {color:var(--ds-text-muted);font-size:.8rem}
+
+#libraryAddDialog .library-pricing-fields,#libraryMetadataDialog .library-pricing-fields {
+  border:1px solid var(--ds-border);border-radius:var(--ds-radius-md);
+  padding:12px;margin:14px 0;min-width:0;background:var(--ds-surface-muted);
+}
+#libraryAddDialog .library-pricing-fields > legend,#libraryMetadataDialog .library-pricing-fields > legend {
+  color:var(--ds-text);font-weight:800;font-size:.85rem;padding:0 5px;
+}
+#libraryAddDialog .library-pricing-fields label,#libraryMetadataDialog .library-pricing-fields label {
+  color:var(--ds-text-muted);font-size:.72rem;font-weight:700;display:block;margin:9px 0;
+}
+#libraryAddDialog .library-pricing-fields select,#libraryMetadataDialog .library-pricing-fields select {
+  max-width:220px;
+}
+#libraryAddDialog .library-pricing-fields input,#libraryMetadataDialog .library-pricing-fields input,
+#libraryAddDialog .library-pricing-fields select,#libraryMetadataDialog .library-pricing-fields select {
+  min-width:0;height:42px;
+}
+#libraryAddDialog .library-pricing-fields input[name="lotsPerPrint"],
+#libraryMetadataDialog .library-pricing-fields input[name="lotsPerPrint"] {max-width:140px}
+.library-sundries {display:grid;gap:8px;margin-top:10px}
+.library-sundry-row {
+  display:grid;grid-template-columns:minmax(110px,2fr) minmax(66px,.55fr) minmax(95px,1fr) auto;
+  gap:8px;align-items:end;border-top:1px solid var(--ds-border);padding-top:9px;
+}
+.library-sundry-row label {margin:0!important}
+.library-sundry-row input {width:100%;margin-top:4px}
+.library-sundry-row > button {min-height:42px;height:42px;white-space:nowrap}
+.library-add-sundry {margin-top:9px}
+#libraryAddDialog,#libraryMetadataDialog,#libraryPricingSettingsDialog {max-height:88dvh;overflow-y:auto}
+@media(max-width:560px) {
+  .library-sundry-row {grid-template-columns:minmax(0,1fr) minmax(0,1fr)}
+  .library-sundry-row > label:first-child {grid-column:1/-1}
+  .library-sundry-row > button {grid-column:1/-1}
+}
