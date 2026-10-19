@@ -905,6 +905,7 @@ async function libraryScrollingSmoke(page,url) {
       });
       assert.ok(before.listContent>before.listClient+100,'long list must scroll inside its region');
       assert.equal(before.listOverflow,'auto','only the library rows should scroll');
+      console.log('LIBRARY SCROLL RESIZE DEBUG',JSON.stringify({viewport,theme,before}));
       assert.ok(before.listClient>=125,'file region must remain usable at '+viewport.width+'px');
       assert.ok(before.actionsTop>=0 && before.actionsTop<viewport.height,
         'selected-file actions remain onscreen above long lists');
