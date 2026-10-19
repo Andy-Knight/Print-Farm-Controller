@@ -249,6 +249,16 @@ test('Print Library status badges filter by the matching live-readiness facet',(
   assert.match(css,/#libraryDialog button\.library-readiness:hover/);
 });
 
+test('Library selection preserves the current list scroll without altering filter/page scroll resets',()=>{
+  const app=readFileSync(new URL('../public/app.js',import.meta.url),'utf8');
+  assert.match(app,/function selectLibraryFile\(id,[\s\S]*?renderPrintLibrary\(\{ preserveScroll:true \}\)/,
+    'row/checkbox selection must restore the current list scroll position');
+  assert.match(app,/const scroll=preserveScroll \? libraryList\.scrollTop : 0/);
+  assert.match(app,/if \(preserveScroll\) libraryList\.scrollTop=scroll;\s*else libraryList\.scrollTop=0;/,
+    'intentional filter, sort and page changes should still reset scroll');
+  assert.match(app,/function resetLibraryPagination\(\) \{ libraryCurrentPage=0; renderPrintLibrary\(\); \}/);
+});
+
 test('Library UI binds all sorting, filters, tags, favourites and pagers to Preact and fallback',()=>{
   const read=(p)=>readFileSync(new URL('../'+p,import.meta.url),'utf8');
   const html=read('public/index.html'),app=read('public/app.js'),preact=read('ui/print-library.jsx'),css=read('public/print-library-polish.css'),server=read('src/server.js');
