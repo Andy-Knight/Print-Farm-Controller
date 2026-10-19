@@ -27,6 +27,14 @@ function normalizeDescription(value) {
   return description;
 }
 
+function normalizeLibraryCategory(value) {
+  if (value == null || value === '') return '';
+  if (typeof value !== 'string') throw new Error('Library category must be text');
+  const name=value.trim().replace(/\s+/g,' ');
+  if (name.length>60 || /[<>]/.test(name)) throw new Error('Library category must be 60 characters or fewer');
+  return name;
+}
+
 function normalizeLibraryTags(value) {
   if (value == null) return [];
   if (!Array.isArray(value)) throw new Error('Library tags must be an array');
@@ -197,6 +205,7 @@ function normalizeMetadata(metadata) {
     size: Number(metadata.size || 0),
     sha256: metadata.sha256 || null,
     description: normalizeDescription(metadata.description || ''),
+    category:normalizeLibraryCategory(metadata.category),
     tags:normalizeLibraryTags(metadata.tags),
     favourite:normalizeLibraryFavourite(metadata.favourite),
     printerTarget: normalizePrinterTarget(metadata.printerTarget),
@@ -310,6 +319,7 @@ export async function addLibraryFile(sourcePath, rawFileName, { description = ''
       size: sourceStat.size,
       sha256: sourceHash,
       description: cleanDescription,
+      category:'',
       tags:[],
       favourite:false,
       printerTarget: cleanPrinterTarget,
@@ -356,7 +366,7 @@ export async function getLibraryPreview(id) {
   }
 }
 
-export async function updateLibraryFileMetadata(id, { description, printerTarget, filamentAssignments, tags, favourite } = {}) {
+export async function updateLibraryFileMetadata(id, { description, printerTarget, filamentAssignments, category, tags, favourite } = {}) {
   return libraryMutations.run('catalog', async () => {
   await ensureRoot();
   const normalizedId = safeId(id);
@@ -367,6 +377,7 @@ export async function updateLibraryFileMetadata(id, { description, printerTarget
   if (description !== undefined) metadata.description = normalizeDescription(description);
   if (printerTarget !== undefined) metadata.printerTarget = normalizePrinterTarget(printerTarget);
   if (filamentAssignments !== undefined) metadata.filamentAssignments = normalizeFilamentAssignments(filamentAssignments);
+  if (category !== undefined) metadata.category = normalizeLibraryCategory(category);
   if (tags !== undefined) metadata.tags = normalizeLibraryTags(tags);
   if (favourite !== undefined) metadata.favourite = normalizeLibraryFavourite(favourite);
   metadata.updatedAt = new Date().toISOString();
