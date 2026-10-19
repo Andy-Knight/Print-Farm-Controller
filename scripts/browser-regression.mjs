@@ -1000,6 +1000,63 @@ async function libraryScrollingSmoke(page,url) {
   console.log('Chromium: Print Library fixed headings and actions, inner scrolling PASS');
 }
 
+// The library must distinguish file problems from a printer that is merely
+// offline or printing, with consistent Preact badges and facet values.
+async function libraryAvailabilityBadgeSmoke(page,url) {
+  await page.setViewportSize({width:1365,height:900});
+  await page.goto(url+'/library',{waitUntil:'load'});
+  await preactReady(page);
+  const endpoint=await page.evaluate(async()=>{
+    const result=await fetch('/api/library/readiness');
+    return {status:result.status,data:await result.json()};
+  });
+  assert.equal(endpoint.status,200);
+  assert.ok(Array.isArray(endpoint.data.files),'status-only endpoint must be available');
+  const cases=[
+    ['ready','Ready now'],['offline','Printer offline'],['busy','Printer busy'],
+    ['attention','Needs attention'],['incompatible','Incompatible']
+  ];
+  const files=cases.map(([level,label],i)=>({
+    id:'availability-'+level,
+    fileName:'Availability '+label+'.3mf',
+    sizeText:'10 KB',description:'',
+    printerTarget:'Any supported printer',requirements:'ASA · 0.4 mm',
+    cost:{available:false,value:'Unavailable',detail:'No price'},
+    colours:[],warning:'',previewUrl:'',
+    readiness:{level,label,detail:level+' printer status preview'},
+    historyCount:'0 completed prints',historyLast:'Not printed yet',
+    historyAdded:'Added recently'
+  }));
+  await page.evaluate(files=>{
+    document.querySelector('#libraryTableHead').hidden=false;
+    window.dispatchEvent(new CustomEvent('pfc:library-ui-state',{
+      detail:{summary:'5 readiness cases',files,emptyText:'No files'}
+    }));
+  },files);
+  await page.waitForFunction(()=>document.querySelectorAll('#libraryList .library-readiness').length===5);
+  for(const [level,label] of cases){
+    const badge=page.locator('[data-library-file="availability-'+level+'"] .library-readiness');
+    assert.equal(await badge.innerText(),label);
+    assert.ok((await badge.getAttribute('class')).includes('library-readiness-'+level));
+    assert.match(await badge.getAttribute('title'),/printer status preview/);
+  }
+  const values=await page.locator('#libraryReadinessFilter option').evaluateAll(
+    options=>options.map(option=>option.value));
+  assert.ok(values.includes('offline') && values.includes('busy'),'availability filters must be offered');
+  for(const theme of ['dark','light']){
+    await page.evaluate(theme=>{document.documentElement.dataset.theme=theme;},theme);
+    for(const level of ['busy','offline']){
+      const badge=page.locator('[data-library-file="availability-'+level+'"] .library-readiness');
+      const style=await badge.evaluate(element=>({
+        bg:getComputedStyle(element).backgroundColor,
+        color:getComputedStyle(element).color
+      }));
+      assert.ok(style.color && style.bg,'availability badge must use theme-aware styles');
+    }
+  }
+  console.log('Chromium: Print Library readiness availability badges PASS');
+}
+
 async function routeSmoke(page,url) {
   console.log('Chromium: checking direct load of all controller routes');
   for (const [route,id] of routes) {
@@ -2093,6 +2150,7 @@ async function main() {
     await libraryCostSmoke(page,url);
     await librarySelectionSmoke(page,url,{ mutateFixture:!externalUrl });
     await libraryScrollingSmoke(page,url);
+    await libraryAvailabilityBadgeSmoke(page,url);
     await routeSmoke(page,url);
     await queueClickSmoke(browser,url);
     await groupEditorSmoke(browser,url);
