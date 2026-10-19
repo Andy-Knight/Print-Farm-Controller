@@ -368,3 +368,74 @@
     -webkit-line-clamp:4;
   }
 }
+
+/* Long library navigation: keep the page heading, search/Add, selected-file
+ * action toolbar and standard table header in normal flow. Constrain only
+ * the row region to the visible workspace, with its own vertical scrollbar.
+ *
+ * The route's outer .queue-shell is given a max-height (not a fixed height):
+ * short libraries retain their natural content height, large ones flex-shrink
+ * the list instead of moving the command toolbar offscreen.
+ */
+#libraryDialog > .queue-shell {
+  display:flex;
+  flex-direction:column;
+  min-height:0;
+  max-height:max(490px,calc(100dvh - var(--shell-topbar-height,74px) - 96px));
+}
+#libraryDialog > .queue-shell > .dialog-head {
+  flex:0 0 auto;
+}
+#libraryDialog > .queue-shell > .queue-section {
+  display:flex;
+  flex:1 1 auto;
+  flex-direction:column;
+  min-height:0;
+}
+#libraryDialog .library-toolbar,
+#libraryDialog .library-action-toolbar,
+#libraryDialog #libraryStatus,
+#libraryDialog #libraryError,
+#libraryDialog .library-table-head {
+  flex:0 0 auto;
+}
+#libraryDialog .library-list {
+  flex:0 1 auto;
+  min-height:0;
+  overflow-x:hidden;
+  overflow-y:auto;
+  overscroll-behavior-y:contain;
+  scrollbar-width:thin;
+  scrollbar-color:var(--pfc-table-border) transparent;
+  scrollbar-gutter:stable;
+  align-content:start;
+  grid-auto-rows:max-content;
+}
+#libraryDialog .library-table-head {
+  /* Reserve exactly the same classic scrollbar gutter on the heading
+   * as on the scrolling body to preserve aligned column tracks on Windows.
+   * In browsers with overlay scrollbars no gutter is needed in either. */
+  overflow:hidden;
+  scrollbar-gutter:stable;
+}
+#libraryDialog .library-list:focus-visible {
+  outline:2px solid var(--ds-focus);
+  outline-offset:-2px;
+}
+@media(max-width:1180px) {
+  /* Responsive cards do not have a visible column header, but the
+   * actions remain outside the scrollable card stack. */
+  #libraryDialog .library-list {
+    padding:2px 2px 4px;
+    scrollbar-gutter:auto;
+  }
+}
+@media(max-width:700px) {
+  #libraryDialog > .queue-shell {
+    max-height:max(510px,calc(100dvh - var(--shell-topbar-height,64px) - 54px));
+  }
+  #libraryDialog .library-list {
+    -webkit-overflow-scrolling:touch;
+    scrollbar-width:thin;
+  }
+}
