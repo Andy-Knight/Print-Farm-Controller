@@ -56,6 +56,19 @@ function LibraryColours({ colours = [] }) {
   );
 }
 
+function LibraryCost({ cost }) {
+  return (
+    <div class={`library-print-cost${cost?.available ? '' : ' unavailable'}`} data-library-cost>
+      <span class="library-print-cost-icon" aria-hidden="true"></span>
+      <div class="library-print-cost-copy">
+        <span class="library-print-cost-label">Estimated material cost / print</span>
+        <strong class="library-print-cost-value">{cost?.value || 'Unavailable'}</strong>
+        <small class="library-print-cost-detail">{cost?.detail || 'Filament cost data is unavailable.'}</small>
+      </div>
+    </div>
+  );
+}
+
 function LibraryFile({ file }) {
   return (
     <article class="library-file" data-library-file={file.id}>
@@ -75,6 +88,7 @@ function LibraryFile({ file }) {
           )}
           <div class="library-file-requirements">{file.requirements}</div>
           <LibraryColours colours={file.colours} />
+          <LibraryCost cost={file.cost} />
           <div class="library-file-meta">{file.meta}</div>
           {file.warning && <div class="library-warning">{file.warning}</div>}
         </div>
