@@ -4026,7 +4026,7 @@ async function refreshLiveLibraryReadiness() {
   }
 }
 
-async function uploadLibraryFile(file, description = '', printerTarget = null) {
+async function uploadLibraryFile(file, description = '', printerTarget = null, metadata = {}) {
   if (!(file instanceof File) || !file.size) throw new Error('Choose a file to add to the Print Library');
   if (file.size > 512 * 1024 * 1024) throw new Error('File exceeds the 512 MB upload limit');
   const notes = String(description || '').trim();
@@ -4039,18 +4039,23 @@ async function uploadLibraryFile(file, description = '', printerTarget = null) {
   const payload = await response.json().catch(() => ({}));
   if (!response.ok) throw new Error(payload.error || `Print Library upload failed (${response.status})`);
   let stored = payload.file;
-  if ((notes || printerTarget) && stored && !stored.duplicate) {
-    const updated = await api(`/api/library/${encodeURIComponent(stored.id)}`, {
-      method:'PATCH',
-      body:JSON.stringify({ description:notes, printerTarget })
-    });
-    stored = updated.file || stored;
+  if (stored && !stored.duplicate) {
+    try {
+      const updated = await api(`/api/library/${encodeURIComponent(stored.id)}`, {
+        method:'PATCH',
+        body:JSON.stringify({ description:notes, printerTarget, ...metadata })
+      });
+      stored = updated.file || stored;
+    } catch (error) {
+      await refreshPrintLibrary();
+      throw new Error('File was uploaded, but its details could not be saved: '+error.message+'. Use Edit details to finish.');
+    }
   }
   await refreshPrintLibrary();
   return stored;
 }
 
-async function updateLibraryMetadata(fileId, { description = '', printerTarget = null, filamentAssignments = undefined, category = undefined, tags = undefined, favourite = undefined } = {}) {
+async function updateLibraryMetadata(fileId, { description = '', printerTarget = null, filamentAssignments = undefined, category = undefined, tags = undefined, favourite = undefined, sundryCosts = undefined, sundryCurrency = undefined, lotsPerPrint = undefined } = {}) {
   const notes = String(description || '').trim();
   if (notes.length > 4000) throw new Error('Print Library description must be 4000 characters or fewer');
   const payload = await api(`/api/library/${encodeURIComponent(fileId)}`, {
@@ -4061,7 +4066,10 @@ async function updateLibraryMetadata(fileId, { description = '', printerTarget =
       ...(filamentAssignments !== undefined ? { filamentAssignments } : {}),
       ...(category !== undefined ? {category} : {}),
       ...(tags !== undefined ? {tags} : {}),
-      ...(favourite !== undefined ? {favourite} : {})
+      ...(favourite !== undefined ? {favourite} : {}),
+      ...(sundryCosts !== undefined ? {sundryCosts} : {}),
+      ...(sundryCurrency !== undefined ? {sundryCurrency} : {}),
+      ...(lotsPerPrint !== undefined ? {lotsPerPrint} : {})
     })
   });
   await refreshPrintLibrary();
@@ -5347,9 +5355,41 @@ libraryTableHead?.addEventListener('click',(event)=>{
 });
 libraryUploadBtn?.addEventListener('click', () => {
   libraryAddForm?.reset();
+  renderLibrarySundries(libraryAddSundries);
+  void loadLibraryPricingSettings().catch(error=>{
+    if (libraryAddError) {libraryAddError.textContent=error.message;libraryAddError.classList.remove('hidden');}
+  });
   if (libraryAddStatus) libraryAddStatus.textContent = '';
   if (libraryAddError) { libraryAddError.textContent = ''; libraryAddError.classList.add('hidden'); }
   libraryAddDialog?.showModal();
+});
+libraryPricingSettingsBtn?.addEventListener('click',async ()=>{
+  if (libraryPricingSettingsError) { libraryPricingSettingsError.textContent='';libraryPricingSettingsError.classList.add('hidden'); }
+  libraryPricingSettingsDialog?.showModal();
+  try {
+    const settings=await loadLibraryPricingSettings();
+    if (libraryProfitPercent) libraryProfitPercent.value=settings.profitPercent ?? '';
+    if (libraryProfitMethod) libraryProfitMethod.value=settings.profitMethod || 'markup';
+  } catch(error) {
+    if (libraryPricingSettingsError) {libraryPricingSettingsError.textContent=error.message;libraryPricingSettingsError.classList.remove('hidden');}
+  }
+});
+document.querySelectorAll('[data-library-pricing-close]').forEach(el=>el.addEventListener('click',()=>libraryPricingSettingsDialog?.close()));
+libraryPricingSettingsForm?.addEventListener('submit',async event=>{
+  event.preventDefault();
+  const submit=libraryPricingSettingsForm.querySelector('button[type="submit"]');
+  if (submit) submit.disabled=true;
+  try {
+    await api('/api/library/pricing',{method:'PUT',body:JSON.stringify({
+      profitPercent:libraryProfitPercent?.value === '' ? null : Number(libraryProfitPercent?.value),
+      profitMethod:libraryProfitMethod?.value || 'markup'
+    })});
+    await refreshPrintLibrary();
+    libraryPricingSettingsDialog?.close();
+    if (libraryStatus) libraryStatus.textContent='Global profit settings updated.';
+  } catch(error) {
+    if (libraryPricingSettingsError) {libraryPricingSettingsError.textContent=error.message;libraryPricingSettingsError.classList.remove('hidden');}
+  } finally {if (submit) submit.disabled=false;}
 });
 document.querySelectorAll('[data-library-preview-close]').forEach((el) => el.addEventListener('click', () => libraryPreviewDialog?.close()));
 libraryPreviewDialog?.addEventListener('close', () => {
@@ -5370,7 +5410,14 @@ libraryAddForm?.addEventListener('submit', async (event) => {
     const stored = await uploadLibraryFile(
       file,
       libraryDescriptionInput?.value || '',
-      parsePrinterTargetValue(libraryPrinterTargetInput?.value || '')
+      parsePrinterTargetValue(libraryPrinterTargetInput?.value || ''),
+      {
+        category:libraryAddCategory?.value || '',
+        tags:String(libraryAddTags?.value || '').split(',').map(x=>x.trim()).filter(Boolean),
+        sundryCosts:collectLibrarySundries(libraryAddSundries),
+        sundryCurrency:libraryAddSundryCurrency?.value || 'GBP',
+        lotsPerPrint:Number(libraryAddLotsPerPrint?.value || 1)
+      }
     );
     if (libraryStatus) libraryStatus.textContent = stored.duplicate
       ? `${stored.fileName} is already in the Print Library. Existing details were kept.`
@@ -5399,7 +5446,10 @@ libraryMetadataForm?.addEventListener('submit', async (event) => {
       filamentAssignments:collectLibraryFilamentAssignments(),
       category:libraryMetadataCategory?.value || '',
       tags:String(libraryMetadataTags?.value || '').split(',').map(x=>x.trim()).filter(Boolean),
-      favourite:libraryMetadataFavourite?.checked===true
+      favourite:libraryMetadataFavourite?.checked===true,
+      sundryCosts:collectLibrarySundries(libraryMetadataSundries),
+      sundryCurrency:libraryMetadataSundryCurrency?.value || 'GBP',
+      lotsPerPrint:Number(libraryMetadataLotsPerPrint?.value || 1)
     });
     libraryMetadataDialog?.close();
     if (libraryStatus) libraryStatus.textContent = `${editedFileName} details updated.`;
@@ -5418,11 +5468,14 @@ async function openLibrarySelectedEditor(file) {
   if (libraryMetadataTags) libraryMetadataTags.value = (file.tags || []).join(', ');
   if (libraryMetadataCategory) libraryMetadataCategory.value=String(file.category || '');
   if (libraryMetadataFavourite) libraryMetadataFavourite.checked = file.favourite===true;
+  renderLibrarySundries(libraryMetadataSundries,file.sundryCosts || []);
+  if (libraryMetadataLotsPerPrint) libraryMetadataLotsPerPrint.value=String(file.lotsPerPrint || 1);
   if (libraryMetadataError) { libraryMetadataError.textContent = ''; libraryMetadataError.classList.add('hidden'); }
   if (libraryFilamentAssignments) libraryFilamentAssignments.innerHTML = '<div class="subtle">Loading filament catalogue…</div>';
   libraryMetadataDialog?.showModal();
   try {
-    await loadLibraryFilamentCatalogue();
+    await Promise.all([loadLibraryFilamentCatalogue(),loadLibraryPricingSettings()]);
+    if (libraryMetadataSundryCurrency) libraryMetadataSundryCurrency.value=file.sundryCurrency || 'GBP';
     renderLibraryFilamentAssignments(file);
   } catch (error) {
     if (libraryFilamentAssignments) libraryFilamentAssignments.innerHTML = '<div class="subtle">Filament catalogue could not be loaded.</div>';
