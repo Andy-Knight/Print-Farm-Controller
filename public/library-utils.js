@@ -32,6 +32,21 @@ export function libraryWeightLabel(grams) {
     ? grams.toLocaleString('en-GB',{maximumFractionDigits:2})+' g' : 'Not reported';
 }
 
+// Keep the persisted adapter:model keys used by filtering, but expose the
+// same readable manufacturer/model labels used by Library printer targeting.
+export function libraryPrinterFilterOptions(files, labelForTarget = (target) => target?.model) {
+  const labels = new Map();
+  for (const file of files || []) {
+    const target = file?.printerTarget;
+    const value = target ? [target.adapterType, target.model].filter(Boolean).join(':') : '';
+    if (!value || labels.has(value)) continue;
+    labels.set(value, String(labelForTarget(target) || target.model || value));
+  }
+  return [...labels].map(([value, label]) => ({value, label}))
+    .sort((a, b) => a.label.localeCompare(b.label, undefined, {numeric:true, sensitivity:'base'})
+      || a.value.localeCompare(b.value, undefined, {numeric:true, sensitivity:'base'}));
+}
+
 export function librarySortAndFilter(files, options={}) {
   const query=String(options.query || '').toLocaleLowerCase().trim();
   const printer=String(options.printer || '');
