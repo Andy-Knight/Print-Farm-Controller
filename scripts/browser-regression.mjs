@@ -1006,6 +1006,11 @@ async function libraryAvailabilityBadgeSmoke(page,url) {
   await page.setViewportSize({width:1365,height:900});
   await page.goto(url+'/library',{waitUntil:'load'});
   await preactReady(page);
+  // The initial /api/library response is asynchronous. Wait until the
+  // controller has published it before injecting synthetic badge cases,
+  // otherwise that response can overwrite the fixture during CI.
+  await page.waitForFunction(()=>window.__PFC_PREACT_LIBRARY__===true
+    && window.__PFC_LIBRARY_UI_STATE__?.summary?.includes('stored on this controller'));
   const endpoint=await page.evaluate(async()=>{
     const result=await fetch('/api/library/readiness');
     return {status:result.status,data:await result.json()};
