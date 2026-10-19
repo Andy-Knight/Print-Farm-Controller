@@ -807,6 +807,7 @@ async function librarySelectionSmoke(page,url,{mutateFixture = true} = {}) {
     const headTracks=tracks(dimensions.headerColumns);
     const rowTracks=tracks(dimensions.columns);
     assert.equal(headTracks.length,rowTracks.length,'heading and body must have identical column count');
+    console.log('LIBRARY TABLE GRID DEBUG',JSON.stringify({theme,dimensions,headTracks,rowTracks}));
     assert.ok(headTracks.every((width,i)=>Math.abs(width-rowTracks[i])<=0.25),
       'heading and row columns must align within subpixel rendering tolerance');
     assert.equal(dimensions.headingTextTransform,'uppercase','heading follows canonical uppercase convention');
