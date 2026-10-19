@@ -95,7 +95,7 @@ test('Print Library API and both UI renderers expose a clearly-labelled per-prin
   assert.match(app,/costEstimate/);
   assert.match(app,/data-library-cost/);
   assert.match(app,/cost,\n    batchCost,/);
-  assert.match(preact,/<LibraryCost cost=\{file\.cost\} \/>/);
+  assert.match(preact,/<LibraryCost cost=\{file\.cost\} batchCost=\{file\.batchCost\} batchQuantity=\{file\.batchQuantity\} \/>/);
   assert.match(preact,/Estimated material cost \/ print/);
   assert.match(css,/#libraryDialog \.library-print-cost/);
   assert.match(css,/var\(--ds-surface-muted\)/);
