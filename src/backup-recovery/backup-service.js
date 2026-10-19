@@ -4,6 +4,7 @@ import path from 'node:path';
 import { resolveControllerRuntimePaths } from '../runtime-paths.js';
 import { loadBackupSettings } from './backup-settings-store.js';
 import { hashArchiveSource, writeZipArchive } from './backup-archive.js';
+import { normalizePricingSettings } from '../library-pricing.js';
 import {
   BACKUP_EXTENSION,
   backupFileName,
@@ -94,6 +95,7 @@ export async function collectLogicalBackupSnapshot({
   const printerGroups = await readJsonFile(path.join(resolvedDataDir, 'printer-groups.json'), { version:1, groups:[] });
   const filaments = await readJsonFile(path.join(resolvedDataDir, 'filaments.json'), { version:1, filaments:[] });
   const reportingHistory = await readJsonFile(path.join(resolvedDataDir, 'reporting-history.json'), { version:1, records:[] });
+  const libraryPricing = normalizePricingSettings(await readJsonFile(path.join(resolvedDataDir, 'library-pricing.json'), { profitPercent:null, profitMethod:'markup' }));
   const alerts = await readJsonFile(path.join(resolvedDataDir, 'alerts.json'), { version:1, rules:[], destinations:[], history:[] });
   const library = await collectLibraryEntries(resolvedDataDir);
 
@@ -115,6 +117,7 @@ export async function collectLogicalBackupSnapshot({
     jsonEntry('state/printer-groups.json', printerGroups),
     jsonEntry('state/filaments.json', filaments),
     jsonEntry('state/reporting-history.json', reportingHistory),
+    jsonEntry('state/library-pricing.json', libraryPricing),
     jsonEntry('state/alerts.json', alerts),
     ...library.entries
   ];

@@ -32,6 +32,8 @@ test('logical backup creates a verified portable pfcbackup with known persistent
       version:1,
       filaments:[{ id:'11111111-1111-4111-8111-111111111111', material:'PLA', materialKey:'PLA', costPerKg:18.95, currency:'GBP' }]
     }));
+    await fs.writeFile(path.join(dataDir,'library-pricing.json'),
+      JSON.stringify({profitPercent:35,profitMethod:'markup'}));
     await fs.writeFile(path.join(dataDir, 'alerts.json'), JSON.stringify({
       version:1,
       destinations:[{ id:'dest-1', name:'Mobile', provider:'ntfy', enabled:true, config:{ server:'https://ntfy.sh', topic:'pfc-test', token:'secret' } }],
@@ -73,7 +75,7 @@ test('logical backup creates a verified portable pfcbackup with known persistent
     const names = new Set(archive.entries.map((entry) => entry.name));
     for (const expected of [
       'manifest.json','checksums.json','state/printers.json','state/print-jobs.json',
-      'state/file-material-metadata.json','state/emulator-settings.json','state/backup-settings.json','state/maintenance.json','state/printer-groups.json','state/filaments.json','state/alerts.json',
+      'state/file-material-metadata.json','state/emulator-settings.json','state/backup-settings.json','state/maintenance.json','state/printer-groups.json','state/filaments.json','state/library-pricing.json','state/alerts.json',
       'state/license.json',`print-library/${libraryId}/metadata.json`,
       `print-library/${libraryId}/part.gcode`,`print-library/${libraryId}/preview.png`
     ]) assert.ok(names.has(expected), expected);
@@ -86,6 +88,8 @@ test('logical backup creates a verified portable pfcbackup with known persistent
     assert.deepEqual(printerGroups.groups[0].printerIds, ['p1']);
     const filaments = JSON.parse((await archive.read('state/filaments.json')).toString('utf8'));
     assert.equal(filaments.filaments[0].costPerKg, 18.95);
+    const libraryPricing=JSON.parse((await archive.read('state/library-pricing.json')).toString('utf8'));
+    assert.deepEqual(libraryPricing,{profitPercent:35,profitMethod:'markup'});
     const alerts = JSON.parse((await archive.read('state/alerts.json')).toString('utf8'));
     assert.equal(alerts.rules[0].scope.groupId, 'group-1');
     assert.equal(alerts.destinations[0].config.token, 'secret');

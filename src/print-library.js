@@ -7,6 +7,7 @@ import { validateUploadFilename } from './upload-staging.js';
 import { readFilePrintRequirements } from './file-print-requirements.js';
 import { extractFilePreview } from './file-preview.js';
 import { KeyedSerialExecutor } from './concurrency.js';
+import { normalizeSundryCosts, normalizeSaleLots } from './library-pricing.js';
 
 const DATA_ROOT = path.dirname(printerStorePath);
 const ROOT = path.join(DATA_ROOT, 'print-library');
@@ -208,6 +209,8 @@ function normalizeMetadata(metadata) {
     category:normalizeLibraryCategory(metadata.category),
     tags:normalizeLibraryTags(metadata.tags),
     favourite:normalizeLibraryFavourite(metadata.favourite),
+    sundryCosts:normalizeSundryCosts(metadata.sundryCosts),
+    lotsPerPrint:normalizeSaleLots(metadata.lotsPerPrint),
     printerTarget: normalizePrinterTarget(metadata.printerTarget),
     filamentAssignments: normalizeFilamentAssignments(metadata.filamentAssignments),
     preview: normalizePreview(metadata.preview),
@@ -322,6 +325,8 @@ export async function addLibraryFile(sourcePath, rawFileName, { description = ''
       category:'',
       tags:[],
       favourite:false,
+      sundryCosts:[],
+      lotsPerPrint:1,
       printerTarget: cleanPrinterTarget,
       filamentAssignments: {},
       preview,
@@ -366,7 +371,7 @@ export async function getLibraryPreview(id) {
   }
 }
 
-export async function updateLibraryFileMetadata(id, { description, printerTarget, filamentAssignments, category, tags, favourite } = {}) {
+export async function updateLibraryFileMetadata(id, { description, printerTarget, filamentAssignments, category, tags, favourite, sundryCosts, lotsPerPrint } = {}) {
   return libraryMutations.run('catalog', async () => {
   await ensureRoot();
   const normalizedId = safeId(id);
@@ -380,6 +385,11 @@ export async function updateLibraryFileMetadata(id, { description, printerTarget
   if (category !== undefined) metadata.category = normalizeLibraryCategory(category);
   if (tags !== undefined) metadata.tags = normalizeLibraryTags(tags);
   if (favourite !== undefined) metadata.favourite = normalizeLibraryFavourite(favourite);
+  if (sundryCosts !== undefined) metadata.sundryCosts = normalizeSundryCosts(sundryCosts);
+  // Files saved by early feature builds may have a manual sundry currency.
+  // It is no longer authoritative: pricing inherits the filament estimate.
+  delete metadata.sundryCurrency;
+  if (lotsPerPrint !== undefined) metadata.lotsPerPrint = normalizeSaleLots(lotsPerPrint);
   metadata.updatedAt = new Date().toISOString();
   await writeMetadata(directory, metadata);
   return normalizeMetadata(metadata);

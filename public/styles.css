@@ -2888,10 +2888,30 @@ button.library-file-preview { cursor:zoom-in; }
 .reporting-shell { padding:22px; max-height:calc(100vh - 32px); overflow:auto; }
 .reporting-head { margin-bottom:8px; }
 .reporting-tabs.maintenance-view-selector {
-  grid-template-columns:repeat(2,minmax(0,1fr));
+  grid-template-columns:repeat(3,minmax(0,1fr));
   margin-bottom:12px;
 }
 .reporting-tab-panel[hidden] { display:none !important; }
+
+/* Global Print Library selling-price configuration lives with reporting and
+   filament costs. Keep it in a normal tab, not a separate modal window. */
+.reporting-pricing-form {padding:0;margin:0;max-width:840px;}
+.reporting-pricing-fields {min-width:0;margin:0;padding:0;border:0;}
+.reporting-pricing-grid {
+  display:grid;grid-template-columns:repeat(2,minmax(220px,1fr));gap:12px 18px;
+}
+.reporting-pricing-grid > label {min-width:0;margin:7px 0;color:var(--ds-text-muted);}
+.reporting-pricing-grid input,.reporting-pricing-grid select {
+  display:block;width:100%;height:42px;min-height:42px;margin-top:6px;
+}
+.reporting-pricing-help {margin:14px 0;color:var(--ds-text-muted);line-height:1.5;}
+.reporting-pricing-actions {justify-content:flex-start;margin:14px 0 12px;}
+#reportingPricingStatus {margin-top:12px;min-height:20px;}
+#reportingPricingError {margin-top:10px;}
+@media(max-width:720px) {
+  .reporting-pricing-grid {grid-template-columns:minmax(0,1fr);}
+}
+
 .reporting-toolbar {
   display:grid;
   grid-template-columns:repeat(3,minmax(150px,1fr)) auto;

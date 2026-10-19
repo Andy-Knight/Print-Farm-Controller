@@ -383,7 +383,7 @@ async function workspaceShellSmoke(browser,url) {
     const crumb=page.locator('#workspaceTrailRoot [data-preact-workspace-trail]');
     await crumb.waitFor({state:'visible'});
     await page.waitForFunction(()=>document.querySelector('#workspaceTrailRoot [aria-current="page"]')
-      ?.textContent==='Reports & analytics');
+      ?.textContent==='Reports & costing');
     const reportContext=await page.evaluate(()=>({
       crumb:document.querySelector('#workspaceTrailRoot')?.innerText,
       title:document.querySelector('#topbarContextTitle')?.textContent,
@@ -391,9 +391,9 @@ async function workspaceShellSmoke(browser,url) {
       parent:document.querySelector('#workspaceTrailRoot .workspace-trail-link')?.textContent
     }));
     assert.equal(reportContext.parent,'Workspace');
-    assert.equal(reportContext.title,'Reports & analytics');
-    assert.equal(reportContext.subtitle,'Review farm performance and filament usage');
-    assert.ok(reportContext.crumb.includes('Workspace')&&reportContext.crumb.includes('Reports & analytics'));
+    assert.equal(reportContext.title,'Reports & costing');
+    assert.equal(reportContext.subtitle,'Review farm performance, material costs and selling prices');
+    assert.ok(reportContext.crumb.includes('Workspace')&&reportContext.crumb.includes('Reports & costing'));
     assert.ok(!reportContext.crumb.includes(reportContext.subtitle),
       'subtitle must not overwrite the breadcrumb parent on route changes');
     assert.equal(await page.locator('#reportsBtn').getAttribute('aria-current'),'page',
@@ -955,6 +955,187 @@ async function librarySelectionSmoke(page,url,{mutateFixture = true} = {}) {
   console.log('Chromium: Print Library table, selection, toolbar, queue/edit/delete and mobile PASS');
 }
 
+// Edit/Add modal: the label sits above its input, only the central form
+// body scrolls, and header and save/cancel remain visible on small screens.
+async function verifyLibraryEditorLayout(page,editor) {
+  const prefix=editor==='add'?'libraryAdd':'libraryMetadata';
+  assert.equal(await page.locator('#'+prefix+'SundryCurrency').count(),0,
+    editor+': no manual sundry currency selection in this dialog');
+  const metrics=await page.evaluate(prefix=>{
+    const modal=document.getElementById(prefix+'Dialog');
+    const header=modal.querySelector('.dialog-head');
+    const body=modal.querySelector('.library-editor-body');
+    const footer=modal.querySelector('.library-editor-footer');
+    const lots=document.getElementById(prefix+'LotsPerPrint');
+    const sundrySection=modal.querySelector('.library-pricing-fields');
+    const sectionHeading=sundrySection.querySelector('.library-pricing-head h3');
+    const config=sundrySection.querySelector('.library-pricing-config');
+    const rect=node=>{
+      const r=node.getBoundingClientRect();
+      return {top:r.top,bottom:r.bottom,left:r.left,right:r.right};
+    };
+    const fields=[lots].map(control=>{
+      const label=control.closest('label');
+      const range=document.createRange();
+      range.selectNodeContents(label.firstChild);
+      return {
+        text:rect(range),
+        input:rect(control),
+        label:rect(label),
+        display:getComputedStyle(label).display,
+        direction:getComputedStyle(label).flexDirection
+      };
+    });
+    const start={head:rect(header),foot:rect(footer),body:rect(body)};
+    const maxScroll=body.scrollHeight-body.clientHeight;
+    body.scrollTop=maxScroll;
+    const end={head:rect(header),foot:rect(footer),scrollTop:body.scrollTop};
+    body.scrollTop=0;
+    return {fields,start,end,maxScroll,bodyOverflow:getComputedStyle(body).overflowY,
+      footerButtons:[...footer.querySelectorAll('button')].map(btn=>rect(btn)),
+      dialogRect:rect(modal),
+      pricingSection:rect(sundrySection),pricingHeading:rect(sectionHeading),
+      pricingHeadingTag:sectionHeading.tagName,
+      pricingHeadingText:sectionHeading.textContent.trim(),
+      pricingConfigStyle:getComputedStyle(config).display,
+      pricingColumns:getComputedStyle(config).gridTemplateColumns,
+      pricingConfigLabels:[...config.querySelectorAll(':scope > label')].map(label=>rect(label)),
+      pricingBackground:getComputedStyle(sundrySection).backgroundColor,
+      pricingPanelBorder:getComputedStyle(sundrySection).borderTopWidth};
+  },prefix);
+  for (const [index,field] of metrics.fields.entries()) {
+    const label='Sale lots per print';
+    assert.equal(field.display,'flex',editor+': '+label+' stacks in a flex label');
+    assert.equal(field.direction,'column',editor+': '+label+' uses a column');
+    assert.ok(field.input.top>=field.text.bottom+3,
+      editor+': '+label+' input sits underneath its heading: '+JSON.stringify(field));
+    assert.ok(Math.abs(field.input.left-field.label.left)<=2,
+      editor+': '+label+' input has same left alignment as its label');
+  }
+  assert.equal(metrics.pricingHeadingTag,'H3',editor+': pricing panel uses a semantic section heading');
+  assert.equal(metrics.pricingHeadingText,'Sundry costs and sale lots');
+  assert.ok(metrics.pricingHeading.top>=metrics.pricingSection.top+8,
+    editor+': section title must be inside the panel, not clipped into the top border');
+  assert.ok(metrics.pricingHeading.left>=metrics.pricingSection.left+8
+    && metrics.pricingHeading.right<=metrics.pricingSection.right-8,
+    editor+': section title should remain within the panel horizontally');
+  assert.ok(metrics.pricingHeading.bottom<metrics.pricingConfigLabels[0].top,
+    editor+': section title must not overlap its controls');
+  assert.equal(metrics.pricingConfigStyle,'grid',editor+': sale lots retain standard layout');
+  assert.equal(metrics.pricingConfigLabels.length,1,
+    editor+': there must be no file-specific sundry currency selector');
+  assert.ok(metrics.pricingBackground!=='rgba(0, 0, 0, 0)' && metrics.pricingPanelBorder!=='0px',
+    editor+': standard panel has a surface and border');
+  assert.equal(metrics.bodyOverflow,'auto',editor+': central body should scroll');
+  assert.ok(metrics.maxScroll>20,editor+': fixture must have overflowing fields');
+  assert.ok(metrics.end.scrollTop>20,editor+': only form fields should scroll');
+  assert.ok(Math.abs(metrics.start.head.top-metrics.end.head.top)<1
+    && Math.abs(metrics.start.foot.bottom-metrics.end.foot.bottom)<1,
+    editor+': header and action footer must not move on body scroll');
+  assert.ok(metrics.footerButtons.every(b=>b.top>=metrics.dialogRect.top-1
+    && b.bottom<=metrics.dialogRect.bottom+1),
+    editor+': action buttons must be visible within the dialog viewport');
+}
+
+// The add dialog must capture product metadata on first upload, while the edit
+// dialog can modify sundries and sales-lot allocations for existing files.
+async function libraryPricingSmoke(page,url,{mutateFixture=true}={}) {
+  if(!mutateFixture) return;
+  await page.setViewportSize({width:1365,height:900});
+  await page.goto(url+'/reports',{waitUntil:'load'});
+  await preactReady(page);
+  await page.locator('[data-reporting-tab="pricing"]').click();
+  await page.waitForFunction(()=>{
+    const panel=document.querySelector('#reportingPanelPricing');
+    return panel?.hidden===false && !document.querySelector('#reportingPricingFields')?.disabled;
+  });
+  assert.equal(await page.locator('#reportingPanelAnalytics').evaluate(node=>node.hidden),true);
+  assert.equal(await page.locator('#reportingPanelFilament').evaluate(node=>node.hidden),true);
+  await page.locator('#reportingProfitPercent').fill('30');
+  await page.locator('#reportingProfitMethod').selectOption('markup');
+  await page.locator('#reportingPricingSaveBtn').click();
+  await page.waitForFunction(()=>document.querySelector('#reportingPricingStatus')?.textContent.includes('saved'));
+  const settings=await page.evaluate(async()=> (await (await fetch('/api/library/pricing')).json()).settings);
+  assert.equal(settings.profitPercent,30);
+  assert.equal(settings.profitMethod,'markup');
+  await page.locator('[data-reporting-tab="filament"]').click();
+  await page.locator('[data-reporting-tab="pricing"]').click();
+  await page.waitForFunction(()=>
+    document.querySelector('#reportingProfitPercent')?.value==='30' &&
+    !document.querySelector('#reportingPricingFields')?.disabled);
+  assert.equal(await page.locator('#reportingProfitMethod').inputValue(),'markup',
+    'pricing tab must load persisted global settings after switching tabs');
+  await page.goto(url+'/library',{waitUntil:'load'});
+  await preactReady(page);
+  assert.equal(await page.locator('#libraryPricingSettingsBtn').count(),0,
+    'global price settings no longer belong in the Print Library toolbar');
+  await page.setViewportSize({width:1024,height:600});
+  await page.locator('#libraryUploadBtn').click();
+  await verifyLibraryEditorLayout(page,'add');
+  const name='pricing-sundry-browser-fixture.gcode';
+  const sliced='; filament_type = ASA\n; filament used [g] = 12\nT0\nG1 X20\n';
+  await page.locator('#libraryFileInput').setInputFiles({
+    name,mimeType:'application/octet-stream',buffer:Buffer.from(sliced)
+  });
+  await page.locator('#libraryAddCategory').fill('Production pricing');
+  await page.locator('#libraryAddTags').fill('Hardware, Bulk lot');
+  await page.locator('#libraryAddLotsPerPrint').fill('4');
+  await page.locator('[data-library-add-sundry="add"]').click();
+  await page.locator('#libraryAddSundries [data-sundry-label]').fill('Brass insert');
+  await page.locator('#libraryAddSundries [data-sundry-qty]').fill('4');
+  await page.locator('#libraryAddSundries [data-sundry-cost]').fill('0.25');
+  await page.locator('#libraryAddForm button[type="submit"]').click();
+  await page.waitForFunction(()=>document.querySelector('#libraryAddDialog')?.open===false);
+
+  const list=async()=>page.evaluate(async()=> (await (await fetch('/api/library')).json()).files);
+  const files=await list();
+  const added=files.find(file=>file.fileName===name);
+  assert.ok(added,'file created using add-dialog metadata inputs');
+  assert.equal(added.category,'Production pricing');
+  assert.deepEqual(added.tags,['Hardware','Bulk lot']);
+  assert.deepEqual(added.sundryCosts,[{label:'Brass insert',quantity:4,unitCost:0.25}]);
+  assert.equal(added.lotsPerPrint,4);
+  assert.equal(added.saleEstimate.sundriesCost,1);
+  assert.equal(added.saleEstimate.profitPercent,30);
+  assert.equal(await page.locator('[data-library-file="'+added.id+'"] .library-sale-price').count(),1);
+
+  await page.locator('[data-library-file="'+added.id+'"] [data-library-select]').click();
+  await page.locator('#libraryEditSelectedBtn').click();
+  await page.waitForFunction(()=>document.querySelector('#libraryMetadataDialog')?.open===true);
+  await verifyLibraryEditorLayout(page,'metadata');
+  const derivedCurrency=await page.locator('#libraryMetadataCostCurrency').innerText();
+  const currentCost=added.costEstimate?.complete && added.costEstimate.currency
+    ? added.costEstimate.currency : 'Not available until filament costing is complete';
+  assert.equal(derivedCurrency,currentCost);
+  assert.equal(await page.locator('#libraryMetadataLotsPerPrint').inputValue(),'4');
+  assert.equal(await page.locator('#libraryMetadataSundries .library-sundry-row').count(),1);
+  await page.locator('#libraryMetadataLotsPerPrint').fill('2');
+  await page.locator('[data-library-add-sundry="metadata"]').click();
+  await page.locator('#libraryMetadataSundries .library-sundry-row').nth(1).locator('[data-sundry-label]').fill('Mailer');
+  await page.locator('#libraryMetadataSundries .library-sundry-row').nth(1).locator('[data-sundry-qty]').fill('1');
+  await page.locator('#libraryMetadataSundries .library-sundry-row').nth(1).locator('[data-sundry-cost]').fill('0.50');
+  await page.locator('#libraryMetadataForm button[type="submit"]').click();
+  await page.waitForFunction(()=>document.querySelector('#libraryMetadataDialog')?.open===false);
+  const edited=(await list()).find(file=>file.id===added.id);
+  assert.equal(edited.lotsPerPrint,2);
+  assert.equal(edited.sundryCosts.length,2);
+  assert.equal(edited.saleEstimate.sundriesCost,1.5);
+
+  // The fixture is isolated. Remove it and restore default global profit.
+  await page.locator('#libraryDeleteSelectedBtn').waitFor({state:'visible'});
+  page.once('dialog',dialog=>dialog.accept());
+  await page.locator('#libraryDeleteSelectedBtn').click();
+  await page.waitForFunction(id=>!document.querySelector('[data-library-file="'+id+'"]'),added.id);
+  await page.evaluate(async()=> {
+    const response=await fetch('/api/library/pricing',{method:'PUT',
+      headers:{'content-type':'application/json'},
+      body:JSON.stringify({profitPercent:null,profitMethod:'markup'})});
+    if (!response.ok) throw Error('Unable to reset test pricing settings');
+  });
+  await page.setViewportSize({width:1365,height:900});
+  console.log('Chromium: Print Library global profit, add/edit sundries and sale-lot pricing PASS');
+}
+
 // Only the Print Library data rows should scroll. Toolbar, search and the
 // standard desktop table headings remain visible on long lists in either
 // theme, and mobile keeps its action bar above a scrollable card stack.
@@ -1179,6 +1360,9 @@ async function routeSmoke(page,url) {
   await reportsLoaded(page,'refreshed report');
   await page.locator('[data-reporting-tab="filament"]').click();
   await page.waitForFunction(()=>document.querySelector('#reportingPanelFilament')?.hidden===false);
+  await page.locator('[data-reporting-tab="pricing"]').click();
+  await page.waitForFunction(()=>document.querySelector('#reportingPanelPricing')?.hidden===false);
+  await page.waitForFunction(()=>document.querySelector('#reportingPricingFields')?.disabled===false);
   await page.locator('[data-reporting-tab="analytics"]').click();
   await page.waitForFunction(()=>document.querySelector('#reportingPanelAnalytics')?.hidden===false);
 
@@ -2244,6 +2428,7 @@ async function main() {
     await sharedTabNavigationSmoke(page,url);
     await libraryCostSmoke(page,url);
     await librarySelectionSmoke(page,url,{ mutateFixture:!externalUrl });
+    await libraryPricingSmoke(page,url,{ mutateFixture:!externalUrl });
     await libraryScrollingSmoke(page,url);
     await libraryAvailabilityBadgeSmoke(page,url);
     await routeSmoke(page,url);

@@ -4,6 +4,19 @@ This file contains the version-by-version release history for Print Farm Control
 
 Historical entries describe the behaviour of the controller at the time of that release and may be superseded by later versions. For current installation, configuration and supported-hardware guidance, see [README.md](README.md).
 
+## v0.58.0
+
+- Extended **Add file to Print Library** to capture category and tags at upload, in addition to printer target and notes. Existing Print Library files can still be updated using Edit details.
+- Added **sundry costs** for each sliced print: multiple labelled line items with quantity and unit price (e.g. hardware, threaded inserts and packaging), editable when adding a file or later.
+- Added **Sale lots per print** (1–999) to allocate the selling price for a single sliced print across individually saleable products.
+- Added **global profit percentage and method**—markup on production cost or gross profit margin—on a new **Pricing settings** tab beside Analytics and Filament cost catalogue. Renamed the overall page to **Reports & costing**, updating sidebar, headers, breadcrumbs and accessibility labels.
+- Calculates suggested total-print and per-lot selling prices from complete current filament costs plus all sundries. Each lot is rounded using currency-specific minor units and the quoted batch total is the sum of its lots. Without filament cost coverage or configured global profit, a price is withheld.
+- **Sundry currency is automatically inherited from the completed filament cost**, rather than configured separately per library file. Previously saved manual currency values are ignored and removed on subsequent metadata edits; no foreign-exchange conversion is assumed.
+- Refined Add/Edit dialog layout to follow the shared Preact design system: readable section headings, standard inputs and panel styling, with fixed header and Save/Cancel footer and independently scrolling body.
+- Global profit settings are stored in the controller data directory and included in backup and restore, with safe defaults for older backups. Existing print history/queue cost snapshots and printer compatibility/dispatch logic are unchanged.
+- Added unit tests, API/data persistence and backup tests, plus Chromium regression coverage for pricing, currencies, lots, report tabs and dialog layout.
+- Increased version to **0.58.0**.
+
 ## v0.57.2
 
 - Made Print Library **readiness/status badges clickable** to filter the visible files by Ready now, Printer busy, Printer offline, Needs attention or Incompatible. Shows the matching selection in Advanced Filters, combines it with other active search/facets, resets pagination, and supports accessible keyboard activation in both Preact and fallback UI while keeping status colours and diagnostic tooltips.

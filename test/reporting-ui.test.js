@@ -14,9 +14,19 @@ const restoreService = fs.readFileSync(new URL('../src/backup-recovery/restore-s
 
 test('reporting UI is available from the persistent controller navigation with graphical farm analytics', () => {
   assert.match(index, /id="reportsBtn"[^>]*class="sidebar-item"/);
+  assert.match(index, /<span>Reports &amp; costing<\/span>/);
+  assert.match(index, /<h2 class="ui-page-title">Reports &amp; costing<\/h2>/);
+  assert.match(index, /FARM REPORTING/);
+  assert.match(index, /aria-label="Reports and costing view"/);
+  assert.match(app, /title:'Reports & costing', subtitle:'Review farm performance, material costs and selling prices'/);
+  assert.doesNotMatch(index, /Reports &amp; analytics/);
+
   assert.match(index, /id="reportingDialog"/);
   assert.match(index, /id="reportingTabAnalytics"/);
   assert.match(index, /id="reportingTabFilament"/);
+  assert.match(index, /id="reportingTabPricing"/);
+  assert.match(index, /id="reportingPanelPricing"/);
+  assert.match(index, /data-reporting-panel="pricing"/);
   assert.match(index, /data-reporting-panel="analytics"/);
   assert.match(index, /data-reporting-panel="filament"/);
   assert.match(index, /class="reporting-tabs maintenance-view-selector"/);
@@ -31,6 +41,8 @@ test('reporting UI is available from the persistent controller navigation with g
   assert.match(reportingUi, /reportsBtn\?\.addEventListener/);
   assert.match(reportingUi, /function activateReportingTab/);
   assert.match(reportingUi, /activateReportingTab\('analytics'\)/);
+  assert.match(reportingUi, /\['analytics','filament','pricing'\]/);
+  assert.match(reportingUi, /loadReportingPricingSettings\(\)/);
   assert.match(reportingUi, /\['ArrowLeft','ArrowRight','Home','End'\]/);
   assert.match(reportingUi, /function lineChartSvg/);
   assert.match(reportingUi, /function renderProblemPrinters/);
@@ -39,6 +51,12 @@ test('reporting UI is available from the persistent controller navigation with g
   assert.match(styles, /\.reporting-printer-row\.attention/);
   assert.match(styles, /\.reporting-tabs\.maintenance-view-selector/);
   assert.match(styles, /\.reporting-tab-panel\[hidden\]/);
+  assert.match(styles, /grid-template-columns:repeat\(3,minmax\(0,1fr\)\)/);
+  const preact = fs.readFileSync(new URL('../ui/reporting.jsx', import.meta.url), 'utf8');
+  assert.match(preact, /key:'pricing'/);
+  assert.match(preact, /panel:'reportingPanelPricing'/);
+  assert.match(preact, /\['analytics','filament','pricing'\]/);
+  assert.doesNotMatch(index, /id="libraryPricingSettingsDialog"/);
   new vm.Script(reportingUi);
 });
 
@@ -78,7 +96,7 @@ test('filament cost catalogue and Print Library mappings are exposed in the UI',
   assert.match(app, /item\.product \|\| null/);
   assert.match(app, /collectLibraryFilamentAssignments/);
   assert.match(app, /filamentAssignments:collectLibraryFilamentAssignments\(\)/);
-  assert.match(app, /async function updateLibraryMetadata\(fileId, \{ description = '', printerTarget = null, filamentAssignments = undefined, category = undefined, tags = undefined, favourite = undefined \}/);
+  assert.match(app, /async function updateLibraryMetadata\(fileId, \{[^}]*filamentAssignments = undefined[^}]*sundryCosts = undefined[^}]*\}/);
   assert.match(app, /\.\.\.\(filamentAssignments !== undefined \? \{ filamentAssignments \} : \{\}\)/);
   assert.match(styles, /\.library-filament-assignment/);
 });

@@ -32,6 +32,7 @@ import { FileDistributionService } from './file-distribution.js';
 import { stageUploadRequest } from './upload-staging.js';
 import { addLibraryFile, getLibraryPreview, listLibraryFiles, removeLibraryFile, updateLibraryFileMetadata } from './print-library.js';
 import { estimateLibraryFileCosts } from './library-cost-preview.js';
+import { getLibraryPricingSettings, saveLibraryPricingSettings, estimateLibrarySalePrice } from './library-pricing.js';
 import { attachLibraryReadiness } from './library-readiness.js';
 import { createFilament, listFilaments, removeFilament, updateFilament } from './filament-catalogue.js';
 import { ReportingService } from './reporting-service.js';
@@ -1548,6 +1549,16 @@ async function apiRoute(req, res, url) {
     return json(res, removed ? 200 : 404, removed ? { ok:true } : { error:'Filament not found' });
   }
 
+  if (url.pathname === '/api/library/pricing' && req.method === 'GET') {
+    return json(res,200,{settings:await getLibraryPricingSettings()});
+  }
+  if (url.pathname === '/api/library/pricing' && req.method === 'PUT') {
+    const body=await readJson(req);
+    const settings=await controllerMutations.run('library-pricing',
+      ()=>saveLibraryPricingSettings(body));
+    return json(res,200,{settings});
+  }
+
   // Lightweight status-only refresh for the Library while fleet SSE changes;
   // avoid repeatedly computing the full filament catalogue and queue history.
   if (req.method === 'GET' && url.pathname === '/api/library/readiness') {
@@ -1587,7 +1598,11 @@ async function apiRoute(req, res, url) {
       };
     });
     const estimates = await estimateLibraryFileCosts(filesWithUsage);
-    const files = attachLibraryReadiness(estimates,decoratedFleet(),{
+    const pricingSettings=await getLibraryPricingSettings();
+    const priced=estimates.map(file=>({
+      ...file,saleEstimate:estimateLibrarySalePrice(file,pricingSettings)
+    }));
+    const files = attachLibraryReadiness(priced,decoratedFleet(),{
       resolveAdapter:getPrinterAdapter,
       getState:(id)=>fleetState.getPrinterState(id)
     });
@@ -1629,7 +1644,9 @@ async function apiRoute(req, res, url) {
       filamentAssignments:body.filamentAssignments,
       category:body.category,
       tags:body.tags,
-      favourite:body.favourite
+      favourite:body.favourite,
+      sundryCosts:body.sundryCosts,
+      lotsPerPrint:body.lotsPerPrint
     }));
     return json(res, 200, { file });
   }

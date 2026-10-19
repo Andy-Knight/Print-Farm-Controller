@@ -231,6 +231,10 @@ const libraryAddForm = document.querySelector('#libraryAddForm');
 const libraryFileInput = document.querySelector('#libraryFileInput');
 const libraryPrinterTargetInput = document.querySelector('#libraryPrinterTargetInput');
 const libraryDescriptionInput = document.querySelector('#libraryDescriptionInput');
+const libraryAddCategory = document.querySelector('#libraryAddCategory');
+const libraryAddTags = document.querySelector('#libraryAddTags');
+const libraryAddSundries = document.querySelector('#libraryAddSundries');
+const libraryAddLotsPerPrint = document.querySelector('#libraryAddLotsPerPrint');
 const libraryAddStatus = document.querySelector('#libraryAddStatus');
 const libraryAddError = document.querySelector('#libraryAddError');
 const libraryMetadataDialog = document.querySelector('#libraryMetadataDialog');
@@ -240,6 +244,9 @@ const libraryMetadataPrinterTarget = document.querySelector('#libraryMetadataPri
 const libraryMetadataDescription = document.querySelector('#libraryMetadataDescription');
 const libraryMetadataTags = document.querySelector('#libraryMetadataTags');
 const libraryMetadataCategory = document.querySelector('#libraryMetadataCategory');
+const libraryMetadataSundries = document.querySelector('#libraryMetadataSundries');
+const libraryMetadataCostCurrency = document.querySelector('#libraryMetadataCostCurrency');
+const libraryMetadataLotsPerPrint = document.querySelector('#libraryMetadataLotsPerPrint');
 const libraryMetadataFavourite = document.querySelector('#libraryMetadataFavourite');
 const libraryFilamentAssignments = document.querySelector('#libraryFilamentAssignments');
 const libraryMetadataError = document.querySelector('#libraryMetadataError');
@@ -283,7 +290,7 @@ const controllerRoutes = {
   '/library': { button:'libraryBtn', dialog:'libraryDialog', title:'Print library', subtitle:'Manage files available to your print farm' },
   '/maintenance': { button:'maintenanceBtn', dialog:'maintenanceDialog', title:'Maintenance', subtitle:'Track maintenance tasks across the farm' },
   '/groups': { button:'printerGroupsBtn', dialog:'printerGroupsDialog', title:'Printer groups', subtitle:'Organise printers for scheduling and maintenance' },
-  '/reports': { button:'reportsBtn', dialog:'reportingDialog', title:'Reports & analytics', subtitle:'Review farm performance and filament usage' },
+  '/reports': { button:'reportsBtn', dialog:'reportingDialog', title:'Reports & costing', subtitle:'Review farm performance, material costs and selling prices' },
   '/alerts': { button:'alertsSettingsBtn', dialog:'alertsDialog', title:'Alerts & notifications', subtitle:'Review alerts and notification settings' },
   '/backup': { button:'backupRecoveryBtn', dialog:'backupRecoveryDialog', title:'Backup & recovery', subtitle:'Protect and restore controller data' },
   '/diagnostics': { button:'diagnosticsBtn', dialog:'diagnosticsDialog', title:'Diagnostics', subtitle:'Review controller health and diagnostic logs' },
@@ -3640,6 +3647,69 @@ function libraryCostView(file) {
   };
 }
 
+function librarySaleView(file) {
+  const sale=file?.saleEstimate || {};
+  const lots=Number(sale.lotsPerPrint || file?.lotsPerPrint || 1);
+  const sundries=Number(sale.sundriesCost || 0);
+  const money=(amount)=>{
+    if (!Number.isFinite(amount) || !sale.currency) return 'Unavailable';
+    try {
+      return new Intl.NumberFormat('en-GB',{style:'currency',currency:sale.currency}).format(amount);
+    } catch {return sale.currency+' '+amount.toFixed(2);}
+  };
+  const available=sale.complete===true && Number.isFinite(sale.sellingPrice);
+  return {
+    available,
+    price:available ? money(sale.sellingPrice) : 'Unavailable',
+    perLot:available && lots>1 ? money(sale.sellingPricePerLot) : '',
+    detail:available
+      ? `Filament ${money(sale.filamentCost)} + sundries ${money(sundries)} · ${sale.profitPercent}% ${sale.profitMethod==='margin'?'gross margin':'markup'}`
+      : (sale.issue || 'Selling price estimate is not configured'),
+    lots
+  };
+}
+
+function addLibrarySundryRow(root, entry = {}) {
+  if (!root || root.children.length >= 30) return;
+  const row=document.createElement('div');
+  row.className='library-sundry-row';
+  row.innerHTML=`<label>Description<input data-sundry-label maxlength="100" required placeholder="Bolts, inserts, packaging" value="${escapeHtml(entry.label || '')}" /></label>
+    <label>Qty<input data-sundry-qty type="number" min="1" max="10000" step="1" required value="${escapeHtml(String(entry.quantity ?? 1))}" /></label>
+    <label>Unit cost<input data-sundry-cost type="number" min="0" max="1000000" step="0.0001" required value="${escapeHtml(String(entry.unitCost ?? 0))}" /></label>
+    <button type="button" class="secondary" data-remove-sundry aria-label="Remove sundry cost">Remove</button>`;
+  root.append(row);
+}
+function renderLibrarySundries(root, entries = []) {
+  if (!root) return;
+  root.replaceChildren();
+  for (const entry of entries) addLibrarySundryRow(root,entry);
+}
+function collectLibrarySundries(root) {
+  return [...(root?.querySelectorAll('.library-sundry-row') || [])].map(row=>{
+    const label=row.querySelector('[data-sundry-label]')?.value.trim() || '';
+    const quantity=Number(row.querySelector('[data-sundry-qty]')?.value);
+    const unitCostValue=row.querySelector('[data-sundry-cost]')?.value;
+    const unitCost=Number(unitCostValue);
+    if (!label || label.length>100) throw new Error('Sundry costs need a description of at most 100 characters');
+    if (!Number.isInteger(quantity) || quantity<1 || quantity>10000) throw new Error('Sundry quantity must be 1–10000');
+    if (unitCostValue==='' || !Number.isFinite(unitCost) || unitCost<0 || unitCost>1000000) {
+      throw new Error('Sundry unit cost must be between zero and 1000000');
+    }
+    return {label,quantity,unitCost};
+  });
+}
+for (const container of [libraryAddSundries,libraryMetadataSundries]) {
+  container?.addEventListener('click',event=>{
+    const remove=event.target.closest('[data-remove-sundry]');
+    if (remove) remove.closest('.library-sundry-row')?.remove();
+  });
+}
+document.querySelectorAll('[data-library-add-sundry]').forEach(button=>button.addEventListener('click',()=>{
+  const container=button.dataset.libraryAddSundry==='add' ? libraryAddSundries : libraryMetadataSundries;
+  addLibrarySundryRow(container);
+  container?.lastElementChild?.querySelector('[data-sundry-label]')?.focus();
+}));
+
 function libraryBatchQuantity() {
   return Math.max(1,Math.min(999,Math.trunc(Number(libraryEstimateQuantity?.value)||1)));
 }
@@ -3680,6 +3750,7 @@ function libraryFileMarkup(file) {
   const production = libraryProductionInfo(file);
   const batchCost = libraryBatchCostView(file);
   const readiness = libraryReadinessView(file);
+  const sale = librarySaleView(file);
   const usage = file.usage || {};
   const lastPrinted = usage.lastPrintedAt ? `Last printed ${formatLastSeen(usage.lastPrintedAt)}` : 'Not printed yet';
   const count = Number(usage.completedPrints || 0);
@@ -3724,6 +3795,11 @@ function libraryFileMarkup(file) {
           <small class="library-print-cost-detail">${escapeHtml(cost.detail)}</small>
         </div>
       </div>
+      <div class="library-sale-price${sale.available?'':' unavailable'}" title="${escapeHtml(sale.detail)}">
+        <span>Suggested selling price / print</span><strong>${escapeHtml(sale.price)}</strong>
+        <small>${escapeHtml(sale.detail)}</small>
+        ${sale.lots>1 ? `<small>${sale.lots} sale lots · ${escapeHtml(sale.perLot || 'Unavailable')} per lot</small>` : ''}
+      </div>
     </div>
     <div class="library-cell library-history-cell">
       <span class="library-cell-label">History</span>
@@ -3739,6 +3815,7 @@ function libraryFileViewModel(file) {
   const production = libraryProductionInfo(file);
   const batchCost = libraryBatchCostView(file);
   const readiness = libraryReadinessView(file);
+  const sale = librarySaleView(file);
   const usage = file?.usage || {};
   const completedPrints = Number(usage.completedPrints || 0);
   const lastPrinted = usage.lastPrintedAt ? `Last printed ${formatLastSeen(usage.lastPrintedAt)}` : 'Not printed from queue yet';
@@ -3760,6 +3837,7 @@ function libraryFileViewModel(file) {
     category:String(file?.category || ''),
     production,
     readiness,
+    sale,
     tags:Array.isArray(file?.tags) ? file.tags : [],
     favourite:file?.favourite===true,
     selected:file?.id === librarySelectedFileId,
@@ -3957,7 +4035,7 @@ async function refreshLiveLibraryReadiness() {
   }
 }
 
-async function uploadLibraryFile(file, description = '', printerTarget = null) {
+async function uploadLibraryFile(file, description = '', printerTarget = null, metadata = {}) {
   if (!(file instanceof File) || !file.size) throw new Error('Choose a file to add to the Print Library');
   if (file.size > 512 * 1024 * 1024) throw new Error('File exceeds the 512 MB upload limit');
   const notes = String(description || '').trim();
@@ -3970,18 +4048,23 @@ async function uploadLibraryFile(file, description = '', printerTarget = null) {
   const payload = await response.json().catch(() => ({}));
   if (!response.ok) throw new Error(payload.error || `Print Library upload failed (${response.status})`);
   let stored = payload.file;
-  if ((notes || printerTarget) && stored && !stored.duplicate) {
-    const updated = await api(`/api/library/${encodeURIComponent(stored.id)}`, {
-      method:'PATCH',
-      body:JSON.stringify({ description:notes, printerTarget })
-    });
-    stored = updated.file || stored;
+  if (stored && !stored.duplicate) {
+    try {
+      const updated = await api(`/api/library/${encodeURIComponent(stored.id)}`, {
+        method:'PATCH',
+        body:JSON.stringify({ description:notes, printerTarget, ...metadata })
+      });
+      stored = updated.file || stored;
+    } catch (error) {
+      await refreshPrintLibrary();
+      throw new Error('File was uploaded, but its details could not be saved: '+error.message+'. Use Edit details to finish.');
+    }
   }
   await refreshPrintLibrary();
   return stored;
 }
 
-async function updateLibraryMetadata(fileId, { description = '', printerTarget = null, filamentAssignments = undefined, category = undefined, tags = undefined, favourite = undefined } = {}) {
+async function updateLibraryMetadata(fileId, { description = '', printerTarget = null, filamentAssignments = undefined, category = undefined, tags = undefined, favourite = undefined, sundryCosts = undefined, lotsPerPrint = undefined } = {}) {
   const notes = String(description || '').trim();
   if (notes.length > 4000) throw new Error('Print Library description must be 4000 characters or fewer');
   const payload = await api(`/api/library/${encodeURIComponent(fileId)}`, {
@@ -3992,7 +4075,9 @@ async function updateLibraryMetadata(fileId, { description = '', printerTarget =
       ...(filamentAssignments !== undefined ? { filamentAssignments } : {}),
       ...(category !== undefined ? {category} : {}),
       ...(tags !== undefined ? {tags} : {}),
-      ...(favourite !== undefined ? {favourite} : {})
+      ...(favourite !== undefined ? {favourite} : {}),
+      ...(sundryCosts !== undefined ? {sundryCosts} : {}),
+      ...(lotsPerPrint !== undefined ? {lotsPerPrint} : {})
     })
   });
   await refreshPrintLibrary();
@@ -5278,9 +5363,17 @@ libraryTableHead?.addEventListener('click',(event)=>{
 });
 libraryUploadBtn?.addEventListener('click', () => {
   libraryAddForm?.reset();
+  renderLibrarySundries(libraryAddSundries);
   if (libraryAddStatus) libraryAddStatus.textContent = '';
   if (libraryAddError) { libraryAddError.textContent = ''; libraryAddError.classList.add('hidden'); }
   libraryAddDialog?.showModal();
+});
+// Reports & costing owns global profit settings. Keep any already-mounted
+// Print Library estimates in sync when an operator saves those settings.
+window.addEventListener('pfc:library-pricing-updated',()=>{
+  void refreshPrintLibrary().catch(error=>{
+    if (libraryStatus) libraryStatus.textContent='Pricing saved, but library estimates could not refresh: '+error.message;
+  });
 });
 document.querySelectorAll('[data-library-preview-close]').forEach((el) => el.addEventListener('click', () => libraryPreviewDialog?.close()));
 libraryPreviewDialog?.addEventListener('close', () => {
@@ -5301,7 +5394,13 @@ libraryAddForm?.addEventListener('submit', async (event) => {
     const stored = await uploadLibraryFile(
       file,
       libraryDescriptionInput?.value || '',
-      parsePrinterTargetValue(libraryPrinterTargetInput?.value || '')
+      parsePrinterTargetValue(libraryPrinterTargetInput?.value || ''),
+      {
+        category:libraryAddCategory?.value || '',
+        tags:String(libraryAddTags?.value || '').split(',').map(x=>x.trim()).filter(Boolean),
+        sundryCosts:collectLibrarySundries(libraryAddSundries),
+        lotsPerPrint:Number(libraryAddLotsPerPrint?.value || 1)
+      }
     );
     if (libraryStatus) libraryStatus.textContent = stored.duplicate
       ? `${stored.fileName} is already in the Print Library. Existing details were kept.`
@@ -5330,7 +5429,9 @@ libraryMetadataForm?.addEventListener('submit', async (event) => {
       filamentAssignments:collectLibraryFilamentAssignments(),
       category:libraryMetadataCategory?.value || '',
       tags:String(libraryMetadataTags?.value || '').split(',').map(x=>x.trim()).filter(Boolean),
-      favourite:libraryMetadataFavourite?.checked===true
+      favourite:libraryMetadataFavourite?.checked===true,
+      sundryCosts:collectLibrarySundries(libraryMetadataSundries),
+      lotsPerPrint:Number(libraryMetadataLotsPerPrint?.value || 1)
     });
     libraryMetadataDialog?.close();
     if (libraryStatus) libraryStatus.textContent = `${editedFileName} details updated.`;
@@ -5349,6 +5450,12 @@ async function openLibrarySelectedEditor(file) {
   if (libraryMetadataTags) libraryMetadataTags.value = (file.tags || []).join(', ');
   if (libraryMetadataCategory) libraryMetadataCategory.value=String(file.category || '');
   if (libraryMetadataFavourite) libraryMetadataFavourite.checked = file.favourite===true;
+  renderLibrarySundries(libraryMetadataSundries,file.sundryCosts || []);
+  if (libraryMetadataCostCurrency) {
+    libraryMetadataCostCurrency.textContent=file.costEstimate?.complete && file.costEstimate.currency
+      ? file.costEstimate.currency : 'Not available until filament costing is complete';
+  }
+  if (libraryMetadataLotsPerPrint) libraryMetadataLotsPerPrint.value=String(file.lotsPerPrint || 1);
   if (libraryMetadataError) { libraryMetadataError.textContent = ''; libraryMetadataError.classList.add('hidden'); }
   if (libraryFilamentAssignments) libraryFilamentAssignments.innerHTML = '<div class="subtle">Loading filament catalogue…</div>';
   libraryMetadataDialog?.showModal();
