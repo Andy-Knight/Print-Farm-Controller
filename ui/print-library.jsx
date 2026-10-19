@@ -11,7 +11,8 @@ function normalizeLibraryState(input = {}) {
   return {
     summary:String(input.summary || 'Loading library…'),
     files:Array.isArray(input.files) ? input.files : [],
-    emptyText:String(input.emptyText || DEFAULT_LIBRARY_STATE.emptyText)
+    emptyText:String(input.emptyText || DEFAULT_LIBRARY_STATE.emptyText),
+    pagination:input.pagination || null
   };
 }
 
@@ -86,7 +87,14 @@ function LibraryFile({ file }) {
         <LibraryPreview file={file} />
       </div>
       <div class="library-cell library-file-cell library-file-main">
-        <div class="library-file-title"><strong title={file.fileName}>{file.fileName}</strong></div>
+        <div class="library-file-title"><strong title={file.fileName}>{file.fileName}</strong>
+          {file.favourite && <span class="library-fav-mark" title="Favourite">★</span>}
+        </div>
+        <span class={`library-readiness library-readiness-${file.readiness?.level || 'attention'}`}
+          title={file.readiness?.detail || 'Compatibility checked when queued'}>{file.readiness?.label || 'Needs attention'}</span>
+        {file.tags?.length>0 && <div class="library-tags">
+          {file.tags.map(tag=><span class="library-tag" key={tag}>{tag}</span>)}
+        </div>}
         <small class="library-file-size">{file.sizeText}</small>
         {file.description && <div class="library-file-description">{file.description}</div>}
         {file.warning && <div class="library-warning">{file.warning}</div>}
@@ -98,6 +106,10 @@ function LibraryFile({ file }) {
       <div class="library-cell library-requirements-cell">
         <span class="library-cell-label">Filament &amp; requirements</span>
         <div class="library-file-requirements">{file.requirements}</div>
+        <div class="library-production-meta">
+          <span title="Estimated print duration">⏱ {file.production?.duration || 'Not reported'}</span>
+          <span title="Sliced filament usage">◉ {file.production?.weight || 'Not reported'}</span>
+        </div>
         <LibraryColours colours={file.colours} />
       </div>
       <div class="library-cell library-cost-cell">
@@ -117,9 +129,25 @@ function LibrarySummary({ state }) {
   return <>{state.summary}</>;
 }
 
+function LibraryPagination({ pagination }) {
+  if(!pagination || pagination.pages<=1) return null;
+  return (
+    <nav class="library-pagination" role="listitem" aria-label="Library result pages">
+      <span>Showing {pagination.from}–{pagination.to} of {pagination.count}</span>
+      <button type="button" class="secondary" data-library-page="previous"
+        disabled={pagination.page===0}>Previous</button>
+      <span>Page {pagination.page+1} / {pagination.pages}</span>
+      <button type="button" class="secondary" data-library-page="next"
+        disabled={pagination.page===pagination.pages-1}>Next</button>
+    </nav>
+  );
+}
+
 function LibraryList({ state }) {
   if (!state.files.length) return <div class="queue-empty">{state.emptyText}</div>;
-  return <>{state.files.map((file) => <LibraryFile key={file.id} file={file} />)}</>;
+  return <>{state.files.map((file) => <LibraryFile key={file.id} file={file} />)}
+    <LibraryPagination pagination={state.pagination} />
+  </>;
 }
 
 export function initPrintLibraryUi() {
