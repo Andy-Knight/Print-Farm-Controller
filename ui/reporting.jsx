@@ -4,7 +4,7 @@ import { UiButton, UiTab } from './components.jsx';
 const REPORT_TABS = Object.freeze([
   { key:'analytics', icon:'chart', label:'Analytics', id:'reportingTabAnalytics', panel:'reportingPanelAnalytics' },
   { key:'filament', icon:'spool', label:'Filament cost catalogue', id:'reportingTabFilament', panel:'reportingPanelFilament' },
-  { key:'pricing', icon:'chart', label:'Pricing settings', id:'reportingTabPricing', panel:'reportingPanelPricing' }
+  { key:'pricing', icon:'sliders', label:'Pricing settings', id:'reportingTabPricing', panel:'reportingPanelPricing' }
 ]);
 
 function dispatchReportingAction(type, value = '') {
