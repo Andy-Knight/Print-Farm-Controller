@@ -99,7 +99,7 @@ test('Print Library readiness does not mistake an offline matching printer for a
     {id:'different',name:'Other Printer',adapterType:'sample',model:'Model B'}
   ];
   const adapter={capabilities:{fileUpload:true,localFiles:true,printLocalFile:true},uploadExtensions:['.3mf'],limits:{toolCount:1}};
-  const target=file('motor',{printerTarget:{adapterType:'sample',model:'Model A'}});
+  const target=file('motor',{printerTarget:{adapterType:'sample',model:'Model A'},requirements:{source:'gcode-bounded-scan',usageReliable:true,toolCount:1,requiredTools:[0],logicalTools:[{index:0,material:'ASA',nozzleDiameter:.4,filamentGrams:25}]}});
   const run=(files,states,printers=configured)=>attachLibraryReadiness(files,printers,{
     resolveAdapter:()=>adapter,
     getState:(id)=>states[id] || {online:false,status:{status:'offline'}}
@@ -119,7 +119,7 @@ test('Print Library readiness does not mistake an offline matching printer for a
   assert.equal(run([target],{target:mismatch}).level,'attention');
   const wrongFile=file('bad',{fileName:'unsupported.stl'});
   assert.equal(run([wrongFile],{target:{online:false}},[configured[0]]).level,'incompatible');
-  const missingMaterial=file('unknown',{requirements:{source:'gcode-bounded-scan',logicalTools:[{index:0,material:null}]}});
+  const missingMaterial=file('unknown',{requirements:{source:'gcode-bounded-scan',toolCount:1,requiredTools:[0],logicalTools:[{index:0,material:null}]}});
   assert.equal(run([missingMaterial],{target:active},[configured[0]]).level,'attention');
   // Queue preflight is unchanged; only the display classification changes.
   assert.equal(target.requirements.logicalTools[0].material,'ASA');
