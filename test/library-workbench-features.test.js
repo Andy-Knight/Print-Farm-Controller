@@ -142,4 +142,13 @@ test('Library UI binds all sorting, filters, tags, favourites and pagers to Prea
   assert.match(server,/tags:body.tags/);
   assert.match(server,/favourite:body.favourite/);
   assert.match(css,/library-advanced-filters/);
+  assert.match(html,/<option value="offline">Printer offline<\/option>/);
+  assert.match(html,/<option value="busy">Printer busy<\/option>/);
+  assert.match(app,/Printer offline/);
+  assert.match(app,/Printer busy/);
+  assert.match(app,/refreshLiveLibraryReadiness/);
+  assert.match(app,/api\/library\/readiness/);
+  assert.match(server,/url.pathname === '\/api\/library\/readiness'/);
+  assert.match(css,/library-readiness-offline/);
+  assert.match(css,/library-readiness-busy/);
 });
