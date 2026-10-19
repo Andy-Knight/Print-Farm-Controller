@@ -260,9 +260,10 @@ test('Preact Print Library preserves delegated actions, search filtering and van
   assert.match(libraryUi, /function LibraryPreview/);
   assert.match(libraryUi, /function LibraryColours/);
   assert.match(libraryUi, /data-library-preview/);
-  assert.match(libraryUi, /data-library-queue/);
-  assert.match(libraryUi, /data-library-edit/);
-  assert.match(libraryUi, /data-library-delete/);
+  assert.match(libraryUi, /data-library-select/);
+  assert.match(libraryUi, /aria-pressed=\{file\.selected/);
+  assert.doesNotMatch(libraryUi, /data-library-queue|data-library-edit|data-library-delete/,
+    'selection toolbar replaces per-item actions');
   assert.match(app, /function libraryFileViewModel/);
   assert.match(app, /function publishPrintLibraryUiState/);
   assert.match(app, /window\.__PFC_PREACT_LIBRARY__/);
@@ -283,8 +284,8 @@ test('Preact Print Library preserves file metadata and delete interlock presenta
   assert.match(app, /previewUrl:String\(file\?\.previewUrl \|\| ''\)/);
   assert.match(app, /deleteDisabled:Number\(usage\.queueReferences \|\| 0\) > 0/);
   assert.match(app, /Clear queue\/history references before deleting this file/);
-  assert.match(libraryUi, /disabled=\{file\.deleteDisabled\}/);
-  assert.match(libraryUi, /class="library-printer-target"/);
+  assert.match(app, /libraryDeleteSelectedBtn\.disabled = !ready \|\| referenced/);
+  assert.match(libraryUi, /class="library-target-value"/);
   assert.match(libraryUi, /class="library-file-requirements"/);
   assert.match(libraryUi, /class="library-warning"/);
 });
@@ -292,7 +293,8 @@ test('Preact Print Library preserves file metadata and delete interlock presenta
 
 test('queuing from Print Library keeps the library route visible behind the modal', async () => {
   const app = await read('public/app.js');
-  const handler = app.match(/const queueButton = event\.target\.closest\('\[data-library-queue\]'\);[\s\S]*?openQueueAddDialog\(file\);[\s\S]*?return;/)?.[0] || '';
+  const handler = app.match(/libraryQueueSelectedBtn\?\.addEventListener\('click',[\s\S]*?openQueueAddDialog\(file\);[\s\S]*?\}\);/)?.[0] || '';
+  assert.match(handler, /selectedLibraryFile\(\)/);
   assert.match(handler, /openQueueAddDialog\(file\)/);
   assert.doesNotMatch(handler, /libraryDialog\?\.close\(\)/);
 });
