@@ -69,6 +69,9 @@
  * Dense desktop columns become descriptive cards below 1180px; no
  * horizontal page scrolling on Android. Preview remains a separate action.
  */
+/* Uses the canonical --pfc-table-* tokens declared for Dashboard, Alerts,
+ * Printer Groups, Diagnostics and multi-toolhead tables in styles.css.
+ * Row geometry and responsive card behaviour stay local to this view. */
 #libraryDialog.library-dialog {
   width:min(1500px,calc(100vw - 30px));
   --library-table-cols:38px 68px minmax(170px,1.65fr) minmax(125px,.95fr) minmax(170px,1.3fr) minmax(150px,1fr) minmax(125px,1fr);
@@ -112,14 +115,16 @@
   align-items:center;
   gap:12px;
   margin-top:13px;
-  padding:12px 13px;
-  border:1px solid var(--ds-border);
-  border-bottom:0;
-  border-radius:var(--ds-radius-md) var(--ds-radius-md) 0 0;
-  background:var(--ds-surface-muted);
-  color:var(--ds-text);
-  font-size:.73rem;
+  padding:9px 12px;
+  border:1px solid var(--pfc-table-border);
+  border-bottom:1px solid var(--pfc-table-header-divider);
+  border-radius:var(--pfc-table-radius) var(--pfc-table-radius) 0 0;
+  background:var(--pfc-table-header-background);
+  color:var(--pfc-table-header-text);
+  font-size:.68rem;
   font-weight:800;
+  letter-spacing:.04em;
+  text-transform:uppercase;
   line-height:1.3;
 }
 #libraryDialog .library-table-head[hidden] { display:none!important; }
@@ -128,8 +133,10 @@
   gap:0;
   margin-top:0;
   overflow:hidden;
-  border:1px solid var(--ds-border);
-  border-radius:0 0 var(--ds-radius-md) var(--ds-radius-md);
+  border:1px solid var(--pfc-table-border);
+  border-top:0;
+  border-radius:0 0 var(--pfc-table-radius) var(--pfc-table-radius);
+  background:var(--pfc-table-surface);
 }
 #libraryDialog .library-table-head[hidden] + .library-list {
   border:0;
@@ -144,19 +151,20 @@
   margin:0;
   padding:14px 13px;
   border:0;
-  border-bottom:1px solid var(--ds-border);
+  border-bottom:1px solid var(--pfc-table-divider);
   border-radius:0;
-  background:var(--ds-surface);
+  background:transparent;
   cursor:pointer;
   transition:background var(--ds-duration-fast) var(--ds-easing);
 }
 #libraryDialog .library-file-row:last-child { border-bottom:0; }
-#libraryDialog .library-file-row:hover { background:var(--ds-surface-hover); }
+#libraryDialog .library-file-row:hover { background:var(--pfc-table-hover); }
 #libraryDialog .library-file-row.is-selected {
-  background:var(--ds-brand-soft);
+  background:var(--pfc-table-selected);
   box-shadow:inset 3px 0 0 var(--ds-brand);
 }
 #libraryDialog .library-file-row:focus-within { outline-offset:-3px; }
+#libraryDialog .library-file-row.is-selected:hover { background:var(--pfc-table-selected); }
 #libraryDialog .library-cell { min-width:0; }
 #libraryDialog .library-cell-label { display:none; }
 #libraryDialog .library-select-button {
@@ -305,6 +313,7 @@
     border:0;
     border-radius:0;
     overflow:visible;
+    background:transparent;
   }
   #libraryDialog .library-file-row {
     grid-template-columns:36px 74px minmax(0,1fr) minmax(150px,.65fr);
@@ -313,11 +322,11 @@
       "selection preview target cost"
       "selection preview requirements history";
     align-items:start;
-    border:1px solid var(--ds-border);
-    border-radius:var(--ds-radius-md);
+    border:1px solid var(--pfc-table-border);
+    border-radius:var(--pfc-table-radius);
     padding:12px;
   }
-  #libraryDialog .library-file-row:last-child { border-bottom:1px solid var(--ds-border); }
+  #libraryDialog .library-file-row:last-child { border-bottom:1px solid var(--pfc-table-border); }
   #libraryDialog .library-selection-cell { grid-area:selection; }
   #libraryDialog .library-preview-cell { grid-area:preview; }
   #libraryDialog .library-file-cell { grid-area:filename; }
