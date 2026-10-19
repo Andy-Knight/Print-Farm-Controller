@@ -10,7 +10,6 @@ const pricing=await import('../src/library-pricing.js');
 after(async()=>{await fs.rm(root,{recursive:true,force:true});});
 
 const sample=(overrides={})=>({
-  sundryCurrency:'GBP',
   sundryCosts:[{label:'M4 threaded inserts',quantity:4,unitCost:0.25},
     {label:'Packing envelope',quantity:1,unitCost:0.5}],
   lotsPerPrint:4,
@@ -47,7 +46,7 @@ test('Total sundries and selling price are computed per sliced print, then divid
   assert.equal(margin.currency,'GBP');
 });
 
-test('Never derive a misleading sales price with unknown filament, missing markup or mixed currencies',()=>{
+test('Inherit all sundry amounts in the filament estimate currency and withhold incomplete prices',()=>{
   const file=sample();
   const blank=pricing.estimateLibrarySalePrice(file,{profitPercent:null,profitMethod:'markup'});
   assert.equal(blank.complete,false);
@@ -57,15 +56,27 @@ test('Never derive a misleading sales price with unknown filament, missing marku
     {profitPercent:50,profitMethod:'markup'});
   assert.equal(unknown.complete,false);
   assert.match(unknown.issue,/filament cost is unavailable/i);
-  const mixed=pricing.estimateLibrarySalePrice(sample({sundryCurrency:'USD'}),
-    {profitPercent:50,profitMethod:'markup'});
-  assert.equal(mixed.complete,false);
-  assert.match(mixed.issue,/currency USD.*GBP/i);
-  const noSundries=pricing.estimateLibrarySalePrice(sample({sundryCosts:[],sundryCurrency:'USD'}),
+  const dollars=pricing.estimateLibrarySalePrice(sample({
+    sundryCurrency:'GBP', // legacy user-selected value is ignored
+    costEstimate:{complete:true,totalCost:6,currency:'USD'}
+  }),{profitPercent:50,profitMethod:'markup'});
+  assert.equal(dollars.complete,true);
+  assert.equal(dollars.currency,'USD');
+  assert.equal(dollars.sundriesCost,1.5);
+  assert.equal(dollars.totalCost,7.5);
+  assert.equal(dollars.sellingPricePerLot,2.81);
+  assert.equal(dollars.sellingPrice,11.24);
+  const noSundries=pricing.estimateLibrarySalePrice(sample({sundryCosts:[]}),
     {profitPercent:20,profitMethod:'markup'});
   assert.equal(noSundries.complete,true);
   assert.equal(noSundries.currency,'GBP');
   assert.equal(noSundries.sellingPrice,7.2);
+  const missingWithLegacyCurrency=pricing.estimateLibrarySalePrice(sample({
+    sundryCurrency:'GBP',costEstimate:{complete:false,totalCost:null,currency:null}
+  }),{profitPercent:30,profitMethod:'markup'});
+  assert.equal(missingWithLegacyCurrency.currency,null);
+  assert.equal(missingWithLegacyCurrency.complete,false);
+  assert.equal(missingWithLegacyCurrency.sellingPrice,null);
   const yen=pricing.estimateLibrarySalePrice({
     sundryCosts:[],lotsPerPrint:3,costEstimate:{complete:true,totalCost:1000,currency:'JPY'}
   },{profitPercent:20,profitMethod:'markup'});
@@ -94,7 +105,6 @@ test('Invalid sundries, lot counts and profit margins fail closed',()=>{
   assert.throws(()=>pricing.normalizePricingSettings({profitPercent:100,profitMethod:'margin'}),/below 100/);
   assert.throws(()=>pricing.normalizePricingSettings({profitPercent:-1,profitMethod:'markup'}),/non-negative/);
   assert.throws(()=>pricing.normalizePricingSettings({profitPercent:20,profitMethod:'unknown'}),/profit method/i);
-  assert.throws(()=>pricing.normalizeSundryCurrency('USD<script>'),/supported filament catalogue currencies/);
 });
 
 test('Clearing saved profit percentage prevents presenting a stale sales price',async()=>{

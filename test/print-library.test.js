@@ -82,7 +82,7 @@ test('Print Library migrates staged queue files, deduplicates uploads and persis
   assert.deepEqual(second.printerTarget, { adapterType:'flashforge-ad5m', model:'Adventurer 5M Pro' });
   assert.equal(second.preview?.available, true);
   assert.deepEqual(second.sundryCosts,[]);
-  assert.equal(second.sundryCurrency,'GBP');
+  assert.equal(Object.hasOwn(second,'sundryCurrency'),false);
   assert.equal(second.lotsPerPrint,1);
   assert.equal(second.preview?.mimeType, 'image/png');
   const storedPreview = await library.getLibraryPreview(second.id);
@@ -123,14 +123,24 @@ test('Print Library migrates staged queue files, deduplicates uploads and persis
   const priced=await library.updateLibraryFileMetadata(second.id,{
     sundryCosts:[{label:'M4 brass inserts',quantity:4,unitCost:0.12},
       {label:'Packaging',quantity:1,unitCost:0.5}],
-    sundryCurrency:'GBP',lotsPerPrint:4
+    lotsPerPrint:4
   });
   assert.deepEqual(priced.sundryCosts,[{label:'M4 brass inserts',quantity:4,unitCost:0.12},
     {label:'Packaging',quantity:1,unitCost:0.5}]);
   assert.equal(priced.lotsPerPrint,4);
-  assert.equal(priced.sundryCurrency,'GBP');
+  assert.equal(Object.hasOwn(priced,'sundryCurrency'),false);
   const pricedFromDisk=await library.getLibraryFile(second.id);
   assert.deepEqual(pricedFromDisk.sundryCosts,priced.sundryCosts);
+  assert.equal(Object.hasOwn(pricedFromDisk,'sundryCurrency'),false);
+  // Old feature-build metadata had a manually chosen sundryCurrency. It
+  // cannot dictate a price any more and is stripped on the next file edit.
+  const diskMetaPath=path.join(dir,'print-library',second.id,'metadata.json');
+  const previousMeta=JSON.parse(await fs.readFile(diskMetaPath,'utf8'));
+  previousMeta.sundryCurrency='USD';
+  await fs.writeFile(diskMetaPath,JSON.stringify(previousMeta));
+  assert.equal(Object.hasOwn(await library.getLibraryFile(second.id),'sundryCurrency'),false);
+  await library.updateLibraryFileMetadata(second.id,{lotsPerPrint:4});
+  assert.equal(Object.hasOwn(JSON.parse(await fs.readFile(diskMetaPath,'utf8')),'sundryCurrency'),false);
   assert.equal(pricedFromDisk.lotsPerPrint,4);
   assert.equal((await library.listLibraryFiles()).find(x=>x.id===second.id)?.sundryCosts.length,2);
   await assert.rejects(()=>library.updateLibraryFileMetadata(second.id,{

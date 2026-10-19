@@ -7,9 +7,9 @@ const read=(p)=>readFileSync(new URL('../'+p,import.meta.url),'utf8');
 test('Print Library add and edit forms expose category, tags, sundries and sale lots',()=>{
   const html=read('public/index.html');
   const app=read('public/app.js');
-  for(const name of ['libraryAddCategory','libraryAddTags','libraryAddSundryCurrency','libraryAddSundries',
+  for(const name of ['libraryAddCategory','libraryAddTags','libraryAddSundries',
     'libraryAddLotsPerPrint','libraryMetadataCategory','libraryMetadataTags','libraryMetadataSundries',
-    'libraryMetadataSundryCurrency','libraryMetadataLotsPerPrint']) {
+    'libraryMetadataCostCurrency','libraryMetadataLotsPerPrint']) {
     assert.match(html,new RegExp('id="'+name+'"'),name+' should be in form');
     assert.match(app,new RegExp(name),name+' must be wired in controller');
   }
@@ -27,7 +27,12 @@ test('Selling-price settings and Preact/fallback sale view use the same server e
   const ids=['reportingTabPricing','reportingPanelPricing','reportingPricingForm',
     'reportingProfitPercent','reportingProfitMethod','reportingPricingStatus','reportingPricingError'];
   for (const id of ids) assert.match(html,new RegExp('id="'+id+'"'));
-  assert.match(app,/api\/library\/pricing/);
+  assert.doesNotMatch(app,/SundryCurrency/);
+  assert.doesNotMatch(html,/name="sundryCurrency"/);
+  assert.match(html,/Sundry amounts inherit the filament cost currency/);
+  assert.match(app,/file\.costEstimate\?\.complete && file\.costEstimate\.currency/);
+  assert.doesNotMatch(server,/sundryCurrency:body\.sundryCurrency/);
+  assert.match(server,/api\/library\/pricing/);
   assert.match(server,/estimateLibrarySalePrice\(file,pricingSettings\)/);
   assert.match(server,/url\.pathname === '\/api\/library\/pricing' && req\.method === 'PUT'/);
   assert.match(server,/sundryCosts:body\.sundryCosts/);
@@ -71,7 +76,6 @@ test('Add and Edit details use a scrolling body and fixed action header/footer',
   assert.match(css,/#libraryAddDialog \.library-editor-footer,#libraryMetadataDialog \.library-editor-footer \{/);
   assert.match(css,/overflow-y:auto;/);
   assert.match(css,/#libraryAddDialog \.library-pricing-fields label,#libraryMetadataDialog \.library-pricing-fields label \{[\s\S]*?flex-direction:column;/);
-  assert.match(css,/#libraryAddDialog \.library-pricing-fields label > select/);
   assert.match(css,/#libraryMetadataDialog \.library-pricing-fields label > input/);
 });
 
@@ -91,7 +95,7 @@ test('Print Library costing sections use design-system headings without clipped 
   assert.match(html,/class="library-costing-section ui-surface ui-surface-muted"/);
   assert.match(html,/<h3 id="libraryFilamentCostHeading">Filament costing<\/h3>/);
   assert.match(css,/#libraryAddDialog \.library-pricing-head h3/);
-  assert.match(css,/grid-template-columns:repeat\(2,minmax\(0,1fr\)\)/);
+  assert.match(css,/grid-template-columns:minmax\(0,1fr\)/);
   assert.match(css,/#libraryAddDialog \.library-editor-title,#libraryMetadataDialog \.library-editor-title \{/);
   assert.match(css,/color:var\(--ds-brand\);/);
   assert.match(css,/grid-template-columns:minmax\(0,1fr\)/);

@@ -959,12 +959,13 @@ async function librarySelectionSmoke(page,url,{mutateFixture = true} = {}) {
 // body scrolls, and header and save/cancel remain visible on small screens.
 async function verifyLibraryEditorLayout(page,editor) {
   const prefix=editor==='add'?'libraryAdd':'libraryMetadata';
+  assert.equal(await page.locator('#'+prefix+'SundryCurrency').count(),0,
+    editor+': no manual sundry currency selection in this dialog');
   const metrics=await page.evaluate(prefix=>{
     const modal=document.getElementById(prefix+'Dialog');
     const header=modal.querySelector('.dialog-head');
     const body=modal.querySelector('.library-editor-body');
     const footer=modal.querySelector('.library-editor-footer');
-    const currency=document.getElementById(prefix+'SundryCurrency');
     const lots=document.getElementById(prefix+'LotsPerPrint');
     const sundrySection=modal.querySelector('.library-pricing-fields');
     const sectionHeading=sundrySection.querySelector('.library-pricing-head h3');
@@ -973,7 +974,7 @@ async function verifyLibraryEditorLayout(page,editor) {
       const r=node.getBoundingClientRect();
       return {top:r.top,bottom:r.bottom,left:r.left,right:r.right};
     };
-    const fields=[currency,lots].map(control=>{
+    const fields=[lots].map(control=>{
       const label=control.closest('label');
       const range=document.createRange();
       range.selectNodeContents(label.firstChild);
@@ -1003,7 +1004,7 @@ async function verifyLibraryEditorLayout(page,editor) {
       pricingPanelBorder:getComputedStyle(sundrySection).borderTopWidth};
   },prefix);
   for (const [index,field] of metrics.fields.entries()) {
-    const label=index===0?'Sundry currency':'Sale lots per print';
+    const label='Sale lots per print';
     assert.equal(field.display,'flex',editor+': '+label+' stacks in a flex label');
     assert.equal(field.direction,'column',editor+': '+label+' uses a column');
     assert.ok(field.input.top>=field.text.bottom+3,
@@ -1020,9 +1021,9 @@ async function verifyLibraryEditorLayout(page,editor) {
     editor+': section title should remain within the panel horizontally');
   assert.ok(metrics.pricingHeading.bottom<metrics.pricingConfigLabels[0].top,
     editor+': section title must not overlap its controls');
-  assert.equal(metrics.pricingConfigStyle,'grid',editor+': currency and sale lots use aligned grid');
-  assert.ok(Math.abs(metrics.pricingConfigLabels[0].top-metrics.pricingConfigLabels[1].top)<=2,
-    editor+': settings labels should align along the same row');
+  assert.equal(metrics.pricingConfigStyle,'grid',editor+': sale lots retain standard layout');
+  assert.equal(metrics.pricingConfigLabels.length,1,
+    editor+': there must be no file-specific sundry currency selector');
   assert.ok(metrics.pricingBackground!=='rgba(0, 0, 0, 0)' && metrics.pricingPanelBorder!=='0px',
     editor+': standard panel has a surface and border');
   assert.equal(metrics.bodyOverflow,'auto',editor+': central body should scroll');
@@ -1102,6 +1103,10 @@ async function libraryPricingSmoke(page,url,{mutateFixture=true}={}) {
   await page.locator('#libraryEditSelectedBtn').click();
   await page.waitForFunction(()=>document.querySelector('#libraryMetadataDialog')?.open===true);
   await verifyLibraryEditorLayout(page,'metadata');
+  const derivedCurrency=await page.locator('#libraryMetadataCostCurrency').innerText();
+  const currentCost=added.costEstimate?.complete && added.costEstimate.currency
+    ? added.costEstimate.currency : 'Not available until filament costing is complete';
+  assert.equal(derivedCurrency,currentCost);
   assert.equal(await page.locator('#libraryMetadataLotsPerPrint').inputValue(),'4');
   assert.equal(await page.locator('#libraryMetadataSundries .library-sundry-row').count(),1);
   await page.locator('#libraryMetadataLotsPerPrint').fill('2');
