@@ -100,4 +100,11 @@ test('Print Library API and both UI renderers expose a clearly-labelled per-prin
   assert.match(css,/#libraryDialog \.library-print-cost/);
   assert.match(css,/var\(--ds-surface-muted\)/);
   assert.ok(html.indexOf('/print-library-polish.css')>html.indexOf('/tab-navigation.css'));
+  const standard=root('public/styles.css');
+  assert.match(standard,/#libraryDialog \.library-table-head[\s\S]*?border:1px solid var\(--pfc-table-border\)/);
+  assert.match(standard,/#libraryDialog \.library-file-row\.is-selected:hover[\s\S]*?background:var\(--pfc-table-selected\)/);
+  assert.match(css,/#libraryDialog \.library-table-head \{[\s\S]*?color:var\(--pfc-table-header-text\)/);
+  assert.match(css,/#libraryDialog \.library-table-head \{[\s\S]*?text-transform:uppercase/);
+  assert.match(css,/#libraryDialog \.library-file-row \{[\s\S]*?border-bottom:1px solid var\(--pfc-table-divider\)/);
+  assert.match(css,/#libraryDialog \.library-file-row\.is-selected \{[\s\S]*?background:var\(--pfc-table-selected\)/);
 });

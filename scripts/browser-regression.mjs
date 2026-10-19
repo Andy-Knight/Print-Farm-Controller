@@ -777,12 +777,37 @@ async function librarySelectionSmoke(page,url,{mutateFixture = true} = {}) {
   for(const theme of ['dark','light']){
     await page.evaluate(x=>{document.documentElement.dataset.theme=x;},theme);
     const dimensions=await page.locator('.library-file-row').first().evaluate((node)=>{
-      return { display:getComputedStyle(node).display, columns:getComputedStyle(node).gridTemplateColumns,
-        background:getComputedStyle(node).backgroundColor };
+      const tableHead=document.querySelector('#libraryTableHead');
+      const root=getComputedStyle(document.documentElement);
+      const heading=getComputedStyle(tableHead);
+      const row=getComputedStyle(node);
+      const parent=getComputedStyle(node.parentElement);
+      const first=tableHead.firstElementChild;
+      return {
+        display:row.display,
+        columns:row.gridTemplateColumns,
+        headerColumns:heading.gridTemplateColumns,
+        textColor:heading.color,
+        headerBackground:heading.backgroundColor,
+        sharedText:root.getPropertyValue('--pfc-table-header-text').trim(),
+        sharedBackground:root.getPropertyValue('--pfc-table-header-background').trim(),
+        sharedHover:root.getPropertyValue('--pfc-table-hover').trim(),
+        sharedSelected:root.getPropertyValue('--pfc-table-selected').trim(),
+        rowBackground:row.backgroundColor,
+        parentBackground:parent.backgroundColor,
+        headingFontWeight:heading.fontWeight,
+        headingTextTransform:heading.textTransform,
+        headingPadding:getComputedStyle(first).padding
+      };
     });
     assert.equal(dimensions.display,'grid');
     assert.ok(dimensions.columns.split(' ').length>=7,'desktop library has seven aligned columns');
-    assert.ok(dimensions.background!=='rgba(0, 0, 0, 0)');
+    assert.equal(dimensions.columns,dimensions.headerColumns,'headings and rows use precisely the same columns');
+    assert.equal(dimensions.headingTextTransform,'uppercase','heading follows canonical uppercase convention');
+    assert.equal(dimensions.textColor,'rgb(255, 255, 255)','all table headings must stay white in both themes');
+    assert.equal(dimensions.rowBackground,'rgba(0, 0, 0, 0)','rows must not introduce extra cell backgrounds');
+    assert.ok(dimensions.sharedText && dimensions.sharedBackground && dimensions.sharedHover && dimensions.sharedSelected,
+      'library should inherit existing shared table system tokens');
   }
   await page.setViewportSize({width:390,height:844});
   await page.waitForFunction(()=>getComputedStyle(document.querySelector('#libraryTableHead')).display==='none');
