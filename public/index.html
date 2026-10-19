@@ -1108,7 +1108,9 @@
           <label class="library-search">Search<input id="librarySearchInput" type="search" placeholder="Search filenames, printer types, descriptions, materials or nozzle size" autocomplete="off" /></label>
           <button id="libraryUploadBtn" type="button" class="primary">+ Add file</button>
         </div>
-        <div class="library-filters" role="group" aria-label="Filter print library">
+        <details class="library-advanced-filters" id="libraryAdvancedFilters">
+          <summary>Advanced filters</summary>
+          <div class="library-filters" role="group" aria-label="Filter print library">
           <label>Printer<select id="libraryPrinterFilter"><option value="">All printer types</option></select></label>
           <label>Material<select id="libraryMaterialFilter"><option value="">All materials</option></select></label>
           <label>Tag<select id="libraryTagFilter"><option value="">All tags</option></select></label>
@@ -1121,7 +1123,8 @@
           </select></label>
           <label class="library-favourites-filter"><input type="checkbox" id="libraryFavouritesFilter" /> Favourites only</label>
           <button type="button" id="libraryClearFiltersBtn" class="secondary">Clear filters</button>
-        </div>
+          </div>
+        </details>
         <div class="library-action-toolbar" role="group" aria-label="Actions for the selected library file">
           <div id="librarySelectionStatus" class="library-selection-status" aria-live="polite">Select a file to enable actions</div>
           <div class="library-action-buttons">
