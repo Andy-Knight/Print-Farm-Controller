@@ -24,8 +24,8 @@ test('Selling-price settings and Preact/fallback sale view use the same server e
   const html=read('public/index.html'),app=read('public/app.js');
   const preact=read('ui/print-library.jsx');
   const server=read('src/server.js'),css=read('public/print-library-polish.css');
-  const ids=['libraryPricingSettingsBtn','libraryPricingSettingsDialog','libraryPricingSettingsForm',
-    'libraryProfitPercent','libraryProfitMethod'];
+  const ids=['reportingTabPricing','reportingPanelPricing','reportingPricingForm',
+    'reportingProfitPercent','reportingProfitMethod','reportingPricingStatus','reportingPricingError'];
   for (const id of ids) assert.match(html,new RegExp('id="'+id+'"'));
   assert.match(app,/api\/library\/pricing/);
   assert.match(server,/estimateLibrarySalePrice\(file,pricingSettings\)/);
@@ -33,6 +33,20 @@ test('Selling-price settings and Preact/fallback sale view use the same server e
   assert.match(server,/sundryCosts:body\.sundryCosts/);
   assert.match(preact,/file\.sale\?\.price/);
   assert.match(app,/function librarySaleView\(file\)/);
+  const reporting=read('public/reporting.js');
+  const reportingUi=read('ui/reporting.jsx');
+  const layout=read('public/styles.css');
+  assert.doesNotMatch(html,/id="libraryPricingSettingsBtn"/);
+  assert.doesNotMatch(html,/id="libraryPricingSettingsDialog"/);
+  assert.match(html,/data-reporting-tab="pricing"/);
+  assert.match(html,/data-reporting-panel="pricing"/);
+  assert.match(reporting,/function loadReportingPricingSettings\(\)/);
+  assert.match(reporting,/requestJson\('\/api\/library\/pricing'/);
+  assert.match(reporting,/reportingPricingForm\?\.addEventListener\('submit'/);
+  assert.match(reporting,/pfc:library-pricing-updated/);
+  assert.match(app,/addEventListener\('pfc:library-pricing-updated'/);
+  assert.match(reportingUi, /key:'pricing'/);
+  assert.match(layout,/\.reporting-pricing-grid/);
   assert.match(css,/#libraryDialog \.library-sale-price/);
   assert.match(css,/\.library-sundry-row/);
 });
