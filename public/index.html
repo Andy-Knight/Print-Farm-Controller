@@ -479,7 +479,7 @@
           <div class="reporting-section-head">
             <div>
               <h3>Global pricing settings</h3>
-              <span class="subtle">Set the profit percentage used to calculate suggested selling prices for every Print Library file.</span>
+              <span class="subtle">Configure profit and tax percentages for Print Library sell prices.</span>
             </div>
           </div>
           <form id="reportingPricingForm" class="reporting-pricing-form">
@@ -495,12 +495,18 @@
                     <option value="margin">Gross margin on selling price — £10 at 30% = £14.29</option>
                   </select>
                 </label>
+                <label>Tax rate (%)
+                  <input id="reportingTaxRate" name="taxRate" type="number" min="0" max="100" step="0.01" value="0" required
+                    aria-describedby="reportingTaxHelp" />
+                </label>
               </div>
               <div class="field-help reporting-pricing-help">
-                Selling prices include the current sliced filament cost plus all sundry costs for the complete print.
-                The total is divided across the configured number of sale lots, rounded to the currency's smallest unit.
-                Leave the profit percentage blank to disable selling price estimates.
-                VAT, labour, electricity and shipping are excluded unless entered as sundries.
+                Sell prices include the current sliced filament cost plus all sundries for one complete print.
+                Profit markup or margin is calculated first; the configured tax rate is added afterwards.
+                Prices are shown <strong>including tax</strong>, per sale lot (and in total), with currency-appropriate rounding.
+                Leave the profit percentage blank to disable sell price estimates.
+                Labour, electricity and shipping are excluded unless entered as sundries.
+                <span id="reportingTaxHelp">Use 0% if no tax should be added. This is a pricing estimate, not a tax return.</span>
               </div>
               <div class="actions reporting-pricing-actions">
                 <button id="reportingPricingSaveBtn" type="submit" class="primary">Save pricing settings</button>
@@ -1172,7 +1178,7 @@
               <option value="added">Date added</option><option value="name">Filename</option>
               <option value="printer">Printer type</option><option value="material">Material</option>
               <option value="cost">Estimated cost</option><option value="lots">Sale lots</option>
-              <option value="salePrice">Suggested sell price / lot</option><option value="duration">Print time</option>
+              <option value="salePrice">Sell price / lot</option><option value="duration">Print time</option>
               <option value="weight">Filament weight</option><option value="prints">Completed prints</option>
               <option value="lastPrinted">Last printed</option><option value="readiness">Readiness</option>
             </select>
@@ -1201,7 +1207,7 @@
           <button type="button" data-library-sort="material" aria-label="Sort by filament material">Filament &amp; requirements</button>
           <button type="button" data-library-sort="cost" aria-label="Sort by estimated material cost">Estimated cost</button>
           <button type="button" data-library-sort="lots" aria-label="Sort by sale lots per print">Sale lots</button>
-          <button type="button" data-library-sort="salePrice" aria-label="Sort by suggested selling price per lot">Suggested sell price</button>
+          <button type="button" data-library-sort="salePrice" aria-label="Sort by sell price per lot">Sell price</button>
           <button type="button" data-library-sort="prints" aria-label="Sort by number of completed prints">History</button>
         </div>
         <div id="libraryList" class="library-list" role="list" aria-label="Stored print files" tabindex="0"></div>

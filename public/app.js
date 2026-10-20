@@ -3663,8 +3663,8 @@ function librarySaleView(file) {
     price:available ? money(sale.sellingPrice) : 'Unavailable',
     perLot:available && lots>1 ? money(sale.sellingPricePerLot) : '',
     detail:available
-      ? `Filament ${money(sale.filamentCost)} + sundries ${money(sundries)} · ${sale.profitPercent}% ${sale.profitMethod==='margin'?'gross margin':'markup'}`
-      : (sale.issue || 'Selling price estimate is not configured'),
+      ? `Filament ${money(sale.filamentCost)} + sundries ${money(sundries)} · ${sale.profitPercent}% ${sale.profitMethod==='margin'?'gross margin':'markup'} · ${sale.taxRate ?? 0}% tax included (${money(sale.taxAmount ?? 0)})`
+      : (sale.issue || 'Sell price estimate is not configured'),
     lots
   };
 }
@@ -3830,9 +3830,9 @@ function libraryFileMarkup(file) {
     </div>
     <div class="library-cell library-sale-cell">
       <div class="library-sale-price${sale.available?'':' unavailable'}" title="${escapeHtml(sale.detail)}">
-        <span class="library-cell-label">Suggested sell price</span>
+        <span class="library-cell-label">Sell price</span>
         <strong class="library-sale-value">${escapeHtml(sale.available ? (sale.lots>1 ? sale.perLot : sale.price) : 'Unavailable')}</strong>
-        <small>${sale.available ? (sale.lots>1 ? 'per sale lot' : 'per print') : 'No complete price estimate'}</small>
+        <small>${sale.available ? (sale.lots>1 ? 'per sale lot · incl. tax' : 'per print · incl. tax') : 'No complete price estimate'}</small>
         ${sale.available&&sale.lots>1 ? `<small>Print total: ${escapeHtml(sale.price)}</small>` : ''}
       </div>
     </div>

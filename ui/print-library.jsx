@@ -129,11 +129,11 @@ function LibraryFile({ file }) {
       <div class="library-cell library-sale-cell">
         <div class={`library-sale-price${file.sale?.available ? '' : ' unavailable'}`}
           title={file.sale?.detail || ''}>
-          <span class="library-cell-label">Suggested sell price</span>
+          <span class="library-cell-label">Sell price</span>
           <strong class="library-sale-value">{file.sale?.available
             ? (file.sale?.lots>1 ? file.sale.perLot : file.sale.price) : 'Unavailable'}</strong>
           <small>{file.sale?.available
-            ? (file.sale?.lots>1 ? 'per sale lot' : 'per print') : 'No complete price estimate'}</small>
+            ? (file.sale?.lots>1 ? 'per sale lot · incl. tax' : 'per print · incl. tax') : 'No complete price estimate'}</small>
           {file.sale?.available && file.sale.lots>1 && <small>Print total: {file.sale.price}</small>}
         </div>
       </div>

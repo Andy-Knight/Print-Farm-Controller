@@ -31,6 +31,7 @@ const reportingPricingForm = document.querySelector('#reportingPricingForm');
 const reportingPricingFields = document.querySelector('#reportingPricingFields');
 const reportingProfitPercent = document.querySelector('#reportingProfitPercent');
 const reportingProfitMethod = document.querySelector('#reportingProfitMethod');
+const reportingTaxRate = document.querySelector('#reportingTaxRate');
 const reportingPricingStatus = document.querySelector('#reportingPricingStatus');
 const reportingPricingError = document.querySelector('#reportingPricingError');
 const reportingPricingSaveBtn = document.querySelector('#reportingPricingSaveBtn');
@@ -60,8 +61,9 @@ async function loadReportingPricingSettings() {
     if (requestId !== reportingPricingLoadSerial) return;
     if (reportingProfitPercent) reportingProfitPercent.value=response.settings?.profitPercent ?? '';
     if (reportingProfitMethod) reportingProfitMethod.value=response.settings?.profitMethod || 'markup';
+    if (reportingTaxRate) reportingTaxRate.value=String(response.settings?.taxRate ?? 0);
     reportingPricingFields.disabled=false;
-    if (reportingPricingStatus) reportingPricingStatus.textContent='Saved settings loaded. Changes affect current Print Library selling price estimates.';
+    if (reportingPricingStatus) reportingPricingStatus.textContent='Saved settings loaded. Changes affect current Print Library tax-inclusive sell prices.';
   } catch(error) {
     if (requestId !== reportingPricingLoadSerial) return;
     if (reportingPricingError) {
@@ -538,9 +540,10 @@ reportingPricingForm?.addEventListener('submit',async event=>{
   try {
     await requestJson('/api/library/pricing',{method:'PUT',body:JSON.stringify({
       profitPercent:reportingProfitPercent?.value === '' ? null : Number(reportingProfitPercent?.value),
-      profitMethod:reportingProfitMethod?.value || 'markup'
+      profitMethod:reportingProfitMethod?.value || 'markup',
+      taxRate:Number(reportingTaxRate?.value ?? 0)
     })});
-    if (reportingPricingStatus) reportingPricingStatus.textContent='Pricing settings saved. Print Library selling price estimates will use these values.';
+    if (reportingPricingStatus) reportingPricingStatus.textContent='Pricing settings saved. Print Library sell prices will include the configured tax.';
     window.dispatchEvent(new Event('pfc:library-pricing-updated'));
   } catch(error) {
     if (reportingPricingStatus) reportingPricingStatus.textContent='';

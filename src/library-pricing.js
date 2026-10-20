@@ -6,7 +6,7 @@ import { KeyedSerialExecutor } from './concurrency.js';
 
 const SETTINGS_FILE = path.join(path.dirname(printerStorePath), 'library-pricing.json');
 const executor = new KeyedSerialExecutor();
-const DEFAULT_SETTINGS = Object.freeze({ profitPercent:null, profitMethod:'markup' });
+const DEFAULT_SETTINGS = Object.freeze({ profitPercent:null, profitMethod:'markup', taxRate:0 });
 
 function round(value, decimals = 4) {
   return Math.round((value + Number.EPSILON) * (10 ** decimals)) / (10 ** decimals);
@@ -65,7 +65,15 @@ export function normalizePricingSettings(value = {}) {
       || profitPercent < 0 || profitPercent > 1000 || (method === 'margin' && profitPercent >= 100))) {
     throw new Error('Profit percentage must be non-negative and below 100% for margin pricing');
   }
-  return {profitPercent:profitPercent == null ? null : round(profitPercent,2),profitMethod:method};
+  // Legacy settings contain no taxRate: a zero default preserves existing
+  // quoted prices until an operator explicitly configures the tax rate.
+  const rawTax=value.taxRate;
+  const taxRate=rawTax === undefined || rawTax === null || rawTax === '' ? 0 : Number(rawTax);
+  if (typeof rawTax === 'boolean' || !Number.isFinite(taxRate) || taxRate<0 || taxRate>100) {
+    throw new Error('Tax rate must be a percentage between 0 and 100');
+  }
+  return {profitPercent:profitPercent == null ? null : round(profitPercent,2),
+    profitMethod:method,taxRate:round(taxRate,2)};
 }
 
 export async function getLibraryPricingSettings() {
@@ -100,6 +108,8 @@ export async function saveLibraryPricingSettings(input) {
  * completed filament-cost estimate. An older saved sundryCurrency field is
  * deliberately ignored (no implicit FX conversion). Without a complete
  * filament estimate, no currency or selling price is assumed.
+ * Tax applies AFTER markup or target margin, before dividing the inclusive
+ * price into sale lots and rounding to the currency's smallest unit.
  */
 export function estimateLibrarySalePrice(file, settings) {
   const costs=normalizeSundryCosts(file?.sundryCosts);
@@ -114,15 +124,22 @@ export function estimateLibrarySalePrice(file, settings) {
     issue='Filament cost is unavailable; a complete selling price cannot be calculated';
   }
   const totalCost=issue ? null : round(filament.totalCost + sundriesCost);
-  const nominalSale=issue ? null : options.profitMethod==='margin'
+  const nominalExTax=issue ? null : options.profitMethod==='margin'
     ? totalCost/(1-options.profitPercent/100)
     : totalCost*(1+options.profitPercent/100);
-  // Individually sold lots must add up to the displayed batch price.
-  // Honour ISO currency minor units (e.g. JPY/KRW have no decimal cents).
+  const nominalIncTax=nominalExTax===null ? null : nominalExTax*(1+options.taxRate/100);
+  // Round the price of EACH individually sold lot so the displayed whole-
+  // print total always agrees with lots × the displayed tax-inclusive price.
+  // Honour currency minor units (e.g. JPY/KRW have no decimal cents).
   const currencyDigits=currency ? new Intl.NumberFormat('en-GB',{style:'currency',currency})
     .resolvedOptions().maximumFractionDigits : 2;
-  const sellingPricePerLot=nominalSale===null ? null : round(nominalSale/lotsPerPrint,currencyDigits);
+  const sellingPricePerLot=nominalIncTax===null ? null : round(nominalIncTax/lotsPerPrint,currencyDigits);
   const sellingPrice=sellingPricePerLot===null ? null : round(sellingPricePerLot*lotsPerPrint,currencyDigits);
+  const sellingPriceExTaxPerLot=nominalExTax===null ? null : round(nominalExTax/lotsPerPrint,currencyDigits);
+  const sellingPriceExTax=sellingPriceExTaxPerLot===null ? null
+    : round(sellingPriceExTaxPerLot*lotsPerPrint,currencyDigits);
+  const taxAmount=sellingPrice===null || sellingPriceExTax===null ? null
+    : round(sellingPrice-sellingPriceExTax,currencyDigits);
   return {
     complete:!issue,
     issue,
@@ -132,6 +149,10 @@ export function estimateLibrarySalePrice(file, settings) {
     totalCost,
     profitPercent:options.profitPercent,
     profitMethod:options.profitMethod,
+    taxRate:options.taxRate,
+    taxAmount,
+    sellingPriceExTax,
+    sellingPriceExTaxPerLot,
     lotsPerPrint,
     sellingPrice,
     sellingPricePerLot
