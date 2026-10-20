@@ -25,7 +25,8 @@ test('Selling-price settings and Preact/fallback sale view use the same server e
   const preact=read('ui/print-library.jsx');
   const server=read('src/server.js'),css=read('public/print-library-polish.css');
   const ids=['reportingTabPricing','reportingPanelPricing','reportingPricingForm',
-    'reportingProfitPercent','reportingProfitMethod','reportingPricingStatus','reportingPricingError'];
+    'reportingProfitPercent','reportingProfitMethod','reportingTaxRate',
+    'reportingPricingStatus','reportingPricingError'];
   for (const id of ids) assert.match(html,new RegExp('id="'+id+'"'));
   assert.doesNotMatch(app,/SundryCurrency/);
   assert.doesNotMatch(html,/name="sundryCurrency"/);
@@ -47,6 +48,10 @@ test('Selling-price settings and Preact/fallback sale view use the same server e
   assert.match(html,/data-reporting-panel="pricing"/);
   assert.match(reporting,/function loadReportingPricingSettings\(\)/);
   assert.match(reporting,/requestJson\('\/api\/library\/pricing'/);
+  assert.match(reporting,/taxRate:Number\(reportingTaxRate\?\.value \?\? 0\)/);
+  assert.match(reporting,/reportingTaxRate\.value=String\(response\.settings\?\.taxRate \?\? 0\)/);
+  assert.match(html,/name="taxRate" type="number" min="0" max="100" step="0.01"/);
+  assert.match(html,/Prices are shown <strong>including tax<\/strong>/);
   assert.match(reporting,/reportingPricingForm\?\.addEventListener\('submit'/);
   assert.match(reporting,/pfc:library-pricing-updated/);
   assert.match(app,/addEventListener\('pfc:library-pricing-updated'/);
@@ -103,7 +108,7 @@ test('Print Library costing sections use design-system headings without clipped 
   assert.match(design,/\.ui-surface-muted/);
 });
 
-test('Sale lots and suggested sell price have separate aligned sortable columns in Preact and fallback',()=>{
+test('Sale lots and tax-inclusive Sell price have separate aligned sortable columns in Preact and fallback',()=>{
   const html=read('public/index.html');
   const app=read('public/app.js');
   const jsx=read('ui/print-library.jsx');
@@ -111,7 +116,7 @@ test('Sale lots and suggested sell price have separate aligned sortable columns 
   const utils=read('public/library-utils.js');
   const header=html.split('id="libraryTableHead"')[1]?.split('</div>')[0] || '';
   const headings=['Select','Preview','File','Printer','Filament &amp; requirements',
-    'Estimated cost','Sale lots','Suggested sell price','History'];
+    'Estimated cost','Sale lots','Sell price','History'];
   for(const label of headings) assert.ok(header.includes(label),'missing table heading: '+label);
   for(const sort of ['lots','salePrice']) {
     assert.match(header,new RegExp('data-library-sort="'+sort+'"'));
@@ -132,6 +137,9 @@ test('Sale lots and suggested sell price have separate aligned sortable columns 
   assert.match(css,/#libraryDialog \.library-sale-price \{[\s\S]*?background:transparent;/);
   assert.match(utils,/case 'lots':/);
   assert.match(utils,/case 'salePrice':/);
+  assert.doesNotMatch(header,/Suggested sell price/);
+  assert.match(app,/per sale lot · incl\. tax/);
+  assert.match(jsx,/per sale lot · incl\. tax/);
 });
 
 test('Sundry items use a five-option dropdown and outlined destructive Remove control',()=>{

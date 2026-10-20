@@ -291,7 +291,7 @@ export async function stageRestoreBackup(filePath, {
       const pricing=JSON.parse((await archive.read('state/library-pricing.json')).toString('utf8'));
       await writeStateJson(stageDir, 'library-pricing.json', pricing);
     } else {
-      await writeStateJson(stageDir, 'library-pricing.json', {profitPercent:null,profitMethod:'markup'});
+      await writeStateJson(stageDir, 'library-pricing.json', {profitPercent:null,profitMethod:'markup',taxRate:0});
     }
 
     if (archive.byName.has('state/alerts.json')) {

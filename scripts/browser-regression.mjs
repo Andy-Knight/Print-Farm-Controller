@@ -739,7 +739,7 @@ async function librarySelectionSmoke(page,url,{mutateFixture = true} = {}) {
   assert.equal(await page.locator('#libraryTableHead').isVisible(),true);
   assert.ok((await page.locator('#libraryTableHead').textContent()).includes('Estimated cost'));
   assert.ok((await page.locator('#libraryTableHead').textContent()).includes('Sale lots'));
-  assert.ok((await page.locator('#libraryTableHead').textContent()).includes('Suggested sell price'));
+  assert.ok((await page.locator('#libraryTableHead').textContent()).includes('Sell price'));
   assert.equal(await page.locator('#libraryTableHead > *').count(),9);
   assert.equal(await page.locator('#libraryList .library-file-row').first()
     .locator('.library-lots-cell').count(),1);
@@ -1060,11 +1060,13 @@ async function libraryPricingSmoke(page,url,{mutateFixture=true}={}) {
   assert.equal(await page.locator('#reportingPanelFilament').evaluate(node=>node.hidden),true);
   await page.locator('#reportingProfitPercent').fill('30');
   await page.locator('#reportingProfitMethod').selectOption('markup');
+  await page.locator('#reportingTaxRate').fill('20');
   await page.locator('#reportingPricingSaveBtn').click();
   await page.waitForFunction(()=>document.querySelector('#reportingPricingStatus')?.textContent.includes('saved'));
   const settings=await page.evaluate(async()=> (await (await fetch('/api/library/pricing')).json()).settings);
   assert.equal(settings.profitPercent,30);
   assert.equal(settings.profitMethod,'markup');
+  assert.equal(settings.taxRate,20);
   await page.locator('[data-reporting-tab="filament"]').click();
   await page.locator('[data-reporting-tab="pricing"]').click();
   await page.waitForFunction(()=>
@@ -1072,6 +1074,8 @@ async function libraryPricingSmoke(page,url,{mutateFixture=true}={}) {
     !document.querySelector('#reportingPricingFields')?.disabled);
   assert.equal(await page.locator('#reportingProfitMethod').inputValue(),'markup',
     'pricing tab must load persisted global settings after switching tabs');
+  assert.equal(await page.locator('#reportingTaxRate').inputValue(),'20',
+    'pricing tab must reload the persisted tax rate');
   await page.goto(url+'/library',{waitUntil:'load'});
   await preactReady(page);
   assert.equal(await page.locator('#libraryPricingSettingsBtn').count(),0,
@@ -1125,6 +1129,10 @@ async function libraryPricingSmoke(page,url,{mutateFixture=true}={}) {
   assert.equal(added.lotsPerPrint,4);
   assert.equal(added.saleEstimate.sundriesCost,1);
   assert.equal(added.saleEstimate.profitPercent,30);
+  assert.equal(added.saleEstimate.taxRate,20);
+  if (added.saleEstimate.complete) {
+    assert.ok(added.saleEstimate.sellingPrice>=added.saleEstimate.sellingPriceExTax);
+  }
   assert.equal(await page.locator('[data-library-file="'+added.id+'"] .library-sale-price').count(),1);
 
   await page.locator('[data-library-file="'+added.id+'"] [data-library-select]').click();
@@ -1182,7 +1190,7 @@ async function libraryPricingSmoke(page,url,{mutateFixture=true}={}) {
   await page.evaluate(async()=> {
     const response=await fetch('/api/library/pricing',{method:'PUT',
       headers:{'content-type':'application/json'},
-      body:JSON.stringify({profitPercent:null,profitMethod:'markup'})});
+      body:JSON.stringify({profitPercent:null,profitMethod:'markup',taxRate:0})});
     if (!response.ok) throw Error('Unable to reset test pricing settings');
   });
   await page.setViewportSize({width:1365,height:900});
@@ -1228,7 +1236,7 @@ async function libraryScrollingSmoke(page,url) {
       const firstRow=page.locator('#libraryList .library-file-row').first();
       assert.equal(await firstRow.locator('.library-lots-value').innerText(),'4');
       assert.equal(await firstRow.locator('.library-sale-value').innerText(),'£2.44',
-        'the main suggested selling price must be per lot for a multi-lot print');
+        'the main sell price must be per lot for a multi-lot print');
       assert.ok((await firstRow.locator('.library-sale-cell').innerText()).includes('£9.76'),
         'multi-lot rows should show the full-print selling total as context');
       const unknownRow=page.locator('#libraryList .library-file-row').nth(1);
@@ -1240,7 +1248,7 @@ async function libraryScrollingSmoke(page,url) {
         assert.equal(await firstRow.locator('.library-cell').count(),9);
       } else {
         assert.equal(await firstRow.locator('.library-lots-cell .library-cell-label').innerText(),'Sale lots');
-        assert.equal(await firstRow.locator('.library-sale-cell .library-cell-label').innerText(),'Suggested sell price');
+        assert.equal(await firstRow.locator('.library-sale-cell .library-cell-label').innerText(),'Sell price');
       }
       const before=await page.evaluate(()=>{
         const header=document.querySelector('#libraryTableHead');
