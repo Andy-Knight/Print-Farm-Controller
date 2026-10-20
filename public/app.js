@@ -3795,10 +3795,18 @@ function libraryFileMarkup(file) {
           <small class="library-print-cost-detail">${escapeHtml(cost.detail)}</small>
         </div>
       </div>
+    </div>
+    <div class="library-cell library-lots-cell">
+      <span class="library-cell-label">Sale lots</span>
+      <strong class="library-lots-value">${sale.lots}</strong>
+      <small>per print</small>
+    </div>
+    <div class="library-cell library-sale-cell">
       <div class="library-sale-price${sale.available?'':' unavailable'}" title="${escapeHtml(sale.detail)}">
-        <span>Suggested selling price / print</span><strong>${escapeHtml(sale.price)}</strong>
-        <small>${escapeHtml(sale.detail)}</small>
-        ${sale.lots>1 ? `<small>${sale.lots} sale lots · ${escapeHtml(sale.perLot || 'Unavailable')} per lot</small>` : ''}
+        <span class="library-cell-label">Suggested sell price</span>
+        <strong class="library-sale-value">${escapeHtml(sale.available ? (sale.lots>1 ? sale.perLot : sale.price) : 'Unavailable')}</strong>
+        <small>${sale.available ? (sale.lots>1 ? 'per sale lot' : 'per print') : 'No complete price estimate'}</small>
+        ${sale.available&&sale.lots>1 ? `<small>Print total: ${escapeHtml(sale.price)}</small>` : ''}
       </div>
     </div>
     <div class="library-cell library-history-cell">
