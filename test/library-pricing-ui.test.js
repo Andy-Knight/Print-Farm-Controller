@@ -25,7 +25,8 @@ test('Selling-price settings and Preact/fallback sale view use the same server e
   const preact=read('ui/print-library.jsx');
   const server=read('src/server.js'),css=read('public/print-library-polish.css');
   const ids=['reportingTabPricing','reportingPanelPricing','reportingPricingForm',
-    'reportingProfitPercent','reportingProfitMethod','reportingPricingStatus','reportingPricingError'];
+    'reportingProfitPercent','reportingProfitMethod','reportingTaxRate',
+    'reportingPricingStatus','reportingPricingError'];
   for (const id of ids) assert.match(html,new RegExp('id="'+id+'"'));
   assert.doesNotMatch(app,/SundryCurrency/);
   assert.doesNotMatch(html,/name="sundryCurrency"/);
@@ -36,7 +37,7 @@ test('Selling-price settings and Preact/fallback sale view use the same server e
   assert.match(server,/estimateLibrarySalePrice\(file,pricingSettings\)/);
   assert.match(server,/url\.pathname === '\/api\/library\/pricing' && req\.method === 'PUT'/);
   assert.match(server,/sundryCosts:body\.sundryCosts/);
-  assert.match(preact,/file\.sale\?\.price/);
+  assert.match(preact,/file\.sale\.price/);
   assert.match(app,/function librarySaleView\(file\)/);
   const reporting=read('public/reporting.js');
   const reportingUi=read('ui/reporting.jsx');
@@ -47,6 +48,10 @@ test('Selling-price settings and Preact/fallback sale view use the same server e
   assert.match(html,/data-reporting-panel="pricing"/);
   assert.match(reporting,/function loadReportingPricingSettings\(\)/);
   assert.match(reporting,/requestJson\('\/api\/library\/pricing'/);
+  assert.match(reporting,/taxRate:Number\(reportingTaxRate\?\.value \?\? 0\)/);
+  assert.match(reporting,/reportingTaxRate\.value=String\(response\.settings\?\.taxRate \?\? 0\)/);
+  assert.match(html,/name="taxRate" type="number" min="0" max="100" step="0.01"/);
+  assert.match(html,/Prices are shown <strong>including tax<\/strong>/);
   assert.match(reporting,/reportingPricingForm\?\.addEventListener\('submit'/);
   assert.match(reporting,/pfc:library-pricing-updated/);
   assert.match(app,/addEventListener\('pfc:library-pricing-updated'/);
@@ -101,4 +106,66 @@ test('Print Library costing sections use design-system headings without clipped 
   assert.match(css,/grid-template-columns:minmax\(0,1fr\)/);
   assert.match(design,/\.ui-section-heading h2,\.ui-section-heading h3/);
   assert.match(design,/\.ui-surface-muted/);
+});
+
+test('Sale lots and tax-inclusive Sell price have separate aligned sortable columns in Preact and fallback',()=>{
+  const html=read('public/index.html');
+  const app=read('public/app.js');
+  const jsx=read('ui/print-library.jsx');
+  const css=read('public/print-library-polish.css');
+  const utils=read('public/library-utils.js');
+  const header=html.split('id="libraryTableHead"')[1]?.split('</div>')[0] || '';
+  const headings=['Select','Preview','File','Printer','Filament &amp; requirements',
+    'Estimated cost','Sale lots','Sell price','History'];
+  for(const label of headings) assert.ok(header.includes(label),'missing table heading: '+label);
+  for(const sort of ['lots','salePrice']) {
+    assert.match(header,new RegExp('data-library-sort="'+sort+'"'));
+    assert.match(html,new RegExp('<option value="'+sort+'">'));
+  }
+  for(const [render,name] of [[app,'fallback'],[jsx,'Preact']]) {
+    assert.match(render,/library-cell library-lots-cell/,name+' should have own lots cell');
+    assert.match(render,/library-cell library-sale-cell/,name+' should have own selling price cell');
+    assert.match(render,/library-sale-price/,name+' should show priced or unavailable state');
+    const costCell=render.split('class="library-cell library-cost-cell"')[1]?.split('class="library-cell library-lots-cell"')[0] || '';
+    assert.doesNotMatch(costCell,/library-sale-price/,name+' must not embed selling price inside material cost');
+  }
+  assert.match(app,/sale\.lots>1 \? sale\.perLot : sale\.price/);
+  assert.match(jsx,/file\.sale\?\.lots>1 \? file\.sale\.perLot : file\.sale\.price/);
+  assert.match(css,/--library-table-cols:[^;]+;/);
+  assert.match(css,/"selection preview lots history"/);
+  assert.match(css,/"\. sale sale"/);
+  assert.match(css,/#libraryDialog \.library-sale-price \{[\s\S]*?background:transparent;/);
+  assert.match(utils,/case 'lots':/);
+  assert.match(utils,/case 'salePrice':/);
+  assert.doesNotMatch(header,/Suggested sell price/);
+  assert.match(app,/per sale lot · incl\. tax/);
+  assert.match(jsx,/per sale lot · incl\. tax/);
+});
+
+test('Sundry items use a five-option dropdown and outlined destructive Remove control',()=>{
+  const app=read('public/app.js');
+  const css=read('public/print-library-polish.css');
+  const html=read('public/index.html');
+  assert.match(app,/const LIBRARY_SUNDRY_ITEMS=Object\.freeze\(\[/);
+  for(const item of ['Packaging','Postage','Hardware','Labour','Miscellaneous']) {
+    assert.match(app,new RegExp("'"+item+"'"));
+  }
+  assert.match(app,/<select data-sundry-label required/);
+  assert.ok(app.includes('data-sundry-cost type="number" min="0" max="1000000" step="0.01" inputmode="decimal"'));
+  assert.ok(app.includes('Number(entry.unitCost ?? 0).toFixed(2)'));
+  assert.ok(app.includes("costInput?.addEventListener('blur',()=>{"));
+  assert.ok(app.includes('Math.round((value+Number.EPSILON)*100)/100).toFixed(2)'));
+  assert.doesNotMatch(app,/<input data-sundry-label/);
+  assert.match(app,/<option value=""\$\{existing\?'':' selected'\} disabled>Select sundry item/);
+  assert.match(app,/previously saved/);
+  assert.match(app,/class="danger library-remove-sundry" data-remove-sundry/);
+  assert.match(css,/#libraryMetadataDialog \.library-sundry-row > \.library-remove-sundry/);
+  assert.match(css,/#libraryAddDialog \.library-sundry-row > \.library-remove-sundry/);
+  assert.match(css,/border:1px solid var\(--ds-danger\);/);
+  assert.match(css,/background:transparent;/);
+  assert.match(css,/\.library-sundry-row input,\.library-sundry-row select/);
+  assert.match(app,/if \(remove\) remove\.closest\('\.library-sundry-row'\)\?\.remove\(\)/,
+    'removing a line item must not write changes to the server');
+  assert.match(html,/id="libraryMetadataForm"/);
+  assert.match(html,/id="libraryAddForm"/);
 });

@@ -1,4 +1,4 @@
-# Print Farm Controller v0.58.0
+# Print Farm Controller v0.58.1
 A local-first 3D printer fleet controller. It runs entirely on your LAN and currently supports:
 
 - **FlashForge Adventurer 5M / 5M Pro** through the local FlashForge HTTP/TCP APIs.
@@ -7,11 +7,13 @@ A local-first 3D printer fleet controller. It runs entirely on your LAN and curr
 - **Prusa CORE One+ (experimental)** through the local PrusaLink API, supporting Standard (1-tool), INDX4 and INDX8 configurations.
 - **Bambu Lab P1P / P1S / X1C / A1 Mini (experimental)** through the local MQTT TLS and FTPS TLS interfaces. P1P/P1S/A1 Mini use the TLS/JPEG camera path; X1C camera decoding remains unsupported.
 
-**Current development version: v0.58.0**
+**Current development version: v0.58.1**
 
 Current highlights:
 
-- **Product pricing and costing (v0.58.0):** Print Library Add File now supports category and tags immediately. Add/edit per-file sundries with descriptions, quantities and unit prices for a whole sliced print, and define 1–999 sale lots. The currency for every sundry is inherited from the file's current *complete* filament cost estimate, never selected separately or converted silently. The library shows estimated total and per-lot selling prices using global profit settings (cost markup or gross margin) configured on the new **Pricing settings** tab of **Reports & costing**. Incomplete filament pricing prevents selling price quotes. Settings are included in backup/restore; earlier library metadata remains compatible. Add/Edit forms use the shared UI styling, fixed header and footer and scrollable detail body. No printer dispatch or queue costing snapshot changes.
+- **Reports & finance and sell pricing (v0.58.1):** Renamed Reports & costing to Reports & finance, retaining Analytics, Filament cost catalogue and Pricing settings. Global Tax rate (%) on Pricing settings is applied to the computed selling price after profit markup or gross margin; old settings default to 0% tax. The Print Library has dedicated sortable **Sale lots** and **Sell price** columns: the sell price is tax-inclusive and is per lot for multi-lot prints (with the whole-print total shown below). Sundry line items now use a dropdown of Packaging, Postage, Hardware, Labour and Miscellaneous, two-decimal unit prices and an outlined red Remove button in Add File and Edit Details. Cancel discards edits. The currency continues to come from the filament cost estimate. Both Preact and fallback UIs, light/dark styling and backup/restore remain supported.
+
+- **Product pricing and costing (v0.58.0):** Print Library Add File now supports category and tags immediately. Add/edit per-file sundries with descriptions, quantities and unit prices for a whole sliced print, and define 1–999 sale lots. The currency for every sundry is inherited from the file's current *complete* filament cost estimate, never selected separately or converted silently. The library shows estimated total and per-lot selling prices using global profit settings (cost markup or gross margin) configured on the new **Pricing settings** tab of **Reports & finance**. Incomplete filament pricing prevents selling price quotes. Settings are included in backup/restore; earlier library metadata remains compatible. Add/Edit forms use the shared UI styling, fixed header and footer and scrollable detail body. No printer dispatch or queue costing snapshot changes.
 
 - **Print Library refinements (v0.57.2):** Readiness labels are clickable filters for Ready now, Printer busy, Printer offline, Needs attention and Incompatible. The selected status is shown in Advanced Filters, other active facets remain in effect, and Clear filters restores the view. Selecting/deselecting a file row no longer jumps the scrollable library list to the top (including keyboard selection). Fixed the Ascending/Descending control alignment with Sort by and Batch quantity while preserving the shared 42px field height and light/dark themes. No printer communication or queue preflight changes.
 
@@ -66,7 +68,7 @@ Current highlights:
 - Container images for Linux AMD64 and ARM64, with Docker and K3s/Kubernetes deployment guidance.
 - Persistent Print Library, smart queueing, printer groups and maintenance tracking.
 - Farm alerts & notifications with persistent local history, attention-only top-bar warnings, scoped rules, ntfy mobile push and generic outbound webhooks.
-- Reports & costing with graphical trends, printer reliability indicators, popular-file reporting, filament usage and material-cost tracking, now split into Analytics, Filament cost catalogue and Pricing settings tabs.
+- Reports & finance with graphical trends, printer reliability indicators, popular-file reporting, filament usage and material-cost tracking, now split into Analytics, Filament cost catalogue and Pricing settings tabs.
 - Filament catalogue costing with Orca/Bambu slicer vendor/preset auto-matching, explicit per-tool overrides, immutable historical cost snapshots, and a controlled selector covering common world currencies.
 - Compressed portable backup and restore, including local/NAS, Google Drive, Microsoft OneDrive and generic S3-compatible destinations, multi-group printer membership, reporting history/filament catalogue data, and backwards-compatible restore of older backups.
 - Snapmaker U1, FlashForge and Prusa CORE One+ support, with experimental Bambu Lab support.
@@ -162,7 +164,7 @@ If the optional Preact bundle is not present, the controller still starts and th
 
 ## Reports and material costs
 
-Print Farm Controller v0.37.0 adds a persistent **Reports & costing** view for operational and material-cost reporting. The reporting history is stored independently of the bounded recent queue history so long-term trends are retained.
+Print Farm Controller v0.37.0 adds a persistent **Reports & finance** view for operational and material-cost reporting. The reporting history is stored independently of the bounded recent queue history so long-term trends are retained.
 
 Reports can be filtered by date range, printer and printer group and include:
 

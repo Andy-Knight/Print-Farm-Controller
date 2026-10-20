@@ -18,14 +18,22 @@ const sample=(overrides={})=>({
 });
 
 test('Global library pricing settings persist and support markup vs margin',async()=>{
-  assert.deepEqual(await pricing.getLibraryPricingSettings(),{profitPercent:null,profitMethod:'markup'});
+  assert.deepEqual(await pricing.getLibraryPricingSettings(),{profitPercent:null,profitMethod:'markup',taxRate:0});
   const changed=await pricing.saveLibraryPricingSettings({profitPercent:30,profitMethod:'markup'});
-  assert.deepEqual(changed,{profitPercent:30,profitMethod:'markup'});
+  assert.deepEqual(changed,{profitPercent:30,profitMethod:'markup',taxRate:0});
   assert.deepEqual(await pricing.getLibraryPricingSettings(),changed);
   const margin=await pricing.saveLibraryPricingSettings({profitPercent:30,profitMethod:'margin'});
   assert.deepEqual(await pricing.getLibraryPricingSettings(),margin);
   assert.ok((await fs.stat(pricing.libraryPricingSettingsPath)).isFile());
   assert.equal(path.dirname(pricing.libraryPricingSettingsPath),root);
+  // An earlier stored configuration without a tax rate must load as 0%.
+  await fs.writeFile(pricing.libraryPricingSettingsPath,
+    JSON.stringify({profitPercent:25,profitMethod:'margin'}));
+  assert.deepEqual(await pricing.getLibraryPricingSettings(),
+    {profitPercent:25,profitMethod:'margin',taxRate:0});
+  const taxed=await pricing.saveLibraryPricingSettings({profitPercent:25,profitMethod:'margin',taxRate:20});
+  assert.deepEqual(taxed,{profitPercent:25,profitMethod:'margin',taxRate:20});
+  assert.deepEqual(await pricing.getLibraryPricingSettings(),taxed);
 });
 
 test('Total sundries and selling price are computed per sliced print, then divided into sale lots',()=>{
@@ -44,6 +52,36 @@ test('Total sundries and selling price are computed per sliced print, then divid
   assert.equal(margin.sellingPricePerLot,2.5);
   assert.equal(margin.complete,true);
   assert.equal(margin.currency,'GBP');
+});
+
+test('Tax applies after profit and before sale-lot rounding; inclusive print total is lots × rounded per-lot price',()=>{
+  const file=sample();
+  const markup=pricing.estimateLibrarySalePrice(file,
+    {profitPercent:30,profitMethod:'markup',taxRate:20});
+  assert.equal(markup.totalCost,7.5);
+  assert.equal(markup.taxRate,20);
+  assert.equal(markup.sellingPriceExTax,9.76);
+  assert.equal(markup.sellingPriceExTaxPerLot,2.44);
+  assert.equal(markup.sellingPricePerLot,2.93);
+  assert.equal(markup.sellingPrice,11.72);
+  assert.equal(markup.taxAmount,1.96);
+  assert.equal(markup.sellingPricePerLot*markup.lotsPerPrint,markup.sellingPrice);
+  const margin=pricing.estimateLibrarySalePrice(file,
+    {profitPercent:25,profitMethod:'margin',taxRate:20});
+  assert.equal(margin.sellingPriceExTax,10);
+  assert.equal(margin.sellingPricePerLot,3);
+  assert.equal(margin.sellingPrice,12);
+  assert.equal(margin.taxAmount,2);
+  const zero=pricing.estimateLibrarySalePrice(file,
+    {profitPercent:30,profitMethod:'markup',taxRate:0});
+  assert.equal(zero.sellingPrice,9.76);
+  assert.equal(zero.taxAmount,0);
+  const yen=pricing.estimateLibrarySalePrice({
+    sundryCosts:[],lotsPerPrint:3,costEstimate:{complete:true,totalCost:1000,currency:'JPY'}
+  },{profitPercent:20,profitMethod:'markup',taxRate:20});
+  assert.equal(yen.sellingPricePerLot,480);
+  assert.equal(yen.sellingPrice,1440);
+  assert.equal(yen.taxAmount,240);
 });
 
 test('Inherit all sundry amounts in the filament estimate currency and withhold incomplete prices',()=>{
@@ -105,6 +143,9 @@ test('Invalid sundries, lot counts and profit margins fail closed',()=>{
   assert.throws(()=>pricing.normalizePricingSettings({profitPercent:100,profitMethod:'margin'}),/below 100/);
   assert.throws(()=>pricing.normalizePricingSettings({profitPercent:-1,profitMethod:'markup'}),/non-negative/);
   assert.throws(()=>pricing.normalizePricingSettings({profitPercent:20,profitMethod:'unknown'}),/profit method/i);
+  for (const invalid of [-1,100.01,NaN,true,'invalid',Infinity]) {
+    assert.throws(()=>pricing.normalizePricingSettings({profitPercent:20,profitMethod:'markup',taxRate:invalid}),/tax rate/i);
+  }
 });
 
 test('Clearing saved profit percentage prevents presenting a stale sales price',async()=>{

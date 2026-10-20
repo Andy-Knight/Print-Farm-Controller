@@ -95,7 +95,7 @@ export async function collectLogicalBackupSnapshot({
   const printerGroups = await readJsonFile(path.join(resolvedDataDir, 'printer-groups.json'), { version:1, groups:[] });
   const filaments = await readJsonFile(path.join(resolvedDataDir, 'filaments.json'), { version:1, filaments:[] });
   const reportingHistory = await readJsonFile(path.join(resolvedDataDir, 'reporting-history.json'), { version:1, records:[] });
-  const libraryPricing = normalizePricingSettings(await readJsonFile(path.join(resolvedDataDir, 'library-pricing.json'), { profitPercent:null, profitMethod:'markup' }));
+  const libraryPricing = normalizePricingSettings(await readJsonFile(path.join(resolvedDataDir, 'library-pricing.json'), { profitPercent:null, profitMethod:'markup', taxRate:0 }));
   const alerts = await readJsonFile(path.join(resolvedDataDir, 'alerts.json'), { version:1, rules:[], destinations:[], history:[] });
   const library = await collectLibraryEntries(resolvedDataDir);
 

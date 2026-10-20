@@ -290,7 +290,7 @@ const controllerRoutes = {
   '/library': { button:'libraryBtn', dialog:'libraryDialog', title:'Print library', subtitle:'Manage files available to your print farm' },
   '/maintenance': { button:'maintenanceBtn', dialog:'maintenanceDialog', title:'Maintenance', subtitle:'Track maintenance tasks across the farm' },
   '/groups': { button:'printerGroupsBtn', dialog:'printerGroupsDialog', title:'Printer groups', subtitle:'Organise printers for scheduling and maintenance' },
-  '/reports': { button:'reportsBtn', dialog:'reportingDialog', title:'Reports & costing', subtitle:'Review farm performance, material costs and selling prices' },
+  '/reports': { button:'reportsBtn', dialog:'reportingDialog', title:'Reports & finance', subtitle:'Review farm performance, material costs and selling prices' },
   '/alerts': { button:'alertsSettingsBtn', dialog:'alertsDialog', title:'Alerts & notifications', subtitle:'Review alerts and notification settings' },
   '/backup': { button:'backupRecoveryBtn', dialog:'backupRecoveryDialog', title:'Backup & recovery', subtitle:'Protect and restore controller data' },
   '/diagnostics': { button:'diagnosticsBtn', dialog:'diagnosticsDialog', title:'Diagnostics', subtitle:'Review controller health and diagnostic logs' },
@@ -3663,20 +3663,47 @@ function librarySaleView(file) {
     price:available ? money(sale.sellingPrice) : 'Unavailable',
     perLot:available && lots>1 ? money(sale.sellingPricePerLot) : '',
     detail:available
-      ? `Filament ${money(sale.filamentCost)} + sundries ${money(sundries)} · ${sale.profitPercent}% ${sale.profitMethod==='margin'?'gross margin':'markup'}`
-      : (sale.issue || 'Selling price estimate is not configured'),
+      ? `Filament ${money(sale.filamentCost)} + sundries ${money(sundries)} · ${sale.profitPercent}% ${sale.profitMethod==='margin'?'gross margin':'markup'} · ${sale.taxRate ?? 0}% tax included (${money(sale.taxAmount ?? 0)})`
+      : (sale.issue || 'Sell price estimate is not configured'),
     lots
   };
 }
 
+// A controlled choice for new costs. Keep an older custom label as a
+// selectable, read-only legacy option when editing existing saved library data.
+const LIBRARY_SUNDRY_ITEMS=Object.freeze([
+  'Packaging','Postage','Hardware','Labour','Miscellaneous'
+]);
 function addLibrarySundryRow(root, entry = {}) {
   if (!root || root.children.length >= 30) return;
+  const existing=String(entry?.label || '').trim();
+  const matched=LIBRARY_SUNDRY_ITEMS.find(item=>item.toLowerCase()===existing.toLowerCase()) || '';
+  const legacy=existing && !matched
+    ? `<option value="${escapeHtml(existing)}" selected>${escapeHtml(existing)} (previously saved)</option>`
+    : '';
+  const options=LIBRARY_SUNDRY_ITEMS.map(item=>
+    `<option value="${escapeHtml(item)}"${item===matched?' selected':''}>${escapeHtml(item)}</option>`).join('');
   const row=document.createElement('div');
   row.className='library-sundry-row';
-  row.innerHTML=`<label>Description<input data-sundry-label maxlength="100" required placeholder="Bolts, inserts, packaging" value="${escapeHtml(entry.label || '')}" /></label>
+  row.innerHTML=`<label>Sundry item
+      <select data-sundry-label required aria-label="Sundry item">
+        <option value=""${existing?'':' selected'} disabled>Select sundry item</option>
+        ${options}${legacy}
+      </select>
+    </label>
     <label>Qty<input data-sundry-qty type="number" min="1" max="10000" step="1" required value="${escapeHtml(String(entry.quantity ?? 1))}" /></label>
-    <label>Unit cost<input data-sundry-cost type="number" min="0" max="1000000" step="0.0001" required value="${escapeHtml(String(entry.unitCost ?? 0))}" /></label>
-    <button type="button" class="secondary" data-remove-sundry aria-label="Remove sundry cost">Remove</button>`;
+    <label>Unit cost<input data-sundry-cost type="number" min="0" max="1000000" step="0.01" inputmode="decimal" required value="${escapeHtml(Number(entry.unitCost ?? 0).toFixed(2))}" /></label>
+    <button type="button" class="danger library-remove-sundry" data-remove-sundry aria-label="Remove sundry item">Remove</button>`;
+  // Costs represent currency: show two decimal places, including whole amounts
+  // and legacy values when an existing file is opened for editing.
+  const costInput=row.querySelector('[data-sundry-cost]');
+  costInput?.addEventListener('blur',()=>{
+    const raw=costInput.value.trim();
+    const value=Number(raw);
+    if(raw!=='' && Number.isFinite(value) && value>=0 && value<=1000000) {
+      costInput.value=(Math.round((value+Number.EPSILON)*100)/100).toFixed(2);
+    }
+  });
   root.append(row);
 }
 function renderLibrarySundries(root, entries = []) {
@@ -3690,7 +3717,7 @@ function collectLibrarySundries(root) {
     const quantity=Number(row.querySelector('[data-sundry-qty]')?.value);
     const unitCostValue=row.querySelector('[data-sundry-cost]')?.value;
     const unitCost=Number(unitCostValue);
-    if (!label || label.length>100) throw new Error('Sundry costs need a description of at most 100 characters');
+    if (!label || label.length>100) throw new Error('Select a sundry item');
     if (!Number.isInteger(quantity) || quantity<1 || quantity>10000) throw new Error('Sundry quantity must be 1–10000');
     if (unitCostValue==='' || !Number.isFinite(unitCost) || unitCost<0 || unitCost>1000000) {
       throw new Error('Sundry unit cost must be between zero and 1000000');
@@ -3795,10 +3822,18 @@ function libraryFileMarkup(file) {
           <small class="library-print-cost-detail">${escapeHtml(cost.detail)}</small>
         </div>
       </div>
+    </div>
+    <div class="library-cell library-lots-cell">
+      <span class="library-cell-label">Sale lots</span>
+      <strong class="library-lots-value">${sale.lots}</strong>
+      <small>per print</small>
+    </div>
+    <div class="library-cell library-sale-cell">
       <div class="library-sale-price${sale.available?'':' unavailable'}" title="${escapeHtml(sale.detail)}">
-        <span>Suggested selling price / print</span><strong>${escapeHtml(sale.price)}</strong>
-        <small>${escapeHtml(sale.detail)}</small>
-        ${sale.lots>1 ? `<small>${sale.lots} sale lots · ${escapeHtml(sale.perLot || 'Unavailable')} per lot</small>` : ''}
+        <span class="library-cell-label">Sell price</span>
+        <strong class="library-sale-value">${escapeHtml(sale.available ? (sale.lots>1 ? sale.perLot : sale.price) : 'Unavailable')}</strong>
+        <small>${sale.available ? (sale.lots>1 ? 'per sale lot · incl. tax' : 'per print · incl. tax') : 'No complete price estimate'}</small>
+        ${sale.available&&sale.lots>1 ? `<small>Print total: ${escapeHtml(sale.price)}</small>` : ''}
       </div>
     </div>
     <div class="library-cell library-history-cell">
@@ -5368,7 +5403,7 @@ libraryUploadBtn?.addEventListener('click', () => {
   if (libraryAddError) { libraryAddError.textContent = ''; libraryAddError.classList.add('hidden'); }
   libraryAddDialog?.showModal();
 });
-// Reports & costing owns global profit settings. Keep any already-mounted
+// Reports & finance owns global profit settings. Keep any already-mounted
 // Print Library estimates in sync when an operator saves those settings.
 window.addEventListener('pfc:library-pricing-updated',()=>{
   void refreshPrintLibrary().catch(error=>{

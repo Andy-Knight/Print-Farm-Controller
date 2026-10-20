@@ -383,7 +383,7 @@ async function workspaceShellSmoke(browser,url) {
     const crumb=page.locator('#workspaceTrailRoot [data-preact-workspace-trail]');
     await crumb.waitFor({state:'visible'});
     await page.waitForFunction(()=>document.querySelector('#workspaceTrailRoot [aria-current="page"]')
-      ?.textContent==='Reports & costing');
+      ?.textContent==='Reports & finance');
     const reportContext=await page.evaluate(()=>({
       crumb:document.querySelector('#workspaceTrailRoot')?.innerText,
       title:document.querySelector('#topbarContextTitle')?.textContent,
@@ -391,9 +391,9 @@ async function workspaceShellSmoke(browser,url) {
       parent:document.querySelector('#workspaceTrailRoot .workspace-trail-link')?.textContent
     }));
     assert.equal(reportContext.parent,'Workspace');
-    assert.equal(reportContext.title,'Reports & costing');
+    assert.equal(reportContext.title,'Reports & finance');
     assert.equal(reportContext.subtitle,'Review farm performance, material costs and selling prices');
-    assert.ok(reportContext.crumb.includes('Workspace')&&reportContext.crumb.includes('Reports & costing'));
+    assert.ok(reportContext.crumb.includes('Workspace')&&reportContext.crumb.includes('Reports & finance'));
     assert.ok(!reportContext.crumb.includes(reportContext.subtitle),
       'subtitle must not overwrite the breadcrumb parent on route changes');
     assert.equal(await page.locator('#reportsBtn').getAttribute('aria-current'),'page',
@@ -738,6 +738,13 @@ async function librarySelectionSmoke(page,url,{mutateFixture = true} = {}) {
   assert.equal(await page.locator('#libraryDeleteSelectedBtn').isDisabled(),true);
   assert.equal(await page.locator('#libraryTableHead').isVisible(),true);
   assert.ok((await page.locator('#libraryTableHead').textContent()).includes('Estimated cost'));
+  assert.ok((await page.locator('#libraryTableHead').textContent()).includes('Sale lots'));
+  assert.ok((await page.locator('#libraryTableHead').textContent()).includes('Sell price'));
+  assert.equal(await page.locator('#libraryTableHead > *').count(),9);
+  assert.equal(await page.locator('#libraryList .library-file-row').first()
+    .locator('.library-lots-cell').count(),1);
+  assert.equal(await page.locator('#libraryList .library-file-row').first()
+    .locator('.library-sale-cell').count(),1);
   const rows=page.locator('#libraryList .library-file-row');
   const firstId=await rows.nth(0).getAttribute('data-library-file');
   const secondId=await rows.nth(1).getAttribute('data-library-file');
@@ -910,7 +917,7 @@ async function librarySelectionSmoke(page,url,{mutateFixture = true} = {}) {
       };
     });
     assert.equal(dimensions.display,'grid');
-    assert.ok(dimensions.columns.split(' ').length>=7,'desktop library has seven aligned columns');
+    assert.equal(dimensions.columns.split(' ').length,9,'desktop library has nine aligned columns');
     const tracks=(value)=>value.split(' ').map(parseFloat);
     const headTracks=tracks(dimensions.headerColumns);
     const rowTracks=tracks(dimensions.columns);
@@ -1053,11 +1060,13 @@ async function libraryPricingSmoke(page,url,{mutateFixture=true}={}) {
   assert.equal(await page.locator('#reportingPanelFilament').evaluate(node=>node.hidden),true);
   await page.locator('#reportingProfitPercent').fill('30');
   await page.locator('#reportingProfitMethod').selectOption('markup');
+  await page.locator('#reportingTaxRate').fill('20');
   await page.locator('#reportingPricingSaveBtn').click();
   await page.waitForFunction(()=>document.querySelector('#reportingPricingStatus')?.textContent.includes('saved'));
   const settings=await page.evaluate(async()=> (await (await fetch('/api/library/pricing')).json()).settings);
   assert.equal(settings.profitPercent,30);
   assert.equal(settings.profitMethod,'markup');
+  assert.equal(settings.taxRate,20);
   await page.locator('[data-reporting-tab="filament"]').click();
   await page.locator('[data-reporting-tab="pricing"]').click();
   await page.waitForFunction(()=>
@@ -1065,6 +1074,8 @@ async function libraryPricingSmoke(page,url,{mutateFixture=true}={}) {
     !document.querySelector('#reportingPricingFields')?.disabled);
   assert.equal(await page.locator('#reportingProfitMethod').inputValue(),'markup',
     'pricing tab must load persisted global settings after switching tabs');
+  assert.equal(await page.locator('#reportingTaxRate').inputValue(),'20',
+    'pricing tab must reload the persisted tax rate');
   await page.goto(url+'/library',{waitUntil:'load'});
   await preactReady(page);
   assert.equal(await page.locator('#libraryPricingSettingsBtn').count(),0,
@@ -1081,9 +1092,30 @@ async function libraryPricingSmoke(page,url,{mutateFixture=true}={}) {
   await page.locator('#libraryAddTags').fill('Hardware, Bulk lot');
   await page.locator('#libraryAddLotsPerPrint').fill('4');
   await page.locator('[data-library-add-sundry="add"]').click();
-  await page.locator('#libraryAddSundries [data-sundry-label]').fill('Brass insert');
+  const itemChoices=page.locator('#libraryAddSundries [data-sundry-label] option:not([disabled])');
+  assert.deepEqual(await itemChoices.allTextContents(),
+    ['Packaging','Postage','Hardware','Labour','Miscellaneous']);
+  await page.locator('#libraryAddSundries [data-sundry-label]').selectOption('Hardware');
+  const addRemove=page.locator('#libraryAddSundries [data-remove-sundry]');
+  const addRemoveStyle=await addRemove.evaluate(btn=>{
+    const style=getComputedStyle(btn);
+    return {tag:btn.tagName,colour:style.color,border:style.borderTopColor,background:style.backgroundColor,
+      backgroundImage:style.backgroundImage,klass:btn.className};
+  });
+  assert.match(addRemoveStyle.klass,/danger/);
+  assert.equal(addRemoveStyle.border,addRemoveStyle.colour,'outlined Remove uses red themed text and border');
+  assert.equal(addRemoveStyle.background,'rgba(0, 0, 0, 0)','Remove must not be solid red');
+  assert.equal(addRemoveStyle.backgroundImage,'none');
   await page.locator('#libraryAddSundries [data-sundry-qty]').fill('4');
-  await page.locator('#libraryAddSundries [data-sundry-cost]').fill('0.25');
+  const addUnitCost=page.locator('#libraryAddSundries [data-sundry-cost]');
+  assert.equal(await addUnitCost.inputValue(),'0.00','new sundry unit costs have two decimal places');
+  assert.equal(await addUnitCost.getAttribute('step'),'0.01');
+  await addUnitCost.fill('1');
+  await addUnitCost.blur();
+  assert.equal(await addUnitCost.inputValue(),'1.00','whole monetary values show two decimals on blur');
+  await addUnitCost.fill('0.25');
+  await addUnitCost.blur();
+  assert.equal(await addUnitCost.inputValue(),'0.25');
   await page.locator('#libraryAddForm button[type="submit"]').click();
   await page.waitForFunction(()=>document.querySelector('#libraryAddDialog')?.open===false);
 
@@ -1093,10 +1125,14 @@ async function libraryPricingSmoke(page,url,{mutateFixture=true}={}) {
   assert.ok(added,'file created using add-dialog metadata inputs');
   assert.equal(added.category,'Production pricing');
   assert.deepEqual(added.tags,['Hardware','Bulk lot']);
-  assert.deepEqual(added.sundryCosts,[{label:'Brass insert',quantity:4,unitCost:0.25}]);
+  assert.deepEqual(added.sundryCosts,[{label:'Hardware',quantity:4,unitCost:0.25}]);
   assert.equal(added.lotsPerPrint,4);
   assert.equal(added.saleEstimate.sundriesCost,1);
   assert.equal(added.saleEstimate.profitPercent,30);
+  assert.equal(added.saleEstimate.taxRate,20);
+  if (added.saleEstimate.complete) {
+    assert.ok(added.saleEstimate.sellingPrice>=added.saleEstimate.sellingPriceExTax);
+  }
   assert.equal(await page.locator('[data-library-file="'+added.id+'"] .library-sale-price').count(),1);
 
   await page.locator('[data-library-file="'+added.id+'"] [data-library-select]').click();
@@ -1109,11 +1145,36 @@ async function libraryPricingSmoke(page,url,{mutateFixture=true}={}) {
   assert.equal(derivedCurrency,currentCost);
   assert.equal(await page.locator('#libraryMetadataLotsPerPrint').inputValue(),'4');
   assert.equal(await page.locator('#libraryMetadataSundries .library-sundry-row').count(),1);
+  assert.equal(await page.locator('#libraryMetadataSundries [data-sundry-label]').inputValue(),'Hardware');
+  assert.equal(await page.locator('#libraryMetadataSundries [data-sundry-cost]').inputValue(),'0.25',
+    'previously saved unit cost is shown with two decimal places');
+  // Unsaved Remove is only a form edit: cancelling must restore the stored row.
+  const removeEdit=page.locator('#libraryMetadataSundries [data-remove-sundry]').first();
+  const removeStyle=await removeEdit.evaluate(node=>{
+    const style=getComputedStyle(node);
+    return {colour:style.color,border:style.borderTopColor,background:style.backgroundColor};
+  });
+  assert.equal(removeStyle.colour,removeStyle.border,'Edit Details Remove is red outlined');
+  assert.equal(removeStyle.background,'rgba(0, 0, 0, 0)');
+  await removeEdit.click();
+  assert.equal(await page.locator('#libraryMetadataSundries .library-sundry-row').count(),0);
+  assert.equal((await list()).find(file=>file.id===added.id).sundryCosts.length,1,
+    'unsaved removal must not persist');
+  await page.locator('[data-library-metadata-close]').last().click();
+  await page.waitForFunction(()=>document.querySelector('#libraryMetadataDialog')?.open===false);
+  await page.locator('#libraryEditSelectedBtn').click();
+  await page.waitForFunction(()=>document.querySelector('#libraryMetadataDialog')?.open===true);
+  assert.equal(await page.locator('#libraryMetadataSundries .library-sundry-row').count(),1,
+    'cancelled removal should be restored when reopening');
   await page.locator('#libraryMetadataLotsPerPrint').fill('2');
   await page.locator('[data-library-add-sundry="metadata"]').click();
-  await page.locator('#libraryMetadataSundries .library-sundry-row').nth(1).locator('[data-sundry-label]').fill('Mailer');
+  await page.locator('#libraryMetadataSundries .library-sundry-row').nth(1).locator('[data-sundry-label]').selectOption('Packaging');
   await page.locator('#libraryMetadataSundries .library-sundry-row').nth(1).locator('[data-sundry-qty]').fill('1');
-  await page.locator('#libraryMetadataSundries .library-sundry-row').nth(1).locator('[data-sundry-cost]').fill('0.50');
+  const editUnitCost=page.locator('#libraryMetadataSundries .library-sundry-row').nth(1).locator('[data-sundry-cost]');
+  assert.equal(await editUnitCost.inputValue(),'0.00');
+  await editUnitCost.fill('0.5');
+  await editUnitCost.blur();
+  assert.equal(await editUnitCost.inputValue(),'0.50','entered currency preserves trailing zero');
   await page.locator('#libraryMetadataForm button[type="submit"]').click();
   await page.waitForFunction(()=>document.querySelector('#libraryMetadataDialog')?.open===false);
   const edited=(await list()).find(file=>file.id===added.id);
@@ -1129,7 +1190,7 @@ async function libraryPricingSmoke(page,url,{mutateFixture=true}={}) {
   await page.evaluate(async()=> {
     const response=await fetch('/api/library/pricing',{method:'PUT',
       headers:{'content-type':'application/json'},
-      body:JSON.stringify({profitPercent:null,profitMethod:'markup'})});
+      body:JSON.stringify({profitPercent:null,profitMethod:'markup',taxRate:0})});
     if (!response.ok) throw Error('Unable to reset test pricing settings');
   });
   await page.setViewportSize({width:1365,height:900});
@@ -1151,6 +1212,9 @@ async function libraryScrollingSmoke(page,url) {
     printerTarget:'Any supported printer',requirements:'PLA · 0.4 mm',
     colours:[],warning:'',previewUrl:'',selected:false,
     cost:{available:true,value:'£0.62',detail:'Current filament catalogue prices'},
+    sale:i%2===0
+      ? {available:true,lots:4,price:'£9.76',perLot:'£2.44',detail:'GBP cost plus 30% markup'}
+      : {available:false,lots:1,price:'Unavailable',perLot:'',detail:'Incomplete filament costing'},
     historyCount:'2 completed prints',historyLast:'Not printed yet',historyAdded:'Added recently'
   }));
   for(const viewport of [
@@ -1169,6 +1233,23 @@ async function libraryScrollingSmoke(page,url) {
         }));
       },[sample,theme]);
       await page.waitForFunction(()=>document.querySelectorAll('#libraryList .library-file-row').length===65);
+      const firstRow=page.locator('#libraryList .library-file-row').first();
+      assert.equal(await firstRow.locator('.library-lots-value').innerText(),'4');
+      assert.equal(await firstRow.locator('.library-sale-value').innerText(),'£2.44',
+        'the main sell price must be per lot for a multi-lot print');
+      assert.ok((await firstRow.locator('.library-sale-cell').innerText()).includes('£9.76'),
+        'multi-lot rows should show the full-print selling total as context');
+      const unknownRow=page.locator('#libraryList .library-file-row').nth(1);
+      assert.equal(await unknownRow.locator('.library-lots-value').innerText(),'1');
+      assert.equal(await unknownRow.locator('.library-sale-value').innerText(),'Unavailable',
+        'unknown filament costs must never create a fabricated price');
+      if(viewport.desktop) {
+        assert.equal(await page.locator('#libraryTableHead > *').count(),9);
+        assert.equal(await firstRow.locator('.library-cell').count(),9);
+      } else {
+        assert.equal(await firstRow.locator('.library-lots-cell .library-cell-label').innerText(),'Sale lots');
+        assert.equal(await firstRow.locator('.library-sale-cell .library-cell-label').innerText(),'Sell price');
+      }
       const before=await page.evaluate(()=>{
         const header=document.querySelector('#libraryTableHead');
         const list=document.querySelector('#libraryList');

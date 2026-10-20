@@ -2,7 +2,7 @@
 // bounded DOM pagination, shared by Preact and the fallback HTML renderer.
 export const LIBRARY_PAGE_SIZE = 80;
 export const LIBRARY_SORT_KEYS = Object.freeze([
-  'added','name','printer','material','cost','prints','lastPrinted','duration','weight','readiness'
+  'added','name','printer','material','cost','lots','salePrice','prints','lastPrinted','duration','weight','readiness'
 ]);
 
 export function libraryMaterials(file) {
@@ -82,6 +82,10 @@ export function librarySortAndFilter(files, options={}) {
   const numeric=(file,key)=>{
     switch(key) {
       case 'cost':return file.costEstimate?.complete ? Number(file.costEstimate.totalCost) : null;
+      case 'lots':return Number(file.lotsPerPrint) || 1;
+      case 'salePrice':return file.saleEstimate?.complete===true
+        && Number.isFinite(file.saleEstimate.sellingPricePerLot)
+        ? file.saleEstimate.sellingPricePerLot : null;
       case 'prints':return Number(file.usage?.completedPrints || 0);
       case 'duration':return libraryPrintSeconds(file);
       case 'weight':return libraryWeightGrams(file);
@@ -97,13 +101,13 @@ export function librarySortAndFilter(files, options={}) {
     return String(file.fileName || '');
   };
   return filtered.sort((a,b)=>{
-    if (['added','lastPrinted','cost','prints','duration','weight'].includes(sort)) {
+    if (['added','lastPrinted','cost','lots','salePrice','prints','duration','weight'].includes(sort)) {
       const left=numeric(a,sort),right=numeric(b,sort);
       // Monetary figures in different currencies are not directly
       // comparable. Group currency codes first without inventing FX rates.
-      if (sort==='cost' && left!==null && right!==null) {
-        const leftCurrency=String(a.costEstimate?.currency || '');
-        const rightCurrency=String(b.costEstimate?.currency || '');
+      if (['cost','salePrice'].includes(sort) && left!==null && right!==null) {
+        const leftCurrency=String(sort==='cost' ? a.costEstimate?.currency || '' : a.saleEstimate?.currency || '');
+        const rightCurrency=String(sort==='cost' ? b.costEstimate?.currency || '' : b.saleEstimate?.currency || '');
         const currencyOrder=leftCurrency.localeCompare(rightCurrency);
         if(currencyOrder) return currencyOrder;
       }

@@ -57,7 +57,7 @@
       <span class="sidebar-section-label">FARM MANAGEMENT</span>
       <button id="maintenanceBtn" type="button" class="sidebar-item" data-route="/maintenance"><span class="sidebar-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 6.5a4 4 0 0 0-5 5L3 18l3 3 6.5-6.5a4 4 0 0 0 5-5l-2.3 2.3-3-3 2.3-2.3Z"/></svg></span><span>Maintenance</span></button>
       <button id="printerGroupsBtn" type="button" class="sidebar-item" data-route="/groups"><span class="sidebar-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M8 6h8l4 6-4 6H8l-4-6 4-6Z M9 12h6"/></svg></span><span>Printer groups</span></button>
-      <button id="reportsBtn" type="button" class="sidebar-item" data-route="/reports"><span class="sidebar-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20V10 M10 20V4 M16 20v-7 M22 20V8"/></svg></span><span>Reports &amp; costing</span></button>
+      <button id="reportsBtn" type="button" class="sidebar-item" data-route="/reports"><span class="sidebar-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20V10 M10 20V4 M16 20v-7 M22 20V8"/></svg></span><span>Reports &amp; finance</span></button>
       <button id="alertsSettingsBtn" type="button" class="sidebar-item" data-route="/alerts"><span class="sidebar-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4a8 8 0 1 0 0 16a8 8 0 0 0 0-16Z M12 8v5 M12 16h.01"/></svg></span><span>Alerts &amp; notifications</span></button>
       <button id="backupRecoveryBtn" type="button" class="sidebar-item" data-route="/backup"><span class="sidebar-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v12 M8 12l4 4 4-4 M4 20h16"/></svg></span><span>Backup &amp; recovery</span></button>
       <button id="diagnosticsBtn" type="button" class="sidebar-item" data-route="/diagnostics"><span class="sidebar-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h16 M4 10h16 M4 15h10 M4 20h7"/></svg></span><span>Diagnostics</span></button>
@@ -325,13 +325,13 @@
       <div class="dialog-head ui-page-heading reporting-head">
         <div class="ui-page-heading-copy">
           <div class="eyebrow ui-page-eyebrow">FARM REPORTING</div>
-          <h2 class="ui-page-title">Reports &amp; costing</h2>
+          <h2 class="ui-page-title">Reports &amp; finance</h2>
           <div class="ui-page-description subtle">Track production trends, manage filament costs and configure selling-price settings for the Print Library.</div>
         </div>
         <button type="button" class="icon" data-reporting-close>×</button>
       </div>
 
-      <div class="reporting-tabs maintenance-view-selector" data-pfc-tabs role="tablist" aria-label="Reports and costing view">
+      <div class="reporting-tabs maintenance-view-selector" data-pfc-tabs role="tablist" aria-label="Reports and finance view">
         <button id="reportingTabAnalytics" type="button" class="maintenance-view-button active" data-reporting-tab="analytics" data-pfc-icon="chart" role="tab" aria-selected="true" aria-controls="reportingPanelAnalytics">Analytics</button>
         <button id="reportingTabFilament" type="button" class="maintenance-view-button" data-reporting-tab="filament" data-pfc-icon="spool" role="tab" aria-selected="false" aria-controls="reportingPanelFilament" tabindex="-1">Filament cost catalogue</button>
         <button id="reportingTabPricing" type="button" class="maintenance-view-button" data-reporting-tab="pricing" data-pfc-icon="sliders" role="tab" aria-selected="false" aria-controls="reportingPanelPricing" tabindex="-1">Pricing settings</button>
@@ -479,7 +479,7 @@
           <div class="reporting-section-head">
             <div>
               <h3>Global pricing settings</h3>
-              <span class="subtle">Set the profit percentage used to calculate suggested selling prices for every Print Library file.</span>
+              <span class="subtle">Configure profit and tax percentages for Print Library sell prices.</span>
             </div>
           </div>
           <form id="reportingPricingForm" class="reporting-pricing-form">
@@ -495,12 +495,18 @@
                     <option value="margin">Gross margin on selling price — £10 at 30% = £14.29</option>
                   </select>
                 </label>
+                <label>Tax rate (%)
+                  <input id="reportingTaxRate" name="taxRate" type="number" min="0" max="100" step="0.01" value="0" required
+                    aria-describedby="reportingTaxHelp" />
+                </label>
               </div>
               <div class="field-help reporting-pricing-help">
-                Selling prices include the current sliced filament cost plus all sundry costs for the complete print.
-                The total is divided across the configured number of sale lots, rounded to the currency's smallest unit.
-                Leave the profit percentage blank to disable selling price estimates.
-                VAT, labour, electricity and shipping are excluded unless entered as sundries.
+                Sell prices include the current sliced filament cost plus all sundries for one complete print.
+                Profit markup or margin is calculated first; the configured tax rate is added afterwards.
+                Prices are shown <strong>including tax</strong>, per sale lot (and in total), with currency-appropriate rounding.
+                Leave the profit percentage blank to disable sell price estimates.
+                Labour, electricity and shipping are excluded unless entered as sundries.
+                <span id="reportingTaxHelp">Use 0% if no tax should be added. This is a pricing estimate, not a tax return.</span>
               </div>
               <div class="actions reporting-pricing-actions">
                 <button id="reportingPricingSaveBtn" type="submit" class="primary">Save pricing settings</button>
@@ -1171,7 +1177,8 @@
             <select id="librarySortSelect">
               <option value="added">Date added</option><option value="name">Filename</option>
               <option value="printer">Printer type</option><option value="material">Material</option>
-              <option value="cost">Estimated cost</option><option value="duration">Print time</option>
+              <option value="cost">Estimated cost</option><option value="lots">Sale lots</option>
+              <option value="salePrice">Sell price / lot</option><option value="duration">Print time</option>
               <option value="weight">Filament weight</option><option value="prints">Completed prints</option>
               <option value="lastPrinted">Last printed</option><option value="readiness">Readiness</option>
             </select>
@@ -1199,6 +1206,8 @@
           <button type="button" data-library-sort="printer" aria-label="Sort by printer type">Printer</button>
           <button type="button" data-library-sort="material" aria-label="Sort by filament material">Filament &amp; requirements</button>
           <button type="button" data-library-sort="cost" aria-label="Sort by estimated material cost">Estimated cost</button>
+          <button type="button" data-library-sort="lots" aria-label="Sort by sale lots per print">Sale lots</button>
+          <button type="button" data-library-sort="salePrice" aria-label="Sort by sell price per lot">Sell price</button>
           <button type="button" data-library-sort="prints" aria-label="Sort by number of completed prints">History</button>
         </div>
         <div id="libraryList" class="library-list" role="list" aria-label="Stored print files" tabindex="0"></div>

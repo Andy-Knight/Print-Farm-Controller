@@ -74,7 +74,7 @@
  * Row geometry and responsive card behaviour stay local to this view. */
 #libraryDialog.library-dialog {
   width:min(1500px,calc(100vw - 30px));
-  --library-table-cols:38px 68px minmax(170px,1.65fr) minmax(125px,.95fr) minmax(170px,1.3fr) minmax(150px,1fr) minmax(125px,1fr);
+  --library-table-cols:38px 68px minmax(160px,1.35fr) minmax(105px,.85fr) minmax(145px,1.15fr) minmax(120px,.85fr) minmax(77px,.54fr) minmax(143px,1.08fr) minmax(110px,.8fr);
 }
 #libraryDialog .library-action-toolbar {
   display:flex;
@@ -297,6 +297,20 @@
   line-height:1.3;
   font-size:.67rem;
 }
+#libraryDialog .library-lots-cell {
+  display:flex;
+  flex-direction:column;
+  gap:4px;
+  font-size:.72rem;
+  color:var(--ds-text-muted);
+}
+#libraryDialog .library-lots-value {
+  color:var(--ds-text);
+  font-size:.92rem;
+  font-variant-numeric:tabular-nums;
+}
+#libraryDialog .library-lots-cell small {font-size:.68rem}
+#libraryDialog .library-sale-cell {min-width:0}
 #libraryDialog .library-history-cell {
   display:flex;
   flex-direction:column;
@@ -320,9 +334,10 @@
   #libraryDialog .library-file-row {
     grid-template-columns:36px 74px minmax(0,1fr) minmax(150px,.65fr);
     grid-template-areas:
-      "selection preview filename cost"
-      "selection preview target cost"
-      "selection preview requirements history";
+      "selection preview filename sale"
+      "selection preview target sale"
+      "selection preview requirements cost"
+      "selection preview lots history";
     align-items:start;
     border:1px solid var(--pfc-table-border);
     border-radius:var(--pfc-table-radius);
@@ -335,6 +350,8 @@
   #libraryDialog .library-target-cell { grid-area:target; }
   #libraryDialog .library-requirements-cell { grid-area:requirements; }
   #libraryDialog .library-cost-cell { grid-area:cost; }
+  #libraryDialog .library-lots-cell { grid-area:lots; }
+  #libraryDialog .library-sale-cell { grid-area:sale; }
   #libraryDialog .library-history-cell { grid-area:history; }
   #libraryDialog .library-cell-label {
     display:block;
@@ -361,6 +378,8 @@
       ". preview target"
       ". requirements requirements"
       ". cost cost"
+      ". lots lots"
+      ". sale sale"
       ". history history";
     gap:7px 9px;
   }
@@ -547,15 +566,37 @@
 @media(max-width:700px){#libraryDialog .library-action-toolbar {gap:6px;padding:7px 9px}#libraryDialog .library-action-buttons {gap:6px}}
 
 /* Print Library product pricing: full-batch sundries and per-sale-lot estimates. */
+/* Pricing follows the same plain, unboxed table-cell style as other columns.
+ * Current selling price is per sale lot, with the whole-print total beneath. */
 #libraryDialog .library-sale-price {
-  display:flex;flex-direction:column;gap:4px;margin-top:6px;padding:9px 11px;
-  border:1px solid var(--ds-border);border-radius:var(--ds-radius-sm);
-  color:var(--ds-text);background:var(--ds-surface-muted);
+  display:flex;
+  flex-direction:column;
+  align-items:flex-start;
+  min-width:0;
+  gap:4px;
+  margin:0;
+  padding:0;
+  border:0;
+  background:transparent;
+  color:var(--ds-text);
 }
-#libraryDialog .library-sale-price > span {color:var(--ds-text-muted);font-size:.7rem;font-weight:750}
-#libraryDialog .library-sale-price > strong {color:var(--ds-brand);font-size:1rem}
-#libraryDialog .library-sale-price small {color:var(--ds-text-muted);font-size:.69rem;overflow-wrap:anywhere}
-#libraryDialog .library-sale-price.unavailable > strong {color:var(--ds-text-muted);font-size:.8rem}
+#libraryDialog .library-sale-value {
+  font-size:.94rem;
+  font-weight:800;
+  color:var(--ds-brand);
+  font-variant-numeric:tabular-nums;
+  overflow-wrap:anywhere;
+}
+#libraryDialog .library-sale-price small {
+  color:var(--ds-text-muted);
+  font-size:.68rem;
+  line-height:1.4;
+  overflow-wrap:anywhere;
+}
+#libraryDialog .library-sale-price.unavailable > strong {
+  color:var(--ds-text-muted);
+  font-size:.78rem;
+}
 
 /* These panels use the shared ui-surface/ui-section-heading primitives instead
  * of the browser-dependent fieldset/legend layout that clipped the heading. */
@@ -641,8 +682,30 @@
   gap:8px;align-items:end;border-top:1px solid var(--ds-border);padding-top:9px;
 }
 .library-sundry-row label {margin:0!important}
-.library-sundry-row input {width:100%;margin-top:4px}
+.library-sundry-row input,.library-sundry-row select {width:100%;margin-top:4px}
 .library-sundry-row > button {min-height:42px;height:42px;white-space:nowrap}
+/* Removing an individual sundry is destructive but subordinate to deleting
+ * the whole file: use a red outline, not a solid danger button. The row
+ * change is local to Add/Edit until the enclosing form is submitted. */
+#libraryAddDialog .library-sundry-row > .library-remove-sundry,
+#libraryMetadataDialog .library-sundry-row > .library-remove-sundry {
+  color:var(--ds-danger);
+  border:1px solid var(--ds-danger);
+  background:transparent;
+  background-image:none;
+  box-shadow:none;
+}
+#libraryAddDialog .library-sundry-row > .library-remove-sundry:not(:disabled):hover,
+#libraryMetadataDialog .library-sundry-row > .library-remove-sundry:not(:disabled):hover {
+  background:color-mix(in srgb,var(--ds-danger) 12%,transparent);
+  color:var(--ds-danger);
+  border-color:var(--ds-danger);
+}
+#libraryAddDialog .library-sundry-row > .library-remove-sundry:focus-visible,
+#libraryMetadataDialog .library-sundry-row > .library-remove-sundry:focus-visible {
+  outline:2px solid var(--ds-focus);
+  outline-offset:2px;
+}
 .library-add-sundry {margin-top:var(--ds-space-3)}
 /* Keep the add/edit header and actions visible, scrolling only form fields.
  * Scope this to the two long Library editors so other dialogs are untouched. */
