@@ -36,7 +36,7 @@ test('Selling-price settings and Preact/fallback sale view use the same server e
   assert.match(server,/estimateLibrarySalePrice\(file,pricingSettings\)/);
   assert.match(server,/url\.pathname === '\/api\/library\/pricing' && req\.method === 'PUT'/);
   assert.match(server,/sundryCosts:body\.sundryCosts/);
-  assert.match(preact,/file\.sale\?\.price/);
+  assert.match(preact,/file\.sale\.price/);
   assert.match(app,/function librarySaleView\(file\)/);
   const reporting=read('public/reporting.js');
   const reportingUi=read('ui/reporting.jsx');
