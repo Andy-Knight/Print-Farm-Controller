@@ -1103,7 +1103,15 @@ async function libraryPricingSmoke(page,url,{mutateFixture=true}={}) {
   assert.equal(addRemoveStyle.background,'rgba(0, 0, 0, 0)','Remove must not be solid red');
   assert.equal(addRemoveStyle.backgroundImage,'none');
   await page.locator('#libraryAddSundries [data-sundry-qty]').fill('4');
-  await page.locator('#libraryAddSundries [data-sundry-cost]').fill('0.25');
+  const addUnitCost=page.locator('#libraryAddSundries [data-sundry-cost]');
+  assert.equal(await addUnitCost.inputValue(),'0.00','new sundry unit costs have two decimal places');
+  assert.equal(await addUnitCost.getAttribute('step'),'0.01');
+  await addUnitCost.fill('1');
+  await addUnitCost.blur();
+  assert.equal(await addUnitCost.inputValue(),'1.00','whole monetary values show two decimals on blur');
+  await addUnitCost.fill('0.25');
+  await addUnitCost.blur();
+  assert.equal(await addUnitCost.inputValue(),'0.25');
   await page.locator('#libraryAddForm button[type="submit"]').click();
   await page.waitForFunction(()=>document.querySelector('#libraryAddDialog')?.open===false);
 
@@ -1130,6 +1138,8 @@ async function libraryPricingSmoke(page,url,{mutateFixture=true}={}) {
   assert.equal(await page.locator('#libraryMetadataLotsPerPrint').inputValue(),'4');
   assert.equal(await page.locator('#libraryMetadataSundries .library-sundry-row').count(),1);
   assert.equal(await page.locator('#libraryMetadataSundries [data-sundry-label]').inputValue(),'Hardware');
+  assert.equal(await page.locator('#libraryMetadataSundries [data-sundry-cost]').inputValue(),'0.25',
+    'previously saved unit cost is shown with two decimal places');
   // Unsaved Remove is only a form edit: cancelling must restore the stored row.
   const removeEdit=page.locator('#libraryMetadataSundries [data-remove-sundry]').first();
   const removeStyle=await removeEdit.evaluate(node=>{
@@ -1152,7 +1162,11 @@ async function libraryPricingSmoke(page,url,{mutateFixture=true}={}) {
   await page.locator('[data-library-add-sundry="metadata"]').click();
   await page.locator('#libraryMetadataSundries .library-sundry-row').nth(1).locator('[data-sundry-label]').selectOption('Packaging');
   await page.locator('#libraryMetadataSundries .library-sundry-row').nth(1).locator('[data-sundry-qty]').fill('1');
-  await page.locator('#libraryMetadataSundries .library-sundry-row').nth(1).locator('[data-sundry-cost]').fill('0.50');
+  const editUnitCost=page.locator('#libraryMetadataSundries .library-sundry-row').nth(1).locator('[data-sundry-cost]');
+  assert.equal(await editUnitCost.inputValue(),'0.00');
+  await editUnitCost.fill('0.5');
+  await editUnitCost.blur();
+  assert.equal(await editUnitCost.inputValue(),'0.50','entered currency preserves trailing zero');
   await page.locator('#libraryMetadataForm button[type="submit"]').click();
   await page.waitForFunction(()=>document.querySelector('#libraryMetadataDialog')?.open===false);
   const edited=(await list()).find(file=>file.id===added.id);

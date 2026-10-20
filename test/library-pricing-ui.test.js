@@ -143,6 +143,10 @@ test('Sundry items use a five-option dropdown and outlined destructive Remove co
     assert.match(app,new RegExp("'"+item+"'"));
   }
   assert.match(app,/<select data-sundry-label required/);
+  assert.ok(app.includes('data-sundry-cost type="number" min="0" max="1000000" step="0.01" inputmode="decimal"'));
+  assert.ok(app.includes('Number(entry.unitCost ?? 0).toFixed(2)'));
+  assert.ok(app.includes("costInput?.addEventListener('blur',()=>{"));
+  assert.ok(app.includes('Math.round((value+Number.EPSILON)*100)/100).toFixed(2)'));
   assert.doesNotMatch(app,/<input data-sundry-label/);
   assert.match(app,/<option value=""\$\{existing\?'':' selected'\} disabled>Select sundry item/);
   assert.match(app,/previously saved/);

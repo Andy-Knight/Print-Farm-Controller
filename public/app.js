@@ -3692,8 +3692,18 @@ function addLibrarySundryRow(root, entry = {}) {
       </select>
     </label>
     <label>Qty<input data-sundry-qty type="number" min="1" max="10000" step="1" required value="${escapeHtml(String(entry.quantity ?? 1))}" /></label>
-    <label>Unit cost<input data-sundry-cost type="number" min="0" max="1000000" step="0.0001" required value="${escapeHtml(String(entry.unitCost ?? 0))}" /></label>
+    <label>Unit cost<input data-sundry-cost type="number" min="0" max="1000000" step="0.01" inputmode="decimal" required value="${escapeHtml(Number(entry.unitCost ?? 0).toFixed(2))}" /></label>
     <button type="button" class="danger library-remove-sundry" data-remove-sundry aria-label="Remove sundry item">Remove</button>`;
+  // Costs represent currency: show two decimal places, including whole amounts
+  // and legacy values when an existing file is opened for editing.
+  const costInput=row.querySelector('[data-sundry-cost]');
+  costInput?.addEventListener('blur',()=>{
+    const raw=costInput.value.trim();
+    const value=Number(raw);
+    if(raw!=='' && Number.isFinite(value) && value>=0 && value<=1000000) {
+      costInput.value=(Math.round((value+Number.EPSILON)*100)/100).toFixed(2);
+    }
+  });
   root.append(row);
 }
 function renderLibrarySundries(root, entries = []) {
