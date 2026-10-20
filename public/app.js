@@ -281,8 +281,6 @@ const sidebarToggle = document.querySelector('#sidebarToggle');
 const sidebarEl = document.querySelector('#controllerSidebar');
 const sidebarBackdrop = document.querySelector('#sidebarBackdrop');
 const mobileSidebarQuery = window.matchMedia('(max-width: 760px)');
-const workspaceTrailRoot = document.querySelector('#workspaceTrailRoot');
-const workspaceTrailActive = document.querySelector('#workspaceTrailActive');
 const dashboardHomeBtn = document.querySelector('[data-dashboard-home]');
 const controllerRoutes = {
   '/': { title:'Dashboard', subtitle:'Monitor and manage your print farm' },
@@ -297,9 +295,7 @@ const controllerRoutes = {
   '/licence': { button:'licenseBtn', dialog:'licenseDialog', title:'Licence', subtitle:'Review controller edition and licence status' }
 };
 const workspaceMain = document.querySelector('body > main');
-// Query by dedicated IDs: the breadcrumb also contains spans. A broad
-// .topbar-context span selector incorrectly overwrites 'Workspace' with the
-// current route subtitle, duplicating headings in the visible header.
+// Bind route title and subtitle separately to avoid duplicate context labels.
 const topbarContextTitle = document.querySelector('#topbarContextTitle');
 const topbarContextSubtitle = document.querySelector('#topbarContextSubtitle');
 let activeRoute = '/';
@@ -385,12 +381,6 @@ function renderControllerRoute(pathname, { invoke = true } = {}) {
   });
   if (topbarContextTitle) topbarContextTitle.textContent = route.title;
   if (topbarContextSubtitle) topbarContextSubtitle.textContent = route.subtitle;
-  if (workspaceTrailActive) workspaceTrailActive.textContent = route.title;
-  if (workspaceTrailRoot) workspaceTrailRoot.dataset.home = String(routePath === '/');
-  window.__PFC_SHELL_ROUTE_STATE__ = { path:routePath, title:route.title, subtitle:route.subtitle };
-  window.dispatchEvent(new CustomEvent('pfc:shell-route-state',{
-    detail:window.__PFC_SHELL_ROUTE_STATE__
-  }));
   if (invoke && route.button) {
     const button = document.querySelector(`#${route.button}`);
     if (button) {
@@ -469,11 +459,6 @@ document.querySelectorAll('.sidebar-nav .sidebar-item, .sidebar-foot .sidebar-it
       }
     });
   });
-window.addEventListener('pfc:shell-navigate', (event) => {
-  navigateController(event?.detail?.route || '/');
-  if (mobileSidebarQuery.matches) closeModernSidebar();
-  topbarContextTitle?.focus({preventScroll:true});
-});
 document.addEventListener('keydown', (event) => {
   if (event.key === 'Escape' && document.body.classList.contains('sidebar-open')) {
     event.preventDefault();

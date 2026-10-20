@@ -2,7 +2,6 @@ import { render } from 'preact';
 import { useEffect, useState } from 'preact/hooks';
 import { Metric, ProgressBar, StatusBadge, ToastHost, UiButton } from './components.jsx';
 import { initPrinterDetailsUi } from './printer-details.jsx';
-import { initWorkspaceShell } from './workspace-shell.jsx';
 import { initPrintQueueUi } from './print-queue.jsx';
 import { initPrintLibraryUi } from './print-library.jsx';
 import { initMaintenanceUi } from './maintenance.jsx';
@@ -461,8 +460,6 @@ if (fleetRoot) {
   window.__PFC_PREACT_FLEET__ = true;
 }
 
-
-initWorkspaceShell();
 
 initPrinterDetailsUi();
 
