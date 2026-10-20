@@ -3989,7 +3989,7 @@ function renderPrintLibrary({preserveScroll=false} = {}) {
     button.classList.toggle('sorted',active);
     button.classList.toggle('sorted-asc',active && librarySortDirection==='asc');
     button.classList.toggle('sorted-desc',active && librarySortDirection==='desc');
-    button.setAttribute('aria-label',`Sort by ${button.textContent.trim()}${active?', '+librarySortDirection:''}`);
+    button.setAttribute('aria-label',`Sort by ${button.dataset.librarySortLabel || button.textContent.trim()}${active?', '+librarySortDirection:''}`);
     button.setAttribute('aria-pressed',String(active));
   });
   const bytes = files.reduce((sum, file) => sum + Number(file.size || 0), 0);

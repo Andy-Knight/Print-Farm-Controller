@@ -123,7 +123,8 @@ test('Sale lots and tax-inclusive Min. sell price have separate aligned sortable
   const headings=['Select','Preview','File','Printer','Filament &amp; requirements',
     'Estimated cost','Sale lots','Min. sell price','History'];
   for(const label of headings) assert.ok(header.includes(label),'missing table heading: '+label);
-  assert.match(header,/data-library-sort="salePrice" aria-label="Sort by minimum sell price per lot" title="Minimum sell price per lot">Min\. sell price<\/button>/);
+  assert.match(header,/data-library-sort="salePrice" data-library-sort-label="minimum sell price per lot" aria-label="Sort by minimum sell price per lot" title="Minimum sell price per lot">Min\. sell price<\/button>/);
+  assert.match(app,/button\.dataset\.librarySortLabel \|\| button\.textContent\.trim\(\)/);
   assert.match(html,/<option value="salePrice">Min\. sell price \/ lot<\/option>/);
   for(const sort of ['lots','salePrice']) {
     assert.match(header,new RegExp('data-library-sort="'+sort+'"'));
