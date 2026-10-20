@@ -168,7 +168,8 @@ test('Hourly print costs are included before markup, margin, tax and splitting i
   assert.equal(markup.filamentCost,6);
   assert.equal(markup.sundriesCost,1.5);
   assert.equal(markup.totalCost,14.25);
-  assert.equal(markup.sellingPriceExTax,17.12);
+  // Price of each lot is rounded independently, as in the existing Sell price calculation.
+  assert.equal(markup.sellingPriceExTax,17.08);
   assert.equal(markup.sellingPricePerLot,5.13);
   assert.equal(markup.sellingPrice,20.52);
   const margin=pricing.estimateLibrarySalePrice(file,
