@@ -42,48 +42,52 @@ test('queued AD5M Pro start passes the checked bed-levelling option to firmware 
     getPrinterState(id) { return id === printer.id ? this.getFleet()[0] : null; },
     async refreshNow() {}
   };
-  let storedJobs = [];
-  const queue = new PrintQueueService({
-    fleetState,
-    chamberPreheat:{ isActive:() => false, stop:async () => {} },
-    getPrinterFn:async (id) => id === printer.id ? printer : null,
-    adapterResolver:() => adapter,
-    loadJobsFn:async () => structuredClone(storedJobs),
-    saveJobsFn:async (jobs) => { storedJobs = structuredClone(jobs); },
-    getFileMaterialMetadataFn:async () => null,
-    buildMaterialCostSnapshotFn:null
-  });
-
   try {
     assert.equal(adapter.capabilities.bedLeveling, true);
     assert.equal(adapter.capabilities.levelBeforePrint, true);
-    await queue.start();
     for (const { description, options, enabled } of [
       { description:'checked', options:{ levelingBeforePrint:true }, enabled:true },
       { description:'unchecked', options:{ levelingBeforePrint:false }, enabled:false },
       { description:'default', options:{}, enabled:true }
     ]) {
-      const index = requests.length;
-      const job = await queue.add({
-        printerId:printer.id,
-        fileName:`queue-${description}.gcode`,
-        options
+      // Every case is a fresh idle-printer queue; an earlier print must not
+      // block a later one on the same printer.
+      let storedJobs = [];
+      const queue = new PrintQueueService({
+        fleetState,
+        chamberPreheat:{ isActive:() => false, stop:async () => {} },
+        getPrinterFn:async (id) => id === printer.id ? printer : null,
+        adapterResolver:() => adapter,
+        loadJobsFn:async () => structuredClone(storedJobs),
+        saveJobsFn:async (jobs) => { storedJobs = structuredClone(jobs); },
+        getFileMaterialMetadataFn:async () => null,
+        buildMaterialCostSnapshotFn:null
       });
-      await awaitCondition(() => requests.length === index + 1);
-      assert.equal(queue.getJob(job.id).options.levelingBeforePrint, enabled);
-      const sent = requests[index];
-      assert.equal(sent.method,'POST');
-      assert.equal(sent.path,'/printGcode');
-      assert.equal(sent.body.serialNumber,printer.serialNumber);
-      assert.equal(sent.body.checkCode,printer.checkCode);
-      assert.equal(sent.body.fileName,`queue-${description}.gcode`);
-      assert.equal(sent.body.levelingBeforePrint,enabled,
-        `Queued AD5M Pro ${description} checkbox was not forwarded to printer firmware`);
-      assert.equal(queue.getJob(job.id).status,'starting');
+      try {
+        await queue.start();
+        const index = requests.length;
+        const job = await queue.add({
+          printerId:printer.id,
+          fileName:`queue-${description}.gcode`,
+          options
+        });
+        await awaitCondition(() => requests.length === index + 1);
+        assert.equal(queue.getJob(job.id).options.levelingBeforePrint, enabled);
+        const sent = requests[index];
+        assert.equal(sent.method,'POST');
+        assert.equal(sent.path,'/printGcode');
+        assert.equal(sent.body.serialNumber,printer.serialNumber);
+        assert.equal(sent.body.checkCode,printer.checkCode);
+        assert.equal(sent.body.fileName,`queue-${description}.gcode`);
+        assert.equal(sent.body.levelingBeforePrint,enabled,
+          `Queued AD5M Pro ${description} checkbox was not forwarded to printer firmware`);
+        assert.equal(queue.getJob(job.id).status,'starting');
+      } finally {
+        queue.stop();
+      }
     }
     assert.equal(requests.length,3);
   } finally {
-    queue.stop();
     await new Promise((resolve) => server.close(resolve));
   }
 });
