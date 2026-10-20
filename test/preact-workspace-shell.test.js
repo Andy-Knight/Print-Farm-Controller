@@ -84,7 +84,6 @@ test('only sidebar Farm Management pages share its topbar section title',()=>{
   assert.deepEqual(readRoutes(manageNav),managementRoutes);
   assert.deepEqual(readRoutes(workNav),workspaceRoutes);
   for(const route of managementRoutes){
-    const escaped=route.replace(/[.*+?^${}()|[\]\\]/g,'\\test('compact topbar and shared page gap follow the same responsive spacing',()=>{');
     const line=app.split('\n').find(s=>s.startsWith("  '"+route+"': {"));
     assert.ok(line,'missing route '+route);
     assert.ok(line.includes("topbarTitle:'Farm management'"),
