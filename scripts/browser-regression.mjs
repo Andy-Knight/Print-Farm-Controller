@@ -1088,7 +1088,20 @@ async function libraryPricingSmoke(page,url,{mutateFixture=true}={}) {
   await page.locator('#libraryAddTags').fill('Hardware, Bulk lot');
   await page.locator('#libraryAddLotsPerPrint').fill('4');
   await page.locator('[data-library-add-sundry="add"]').click();
-  await page.locator('#libraryAddSundries [data-sundry-label]').fill('Brass insert');
+  const itemChoices=page.locator('#libraryAddSundries [data-sundry-label] option:not([disabled])');
+  assert.deepEqual(await itemChoices.allTextContents(),
+    ['Packaging','Postage','Hardware','Labour','Miscellaneous']);
+  await page.locator('#libraryAddSundries [data-sundry-label]').selectOption('Hardware');
+  const addRemove=page.locator('#libraryAddSundries [data-remove-sundry]');
+  const addRemoveStyle=await addRemove.evaluate(btn=>{
+    const style=getComputedStyle(btn);
+    return {tag:btn.tagName,colour:style.color,border:style.borderTopColor,background:style.backgroundColor,
+      backgroundImage:style.backgroundImage,klass:btn.className};
+  });
+  assert.match(addRemoveStyle.klass,/danger/);
+  assert.equal(addRemoveStyle.border,addRemoveStyle.colour,'outlined Remove uses red themed text and border');
+  assert.equal(addRemoveStyle.background,'rgba(0, 0, 0, 0)','Remove must not be solid red');
+  assert.equal(addRemoveStyle.backgroundImage,'none');
   await page.locator('#libraryAddSundries [data-sundry-qty]').fill('4');
   await page.locator('#libraryAddSundries [data-sundry-cost]').fill('0.25');
   await page.locator('#libraryAddForm button[type="submit"]').click();
@@ -1100,7 +1113,7 @@ async function libraryPricingSmoke(page,url,{mutateFixture=true}={}) {
   assert.ok(added,'file created using add-dialog metadata inputs');
   assert.equal(added.category,'Production pricing');
   assert.deepEqual(added.tags,['Hardware','Bulk lot']);
-  assert.deepEqual(added.sundryCosts,[{label:'Brass insert',quantity:4,unitCost:0.25}]);
+  assert.deepEqual(added.sundryCosts,[{label:'Hardware',quantity:4,unitCost:0.25}]);
   assert.equal(added.lotsPerPrint,4);
   assert.equal(added.saleEstimate.sundriesCost,1);
   assert.equal(added.saleEstimate.profitPercent,30);
@@ -1116,9 +1129,28 @@ async function libraryPricingSmoke(page,url,{mutateFixture=true}={}) {
   assert.equal(derivedCurrency,currentCost);
   assert.equal(await page.locator('#libraryMetadataLotsPerPrint').inputValue(),'4');
   assert.equal(await page.locator('#libraryMetadataSundries .library-sundry-row').count(),1);
+  assert.equal(await page.locator('#libraryMetadataSundries [data-sundry-label]').inputValue(),'Hardware');
+  // Unsaved Remove is only a form edit: cancelling must restore the stored row.
+  const removeEdit=page.locator('#libraryMetadataSundries [data-remove-sundry]').first();
+  const removeStyle=await removeEdit.evaluate(node=>{
+    const style=getComputedStyle(node);
+    return {colour:style.color,border:style.borderTopColor,background:style.backgroundColor};
+  });
+  assert.equal(removeStyle.colour,removeStyle.border,'Edit Details Remove is red outlined');
+  assert.equal(removeStyle.background,'rgba(0, 0, 0, 0)');
+  await removeEdit.click();
+  assert.equal(await page.locator('#libraryMetadataSundries .library-sundry-row').count(),0);
+  assert.equal((await list()).find(file=>file.id===added.id).sundryCosts.length,1,
+    'unsaved removal must not persist');
+  await page.locator('[data-library-metadata-close]').last().click();
+  await page.waitForFunction(()=>document.querySelector('#libraryMetadataDialog')?.open===false);
+  await page.locator('#libraryEditSelectedBtn').click();
+  await page.waitForFunction(()=>document.querySelector('#libraryMetadataDialog')?.open===true);
+  assert.equal(await page.locator('#libraryMetadataSundries .library-sundry-row').count(),1,
+    'cancelled removal should be restored when reopening');
   await page.locator('#libraryMetadataLotsPerPrint').fill('2');
   await page.locator('[data-library-add-sundry="metadata"]').click();
-  await page.locator('#libraryMetadataSundries .library-sundry-row').nth(1).locator('[data-sundry-label]').fill('Mailer');
+  await page.locator('#libraryMetadataSundries .library-sundry-row').nth(1).locator('[data-sundry-label]').selectOption('Packaging');
   await page.locator('#libraryMetadataSundries .library-sundry-row').nth(1).locator('[data-sundry-qty]').fill('1');
   await page.locator('#libraryMetadataSundries .library-sundry-row').nth(1).locator('[data-sundry-cost]').fill('0.50');
   await page.locator('#libraryMetadataForm button[type="submit"]').click();

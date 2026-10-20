@@ -3669,14 +3669,31 @@ function librarySaleView(file) {
   };
 }
 
+// A controlled choice for new costs. Keep an older custom label as a
+// selectable, read-only legacy option when editing existing saved library data.
+const LIBRARY_SUNDRY_ITEMS=Object.freeze([
+  'Packaging','Postage','Hardware','Labour','Miscellaneous'
+]);
 function addLibrarySundryRow(root, entry = {}) {
   if (!root || root.children.length >= 30) return;
+  const existing=String(entry?.label || '').trim();
+  const matched=LIBRARY_SUNDRY_ITEMS.find(item=>item.toLowerCase()===existing.toLowerCase()) || '';
+  const legacy=existing && !matched
+    ? `<option value="${escapeHtml(existing)}" selected>${escapeHtml(existing)} (previously saved)</option>`
+    : '';
+  const options=LIBRARY_SUNDRY_ITEMS.map(item=>
+    `<option value="${escapeHtml(item)}"${item===matched?' selected':''}>${escapeHtml(item)}</option>`).join('');
   const row=document.createElement('div');
   row.className='library-sundry-row';
-  row.innerHTML=`<label>Description<input data-sundry-label maxlength="100" required placeholder="Bolts, inserts, packaging" value="${escapeHtml(entry.label || '')}" /></label>
+  row.innerHTML=`<label>Sundry item
+      <select data-sundry-label required aria-label="Sundry item">
+        <option value=""${existing?'':' selected'} disabled>Select sundry item</option>
+        ${options}${legacy}
+      </select>
+    </label>
     <label>Qty<input data-sundry-qty type="number" min="1" max="10000" step="1" required value="${escapeHtml(String(entry.quantity ?? 1))}" /></label>
     <label>Unit cost<input data-sundry-cost type="number" min="0" max="1000000" step="0.0001" required value="${escapeHtml(String(entry.unitCost ?? 0))}" /></label>
-    <button type="button" class="secondary" data-remove-sundry aria-label="Remove sundry cost">Remove</button>`;
+    <button type="button" class="danger library-remove-sundry" data-remove-sundry aria-label="Remove sundry item">Remove</button>`;
   root.append(row);
 }
 function renderLibrarySundries(root, entries = []) {
@@ -3690,7 +3707,7 @@ function collectLibrarySundries(root) {
     const quantity=Number(row.querySelector('[data-sundry-qty]')?.value);
     const unitCostValue=row.querySelector('[data-sundry-cost]')?.value;
     const unitCost=Number(unitCostValue);
-    if (!label || label.length>100) throw new Error('Sundry costs need a description of at most 100 characters');
+    if (!label || label.length>100) throw new Error('Select a sundry item');
     if (!Number.isInteger(quantity) || quantity<1 || quantity>10000) throw new Error('Sundry quantity must be 1–10000');
     if (unitCostValue==='' || !Number.isFinite(unitCost) || unitCost<0 || unitCost>1000000) {
       throw new Error('Sundry unit cost must be between zero and 1000000');

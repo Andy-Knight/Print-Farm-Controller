@@ -682,8 +682,30 @@
   gap:8px;align-items:end;border-top:1px solid var(--ds-border);padding-top:9px;
 }
 .library-sundry-row label {margin:0!important}
-.library-sundry-row input {width:100%;margin-top:4px}
+.library-sundry-row input,.library-sundry-row select {width:100%;margin-top:4px}
 .library-sundry-row > button {min-height:42px;height:42px;white-space:nowrap}
+/* Removing an individual sundry is destructive but subordinate to deleting
+ * the whole file: use a red outline, not a solid danger button. The row
+ * change is local to Add/Edit until the enclosing form is submitted. */
+#libraryAddDialog .library-sundry-row > .library-remove-sundry,
+#libraryMetadataDialog .library-sundry-row > .library-remove-sundry {
+  color:var(--ds-danger);
+  border:1px solid var(--ds-danger);
+  background:transparent;
+  background-image:none;
+  box-shadow:none;
+}
+#libraryAddDialog .library-sundry-row > .library-remove-sundry:not(:disabled):hover,
+#libraryMetadataDialog .library-sundry-row > .library-remove-sundry:not(:disabled):hover {
+  background:color-mix(in srgb,var(--ds-danger) 12%,transparent);
+  color:var(--ds-danger);
+  border-color:var(--ds-danger);
+}
+#libraryAddDialog .library-sundry-row > .library-remove-sundry:focus-visible,
+#libraryMetadataDialog .library-sundry-row > .library-remove-sundry:focus-visible {
+  outline:2px solid var(--ds-focus);
+  outline-offset:2px;
+}
 .library-add-sundry {margin-top:var(--ds-space-3)}
 /* Keep the add/edit header and actions visible, scrolling only form fields.
  * Scope this to the two long Library editors so other dialogs are untouched. */

@@ -133,3 +133,27 @@ test('Sale lots and suggested sell price have separate aligned sortable columns 
   assert.match(utils,/case 'lots':/);
   assert.match(utils,/case 'salePrice':/);
 });
+
+test('Sundry items use a five-option dropdown and outlined destructive Remove control',()=>{
+  const app=read('public/app.js');
+  const css=read('public/print-library-polish.css');
+  const html=read('public/index.html');
+  assert.match(app,/const LIBRARY_SUNDRY_ITEMS=Object\.freeze\(\[/);
+  for(const item of ['Packaging','Postage','Hardware','Labour','Miscellaneous']) {
+    assert.match(app,new RegExp("'"+item+"'"));
+  }
+  assert.match(app,/<select data-sundry-label required/);
+  assert.doesNotMatch(app,/<input data-sundry-label/);
+  assert.match(app,/<option value=""\$\{existing\?'':' selected'\} disabled>Select sundry item/);
+  assert.match(app,/previously saved/);
+  assert.match(app,/class="danger library-remove-sundry" data-remove-sundry/);
+  assert.match(css,/#libraryMetadataDialog \.library-sundry-row > \.library-remove-sundry/);
+  assert.match(css,/#libraryAddDialog \.library-sundry-row > \.library-remove-sundry/);
+  assert.match(css,/border:1px solid var\(--ds-danger\);/);
+  assert.match(css,/background:transparent;/);
+  assert.match(css,/\.library-sundry-row input,\.library-sundry-row select/);
+  assert.match(app,/if \(remove\) remove\.closest\('\.library-sundry-row'\)\?\.remove\(\)/,
+    'removing a line item must not write changes to the server');
+  assert.match(html,/id="libraryMetadataForm"/);
+  assert.match(html,/id="libraryAddForm"/);
+});
