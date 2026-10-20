@@ -3819,7 +3819,7 @@ function libraryFileMarkup(file) {
     </div>
     <div class="library-cell library-sale-cell">
       <div class="library-sale-price${sale.available?'':' unavailable'}" title="${escapeHtml(sale.detail)}">
-        <span class="library-cell-label">Sell price</span>
+        <span class="library-cell-label">Min. sell price</span>
         <strong class="library-sale-value">${escapeHtml(sale.available ? (sale.lots>1 ? sale.perLot : sale.price) : 'Unavailable')}</strong>
         <small>${sale.available ? (sale.lots>1 ? 'per sale lot · incl. tax' : 'per print · incl. tax') : 'No complete price estimate'}</small>
         ${sale.available&&sale.lots>1 ? `<small>Print total: ${escapeHtml(sale.price)}</small>` : ''}

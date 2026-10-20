@@ -746,7 +746,9 @@ async function librarySelectionSmoke(page,url,{mutateFixture = true} = {}) {
   assert.equal(await page.locator('#libraryTableHead').isVisible(),true);
   assert.ok((await page.locator('#libraryTableHead').textContent()).includes('Estimated cost'));
   assert.ok((await page.locator('#libraryTableHead').textContent()).includes('Sale lots'));
-  assert.ok((await page.locator('#libraryTableHead').textContent()).includes('Sell price'));
+  assert.equal((await page.locator('#libraryTableHead [data-library-sort="salePrice"]').textContent()).trim(),'Min. sell price');
+  assert.equal(await page.locator('#libraryTableHead [data-library-sort="salePrice"]').getAttribute('aria-label'),
+    'Sort by minimum sell price per lot');
   assert.equal(await page.locator('#libraryTableHead > *').count(),9);
   assert.equal(await page.locator('#libraryList .library-file-row').first()
     .locator('.library-lots-cell').count(),1);
@@ -1255,7 +1257,7 @@ async function libraryScrollingSmoke(page,url) {
         assert.equal(await firstRow.locator('.library-cell').count(),9);
       } else {
         assert.equal(await firstRow.locator('.library-lots-cell .library-cell-label').innerText(),'Sale lots');
-        assert.equal(await firstRow.locator('.library-sale-cell .library-cell-label').innerText(),'Sell price');
+        assert.equal(await firstRow.locator('.library-sale-cell .library-cell-label').innerText(),'Min. sell price');
       }
       const before=await page.evaluate(()=>{
         const header=document.querySelector('#libraryTableHead');

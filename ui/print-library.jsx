@@ -129,7 +129,7 @@ function LibraryFile({ file }) {
       <div class="library-cell library-sale-cell">
         <div class={`library-sale-price${file.sale?.available ? '' : ' unavailable'}`}
           title={file.sale?.detail || ''}>
-          <span class="library-cell-label">Sell price</span>
+          <span class="library-cell-label">Min. sell price</span>
           <strong class="library-sale-value">{file.sale?.available
             ? (file.sale?.lots>1 ? file.sale.perLot : file.sale.price) : 'Unavailable'}</strong>
           <small>{file.sale?.available
