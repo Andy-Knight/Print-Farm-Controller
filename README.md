@@ -1,4 +1,4 @@
-# Print Farm Controller v0.58.1
+# Print Farm Controller v0.59.0
 A local-first 3D printer fleet controller. It runs entirely on your LAN and currently supports:
 
 - **FlashForge Adventurer 5M / 5M Pro** through the local FlashForge HTTP/TCP APIs.
@@ -7,9 +7,11 @@ A local-first 3D printer fleet controller. It runs entirely on your LAN and curr
 - **Prusa CORE One+ (experimental)** through the local PrusaLink API, supporting Standard (1-tool), INDX4 and INDX8 configurations.
 - **Bambu Lab P1P / P1S / X1C / A1 Mini (experimental)** through the local MQTT TLS and FTPS TLS interfaces. P1P/P1S/A1 Mini use the TLS/JPEG camera path; X1C camera decoding remains unsupported.
 
-**Current development version: v0.58.1**
+**Current development version: v0.59.0**
 
 Current highlights:
+
+- **Hourly print time costing (v0.59.0):** Reports & finance → Pricing settings now includes a global hourly print cost rate (default 0.00, two-decimal currency input). Every Print Library item's Sell price includes slicer-estimated print hours multiplied by the hourly rate, alongside filament and per-print sundries, before existing profit markup/gross margin, tax and sale-lot allocation. Print time charges are visible under Sell price in both Preact and fallback views. The rate inherits the item's filament currency; when the rate is nonzero but slicer duration is missing, Sell price is unavailable rather than understated. Settings are backed up/restored and legacy settings default to zero; historical queue material-cost snapshots are unchanged.
 
 - **Reports & finance and sell pricing (v0.58.1):** Renamed Reports & costing to Reports & finance, retaining Analytics, Filament cost catalogue and Pricing settings. Global Tax rate (%) on Pricing settings is applied to the computed selling price after profit markup or gross margin; old settings default to 0% tax. The Print Library has dedicated sortable **Sale lots** and **Sell price** columns: the sell price is tax-inclusive and is per lot for multi-lot prints (with the whole-print total shown below). Sundry line items now use a dropdown of Packaging, Postage, Hardware, Labour and Miscellaneous, two-decimal unit prices and an outlined red Remove button in Add File and Edit Details. Cancel discards edits. The currency continues to come from the filament cost estimate. Both Preact and fallback UIs, light/dark styling and backup/restore remain supported.
 

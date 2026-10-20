@@ -18,9 +18,9 @@ const sample=(overrides={})=>({
 });
 
 test('Global library pricing settings persist and support markup vs margin',async()=>{
-  assert.deepEqual(await pricing.getLibraryPricingSettings(),{profitPercent:null,profitMethod:'markup',taxRate:0});
+  assert.deepEqual(await pricing.getLibraryPricingSettings(),{profitPercent:null,profitMethod:'markup',taxRate:0,hourlyCostRate:0});
   const changed=await pricing.saveLibraryPricingSettings({profitPercent:30,profitMethod:'markup'});
-  assert.deepEqual(changed,{profitPercent:30,profitMethod:'markup',taxRate:0});
+  assert.deepEqual(changed,{profitPercent:30,profitMethod:'markup',taxRate:0,hourlyCostRate:0});
   assert.deepEqual(await pricing.getLibraryPricingSettings(),changed);
   const margin=await pricing.saveLibraryPricingSettings({profitPercent:30,profitMethod:'margin'});
   assert.deepEqual(await pricing.getLibraryPricingSettings(),margin);
@@ -30,10 +30,15 @@ test('Global library pricing settings persist and support markup vs margin',asyn
   await fs.writeFile(pricing.libraryPricingSettingsPath,
     JSON.stringify({profitPercent:25,profitMethod:'margin'}));
   assert.deepEqual(await pricing.getLibraryPricingSettings(),
-    {profitPercent:25,profitMethod:'margin',taxRate:0});
+    {profitPercent:25,profitMethod:'margin',taxRate:0,hourlyCostRate:0});
   const taxed=await pricing.saveLibraryPricingSettings({profitPercent:25,profitMethod:'margin',taxRate:20});
-  assert.deepEqual(taxed,{profitPercent:25,profitMethod:'margin',taxRate:20});
+  assert.deepEqual(taxed,{profitPercent:25,profitMethod:'margin',taxRate:20,hourlyCostRate:0});
   assert.deepEqual(await pricing.getLibraryPricingSettings(),taxed);
+  const hourly=await pricing.saveLibraryPricingSettings({
+    profitPercent:25,profitMethod:'margin',taxRate:20,hourlyCostRate:3.75
+  });
+  assert.equal(hourly.hourlyCostRate,3.75);
+  assert.deepEqual(await pricing.getLibraryPricingSettings(),hourly);
 });
 
 test('Total sundries and selling price are computed per sliced print, then divided into sale lots',()=>{
@@ -146,6 +151,50 @@ test('Invalid sundries, lot counts and profit margins fail closed',()=>{
   for (const invalid of [-1,100.01,NaN,true,'invalid',Infinity]) {
     assert.throws(()=>pricing.normalizePricingSettings({profitPercent:20,profitMethod:'markup',taxRate:invalid}),/tax rate/i);
   }
+  for (const invalid of [-1,1000000.01,NaN,true,'invalid',Infinity]) {
+    assert.throws(()=>pricing.normalizePricingSettings({
+      profitPercent:20,profitMethod:'markup',hourlyCostRate:invalid
+    }),/hourly print cost rate/i);
+  }
+});
+
+test('Hourly print costs are included before markup, margin, tax and splitting into sale lots',()=>{
+  const file=sample({requirements:{estimatedPrintSeconds:5400}});
+  const markup=pricing.estimateLibrarySalePrice(file,
+    {profitPercent:20,profitMethod:'markup',hourlyCostRate:4.5,taxRate:20});
+  assert.equal(markup.hourlyCostRate,4.5);
+  assert.equal(markup.estimatedPrintSeconds,5400);
+  assert.equal(markup.printTimeCost,6.75);
+  assert.equal(markup.filamentCost,6);
+  assert.equal(markup.sundriesCost,1.5);
+  assert.equal(markup.totalCost,14.25);
+  // Price of each lot is rounded independently, as in the existing Sell price calculation.
+  assert.equal(markup.sellingPriceExTax,17.08);
+  assert.equal(markup.sellingPricePerLot,5.13);
+  assert.equal(markup.sellingPrice,20.52);
+  const margin=pricing.estimateLibrarySalePrice(file,
+    {profitPercent:25,profitMethod:'margin',hourlyCostRate:4.5,taxRate:0});
+  assert.equal(margin.totalCost,14.25);
+  assert.equal(margin.sellingPrice,19);
+  assert.equal(margin.sellingPricePerLot,4.75);
+});
+
+test('Missing slicer time with a nonzero hourly rate prevents a deceptively low price',()=>{
+  const withoutRate=pricing.estimateLibrarySalePrice(sample(),
+    {profitPercent:20,profitMethod:'markup',hourlyCostRate:0});
+  assert.equal(withoutRate.complete,true);
+  assert.equal(withoutRate.printTimeCost,0);
+  assert.equal(withoutRate.estimatedPrintSeconds,null);
+  const withRate=pricing.estimateLibrarySalePrice(sample(),
+    {profitPercent:20,profitMethod:'markup',hourlyCostRate:4});
+  assert.equal(withRate.complete,false);
+  assert.match(withRate.issue,/estimated print time/i);
+  assert.equal(withRate.printTimeCost,null);
+  assert.equal(withRate.totalCost,null);
+  assert.equal(withRate.sellingPrice,null);
+  const invalid=pricing.estimateLibrarySalePrice(sample({requirements:{estimatedPrintSeconds:-20}}),
+    {profitPercent:20,profitMethod:'markup',hourlyCostRate:4});
+  assert.equal(invalid.complete,false);
 });
 
 test('Clearing saved profit percentage prevents presenting a stale sales price',async()=>{

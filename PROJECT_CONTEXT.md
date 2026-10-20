@@ -9,13 +9,15 @@ If chat context and this file disagree about the codebase, inspect current GitHu
 - Repository: `Andy-Knight/Print-Farm-Controller`
 - Project path: repository root (`/`)
 - Primary branch: `main` (current production baseline)
-- Current controller source version: **0.58.1** (Reports & finance, tax-inclusive Sell price, Print Library lots/price columns and sundry UX; PR #105).
+- Current controller source version: **0.59.0** (global hourly print-time cost in Reports & finance → Pricing settings, applied to Print Library Sell prices; PR #106).
 - Previous baseline audited: **0.48.0** (main before the regression test audit release).
 - Runtime: **Node.js 24+** (development baseline Node.js 24.21.0), ES modules, no npm runtime dependencies.
 - GitHub is the authoritative code baseline.
 - Release/version history is maintained only in `CHANGELOG.md`; do not duplicate per-version history in this handoff file.
 
 ## Current work
+
+**v0.59.0 release (PR #106):** Global hourlyCostRate (default 0, validated non-negative two-decimal rate) in Reports & finance → Pricing settings is applied to slicer-provided Print Library print duration. Print-time cost joins filament and sundry cost before profit, tax and per-lot rounding; the Print Library Sell price UI shows the time charge in Preact and fallback. Missing duration with a positive rate blocks quoting rather than underpricing. Currency comes from the complete filament estimate, without FX. Settings persist across backup/restore and older records default to zero. Node.js 24, Chromium Preact and container smoke gates passed on the feature head before release metadata update. Recheck gates after this version bump; merge PR #106 only once the new head is green. No printer commands or historical print-cost snapshots are changed.
 
 **v0.58.1 release (PR #105):** Based on merged 0.58.0. Rename Reports & costing to Reports & finance, retaining /reports and its three tabs. Add global taxRate (0–100%, existing settings default to 0%), applied after profit percentage and before per-lot rounding. Print Library includes sortable Sale lots and tax-inclusive Sell price columns (per lot with multi-lot total shown), in Preact/fallback and responsive cards. Sundry lines use dropdown categories Packaging/Postage/Hardware/Labour/Miscellaneous, preserve legacy custom labels, show currency values with 2 decimals and use red outlined Remove actions without persisting until Save. Test with Node.js 24, Chromium Preact, MinIO and container smoke after the release version bump. No printer/queue logic changes. User requested release bump and merge PR #105; merge only following successful CI on the release commit.
 

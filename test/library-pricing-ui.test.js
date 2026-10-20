@@ -25,7 +25,7 @@ test('Selling-price settings and Preact/fallback sale view use the same server e
   const preact=read('ui/print-library.jsx');
   const server=read('src/server.js'),css=read('public/print-library-polish.css');
   const ids=['reportingTabPricing','reportingPanelPricing','reportingPricingForm',
-    'reportingProfitPercent','reportingProfitMethod','reportingTaxRate',
+    'reportingProfitPercent','reportingProfitMethod','reportingTaxRate','reportingHourlyCostRate',
     'reportingPricingStatus','reportingPricingError'];
   for (const id of ids) assert.match(html,new RegExp('id="'+id+'"'));
   assert.doesNotMatch(app,/SundryCurrency/);
@@ -50,7 +50,12 @@ test('Selling-price settings and Preact/fallback sale view use the same server e
   assert.match(reporting,/requestJson\('\/api\/library\/pricing'/);
   assert.match(reporting,/taxRate:Number\(reportingTaxRate\?\.value \?\? 0\)/);
   assert.match(reporting,/reportingTaxRate\.value=String\(response\.settings\?\.taxRate \?\? 0\)/);
+  assert.match(reporting,/reportingHourlyCostRate\.value=String\(response\.settings\?\.hourlyCostRate \?\? 0\)/);
+  assert.match(reporting,/hourlyCostRate:Number\(reportingHourlyCostRate\?\.value \?\? 0\)/);
   assert.match(html,/name="taxRate" type="number" min="0" max="100" step="0.01"/);
+  assert.match(html,/name="hourlyCostRate" type="number" min="0" max="1000000" step="0.01"/);
+  assert.match(app,/Print time: \$\{money\(sale\.printTimeCost\)\}/);
+  assert.match(preact,/file\.sale\.timeCost/);
   assert.match(html,/Prices are shown <strong>including tax<\/strong>/);
   assert.match(reporting,/reportingPricingForm\?\.addEventListener\('submit'/);
   assert.match(reporting,/pfc:library-pricing-updated/);

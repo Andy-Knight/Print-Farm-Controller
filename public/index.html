@@ -479,7 +479,7 @@
           <div class="reporting-section-head">
             <div>
               <h3>Global pricing settings</h3>
-              <span class="subtle">Configure profit and tax percentages for Print Library sell prices.</span>
+              <span class="subtle">Configure hourly print costs, profit and tax for Print Library sell prices.</span>
             </div>
           </div>
           <form id="reportingPricingForm" class="reporting-pricing-form">
@@ -499,13 +499,19 @@
                   <input id="reportingTaxRate" name="taxRate" type="number" min="0" max="100" step="0.01" value="0" required
                     aria-describedby="reportingTaxHelp" />
                 </label>
+                <label>Hourly print cost rate
+                  <input id="reportingHourlyCostRate" name="hourlyCostRate" type="number" min="0" max="1000000" step="0.01"
+                    value="0" required aria-describedby="reportingHourlyRateHelp" />
+                </label>
               </div>
               <div class="field-help reporting-pricing-help">
-                Sell prices include the current sliced filament cost plus all sundries for one complete print.
-                Profit markup or margin is calculated first; the configured tax rate is added afterwards.
+                Sell prices include current filament cost, the slicer-estimated print time multiplied by the hourly rate, and sundries for one complete print.
+                Profit markup or margin is applied to those costs; the configured tax rate is added afterwards.
                 Prices are shown <strong>including tax</strong>, per sale lot (and in total), with currency-appropriate rounding.
                 Leave the profit percentage blank to disable sell price estimates.
-                Labour, electricity and shipping are excluded unless entered as sundries.
+                <span id="reportingHourlyRateHelp">The hourly rate uses each file's filament currency. Set 0 to exclude print time costs.
+                For a non-zero rate, a slicer print duration is required; items without one cannot show a Sell price.
+                Other costs not covered by this rate, such as shipping or labour, can be added as sundries.</span>
                 <span id="reportingTaxHelp">Use 0% if no tax should be added. This is a pricing estimate, not a tax return.</span>
               </div>
               <div class="actions reporting-pricing-actions">
