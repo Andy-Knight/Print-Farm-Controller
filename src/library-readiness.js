@@ -70,7 +70,8 @@ export function attachLibraryReadiness(files, printers, {
       const waiting=ready.length-available;
       const matching=ready.length+' printer'+(ready.length===1?' has':'s have')+' matching material and nozzle configuration';
       message=waiting
-        ? matching+'; '+waiting+' '+(waiting===1?'is':'are')+' currently busy or reserved. You can queue this file now; printing starts when an eligible printer is idle and passes live preflight'
+        ? matching+'; '+(available ? available+' available now, ' : '')
+          +waiting+' '+(waiting===1?'is':'are')+' currently busy or reserved. You can queue this file now; printing starts when an eligible printer is idle and passes live preflight'
         : matching+' and '+(available===1?'is':'are')+' available; queue preflight will recheck';
     } else if(!eligible.length) {
       level='incompatible';
