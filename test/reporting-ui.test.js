@@ -14,11 +14,11 @@ const restoreService = fs.readFileSync(new URL('../src/backup-recovery/restore-s
 
 test('reporting UI is available from the persistent controller navigation with graphical farm analytics', () => {
   assert.match(index, /id="reportsBtn"[^>]*class="sidebar-item"/);
-  assert.match(index, /<span>Reports &amp; costing<\/span>/);
-  assert.match(index, /<h2 class="ui-page-title">Reports &amp; costing<\/h2>/);
+  assert.match(index, /<span>Reports &amp; finance<\/span>/);
+  assert.match(index, /<h2 class="ui-page-title">Reports &amp; finance<\/h2>/);
   assert.match(index, /FARM REPORTING/);
-  assert.match(index, /aria-label="Reports and costing view"/);
-  assert.match(app, /title:'Reports & costing', subtitle:'Review farm performance, material costs and selling prices'/);
+  assert.match(index, /aria-label="Reports and finance view"/);
+  assert.match(app, /title:'Reports & finance', subtitle:'Review farm performance, material costs and selling prices'/);
   assert.doesNotMatch(index, /Reports &amp; analytics/);
 
   assert.match(index, /id="reportingDialog"/);
