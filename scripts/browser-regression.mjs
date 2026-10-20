@@ -738,6 +738,13 @@ async function librarySelectionSmoke(page,url,{mutateFixture = true} = {}) {
   assert.equal(await page.locator('#libraryDeleteSelectedBtn').isDisabled(),true);
   assert.equal(await page.locator('#libraryTableHead').isVisible(),true);
   assert.ok((await page.locator('#libraryTableHead').textContent()).includes('Estimated cost'));
+  assert.ok((await page.locator('#libraryTableHead').textContent()).includes('Sale lots'));
+  assert.ok((await page.locator('#libraryTableHead').textContent()).includes('Suggested sell price'));
+  assert.equal(await page.locator('#libraryTableHead > *').count(),9);
+  assert.equal(await page.locator('#libraryList .library-file-row').first()
+    .locator('.library-lots-cell').count(),1);
+  assert.equal(await page.locator('#libraryList .library-file-row').first()
+    .locator('.library-sale-cell').count(),1);
   const rows=page.locator('#libraryList .library-file-row');
   const firstId=await rows.nth(0).getAttribute('data-library-file');
   const secondId=await rows.nth(1).getAttribute('data-library-file');
@@ -910,7 +917,7 @@ async function librarySelectionSmoke(page,url,{mutateFixture = true} = {}) {
       };
     });
     assert.equal(dimensions.display,'grid');
-    assert.ok(dimensions.columns.split(' ').length>=7,'desktop library has seven aligned columns');
+    assert.equal(dimensions.columns.split(' ').length,9,'desktop library has nine aligned columns');
     const tracks=(value)=>value.split(' ').map(parseFloat);
     const headTracks=tracks(dimensions.headerColumns);
     const rowTracks=tracks(dimensions.columns);
@@ -1151,6 +1158,9 @@ async function libraryScrollingSmoke(page,url) {
     printerTarget:'Any supported printer',requirements:'PLA · 0.4 mm',
     colours:[],warning:'',previewUrl:'',selected:false,
     cost:{available:true,value:'£0.62',detail:'Current filament catalogue prices'},
+    sale:i%2===0
+      ? {available:true,lots:4,price:'£9.76',perLot:'£2.44',detail:'GBP cost plus 30% markup'}
+      : {available:false,lots:1,price:'Unavailable',perLot:'',detail:'Incomplete filament costing'},
     historyCount:'2 completed prints',historyLast:'Not printed yet',historyAdded:'Added recently'
   }));
   for(const viewport of [
@@ -1169,6 +1179,23 @@ async function libraryScrollingSmoke(page,url) {
         }));
       },[sample,theme]);
       await page.waitForFunction(()=>document.querySelectorAll('#libraryList .library-file-row').length===65);
+      const firstRow=page.locator('#libraryList .library-file-row').first();
+      assert.equal(await firstRow.locator('.library-lots-value').innerText(),'4');
+      assert.equal(await firstRow.locator('.library-sale-value').innerText(),'£2.44',
+        'the main suggested selling price must be per lot for a multi-lot print');
+      assert.ok((await firstRow.locator('.library-sale-cell').innerText()).includes('£9.76'),
+        'multi-lot rows should show the full-print selling total as context');
+      const unknownRow=page.locator('#libraryList .library-file-row').nth(1);
+      assert.equal(await unknownRow.locator('.library-lots-value').innerText(),'1');
+      assert.equal(await unknownRow.locator('.library-sale-value').innerText(),'Unavailable',
+        'unknown filament costs must never create a fabricated price');
+      if(viewport.desktop) {
+        assert.equal(await page.locator('#libraryTableHead > *').count(),9);
+        assert.equal(await firstRow.locator('.library-cell').count(),9);
+      } else {
+        assert.equal(await firstRow.locator('.library-lots-cell .library-cell-label').innerText(),'Sale lots');
+        assert.equal(await firstRow.locator('.library-sale-cell .library-cell-label').innerText(),'Suggested sell price');
+      }
       const before=await page.evaluate(()=>{
         const header=document.querySelector('#libraryTableHead');
         const list=document.querySelector('#libraryList');

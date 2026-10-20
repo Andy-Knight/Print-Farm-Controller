@@ -301,3 +301,24 @@ test('Library UI binds all sorting, filters, tags, favourites and pagers to Prea
   assert.match(css,/library-readiness-offline/);
   assert.match(css,/library-readiness-busy/);
 });
+
+// Money comparisons are grouped by currency and unknown estimates are always
+// last; sale-price sorting uses what a customer pays per lot, not batch revenue.
+test('Sale-lot sorting and per-lot selling price sorting handle missing and mixed currencies',()=>{
+  const entries=[
+    file('b-GBP-four',{lotsPerPrint:4,saleEstimate:{complete:true,currency:'GBP',sellingPrice:9.76,sellingPricePerLot:2.44}}),
+    file('a-GBP-one',{lotsPerPrint:1,saleEstimate:{complete:true,currency:'GBP',sellingPrice:7.00,sellingPricePerLot:7.00}}),
+    file('c-GBP-unknown',{lotsPerPrint:2,saleEstimate:{complete:false,currency:'GBP',sellingPrice:null,sellingPricePerLot:null}}),
+    file('d-USD-two',{lotsPerPrint:2,saleEstimate:{complete:true,currency:'USD',sellingPrice:2.00,sellingPricePerLot:1.00}}),
+    file('e-legacy',{saleEstimate:null})
+  ];
+  assert.deepEqual(librarySortAndFilter(entries,{sort:'lots',direction:'asc'}).map(x=>x.id),
+    ['a-GBP-one','e-legacy','c-GBP-unknown','d-USD-two','b-GBP-four']);
+  assert.deepEqual(librarySortAndFilter(entries,{sort:'lots',direction:'desc'}).map(x=>x.id),
+    ['b-GBP-four','c-GBP-unknown','d-USD-two','a-GBP-one','e-legacy']);
+  assert.deepEqual(librarySortAndFilter(entries,{sort:'salePrice',direction:'asc'}).map(x=>x.id),
+    ['b-GBP-four','a-GBP-one','d-USD-two','c-GBP-unknown','e-legacy']);
+  assert.deepEqual(librarySortAndFilter(entries,{sort:'salePrice',direction:'desc'}).map(x=>x.id),
+    ['a-GBP-one','b-GBP-four','d-USD-two','c-GBP-unknown','e-legacy']);
+  assert.equal(entries[0].lotsPerPrint,4,'source objects remain unchanged');
+});
