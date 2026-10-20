@@ -6,6 +6,7 @@ Historical entries describe the behaviour of the controller at the time of that 
 
 ## v0.59.1
 
+- Print Library **Ready now** readiness considers correctly loaded, online matching printers that are currently printing (busy or reserved), rather than showing **Needs attention** because another idle printer has the wrong filament. Tool, nozzle and material mismatches still block readiness; the tooltip explains that the job will start after the eligible printer becomes idle and passes live queue preflight. Queue scheduling/safety enforcement is unchanged.
 - Renamed the Print Library table's **Sell price** column to **Min. sell price** (meaning minimum sell price). Applied the same label to narrow-screen cards and the sort menu; the header retains a full accessible label. Existing pricing calculations, sale-lot allocation, tax and sorting behaviour are unchanged.
 - Renamed the blue category headings on Print library to **FARM FILE LIBRARY**, Backup & recovery to **FARM PROTECTION**, and Diagnostics to **FARM CONTROLLER DIAGNOSTICS**, without changing the functional page titles, routes or Add/Edit file dialog labels.
 - Removed the redundant workspace breadcrumbs from every page of the controller, including the static/no-Preact fallback. Removed the unused Preact trail component and its route-event wiring; standard sidebar navigation, current-page highlighting, keyboard focus and browser back/forward remain intact.
