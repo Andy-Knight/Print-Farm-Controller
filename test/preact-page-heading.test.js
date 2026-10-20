@@ -41,6 +41,26 @@ test('all main workspace routes use the same page heading as Dashboard', () => {
     'all nine main routes use shared heading; smaller pop-up dialogs remain separate');
 });
 
+test('three routed pages use the requested farm-oriented blue eyebrow labels', () => {
+  const labels={
+    libraryDialog:'FARM FILE LIBRARY',
+    backupRecoveryDialog:'FARM PROTECTION',
+    diagnosticsDialog:'FARM CONTROLLER DIAGNOSTICS'
+  };
+  for(const [routeId,label] of Object.entries(labels)){
+    const start=html.indexOf(`<section id="${routeId}"`);
+    assert.ok(start>=0,'missing page '+routeId);
+    const head=html.slice(start,start+800);
+    assert.ok(head.includes(`<div class="eyebrow ui-page-eyebrow">${label}</div>`),
+      'incorrect blue eyebrow heading on '+routeId);
+  }
+  for(const obsolete of ['CONTROLLER DATA','CONTROLLER DIAGNOSTICS'])
+    assert.doesNotMatch(html,new RegExp(`<div class="eyebrow ui-page-eyebrow">${obsolete}</div>`));
+  assert.doesNotMatch(html,/<div class="eyebrow ui-page-eyebrow">PRINT LIBRARY<\/div>/);
+  // Add/Edit file dialog labels are not routed-page headings and remain unchanged.
+  assert.equal((html.match(/<div class="eyebrow">PRINT LIBRARY<\/div>/g)||[]).length,2);
+});
+
 test('shared visual heading uses a single theme-aware typography specification', () => {
   assert.match(css,/\.ui-page-heading-copy \{ display:grid;gap:5px;/);
   assert.match(css,/\.ui-page-heading \.ui-page-eyebrow,/);
@@ -52,6 +72,13 @@ test('shared visual heading uses a single theme-aware typography specification',
   assert.match(css,/color:var\(--ds-brand\)/);
   assert.match(css,/color:var\(--ds-text-muted\)/);
   assert.match(chromium,/workspaceHeadingSmoke\(page,url\)/);
+});
+
+test('page title and description remain the sole content heading rather than breadcrumbs',()=>{
+  assert.match(html,/id="topbarContextTitle"/);
+  assert.match(html,/id="topbarContextSubtitle"/);
+  assert.doesNotMatch(html,/id="workspaceTrailRoot"|aria-label="Breadcrumb"/);
+  assert.match(chromium,/every desktop route uses the same topbar-to-heading spacing/);
 });
 
 test('dynamic page descriptions and controls remain intact',()=>{

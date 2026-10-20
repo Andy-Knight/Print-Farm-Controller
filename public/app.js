@@ -281,25 +281,21 @@ const sidebarToggle = document.querySelector('#sidebarToggle');
 const sidebarEl = document.querySelector('#controllerSidebar');
 const sidebarBackdrop = document.querySelector('#sidebarBackdrop');
 const mobileSidebarQuery = window.matchMedia('(max-width: 760px)');
-const workspaceTrailRoot = document.querySelector('#workspaceTrailRoot');
-const workspaceTrailActive = document.querySelector('#workspaceTrailActive');
 const dashboardHomeBtn = document.querySelector('[data-dashboard-home]');
 const controllerRoutes = {
   '/': { title:'Dashboard', subtitle:'Monitor and manage your print farm' },
   '/queue': { button:'queueBtn', dialog:'queueDialog', title:'Queue & history', subtitle:'Manage queued, active and completed print jobs' },
   '/library': { button:'libraryBtn', dialog:'libraryDialog', title:'Print library', subtitle:'Manage files available to your print farm' },
-  '/maintenance': { button:'maintenanceBtn', dialog:'maintenanceDialog', title:'Maintenance', subtitle:'Track maintenance tasks across the farm' },
-  '/groups': { button:'printerGroupsBtn', dialog:'printerGroupsDialog', title:'Printer groups', subtitle:'Organise printers for scheduling and maintenance' },
-  '/reports': { button:'reportsBtn', dialog:'reportingDialog', title:'Reports & finance', subtitle:'Review farm performance, material costs and selling prices' },
-  '/alerts': { button:'alertsSettingsBtn', dialog:'alertsDialog', title:'Alerts & notifications', subtitle:'Review alerts and notification settings' },
-  '/backup': { button:'backupRecoveryBtn', dialog:'backupRecoveryDialog', title:'Backup & recovery', subtitle:'Protect and restore controller data' },
-  '/diagnostics': { button:'diagnosticsBtn', dialog:'diagnosticsDialog', title:'Diagnostics', subtitle:'Review controller health and diagnostic logs' },
+  '/maintenance': { button:'maintenanceBtn', dialog:'maintenanceDialog', title:'Maintenance', topbarTitle:'Farm management', subtitle:'Track maintenance tasks across the farm' },
+  '/groups': { button:'printerGroupsBtn', dialog:'printerGroupsDialog', title:'Printer groups', topbarTitle:'Farm management', subtitle:'Organise printers for scheduling and maintenance' },
+  '/reports': { button:'reportsBtn', dialog:'reportingDialog', title:'Reports & finance', topbarTitle:'Farm management', subtitle:'Review farm performance, material costs and selling prices' },
+  '/alerts': { button:'alertsSettingsBtn', dialog:'alertsDialog', title:'Alerts & notifications', topbarTitle:'Farm management', subtitle:'Review alerts and notification settings' },
+  '/backup': { button:'backupRecoveryBtn', dialog:'backupRecoveryDialog', title:'Backup & recovery', topbarTitle:'Farm management', subtitle:'Protect and restore controller data' },
+  '/diagnostics': { button:'diagnosticsBtn', dialog:'diagnosticsDialog', title:'Diagnostics', topbarTitle:'Farm management', subtitle:'Review controller health and diagnostic logs' },
   '/licence': { button:'licenseBtn', dialog:'licenseDialog', title:'Licence', subtitle:'Review controller edition and licence status' }
 };
 const workspaceMain = document.querySelector('body > main');
-// Query by dedicated IDs: the breadcrumb also contains spans. A broad
-// .topbar-context span selector incorrectly overwrites 'Workspace' with the
-// current route subtitle, duplicating headings in the visible header.
+// Bind route title and subtitle separately to avoid duplicate context labels.
 const topbarContextTitle = document.querySelector('#topbarContextTitle');
 const topbarContextSubtitle = document.querySelector('#topbarContextSubtitle');
 let activeRoute = '/';
@@ -383,14 +379,8 @@ function renderControllerRoute(pathname, { invoke = true } = {}) {
   document.querySelectorAll('.route-page').forEach((page) => {
     page.hidden = page.id !== route.dialog;
   });
-  if (topbarContextTitle) topbarContextTitle.textContent = route.title;
+  if (topbarContextTitle) topbarContextTitle.textContent = route.topbarTitle || route.title;
   if (topbarContextSubtitle) topbarContextSubtitle.textContent = route.subtitle;
-  if (workspaceTrailActive) workspaceTrailActive.textContent = route.title;
-  if (workspaceTrailRoot) workspaceTrailRoot.dataset.home = String(routePath === '/');
-  window.__PFC_SHELL_ROUTE_STATE__ = { path:routePath, title:route.title, subtitle:route.subtitle };
-  window.dispatchEvent(new CustomEvent('pfc:shell-route-state',{
-    detail:window.__PFC_SHELL_ROUTE_STATE__
-  }));
   if (invoke && route.button) {
     const button = document.querySelector(`#${route.button}`);
     if (button) {
@@ -469,11 +459,6 @@ document.querySelectorAll('.sidebar-nav .sidebar-item, .sidebar-foot .sidebar-it
       }
     });
   });
-window.addEventListener('pfc:shell-navigate', (event) => {
-  navigateController(event?.detail?.route || '/');
-  if (mobileSidebarQuery.matches) closeModernSidebar();
-  topbarContextTitle?.focus({preventScroll:true});
-});
 document.addEventListener('keydown', (event) => {
   if (event.key === 'Escape' && document.body.classList.contains('sidebar-open')) {
     event.preventDefault();
@@ -3834,7 +3819,7 @@ function libraryFileMarkup(file) {
     </div>
     <div class="library-cell library-sale-cell">
       <div class="library-sale-price${sale.available?'':' unavailable'}" title="${escapeHtml(sale.detail)}">
-        <span class="library-cell-label">Sell price</span>
+        <span class="library-cell-label">Min. sell price</span>
         <strong class="library-sale-value">${escapeHtml(sale.available ? (sale.lots>1 ? sale.perLot : sale.price) : 'Unavailable')}</strong>
         <small>${sale.available ? (sale.lots>1 ? 'per sale lot · incl. tax' : 'per print · incl. tax') : 'No complete price estimate'}</small>
         ${sale.available&&sale.lots>1 ? `<small>Print total: ${escapeHtml(sale.price)}</small>` : ''}
@@ -4004,7 +3989,7 @@ function renderPrintLibrary({preserveScroll=false} = {}) {
     button.classList.toggle('sorted',active);
     button.classList.toggle('sorted-asc',active && librarySortDirection==='asc');
     button.classList.toggle('sorted-desc',active && librarySortDirection==='desc');
-    button.setAttribute('aria-label',`Sort by ${button.textContent.trim()}${active?', '+librarySortDirection:''}`);
+    button.setAttribute('aria-label',`Sort by ${button.dataset.librarySortLabel || button.textContent.trim()}${active?', '+librarySortDirection:''}`);
     button.setAttribute('aria-pressed',String(active));
   });
   const bytes = files.reduce((sum, file) => sum + Number(file.size || 0), 0);

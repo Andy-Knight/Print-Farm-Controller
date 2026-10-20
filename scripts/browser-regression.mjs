@@ -365,7 +365,7 @@ async function dashboardPhase3Smoke(browser,url) {
 }
 
 async function workspaceShellSmoke(browser,url) {
-  console.log('Chromium: Phase 2 workspace sidebar, breadcrumbs and mobile navigation');
+  console.log('Chromium: breadcrumb-free workspace, sidebar and mobile navigation');
   const context=await browser.newContext({viewport:{width:1365,height:900}});
   const page=await context.newPage();
   const errors=[];
@@ -380,22 +380,16 @@ async function workspaceShellSmoke(browser,url) {
   try {
     await page.goto(url+'/reports',{waitUntil:'load'});
     await preactReady(page);
-    const crumb=page.locator('#workspaceTrailRoot [data-preact-workspace-trail]');
-    await crumb.waitFor({state:'visible'});
-    await page.waitForFunction(()=>document.querySelector('#workspaceTrailRoot [aria-current="page"]')
-      ?.textContent==='Reports & finance');
+    assert.equal(await page.locator('#workspaceTrailRoot, .workspace-trail-root, [aria-label="Breadcrumb"]').count(),0,
+      'breadcrumb elements must be absent in all route states');
     const reportContext=await page.evaluate(()=>({
-      crumb:document.querySelector('#workspaceTrailRoot')?.innerText,
       title:document.querySelector('#topbarContextTitle')?.textContent,
       subtitle:document.querySelector('#topbarContextSubtitle')?.textContent,
-      parent:document.querySelector('#workspaceTrailRoot .workspace-trail-link')?.textContent
+      pageTitle:document.querySelector('#reportingDialog .ui-page-title')?.textContent
     }));
-    assert.equal(reportContext.parent,'Workspace');
-    assert.equal(reportContext.title,'Reports & finance');
+    assert.equal(reportContext.title,'Farm management');
     assert.equal(reportContext.subtitle,'Review farm performance, material costs and selling prices');
-    assert.ok(reportContext.crumb.includes('Workspace')&&reportContext.crumb.includes('Reports & finance'));
-    assert.ok(!reportContext.crumb.includes(reportContext.subtitle),
-      'subtitle must not overwrite the breadcrumb parent on route changes');
+    assert.equal(reportContext.pageTitle,'Reports & finance');
     assert.equal(await page.locator('#reportsBtn').getAttribute('aria-current'),'page',
       'active navigation item has current-page semantics');
     assert.equal(await page.locator('.sidebar-section-label').count(),2,
@@ -404,26 +398,30 @@ async function workspaceShellSmoke(browser,url) {
       'main sidebar uses consistently sized SVG navigation icons');
     assert.equal(await page.locator('#controllerSidebar').evaluate(n=>n.inert),false,
       'desktop navigation is always available');
-    await crumb.getByRole('button',{name:'Go to dashboard'}).click();
+    await page.locator('[data-dashboard-home]').click();
     await page.waitForFunction(()=>location.pathname==='/'&&document.body.dataset.route==='/' &&
-      document.querySelector('.topbar-context strong')?.textContent==='Dashboard');
+      document.querySelector('#topbarContextTitle')?.textContent==='Dashboard');
     assert.equal(await page.locator('[data-dashboard-home]').getAttribute('aria-current'),'page',
-      'breadcrumb uses normal controller routing to activate Dashboard');
-    await page.waitForFunction(()=>document.querySelector('#workspaceTrailRoot .workspace-trail-home'));
-    const dashHeader=await page.evaluate(()=>({
-      root:document.querySelector('#workspaceTrailRoot')?.innerText?.trim(),
-      title:document.querySelector('#topbarContextTitle')?.textContent,
-      subtitle:document.querySelector('#topbarContextSubtitle')?.textContent,
-      trail:document.querySelector('#workspaceTrailRoot')?.dataset.home,
-      duplicate:document.querySelector('#workspaceTrailRoot .workspace-trail-current')
+      'sidebar routes users back to Dashboard');
+    assert.equal(await page.locator('#topbarContextSubtitle').textContent(),
+      'Monitor and manage your print farm');
+    assert.equal(await page.locator('#workspaceTrailRoot, .workspace-trail-root').count(),0);
+    await page.goBack();
+    await page.waitForFunction(()=>location.pathname==='/reports'&&document.body.dataset.route==='/reports' &&
+      document.querySelector('#topbarContextTitle')?.textContent==='Farm management');
+    assert.equal(await page.locator('#reportsBtn').getAttribute('aria-current'),'page',
+      'browser back preserves current sidebar state');
+    await page.goForward();
+    await page.waitForFunction(()=>location.pathname==='/'&&document.body.dataset.route==='/');
+    assert.equal(await page.locator('#topbarContextTitle').textContent(),'Dashboard');
+    assert.equal(await page.locator('#workspaceTrailRoot, .workspace-trail-root').count(),0);
+    const compactTopbar=await page.evaluate(()=>({
+      height:document.querySelector('.modern-topbar').getBoundingClientRect().height,
+      mainTopGap:Number.parseFloat(getComputedStyle(document.querySelector('body > main')).paddingTop)
     }));
-    assert.equal(dashHeader.root,'Workspace',
-      'dashboard header shows only the Workspace eyebrow, not a second Dashboard');
-    assert.equal(dashHeader.title,'Dashboard');
-    assert.equal(dashHeader.subtitle,'Monitor and manage your print farm');
-    assert.equal(dashHeader.trail,'true');
-    assert.equal(dashHeader.duplicate,null,
-      'root route should not render a redundant Dashboard breadcrumb');
+    assert.ok(compactTopbar.height>=60&&compactTopbar.height<=76,
+      'topbar height must stay compact when breadcrumbs are removed');
+    assert.equal(compactTopbar.mainTopGap,18,'every desktop route uses the same topbar-to-heading spacing');
     const desktop=await page.evaluate(()=>({
       sidebar:document.querySelector('#controllerSidebar').getBoundingClientRect().toJSON(),
       header:document.querySelector('.modern-topbar').getBoundingClientRect().toJSON(),
@@ -534,6 +532,27 @@ async function workspaceHeadingSmoke(page,url) {
       }
       assert.ok(actual.headingText,'route page must retain its own title: '+route);
       assert.ok(actual.eyebrowText,'route page must retain its category: '+route);
+      const groupRoutes=['/maintenance','/groups','/reports','/alerts','/backup','/diagnostics'];
+      const workspaceTitles={'/queue':'Queue & history','/library':'Print library','/licence':'Licence'};
+      const topbarTitle=(await page.locator('#topbarContextTitle').textContent()).trim();
+      const subtitle=(await page.locator('#topbarContextSubtitle').textContent()).trim();
+      if(groupRoutes.includes(route)){
+        assert.equal(topbarTitle,'Farm management',
+          'Farm management sections retain their common topbar title: '+route);
+        assert.notEqual(topbarTitle,actual.headingText,'the topbar must not duplicate the page title');
+      } else {
+        assert.equal(topbarTitle,workspaceTitles[route],'non-management route keeps its own topbar title');
+      }
+      assert.ok(subtitle.length>0,'route retains its unique descriptive topbar subtitle: '+route);
+      const requestedEyebrows={
+        '/library':'FARM FILE LIBRARY',
+        '/backup':'FARM PROTECTION',
+        '/diagnostics':'FARM CONTROLLER DIAGNOSTICS'
+      };
+      if(Object.hasOwn(requestedEyebrows,route)) {
+        assert.equal(actual.eyebrowText,requestedEyebrows[route],
+          'blue page eyebrow must use the farm-specific label: '+route);
+      }
     }
     // Queue and library own reactive summary elements; they must not
     // disappear when styles are standardised.
@@ -739,7 +758,9 @@ async function librarySelectionSmoke(page,url,{mutateFixture = true} = {}) {
   assert.equal(await page.locator('#libraryTableHead').isVisible(),true);
   assert.ok((await page.locator('#libraryTableHead').textContent()).includes('Estimated cost'));
   assert.ok((await page.locator('#libraryTableHead').textContent()).includes('Sale lots'));
-  assert.ok((await page.locator('#libraryTableHead').textContent()).includes('Sell price'));
+  assert.equal((await page.locator('#libraryTableHead [data-library-sort="salePrice"]').textContent()).trim(),'Min. sell price');
+  assert.equal(await page.locator('#libraryTableHead [data-library-sort="salePrice"]').getAttribute('aria-label'),
+    'Sort by minimum sell price per lot');
   assert.equal(await page.locator('#libraryTableHead > *').count(),9);
   assert.equal(await page.locator('#libraryList .library-file-row').first()
     .locator('.library-lots-cell').count(),1);
@@ -1248,7 +1269,7 @@ async function libraryScrollingSmoke(page,url) {
         assert.equal(await firstRow.locator('.library-cell').count(),9);
       } else {
         assert.equal(await firstRow.locator('.library-lots-cell .library-cell-label').innerText(),'Sale lots');
-        assert.equal(await firstRow.locator('.library-sale-cell .library-cell-label').innerText(),'Sell price');
+        assert.equal(await firstRow.locator('.library-sale-cell .library-cell-label').innerText(),'Min. sell price');
       }
       const before=await page.evaluate(()=>{
         const header=document.querySelector('#libraryTableHead');

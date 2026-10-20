@@ -4,6 +4,17 @@ This file contains the version-by-version release history for Print Farm Control
 
 Historical entries describe the behaviour of the controller at the time of that release and may be superseded by later versions. For current installation, configuration and supported-hardware guidance, see [README.md](README.md).
 
+## v0.59.1
+
+- All six routes under the sidebar's **FARM MANAGEMENT** section now show **Farm management** in the very top bar instead of repeating the page title (Maintenance, Printer groups, Reports & finance, Alerts & notifications, Backup & recovery, Diagnostics). Their contextual subtitles and individual blue content headings remain unchanged. Dashboard, Queue & history, Print library and footer Licence retain their existing topbar names. Deep links, sidebar routing and mobile navigation retain their behaviour.
+- Print Library **Ready now** readiness considers correctly loaded, online matching printers that are currently printing (busy or reserved), rather than showing **Needs attention** because another idle printer has the wrong filament. Tool, nozzle and material mismatches still block readiness; the tooltip explains that the job will start after the eligible printer becomes idle and passes live queue preflight. Queue scheduling/safety enforcement is unchanged.
+- Renamed the Print Library table's **Sell price** column to **Min. sell price** (meaning minimum sell price). Applied the same label to narrow-screen cards and the sort menu; the header retains a full accessible label. Existing pricing calculations, sale-lot allocation, tax and sorting behaviour are unchanged.
+- Renamed the blue category headings on Print library to **FARM FILE LIBRARY**, Backup & recovery to **FARM PROTECTION**, and Diagnostics to **FARM CONTROLLER DIAGNOSTICS**, without changing the functional page titles, routes or Add/Edit file dialog labels.
+- Removed the redundant workspace breadcrumbs from every page of the controller, including the static/no-Preact fallback. Removed the unused Preact trail component and its route-event wiring; standard sidebar navigation, current-page highlighting, keyboard focus and browser back/forward remain intact.
+- Kept the existing top-bar route title and subtitle, the blue shared page heading, page descriptions, navigation tabs and page actions. Reduced the desktop top bar to 64px, with a compact 60px mobile minimum, and standardised the main content top gap to 18px on desktop / 16px on mobile.
+- Updated Node.js regression checks and real-browser Chromium route, theme, desktop/mobile and layout assertions to enforce the breadcrumb-free shell, including deep links and browser history.
+- Increased version from **0.59.0** to **0.59.1**.
+
 ## v0.59.0
 
 - Added a global **Hourly print cost rate** in **Reports & finance → Pricing settings**, accepting non-negative currency rates with 0.01 increments. Saved settings from earlier releases default to **0.00**, preserving existing quotes until changed.

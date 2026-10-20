@@ -4,7 +4,7 @@ import {readFileSync} from 'node:fs';
 
 const read=(path)=>readFileSync(new URL('../'+path,import.meta.url),'utf8');
 const html=read('public/index.html'), app=read('public/app.js');
-const styles=read('public/shell.css'), preact=read('ui/workspace-shell.jsx');
+const styles=read('public/shell.css');
 const dashboard=read('ui/dashboard.jsx'), browser=read('scripts/browser-regression.mjs');
 
 test('new shell stylesheet layers after Phase 1 tokens without overwriting the original stylesheet',()=>{
@@ -12,7 +12,7 @@ test('new shell stylesheet layers after Phase 1 tokens without overwriting the o
   assert.ok(order.every(s=>html.includes(s)));
   assert.ok(html.indexOf(order[0])<html.indexOf(order[1])&&html.indexOf(order[1])<html.indexOf(order[2]));
   for(const selector of ['.app-sidebar','.sidebar-nav','.sidebar-section-label','.modern-topbar',
-    '.workspace-trail-root','.sidebar-backdrop','.sidebar-quick-add'])
+    '.sidebar-backdrop','.sidebar-quick-add'])
     assert.ok(styles.includes(selector),'missing shell style '+selector);
   assert.match(styles,/:root\[data-theme="light"\]/);
   assert.match(styles,/@media \(max-width:760px\)/);
@@ -34,8 +34,9 @@ test('sidebar retains controller-owned action selectors, routes and accessible n
   assert.match(html,/class="sidebar-icon" aria-hidden="true"><svg/);
   assert.match(app,/renderControllerRoute/);
   assert.match(app,/item\.setAttribute\('aria-current','page'\)/);
-  assert.match(app,/pfc:shell-navigate/);
-  assert.match(app,/navigateController\(event\?\.detail\?\.route \|\| '\/'\)/);
+  assert.match(app,/function navigateController\(routePath\)/);
+  assert.match(app,/window\.addEventListener\('popstate'/);
+
 });
 
 test('mobile drawer guards hidden focus, Escape and backdrop interactions',()=>{
@@ -53,31 +54,57 @@ test('mobile drawer guards hidden focus, Escape and backdrop interactions',()=>{
   assert.match(app,/sidebarEl\.setAttribute\('aria-modal','true'\)/);
 });
 
-test('Preact breadcrumb is a passive subscribed shell island, and legacy breadcrumb is usable',()=>{
-  assert.match(html,/id="workspaceTrailRoot"/);
-  assert.match(html,/id="workspaceTrailActive"/);
-  assert.match(app,/window\.__PFC_SHELL_ROUTE_STATE__ =/);
-  assert.match(app,/pfc:shell-route-state/);
-  assert.match(preact,/export function initWorkspaceShell/);
-  assert.match(preact,/window\.addEventListener\('pfc:shell-route-state'/);
-  assert.match(preact,/aria-current="page"/);
-  assert.match(preact,/pfc:shell-navigate/);
-  assert.match(dashboard,/initWorkspaceShell\(\)/);
-  assert.match(browser,/workspaceShellSmoke\(browser,url\)/);
-});
-
-test('dashboard topbar has one visible Dashboard label with a dedicated route subtitle',()=>{
+test('the workspace topbar retains route context without breadcrumbs in Preact or fallback',()=>{
   assert.match(html,/id="topbarContextTitle" tabindex="-1">Dashboard<\/strong>/);
   assert.match(html,/id="topbarContextSubtitle">Monitor and manage your print farm<\/span>/);
-  assert.match(html,/id="workspaceTrailRoot" class="workspace-trail-root" data-home="true"/);
+  assert.match(app,/document\.querySelector\('#topbarContextTitle'\)/);
   assert.match(app,/document\.querySelector\('#topbarContextSubtitle'\)/);
+  assert.match(app,/topbarContextTitle\.textContent = route\.topbarTitle \|\| route\.title/);
+  assert.match(app,/topbarContextSubtitle\.textContent = route\.subtitle/);
+  for(const source of [html,styles,app,dashboard])
+    assert.doesNotMatch(source,/workspaceTrail|workspace-trail|initWorkspaceShell|Breadcrumb/i,
+      'static and bundled layouts must not reintroduce breadcrumbs');
+  assert.doesNotMatch(app,/pfc:shell-route-state|pfc:shell-navigate/);
+  assert.doesNotMatch(dashboard,/workspace-shell\.jsx/);
   assert.doesNotMatch(app,/querySelector\('\.topbar-context span'\)/,
-    'a generic span selector overwrites the Workspace breadcrumb with the subtitle');
-  assert.match(app,/workspaceTrailRoot\.dataset\.home = String\(routePath === '\/'\)/);
-  assert.match(preact,/if\(route\.path==='\/'\)/);
-  assert.match(preact,/class="workspace-trail-home"/);
-  assert.match(preact,/root\.replaceChildren\(\)/,
-    'Preact should replace the static breadcrumb fallback rather than displaying both');
-  assert.match(styles,/\.workspace-trail-root\[data-home="true"\] \.workspace-trail-current \{ display:none; \}/);
-  assert.match(browser,/dashboard header shows only the Workspace eyebrow/);
+    'route subtitles must use a dedicated binding');
+  assert.match(browser,/workspaceShellSmoke\(browser,url\)/);
+  assert.match(browser,/breadcrumb elements must be absent/);
+});
+
+test('only sidebar Farm Management pages share its topbar section title',()=>{
+  const workNav=html.split('class="sidebar-section-label">WORKSPACE</span>')[1]
+    ?.split('class="sidebar-section-label">FARM MANAGEMENT</span>')[0]||'';
+  const manageNav=html.split('class="sidebar-section-label">FARM MANAGEMENT</span>')[1]
+    ?.split('</nav>')[0]||'';
+  const managementRoutes=['/maintenance','/groups','/reports','/alerts','/backup','/diagnostics'];
+  const workspaceRoutes=['/','/queue','/library'];
+  const readRoutes=(markup)=>[...markup.matchAll(/class="sidebar-item[^"]*"[^>]*data-route="([^"]+)"/g)]
+    .map(([,path])=>path);
+  assert.deepEqual(readRoutes(manageNav),managementRoutes);
+  assert.deepEqual(readRoutes(workNav),workspaceRoutes);
+  for(const route of managementRoutes){
+    const line=app.split('\n').find(s=>s.startsWith("  '"+route+"': {"));
+    assert.ok(line,'missing route '+route);
+    assert.ok(line.includes("topbarTitle:'Farm management'"),
+      'Farm Management route must use the section title in the topbar: '+route);
+  }
+  for(const route of [...workspaceRoutes,'/licence']){
+    const line=app.split('\n').find(s=>s.startsWith("  '"+route+"': {"));
+    assert.ok(line,'missing route '+route);
+    assert.ok(!line.includes('topbarTitle:'),
+      'Workspace and footer pages should retain individual topbar titles: '+route);
+  }
+  assert.match(app,/topbarContextSubtitle\.textContent = route\.subtitle/);
+  assert.match(browser,/Farm management sections retain their common topbar title/);
+});
+
+test('compact topbar and shared page gap follow the same responsive spacing',()=>{
+  assert.match(styles,/--shell-topbar-height:64px/);
+  assert.match(styles,/\.modern-topbar \{\s*min-height:var\(--shell-topbar-height\);\s*padding:10px 29px;/);
+  assert.match(styles,/body > main \{ padding-top:18px; \}/);
+  assert.match(styles,/\.modern-topbar \{ min-height:60px;padding:10px 13px;gap:10px; \}/);
+  assert.match(styles,/body > main \{ padding-top:16px; \}/);
+  assert.match(styles,/\.topbar-context #topbarContextSubtitle/);
+  assert.match(browser,/topbar height must stay compact/);
 });

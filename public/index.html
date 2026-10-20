@@ -75,7 +75,6 @@
   <header class="topbar modern-topbar">
     <button id="sidebarToggle" class="sidebar-toggle" type="button" aria-label="Open navigation" aria-expanded="false" aria-controls="controllerSidebar">☰</button>
     <div class="topbar-context">
-      <div id="workspaceTrailRoot" class="workspace-trail-root" data-home="true"><span class="workspace-trail-parent">Workspace</span><span class="workspace-trail-separator" aria-hidden="true">/</span><span id="workspaceTrailActive" class="workspace-trail-current" aria-current="page">Dashboard</span></div>
       <strong id="topbarContextTitle" tabindex="-1">Dashboard</strong>
       <span id="topbarContextSubtitle">Monitor and manage your print farm</span>
     </div>
@@ -204,7 +203,7 @@
     <div class="diagnostics-shell">
       <div class="dialog-head ui-page-heading">
         <div class="ui-page-heading-copy">
-          <div class="eyebrow ui-page-eyebrow">CONTROLLER DIAGNOSTICS</div>
+          <div class="eyebrow ui-page-eyebrow">FARM CONTROLLER DIAGNOSTICS</div>
           <h2 class="ui-page-title">Diagnostics</h2>
           <div class="ui-page-description subtle">Review recent controller activity, temporarily increase logging detail, or export a sanitized support bundle.</div>
         </div>
@@ -797,7 +796,7 @@
     <div class="backup-recovery-shell">
       <div class="dialog-head ui-page-heading">
         <div class="ui-page-heading-copy">
-          <div class="eyebrow ui-page-eyebrow">CONTROLLER DATA</div>
+          <div class="eyebrow ui-page-eyebrow">FARM PROTECTION</div>
           <h2 class="ui-page-title">Backup &amp; recovery</h2>
           <div class="ui-page-description subtle">Create a portable backup of controller configuration, Print Library content, queue/history and related persistent state.</div>
         </div>
@@ -1149,7 +1148,7 @@
     <div class="queue-shell">
       <div class="dialog-head ui-page-heading">
         <div class="ui-page-heading-copy">
-          <div class="eyebrow ui-page-eyebrow">PRINT LIBRARY</div>
+          <div class="eyebrow ui-page-eyebrow">FARM FILE LIBRARY</div>
           <h2 class="ui-page-title">Print library</h2>
           <div id="librarySummary" class="ui-page-description subtle">Loading library…</div>
         </div>
@@ -1184,7 +1183,7 @@
               <option value="added">Date added</option><option value="name">Filename</option>
               <option value="printer">Printer type</option><option value="material">Material</option>
               <option value="cost">Estimated cost</option><option value="lots">Sale lots</option>
-              <option value="salePrice">Sell price / lot</option><option value="duration">Print time</option>
+              <option value="salePrice">Min. sell price / lot</option><option value="duration">Print time</option>
               <option value="weight">Filament weight</option><option value="prints">Completed prints</option>
               <option value="lastPrinted">Last printed</option><option value="readiness">Readiness</option>
             </select>
@@ -1213,7 +1212,7 @@
           <button type="button" data-library-sort="material" aria-label="Sort by filament material">Filament &amp; requirements</button>
           <button type="button" data-library-sort="cost" aria-label="Sort by estimated material cost">Estimated cost</button>
           <button type="button" data-library-sort="lots" aria-label="Sort by sale lots per print">Sale lots</button>
-          <button type="button" data-library-sort="salePrice" aria-label="Sort by sell price per lot">Sell price</button>
+          <button type="button" data-library-sort="salePrice" data-library-sort-label="minimum sell price per lot" aria-label="Sort by minimum sell price per lot" title="Minimum sell price per lot">Min. sell price</button>
           <button type="button" data-library-sort="prints" aria-label="Sort by number of completed prints">History</button>
         </div>
         <div id="libraryList" class="library-list" role="list" aria-label="Stored print files" tabindex="0"></div>

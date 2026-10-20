@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {parseEstimatedPrintSeconds,parseGcodePrintRequirements} from '../src/file-print-requirements.js';
 import {attachLibraryReadiness} from '../src/library-readiness.js';
+import {evaluateQueueCompatibility} from '../src/queue-compatibility.js';
 import {
   libraryMaterials,libraryPrintSeconds,libraryWeightGrams,libraryTimeLabel,
   libraryWeightLabel,librarySortAndFilter,libraryPage,LIBRARY_PAGE_SIZE,libraryPrinterFilterOptions
@@ -104,7 +105,10 @@ test('Live readiness uses actual compatibility evaluator and does not bypass que
     resolveAdapter:()=>adapter,
     getState:()=>({online:true,status:{status:'printing',tools:[{index:0,nozzleDiameter:.4,filament:{present:true,material:'ASA'}}]}})
   });
-  assert.equal(busy[0].readiness.level,'busy');
+  assert.equal(busy[0].readiness.level,'ready',
+    'a printer printing with the correct material can accept a queued job later');
+  assert.equal(busy[0].readiness.readyPrinters,1);
+  assert.match(busy[0].readiness.message,/currently busy.*queue this file now/i);
   const incompatible=attachLibraryReadiness([file('bad',{printerTarget:{adapterType:'other',model:'other'}})],printers,{
     resolveAdapter:()=>adapter,getState:()=>({online:true,status:{status:'idle'}})
   });
@@ -134,7 +138,7 @@ test('Print Library readiness does not mistake an offline matching printer for a
   const active={online:true,status:{status:'idle',tools:[{filament:{material:'ASA',present:true},nozzleDiameter:.4}]}};
   assert.equal(run([target],{target:active,different:{online:false}},configured).level,'ready');
   const busy={online:true,status:{status:'printing',tools:[{filament:{material:'ASA',present:true},nozzleDiameter:.4}]}};
-  assert.equal(run([target],{target:busy},configured).level,'busy');
+  assert.equal(run([target],{target:busy},configured).level,'ready');
   const mismatch={online:true,status:{status:'idle',tools:[{filament:{material:'PETG',present:true},nozzleDiameter:.4}]}};
   assert.equal(run([target],{target:mismatch}).level,'attention');
   const wrongFile=file('bad',{fileName:'unsupported.stl'});
@@ -143,6 +147,83 @@ test('Print Library readiness does not mistake an offline matching printer for a
   assert.equal(run([missingMaterial],{target:active},[configured[0]]).level,'attention');
   // Queue preflight is unchanged; only the display classification changes.
   assert.equal(target.requirements.logicalTools[0].material,'ASA');
+});
+
+test('an idle wrong-material printer does not override busy printers with the right filament',()=>{
+  const printers=[
+    {id:'free',name:'Idle PETG',adapterType:'flashforge-ad5m',model:'Adventurer 5M Pro'},
+    {id:'printing',name:'Busy ASA',adapterType:'flashforge-ad5m',model:'Adventurer 5M Pro'},
+    {id:'another',name:'Another busy ASA',adapterType:'flashforge-ad5m',model:'Adventurer 5M Pro'},
+    {id:'unrelated',name:'Different model',adapterType:'flashforge-ad5m',model:'Adventurer 5M'}
+  ];
+  const adapter={
+    capabilities:{fileUpload:true,localFiles:true,printLocalFile:true},
+    uploadExtensions:['.gcode'],limits:{toolCount:1}
+  };
+  const sliced=file('production',{
+    fileName:'production.gcode',
+    printerTarget:{adapterType:'flashforge-ad5m',model:'Adventurer 5M Pro'},
+    requirements:{source:'gcode-bounded-scan',toolCount:1,requiredTools:[0],
+      usageReliable:true,logicalTools:[{index:0,material:'ASA',nozzleDiameter:.4}]}
+  });
+  const printerState=(material,stat='idle',nozzle=.4)=>({
+    online:true,status:{status:stat,tools:[
+      {index:0,nozzleDiameter:nozzle,filament:{present:true,material}}
+    ]}
+  });
+  const states={
+    free:printerState('PETG'),
+    printing:printerState('ASA','printing'),
+    another:printerState('ASA','printing'),
+    unrelated:printerState('ASA')
+  };
+  const readiness=(modified=states)=>attachLibraryReadiness([sliced],printers,{
+    resolveAdapter:()=>adapter,getState:(id)=>modified[id]
+  })[0].readiness;
+
+  const result=readiness();
+  assert.equal(result.level,'ready','busy but correctly loaded printers must outrank a free material mismatch');
+  assert.equal(result.readyPrinters,2);
+  assert.equal(result.checkedPrinters,4);
+  assert.match(result.message,/2 printers have matching material and nozzle configuration/);
+  assert.match(result.message,/currently busy or reserved/);
+  assert.match(result.message,/printing starts when an eligible printer is idle/i);
+
+  // The queue must continue blocking the busy candidates until idle.
+  const evaluation=evaluateQueueCompatibility({
+    job:{fileName:sliced.fileName,requirements:sliced.requirements,printerTarget:sliced.printerTarget},
+    printer:printers[1],state:states.printing,adapter
+  });
+  assert.equal(evaluation.ready,false);
+  assert.ok(evaluation.reasons.some((reason)=>reason.code==='busy'));
+
+  // An idle printer with an incorrect spool does not constitute readiness.
+  assert.equal(readiness({...states,
+    printing:printerState('PETG','printing'),
+    another:printerState('PETG','printing')
+  }).level,'attention');
+  // A busy printer with mismatched nozzle size cannot contribute readiness.
+  const badNozzles=readiness({...states,
+    printing:printerState('ASA','printing',.6),
+    another:printerState('ASA','printing',.6)
+  });
+  assert.equal(badNozzles.level,'attention');
+  // An unrelated model with matching material does not count.
+  assert.equal(readiness({...states,
+    printing:printerState('PETG','printing'),
+    another:printerState('PETG','printing'),
+    free:printerState('PETG')
+  }).readyPrinters,0);
+  // A free matched printer should also show Ready now, without the wait.
+  const available=readiness({...states,free:printerState('ASA')});
+  assert.equal(available.level,'ready');
+  assert.equal(available.readyPrinters,3);
+  assert.match(available.message,/1 is available|1.*available|available/);
+  // Offline printers cannot be used to manufacture a ready status.
+  assert.equal(readiness({...states,
+    printing:{online:false,status:states.printing.status},
+    another:{online:false,status:states.another.status}
+  }).level,'attention');
 });
 
 test('Targeted U1 3MF reports unsupported format, not a different printer model mismatch',()=>{

@@ -18,7 +18,7 @@ test('reporting UI is available from the persistent controller navigation with g
   assert.match(index, /<h2 class="ui-page-title">Reports &amp; finance<\/h2>/);
   assert.match(index, /FARM REPORTING/);
   assert.match(index, /aria-label="Reports and finance view"/);
-  assert.match(app, /title:'Reports & finance', subtitle:'Review farm performance, material costs and selling prices'/);
+  assert.match(app, /title:'Reports & finance', topbarTitle:'Farm management', subtitle:'Review farm performance, material costs and selling prices'/);
   assert.doesNotMatch(index, /Reports &amp; analytics/);
 
   assert.match(index, /id="reportingDialog"/);

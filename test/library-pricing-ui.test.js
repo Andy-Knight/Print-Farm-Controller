@@ -113,7 +113,7 @@ test('Print Library costing sections use design-system headings without clipped 
   assert.match(design,/\.ui-surface-muted/);
 });
 
-test('Sale lots and tax-inclusive Sell price have separate aligned sortable columns in Preact and fallback',()=>{
+test('Sale lots and tax-inclusive Min. sell price have separate aligned sortable columns in Preact and fallback',()=>{
   const html=read('public/index.html');
   const app=read('public/app.js');
   const jsx=read('ui/print-library.jsx');
@@ -121,8 +121,11 @@ test('Sale lots and tax-inclusive Sell price have separate aligned sortable colu
   const utils=read('public/library-utils.js');
   const header=html.split('id="libraryTableHead"')[1]?.split('</div>')[0] || '';
   const headings=['Select','Preview','File','Printer','Filament &amp; requirements',
-    'Estimated cost','Sale lots','Sell price','History'];
+    'Estimated cost','Sale lots','Min. sell price','History'];
   for(const label of headings) assert.ok(header.includes(label),'missing table heading: '+label);
+  assert.match(header,/data-library-sort="salePrice" data-library-sort-label="minimum sell price per lot" aria-label="Sort by minimum sell price per lot" title="Minimum sell price per lot">Min\. sell price<\/button>/);
+  assert.match(app,/button\.dataset\.librarySortLabel \|\| button\.textContent\.trim\(\)/);
+  assert.match(html,/<option value="salePrice">Min\. sell price \/ lot<\/option>/);
   for(const sort of ['lots','salePrice']) {
     assert.match(header,new RegExp('data-library-sort="'+sort+'"'));
     assert.match(html,new RegExp('<option value="'+sort+'">'));
@@ -131,6 +134,8 @@ test('Sale lots and tax-inclusive Sell price have separate aligned sortable colu
     assert.match(render,/library-cell library-lots-cell/,name+' should have own lots cell');
     assert.match(render,/library-cell library-sale-cell/,name+' should have own selling price cell');
     assert.match(render,/library-sale-price/,name+' should show priced or unavailable state');
+    assert.match(render,/class="library-cell-label">Min\. sell price<\/span>/,
+      name+' should use the same concise price label as the desktop heading');
     const costCell=render.split('class="library-cell library-cost-cell"')[1]?.split('class="library-cell library-lots-cell"')[0] || '';
     assert.doesNotMatch(costCell,/library-sale-price/,name+' must not embed selling price inside material cost');
   }
