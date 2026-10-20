@@ -365,7 +365,7 @@ async function dashboardPhase3Smoke(browser,url) {
 }
 
 async function workspaceShellSmoke(browser,url) {
-  console.log('Chromium: Phase 2 workspace sidebar, breadcrumbs and mobile navigation');
+  console.log('Chromium: breadcrumb-free workspace, sidebar and mobile navigation');
   const context=await browser.newContext({viewport:{width:1365,height:900}});
   const page=await context.newPage();
   const errors=[];
@@ -380,22 +380,16 @@ async function workspaceShellSmoke(browser,url) {
   try {
     await page.goto(url+'/reports',{waitUntil:'load'});
     await preactReady(page);
-    const crumb=page.locator('#workspaceTrailRoot [data-preact-workspace-trail]');
-    await crumb.waitFor({state:'visible'});
-    await page.waitForFunction(()=>document.querySelector('#workspaceTrailRoot [aria-current="page"]')
-      ?.textContent==='Reports & finance');
+    assert.equal(await page.locator('#workspaceTrailRoot, .workspace-trail-root, [aria-label="Breadcrumb"]').count(),0,
+      'breadcrumb elements must be absent in all route states');
     const reportContext=await page.evaluate(()=>({
-      crumb:document.querySelector('#workspaceTrailRoot')?.innerText,
       title:document.querySelector('#topbarContextTitle')?.textContent,
       subtitle:document.querySelector('#topbarContextSubtitle')?.textContent,
-      parent:document.querySelector('#workspaceTrailRoot .workspace-trail-link')?.textContent
+      pageTitle:document.querySelector('#reportingDialog .ui-page-title')?.textContent
     }));
-    assert.equal(reportContext.parent,'Workspace');
     assert.equal(reportContext.title,'Reports & finance');
     assert.equal(reportContext.subtitle,'Review farm performance, material costs and selling prices');
-    assert.ok(reportContext.crumb.includes('Workspace')&&reportContext.crumb.includes('Reports & finance'));
-    assert.ok(!reportContext.crumb.includes(reportContext.subtitle),
-      'subtitle must not overwrite the breadcrumb parent on route changes');
+    assert.equal(reportContext.pageTitle,'Reports & finance');
     assert.equal(await page.locator('#reportsBtn').getAttribute('aria-current'),'page',
       'active navigation item has current-page semantics');
     assert.equal(await page.locator('.sidebar-section-label').count(),2,
@@ -404,26 +398,30 @@ async function workspaceShellSmoke(browser,url) {
       'main sidebar uses consistently sized SVG navigation icons');
     assert.equal(await page.locator('#controllerSidebar').evaluate(n=>n.inert),false,
       'desktop navigation is always available');
-    await crumb.getByRole('button',{name:'Go to dashboard'}).click();
+    await page.locator('[data-dashboard-home]').click();
     await page.waitForFunction(()=>location.pathname==='/'&&document.body.dataset.route==='/' &&
-      document.querySelector('.topbar-context strong')?.textContent==='Dashboard');
+      document.querySelector('#topbarContextTitle')?.textContent==='Dashboard');
     assert.equal(await page.locator('[data-dashboard-home]').getAttribute('aria-current'),'page',
-      'breadcrumb uses normal controller routing to activate Dashboard');
-    await page.waitForFunction(()=>document.querySelector('#workspaceTrailRoot .workspace-trail-home'));
-    const dashHeader=await page.evaluate(()=>({
-      root:document.querySelector('#workspaceTrailRoot')?.innerText?.trim(),
-      title:document.querySelector('#topbarContextTitle')?.textContent,
-      subtitle:document.querySelector('#topbarContextSubtitle')?.textContent,
-      trail:document.querySelector('#workspaceTrailRoot')?.dataset.home,
-      duplicate:document.querySelector('#workspaceTrailRoot .workspace-trail-current')
+      'sidebar routes users back to Dashboard');
+    assert.equal(await page.locator('#topbarContextSubtitle').textContent(),
+      'Monitor and manage your print farm');
+    assert.equal(await page.locator('#workspaceTrailRoot, .workspace-trail-root').count(),0);
+    await page.goBack();
+    await page.waitForFunction(()=>location.pathname==='/reports'&&document.body.dataset.route==='/reports' &&
+      document.querySelector('#topbarContextTitle')?.textContent==='Reports & finance');
+    assert.equal(await page.locator('#reportsBtn').getAttribute('aria-current'),'page',
+      'browser back preserves current sidebar state');
+    await page.goForward();
+    await page.waitForFunction(()=>location.pathname==='/'&&document.body.dataset.route==='/');
+    assert.equal(await page.locator('#topbarContextTitle').textContent(),'Dashboard');
+    assert.equal(await page.locator('#workspaceTrailRoot, .workspace-trail-root').count(),0);
+    const compactTopbar=await page.evaluate(()=>({
+      height:document.querySelector('.modern-topbar').getBoundingClientRect().height,
+      mainTopGap:Number.parseFloat(getComputedStyle(document.querySelector('body > main')).paddingTop)
     }));
-    assert.equal(dashHeader.root,'Workspace',
-      'dashboard header shows only the Workspace eyebrow, not a second Dashboard');
-    assert.equal(dashHeader.title,'Dashboard');
-    assert.equal(dashHeader.subtitle,'Monitor and manage your print farm');
-    assert.equal(dashHeader.trail,'true');
-    assert.equal(dashHeader.duplicate,null,
-      'root route should not render a redundant Dashboard breadcrumb');
+    assert.ok(compactTopbar.height>=60&&compactTopbar.height<=76,
+      'topbar height must stay compact when breadcrumbs are removed');
+    assert.equal(compactTopbar.mainTopGap,18,'every desktop route uses the same topbar-to-heading spacing');
     const desktop=await page.evaluate(()=>({
       sidebar:document.querySelector('#controllerSidebar').getBoundingClientRect().toJSON(),
       header:document.querySelector('.modern-topbar').getBoundingClientRect().toJSON(),

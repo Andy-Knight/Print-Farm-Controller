@@ -54,6 +54,13 @@ test('shared visual heading uses a single theme-aware typography specification',
   assert.match(chromium,/workspaceHeadingSmoke\(page,url\)/);
 });
 
+test('page title and description remain the sole content heading rather than breadcrumbs',()=>{
+  assert.match(html,/id="topbarContextTitle"/);
+  assert.match(html,/id="topbarContextSubtitle"/);
+  assert.doesNotMatch(html,/id="workspaceTrailRoot"|aria-label="Breadcrumb"/);
+  assert.match(chromium,/every desktop route uses the same topbar-to-heading spacing/);
+});
+
 test('dynamic page descriptions and controls remain intact',()=>{
   for(const id of ['queueSummary','librarySummary','dashboardGroupFilter','queueAddFileBtn',
     'libraryUploadBtn','reportingTabAnalytics','maintenanceDialog','backupStatusGrid'])
