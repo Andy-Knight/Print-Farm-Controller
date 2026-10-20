@@ -6,6 +6,7 @@ Historical entries describe the behaviour of the controller at the time of that 
 
 ## v0.59.1
 
+- Renamed the blue category headings on Print library to **FARM FILE LIBRARY**, Backup & recovery to **FARM PROTECTION**, and Diagnostics to **FARM CONTROLLER DIAGNOSTICS**, without changing the functional page titles, routes or Add/Edit file dialog labels.
 - Removed the redundant workspace breadcrumbs from every page of the controller, including the static/no-Preact fallback. Removed the unused Preact trail component and its route-event wiring; standard sidebar navigation, current-page highlighting, keyboard focus and browser back/forward remain intact.
 - Kept the existing top-bar route title and subtitle, the blue shared page heading, page descriptions, navigation tabs and page actions. Reduced the desktop top bar to 64px, with a compact 60px mobile minimum, and standardised the main content top gap to 18px on desktop / 16px on mobile.
 - Updated Node.js regression checks and real-browser Chromium route, theme, desktop/mobile and layout assertions to enforce the breadcrumb-free shell, including deep links and browser history.

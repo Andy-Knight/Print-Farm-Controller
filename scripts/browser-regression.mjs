@@ -532,6 +532,15 @@ async function workspaceHeadingSmoke(page,url) {
       }
       assert.ok(actual.headingText,'route page must retain its own title: '+route);
       assert.ok(actual.eyebrowText,'route page must retain its category: '+route);
+      const requestedEyebrows={
+        '/library':'FARM FILE LIBRARY',
+        '/backup':'FARM PROTECTION',
+        '/diagnostics':'FARM CONTROLLER DIAGNOSTICS'
+      };
+      if(Object.hasOwn(requestedEyebrows,route)) {
+        assert.equal(actual.eyebrowText,requestedEyebrows[route],
+          'blue page eyebrow must use the farm-specific label: '+route);
+      }
     }
     // Queue and library own reactive summary elements; they must not
     // disappear when styles are standardised.
