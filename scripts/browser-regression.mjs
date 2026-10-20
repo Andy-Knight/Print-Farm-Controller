@@ -387,7 +387,7 @@ async function workspaceShellSmoke(browser,url) {
       subtitle:document.querySelector('#topbarContextSubtitle')?.textContent,
       pageTitle:document.querySelector('#reportingDialog .ui-page-title')?.textContent
     }));
-    assert.equal(reportContext.title,'Reports & finance');
+    assert.equal(reportContext.title,'Farm management');
     assert.equal(reportContext.subtitle,'Review farm performance, material costs and selling prices');
     assert.equal(reportContext.pageTitle,'Reports & finance');
     assert.equal(await page.locator('#reportsBtn').getAttribute('aria-current'),'page',
@@ -408,7 +408,7 @@ async function workspaceShellSmoke(browser,url) {
     assert.equal(await page.locator('#workspaceTrailRoot, .workspace-trail-root').count(),0);
     await page.goBack();
     await page.waitForFunction(()=>location.pathname==='/reports'&&document.body.dataset.route==='/reports' &&
-      document.querySelector('#topbarContextTitle')?.textContent==='Reports & finance');
+      document.querySelector('#topbarContextTitle')?.textContent==='Farm management');
     assert.equal(await page.locator('#reportsBtn').getAttribute('aria-current'),'page',
       'browser back preserves current sidebar state');
     await page.goForward();
@@ -532,6 +532,18 @@ async function workspaceHeadingSmoke(page,url) {
       }
       assert.ok(actual.headingText,'route page must retain its own title: '+route);
       assert.ok(actual.eyebrowText,'route page must retain its category: '+route);
+      const groupRoutes=['/maintenance','/groups','/reports','/alerts','/backup','/diagnostics'];
+      const workspaceTitles={'/queue':'Queue & history','/library':'Print library','/licence':'Licence'};
+      const topbarTitle=(await page.locator('#topbarContextTitle').textContent()).trim();
+      const subtitle=(await page.locator('#topbarContextSubtitle').textContent()).trim();
+      if(groupRoutes.includes(route)){
+        assert.equal(topbarTitle,'Farm management',
+          'Farm management sections retain their common topbar title: '+route);
+        assert.notEqual(topbarTitle,actual.headingText,'the topbar must not duplicate the page title');
+      } else {
+        assert.equal(topbarTitle,workspaceTitles[route],'non-management route keeps its own topbar title');
+      }
+      assert.ok(subtitle.length>0,'route retains its unique descriptive topbar subtitle: '+route);
       const requestedEyebrows={
         '/library':'FARM FILE LIBRARY',
         '/backup':'FARM PROTECTION',

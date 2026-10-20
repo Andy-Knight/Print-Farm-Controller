@@ -59,7 +59,7 @@ test('the workspace topbar retains route context without breadcrumbs in Preact o
   assert.match(html,/id="topbarContextSubtitle">Monitor and manage your print farm<\/span>/);
   assert.match(app,/document\.querySelector\('#topbarContextTitle'\)/);
   assert.match(app,/document\.querySelector\('#topbarContextSubtitle'\)/);
-  assert.match(app,/topbarContextTitle\.textContent = route\.title/);
+  assert.match(app,/topbarContextTitle\.textContent = route\.topbarTitle \|\| route\.title/);
   assert.match(app,/topbarContextSubtitle\.textContent = route\.subtitle/);
   for(const source of [html,styles,app,dashboard])
     assert.doesNotMatch(source,/workspaceTrail|workspace-trail|initWorkspaceShell|Breadcrumb/i,
@@ -70,6 +70,34 @@ test('the workspace topbar retains route context without breadcrumbs in Preact o
     'route subtitles must use a dedicated binding');
   assert.match(browser,/workspaceShellSmoke\(browser,url\)/);
   assert.match(browser,/breadcrumb elements must be absent/);
+});
+
+test('only sidebar Farm Management pages share its topbar section title',()=>{
+  const workNav=html.split('class="sidebar-section-label">WORKSPACE</span>')[1]
+    ?.split('class="sidebar-section-label">FARM MANAGEMENT</span>')[0]||'';
+  const manageNav=html.split('class="sidebar-section-label">FARM MANAGEMENT</span>')[1]
+    ?.split('</nav>')[0]||'';
+  const managementRoutes=['/maintenance','/groups','/reports','/alerts','/backup','/diagnostics'];
+  const workspaceRoutes=['/','/queue','/library'];
+  const readRoutes=(markup)=>[...markup.matchAll(/class="sidebar-item[^"]*"[^>]*data-route="([^"]+)"/g)]
+    .map(([,path])=>path);
+  assert.deepEqual(readRoutes(manageNav),managementRoutes);
+  assert.deepEqual(readRoutes(workNav),workspaceRoutes);
+  for(const route of managementRoutes){
+    const escaped=route.replace(/[.*+?^${}()|[\]\\]/g,'\\test('compact topbar and shared page gap follow the same responsive spacing',()=>{');
+    const line=app.split('\n').find(s=>s.startsWith("  '"+route+"': {"));
+    assert.ok(line,'missing route '+route);
+    assert.ok(line.includes("topbarTitle:'Farm management'"),
+      'Farm Management route must use the section title in the topbar: '+route);
+  }
+  for(const route of [...workspaceRoutes,'/licence']){
+    const line=app.split('\n').find(s=>s.startsWith("  '"+route+"': {"));
+    assert.ok(line,'missing route '+route);
+    assert.ok(!line.includes('topbarTitle:'),
+      'Workspace and footer pages should retain individual topbar titles: '+route);
+  }
+  assert.match(app,/topbarContextSubtitle\.textContent = route\.subtitle/);
+  assert.match(browser,/Farm management sections retain their common topbar title/);
 });
 
 test('compact topbar and shared page gap follow the same responsive spacing',()=>{

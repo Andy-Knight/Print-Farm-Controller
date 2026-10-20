@@ -11,6 +11,8 @@ A local-first 3D printer fleet controller. It runs entirely on your LAN and curr
 
 Current highlights:
 
+- **Farm Management topbar consistency (v0.59.1):** All six pages grouped under FARM MANAGEMENT in the sidebar display **Farm management** in the top bar, with their existing descriptive subtitles and distinctive blue content headings. Workspace pages and the separate Licence footer are unchanged.
+
 - **Simplified workspace navigation and library pricing labels (v0.59.1):** Removed redundant Workspace breadcrumbs from every routed page in both Preact and fallback modes. Route titles, subtitles, shared blue page headings, tab controls and highlighted sidebar links remain; the top bar is shorter and the space before page content is standardised across desktop and mobile, without changing controller navigation or printer commands. The Print Library column and responsive card now display **Min. sell price** instead of Sell price; the sorting option uses the same terminology while the underlying price calculation remains unchanged.
 
 
