@@ -4,6 +4,15 @@ This file contains the version-by-version release history for Print Farm Control
 
 Historical entries describe the behaviour of the controller at the time of that release and may be superseded by later versions. For current installation, configuration and supported-hardware guidance, see [README.md](README.md).
 
+## v0.59.0
+
+- Added a global **Hourly print cost rate** in **Reports & finance → Pricing settings**, accepting non-negative currency rates with 0.01 increments. Saved settings from earlier releases default to **0.00**, preserving existing quotes until changed.
+- **Print Library Sell price** now incorporates **slicer-estimated print duration × hourly cost rate** in each print's cost base, alongside current filament and sundry costs. Existing markup/gross margin, tax calculation, per-sale-lot allocation and currency-aware rounding remain unchanged.
+- The computed print-time charge appears beneath the Sell price in Preact and vanilla fallback views, with a detailed cost breakdown on hover. As with sundries, the hourly rate uses the filament estimate's currency and performs no FX conversion.
+- When the hourly rate is nonzero and the sliced file has no reliable estimated print duration, a Sell price is marked **Unavailable** with a reason rather than omitting the operating cost.
+- Pricing settings remain part of portable backup/restore. Added regression coverage for persistence, missing-duration behaviour, markup/margin and tax pricing, UI wiring and backup round-tripping. Historical print-job cost snapshots and printer command logic are unchanged.
+- Increased version from **0.58.1** to **0.59.0**.
+
 ## v0.58.1
 
 - Renamed **Reports & costing** to **Reports & finance** in navigation, screen title, route breadcrumb/top-bar labels and accessibility descriptions. The existing `/reports` route and the three Analytics, Filament cost catalogue and Pricing settings tabs remain unchanged.
