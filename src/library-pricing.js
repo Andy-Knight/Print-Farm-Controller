@@ -6,7 +6,7 @@ import { KeyedSerialExecutor } from './concurrency.js';
 
 const SETTINGS_FILE = path.join(path.dirname(printerStorePath), 'library-pricing.json');
 const executor = new KeyedSerialExecutor();
-const DEFAULT_SETTINGS = Object.freeze({ profitPercent:null, profitMethod:'markup', taxRate:0 });
+const DEFAULT_SETTINGS = Object.freeze({ profitPercent:null, profitMethod:'markup', taxRate:0, hourlyCostRate:0 });
 
 function round(value, decimals = 4) {
   return Math.round((value + Number.EPSILON) * (10 ** decimals)) / (10 ** decimals);
@@ -72,8 +72,17 @@ export function normalizePricingSettings(value = {}) {
   if (typeof rawTax === 'boolean' || !Number.isFinite(taxRate) || taxRate<0 || taxRate>100) {
     throw new Error('Tax rate must be a percentage between 0 and 100');
   }
+  // Earlier saved configurations have no hourly rate. Their sell prices
+  // must remain unchanged until the operator opts in to print time costing.
+  const rawHourlyCost=value.hourlyCostRate;
+  const hourlyCostRate=rawHourlyCost === undefined || rawHourlyCost === null || rawHourlyCost === ''
+    ? 0 : Number(rawHourlyCost);
+  if (typeof rawHourlyCost === 'boolean' || !Number.isFinite(hourlyCostRate)
+      || hourlyCostRate < 0 || hourlyCostRate > 1000000) {
+    throw new Error('Hourly print cost rate must be between zero and 1000000');
+  }
   return {profitPercent:profitPercent == null ? null : round(profitPercent,2),
-    profitMethod:method,taxRate:round(taxRate,2)};
+    profitMethod:method,taxRate:round(taxRate,2),hourlyCostRate:round(hourlyCostRate,2)};
 }
 
 export async function getLibraryPricingSettings() {
@@ -108,6 +117,9 @@ export async function saveLibraryPricingSettings(input) {
  * completed filament-cost estimate. An older saved sundryCurrency field is
  * deliberately ignored (no implicit FX conversion). Without a complete
  * filament estimate, no currency or selling price is assumed.
+ * Hourly print costs use the slicer-estimated print duration, in the same
+ * currency as the filament estimate. Without a duration, a nonzero hourly
+ * rate prevents a complete sell price instead of silently underpricing.
  * Tax applies AFTER markup or target margin, before dividing the inclusive
  * price into sale lots and rounding to the currency's smallest unit.
  */
@@ -118,12 +130,19 @@ export function estimateLibrarySalePrice(file, settings) {
   const sundriesCost=round(costs.reduce((sum,entry)=>sum+entry.quantity*entry.unitCost,0));
   const filament=file?.costEstimate || {};
   const currency=filament.complete===true && filament.currency ? filament.currency : null;
+  const rawDuration=file?.requirements?.estimatedPrintSeconds;
+  const estimatedPrintSeconds=typeof rawDuration==='number' && Number.isFinite(rawDuration)
+    && rawDuration>0 && rawDuration<365*86400 ? rawDuration : null;
+  const printTimeCost=options.hourlyCostRate===0 ? 0 : estimatedPrintSeconds===null
+    ? null : round(estimatedPrintSeconds*options.hourlyCostRate/3600);
   let issue=null;
   if (options.profitPercent === null) issue='Set a global profit percentage to calculate selling prices';
   else if (filament.complete!==true || !Number.isFinite(filament.totalCost) || !filament.currency) {
     issue='Filament cost is unavailable; a complete selling price cannot be calculated';
+  } else if (printTimeCost===null) {
+    issue='Estimated print time is unavailable; a non-zero hourly cost rate requires a slicer duration';
   }
-  const totalCost=issue ? null : round(filament.totalCost + sundriesCost);
+  const totalCost=issue ? null : round(filament.totalCost + sundriesCost + printTimeCost);
   const nominalExTax=issue ? null : options.profitMethod==='margin'
     ? totalCost/(1-options.profitPercent/100)
     : totalCost*(1+options.profitPercent/100);
@@ -146,6 +165,9 @@ export function estimateLibrarySalePrice(file, settings) {
     currency,
     filamentCost:filament.complete ? filament.totalCost : null,
     sundriesCost,
+    hourlyCostRate:options.hourlyCostRate,
+    estimatedPrintSeconds,
+    printTimeCost,
     totalCost,
     profitPercent:options.profitPercent,
     profitMethod:options.profitMethod,

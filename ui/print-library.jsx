@@ -135,6 +135,7 @@ function LibraryFile({ file }) {
           <small>{file.sale?.available
             ? (file.sale?.lots>1 ? 'per sale lot · incl. tax' : 'per print · incl. tax') : 'No complete price estimate'}</small>
           {file.sale?.available && file.sale.lots>1 && <small>Print total: {file.sale.price}</small>}
+          {file.sale?.timeCost && <small>{file.sale.timeCost}</small>}
         </div>
       </div>
       <div class="library-cell library-history-cell">
