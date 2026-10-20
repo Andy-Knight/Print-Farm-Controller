@@ -4,6 +4,16 @@ This file contains the version-by-version release history for Print Farm Control
 
 Historical entries describe the behaviour of the controller at the time of that release and may be superseded by later versions. For current installation, configuration and supported-hardware guidance, see [README.md](README.md).
 
+## v0.58.1
+
+- Renamed **Reports & costing** to **Reports & finance** in navigation, screen title, route breadcrumb/top-bar labels and accessibility descriptions. The existing `/reports` route and the three Analytics, Filament cost catalogue and Pricing settings tabs remain unchanged.
+- Added a global **Tax rate (%)** to Reports & finance → Pricing settings, validated from 0–100%. Tax is applied **after** the profit markup/gross-margin calculation, before allocating tax-inclusive selling price across sale lots. Existing pricing settings and restored backups default to **0% tax** until changed.
+- Added separate, sortable **Sale lots** and **Sell price** columns to the Print Library table (including Preact, fallback and responsive cards). Sell price replaces Suggested sell price and shows the **tax-inclusive per-lot price** for multi-lot prints, or the whole-print price for a single lot. Multi-lot entries also show their full-print total. Pricing remains unavailable when required filament costing/global profit settings are missing; no automatic currency conversion.
+- Standardised sundry item selection in Add File and Edit Details to the five categories **Packaging, Postage, Hardware, Labour, Miscellaneous**, using a dropdown. Saved legacy custom sundry labels are retained as a selectable historical value until deliberately changed.
+- Display sundry unit costs with **two decimal places**, 0.01 input steps and formatting on field exit. Styled the per-item **Remove** action as an outlined red danger button; only Save persists changes and Cancel leaves stored sundry items intact.
+- Added Node.js and Chromium regression checks for tax arithmetic/rounding and persistence, table columns/sorting/alignment, sundry dropdown options, removal/cancel behaviour and currency precision. Historical print-job cost snapshots, printer protocols and dispatch safety are unchanged.
+- Increased the version from **0.58.0** to **0.58.1**.
+
 ## v0.58.0
 
 - Extended **Add file to Print Library** to capture category and tags at upload, in addition to printer target and notes. Existing Print Library files can still be updated using Edit details.

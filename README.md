@@ -1,4 +1,4 @@
-# Print Farm Controller v0.58.0
+# Print Farm Controller v0.58.1
 A local-first 3D printer fleet controller. It runs entirely on your LAN and currently supports:
 
 - **FlashForge Adventurer 5M / 5M Pro** through the local FlashForge HTTP/TCP APIs.
@@ -7,9 +7,11 @@ A local-first 3D printer fleet controller. It runs entirely on your LAN and curr
 - **Prusa CORE One+ (experimental)** through the local PrusaLink API, supporting Standard (1-tool), INDX4 and INDX8 configurations.
 - **Bambu Lab P1P / P1S / X1C / A1 Mini (experimental)** through the local MQTT TLS and FTPS TLS interfaces. P1P/P1S/A1 Mini use the TLS/JPEG camera path; X1C camera decoding remains unsupported.
 
-**Current development version: v0.58.0**
+**Current development version: v0.58.1**
 
 Current highlights:
+
+- **Reports & finance and sell pricing (v0.58.1):** Renamed Reports & costing to Reports & finance, retaining Analytics, Filament cost catalogue and Pricing settings. Global Tax rate (%) on Pricing settings is applied to the computed selling price after profit markup or gross margin; old settings default to 0% tax. The Print Library has dedicated sortable **Sale lots** and **Sell price** columns: the sell price is tax-inclusive and is per lot for multi-lot prints (with the whole-print total shown below). Sundry line items now use a dropdown of Packaging, Postage, Hardware, Labour and Miscellaneous, two-decimal unit prices and an outlined red Remove button in Add File and Edit Details. Cancel discards edits. The currency continues to come from the filament cost estimate. Both Preact and fallback UIs, light/dark styling and backup/restore remain supported.
 
 - **Product pricing and costing (v0.58.0):** Print Library Add File now supports category and tags immediately. Add/edit per-file sundries with descriptions, quantities and unit prices for a whole sliced print, and define 1–999 sale lots. The currency for every sundry is inherited from the file's current *complete* filament cost estimate, never selected separately or converted silently. The library shows estimated total and per-lot selling prices using global profit settings (cost markup or gross margin) configured on the new **Pricing settings** tab of **Reports & finance**. Incomplete filament pricing prevents selling price quotes. Settings are included in backup/restore; earlier library metadata remains compatible. Add/Edit forms use the shared UI styling, fixed header and footer and scrollable detail body. No printer dispatch or queue costing snapshot changes.
 
