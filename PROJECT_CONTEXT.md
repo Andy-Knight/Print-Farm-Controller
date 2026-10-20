@@ -9,13 +9,15 @@ If chat context and this file disagree about the codebase, inspect current GitHu
 - Repository: `Andy-Knight/Print-Farm-Controller`
 - Project path: repository root (`/`)
 - Primary branch: `main` (current production baseline)
-- Current controller source version: **0.59.0** (global hourly print-time cost in Reports & finance → Pricing settings, applied to Print Library Sell prices; PR #106).
+- Current controller source version: **0.59.1** (breadcrumb-free workspace shell, compact header, consistent route page spacing; feature branch pending approval).
 - Previous baseline audited: **0.48.0** (main before the regression test audit release).
 - Runtime: **Node.js 24+** (development baseline Node.js 24.21.0), ES modules, no npm runtime dependencies.
 - GitHub is the authoritative code baseline.
 - Release/version history is maintained only in `CHANGELOG.md`; do not duplicate per-version history in this handoff file.
 
 ## Current work
+
+**v0.59.1 workspace navigation simplification:** On `feature/remove-workspace-breadcrumbs`, remove the redundant Workspace breadcrumb from all routed pages and fallback markup, and delete its now-unused Preact presentation component, event state and styling. Preserve active sidebar route, topbar title/subtitle, blue page heading and description, tabs/actions, desktop/mobile drawer keyboard semantics and browser history. Set topbar desktop min-height to 64px, mobile to 60px and shared content top gap to 18px/16px. Regression and browser tests updated to check the navigation and visual contract; merge only after user validation and CI passes. No printer/API/scheduler/cost logic changes.
 
 **v0.59.0 release (PR #106):** Global hourlyCostRate (default 0, validated non-negative two-decimal rate) in Reports & finance → Pricing settings is applied to slicer-provided Print Library print duration. Print-time cost joins filament and sundry cost before profit, tax and per-lot rounding; the Print Library Sell price UI shows the time charge in Preact and fallback. Missing duration with a positive rate blocks quoting rather than underpricing. Currency comes from the complete filament estimate, without FX. Settings persist across backup/restore and older records default to zero. Node.js 24, Chromium Preact and container smoke gates passed on the feature head before release metadata update. Recheck gates after this version bump; merge PR #106 only once the new head is green. No printer commands or historical print-cost snapshots are changed.
 

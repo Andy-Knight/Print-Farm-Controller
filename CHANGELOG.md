@@ -4,6 +4,13 @@ This file contains the version-by-version release history for Print Farm Control
 
 Historical entries describe the behaviour of the controller at the time of that release and may be superseded by later versions. For current installation, configuration and supported-hardware guidance, see [README.md](README.md).
 
+## v0.59.1
+
+- Removed the redundant workspace breadcrumbs from every page of the controller, including the static/no-Preact fallback. Removed the unused Preact trail component and its route-event wiring; standard sidebar navigation, current-page highlighting, keyboard focus and browser back/forward remain intact.
+- Kept the existing top-bar route title and subtitle, the blue shared page heading, page descriptions, navigation tabs and page actions. Reduced the desktop top bar to 64px, with a compact 60px mobile minimum, and standardised the main content top gap to 18px on desktop / 16px on mobile.
+- Updated Node.js regression checks and real-browser Chromium route, theme, desktop/mobile and layout assertions to enforce the breadcrumb-free shell, including deep links and browser history.
+- Increased version from **0.59.0** to **0.59.1**.
+
 ## v0.59.0
 
 - Added a global **Hourly print cost rate** in **Reports & finance → Pricing settings**, accepting non-negative currency rates with 0.01 increments. Saved settings from earlier releases default to **0.00**, preserving existing quotes until changed.

@@ -1,4 +1,4 @@
-# Print Farm Controller v0.59.0
+# Print Farm Controller v0.59.1
 A local-first 3D printer fleet controller. It runs entirely on your LAN and currently supports:
 
 - **FlashForge Adventurer 5M / 5M Pro** through the local FlashForge HTTP/TCP APIs.
@@ -7,9 +7,12 @@ A local-first 3D printer fleet controller. It runs entirely on your LAN and curr
 - **Prusa CORE One+ (experimental)** through the local PrusaLink API, supporting Standard (1-tool), INDX4 and INDX8 configurations.
 - **Bambu Lab P1P / P1S / X1C / A1 Mini (experimental)** through the local MQTT TLS and FTPS TLS interfaces. P1P/P1S/A1 Mini use the TLS/JPEG camera path; X1C camera decoding remains unsupported.
 
-**Current development version: v0.59.0**
+**Current development version: v0.59.1**
 
 Current highlights:
+
+- **Simplified workspace navigation (v0.59.1):** Removed redundant Workspace breadcrumbs from every routed page in both Preact and fallback modes. Route titles, subtitles, shared blue page headings, tab controls and highlighted sidebar links remain; the top bar is shorter and the space before page content is standardised across desktop and mobile, without changing controller navigation or printer commands.
+
 
 - **Hourly print time costing (v0.59.0):** Reports & finance → Pricing settings now includes a global hourly print cost rate (default 0.00, two-decimal currency input). Every Print Library item's Sell price includes slicer-estimated print hours multiplied by the hourly rate, alongside filament and per-print sundries, before existing profit markup/gross margin, tax and sale-lot allocation. Print time charges are visible under Sell price in both Preact and fallback views. The rate inherits the item's filament currency; when the rate is nonzero but slicer duration is missing, Sell price is unavailable rather than understated. Settings are backed up/restored and legacy settings default to zero; historical queue material-cost snapshots are unchanged.
 
