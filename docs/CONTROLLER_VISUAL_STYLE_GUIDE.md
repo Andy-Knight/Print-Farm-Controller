@@ -184,7 +184,7 @@ Default ordinary buttons are **42px high**; `ui-button-small` is **32px**, used 
 
 ## 9. Shared table standard — mandatory
 
-The canonical table design lives in `public/styles.css` (`--pfc-table-*`). This is used by Dashboard **table view**, Alerts, Printer Groups, Diagnostics, multi-toolhead tables, Print Library and popular-file reporting. **Do not create a competing bespoke table style.**
+The canonical table design lives in `public/styles.css` (`--pfc-table-*`). This is used by Dashboard **table view**, Alerts, Printer Groups, Diagnostics, multi-toolhead tables, Print Library and Analytics tables for both **Most popular print files** and **Material usage** (By material type and By filament). The Material usage totals row retains its semantic bold treatment on the shared table surface. **Do not create a competing bespoke table style.**
 
 | Table token | Dark | Light / notes |
 |---|---|---|

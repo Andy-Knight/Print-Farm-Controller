@@ -544,3 +544,30 @@ test('print-file analytics show material, historical cost, and total printer tim
   assert.match(styles,/reporting-file-resource-heading/);
   assert.match(styles,/reporting-file-time/);
 });
+
+test('Material usage table follows the controller-wide table standard in both grouping modes', () => {
+  const design = styles.slice(styles.indexOf('/* Controller table design system.'),
+    styles.indexOf('/* Toolhead tables use the same header block'));
+  for (const selector of [
+    '#reportingMaterials .reporting-table-scroll',
+    '#reportingMaterials .reporting-analytics-table thead th',
+    '#reportingMaterials .reporting-analytics-table tbody td',
+    '#reportingMaterials .reporting-analytics-table tbody tr:hover > *'
+  ]) assert.ok(design.includes(selector), 'Missing shared table rule: ' + selector);
+  for (const token of [
+    '--pfc-table-header-background', '--pfc-table-header-text',
+    '--pfc-table-border', '--pfc-table-divider', '--pfc-table-hover',
+    '--pfc-table-radius', '--pfc-table-surface'
+  ]) assert.ok(design.includes('var(' + token + ')'), 'Missing table theme token: ' + token);
+  assert.match(design, /#reportingMaterials \.reporting-analytics-table tfoot > tr > \*\s*\{[^}]*border-top:1px solid var\(--pfc-table-header-divider\)/);
+  assert.match(design, /#reportingMaterials \.reporting-analytics-table tbody td:first-child\s*\{[^}]*overflow-wrap:anywhere/);
+  const preact = fs.readFileSync(new URL('../ui/reporting.jsx', import.meta.url), 'utf8');
+  assert.match(preact, /function ReportMaterials\(\{ materials, materialMode \}\)/);
+  assert.match(preact, /label="Material usage" headers=\{headings\}/);
+  assert.match(reportingUi, /function renderReportMaterials\(materials\)/);
+  assert.match(reportingUi, /return reportingTableShell\(headings, materials\.rows\.map/);
+  assert.match(index, /data-reporting-material-mode="type"/);
+  assert.match(index, /data-reporting-material-mode="filament"/);
+  assert.match(fs.readFileSync(new URL('../scripts/browser-regression.mjs', import.meta.url), 'utf8'),
+    /Material usage table shares printer-group table skin/);
+});
