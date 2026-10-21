@@ -152,6 +152,44 @@ test('Sale lots and tax-inclusive Min. sell price have separate aligned sortable
   assert.match(jsx,/per sale lot · incl\. tax/);
 });
 
+test('desktop library workbench uses compact and aligned nine-column tracks',()=>{
+  const css=read('public/print-library-polish.css');
+  const browser=read('scripts/browser-regression.mjs');
+  assert.match(css,/#libraryDialog\.library-dialog \{[\s\S]*?width:min\(1300px,100%\);/);
+  const trackRule=css.match(/--library-table-cols:([^;]+);/);
+  assert.ok(trackRule,'missing shared desktop track definition');
+  assert.equal(trackRule[1].match(/minmax\(/g)?.length,6);
+  assert.match(trackRule[1],/70px minmax\(136px,\.82fr\) minmax\(104px,\.68fr\)/);
+  assert.equal((css.match(/grid-template-columns:var\(--library-table-cols\)/g)||[]).length,2,
+    'header and body must use identical nine-column tracks');
+  assert.equal((css.match(/gap:10px;/g)||[]).length>=2,true);
+  assert.equal((css.match(/@media\(max-width:1350px\)/g)||[]).length,2,
+    'both card styling and scrollbar treatment use the same breakpoint');
+  assert.match(browser,/libraryCompactTableSmoke\(page,url\)/);
+  assert.match(browser,/sale and history columns must not reserve large empty gaps/);
+});
+
+test('Print Library combines search, Add file and selection actions into one accessible toolbar',()=>{
+  const html=read('public/index.html');
+  const css=read('public/print-library-polish.css');
+  const source=html.split('<section id="libraryDialog"')[1]?.split('<div id="libraryTableHead"')[0] || '';
+  const toolbar=source.split('<div class="library-toolbar">')[1]?.split('</details>')[0] || '';
+  const actions=toolbar.split('<div class="library-action-toolbar"')[1] || '';
+  assert.match(toolbar,/id="librarySearchInput"/);
+  assert.match(toolbar,/id="libraryUploadBtn"/);
+  assert.match(actions,/role="group" aria-label="Actions for the selected library file"/);
+  for(const id of ['libraryQueueSelectedBtn','libraryEditSelectedBtn',
+    'libraryFavouriteSelectedBtn','libraryDeleteSelectedBtn']){
+    assert.equal((html.match(new RegExp('id="'+id+'"','g'))||[]).length,1,
+      'selection action should occur once, inside the combined toolbar: '+id);
+    assert.ok(actions.includes('id="'+id+'"'),'missing inline action: '+id);
+  }
+  assert.match(source,/id="librarySelectionStatus" class="library-selection-status" aria-live="polite"/);
+  assert.match(css,/#libraryDialog \.library-toolbar \.library-action-toolbar/);
+  assert.match(css,/#libraryDialog \.library-action-buttons \{[\s\S]*?flex-wrap:nowrap;/);
+  assert.match(css,/#libraryDialog \.library-toolbar \.library-action-toolbar \{[\s\S]*?flex:1 1 100%;/);
+});
+
 test('Sundry items use a five-option dropdown and outlined destructive Remove control',()=>{
   const app=read('public/app.js');
   const css=read('public/print-library-polish.css');

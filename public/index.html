@@ -1158,6 +1158,14 @@
         <div class="library-toolbar">
           <label class="library-search">Search<input id="librarySearchInput" type="search" placeholder="Search filenames, printer types, descriptions, materials or nozzle size" autocomplete="off" /></label>
           <button id="libraryUploadBtn" type="button" class="primary">+ Add file</button>
+          <div class="library-action-toolbar" role="group" aria-label="Actions for the selected library file">
+            <div class="library-action-buttons">
+              <button id="libraryQueueSelectedBtn" type="button" class="primary" disabled>Queue selected</button>
+              <button id="libraryEditSelectedBtn" type="button" class="secondary" disabled>Edit details</button>
+              <button id="libraryFavouriteSelectedBtn" type="button" class="secondary" disabled>☆ Favourite</button>
+              <button id="libraryDeleteSelectedBtn" type="button" class="danger" disabled>Delete selected</button>
+            </div>
+          </div>
         </div>
         <details class="library-advanced-filters" id="libraryAdvancedFilters">
           <summary>Advanced filters</summary>
@@ -1193,15 +1201,7 @@
           
         </div>
         </details>
-        <div class="library-action-toolbar" role="group" aria-label="Actions for the selected library file">
-          <div id="librarySelectionStatus" class="library-selection-status" aria-live="polite">Select a file to enable actions</div>
-          <div class="library-action-buttons">
-            <button id="libraryQueueSelectedBtn" type="button" class="primary" disabled>Queue selected</button>
-            <button id="libraryEditSelectedBtn" type="button" class="secondary" disabled>Edit details</button>
-            <button id="libraryFavouriteSelectedBtn" type="button" class="secondary" disabled>☆ Favourite</button>
-            <button id="libraryDeleteSelectedBtn" type="button" class="danger" disabled>Delete selected</button>
-          </div>
-        </div>
+        <div id="librarySelectionStatus" class="library-selection-status" aria-live="polite">Select a file to enable actions</div>
         <div id="libraryStatus" class="subtle"></div>
         <div id="libraryError" class="error hidden"></div>
         <div class="library-filter-results"><span id="libraryResultCount" class="subtle" aria-live="polite"></span></div>
