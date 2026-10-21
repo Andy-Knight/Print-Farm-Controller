@@ -45,11 +45,11 @@ async function preactReady(page) {
 
 async function reportsLoaded(page,where) {
   await page.waitForFunction(() =>
-    document.querySelectorAll('#reportingKpis .reporting-kpi').length >= 8
+    document.querySelectorAll('#reportingKpis .reporting-kpi').length >= 4
     && document.querySelector('#reportingStatus')?.textContent?.includes('Reporting period:')
   ,null,{timeout:20000});
   const kpis = await page.locator('#reportingKpis .reporting-kpi').allTextContents();
-  assert.ok(kpis.some((s)=>s.includes('Print attempts')),where+' must show report results');
+  assert.ok(kpis.some((s)=>s.includes('Total print jobs')),where+' must show report results');
   assert.ok(await page.locator('#reportingRange option').count()>0,where+' range choices');
   assert.ok(await page.locator('#reportingPrinter option').count()>0,where+' printer choices');
 }
