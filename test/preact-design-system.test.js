@@ -67,7 +67,7 @@ test('card-view printer images align on shared CSS subgrid rows without changing
   assert.match(css,/\.fleet:not\(\.table-view\) > \.card\.ui-printer-surface \{/);
   assert.match(css,/grid-row:span 8;/);
   assert.match(css,/grid-template-rows:subgrid;/);
-  assert.match(css,/grid-template-rows:subgrid;\\s*\\/\\*[\\s\\S]*?\\*\\/\\s*row-gap:0;/,
+  assert.match(css,/grid-template-rows:subgrid;[\s\S]*?row-gap:0;/,
     'printer cards must not inherit fleet row gaps between internal sections');
   const polish=read('public/dashboard-polish.css');
   assert.match(polish,/padding:10px 20px 19px;/,
