@@ -1,4 +1,4 @@
-# Print Farm Controller v0.59.3
+# Print Farm Controller v0.59.4
 A local-first 3D printer fleet controller. It runs entirely on your LAN and currently supports:
 
 - **FlashForge Adventurer 5M / 5M Pro** through the local FlashForge HTTP/TCP APIs.
@@ -7,9 +7,11 @@ A local-first 3D printer fleet controller. It runs entirely on your LAN and curr
 - **Prusa CORE One+ (experimental)** through the local PrusaLink API, supporting Standard (1-tool), INDX4 and INDX8 configurations.
 - **Bambu Lab P1P / P1S / X1C / A1 Mini (experimental)** through the local MQTT TLS and FTPS TLS interfaces. P1P/P1S/A1 Mini use the TLS/JPEG camera path; X1C camera decoding remains unsupported.
 
-**Current development version: v0.59.3**
+**Current development version: v0.59.4**
 
 Current highlights:
+
+- **Analytics production reporting (v0.59.4):** Reorganised Reports & finance → Analytics with four production KPIs, status-coloured KPI icons, and the full-width print-outcomes graph directly below the headline statistics. The full-width popular print files table supports preview thumbnails, completion/failure counts, success rates, popularity indicators, sorting and Top 10/All, with links to Print Library details. Material-usage tables support grouping by material or filament without changing reporting collection. Separate sections show only genuinely at-risk printers and files with failed prints. The desktop popular-files table now uses the available card width without unwanted horizontal scrolling; smaller screens scroll responsively.
 
 - **One currency across current costs (v0.59.3):** Select the currency in **Reports & finance → Price settings**. The Filament cost catalogue no longer asks for currency per entry; all catalogue price displays, new print material estimates, labour, sundries, machine hourly rates and Print Library sell prices use the saved global choice. Existing single-currency catalogues inherit their previous currency on upgrade (GBP otherwise). **Currency changes relabel values without an exchange-rate conversion**, so check/re-enter prices and hourly rates. Completed print history retains its original currency and values; it must not be retrospectively relabelled.
 
