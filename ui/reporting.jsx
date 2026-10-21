@@ -45,7 +45,10 @@ function ReportingTabs({ activeTab }) {
 }
 
 function ReportingKpis({ items }) {
-  return <>{items.map((item) => <div class="reporting-kpi" key={item.label}><span>{item.label}</span><strong>{item.value}</strong></div>)}</>;
+  return <>{items.map((item) => <div class="reporting-kpi" key={item.label}>
+    <span class={`reporting-kpi-icon reporting-kpi-icon-${item.tone || 'info'}`} aria-hidden="true">{item.icon}</span>
+    <div><span>{item.label}</span><strong>{item.value}</strong><small>{item.detail}</small></div>
+  </div>)}</>;
 }
 
 function ReportingTrend({ chart }) {
@@ -71,28 +74,109 @@ function ReportingTrend({ chart }) {
   </>;
 }
 
-function ProblemPrinters({ printers }) {
-  if (!printers.length) return <div class="reporting-empty">No printer activity in this period.</div>;
-  return <>{printers.map((printer) => <article class={`reporting-printer-row${printer.attention.length ? ' attention' : ''}`} key={printer.id}>
-    <div>
-      <strong>{printer.name}</strong>
-      <div class="subtle">{printer.summary}</div>
-      <div class="reporting-printer-trend">{printer.trend}</div>
-    </div>
-    <div class="reporting-printer-rate"><b>{printer.failureRate}</b><span>failure rate</span></div>
-    {printer.attention.length ? <div class="reporting-attention-reasons">{printer.attention.map((reason) => <span key={reason}>{reason}</span>)}</div> : null}
-  </article>)}</>;
+function ReportingTable({ headers, rows, empty, footer = null, label = 'Analytics table' }) {
+  if (!rows.length) return <div class="reporting-empty">{empty}</div>;
+  return <div class="reporting-table-scroll" tabindex="0" role="region" aria-label={label}>
+    <table class="reporting-analytics-table">
+      <thead><tr>{headers.map((header, index) => <th key={index} scope="col" class={header.numeric ? 'numeric' : ''}>{header.label}</th>)}</tr></thead>
+      <tbody>{rows}</tbody>
+      {footer && <tfoot>{footer}</tfoot>}
+    </table>
+  </div>;
 }
 
-function BarRows({ rows, emptyText }) {
-  if (!rows.length) return <div class="reporting-empty">{emptyText}</div>;
-  return <>{rows.map((row) => <div class="reporting-bar-row" key={row.key}>
-    <div class="reporting-bar-heading">
-      <strong title={row.label}>{row.label}</strong>
-      <span>{row.detail}</span>
-    </div>
-    <div class="reporting-bar-track"><span style={{ width:`${row.percent}%` }}></span></div>
-  </div>)}</>;
+function ReportFileIdentity({ file }) {
+  return <div class="reporting-file-identity">
+    <span class="reporting-thumbnail">
+      {file.previewUrl
+        ? <img src={file.previewUrl} alt="" loading="lazy" />
+        : <span class="reporting-thumbnail-empty" aria-hidden="true">◇</span>}
+    </span>
+    {file.libraryFileId
+      ? <button type="button" class="reporting-file-link" data-reporting-open-file={file.libraryFileId}
+        title="Open Print Library details">{file.fileName}</button>
+      : <span class="reporting-file-plain" title="This file is not in the Print Library">{file.fileName}</span>}
+  </div>;
+}
+
+function ReportingProgress({ percent }) {
+  return <div class="reporting-progress" role="img" aria-label={String(percent) + '% of total'}>
+    <span style={{ width:String(percent) + '%' }}></span>
+  </div>;
+}
+
+function ReportFiles({ files, sort }) {
+  const headings = [
+    { label:'#' }, { label:<button type="button" class="reporting-table-sort" data-reporting-file-sort="fileName"
+      aria-label="Sort by file name" aria-pressed={sort.key === 'fileName'}>
+      Print file {sort.key === 'fileName' ? (sort.direction === 'desc' ? '▼' : '▲') : '↕'}
+    </button> },
+    ...[
+      ['completed','Completed'], ['failed','Failed'], ['successRate','Success rate']
+    ].map(([key,label]) => ({
+      numeric:true,
+      label:<button type="button" class="reporting-table-sort" data-reporting-file-sort={key}
+        aria-label={'Sort by ' + label.toLowerCase()} aria-pressed={sort.key === key}>
+        {label} {sort.key === key ? (sort.direction === 'desc' ? '▼' : '▲') : '↕'}
+      </button>
+    })),
+    { label:'Popularity' }
+  ];
+  return <ReportingTable label="Most popular print files" headers={headings} empty="No completed print files for the selected period."
+    rows={files.map((file) => <tr key={file.id}>
+      <td>{file.rank}</td><td><ReportFileIdentity file={file} /></td>
+      <td class="numeric">{file.completed}</td><td class="numeric">{file.failed}</td>
+      <td class="numeric">{file.successRate}</td><td><ReportingProgress percent={file.popularity} /></td>
+    </tr>)}/>;
+}
+
+function ReportMaterials({ materials, materialMode }) {
+  const headings = [
+    { label:materialMode === 'type' ? 'Material type' : 'Filament' },
+    { label:'Used (kg)', numeric:true }, { label:'Share', numeric:true },
+    { label:'Estimated cost', numeric:true }, { label:'Usage' }
+  ];
+  return <ReportingTable label="Material usage" headers={headings} empty="No material usage captured for completed prints in this period."
+    rows={materials.rows.map((row) => <tr key={row.key}>
+      <td title={row.label}>{row.label}</td><td class="numeric">{row.kg}</td>
+      <td class="numeric">{row.percentage}</td><td class="numeric">{row.cost}</td>
+      <td><ReportingProgress percent={row.percent} /></td>
+    </tr>)}
+    footer={<tr class="reporting-total-row"><th scope="row">Total</th>
+      <td class="numeric">{materials.totalKg}</td><td class="numeric">100%</td>
+      <td class="numeric">{materials.totalCost}</td><td></td>
+    </tr>}/>;
+}
+
+function ProblemPrinters({ printers, hasActivity }) {
+  if (!printers.length) return <div class="reporting-empty">{hasActivity
+    ? 'No printers currently need attention. No printers have exceeded the failure thresholds during the selected reporting period.'
+    : 'No printer activity in this period.'}</div>;
+  return <ReportingTable label="Printers needing attention" headers={[
+    { label:'Printer' }, { label:'Attempts', numeric:true },
+    { label:'Completed', numeric:true }, { label:'Failed', numeric:true },
+    { label:'Failure rate', numeric:true }, { label:'Trend' }, { label:'Last failure' }
+  ]} rows={printers.map((printer) => <tr key={printer.id}>
+    <th scope="row" title={printer.attention.join('; ')}>{printer.name}</th>
+    <td class="numeric">{printer.attempts}</td><td class="numeric">{printer.completed}</td>
+    <td class="numeric">{printer.failed}</td>
+    <td class="numeric reporting-failure-value">{printer.failureRate}</td>
+    <td>{printer.trend}</td><td>{printer.latestFailure}</td>
+  </tr>)} />;
+}
+
+function FileFailures({ files }) {
+  return <ReportingTable label="Print file failure analysis" headers={[
+    { label:'Print file' }, { label:'Attempts', numeric:true },
+    { label:'Failed', numeric:true }, { label:'Failure rate', numeric:true },
+    { label:'Last failure' }
+  ]} empty="No failed print files for the selected period."
+    rows={files.map((file) => <tr key={file.id}>
+      <td><ReportFileIdentity file={file} /></td>
+      <td class="numeric">{file.attempts}</td><td class="numeric">{file.failed}</td>
+      <td class="numeric reporting-failure-value">{file.failureRate}</td>
+      <td>{file.lastFailure}</td>
+    </tr>)} />;
 }
 
 function FilamentCatalogue({ items }) {
@@ -116,8 +200,14 @@ function normalizeState(detail = {}) {
     kpis:Array.isArray(detail.kpis) ? detail.kpis : [],
     chart:detail.chart || { rows:[], grid:[], labels:[], viewBox:'0 0 760 230', completedPath:'', failedPath:'', cancelledPath:'' },
     printers:Array.isArray(detail.printers) ? detail.printers : [],
+    printerActivity:detail.printerActivity === true,
     files:Array.isArray(detail.files) ? detail.files : [],
-    materials:Array.isArray(detail.materials) ? detail.materials : [],
+    fileFailures:Array.isArray(detail.fileFailures) ? detail.fileFailures : [],
+    fileScope:detail.fileScope === 'all' ? 'all' : 'top10',
+    fileSort:detail.fileSort || { key:'completed', direction:'desc' },
+    materials:detail.materials && Array.isArray(detail.materials.rows)
+      ? detail.materials : { rows:[], totalKg:'0.00', totalCost:'—' },
+    materialMode:detail.materialMode === 'filament' ? 'filament' : 'type',
     filaments:Array.isArray(detail.filaments) ? detail.filaments : []
   };
 }
@@ -129,17 +219,19 @@ export function initReportingUi() {
   const printersRoot = document.querySelector('#reportingPrinters');
   const filesRoot = document.querySelector('#reportingFiles');
   const materialsRoot = document.querySelector('#reportingMaterials');
+  const fileFailuresRoot = document.querySelector('#reportingFileFailures');
   const filamentRoot = document.querySelector('#filamentList');
-  if (!tabsRoot || !kpisRoot || !trendRoot || !printersRoot || !filesRoot || !materialsRoot || !filamentRoot) return;
+  if (!tabsRoot || !kpisRoot || !trendRoot || !printersRoot || !filesRoot || !materialsRoot || !fileFailuresRoot || !filamentRoot) return;
 
   let state = normalizeState(window.__PFC_REPORTING_UI_STATE__ || {});
   const renderAll = () => {
     render(<ReportingTabs activeTab={state.activeTab} />, tabsRoot);
     render(<ReportingKpis items={state.kpis} />, kpisRoot);
     render(<ReportingTrend chart={state.chart} />, trendRoot);
-    render(<ProblemPrinters printers={state.printers} />, printersRoot);
-    render(<BarRows rows={state.files} emptyText="No files were completed in this period." />, filesRoot);
-    render(<BarRows rows={state.materials} emptyText="No costed material usage is available in this period." />, materialsRoot);
+    render(<ProblemPrinters printers={state.printers} hasActivity={state.printerActivity} />, printersRoot);
+    render(<ReportFiles files={state.files} sort={state.fileSort} />, filesRoot);
+    render(<ReportMaterials materials={state.materials} materialMode={state.materialMode} />, materialsRoot);
+    render(<FileFailures files={state.fileFailures} />, fileFailuresRoot);
     render(<FilamentCatalogue items={state.filaments} />, filamentRoot);
   };
   window.addEventListener('pfc:reporting-ui-state', (event) => {

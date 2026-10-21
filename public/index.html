@@ -361,34 +361,50 @@
         <div id="reportingKpis" class="reporting-kpis"></div>
       </section>
 
-      <div class="reporting-grid">
-        <section class="reporting-section reporting-wide">
+      <div class="reporting-grid reporting-analytics-grid">
+        <section class="reporting-section reporting-wide reporting-analytics-trend">
           <div class="reporting-section-head">
             <div><h3>Print outcomes over time</h3><span class="subtle">Daily completed, failed and cancelled runs from retained reporting history.</span></div>
           </div>
           <div id="reportingTrend" class="reporting-chart"></div>
         </section>
-
-        <section class="reporting-section">
+        <section class="reporting-section reporting-analytics-files">
           <div class="reporting-section-head">
-            <div><h3>Printers needing attention</h3><span class="subtle">Transparent failure counts and rates; no hidden health score.</span></div>
+            <div><h3>Most popular print files</h3><span class="subtle">Completed runs in the selected reporting period.</span></div>
+            <div class="reporting-segmented" role="group" aria-label="Popular print files list size">
+              <button type="button" class="active" data-reporting-files-scope="top10" aria-pressed="true">Top 10</button>
+              <button type="button" data-reporting-files-scope="all" aria-pressed="false">All files</button>
+            </div>
           </div>
-          <div id="reportingPrinters" class="reporting-printer-list"></div>
+          <div id="reportingFiles" class="reporting-table-content"></div>
         </section>
 
-        <section class="reporting-section">
+        <section class="reporting-section reporting-analytics-materials">
           <div class="reporting-section-head">
-            <div><h3>Most popular print files</h3><span class="subtle">Ranked by completed prints in the selected period.</span></div>
+            <div><h3>Material usage</h3><span class="subtle">Estimated filament consumption and recorded historical material cost.</span></div>
+            <div class="reporting-segmented" role="group" aria-label="Material usage grouping">
+              <button type="button" class="active" data-reporting-material-mode="type" aria-pressed="true">By material type</button>
+              <button type="button" data-reporting-material-mode="filament" aria-pressed="false">By filament</button>
+            </div>
           </div>
-          <div id="reportingFiles" class="reporting-bars"></div>
+          <div id="reportingMaterials" class="reporting-table-content"></div>
         </section>
 
-        <section class="reporting-section">
+        <section class="reporting-section reporting-analytics-printers">
           <div class="reporting-section-head">
-            <div><h3>Material usage</h3><span class="subtle">Estimated sliced filament use and captured historical material cost.</span></div>
+            <div><h3>Printers needing attention</h3><span class="subtle">Only printers exceeding existing failure or worsening-trend thresholds.</span></div>
           </div>
-          <div id="reportingMaterials" class="reporting-bars"></div>
+          <div id="reportingPrinters" class="reporting-table-content"></div>
         </section>
+
+        <section class="reporting-section reporting-analytics-failures">
+          <div class="reporting-section-head">
+            <div><h3>Print file failure analysis</h3><span class="subtle">Files with failed print attempts in the selected period.</span></div>
+          </div>
+          <div id="reportingFileFailures" class="reporting-table-content"></div>
+        </section>
+
+
       </div>
       </section>
 

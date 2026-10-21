@@ -45,11 +45,11 @@ async function preactReady(page) {
 
 async function reportsLoaded(page,where) {
   await page.waitForFunction(() =>
-    document.querySelectorAll('#reportingKpis .reporting-kpi').length >= 8
+    document.querySelectorAll('#reportingKpis .reporting-kpi').length >= 4
     && document.querySelector('#reportingStatus')?.textContent?.includes('Reporting period:')
   ,null,{timeout:20000});
   const kpis = await page.locator('#reportingKpis .reporting-kpi').allTextContents();
-  assert.ok(kpis.some((s)=>s.includes('Print attempts')),where+' must show report results');
+  assert.ok(kpis.some((s)=>s.includes('Total print jobs')),where+' must show report results');
   assert.ok(await page.locator('#reportingRange option').count()>0,where+' range choices');
   assert.ok(await page.locator('#reportingPrinter option').count()>0,where+' printer choices');
 }
@@ -1625,6 +1625,50 @@ async function routeSmoke(page,url) {
   console.log('Chromium: report data after direct navigation, page reload and tab changes');
   await page.goto(url+'/reports',{waitUntil:'load'});
   await reportsLoaded(page,'direct report');
+  // Validate the physical desktop geometry, not merely CSS class names.
+  // Inject one synthetic view row so even an empty reporting fixture tests real table width.
+  await page.setViewportSize({width:1365,height:900});
+  await page.evaluate(() => {
+    const state = window.__PFC_REPORTING_UI_STATE__ || {};
+    window.dispatchEvent(new CustomEvent('pfc:reporting-ui-state', { detail:{
+      ...state,
+      files:[{
+        id:'layout-check',rank:1,fileName:'Regression layout sample.3mf',
+        libraryFileId:null,previewUrl:'',completed:10,failed:0,
+        successRate:'100%',popularity:100
+      }]
+    }}));
+  });
+  await page.waitForFunction(() => !!document.querySelector('#reportingFiles .reporting-table-scroll'));
+  const reportingLayout = await page.evaluate(() => {
+    const box = (selector) => document.querySelector(selector).getBoundingClientRect();
+    const scroll = document.querySelector('#reportingFiles .reporting-table-scroll');
+    return {
+      statsBottom:box('#reportingKpis').bottom,
+      chartTop:box('.reporting-analytics-trend').top,
+      chartBottom:box('.reporting-analytics-trend').bottom,
+      filesTop:box('.reporting-analytics-files').top,
+      fileCardWidth:box('.reporting-analytics-files').width,
+      fileTableWidth:scroll.getBoundingClientRect().width,
+      tableOverhang:scroll.scrollWidth - scroll.clientWidth
+    };
+  });
+  assert.ok(reportingLayout.chartTop >= reportingLayout.statsBottom - 1,
+    'Main trend graph must follow headline KPI cards');
+  assert.ok(reportingLayout.filesTop >= reportingLayout.chartBottom - 1,
+    'Most popular files must follow the trend graph');
+  assert.ok(reportingLayout.fileTableWidth >= reportingLayout.fileCardWidth - 40,
+    'Print file table must fill its section, not stop at a fixed narrow width');
+  assert.ok(reportingLayout.tableOverhang <= 2,
+    'Desktop print file table must not require horizontal scrolling');
+  await page.locator('[data-reporting-files-scope="all"]').click();
+  assert.equal(await page.locator('[data-reporting-files-scope="all"]').getAttribute('aria-pressed'),'true');
+  await page.locator('[data-reporting-files-scope="top10"]').click();
+  assert.equal(await page.locator('[data-reporting-files-scope="top10"]').getAttribute('aria-pressed'),'true');
+  await page.locator('[data-reporting-material-mode="filament"]').click();
+  assert.equal(await page.locator('[data-reporting-material-mode="filament"]').getAttribute('aria-pressed'),'true');
+  await page.locator('[data-reporting-material-mode="type"]').click();
+  assert.equal(await page.locator('[data-reporting-material-mode="type"]').getAttribute('aria-pressed'),'true');
   await page.reload({waitUntil:'load'});
   await reportsLoaded(page,'refreshed report');
   await page.locator('[data-reporting-tab="filament"]').click();

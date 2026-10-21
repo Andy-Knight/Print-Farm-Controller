@@ -5381,12 +5381,34 @@ licenseInstallForm?.addEventListener('submit', async (event) => {
     }
   }
 });
+let pendingReportingLibraryFileId = null;
+window.addEventListener('pfc:reporting-open-library-file', (event) => {
+  const fileId = String(event?.detail?.id || '').trim();
+  if (!fileId) return;
+  pendingReportingLibraryFileId = fileId;
+  libraryBtn?.click();
+});
 libraryBtn?.addEventListener('click', async () => {
   if (libraryError) { libraryError.textContent = ''; libraryError.classList.add('hidden'); }
   if (libraryStatus) libraryStatus.textContent = 'Loading Print Library…';
   libraryDialog?.showModal();
   try {
     await refreshPrintLibrary();
+    if (pendingReportingLibraryFileId) {
+      const fileId = pendingReportingLibraryFileId;
+      pendingReportingLibraryFileId = null;
+      const file = (libraryState.files || []).find((item) => String(item.id) === fileId);
+      if (file) {
+        librarySelectedFileId = file.id;
+        if (librarySearchInput) librarySearchInput.value = '';
+        for (const filter of [libraryPrinterFilter, libraryMaterialFilter, libraryTagFilter,
+          libraryCategoryFilter, libraryCostFilter, libraryReadinessFilter]) if (filter) filter.value = '';
+        if (libraryFavouritesFilter) libraryFavouritesFilter.checked = false;
+        libraryCurrentPage = 0;
+        renderPrintLibrary();
+        await openLibrarySelectedEditor(file);
+      }
+    }
     if (libraryStatus) libraryStatus.textContent = '';
   } catch (error) {
     if (libraryStatus) libraryStatus.textContent = '';

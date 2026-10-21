@@ -394,7 +394,9 @@ test('Preact reporting preserves analytics, chart and filament catalogue present
   assert.match(reportingPreact, /function ReportingKpis/);
   assert.match(reportingPreact, /function ReportingTrend/);
   assert.match(reportingPreact, /function ProblemPrinters/);
-  assert.match(reportingPreact, /function BarRows/);
+  assert.match(reportingPreact, /function ReportFiles/);
+  assert.match(reportingPreact, /function ReportMaterials/);
+  assert.match(reportingPreact, /function FileFailures/);
   assert.match(reportingPreact, /function FilamentCatalogue/);
   assert.match(reportingPreact, /data-filament-edit/);
   assert.match(reportingPreact, /data-filament-delete/);

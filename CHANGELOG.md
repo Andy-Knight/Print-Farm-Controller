@@ -4,6 +4,14 @@ This file contains the version-by-version release history for Print Farm Control
 
 Historical entries describe the behaviour of the controller at the time of that release and may be superseded by later versions. For current installation, configuration and supported-hardware guidance, see [README.md](README.md).
 
+## v0.59.4
+
+- Redesigned **Reports & finance → Analytics** with four production headline statistics and coloured icons: blue for neutral activity/runtime, green for completions or zero failures, and red for recorded failures. Moved the full-width print-outcomes timeline directly under the stats.
+- Replaced the popular print file bars with a full-width sortable table: previews, file detail links, completed/failed counts, success rate, popularity indicators and Top 10/All toggle. Fixed the constrained 365px table viewport, sized desktop columns across the card and retained responsive horizontal scrolling only on narrow screens.
+- Reworked material usage as grouped tables (by material type or by filament) showing kilograms, share and historical cost without modifying data collection. Added print file failure analysis with latest failures.
+- Corrected printer attention analytics so healthy printers are excluded and unassigned automatic queue jobs are never treated as actual printers. Missing trend data reads “Insufficient data”; short or unknown runtime is displayed accurately.
+- Added Node.js and Chromium Preact/browser regression coverage for analytics totals, trends, table grouping/sorting, desktop geometry, theme-aware icons and compatibility with legacy rendering. Printer dispatch, pricing and historical costs are unchanged.
+
 ## v0.59.3
 
 - Centralised currency selection under **Reports & finance → Price settings** and removed the per-filament currency selector from Filament cost catalogue. Current prices and rates (filament, sundries, labour, hourly print time, Print Library selling prices) use the same global currency, with validation against the existing supported currency list.
