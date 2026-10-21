@@ -193,8 +193,12 @@
   --dashboard-stat-color:#328de2;
   --dashboard-stat-track:rgba(92,151,215,.18);
   --dashboard-stat-center:var(--ds-surface);
-  display:flex; align-items:center; justify-content:flex-start;
-  gap:14px; min-width:0; min-height:114px; padding:14px;
+  /* Explicit grid prevents the right-hand text/metrics from dropping below
+     their icon as cards narrow. This also overrides UiButton's inline-flex. */
+  display:grid;
+  grid-template-columns:72px minmax(0,1fr);
+  align-items:center; justify-items:stretch; column-gap:14px;
+  min-width:0; min-height:114px; padding:14px;
   line-height:normal;
 }
 #summary .dashboard-summary-kpi[data-tone="success"] {
@@ -207,8 +211,9 @@
   --dashboard-stat-color:#e8a033; --dashboard-stat-track:rgba(232,160,51,.19);
 }
 #summary .dashboard-stat-gauge {
-  position:relative; display:grid; place-items:center;
-  width:72px; height:72px; flex:0 0 72px; border-radius:50%;
+  position:relative; display:grid; grid-column:1; grid-row:1;
+  place-items:center; justify-self:start;
+  width:72px; height:72px; border-radius:50%;
   background:conic-gradient(from -90deg,var(--dashboard-stat-color) var(--dashboard-stat-angle),var(--dashboard-stat-track) 0deg);
 }
 #summary .dashboard-stat-gauge::before {
@@ -222,8 +227,9 @@
 }
 #summary .dashboard-stat-icon svg { display:block; width:27px; height:27px; stroke:currentColor; }
 #summary .dashboard-stat-body {
-  display:flex; flex:1; min-width:0;
-  flex-direction:column; align-items:flex-start;
+  display:flex; grid-column:2; grid-row:1; width:100%; min-width:0;
+  flex-direction:column; align-items:flex-start; justify-content:center;
+  overflow-wrap:anywhere;
 }
 #summary .dashboard-summary-kpi .summary-card-label {
   margin:0 0 3px; line-height:1.25;
@@ -276,8 +282,11 @@
   #summary { grid-template-columns:repeat(2,minmax(0,1fr)); }
 }
 @media (max-width:620px) {
-  #summary .dashboard-summary-kpi { min-height:104px; padding:11px; gap:9px; }
-  #summary .dashboard-stat-gauge { width:52px; height:52px; flex-basis:52px; }
+  #summary .dashboard-summary-kpi {
+    grid-template-columns:52px minmax(0,1fr);
+    min-height:104px; padding:11px; column-gap:9px;
+  }
+  #summary .dashboard-stat-gauge { width:52px; height:52px; }
   #summary .dashboard-stat-gauge::before { inset:7px; }
   #summary .dashboard-stat-icon { width:28px; height:28px; }
   #summary .dashboard-stat-icon svg { width:22px; height:22px; }
