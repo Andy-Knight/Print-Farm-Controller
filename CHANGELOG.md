@@ -4,6 +4,13 @@ This file contains the version-by-version release history for Print Farm Control
 
 Historical entries describe the behaviour of the controller at the time of that release and may be superseded by later versions. For current installation, configuration and supported-hardware guidance, see [README.md](README.md).
 
+## v0.59.6
+
+- Replaced the redundant **Popularity** column in Reports & finance → Analytics → Most popular print files with **Material / cost** (material kilograms plus historical filament spend displayed on separate lines) and **Print time** (total recorded printer run duration). Material and cost relate to completed prints; runtime also includes recorded failed and started-cancelled physical attempts. Original file rankings, success-rate calculations, thumbnails, links and Top 10/All selection are preserved.
+- Added sorting by total material consumption, historical filament cost (only comparable within the same recorded currency) and total printer time. Missing data shows `—`; partially captured historical material, cost and duration records are explicitly marked **partial**. Currency amounts are never silently converted.
+- Added a scrollable bottom gutter beneath the final Print file failure analysis card (32px desktop, 24px mobile), limited to the Analytics tab so card borders and other Reports & finance pages remain unaffected.
+- Expanded reporting-service, Preact and legacy UI, and Chromium responsive-layout regression tests for resource aggregation, data completeness, sorting and page bottom clearance. Printer scheduling, library pricing and historical job snapshots remain unchanged.
+
 ## v0.59.5
 
 - Added directional **vs previous period** indicators to the four Option D headline cards on Reports & finance → Analytics. The reporting API compares the selected date range with the immediately preceding, adjacent range of equal length, applying the same printer/group filters. Completion increases and failure reductions show favourable green; the reverse shows red; total jobs and run time use neutral blue. Unchanged values, missing earlier data and zero-baseline changes are handled explicitly without misleading percentages.

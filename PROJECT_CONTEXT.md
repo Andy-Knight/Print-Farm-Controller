@@ -9,13 +9,16 @@ If chat context and this file disagree about the codebase, inspect current GitHu
 - Repository: `Andy-Knight/Print-Farm-Controller`
 - Project path: repository root (`/`)
 - Primary branch: `main` (current production baseline)
-- Current controller source version: **0.59.5** (Option D reporting KPI rings with genuine previous-period trend comparisons; sparse print-outcomes graph and unidentified filament labels).
+- Current controller source version: **0.59.6** (popular-file reporting adds material/cost and print-time columns; Analytics page gains bottom scroll clearance).
 - Previous baseline audited: **0.48.0** (main before the regression test audit release).
 - Runtime: **Node.js 24+** (development baseline Node.js 24.21.0), ES modules, no npm runtime dependencies.
 - GitHub is the authoritative code baseline.
 - Release/version history is maintained only in `CHANGELOG.md`; do not duplicate per-version history in this handoff file.
 
 ## Current work
+
+**v0.59.6 Popular-file reporting and Analytics bottom spacing (PR #112):** User approved merge. Replaced Popularity with Material / cost (kilograms and saved historical spend on separate lines) and Print time (recorded physical run durations, including failed attempts). Preserve completion-based ranking, file links, Top 10/All, both renderers and responsive width. Sort by material, currency-aware cost and time; do not invent missing snapshot data or convert historical currencies, and indicate partial history. Add 32px desktop / 24px mobile scrollable clearance below the Print file failure analysis border, scoped only to the Analytics tab. Automated Node, Chromium and container checks passed before release metadata bump; recheck release commit before merging. No printer/queue behaviour changes.
+
 
 **v0.59.5 Reports & finance Analytics improvements (PR #111):** User approved release and merge. Option D replaces the original headline badges with outline SVGs, percentage-accurate completion/failure rings/bars and neutral totals/runtime treatments, in both Preact and fallback views. Each card compares its metric against the immediately preceding equal-duration, non-overlapping period with the same printer/group filter (new API `previousTotals` and `previousRange`); completion up / failures down is green, the reverse red, volume/runtime neutral blue, and absent history or zero-baseline handled explicitly. Sparse day-series chart now plots all dates, visible value-labelled markers, integer ticks; material-type-only historical usage is clearly labelled unidentified versus missing brand/product depending on saved catalogue ID, no snapshot/cost mutation. Node.js, Chromium and container smoke tests passed for the feature before release metadata change; verify CI for v0.59.5 before merging. Repo version bumped, changelog and README updated.
 
