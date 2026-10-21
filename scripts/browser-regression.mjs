@@ -738,6 +738,13 @@ async function libraryCompactTableSmoke(page,url) {
   await page.goto(url+'/library',{waitUntil:'load'});
   await preactReady(page);
   await page.waitForFunction(()=>window.__PFC_PREACT_LIBRARY__===true);
+  // Wait for the initial asynchronous API refresh before injecting a synthetic
+  // row. A late refresh can otherwise replace the row between the wait and
+  // geometry measurement, particularly on slower filesystem-backed pricing.
+  await page.waitForFunction(()=>{
+    const summary=document.querySelector('#librarySummary')?.textContent || '';
+    return summary.length>0 && !summary.includes('Loading library');
+  });
   const fixture=[{
     id:'compact-table-fixture',fileName:'Batch production ASA part.gcode',
     sizeText:'24 KB',description:'Production part',printerTarget:'AD5M Pro',
