@@ -294,3 +294,40 @@ test('analytics chart is first after KPIs, print file table spans full width and
   const idle = renderModel({ totals:{} });
   assert.equal(idle[1].tone, 'info');
 });
+
+test('single-day print history draws a visible chart marker and a complete date timeline in Preact and fallback', () => {
+  const helpers = [
+    reportingUi.slice(reportingUi.indexOf('function chartTimelineRows('), reportingUi.indexOf('function reportingBarRowsViewModel(')),
+    reportingUi.slice(reportingUi.indexOf('function lineChartSvg('), reportingUi.indexOf('function renderBarRows(')),
+    reportingUi.slice(reportingUi.indexOf('function escapeHtml('), reportingUi.indexOf('async function requestJson('))
+  ].join('\n');
+  const ui = vm.runInNewContext(helpers + '\n({ lineChartViewModel, lineChartSvg })', { Date, Math, Number, Set, Map, Array });
+  const range = { from:'2026-10-14T14:00:00.000Z', to:'2026-10-21T14:00:00.000Z' };
+  const report = [{date:'2026-10-20',completed:3,failed:0,cancelled:0}];
+  const chart = ui.lineChartViewModel(report, range);
+  assert.equal(chart.rows.length, 8, 'sparse history should cover every day in the selected period');
+  assert.equal(chart.rows.reduce((count, day) => count + day.completed, 0), 3);
+  assert.equal(chart.rows.find((day) => day.date === '2026-10-19').completed, 0);
+  assert.equal(chart.rows.find((day) => day.date === '2026-10-20').completed, 3);
+  assert.equal(chart.points.length, 1);
+  assert.equal(chart.points[0].value, 3);
+  assert.ok(chart.completedPath.includes(' L '), 'a single recorded day must still produce a visible line');
+  assert.equal(chart.grid.map(({label}) => label).join(','), '0,1,2,3',
+    'print count labels must be whole and non-duplicated');
+  const html = ui.lineChartSvg(report, range);
+  assert.match(html, /class="reporting-point completed"/);
+  assert.match(html, /2026-10-20: 3 completed/);
+  assert.match(html, /class="reporting-point-value completed">3<\/text>/);
+  const singleton = ui.lineChartViewModel(report);
+  assert.equal(singleton.rows.length, 1);
+  assert.equal(singleton.points[0].value, 3, 'even a single plot point must be visible');
+  const noHistory = ui.lineChartViewModel([], range);
+  assert.equal(noHistory.rows.length, 0);
+  assert.match(ui.lineChartSvg([], range), /No completed reporting history/);
+  const preact = fs.readFileSync(new URL('../ui/reporting.jsx', import.meta.url), 'utf8');
+  assert.match(preact, /chart\.points \|\| \[\]/);
+  assert.match(preact, /reporting-point-value/);
+  assert.match(styles, /\.reporting-point\.completed/);
+  assert.match(reportingUi, /lineChartViewModel\(report\?\.daily \|\| \[\], report\?\.range\)/);
+  assert.match(reportingUi, /lineChartSvg\(report\?\.daily \|\| \[\], report\?\.range\)/);
+});

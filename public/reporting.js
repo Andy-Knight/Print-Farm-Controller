@@ -166,42 +166,77 @@ function populateReportFilters() {
   }
 }
 
-function lineChartViewModel(rows = []) {
-  if (!rows.length) {
-    return { rows:[], grid:[], labels:[], viewBox:'0 0 760 230', completedPath:'', failedPath:'', cancelledPath:'' };
+function chartTimelineRows(rows = [], range = null) {
+  if (!rows.length) return [];
+  const start = Date.parse(range?.from || '');
+  const finish = Date.parse(range?.to || '');
+  const day = 24 * 60 * 60 * 1000;
+  if (!Number.isFinite(start) || !Number.isFinite(finish) || finish < start) return rows;
+  const startDay = Math.floor(start / day) * day;
+  const endDay = Math.floor(finish / day) * day;
+  const dayCount = Math.round((endDay - startDay) / day) + 1;
+  // The UI offers at most 365 days; don't create unbounded graph series
+  // for malformed or unexpectedly large custom report ranges.
+  if (dayCount < 2 || dayCount > 370) return rows;
+  const byDate = new Map(rows.map((row) => [String(row.date), row]));
+  return Array.from({ length:dayCount }, (_, index) => {
+    const date = new Date(startDay + index * day).toISOString().slice(0, 10);
+    return { date, completed:0, failed:0, cancelled:0, ...(byDate.get(date) || {}) };
+  });
+}
+
+function lineChartViewModel(rows = [], range = null) {
+  const timeline = chartTimelineRows(rows, range);
+  if (!timeline.length) {
+    return { rows:[], grid:[], labels:[], points:[], showPointValues:false,
+      viewBox:'0 0 760 230', completedPath:'', failedPath:'', cancelledPath:'' };
   }
   const width = 760;
   const height = 230;
   const pad = { left:42, right:18, top:18, bottom:34 };
   const chartW = width - pad.left - pad.right;
   const chartH = height - pad.top - pad.bottom;
-  const maxY = Math.max(1, ...rows.flatMap((row) => [Number(row.completed || 0), Number(row.failed || 0), Number(row.cancelled || 0)]));
-  const x = (index) => pad.left + (rows.length === 1 ? chartW / 2 : (index / (rows.length - 1)) * chartW);
-  const y = (value) => pad.top + chartH - (Number(value || 0) / maxY) * chartH;
-  const path = (key) => rows.map((row, index) => `${index ? 'L' : 'M'} ${x(index).toFixed(1)} ${y(row[key]).toFixed(1)}`).join(' ');
-  const tickIndexes = [...new Set([0, Math.floor((rows.length - 1) / 2), rows.length - 1])];
+  const maxY = Math.max(1, ...timeline.flatMap((row) => [
+    Number(row.completed || 0), Number(row.failed || 0), Number(row.cancelled || 0)
+  ]));
+  // Use whole-number Y-axis ticks for whole print counts, without repeating
+  // labels (e.g. 0, 1, 2, 2, 3 for a maximum of three prints).
+  const step = maxY <= 4 ? 1 : Math.ceil(maxY / 4);
+  const axisMax = Math.ceil(maxY / step) * step;
+  const x = (index) => pad.left + (timeline.length === 1
+    ? chartW / 2 : (index / (timeline.length - 1)) * chartW);
+  const y = (value) => pad.top + chartH - (Number(value || 0) / axisMax) * chartH;
+  const path = (key) => timeline.map((row, index) =>
+    `${index ? 'L' : 'M'} ${x(index).toFixed(1)} ${y(row[key]).toFixed(1)}`
+  ).join(' ');
+  const tickIndexes = [...new Set([0, Math.floor((timeline.length - 1) / 2), timeline.length - 1])];
+  const series = ['completed','failed','cancelled'];
+  const points = timeline.flatMap((row, index) => series.flatMap((key) => {
+    const value = Number(row[key] || 0);
+    return value > 0 ? [{
+      key, date:row.date, value, x:Number(x(index).toFixed(1)),
+      y:Number(y(value).toFixed(1)), title:`${row.date}: ${value} ${key}`
+    }] : [];
+  }));
   return {
-    rows,
+    rows:timeline,
     viewBox:`0 0 ${width} ${height}`,
     completedPath:path('completed'),
     failedPath:path('failed'),
     cancelledPath:path('cancelled'),
-    grid:[0, .25, .5, .75, 1].map((portion) => {
-      const yy = pad.top + chartH - portion * chartH;
-      return {
-        x1:pad.left,
-        x2:width - pad.right,
-        y:yy,
-        labelX:pad.left - 8,
-        labelY:yy + 4,
-        label:Math.round(maxY * portion)
-      };
+    points,
+    showPointValues:points.length <= 8,
+    grid:Array.from({ length:Math.floor(axisMax / step) + 1 }, (_, index) => {
+      const value = index * step;
+      const yy = y(value);
+      return { x1:pad.left, x2:width - pad.right, y:yy, labelX:pad.left - 8,
+        labelY:yy + 4, label:value };
     }),
     labels:tickIndexes.map((index) => ({
       x:x(index),
       y:height - 9,
-      text:rows[index]?.date
-        ? new Date(`${rows[index].date}T00:00:00`).toLocaleDateString(undefined, { month:'short', day:'numeric' })
+      text:timeline[index]?.date
+        ? new Date(`${timeline[index].date}T00:00:00`).toLocaleDateString(undefined, { month:'short', day:'numeric' })
         : ''
     }))
   };
@@ -374,7 +409,7 @@ function publishReportingUiState(report = currentReport || {}) {
   const detail = {
     activeTab:activeReportingTab,
     kpis:reportingKpiViewModel(report),
-    chart:lineChartViewModel(report?.daily || []),
+    chart:lineChartViewModel(report?.daily || [], report?.range),
     printers:reportingPrintersViewModel(report?.printers || []),
     printerActivity:(report?.printers || []).length > 0,
     files:reportingFileRows(report?.files || []),
@@ -389,38 +424,30 @@ function publishReportingUiState(report = currentReport || {}) {
   window.dispatchEvent(new CustomEvent('pfc:reporting-ui-state', { detail }));
 }
 
-function lineChartSvg(rows = []) {
-  if (!rows.length) return '<div class="reporting-empty">No completed reporting history in this period.</div>';
-  const width = 760;
-  const height = 230;
-  const pad = { left:42, right:18, top:18, bottom:34 };
-  const chartW = width - pad.left - pad.right;
-  const chartH = height - pad.top - pad.bottom;
-  const maxY = Math.max(1, ...rows.flatMap((row) => [Number(row.completed || 0), Number(row.failed || 0), Number(row.cancelled || 0)]));
-  const x = (index) => pad.left + (rows.length === 1 ? chartW / 2 : (index / (rows.length - 1)) * chartW);
-  const y = (value) => pad.top + chartH - (Number(value || 0) / maxY) * chartH;
-  const path = (key) => rows.map((row, index) => `${index ? 'L' : 'M'} ${x(index).toFixed(1)} ${y(row[key]).toFixed(1)}`).join(' ');
-  const tickIndexes = [...new Set([0, Math.floor((rows.length - 1) / 2), rows.length - 1])];
-  const grid = [0, .25, .5, .75, 1].map((portion) => {
-    const yy = pad.top + chartH - portion * chartH;
-    const label = Math.round(maxY * portion);
-    return `<line x1="${pad.left}" y1="${yy}" x2="${width - pad.right}" y2="${yy}" class="reporting-grid-line"/>
-      <text x="${pad.left - 8}" y="${yy + 4}" text-anchor="end" class="reporting-axis-text">${label}</text>`;
-  }).join('');
-  const labels = tickIndexes.map((index) => {
-    const text = rows[index]?.date ? new Date(`${rows[index].date}T00:00:00`).toLocaleDateString(undefined, { month:'short', day:'numeric' }) : '';
-    return `<text x="${x(index)}" y="${height - 9}" text-anchor="middle" class="reporting-axis-text">${escapeHtml(text)}</text>`;
-  }).join('');
+function lineChartSvg(rows = [], range = null) {
+  const chart = lineChartViewModel(rows, range);
+  if (!chart.rows.length) return '<div class="reporting-empty">No completed reporting history in this period.</div>';
+  const grid = chart.grid.map((line) => `<line x1="${line.x1}" y1="${line.y}" x2="${line.x2}" y2="${line.y}" class="reporting-grid-line"/>
+      <text x="${line.labelX}" y="${line.labelY}" text-anchor="end" class="reporting-axis-text">${line.label}</text>`).join('');
+  const labels = chart.labels.map((label) =>
+    `<text x="${label.x}" y="${label.y}" text-anchor="middle" class="reporting-axis-text">${escapeHtml(label.text)}</text>`
+  ).join('');
+  const points = chart.points.map((point) => `<circle cx="${point.x}" cy="${point.y}" r="4.5" class="reporting-point ${point.key}">
+      <title>${escapeHtml(point.title)}</title>
+    </circle>${chart.showPointValues
+      ? `<text x="${point.x}" y="${Math.max(11,point.y - 10)}" text-anchor="middle" class="reporting-point-value ${point.key}">${point.value}</text>`
+      : ''}`).join('');
   return `<div class="reporting-chart-legend">
       <span><i class="reporting-legend-dot completed"></i>Completed</span>
       <span><i class="reporting-legend-dot failed"></i>Failed</span>
       <span><i class="reporting-legend-dot cancelled"></i>Cancelled</span>
     </div>
-    <svg class="reporting-line-chart" viewBox="0 0 ${width} ${height}" role="img" aria-label="Daily print outcomes">
+    <svg class="reporting-line-chart" viewBox="${chart.viewBox}" role="img" aria-label="Daily print outcomes">
       ${grid}
-      <path d="${path('completed')}" class="reporting-series completed"/>
-      <path d="${path('failed')}" class="reporting-series failed"/>
-      <path d="${path('cancelled')}" class="reporting-series cancelled"/>
+      <path d="${chart.completedPath}" class="reporting-series completed"/>
+      <path d="${chart.failedPath}" class="reporting-series failed"/>
+      <path d="${chart.cancelledPath}" class="reporting-series cancelled"/>
+      ${points}
       ${labels}
     </svg>`;
 }
@@ -541,7 +568,7 @@ function renderReport(report) {
       <div><span>${escapeHtml(item.label)}</span><strong>${escapeHtml(item.value)}</strong>
       <small>${escapeHtml(item.detail)}</small></div></div>`).join('');
   }
-  if (reportingTrend) reportingTrend.innerHTML = lineChartSvg(report?.daily || []);
+  if (reportingTrend) reportingTrend.innerHTML = lineChartSvg(report?.daily || [], report?.range);
   if (reportingPrinters) reportingPrinters.innerHTML = renderProblemPrinters(report?.printers || []);
   if (reportingFiles) reportingFiles.innerHTML = renderReportFiles(reportingFileRows(report?.files || []));
   if (reportingMaterials) reportingMaterials.innerHTML = renderReportMaterials(reportingMaterialRows(report?.materials || []));

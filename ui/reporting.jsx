@@ -67,6 +67,14 @@ function ReportingTrend({ chart }) {
       <path d={chart.completedPath} class="reporting-series completed" />
       <path d={chart.failedPath} class="reporting-series failed" />
       <path d={chart.cancelledPath} class="reporting-series cancelled" />
+      {(chart.points || []).map((point, index) => <g key={point.date + '-' + point.key + '-' + index}>
+        <circle cx={point.x} cy={point.y} r="4.5" class={`reporting-point ${point.key}`}>
+          <title>{point.title}</title>
+        </circle>
+        {chart.showPointValues &&
+          <text x={point.x} y={Math.max(11, point.y - 10)} text-anchor="middle"
+            class={`reporting-point-value ${point.key}`}>{point.value}</text>}
+      </g>)}
       {chart.labels.map((label, index) =>
         <text key={index} x={label.x} y={label.y} text-anchor="middle" class="reporting-axis-text">{label.text}</text>
       )}

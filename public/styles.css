@@ -2959,6 +2959,15 @@ button.library-file-preview { cursor:zoom-in; }
 .reporting-series.completed { stroke:#55d6a4; }
 .reporting-series.failed { stroke:#ed7078; }
 .reporting-series.cancelled { stroke:#d5ae58; }
+.reporting-point { stroke-width:1.5; stroke:var(--ds-surface,#0e141a); }
+.reporting-point.completed { fill:#55d6a4; }
+.reporting-point.failed { fill:#ed7078; }
+.reporting-point.cancelled { fill:#d5ae58; }
+.reporting-point-value { font-size:11px; font-weight:800; }
+.reporting-point-value.completed { fill:#2aaf77; }
+.reporting-point-value.failed { fill:#d3464f; }
+.reporting-point-value.cancelled { fill:#ac8327; }
+:root[data-theme="light"] .reporting-point { stroke:#f5f8fa; }
 .reporting-chart-legend { display:flex; gap:14px; flex-wrap:wrap; margin-bottom:4px; color:#8493a1; font-size:.72rem; }
 .reporting-chart-legend span { display:inline-flex; align-items:center; gap:5px; }
 .reporting-legend-dot { width:8px; height:8px; border-radius:50%; background:#8493a1; }

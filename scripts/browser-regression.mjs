@@ -1625,6 +1625,25 @@ async function routeSmoke(page,url) {
   console.log('Chromium: report data after direct navigation, page reload and tab changes');
   await page.goto(url+'/reports',{waitUntil:'load'});
   await reportsLoaded(page,'direct report');
+  // Sparse production history: all three jobs completed on one date.
+  // The previous SVG contained only a move command and rendered no line.
+  await page.evaluate(() => {
+    const chart = window.lineChartViewModel(
+      [{ date:'2026-10-20', completed:3, failed:0, cancelled:0 }],
+      { from:'2026-10-14T14:00:00.000Z', to:'2026-10-21T14:00:00.000Z' }
+    );
+    window.dispatchEvent(new CustomEvent('pfc:reporting-ui-state', {
+      detail:{ ...window.__PFC_REPORTING_UI_STATE__, chart }
+    }));
+  });
+  await page.waitForFunction(() =>
+    document.querySelectorAll('#reportingTrend .reporting-point.completed').length === 1
+    && document.querySelector('#reportingTrend .reporting-point-value.completed')?.textContent === '3'
+  );
+  assert.match(await page.locator('#reportingTrend .reporting-point.completed title').textContent(),
+    /2026-10-20: 3 completed/, 'a sparse daily chart must show its real completed count');
+  assert.equal(await page.locator('#reportingTrend .reporting-axis-text').first().textContent(), '0',
+    'the chart must start at zero');
   // Validate the physical desktop geometry, not merely CSS class names.
   // Inject one synthetic view row so even an empty reporting fixture tests real table width.
   await page.setViewportSize({width:1365,height:900});
