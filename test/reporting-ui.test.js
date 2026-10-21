@@ -214,6 +214,8 @@ test('analytics view models rank real print completions and aggregate materials'
   assert.equal(ui.reportingFileRows(files)[0].fileName, 'File 11.3mf');
   ui.setScope('all');
   assert.equal(ui.reportingFileRows(files).length, 12);
+  ui.setSort('fileName','asc');
+  assert.equal(ui.reportingFileRows(files)[0].fileName, 'File 0.3mf');
   const failures = ui.reportingFileRows(files, { failures:true });
   assert.equal(failures.length, 1);
   assert.equal(failures[0].failed, 2);

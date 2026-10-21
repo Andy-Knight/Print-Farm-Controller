@@ -444,7 +444,7 @@ function reportingTableShell(headings, rows, empty, foot = '') {
 
 function renderReportFiles(files) {
   const headings = [
-    { label:'#' }, { label:'Print file' },
+    { label:'#' }, { label:'Print file', html:`<button type="button" class="reporting-table-sort" data-reporting-file-sort="fileName" aria-label="Sort by file name" aria-pressed="${reportingFilesSort.key === 'fileName'}">Print file ${reportingFilesSort.key === 'fileName' ? (reportingFilesSort.direction === 'desc' ? '▼' : '▲') : '↕'}</button>` },
     ...[
       ['completed','Completed'], ['failed','Failed'], ['successRate','Success rate']
     ].map(([key,label]) => ({
@@ -477,7 +477,7 @@ function renderReportMaterials(materials) {
     <td title="${escapeHtml(row.label)}">${escapeHtml(row.label)}</td>
     <td class="numeric">${row.kg}</td><td class="numeric">${row.percentage}</td>
     <td class="numeric">${escapeHtml(row.cost)}</td><td><div class="reporting-progress"><span style="width:${row.percent}%"></span></div></td>
-  </tr>`), 'No costed material usage is available in this period.', foot);
+  </tr>`), 'No material usage captured for completed prints in this period.', foot);
 }
 
 function renderProblemPrinters(printers = []) {
@@ -691,11 +691,11 @@ reportingDialog?.addEventListener('click', (event) => {
   }
   if (scope && ['top10','all'].includes(scope.dataset.reportingFilesScope)) reportingFilesScope = scope.dataset.reportingFilesScope;
   else if (group && ['type','filament'].includes(group.dataset.reportingMaterialMode)) reportingMaterialMode = group.dataset.reportingMaterialMode;
-  else if (sort && ['completed','failed','successRate'].includes(sort.dataset.reportingFileSort)) {
+  else if (sort && ['fileName','completed','failed','successRate'].includes(sort.dataset.reportingFileSort)) {
     const key = sort.dataset.reportingFileSort;
     reportingFilesSort = key === reportingFilesSort.key
       ? { key, direction:reportingFilesSort.direction === 'desc' ? 'asc' : 'desc' }
-      : { key, direction:'desc' };
+      : { key, direction:key === 'fileName' ? 'asc' : 'desc' };
   } else return;
   updateReportingSegments();
   renderReport(currentReport || {});

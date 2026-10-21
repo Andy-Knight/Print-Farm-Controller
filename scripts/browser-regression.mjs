@@ -1625,6 +1625,14 @@ async function routeSmoke(page,url) {
   console.log('Chromium: report data after direct navigation, page reload and tab changes');
   await page.goto(url+'/reports',{waitUntil:'load'});
   await reportsLoaded(page,'direct report');
+  await page.locator('[data-reporting-files-scope="all"]').click();
+  assert.equal(await page.locator('[data-reporting-files-scope="all"]').getAttribute('aria-pressed'),'true');
+  await page.locator('[data-reporting-files-scope="top10"]').click();
+  assert.equal(await page.locator('[data-reporting-files-scope="top10"]').getAttribute('aria-pressed'),'true');
+  await page.locator('[data-reporting-material-mode="filament"]').click();
+  assert.equal(await page.locator('[data-reporting-material-mode="filament"]').getAttribute('aria-pressed'),'true');
+  await page.locator('[data-reporting-material-mode="type"]').click();
+  assert.equal(await page.locator('[data-reporting-material-mode="type"]').getAttribute('aria-pressed'),'true');
   await page.reload({waitUntil:'load'});
   await reportsLoaded(page,'refreshed report');
   await page.locator('[data-reporting-tab="filament"]').click();

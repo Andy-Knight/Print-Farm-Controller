@@ -107,7 +107,10 @@ function ReportingProgress({ percent }) {
 
 function ReportFiles({ files, sort }) {
   const headings = [
-    { label:'#' }, { label:'Print file' },
+    { label:'#' }, { label:<button type="button" class="reporting-table-sort" data-reporting-file-sort="fileName"
+      aria-label="Sort by file name" aria-pressed={sort.key === 'fileName'}>
+      Print file {sort.key === 'fileName' ? (sort.direction === 'desc' ? '▼' : '▲') : '↕'}
+    </button> },
     ...[
       ['completed','Completed'], ['failed','Failed'], ['successRate','Success rate']
     ].map(([key,label]) => ({
@@ -133,7 +136,7 @@ function ReportMaterials({ materials, materialMode }) {
     { label:'Used (kg)', numeric:true }, { label:'Share', numeric:true },
     { label:'Estimated cost', numeric:true }, { label:'Usage' }
   ];
-  return <ReportingTable label="Material usage" headers={headings} empty="No costed material usage is available in this period."
+  return <ReportingTable label="Material usage" headers={headings} empty="No material usage captured for completed prints in this period."
     rows={materials.rows.map((row) => <tr key={row.key}>
       <td title={row.label}>{row.label}</td><td class="numeric">{row.kg}</td>
       <td class="numeric">{row.percentage}</td><td class="numeric">{row.cost}</td>
