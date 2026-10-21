@@ -333,10 +333,10 @@ function reportingPrintersViewModel(printers = []) {
 function reportingKpiViewModel(report = {}) {
   const totals = report?.totals || {};
   return [
-    { label:'Total print jobs', value:formatNumber(totals.attempts), detail:'In selected period', icon:'▤' },
-    { label:'Completed', value:formatNumber(totals.completed), detail:`${formatPercent(totals.completionRate)} completion rate`, icon:'✓' },
-    { label:'Failed', value:formatNumber(totals.failed), detail:`${formatPercent(totals.failureRate)} failure rate`, icon:'×' },
-    { label:'Total run time', value:`${formatNumber(totals.runHours, 1)} h`, detail:'Reported from print timestamps', icon:'◷' }
+    { label:'Total print jobs', value:formatNumber(totals.attempts), detail:'In selected period', icon:'▤', tone:'info' },
+    { label:'Completed', value:formatNumber(totals.completed), detail:`${formatPercent(totals.completionRate)} completion rate`, icon:'✓', tone:Number(totals.completed || 0) > 0 ? 'positive' : 'info' },
+    { label:'Failed', value:formatNumber(totals.failed), detail:`${formatPercent(totals.failureRate)} failure rate`, icon:Number(totals.failed || 0) > 0 ? '×' : '✓', tone:Number(totals.failed || 0) > 0 ? 'negative' : 'positive' },
+    { label:'Total run time', value:`${formatNumber(totals.runHours, 1)} h`, detail:'Reported from print timestamps', icon:'◷', tone:'info' }
   ];
 }
 
@@ -517,7 +517,7 @@ function renderReport(report) {
   }
   if (reportingKpis) {
     reportingKpis.innerHTML = reportingKpiViewModel(report).map((item) => `<div class="reporting-kpi">
-      <span class="reporting-kpi-icon" aria-hidden="true">${escapeHtml(item.icon)}</span>
+      <span class="reporting-kpi-icon reporting-kpi-icon-${escapeHtml(item.tone)}" aria-hidden="true">${escapeHtml(item.icon)}</span>
       <div><span>${escapeHtml(item.label)}</span><strong>${escapeHtml(item.value)}</strong>
       <small>${escapeHtml(item.detail)}</small></div></div>`).join('');
   }

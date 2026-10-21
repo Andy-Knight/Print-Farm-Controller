@@ -46,7 +46,7 @@ function ReportingTabs({ activeTab }) {
 
 function ReportingKpis({ items }) {
   return <>{items.map((item) => <div class="reporting-kpi" key={item.label}>
-    <span class="reporting-kpi-icon" aria-hidden="true">{item.icon}</span>
+    <span class={`reporting-kpi-icon reporting-kpi-icon-${item.tone || 'info'}`} aria-hidden="true">{item.icon}</span>
     <div><span>{item.label}</span><strong>{item.value}</strong><small>{item.detail}</small></div>
   </div>)}</>;
 }

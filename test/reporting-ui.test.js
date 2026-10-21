@@ -239,3 +239,32 @@ test('analytics view models rank real print completions and aggregate materials'
   assert.equal(byFilament.rows[0].label, 'ASA Brand 1');
   assert.equal(ui.reportingFileRows([{fileName:'cancelled.gcode',completed:0,failed:0,attempts:2}]).length, 0);
 });
+
+test('analytics chart is first after KPIs, print file table spans full width and KPI icon colours reflect outcomes', () => {
+  const panel = index.slice(index.indexOf('id="reportingPanelAnalytics"'), index.indexOf('id="reportingPanelFilament"'));
+  const ids = ['reportingKpis','reportingTrend','reportingFiles','reportingMaterials','reportingPrinters','reportingFileFailures'];
+  const positions = ids.map((id) => panel.indexOf('id="' + id + '"'));
+  assert.ok(positions.every((position) => position >= 0));
+  assert.deepEqual(positions, [...positions].sort((a, b) => a - b));
+  assert.match(styles, /\.reporting-analytics-files\s*\{\s*grid-column:1\s*\/\s*-1/);
+  assert.match(styles, /\.reporting-table-scroll\s*\{[^}]*width:100%;[^}]*max-width:100%;/);
+  assert.doesNotMatch(styles, /\.reporting-table-scroll\s*\{[^}]*max-width:365px/);
+  assert.match(styles, /\.reporting-analytics-files \.reporting-analytics-table\s*\{[^}]*table-layout:fixed/);
+  assert.match(styles, /\.reporting-kpi \.reporting-kpi-icon-positive/);
+  assert.match(styles, /\.reporting-kpi \.reporting-kpi-icon-negative/);
+  const preact = fs.readFileSync(new URL('../ui/reporting.jsx', import.meta.url), 'utf8');
+  assert.match(preact, /reporting-kpi-icon-\$\{item.tone/);
+  assert.match(reportingUi, /reporting-kpi-icon-\$\{escapeHtml\(item.tone\)\}/);
+  const code = reportingUi.slice(reportingUi.indexOf('function reportingKpiViewModel('), reportingUi.indexOf('function reportingFilamentsViewModel('));
+  const renderModel = vm.runInNewContext(code + '\nreportingKpiViewModel', {
+    formatNumber:(value)=>String(value ?? 0),
+    formatPercent:(value)=>String(value ?? 0) + '%'
+  });
+  const unsuccessful = renderModel({ totals:{ attempts:11, completed:10, failed:1, completionRate:0.9, failureRate:0.1, runHours:12 } });
+  assert.deepEqual(Array.from(unsuccessful, (item)=>item.tone), ['info','positive','negative','info']);
+  const noFailures = renderModel({ totals:{ attempts:10, completed:10, failed:0, completionRate:1, failureRate:0, runHours:12 } });
+  assert.equal(noFailures[2].tone, 'positive');
+  assert.equal(noFailures[2].icon, '✓');
+  const idle = renderModel({ totals:{} });
+  assert.equal(idle[1].tone, 'info');
+});
