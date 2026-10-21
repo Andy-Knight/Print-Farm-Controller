@@ -1797,6 +1797,25 @@ async function routeSmoke(page,url) {
   await page.waitForFunction(()=>document.querySelector('#reportingPricingFields')?.disabled===false);
   await page.locator('[data-reporting-tab="analytics"]').click();
   await page.waitForFunction(()=>document.querySelector('#reportingPanelAnalytics')?.hidden===false);
+  // Leave a visible scroll gutter after the final failure-analysis card.
+  // This is page spacing, not extra height or a border on the card itself.
+  for (const [width, height, minSpace] of [[1365, 900, 32], [390, 844, 24]]) {
+    await page.setViewportSize({ width, height });
+    const clearance = await page.evaluate(() => {
+      const panel = document.querySelector('#reportingPanelAnalytics');
+      const lastCard = panel.querySelector('.reporting-analytics-failures');
+      return {
+        padding:parseFloat(getComputedStyle(panel).paddingBottom),
+        gap:panel.getBoundingClientRect().bottom - lastCard.getBoundingClientRect().bottom,
+        overflow:document.scrollingElement.scrollHeight - document.scrollingElement.clientHeight
+      };
+    });
+    assert.ok(clearance.padding >= minSpace, 'Analytics tab must provide a bottom gutter');
+    assert.ok(clearance.gap >= minSpace - 1,
+      'Failure-analysis border needs clearance from the end of the Analytics page');
+    assert.ok(clearance.overflow > 0, 'Reporting page must remain vertically scrollable');
+  }
+  await page.setViewportSize({width:1365,height:900});
 
   console.log('Chromium: click navigation and history Back/Forward');
   await page.locator('#queueBtn').click();

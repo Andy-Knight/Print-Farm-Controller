@@ -281,6 +281,8 @@ test('analytics chart is first after KPIs, print file table spans full width and
   assert.ok(positions.every((position) => position >= 0));
   assert.deepEqual(positions, [...positions].sort((a, b) => a - b));
   assert.match(styles, /\.reporting-analytics-files\s*\{\s*grid-column:1\s*\/\s*-1/);
+  assert.match(styles, /#reportingPanelAnalytics\s*\{\s*padding-bottom:32px/);
+  assert.match(styles, /@media \(max-width:760px\)\s*\{\s*#reportingPanelAnalytics\s*\{\s*padding-bottom:24px/);
   assert.match(styles, /\.reporting-table-scroll\s*\{[^}]*width:100%;[^}]*max-width:100%;/);
   assert.doesNotMatch(styles, /\.reporting-table-scroll\s*\{[^}]*max-width:365px/);
   assert.match(styles, /\.reporting-analytics-files \.reporting-analytics-table\s*\{[^}]*table-layout:fixed/);

@@ -2892,6 +2892,13 @@ button.library-file-preview { cursor:zoom-in; }
   margin-bottom:12px;
 }
 .reporting-tab-panel[hidden] { display:none !important; }
+/* The Analytics page needs a small scrollable gutter beneath its last
+   failure-analysis card so the bottom border never sits against the viewport.
+   Keep this tab-specific; the other report tabs and route layouts are unchanged. */
+#reportingPanelAnalytics { padding-bottom:32px; }
+@media (max-width:760px) {
+  #reportingPanelAnalytics { padding-bottom:24px; }
+}
 
 /* Global Print Library selling-price configuration lives with reporting and
    filament costs. Keep it in a normal tab, not a separate modal window. */
