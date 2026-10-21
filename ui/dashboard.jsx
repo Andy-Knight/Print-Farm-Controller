@@ -102,24 +102,65 @@ function DashboardControls({ state }) {
   );
 }
 
+// Shared Analytics visual language: outline icons within circular rings.
+// Percentages on dashboard filters are real ratios of the currently visible
+// printer group; no historical trend or arbitrary circle completion is shown.
+function DashboardSummarySymbol({ name }) {
+  return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
+    stroke-linecap="round" stroke-linejoin="round" focusable="false" aria-hidden="true">
+    {name === 'printer' && <><rect x="4" y="8" width="16" height="9" rx="2" />
+      <path d="M7 8V4h10v4M7 17v3h10v-3M16.5 12.5h.01" /></>}
+    {name === 'connected' && <><path d="M3 8.5a13 13 0 0 1 18 0M6.5 12a8 8 0 0 1 11 0" />
+      <path d="M9 16l2.5 2.5L16 14" /></>}
+    {name === 'printing' && <path d="M8 5.5v13l11-6.5z" />}
+    {name === 'warning' && <><path d="M12 3 22 20H2z" /><path d="M12 9v5M12 17.5h.01" /></>}
+    {name === 'check' && <><circle cx="12" cy="12" r="9" /><path d="M7.5 12.5 10.5 15.5 16.5 9" /></>}
+  </svg>;
+}
+
 function DashboardSummary({ state }) {
+  const configured = Math.max(0, state.counts.all);
   return (
     <section id="summary" class="summary" aria-label="Farm status filters">
       {FILTERS.map((item) => {
         const active = state.activeFilter === item.key;
+        const count = Math.max(0, state.counts[item.key]);
+        const percent = item.key !== 'all' && configured > 0
+          ? Math.round(Math.min(100, count * 100 / configured) * 10) / 10
+          : null;
+        const tone = item.key === 'attention' && count === 0 && configured > 0
+          ? 'success' : item.tone;
+        const icon = item.key === 'all' ? 'printer'
+          : item.key === 'online' ? 'connected'
+          : item.key === 'printing' ? 'printing'
+          : tone === 'success' ? 'check' : 'warning';
         return (
           <UiButton
             key={item.key}
             variant="ghost"
-            class={`summary-card ui-stat-card${active ? ' active' : ''}`}
-            data-tone={item.tone}
+            class={`summary-card ui-stat-card dashboard-summary-kpi${active ? ' active' : ''}`}
+            data-tone={tone}
             data-dashboard-filter={item.key}
             aria-pressed={String(active)}
             onClick={() => dispatchDashboardAction('filter', item.key)}
           >
-            <span class="summary-card-label"><span class="subtle">{item.label}</span></span>
-            <b>{state.counts[item.key]}</b>
-            <span class="dashboard-stat-detail">{item.detail}</span>
+            <span class={`dashboard-stat-gauge${percent == null ? ' dashboard-stat-gauge-neutral' : ''}`}
+              style={{'--dashboard-stat-angle':`${percent == null ? 0 : percent * 3.6}deg`}}
+              aria-hidden="true">
+              <span class="dashboard-stat-icon"><DashboardSummarySymbol name={icon} /></span>
+            </span>
+            <span class="dashboard-stat-body">
+              <span class="summary-card-label"><span class="subtle">{item.label}</span></span>
+              <b>{count}</b>
+              <span class="dashboard-stat-detail">{item.detail}</span>
+              {percent == null
+                ? <span class="dashboard-stat-accent" aria-hidden="true"></span>
+                : <span class="dashboard-stat-meter" role="progressbar"
+                    aria-label={`${item.label}: percentage of all printers in the selected group`}
+                    aria-valuemin="0" aria-valuemax="100" aria-valuenow={percent}>
+                    <span style={{width:`${percent}%`}}></span>
+                  </span>}
+            </span>
           </UiButton>
         );
       })}

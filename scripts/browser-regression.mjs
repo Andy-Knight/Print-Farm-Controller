@@ -133,9 +133,21 @@ async function designSystemSmoke(browser,url) {
           const headBox=head.getBoundingClientRect();
           const key=Math.round(cardBox.top);
           if(!rows.has(key))rows.set(key,[]);
+          const body=card.querySelector('.card-body');
+          const bodyRect=body.getBoundingClientRect();
+          const image=card.querySelector('.printer-model-image');
+          const imageStyle=image&&getComputedStyle(image);
+          const invisibleStrips=[...card.querySelectorAll('.bed-level-strip,.license-strip,.preheat-strip,.bed-clearance-strip')]
+            .every(strip=>getComputedStyle(strip).display==='none');
           rows.get(key).push({
             name:card.querySelector('[data-name]')?.textContent,
             imageTop:imageBox.top,imageBottom:imageBox.bottom,
+            bodyTop:bodyRect.top,
+            hiddenStrips:invisibleStrips,
+            photoFit:imageStyle?.objectFit,
+            photoBottomPadding:imageStyle?Number.parseFloat(imageStyle.paddingBottom):null,
+            imageHeight:imageBox.height,
+            cardMarginBottom:Number.parseFloat(getComputedStyle(card).marginBottom),
             headBottom:headBox.bottom,headScroll:head.scrollHeight,headHeight:head.clientHeight
           });
         }
@@ -152,6 +164,20 @@ async function designSystemSmoke(browser,url) {
             'long printer headings must grow rather than clip: '+JSON.stringify(card));
           assert.ok(card.headBottom<=card.imageTop+1.5,
             'card heading must not overlap its image');
+          if(card.hiddenStrips) {
+            assert.ok(Math.abs(card.bodyTop-card.imageBottom)<=2.5,
+              'hidden activity strips must not leave a blank band below printer images: '+JSON.stringify(card));
+          }
+          assert.ok(card.cardMarginBottom>=10,
+            'printer cards still need their own outer row spacing');
+          if(card.photoFit) {
+            assert.equal(card.photoFit,'contain',
+              'printer photos should stay contained rather than cropped');
+            assert.ok(card.photoBottomPadding>=18,
+              'printer images need room above lower slot border: '+JSON.stringify(card));
+            assert.ok(card.imageHeight>=150,
+              'printer model image slot must retain a useful visible height');
+          }
         }
       }
     }
@@ -309,6 +335,99 @@ async function dashboardPhase3Smoke(browser,url) {
     });
     await page.waitForFunction(()=>document.querySelector('#summary [data-dashboard-filter="all"] b')?.textContent==='12'
       &&document.querySelector('#dashboardFleetHeadingRoot [data-dashboard-fleet-summary]')?.textContent?.includes('12'));
+    // Dashboard summary cards match Analytics outline ring styling, using
+    // measured group ratios rather than arbitrary fill amounts or fake trends.
+    const measurements=await page.evaluate(()=>{
+      const cards=[...document.querySelectorAll('#summary .dashboard-summary-kpi')];
+      return cards.map(card=>({
+        key:card.dataset.dashboardFilter,
+        count:card.querySelector('.dashboard-stat-body > b')?.textContent,
+        svg:card.querySelector('.dashboard-stat-icon svg'),
+        gauge:card.querySelector('.dashboard-stat-gauge'),
+        meter:card.querySelector('.dashboard-stat-meter'),
+        accent:card.querySelector('.dashboard-stat-accent')
+      })).map(row=>({
+        key:row.key,count:row.count,
+        hasSvg:!!row.svg,
+        stroke:row.svg?.getAttribute('stroke'),
+        size:row.gauge?.getBoundingClientRect().width,
+        gaugeColor:row.gauge && getComputedStyle(row.gauge).backgroundImage,
+        gaugeBackground:row.gauge && getComputedStyle(row.gauge).backgroundColor,
+        meter:row.meter?.getAttribute('aria-valuenow') ?? null,
+        hasAccent:!!row.accent
+      }));
+    });
+    assert.deepEqual(measurements.map(row=>row.key),['all','online','printing','attention']);
+    assert.ok(measurements.every(row=>row.hasSvg&&row.stroke==='currentColor'&&row.size>=50),
+      'four Analytics-style outlined circular icons must be visible');
+    assert.equal(measurements[0].meter,null,'total printers is a count, not fake 100% progress');
+    assert.equal(measurements[1].meter,'83.3');
+    assert.equal(measurements[2].meter,'8.3');
+    assert.equal(measurements[3].meter,'16.7');
+    assert.ok(measurements[0].gaugeBackground &&
+      measurements.slice(1).every(row=>row.gaugeColor?.includes('conic-gradient')),
+      'decorative total-printer ring and measured status rings must both render');
+    // A zero-attention state is a success (green check), not a warning.
+    await page.evaluate(()=>{
+      const state={counts:{all:12,online:10,printing:1,attention:0},
+        activeFilter:'all',groups:[],groupId:'',viewMode:'cards'};
+      window.__PFC_DASHBOARD_STATE__=state;
+      window.dispatchEvent(new CustomEvent('pfc:dashboard-state',{detail:state}));
+    });
+    await page.waitForFunction(()=>document.querySelector('#summary [data-dashboard-filter="attention"]')?.dataset.tone==='success');
+    assert.equal(await page.locator('#summary [data-dashboard-filter="attention"] .dashboard-stat-meter').getAttribute('aria-valuenow'),'0');
+    // Empty fleet: show neutral decorative circles and no invented percentages.
+    await page.evaluate(()=>{
+      const state={counts:{all:0,online:0,printing:0,attention:0},
+        activeFilter:'all',groups:[],groupId:'',viewMode:'cards'};
+      window.__PFC_DASHBOARD_STATE__=state;
+      window.dispatchEvent(new CustomEvent('pfc:dashboard-state',{detail:state}));
+    });
+    await page.waitForFunction(()=>document.querySelectorAll('#summary .dashboard-stat-gauge-neutral').length===4);
+    assert.equal(await page.locator('#summary .dashboard-stat-meter').count(),0);
+    // Restore the real-count fixture for click and theme regression checks.
+    await page.evaluate(()=>{
+      const state={counts:{all:12,online:10,printing:1,attention:2},
+        activeFilter:'all',groups:[],groupId:'',viewMode:'cards'};
+      window.__PFC_DASHBOARD_STATE__=state;
+      window.dispatchEvent(new CustomEvent('pfc:dashboard-state',{detail:state}));
+    });
+    await page.waitForFunction(()=>document.querySelector('#summary [data-dashboard-filter="attention"]')?.dataset.tone==='warning');
+    // The dashboard summary text always remains beside its ring, including
+    // narrow two-column layouts. This checks real rendered positions rather
+    // than assuming a flex/grid declaration alone prevents stacking.
+    for(const width of [1365,900,620,390,320]){
+      await page.setViewportSize({width,height:900});
+      const layout=await page.evaluate(()=>{
+        const rect=(node)=>node.getBoundingClientRect();
+        return [...document.querySelectorAll('#summary .dashboard-summary-kpi')].map(card=>{
+          const icon=rect(card.querySelector('.dashboard-stat-gauge'));
+          const text=rect(card.querySelector('.dashboard-stat-body'));
+          const outer=rect(card);
+          return {
+            key:card.dataset.dashboardFilter,
+            icon:{left:icon.left,right:icon.right,top:icon.top,bottom:icon.bottom},
+            text:{left:text.left,right:text.right,top:text.top,bottom:text.bottom},
+            card:{left:outer.left,right:outer.right,top:outer.top,bottom:outer.bottom},
+            grid:getComputedStyle(card).gridTemplateColumns,
+            number:card.querySelector('.dashboard-stat-body > b')?.textContent
+          };
+        });
+      });
+      assert.equal(layout.length,4,'all four dashboard filters render at '+width+'px');
+      for(const row of layout){
+        assert.ok(row.text.left>=row.icon.right+3,
+          'label, count and bar must stay to the RIGHT of icon at '+width+'px: '+JSON.stringify(row));
+        assert.ok(row.icon.top<row.text.bottom && row.icon.bottom>row.text.top,
+          'summary text must remain beside (not below) icon at '+width+'px: '+JSON.stringify(row));
+        assert.ok(row.text.right<=row.card.right-6,
+          'summary text must fit within its card at '+width+'px: '+JSON.stringify(row));
+        assert.ok(row.card.left>=-1 && row.card.right<=width+1,
+          'summary cards must not overflow '+width+'px viewport: '+JSON.stringify(row));
+        assert.ok(row.grid.includes('px'),'status card must use explicit column geometry');
+      }
+    }
+    await page.setViewportSize({width:1365,height:900});
     await page.evaluate(()=>{
       window.__PFC_PHASE3_ACTIONS__=[];
       window.addEventListener('pfc:dashboard-action',(event)=>{

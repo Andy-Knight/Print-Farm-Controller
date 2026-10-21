@@ -37,7 +37,8 @@ test('shared Preact primitives expose accessible loading, field, panel and feedb
 
 test('dashboard upgrades visual surfaces without changing controller action or progress hooks',()=>{
   assert.match(dashboard,/ui-stat-card/);
-  assert.match(dashboard,/data-tone=\{item\.tone\}/);
+  assert.match(dashboard,/data-tone=\{tone\}/);
+  assert.match(dashboard,/const tone = item\.key === 'attention'/);
   assert.match(dashboard,/ui-printer-surface/);
   for(const data of ['data-dashboard-filter','data-printer-card','data-progress-value',
     'data-card-job-control','data-open','data-nozzle','data-bed'])
@@ -66,6 +67,15 @@ test('card-view printer images align on shared CSS subgrid rows without changing
   assert.match(css,/\.fleet:not\(\.table-view\) > \.card\.ui-printer-surface \{/);
   assert.match(css,/grid-row:span 8;/);
   assert.match(css,/grid-template-rows:subgrid;/);
+  assert.match(css,/\.fleet:not\(\.table-view\) \{ row-gap:0; \}/,
+    'parent fleet subgrid tracks must not insert phantom gaps between hidden sections');
+  assert.match(css,/margin-bottom:13px;/,
+    'whole printer cards should remain separated on desktop');
+  assert.match(css,/margin-bottom:10px;/,
+    'whole printer cards should remain separated on mobile');
+  const polish=read('public/dashboard-polish.css');
+  assert.match(polish,/padding:10px 20px 19px;/,
+    'model images need additional clearance above the lower image border');
   for(const [section,row] of [
     ['card-head',1],['printer-image-slot',2],['bed-level-strip',3],
     ['license-strip',4],['preheat-strip',5],['bed-clearance-strip',6],
@@ -98,4 +108,34 @@ test('GitHub visual-regression artifacts use a native Node.js 24 action',(t)=>{
     'Node 20 artifact upload actions cause deprecated runtime warnings');
   assert.match(workflow,/PFC_VISUAL_CAPTURE_DIR:/,
     'browser regression should still produce theme review screenshots');
+});
+
+test('dashboard summary adopts the Analytics circular icon and genuine-ratio presentation',()=>{
+  const skin=read('public/design-system.css');
+  const fallback=read('public/app.js');
+  assert.match(dashboard,/function DashboardSummarySymbol/);
+  for(const icon of ['printer','connected','printing','warning','check'])
+    assert.ok(dashboard.includes(`name === '${icon}'`),'missing status symbol '+icon);
+  assert.match(dashboard,/dashboard-stat-gauge-neutral/);
+  assert.match(dashboard,/dashboard-stat-meter/);
+  assert.match(dashboard,/aria-valuenow=\{percent\}/);
+  assert.match(dashboard,/configured > 0/);
+  assert.match(skin,/conic-gradient\(from -90deg,var\(--dashboard-stat-color\)/);
+  assert.match(skin,/\.dashboard-stat-icon svg/);
+  // Icon and all text stay in the same horizontal row, never stacked.
+  assert.match(skin,/grid-template-columns:72px minmax\(0,1fr\)/);
+  assert.match(skin,/grid-column:1; grid-row:1/);
+  assert.match(skin,/grid-column:2; grid-row:1/);
+  assert.match(skin,/grid-template-columns:52px minmax\(0,1fr\)/);
+  const polish=read('public/dashboard-polish.css');
+  assert.doesNotMatch(polish,/#summary \.summary-card\.ui-stat-card\s*\{/,
+    'late-loaded dashboard polish must not replace the new two-column layout');
+  assert.match(polish,/#summary \.summary-card\.ui-stat-card:not\(\.dashboard-summary-kpi\)/);
+  assert.match(regression,/dashboard summary text always remains beside its ring/);
+  assert.match(skin,/#summary \.dashboard-summary-kpi\[data-tone="working"\]/);
+  assert.match(skin,/#summary \.dashboard-summary-kpi\[data-tone="warning"\]/);
+  assert.match(skin,/:root\[data-theme="light"\] #summary \.dashboard-summary-kpi/);
+  assert.match(fallback,/function dashboardSummaryIconSvg/);
+  assert.match(fallback,/gauge\.style\.setProperty\('--dashboard-stat-angle'/);
+  assert.match(regression,/Dashboard summary cards match Analytics outline ring styling/);
 });

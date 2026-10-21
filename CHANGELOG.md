@@ -4,6 +4,14 @@ This file contains the version-by-version release history for Print Farm Control
 
 Historical entries describe the behaviour of the controller at the time of that release and may be superseded by later versions. For current installation, configuration and supported-hardware guidance, see [README.md](README.md).
 
+## v0.59.7
+
+- Restyled the Dashboard's four summary filters to match Reports & finance → Analytics Option D: outlined circular SVG printer/connectivity/printing/attention icons, themed blue/green/cyan/amber accents and matching headings, counts and slim bars. Rings for Online, Printing and Needs attention show measured shares of the selected printer group, while All Printers remains a neutral total; a healthy zero-attention state shows a green check. With zero printers, the UI avoids invented ratios.
+- Kept every summary card's label, count, contextual description and progress indicator **beside its circular icon**, not below it. Corrected the late-loaded Dashboard polish rule that overrode horizontal positioning. Works in Preact and the legacy fallback, with 2-column desktop/mobile layouts, preserving filter clicks, active states and theme styling.
+- Removed the large blank band between the printer image and print-job information by eliminating inherited parent subgrid row gaps across hidden card status sections. Whole printer tiles still have distinct spacing. Model images remain aspect-ratio-preserving and have increased bottom clearance to avoid lower-edge clipping/overlap. Dashboard table view unaffected.
+- Expanded Node.js and Chromium regressions for measured KPI indicators, icon/text alignment at narrow viewports, printer image and body proximity, subgrid image baseline consistency and desktop/mobile card spacing; container smoke tests passed before the release metadata update.
+- Established a standalone, detailed **Controller Visual Style Guide & Icon Catalogue** in `docs/CONTROLLER_VISUAL_STYLE_GUIDE.md`, plus a locally stored visual reference of 42 current/proposed outline icon designs (`docs/assets/controller-icon-catalog.svg`). The guide covers colours, type, spacing, tables, switches, buttons, tabs, forms, KPI cards, printer tiles, themes, accessibility and responsive UI. It is intentionally separate from the README and project context.
+
 ## v0.59.6
 
 - Replaced the redundant **Popularity** column in Reports & finance → Analytics → Most popular print files with **Material / cost** (material kilograms plus historical filament spend displayed on separate lines) and **Print time** (total recorded printer run duration). Material and cost relate to completed prints; runtime also includes recorded failed and started-cancelled physical attempts. Original file rankings, success-rate calculations, thumbnails, links and Top 10/All selection are preserved.

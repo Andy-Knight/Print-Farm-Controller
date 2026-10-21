@@ -117,8 +117,10 @@
   gap:12px;
   margin:0 0 23px;
 }
-#summary .summary-card.ui-stat-card {
+#summary .summary-card.ui-stat-card:not(.dashboard-summary-kpi) {
   position:relative;
+  /* Legacy stacked layout only. Analytics-style stat cards use the
+     two-column icon/text grid defined in design-system.css. */
   display:flex;
   flex-direction:column;
   align-items:stretch;
@@ -238,7 +240,11 @@
   border-color:var(--ds-border);
 }
 .fleet:not(.table-view) .card.ui-printer-surface .printer-model-image {
-  padding:12px 18px;
+  /* Guarantee visible breathing room below tall model photos, especially
+     U1/AD5M portraits which used to meet the bottom image border. */
+  padding:10px 20px 19px;
+  object-fit:contain;
+  object-position:center;
 }
 .fleet:not(.table-view) .card.ui-printer-surface .card-body {
   padding:17px 16px 13px;
@@ -318,12 +324,12 @@
 }
 @media (max-width:960px) {
   #summary.summary { gap:9px; }
-  #summary .summary-card.ui-stat-card { padding:13px;min-height:103px; }
+  #summary .summary-card.ui-stat-card:not(.dashboard-summary-kpi) { padding:13px;min-height:103px; }
 }
 @media (max-width:760px) {
   .dashboard-hero { margin-bottom:17px; }
   #summary.summary { grid-template-columns:repeat(2,minmax(0,1fr));gap:9px;margin-bottom:18px; }
-  #summary .summary-card.ui-stat-card { min-height:104px;padding:13px 14px; }
+  #summary .summary-card.ui-stat-card:not(.dashboard-summary-kpi) { min-height:104px;padding:13px 14px; }
   .dashboard-fleet-heading { align-items:flex-start; }
   .dashboard-fleet-heading-copy { flex-direction:column;gap:3px; }
   .dashboard-hero .dashboard-controls {
