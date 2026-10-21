@@ -99,3 +99,23 @@ test('GitHub visual-regression artifacts use a native Node.js 24 action',(t)=>{
   assert.match(workflow,/PFC_VISUAL_CAPTURE_DIR:/,
     'browser regression should still produce theme review screenshots');
 });
+
+test('dashboard summary adopts the Analytics circular icon and genuine-ratio presentation',()=>{
+  const skin=read('public/design-system.css');
+  const fallback=read('public/app.js');
+  assert.match(dashboard,/function DashboardSummarySymbol/);
+  for(const icon of ['printer','connected','printing','warning','check'])
+    assert.ok(dashboard.includes(`name === '${icon}'`),'missing status symbol '+icon);
+  assert.match(dashboard,/dashboard-stat-gauge-neutral/);
+  assert.match(dashboard,/dashboard-stat-meter/);
+  assert.match(dashboard,/aria-valuenow=\{percent\}/);
+  assert.match(dashboard,/configured > 0/);
+  assert.match(skin,/conic-gradient\(from -90deg,var\(--dashboard-stat-color\)/);
+  assert.match(skin,/\.dashboard-stat-icon svg/);
+  assert.match(skin,/#summary \.dashboard-summary-kpi\[data-tone="working"\]/);
+  assert.match(skin,/#summary \.dashboard-summary-kpi\[data-tone="warning"\]/);
+  assert.match(skin,/:root\[data-theme="light"\] #summary \.dashboard-summary-kpi/);
+  assert.match(fallback,/function dashboardSummaryIconSvg/);
+  assert.match(fallback,/gauge\.style\.setProperty\('--dashboard-stat-angle'/);
+  assert.match(regression,/Dashboard summary cards match Analytics outline ring styling/);
+});

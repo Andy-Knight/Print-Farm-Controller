@@ -3010,6 +3010,19 @@ function publishDashboardUiState() {
   window.dispatchEvent(new CustomEvent('pfc:dashboard-state', { detail }));
 }
 
+function dashboardSummaryIconSvg(name) {
+  const icons = {
+    printer:'<rect x="4" y="8" width="16" height="9" rx="2"/><path d="M7 8V4h10v4M7 17v3h10v-3M16.5 12.5h.01"/>',
+    connected:'<path d="M3 8.5a13 13 0 0 1 18 0M6.5 12a8 8 0 0 1 11 0M9 16l2.5 2.5L16 14"/>',
+    printing:'<path d="M8 5.5v13l11-6.5z"/>',
+    warning:'<path d="M12 3 22 20H2zM12 9v5M12 17.5h.01"/>',
+    check:'<circle cx="12" cy="12" r="9"/><path d="M7.5 12.5 10.5 15.5 16.5 9"/>'
+  };
+  return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"
+      focusable="false" aria-hidden="true">${icons[name] || icons.printer}</svg>`;
+}
+
 function renderSummary() {
   renderMaintenanceAlert();
   const scopedFleet = dashboardScopedFleet();
@@ -3035,20 +3048,55 @@ function renderSummary() {
 
   if (!structureValid) {
     summaryEl.innerHTML = items.map(([filter]) =>
-      `<button type="button" class="summary-card" data-dashboard-filter="${filter}" aria-pressed="false"><span class="subtle"></span><b></b></button>`
+      `<button type="button" class="summary-card ui-stat-card dashboard-summary-kpi" data-tone="neutral" data-dashboard-filter="${filter}" aria-pressed="false">
+        <span class="dashboard-stat-gauge dashboard-stat-gauge-neutral" aria-hidden="true"><span class="dashboard-stat-icon"></span></span>
+        <span class="dashboard-stat-body"><span class="summary-card-label"><span class="subtle"></span></span>
+          <b></b><span class="dashboard-stat-detail"></span>
+          <span class="dashboard-stat-meter hidden" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><span></span></span>
+          <span class="dashboard-stat-accent" aria-hidden="true"></span></span></button>`
     ).join('');
   }
-
+  const allCount = new Map(items).get('all') || 0;
+  const detailByFilter = {all:'Configured in this view',online:'Connected printers',
+    printing:'Currently printing',attention:'Requires a closer look'};
+  // Keep button roots stable across SSE updates to avoid swallowed clicks.
   for (const [filter, value] of items) {
     const button = summaryEl.querySelector(`[data-dashboard-filter="${filter}"]`);
     if (!button) continue;
     const active = dashboardFilter === filter;
+    const percent = filter === 'all' || allCount === 0 ? null
+      : Math.round(Math.min(100,Math.max(0,value * 100 / allCount)) * 10) / 10;
+    const tone = filter === 'attention' && value === 0 && allCount > 0 ? 'success'
+      : ({all:'neutral',online:'success',printing:'working',attention:'warning'})[filter];
+    const name = filter === 'all' ? 'printer' : filter === 'online' ? 'connected'
+      : filter === 'printing' ? 'printing' : tone === 'success' ? 'check' : 'warning';
     button.classList.toggle('active', active);
+    button.dataset.tone = tone;
     button.setAttribute('aria-pressed', String(active));
     const label = button.querySelector('.subtle');
-    const count = button.querySelector('b');
+    const count = button.querySelector('.dashboard-stat-body > b');
+    const detail = button.querySelector('.dashboard-stat-detail');
     if (label) label.textContent = DASHBOARD_FILTER_LABELS[filter];
     if (count) count.textContent = String(value);
+    if (detail) detail.textContent = detailByFilter[filter];
+    const gauge = button.querySelector('.dashboard-stat-gauge');
+    gauge?.classList.toggle('dashboard-stat-gauge-neutral',percent == null);
+    if (gauge) gauge.style.setProperty('--dashboard-stat-angle',`${percent == null ? 0 : percent * 3.6}deg`);
+    const icon = button.querySelector('.dashboard-stat-icon');
+    if (icon && icon.dataset.name !== name) {
+      icon.innerHTML = dashboardSummaryIconSvg(name);
+      icon.dataset.name = name;
+    }
+    const meter = button.querySelector('.dashboard-stat-meter');
+    const accent = button.querySelector('.dashboard-stat-accent');
+    meter?.classList.toggle('hidden',percent == null);
+    accent?.classList.toggle('hidden',percent != null);
+    if (meter && percent != null) {
+      meter.setAttribute('aria-label',`${DASHBOARD_FILTER_LABELS[filter]}: percentage of all printers in the selected group`);
+      meter.setAttribute('aria-valuenow',String(percent));
+      const fill = meter.querySelector('span');
+      if (fill) fill.style.width = `${percent}%`;
+    }
   }
 }
 
