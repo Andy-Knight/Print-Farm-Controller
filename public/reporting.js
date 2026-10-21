@@ -271,6 +271,25 @@ function filePrintRate(file, field = 'completed') {
   return count > 0 ? Number(file[field] || 0) / count : null;
 }
 
+
+function reportingFileDuration(seconds) {
+  const value = Number(seconds);
+  if (!Number.isFinite(value) || value < 0) return '—';
+  const minutes = Math.round(value / 60);
+  if (value > 0 && minutes === 0) return '<1m';
+  const hours = Math.floor(minutes / 60);
+  const remaining = minutes % 60;
+  return hours ? `${hours}h ${remaining}m` : `${minutes}m`;
+}
+
+function reportingFileCostSort(item) {
+  const entries = Object.entries(item?.spendByCurrency || {})
+    .filter(([currency, amount]) => currency && Number.isFinite(Number(amount)));
+  // Historical currencies are never converted into a guessed global amount.
+  return entries.length === 1 && Number(item?.costedPrints || 0) > 0
+    ? { currency:entries[0][0], amount:Number(entries[0][1]) } : null;
+}
+
 function reportingFileRows(files = [], { failures = false } = {}) {
   const ranked = files.filter((item) => Number(item.completed || 0) > 0 || (failures && Number(item.failed || 0) > 0))
     .slice().sort((a, b) => Number(b.completed || 0) - Number(a.completed || 0)
@@ -284,29 +303,85 @@ function reportingFileRows(files = [], { failures = false } = {}) {
       const result = String(a.fileName || '').localeCompare(String(b.fileName || ''));
       return direction === 'asc' ? result : -result;
     }
-    const value = (item) => sortKey === 'successRate' ? filePrintRate(item) ?? -1 : Number(item[sortKey] || 0);
-    const result = value(a) - value(b);
-    return (direction === 'asc' ? result : -result)
-      || Number(b.completed || 0) - Number(a.completed || 0)
+    if (sortKey === 'materialCost') {
+      const left = reportingFileCostSort(a);
+      const right = reportingFileCostSort(b);
+      // Unknown/mixed-currency costs last; single-currency records are
+      // grouped by currency code before their amounts are compared.
+      if (!left || !right) {
+        if (!left && right) return 1;
+        if (left && !right) return -1;
+      } else {
+        const currencyOrder = left.currency.localeCompare(right.currency);
+        if (currencyOrder !== 0) return currencyOrder;
+        const difference = left.amount - right.amount;
+        if (difference) return direction === 'asc' ? difference : -difference;
+      }
+    } else {
+      const metric = (item) => {
+        if (sortKey === 'successRate') return filePrintRate(item);
+        if (sortKey === 'materialGrams')
+          return Number(item.materialUsageRecordedCount || 0) || Number(item.materialGrams || 0) > 0
+            ? Number(item.materialGrams || 0) : null;
+        if (sortKey === 'runSeconds')
+          return Number(item.runTimeRecordedCount || 0) > 0 ? Number(item.runSeconds || 0) : null;
+        return Number(item[sortKey] || 0);
+      };
+      const left = metric(a);
+      const right = metric(b);
+      if (left == null || right == null) {
+        if (left == null && right != null) return 1;
+        if (left != null && right == null) return -1;
+      } else {
+        const difference = left - right;
+        if (difference) return direction === 'asc' ? difference : -difference;
+      }
+    }
+    return Number(b.completed || 0) - Number(a.completed || 0)
       || String(a.fileName || '').localeCompare(String(b.fileName || ''));
   });
-  const maxCompleted = Math.max(1, ...ranked.map((item) => Number(item.completed || 0)));
   return (failures ? sorted.slice(0, 5)
     : reportingFilesScope === 'all' ? sorted : sorted.slice(0, 10))
-    .map((item) => ({
-      id:String(item.libraryFileId || item.fileName || item.rank),
-      rank:item.rank,
-      fileName:String(item.fileName || 'Unknown file'),
-      libraryFileId:item.libraryFileId ? String(item.libraryFileId) : null,
-      previewUrl:String(item.previewUrl || ''),
-      attempts:Number(item.attempts || 0),
-      completed:Number(item.completed || 0),
-      failed:Number(item.failed || 0),
-      successRate:filePrintRate(item) == null ? '—' : `${formatNumber(filePrintRate(item) * 100, 1)}%`,
-      failureRate:filePrintRate(item, 'failed') == null ? '—' : `${formatNumber(filePrintRate(item, 'failed') * 100, 1)}%`,
-      popularity:Number(Math.min(100, Math.max(0, Number(item.completed || 0) / maxCompleted * 100)).toFixed(1)),
-      lastFailure:formatReportingDate(item.lastFailedAt)
-    }));
+    .map((item) => {
+      const completed = Number(item.completed || 0);
+      const grams = Number(item.materialGrams || 0);
+      const materialRecorded = Number(item.materialUsageRecordedCount || 0);
+      const materialAvailable = materialRecorded > 0 || grams > 0;
+      const costed = Number(item.costedPrints || 0);
+      const timeRecorded = Number(item.runTimeRecordedCount || 0);
+      const timeEligible = Number(item.runTimeEligibleCount || 0);
+      const rawSeconds = Number(item.runSeconds || 0);
+      const timeAvailable = timeRecorded > 0;
+      const costAvailable = costed > 0;
+      return {
+        id:String(item.libraryFileId || item.fileName || item.rank),
+        rank:item.rank,
+        fileName:String(item.fileName || 'Unknown file'),
+        libraryFileId:item.libraryFileId ? String(item.libraryFileId) : null,
+        previewUrl:String(item.previewUrl || ''),
+        attempts:Number(item.attempts || 0),
+        completed,
+        failed:Number(item.failed || 0),
+        successRate:filePrintRate(item) == null ? '—' : `${formatNumber(filePrintRate(item) * 100, 1)}%`,
+        failureRate:filePrintRate(item, 'failed') == null ? '—' : `${formatNumber(filePrintRate(item, 'failed') * 100, 1)}%`,
+        materialText:materialAvailable ? `${formatNumber(grams / 1000, 2)} kg` : '—',
+        materialPartial:materialAvailable && materialRecorded < completed,
+        materialCostText:costAvailable ? formatCurrencyTotals(item.spendByCurrency) : '—',
+        materialCostPartial:costAvailable && costed < completed,
+        materialTitle:materialAvailable
+          ? `Material usage recorded for ${materialRecorded} of ${completed} completed prints`
+          : 'No reliable material usage recorded for completed prints',
+        costTitle:costAvailable
+          ? `Complete material costs recorded for ${costed} of ${completed} completed prints. Historical currencies are not converted.`
+          : 'No complete material cost snapshots recorded for completed prints',
+        printTime:timeAvailable ? reportingFileDuration(rawSeconds) : '—',
+        printTimePartial:timeAvailable && timeRecorded < timeEligible,
+        printTimeTitle:timeAvailable
+          ? `Recorded printer run time for ${timeRecorded} of ${timeEligible} physical print attempts, including failed or started-cancelled jobs`
+          : 'No printer run duration recorded',
+        lastFailure:formatReportingDate(item.lastFailedAt)
+      };
+    });
 }
 
 function reportingFilamentLabel(entry, materialType) {
@@ -550,14 +625,22 @@ function renderReportFiles(files) {
       numeric:true,
       html:`<button type="button" class="reporting-table-sort" data-reporting-file-sort="${key}" aria-label="Sort by ${label.toLowerCase()}" aria-pressed="${reportingFilesSort.key === key}">${label} ${reportingFilesSort.key === key ? (reportingFilesSort.direction === 'desc' ? '▼' : '▲') : '↕'}</button>`
     })),
-    { label:'Popularity' }
+    { label:'Material / cost', html:`<span class="reporting-file-resource-heading">
+      <button type="button" class="reporting-table-sort" data-reporting-file-sort="materialGrams" aria-label="Sort by material usage" aria-pressed="${reportingFilesSort.key === 'materialGrams'}">Material ${reportingFilesSort.key === 'materialGrams' ? (reportingFilesSort.direction === 'desc' ? '▼' : '▲') : '↕'}</button>
+      <button type="button" class="reporting-table-sort" data-reporting-file-sort="materialCost" aria-label="Sort by historical material cost, grouped by currency" title="Historical costs are sorted within currency groups, without currency conversion" aria-pressed="${reportingFilesSort.key === 'materialCost'}">Cost ${reportingFilesSort.key === 'materialCost' ? (reportingFilesSort.direction === 'desc' ? '▼' : '▲') : '↕'}</button>
+    </span>` },
+    { label:'Print time', numeric:true, html:`<button type="button" class="reporting-table-sort" data-reporting-file-sort="runSeconds" aria-label="Sort by total print time" aria-pressed="${reportingFilesSort.key === 'runSeconds'}">Print time ${reportingFilesSort.key === 'runSeconds' ? (reportingFilesSort.direction === 'desc' ? '▼' : '▲') : '↕'}</button>` }
   ];
   return reportingTableShell(headings, files.map((file) => `<tr>
       <td>${file.rank}</td><td>${reportingFileNameHtml(file)}</td>
       <td class="numeric">${file.completed}</td><td class="numeric">${file.failed}</td>
       <td class="numeric">${file.successRate}</td>
-      <td><div class="reporting-progress" role="img" aria-label="${file.popularity}% of leading file">
-        <span style="width:${file.popularity}%"></span></div></td>
+      <td class="reporting-file-resource">
+        <span title="${escapeHtml(file.materialTitle)}">${escapeHtml(file.materialText)}${file.materialPartial ? '<small>partial</small>' : ''}</span>
+        <span title="${escapeHtml(file.costTitle)}">${escapeHtml(file.materialCostText)}${file.materialCostPartial ? '<small>partial</small>' : ''}</span>
+      </td>
+      <td class="numeric reporting-file-time" title="${escapeHtml(file.printTimeTitle)}">
+        ${escapeHtml(file.printTime)}${file.printTimePartial ? '<small>partial</small>' : ''}</td>
     </tr>`),
     'No completed print files for the selected period.');
 }
@@ -810,7 +893,7 @@ reportingDialog?.addEventListener('click', (event) => {
   }
   if (scope && ['top10','all'].includes(scope.dataset.reportingFilesScope)) reportingFilesScope = scope.dataset.reportingFilesScope;
   else if (group && ['type','filament'].includes(group.dataset.reportingMaterialMode)) reportingMaterialMode = group.dataset.reportingMaterialMode;
-  else if (sort && ['fileName','completed','failed','successRate'].includes(sort.dataset.reportingFileSort)) {
+  else if (sort && ['fileName','completed','failed','successRate','materialGrams','materialCost','runSeconds'].includes(sort.dataset.reportingFileSort)) {
     const key = sort.dataset.reportingFileSort;
     reportingFilesSort = key === reportingFilesSort.key
       ? { key, direction:reportingFilesSort.direction === 'desc' ? 'asc' : 'desc' }

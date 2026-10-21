@@ -1736,11 +1736,21 @@ async function routeSmoke(page,url) {
       files:[{
         id:'layout-check',rank:1,fileName:'Regression layout sample.3mf',
         libraryFileId:null,previewUrl:'',completed:10,failed:0,
-        successRate:'100%',popularity:100
+        successRate:'100%',materialText:'0.45 kg',materialCostText:'£6.00',
+        materialPartial:false,materialCostPartial:false,
+        materialTitle:'Recorded for 10 of 10 completed jobs',
+        costTitle:'Recorded £6.00 for 10 jobs',
+        printTime:'2h 0m',printTimePartial:false,printTimeTitle:'2 hours recorded'
       }]
     }}));
   });
   await page.waitForFunction(() => !!document.querySelector('#reportingFiles .reporting-table-scroll'));
+  assert.equal(await page.locator('#reportingFiles .reporting-analytics-table thead th').count(),7);
+  assert.match(await page.locator('#reportingFiles .reporting-file-resource').innerText(),/0\.45 kg/);
+  assert.match(await page.locator('#reportingFiles .reporting-file-resource').innerText(),/£6\.00/);
+  assert.match(await page.locator('#reportingFiles .reporting-file-time').innerText(),/2h 0m/);
+  assert.equal(await page.locator('#reportingFiles .reporting-progress').count(),0,
+    'completed count must not also be duplicated as a popularity bar');
   const reportingLayout = await page.evaluate(() => {
     const box = (selector) => document.querySelector(selector).getBoundingClientRect();
     const scroll = document.querySelector('#reportingFiles .reporting-table-scroll');
@@ -1762,6 +1772,12 @@ async function routeSmoke(page,url) {
     'Print file table must fill its section, not stop at a fixed narrow width');
   assert.ok(reportingLayout.tableOverhang <= 2,
     'Desktop print file table must not require horizontal scrolling');
+  await page.locator('[data-reporting-file-sort="runSeconds"]').first().click();
+  assert.equal(await page.locator('#reportingFiles [data-reporting-file-sort="runSeconds"]').getAttribute('aria-pressed'),'true');
+  await page.locator('[data-reporting-file-sort="materialGrams"]').first().click();
+  assert.equal(await page.locator('#reportingFiles [data-reporting-file-sort="materialGrams"]').getAttribute('aria-pressed'),'true');
+  await page.locator('[data-reporting-file-sort="materialCost"]').first().click();
+  assert.equal(await page.locator('#reportingFiles [data-reporting-file-sort="materialCost"]').getAttribute('aria-pressed'),'true');
   await page.locator('[data-reporting-files-scope="all"]').click();
   assert.equal(await page.locator('[data-reporting-files-scope="all"]').getAttribute('aria-pressed'),'true');
   await page.locator('[data-reporting-files-scope="top10"]').click();

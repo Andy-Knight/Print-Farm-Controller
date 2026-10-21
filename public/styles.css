@@ -3096,18 +3096,30 @@ button.library-file-preview { cursor:zoom-in; }
 .reporting-analytics-files .reporting-analytics-table th:nth-child(1),
 .reporting-analytics-files .reporting-analytics-table td:nth-child(1) { width:5%; }
 .reporting-analytics-files .reporting-analytics-table th:nth-child(2),
-.reporting-analytics-files .reporting-analytics-table td:nth-child(2) { width:40%; }
+.reporting-analytics-files .reporting-analytics-table td:nth-child(2) { width:32%; }
 .reporting-analytics-files .reporting-analytics-table th:nth-child(3),
-.reporting-analytics-files .reporting-analytics-table td:nth-child(3) { width:12%; }
+.reporting-analytics-files .reporting-analytics-table td:nth-child(3) { width:10%; }
 .reporting-analytics-files .reporting-analytics-table th:nth-child(4),
-.reporting-analytics-files .reporting-analytics-table td:nth-child(4) { width:9%; }
+.reporting-analytics-files .reporting-analytics-table td:nth-child(4) { width:8%; }
 .reporting-analytics-files .reporting-analytics-table th:nth-child(5),
-.reporting-analytics-files .reporting-analytics-table td:nth-child(5) { width:14%; }
+.reporting-analytics-files .reporting-analytics-table td:nth-child(5) { width:13%; }
 .reporting-analytics-files .reporting-analytics-table th:nth-child(6),
 .reporting-analytics-files .reporting-analytics-table td:nth-child(6) { width:20%; }
+.reporting-analytics-files .reporting-analytics-table th:nth-child(7),
+.reporting-analytics-files .reporting-analytics-table td:nth-child(7) { width:12%; }
 .reporting-analytics-files .reporting-file-identity { max-width:none; width:100%; }
+.reporting-analytics-files .reporting-analytics-table td.reporting-file-resource { white-space:normal; font-variant-numeric:tabular-nums; }
+.reporting-file-resource-heading { display:flex; flex-wrap:wrap; align-items:center; gap:2px 8px; }
+.reporting-file-resource { min-width:0; line-height:1.35; }
+.reporting-file-resource > span { display:block; overflow-wrap:anywhere; }
+.reporting-file-resource > span + span { margin-top:3px; color:var(--ds-text-muted,#9ba9b6); }
+.reporting-file-resource small, .reporting-file-time small {
+  display:block; margin-top:2px; color:var(--ds-text-muted,#9ba9b6); font-size:.64rem;
+}
+.reporting-file-time { font-variant-numeric:tabular-nums; }
+.reporting-analytics-files .reporting-file-time { white-space:nowrap; }
 @media (max-width:760px) {
-  .reporting-analytics-files .reporting-analytics-table { min-width:700px; }
+  .reporting-analytics-files .reporting-analytics-table { min-width:850px; }
 }
 .reporting-table-content { min-height:110px; }
 .reporting-analytics-table { width:100%; min-width:540px; border-collapse:separate; border-spacing:0; color:inherit; font-size:.76rem; }
