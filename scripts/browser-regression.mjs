@@ -1736,11 +1736,81 @@ async function routeSmoke(page,url) {
       files:[{
         id:'layout-check',rank:1,fileName:'Regression layout sample.3mf',
         libraryFileId:null,previewUrl:'',completed:10,failed:0,
-        successRate:'100%',popularity:100
+        successRate:'100%',materialText:'0.45 kg',materialCostText:'£6.00',
+        materialPartial:false,materialCostPartial:false,
+        materialTitle:'Recorded for 10 of 10 completed jobs',
+        costTitle:'Recorded £6.00 for 10 jobs',
+        printTime:'2h 0m',printTimePartial:false,printTimeTitle:'2 hours recorded'
       }]
     }}));
   });
   await page.waitForFunction(() => !!document.querySelector('#reportingFiles .reporting-table-scroll'));
+  assert.equal(await page.locator('#reportingFiles .reporting-analytics-table thead th').count(),7);
+  assert.match(await page.locator('#reportingFiles .reporting-file-resource').innerText(),/0\.45 kg/);
+  assert.match(await page.locator('#reportingFiles .reporting-file-resource').innerText(),/£6\.00/);
+  assert.match(await page.locator('#reportingFiles .reporting-file-time').innerText(),/2h 0m/);
+  assert.equal(await page.locator('#reportingFiles .reporting-progress').count(),0,
+    'completed count must not also be duplicated as a popularity bar');
+  // Compare the real Most popular print files table against the controller's
+  // shared printer-group table style in BOTH themes (no screenshot guessing).
+  const fileTableTheme = await page.evaluate(() => {
+    const fixture=document.createElement('div');
+    fixture.style.cssText='position:fixed;left:-5000px;top:0;';
+    fixture.innerHTML='<div class="printer-group-members"><table class="printer-group-members-table">'
+      +'<thead><tr><th>File</th></tr></thead><tbody><tr><td>Print file</td></tr></tbody>'
+      +'</table></div>';
+    document.body.appendChild(fixture);
+    const root=document.documentElement,original=root.getAttribute('data-theme');
+    const get=(node)=> {
+      const st=getComputedStyle(node);
+      return {background:st.backgroundColor,color:st.color,fontSize:st.fontSize,
+        fontWeight:st.fontWeight,spacing:st.letterSpacing,transform:st.textTransform,
+        borderTop:st.borderTopColor,borderBottom:st.borderBottomColor,
+        borderBottomWidth:st.borderBottomWidth, divider:st.getPropertyValue('--pfc-table-divider').trim(),
+        radius:st.borderTopLeftRadius,borderRight:st.borderRightWidth};
+    };
+    const state={};
+    try {
+      for(const theme of ['dark','light']) {
+        root.setAttribute('data-theme',theme);
+        const report=document.querySelector('#reportingFiles');
+        const ours={
+          panel:get(report.querySelector('.reporting-table-scroll')),
+          heading:get(report.querySelector('thead th')),
+          firstCell:get(report.querySelector('tbody td'))
+        };
+        const reference={
+          panel:get(fixture.querySelector('.printer-group-members')),
+          heading:get(fixture.querySelector('thead th')),
+          firstCell:get(fixture.querySelector('tbody td'))
+        };
+        state[theme]={ours,reference};
+      }
+    } finally {
+      if(original===null)root.removeAttribute('data-theme');
+      else root.setAttribute('data-theme',original);
+      fixture.remove();
+    }
+    return state;
+  });
+  for (const [theme,{ours,reference}] of Object.entries(fileTableTheme)) {
+    for (const prop of ['background','borderTop','radius'])
+      assert.equal(ours.panel[prop],reference.panel[prop],
+        theme+' file table should use the controller panel '+prop);
+    for (const prop of ['background','color','fontSize','fontWeight','spacing','transform','borderBottom','borderRight'])
+      assert.equal(ours.heading[prop],reference.heading[prop],
+        theme+' file table heading should match controller '+prop);
+    // The synthetic file table has one row, so both this cell and the group
+    // fixture's last row omit their divider. The computed border colour would
+    // fall back to currentColor and differ by cell text; check the actual
+    // divider token plus no-border final-row geometry instead.
+    assert.equal(ours.firstCell.divider,reference.firstCell.divider,
+      theme+' file table uses the same row separator token');
+    assert.equal(ours.firstCell.borderBottomWidth,reference.firstCell.borderBottomWidth,
+      theme+' file table last row must omit its bottom border');
+    assert.equal(ours.firstCell.borderRight,'0px',
+      theme+' file table body should not contain isolated vertical gridlines');
+  }
   const reportingLayout = await page.evaluate(() => {
     const box = (selector) => document.querySelector(selector).getBoundingClientRect();
     const scroll = document.querySelector('#reportingFiles .reporting-table-scroll');
@@ -1762,6 +1832,14 @@ async function routeSmoke(page,url) {
     'Print file table must fill its section, not stop at a fixed narrow width');
   assert.ok(reportingLayout.tableOverhang <= 2,
     'Desktop print file table must not require horizontal scrolling');
+  // This fixture is sent directly to Preact, not injected into the server's
+  // persisted report. Confirm that accessible sort controls are rendered;
+  // the executable reporting UI tests cover actual ordering and direction.
+  for (const key of ['runSeconds','materialGrams','materialCost']) {
+    const button=page.locator('#reportingFiles [data-reporting-file-sort="'+key+'"]');
+    assert.equal(await button.count(),1,'sortable resource column '+key+' must be rendered');
+    assert.equal(await button.getAttribute('aria-pressed'),'false');
+  }
   await page.locator('[data-reporting-files-scope="all"]').click();
   assert.equal(await page.locator('[data-reporting-files-scope="all"]').getAttribute('aria-pressed'),'true');
   await page.locator('[data-reporting-files-scope="top10"]').click();
@@ -1779,6 +1857,25 @@ async function routeSmoke(page,url) {
   await page.waitForFunction(()=>document.querySelector('#reportingPricingFields')?.disabled===false);
   await page.locator('[data-reporting-tab="analytics"]').click();
   await page.waitForFunction(()=>document.querySelector('#reportingPanelAnalytics')?.hidden===false);
+  // Leave a visible scroll gutter after the final failure-analysis card.
+  // This is page spacing, not extra height or a border on the card itself.
+  for (const [width, height, minSpace] of [[1365, 900, 32], [390, 844, 24]]) {
+    await page.setViewportSize({ width, height });
+    const clearance = await page.evaluate(() => {
+      const panel = document.querySelector('#reportingPanelAnalytics');
+      const lastCard = panel.querySelector('.reporting-analytics-failures');
+      return {
+        padding:parseFloat(getComputedStyle(panel).paddingBottom),
+        gap:panel.getBoundingClientRect().bottom - lastCard.getBoundingClientRect().bottom,
+        overflow:document.scrollingElement.scrollHeight - document.scrollingElement.clientHeight
+      };
+    });
+    assert.ok(clearance.padding >= minSpace, 'Analytics tab must provide a bottom gutter');
+    assert.ok(clearance.gap >= minSpace - 1,
+      'Failure-analysis border needs clearance from the end of the Analytics page');
+    assert.ok(clearance.overflow > 0, 'Reporting page must remain vertically scrollable');
+  }
+  await page.setViewportSize({width:1365,height:900});
 
   console.log('Chromium: click navigation and history Back/Forward');
   await page.locator('#queueBtn').click();

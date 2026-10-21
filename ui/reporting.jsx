@@ -165,13 +165,34 @@ function ReportFiles({ files, sort }) {
         {label} {sort.key === key ? (sort.direction === 'desc' ? '▼' : '▲') : '↕'}
       </button>
     })),
-    { label:'Popularity' }
+    { label:<span class="reporting-file-resource-heading">
+      <button type="button" class="reporting-table-sort" data-reporting-file-sort="materialGrams"
+        aria-label="Sort by material usage" aria-pressed={sort.key === 'materialGrams'}>
+        Material {sort.key === 'materialGrams' ? (sort.direction === 'desc' ? '▼' : '▲') : '↕'}
+      </button>
+      <button type="button" class="reporting-table-sort" data-reporting-file-sort="materialCost"
+        title="Historical costs are sorted within currency groups, without currency conversion"
+        aria-label="Sort by historical material cost, grouped by currency" aria-pressed={sort.key === 'materialCost'}>
+        Cost {sort.key === 'materialCost' ? (sort.direction === 'desc' ? '▼' : '▲') : '↕'}
+      </button>
+    </span> },
+    { numeric:true,label:<button type="button" class="reporting-table-sort" data-reporting-file-sort="runSeconds"
+      aria-label="Sort by total print time" aria-pressed={sort.key === 'runSeconds'}>
+      Print time {sort.key === 'runSeconds' ? (sort.direction === 'desc' ? '▼' : '▲') : '↕'}
+    </button> }
   ];
   return <ReportingTable label="Most popular print files" headers={headings} empty="No completed print files for the selected period."
     rows={files.map((file) => <tr key={file.id}>
       <td>{file.rank}</td><td><ReportFileIdentity file={file} /></td>
       <td class="numeric">{file.completed}</td><td class="numeric">{file.failed}</td>
-      <td class="numeric">{file.successRate}</td><td><ReportingProgress percent={file.popularity} /></td>
+      <td class="numeric">{file.successRate}</td>
+      <td class="reporting-file-resource">
+        <span title={file.materialTitle}>{file.materialText}{file.materialPartial && <small>partial</small>}</span>
+        <span title={file.costTitle}>{file.materialCostText}{file.materialCostPartial && <small>partial</small>}</span>
+      </td>
+      <td class="numeric reporting-file-time" title={file.printTimeTitle}>
+        {file.printTime}{file.printTimePartial && <small>partial</small>}
+      </td>
     </tr>)}/>;
 }
 

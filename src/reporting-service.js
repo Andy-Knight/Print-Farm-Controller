@@ -264,6 +264,11 @@ export class ReportingService {
           lastFinishedAt:null,
           lastFailedAt:null,
           materialGrams:0,
+          materialUsageRecordedCount:0,
+          costedPrints:0,
+          runSeconds:0,
+          runTimeEligibleCount:0,
+          runTimeRecordedCount:0,
           spendByCurrency:{}
         });
       }
@@ -271,6 +276,15 @@ export class ReportingService {
       applyStatus(file, record.status);
       if (!file.lastFinishedAt || String(record.finishedAt) > file.lastFinishedAt) file.lastFinishedAt = record.finishedAt;
       if (record.status === 'failed' && (!file.lastFailedAt || String(record.finishedAt) > file.lastFailedAt)) file.lastFailedAt = record.finishedAt;
+      // Printer capacity consumed by any actual attempt (including failed
+      // prints or cancelled starts), not just successful prints.
+      const started = validDate(record.startedAt);
+      const finished = validDate(record.finishedAt);
+      if (record.status !== 'cancelled' || started != null) file.runTimeEligibleCount += 1;
+      if (started != null && finished != null && finished > started) {
+        file.runTimeRecordedCount += 1;
+        file.runSeconds += duration;
+      }
 
       const day = String(record.finishedAt || '').slice(0, 10) || 'unknown';
       if (!daily.has(day)) {
@@ -294,15 +308,22 @@ export class ReportingService {
       }
       if (snapshot.complete === true) costedPrints += 1;
       else uncostedPrints += 1;
+      // Distinguish observed subtotals from complete historical production
+      // records. Older history without usage or price data remains partial.
+      const isCompleteUsage = snapshot.usageComplete === true || snapshot.complete === true;
+      const isCompleteCost = snapshot.complete === true && snapshot.currency
+        && Number.isFinite(Number(snapshot.totalCost));
 
       const totalGrams = Number(snapshot.totalGrams);
       if (Number.isFinite(totalGrams) && totalGrams >= 0) {
         materialGrams += totalGrams;
         if (printer) printer.materialGrams += totalGrams;
         file.materialGrams += totalGrams;
+        if (isCompleteUsage) file.materialUsageRecordedCount += 1;
         dailyRow.materialGrams += totalGrams;
       }
-      if (snapshot.complete === true && snapshot.currency && Number.isFinite(Number(snapshot.totalCost))) {
+      if (isCompleteCost) {
+        file.costedPrints += 1;
         currencyTotalsAdd(spendByCurrency, snapshot.currency, snapshot.totalCost);
         if (printer) currencyTotalsAdd(printer.spendByCurrency, snapshot.currency, snapshot.totalCost);
         currencyTotalsAdd(file.spendByCurrency, snapshot.currency, snapshot.totalCost);
@@ -368,7 +389,9 @@ export class ReportingService {
 
     const fileRows = [...files.values()].map((file) => ({
       ...decorateCounts(file),
-      materialGrams:Math.round(file.materialGrams * 1000) / 1000
+      materialGrams:Math.round(file.materialGrams * 1000) / 1000,
+      runSeconds:file.runSeconds,
+      runHours:Math.round((file.runSeconds / 3600) * 100) / 100
     })).sort((left, right) =>
       right.completed - left.completed
       || right.attempts - left.attempts

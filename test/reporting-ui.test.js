@@ -205,11 +205,19 @@ test('analytics view models rank real print completions and aggregate materials'
   assert.equal(top.length, 10);
   assert.equal(top[0].rank, 1);
   assert.equal(top[0].completed, 20);
-  assert.equal(top[0].popularity, 100);
+  assert.equal(top[0].materialText,'—');
+  assert.equal(top[0].materialCostText,'—');
+  assert.equal(top[0].printTime,'—');
   const html = ui.renderReportFiles(top);
   assert.match(html, /reporting-analytics-table/);
   assert.match(html, /data-reporting-open-file="id-0"/);
   assert.match(html, /api\/library\/id-0\/preview/);
+  assert.match(html, /data-reporting-file-sort="materialGrams"/);
+  assert.match(html, /data-reporting-file-sort="materialCost"/);
+  assert.match(html, /data-reporting-file-sort="runSeconds"/);
+  assert.match(html, /Material ↕/);
+  assert.doesNotMatch(html, /Popularity/);
+  assert.doesNotMatch(html, /of leading file/);
   ui.setSort('failed','desc');
   assert.equal(ui.reportingFileRows(files)[0].fileName, 'File 11.3mf');
   ui.setScope('all');
@@ -273,9 +281,23 @@ test('analytics chart is first after KPIs, print file table spans full width and
   assert.ok(positions.every((position) => position >= 0));
   assert.deepEqual(positions, [...positions].sort((a, b) => a - b));
   assert.match(styles, /\.reporting-analytics-files\s*\{\s*grid-column:1\s*\/\s*-1/);
+  assert.match(styles, /#reportingPanelAnalytics\s*\{\s*padding-bottom:32px/);
+  assert.match(styles, /@media \(max-width:760px\)\s*\{\s*#reportingPanelAnalytics\s*\{\s*padding-bottom:24px/);
   assert.match(styles, /\.reporting-table-scroll\s*\{[^}]*width:100%;[^}]*max-width:100%;/);
   assert.doesNotMatch(styles, /\.reporting-table-scroll\s*\{[^}]*max-width:365px/);
   assert.match(styles, /\.reporting-analytics-files \.reporting-analytics-table\s*\{[^}]*table-layout:fixed/);
+  // Popular-file analytics must use the same controller table theme tokens as
+  // the Dashboard/Alerts/Printer Groups, not a separate report-only skin.
+  const sharedStyle = styles.slice(styles.indexOf('/* Controller table design system.'),
+    styles.indexOf('/* Preact-owned printer name editor:'));
+  assert.match(sharedStyle, /#reportingFiles \.reporting-table-scroll/);
+  assert.match(sharedStyle, /#reportingFiles \.reporting-analytics-table thead th/);
+  assert.match(sharedStyle, /#reportingFiles \.reporting-analytics-table tbody td/);
+  assert.match(sharedStyle, /#reportingFiles \.reporting-analytics-table tbody tr:hover > \*/);
+  assert.match(sharedStyle, /var\(--pfc-table-divider\)/);
+  assert.match(sharedStyle, /var\(--pfc-table-hover\)/);
+  assert.match(sharedStyle, /var\(--pfc-table-header-background\)/);
+  assert.match(sharedStyle, /var\(--pfc-table-surface\)/);
   assert.match(styles, /\.reporting-kpi \.reporting-kpi-gauge/);
   assert.match(styles, /\.reporting-kpi \.reporting-kpi-meter/);
   assert.match(styles, /\.reporting-kpi \.reporting-kpi-accent/);
@@ -446,4 +468,79 @@ test('previous-period change graphics show honest equal-window comparisons with 
   assert.match(preact,/item\.change\?\.symbol/);
   assert.match(preact,/item\.change\?\.caption/);
   assert.match(preact,/item\.change\?\.description/);
+});
+
+test('print-file analytics show material, historical cost, and total printer time without redundancy', () => {
+  const helpers = [
+    reportingUi.slice(reportingUi.indexOf('function escapeHtml('), reportingUi.indexOf('async function requestJson(')),
+    reportingUi.slice(reportingUi.indexOf('function formatNumber('), reportingUi.indexOf('function reportRangeDates(')),
+    reportingUi.slice(reportingUi.indexOf('function formatReportingDate('), reportingUi.indexOf('function reportingKpiSvg(')),
+    reportingUi.slice(reportingUi.indexOf('function reportingFileNameHtml('), reportingUi.indexOf('function renderReportMaterials('))
+  ].join('\n');
+  const ui=vm.runInNewContext([
+    "let reportingFilesScope = 'all';",
+    "let reportingFilesSort = { key:'completed', direction:'desc' };",
+    helpers,
+    '({ reportingFileRows, renderReportFiles, setSort:(key,direction)=>reportingFilesSort={key,direction} })'
+  ].join('\n'));
+  const files=[
+    {fileName:'High usage',completed:3,failed:0,attempts:3,materialGrams:450,
+      materialUsageRecordedCount:3,costedPrints:3,spendByCurrency:{GBP:6},
+      runSeconds:7200,runTimeEligibleCount:3,runTimeRecordedCount:3},
+    {fileName:'Long-running',completed:2,failed:1,attempts:3,materialGrams:120,
+      materialUsageRecordedCount:2,costedPrints:2,spendByCurrency:{GBP:2},
+      runSeconds:18000,runTimeEligibleCount:3,runTimeRecordedCount:3},
+    {fileName:'Euro job',completed:2,failed:0,attempts:2,materialGrams:300,
+      materialUsageRecordedCount:2,costedPrints:2,spendByCurrency:{EUR:4},
+      runSeconds:10800,runTimeEligibleCount:2,runTimeRecordedCount:2},
+    {fileName:'Partial',completed:2,failed:0,attempts:2,materialGrams:50,
+      materialUsageRecordedCount:1,costedPrints:1,spendByCurrency:{GBP:1},
+      runSeconds:5400,runTimeEligibleCount:2,runTimeRecordedCount:1},
+    {fileName:'No historic metadata',completed:1,failed:0,attempts:1,materialGrams:0,
+      materialUsageRecordedCount:0,costedPrints:0,spendByCurrency:{},
+      runSeconds:0,runTimeEligibleCount:1,runTimeRecordedCount:0},
+    {fileName:'Mixed currencies',completed:2,failed:0,attempts:2,materialGrams:70,
+      materialUsageRecordedCount:2,costedPrints:2,spendByCurrency:{GBP:1,EUR:2},
+      runSeconds:540,runTimeEligibleCount:2,runTimeRecordedCount:2}
+  ];
+  const rows=ui.reportingFileRows(files);
+  const byName=(name)=>rows.find(row=>row.fileName===name);
+  assert.equal(byName('High usage').materialText,'0.45 kg');
+  assert.equal(byName('High usage').materialCostText,'£6.00');
+  assert.equal(byName('High usage').printTime,'2h 0m');
+  assert.equal(byName('Long-running').printTime,'5h 0m');
+  assert.equal(byName('Partial').materialPartial,true);
+  assert.equal(byName('Partial').materialCostPartial,true);
+  assert.equal(byName('Partial').printTimePartial,true);
+  assert.equal(byName('No historic metadata').materialText,'—');
+  assert.equal(byName('No historic metadata').materialCostText,'—');
+  assert.equal(byName('No historic metadata').printTime,'—');
+  assert.match(byName('Mixed currencies').materialCostText,/£1\.00/);
+  assert.match(byName('Mixed currencies').materialCostText,/€2\.00/);
+  const html=ui.renderReportFiles(rows);
+  assert.match(html, /0\.45 kg/);
+  assert.match(html, /£6\.00/);
+  assert.match(html, /2h 0m/);
+  assert.match(html, /<small>partial<\/small>/);
+  assert.match(html, /Sort by historical material cost, grouped by currency/);
+  assert.doesNotMatch(html,/Popularity/);
+  ui.setSort('materialGrams','desc');
+  assert.equal(ui.reportingFileRows(files)[0].fileName,'High usage');
+  ui.setSort('runSeconds','desc');
+  assert.equal(ui.reportingFileRows(files)[0].fileName,'Long-running');
+  ui.setSort('materialCost','desc');
+  const costSorted=ui.reportingFileRows(files).map(item=>item.fileName);
+  assert.deepEqual(Array.from(costSorted.slice(0,4)),['Euro job','High usage','Long-running','Partial'],
+    'sort by historical cost within currency groups, with EUR and GBP kept separate');
+  assert.deepEqual(Array.from(costSorted.slice(4)),['Mixed currencies','No historic metadata'],
+    'non-comparable prices must not be converted or interleaved with valid prices');
+  ui.setSort('materialGrams','asc');
+  assert.equal(ui.reportingFileRows(files).at(-1).fileName,'No historic metadata',
+    'missing data must remain last regardless of sort direction');
+  const preact=fs.readFileSync(new URL('../ui/reporting.jsx',import.meta.url),'utf8');
+  assert.match(preact,/file\.materialCostText/);
+  assert.match(preact,/file\.materialText/);
+  assert.match(preact,/file\.printTime/);
+  assert.match(styles,/reporting-file-resource-heading/);
+  assert.match(styles,/reporting-file-time/);
 });

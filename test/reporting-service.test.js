@@ -221,3 +221,74 @@ test('previous period comparisons use an adjacent equal-length range and the sam
     await fs.rm(root,{ recursive:true,force:true });
   }
 });
+
+test('per-file analytics retain completed material/cost totals and actual printer time with coverage', async () => {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), 'pfc-file-usage-'));
+  const service = new ReportingService({ filePath:path.join(root,'reporting-history.json') });
+  const t0 = '2026-10-19T00:00:00.000Z';
+  try {
+    await service.recordTerminalJobs([
+      completedJob({ id:'job-a',printerId:'p1',printerName:'P1',fileName:'clip.3mf',
+        startedAt:'2026-10-19T10:00:00.000Z',finishedAt:'2026-10-19T11:00:00.000Z',
+        materialCost:{complete:true,usageComplete:true,totalGrams:25,totalCost:0.50,
+          currency:'GBP',tools:[]} }),
+      completedJob({ id:'job-b',printerId:'p2',printerName:'P2',fileName:'clip.3mf',
+        startedAt:'2026-10-19T12:00:00.000Z',finishedAt:'2026-10-19T12:30:00.000Z',
+        materialCost:{complete:true,usageComplete:true,totalGrams:15,totalCost:0.30,
+          currency:'GBP',tools:[]} }),
+      completedJob({ id:'job-c',printerId:'p1',printerName:'P1',fileName:'clip.3mf',
+        status:'failed',startedAt:'2026-10-19T14:00:00.000Z',finishedAt:'2026-10-19T14:12:00.000Z' }),
+      completedJob({ id:'job-d',printerId:'p1',printerName:'P1',fileName:'clip.3mf',
+        status:'cancelled',finishedAt:'2026-10-19T15:00:00.000Z' }),
+      completedJob({ id:'job-e',printerId:'p1',printerName:'P1',fileName:'other.3mf',
+        startedAt:'2026-10-19T16:00:00.000Z',finishedAt:'2026-10-19T16:10:00.000Z' })
+    ]);
+    const report = await service.getReport({ from:t0, to:'2026-10-20T00:00:00.000Z' });
+    const clip = report.files.find(item => item.fileName === 'clip.3mf');
+    assert.equal(clip.attempts, 4);
+    assert.equal(clip.completed, 2);
+    assert.equal(clip.failed, 1);
+    assert.equal(clip.materialGrams, 40);
+    assert.equal(clip.materialUsageRecordedCount, 2);
+    assert.equal(clip.costedPrints, 2);
+    assert.deepEqual(clip.spendByCurrency,{GBP:0.8});
+    assert.equal(clip.runTimeEligibleCount,3);
+    assert.equal(clip.runTimeRecordedCount,3);
+    assert.equal(clip.runSeconds,6120);
+    const other = report.files.find(item => item.fileName === 'other.3mf');
+    assert.equal(other.completed,1);
+    assert.equal(other.materialUsageRecordedCount,0);
+    assert.equal(other.costedPrints,0);
+    assert.equal(other.runTimeRecordedCount,1);
+    assert.equal(other.runSeconds,600);
+  } finally { await fs.rm(root,{recursive:true,force:true}); }
+});
+
+test('historical file analytics preserve partial and multi-currency totals without conversion', async () => {
+  const root=await fs.mkdtemp(path.join(os.tmpdir(),'pfc-file-partial-'));
+  const service=new ReportingService({filePath:path.join(root,'reporting-history.json')});
+  try {
+    await service.recordTerminalJobs([
+      completedJob({ id:'a',printerId:'p1',fileName:'product.3mf',
+        startedAt:'2026-10-19T08:00:00.000Z',finishedAt:'2026-10-19T08:30:00.000Z',
+        materialCost:{complete:true,totalGrams:30,totalCost:0.6,currency:'GBP',tools:[]} }),
+      completedJob({ id:'b',printerId:'p1',fileName:'product.3mf',
+        startedAt:'2026-10-19T09:00:00.000Z',finishedAt:'2026-10-19T09:20:00.000Z',
+        materialCost:{complete:true,totalGrams:20,totalCost:0.4,currency:'EUR',tools:[]} }),
+      completedJob({ id:'c',printerId:'p1',fileName:'product.3mf',
+        finishedAt:'2026-10-19T10:00:00.000Z', materialCost:null }),
+      completedJob({ id:'d',printerId:'p2',fileName:'product.3mf',status:'cancelled',
+        startedAt:'2026-10-19T11:00:00.000Z',finishedAt:'2026-10-19T11:05:00.000Z' })
+    ]);
+    const report=await service.getReport({from:'2026-10-19T00:00:00.000Z',to:'2026-10-20T00:00:00.000Z'});
+    const product=report.files.find(item=>item.fileName==='product.3mf');
+    assert.equal(product.completed,3);
+    assert.equal(product.materialGrams,50);
+    assert.equal(product.materialUsageRecordedCount,2);
+    assert.equal(product.costedPrints,2);
+    assert.deepEqual(product.spendByCurrency,{GBP:0.6,EUR:0.4});
+    assert.equal(product.runTimeEligibleCount,4);
+    assert.equal(product.runTimeRecordedCount,3);
+    assert.equal(product.runSeconds,3300);
+  } finally { await fs.rm(root,{recursive:true,force:true}); }
+});
