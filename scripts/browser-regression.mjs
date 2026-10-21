@@ -1937,6 +1937,17 @@ async function routeSmoke(page,url) {
       const base=window.__PFC_REPORTING_UI_STATE__ || {};
       window.dispatchEvent(new CustomEvent('pfc:reporting-ui-state',{detail:{
         ...base,materialMode:mode,
+        // Keep the earlier file-geometry fixture in Preact state: dispatching
+        // this custom event replaces the entire view model, not just materials.
+        files:[{
+          id:'layout-check',rank:1,fileName:'Regression layout sample.3mf',
+          libraryFileId:null,previewUrl:'',completed:10,failed:0,
+          successRate:'100%',materialText:'0.45 kg',materialCostText:'£6.00',
+          materialPartial:false,materialCostPartial:false,
+          materialTitle:'Recorded for 10 of 10 completed jobs',
+          costTitle:'Recorded £6.00 for 10 jobs',
+          printTime:'2h 0m',printTimePartial:false,printTimeTitle:'2 hours recorded'
+        }],
         materials:{rows:[
           {key:'sample',label,note:'Historical materials sample',
             kg:'1.50',percentage:'75.0%',percent:75,cost:'£19.50'},
