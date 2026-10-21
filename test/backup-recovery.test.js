@@ -89,7 +89,7 @@ test('logical backup creates a verified portable pfcbackup with known persistent
     const filaments = JSON.parse((await archive.read('state/filaments.json')).toString('utf8'));
     assert.equal(filaments.filaments[0].costPerKg, 18.95);
     const libraryPricing=JSON.parse((await archive.read('state/library-pricing.json')).toString('utf8'));
-    assert.deepEqual(libraryPricing,{profitPercent:35,profitMethod:'markup',taxRate:20,hourlyCostRate:2.5,labourHourlyRate:18});
+    assert.deepEqual(libraryPricing,{profitPercent:35,profitMethod:'markup',taxRate:20,hourlyCostRate:2.5,labourHourlyRate:18,currency:'GBP'});
     const alerts = JSON.parse((await archive.read('state/alerts.json')).toString('utf8'));
     assert.equal(alerts.rules[0].scope.groupId, 'group-1');
     assert.equal(alerts.destinations[0].config.token, 'secret');

@@ -39,7 +39,7 @@ test('library cost estimates reuse live catalogue prices and weight, reading cat
   assert.equal(estimate[0].description,'Do not mutate','preserve library response fields');
 });
 
-test('library never displays partial or invented costs for missing usage, unmatched materials or mixed currency',async()=>{
+test('library never displays partial or invented costs for missing usage or unmatched materials',async()=>{
   const entries=[
     material(PLA_ID,'PLA',20),
     material(PLA2_ID,'PLA',30),
@@ -50,7 +50,6 @@ test('library never displays partial or invented costs for missing usage, unmatc
     file('missing-usage',[tool(0,'PLA',null)],{'0':PLA_ID}),
     file('ambiguous-profile',[tool(0,'PLA',15)]),
     file('missing-assigned-filament',[tool(0,'PLA',10)],{'0':'44444444-4444-4444-8444-444444444444'}),
-    file('mixed-currencies',[tool(0,'PLA',10),tool(1,'PETG',10)],{'0':PLA_ID,'1':PETG_ID}),
     file('partial',[tool(0,'PLA',10),tool(1,'ABS',20)],{'0':PLA_ID})
   ];
   const results=await estimateLibraryFileCosts(cases,{listFilamentsFn:async()=>entries});
@@ -63,8 +62,12 @@ test('library never displays partial or invented costs for missing usage, unmatc
   assert.match(results[1].costEstimate.issue,/weight/i);
   assert.match(results[2].costEstimate.issue,/Multiple PLA/i);
   assert.match(results[3].costEstimate.issue,/no longer exists/);
-  assert.match(results[4].costEstimate.issue,/different currencies/i);
-  assert.match(results[5].costEstimate.issue,/ABS/);
+  assert.match(results[4].costEstimate.issue,/ABS/);
+  const legacyMixed=file('mixed',[tool(0,'PLA',10),tool(1,'PETG',10)],{'0':PLA_ID,'1':PETG_ID});
+  const mixed=(await estimateLibraryFileCosts([legacyMixed],{listFilamentsFn:async()=>entries}))[0].costEstimate;
+  assert.equal(mixed.complete,true,'legacy per-entry currencies no longer block a global estimate');
+  assert.equal(mixed.currency,'GBP');
+  assert.equal(mixed.totalCost,0.5);
 });
 
 test('changing catalogue prices updates library estimates without rewriting historical snapshots',async()=>{
