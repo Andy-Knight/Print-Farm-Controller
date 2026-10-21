@@ -1,4 +1,4 @@
-# Print Farm Controller v0.59.7
+# Print Farm Controller v0.59.8
 A local-first 3D printer fleet controller. It runs entirely on your LAN and currently supports:
 
 - **FlashForge Adventurer 5M / 5M Pro** through the local FlashForge HTTP/TCP APIs.
@@ -7,9 +7,12 @@ A local-first 3D printer fleet controller. It runs entirely on your LAN and curr
 - **Prusa CORE One+ (experimental)** through the local PrusaLink API, supporting Standard (1-tool), INDX4 and INDX8 configurations.
 - **Bambu Lab P1P / P1S / X1C / A1 Mini (experimental)** through the local MQTT TLS and FTPS TLS interfaces. P1P/P1S/A1 Mini use the TLS/JPEG camera path; X1C camera decoding remains unsupported.
 
-**Current development version: v0.59.7**
+**Current development version: v0.59.8**
 
 Current highlights:
+
+- **Standardised Analytics Material usage table (v0.59.8):** Reports & finance → Analytics → Material usage now matches the controller's shared table design across both **By material type** and **By filament**: dark background and white uppercase headings in either theme, matching panel borders/rounded corners, compact row separators and hover treatments. Numeric data stays right-aligned, percentage usage bars stay intact, and the bold Total row has a matching surface and divider. No changes to historical material quantities, currencies, costing, aggregation or grouping controls. Updated the standalone Controller Visual Style Guide with the table standard.
+
 
 - **Dashboard summary and printer card refinements (v0.59.7):** The Dashboard's All Printers, Online, Printing, and Needs attention filters now use the same outlined circular KPI icons, colour accents, numeric hierarchy and slim progress meters as the Reports & finance Analytics cards. Measured percentages reflect printer counts within the selected group; the total count has a decorative ring and zero-attention shows a green check. The icon is on the left, with the label, count, context and indicator bar to its right on all screen sizes, including mobile. Printer cards no longer show excessive empty space below printer model images: subgrid no longer inherits parent row gaps between hidden status sections, while outer card separation is retained. Model pictures use contained sizing and additional bottom padding to protect the printer silhouette from the image boundary. Light/dark theme, filter actions, card/table switching, responsive layouts and existing printer controls remain intact.
 
