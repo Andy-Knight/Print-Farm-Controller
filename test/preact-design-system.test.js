@@ -67,6 +67,11 @@ test('card-view printer images align on shared CSS subgrid rows without changing
   assert.match(css,/\.fleet:not\(\.table-view\) > \.card\.ui-printer-surface \{/);
   assert.match(css,/grid-row:span 8;/);
   assert.match(css,/grid-template-rows:subgrid;/);
+  assert.match(css,/grid-template-rows:subgrid;\\s*\\/\\*[\\s\\S]*?\\*\\/\\s*row-gap:0;/,
+    'printer cards must not inherit fleet row gaps between internal sections');
+  const polish=read('public/dashboard-polish.css');
+  assert.match(polish,/padding:10px 20px 19px;/,
+    'model images need additional clearance above the lower image border');
   for(const [section,row] of [
     ['card-head',1],['printer-image-slot',2],['bed-level-strip',3],
     ['license-strip',4],['preheat-strip',5],['bed-clearance-strip',6],

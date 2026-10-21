@@ -320,6 +320,10 @@
     display:grid;
     grid-row:span 8;
     grid-template-rows:subgrid;
+    /* Parent .fleet gap is for separating printer cards. Without this
+       override subgrid inherits that row gap between eight internal tracks,
+       leaving ~65px of blank space after images when status strips are hidden. */
+    row-gap:0;
     align-content:stretch;
   }
   .fleet:not(.table-view) > .card.ui-printer-surface > .card-head { grid-row:1; }

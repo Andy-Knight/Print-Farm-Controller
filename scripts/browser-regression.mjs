@@ -133,9 +133,20 @@ async function designSystemSmoke(browser,url) {
           const headBox=head.getBoundingClientRect();
           const key=Math.round(cardBox.top);
           if(!rows.has(key))rows.set(key,[]);
+          const body=card.querySelector('.card-body');
+          const bodyRect=body.getBoundingClientRect();
+          const image=card.querySelector('.printer-model-image');
+          const imageStyle=image&&getComputedStyle(image);
+          const invisibleStrips=[...card.querySelectorAll('.bed-level-strip,.license-strip,.preheat-strip,.bed-clearance-strip')]
+            .every(strip=>getComputedStyle(strip).display==='none');
           rows.get(key).push({
             name:card.querySelector('[data-name]')?.textContent,
             imageTop:imageBox.top,imageBottom:imageBox.bottom,
+            bodyTop:bodyRect.top,
+            hiddenStrips:invisibleStrips,
+            photoFit:imageStyle?.objectFit,
+            photoBottomPadding:imageStyle?Number.parseFloat(imageStyle.paddingBottom):null,
+            imageHeight:imageBox.height,
             headBottom:headBox.bottom,headScroll:head.scrollHeight,headHeight:head.clientHeight
           });
         }
@@ -152,6 +163,18 @@ async function designSystemSmoke(browser,url) {
             'long printer headings must grow rather than clip: '+JSON.stringify(card));
           assert.ok(card.headBottom<=card.imageTop+1.5,
             'card heading must not overlap its image');
+          if(card.hiddenStrips) {
+            assert.ok(Math.abs(card.bodyTop-card.imageBottom)<=2.5,
+              'hidden activity strips must not leave a blank band below printer images: '+JSON.stringify(card));
+          }
+          if(card.photoFit) {
+            assert.equal(card.photoFit,'contain',
+              'printer photos should stay contained rather than cropped');
+            assert.ok(card.photoBottomPadding>=18,
+              'printer images need room above lower slot border: '+JSON.stringify(card));
+            assert.ok(card.imageHeight>=150,
+              'printer model image slot must retain a useful visible height');
+          }
         }
       }
     }

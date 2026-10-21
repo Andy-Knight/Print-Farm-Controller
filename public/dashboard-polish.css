@@ -240,7 +240,11 @@
   border-color:var(--ds-border);
 }
 .fleet:not(.table-view) .card.ui-printer-surface .printer-model-image {
-  padding:12px 18px;
+  /* Guarantee visible breathing room below tall model photos, especially
+     U1/AD5M portraits which used to meet the bottom image border. */
+  padding:10px 20px 19px;
+  object-fit:contain;
+  object-position:center;
 }
 .fleet:not(.table-view) .card.ui-printer-surface .card-body {
   padding:17px 16px 13px;
