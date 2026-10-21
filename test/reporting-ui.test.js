@@ -118,8 +118,8 @@ test('attention UI only shows genuine flagged printers and accurately describes 
   const helpers = [
     section('function formatNumber(', 'function formatCurrencyTotals('),
     section('function escapeHtml(', 'async function requestJson('),
-    section('function reportingPrintersViewModel(', 'function reportingKpiViewModel('),
-    section('function renderProblemPrinters(', 'function renderReport(')
+    section('function formatReportingDate(', 'function reportingKpiViewModel('),
+    section('function reportingFileNameHtml(', 'function renderReport(')
   ];
   const ui = vm.runInNewContext(helpers.join('\n') +
     '\n({ reportingPrintersViewModel, renderProblemPrinters, formatRateTrend, formatPercent, formatPrinterRunTime })');
@@ -154,4 +154,85 @@ test('attention UI only shows genuine flagged printers and accurately describes 
   const preact = fs.readFileSync(new URL('../ui/reporting.jsx', import.meta.url), 'utf8');
   assert.match(preact, /No printers currently need attention/);
   assert.match(preact, /hasActivity={state.printerActivity}/);
+});
+
+test('analytics mock-up contains the new workbench tables in both renderers', () => {
+  for (const id of ['reportingFiles','reportingMaterials','reportingPrinters','reportingFileFailures','reportingTrend']) {
+    assert.match(index, new RegExp('id="' + id + '"'));
+  }
+  assert.match(index, /data-reporting-files-scope="top10"/);
+  assert.match(index, /data-reporting-files-scope="all"/);
+  assert.match(index, /data-reporting-material-mode="type"/);
+  assert.match(index, /data-reporting-material-mode="filament"/);
+  assert.match(styles, /\.reporting-analytics-table/);
+  assert.match(styles, /\.reporting-table-scroll/);
+  assert.match(styles, /\.reporting-analytics-grid/);
+  assert.match(reportingUi, /function renderReportFiles/);
+  assert.match(reportingUi, /function renderReportMaterials/);
+  assert.match(reportingUi, /function renderFileFailures/);
+  assert.match(reportingUi, /pfc:reporting-open-library-file/);
+  assert.match(app, /pendingReportingLibraryFileId/);
+  const preact = fs.readFileSync(new URL('../ui/reporting.jsx', import.meta.url), 'utf8');
+  assert.match(preact, /function ReportFiles/);
+  assert.match(preact, /function ReportMaterials/);
+  assert.match(preact, /function FileFailures/);
+  assert.match(preact, /data-reporting-open-file/);
+});
+
+test('analytics view models rank real print completions and aggregate materials', () => {
+  const helpers = [
+    reportingUi.slice(reportingUi.indexOf('function formatNumber('), reportingUi.indexOf('function reportRangeDates(')),
+    reportingUi.slice(reportingUi.indexOf('function formatReportingDate('), reportingUi.indexOf('function reportingKpiViewModel(')),
+    reportingUi.slice(reportingUi.indexOf('function reportingFileNameHtml('), reportingUi.indexOf('function renderReport('))
+  ];
+  const ui = vm.runInNewContext([
+    "let reportingFilesScope = 'top10';",
+    "let reportingFilesSort = { key:'completed', direction:'desc' };",
+    "let reportingMaterialMode = 'type';",
+    helpers.join('\n'),
+    '({ reportingFileRows, reportingMaterialRows, renderReportFiles, renderReportMaterials, renderFileFailures, setScope:(scope)=>reportingFilesScope=scope, setMode:(mode)=>reportingMaterialMode=mode, setSort:(key,direction)=>reportingFilesSort={key,direction} })'
+  ].join('\n'));
+  const files = Array.from({ length:12 }, (_, index) => ({
+    fileName:'File ' + index + '.3mf',
+    libraryFileId:'id-' + index,
+    previewUrl:'/api/library/id-' + index + '/preview',
+    attempts:20-index, completed:20-index, failed:0
+  }));
+  files[11].failed=2;
+  files[11].attempts+=2;
+  const top = ui.reportingFileRows(files);
+  assert.equal(top.length, 10);
+  assert.equal(top[0].rank, 1);
+  assert.equal(top[0].completed, 20);
+  assert.equal(top[0].popularity, 100);
+  const html = ui.renderReportFiles(top);
+  assert.match(html, /reporting-analytics-table/);
+  assert.match(html, /data-reporting-open-file="id-0"/);
+  assert.match(html, /api\/library\/id-0\/preview/);
+  ui.setSort('failed','desc');
+  assert.equal(ui.reportingFileRows(files)[0].fileName, 'File 11.3mf');
+  ui.setScope('all');
+  assert.equal(ui.reportingFileRows(files).length, 12);
+  const failures = ui.reportingFileRows(files, { failures:true });
+  assert.equal(failures.length, 1);
+  assert.equal(failures[0].failed, 2);
+  assert.equal(failures[0].failureRate, '18.2%');
+  assert.match(ui.renderFileFailures(failures), /File 11/);
+  const materials = [
+    { filamentId:'a', label:'ASA Brand 1', material:'ASA', grams:2000, spendByCurrency:{ GBP:12 } },
+    { filamentId:'b', label:'ASA Brand 2', material:'ASA', grams:1000, spendByCurrency:{ GBP:6 } },
+    { filamentId:'c', label:'PLA Brand', material:'PLA', grams:1000, spendByCurrency:{ GBP:5 } }
+  ];
+  const byType = ui.reportingMaterialRows(materials);
+  assert.equal(byType.rows.length, 2);
+  assert.equal(byType.rows[0].label, 'ASA');
+  assert.equal(byType.rows[0].kg, '3.00');
+  assert.equal(byType.rows[0].percentage, '75.0%');
+  assert.equal(byType.totalKg, '4.00');
+  assert.match(ui.renderReportMaterials(byType), /Total/);
+  ui.setMode('filament');
+  const byFilament = ui.reportingMaterialRows(materials);
+  assert.equal(byFilament.rows.length, 3);
+  assert.equal(byFilament.rows[0].label, 'ASA Brand 1');
+  assert.equal(ui.reportingFileRows([{fileName:'cancelled.gcode',completed:0,failed:0,attempts:2}]).length, 0);
 });

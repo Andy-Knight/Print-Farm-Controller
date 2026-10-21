@@ -220,7 +220,8 @@ export class ReportingService {
             earlierFailed:0,
             recentAttempts:0,
             recentFailed:0,
-            lastFinishedAt:null
+            lastFinishedAt:null,
+            lastFailedAt:null
           });
         }
         printer = printers.get(printerKey);
@@ -237,6 +238,7 @@ export class ReportingService {
         const startedMs = validDate(record.startedAt);
         if (startedMs != null && finishedMs != null && finishedMs > startedMs) printer.runTimeRecordedCount += 1;
         if (!printer.lastFinishedAt || String(record.finishedAt) > printer.lastFinishedAt) printer.lastFinishedAt = record.finishedAt;
+        if (record.status === 'failed' && (!printer.lastFailedAt || String(record.finishedAt) > printer.lastFailedAt)) printer.lastFailedAt = record.finishedAt;
       }
 
       const fileKey = record.libraryFileId ? `library:${record.libraryFileId}` : `name:${record.fileName.toLowerCase()}`;
@@ -246,6 +248,7 @@ export class ReportingService {
           fileName:record.fileName,
           ...blankCounts(),
           lastFinishedAt:null,
+          lastFailedAt:null,
           materialGrams:0,
           spendByCurrency:{}
         });
@@ -253,6 +256,7 @@ export class ReportingService {
       const file = files.get(fileKey);
       applyStatus(file, record.status);
       if (!file.lastFinishedAt || String(record.finishedAt) > file.lastFinishedAt) file.lastFinishedAt = record.finishedAt;
+      if (record.status === 'failed' && (!file.lastFailedAt || String(record.finishedAt) > file.lastFailedAt)) file.lastFailedAt = record.finishedAt;
 
       const day = String(record.finishedAt || '').slice(0, 10) || 'unknown';
       if (!daily.has(day)) {

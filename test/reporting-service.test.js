@@ -88,6 +88,8 @@ test('reporting history deduplicates terminal jobs and aggregates farm metrics',
     assert.equal(report.files[0].attempts, 3);
     assert.equal(report.printers[0].printerId, 'p1');
     assert.equal(report.printers[0].failed, 2);
+    assert.equal(report.printers[0].lastFailedAt, '2026-09-30T08:15:00.000Z');
+    assert.equal(report.files[0].lastFailedAt, '2026-09-30T08:15:00.000Z');
     assert.equal(report.printers[0].failureRateTrend, 0.5);
     assert.equal(report.printers[0].earlierAttempts, 2);
     assert.equal(report.printers[0].recentAttempts, 1);
