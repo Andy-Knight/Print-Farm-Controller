@@ -33,6 +33,7 @@ const reportingProfitPercent = document.querySelector('#reportingProfitPercent')
 const reportingProfitMethod = document.querySelector('#reportingProfitMethod');
 const reportingTaxRate = document.querySelector('#reportingTaxRate');
 const reportingHourlyCostRate = document.querySelector('#reportingHourlyCostRate');
+const reportingLabourHourlyRate = document.querySelector('#reportingLabourHourlyRate');
 const reportingPricingStatus = document.querySelector('#reportingPricingStatus');
 const reportingPricingError = document.querySelector('#reportingPricingError');
 const reportingPricingSaveBtn = document.querySelector('#reportingPricingSaveBtn');
@@ -64,6 +65,7 @@ async function loadReportingPricingSettings() {
     if (reportingProfitMethod) reportingProfitMethod.value=response.settings?.profitMethod || 'markup';
     if (reportingTaxRate) reportingTaxRate.value=String(response.settings?.taxRate ?? 0);
     if (reportingHourlyCostRate) reportingHourlyCostRate.value=String(response.settings?.hourlyCostRate ?? 0);
+    if (reportingLabourHourlyRate) reportingLabourHourlyRate.value=String(response.settings?.labourHourlyRate ?? '');
     reportingPricingFields.disabled=false;
     if (reportingPricingStatus) reportingPricingStatus.textContent='Saved settings loaded. Changes affect current Print Library tax-inclusive sell prices.';
   } catch(error) {
@@ -544,9 +546,10 @@ reportingPricingForm?.addEventListener('submit',async event=>{
       profitPercent:reportingProfitPercent?.value === '' ? null : Number(reportingProfitPercent?.value),
       profitMethod:reportingProfitMethod?.value || 'markup',
       taxRate:Number(reportingTaxRate?.value ?? 0),
-      hourlyCostRate:Number(reportingHourlyCostRate?.value ?? 0)
+      hourlyCostRate:Number(reportingHourlyCostRate?.value ?? 0),
+      labourHourlyRate:reportingLabourHourlyRate?.value === '' ? null : Number(reportingLabourHourlyRate?.value)
     })});
-    if (reportingPricingStatus) reportingPricingStatus.textContent='Pricing settings saved. Print Library sell prices now include hourly print time costs, profit and tax.';
+    if (reportingPricingStatus) reportingPricingStatus.textContent='Pricing settings saved. Print Library sell prices now include labour minutes, print time, profit and tax.';
     window.dispatchEvent(new Event('pfc:library-pricing-updated'));
   } catch(error) {
     if (reportingPricingStatus) reportingPricingStatus.textContent='';

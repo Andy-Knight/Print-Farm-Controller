@@ -502,15 +502,22 @@
                   <input id="reportingHourlyCostRate" name="hourlyCostRate" type="number" min="0" max="1000000" step="0.01"
                     value="0" required aria-describedby="reportingHourlyRateHelp" />
                 </label>
+                <label>Labour hourly rate
+                  <input id="reportingLabourHourlyRate" name="labourHourlyRate" type="number" min="0" max="1000000" step="0.01"
+                    placeholder="Enter rate per hour" aria-describedby="reportingLabourRateHelp" />
+                </label>
               </div>
               <div class="field-help reporting-pricing-help">
-                Sell prices include current filament cost, the slicer-estimated print time multiplied by the hourly rate, and sundries for one complete print.
+                Sell prices include current filament cost, the slicer-estimated print time multiplied by the print hourly rate, and sundries for one complete print, including labour minutes priced at the labour hourly rate.
                 Profit markup or margin is applied to those costs; the configured tax rate is added afterwards.
                 Prices are shown <strong>including tax</strong>, per sale lot (and in total), with currency-appropriate rounding.
                 Leave the profit percentage blank to disable sell price estimates.
                 <span id="reportingHourlyRateHelp">The hourly rate uses each file's filament currency. Set 0 to exclude print time costs.
                 For a non-zero rate, a slicer print duration is required; items without one cannot show a Sell price.
-                Other costs not covered by this rate, such as shipping or labour, can be added as sundries.</span>
+                Other costs not covered by this rate can be added as sundries.</span>
+                <span id="reportingLabourRateHelp">Labour minutes are entered against each Print Library item (Add file / Edit details).
+                Set the labour hourly rate here; costs are calculated as minutes × rate ÷ 60 in the file's filament currency.
+                Leave blank to flag missing labour pricing rather than quote a misleading Sell price. Enter 0 to intentionally exclude labour costs.</span>
                 <span id="reportingTaxHelp">Use 0% if no tax should be added. This is a pricing estimate, not a tax return.</span>
               </div>
               <div class="actions reporting-pricing-actions">

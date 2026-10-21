@@ -26,6 +26,7 @@ test('Selling-price settings and Preact/fallback sale view use the same server e
   const server=read('src/server.js'),css=read('public/print-library-polish.css');
   const ids=['reportingTabPricing','reportingPanelPricing','reportingPricingForm',
     'reportingProfitPercent','reportingProfitMethod','reportingTaxRate','reportingHourlyCostRate',
+    'reportingLabourHourlyRate',
     'reportingPricingStatus','reportingPricingError'];
   for (const id of ids) assert.match(html,new RegExp('id="'+id+'"'));
   assert.doesNotMatch(app,/SundryCurrency/);
@@ -52,8 +53,11 @@ test('Selling-price settings and Preact/fallback sale view use the same server e
   assert.match(reporting,/reportingTaxRate\.value=String\(response\.settings\?\.taxRate \?\? 0\)/);
   assert.match(reporting,/reportingHourlyCostRate\.value=String\(response\.settings\?\.hourlyCostRate \?\? 0\)/);
   assert.match(reporting,/hourlyCostRate:Number\(reportingHourlyCostRate\?\.value \?\? 0\)/);
+  assert.match(reporting,/labourHourlyRate:reportingLabourHourlyRate\?\.value === '' \? null/);
+  assert.match(reporting,/reportingLabourHourlyRate\.value=String\(response\.settings\?\.labourHourlyRate \?\? ''\)/);
   assert.match(html,/name="taxRate" type="number" min="0" max="100" step="0.01"/);
   assert.match(html,/name="hourlyCostRate" type="number" min="0" max="1000000" step="0.01"/);
+  assert.match(html,/name="labourHourlyRate" type="number" min="0" max="1000000" step="0.01"/);
   assert.match(app,/Print time: \$\{money\(sale\.printTimeCost\)\}/);
   assert.match(preact,/file\.sale\.timeCost/);
   assert.match(html,/Prices are shown <strong>including tax<\/strong>/);
@@ -64,6 +68,26 @@ test('Selling-price settings and Preact/fallback sale view use the same server e
   assert.match(layout,/\.reporting-pricing-grid/);
   assert.match(css,/#libraryDialog \.library-sale-price/);
   assert.match(css,/\.library-sundry-row/);
+});
+
+test('Labour is entered in minutes, not quantity and unit cost, in both Print Library editors',()=>{
+  const app=read('public/app.js');
+  const css=read('public/print-library-polish.css');
+  const html=read('public/index.html');
+  const reporting=read('public/reporting.js');
+  assert.match(app,/data-sundry-minutes type="number"/);
+  assert.match(app,/data-sundry-labour hidden>Labour minutes/);
+  assert.match(app,/field\.hidden=labour/);
+  assert.match(app,/minuteInput\.required=labour/);
+  assert.match(app,/return \{label:'Labour',minutes\};/);
+  assert.match(app,/row\.dataset\.legacyLabour/);
+  assert.match(app,/entry\.minutes===undefined/);
+  assert.match(app,/labourDetail/);
+  assert.match(css,/\.library-sundry-row\.is-labour/);
+  assert.match(css,/\.library-sundry-row \[hidden\]/);
+  assert.match(html,/id="reportingLabourHourlyRate"/);
+  assert.match(html,/id="reportingLabourRateHelp"/);
+  assert.match(reporting,/labourHourlyRate:reportingLabourHourlyRate/);
 });
 
 test('Add and Edit details use a scrolling body and fixed action header/footer',()=>{
