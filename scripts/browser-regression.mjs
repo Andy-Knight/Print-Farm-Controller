@@ -1185,6 +1185,8 @@ async function libraryPricingSmoke(page,url,{mutateFixture=true}={}) {
   await page.locator('#reportingProfitMethod').selectOption('markup');
   await page.locator('#reportingTaxRate').fill('20');
   await page.locator('#reportingLabourHourlyRate').fill('18');
+  assert.equal(await page.locator('#filamentCurrency').count(),0);
+  await page.locator('#reportingCurrency').selectOption('EUR');
   await page.locator('#reportingPricingSaveBtn').click();
   await page.waitForFunction(()=>document.querySelector('#reportingPricingStatus')?.textContent.includes('saved'));
   const settings=await page.evaluate(async()=> (await (await fetch('/api/library/pricing')).json()).settings);
@@ -1192,6 +1194,7 @@ async function libraryPricingSmoke(page,url,{mutateFixture=true}={}) {
   assert.equal(settings.profitMethod,'markup');
   assert.equal(settings.taxRate,20);
   assert.equal(settings.labourHourlyRate,18);
+  assert.equal(settings.currency,'EUR');
   await page.locator('[data-reporting-tab="filament"]').click();
   await page.locator('[data-reporting-tab="pricing"]').click();
   await page.waitForFunction(()=>
@@ -1202,6 +1205,7 @@ async function libraryPricingSmoke(page,url,{mutateFixture=true}={}) {
   assert.equal(await page.locator('#reportingTaxRate').inputValue(),'20',
     'pricing tab must reload the persisted tax rate');
   assert.equal(await page.locator('#reportingLabourHourlyRate').inputValue(),'18');
+  assert.equal(await page.locator('#reportingCurrency').inputValue(),'EUR');
   await page.goto(url+'/library',{waitUntil:'load'});
   await preactReady(page);
   assert.equal(await page.locator('#libraryPricingSettingsBtn').count(),0,
