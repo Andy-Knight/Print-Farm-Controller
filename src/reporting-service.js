@@ -175,6 +175,20 @@ export class ReportingService {
     return clone((await this.load()).records);
   }
 
+  async getPreviousPeriodTotals({ from = null, to = null, printerIds = null } = {}) {
+    const selected = reportRange({ from, to });
+    // Both ranges are inclusive. Adjacent windows have identical lengths
+    // without counting a terminal print job in both ranges.
+    const previousTo = selected.fromMs - 1;
+    const previousFrom = previousTo - (selected.toMs - selected.fromMs);
+    const previous = await this.getReport({
+      from:new Date(previousFrom).toISOString(),
+      to:new Date(previousTo).toISOString(),
+      printerIds
+    });
+    return { range:previous.range, totals:previous.totals };
+  }
+
   async getReport({ from = null, to = null, printerIds = null } = {}) {
     const range = reportRange({ from, to });
     const allowedPrinters = printerIds == null

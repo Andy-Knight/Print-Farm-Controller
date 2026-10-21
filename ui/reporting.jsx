@@ -75,6 +75,15 @@ function ReportingKpis({ items }) {
           <span style={{width:`${progress}%`}}></span>
         </div> : <span class="reporting-kpi-accent" aria-hidden="true"></span>}
       </div>
+      <div class={`reporting-kpi-change reporting-kpi-change-${item.change?.tone || 'muted'}`}
+        aria-label={item.change?.description || 'No previous period data'}
+        title={item.change?.description || 'No previous period data'}>
+        <strong class="reporting-kpi-change-value">
+          {item.change?.symbol && <span aria-hidden="true">{item.change.symbol}</span>}
+          {item.change?.label || '—'}
+        </strong>
+        <span class="reporting-kpi-change-caption">{item.change?.caption || 'No previous period data'}</span>
+      </div>
     </div>;
   })}</>;
 }

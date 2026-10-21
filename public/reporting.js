@@ -397,8 +397,39 @@ function reportingKpiSvg(name) {
       ${paths[name] || paths.jobs}</svg>`;
 }
 
+function reportingPreviousPeriodChange(current, previous, hasPrevious, measure) {
+  if (!hasPrevious) return {
+    symbol:'', label:'—', caption:'No previous period data',
+    description:'No previous period data for the selected printer filters', tone:'muted'
+  };
+  const now = Number(current);
+  const before = Number(previous);
+  if (!Number.isFinite(now) || !Number.isFinite(before)) return {
+    symbol:'', label:'—', caption:'Comparison unavailable',
+    description:'Unable to compare this statistic with the previous period', tone:'muted'
+  };
+  const direction = now > before ? 'up' : now < before ? 'down' : 'flat';
+  const beneficial = measure === 'completed' ? direction === 'up'
+    : measure === 'failed' ? direction === 'down' : null;
+  const tone = direction === 'flat' ? 'muted'
+    : beneficial === true ? 'positive'
+    : beneficial === false ? 'negative' : 'neutral';
+  const symbol = direction === 'up' ? '▲' : direction === 'down' ? '▼' : '—';
+  const label = direction === 'flat' ? '0.0%'
+    : before === 0 ? 'From 0'
+    : `${formatNumber(Math.abs((now - before) / before * 100), 1)}%`;
+  const summary = direction === 'flat' ? 'No change'
+    : `${direction === 'up' ? 'Increase' : 'Decrease'} ${before === 0 ? 'from zero' : 'of ' + label}`;
+  return { symbol, label, caption:'vs previous period',
+    description:`${summary} vs previous period`, tone };
+}
+
 function reportingKpiViewModel(report = {}) {
   const totals = report?.totals || {};
+  const previous = report?.previousTotals || {};
+  const hasPrevious = Number(previous.attempts || 0) > 0;
+  const change = (key, measure = key) =>
+    reportingPreviousPeriodChange(totals[key] || 0, previous[key] || 0, hasPrevious, measure);
   // Only measured completion/failure rates receive progress meters.
   // Job totals and machine hours have no meaningful 0–100% target.
   const percent = (rate) => {
@@ -408,10 +439,10 @@ function reportingKpiViewModel(report = {}) {
       : null;
   };
   return [
-    { label:'Total print jobs', value:formatNumber(totals.attempts), detail:'In selected period', icon:'▤', iconName:'jobs', tone:'info', progressPercent:null },
-    { label:'Completed', value:formatNumber(totals.completed), detail:`${formatPercent(totals.completionRate)} completion rate`, icon:'✓', iconName:'check', tone:Number(totals.completed || 0) > 0 ? 'positive' : 'info', progressPercent:percent(totals.completionRate), progressLabel:'Completion rate' },
-    { label:'Failed', value:formatNumber(totals.failed), detail:`${formatPercent(totals.failureRate)} failure rate`, icon:Number(totals.failed || 0) > 0 ? '×' : '✓', iconName:Number(totals.failed || 0) > 0 ? 'cross' : 'check', tone:Number(totals.failed || 0) > 0 ? 'negative' : 'positive', progressPercent:percent(totals.failureRate), progressLabel:'Failure rate' },
-    { label:'Total run time', value:`${formatNumber(totals.runHours, 1)} h`, detail:'Reported from print timestamps', icon:'◷', iconName:'clock', tone:'info', progressPercent:null }
+    { label:'Total print jobs', value:formatNumber(totals.attempts), detail:'In selected period', icon:'▤', iconName:'jobs', tone:'info', progressPercent:null, change:change('attempts','neutral') },
+    { label:'Completed', value:formatNumber(totals.completed), detail:`${formatPercent(totals.completionRate)} completion rate`, icon:'✓', iconName:'check', tone:Number(totals.completed || 0) > 0 ? 'positive' : 'info', progressPercent:percent(totals.completionRate), progressLabel:'Completion rate', change:change('completed') },
+    { label:'Failed', value:formatNumber(totals.failed), detail:`${formatPercent(totals.failureRate)} failure rate`, icon:Number(totals.failed || 0) > 0 ? '×' : '✓', iconName:Number(totals.failed || 0) > 0 ? 'cross' : 'check', tone:Number(totals.failed || 0) > 0 ? 'negative' : 'positive', progressPercent:percent(totals.failureRate), progressLabel:'Failure rate', change:change('failed') },
+    { label:'Total run time', value:`${formatNumber(totals.runHours, 1)} h`, detail:'Reported from print timestamps', icon:'◷', iconName:'clock', tone:'info', progressPercent:null, change:change('runHours','neutral') }
   ];
 }
 
@@ -599,6 +630,12 @@ function renderReport(report) {
           ${hasRate ? `<div class="reporting-kpi-meter" role="progressbar" aria-label="${escapeHtml(item.progressLabel)}"
               aria-valuemin="0" aria-valuemax="100" aria-valuenow="${progress}">
             <span style="width:${progress}%"></span></div>` : '<span class="reporting-kpi-accent" aria-hidden="true"></span>'}
+        </div>
+        <div class="reporting-kpi-change reporting-kpi-change-${escapeHtml(item.change?.tone || 'muted')}"
+          aria-label="${escapeHtml(item.change?.description || 'No previous period data')}"
+          title="${escapeHtml(item.change?.description || 'No previous period data')}">
+          <strong class="reporting-kpi-change-value"><span aria-hidden="true">${escapeHtml(item.change?.symbol || '')}</span>${escapeHtml(item.change?.label || '—')}</strong>
+          <span class="reporting-kpi-change-caption">${escapeHtml(item.change?.caption || 'No previous period data')}</span>
         </div>
       </div>`;
     }).join('');

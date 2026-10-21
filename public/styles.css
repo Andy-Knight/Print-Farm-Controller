@@ -3196,6 +3196,41 @@ button.library-file-preview { cursor:zoom-in; }
 :root[data-theme="light"] .reporting-kpi-positive { --reporting-kpi-color:#13a76c; --reporting-kpi-track:#d8f0e5; }
 :root[data-theme="light"] .reporting-kpi-negative { --reporting-kpi-color:#e6424e; --reporting-kpi-track:#ffe0e4; }
 :root[data-theme="light"] .reporting-kpi-info { --reporting-kpi-color:#177bd8; --reporting-kpi-track:#dbeafc; }
+/* Previous-period comparisons align with Option D's right-hand metric column.
+   Green/red indicate production improvement/deterioration; neutral activity is blue. */
+.reporting-kpi .reporting-kpi-change {
+  display:flex; flex:0 1 auto; min-width:0; margin-left:auto;
+  flex-direction:column; align-items:flex-end; gap:3px;
+  text-align:right; color:#84bdff;
+}
+.reporting-kpi .reporting-kpi-change-value {
+  display:inline-flex; align-items:center; justify-content:flex-end;
+  gap:5px; max-width:100%; color:inherit; font-size:.83rem;
+  line-height:1.1; font-weight:800; white-space:nowrap;
+}
+.reporting-kpi .reporting-kpi-change-value span { color:inherit; font-size:.85rem; }
+.reporting-kpi .reporting-kpi-change-caption {
+  color:var(--ds-text-muted,#8ea1b3); font-size:.66rem;
+  line-height:1.2; max-width:116px;
+}
+.reporting-kpi .reporting-kpi-change-positive { color:#55d6a4; }
+.reporting-kpi .reporting-kpi-change-negative { color:#ed7078; }
+.reporting-kpi .reporting-kpi-change-muted { color:var(--ds-text-muted,#8ea1b3); }
+:root[data-theme="light"] .reporting-kpi .reporting-kpi-change-neutral { color:#177bd8; }
+:root[data-theme="light"] .reporting-kpi .reporting-kpi-change-positive { color:#12754e; }
+:root[data-theme="light"] .reporting-kpi .reporting-kpi-change-negative { color:#b52231; }
+@media (max-width:1550px) and (min-width:901px) {
+  .reporting-kpis .reporting-kpi { flex-wrap:wrap; align-content:center; }
+  .reporting-kpi .reporting-kpi-change {
+    margin-left:86px; align-items:flex-start; text-align:left;
+  }
+  .reporting-kpi .reporting-kpi-change-caption { max-width:none; }
+}
+@media (max-width:580px) {
+  .reporting-kpis .reporting-kpi { flex-wrap:wrap; }
+  .reporting-kpi .reporting-kpi-change { margin-left:61px; align-items:flex-start; text-align:left; }
+}
+
 :root[data-theme="light"] .reporting-segmented { border-color:#cbd7df; background:#e6edf3; }
 :root[data-theme="light"] .reporting-segmented button { color:#425e71; }
 :root[data-theme="light"] .reporting-segmented button.active { color:#fff; background:#2476c7; }

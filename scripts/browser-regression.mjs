@@ -1653,6 +1653,48 @@ async function routeSmoke(page,url) {
     assert.ok(palette.every(p=>p.width>=50 && p.fill),'Option D rings visible in both themes');
     assert.notEqual(palette[1].fill,palette[2].fill,'success and failure should use different colours');
   }
+  // Compare headline periods in the same layout, with a favourable decrease
+  // in failures, neutral increase in total activity and missing-baseline state.
+  await page.evaluate(() => window.dispatchEvent(new CustomEvent('pfc:reporting-ui-state', {
+    detail:{...window.__PFC_REPORTING_UI_STATE__, kpis:[
+      {label:'Total print jobs',value:'342',detail:'In selected period',
+        tone:'info',iconName:'jobs',progressPercent:null,
+        change:{symbol:'▲',label:'12.1%',tone:'neutral',caption:'vs previous period',description:'Increase of 12.1% vs previous period'}},
+      {label:'Completed',value:'325',detail:'95% completion rate',
+        tone:'positive',iconName:'check',progressPercent:95,progressLabel:'Completion rate',
+        change:{symbol:'▲',label:'8.0%',tone:'positive',caption:'vs previous period',description:'Increase of 8.0% vs previous period'}},
+      {label:'Failed',value:'17',detail:'5% failure rate',
+        tone:'negative',iconName:'cross',progressPercent:5,progressLabel:'Failure rate',
+        change:{symbol:'▼',label:'22.7%',tone:'positive',caption:'vs previous period',description:'Decrease of 22.7% vs previous period'}},
+      {label:'Total run time',value:'412.6 h',detail:'Reported from print timestamps',
+        tone:'info',iconName:'clock',progressPercent:null,
+        change:{symbol:'',label:'—',tone:'muted',caption:'No previous period data',description:'No previous period data for selected printer filters'}}
+    ]}
+  })));
+  await page.waitForFunction(() => document.querySelectorAll('#reportingKpis .reporting-kpi-change').length === 4);
+  assert.equal(await page.locator('#reportingKpis .reporting-kpi-change').count(),4);
+  const deltas=await page.locator('#reportingKpis .reporting-kpi-change').evaluateAll(
+    nodes=>nodes.map(node=>({
+      value:node.querySelector('.reporting-kpi-change-value').textContent,
+      caption:node.querySelector('.reporting-kpi-change-caption').textContent,
+      className:node.className,
+      title:node.getAttribute('title')
+    }))
+  );
+  assert.match(deltas[0].value,/▲12.1%/);
+  assert.match(deltas[0].className,/neutral/);
+  assert.match(deltas[1].value,/▲8.0%/);
+  assert.match(deltas[1].className,/positive/);
+  assert.match(deltas[2].value,/▼22.7%/);
+  assert.match(deltas[2].className,/positive/);
+  assert.equal(deltas[3].caption,'No previous period data');
+  for (const theme of ['light','dark']) {
+    await page.evaluate(theme=>{document.documentElement.dataset.theme=theme;},theme);
+    const colors=await page.locator('#reportingKpis .reporting-kpi-change').evaluateAll(
+      nodes=>nodes.map(node=>getComputedStyle(node).color)
+    );
+    assert.notEqual(colors[0],colors[1],'neutral and positive delta colours must differ');
+  }
   // Sparse production history: all three jobs completed on one date.
   // The previous SVG contained only a move command and rendered no line.
   await page.evaluate(() => {

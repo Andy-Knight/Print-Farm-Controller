@@ -286,7 +286,7 @@ test('analytics chart is first after KPIs, print file table spans full width and
   assert.match(preact, /reporting-kpi-meter/);
   assert.match(reportingUi, /function reportingKpiSvg/);
   assert.match(reportingUi, /reporting-kpi-gauge/);
-  const code = reportingUi.slice(reportingUi.indexOf('function reportingKpiViewModel('), reportingUi.indexOf('function reportingFilamentsViewModel('));
+  const code = reportingUi.slice(reportingUi.indexOf('function reportingPreviousPeriodChange('), reportingUi.indexOf('function reportingFilamentsViewModel('));
   const renderModel = vm.runInNewContext(code + '\nreportingKpiViewModel', {
     formatNumber:(value)=>String(value ?? 0),
     formatPercent:(value)=>String(value ?? 0) + '%'
@@ -375,4 +375,75 @@ test('Option D reporting KPI rings display measured rates but no fictitious coun
   assert.match(styles,/\.reporting-kpi-positive/);
   assert.match(styles,/\.reporting-kpi-negative/);
   assert.match(styles,/data-theme="light".*reporting-kpi-positive/);
+});
+
+test('previous-period change graphics show honest equal-window comparisons with appropriate sentiment', () => {
+  const source = [
+    reportingUi.slice(reportingUi.indexOf('function formatNumber('), reportingUi.indexOf('function reportRangeDates(')),
+    reportingUi.slice(reportingUi.indexOf('function reportingPreviousPeriodChange('),
+      reportingUi.indexOf('function reportingFilamentsViewModel('))
+  ].join('\n');
+  const models=vm.runInNewContext(source + '\n({ reportingKpiViewModel, reportingPreviousPeriodChange })', {
+    formatNumber:(value,digits=0)=>Number(value).toFixed(digits),
+    formatPercent:(value)=>value == null ? '—' : Math.round(Number(value)*100)+'%'
+  });
+  const report = { totals:{
+    attempts:342,completed:325,failed:17,runHours:412.6,
+    completionRate:325/342,failureRate:17/342
+  },previousTotals:{
+    attempts:305,completed:301,failed:22,runHours:350
+  }};
+  const items=models.reportingKpiViewModel(report);
+  assert.deepEqual(Array.from(items,item=>item.change.label),['12.1%','8.0%','22.7%','17.9%']);
+  assert.deepEqual(Array.from(items,item=>item.change.symbol),['▲','▲','▼','▲']);
+  assert.deepEqual(Array.from(items,item=>item.change.tone),['neutral','positive','positive','neutral']);
+  assert.ok(items.every(item=>item.change.caption==='vs previous period'));
+  assert.equal(items[1].progressPercent,95);
+  const deteriorated=models.reportingKpiViewModel({
+    totals:{ attempts:10,completed:7,failed:3,runHours:7,completionRate:.7,failureRate:.3 },
+    previousTotals:{ attempts:10,completed:9,failed:1,runHours:9 }
+  });
+  assert.equal(deteriorated[0].change.tone,'muted');
+  assert.equal(deteriorated[1].change.tone,'negative');
+  assert.equal(deteriorated[1].change.symbol,'▼');
+  assert.equal(deteriorated[2].change.tone,'negative');
+  assert.equal(deteriorated[2].change.symbol,'▲');
+  assert.equal(deteriorated[3].change.tone,'neutral');
+  const none=models.reportingKpiViewModel({totals:{attempts:5,completed:5,failed:0,runHours:8}});
+  assert.ok(none.every(item=>item.change.caption==='No previous period data'));
+  assert.ok(none.every(item=>item.change.symbol===''));
+  const zeroBaseline=models.reportingKpiViewModel({
+    totals:{ attempts:8,completed:7,failed:1,runHours:3,completionRate:.875,failureRate:.125 },
+    previousTotals:{ attempts:2,completed:0,failed:0,runHours:0 }
+  });
+  assert.equal(zeroBaseline[1].change.label,'From 0');
+  assert.equal(zeroBaseline[1].change.tone,'positive');
+  assert.equal(zeroBaseline[2].change.label,'From 0');
+  assert.equal(zeroBaseline[2].change.tone,'negative');
+  assert.equal(zeroBaseline[3].change.label,'From 0');
+  assert.equal(zeroBaseline[3].change.tone,'neutral');
+  const noPriorJobs=models.reportingKpiViewModel({
+    totals:{attempts:7,completed:7,failed:0,runHours:4},
+    previousTotals:{attempts:0,completed:0,failed:0,runHours:0}
+  });
+  assert.ok(noPriorJobs.every(item=>item.change.caption==='No previous period data'));
+  const quiet=models.reportingKpiViewModel({
+    totals:{attempts:0,completed:0,failed:0,runHours:0},
+    previousTotals:{attempts:8,completed:7,failed:1,runHours:9}
+  });
+  assert.equal(quiet[0].change.label,'100.0%');
+  assert.equal(quiet[1].change.tone,'negative');
+  assert.equal(quiet[2].change.tone,'positive');
+  assert.match(reportingService,/getPreviousPeriodTotals/);
+  assert.match(server,/report\.previousTotals = previous\.totals/);
+  assert.match(server,/printerIds\s*\}\)/);
+  assert.match(reportingUi,/reporting-kpi-change-caption/);
+  assert.match(styles,/\.reporting-kpi \.reporting-kpi-change-positive/);
+  assert.match(styles,/\.reporting-kpi \.reporting-kpi-change-negative/);
+  assert.match(styles,/\.reporting-kpi \.reporting-kpi-change-neutral/);
+  assert.match(reportingUi,/vs previous period/);
+  const preact=fs.readFileSync(new URL('../ui/reporting.jsx',import.meta.url),'utf8');
+  assert.match(preact,/item\.change\?\.symbol/);
+  assert.match(preact,/item\.change\?\.caption/);
+  assert.match(preact,/item\.change\?\.description/);
 });
