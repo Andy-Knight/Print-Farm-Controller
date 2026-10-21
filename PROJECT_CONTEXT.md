@@ -9,13 +9,16 @@ If chat context and this file disagree about the codebase, inspect current GitHu
 - Repository: `Andy-Knight/Print-Farm-Controller`
 - Project path: repository root (`/`)
 - Primary branch: `main` (current production baseline)
-- Current controller source version: **0.59.4** (Reports & finance Analytics layout, reliable printer-attention metrics, sortable full-width file tables, coloured KPIs).
+- Current controller source version: **0.59.5** (Option D reporting KPI rings with genuine previous-period trend comparisons; sparse print-outcomes graph and unidentified filament labels).
 - Previous baseline audited: **0.48.0** (main before the regression test audit release).
 - Runtime: **Node.js 24+** (development baseline Node.js 24.21.0), ES modules, no npm runtime dependencies.
 - GitHub is the authoritative code baseline.
 - Release/version history is maintained only in `CHANGELOG.md`; do not duplicate per-version history in this handoff file.
 
 ## Current work
+
+**v0.59.5 Reports & finance Analytics improvements (PR #111):** User approved release and merge. Option D replaces the original headline badges with outline SVGs, percentage-accurate completion/failure rings/bars and neutral totals/runtime treatments, in both Preact and fallback views. Each card compares its metric against the immediately preceding equal-duration, non-overlapping period with the same printer/group filter (new API `previousTotals` and `previousRange`); completion up / failures down is green, the reverse red, volume/runtime neutral blue, and absent history or zero-baseline handled explicitly. Sparse day-series chart now plots all dates, visible value-labelled markers, integer ticks; material-type-only historical usage is clearly labelled unidentified versus missing brand/product depending on saved catalogue ID, no snapshot/cost mutation. Node.js, Chromium and container smoke tests passed for the feature before release metadata change; verify CI for v0.59.5 before merging. Repo version bumped, changelog and README updated.
+
 
 **v0.59.4 Analytics reporting release (PR #110):** Restructured the Reports & finance Analytics page on `fix/reporting-printer-attention-analytics` with four semantic-colour production KPI icons, followed by the full-width print outcomes graph, then the full-width popular-files ranking (Top 10/All, sorting, preview thumbnails, library details links). Material usage is displayed in tables grouped by material type or filament, without changing historical material collection; separate tables show failure-prone printers and failing files. Unassigned automatic queue jobs remain part of farm totals but do not become phantom printer records. Healthy printers no longer appear under Printers needing attention, missing failure trends read as insufficient data and durations below six minutes display in minutes. Desktop file table no longer has an erroneous 365px fixed scroll width; smaller mobile viewports can scroll. Node, Chromium responsive layout, MinIO integration and container smoke tests cover this change. User approved merging after release metadata update.
 

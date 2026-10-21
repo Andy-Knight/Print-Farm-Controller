@@ -1,4 +1,4 @@
-# Print Farm Controller v0.59.4
+# Print Farm Controller v0.59.5
 A local-first 3D printer fleet controller. It runs entirely on your LAN and currently supports:
 
 - **FlashForge Adventurer 5M / 5M Pro** through the local FlashForge HTTP/TCP APIs.
@@ -7,9 +7,12 @@ A local-first 3D printer fleet controller. It runs entirely on your LAN and curr
 - **Prusa CORE One+ (experimental)** through the local PrusaLink API, supporting Standard (1-tool), INDX4 and INDX8 configurations.
 - **Bambu Lab P1P / P1S / X1C / A1 Mini (experimental)** through the local MQTT TLS and FTPS TLS interfaces. P1P/P1S/A1 Mini use the TLS/JPEG camera path; X1C camera decoding remains unsupported.
 
-**Current development version: v0.59.4**
+**Current development version: v0.59.5**
 
 Current highlights:
+
+- **Reporting comparisons and improvements (v0.59.5):** Reports & finance → Analytics uses Option D progress-ring KPI cards with real completion/failure percentages and directional comparison indicators against the immediately preceding period of equal length. The same printer and group filters apply to both periods; arrows are green for higher completions or fewer failures, red for the reverse, and neutral blue for activity and run-time changes. Missing comparison history is explicitly identified and prior-zero values show "From 0" rather than an invalid percentage. The outcomes graph now displays sparse data (including prints concentrated on one day) with visible points, complete date timeline and non-repeating integer count ticks. Under Material usage → By filament, unidentified material-only snapshots display an explanatory label and tooltip without altering retained data.
+
 
 - **Analytics production reporting (v0.59.4):** Reorganised Reports & finance → Analytics with four production KPIs, status-coloured KPI icons, and the full-width print-outcomes graph directly below the headline statistics. The full-width popular print files table supports preview thumbnails, completion/failure counts, success rates, popularity indicators, sorting and Top 10/All, with links to Print Library details. Material-usage tables support grouping by material or filament without changing reporting collection. Separate sections show only genuinely at-risk printers and files with failed prints. The desktop popular-files table now uses the available card width without unwanted horizontal scrolling; smaller screens scroll responsively.
 

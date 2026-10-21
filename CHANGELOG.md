@@ -4,6 +4,14 @@ This file contains the version-by-version release history for Print Farm Control
 
 Historical entries describe the behaviour of the controller at the time of that release and may be superseded by later versions. For current installation, configuration and supported-hardware guidance, see [README.md](README.md).
 
+## v0.59.5
+
+- Added directional **vs previous period** indicators to the four Option D headline cards on Reports & finance → Analytics. The reporting API compares the selected date range with the immediately preceding, adjacent range of equal length, applying the same printer/group filters. Completion increases and failure reductions show favourable green; the reverse shows red; total jobs and run time use neutral blue. Unchanged values, missing earlier data and zero-baseline changes are handled explicitly without misleading percentages.
+- Updated the four headline cards with larger matched outline SVG icons, semantic progress rings and slim bars. Completed and failed meters display their true measured percentages. Total jobs and run time display decorative neutral indicators, not fictional 0–100% targets. Responsive light/dark styling and accessible meter labels are retained.
+- Fixed sparse **Print outcomes over time** visualisation: include zero-activity calendar days for the selected period, plot visible labelled markers for days with completed/failed/cancelled prints, and remove duplicated Y-axis counts for small totals. Works in both Preact and fallback views.
+- Clarified Material usage → By filament when only a material name is saved: **PLA (Unidentified filament)** if no catalogue reference was recorded, or **PLA (Brand/product not recorded)** when a reference exists without its brand/product. Explanatory tooltips distinguish the cases. Historical prints, material snapshots, currency and costs are unchanged.
+- Expanded reporting service/UI regression cases for adjacent filtered ranges, baseline/no-data rules, theme-specific card visuals and sparse chart rendering; validated with Node.js, Chromium Preact and container smoke tests.
+
 ## v0.59.4
 
 - Redesigned **Reports & finance → Analytics** with four production headline statistics and coloured icons: blue for neutral activity/runtime, green for completions or zero failures, and red for recorded failures. Moved the full-width print-outcomes timeline directly under the stats.
