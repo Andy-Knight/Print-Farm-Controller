@@ -1328,6 +1328,21 @@ async function libraryPricingSmoke(page,url,{mutateFixture=true}={}) {
   assert.deepEqual(labourSaved.sundryCosts.at(-1),{label:'Labour',minutes:30});
   assert.equal(labourSaved.saleEstimate.labourCost,9);
   assert.equal(labourSaved.saleEstimate.sundriesCost,10.5);
+  await page.locator('#libraryEditSelectedBtn').click();
+  await page.waitForFunction(()=>document.querySelector('#libraryMetadataDialog')?.open===true);
+  assert.equal(await page.locator('#libraryMetadataSundries .library-sundry-row').last()
+    .locator('[data-sundry-minutes]').inputValue(),'30');
+  await page.locator('[data-library-metadata-close]').last().click();
+  await page.waitForFunction(()=>document.querySelector('#libraryMetadataDialog')?.open===false);
+  await page.evaluate(async()=>{
+    const response=await fetch('/api/library/pricing',{method:'PUT',
+      headers:{'content-type':'application/json'},
+      body:JSON.stringify({profitPercent:30,profitMethod:'markup',taxRate:20,labourHourlyRate:24})});
+    if(!response.ok)throw Error('Unable to update labour rate');
+  });
+  const repriced=(await list()).find(file=>file.id===added.id);
+  assert.equal(repriced.saleEstimate.labourCost,12);
+  assert.equal(repriced.saleEstimate.sundriesCost,13.5);
 
   // The fixture is isolated. Remove it and restore default global profit.
   await page.locator('#libraryDeleteSelectedBtn').waitFor({state:'visible'});
@@ -1337,7 +1352,7 @@ async function libraryPricingSmoke(page,url,{mutateFixture=true}={}) {
   await page.evaluate(async()=> {
     const response=await fetch('/api/library/pricing',{method:'PUT',
       headers:{'content-type':'application/json'},
-      body:JSON.stringify({profitPercent:null,profitMethod:'markup',taxRate:0})});
+      body:JSON.stringify({profitPercent:null,profitMethod:'markup',taxRate:0,labourHourlyRate:null})});
     if (!response.ok) throw Error('Unable to reset test pricing settings');
   });
   await page.setViewportSize({width:1365,height:900});
