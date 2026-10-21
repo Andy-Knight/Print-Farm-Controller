@@ -1221,7 +1221,13 @@ async function libraryPricingSmoke(page,url,{mutateFixture=true}={}) {
   const itemChoices=page.locator('#libraryAddSundries [data-sundry-label] option:not([disabled])');
   assert.deepEqual(await itemChoices.allTextContents(),
     ['Packaging','Postage','Hardware','Labour','Miscellaneous']);
+  await page.locator('#libraryAddSundries [data-sundry-label]').selectOption('Labour');
+  assert.equal(await page.locator('#libraryAddSundries [data-sundry-minutes]').isVisible(),true);
+  assert.equal(await page.locator('#libraryAddSundries [data-sundry-qty]').isVisible(),false);
+  assert.equal(await page.locator('#libraryAddSundries [data-sundry-cost]').isVisible(),false);
+  await page.locator('#libraryAddSundries [data-sundry-minutes]').fill('15');
   await page.locator('#libraryAddSundries [data-sundry-label]').selectOption('Hardware');
+  assert.equal(await page.locator('#libraryAddSundries [data-sundry-qty]').isVisible(),true);
   const addRemove=page.locator('#libraryAddSundries [data-remove-sundry]');
   const addRemoveStyle=await addRemove.evaluate(btn=>{
     const style=getComputedStyle(btn);
