@@ -1,1 +1,5 @@
+# Exclude documentation assets from source release archives
 /docs/ export-ignore
+
+# Exclude development-only directories
+/.github/ export-ignore
