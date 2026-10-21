@@ -6,7 +6,8 @@ import { KeyedSerialExecutor } from './concurrency.js';
 
 const SETTINGS_FILE = path.join(path.dirname(printerStorePath), 'library-pricing.json');
 const executor = new KeyedSerialExecutor();
-const DEFAULT_SETTINGS = Object.freeze({ profitPercent:null, profitMethod:'markup', taxRate:0, hourlyCostRate:0, labourHourlyRate:null });
+export const SUPPORTED_PRICING_CURRENCIES = Object.freeze(['GBP', 'USD', 'EUR', 'JPY', 'CNY', 'CAD', 'AUD', 'NZD', 'CHF', 'HKD', 'SGD', 'INR', 'KRW', 'TWD', 'THB', 'MYR', 'IDR', 'PHP', 'VND', 'AED', 'SAR', 'ILS', 'ZAR', 'BRL', 'MXN', 'SEK', 'NOK', 'DKK', 'PLN', 'CZK', 'HUF', 'RON', 'TRY', 'RUB', 'CLP', 'COP']);
+const DEFAULT_SETTINGS = Object.freeze({ profitPercent:null, profitMethod:'markup', taxRate:0, hourlyCostRate:0, labourHourlyRate:null, currency:'GBP' });
 
 function round(value, decimals = 4) {
   return Math.round((value + Number.EPSILON) * (10 ** decimals)) / (10 ** decimals);
@@ -100,19 +101,43 @@ export function normalizePricingSettings(value = {}) {
       || labourHourlyRate < 0 || labourHourlyRate > 1000000)) {
     throw new Error('Labour hourly rate must be between zero and 1000000');
   }
+  const currency=String(value.currency == null || value.currency === '' ? 'GBP' : value.currency).trim().toUpperCase();
+  if (!SUPPORTED_PRICING_CURRENCIES.includes(currency)) {
+    throw new Error('Choose a supported currency in Reports & finance Price settings');
+  }
   return {profitPercent:profitPercent == null ? null : round(profitPercent,2),
     profitMethod:method,taxRate:round(taxRate,2),hourlyCostRate:round(hourlyCostRate,2),
-    labourHourlyRate:labourHourlyRate===null ? null : round(labourHourlyRate,2)};
+    labourHourlyRate:labourHourlyRate===null ? null : round(labourHourlyRate,2),currency};
 }
 
-export async function getLibraryPricingSettings() {
+// Older versions only configured currency per filament. Preserve a single
+// existing catalogue currency as the initial global choice where possible.
+// Mixed-currency legacy catalogues cannot be converted without FX rates;
+// default to GBP and show the operator a review warning in Price settings.
+async function initialLegacyCurrency() {
   try {
-    const json = JSON.parse(await fs.readFile(SETTINGS_FILE, 'utf8'));
-    return normalizePricingSettings(json);
-  } catch (error) {
-    if (error?.code === 'ENOENT') return {...DEFAULT_SETTINGS};
+    const stored=JSON.parse(await fs.readFile(path.join(path.dirname(SETTINGS_FILE),'filaments.json'),'utf8'));
+    const used=new Set((Array.isArray(stored?.filaments) ? stored.filaments : [])
+      .map(item=>String(item.currency || '').trim().toUpperCase())
+      .filter(code=>SUPPORTED_PRICING_CURRENCIES.includes(code)));
+    return used.size===1 ? [...used][0] : DEFAULT_SETTINGS.currency;
+  } catch(error) {
+    if (error?.code==='ENOENT')return DEFAULT_SETTINGS.currency;
     throw error;
   }
+}
+export async function getLibraryPricingSettings() {
+  let json=null;
+  try {
+    json=JSON.parse(await fs.readFile(SETTINGS_FILE, 'utf8'));
+  } catch(error){
+    if(error?.code!=='ENOENT')throw error;
+  }
+  if (json?.currency == null || json.currency === '') {
+    const currency=await initialLegacyCurrency();
+    return normalizePricingSettings({...json,currency});
+  }
+  return normalizePricingSettings(json);
 }
 
 export async function saveLibraryPricingSettings(input) {
@@ -136,10 +161,11 @@ export async function saveLibraryPricingSettings(input) {
  * New Labour entries use whole minutes multiplied by a global labour hourly
  * rate. Legacy Labour quantity/unitCost entries retain their old fixed cost
  * until the user explicitly replaces them with minutes in the file editor.
- * Sundry unit prices are denominated in the same currency as the current
- * completed filament-cost estimate. An older saved sundryCurrency field is
- * deliberately ignored (no implicit FX conversion). Without a complete
- * filament estimate, no currency or selling price is assumed.
+ * Sundry unit prices and filament costs use the single global pricing
+ * currency. No FX conversion is performed when that setting changes:
+ * operators must update nominal prices to the chosen currency. Historical
+ * print cost snapshots retain their original currency and amounts.
+ * Without a complete filament estimate no selling price is assumed.
  * Hourly print costs use the slicer-estimated print duration, in the same
  * currency as the filament estimate. Without a duration, a nonzero hourly
  * rate prevents a complete sell price instead of silently underpricing.
@@ -157,7 +183,7 @@ export function estimateLibrarySalePrice(file, settings) {
   const sundriesCost=labourCost===null ? null : round(costs.reduce((sum,entry)=>
     sum+(entry.minutes !== undefined ? 0 : entry.quantity*entry.unitCost),0)+labourCost);
   const filament=file?.costEstimate || {};
-  const currency=filament.complete===true && filament.currency ? filament.currency : null;
+  const currency=filament.complete===true && filament.currency ? options.currency : null;
   const rawDuration=file?.requirements?.estimatedPrintSeconds;
   const estimatedPrintSeconds=typeof rawDuration==='number' && Number.isFinite(rawDuration)
     && rawDuration>0 && rawDuration<365*86400 ? rawDuration : null;

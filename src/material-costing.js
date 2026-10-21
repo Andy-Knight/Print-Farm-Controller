@@ -1,5 +1,6 @@
 import { canonicalMaterial } from './file-material-metadata.js';
 import { getFilament, listFilaments } from './filament-catalogue.js';
+import { getLibraryPricingSettings } from './library-pricing.js';
 
 function labelFor(entry) {
   return [entry?.brand, entry?.product, entry?.material].filter(Boolean).join(' · ') || null;
@@ -52,8 +53,8 @@ export async function buildMaterialCostSnapshot({
 } = {}) {
   const logicalTools = Array.isArray(requirements?.logicalTools) ? requirements.logicalTools : [];
   const catalogue = await listFilamentsFn();
+  const {currency:pricingCurrency}=await getLibraryPricingSettings();
   const tools = [];
-  const currencies = new Set();
   let totalGrams = 0;
   let resolvedCost = 0;
   let usageComplete = logicalTools.length > 0;
@@ -101,7 +102,6 @@ export async function buildMaterialCostSnapshot({
     if (entry && grams != null) {
       cost = Math.round((((grams / 1000) * Number(entry.costPerKg)) + Number.EPSILON) * 10000) / 10000;
       resolvedCost += cost;
-      currencies.add(entry.currency);
     } else {
       costComplete = false;
     }
@@ -116,15 +116,14 @@ export async function buildMaterialCostSnapshot({
       filamentId:entry?.id || explicitId || null,
       filamentLabel:entry ? labelFor(entry) : null,
       costPerKg:entry ? Number(entry.costPerKg) : null,
-      currency:entry?.currency || null,
+      currency:entry ? pricingCurrency : null,
       cost,
       resolution,
       issue
     });
   }
 
-  if (currencies.size > 1) costComplete = false;
-  const currency = currencies.size === 1 ? [...currencies][0] : null;
+  const currency = pricingCurrency;
   const complete = usageComplete && costComplete && tools.length > 0;
 
   return {
@@ -133,9 +132,9 @@ export async function buildMaterialCostSnapshot({
     usageComplete,
     costComplete,
     totalGrams:Math.round((totalGrams + Number.EPSILON) * 1000) / 1000,
-    currency,
+    currency:complete ? currency : null,
     totalCost:complete ? Math.round((resolvedCost + Number.EPSILON) * 10000) / 10000 : null,
-    resolvedCost:currency ? Math.round((resolvedCost + Number.EPSILON) * 10000) / 10000 : null,
+    resolvedCost:costComplete && tools.length ? Math.round((resolvedCost + Number.EPSILON) * 10000) / 10000 : null,
     tools
   };
 }
