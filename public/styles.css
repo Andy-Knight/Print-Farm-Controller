@@ -4188,6 +4188,7 @@ body:not([data-route="/"]) > main > :not(.route-page) { display:none !important;
 .fleet-viewport.table-view,
 .alert-history-table,
 .printer-group-members,
+#reportingFiles .reporting-table-scroll,
 .frontend-renderer-table,
 .material-grid.multi-tool-table,
 #libraryDialog .library-table-head,
@@ -4199,6 +4200,7 @@ body:not([data-route="/"]) > main > :not(.route-page) { display:none !important;
 .fleet-table-header,
 .alert-history-head,
 .printer-group-members-table thead th,
+#reportingFiles .reporting-analytics-table thead th,
 .frontend-renderer-table th,
 .material-table-head,
 #libraryDialog .library-table-head {
@@ -4216,18 +4218,24 @@ body:not([data-route="/"]) > main > :not(.route-page) { display:none !important;
   border-bottom:1px solid var(--pfc-table-header-divider);
 }
 .printer-group-members-table thead th,
+#reportingFiles .reporting-analytics-table thead th,
 .frontend-renderer-table th {
   border-bottom:1px solid var(--pfc-table-header-divider);
 }
-.printer-group-members-table thead th {
+.printer-group-members-table thead th,
+#reportingFiles .reporting-analytics-table thead th {
   padding:9px 12px;
-  text-align:left;
+  border-right:0;
 }
-.printer-group-members-table td {
+.printer-group-members-table thead th { text-align:left; }
+.printer-group-members-table td,
+#reportingFiles .reporting-analytics-table tbody td {
   padding:9px 12px;
+  border-right:0;
   border-bottom:1px solid var(--pfc-table-divider);
 }
-.printer-group-members-table tbody tr:last-child td { border-bottom:0; }
+.printer-group-members-table tbody tr:last-child td,
+#reportingFiles .reporting-analytics-table tbody tr:last-child td { border-bottom:0; }
 .frontend-renderer-table {
   border-collapse:separate;
   border-spacing:0;
@@ -4246,6 +4254,7 @@ body:not([data-route="/"]) > main > :not(.route-page) { display:none !important;
 .fleet.table-view .card:focus-within,
 .alert-history-row:not(.unread):hover,
 .printer-group-members-table tbody tr:hover,
+#reportingFiles .reporting-analytics-table tbody tr:hover > *,
 .frontend-renderer-table tbody tr:hover,
 .multi-tool-table .material-tool:not(.filament-missing):hover,
 #libraryDialog .library-file-row:hover {
@@ -4260,6 +4269,22 @@ body:not([data-route="/"]) > main > :not(.route-page) { display:none !important;
 .printer-group-members-table td,
 .printer-group-members-table .printer-group-member-groups {
   color:var(--pfc-table-secondary);
+}
+/* File analytics inherits the shared controller header/surface/hover skin,
+   while retaining its own seven-column geometry and right-aligned metrics. */
+#reportingFiles .reporting-analytics-table { font-size:.78rem; }
+#reportingFiles .reporting-analytics-table thead th { white-space:normal; }
+#reportingFiles .reporting-analytics-table .reporting-table-sort {
+  text-transform:inherit;
+  letter-spacing:inherit;
+}
+#reportingFiles .reporting-analytics-table .reporting-table-sort:hover,
+#reportingFiles .reporting-analytics-table .reporting-table-sort:focus-visible {
+  color:#80bfff;
+}
+:root[data-theme="light"] #reportingFiles .reporting-analytics-table .reporting-table-sort:hover,
+:root[data-theme="light"] #reportingFiles .reporting-analytics-table .reporting-table-sort:focus-visible {
+  color:#aad7ff;
 }
 .printer-group-members-table .printer-group-member-name {
   color:inherit;

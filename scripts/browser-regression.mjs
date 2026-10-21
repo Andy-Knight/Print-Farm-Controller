@@ -1751,6 +1751,59 @@ async function routeSmoke(page,url) {
   assert.match(await page.locator('#reportingFiles .reporting-file-time').innerText(),/2h 0m/);
   assert.equal(await page.locator('#reportingFiles .reporting-progress').count(),0,
     'completed count must not also be duplicated as a popularity bar');
+  // Compare the real Most popular print files table against the controller's
+  // shared printer-group table style in BOTH themes (no screenshot guessing).
+  const fileTableTheme = await page.evaluate(() => {
+    const fixture=document.createElement('div');
+    fixture.style.cssText='position:fixed;left:-5000px;top:0;';
+    fixture.innerHTML='<div class="printer-group-members"><table class="printer-group-members-table">'
+      +'<thead><tr><th>File</th></tr></thead><tbody><tr><td>Print file</td></tr></tbody>'
+      +'</table></div>';
+    document.body.appendChild(fixture);
+    const root=document.documentElement,original=root.getAttribute('data-theme');
+    const get=(node)=> {
+      const st=getComputedStyle(node);
+      return {background:st.backgroundColor,color:st.color,fontSize:st.fontSize,
+        fontWeight:st.fontWeight,spacing:st.letterSpacing,transform:st.textTransform,
+        borderTop:st.borderTopColor,borderBottom:st.borderBottomColor,
+        radius:st.borderTopLeftRadius,borderRight:st.borderRightWidth};
+    };
+    const state={};
+    try {
+      for(const theme of ['dark','light']) {
+        root.setAttribute('data-theme',theme);
+        const report=document.querySelector('#reportingFiles');
+        const ours={
+          panel:get(report.querySelector('.reporting-table-scroll')),
+          heading:get(report.querySelector('thead th')),
+          firstCell:get(report.querySelector('tbody td'))
+        };
+        const reference={
+          panel:get(fixture.querySelector('.printer-group-members')),
+          heading:get(fixture.querySelector('thead th')),
+          firstCell:get(fixture.querySelector('tbody td'))
+        };
+        state[theme]={ours,reference};
+      }
+    } finally {
+      if(original===null)root.removeAttribute('data-theme');
+      else root.setAttribute('data-theme',original);
+      fixture.remove();
+    }
+    return state;
+  });
+  for (const [theme,{ours,reference}] of Object.entries(fileTableTheme)) {
+    for (const prop of ['background','borderTop','radius'])
+      assert.equal(ours.panel[prop],reference.panel[prop],
+        theme+' file table should use the controller panel '+prop);
+    for (const prop of ['background','color','fontSize','fontWeight','spacing','transform','borderBottom','borderRight'])
+      assert.equal(ours.heading[prop],reference.heading[prop],
+        theme+' file table heading should match controller '+prop);
+    assert.equal(ours.firstCell.borderBottom,reference.firstCell.borderBottom,
+      theme+' file table row separator must match standard tables');
+    assert.equal(ours.firstCell.borderRight,'0px',
+      theme+' file table body should not contain isolated vertical gridlines');
+  }
   const reportingLayout = await page.evaluate(() => {
     const box = (selector) => document.querySelector(selector).getBoundingClientRect();
     const scroll = document.querySelector('#reportingFiles .reporting-table-scroll');

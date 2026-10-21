@@ -286,6 +286,18 @@ test('analytics chart is first after KPIs, print file table spans full width and
   assert.match(styles, /\.reporting-table-scroll\s*\{[^}]*width:100%;[^}]*max-width:100%;/);
   assert.doesNotMatch(styles, /\.reporting-table-scroll\s*\{[^}]*max-width:365px/);
   assert.match(styles, /\.reporting-analytics-files \.reporting-analytics-table\s*\{[^}]*table-layout:fixed/);
+  // Popular-file analytics must use the same controller table theme tokens as
+  // the Dashboard/Alerts/Printer Groups, not a separate report-only skin.
+  const sharedStyle = styles.slice(styles.indexOf('/* Controller table design system.'),
+    styles.indexOf('/* Preact-owned printer name editor:'));
+  assert.match(sharedStyle, /#reportingFiles \.reporting-table-scroll/);
+  assert.match(sharedStyle, /#reportingFiles \.reporting-analytics-table thead th/);
+  assert.match(sharedStyle, /#reportingFiles \.reporting-analytics-table tbody td/);
+  assert.match(sharedStyle, /#reportingFiles \.reporting-analytics-table tbody tr:hover > \*/);
+  assert.match(sharedStyle, /var\(--pfc-table-divider\)/);
+  assert.match(sharedStyle, /var\(--pfc-table-hover\)/);
+  assert.match(sharedStyle, /var\(--pfc-table-header-background\)/);
+  assert.match(sharedStyle, /var\(--pfc-table-surface\)/);
   assert.match(styles, /\.reporting-kpi \.reporting-kpi-gauge/);
   assert.match(styles, /\.reporting-kpi \.reporting-kpi-meter/);
   assert.match(styles, /\.reporting-kpi \.reporting-kpi-accent/);
