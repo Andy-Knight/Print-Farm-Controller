@@ -184,6 +184,109 @@
 .summary-card.ui-stat-card::after { background:var(--ds-stat-accent,var(--ds-brand)); }
 .summary-card.ui-stat-card:hover:not(:disabled),
 .summary-card.ui-stat-card:focus-visible { border-color:var(--ds-border-strong);filter:none;box-shadow:var(--ds-shadow-md); }
+
+/* Dashboard filters share Analytics Option D's circular, outlined KPI icons,
+   label/count hierarchy and thin indicators. The rings only show a real
+   percentage of configured printers; All Printers has a decorative circle. */
+#summary { grid-template-columns:repeat(4,minmax(0,1fr)); }
+#summary .dashboard-summary-kpi {
+  --dashboard-stat-color:#328de2;
+  --dashboard-stat-track:rgba(92,151,215,.18);
+  --dashboard-stat-center:var(--ds-surface);
+  display:flex; align-items:center; justify-content:flex-start;
+  gap:14px; min-width:0; min-height:114px; padding:14px;
+  line-height:normal;
+}
+#summary .dashboard-summary-kpi[data-tone="success"] {
+  --dashboard-stat-color:#20b37b; --dashboard-stat-track:rgba(85,214,164,.18);
+}
+#summary .dashboard-summary-kpi[data-tone="working"] {
+  --dashboard-stat-color:#22b8d0; --dashboard-stat-track:rgba(34,184,208,.18);
+}
+#summary .dashboard-summary-kpi[data-tone="warning"] {
+  --dashboard-stat-color:#e8a033; --dashboard-stat-track:rgba(232,160,51,.19);
+}
+#summary .dashboard-stat-gauge {
+  position:relative; display:grid; place-items:center;
+  width:72px; height:72px; flex:0 0 72px; border-radius:50%;
+  background:conic-gradient(from -90deg,var(--dashboard-stat-color) var(--dashboard-stat-angle),var(--dashboard-stat-track) 0deg);
+}
+#summary .dashboard-stat-gauge::before {
+  content:''; position:absolute; inset:9px; border-radius:50%;
+  background:var(--dashboard-stat-center);
+}
+#summary .dashboard-stat-gauge-neutral { background:var(--dashboard-stat-track); }
+#summary .dashboard-stat-icon {
+  position:relative; z-index:1; display:grid; place-items:center;
+  width:38px; height:38px; color:var(--dashboard-stat-color);
+}
+#summary .dashboard-stat-icon svg { display:block; width:27px; height:27px; stroke:currentColor; }
+#summary .dashboard-stat-body {
+  display:flex; flex:1; min-width:0;
+  flex-direction:column; align-items:flex-start;
+}
+#summary .dashboard-summary-kpi .summary-card-label {
+  margin:0 0 3px; line-height:1.25;
+}
+#summary .dashboard-summary-kpi .summary-card-label > .subtle {
+  color:var(--ds-text-muted); font-size:.73rem; font-weight:650;
+}
+#summary .dashboard-summary-kpi .dashboard-stat-body > b {
+  display:block; margin:0; color:var(--ds-text);
+  font-size:1.55rem; font-weight:850; font-variant-numeric:tabular-nums;
+  letter-spacing:-.035em; line-height:1.2;
+}
+#summary .dashboard-summary-kpi .dashboard-stat-detail {
+  display:block; min-height:1.25em; margin:4px 0 0;
+  color:var(--ds-text-muted); font-size:.72rem; line-height:1.3;
+}
+#summary .dashboard-stat-meter {
+  display:block; width:min(160px,100%); height:6px; margin-top:10px;
+  overflow:hidden; border-radius:999px; background:var(--dashboard-stat-track);
+}
+#summary .dashboard-stat-meter > span {
+  display:block; height:100%; border-radius:inherit;
+  background:var(--dashboard-stat-color);
+}
+#summary .dashboard-stat-accent {
+  display:block; width:43px; height:6px; margin-top:10px;
+  border-radius:999px; background:var(--dashboard-stat-color);
+}
+/* Preserve a clear pressed selection, rather than implying the ring itself is
+   a click-selection indicator or replacing the existing filter behaviour. */
+#summary .dashboard-summary-kpi::before { display:none; }
+#summary .dashboard-summary-kpi.active::after { background:var(--dashboard-stat-color); }
+#summary .dashboard-summary-kpi.active {
+  border-color:color-mix(in srgb,var(--dashboard-stat-color) 58%,var(--ds-border));
+}
+:root[data-theme="light"] #summary .dashboard-summary-kpi { --dashboard-stat-center:var(--ds-surface); }
+:root[data-theme="light"] #summary .dashboard-summary-kpi[data-tone="neutral"] {
+  --dashboard-stat-color:#177bd8; --dashboard-stat-track:#dbeafc;
+}
+:root[data-theme="light"] #summary .dashboard-summary-kpi[data-tone="success"] {
+  --dashboard-stat-color:#13a76c; --dashboard-stat-track:#d8f0e5;
+}
+:root[data-theme="light"] #summary .dashboard-summary-kpi[data-tone="working"] {
+  --dashboard-stat-color:#008ba3; --dashboard-stat-track:#daf4f8;
+}
+:root[data-theme="light"] #summary .dashboard-summary-kpi[data-tone="warning"] {
+  --dashboard-stat-color:#b87611; --dashboard-stat-track:#fff1d7;
+}
+@media (max-width:1050px) {
+  #summary { grid-template-columns:repeat(2,minmax(0,1fr)); }
+}
+@media (max-width:620px) {
+  #summary .dashboard-summary-kpi { min-height:104px; padding:11px; gap:9px; }
+  #summary .dashboard-stat-gauge { width:52px; height:52px; flex-basis:52px; }
+  #summary .dashboard-stat-gauge::before { inset:7px; }
+  #summary .dashboard-stat-icon { width:28px; height:28px; }
+  #summary .dashboard-stat-icon svg { width:22px; height:22px; }
+  #summary .dashboard-summary-kpi .dashboard-stat-body > b { font-size:1.25rem; }
+  #summary .dashboard-summary-kpi .summary-card-label > .subtle { font-size:.68rem; }
+  #summary .dashboard-summary-kpi .dashboard-stat-detail { font-size:.66rem; }
+  #summary .dashboard-stat-meter, #summary .dashboard-stat-accent { margin-top:7px; }
+}
+
 /* The hover highlight never paints over metric text or filament colours. */
 .fleet:not(.table-view) .card.ui-printer-surface {
   border-color:var(--ds-border);

@@ -309,6 +309,62 @@ async function dashboardPhase3Smoke(browser,url) {
     });
     await page.waitForFunction(()=>document.querySelector('#summary [data-dashboard-filter="all"] b')?.textContent==='12'
       &&document.querySelector('#dashboardFleetHeadingRoot [data-dashboard-fleet-summary]')?.textContent?.includes('12'));
+    // Dashboard summary cards match Analytics outline ring styling, using
+    // measured group ratios rather than arbitrary fill amounts or fake trends.
+    const measurements=await page.evaluate(()=>{
+      const cards=[...document.querySelectorAll('#summary .dashboard-summary-kpi')];
+      return cards.map(card=>({
+        key:card.dataset.dashboardFilter,
+        count:card.querySelector('.dashboard-stat-body > b')?.textContent,
+        svg:card.querySelector('.dashboard-stat-icon svg'),
+        gauge:card.querySelector('.dashboard-stat-gauge'),
+        meter:card.querySelector('.dashboard-stat-meter'),
+        accent:card.querySelector('.dashboard-stat-accent')
+      })).map(row=>({
+        key:row.key,count:row.count,
+        hasSvg:!!row.svg,
+        stroke:row.svg?.getAttribute('stroke'),
+        size:row.gauge?.getBoundingClientRect().width,
+        gaugeColor:row.gauge && getComputedStyle(row.gauge).backgroundImage,
+        meter:row.meter?.getAttribute('aria-valuenow') ?? null,
+        hasAccent:!!row.accent
+      }));
+    });
+    assert.deepEqual(measurements.map(row=>row.key),['all','online','printing','attention']);
+    assert.ok(measurements.every(row=>row.hasSvg&&row.stroke==='currentColor'&&row.size>=50),
+      'four Analytics-style outlined circular icons must be visible');
+    assert.equal(measurements[0].meter,null,'total printers is a count, not fake 100% progress');
+    assert.equal(measurements[1].meter,'83.3');
+    assert.equal(measurements[2].meter,'8.3');
+    assert.equal(measurements[3].meter,'16.7');
+    assert.ok(measurements.every(row=>row.gaugeColor?.includes('conic-gradient')||row.gaugeColor?.includes('rgba')),
+      'decorative rings and measured rings must render');
+    // A zero-attention state is a success (green check), not a warning.
+    await page.evaluate(()=>{
+      const state={counts:{all:12,online:10,printing:1,attention:0},
+        activeFilter:'all',groups:[],groupId:'',viewMode:'cards'};
+      window.__PFC_DASHBOARD_STATE__=state;
+      window.dispatchEvent(new CustomEvent('pfc:dashboard-state',{detail:state}));
+    });
+    await page.waitForFunction(()=>document.querySelector('#summary [data-dashboard-filter="attention"]')?.dataset.tone==='success');
+    assert.equal(await page.locator('#summary [data-dashboard-filter="attention"] .dashboard-stat-meter').getAttribute('aria-valuenow'),'0');
+    // Empty fleet: show neutral decorative circles and no invented percentages.
+    await page.evaluate(()=>{
+      const state={counts:{all:0,online:0,printing:0,attention:0},
+        activeFilter:'all',groups:[],groupId:'',viewMode:'cards'};
+      window.__PFC_DASHBOARD_STATE__=state;
+      window.dispatchEvent(new CustomEvent('pfc:dashboard-state',{detail:state}));
+    });
+    await page.waitForFunction(()=>document.querySelectorAll('#summary .dashboard-stat-gauge-neutral').length===4);
+    assert.equal(await page.locator('#summary .dashboard-stat-meter').count(),0);
+    // Restore the real-count fixture for click and theme regression checks.
+    await page.evaluate(()=>{
+      const state={counts:{all:12,online:10,printing:1,attention:2},
+        activeFilter:'all',groups:[],groupId:'',viewMode:'cards'};
+      window.__PFC_DASHBOARD_STATE__=state;
+      window.dispatchEvent(new CustomEvent('pfc:dashboard-state',{detail:state}));
+    });
+    await page.waitForFunction(()=>document.querySelector('#summary [data-dashboard-filter="attention"]')?.dataset.tone==='warning');
     await page.evaluate(()=>{
       window.__PFC_PHASE3_ACTIONS__=[];
       window.addEventListener('pfc:dashboard-action',(event)=>{
