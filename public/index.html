@@ -421,8 +421,32 @@
               <label>Cost per kg
                 <input id="filamentCost" type="number" min="0" step="0.01" placeholder="18.95" required />
               </label>
-              <label>Currency
-                <select id="filamentCurrency" required>
+
+            </div>
+            <div id="filamentError" class="error hidden"></div>
+            <div class="actions filament-form-actions">
+              <button id="filamentCancelEdit" type="button" class="secondary hidden">Cancel edit</button>
+              <button id="filamentSubmitBtn" type="submit" class="primary">Add filament</button>
+            </div>
+          </form>
+          <div id="filamentList" class="filament-cost-list"></div>
+        </section>
+      </section>
+
+      <section id="reportingPanelPricing" class="reporting-tab-panel" data-reporting-panel="pricing"
+        role="tabpanel" aria-labelledby="reportingTabPricing" hidden>
+        <section class="reporting-section">
+          <div class="reporting-section-head">
+            <div>
+              <h3>Global pricing settings</h3>
+              <span class="subtle">Set a single currency for filament, sundries, labour, print costs and Print Library sell prices.</span>
+            </div>
+          </div>
+          <form id="reportingPricingForm" class="reporting-pricing-form">
+            <fieldset id="reportingPricingFields" class="reporting-pricing-fields" disabled>
+              <div class="reporting-pricing-grid">
+                <label>Currency
+                  <select id="reportingCurrency" name="currency" required aria-describedby="reportingCurrencyHelp">
                   <option value="GBP" selected>GBP — British Pound (£)</option>
                   <option value="USD">USD — US Dollar ($)</option>
                   <option value="EUR">EUR — Euro (€)</option>
@@ -460,30 +484,8 @@
                   <option value="CLP">CLP — Chilean Peso (CLP)</option>
                   <option value="COP">COP — Colombian Peso (COP)</option>
                 </select>
-              </label>
-            </div>
-            <div id="filamentError" class="error hidden"></div>
-            <div class="actions filament-form-actions">
-              <button id="filamentCancelEdit" type="button" class="secondary hidden">Cancel edit</button>
-              <button id="filamentSubmitBtn" type="submit" class="primary">Add filament</button>
-            </div>
-          </form>
-          <div id="filamentList" class="filament-cost-list"></div>
-        </section>
-      </section>
-
-      <section id="reportingPanelPricing" class="reporting-tab-panel" data-reporting-panel="pricing"
-        role="tabpanel" aria-labelledby="reportingTabPricing" hidden>
-        <section class="reporting-section">
-          <div class="reporting-section-head">
-            <div>
-              <h3>Global pricing settings</h3>
-              <span class="subtle">Configure hourly print costs, profit and tax for Print Library sell prices.</span>
-            </div>
-          </div>
-          <form id="reportingPricingForm" class="reporting-pricing-form">
-            <fieldset id="reportingPricingFields" class="reporting-pricing-fields" disabled>
-              <div class="reporting-pricing-grid">
+                  </select>
+                </label>
                 <label>Profit percentage
                   <input id="reportingProfitPercent" name="profitPercent" type="number" min="0" max="1000" step="0.01"
                     placeholder="Example: 35" />
@@ -508,6 +510,10 @@
                 </label>
               </div>
               <div class="field-help reporting-pricing-help">
+                <span id="reportingCurrencyHelp">The selected currency applies to all <strong>current</strong> filament catalogue prices,
+                Print Library sundries and sell prices, and hourly rates. Changing currency <strong>does not convert numeric amounts or exchange rates</strong>;
+                review existing catalogue prices and rates after switching. Historical completed-print costs and reports retain
+                their original currency and recorded totals, so historical records are never rewritten.</span>
                 Sell prices include current filament cost, the slicer-estimated print time multiplied by the print hourly rate, and sundries for one complete print, including labour minutes priced at the labour hourly rate.
                 Profit markup or margin is applied to those costs; the configured tax rate is added afterwards.
                 Prices are shown <strong>including tax</strong>, per sale lot (and in total), with currency-appropriate rounding.
@@ -1335,7 +1341,7 @@
         <div class="library-pricing-config">
           <label>Sale lots per print<input id="libraryMetadataLotsPerPrint" type="number" name="lotsPerPrint" min="1" max="999" step="1" value="1" required /></label>
         </div>
-        <p class="library-pricing-note">Sundry amounts inherit the filament cost currency: <strong id="libraryMetadataCostCurrency">Not available until filament costing is complete</strong>. If the filament cost is unavailable, selling price estimates remain unavailable.</p>
+        <p class="library-pricing-note">Sundry amounts use the global currency selected in Reports &amp; finance → Price settings: <strong id="libraryMetadataCostCurrency">Not available until filament costing is complete</strong>. If the filament cost is unavailable, selling price estimates remain unavailable.</p>
         <div id="libraryMetadataSundries" class="library-sundries" aria-label="Sundry cost items"></div>
         <button type="button" class="secondary library-add-sundry" data-library-add-sundry="metadata">+ Add sundry cost</button>
       </section>

@@ -21,13 +21,13 @@ const filamentBrand = document.querySelector('#filamentBrand');
 const filamentProduct = document.querySelector('#filamentProduct');
 const filamentColour = document.querySelector('#filamentColour');
 const filamentCost = document.querySelector('#filamentCost');
-const filamentCurrency = document.querySelector('#filamentCurrency');
 const filamentFormTitle = document.querySelector('#filamentFormTitle');
 const filamentSubmitBtn = document.querySelector('#filamentSubmitBtn');
 const filamentCancelEdit = document.querySelector('#filamentCancelEdit');
 const filamentList = document.querySelector('#filamentList');
 const filamentError = document.querySelector('#filamentError');
 const reportingPricingForm = document.querySelector('#reportingPricingForm');
+const reportingCurrency = document.querySelector('#reportingCurrency');
 const reportingPricingFields = document.querySelector('#reportingPricingFields');
 const reportingProfitPercent = document.querySelector('#reportingProfitPercent');
 const reportingProfitMethod = document.querySelector('#reportingProfitMethod');
@@ -45,6 +45,7 @@ let currentReport = null;
 let activeReportingTab = 'analytics';
 let reportingPricingLoadSerial = 0;
 let reportingPricingSaving = false;
+let reportingCurrencyActive = 'GBP';
 
 function clearReportingPricingMessages() {
   if (reportingPricingError) {
@@ -61,6 +62,8 @@ async function loadReportingPricingSettings() {
   try {
     const response=await requestJson('/api/library/pricing');
     if (requestId !== reportingPricingLoadSerial) return;
+    reportingCurrencyActive=String(response.settings?.currency || 'GBP').toUpperCase();
+    if (reportingCurrency) reportingCurrency.value=reportingCurrencyActive;
     if (reportingProfitPercent) reportingProfitPercent.value=response.settings?.profitPercent ?? '';
     if (reportingProfitMethod) reportingProfitMethod.value=response.settings?.profitMethod || 'markup';
     if (reportingTaxRate) reportingTaxRate.value=String(response.settings?.taxRate ?? 0);
@@ -78,7 +81,7 @@ async function loadReportingPricingSettings() {
   }
 }
 
-const FILAMENT_CURRENCIES = new Set(['GBP', 'USD', 'EUR', 'JPY', 'CNY', 'CAD', 'AUD', 'NZD', 'CHF', 'HKD', 'SGD', 'INR', 'KRW', 'TWD', 'THB', 'MYR', 'IDR', 'PHP', 'VND', 'AED', 'SAR', 'ILS', 'ZAR', 'BRL', 'MXN', 'SEK', 'NOK', 'DKK', 'PLN', 'CZK', 'HUF', 'RON', 'TRY', 'RUB', 'CLP', 'COP']);
+
 
 function escapeHtml(value = '') {
   return String(value).replace(/[&<>'"]/g, (ch) => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', "'":'&#39;', '"':'&quot;' }[ch]));
@@ -409,27 +412,9 @@ async function loadReport() {
   }
 }
 
-function setFilamentCurrency(value = 'GBP') {
-  if (!filamentCurrency) return;
-  for (const option of [...filamentCurrency.options]) {
-    if (option.dataset.legacyCurrency === 'true') option.remove();
-  }
-  const currency = String(value || 'GBP').trim().toUpperCase();
-  if (!FILAMENT_CURRENCIES.has(currency)) {
-    const legacy = document.createElement('option');
-    legacy.value = currency;
-    legacy.textContent = `${currency} (legacy — choose a supported currency)`;
-    legacy.disabled = true;
-    legacy.dataset.legacyCurrency = 'true';
-    filamentCurrency.append(legacy);
-  }
-  filamentCurrency.value = currency;
-}
-
 function resetFilamentForm() {
   filamentForm?.reset();
   if (filamentId) filamentId.value = '';
-  setFilamentCurrency('GBP');
   if (filamentFormTitle) filamentFormTitle.textContent = 'Add filament cost';
   if (filamentSubmitBtn) filamentSubmitBtn.textContent = 'Add filament';
   filamentCancelEdit?.classList.add('hidden');
@@ -547,9 +532,13 @@ reportingPricingForm?.addEventListener('submit',async event=>{
       profitMethod:reportingProfitMethod?.value || 'markup',
       taxRate:Number(reportingTaxRate?.value ?? 0),
       hourlyCostRate:Number(reportingHourlyCostRate?.value ?? 0),
-      labourHourlyRate:reportingLabourHourlyRate?.value === '' ? null : Number(reportingLabourHourlyRate?.value)
+      labourHourlyRate:reportingLabourHourlyRate?.value === '' ? null : Number(reportingLabourHourlyRate?.value),
+      currency:reportingCurrency?.value || reportingCurrencyActive
     })});
-    if (reportingPricingStatus) reportingPricingStatus.textContent='Pricing settings saved. Print Library sell prices now include labour minutes, print time, profit and tax.';
+    reportingCurrencyActive=reportingCurrency?.value || reportingCurrencyActive;
+    reportingFilamentsState=(await requestJson('/api/filaments')).filaments || [];
+    renderFilamentCatalogue();
+    if (reportingPricingStatus) reportingPricingStatus.textContent='Pricing saved. Current catalogue and library use '+reportingCurrencyActive+'. Currency changes do not convert amounts; review prices and hourly rates.';
     window.dispatchEvent(new Event('pfc:library-pricing-updated'));
   } catch(error) {
     if (reportingPricingStatus) reportingPricingStatus.textContent='';
@@ -570,15 +559,12 @@ filamentForm?.addEventListener('submit', async (event) => {
   if (filamentSubmitBtn) filamentSubmitBtn.disabled = true;
   if (filamentError) { filamentError.textContent = ''; filamentError.classList.add('hidden'); }
   try {
-    const currency = String(filamentCurrency?.value || 'GBP').trim().toUpperCase();
-    if (!FILAMENT_CURRENCIES.has(currency)) throw new Error('Choose a supported filament currency');
     const payload = {
       material:filamentMaterial?.value || '',
       brand:filamentBrand?.value || '',
       product:filamentProduct?.value || '',
       colour:filamentColour?.value || '',
-      costPerKg:Number(filamentCost?.value),
-      currency
+      costPerKg:Number(filamentCost?.value)
     };
     await requestJson(id ? `/api/filaments/${encodeURIComponent(id)}` : '/api/filaments', {
       method:id ? 'PATCH' : 'POST',
@@ -607,7 +593,6 @@ filamentList?.addEventListener('click', async (event) => {
     if (filamentProduct) filamentProduct.value = item.product || '';
     if (filamentColour) filamentColour.value = item.colour || '';
     if (filamentCost) filamentCost.value = String(item.costPerKg ?? '');
-    setFilamentCurrency(item.currency || 'GBP');
     if (filamentFormTitle) filamentFormTitle.textContent = 'Edit filament cost';
     if (filamentSubmitBtn) filamentSubmitBtn.textContent = 'Save filament';
     filamentCancelEdit?.classList.remove('hidden');

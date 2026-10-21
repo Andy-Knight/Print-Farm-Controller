@@ -24,14 +24,14 @@ test('Selling-price settings and Preact/fallback sale view use the same server e
   const html=read('public/index.html'),app=read('public/app.js');
   const preact=read('ui/print-library.jsx');
   const server=read('src/server.js'),css=read('public/print-library-polish.css');
-  const ids=['reportingTabPricing','reportingPanelPricing','reportingPricingForm',
+  const ids=['reportingTabPricing','reportingPanelPricing','reportingPricingForm','reportingCurrency',
     'reportingProfitPercent','reportingProfitMethod','reportingTaxRate','reportingHourlyCostRate',
     'reportingLabourHourlyRate',
     'reportingPricingStatus','reportingPricingError'];
   for (const id of ids) assert.match(html,new RegExp('id="'+id+'"'));
   assert.doesNotMatch(app,/SundryCurrency/);
   assert.doesNotMatch(html,/name="sundryCurrency"/);
-  assert.match(html,/Sundry amounts inherit the filament cost currency/);
+  assert.match(html,/Sundry amounts use the global currency selected in Reports &amp; finance/);
   assert.match(app,/file\.costEstimate\?\.complete && file\.costEstimate\.currency/);
   assert.doesNotMatch(server,/sundryCurrency:body\.sundryCurrency/);
   assert.match(server,/api\/library\/pricing/);
@@ -48,6 +48,10 @@ test('Selling-price settings and Preact/fallback sale view use the same server e
   assert.match(html,/data-reporting-tab="pricing"/);
   assert.match(html,/data-reporting-panel="pricing"/);
   assert.match(reporting,/function loadReportingPricingSettings\(\)/);
+  assert.match(reporting,/reportingCurrency\.value=reportingCurrencyActive/);
+  assert.match(reporting,/currency:reportingCurrency\?\.value \|\| reportingCurrencyActive/);
+  assert.doesNotMatch(html,/id="filamentCurrency"/);
+  assert.doesNotMatch(reporting,/setFilamentCurrency/);
   assert.match(reporting,/requestJson\('\/api\/library\/pricing'/);
   assert.match(reporting,/taxRate:Number\(reportingTaxRate\?\.value \?\? 0\)/);
   assert.match(reporting,/reportingTaxRate\.value=String\(response\.settings\?\.taxRate \?\? 0\)/);
