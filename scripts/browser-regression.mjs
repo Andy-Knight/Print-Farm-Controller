@@ -367,6 +367,41 @@ async function dashboardPhase3Smoke(browser,url) {
       window.dispatchEvent(new CustomEvent('pfc:dashboard-state',{detail:state}));
     });
     await page.waitForFunction(()=>document.querySelector('#summary [data-dashboard-filter="attention"]')?.dataset.tone==='warning');
+    // The dashboard summary text always remains beside its ring, including
+    // narrow two-column layouts. This checks real rendered positions rather
+    // than assuming a flex/grid declaration alone prevents stacking.
+    for(const width of [1365,900,620,390,320]){
+      await page.setViewportSize({width,height:900});
+      const layout=await page.evaluate(()=>{
+        const rect=(node)=>node.getBoundingClientRect();
+        return [...document.querySelectorAll('#summary .dashboard-summary-kpi')].map(card=>{
+          const icon=rect(card.querySelector('.dashboard-stat-gauge'));
+          const text=rect(card.querySelector('.dashboard-stat-body'));
+          const outer=rect(card);
+          return {
+            key:card.dataset.dashboardFilter,
+            icon:{left:icon.left,right:icon.right,top:icon.top,bottom:icon.bottom},
+            text:{left:text.left,right:text.right,top:text.top,bottom:text.bottom},
+            card:{left:outer.left,right:outer.right,top:outer.top,bottom:outer.bottom},
+            grid:getComputedStyle(card).gridTemplateColumns,
+            number:card.querySelector('.dashboard-stat-body > b')?.textContent
+          };
+        });
+      });
+      assert.equal(layout.length,4,'all four dashboard filters render at '+width+'px');
+      for(const row of layout){
+        assert.ok(row.text.left>=row.icon.right+3,
+          'label, count and bar must stay to the RIGHT of icon at '+width+'px: '+JSON.stringify(row));
+        assert.ok(row.icon.top<row.text.bottom && row.icon.bottom>row.text.top,
+          'summary text must remain beside (not below) icon at '+width+'px: '+JSON.stringify(row));
+        assert.ok(row.text.right<=row.card.right-6,
+          'summary text must fit within its card at '+width+'px: '+JSON.stringify(row));
+        assert.ok(row.card.left>=-1 && row.card.right<=width+1,
+          'summary cards must not overflow '+width+'px viewport: '+JSON.stringify(row));
+        assert.ok(row.grid.includes('px'),'status card must use explicit column geometry');
+      }
+    }
+    await page.setViewportSize({width:1365,height:900});
     await page.evaluate(()=>{
       window.__PFC_PHASE3_ACTIONS__=[];
       window.addEventListener('pfc:dashboard-action',(event)=>{
