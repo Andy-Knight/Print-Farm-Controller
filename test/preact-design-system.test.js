@@ -37,7 +37,8 @@ test('shared Preact primitives expose accessible loading, field, panel and feedb
 
 test('dashboard upgrades visual surfaces without changing controller action or progress hooks',()=>{
   assert.match(dashboard,/ui-stat-card/);
-  assert.match(dashboard,/data-tone=\{item\.tone\}/);
+  assert.match(dashboard,/data-tone=\{tone\}/);
+  assert.match(dashboard,/const tone = item\.key === 'attention'/);
   assert.match(dashboard,/ui-printer-surface/);
   for(const data of ['data-dashboard-filter','data-printer-card','data-progress-value',
     'data-card-job-control','data-open','data-nozzle','data-bed'])
