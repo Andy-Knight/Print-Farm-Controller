@@ -1,4 +1,4 @@
-# Print Farm Controller v0.59.6
+# Print Farm Controller v0.59.7
 A local-first 3D printer fleet controller. It runs entirely on your LAN and currently supports:
 
 - **FlashForge Adventurer 5M / 5M Pro** through the local FlashForge HTTP/TCP APIs.
@@ -7,9 +7,12 @@ A local-first 3D printer fleet controller. It runs entirely on your LAN and curr
 - **Prusa CORE One+ (experimental)** through the local PrusaLink API, supporting Standard (1-tool), INDX4 and INDX8 configurations.
 - **Bambu Lab P1P / P1S / X1C / A1 Mini (experimental)** through the local MQTT TLS and FTPS TLS interfaces. P1P/P1S/A1 Mini use the TLS/JPEG camera path; X1C camera decoding remains unsupported.
 
-**Current development version: v0.59.6**
+**Current development version: v0.59.7**
 
 Current highlights:
+
+- **Dashboard summary and printer card refinements (v0.59.7):** The Dashboard's All Printers, Online, Printing, and Needs attention filters now use the same outlined circular KPI icons, colour accents, numeric hierarchy and slim progress meters as the Reports & finance Analytics cards. Measured percentages reflect printer counts within the selected group; the total count has a decorative ring and zero-attention shows a green check. The icon is on the left, with the label, count, context and indicator bar to its right on all screen sizes, including mobile. Printer cards no longer show excessive empty space below printer model images: subgrid no longer inherits parent row gaps between hidden status sections, while outer card separation is retained. Model pictures use contained sizing and additional bottom padding to protect the printer silhouette from the image boundary. Light/dark theme, filter actions, card/table switching, responsive layouts and existing printer controls remain intact.
+
 
 - **Print-file resource analytics and page clearance (v0.59.6):** Reports & finance → Analytics → Most popular print files replaces the redundant Popularity column with **Material / cost** (two stacked lines for kilograms and recorded historical filament cost) and **Print time** (total recorded printer duration for physical print attempts, including failures). All three new resource measures can be sorted; historical costs remain in their recorded currencies without automatic FX conversion, and missing/partially captured print records are labelled rather than fabricated. The full-width table keeps thumbnails, Print Library links, Top 10/All, responsive sizing and the **same standard controller table styling** as Dashboard, Alerts and Printer Groups. Analytics also includes 32px desktop / 24px mobile scroll clearance below the final Print file failure analysis card, without extending its border or changing other reporting tabs.
 

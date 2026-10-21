@@ -9,13 +9,16 @@ If chat context and this file disagree about the codebase, inspect current GitHu
 - Repository: `Andy-Knight/Print-Farm-Controller`
 - Project path: repository root (`/`)
 - Primary branch: `main` (current production baseline)
-- Current controller source version: **0.59.6** (popular-file reporting adds material/cost and print-time columns; Analytics page gains bottom scroll clearance).
+- Current controller source version: **0.59.7** (Dashboard summary KPI icons, side-by-side layout and printer-card image spacing).
 - Previous baseline audited: **0.48.0** (main before the regression test audit release).
 - Runtime: **Node.js 24+** (development baseline Node.js 24.21.0), ES modules, no npm runtime dependencies.
 - GitHub is the authoritative code baseline.
 - Release/version history is maintained only in `CHANGELOG.md`; do not duplicate per-version history in this handoff file.
 
 ## Current work
+
+**v0.59.7 Dashboard visual refinement (PR #113):** User approved release bump and merge. Summary filter cards now match the Analytics Option D language with themed outline printer/Wi-Fi/printing/attention SVGs, circular measured progress rings for eligible status shares, and an unmetered total printers ring; zero attention is shown as healthy green. All card text and numeric indicators appear beside the left icon at desktop/tablet/mobile sizes; the later-loaded Dashboard polish CSS no longer forces stacked layout. The printer-card grid no longer inherits outer fleet row spacing across its eight internal subgrid tracks (especially hidden activity/license/preheat/clearance strips), removing excessive blank space below model images. Each whole card retains a desktop/mobile bottom gap; printer model images have additional bottom padding and object-fit containment. Existing click-to-filter, group scope, card/table views and printer controls remain unchanged. Node, Chromium and container CI passed for the feature; verify again after release metadata bump before merging.
+
 
 **v0.59.6 Popular-file reporting and Analytics bottom spacing (PR #112):** User approved merge. Replaced Popularity with Material / cost (kilograms and saved historical spend on separate lines) and Print time (recorded physical run durations, including failed attempts). Preserve completion-based ranking, file links, Top 10/All, both renderers and responsive width. Sort by material, currency-aware cost and time; do not invent missing snapshot data or convert historical currencies, and indicate partial history. Popular-file table reuses controller design-system table tokens for header, panel, rows and hover, matching Dashboard/Alerts/Printer Groups in both themes. Add 32px desktop / 24px mobile scrollable clearance below the Print file failure analysis border, scoped only to the Analytics tab. Automated Node, Chromium and container checks passed before release metadata bump; recheck release commit before merging. No printer/queue behaviour changes.
 
