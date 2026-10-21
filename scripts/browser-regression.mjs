@@ -147,6 +147,7 @@ async function designSystemSmoke(browser,url) {
             photoFit:imageStyle?.objectFit,
             photoBottomPadding:imageStyle?Number.parseFloat(imageStyle.paddingBottom):null,
             imageHeight:imageBox.height,
+            cardMarginBottom:Number.parseFloat(getComputedStyle(card).marginBottom),
             headBottom:headBox.bottom,headScroll:head.scrollHeight,headHeight:head.clientHeight
           });
         }
@@ -167,6 +168,8 @@ async function designSystemSmoke(browser,url) {
             assert.ok(Math.abs(card.bodyTop-card.imageBottom)<=2.5,
               'hidden activity strips must not leave a blank band below printer images: '+JSON.stringify(card));
           }
+          assert.ok(card.cardMarginBottom>=10,
+            'printer cards still need their own outer row spacing');
           if(card.photoFit) {
             assert.equal(card.photoFit,'contain',
               'printer photos should stay contained rather than cropped');

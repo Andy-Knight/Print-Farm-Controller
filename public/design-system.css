@@ -316,6 +316,16 @@
  * retains its existing compact column layout and is not affected.
  */
 @supports (grid-template-rows:subgrid) {
+  /* Subgrid tracks belong to the parent grid: its row-gap also inserts space
+     between all eight nested printer sections. Remove parent row gaps and
+     separate COMPLETE printer cards using a bottom margin instead. */
+  .fleet:not(.table-view) { row-gap:0; }
+  .fleet:not(.table-view) > .card.ui-printer-surface {
+    margin-bottom:13px;
+  }
+  @media (max-width:760px) {
+    .fleet:not(.table-view) > .card.ui-printer-surface { margin-bottom:10px; }
+  }
   .fleet:not(.table-view) > .card.ui-printer-surface {
     display:grid;
     grid-row:span 8;
