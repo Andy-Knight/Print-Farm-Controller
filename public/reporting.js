@@ -536,10 +536,16 @@ reportingPricingForm?.addEventListener('submit',async event=>{
       currency:reportingCurrency?.value || reportingCurrencyActive
     })});
     reportingCurrencyActive=reportingCurrency?.value || reportingCurrencyActive;
-    reportingFilamentsState=(await requestJson('/api/filaments')).filaments || [];
-    renderFilamentCatalogue();
-    if (reportingPricingStatus) reportingPricingStatus.textContent='Pricing saved. Current catalogue and library use '+reportingCurrencyActive+'. Currency changes do not convert amounts; review prices and hourly rates.';
+    // Refresh the library immediately after settings commit. A subsequent
+    // catalogue refresh failure must never be reported as a failed save.
     window.dispatchEvent(new Event('pfc:library-pricing-updated'));
+    if (reportingPricingStatus) reportingPricingStatus.textContent='Pricing saved. Current catalogue and library use '+reportingCurrencyActive+'. Currency changes do not convert amounts; review prices and hourly rates.';
+    try {
+      reportingFilamentsState=(await requestJson('/api/filaments')).filaments || [];
+      renderFilamentCatalogue();
+    } catch (refreshError) {
+      if (reportingPricingStatus) reportingPricingStatus.textContent+=' Refresh the filament list to see updated currency labels.';
+    }
   } catch(error) {
     if (reportingPricingStatus) reportingPricingStatus.textContent='';
     if (reportingPricingError) {
