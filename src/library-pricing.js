@@ -6,7 +6,7 @@ import { KeyedSerialExecutor } from './concurrency.js';
 
 const SETTINGS_FILE = path.join(path.dirname(printerStorePath), 'library-pricing.json');
 const executor = new KeyedSerialExecutor();
-const DEFAULT_SETTINGS = Object.freeze({ profitPercent:null, profitMethod:'markup', taxRate:0, hourlyCostRate:0 });
+const DEFAULT_SETTINGS = Object.freeze({ profitPercent:null, profitMethod:'markup', taxRate:0, hourlyCostRate:0, labourHourlyRate:null });
 
 function round(value, decimals = 4) {
   return Math.round((value + Number.EPSILON) * (10 ** decimals)) / (10 ** decimals);
@@ -33,6 +33,16 @@ export function normalizeSundryCosts(value) {
     const label = String(entry.label || '').trim().replace(/\s+/g, ' ');
     if (!label || label.length > 100 || /[<>]/.test(label)) {
       throw new Error('Sundry description must contain 1–100 characters');
+    }
+    // New Labour lines store time only. Never reinterpret legacy Labour
+    // quantity/unitCost: existing saved prices must not change silently.
+    if (label.toLowerCase()==='labour' && entry.minutes !== undefined) {
+      const minutes=Number(entry.minutes);
+      if (typeof entry.minutes==='boolean' || entry.minutes === '' || entry.minutes === null
+        || !Number.isInteger(minutes) || minutes < 1 || minutes > 10000) {
+        throw new Error('Labour minutes must be an integer between 1 and 10000');
+      }
+      return {label:'Labour',minutes};
     }
     const quantity = Number(entry.quantity);
     if (typeof entry.quantity === 'boolean' || !Number.isInteger(quantity) || quantity < 1 || quantity > 10000) {
@@ -81,8 +91,18 @@ export function normalizePricingSettings(value = {}) {
       || hourlyCostRate < 0 || hourlyCostRate > 1000000) {
     throw new Error('Hourly print cost rate must be between zero and 1000000');
   }
+  // null means no labour rate has been set yet, unlike an explicitly
+  // configured zero rate. Older settings files had no such field.
+  const rawLabourRate=value.labourHourlyRate;
+  const labourHourlyRate=rawLabourRate === undefined || rawLabourRate === null || rawLabourRate === ''
+    ? null : Number(rawLabourRate);
+  if (labourHourlyRate!==null && (typeof rawLabourRate==='boolean' || !Number.isFinite(labourHourlyRate)
+      || labourHourlyRate < 0 || labourHourlyRate > 1000000)) {
+    throw new Error('Labour hourly rate must be between zero and 1000000');
+  }
   return {profitPercent:profitPercent == null ? null : round(profitPercent,2),
-    profitMethod:method,taxRate:round(taxRate,2),hourlyCostRate:round(hourlyCostRate,2)};
+    profitMethod:method,taxRate:round(taxRate,2),hourlyCostRate:round(hourlyCostRate,2),
+    labourHourlyRate:labourHourlyRate===null ? null : round(labourHourlyRate,2)};
 }
 
 export async function getLibraryPricingSettings() {
@@ -112,7 +132,10 @@ export async function saveLibraryPricingSettings(input) {
 
 /**
  * Estimate only. Does not affect print-queue historical filament cost snapshots.
- * Sundry entries are quantities required PER SLICED PRINT (not per selling lot).
+ * Sundry entries are consumed PER SLICED PRINT (not per selling lot).
+ * New Labour entries use whole minutes multiplied by a global labour hourly
+ * rate. Legacy Labour quantity/unitCost entries retain their old fixed cost
+ * until the user explicitly replaces them with minutes in the file editor.
  * Sundry unit prices are denominated in the same currency as the current
  * completed filament-cost estimate. An older saved sundryCurrency field is
  * deliberately ignored (no implicit FX conversion). Without a complete
@@ -127,7 +150,12 @@ export function estimateLibrarySalePrice(file, settings) {
   const costs=normalizeSundryCosts(file?.sundryCosts);
   const lotsPerPrint=normalizeSaleLots(file?.lotsPerPrint);
   const options=normalizePricingSettings(settings);
-  const sundriesCost=round(costs.reduce((sum,entry)=>sum+entry.quantity*entry.unitCost,0));
+  const needsLabourRate=costs.some(entry=>entry.label==='Labour' && entry.minutes !== undefined);
+  const labourCost=options.labourHourlyRate===null && needsLabourRate ? null : round(costs.reduce(
+    (sum,entry)=>sum+(entry.label==='Labour' && entry.minutes !== undefined
+      ? round(entry.minutes*options.labourHourlyRate/60) : 0),0));
+  const sundriesCost=labourCost===null ? null : round(costs.reduce((sum,entry)=>
+    sum+(entry.minutes !== undefined ? 0 : entry.quantity*entry.unitCost),0)+labourCost);
   const filament=file?.costEstimate || {};
   const currency=filament.complete===true && filament.currency ? filament.currency : null;
   const rawDuration=file?.requirements?.estimatedPrintSeconds;
@@ -141,6 +169,8 @@ export function estimateLibrarySalePrice(file, settings) {
     issue='Filament cost is unavailable; a complete selling price cannot be calculated';
   } else if (printTimeCost===null) {
     issue='Estimated print time is unavailable; a non-zero hourly cost rate requires a slicer duration';
+  } else if (labourCost===null) {
+    issue='Set the global labour hourly rate in Reports & finance to price this file\'s labour minutes';
   }
   const totalCost=issue ? null : round(filament.totalCost + sundriesCost + printTimeCost);
   const nominalExTax=issue ? null : options.profitMethod==='margin'
@@ -165,6 +195,8 @@ export function estimateLibrarySalePrice(file, settings) {
     currency,
     filamentCost:filament.complete ? filament.totalCost : null,
     sundriesCost,
+    labourCost,
+    labourHourlyRate:options.labourHourlyRate,
     hourlyCostRate:options.hourlyCostRate,
     estimatedPrintSeconds,
     printTimeCost,
