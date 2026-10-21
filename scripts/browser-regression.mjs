@@ -1930,6 +1930,96 @@ async function routeSmoke(page,url) {
     assert.equal(ours.firstCell.borderRight,'0px',
       theme+' file table body should not contain isolated vertical gridlines');
   }
+  // Material usage table shares printer-group table skin (both modes and
+  // themes). Keep the actual data cells, 100% total and progress bars intact.
+  for (const [mode, label] of [['type','ASA'],['filament','Example · ASA-CF · ASA']]) {
+    await page.evaluate(({mode,label})=>{
+      const base=window.__PFC_REPORTING_UI_STATE__ || {};
+      window.dispatchEvent(new CustomEvent('pfc:reporting-ui-state',{detail:{
+        ...base,materialMode:mode,
+        // Keep the earlier file-geometry fixture in Preact state: dispatching
+        // this custom event replaces the entire view model, not just materials.
+        files:[{
+          id:'layout-check',rank:1,fileName:'Regression layout sample.3mf',
+          libraryFileId:null,previewUrl:'',completed:10,failed:0,
+          successRate:'100%',materialText:'0.45 kg',materialCostText:'£6.00',
+          materialPartial:false,materialCostPartial:false,
+          materialTitle:'Recorded for 10 of 10 completed jobs',
+          costTitle:'Recorded £6.00 for 10 jobs',
+          printTime:'2h 0m',printTimePartial:false,printTimeTitle:'2 hours recorded'
+        }],
+        materials:{rows:[
+          {key:'sample',label,note:'Historical materials sample',
+            kg:'1.50',percentage:'75.0%',percent:75,cost:'£19.50'},
+          {key:'sample2',label:'PLA',note:'',kg:'0.50',
+            percentage:'25.0%',percent:25,cost:'£4.50'}
+        ],totalKg:'2.00',totalCost:'£24.00'}
+      }}));
+    },{mode,label});
+    await page.waitForFunction((materialLabel) =>
+      document.querySelector('#reportingMaterials tbody tr td')?.textContent === materialLabel,label);
+    const styling=await page.evaluate(()=>{
+      const fixture=document.createElement('div');
+      fixture.style.cssText='position:fixed;left:-5000px;top:0';
+      fixture.innerHTML='<div class="printer-group-members"><table class="printer-group-members-table">'
+        +'<thead><tr><th>Material</th></tr></thead><tbody><tr><td>Material</td></tr></tbody></table></div>';
+      document.body.appendChild(fixture);
+      const original=document.documentElement.getAttribute('data-theme');
+      const props=node=>{
+        const s=getComputedStyle(node);
+        return {bg:s.backgroundColor,color:s.color,fontSize:s.fontSize,
+          fontWeight:s.fontWeight,letterSpacing:s.letterSpacing,
+          textTransform:s.textTransform,borderRadius:s.borderTopLeftRadius,
+          borderColor:s.borderTopColor,borderBottom:s.borderBottomColor,
+          borderWidth:s.borderRightWidth,divider:s.getPropertyValue('--pfc-table-divider').trim()};
+      };
+      const output={};
+      try {
+        for(const theme of ['dark','light']){
+          document.documentElement.setAttribute('data-theme',theme);
+          output[theme]={
+            ours:{
+              panel:props(document.querySelector('#reportingMaterials .reporting-table-scroll')),
+              heading:props(document.querySelector('#reportingMaterials thead th')),
+              row:props(document.querySelector('#reportingMaterials tbody td')),
+              footer:props(document.querySelector('#reportingMaterials tfoot th'))
+            },
+            ref:{
+              panel:props(fixture.querySelector('.printer-group-members')),
+              heading:props(fixture.querySelector('thead th')),
+              row:props(fixture.querySelector('tbody td'))
+            }
+          };
+        }
+      } finally {
+        if(original===null) document.documentElement.removeAttribute('data-theme');
+        else document.documentElement.setAttribute('data-theme',original);
+        fixture.remove();
+      }
+      return output;
+    });
+    for(const [theme,{ours,ref}] of Object.entries(styling)){
+      for(const prop of ['bg','borderColor','borderRadius'])
+        assert.equal(ours.panel[prop],ref.panel[prop],
+          mode+' '+theme+' Material usage surface must match shared table '+prop);
+      for(const prop of ['bg','color','fontSize','fontWeight','letterSpacing','textTransform','borderBottom','borderWidth'])
+        assert.equal(ours.heading[prop],ref.heading[prop],
+          mode+' '+theme+' Material usage header must match shared table '+prop);
+      assert.equal(ours.row.divider,ref.row.divider,
+        mode+' '+theme+' Material usage divider must match shared table token');
+      assert.equal(ours.row.borderWidth,'0px',mode+' '+theme+' no vertical cell borders');
+      assert.equal(ours.footer.bg,ours.panel.bg,mode+' '+theme+' totals use shared table surface');
+    }
+    const count=await page.locator('#reportingMaterials tbody tr').count();
+    assert.equal(count,2,mode+' retains historical usage rows');
+    assert.equal(await page.locator('#reportingMaterials tfoot .numeric').first().textContent(),'2.00');
+    assert.equal(await page.locator('#reportingMaterials tfoot .numeric').nth(1).textContent(),'100%');
+    assert.equal(await page.locator('#reportingMaterials tfoot .numeric').nth(2).textContent(),'£24.00');
+    assert.equal(await page.locator('#reportingMaterials .reporting-progress').count(),2,
+      mode+' must retain material usage progress bars');
+    assert.ok((await page.locator('#reportingMaterials .numeric').count())>=6,
+      mode+' must preserve numeric column alignment');
+  }
   const reportingLayout = await page.evaluate(() => {
     const box = (selector) => document.querySelector(selector).getBoundingClientRect();
     const scroll = document.querySelector('#reportingFiles .reporting-table-scroll');

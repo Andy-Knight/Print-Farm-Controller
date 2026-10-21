@@ -9,13 +9,16 @@ If chat context and this file disagree about the codebase, inspect current GitHu
 - Repository: `Andy-Knight/Print-Farm-Controller`
 - Project path: repository root (`/`)
 - Primary branch: `main` (current production baseline)
-- Current controller source version: **0.59.7** (Dashboard summary KPI icons, side-by-side layout and printer-card image spacing).
+- Current controller source version: **0.59.8** (Analytics Material usage table uses canonical shared table style).
 - Previous baseline audited: **0.48.0** (main before the regression test audit release).
 - Runtime: **Node.js 24+** (development baseline Node.js 24.21.0), ES modules, no npm runtime dependencies.
 - GitHub is the authoritative code baseline.
 - Release/version history is maintained only in `CHANGELOG.md`; do not duplicate per-version history in this handoff file.
 
 ## Current work
+
+**v0.59.8 Analytics Material usage table standardisation (PR #114):** User approved the version bump and merge. Reports & finance → Analytics → Material usage uses the shared `--pfc-table-*` panel, dark white-uppercase header, cell spacing/dividers, hover state, totals-row separator and light/dark palette, matching other controller tables for both By material type and By filament. Historical material usage amounts, costs/currencies, percentage bars, grouping controls, numeric alignment and both Preact/HTML fallback renderers remain unchanged. The standalone visual style guide was updated; new Node and Chromium tests compare computed styles in both themes and modes. Verify release-commit CI before merging to main.
+
 
 **v0.59.7 Dashboard visual refinement (PR #113):** User approved release bump and merge. Summary filter cards now match the Analytics Option D language with themed outline printer/Wi-Fi/printing/attention SVGs, circular measured progress rings for eligible status shares, and an unmetered total printers ring; zero attention is shown as healthy green. All card text and numeric indicators appear beside the left icon at desktop/tablet/mobile sizes; the later-loaded Dashboard polish CSS no longer forces stacked layout. The printer-card grid no longer inherits outer fleet row spacing across its eight internal subgrid tracks (especially hidden activity/license/preheat/clearance strips), removing excessive blank space below model images. Each whole card retains a desktop/mobile bottom gap; printer model images have additional bottom padding and object-fit containment. Existing click-to-filter, group scope, card/table views and printer controls remain unchanged. Node, Chromium and container CI passed for the feature; verify again after release metadata bump before merging.
 

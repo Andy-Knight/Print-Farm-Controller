@@ -4,6 +4,12 @@ This file contains the version-by-version release history for Print Farm Control
 
 Historical entries describe the behaviour of the controller at the time of that release and may be superseded by later versions. For current installation, configuration and supported-hardware guidance, see [README.md](README.md).
 
+## v0.59.8
+
+- Applied the controller's established `--pfc-table-*` table design system to Reports & finance → Analytics → **Material usage**, in both **By material type** and **By filament** presentations. Use matching dark header/white uppercase text, shared panel borders and radius, compact cell padding, horizontal dividers, hover highlighting and light/dark theme appearance.
+- Standardised the bold Material usage **Total** row on the shared surface with a consistent separator. Preserve column alignment, per-row quantity, percentage usage progress bars, saved historical costs/currencies, grouping switch and both Preact and no-bundle HTML rendering.
+- Updated the standalone `docs/CONTROLLER_VISUAL_STYLE_GUIDE.md` to document the coverage; added Node regression assertions and Chromium computed-style comparisons for both themes and grouping modes, leaving printers, queue scheduling, reporting aggregation and underlying data untouched.
+
 ## v0.59.7
 
 - Restyled the Dashboard's four summary filters to match Reports & finance → Analytics Option D: outlined circular SVG printer/connectivity/printing/attention icons, themed blue/green/cyan/amber accents and matching headings, counts and slim bars. Rings for Online, Printing and Needs attention show measured shares of the selected printer group, while All Printers remains a neutral total; a healthy zero-attention state shows a green check. With zero printers, the UI avoids invented ratios.
