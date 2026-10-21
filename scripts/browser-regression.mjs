@@ -1766,6 +1766,7 @@ async function routeSmoke(page,url) {
       return {background:st.backgroundColor,color:st.color,fontSize:st.fontSize,
         fontWeight:st.fontWeight,spacing:st.letterSpacing,transform:st.textTransform,
         borderTop:st.borderTopColor,borderBottom:st.borderBottomColor,
+        borderBottomWidth:st.borderBottomWidth, divider:st.getPropertyValue('--pfc-table-divider').trim(),
         radius:st.borderTopLeftRadius,borderRight:st.borderRightWidth};
     };
     const state={};
@@ -1799,8 +1800,14 @@ async function routeSmoke(page,url) {
     for (const prop of ['background','color','fontSize','fontWeight','spacing','transform','borderBottom','borderRight'])
       assert.equal(ours.heading[prop],reference.heading[prop],
         theme+' file table heading should match controller '+prop);
-    assert.equal(ours.firstCell.borderBottom,reference.firstCell.borderBottom,
-      theme+' file table row separator must match standard tables');
+    // The synthetic file table has one row, so both this cell and the group
+    // fixture's last row omit their divider. The computed border colour would
+    // fall back to currentColor and differ by cell text; check the actual
+    // divider token plus no-border final-row geometry instead.
+    assert.equal(ours.firstCell.divider,reference.firstCell.divider,
+      theme+' file table uses the same row separator token');
+    assert.equal(ours.firstCell.borderBottomWidth,reference.firstCell.borderBottomWidth,
+      theme+' file table last row must omit its bottom border');
     assert.equal(ours.firstCell.borderRight,'0px',
       theme+' file table body should not contain isolated vertical gridlines');
   }
