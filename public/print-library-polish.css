@@ -705,6 +705,16 @@
   display:grid;grid-template-columns:minmax(110px,2fr) minmax(66px,.55fr) minmax(95px,1fr) auto;
   gap:8px;align-items:end;border-top:1px solid var(--ds-border);padding-top:9px;
 }
+.library-sundry-row.is-labour {
+  grid-template-columns:minmax(110px,2fr) minmax(120px,1.55fr) auto;
+}
+.library-sundry-row [hidden] {display:none!important}
+.library-sundry-row [data-sundry-legacy-note] {
+  grid-column:1/-1;
+  color:var(--ds-text-muted);
+  font-size:.72rem;
+  line-height:1.5;
+}
 .library-sundry-row label {margin:0!important}
 .library-sundry-row input,.library-sundry-row select {width:100%;margin-top:4px}
 .library-sundry-row > button {min-height:42px;height:42px;white-space:nowrap}

@@ -1,5 +1,6 @@
 import { listFilaments } from './filament-catalogue.js';
 import { buildMaterialCostSnapshot } from './material-costing.js';
+import { getLibraryPricingSettings } from './library-pricing.js';
 
 /**
  * Current catalogue estimate for a library file, NOT a historical print cost.
@@ -11,6 +12,7 @@ export async function estimateLibraryFileCosts(files, {
   costSnapshotFn = buildMaterialCostSnapshot
 } = {}) {
   const entries = await listFilamentsFn();
+  const {currency:pricingCurrency}=await getLibraryPricingSettings();
   const byId = new Map(entries.map((entry) => [entry.id, entry]));
   return Promise.all(files.map(async (file) => {
     const snapshot = await costSnapshotFn({
@@ -18,7 +20,8 @@ export async function estimateLibraryFileCosts(files, {
       filamentAssignments:file.filamentAssignments
     }, {
       listFilamentsFn:async () => entries,
-      getFilamentFn:async (id) => byId.get(id) || null
+      getFilamentFn:async (id) => byId.get(id) || null,
+      pricingCurrency
     });
     const complete = snapshot.complete === true
       && Boolean(snapshot.currency)

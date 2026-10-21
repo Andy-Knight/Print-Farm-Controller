@@ -18,9 +18,9 @@ const sample=(overrides={})=>({
 });
 
 test('Global library pricing settings persist and support markup vs margin',async()=>{
-  assert.deepEqual(await pricing.getLibraryPricingSettings(),{profitPercent:null,profitMethod:'markup',taxRate:0,hourlyCostRate:0});
+  assert.deepEqual(await pricing.getLibraryPricingSettings(),{profitPercent:null,profitMethod:'markup',taxRate:0,hourlyCostRate:0,labourHourlyRate:null,currency:'GBP'});
   const changed=await pricing.saveLibraryPricingSettings({profitPercent:30,profitMethod:'markup'});
-  assert.deepEqual(changed,{profitPercent:30,profitMethod:'markup',taxRate:0,hourlyCostRate:0});
+  assert.deepEqual(changed,{profitPercent:30,profitMethod:'markup',taxRate:0,hourlyCostRate:0,labourHourlyRate:null,currency:'GBP'});
   assert.deepEqual(await pricing.getLibraryPricingSettings(),changed);
   const margin=await pricing.saveLibraryPricingSettings({profitPercent:30,profitMethod:'margin'});
   assert.deepEqual(await pricing.getLibraryPricingSettings(),margin);
@@ -30,9 +30,9 @@ test('Global library pricing settings persist and support markup vs margin',asyn
   await fs.writeFile(pricing.libraryPricingSettingsPath,
     JSON.stringify({profitPercent:25,profitMethod:'margin'}));
   assert.deepEqual(await pricing.getLibraryPricingSettings(),
-    {profitPercent:25,profitMethod:'margin',taxRate:0,hourlyCostRate:0});
+    {profitPercent:25,profitMethod:'margin',taxRate:0,hourlyCostRate:0,labourHourlyRate:null,currency:'GBP'});
   const taxed=await pricing.saveLibraryPricingSettings({profitPercent:25,profitMethod:'margin',taxRate:20});
-  assert.deepEqual(taxed,{profitPercent:25,profitMethod:'margin',taxRate:20,hourlyCostRate:0});
+  assert.deepEqual(taxed,{profitPercent:25,profitMethod:'margin',taxRate:20,hourlyCostRate:0,labourHourlyRate:null,currency:'GBP'});
   assert.deepEqual(await pricing.getLibraryPricingSettings(),taxed);
   const hourly=await pricing.saveLibraryPricingSettings({
     profitPercent:25,profitMethod:'margin',taxRate:20,hourlyCostRate:3.75
@@ -83,7 +83,7 @@ test('Tax applies after profit and before sale-lot rounding; inclusive print tot
   assert.equal(zero.taxAmount,0);
   const yen=pricing.estimateLibrarySalePrice({
     sundryCosts:[],lotsPerPrint:3,costEstimate:{complete:true,totalCost:1000,currency:'JPY'}
-  },{profitPercent:20,profitMethod:'markup',taxRate:20});
+  },{profitPercent:20,profitMethod:'markup',taxRate:20,currency:'JPY'});
   assert.equal(yen.sellingPricePerLot,480);
   assert.equal(yen.sellingPrice,1440);
   assert.equal(yen.taxAmount,240);
@@ -102,7 +102,7 @@ test('Inherit all sundry amounts in the filament estimate currency and withhold 
   const dollars=pricing.estimateLibrarySalePrice(sample({
     sundryCurrency:'GBP', // legacy user-selected value is ignored
     costEstimate:{complete:true,totalCost:6,currency:'USD'}
-  }),{profitPercent:50,profitMethod:'markup'});
+  }),{profitPercent:50,profitMethod:'markup',currency:'USD'});
   assert.equal(dollars.complete,true);
   assert.equal(dollars.currency,'USD');
   assert.equal(dollars.sundriesCost,1.5);
@@ -122,7 +122,7 @@ test('Inherit all sundry amounts in the filament estimate currency and withhold 
   assert.equal(missingWithLegacyCurrency.sellingPrice,null);
   const yen=pricing.estimateLibrarySalePrice({
     sundryCosts:[],lotsPerPrint:3,costEstimate:{complete:true,totalCost:1000,currency:'JPY'}
-  },{profitPercent:20,profitMethod:'markup'});
+  },{profitPercent:20,profitMethod:'markup',currency:'JPY'});
   assert.equal(yen.sellingPricePerLot,400);
   assert.equal(yen.sellingPrice,1200);
 });
@@ -197,6 +197,93 @@ test('Missing slicer time with a nonzero hourly rate prevents a deceptively low 
   assert.equal(invalid.complete,false);
 });
 
+test('Labour minutes inherit the global hourly labour rate and contribute to sundries, markup, tax and sale lots',async()=>{
+  assert.deepEqual(pricing.normalizeSundryCosts([{label:'Labour',minutes:30}]),
+    [{label:'Labour',minutes:30}]);
+  const file=sample({sundryCosts:[
+    {label:'Labour',minutes:30},
+    {label:'Packaging',quantity:2,unitCost:0.5}
+  ]});
+  const missing=pricing.estimateLibrarySalePrice(file,{profitPercent:20});
+  assert.equal(missing.complete,false);
+  assert.equal(missing.sundriesCost,null);
+  assert.match(missing.issue,/labour hourly rate/i);
+  assert.equal(missing.sellingPrice,null);
+  const priced=pricing.estimateLibrarySalePrice(file,{
+    profitPercent:20,profitMethod:'markup',taxRate:20,labourHourlyRate:18
+  });
+  assert.equal(priced.complete,true);
+  assert.equal(priced.labourCost,9);
+  assert.equal(priced.sundriesCost,10);
+  assert.equal(priced.totalCost,16);
+  assert.equal(priced.sellingPricePerLot,5.76);
+  assert.equal(priced.sellingPrice,23.04);
+  assert.equal(priced.labourHourlyRate,18);
+  const changed=pricing.estimateLibrarySalePrice(file,{
+    profitPercent:20,labourHourlyRate:24
+  });
+  assert.equal(changed.labourCost,12);
+  assert.equal(changed.sundriesCost,13);
+  assert.equal(changed.totalCost,19);
+  assert.equal(changed.sellingPrice,22.8);
+  const noLabour=pricing.estimateLibrarySalePrice(sample(),{profitPercent:20});
+  assert.equal(noLabour.complete,true,'old library items need no new rate');
+  assert.equal(noLabour.labourCost,0);
+  const explicitlyFree=pricing.estimateLibrarySalePrice(file,{
+    profitPercent:20,labourHourlyRate:0
+  });
+  assert.equal(explicitlyFree.complete,true);
+  assert.equal(explicitlyFree.labourCost,0);
+  const yen=pricing.estimateLibrarySalePrice({
+    sundryCosts:[{label:'Labour',minutes:15}],costEstimate:{complete:true,totalCost:1000,currency:'JPY'}
+  },{profitPercent:0,labourHourlyRate:1200,currency:'JPY'});
+  assert.equal(yen.currency,'JPY');
+  assert.equal(yen.labourCost,300);
+  assert.equal(yen.sellingPrice,1300);
+  const saved=await pricing.saveLibraryPricingSettings({
+    profitPercent:20,labourHourlyRate:18.75,hourlyCostRate:3
+  });
+  assert.equal(saved.labourHourlyRate,18.75);
+  assert.equal((await pricing.getLibraryPricingSettings()).labourHourlyRate,18.75);
+  const legacySettings=pricing.normalizePricingSettings({profitPercent:20});
+  assert.equal(legacySettings.labourHourlyRate,null);
+});
+
+test('Legacy Labour quantity/unit cost stays priced until manually converted to minutes',()=>{
+  const legacy=sample({sundryCosts:[{label:'Labour',quantity:2,unitCost:4}]});
+  const normal=pricing.normalizeSundryCosts(legacy.sundryCosts);
+  assert.deepEqual(normal,[{label:'Labour',quantity:2,unitCost:4}]);
+  const old=pricing.estimateLibrarySalePrice(legacy,{profitPercent:20});
+  assert.equal(old.complete,true);
+  assert.equal(old.sundriesCost,8);
+  assert.equal(old.totalCost,14);
+  const revised=pricing.estimateLibrarySalePrice(legacy,{profitPercent:20,labourHourlyRate:40});
+  assert.equal(revised.sundriesCost,8,'a later labour rate must not reprice legacy fixed-cost labour');
+  const converted=pricing.estimateLibrarySalePrice(
+    sample({sundryCosts:[{label:'Labour',minutes:45}]}),
+    {profitPercent:20,labourHourlyRate:40}
+  );
+  assert.equal(converted.labourCost,30);
+  assert.equal(converted.sundriesCost,30);
+  for(const minutes of [0,-1,1.5,10001,'oops','',null,true,Infinity]){
+    assert.throws(()=>pricing.normalizeSundryCosts([{label:'Labour',minutes}]),/labour minutes/i);
+  }
+  for(const bad of [-1,'bad',Infinity,1000000.01,true,NaN]){
+    assert.throws(()=>pricing.normalizePricingSettings({labourHourlyRate:bad}),/labour hourly rate/i);
+  }
+});
+
+test('global currency is validated and applies to current sell prices, never historical snapshots',()=>{
+  assert.equal(pricing.normalizePricingSettings({currency:'eur'}).currency,'EUR');
+  assert.throws(()=>pricing.normalizePricingSettings({currency:'XYZ'}),/supported currency/i);
+  const legacy=sample({costEstimate:{complete:true,totalCost:6,currency:'USD'}});
+  const price=pricing.estimateLibrarySalePrice(legacy,{profitPercent:20,currency:'EUR'});
+  assert.equal(price.currency,'EUR','current display uses global pricing currency');
+  assert.equal(price.totalCost,7.5);
+  const historical=Object.freeze({totalCost:0.77,currency:'USD'});
+  assert.equal(historical.currency,'USD','existing historic snapshots are left unchanged');
+});
+
 test('Clearing saved profit percentage prevents presenting a stale sales price',async()=>{
   await pricing.saveLibraryPricingSettings({profitPercent:22,profitMethod:'markup'});
   const before=pricing.estimateLibrarySalePrice(sample(),await pricing.getLibraryPricingSettings());
@@ -205,4 +292,25 @@ test('Clearing saved profit percentage prevents presenting a stale sales price',
   const afterClear=pricing.estimateLibrarySalePrice(sample(),await pricing.getLibraryPricingSettings());
   assert.equal(afterClear.complete,false);
   assert.equal(afterClear.sellingPrice,null);
+});
+
+test('legacy pricing inherits a single catalogue currency and older saves preserve it',async()=>{
+  const cataloguePath=path.join(root,'filaments.json');
+  const old={profitPercent:30,profitMethod:'markup',taxRate:0};
+  await fs.writeFile(cataloguePath,JSON.stringify({version:1,filaments:[
+    {material:'PLA',currency:'USD'},{material:'PETG',currency:'USD'}
+  ]}));
+  await fs.writeFile(pricing.libraryPricingSettingsPath,JSON.stringify(old));
+  assert.equal((await pricing.getLibraryPricingSettings()).currency,'USD');
+  const saved=await pricing.saveLibraryPricingSettings({profitPercent:35});
+  assert.equal(saved.currency,'USD','legacy currency-less clients cannot reset the selected currency');
+  await fs.writeFile(pricing.libraryPricingSettingsPath,JSON.stringify(old));
+  await fs.writeFile(cataloguePath,JSON.stringify({version:1,filaments:[
+    {material:'PLA',currency:'GBP'},{material:'PETG',currency:'USD'}
+  ]}));
+  assert.equal((await pricing.getLibraryPricingSettings()).currency,'GBP',
+    'mixed legacy catalogues cannot guess currency conversion and require review');
+  await pricing.saveLibraryPricingSettings({profitPercent:35,currency:'EUR'});
+  assert.equal((await pricing.getLibraryPricingSettings()).currency,'EUR');
+  await fs.rm(cataloguePath,{force:true});
 });

@@ -1,4 +1,4 @@
-# Print Farm Controller v0.59.2
+# Print Farm Controller v0.59.3
 A local-first 3D printer fleet controller. It runs entirely on your LAN and currently supports:
 
 - **FlashForge Adventurer 5M / 5M Pro** through the local FlashForge HTTP/TCP APIs.
@@ -7,9 +7,15 @@ A local-first 3D printer fleet controller. It runs entirely on your LAN and curr
 - **Prusa CORE One+ (experimental)** through the local PrusaLink API, supporting Standard (1-tool), INDX4 and INDX8 configurations.
 - **Bambu Lab P1P / P1S / X1C / A1 Mini (experimental)** through the local MQTT TLS and FTPS TLS interfaces. P1P/P1S/A1 Mini use the TLS/JPEG camera path; X1C camera decoding remains unsupported.
 
-**Current development version: v0.59.2**
+**Current development version: v0.59.3**
 
 Current highlights:
+
+- **One currency across current costs (v0.59.3):** Select the currency in **Reports & finance → Price settings**. The Filament cost catalogue no longer asks for currency per entry; all catalogue price displays, new print material estimates, labour, sundries, machine hourly rates and Print Library sell prices use the saved global choice. Existing single-currency catalogues inherit their previous currency on upgrade (GBP otherwise). **Currency changes relabel values without an exchange-rate conversion**, so check/re-enter prices and hourly rates. Completed print history retains its original currency and values; it must not be retrospectively relabelled.
+
+
+- **Labour costing by minutes (v0.59.3):** Selecting Labour when adding/editing a Print Library sundry shows *Labour minutes* instead of quantity and unit cost. In Reports & finance → Price settings, set a separate **Labour hourly rate**; each file's labour cost is minutes × that rate ÷ 60, in the selected global currency. Labour joins other sundry costs before profit and tax. Without a configured rate, labour-containing files cannot show a completed selling price. An explicitly set zero rate is allowed. Historical Labour quantity/unit-cost entries retain their old fixed total until you enter minutes in Edit details; nothing is silently repriced. This does not change the machine print-time hourly rate.
+
 
 - **Unified Print Library toolbar (v0.59.2):** Search, Add file and the four selected-file action buttons share a single desktop row; selection feedback stays below. On smaller screens the controls wrap responsively, retaining all actions and accessibility.
 

@@ -6,7 +6,8 @@ import { KeyedSerialExecutor } from './concurrency.js';
 
 const SETTINGS_FILE = path.join(path.dirname(printerStorePath), 'library-pricing.json');
 const executor = new KeyedSerialExecutor();
-const DEFAULT_SETTINGS = Object.freeze({ profitPercent:null, profitMethod:'markup', taxRate:0, hourlyCostRate:0 });
+export const SUPPORTED_PRICING_CURRENCIES = Object.freeze(['GBP', 'USD', 'EUR', 'JPY', 'CNY', 'CAD', 'AUD', 'NZD', 'CHF', 'HKD', 'SGD', 'INR', 'KRW', 'TWD', 'THB', 'MYR', 'IDR', 'PHP', 'VND', 'AED', 'SAR', 'ILS', 'ZAR', 'BRL', 'MXN', 'SEK', 'NOK', 'DKK', 'PLN', 'CZK', 'HUF', 'RON', 'TRY', 'RUB', 'CLP', 'COP']);
+const DEFAULT_SETTINGS = Object.freeze({ profitPercent:null, profitMethod:'markup', taxRate:0, hourlyCostRate:0, labourHourlyRate:null, currency:'GBP' });
 
 function round(value, decimals = 4) {
   return Math.round((value + Number.EPSILON) * (10 ** decimals)) / (10 ** decimals);
@@ -33,6 +34,16 @@ export function normalizeSundryCosts(value) {
     const label = String(entry.label || '').trim().replace(/\s+/g, ' ');
     if (!label || label.length > 100 || /[<>]/.test(label)) {
       throw new Error('Sundry description must contain 1–100 characters');
+    }
+    // New Labour lines store time only. Never reinterpret legacy Labour
+    // quantity/unitCost: existing saved prices must not change silently.
+    if (label.toLowerCase()==='labour' && entry.minutes !== undefined) {
+      const minutes=Number(entry.minutes);
+      if (typeof entry.minutes==='boolean' || entry.minutes === '' || entry.minutes === null
+        || !Number.isInteger(minutes) || minutes < 1 || minutes > 10000) {
+        throw new Error('Labour minutes must be an integer between 1 and 10000');
+      }
+      return {label:'Labour',minutes};
     }
     const quantity = Number(entry.quantity);
     if (typeof entry.quantity === 'boolean' || !Number.isInteger(quantity) || quantity < 1 || quantity > 10000) {
@@ -81,23 +92,61 @@ export function normalizePricingSettings(value = {}) {
       || hourlyCostRate < 0 || hourlyCostRate > 1000000) {
     throw new Error('Hourly print cost rate must be between zero and 1000000');
   }
+  // null means no labour rate has been set yet, unlike an explicitly
+  // configured zero rate. Older settings files had no such field.
+  const rawLabourRate=value.labourHourlyRate;
+  const labourHourlyRate=rawLabourRate === undefined || rawLabourRate === null || rawLabourRate === ''
+    ? null : Number(rawLabourRate);
+  if (labourHourlyRate!==null && (typeof rawLabourRate==='boolean' || !Number.isFinite(labourHourlyRate)
+      || labourHourlyRate < 0 || labourHourlyRate > 1000000)) {
+    throw new Error('Labour hourly rate must be between zero and 1000000');
+  }
+  const currency=String(value.currency == null || value.currency === '' ? 'GBP' : value.currency).trim().toUpperCase();
+  if (!SUPPORTED_PRICING_CURRENCIES.includes(currency)) {
+    throw new Error('Choose a supported currency in Reports & finance Price settings');
+  }
   return {profitPercent:profitPercent == null ? null : round(profitPercent,2),
-    profitMethod:method,taxRate:round(taxRate,2),hourlyCostRate:round(hourlyCostRate,2)};
+    profitMethod:method,taxRate:round(taxRate,2),hourlyCostRate:round(hourlyCostRate,2),
+    labourHourlyRate:labourHourlyRate===null ? null : round(labourHourlyRate,2),currency};
 }
 
-export async function getLibraryPricingSettings() {
+// Older versions only configured currency per filament. Preserve a single
+// existing catalogue currency as the initial global choice where possible.
+// Mixed-currency legacy catalogues cannot be converted without FX rates;
+// default to GBP and show the operator a review warning in Price settings.
+async function initialLegacyCurrency() {
   try {
-    const json = JSON.parse(await fs.readFile(SETTINGS_FILE, 'utf8'));
-    return normalizePricingSettings(json);
-  } catch (error) {
-    if (error?.code === 'ENOENT') return {...DEFAULT_SETTINGS};
+    const stored=JSON.parse(await fs.readFile(path.join(path.dirname(SETTINGS_FILE),'filaments.json'),'utf8'));
+    const used=new Set((Array.isArray(stored?.filaments) ? stored.filaments : [])
+      .map(item=>String(item.currency || '').trim().toUpperCase())
+      .filter(code=>SUPPORTED_PRICING_CURRENCIES.includes(code)));
+    return used.size===1 ? [...used][0] : DEFAULT_SETTINGS.currency;
+  } catch(error) {
+    if (error?.code==='ENOENT')return DEFAULT_SETTINGS.currency;
     throw error;
   }
+}
+export async function getLibraryPricingSettings() {
+  let json=null;
+  try {
+    json=JSON.parse(await fs.readFile(SETTINGS_FILE, 'utf8'));
+  } catch(error){
+    if(error?.code!=='ENOENT')throw error;
+  }
+  if (json?.currency == null || json.currency === '') {
+    const currency=await initialLegacyCurrency();
+    return normalizePricingSettings({...json,currency});
+  }
+  return normalizePricingSettings(json);
 }
 
 export async function saveLibraryPricingSettings(input) {
   return executor.run('pricing', async () => {
-    const settings=normalizePricingSettings(input);
+    // Older clients may PUT pricing without the currency property.
+    // Preserve the operator's global choice rather than resetting to GBP.
+    const raw=input?.currency===undefined
+      ? {...input,currency:(await getLibraryPricingSettings()).currency} : input;
+    const settings=normalizePricingSettings(raw);
     await fs.mkdir(path.dirname(SETTINGS_FILE),{recursive:true,mode:0o700});
     const temp=SETTINGS_FILE+'.'+crypto.randomUUID()+'.tmp';
     try {
@@ -112,11 +161,15 @@ export async function saveLibraryPricingSettings(input) {
 
 /**
  * Estimate only. Does not affect print-queue historical filament cost snapshots.
- * Sundry entries are quantities required PER SLICED PRINT (not per selling lot).
- * Sundry unit prices are denominated in the same currency as the current
- * completed filament-cost estimate. An older saved sundryCurrency field is
- * deliberately ignored (no implicit FX conversion). Without a complete
- * filament estimate, no currency or selling price is assumed.
+ * Sundry entries are consumed PER SLICED PRINT (not per selling lot).
+ * New Labour entries use whole minutes multiplied by a global labour hourly
+ * rate. Legacy Labour quantity/unitCost entries retain their old fixed cost
+ * until the user explicitly replaces them with minutes in the file editor.
+ * Sundry unit prices and filament costs use the single global pricing
+ * currency. No FX conversion is performed when that setting changes:
+ * operators must update nominal prices to the chosen currency. Historical
+ * print cost snapshots retain their original currency and amounts.
+ * Without a complete filament estimate no selling price is assumed.
  * Hourly print costs use the slicer-estimated print duration, in the same
  * currency as the filament estimate. Without a duration, a nonzero hourly
  * rate prevents a complete sell price instead of silently underpricing.
@@ -127,9 +180,14 @@ export function estimateLibrarySalePrice(file, settings) {
   const costs=normalizeSundryCosts(file?.sundryCosts);
   const lotsPerPrint=normalizeSaleLots(file?.lotsPerPrint);
   const options=normalizePricingSettings(settings);
-  const sundriesCost=round(costs.reduce((sum,entry)=>sum+entry.quantity*entry.unitCost,0));
+  const needsLabourRate=costs.some(entry=>entry.label==='Labour' && entry.minutes !== undefined);
+  const labourCost=options.labourHourlyRate===null && needsLabourRate ? null : round(costs.reduce(
+    (sum,entry)=>sum+(entry.label==='Labour' && entry.minutes !== undefined
+      ? round(entry.minutes*options.labourHourlyRate/60) : 0),0));
+  const sundriesCost=labourCost===null ? null : round(costs.reduce((sum,entry)=>
+    sum+(entry.minutes !== undefined ? 0 : entry.quantity*entry.unitCost),0)+labourCost);
   const filament=file?.costEstimate || {};
-  const currency=filament.complete===true && filament.currency ? filament.currency : null;
+  const currency=filament.complete===true && filament.currency ? options.currency : null;
   const rawDuration=file?.requirements?.estimatedPrintSeconds;
   const estimatedPrintSeconds=typeof rawDuration==='number' && Number.isFinite(rawDuration)
     && rawDuration>0 && rawDuration<365*86400 ? rawDuration : null;
@@ -141,6 +199,8 @@ export function estimateLibrarySalePrice(file, settings) {
     issue='Filament cost is unavailable; a complete selling price cannot be calculated';
   } else if (printTimeCost===null) {
     issue='Estimated print time is unavailable; a non-zero hourly cost rate requires a slicer duration';
+  } else if (labourCost===null) {
+    issue='Set the global labour hourly rate in Reports & finance to price this file\'s labour minutes';
   }
   const totalCost=issue ? null : round(filament.totalCost + sundriesCost + printTimeCost);
   const nominalExTax=issue ? null : options.profitMethod==='margin'
@@ -165,6 +225,8 @@ export function estimateLibrarySalePrice(file, settings) {
     currency,
     filamentCost:filament.complete ? filament.totalCost : null,
     sundriesCost,
+    labourCost,
+    labourHourlyRate:options.labourHourlyRate,
     hourlyCostRate:options.hourlyCostRate,
     estimatedPrintSeconds,
     printTimeCost,

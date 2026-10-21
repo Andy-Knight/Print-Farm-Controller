@@ -738,6 +738,13 @@ async function libraryCompactTableSmoke(page,url) {
   await page.goto(url+'/library',{waitUntil:'load'});
   await preactReady(page);
   await page.waitForFunction(()=>window.__PFC_PREACT_LIBRARY__===true);
+  // Wait for the initial asynchronous API refresh before injecting a synthetic
+  // row. A late refresh can otherwise replace the row between the wait and
+  // geometry measurement, particularly on slower filesystem-backed pricing.
+  await page.waitForFunction(()=>{
+    const summary=document.querySelector('#librarySummary')?.textContent || '';
+    return summary.length>0 && !summary.includes('Loading library');
+  });
   const fixture=[{
     id:'compact-table-fixture',fileName:'Batch production ASA part.gcode',
     sizeText:'24 KB',description:'Production part',printerTarget:'AD5M Pro',
@@ -1184,12 +1191,17 @@ async function libraryPricingSmoke(page,url,{mutateFixture=true}={}) {
   await page.locator('#reportingProfitPercent').fill('30');
   await page.locator('#reportingProfitMethod').selectOption('markup');
   await page.locator('#reportingTaxRate').fill('20');
+  await page.locator('#reportingLabourHourlyRate').fill('18');
+  assert.equal(await page.locator('#filamentCurrency').count(),0);
+  await page.locator('#reportingCurrency').selectOption('EUR');
   await page.locator('#reportingPricingSaveBtn').click();
   await page.waitForFunction(()=>document.querySelector('#reportingPricingStatus')?.textContent.includes('saved'));
   const settings=await page.evaluate(async()=> (await (await fetch('/api/library/pricing')).json()).settings);
   assert.equal(settings.profitPercent,30);
   assert.equal(settings.profitMethod,'markup');
   assert.equal(settings.taxRate,20);
+  assert.equal(settings.labourHourlyRate,18);
+  assert.equal(settings.currency,'EUR');
   await page.locator('[data-reporting-tab="filament"]').click();
   await page.locator('[data-reporting-tab="pricing"]').click();
   await page.waitForFunction(()=>
@@ -1199,6 +1211,16 @@ async function libraryPricingSmoke(page,url,{mutateFixture=true}={}) {
     'pricing tab must load persisted global settings after switching tabs');
   assert.equal(await page.locator('#reportingTaxRate').inputValue(),'20',
     'pricing tab must reload the persisted tax rate');
+  assert.equal(await page.locator('#reportingLabourHourlyRate').inputValue(),'18');
+  assert.equal(await page.locator('#reportingCurrency').inputValue(),'EUR');
+  const createdCurrencyFixture=await page.evaluate(async()=>{
+    const res=await fetch('/api/filaments',{method:'POST',
+      headers:{'content-type':'application/json'},
+      body:JSON.stringify({material:'ASA',costPerKg:20,brand:'Browser currency test'})});
+    if(!res.ok)throw Error('Failed to seed global currency test filament');
+    return (await res.json()).filament;
+  });
+  assert.equal(createdCurrencyFixture.currency,'EUR');
   await page.goto(url+'/library',{waitUntil:'load'});
   await preactReady(page);
   assert.equal(await page.locator('#libraryPricingSettingsBtn').count(),0,
@@ -1218,7 +1240,13 @@ async function libraryPricingSmoke(page,url,{mutateFixture=true}={}) {
   const itemChoices=page.locator('#libraryAddSundries [data-sundry-label] option:not([disabled])');
   assert.deepEqual(await itemChoices.allTextContents(),
     ['Packaging','Postage','Hardware','Labour','Miscellaneous']);
+  await page.locator('#libraryAddSundries [data-sundry-label]').selectOption('Labour');
+  assert.equal(await page.locator('#libraryAddSundries [data-sundry-minutes]').isVisible(),true);
+  assert.equal(await page.locator('#libraryAddSundries [data-sundry-qty]').isVisible(),false);
+  assert.equal(await page.locator('#libraryAddSundries [data-sundry-cost]').isVisible(),false);
+  await page.locator('#libraryAddSundries [data-sundry-minutes]').fill('15');
   await page.locator('#libraryAddSundries [data-sundry-label]').selectOption('Hardware');
+  assert.equal(await page.locator('#libraryAddSundries [data-sundry-qty]').isVisible(),true);
   const addRemove=page.locator('#libraryAddSundries [data-remove-sundry]');
   const addRemoveStyle=await addRemove.evaluate(btn=>{
     const style=getComputedStyle(btn);
@@ -1253,6 +1281,9 @@ async function libraryPricingSmoke(page,url,{mutateFixture=true}={}) {
   assert.equal(added.saleEstimate.sundriesCost,1);
   assert.equal(added.saleEstimate.profitPercent,30);
   assert.equal(added.saleEstimate.taxRate,20);
+  assert.equal(added.costEstimate.currency,'EUR');
+  assert.equal(added.costEstimate.totalCost,0.24);
+  assert.equal(added.saleEstimate.currency,'EUR');
   if (added.saleEstimate.complete) {
     assert.ok(added.saleEstimate.sellingPrice>=added.saleEstimate.sellingPriceExTax);
   }
@@ -1304,8 +1335,42 @@ async function libraryPricingSmoke(page,url,{mutateFixture=true}={}) {
   assert.equal(edited.lotsPerPrint,2);
   assert.equal(edited.sundryCosts.length,2);
   assert.equal(edited.saleEstimate.sundriesCost,1.5);
+  await page.locator('#libraryEditSelectedBtn').click();
+  await page.waitForFunction(()=>document.querySelector('#libraryMetadataDialog')?.open===true);
+  await page.locator('[data-library-add-sundry="metadata"]').click();
+  const labourRow=page.locator('#libraryMetadataSundries .library-sundry-row').last();
+  await labourRow.locator('[data-sundry-label]').selectOption('Labour');
+  assert.equal(await labourRow.locator('[data-sundry-minutes]').isVisible(),true);
+  assert.equal(await labourRow.locator('[data-sundry-qty]').isVisible(),false);
+  assert.equal(await labourRow.locator('[data-sundry-cost]').isVisible(),false);
+  await labourRow.locator('[data-sundry-minutes]').fill('30');
+  await page.locator('#libraryMetadataForm button[type="submit"]').click();
+  await page.waitForFunction(()=>document.querySelector('#libraryMetadataDialog')?.open===false);
+  const labourSaved=(await list()).find(file=>file.id===added.id);
+  assert.deepEqual(labourSaved.sundryCosts.at(-1),{label:'Labour',minutes:30});
+  assert.equal(labourSaved.saleEstimate.labourCost,9);
+  assert.equal(labourSaved.saleEstimate.sundriesCost,10.5);
+  await page.locator('#libraryEditSelectedBtn').click();
+  await page.waitForFunction(()=>document.querySelector('#libraryMetadataDialog')?.open===true);
+  assert.equal(await page.locator('#libraryMetadataSundries .library-sundry-row').last()
+    .locator('[data-sundry-minutes]').inputValue(),'30');
+  await page.locator('[data-library-metadata-close]').last().click();
+  await page.waitForFunction(()=>document.querySelector('#libraryMetadataDialog')?.open===false);
+  await page.evaluate(async()=>{
+    const response=await fetch('/api/library/pricing',{method:'PUT',
+      headers:{'content-type':'application/json'},
+      body:JSON.stringify({profitPercent:30,profitMethod:'markup',taxRate:20,labourHourlyRate:24})});
+    if(!response.ok)throw Error('Unable to update labour rate');
+  });
+  const repriced=(await list()).find(file=>file.id===added.id);
+  assert.equal(repriced.saleEstimate.labourCost,12);
+  assert.equal(repriced.saleEstimate.sundriesCost,13.5);
 
   // The fixture is isolated. Remove it and restore default global profit.
+  await page.evaluate(async id=>{
+    const res=await fetch('/api/filaments/'+encodeURIComponent(id),{method:'DELETE'});
+    if(!res.ok)throw Error('Could not delete currency-test filament');
+  },createdCurrencyFixture.id);
   await page.locator('#libraryDeleteSelectedBtn').waitFor({state:'visible'});
   page.once('dialog',dialog=>dialog.accept());
   await page.locator('#libraryDeleteSelectedBtn').click();
@@ -1313,7 +1378,7 @@ async function libraryPricingSmoke(page,url,{mutateFixture=true}={}) {
   await page.evaluate(async()=> {
     const response=await fetch('/api/library/pricing',{method:'PUT',
       headers:{'content-type':'application/json'},
-      body:JSON.stringify({profitPercent:null,profitMethod:'markup',taxRate:0})});
+      body:JSON.stringify({profitPercent:null,profitMethod:'markup',taxRate:0,labourHourlyRate:null,currency:'GBP'})});
     if (!response.ok) throw Error('Unable to reset test pricing settings');
   });
   await page.setViewportSize({width:1365,height:900});

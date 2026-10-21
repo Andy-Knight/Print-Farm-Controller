@@ -3644,15 +3644,18 @@ function librarySaleView(file) {
   };
   const available=sale.complete===true && Number.isFinite(sale.sellingPrice);
   const includeTime=available && Number(sale.hourlyCostRate)>0;
+  const includeLabour=available && Number(sale.labourCost)>0;
   const timeDetail=includeTime
     ? ` + print time ${money(sale.printTimeCost)} (${money(sale.hourlyCostRate)}/h)` : '';
+  const labourDetail=includeLabour
+    ? ` (including ${money(sale.labourCost)} labour at ${money(sale.labourHourlyRate)}/h)` : '';
   return {
     available,
     price:available ? money(sale.sellingPrice) : 'Unavailable',
     perLot:available && lots>1 ? money(sale.sellingPricePerLot) : '',
     timeCost:includeTime ? `Print time: ${money(sale.printTimeCost)}` : '',
     detail:available
-      ? `Filament ${money(sale.filamentCost)}${timeDetail} + sundries ${money(sundries)} · ${sale.profitPercent}% ${sale.profitMethod==='margin'?'gross margin':'markup'} · ${sale.taxRate ?? 0}% tax included (${money(sale.taxAmount ?? 0)})`
+      ? `Filament ${money(sale.filamentCost)}${timeDetail} + sundries ${money(sundries)}${labourDetail} · ${sale.profitPercent}% ${sale.profitMethod==='margin'?'gross margin':'markup'} · ${sale.taxRate ?? 0}% tax included (${money(sale.taxAmount ?? 0)})`
       : (sale.issue || 'Sell price estimate is not configured'),
     lots
   };
@@ -3672,19 +3675,45 @@ function addLibrarySundryRow(root, entry = {}) {
     : '';
   const options=LIBRARY_SUNDRY_ITEMS.map(item=>
     `<option value="${escapeHtml(item)}"${item===matched?' selected':''}>${escapeHtml(item)}</option>`).join('');
+  const isLegacyLabour=existing.toLowerCase()==='labour' && entry.minutes===undefined
+    && entry.quantity!==undefined && entry.unitCost!==undefined;
   const row=document.createElement('div');
   row.className='library-sundry-row';
+  if(isLegacyLabour){
+    row.dataset.legacyLabour='true';
+    row.dataset.legacyQuantity=String(entry.quantity);
+    row.dataset.legacyUnitCost=String(entry.unitCost);
+  }
   row.innerHTML=`<label>Sundry item
       <select data-sundry-label required aria-label="Sundry item">
         <option value=""${existing?'':' selected'} disabled>Select sundry item</option>
         ${options}${legacy}
       </select>
     </label>
-    <label>Qty<input data-sundry-qty type="number" min="1" max="10000" step="1" required value="${escapeHtml(String(entry.quantity ?? 1))}" /></label>
-    <label>Unit cost<input data-sundry-cost type="number" min="0" max="1000000" step="0.01" inputmode="decimal" required value="${escapeHtml(Number(entry.unitCost ?? 0).toFixed(2))}" /></label>
-    <button type="button" class="danger library-remove-sundry" data-remove-sundry aria-label="Remove sundry item">Remove</button>`;
-  // Costs represent currency: show two decimal places, including whole amounts
-  // and legacy values when an existing file is opened for editing.
+    <label data-sundry-standard>Qty<input data-sundry-qty type="number" min="1" max="10000" step="1" value="${escapeHtml(String(entry.quantity ?? 1))}" /></label>
+    <label data-sundry-standard>Unit cost<input data-sundry-cost type="number" min="0" max="1000000" step="0.01" inputmode="decimal" value="${escapeHtml(Number(entry.unitCost ?? 0).toFixed(2))}" /></label>
+    <label data-sundry-labour hidden>Labour minutes<input data-sundry-minutes type="number" min="1" max="10000" step="1" inputmode="numeric" value="${escapeHtml(String(entry.minutes ?? ''))}" aria-label="Labour minutes" /></label>
+    <button type="button" class="danger library-remove-sundry" data-remove-sundry aria-label="Remove sundry item">Remove</button>
+    <small data-sundry-legacy-note hidden>Previously saved fixed labour cost is retained until you enter minutes. A global labour hourly rate is configured in Reports &amp; finance → Price settings.</small>`;
+  const labelInput=row.querySelector('[data-sundry-label]');
+  const minuteInput=row.querySelector('[data-sundry-minutes]');
+  const refreshFields=()=>{
+    const labour=labelInput?.value.toLowerCase()==='labour';
+    row.classList.toggle('is-labour',labour);
+    for(const field of row.querySelectorAll('[data-sundry-standard]')){
+      field.hidden=labour;
+      const input=field.querySelector('input');
+      if(input)input.required=!labour;
+    }
+    const minutesField=row.querySelector('[data-sundry-labour]');
+    if(minutesField)minutesField.hidden=!labour;
+    if(minuteInput)minuteInput.required=labour && row.dataset.legacyLabour!=='true';
+    const note=row.querySelector('[data-sundry-legacy-note]');
+    if(note)note.hidden=!(labour && row.dataset.legacyLabour==='true' && !minuteInput?.value.trim());
+  };
+  labelInput?.addEventListener('change',refreshFields);
+  minuteInput?.addEventListener('input',refreshFields);
+  // Unit costs are currency; show two decimal places when editing saved rows.
   const costInput=row.querySelector('[data-sundry-cost]');
   costInput?.addEventListener('blur',()=>{
     const raw=costInput.value.trim();
@@ -3693,6 +3722,7 @@ function addLibrarySundryRow(root, entry = {}) {
       costInput.value=(Math.round((value+Number.EPSILON)*100)/100).toFixed(2);
     }
   });
+  refreshFields();
   root.append(row);
 }
 function renderLibrarySundries(root, entries = []) {
@@ -3703,11 +3733,25 @@ function renderLibrarySundries(root, entries = []) {
 function collectLibrarySundries(root) {
   return [...(root?.querySelectorAll('.library-sundry-row') || [])].map(row=>{
     const label=row.querySelector('[data-sundry-label]')?.value.trim() || '';
-    const quantity=Number(row.querySelector('[data-sundry-qty]')?.value);
+    if (!label || label.length>100) throw new Error('Select a sundry item');
+    if(label.toLowerCase()==='labour') {
+      const raw=row.querySelector('[data-sundry-minutes]')?.value.trim() || '';
+      if(raw==='' && row.dataset.legacyLabour==='true'){
+        return {label:'Labour',quantity:Number(row.dataset.legacyQuantity),
+          unitCost:Number(row.dataset.legacyUnitCost)};
+      }
+      const minutes=Number(raw);
+      if(raw==='' || !Number.isInteger(minutes) || minutes<1 || minutes>10000) {
+        throw new Error('Labour minutes must be an integer between 1 and 10000');
+      }
+      return {label:'Labour',minutes};
+    }
+    const quantityValue=row.querySelector('[data-sundry-qty]')?.value;
+    const quantity=Number(quantityValue);
     const unitCostValue=row.querySelector('[data-sundry-cost]')?.value;
     const unitCost=Number(unitCostValue);
-    if (!label || label.length>100) throw new Error('Select a sundry item');
-    if (!Number.isInteger(quantity) || quantity<1 || quantity>10000) throw new Error('Sundry quantity must be 1–10000');
+    if (quantityValue==='' || !Number.isInteger(quantity) || quantity<1 || quantity>10000)
+      throw new Error('Sundry quantity must be 1–10000');
     if (unitCostValue==='' || !Number.isFinite(unitCost) || unitCost<0 || unitCost>1000000) {
       throw new Error('Sundry unit cost must be between zero and 1000000');
     }

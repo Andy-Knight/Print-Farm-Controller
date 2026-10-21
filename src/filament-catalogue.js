@@ -4,10 +4,11 @@ import path from 'node:path';
 import { printerStorePath } from './store.js';
 import { canonicalMaterial } from './file-material-metadata.js';
 import { KeyedSerialExecutor } from './concurrency.js';
+import { getLibraryPricingSettings, SUPPORTED_PRICING_CURRENCIES } from './library-pricing.js';
 
 const CATALOGUE_PATH = path.join(path.dirname(printerStorePath), 'filaments.json');
 const EMPTY_STORE = Object.freeze({ version:1, filaments:[] });
-const SUPPORTED_CURRENCIES = new Set(['GBP', 'USD', 'EUR', 'JPY', 'CNY', 'CAD', 'AUD', 'NZD', 'CHF', 'HKD', 'SGD', 'INR', 'KRW', 'TWD', 'THB', 'MYR', 'IDR', 'PHP', 'VND', 'AED', 'SAR', 'ILS', 'ZAR', 'BRL', 'MXN', 'SEK', 'NOK', 'DKK', 'PLN', 'CZK', 'HUF', 'RON', 'TRY', 'RUB', 'CLP', 'COP']);
+const SUPPORTED_CURRENCIES = new Set(SUPPORTED_PRICING_CURRENCIES);
 const mutations = new KeyedSerialExecutor();
 let initialization = null;
 
@@ -99,8 +100,9 @@ async function saveStore(store) {
 
 export async function listFilaments() {
   const store = await loadStore();
+  const {currency}=await getLibraryPricingSettings();
   return store.filaments
-    .map((entry) => ({ ...entry }))
+    .map((entry) => ({ ...entry, currency }))
     .sort((left, right) =>
       String(left.material).localeCompare(String(right.material))
       || String(left.brand || '').localeCompare(String(right.brand || ''))
@@ -118,9 +120,13 @@ export async function createFilament(input = {}) {
   return mutations.run('catalogue', async () => {
     const store = await loadStore();
     const timestamp = new Date().toISOString();
+    const {currency}=await getLibraryPricingSettings();
+    if (input.currency !== undefined && cleanSupportedCurrency(input.currency)!==currency) {
+      throw new Error('Filament currency is set globally in Reports & finance Price settings');
+    }
     const entry = normalizeEntry({
       ...input,
-      currency:cleanSupportedCurrency(input.currency),
+      currency,
       id:crypto.randomUUID(),
       createdAt:timestamp,
       updatedAt:timestamp
@@ -139,6 +145,10 @@ export async function updateFilament(id, patch = {}) {
     const index = store.filaments.findIndex((entry) => entry.id.toLowerCase() === cleanId);
     if (index < 0) throw new Error('Filament not found');
     const current = store.filaments[index];
+    const {currency}=await getLibraryPricingSettings();
+    if (patch.currency !== undefined && cleanSupportedCurrency(patch.currency)!==currency) {
+      throw new Error('Filament currency is set globally in Reports & finance Price settings');
+    }
     const next = normalizeEntry({
       ...current,
       ...(patch.material !== undefined ? { material:patch.material } : {}),
@@ -146,7 +156,7 @@ export async function updateFilament(id, patch = {}) {
       ...(patch.product !== undefined ? { product:patch.product } : {}),
       ...(patch.colour !== undefined ? { colour:patch.colour } : {}),
       ...(patch.costPerKg !== undefined ? { costPerKg:patch.costPerKg } : {}),
-      ...(patch.currency !== undefined ? { currency:cleanSupportedCurrency(patch.currency) } : {}),
+      currency,
       id:current.id,
       createdAt:current.createdAt,
       updatedAt:new Date().toISOString()

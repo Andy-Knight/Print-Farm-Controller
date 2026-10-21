@@ -11,6 +11,7 @@ test('filament catalogue persists costs and supports update/removal', async () =
   const moduleUrl = pathToFileURL(path.resolve('src/filament-catalogue.js'));
   moduleUrl.searchParams.set('case', String(Date.now()));
   const catalogue = await import(moduleUrl.href);
+  const pricing = await import('../src/library-pricing.js');
 
   try {
     const pla = await catalogue.createFilament({
@@ -27,34 +28,39 @@ test('filament catalogue persists costs and supports update/removal', async () =
 
     const petg = await catalogue.createFilament({
       material:'PETG',
-      costPerKg:21,
-      currency:'USD'
+      costPerKg:21
     });
-    assert.equal(petg.currency, 'USD');
+    assert.equal(petg.currency, 'GBP');
 
     const abs = await catalogue.createFilament({
       material:'ABS',
-      costPerKg:25,
-      currency:'EUR'
+      costPerKg:25
     });
-    assert.equal(abs.currency, 'EUR');
+    assert.equal(abs.currency, 'GBP');
 
     const yen = await catalogue.createFilament({
       material:'ASA',
-      costPerKg:3200,
-      currency:'JPY'
+      costPerKg:3200
     });
-    assert.equal(yen.currency, 'JPY');
+    assert.equal(yen.currency, 'GBP');
 
     await assert.rejects(
-      () => catalogue.createFilament({ material:'TPU', costPerKg:30, currency:'XYZ' }),
-      /supported filament currency list/
+      () => catalogue.createFilament({ material:'TPU', costPerKg:30, currency:'USD' }),
+      /globally/
     );
     await assert.rejects(
-      () => catalogue.updateFilament(pla.id, { currency:'XYZ' }),
-      /supported filament currency list/
+      () => catalogue.updateFilament(pla.id, { currency:'USD' }),
+      /globally/
     );
-    assert.equal((await catalogue.listFilaments()).length, 4);
+    const global=await pricing.saveLibraryPricingSettings({currency:'EUR'});
+    assert.equal(global.currency,'EUR');
+    assert.ok((await catalogue.listFilaments()).every(item=>item.currency==='EUR'),
+      'all filaments inherit new global selection');
+    assert.equal((await catalogue.getFilament(pla.id)).currency,'EUR');
+    const eu=await catalogue.createFilament({material:'TPU',costPerKg:30});
+    assert.equal(eu.currency,'EUR');
+    assert.equal((await catalogue.updateFilament(pla.id,{costPerKg:20})).currency,'EUR');
+    assert.equal((await catalogue.listFilaments()).length, 5);
     assert.equal((await catalogue.getFilament(pla.id)).brand, 'Example');
 
     const updated = await catalogue.updateFilament(pla.id, { costPerKg:19.5, product:'PLA Pro' });
@@ -64,7 +70,7 @@ test('filament catalogue persists costs and supports update/removal', async () =
     assert.ok(updated.updatedAt);
 
     assert.equal(await catalogue.removeFilament(petg.id), true);
-    assert.equal((await catalogue.listFilaments()).length, 3);
+    assert.equal((await catalogue.listFilaments()).length, 4);
 
     const persisted = JSON.parse(await fs.readFile(path.join(dir, 'filaments.json'), 'utf8'));
     assert.equal(persisted.version, 1);

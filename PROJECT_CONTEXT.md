@@ -9,13 +9,19 @@ If chat context and this file disagree about the codebase, inspect current GitHu
 - Repository: `Andy-Knight/Print-Farm-Controller`
 - Project path: repository root (`/`)
 - Primary branch: `main` (current production baseline)
-- Current controller source version: **0.59.2** (Print Library compact table layout; in feature branch pending visual acceptance).
+- Current controller source version: **0.59.3** (Labour minutes plus single global currency; feature branch pending testing).
 - Previous baseline audited: **0.48.0** (main before the regression test audit release).
 - Runtime: **Node.js 24+** (development baseline Node.js 24.21.0), ES modules, no npm runtime dependencies.
 - GitHub is the authoritative code baseline.
 - Release/version history is maintained only in `CHANGELOG.md`; do not duplicate per-version history in this handoff file.
 
 ## Current work
+
+**v0.59.3 Global currency consolidation:** Reports & finance Price settings is now the sole UI selector for currency (same supported codes previously in Filament cost catalogue). The global `library-pricing.json.currency` applies to current filament catalogue listings, new print material cost snapshots, pricing sundries, labour and hourly machine rates, and library selling prices. Server rejects per-filament currency overrides inconsistent with global settings; legacy stored per-entry currency remains for backwards compatibility but current catalogue views use the global setting. If older pricing settings lack currency, infer from a unique legacy catalogue currency, else GBP. Currency switch does NOT perform FX conversion: costs/rates must be reviewed; completed historical snapshots retain recorded currencies and amounts, and Reports can still show historic currency splits. Earlier pricing PUT clients lacking currency preserve current selection. Branch PR #109; pending merge approval.
+
+
+**v0.59.3 Labour sundry time costing:** Branch `feature/labour-hourly-pricing-v0593` adds a global separate `labourHourlyRate` in the existing library-pricing.json and Reports & finance Price settings UI. Print Library Add/Edit displays `Labour minutes` instead of qty/unit cost when Labour is selected; new rows store `{label:'Labour',minutes}`. Backend calculates labour cost from minutes×hourly rate/60 using filament currency, included in sundries and then profit/tax/lots. Missing rate (null) blocks a completed price for Labour minutes; an explicitly configured 0 permits intentional zero labour costing. Older files containing `{label:'Labour',quantity,unitCost}` keep their fixed-cost semantics until explicitly converted by the user, even if the global rate changes; the editor highlights this. Print machine hourly rate unchanged. Rates/sundries are covered by normal backup data. Feature branch pending user test; no merge without approval.
+
 
 **v0.59.2 Print Library toolbar alignment:** Moved selected-file action button group into the same toolbar row as Search and Add file, with visible selection status underneath. Keep full-width single-row buttons on desktops where space permits; at narrow/mobile widths wrap safely, without changing button IDs, enabled/disabled logic or library operations. Node/Chromium responsive geometry tests cover desktop and mobile.
 
