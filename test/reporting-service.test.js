@@ -205,7 +205,9 @@ test('previous period comparisons use an adjacent equal-length range and the sam
     assert.equal(prior.totals.attempts,3);
     assert.equal(prior.totals.completed,2);
     assert.equal(prior.totals.failed,1);
-    assert.equal(prior.totals.runHours,2.5);
+    // A print finishing exactly at the previous-window boundary contributes
+    // to the count but its pre-window runtime is clipped to that boundary.
+    assert.equal(prior.totals.runHours,1.5);
     const noFilter=await service.getPreviousPeriodTotals(range);
     assert.equal(noFilter.totals.attempts,4);
     const noMatches=await service.getPreviousPeriodTotals({ ...range,printerIds:[] });
