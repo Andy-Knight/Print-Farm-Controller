@@ -1,0 +1,388 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="995" viewBox="0 0 1200 995" role="img" aria-labelledby="title desc">
+  <title id="title">Print Farm Controller icon style catalogue — current and proposed line icons</title>
+  <desc id="desc">Forty-two 24 by 24 outline icons. Twenty-one are representative existing concepts, and twenty-one are proposed for future controller features. Blue is current, teal is proposed.</desc>
+  <defs><symbol id="pfc-printer" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="8" width="16" height="9" rx="2"/><path d="M7 8V4h10v4M7 17v3h10v-3M16.5 12.5h.01"/></symbol>
+<symbol id="pfc-connected" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8.5a13 13 0 0 1 18 0M6.5 12a8 8 0 0 1 11 0M9 16l2.5 2.5L16 14"/></symbol>
+<symbol id="pfc-play" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M8 5.5v13l11-6.5z"/></symbol>
+<symbol id="pfc-warning" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 22 20H2zM12 9v5M12 17.5h.01"/></symbol>
+<symbol id="pfc-healthy" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M7.5 12.5 10.5 15.5 16.5 9"/></symbol>
+<symbol id="pfc-jobs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="3" width="14" height="18" rx="2"/><path d="M9 8h6M9 12h6M9 16h4"/></symbol>
+<symbol id="pfc-clock" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.5 2"/></symbol>
+<symbol id="pfc-failed" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 6l12 12M18 6 6 18"/></symbol>
+<symbol id="pfc-dashboard" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="8" height="8" rx="1.5"/><rect x="13" y="3" width="8" height="5" rx="1.5"/><rect x="13" y="10" width="8" height="11" rx="1.5"/><rect x="3" y="13" width="8" height="8" rx="1.5"/></symbol>
+<symbol id="pfc-queue" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 5h10M5 10h10M5 15h8M17 14v7M13.5 17.5H20.5"/></symbol>
+<symbol id="pfc-library" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h6v16H4zM12 4h3v16h-3zM18 7h2v13h-2z"/></symbol>
+<symbol id="pfc-wrench" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 7.5a6 6 0 0 1-7.6 5.8L7 19.7a2 2 0 0 1-2.8-2.8l6.4-6.4A6 6 0 0 1 16.5 3l-3.3 3.3 3.5 3.5L21 7.5Z"/></symbol>
+<symbol id="pfc-groups" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="3"/><circle cx="17.5" cy="9" r="2.5"/><path d="M2.5 20v-2a5.5 5.5 0 0 1 11 0v2M14.5 20v-1a4 4 0 0 1 7 0v1"/></symbol>
+<symbol id="pfc-reports" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20V12M10 20V7M16 20V3M22 20H2"/></symbol>
+<symbol id="pfc-bell" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4"/></symbol>
+<symbol id="pfc-backup" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a9 9 0 1 0 9 9M12 3V1M12 3l-4 3M12 3l3 4"/><path d="M12 7v10m0 0-3-3m3 3 3-3"/></symbol>
+<symbol id="pfc-diagnostics" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12h4l3-6 4 12 3-6h4"/></symbol>
+<symbol id="pfc-camera" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="12" cy="12" r="3.5"/><path d="M7 5l1.5-2h7L17 5"/></symbol>
+<symbol id="pfc-thermometer" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 14.8V5a3 3 0 0 0-6 0v9.8a5 5 0 1 0 6 0Z"/><path d="M11 9v9"/></symbol>
+<symbol id="pfc-settings" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.2 2.2M16.9 16.9l2.2 2.2M19.1 4.9l-2.2 2.2M7.1 16.9l-2.2 2.2"/></symbol>
+<symbol id="pfc-add" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 8v8M8 12h8"/></symbol>
+<symbol id="pfc-spool" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="3.3"/><path d="M6 6h12M6 18h12"/></symbol>
+<symbol id="pfc-layers" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3 9 5-9 5-9-5 9-5ZM3 12l9 5 9-5M3 16l9 5 9-5"/></symbol>
+<symbol id="pfc-nozzle" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M7 3h10l-2 8H9L7 3ZM9 11h6l-3 7-3-7ZM12 20v2"/></symbol>
+<symbol id="pfc-bed" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8h18v9H3zM6 17v4M18 17v4M7 5h10"/></symbol>
+<symbol id="pfc-inventory" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m3 7 9-4 9 4-9 5-9-5ZM3 7v10l9 4 9-4V7M12 12v9"/></symbol>
+<symbol id="pfc-package" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="7" width="16" height="14" rx="1.5"/><path d="M4 7l8-4 8 4M12 3v18M4 7l8 4 8-4"/></symbol>
+<symbol id="pfc-postage" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8h12v11H3zM15 11h4l3 4v4h-7M7 19a2 2 0 1 0 4 0m6 0a2 2 0 1 0 4 0"/></symbol>
+<symbol id="pfc-revenue" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M15.5 8.5c-1.5-2-6-1.5-6 1 0 3.5 6 1 6 4.5 0 2.5-4.5 3-7 1M12 5v14"/></symbol>
+<symbol id="pfc-invoice" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2h12v20l-3-2-3 2-3-2-3 2Z"/><path d="M9 7h6M9 11h6M9 15h4"/></symbol>
+<symbol id="pfc-tax" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="7" cy="7" r="2"/><circle cx="17" cy="17" r="2"/><path d="M5 19 19 5"/></symbol>
+<symbol id="pfc-trend" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 18l6-6 4 3 8-9M15 6h6v6"/></symbol>
+<symbol id="pfc-power" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v10M6 5a9 9 0 1 0 12 0"/></symbol>
+<symbol id="pfc-calendar" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M7 3v4M17 3v4M3 10h18M7 14h4"/></symbol>
+<symbol id="pfc-history" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9a9 9 0 1 1 .5 7M3 3v6h6M12 7v5l4 2"/></symbol>
+<symbol id="pfc-download" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v13m-5-5 5 5 5-5M4 18v3h16v-3"/></symbol>
+<symbol id="pfc-upload" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20V7m-5 5 5-5 5 5M4 6V3h16v3"/></symbol>
+<symbol id="pfc-cloud" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 18a4 4 0 0 1-.4-8A7.5 7.5 0 0 1 19 12a3 3 0 1 1 0 6H5Z"/></symbol>
+<symbol id="pfc-security" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2 20 5v6c0 5-3.5 9-8 11-4.5-2-8-6-8-11V5l8-3Z"/><path d="m8 12 3 3 5-6"/></symbol>
+<symbol id="pfc-search" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 5 5"/></symbol>
+<symbol id="pfc-filter" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 5h18l-7 8v6l-4 2v-8Z"/></symbol>
+<symbol id="pfc-export" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M13 4h7v7M20 4 10 14"/><path d="M20 14v6H4V4h6"/></symbol></defs>
+  <rect width="100%" height="100%" fill="#0c1015"/>
+  <text x="22" y="48" fill="#edf5fb" font-size="31" font-family="Inter,Segoe UI,Arial,sans-serif" font-weight="800">Icon style catalogue</text>
+  <text x="22" y="79" fill="#abbecd" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="16">Print Farm Controller · 24 × 24 outline geometry · rounded joins · no gradients</text>
+  <circle cx="31" cy="116" r="6" fill="#80bfff"/><text x="44" y="121" fill="#cdddeb" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="14">Existing concepts (representative)</text>
+  <circle cx="339" cy="116" r="6" fill="#60dbc9"/><text x="352" y="121" fill="#cdddeb" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="14">Proposals, not yet implemented</text>
+  <g font-family="Inter,Segoe UI,Arial,sans-serif"><g transform="translate(22 150)">
+    <rect width="186" height="109" rx="13" fill="#141f29" stroke="#324354"/>
+    <circle cx="35" cy="40" r="22" fill="none" stroke="#80bfff" stroke-opacity=".7" stroke-width="2"/>
+    <svg x="21" y="26" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#80bfff" stroke-width="1.85" stroke-linejoin="round" stroke-linecap="round"><rect x="4" y="8" width="16" height="9" rx="2"/><path d="M7 8V4h10v4M7 17v3h10v-3M16.5 12.5h.01"/></svg>
+    <text x="67" y="37" fill="#eaf3fa" font-size="12.6" font-weight="650">Printer</text>
+    <text x="67" y="54" fill="#80bfff" font-size="8.8" letter-spacing="1.1">CURRENT</text>
+    <text x="14" y="90" fill="#a9bac7" font-size="11.2" font-family="monospace">printer</text>
+  </g>
+<g transform="translate(218 150)">
+    <rect width="186" height="109" rx="13" fill="#141f29" stroke="#324354"/>
+    <circle cx="35" cy="40" r="22" fill="none" stroke="#80bfff" stroke-opacity=".7" stroke-width="2"/>
+    <svg x="21" y="26" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#80bfff" stroke-width="1.85" stroke-linejoin="round" stroke-linecap="round"><path d="M3 8.5a13 13 0 0 1 18 0M6.5 12a8 8 0 0 1 11 0M9 16l2.5 2.5L16 14"/></svg>
+    <text x="67" y="37" fill="#eaf3fa" font-size="12.6" font-weight="650">Connected</text>
+    <text x="67" y="54" fill="#80bfff" font-size="8.8" letter-spacing="1.1">CURRENT</text>
+    <text x="14" y="90" fill="#a9bac7" font-size="11.2" font-family="monospace">connected</text>
+  </g>
+<g transform="translate(414 150)">
+    <rect width="186" height="109" rx="13" fill="#141f29" stroke="#324354"/>
+    <circle cx="35" cy="40" r="22" fill="none" stroke="#80bfff" stroke-opacity=".7" stroke-width="2"/>
+    <svg x="21" y="26" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#80bfff" stroke-width="1.85" stroke-linejoin="round" stroke-linecap="round"><path d="M8 5.5v13l11-6.5z"/></svg>
+    <text x="67" y="37" fill="#eaf3fa" font-size="12.6" font-weight="650">Printing</text>
+    <text x="67" y="54" fill="#80bfff" font-size="8.8" letter-spacing="1.1">CURRENT</text>
+    <text x="14" y="90" fill="#a9bac7" font-size="11.2" font-family="monospace">play</text>
+  </g>
+<g transform="translate(610 150)">
+    <rect width="186" height="109" rx="13" fill="#141f29" stroke="#324354"/>
+    <circle cx="35" cy="40" r="22" fill="none" stroke="#80bfff" stroke-opacity=".7" stroke-width="2"/>
+    <svg x="21" y="26" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#80bfff" stroke-width="1.85" stroke-linejoin="round" stroke-linecap="round"><path d="M12 3 22 20H2zM12 9v5M12 17.5h.01"/></svg>
+    <text x="67" y="37" fill="#eaf3fa" font-size="12.6" font-weight="650">Attention</text>
+    <text x="67" y="54" fill="#80bfff" font-size="8.8" letter-spacing="1.1">CURRENT</text>
+    <text x="14" y="90" fill="#a9bac7" font-size="11.2" font-family="monospace">warning</text>
+  </g>
+<g transform="translate(806 150)">
+    <rect width="186" height="109" rx="13" fill="#141f29" stroke="#324354"/>
+    <circle cx="35" cy="40" r="22" fill="none" stroke="#80bfff" stroke-opacity=".7" stroke-width="2"/>
+    <svg x="21" y="26" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#80bfff" stroke-width="1.85" stroke-linejoin="round" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M7.5 12.5 10.5 15.5 16.5 9"/></svg>
+    <text x="67" y="37" fill="#eaf3fa" font-size="12.6" font-weight="650">Healthy</text>
+    <text x="67" y="54" fill="#80bfff" font-size="8.8" letter-spacing="1.1">CURRENT</text>
+    <text x="14" y="90" fill="#a9bac7" font-size="11.2" font-family="monospace">healthy</text>
+  </g>
+<g transform="translate(1002 150)">
+    <rect width="186" height="109" rx="13" fill="#141f29" stroke="#324354"/>
+    <circle cx="35" cy="40" r="22" fill="none" stroke="#80bfff" stroke-opacity=".7" stroke-width="2"/>
+    <svg x="21" y="26" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#80bfff" stroke-width="1.85" stroke-linejoin="round" stroke-linecap="round"><rect x="5" y="3" width="14" height="18" rx="2"/><path d="M9 8h6M9 12h6M9 16h4"/></svg>
+    <text x="67" y="37" fill="#eaf3fa" font-size="12.6" font-weight="650">Jobs</text>
+    <text x="67" y="54" fill="#80bfff" font-size="8.8" letter-spacing="1.1">CURRENT</text>
+    <text x="14" y="90" fill="#a9bac7" font-size="11.2" font-family="monospace">jobs</text>
+  </g>
+<g transform="translate(22 269)">
+    <rect width="186" height="109" rx="13" fill="#141f29" stroke="#324354"/>
+    <circle cx="35" cy="40" r="22" fill="none" stroke="#80bfff" stroke-opacity=".7" stroke-width="2"/>
+    <svg x="21" y="26" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#80bfff" stroke-width="1.85" stroke-linejoin="round" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.5 2"/></svg>
+    <text x="67" y="37" fill="#eaf3fa" font-size="12.6" font-weight="650">Run time</text>
+    <text x="67" y="54" fill="#80bfff" font-size="8.8" letter-spacing="1.1">CURRENT</text>
+    <text x="14" y="90" fill="#a9bac7" font-size="11.2" font-family="monospace">clock</text>
+  </g>
+<g transform="translate(218 269)">
+    <rect width="186" height="109" rx="13" fill="#141f29" stroke="#324354"/>
+    <circle cx="35" cy="40" r="22" fill="none" stroke="#80bfff" stroke-opacity=".7" stroke-width="2"/>
+    <svg x="21" y="26" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#80bfff" stroke-width="1.85" stroke-linejoin="round" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg>
+    <text x="67" y="37" fill="#eaf3fa" font-size="12.6" font-weight="650">Failed</text>
+    <text x="67" y="54" fill="#80bfff" font-size="8.8" letter-spacing="1.1">CURRENT</text>
+    <text x="14" y="90" fill="#a9bac7" font-size="11.2" font-family="monospace">failed</text>
+  </g>
+<g transform="translate(414 269)">
+    <rect width="186" height="109" rx="13" fill="#141f29" stroke="#324354"/>
+    <circle cx="35" cy="40" r="22" fill="none" stroke="#80bfff" stroke-opacity=".7" stroke-width="2"/>
+    <svg x="21" y="26" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#80bfff" stroke-width="1.85" stroke-linejoin="round" stroke-linecap="round"><rect x="3" y="3" width="8" height="8" rx="1.5"/><rect x="13" y="3" width="8" height="5" rx="1.5"/><rect x="13" y="10" width="8" height="11" rx="1.5"/><rect x="3" y="13" width="8" height="8" rx="1.5"/></svg>
+    <text x="67" y="37" fill="#eaf3fa" font-size="12.6" font-weight="650">Dashboard</text>
+    <text x="67" y="54" fill="#80bfff" font-size="8.8" letter-spacing="1.1">CURRENT</text>
+    <text x="14" y="90" fill="#a9bac7" font-size="11.2" font-family="monospace">dashboard</text>
+  </g>
+<g transform="translate(610 269)">
+    <rect width="186" height="109" rx="13" fill="#141f29" stroke="#324354"/>
+    <circle cx="35" cy="40" r="22" fill="none" stroke="#80bfff" stroke-opacity=".7" stroke-width="2"/>
+    <svg x="21" y="26" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#80bfff" stroke-width="1.85" stroke-linejoin="round" stroke-linecap="round"><path d="M5 5h10M5 10h10M5 15h8M17 14v7M13.5 17.5H20.5"/></svg>
+    <text x="67" y="37" fill="#eaf3fa" font-size="12.6" font-weight="650">Queue</text>
+    <text x="67" y="54" fill="#80bfff" font-size="8.8" letter-spacing="1.1">CURRENT</text>
+    <text x="14" y="90" fill="#a9bac7" font-size="11.2" font-family="monospace">queue</text>
+  </g>
+<g transform="translate(806 269)">
+    <rect width="186" height="109" rx="13" fill="#141f29" stroke="#324354"/>
+    <circle cx="35" cy="40" r="22" fill="none" stroke="#80bfff" stroke-opacity=".7" stroke-width="2"/>
+    <svg x="21" y="26" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#80bfff" stroke-width="1.85" stroke-linejoin="round" stroke-linecap="round"><path d="M4 4h6v16H4zM12 4h3v16h-3zM18 7h2v13h-2z"/></svg>
+    <text x="67" y="37" fill="#eaf3fa" font-size="12.6" font-weight="650">Print library</text>
+    <text x="67" y="54" fill="#80bfff" font-size="8.8" letter-spacing="1.1">CURRENT</text>
+    <text x="14" y="90" fill="#a9bac7" font-size="11.2" font-family="monospace">library</text>
+  </g>
+<g transform="translate(1002 269)">
+    <rect width="186" height="109" rx="13" fill="#141f29" stroke="#324354"/>
+    <circle cx="35" cy="40" r="22" fill="none" stroke="#80bfff" stroke-opacity=".7" stroke-width="2"/>
+    <svg x="21" y="26" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#80bfff" stroke-width="1.85" stroke-linejoin="round" stroke-linecap="round"><path d="M21 7.5a6 6 0 0 1-7.6 5.8L7 19.7a2 2 0 0 1-2.8-2.8l6.4-6.4A6 6 0 0 1 16.5 3l-3.3 3.3 3.5 3.5L21 7.5Z"/></svg>
+    <text x="67" y="37" fill="#eaf3fa" font-size="12.6" font-weight="650">Maintenance</text>
+    <text x="67" y="54" fill="#80bfff" font-size="8.8" letter-spacing="1.1">CURRENT</text>
+    <text x="14" y="90" fill="#a9bac7" font-size="11.2" font-family="monospace">wrench</text>
+  </g>
+<g transform="translate(22 388)">
+    <rect width="186" height="109" rx="13" fill="#141f29" stroke="#324354"/>
+    <circle cx="35" cy="40" r="22" fill="none" stroke="#80bfff" stroke-opacity=".7" stroke-width="2"/>
+    <svg x="21" y="26" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#80bfff" stroke-width="1.85" stroke-linejoin="round" stroke-linecap="round"><circle cx="8" cy="8" r="3"/><circle cx="17.5" cy="9" r="2.5"/><path d="M2.5 20v-2a5.5 5.5 0 0 1 11 0v2M14.5 20v-1a4 4 0 0 1 7 0v1"/></svg>
+    <text x="67" y="37" fill="#eaf3fa" font-size="12.6" font-weight="650">Groups</text>
+    <text x="67" y="54" fill="#80bfff" font-size="8.8" letter-spacing="1.1">CURRENT</text>
+    <text x="14" y="90" fill="#a9bac7" font-size="11.2" font-family="monospace">groups</text>
+  </g>
+<g transform="translate(218 388)">
+    <rect width="186" height="109" rx="13" fill="#141f29" stroke="#324354"/>
+    <circle cx="35" cy="40" r="22" fill="none" stroke="#80bfff" stroke-opacity=".7" stroke-width="2"/>
+    <svg x="21" y="26" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#80bfff" stroke-width="1.85" stroke-linejoin="round" stroke-linecap="round"><path d="M4 20V12M10 20V7M16 20V3M22 20H2"/></svg>
+    <text x="67" y="37" fill="#eaf3fa" font-size="12.6" font-weight="650">Reports</text>
+    <text x="67" y="54" fill="#80bfff" font-size="8.8" letter-spacing="1.1">CURRENT</text>
+    <text x="14" y="90" fill="#a9bac7" font-size="11.2" font-family="monospace">reports</text>
+  </g>
+<g transform="translate(414 388)">
+    <rect width="186" height="109" rx="13" fill="#141f29" stroke="#324354"/>
+    <circle cx="35" cy="40" r="22" fill="none" stroke="#80bfff" stroke-opacity=".7" stroke-width="2"/>
+    <svg x="21" y="26" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#80bfff" stroke-width="1.85" stroke-linejoin="round" stroke-linecap="round"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4"/></svg>
+    <text x="67" y="37" fill="#eaf3fa" font-size="12.6" font-weight="650">Notifications</text>
+    <text x="67" y="54" fill="#80bfff" font-size="8.8" letter-spacing="1.1">CURRENT</text>
+    <text x="14" y="90" fill="#a9bac7" font-size="11.2" font-family="monospace">bell</text>
+  </g>
+<g transform="translate(610 388)">
+    <rect width="186" height="109" rx="13" fill="#141f29" stroke="#324354"/>
+    <circle cx="35" cy="40" r="22" fill="none" stroke="#80bfff" stroke-opacity=".7" stroke-width="2"/>
+    <svg x="21" y="26" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#80bfff" stroke-width="1.85" stroke-linejoin="round" stroke-linecap="round"><path d="M12 3a9 9 0 1 0 9 9M12 3V1M12 3l-4 3M12 3l3 4"/><path d="M12 7v10m0 0-3-3m3 3 3-3"/></svg>
+    <text x="67" y="37" fill="#eaf3fa" font-size="12.6" font-weight="650">Backup</text>
+    <text x="67" y="54" fill="#80bfff" font-size="8.8" letter-spacing="1.1">CURRENT</text>
+    <text x="14" y="90" fill="#a9bac7" font-size="11.2" font-family="monospace">backup</text>
+  </g>
+<g transform="translate(806 388)">
+    <rect width="186" height="109" rx="13" fill="#141f29" stroke="#324354"/>
+    <circle cx="35" cy="40" r="22" fill="none" stroke="#80bfff" stroke-opacity=".7" stroke-width="2"/>
+    <svg x="21" y="26" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#80bfff" stroke-width="1.85" stroke-linejoin="round" stroke-linecap="round"><path d="M3 12h4l3-6 4 12 3-6h4"/></svg>
+    <text x="67" y="37" fill="#eaf3fa" font-size="12.6" font-weight="650">Diagnostics</text>
+    <text x="67" y="54" fill="#80bfff" font-size="8.8" letter-spacing="1.1">CURRENT</text>
+    <text x="14" y="90" fill="#a9bac7" font-size="11.2" font-family="monospace">diagnostics</text>
+  </g>
+<g transform="translate(1002 388)">
+    <rect width="186" height="109" rx="13" fill="#141f29" stroke="#324354"/>
+    <circle cx="35" cy="40" r="22" fill="none" stroke="#80bfff" stroke-opacity=".7" stroke-width="2"/>
+    <svg x="21" y="26" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#80bfff" stroke-width="1.85" stroke-linejoin="round" stroke-linecap="round"><rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="12" cy="12" r="3.5"/><path d="M7 5l1.5-2h7L17 5"/></svg>
+    <text x="67" y="37" fill="#eaf3fa" font-size="12.6" font-weight="650">Camera</text>
+    <text x="67" y="54" fill="#80bfff" font-size="8.8" letter-spacing="1.1">CURRENT</text>
+    <text x="14" y="90" fill="#a9bac7" font-size="11.2" font-family="monospace">camera</text>
+  </g>
+<g transform="translate(22 507)">
+    <rect width="186" height="109" rx="13" fill="#141f29" stroke="#324354"/>
+    <circle cx="35" cy="40" r="22" fill="none" stroke="#80bfff" stroke-opacity=".7" stroke-width="2"/>
+    <svg x="21" y="26" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#80bfff" stroke-width="1.85" stroke-linejoin="round" stroke-linecap="round"><path d="M14 14.8V5a3 3 0 0 0-6 0v9.8a5 5 0 1 0 6 0Z"/><path d="M11 9v9"/></svg>
+    <text x="67" y="37" fill="#eaf3fa" font-size="12.6" font-weight="650">Temperature</text>
+    <text x="67" y="54" fill="#80bfff" font-size="8.8" letter-spacing="1.1">CURRENT</text>
+    <text x="14" y="90" fill="#a9bac7" font-size="11.2" font-family="monospace">thermometer</text>
+  </g>
+<g transform="translate(218 507)">
+    <rect width="186" height="109" rx="13" fill="#141f29" stroke="#324354"/>
+    <circle cx="35" cy="40" r="22" fill="none" stroke="#80bfff" stroke-opacity=".7" stroke-width="2"/>
+    <svg x="21" y="26" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#80bfff" stroke-width="1.85" stroke-linejoin="round" stroke-linecap="round"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.2 2.2M16.9 16.9l2.2 2.2M19.1 4.9l-2.2 2.2M7.1 16.9l-2.2 2.2"/></svg>
+    <text x="67" y="37" fill="#eaf3fa" font-size="12.6" font-weight="650">Settings</text>
+    <text x="67" y="54" fill="#80bfff" font-size="8.8" letter-spacing="1.1">CURRENT</text>
+    <text x="14" y="90" fill="#a9bac7" font-size="11.2" font-family="monospace">settings</text>
+  </g>
+<g transform="translate(414 507)">
+    <rect width="186" height="109" rx="13" fill="#141f29" stroke="#324354"/>
+    <circle cx="35" cy="40" r="22" fill="none" stroke="#80bfff" stroke-opacity=".7" stroke-width="2"/>
+    <svg x="21" y="26" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#80bfff" stroke-width="1.85" stroke-linejoin="round" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 8v8M8 12h8"/></svg>
+    <text x="67" y="37" fill="#eaf3fa" font-size="12.6" font-weight="650">Add</text>
+    <text x="67" y="54" fill="#80bfff" font-size="8.8" letter-spacing="1.1">CURRENT</text>
+    <text x="14" y="90" fill="#a9bac7" font-size="11.2" font-family="monospace">add</text>
+  </g>
+<g transform="translate(610 507)">
+    <rect width="186" height="109" rx="13" fill="#141f29" stroke="#324354"/>
+    <circle cx="35" cy="40" r="22" fill="none" stroke="#60dbc9" stroke-opacity=".7" stroke-width="2"/>
+    <svg x="21" y="26" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#60dbc9" stroke-width="1.85" stroke-linejoin="round" stroke-linecap="round"><circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="3.3"/><path d="M6 6h12M6 18h12"/></svg>
+    <text x="67" y="37" fill="#eaf3fa" font-size="12.6" font-weight="650">Filament spool</text>
+    <text x="67" y="54" fill="#60dbc9" font-size="8.8" letter-spacing="1.1">PROPOSED</text>
+    <text x="14" y="90" fill="#a9bac7" font-size="11.2" font-family="monospace">spool</text>
+  </g>
+<g transform="translate(806 507)">
+    <rect width="186" height="109" rx="13" fill="#141f29" stroke="#324354"/>
+    <circle cx="35" cy="40" r="22" fill="none" stroke="#60dbc9" stroke-opacity=".7" stroke-width="2"/>
+    <svg x="21" y="26" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#60dbc9" stroke-width="1.85" stroke-linejoin="round" stroke-linecap="round"><path d="m12 3 9 5-9 5-9-5 9-5ZM3 12l9 5 9-5M3 16l9 5 9-5"/></svg>
+    <text x="67" y="37" fill="#eaf3fa" font-size="12.6" font-weight="650">Layers</text>
+    <text x="67" y="54" fill="#60dbc9" font-size="8.8" letter-spacing="1.1">PROPOSED</text>
+    <text x="14" y="90" fill="#a9bac7" font-size="11.2" font-family="monospace">layers</text>
+  </g>
+<g transform="translate(1002 507)">
+    <rect width="186" height="109" rx="13" fill="#141f29" stroke="#324354"/>
+    <circle cx="35" cy="40" r="22" fill="none" stroke="#60dbc9" stroke-opacity=".7" stroke-width="2"/>
+    <svg x="21" y="26" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#60dbc9" stroke-width="1.85" stroke-linejoin="round" stroke-linecap="round"><path d="M7 3h10l-2 8H9L7 3ZM9 11h6l-3 7-3-7ZM12 20v2"/></svg>
+    <text x="67" y="37" fill="#eaf3fa" font-size="12.6" font-weight="650">Nozzle</text>
+    <text x="67" y="54" fill="#60dbc9" font-size="8.8" letter-spacing="1.1">PROPOSED</text>
+    <text x="14" y="90" fill="#a9bac7" font-size="11.2" font-family="monospace">nozzle</text>
+  </g>
+<g transform="translate(22 626)">
+    <rect width="186" height="109" rx="13" fill="#141f29" stroke="#324354"/>
+    <circle cx="35" cy="40" r="22" fill="none" stroke="#60dbc9" stroke-opacity=".7" stroke-width="2"/>
+    <svg x="21" y="26" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#60dbc9" stroke-width="1.85" stroke-linejoin="round" stroke-linecap="round"><path d="M3 8h18v9H3zM6 17v4M18 17v4M7 5h10"/></svg>
+    <text x="67" y="37" fill="#eaf3fa" font-size="12.6" font-weight="650">Print bed</text>
+    <text x="67" y="54" fill="#60dbc9" font-size="8.8" letter-spacing="1.1">PROPOSED</text>
+    <text x="14" y="90" fill="#a9bac7" font-size="11.2" font-family="monospace">bed</text>
+  </g>
+<g transform="translate(218 626)">
+    <rect width="186" height="109" rx="13" fill="#141f29" stroke="#324354"/>
+    <circle cx="35" cy="40" r="22" fill="none" stroke="#60dbc9" stroke-opacity=".7" stroke-width="2"/>
+    <svg x="21" y="26" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#60dbc9" stroke-width="1.85" stroke-linejoin="round" stroke-linecap="round"><path d="m3 7 9-4 9 4-9 5-9-5ZM3 7v10l9 4 9-4V7M12 12v9"/></svg>
+    <text x="67" y="37" fill="#eaf3fa" font-size="12.6" font-weight="650">Inventory</text>
+    <text x="67" y="54" fill="#60dbc9" font-size="8.8" letter-spacing="1.1">PROPOSED</text>
+    <text x="14" y="90" fill="#a9bac7" font-size="11.2" font-family="monospace">inventory</text>
+  </g>
+<g transform="translate(414 626)">
+    <rect width="186" height="109" rx="13" fill="#141f29" stroke="#324354"/>
+    <circle cx="35" cy="40" r="22" fill="none" stroke="#60dbc9" stroke-opacity=".7" stroke-width="2"/>
+    <svg x="21" y="26" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#60dbc9" stroke-width="1.85" stroke-linejoin="round" stroke-linecap="round"><rect x="4" y="7" width="16" height="14" rx="1.5"/><path d="M4 7l8-4 8 4M12 3v18M4 7l8 4 8-4"/></svg>
+    <text x="67" y="37" fill="#eaf3fa" font-size="12.6" font-weight="650">Packaging</text>
+    <text x="67" y="54" fill="#60dbc9" font-size="8.8" letter-spacing="1.1">PROPOSED</text>
+    <text x="14" y="90" fill="#a9bac7" font-size="11.2" font-family="monospace">package</text>
+  </g>
+<g transform="translate(610 626)">
+    <rect width="186" height="109" rx="13" fill="#141f29" stroke="#324354"/>
+    <circle cx="35" cy="40" r="22" fill="none" stroke="#60dbc9" stroke-opacity=".7" stroke-width="2"/>
+    <svg x="21" y="26" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#60dbc9" stroke-width="1.85" stroke-linejoin="round" stroke-linecap="round"><path d="M3 8h12v11H3zM15 11h4l3 4v4h-7M7 19a2 2 0 1 0 4 0m6 0a2 2 0 1 0 4 0"/></svg>
+    <text x="67" y="37" fill="#eaf3fa" font-size="12.6" font-weight="650">Postage</text>
+    <text x="67" y="54" fill="#60dbc9" font-size="8.8" letter-spacing="1.1">PROPOSED</text>
+    <text x="14" y="90" fill="#a9bac7" font-size="11.2" font-family="monospace">postage</text>
+  </g>
+<g transform="translate(806 626)">
+    <rect width="186" height="109" rx="13" fill="#141f29" stroke="#324354"/>
+    <circle cx="35" cy="40" r="22" fill="none" stroke="#60dbc9" stroke-opacity=".7" stroke-width="2"/>
+    <svg x="21" y="26" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#60dbc9" stroke-width="1.85" stroke-linejoin="round" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M15.5 8.5c-1.5-2-6-1.5-6 1 0 3.5 6 1 6 4.5 0 2.5-4.5 3-7 1M12 5v14"/></svg>
+    <text x="67" y="37" fill="#eaf3fa" font-size="12.6" font-weight="650">Revenue</text>
+    <text x="67" y="54" fill="#60dbc9" font-size="8.8" letter-spacing="1.1">PROPOSED</text>
+    <text x="14" y="90" fill="#a9bac7" font-size="11.2" font-family="monospace">revenue</text>
+  </g>
+<g transform="translate(1002 626)">
+    <rect width="186" height="109" rx="13" fill="#141f29" stroke="#324354"/>
+    <circle cx="35" cy="40" r="22" fill="none" stroke="#60dbc9" stroke-opacity=".7" stroke-width="2"/>
+    <svg x="21" y="26" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#60dbc9" stroke-width="1.85" stroke-linejoin="round" stroke-linecap="round"><path d="M6 2h12v20l-3-2-3 2-3-2-3 2Z"/><path d="M9 7h6M9 11h6M9 15h4"/></svg>
+    <text x="67" y="37" fill="#eaf3fa" font-size="12.6" font-weight="650">Invoice</text>
+    <text x="67" y="54" fill="#60dbc9" font-size="8.8" letter-spacing="1.1">PROPOSED</text>
+    <text x="14" y="90" fill="#a9bac7" font-size="11.2" font-family="monospace">invoice</text>
+  </g>
+<g transform="translate(22 745)">
+    <rect width="186" height="109" rx="13" fill="#141f29" stroke="#324354"/>
+    <circle cx="35" cy="40" r="22" fill="none" stroke="#60dbc9" stroke-opacity=".7" stroke-width="2"/>
+    <svg x="21" y="26" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#60dbc9" stroke-width="1.85" stroke-linejoin="round" stroke-linecap="round"><circle cx="7" cy="7" r="2"/><circle cx="17" cy="17" r="2"/><path d="M5 19 19 5"/></svg>
+    <text x="67" y="37" fill="#eaf3fa" font-size="12.6" font-weight="650">Tax</text>
+    <text x="67" y="54" fill="#60dbc9" font-size="8.8" letter-spacing="1.1">PROPOSED</text>
+    <text x="14" y="90" fill="#a9bac7" font-size="11.2" font-family="monospace">tax</text>
+  </g>
+<g transform="translate(218 745)">
+    <rect width="186" height="109" rx="13" fill="#141f29" stroke="#324354"/>
+    <circle cx="35" cy="40" r="22" fill="none" stroke="#60dbc9" stroke-opacity=".7" stroke-width="2"/>
+    <svg x="21" y="26" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#60dbc9" stroke-width="1.85" stroke-linejoin="round" stroke-linecap="round"><path d="M3 18l6-6 4 3 8-9M15 6h6v6"/></svg>
+    <text x="67" y="37" fill="#eaf3fa" font-size="12.6" font-weight="650">Trend</text>
+    <text x="67" y="54" fill="#60dbc9" font-size="8.8" letter-spacing="1.1">PROPOSED</text>
+    <text x="14" y="90" fill="#a9bac7" font-size="11.2" font-family="monospace">trend</text>
+  </g>
+<g transform="translate(414 745)">
+    <rect width="186" height="109" rx="13" fill="#141f29" stroke="#324354"/>
+    <circle cx="35" cy="40" r="22" fill="none" stroke="#60dbc9" stroke-opacity=".7" stroke-width="2"/>
+    <svg x="21" y="26" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#60dbc9" stroke-width="1.85" stroke-linejoin="round" stroke-linecap="round"><path d="M12 2v10M6 5a9 9 0 1 0 12 0"/></svg>
+    <text x="67" y="37" fill="#eaf3fa" font-size="12.6" font-weight="650">Power</text>
+    <text x="67" y="54" fill="#60dbc9" font-size="8.8" letter-spacing="1.1">PROPOSED</text>
+    <text x="14" y="90" fill="#a9bac7" font-size="11.2" font-family="monospace">power</text>
+  </g>
+<g transform="translate(610 745)">
+    <rect width="186" height="109" rx="13" fill="#141f29" stroke="#324354"/>
+    <circle cx="35" cy="40" r="22" fill="none" stroke="#60dbc9" stroke-opacity=".7" stroke-width="2"/>
+    <svg x="21" y="26" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#60dbc9" stroke-width="1.85" stroke-linejoin="round" stroke-linecap="round"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M7 3v4M17 3v4M3 10h18M7 14h4"/></svg>
+    <text x="67" y="37" fill="#eaf3fa" font-size="12.6" font-weight="650">Schedule</text>
+    <text x="67" y="54" fill="#60dbc9" font-size="8.8" letter-spacing="1.1">PROPOSED</text>
+    <text x="14" y="90" fill="#a9bac7" font-size="11.2" font-family="monospace">calendar</text>
+  </g>
+<g transform="translate(806 745)">
+    <rect width="186" height="109" rx="13" fill="#141f29" stroke="#324354"/>
+    <circle cx="35" cy="40" r="22" fill="none" stroke="#60dbc9" stroke-opacity=".7" stroke-width="2"/>
+    <svg x="21" y="26" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#60dbc9" stroke-width="1.85" stroke-linejoin="round" stroke-linecap="round"><path d="M3 9a9 9 0 1 1 .5 7M3 3v6h6M12 7v5l4 2"/></svg>
+    <text x="67" y="37" fill="#eaf3fa" font-size="12.6" font-weight="650">History</text>
+    <text x="67" y="54" fill="#60dbc9" font-size="8.8" letter-spacing="1.1">PROPOSED</text>
+    <text x="14" y="90" fill="#a9bac7" font-size="11.2" font-family="monospace">history</text>
+  </g>
+<g transform="translate(1002 745)">
+    <rect width="186" height="109" rx="13" fill="#141f29" stroke="#324354"/>
+    <circle cx="35" cy="40" r="22" fill="none" stroke="#60dbc9" stroke-opacity=".7" stroke-width="2"/>
+    <svg x="21" y="26" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#60dbc9" stroke-width="1.85" stroke-linejoin="round" stroke-linecap="round"><path d="M12 3v13m-5-5 5 5 5-5M4 18v3h16v-3"/></svg>
+    <text x="67" y="37" fill="#eaf3fa" font-size="12.6" font-weight="650">Download</text>
+    <text x="67" y="54" fill="#60dbc9" font-size="8.8" letter-spacing="1.1">PROPOSED</text>
+    <text x="14" y="90" fill="#a9bac7" font-size="11.2" font-family="monospace">download</text>
+  </g>
+<g transform="translate(22 864)">
+    <rect width="186" height="109" rx="13" fill="#141f29" stroke="#324354"/>
+    <circle cx="35" cy="40" r="22" fill="none" stroke="#60dbc9" stroke-opacity=".7" stroke-width="2"/>
+    <svg x="21" y="26" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#60dbc9" stroke-width="1.85" stroke-linejoin="round" stroke-linecap="round"><path d="M12 20V7m-5 5 5-5 5 5M4 6V3h16v3"/></svg>
+    <text x="67" y="37" fill="#eaf3fa" font-size="12.6" font-weight="650">Upload</text>
+    <text x="67" y="54" fill="#60dbc9" font-size="8.8" letter-spacing="1.1">PROPOSED</text>
+    <text x="14" y="90" fill="#a9bac7" font-size="11.2" font-family="monospace">upload</text>
+  </g>
+<g transform="translate(218 864)">
+    <rect width="186" height="109" rx="13" fill="#141f29" stroke="#324354"/>
+    <circle cx="35" cy="40" r="22" fill="none" stroke="#60dbc9" stroke-opacity=".7" stroke-width="2"/>
+    <svg x="21" y="26" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#60dbc9" stroke-width="1.85" stroke-linejoin="round" stroke-linecap="round"><path d="M5 18a4 4 0 0 1-.4-8A7.5 7.5 0 0 1 19 12a3 3 0 1 1 0 6H5Z"/></svg>
+    <text x="67" y="37" fill="#eaf3fa" font-size="12.6" font-weight="650">Cloud</text>
+    <text x="67" y="54" fill="#60dbc9" font-size="8.8" letter-spacing="1.1">PROPOSED</text>
+    <text x="14" y="90" fill="#a9bac7" font-size="11.2" font-family="monospace">cloud</text>
+  </g>
+<g transform="translate(414 864)">
+    <rect width="186" height="109" rx="13" fill="#141f29" stroke="#324354"/>
+    <circle cx="35" cy="40" r="22" fill="none" stroke="#60dbc9" stroke-opacity=".7" stroke-width="2"/>
+    <svg x="21" y="26" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#60dbc9" stroke-width="1.85" stroke-linejoin="round" stroke-linecap="round"><path d="M12 2 20 5v6c0 5-3.5 9-8 11-4.5-2-8-6-8-11V5l8-3Z"/><path d="m8 12 3 3 5-6"/></svg>
+    <text x="67" y="37" fill="#eaf3fa" font-size="12.6" font-weight="650">Security</text>
+    <text x="67" y="54" fill="#60dbc9" font-size="8.8" letter-spacing="1.1">PROPOSED</text>
+    <text x="14" y="90" fill="#a9bac7" font-size="11.2" font-family="monospace">security</text>
+  </g>
+<g transform="translate(610 864)">
+    <rect width="186" height="109" rx="13" fill="#141f29" stroke="#324354"/>
+    <circle cx="35" cy="40" r="22" fill="none" stroke="#60dbc9" stroke-opacity=".7" stroke-width="2"/>
+    <svg x="21" y="26" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#60dbc9" stroke-width="1.85" stroke-linejoin="round" stroke-linecap="round"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 5 5"/></svg>
+    <text x="67" y="37" fill="#eaf3fa" font-size="12.6" font-weight="650">Search</text>
+    <text x="67" y="54" fill="#60dbc9" font-size="8.8" letter-spacing="1.1">PROPOSED</text>
+    <text x="14" y="90" fill="#a9bac7" font-size="11.2" font-family="monospace">search</text>
+  </g>
+<g transform="translate(806 864)">
+    <rect width="186" height="109" rx="13" fill="#141f29" stroke="#324354"/>
+    <circle cx="35" cy="40" r="22" fill="none" stroke="#60dbc9" stroke-opacity=".7" stroke-width="2"/>
+    <svg x="21" y="26" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#60dbc9" stroke-width="1.85" stroke-linejoin="round" stroke-linecap="round"><path d="M3 5h18l-7 8v6l-4 2v-8Z"/></svg>
+    <text x="67" y="37" fill="#eaf3fa" font-size="12.6" font-weight="650">Filter</text>
+    <text x="67" y="54" fill="#60dbc9" font-size="8.8" letter-spacing="1.1">PROPOSED</text>
+    <text x="14" y="90" fill="#a9bac7" font-size="11.2" font-family="monospace">filter</text>
+  </g>
+<g transform="translate(1002 864)">
+    <rect width="186" height="109" rx="13" fill="#141f29" stroke="#324354"/>
+    <circle cx="35" cy="40" r="22" fill="none" stroke="#60dbc9" stroke-opacity=".7" stroke-width="2"/>
+    <svg x="21" y="26" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#60dbc9" stroke-width="1.85" stroke-linejoin="round" stroke-linecap="round"><path d="M13 4h7v7M20 4 10 14"/><path d="M20 14v6H4V4h6"/></svg>
+    <text x="67" y="37" fill="#eaf3fa" font-size="12.6" font-weight="650">Export</text>
+    <text x="67" y="54" fill="#60dbc9" font-size="8.8" letter-spacing="1.1">PROPOSED</text>
+    <text x="14" y="90" fill="#a9bac7" font-size="11.2" font-family="monospace">export</text>
+  </g></g>
+  <text x="22" y="970" font-size="12" fill="#849bab" font-family="Inter,Segoe UI,Arial,sans-serif">Visual reference only: the live application remains the source of truth for deployed icons, statuses and interactions.</text>
+</svg>
