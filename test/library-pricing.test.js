@@ -293,3 +293,24 @@ test('Clearing saved profit percentage prevents presenting a stale sales price',
   assert.equal(afterClear.complete,false);
   assert.equal(afterClear.sellingPrice,null);
 });
+
+test('legacy pricing inherits a single catalogue currency and older saves preserve it',async()=>{
+  const cataloguePath=path.join(root,'filaments.json');
+  const old={profitPercent:30,profitMethod:'markup',taxRate:0};
+  await fs.writeFile(cataloguePath,JSON.stringify({version:1,filaments:[
+    {material:'PLA',currency:'USD'},{material:'PETG',currency:'USD'}
+  ]}));
+  await fs.writeFile(pricing.libraryPricingSettingsPath,JSON.stringify(old));
+  assert.equal((await pricing.getLibraryPricingSettings()).currency,'USD');
+  const saved=await pricing.saveLibraryPricingSettings({profitPercent:35});
+  assert.equal(saved.currency,'USD','legacy currency-less clients cannot reset the selected currency');
+  await fs.writeFile(pricing.libraryPricingSettingsPath,JSON.stringify(old));
+  await fs.writeFile(cataloguePath,JSON.stringify({version:1,filaments:[
+    {material:'PLA',currency:'GBP'},{material:'PETG',currency:'USD'}
+  ]}));
+  assert.equal((await pricing.getLibraryPricingSettings()).currency,'GBP',
+    'mixed legacy catalogues cannot guess currency conversion and require review');
+  await pricing.saveLibraryPricingSettings({profitPercent:35,currency:'EUR'});
+  assert.equal((await pricing.getLibraryPricingSettings()).currency,'EUR');
+  await fs.rm(cataloguePath,{force:true});
+});
