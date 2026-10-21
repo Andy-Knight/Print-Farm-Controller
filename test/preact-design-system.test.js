@@ -113,6 +113,12 @@ test('dashboard summary adopts the Analytics circular icon and genuine-ratio pre
   assert.match(dashboard,/configured > 0/);
   assert.match(skin,/conic-gradient\(from -90deg,var\(--dashboard-stat-color\)/);
   assert.match(skin,/\.dashboard-stat-icon svg/);
+  // Icon and all text stay in the same horizontal row, never stacked.
+  assert.match(skin,/grid-template-columns:72px minmax\(0,1fr\)/);
+  assert.match(skin,/grid-column:1; grid-row:1/);
+  assert.match(skin,/grid-column:2; grid-row:1/);
+  assert.match(skin,/grid-template-columns:52px minmax\(0,1fr\)/);
+  assert.match(regression,/dashboard summary text always remains beside its ring/);
   assert.match(skin,/#summary \.dashboard-summary-kpi\[data-tone="working"\]/);
   assert.match(skin,/#summary \.dashboard-summary-kpi\[data-tone="warning"\]/);
   assert.match(skin,/:root\[data-theme="light"\] #summary \.dashboard-summary-kpi/);
