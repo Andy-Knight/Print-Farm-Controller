@@ -6,6 +6,11 @@ Historical entries describe the behaviour of the controller at the time of that 
 
 ## v0.59.3
 
+- Centralised currency selection under **Reports & finance → Price settings** and removed the per-filament currency selector from Filament cost catalogue. Current prices and rates (filament, sundries, labour, hourly print time, Print Library selling prices) use the same global currency, with validation against the existing supported currency list.
+- Existing single-currency filament catalogues supply the initial currency when the new setting is missing; otherwise GBP is the default. Current catalogue records and estimates inherit the global selection, including formerly mixed-currency entries. No automatic FX conversion is attempted; the interface warns users to review costs and hourly rates after changing the currency.
+- Historical completed-print cost snapshots and Reports history retain the actual currency and amounts recorded at print time; they are never retrospectively relabelled or converted. Existing pricing clients omitting currency on PUT preserve the current selection. Added catalogue, pricing, migration, UI and browser checks for global selection.
+
+
 - Print Library sundry dropdown: **Labour** now asks for **Labour minutes** in the Add file and Edit details windows, hiding the normal quantity and unit-cost inputs. Minutes are validated and stored per file/print, not per sale lot.
 - Added a global **Labour hourly rate** to Reports & finance → Price settings, separate from the existing hourly machine print cost. Labour cost is computed as minutes × rate ÷ 60 using the current filament currency, added to sundries before profit, tax and sale-lot rounding. Selling prices refresh when the rate changes.
 - A missing labour rate prevents a misleading completed sell price for files containing minutes-based Labour. A deliberate zero rate is allowed. Existing fixed-cost Labour lines remain unchanged until manually converted by entering minutes, preserving legacy data and backups.

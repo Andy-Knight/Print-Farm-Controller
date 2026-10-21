@@ -142,7 +142,11 @@ export async function getLibraryPricingSettings() {
 
 export async function saveLibraryPricingSettings(input) {
   return executor.run('pricing', async () => {
-    const settings=normalizePricingSettings(input);
+    // Older clients may PUT pricing without the currency property.
+    // Preserve the operator's global choice rather than resetting to GBP.
+    const raw=input?.currency===undefined
+      ? {...input,currency:(await getLibraryPricingSettings()).currency} : input;
+    const settings=normalizePricingSettings(raw);
     await fs.mkdir(path.dirname(SETTINGS_FILE),{recursive:true,mode:0o700});
     const temp=SETTINGS_FILE+'.'+crypto.randomUUID()+'.tmp';
     try {
