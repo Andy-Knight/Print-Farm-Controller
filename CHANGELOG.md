@@ -6,6 +6,7 @@ Historical entries describe the behaviour of the controller at the time of that 
 
 ## v0.59.2
 
+- Reorganised the Print Library toolbar so Search, Add file and all four selected-file actions (Queue, Edit details, Favourite, Delete selected) appear together on one line where the desktop width allows. Kept selection status visible below the controls, preserved button IDs/disabled states and keyboard/accessibility behaviour, and made the action group wrap safely on narrow screens. Expanded Node and Chromium desktop/mobile layout regression tests.
 - Reduced Print Library desktop content/table width from 1500px to 1300px and constrained it to the available sidebar-adjusted workspace width, removing unnecessary horizontal spread.
 - Tightened Min. sell price and History grid tracks and column spacing. Kept all nine columns, their header/row alignment, sorting, sticky controls and full pricing details intact.
 - Switched to responsive file cards below 1351px viewport width, before the table could clip or create horizontal scrolling. Added Node regression assertions and Chromium layout checks across desktop and mobile viewports.

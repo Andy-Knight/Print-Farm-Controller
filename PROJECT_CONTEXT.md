@@ -17,6 +17,8 @@ If chat context and this file disagree about the codebase, inspect current GitHu
 
 ## Current work
 
+**v0.59.2 Print Library toolbar alignment:** Moved selected-file action button group into the same toolbar row as Search and Add file, with visible selection status underneath. Keep full-width single-row buttons on desktops where space permits; at narrow/mobile widths wrap safely, without changing button IDs, enabled/disabled logic or library operations. Node/Chromium responsive geometry tests cover desktop and mobile.
+
 **v0.59.2 Print Library table compaction:** Branch `feature/library-compact-table-v0592` caps the routed Library at 1300px (100% of available main workspace), tightens the nine-column grid with smaller Min. sell price and History tracks, uses 10px grid gutters, and switches to card layout below 1351px viewport width to avoid clipped columns. Shared grid variable stays identical for headers/rows; sorting, pricing, scrolling, queue safety and data untouched. Node + Chromium desktop/mobile alignment/overflow tests added. Keep branch until user validates.
 
 **v0.59.1 Farm Management navigation heading:** The six main-sidebar FARM MANAGEMENT routes (/maintenance, /groups, /reports, /alerts, /backup and /diagnostics) now show **Farm management** as the topbar title. Route-specific subtitles, blue page headings, individual page names and sidebar/keyboard/deep-link navigation are preserved. Workspace (Dashboard, Queue & history, Print library) and the separately grouped footer Licence route keep their previous topbar titles. Node and Chromium regression assertions cover grouping and topbar context.

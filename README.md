@@ -11,6 +11,8 @@ A local-first 3D printer fleet controller. It runs entirely on your LAN and curr
 
 Current highlights:
 
+- **Unified Print Library toolbar (v0.59.2):** Search, Add file and the four selected-file action buttons share a single desktop row; selection feedback stays below. On smaller screens the controls wrap responsively, retaining all actions and accessibility.
+
 - **Compact Print Library table (v0.59.2):** Reduced the desktop workbench maximum width to 1300px, tightened the Min. sell price / History columns and column gutters, and preserved aligned sortable headings. Smaller workspaces switch to responsive cards before the table would overflow, with no changes to pricing, sorting, queueing or printed file data.
 
 

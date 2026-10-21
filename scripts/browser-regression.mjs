@@ -762,6 +762,33 @@ async function libraryCompactTableSmoke(page,url) {
       }));
     },fixture);
     await page.waitForFunction(()=>document.querySelectorAll('#libraryList .library-file-row').length===1);
+    const topControls=await page.evaluate(()=>{
+      const rect=(selector)=>{
+        const node=document.querySelector(selector);
+        const r=node.getBoundingClientRect();
+        return {top:r.top,bottom:r.bottom,left:r.left,right:r.right,width:r.width};
+      };
+      return {
+        toolbar:rect('#libraryDialog .library-toolbar'),
+        search:rect('#librarySearchInput'),
+        upload:rect('#libraryUploadBtn'),
+        actions:rect('#libraryDialog .library-action-toolbar'),
+        buttons:['libraryQueueSelectedBtn','libraryEditSelectedBtn',
+          'libraryFavouriteSelectedBtn','libraryDeleteSelectedBtn'].map(id=>rect('#'+id)),
+        feedback:rect('#librarySelectionStatus')
+      };
+    });
+    if(viewport.desktop){
+      for(const action of [topControls.upload,...topControls.buttons])
+        assert.ok(Math.abs(action.bottom-topControls.search.bottom)<=4,
+          'desktop Print Library search, Add file and all four selected-file actions share one line: '+JSON.stringify({viewport,topControls}));
+      assert.ok(topControls.feedback.top>=topControls.toolbar.bottom-2,
+        'selection status stays below the shared button row');
+    } else {
+      assert.ok(topControls.actions.left>=topControls.toolbar.left-2 &&
+        topControls.actions.right<=topControls.toolbar.right+2,
+        'responsive actions must remain within their toolbar');
+    }
     const geometry=await page.evaluate(()=>{
       const box=(el)=>{const r=el.getBoundingClientRect();return {left:r.left,right:r.right,width:r.width};};
       const header=document.querySelector('#libraryTableHead');

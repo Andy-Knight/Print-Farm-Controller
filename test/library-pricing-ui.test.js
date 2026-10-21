@@ -169,6 +169,27 @@ test('desktop library workbench uses compact and aligned nine-column tracks',()=
   assert.match(browser,/sale and history columns must not reserve large empty gaps/);
 });
 
+test('Print Library combines search, Add file and selection actions into one accessible toolbar',()=>{
+  const html=read('public/index.html');
+  const css=read('public/print-library-polish.css');
+  const source=html.split('<section id="libraryDialog"')[1]?.split('<div id="libraryTableHead"')[0] || '';
+  const toolbar=source.split('<div class="library-toolbar">')[1]?.split('</details>')[0] || '';
+  const actions=toolbar.split('<div class="library-action-toolbar"')[1] || '';
+  assert.match(toolbar,/id="librarySearchInput"/);
+  assert.match(toolbar,/id="libraryUploadBtn"/);
+  assert.match(actions,/role="group" aria-label="Actions for the selected library file"/);
+  for(const id of ['libraryQueueSelectedBtn','libraryEditSelectedBtn',
+    'libraryFavouriteSelectedBtn','libraryDeleteSelectedBtn']){
+    assert.equal((html.match(new RegExp('id="'+id+'"','g'))||[]).length,1,
+      'selection action should occur once, inside the combined toolbar: '+id);
+    assert.ok(actions.includes('id="'+id+'"'),'missing inline action: '+id);
+  }
+  assert.match(source,/id="librarySelectionStatus" class="library-selection-status" aria-live="polite"/);
+  assert.match(css,/#libraryDialog \.library-toolbar \.library-action-toolbar/);
+  assert.match(css,/#libraryDialog \.library-action-buttons \{[\s\S]*?flex-wrap:nowrap;/);
+  assert.match(css,/#libraryDialog \.library-toolbar \.library-action-toolbar \{[\s\S]*?flex:1 1 100%;/);
+});
+
 test('Sundry items use a five-option dropdown and outlined destructive Remove control',()=>{
   const app=read('public/app.js');
   const css=read('public/print-library-polish.css');
