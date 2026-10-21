@@ -44,11 +44,48 @@ function ReportingTabs({ activeTab }) {
   </>;
 }
 
+function ReportingKpiSymbol({ name }) {
+  return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
+      stroke-linecap="round" stroke-linejoin="round" focusable="false" aria-hidden="true">
+    {name === 'jobs' && <><rect x="5" y="3" width="14" height="18" rx="2" />
+      <path d="M9 8h6M9 12h6M9 16h4" /></>}
+    {name === 'check' && <path d="M4.5 12.5 9.5 17.5 19.5 6.5" />}
+    {name === 'cross' && <path d="M6 6l12 12M18 6 6 18" />}
+    {name === 'clock' && <><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3.5 2" /></>}
+  </svg>;
+}
+
 function ReportingKpis({ items }) {
-  return <>{items.map((item) => <div class="reporting-kpi" key={item.label}>
-    <span class={`reporting-kpi-icon reporting-kpi-icon-${item.tone || 'info'}`} aria-hidden="true">{item.icon}</span>
-    <div><span>{item.label}</span><strong>{item.value}</strong><small>{item.detail}</small></div>
-  </div>)}</>;
+  return <>{items.map((item) => {
+    const progress = item.progressPercent;
+    const hasRate = progress != null;
+    const tone = ['info','positive','negative'].includes(item.tone) ? item.tone : 'info';
+    return <div class={`reporting-kpi reporting-kpi-${tone}`} key={item.label}>
+      <span class={`reporting-kpi-gauge${hasRate ? '' : ' reporting-kpi-gauge-neutral'}`}
+        style={{'--reporting-kpi-angle':`${hasRate ? progress * 3.6 : 0}deg`}} aria-hidden="true">
+        <span class="reporting-kpi-icon"><ReportingKpiSymbol name={item.iconName} /></span>
+      </span>
+      <div class="reporting-kpi-body">
+        <span class="reporting-kpi-label">{item.label}</span>
+        <strong>{item.value}</strong>
+        <small>{item.detail}</small>
+        {hasRate ? <div class="reporting-kpi-meter" role="progressbar"
+          aria-label={item.progressLabel} aria-valuemin="0" aria-valuemax="100"
+          aria-valuenow={progress}>
+          <span style={{width:`${progress}%`}}></span>
+        </div> : <span class="reporting-kpi-accent" aria-hidden="true"></span>}
+      </div>
+      <div class={`reporting-kpi-change reporting-kpi-change-${item.change?.tone || 'muted'}`}
+        aria-label={item.change?.description || 'No previous period data'}
+        title={item.change?.description || 'No previous period data'}>
+        <strong class="reporting-kpi-change-value">
+          {item.change?.symbol && <span aria-hidden="true">{item.change.symbol}</span>}
+          {item.change?.label || '—'}
+        </strong>
+        <span class="reporting-kpi-change-caption">{item.change?.caption || 'No previous period data'}</span>
+      </div>
+    </div>;
+  })}</>;
 }
 
 function ReportingTrend({ chart }) {
@@ -67,6 +104,14 @@ function ReportingTrend({ chart }) {
       <path d={chart.completedPath} class="reporting-series completed" />
       <path d={chart.failedPath} class="reporting-series failed" />
       <path d={chart.cancelledPath} class="reporting-series cancelled" />
+      {(chart.points || []).map((point, index) => <g key={point.date + '-' + point.key + '-' + index}>
+        <circle cx={point.x} cy={point.y} r="4.5" class={`reporting-point ${point.key}`}>
+          <title>{point.title}</title>
+        </circle>
+        {chart.showPointValues &&
+          <text x={point.x} y={Math.max(11, point.y - 10)} text-anchor="middle"
+            class={`reporting-point-value ${point.key}`}>{point.value}</text>}
+      </g>)}
       {chart.labels.map((label, index) =>
         <text key={index} x={label.x} y={label.y} text-anchor="middle" class="reporting-axis-text">{label.text}</text>
       )}
@@ -138,7 +183,7 @@ function ReportMaterials({ materials, materialMode }) {
   ];
   return <ReportingTable label="Material usage" headers={headings} empty="No material usage captured for completed prints in this period."
     rows={materials.rows.map((row) => <tr key={row.key}>
-      <td title={row.label}>{row.label}</td><td class="numeric">{row.kg}</td>
+      <td title={row.note || row.label}>{row.label}</td><td class="numeric">{row.kg}</td>
       <td class="numeric">{row.percentage}</td><td class="numeric">{row.cost}</td>
       <td><ReportingProgress percent={row.percent} /></td>
     </tr>)}

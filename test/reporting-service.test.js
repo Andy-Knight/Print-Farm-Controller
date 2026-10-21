@@ -176,3 +176,48 @@ test('unassigned queue jobs remain in farm totals without creating fictitious pr
     await fs.rm(root, { recursive:true, force:true });
   }
 });
+
+test('previous period comparisons use an adjacent equal-length range and the same printer filters', async () => {
+  const root=await fs.mkdtemp(path.join(os.tmpdir(), 'pfc-report-previous-period-'));
+  const service=new ReportingService({ filePath:path.join(root,'reporting-history.json') });
+  try {
+    await service.recordTerminalJobs([
+      completedJob({ id:'prev-start',printerId:'p1',printerName:'P1',fileName:'f.gcode',
+        startedAt:'2026-10-06T23:00:00.000Z',finishedAt:'2026-10-07T00:00:00.000Z' }),
+      completedJob({ id:'prev-middle',printerId:'p1',printerName:'P1',fileName:'f.gcode',
+        startedAt:'2026-10-09T23:00:00.000Z',finishedAt:'2026-10-10T00:00:00.000Z' }),
+      completedJob({ id:'prev-other-printer',printerId:'p2',printerName:'P2',fileName:'f.gcode',
+        startedAt:'2026-10-10T13:00:00.000Z',finishedAt:'2026-10-10T14:00:00.000Z' }),
+      completedJob({ id:'prev-end',printerId:'p1',printerName:'P1',fileName:'f.gcode',
+        status:'failed',startedAt:'2026-10-13T23:30:00.000Z',finishedAt:'2026-10-13T23:59:59.999Z' }),
+      completedJob({ id:'current-start',printerId:'p1',printerName:'P1',fileName:'f.gcode',
+        startedAt:'2026-10-14T00:00:00.000Z',finishedAt:'2026-10-14T00:00:00.000Z' }),
+      completedJob({ id:'current-end',printerId:'p1',printerName:'P1',fileName:'f.gcode',
+        startedAt:'2026-10-20T23:00:00.000Z',finishedAt:'2026-10-21T00:00:00.000Z' })
+    ]);
+    const range={ from:'2026-10-14T00:00:00.000Z', to:'2026-10-21T00:00:00.000Z' };
+    const current=await service.getReport({ ...range, printerIds:['p1'] });
+    assert.equal(current.totals.attempts,2);
+    const prior=await service.getPreviousPeriodTotals({ ...range,printerIds:['p1'] });
+    assert.equal(prior.range.to,'2026-10-13T23:59:59.999Z');
+    assert.equal(new Date(prior.range.to).getTime()-new Date(prior.range.from).getTime(),
+      new Date(range.to).getTime()-new Date(range.from).getTime());
+    assert.equal(prior.totals.attempts,3);
+    assert.equal(prior.totals.completed,2);
+    assert.equal(prior.totals.failed,1);
+    // A print finishing exactly at the previous-window boundary contributes
+    // to the count but its pre-window runtime is clipped to that boundary.
+    assert.equal(prior.totals.runHours,1.5);
+    const noFilter=await service.getPreviousPeriodTotals(range);
+    assert.equal(noFilter.totals.attempts,4);
+    const noMatches=await service.getPreviousPeriodTotals({ ...range,printerIds:[] });
+    assert.equal(noMatches.totals.attempts,0);
+    const quiet=await service.getPreviousPeriodTotals({
+      from:'2026-10-29T00:00:00.000Z', to:'2026-10-30T00:00:00.000Z'
+    });
+    assert.equal(quiet.totals.attempts,0);
+    assert.match(prior.range.from,/2026-10-06T23:59:59.999Z/);
+  } finally {
+    await fs.rm(root,{ recursive:true,force:true });
+  }
+});

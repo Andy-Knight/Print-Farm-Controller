@@ -166,42 +166,77 @@ function populateReportFilters() {
   }
 }
 
-function lineChartViewModel(rows = []) {
-  if (!rows.length) {
-    return { rows:[], grid:[], labels:[], viewBox:'0 0 760 230', completedPath:'', failedPath:'', cancelledPath:'' };
+function chartTimelineRows(rows = [], range = null) {
+  if (!rows.length) return [];
+  const start = Date.parse(range?.from || '');
+  const finish = Date.parse(range?.to || '');
+  const day = 24 * 60 * 60 * 1000;
+  if (!Number.isFinite(start) || !Number.isFinite(finish) || finish < start) return rows;
+  const startDay = Math.floor(start / day) * day;
+  const endDay = Math.floor(finish / day) * day;
+  const dayCount = Math.round((endDay - startDay) / day) + 1;
+  // The UI offers at most 365 days; don't create unbounded graph series
+  // for malformed or unexpectedly large custom report ranges.
+  if (dayCount < 2 || dayCount > 370) return rows;
+  const byDate = new Map(rows.map((row) => [String(row.date), row]));
+  return Array.from({ length:dayCount }, (_, index) => {
+    const date = new Date(startDay + index * day).toISOString().slice(0, 10);
+    return { date, completed:0, failed:0, cancelled:0, ...(byDate.get(date) || {}) };
+  });
+}
+
+function lineChartViewModel(rows = [], range = null) {
+  const timeline = chartTimelineRows(rows, range);
+  if (!timeline.length) {
+    return { rows:[], grid:[], labels:[], points:[], showPointValues:false,
+      viewBox:'0 0 760 230', completedPath:'', failedPath:'', cancelledPath:'' };
   }
   const width = 760;
   const height = 230;
   const pad = { left:42, right:18, top:18, bottom:34 };
   const chartW = width - pad.left - pad.right;
   const chartH = height - pad.top - pad.bottom;
-  const maxY = Math.max(1, ...rows.flatMap((row) => [Number(row.completed || 0), Number(row.failed || 0), Number(row.cancelled || 0)]));
-  const x = (index) => pad.left + (rows.length === 1 ? chartW / 2 : (index / (rows.length - 1)) * chartW);
-  const y = (value) => pad.top + chartH - (Number(value || 0) / maxY) * chartH;
-  const path = (key) => rows.map((row, index) => `${index ? 'L' : 'M'} ${x(index).toFixed(1)} ${y(row[key]).toFixed(1)}`).join(' ');
-  const tickIndexes = [...new Set([0, Math.floor((rows.length - 1) / 2), rows.length - 1])];
+  const maxY = Math.max(1, ...timeline.flatMap((row) => [
+    Number(row.completed || 0), Number(row.failed || 0), Number(row.cancelled || 0)
+  ]));
+  // Use whole-number Y-axis ticks for whole print counts, without repeating
+  // labels (e.g. 0, 1, 2, 2, 3 for a maximum of three prints).
+  const step = maxY <= 4 ? 1 : Math.ceil(maxY / 4);
+  const axisMax = Math.ceil(maxY / step) * step;
+  const x = (index) => pad.left + (timeline.length === 1
+    ? chartW / 2 : (index / (timeline.length - 1)) * chartW);
+  const y = (value) => pad.top + chartH - (Number(value || 0) / axisMax) * chartH;
+  const path = (key) => timeline.map((row, index) =>
+    `${index ? 'L' : 'M'} ${x(index).toFixed(1)} ${y(row[key]).toFixed(1)}`
+  ).join(' ');
+  const tickIndexes = [...new Set([0, Math.floor((timeline.length - 1) / 2), timeline.length - 1])];
+  const series = ['completed','failed','cancelled'];
+  const points = timeline.flatMap((row, index) => series.flatMap((key) => {
+    const value = Number(row[key] || 0);
+    return value > 0 ? [{
+      key, date:row.date, value, x:Number(x(index).toFixed(1)),
+      y:Number(y(value).toFixed(1)), title:`${row.date}: ${value} ${key}`
+    }] : [];
+  }));
   return {
-    rows,
+    rows:timeline,
     viewBox:`0 0 ${width} ${height}`,
     completedPath:path('completed'),
     failedPath:path('failed'),
     cancelledPath:path('cancelled'),
-    grid:[0, .25, .5, .75, 1].map((portion) => {
-      const yy = pad.top + chartH - portion * chartH;
-      return {
-        x1:pad.left,
-        x2:width - pad.right,
-        y:yy,
-        labelX:pad.left - 8,
-        labelY:yy + 4,
-        label:Math.round(maxY * portion)
-      };
+    points,
+    showPointValues:points.length <= 8,
+    grid:Array.from({ length:Math.floor(axisMax / step) + 1 }, (_, index) => {
+      const value = index * step;
+      const yy = y(value);
+      return { x1:pad.left, x2:width - pad.right, y:yy, labelX:pad.left - 8,
+        labelY:yy + 4, label:value };
     }),
     labels:tickIndexes.map((index) => ({
       x:x(index),
       y:height - 9,
-      text:rows[index]?.date
-        ? new Date(`${rows[index].date}T00:00:00`).toLocaleDateString(undefined, { month:'short', day:'numeric' })
+      text:timeline[index]?.date
+        ? new Date(`${timeline[index].date}T00:00:00`).toLocaleDateString(undefined, { month:'short', day:'numeric' })
         : ''
     }))
   };
@@ -274,14 +309,33 @@ function reportingFileRows(files = [], { failures = false } = {}) {
     }));
 }
 
+function reportingFilamentLabel(entry, materialType) {
+  const recordedLabel = String(entry?.label || entry?.material || 'Unknown filament').trim();
+  const typeOnly = materialType !== 'UNKNOWN MATERIAL'
+    && recordedLabel.toUpperCase() === materialType;
+  if (!typeOnly) return { label:recordedLabel, note:'' };
+  if (entry?.filamentId) {
+    // A catalogue reference exists, but its historical snapshot did not
+    // capture brand/product; do not imply the filament was unidentified.
+    return {
+      label:`${recordedLabel} (Brand/product not recorded)`,
+      note:'The print recorded a filament catalogue reference, but the saved snapshot contains only the material type. Brand and product cannot be recovered reliably from current catalogue settings.'
+    };
+  }
+  return {
+    label:`${recordedLabel} (Unidentified filament)`,
+    note:'The print recorded this material type but did not identify a specific filament catalogue entry. Brand and product cannot be determined from the historical snapshot.'
+  };
+}
+
 function reportingMaterialRows(materials = []) {
   const groupByType = reportingMaterialMode === 'type';
   const groups = new Map();
   for (const entry of materials) {
     const type = String(entry.material || 'Unknown material').trim().toUpperCase();
-    const label = groupByType ? type : String(entry.label || entry.material || 'Unknown filament');
+    const display = groupByType ? { label:type, note:'' } : reportingFilamentLabel(entry, type);
     const key = groupByType ? type : String(entry.filamentId || entry.label || type);
-    if (!groups.has(key)) groups.set(key, { key, label, grams:0, spendByCurrency:{} });
+    if (!groups.has(key)) groups.set(key, { key, ...display, grams:0, spendByCurrency:{} });
     const row = groups.get(key);
     row.grams += Number(entry.grams || 0);
     for (const [currency, amount] of Object.entries(entry.spendByCurrency || {})) {
@@ -303,6 +357,7 @@ function reportingMaterialRows(materials = []) {
     rows:ordered.map((row) => ({
       key:row.key,
       label:row.label,
+      note:row.note,
       kg:formatNumber(row.grams / 1000, 2),
       percentage:total > 0 ? `${formatNumber(row.grams * 100 / total, 1)}%` : '—',
       percent:total > 0 ? Number((row.grams * 100 / total).toFixed(1)) : 0,
@@ -330,13 +385,64 @@ function reportingPrintersViewModel(printers = []) {
   }));
 }
 
+function reportingKpiSvg(name) {
+  const paths = {
+    jobs:'<rect x="5" y="3" width="14" height="18" rx="2"/><path d="M9 8h6M9 12h6M9 16h4"/>',
+    check:'<path d="M4.5 12.5 9.5 17.5 19.5 6.5"/>',
+    cross:'<path d="M6 6l12 12M18 6 6 18"/>',
+    clock:'<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.5 2"/>'
+  };
+  return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
+      stroke-linecap="round" stroke-linejoin="round" focusable="false" aria-hidden="true">
+      ${paths[name] || paths.jobs}</svg>`;
+}
+
+function reportingPreviousPeriodChange(current, previous, hasPrevious, measure) {
+  if (!hasPrevious) return {
+    symbol:'', label:'—', caption:'No previous period data',
+    description:'No previous period data for the selected printer filters', tone:'muted'
+  };
+  const now = Number(current);
+  const before = Number(previous);
+  if (!Number.isFinite(now) || !Number.isFinite(before)) return {
+    symbol:'', label:'—', caption:'Comparison unavailable',
+    description:'Unable to compare this statistic with the previous period', tone:'muted'
+  };
+  const direction = now > before ? 'up' : now < before ? 'down' : 'flat';
+  const beneficial = measure === 'completed' ? direction === 'up'
+    : measure === 'failed' ? direction === 'down' : null;
+  const tone = direction === 'flat' ? 'muted'
+    : beneficial === true ? 'positive'
+    : beneficial === false ? 'negative' : 'neutral';
+  const symbol = direction === 'up' ? '▲' : direction === 'down' ? '▼' : '—';
+  const label = direction === 'flat' ? '0.0%'
+    : before === 0 ? 'From 0'
+    : `${formatNumber(Math.abs((now - before) / before * 100), 1)}%`;
+  const summary = direction === 'flat' ? 'No change'
+    : `${direction === 'up' ? 'Increase' : 'Decrease'} ${before === 0 ? 'from zero' : 'of ' + label}`;
+  return { symbol, label, caption:'vs previous period',
+    description:`${summary} vs previous period`, tone };
+}
+
 function reportingKpiViewModel(report = {}) {
   const totals = report?.totals || {};
+  const previous = report?.previousTotals || {};
+  const hasPrevious = Number(previous.attempts || 0) > 0;
+  const change = (key, measure = key) =>
+    reportingPreviousPeriodChange(totals[key] || 0, previous[key] || 0, hasPrevious, measure);
+  // Only measured completion/failure rates receive progress meters.
+  // Job totals and machine hours have no meaningful 0–100% target.
+  const percent = (rate) => {
+    const number = rate == null ? NaN : Number(rate);
+    return Number(totals.attempts || 0) > 0 && Number.isFinite(number)
+      ? Math.round(Math.max(0, Math.min(1, number)) * 1000) / 10
+      : null;
+  };
   return [
-    { label:'Total print jobs', value:formatNumber(totals.attempts), detail:'In selected period', icon:'▤', tone:'info' },
-    { label:'Completed', value:formatNumber(totals.completed), detail:`${formatPercent(totals.completionRate)} completion rate`, icon:'✓', tone:Number(totals.completed || 0) > 0 ? 'positive' : 'info' },
-    { label:'Failed', value:formatNumber(totals.failed), detail:`${formatPercent(totals.failureRate)} failure rate`, icon:Number(totals.failed || 0) > 0 ? '×' : '✓', tone:Number(totals.failed || 0) > 0 ? 'negative' : 'positive' },
-    { label:'Total run time', value:`${formatNumber(totals.runHours, 1)} h`, detail:'Reported from print timestamps', icon:'◷', tone:'info' }
+    { label:'Total print jobs', value:formatNumber(totals.attempts), detail:'In selected period', icon:'▤', iconName:'jobs', tone:'info', progressPercent:null, change:change('attempts','neutral') },
+    { label:'Completed', value:formatNumber(totals.completed), detail:`${formatPercent(totals.completionRate)} completion rate`, icon:'✓', iconName:'check', tone:Number(totals.completed || 0) > 0 ? 'positive' : 'info', progressPercent:percent(totals.completionRate), progressLabel:'Completion rate', change:change('completed') },
+    { label:'Failed', value:formatNumber(totals.failed), detail:`${formatPercent(totals.failureRate)} failure rate`, icon:Number(totals.failed || 0) > 0 ? '×' : '✓', iconName:Number(totals.failed || 0) > 0 ? 'cross' : 'check', tone:Number(totals.failed || 0) > 0 ? 'negative' : 'positive', progressPercent:percent(totals.failureRate), progressLabel:'Failure rate', change:change('failed') },
+    { label:'Total run time', value:`${formatNumber(totals.runHours, 1)} h`, detail:'Reported from print timestamps', icon:'◷', iconName:'clock', tone:'info', progressPercent:null, change:change('runHours','neutral') }
   ];
 }
 
@@ -354,7 +460,7 @@ function publishReportingUiState(report = currentReport || {}) {
   const detail = {
     activeTab:activeReportingTab,
     kpis:reportingKpiViewModel(report),
-    chart:lineChartViewModel(report?.daily || []),
+    chart:lineChartViewModel(report?.daily || [], report?.range),
     printers:reportingPrintersViewModel(report?.printers || []),
     printerActivity:(report?.printers || []).length > 0,
     files:reportingFileRows(report?.files || []),
@@ -369,38 +475,30 @@ function publishReportingUiState(report = currentReport || {}) {
   window.dispatchEvent(new CustomEvent('pfc:reporting-ui-state', { detail }));
 }
 
-function lineChartSvg(rows = []) {
-  if (!rows.length) return '<div class="reporting-empty">No completed reporting history in this period.</div>';
-  const width = 760;
-  const height = 230;
-  const pad = { left:42, right:18, top:18, bottom:34 };
-  const chartW = width - pad.left - pad.right;
-  const chartH = height - pad.top - pad.bottom;
-  const maxY = Math.max(1, ...rows.flatMap((row) => [Number(row.completed || 0), Number(row.failed || 0), Number(row.cancelled || 0)]));
-  const x = (index) => pad.left + (rows.length === 1 ? chartW / 2 : (index / (rows.length - 1)) * chartW);
-  const y = (value) => pad.top + chartH - (Number(value || 0) / maxY) * chartH;
-  const path = (key) => rows.map((row, index) => `${index ? 'L' : 'M'} ${x(index).toFixed(1)} ${y(row[key]).toFixed(1)}`).join(' ');
-  const tickIndexes = [...new Set([0, Math.floor((rows.length - 1) / 2), rows.length - 1])];
-  const grid = [0, .25, .5, .75, 1].map((portion) => {
-    const yy = pad.top + chartH - portion * chartH;
-    const label = Math.round(maxY * portion);
-    return `<line x1="${pad.left}" y1="${yy}" x2="${width - pad.right}" y2="${yy}" class="reporting-grid-line"/>
-      <text x="${pad.left - 8}" y="${yy + 4}" text-anchor="end" class="reporting-axis-text">${label}</text>`;
-  }).join('');
-  const labels = tickIndexes.map((index) => {
-    const text = rows[index]?.date ? new Date(`${rows[index].date}T00:00:00`).toLocaleDateString(undefined, { month:'short', day:'numeric' }) : '';
-    return `<text x="${x(index)}" y="${height - 9}" text-anchor="middle" class="reporting-axis-text">${escapeHtml(text)}</text>`;
-  }).join('');
+function lineChartSvg(rows = [], range = null) {
+  const chart = lineChartViewModel(rows, range);
+  if (!chart.rows.length) return '<div class="reporting-empty">No completed reporting history in this period.</div>';
+  const grid = chart.grid.map((line) => `<line x1="${line.x1}" y1="${line.y}" x2="${line.x2}" y2="${line.y}" class="reporting-grid-line"/>
+      <text x="${line.labelX}" y="${line.labelY}" text-anchor="end" class="reporting-axis-text">${line.label}</text>`).join('');
+  const labels = chart.labels.map((label) =>
+    `<text x="${label.x}" y="${label.y}" text-anchor="middle" class="reporting-axis-text">${escapeHtml(label.text)}</text>`
+  ).join('');
+  const points = chart.points.map((point) => `<circle cx="${point.x}" cy="${point.y}" r="4.5" class="reporting-point ${point.key}">
+      <title>${escapeHtml(point.title)}</title>
+    </circle>${chart.showPointValues
+      ? `<text x="${point.x}" y="${Math.max(11,point.y - 10)}" text-anchor="middle" class="reporting-point-value ${point.key}">${point.value}</text>`
+      : ''}`).join('');
   return `<div class="reporting-chart-legend">
       <span><i class="reporting-legend-dot completed"></i>Completed</span>
       <span><i class="reporting-legend-dot failed"></i>Failed</span>
       <span><i class="reporting-legend-dot cancelled"></i>Cancelled</span>
     </div>
-    <svg class="reporting-line-chart" viewBox="0 0 ${width} ${height}" role="img" aria-label="Daily print outcomes">
+    <svg class="reporting-line-chart" viewBox="${chart.viewBox}" role="img" aria-label="Daily print outcomes">
       ${grid}
-      <path d="${path('completed')}" class="reporting-series completed"/>
-      <path d="${path('failed')}" class="reporting-series failed"/>
-      <path d="${path('cancelled')}" class="reporting-series cancelled"/>
+      <path d="${chart.completedPath}" class="reporting-series completed"/>
+      <path d="${chart.failedPath}" class="reporting-series failed"/>
+      <path d="${chart.cancelledPath}" class="reporting-series cancelled"/>
+      ${points}
       ${labels}
     </svg>`;
 }
@@ -474,7 +572,7 @@ function renderReportMaterials(materials) {
     <td class="numeric">${materials.totalKg}</td><td class="numeric">100%</td>
     <td class="numeric">${escapeHtml(materials.totalCost)}</td><td></td></tr></tfoot>`;
   return reportingTableShell(headings, materials.rows.map((row) => `<tr>
-    <td title="${escapeHtml(row.label)}">${escapeHtml(row.label)}</td>
+    <td title="${escapeHtml(row.note || row.label)}">${escapeHtml(row.label)}</td>
     <td class="numeric">${row.kg}</td><td class="numeric">${row.percentage}</td>
     <td class="numeric">${escapeHtml(row.cost)}</td><td><div class="reporting-progress"><span style="width:${row.percent}%"></span></div></td>
   </tr>`), 'No material usage captured for completed prints in this period.', foot);
@@ -516,12 +614,33 @@ function renderReport(report) {
     return;
   }
   if (reportingKpis) {
-    reportingKpis.innerHTML = reportingKpiViewModel(report).map((item) => `<div class="reporting-kpi">
-      <span class="reporting-kpi-icon reporting-kpi-icon-${escapeHtml(item.tone)}" aria-hidden="true">${escapeHtml(item.icon)}</span>
-      <div><span>${escapeHtml(item.label)}</span><strong>${escapeHtml(item.value)}</strong>
-      <small>${escapeHtml(item.detail)}</small></div></div>`).join('');
+    reportingKpis.innerHTML = reportingKpiViewModel(report).map((item) => {
+      const progress = item.progressPercent;
+      const hasRate = progress != null;
+      const safeTone = ['positive','negative','info'].includes(item.tone) ? item.tone : 'info';
+      return `<div class="reporting-kpi reporting-kpi-${safeTone}">
+        <span class="reporting-kpi-gauge${hasRate ? '' : ' reporting-kpi-gauge-neutral'}"
+            style="--reporting-kpi-angle:${hasRate ? progress * 3.6 : 0}deg" aria-hidden="true">
+          <span class="reporting-kpi-icon">${reportingKpiSvg(item.iconName)}</span>
+        </span>
+        <div class="reporting-kpi-body">
+          <span class="reporting-kpi-label">${escapeHtml(item.label)}</span>
+          <strong>${escapeHtml(item.value)}</strong>
+          <small>${escapeHtml(item.detail)}</small>
+          ${hasRate ? `<div class="reporting-kpi-meter" role="progressbar" aria-label="${escapeHtml(item.progressLabel)}"
+              aria-valuemin="0" aria-valuemax="100" aria-valuenow="${progress}">
+            <span style="width:${progress}%"></span></div>` : '<span class="reporting-kpi-accent" aria-hidden="true"></span>'}
+        </div>
+        <div class="reporting-kpi-change reporting-kpi-change-${escapeHtml(item.change?.tone || 'muted')}"
+          aria-label="${escapeHtml(item.change?.description || 'No previous period data')}"
+          title="${escapeHtml(item.change?.description || 'No previous period data')}">
+          <strong class="reporting-kpi-change-value"><span aria-hidden="true">${escapeHtml(item.change?.symbol || '')}</span>${escapeHtml(item.change?.label || '—')}</strong>
+          <span class="reporting-kpi-change-caption">${escapeHtml(item.change?.caption || 'No previous period data')}</span>
+        </div>
+      </div>`;
+    }).join('');
   }
-  if (reportingTrend) reportingTrend.innerHTML = lineChartSvg(report?.daily || []);
+  if (reportingTrend) reportingTrend.innerHTML = lineChartSvg(report?.daily || [], report?.range);
   if (reportingPrinters) reportingPrinters.innerHTML = renderProblemPrinters(report?.printers || []);
   if (reportingFiles) reportingFiles.innerHTML = renderReportFiles(reportingFileRows(report?.files || []));
   if (reportingMaterials) reportingMaterials.innerHTML = renderReportMaterials(reportingMaterialRows(report?.materials || []));

@@ -237,6 +237,32 @@ test('analytics view models rank real print completions and aggregate materials'
   const byFilament = ui.reportingMaterialRows(materials);
   assert.equal(byFilament.rows.length, 3);
   assert.equal(byFilament.rows[0].label, 'ASA Brand 1');
+  const snapshotMaterials = [
+    { filamentId:null, label:'PLA', material:'PLA', grams:250, spendByCurrency:{ GBP:2.5 } },
+    { filamentId:'catalogue-pla', label:'PLA', material:'PLA', grams:200, spendByCurrency:{ GBP:2 } },
+    { filamentId:'named-pla', label:'eSUN · PLA+ · PLA', material:'PLA', grams:100, spendByCurrency:{ GBP:1 } }
+  ];
+  const filamentRows = ui.reportingMaterialRows(snapshotMaterials).rows;
+  assert.equal(filamentRows.length, 3, 'unidentified and identified records must remain separate');
+  assert.equal(filamentRows[0].label, 'PLA (Unidentified filament)');
+  assert.match(filamentRows[0].note, /did not identify a specific filament catalogue entry/);
+  assert.equal(filamentRows[1].label, 'PLA (Brand\/product not recorded)');
+  assert.match(filamentRows[1].note, /catalogue reference/);
+  assert.equal(filamentRows[2].label, 'eSUN · PLA+ · PLA');
+  assert.equal(filamentRows[2].note, '');
+  const materialHtml = ui.renderReportMaterials(ui.reportingMaterialRows(snapshotMaterials));
+  assert.match(materialHtml, /PLA \(Unidentified filament\)/);
+  assert.match(materialHtml, /title="The print recorded this material type/);
+  assert.match(materialHtml, /PLA \(Brand\/product not recorded\)/);
+  assert.match(materialHtml, /eSUN · PLA\+ · PLA/);
+  ui.setMode('type');
+  const byMaterial = ui.reportingMaterialRows(snapshotMaterials);
+  assert.equal(byMaterial.rows.length, 1);
+  assert.equal(byMaterial.rows[0].label, 'PLA');
+  assert.equal(byMaterial.rows[0].note, '');
+  assert.equal(byMaterial.totalKg, '0.55');
+  const preact = fs.readFileSync(new URL('../ui/reporting.jsx', import.meta.url), 'utf8');
+  assert.match(preact, /title=\{row.note \|\| row.label\}/);
   assert.equal(ui.reportingFileRows([{fileName:'cancelled.gcode',completed:0,failed:0,attempts:2}]).length, 0);
 });
 
@@ -250,12 +276,17 @@ test('analytics chart is first after KPIs, print file table spans full width and
   assert.match(styles, /\.reporting-table-scroll\s*\{[^}]*width:100%;[^}]*max-width:100%;/);
   assert.doesNotMatch(styles, /\.reporting-table-scroll\s*\{[^}]*max-width:365px/);
   assert.match(styles, /\.reporting-analytics-files \.reporting-analytics-table\s*\{[^}]*table-layout:fixed/);
-  assert.match(styles, /\.reporting-kpi \.reporting-kpi-icon-positive/);
-  assert.match(styles, /\.reporting-kpi \.reporting-kpi-icon-negative/);
+  assert.match(styles, /\.reporting-kpi \.reporting-kpi-gauge/);
+  assert.match(styles, /\.reporting-kpi \.reporting-kpi-meter/);
+  assert.match(styles, /\.reporting-kpi \.reporting-kpi-accent/);
+  assert.match(styles, /\.reporting-kpis \.reporting-kpi-negative/);
   const preact = fs.readFileSync(new URL('../ui/reporting.jsx', import.meta.url), 'utf8');
-  assert.match(preact, /reporting-kpi-icon-\$\{item.tone/);
-  assert.match(reportingUi, /reporting-kpi-icon-\$\{escapeHtml\(item.tone\)\}/);
-  const code = reportingUi.slice(reportingUi.indexOf('function reportingKpiViewModel('), reportingUi.indexOf('function reportingFilamentsViewModel('));
+  assert.match(preact, /function ReportingKpiSymbol/);
+  assert.match(preact, /reporting-kpi-gauge/);
+  assert.match(preact, /reporting-kpi-meter/);
+  assert.match(reportingUi, /function reportingKpiSvg/);
+  assert.match(reportingUi, /reporting-kpi-gauge/);
+  const code = reportingUi.slice(reportingUi.indexOf('function reportingPreviousPeriodChange('), reportingUi.indexOf('function reportingFilamentsViewModel('));
   const renderModel = vm.runInNewContext(code + '\nreportingKpiViewModel', {
     formatNumber:(value)=>String(value ?? 0),
     formatPercent:(value)=>String(value ?? 0) + '%'
@@ -267,4 +298,152 @@ test('analytics chart is first after KPIs, print file table spans full width and
   assert.equal(noFailures[2].icon, '✓');
   const idle = renderModel({ totals:{} });
   assert.equal(idle[1].tone, 'info');
+  assert.equal(idle[1].progressPercent, null);
+  assert.equal(idle[2].progressPercent, null);
+  assert.equal(unsuccessful[0].progressPercent, null, 'job count has no percentage target');
+  assert.equal(unsuccessful[3].progressPercent, null, 'runtime has no percentage target');
+  assert.equal(unsuccessful[1].progressPercent, 90);
+  assert.equal(unsuccessful[2].progressPercent, 10);
+  assert.equal(unsuccessful[2].progressLabel, 'Failure rate');
+  assert.equal(noFailures[2].progressPercent, 0);
+  assert.equal(noFailures[2].iconName, 'check');
+});
+
+test('single-day print history draws a visible chart marker and a complete date timeline in Preact and fallback', () => {
+  const helpers = [
+    reportingUi.slice(reportingUi.indexOf('function chartTimelineRows('), reportingUi.indexOf('function reportingBarRowsViewModel(')),
+    reportingUi.slice(reportingUi.indexOf('function lineChartSvg('), reportingUi.indexOf('function renderBarRows(')),
+    reportingUi.slice(reportingUi.indexOf('function escapeHtml('), reportingUi.indexOf('async function requestJson('))
+  ].join('\n');
+  const ui = vm.runInNewContext(helpers + '\n({ lineChartViewModel, lineChartSvg })', { Date, Math, Number, Set, Map, Array });
+  const range = { from:'2026-10-14T14:00:00.000Z', to:'2026-10-21T14:00:00.000Z' };
+  const report = [{date:'2026-10-20',completed:3,failed:0,cancelled:0}];
+  const chart = ui.lineChartViewModel(report, range);
+  assert.equal(chart.rows.length, 8, 'sparse history should cover every day in the selected period');
+  assert.equal(chart.rows.reduce((count, day) => count + day.completed, 0), 3);
+  assert.equal(chart.rows.find((day) => day.date === '2026-10-19').completed, 0);
+  assert.equal(chart.rows.find((day) => day.date === '2026-10-20').completed, 3);
+  assert.equal(chart.points.length, 1);
+  assert.equal(chart.points[0].value, 3);
+  assert.ok(chart.completedPath.includes(' L '), 'a single recorded day must still produce a visible line');
+  assert.equal(chart.grid.map(({label}) => label).join(','), '0,1,2,3',
+    'print count labels must be whole and non-duplicated');
+  const html = ui.lineChartSvg(report, range);
+  assert.match(html, /class="reporting-point completed"/);
+  assert.match(html, /2026-10-20: 3 completed/);
+  assert.match(html, /class="reporting-point-value completed">3<\/text>/);
+  const singleton = ui.lineChartViewModel(report);
+  assert.equal(singleton.rows.length, 1);
+  assert.equal(singleton.points[0].value, 3, 'even a single plot point must be visible');
+  const noHistory = ui.lineChartViewModel([], range);
+  assert.equal(noHistory.rows.length, 0);
+  assert.match(ui.lineChartSvg([], range), /No completed reporting history/);
+  const preact = fs.readFileSync(new URL('../ui/reporting.jsx', import.meta.url), 'utf8');
+  assert.match(preact, /chart\.points \|\| \[\]/);
+  assert.match(preact, /reporting-point-value/);
+  assert.match(styles, /\.reporting-point\.completed/);
+  assert.match(reportingUi, /lineChartViewModel\(report\?\.daily \|\| \[\], report\?\.range\)/);
+  assert.match(reportingUi, /lineChartSvg\(report\?\.daily \|\| \[\], report\?\.range\)/);
+});
+
+test('Option D reporting KPI rings display measured rates but no fictitious count/runtime progress', () => {
+  const code = [
+    reportingUi.slice(reportingUi.indexOf('function escapeHtml('), reportingUi.indexOf('async function requestJson(')),
+    reportingUi.slice(reportingUi.indexOf('function formatNumber('), reportingUi.indexOf('function reportRangeDates(')),
+    reportingUi.slice(reportingUi.indexOf('function reportingKpiSvg('), reportingUi.indexOf('function reportingFilamentsViewModel('))
+  ].join('\n');
+  const view = vm.runInNewContext(code + '\n({ reportingKpiSvg, reportingKpiViewModel })');
+  assert.match(view.reportingKpiSvg('jobs'), /<rect/);
+  assert.match(view.reportingKpiSvg('clock'), /<circle/);
+  const rows = view.reportingKpiViewModel({totals:{
+    attempts:20,completed:17,failed:2,cancelled:1,runHours:31.5,
+    completionRate:.85,failureRate:.10
+  }});
+  assert.equal(rows.length,4);
+  assert.equal(rows[0].progressPercent,null);
+  assert.equal(rows[1].progressPercent,85);
+  assert.equal(rows[2].progressPercent,10);
+  assert.equal(rows[3].progressPercent,null);
+  assert.deepEqual(Array.from(rows,item=>item.iconName),['jobs','check','cross','clock']);
+  const preact=fs.readFileSync(new URL('../ui/reporting.jsx',import.meta.url),'utf8');
+  assert.match(preact,/aria-valuenow=\{progress\}/);
+  assert.match(preact,/progress \* 3\.6/);
+  assert.match(preact,/reporting-kpi-gauge-neutral/);
+  assert.match(reportingUi,/aria-valuenow="\$\{progress\}"/);
+  assert.match(reportingUi,/progress \* 3\.6/);
+  assert.match(styles,/conic-gradient\(from -90deg/);
+  assert.match(styles,/\.reporting-kpi-positive/);
+  assert.match(styles,/\.reporting-kpi-negative/);
+  assert.match(styles,/data-theme="light".*reporting-kpi-positive/);
+});
+
+test('previous-period change graphics show honest equal-window comparisons with appropriate sentiment', () => {
+  const source = [
+    reportingUi.slice(reportingUi.indexOf('function formatNumber('), reportingUi.indexOf('function reportRangeDates(')),
+    reportingUi.slice(reportingUi.indexOf('function reportingPreviousPeriodChange('),
+      reportingUi.indexOf('function reportingFilamentsViewModel('))
+  ].join('\n');
+  const models=vm.runInNewContext(source + '\n({ reportingKpiViewModel, reportingPreviousPeriodChange })', {
+    formatNumber:(value,digits=0)=>Number(value).toFixed(digits),
+    formatPercent:(value)=>value == null ? '—' : Math.round(Number(value)*100)+'%'
+  });
+  const report = { totals:{
+    attempts:342,completed:325,failed:17,runHours:412.6,
+    completionRate:325/342,failureRate:17/342
+  },previousTotals:{
+    attempts:305,completed:301,failed:22,runHours:350
+  }};
+  const items=models.reportingKpiViewModel(report);
+  assert.deepEqual(Array.from(items,item=>item.change.label),['12.1%','8.0%','22.7%','17.9%']);
+  assert.deepEqual(Array.from(items,item=>item.change.symbol),['▲','▲','▼','▲']);
+  assert.deepEqual(Array.from(items,item=>item.change.tone),['neutral','positive','positive','neutral']);
+  assert.ok(items.every(item=>item.change.caption==='vs previous period'));
+  assert.equal(items[1].progressPercent,95);
+  const deteriorated=models.reportingKpiViewModel({
+    totals:{ attempts:10,completed:7,failed:3,runHours:7,completionRate:.7,failureRate:.3 },
+    previousTotals:{ attempts:10,completed:9,failed:1,runHours:9 }
+  });
+  assert.equal(deteriorated[0].change.tone,'muted');
+  assert.equal(deteriorated[1].change.tone,'negative');
+  assert.equal(deteriorated[1].change.symbol,'▼');
+  assert.equal(deteriorated[2].change.tone,'negative');
+  assert.equal(deteriorated[2].change.symbol,'▲');
+  assert.equal(deteriorated[3].change.tone,'neutral');
+  const none=models.reportingKpiViewModel({totals:{attempts:5,completed:5,failed:0,runHours:8}});
+  assert.ok(none.every(item=>item.change.caption==='No previous period data'));
+  assert.ok(none.every(item=>item.change.symbol===''));
+  const zeroBaseline=models.reportingKpiViewModel({
+    totals:{ attempts:8,completed:7,failed:1,runHours:3,completionRate:.875,failureRate:.125 },
+    previousTotals:{ attempts:2,completed:0,failed:0,runHours:0 }
+  });
+  assert.equal(zeroBaseline[1].change.label,'From 0');
+  assert.equal(zeroBaseline[1].change.tone,'positive');
+  assert.equal(zeroBaseline[2].change.label,'From 0');
+  assert.equal(zeroBaseline[2].change.tone,'negative');
+  assert.equal(zeroBaseline[3].change.label,'From 0');
+  assert.equal(zeroBaseline[3].change.tone,'neutral');
+  const noPriorJobs=models.reportingKpiViewModel({
+    totals:{attempts:7,completed:7,failed:0,runHours:4},
+    previousTotals:{attempts:0,completed:0,failed:0,runHours:0}
+  });
+  assert.ok(noPriorJobs.every(item=>item.change.caption==='No previous period data'));
+  const quiet=models.reportingKpiViewModel({
+    totals:{attempts:0,completed:0,failed:0,runHours:0},
+    previousTotals:{attempts:8,completed:7,failed:1,runHours:9}
+  });
+  assert.equal(quiet[0].change.label,'100.0%');
+  assert.equal(quiet[1].change.tone,'negative');
+  assert.equal(quiet[2].change.tone,'positive');
+  assert.match(reportingService,/getPreviousPeriodTotals/);
+  assert.match(server,/report\.previousTotals = previous\.totals/);
+  assert.match(server,/printerIds\s*\}\)/);
+  assert.match(reportingUi,/reporting-kpi-change-caption/);
+  assert.match(styles,/\.reporting-kpi \.reporting-kpi-change-positive/);
+  assert.match(styles,/\.reporting-kpi \.reporting-kpi-change-negative/);
+  assert.match(styles,/\.reporting-kpi \.reporting-kpi-change-neutral/);
+  assert.match(reportingUi,/vs previous period/);
+  const preact=fs.readFileSync(new URL('../ui/reporting.jsx',import.meta.url),'utf8');
+  assert.match(preact,/item\.change\?\.symbol/);
+  assert.match(preact,/item\.change\?\.caption/);
+  assert.match(preact,/item\.change\?\.description/);
 });

@@ -1625,6 +1625,107 @@ async function routeSmoke(page,url) {
   console.log('Chromium: report data after direct navigation, page reload and tab changes');
   await page.goto(url+'/reports',{waitUntil:'load'});
   await reportsLoaded(page,'direct report');
+  // Option D: measured rates get progress bars, informational metrics do not.
+  await page.evaluate(() => window.dispatchEvent(new CustomEvent('pfc:reporting-ui-state', {
+    detail:{...window.__PFC_REPORTING_UI_STATE__, kpis:[
+      {label:'Total print jobs',value:'20',detail:'In selected period',tone:'info',iconName:'jobs',progressPercent:null},
+      {label:'Completed',value:'17',detail:'85% completion rate',tone:'positive',iconName:'check',progressPercent:85,progressLabel:'Completion rate'},
+      {label:'Failed',value:'2',detail:'10% failure rate',tone:'negative',iconName:'cross',progressPercent:10,progressLabel:'Failure rate'},
+      {label:'Total run time',value:'31.5 h',detail:'Reported from print timestamps',tone:'info',iconName:'clock',progressPercent:null}
+    ]}
+  })));
+  await page.waitForFunction(() => document.querySelectorAll('#reportingKpis .reporting-kpi-gauge').length === 4);
+  assert.equal(await page.locator('#reportingKpis .reporting-kpi-meter').count(),2,
+    'only rates should have progress bars');
+  assert.equal(await page.locator('#reportingKpis .reporting-kpi-accent').count(),2,
+    'count and runtime should have a decorative accent, not false progress');
+  assert.equal(await page.locator('#reportingKpis [aria-label="Completion rate"]').getAttribute('aria-valuenow'),'85');
+  assert.equal(await page.locator('#reportingKpis [aria-label="Failure rate"]').getAttribute('aria-valuenow'),'10');
+  for (const theme of ['dark','light']) {
+    await page.evaluate(theme=>{document.documentElement.dataset.theme=theme;},theme);
+    const palette=await page.locator('#reportingKpis .reporting-kpi').evaluateAll(
+      cards=>cards.map(card=>({
+        width:card.querySelector('.reporting-kpi-gauge').getBoundingClientRect().width,
+        fill:getComputedStyle(card.querySelector('.reporting-kpi-icon')).color
+      }))
+    );
+    assert.equal(palette.length,4);
+    assert.ok(palette.every(p=>p.width>=50 && p.fill),'Option D rings visible in both themes');
+    assert.notEqual(palette[1].fill,palette[2].fill,'success and failure should use different colours');
+  }
+  // Compare headline periods in the same layout, with a favourable decrease
+  // in failures, neutral increase in total activity and missing-baseline state.
+  await page.evaluate(() => window.dispatchEvent(new CustomEvent('pfc:reporting-ui-state', {
+    detail:{...window.__PFC_REPORTING_UI_STATE__, kpis:[
+      {label:'Total print jobs',value:'342',detail:'In selected period',
+        tone:'info',iconName:'jobs',progressPercent:null,
+        change:{symbol:'▲',label:'12.1%',tone:'neutral',caption:'vs previous period',description:'Increase of 12.1% vs previous period'}},
+      {label:'Completed',value:'325',detail:'95% completion rate',
+        tone:'positive',iconName:'check',progressPercent:95,progressLabel:'Completion rate',
+        change:{symbol:'▲',label:'8.0%',tone:'positive',caption:'vs previous period',description:'Increase of 8.0% vs previous period'}},
+      {label:'Failed',value:'17',detail:'5% failure rate',
+        tone:'negative',iconName:'cross',progressPercent:5,progressLabel:'Failure rate',
+        change:{symbol:'▼',label:'22.7%',tone:'positive',caption:'vs previous period',description:'Decrease of 22.7% vs previous period'}},
+      {label:'Total run time',value:'412.6 h',detail:'Reported from print timestamps',
+        tone:'info',iconName:'clock',progressPercent:null,
+        change:{symbol:'',label:'—',tone:'muted',caption:'No previous period data',description:'No previous period data for selected printer filters'}}
+    ]}
+  })));
+  await page.waitForFunction(() => document.querySelectorAll('#reportingKpis .reporting-kpi-change').length === 4);
+  assert.equal(await page.locator('#reportingKpis .reporting-kpi-change').count(),4);
+  const deltas=await page.locator('#reportingKpis .reporting-kpi-change').evaluateAll(
+    nodes=>nodes.map(node=>({
+      value:node.querySelector('.reporting-kpi-change-value').textContent,
+      caption:node.querySelector('.reporting-kpi-change-caption').textContent,
+      className:node.className,
+      title:node.getAttribute('title')
+    }))
+  );
+  assert.match(deltas[0].value,/▲12.1%/);
+  assert.match(deltas[0].className,/neutral/);
+  assert.match(deltas[1].value,/▲8.0%/);
+  assert.match(deltas[1].className,/positive/);
+  assert.match(deltas[2].value,/▼22.7%/);
+  assert.match(deltas[2].className,/positive/);
+  assert.equal(deltas[3].caption,'No previous period data');
+  for (const theme of ['light','dark']) {
+    await page.evaluate(theme=>{document.documentElement.dataset.theme=theme;},theme);
+    const colors=await page.locator('#reportingKpis .reporting-kpi-change').evaluateAll(
+      nodes=>nodes.map(node=>getComputedStyle(node).color)
+    );
+    assert.notEqual(colors[0],colors[1],'neutral and positive delta colours must differ');
+  }
+  // Sparse production history: all three jobs completed on one date.
+  // The previous SVG contained only a move command and rendered no line.
+  await page.evaluate(() => {
+    // Rendering receives its chart view model through the existing event
+    // bridge. The pure view-model algorithm is covered in reporting-ui tests.
+    const chart = {
+      rows:Array.from({ length:8 }, (_, index) => ({
+        date:'2026-10-' + String(14 + index).padStart(2, '0'),
+        completed:index === 6 ? 3 : 0, failed:0, cancelled:0
+      })),
+      grid:[{ x1:42, x2:742, y:196, labelX:34, labelY:200, label:0 }],
+      labels:[{x:42,y:221,text:'14 Oct'},{x:742,y:221,text:'21 Oct'}],
+      viewBox:'0 0 760 230',
+      completedPath:'M 42 196 L 142 196 L 242 196 L 342 196 L 442 196 L 542 196 L 642 18 L 742 196',
+      failedPath:'', cancelledPath:'',
+      points:[{ x:642, y:18, key:'completed', date:'2026-10-20',
+        value:3, title:'2026-10-20: 3 completed' }],
+      showPointValues:true
+    };
+    window.dispatchEvent(new CustomEvent('pfc:reporting-ui-state', {
+      detail:{ ...window.__PFC_REPORTING_UI_STATE__, chart }
+    }));
+  });
+  await page.waitForFunction(() =>
+    document.querySelectorAll('#reportingTrend .reporting-point.completed').length === 1
+    && document.querySelector('#reportingTrend .reporting-point-value.completed')?.textContent === '3'
+  );
+  assert.match(await page.locator('#reportingTrend .reporting-point.completed title').textContent(),
+    /2026-10-20: 3 completed/, 'a sparse daily chart must show its real completed count');
+  assert.equal(await page.locator('#reportingTrend .reporting-axis-text').first().textContent(), '0',
+    'the chart must start at zero');
   // Validate the physical desktop geometry, not merely CSS class names.
   // Inject one synthetic view row so even an empty reporting fixture tests real table width.
   await page.setViewportSize({width:1365,height:900});

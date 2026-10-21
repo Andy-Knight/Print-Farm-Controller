@@ -1525,6 +1525,11 @@ async function apiRoute(req, res, url) {
     }
 
     const report = await reportingService.getReport({ from, to, printerIds });
+    const previous = await reportingService.getPreviousPeriodTotals({
+      from:report.range.from, to:report.range.to, printerIds
+    });
+    report.previousRange = previous.range;
+    report.previousTotals = previous.totals;
     // Enrich retained history with current library previews; don't build broken
     // image links for files removed from the library.
     const libraryById = new Map((await listLibraryFiles()).map((file) => [String(file.id), file]));
