@@ -1313,6 +1313,21 @@ async function libraryPricingSmoke(page,url,{mutateFixture=true}={}) {
   assert.equal(edited.lotsPerPrint,2);
   assert.equal(edited.sundryCosts.length,2);
   assert.equal(edited.saleEstimate.sundriesCost,1.5);
+  await page.locator('#libraryEditSelectedBtn').click();
+  await page.waitForFunction(()=>document.querySelector('#libraryMetadataDialog')?.open===true);
+  await page.locator('[data-library-add-sundry="metadata"]').click();
+  const labourRow=page.locator('#libraryMetadataSundries .library-sundry-row').last();
+  await labourRow.locator('[data-sundry-label]').selectOption('Labour');
+  assert.equal(await labourRow.locator('[data-sundry-minutes]').isVisible(),true);
+  assert.equal(await labourRow.locator('[data-sundry-qty]').isVisible(),false);
+  assert.equal(await labourRow.locator('[data-sundry-cost]').isVisible(),false);
+  await labourRow.locator('[data-sundry-minutes]').fill('30');
+  await page.locator('#libraryMetadataForm button[type="submit"]').click();
+  await page.waitForFunction(()=>document.querySelector('#libraryMetadataDialog')?.open===false);
+  const labourSaved=(await list()).find(file=>file.id===added.id);
+  assert.deepEqual(labourSaved.sundryCosts.at(-1),{label:'Labour',minutes:30});
+  assert.equal(labourSaved.saleEstimate.labourCost,9);
+  assert.equal(labourSaved.saleEstimate.sundriesCost,10.5);
 
   // The fixture is isolated. Remove it and restore default global profit.
   await page.locator('#libraryDeleteSelectedBtn').waitFor({state:'visible'});
