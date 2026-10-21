@@ -1206,6 +1206,14 @@ async function libraryPricingSmoke(page,url,{mutateFixture=true}={}) {
     'pricing tab must reload the persisted tax rate');
   assert.equal(await page.locator('#reportingLabourHourlyRate').inputValue(),'18');
   assert.equal(await page.locator('#reportingCurrency').inputValue(),'EUR');
+  const createdCurrencyFixture=await page.evaluate(async()=>{
+    const res=await fetch('/api/filaments',{method:'POST',
+      headers:{'content-type':'application/json'},
+      body:JSON.stringify({material:'ASA',costPerKg:20,brand:'Browser currency test'})});
+    if(!res.ok)throw Error('Failed to seed global currency test filament');
+    return (await res.json()).filament;
+  });
+  assert.equal(createdCurrencyFixture.currency,'EUR');
   await page.goto(url+'/library',{waitUntil:'load'});
   await preactReady(page);
   assert.equal(await page.locator('#libraryPricingSettingsBtn').count(),0,
@@ -1266,6 +1274,9 @@ async function libraryPricingSmoke(page,url,{mutateFixture=true}={}) {
   assert.equal(added.saleEstimate.sundriesCost,1);
   assert.equal(added.saleEstimate.profitPercent,30);
   assert.equal(added.saleEstimate.taxRate,20);
+  assert.equal(added.costEstimate.currency,'EUR');
+  assert.equal(added.costEstimate.totalCost,0.24);
+  assert.equal(added.saleEstimate.currency,'EUR');
   if (added.saleEstimate.complete) {
     assert.ok(added.saleEstimate.sellingPrice>=added.saleEstimate.sellingPriceExTax);
   }
@@ -1349,6 +1360,10 @@ async function libraryPricingSmoke(page,url,{mutateFixture=true}={}) {
   assert.equal(repriced.saleEstimate.sundriesCost,13.5);
 
   // The fixture is isolated. Remove it and restore default global profit.
+  await page.evaluate(async id=>{
+    const res=await fetch('/api/filaments/'+encodeURIComponent(id),{method:'DELETE'});
+    if(!res.ok)throw Error('Could not delete currency-test filament');
+  },createdCurrencyFixture.id);
   await page.locator('#libraryDeleteSelectedBtn').waitFor({state:'visible'});
   page.once('dialog',dialog=>dialog.accept());
   await page.locator('#libraryDeleteSelectedBtn').click();
@@ -1356,7 +1371,7 @@ async function libraryPricingSmoke(page,url,{mutateFixture=true}={}) {
   await page.evaluate(async()=> {
     const response=await fetch('/api/library/pricing',{method:'PUT',
       headers:{'content-type':'application/json'},
-      body:JSON.stringify({profitPercent:null,profitMethod:'markup',taxRate:0,labourHourlyRate:null})});
+      body:JSON.stringify({profitPercent:null,profitMethod:'markup',taxRate:0,labourHourlyRate:null,currency:'GBP'})});
     if (!response.ok) throw Error('Unable to reset test pricing settings');
   });
   await page.setViewportSize({width:1365,height:900});
