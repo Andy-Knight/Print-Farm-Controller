@@ -44,11 +44,39 @@ function ReportingTabs({ activeTab }) {
   </>;
 }
 
+function ReportingKpiSymbol({ name }) {
+  return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
+      stroke-linecap="round" stroke-linejoin="round" focusable="false" aria-hidden="true">
+    {name === 'jobs' && <><rect x="5" y="3" width="14" height="18" rx="2" />
+      <path d="M9 8h6M9 12h6M9 16h4" /></>}
+    {name === 'check' && <path d="M4.5 12.5 9.5 17.5 19.5 6.5" />}
+    {name === 'cross' && <path d="M6 6l12 12M18 6 6 18" />}
+    {name === 'clock' && <><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3.5 2" /></>}
+  </svg>;
+}
+
 function ReportingKpis({ items }) {
-  return <>{items.map((item) => <div class="reporting-kpi" key={item.label}>
-    <span class={`reporting-kpi-icon reporting-kpi-icon-${item.tone || 'info'}`} aria-hidden="true">{item.icon}</span>
-    <div><span>{item.label}</span><strong>{item.value}</strong><small>{item.detail}</small></div>
-  </div>)}</>;
+  return <>{items.map((item) => {
+    const progress = item.progressPercent;
+    const hasRate = progress != null;
+    const tone = ['info','positive','negative'].includes(item.tone) ? item.tone : 'info';
+    return <div class={`reporting-kpi reporting-kpi-${tone}`} key={item.label}>
+      <span class={`reporting-kpi-gauge${hasRate ? '' : ' reporting-kpi-gauge-neutral'}`}
+        style={{'--reporting-kpi-angle':`${hasRate ? progress * 3.6 : 0}deg`}} aria-hidden="true">
+        <span class="reporting-kpi-icon"><ReportingKpiSymbol name={item.iconName} /></span>
+      </span>
+      <div class="reporting-kpi-body">
+        <span class="reporting-kpi-label">{item.label}</span>
+        <strong>{item.value}</strong>
+        <small>{item.detail}</small>
+        {hasRate ? <div class="reporting-kpi-meter" role="progressbar"
+          aria-label={item.progressLabel} aria-valuemin="0" aria-valuemax="100"
+          aria-valuenow={progress}>
+          <span style={{width:`${progress}%`}}></span>
+        </div> : <span class="reporting-kpi-accent" aria-hidden="true"></span>}
+      </div>
+    </div>;
+  })}</>;
 }
 
 function ReportingTrend({ chart }) {

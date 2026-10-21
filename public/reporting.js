@@ -385,13 +385,33 @@ function reportingPrintersViewModel(printers = []) {
   }));
 }
 
+function reportingKpiSvg(name) {
+  const paths = {
+    jobs:'<rect x="5" y="3" width="14" height="18" rx="2"/><path d="M9 8h6M9 12h6M9 16h4"/>',
+    check:'<path d="M4.5 12.5 9.5 17.5 19.5 6.5"/>',
+    cross:'<path d="M6 6l12 12M18 6 6 18"/>',
+    clock:'<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.5 2"/>'
+  };
+  return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
+      stroke-linecap="round" stroke-linejoin="round" focusable="false" aria-hidden="true">
+      ${paths[name] || paths.jobs}</svg>`;
+}
+
 function reportingKpiViewModel(report = {}) {
   const totals = report?.totals || {};
+  // Only measured completion/failure rates receive progress meters.
+  // Job totals and machine hours have no meaningful 0–100% target.
+  const percent = (rate) => {
+    const number = rate == null ? NaN : Number(rate);
+    return Number(totals.attempts || 0) > 0 && Number.isFinite(number)
+      ? Math.round(Math.max(0, Math.min(1, number)) * 1000) / 10
+      : null;
+  };
   return [
-    { label:'Total print jobs', value:formatNumber(totals.attempts), detail:'In selected period', icon:'▤', tone:'info' },
-    { label:'Completed', value:formatNumber(totals.completed), detail:`${formatPercent(totals.completionRate)} completion rate`, icon:'✓', tone:Number(totals.completed || 0) > 0 ? 'positive' : 'info' },
-    { label:'Failed', value:formatNumber(totals.failed), detail:`${formatPercent(totals.failureRate)} failure rate`, icon:Number(totals.failed || 0) > 0 ? '×' : '✓', tone:Number(totals.failed || 0) > 0 ? 'negative' : 'positive' },
-    { label:'Total run time', value:`${formatNumber(totals.runHours, 1)} h`, detail:'Reported from print timestamps', icon:'◷', tone:'info' }
+    { label:'Total print jobs', value:formatNumber(totals.attempts), detail:'In selected period', icon:'▤', iconName:'jobs', tone:'info', progressPercent:null },
+    { label:'Completed', value:formatNumber(totals.completed), detail:`${formatPercent(totals.completionRate)} completion rate`, icon:'✓', iconName:'check', tone:Number(totals.completed || 0) > 0 ? 'positive' : 'info', progressPercent:percent(totals.completionRate), progressLabel:'Completion rate' },
+    { label:'Failed', value:formatNumber(totals.failed), detail:`${formatPercent(totals.failureRate)} failure rate`, icon:Number(totals.failed || 0) > 0 ? '×' : '✓', iconName:Number(totals.failed || 0) > 0 ? 'cross' : 'check', tone:Number(totals.failed || 0) > 0 ? 'negative' : 'positive', progressPercent:percent(totals.failureRate), progressLabel:'Failure rate' },
+    { label:'Total run time', value:`${formatNumber(totals.runHours, 1)} h`, detail:'Reported from print timestamps', icon:'◷', iconName:'clock', tone:'info', progressPercent:null }
   ];
 }
 
@@ -563,10 +583,25 @@ function renderReport(report) {
     return;
   }
   if (reportingKpis) {
-    reportingKpis.innerHTML = reportingKpiViewModel(report).map((item) => `<div class="reporting-kpi">
-      <span class="reporting-kpi-icon reporting-kpi-icon-${escapeHtml(item.tone)}" aria-hidden="true">${escapeHtml(item.icon)}</span>
-      <div><span>${escapeHtml(item.label)}</span><strong>${escapeHtml(item.value)}</strong>
-      <small>${escapeHtml(item.detail)}</small></div></div>`).join('');
+    reportingKpis.innerHTML = reportingKpiViewModel(report).map((item) => {
+      const progress = item.progressPercent;
+      const hasRate = progress != null;
+      const safeTone = ['positive','negative','info'].includes(item.tone) ? item.tone : 'info';
+      return `<div class="reporting-kpi reporting-kpi-${safeTone}">
+        <span class="reporting-kpi-gauge${hasRate ? '' : ' reporting-kpi-gauge-neutral'}"
+            style="--reporting-kpi-angle:${hasRate ? progress * 3.6 : 0}deg" aria-hidden="true">
+          <span class="reporting-kpi-icon">${reportingKpiSvg(item.iconName)}</span>
+        </span>
+        <div class="reporting-kpi-body">
+          <span class="reporting-kpi-label">${escapeHtml(item.label)}</span>
+          <strong>${escapeHtml(item.value)}</strong>
+          <small>${escapeHtml(item.detail)}</small>
+          ${hasRate ? `<div class="reporting-kpi-meter" role="progressbar" aria-label="${escapeHtml(item.progressLabel)}"
+              aria-valuemin="0" aria-valuemax="100" aria-valuenow="${progress}">
+            <span style="width:${progress}%"></span></div>` : '<span class="reporting-kpi-accent" aria-hidden="true"></span>'}
+        </div>
+      </div>`;
+    }).join('');
   }
   if (reportingTrend) reportingTrend.innerHTML = lineChartSvg(report?.daily || [], report?.range);
   if (reportingPrinters) reportingPrinters.innerHTML = renderProblemPrinters(report?.printers || []);

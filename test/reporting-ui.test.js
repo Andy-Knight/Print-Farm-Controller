@@ -276,11 +276,16 @@ test('analytics chart is first after KPIs, print file table spans full width and
   assert.match(styles, /\.reporting-table-scroll\s*\{[^}]*width:100%;[^}]*max-width:100%;/);
   assert.doesNotMatch(styles, /\.reporting-table-scroll\s*\{[^}]*max-width:365px/);
   assert.match(styles, /\.reporting-analytics-files \.reporting-analytics-table\s*\{[^}]*table-layout:fixed/);
-  assert.match(styles, /\.reporting-kpi \.reporting-kpi-icon-positive/);
-  assert.match(styles, /\.reporting-kpi \.reporting-kpi-icon-negative/);
+  assert.match(styles, /\.reporting-kpi \.reporting-kpi-gauge/);
+  assert.match(styles, /\.reporting-kpi \.reporting-kpi-meter/);
+  assert.match(styles, /\.reporting-kpi \.reporting-kpi-accent/);
+  assert.match(styles, /\.reporting-kpis \.reporting-kpi-negative/);
   const preact = fs.readFileSync(new URL('../ui/reporting.jsx', import.meta.url), 'utf8');
-  assert.match(preact, /reporting-kpi-icon-\$\{item.tone/);
-  assert.match(reportingUi, /reporting-kpi-icon-\$\{escapeHtml\(item.tone\)\}/);
+  assert.match(preact, /function ReportingKpiSymbol/);
+  assert.match(preact, /reporting-kpi-gauge/);
+  assert.match(preact, /reporting-kpi-meter/);
+  assert.match(reportingUi, /function reportingKpiSvg/);
+  assert.match(reportingUi, /reporting-kpi-gauge/);
   const code = reportingUi.slice(reportingUi.indexOf('function reportingKpiViewModel('), reportingUi.indexOf('function reportingFilamentsViewModel('));
   const renderModel = vm.runInNewContext(code + '\nreportingKpiViewModel', {
     formatNumber:(value)=>String(value ?? 0),
@@ -293,6 +298,15 @@ test('analytics chart is first after KPIs, print file table spans full width and
   assert.equal(noFailures[2].icon, '✓');
   const idle = renderModel({ totals:{} });
   assert.equal(idle[1].tone, 'info');
+  assert.equal(idle[1].progressPercent, null);
+  assert.equal(idle[2].progressPercent, null);
+  assert.equal(unsuccessful[0].progressPercent, null, 'job count has no percentage target');
+  assert.equal(unsuccessful[3].progressPercent, null, 'runtime has no percentage target');
+  assert.equal(unsuccessful[1].progressPercent, 90);
+  assert.equal(unsuccessful[2].progressPercent, 10);
+  assert.equal(unsuccessful[2].progressLabel, 'Failure rate');
+  assert.equal(noFailures[2].progressPercent, 0);
+  assert.equal(noFailures[2].iconName, 'check');
 });
 
 test('single-day print history draws a visible chart marker and a complete date timeline in Preact and fallback', () => {
@@ -330,4 +344,35 @@ test('single-day print history draws a visible chart marker and a complete date 
   assert.match(styles, /\.reporting-point\.completed/);
   assert.match(reportingUi, /lineChartViewModel\(report\?\.daily \|\| \[\], report\?\.range\)/);
   assert.match(reportingUi, /lineChartSvg\(report\?\.daily \|\| \[\], report\?\.range\)/);
+});
+
+test('Option D reporting KPI rings display measured rates but no fictitious count/runtime progress', () => {
+  const code = [
+    reportingUi.slice(reportingUi.indexOf('function escapeHtml('), reportingUi.indexOf('async function requestJson(')),
+    reportingUi.slice(reportingUi.indexOf('function formatNumber('), reportingUi.indexOf('function reportRangeDates(')),
+    reportingUi.slice(reportingUi.indexOf('function reportingKpiSvg('), reportingUi.indexOf('function reportingFilamentsViewModel('))
+  ].join('\n');
+  const view = vm.runInNewContext(code + '\n({ reportingKpiSvg, reportingKpiViewModel })');
+  assert.match(view.reportingKpiSvg('jobs'), /<rect/);
+  assert.match(view.reportingKpiSvg('clock'), /<circle/);
+  const rows = view.reportingKpiViewModel({totals:{
+    attempts:20,completed:17,failed:2,cancelled:1,runHours:31.5,
+    completionRate:.85,failureRate:.10
+  }});
+  assert.equal(rows.length,4);
+  assert.equal(rows[0].progressPercent,null);
+  assert.equal(rows[1].progressPercent,85);
+  assert.equal(rows[2].progressPercent,10);
+  assert.equal(rows[3].progressPercent,null);
+  assert.deepEqual(Array.from(rows,item=>item.iconName),['jobs','check','cross','clock']);
+  const preact=fs.readFileSync(new URL('../ui/reporting.jsx',import.meta.url),'utf8');
+  assert.match(preact,/aria-valuenow=\{progress\}/);
+  assert.match(preact,/progress \* 3\.6/);
+  assert.match(preact,/reporting-kpi-gauge-neutral/);
+  assert.match(reportingUi,/aria-valuenow="\$\{progress\}"/);
+  assert.match(reportingUi,/progress \* 3\.6/);
+  assert.match(styles,/conic-gradient\(from -90deg/);
+  assert.match(styles,/\.reporting-kpi-positive/);
+  assert.match(styles,/\.reporting-kpi-negative/);
+  assert.match(styles,/data-theme="light".*reporting-kpi-positive/);
 });

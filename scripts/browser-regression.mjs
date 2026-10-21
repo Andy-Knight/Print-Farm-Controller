@@ -1625,6 +1625,34 @@ async function routeSmoke(page,url) {
   console.log('Chromium: report data after direct navigation, page reload and tab changes');
   await page.goto(url+'/reports',{waitUntil:'load'});
   await reportsLoaded(page,'direct report');
+  // Option D: measured rates get progress bars, informational metrics do not.
+  await page.evaluate(() => window.dispatchEvent(new CustomEvent('pfc:reporting-ui-state', {
+    detail:{...window.__PFC_REPORTING_UI_STATE__, kpis:[
+      {label:'Total print jobs',value:'20',detail:'In selected period',tone:'info',iconName:'jobs',progressPercent:null},
+      {label:'Completed',value:'17',detail:'85% completion rate',tone:'positive',iconName:'check',progressPercent:85,progressLabel:'Completion rate'},
+      {label:'Failed',value:'2',detail:'10% failure rate',tone:'negative',iconName:'cross',progressPercent:10,progressLabel:'Failure rate'},
+      {label:'Total run time',value:'31.5 h',detail:'Reported from print timestamps',tone:'info',iconName:'clock',progressPercent:null}
+    ]}
+  })));
+  await page.waitForFunction(() => document.querySelectorAll('#reportingKpis .reporting-kpi-gauge').length === 4);
+  assert.equal(await page.locator('#reportingKpis .reporting-kpi-meter').count(),2,
+    'only rates should have progress bars');
+  assert.equal(await page.locator('#reportingKpis .reporting-kpi-accent').count(),2,
+    'count and runtime should have a decorative accent, not false progress');
+  assert.equal(await page.locator('#reportingKpis [aria-label="Completion rate"]').getAttribute('aria-valuenow'),'85');
+  assert.equal(await page.locator('#reportingKpis [aria-label="Failure rate"]').getAttribute('aria-valuenow'),'10');
+  for (const theme of ['dark','light']) {
+    await page.evaluate(theme=>{document.documentElement.dataset.theme=theme;},theme);
+    const palette=await page.locator('#reportingKpis .reporting-kpi').evaluateAll(
+      cards=>cards.map(card=>({
+        width:card.querySelector('.reporting-kpi-gauge').getBoundingClientRect().width,
+        fill:getComputedStyle(card.querySelector('.reporting-kpi-icon')).color
+      }))
+    );
+    assert.equal(palette.length,4);
+    assert.ok(palette.every(p=>p.width>=50 && p.fill),'Option D rings visible in both themes');
+    assert.notEqual(palette[1].fill,palette[2].fill,'success and failure should use different colours');
+  }
   // Sparse production history: all three jobs completed on one date.
   // The previous SVG contained only a move command and rendered no line.
   await page.evaluate(() => {
