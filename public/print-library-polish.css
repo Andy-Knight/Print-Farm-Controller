@@ -66,15 +66,19 @@
 }
 
 /* Library workbench — one selected file, shared contextual actions.
- * Dense desktop columns become descriptive cards below 1180px; no
- * horizontal page scrolling on Android. Preview remains a separate action.
+ * Compact desktop columns become descriptive cards below 1350px; no
+ * horizontal page scrolling on smaller workspaces. Preview remains a separate action.
  */
 /* Uses the canonical --pfc-table-* tokens declared for Dashboard, Alerts,
  * Printer Groups, Diagnostics and multi-toolhead tables in styles.css.
  * Row geometry and responsive card behaviour stay local to this view. */
 #libraryDialog.library-dialog {
-  width:min(1500px,calc(100vw - 30px));
-  --library-table-cols:38px 68px minmax(160px,1.35fr) minmax(105px,.85fr) minmax(145px,1.15fr) minmax(120px,.85fr) minmax(77px,.54fr) minmax(143px,1.08fr) minmax(110px,.8fr);
+  /* Do not size this routed page against the full viewport: the sidebar
+   * occupies part of it. Cap the workbench at a readable desktop width. */
+  width:min(1300px,100%);
+  /* Shared by header and rows: tighter sale-price/history tracks remove
+   * the unused gap without squeezing filename and filament details. */
+  --library-table-cols:38px 64px minmax(150px,1.45fr) minmax(90px,.8fr) minmax(140px,1.3fr) minmax(116px,.9fr) 70px minmax(136px,.82fr) minmax(104px,.68fr);
 }
 #libraryDialog .library-action-toolbar {
   display:flex;
@@ -113,7 +117,7 @@
   display:grid;
   grid-template-columns:var(--library-table-cols);
   align-items:center;
-  gap:12px;
+  gap:10px;
   margin-top:13px;
   padding:9px 12px;
   border:1px solid var(--pfc-table-border);
@@ -146,7 +150,7 @@
   display:grid;
   grid-template-columns:var(--library-table-cols);
   align-items:start;
-  gap:12px;
+  gap:10px;
   min-width:0;
   margin:0;
   /* Same 12px side inset as the table header once the list's 1px frame
@@ -321,7 +325,7 @@
 }
 #libraryDialog .library-history-cell strong { color:var(--ds-text); font-size:.77rem; }
 #libraryDialog .library-history-cell small { font-size:.7rem; }
-@media(max-width:1180px) {
+@media(max-width:1350px) {
   #libraryDialog .library-table-head { display:none; }
   #libraryDialog .library-list {
     display:grid;

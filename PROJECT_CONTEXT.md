@@ -9,13 +9,15 @@ If chat context and this file disagree about the codebase, inspect current GitHu
 - Repository: `Andy-Knight/Print-Farm-Controller`
 - Project path: repository root (`/`)
 - Primary branch: `main` (current production baseline)
-- Current controller source version: **0.59.1** (breadcrumb-free workspace shell, compact header, consistent route page spacing; feature branch pending approval).
+- Current controller source version: **0.59.2** (Print Library compact table layout; in feature branch pending visual acceptance).
 - Previous baseline audited: **0.48.0** (main before the regression test audit release).
 - Runtime: **Node.js 24+** (development baseline Node.js 24.21.0), ES modules, no npm runtime dependencies.
 - GitHub is the authoritative code baseline.
 - Release/version history is maintained only in `CHANGELOG.md`; do not duplicate per-version history in this handoff file.
 
 ## Current work
+
+**v0.59.2 Print Library table compaction:** Branch `feature/library-compact-table-v0592` caps the routed Library at 1300px (100% of available main workspace), tightens the nine-column grid with smaller Min. sell price and History tracks, uses 10px grid gutters, and switches to card layout below 1351px viewport width to avoid clipped columns. Shared grid variable stays identical for headers/rows; sorting, pricing, scrolling, queue safety and data untouched. Node + Chromium desktop/mobile alignment/overflow tests added. Keep branch until user validates.
 
 **v0.59.1 Farm Management navigation heading:** The six main-sidebar FARM MANAGEMENT routes (/maintenance, /groups, /reports, /alerts, /backup and /diagnostics) now show **Farm management** as the topbar title. Route-specific subtitles, blue page headings, individual page names and sidebar/keyboard/deep-link navigation are preserved. Workspace (Dashboard, Queue & history, Print library) and the separately grouped footer Licence route keep their previous topbar titles. Node and Chromium regression assertions cover grouping and topbar context.
 

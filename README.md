@@ -1,4 +1,4 @@
-# Print Farm Controller v0.59.1
+# Print Farm Controller v0.59.2
 A local-first 3D printer fleet controller. It runs entirely on your LAN and currently supports:
 
 - **FlashForge Adventurer 5M / 5M Pro** through the local FlashForge HTTP/TCP APIs.
@@ -7,9 +7,12 @@ A local-first 3D printer fleet controller. It runs entirely on your LAN and curr
 - **Prusa CORE One+ (experimental)** through the local PrusaLink API, supporting Standard (1-tool), INDX4 and INDX8 configurations.
 - **Bambu Lab P1P / P1S / X1C / A1 Mini (experimental)** through the local MQTT TLS and FTPS TLS interfaces. P1P/P1S/A1 Mini use the TLS/JPEG camera path; X1C camera decoding remains unsupported.
 
-**Current development version: v0.59.1**
+**Current development version: v0.59.2**
 
 Current highlights:
+
+- **Compact Print Library table (v0.59.2):** Reduced the desktop workbench maximum width to 1300px, tightened the Min. sell price / History columns and column gutters, and preserved aligned sortable headings. Smaller workspaces switch to responsive cards before the table would overflow, with no changes to pricing, sorting, queueing or printed file data.
+
 
 - **Farm Management topbar consistency (v0.59.1):** All six pages grouped under FARM MANAGEMENT in the sidebar display **Farm management** in the top bar, with their existing descriptive subtitles and distinctive blue content headings. Workspace pages and the separate Licence footer are unchanged.
 

@@ -4,6 +4,13 @@ This file contains the version-by-version release history for Print Farm Control
 
 Historical entries describe the behaviour of the controller at the time of that release and may be superseded by later versions. For current installation, configuration and supported-hardware guidance, see [README.md](README.md).
 
+## v0.59.2
+
+- Reduced Print Library desktop content/table width from 1500px to 1300px and constrained it to the available sidebar-adjusted workspace width, removing unnecessary horizontal spread.
+- Tightened Min. sell price and History grid tracks and column spacing. Kept all nine columns, their header/row alignment, sorting, sticky controls and full pricing details intact.
+- Switched to responsive file cards below 1351px viewport width, before the table could clip or create horizontal scrolling. Added Node regression assertions and Chromium layout checks across desktop and mobile viewports.
+- Version advanced to 0.59.2. Print Library calculations and printer/queue behaviour unchanged.
+
 ## v0.59.1
 
 - All six routes under the sidebar's **FARM MANAGEMENT** section now show **Farm management** in the very top bar instead of repeating the page title (Maintenance, Printer groups, Reports & finance, Alerts & notifications, Backup & recovery, Diagnostics). Their contextual subtitles and individual blue content headings remain unchanged. Dashboard, Queue & history, Print library and footer Licence retain their existing topbar names. Deep links, sidebar routing and mobile navigation retain their behaviour.

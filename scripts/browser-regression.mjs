@@ -731,6 +731,81 @@ async function libraryCostSmoke(page,url) {
 // Browser smoke against real API-backed temporary library files (never run
 // mutations against an external configured controller). Verifies that the
 // selected row, toolbar and existing queue/edit/delete workflows still work.
+// Validate the narrowed desktop Print Library table against browser geometry
+// and retain responsive cards before the fixed tracks would overflow.
+async function libraryCompactTableSmoke(page,url) {
+  await page.setViewportSize({width:1920,height:900});
+  await page.goto(url+'/library',{waitUntil:'load'});
+  await preactReady(page);
+  await page.waitForFunction(()=>window.__PFC_PREACT_LIBRARY__===true);
+  const fixture=[{
+    id:'compact-table-fixture',fileName:'Batch production ASA part.gcode',
+    sizeText:'24 KB',description:'Production part',printerTarget:'AD5M Pro',
+    requirements:'ASA · 0.4 mm nozzle',colours:[],warning:'',
+    previewUrl:'',selected:false,
+    cost:{available:true,value:'£0.64',detail:'20g ASA filament'},
+    sale:{available:true,lots:3,perLot:'£2.44',price:'£7.32',detail:'Includes tax'},
+    historyCount:'2 completed prints',historyLast:'Last printed recently',
+    historyAdded:'Added recently'
+  }];
+  for(const viewport of [
+    {width:1920,height:900,desktop:true},
+    {width:1365,height:900,desktop:true},
+    {width:1300,height:900,desktop:false},
+    {width:390,height:844,desktop:false}
+  ]) {
+    await page.setViewportSize(viewport);
+    await page.evaluate((files)=>{
+      document.querySelector('#libraryTableHead').hidden=false;
+      window.dispatchEvent(new CustomEvent('pfc:library-ui-state',{
+        detail:{summary:'1 file · compact table regression',files,emptyText:'No files'}
+      }));
+    },fixture);
+    await page.waitForFunction(()=>document.querySelectorAll('#libraryList .library-file-row').length===1);
+    const geometry=await page.evaluate(()=>{
+      const box=(el)=>{const r=el.getBoundingClientRect();return {left:r.left,right:r.right,width:r.width};};
+      const header=document.querySelector('#libraryTableHead');
+      const row=document.querySelector('#libraryList .library-file-row');
+      const main=document.querySelector('body > main');
+      const headings=Array.from(header.children).map(box);
+      const cells=Array.from(row.children).filter(el=>el.classList.contains('library-cell')).map(box);
+      const sale=row.querySelector('.library-sale-cell');
+      const history=row.querySelector('.library-history-cell');
+      return {
+        main:box(main),header:box(header),row:box(row),
+        visible:getComputedStyle(header).display!=='none',
+        headings,cells,sale:box(sale),history:box(history),
+        windowWidth:window.innerWidth,docWidth:document.documentElement.scrollWidth
+      };
+    });
+    if(viewport.desktop){
+      assert.ok(geometry.visible,'desktop Print Library retains sortable table header');
+      assert.ok(geometry.header.width<=1302,'table should be capped at approximately 1300px');
+      assert.ok(geometry.header.right<=geometry.main.right+1,
+        'table must fit within the sidebar-constrained workspace');
+      assert.equal(geometry.headings.length,9);
+      assert.equal(geometry.cells.length,9);
+      const saleTrack=geometry.headings[7],historyTrack=geometry.headings[8];
+      assert.ok(saleTrack.width<=180&&historyTrack.width<=160,
+        'sale and history columns must not reserve large empty gaps: '+JSON.stringify({saleTrack,historyTrack,viewport}));
+      assert.ok(Math.abs(geometry.history.left-geometry.sale.right)<=14,
+        'price and history columns should be tightly adjacent');
+      for(let col=0;col<9;col++){
+        assert.ok(Math.abs(geometry.headings[col].left-geometry.cells[col].left)<=8,
+          'table heading/body tracks must stay aligned at column '+col);
+      }
+    } else {
+      assert.equal(geometry.visible,false,'narrow workspace should use responsive cards instead of squeezed columns');
+      assert.ok(geometry.row.right<=geometry.main.right+2,
+        'responsive library cards must fit the page without horizontal clipping');
+    }
+    assert.ok(geometry.docWidth<=geometry.windowWidth+2,
+      'compact library must not introduce horizontal page scrolling');
+  }
+  await page.setViewportSize({width:1365,height:900});
+  console.log('Chromium: compact Print Library columns and responsive geometry PASS');
+}
+
 async function librarySelectionSmoke(page,url,{mutateFixture = true} = {}) {
   await page.setViewportSize({width:1365,height:900});
   await page.goto(url+'/library',{waitUntil:'load'});
@@ -2529,6 +2604,7 @@ async function main() {
     await workspaceHeadingSmoke(page,url);
     await sharedTabNavigationSmoke(page,url);
     await libraryCostSmoke(page,url);
+    await libraryCompactTableSmoke(page,url);
     await librarySelectionSmoke(page,url,{ mutateFixture:!externalUrl });
     await libraryPricingSmoke(page,url,{ mutateFixture:!externalUrl });
     await libraryScrollingSmoke(page,url);
