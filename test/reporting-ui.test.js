@@ -237,6 +237,32 @@ test('analytics view models rank real print completions and aggregate materials'
   const byFilament = ui.reportingMaterialRows(materials);
   assert.equal(byFilament.rows.length, 3);
   assert.equal(byFilament.rows[0].label, 'ASA Brand 1');
+  const snapshotMaterials = [
+    { filamentId:null, label:'PLA', material:'PLA', grams:250, spendByCurrency:{ GBP:2.5 } },
+    { filamentId:'catalogue-pla', label:'PLA', material:'PLA', grams:200, spendByCurrency:{ GBP:2 } },
+    { filamentId:'named-pla', label:'eSUN · PLA+ · PLA', material:'PLA', grams:100, spendByCurrency:{ GBP:1 } }
+  ];
+  const filamentRows = ui.reportingMaterialRows(snapshotMaterials).rows;
+  assert.equal(filamentRows.length, 3, 'unidentified and identified records must remain separate');
+  assert.equal(filamentRows[0].label, 'PLA (Unidentified filament)');
+  assert.match(filamentRows[0].note, /did not identify a specific filament catalogue entry/);
+  assert.equal(filamentRows[1].label, 'PLA (Brand\/product not recorded)');
+  assert.match(filamentRows[1].note, /catalogue reference/);
+  assert.equal(filamentRows[2].label, 'eSUN · PLA+ · PLA');
+  assert.equal(filamentRows[2].note, '');
+  const materialHtml = ui.renderReportMaterials(ui.reportingMaterialRows(snapshotMaterials));
+  assert.match(materialHtml, /PLA \(Unidentified filament\)/);
+  assert.match(materialHtml, /title="The print recorded this material type/);
+  assert.match(materialHtml, /PLA \(Brand\/product not recorded\)/);
+  assert.match(materialHtml, /eSUN · PLA\+ · PLA/);
+  ui.setMode('type');
+  const byMaterial = ui.reportingMaterialRows(snapshotMaterials);
+  assert.equal(byMaterial.rows.length, 1);
+  assert.equal(byMaterial.rows[0].label, 'PLA');
+  assert.equal(byMaterial.rows[0].note, '');
+  assert.equal(byMaterial.totalKg, '0.55');
+  const preact = fs.readFileSync(new URL('../ui/reporting.jsx', import.meta.url), 'utf8');
+  assert.match(preact, /title=\{row.note \|\| row.label\}/);
   assert.equal(ui.reportingFileRows([{fileName:'cancelled.gcode',completed:0,failed:0,attempts:2}]).length, 0);
 });
 

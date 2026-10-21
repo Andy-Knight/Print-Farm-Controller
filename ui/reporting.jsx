@@ -138,7 +138,7 @@ function ReportMaterials({ materials, materialMode }) {
   ];
   return <ReportingTable label="Material usage" headers={headings} empty="No material usage captured for completed prints in this period."
     rows={materials.rows.map((row) => <tr key={row.key}>
-      <td title={row.label}>{row.label}</td><td class="numeric">{row.kg}</td>
+      <td title={row.note || row.label}>{row.label}</td><td class="numeric">{row.kg}</td>
       <td class="numeric">{row.percentage}</td><td class="numeric">{row.cost}</td>
       <td><ReportingProgress percent={row.percent} /></td>
     </tr>)}

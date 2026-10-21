@@ -274,14 +274,33 @@ function reportingFileRows(files = [], { failures = false } = {}) {
     }));
 }
 
+function reportingFilamentLabel(entry, materialType) {
+  const recordedLabel = String(entry?.label || entry?.material || 'Unknown filament').trim();
+  const typeOnly = materialType !== 'UNKNOWN MATERIAL'
+    && recordedLabel.toUpperCase() === materialType;
+  if (!typeOnly) return { label:recordedLabel, note:'' };
+  if (entry?.filamentId) {
+    // A catalogue reference exists, but its historical snapshot did not
+    // capture brand/product; do not imply the filament was unidentified.
+    return {
+      label:`${recordedLabel} (Brand/product not recorded)`,
+      note:'The print recorded a filament catalogue reference, but the saved snapshot contains only the material type. Brand and product cannot be recovered reliably from current catalogue settings.'
+    };
+  }
+  return {
+    label:`${recordedLabel} (Unidentified filament)`,
+    note:'The print recorded this material type but did not identify a specific filament catalogue entry. Brand and product cannot be determined from the historical snapshot.'
+  };
+}
+
 function reportingMaterialRows(materials = []) {
   const groupByType = reportingMaterialMode === 'type';
   const groups = new Map();
   for (const entry of materials) {
     const type = String(entry.material || 'Unknown material').trim().toUpperCase();
-    const label = groupByType ? type : String(entry.label || entry.material || 'Unknown filament');
+    const display = groupByType ? { label:type, note:'' } : reportingFilamentLabel(entry, type);
     const key = groupByType ? type : String(entry.filamentId || entry.label || type);
-    if (!groups.has(key)) groups.set(key, { key, label, grams:0, spendByCurrency:{} });
+    if (!groups.has(key)) groups.set(key, { key, ...display, grams:0, spendByCurrency:{} });
     const row = groups.get(key);
     row.grams += Number(entry.grams || 0);
     for (const [currency, amount] of Object.entries(entry.spendByCurrency || {})) {
@@ -303,6 +322,7 @@ function reportingMaterialRows(materials = []) {
     rows:ordered.map((row) => ({
       key:row.key,
       label:row.label,
+      note:row.note,
       kg:formatNumber(row.grams / 1000, 2),
       percentage:total > 0 ? `${formatNumber(row.grams * 100 / total, 1)}%` : '—',
       percent:total > 0 ? Number((row.grams * 100 / total).toFixed(1)) : 0,
@@ -474,7 +494,7 @@ function renderReportMaterials(materials) {
     <td class="numeric">${materials.totalKg}</td><td class="numeric">100%</td>
     <td class="numeric">${escapeHtml(materials.totalCost)}</td><td></td></tr></tfoot>`;
   return reportingTableShell(headings, materials.rows.map((row) => `<tr>
-    <td title="${escapeHtml(row.label)}">${escapeHtml(row.label)}</td>
+    <td title="${escapeHtml(row.note || row.label)}">${escapeHtml(row.label)}</td>
     <td class="numeric">${row.kg}</td><td class="numeric">${row.percentage}</td>
     <td class="numeric">${escapeHtml(row.cost)}</td><td><div class="reporting-progress"><span style="width:${row.percent}%"></span></div></td>
   </tr>`), 'No material usage captured for completed prints in this period.', foot);
