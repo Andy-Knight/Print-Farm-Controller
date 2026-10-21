@@ -104,16 +104,28 @@ function formatNumber(value, digits = 0) {
 }
 
 function formatPercent(rate) {
+  if (rate == null || rate === '') return '—';
   const value = Number(rate);
   return Number.isFinite(value) ? `${Math.round(value * 100)}%` : '—';
 }
 
 function formatRateTrend(rate) {
+  // Number(null) is zero, so check absence before formatting the trend.
+  if (rate == null || rate === '') return 'Insufficient data';
   const value = Number(rate);
-  if (!Number.isFinite(value)) return 'Trend unavailable';
+  if (!Number.isFinite(value)) return 'Insufficient data';
   const points = Math.round(value * 100);
   if (points === 0) return 'No recent change';
   return `${points > 0 ? '+' : ''}${points} pp recent trend`;
+}
+
+function formatPrinterRunTime(printer) {
+  if (printer.runTimeRecordedCount === 0) return 'run time unavailable';
+  const minutes = Number(printer.runMinutes);
+  if (Number.isFinite(minutes) && minutes >= 0 && minutes < 6) {
+    return `${formatNumber(minutes, 1)} min run time`;
+  }
+  return `${formatNumber(printer.runHours, 1)} h run time`;
 }
 
 function formatCurrencyTotals(totals = {}) {
@@ -207,10 +219,12 @@ function reportingBarRowsViewModel(rows, { value, label, detail = null, maxRows 
 }
 
 function reportingPrintersViewModel(printers = []) {
-  return printers.slice(0, 10).map((printer, index) => ({
+  return printers.filter((printer) =>
+    printer?.printerId && Array.isArray(printer.attentionReasons) && printer.attentionReasons.length > 0
+  ).slice(0, 10).map((printer, index) => ({
     id:String(printer.printerId || printer.id || index),
     name:String(printer.printerName || 'Unknown printer'),
-    summary:`${printer.attempts} attempts · ${printer.completed} completed · ${printer.failed} failed · ${formatNumber(printer.runHours, 1)} h run time`,
+    summary:`${printer.attempts} attempts · ${printer.completed} completed · ${printer.failed} failed · ${formatPrinterRunTime(printer)}`,
     trend:formatRateTrend(printer.failureRateTrend),
     failureRate:formatPercent(printer.failureRate),
     attention:Array.isArray(printer.attentionReasons) ? printer.attentionReasons.map(String) : []
@@ -247,6 +261,7 @@ function publishReportingUiState(report = currentReport || {}) {
     kpis:reportingKpiViewModel(report),
     chart:lineChartViewModel(report?.daily || []),
     printers:reportingPrintersViewModel(report?.printers || []),
+    printerActivity:(report?.printers || []).length > 0,
     files:reportingBarRowsViewModel(report?.files || [], {
       value:(row) => row.completed,
       label:(row) => row.fileName,
@@ -318,13 +333,18 @@ function renderBarRows(rows, { value, label, detail = null, maxRows = 8, empty =
 }
 
 function renderProblemPrinters(printers = []) {
-  if (!printers.length) return '<div class="reporting-empty">No printer activity in this period.</div>';
-  return printers.slice(0, 10).map((printer) => {
+  const needingAttention = printers.filter((printer) =>
+    printer?.printerId && Array.isArray(printer.attentionReasons) && printer.attentionReasons.length > 0
+  );
+  if (!needingAttention.length) return printers.length
+    ? '<div class="reporting-empty">No printers currently need attention. No printers have exceeded the failure thresholds during the selected reporting period.</div>'
+    : '<div class="reporting-empty">No printer activity in this period.</div>';
+  return needingAttention.slice(0, 10).map((printer) => {
     const attention = Array.isArray(printer.attentionReasons) ? printer.attentionReasons : [];
     return `<article class="reporting-printer-row ${attention.length ? 'attention' : ''}">
       <div>
         <strong>${escapeHtml(printer.printerName || 'Unknown printer')}</strong>
-        <div class="subtle">${printer.attempts} attempts · ${printer.completed} completed · ${printer.failed} failed · ${formatNumber(printer.runHours, 1)} h run time</div>
+        <div class="subtle">${printer.attempts} attempts · ${printer.completed} completed · ${printer.failed} failed · ${formatPrinterRunTime(printer)}</div>
         <div class="reporting-printer-trend">${escapeHtml(formatRateTrend(printer.failureRateTrend))}</div>
       </div>
       <div class="reporting-printer-rate">

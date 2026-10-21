@@ -126,3 +126,51 @@ test('reporting history is not constrained by the queue 250-item history limit',
     await fs.rm(root, { recursive:true, force:true });
   }
 });
+
+test('unassigned queue jobs remain in farm totals without creating fictitious printers', async () => {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), 'pfc-reporting-unassigned-'));
+  const service = new ReportingService({ filePath:path.join(root, 'reporting-history.json') });
+  try {
+    await service.recordTerminalJobs([
+      completedJob({
+        id:'unassigned-cancel', printerId:null, printerName:'Next available compatible printer',
+        fileName:'pending.gcode', status:'cancelled', finishedAt:'2026-09-30T08:00:00.000Z'
+      }),
+      completedJob({
+        id:'unassigned-failure', printerId:null, printerName:'Next available compatible printer',
+        fileName:'pending.gcode', status:'failed', finishedAt:'2026-09-30T08:05:00.000Z'
+      }),
+      completedJob({
+        id:'success', printerId:'p1', printerName:'Healthy printer', fileName:'part.gcode',
+        startedAt:'2026-09-30T10:00:00.000Z', finishedAt:'2026-09-30T10:02:00.000Z',
+        materialCost:{ complete:true, totalGrams:12, totalCost:0.5, currency:'GBP', tools:[] }
+      }),
+      completedJob({
+        id:'missing-start', printerId:'p2', printerName:'Printer without timestamps', fileName:'part.gcode',
+        finishedAt:'2026-09-30T11:00:00.000Z'
+      })
+    ]);
+    const dates = { from:'2026-09-30T00:00:00.000Z', to:'2026-09-30T23:59:59.999Z' };
+    const report = await service.getReport(dates);
+    assert.equal(report.totals.attempts, 4);
+    assert.equal(report.totals.cancelled, 1);
+    assert.equal(report.totals.failed, 1);
+    assert.equal(report.files.find((row) => row.fileName === 'pending.gcode').attempts, 2);
+    assert.equal(report.daily[0].attempts, 4);
+    assert.deepEqual(report.printers.map((printer) => printer.printerId).sort(), ['p1', 'p2']);
+    assert.ok(report.printers.every((printer) => printer.failed === 0 && printer.attentionReasons.length === 0));
+    const short = report.printers.find((printer) => printer.printerId === 'p1');
+    assert.equal(short.runMinutes, 2);
+    assert.equal(short.runTimeRecordedCount, 1);
+    assert.equal(short.materialGrams, 12);
+    assert.deepEqual(short.spendByCurrency, { GBP:0.5 });
+    const unknown = report.printers.find((printer) => printer.printerId === 'p2');
+    assert.equal(unknown.runTimeRecordedCount, 0);
+    assert.equal(unknown.runHours, 0);
+    const filtered = await service.getReport({ ...dates, printerIds:['p1'] });
+    assert.equal(filtered.totals.attempts, 1);
+    assert.equal(filtered.printers.length, 1);
+  } finally {
+    await fs.rm(root, { recursive:true, force:true });
+  }
+});

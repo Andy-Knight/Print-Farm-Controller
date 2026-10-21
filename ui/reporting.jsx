@@ -71,8 +71,10 @@ function ReportingTrend({ chart }) {
   </>;
 }
 
-function ProblemPrinters({ printers }) {
-  if (!printers.length) return <div class="reporting-empty">No printer activity in this period.</div>;
+function ProblemPrinters({ printers, hasActivity }) {
+  if (!printers.length) return <div class="reporting-empty">{hasActivity
+    ? 'No printers currently need attention. No printers have exceeded the failure thresholds during the selected reporting period.'
+    : 'No printer activity in this period.'}</div>;
   return <>{printers.map((printer) => <article class={`reporting-printer-row${printer.attention.length ? ' attention' : ''}`} key={printer.id}>
     <div>
       <strong>{printer.name}</strong>
@@ -116,6 +118,7 @@ function normalizeState(detail = {}) {
     kpis:Array.isArray(detail.kpis) ? detail.kpis : [],
     chart:detail.chart || { rows:[], grid:[], labels:[], viewBox:'0 0 760 230', completedPath:'', failedPath:'', cancelledPath:'' },
     printers:Array.isArray(detail.printers) ? detail.printers : [],
+    printerActivity:detail.printerActivity === true,
     files:Array.isArray(detail.files) ? detail.files : [],
     materials:Array.isArray(detail.materials) ? detail.materials : [],
     filaments:Array.isArray(detail.filaments) ? detail.filaments : []
@@ -137,7 +140,7 @@ export function initReportingUi() {
     render(<ReportingTabs activeTab={state.activeTab} />, tabsRoot);
     render(<ReportingKpis items={state.kpis} />, kpisRoot);
     render(<ReportingTrend chart={state.chart} />, trendRoot);
-    render(<ProblemPrinters printers={state.printers} />, printersRoot);
+    render(<ProblemPrinters printers={state.printers} hasActivity={state.printerActivity} />, printersRoot);
     render(<BarRows rows={state.files} emptyText="No files were completed in this period." />, filesRoot);
     render(<BarRows rows={state.materials} emptyText="No costed material usage is available in this period." />, materialsRoot);
     render(<FilamentCatalogue items={state.filaments} />, filamentRoot);

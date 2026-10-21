@@ -203,34 +203,41 @@ export class ReportingService {
       const duration = clippedDurationSeconds(record, range.fromMs, range.toMs);
       runSeconds += duration;
 
-      const printerKey = String(record.printerId || record.printerName || 'unknown');
-      if (!printers.has(printerKey)) {
-        printers.set(printerKey, {
-          printerId:record.printerId || null,
-          printerName:record.printerName || 'Unknown printer',
-          ...blankCounts(),
-          runSeconds:0,
-          materialGrams:0,
-          spendByCurrency:{},
-          earlierAttempts:0,
-          earlierFailed:0,
-          recentAttempts:0,
-          recentFailed:0,
-          lastFinishedAt:null
-        });
+      // Unassigned automatic queue jobs belong in farm/job totals, not a fictitious printer.
+      let printer = null;
+      const printerKey = String(record.printerId || '').trim();
+      if (printerKey) {
+        if (!printers.has(printerKey)) {
+          printers.set(printerKey, {
+            printerId:printerKey,
+            printerName:record.printerName || 'Unknown printer',
+            ...blankCounts(),
+            runSeconds:0,
+            runTimeRecordedCount:0,
+            materialGrams:0,
+            spendByCurrency:{},
+            earlierAttempts:0,
+            earlierFailed:0,
+            recentAttempts:0,
+            recentFailed:0,
+            lastFinishedAt:null
+          });
+        }
+        printer = printers.get(printerKey);
+        applyStatus(printer, record.status);
+        const finishedMs = validDate(record.finishedAt);
+        if (finishedMs != null && finishedMs < periodMidpointMs) {
+          printer.earlierAttempts += 1;
+          if (record.status === 'failed') printer.earlierFailed += 1;
+        } else {
+          printer.recentAttempts += 1;
+          if (record.status === 'failed') printer.recentFailed += 1;
+        }
+        printer.runSeconds += duration;
+        const startedMs = validDate(record.startedAt);
+        if (startedMs != null && finishedMs != null && finishedMs > startedMs) printer.runTimeRecordedCount += 1;
+        if (!printer.lastFinishedAt || String(record.finishedAt) > printer.lastFinishedAt) printer.lastFinishedAt = record.finishedAt;
       }
-      const printer = printers.get(printerKey);
-      applyStatus(printer, record.status);
-      const finishedMs = validDate(record.finishedAt);
-      if (finishedMs != null && finishedMs < periodMidpointMs) {
-        printer.earlierAttempts += 1;
-        if (record.status === 'failed') printer.earlierFailed += 1;
-      } else {
-        printer.recentAttempts += 1;
-        if (record.status === 'failed') printer.recentFailed += 1;
-      }
-      printer.runSeconds += duration;
-      if (!printer.lastFinishedAt || String(record.finishedAt) > printer.lastFinishedAt) printer.lastFinishedAt = record.finishedAt;
 
       const fileKey = record.libraryFileId ? `library:${record.libraryFileId}` : `name:${record.fileName.toLowerCase()}`;
       if (!files.has(fileKey)) {
@@ -273,13 +280,13 @@ export class ReportingService {
       const totalGrams = Number(snapshot.totalGrams);
       if (Number.isFinite(totalGrams) && totalGrams >= 0) {
         materialGrams += totalGrams;
-        printer.materialGrams += totalGrams;
+        if (printer) printer.materialGrams += totalGrams;
         file.materialGrams += totalGrams;
         dailyRow.materialGrams += totalGrams;
       }
       if (snapshot.complete === true && snapshot.currency && Number.isFinite(Number(snapshot.totalCost))) {
         currencyTotalsAdd(spendByCurrency, snapshot.currency, snapshot.totalCost);
-        currencyTotalsAdd(printer.spendByCurrency, snapshot.currency, snapshot.totalCost);
+        if (printer) currencyTotalsAdd(printer.spendByCurrency, snapshot.currency, snapshot.totalCost);
         currencyTotalsAdd(file.spendByCurrency, snapshot.currency, snapshot.totalCost);
         currencyTotalsAdd(dailyRow.spendByCurrency, snapshot.currency, snapshot.totalCost);
       }
@@ -325,6 +332,7 @@ export class ReportingService {
       return {
         ...decorated,
         runHours:Math.round((printer.runSeconds / 3600) * 100) / 100,
+        runMinutes:Math.round((printer.runSeconds / 60) * 10) / 10,
         materialGrams:Math.round(printer.materialGrams * 1000) / 1000,
         earlierFailureRate,
         recentFailureRate,

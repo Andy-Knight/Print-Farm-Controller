@@ -112,3 +112,46 @@ test('reporting history and filament catalogue participate in backup and restore
   assert.match(restoreService, /state\/filaments\.json/);
   assert.match(restoreService, /state\/reporting-history\.json/);
 });
+
+test('attention UI only shows genuine flagged printers and accurately describes insufficient data', () => {
+  const section = (start, end) => reportingUi.slice(reportingUi.indexOf(start), reportingUi.indexOf(end));
+  const helpers = [
+    section('function formatNumber(', 'function formatCurrencyTotals('),
+    section('function escapeHtml(', 'async function requestJson('),
+    section('function reportingPrintersViewModel(', 'function reportingKpiViewModel('),
+    section('function renderProblemPrinters(', 'function renderReport(')
+  ];
+  const ui = vm.runInNewContext(helpers.join('\n') +
+    '\n({ reportingPrintersViewModel, renderProblemPrinters, formatRateTrend, formatPercent, formatPrinterRunTime })');
+  const healthy = Array.from({ length:11 }, (_, n) => ({
+    printerId:'healthy-'+n, printerName:'Healthy '+n, attempts:9, completed:9,
+    failed:0, failureRate:0, failureRateTrend:null, runHours:1.5, attentionReasons:[]
+  }));
+  const phantom = {
+    printerId:null, printerName:'Next available compatible printer', attempts:5,
+    completed:0, failed:0, failureRate:0, failureRateTrend:null, runHours:0,
+    attentionReasons:['placeholder must not appear']
+  };
+  const problem = {
+    printerId:'p1', printerName:'Problem printer', attempts:5, completed:3, failed:2,
+    failureRate:0.4, failureRateTrend:null, runHours:2, runMinutes:120,
+    runTimeRecordedCount:1, attentionReasons:['2 failed prints in this period']
+  };
+  const items = [...healthy, phantom, problem];
+  const viewModel = ui.reportingPrintersViewModel(items);
+  assert.equal(viewModel.length, 1);
+  assert.equal(viewModel[0].name, 'Problem printer');
+  const legacy = ui.renderProblemPrinters(items);
+  assert.match(legacy, /Problem printer/);
+  assert.doesNotMatch(legacy, /Healthy 0|Next available compatible printer/);
+  assert.match(ui.renderProblemPrinters(healthy), /No printers currently need attention/);
+  assert.match(ui.renderProblemPrinters([]), /No printer activity in this period/);
+  assert.equal(ui.formatRateTrend(null), 'Insufficient data');
+  assert.equal(ui.formatRateTrend(0), 'No recent change');
+  assert.equal(ui.formatPercent(null), '—');
+  assert.equal(ui.formatPrinterRunTime({ runMinutes:2, runHours:0.03, runTimeRecordedCount:1 }), '2.0 min run time');
+  assert.equal(ui.formatPrinterRunTime({ runHours:0, runTimeRecordedCount:0 }), 'run time unavailable');
+  const preact = fs.readFileSync(new URL('../ui/reporting.jsx', import.meta.url), 'utf8');
+  assert.match(preact, /No printers currently need attention/);
+  assert.match(preact, /hasActivity={state.printerActivity}/);
+});
