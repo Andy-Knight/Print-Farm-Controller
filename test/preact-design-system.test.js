@@ -118,6 +118,10 @@ test('dashboard summary adopts the Analytics circular icon and genuine-ratio pre
   assert.match(skin,/grid-column:1; grid-row:1/);
   assert.match(skin,/grid-column:2; grid-row:1/);
   assert.match(skin,/grid-template-columns:52px minmax\(0,1fr\)/);
+  const polish=read('public/dashboard-polish.css');
+  assert.doesNotMatch(polish,/#summary \.summary-card\.ui-stat-card\s*\{/,
+    'late-loaded dashboard polish must not replace the new two-column layout');
+  assert.match(polish,/#summary \.summary-card\.ui-stat-card:not\(\.dashboard-summary-kpi\)/);
   assert.match(regression,/dashboard summary text always remains beside its ring/);
   assert.match(skin,/#summary \.dashboard-summary-kpi\[data-tone="working"\]/);
   assert.match(skin,/#summary \.dashboard-summary-kpi\[data-tone="warning"\]/);
