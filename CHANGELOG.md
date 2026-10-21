@@ -4,6 +4,13 @@ This file contains the version-by-version release history for Print Farm Control
 
 Historical entries describe the behaviour of the controller at the time of that release and may be superseded by later versions. For current installation, configuration and supported-hardware guidance, see [README.md](README.md).
 
+## v0.59.3
+
+- Print Library sundry dropdown: **Labour** now asks for **Labour minutes** in the Add file and Edit details windows, hiding the normal quantity and unit-cost inputs. Minutes are validated and stored per file/print, not per sale lot.
+- Added a global **Labour hourly rate** to Reports & finance → Price settings, separate from the existing hourly machine print cost. Labour cost is computed as minutes × rate ÷ 60 using the current filament currency, added to sundries before profit, tax and sale-lot rounding. Selling prices refresh when the rate changes.
+- A missing labour rate prevents a misleading completed sell price for files containing minutes-based Labour. A deliberate zero rate is allowed. Existing fixed-cost Labour lines remain unchanged until manually converted by entering minutes, preserving legacy data and backups.
+- Added backend validation, legacy compatibility and pricing tests, and UI plus Chromium add/edit/hourly-rate regression coverage.
+
 ## v0.59.2
 
 - Reorganised the Print Library toolbar so Search, Add file and all four selected-file actions (Queue, Edit details, Favourite, Delete selected) appear together on one line where the desktop width allows. Kept selection status visible below the controls, preserved button IDs/disabled states and keyboard/accessibility behaviour, and made the action group wrap safely on narrow screens. Expanded Node and Chromium desktop/mobile layout regression tests.
