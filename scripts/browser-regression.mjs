@@ -326,6 +326,7 @@ async function dashboardPhase3Smoke(browser,url) {
         stroke:row.svg?.getAttribute('stroke'),
         size:row.gauge?.getBoundingClientRect().width,
         gaugeColor:row.gauge && getComputedStyle(row.gauge).backgroundImage,
+        gaugeBackground:row.gauge && getComputedStyle(row.gauge).backgroundColor,
         meter:row.meter?.getAttribute('aria-valuenow') ?? null,
         hasAccent:!!row.accent
       }));
@@ -337,8 +338,9 @@ async function dashboardPhase3Smoke(browser,url) {
     assert.equal(measurements[1].meter,'83.3');
     assert.equal(measurements[2].meter,'8.3');
     assert.equal(measurements[3].meter,'16.7');
-    assert.ok(measurements.every(row=>row.gaugeColor?.includes('conic-gradient')||row.gaugeColor?.includes('rgba')),
-      'decorative rings and measured rings must render');
+    assert.ok(measurements[0].gaugeBackground &&
+      measurements.slice(1).every(row=>row.gaugeColor?.includes('conic-gradient')),
+      'decorative total-printer ring and measured status rings must both render');
     // A zero-attention state is a success (green check), not a warning.
     await page.evaluate(()=>{
       const state={counts:{all:12,online:10,printing:1,attention:0},
