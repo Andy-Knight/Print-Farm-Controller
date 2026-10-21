@@ -1184,12 +1184,14 @@ async function libraryPricingSmoke(page,url,{mutateFixture=true}={}) {
   await page.locator('#reportingProfitPercent').fill('30');
   await page.locator('#reportingProfitMethod').selectOption('markup');
   await page.locator('#reportingTaxRate').fill('20');
+  await page.locator('#reportingLabourHourlyRate').fill('18');
   await page.locator('#reportingPricingSaveBtn').click();
   await page.waitForFunction(()=>document.querySelector('#reportingPricingStatus')?.textContent.includes('saved'));
   const settings=await page.evaluate(async()=> (await (await fetch('/api/library/pricing')).json()).settings);
   assert.equal(settings.profitPercent,30);
   assert.equal(settings.profitMethod,'markup');
   assert.equal(settings.taxRate,20);
+  assert.equal(settings.labourHourlyRate,18);
   await page.locator('[data-reporting-tab="filament"]').click();
   await page.locator('[data-reporting-tab="pricing"]').click();
   await page.waitForFunction(()=>
@@ -1199,6 +1201,7 @@ async function libraryPricingSmoke(page,url,{mutateFixture=true}={}) {
     'pricing tab must load persisted global settings after switching tabs');
   assert.equal(await page.locator('#reportingTaxRate').inputValue(),'20',
     'pricing tab must reload the persisted tax rate');
+  assert.equal(await page.locator('#reportingLabourHourlyRate').inputValue(),'18');
   await page.goto(url+'/library',{waitUntil:'load'});
   await preactReady(page);
   assert.equal(await page.locator('#libraryPricingSettingsBtn').count(),0,
