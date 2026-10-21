@@ -1628,10 +1628,22 @@ async function routeSmoke(page,url) {
   // Sparse production history: all three jobs completed on one date.
   // The previous SVG contained only a move command and rendered no line.
   await page.evaluate(() => {
-    const chart = window.lineChartViewModel(
-      [{ date:'2026-10-20', completed:3, failed:0, cancelled:0 }],
-      { from:'2026-10-14T14:00:00.000Z', to:'2026-10-21T14:00:00.000Z' }
-    );
+    // Rendering receives its chart view model through the existing event
+    // bridge. The pure view-model algorithm is covered in reporting-ui tests.
+    const chart = {
+      rows:Array.from({ length:8 }, (_, index) => ({
+        date:'2026-10-' + String(14 + index).padStart(2, '0'),
+        completed:index === 6 ? 3 : 0, failed:0, cancelled:0
+      })),
+      grid:[{ x1:42, x2:742, y:196, labelX:34, labelY:200, label:0 }],
+      labels:[{x:42,y:221,text:'14 Oct'},{x:742,y:221,text:'21 Oct'}],
+      viewBox:'0 0 760 230',
+      completedPath:'M 42 196 L 142 196 L 242 196 L 342 196 L 442 196 L 542 196 L 642 18 L 742 196',
+      failedPath:'', cancelledPath:'',
+      points:[{ x:642, y:18, key:'completed', date:'2026-10-20',
+        value:3, title:'2026-10-20: 3 completed' }],
+      showPointValues:true
+    };
     window.dispatchEvent(new CustomEvent('pfc:reporting-ui-state', {
       detail:{ ...window.__PFC_REPORTING_UI_STATE__, chart }
     }));
