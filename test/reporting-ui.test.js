@@ -76,7 +76,7 @@ test('reporting backend retains history independently of recent queue history', 
 test('filament cost catalogue and Print Library mappings are exposed in the UI', () => {
   assert.match(index, /id="filamentForm"/);
   assert.match(index, /id="filamentCost"/);
-  assert.match(index, /<select id="filamentCurrency" required>/);
+  assert.match(index, /<select id="reportingCurrency" name="currency" required/);
   assert.match(index, /<option value="GBP" selected>GBP — British Pound \(£\)<\/option>/);
   assert.match(index, /<option value="USD">USD — US Dollar \(\$\)<\/option>/);
   assert.match(index, /<option value="EUR">EUR — Euro \(€\)<\/option>/);
