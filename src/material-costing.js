@@ -49,11 +49,12 @@ export async function buildMaterialCostSnapshot({
 } = {}, {
   getFilamentFn = getFilament,
   listFilamentsFn = listFilaments,
-  capturedAt = new Date().toISOString()
+  capturedAt = new Date().toISOString(),
+  pricingCurrency = null
 } = {}) {
   const logicalTools = Array.isArray(requirements?.logicalTools) ? requirements.logicalTools : [];
   const catalogue = await listFilamentsFn();
-  const {currency:pricingCurrency}=await getLibraryPricingSettings();
+  const currency = pricingCurrency || (await getLibraryPricingSettings()).currency;
   const tools = [];
   let totalGrams = 0;
   let resolvedCost = 0;
@@ -116,14 +117,13 @@ export async function buildMaterialCostSnapshot({
       filamentId:entry?.id || explicitId || null,
       filamentLabel:entry ? labelFor(entry) : null,
       costPerKg:entry ? Number(entry.costPerKg) : null,
-      currency:entry ? pricingCurrency : null,
+      currency:entry ? currency : null,
       cost,
       resolution,
       issue
     });
   }
 
-  const currency = pricingCurrency;
   const complete = usageComplete && costComplete && tools.length > 0;
 
   return {
