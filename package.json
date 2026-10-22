@@ -20,7 +20,8 @@
     "release:windows": "node scripts/build-windows-release.mjs"
   },
   "engines": {
-    "node": ">=24"
+    "node": ">=24.22.1",
+    "npm": ">=12.2.0 <13"
   },
   "devDependencies": {
     "esbuild": "0.28.2",
@@ -30,5 +31,6 @@
   },
   "allowScripts": {
     "esbuild@0.28.2": true
-  }
+  },
+  "packageManager": "npm@12.2.0"
 }
