@@ -6,6 +6,9 @@ on:
       - Dockerfile
       - .dockerignore
       - package.json
+      - package-lock.json
+      - .npmrc
+      - .github/dependabot.yml
       - src/**
       - public/**
       - ui/**
@@ -22,6 +25,9 @@ on:
       - Dockerfile
       - .dockerignore
       - package.json
+      - package-lock.json
+      - .npmrc
+      - .github/dependabot.yml
       - src/**
       - public/**
       - ui/**
