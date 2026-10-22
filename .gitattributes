@@ -1,5 +1,10 @@
 # Exclude documentation assets from source release archives
 /docs/ export-ignore
+/AGENTS.md export-ignore
+/PROJECT_CONTEXT.md export-ignore
+/.npmrc export-ignore
+/.gitignore export-ignore
+/.gitattributes export-ignore
 
 # Exclude development-only directories
 /.github/ export-ignore
