@@ -4192,6 +4192,8 @@ body:not([data-route="/"]) > main > :not(.route-page) { display:none !important;
 .printer-group-members,
 #reportingFiles .reporting-table-scroll,
 #reportingMaterials .reporting-table-scroll,
+#reportingPrinters .reporting-table-scroll,
+#reportingFileFailures .reporting-table-scroll,
 .frontend-renderer-table,
 .material-grid.multi-tool-table,
 #libraryDialog .library-table-head,
@@ -4205,6 +4207,8 @@ body:not([data-route="/"]) > main > :not(.route-page) { display:none !important;
 .printer-group-members-table thead th,
 #reportingFiles .reporting-analytics-table thead th,
 #reportingMaterials .reporting-analytics-table thead th,
+#reportingPrinters .reporting-analytics-table thead th,
+#reportingFileFailures .reporting-analytics-table thead th,
 .frontend-renderer-table th,
 .material-table-head,
 #libraryDialog .library-table-head {
@@ -4229,21 +4233,27 @@ body:not([data-route="/"]) > main > :not(.route-page) { display:none !important;
 }
 .printer-group-members-table thead th,
 #reportingFiles .reporting-analytics-table thead th,
-#reportingMaterials .reporting-analytics-table thead th {
+#reportingMaterials .reporting-analytics-table thead th,
+#reportingPrinters .reporting-analytics-table thead th,
+#reportingFileFailures .reporting-analytics-table thead th {
   padding:9px 12px;
   border-right:0;
 }
 .printer-group-members-table thead th { text-align:left; }
 .printer-group-members-table td,
 #reportingFiles .reporting-analytics-table tbody td,
-#reportingMaterials .reporting-analytics-table tbody td {
+#reportingMaterials .reporting-analytics-table tbody td,
+#reportingPrinters .reporting-analytics-table tbody > tr > :is(th,td),
+#reportingFileFailures .reporting-analytics-table tbody td {
   padding:9px 12px;
   border-right:0;
   border-bottom:1px solid var(--pfc-table-divider);
 }
 .printer-group-members-table tbody tr:last-child td,
 #reportingFiles .reporting-analytics-table tbody tr:last-child td,
-#reportingMaterials .reporting-analytics-table tbody tr:last-child td { border-bottom:0; }
+#reportingMaterials .reporting-analytics-table tbody tr:last-child td,
+#reportingPrinters .reporting-analytics-table tbody tr:last-child > *,
+#reportingFileFailures .reporting-analytics-table tbody tr:last-child td { border-bottom:0; }
 .frontend-renderer-table {
   border-collapse:separate;
   border-spacing:0;
@@ -4264,6 +4274,8 @@ body:not([data-route="/"]) > main > :not(.route-page) { display:none !important;
 .printer-group-members-table tbody tr:hover,
 #reportingFiles .reporting-analytics-table tbody tr:hover > *,
 #reportingMaterials .reporting-analytics-table tbody tr:hover > *,
+#reportingPrinters .reporting-analytics-table tbody tr:hover > *,
+#reportingFileFailures .reporting-analytics-table tbody tr:hover > *,
 .frontend-renderer-table tbody tr:hover,
 .multi-tool-table .material-tool:not(.filament-missing):hover,
 #libraryDialog .library-file-row:hover {
@@ -4279,6 +4291,17 @@ body:not([data-route="/"]) > main > :not(.route-page) { display:none !important;
 .printer-group-members-table .printer-group-member-groups {
   color:var(--pfc-table-secondary);
 }
+/* All four Analytics tables use the controller-wide table skin above. The
+   rules below only customise column geometry and exceptional row semantics. */
+#reportingPrinters .reporting-analytics-table,
+#reportingFileFailures .reporting-analytics-table { font-size:.78rem; }
+#reportingPrinters .reporting-analytics-table thead th,
+#reportingFileFailures .reporting-analytics-table thead th { white-space:normal; }
+#reportingPrinters .reporting-analytics-table tbody th[scope="row"] {
+  font-weight:700; color:var(--ds-text); white-space:normal; overflow-wrap:anywhere;
+}
+#reportingFileFailures .reporting-analytics-table tbody td:first-child { white-space:normal; }
+
 /* Material usage uses the same shared controller table skin, for both
    material-type and filament groupings in Preact and the HTML fallback.
    Preserve right-aligned quantities/costs and a readable fixed total row. */
@@ -4297,8 +4320,7 @@ body:not([data-route="/"]) > main > :not(.route-page) { display:none !important;
   background:var(--pfc-table-surface);
 }
 
-/* File analytics inherits the shared controller header/surface/hover skin,
-   while retaining its own seven-column geometry and right-aligned metrics. */
+/* Popular-file analytics retains eight independently sortable columns. */
 #reportingFiles .reporting-analytics-table { font-size:.78rem; }
 #reportingFiles .reporting-analytics-table thead th { white-space:normal; }
 #reportingFiles .reporting-analytics-table .reporting-table-sort {
