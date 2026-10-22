@@ -872,13 +872,10 @@ async function libraryCompactTableSmoke(page,url) {
   await page.goto(url+'/library',{waitUntil:'load'});
   await preactReady(page);
   await page.waitForFunction(()=>window.__PFC_PREACT_LIBRARY__===true);
-  // Wait for the initial asynchronous API refresh before injecting a synthetic
-  // row. A late refresh can otherwise replace the row between the wait and
-  // geometry measurement, particularly on slower filesystem-backed pricing.
-  await page.waitForFunction(()=>{
-    const summary=document.querySelector('#librarySummary')?.textContent || '';
-    return summary.length>0 && !summary.includes('Loading library');
-  });
+  // The controller may perform two overlapping Print Library refreshes on a
+  // direct /library load (startup and route activation). Wait for an actual
+  // controller-published state, not Preact's initial placeholder summary.
+  await page.waitForFunction(()=>Boolean(window.__PFC_LIBRARY_UI_STATE__?.summary));
   const fixture=[{
     id:'compact-table-fixture',fileName:'Batch production ASA part.gcode',
     sizeText:'24 KB',description:'Production part',printerTarget:'AD5M Pro',
@@ -889,6 +886,19 @@ async function libraryCompactTableSmoke(page,url) {
     historyCount:'2 completed prints',historyLast:'Last printed recently',
     historyAdded:'Added recently'
   }];
+  // This smoke tests presentational geometry with a synthetic row, without
+  // adding files to a real/external controller. A late independent API refresh
+  // must not replace the fixture before the geometry assertions execute.
+  // Restore it only during this visual check, then remove the test listener.
+  await page.evaluate(files=>{
+    const fixtureState={summary:'1 file · compact table regression',files,emptyText:'No files'};
+    const replay=(event)=>{
+      if(event?.detail?.summary===fixtureState.summary)return;
+      window.dispatchEvent(new CustomEvent('pfc:library-ui-state',{detail:fixtureState}));
+    };
+    window.__PFC_COMPACT_TABLE_REPLAY__=replay;
+    window.addEventListener('pfc:library-ui-state',replay);
+  },fixture);
   for(const viewport of [
     {width:1920,height:900,desktop:true},
     {width:1365,height:900,desktop:true},
@@ -902,7 +912,8 @@ async function libraryCompactTableSmoke(page,url) {
         detail:{summary:'1 file · compact table regression',files,emptyText:'No files'}
       }));
     },fixture);
-    await page.waitForFunction(()=>document.querySelectorAll('#libraryList .library-file-row').length===1);
+    await page.waitForFunction(()=>document.querySelectorAll('#libraryList .library-file-row').length===1
+      && document.querySelector('#libraryList [data-library-file="compact-table-fixture"]'));
     const topControls=await page.evaluate(()=>{
       const rect=(selector)=>{
         const node=document.querySelector(selector);
@@ -970,6 +981,10 @@ async function libraryCompactTableSmoke(page,url) {
     assert.ok(geometry.docWidth<=geometry.windowWidth+2,
       'compact library must not introduce horizontal page scrolling');
   }
+  await page.evaluate(()=>{
+    window.removeEventListener('pfc:library-ui-state',window.__PFC_COMPACT_TABLE_REPLAY__);
+    delete window.__PFC_COMPACT_TABLE_REPLAY__;
+  });
   await page.setViewportSize({width:1365,height:900});
   console.log('Chromium: compact Print Library columns and responsive geometry PASS');
 }
