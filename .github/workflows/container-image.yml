@@ -159,9 +159,38 @@ jobs:
           path: test-artifacts/
           if-no-files-found: ignore
 
+  windows:
+    name: Windows SEA compatibility
+    runs-on: windows-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Set up patched Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: '24.22.1'
+          architecture: x64
+
+      - name: Upgrade npm to approved version
+        run: npm install --global npm@12.2.0 --no-audit --no-fund
+
+      - name: Install locked dependencies
+        run: npm ci --include=dev --no-audit --no-fund
+
+      - name: Build Windows SEA executable
+        run: npm run build:sea:windows
+
+      - name: Check portable executable exists
+        shell: pwsh
+        run: |
+          if (-not (Test-Path 'dist/windows-x64/PrintFarmController.exe')) {
+            throw 'The Windows SEA build did not produce its executable.'
+          }
+
   smoke:
     name: Container smoke test
-    needs: [test, browser]
+    needs: [test, browser, windows]
     runs-on: ubuntu-latest
 
     steps:
