@@ -19,7 +19,7 @@ test('feature pull requests run tests and disposable container smoke, without mu
   assert.match(yml,/      - name: Build smoke-test image\n/);
   const build=yml.slice(yml.indexOf('  build:\n'));
   assert.ok(build.startsWith('  build:\n'));
-  assert.match(build, /    needs: \\[smoke, browser, windows\\]/);
+  assert.match(build, /    needs: \[smoke, browser, windows\]/);
   assert.match(build,/    if: >-\n      \(github\.event_name == 'push'/);
   assert.match(build,/github\.event_name == 'workflow_dispatch'/);
   assert.doesNotMatch(build,/if: github\.event_name == 'pull_request'/,
