@@ -12,7 +12,8 @@ test('diagnostics is available from the persistent controller navigation', () =>
   assert.match(html, /id="diagnosticsBtn"[^>]*class="sidebar-item"/);
   assert.match(html, /id="diagnosticsDialog"/);
   assert.match(app, /diagnosticsBtn\?\.addEventListener\('click'/);
-  assert.match(app, /topbarOverflow\.open = false/);
+  assert.doesNotMatch(html, /id="topbarOverflow"/, 'removed Farm operations overflow must not return');
+  assert.match(app, /function navigateController\(routePath\)/);
   });
 
 test('diagnostics UI supports log filtering, verbose mode and bundle download', () => {
