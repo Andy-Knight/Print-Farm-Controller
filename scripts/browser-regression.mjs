@@ -2032,6 +2032,89 @@ async function routeSmoke(page,url) {
     assert.ok((await page.locator('#reportingMaterials .numeric').count())>=6,
       mode+' must preserve numeric column alignment');
   }
+  // Both remaining Analytics tables must match the established Printer Groups
+  // table standard in both themes, including row-header (th) cells.
+  await page.evaluate(() => {
+    const state=window.__PFC_REPORTING_UI_STATE__ || {};
+    window.dispatchEvent(new CustomEvent('pfc:reporting-ui-state',{detail:{
+      ...state,
+      files:[{id:'layout-check',rank:1,fileName:'Regression layout sample.3mf',
+        libraryFileId:null,previewUrl:'',completed:10,failed:0,successRate:'100%',
+        materialText:'0.45 kg',materialCostText:'£6.00',materialTitle:'Measured grams',
+        costTitle:'Historical GBP',printTime:'2h 0m',printTimeTitle:'Recorded time'}],
+      printers:[{id:'printer-a',name:'Sample Printer A',attempts:8,completed:5,
+        failed:3,failureRate:'37.5%',trend:'Worsening',latestFailure:'Today',
+        attention:['Failure rate high']},
+        {id:'printer-b',name:'Sample Printer B',attempts:4,completed:3,
+        failed:1,failureRate:'25%',trend:'Stable',latestFailure:'Yesterday',
+        attention:['Failed job']}],
+      printerActivity:true,
+      fileFailures:[{id:'failure-a',fileName:'Test failure.3mf',attempts:5,
+        failed:2,failureRate:'40%',lastFailure:'Today'},
+        {id:'failure-b',fileName:'Test failure B.3mf',attempts:2,
+        failed:1,failureRate:'50%',lastFailure:'Yesterday'}]
+    }}));
+  });
+  await page.waitForFunction(() =>
+    document.querySelectorAll('#reportingPrinters tbody tr').length===2 &&
+    document.querySelectorAll('#reportingFileFailures tbody tr').length===2);
+  const otherTableStyles=await page.evaluate(() => {
+    const fixture=document.createElement('div');
+    fixture.style.cssText='position:fixed;left:-5000px;top:0;';
+    fixture.innerHTML='<div class="printer-group-members"><table class="printer-group-members-table">'
+      +'<thead><tr><th>Printer</th></tr></thead><tbody><tr><td>First</td></tr>'
+      +'<tr><td>Second</td></tr></tbody></table></div>';
+    document.body.appendChild(fixture);
+    const root=document.documentElement,old=root.getAttribute('data-theme');
+    const props=el=>{
+      const st=getComputedStyle(el);
+      return {bg:st.backgroundColor,color:st.color,size:st.fontSize,
+        weight:st.fontWeight,spacing:st.letterSpacing,upper:st.textTransform,
+        radius:st.borderTopLeftRadius,border:st.borderTopColor,
+        divider:st.borderBottomColor,bottom:st.borderBottomWidth,
+        right:st.borderRightWidth,padding:st.padding};
+    };
+    const output={};
+    try{
+      for(const theme of ['dark','light']){
+        root.setAttribute('data-theme',theme);
+        const ref={
+          panel:props(fixture.querySelector('.printer-group-members')),
+          header:props(fixture.querySelector('thead th')),
+          body:props(fixture.querySelector('tbody tr:first-child td')),
+          final:props(fixture.querySelector('tbody tr:last-child td'))
+        };
+        output[theme]={ref,tables:{}};
+        for(const id of ['reportingPrinters','reportingFileFailures']){
+          const el=document.getElementById(id);
+          output[theme].tables[id]={
+            panel:props(el.querySelector('.reporting-table-scroll')),
+            header:props(el.querySelector('thead th')),
+            body:props(el.querySelector('tbody tr:first-child > :first-child')),
+            final:props(el.querySelector('tbody tr:last-child > :first-child')),
+            hover:getComputedStyle(el).getPropertyValue('--pfc-table-hover').trim()
+          };
+        }
+      }
+    }finally{
+      if(old===null)root.removeAttribute('data-theme');
+      else root.setAttribute('data-theme',old);
+      fixture.remove();
+    }
+    return output;
+  });
+  for(const [theme,{ref,tables}] of Object.entries(otherTableStyles)){
+    for(const [id,t] of Object.entries(tables)){
+      for(const prop of ['bg','radius','border'])
+        assert.equal(t.panel[prop],ref.panel[prop],theme+' '+id+' panel '+prop);
+      for(const prop of ['bg','color','size','weight','spacing','upper','divider','right','padding'])
+        assert.equal(t.header[prop],ref.header[prop],theme+' '+id+' heading '+prop);
+      for(const prop of ['bottom','right','padding'])
+        assert.equal(t.body[prop],ref.body[prop],theme+' '+id+' first-row '+prop);
+      assert.equal(t.final.bottom,ref.final.bottom,theme+' '+id+' final-row divider');
+      assert.ok(t.hover,theme+' '+id+' inherits hover token');
+    }
+  }
   const reportingLayout = await page.evaluate(() => {
     const box = (selector) => document.querySelector(selector).getBoundingClientRect();
     const scroll = document.querySelector('#reportingFiles .reporting-table-scroll');
