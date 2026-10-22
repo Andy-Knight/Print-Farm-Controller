@@ -1,4 +1,4 @@
-# Print Farm Controller v0.59.9
+# Print Farm Controller v0.59.10
 A local-first 3D printer fleet controller. It runs entirely on your LAN and currently supports:
 
 - **FlashForge Adventurer 5M / 5M Pro** through the local FlashForge HTTP/TCP APIs.
@@ -7,9 +7,11 @@ A local-first 3D printer fleet controller. It runs entirely on your LAN and curr
 - **Prusa CORE One+ (experimental)** through the local PrusaLink API, supporting Standard (1-tool), INDX4 and INDX8 configurations.
 - **Bambu Lab P1P / P1S / X1C / A1 Mini (experimental)** through the local MQTT TLS and FTPS TLS interfaces. P1P/P1S/A1 Mini use the TLS/JPEG camera path; X1C camera decoding remains unsupported.
 
-**Current development version: v0.59.9**
+**Current development version: v0.59.10**
 
 Current highlights:
+
+- **Secure, reproducible development builds (v0.59.10):** Pin the Node.js 24.22.1 security baseline and npm 12.2.0. A committed dependency lockfile and `npm ci --include=dev` replace floating CI/container installs. npm installation security rules require a seven-day minimum package age, disallow unapproved Git/remote dependency sources and permit the documented esbuild installation script. GitHub Actions audit high/critical dependency vulnerabilities, check Windows SEA compatibility, run Node/Chromium/container regressions and limit package-publication permissions. Weekly Dependabot updates cover npm, Docker and GitHub Actions. See `docs/dependency-security.md` for Windows setup and emergency-patch policy. Printer control, queueing, reporting and stored data are unchanged.
 
 - **Unified Analytics tables and selection controls (v0.59.9):** All four Reports & finance → Analytics tables now use the shared controller table styling, including Printers needing attention and Print file failure analysis. Most popular print files has separate sortable **Material** and **Cost** columns (eight columns total), with preserved historical currency and partial-data semantics. The Top 10 / All files and By material type / By filament choice groups follow standard 42px token-based button styling and accessible pressed states. Both themes, mobile overflow and Preact/HTML fallback remain supported.
 
