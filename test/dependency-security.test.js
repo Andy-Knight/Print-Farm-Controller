@@ -43,6 +43,8 @@ test('CI and container builds install the committed lock under pinned runtimes',
   assert.equal((ci.match(/node-version: '24\.22\.1'/g) || []).length, 3);
   assert.equal((ci.match(/run: npm ci --include=dev --no-audit --no-fund/g) || []).length, 3);
   assert.match(ci, /npm audit --audit-level=high/);
+  assert.match(ci, /^permissions:\\n  contents: read\\n/m);
+  assert.match(ci, /  build:\\n    name: Release or manually verify multi-architecture image\\n    permissions:\\n      contents: read\\n      packages: write/);
   assert.equal((docker.match(/FROM node:24\.22\.1-bookworm-slim/g) || []).length, 2);
   assert.match(docker, /COPY package\.json package-lock\.json \.npmrc/);
   assert.match(docker, /npm ci --include=dev --no-audit --no-fund/);

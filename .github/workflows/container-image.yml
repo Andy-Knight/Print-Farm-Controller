@@ -39,7 +39,6 @@ on:
 
 permissions:
   contents: read
-  packages: write
 
 env:
   REGISTRY: ghcr.io
@@ -261,6 +260,9 @@ jobs:
 
   build:
     name: Release or manually verify multi-architecture image
+    permissions:
+      contents: read
+      packages: write
     # Pull requests already build a disposable image in the smoke job.
     # Skip costly amd64+arm64 release builds on every feature-branch commit.
     # A completed feature branch can opt in to one manual, non-published build
