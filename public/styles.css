@@ -4228,6 +4228,8 @@ body:not([data-route="/"]) > main > :not(.route-page) { display:none !important;
 .printer-group-members-table thead th,
 #reportingFiles .reporting-analytics-table thead th,
 #reportingMaterials .reporting-analytics-table thead th,
+#reportingPrinters .reporting-analytics-table thead th,
+#reportingFileFailures .reporting-analytics-table thead th,
 .frontend-renderer-table th {
   border-bottom:1px solid var(--pfc-table-header-divider);
 }
