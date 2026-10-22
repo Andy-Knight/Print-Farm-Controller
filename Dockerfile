@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1.7
 
-FROM node:24.22.1-bookworm-slim AS builder
+FROM node:26.11.1-bookworm-slim AS builder
 
 WORKDIR /app
 
@@ -24,7 +24,7 @@ RUN --mount=type=secret,id=pfc_google_client_id,required=false \
     PFC_BUNDLE_BUILD_NONCE="$PFC_BUNDLE_BUILD_NONCE" \
     npm run build:bundle
 
-FROM node:24.22.1-bookworm-slim
+FROM node:26.11.1-bookworm-slim
 
 WORKDIR /app
 
