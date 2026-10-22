@@ -34,6 +34,10 @@ Other subject-specific guides, such as `docs/dependency-security.md`, own their 
 5. Before merge, run `npm test` when a compatible development setup is available. GitHub performs dedicated lightweight docs checks plus the existing development gates where applicable.
 6. Review facts and semantics manually: tests can prevent obvious structural drift but cannot decide whether all technical explanations belong in the right place.
 
+## Downloadable source archives
+
+GitHub branch/tag source ZIP files are supported development inputs. Keep `AGENTS.md`, `PROJECT_CONTEXT.md`, all required `docs/` policies and style guidance, `.npmrc` and `.github/` workflow definitions inside the archive because `npm test` reads them. Exclude only the optional `docs/assets/` illustration catalogue via `.gitattributes` `export-ignore`. The documentation regression suite checks this packaging rule. This is separate from the packaged controller executable/container, which do not depend on repository-only documents.
+
 ## Enforcement and cross-conversation use
 
 - `test/documentation-policy.test.js` is a Node native regression suite: it checks required authority files and references, a compact README overview, absence of historical version tokens, current release metadata, a concise live handoff and canonical visual ownership.

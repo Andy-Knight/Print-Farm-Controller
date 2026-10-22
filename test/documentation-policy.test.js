@@ -24,6 +24,17 @@ test('all canonical documentation and agent instruction files exist', () => {
   assert.match(read('docs/DOCUMENTATION_POLICY.md'), /ChatGPT Project/i);
 });
 
+test('GitHub ZIP/source archives retain the source and docs that npm test requires', () => {
+  const attrs = read('.gitattributes');
+  const excluded = attrs.split(/\r?\n/)
+    .map(line => line.replace(/#.*/, '').trim())
+    .filter(line => /(?:^|\s)export-ignore(?:\s|$)/.test(line))
+    .map(line => line.split(/\s+/)[0]);
+  assert.deepEqual(excluded, ['/docs/assets/'],
+    'do not exclude project policy, docs, .npmrc or CI files used by local tests from GitHub ZIP');
+  assert.ok(!excluded.includes('/docs/'));
+});
+
 test('README is an evergreen concise overview and not a release history', () => {
   const pkg = JSON.parse(read('package.json'));
   const readme = read('README.md');
