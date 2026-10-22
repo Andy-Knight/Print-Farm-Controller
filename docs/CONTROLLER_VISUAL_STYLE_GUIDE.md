@@ -176,6 +176,8 @@ Default ordinary buttons are **42px high**; `ui-button-small` is **32px**, used 
 - Keyboard focus gets 2px blue outline. Maintain persisted view state. A screen with similar binary preference should reuse the style, rather than inventing another switch.
 - For a different switch, match geometry, semantic labels and `aria-checked`; do not use a generic green/red traffic-light control for normal settings.
 
+**Analytics two-option segmented selectors (existing):** `Top 10 / All files` and `By material type / By filament` are **mutually exclusive selection groups**, not binary on/off switches. Keep `role="group"` with a descriptive `aria-label`, two native `button` controls with truthful `aria-pressed` values, and a visible selected segment. Each segment has a **42px minimum target** (`--ds-button-height`), `--ds-font-sm` semibold text, `--ds-radius-sm` corners, and a grouped inset surface/border using `--ds-surface-muted` and `--ds-border`. Selected state uses `--ds-brand-strong` with white text; the unselected option uses `--ds-text-muted` and a `--ds-surface-hover` hover response. Keyboard focus uses a **2px `--ds-focus` outline**. Both dark and light themes derive from semantic design tokens, not separate hard-coded colour palettes. On mobile both options remain reachable without truncation. Other mutually exclusive table grouping selectors should reuse this pattern rather than inventing a new variant.
+
 **Checkboxes:** show a real checked square with corresponding label; keep at least the normal controller touch target for the clickable row, don't hide the checkbox state behind a purely decorative icon. Selected printer cards and selected Print Library rows have their own subtle highlight.
 
 **Text/select/number fields:** follow `UiTextField`, `UiSelectField`, `UiCheckboxField` where possible. Inputs/selects use a muted inset surface, border `--ds-border`, radius 8px (new token-driven forms) and **42px** nominal height. Labels are muted, around .8rem semibold; hint and validation feedback sit with the field. Use dropdowns for nozzle size, filament types/colours and known enumerations rather than accepting free text; avoid incidental Clear buttons for toolheads where the approved design omits them.
@@ -184,7 +186,7 @@ Default ordinary buttons are **42px high**; `ui-button-small` is **32px**, used 
 
 ## 9. Shared table standard — mandatory
 
-The canonical table design lives in `public/styles.css` (`--pfc-table-*`). This is used by Dashboard **table view**, Alerts, Printer Groups, Diagnostics, multi-toolhead tables, Print Library and Analytics tables for both **Most popular print files** and **Material usage** (By material type and By filament). The Material usage totals row retains its semantic bold treatment on the shared table surface. **Do not create a competing bespoke table style.**
+The canonical table design lives in `public/styles.css` (`--pfc-table-*`). This is used by Dashboard **table view**, Alerts, Printer Groups, Diagnostics, multi-toolhead tables, Print Library and Analytics tables for both **Most popular print files** and **Material usage** (By material type and By filament). The Material usage totals row retains its semantic bold treatment on the shared table surface. **Printers needing attention** and **Print file failure analysis** also use the shared dark header, white uppercase headings, consistent cell spacing, horizontal row dividers and hover colours in both themes. The printer-name row header receives the same row geometry as ordinary cells. **Do not create a competing bespoke table style.**
 
 | Table token | Dark | Light / notes |
 |---|---|---|
@@ -207,7 +209,7 @@ A standard table has **white uppercase bold headings** (`.68rem`, 800, `.04em` t
 - Large Print Library tables keep toolbar/headings visible while only data rows scroll, with matching scrollbar gutters to maintain column alignment.
 - Narrow views may use labelled cards; other tables may retain a deliberate internal horizontal scroll, **never clipped data** or unwanted page-wide horizontal scrolling.
 - Status and maintenance icons line up vertically with row text and each other. Filament colour circles carry their actual user-selected colour without a second coloured cell background.
-- For Analytics popular files, the last columns are **Material / cost** (two stacked lines) and **Print time**—not a redundant Popularity bar. Missing historical data uses `—`, partial records say `partial`, and incompatible currencies are never summed as if converted.
+- For Analytics popular files, the last columns are **Material**, **Cost** and **Print time**, each occupying a separate column—not a redundant Popularity bar. Missing historical data uses `—`, partial records say `partial`, and incompatible currencies are never summed as if converted.
 
 ## 10. KPI cards, charts, printer tiles
 

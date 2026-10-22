@@ -3093,40 +3093,61 @@ button.library-file-preview { cursor:zoom-in; }
 .reporting-analytics-grid .reporting-section-head h3 { font-size:1.03rem; }
 .reporting-analytics-grid .reporting-section-head .subtle { font-size:.76rem; }
 .reporting-analytics-grid .reporting-analytics-trend { grid-column:1 / -1; }
-.reporting-segmented { display:inline-flex; flex-wrap:nowrap; gap:3px; padding:3px; border:1px solid var(--ds-border,#29323b); border-radius:9px; background:var(--ds-bg-elevated,#151d24); }
-.reporting-segmented button { min-height:33px; padding:5px 11px; border:0; border-radius:6px; color:var(--ds-text-muted,#9ba9b6); background:transparent; font-size:.76rem; font-weight:700; white-space:nowrap; }
-.reporting-segmented button.active { color:#fff; background:#267bcc; }
-.reporting-segmented button:focus-visible { outline:2px solid #80bfff; outline-offset:2px; }
+/* Two-choice segmented selector: button-group semantics, not a boolean switch.
+   The selected item uses the common brand tokens and both targets are 42px. */
+.reporting-segmented {
+  display:inline-flex; flex-wrap:nowrap; gap:3px; padding:3px;
+  border:1px solid var(--ds-border); border-radius:var(--ds-radius-md);
+  background:var(--ds-surface-muted);
+}
+.reporting-segmented button {
+  display:inline-flex; align-items:center; justify-content:center;
+  min-height:var(--ds-button-height); padding:8px 12px;
+  border:1px solid transparent; border-radius:var(--ds-radius-sm);
+  color:var(--ds-text-muted); background:transparent;
+  font-size:var(--ds-font-sm); font-weight:700; white-space:nowrap;
+  transition:background var(--ds-duration-fast) var(--ds-easing),color var(--ds-duration-fast) var(--ds-easing);
+}
+.reporting-segmented button:not(.active):hover:not(:disabled) {
+  color:var(--ds-text); background:var(--ds-surface-hover); filter:none;
+}
+.reporting-segmented button.active,
+.reporting-segmented button[aria-pressed="true"] {
+  color:#fff; background:var(--ds-brand-strong); border-color:var(--ds-brand-strong);
+}
+.reporting-segmented button:focus-visible { outline:2px solid var(--ds-focus); outline-offset:2px; filter:none; }
 .reporting-table-scroll { width:100%; max-width:100%; min-width:0; max-height:365px; overflow:auto; border:1px solid var(--ds-border,#29323b); border-radius:10px; scrollbar-gutter:stable; }
 .reporting-analytics-files { grid-column:1 / -1; }
 .reporting-analytics-files .reporting-analytics-table { width:100%; min-width:0; table-layout:fixed; }
+/* Eight independent file-ranking columns; resource values never stack. */
 .reporting-analytics-files .reporting-analytics-table th:nth-child(1),
-.reporting-analytics-files .reporting-analytics-table td:nth-child(1) { width:5%; }
+.reporting-analytics-files .reporting-analytics-table td:nth-child(1) { width:4%; }
 .reporting-analytics-files .reporting-analytics-table th:nth-child(2),
-.reporting-analytics-files .reporting-analytics-table td:nth-child(2) { width:32%; }
+.reporting-analytics-files .reporting-analytics-table td:nth-child(2) { width:28%; }
 .reporting-analytics-files .reporting-analytics-table th:nth-child(3),
-.reporting-analytics-files .reporting-analytics-table td:nth-child(3) { width:10%; }
+.reporting-analytics-files .reporting-analytics-table td:nth-child(3) { width:12%; }
 .reporting-analytics-files .reporting-analytics-table th:nth-child(4),
-.reporting-analytics-files .reporting-analytics-table td:nth-child(4) { width:8%; }
+.reporting-analytics-files .reporting-analytics-table td:nth-child(4) { width:9%; }
 .reporting-analytics-files .reporting-analytics-table th:nth-child(5),
-.reporting-analytics-files .reporting-analytics-table td:nth-child(5) { width:13%; }
+.reporting-analytics-files .reporting-analytics-table td:nth-child(5) { width:14%; }
 .reporting-analytics-files .reporting-analytics-table th:nth-child(6),
-.reporting-analytics-files .reporting-analytics-table td:nth-child(6) { width:20%; }
+.reporting-analytics-files .reporting-analytics-table td:nth-child(6) { width:11%; }
 .reporting-analytics-files .reporting-analytics-table th:nth-child(7),
-.reporting-analytics-files .reporting-analytics-table td:nth-child(7) { width:12%; }
+.reporting-analytics-files .reporting-analytics-table td:nth-child(7) { width:10%; }
+.reporting-analytics-files .reporting-analytics-table th:nth-child(8),
+.reporting-analytics-files .reporting-analytics-table td:nth-child(8) { width:12%; }
 .reporting-analytics-files .reporting-file-identity { max-width:none; width:100%; }
-.reporting-analytics-files .reporting-analytics-table td.reporting-file-resource { white-space:normal; font-variant-numeric:tabular-nums; }
-.reporting-file-resource-heading { display:flex; flex-wrap:wrap; align-items:center; gap:2px 8px; }
-.reporting-file-resource { min-width:0; line-height:1.35; }
-.reporting-file-resource > span { display:block; overflow-wrap:anywhere; }
-.reporting-file-resource > span + span { margin-top:3px; color:var(--ds-text-muted,#9ba9b6); }
-.reporting-file-resource small, .reporting-file-time small {
+.reporting-analytics-files .reporting-file-material,
+.reporting-analytics-files .reporting-file-cost,
+.reporting-analytics-files .reporting-file-time { white-space:nowrap; font-variant-numeric:tabular-nums; }
+.reporting-analytics-files .reporting-file-material small,
+.reporting-analytics-files .reporting-file-cost small,
+.reporting-analytics-files .reporting-file-time small {
   display:block; margin-top:2px; color:var(--ds-text-muted,#9ba9b6); font-size:.64rem;
 }
-.reporting-file-time { font-variant-numeric:tabular-nums; }
-.reporting-analytics-files .reporting-file-time { white-space:nowrap; }
 @media (max-width:760px) {
-  .reporting-analytics-files .reporting-analytics-table { min-width:850px; }
+  /* Small screens scroll inside the file table rather than cropping columns. */
+  .reporting-analytics-files .reporting-analytics-table { min-width:960px; }
 }
 .reporting-table-content { min-height:110px; }
 .reporting-analytics-table { width:100%; min-width:540px; border-collapse:separate; border-spacing:0; color:inherit; font-size:.76rem; }
@@ -3250,9 +3271,7 @@ button.library-file-preview { cursor:zoom-in; }
   .reporting-kpi .reporting-kpi-change { margin-left:61px; align-items:flex-start; text-align:left; }
 }
 
-:root[data-theme="light"] .reporting-segmented { border-color:#cbd7df; background:#e6edf3; }
-:root[data-theme="light"] .reporting-segmented button { color:#425e71; }
-:root[data-theme="light"] .reporting-segmented button.active { color:#fff; background:#2476c7; }
+/* Both themes inherit identical semantic segmented-control styling. */
 :root[data-theme="light"] .reporting-table-scroll { border-color:#cbd7df; }
 :root[data-theme="light"] .reporting-analytics-table th,
 :root[data-theme="light"] .reporting-analytics-table td { border-color:#dce5ec; }
@@ -4190,6 +4209,8 @@ body:not([data-route="/"]) > main > :not(.route-page) { display:none !important;
 .printer-group-members,
 #reportingFiles .reporting-table-scroll,
 #reportingMaterials .reporting-table-scroll,
+#reportingPrinters .reporting-table-scroll,
+#reportingFileFailures .reporting-table-scroll,
 .frontend-renderer-table,
 .material-grid.multi-tool-table,
 #libraryDialog .library-table-head,
@@ -4203,6 +4224,8 @@ body:not([data-route="/"]) > main > :not(.route-page) { display:none !important;
 .printer-group-members-table thead th,
 #reportingFiles .reporting-analytics-table thead th,
 #reportingMaterials .reporting-analytics-table thead th,
+#reportingPrinters .reporting-analytics-table thead th,
+#reportingFileFailures .reporting-analytics-table thead th,
 .frontend-renderer-table th,
 .material-table-head,
 #libraryDialog .library-table-head {
@@ -4222,26 +4245,34 @@ body:not([data-route="/"]) > main > :not(.route-page) { display:none !important;
 .printer-group-members-table thead th,
 #reportingFiles .reporting-analytics-table thead th,
 #reportingMaterials .reporting-analytics-table thead th,
+#reportingPrinters .reporting-analytics-table thead th,
+#reportingFileFailures .reporting-analytics-table thead th,
 .frontend-renderer-table th {
   border-bottom:1px solid var(--pfc-table-header-divider);
 }
 .printer-group-members-table thead th,
 #reportingFiles .reporting-analytics-table thead th,
-#reportingMaterials .reporting-analytics-table thead th {
+#reportingMaterials .reporting-analytics-table thead th,
+#reportingPrinters .reporting-analytics-table thead th,
+#reportingFileFailures .reporting-analytics-table thead th {
   padding:9px 12px;
   border-right:0;
 }
 .printer-group-members-table thead th { text-align:left; }
 .printer-group-members-table td,
 #reportingFiles .reporting-analytics-table tbody td,
-#reportingMaterials .reporting-analytics-table tbody td {
+#reportingMaterials .reporting-analytics-table tbody td,
+#reportingPrinters .reporting-analytics-table tbody > tr > :is(th,td),
+#reportingFileFailures .reporting-analytics-table tbody td {
   padding:9px 12px;
   border-right:0;
   border-bottom:1px solid var(--pfc-table-divider);
 }
 .printer-group-members-table tbody tr:last-child td,
 #reportingFiles .reporting-analytics-table tbody tr:last-child td,
-#reportingMaterials .reporting-analytics-table tbody tr:last-child td { border-bottom:0; }
+#reportingMaterials .reporting-analytics-table tbody tr:last-child td,
+#reportingPrinters .reporting-analytics-table tbody tr:last-child > *,
+#reportingFileFailures .reporting-analytics-table tbody tr:last-child td { border-bottom:0; }
 .frontend-renderer-table {
   border-collapse:separate;
   border-spacing:0;
@@ -4262,6 +4293,8 @@ body:not([data-route="/"]) > main > :not(.route-page) { display:none !important;
 .printer-group-members-table tbody tr:hover,
 #reportingFiles .reporting-analytics-table tbody tr:hover > *,
 #reportingMaterials .reporting-analytics-table tbody tr:hover > *,
+#reportingPrinters .reporting-analytics-table tbody tr:hover > *,
+#reportingFileFailures .reporting-analytics-table tbody tr:hover > *,
 .frontend-renderer-table tbody tr:hover,
 .multi-tool-table .material-tool:not(.filament-missing):hover,
 #libraryDialog .library-file-row:hover {
@@ -4277,6 +4310,17 @@ body:not([data-route="/"]) > main > :not(.route-page) { display:none !important;
 .printer-group-members-table .printer-group-member-groups {
   color:var(--pfc-table-secondary);
 }
+/* All four Analytics tables use the controller-wide table skin above. The
+   rules below only customise column geometry and exceptional row semantics. */
+#reportingPrinters .reporting-analytics-table,
+#reportingFileFailures .reporting-analytics-table { font-size:.78rem; }
+#reportingPrinters .reporting-analytics-table thead th,
+#reportingFileFailures .reporting-analytics-table thead th { white-space:normal; }
+#reportingPrinters .reporting-analytics-table tbody th[scope="row"] {
+  font-weight:700; color:var(--ds-text); white-space:normal; overflow-wrap:anywhere;
+}
+#reportingFileFailures .reporting-analytics-table tbody td:first-child { white-space:normal; }
+
 /* Material usage uses the same shared controller table skin, for both
    material-type and filament groupings in Preact and the HTML fallback.
    Preserve right-aligned quantities/costs and a readable fixed total row. */
@@ -4295,8 +4339,7 @@ body:not([data-route="/"]) > main > :not(.route-page) { display:none !important;
   background:var(--pfc-table-surface);
 }
 
-/* File analytics inherits the shared controller header/surface/hover skin,
-   while retaining its own seven-column geometry and right-aligned metrics. */
+/* Popular-file analytics retains eight independently sortable columns. */
 #reportingFiles .reporting-analytics-table { font-size:.78rem; }
 #reportingFiles .reporting-analytics-table thead th { white-space:normal; }
 #reportingFiles .reporting-analytics-table .reporting-table-sort {

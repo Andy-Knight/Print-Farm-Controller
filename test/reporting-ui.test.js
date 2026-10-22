@@ -541,7 +541,22 @@ test('print-file analytics show material, historical cost, and total printer tim
   assert.match(preact,/file\.materialCostText/);
   assert.match(preact,/file\.materialText/);
   assert.match(preact,/file\.printTime/);
-  assert.match(styles,/reporting-file-resource-heading/);
+  assert.match(styles,/reporting-file-material/);
+  assert.match(styles,/reporting-file-cost/);
+  assert.doesNotMatch(html,/reporting-file-resource/);
+  assert.match(html,/data-reporting-file-sort="materialGrams"/);
+  assert.match(html,/data-reporting-file-sort="materialCost"/);
+  const headerCells=(html.match(/<th scope="col"/g)||[]).length;
+  const valueCells=(html.match(/<td(?: class=|>)/g)||[]).length;
+  assert.equal(headerCells,8,'popular files must display eight independent column headings');
+  assert.equal(valueCells,rows.length*8,'each row must display Material and Cost in separate cells');
+  assert.match(html,/<td class="numeric reporting-file-material"/);
+  assert.match(html,/<td class="numeric reporting-file-cost"/);
+  const material=html.match(/<td class="numeric reporting-file-material"[^>]*>([\s\S]*?)<\/td>/);
+  const cost=html.match(/<td class="numeric reporting-file-cost"[^>]*>([\s\S]*?)<\/td>/);
+  assert.ok(material && cost,'resource columns must contain data');
+  assert.doesNotMatch(material[1],/£6\.00/,'historical cost must not appear below material');
+  assert.doesNotMatch(cost[1],/0\.45 kg/,'material weight must not appear within Cost');
   assert.match(styles,/reporting-file-time/);
 });
 
@@ -570,4 +585,46 @@ test('Material usage table follows the controller-wide table standard in both gr
   assert.match(index, /data-reporting-material-mode="filament"/);
   assert.match(fs.readFileSync(new URL('../scripts/browser-regression.mjs', import.meta.url), 'utf8'),
     /Material usage table shares printer-group table skin/);
+});
+
+test('all four Analytics tables use the shared controller table tokens and geometry', () => {
+  const shared=styles.slice(styles.indexOf('/* Controller table design system.'),
+    styles.indexOf('/* Toolhead tables use the same header block'));
+  for(const id of ['reportingFiles','reportingMaterials','reportingPrinters','reportingFileFailures']){
+    for(const selector of [
+      '#' + id + ' .reporting-table-scroll',
+      '#' + id + ' .reporting-analytics-table thead th',
+      '#' + id + ' .reporting-analytics-table tbody tr:hover > *'
+    ]) assert.ok(shared.includes(selector),'Missing shared table selector: '+selector);
+  }
+  assert.match(shared, /#reportingPrinters \.reporting-analytics-table tbody > tr > :is\(th,td\)/,
+    'printer-name row headers must use the same padding and dividers as ordinary cells');
+  assert.match(shared, /#reportingFileFailures \.reporting-analytics-table tbody td/);
+  assert.match(shared, /#reportingPrinters \.reporting-analytics-table tbody tr:last-child > \*/);
+  for(const token of ['--pfc-table-header-background','--pfc-table-header-text',
+    '--pfc-table-surface','--pfc-table-border','--pfc-table-divider','--pfc-table-hover']){
+    assert.ok(shared.includes('var('+token+')'), 'Missing shared table token: '+token);
+  }
+  const preact=fs.readFileSync(new URL('../ui/reporting.jsx',import.meta.url),'utf8');
+  assert.match(preact, /numeric:true, label:<button[^>]*data-reporting-file-sort="materialGrams"/);
+  assert.match(preact, /numeric:true, label:<button[^>]*data-reporting-file-sort="materialCost"/);
+  assert.match(preact, /class="numeric reporting-file-material"/);
+  assert.match(preact, /class="numeric reporting-file-cost"/);
+  assert.doesNotMatch(preact, /reporting-file-resource-heading/);
+  assert.match(styles, /\.reporting-analytics-files \.reporting-analytics-table td:nth-child\(8\)/);
+});
+
+test('analytics table grouping selectors use the standard 42px segmented-choice style', () => {
+  for(const label of ['Popular print files list size','Material usage grouping']){
+    assert.match(index,new RegExp('class="reporting-segmented" role="group" aria-label="'+label+'"'));
+  }
+  for(const value of ['top10','all','type','filament']){
+    const kind=['top10','all'].includes(value)?'files-scope':'material-mode';
+    assert.match(index,new RegExp('data-reporting-'+kind+'="'+value+'" aria-pressed="(true|false)"'));
+  }
+  assert.match(styles,/\.reporting-segmented button\s*\{[^}]*min-height:var\(--ds-button-height\)/);
+  assert.match(styles,/\.reporting-segmented button\.active,[\s\S]*?button\[aria-pressed="true"\]\s*\{[^}]*background:var\(--ds-brand-strong\)/);
+  assert.match(styles,/\.reporting-segmented button:focus-visible\s*\{[^}]*outline:2px solid var\(--ds-focus\)/);
+  assert.doesNotMatch(styles,/\.reporting-segmented button\s*\{[^}]*min-height:33px/);
+  assert.match(reportingUi,/button\.setAttribute\('aria-pressed', String\(active\)\)/);
 });

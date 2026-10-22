@@ -9,13 +9,16 @@ If chat context and this file disagree about the codebase, inspect current GitHu
 - Repository: `Andy-Knight/Print-Farm-Controller`
 - Project path: repository root (`/`)
 - Primary branch: `main` (current production baseline)
-- Current controller source version: **0.59.8** (Analytics Material usage table uses canonical shared table style).
+- Current controller source version: **0.59.9** (all Analytics tables unified; independent Material and Cost columns; selectors standardised).
 - Previous baseline audited: **0.48.0** (main before the regression test audit release).
 - Runtime: **Node.js 24+** (development baseline Node.js 24.21.0), ES modules, no npm runtime dependencies.
 - GitHub is the authoritative code baseline.
 - Release/version history is maintained only in `CHANGELOG.md`; do not duplicate per-version history in this handoff file.
 
 ## Current work
+
+**v0.59.9 Analytics table and selector standardisation (PR #116):** User approved merge. Standardise all four Reports & finance → Analytics tables with canonical `--pfc-table-*` surfaces, headings, horizontal cell dividers and hover treatment in both themes. Popular-file Material and Cost each occupy their own sortable column (8 total), with historical currency, missing/partial values and mobile scrolling retained. Top 10 / All files and By material type / By filament remain exclusive `role="group"` / `aria-pressed` choices and now use 42px token-based buttons. Preact and fallback renderers and charts unchanged. Node, Chromium and container checks passed on feature; verify release metadata commit CI and merge to main. Separate tab-icon documentation PR #115 remains pending and is not part of this release.
+
 
 **v0.59.8 Analytics Material usage table standardisation (PR #114):** User approved the version bump and merge. Reports & finance → Analytics → Material usage uses the shared `--pfc-table-*` panel, dark white-uppercase header, cell spacing/dividers, hover state, totals-row separator and light/dark palette, matching other controller tables for both By material type and By filament. Historical material usage amounts, costs/currencies, percentage bars, grouping controls, numeric alignment and both Preact/HTML fallback renderers remain unchanged. The standalone visual style guide was updated; new Node and Chromium tests compare computed styles in both themes and modes. Verify release-commit CI before merging to main.
 
