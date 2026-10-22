@@ -1875,8 +1875,8 @@ async function routeSmoke(page,url) {
     return {materialHeader:head[5].innerText,costHeader:head[6].innerText,
       headingDelta:left(head[6])-left(head[5]),valueDelta:left(row[6])-left(row[5])};
   });
-  assert.match(resourceColumns.materialHeader,/Material/);
-  assert.match(resourceColumns.costHeader,/Cost/);
+  assert.match(resourceColumns.materialHeader,/Material/i);
+  assert.match(resourceColumns.costHeader,/Cost/i);
   assert.ok(resourceColumns.headingDelta>40 && resourceColumns.valueDelta>40,
     'resource cells must be side by side, not stacked in one column');
   assert.match(await page.locator('#reportingFiles .reporting-file-time').innerText(),/2h 0m/);
