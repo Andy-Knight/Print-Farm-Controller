@@ -184,7 +184,7 @@ Default ordinary buttons are **42px high**; `ui-button-small` is **32px**, used 
 
 ## 9. Shared table standard — mandatory
 
-The canonical table design lives in `public/styles.css` (`--pfc-table-*`). This is used by Dashboard **table view**, Alerts, Printer Groups, Diagnostics, multi-toolhead tables, Print Library and Analytics tables for both **Most popular print files** and **Material usage** (By material type and By filament). The Material usage totals row retains its semantic bold treatment on the shared table surface. **Do not create a competing bespoke table style.**
+The canonical table design lives in `public/styles.css` (`--pfc-table-*`). This is used by Dashboard **table view**, Alerts, Printer Groups, Diagnostics, multi-toolhead tables, Print Library and Analytics tables for both **Most popular print files** and **Material usage** (By material type and By filament). The Material usage totals row retains its semantic bold treatment on the shared table surface. **Printers needing attention** and **Print file failure analysis** also use the shared dark header, white uppercase headings, consistent cell spacing, horizontal row dividers and hover colours in both themes. The printer-name row header receives the same row geometry as ordinary cells. **Do not create a competing bespoke table style.**
 
 | Table token | Dark | Light / notes |
 |---|---|---|
@@ -207,7 +207,7 @@ A standard table has **white uppercase bold headings** (`.68rem`, 800, `.04em` t
 - Large Print Library tables keep toolbar/headings visible while only data rows scroll, with matching scrollbar gutters to maintain column alignment.
 - Narrow views may use labelled cards; other tables may retain a deliberate internal horizontal scroll, **never clipped data** or unwanted page-wide horizontal scrolling.
 - Status and maintenance icons line up vertically with row text and each other. Filament colour circles carry their actual user-selected colour without a second coloured cell background.
-- For Analytics popular files, the last columns are **Material / cost** (two stacked lines) and **Print time**—not a redundant Popularity bar. Missing historical data uses `—`, partial records say `partial`, and incompatible currencies are never summed as if converted.
+- For Analytics popular files, the last columns are **Material**, **Cost** and **Print time**, each occupying a separate column—not a redundant Popularity bar. Missing historical data uses `—`, partial records say `partial`, and incompatible currencies are never summed as if converted.
 
 ## 10. KPI cards, charts, printer tiles
 
