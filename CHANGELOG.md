@@ -4,6 +4,13 @@ This file contains the version-by-version release history for Print Farm Control
 
 Historical entries describe the behaviour of the controller at the time of that release and may be superseded by later versions. For current installation, configuration and supported-hardware guidance, see [README.md](README.md).
 
+## v0.59.9
+
+- Standardised **all four Analytics tables** to the shared `--pfc-table-*` controller visual style, extending existing table header, row, border, hover and surface treatments to **Printers needing attention** and **Print file failure analysis** in dark and light themes. Kept the printer-name header cell aligned with ordinary table cells.
+- In **Most popular print files**, separated **Material** and **Cost** into distinct, independently sortable columns rather than stacking the values in one column, making eight columns. Retained correct alignment, saved historical costs and currencies, missing/partial values, thumbnails, links and internal mobile table scrolling. Updated Preact and HTML fallback views.
+- Standardised the **Top 10 / All files** and **By material type / By filament** grouped choice buttons to the established 42px controller control height, semantic blue selected state, muted unselected state and visible keyboard focus. These remain mutually exclusive choices with `role="group"` and `aria-pressed`, not binary switches.
+- Updated the standalone Controller Visual Style Guide and expanded Node/Chromium visual, DOM, responsive and selection regression coverage. No changes to printer control, job history, or analytics aggregation.
+
 ## v0.59.8
 
 - Applied the controller's established `--pfc-table-*` table design system to Reports & finance → Analytics → **Material usage**, in both **By material type** and **By filament** presentations. Use matching dark header/white uppercase text, shared panel borders and radius, compact cell padding, horizontal dividers, hover highlighting and light/dark theme appearance.

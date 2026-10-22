@@ -1,4 +1,4 @@
-# Print Farm Controller v0.59.8
+# Print Farm Controller v0.59.9
 A local-first 3D printer fleet controller. It runs entirely on your LAN and currently supports:
 
 - **FlashForge Adventurer 5M / 5M Pro** through the local FlashForge HTTP/TCP APIs.
@@ -7,9 +7,12 @@ A local-first 3D printer fleet controller. It runs entirely on your LAN and curr
 - **Prusa CORE One+ (experimental)** through the local PrusaLink API, supporting Standard (1-tool), INDX4 and INDX8 configurations.
 - **Bambu Lab P1P / P1S / X1C / A1 Mini (experimental)** through the local MQTT TLS and FTPS TLS interfaces. P1P/P1S/A1 Mini use the TLS/JPEG camera path; X1C camera decoding remains unsupported.
 
-**Current development version: v0.59.8**
+**Current development version: v0.59.9**
 
 Current highlights:
+
+- **Unified Analytics tables and selection controls (v0.59.9):** All four Reports & finance → Analytics tables now use the shared controller table styling, including Printers needing attention and Print file failure analysis. Most popular print files has separate sortable **Material** and **Cost** columns (eight columns total), with preserved historical currency and partial-data semantics. The Top 10 / All files and By material type / By filament choice groups follow standard 42px token-based button styling and accessible pressed states. Both themes, mobile overflow and Preact/HTML fallback remain supported.
+
 
 - **Standardised Analytics Material usage table (v0.59.8):** Reports & finance → Analytics → Material usage now matches the controller's shared table design across both **By material type** and **By filament**: dark background and white uppercase headings in either theme, matching panel borders/rounded corners, compact row separators and hover treatments. Numeric data stays right-aligned, percentage usage bars stay intact, and the bold Total row has a matching surface and divider. No changes to historical material quantities, currencies, costing, aggregation or grouping controls. Updated the standalone Controller Visual Style Guide with the table standard.
 
