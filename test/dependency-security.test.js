@@ -21,11 +21,23 @@ test('dependency versions and lockfile align with the approved npm 12 baseline',
   assert.deepEqual(pkg.allowScripts, { 'esbuild@0.28.2': true });
 });
 
-test('repository dependency rules retain age gate and explicit supply-chain controls', () => {
+test('repository dependency rules retain age gate and explicit supply-chain controls', t => {
   const config = read('.npmrc');
   assert.match(config, /^min-release-age=7$/m);
   assert.match(config, /^allow-git=none$/m);
   assert.match(config, /^allow-remote=none$/m);
+
+  // GitHub metadata is not required in distributed source/Windows installations.
+  // A CI checkout must include it so this check cannot silently disappear.
+  const dependabotPath = new URL('.github/dependabot.yml', root);
+  if (!existsSync(dependabotPath)) {
+    if (process.env.GITHUB_ACTIONS) {
+      assert.fail('GitHub Actions checkout must include .github/dependabot.yml');
+    }
+    t.diagnostic('Skipping GitHub-only Dependabot config check outside repository checkout');
+    return;
+  }
+
   const dependabot = read('.github/dependabot.yml');
   for (const kind of ['npm', 'docker', 'github-actions']) {
     assert.ok(dependabot.includes('package-ecosystem: "' + kind + '"'));
