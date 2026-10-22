@@ -2152,6 +2152,52 @@ async function routeSmoke(page,url) {
   assert.equal(await page.locator('[data-reporting-material-mode="filament"]').getAttribute('aria-pressed'),'true');
   await page.locator('[data-reporting-material-mode="type"]').click();
   assert.equal(await page.locator('[data-reporting-material-mode="type"]').getAttribute('aria-pressed'),'true');
+  // Segmented table selectors are 2-choice groups, not the Dashboard's
+  // boolean role=switch. Verify accessible state and token-driven appearance.
+  const segmentedStyles=await page.evaluate(()=>{
+    const root=document.documentElement;
+    const original=root.getAttribute('data-theme');
+    const output={};
+    try {
+      for(const theme of ['dark','light']){
+        root.setAttribute('data-theme',theme);
+        output[theme]=[...document.querySelectorAll('.reporting-segmented')].map(group=>{
+          const btns=[...group.querySelectorAll('button')];
+          const styles=btns.map(btn=>getComputedStyle(btn));
+          const s=getComputedStyle(group);
+          return {
+            role:group.getAttribute('role'),label:group.getAttribute('aria-label'),
+            pressed:btns.map(btn=>btn.getAttribute('aria-pressed')),
+            height:btns.map(btn=>btn.getBoundingClientRect().height),
+            borders:btns.map((_,i)=>styles[i].borderTopWidth),
+            selected:styles[0].backgroundColor,other:styles[1].backgroundColor,
+            selectedColor:styles[0].color,otherColor:styles[1].color,
+            brandStrong:s.getPropertyValue('--ds-brand-strong').trim(),
+            focus:s.getPropertyValue('--ds-focus').trim()
+          };
+        });
+      }
+    } finally {
+      if(original===null)root.removeAttribute('data-theme');
+      else root.setAttribute('data-theme',original);
+    }
+    return output;
+  });
+  for(const [theme,groups] of Object.entries(segmentedStyles)){
+    assert.equal(groups.length,2,theme+' expects two reporting choice groups');
+    for(const group of groups){
+      assert.equal(group.role,'group',theme+' segmented choice is not a boolean switch');
+      assert.ok(group.label,theme+' segmented choice must have an accessible label');
+      assert.deepEqual(group.pressed,['true','false'],
+        theme+' exactly one choice must be active');
+      assert.ok(group.height.every(height=>height>=42),
+        theme+' segmented controls must use the standard 42px target');
+      assert.notEqual(group.selected,group.other,
+        theme+' selected and inactive controls must look different');
+      assert.notEqual(group.selectedColor,group.otherColor,
+        theme+' selected choice must have visibly different text');
+    }
+  }
   await page.reload({waitUntil:'load'});
   await reportsLoaded(page,'refreshed report');
   await page.locator('[data-reporting-tab="filament"]').click();
