@@ -6,6 +6,9 @@ on:
       - Dockerfile
       - .dockerignore
       - package.json
+      - package-lock.json
+      - .npmrc
+      - .github/dependabot.yml
       - src/**
       - public/**
       - ui/**
@@ -22,6 +25,9 @@ on:
       - Dockerfile
       - .dockerignore
       - package.json
+      - package-lock.json
+      - .npmrc
+      - .github/dependabot.yml
       - src/**
       - public/**
       - ui/**
@@ -33,7 +39,6 @@ on:
 
 permissions:
   contents: read
-  packages: write
 
 env:
   REGISTRY: ghcr.io
@@ -50,7 +55,16 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v7
         with:
-          node-version: '24'
+          node-version: '24.22.1'
+
+      - name: Upgrade npm to approved version
+        run: npm install --global npm@12.2.0 --no-audit --no-fund
+
+      - name: Install locked dependencies
+        run: npm ci --include=dev --no-audit --no-fund
+
+      - name: Audit dependency vulnerabilities
+        run: npm audit --audit-level=high
 
       - name: Run regression suite
         run: npm test
@@ -117,10 +131,13 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v7
         with:
-          node-version: '24'
+          node-version: '24.22.1'
 
-      - name: Install frontend and browser development tools
-        run: npm install --include=dev --no-audit --no-fund
+      - name: Upgrade npm to approved version
+        run: npm install --global npm@12.2.0 --no-audit --no-fund
+
+      - name: Install locked frontend and browser tools
+        run: npm ci --include=dev --no-audit --no-fund
 
       - name: Install Chromium with system dependencies
         run: npx playwright install --with-deps chromium
@@ -147,9 +164,38 @@ jobs:
           path: test-artifacts/
           if-no-files-found: ignore
 
+  windows:
+    name: Windows SEA compatibility
+    runs-on: windows-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Set up patched Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: '24.22.1'
+          architecture: x64
+
+      - name: Upgrade npm to approved version
+        run: npm install --global npm@12.2.0 --no-audit --no-fund
+
+      - name: Install locked dependencies
+        run: npm ci --include=dev --no-audit --no-fund
+
+      - name: Build Windows SEA executable
+        run: npm run build:sea:windows
+
+      - name: Check portable executable exists
+        shell: pwsh
+        run: |
+          if (-not (Test-Path 'dist/windows-x64/PrintFarmController.exe')) {
+            throw 'The Windows SEA build did not produce its executable.'
+          }
+
   smoke:
     name: Container smoke test
-    needs: [test, browser]
+    needs: [test]
     runs-on: ubuntu-latest
 
     steps:
@@ -214,6 +260,9 @@ jobs:
 
   build:
     name: Release or manually verify multi-architecture image
+    permissions:
+      contents: read
+      packages: write
     # Pull requests already build a disposable image in the smoke job.
     # Skip costly amd64+arm64 release builds on every feature-branch commit.
     # A completed feature branch can opt in to one manual, non-published build
@@ -221,7 +270,7 @@ jobs:
     if: >-
       (github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')))
       || github.event_name == 'workflow_dispatch'
-    needs: smoke
+    needs: [smoke, browser, windows]
     runs-on: ubuntu-latest
 
     steps:

@@ -1,14 +1,15 @@
 # syntax=docker/dockerfile:1.7
 
-FROM node:24-bookworm-slim AS builder
+FROM node:24.22.1-bookworm-slim AS builder
 
 WORKDIR /app
 
-COPY package.json ./
+COPY package.json package-lock.json .npmrc ./
 COPY scripts ./scripts
 COPY public ./public
 COPY ui ./ui
-RUN npm install --include=dev --no-audit --no-fund
+RUN npm install --global npm@12.2.0 --no-audit --no-fund \
+    && npm ci --include=dev --no-audit --no-fund
 
 COPY src ./src
 COPY emulator ./emulator
@@ -23,7 +24,7 @@ RUN --mount=type=secret,id=pfc_google_client_id,required=false \
     PFC_BUNDLE_BUILD_NONCE="$PFC_BUNDLE_BUILD_NONCE" \
     npm run build:bundle
 
-FROM node:24-bookworm-slim
+FROM node:24.22.1-bookworm-slim
 
 WORKDIR /app
 

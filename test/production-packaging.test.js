@@ -18,7 +18,7 @@ const releaseScript = fs.readFileSync(new URL('../scripts/build-windows-release.
 const dockerfile = fs.readFileSync(new URL('../Dockerfile', import.meta.url), 'utf8');
 
 test('production packaging scripts use Node 24, esbuild and Node SEA', () => {
-  assert.equal(pkg.engines.node, '>=24');
+  assert.equal(pkg.engines.node, '>=24.22.1');
   assert.equal(pkg.devDependencies.esbuild, '0.28.2');
   assert.equal(pkg.devDependencies.postject, '1.0.0-alpha.6');
   assert.equal(pkg.scripts['build:bundle'], 'npm run build:frontend && node scripts/build-controller-bundle.mjs');

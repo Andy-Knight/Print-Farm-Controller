@@ -4,6 +4,14 @@ This file contains the version-by-version release history for Print Farm Control
 
 Historical entries describe the behaviour of the controller at the time of that release and may be superseded by later versions. For current installation, configuration and supported-hardware guidance, see [README.md](README.md).
 
+## v0.59.10
+
+- Adopted an audited **Node.js 24.22.1** and **npm 12.2.0** development/build baseline; recorded the required npm version in `package.json`.
+- Committed `package-lock.json` and switched GitHub Actions and container dependency installation to **`npm ci`** for reproducible dependency resolution. Production uses the Node.js runtime without an npm process.
+- Added npm supply-chain guardrails: a seven-day minimum dependency publication age, disabled unapproved Git/remote dependency sources, and kept the esbuild install-script approval explicit. Routine/urgent update procedure documented in `docs/dependency-security.md`.
+- Added CI vulnerability scanning at high severity and above, Dependabot proposals for npm, Docker images and GitHub Actions, and reduced workflow token permissions to release-only package publishing. Tested the Windows x64 SEA build using the patched Node/npm baseline and retained Chromium, Node, MinIO and disposable container regression gates.
+- Updated local-security regression tests to tolerate GitHub-only configuration files being absent from distributed Windows source directories while enforcing them in GitHub Actions. No changes to printer protocols, queue commands, licensing, stored data or interface behaviour.
+
 ## v0.59.9
 
 - Standardised **all four Analytics tables** to the shared `--pfc-table-*` controller visual style, extending existing table header, row, border, hover and surface treatments to **Printers needing attention** and **Print file failure analysis** in dark and light themes. Kept the printer-name header cell aligned with ordinary table cells.

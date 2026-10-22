@@ -9,13 +9,15 @@ If chat context and this file disagree about the codebase, inspect current GitHu
 - Repository: `Andy-Knight/Print-Farm-Controller`
 - Project path: repository root (`/`)
 - Primary branch: `main` (current production baseline)
-- Current controller source version: **0.59.9** (all Analytics tables unified; independent Material and Cost columns; selectors standardised).
+- Current controller source version: **0.59.10** (npm 12 security hardening, patched Node 24, deterministic locked builds and CI supply-chain controls).
 - Previous baseline audited: **0.48.0** (main before the regression test audit release).
-- Runtime: **Node.js 24+** (development baseline Node.js 24.21.0), ES modules, no npm runtime dependencies.
+- Runtime: **Node.js 24.22.1+** (Node 24 release line), ES modules; build-time **npm 12.2.0** and committed lockfile; no npm runtime dependency for deployed controller. Follow `docs/dependency-security.md` for updates.
 - GitHub is the authoritative code baseline.
 - Release/version history is maintained only in `CHANGELOG.md`; do not duplicate per-version history in this handoff file.
 
 ## Current work
+
+**v0.59.10 supply-chain hardening (PR #117):** User validated `npm test` and local Windows startup on npm 12.2.0/Node 24.22.1 and approved the release bump and merge. Added committed npm lockfile and reproducible `npm ci`, default seven-day dependency age restriction, no unapproved Git or remote packages, npm vulnerability audit, weekly Dependabot updates, least-privilege Actions publish access and explicit Windows SEA CI coverage. CI must be green again after this release metadata update before PR #117 merges into `main`; `main` image publishing runs only after merge. Printer/queue/data functionality unchanged.
 
 **v0.59.9 Analytics table and selector standardisation (PR #116):** User approved merge. Standardise all four Reports & finance → Analytics tables with canonical `--pfc-table-*` surfaces, headings, horizontal cell dividers and hover treatment in both themes. Popular-file Material and Cost each occupy their own sortable column (8 total), with historical currency, missing/partial values and mobile scrolling retained. Top 10 / All files and By material type / By filament remain exclusive `role="group"` / `aria-pressed` choices and now use 42px token-based buttons. Preact and fallback renderers and charts unchanged. Node, Chromium and container checks passed on feature; verify release metadata commit CI and merge to main. Separate tab-icon documentation PR #115 remains pending and is not part of this release.
 
