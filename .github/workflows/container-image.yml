@@ -195,7 +195,7 @@ jobs:
 
   smoke:
     name: Container smoke test
-    needs: [test, browser, windows]
+    needs: [test]
     runs-on: ubuntu-latest
 
     steps:
@@ -270,7 +270,7 @@ jobs:
     if: >-
       (github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')))
       || github.event_name == 'workflow_dispatch'
-    needs: smoke
+    needs: [smoke, browser, windows]
     runs-on: ubuntu-latest
 
     steps:
