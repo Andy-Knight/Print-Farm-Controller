@@ -613,3 +613,18 @@ test('all four Analytics tables use the shared controller table tokens and geome
   assert.doesNotMatch(preact, /reporting-file-resource-heading/);
   assert.match(styles, /\.reporting-analytics-files \.reporting-analytics-table td:nth-child\(8\)/);
 });
+
+test('analytics table grouping selectors use the standard 42px segmented-choice style', () => {
+  for(const label of ['Popular print files list size','Material usage grouping']){
+    assert.match(index,new RegExp('class="reporting-segmented" role="group" aria-label="'+label+'"'));
+  }
+  for(const value of ['top10','all','type','filament']){
+    const kind=['top10','all'].includes(value)?'files-scope':'material-mode';
+    assert.match(index,new RegExp('data-reporting-'+kind+'="'+value+'" aria-pressed="(true|false)"'));
+  }
+  assert.match(styles,/\.reporting-segmented button\s*\{[^}]*min-height:var\(--ds-button-height\)/);
+  assert.match(styles,/\.reporting-segmented button\.active,[\s\S]*?button\[aria-pressed="true"\]\s*\{[^}]*background:var\(--ds-brand-strong\)/);
+  assert.match(styles,/\.reporting-segmented button:focus-visible\s*\{[^}]*outline:2px solid var\(--ds-focus\)/);
+  assert.doesNotMatch(styles,/\.reporting-segmented button\s*\{[^}]*min-height:33px/);
+  assert.match(reportingUi,/button\.setAttribute\('aria-pressed', String\(active\)\)/);
+});
