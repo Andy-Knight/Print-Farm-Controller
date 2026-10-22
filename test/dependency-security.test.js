@@ -42,6 +42,10 @@ test('repository dependency rules retain age gate and explicit supply-chain cont
   for (const kind of ['npm', 'docker', 'github-actions']) {
     assert.ok(dependabot.includes('package-ecosystem: "' + kind + '"'));
   }
+  const dockerUpdates = dependabot.split('package-ecosystem: "docker"')[1]
+    ?.split('package-ecosystem: "github-actions"')[0] || '';
+  assert.match(dockerUpdates, /dependency-name: "node"\s*\n\s*update-types: \["version-update:semver-major"\]/,
+    'Node.js major upgrades must be deliberate while Windows SEA requires Node 24');
 });
 
 test('CI and container builds install the committed lock under pinned runtimes', t => {
@@ -57,7 +61,12 @@ test('CI and container builds install the committed lock under pinned runtimes',
   assert.match(ci, /npm audit --audit-level=high/);
   assert.match(ci, /^permissions:\n  contents: read\n/m);
   assert.match(ci, /  build:\n    name: Release or manually verify multi-architecture image\n    permissions:\n      contents: read\n      packages: write/);
-  assert.equal((docker.match(/FROM node:24\.22\.1-bookworm-slim/g) || []).length, 2);
+  const imageVersions = [...docker.matchAll(/^FROM node:(24\.\d+\.\d+)-bookworm-slim(?: AS builder)?$/gm)].map(m => m[1]);
+  assert.equal(imageVersions.length, 2, 'builder and runtime must use patched Node 24');
+  assert.equal(imageVersions[0], imageVersions[1], 'both Docker stages must use the same Node version');
+  const [major, minor, patch] = imageVersions[0].split('.').map(Number);
+  assert.equal(major, 24, 'Windows SEA requires Node 24 for this release');
+  assert.ok(minor > 22 || (minor === 22 && patch >= 1), 'Docker Node patch version must not predate the audited baseline');
   assert.match(docker, /COPY package\.json package-lock\.json \.npmrc/);
   assert.match(docker, /npm ci --include=dev --no-audit --no-fund/);
 });

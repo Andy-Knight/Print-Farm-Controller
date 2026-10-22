@@ -27,6 +27,7 @@ The local Node.js/npm installations are independent of the dependencies bundled 
 - Do not automatically merge dependency updates: review the release notes and CI results, then merge and publish through the standard main-branch process.
 - CI blocks reported high/critical npm audit findings. Any exception must be justified and tracked rather than globally silencing the audit.
 - Prefer runtime patches promptly. Assess movement to the next Node.js LTS major separately after its LTS transition and successful compatibility testing.
+- The Windows SEA packaging currently rejects Node.js major versions other than 24. Dependabot ignores Node Docker image *major* upgrades while retaining proposals for compatible 24.x updates. Test Node 26+ in a dedicated migration branch before removing the restriction.
 
 ## Release validation
 
