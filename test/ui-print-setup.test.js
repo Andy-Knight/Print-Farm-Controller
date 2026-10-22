@@ -553,9 +553,10 @@ test('live dashboard event stream bounds slow-client buffering and coalesces fle
 
 test('dashboard labels farm selection controls as farm operations without redundant Done action', () => {
   const html = fs.readFileSync(new URL('../public/index.html', import.meta.url), 'utf8');
-  assert.match(html, /id="batchModeBtn"[^>]*class="sidebar-item"/);
-  assert.match(html, /id="batchModeBtn"[\s\S]*?<span>Farm operations<\/span><\/button>/);
-  assert.match(app, /selectionMode \? 'Exit farm ops' : 'Farm operations'/);
+  assert.doesNotMatch(html, /id="batchModeBtn"|id="batchModeMenuBtn"/);
+  assert.match(html, /class="dashboard-view-control dashboard-operations-control"/);
+  assert.match(html, /id="farmOperationsToggle"[^>]*role="switch"[^>]*aria-checked="false"/);
+  assert.match(app, /farmOperationsToggle\.setAttribute\('aria-checked', String\(selectionMode\)\)/);
   assert.doesNotMatch(app, /Exit selection/);
   assert.doesNotMatch(html, /data-batch-done|>Done<\/button>/);
   assert.doesNotMatch(app, /data-batch-done/);
