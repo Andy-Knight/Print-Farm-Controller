@@ -1642,8 +1642,15 @@ async function libraryAvailabilityBadgeSmoke(page,url) {
   // The initial /api/library response is asynchronous. Wait until the
   // controller has published it before injecting synthetic badge cases,
   // otherwise that response can overwrite the fixture during CI.
-  await page.waitForFunction(()=>window.__PFC_PREACT_LIBRARY__===true
-    && window.__PFC_LIBRARY_UI_STATE__?.summary?.includes('stored on this controller'));
+  // The initial library response can update its visible summary before
+  // Preact publishes the state snapshot. Either observable state is sufficient
+  // to establish that the async refresh finished before inserting fixtures.
+  await page.waitForFunction(()=>{
+    const summary=window.__PFC_LIBRARY_UI_STATE__?.summary
+      || document.querySelector('#librarySummary')?.textContent || '';
+    return window.__PFC_PREACT_LIBRARY__===true
+      && summary.includes('stored on this controller');
+  });
   const endpoint=await page.evaluate(async()=>{
     const result=await fetch('/api/library/readiness');
     return {status:result.status,data:await result.json()};
