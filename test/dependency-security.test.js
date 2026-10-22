@@ -42,6 +42,10 @@ test('repository dependency rules retain age gate and explicit supply-chain cont
   for (const kind of ['npm', 'docker', 'github-actions']) {
     assert.ok(dependabot.includes('package-ecosystem: "' + kind + '"'));
   }
+  const dockerUpdates = dependabot.split('package-ecosystem: "docker"')[1]
+    ?.split('package-ecosystem: "github-actions"')[0] || '';
+  assert.match(dockerUpdates, /dependency-name: "node"\s*\n\s*update-types: \["version-update:semver-major"\]/,
+    'Node.js major upgrades must be deliberate while Windows SEA requires Node 24');
 });
 
 test('CI and container builds install the committed lock under pinned runtimes', t => {
