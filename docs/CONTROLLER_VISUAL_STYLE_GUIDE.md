@@ -241,6 +241,57 @@ A standard table has **white uppercase bold headings** (`.68rem`, 800, `.04em` t
 - **Source:** use the existing local inline SVG / `data-pfc-icon` CSS-mask pattern; no web icon fonts, remote SVG, unlicensed external packs, images as substitutes for status shapes, or embedded font files.
 - **Changes:** never silently replace the Stack Layers/Stacked Layers brand mark. Brand is separate from functional icons. Treat new candidates below as *proposals* until implemented and approved.
 
+### Production tab icons — exact catalogue
+
+![Exact deployed tab icons and unimplemented future suggestions](assets/controller-tab-icon-catalog.svg)
+
+The [dedicated tab icon reference sheet](assets/controller-tab-icon-catalog.svg) contains **all 17 deployed `data-pfc-icon` definitions**, faithfully decoded from the live SVG mask paths in `public/tab-navigation.css`. The blue icons show their actual vector geometry both enlarged and at the **17px runtime scale**. The 12 teal icons are **proposed designs only**, not active tabs or implemented features. This is a visual reference, **not an additional runtime dependency**.
+
+#### Deployed icon inventory and actual tab usage
+
+| `data-pfc-icon` | Shape | Where it is currently used |
+|---|---|---|
+| `sliders` | Adjustment sliders | Printer Details → Toolheads; Reports & finance → Pricing settings; Alerts → Notification rules |
+| `camera` | Camera | Printer Details → Camera |
+| `files` | File/document | Printer Details → Files |
+| `thermometer` | Temperature | Printer Details → Temperature |
+| `clock` | Clock | Printer Details → Current Job; Alerts → Alert history |
+| `wrench` | Maintenance spanner | Maintenance → Individual printer tasks. Printer Details → Management does not currently assign an icon in Preact. |
+| `plus` | Add | Maintenance → Add tasks; Printer Groups → Create group |
+| `printer` | Printer | Maintenance → Model-wide maintenance tasks |
+| `layers` | Layer stack | Maintenance → Group-wide tasks; Printer Groups → Existing groups |
+| `chart` | Chart | Reports & finance → Analytics |
+| `spool` | Filament spool | Reports & finance → Filament cost catalogue |
+| `bell` | Notification bell | Alerts → Notification destinations |
+| `database` | Database | Backup & recovery → Overview |
+| `cloud` | Cloud | Backup & recovery → Google Drive; OneDrive |
+| `server` | Storage server | Backup & recovery → S3-compatible |
+| `calendar` | Calendar | Backup & recovery → Schedule |
+| `restore` | Clock/restore arrow | Backup & recovery → Restore |
+
+**Implementation details:** Six tab interfaces share this pattern: Printer Details, Maintenance, Printer Groups, Reports & finance, Alerts & notifications and Backup & recovery. Each CSS mask uses a **24×24 SVG** with `fill="none"`, `stroke="black"` (for mask opacity only), **1.8px** line weight and rounded end caps/joins; the visible glyph is **17×17px** and inherits the tab's `currentColor`. Inactive icons use muted text, while active icons and the 3px underline use `--ds-brand`. Tabs remain transparent, at least 46px tall, with an 8px label gap; on mobile the tablist scrolls horizontally.
+
+**Known documentation discrepancy:** The `wrench` mask exists and is used for Maintenance's Individual printer tasks tab. In current Preact code, however, **Printer Details → Management has no `icon` field assigned** in `ui/printer-details.jsx`. Do not treat it as rendered there until corrected. This documentation-only update does not change that UI behaviour.
+
+#### Matching ideas for new tab icons (not implemented)
+
+| Proposed icon ID | Concept / suggested future context |
+|---|---|
+| `nozzle` | Nozzle wear/health |
+| `print-bed` | Build plate and bed clearance |
+| `quality` | Print quality inspection |
+| `inventory` | Filament and finished product inventory |
+| `energy` | Energy monitoring |
+| `costs` | Financial cost breakdown |
+| `orders` | Production orders |
+| `shipping` | Packing and dispatch |
+| `audit` | Audit and traceability |
+| `export` | Report/data export |
+| `calibration` | Printer calibration |
+| `automation` | Automatic production workflows |
+
+**Adoption rule:** First reuse an existing deployed icon if it communicates the function. Only introduce a new proposed design when needed, in `public/tab-navigation.css` as **both** `mask-image` and `-webkit-mask-image`; reference it using `data-pfc-icon` in **Preact and the static HTML fallback**. Then update this guide/catalogue to mark it *deployed*. Icons are decorative, so real tab labels and ARIA behaviour remain unchanged. Verify both themes, selected/hover/focus/disabled states, touch widths, keyboard navigation and reduced-motion preferences. The test `test/tab-icon-catalog.test.js` checks the artwork stays aligned with production CSS.
+
 ### Implemented icon concepts (reference)
 
 | Family | Concepts seen in controller | Typical use |
@@ -248,16 +299,16 @@ A standard table has **white uppercase bold headings** (`.68rem`, 800, `.04em` t
 | Dashboard status | `printer`, `connected`, `play/printing`, `warning`, `healthy/check` | Four filter cards and healthy no-attention state |
 | Analytics headline | `jobs`, `check`, `cross`, `clock` | Four Option D report totals |
 | Navigation | dashboard grid, queue, library/files, maintenance wrench, groups, chart/reports, alert bell/triangle, backup, diagnostics, licence | Sidebar routes and actions |
-| Printer detail tabs | sliders, camera, files, thermometer, clock, wrench | Option A text-and-icon underline rail |
+| Tab navigation | 17 exact production glyphs documented above | Shared text-and-icon underline rail across six tab interfaces |
 | Actions | plus, close, drag/reorder, clear in allowed contexts, arrow/up/down, save/edit, pause/resume, delete | Buttons and compact toolbar utilities |
 
 These are **icon concepts/families**, not guarantees that every illustration in the sheet is a byte-for-byte reproduction of deployed paths. The production SVGs are in `ui/dashboard.jsx`, `ui/reporting.jsx`, `public/index.html` and the tab mask rules in `public/tab-navigation.css`.
 
-### Future-ready icons that match the controller
+### General icon concepts and future-ready illustrations
 
-The next set is **not yet adopted**. It is a curated extension of the current 24px outlined family.
+The separate, older 42-icon catalogue shows **illustrative icon artwork**, not exact production tab masks. Some *concepts* there (spool, layers, cloud and calendar) are already used as tabs with different SVG paths. Consult the exact 17-glyph sheet above for deployed tab artwork. Other general icon concepts remain future ideas; the teal tab proposals above have not been implemented.
 
-| Proposed icon ID | Meaning | Appropriate future use |
+| General catalogue concept | Meaning | Example use (some concepts already have tab equivalents) |
 |---|---|---|
 | `spool` | Filament reel | Inventory, spool life, spool assignment |
 | `layers` | Stacked print layers | Layer analysis, build complexity |
@@ -293,7 +344,7 @@ The next set is **not yet adopted**. It is a curated extension of the current 24
 </svg>
 ```
 
-Use `stroke-width="2.2"` for larger KPI badge treatment when it visually matches the existing 27px set. The companion **SVG catalogue** provides complete shapes and IDs for both current and proposed references: `docs/assets/controller-icon-catalog.svg`. Its symbols are **design assets**, not automatically loaded by the app.
+Use `stroke-width="2.2"` for larger KPI badge treatment when it visually matches the existing 27px set. The general **concept SVG catalogue** is `docs/assets/controller-icon-catalog.svg`; the exact **production tab icon catalogue** is `docs/assets/controller-tab-icon-catalog.svg`. Both are design assets, not automatically loaded by the controller. The second includes the precise paths of the tab CSS masks.
 
 ## 13. Responsive rules
 
