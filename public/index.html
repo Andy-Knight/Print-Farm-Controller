@@ -52,7 +52,6 @@
       <button type="button" class="sidebar-item active" data-dashboard-home data-route="/"><span class="sidebar-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 3 10h2v10h6v-6h2v6h6V10h2L12 3Z"/></svg></span><span>Dashboard</span></button>
       <button id="queueBtn" type="button" class="sidebar-item" data-route="/queue"><span class="sidebar-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M4 12h16M4 17h10"/></svg></span><span>Queue &amp; history</span><span id="queueButtonCount" class="queue-button-count hidden">0</span></button>
       <button id="libraryBtn" type="button" class="sidebar-item" data-route="/library"><span class="sidebar-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h7v7H4z M13 5h7v7h-7z M4 14h7v6H4z M13 14h7v6h-7z"/></svg></span><span>Print library</span><span id="libraryButtonCount" class="queue-button-count hidden">0</span></button>
-      <button id="batchModeBtn" type="button" class="sidebar-item"><span class="sidebar-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11h7V4h4v7h7v9H3v-9z"/></svg></span><span>Farm operations</span></button>
       <div class="sidebar-divider" aria-hidden="true"></div>
       <span class="sidebar-section-label">FARM MANAGEMENT</span>
       <button id="maintenanceBtn" type="button" class="sidebar-item" data-route="/maintenance"><span class="sidebar-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 6.5a4 4 0 0 0-5 5L3 18l3 3 6.5-6.5a4 4 0 0 0 5-5l-2.3 2.3-3-3 2.3-2.3Z"/></svg></span><span>Maintenance</span></button>
@@ -92,12 +91,6 @@
         <span class="theme-toggle-label">Dark</span>
       </button>
       <button id="addPrinterBtn" class="primary">+ Add printer</button>
-      <details id="topbarOverflow" class="topbar-overflow">
-        <summary aria-label="More controller actions" title="More controller actions">⋮</summary>
-        <div class="topbar-overflow-menu" role="menu">
-          <button id="batchModeMenuBtn" type="button" class="topbar-overflow-item topbar-overflow-fleet" role="menuitem">Farm operations</button>
-        </div>
-      </details>
     </div>
   </header>
 
@@ -115,6 +108,13 @@
           <button id="dashboardViewToggle" class="dashboard-view-toggle" type="button" role="switch" aria-checked="false" aria-label="Switch dashboard to table view">
             <span class="dashboard-view-toggle-track" aria-hidden="true"></span>
             <span class="dashboard-view-toggle-label">Cards</span>
+          </button>
+        </div>
+        <div class="dashboard-view-control dashboard-operations-control">
+          <span class="dashboard-view-label">Farm operations</span>
+          <button id="farmOperationsToggle" class="dashboard-view-toggle dashboard-operations-toggle" type="button" role="switch" aria-checked="false" aria-label="Enable farm operations" aria-controls="batchToolbar">
+            <span class="dashboard-view-toggle-track" aria-hidden="true"></span>
+            <span class="dashboard-view-toggle-label">Off</span>
           </button>
         </div>
       </section>

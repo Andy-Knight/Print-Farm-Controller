@@ -438,6 +438,19 @@ async function dashboardPhase3Smoke(browser,url) {
     assert.ok((await page.evaluate(()=>window.__PFC_PHASE3_ACTIONS__))
       .some(event=>event.type==='filter'&&event.value==='attention'),
       'summary stat uses controller filter event');
+    // Farm operations must live on the Dashboard, never in shell navigation.
+    assert.equal(await page.locator('#batchModeBtn, #batchModeMenuBtn, #topbarOverflow').count(), 0);
+    const operations=page.locator('#farmOperationsToggle');
+    assert.equal(await operations.getAttribute('role'),'switch');
+    assert.equal(await operations.getAttribute('aria-checked'),'false');
+    await operations.click();
+    await page.waitForFunction(()=>document.querySelector('#farmOperationsToggle')?.getAttribute('aria-checked')==='true'
+      && !document.querySelector('#batchToolbar')?.classList.contains('hidden')
+      && document.querySelector('#fleet')?.classList.contains('selection-mode'));
+    await operations.click();
+    await page.waitForFunction(()=>document.querySelector('#farmOperationsToggle')?.getAttribute('aria-checked')==='false'
+      && document.querySelector('#batchToolbar')?.classList.contains('hidden')
+      && !document.querySelector('#fleet')?.classList.contains('selection-mode'));
     const toggle=page.locator('#dashboardViewToggle');
     await toggle.click();
     await page.waitForFunction(()=>document.querySelector('#fleetViewport')?.classList.contains('table-view')
@@ -471,11 +484,13 @@ async function dashboardPhase3Smoke(browser,url) {
       hero:document.querySelector('.dashboard-hero').getBoundingClientRect().toJSON(),
       cards:[...document.querySelectorAll('#summary [data-dashboard-filter]')].map(n=>n.getBoundingClientRect().toJSON()),
       view:document.querySelector('#dashboardViewToggle').getBoundingClientRect().toJSON(),
+      ops:document.querySelector('#farmOperationsToggle').getBoundingClientRect().toJSON(),
       heading:document.querySelector('#dashboardFleetHeadingRoot').getBoundingClientRect().toJSON()
     }));
     assert.ok(mobile.cards.every(r=>r.left>=-1&&r.right<=391),
       'summary cards remain inside a 390px phone viewport');
     assert.ok(mobile.view.left>=0&&mobile.view.right<=391,'dashboard view switch stays visible on mobile');
+    assert.ok(mobile.ops.left>=0&&mobile.ops.right<=391,'Farm operations switch stays visible on mobile');
     assert.ok(mobile.heading.left>=0&&mobile.heading.right<=391);
     if(captureDir)await page.screenshot({path:path.join(captureDir,'dashboard-phase3-light-mobile.png'),
       animations:'disabled',fullPage:true});

@@ -11,7 +11,7 @@ A local-first 3D printer fleet controller. It runs entirely on your LAN and curr
 
 ## Key capabilities
 
-- **Farm dashboard:** Live printer status, job progress and maintenance indicators, with card or sortable table views and light/dark themes.
+- **Farm dashboard:** Live printer status, job progress and maintenance indicators, with card or sortable table views, a Farm operations switch for selected-printer bulk actions, and light/dark themes.
 - **Print Library and scheduling:** Search and filter files, check printer compatibility and readiness, queue jobs to printers or groups, and review print history.
 - **Pricing and costs:** Estimate filament and machine time costs, add labour and sundries, and calculate selling prices using shared currency, profit and tax settings.
 - **Reports & finance:** Production trends, completed and failed prints, printer reliability, popular files, material use and historical cost reporting.
