@@ -1864,9 +1864,21 @@ async function routeSmoke(page,url) {
     }}));
   });
   await page.waitForFunction(() => !!document.querySelector('#reportingFiles .reporting-table-scroll'));
-  assert.equal(await page.locator('#reportingFiles .reporting-analytics-table thead th').count(),7);
-  assert.match(await page.locator('#reportingFiles .reporting-file-resource').innerText(),/0\.45 kg/);
-  assert.match(await page.locator('#reportingFiles .reporting-file-resource').innerText(),/£6\.00/);
+  assert.equal(await page.locator('#reportingFiles .reporting-analytics-table thead th').count(),8);
+  assert.match(await page.locator('#reportingFiles .reporting-file-material').innerText(),/0\.45 kg/);
+  assert.match(await page.locator('#reportingFiles .reporting-file-cost').innerText(),/£6\.00/);
+  assert.equal(await page.locator('#reportingFiles .reporting-analytics-table tbody tr').first().locator('td').count(),8,
+    'Material and Cost must occupy distinct table cells');
+  const resourceColumns = await page.locator('#reportingFiles .reporting-analytics-table').evaluate(table => {
+    const head=[...table.querySelectorAll('thead th')], row=[...table.querySelectorAll('tbody tr:first-child td')];
+    const left=n=>n.getBoundingClientRect().left;
+    return {materialHeader:head[5].innerText,costHeader:head[6].innerText,
+      headingDelta:left(head[6])-left(head[5]),valueDelta:left(row[6])-left(row[5])};
+  });
+  assert.match(resourceColumns.materialHeader,/Material/);
+  assert.match(resourceColumns.costHeader,/Cost/);
+  assert.ok(resourceColumns.headingDelta>40 && resourceColumns.valueDelta>40,
+    'resource cells must be side by side, not stacked in one column');
   assert.match(await page.locator('#reportingFiles .reporting-file-time').innerText(),/2h 0m/);
   assert.equal(await page.locator('#reportingFiles .reporting-progress').count(),0,
     'completed count must not also be duplicated as a popularity bar');
