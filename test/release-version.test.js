@@ -20,19 +20,3 @@ test('README, changelog and project context agree with the package release versi
   assert.ok(context.includes('- Current controller source version: **' + version + '**'),
     'project handoff current source version must exactly match the package version');
 });
-
-test('README documents current capabilities instead of per-version release notes', () => {
-  const pkg = JSON.parse(read('package.json'));
-  const readme = read('README.md');
-  const section = readme.split(/^## Key capabilities\s*$/m)[1]?.split(/^## /m)[0] || '';
-  const bullets = section.match(/^- /gm) || [];
-
-  assert.ok(bullets.length >= 5 && bullets.length <= 10,
-    'README overview should remain a short, stable list of capabilities');
-  const otherVersionReferences = readme
-    .replace('# Print Farm Controller v' + pkg.version, '')
-    .replace('**Current development version: v' + pkg.version + '**', '');
-  assert.doesNotMatch(otherVersionReferences, /\bv\d+\.\d+\.\d+\b/,
-    'historical version details belong in CHANGELOG.md, not README.md');
-  assert.match(readme, /\[CHANGELOG\.md\]\(CHANGELOG\.md\)/);
-});

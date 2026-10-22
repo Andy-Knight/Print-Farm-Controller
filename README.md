@@ -22,6 +22,8 @@ A local-first 3D printer fleet controller. It runs entirely on your LAN and curr
 
 For detailed functionality and setup, use the sections below. For release-by-release changes, see [CHANGELOG.md](CHANGELOG.md).
 
+For contributing or AI-assisted development, follow [AGENTS.md](AGENTS.md) and the [Documentation policy](docs/DOCUMENTATION_POLICY.md).
+
 ## Licensing
 
 Print Farm Controller uses offline Ed25519-signed licence files. The controller contains trusted **public** verification keys only; private signing keys are never required by the controller.

@@ -1,0 +1,45 @@
+name: Documentation Policy
+
+on:
+  pull_request:
+    paths:
+      - README.md
+      - CHANGELOG.md
+      - PROJECT_CONTEXT.md
+      - AGENTS.md
+      - docs/**
+      - test/documentation-policy.test.js
+      - test/release-version.test.js
+      - .github/PULL_REQUEST_TEMPLATE.md
+      - .github/workflows/documentation-policy.yml
+  push:
+    branches:
+      - main
+    paths:
+      - README.md
+      - CHANGELOG.md
+      - PROJECT_CONTEXT.md
+      - AGENTS.md
+      - docs/**
+      - test/documentation-policy.test.js
+      - test/release-version.test.js
+      - .github/PULL_REQUEST_TEMPLATE.md
+      - .github/workflows/documentation-policy.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  docs:
+    name: Documentation compliance
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+      - name: Set up Node.js 24
+        uses: actions/setup-node@v7
+        with:
+          node-version: '24.22.1'
+      - name: Validate documentation and release metadata
+        run: node --test test/documentation-policy.test.js test/release-version.test.js
