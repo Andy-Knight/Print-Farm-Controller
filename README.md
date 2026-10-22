@@ -9,7 +9,7 @@ A local-first 3D printer fleet controller. It runs entirely on your LAN and curr
 
 **Current development version: v0.59.10**
 
-## Current highlights
+## Key capabilities
 
 - **Farm dashboard:** Live printer status, job progress and maintenance indicators, with card or sortable table views and light/dark themes.
 - **Print Library and scheduling:** Search and filter files, check printer compatibility and readiness, queue jobs to printers or groups, and review print history.
@@ -90,12 +90,12 @@ The internal `allowDevelopmentOverrides:true` loader option exists for tests/dev
 
 ## Run
 
-Requires Node.js 24 or later. Development has been performed against Node.js 24.21.0. There are no npm runtime dependencies. Preact and esbuild are build-time development dependencies.
+Requires a security-patched **Node.js 24.22.1 or newer in the Node.js 24 release line** and **npm 12.2.0** for development. The project has no npm runtime dependencies; Preact and esbuild are build-time dependencies. See [dependency and runtime security policy](docs/dependency-security.md) for approved updates.
 
-After downloading a fresh source ZIP, or whenever `package.json` changes, install the development dependencies once:
+After downloading a fresh source ZIP, or when dependencies change, install the development dependencies using the committed lockfile:
 
 ```bash
-npm install --include=dev
+npm ci --include=dev
 ```
 
 The project explicitly approves the pinned `esbuild@0.28.2` install script in `package.json`; no blanket install-script approval is required. The install automatically builds the local Preact dashboard bundle. Start the controller normally after that:
@@ -108,7 +108,7 @@ If the optional Preact bundle is not present, the controller still starts and th
 
 ## Reports and material costs
 
-Print Farm Controller v0.37.0 adds a persistent **Reports & finance** view for operational and material-cost reporting. The reporting history is stored independently of the bounded recent queue history so long-term trends are retained.
+The **Reports & finance** view provides operational and material-cost reporting. Reporting history is stored independently of the bounded recent queue history, retaining long-term trends.
 
 Reports can be filtered by date range, printer and printer group and include:
 
@@ -192,7 +192,7 @@ Cloud restore is provider-based rather than Google-specific. Google Drive, Micro
 
 ## Microsoft OneDrive backups (Experimental)
 
-Print Farm Controller v0.36.0 includes Microsoft OneDrive as an **experimental** cloud backup and restore provider. Automated tests and packaging validation are complete, but the integration has not yet been validated against a live Microsoft account. Manual and scheduled OneDrive backups use the same verified/compressed `.pfcbackup` format and the same restore inspection/staging engine as local and Google Drive backups.
+Microsoft OneDrive is available as an **experimental** cloud backup and restore provider. Automated tests and packaging validation are complete, but the integration has not yet been validated against a live Microsoft account. Manual and scheduled OneDrive backups use the same verified/compressed `.pfcbackup` format and the same restore inspection/staging engine as local and Google Drive backups.
 
 OneDrive authorization uses Microsoft's device-code OAuth flow and requests:
 
@@ -222,7 +222,7 @@ OneDrive stores controller backups in the Microsoft Graph `approot` application 
 
 ## S3-compatible backups
 
-Print Farm Controller v0.35.0 can use generic S3-compatible object storage for manual backups, scheduled backups with retention, and direct cloud restore. The implementation uses the standard S3 REST API and AWS Signature Version 4 without adding an AWS SDK or any other runtime npm dependency.
+The controller supports generic S3-compatible object storage for manual backups, scheduled backups with retention, and direct cloud restore. The implementation uses the standard S3 REST API and AWS Signature Version 4 without adding an AWS SDK or any other runtime npm dependency.
 
 The S3 configuration in **Backup & recovery → S3-compatible storage** contains:
 
@@ -279,11 +279,11 @@ docker run -d \
 
 Replace `192.168.1.0/24` with the subnet containing the printers. If LAN scanning is not required, `DISCOVERY_SUBNET` can be omitted and printers can still be added directly by IP.
 
-Versioned images are published from Git tags. For example, tag `v0.33.0` publishes:
+Versioned images are published from Git tags. For a tag named `vX.Y.Z` (replace `X.Y.Z` with the release version), the image tags are:
 
 ```text
-ghcr.io/andy-knight/print-farm-controller:0.33.0
-ghcr.io/andy-knight/print-farm-controller:0.33
+ghcr.io/andy-knight/print-farm-controller:X.Y.Z
+ghcr.io/andy-knight/print-farm-controller:X.Y
 ```
 
 The `latest` tag is published from the `main` branch.
@@ -292,7 +292,7 @@ The `latest` tag is published from the `main` branch.
 
 `.github/workflows/container-image.yml` has separate **test**, **Chromium browser**, **container smoke**, and **release image** jobs. Every relevant feature-branch pull-request update runs the Node.js 24 regression tests, Chromium/Preact visual checks and a disposable **single-architecture** local Docker smoke test. It **does not** build a multi-architecture release image or push anything to the registry on each commit.
 
-The full `linux/amd64` + `linux/arm64` release build runs **after merging to `main`**, publishing `latest`, or when pushing a version tag such as `v0.54.0`, publishing versioned tags. Publishing uses the repository-scoped GitHub `GITHUB_TOKEN`; no manually stored registry password or PAT is required.
+The full `linux/amd64` + `linux/arm64` release build runs **after merging to `main`**, publishing `latest`, or when pushing a version tag such as `vX.Y.Z`, publishing versioned tags. Publishing uses the repository-scoped GitHub `GITHUB_TOKEN`; no manually stored registry password or PAT is required.
 
 For a one-off final multi-architecture **verification build on a completed feature branch**, open GitHub **Actions → Controller CI and Container Release → Run workflow**, and choose the feature branch. Manual runs on feature branches build the image **without publishing** and without production OAuth secrets. This allows a full architectural build check before merging without creating intermediate GHCR releases.
 
@@ -301,7 +301,7 @@ The repository includes a Linux-container `Dockerfile` based on Node.js 24. Cont
 Build the image:
 
 ```powershell
-docker build -t print-farm-controller:0.33.0 .
+docker build -t print-farm-controller:local .
 ```
 
 Create persistent host directories:
@@ -319,7 +319,7 @@ docker run --rm `
   -p 4242:4242 `
   -v "${PWD}\container-data:/data" `
   -v "${PWD}\container-logs:/logs" `
-  print-farm-controller:0.33.0
+  print-farm-controller:local
 ```
 
 Open `http://localhost:4242`.
@@ -357,7 +357,7 @@ docker run --rm `
   -e DISCOVERY_SUBNET=192.168.1.0/24 `
   -v "${PWD}\container-data:/data" `
   -v "${PWD}\container-logs:/logs" `
-  print-farm-controller:0.33.0
+  print-farm-controller:local
 ```
 
 `DISCOVERY_SUBNET` accepts bounded IPv4 CIDRs from `/22` through `/30`. It is optional; when omitted, native interface-based discovery behaves exactly as before. The setting affects discovery only and does not change normal printer connections.
@@ -468,10 +468,10 @@ Because the GHCR package is public, no `imagePullSecret` is required. Use the fu
 
 Print Farm Controller includes a Windows x64 Node SEA packaging pipeline for building a standalone portable executable. Development/source mode remains unchanged: `npm start` runs directly from the repository.
 
-Install the build-only dependencies once:
+Install the build dependencies using the committed lockfile:
 
 ```powershell
-npm install
+npm ci --include=dev
 ```
 
 Run the full regression suite:
@@ -506,7 +506,7 @@ The executable reads its built-in web/simulator resources and trusted licence pu
 
 The Ed25519 private signing key is never included in the controller. The Bambu simulator TLS key embedded in the executable is only a local simulator/test credential and is unrelated to production licence signing.
 
-The copied Node executable's original Authenticode signature is invalidated when the SEA payload is injected, so the build may report a signature warning. The final installer/release process will digitally sign the finished `PrintFarmController.exe` after all embedding is complete.
+Injecting the SEA payload invalidates any original Authenticode signature on the copied Node executable. The generated executable is unsigned unless the release process applies a signing certificate after embedding.
 
 ### Windows installer
 
@@ -523,7 +523,7 @@ This rebuilds the hardened SEA executable first, then creates:
 ```text
 dist/
 └── installer/
-    └── PrintFarmController-Setup-v0.16.0.exe
+    └── PrintFarmController-Setup-v<version>.exe
 ```
 
 The installer creates a Start Menu shortcut and offers an optional desktop shortcut. Uninstalling the application does not explicitly delete the `data/` directory, so user data is not intentionally removed by the uninstall script.
