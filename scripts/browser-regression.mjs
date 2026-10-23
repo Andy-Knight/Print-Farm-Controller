@@ -8,6 +8,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { chromium } from 'playwright';
+import { AccountStore } from '../src/security/account-store.js';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const controllerVersion = JSON.parse(await fs.readFile(path.join(root, 'package.json'), 'utf8')).version;
@@ -3449,6 +3450,87 @@ async function simulatorSseSmoke(browser,url) {
   }
 }
 
+// Authentication is a separate isolated controller: never enrol real-user or
+// shared-browser test installations as a side effect of the visual suite.
+async function nativeAuthenticationSmoke(browser){
+  console.log('Chromium: native login, administrator user management and sign-out');
+  const rootDir=await fs.mkdtemp(path.join(os.tmpdir(),'pfc-auth-browser-'));
+  const dataDir=path.join(rootDir,'data');
+  const logs=[];
+  let child=null,context=null;
+  try{
+    const users=new AccountStore({dataDir});
+    await users.bootstrapAdministrator({username:'owner',password:'Admin password for tests 2026'});
+    await users.addUser({username:'viewer',role:'viewer',password:'Viewer password for tests 2026'});
+    const url='http://127.0.0.1:'+(await portNumber());
+    child=spawn(process.execPath,['src/server.js'],{
+      cwd:root,env:{...process.env,HOST:'127.0.0.1',PORT:url.split(':').at(-1),
+        DATA_DIR:dataDir,LOG_DIR:path.join(rootDir,'logs'),
+        DISCOVERY_SUBNET:'',EMULATOR_NO_DEFAULTS:'1',
+        PFC_AUTH_REQUIRED:'1',PFC_AUTH_ALLOW_HTTP:'1',PFC_PUBLIC_ORIGIN:url},
+      stdio:['ignore','pipe','pipe']
+    });
+    child.stdout.on('data',x=>logs.push(String(x)));
+    child.stderr.on('data',x=>logs.push(String(x)));
+    await waitForController(url,child,logs);
+    context=await browser.newContext({viewport:{width:1280,height:800}});
+    const page=await context.newPage();
+    const errorLog=[];
+    page.on('pageerror',error=>errorLog.push(error.message));
+    await page.goto(url+'/');
+    await page.locator('#authOverlay').waitFor({state:'visible'});
+    assert.equal(await page.locator('body.auth-locked').count(),1,'workspace locked before login');
+    assert.equal(await page.locator('#authLoginForm').isVisible(),true,
+      'HTTP sign-in allowed only for this explicitly configured isolated test');
+    await page.locator('#authLoginForm [name=username]').fill('owner');
+    await page.locator('#authLoginForm [name=password]').fill('Admin password for tests 2026');
+    await page.locator('#authLoginForm button[type=submit]').click();
+    await page.waitForFunction(()=>window.__PFC_FRONTEND_BOOTED__===true
+      && document.body.dataset.authRole==='administrator',{},{timeout:25000});
+    assert.equal(await page.locator('#usersBtn').isVisible(),true);
+    assert.equal(await page.locator('#authIdentity').isVisible(),true);
+    await page.locator('#usersBtn').click();
+    await page.locator('#authUserAddForm').waitFor({state:'visible'});
+    await page.locator('#authUserAddForm [name=username]').fill('shiftoperator');
+    await page.locator('#authUserAddForm [name=displayName]').fill('Shift operator');
+    await page.locator('#authUserAddForm [name=role]').selectOption('operator');
+    await page.locator('#authUserAddForm [name=password]').fill('Operator password for tests 2026');
+    await page.locator('#authUserAddForm button[type=submit]').click();
+    await page.locator('#authUserList tbody tr').filter({hasText:'shiftoperator'}).waitFor();
+    const row=page.locator('#authUserList tbody tr').filter({hasText:'shiftoperator'});
+    assert.equal(await row.locator('select').inputValue(),'operator');
+    await row.locator('select').selectOption('viewer');
+    await row.locator('button').click();
+    await page.waitForFunction(()=>[...document.querySelectorAll('#authUserList tbody tr')]
+      .some(tr=>tr.textContent.includes('shiftoperator')&&tr.querySelector('select')?.value==='viewer'));
+    await page.locator('#authAccountBtn').click();
+    await page.locator('#authLogoutBtn').click();
+    await page.locator('#authOverlay').waitFor({state:'visible'});
+    await page.locator('#authLoginForm [name=username]').fill('viewer');
+    await page.locator('#authLoginForm [name=password]').fill('Viewer password for tests 2026');
+    await page.locator('#authLoginForm button[type=submit]').click();
+    await page.waitForFunction(()=>window.__PFC_FRONTEND_BOOTED__===true
+      && document.body.dataset.authRole==='viewer',null,{timeout:25000});
+    assert.equal(await page.locator('#usersBtn').isVisible(),false,'viewer cannot see user admin');
+    assert.deepEqual(errorLog,[],'native login UI must have no uncaught browser errors');
+    console.log('Chromium: native login, role-based user administration and sign-out PASS');
+  }catch(error){
+    console.error('Auth browser server tail:',logs.join('').slice(-3000));
+    throw error;
+  }finally{
+    await context?.close().catch(()=>{});
+    if(child){
+      child.kill();
+      await new Promise(resolve=>{
+        if(child.exitCode!==null)return resolve();
+        child.once('exit',resolve);
+        setTimeout(resolve,3000).unref();
+      });
+    }
+    await fs.rm(rootDir,{recursive:true,force:true}).catch(()=>{});
+  }
+}
+
 async function main() {
   const externalUrl=process.env.PFC_BROWSER_TEST_BASE_URL||null;
   const dir=externalUrl?null:await fs.mkdtemp(path.join(os.tmpdir(),'pfc-chromium-'));
@@ -3491,6 +3573,7 @@ async function main() {
     await queueClickSmoke(browser,url);
     await groupEditorSmoke(browser,url);
     if(!externalUrl) await simulatorSseSmoke(browser,url);
+    if(!externalUrl) await nativeAuthenticationSmoke(browser);
     assert.deepEqual(errors,[],'browser Javascript errors');
     console.log('Chromium browser regression: PASSED');
   } catch (error) {
