@@ -1,6 +1,6 @@
 /**
  * In-memory, revocable authentication session and login-rate primitives.
- * NOT yet connected to production HTTP; no cookies/login routes are issued.
+ * Sessions are used by the controller HTTP gate when native auth is enabled.
  */
 import {createHash,randomBytes} from 'node:crypto';
 
@@ -38,7 +38,7 @@ export class SessionManager {
     }
     if(touch)entry.lastSeen=now;
     return {userId:entry.userId,createdAt:entry.created,
-      expiresAt:Math.min(entry.created+this.#absolute,now+this.#idle)};
+      expiresAt:Math.min(entry.created+this.#absolute,entry.lastSeen+this.#idle)};
   }
   peek(token){return this.resolve(token,false);}
   revoke(token){
