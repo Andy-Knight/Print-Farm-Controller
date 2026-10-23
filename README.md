@@ -38,7 +38,14 @@ Stop the controller and run the setup command **locally**, with access to the co
 node scripts/manage-users.mjs setup
 ```
 
-For the Windows packaged executable, use `PrintFarmController.exe --auth-setup` from a local interactive command prompt. The installer and source deployment use the same application data directory. The command prompts for the first administrator username and a password of at least 12 characters, then enables authentication durably. Restart the controller and use **Sign in**. There is **no default password** and no unauthenticated browser bootstrap endpoint. In containers/K3s use a one-off interactive shell with the **same data volume** and the installed application; do not publish the command as a service or expose the container shell to untrusted users.
+For the Windows packaged executable, use `PrintFarmController.exe --auth-setup` from a local interactive command prompt. The installer and source deployment use the same application data directory. The command prompts for the first administrator username and a password of at least 12 characters, then enables authentication durably. Restart the controller and use **Sign in**. There is **no default password** and no unauthenticated browser bootstrap endpoint. The production container includes a bundled controller at `/app/build/controller.cjs` but **does not include the source-only setup script**. For an initial K3s deployment, use a trusted interactive terminal into the controller pod:
+
+```bash
+kubectl exec -it <controller-pod> -- node /app/build/controller.cjs --auth-setup
+kubectl rollout restart deployment/<controller-deployment>
+```
+
+The controller must mount the same persistent `DATA_DIR=/data` for both commands. Before **recovery**, scale down the controller to zero replicas and run a one-off container/job with the existing data PVC attached, then restart one controller instance. Recovery must never race an active controller because old in-memory sessions would remain valid until restart. Do not publish the admin setup command as a LAN service or expose the container shell to untrusted users.
 
 After logging in, Administrators use **Users** in the sidebar to create/disable accounts, select the Viewer/Operator/Administrator role, reset passwords or adjust display names. **My account** in the top bar provides self-service password change and sign-out. Changing a password, role or disabled status invalidates affected sessions; signing out revokes the current session. Sessions also expire after inactivity and restart. Passive dashboard refreshes and SSE do not renew idle expiry; trusted user interaction and authenticated changes do.
 
