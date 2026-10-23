@@ -48,7 +48,7 @@ test('user additions, roles and disablement persist and protect the last active 
     username:'operator',password:'correct-password-number-two',role:'operator'
   });
   assert.equal(operator.role,'operator');
-  assert.equal(await store.authenticate('operator','correct-password-number-two')?.username,'operator');
+  assert.equal((await store.authenticate('operator','correct-password-number-two')).username,'operator');
   const viewer=await store.addUser({
     username:'viewer',password:'correct-password-number-three',role:'viewer'
   });
