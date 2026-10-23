@@ -37,7 +37,8 @@ test('reporting UI is available from the persistent controller navigation with g
   assert.match(index, /id="reportingPrinters"/);
   assert.match(index, /id="reportingFiles"/);
   assert.match(index, /id="reportingMaterials"/);
-  assert.match(index, /src="\/reporting\.js"/);
+  assert.match(index, /src="\/auth-gate\.js"/);
+  assert.match(fs.readFileSync(new URL('../public/auth-gate.js', import.meta.url),'utf8'), /import\('\/reporting\.js'\)/);
   assert.match(reportingUi, /reportsBtn\?\.addEventListener/);
   assert.match(reportingUi, /function activateReportingTab/);
   assert.match(reportingUi, /activateReportingTab\('analytics'\)/);
