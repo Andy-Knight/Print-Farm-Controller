@@ -40,7 +40,12 @@ export async function runLocalSecurityCommand(action,{dataDir}={}){
   if(!process.stdin.isTTY||!process.stdout.isTTY)
     throw new Error('Run in a local interactive terminal. Remote HTTP enrollment is disabled.');
   const store=new AccountStore({dataDir});
-  const initialized=await store.initialized();
+  let initialized;
+  try{initialized=await store.initialized();}
+  catch(error){
+    if(action!=='recover')throw error;
+    initialized=await fs.access(store.filePath).then(()=>true,()=>false);
+  }
   if(action==='setup'&&initialized)throw new Error('Users already exist. Use recover only for local disaster recovery.');
   if(action==='recover'&&!initialized)throw new Error('No valid accounts to recover. Use setup for initial enrollment.');
   console.log('Print Farm Controller local administrator '+(action==='setup'?'enrollment':'RECOVERY'));
