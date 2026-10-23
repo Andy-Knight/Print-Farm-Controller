@@ -1,8 +1,8 @@
 # Controller authentication and RBAC design
 
-**Status:** Architecture, executable RBAC mapping and isolated credential/session primitives only. Native HTTP login, active authorization enforcement, and UI are **not yet deployed**. This document is a security design and implementation plan for [issue #127](https://github.com/Andy-Knight/Print-Farm-Controller/issues/127); it must not be presented as evidence of active protection.
+**Status:** Native HTTP authentication, backend RBAC routing, self-service password change and administrator user-management UI have been implemented in the **unmerged feature branch / draft PR #131**. **This is not yet production-validated or released.** Security design and requirements remain tracked in [issue #127](https://github.com/Andy-Knight/Print-Farm-Controller/issues/127).
 
-The controller is local-first. It currently uses Node's HTTP server on port 4242 with public browser/API access on the LAN. The next security milestone is user authentication and **central server-side authorization**, followed by [HTTPS via K3s/MetalLB and Ultimate Certificate Manager](https://github.com/Andy-Knight/Print-Farm-Controller/issues/128). A login page without TLS must **not** be advertised as production secure: a LAN observer can capture passwords/session cookies on plain HTTP.
+The controller is local-first. It uses Node's HTTP server on port 4242. Existing deployments stay in legacy unauthenticated mode until deliberate local administrator enrollment; `PFC_AUTH_REQUIRED=1` blocks API access pending enrollment. The new branch adds backend role checks before HTTP API routing, followed by [HTTPS via K3s/MetalLB and Ultimate Certificate Manager](https://github.com/Andy-Knight/Print-Farm-Controller/issues/128). A login page without TLS must **not** be advertised as production secure: a LAN observer can capture passwords/session cookies on plain HTTP.
 
 ## Trust boundaries and threat model
 
@@ -21,7 +21,7 @@ The controller is local-first. It currently uses Node's HTTP server on port 4242
 
 ## Roles and permissions
 
-Source of the proposed RBAC policy: `src/security/authorization-policy.js`; policy tests: `test/authorization-policy.test.js`. These are **not yet invoked by the current HTTP request handler**.
+Source of the proposed RBAC policy: `src/security/authorization-policy.js`; policy tests: `test/authorization-policy.test.js`. These are invoked before controller/emulator HTTP API routing when authentication is enabled in this feature branch; release validation remains outstanding.
 
 | Permission | Viewer | Operator | Administrator |
 | --- | :---: | :---: | :---: |
@@ -71,6 +71,20 @@ A later review must map **individual `/api/batch` and `/api/printers/:id/*` comm
 
 **Unknown method/path combination:** deny by default in authorization, then return an appropriate 404/405 after authentication; do not infer access from `GET`, a path prefix, a URL extension, or hidden UI controls. Public static assets are a separate routing concern. The simulator's static workspace also requires review for data exposure.
 
+## Implemented authentication candidate (draft PR #131)
+
+The controller uses `src/security/http-auth.js` as a central gate ahead of the emulator API, ordinary controller APIs, sensitive downloads, SSE and camera routes. Unknown API routes fail closed. Static frontend assets remain public so an unauthenticated browser can display the sign-in shell. The simulator's static UI is admin-only. `GET /api/health` gives minimal liveness without licence or fleet metadata once protection is enabled.
+
+**Offline administrator bootstrap:** run `node scripts/manage-users.mjs setup` with an interactive local TTY and the persistent controller `DATA_DIR`, or `PrintFarmController.exe --auth-setup` on a packaged Windows installation. No default password, remote bootstrap token, browser-side setup route or automatic administrator account exists. Enrollment writes an activation marker and scrypt-hashed account store under `<DATA_DIR>/security/` and requires controller restart. `node scripts/manage-users.mjs recover` (or `--auth-recover` on Windows executable) is a local confirmation-protected break-glass path to replace all users and retain the previous store locally; stop the controller first.
+
+**HTTP endpoints:** `GET /api/auth/session` gives current session identity, permissions, CSRF value, setup and transport state; `POST /api/auth/login`, `POST /api/auth/logout` and `POST /api/auth/password` are self-service; `GET/POST /api/auth/users` and `PATCH /api/auth/users/:id` are admin-only. User records are redacted of credential digests. Changing a user's role, password or disabled state revokes that user's live sessions and terminates tracked live streams.
+
+**Transport:** `PFC_PUBLIC_ORIGIN=https://<canonical-host>` is required for secure production password login and is matched exactly against browser `Origin`. Session cookies have `HttpOnly`, `SameSite=Strict`, and `Secure` when HTTPS is configured; mutations require a session-derived CSRF header. Arbitrary `X-Forwarded-Proto` and proxy-supplied host information are not trusted. `PFC_AUTH_ALLOW_HTTP=1` is an explicitly insecure local-development opt-out, not a production option. The controller listener remains HTTP behind a TLS proxy; it MUST NOT be reachable by browsers directly on its MetalLB Service in a production deployment.
+
+**Persistence and restore:** Application account state is intentionally excluded from logical `.pfcbackup` archives and retained across logical restore operations. An account-store error must never fall back to anonymous mode when the marker exists. Opaque sessions live only in server RAM and do not persist across restarts. Single-process/single-controller-replica operation remains the supported baseline.
+
+**Open delivery gates:** Real HTTP server integration, browser Preact and no-bundle fallback, native Windows SEA, K3s/container setup/recovery, backup restore/restart, direct port-bypass protection and externally terminated HTTPS are **not yet signed off**. Do not infer production security from the unit-level tests or a green PR workflow. Review coverage of privileged API action payloads and add per-user security audit events before making this mandatory for customers.
+
 ## Account and session lifecycle
 
 1. **Bootstrap:** Require a deliberate, local administrative enrollment action before turning on authentication (e.g., a one-use token printed on a protected TTY or created by a privileged local command, never a universal password). Enrollment must be atomic across restarts; the controller cannot silently revert to anonymous control if the account store is lost or unreadable. A documented local recovery command is required.
@@ -81,14 +95,14 @@ A later review must map **individual `/api/batch` and `/api/printers/:id/*` comm
 6. **Persistence and recovery:** `DATA_DIR` remains the source of account identity on Windows SEA, Docker and K3s. A single node/replica is assumed for session/state semantics until concurrency design is explicitly validated. Decide and test whether users are portable across backups; do **not** accidentally restore a security state that re-enables anonymous access.
 7. **Audit:** Record user ID, operation type, target, timestamp, success/denial and source context for sensitive mutations, without storing passwords, session cookies, tokens or other secrets. Apply privacy-conscious log retention.
 
-## Incremental implementation and quality gates
+## Quality gates and future hardening
 
-- **Foundation (this branch):** Explicit route-to-permission policy, endpoint coverage regression tests, threat model, RBAC contract and isolated `AccountStore`, `SessionManager` and `LoginAttemptLimiter` primitives with unit coverage. They intentionally leave the production HTTP server untouched and preserve v0.59.10 behavior. No internet-facing identity or session endpoints exist.
-- **Core authentication (next):** Integrate the tested `AccountStore`, `SessionManager` and `LoginAttemptLimiter` into a locally bootstrapped authentication service; add login/logout/session APIs, cookie issuance, session validation and revocation after role/password changes, trusted proxy/Origin/CSRF checks, safe recovery and end-to-end API tests. Password hashes use Node 24 built-in scrypt, a unique salt and restricted `DATA_DIR/security/users.json` permissions. Sessions are opaque and only stored as digests in RAM, so restarts invalidate them.
-- **Enforcement:** Integrate middleware into the HTTP router *before* `/api/emulator`, `apiRoute`, streaming and downloads; protect static simulator data; add payload-specific policy where actions share a method and URL. Deny unknown routes and test direct forged client requests.
-- **User interface:** Login/expired-session state, current identity, role-permitted controls and admin user-management page using the canonical `docs/CONTROLLER_VISUAL_STYLE_GUIDE.md`. Verify Preact and fallback, browser reloads, concurrent clients and access revocation.
+- **Foundation (v0.59.11):** Explicit route-to-permission policy, endpoint coverage regression tests, threat model, RBAC contract and isolated `AccountStore`, `SessionManager` and `LoginAttemptLimiter` primitives with unit coverage. They intentionally leave the production HTTP server untouched and preserve v0.59.10 behavior. No internet-facing identity or session endpoints exist.
+- **Core authentication (implemented in draft PR #131; validation pending):** Integrate the tested `AccountStore`, `SessionManager` and `LoginAttemptLimiter` into a locally bootstrapped authentication service; add login/logout/session APIs, cookie issuance, session validation and revocation after role/password changes, trusted proxy/Origin/CSRF checks, safe recovery and end-to-end API tests. Password hashes use Node 24 built-in scrypt, a unique salt and restricted `DATA_DIR/security/users.json` permissions. Sessions are opaque and only stored as digests in RAM, so restarts invalidate them.
+- **Enforcement (implemented in draft PR #131; validation pending):** Integrate middleware into the HTTP router *before* `/api/emulator`, `apiRoute`, streaming and downloads; protect static simulator data; add payload-specific policy where actions share a method and URL. Deny unknown routes and test direct forged client requests.
+- **User interface (implemented in draft PR #131; visual QA pending):** Login/expired-session state, current identity, role-permitted controls and admin user-management page using the canonical `docs/CONTROLLER_VISUAL_STYLE_GUIDE.md`. Verify Preact and fallback, browser reloads, concurrent clients and access revocation.
 - **Transport rollout:** Before production credential entry, publish UCM-backed HTTPS via MetalLB and ingress/reverse proxy. Disable HTTP bypass and validate forwarded headers, secure cookies, SSE, camera, uploads, restore, password resets and all supported client browsers.
-- **Release:** Test Node 24, npm suites, Chromium real-browser regressions, SEA compatibility, container smoke, security integration, documentation policy and backup/restore migration. Version history belongs only in `CHANGELOG.md`. No main merge without explicit approval.
+- **Release candidate review:** Test Node 24, npm suites, Chromium real-browser regressions, SEA compatibility, container smoke, security integration, documentation policy and backup/restore migration. Version history belongs only in `CHANGELOG.md`. No main merge without explicit approval.
 
 ### Open implementation decisions
 
