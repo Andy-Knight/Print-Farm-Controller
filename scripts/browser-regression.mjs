@@ -498,6 +498,106 @@ async function dashboardPhase3Smoke(browser,url) {
   }finally{await context.close();}
 }
 
+// Validate actual compact Dashboard table geometry on MacBook CSS viewports.
+// Use a standalone DOM fixture so telemetry/Preact cannot replace the row
+// while viewport measurements run; all selectors are the production classes.
+async function dashboardCompactTableSmoke(browser,url) {
+  console.log('Chromium: Dashboard table fits laptop widths with visible Actions');
+  const context=await browser.newContext({viewport:{width:1512,height:900}});
+  const page=await context.newPage();
+  try {
+    await page.goto(url+'/',{waitUntil:'load'});
+    await preactReady(page);
+    await page.evaluate(()=>{
+      const fixture=document.createElement('div');
+      fixture.id='pfcDashboardTableWidthFixture';
+      fixture.className='fleet-viewport table-view';
+      const headers=['Printer','Status','Current job','Progress','Nozzle','Bed',
+        'Layer','Remaining','Filament','Last seen','Actions'];
+      fixture.innerHTML=`
+        <div class="fleet-table-header">
+          ${headers.map(title=>'<span>'+title+'</span>').join('')}
+        </div>
+        <section class="fleet table-view"><article class="card">
+          <div class="card-head">
+            <div class="card-title-area"><h3>Production printer 001</h3></div>
+            <div class="card-head-actions">
+              <button class="maintenance-status-icon-button" aria-label="Maintenance">⚙</button>
+              <span class="badge">OFFLINE</span>
+            </div>
+          </div>
+          <div class="printer-image-slot"><div class="dashboard-filament-overlay">ASA</div></div>
+          <div class="card-body">
+            <div class="job"><span class="job-name">Large production batch</span></div>
+            <div class="progress"><span></span></div>
+            <div class="metrics">
+              <div class="metric"><span>Nozzle</span><b>250°C</b></div>
+              <div class="metric"><span>Bed</span><b>95°C</b></div>
+              <div class="metric"><span>Layer</span><b>120/250</b></div>
+              <div class="metric"><span>Remaining</span><b>1h 42m</b></div>
+            </div>
+            <div class="health-line"><span>Seen 2s ago</span></div>
+          </div>
+          <div class="card-footer"><div class="card-footer-actions">
+            <button type="button">Pause</button>
+            <button type="button">Open printer</button>
+          </div></div>
+        </article></section>`;
+      document.querySelector('#fleetViewport').before(fixture);
+    });
+    const scenarios=[
+      {width:1920,cols:11},{width:1512,cols:11},{width:1440,cols:9},
+      {width:1365,cols:9},{width:1280,cols:9},{width:1200,cols:8},
+      {width:1100,cols:6},{width:900,cols:6},{width:760,cols:5},
+      {width:560,cols:3},{width:390,cols:3},{width:320,cols:2}
+    ];
+    for (const {width,cols} of scenarios){
+      await page.setViewportSize({width,height:900});
+      const layout=await page.evaluate(()=>{
+        const container=document.querySelector('#pfcDashboardTableWidthFixture');
+        const header=container.querySelector('.fleet-table-header');
+        const row=container.querySelector('.fleet.table-view .card');
+        const actions=row.querySelector('.card-footer-actions');
+        const rect=(el)=>el.getBoundingClientRect();
+        const heads=[...header.children].filter(el=>getComputedStyle(el).display!=='none');
+        const cells=[
+          row.querySelector('.card-title-area'),row.querySelector('.card-head-actions'),
+          row.querySelector('.job'),row.querySelector('.progress'),
+          ...row.querySelectorAll('.metric'),
+          row.querySelector('.printer-image-slot'),row.querySelector('.health-line'),
+          actions
+        ].filter(el=>getComputedStyle(el).display!=='none');
+        return {container:rect(container).toJSON(),header:rect(header).toJSON(),
+          row:rect(row).toJSON(),actions:rect(actions).toJSON(),
+          clientWidth:container.clientWidth,scrollWidth:container.scrollWidth,
+          visibleHeaders:heads.map(el=>el.textContent),
+          headerColumns:heads.map(el=>rect(el).toJSON()),
+          cellColumns:cells.map(el=>rect(el).toJSON()),
+          buttonWidths:[...actions.querySelectorAll('button')].map(el=>({
+            scroll:el.scrollWidth,client:el.clientWidth
+          }))
+        };
+      });
+      assert.equal(layout.visibleHeaders.length,cols,'expected column density at '+width+'px');
+      assert.equal(layout.visibleHeaders.at(-1),'Actions','Actions must remain in final visible column');
+      assert.ok(layout.scrollWidth<=layout.clientWidth+2,
+        'Dashboard table must fit viewport at '+width+'px: '+JSON.stringify(layout));
+      assert.ok(layout.actions.right<=layout.container.right+2 &&
+        layout.actions.left>=layout.container.left-2,
+        'Action buttons must stay onscreen at '+width+'px: '+JSON.stringify(layout));
+      assert.equal(layout.headerColumns.length,layout.cellColumns.length,
+        'heading and cell visibility must match at '+width+'px: '+JSON.stringify(layout));
+      for(let col=0;col<layout.headerColumns.length;col++){
+        assert.ok(Math.abs(layout.headerColumns[col].left-layout.cellColumns[col].left)<=2,
+          'header/data cell column alignment '+col+' at '+width+'px: '+JSON.stringify(layout));
+      }
+      assert.ok(layout.buttonWidths.every(({scroll,client})=>scroll<=client+2),
+        'both action buttons must fit their labels at '+width+'px: '+JSON.stringify(layout));
+    }
+    console.log('Chromium: compact Dashboard table widths and Actions PASS');
+  } finally { await context.close(); }
+}
+
 async function workspaceShellSmoke(browser,url) {
   console.log('Chromium: breadcrumb-free workspace, sidebar and mobile navigation');
   const context=await browser.newContext({viewport:{width:1365,height:900}});
@@ -3321,6 +3421,7 @@ async function main() {
     page.on('pageerror',(e)=>errors.push(e.message));
     await designSystemSmoke(browser,url);
     await dashboardPhase3Smoke(browser,url);
+    await dashboardCompactTableSmoke(browser,url);
     await workspaceShellSmoke(browser,url);
     await workspaceHeadingSmoke(page,url);
     await sharedTabNavigationSmoke(page,url);

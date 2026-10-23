@@ -147,8 +147,11 @@ button.summary-card:focus-visible { filter:none; transform:translateY(-1px); bor
 .fleet-viewport { min-width:0; }
 .fleet { display:grid; grid-template-columns:repeat(auto-fill,minmax(330px,1fr)); gap:16px; }
 .fleet-viewport.table-view {
-  --dashboard-table-min-width:1556px;
-  --dashboard-table-columns:minmax(210px,1.5fr) 148px minmax(210px,1.55fr) minmax(130px,.9fr) 122px 122px 92px 104px 118px 126px 174px;
+  /* 11-column desktop baseline: no artificial 1556px minimum.
+     Proportionally compress the operational fields before sacrificing
+     printer identity or the trailing action buttons. */
+  --dashboard-table-min-width:100%;
+  --dashboard-table-columns:minmax(145px,1.3fr) minmax(115px,.95fr) minmax(152px,1.4fr) minmax(80px,.72fr) 72px 66px 60px minmax(94px,.86fr) minmax(82px,.7fr) 92px minmax(146px,1.05fr);
   overflow-x:auto;
   border:1px solid #29323b;
   border-radius:14px;
@@ -170,11 +173,11 @@ button.summary-card:focus-visible { filter:none; transform:translateY(-1px); bor
   letter-spacing:.04em;
   text-transform:uppercase;
 }
-.fleet-table-header > span { padding:10px 12px; min-width:0; }
+.fleet-table-header > span { padding:10px 7px; min-width:0; }
 .fleet-table-sort {
   display:inline-flex;
   align-items:center;
-  gap:5px;
+  gap:3px;
   margin:0;
   padding:0;
   border:0;
@@ -234,7 +237,7 @@ button.summary-card:focus-visible { filter:none; transform:translateY(-1px); bor
   grid-column:1;
   grid-row:1;
   min-width:0;
-  padding:9px 12px;
+  padding:8px 8px;
   align-items:center;
 }
 .fleet.table-view .card h3 {
@@ -254,10 +257,10 @@ button.summary-card:focus-visible { filter:none; transform:translateY(-1px); bor
   grid-row:1;
   min-width:0;
   min-height:62px;
-  padding:8px 10px;
+  padding:6px 6px;
   align-items:center;
   justify-content:flex-start;
-  gap:6px;
+  gap:4px;
 }
 .fleet.table-view .reorder-controls { display:none; }
 .fleet.table-view .badge {
@@ -286,7 +289,7 @@ button.summary-card:focus-visible { filter:none; transform:translateY(-1px); bor
   display:block;
   min-width:0;
   margin:0;
-  padding:9px 12px;
+  padding:8px 7px;
 }
 .fleet.table-view .job-name {
   display:block;
@@ -304,7 +307,7 @@ button.summary-card:focus-visible { filter:none; transform:translateY(-1px); bor
 .fleet.table-view .progress {
   grid-column:4;
   grid-row:1;
-  margin:0 12px;
+  margin:0 7px;
 }
 .fleet.table-view .metrics { display:contents; }
 .fleet.table-view .metric {
@@ -312,7 +315,7 @@ button.summary-card:focus-visible { filter:none; transform:translateY(-1px); bor
   border:0;
   border-radius:0;
   background:transparent;
-  padding:9px 12px;
+  padding:8px 6px;
 }
 .fleet.table-view .metric:nth-child(1) { grid-column:5; grid-row:1; }
 .fleet.table-view .metric:nth-child(2) { grid-column:6; grid-row:1; }
@@ -337,7 +340,7 @@ button.summary-card:focus-visible { filter:none; transform:translateY(-1px); bor
   justify-content:flex-start;
   height:auto;
   min-height:62px;
-  padding:9px 12px;
+  padding:8px 6px;
   overflow:visible;
   border:0;
   background:transparent;
@@ -362,7 +365,7 @@ button.summary-card:focus-visible { filter:none; transform:translateY(-1px); bor
   justify-content:center;
   min-width:0;
   margin:0;
-  padding:9px 12px;
+  padding:8px 6px;
   gap:2px;
   font-size:.66rem;
 }
@@ -375,15 +378,15 @@ button.summary-card:focus-visible { filter:none; transform:translateY(-1px); bor
   grid-column:11;
   grid-row:1;
   align-items:center;
-  padding:8px 10px;
-  gap:6px;
+  padding:6px 5px;
+  gap:4px;
 }
 .fleet.table-view .card-footer-actions button {
   min-height:32px;
   height:32px;
-  padding:5px 8px;
+  padding:5px 4px;
   border-radius:8px;
-  font-size:.68rem;
+  font-size:.64rem;
   white-space:nowrap;
 }
 .fleet.table-view .bed-level-strip,
@@ -404,6 +407,74 @@ button.summary-card:focus-visible { filter:none; transform:translateY(-1px); bor
 .fleet.table-view.selection-mode .card.selected {
   border-color:#7ca8c9;
   box-shadow:inset 3px 0 0 #7ca8c9;
+}
+
+/* Responsive dashboard table density. Every tier retains Printer and Actions;
+   only columns also available in Card view / Printer Details are collapsed.
+   Column templates are shared by the header and every printer row. */
+@media (max-width:1450px) {
+  .fleet-viewport.table-view {
+    --dashboard-table-columns:minmax(135px,1.35fr) minmax(111px,1fr) minmax(142px,1.5fr) minmax(78px,.72fr) 68px 62px minmax(88px,.86fr) minmax(72px,.7fr) minmax(142px,1.05fr);
+  }
+  .fleet-table-header > :nth-child(7),
+  .fleet-table-header > :nth-child(10),
+  .fleet.table-view .metric:nth-child(3),
+  .fleet.table-view .health-line { display:none; }
+  .fleet.table-view .metric:nth-child(4) { grid-column:7; }
+  .fleet.table-view .printer-image-slot { grid-column:8; }
+  .fleet.table-view .card-footer-actions { grid-column:9; }
+}
+@media (max-width:1220px) {
+  .fleet-viewport.table-view {
+    --dashboard-table-columns:minmax(132px,1.3fr) minmax(110px,1fr) minmax(132px,1.35fr) minmax(76px,.75fr) 67px 60px minmax(87px,.8fr) minmax(138px,1.1fr);
+  }
+  .fleet-table-header > :nth-child(9),
+  .fleet.table-view .printer-image-slot { display:none; }
+  .fleet.table-view .card-footer-actions { grid-column:8; }
+}
+@media (max-width:1120px) {
+  .fleet-viewport.table-view {
+    --dashboard-table-columns:minmax(131px,1.2fr) minmax(109px,1fr) minmax(130px,1.2fr) minmax(76px,.68fr) minmax(86px,.8fr) minmax(138px,1.08fr);
+  }
+  .fleet-table-header > :nth-child(5),
+  .fleet-table-header > :nth-child(6),
+  .fleet.table-view .metric:nth-child(1),
+  .fleet.table-view .metric:nth-child(2) { display:none; }
+  .fleet.table-view .metric:nth-child(4) { grid-column:5; }
+  .fleet.table-view .card-footer-actions { grid-column:6; }
+}
+@media (max-width:950px) {
+  .fleet-viewport.table-view {
+    --dashboard-table-columns:minmax(115px,1.2fr) minmax(98px,1fr) minmax(116px,1.25fr) minmax(70px,.7fr) minmax(77px,.8fr) minmax(123px,1.05fr);
+  }
+}
+@media (max-width:850px) {
+  .fleet-viewport.table-view {
+    --dashboard-table-columns:minmax(118px,1.2fr) minmax(100px,.9fr) minmax(74px,.75fr) minmax(83px,.8fr) minmax(132px,1.15fr);
+  }
+  .fleet-table-header > :nth-child(3),
+  .fleet.table-view .job { display:none; }
+  .fleet.table-view .progress { grid-column:3; }
+  .fleet.table-view .metric:nth-child(4) { grid-column:4; }
+  .fleet.table-view .card-footer-actions { grid-column:5; }
+}
+@media (max-width:560px) {
+  .fleet-viewport.table-view {
+    --dashboard-table-columns:minmax(120px,1.2fr) minmax(100px,.9fr) minmax(132px,1fr);
+  }
+  .fleet-table-header > :nth-child(4),
+  .fleet-table-header > :nth-child(8),
+  .fleet.table-view .progress,
+  .fleet.table-view .metric:nth-child(4) { display:none; }
+  .fleet.table-view .card-footer-actions { grid-column:3; }
+}
+@media (max-width:380px) {
+  .fleet-viewport.table-view {
+    --dashboard-table-columns:minmax(130px,1.2fr) minmax(116px,1fr);
+  }
+  .fleet-table-header > :nth-child(2),
+  .fleet.table-view .card-head-actions { display:none; }
+  .fleet.table-view .card-footer-actions { grid-column:2; }
 }
 .card { display:flex; flex-direction:column; border:1px solid #29323b; background:rgba(18,24,31,.94); border-radius:18px; overflow:hidden; box-shadow:0 18px 45px rgba(0,0,0,.18); }
 .fleet .card { transition:transform .14s ease, border-color .14s ease, box-shadow .14s ease; }
