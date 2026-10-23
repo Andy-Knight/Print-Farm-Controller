@@ -378,10 +378,15 @@ button.summary-card:focus-visible { filter:none; transform:translateY(-1px); bor
   grid-column:11;
   grid-row:1;
   align-items:center;
+  flex-wrap:wrap;
   padding:6px 5px;
   gap:4px;
 }
 .fleet.table-view .card-footer-actions button {
+  /* Text-based width; do not split Pause and Open printer into two equal
+     half-width buttons. On exceptionally narrow layouts, stack them. */
+  flex:1 1 auto;
+  min-width:max-content;
   min-height:32px;
   height:32px;
   padding:5px 4px;
