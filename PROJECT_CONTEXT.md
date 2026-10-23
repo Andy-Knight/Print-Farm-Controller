@@ -19,7 +19,7 @@ Repository policy: `AGENTS.md` defines agent startup behavior; `docs/DOCUMENTATI
 
 ## Current work
 
-- **Active development:** Move Farm operations from the sidebar/overflow menu to a dedicated Dashboard switch beside Dashboard view (feature branch `feature/dashboard-farm-operations-switch`). Keep the existing selection and bulk-action flows, disable switching while busy, clear selections when turned off or leaving Dashboard, and verify Preact and fallback layouts.
+- **Active development:** Finish Dashboard table responsiveness **and** group/switch heading alignment together on `fix/dashboard-table-compact-responsive` (PR #126). Keep Actions onscreen at MacBook widths, collapse secondary columns as needed, and maintain the zero-margin Printer group/select alignment previously implemented independently in PR #125. Validate both fixes together in Chromium (visible group filter, light/dark Dashboard, compact table) before merge; PR #125 remains unmerged.
 - **Production baseline:** Controller **0.59.10**, Node.js 24.22.1+ (Node 24 line), npm 12.2.0, committed lockfile and `npm ci`; supply-chain hardening and the Node-major Dependabot guard are already merged to `main`.
 - **Separate work:** PR #115 addresses tab-icon documentation and is independent of the README/policy changes.
 - **Validation constraints:** Keep Node/unit, Chromium/Preact, Windows SEA and container smoke gates; Creator 5-series and Bambu physical-hardware verification remains incomplete. Do not turn simulator-only success into a real-hardware claim.
