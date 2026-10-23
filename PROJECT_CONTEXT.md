@@ -11,7 +11,7 @@ Repository policy: `AGENTS.md` defines agent startup behavior; `docs/DOCUMENTATI
 - Repository: `Andy-Knight/Print-Farm-Controller`
 - Project path: repository root (`/`)
 - Primary branch: `main` (current production baseline)
-- Current controller source version: **0.59.10** (npm 12 security hardening, patched Node 24, deterministic locked builds and CI supply-chain controls).
+- Current controller source version: **0.59.11** (initial native authentication/RBAC foundation and security architecture; account/session primitives are not yet wired into the HTTP server).
 - Previous baseline audited: **0.48.0** (main before the regression test audit release).
 - Runtime: **Node.js 24.22.1+** (Node 24 release line), ES modules; build-time **npm 12.2.0** and committed lockfile; no npm runtime dependency for deployed controller. Follow `docs/dependency-security.md` for updates.
 - GitHub is the authoritative code baseline.
@@ -19,9 +19,9 @@ Repository policy: `AGENTS.md` defines agent startup behavior; `docs/DOCUMENTATI
 
 ## Current work
 
-- **Active security development:** Native user authentication and server-enforced RBAC, tracked by [issue #127](https://github.com/Andy-Knight/Print-Farm-Controller/issues/127). The initial foundation on `feature/auth-rbac-foundation` defines the API permission policy and threat/upgrade design in `docs/AUTHENTICATION_AND_RBAC.md`, plus isolated, tested account-hash/persistence and session/rate-limit primitives, **without yet enabling HTTP login or permission enforcement**. Next: wire secure first-run bootstrap, login/cookie/CSRF handling, middleware, UI and end-to-end route/action tests.
-- **Production baseline:** Controller **0.59.10**, Node.js 24.22.1+ (Node 24 line), npm 12.2.0, committed lockfile and `npm ci`. Dashboard table/heading improvements were merged via PR #126.
-- **Follow-up security deployment:** [Issue #128](https://github.com/Andy-Knight/Print-Farm-Controller/issues/128) tracks HTTPS via MetalLB + Ultimate Certificate Manager and ingress/reverse proxy, **after the native authentication design**. Production credential login must not be advertised as secure over cleartext HTTP. The roadmap-only planning PR #129 remains separate; implementation should be reviewed in its own PR.
+- **Active security development:** Native user authentication and server-enforced RBAC, tracked by [issue #127](https://github.com/Andy-Knight/Print-Farm-Controller/issues/127). The foundation merged via PR #130 defines the API permission policy and threat/upgrade design in `docs/AUTHENTICATION_AND_RBAC.md`, plus isolated, tested account-hash/persistence and session/rate-limit primitives, **without yet enabling HTTP login or permission enforcement**. Next: build the secure first-run bootstrap, login/cookie/CSRF handling, middleware, UI and end-to-end route/action tests in a separate feature branch.
+- **Release candidate:** Controller **0.59.11** retains the Node.js 24.22.1+ and npm 12.2.0 locked CI baseline, adding isolated role policy, account hashing/storage and session/login-throttle building blocks. No active login or API RBAC enforcement is shipped. Dashboard table/heading improvements remain on `main` via PR #126.
+- **Follow-up security deployment:** [Issue #128](https://github.com/Andy-Knight/Print-Farm-Controller/issues/128) tracks HTTPS via MetalLB + Ultimate Certificate Manager and ingress/reverse proxy, **after the native authentication design**. Production credential login must not be advertised as secure over cleartext HTTP. Roadmap-only PR #129 is separate and should not be merged blindly over the updated handoff; future implementation must be reviewed in its own PR.
 - **Validation constraints:** Keep Node/unit, Chromium/Preact, Windows SEA and container smoke gates; Creator 5-series and Bambu physical-hardware verification remains incomplete. Do not turn simulator-only success into a real-hardware claim.
 
 ## Architecture
