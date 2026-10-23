@@ -113,11 +113,17 @@ export class ControllerAuth {
     this.#sessions.revokeUser(userId);
     this.#closeStreams(userId);
   }
-  #track(res,userId){
+  #track(res,userId,token){
     let streams=this.#streams.get(userId);
     if(!streams){streams=new Set();this.#streams.set(userId,streams);}
     streams.add(res);
+    // An open SSE/camera stream cannot outlive session expiry or revocation.
+    const expiry=setInterval(()=>{
+      if(!this.#sessions.peek(token)&&!res.destroyed)res.destroy();
+    },15000);
+    expiry.unref?.();
     res.once('close',()=>{
+      clearInterval(expiry);
       streams.delete(res);
       if(streams.size===0)this.#streams.delete(userId);
     });
@@ -244,7 +250,7 @@ export class ControllerAuth {
       bad(res,json,403,'Origin or CSRF verification failed');return false;
     }
     if(url.pathname==='/api/events'||url.pathname.endsWith('/camera/stream'))
-      this.#track(res,identity.user.id);
+      this.#track(res,identity.user.id,identity.token);
     return true;
   }
 }
