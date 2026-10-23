@@ -49,6 +49,8 @@ import { publicAssetKey, readRuntimeAsset } from './runtime-assets.js';
 import { KeyedSerialExecutor, PrinterOperationCoordinator } from './concurrency.js';
 import { evaluatePrinterOperation, PrinterPhysicalActivityTracker, PRINTER_OPERATION_TYPES } from './printer-operation-policy.js';
 import { DiagnosticLogger } from './diagnostic-logger.js';
+import { ControllerAuth } from './security/http-auth.js';
+import { runLocalSecurityCommand } from './security/local-admin.js';
 import { MemoryMonitor } from './memory-monitor.js';
 import { MaintenanceService } from './maintenance-service.js';
 import { PrinterGroupService } from './printer-groups.js';
@@ -83,6 +85,7 @@ const CONTROLLER_VERSION = String(bundledVersion || packageInfo.version || 'unkn
 const PORT = Number(process.env.PORT || 4242);
 const HOST = process.env.HOST || '0.0.0.0';
 const diagnosticLogger = new DiagnosticLogger({ logDir:runtimePaths.logDir, version:CONTROLLER_VERSION });
+const controllerAuth = new ControllerAuth({dataDir:runtimePaths.dataDir});
 const memoryMonitor = new MemoryMonitor({
   diagnosticFn:(level, message, meta) => diagnosticLogger[level]?.('memory', message, meta)
 });
@@ -712,7 +715,9 @@ async function apiRoute(req, res, url) {
   }
 
   if (req.method === 'GET' && url.pathname === '/api/health') {
-    return json(res, 200, { ok: true, service: 'printer-fleet-controller', version: CONTROLLER_VERSION, license: currentLicenseSnapshot(), liveState: true });
+    return json(res, 200, controllerAuth.enabled
+      ? {ok:true,service:'printer-fleet-controller'}
+      : { ok: true, service: 'printer-fleet-controller', version: CONTROLLER_VERSION, license: currentLicenseSnapshot(), liveState: true });
   }
 
   if (req.method === 'GET' && url.pathname === '/api/license') {
@@ -2558,6 +2563,8 @@ const server = http.createServer(async (req, res) => {
     && ['POST','PUT','PATCH','DELETE'].includes(req.method);
   if (countedMutation) activeMutationRequests += 1;
   try {
+    if (await controllerAuth.route(req,res,url,{json,readJson})) return;
+    if (!await controllerAuth.authorize(req,res,url,{json})) return;
     if (url.pathname.startsWith('/api/emulator')) {
       if ((restorePendingRestart || restoreInspectionInProgress) && ['POST','PUT','PATCH','DELETE'].includes(req.method)) {
         return json(res, 409, {
@@ -2659,6 +2666,7 @@ async function startController() {
       console.warn(`Rolled back an incomplete restore startup: ${restoreStartup.reason}`);
     }
 
+    await controllerAuth.init();
     try {
       await diagnosticLogger.init();
       diagnosticLogger.patchConsole();
@@ -2718,6 +2726,12 @@ async function startController() {
     }
 
     console.log(`Print Farm Controller v${CONTROLLER_VERSION} running at http://localhost:${PORT}`);
+    if (controllerAuth.enabled) {
+      console.log(controllerAuth.setupRequired
+        ? 'Authentication enabled: run local administrator setup and restart before normal access.'
+        : 'Native authentication and server-side RBAC ENABLED.');
+      if (!controllerAuth.secure)console.warn('SECURITY WARNING: HTTP does not protect credentials. Configure HTTPS with PFC_PUBLIC_ORIGIN before production login.');
+    } else console.warn('SECURITY WARNING: Legacy unauthenticated LAN mode. Enrol an administrator to enable access controls.');
     const license = currentLicenseSnapshot();
     console.log(`Licence: ${license.label} (${license.source}; enforcement ${license.enforcementEnabled ? 'enabled' : 'disabled'})`);
     console.log(`LAN access: http://<this-computer-ip>:${PORT}`);
@@ -2755,7 +2769,9 @@ async function startController() {
   }
 }
 
-startController().catch((error) => {
+(process.argv.includes('--auth-setup') || process.argv.includes('--auth-recover')
+  ? runLocalSecurityCommand(process.argv.includes('--auth-recover')?'recover':'setup',{dataDir:runtimePaths.dataDir})
+  : startController()).catch((error) => {
   console.error(`Could not start Print Farm Controller: ${error.message}`);
   process.exitCode = 1;
 });
