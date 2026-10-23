@@ -1,4 +1,5 @@
 /* Controller identity and user management — semantic design tokens only. */
+#authLoginForm[hidden],#authOverlay[hidden]{display:none!important;}
 .auth-overlay[hidden],.auth-identity[hidden],.auth-account-button[hidden],
 #usersBtn[hidden],.auth-password-dialog:not([open]){display:none!important;}
 .auth-overlay{
