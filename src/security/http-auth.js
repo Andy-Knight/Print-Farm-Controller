@@ -92,7 +92,9 @@ export class ControllerAuth {
   async #identity(req){
     const token=cookieToken(req);
     if(!token)return null;
-    const session=this.#sessions.resolve(token);
+    // Passive page polling, downloads, SSE and the identity heartbeat must not
+    // extend idle sessions. Only authorized human activity/changes renew TTL.
+    const session=this.#sessions.peek(token);
     if(!session)return null;
     const user=await this.#accounts.getUser(session.userId);
     if(!user||user.disabled){
@@ -180,6 +182,10 @@ export class ControllerAuth {
     if(!identity)return bad(res,json,401,'Authentication required');
     if(MUTATIONS.has(method)&&!this.#mutationAllowed(req,identity))
       return bad(res,json,403,'Origin or CSRF verification failed');
+    if(MUTATIONS.has(method))this.#sessions.resolve(identity.token);
+    if(method==='POST'&&pathname==='/api/auth/activity'){
+      json(res,200,{ok:true});return true;
+    }
     if(method==='POST'&&pathname==='/api/auth/logout'){
       this.#sessions.revoke(identity.token);
       this.#closeStreams(identity.user.id);
@@ -249,6 +255,7 @@ export class ControllerAuth {
     if(MUTATIONS.has(req.method)&&!this.#mutationAllowed(req,identity)){
       bad(res,json,403,'Origin or CSRF verification failed');return false;
     }
+    if(MUTATIONS.has(req.method))this.#sessions.resolve(identity.token);
     if(url.pathname==='/api/events'||url.pathname.endsWith('/camera/stream'))
       this.#track(res,identity.user.id,identity.token);
     return true;
