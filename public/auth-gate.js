@@ -221,6 +221,18 @@ try{
     window.__PFC_FRONTEND_BOOTED__=true;
     document.documentElement.classList.remove('auth-pending');
     if(session.enabled){
+      // Real keyboard/pointer activity renews idle sessions. Automatic polling
+      // deliberately does not keep an unattended unlocked dashboard signed in.
+      let lastActivityReport=0;
+      const reportHumanActivity=(event)=>{
+        if(!event.isTrusted||document.visibilityState==='hidden')return;
+        const now=Date.now();
+        if(now-lastActivityReport<2*60*1000)return;
+        lastActivityReport=now;
+        void call('/api/auth/activity',{method:'POST'}).catch(()=>{});
+      };
+      document.addEventListener('pointerdown',reportHumanActivity,{capture:true,passive:true});
+      document.addEventListener('keydown',reportHumanActivity,{capture:true});
       setInterval(async()=>{
         try{
           const response=await nativeFetch('/api/auth/session',{cache:'no-store'});
