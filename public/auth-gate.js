@@ -206,7 +206,7 @@ try{
   if(session.enabled&&session.setupRequired){
     showGate('Administrator setup is required. From a local terminal run: node scripts/manage-users.mjs setup (or controller.exe --auth-setup), then restart the controller.',{setup:true});
   }else if(session.enabled&&!session.user){
-    const requiresHttps=!session.transportSecure;
+    const requiresHttps=!session.loginAvailable;
     const warning=session.transportWarning||'';
     $('#authTransportNotice').textContent=warning;
     $('#authTransportNotice').hidden=!warning;
