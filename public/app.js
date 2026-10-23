@@ -532,8 +532,9 @@ renderControllerRoute(location.pathname, { invoke:false });
 // page-specific loaders before their module listeners are registered. Once all
 // module scripts have finished loading, re-activate the current route through
 // its normal open action so direct browser refreshes populate route data too.
-if (document.readyState === 'complete') queueMicrotask(() => renderControllerRoute(location.pathname));
-else window.addEventListener('load', () => renderControllerRoute(location.pathname), {once:true});
+// Authentication gate imports auxiliary page modules after app.js. Only invoke
+// the initial route after all page-specific listeners have registered.
+window.__PFC_REACTIVATE_ROUTE__ = () => renderControllerRoute(location.pathname);
 
 const FILAMENT_COLOR_FAMILIES = Object.freeze([
   { value:'black', label:'Black', representative:'#111111' },
