@@ -179,6 +179,7 @@ async function loadApp(){
   try{await import('/dashboard-preact.js');}catch{}
   await import('/app.js');
   await Promise.all([import('/maintenance.js'),import('/reporting.js'),import('/alerts.js')]);
+  window.__PFC_REACTIVATE_ROUTE__?.();
 }
 loginForm?.addEventListener('submit',async event=>{
   event.preventDefault();
