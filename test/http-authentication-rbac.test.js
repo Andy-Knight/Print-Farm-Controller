@@ -147,6 +147,8 @@ test('disabled user, changed role/password and logout revoke sessions and stream
     assert.equal(changed.res.status,200);
     assert.equal((await gate(auth,'GET','/api/fleet',{cookie:admin.cookie})).res.status,401);
     const renewed=await login(auth,'owner','A different password 2026');
+    assert.equal((await exercise(auth,'POST','/api/auth/activity',{cookie:renewed.cookie,csrf:renewed.csrf})).res.status,200);
+    assert.equal((await exercise(auth,'POST','/api/auth/activity',{cookie:renewed.cookie})).res.status,403);
     const logout=await exercise(auth,'POST','/api/auth/logout',{cookie:renewed.cookie,csrf:renewed.csrf});
     assert.equal(logout.res.status,200);
     assert.match(logout.res.headers['set-cookie'],/Max-Age=0/);
