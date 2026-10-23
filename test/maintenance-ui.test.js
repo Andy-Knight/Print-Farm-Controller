@@ -18,7 +18,8 @@ test('maintenance tracking is available from the persistent controller navigatio
   assert.match(index, /value="days">Calendar days<\/option>/);
   assert.match(index, /value="print_hours">Observed print hours<\/option>/);
   assert.match(index, /value="print_count">Observed print cycles<\/option>/);
-  assert.match(index, /src="\/maintenance\.js"/);
+  assert.match(index, /src="\/auth-gate\.js"/);
+  assert.match(fs.readFileSync(new URL('../public/auth-gate.js', import.meta.url),'utf8'), /import\('\/maintenance\.js'\)/);
   assert.match(styles, /\.maintenance-dialog/);
   assert.match(styles, /\.maintenance-task\[data-state="due"\]/);
 });
