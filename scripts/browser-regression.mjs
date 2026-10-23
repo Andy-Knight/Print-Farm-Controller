@@ -39,8 +39,17 @@ async function waitForController(url, processHandle, logs) {
 async function preactReady(page) {
   await page.waitForFunction(() => {
     const s = window.__PFC_FRONTEND_RENDERER_STATUS__;
-    return s && s.bundleLoaded === true && s.preactCount === 13 && s.fallbackCount === 0;
+    return window.__PFC_FRONTEND_BOOTED__ === true && s && s.bundleLoaded === true
+      && s.preactCount === 13 && s.fallbackCount === 0;
   },null,{timeout:15000});
+  // Authenticated bootstrap loads auxiliary modules and route data asynchronously.
+  // Synthetic Library fixtures must not race the initial server response.
+  if(await page.evaluate(()=>document.body.dataset.route==='/library')){
+    await page.waitForFunction(()=>
+      Boolean(window.__PFC_LIBRARY_UI_STATE__)
+      && !(document.querySelector('#libraryStatus')?.textContent||'').includes('Loading')
+    ,null,{timeout:15000});
+  }
 }
 
 async function reportsLoaded(page,where) {
