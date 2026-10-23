@@ -1,6 +1,6 @@
 /**
- * Private, dependency-free account storage primitives for a FUTURE controller
- * authentication service. Not connected to the HTTP server yet.
+ * Private, dependency-free credential persistence for controller authentication.
+ * Accounts are enrolled/recovered only via the privileged local CLI.
  *
  * Account enrollment/recovery MUST be called through a local privileged flow,
  * never exposed as a public first-run API on the controller LAN.
@@ -105,6 +105,10 @@ export class AccountStore {
     }
   }
   async initialized(){return Boolean(await this.#read());}
+  async getUser(id){
+    const data=await this.#read();
+    return data?.users.find(u=>u.id===id) ? publicUser(data.users.find(u=>u.id===id)) : null;
+  }
   async listUsers(){
     const data=await this.#read();
     if(!data) return [];
@@ -122,6 +126,9 @@ export class AccountStore {
         role:'administrator',disabled:false,password:credentials,
         createdAt:this.#now().toISOString(),updatedAt:this.#now().toISOString()
       };
+      // Durable activation marker must precede accounts: lost/corrupt user data
+      // can never silently fall back to unauthenticated controller access.
+      await fs.writeFile(path.join(this.#directory,'enabled'),'enabled\n',{mode:0o600,flag:'a'});
       const handle=await fs.open(this.#file,'wx',0o600);
       try{
         await handle.writeFile(JSON.stringify({version:SCHEMA_VERSION,users:[record]},null,2)+'\n');
