@@ -19,7 +19,8 @@ Repository policy: `AGENTS.md` defines agent startup behavior; `docs/DOCUMENTATI
 
 ## Current work
 
-- **Active development:** Finish Dashboard table responsiveness **and** group/switch heading alignment together on `fix/dashboard-table-compact-responsive` (PR #126). Keep Actions onscreen at MacBook widths, collapse secondary columns as needed, and maintain the zero-margin Printer group/select alignment previously implemented independently in PR #125. Validate both fixes together in Chromium (visible group filter, light/dark Dashboard, compact table) before merge; PR #125 remains unmerged.
+- **Active development priority:** Native user authentication and backend-enforced role-based access control (RBAC), tracked in [issue #127](https://github.com/Andy-Knight/Print-Farm-Controller/issues/127). Start with a full protected-route/stream/command inventory and a three-role permission baseline (Administrator, Operator, Viewer); design safe first-admin bootstrap, upgrade migration, secure sessions, CSRF/origin checks, account management, and audit/testing across API, SSE, camera, printer control, print library, licensing and backup/restore. Browser UI controls are not the security boundary.
+- **Deferred security deployment:** Once authentication and RBAC are designed and verified, add browser-facing HTTPS/TLS termination for K3s via a MetalLB-backed ingress or reverse proxy using the installed Ultimate Certificate Manager; track this in [issue #128](https://github.com/Andy-Knight/Print-Farm-Controller/issues/128). No controller application code change is expected for simple TLS termination. Do not treat password login over plain LAN HTTP as secure production operation; ensure proxy trust, session-cookie and TLS rollout align.
 - **Production baseline:** Controller **0.59.10**, Node.js 24.22.1+ (Node 24 line), npm 12.2.0, committed lockfile and `npm ci`; supply-chain hardening and the Node-major Dependabot guard are already merged to `main`.
 - **Separate work:** PR #115 addresses tab-icon documentation and is independent of the README/policy changes.
 - **Validation constraints:** Keep Node/unit, Chromium/Preact, Windows SEA and container smoke gates; Creator 5-series and Bambu physical-hardware verification remains incomplete. Do not turn simulator-only success into a real-hardware claim.
@@ -99,6 +100,7 @@ Manufacturer-specific discovery, capabilities, limits, status normalization, fil
 - Every application release updates `package.json`, the lockfile, the current-version metadata in `README.md` and `PROJECT_CONTEXT.md`, and a new version entry in `CHANGELOG.md`. Documentation-only changes do not require an application version bump.
 - **Documentation authority:** `README.md` contains current capabilities and setup (current-version metadata only), `CHANGELOG.md` contains every release change, this file contains live handoff/decisions, and `docs/CONTROLLER_VISUAL_STYLE_GUIDE.md` contains visual standards. Follow `AGENTS.md` and `docs/DOCUMENTATION_POLICY.md`.
 - The browser appearance switch is accessible, persists only in browser `localStorage`, and follows the device colour scheme until the user explicitly selects Light or Dark.
+- **Access-security design direction (not yet implemented):** The controller currently has no native user login/RBAC boundary; prioritise server-side authorization over cosmetic per-role UI hiding. Separate user permissions from offline licence edition entitlements. Proposed initial roles are Administrator (including users, integrations and restore), Operator (day-to-day print operations), and Viewer (read-only), subject to a reviewed endpoint/command permission matrix. Protect account bootstrap and recovery against accidental lockout. HTTPS and authentication are complementary controls; do not expose or advertise unsecured remote credential entry as safe.
 - **Live-telemetry edit protection rule:** if a UI field is both refreshed from live printer telemetry and user-editable, and the user's change requires a separate **Save / Apply / Set** action, the UI must treat the edit as pending/dirty and must not let telemetry overwrite the user's unsaved value. Clear the dirty state only after the write succeeds (or the control is intentionally rebuilt/cancelled). The Snapmaker U1 filament type/colour editor is the current reference implementation. Controls that save immediately on selection, or controls that are not rewritten by telemetry, do not need this protection.
 - Queue priority is **High / Normal / Low**. Effective priority ranks before manual queue order; a waiting job gains one priority level every six hours so low-priority work cannot be starved. Within the same effective priority, manual order remains authoritative.
 - When multiple compatible idle printers are ready for an automatic job, a printer with a verified existing copy of the file is preferred; the assigned job records the selection reason.
@@ -130,15 +132,15 @@ Manufacturer-specific discovery, capabilities, limits, status normalization, fil
 
 ## Current task
 
-Complete the documentation responsibilities, AI-agent handoff rules and CI checks on PR #123. After this PR merges, replace this task with the next active work item instead of retaining an accumulating version-by-version narrative.
+Define and implement native user authentication and server-side RBAC, beginning with the API/command permission inventory and threat model in issue #127. Record unresolved authorization, first-run bootstrap, legacy-upgrade and session/HTTPS trust decisions there before coding a production-facing login. Issue #128 retains MetalLB + Ultimate Certificate Manager ingress HTTPS as the subsequent infrastructure task. Neither security feature is implemented in the current production baseline.
 
 ## Next steps
 
-1. Review and merge PR #123 once documentation compliance and existing application CI gates pass; update this handoff to reflect the resolved state.
-2. Validate Creator 5 / Creator 5 Pro and experimental Bambu behavior against real hardware before changing their support labels.
-3. Maintain the deliberate controller-managed DOM boundaries around stateful hardware workflows and extend Preact only where justified.
-4. Preserve Node, Chromium, Windows SEA and container quality gates; record each release in `CHANGELOG.md` while keeping `README.md` evergreen.
-5. Follow `docs/DOCUMENTATION_POLICY.md` and the canonical `docs/CONTROLLER_VISUAL_STYLE_GUIDE.md` for every future change.
+1. **Authentication & RBAC first:** Scope issue #127; inventory every HTTP route, controller command, SSE/camera stream, upload/download, restore and integration endpoint; create a default-deny role/permission matrix enforced by the server.
+2. Design first-admin enrollment and safe migration of current HTTP installations, password credential storage, session expiry/revocation, CSRF/origin and trusted-proxy handling, operator/viewer limitations and recovery from lost administrator access. Plan realistic browser, API, multi-client and packaging tests.
+3. **HTTPS later:** Scope issue #128 to introduce UCM-backed TLS via Traefik/Caddy or equivalent while retaining MetalLB; verify available CA/certificates, DNS/IP SAN, client trust, certificate renewal, Service networking, direct-HTTP bypass prevention and login compatibility. Do not claim that authentication protects credentials in transit on HTTP.
+4. Continue physical validation for Creator 5 / Creator 5 Pro and experimental Bambu; maintain Preact/DOM ownership and regressions, including Node, Chromium, Windows SEA and container quality gates.
+5. Keep release history only in `CHANGELOG.md`; follow `docs/DOCUMENTATION_POLICY.md` and `docs/CONTROLLER_VISUAL_STYLE_GUIDE.md` for all future changes.
 
 ## Licensing baseline
 
