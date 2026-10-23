@@ -128,6 +128,7 @@ export class ControllerAuth {
       user:identity?.user||null,csrf:identity?.csrf||null,
       permissions:identity?Object.values(PERMISSIONS).filter(p=>roleHasPermission(identity.user.role,p)):[],
       transportSecure:this.#secure,
+      loginAvailable:this.#secure||this.#allowHttp,
       transportWarning:this.#enabled&&!this.#secure
         ?'Password and session traffic over HTTP is not protected from LAN interception. Configure HTTPS before production use.'
         :null
@@ -225,7 +226,9 @@ export class ControllerAuth {
   /** Refuse all unknown controller API actions even to administrators. */
   async authorize(req,res,url,{json}){
     if(!this.#enabled)return true; // Existing installations remain unchanged until explicit enrolment.
-    if(this.#setupRequired)return bad(res,json,503,'Local administrator setup required')&&false;
+    if(this.#setupRequired&&!(req.method==='GET'&&url.pathname==='/api/health')){
+      bad(res,json,503,'Local administrator setup required');return false;
+    }
     const api=url.pathname.startsWith('/api/');
     const simulator=url.pathname==='/simulator'||url.pathname.startsWith('/simulator/');
     if(!api&&!simulator)return true; // Public frontend assets must load for the login page.
