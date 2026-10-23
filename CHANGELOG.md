@@ -4,6 +4,13 @@ This file contains the version-by-version release history for Print Farm Control
 
 Historical entries describe the behaviour of the controller at the time of that release and may be superseded by later versions. For current installation, configuration and supported-hardware guidance, see [README.md](README.md).
 
+## v0.59.11
+
+- Established the **native authentication and role-based access control (RBAC) foundation** with explicit Administrator, Operator and Viewer permission mappings for controller HTTP API methods, protected file and backup operations, print controls, camera streams and live telemetry. Unknown API routes are denied by the proposed policy.
+- Added **isolated security primitives** for local accounts: password hashing using Node.js built-in scrypt with individual salts, persistently stored user roles/status, initial administrator creation, and protection against disabling the final enabled administrator. Added random opaque, revocable session tokens with expiry and login-attempt throttling.
+- Added security unit/regression coverage for API route/role classification, salted hashes, account persistence and corruption handling, privileged account continuity, session expiry/revocation and login attempt throttling. Documented first-run enrollment, migration, session/CSRF protection, RBAC enforcement and TLS rollout requirements in `docs/AUTHENTICATION_AND_RBAC.md`.
+- **Security scope:** These primitives are intentionally **not connected to the production HTTP router**. This release does **not** introduce a login screen, enable user authentication or enforce access control on controller requests. Existing HTTP/LAN behavior is unchanged; HTTPS via MetalLB and Ultimate Certificate Manager is planned separately.
+
 ## v0.59.10
 
 - Adopted an audited **Node.js 24.22.1** and **npm 12.2.0** development/build baseline; recorded the required npm version in `package.json`.
