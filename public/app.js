@@ -290,7 +290,8 @@ const controllerRoutes = {
   '/alerts': { button:'alertsSettingsBtn', dialog:'alertsDialog', title:'Alerts & notifications', topbarTitle:'Farm management', subtitle:'Review alerts and notification settings' },
   '/backup': { button:'backupRecoveryBtn', dialog:'backupRecoveryDialog', title:'Backup & recovery', topbarTitle:'Farm management', subtitle:'Protect and restore controller data' },
   '/diagnostics': { button:'diagnosticsBtn', dialog:'diagnosticsDialog', title:'Diagnostics', topbarTitle:'Farm management', subtitle:'Review controller health and diagnostic logs' },
-  '/licence': { button:'licenseBtn', dialog:'licenseDialog', title:'Licence', subtitle:'Review controller edition and licence status' }
+  '/licence': { button:'licenseBtn', dialog:'licenseDialog', title:'Licence', subtitle:'Review controller edition and licence status' },
+  '/users': { button:'usersBtn', dialog:'usersDialog', title:'User management', topbarTitle:'Farm management', subtitle:'Manage local controller access and roles' }
 };
 const workspaceMain = document.querySelector('body > main');
 // Bind route title and subtitle separately to avoid duplicate context labels.
@@ -531,9 +532,8 @@ renderControllerRoute(location.pathname, { invoke:false });
 // page-specific loaders before their module listeners are registered. Once all
 // module scripts have finished loading, re-activate the current route through
 // its normal open action so direct browser refreshes populate route data too.
-window.addEventListener('load', () => {
-  renderControllerRoute(location.pathname);
-}, { once:true });
+if (document.readyState === 'complete') queueMicrotask(() => renderControllerRoute(location.pathname));
+else window.addEventListener('load', () => renderControllerRoute(location.pathname), {once:true});
 
 const FILAMENT_COLOR_FAMILIES = Object.freeze([
   { value:'black', label:'Black', representative:'#111111' },
