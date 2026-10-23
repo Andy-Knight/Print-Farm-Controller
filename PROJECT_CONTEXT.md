@@ -19,7 +19,7 @@ Repository policy: `AGENTS.md` defines agent startup behavior; `docs/DOCUMENTATI
 
 ## Current work
 
-- **Active security development:** Native user authentication and server-enforced RBAC, tracked by [issue #127](https://github.com/Andy-Knight/Print-Farm-Controller/issues/127). The initial foundation on `feature/auth-rbac-foundation` defines the API permission policy and threat/upgrade design in `docs/AUTHENTICATION_AND_RBAC.md`, **without yet enabling login or permission enforcement in production**. Next: secure account store/bootstrap, session and CSRF handling, middleware, UI and exhaustive route/action tests.
+- **Active security development:** Native user authentication and server-enforced RBAC, tracked by [issue #127](https://github.com/Andy-Knight/Print-Farm-Controller/issues/127). The initial foundation on `feature/auth-rbac-foundation` defines the API permission policy and threat/upgrade design in `docs/AUTHENTICATION_AND_RBAC.md`, plus isolated, tested account-hash/persistence and session/rate-limit primitives, **without yet enabling HTTP login or permission enforcement**. Next: wire secure first-run bootstrap, login/cookie/CSRF handling, middleware, UI and end-to-end route/action tests.
 - **Production baseline:** Controller **0.59.10**, Node.js 24.22.1+ (Node 24 line), npm 12.2.0, committed lockfile and `npm ci`. Dashboard table/heading improvements were merged via PR #126.
 - **Follow-up security deployment:** [Issue #128](https://github.com/Andy-Knight/Print-Farm-Controller/issues/128) tracks HTTPS via MetalLB + Ultimate Certificate Manager and ingress/reverse proxy, **after the native authentication design**. Production credential login must not be advertised as secure over cleartext HTTP. The roadmap-only planning PR #129 remains separate; implementation should be reviewed in its own PR.
 - **Validation constraints:** Keep Node/unit, Chromium/Preact, Windows SEA and container smoke gates; Creator 5-series and Bambu physical-hardware verification remains incomplete. Do not turn simulator-only success into a real-hardware claim.
@@ -130,7 +130,7 @@ Manufacturer-specific discovery, capabilities, limits, status normalization, fil
 
 ## Current task
 
-Develop user authentication and backend RBAC as issue #127. The first phase formalises the exact API role/permission policy, security threat model, safe first-admin bootstrap, upgrade and TLS rollout architecture (`docs/AUTHENTICATION_AND_RBAC.md`). This phase is **not runtime authorization**; the controller remains accessible over plain HTTP until a tested security-enabled implementation is deliberately deployed.
+Develop user authentication and backend RBAC as issue #127. The first phase formalises the exact API role/permission policy, security threat model, safe first-admin bootstrap, upgrade and TLS rollout architecture (`docs/AUTHENTICATION_AND_RBAC.md`) and builds testable isolated account/session primitives. This phase is **not runtime authorization**; the controller remains accessible over plain HTTP until a tested security-enabled implementation is deliberately deployed.
 
 ## Next steps
 
