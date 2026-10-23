@@ -161,7 +161,7 @@ test('HTTP login is rejected by default; invalid logins use generic errors and t
     const insecure=new ControllerAuth({dataDir,env:{}});
     await insecure.init();
     const noTls=await exercise(insecure,'POST','/api/auth/login',{
-      origin:'http://localhost:4242',body:{username:'owner',password:ADMIN_PASSWORD}
+      origin:'http://controller.example.test',body:{username:'owner',password:ADMIN_PASSWORD}
     });
     assert.equal(noTls.res.status,503);
     const secure=new ControllerAuth({dataDir,env:{PFC_PUBLIC_ORIGIN:ORIGIN}});
