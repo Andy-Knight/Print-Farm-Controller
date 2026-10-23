@@ -83,3 +83,13 @@ test('printer groups page uses Farm Organisation terminology in its shared page 
   assert.doesNotMatch(section,/FLEET ORGANISATION/);
   assert.match(section,/<h2 class="ui-page-title">Printer groups<\/h2>/);
 });
+
+test('Dashboard group field and both switches have a common desktop vertical alignment',()=>{
+  const styles=read('public/styles.css');
+  const browser=read('scripts/browser-regression.mjs');
+  assert.match(styles,/\.dashboard-group-filter \{ margin:0; padding:0; \}/,
+    'dashboard group filter must not retain legacy 12px bottom margin');
+  assert.match(browser,/alignment-fixture/,'exercise an actual visible group, not only no-groups state');
+  assert.match(browser,/all three Dashboard field headings must align/);
+  assert.match(browser,/group dropdown and both switches must align vertically/);
+});

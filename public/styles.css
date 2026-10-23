@@ -3822,7 +3822,8 @@ button.compact { min-height:32px; padding:6px 9px; }
 .sidebar-toggle { display:none; width:40px; height:40px; border:1px solid #2d3943; border-radius:10px; background:#151d24; color:#dce4eb; }
 .modern-topbar .topbar-overflow { display:none; }
 body > main { max-width:calc(var(--workspace-max) + var(--sidebar-width)); margin:0 0 0 var(--sidebar-width); padding:22px 28px 42px; }
-.dashboard-group-filter { margin:0 0 12px; padding:0; }
+/* Consistent Dashboard label/select/switch row; no legacy filter offset. */
+.dashboard-group-filter { margin:0; padding:0; }
 .summary { grid-template-columns:repeat(5,minmax(130px,1fr)); gap:10px; margin:0 0 18px; }
 .summary-card { min-height:82px; padding:13px 15px; border-radius:12px; background:linear-gradient(145deg,#151d25,#11171e); }
 .summary-card b { font-size:1.45rem; }

@@ -438,6 +438,45 @@ async function dashboardPhase3Smoke(browser,url) {
     assert.ok((await page.evaluate(()=>window.__PFC_PHASE3_ACTIONS__))
       .some(event=>event.type==='filter'&&event.value==='attention'),
       'summary stat uses controller filter event');
+    // A legacy bottom margin on the group filter previously raised both the
+    // "Printer group" heading and its select above the two switch controls.
+    // Exercise a visible printer group, not the default hidden filter.
+    await page.evaluate(()=>{
+      const state={...window.__PFC_DASHBOARD_STATE__,
+        groups:[{id:'alignment-fixture',name:'Alignment fixture',printerCount:2}],
+        groupId:''};
+      window.__PFC_DASHBOARD_STATE__=state;
+      window.dispatchEvent(new CustomEvent('pfc:dashboard-state',{detail:state}));
+    });
+    await page.locator('#dashboardGroupFilterBar:not(.hidden) #dashboardGroupFilter').waitFor();
+    for (const width of [1920,1512,1365,1280]) {
+      await page.setViewportSize({width,height:900});
+      const controls=await page.evaluate(()=>{
+        const rect=selector=>{
+          const r=document.querySelector(selector).getBoundingClientRect();
+          return {top:r.top,left:r.left,right:r.right,height:r.height};
+        };
+        return {
+          labels:[
+            rect('#dashboardGroupFilterBar label'),
+            rect('.dashboard-hero .dashboard-view-control:not(.dashboard-operations-control) .dashboard-view-label'),
+            rect('.dashboard-hero .dashboard-operations-control .dashboard-view-label')
+          ],
+          fields:[
+            rect('#dashboardGroupFilter'),
+            rect('#dashboardViewToggle'),
+            rect('#farmOperationsToggle')
+          ],
+          groupMargin:getComputedStyle(document.querySelector('#dashboardGroupFilterBar')).marginBottom
+        };
+      });
+      assert.equal(controls.groupMargin,'0px','legacy group-filter bottom spacing must not shift the Dashboard row');
+      assert.ok(Math.max(...controls.labels.map(r=>r.top))-Math.min(...controls.labels.map(r=>r.top))<=2,
+        'all three Dashboard field headings must align at '+width+'px: '+JSON.stringify(controls));
+      assert.ok(Math.max(...controls.fields.map(r=>r.top))-Math.min(...controls.fields.map(r=>r.top))<=2,
+        'group dropdown and both switches must align vertically at '+width+'px: '+JSON.stringify(controls));
+    }
+    await page.setViewportSize({width:1365,height:900});
     // Farm operations must live on the Dashboard, never in shell navigation.
     assert.equal(await page.locator('#batchModeBtn, #batchModeMenuBtn, #topbarOverflow').count(), 0);
     const operations=page.locator('#farmOperationsToggle');
