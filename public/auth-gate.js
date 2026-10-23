@@ -216,9 +216,10 @@ try{
       : 'Sign in to access your print farm.',{transport:requiresHttps});
   }else{
     installAuthorizedFetch();
-    document.documentElement.classList.remove('auth-pending');
     if(session.enabled)initializeAccountUi();
     await loadApp();
+    window.__PFC_FRONTEND_BOOTED__=true;
+    document.documentElement.classList.remove('auth-pending');
     if(session.enabled){
       setInterval(async()=>{
         try{
