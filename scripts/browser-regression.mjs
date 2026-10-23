@@ -588,8 +588,16 @@ async function dashboardCompactTableSmoke(browser,url) {
       assert.equal(layout.headerColumns.length,layout.cellColumns.length,
         'heading and cell visibility must match at '+width+'px: '+JSON.stringify(layout));
       for(let col=0;col<layout.headerColumns.length;col++){
-        assert.ok(Math.abs(layout.headerColumns[col].left-layout.cellColumns[col].left)<=2,
-          'header/data cell column alignment '+col+' at '+width+'px: '+JSON.stringify(layout));
+        const h=layout.headerColumns[col],cell=layout.cellColumns[col];
+        // Progress is intentionally an inset bar (7px side margins) rather
+        // than an edge-aligned text cell. Test that it fits its grid track.
+        if(layout.visibleHeaders[col]==='Progress'){
+          assert.ok(cell.left>=h.left-1&&cell.right<=h.right+1,
+            'progress bar stays inside its grid track at '+width+'px: '+JSON.stringify(layout));
+        }else{
+          assert.ok(Math.abs(h.left-cell.left)<=2,
+            'header/data cell column alignment '+col+' at '+width+'px: '+JSON.stringify(layout));
+        }
       }
       assert.ok(layout.buttonWidths.every(({scroll,client})=>scroll<=client+2),
         'both action buttons must fit their labels at '+width+'px: '+JSON.stringify(layout));
