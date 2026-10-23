@@ -12,6 +12,7 @@ on:
       - test/release-version.test.js
       - .github/PULL_REQUEST_TEMPLATE.md
       - .github/workflows/documentation-policy.yml
+      - .gitattributes
   push:
     branches:
       - main
@@ -25,6 +26,7 @@ on:
       - test/release-version.test.js
       - .github/PULL_REQUEST_TEMPLATE.md
       - .github/workflows/documentation-policy.yml
+      - .gitattributes
   workflow_dispatch:
 
 permissions:
@@ -43,3 +45,23 @@ jobs:
           node-version: '24.22.1'
       - name: Validate documentation and release metadata
         run: node --test test/documentation-policy.test.js test/release-version.test.js
+
+      - name: Validate actual GitHub source archive contents
+        shell: bash
+        run: |
+          git archive --format=tar HEAD | tar -tf - > "${RUNNER_TEMP}/pfc-archive-files.txt"
+          for required in \
+            AGENTS.md PROJECT_CONTEXT.md README.md CHANGELOG.md \
+            docs/DOCUMENTATION_POLICY.md docs/CONTROLLER_VISUAL_STYLE_GUIDE.md docs/DESIGN_SYSTEM.md \
+            .npmrc .github/workflows/container-image.yml \
+            test/documentation-policy.test.js test/release-version.test.js; do
+            if ! grep -Fxq "$required" "${RUNNER_TEMP}/pfc-archive-files.txt"; then
+              echo "::error::GitHub ZIP omits required source/test file: $required"
+              exit 1
+            fi
+          done
+          if grep -Fq 'docs/assets/controller-icon-catalog.svg' "${RUNNER_TEMP}/pfc-archive-files.txt"; then
+            echo "::error::Optional docs/assets was included in source archive"
+            exit 1
+          fi
+

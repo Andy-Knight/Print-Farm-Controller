@@ -22,7 +22,7 @@ test('new shell stylesheet layers after Phase 1 tokens without overwriting the o
 
 test('sidebar retains controller-owned action selectors, routes and accessible nav semantics',()=>{
   for(const selector of ['id="controllerSidebar"','id="sidebarToggle"','id="sidebarBackdrop"',
-    'id="addPrinterBtn"','id="batchModeBtn"','id="maintenanceBtn"',
+    'id="addPrinterBtn"','id="farmOperationsToggle"','id="maintenanceBtn"',
     'id="queueBtn"','id="libraryBtn"','id="reportsBtn"','id="licenseBtn"',
     'id="sidebarVersion"'.replace('sidebarVersion','controllerVersion')])
     assert.ok(html.includes(selector),'lost navigation/command control '+selector);

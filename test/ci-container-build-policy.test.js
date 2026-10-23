@@ -33,3 +33,18 @@ test('feature pull requests run tests and disposable container smoke, without mu
   assert.match(build,/pfc_google_client_id=\$\{\{ secrets\.PFC_GOOGLE_CLIENT_ID \}\}/,
     'production secrets are still scoped to published images');
 });
+
+test('Chromium regression budget includes browser installation on slow runners',t=>{
+  if(!existsSync(workflowUrl)){
+    if(process.env.GITHUB_ACTIONS) assert.fail('CI checkout must include container-image.yml');
+    t.skip('GitHub workflow files are not present in this installation');
+    return;
+  }
+  const yml=readFileSync(workflowUrl,'utf8');
+  const browser=yml.split('  browser:\n')[1]?.split('\n  windows:\n')[0] || '';
+  const budget=Number(browser.match(/timeout-minutes:\s*(\d+)/)?.[1]);
+  assert.ok(budget>=25,
+    'the Chromium job needs time for slow Ubuntu browser dependency setup, not just the browser tests');
+  assert.match(browser,/npx playwright install --with-deps chromium/);
+  assert.match(browser,/npm run test:browser/);
+});

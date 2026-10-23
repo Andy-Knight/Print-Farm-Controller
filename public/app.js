@@ -182,9 +182,7 @@ const restoreCancelStageBtn = document.querySelector('#restoreCancelStageBtn');
 const restoreInspectStatus = document.querySelector('#restoreInspectStatus');
 const restoreInspectError = document.querySelector('#restoreInspectError');
 const restoreInspectionSummary = document.querySelector('#restoreInspectionSummary');
-const batchModeBtn = document.querySelector('#batchModeBtn');
-const batchModeMenuBtn = document.querySelector('#batchModeMenuBtn');
-const topbarOverflow = document.querySelector('#topbarOverflow');
+const farmOperationsToggle = document.querySelector('#farmOperationsToggle');
 const batchToolbar = document.querySelector('#batchToolbar');
 const batchSelectedCount = document.querySelector('#batchSelectedCount');
 const batchResult = document.querySelector('#batchResult');
@@ -365,11 +363,8 @@ function renderControllerRoute(pathname, { invoke = true } = {}) {
   const route = controllerRoutes[routePath];
   activeRoute = routePath;
   document.body.dataset.route = routePath;
-  if (batchModeBtn) {
-    batchModeBtn.disabled = routePath !== '/';
-    batchModeBtn.setAttribute('aria-disabled', routePath === '/' ? 'false' : 'true');
-    if (routePath !== '/' && selectionMode) setSelectionMode(false);
-  }
+  // Bulk controls only operate from the Dashboard; leaving it clears selections.
+  if (routePath !== '/' && selectionMode) setSelectionMode(false);
   document.querySelectorAll('.sidebar-item[data-route]').forEach((item) => {
     const current = item.dataset.route === routePath;
     item.classList.toggle('active', current);
@@ -3004,7 +2999,9 @@ function publishDashboardUiState() {
         printerCount:Number(group.printerIds?.length || 0)
       })),
     groupId:dashboardGroupId,
-    viewMode:dashboardViewMode
+    viewMode:dashboardViewMode,
+    farmOperationsEnabled:selectionMode,
+    farmOperationsBusy:batchBusy
   };
   window.__PFC_DASHBOARD_STATE__ = detail;
   window.dispatchEvent(new CustomEvent('pfc:dashboard-state', { detail }));
@@ -4420,9 +4417,15 @@ function updateBatchUi() {
   }
   fleetEl.classList.toggle('selection-mode', selectionMode);
   batchToolbar.classList.toggle('hidden', !selectionMode);
-  const fleetModeLabel = selectionMode ? 'Exit farm ops' : 'Farm operations';
-  batchModeBtn.textContent = fleetModeLabel;
-  if (batchModeMenuBtn) batchModeMenuBtn.textContent = fleetModeLabel;
+  // Fallback controls stay accessible without the Preact bundle. Preact reads
+  // the same transient selection state from pfc:dashboard-state below.
+  if (!window.__PFC_PREACT_DASHBOARD__ && farmOperationsToggle) {
+    farmOperationsToggle.setAttribute('aria-checked', String(selectionMode));
+    farmOperationsToggle.setAttribute('aria-label', selectionMode ? 'Disable farm operations' : 'Enable farm operations');
+    farmOperationsToggle.disabled = batchBusy;
+    const label = farmOperationsToggle.querySelector('.dashboard-view-toggle-label');
+    if (label) label.textContent = selectionMode ? 'On' : 'Off';
+  }
   batchSelectedCount.textContent = String(selectedPrinterIds.size);
 
   if (window.__PFC_PREACT_FLEET__) {
@@ -4439,6 +4442,7 @@ function updateBatchUi() {
   batchToolbar.querySelectorAll('[data-batch-open],[data-batch-direct]').forEach((button) => {
     button.disabled = batchBusy || selectedPrinterIds.size === 0;
   });
+  publishDashboardUiState();
 }
 
 function setSelectionMode(enabled) {
@@ -5208,12 +5212,10 @@ function openAdd() {
 
 document.querySelector('#addPrinterBtn').addEventListener('click', openAdd);
 diagnosticsBtn?.addEventListener('click', async () => {
-  if (topbarOverflow) topbarOverflow.open = false;
   diagnosticsDialog?.showModal();
   await loadDiagnostics();
 });
 printerGroupsBtn?.addEventListener('click', async () => {
-  if (topbarOverflow) topbarOverflow.open = false;
   printerGroupsDialog?.showModal();
   // Reset immediately on navigation, never after an async load. A slow group
   // refresh must not erase a draft the user has already started typing.
@@ -5312,7 +5314,6 @@ printerGroupsList?.addEventListener('click', async (event) => {
 });
 
 backupRecoveryBtn?.addEventListener('click', async () => {
-  if (topbarOverflow) topbarOverflow.open = false;
   if (backupActionStatus) backupActionStatus.textContent = '';
   clearRestoreInspection();
   if (restoreBackupFileInput) {
@@ -5372,7 +5373,6 @@ diagnosticsSearch?.addEventListener('input', () => {
   diagnosticsSearchTimer = setTimeout(loadDiagnostics, 250);
 });
 licenseBtn?.addEventListener('click', () => {
-  if (topbarOverflow) topbarOverflow.open = false;
   if (licenseInstallStatus) licenseInstallStatus.textContent = '';
   if (licenseInstallError) {
     licenseInstallError.textContent = '';
@@ -5944,17 +5944,12 @@ queueHistoryList?.addEventListener('click', async (event) => {
     renderPrintQueue();
   } catch (error) { alert(error.message); button.disabled = false; }
 });
-batchModeBtn.addEventListener('click', () => setSelectionMode(!selectionMode));
-batchModeMenuBtn?.addEventListener('click', () => {
-  if (topbarOverflow) topbarOverflow.open = false;
-  setSelectionMode(!selectionMode);
-});
-topbarOverflow?.addEventListener('click', (event) => {
-  if (event.target.closest('[onclick]')) topbarOverflow.open = false;
-});
-document.addEventListener('click', (event) => {
-  if (topbarOverflow?.open && !topbarOverflow.contains(event.target)) topbarOverflow.open = false;
-});
+if (!window.__PFC_PREACT_DASHBOARD__) {
+  farmOperationsToggle?.addEventListener('click', () => {
+    if (activeRoute !== '/' || batchBusy) return;
+    setSelectionMode(!selectionMode);
+  });
+}
 document.querySelectorAll('[data-add-printer]').forEach((el) => el.addEventListener('click', openAdd));
 document.querySelectorAll('[data-close]').forEach((el) => el.addEventListener('click', () => el.closest('dialog').close()));
 scanNetworkBtn.addEventListener('click', scanNetwork);
@@ -6035,6 +6030,10 @@ window.addEventListener('pfc:dashboard-action', (event) => {
   }
   if (action.type === 'view') {
     applyDashboardViewMode(action.value, { persist:true });
+    return;
+  }
+  if (action.type === 'operations' && activeRoute === '/' && !batchBusy) {
+    setSelectionMode(Boolean(action.value));
   }
 });
 
@@ -6353,8 +6352,9 @@ async function runFileDistribution() {
 function setBatchBusy(busy) {
   batchBusy = Boolean(busy);
   batchToolbar.querySelectorAll('button').forEach((button) => { button.disabled = batchBusy || (button.matches('[data-batch-open],[data-batch-direct]') && selectedPrinterIds.size === 0); });
-  batchModeBtn.disabled = batchBusy;
-  if (batchModeMenuBtn) batchModeMenuBtn.disabled = batchBusy;
+  // Also disable the Preact switch while requests are in flight.
+  if (!window.__PFC_PREACT_DASHBOARD__ && farmOperationsToggle) farmOperationsToggle.disabled = batchBusy;
+  publishDashboardUiState();
 }
 
 async function runBatchAction(action, params = {}) {
