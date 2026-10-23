@@ -1,4 +1,4 @@
-# Print Farm Controller v0.59.11
+# Print Farm Controller v0.59.12
 A local-first 3D printer fleet controller. It runs entirely on your LAN and currently supports:
 
 - **FlashForge Adventurer 5M / 5M Pro** through the local FlashForge HTTP/TCP APIs.
@@ -7,7 +7,7 @@ A local-first 3D printer fleet controller. It runs entirely on your LAN and curr
 - **Prusa CORE One+ (experimental)** through the local PrusaLink API, supporting Standard (1-tool), INDX4 and INDX8 configurations.
 - **Bambu Lab P1P / P1S / X1C / A1 Mini (experimental)** through the local MQTT TLS and FTPS TLS interfaces. P1P/P1S/A1 Mini use the TLS/JPEG camera path; X1C camera decoding remains unsupported.
 
-**Current development version: v0.59.11**
+**Current development version: v0.59.12**
 
 ## Key capabilities
 
@@ -18,11 +18,45 @@ A local-first 3D printer fleet controller. It runs entirely on your LAN and curr
 - **Printer management and alerts:** Supported filament/nozzle controls, file management, scheduled maintenance, local notifications, ntfy push and webhooks.
 - **Backup and recovery:** Compressed backups to local/NAS storage, Google Drive, experimental OneDrive or S3-compatible services.
 - **Flexible deployment:** Windows portable executable or installer, Docker images for AMD64/ARM64 and K3s/Kubernetes; signed offline Community, Pro and Farm licences.
-- **Secure development:** Node.js 24, npm 12, locked dependency installs, automated audits and GitHub Actions regression coverage.
+- **User security:** Optional local administrator enrollment, login and server-enforced Administrator/Operator/Viewer permissions, with user management and revocable sessions; HTTPS is required for production authentication.
 
 For detailed functionality and setup, use the sections below. For release-by-release changes, see [CHANGELOG.md](CHANGELOG.md).
 
 For contributing or AI-assisted development, follow [AGENTS.md](AGENTS.md) and the [Documentation policy](docs/DOCUMENTATION_POLICY.md).
+
+## User accounts and access control
+
+The controller supports **local username/password login** and enforces role permissions on the server, not just by hiding buttons. **Administrator** can manage accounts, security, printer settings, licence, backups and cloud credentials. **Operator** can monitor printers, manage the print queue and Print Library and perform approved printer/filament/maintenance operations, but cannot manage users, credentials or restore backups. **Viewer** can see status, reports and camera feeds without making changes. Permissions are independent of signed edition/licence limits.
+
+### Set up the first administrator
+
+Existing controllers stay in legacy unauthenticated mode until you explicitly enrol an administrator. To start with security compulsory, set `PFC_AUTH_REQUIRED=1` before first startup: until an administrator is enrolled the APIs remain unavailable (except minimal health and authentication status). Do **not** treat legacy mode as protected against LAN users.
+
+Stop the controller and run the setup command **locally**, with access to the controller's persistent `DATA_DIR`:
+
+```bash
+node scripts/manage-users.mjs setup
+```
+
+For the Windows packaged executable, use `PrintFarmController.exe --auth-setup` from a local interactive command prompt. The installer and source deployment use the same application data directory. The command prompts for the first administrator username and a password of at least 12 characters, then enables authentication durably. Restart the controller and use **Sign in**. There is **no default password** and no unauthenticated browser bootstrap endpoint. In containers/K3s use a one-off interactive shell with the **same data volume** and the installed application; do not publish the command as a service or expose the container shell to untrusted users.
+
+After logging in, Administrators use **Users** in the sidebar to create/disable accounts, select the Viewer/Operator/Administrator role, reset passwords or adjust display names. **My account** in the top bar provides self-service password change and sign-out. Changing a password, role or disabled status invalidates affected sessions; signing out revokes the current session. Sessions also expire after inactivity and restart.
+
+If you lose all administrator access, stop the controller and run `node scripts/manage-users.mjs recover` (or `PrintFarmController.exe --auth-recover`); this explicitly replaces the local user store after terminal confirmation. Old users are saved in a private recovery backup in `<DATA_DIR>/security`. Protect this directory and any storage-volume snapshots. The controller keeps its existing security state if a new backup is restored; user account records are **not** imported from logical `.pfcbackup` archives.
+
+### HTTPS requirements and reverse proxy
+
+**A password and session cookie are not secure over bare HTTP.** The server refuses native password login over HTTP unless `PFC_AUTH_ALLOW_HTTP=1` is explicitly set **for isolated local development only**. Production deployment requires HTTPS configured at a trusted reverse proxy/ingress and an exact public origin such as:
+
+```bash
+PFC_PUBLIC_ORIGIN=https://controller.example.internal
+```
+
+The public origin enables `Secure` session cookies and strict Origin validation. The controller **does not trust arbitrary X-Forwarded headers**. Terminate TLS at the trusted proxy, restrict direct port 4242 access to that proxy and prevent bypass via the MetalLB Service; validate HTTPS, EventSource, printer cameras and upload/restore operations before real production use. TLS deployment using MetalLB/Ultimate Certificate Manager remains tracked separately in issue #128. The login screen and RBAC alone **do not constitute a secure Internet-facing deployment**.
+
+`PFC_AUTH_ALLOW_HTTP=1` permits password login in a non-production lab without transport protection; never use it on an exposed LAN or with real account credentials. Native login sessions use `HttpOnly` `SameSite=Strict` cookies, an Origin check and a CSRF header on changes.
+
+Full design and security rollout requirements: [Authentication and RBAC](docs/AUTHENTICATION_AND_RBAC.md).
 
 ## Licensing
 
