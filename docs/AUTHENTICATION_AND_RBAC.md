@@ -1,6 +1,6 @@
 # Controller authentication and RBAC design
 
-**Status:** Architecture and executable permission policy only. Native login, session enforcement, and UI are **not yet deployed**. This document is a security design and implementation plan for [issue #127](https://github.com/Andy-Knight/Print-Farm-Controller/issues/127); it must not be presented as evidence of active protection.
+**Status:** Architecture, executable RBAC mapping and isolated credential/session primitives only. Native HTTP login, active authorization enforcement, and UI are **not yet deployed**. This document is a security design and implementation plan for [issue #127](https://github.com/Andy-Knight/Print-Farm-Controller/issues/127); it must not be presented as evidence of active protection.
 
 The controller is local-first. It currently uses Node's HTTP server on port 4242 with public browser/API access on the LAN. The next security milestone is user authentication and **central server-side authorization**, followed by [HTTPS via K3s/MetalLB and Ultimate Certificate Manager](https://github.com/Andy-Knight/Print-Farm-Controller/issues/128). A login page without TLS must **not** be advertised as production secure: a LAN observer can capture passwords/session cookies on plain HTTP.
 
@@ -83,8 +83,8 @@ A later review must map **individual `/api/batch` and `/api/printers/:id/*` comm
 
 ## Incremental implementation and quality gates
 
-- **Foundation (this branch):** Explicit route-to-permission policy, endpoint coverage regression tests, threat model and RBAC contract. It intentionally leaves the production HTTP server untouched and preserves v0.59.10 behavior.
-- **Core authentication:** Account persistence, local admin enrollment, login/logout/session APIs, revocation, rate limits, CSRF and one administrative recovery flow. Build isolated tests and API tests.
+- **Foundation (this branch):** Explicit route-to-permission policy, endpoint coverage regression tests, threat model, RBAC contract and isolated `AccountStore`, `SessionManager` and `LoginAttemptLimiter` primitives with unit coverage. They intentionally leave the production HTTP server untouched and preserve v0.59.10 behavior. No internet-facing identity or session endpoints exist.
+- **Core authentication (next):** Integrate the tested `AccountStore`, `SessionManager` and `LoginAttemptLimiter` into a locally bootstrapped authentication service; add login/logout/session APIs, cookie issuance, session validation and revocation after role/password changes, trusted proxy/Origin/CSRF checks, safe recovery and end-to-end API tests. Password hashes use Node 24 built-in scrypt, a unique salt and restricted `DATA_DIR/security/users.json` permissions. Sessions are opaque and only stored as digests in RAM, so restarts invalidate them.
 - **Enforcement:** Integrate middleware into the HTTP router *before* `/api/emulator`, `apiRoute`, streaming and downloads; protect static simulator data; add payload-specific policy where actions share a method and URL. Deny unknown routes and test direct forged client requests.
 - **User interface:** Login/expired-session state, current identity, role-permitted controls and admin user-management page using the canonical `docs/CONTROLLER_VISUAL_STYLE_GUIDE.md`. Verify Preact and fallback, browser reloads, concurrent clients and access revocation.
 - **Transport rollout:** Before production credential entry, publish UCM-backed HTTPS via MetalLB and ingress/reverse proxy. Disable HTTP bypass and validate forwarded headers, secure cookies, SSE, camera, uploads, restore, password resets and all supported client browsers.
