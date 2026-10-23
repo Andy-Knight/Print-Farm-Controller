@@ -34,11 +34,20 @@ public/dashboard-polish.css       shared page headings, dashboard cards
 public/printer-details-polish.css printer identity/detail tabs and forms
 public/tab-navigation.css         universal underline tablists and icon masks
 public/print-library-polish.css   Library workbench layout and responsive cards
+public/auth.css                   Login gate, current account and user-management route
 ```
 
 `ui/components.jsx` exports the reusable Preact primitives. The relevant page renderers are under `ui/`; `public/app.js` retains controller dispatch and compatibility presentation. `public/styles.css` owns shared `--pfc-table-*` tokens. Avoid visually overriding a new component in a stylesheet that loads later (this previously stacked Dashboard summary text below its icons).
 
 **New UI construction rule:** use tokens rather than copying a neighbouring screen's hard-coded CSS, keep page-owned layout scoped to its route, and test both Preact and fallback paths. Respect established `data-*` hooks, route IDs, printer commands, user drafts and SSE refreshes.
+
+### Native account and access management
+
+Login is a full-viewport access gate served by `public/auth-gate.js` and styled with `public/auth.css`. It is **not** a floating workspace dialog: while signed out, regular workspace/sidebar is inaccessible; do not paint live printer data behind a transparent login overlay. The sign-in panel uses `--ds-page`, `--ds-surface`, `--ds-border`, `--ds-text`, `--ds-brand`, `--ds-radius-lg` and a single primary 42px button; inline errors use `--ds-danger`, and insecure-transport warnings use `--ds-warning`. Preserve light/dark themes and visible keyboard focus.
+
+The top bar displays a current user display-name/role text label and a secondary **My account** action for self-service password change and sign-out. **Users** appears as a normal outlined-icon sidebar route only for administrators. Its local page header uses FARM MANAGEMENT eyebrow, primary page title and muted explanatory text, with a compact add-user panel and a responsive list. The user table reuses shared `--pfc-table-*` header, divider, hover and background tokens with dark white uppercase headings and accessible row labels. Password fields must not display stored hashes or existing passwords. Saving changed roles, disabled status or password visibly reports success or errors and signs out the affected user's old sessions.
+
+Visibility by role is only user-experience guidance; **backend authorization is always authoritative**. Screen readers and keyboard users must not be able to interact with locked workspace controls before sign-in, and the sign-in field focus must be restored when applicable. The no-bundle frontend uses the same native login UI, permission states and route identity; never make user security dependent on Preact being available.
 
 ## 3. Colour system
 
