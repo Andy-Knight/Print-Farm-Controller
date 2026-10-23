@@ -26,7 +26,7 @@ test('Preact dashboard is bundled locally and loaded before the legacy controlle
   assert.match(pkg.scripts?.['build:bundle'] || '', /build:frontend/);
 
   assert.ok(html.includes('id="dashboardPreactRoot"'));
-  assert.ok(html.includes('/dashboard-preact.js'));
+  assert.ok((await read('public/auth-gate.js')).includes("import('/dashboard-preact.js')"));
   const boot = await read('public/auth-gate.js');
   assert.match(html, /src="\/auth-gate\.js"/);
   assert.ok(boot.indexOf("import('/dashboard-preact.js')") < boot.indexOf("import('/app.js')"));
