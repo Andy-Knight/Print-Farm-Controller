@@ -4,6 +4,14 @@ This file contains the version-by-version release history for Print Farm Control
 
 Historical entries describe the behaviour of the controller at the time of that release and may be superseded by later versions. For current installation, configuration and supported-hardware guidance, see [README.md](README.md).
 
+## v0.59.12
+
+- Introduced **optional native user authentication** backed by the account/scrypt and revocable-session primitives, with first administrator provisioning and disaster recovery confined to a local interactive terminal. Enrollment activates a durable security marker and never exposes a LAN-wide setup endpoint.
+- Implemented **server-side RBAC** for Administrator, Operator and Viewer before controller and emulator API dispatch, covering printer commands, uploads, backups/restores, camera streams, SSE and sensitive integration/diagnostics endpoints. Unknown API routes fail closed when access control is enabled.
+- Added a themed sign-in experience, top-bar identity/account controls, password change and a routed **User management** screen for administrators to create, disable, change roles and reset passwords.
+- Added Origin and CSRF validation for mutations, credential throttling, secure cookies for configured HTTPS origins, session revocation on role/password changes and logout, and tests for role enforcement, bootstrap, expiry, disabled users and session persistence boundaries.
+- **Deployment security:** Existing deployments retain legacy unauthenticated behaviour until a local administrator is enrolled or security is explicitly required. Password sign-in is blocked on HTTP by default (development-only override). Controller access is **not production-secure until TLS termination and prevention of direct HTTP bypass** are configured and separately validated. This feature-branch candidate still requires full browser, container/K3s, SEA and end-to-end verification.
+
 ## v0.59.11
 
 - Established the **native authentication and role-based access control (RBAC) foundation** with explicit Administrator, Operator and Viewer permission mappings for controller HTTP API methods, protected file and backup operations, print controls, camera streams and live telemetry. Unknown API routes are denied by the proposed policy.
