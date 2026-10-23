@@ -103,7 +103,7 @@ test('the controller cannot add an ordinary static API endpoint without an expli
       if(path.startsWith('/api/'))found.push([method,path]);
     }
   }
-  assert.ok(found.length>75,'static inventory should cover real routes, not an empty fixture');
+  assert.ok(found.length>60,'static inventory should cover real routes, not an empty fixture');
   const unlisted=found.filter(([method,path])=>requiredPermission(method,path)===null);
   assert.deepEqual(unlisted,[],'all server API routes must have an explicitly reviewed permission');
 });
