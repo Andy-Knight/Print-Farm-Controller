@@ -20,6 +20,7 @@ function showGate(message,{setup=false,transport=false}={}){
   document.documentElement.classList.remove('auth-pending');
   lock.hidden=false;
   $('#authLoginHelp').textContent=message||'Sign in to access your farm.';
+  $('#authLoginHeading').textContent=setup?'Set up your workspace':transport?'Connection required':'Welcome back';
   loginForm.hidden=setup||transport;
   $('#authSetupSection').hidden=!setup;
   $('#authSetupForm').hidden=!setup||!session?.loginAvailable;
@@ -235,6 +236,18 @@ $('#authSetupForm')?.addEventListener('submit',async event=>{
     location.assign('/');
   }catch(error){showError('#authSetupError',errorText(error));}
   finally{button.disabled=false;}
+});
+// The visibility control never copies passwords to another element or storage.
+$('#authPasswordToggle')?.addEventListener('click',event=>{
+  const input=loginForm?.elements.password;
+  if(!input)return;
+  const visible=input.type==='password';
+  input.type=visible?'text':'password';
+  const button=event.currentTarget;
+  button.setAttribute('aria-pressed',String(visible));
+  button.setAttribute('aria-label',visible?'Hide password':'Show password');
+  button.title=visible?'Hide password':'Show password';
+  input.focus({preventScroll:true});
 });
 loginForm?.addEventListener('submit',async event=>{
   event.preventDefault();

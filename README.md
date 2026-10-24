@@ -1,4 +1,4 @@
-# Print Farm Controller v0.59.12
+# Print Farm Controller v0.59.13
 A local-first 3D printer fleet controller. It runs entirely on your LAN and currently supports:
 
 - **FlashForge Adventurer 5M / 5M Pro** through the local FlashForge HTTP/TCP APIs.
@@ -7,7 +7,7 @@ A local-first 3D printer fleet controller. It runs entirely on your LAN and curr
 - **Prusa CORE One+ (experimental)** through the local PrusaLink API, supporting Standard (1-tool), INDX4 and INDX8 configurations.
 - **Bambu Lab P1P / P1S / X1C / A1 Mini (experimental)** through the local MQTT TLS and FTPS TLS interfaces. P1P/P1S/A1 Mini use the TLS/JPEG camera path; X1C camera decoding remains unsupported.
 
-**Current development version: v0.59.12**
+**Current development version: v0.59.13**
 
 ## Key capabilities
 
@@ -25,6 +25,13 @@ For detailed functionality and setup, use the sections below. For release-by-rel
 For contributing or AI-assisted development, follow [AGENTS.md](AGENTS.md) and the [Documentation policy](docs/DOCUMENTATION_POLICY.md).
 
 ## User accounts and access control
+
+The **Industrial Control Centre** sign-in screen uses a split desktop layout with a local
+outline 3D-printer illustration, subtle animated toolpath, and standard controller theme colours.
+The motion respects the browser's reduced-motion setting; on phones the illustration yields to
+a compact branded header above the sign-in form. The same screen supports initial administrator
+setup, login errors and HTTP security warnings. The sign-in password field includes an
+accessible show/hide button. No printer state is displayed before login.
 
 The controller supports **local username/password login** and enforces role permissions on the server, not just by hiding buttons. **Administrator** can manage accounts, security, printer settings, licence, backups and cloud credentials. **Operator** can run printers, edit (but not delete) Print Library records, manage active/queued production, assign filament/nozzles to printers, and complete routine maintenance. Operators cannot purge queue history, change the shared filament cost catalogue, manage users, credentials or restore backups. **Viewer** can see status, reports and camera feeds without making changes. Permissions are independent of signed edition/licence limits.
 

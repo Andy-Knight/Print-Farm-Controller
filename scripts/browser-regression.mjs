@@ -3479,6 +3479,39 @@ async function nativeAuthenticationSmoke(browser){
     await page.goto(url+'/');
     await page.locator('#authOverlay').waitFor({state:'visible'});
     assert.equal(await page.locator('body.auth-locked').count(),1,'workspace locked before login');
+    // The full-viewport industrial gate must work without Preact or any
+    // authenticated API data. Verify the real SVG, palette and responsive UI.
+    const desktop=await page.evaluate(()=>{
+      const a=document.querySelector('.auth-story').getBoundingClientRect();
+      const b=document.querySelector('.auth-access-area').getBoundingClientRect();
+      const artwork=document.querySelector('.auth-printer-art svg');
+      return {story:a.toJSON(),access:b.toJSON(),artwork:Boolean(artwork),
+        anim:getComputedStyle(document.querySelector('.auth-printer-trace')).animationName};
+    });
+    assert.ok(desktop.story.right<=desktop.access.left+2,
+      'branding panel must sit beside, not on top of, the login');
+    assert.ok(desktop.artwork,'the local outline printer illustration renders');
+    assert.equal(desktop.anim,'auth-trace','subtle toolpath animation is present');
+    await page.emulateMedia({reducedMotion:'reduce'});
+    assert.equal(await page.locator('.auth-printer-trace').evaluate(
+      element=>getComputedStyle(element).animationName),'none',
+      'reduced-motion users must not receive looping animation');
+    await page.emulateMedia({reducedMotion:'no-preference'});
+    await page.evaluate(()=>document.documentElement.dataset.theme='light');
+    assert.equal(await page.locator('.auth-story').evaluate(element=>
+      getComputedStyle(element).backgroundColor),'rgb(246, 249, 253)',
+      'access branding inherits the light theme');
+    await page.evaluate(()=>document.documentElement.dataset.theme='dark');
+    await page.setViewportSize({width:390,height:844});
+    const mobile=await page.evaluate(()=>({
+      scroll:document.documentElement.scrollWidth,
+      width:innerWidth,
+      form:document.querySelector('.auth-login-card').getBoundingClientRect().toJSON()
+    }));
+    assert.ok(mobile.scroll<=mobile.width+1,'mobile auth gate must not overflow horizontally');
+    assert.ok(mobile.form.left>=0&&mobile.form.right<=mobile.width,
+      'mobile setup form stays within viewport');
+    await page.setViewportSize({width:1280,height:800});
     assert.equal(await page.locator('#authSetupForm').isVisible(),true,
       'default HTTP setup must be visible without any environment override');
     assert.equal(await page.locator('#authTransportNotice').isVisible(),true,
@@ -3497,6 +3530,12 @@ async function nativeAuthenticationSmoke(browser){
     assert.equal(await page.locator('#authTransportNotice').isVisible(),true);
     await page.locator('#authLoginForm [name=username]').fill('owner');
     await page.locator('#authLoginForm [name=password]').fill('Admin password for tests 2026');
+    await page.locator('#authPasswordToggle').click();
+    assert.equal(await page.locator('#authLoginForm [name=password]').getAttribute('type'),'text');
+    assert.equal(await page.locator('#authPasswordToggle').getAttribute('aria-pressed'),'true');
+    await page.locator('#authPasswordToggle').click();
+    assert.equal(await page.locator('#authLoginForm [name=password]').getAttribute('type'),'password');
+    assert.equal(await page.locator('#authPasswordToggle').getAttribute('aria-pressed'),'false');
     await page.locator('#authLoginForm button[type=submit]').click();
     await page.waitForFunction(()=>window.__PFC_FRONTEND_BOOTED__===true
       && document.body.dataset.authRole==='administrator',{},{timeout:25000});

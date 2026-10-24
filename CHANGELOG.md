@@ -4,6 +4,10 @@ This file contains the version-by-version release history for Print Farm Control
 
 Historical entries describe the behaviour of the controller at the time of that release and may be superseded by later versions. For current installation, configuration and supported-hardware guidance, see [README.md](README.md).
 
+## v0.59.13
+
+- Redesigned the signed-out and first-administrator setup screen as a theme-aware Industrial Control Centre with split desktop branding, a local 3D-printer line illustration, subtle toolpath/layer animation that respects reduced motion, compact mobile layout and an accessible password-visibility control. The existing authentication, RBAC and HTTP warning behaviour is unchanged.
+
 ## v0.59.12
 
 - Refined Operator RBAC: retained queue operations, Print Library editing and printer filament/nozzle assignments, while restricting permanent library deletion, queue-history purge and central filament cost catalogue changes to Administrators; applied the same visibility rules to Preact and fallback UI.
