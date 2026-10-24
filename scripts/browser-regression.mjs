@@ -3479,6 +3479,13 @@ async function nativeAuthenticationSmoke(browser){
     await page.goto(url+'/');
     await page.locator('#authOverlay').waitFor({state:'visible'});
     assert.equal(await page.locator('body.auth-locked').count(),1,'workspace locked before login');
+    const authVisualDir=process.env.PFC_VISUAL_CAPTURE_DIR
+      ? path.resolve(process.env.PFC_VISUAL_CAPTURE_DIR):null;
+    if(authVisualDir){
+      await fs.mkdir(authVisualDir,{recursive:true});
+      await page.screenshot({path:path.join(authVisualDir,'auth-setup-dark-desktop.png'),
+        animations:'disabled',fullPage:true});
+    }
     // The full-viewport industrial gate must work without Preact or any
     // authenticated API data. Verify the real SVG, palette and responsive UI.
     const desktop=await page.evaluate(()=>{
@@ -3528,6 +3535,18 @@ async function nativeAuthenticationSmoke(browser){
     await page.locator('#authSetupForm button[type=submit]').click();
     await page.locator('#authLoginForm').waitFor({state:'visible'});
     assert.equal(await page.locator('#authTransportNotice').isVisible(),true);
+    if(authVisualDir){
+      await page.screenshot({path:path.join(authVisualDir,'auth-login-dark-desktop.png'),
+        animations:'disabled',fullPage:true});
+      await page.evaluate(()=>document.documentElement.dataset.theme='light');
+      await page.screenshot({path:path.join(authVisualDir,'auth-login-light-desktop.png'),
+        animations:'disabled',fullPage:true});
+      await page.setViewportSize({width:390,height:844});
+      await page.screenshot({path:path.join(authVisualDir,'auth-login-mobile.png'),
+        animations:'disabled',fullPage:true});
+      await page.setViewportSize({width:1280,height:800});
+      await page.evaluate(()=>document.documentElement.dataset.theme='dark');
+    }
     await page.locator('#authLoginForm [name=username]').fill('owner');
     await page.locator('#authLoginForm [name=password]').fill('Admin password for tests 2026');
     await page.locator('#authPasswordToggle').click();
