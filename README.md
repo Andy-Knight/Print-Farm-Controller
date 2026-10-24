@@ -1,4 +1,4 @@
-# Print Farm Controller v0.59.11
+# Print Farm Controller v0.59.12
 A local-first 3D printer fleet controller. It runs entirely on your LAN and currently supports:
 
 - **FlashForge Adventurer 5M / 5M Pro** through the local FlashForge HTTP/TCP APIs.
@@ -7,7 +7,7 @@ A local-first 3D printer fleet controller. It runs entirely on your LAN and curr
 - **Prusa CORE One+ (experimental)** through the local PrusaLink API, supporting Standard (1-tool), INDX4 and INDX8 configurations.
 - **Bambu Lab P1P / P1S / X1C / A1 Mini (experimental)** through the local MQTT TLS and FTPS TLS interfaces. P1P/P1S/A1 Mini use the TLS/JPEG camera path; X1C camera decoding remains unsupported.
 
-**Current development version: v0.59.11**
+**Current development version: v0.59.12**
 
 ## Key capabilities
 
@@ -18,11 +18,68 @@ A local-first 3D printer fleet controller. It runs entirely on your LAN and curr
 - **Printer management and alerts:** Supported filament/nozzle controls, file management, scheduled maintenance, local notifications, ntfy push and webhooks.
 - **Backup and recovery:** Compressed backups to local/NAS storage, Google Drive, experimental OneDrive or S3-compatible services.
 - **Flexible deployment:** Windows portable executable or installer, Docker images for AMD64/ARM64 and K3s/Kubernetes; signed offline Community, Pro and Farm licences.
-- **Secure development:** Node.js 24, npm 12, locked dependency installs, automated audits and GitHub Actions regression coverage.
+- **User security:** Login and backend Administrator/Operator/Viewer permissions are enabled by default, including on HTTP; GUI administrator enrollment and user management are supported. HTTPS is strongly recommended because HTTP passwords and sessions can be intercepted.
 
 For detailed functionality and setup, use the sections below. For release-by-release changes, see [CHANGELOG.md](CHANGELOG.md).
 
 For contributing or AI-assisted development, follow [AGENTS.md](AGENTS.md) and the [Documentation policy](docs/DOCUMENTATION_POLICY.md).
+
+## User accounts and access control
+
+The controller supports **local username/password login** and enforces role permissions on the server, not just by hiding buttons. **Administrator** can manage accounts, security, printer settings, licence, backups and cloud credentials. **Operator** can run printers, edit (but not delete) Print Library records, manage active/queued production, assign filament/nozzles to printers, and complete routine maintenance. Operators cannot purge queue history, change the shared filament cost catalogue, manage users, credentials or restore backups. **Viewer** can see status, reports and camera feeds without making changes. Permissions are independent of signed edition/licence limits.
+
+### Set up the first administrator using the GUI
+
+Authentication is **enabled by default** on new and upgraded installations, including those
+accessed over HTTP through a MetalLB Service. If no administrator exists, opening the controller
+shows the **Set up administrator** form before any printer data or commands are available.
+No CLI command or environment variable is needed to turn authentication on.
+
+The browser setup requires a private **one-time enrollment code**. On controller startup,
+a randomly generated code is printed once to the **protected startup console/pod logs**,
+not exposed by the controller's API or diagnostics downloads. For a K3s/Kubernetes installation,
+view your controller pod's startup logs using your **cluster management GUI**. Copy the code into
+the setup form, choose an administrator username and a password of at least 12 characters,
+and confirm the password. On success, authentication is enabled immediately and all subsequent
+controller use requires sign-in. There is no default password, open-registration endpoint
+or "first visitor wins" bootstrap. Keep pod logs private; restart the controller to rotate
+an unused code. The account store and activation marker live on the persistent `DATA_DIR` volume.
+
+**HTTP setup and sign-in work by default**, but the GUI displays an unencrypted-transport
+warning. HTTP provides user authentication and server-side RBAC, **not confidentiality or session
+protection**: anyone capable of intercepting LAN traffic may steal the password, setup code
+or session. Use HTTPS as soon as possible; don't expose the HTTP endpoint to untrusted networks.
+
+For headless recovery and legacy tooling, a privileged local interactive terminal can
+still run `node scripts/manage-users.mjs setup` or
+`PrintFarmController.exe --auth-setup`. These commands are **not required for normal GUI
+onboarding**. In containers, the source-only management script is not packaged; the
+bundled `/app/build/controller.cjs --auth-setup` remains an emergency option.
+
+After login, Administrators use **Security & users** in Farm Management to create, disable,
+update and reset accounts with Viewer/Operator/Administrator roles. **My account** in the top bar
+allows self-service password changes and sign-out. Password and role changes revoke existing
+sessions, which also expire after inactivity or a controller restart.
+
+If the account store has been lost after activation, browser enrollment is **not** offered
+again: this protects against reverting to anonymous administration. Stop the controller
+and use `node scripts/manage-users.mjs recover` or
+`PrintFarmController.exe --auth-recover` from a privileged terminal with access to
+the persistent data directory. Preserve the same security storage across restores.
+
+### HTTPS requirements and reverse proxy
+
+**Passwords and session cookies are not secure over bare HTTP.** By request, this controller permits HTTP enrollment and login by default, with visible warnings; authentication still does **not** protect credentials or sessions from interception. You can require HTTPS-only password entry using `PFC_AUTH_ALLOW_HTTP=0`. For secure deployment configure a trusted reverse proxy/ingress and the exact public origin:
+
+```bash
+PFC_PUBLIC_ORIGIN=https://controller.example.internal
+```
+
+The public origin enables `Secure` session cookies and strict Origin validation. The controller **does not trust arbitrary X-Forwarded headers**. Terminate TLS at the trusted proxy, restrict direct port 4242 access to that proxy and prevent bypass via the MetalLB Service; validate HTTPS, EventSource, printer cameras and upload/restore operations before real production use. TLS deployment using MetalLB/Ultimate Certificate Manager remains tracked separately in issue #128. The login screen and RBAC alone **do not constitute a secure Internet-facing deployment**.
+
+Authentication is enabled unless `PFC_AUTH_REQUIRED=0` explicitly selects **legacy unauthenticated mode** before any user is enrolled. This insecure opt-out is for temporary troubleshooting only; once the durable security marker or account store exists it cannot disable RBAC. `PFC_AUTH_ALLOW_HTTP=0` blocks enrollment and login on HTTP. Native sessions use `HttpOnly`, `SameSite=Strict`, Origin and CSRF checks; cookies have `Secure` only when a trusted HTTPS public origin is configured. HTTP traffic remains unencrypted.
+
+Full design and security rollout requirements: [Authentication and RBAC](docs/AUTHENTICATION_AND_RBAC.md).
 
 ## Licensing
 

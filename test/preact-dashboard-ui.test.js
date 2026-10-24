@@ -26,8 +26,10 @@ test('Preact dashboard is bundled locally and loaded before the legacy controlle
   assert.match(pkg.scripts?.['build:bundle'] || '', /build:frontend/);
 
   assert.ok(html.includes('id="dashboardPreactRoot"'));
-  assert.ok(html.includes('/dashboard-preact.js'));
-  assert.ok(html.indexOf('/dashboard-preact.js') < html.indexOf('/app.js'));
+  assert.ok((await read('public/auth-gate.js')).includes("import('/dashboard-preact.js')"));
+  const boot = await read('public/auth-gate.js');
+  assert.match(html, /src="\/auth-gate\.js"/);
+  assert.ok(boot.indexOf("import('/dashboard-preact.js')") < boot.indexOf("import('/app.js')"));
 
   assert.match(source, /pfc:dashboard-action/);
   assert.match(source, /pfc:dashboard-state/);
@@ -284,7 +286,8 @@ test('Preact Print Library preserves file metadata and delete interlock presenta
   assert.match(app, /previewUrl:String\(file\?\.previewUrl \|\| ''\)/);
   assert.match(app, /deleteDisabled:Number\(usage\.queueReferences \|\| 0\) > 0/);
   assert.match(app, /Clear queue\/history references before deleting this file/);
-  assert.match(app, /libraryDeleteSelectedBtn\.disabled = !ready \|\| referenced/);
+  assert.match(app, /libraryDeleteSelectedBtn\.disabled = !canPurgeFarmRecords\(\) \|\| !ready \|\| referenced/);
+  assert.match(app, /libraryDeleteSelectedBtn\.hidden = !canPurgeFarmRecords\(\)/);
   assert.match(libraryUi, /class="library-target-value"/);
   assert.match(libraryUi, /class="library-file-requirements"/);
   assert.match(libraryUi, /class="library-warning"/);

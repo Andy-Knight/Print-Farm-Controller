@@ -1,0 +1,72 @@
+/* Controller identity and user management — semantic design tokens only. */
+#authLoginForm[hidden],#authOverlay[hidden],#authSetupSection[hidden],
+#authSetupForm[hidden],#authSetupOverview[hidden],#authUsersLayout[hidden],
+#authSetupCancelBtn[hidden]{display:none!important;}
+.auth-overlay[hidden],.auth-identity[hidden],.auth-account-button[hidden],
+#usersBtn[hidden],.auth-password-dialog:not([open]){display:none!important;}
+.auth-overlay{
+  position:fixed;inset:0;z-index:500;display:grid;place-items:center;
+  padding:24px;overflow:auto;background:var(--ds-page);
+  color:var(--ds-text);
+}
+body.auth-locked > aside,body.auth-locked > header,body.auth-locked > main,
+body.auth-locked > .sidebar-backdrop{display:none!important;}
+html.auth-pending body>aside,html.auth-pending body>header,html.auth-pending body>main{
+  visibility:hidden;
+}
+.auth-login-card,.auth-panel,.auth-password-dialog{
+  background:var(--ds-surface);border:1px solid var(--ds-border);
+  border-radius:var(--ds-radius-lg);box-shadow:var(--ds-shadow-sm);
+  padding:24px;color:var(--ds-text);
+}
+.auth-login-card{width:min(440px,100%);}
+.auth-login-card h1{font-size:var(--ds-font-xl);margin:8px 0 16px;}
+.auth-form{display:grid;gap:14px;}
+.auth-form label{display:grid;gap:6px;color:var(--ds-text-muted);font-size:var(--ds-font-sm);font-weight:650;}
+.auth-form input,.auth-form select,.auth-users-table input,.auth-users-table select{
+  width:100%;min-width:0;min-height:var(--ds-input-height);border-radius:var(--ds-radius-sm);
+  border:1px solid var(--ds-border);background:var(--ds-surface-muted);
+  color:var(--ds-text);padding:7px 10px;font:inherit;
+}
+.auth-form button{min-height:var(--ds-button-height);}
+.auth-error,.auth-row-status{color:var(--ds-danger);font-size:var(--ds-font-sm);}
+.auth-error:empty,.auth-row-status:empty{display:none;}
+.auth-transport-notice{color:var(--ds-warning);font-size:var(--ds-font-sm);}
+.auth-identity{font-size:var(--ds-font-sm);color:var(--ds-text-muted);}
+.auth-users-page{padding:16px 20px;}
+.auth-users-layout{display:grid;grid-template-columns:minmax(250px,320px) minmax(0,1fr);gap:20px;margin-top:20px;align-items:start;}
+.auth-panel h3{margin:0 0 12px;color:var(--ds-text);}
+.auth-table-scroll{overflow:auto;max-height:65vh;border:1px solid var(--pfc-table-border);border-radius:var(--pfc-table-radius);}
+.auth-users-table{border-collapse:separate;border-spacing:0;width:100%;font-size:var(--ds-font-sm);background:var(--pfc-table-surface);}
+.auth-users-table thead th{position:sticky;top:0;z-index:1;text-align:left;
+  background:var(--pfc-table-header-background);color:var(--pfc-table-header-text);
+  font-size:.68rem;font-weight:800;letter-spacing:.04em;text-transform:uppercase;padding:12px 10px;}
+.auth-users-table tbody td,.auth-users-table tbody th{
+  border-top:1px solid var(--pfc-table-divider);padding:10px;text-align:left;white-space:nowrap;
+}
+.auth-users-table tbody tr:hover{background:var(--pfc-table-hover);}
+.auth-users-table td input[type=checkbox]{min-height:22px;width:22px;}
+.auth-row-actions{display:grid;gap:4px;}
+.auth-users-table button{min-height:32px;}
+.auth-password-dialog{position:fixed;margin:auto;inset:0;width:min(450px,calc(100% - 30px));max-height:85vh;overflow:auto;}
+.auth-password-dialog::backdrop{background:rgba(0,0,0,.75);}
+.auth-form :focus-visible,.auth-users-table :focus-visible,.auth-account-button:focus-visible{
+  outline:2px solid var(--ds-focus);outline-offset:2px;
+}
+@media(max-width:850px){.auth-users-layout{grid-template-columns:1fr}.auth-users-page{padding:12px}}
+
+/* First administrator setup is a deliberate, accessible full-viewport flow. */
+.auth-setup-overview{max-width:780px;margin-top:20px;}
+.auth-setup-overview p,.auth-setup-section p{line-height:1.6;font-size:var(--ds-font-sm);}
+.auth-setup-section{display:grid;gap:12px;}
+.auth-setup-section h2{font-size:var(--ds-font-lg);margin:0;}
+.auth-setup-section p{margin:0;}
+.auth-setup-section .auth-form{margin-top:8px;}
+#authSetupCancelBtn{margin-top:6px;min-height:var(--ds-button-height);}
+#authSetupStartBtn{min-height:var(--ds-button-height);}
+.auth-login-card:has(#authSetupSection:not([hidden])){width:min(540px,100%);}
+
+/* RBAC visibility: author-level layouts must not override hidden. */
+#filamentForm[hidden],#libraryDeleteSelectedBtn[hidden],#clearQueueHistoryBtn[hidden]{display:none!important;}
+
+#filamentReadOnlyHelp[hidden]{display:none!important;}

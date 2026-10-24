@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" class="auth-pending">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -28,6 +28,7 @@
   <link rel="stylesheet" href="/printer-details-polish.css" />
   <link rel="stylesheet" href="/tab-navigation.css" />
   <link rel="stylesheet" href="/print-library-polish.css" />
+  <link rel="stylesheet" href="/auth.css" />
 </head>
 <body>
   <a class="workspace-skip-link" href="#workspaceMain">Skip to main content</a>
@@ -60,6 +61,7 @@
       <button id="alertsSettingsBtn" type="button" class="sidebar-item" data-route="/alerts"><span class="sidebar-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4a8 8 0 1 0 0 16a8 8 0 0 0 0-16Z M12 8v5 M12 16h.01"/></svg></span><span>Alerts &amp; notifications</span></button>
       <button id="backupRecoveryBtn" type="button" class="sidebar-item" data-route="/backup"><span class="sidebar-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v12 M8 12l4 4 4-4 M4 20h16"/></svg></span><span>Backup &amp; recovery</span></button>
       <button id="diagnosticsBtn" type="button" class="sidebar-item" data-route="/diagnostics"><span class="sidebar-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h16 M4 10h16 M4 15h10 M4 20h7"/></svg></span><span>Diagnostics</span></button>
+      <button id="usersBtn" type="button" class="sidebar-item" data-route="/users" hidden><span class="sidebar-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3"/><path d="M3 20v-2a6 6 0 0 1 12 0v2M18 8h4M20 6v4"/></svg></span><span>Security &amp; users</span></button>
     </nav>
     <div class="sidebar-foot">
       <button type="button" class="sidebar-quick-add" data-add-printer aria-label="Add a printer to the farm">+ Add printer</button>
@@ -86,6 +88,8 @@
         <svg class="maintenance-alert-bell" viewBox="0 0 24 24" aria-hidden="true"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9"></path><path d="M10 21h4"></path></svg>
         <span id="maintenanceAlertCount" class="maintenance-alert-count">0</span>
       </button>
+      <span id="authIdentity" class="auth-identity" hidden></span>
+      <button id="authAccountBtn" type="button" class="secondary auth-account-button" hidden>My account</button>
       <button id="themeToggle" class="theme-toggle" type="button" role="switch" aria-checked="true" aria-label="Switch to light mode">
         <span class="theme-toggle-track" aria-hidden="true"></span>
         <span class="theme-toggle-label">Dark</span>
@@ -416,6 +420,7 @@
               <span class="subtle">Record the current purchase cost per kg in the global currency selected in Price settings. Print runs snapshot the price and currency when they start, so changes never rewrite historical spend.</span>
             </div>
           </div>
+          <p id="filamentReadOnlyHelp" class="subtle" hidden>Filament catalogue entries and prices can only be changed by an Administrator. Operators can still assign filament and nozzle settings on individual printers.</p>
           <form id="filamentForm" class="filament-cost-form">
             <input id="filamentId" type="hidden" />
             <div class="filament-form-heading">
@@ -1475,10 +1480,86 @@
     </form>
   </dialog>
 
-  <script type="module" src="/dashboard-preact.js"></script>
-  <script type="module" src="/app.js"></script>
-  <script type="module" src="/maintenance.js"></script>
-  <script type="module" src="/reporting.js"></script>
-  <script type="module" src="/alerts.js"></script>
+  <section id="usersDialog" class="route-page auth-users-page" hidden>
+    <div class="ui-page-heading dialog-head">
+      <div class="ui-page-heading-copy">
+        <div class="eyebrow ui-page-eyebrow">FARM MANAGEMENT</div>
+        <h2 class="ui-page-title">Security &amp; users</h2>
+        <div class="ui-page-description subtle">Enable sign-in and manage server-enforced access to your print farm.</div>
+      </div>
+    </div>
+    <section id="authSetupOverview" class="auth-panel auth-setup-overview" aria-labelledby="authSecurityHeading" hidden>
+      <h3 id="authSecurityHeading">Authentication is not enabled</h3>
+      <p id="authSecurityStatus" class="subtle">This controller is currently accessible without a login.</p>
+      <p>A trusted first administrator must verify a one-time code displayed in the controller's
+      <strong>protected startup logs</strong>. In Kubernetes, use your cluster management GUI's pod log viewer.
+      The setup code is never displayed to visitors of this page.</p>
+      <p class="auth-transport-notice">HTTP authentication is available, but your password and session can be intercepted on the network. Use HTTPS as soon as possible.</p>
+      <button id="authSetupStartBtn" type="button" class="primary">Set up administrator</button>
+    </section>
+    <div id="authUsersLayout" class="auth-users-layout" hidden>
+      <section class="auth-panel" aria-labelledby="authAddHeading">
+        <h3 id="authAddHeading">Add user</h3>
+        <form id="authUserAddForm" class="auth-form">
+          <label>Username <input name="username" minlength="3" maxlength="48" autocomplete="off" required></label>
+          <label>Display name <input name="displayName" maxlength="120"></label>
+          <label>Role <select name="role"><option value="viewer">Viewer</option><option value="operator">Operator</option><option value="administrator">Administrator</option></select></label>
+          <label>Temporary password <input name="password" type="password" autocomplete="new-password" minlength="12" maxlength="256" required></label>
+          <button type="submit" class="primary">Add user</button>
+          <p id="authUserAddError" class="auth-error" role="alert"></p>
+        </form>
+      </section>
+      <section class="auth-panel" aria-labelledby="authListHeading">
+        <h3 id="authListHeading">Existing users</h3>
+        <p class="subtle">Changes revoke the affected user's existing sessions. To reset a password, enter a new one before saving.</p>
+        <div id="authUserList" class="auth-user-list" aria-live="polite"></div>
+      </section>
+    </div>
+  </section>
+
+  <dialog id="authPasswordDialog" class="auth-password-dialog">
+    <form id="authPasswordForm" class="auth-form">
+      <h2>Change my password</h2>
+      <p class="subtle">Changing your password signs out all sessions for this account.</p>
+      <label>Current password <input name="currentPassword" type="password" autocomplete="current-password" required></label>
+      <label>New password <input name="newPassword" type="password" autocomplete="new-password" minlength="12" maxlength="256" required></label>
+      <p id="authPasswordError" class="auth-error" role="alert"></p>
+      <div class="actions"><button type="button" id="authPasswordCancel" class="secondary">Cancel</button><button type="submit" class="primary">Change password</button></div>
+      <button type="button" id="authLogoutBtn" class="secondary">Sign out</button>
+    </form>
+  </dialog>
+
+  <div id="authOverlay" class="auth-overlay" hidden>
+    <section class="auth-login-card" aria-labelledby="authLoginHeading">
+      <div class="eyebrow ui-page-eyebrow">STACKED LAYERS</div>
+      <h1 id="authLoginHeading">Print Farm Controller</h1>
+      <p id="authLoginHelp" class="subtle">Sign in to access your farm.</p>
+      <form id="authLoginForm" class="auth-form">
+        <label>Username <input name="username" autocomplete="username" required></label>
+        <label>Password <input name="password" type="password" autocomplete="current-password" required></label>
+        <button class="primary" type="submit">Sign in</button>
+      </form>
+      <section id="authSetupSection" class="auth-setup-section" aria-labelledby="authSetupHeading" hidden>
+        <h2 id="authSetupHeading">Set up administrator</h2>
+        <p class="subtle">Enter the one-time code from the controller's <strong>protected startup logs</strong>
+        (Kubernetes pod logs in your cluster management GUI) and create the first administrator.
+        On HTTP, your setup code, password and session can be intercepted; HTTPS is strongly recommended.</p>
+        <form id="authSetupForm" class="auth-form" hidden>
+          <label>One-time setup code <input name="code" type="password" autocomplete="off" spellcheck="false" maxlength="64" required></label>
+          <label>Administrator username <input name="username" autocomplete="off" minlength="3" maxlength="48" required></label>
+          <label>Display name (optional) <input name="displayName" maxlength="120"></label>
+          <label>Password (at least 12 characters) <input name="password" type="password" autocomplete="new-password" minlength="12" maxlength="256" required></label>
+          <label>Confirm password <input name="confirmPassword" type="password" autocomplete="new-password" minlength="12" maxlength="256" required></label>
+          <button type="submit" class="primary">Enable authentication</button>
+        </form>
+        <p id="authSetupError" class="auth-error" role="alert"></p>
+        <button id="authSetupCancelBtn" type="button" class="secondary" hidden>Return to dashboard</button>
+      </section>
+      <p id="authLoginError" class="auth-error" role="alert"></p>
+      <p id="authTransportNotice" class="auth-transport-notice" hidden></p>
+    </section>
+  </div>
+
+  <script type="module" src="/auth-gate.js"></script>
 </body>
 </html>

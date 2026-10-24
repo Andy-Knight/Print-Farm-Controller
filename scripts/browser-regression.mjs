@@ -39,8 +39,17 @@ async function waitForController(url, processHandle, logs) {
 async function preactReady(page) {
   await page.waitForFunction(() => {
     const s = window.__PFC_FRONTEND_RENDERER_STATUS__;
-    return s && s.bundleLoaded === true && s.preactCount === 13 && s.fallbackCount === 0;
+    return window.__PFC_FRONTEND_BOOTED__ === true && s && s.bundleLoaded === true
+      && s.preactCount === 13 && s.fallbackCount === 0;
   },null,{timeout:15000});
+  // Authenticated bootstrap loads auxiliary modules and route data asynchronously.
+  // Synthetic Library fixtures must not race the initial server response.
+  if(await page.evaluate(()=>document.body.dataset.route==='/library')){
+    await page.waitForFunction(()=>
+      Boolean(window.__PFC_LIBRARY_UI_STATE__)
+      && !(document.querySelector('#libraryStatus')?.textContent||'').includes('Loading')
+    ,null,{timeout:15000});
+  }
 }
 
 async function reportsLoaded(page,where) {
@@ -3440,6 +3449,159 @@ async function simulatorSseSmoke(browser,url) {
   }
 }
 
+// Authentication is a separate isolated controller: never enrol real-user or
+// shared-browser test installations as a side effect of the visual suite.
+async function nativeAuthenticationSmoke(browser){
+  console.log('Chromium: native login, administrator user management and sign-out');
+  const rootDir=await fs.mkdtemp(path.join(os.tmpdir(),'pfc-auth-browser-'));
+  const dataDir=path.join(rootDir,'data');
+  const logs=[];
+  let child=null,context=null;
+  try{
+    const url='http://127.0.0.1:'+(await portNumber());
+    child=spawn(process.execPath,['src/server.js'],{
+      cwd:root,env:{...process.env,HOST:'127.0.0.1',PORT:url.split(':').at(-1),
+        DATA_DIR:dataDir,LOG_DIR:path.join(rootDir,'logs'),
+        DISCOVERY_SUBNET:'',EMULATOR_NO_DEFAULTS:'1'},
+      stdio:['ignore','pipe','pipe']
+    });
+    child.stdout.on('data',x=>logs.push(String(x)));
+    child.stderr.on('data',x=>logs.push(String(x)));
+    await waitForController(url,child,logs);
+    context=await browser.newContext({viewport:{width:1280,height:800}});
+    // Plain Playwright library has no default action timeout. A missing
+    // role-specific control must fail instead of stalling GitHub CI indefinitely.
+    context.setDefaultTimeout(15000);
+    context.setDefaultNavigationTimeout(25000);
+    const page=await context.newPage();
+    const errorLog=[];
+    page.on('pageerror',error=>errorLog.push(error.message));
+    await page.goto(url+'/');
+    await page.locator('#authOverlay').waitFor({state:'visible'});
+    assert.equal(await page.locator('body.auth-locked').count(),1,'workspace locked before login');
+    assert.equal(await page.locator('#authSetupForm').isVisible(),true,
+      'default HTTP setup must be visible without any environment override');
+    assert.equal(await page.locator('#authTransportNotice').isVisible(),true,
+      'unencrypted credentials must show an explicit warning');
+    const code=logs.join('').match(/One-time enrollment code \(private\): ([0-9A-F]{48})/)?.[1];
+    assert.ok(code,'setup code must appear in protected controller startup output');
+    assert.equal((await page.locator('body').innerText()).includes(code),false,
+      'setup code must never be emitted to the browser');
+    await page.locator('#authSetupForm [name=code]').fill(code);
+    await page.locator('#authSetupForm [name=username]').fill('owner');
+    await page.locator('#authSetupForm [name=displayName]').fill('Owner');
+    await page.locator('#authSetupForm [name=password]').fill('Admin password for tests 2026');
+    await page.locator('#authSetupForm [name=confirmPassword]').fill('Admin password for tests 2026');
+    await page.locator('#authSetupForm button[type=submit]').click();
+    await page.locator('#authLoginForm').waitFor({state:'visible'});
+    assert.equal(await page.locator('#authTransportNotice').isVisible(),true);
+    await page.locator('#authLoginForm [name=username]').fill('owner');
+    await page.locator('#authLoginForm [name=password]').fill('Admin password for tests 2026');
+    await page.locator('#authLoginForm button[type=submit]').click();
+    await page.waitForFunction(()=>window.__PFC_FRONTEND_BOOTED__===true
+      && document.body.dataset.authRole==='administrator',{},{timeout:25000});
+    assert.equal(await page.locator('#usersBtn').isVisible(),true);
+    assert.equal(await page.locator('#authIdentity').isVisible(),true);
+    await page.locator('#usersBtn').click();
+    await page.locator('#authUserAddForm').waitFor({state:'visible'});
+    await page.locator('#authUserAddForm [name=username]').fill('shiftoperator');
+    await page.locator('#authUserAddForm [name=displayName]').fill('Shift operator');
+    await page.locator('#authUserAddForm [name=role]').selectOption('operator');
+    await page.locator('#authUserAddForm [name=password]').fill('Operator password for tests 2026');
+    await page.locator('#authUserAddForm button[type=submit]').click();
+    await page.locator('#authUserList tbody tr').filter({hasText:'shiftoperator'}).waitFor();
+    await page.locator('#authUserAddForm [name=username]').fill('viewer');
+    await page.locator('#authUserAddForm [name=displayName]').fill('Viewer');
+    await page.locator('#authUserAddForm [name=role]').selectOption('viewer');
+    await page.locator('#authUserAddForm [name=password]').fill('Viewer password for tests 2026');
+    await page.locator('#authUserAddForm button[type=submit]').click();
+    await page.locator('#authUserList tbody tr').filter({
+      has:page.locator('th[scope="row"]:text-is("viewer")')
+    }).waitFor();
+    console.log('Chromium auth: viewer created; creating production operator');
+    await page.locator('#authUserAddForm [name=username]').fill('shopoperator');
+    await page.locator('#authUserAddForm [name=displayName]').fill('Shop operator');
+    await page.locator('#authUserAddForm [name=role]').selectOption('operator');
+    await page.locator('#authUserAddForm [name=password]').fill('Shop operator password 2026');
+    await page.locator('#authUserAddForm button[type=submit]').click();
+    await page.locator('#authUserList th[scope=row]').filter({hasText:'shopoperator'}).waitFor();
+    console.log('Chromium auth: operator created; switching shift operator role');
+    const row=page.locator('#authUserList tbody tr').filter({hasText:'shiftoperator'});
+    assert.equal(await row.locator('select').inputValue(),'operator');
+    await row.locator('select').selectOption('viewer');
+    await row.locator('button').click();
+    await page.waitForFunction(()=>[...document.querySelectorAll('#authUserList tbody tr')]
+      .some(tr=>tr.textContent.includes('shiftoperator')&&tr.querySelector('select')?.value==='viewer'));
+    await page.locator('#authAccountBtn').click();
+    await page.locator('#authLogoutBtn').click();
+    await page.locator('#authOverlay').waitFor({state:'visible'});
+    console.log('Chromium auth: admin signed out; signing in viewer');
+    await page.locator('#authLoginForm [name=username]').fill('viewer');
+    await page.locator('#authLoginForm [name=password]').fill('Viewer password for tests 2026');
+    await page.locator('#authLoginForm button[type=submit]').click();
+    await page.waitForFunction(()=>window.__PFC_FRONTEND_BOOTED__===true
+      && document.body.dataset.authRole==='viewer',null,{timeout:25000});
+    assert.equal(await page.locator('#usersBtn').isVisible(),false,'viewer cannot see user admin');
+    console.log('Chromium auth: viewer signed in; opening account dialog to sign out');
+    await page.locator('#authAccountBtn').click();
+    await page.locator('#authLogoutBtn').click();
+    await page.locator('#authOverlay').waitFor({state:'visible'});
+    console.log('Chromium auth: viewer signed out; signing in production operator');
+    await page.locator('#authLoginForm [name=username]').fill('shopoperator');
+    await page.locator('#authLoginForm [name=password]').fill('Shop operator password 2026');
+    await page.locator('#authLoginForm button[type=submit]').click();
+    await page.waitForFunction(()=>window.__PFC_FRONTEND_BOOTED__===true
+      && document.body.dataset.authRole==='operator',null,{timeout:25000});
+    console.log('Chromium auth: production operator signed in; checking permissions');
+    assert.equal(await page.locator('#clearQueueHistoryBtn').isVisible(),false,
+      'operators cannot purge queue history');
+    assert.equal(await page.locator('#libraryDeleteSelectedBtn').isVisible(),false,
+      'operators cannot delete library records');
+    assert.equal(await page.locator('#filamentForm').isVisible(),false,
+      'operators cannot edit the shared filament cost catalogue');
+    assert.equal(await page.locator('#reportsBtn').isVisible(),true,
+      'operators retain read access to reporting');
+    assert.deepEqual(errorLog,[],'native login UI must have no uncaught browser errors');
+    console.log('Chromium: native login, role-based user administration and sign-out PASS');
+  }catch(error){
+    console.error('Auth browser server tail:',logs.join('').slice(-3000));
+    if(context){
+      const pages=context.pages();
+      const p=pages[0];
+      if(p){
+        console.error('Auth browser client state:',await p.evaluate(()=>({
+          role:document.body.dataset.authRole,
+          locked:document.body.classList.contains('auth-locked'),
+          userError:document.querySelector('#authUserAddError')?.textContent,
+          loginError:document.querySelector('#authLoginError')?.textContent
+        })).catch(()=>({unavailable:true})));
+      }
+    }
+    throw error;
+  }finally{
+    await context?.close().catch(()=>{});
+    await stopIsolatedController(child,'authentication fixture');
+    await fs.rm(rootDir,{recursive:true,force:true}).catch(()=>{});
+  }
+}
+
+/** The UI fixtures spawn real Node servers. SIGTERM may hang while clearing
+ * active SSE or printer streams; always reap child processes after testing. */
+async function stopIsolatedController(child,label){
+  if(!child)return;
+  if(child.exitCode!==null||child.signalCode!==null)return;
+  child.kill('SIGTERM');
+  await new Promise(resolve=>{
+    if(child.exitCode!==null||child.signalCode!==null)return resolve();
+    const timer=setTimeout(()=>{
+      console.warn('Chromium: forcing exit of '+label+' after graceful shutdown deadline');
+      child.kill('SIGKILL');
+      resolve();
+    },3000);
+    child.once('exit',()=>{clearTimeout(timer);resolve();});
+  });
+}
+
 async function main() {
   const externalUrl=process.env.PFC_BROWSER_TEST_BASE_URL||null;
   const dir=externalUrl?null:await fs.mkdtemp(path.join(os.tmpdir(),'pfc-chromium-'));
@@ -3450,7 +3612,8 @@ async function main() {
     if (!externalUrl) {
       processHandle=spawn(process.execPath,['src/server.js'],{
         cwd:root,env:{...process.env,HOST:'127.0.0.1',PORT:url.split(':').at(-1),
-          DATA_DIR:path.join(dir,'data'),LOG_DIR:path.join(dir,'logs'),DISCOVERY_SUBNET:'',EMULATOR_NO_DEFAULTS:'1'},
+          DATA_DIR:path.join(dir,'data'),LOG_DIR:path.join(dir,'logs'),DISCOVERY_SUBNET:'',EMULATOR_NO_DEFAULTS:'1',
+          PFC_AUTH_REQUIRED:'0'},
         stdio:['ignore','pipe','pipe']
       });
       processHandle.stdout.on('data',(x)=>logs.push(String(x)));
@@ -3482,6 +3645,7 @@ async function main() {
     await queueClickSmoke(browser,url);
     await groupEditorSmoke(browser,url);
     if(!externalUrl) await simulatorSseSmoke(browser,url);
+    if(!externalUrl) await nativeAuthenticationSmoke(browser);
     assert.deepEqual(errors,[],'browser Javascript errors');
     console.log('Chromium browser regression: PASSED');
   } catch (error) {
@@ -3494,17 +3658,26 @@ async function main() {
     }
     process.exitCode=1;
   } finally {
-    await browser?.close().catch(()=>{});
-    if (processHandle) {
-      processHandle.kill();
-      await new Promise((resolve)=>{
-        if(processHandle.exitCode!==null)return resolve();
-        processHandle.once('exit',resolve);
-        setTimeout(resolve,3000).unref();
-      });
+    console.log('Chromium: closing browser and isolated controller');
+    if(browser){
+      let timer;
+      try {
+        await Promise.race([
+          browser.close(),
+          new Promise((_,reject)=>{timer=setTimeout(()=>reject(new Error('Chromium browser close timed out')),10000);})
+        ]);
+      }catch(error){
+        process.exitCode=1;
+        console.error('Chromium cleanup error:',error.message);
+      }finally{clearTimeout(timer);}
     }
-    if(dir) await fs.rm(dir,{recursive:true,force:true}).catch(()=>{});
+    await stopIsolatedController(processHandle,'visual test controller');
+    if(dir)await fs.rm(dir,{recursive:true,force:true}).catch(()=>{});
+    console.log('Chromium: browser regression cleanup complete');
   }
 }
 
+// Standalone smoke-test CLI: an orphaned Chromium transport or SSE socket
+// must not make a PASS run appear stuck until the GitHub job times out.
 await main();
+process.exit(process.exitCode||0);

@@ -290,7 +290,8 @@ const controllerRoutes = {
   '/alerts': { button:'alertsSettingsBtn', dialog:'alertsDialog', title:'Alerts & notifications', topbarTitle:'Farm management', subtitle:'Review alerts and notification settings' },
   '/backup': { button:'backupRecoveryBtn', dialog:'backupRecoveryDialog', title:'Backup & recovery', topbarTitle:'Farm management', subtitle:'Protect and restore controller data' },
   '/diagnostics': { button:'diagnosticsBtn', dialog:'diagnosticsDialog', title:'Diagnostics', topbarTitle:'Farm management', subtitle:'Review controller health and diagnostic logs' },
-  '/licence': { button:'licenseBtn', dialog:'licenseDialog', title:'Licence', subtitle:'Review controller edition and licence status' }
+  '/licence': { button:'licenseBtn', dialog:'licenseDialog', title:'Licence', subtitle:'Review controller edition and licence status' },
+  '/users': { button:'usersBtn', dialog:'usersDialog', title:'Security & users', topbarTitle:'Farm management', subtitle:'Set up secure access and manage local user roles' }
 };
 const workspaceMain = document.querySelector('body > main');
 // Bind route title and subtitle separately to avoid duplicate context labels.
@@ -531,9 +532,9 @@ renderControllerRoute(location.pathname, { invoke:false });
 // page-specific loaders before their module listeners are registered. Once all
 // module scripts have finished loading, re-activate the current route through
 // its normal open action so direct browser refreshes populate route data too.
-window.addEventListener('load', () => {
-  renderControllerRoute(location.pathname);
-}, { once:true });
+// Authentication gate imports auxiliary page modules after app.js. Only invoke
+// the initial route after all page-specific listeners have registered.
+window.__PFC_REACTIVATE_ROUTE__ = () => renderControllerRoute(location.pathname);
 
 const FILAMENT_COLOR_FAMILIES = Object.freeze([
   { value:'black', label:'Black', representative:'#111111' },
@@ -3508,7 +3509,8 @@ function renderPrintQueue() {
   }
 
   if (clearQueueHistoryBtn) {
-    clearQueueHistoryBtn.disabled = clearableHistoryJobs.length === 0;
+    clearQueueHistoryBtn.hidden = !canPurgeFarmRecords();
+    clearQueueHistoryBtn.disabled = !canPurgeFarmRecords() || clearableHistoryJobs.length === 0;
     clearQueueHistoryBtn.title = clearanceItems.length ? 'History items holding an uncleared-bed interlock are retained until the bed is confirmed clear.' : '';
   }
 
@@ -3980,6 +3982,9 @@ function publishPrintLibraryUiState({ files, visible, summary, query, pagination
   window.dispatchEvent(new CustomEvent('pfc:library-ui-state', { detail }));
 }
 
+// This affects presentation only; the HTTP authorization policy is authoritative.
+function canPurgeFarmRecords(){const role=document.body.dataset.authRole;return !role||role==='administrator';}
+
 function selectedLibraryFile() {
   return (libraryState.files || []).find((file) => file.id === librarySelectedFileId) || null;
 }
@@ -3998,7 +4003,8 @@ function updateLibrarySelectionToolbar() {
   }
   const referenced = Number(file?.usage?.queueReferences || 0) > 0;
   if (libraryDeleteSelectedBtn) {
-    libraryDeleteSelectedBtn.disabled = !ready || referenced;
+    libraryDeleteSelectedBtn.hidden = !canPurgeFarmRecords();
+    libraryDeleteSelectedBtn.disabled = !canPurgeFarmRecords() || !ready || referenced;
     libraryDeleteSelectedBtn.title = referenced
       ? 'Clear queue/history references before deleting this file'
       : (file ? 'Delete the selected library file' : 'Select a file to delete');
@@ -5634,7 +5640,7 @@ libraryFavouriteSelectedBtn?.addEventListener('click',async ()=>{
 });
 
 libraryDeleteSelectedBtn?.addEventListener('click', async () => {
-  if (libraryActionBusy) return;
+  if (libraryActionBusy || !canPurgeFarmRecords()) return;
   const file = selectedLibraryFile();
   if (!file || Number(file.usage?.queueReferences || 0) > 0) return;
   if (!confirm(`Delete ${file.fileName} from the Print Library? The stored controller copy will be removed.`)) return;
@@ -5751,6 +5757,7 @@ queueAddForm?.addEventListener('submit', async (event) => {
   }
 });
 clearQueueHistoryBtn?.addEventListener('click', async () => {
+  if (!canPurgeFarmRecords()) return;
   if (!confirm('Clear completed, failed and cancelled print history? Active and queued jobs will be kept.')) return;
   try {
     const result = await api('/api/queue/history', { method:'DELETE' });

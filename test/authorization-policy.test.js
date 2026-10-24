@@ -63,10 +63,20 @@ test('operator may run production but cannot manage security, credentials or bac
     ['DELETE','/api/printers/x/files'],['POST','/api/distribute'],
     ['POST','/api/queue'],['POST','/api/queue/x/reprint'],
     ['POST','/api/queue/bed-clearance/x'],['POST','/api/library'],
-    ['PATCH','/api/filaments/x'],['POST','/api/maintenance/model-tasks'],
+    ['POST','/api/printers/x/filament-config'],
+    ['POST','/api/printers/x/filament-color'],
+    ['POST','/api/printers/x/material-designation'],
+    ['POST','/api/printers/x/nozzle-designation'],
+    ['DELETE','/api/printers/x/tool-material-designation'],
+    ['POST','/api/maintenance/model-tasks'],
     ['POST','/api/printers/x/maintenance/tasks/task/complete']
   ])assert.equal(isRoleAllowed('operator',method,path),true,`${method} ${path}`);
   for(const [method,path] of [
+    ['DELETE','/api/library/print-file'],
+    ['DELETE','/api/queue/history'],
+    ['POST','/api/filaments'],
+    ['PATCH','/api/filaments/x'],
+    ['DELETE','/api/filaments/x'],
     ['POST','/api/printers'],['DELETE','/api/printers/x'],
     ['POST','/api/printers/x/tool-configuration'],['PUT','/api/library/pricing'],
     ['POST','/api/backup/create'],['POST','/api/restore/stage'],
@@ -85,6 +95,8 @@ test('administrator can access enumerated sensitive API routes but never unknown
     ['POST','/api/restore/cloud/google-drive/inspect'],
     ['DELETE','/api/restore/stage'],['GET','/api/diagnostics/bundle'],
     ['POST','/api/license/install'],['DELETE','/api/printers/x'],
+    ['DELETE','/api/library/print-file'],['DELETE','/api/queue/history'],
+    ['POST','/api/filaments'],['PATCH','/api/filaments/x'],['DELETE','/api/filaments/x'],
     ['POST','/api/alerts/destinations/x/test'],['DELETE','/api/emulator/printers/x']
   ])assert.equal(isRoleAllowed('administrator',method,path),true,`${method} ${path}`);
   assert.equal(roleHasPermission('administrator','invented.permission'),false);
@@ -139,7 +151,37 @@ test('explicit dynamic API routes cover actual router action families',()=>{
     assert.ok(requiredPermission(method,path),`missing permission mapping ${method} ${path}`);
 });
 
-test('security foundation is not misrepresented as active production middleware',()=>{
+test('HTTP dispatcher invokes authentication before emulator and API routes',()=>{
   assert.match(server,/const server = http\.createServer\(/);
-  assert.doesNotMatch(server,/authorization-policy\.js/);
+  assert.match(server,/ControllerAuth/);
+  const auth=server.indexOf('controllerAuth.authorize(req,res,url');
+  const emulator=server.indexOf('emulatorManager.handleApi(req, res, url)');
+  const api=server.indexOf('apiRoute(req, res, url);');
+  assert.ok(auth!==-1&&auth<emulator&&auth<api,'authorization must precede all API dispatch');
+});
+
+test('production operators can edit library records and assign printer consumables, not delete shared data',()=>{
+  const permit=[
+    ['POST','/api/library'],['PATCH','/api/library/file'],
+    ['POST','/api/queue'],['DELETE','/api/queue/queued-job'],
+    ['POST','/api/queue/queued-job/recheck'],
+    ['POST','/api/printers/printer/material-designation'],
+    ['DELETE','/api/printers/printer/nozzle-designation'],
+    ['POST','/api/printers/printer/filament-type']
+  ];
+  const forbid=[
+    ['DELETE','/api/library/file'],['DELETE','/api/queue/history'],
+    ['POST','/api/filaments'],['PATCH','/api/filaments/cost'],['DELETE','/api/filaments/cost']
+  ];
+  for(const [method,path] of permit){
+    assert.equal(isRoleAllowed('operator',method,path),true,method+' '+path);
+    assert.equal(isRoleAllowed('viewer',method,path),false,method+' '+path);
+  }
+  for(const [method,path] of forbid){
+    assert.equal(isRoleAllowed('operator',method,path),false,method+' '+path);
+    assert.equal(isRoleAllowed('administrator',method,path),true,method+' '+path);
+  }
+  for(const permission of [PERMISSIONS.LIBRARY_DELETE,PERMISSIONS.QUEUE_HISTORY_PURGE,PERMISSIONS.FILAMENT_MANAGE])
+    assert.equal(roleHasPermission('operator',permission),false);
+  assert.equal(roleHasPermission('operator',PERMISSIONS.FILAMENT_ASSIGN),true);
 });

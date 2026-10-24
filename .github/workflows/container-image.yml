@@ -217,6 +217,32 @@ jobs:
         run: |
           docker run -d --name pfc-smoke -p 4242:4242 print-farm-controller:smoke
 
+      - name: Verify authentication and HTTP enrollment are on by default
+        run: |
+          for attempt in {1..20}; do
+            if state="$(curl --fail --silent http://127.0.0.1:4242/api/auth/session)"; then
+              node -e "
+                const state = JSON.parse(process.argv[1]);
+                if (!state.enabled || !state.setupRequired || !state.enrollmentAvailable ||
+                    !state.loginAvailable || !state.transportWarning || state.user) {
+                  console.error('Default HTTP authentication and onboarding gate are not active');
+                  process.exit(1);
+                }
+              " "$state"
+              status="$(curl --silent --output /dev/null --write-out '%{http_code}' http://127.0.0.1:4242/api/integrations/google-drive/status)"
+              test "$status" = "503"
+              exit 0
+            fi
+            sleep 1
+          done
+          echo 'Default authentication did not start'
+          exit 1
+
+      - name: Restart test container in explicit legacy mode for OAuth inspection
+        run: |
+          docker rm -f pfc-smoke
+          docker run -d --name pfc-smoke -e PFC_AUTH_REQUIRED=0 -p 4242:4242 print-farm-controller:smoke
+
       - name: Verify controller responds and bundled OAuth is active
         run: |
           for attempt in {1..20}; do

@@ -20,11 +20,14 @@ export const PERMISSIONS = Object.freeze({
   CAMERA_READ:'camera.read',
   QUEUE_READ:'queue.read',
   QUEUE_MANAGE:'queue.manage',
+  QUEUE_HISTORY_PURGE:'queue.history.purge',
   LIBRARY_READ:'library.read',
   LIBRARY_MANAGE:'library.manage',
+  LIBRARY_DELETE:'library.delete',
   PRICING_MANAGE:'pricing.manage',
   FILAMENT_READ:'filament.read',
   FILAMENT_MANAGE:'filament.manage',
+  FILAMENT_ASSIGN:'filament.assign',
   GROUP_READ:'group.read',
   GROUP_MANAGE:'group.manage',
   MAINTENANCE_READ:'maintenance.read',
@@ -47,7 +50,7 @@ const P = PERMISSIONS;
 const OPERATOR_PERMISSIONS = new Set([
   P.SYSTEM_READ, P.PRINTER_READ, P.PRINTER_OPERATE, P.PRINTER_FILE_MANAGE,
   P.CAMERA_READ, P.QUEUE_READ, P.QUEUE_MANAGE, P.LIBRARY_READ, P.LIBRARY_MANAGE,
-  P.FILAMENT_READ, P.FILAMENT_MANAGE, P.GROUP_READ, P.MAINTENANCE_READ,
+  P.FILAMENT_READ, P.FILAMENT_ASSIGN, P.GROUP_READ, P.MAINTENANCE_READ,
   P.MAINTENANCE_MANAGE, P.REPORT_READ, P.ALERT_READ, P.ALERT_ACKNOWLEDGE
 ]);
 const VIEWER_PERMISSIONS = new Set([
@@ -94,8 +97,9 @@ write('POST', '/api/printer-groups', P.GROUP_MANAGE);
 read('/api/queue', P.QUEUE_READ);
 for (const p of ['/api/queue','/api/queue/stage']) write('POST',p,P.QUEUE_MANAGE);
 for (const [method, path] of [
-  ['PUT','/api/queue/order'], ['DELETE','/api/queue/history']
+  ['PUT','/api/queue/order']
 ]) write(method,path,P.QUEUE_MANAGE);
+write('DELETE','/api/queue/history',P.QUEUE_HISTORY_PURGE);
 
 read('/api/library',P.LIBRARY_READ);
 read('/api/library/readiness',P.LIBRARY_READ);
@@ -181,7 +185,8 @@ pattern(['PATCH','DELETE'],/^\/api\/alerts\/destinations\/[^/]+$/,P.ALERT_MANAGE
 pattern(['POST'],/^\/api\/alerts\/destinations\/[^/]+\/test$/,P.ALERT_MANAGE);
 pattern(['PATCH','DELETE'],/^\/api\/filaments\/[^/]+$/,P.FILAMENT_MANAGE);
 pattern(['GET'],/^\/api\/library\/[^/]+\/preview$/,P.LIBRARY_READ);
-pattern(['PATCH','DELETE'],/^\/api\/library\/[^/]+$/,P.LIBRARY_MANAGE);
+pattern(['PATCH'],/^\/api\/library\/[^/]+$/,P.LIBRARY_MANAGE);
+pattern(['DELETE'],/^\/api\/library\/[^/]+$/,P.LIBRARY_DELETE);
 pattern(['DELETE'],/^\/api\/queue\/stage\/[^/]+$/,P.QUEUE_MANAGE);
 pattern(['POST'],/^\/api\/queue\/production\/[^/]+\/(?:pause|resume|cancel|quantity|priority|reprint)$/,P.QUEUE_MANAGE);
 pattern(['POST'],/^\/api\/queue\/bed-clearance\/[^/]+$/,P.QUEUE_MANAGE);
@@ -198,8 +203,8 @@ pattern(['GET'],/^\/api\/printers\/[^/]+\/camera\/(?:stream|status|snapshot)$/,P
 pattern(['POST'],/^\/api\/printers\/[^/]+\/(?:print|job|temperature|fans|filtration|level|chamber-preheat|camera)$/,P.PRINTER_OPERATE);
 pattern(['DELETE'],/^\/api\/printers\/[^/]+\/chamber-preheat$/,P.PRINTER_OPERATE);
 pattern(['POST','DELETE'],/^\/api\/printers\/[^/]+\/files$/,P.PRINTER_FILE_MANAGE);
-pattern(['POST','DELETE'],/^\/api\/printers\/[^/]+\/(?:material-designation|tool-material-designation|nozzle-designation|tool-nozzle-designation)$/,P.FILAMENT_MANAGE);
-pattern(['POST'],/^\/api\/printers\/[^/]+\/(?:filament-color|filament-type|filament-config)$/,P.FILAMENT_MANAGE);
+pattern(['POST','DELETE'],/^\/api\/printers\/[^/]+\/(?:material-designation|tool-material-designation|nozzle-designation|tool-nozzle-designation)$/,P.FILAMENT_ASSIGN);
+pattern(['POST'],/^\/api\/printers\/[^/]+\/(?:filament-color|filament-type|filament-config)$/,P.FILAMENT_ASSIGN);
 pattern(['POST'],/^\/api\/printers\/[^/]+\/(?:tool-configuration|tool-offset-calibration)$/,P.PRINTER_CONFIGURE);
 
 // Emulator management has its own router; the entire simulated control

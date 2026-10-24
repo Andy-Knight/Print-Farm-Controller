@@ -245,18 +245,18 @@ function FileFailures({ files }) {
     </tr>)} />;
 }
 
-function FilamentCatalogue({ items }) {
-  if (!items.length) return <div class="reporting-empty">No filament costs configured yet. Add a material and its current cost per kg.</div>;
+function FilamentCatalogue({ items, canManage }) {
+  if (!items.length) return <div class="reporting-empty">No filament costs configured yet.{canManage && ' Add a material and its current cost per kg.'}</div>;
   return <>{items.map((item) => <div class="filament-cost-row" key={item.id}>
     <div>
       <strong>{item.label}</strong>
       <div class="subtle">{item.detail}</div>
     </div>
     <div class="filament-cost-price"><b>{item.price}</b><span>per kg</span></div>
-    <div class="mini-actions">
+    {canManage && <div class="mini-actions">
       <UiButton variant="secondary" data-filament-edit={item.id}>Edit</UiButton>
       <UiButton variant="danger" data-filament-delete={item.id}>Delete</UiButton>
-    </div>
+    </div>}
   </div>)}</>;
 }
 
@@ -274,7 +274,8 @@ function normalizeState(detail = {}) {
     materials:detail.materials && Array.isArray(detail.materials.rows)
       ? detail.materials : { rows:[], totalKg:'0.00', totalCost:'—' },
     materialMode:detail.materialMode === 'filament' ? 'filament' : 'type',
-    filaments:Array.isArray(detail.filaments) ? detail.filaments : []
+    filaments:Array.isArray(detail.filaments) ? detail.filaments : [],
+    canManageFilaments:detail.canManageFilaments === true
   };
 }
 
@@ -298,7 +299,7 @@ export function initReportingUi() {
     render(<ReportFiles files={state.files} sort={state.fileSort} />, filesRoot);
     render(<ReportMaterials materials={state.materials} materialMode={state.materialMode} />, materialsRoot);
     render(<FileFailures files={state.fileFailures} />, fileFailuresRoot);
-    render(<FilamentCatalogue items={state.filaments} />, filamentRoot);
+    render(<FilamentCatalogue items={state.filaments} canManage={state.canManageFilaments} />, filamentRoot);
   };
   window.addEventListener('pfc:reporting-ui-state', (event) => {
     state = normalizeState(event?.detail || {});

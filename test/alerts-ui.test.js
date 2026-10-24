@@ -38,7 +38,8 @@ test('farm alerts UI exposes history, destinations and scoped notification rules
   assert.match(index, /value="printer">Individual printer/);
   assert.match(index, /value="group">Printer group/);
   assert.match(index, /value="model">Printer model/);
-  assert.match(index, /src="\/alerts\.js"/);
+  assert.match(index, /src="\/auth-gate\.js"/);
+  assert.match(fs.readFileSync(new URL('../public/auth-gate.js', import.meta.url),'utf8'), /import\('\/alerts\.js'\)/);
 
   assert.match(alertsUi, /\/api\/alerts\?limit=100/);
   assert.match(alertsUi, /\/api\/alerts\/destinations/);

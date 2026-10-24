@@ -4,6 +4,16 @@ This file contains the version-by-version release history for Print Farm Control
 
 Historical entries describe the behaviour of the controller at the time of that release and may be superseded by later versions. For current installation, configuration and supported-hardware guidance, see [README.md](README.md).
 
+## v0.59.12
+
+- Refined Operator RBAC: retained queue operations, Print Library editing and printer filament/nozzle assignments, while restricting permanent library deletion, queue-history purge and central filament cost catalogue changes to Administrators; applied the same visibility rules to Preact and fallback UI.
+- Fixed first-run authentication blocking the controller HTML shell and static assets: the administrator setup and login GUI remain accessible while all protected APIs and simulator endpoints stay locked until enrollment.
+- Introduced **default-on native user authentication**, including HTTP deployments, backed by the account/scrypt and revocable-session primitives, with code-verified first administrator enrollment through the Security & users GUI and offline local disaster recovery. A private one-time code is read from protected startup logs, not a public browser endpoint, and successful enrollment activates a durable security marker immediately.
+- Implemented **server-side RBAC** for Administrator, Operator and Viewer before controller and emulator API dispatch, covering printer commands, uploads, backups/restores, camera streams, SSE and sensitive integration/diagnostics endpoints. Unknown API routes fail closed when access control is enabled.
+- Added a themed sign-in experience, top-bar identity/account controls, password change and a routed **Security & users** screen for administrators to create, disable, change roles and reset passwords.
+- Added Origin and CSRF validation for mutations, credential throttling, secure cookies for configured HTTPS origins, session revocation on role/password changes and logout, and tests for role enforcement, bootstrap, expiry, disabled users and session persistence boundaries.
+- **Deployment security:** Installations require administrator enrollment before printer API access, even on HTTP, using a private one-time code and visible interception warning. HTTP login works by default but **does not encrypt passwords or sessions**. `PFC_AUTH_REQUIRED=0` opts into insecure legacy mode only before enrollment; `PFC_AUTH_ALLOW_HTTP=0` requires HTTPS for credentials. Controller transport is **not production-secure until TLS termination and prevention of direct HTTP bypass** are configured and validated. This feature-branch candidate still requires full browser, container/K3s, SEA and end-to-end verification.
+
 ## v0.59.11
 
 - Established the **native authentication and role-based access control (RBAC) foundation** with explicit Administrator, Operator and Viewer permission mappings for controller HTTP API methods, protected file and backup operations, print controls, camera streams and live telemetry. Unknown API routes are denied by the proposed policy.
