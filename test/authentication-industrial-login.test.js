@@ -39,7 +39,7 @@ test('full-viewport control-centre branding is local, responsive and reduced-mot
   assert.match(html,/class="auth-heat-block"/);
   assert.match(html,/class="auth-head-guide"/);
   assert.match(html,/class="auth-build-grid"/);
-  assert.match(html,/id="authPrintLayer">02/);
+  assert.match(html,/id="authPrintLayer">01/);
   assert.match(gate,/extrusionPath\.getPointAtLength\(distance\)/);
   assert.match(gate,/carriage\.setAttribute\('transform'/);
   assert.match(gate,/extrusionPath\.style\.strokeDashoffset/);
@@ -68,7 +68,7 @@ test('automatic extrusion has no pause button or stale browser motion preference
   assert.doesNotMatch(css,/\.auth-motion-toggle|\.auth-motion-controls|data-motion="off"/);
   assert.doesNotMatch(gate,/motionPreferenceKey|motionChoice|localStorage\.getItem\(motionPreferenceKey\)/);
   assert.match(gate,/extrusionPath\.getPointAtLength\(distance\)/);
-  assert.match(gate,/extrusionPath\.style\.strokeDashoffset=String\(extrusionLength-distance\)/);
+  assert.match(gate,/extrusionPath\.style\.strokeDashoffset=String\(length-distance\)/);
   assert.match(gate,/requestAnimationFrame\(nextPrinterFrame\)/);
   assert.match(gate,/document\.addEventListener\('visibilitychange',syncPrinterAnimation\)/);
 });
