@@ -27,7 +27,7 @@ For contributing or AI-assisted development, follow [AGENTS.md](AGENTS.md) and t
 ## User accounts and access control
 
 The **Industrial Control Centre** sign-in screen uses a split desktop layout with a local
-outline 3D-printer illustration, subtle animated toolpath, and standard controller theme colours.
+outline 3D-printer illustration with a gently travelling printhead and animated toolpath, and standard controller theme colours.
 The motion respects the browser's reduced-motion setting; on phones the illustration yields to
 a compact branded header above the sign-in form. The same screen supports initial administrator
 setup, login errors and HTTP security warnings. The sign-in password field includes an
