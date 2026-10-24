@@ -3514,6 +3514,12 @@ async function nativeAuthenticationSmoke(browser){
     await page.locator('#authUserList tbody tr').filter({
       has:page.locator('th[scope="row"]:text-is("viewer")')
     }).waitFor();
+    await page.locator('#authUserAddForm [name=username]').fill('shopoperator');
+    await page.locator('#authUserAddForm [name=displayName]').fill('Shop operator');
+    await page.locator('#authUserAddForm [name=role]').selectOption('operator');
+    await page.locator('#authUserAddForm [name=password]').fill('Shop operator password 2026');
+    await page.locator('#authUserAddForm button[type=submit]').click();
+    await page.locator('#authUserList th[scope=row]').filter({hasText:'shopoperator'}).waitFor();
     const row=page.locator('#authUserList tbody tr').filter({hasText:'shiftoperator'});
     assert.equal(await row.locator('select').inputValue(),'operator');
     await row.locator('select').selectOption('viewer');
@@ -3529,6 +3535,22 @@ async function nativeAuthenticationSmoke(browser){
     await page.waitForFunction(()=>window.__PFC_FRONTEND_BOOTED__===true
       && document.body.dataset.authRole==='viewer',null,{timeout:25000});
     assert.equal(await page.locator('#usersBtn').isVisible(),false,'viewer cannot see user admin');
+    await page.locator('#authAccountBtn').click();
+    await page.locator('#authLogoutBtn').click();
+    await page.locator('#authOverlay').waitFor({state:'visible'});
+    await page.locator('#authLoginForm [name=username]').fill('shopoperator');
+    await page.locator('#authLoginForm [name=password]').fill('Shop operator password 2026');
+    await page.locator('#authLoginForm button[type=submit]').click();
+    await page.waitForFunction(()=>window.__PFC_FRONTEND_BOOTED__===true
+      && document.body.dataset.authRole==='operator',null,{timeout:25000});
+    assert.equal(await page.locator('#clearQueueHistoryBtn').isVisible(),false,
+      'operators cannot purge queue history');
+    assert.equal(await page.locator('#libraryDeleteSelectedBtn').isVisible(),false,
+      'operators cannot delete library records');
+    assert.equal(await page.locator('#filamentForm').isVisible(),false,
+      'operators cannot edit the shared filament cost catalogue');
+    assert.equal(await page.locator('#reportsBtn').isVisible(),true,
+      'operators retain read access to reporting');
     assert.deepEqual(errorLog,[],'native login UI must have no uncaught browser errors');
     console.log('Chromium: native login, role-based user administration and sign-out PASS');
   }catch(error){
