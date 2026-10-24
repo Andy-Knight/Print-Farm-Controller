@@ -55,17 +55,18 @@ test('show-hide password button preserves the same input and exposes a11y state'
   assert.doesNotMatch(gate,/localStorage\.setItem\([^)]*password/);
 });
 
-test('local opt-in overrides reduced motion for illustration only without browser settings changes',()=>{
+test('animation runs automatically with an accessible remembered pause control',()=>{
   assert.match(html,/id="authMotionToggle"/);
-  assert.match(html,/id="authMotionLabel">Play animation/);
+  assert.match(html,/id="authMotionLabel">Pause animation/);
   assert.match(css,/\.auth-motion-toggle:focus-visible/);
   assert.match(css,/\.auth-overlay\[data-motion="off"\] \.auth-printer-head-motion/);
   assert.match(css,/@media\(prefers-reduced-motion:reduce\)/);
   assert.match(css,/\.auth-overlay\[data-motion="on"\] \.auth-printer-head-motion/);
   assert.match(css,/\.auth-overlay\[data-motion="on"\] \.auth-brand-symbol::after/);
-  assert.match(gate,/const motionMedia=window\.matchMedia/);
+  assert.match(gate,/let motionChoice='on'/);
+  assert.doesNotMatch(gate,/motionMedia|motionChoice='auto'/);
   assert.match(gate,/localStorage\.getItem\(motionPreferenceKey\)/);
   assert.match(gate,/localStorage\.setItem\(motionPreferenceKey,motionChoice\)/);
-  assert.match(gate,/motionChoice=running\?'off':'on'/);
+  assert.match(gate,/motionChoice=motionChoice==='on'\?'off':'on'/);
   assert.match(gate,/button\.setAttribute\('aria-pressed',String\(running\)\)/);
 });

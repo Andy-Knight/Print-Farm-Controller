@@ -8,18 +8,18 @@ const errorLabel=$('#authLoginError');
 const loginForm=$('#authLoginForm');
 let session=null;
 
-// Presentation preference only: no usernames, credentials, cookies or tokens
-// are kept in browser storage. Windows/Chrome reduced motion remains the
-// default unless a person explicitly opts into this illustration's animation.
+// Presentation preference only. The slow, decorative printer animation
+// starts automatically on the login screen, including when Windows requests
+// reduced motion; the controller's other animations are not affected.
+// Anyone can pause it immediately using the adjacent accessible control.
+// Persist only this on/off preference: never authentication information.
 const motionPreferenceKey='pfc-auth-illustration-motion';
-const motionMedia=window.matchMedia('(prefers-reduced-motion: reduce)');
-let motionChoice='auto';
+let motionChoice='on';
 try{
-  const saved=localStorage.getItem(motionPreferenceKey);
-  if(saved==='on'||saved==='off')motionChoice=saved;
-}catch{ /* Storage may be blocked; the control still works for this page. */ }
+  if(localStorage.getItem(motionPreferenceKey)==='off')motionChoice='off';
+}catch{ /* The control still works for this visit without storage access. */ }
 function updateMotionControl(){
-  const running=motionChoice==='on'||(motionChoice==='auto'&&!motionMedia.matches);
+  const running=motionChoice==='on';
   lock.dataset.motion=motionChoice;
   const button=$('#authMotionToggle');
   if(!button)return;
@@ -30,13 +30,9 @@ function updateMotionControl(){
   $('#authMotionLabel').textContent=label;
 }
 $('#authMotionToggle')?.addEventListener('click',()=>{
-  const running=motionChoice==='on'||(motionChoice==='auto'&&!motionMedia.matches);
-  motionChoice=running?'off':'on';
+  motionChoice=motionChoice==='on'?'off':'on';
   try{localStorage.setItem(motionPreferenceKey,motionChoice);}catch{}
   updateMotionControl();
-});
-motionMedia.addEventListener?.('change',()=>{
-  if(motionChoice==='auto')updateMotionControl();
 });
 updateMotionControl();
 

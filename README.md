@@ -28,11 +28,12 @@ For contributing or AI-assisted development, follow [AGENTS.md](AGENTS.md) and t
 
 The **Industrial Control Centre** sign-in screen uses a split desktop layout with a local
 outline 3D-printer illustration with a gently travelling printhead and animated toolpath, and standard controller theme colours.
-The motion respects the browser's reduced-motion setting by default. A **Play animation**
-button on the sign-in screen lets users explicitly enable the decorative illustration without
-changing Windows or Chrome settings; the choice is remembered locally in that browser and can
-be reversed using **Pause animation**. This preference contains no account or authentication
-information. On phones the illustration yields to a compact branded header above the sign-in form. The same screen supports initial administrator
+The decorative printhead motion **starts automatically**, including on Windows 11 and Chrome
+when the operating system requests reduced motion. No Windows or browser configuration is
+required. A visible **Pause animation** button lets users stop the movement immediately and
+remembers their choice locally; **Play animation** restarts it. This opt-out applies only to the
+login illustration, not the application's other motion settings, and contains no account or
+authentication information. On phones the illustration yields to a compact branded header above the sign-in form. The same screen supports initial administrator
 setup, login errors and HTTP security warnings. The sign-in password field includes an
 accessible show/hide button. No printer state is displayed before login.
 

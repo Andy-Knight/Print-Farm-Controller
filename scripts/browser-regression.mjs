@@ -3515,57 +3515,49 @@ async function nativeAuthenticationSmoke(browser){
     assert.equal(printheadMotion.present,true,'the printer toolhead is animated');
     assert.ok(printheadMotion.travel>=40,
       'the toolhead visibly travels rather than merely pulsing the outline');
+    // Unlike general workspace decoration, this calm illustration is
+    // deliberately active by default without Windows or Chrome changes.
+    // The user can always pause it; a saved pause wins on later visits.
     await page.emulateMedia({reducedMotion:'reduce'});
-    assert.equal(await page.locator('.auth-printer-head-motion').evaluate(
-      element=>getComputedStyle(element).animationName),'none',
-      'the moving toolhead respects reduced motion');
-    assert.equal(await page.locator('.auth-printer-trace').evaluate(
-      element=>getComputedStyle(element).animationName),'none',
-      'reduced-motion users must not receive looping animation');
-    // A Windows 11 user should opt in using the controller itself, rather
-    // than changing a system or Chrome accessibility setting. Persist only
-    // a harmless animation preference, never credentials or session data.
     const motionButton=page.locator('#authMotionToggle');
-    // CSS updates immediately, but matchMedia change listeners run on the
-    // next browser task. Wait for the UI label before asserting its state.
-    await page.waitForFunction(()=>document.querySelector('#authMotionToggle')
-      ?.getAttribute('aria-pressed')==='false',null,{timeout:5000});
-    assert.equal(await motionButton.getAttribute('aria-pressed'),'false',
-      'system reduced motion is honoured until explicit in-app opt-in');
-    assert.equal(await page.locator('#authMotionLabel').textContent(),'Play animation');
-    await motionButton.click();
-    assert.equal(await motionButton.getAttribute('aria-pressed'),'true');
+    assert.equal(await motionButton.getAttribute('aria-pressed'),'true',
+      'decorative printer animation starts automatically even with Windows reduced motion');
+    assert.equal(await page.locator('#authMotionLabel').textContent(),'Pause animation');
     assert.equal(await page.locator('.auth-printer-head-motion').evaluate(el=>
       getComputedStyle(el).animationName),'auth-head-travel',
-      'in-app Play animation explicitly enables printer movement');
+      'printhead travels on first login with no manual browser changes');
     assert.equal(await page.locator('.auth-printer-trace').evaluate(el=>
       getComputedStyle(el).animationName),'auth-trace',
-      'toolpath animation follows the in-app override');
-    assert.equal(await page.evaluate(()=>localStorage.getItem('pfc-auth-illustration-motion')),
-      'on','animation choice is saved separately from authentication');
-    await page.reload({waitUntil:'load'});
-    await page.locator('#authOverlay').waitFor({state:'visible'});
-    assert.equal(await page.locator('#authMotionToggle').getAttribute('aria-pressed'),'true',
-      'explicit motion opt-in survives reload in the same browser');
-    assert.equal(await page.locator('.auth-printer-head-motion').evaluate(el=>
-      getComputedStyle(el).animationName),'auth-head-travel',
-      'motion stays enabled despite system reduced-motion setting');
-    await page.locator('#authMotionToggle').click();
-    assert.equal(await page.locator('#authMotionToggle').getAttribute('aria-pressed'),'false',
-      'the same control can pause the illustration');
+      'the print path also animates by default under reduced motion');
+    await motionButton.click();
+    assert.equal(await motionButton.getAttribute('aria-pressed'),'false');
+    assert.equal(await page.locator('#authMotionLabel').textContent(),'Play animation');
     assert.equal(await page.locator('.auth-printer-head-motion').evaluate(el=>
       getComputedStyle(el).animationName),'none',
-      'Pause animation stops motion even on an opted-in browser');
+      'the pause button immediately stops the animated toolhead');
+    assert.equal(await page.evaluate(()=>localStorage.getItem('pfc-auth-illustration-motion')),
+      'off','the pause choice is stored separately from accounts');
+    await page.reload({waitUntil:'load'});
+    await page.locator('#authOverlay').waitFor({state:'visible'});
+    assert.equal(await page.locator('#authMotionToggle').getAttribute('aria-pressed'),'false',
+      'a deliberate pause survives a login page reload');
+    assert.equal(await page.locator('.auth-printer-head-motion').evaluate(el=>
+      getComputedStyle(el).animationName),'none',
+      'saved pause works even with reduced motion');
+    await page.locator('#authMotionToggle').click();
+    assert.equal(await page.locator('.auth-printer-head-motion').evaluate(el=>
+      getComputedStyle(el).animationName),'auth-head-travel',
+      'a user can resume the decorative printer without browser configuration');
+    assert.equal(await page.evaluate(()=>localStorage.getItem('pfc-auth-illustration-motion')),
+      'on','resumed animation choice is stored');
     await page.evaluate(()=>localStorage.removeItem('pfc-auth-illustration-motion'));
     await page.reload({waitUntil:'load'});
     await page.locator('#authOverlay').waitFor({state:'visible'});
-    assert.equal(await page.locator('#authMotionToggle').getAttribute('aria-pressed'),'false',
-      'no remembered choice falls back to system preference');
-    await page.emulateMedia({reducedMotion:'no-preference'});
-    await page.waitForFunction(()=>document.querySelector('#authMotionToggle')
-      ?.getAttribute('aria-pressed')==='true',null,{timeout:5000});
     assert.equal(await page.locator('#authMotionToggle').getAttribute('aria-pressed'),'true',
-      'without reduced motion, the controller animation starts automatically');
+      'fresh browser storage uses the automatic animation default');
+    assert.equal(await page.locator('.auth-printer-head-motion').evaluate(el=>
+      getComputedStyle(el).animationName),'auth-head-travel');
+    await page.emulateMedia({reducedMotion:'no-preference'});
     await page.setViewportSize({width:820,height:844});
     assert.equal(await page.locator('.auth-printer-art').isVisible(),true,
       'compact laptop viewport retains visible printer animation');
@@ -3582,16 +3574,16 @@ async function nativeAuthenticationSmoke(browser){
       'phone layout has a subtle animated brand layer');
     await page.emulateMedia({reducedMotion:'reduce'});
     assert.equal(await page.locator('.auth-brand-symbol').evaluate(element=>
+      getComputedStyle(element,'::after').animationName),'auth-logo-layer',
+      'the small mobile brand line also animates without user configuration');
+    await page.locator('#authMotionToggle').click();
+    assert.equal(await page.locator('.auth-brand-symbol').evaluate(element=>
       getComputedStyle(element,'::after').animationName),'none',
-      'phone branding respects reduced motion');
+      'mobile Pause animation stops the line');
     await page.locator('#authMotionToggle').click();
     assert.equal(await page.locator('.auth-brand-symbol').evaluate(element=>
       getComputedStyle(element,'::after').animationName),'auth-logo-layer',
-      'mobile can opt into motion within the controller itself');
-    await page.locator('#authMotionToggle').click();
-    assert.equal(await page.locator('.auth-brand-symbol').evaluate(element=>
-      getComputedStyle(element,'::after').animationName),'none',
-      'mobile can pause decorative motion without changing Chrome');
+      'mobile Play animation resumes the line');
     await page.evaluate(()=>localStorage.removeItem('pfc-auth-illustration-motion'));
     await page.reload({waitUntil:'load'});
     await page.locator('#authOverlay').waitFor({state:'visible'});
