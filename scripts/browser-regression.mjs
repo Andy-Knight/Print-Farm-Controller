@@ -3486,35 +3486,43 @@ async function nativeAuthenticationSmoke(browser){
       await page.screenshot({path:path.join(authVisualDir,'auth-setup-dark-desktop.png'),
         animations:'disabled',fullPage:true});
     }
-    // The full-viewport industrial gate must work without Preact or any
-    // authenticated API data. Verify the real SVG, palette and responsive UI.
+    // The same geometry drives deposited material AND the hotend tip.
     const desktop=await page.evaluate(()=>{
       const a=document.querySelector('.auth-story').getBoundingClientRect();
       const b=document.querySelector('.auth-access-area').getBoundingClientRect();
-      const artwork=document.querySelector('.auth-printer-art svg');
-      return {story:a.toJSON(),access:b.toJSON(),artwork:Boolean(artwork),
-        anim:getComputedStyle(document.querySelector('.auth-printer-trace')).animationName};
+      const path=document.querySelector('#authExtrusionPath');
+      const head=document.querySelector('#authPrinterHead');
+      const total=path.getTotalLength();
+      const offset=Number(path.style.strokeDashoffset);
+      const point=path.getPointAtLength(total-offset);
+      const matrix=head.transform.baseVal.consolidate().matrix;
+      const brand=document.querySelector('.auth-brand .stacked-layers-mark');
+      return {story:a.toJSON(),access:b.toJSON(),
+        artwork:Boolean(document.querySelector('.auth-printer-art svg')),
+        exactLogo:Boolean(brand&&brand.querySelectorAll('polygon').length===3),
+        hotend:Boolean(head.querySelector('.auth-heat-block')&&head.querySelector('.auth-fan-ring')
+          &&head.querySelector('.auth-printer-nozzle')),
+        pathLength:total,nozzleError:Math.hypot(point.x-matrix.e,point.y-matrix.f)};
     });
     assert.ok(desktop.story.right<=desktop.access.left+2,
       'branding panel must sit beside, not on top of, the login');
-    assert.ok(desktop.artwork,'the local outline printer illustration renders');
-    assert.equal(desktop.anim,'auth-trace','subtle toolpath animation is present');
-    // Seek the animation timeline deterministically to prove the head moves.
-    // A CSS animation-name alone did not guarantee perceptible motion.
-    const printheadMotion=await page.locator('.auth-printer-head-motion').evaluate(element=>{
-      const animation=element.getAnimations()[0];
-      if(!animation)return {present:false,travel:0};
-      animation.pause();
-      animation.currentTime=0;
-      const left=element.getBoundingClientRect().left;
-      animation.currentTime=3400;
-      const right=element.getBoundingClientRect().left;
-      animation.play();
-      return {present:true,travel:Math.abs(right-left)};
+    assert.ok(desktop.artwork,'the local printer illustration renders');
+    assert.ok(desktop.exactLogo,'sign-in uses the actual layered controller brand mark');
+    assert.ok(desktop.hotend,'carriage has fan housing, heater block and tapered nozzle');
+    assert.ok(desktop.pathLength>250,'the extrusion path spans the complete top perimeter');
+    assert.ok(desktop.nozzleError<.5,'nozzle tip must touch the exact traced extrusion line');
+    const initial=await page.locator('#authPrinterHead').getAttribute('transform');
+    await page.waitForFunction(initial=>document.querySelector('#authPrinterHead')
+      ?.getAttribute('transform')!==initial,initial,{timeout:6000});
+    const alignment=await page.evaluate(()=>{
+      const path=document.querySelector('#authExtrusionPath');
+      const len=path.getTotalLength();
+      const drawn=len-Number(path.style.strokeDashoffset);
+      const point=path.getPointAtLength(drawn);
+      const head=document.querySelector('#authPrinterHead').transform.baseVal.consolidate().matrix;
+      return Math.hypot(point.x-head.e,point.y-head.f);
     });
-    assert.equal(printheadMotion.present,true,'the printer toolhead is animated');
-    assert.ok(printheadMotion.travel>=40,
-      'the toolhead visibly travels rather than merely pulsing the outline');
+    assert.ok(alignment<.5,'moving nozzle must stay aligned with its visible extrusion point');
     // Unlike general workspace decoration, this calm illustration is
     // deliberately active by default without Windows or Chrome changes.
     // The user can always pause it; a saved pause wins on later visits.
@@ -3523,31 +3531,31 @@ async function nativeAuthenticationSmoke(browser){
     assert.equal(await motionButton.getAttribute('aria-pressed'),'true',
       'decorative printer animation starts automatically even with Windows reduced motion');
     assert.equal(await page.locator('#authMotionLabel').textContent(),'Pause animation');
-    assert.equal(await page.locator('.auth-printer-head-motion').evaluate(el=>
-      getComputedStyle(el).animationName),'auth-head-travel',
-      'printhead travels on first login with no manual browser changes');
-    assert.equal(await page.locator('.auth-printer-trace').evaluate(el=>
-      getComputedStyle(el).animationName),'auth-trace',
-      'the print path also animates by default under reduced motion');
+    assert.equal(await page.locator('#authPrinterHead').evaluate(el=>
+      Boolean(el.transform.baseVal.consolidate())) ,true,
+      'the printer head has a concrete SVG position under reduced motion');
+    assert.ok(await page.locator('#authExtrusionPath').evaluate(el=>
+      Number(el.style.strokeDashoffset)>0),'extrusion is visibly being deposited');
     await motionButton.click();
     assert.equal(await motionButton.getAttribute('aria-pressed'),'false');
     assert.equal(await page.locator('#authMotionLabel').textContent(),'Play animation');
-    assert.equal(await page.locator('.auth-printer-head-motion').evaluate(el=>
-      getComputedStyle(el).animationName),'none',
-      'the pause button immediately stops the animated toolhead');
+    const pausedHead=await page.locator('#authPrinterHead').getAttribute('transform');
+    await page.waitForTimeout(150);
+    assert.equal(await page.locator('#authPrinterHead').getAttribute('transform'),pausedHead,
+      'Pause animation freezes the carriage');
+    assert.equal(await page.locator('#authExtrusionPath').evaluate(el=>
+      el.style.strokeDashoffset),'0','pausing shows a complete static top layer');
     assert.equal(await page.evaluate(()=>localStorage.getItem('pfc-auth-illustration-motion')),
       'off','the pause choice is stored separately from accounts');
     await page.reload({waitUntil:'load'});
     await page.locator('#authOverlay').waitFor({state:'visible'});
     assert.equal(await page.locator('#authMotionToggle').getAttribute('aria-pressed'),'false',
       'a deliberate pause survives a login page reload');
-    assert.equal(await page.locator('.auth-printer-head-motion').evaluate(el=>
-      getComputedStyle(el).animationName),'none',
-      'saved pause works even with reduced motion');
+    assert.equal(await page.locator('#authExtrusionPath').evaluate(el=>
+      el.style.strokeDashoffset),'0','a remembered pause produces a static top layer');
     await page.locator('#authMotionToggle').click();
-    assert.equal(await page.locator('.auth-printer-head-motion').evaluate(el=>
-      getComputedStyle(el).animationName),'auth-head-travel',
-      'a user can resume the decorative printer without browser configuration');
+    await page.waitForFunction(()=>Number(document.querySelector('#authExtrusionPath')
+      ?.style.strokeDashoffset)>0,null,{timeout:5000});
     assert.equal(await page.evaluate(()=>localStorage.getItem('pfc-auth-illustration-motion')),
       'on','resumed animation choice is stored');
     await page.evaluate(()=>localStorage.removeItem('pfc-auth-illustration-motion'));
@@ -3555,8 +3563,8 @@ async function nativeAuthenticationSmoke(browser){
     await page.locator('#authOverlay').waitFor({state:'visible'});
     assert.equal(await page.locator('#authMotionToggle').getAttribute('aria-pressed'),'true',
       'fresh browser storage uses the automatic animation default');
-    assert.equal(await page.locator('.auth-printer-head-motion').evaluate(el=>
-      getComputedStyle(el).animationName),'auth-head-travel');
+    assert.ok(await page.locator('#authPrinterHead').evaluate(el=>
+      Boolean(el.transform.baseVal.consolidate())));
     await page.emulateMedia({reducedMotion:'no-preference'});
     await page.setViewportSize({width:820,height:844});
     assert.equal(await page.locator('.auth-printer-art').isVisible(),true,
