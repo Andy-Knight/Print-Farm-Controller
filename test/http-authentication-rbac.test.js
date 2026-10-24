@@ -198,6 +198,8 @@ test('GUI enrollment needs a private code, secure origin, and irrevocably enable
     assert.equal(before.enrollmentAvailable,true);
     assert.equal(JSON.stringify(before).includes(code),false,'never expose setup code over HTTP');
     assert.equal((await gate(auth,'POST','/api/batch')).allowed,true,'existing LAN behavior remains until enrolled');
+    const legacyEvent=await gate(auth,'GET','/api/events');
+    assert.equal(legacyEvent.allowed,true);
     const enrollment={code,username:'firstadmin',password:ADMIN_PASSWORD,displayName:'Farm owner'};
     assert.equal((await exercise(auth,'POST','/api/auth/enroll',{
       body:enrollment,origin:'https://untrusted.example'
@@ -211,6 +213,7 @@ test('GUI enrollment needs a private code, secure origin, and irrevocably enable
     const saved=await exercise(auth,'POST','/api/auth/enroll',{body:enrollment});
     assert.equal(saved.res.status,201,saved.res.body?.error);
     assert.equal(auth.enabled,true,'RBAC must begin immediately, without server restart');
+    assert.equal(legacyEvent.res.destroyed,true,'pre-enrollment SSE clients must be terminated');
     assert.equal((await gate(auth,'POST','/api/batch')).res.status,401);
     const after=(await exercise(auth,'GET','/api/auth/session')).res.body;
     assert.equal(after.enrollmentAvailable,false);

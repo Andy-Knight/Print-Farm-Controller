@@ -42,6 +42,7 @@ export class ControllerAuth {
   #sessions=new SessionManager();
   #limiter=new LoginAttemptLimiter();
   #streams=new Map();
+  #legacyInFlight=new Set();
   #enabled=false;
   #setupRequired=false;
   #secure=false;
@@ -202,6 +203,10 @@ export class ControllerAuth {
         this.#enrollmentAvailable=false;
         this.#enabled=true;
         this.#setupRequired=false;
+        // Drop responses/streams created before access control was enabled.
+        // Otherwise unauthenticated SSE/camera clients could stay connected.
+        for(const response of this.#legacyInFlight)response.destroy?.();
+        this.#legacyInFlight.clear();
         this.#limiter.recordSuccess('first-admin-enrollment',address);
         json(res,201,{ok:true,signInRequired:true});
       }catch(error){
@@ -297,7 +302,15 @@ export class ControllerAuth {
   }
   /** Refuse all unknown controller API actions even to administrators. */
   async authorize(req,res,url,{json}){
-    if(!this.#enabled)return true; // Existing installations remain unchanged until explicit enrolment.
+    if(!this.#enabled){
+      // Existing installations stay usable before enrollment, but every
+      // in-flight legacy API/stream response is closed on security activation.
+      if(url.pathname.startsWith('/api/')||url.pathname.startsWith('/simulator')){
+        this.#legacyInFlight.add(res);
+        res.once('close',()=>this.#legacyInFlight.delete(res));
+      }
+      return true;
+    }
     if(this.#setupRequired&&!(req.method==='GET'&&url.pathname==='/api/health')){
       bad(res,json,503,'Local administrator setup required');return false;
     }
