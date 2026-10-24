@@ -317,12 +317,15 @@ export class ControllerAuth {
       }
       return true;
     }
+    const api=url.pathname.startsWith('/api/');
+    const simulator=url.pathname==='/simulator'||url.pathname.startsWith('/simulator/');
+    // The login / first-administrator setup screen and its CSS/JS must remain
+    // reachable before an account exists. Block protected APIs and simulator
+    // access, not the public application shell and static assets.
+    if(!api&&!simulator)return true;
     if(this.#setupRequired&&!(req.method==='GET'&&url.pathname==='/api/health')){
       bad(res,json,503,'Local administrator setup required');return false;
     }
-    const api=url.pathname.startsWith('/api/');
-    const simulator=url.pathname==='/simulator'||url.pathname.startsWith('/simulator/');
-    if(!api&&!simulator)return true; // Public frontend assets must load for the login page.
     const permission=simulator?PERMISSIONS.SIMULATOR_MANAGE:requiredPermission(req.method,url.pathname);
     if(permission==='public')return true;
     const identity=await this.#identity(req);
