@@ -1534,9 +1534,10 @@
       <section class="auth-story" aria-label="Print Farm Controller introduction">
         <div class="auth-brand">
           <span class="auth-brand-symbol" aria-hidden="true">
-            <svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round">
-              <path d="M7 15V8h34v7M10 15h28v25H10zM13 35h22M17 30l7-5 7 5-7 5zM19 13h10M24 15v8" />
-              <path d="M18 8V5h12v3" />
+            <svg class="stacked-layers-mark" viewBox="0 0 120 92" focusable="false">
+              <polygon points="60,2 114,27 60,52 6,27"></polygon>
+              <polygon points="14,39 60,60 106,39 114,43 60,69 6,43"></polygon>
+              <polygon points="14,58 60,79 106,58 114,62 60,90 6,62"></polygon>
             </svg>
           </span>
           <span class="auth-brand-name">STACKED LAYERS <small>PRINT FARM CONTROLLER</small></span>
@@ -1546,35 +1547,51 @@
           <h2>Precision in every layer.<br><span>Control over every printer.</span></h2>
           <p>One place to manage your print farm, from the first layer to the finished part.</p>
           <div class="auth-printer-art" aria-hidden="true">
-            <svg viewBox="0 0 660 410" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <defs>
-                <linearGradient id="authMetal" x1="70" y1="20" x2="600" y2="390" gradientUnits="userSpaceOnUse">
-                  <stop stop-color="currentColor" stop-opacity=".60"/>
-                  <stop offset="1" stop-color="currentColor" stop-opacity=".18"/>
-                </linearGradient>
-              </defs>
-              <path class="auth-printer-base" d="M55 352 318 410 604 347M82 359V89L329 42 575 91v261M82 89l247 52 246-50M329 141v230M82 359l247 52 246-59" />
-              <path class="auth-printer-guide" d="M101 108l227 47 226-46M110 122v215M553 124v218M152 328l175 36 167-36" />
-              <path class="auth-printer-bed" d="m119 318 209 43 204-44-209-45-204 46Z"/>
-              <path class="auth-printer-workpiece" d="m230 297 89 19 87-18-88-19-88 18Z"/>
-              <path class="auth-printer-layer auth-printer-layer-1" d="m230 282 89 19 87-18-88-19-88 18Zm0 15v-15m89 19v15m87-18v-15" />
-              <path class="auth-printer-layer auth-printer-layer-2" d="m230 265 89 19 87-18-88-19-88 18Zm0 17v-17m89 19v17m87-18v-17" />
-              <path class="auth-printer-layer auth-printer-layer-3" d="m230 248 89 19 87-18-88-19-88 18Zm0 17v-17m89 19v17m87-18v-17" />
-              <path class="auth-printer-layer auth-printer-layer-4" d="m230 231 89 19 87-18-88-19-88 18Zm0 17v-17m89 19v17m87-18v-17" />
-              <path class="auth-printer-layer auth-printer-layer-5" d="m230 214 89 19 87-18-88-19-88 18Zm0 17v-17m89 19v17m87-18v-17" />
-              <path class="auth-printer-rail" d="M144 126v93m367-93v93M144 144l182 35 185-35" />
-              <!-- The entire toolhead travels along its rail; the SVG is decorative,
-                   and never represents an actual printer's state. -->
-              <g class="auth-printer-head-motion">
-                <path class="auth-printer-head" d="m292 153 34 7 35-7v47l-35 13-34-13v-47Z"/>
-                <path class="auth-printer-nozzle" d="m312 210 14 22 14-22M326 228v-27" />
-              </g>
-              <path class="auth-printer-trace" d="m229 214 89 19 88-18" />
+            <!-- A consistent isometric toolpath: the nozzle's tip (0,0) follows
+                 precisely the same SVG path being drawn as extrusion. -->
+            <svg class="auth-printer-illustration" viewBox="0 0 660 410" fill="none"
+                 xmlns="http://www.w3.org/2000/svg">
+              <path class="auth-printer-base" d="M68 82 321 34 575 85V358L320 408 68 357ZM68 82 321 140 575 85"/>
+              <path class="auth-printer-guide" d="M321 140V390M91 109l230 48 235-47M91 337l230 48 235-45"/>
+              <path class="auth-printer-rail" d="M114 145 321 188 543 146"/>
+              <path class="auth-printer-belt" d="M115 135 321 177 542 135"/>
+              <path class="auth-printer-guideline" d="M98 57H176M469 62H550M78 391H166M484 388H568"/>
               <g class="auth-printer-pins">
-                <circle cx="82" cy="89" r="3"/><circle cx="575" cy="91" r="3"/>
-                <circle cx="82" cy="359" r="3"/><circle cx="575" cy="352" r="3"/>
+                <circle cx="68" cy="82" r="3"/><circle cx="575" cy="85" r="3"/>
+                <circle cx="68" cy="357" r="3"/><circle cx="575" cy="358" r="3"/>
               </g>
-              <path class="auth-printer-guideline" d="M117 55h83m259 4h83M90 397h120m267-3h91" />
+              <path class="auth-printer-bed" d="M114 321 321 276 533 320 321 366Z"/>
+              <path class="auth-printer-bed-edge" d="M114 321v8l207 45 212-45v-9"/>
+              <path class="auth-printer-bed-inner" d="M156 319 321 284 490 319 321 354Z"/>
+              <path class="auth-printer-face-left" d="M235 237 321 255V337L235 318Z"/>
+              <path class="auth-printer-face-right" d="M321 255 407 237V318L321 337Z"/>
+              <path class="auth-printer-layer-lines" d="M235 252 321 270 407 252
+                M235 265 321 283 407 265
+                M235 278 321 296 407 278
+                M235 291 321 309 407 291
+                M235 304 321 322 407 304
+                M235 317 321 336 407 317"/>
+              <path class="auth-printer-part-edges" d="M235 237V318L321 337 407 318V237 M321 255V337"/>
+              <path class="auth-printer-top" d="M235 237 321 219 407 237 321 255Z"/>
+              <path id="authExtrusionPath" class="auth-printer-trace"
+                    d="M235 237 321 219 407 237 321 255Z"/>
+              <!-- Print carriage, blower fan, hotend, heat block and tapered
+                   brass nozzle; tip at group local (0,0). -->
+              <g id="authPrinterHead" class="auth-printer-head-motion" transform="translate(235 237)">
+                <path class="auth-carriage-bracket" d="M-24-106H24L29-95H-29Z"/>
+                <path class="auth-carriage-roller" d="M-21-99h42M-24-91H24"/>
+                <rect class="auth-printer-head" x="-31" y="-90" width="62" height="48" rx="7"/>
+                <rect class="auth-carriage-upper" x="-24" y="-84" width="48" height="9" rx="2"/>
+                <circle class="auth-fan-ring" cx="0" cy="-61" r="13"/>
+                <circle class="auth-fan-hub" cx="0" cy="-61" r="4"/>
+                <path class="auth-fan-blades" d="M0-65l8-4 1 6-5 2M4-61l7 6-5 4-4-5
+                  M0-57l-8 5-3-6 6-3M-4-61l-7-6 5-4 4 5"/>
+                <path class="auth-hotend-mount" d="M-13-42h26v9H-13z"/>
+                <path class="auth-hotend-barrel" d="M-6-33h12v14H-6z"/>
+                <path class="auth-heat-block" d="M-13-19h26v10H-13z"/>
+                <path class="auth-printer-nozzle" d="M-9-9H9L2-1 0 0 -2-1Z"/>
+                <circle class="auth-nozzle-tip" cx="0" cy="0" r="1.8"/>
+              </g>
             </svg>
           </div>
           <div class="auth-motion-controls">
