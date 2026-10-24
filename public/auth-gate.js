@@ -15,6 +15,40 @@ let session=null;
 // Persist only this on/off preference: never authentication information.
 const motionPreferenceKey='pfc-auth-illustration-motion';
 let motionChoice='on';
+// A single shared SVG path is the source of truth for both visible filament
+// extrusion and nozzle coordinates. No separate, drifting CSS animation.
+const extrusionPath=$('#authExtrusionPath');
+const carriage=$('#authPrinterHead');
+const extrusionLength=extrusionPath?.getTotalLength()||0;
+let printerFrame=0;
+let printerStart=null;
+const printCycleMs=8500;
+function drawPrinter(progress){
+  if(!extrusionPath||!carriage||!extrusionLength)return;
+  const distance=progress*extrusionLength;
+  const point=extrusionPath.getPointAtLength(distance);
+  // Group origin = physical nozzle tip, including the pointed brass end.
+  carriage.setAttribute('transform',`translate(${point.x} ${point.y})`);
+  extrusionPath.style.strokeDasharray=String(extrusionLength);
+  extrusionPath.style.strokeDashoffset=motionChoice==='on'
+    ?String(extrusionLength-distance):'0';
+}
+function nextPrinterFrame(time){
+  printerFrame=0;
+  if(motionChoice!=='on'||lock.hidden||document.visibilityState==='hidden')return;
+  if(printerStart===null)printerStart=time;
+  drawPrinter(((time-printerStart)%printCycleMs)/printCycleMs);
+  printerFrame=requestAnimationFrame(nextPrinterFrame);
+}
+function syncPrinterAnimation(){
+  if(printerFrame)cancelAnimationFrame(printerFrame);
+  printerFrame=0;
+  printerStart=null;
+  drawPrinter(0);
+  if(motionChoice==='on'&&!lock.hidden&&document.visibilityState==='visible')
+    printerFrame=requestAnimationFrame(nextPrinterFrame);
+}
+document.addEventListener('visibilitychange',syncPrinterAnimation);
 try{
   if(localStorage.getItem(motionPreferenceKey)==='off')motionChoice='off';
 }catch{ /* The control still works for this visit without storage access. */ }
@@ -28,6 +62,7 @@ function updateMotionControl(){
   button.setAttribute('aria-label',label+' of decorative printer');
   button.title=label+' of decorative printer';
   $('#authMotionLabel').textContent=label;
+  syncPrinterAnimation();
 }
 $('#authMotionToggle')?.addEventListener('click',()=>{
   motionChoice=motionChoice==='on'?'off':'on';
@@ -47,6 +82,7 @@ function showGate(message,{setup=false,transport=false}={}){
   document.body.classList.add('auth-locked');
   document.documentElement.classList.remove('auth-pending');
   lock.hidden=false;
+  syncPrinterAnimation();
   $('#authLoginHelp').textContent=message||'Sign in to access your farm.';
   $('#authLoginHeading').textContent=setup?'Set up your workspace':transport?'Connection required':'Welcome back';
   loginForm.hidden=setup||transport;
