@@ -79,7 +79,8 @@ test('animation runs automatically with an accessible remembered pause control',
 });
 
 test('login uses the identical Stacked Layers glyph geometry as the controller sidebar',()=>{
-  const sidebar=html.match(/class="stacked-layers-mark" viewBox="0 0 120 92"[\\s\\S]*?<\\/svg>/)?.[0];
+  const sidebarStart=html.indexOf('<svg class="stacked-layers-mark"');
+  const sidebar=sidebarStart<0?'':html.slice(sidebarStart,html.indexOf('</svg>',sidebarStart)+6);
   const login=html.slice(html.indexOf('id="authOverlay"'));
   assert.ok(sidebar,'sidebar retains the canonical logo');
   for(const points of ['60,2 114,27 60,52 6,27',
