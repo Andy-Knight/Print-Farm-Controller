@@ -786,6 +786,8 @@ function filamentLabel(item) {
 function renderFilamentCatalogue() {
   if (!filamentList) return;
   if (filamentForm) filamentForm.hidden = !canManageFilamentCatalogue();
+  const readOnlyHelp=document.querySelector('#filamentReadOnlyHelp');
+  if(readOnlyHelp)readOnlyHelp.hidden=canManageFilamentCatalogue();
   if (window.__PFC_PREACT_REPORTING__) {
     publishReportingUiState(currentReport || {});
     return;
