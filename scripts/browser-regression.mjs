@@ -3500,16 +3500,20 @@ async function nativeAuthenticationSmoke(browser){
       return {story:a.toJSON(),access:b.toJSON(),
         artwork:Boolean(document.querySelector('.auth-printer-art svg')),
         exactLogo:Boolean(brand&&brand.querySelectorAll('polygon').length===3),
-        hotend:Boolean(head.querySelector('.auth-heat-block')&&head.querySelector('.auth-fan-ring')
+        nozzle:Boolean(head.querySelector('.auth-head-guide')&&head.querySelector('.auth-heat-block')
           &&head.querySelector('.auth-printer-nozzle')),
+        grid:Boolean(document.querySelector('.auth-build-grid')),
+        demoLabel:document.querySelector('.auth-print-telemetry-heading')?.textContent,
         pathLength:total,nozzleError:Math.hypot(point.x-matrix.e,point.y-matrix.f)};
     });
     assert.ok(desktop.story.right<=desktop.access.left+2,
       'branding panel must sit beside, not on top of, the login');
     assert.ok(desktop.artwork,'the local printer illustration renders');
     assert.ok(desktop.exactLogo,'sign-in uses the actual layered controller brand mark');
-    assert.ok(desktop.hotend,'carriage has fan housing, heater block and tapered nozzle');
-    assert.ok(desktop.pathLength>250,'the extrusion path spans the complete top perimeter');
+    assert.ok(desktop.nozzle,'minimal amber nozzle and guide are present on the print bed');
+    assert.ok(desktop.grid,'reference-inspired print-bed grid is rendered behind the path');
+    assert.match(desktop.demoLabel,/DEMO/,'telemetry must be labelled illustrative, not live');
+    assert.ok(desktop.pathLength>450,'extrusion path spans the full rectangular perimeter');
     assert.ok(desktop.nozzleError<.5,'nozzle tip must touch the exact traced extrusion line');
     const initial=await page.locator('#authPrinterHead').getAttribute('transform');
     await page.waitForFunction(initial=>document.querySelector('#authPrinterHead')
@@ -3523,25 +3527,26 @@ async function nativeAuthenticationSmoke(browser){
       return Math.hypot(point.x-head.e,point.y-head.f);
     });
     assert.ok(alignment<.5,'moving nozzle must stay aligned with its visible extrusion point');
-    // The toolhead body must stay BELOW the gantry, not pass through the
-    // top frame as the head tracks the physical extrusion path. Sampling the
-    // complete SVG perimeter catches collisions missing from still previews.
+    // Unlike the previous 3D gantry, the reference-inspired scene has no
+    // raised printer frame. All perimeter points and the full slim nozzle
+    // must remain inside the technical print-bed diagram.
     const clearance=await page.evaluate(()=>{
       const path=document.querySelector('#authExtrusionPath');
       const length=path.getTotalLength();
-      let minimum=Infinity;
+      let safelyInside=true;
       for(let i=0;i<=120;i++){
         const p=path.getPointAtLength(length*i/120);
-        // Actual SVG gantry coordinates: 114,145 -> 321,165 -> 543,145.
-        const rail=p.x<=321
-          ?145+(p.x-114)*20/207
-          :165-(p.x-321)*20/222;
-        minimum=Math.min(minimum,p.y-65-rail);
+        if(p.x-11<=56||p.x+11>=609||p.y-51<=58||p.y+2>=347){
+          safelyInside=false;break;
+        }
       }
-      return minimum;
+      return safelyInside;
     });
-    assert.ok(clearance>8,
-      'head housing must clear the top gantry at every point of the extrusion path');
+    assert.equal(clearance,true,'the complete nozzle remains inside the print bed');
+    assert.equal(await page.locator('.auth-printer-base,.auth-printer-rail').count(),0,
+      'reference visualization must not show a printer gantry or frame');
+    assert.match(await page.locator('.auth-print-telemetry-layer').textContent(),
+      /Layer \d{2} \/ 18/,'the demo layer counter remains legible');
     assert.equal(await page.locator('#authMotionToggle').count(),0,
       'login must no longer show a pause animation button');
     await page.emulateMedia({reducedMotion:'reduce'});

@@ -1547,51 +1547,45 @@
           <h2>Precision in every layer.<br><span>Control over every printer.</span></h2>
           <p>One place to manage your print farm, from the first layer to the finished part.</p>
           <div class="auth-printer-art" aria-hidden="true">
-            <!-- A consistent isometric toolpath: the nozzle's tip (0,0) follows
-                 precisely the same SVG path being drawn as extrusion. -->
+            <!-- The reference-inspired scene is a top-down print-bed diagram,
+                 not a 3D printer frame or live telemetry. -->
             <svg class="auth-printer-illustration" viewBox="0 0 660 410" fill="none"
                  xmlns="http://www.w3.org/2000/svg">
-              <path class="auth-printer-base" d="M68 82 321 34 575 85V358L320 408 68 357ZM68 82 321 140 575 85"/>
-              <path class="auth-printer-guide" d="M91 109l230 48 235-47M91 337l230 48 235-45"/>
-              <path class="auth-printer-rail" d="M114 145 321 165 543 145"/>
-              <path class="auth-printer-belt" d="M115 134 321 154 542 134"/>
-              <path class="auth-printer-guideline" d="M98 57H176M469 62H550M78 391H166M484 388H568"/>
-              <g class="auth-printer-pins">
-                <circle cx="68" cy="82" r="3"/><circle cx="575" cy="85" r="3"/>
-                <circle cx="68" cy="357" r="3"/><circle cx="575" cy="358" r="3"/>
+              <defs>
+                <clipPath id="authPrintGridCrop"><rect x="56" y="58" width="553" height="289" rx="2"/></clipPath>
+                <radialGradient id="authPrintSurfaceGlow" cx="50%" cy="47%" r="62%">
+                  <stop stop-color="#1b3762" stop-opacity=".24"/>
+                  <stop offset="1" stop-color="#101b2b" stop-opacity="0"/>
+                </radialGradient>
+              </defs>
+              <rect class="auth-bed-backdrop" x="56" y="58" width="553" height="289"/>
+              <g clip-path="url(#authPrintGridCrop)">
+                <rect x="56" y="58" width="553" height="289"
+                      fill="url(#authPrintSurfaceGlow)"/>
+                <!-- Subtle diagonal projection gives the calibration grid
+                     the same technical depth as the user's reference. -->
+                <g class="auth-build-grid" transform="matrix(1 .027 -.10 1 16 -5)">
+                  <path d="M65 65v296 M114 65v296 M163 65v296 M212 65v296 M261 65v296 M310 65v296 M359 65v296 M408 65v296 M457 65v296 M506 65v296 M555 65v296 M604 65v296 M653 65v296 M52 83h570 M52 114h570 M52 145h570 M52 176h570 M52 207h570 M52 238h570 M52 269h570 M52 300h570 M52 331h570 M52 362h570"/>
+                </g>
+                <path class="auth-build-area" d="M183 127 516 136 502 317 169 309Z"/>
+                <path class="auth-build-guides" d="M176 310 507 319M182 126 515 135"/>
+                <!-- The blue contour below is the exact one the moving
+                     amber nozzle traces; never animate these separately. -->
+                <path class="auth-printer-top" d="M257 177 438 185 433 267 252 259Z"/>
+                <path id="authExtrusionPath" class="auth-printer-trace"
+                      d="M257 177 438 185 433 267 252 259Z"/>
+                <g id="authPrinterHead" class="auth-printer-head-motion"
+                   transform="translate(257 177)">
+                  <path class="auth-head-guide" d="M0-51V-11"/>
+                  <path class="auth-head-glow" d="M0-19V1"/>
+                  <path class="auth-heat-block" d="M-11-17H11V-12H-11Z"/>
+                  <path class="auth-printer-nozzle" d="M-11-11H11L3-1 0 0 -3-1Z"/>
+                  <circle class="auth-nozzle-tip" cx="0" cy="0" r="2"/>
+                </g>
               </g>
-              <path class="auth-printer-bed" d="M114 321 321 276 533 320 321 366Z"/>
-              <path class="auth-printer-bed-edge" d="M114 321v8l207 45 212-45v-9"/>
-              <path class="auth-printer-bed-inner" d="M156 319 321 284 490 319 321 354Z"/>
-              <path class="auth-printer-face-left" d="M235 262 321 281V337L235 318Z"/>
-              <path class="auth-printer-face-right" d="M321 281 407 262V318L321 337Z"/>
-              <path class="auth-printer-layer-lines" d="M235 271 321 290 407 271
-                M235 280 321 299 407 280
-                M235 289 321 308 407 289
-                M235 298 321 317 407 298
-                M235 307 321 326 407 307
-                M235 316 321 335 407 316"/>
-              <path class="auth-printer-part-edges" d="M235 262V318L321 337 407 318V262 M321 281V337"/>
-              <path class="auth-printer-top" d="M235 262 321 241 407 262 321 281Z"/>
-              <path id="authExtrusionPath" class="auth-printer-trace"
-                    d="M235 262 321 241 407 262 321 281Z"/>
-              <!-- Print carriage, blower fan, hotend, heat block and tapered
-                   brass nozzle; tip at group local (0,0). -->
-              <g id="authPrinterHead" class="auth-printer-head-motion" transform="translate(235 262)">
-                <!-- Compact hotend hangs below the gantry, inside the build volume. -->
-                <path class="auth-carriage-bracket" d="M-22-65H22L26-59H-26Z"/>
-                <path class="auth-carriage-roller" d="M-21-57h42M-22-55H22"/>
-                <rect class="auth-printer-head" x="-29" y="-54" width="58" height="31" rx="6"/>
-                <rect class="auth-carriage-upper" x="-21" y="-50" width="42" height="6" rx="2"/>
-                <circle class="auth-fan-ring" cx="0" cy="-39" r="10.5"/>
-                <circle class="auth-fan-hub" cx="0" cy="-39" r="3.5"/>
-                <path class="auth-fan-blades" d="M0-43l7-3 1 5-5 2M4-39l6 5-4 3-4-5
-                  M0-35l-7 4-2-5 6-3M-4-39l-6-5 4-3 4 5"/>
-                <path class="auth-hotend-mount" d="M-11-23h22v7H-11z"/>
-                <path class="auth-hotend-barrel" d="M-5-16h10v5H-5z"/>
-                <path class="auth-heat-block" d="M-12-11h24v5H-12z"/>
-                <path class="auth-printer-nozzle" d="M-8-6H8L2-1 0 0 -2-1Z"/>
-                <circle class="auth-nozzle-tip" cx="0" cy="0" r="1.8"/>
+              <g class="auth-toolpath-legend" aria-hidden="true">
+                <text x="59" y="377" class="auth-print-telemetry-heading">TOOLPATH VISUALISATION · DEMO</text>
+                <text x="59" y="396" class="auth-print-telemetry-layer">Layer <tspan id="authPrintLayer">02</tspan> / 18</text>
               </g>
             </svg>
           </div>

@@ -37,7 +37,9 @@ test('full-viewport control-centre branding is local, responsive and reduced-mot
   assert.match(html,/id="authPrinterHead" class="auth-printer-head-motion"/);
   assert.match(html,/class="auth-printer-nozzle"/);
   assert.match(html,/class="auth-heat-block"/);
-  assert.match(html,/class="auth-fan-ring"/);
+  assert.match(html,/class="auth-head-guide"/);
+  assert.match(html,/class="auth-build-grid"/);
+  assert.match(html,/id="authPrintLayer">02/);
   assert.match(gate,/extrusionPath\.getPointAtLength\(distance\)/);
   assert.match(gate,/carriage\.setAttribute\('transform'/);
   assert.match(gate,/extrusionPath\.style\.strokeDashoffset/);
@@ -71,13 +73,17 @@ test('automatic extrusion has no pause button or stale browser motion preference
   assert.match(gate,/document\.addEventListener\('visibilitychange',syncPrinterAnimation\)/);
 });
 
-test('printer carriage and wall layers are safely inset below the upper gantry',()=>{
-  assert.match(html,/M114 145 321 165 543 145/);
-  assert.match(html,/M235 262 321 241 407 262 321 281Z/);
-  assert.match(html,/class="auth-carriage-bracket" d="M-22-65H22/);
-  assert.match(html,/class="auth-printer-face-left" d="M235 262 321 281V337L235 318Z"/);
-  assert.match(html,/class="auth-printer-nozzle" d="M-8-6H8L2-1 0 0 -2-1Z"/);
-  assert.doesNotMatch(html,/M321 140V390|M114 145 321 188 543 146/);
+test('reference-inspired toolpath is a top-down grid with a nozzle inside its printable area',()=>{
+  assert.match(html,/class="auth-build-grid"/);
+  assert.match(html,/class="auth-build-area" d="M183 127 516 136 502 317 169 309Z"/);
+  assert.match(html,/id="authExtrusionPath" class="auth-printer-trace"[\s\S]*?d="M257 177 438 185 433 267 252 259Z"/);
+  assert.match(html,/class="auth-head-guide" d="M0-51V-11"/);
+  assert.match(html,/class="auth-printer-nozzle" d="M-11-11H11L3-1 0 0 -3-1Z"/);
+  assert.match(html,/TOOLPATH VISUALISATION · DEMO/);
+  assert.match(html,/Layer <tspan id="authPrintLayer">02<\/tspan> \/ 18/);
+  assert.match(gate,/const layer=2\+\(Math.floor\(elapsed\/printCycleMs\)%17\)/);
+  assert.match(gate,/layerCounter\.textContent=String\(layer\)\.padStart\(2,'0'\)/);
+  assert.doesNotMatch(html,/auth-printer-base|auth-printer-rail|auth-carriage-roller|auth-fan-ring/);
 });
 
 test('login uses the identical Stacked Layers glyph geometry as the controller sidebar',()=>{

@@ -26,13 +26,17 @@ For contributing or AI-assisted development, follow [AGENTS.md](AGENTS.md) and t
 
 ## User accounts and access control
 
-The **Industrial Control Centre** sign-in screen uses a split desktop layout with a local
-technical 3D-printer illustration with a recognizable carriage, cooling fan, hotend and nozzle, and standard controller theme colours. The nozzle tip follows the actual visible toolpath as the top perimeter is drawn; the genuine Stacked Layers layered logo from the sidebar identifies the login screen.
+The **Industrial Control Centre** sign-in screen uses a split desktop layout with a
+reference-inspired, top-down print-bed animation: a subtle tilted calibration grid,
+dashed printable boundary, blue rectangular extrusion lines and a slim amber nozzle
+that follows the line precisely. The clearly marked **demo** layer counter is
+illustrative only, not connected to actual printer telemetry. The genuine Stacked
+Layers layered logo from the controller sidebar identifies the login screen.
 The decorative printhead motion **starts automatically**, including on Windows 11 and Chrome
 when the operating system requests reduced motion. No Windows or browser configuration is
 required. The animated printer remains a passive part of the branded sign-in screen, without a
-Pause/Play control or stored browser preference. Its compact toolhead and nozzle stay
-inside the illustrated machine, below the raised gantry, while tracing the top layer. On phones the illustration yields to a compact branded header above the sign-in form. The same screen supports initial administrator
+Pause/Play control or stored browser preference. The nozzle stays
+inside the illustrated print-bed boundary while tracing the top-layer perimeter. On phones the illustration yields to a compact branded header above the sign-in form. The same screen supports initial administrator
 setup, login errors and HTTP security warnings. The sign-in password field includes an
 accessible show/hide button. No printer state is displayed before login.
 

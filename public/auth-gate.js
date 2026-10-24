@@ -16,7 +16,9 @@ const extrusionLength=extrusionPath?.getTotalLength()||0;
 let printerFrame=0;
 let printerStart=null;
 const printCycleMs=8500;
-function drawPrinter(progress){
+const layerCounter=$('#authPrintLayer');
+function drawPrinter(progress,layer=2){
+  if(layerCounter)layerCounter.textContent=String(layer).padStart(2,'0');
   if(!extrusionPath||!carriage||!extrusionLength)return;
   const distance=progress*extrusionLength;
   const point=extrusionPath.getPointAtLength(distance);
@@ -28,7 +30,10 @@ function nextPrinterFrame(time){
   printerFrame=0;
   if(lock.hidden||document.visibilityState==='hidden')return;
   if(printerStart===null)printerStart=time;
-  drawPrinter(((time-printerStart)%printCycleMs)/printCycleMs);
+  const elapsed=time-printerStart;
+  // This is demo layer progress, never connected to a physical printer.
+  const layer=2+(Math.floor(elapsed/printCycleMs)%17);
+  drawPrinter((elapsed%printCycleMs)/printCycleMs,layer);
   printerFrame=requestAnimationFrame(nextPrinterFrame);
 }
 function syncPrinterAnimation(){

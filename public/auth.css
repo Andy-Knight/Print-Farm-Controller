@@ -159,39 +159,53 @@ html.auth-pending body>aside,html.auth-pending body>header,html.auth-pending bod
   color:var(--ds-brand);
 }
 .auth-printer-art svg{width:100%;height:auto;display:block;overflow:visible}
-.auth-printer-base{stroke:currentColor;opacity:.48;stroke-width:2.3;stroke-linecap:round;stroke-linejoin:round}
-.auth-printer-guide,.auth-printer-guideline{stroke:currentColor;opacity:.17;stroke-width:1.4;stroke-dasharray:5 9}
-.auth-printer-rail{stroke:currentColor;opacity:.55;stroke-width:2.4}
-.auth-printer-belt{stroke:currentColor;opacity:.30;stroke-width:1.6;stroke-dasharray:9 6}
-.auth-printer-bed{stroke:currentColor;stroke-width:2.1;fill:var(--ds-brand-soft);opacity:.77}
-.auth-printer-bed-edge{stroke:currentColor;stroke-opacity:.57;stroke-width:1.8}
-.auth-printer-bed-inner{stroke:currentColor;stroke-opacity:.16;stroke-width:1.2}
-.auth-printer-face-left{fill:var(--ds-brand-soft);stroke:none}
-.auth-printer-face-right{fill:var(--ds-brand-soft);fill-opacity:.52;stroke:none}
-.auth-printer-layer-lines{
-  stroke:currentColor;stroke-opacity:.36;stroke-width:1.8;
-  stroke-linecap:round;stroke-linejoin:round;
+.auth-bed-backdrop{fill:var(--ds-page);fill-opacity:.18}
+.auth-build-grid{
+  stroke:var(--ds-brand);
+  stroke-opacity:.17;
+  stroke-width:1.05;
+  stroke-linecap:square;
 }
-.auth-printer-part-edges{stroke:currentColor;stroke-opacity:.72;stroke-width:2}
-.auth-printer-top{stroke:currentColor;stroke-width:2.2;stroke-linejoin:round;fill:var(--ds-brand-soft)}
-.auth-printer-trace{
-  stroke:var(--ds-brand);stroke-width:3.7;
-  stroke-linecap:round;stroke-linejoin:round;
+.auth-build-area{
+  stroke:var(--ds-brand);
+  stroke-width:1.8;
+  stroke-opacity:.30;
+  stroke-dasharray:4 7;
+}
+.auth-build-guides{stroke:var(--ds-brand);stroke-opacity:.07;stroke-width:1}
+.auth-printer-top{
+  stroke:var(--ds-brand);
+  stroke-opacity:.32;
+  stroke-width:2.1;
+  stroke-linejoin:round;
   fill:none;
 }
-.auth-printer-head-motion{pointer-events:none}
-.auth-printer-head{fill:var(--ds-surface-raised);stroke:var(--ds-brand);stroke-width:2.5}
-.auth-carriage-bracket,.auth-carriage-upper,.auth-hotend-mount,.auth-hotend-barrel{
-  fill:var(--ds-surface-raised);stroke:var(--ds-text-muted);stroke-width:1.9;
+.auth-printer-trace{
+  stroke:var(--ds-brand);
+  stroke-width:3;
+  stroke-linecap:round;
+  stroke-linejoin:round;
+  fill:none;
+  filter:drop-shadow(0 0 3px var(--ds-brand-soft));
 }
-.auth-carriage-roller{stroke:var(--ds-text-muted);stroke-opacity:.65;stroke-width:1.8}
-.auth-fan-ring{stroke:var(--ds-text-muted);stroke-width:1.6;fill:var(--ds-surface-muted)}
-.auth-fan-hub{fill:var(--ds-text-muted)}
-.auth-fan-blades{fill:var(--ds-brand);fill-opacity:.65}
-.auth-heat-block{fill:var(--ds-text-subtle);stroke:var(--ds-text);stroke-width:1.2}
+.auth-printer-head-motion{pointer-events:none}
+.auth-head-guide{stroke:var(--ds-brand);stroke-opacity:.9;stroke-width:2.2}
+.auth-head-glow{stroke:var(--ds-brand);stroke-opacity:.5;stroke-width:5;filter:blur(3px)}
+.auth-heat-block{fill:var(--ds-brand);fill-opacity:.6}
 .auth-printer-nozzle{fill:var(--ds-warning);stroke:var(--ds-warning);stroke-width:1}
-.auth-nozzle-tip{fill:var(--ds-brand)}
-.auth-printer-pins{fill:currentColor;opacity:.60}
+.auth-nozzle-tip{fill:var(--ds-warning)}
+.auth-print-telemetry-heading{
+  fill:var(--ds-text-subtle);
+  font-size:10px;
+  font-weight:800;
+  letter-spacing:.10em;
+}
+.auth-print-telemetry-layer{
+  fill:var(--ds-text);
+  font-size:13px;
+  font-weight:700;
+  letter-spacing:.025em;
+}
 .auth-story-footer{
   z-index:1;display:flex;align-items:center;gap:11px;
   color:var(--ds-text-subtle);letter-spacing:.11em;font-size:.64rem;
