@@ -27,7 +27,7 @@ For contributing or AI-assisted development, follow [AGENTS.md](AGENTS.md) and t
 ## User accounts and access control
 
 The **Industrial Control Centre** sign-in screen uses a split desktop layout with a local
-outline 3D-printer illustration with a gently travelling printhead and animated toolpath, and standard controller theme colours.
+technical 3D-printer illustration with a recognizable carriage, cooling fan, hotend and nozzle, and standard controller theme colours. The nozzle tip follows the actual visible toolpath as the top perimeter is drawn; the genuine Stacked Layers layered logo from the sidebar identifies the login screen.
 The decorative printhead motion **starts automatically**, including on Windows 11 and Chrome
 when the operating system requests reduced motion. No Windows or browser configuration is
 required. A visible **Pause animation** button lets users stop the movement immediately and
