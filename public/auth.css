@@ -374,6 +374,7 @@ html.auth-pending body>aside,html.auth-pending body>header,html.auth-pending bod
   .auth-story-content>p{display:none}
   .auth-story-content{padding-right:0}
   .auth-printer-art{display:none}
+  .auth-motion-controls{margin-top:12px}
   /* At phone widths, the fine illustration is hidden and the brand icon
      carries the same gentle "layer being drawn" motif instead. */
   .auth-brand-symbol{position:relative;overflow:hidden}
@@ -393,6 +394,27 @@ html.auth-pending body>aside,html.auth-pending body>header,html.auth-pending bod
   0%,100%{transform:scaleX(.2);opacity:.45}
   50%{transform:scaleX(1);opacity:1}
 }
+/* Always offer a discoverable in-app control. A local visual-only preference
+ * remembers an explicit choice without changing Chrome or Windows settings. */
+.auth-motion-controls{display:flex;align-items:center;margin-top:12px;position:relative;z-index:2}
+.auth-motion-toggle{
+  display:inline-flex;align-items:center;justify-content:center;gap:8px;
+  min-height:var(--ds-button-height);padding:8px 13px;
+  border-radius:var(--ds-radius-sm);border:1px solid var(--ds-border-strong);
+  background:var(--ds-surface);color:var(--ds-text-muted);
+  font:inherit;font-size:var(--ds-font-sm);font-weight:700;
+  cursor:pointer;box-shadow:none;
+}
+.auth-motion-toggle svg{width:17px;height:17px;flex:none}
+.auth-motion-toggle:hover{background:var(--ds-brand-soft);color:var(--ds-text)}
+.auth-motion-toggle:focus-visible{outline:2px solid var(--ds-focus);outline-offset:2px}
+.auth-motion-toggle[aria-pressed="true"]{color:var(--ds-brand)}
+.auth-overlay[data-motion="off"] .auth-printer-head-motion,
+.auth-overlay[data-motion="off"] .auth-printer-trace,
+.auth-overlay[data-motion="off"] .auth-printer-layer-4,
+.auth-overlay[data-motion="off"] .auth-printer-layer-5,
+.auth-overlay[data-motion="off"] .auth-brand-symbol::after{animation:none}
+.auth-overlay[data-motion="off"] .auth-printer-trace{stroke-dashoffset:0}
 @media(prefers-reduced-motion:reduce){
   .auth-printer-head-motion,
   .auth-printer-trace,
@@ -401,4 +423,21 @@ html.auth-pending body>aside,html.auth-pending body>header,html.auth-pending bod
   .auth-brand-symbol::after{animation:none}
   .auth-printer-trace{stroke-dashoffset:0}
   .auth-input-wrap>input{transition:none}
+  /* An explicit, remembered in-app opt-in overrides reduced motion for this
+   * one decorative illustration only; the system preference still wins by
+   * default and for all other controller UI. */
+  .auth-overlay[data-motion="on"] .auth-printer-head-motion{
+    animation:auth-head-travel 7s ease-in-out infinite;
+  }
+  .auth-overlay[data-motion="on"] .auth-printer-trace{
+    animation:auth-trace 7s ease-in-out infinite;
+  }
+  .auth-overlay[data-motion="on"] .auth-printer-layer-4,
+  .auth-overlay[data-motion="on"] .auth-printer-layer-5{
+    animation:auth-layer-highlight 7s ease-in-out infinite;
+  }
+  .auth-overlay[data-motion="on"] .auth-printer-layer-5{animation-delay:.35s}
+  .auth-overlay[data-motion="on"] .auth-brand-symbol::after{
+    animation:auth-logo-layer 3.5s ease-in-out infinite;
+  }
 }

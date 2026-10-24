@@ -3522,7 +3522,44 @@ async function nativeAuthenticationSmoke(browser){
     assert.equal(await page.locator('.auth-printer-trace').evaluate(
       element=>getComputedStyle(element).animationName),'none',
       'reduced-motion users must not receive looping animation');
+    // A Windows 11 user should opt in using the controller itself, rather
+    // than changing a system or Chrome accessibility setting. Persist only
+    // a harmless animation preference, never credentials or session data.
+    const motionButton=page.locator('#authMotionToggle');
+    assert.equal(await motionButton.getAttribute('aria-pressed'),'false',
+      'system reduced motion is honoured until explicit in-app opt-in');
+    assert.equal(await page.locator('#authMotionLabel').textContent(),'Play animation');
+    await motionButton.click();
+    assert.equal(await motionButton.getAttribute('aria-pressed'),'true');
+    assert.equal(await page.locator('.auth-printer-head-motion').evaluate(el=>
+      getComputedStyle(el).animationName),'auth-head-travel',
+      'in-app Play animation explicitly enables printer movement');
+    assert.equal(await page.locator('.auth-printer-trace').evaluate(el=>
+      getComputedStyle(el).animationName),'auth-trace',
+      'toolpath animation follows the in-app override');
+    assert.equal(await page.evaluate(()=>localStorage.getItem('pfc-auth-illustration-motion')),
+      'on','animation choice is saved separately from authentication');
+    await page.reload({waitUntil:'load'});
+    await page.locator('#authOverlay').waitFor({state:'visible'});
+    assert.equal(await page.locator('#authMotionToggle').getAttribute('aria-pressed'),'true',
+      'explicit motion opt-in survives reload in the same browser');
+    assert.equal(await page.locator('.auth-printer-head-motion').evaluate(el=>
+      getComputedStyle(el).animationName),'auth-head-travel',
+      'motion stays enabled despite system reduced-motion setting');
+    await page.locator('#authMotionToggle').click();
+    assert.equal(await page.locator('#authMotionToggle').getAttribute('aria-pressed'),'false',
+      'the same control can pause the illustration');
+    assert.equal(await page.locator('.auth-printer-head-motion').evaluate(el=>
+      getComputedStyle(el).animationName),'none',
+      'Pause animation stops motion even on an opted-in browser');
+    await page.evaluate(()=>localStorage.removeItem('pfc-auth-illustration-motion'));
+    await page.reload({waitUntil:'load'});
+    await page.locator('#authOverlay').waitFor({state:'visible'});
+    assert.equal(await page.locator('#authMotionToggle').getAttribute('aria-pressed'),'false',
+      'no remembered choice falls back to system preference');
     await page.emulateMedia({reducedMotion:'no-preference'});
+    assert.equal(await page.locator('#authMotionToggle').getAttribute('aria-pressed'),'true',
+      'without reduced motion, the controller animation starts automatically');
     await page.setViewportSize({width:820,height:844});
     assert.equal(await page.locator('.auth-printer-art').isVisible(),true,
       'compact laptop viewport retains visible printer animation');
@@ -3541,6 +3578,17 @@ async function nativeAuthenticationSmoke(browser){
     assert.equal(await page.locator('.auth-brand-symbol').evaluate(element=>
       getComputedStyle(element,'::after').animationName),'none',
       'phone branding respects reduced motion');
+    await page.locator('#authMotionToggle').click();
+    assert.equal(await page.locator('.auth-brand-symbol').evaluate(element=>
+      getComputedStyle(element,'::after').animationName),'auth-logo-layer',
+      'mobile can opt into motion within the controller itself');
+    await page.locator('#authMotionToggle').click();
+    assert.equal(await page.locator('.auth-brand-symbol').evaluate(element=>
+      getComputedStyle(element,'::after').animationName),'none',
+      'mobile can pause decorative motion without changing Chrome');
+    await page.evaluate(()=>localStorage.removeItem('pfc-auth-illustration-motion'));
+    await page.reload({waitUntil:'load'});
+    await page.locator('#authOverlay').waitFor({state:'visible'});
     await page.emulateMedia({reducedMotion:'no-preference'});
     const mobile=await page.evaluate(()=>({
       scroll:document.documentElement.scrollWidth,
