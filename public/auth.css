@@ -188,6 +188,16 @@ html.auth-pending body>aside,html.auth-pending body>header,html.auth-pending bod
   stroke:currentColor;stroke-width:2.3;
 }
 .auth-printer-nozzle{stroke:currentColor;stroke-width:2.3}
+/* Physical toolhead travel is intentionally noticeable; the previous
+ * dash-offset on a faint outline was almost imperceptible in a live login. */
+.auth-printer-head-motion{
+  animation:auth-head-travel 7s ease-in-out infinite;
+  will-change:transform;
+}
+@keyframes auth-head-travel{
+  0%,100%{transform:translateX(-53px)}
+  48%{transform:translateX(53px)}
+}
 .auth-printer-trace{
   stroke:var(--ds-brand);
   stroke-width:3.5;
@@ -195,13 +205,13 @@ html.auth-pending body>aside,html.auth-pending body>header,html.auth-pending bod
   stroke-dasharray:198;
   stroke-dashoffset:198;
   opacity:.9;
-  animation:auth-trace 12s ease-in-out infinite;
+  animation:auth-trace 7s ease-in-out infinite;
 }
 .auth-printer-pins{fill:currentColor;opacity:.55}
 .auth-printer-layer-4,.auth-printer-layer-5{
-  animation:auth-layer-highlight 12s ease-in-out infinite;
+  animation:auth-layer-highlight 7s ease-in-out infinite;
 }
-.auth-printer-layer-5{animation-delay:.6s}
+.auth-printer-layer-5{animation-delay:.35s}
 @keyframes auth-trace{
   0%,18%{stroke-dashoffset:198;opacity:.28}
   42%,70%{stroke-dashoffset:0;opacity:.94}
@@ -334,7 +344,18 @@ html.auth-pending body>aside,html.auth-pending body>header,html.auth-pending bod
   .auth-story-content{margin:24px 0 0;max-width:none}
   .auth-story h2{font-size:clamp(1.4rem,4vw,2rem);margin:9px 0 8px}
   .auth-story-content>p{font-size:.8rem}
-  .auth-printer-art,.auth-story-footer{display:none}
+  /* Keep a small recognisable print motion on laptop-width windows.
+     Phones use only the compact wordmark to protect the login form. */
+  .auth-printer-art{
+    position:absolute;
+    right:20px;bottom:8px;
+    width:min(245px,32vw);
+    margin:0;
+    opacity:.72;
+    pointer-events:none;
+  }
+  .auth-story-footer{display:none}
+  .auth-story-content{padding-right:235px}
   .auth-access-area{padding:34px 24px 50px;align-items:start}
   .auth-login-card,.auth-login-card:has(#authSetupSection:not([hidden])){max-width:520px}
 }
@@ -347,13 +368,33 @@ html.auth-pending body>aside,html.auth-pending body>header,html.auth-pending bod
   .auth-story-eyebrow{display:none}
   .auth-story h2{font-size:1.35rem;margin:14px 0 0}
   .auth-story-content>p{display:none}
+  .auth-story-content{padding-right:0}
+  .auth-printer-art{display:none}
+  /* At phone widths, the fine illustration is hidden and the brand icon
+     carries the same gentle "layer being drawn" motif instead. */
+  .auth-brand-symbol{position:relative;overflow:hidden}
+  .auth-brand-symbol::after{
+    content:"";position:absolute;bottom:5px;left:8px;right:8px;
+    height:2px;border-radius:2px;
+    background:var(--ds-brand);
+    transform-origin:left center;
+    animation:auth-logo-layer 3.5s ease-in-out infinite;
+  }
   .auth-access-area{padding:26px 20px 42px}
   .auth-access-emblem{height:43px;width:43px;margin-bottom:19px}
   .auth-login-card>#authLoginHelp{margin-bottom:22px}
   .auth-access-footnote{margin-top:24px}
 }
+@keyframes auth-logo-layer{
+  0%,100%{transform:scaleX(.2);opacity:.45}
+  50%{transform:scaleX(1);opacity:1}
+}
 @media(prefers-reduced-motion:reduce){
-  .auth-printer-trace,.auth-printer-layer-4,.auth-printer-layer-5{animation:none}
+  .auth-printer-head-motion,
+  .auth-printer-trace,
+  .auth-printer-layer-4,
+  .auth-printer-layer-5,
+  .auth-brand-symbol::after{animation:none}
   .auth-printer-trace{stroke-dashoffset:0}
   .auth-input-wrap>input{transition:none}
 }
