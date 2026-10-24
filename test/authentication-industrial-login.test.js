@@ -73,16 +73,29 @@ test('automatic extrusion has no pause button or stale browser motion preference
   assert.match(gate,/document\.addEventListener\('visibilitychange',syncPrinterAnimation\)/);
 });
 
-test('reference-inspired toolpath is a top-down grid with a nozzle inside its printable area',()=>{
+test('45-degree pyramid build has eighteen narrowing, rising, aligned layers',()=>{
   assert.match(html,/class="auth-build-grid"/);
-  assert.match(html,/class="auth-build-area" d="M183 127 516 136 502 317 169 309Z"/);
-  assert.match(html,/id="authExtrusionPath" class="auth-printer-trace"[\s\S]*?d="M257 177 438 185 433 267 252 259Z"/);
-  assert.match(html,/class="auth-head-guide" d="M0-51V-11"/);
+  assert.match(html,/id="authBuildGrid" class="auth-build-grid"/);
+  assert.match(html,/id="authPyramidLayers" class="auth-pyramid-layers"/);
+  assert.match(html,/id="authExtrusionPath" class="auth-printer-trace"/);
+  assert.match(html,/id="authPrinterTop" class="auth-printer-top"/);
+  assert.match(html,/class="auth-head-guide" d="M0-47V-11"/);
   assert.match(html,/class="auth-printer-nozzle" d="M-11-11H11L3-1 0 0 -3-1Z"/);
-  assert.match(html,/TOOLPATH VISUALISATION · DEMO/);
-  assert.match(html,/Layer <tspan id="authPrintLayer">02<\/tspan> \/ 18/);
-  assert.match(gate,/const layer=2\+\(Math.floor\(elapsed\/printCycleMs\)%17\)/);
-  assert.match(gate,/layerCounter\.textContent=String\(layer\)\.padStart\(2,'0'\)/);
+  assert.match(html,/PYRAMID BUILD · DEMO/);
+  assert.match(html,/Layer <tspan id="authPrintLayer">01<\/tspan> \/ 18/);
+  assert.match(gate,/const pyramidLayerCount=18/);
+  assert.match(gate,/const pyramidLayerHeight=5\.2/);
+  assert.match(gate,/const pyramidTaper=4/);
+  assert.match(gate,/const pyramidLayerMs=1500/);
+  assert.match(gate,/function projectPrintPoint\(x,y,z=0\)/);
+  assert.match(gate,/pyramidBaseRadius-Math\.max\(0,index\)\*pyramidTaper/);
+  assert.match(gate,/projectPrintPoint\(-r,r,z\)/);
+  assert.match(gate,/projectPrintPoint\(r,r,z\)/);
+  assert.match(gate,/function showCompletedLayers\(count\)/);
+  assert.match(gate,/completedLayers\.replaceChildren\(fragment\)/);
+  assert.match(gate,/completedLayers\.dataset\.demoCompletedLayers=String\(count\)/);
+  assert.match(gate,/drawPrinter\(layer,\(elapsed%pyramidLayerMs\)\/pyramidLayerMs\)/);
+  assert.match(gate,/extrusionPath\.getPointAtLength\(distance\)/);
   assert.doesNotMatch(html,/auth-printer-base|auth-printer-rail|auth-carriage-roller|auth-fan-ring/);
 });
 

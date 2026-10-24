@@ -1547,36 +1547,35 @@
           <h2>Precision in every layer.<br><span>Control over every printer.</span></h2>
           <p>One place to manage your print farm, from the first layer to the finished part.</p>
           <div class="auth-printer-art" aria-hidden="true">
-            <!-- The reference-inspired scene is a top-down print-bed diagram,
-                 not a 3D printer frame or live telemetry. -->
+            <!-- Forty-five-degree isometric construction: the animation progressively
+                 prints eighteen shrinking layers into a stepped pyramid. The nozzle
+                 tip is driven from the very same SVG perimeter used for extrusion. -->
             <svg class="auth-printer-illustration" viewBox="0 0 660 410" fill="none"
                  xmlns="http://www.w3.org/2000/svg">
               <defs>
-                <clipPath id="authPrintGridCrop"><rect x="56" y="58" width="553" height="289" rx="2"/></clipPath>
-                <radialGradient id="authPrintSurfaceGlow" cx="50%" cy="47%" r="62%">
+                <clipPath id="authPrintGridCrop"><rect x="56" y="56" width="553" height="306" rx="2"/></clipPath>
+                <radialGradient id="authPrintSurfaceGlow" cx="50%" cy="49%" r="60%">
                   <stop stop-color="#1b3762" stop-opacity=".24"/>
                   <stop offset="1" stop-color="#101b2b" stop-opacity="0"/>
                 </radialGradient>
               </defs>
-              <rect class="auth-bed-backdrop" x="56" y="58" width="553" height="289"/>
+              <rect class="auth-bed-backdrop" x="56" y="56" width="553" height="306"/>
               <g clip-path="url(#authPrintGridCrop)">
-                <rect x="56" y="58" width="553" height="289"
-                      fill="url(#authPrintSurfaceGlow)"/>
-                <!-- Subtle diagonal projection gives the calibration grid
-                     the same technical depth as the user's reference. -->
-                <g class="auth-build-grid" transform="matrix(1 .027 -.10 1 16 -5)">
-                  <path d="M65 65v296 M114 65v296 M163 65v296 M212 65v296 M261 65v296 M310 65v296 M359 65v296 M408 65v296 M457 65v296 M506 65v296 M555 65v296 M604 65v296 M653 65v296 M52 83h570 M52 114h570 M52 145h570 M52 176h570 M52 207h570 M52 238h570 M52 269h570 M52 300h570 M52 331h570 M52 362h570"/>
-                </g>
-                <path class="auth-build-area" d="M183 127 516 136 502 317 169 309Z"/>
-                <path class="auth-build-guides" d="M176 310 507 319M182 126 515 135"/>
-                <!-- The blue contour below is the exact one the moving
-                     amber nozzle traces; never animate these separately. -->
-                <path class="auth-printer-top" d="M257 177 438 185 433 267 252 259Z"/>
+                <rect x="56" y="56" width="553" height="306" fill="url(#authPrintSurfaceGlow)"/>
+                <!-- Square bed, rotated 45 degrees around the vertical axis:
+                     guide lines and the growing part use the same projection. -->
+                <path class="auth-build-area" d="M330 135 552 241 330 347 108 241Z"/>
+                <g id="authBuildGrid" class="auth-build-grid"></g>
+                <path class="auth-build-guides" d="M330 135V347M108 241H552"/>
+                <!-- Completed layers accumulate here; each new footprint is
+                     narrower and higher to create a genuine stepped pyramid. -->
+                <g id="authPyramidLayers" class="auth-pyramid-layers" data-demo-completed-layers="0"></g>
+                <path id="authPrinterTop" class="auth-printer-top"
+                      d="M177 241 330 169 483 241 330 313Z"/>
                 <path id="authExtrusionPath" class="auth-printer-trace"
-                      d="M257 177 438 185 433 267 252 259Z"/>
-                <g id="authPrinterHead" class="auth-printer-head-motion"
-                   transform="translate(257 177)">
-                  <path class="auth-head-guide" d="M0-51V-11"/>
+                      d="M177 241 330 169 483 241 330 313Z"/>
+                <g id="authPrinterHead" class="auth-printer-head-motion" transform="translate(177 241)">
+                  <path class="auth-head-guide" d="M0-47V-11"/>
                   <path class="auth-head-glow" d="M0-19V1"/>
                   <path class="auth-heat-block" d="M-11-17H11V-12H-11Z"/>
                   <path class="auth-printer-nozzle" d="M-11-11H11L3-1 0 0 -3-1Z"/>
@@ -1584,8 +1583,8 @@
                 </g>
               </g>
               <g class="auth-toolpath-legend" aria-hidden="true">
-                <text x="59" y="377" class="auth-print-telemetry-heading">TOOLPATH VISUALISATION · DEMO</text>
-                <text x="59" y="396" class="auth-print-telemetry-layer">Layer <tspan id="authPrintLayer">02</tspan> / 18</text>
+                <text x="59" y="377" class="auth-print-telemetry-heading">PYRAMID BUILD · DEMO</text>
+                <text x="59" y="396" class="auth-print-telemetry-layer">Layer <tspan id="authPrintLayer">01</tspan> / 18</text>
               </g>
             </svg>
           </div>

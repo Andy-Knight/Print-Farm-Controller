@@ -162,23 +162,48 @@ html.auth-pending body>aside,html.auth-pending body>header,html.auth-pending bod
 .auth-bed-backdrop{fill:var(--ds-page);fill-opacity:.18}
 .auth-build-grid{
   stroke:var(--ds-brand);
-  stroke-opacity:.17;
-  stroke-width:1.05;
+  stroke-opacity:.19;
+  stroke-width:1.15;
   stroke-linecap:square;
 }
 .auth-build-area{
   stroke:var(--ds-brand);
   stroke-width:1.8;
-  stroke-opacity:.30;
-  stroke-dasharray:4 7;
+  stroke-opacity:.36;
+  stroke-dasharray:5 8;
+  fill:var(--ds-brand-soft);
+  fill-opacity:.25;
 }
-.auth-build-guides{stroke:var(--ds-brand);stroke-opacity:.07;stroke-width:1}
+.auth-build-guides{stroke:var(--ds-brand);stroke-opacity:.085;stroke-width:1}
+.auth-pyramid-face-left{
+  fill:var(--ds-brand);
+  fill-opacity:.105;
+  stroke:var(--ds-brand);
+  stroke-width:.85;
+  stroke-opacity:.32;
+}
+.auth-pyramid-face-right{
+  fill:var(--ds-brand);
+  fill-opacity:.20;
+  stroke:var(--ds-brand);
+  stroke-width:.9;
+  stroke-opacity:.42;
+}
+.auth-pyramid-finished-ring{
+  fill:none;
+  stroke:var(--ds-brand);
+  stroke-opacity:.63;
+  stroke-width:1.85;
+  stroke-linecap:round;
+  stroke-linejoin:round;
+}
 .auth-printer-top{
   stroke:var(--ds-brand);
-  stroke-opacity:.32;
-  stroke-width:2.1;
+  stroke-opacity:.31;
+  stroke-width:2;
   stroke-linejoin:round;
-  fill:none;
+  fill:var(--ds-brand-soft);
+  fill-opacity:.38;
 }
 .auth-printer-trace{
   stroke:var(--ds-brand);
@@ -190,7 +215,7 @@ html.auth-pending body>aside,html.auth-pending body>header,html.auth-pending bod
 }
 .auth-printer-head-motion{pointer-events:none}
 .auth-head-guide{stroke:var(--ds-brand);stroke-opacity:.9;stroke-width:2.2}
-.auth-head-glow{stroke:var(--ds-brand);stroke-opacity:.5;stroke-width:5;filter:blur(3px)}
+.auth-head-glow{stroke:var(--ds-brand);stroke-opacity:.45;stroke-width:5;filter:blur(3px)}
 .auth-heat-block{fill:var(--ds-brand);fill-opacity:.6}
 .auth-printer-nozzle{fill:var(--ds-warning);stroke:var(--ds-warning);stroke-width:1}
 .auth-nozzle-tip{fill:var(--ds-warning)}

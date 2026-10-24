@@ -3511,9 +3511,10 @@ async function nativeAuthenticationSmoke(browser){
     assert.ok(desktop.artwork,'the local printer illustration renders');
     assert.ok(desktop.exactLogo,'sign-in uses the actual layered controller brand mark');
     assert.ok(desktop.nozzle,'minimal amber nozzle and guide are present on the print bed');
-    assert.ok(desktop.grid,'reference-inspired print-bed grid is rendered behind the path');
-    assert.match(desktop.demoLabel,/DEMO/,'telemetry must be labelled illustrative, not live');
-    assert.ok(desktop.pathLength>450,'extrusion path spans the full rectangular perimeter');
+    assert.ok(desktop.grid,'45-degree isometric grid is rendered behind the pyramid');
+    assert.match(desktop.demoLabel,/PYRAMID BUILD · DEMO/,
+      'build progress must be labelled illustrative, not live');
+    assert.ok(desktop.pathLength>550,'first pyramid layer spans a complete isometric perimeter');
     assert.ok(desktop.nozzleError<.5,'nozzle tip must touch the exact traced extrusion line');
     const initial=await page.locator('#authPrinterHead').getAttribute('transform');
     await page.waitForFunction(initial=>document.querySelector('#authPrinterHead')
@@ -3527,6 +3528,37 @@ async function nativeAuthenticationSmoke(browser){
       return Math.hypot(point.x-head.e,point.y-head.f);
     });
     assert.ok(alignment<.5,'moving nozzle must stay aligned with its visible extrusion point');
+    const startWidth=await page.locator('#authExtrusionPath').evaluate(el=>el.getBBox().width);
+    await page.waitForFunction(()=>Number(document.querySelector('#authPyramidLayers')
+      ?.dataset.demoCompletedLayers)>=3,null,{timeout:8000});
+    const build=await page.evaluate(()=>{
+      const group=document.querySelector('#authPyramidLayers');
+      const shells=[...group.querySelectorAll('.auth-pyramid-shell')];
+      const footprints=shells.map(shell=>
+        shell.querySelector('.auth-pyramid-finished-ring').getBBox().width);
+      const active=document.querySelector('#authExtrusionPath');
+      const pathLength=active.getTotalLength();
+      const p=active.getPointAtLength(pathLength-Number(active.style.strokeDashoffset));
+      const tip=document.querySelector('#authPrinterHead').transform.baseVal.consolidate().matrix;
+      const grid=[...document.querySelectorAll('#authBuildGrid .auth-grid-line')];
+      const counter=Number(document.querySelector('#authPrintLayer').textContent);
+      return {shells:shells.length,footprints,activeWidth:active.getBBox().width,
+        layer:counter,tipError:Math.hypot(p.x-tip.e,p.y-tip.f),
+        grid:grid.length,startsWith45DegreeAngles:grid.some(line=>{
+          const box=line.getBBox();
+          return box.width>100&&box.height>40;
+        })};
+    });
+    assert.ok(build.shells>=3,'the animation must construct completed pyramid layers');
+    assert.ok(build.footprints.every((w,i)=>i===0||w<build.footprints[i-1]),
+      'successive pyramid tiers must visibly shrink instead of repeating a rectangle');
+    assert.ok(build.activeWidth<startWidth,
+      'the moving nozzle prints successively narrower pyramid contours');
+    assert.equal(build.layer,build.shells+1,
+      'the demo layer counter must advance as each actual tier is completed');
+    assert.ok(build.tipError<.5,'the nozzle stays on the shrinking active perimeter');
+    assert.ok(build.grid>=20&&build.startsWith45DegreeAngles,
+      'bed grid lines must share the pyramid’s angled isometric projection');
     // Unlike the previous 3D gantry, the reference-inspired scene has no
     // raised printer frame. All perimeter points and the full slim nozzle
     // must remain inside the technical print-bed diagram.

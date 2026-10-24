@@ -27,16 +27,17 @@ For contributing or AI-assisted development, follow [AGENTS.md](AGENTS.md) and t
 ## User accounts and access control
 
 The **Industrial Control Centre** sign-in screen uses a split desktop layout with a
-reference-inspired, top-down print-bed animation: a subtle tilted calibration grid,
-dashed printable boundary, blue rectangular extrusion lines and a slim amber nozzle
-that follows the line precisely. The clearly marked **demo** layer counter is
-illustrative only, not connected to actual printer telemetry. The genuine Stacked
+45-degree isometric print-bed animation in which a slim amber nozzle traces
+successively smaller blue perimeters and completes eighteen rising layers,
+constructing a stepped pyramid from base to peak. Completed tiers remain visible,
+including their sloping front faces. The diamond-shaped calibration grid and
+clearly marked **demo** layer counter are illustrative only, not real printer telemetry. The genuine Stacked
 Layers layered logo from the controller sidebar identifies the login screen.
 The decorative printhead motion **starts automatically**, including on Windows 11 and Chrome
 when the operating system requests reduced motion. No Windows or browser configuration is
 required. The animated printer remains a passive part of the branded sign-in screen, without a
-Pause/Play control or stored browser preference. The nozzle stays
-inside the illustrated print-bed boundary while tracing the top-layer perimeter. On phones the illustration yields to a compact branded header above the sign-in form. The same screen supports initial administrator
+Pause/Play control or stored browser preference. The nozzle tracks the exact extrusion perimeter at every height, with no printer
+gantry drawn across the workpiece. On phones the illustration yields to a compact branded header above the sign-in form. The same screen supports initial administrator
 setup, login errors and HTTP security warnings. The sign-in password field includes an
 accessible show/hide button. No printer state is displayed before login.
 
