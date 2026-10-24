@@ -68,3 +68,5 @@ html.auth-pending body>aside,html.auth-pending body>header,html.auth-pending bod
 
 /* RBAC visibility: author-level layouts must not override hidden. */
 #filamentForm[hidden],#libraryDeleteSelectedBtn[hidden],#clearQueueHistoryBtn[hidden]{display:none!important;}
+
+#filamentReadOnlyHelp[hidden]{display:none!important;}
