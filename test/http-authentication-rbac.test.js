@@ -67,8 +67,22 @@ test('authentication starts enabled by default, with explicit legacy opt-out and
     assert.equal(initial.loginAvailable,true,'HTTP is allowed by default');
     assert.equal(initial.transportSecure,false);
     assert.match(initial.transportWarning,/not protected/);
+    assert.equal((await gate(defaultAuth,'GET','/')).allowed,true,
+      'browser shell must load so the first admin can enroll');
+    assert.equal((await gate(defaultAuth,'GET','/security')).allowed,true,
+      'SPA routes must reach the enrollment shell');
+    assert.equal((await gate(defaultAuth,'GET','/auth-gate.js')).allowed,true,
+      'login/setup JavaScript must load');
+    assert.equal((await gate(defaultAuth,'GET','/auth.css')).allowed,true,
+      'login/setup stylesheet must load');
+    assert.equal((await gate(defaultAuth,'GET','/dashboard-preact.js')).allowed,true,
+      'frontend bundles may load without exposing protected API data');
+    assert.equal((await gate(defaultAuth,'GET','/simulator/')).res.status,503,
+      'simulator access is still protected while enrollment is pending');
     assert.equal((await gate(defaultAuth,'GET','/api/fleet')).res.status,503,
       'no printer data or commands before administrator setup');
+    assert.equal((await gate(defaultAuth,'GET','/api/queue')).res.status,503);
+    assert.equal((await gate(defaultAuth,'POST','/api/printers/p/print')).res.status,503);
     assert.equal((await gate(defaultAuth,'GET','/api/health')).allowed,true);
     const legacy=new ControllerAuth({dataDir,env:{PFC_AUTH_REQUIRED:'0'},
       emitEnrollmentCode:()=>{}});
@@ -281,6 +295,10 @@ test('GUI enrollment works on HTTP by default; explicit HTTPS-only policy and lo
     const state=(await exercise(locked,'GET','/api/auth/session')).res.body;
     assert.equal(state.setupRequired,true);
     assert.equal(state.enrollmentAvailable,false,'lost account data requires offline recovery');
+    assert.equal((await gate(locked,'GET','/')).allowed,true,
+      'recovery guidance must still be renderable after account loss');
+    assert.equal((await gate(locked,'GET','/auth-gate.js')).allowed,true);
+    assert.equal((await gate(locked,'GET','/api/fleet')).res.status,503);
     assert.equal((await exercise(locked,'POST','/api/auth/enroll',{body:{
       code:'not valid',username:'usertest',password:ADMIN_PASSWORD
     }})).res.status,409);
