@@ -3526,6 +3526,10 @@ async function nativeAuthenticationSmoke(browser){
     // than changing a system or Chrome accessibility setting. Persist only
     // a harmless animation preference, never credentials or session data.
     const motionButton=page.locator('#authMotionToggle');
+    // CSS updates immediately, but matchMedia change listeners run on the
+    // next browser task. Wait for the UI label before asserting its state.
+    await page.waitForFunction(()=>document.querySelector('#authMotionToggle')
+      ?.getAttribute('aria-pressed')==='false',null,{timeout:5000});
     assert.equal(await motionButton.getAttribute('aria-pressed'),'false',
       'system reduced motion is honoured until explicit in-app opt-in');
     assert.equal(await page.locator('#authMotionLabel').textContent(),'Play animation');
@@ -3558,6 +3562,8 @@ async function nativeAuthenticationSmoke(browser){
     assert.equal(await page.locator('#authMotionToggle').getAttribute('aria-pressed'),'false',
       'no remembered choice falls back to system preference');
     await page.emulateMedia({reducedMotion:'no-preference'});
+    await page.waitForFunction(()=>document.querySelector('#authMotionToggle')
+      ?.getAttribute('aria-pressed')==='true',null,{timeout:5000});
     assert.equal(await page.locator('#authMotionToggle').getAttribute('aria-pressed'),'true',
       'without reduced motion, the controller animation starts automatically');
     await page.setViewportSize({width:820,height:844});
