@@ -3745,7 +3745,11 @@ async function nativeAuthenticationSmoke(browser){
           role:document.body.dataset.authRole,
           locked:document.body.classList.contains('auth-locked'),
           userError:document.querySelector('#authUserAddError')?.textContent,
-          loginError:document.querySelector('#authLoginError')?.textContent
+          loginError:document.querySelector('#authLoginError')?.textContent,
+          route:location.pathname,
+          accountList:document.querySelector('#authUserList')?.textContent?.slice(0,450),
+          usersHidden:document.querySelector('#authUsersLayout')?.hidden,
+          usersButtonHidden:document.querySelector('#usersBtn')?.hidden
         })).catch(()=>({unavailable:true})));
       }
     }
