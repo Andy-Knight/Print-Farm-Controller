@@ -3469,6 +3469,10 @@ async function nativeAuthenticationSmoke(browser){
     child.stderr.on('data',x=>logs.push(String(x)));
     await waitForController(url,child,logs);
     context=await browser.newContext({viewport:{width:1280,height:800}});
+    // Plain Playwright library has no default action timeout. A missing
+    // role-specific control must fail instead of stalling GitHub CI indefinitely.
+    context.setDefaultTimeout(15000);
+    context.setDefaultNavigationTimeout(25000);
     const page=await context.newPage();
     const errorLog=[];
     page.on('pageerror',error=>errorLog.push(error.message));
@@ -3514,12 +3518,14 @@ async function nativeAuthenticationSmoke(browser){
     await page.locator('#authUserList tbody tr').filter({
       has:page.locator('th[scope="row"]:text-is("viewer")')
     }).waitFor();
+    console.log('Chromium auth: viewer created; creating production operator');
     await page.locator('#authUserAddForm [name=username]').fill('shopoperator');
     await page.locator('#authUserAddForm [name=displayName]').fill('Shop operator');
     await page.locator('#authUserAddForm [name=role]').selectOption('operator');
     await page.locator('#authUserAddForm [name=password]').fill('Shop operator password 2026');
     await page.locator('#authUserAddForm button[type=submit]').click();
     await page.locator('#authUserList th[scope=row]').filter({hasText:'shopoperator'}).waitFor();
+    console.log('Chromium auth: operator created; switching shift operator role');
     const row=page.locator('#authUserList tbody tr').filter({hasText:'shiftoperator'});
     assert.equal(await row.locator('select').inputValue(),'operator');
     await row.locator('select').selectOption('viewer');
@@ -3529,20 +3535,24 @@ async function nativeAuthenticationSmoke(browser){
     await page.locator('#authAccountBtn').click();
     await page.locator('#authLogoutBtn').click();
     await page.locator('#authOverlay').waitFor({state:'visible'});
+    console.log('Chromium auth: admin signed out; signing in viewer');
     await page.locator('#authLoginForm [name=username]').fill('viewer');
     await page.locator('#authLoginForm [name=password]').fill('Viewer password for tests 2026');
     await page.locator('#authLoginForm button[type=submit]').click();
     await page.waitForFunction(()=>window.__PFC_FRONTEND_BOOTED__===true
       && document.body.dataset.authRole==='viewer',null,{timeout:25000});
     assert.equal(await page.locator('#usersBtn').isVisible(),false,'viewer cannot see user admin');
+    console.log('Chromium auth: viewer signed in; opening account dialog to sign out');
     await page.locator('#authAccountBtn').click();
     await page.locator('#authLogoutBtn').click();
     await page.locator('#authOverlay').waitFor({state:'visible'});
+    console.log('Chromium auth: viewer signed out; signing in production operator');
     await page.locator('#authLoginForm [name=username]').fill('shopoperator');
     await page.locator('#authLoginForm [name=password]').fill('Shop operator password 2026');
     await page.locator('#authLoginForm button[type=submit]').click();
     await page.waitForFunction(()=>window.__PFC_FRONTEND_BOOTED__===true
       && document.body.dataset.authRole==='operator',null,{timeout:25000});
+    console.log('Chromium auth: production operator signed in; checking permissions');
     assert.equal(await page.locator('#clearQueueHistoryBtn').isVisible(),false,
       'operators cannot purge queue history');
     assert.equal(await page.locator('#libraryDeleteSelectedBtn').isVisible(),false,
@@ -3555,6 +3565,18 @@ async function nativeAuthenticationSmoke(browser){
     console.log('Chromium: native login, role-based user administration and sign-out PASS');
   }catch(error){
     console.error('Auth browser server tail:',logs.join('').slice(-3000));
+    if(context){
+      const pages=context.pages();
+      const p=pages[0];
+      if(p){
+        console.error('Auth browser client state:',await p.evaluate(()=>({
+          role:document.body.dataset.authRole,
+          locked:document.body.classList.contains('auth-locked'),
+          userError:document.querySelector('#authUserAddError')?.textContent,
+          loginError:document.querySelector('#authLoginError')?.textContent
+        })).catch(()=>({unavailable:true})));
+      }
+    }
     throw error;
   }finally{
     await context?.close().catch(()=>{});
