@@ -3671,6 +3671,11 @@ async function nativeAuthenticationSmoke(browser){
     assert.equal(await page.locator('#authIdentity').isVisible(),true);
     await page.locator('#usersBtn').click();
     await page.locator('#authUserAddForm').waitFor({state:'visible'});
+    // The native account-list fetch is asynchronous. Wait for its initial
+    // response before creating a user so a late initial list render cannot
+    // overwrite the refreshed list and cause a false browser regression.
+    await page.locator('#authUserList tbody tr').filter({hasText:'owner'})
+      .waitFor({state:'visible'});
     await page.locator('#authUserAddForm [name=username]').fill('shiftoperator');
     await page.locator('#authUserAddForm [name=displayName]').fill('Shift operator');
     await page.locator('#authUserAddForm [name=role]').selectOption('operator');
