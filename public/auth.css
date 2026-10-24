@@ -359,6 +359,10 @@ html.auth-pending body>aside,html.auth-pending body>header,html.auth-pending bod
   .auth-access-area{padding:34px 24px 50px;align-items:start}
   .auth-login-card,.auth-login-card:has(#authSetupSection:not([hidden])){max-width:520px}
 }
+@media(max-width:720px) and (min-width:521px){
+  .auth-printer-art{width:160px;opacity:.62;right:8px}
+  .auth-story-content{padding-right:165px}
+}
 @media(max-width:520px){
   .auth-story{padding:18px 20px}
   .auth-brand-symbol{height:38px;width:38px}
