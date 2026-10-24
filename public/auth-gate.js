@@ -8,6 +8,34 @@ const errorLabel=$('#authLoginError');
 const loginForm=$('#authLoginForm');
 let session=null;
 
+// Presentation preference only. The slow, decorative printer animation
+// starts automatically on the login screen, including when Windows requests
+// reduced motion; the controller's other animations are not affected.
+// Anyone can pause it immediately using the adjacent accessible control.
+// Persist only this on/off preference: never authentication information.
+const motionPreferenceKey='pfc-auth-illustration-motion';
+let motionChoice='on';
+try{
+  if(localStorage.getItem(motionPreferenceKey)==='off')motionChoice='off';
+}catch{ /* The control still works for this visit without storage access. */ }
+function updateMotionControl(){
+  const running=motionChoice==='on';
+  lock.dataset.motion=motionChoice;
+  const button=$('#authMotionToggle');
+  if(!button)return;
+  const label=running?'Pause animation':'Play animation';
+  button.setAttribute('aria-pressed',String(running));
+  button.setAttribute('aria-label',label+' of decorative printer');
+  button.title=label+' of decorative printer';
+  $('#authMotionLabel').textContent=label;
+}
+$('#authMotionToggle')?.addEventListener('click',()=>{
+  motionChoice=motionChoice==='on'?'off':'on';
+  try{localStorage.setItem(motionPreferenceKey,motionChoice);}catch{}
+  updateMotionControl();
+});
+updateMotionControl();
+
 function errorText(error){return error instanceof Error?error.message:String(error);}
 async function call(path,options={}){
   const response=await window.fetch(path,options);
@@ -20,6 +48,7 @@ function showGate(message,{setup=false,transport=false}={}){
   document.documentElement.classList.remove('auth-pending');
   lock.hidden=false;
   $('#authLoginHelp').textContent=message||'Sign in to access your farm.';
+  $('#authLoginHeading').textContent=setup?'Set up your workspace':transport?'Connection required':'Welcome back';
   loginForm.hidden=setup||transport;
   $('#authSetupSection').hidden=!setup;
   $('#authSetupForm').hidden=!setup||!session?.loginAvailable;
@@ -235,6 +264,18 @@ $('#authSetupForm')?.addEventListener('submit',async event=>{
     location.assign('/');
   }catch(error){showError('#authSetupError',errorText(error));}
   finally{button.disabled=false;}
+});
+// The visibility control never copies passwords to another element or storage.
+$('#authPasswordToggle')?.addEventListener('click',event=>{
+  const input=loginForm?.elements.password;
+  if(!input)return;
+  const visible=input.type==='password';
+  input.type=visible?'text':'password';
+  const button=event.currentTarget;
+  button.setAttribute('aria-pressed',String(visible));
+  button.setAttribute('aria-label',visible?'Hide password':'Show password');
+  button.title=visible?'Hide password':'Show password';
+  input.focus({preventScroll:true});
 });
 loginForm?.addEventListener('submit',async event=>{
   event.preventDefault();

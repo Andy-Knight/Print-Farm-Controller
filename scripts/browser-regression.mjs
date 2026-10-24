@@ -3479,6 +3479,124 @@ async function nativeAuthenticationSmoke(browser){
     await page.goto(url+'/');
     await page.locator('#authOverlay').waitFor({state:'visible'});
     assert.equal(await page.locator('body.auth-locked').count(),1,'workspace locked before login');
+    const authVisualDir=process.env.PFC_VISUAL_CAPTURE_DIR
+      ? path.resolve(process.env.PFC_VISUAL_CAPTURE_DIR):null;
+    if(authVisualDir){
+      await fs.mkdir(authVisualDir,{recursive:true});
+      await page.screenshot({path:path.join(authVisualDir,'auth-setup-dark-desktop.png'),
+        animations:'disabled',fullPage:true});
+    }
+    // The full-viewport industrial gate must work without Preact or any
+    // authenticated API data. Verify the real SVG, palette and responsive UI.
+    const desktop=await page.evaluate(()=>{
+      const a=document.querySelector('.auth-story').getBoundingClientRect();
+      const b=document.querySelector('.auth-access-area').getBoundingClientRect();
+      const artwork=document.querySelector('.auth-printer-art svg');
+      return {story:a.toJSON(),access:b.toJSON(),artwork:Boolean(artwork),
+        anim:getComputedStyle(document.querySelector('.auth-printer-trace')).animationName};
+    });
+    assert.ok(desktop.story.right<=desktop.access.left+2,
+      'branding panel must sit beside, not on top of, the login');
+    assert.ok(desktop.artwork,'the local outline printer illustration renders');
+    assert.equal(desktop.anim,'auth-trace','subtle toolpath animation is present');
+    // Seek the animation timeline deterministically to prove the head moves.
+    // A CSS animation-name alone did not guarantee perceptible motion.
+    const printheadMotion=await page.locator('.auth-printer-head-motion').evaluate(element=>{
+      const animation=element.getAnimations()[0];
+      if(!animation)return {present:false,travel:0};
+      animation.pause();
+      animation.currentTime=0;
+      const left=element.getBoundingClientRect().left;
+      animation.currentTime=3400;
+      const right=element.getBoundingClientRect().left;
+      animation.play();
+      return {present:true,travel:Math.abs(right-left)};
+    });
+    assert.equal(printheadMotion.present,true,'the printer toolhead is animated');
+    assert.ok(printheadMotion.travel>=40,
+      'the toolhead visibly travels rather than merely pulsing the outline');
+    // Unlike general workspace decoration, this calm illustration is
+    // deliberately active by default without Windows or Chrome changes.
+    // The user can always pause it; a saved pause wins on later visits.
+    await page.emulateMedia({reducedMotion:'reduce'});
+    const motionButton=page.locator('#authMotionToggle');
+    assert.equal(await motionButton.getAttribute('aria-pressed'),'true',
+      'decorative printer animation starts automatically even with Windows reduced motion');
+    assert.equal(await page.locator('#authMotionLabel').textContent(),'Pause animation');
+    assert.equal(await page.locator('.auth-printer-head-motion').evaluate(el=>
+      getComputedStyle(el).animationName),'auth-head-travel',
+      'printhead travels on first login with no manual browser changes');
+    assert.equal(await page.locator('.auth-printer-trace').evaluate(el=>
+      getComputedStyle(el).animationName),'auth-trace',
+      'the print path also animates by default under reduced motion');
+    await motionButton.click();
+    assert.equal(await motionButton.getAttribute('aria-pressed'),'false');
+    assert.equal(await page.locator('#authMotionLabel').textContent(),'Play animation');
+    assert.equal(await page.locator('.auth-printer-head-motion').evaluate(el=>
+      getComputedStyle(el).animationName),'none',
+      'the pause button immediately stops the animated toolhead');
+    assert.equal(await page.evaluate(()=>localStorage.getItem('pfc-auth-illustration-motion')),
+      'off','the pause choice is stored separately from accounts');
+    await page.reload({waitUntil:'load'});
+    await page.locator('#authOverlay').waitFor({state:'visible'});
+    assert.equal(await page.locator('#authMotionToggle').getAttribute('aria-pressed'),'false',
+      'a deliberate pause survives a login page reload');
+    assert.equal(await page.locator('.auth-printer-head-motion').evaluate(el=>
+      getComputedStyle(el).animationName),'none',
+      'saved pause works even with reduced motion');
+    await page.locator('#authMotionToggle').click();
+    assert.equal(await page.locator('.auth-printer-head-motion').evaluate(el=>
+      getComputedStyle(el).animationName),'auth-head-travel',
+      'a user can resume the decorative printer without browser configuration');
+    assert.equal(await page.evaluate(()=>localStorage.getItem('pfc-auth-illustration-motion')),
+      'on','resumed animation choice is stored');
+    await page.evaluate(()=>localStorage.removeItem('pfc-auth-illustration-motion'));
+    await page.reload({waitUntil:'load'});
+    await page.locator('#authOverlay').waitFor({state:'visible'});
+    assert.equal(await page.locator('#authMotionToggle').getAttribute('aria-pressed'),'true',
+      'fresh browser storage uses the automatic animation default');
+    assert.equal(await page.locator('.auth-printer-head-motion').evaluate(el=>
+      getComputedStyle(el).animationName),'auth-head-travel');
+    await page.emulateMedia({reducedMotion:'no-preference'});
+    await page.setViewportSize({width:820,height:844});
+    assert.equal(await page.locator('.auth-printer-art').isVisible(),true,
+      'compact laptop viewport retains visible printer animation');
+    await page.evaluate(()=>document.documentElement.dataset.theme='light');
+    assert.equal(await page.locator('.auth-story').evaluate(element=>
+      getComputedStyle(element).backgroundColor),'rgb(246, 249, 253)',
+      'access branding inherits the light theme');
+    await page.evaluate(()=>document.documentElement.dataset.theme='dark');
+    await page.setViewportSize({width:390,height:844});
+    assert.equal(await page.locator('.auth-printer-art').isVisible(),false,
+      'phone layout hides the large printer art');
+    assert.equal(await page.locator('.auth-brand-symbol').evaluate(element=>
+      getComputedStyle(element,'::after').animationName),'auth-logo-layer',
+      'phone layout has a subtle animated brand layer');
+    await page.emulateMedia({reducedMotion:'reduce'});
+    assert.equal(await page.locator('.auth-brand-symbol').evaluate(element=>
+      getComputedStyle(element,'::after').animationName),'auth-logo-layer',
+      'the small mobile brand line also animates without user configuration');
+    await page.locator('#authMotionToggle').click();
+    assert.equal(await page.locator('.auth-brand-symbol').evaluate(element=>
+      getComputedStyle(element,'::after').animationName),'none',
+      'mobile Pause animation stops the line');
+    await page.locator('#authMotionToggle').click();
+    assert.equal(await page.locator('.auth-brand-symbol').evaluate(element=>
+      getComputedStyle(element,'::after').animationName),'auth-logo-layer',
+      'mobile Play animation resumes the line');
+    await page.evaluate(()=>localStorage.removeItem('pfc-auth-illustration-motion'));
+    await page.reload({waitUntil:'load'});
+    await page.locator('#authOverlay').waitFor({state:'visible'});
+    await page.emulateMedia({reducedMotion:'no-preference'});
+    const mobile=await page.evaluate(()=>({
+      scroll:document.documentElement.scrollWidth,
+      width:innerWidth,
+      form:document.querySelector('.auth-login-card').getBoundingClientRect().toJSON()
+    }));
+    assert.ok(mobile.scroll<=mobile.width+1,'mobile auth gate must not overflow horizontally');
+    assert.ok(mobile.form.left>=0&&mobile.form.right<=mobile.width,
+      'mobile setup form stays within viewport');
+    await page.setViewportSize({width:1280,height:800});
     assert.equal(await page.locator('#authSetupForm').isVisible(),true,
       'default HTTP setup must be visible without any environment override');
     assert.equal(await page.locator('#authTransportNotice').isVisible(),true,
@@ -3495,8 +3613,26 @@ async function nativeAuthenticationSmoke(browser){
     await page.locator('#authSetupForm button[type=submit]').click();
     await page.locator('#authLoginForm').waitFor({state:'visible'});
     assert.equal(await page.locator('#authTransportNotice').isVisible(),true);
+    if(authVisualDir){
+      await page.screenshot({path:path.join(authVisualDir,'auth-login-dark-desktop.png'),
+        animations:'disabled',fullPage:true});
+      await page.evaluate(()=>document.documentElement.dataset.theme='light');
+      await page.screenshot({path:path.join(authVisualDir,'auth-login-light-desktop.png'),
+        animations:'disabled',fullPage:true});
+      await page.setViewportSize({width:390,height:844});
+      await page.screenshot({path:path.join(authVisualDir,'auth-login-mobile.png'),
+        animations:'disabled',fullPage:true});
+      await page.setViewportSize({width:1280,height:800});
+      await page.evaluate(()=>document.documentElement.dataset.theme='dark');
+    }
     await page.locator('#authLoginForm [name=username]').fill('owner');
     await page.locator('#authLoginForm [name=password]').fill('Admin password for tests 2026');
+    await page.locator('#authPasswordToggle').click();
+    assert.equal(await page.locator('#authLoginForm [name=password]').getAttribute('type'),'text');
+    assert.equal(await page.locator('#authPasswordToggle').getAttribute('aria-pressed'),'true');
+    await page.locator('#authPasswordToggle').click();
+    assert.equal(await page.locator('#authLoginForm [name=password]').getAttribute('type'),'password');
+    assert.equal(await page.locator('#authPasswordToggle').getAttribute('aria-pressed'),'false');
     await page.locator('#authLoginForm button[type=submit]').click();
     await page.waitForFunction(()=>window.__PFC_FRONTEND_BOOTED__===true
       && document.body.dataset.authRole==='administrator',{},{timeout:25000});

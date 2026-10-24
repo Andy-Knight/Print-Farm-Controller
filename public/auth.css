@@ -70,3 +70,374 @@ html.auth-pending body>aside,html.auth-pending body>header,html.auth-pending bod
 #filamentForm[hidden],#libraryDeleteSelectedBtn[hidden],#clearQueueHistoryBtn[hidden]{display:none!important;}
 
 #filamentReadOnlyHelp[hidden]{display:none!important;}
+
+/* Industrial Control Centre login — full-viewport, standalone from the
+ * authenticated workspace. All colours inherit the controller's theme tokens. */
+.auth-overlay{
+  display:block;
+  padding:0;
+  background:var(--ds-page);
+}
+.auth-experience{
+  display:grid;
+  grid-template-columns:minmax(0,1.08fr) minmax(430px,.92fr);
+  min-height:100vh;
+  min-height:100dvh;
+}
+.auth-story{
+  position:relative;
+  isolation:isolate;
+  min-height:100%;
+  overflow:hidden;
+  display:flex;
+  flex-direction:column;
+  justify-content:space-between;
+  padding:clamp(28px,3.6vw,62px);
+  background:
+    radial-gradient(ellipse at 64% 61%,var(--ds-brand-soft),transparent 58%),
+    var(--ds-surface-raised);
+  border-right:1px solid var(--ds-border);
+  color:var(--ds-text);
+}
+.auth-story::before{
+  content:"";
+  pointer-events:none;
+  position:absolute;
+  inset:0;
+  z-index:-1;
+  opacity:.48;
+  background-image:
+    linear-gradient(to right,var(--ds-border) 1px,transparent 1px),
+    linear-gradient(to bottom,var(--ds-border) 1px,transparent 1px);
+  background-size:42px 42px;
+  mask-image:linear-gradient(to bottom,transparent 8%,black 48%,transparent 100%);
+}
+.auth-brand{display:flex;align-items:center;gap:13px;z-index:1}
+.auth-brand-symbol{
+  display:grid;place-items:center;
+  width:48px;height:48px;
+  border:1px solid var(--ds-border-strong);
+  border-radius:var(--ds-radius-md);
+  background:var(--ds-brand-soft);
+  color:var(--ds-brand);
+  flex:none;
+}
+.auth-brand-symbol svg{width:28px;height:28px}
+.auth-brand-name{
+  display:grid;gap:3px;font-size:.86rem;line-height:1.15;
+  letter-spacing:.17em;font-weight:800;
+}
+.auth-brand-name small{
+  color:var(--ds-text-subtle);
+  font-size:.63rem;font-weight:700;letter-spacing:.115em;
+}
+.auth-story-content{max-width:760px;margin:clamp(30px,6vh,80px) auto 0;width:100%}
+.auth-story-eyebrow,.auth-story-footer{
+  color:var(--ds-brand);
+  font-weight:800;
+  letter-spacing:.16em;
+  font-size:.68rem;
+}
+.auth-story h2{
+  font-size:clamp(1.9rem,3.2vw,3.2rem);
+  line-height:1.17;
+  letter-spacing:-.045em;
+  margin:18px 0 16px;
+  font-weight:800;
+}
+.auth-story h2 span{color:var(--ds-brand)}
+.auth-story-content>p{
+  margin:0;
+  color:var(--ds-text-muted);
+  line-height:1.65;
+  font-size:.92rem;
+  max-width:480px;
+}
+.auth-printer-art{
+  width:min(100%,670px);
+  margin:clamp(20px,3vh,32px) auto 0;
+  color:var(--ds-brand);
+}
+.auth-printer-art svg{width:100%;height:auto;display:block;overflow:visible}
+.auth-printer-base{
+  stroke:currentColor;opacity:.47;stroke-width:2.6;stroke-linejoin:round;
+}
+.auth-printer-guide,.auth-printer-guideline{
+  stroke:currentColor;opacity:.18;stroke-width:1.4;
+  stroke-dasharray:5 9;
+}
+.auth-printer-guideline{opacity:.35}
+.auth-printer-bed{
+  stroke:currentColor;stroke-width:2;
+  fill:var(--ds-brand-soft);
+  opacity:.70;
+}
+.auth-printer-workpiece{fill:var(--ds-brand-soft);stroke:currentColor;stroke-opacity:.55;stroke-width:1.8}
+.auth-printer-layer{
+  stroke:currentColor;
+  fill:var(--ds-brand-soft);
+  stroke-width:2.3;
+  stroke-linejoin:round;
+  opacity:.72;
+}
+.auth-printer-rail{
+  stroke:currentColor;opacity:.68;stroke-width:2.2;
+}
+.auth-printer-head{
+  fill:var(--ds-surface-raised);
+  stroke:currentColor;stroke-width:2.3;
+}
+.auth-printer-nozzle{stroke:currentColor;stroke-width:2.3}
+/* Physical toolhead travel is intentionally noticeable; the previous
+ * dash-offset on a faint outline was almost imperceptible in a live login. */
+.auth-printer-head-motion{
+  animation:auth-head-travel 7s ease-in-out infinite;
+  will-change:transform;
+}
+@keyframes auth-head-travel{
+  0%,100%{transform:translateX(-53px)}
+  48%{transform:translateX(53px)}
+}
+.auth-printer-trace{
+  stroke:var(--ds-brand);
+  stroke-width:3.5;
+  stroke-linecap:round;
+  stroke-dasharray:198;
+  stroke-dashoffset:198;
+  opacity:.9;
+  animation:auth-trace 7s ease-in-out infinite;
+}
+.auth-printer-pins{fill:currentColor;opacity:.55}
+.auth-printer-layer-4,.auth-printer-layer-5{
+  animation:auth-layer-highlight 7s ease-in-out infinite;
+}
+.auth-printer-layer-5{animation-delay:.35s}
+@keyframes auth-trace{
+  0%,18%{stroke-dashoffset:198;opacity:.28}
+  42%,70%{stroke-dashoffset:0;opacity:.94}
+  90%,100%{stroke-dashoffset:198;opacity:.28}
+}
+@keyframes auth-layer-highlight{
+  0%,18%,92%,100%{opacity:.45}
+  36%,72%{opacity:.85}
+}
+.auth-story-footer{
+  z-index:1;display:flex;align-items:center;gap:11px;
+  color:var(--ds-text-subtle);letter-spacing:.11em;font-size:.64rem;
+}
+.auth-footer-mark{width:7px;height:7px;border-radius:50%;background:var(--ds-brand);opacity:.8}
+.auth-access-area{
+  display:grid;place-items:center;
+  padding:clamp(24px,4vw,76px);
+  min-width:0;
+}
+.auth-login-card{
+  width:min(434px,100%);
+  padding:0;
+  border:0;border-radius:0;
+  background:transparent;box-shadow:none;
+}
+.auth-login-card:has(#authSetupSection:not([hidden])){width:min(520px,100%)}
+.auth-access-emblem{
+  width:50px;height:50px;
+  display:grid;place-items:center;
+  color:var(--ds-brand);
+  background:var(--ds-brand-soft);
+  border:1px solid var(--ds-border-strong);
+  border-radius:var(--ds-radius-md);
+  margin-bottom:24px;
+}
+.auth-access-emblem svg{width:25px;height:25px}
+.auth-access-eyebrow{font-size:.65rem;letter-spacing:.16em}
+.auth-login-card h1{
+  font-size:clamp(1.65rem,2.2vw,2.1rem);
+  font-weight:800;letter-spacing:-.035em;
+  margin:9px 0 8px;
+}
+.auth-login-card>#authLoginHelp{
+  color:var(--ds-text-muted);
+  line-height:1.55;
+  margin:0 0 26px;
+  font-size:.9rem;
+}
+#authLoginForm{gap:0}
+#authLoginForm>label{
+  color:var(--ds-text);
+  font-size:.81rem;
+  font-weight:700;
+  margin:0 0 8px;
+}
+.auth-input-wrap{
+  position:relative;
+  margin-bottom:21px;
+}
+.auth-input-icon{
+  position:absolute;
+  top:50%;left:15px;
+  transform:translateY(-50%);
+  width:18px;height:18px;
+  color:var(--ds-text-subtle);
+  display:grid;place-items:center;
+  pointer-events:none;
+}
+.auth-input-icon svg{width:18px;height:18px}
+.auth-input-wrap>input{
+  width:100%;
+  height:var(--ds-input-height);min-height:var(--ds-input-height);
+  padding-left:45px;
+  background:var(--ds-surface);
+  border:1px solid var(--ds-border);
+  border-radius:var(--ds-radius-sm);
+  color:var(--ds-text);
+  transition:border-color var(--ds-duration-fast) var(--ds-easing);
+}
+.auth-input-wrap>input:focus{
+  border-color:var(--ds-brand);
+}
+.auth-input-wrap>input::placeholder{color:var(--ds-text-subtle);opacity:.85}
+.auth-password-field>input{padding-right:51px}
+.auth-password-toggle{
+  position:absolute;top:50%;right:5px;
+  transform:translateY(-50%);
+  width:40px;min-width:40px;height:40px;min-height:40px!important;
+  padding:8px;display:grid;place-items:center;
+  color:var(--ds-text-subtle);
+  background:transparent;
+  border:0;border-radius:var(--ds-radius-sm);
+  cursor:pointer;
+  box-shadow:none;
+}
+.auth-password-toggle svg{width:20px;height:20px}
+.auth-password-toggle:hover{color:var(--ds-brand);background:var(--ds-brand-soft)}
+.auth-submit{
+  width:100%;min-height:var(--ds-button-height);
+  display:flex;align-items:center;justify-content:center;gap:12px;
+  margin-top:5px;font-size:.9rem;font-weight:750;
+}
+.auth-submit span{font-size:1.12rem;line-height:1}
+.auth-login-card>#authLoginError,.auth-login-card>#authTransportNotice{margin-top:16px}
+.auth-transport-notice{
+  border:1px solid var(--ds-warning);
+  border-radius:var(--ds-radius-sm);
+  background:var(--ds-surface-raised);
+  color:var(--ds-warning);
+  padding:12px 14px;
+  font-size:var(--ds-font-sm);
+  line-height:1.55;
+}
+.auth-access-footnote{
+  border-top:1px solid var(--ds-border);
+  margin:30px 0 0;padding-top:20px;
+  text-align:center;color:var(--ds-text-subtle);
+  font-size:.7rem;
+}
+.auth-form :focus-visible,.auth-password-toggle:focus-visible{
+  outline:2px solid var(--ds-focus);
+  outline-offset:2px;
+}
+@media(max-width:980px){
+  .auth-experience{grid-template-columns:minmax(0,1fr)}
+  .auth-story{
+    padding:24px clamp(22px,5vw,48px) 23px;
+    min-height:0;
+  }
+  .auth-story-content{margin:24px 0 0;max-width:none}
+  .auth-story h2{font-size:clamp(1.4rem,4vw,2rem);margin:9px 0 8px}
+  .auth-story-content>p{font-size:.8rem}
+  /* Keep a small recognisable print motion on laptop-width windows.
+     Phones use only the compact wordmark to protect the login form. */
+  .auth-printer-art{
+    position:absolute;
+    right:20px;bottom:8px;
+    width:min(245px,32vw);
+    margin:0;
+    opacity:.72;
+    pointer-events:none;
+  }
+  .auth-story-footer{display:none}
+  .auth-story-content{padding-right:235px}
+  .auth-access-area{padding:34px 24px 50px;align-items:start}
+  .auth-login-card,.auth-login-card:has(#authSetupSection:not([hidden])){max-width:520px}
+}
+@media(max-width:720px) and (min-width:521px){
+  .auth-printer-art{width:160px;opacity:.62;right:8px}
+  .auth-story-content{padding-right:165px}
+}
+@media(max-width:520px){
+  .auth-story{padding:18px 20px}
+  .auth-brand-symbol{height:38px;width:38px}
+  .auth-brand-symbol svg{height:23px;width:23px}
+  .auth-brand-name{font-size:.73rem}
+  .auth-brand-name small{font-size:.55rem}
+  .auth-story-eyebrow{display:none}
+  .auth-story h2{font-size:1.35rem;margin:14px 0 0}
+  .auth-story-content>p{display:none}
+  .auth-story-content{padding-right:0}
+  .auth-printer-art{display:none}
+  .auth-motion-controls{margin-top:12px}
+  /* At phone widths, the fine illustration is hidden and the brand icon
+     carries the same gentle "layer being drawn" motif instead. */
+  .auth-brand-symbol{position:relative;overflow:hidden}
+  .auth-brand-symbol::after{
+    content:"";position:absolute;bottom:5px;left:8px;right:8px;
+    height:2px;border-radius:2px;
+    background:var(--ds-brand);
+    transform-origin:left center;
+    animation:auth-logo-layer 3.5s ease-in-out infinite;
+  }
+  .auth-access-area{padding:26px 20px 42px}
+  .auth-access-emblem{height:43px;width:43px;margin-bottom:19px}
+  .auth-login-card>#authLoginHelp{margin-bottom:22px}
+  .auth-access-footnote{margin-top:24px}
+}
+@keyframes auth-logo-layer{
+  0%,100%{transform:scaleX(.2);opacity:.45}
+  50%{transform:scaleX(1);opacity:1}
+}
+/* Always offer a discoverable in-app control. A local visual-only preference
+ * remembers an explicit choice without changing Chrome or Windows settings. */
+.auth-motion-controls{display:flex;align-items:center;margin-top:12px;position:relative;z-index:2}
+.auth-motion-toggle{
+  display:inline-flex;align-items:center;justify-content:center;gap:8px;
+  min-height:var(--ds-button-height);padding:8px 13px;
+  border-radius:var(--ds-radius-sm);border:1px solid var(--ds-border-strong);
+  background:var(--ds-surface);color:var(--ds-text-muted);
+  font:inherit;font-size:var(--ds-font-sm);font-weight:700;
+  cursor:pointer;box-shadow:none;
+}
+.auth-motion-toggle svg{width:17px;height:17px;flex:none}
+.auth-motion-toggle:hover{background:var(--ds-brand-soft);color:var(--ds-text)}
+.auth-motion-toggle:focus-visible{outline:2px solid var(--ds-focus);outline-offset:2px}
+.auth-motion-toggle[aria-pressed="true"]{color:var(--ds-brand)}
+.auth-overlay[data-motion="off"] .auth-printer-head-motion,
+.auth-overlay[data-motion="off"] .auth-printer-trace,
+.auth-overlay[data-motion="off"] .auth-printer-layer-4,
+.auth-overlay[data-motion="off"] .auth-printer-layer-5,
+.auth-overlay[data-motion="off"] .auth-brand-symbol::after{animation:none}
+.auth-overlay[data-motion="off"] .auth-printer-trace{stroke-dashoffset:0}
+@media(prefers-reduced-motion:reduce){
+  .auth-printer-head-motion,
+  .auth-printer-trace,
+  .auth-printer-layer-4,
+  .auth-printer-layer-5,
+  .auth-brand-symbol::after{animation:none}
+  .auth-printer-trace{stroke-dashoffset:0}
+  .auth-input-wrap>input{transition:none}
+  /* Deliberate login-illustration exception: its slow movement starts by
+   * default even under reduced-motion. Pause animation saves the user's
+   * opt-out. No other controller motion is overridden here. */
+  .auth-overlay[data-motion="on"] .auth-printer-head-motion{
+    animation:auth-head-travel 7s ease-in-out infinite;
+  }
+  .auth-overlay[data-motion="on"] .auth-printer-trace{
+    animation:auth-trace 7s ease-in-out infinite;
+  }
+  .auth-overlay[data-motion="on"] .auth-printer-layer-4,
+  .auth-overlay[data-motion="on"] .auth-printer-layer-5{
+    animation:auth-layer-highlight 7s ease-in-out infinite;
+  }
+  .auth-overlay[data-motion="on"] .auth-printer-layer-5{animation-delay:.35s}
+  .auth-overlay[data-motion="on"] .auth-brand-symbol::after{
+    animation:auth-logo-layer 3.5s ease-in-out infinite;
+  }
+}
