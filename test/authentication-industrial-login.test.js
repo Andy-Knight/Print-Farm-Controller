@@ -33,7 +33,11 @@ test('full-viewport control-centre branding is local, responsive and reduced-mot
   assert.match(css,/@media\(max-width:980px\)/);
   assert.match(css,/@media\(max-width:520px\)/);
   assert.match(css,/@media\(prefers-reduced-motion:reduce\)/);
-  assert.match(css,/\.auth-printer-trace,\.auth-printer-layer-4,\.auth-printer-layer-5\{animation:none\}/);
+  assert.match(html,/class="auth-printer-head-motion"/);
+  assert.match(css,/\.auth-printer-head-motion\{[\s\S]*?animation:auth-head-travel 7s/);
+  assert.match(css,/@keyframes auth-head-travel\{/);
+  assert.match(css,/\.auth-printer-head-motion,[\s\S]*?\.auth-brand-symbol::after\{animation:none\}/);
+  assert.match(css,/@keyframes auth-logo-layer/);
   assert.match(css,/var\(--ds-page\)/);
   assert.match(css,/var\(--ds-brand\)/);
   assert.match(css,/var\(--ds-warning\)/);
