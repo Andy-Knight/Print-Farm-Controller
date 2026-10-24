@@ -423,9 +423,9 @@ html.auth-pending body>aside,html.auth-pending body>header,html.auth-pending bod
   .auth-brand-symbol::after{animation:none}
   .auth-printer-trace{stroke-dashoffset:0}
   .auth-input-wrap>input{transition:none}
-  /* An explicit, remembered in-app opt-in overrides reduced motion for this
-   * one decorative illustration only; the system preference still wins by
-   * default and for all other controller UI. */
+  /* Deliberate login-illustration exception: its slow movement starts by
+   * default even under reduced-motion. Pause animation saves the user's
+   * opt-out. No other controller motion is overridden here. */
   .auth-overlay[data-motion="on"] .auth-printer-head-motion{
     animation:auth-head-travel 7s ease-in-out infinite;
   }
