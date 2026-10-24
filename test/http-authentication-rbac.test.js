@@ -57,25 +57,30 @@ async function initialised(dataDir){
   return {auth,store,admin};
 }
 
-test('opt-in and durable enrollment marker: setup gates commands, liveness still responds',async()=>{
+test('authentication starts enabled by default, with explicit legacy opt-out and durable enrollment marker',async()=>{
   await fixture(async dataDir=>{
-    const legacy=new ControllerAuth({dataDir,env:{}});
+    const defaultAuth=new ControllerAuth({dataDir,env:{},emitEnrollmentCode:()=>{}});
+    await defaultAuth.init();
+    const initial=(await exercise(defaultAuth,'GET','/api/auth/session')).res.body;
+    assert.equal(initial.enabled,true);
+    assert.equal(initial.setupRequired,true);
+    assert.equal(initial.loginAvailable,true,'HTTP is allowed by default');
+    assert.equal(initial.transportSecure,false);
+    assert.match(initial.transportWarning,/not protected/);
+    assert.equal((await gate(defaultAuth,'GET','/api/fleet')).res.status,503,
+      'no printer data or commands before administrator setup');
+    assert.equal((await gate(defaultAuth,'GET','/api/health')).allowed,true);
+    const legacy=new ControllerAuth({dataDir,env:{PFC_AUTH_REQUIRED:'0'},
+      emitEnrollmentCode:()=>{}});
     await legacy.init();
     assert.equal((await exercise(legacy,'GET','/api/auth/session')).res.body.enabled,false);
-    assert.equal((await gate(legacy,'POST','/api/batch')).allowed,true,'legacy mode intentionally unchanged');
-    const locked=new ControllerAuth({dataDir,env:{PFC_AUTH_REQUIRED:'1'}});
-    await locked.init();
-    const state=(await exercise(locked,'GET','/api/auth/session')).res.body;
-    assert.equal(state.setupRequired,true);
-    const fleet=await gate(locked,'GET','/api/fleet');
-    assert.equal(fleet.allowed,false);
-    assert.equal(fleet.res.status,503);
-    assert.equal((await gate(locked,'GET','/api/health')).allowed,true);
+    assert.equal((await gate(legacy,'POST','/api/batch')).allowed,true,
+      'legacy access requires an explicit opt-out before enrollment');
     await new AccountStore({dataDir}).bootstrapAdministrator({username:'owner',password:ADMIN_PASSWORD});
-    const automatic=new ControllerAuth({dataDir,env:{PFC_PUBLIC_ORIGIN:ORIGIN}});
-    await automatic.init();
-    assert.equal(automatic.enabled,true,'marker permanently enables auth after CLI enrollment');
-    assert.equal(automatic.setupRequired,false);
+    const afterOptOut=new ControllerAuth({dataDir,env:{PFC_AUTH_REQUIRED:'0',PFC_PUBLIC_ORIGIN:ORIGIN}});
+    await afterOptOut.init();
+    assert.equal(afterOptOut.enabled,true,'persistent marker overrides legacy opt-out');
+    assert.equal(afterOptOut.setupRequired,false);
   });
 });
 
@@ -156,16 +161,24 @@ test('disabled user, changed role/password and logout revoke sessions and stream
   });
 });
 
-test('HTTP login is rejected by default; invalid logins use generic errors and throttle',async()=>{
+test('HTTP login works by default with conspicuous warning, or can be explicitly HTTPS-only',async()=>{
   await fixture(async dataDir=>{
     const store=new AccountStore({dataDir});
     await store.bootstrapAdministrator({username:'owner',password:ADMIN_PASSWORD});
-    const insecure=new ControllerAuth({dataDir,env:{}});
-    await insecure.init();
-    const noTls=await exercise(insecure,'POST','/api/auth/login',{
+    const http=new ControllerAuth({dataDir,env:{}});
+    await http.init();
+    const plain=await exercise(http,'POST','/api/auth/login',{
       origin:'http://controller.example.test',body:{username:'owner',password:ADMIN_PASSWORD}
     });
-    assert.equal(noTls.res.status,503);
+    assert.equal(plain.res.status,200,plain.res.body?.error);
+    assert.doesNotMatch(plain.res.headers['set-cookie'],/; Secure/);
+    assert.match(plain.res.body.transportWarning,/not protected/);
+    const httpsOnly=new ControllerAuth({dataDir,env:{PFC_AUTH_ALLOW_HTTP:'0'}});
+    await httpsOnly.init();
+    const blocked=await exercise(httpsOnly,'POST','/api/auth/login',{
+      origin:'http://controller.example.test',body:{username:'owner',password:ADMIN_PASSWORD}
+    });
+    assert.equal(blocked.res.status,503);
     const secure=new ControllerAuth({dataDir,env:{PFC_PUBLIC_ORIGIN:ORIGIN}});
     await secure.init();
     for(let i=0;i<5;i++){
@@ -194,12 +207,12 @@ test('GUI enrollment needs a private code, secure origin, and irrevocably enable
     const code=privateLog.match(/One-time enrollment code \(private\): ([0-9A-F]{48})/)?.[1];
     assert.ok(code,'setup code must be issued in private startup output');
     const before=(await exercise(auth,'GET','/api/auth/session')).res.body;
-    assert.equal(before.enabled,false);
+    assert.equal(before.enabled,true);
+    assert.equal(before.setupRequired,true);
     assert.equal(before.enrollmentAvailable,true);
     assert.equal(JSON.stringify(before).includes(code),false,'never expose setup code over HTTP');
-    assert.equal((await gate(auth,'POST','/api/batch')).allowed,true,'existing LAN behavior remains until enrolled');
-    const legacyEvent=await gate(auth,'GET','/api/events');
-    assert.equal(legacyEvent.allowed,true);
+    assert.equal((await gate(auth,'POST','/api/batch')).res.status,503,
+      'no API operations permitted pending first administrator enrollment');
     const enrollment={code,username:'firstadmin',password:ADMIN_PASSWORD,displayName:'Farm owner'};
     assert.equal((await exercise(auth,'POST','/api/auth/enroll',{
       body:enrollment,origin:'https://untrusted.example'
@@ -213,7 +226,7 @@ test('GUI enrollment needs a private code, secure origin, and irrevocably enable
     const saved=await exercise(auth,'POST','/api/auth/enroll',{body:enrollment});
     assert.equal(saved.res.status,201,saved.res.body?.error);
     assert.equal(auth.enabled,true,'RBAC must begin immediately, without server restart');
-    assert.equal(legacyEvent.res.destroyed,true,'pre-enrollment SSE clients must be terminated');
+    assert.equal((await gate(auth,'GET','/api/events')).res.status,401);
     assert.equal((await gate(auth,'POST','/api/batch')).res.status,401);
     const after=(await exercise(auth,'GET','/api/auth/session')).res.body;
     assert.equal(after.enrollmentAvailable,false);
@@ -227,25 +240,36 @@ test('GUI enrollment needs a private code, secure origin, and irrevocably enable
   });
 });
 
-test('GUI enrollment is refused on bare HTTP and after account store loss',async()=>{
+test('GUI enrollment works on HTTP by default; explicit HTTPS-only policy and lost-store recovery fail closed',async()=>{
   await fixture(async dataDir=>{
     let output='';
     const auth=new ControllerAuth({dataDir,env:{},
       emitEnrollmentCode:message=>{output=message;}});
     await auth.init();
-    const code=output.match(/One-time enrollment code \(private\): ([0-9A-F]{48})/)?.[1];
+    const code=output.match(/One-time enrollment code \\(private\\): ([0-9A-F]{48})/)?.[1];
     assert.ok(code);
+    const payload={code,username:'firstadmin',password:ADMIN_PASSWORD};
     const enroll=await exercise(auth,'POST','/api/auth/enroll',{
-      origin:'http://controller.example.test',
-      body:{code,username:'firstadmin',password:ADMIN_PASSWORD}
+      origin:'http://controller.example.test',body:payload
     });
-    assert.equal(enroll.res.status,503,'HTTP should never accept production passwords');
-    assert.equal(auth.enabled,false);
-    const allowedForLab=new ControllerAuth({dataDir,
-      env:{PFC_AUTH_ALLOW_HTTP:'1'},emitEnrollmentCode:()=>{}});
-    await allowedForLab.init();
-    const entry=(await exercise(allowedForLab,'GET','/api/auth/session')).res.body;
-    assert.equal(entry.loginAvailable,true,'explicit lab-only exception');
+    assert.equal(enroll.res.status,201,enroll.res.body?.error);
+    assert.equal(auth.enabled,true);
+    assert.equal((await gate(auth,'GET','/api/fleet')).res.status,401);
+    assert.match((await exercise(auth,'GET','/api/auth/session')).res.body.transportWarning,/not protected/);
+  });
+  await fixture(async dataDir=>{
+    let output='';
+    const httpsOnly=new ControllerAuth({dataDir,env:{PFC_AUTH_ALLOW_HTTP:'0'},
+      emitEnrollmentCode:message=>{output=message;}});
+    await httpsOnly.init();
+    const code=output.match(/One-time enrollment code \\(private\\): ([0-9A-F]{48})/)?.[1];
+    assert.ok(code);
+    const denied=await exercise(httpsOnly,'POST','/api/auth/enroll',{
+      origin:'http://controller.example.test',body:{code,username:'firstadmin',password:ADMIN_PASSWORD}
+    });
+    assert.equal(denied.res.status,503);
+    assert.equal(httpsOnly.enabled,true);
+    assert.equal(httpsOnly.setupRequired,true);
   });
   await fixture(async dataDir=>{
     const fs=await import('node:fs/promises');

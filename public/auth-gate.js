@@ -253,21 +253,23 @@ try{
   const response=await nativeFetch('/api/auth/session',{credentials:'same-origin',cache:'no-store'});
   if(!response.ok)throw new Error('Unable to check authentication status');
   session=await response.json();
+  const notice=$('#authTransportNotice');
+  if(notice){
+    notice.textContent=session.transportWarning||'';
+    notice.hidden=!session.transportWarning;
+  }
   if(session.enabled&&session.setupRequired){
     if(session.enrollmentAvailable){
       showGate(session.loginAvailable
         ? 'Create your first administrator using the one-time code from the controller startup logs.'
-        : 'Set up HTTPS before creating an administrator. The one-time setup code is available in protected controller startup logs.',{setup:true});
+        : 'HTTP administrator setup is disabled in this deployment. Configure HTTPS to continue.',{setup:true});
     }else{
       showGate('The account store requires local recovery. Browser re-enrollment is disabled after security was activated.',{transport:true});
     }
   }else if(session.enabled&&!session.user){
     const requiresHttps=!session.loginAvailable;
-    const warning=session.transportWarning||'';
-    $('#authTransportNotice').textContent=warning;
-    $('#authTransportNotice').hidden=!warning;
     showGate(requiresHttps
-      ? 'Sign-in requires HTTPS. Configure PFC_PUBLIC_ORIGIN with an HTTPS origin. HTTP can be enabled only for development testing.'
+      ? 'HTTP login is disabled by configuration. Use the configured HTTPS address.'
       : 'Sign in to access your print farm.',{transport:requiresHttps});
   }else{
     installAuthorizedFetch();

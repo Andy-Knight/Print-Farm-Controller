@@ -18,7 +18,7 @@ A local-first 3D printer fleet controller. It runs entirely on your LAN and curr
 - **Printer management and alerts:** Supported filament/nozzle controls, file management, scheduled maintenance, local notifications, ntfy push and webhooks.
 - **Backup and recovery:** Compressed backups to local/NAS storage, Google Drive, experimental OneDrive or S3-compatible services.
 - **Flexible deployment:** Windows portable executable or installer, Docker images for AMD64/ARM64 and K3s/Kubernetes; signed offline Community, Pro and Farm licences.
-- **User security:** Optional local administrator enrollment, login and server-enforced Administrator/Operator/Viewer permissions, with user management and revocable sessions; HTTPS is required for production authentication.
+- **User security:** Login and backend Administrator/Operator/Viewer permissions are enabled by default, including on HTTP; GUI administrator enrollment and user management are supported. HTTPS is strongly recommended because HTTP passwords and sessions can be intercepted.
 
 For detailed functionality and setup, use the sections below. For release-by-release changes, see [CHANGELOG.md](CHANGELOG.md).
 
@@ -30,10 +30,10 @@ The controller supports **local username/password login** and enforces role perm
 
 ### Set up the first administrator using the GUI
 
-Existing installations remain in legacy unauthenticated mode until the owner explicitly
-creates an administrator. Open **Farm Management → Security & users** in the controller,
-then select **Set up administrator**. If `PFC_AUTH_REQUIRED=1` is configured,
-the onboarding screen appears before access to any printer controls.
+Authentication is **enabled by default** on new and upgraded installations, including those
+accessed over HTTP through a MetalLB Service. If no administrator exists, opening the controller
+shows the **Set up administrator** form before any printer data or commands are available.
+No CLI command or environment variable is needed to turn authentication on.
 
 The browser setup requires a private **one-time enrollment code**. On controller startup,
 a randomly generated code is printed once to the **protected startup console/pod logs**,
@@ -45,10 +45,10 @@ controller use requires sign-in. There is no default password, open-registration
 or "first visitor wins" bootstrap. Keep pod logs private; restart the controller to rotate
 an unused code. The account store and activation marker live on the persistent `DATA_DIR` volume.
 
-**HTTPS must be configured before entering a production password.** On plain HTTP the GUI
-displays the security requirements but will not accept enrollment credentials. The
-`PFC_AUTH_ALLOW_HTTP=1` bypass exists strictly for isolated local tests, never a
-production LAN. See the following HTTPS requirements section.
+**HTTP setup and sign-in work by default**, but the GUI displays an unencrypted-transport
+warning. HTTP provides user authentication and server-side RBAC, **not confidentiality or session
+protection**: anyone capable of intercepting LAN traffic may steal the password, setup code
+or session. Use HTTPS as soon as possible; don't expose the HTTP endpoint to untrusted networks.
 
 For headless recovery and legacy tooling, a privileged local interactive terminal can
 still run `node scripts/manage-users.mjs setup` or
@@ -69,7 +69,7 @@ the persistent data directory. Preserve the same security storage across restore
 
 ### HTTPS requirements and reverse proxy
 
-**A password and session cookie are not secure over bare HTTP.** The server refuses native password login over HTTP unless `PFC_AUTH_ALLOW_HTTP=1` is explicitly set **for isolated local development only**. Production deployment requires HTTPS configured at a trusted reverse proxy/ingress and an exact public origin such as:
+**Passwords and session cookies are not secure over bare HTTP.** By request, this controller permits HTTP enrollment and login by default, with visible warnings; authentication still does **not** protect credentials or sessions from interception. You can require HTTPS-only password entry using `PFC_AUTH_ALLOW_HTTP=0`. For secure deployment configure a trusted reverse proxy/ingress and the exact public origin:
 
 ```bash
 PFC_PUBLIC_ORIGIN=https://controller.example.internal
@@ -77,7 +77,7 @@ PFC_PUBLIC_ORIGIN=https://controller.example.internal
 
 The public origin enables `Secure` session cookies and strict Origin validation. The controller **does not trust arbitrary X-Forwarded headers**. Terminate TLS at the trusted proxy, restrict direct port 4242 access to that proxy and prevent bypass via the MetalLB Service; validate HTTPS, EventSource, printer cameras and upload/restore operations before real production use. TLS deployment using MetalLB/Ultimate Certificate Manager remains tracked separately in issue #128. The login screen and RBAC alone **do not constitute a secure Internet-facing deployment**.
 
-`PFC_AUTH_ALLOW_HTTP=1` permits password login in a non-production lab without transport protection; never use it on an exposed LAN or with real account credentials. Native login sessions use `HttpOnly` `SameSite=Strict` cookies, an Origin check and a CSRF header on changes.
+Authentication is enabled unless `PFC_AUTH_REQUIRED=0` explicitly selects **legacy unauthenticated mode** before any user is enrolled. This insecure opt-out is for temporary troubleshooting only; once the durable security marker or account store exists it cannot disable RBAC. `PFC_AUTH_ALLOW_HTTP=0` blocks enrollment and login on HTTP. Native sessions use `HttpOnly`, `SameSite=Strict`, Origin and CSRF checks; cookies have `Secure` only when a trusted HTTPS public origin is configured. HTTP traffic remains unencrypted.
 
 Full design and security rollout requirements: [Authentication and RBAC](docs/AUTHENTICATION_AND_RBAC.md).
 

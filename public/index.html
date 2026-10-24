@@ -1493,7 +1493,7 @@
       <p>A trusted first administrator must verify a one-time code displayed in the controller's
       <strong>protected startup logs</strong>. In Kubernetes, use your cluster management GUI's pod log viewer.
       The setup code is never displayed to visitors of this page.</p>
-      <p class="auth-transport-notice">Set up HTTPS before entering passwords. Existing HTTP access is not secure.</p>
+      <p class="auth-transport-notice">HTTP authentication is available, but your password and session can be intercepted on the network. Use HTTPS as soon as possible.</p>
       <button id="authSetupStartBtn" type="button" class="primary">Set up administrator</button>
     </section>
     <div id="authUsersLayout" class="auth-users-layout" hidden>
@@ -1542,7 +1542,7 @@
         <h2 id="authSetupHeading">Set up administrator</h2>
         <p class="subtle">Enter the one-time code from the controller's <strong>protected startup logs</strong>
         (Kubernetes pod logs in your cluster management GUI) and create the first administrator.
-        Never share this code or use an untrusted HTTP connection.</p>
+        On HTTP, your setup code, password and session can be intercepted; HTTPS is strongly recommended.</p>
         <form id="authSetupForm" class="auth-form" hidden>
           <label>One-time setup code <input name="code" type="password" autocomplete="off" spellcheck="false" maxlength="64" required></label>
           <label>Administrator username <input name="username" autocomplete="off" minlength="3" maxlength="48" required></label>

@@ -8,7 +8,6 @@ import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { chromium } from 'playwright';
-import { AccountStore } from '../src/security/account-store.js';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const controllerVersion = JSON.parse(await fs.readFile(path.join(root, 'package.json'), 'utf8')).version;
@@ -3459,15 +3458,11 @@ async function nativeAuthenticationSmoke(browser){
   const logs=[];
   let child=null,context=null;
   try{
-    const users=new AccountStore({dataDir});
-    await users.bootstrapAdministrator({username:'owner',password:'Admin password for tests 2026'});
-    await users.addUser({username:'viewer',role:'viewer',password:'Viewer password for tests 2026'});
     const url='http://127.0.0.1:'+(await portNumber());
     child=spawn(process.execPath,['src/server.js'],{
       cwd:root,env:{...process.env,HOST:'127.0.0.1',PORT:url.split(':').at(-1),
         DATA_DIR:dataDir,LOG_DIR:path.join(rootDir,'logs'),
-        DISCOVERY_SUBNET:'',EMULATOR_NO_DEFAULTS:'1',
-        PFC_AUTH_REQUIRED:'1',PFC_AUTH_ALLOW_HTTP:'1',PFC_PUBLIC_ORIGIN:url},
+        DISCOVERY_SUBNET:'',EMULATOR_NO_DEFAULTS:'1'},
       stdio:['ignore','pipe','pipe']
     });
     child.stdout.on('data',x=>logs.push(String(x)));
@@ -3480,8 +3475,22 @@ async function nativeAuthenticationSmoke(browser){
     await page.goto(url+'/');
     await page.locator('#authOverlay').waitFor({state:'visible'});
     assert.equal(await page.locator('body.auth-locked').count(),1,'workspace locked before login');
-    assert.equal(await page.locator('#authLoginForm').isVisible(),true,
-      'HTTP sign-in allowed only for this explicitly configured isolated test');
+    assert.equal(await page.locator('#authSetupForm').isVisible(),true,
+      'default HTTP setup must be visible without any environment override');
+    assert.equal(await page.locator('#authTransportNotice').isVisible(),true,
+      'unencrypted credentials must show an explicit warning');
+    const code=logs.join('').match(/One-time enrollment code \(private\): ([0-9A-F]{48})/)?.[1];
+    assert.ok(code,'setup code must appear in protected controller startup output');
+    assert.equal((await page.locator('body').innerText()).includes(code),false,
+      'setup code must never be emitted to the browser');
+    await page.locator('#authSetupForm [name=code]').fill(code);
+    await page.locator('#authSetupForm [name=username]').fill('owner');
+    await page.locator('#authSetupForm [name=displayName]').fill('Owner');
+    await page.locator('#authSetupForm [name=password]').fill('Admin password for tests 2026');
+    await page.locator('#authSetupForm [name=confirmPassword]').fill('Admin password for tests 2026');
+    await page.locator('#authSetupForm button[type=submit]').click();
+    await page.locator('#authLoginForm').waitFor({state:'visible'});
+    assert.equal(await page.locator('#authTransportNotice').isVisible(),true);
     await page.locator('#authLoginForm [name=username]').fill('owner');
     await page.locator('#authLoginForm [name=password]').fill('Admin password for tests 2026');
     await page.locator('#authLoginForm button[type=submit]').click();
@@ -3497,6 +3506,12 @@ async function nativeAuthenticationSmoke(browser){
     await page.locator('#authUserAddForm [name=password]').fill('Operator password for tests 2026');
     await page.locator('#authUserAddForm button[type=submit]').click();
     await page.locator('#authUserList tbody tr').filter({hasText:'shiftoperator'}).waitFor();
+    await page.locator('#authUserAddForm [name=username]').fill('viewer');
+    await page.locator('#authUserAddForm [name=displayName]').fill('Viewer');
+    await page.locator('#authUserAddForm [name=role]').selectOption('viewer');
+    await page.locator('#authUserAddForm [name=password]').fill('Viewer password for tests 2026');
+    await page.locator('#authUserAddForm button[type=submit]').click();
+    await page.locator('#authUserList tbody tr').filter({hasText:'viewer'}).waitFor();
     const row=page.locator('#authUserList tbody tr').filter({hasText:'shiftoperator'});
     assert.equal(await row.locator('select').inputValue(),'operator');
     await row.locator('select').selectOption('viewer');
@@ -3541,7 +3556,8 @@ async function main() {
     if (!externalUrl) {
       processHandle=spawn(process.execPath,['src/server.js'],{
         cwd:root,env:{...process.env,HOST:'127.0.0.1',PORT:url.split(':').at(-1),
-          DATA_DIR:path.join(dir,'data'),LOG_DIR:path.join(dir,'logs'),DISCOVERY_SUBNET:'',EMULATOR_NO_DEFAULTS:'1'},
+          DATA_DIR:path.join(dir,'data'),LOG_DIR:path.join(dir,'logs'),DISCOVERY_SUBNET:'',EMULATOR_NO_DEFAULTS:'1',
+          PFC_AUTH_REQUIRED:'0'},
         stdio:['ignore','pipe','pipe']
       });
       processHandle.stdout.on('data',(x)=>logs.push(String(x)));

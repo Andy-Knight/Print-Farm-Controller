@@ -43,10 +43,10 @@ export class ControllerAuth {
   #limiter=new LoginAttemptLimiter();
   #streams=new Map();
   #legacyInFlight=new Set();
-  #enabled=false;
+  #enabled=true;
   #setupRequired=false;
   #secure=false;
-  #allowHttp=false;
+  #allowHttp=true;
   #origin=null;
   #enrollmentCode=null;
   #enrollmentAvailable=false;
@@ -64,8 +64,13 @@ export class ControllerAuth {
       this.#origin=origin.origin;
       this.#secure=origin.protocol==='https:';
     }
-    this.#allowHttp=env.PFC_AUTH_ALLOW_HTTP==='1';
-    this.#enabled=env.PFC_AUTH_REQUIRED==='1';
+    // Authentication and HTTP login are enabled by default, including on
+    // existing HTTP-only LAN installations. This protects API access but does
+    // NOT encrypt credentials or cookies in transit. PFC_AUTH_REQUIRED=0 is
+    // an explicit pre-enrollment legacy opt-out; PFC_AUTH_ALLOW_HTTP=0
+    // explicitly requires HTTPS for password entry.
+    this.#allowHttp=env.PFC_AUTH_ALLOW_HTTP!=='0';
+    this.#enabled=env.PFC_AUTH_REQUIRED!=='0';
   }
   get enabled(){return this.#enabled;}
   get setupRequired(){return this.#setupRequired;}
@@ -91,7 +96,7 @@ export class ControllerAuth {
       // include this private code in controller diagnostics or any HTTP response.
       this.#emitEnrollmentCode(
         '\n=== PRINT FARM CONTROLLER: FIRST ADMINISTRATOR ENROLLMENT ===\n'
-        +'Open Security & users in the controller. Use a trusted HTTPS browser.\n'
+        +'Open the first administrator setup screen in the controller.\n'
         +'One-time enrollment code (private): '+this.#enrollmentCode+'\n'
         +'Read this from your protected container/host startup console only.\n'
         +'This code is invalidated by enrollment or a controller restart.\n\n'
@@ -166,7 +171,8 @@ export class ControllerAuth {
     };
   }
   /**
-   * Auth namespace is handled before ordinary API dispatch. No public bootstrap.
+   * Auth namespace is handled before ordinary API dispatch. Enrollment
+   * requires the one-time private code; there is no open registration.
    * @returns true if this service handled the path.
    */
   async route(req,res,url,{json,readJson}){
@@ -183,7 +189,7 @@ export class ControllerAuth {
       if(this.#enrolling)return bad(res,json,409,'Enrollment is already in progress');
       if(!this.#originAllowed(req))return bad(res,json,403,'Origin verification failed');
       if(!this.#secure&&!this.#allowHttp)
-        return bad(res,json,503,'Configure HTTPS before entering an administrator password');
+        return bad(res,json,503,'HTTP enrollment disabled: configure HTTPS or explicitly permit HTTP');
       const address=req.socket?.remoteAddress||'unknown';
       if(!this.#limiter.canAttempt('first-admin-enrollment',address))
         return bad(res,json,429,'Too many enrollment attempts. Try again later.');
@@ -224,7 +230,7 @@ export class ControllerAuth {
     if(method==='POST'&&pathname==='/api/auth/login'){
       if(!this.#originAllowed(req))return bad(res,json,403,'Origin verification failed');
       if(!this.#secure&&!this.#allowHttp)
-        return bad(res,json,503,'HTTPS required for password login. Configure PFC_PUBLIC_ORIGIN or explicitly allow HTTP for local testing.');
+        return bad(res,json,503,'HTTP login disabled: configure HTTPS or explicitly permit HTTP');
       let data;
       try{data=safeBody(await readJson(req),['username','password']);}
       catch(error){const e=jsonError(error);return bad(res,json,e.status,e.error);}
@@ -303,8 +309,8 @@ export class ControllerAuth {
   /** Refuse all unknown controller API actions even to administrators. */
   async authorize(req,res,url,{json}){
     if(!this.#enabled){
-      // Existing installations stay usable before enrollment, but every
-      // in-flight legacy API/stream response is closed on security activation.
+      // Only explicitly configured legacy mode remains usable without login.
+      // In-flight responses close immediately upon later enrollment.
       if(url.pathname.startsWith('/api/')||url.pathname.startsWith('/simulator')){
         this.#legacyInFlight.add(res);
         res.once('close',()=>this.#legacyInFlight.delete(res));
