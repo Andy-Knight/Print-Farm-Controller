@@ -3499,17 +3499,49 @@ async function nativeAuthenticationSmoke(browser){
       'branding panel must sit beside, not on top of, the login');
     assert.ok(desktop.artwork,'the local outline printer illustration renders');
     assert.equal(desktop.anim,'auth-trace','subtle toolpath animation is present');
+    // Seek the animation timeline deterministically to prove the head moves.
+    // A CSS animation-name alone did not guarantee perceptible motion.
+    const printheadMotion=await page.locator('.auth-printer-head-motion').evaluate(element=>{
+      const animation=element.getAnimations()[0];
+      if(!animation)return {present:false,travel:0};
+      animation.pause();
+      animation.currentTime=0;
+      const left=element.getBoundingClientRect().left;
+      animation.currentTime=3400;
+      const right=element.getBoundingClientRect().left;
+      animation.play();
+      return {present:true,travel:Math.abs(right-left)};
+    });
+    assert.equal(printheadMotion.present,true,'the printer toolhead is animated');
+    assert.ok(printheadMotion.travel>=40,
+      'the toolhead visibly travels rather than merely pulsing the outline');
     await page.emulateMedia({reducedMotion:'reduce'});
+    assert.equal(await page.locator('.auth-printer-head-motion').evaluate(
+      element=>getComputedStyle(element).animationName),'none',
+      'the moving toolhead respects reduced motion');
     assert.equal(await page.locator('.auth-printer-trace').evaluate(
       element=>getComputedStyle(element).animationName),'none',
       'reduced-motion users must not receive looping animation');
     await page.emulateMedia({reducedMotion:'no-preference'});
+    await page.setViewportSize({width:820,height:844});
+    assert.equal(await page.locator('.auth-printer-art').isVisible(),true,
+      'compact laptop viewport retains visible printer animation');
     await page.evaluate(()=>document.documentElement.dataset.theme='light');
     assert.equal(await page.locator('.auth-story').evaluate(element=>
       getComputedStyle(element).backgroundColor),'rgb(246, 249, 253)',
       'access branding inherits the light theme');
     await page.evaluate(()=>document.documentElement.dataset.theme='dark');
     await page.setViewportSize({width:390,height:844});
+    assert.equal(await page.locator('.auth-printer-art').isVisible(),false,
+      'phone layout hides the large printer art');
+    assert.equal(await page.locator('.auth-brand-symbol').evaluate(element=>
+      getComputedStyle(element,'::after').animationName),'auth-logo-layer',
+      'phone layout has a subtle animated brand layer');
+    await page.emulateMedia({reducedMotion:'reduce'});
+    assert.equal(await page.locator('.auth-brand-symbol').evaluate(element=>
+      getComputedStyle(element,'::after').animationName),'none',
+      'phone branding respects reduced motion');
+    await page.emulateMedia({reducedMotion:'no-preference'});
     const mobile=await page.evaluate(()=>({
       scroll:document.documentElement.scrollWidth,
       width:innerWidth,
