@@ -6,6 +6,7 @@ Historical entries describe the behaviour of the controller at the time of that 
 
 ## v0.59.12
 
+- Fixed first-run authentication blocking the controller HTML shell and static assets: the administrator setup and login GUI remain accessible while all protected APIs and simulator endpoints stay locked until enrollment.
 - Introduced **default-on native user authentication**, including HTTP deployments, backed by the account/scrypt and revocable-session primitives, with code-verified first administrator enrollment through the Security & users GUI and offline local disaster recovery. A private one-time code is read from protected startup logs, not a public browser endpoint, and successful enrollment activates a durable security marker immediately.
 - Implemented **server-side RBAC** for Administrator, Operator and Viewer before controller and emulator API dispatch, covering printer commands, uploads, backups/restores, camera streams, SSE and sensitive integration/diagnostics endpoints. Unknown API routes fail closed when access control is enabled.
 - Added a themed sign-in experience, top-bar identity/account controls, password change and a routed **Security & users** screen for administrators to create, disable, change roles and reset passwords.
