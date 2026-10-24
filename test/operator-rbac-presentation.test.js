@@ -8,6 +8,7 @@ const app=read('public/app.js');
 const reporting=read('public/reporting.js');
 const preact=read('ui/reporting.jsx');
 const css=read('public/auth.css');
+const html=read('public/index.html');
 
 test('operator and viewer interfaces hide library deletion, queue history purge and global filament writes',()=>{
   assert.match(auth,/\['#clearQueueHistoryBtn','#libraryDeleteSelectedBtn','#filamentForm'\]/);
@@ -22,6 +23,8 @@ test('operator and viewer interfaces hide library deletion, queue history purge 
   assert.match(reporting,/if \(!canManageFilamentCatalogue\(\)\) return;/);
   assert.match(preact,/\{canManage && <div class="mini-actions">/);
   assert.match(preact,/canManage=\{state\.canManageFilaments\}/);
+  assert.match(html,/id="filamentReadOnlyHelp"/);
+  assert.match(reporting,/readOnlyHelp.hidden=canManageFilamentCatalogue\(\)/);
   assert.match(css,/#filamentForm\[hidden\]/);
   assert.match(css,/#libraryDeleteSelectedBtn\[hidden\]/);
   assert.match(css,/#clearQueueHistoryBtn\[hidden\]/);
