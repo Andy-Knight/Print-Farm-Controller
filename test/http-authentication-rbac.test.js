@@ -246,7 +246,7 @@ test('GUI enrollment works on HTTP by default; explicit HTTPS-only policy and lo
     const auth=new ControllerAuth({dataDir,env:{},
       emitEnrollmentCode:message=>{output=message;}});
     await auth.init();
-    const code=output.match(/One-time enrollment code \\(private\\): ([0-9A-F]{48})/)?.[1];
+    const code=output.match(/One-time enrollment code \(private\): ([0-9A-F]{48})/)?.[1];
     assert.ok(code);
     const payload={code,username:'firstadmin',password:ADMIN_PASSWORD};
     const enroll=await exercise(auth,'POST','/api/auth/enroll',{
@@ -262,7 +262,7 @@ test('GUI enrollment works on HTTP by default; explicit HTTPS-only policy and lo
     const httpsOnly=new ControllerAuth({dataDir,env:{PFC_AUTH_ALLOW_HTTP:'0'},
       emitEnrollmentCode:message=>{output=message;}});
     await httpsOnly.init();
-    const code=output.match(/One-time enrollment code \\(private\\): ([0-9A-F]{48})/)?.[1];
+    const code=output.match(/One-time enrollment code \(private\): ([0-9A-F]{48})/)?.[1];
     assert.ok(code);
     const denied=await exercise(httpsOnly,'POST','/api/auth/enroll',{
       origin:'http://controller.example.test',body:{code,username:'firstadmin',password:ADMIN_PASSWORD}
