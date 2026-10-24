@@ -3559,6 +3559,17 @@ async function nativeAuthenticationSmoke(browser){
     assert.ok(build.tipError<.5,'the nozzle stays on the shrinking active perimeter');
     assert.ok(build.grid>=20&&build.startsWith45DegreeAngles,
       'bed grid lines must share the pyramid’s angled isometric projection');
+    if(authVisualDir){
+      // Record a genuinely half-built pyramid, not a one-layer first frame.
+      // The screenshot is a visual QA artifact and never contains farm data.
+      await page.waitForFunction(()=>Number(document.querySelector('#authPyramidLayers')
+        ?.dataset.demoCompletedLayers)>=9,null,{timeout:18000});
+      const beforeTheme=await page.evaluate(()=>document.documentElement.dataset.theme);
+      await page.evaluate(()=>document.documentElement.dataset.theme='dark');
+      await page.screenshot({path:path.join(authVisualDir,'auth-pyramid-half-built-dark.png'),
+        animations:'disabled',fullPage:true});
+      await page.evaluate(theme=>document.documentElement.dataset.theme=theme,beforeTheme);
+    }
     // Unlike the previous 3D gantry, the reference-inspired scene has no
     // raised printer frame. All perimeter points and the full slim nozzle
     // must remain inside the technical print-bed diagram.
