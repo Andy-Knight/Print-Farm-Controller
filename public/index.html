@@ -61,7 +61,7 @@
       <button id="alertsSettingsBtn" type="button" class="sidebar-item" data-route="/alerts"><span class="sidebar-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4a8 8 0 1 0 0 16a8 8 0 0 0 0-16Z M12 8v5 M12 16h.01"/></svg></span><span>Alerts &amp; notifications</span></button>
       <button id="backupRecoveryBtn" type="button" class="sidebar-item" data-route="/backup"><span class="sidebar-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v12 M8 12l4 4 4-4 M4 20h16"/></svg></span><span>Backup &amp; recovery</span></button>
       <button id="diagnosticsBtn" type="button" class="sidebar-item" data-route="/diagnostics"><span class="sidebar-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h16 M4 10h16 M4 15h10 M4 20h7"/></svg></span><span>Diagnostics</span></button>
-      <button id="usersBtn" type="button" class="sidebar-item" data-route="/users" hidden><span class="sidebar-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3"/><path d="M3 20v-2a6 6 0 0 1 12 0v2M18 8h4M20 6v4"/></svg></span><span>Users</span></button>
+      <button id="usersBtn" type="button" class="sidebar-item" data-route="/users" hidden><span class="sidebar-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3"/><path d="M3 20v-2a6 6 0 0 1 12 0v2M18 8h4M20 6v4"/></svg></span><span>Security &amp; users</span></button>
     </nav>
     <div class="sidebar-foot">
       <button type="button" class="sidebar-quick-add" data-add-printer aria-label="Add a printer to the farm">+ Add printer</button>
@@ -1483,11 +1483,20 @@
     <div class="ui-page-heading dialog-head">
       <div class="ui-page-heading-copy">
         <div class="eyebrow ui-page-eyebrow">FARM MANAGEMENT</div>
-        <h2 class="ui-page-title">User management</h2>
-        <div class="ui-page-description subtle">Local users and server-enforced access roles. Only administrators can manage accounts.</div>
+        <h2 class="ui-page-title">Security &amp; users</h2>
+        <div class="ui-page-description subtle">Enable sign-in and manage server-enforced access to your print farm.</div>
       </div>
     </div>
-    <div class="auth-users-layout">
+    <section id="authSetupOverview" class="auth-panel auth-setup-overview" aria-labelledby="authSecurityHeading" hidden>
+      <h3 id="authSecurityHeading">Authentication is not enabled</h3>
+      <p id="authSecurityStatus" class="subtle">This controller is currently accessible without a login.</p>
+      <p>A trusted first administrator must verify a one-time code displayed in the controller's
+      <strong>protected startup logs</strong>. In Kubernetes, use your cluster management GUI's pod log viewer.
+      The setup code is never displayed to visitors of this page.</p>
+      <p class="auth-transport-notice">Set up HTTPS before entering passwords. Existing HTTP access is not secure.</p>
+      <button id="authSetupStartBtn" type="button" class="primary">Set up administrator</button>
+    </section>
+    <div id="authUsersLayout" class="auth-users-layout" hidden>
       <section class="auth-panel" aria-labelledby="authAddHeading">
         <h3 id="authAddHeading">Add user</h3>
         <form id="authUserAddForm" class="auth-form">
@@ -1529,6 +1538,22 @@
         <label>Password <input name="password" type="password" autocomplete="current-password" required></label>
         <button class="primary" type="submit">Sign in</button>
       </form>
+      <section id="authSetupSection" class="auth-setup-section" aria-labelledby="authSetupHeading" hidden>
+        <h2 id="authSetupHeading">Set up administrator</h2>
+        <p class="subtle">Enter the one-time code from the controller's <strong>protected startup logs</strong>
+        (Kubernetes pod logs in your cluster management GUI) and create the first administrator.
+        Never share this code or use an untrusted HTTP connection.</p>
+        <form id="authSetupForm" class="auth-form" hidden>
+          <label>One-time setup code <input name="code" type="password" autocomplete="off" spellcheck="false" maxlength="64" required></label>
+          <label>Administrator username <input name="username" autocomplete="off" minlength="3" maxlength="48" required></label>
+          <label>Display name (optional) <input name="displayName" maxlength="120"></label>
+          <label>Password (at least 12 characters) <input name="password" type="password" autocomplete="new-password" minlength="12" maxlength="256" required></label>
+          <label>Confirm password <input name="confirmPassword" type="password" autocomplete="new-password" minlength="12" maxlength="256" required></label>
+          <button type="submit" class="primary">Enable authentication</button>
+        </form>
+        <p id="authSetupError" class="auth-error" role="alert"></p>
+        <button id="authSetupCancelBtn" type="button" class="secondary" hidden>Return to dashboard</button>
+      </section>
       <p id="authLoginError" class="auth-error" role="alert"></p>
       <p id="authTransportNotice" class="auth-transport-notice" hidden></p>
     </section>

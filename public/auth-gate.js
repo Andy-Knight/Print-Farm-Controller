@@ -21,7 +21,11 @@ function showGate(message,{setup=false,transport=false}={}){
   lock.hidden=false;
   $('#authLoginHelp').textContent=message||'Sign in to access your farm.';
   loginForm.hidden=setup||transport;
-  if(!setup&&!transport)loginForm.querySelector('input[name=username]')?.focus();
+  $('#authSetupSection').hidden=!setup;
+  $('#authSetupForm').hidden=!setup||!session?.loginAvailable;
+  $('#authSetupCancelBtn').hidden=Boolean(session?.enabled);
+  if(setup&&session?.loginAvailable)$('#authSetupForm input[name=code]')?.focus();
+  else if(!setup&&!transport)loginForm.querySelector('input[name=username]')?.focus();
 }
 function lockAfterExpiry(){
   if(document.body.classList.contains('auth-locked'))return;
@@ -104,8 +108,25 @@ async function loadUsers(){
     container.replaceChildren(outer);
   }catch(error){loading.textContent=errorText(error);}
 }
+function initializeSetupUi(){
+  if(!session?.enrollmentAvailable||session.enabled)return;
+  $('#usersBtn').hidden=false;
+  $('#authSetupOverview').hidden=false;
+  $('#authUsersLayout').hidden=true;
+  $('#authSecurityStatus').textContent='Authentication is OFF: anyone who can reach this controller can operate it without a login.';
+  $('#authSetupStartBtn')?.addEventListener('click',()=>{
+    showGate(session.loginAvailable
+      ? 'Verify your one-time code and create the first administrator.'
+      : 'Administrator setup needs HTTPS. Configure the canonical HTTPS origin first; HTTP is supported only in isolated development.',{setup:true});
+  });
+  $('#authSetupCancelBtn')?.addEventListener('click',()=>{
+    lock.hidden=true;
+    document.body.classList.remove('auth-locked');
+  });
+}
 function initializeAccountUi(){
   if(!session?.enabled||!session.user)return;
+  $('#authUsersLayout').hidden=false;
   document.body.dataset.authRole=session.user.role;
   const identity=$('#authIdentity');
   identity.hidden=false;
@@ -181,6 +202,34 @@ async function loadApp(){
   await Promise.all([import('/maintenance.js'),import('/reporting.js'),import('/alerts.js')]);
   window.__PFC_REACTIVATE_ROUTE__?.();
 }
+$('#authSetupForm')?.addEventListener('submit',async event=>{
+  event.preventDefault();
+  const form=event.currentTarget;
+  showError('#authSetupError','');
+  const button=form.querySelector('button[type=submit]');
+  if(form.elements.password.value!==form.elements.confirmPassword.value){
+    showError('#authSetupError','Passwords do not match.');
+    return;
+  }
+  button.disabled=true;
+  try{
+    const response=await nativeFetch('/api/auth/enroll',{
+      method:'POST',credentials:'same-origin',cache:'no-store',
+      headers:{'content-type':'application/json'},
+      body:JSON.stringify({
+        code:form.elements.code.value,
+        username:form.elements.username.value,
+        displayName:form.elements.displayName.value,
+        password:form.elements.password.value
+      })
+    });
+    const data=await response.json().catch(()=>({}));
+    if(!response.ok)throw new Error(data.error||'Administrator setup failed');
+    form.reset();
+    location.assign('/');
+  }catch(error){showError('#authSetupError',errorText(error));}
+  finally{button.disabled=false;}
+});
 loginForm?.addEventListener('submit',async event=>{
   event.preventDefault();
   errorLabel.textContent='';
@@ -205,7 +254,13 @@ try{
   if(!response.ok)throw new Error('Unable to check authentication status');
   session=await response.json();
   if(session.enabled&&session.setupRequired){
-    showGate('Administrator setup is required. From a local terminal run: node scripts/manage-users.mjs setup (or controller.exe --auth-setup), then restart the controller.',{setup:true});
+    if(session.enrollmentAvailable){
+      showGate(session.loginAvailable
+        ? 'Create your first administrator using the one-time code from the controller startup logs.'
+        : 'Set up HTTPS before creating an administrator. The one-time setup code is available in protected controller startup logs.',{setup:true});
+    }else{
+      showGate('The account store requires local recovery. Browser re-enrollment is disabled after security was activated.',{transport:true});
+    }
   }else if(session.enabled&&!session.user){
     const requiresHttps=!session.loginAvailable;
     const warning=session.transportWarning||'';
@@ -217,6 +272,7 @@ try{
   }else{
     installAuthorizedFetch();
     if(session.enabled)initializeAccountUi();
+    else initializeSetupUi();
     await loadApp();
     window.__PFC_FRONTEND_BOOTED__=true;
     document.documentElement.classList.remove('auth-pending');

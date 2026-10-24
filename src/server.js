@@ -2728,7 +2728,7 @@ async function startController() {
     console.log(`Print Farm Controller v${CONTROLLER_VERSION} running at http://localhost:${PORT}`);
     if (controllerAuth.enabled) {
       console.log(controllerAuth.setupRequired
-        ? 'Authentication enabled: run local administrator setup and restart before normal access.'
+        ? 'Authentication requires first administrator enrollment in the browser (Security & users) using the private code printed at controller startup.'
         : 'Native authentication and server-side RBAC ENABLED.');
       if (!controllerAuth.secure)console.warn('SECURITY WARNING: HTTP does not protect credentials. Configure HTTPS with PFC_PUBLIC_ORIGIN before production login.');
     } else console.warn('SECURITY WARNING: Legacy unauthenticated LAN mode. Enrol an administrator to enable access controls.');

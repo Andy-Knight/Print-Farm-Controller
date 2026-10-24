@@ -1,9 +1,10 @@
 /**
  * Native HTTP authentication boundary. Only this service decides whether a
  * request may enter the controller router; frontend visibility is advisory.
- * Enrolment/reset is deliberately offline, never a public HTTP route.
+ * Initial enrollment requires a private, one-time controller-startup code.
+ * Recovery deliberately remains offline; no default LAN administrator exists.
  */
-import {createHash, timingSafeEqual} from 'node:crypto';
+import {createHash, randomBytes, timingSafeEqual} from 'node:crypto';
 import {promises as fs} from 'node:fs';
 import path from 'node:path';
 import {AccountStore} from './account-store.js';
@@ -46,7 +47,12 @@ export class ControllerAuth {
   #secure=false;
   #allowHttp=false;
   #origin=null;
-  constructor({dataDir,env=process.env}={}){
+  #enrollmentCode=null;
+  #enrollmentAvailable=false;
+  #enrolling=false;
+  #emitEnrollmentCode;
+  constructor({dataDir,env=process.env,emitEnrollmentCode=message=>process.stdout.write(message)}={}){
+    this.#emitEnrollmentCode=emitEnrollmentCode;
     this.#accounts=new AccountStore({dataDir});
     const configured=String(env.PFC_PUBLIC_ORIGIN||'').trim();
     if(configured){
@@ -70,10 +76,25 @@ export class ControllerAuth {
       if(error.code==='ENOENT')return false;
       throw error;
     });
-    // Once enrolled, a missing/invalid account file NEVER downgrades to legacy.
-    this.#enabled=this.#enabled||await exists(marker)||await exists(this.#accounts.filePath);
-    if(this.#enabled){
-      this.#setupRequired=!(await this.#accounts.initialized());
+    // A durable marker disallows browser re-enrollment even if the user store is lost.
+    const marked=await exists(marker);
+    const stored=await exists(this.#accounts.filePath);
+    this.#enabled=this.#enabled||marked||stored;
+    this.#setupRequired=this.#enabled&&!(await this.#accounts.initialized());
+    this.#enrollmentAvailable=!marked&&!stored;
+    if(!this.#enrollmentAvailable){
+      this.#enrollmentCode=null;
+    }else if(!this.#enrollmentCode){
+      this.#enrollmentCode=randomBytes(24).toString('hex').toUpperCase();
+      // Called before the diagnostic logger captures console output. Do not
+      // include this private code in controller diagnostics or any HTTP response.
+      this.#emitEnrollmentCode(
+        '\n=== PRINT FARM CONTROLLER: FIRST ADMINISTRATOR ENROLLMENT ===\n'
+        +'Open Security & users in the controller. Use a trusted HTTPS browser.\n'
+        +'One-time enrollment code (private): '+this.#enrollmentCode+'\n'
+        +'Read this from your protected container/host startup console only.\n'
+        +'This code is invalidated by enrollment or a controller restart.\n\n'
+      );
     }
   }
   #cookie(res,token){
@@ -133,11 +154,12 @@ export class ControllerAuth {
   #status(identity){
     return {
       enabled:this.#enabled,setupRequired:this.#setupRequired,
+      enrollmentAvailable:this.#enrollmentAvailable,
       user:identity?.user||null,csrf:identity?.csrf||null,
       permissions:identity?Object.values(PERMISSIONS).filter(p=>roleHasPermission(identity.user.role,p)):[],
       transportSecure:this.#secure,
       loginAvailable:this.#secure||this.#allowHttp,
-      transportWarning:this.#enabled&&!this.#secure
+      transportWarning:!this.#secure
         ?'Password and session traffic over HTTP is not protected from LAN interception. Configure HTTPS before production use.'
         :null
     };
@@ -154,8 +176,46 @@ export class ControllerAuth {
       json(res,200,this.#status(identity));
       return true;
     }
+    if(method==='POST'&&pathname==='/api/auth/enroll'){
+      if(!this.#enrollmentAvailable||!this.#enrollmentCode)
+        return bad(res,json,409,'Enrollment is unavailable; use local recovery if accounts were lost');
+      if(this.#enrolling)return bad(res,json,409,'Enrollment is already in progress');
+      if(!this.#originAllowed(req))return bad(res,json,403,'Origin verification failed');
+      if(!this.#secure&&!this.#allowHttp)
+        return bad(res,json,503,'Configure HTTPS before entering an administrator password');
+      const address=req.socket?.remoteAddress||'unknown';
+      if(!this.#limiter.canAttempt('first-admin-enrollment',address))
+        return bad(res,json,429,'Too many enrollment attempts. Try again later.');
+      let data;
+      try{data=safeBody(await readJson(req),['code','username','password','displayName']);}
+      catch(error){const e=jsonError(error);return bad(res,json,e.status,e.error);}
+      if(!equals(String(data.code||'').trim().toUpperCase(),this.#enrollmentCode)){
+        this.#limiter.recordFailure('first-admin-enrollment',address);
+        return bad(res,json,403,'Invalid enrollment code');
+      }
+      this.#enrolling=true;
+      try{
+        await this.#accounts.bootstrapAdministrator({
+          username:data.username,password:data.password,displayName:data.displayName
+        });
+        this.#enrollmentCode=null;
+        this.#enrollmentAvailable=false;
+        this.#enabled=true;
+        this.#setupRequired=false;
+        this.#limiter.recordSuccess('first-admin-enrollment',address);
+        json(res,201,{ok:true,signInRequired:true});
+      }catch(error){
+        // bootstrapAdministrator writes the durable security marker BEFORE
+        // writing the account file. A partial failure must never leave legacy
+        // unauthenticated access available.
+        await this.init();
+        const e=jsonError(error);
+        return bad(res,json,e.status,e.error);
+      }finally{this.#enrolling=false;}
+      return true;
+    }
     if(!this.#enabled)return bad(res,json,404,'Authentication is not enabled');
-    if(this.#setupRequired)return bad(res,json,503,'Local administrator setup required');
+    if(this.#setupRequired)return bad(res,json,503,'Administrator account recovery required');
     if(method==='POST'&&pathname==='/api/auth/login'){
       if(!this.#originAllowed(req))return bad(res,json,403,'Origin verification failed');
       if(!this.#secure&&!this.#allowHttp)

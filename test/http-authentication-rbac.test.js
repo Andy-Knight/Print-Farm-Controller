@@ -182,3 +182,80 @@ test('HTTP login is rejected by default; invalid logins use generic errors and t
     assert.equal((await gate(afterRestart,'GET','/api/fleet',{cookie:session.cookie})).res.status,401);
   });
 });
+
+test('GUI enrollment needs a private code, secure origin, and irrevocably enables RBAC',async()=>{
+  await fixture(async dataDir=>{
+    let privateLog='';
+    const auth=new ControllerAuth({
+      dataDir,env:{PFC_PUBLIC_ORIGIN:ORIGIN},
+      emitEnrollmentCode:message=>{privateLog+=message;}
+    });
+    await auth.init();
+    const code=privateLog.match(/One-time enrollment code \(private\): ([0-9A-F]{48})/)?.[1];
+    assert.ok(code,'setup code must be issued in private startup output');
+    const before=(await exercise(auth,'GET','/api/auth/session')).res.body;
+    assert.equal(before.enabled,false);
+    assert.equal(before.enrollmentAvailable,true);
+    assert.equal(JSON.stringify(before).includes(code),false,'never expose setup code over HTTP');
+    assert.equal((await gate(auth,'POST','/api/batch')).allowed,true,'existing LAN behavior remains until enrolled');
+    const enrollment={code,username:'firstadmin',password:ADMIN_PASSWORD,displayName:'Farm owner'};
+    assert.equal((await exercise(auth,'POST','/api/auth/enroll',{
+      body:enrollment,origin:'https://untrusted.example'
+    })).res.status,403,'forged origin must not enroll');
+    assert.equal((await exercise(auth,'POST','/api/auth/enroll',{
+      body:{...enrollment,code:'BAD'}
+    })).res.status,403,'missing or incorrect setup code cannot enroll');
+    assert.equal((await exercise(auth,'POST','/api/auth/enroll',{
+      body:{...enrollment,password:'short'}
+    })).res.status,400,'invalid passwords must not activate security');
+    const saved=await exercise(auth,'POST','/api/auth/enroll',{body:enrollment});
+    assert.equal(saved.res.status,201,saved.res.body?.error);
+    assert.equal(auth.enabled,true,'RBAC must begin immediately, without server restart');
+    assert.equal((await gate(auth,'POST','/api/batch')).res.status,401);
+    const after=(await exercise(auth,'GET','/api/auth/session')).res.body;
+    assert.equal(after.enrollmentAvailable,false);
+    assert.equal(after.setupRequired,false);
+    assert.equal((await exercise(auth,'POST','/api/auth/enroll',{body:enrollment})).res.status,409,'code cannot be replayed');
+    assert.equal((await login(auth,'firstadmin',ADMIN_PASSWORD)).cookie.startsWith('pfc_session='),true);
+    const restarted=new ControllerAuth({dataDir,env:{PFC_PUBLIC_ORIGIN:ORIGIN},
+      emitEnrollmentCode:()=>{throw Error('must never offer enrollment after activation');}});
+    await restarted.init();
+    assert.equal((await exercise(restarted,'GET','/api/auth/session')).res.body.enrollmentAvailable,false);
+  });
+});
+
+test('GUI enrollment is refused on bare HTTP and after account store loss',async()=>{
+  await fixture(async dataDir=>{
+    let output='';
+    const auth=new ControllerAuth({dataDir,env:{},
+      emitEnrollmentCode:message=>{output=message;}});
+    await auth.init();
+    const code=output.match(/One-time enrollment code \(private\): ([0-9A-F]{48})/)?.[1];
+    assert.ok(code);
+    const enroll=await exercise(auth,'POST','/api/auth/enroll',{
+      origin:'http://controller.example.test',
+      body:{code,username:'firstadmin',password:ADMIN_PASSWORD}
+    });
+    assert.equal(enroll.res.status,503,'HTTP should never accept production passwords');
+    assert.equal(auth.enabled,false);
+    const allowedForLab=new ControllerAuth({dataDir,
+      env:{PFC_AUTH_ALLOW_HTTP:'1'},emitEnrollmentCode:()=>{}});
+    await allowedForLab.init();
+    const entry=(await exercise(allowedForLab,'GET','/api/auth/session')).res.body;
+    assert.equal(entry.loginAvailable,true,'explicit lab-only exception');
+  });
+  await fixture(async dataDir=>{
+    const fs=await import('node:fs/promises');
+    await fs.mkdir(path.join(dataDir,'security'),{recursive:true});
+    await fs.writeFile(path.join(dataDir,'security','enabled'),'enabled\n');
+    const locked=new ControllerAuth({dataDir,env:{PFC_PUBLIC_ORIGIN:ORIGIN},
+      emitEnrollmentCode:()=>{throw Error('must not emit fresh code after activation');}});
+    await locked.init();
+    const state=(await exercise(locked,'GET','/api/auth/session')).res.body;
+    assert.equal(state.setupRequired,true);
+    assert.equal(state.enrollmentAvailable,false,'lost account data requires offline recovery');
+    assert.equal((await exercise(locked,'POST','/api/auth/enroll',{body:{
+      code:'not valid',username:'usertest',password:ADMIN_PASSWORD
+    }})).res.status,409);
+  });
+});

@@ -1,5 +1,7 @@
 /* Controller identity and user management — semantic design tokens only. */
-#authLoginForm[hidden],#authOverlay[hidden]{display:none!important;}
+#authLoginForm[hidden],#authOverlay[hidden],#authSetupSection[hidden],
+#authSetupForm[hidden],#authSetupOverview[hidden],#authUsersLayout[hidden],
+#authSetupCancelBtn[hidden]{display:none!important;}
 .auth-overlay[hidden],.auth-identity[hidden],.auth-account-button[hidden],
 #usersBtn[hidden],.auth-password-dialog:not([open]){display:none!important;}
 .auth-overlay{
@@ -52,3 +54,14 @@ html.auth-pending body>aside,html.auth-pending body>header,html.auth-pending bod
   outline:2px solid var(--ds-focus);outline-offset:2px;
 }
 @media(max-width:850px){.auth-users-layout{grid-template-columns:1fr}.auth-users-page{padding:12px}}
+
+/* First administrator setup is a deliberate, accessible full-viewport flow. */
+.auth-setup-overview{max-width:780px;margin-top:20px;}
+.auth-setup-overview p,.auth-setup-section p{line-height:1.6;font-size:var(--ds-font-sm);}
+.auth-setup-section{display:grid;gap:12px;}
+.auth-setup-section h2{font-size:var(--ds-font-lg);margin:0;}
+.auth-setup-section p{margin:0;}
+.auth-setup-section .auth-form{margin-top:8px;}
+#authSetupCancelBtn{margin-top:6px;min-height:var(--ds-button-height);}
+#authSetupStartBtn{min-height:var(--ds-button-height);}
+.auth-login-card:has(#authSetupSection:not([hidden])){width:min(540px,100%);}

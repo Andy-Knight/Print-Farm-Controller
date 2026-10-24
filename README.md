@@ -28,28 +28,44 @@ For contributing or AI-assisted development, follow [AGENTS.md](AGENTS.md) and t
 
 The controller supports **local username/password login** and enforces role permissions on the server, not just by hiding buttons. **Administrator** can manage accounts, security, printer settings, licence, backups and cloud credentials. **Operator** can monitor printers, manage the print queue and Print Library and perform approved printer/filament/maintenance operations, but cannot manage users, credentials or restore backups. **Viewer** can see status, reports and camera feeds without making changes. Permissions are independent of signed edition/licence limits.
 
-### Set up the first administrator
+### Set up the first administrator using the GUI
 
-Existing controllers stay in legacy unauthenticated mode until you explicitly enrol an administrator. To start with security compulsory, set `PFC_AUTH_REQUIRED=1` before first startup: until an administrator is enrolled the APIs remain unavailable (except minimal health and authentication status). Do **not** treat legacy mode as protected against LAN users.
+Existing installations remain in legacy unauthenticated mode until the owner explicitly
+creates an administrator. Open **Farm Management → Security & users** in the controller,
+then select **Set up administrator**. If `PFC_AUTH_REQUIRED=1` is configured,
+the onboarding screen appears before access to any printer controls.
 
-Stop the controller and run the setup command **locally**, with access to the controller's persistent `DATA_DIR`:
+The browser setup requires a private **one-time enrollment code**. On controller startup,
+a randomly generated code is printed once to the **protected startup console/pod logs**,
+not exposed by the controller's API or diagnostics downloads. For a K3s/Kubernetes installation,
+view your controller pod's startup logs using your **cluster management GUI**. Copy the code into
+the setup form, choose an administrator username and a password of at least 12 characters,
+and confirm the password. On success, authentication is enabled immediately and all subsequent
+controller use requires sign-in. There is no default password, open-registration endpoint
+or "first visitor wins" bootstrap. Keep pod logs private; restart the controller to rotate
+an unused code. The account store and activation marker live on the persistent `DATA_DIR` volume.
 
-```bash
-node scripts/manage-users.mjs setup
-```
+**HTTPS must be configured before entering a production password.** On plain HTTP the GUI
+displays the security requirements but will not accept enrollment credentials. The
+`PFC_AUTH_ALLOW_HTTP=1` bypass exists strictly for isolated local tests, never a
+production LAN. See the following HTTPS requirements section.
 
-For the Windows packaged executable, use `PrintFarmController.exe --auth-setup` from a local interactive command prompt. The installer and source deployment use the same application data directory. The command prompts for the first administrator username and a password of at least 12 characters, then enables authentication durably. Restart the controller and use **Sign in**. There is **no default password** and no unauthenticated browser bootstrap endpoint. The production container includes a bundled controller at `/app/build/controller.cjs` but **does not include the source-only setup script**. For an initial K3s deployment, use a trusted interactive terminal into the controller pod:
+For headless recovery and legacy tooling, a privileged local interactive terminal can
+still run `node scripts/manage-users.mjs setup` or
+`PrintFarmController.exe --auth-setup`. These commands are **not required for normal GUI
+onboarding**. In containers, the source-only management script is not packaged; the
+bundled `/app/build/controller.cjs --auth-setup` remains an emergency option.
 
-```bash
-kubectl exec -it <controller-pod> -- node /app/build/controller.cjs --auth-setup
-kubectl rollout restart deployment/<controller-deployment>
-```
+After login, Administrators use **Security & users** in Farm Management to create, disable,
+update and reset accounts with Viewer/Operator/Administrator roles. **My account** in the top bar
+allows self-service password changes and sign-out. Password and role changes revoke existing
+sessions, which also expire after inactivity or a controller restart.
 
-The controller must mount the same persistent `DATA_DIR=/data` for both commands. Before **recovery**, scale down the controller to zero replicas and run a one-off container/job with the existing data PVC attached, then restart one controller instance. Recovery must never race an active controller because old in-memory sessions would remain valid until restart. Do not publish the admin setup command as a LAN service or expose the container shell to untrusted users.
-
-After logging in, Administrators use **Users** in the sidebar to create/disable accounts, select the Viewer/Operator/Administrator role, reset passwords or adjust display names. **My account** in the top bar provides self-service password change and sign-out. Changing a password, role or disabled status invalidates affected sessions; signing out revokes the current session. Sessions also expire after inactivity and restart. Passive dashboard refreshes and SSE do not renew idle expiry; trusted user interaction and authenticated changes do.
-
-If you lose all administrator access, stop the controller and run `node scripts/manage-users.mjs recover` (or `PrintFarmController.exe --auth-recover`); this explicitly replaces the local user store after terminal confirmation. Old users are saved in a private recovery backup in `<DATA_DIR>/security`. Protect this directory and any storage-volume snapshots. The controller keeps its existing security state if a new backup is restored; user account records are **not** imported from logical `.pfcbackup` archives.
+If the account store has been lost after activation, browser enrollment is **not** offered
+again: this protects against reverting to anonymous administration. Stop the controller
+and use `node scripts/manage-users.mjs recover` or
+`PrintFarmController.exe --auth-recover` from a privileged terminal with access to
+the persistent data directory. Preserve the same security storage across restores.
 
 ### HTTPS requirements and reverse proxy
 
