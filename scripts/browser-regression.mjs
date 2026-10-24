@@ -3511,7 +3511,9 @@ async function nativeAuthenticationSmoke(browser){
     await page.locator('#authUserAddForm [name=role]').selectOption('viewer');
     await page.locator('#authUserAddForm [name=password]').fill('Viewer password for tests 2026');
     await page.locator('#authUserAddForm button[type=submit]').click();
-    await page.locator('#authUserList tbody tr').filter({hasText:'viewer'}).waitFor();
+    await page.locator('#authUserList tbody tr').filter({
+      has:page.locator('th[scope="row"]:text-is("viewer")')
+    }).waitFor();
     const row=page.locator('#authUserList tbody tr').filter({hasText:'shiftoperator'});
     assert.equal(await row.locator('select').inputValue(),'operator');
     await row.locator('select').selectOption('viewer');
