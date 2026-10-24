@@ -3509,7 +3509,8 @@ function renderPrintQueue() {
   }
 
   if (clearQueueHistoryBtn) {
-    clearQueueHistoryBtn.disabled = clearableHistoryJobs.length === 0;
+    clearQueueHistoryBtn.hidden = !canPurgeFarmRecords();
+    clearQueueHistoryBtn.disabled = !canPurgeFarmRecords() || clearableHistoryJobs.length === 0;
     clearQueueHistoryBtn.title = clearanceItems.length ? 'History items holding an uncleared-bed interlock are retained until the bed is confirmed clear.' : '';
   }
 
@@ -3981,6 +3982,9 @@ function publishPrintLibraryUiState({ files, visible, summary, query, pagination
   window.dispatchEvent(new CustomEvent('pfc:library-ui-state', { detail }));
 }
 
+// This affects presentation only; the HTTP authorization policy is authoritative.
+function canPurgeFarmRecords(){const role=document.body.dataset.authRole;return !role||role==='administrator';}
+
 function selectedLibraryFile() {
   return (libraryState.files || []).find((file) => file.id === librarySelectedFileId) || null;
 }
@@ -3999,7 +4003,8 @@ function updateLibrarySelectionToolbar() {
   }
   const referenced = Number(file?.usage?.queueReferences || 0) > 0;
   if (libraryDeleteSelectedBtn) {
-    libraryDeleteSelectedBtn.disabled = !ready || referenced;
+    libraryDeleteSelectedBtn.hidden = !canPurgeFarmRecords();
+    libraryDeleteSelectedBtn.disabled = !canPurgeFarmRecords() || !ready || referenced;
     libraryDeleteSelectedBtn.title = referenced
       ? 'Clear queue/history references before deleting this file'
       : (file ? 'Delete the selected library file' : 'Select a file to delete');
@@ -5635,7 +5640,7 @@ libraryFavouriteSelectedBtn?.addEventListener('click',async ()=>{
 });
 
 libraryDeleteSelectedBtn?.addEventListener('click', async () => {
-  if (libraryActionBusy) return;
+  if (libraryActionBusy || !canPurgeFarmRecords()) return;
   const file = selectedLibraryFile();
   if (!file || Number(file.usage?.queueReferences || 0) > 0) return;
   if (!confirm(`Delete ${file.fileName} from the Print Library? The stored controller copy will be removed.`)) return;
@@ -5752,6 +5757,7 @@ queueAddForm?.addEventListener('submit', async (event) => {
   }
 });
 clearQueueHistoryBtn?.addEventListener('click', async () => {
+  if (!canPurgeFarmRecords()) return;
   if (!confirm('Clear completed, failed and cancelled print history? Active and queued jobs will be kept.')) return;
   try {
     const result = await api('/api/queue/history', { method:'DELETE' });

@@ -30,7 +30,11 @@ Source of the proposed RBAC policy: `src/security/authorization-policy.js`; poli
 | Camera streams and SSE live fleet updates | ✓ | ✓ | ✓ |
 | Start/pause/resume/cancel prints, bed clearance, fans/temperatures | – | ✓ | ✓ |
 | Upload/delete printer files, create/reorder/cancel queue work | – | ✓ | ✓ |
-| Edit print library, filament definitions, assigned material/nozzle | – | ✓ | ✓ |
+| Purge completed/failed/cancelled queue history | – | – | ✓ |
+| Add/edit Print Library files, including metadata and favourites | – | ✓ | ✓ |
+| Permanently delete Print Library files | – | – | ✓ |
+| Assign filament type/colour and nozzle designations to printers | – | ✓ | ✓ |
+| Create, edit or delete central filament catalogue entries/prices | – | – | ✓ |
 | Complete/create/edit maintenance tasks | – | ✓ | ✓ |
 | Add/remove/rename printers, configure toolheads/offset calibration | – | – | ✓ |
 | Group membership/configuration, pricing/tax policy | – | – | ✓ |
@@ -40,7 +44,7 @@ Source of the proposed RBAC policy: `src/security/authorization-policy.js`; poli
 | User/role management and password reset | – | – | ✓ |
 | Development simulator management | – | – | ✓ |
 
-A viewer is **read-only**; a request changing alert read/unread flags is a mutation. An operator cannot download backups or diagnostic bundles (they may contain sensitive data), and cannot change role assignments. Administrators cannot access *undefined* API endpoints by privilege alone. Role names and permission strings are identifiers, not an entitlement bypass mechanism.
+A viewer is **read-only**; a request changing alert read/unread flags is a mutation. An operator cannot purge queue history, permanently delete stored Print Library files, or edit the shared filament cost catalogue; operators retain queue cancellation and printer-level filament/nozzle assignment. They also cannot download backups or diagnostic bundles (which may contain sensitive data), or change role assignments. Administrators cannot access *undefined* API endpoints by privilege alone. Role names and permission strings are identifiers, not an entitlement bypass mechanism.
 
 A later review must map **individual `/api/batch` and `/api/printers/:id/*` command payloads**, not just their HTTP route: if a single endpoint dispatches different action classes, authorize each supported action. Existing licence and printer-operation safety checks still apply afterwards. Consider narrowly scoped custom roles only once the three-role baseline is validated.
 
@@ -54,9 +58,9 @@ A later review must map **individual `/api/batch` and `/api/printers/:id/*` comm
 | Printer registry and tool configuration | `printer.read` | `printer.configure` (admin) |
 | Print controls, `/api/batch`, `/api/distribute` | Relevant read routes | `printer.operate` / `queue.manage` |
 | Printer files | `printer.read` | `printer.files.manage` |
-| Queue, production batches, bed clearance | `queue.read` | `queue.manage` |
-| Print Library and preview | `library.read` | `library.manage`; costing policy `pricing.manage` |
-| Filaments and tool material designation | `filament.read` | `filament.manage` |
+| Queue, production batches, bed clearance | `queue.read` | `queue.manage`; destructive history purge `queue.history.purge` (Administrator) |
+| Print Library and preview | `library.read` | `library.manage` (add/edit); `library.delete` (Administrator); costing policy `pricing.manage` |
+| Filament catalogue and printer-level designation | `filament.read` | `filament.assign` (printer assignment); `filament.manage` (Administrator catalogue changes) |
 | Printer Groups | `group.read` | `group.manage` |
 | Maintenance | `maintenance.read` | `maintenance.manage`; destructive history purge `maintenance.purge` |
 | Analytics/reports | `report.read` | No write |

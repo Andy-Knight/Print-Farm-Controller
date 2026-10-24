@@ -50,6 +50,9 @@ let reportingCurrencyActive = 'GBP';
 let reportingFilesScope = 'top10';
 let reportingFilesSort = { key:'completed', direction:'desc' };
 let reportingMaterialMode = 'type';
+// Legacy mode has no identity; once signed in, only administrators may edit
+// the central filament cost catalogue. Operator printer assignments are separate.
+const canManageFilamentCatalogue = () => !document.body.dataset.authRole || document.body.dataset.authRole === 'administrator';
 
 function clearReportingPricingMessages() {
   if (reportingPricingError) {
@@ -544,7 +547,8 @@ function publishReportingUiState(report = currentReport || {}) {
     fileSort:reportingFilesSort,
     materials:reportingMaterialRows(report?.materials || []),
     materialMode:reportingMaterialMode,
-    filaments:reportingFilamentsViewModel()
+    filaments:reportingFilamentsViewModel(),
+    canManageFilaments:canManageFilamentCatalogue()
   };
   window.__PFC_REPORTING_UI_STATE__ = detail;
   window.dispatchEvent(new CustomEvent('pfc:reporting-ui-state', { detail }));
@@ -781,13 +785,14 @@ function filamentLabel(item) {
 
 function renderFilamentCatalogue() {
   if (!filamentList) return;
+  if (filamentForm) filamentForm.hidden = !canManageFilamentCatalogue();
   if (window.__PFC_PREACT_REPORTING__) {
     publishReportingUiState(currentReport || {});
     return;
   }
   const rows = reportingFilamentsState;
   if (!rows.length) {
-    filamentList.innerHTML = '<div class="reporting-empty">No filament costs configured yet. Add a material and its current cost per kg.</div>';
+    filamentList.innerHTML = '<div class="reporting-empty">No filament costs configured yet.' + (canManageFilamentCatalogue() ? ' Add a material and its current cost per kg.' : '') + '</div>';
     return;
   }
   filamentList.innerHTML = rows.map((item) => `<div class="filament-cost-row">
@@ -799,10 +804,10 @@ function renderFilamentCatalogue() {
       <b>${escapeHtml(formatCurrencyTotals({ [item.currency]:item.costPerKg }))}</b>
       <span>per kg</span>
     </div>
-    <div class="mini-actions">
+    ${canManageFilamentCatalogue() ? `<div class="mini-actions">
       <button type="button" class="secondary" data-filament-edit="${escapeHtml(item.id)}">Edit</button>
       <button type="button" class="danger" data-filament-delete="${escapeHtml(item.id)}">Delete</button>
-    </div>
+    </div>` : ''}
   </div>`).join('');
 }
 
@@ -949,6 +954,7 @@ reportingPricingForm?.addEventListener('submit',async event=>{
 
 filamentForm?.addEventListener('submit', async (event) => {
   event.preventDefault();
+  if (!canManageFilamentCatalogue()) return;
   const id = filamentId?.value || '';
   if (filamentSubmitBtn) filamentSubmitBtn.disabled = true;
   if (filamentError) { filamentError.textContent = ''; filamentError.classList.add('hidden'); }
@@ -977,6 +983,7 @@ filamentForm?.addEventListener('submit', async (event) => {
 
 filamentCancelEdit?.addEventListener('click', resetFilamentForm);
 filamentList?.addEventListener('click', async (event) => {
+  if (!canManageFilamentCatalogue()) return;
   const edit = event.target.closest('[data-filament-edit]');
   if (edit) {
     const item = reportingFilamentsState.find((entry) => entry.id === edit.dataset.filamentEdit);

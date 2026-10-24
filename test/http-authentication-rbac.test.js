@@ -129,6 +129,31 @@ test('secure cookies, origin and CSRF checks enforce viewer/operator/admin backe
     assert.equal((await gate(auth,'POST','/api/printers/p/print',{cookie:viewer.cookie,csrf:viewer.csrf})).res.status,403);
     assert.equal((await gate(auth,'POST','/api/batch',{cookie:operator.cookie,csrf:operator.csrf})).allowed,true);
     assert.equal((await gate(auth,'POST','/api/printers',{cookie:operator.cookie,csrf:operator.csrf})).res.status,403);
+    // Operators retain production control and material/nozzle assignment.
+    for(const [method,pathname] of [
+      ['POST','/api/library'],['PATCH','/api/library/file'],
+      ['POST','/api/printers/p/material-designation'],
+      ['POST','/api/printers/p/nozzle-designation'],
+      ['POST','/api/printers/p/filament-config'],
+      ['DELETE','/api/printers/p/tool-material-designation']
+    ])assert.equal((await gate(auth,method,pathname,{
+      cookie:operator.cookie,csrf:operator.csrf
+    })).allowed,true,method+' '+pathname);
+    // Shared catalogue mutation and destructive data/history purges are admin-only.
+    for(const [method,pathname] of [
+      ['DELETE','/api/library/file'],
+      ['DELETE','/api/queue/history'],
+      ['POST','/api/filaments'],
+      ['PATCH','/api/filaments/catalogued'],
+      ['DELETE','/api/filaments/catalogued']
+    ]){
+      assert.equal((await gate(auth,method,pathname,{
+        cookie:operator.cookie,csrf:operator.csrf
+      })).res.status,403,method+' '+pathname);
+      assert.equal((await gate(auth,method,pathname,{
+        cookie:admin.cookie,csrf:admin.csrf
+      })).allowed,true,method+' '+pathname);
+    }
     assert.equal((await gate(auth,'GET','/api/backup/download/private',{cookie:operator.cookie})).res.status,403);
     assert.equal((await gate(auth,'GET','/api/diagnostics/bundle',{cookie:viewer.cookie})).res.status,403);
     assert.equal((await gate(auth,'GET','/simulator/',{cookie:operator.cookie})).res.status,403);

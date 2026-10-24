@@ -187,9 +187,15 @@ function initializeAccountUi(){
     for(const selector of ['#addPrinterBtn','.sidebar-quick-add','#scanNetworkBtn']){
       const el=$(selector);if(el)el.hidden=true;
     }
+    // Destructive farm-history and catalogue actions belong to administrators.
+    // The reporting and library renderers also respect this state so Preact
+    // re-renders cannot reintroduce forbidden action buttons.
+    for(const selector of ['#clearQueueHistoryBtn','#libraryDeleteSelectedBtn','#filamentForm']){
+      const el=$(selector);if(el)el.hidden=true;
+    }
     if(session.user.role==='viewer'){
-      for(const selector of ['#farmOperationsToggle','#queueAddFileBtn','#clearQueueHistoryBtn',
-        '#libraryAddFileBtn','#filamentForm','#maintenanceTaskForm']){
+      for(const selector of ['#farmOperationsToggle','#queueAddFileBtn',
+        '#libraryAddFileBtn','#maintenanceTaskForm']){
         const el=$(selector);if(el)el.hidden=true;
       }
     }

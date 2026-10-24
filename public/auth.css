@@ -65,3 +65,6 @@ html.auth-pending body>aside,html.auth-pending body>header,html.auth-pending bod
 #authSetupCancelBtn{margin-top:6px;min-height:var(--ds-button-height);}
 #authSetupStartBtn{min-height:var(--ds-button-height);}
 .auth-login-card:has(#authSetupSection:not([hidden])){width:min(540px,100%);}
+
+/* RBAC visibility: author-level layouts must not override hidden. */
+#filamentForm[hidden],#libraryDeleteSelectedBtn[hidden],#clearQueueHistoryBtn[hidden]{display:none!important;}

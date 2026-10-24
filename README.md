@@ -26,7 +26,7 @@ For contributing or AI-assisted development, follow [AGENTS.md](AGENTS.md) and t
 
 ## User accounts and access control
 
-The controller supports **local username/password login** and enforces role permissions on the server, not just by hiding buttons. **Administrator** can manage accounts, security, printer settings, licence, backups and cloud credentials. **Operator** can monitor printers, manage the print queue and Print Library and perform approved printer/filament/maintenance operations, but cannot manage users, credentials or restore backups. **Viewer** can see status, reports and camera feeds without making changes. Permissions are independent of signed edition/licence limits.
+The controller supports **local username/password login** and enforces role permissions on the server, not just by hiding buttons. **Administrator** can manage accounts, security, printer settings, licence, backups and cloud credentials. **Operator** can run printers, edit (but not delete) Print Library records, manage active/queued production, assign filament/nozzles to printers, and complete routine maintenance. Operators cannot purge queue history, change the shared filament cost catalogue, manage users, credentials or restore backups. **Viewer** can see status, reports and camera feeds without making changes. Permissions are independent of signed edition/licence limits.
 
 ### Set up the first administrator using the GUI
 
