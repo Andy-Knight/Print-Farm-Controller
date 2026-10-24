@@ -1563,8 +1563,12 @@
               <path class="auth-printer-layer auth-printer-layer-4" d="m230 231 89 19 87-18-88-19-88 18Zm0 17v-17m89 19v17m87-18v-17" />
               <path class="auth-printer-layer auth-printer-layer-5" d="m230 214 89 19 87-18-88-19-88 18Zm0 17v-17m89 19v17m87-18v-17" />
               <path class="auth-printer-rail" d="M144 126v93m367-93v93M144 144l182 35 185-35" />
-              <path class="auth-printer-head" d="m292 153 34 7 35-7v47l-35 13-34-13v-47Z"/>
-              <path class="auth-printer-nozzle" d="m312 210 14 22 14-22M326 228v-27" />
+              <!-- The entire toolhead travels along its rail; the SVG is decorative,
+                   and never represents an actual printer's state. -->
+              <g class="auth-printer-head-motion">
+                <path class="auth-printer-head" d="m292 153 34 7 35-7v47l-35 13-34-13v-47Z"/>
+                <path class="auth-printer-nozzle" d="m312 210 14 22 14-22M326 228v-27" />
+              </g>
               <path class="auth-printer-trace" d="m229 214 89 19 88-18" />
               <g class="auth-printer-pins">
                 <circle cx="82" cy="89" r="3"/><circle cx="575" cy="91" r="3"/>
