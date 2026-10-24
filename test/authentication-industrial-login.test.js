@@ -33,10 +33,16 @@ test('full-viewport control-centre branding is local, responsive and reduced-mot
   assert.match(css,/@media\(max-width:980px\)/);
   assert.match(css,/@media\(max-width:520px\)/);
   assert.match(css,/@media\(prefers-reduced-motion:reduce\)/);
-  assert.match(html,/class="auth-printer-head-motion"/);
-  assert.match(css,/\.auth-printer-head-motion\{[\s\S]*?animation:auth-head-travel 7s/);
-  assert.match(css,/@keyframes auth-head-travel\{/);
-  assert.match(css,/\.auth-printer-head-motion,[\s\S]*?\.auth-brand-symbol::after\{animation:none\}/);
+  assert.match(html,/id="authExtrusionPath" class="auth-printer-trace"/);
+  assert.match(html,/id="authPrinterHead" class="auth-printer-head-motion"/);
+  assert.match(html,/class="auth-printer-nozzle"/);
+  assert.match(html,/class="auth-heat-block"/);
+  assert.match(html,/class="auth-fan-ring"/);
+  assert.match(gate,/extrusionPath\.getPointAtLength\(distance\)/);
+  assert.match(gate,/carriage\.setAttribute\('transform'/);
+  assert.match(gate,/extrusionPath\.style\.strokeDashoffset/);
+  assert.match(gate,/requestAnimationFrame\(nextPrinterFrame\)/);
+  assert.doesNotMatch(css,/@keyframes auth-head-travel|@keyframes auth-trace/);
   assert.match(css,/@keyframes auth-logo-layer/);
   assert.match(css,/var\(--ds-page\)/);
   assert.match(css,/var\(--ds-brand\)/);
@@ -59,9 +65,10 @@ test('animation runs automatically with an accessible remembered pause control',
   assert.match(html,/id="authMotionToggle"/);
   assert.match(html,/id="authMotionLabel">Pause animation/);
   assert.match(css,/\.auth-motion-toggle:focus-visible/);
-  assert.match(css,/\.auth-overlay\[data-motion="off"\] \.auth-printer-head-motion/);
+  assert.match(gate,/syncPrinterAnimation\(\)/);
+  assert.match(css,/\.auth-overlay\[data-motion="off"\] \.auth-brand-symbol::after/);
   assert.match(css,/@media\(prefers-reduced-motion:reduce\)/);
-  assert.match(css,/\.auth-overlay\[data-motion="on"\] \.auth-printer-head-motion/);
+  assert.match(css,/\.auth-nozzle-tip\{fill:var\(--ds-brand\)\}/);
   assert.match(css,/\.auth-overlay\[data-motion="on"\] \.auth-brand-symbol::after/);
   assert.match(gate,/let motionChoice='on'/);
   assert.doesNotMatch(gate,/motionMedia|motionChoice='auto'/);
@@ -69,4 +76,16 @@ test('animation runs automatically with an accessible remembered pause control',
   assert.match(gate,/localStorage\.setItem\(motionPreferenceKey,motionChoice\)/);
   assert.match(gate,/motionChoice=motionChoice==='on'\?'off':'on'/);
   assert.match(gate,/button\.setAttribute\('aria-pressed',String\(running\)\)/);
+});
+
+test('login uses the identical Stacked Layers glyph geometry as the controller sidebar',()=>{
+  const sidebar=html.match(/class="stacked-layers-mark" viewBox="0 0 120 92"[\\s\\S]*?<\\/svg>/)?.[0];
+  const login=html.slice(html.indexOf('id="authOverlay"'));
+  assert.ok(sidebar,'sidebar retains the canonical logo');
+  for(const points of ['60,2 114,27 60,52 6,27',
+    '14,39 60,60 106,39 114,43 60,69 6,43',
+    '14,58 60,79 106,58 114,62 60,90 6,62']){
+    assert.match(sidebar,new RegExp('points="'+points+'"'));
+    assert.ok(login.includes('points="'+points+'"'),'login reuses the actual mark: '+points);
+  }
 });
