@@ -94,3 +94,66 @@ test('real HTTP dispatcher enforces login, CSRF and RBAC before controller actio
     await fs.rm(directory,{recursive:true,force:true});
   }
 });
+
+
+test('fresh HTTP deployment renders setup GUI while APIs are locked, then enables sign-in', {timeout:40000},async()=>{
+  const directory=await fs.mkdtemp(path.join(os.tmpdir(),'pfc-live-onboarding-'));
+  const dataDir=path.join(directory,'data'),logDir=path.join(directory,'logs');
+  let child;
+  try{
+    const port=await freePort(),base='http://127.0.0.1:'+port;
+    let privateStartupLogs='';
+    child=spawn(process.execPath,['src/server.js'],{
+      cwd,env:{...process.env,DATA_DIR:dataDir,LOG_DIR:logDir,
+        HOST:'127.0.0.1',PORT:String(port),PFC_AUTH_REQUIRED:'1',
+        PFC_AUTH_ALLOW_HTTP:'1',PFC_PUBLIC_ORIGIN:base},
+      stdio:['ignore','pipe','pipe']
+    });
+    child.stdout.on('data',data=>{privateStartupLogs+=String(data);});
+    child.stderr.on('data',data=>{privateStartupLogs+=String(data);});
+    await waitHealth(base,child);
+    for(const route of ['/','/users','/index.html']){
+      const shell=await fetch(base+route);
+      assert.equal(shell.status,200,'setup shell must remain accessible on '+route);
+      const markup=await shell.text();
+      assert.match(markup,/id="authSetupForm"/);
+      assert.match(shell.headers.get('content-type')||'',/html/);
+    }
+    for(const resource of ['/auth-gate.js','/auth.css']){
+      const res=await fetch(base+resource);
+      assert.equal(res.status,200,resource+' must remain accessible');
+    }
+    const pre=(await (await fetch(base+'/api/auth/session')).json());
+    assert.equal(pre.enabled,true);
+    assert.equal(pre.setupRequired,true);
+    assert.equal(pre.enrollmentAvailable,true);
+    assert.equal(pre.loginAvailable,true);
+    assert.equal((await fetch(base+'/api/fleet')).status,503);
+    assert.equal((await fetch(base+'/simulator/')).status,503);
+    assert.equal((await fetch(base+'/api/queue')).status,503);
+    const code=privateStartupLogs.match(/One-time enrollment code \(private\): ([0-9A-F]{48})/)?.[1];
+    assert.ok(code,'private setup code must be printed before HTTP startup');
+    assert.equal((await (await fetch(base+'/')).text()).includes(code),false);
+    const enroll=await fetch(base+'/api/auth/enroll',{
+      method:'POST',headers:{origin:base,'content-type':'application/json'},
+      body:JSON.stringify({code,username:'firstadmin',password,displayName:'Owner'})
+    });
+    assert.equal(enroll.status,201,await enroll.text());
+    assert.equal((await fetch(base+'/api/fleet')).status,401);
+    assert.equal((await fetch(base+'/')).status,200);
+    const login=await fetch(base+'/api/auth/login',{
+      method:'POST',headers:{origin:base,'content-type':'application/json'},
+      body:JSON.stringify({username:'firstadmin',password})
+    });
+    assert.equal(login.status,200);
+    assert.ok(login.headers.get('set-cookie')?.includes('pfc_session='));
+  }finally{
+    if(child&&child.exitCode===null){
+      const exit=once(child,'exit');
+      child.kill('SIGTERM');
+      await Promise.race([exit,new Promise(resolve=>setTimeout(resolve,3000))]);
+      if(child.exitCode===null)child.kill('SIGKILL');
+    }
+    await fs.rm(directory,{recursive:true,force:true});
+  }
+});
