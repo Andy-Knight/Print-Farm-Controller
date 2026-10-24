@@ -3580,16 +3580,26 @@ async function nativeAuthenticationSmoke(browser){
     throw error;
   }finally{
     await context?.close().catch(()=>{});
-    if(child){
-      child.kill();
-      await new Promise(resolve=>{
-        if(child.exitCode!==null)return resolve();
-        child.once('exit',resolve);
-        setTimeout(resolve,3000).unref();
-      });
-    }
+    await stopIsolatedController(child,'authentication fixture');
     await fs.rm(rootDir,{recursive:true,force:true}).catch(()=>{});
   }
+}
+
+/** The UI fixtures spawn real Node servers. SIGTERM may hang while clearing
+ * active SSE or printer streams; always reap child processes after testing. */
+async function stopIsolatedController(child,label){
+  if(!child)return;
+  if(child.exitCode!==null||child.signalCode!==null)return;
+  child.kill('SIGTERM');
+  await new Promise(resolve=>{
+    if(child.exitCode!==null||child.signalCode!==null)return resolve();
+    const timer=setTimeout(()=>{
+      console.warn('Chromium: forcing exit of '+label+' after graceful shutdown deadline');
+      child.kill('SIGKILL');
+      resolve();
+    },3000);
+    child.once('exit',()=>{clearTimeout(timer);resolve();});
+  });
 }
 
 async function main() {
@@ -3648,17 +3658,26 @@ async function main() {
     }
     process.exitCode=1;
   } finally {
-    await browser?.close().catch(()=>{});
-    if (processHandle) {
-      processHandle.kill();
-      await new Promise((resolve)=>{
-        if(processHandle.exitCode!==null)return resolve();
-        processHandle.once('exit',resolve);
-        setTimeout(resolve,3000).unref();
-      });
+    console.log('Chromium: closing browser and isolated controller');
+    if(browser){
+      let timer;
+      try {
+        await Promise.race([
+          browser.close(),
+          new Promise((_,reject)=>{timer=setTimeout(()=>reject(new Error('Chromium browser close timed out')),10000);})
+        ]);
+      }catch(error){
+        process.exitCode=1;
+        console.error('Chromium cleanup error:',error.message);
+      }finally{clearTimeout(timer);}
     }
-    if(dir) await fs.rm(dir,{recursive:true,force:true}).catch(()=>{});
+    await stopIsolatedController(processHandle,'visual test controller');
+    if(dir)await fs.rm(dir,{recursive:true,force:true}).catch(()=>{});
+    console.log('Chromium: browser regression cleanup complete');
   }
 }
 
+// Standalone smoke-test CLI: an orphaned Chromium transport or SSE socket
+// must not make a PASS run appear stuck until the GitHub job times out.
 await main();
+process.exit(process.exitCode||0);
