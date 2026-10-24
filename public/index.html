@@ -1552,9 +1552,9 @@
             <svg class="auth-printer-illustration" viewBox="0 0 660 410" fill="none"
                  xmlns="http://www.w3.org/2000/svg">
               <path class="auth-printer-base" d="M68 82 321 34 575 85V358L320 408 68 357ZM68 82 321 140 575 85"/>
-              <path class="auth-printer-guide" d="M321 140V390M91 109l230 48 235-47M91 337l230 48 235-45"/>
-              <path class="auth-printer-rail" d="M114 145 321 188 543 146"/>
-              <path class="auth-printer-belt" d="M115 135 321 177 542 135"/>
+              <path class="auth-printer-guide" d="M91 109l230 48 235-47M91 337l230 48 235-45"/>
+              <path class="auth-printer-rail" d="M114 145 321 165 543 145"/>
+              <path class="auth-printer-belt" d="M115 134 321 154 542 134"/>
               <path class="auth-printer-guideline" d="M98 57H176M469 62H550M78 391H166M484 388H568"/>
               <g class="auth-printer-pins">
                 <circle cx="68" cy="82" r="3"/><circle cx="575" cy="85" r="3"/>
@@ -1563,45 +1563,37 @@
               <path class="auth-printer-bed" d="M114 321 321 276 533 320 321 366Z"/>
               <path class="auth-printer-bed-edge" d="M114 321v8l207 45 212-45v-9"/>
               <path class="auth-printer-bed-inner" d="M156 319 321 284 490 319 321 354Z"/>
-              <path class="auth-printer-face-left" d="M235 237 321 255V337L235 318Z"/>
-              <path class="auth-printer-face-right" d="M321 255 407 237V318L321 337Z"/>
-              <path class="auth-printer-layer-lines" d="M235 252 321 270 407 252
-                M235 265 321 283 407 265
-                M235 278 321 296 407 278
-                M235 291 321 309 407 291
-                M235 304 321 322 407 304
-                M235 317 321 336 407 317"/>
-              <path class="auth-printer-part-edges" d="M235 237V318L321 337 407 318V237 M321 255V337"/>
-              <path class="auth-printer-top" d="M235 237 321 219 407 237 321 255Z"/>
+              <path class="auth-printer-face-left" d="M235 262 321 281V337L235 318Z"/>
+              <path class="auth-printer-face-right" d="M321 281 407 262V318L321 337Z"/>
+              <path class="auth-printer-layer-lines" d="M235 271 321 290 407 271
+                M235 280 321 299 407 280
+                M235 289 321 308 407 289
+                M235 298 321 317 407 298
+                M235 307 321 326 407 307
+                M235 316 321 335 407 316"/>
+              <path class="auth-printer-part-edges" d="M235 262V318L321 337 407 318V262 M321 281V337"/>
+              <path class="auth-printer-top" d="M235 262 321 241 407 262 321 281Z"/>
               <path id="authExtrusionPath" class="auth-printer-trace"
-                    d="M235 237 321 219 407 237 321 255Z"/>
+                    d="M235 262 321 241 407 262 321 281Z"/>
               <!-- Print carriage, blower fan, hotend, heat block and tapered
                    brass nozzle; tip at group local (0,0). -->
-              <g id="authPrinterHead" class="auth-printer-head-motion" transform="translate(235 237)">
-                <path class="auth-carriage-bracket" d="M-24-106H24L29-95H-29Z"/>
-                <path class="auth-carriage-roller" d="M-21-99h42M-24-91H24"/>
-                <rect class="auth-printer-head" x="-31" y="-90" width="62" height="48" rx="7"/>
-                <rect class="auth-carriage-upper" x="-24" y="-84" width="48" height="9" rx="2"/>
-                <circle class="auth-fan-ring" cx="0" cy="-61" r="13"/>
-                <circle class="auth-fan-hub" cx="0" cy="-61" r="4"/>
-                <path class="auth-fan-blades" d="M0-65l8-4 1 6-5 2M4-61l7 6-5 4-4-5
-                  M0-57l-8 5-3-6 6-3M-4-61l-7-6 5-4 4 5"/>
-                <path class="auth-hotend-mount" d="M-13-42h26v9H-13z"/>
-                <path class="auth-hotend-barrel" d="M-6-33h12v14H-6z"/>
-                <path class="auth-heat-block" d="M-13-19h26v10H-13z"/>
-                <path class="auth-printer-nozzle" d="M-9-9H9L2-1 0 0 -2-1Z"/>
+              <g id="authPrinterHead" class="auth-printer-head-motion" transform="translate(235 262)">
+                <!-- Compact hotend hangs below the gantry, inside the build volume. -->
+                <path class="auth-carriage-bracket" d="M-22-65H22L26-59H-26Z"/>
+                <path class="auth-carriage-roller" d="M-21-57h42M-22-55H22"/>
+                <rect class="auth-printer-head" x="-29" y="-54" width="58" height="31" rx="6"/>
+                <rect class="auth-carriage-upper" x="-21" y="-50" width="42" height="6" rx="2"/>
+                <circle class="auth-fan-ring" cx="0" cy="-39" r="10.5"/>
+                <circle class="auth-fan-hub" cx="0" cy="-39" r="3.5"/>
+                <path class="auth-fan-blades" d="M0-43l7-3 1 5-5 2M4-39l6 5-4 3-4-5
+                  M0-35l-7 4-2-5 6-3M-4-39l-6-5 4-3 4 5"/>
+                <path class="auth-hotend-mount" d="M-11-23h22v7H-11z"/>
+                <path class="auth-hotend-barrel" d="M-5-16h10v5H-5z"/>
+                <path class="auth-heat-block" d="M-12-11h24v5H-12z"/>
+                <path class="auth-printer-nozzle" d="M-8-6H8L2-1 0 0 -2-1Z"/>
                 <circle class="auth-nozzle-tip" cx="0" cy="0" r="1.8"/>
               </g>
             </svg>
-          </div>
-          <div class="auth-motion-controls">
-            <button id="authMotionToggle" class="auth-motion-toggle" type="button" aria-pressed="true" aria-label="Pause animation of decorative printer" title="Pause animation of decorative printer">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                <path d="M6.5 12a5.5 5.5 0 1 1 1.6 3.9M6.5 16v-4h4"/>
-                <path d="M10.5 9.5v5l3.5-2.5z"/>
-              </svg>
-              <span id="authMotionLabel">Pause animation</span>
-            </button>
           </div>
         </div>
         <div class="auth-story-footer"><span class="auth-footer-mark" aria-hidden="true"></span> LOCAL-FIRST 3D PRINT FARM MANAGEMENT</div>

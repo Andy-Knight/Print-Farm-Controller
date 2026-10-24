@@ -61,21 +61,23 @@ test('show-hide password button preserves the same input and exposes a11y state'
   assert.doesNotMatch(gate,/localStorage\.setItem\([^)]*password/);
 });
 
-test('animation runs automatically with an accessible remembered pause control',()=>{
-  assert.match(html,/id="authMotionToggle"/);
-  assert.match(html,/id="authMotionLabel">Pause animation/);
-  assert.match(css,/\.auth-motion-toggle:focus-visible/);
-  assert.match(gate,/syncPrinterAnimation\(\)/);
-  assert.match(css,/\.auth-overlay\[data-motion="off"\] \.auth-brand-symbol::after/);
-  assert.match(css,/@media\(prefers-reduced-motion:reduce\)/);
-  assert.match(css,/\.auth-nozzle-tip\{fill:var\(--ds-brand\)\}/);
-  assert.match(css,/\.auth-overlay\[data-motion="on"\] \.auth-brand-symbol::after/);
-  assert.match(gate,/let motionChoice='on'/);
-  assert.doesNotMatch(gate,/motionMedia|motionChoice='auto'/);
-  assert.match(gate,/localStorage\.getItem\(motionPreferenceKey\)/);
-  assert.match(gate,/localStorage\.setItem\(motionPreferenceKey,motionChoice\)/);
-  assert.match(gate,/motionChoice=motionChoice==='on'\?'off':'on'/);
-  assert.match(gate,/button\.setAttribute\('aria-pressed',String\(running\)\)/);
+test('automatic extrusion has no pause button or stale browser motion preference',()=>{
+  assert.doesNotMatch(html,/id="authMotionToggle"|id="authMotionLabel"|class="auth-motion-controls"/);
+  assert.doesNotMatch(css,/\.auth-motion-toggle|\.auth-motion-controls|data-motion="off"/);
+  assert.doesNotMatch(gate,/motionPreferenceKey|motionChoice|localStorage\.getItem\(motionPreferenceKey\)/);
+  assert.match(gate,/extrusionPath\.getPointAtLength\(distance\)/);
+  assert.match(gate,/extrusionPath\.style\.strokeDashoffset=String\(extrusionLength-distance\)/);
+  assert.match(gate,/requestAnimationFrame\(nextPrinterFrame\)/);
+  assert.match(gate,/document\.addEventListener\('visibilitychange',syncPrinterAnimation\)/);
+});
+
+test('printer carriage and wall layers are safely inset below the upper gantry',()=>{
+  assert.match(html,/M114 145 321 165 543 145/);
+  assert.match(html,/M235 262 321 241 407 262 321 281Z/);
+  assert.match(html,/class="auth-carriage-bracket" d="M-22-65H22/);
+  assert.match(html,/class="auth-printer-face-left" d="M235 262 321 281V337L235 318Z"/);
+  assert.match(html,/class="auth-printer-nozzle" d="M-8-6H8L2-1 0 0 -2-1Z"/);
+  assert.doesNotMatch(html,/M321 140V390|M114 145 321 188 543 146/);
 });
 
 test('login uses the identical Stacked Layers glyph geometry as the controller sidebar',()=>{

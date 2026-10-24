@@ -3523,48 +3523,34 @@ async function nativeAuthenticationSmoke(browser){
       return Math.hypot(point.x-head.e,point.y-head.f);
     });
     assert.ok(alignment<.5,'moving nozzle must stay aligned with its visible extrusion point');
-    // Unlike general workspace decoration, this calm illustration is
-    // deliberately active by default without Windows or Chrome changes.
-    // The user can always pause it; a saved pause wins on later visits.
+    // The toolhead body must stay BELOW the gantry, not pass through the
+    // top frame as the head tracks the physical extrusion path. Sampling the
+    // complete SVG perimeter catches collisions missing from still previews.
+    const clearance=await page.evaluate(()=>{
+      const path=document.querySelector('#authExtrusionPath');
+      const length=path.getTotalLength();
+      let minimum=Infinity;
+      for(let i=0;i<=120;i++){
+        const p=path.getPointAtLength(length*i/120);
+        // Actual SVG gantry coordinates: 114,145 -> 321,165 -> 543,145.
+        const rail=p.x<=321
+          ?145+(p.x-114)*20/207
+          :165-(p.x-321)*20/222;
+        minimum=Math.min(minimum,p.y-65-rail);
+      }
+      return minimum;
+    });
+    assert.ok(clearance>8,
+      'head housing must clear the top gantry at every point of the extrusion path');
+    assert.equal(await page.locator('#authMotionToggle').count(),0,
+      'login must no longer show a pause animation button');
     await page.emulateMedia({reducedMotion:'reduce'});
-    const motionButton=page.locator('#authMotionToggle');
-    assert.equal(await motionButton.getAttribute('aria-pressed'),'true',
-      'decorative printer animation starts automatically even with Windows reduced motion');
-    assert.equal(await page.locator('#authMotionLabel').textContent(),'Pause animation');
-    assert.equal(await page.locator('#authPrinterHead').evaluate(el=>
-      Boolean(el.transform.baseVal.consolidate())) ,true,
-      'the printer head has a concrete SVG position under reduced motion');
-    assert.ok(await page.locator('#authExtrusionPath').evaluate(el=>
-      Number(el.style.strokeDashoffset)>0),'extrusion is visibly being deposited');
-    await motionButton.click();
-    assert.equal(await motionButton.getAttribute('aria-pressed'),'false');
-    assert.equal(await page.locator('#authMotionLabel').textContent(),'Play animation');
-    const pausedHead=await page.locator('#authPrinterHead').getAttribute('transform');
-    await page.waitForTimeout(150);
-    assert.equal(await page.locator('#authPrinterHead').getAttribute('transform'),pausedHead,
-      'Pause animation freezes the carriage');
-    assert.equal(await page.locator('#authExtrusionPath').evaluate(el=>
-      el.style.strokeDashoffset),'0','pausing shows a complete static top layer');
-    assert.equal(await page.evaluate(()=>localStorage.getItem('pfc-auth-illustration-motion')),
-      'off','the pause choice is stored separately from accounts');
-    await page.reload({waitUntil:'load'});
-    await page.locator('#authOverlay').waitFor({state:'visible'});
-    assert.equal(await page.locator('#authMotionToggle').getAttribute('aria-pressed'),'false',
-      'a deliberate pause survives a login page reload');
-    assert.equal(await page.locator('#authExtrusionPath').evaluate(el=>
-      el.style.strokeDashoffset),'0','a remembered pause produces a static top layer');
-    await page.locator('#authMotionToggle').click();
-    await page.waitForFunction(()=>Number(document.querySelector('#authExtrusionPath')
-      ?.style.strokeDashoffset)>0,null,{timeout:5000});
-    assert.equal(await page.evaluate(()=>localStorage.getItem('pfc-auth-illustration-motion')),
-      'on','resumed animation choice is stored');
-    await page.evaluate(()=>localStorage.removeItem('pfc-auth-illustration-motion'));
-    await page.reload({waitUntil:'load'});
-    await page.locator('#authOverlay').waitFor({state:'visible'});
-    assert.equal(await page.locator('#authMotionToggle').getAttribute('aria-pressed'),'true',
-      'fresh browser storage uses the automatic animation default');
-    assert.ok(await page.locator('#authPrinterHead').evaluate(el=>
-      Boolean(el.transform.baseVal.consolidate())));
+    const initialOffset=await page.locator('#authExtrusionPath').evaluate(el=>
+      el.style.strokeDashoffset);
+    await page.waitForFunction(initial=>document.querySelector('#authExtrusionPath')
+      ?.style.strokeDashoffset!==initial,initial,{timeout:5000});
+    assert.equal(await page.locator('#authPrinterHead').isVisible(),true,
+      'the printhead still animates automatically in Windows Chrome');
     await page.emulateMedia({reducedMotion:'no-preference'});
     await page.setViewportSize({width:820,height:844});
     assert.equal(await page.locator('.auth-printer-art').isVisible(),true,
@@ -3581,20 +3567,9 @@ async function nativeAuthenticationSmoke(browser){
       getComputedStyle(element,'::after').animationName),'auth-logo-layer',
       'phone layout has a subtle animated brand layer');
     await page.emulateMedia({reducedMotion:'reduce'});
-    assert.equal(await page.locator('.auth-brand-symbol').evaluate(element=>
-      getComputedStyle(element,'::after').animationName),'auth-logo-layer',
-      'the small mobile brand line also animates without user configuration');
-    await page.locator('#authMotionToggle').click();
-    assert.equal(await page.locator('.auth-brand-symbol').evaluate(element=>
-      getComputedStyle(element,'::after').animationName),'none',
-      'mobile Pause animation stops the line');
-    await page.locator('#authMotionToggle').click();
-    assert.equal(await page.locator('.auth-brand-symbol').evaluate(element=>
-      getComputedStyle(element,'::after').animationName),'auth-logo-layer',
-      'mobile Play animation resumes the line');
-    await page.evaluate(()=>localStorage.removeItem('pfc-auth-illustration-motion'));
-    await page.reload({waitUntil:'load'});
-    await page.locator('#authOverlay').waitFor({state:'visible'});
+    assert.equal(await page.locator('.auth-brand-symbol').evaluate(el=>
+      getComputedStyle(el,'::after').animationName),'auth-logo-layer',
+      'mobile brand line remains subtle and automatic without extra controls');
     await page.emulateMedia({reducedMotion:'no-preference'});
     const mobile=await page.evaluate(()=>({
       scroll:document.documentElement.scrollWidth,

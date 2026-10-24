@@ -30,10 +30,9 @@ The **Industrial Control Centre** sign-in screen uses a split desktop layout wit
 technical 3D-printer illustration with a recognizable carriage, cooling fan, hotend and nozzle, and standard controller theme colours. The nozzle tip follows the actual visible toolpath as the top perimeter is drawn; the genuine Stacked Layers layered logo from the sidebar identifies the login screen.
 The decorative printhead motion **starts automatically**, including on Windows 11 and Chrome
 when the operating system requests reduced motion. No Windows or browser configuration is
-required. A visible **Pause animation** button lets users stop the movement immediately and
-remembers their choice locally; **Play animation** restarts it. This opt-out applies only to the
-login illustration, not the application's other motion settings, and contains no account or
-authentication information. On phones the illustration yields to a compact branded header above the sign-in form. The same screen supports initial administrator
+required. The animated printer remains a passive part of the branded sign-in screen, without a
+Pause/Play control or stored browser preference. Its compact toolhead and nozzle stay
+inside the illustrated machine, below the raised gantry, while tracing the top layer. On phones the illustration yields to a compact branded header above the sign-in form. The same screen supports initial administrator
 setup, login errors and HTTP security warnings. The sign-in password field includes an
 accessible show/hide button. No printer state is displayed before login.
 

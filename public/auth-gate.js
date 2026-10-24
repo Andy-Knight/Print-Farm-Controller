@@ -8,15 +8,8 @@ const errorLabel=$('#authLoginError');
 const loginForm=$('#authLoginForm');
 let session=null;
 
-// Presentation preference only. The slow, decorative printer animation
-// starts automatically on the login screen, including when Windows requests
-// reduced motion; the controller's other animations are not affected.
-// Anyone can pause it immediately using the adjacent accessible control.
-// Persist only this on/off preference: never authentication information.
-const motionPreferenceKey='pfc-auth-illustration-motion';
-let motionChoice='on';
-// A single shared SVG path is the source of truth for both visible filament
-// extrusion and nozzle coordinates. No separate, drifting CSS animation.
+// One isometric coordinate system drives both the nozzle and extrusion.
+// Motion starts automatically without a separate login-screen button.
 const extrusionPath=$('#authExtrusionPath');
 const carriage=$('#authPrinterHead');
 const extrusionLength=extrusionPath?.getTotalLength()||0;
@@ -27,15 +20,13 @@ function drawPrinter(progress){
   if(!extrusionPath||!carriage||!extrusionLength)return;
   const distance=progress*extrusionLength;
   const point=extrusionPath.getPointAtLength(distance);
-  // Group origin = physical nozzle tip, including the pointed brass end.
   carriage.setAttribute('transform',`translate(${point.x} ${point.y})`);
   extrusionPath.style.strokeDasharray=String(extrusionLength);
-  extrusionPath.style.strokeDashoffset=motionChoice==='on'
-    ?String(extrusionLength-distance):'0';
+  extrusionPath.style.strokeDashoffset=String(extrusionLength-distance);
 }
 function nextPrinterFrame(time){
   printerFrame=0;
-  if(motionChoice!=='on'||lock.hidden||document.visibilityState==='hidden')return;
+  if(lock.hidden||document.visibilityState==='hidden')return;
   if(printerStart===null)printerStart=time;
   drawPrinter(((time-printerStart)%printCycleMs)/printCycleMs);
   printerFrame=requestAnimationFrame(nextPrinterFrame);
@@ -45,31 +36,10 @@ function syncPrinterAnimation(){
   printerFrame=0;
   printerStart=null;
   drawPrinter(0);
-  if(motionChoice==='on'&&!lock.hidden&&document.visibilityState==='visible')
+  if(!lock.hidden&&document.visibilityState==='visible')
     printerFrame=requestAnimationFrame(nextPrinterFrame);
 }
 document.addEventListener('visibilitychange',syncPrinterAnimation);
-try{
-  if(localStorage.getItem(motionPreferenceKey)==='off')motionChoice='off';
-}catch{ /* The control still works for this visit without storage access. */ }
-function updateMotionControl(){
-  const running=motionChoice==='on';
-  lock.dataset.motion=motionChoice;
-  const button=$('#authMotionToggle');
-  if(!button)return;
-  const label=running?'Pause animation':'Play animation';
-  button.setAttribute('aria-pressed',String(running));
-  button.setAttribute('aria-label',label+' of decorative printer');
-  button.title=label+' of decorative printer';
-  $('#authMotionLabel').textContent=label;
-  syncPrinterAnimation();
-}
-$('#authMotionToggle')?.addEventListener('click',()=>{
-  motionChoice=motionChoice==='on'?'off':'on';
-  try{localStorage.setItem(motionPreferenceKey,motionChoice);}catch{}
-  updateMotionControl();
-});
-updateMotionControl();
 
 function errorText(error){return error instanceof Error?error.message:String(error);}
 async function call(path,options={}){
