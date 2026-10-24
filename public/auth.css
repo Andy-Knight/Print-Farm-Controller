@@ -380,34 +380,12 @@ html.auth-pending body>aside,html.auth-pending body>header,html.auth-pending bod
 .auth-motion-toggle:hover{background:var(--ds-brand-soft);color:var(--ds-text)}
 .auth-motion-toggle:focus-visible{outline:2px solid var(--ds-focus);outline-offset:2px}
 .auth-motion-toggle[aria-pressed="true"]{color:var(--ds-brand)}
-.auth-overlay[data-motion="off"] .auth-printer-head-motion,
-.auth-overlay[data-motion="off"] .auth-printer-trace,
-.auth-overlay[data-motion="off"] .auth-printer-layer-4,
-.auth-overlay[data-motion="off"] .auth-printer-layer-5,
 .auth-overlay[data-motion="off"] .auth-brand-symbol::after{animation:none}
-.auth-overlay[data-motion="off"] .auth-printer-trace{stroke-dashoffset:0}
 @media(prefers-reduced-motion:reduce){
-  .auth-printer-head-motion,
-  .auth-printer-trace,
-  .auth-printer-layer-4,
-  .auth-printer-layer-5,
   .auth-brand-symbol::after{animation:none}
-  .auth-printer-trace{stroke-dashoffset:0}
   .auth-input-wrap>input{transition:none}
-  /* Deliberate login-illustration exception: its slow movement starts by
-   * default even under reduced-motion. Pause animation saves the user's
-   * opt-out. No other controller motion is overridden here. */
-  .auth-overlay[data-motion="on"] .auth-printer-head-motion{
-    animation:auth-head-travel 7s ease-in-out infinite;
-  }
-  .auth-overlay[data-motion="on"] .auth-printer-trace{
-    animation:auth-trace 7s ease-in-out infinite;
-  }
-  .auth-overlay[data-motion="on"] .auth-printer-layer-4,
-  .auth-overlay[data-motion="on"] .auth-printer-layer-5{
-    animation:auth-layer-highlight 7s ease-in-out infinite;
-  }
-  .auth-overlay[data-motion="on"] .auth-printer-layer-5{animation-delay:.35s}
+  /* Only the slow login illustration may run by default. Its nozzle is
+   * animated with exact path geometry in auth-gate.js, not CSS keyframes. */
   .auth-overlay[data-motion="on"] .auth-brand-symbol::after{
     animation:auth-logo-layer 3.5s ease-in-out infinite;
   }
