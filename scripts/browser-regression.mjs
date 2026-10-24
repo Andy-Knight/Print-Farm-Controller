@@ -3753,7 +3753,7 @@ async function nativeAuthenticationSmoke(browser){
         })).catch(()=>({unavailable:true})));
         // A hung UI account-list fetch can otherwise look like an unrelated
         // menu failure. Compare network access from browser and API context.
-        console.error('Auth users HTTP probe:',await p.request.get(url+'/api/auth/users',
+        console.error('Auth users HTTP probe:',await p.request.get(new URL('/api/auth/users',p.url()).toString(),
           {timeout:4500}).then(async response=>({
           status:response.status(),preview:(await response.text()).slice(0,180)
         })).catch(error=>({error:String(error).slice(0,220)})));
