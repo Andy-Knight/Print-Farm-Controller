@@ -26,6 +26,7 @@ const carriage=$('#authPrinterHead');
 const completedLayers=$('#authPyramidLayers');
 const bedGrid=$('#authBuildGrid');
 const layerCounter=$('#authPrintLayer');
+const layerProgress=$('#authLayerProgress');
 let printerFrame=0;
 let printerStart=null;
 let lastRenderedLayer=-1;
@@ -113,6 +114,9 @@ function drawPrinter(layer=0,progress=0,finished=layer){
   extrusionPath.style.strokeDasharray=String(length);
   extrusionPath.style.strokeDashoffset=String(length-distance);
   if(layerCounter)layerCounter.textContent=String(activeLayer+1).padStart(2,'0');
+  // Fill follows deposited perimeter distance, not an independent timer.
+  if(layerProgress)layerProgress.setAttribute('width',
+    ((activeLayer+amount)/pyramidLayerCount*184).toFixed(2));
 }
 function nextPrinterFrame(time){
   printerFrame=0;

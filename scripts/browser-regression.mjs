@@ -3503,6 +3503,17 @@ async function nativeAuthenticationSmoke(browser){
         nozzle:Boolean(head.querySelector('.auth-head-guide')&&head.querySelector('.auth-heat-block')
           &&head.querySelector('.auth-printer-nozzle')),
         grid:Boolean(document.querySelector('.auth-build-grid')),
+        clippedGrid:document.querySelector('#authBuildGrid')?.getAttribute('clip-path')===
+          'url(#authBuildPlateCrop)',
+        quietBackdrop:getComputedStyle(document.querySelector('.auth-story'),'::before')
+          .backgroundImage==='none',
+        radialGlow:getComputedStyle(document.querySelector('.auth-story'))
+          .backgroundImage.includes('radial-gradient'),
+        plateShadow:Boolean(document.querySelector('.auth-bed-shadow')),
+        contactShadow:Boolean(document.querySelector('.auth-pyramid-contact-shadow')),
+        progressMeter:Boolean(document.querySelector('.auth-printer-illustration')
+          ?.contains(document.querySelector('#authLayerProgress'))
+          &&document.querySelector('.auth-layer-progress-track')),
         removedDemoHeading:document.querySelector('.auth-print-telemetry-heading')===null,
         pathLength:total,nozzleError:Math.hypot(point.x-matrix.e,point.y-matrix.f)};
     });
@@ -3512,6 +3523,12 @@ async function nativeAuthenticationSmoke(browser){
     assert.ok(desktop.exactLogo,'sign-in uses the actual layered controller brand mark');
     assert.ok(desktop.nozzle,'minimal amber nozzle and guide are present on the print bed');
     assert.ok(desktop.grid,'45-degree isometric grid is rendered behind the pyramid');
+    assert.ok(desktop.clippedGrid,'only the isometric build plate contains the grid');
+    assert.ok(desktop.quietBackdrop,'no square graph-paper overlay remains');
+    assert.ok(desktop.radialGlow,'subtle radial illumination replaces the square grid');
+    assert.ok(desktop.plateShadow&&desktop.contactShadow,
+      'plate and printed layers have restrained depth');
+    assert.ok(desktop.progressMeter,'the layer counter has a compact progress meter');
     assert.equal(desktop.removedDemoHeading,true,
       'no Pyramid Build – Demo heading should appear over the animation');
     assert.ok(desktop.pathLength>550,'first pyramid layer spans a complete isometric perimeter');
@@ -3544,7 +3561,9 @@ async function nativeAuthenticationSmoke(browser){
       const counter=Number(document.querySelector('#authPrintLayer').textContent);
       return {shells:shells.length,footprints,activeWidth:active.getBBox().width,
         layer:counter,tipError:Math.hypot(p.x-tip.e,p.y-tip.f),
-        grid:grid.length,startsWith45DegreeAngles:grid.some(line=>{
+        grid:grid.length,
+        progressWidth:Number(document.querySelector('#authLayerProgress')?.getAttribute('width')),
+        startsWith45DegreeAngles:grid.some(line=>{
           const box=line.getBBox();
           return box.width>100&&box.height>40;
         })};
@@ -3556,6 +3575,9 @@ async function nativeAuthenticationSmoke(browser){
       'the moving nozzle prints successively narrower pyramid contours');
     assert.equal(build.layer,build.shells+1,
       'the demo layer counter must advance as each actual tier is completed');
+    assert.ok(build.progressWidth>184*build.shells/18
+      &&build.progressWidth<184*(build.shells+1)/18,
+      'layer progress advances in sync with the active deposited perimeter');
     assert.ok(build.tipError<.5,'the nozzle stays on the shrinking active perimeter');
     assert.ok(build.grid>=20&&build.startsWith45DegreeAngles,
       'bed grid lines must share the pyramid’s angled isometric projection');

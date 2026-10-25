@@ -93,24 +93,13 @@ html.auth-pending body>aside,html.auth-pending body>header,html.auth-pending bod
   flex-direction:column;
   justify-content:space-between;
   padding:clamp(28px,3.6vw,62px);
+  /* A single, static, low-contrast halo; the print motion is the focal point. */
   background:
-    radial-gradient(ellipse at 64% 61%,var(--ds-brand-soft),transparent 58%),
+    radial-gradient(ellipse 64% 49% at 54% 63%,
+      color-mix(in srgb,var(--ds-brand) 9%,transparent) 0%,transparent 82%),
     var(--ds-surface-raised);
   border-right:1px solid var(--ds-border);
   color:var(--ds-text);
-}
-.auth-story::before{
-  content:"";
-  pointer-events:none;
-  position:absolute;
-  inset:0;
-  z-index:-1;
-  opacity:.48;
-  background-image:
-    linear-gradient(to right,var(--ds-border) 1px,transparent 1px),
-    linear-gradient(to bottom,var(--ds-border) 1px,transparent 1px);
-  background-size:42px 42px;
-  mask-image:linear-gradient(to bottom,transparent 8%,black 48%,transparent 100%);
 }
 .auth-brand{display:flex;align-items:center;gap:13px;z-index:1}
 .auth-brand-symbol{
@@ -159,32 +148,41 @@ html.auth-pending body>aside,html.auth-pending body>header,html.auth-pending bod
   color:var(--ds-brand);
 }
 .auth-printer-art svg{width:100%;height:auto;display:block;overflow:visible}
-.auth-bed-backdrop{fill:var(--ds-page);fill-opacity:.18}
-.auth-build-grid{
-  stroke:var(--ds-brand);
-  stroke-opacity:.19;
-  stroke-width:1.15;
-  stroke-linecap:square;
+/* The only calibration grid is clipped to the projected build plate. */
+.auth-bed-shadow{
+  fill:var(--ds-text);
+  fill-opacity:.075;
+  filter:blur(12px);
 }
 .auth-build-area{
   stroke:var(--ds-brand);
-  stroke-width:1.8;
-  stroke-opacity:.36;
-  stroke-dasharray:5 8;
-  fill:var(--ds-brand-soft);
-  fill-opacity:.25;
+  stroke-width:1.45;
+  stroke-opacity:.35;
+  stroke-dasharray:4 9;
+  fill:var(--ds-surface);
+  fill-opacity:.26;
 }
-.auth-build-guides{stroke:var(--ds-brand);stroke-opacity:.085;stroke-width:1}
+.auth-build-grid{
+  stroke:var(--ds-text-subtle);
+  stroke-opacity:.19;
+  stroke-width:.9;
+  stroke-linecap:square;
+}
+.auth-pyramid-contact-shadow{
+  fill:var(--ds-text);
+  fill-opacity:.13;
+  filter:blur(6px);
+}
 .auth-pyramid-face-left{
   fill:var(--ds-brand);
-  fill-opacity:.105;
+  fill-opacity:.14;
   stroke:var(--ds-brand);
   stroke-width:.85;
   stroke-opacity:.32;
 }
 .auth-pyramid-face-right{
   fill:var(--ds-brand);
-  fill-opacity:.20;
+  fill-opacity:.27;
   stroke:var(--ds-brand);
   stroke-width:.9;
   stroke-opacity:.42;
@@ -192,7 +190,7 @@ html.auth-pending body>aside,html.auth-pending body>header,html.auth-pending bod
 .auth-pyramid-finished-ring{
   fill:none;
   stroke:var(--ds-brand);
-  stroke-opacity:.63;
+  stroke-opacity:.72;
   stroke-width:1.85;
   stroke-linecap:round;
   stroke-linejoin:round;
@@ -220,11 +218,13 @@ html.auth-pending body>aside,html.auth-pending body>header,html.auth-pending bod
 .auth-printer-nozzle{fill:var(--ds-warning);stroke:var(--ds-warning);stroke-width:1}
 .auth-nozzle-tip{fill:var(--ds-warning)}
 .auth-print-telemetry-layer{
-  fill:var(--ds-text);
-  font-size:13px;
-  font-weight:700;
-  letter-spacing:.025em;
+  fill:var(--ds-text-muted);
+  font-size:12.5px;
+  font-weight:750;
+  letter-spacing:.065em;
 }
+.auth-layer-progress-track{fill:var(--ds-border-strong);opacity:.62}
+.auth-layer-progress-fill{fill:var(--ds-brand);opacity:.94}
 .auth-story-footer{
   z-index:1;display:flex;align-items:center;gap:11px;
   color:var(--ds-text-subtle);letter-spacing:.11em;font-size:.64rem;

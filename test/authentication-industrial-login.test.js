@@ -107,6 +107,21 @@ test('45-degree pyramid build has eighteen narrowing, rising, aligned layers',()
   assert.doesNotMatch(html,/auth-printer-base|auth-printer-rail|auth-carriage-roller|auth-fan-ring/);
 });
 
+test('minimal blueprint background uses only a clipped isometric bed and a live layer meter',()=>{
+  assert.doesNotMatch(css,/\.auth-story::before\s*\{/,
+    'remove the competing square graph-paper background');
+  assert.match(css,/radial-gradient\(ellipse 64% 49% at 54% 63%/);
+  assert.doesNotMatch(html,/id="authPrintGridCrop"|authPrintSurfaceGlow|class="auth-bed-backdrop"/);
+  assert.match(html,/id="authBuildPlateCrop"/);
+  assert.match(html,/id="authBuildGrid" class="auth-build-grid"\s+clip-path="url\(#authBuildPlateCrop\)"/);
+  assert.match(html,/class="auth-bed-shadow"/);
+  assert.match(html,/class="auth-pyramid-contact-shadow"/);
+  assert.match(html,/id="authLayerProgress" class="auth-layer-progress-fill"/);
+  assert.match(gate,/layerProgress\.setAttribute\('width'/);
+  assert.match(gate,/\(activeLayer\+amount\)\/pyramidLayerCount\*184/);
+  assert.doesNotMatch(html,/auth-build-guides/);
+});
+
 test('login uses the identical Stacked Layers glyph geometry as the controller sidebar',()=>{
   const sidebarStart=html.indexOf('<svg class="stacked-layers-mark"');
   const sidebar=sidebarStart<0?'':html.slice(sidebarStart,html.indexOf('</svg>',sidebarStart)+6);
