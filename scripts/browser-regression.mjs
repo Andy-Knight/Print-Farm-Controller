@@ -1021,8 +1021,8 @@ async function libraryCostSmoke(page,url) {
 // Browser smoke against real API-backed temporary library files (never run
 // mutations against an external configured controller). Verifies that the
 // selected row, toolbar and existing queue/edit/delete workflows still work.
-// Validate the narrowed desktop Print Library table against browser geometry
-// and retain responsive cards before the fixed tracks would overflow.
+// Validate that the desktop Print Library fills the same sidebar-constrained
+// workspace as other routes without oversized trailing tracks or clipped cards.
 async function libraryCompactTableSmoke(page,url) {
   await page.setViewportSize({width:1920,height:900});
   await page.goto(url+'/library',{waitUntil:'load'});
@@ -1107,7 +1107,10 @@ async function libraryCompactTableSmoke(page,url) {
       const sale=row.querySelector('.library-sale-cell');
       const history=row.querySelector('.library-history-cell');
       return {
-        main:box(main),header:box(header),row:box(row),
+        main:box(main),page:box(document.querySelector('#libraryDialog')),
+        workspaceWidth:main.clientWidth-parseFloat(getComputedStyle(main).paddingLeft)
+          -parseFloat(getComputedStyle(main).paddingRight),
+        header:box(header),row:box(row),
         visible:getComputedStyle(header).display!=='none',
         headings,cells,sale:box(sale),history:box(history),
         windowWidth:window.innerWidth,docWidth:document.documentElement.scrollWidth
@@ -1115,9 +1118,15 @@ async function libraryCompactTableSmoke(page,url) {
     });
     if(viewport.desktop){
       assert.ok(geometry.visible,'desktop Print Library retains sortable table header');
-      assert.ok(geometry.header.width<=1302,'table should be capped at approximately 1300px');
+      assert.ok(Math.abs(geometry.page.width-geometry.workspaceWidth)<=2,
+        'Print Library page must use the shared sidebar-aware workspace width: '+JSON.stringify({viewport,geometry}));
+      assert.ok(Math.abs(geometry.header.width-geometry.page.width)<=2,
+        'Print Library table must fill its routed page, just like other workspace tables');
       assert.ok(geometry.header.right<=geometry.main.right+1,
         'table must fit within the sidebar-constrained workspace');
+      if(viewport.width===1920)
+        assert.ok(geometry.header.width>1400,
+          'wide desktops must not inherit the obsolete 1300px library-only cap');
       assert.equal(geometry.headings.length,9);
       assert.equal(geometry.cells.length,9);
       const saleTrack=geometry.headings[7],historyTrack=geometry.headings[8];
