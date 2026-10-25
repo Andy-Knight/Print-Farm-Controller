@@ -102,7 +102,10 @@ test('45-degree pyramid build has eighteen narrowing, rising, aligned layers',()
   assert.match(gate,/function showCompletedLayers\(count\)/);
   assert.match(gate,/completedLayers\.replaceChildren\(fragment\)/);
   assert.match(gate,/completedLayers\.dataset\.demoCompletedLayers=String\(count\)/);
-  assert.match(gate,/drawPrinter\(layer,\(elapsed%pyramidLayerMs\)\/pyramidLayerMs\)/);
+  assert.match(gate,/const amount=\(phase%pyramidLayerMs\)\/pyramidLayerMs/);
+  assert.match(gate,/drawPrinter\(layer,amount\)/);
+  assert.match(gate,/renderPrinterPhase\(elapsed\)/,
+    'solo print follows the shared perimeter animation before the early zoom');
   assert.match(gate,/extrusionPath\.getPointAtLength\(distance\)/);
   assert.doesNotMatch(html,/auth-printer-base|auth-printer-rail|auth-carriage-roller|auth-fan-ring/);
 });
