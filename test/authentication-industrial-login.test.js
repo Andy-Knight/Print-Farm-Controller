@@ -122,7 +122,7 @@ test('minimal blueprint background uses only a clipped isometric bed and a live 
   assert.doesNotMatch(html,/auth-build-guides/);
 });
 
-test('finished pyramid zooms out into four independently printing beds linked to one controller',()=>{
+test('fourth-layer pyramid zooms out into four independently printing beds linked to one controller',()=>{
   assert.match(html,/id="authSoloPrinter"/);
   assert.match(html,/id="authFarmConnections"[^>]*visibility="hidden"/);
   assert.match(html,/id="authFarmReplicas"[^>]*visibility="hidden"/);
@@ -132,19 +132,30 @@ test('finished pyramid zooms out into four independently printing beds linked to
     assert.ok(html.includes(name),'missing illustrated '+name);
   assert.match(gate,/const farmZoomMs=2100/);
   assert.match(gate,/const farmHoldMs=24000/);
+  assert.match(gate,/const farmRevealLayer=4/);
+  assert.match(gate,/const farmRevealMs=\(farmRevealLayer-1\)\*pyramidLayerMs/);
+  assert.match(gate,/const farmTotalMs=farmRevealMs\+farmZoomMs\+farmHoldMs\+farmReturnMs/);
   assert.match(gate,/cloneNode\(true\)/);
   assert.match(gate,/removeAttribute\('id'\)/,
     'replicas must not duplicate live SVG IDs');
   assert.match(gate,/function drawFarmPrinter\(view,layer,progress=0,finished=layer\)/);
   assert.match(gate,/view\.extrusion\.getPointAtLength\(distance\)/);
   assert.match(gate,/view\.nozzle\.setAttribute\('transform'/);
-  assert.match(gate,/renderPrinterPhase\(\(time\+shifts\[i\+1\]\)%pyramidCycleMs,farmViews\[i\]\)/);
-  assert.match(gate,/setFleetProgress\(ease,'zoom'\)/);
+  assert.match(gate,/renderPrinterPhase\(time%pyramidCycleMs\)/,
+    'printer 01 must continue extruding without resetting during zoom');
+  assert.match(gate,/renderPrinterPhase\(\(time\+shifts\[i\]\*pyramidCycleMs\)%pyramidCycleMs,farmViews\[i\]\)/);
+  assert.match(gate,/renderFarm\(elapsed\);\s*setFleetProgress\(ease,'zoom'\)/);
+  assert.match(gate,/elapsed<farmRevealMs\+farmZoomMs/);
+  assert.doesNotMatch(gate,/drawPrinter\(pyramidLayerCount-1,1,pyramidLayerCount\);/,
+    'the initial printer must not jump to completed at the reveal');
   assert.match(gate,/setFleetProgress\(1,'farm'\)/);
   assert.match(gate,/setFleetProgress\(1-ease,'return'\)/);
   assert.match(gate,/compactFarm\.matches\?pyramidCycleMs:farmTotalMs/);
   assert.match(gate,/compactFarm\.addEventListener\?\.\('change',syncPrinterAnimation\)/);
   assert.match(css,/\.auth-farm-link/);
+  // In the enlarged scene, both rows' names are below their own progress bars.
+  for(const [name,y] of [['01',194],['02',194],['03',382],['04',382]])
+    assert.match(html,new RegExp('class="auth-farm-printer-label" x="\\d+" y="'+y+'" text-anchor="middle">PRINTER '+name));
   assert.match(css,/\.auth-farm-hub-logo\{fill:var\(--ds-brand\)\}/);
   assert.doesNotMatch(html,/id="authMotionToggle"/);
 });
