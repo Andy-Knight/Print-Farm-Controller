@@ -3622,7 +3622,59 @@ async function nativeAuthenticationSmoke(browser){
     assert.equal(await page.locator('#authPrinterHead').isVisible(),true,
       'the printhead still animates automatically in Windows Chrome');
     await page.emulateMedia({reducedMotion:'no-preference'});
+    // The first full-size pyramid completes, zooms into the upper-left
+    // printer, then reveals three independently progressing copies, each
+    // connected to one central controller.
+    await page.waitForFunction(()=>document.querySelector('.auth-printer-illustration')
+      ?.dataset.demoStage==='farm',null,{timeout:47000});
+    const farmScene=await page.evaluate(()=>{
+      const svg=document.querySelector('.auth-printer-illustration');
+      const first=document.querySelector('#authSoloPrinter');
+      const copies=[...document.querySelectorAll('.auth-farm-printer')];
+      const machines=[first,...copies];
+      const layers=machines.map(node=>Number(node.querySelector('.auth-print-telemetry-layer tspan').textContent));
+      const tipErrors=machines.map(node=>{
+        const path=node.querySelector('.auth-printer-trace');
+        const length=path.getTotalLength();
+        const offset=Number(path.style.strokeDashoffset);
+        const point=path.getPointAtLength(length-offset);
+        const nozzle=node.querySelector('.auth-printer-head-motion')
+          .transform.baseVal.consolidate().matrix;
+        return Math.hypot(nozzle.e-point.x,nozzle.f-point.y);
+      });
+      const ids=[...svg.querySelectorAll('[id]')].map(node=>node.id);
+      return {
+        stage:svg.dataset.demoStage,
+        firstTransform:first.getAttribute('transform'),
+        copies:copies.length,links:svg.querySelectorAll('.auth-farm-link').length,
+        hub:svg.querySelector('.auth-farm-hub-label')?.textContent,
+        visible:document.querySelector('#authFarmConnections').getAttribute('visibility')==='visible'
+          &&document.querySelector('#authFarmReplicas').getAttribute('visibility')==='visible',
+        layers,tipErrors,uniqueIds:new Set(ids).size===ids.length
+      };
+    });
+    assert.equal(farmScene.copies,3,'three additional animated printers join the first');
+    assert.equal(farmScene.links,4,'every printer has a path to the same controller');
+    assert.equal(farmScene.hub,'ONE CONTROLLER','the common controller is clearly identified');
+    assert.ok(farmScene.visible,'the connected farm must appear after zooming');
+    assert.match(farmScene.firstTransform,/scale\\(0\\.4/,
+      'the first printer shrinks into the farm rather than disappearing');
+    assert.ok(new Set(farmScene.layers).size>=3,
+      'the printers depict independently staggered, active print jobs');
+    assert.ok(farmScene.tipErrors.every(error=>error<.5),
+      'every miniature nozzle traces its own exact extrusion perimeter');
+    assert.ok(farmScene.uniqueIds,'cloned SVG printers cannot duplicate DOM IDs');
+    if(authVisualDir){
+      await page.screenshot({path:path.join(authVisualDir,'auth-connected-farm-dark.png'),
+        animations:'disabled',fullPage:true});
+      await page.evaluate(()=>document.documentElement.dataset.theme='light');
+      await page.screenshot({path:path.join(authVisualDir,'auth-connected-farm-light.png'),
+        animations:'disabled',fullPage:true});
+      await page.evaluate(()=>document.documentElement.dataset.theme='dark');
+    }
     await page.setViewportSize({width:820,height:844});
+    assert.equal(await page.locator('.auth-printer-illustration').getAttribute('data-demo-stage'),'solo',
+      'compact laptop layout stays focused on the original single-printer animation');
     assert.equal(await page.locator('.auth-printer-art').isVisible(),true,
       'compact laptop viewport retains visible printer animation');
     await page.evaluate(()=>document.documentElement.dataset.theme='light');
