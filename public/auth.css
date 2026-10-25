@@ -219,12 +219,6 @@ html.auth-pending body>aside,html.auth-pending body>header,html.auth-pending bod
 .auth-heat-block{fill:var(--ds-brand);fill-opacity:.6}
 .auth-printer-nozzle{fill:var(--ds-warning);stroke:var(--ds-warning);stroke-width:1}
 .auth-nozzle-tip{fill:var(--ds-warning)}
-.auth-print-telemetry-heading{
-  fill:var(--ds-text-subtle);
-  font-size:10px;
-  font-weight:800;
-  letter-spacing:.10em;
-}
 .auth-print-telemetry-layer{
   fill:var(--ds-text);
   font-size:13px;

@@ -3503,7 +3503,7 @@ async function nativeAuthenticationSmoke(browser){
         nozzle:Boolean(head.querySelector('.auth-head-guide')&&head.querySelector('.auth-heat-block')
           &&head.querySelector('.auth-printer-nozzle')),
         grid:Boolean(document.querySelector('.auth-build-grid')),
-        demoLabel:document.querySelector('.auth-print-telemetry-heading')?.textContent,
+        removedDemoHeading:document.querySelector('.auth-print-telemetry-heading')===null,
         pathLength:total,nozzleError:Math.hypot(point.x-matrix.e,point.y-matrix.f)};
     });
     assert.ok(desktop.story.right<=desktop.access.left+2,
@@ -3512,8 +3512,8 @@ async function nativeAuthenticationSmoke(browser){
     assert.ok(desktop.exactLogo,'sign-in uses the actual layered controller brand mark');
     assert.ok(desktop.nozzle,'minimal amber nozzle and guide are present on the print bed');
     assert.ok(desktop.grid,'45-degree isometric grid is rendered behind the pyramid');
-    assert.match(desktop.demoLabel,/PYRAMID BUILD · DEMO/,
-      'build progress must be labelled illustrative, not live');
+    assert.equal(desktop.removedDemoHeading,true,
+      'no Pyramid Build – Demo heading should appear over the animation');
     assert.ok(desktop.pathLength>550,'first pyramid layer spans a complete isometric perimeter');
     assert.ok(desktop.nozzleError<.5,'nozzle tip must touch the exact traced extrusion line');
     const initial=await page.locator('#authPrinterHead').getAttribute('transform');

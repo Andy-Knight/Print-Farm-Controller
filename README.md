@@ -31,8 +31,9 @@ The **Industrial Control Centre** sign-in screen uses a split desktop layout wit
 successively smaller blue perimeters and completes eighteen rising layers,
 constructing a stepped pyramid from base to peak. Completed tiers remain visible,
 including their sloping front faces. The diamond-shaped calibration grid and
-clearly marked **demo** layer counter are illustrative only, not real printer telemetry. The genuine Stacked
-Layers layered logo from the controller sidebar identifies the login screen.
+layer counter are illustrative only, not live printer telemetry. The animation does not
+display a separate heading or demo banner. The genuine Stacked Layers layered
+logo from the controller sidebar identifies the login screen.
 The decorative printhead motion **starts automatically**, including on Windows 11 and Chrome
 when the operating system requests reduced motion. No Windows or browser configuration is
 required. The animated printer remains a passive part of the branded sign-in screen, without a

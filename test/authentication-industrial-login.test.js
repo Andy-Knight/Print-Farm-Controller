@@ -87,7 +87,9 @@ test('45-degree pyramid build has eighteen narrowing, rising, aligned layers',()
   assert.match(html,/id="authPrinterTop" class="auth-printer-top"/);
   assert.match(html,/class="auth-head-guide" d="M0-47V-11"/);
   assert.match(html,/class="auth-printer-nozzle" d="M-11-11H11L3-1 0 0 -3-1Z"/);
-  assert.match(html,/PYRAMID BUILD · DEMO/);
+  assert.doesNotMatch(html,/PYRAMID BUILD · DEMO/);
+  assert.doesNotMatch(html,/auth-print-telemetry-heading/);
+  assert.doesNotMatch(css,/auth-print-telemetry-heading/);
   assert.match(html,/Layer <tspan id="authPrintLayer">01<\/tspan> \/ 18/);
   assert.match(gate,/const pyramidLayerCount=18/);
   assert.match(gate,/const pyramidLayerHeight=5\.2/);
