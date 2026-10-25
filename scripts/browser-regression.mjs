@@ -3610,7 +3610,7 @@ async function nativeAuthenticationSmoke(browser){
     assert.equal(clearance,true,'the complete nozzle remains inside the print bed');
     assert.equal(await page.locator('.auth-printer-base,.auth-printer-rail').count(),0,
       'reference visualization must not show a printer gantry or frame');
-    assert.match(await page.locator('.auth-print-telemetry-layer').textContent(),
+    assert.match(await page.locator('#authSoloPrinter .auth-print-telemetry-layer').textContent(),
       /Layer \d{2} \/ 18/,'the demo layer counter remains legible');
     assert.equal(await page.locator('#authMotionToggle').count(),0,
       'login must no longer show a pause animation button');
