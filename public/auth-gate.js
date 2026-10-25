@@ -141,6 +141,16 @@ function syncPrinterAnimation(){
 }
 document.addEventListener('visibilitychange',syncPrinterAnimation);
 
+// Shared authentication helpers are deliberately independent of the
+// decorative printer renderer. User management, sign-out and account password
+// changes must continue to work if the illustration is revised.
+function errorText(error){return error instanceof Error?error.message:String(error);}
+async function call(path,options={}){
+  const response=await window.fetch(path,options);
+  const data=await response.json().catch(()=>({}));
+  if(!response.ok)throw new Error(data.error||'Request failed ('+response.status+')');
+  return data;
+}
 function showGate(message,{setup=false,transport=false}={}){
   document.body.classList.add('auth-locked');
   document.documentElement.classList.remove('auth-pending');
