@@ -122,6 +122,33 @@ test('minimal blueprint background uses only a clipped isometric bed and a live 
   assert.doesNotMatch(html,/auth-build-guides/);
 });
 
+test('finished pyramid zooms out into four independently printing beds linked to one controller',()=>{
+  assert.match(html,/id="authSoloPrinter"/);
+  assert.match(html,/id="authFarmConnections"[^>]*visibility="hidden"/);
+  assert.match(html,/id="authFarmReplicas"[^>]*visibility="hidden"/);
+  assert.equal((html.match(/class="auth-farm-link"/g)||[]).length,4);
+  assert.match(html,/ONE CONTROLLER/);
+  for(const name of ['PRINTER 01','PRINTER 02','PRINTER 03','PRINTER 04'])
+    assert.ok(html.includes(name),'missing illustrated '+name);
+  assert.match(gate,/const farmZoomMs=2100/);
+  assert.match(gate,/const farmHoldMs=24000/);
+  assert.match(gate,/cloneNode\(true\)/);
+  assert.match(gate,/removeAttribute\('id'\)/,
+    'replicas must not duplicate live SVG IDs');
+  assert.match(gate,/function drawFarmPrinter\(view,layer,progress=0,finished=layer\)/);
+  assert.match(gate,/view\.extrusion\.getPointAtLength\(distance\)/);
+  assert.match(gate,/view\.nozzle\.setAttribute\('transform'/);
+  assert.match(gate,/renderPrinterPhase\(\(time\+shifts\[i\+1\]\)%pyramidCycleMs,farmViews\[i\]\)/);
+  assert.match(gate,/setFleetProgress\(ease,'zoom'\)/);
+  assert.match(gate,/setFleetProgress\(1,'farm'\)/);
+  assert.match(gate,/setFleetProgress\(1-ease,'return'\)/);
+  assert.match(gate,/compactFarm\.matches\?pyramidCycleMs:farmTotalMs/);
+  assert.match(gate,/compactFarm\.addEventListener\?\.\('change',syncPrinterAnimation\)/);
+  assert.match(css,/\.auth-farm-link/);
+  assert.match(css,/\.auth-farm-hub-logo\{fill:var\(--ds-brand\)\}/);
+  assert.doesNotMatch(html,/id="authMotionToggle"/);
+});
+
 test('login uses the identical Stacked Layers glyph geometry as the controller sidebar',()=>{
   const sidebarStart=html.indexOf('<svg class="stacked-layers-mark"');
   const sidebar=sidebarStart<0?'':html.slice(sidebarStart,html.indexOf('</svg>',sidebarStart)+6);
