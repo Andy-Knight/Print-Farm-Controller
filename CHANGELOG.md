@@ -4,6 +4,10 @@ This file contains the version-by-version release history for Print Farm Control
 
 Historical entries describe the behaviour of the controller at the time of that release and may be superseded by later versions. For current installation, configuration and supported-hardware guidance, see [README.md](README.md).
 
+## v0.59.15
+
+- Expanded the decorative login print sequence from a single 18-tier isometric pyramid to a print-farm story: the initial build starts zooming out when layer 04 begins (without stopping extrusion) into one of four independent animated printer beds, all visibly linked to the same central Stacked Layers controller. Printer-name labels are spaced below the miniature layer progress bars to prevent overlap. The other printers reuse the identical projected layer/nozzle geometry with staggered, independently cycling extrusion; the illustration eventually returns to the original close-up and repeats. All SVG content remains local and decorative; no printer telemetry is shown to unauthenticated visitors. The 521–980px compact header retains the single printer, with the original minimal mobile-brand treatment at 520px or below. Both themes, keyboard/login functionality, HTTP warning and backend authentication/RBAC are unchanged.
+
 ## v0.59.14
 
 - Simplified the Industrial Control Centre login's decorative pyramid background: removed the competing full-panel square grid, retained a subdued isometric calibration grid clipped to the diamond build plate, added a smooth static theme-derived glow and restrained part/plate shadows, increased completed-layer visibility, and centred the example layer counter above a slim progress bar driven by actual toolpath completion. Kept the 18-layer nozzle/extrusion alignment, automatic login-only motion, accessibility, responsive layouts, authentication/RBAC and printer behaviour unchanged.

@@ -148,6 +148,39 @@ html.auth-pending body>aside,html.auth-pending body>header,html.auth-pending bod
   color:var(--ds-brand);
 }
 .auth-printer-art svg{width:100%;height:auto;display:block;overflow:visible}
+/* Locally rendered farm reveal: four independent copies of the same isometric
+ * toolpath, with a single central controller. All links are decorative. */
+.auth-farm-connections,.auth-farm-printer{pointer-events:none}
+.auth-farm-link{
+  stroke:var(--ds-brand);
+  stroke-opacity:.46;
+  stroke-width:1.9;
+  stroke-dasharray:3.5 5;
+  stroke-linecap:round;
+  stroke-linejoin:round;
+  fill:none;
+}
+.auth-farm-hub-outer{
+  fill:var(--ds-surface-raised);
+  stroke:var(--ds-border-strong);
+  stroke-width:2;
+}
+.auth-farm-hub-inner{
+  fill:var(--ds-brand-soft);
+  stroke:var(--ds-brand);
+  stroke-opacity:.45;
+  stroke-width:1.2;
+}
+.auth-farm-hub-logo{fill:var(--ds-brand)}
+.auth-farm-hub-label,.auth-farm-printer-label{
+  font-family:Inter,ui-sans-serif,system-ui,sans-serif;
+  font-weight:800;
+  font-size:10.5px;
+  letter-spacing:.105em;
+  fill:var(--ds-text-muted);
+}
+.auth-farm-hub-label{font-size:11px;fill:var(--ds-brand)}
+
 /* The only calibration grid is clipped to the projected build plate. */
 .auth-bed-shadow{
   fill:var(--ds-text);

@@ -27,6 +27,19 @@ const completedLayers=$('#authPyramidLayers');
 const bedGrid=$('#authBuildGrid');
 const layerCounter=$('#authPrintLayer');
 const layerProgress=$('#authLayerProgress');
+const soloScene=$('#authSoloPrinter');
+const farmConnections=$('#authFarmConnections');
+const farmReplicas=$('#authFarmReplicas');
+const farmSvg=$('.auth-printer-illustration');
+const farmZoomMs=2100;
+const farmHoldMs=24000;
+const farmReturnMs=1800;
+// Begin the fleet reveal as soon as layer 04 starts, not at a finished pyramid.
+const farmRevealLayer=4;
+const farmRevealMs=(farmRevealLayer-1)*pyramidLayerMs;
+const farmTotalMs=farmRevealMs+farmZoomMs+farmHoldMs+farmReturnMs;
+// Compact login headers retain the original single-printer animation.
+const compactFarm=window.matchMedia('(max-width:980px)');
 let printerFrame=0;
 let printerStart=null;
 let lastRenderedLayer=-1;
@@ -118,18 +131,106 @@ function drawPrinter(layer=0,progress=0,finished=layer){
   if(layerProgress)layerProgress.setAttribute('width',
     ((activeLayer+amount)/pyramidLayerCount*184).toFixed(2));
 }
+// Each replicated bed is the exact original projected SVG scene, never a
+// flattened image or a separately approximated pyramid/nozzle.
+const farmViews=[];
+if(soloScene&&farmReplicas){
+  const sites=[[383,17],[13,203],[383,203]];
+  for(const [x,y] of sites){
+    const copy=soloScene.cloneNode(true);
+    for(const node of [copy,...copy.querySelectorAll('[id]')])node.removeAttribute('id');
+    copy.setAttribute('class','auth-farm-printer');
+    copy.setAttribute('transform',`translate(${x} ${y}) scale(.4)`);
+    farmReplicas.append(copy);
+    farmViews.push({
+      extrusion:copy.querySelector('.auth-printer-trace'),
+      perimeter:copy.querySelector('.auth-printer-top'),
+      nozzle:copy.querySelector('.auth-printer-head-motion'),
+      layers:copy.querySelector('.auth-pyramid-layers'),
+      counter:copy.querySelector('.auth-print-telemetry-layer tspan'),
+      meter:copy.querySelector('.auth-layer-progress-fill'),
+      lastLayer:-1,lastComplete:-1
+    });
+  }
+}
+function drawFarmPrinter(view,layer,progress=0,finished=layer){
+  const active=Math.min(pyramidLayerCount-1,Math.max(0,layer));
+  const amount=Math.min(1,Math.max(0,progress));
+  if(view.lastComplete!==finished){
+    const fragment=document.createDocumentFragment();
+    for(let i=0;i<finished;i++)fragment.append(layerFaces(i));
+    view.layers.replaceChildren(fragment);
+    view.layers.dataset.demoCompletedLayers=String(finished);
+    view.lastComplete=finished;
+  }
+  if(view.lastLayer!==active){
+    const perimeter=polygonPath(pyramidRing(active));
+    view.extrusion.setAttribute('d',perimeter);
+    view.perimeter.setAttribute('d',perimeter);
+    view.lastLayer=active;
+  }
+  const length=view.extrusion.getTotalLength();
+  const distance=amount*length;
+  const point=view.extrusion.getPointAtLength(distance);
+  view.nozzle.setAttribute('transform',`translate(${point.x} ${point.y})`);
+  view.extrusion.style.strokeDasharray=String(length);
+  view.extrusion.style.strokeDashoffset=String(length-distance);
+  view.counter.textContent=String(active+1).padStart(2,'0');
+  view.meter.setAttribute('width',((active+amount)/pyramidLayerCount*184).toFixed(2));
+}
+function renderPrinterPhase(phase,view=null){
+  const buildingDuration=pyramidLayerCount*pyramidLayerMs;
+  if(phase<buildingDuration){
+    const layer=Math.floor(phase/pyramidLayerMs);
+    const amount=(phase%pyramidLayerMs)/pyramidLayerMs;
+    if(view)drawFarmPrinter(view,layer,amount);
+    else drawPrinter(layer,amount);
+  }else if(view)drawFarmPrinter(view,pyramidLayerCount-1,1,pyramidLayerCount);
+  else drawPrinter(pyramidLayerCount-1,1,pyramidLayerCount);
+}
+function renderFarm(time){
+  // Printer 01 keeps building layer 04 and beyond during the zoom. Three
+  // replicas follow the same extrusion geometry at staggered phases.
+  const shifts=[.23,.51,.74];
+  renderPrinterPhase(time%pyramidCycleMs);
+  for(let i=0;i<farmViews.length;i++)
+    renderPrinterPhase((time+shifts[i]*pyramidCycleMs)%pyramidCycleMs,farmViews[i]);
+}
+function setFleetProgress(amount,stage){
+  const progress=Math.max(0,Math.min(1,amount));
+  // The first part is the same SVG scene, physically scaled and translated
+  // into printer 01; none of its local extrusion/nozzle coordinates change.
+  const scale=1-.6*progress;
+  if(soloScene)soloScene.setAttribute('transform',
+    `translate(${(13*progress).toFixed(2)} ${(17*progress).toFixed(2)}) scale(${scale.toFixed(4)})`);
+  for(const group of [farmConnections,farmReplicas]){
+    if(!group)continue;
+    group.setAttribute('visibility',progress>0?'visible':'hidden');
+    group.style.opacity=String(Math.max(0,Math.min(1,(progress-.35)/.65)));
+  }
+  if(farmSvg)farmSvg.dataset.demoStage=stage;
+}
 function nextPrinterFrame(time){
   printerFrame=0;
   if(lock.hidden||document.visibilityState==='hidden')return;
   if(printerStart===null)printerStart=time;
-  const elapsed=(time-printerStart)%pyramidCycleMs;
-  const buildingDuration=pyramidLayerCount*pyramidLayerMs;
-  if(elapsed<buildingDuration){
-    const layer=Math.floor(elapsed/pyramidLayerMs);
-    drawPrinter(layer,(elapsed%pyramidLayerMs)/pyramidLayerMs);
+  const elapsed=(time-printerStart)%(compactFarm.matches?pyramidCycleMs:farmTotalMs);
+  if(compactFarm.matches||elapsed<farmRevealMs){
+    setFleetProgress(0,'solo');
+    renderPrinterPhase(elapsed);
+  }else if(elapsed<farmRevealMs+farmZoomMs){
+    const t=(elapsed-farmRevealMs)/farmZoomMs;
+    const ease=1-Math.pow(1-t,3);
+    renderFarm(elapsed);
+    setFleetProgress(ease,'zoom');
+  }else if(elapsed<farmRevealMs+farmZoomMs+farmHoldMs){
+    setFleetProgress(1,'farm');
+    renderFarm(elapsed);
   }else{
-    // Hold the completed part without dropping/redrawing the top layer.
-    drawPrinter(pyramidLayerCount-1,1,pyramidLayerCount);
+    const t=(elapsed-farmRevealMs-farmZoomMs-farmHoldMs)/farmReturnMs;
+    const ease=t*t*(3-2*t);
+    renderFarm(elapsed);
+    setFleetProgress(1-ease,'return');
   }
   printerFrame=requestAnimationFrame(nextPrinterFrame);
 }
@@ -139,11 +240,14 @@ function syncPrinterAnimation(){
   printerStart=null;
   lastRenderedLayer=-1;
   lastCompletedLayers=-1;
+  for(const view of farmViews){view.lastLayer=-1;view.lastComplete=-1;}
+  setFleetProgress(0,'solo');
   drawPrinter();
   if(!lock.hidden&&document.visibilityState==='visible')
     printerFrame=requestAnimationFrame(nextPrinterFrame);
 }
 document.addEventListener('visibilitychange',syncPrinterAnimation);
+compactFarm.addEventListener?.('change',syncPrinterAnimation);
 
 // Shared authentication helpers are deliberately independent of the
 // decorative printer renderer. User management, sign-out and account password

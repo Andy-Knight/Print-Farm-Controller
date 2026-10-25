@@ -3610,7 +3610,7 @@ async function nativeAuthenticationSmoke(browser){
     assert.equal(clearance,true,'the complete nozzle remains inside the print bed');
     assert.equal(await page.locator('.auth-printer-base,.auth-printer-rail').count(),0,
       'reference visualization must not show a printer gantry or frame');
-    assert.match(await page.locator('.auth-print-telemetry-layer').textContent(),
+    assert.match(await page.locator('#authSoloPrinter .auth-print-telemetry-layer').textContent(),
       /Layer \d{2} \/ 18/,'the demo layer counter remains legible');
     assert.equal(await page.locator('#authMotionToggle').count(),0,
       'login must no longer show a pause animation button');
@@ -3622,7 +3622,82 @@ async function nativeAuthenticationSmoke(browser){
     assert.equal(await page.locator('#authPrinterHead').isVisible(),true,
       'the printhead still animates automatically in Windows Chrome');
     await page.emulateMedia({reducedMotion:'no-preference'});
+    // Restart only the decorative timer to check the exact layer-04 trigger;
+    // the animation must begin revealing the farm after THREE finished layers.
+    await page.evaluate(()=>document.dispatchEvent(new Event('visibilitychange')));
+    await page.waitForFunction(()=>document.querySelector('.auth-printer-illustration')
+      ?.dataset.demoStage==='zoom',null,{timeout:8000});
+    const zoomStart=await page.evaluate(()=>({
+      layer:Number(document.querySelector('#authPrintLayer').textContent),
+      completed:Number(document.querySelector('#authPyramidLayers').dataset.demoCompletedLayers),
+      stage:document.querySelector('.auth-printer-illustration').dataset.demoStage,
+      extrusion:Number(document.querySelector('#authLayerProgress').getAttribute('width'))
+    }));
+    assert.equal(zoomStart.layer,4,'zoom starts while the fourth layer is actively printing');
+    assert.equal(zoomStart.completed,3,'zoom starts after exactly three complete layers');
+    assert.ok(zoomStart.extrusion>184*3/18&&zoomStart.extrusion<184*4/18,
+      'first printer continues depositing the fourth layer during zoom');
+    // The original printer shrinks into a four-bed layout connected to
+    // one common controller, without stopping its print.
+    await page.waitForFunction(()=>document.querySelector('.auth-printer-illustration')
+      ?.dataset.demoStage==='farm',null,{timeout:9000});
+    const farmScene=await page.evaluate(()=>{
+      const svg=document.querySelector('.auth-printer-illustration');
+      const first=document.querySelector('#authSoloPrinter');
+      const copies=[...document.querySelectorAll('.auth-farm-printer')];
+      const machines=[first,...copies];
+      const layers=machines.map(node=>Number(node.querySelector('.auth-print-telemetry-layer tspan').textContent));
+      const tipErrors=machines.map(node=>{
+        const path=node.querySelector('.auth-printer-trace');
+        const length=path.getTotalLength();
+        const offset=Number(path.style.strokeDashoffset);
+        const point=path.getPointAtLength(length-offset);
+        const nozzle=node.querySelector('.auth-printer-head-motion')
+          .transform.baseVal.consolidate().matrix;
+        return Math.hypot(nozzle.e-point.x,nozzle.f-point.y);
+      });
+      const ids=[...svg.querySelectorAll('[id]')].map(node=>node.id);
+      const names=[...svg.querySelectorAll('.auth-farm-printer-label')];
+      const labelClearances=names.map((label,i)=>{
+        const track=machines[i].querySelector('.auth-layer-progress-track');
+        return label.getBoundingClientRect().top-track.getBoundingClientRect().bottom;
+      });
+      return {
+        stage:svg.dataset.demoStage,
+        firstTransform:first.getAttribute('transform'),
+        copies:copies.length,links:svg.querySelectorAll('.auth-farm-link').length,
+        hub:svg.querySelector('.auth-farm-hub-label')?.textContent,
+        visible:document.querySelector('#authFarmConnections').getAttribute('visibility')==='visible'
+          &&document.querySelector('#authFarmReplicas').getAttribute('visibility')==='visible',
+        layers,tipErrors,labelClearances,uniqueIds:new Set(ids).size===ids.length
+      };
+    });
+    assert.equal(farmScene.copies,3,'three additional animated printers join the first');
+    assert.equal(farmScene.links,4,'every printer has a path to the same controller');
+    assert.equal(farmScene.hub,'ONE CONTROLLER','the common controller is clearly identified');
+    assert.ok(farmScene.visible,'the connected farm must appear after zooming');
+    assert.ok(farmScene.firstTransform.includes('scale(0.4000)'),
+      'the first printer shrinks into the farm rather than disappearing');
+    assert.ok(new Set(farmScene.layers).size>=3,
+      'the printers depict independently staggered, active print jobs');
+    assert.ok(farmScene.tipErrors.every(error=>error<.5),
+      'every miniature nozzle traces its own exact extrusion perimeter');
+    assert.ok(farmScene.labelClearances.every(gap=>gap>=5),
+      'each printer name must have visible clearance below its own layer progress bar');
+    assert.ok(farmScene.uniqueIds,'cloned SVG printers cannot duplicate DOM IDs');
+    if(authVisualDir){
+      await page.screenshot({path:path.join(authVisualDir,'auth-connected-farm-dark.png'),
+        animations:'disabled',fullPage:true});
+      await page.evaluate(()=>document.documentElement.dataset.theme='light');
+      await page.screenshot({path:path.join(authVisualDir,'auth-connected-farm-light.png'),
+        animations:'disabled',fullPage:true});
+      await page.evaluate(()=>document.documentElement.dataset.theme='dark');
+    }
     await page.setViewportSize({width:820,height:844});
+    // The matchMedia change event is delivered asynchronously after resizing.
+    // Wait for the renderer to switch scenes instead of racing that event.
+    await page.waitForFunction(()=>document.querySelector('.auth-printer-illustration')
+      ?.dataset.demoStage==='solo',null,{timeout:4000});
     assert.equal(await page.locator('.auth-printer-art').isVisible(),true,
       'compact laptop viewport retains visible printer animation');
     await page.evaluate(()=>document.documentElement.dataset.theme='light');
