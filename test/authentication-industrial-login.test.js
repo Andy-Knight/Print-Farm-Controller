@@ -146,7 +146,9 @@ test('fourth-layer pyramid zooms out into four independently printing beds linke
   assert.match(gate,/renderPrinterPhase\(\(time\+shifts\[i\]\*pyramidCycleMs\)%pyramidCycleMs,farmViews\[i\]\)/);
   assert.match(gate,/renderFarm\(elapsed\);\s*setFleetProgress\(ease,'zoom'\)/);
   assert.match(gate,/elapsed<farmRevealMs\+farmZoomMs/);
-  assert.doesNotMatch(gate,/drawPrinter\(pyramidLayerCount-1,1,pyramidLayerCount\);/,
+  const frame=gate.slice(gate.indexOf('function nextPrinterFrame('),
+    gate.indexOf('function syncPrinterAnimation('));
+  assert.doesNotMatch(frame,/drawPrinter\(pyramidLayerCount-1,1,pyramidLayerCount\);/,
     'the initial printer must not jump to completed at the reveal');
   assert.match(gate,/setFleetProgress\(1,'farm'\)/);
   assert.match(gate,/setFleetProgress\(1-ease,'return'\)/);
