@@ -73,12 +73,14 @@
  * Printer Groups, Diagnostics and multi-toolhead tables in styles.css.
  * Row geometry and responsive card behaviour stay local to this view. */
 #libraryDialog.library-dialog {
-  /* Do not size this routed page against the full viewport: the sidebar
-   * occupies part of it. Cap the workbench at a readable desktop width. */
-  width:min(1300px,100%);
-  /* Shared by header and rows: tighter sale-price/history tracks remove
-   * the unused gap without squeezing filename and filament details. */
-  --library-table-cols:38px 64px minmax(150px,1.45fr) minmax(90px,.8fr) minmax(140px,1.3fr) minmax(116px,.9fr) 70px minmax(136px,.82fr) minmax(104px,.68fr);
+  /* A routed workspace page, not a constrained modal: occupy the same
+   * sidebar-aware content width as Dashboard, Queue and Reports. */
+  width:100%;
+  max-width:none;
+  min-width:0;
+  /* Share tracks between the header and rows. Give additional width to
+   * filenames, requirements and costs, not empty sale-price/history cells. */
+  --library-table-cols:38px 64px minmax(150px,1.6fr) minmax(90px,.8fr) minmax(140px,1.4fr) minmax(116px,.9fr) 70px minmax(136px,160px) minmax(104px,128px);
 }
 /* Search, Add file, and selected-file actions share the same desktop row.
  * Keep selection feedback below the controls so long filenames cannot force
