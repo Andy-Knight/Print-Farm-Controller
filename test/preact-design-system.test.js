@@ -139,3 +139,19 @@ test('dashboard summary adopts the Analytics circular icon and genuine-ratio pre
   assert.match(fallback,/gauge\.style\.setProperty\('--dashboard-stat-angle'/);
   assert.match(regression,/Dashboard summary cards match Analytics outline ring styling/);
 });
+
+
+test('Print Library route fills the shared workspace and caps only narrow trailing table columns',()=>{
+  const library=read('public/print-library-polish.css');
+  const legacy=read('public/styles.css');
+  assert.match(legacy,/\.route-page\s*\{[\s\S]*?width:100%/);
+  assert.match(library,/#libraryDialog\.library-dialog\s*\{[^}]*width:100%;[^}]*max-width:none;[^}]*min-width:0;/);
+  assert.doesNotMatch(library,/width:min\(1300px,100%\)/,
+    'a routed page must not retain the old 1300px dialog cap');
+  assert.match(library,/minmax\(136px,160px\) minmax\(104px,128px\)/,
+    'selling price and history should not grow into blank space on wide screens');
+  assert.match(regression,/Math\.abs\(geometry\.header\.width-geometry\.page\.width\)<=2/,
+    'Chromium must verify that the table reaches the route edges');
+  assert.match(regression,/geometry\.header\.width>1400/,
+    'Chromium must test the formerly capped wide workspace');
+});
