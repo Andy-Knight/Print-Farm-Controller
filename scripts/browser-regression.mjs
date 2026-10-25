@@ -3622,11 +3622,25 @@ async function nativeAuthenticationSmoke(browser){
     assert.equal(await page.locator('#authPrinterHead').isVisible(),true,
       'the printhead still animates automatically in Windows Chrome');
     await page.emulateMedia({reducedMotion:'no-preference'});
-    // The first full-size pyramid completes, zooms into the upper-left
-    // printer, then reveals three independently progressing copies, each
-    // connected to one central controller.
+    // Restart only the decorative timer to check the exact layer-04 trigger;
+    // the animation must begin revealing the farm after THREE finished layers.
+    await page.evaluate(()=>document.dispatchEvent(new Event('visibilitychange')));
     await page.waitForFunction(()=>document.querySelector('.auth-printer-illustration')
-      ?.dataset.demoStage==='farm',null,{timeout:47000});
+      ?.dataset.demoStage==='zoom',null,{timeout:8000});
+    const zoomStart=await page.evaluate(()=>({
+      layer:Number(document.querySelector('#authPrintLayer').textContent),
+      completed:Number(document.querySelector('#authPyramidLayers').dataset.demoCompletedLayers),
+      stage:document.querySelector('.auth-printer-illustration').dataset.demoStage,
+      extrusion:Number(document.querySelector('#authLayerProgress').getAttribute('width'))
+    }));
+    assert.equal(zoomStart.layer,4,'zoom starts while the fourth layer is actively printing');
+    assert.equal(zoomStart.completed,3,'zoom starts after exactly three complete layers');
+    assert.ok(zoomStart.extrusion>184*3/18&&zoomStart.extrusion<184*4/18,
+      'first printer continues depositing the fourth layer during zoom');
+    // The original printer shrinks into a four-bed layout connected to
+    // one common controller, without stopping its print.
+    await page.waitForFunction(()=>document.querySelector('.auth-printer-illustration')
+      ?.dataset.demoStage==='farm',null,{timeout:9000});
     const farmScene=await page.evaluate(()=>{
       const svg=document.querySelector('.auth-printer-illustration');
       const first=document.querySelector('#authSoloPrinter');
@@ -3643,6 +3657,11 @@ async function nativeAuthenticationSmoke(browser){
         return Math.hypot(nozzle.e-point.x,nozzle.f-point.y);
       });
       const ids=[...svg.querySelectorAll('[id]')].map(node=>node.id);
+      const names=[...svg.querySelectorAll('.auth-farm-printer-label')];
+      const labelClearances=names.map((label,i)=>{
+        const track=machines[i].querySelector('.auth-layer-progress-track');
+        return label.getBoundingClientRect().top-track.getBoundingClientRect().bottom;
+      });
       return {
         stage:svg.dataset.demoStage,
         firstTransform:first.getAttribute('transform'),
@@ -3650,7 +3669,7 @@ async function nativeAuthenticationSmoke(browser){
         hub:svg.querySelector('.auth-farm-hub-label')?.textContent,
         visible:document.querySelector('#authFarmConnections').getAttribute('visibility')==='visible'
           &&document.querySelector('#authFarmReplicas').getAttribute('visibility')==='visible',
-        layers,tipErrors,uniqueIds:new Set(ids).size===ids.length
+        layers,tipErrors,labelClearances,uniqueIds:new Set(ids).size===ids.length
       };
     });
     assert.equal(farmScene.copies,3,'three additional animated printers join the first');
@@ -3663,6 +3682,8 @@ async function nativeAuthenticationSmoke(browser){
       'the printers depict independently staggered, active print jobs');
     assert.ok(farmScene.tipErrors.every(error=>error<.5),
       'every miniature nozzle traces its own exact extrusion perimeter');
+    assert.ok(farmScene.labelClearances.every(gap=>gap>=5),
+      'each printer name must have visible clearance below its own layer progress bar');
     assert.ok(farmScene.uniqueIds,'cloned SVG printers cannot duplicate DOM IDs');
     if(authVisualDir){
       await page.screenshot({path:path.join(authVisualDir,'auth-connected-farm-dark.png'),
