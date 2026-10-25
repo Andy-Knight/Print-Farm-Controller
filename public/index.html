@@ -1551,12 +1551,33 @@
                  prints eighteen shrinking layers into a stepped pyramid. The nozzle
                  tip is driven from the very same SVG perimeter used for extrusion. -->
             <svg class="auth-printer-illustration" viewBox="0 0 660 410" fill="none"
+                 data-demo-stage="solo"
                  xmlns="http://www.w3.org/2000/svg">
               <defs>
                 <clipPath id="authBuildPlateCrop">
                   <path d="M330 135 552 241 330 347 108 241Z"/>
                 </clipPath>
               </defs>
+              <!-- Four illustrated printers communicate through one controller; no real telemetry. -->
+              <g id="authFarmConnections" class="auth-farm-connections" visibility="hidden" style="opacity:0">
+                <path class="auth-farm-link" d="M238 113H272L296 182"/>
+                <path class="auth-farm-link" d="M422 113H388L364 182"/>
+                <path class="auth-farm-link" d="M238 299H272L296 232"/>
+                <path class="auth-farm-link" d="M422 299H388L364 232"/>
+                <circle class="auth-farm-hub-outer" cx="330" cy="207" r="44"/>
+                <circle class="auth-farm-hub-inner" cx="330" cy="207" r="36"/>
+                <g class="auth-farm-hub-logo" transform="translate(308 183) scale(.37)">
+                  <polygon points="60,2 114,27 60,52 6,27"/>
+                  <polygon points="14,39 60,60 106,39 114,43 60,69 6,43"/>
+                  <polygon points="14,58 60,79 106,58 114,62 60,90 6,62"/>
+                </g>
+                <text class="auth-farm-hub-label" x="330" y="265" text-anchor="middle">ONE CONTROLLER</text>
+                <text class="auth-farm-printer-label" x="145" y="180" text-anchor="middle">PRINTER 01</text>
+                <text class="auth-farm-printer-label" x="515" y="180" text-anchor="middle">PRINTER 02</text>
+                <text class="auth-farm-printer-label" x="145" y="368" text-anchor="middle">PRINTER 03</text>
+                <text class="auth-farm-printer-label" x="515" y="368" text-anchor="middle">PRINTER 04</text>
+              </g>
+              <g id="authSoloPrinter">
               <!-- One quiet, projected build plate, without a second square background grid. -->
               <path class="auth-bed-shadow" d="M330 148 560 255 330 363 100 255Z"/>
               <path class="auth-build-area" d="M330 135 552 241 330 347 108 241Z"/>
@@ -1584,6 +1605,8 @@
                 <rect id="authLayerProgress" class="auth-layer-progress-fill"
                       x="238" y="391" width="0" height="3" rx="1.5"/>
               </g>
+              </g>
+              <g id="authFarmReplicas" visibility="hidden" style="opacity:0"></g>
             </svg>
           </div>
         </div>
