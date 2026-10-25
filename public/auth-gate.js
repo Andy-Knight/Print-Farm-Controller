@@ -34,7 +34,10 @@ const farmSvg=$('.auth-printer-illustration');
 const farmZoomMs=2100;
 const farmHoldMs=24000;
 const farmReturnMs=1800;
-const farmTotalMs=pyramidCycleMs+farmZoomMs+farmHoldMs+farmReturnMs;
+// Begin the fleet reveal as soon as layer 04 starts, not at a finished pyramid.
+const farmRevealLayer=4;
+const farmRevealMs=(farmRevealLayer-1)*pyramidLayerMs;
+const farmTotalMs=farmRevealMs+farmZoomMs+farmHoldMs+farmReturnMs;
 // Compact login headers retain the original single-printer animation.
 const compactFarm=window.matchMedia('(max-width:980px)');
 let printerFrame=0;
@@ -186,13 +189,12 @@ function renderPrinterPhase(phase,view=null){
   else drawPrinter(pyramidLayerCount-1,1,pyramidLayerCount);
 }
 function renderFarm(time){
-  // Keep printer 01 finished briefly as the camera widens, then let all
-  // four independent printers continuously print with staggered timing.
-  const shifts=[pyramidLayerCount*pyramidLayerMs,.23*pyramidCycleMs,
-    .51*pyramidCycleMs,.74*pyramidCycleMs];
-  renderPrinterPhase((time+shifts[0])%pyramidCycleMs);
+  // Printer 01 keeps building layer 04 and beyond during the zoom. Three
+  // replicas follow the same extrusion geometry at staggered phases.
+  const shifts=[.23,.51,.74];
+  renderPrinterPhase(time%pyramidCycleMs);
   for(let i=0;i<farmViews.length;i++)
-    renderPrinterPhase((time+shifts[i+1])%pyramidCycleMs,farmViews[i]);
+    renderPrinterPhase((time+shifts[i]*pyramidCycleMs)%pyramidCycleMs,farmViews[i]);
 }
 function setFleetProgress(amount,stage){
   const progress=Math.max(0,Math.min(1,amount));
@@ -213,28 +215,21 @@ function nextPrinterFrame(time){
   if(lock.hidden||document.visibilityState==='hidden')return;
   if(printerStart===null)printerStart=time;
   const elapsed=(time-printerStart)%(compactFarm.matches?pyramidCycleMs:farmTotalMs);
-  const buildingDuration=pyramidLayerCount*pyramidLayerMs;
-  if(compactFarm.matches||elapsed<pyramidCycleMs){
+  if(compactFarm.matches||elapsed<farmRevealMs){
     setFleetProgress(0,'solo');
-    // Preserve the first complete 18-layer demonstration.
-    if(elapsed<buildingDuration){
-      const layer=Math.floor(elapsed/pyramidLayerMs);
-      drawPrinter(layer,(elapsed%pyramidLayerMs)/pyramidLayerMs);
-    }else drawPrinter(pyramidLayerCount-1,1,pyramidLayerCount);
-  }else if(elapsed<pyramidCycleMs+farmZoomMs){
-    const t=(elapsed-pyramidCycleMs)/farmZoomMs;
+    renderPrinterPhase(elapsed);
+  }else if(elapsed<farmRevealMs+farmZoomMs){
+    const t=(elapsed-farmRevealMs)/farmZoomMs;
     const ease=1-Math.pow(1-t,3);
-    drawPrinter(pyramidLayerCount-1,1,pyramidLayerCount);
-    for(let i=0;i<farmViews.length;i++)
-      renderPrinterPhase([.23,.51,.74][i]*pyramidCycleMs,farmViews[i]);
+    renderFarm(elapsed);
     setFleetProgress(ease,'zoom');
-  }else if(elapsed<pyramidCycleMs+farmZoomMs+farmHoldMs){
+  }else if(elapsed<farmRevealMs+farmZoomMs+farmHoldMs){
     setFleetProgress(1,'farm');
-    renderFarm(elapsed-pyramidCycleMs-farmZoomMs);
+    renderFarm(elapsed);
   }else{
-    const t=(elapsed-pyramidCycleMs-farmZoomMs-farmHoldMs)/farmReturnMs;
+    const t=(elapsed-farmRevealMs-farmZoomMs-farmHoldMs)/farmReturnMs;
     const ease=t*t*(3-2*t);
-    drawPrinter(pyramidLayerCount-1,1,pyramidLayerCount);
+    renderFarm(elapsed);
     setFleetProgress(1-ease,'return');
   }
   printerFrame=requestAnimationFrame(nextPrinterFrame);
