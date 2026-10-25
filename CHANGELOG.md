@@ -4,6 +4,10 @@ This file contains the version-by-version release history for Print Farm Control
 
 Historical entries describe the behaviour of the controller at the time of that release and may be superseded by later versions. For current installation, configuration and supported-hardware guidance, see [README.md](README.md).
 
+## v0.59.13
+
+- Redesigned the signed-out and first-administrator setup screen as a theme-aware Industrial Control Centre with split desktop branding, the original Stacked Layers sidebar logo, a genuine 18-tier stepped pyramid assembled layer by layer in a 45-degree isometric projection, a diagonal build-bed grid, decreasing blue extrusion perimeters with connected front faces, and a small amber nozzle aligned precisely to the active deposited contour, compact laptop/mobile motion treatments, and an accessible password-visibility control. Removed the `PYRAMID BUILD · DEMO` heading from the illustration while retaining the standalone example layer counter; no real printer telemetry is displayed before sign-in. Made the gentle login printer animation start automatically even when Windows or Chrome reports reduced motion, without any browser configuration or first-visit click. Removed the animation pause button and its stored preference, and retained the frameless bed visual to avoid misleading printer-gantry collisions. No other controller animations override accessibility preferences. The existing authentication, RBAC and HTTP warning behaviour is unchanged.
+
 ## v0.59.12
 
 - Refined Operator RBAC: retained queue operations, Print Library editing and printer filament/nozzle assignments, while restricting permanent library deletion, queue-history purge and central filament cost catalogue changes to Administrators; applied the same visibility rules to Preact and fallback UI.

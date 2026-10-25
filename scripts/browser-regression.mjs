@@ -3479,6 +3479,155 @@ async function nativeAuthenticationSmoke(browser){
     await page.goto(url+'/');
     await page.locator('#authOverlay').waitFor({state:'visible'});
     assert.equal(await page.locator('body.auth-locked').count(),1,'workspace locked before login');
+    const authVisualDir=process.env.PFC_VISUAL_CAPTURE_DIR
+      ? path.resolve(process.env.PFC_VISUAL_CAPTURE_DIR):null;
+    if(authVisualDir){
+      await fs.mkdir(authVisualDir,{recursive:true});
+      await page.screenshot({path:path.join(authVisualDir,'auth-setup-dark-desktop.png'),
+        animations:'disabled',fullPage:true});
+    }
+    // The same geometry drives deposited material AND the hotend tip.
+    const desktop=await page.evaluate(()=>{
+      const a=document.querySelector('.auth-story').getBoundingClientRect();
+      const b=document.querySelector('.auth-access-area').getBoundingClientRect();
+      const path=document.querySelector('#authExtrusionPath');
+      const head=document.querySelector('#authPrinterHead');
+      const total=path.getTotalLength();
+      const offset=Number(path.style.strokeDashoffset);
+      const point=path.getPointAtLength(total-offset);
+      const matrix=head.transform.baseVal.consolidate().matrix;
+      const brand=document.querySelector('.auth-brand .stacked-layers-mark');
+      return {story:a.toJSON(),access:b.toJSON(),
+        artwork:Boolean(document.querySelector('.auth-printer-art svg')),
+        exactLogo:Boolean(brand&&brand.querySelectorAll('polygon').length===3),
+        nozzle:Boolean(head.querySelector('.auth-head-guide')&&head.querySelector('.auth-heat-block')
+          &&head.querySelector('.auth-printer-nozzle')),
+        grid:Boolean(document.querySelector('.auth-build-grid')),
+        removedDemoHeading:document.querySelector('.auth-print-telemetry-heading')===null,
+        pathLength:total,nozzleError:Math.hypot(point.x-matrix.e,point.y-matrix.f)};
+    });
+    assert.ok(desktop.story.right<=desktop.access.left+2,
+      'branding panel must sit beside, not on top of, the login');
+    assert.ok(desktop.artwork,'the local printer illustration renders');
+    assert.ok(desktop.exactLogo,'sign-in uses the actual layered controller brand mark');
+    assert.ok(desktop.nozzle,'minimal amber nozzle and guide are present on the print bed');
+    assert.ok(desktop.grid,'45-degree isometric grid is rendered behind the pyramid');
+    assert.equal(desktop.removedDemoHeading,true,
+      'no Pyramid Build – Demo heading should appear over the animation');
+    assert.ok(desktop.pathLength>550,'first pyramid layer spans a complete isometric perimeter');
+    assert.ok(desktop.nozzleError<.5,'nozzle tip must touch the exact traced extrusion line');
+    const initial=await page.locator('#authPrinterHead').getAttribute('transform');
+    await page.waitForFunction(initial=>document.querySelector('#authPrinterHead')
+      ?.getAttribute('transform')!==initial,initial,{timeout:6000});
+    const alignment=await page.evaluate(()=>{
+      const path=document.querySelector('#authExtrusionPath');
+      const len=path.getTotalLength();
+      const drawn=len-Number(path.style.strokeDashoffset);
+      const point=path.getPointAtLength(drawn);
+      const head=document.querySelector('#authPrinterHead').transform.baseVal.consolidate().matrix;
+      return Math.hypot(point.x-head.e,point.y-head.f);
+    });
+    assert.ok(alignment<.5,'moving nozzle must stay aligned with its visible extrusion point');
+    const startWidth=await page.locator('#authExtrusionPath').evaluate(el=>el.getBBox().width);
+    await page.waitForFunction(()=>Number(document.querySelector('#authPyramidLayers')
+      ?.dataset.demoCompletedLayers)>=3,null,{timeout:8000});
+    const build=await page.evaluate(()=>{
+      const group=document.querySelector('#authPyramidLayers');
+      const shells=[...group.querySelectorAll('.auth-pyramid-shell')];
+      const footprints=shells.map(shell=>
+        shell.querySelector('.auth-pyramid-finished-ring').getBBox().width);
+      const active=document.querySelector('#authExtrusionPath');
+      const pathLength=active.getTotalLength();
+      const p=active.getPointAtLength(pathLength-Number(active.style.strokeDashoffset));
+      const tip=document.querySelector('#authPrinterHead').transform.baseVal.consolidate().matrix;
+      const grid=[...document.querySelectorAll('#authBuildGrid .auth-grid-line')];
+      const counter=Number(document.querySelector('#authPrintLayer').textContent);
+      return {shells:shells.length,footprints,activeWidth:active.getBBox().width,
+        layer:counter,tipError:Math.hypot(p.x-tip.e,p.y-tip.f),
+        grid:grid.length,startsWith45DegreeAngles:grid.some(line=>{
+          const box=line.getBBox();
+          return box.width>100&&box.height>40;
+        })};
+    });
+    assert.ok(build.shells>=3,'the animation must construct completed pyramid layers');
+    assert.ok(build.footprints.every((w,i)=>i===0||w<build.footprints[i-1]),
+      'successive pyramid tiers must visibly shrink instead of repeating a rectangle');
+    assert.ok(build.activeWidth<startWidth,
+      'the moving nozzle prints successively narrower pyramid contours');
+    assert.equal(build.layer,build.shells+1,
+      'the demo layer counter must advance as each actual tier is completed');
+    assert.ok(build.tipError<.5,'the nozzle stays on the shrinking active perimeter');
+    assert.ok(build.grid>=20&&build.startsWith45DegreeAngles,
+      'bed grid lines must share the pyramid’s angled isometric projection');
+    if(authVisualDir){
+      // Record a genuinely half-built pyramid, not a one-layer first frame.
+      // The screenshot is a visual QA artifact and never contains farm data.
+      await page.waitForFunction(()=>Number(document.querySelector('#authPyramidLayers')
+        ?.dataset.demoCompletedLayers)>=9,null,{timeout:18000});
+      const beforeTheme=await page.evaluate(()=>document.documentElement.dataset.theme);
+      await page.evaluate(()=>document.documentElement.dataset.theme='dark');
+      await page.screenshot({path:path.join(authVisualDir,'auth-pyramid-half-built-dark.png'),
+        animations:'disabled',fullPage:true});
+      await page.evaluate(theme=>document.documentElement.dataset.theme=theme,beforeTheme);
+    }
+    // Unlike the previous 3D gantry, the reference-inspired scene has no
+    // raised printer frame. All perimeter points and the full slim nozzle
+    // must remain inside the technical print-bed diagram.
+    const clearance=await page.evaluate(()=>{
+      const path=document.querySelector('#authExtrusionPath');
+      const length=path.getTotalLength();
+      let safelyInside=true;
+      for(let i=0;i<=120;i++){
+        const p=path.getPointAtLength(length*i/120);
+        if(p.x-11<=56||p.x+11>=609||p.y-51<=58||p.y+2>=347){
+          safelyInside=false;break;
+        }
+      }
+      return safelyInside;
+    });
+    assert.equal(clearance,true,'the complete nozzle remains inside the print bed');
+    assert.equal(await page.locator('.auth-printer-base,.auth-printer-rail').count(),0,
+      'reference visualization must not show a printer gantry or frame');
+    assert.match(await page.locator('.auth-print-telemetry-layer').textContent(),
+      /Layer \d{2} \/ 18/,'the demo layer counter remains legible');
+    assert.equal(await page.locator('#authMotionToggle').count(),0,
+      'login must no longer show a pause animation button');
+    await page.emulateMedia({reducedMotion:'reduce'});
+    const initialOffset=await page.locator('#authExtrusionPath').evaluate(el=>
+      el.style.strokeDashoffset);
+    await page.waitForFunction(initial=>document.querySelector('#authExtrusionPath')
+      ?.style.strokeDashoffset!==initial,initial,{timeout:5000});
+    assert.equal(await page.locator('#authPrinterHead').isVisible(),true,
+      'the printhead still animates automatically in Windows Chrome');
+    await page.emulateMedia({reducedMotion:'no-preference'});
+    await page.setViewportSize({width:820,height:844});
+    assert.equal(await page.locator('.auth-printer-art').isVisible(),true,
+      'compact laptop viewport retains visible printer animation');
+    await page.evaluate(()=>document.documentElement.dataset.theme='light');
+    assert.equal(await page.locator('.auth-story').evaluate(element=>
+      getComputedStyle(element).backgroundColor),'rgb(246, 249, 253)',
+      'access branding inherits the light theme');
+    await page.evaluate(()=>document.documentElement.dataset.theme='dark');
+    await page.setViewportSize({width:390,height:844});
+    assert.equal(await page.locator('.auth-printer-art').isVisible(),false,
+      'phone layout hides the large printer art');
+    assert.equal(await page.locator('.auth-brand-symbol').evaluate(element=>
+      getComputedStyle(element,'::after').animationName),'auth-logo-layer',
+      'phone layout has a subtle animated brand layer');
+    await page.emulateMedia({reducedMotion:'reduce'});
+    assert.equal(await page.locator('.auth-brand-symbol').evaluate(el=>
+      getComputedStyle(el,'::after').animationName),'auth-logo-layer',
+      'mobile brand line remains subtle and automatic without extra controls');
+    await page.emulateMedia({reducedMotion:'no-preference'});
+    const mobile=await page.evaluate(()=>({
+      scroll:document.documentElement.scrollWidth,
+      width:innerWidth,
+      form:document.querySelector('.auth-login-card').getBoundingClientRect().toJSON()
+    }));
+    assert.ok(mobile.scroll<=mobile.width+1,'mobile auth gate must not overflow horizontally');
+    assert.ok(mobile.form.left>=0&&mobile.form.right<=mobile.width,
+      'mobile setup form stays within viewport');
+    await page.setViewportSize({width:1280,height:800});
     assert.equal(await page.locator('#authSetupForm').isVisible(),true,
       'default HTTP setup must be visible without any environment override');
     assert.equal(await page.locator('#authTransportNotice').isVisible(),true,
@@ -3495,8 +3644,26 @@ async function nativeAuthenticationSmoke(browser){
     await page.locator('#authSetupForm button[type=submit]').click();
     await page.locator('#authLoginForm').waitFor({state:'visible'});
     assert.equal(await page.locator('#authTransportNotice').isVisible(),true);
+    if(authVisualDir){
+      await page.screenshot({path:path.join(authVisualDir,'auth-login-dark-desktop.png'),
+        animations:'disabled',fullPage:true});
+      await page.evaluate(()=>document.documentElement.dataset.theme='light');
+      await page.screenshot({path:path.join(authVisualDir,'auth-login-light-desktop.png'),
+        animations:'disabled',fullPage:true});
+      await page.setViewportSize({width:390,height:844});
+      await page.screenshot({path:path.join(authVisualDir,'auth-login-mobile.png'),
+        animations:'disabled',fullPage:true});
+      await page.setViewportSize({width:1280,height:800});
+      await page.evaluate(()=>document.documentElement.dataset.theme='dark');
+    }
     await page.locator('#authLoginForm [name=username]').fill('owner');
     await page.locator('#authLoginForm [name=password]').fill('Admin password for tests 2026');
+    await page.locator('#authPasswordToggle').click();
+    assert.equal(await page.locator('#authLoginForm [name=password]').getAttribute('type'),'text');
+    assert.equal(await page.locator('#authPasswordToggle').getAttribute('aria-pressed'),'true');
+    await page.locator('#authPasswordToggle').click();
+    assert.equal(await page.locator('#authLoginForm [name=password]').getAttribute('type'),'password');
+    assert.equal(await page.locator('#authPasswordToggle').getAttribute('aria-pressed'),'false');
     await page.locator('#authLoginForm button[type=submit]').click();
     await page.waitForFunction(()=>window.__PFC_FRONTEND_BOOTED__===true
       && document.body.dataset.authRole==='administrator',{},{timeout:25000});
@@ -3504,6 +3671,11 @@ async function nativeAuthenticationSmoke(browser){
     assert.equal(await page.locator('#authIdentity').isVisible(),true);
     await page.locator('#usersBtn').click();
     await page.locator('#authUserAddForm').waitFor({state:'visible'});
+    // The native account-list fetch is asynchronous. Wait for its initial
+    // response before creating a user so a late initial list render cannot
+    // overwrite the refreshed list and cause a false browser regression.
+    await page.locator('#authUserList tbody tr').filter({hasText:'owner'})
+      .waitFor({state:'visible'});
     await page.locator('#authUserAddForm [name=username]').fill('shiftoperator');
     await page.locator('#authUserAddForm [name=displayName]').fill('Shift operator');
     await page.locator('#authUserAddForm [name=role]').selectOption('operator');
@@ -3573,8 +3745,18 @@ async function nativeAuthenticationSmoke(browser){
           role:document.body.dataset.authRole,
           locked:document.body.classList.contains('auth-locked'),
           userError:document.querySelector('#authUserAddError')?.textContent,
-          loginError:document.querySelector('#authLoginError')?.textContent
+          loginError:document.querySelector('#authLoginError')?.textContent,
+          route:location.pathname,
+          accountList:document.querySelector('#authUserList')?.textContent?.slice(0,450),
+          usersHidden:document.querySelector('#authUsersLayout')?.hidden,
+          usersButtonHidden:document.querySelector('#usersBtn')?.hidden
         })).catch(()=>({unavailable:true})));
+        // A hung UI account-list fetch can otherwise look like an unrelated
+        // menu failure. Compare network access from browser and API context.
+        console.error('Auth users HTTP probe:',await p.request.get(new URL('/api/auth/users',p.url()).toString(),
+          {timeout:4500}).then(async response=>({
+          status:response.status(),preview:(await response.text()).slice(0,180)
+        })).catch(error=>({error:String(error).slice(0,220)})));
       }
     }
     throw error;

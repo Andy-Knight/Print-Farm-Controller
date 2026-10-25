@@ -11,7 +11,7 @@ Repository policy: `AGENTS.md` defines agent startup behavior; `docs/DOCUMENTATI
 - Repository: `Andy-Knight/Print-Farm-Controller`
 - Project path: repository root (`/`)
 - Primary branch: `main` (current production baseline)
-- Current controller source version: **0.59.12** (feature-branch release candidate; authentication and server-side RBAC default on, including HTTP; validation pending).
+- Current controller source version: **0.59.13** (feature-branch candidate; Industrial Control Centre login presentation over the merged v0.59.12 authentication baseline).
 - Previous baseline audited: **0.48.0** (main before the regression test audit release).
 - Runtime: **Node.js 24.22.1+** (Node 24 release line), ES modules; build-time **npm 12.2.0** and committed lockfile; no npm runtime dependency for deployed controller. Follow `docs/dependency-security.md` for updates.
 - GitHub is the authoritative code baseline.
@@ -19,7 +19,7 @@ Repository policy: `AGENTS.md` defines agent startup behavior; `docs/DOCUMENTATI
 
 ## Current work
 
-- **Current implementation candidate:** [Draft PR #131](https://github.com/Andy-Knight/Print-Farm-Controller/pull/131), branch `feature/native-login-user-management-rbac`, implementing issue #127 atop the v0.59.11 foundation. Native sessions, code-verified first administrator setup through the Security & users GUI, offline recovery, Origin/CSRF checks, role gates before API/emulator dispatch, login UI and admin user management are implemented in source; **not yet merged or production validated**. Run and repair Node 24/npm 12 tests, Chromium Preact and fallback, packaged Windows SEA, container/K3s and HTTPS reverse-proxy end-to-end tests before proposing merge.
+- **Active candidate:** `feature/industrial-login-motion` (draft PR #132), based on v0.59.12. The branded sign-in keeps the actual Stacked Layers logo and now time-lapses a genuine 18-layer stepped pyramid, rising and tapering in a shared 45-degree isometric projection. The nozzle traces the exact current-tier perimeter; completed front faces persist and the demo layer number advances automatically. The obsolete Pause button and printer frame remain absent. Verify geometry, themes, role security and CI before asking to merge. Main remains v0.59.12.
 - **Activation:** Authentication and backend RBAC are enabled by default for HTTPS and HTTP. Without an administrator, startup blocks printer APIs and displays GUI setup, requiring a private code from startup logs. HTTP enrollment/login work by default but display a clear risk warning: credentials/session cookies remain interceptable without TLS. `PFC_AUTH_REQUIRED=0` is a temporary unsafe legacy opt-out before enrollment; durable account/activation state overrides it. `PFC_AUTH_ALLOW_HTTP=0` requires HTTPS for credential entry. Store corruption must never reopen anonymous access. Offline recovery remains supported.
 - **Security rollout risk:** [Issue #128](https://github.com/Andy-Knight/Print-Farm-Controller/issues/128) tracks TLS at ingress/reverse proxy using MetalLB and Ultimate Certificate Manager, preventing direct backend bypass, cookie/Origin testing, and Kubernetes hardening. Login/RBAC are not a substitute for encrypted browser transport.
 - **Operator role boundary:** Operators can create/edit library files, manage active/queued print work, assign filament/nozzles per printer and maintain equipment, but cannot delete library files, purge queue history or modify shared filament catalogue costs/entries; the backend enforces these distinctions independent of the UI.

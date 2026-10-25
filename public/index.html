@@ -1530,34 +1530,124 @@
   </dialog>
 
   <div id="authOverlay" class="auth-overlay" hidden>
-    <section class="auth-login-card" aria-labelledby="authLoginHeading">
-      <div class="eyebrow ui-page-eyebrow">STACKED LAYERS</div>
-      <h1 id="authLoginHeading">Print Farm Controller</h1>
-      <p id="authLoginHelp" class="subtle">Sign in to access your farm.</p>
-      <form id="authLoginForm" class="auth-form">
-        <label>Username <input name="username" autocomplete="username" required></label>
-        <label>Password <input name="password" type="password" autocomplete="current-password" required></label>
-        <button class="primary" type="submit">Sign in</button>
-      </form>
-      <section id="authSetupSection" class="auth-setup-section" aria-labelledby="authSetupHeading" hidden>
-        <h2 id="authSetupHeading">Set up administrator</h2>
-        <p class="subtle">Enter the one-time code from the controller's <strong>protected startup logs</strong>
-        (Kubernetes pod logs in your cluster management GUI) and create the first administrator.
-        On HTTP, your setup code, password and session can be intercepted; HTTPS is strongly recommended.</p>
-        <form id="authSetupForm" class="auth-form" hidden>
-          <label>One-time setup code <input name="code" type="password" autocomplete="off" spellcheck="false" maxlength="64" required></label>
-          <label>Administrator username <input name="username" autocomplete="off" minlength="3" maxlength="48" required></label>
-          <label>Display name (optional) <input name="displayName" maxlength="120"></label>
-          <label>Password (at least 12 characters) <input name="password" type="password" autocomplete="new-password" minlength="12" maxlength="256" required></label>
-          <label>Confirm password <input name="confirmPassword" type="password" autocomplete="new-password" minlength="12" maxlength="256" required></label>
-          <button type="submit" class="primary">Enable authentication</button>
-        </form>
-        <p id="authSetupError" class="auth-error" role="alert"></p>
-        <button id="authSetupCancelBtn" type="button" class="secondary" hidden>Return to dashboard</button>
+    <div class="auth-experience">
+      <section class="auth-story" aria-label="Print Farm Controller introduction">
+        <div class="auth-brand">
+          <span class="auth-brand-symbol" aria-hidden="true">
+            <svg class="stacked-layers-mark" viewBox="0 0 120 92" focusable="false">
+              <polygon points="60,2 114,27 60,52 6,27"></polygon>
+              <polygon points="14,39 60,60 106,39 114,43 60,69 6,43"></polygon>
+              <polygon points="14,58 60,79 106,58 114,62 60,90 6,62"></polygon>
+            </svg>
+          </span>
+          <span class="auth-brand-name">STACKED LAYERS <small>PRINT FARM CONTROLLER</small></span>
+        </div>
+        <div class="auth-story-content">
+          <div class="auth-story-eyebrow">BUILT FOR PRODUCTION</div>
+          <h2>Precision in every layer.<br><span>Control over every printer.</span></h2>
+          <p>One place to manage your print farm, from the first layer to the finished part.</p>
+          <div class="auth-printer-art" aria-hidden="true">
+            <!-- Forty-five-degree isometric construction: the animation progressively
+                 prints eighteen shrinking layers into a stepped pyramid. The nozzle
+                 tip is driven from the very same SVG perimeter used for extrusion. -->
+            <svg class="auth-printer-illustration" viewBox="0 0 660 410" fill="none"
+                 xmlns="http://www.w3.org/2000/svg">
+              <defs>
+                <clipPath id="authPrintGridCrop"><rect x="56" y="56" width="553" height="306" rx="2"/></clipPath>
+                <radialGradient id="authPrintSurfaceGlow" cx="50%" cy="49%" r="60%">
+                  <stop stop-color="#1b3762" stop-opacity=".24"/>
+                  <stop offset="1" stop-color="#101b2b" stop-opacity="0"/>
+                </radialGradient>
+              </defs>
+              <rect class="auth-bed-backdrop" x="56" y="56" width="553" height="306"/>
+              <g clip-path="url(#authPrintGridCrop)">
+                <rect x="56" y="56" width="553" height="306" fill="url(#authPrintSurfaceGlow)"/>
+                <!-- Square bed, rotated 45 degrees around the vertical axis:
+                     guide lines and the growing part use the same projection. -->
+                <path class="auth-build-area" d="M330 135 552 241 330 347 108 241Z"/>
+                <g id="authBuildGrid" class="auth-build-grid"></g>
+                <path class="auth-build-guides" d="M330 135V347M108 241H552"/>
+                <!-- Completed layers accumulate here; each new footprint is
+                     narrower and higher to create a genuine stepped pyramid. -->
+                <g id="authPyramidLayers" class="auth-pyramid-layers" data-demo-completed-layers="0"></g>
+                <path id="authPrinterTop" class="auth-printer-top"
+                      d="M177 241 330 169 483 241 330 313Z"/>
+                <path id="authExtrusionPath" class="auth-printer-trace"
+                      d="M177 241 330 169 483 241 330 313Z"/>
+                <g id="authPrinterHead" class="auth-printer-head-motion" transform="translate(177 241)">
+                  <path class="auth-head-guide" d="M0-47V-11"/>
+                  <path class="auth-head-glow" d="M0-19V1"/>
+                  <path class="auth-heat-block" d="M-11-17H11V-12H-11Z"/>
+                  <path class="auth-printer-nozzle" d="M-11-11H11L3-1 0 0 -3-1Z"/>
+                  <circle class="auth-nozzle-tip" cx="0" cy="0" r="2"/>
+                </g>
+              </g>
+              <g class="auth-toolpath-legend" aria-hidden="true">
+                <text x="59" y="382" class="auth-print-telemetry-layer">Layer <tspan id="authPrintLayer">01</tspan> / 18</text>
+              </g>
+            </svg>
+          </div>
+        </div>
+        <div class="auth-story-footer"><span class="auth-footer-mark" aria-hidden="true"></span> LOCAL-FIRST 3D PRINT FARM MANAGEMENT</div>
       </section>
-      <p id="authLoginError" class="auth-error" role="alert"></p>
-      <p id="authTransportNotice" class="auth-transport-notice" hidden></p>
-    </section>
+      <div class="auth-access-area">
+        <section class="auth-login-card" aria-labelledby="authLoginHeading">
+          <div class="auth-access-emblem" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="4.5" y="10.5" width="15" height="11" rx="2"/><path d="M8 10.5v-3a4 4 0 0 1 8 0v3"/><path d="M12 15v2.5"/>
+            </svg>
+          </div>
+          <div class="eyebrow ui-page-eyebrow auth-access-eyebrow">SECURE ACCESS</div>
+          <h1 id="authLoginHeading">Welcome back</h1>
+          <p id="authLoginHelp" class="subtle">Sign in to access your print farm.</p>
+          <form id="authLoginForm" class="auth-form">
+            <label for="authLoginUsername">Username</label>
+            <div class="auth-input-wrap">
+              <span class="auth-input-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
+                  <circle cx="12" cy="7.5" r="3.5"/><path d="M5 20v-2.2c0-3.1 3-5 7-5s7 1.9 7 5V20"/>
+                </svg>
+              </span>
+              <input id="authLoginUsername" name="username" autocomplete="username" placeholder="Enter your username" required>
+            </div>
+            <label for="authLoginPassword">Password</label>
+            <div class="auth-input-wrap auth-password-field">
+              <span class="auth-input-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                  <rect x="5" y="10" width="14" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/>
+                </svg>
+              </span>
+              <input id="authLoginPassword" name="password" type="password" autocomplete="current-password" placeholder="Enter your password" required>
+              <button id="authPasswordToggle" class="auth-password-toggle" type="button" aria-pressed="false" aria-label="Show password" title="Show password">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <path d="M2.5 12s3.5-5.5 9.5-5.5S21.5 12 21.5 12s-3.5 5.5-9.5 5.5S2.5 12 2.5 12Z"/><circle cx="12" cy="12" r="2.6"/>
+                </svg>
+              </button>
+            </div>
+            <button class="primary auth-submit" type="submit">Sign in <span aria-hidden="true">→</span></button>
+          </form>
+          <section id="authSetupSection" class="auth-setup-section" aria-labelledby="authSetupHeading" hidden>
+            <h2 id="authSetupHeading">Set up administrator</h2>
+            <p class="subtle">Enter the one-time code from the controller's <strong>protected startup logs</strong>
+            (Kubernetes pod logs in your cluster management GUI) and create the first administrator.
+            On HTTP, your setup code, password and session can be intercepted; HTTPS is strongly recommended.</p>
+            <form id="authSetupForm" class="auth-form" hidden>
+              <label>One-time setup code <input name="code" type="password" autocomplete="off" spellcheck="false" maxlength="64" required></label>
+              <label>Administrator username <input name="username" autocomplete="off" minlength="3" maxlength="48" required></label>
+              <label>Display name (optional) <input name="displayName" maxlength="120"></label>
+              <label>Password (at least 12 characters) <input name="password" type="password" autocomplete="new-password" minlength="12" maxlength="256" required></label>
+              <label>Confirm password <input name="confirmPassword" type="password" autocomplete="new-password" minlength="12" maxlength="256" required></label>
+              <button type="submit" class="primary auth-submit">Enable authentication</button>
+            </form>
+            <p id="authSetupError" class="auth-error" role="alert"></p>
+            <button id="authSetupCancelBtn" type="button" class="secondary" hidden>Return to dashboard</button>
+          </section>
+          <p id="authLoginError" class="auth-error" role="alert"></p>
+          <p id="authTransportNotice" class="auth-transport-notice" role="status" hidden></p>
+          <p class="auth-access-footnote">Authorised users only · Print Farm Controller</p>
+        </section>
+      </div>
+    </div>
   </div>
 
   <script type="module" src="/auth-gate.js"></script>

@@ -8,6 +8,142 @@ const errorLabel=$('#authLoginError');
 const loginForm=$('#authLoginForm');
 let session=null;
 
+// Eighteen genuine, shrinking deposited perimeters build a stepped pyramid.
+// The camera looks diagonally across the bed (45-degree azimuth); X and Y
+// share an isometric projection. All geometry, nozzle travel and grid lines
+// use one coordinate system, so the active nozzle cannot miss extrusion.
+const pyramidLayerCount=18;
+const pyramidLayerMs=1500; // accelerated construction time-lapse
+const pyramidHoldMs=2400;
+const pyramidCycleMs=pyramidLayerCount*pyramidLayerMs+pyramidHoldMs;
+const pyramidBaseRadius=90;
+const pyramidTaper=4;
+const pyramidLayerHeight=5.2;
+const svgNS='http://www.w3.org/2000/svg';
+const extrusionPath=$('#authExtrusionPath');
+const ghostPerimeter=$('#authPrinterTop');
+const carriage=$('#authPrinterHead');
+const completedLayers=$('#authPyramidLayers');
+const bedGrid=$('#authBuildGrid');
+const layerCounter=$('#authPrintLayer');
+let printerFrame=0;
+let printerStart=null;
+let lastRenderedLayer=-1;
+let lastCompletedLayers=-1;
+
+function projectPrintPoint(x,y,z=0){
+  return {x:330+.85*(x-y),y:241+.4*(x+y)-z};
+}
+function pyramidRing(index){
+  const r=pyramidBaseRadius-Math.max(0,index)*pyramidTaper;
+  const z=index*pyramidLayerHeight;
+  return [
+    projectPrintPoint(-r,r,z),   // left
+    projectPrintPoint(-r,-r,z),  // far
+    projectPrintPoint(r,-r,z),   // right
+    projectPrintPoint(r,r,z)     // near
+  ];
+}
+function svgPoint(p){
+  return p.x.toFixed(2)+' '+p.y.toFixed(2);
+}
+function polygonPath(points){
+  return 'M'+points.map(svgPoint).join('L')+'Z';
+}
+function svgPath(d,cls){
+  const node=document.createElementNS(svgNS,'path');
+  node.setAttribute('class',cls);
+  node.setAttribute('d',d);
+  return node;
+}
+// The fixed grid is projected at the same 45-degree azimuth as the part.
+if(bedGrid){
+  const fragment=document.createDocumentFragment();
+  for(let t=-120;t<=120;t+=24){
+    const across=[projectPrintPoint(t,-130),projectPrintPoint(t,130)];
+    const along=[projectPrintPoint(-130,t),projectPrintPoint(130,t)];
+    fragment.append(
+      svgPath('M'+svgPoint(across[0])+'L'+svgPoint(across[1]),'auth-grid-line'),
+      svgPath('M'+svgPoint(along[0])+'L'+svgPoint(along[1]),'auth-grid-line')
+    );
+  }
+  bedGrid.append(fragment);
+}
+function layerFaces(index){
+  const top=pyramidRing(index);
+  const bottom=index===0
+    ?pyramidRing(0).map(p=>({x:p.x,y:p.y+pyramidLayerHeight}))
+    :pyramidRing(index-1);
+  const shell=document.createElementNS(svgNS,'g');
+  shell.setAttribute('class','auth-pyramid-shell');
+  shell.setAttribute('data-demo-layer',String(index+1));
+  shell.append(
+    svgPath(polygonPath([bottom[0],bottom[3],top[3],top[0]]),
+      'auth-pyramid-face-left'),
+    svgPath(polygonPath([bottom[3],bottom[2],top[2],top[3]]),
+      'auth-pyramid-face-right'),
+    svgPath(polygonPath(top),'auth-pyramid-finished-ring')
+  );
+  return shell;
+}
+function showCompletedLayers(count){
+  if(!completedLayers||lastCompletedLayers===count)return;
+  const fragment=document.createDocumentFragment();
+  for(let i=0;i<count;i++)fragment.append(layerFaces(i));
+  completedLayers.replaceChildren(fragment);
+  completedLayers.dataset.demoCompletedLayers=String(count);
+  lastCompletedLayers=count;
+}
+function drawPrinter(layer=0,progress=0,finished=layer){
+  if(!extrusionPath||!carriage||!ghostPerimeter)return;
+  const activeLayer=Math.min(pyramidLayerCount-1,Math.max(0,layer));
+  const amount=Math.min(1,Math.max(0,progress));
+  showCompletedLayers(finished);
+  if(lastRenderedLayer!==activeLayer){
+    const perimeter=polygonPath(pyramidRing(activeLayer));
+    extrusionPath.setAttribute('d',perimeter);
+    ghostPerimeter.setAttribute('d',perimeter);
+    lastRenderedLayer=activeLayer;
+  }
+  const length=extrusionPath.getTotalLength();
+  const distance=amount*length;
+  const point=extrusionPath.getPointAtLength(distance);
+  // The group's (0,0) origin is the sharp amber nozzle tip.
+  carriage.setAttribute('transform',`translate(${point.x} ${point.y})`);
+  extrusionPath.style.strokeDasharray=String(length);
+  extrusionPath.style.strokeDashoffset=String(length-distance);
+  if(layerCounter)layerCounter.textContent=String(activeLayer+1).padStart(2,'0');
+}
+function nextPrinterFrame(time){
+  printerFrame=0;
+  if(lock.hidden||document.visibilityState==='hidden')return;
+  if(printerStart===null)printerStart=time;
+  const elapsed=(time-printerStart)%pyramidCycleMs;
+  const buildingDuration=pyramidLayerCount*pyramidLayerMs;
+  if(elapsed<buildingDuration){
+    const layer=Math.floor(elapsed/pyramidLayerMs);
+    drawPrinter(layer,(elapsed%pyramidLayerMs)/pyramidLayerMs);
+  }else{
+    // Hold the completed part without dropping/redrawing the top layer.
+    drawPrinter(pyramidLayerCount-1,1,pyramidLayerCount);
+  }
+  printerFrame=requestAnimationFrame(nextPrinterFrame);
+}
+function syncPrinterAnimation(){
+  if(printerFrame)cancelAnimationFrame(printerFrame);
+  printerFrame=0;
+  printerStart=null;
+  lastRenderedLayer=-1;
+  lastCompletedLayers=-1;
+  drawPrinter();
+  if(!lock.hidden&&document.visibilityState==='visible')
+    printerFrame=requestAnimationFrame(nextPrinterFrame);
+}
+document.addEventListener('visibilitychange',syncPrinterAnimation);
+
+// Shared authentication helpers are deliberately independent of the
+// decorative printer renderer. User management, sign-out and account password
+// changes must continue to work if the illustration is revised.
 function errorText(error){return error instanceof Error?error.message:String(error);}
 async function call(path,options={}){
   const response=await window.fetch(path,options);
@@ -19,7 +155,9 @@ function showGate(message,{setup=false,transport=false}={}){
   document.body.classList.add('auth-locked');
   document.documentElement.classList.remove('auth-pending');
   lock.hidden=false;
+  syncPrinterAnimation();
   $('#authLoginHelp').textContent=message||'Sign in to access your farm.';
+  $('#authLoginHeading').textContent=setup?'Set up your workspace':transport?'Connection required':'Welcome back';
   loginForm.hidden=setup||transport;
   $('#authSetupSection').hidden=!setup;
   $('#authSetupForm').hidden=!setup||!session?.loginAvailable;
@@ -235,6 +373,18 @@ $('#authSetupForm')?.addEventListener('submit',async event=>{
     location.assign('/');
   }catch(error){showError('#authSetupError',errorText(error));}
   finally{button.disabled=false;}
+});
+// The visibility control never copies passwords to another element or storage.
+$('#authPasswordToggle')?.addEventListener('click',event=>{
+  const input=loginForm?.elements.password;
+  if(!input)return;
+  const visible=input.type==='password';
+  input.type=visible?'text':'password';
+  const button=event.currentTarget;
+  button.setAttribute('aria-pressed',String(visible));
+  button.setAttribute('aria-label',visible?'Hide password':'Show password');
+  button.title=visible?'Hide password':'Show password';
+  input.focus({preventScroll:true});
 });
 loginForm?.addEventListener('submit',async event=>{
   event.preventDefault();
