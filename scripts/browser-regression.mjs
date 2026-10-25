@@ -3511,7 +3511,8 @@ async function nativeAuthenticationSmoke(browser){
           .backgroundImage.includes('radial-gradient'),
         plateShadow:Boolean(document.querySelector('.auth-bed-shadow')),
         contactShadow:Boolean(document.querySelector('.auth-pyramid-contact-shadow')),
-        progressMeter:Boolean(document.querySelector('#authLayerProgress')
+        progressMeter:Boolean(document.querySelector('.auth-printer-illustration')
+          ?.contains(document.querySelector('#authLayerProgress'))
           &&document.querySelector('.auth-layer-progress-track')),
         removedDemoHeading:document.querySelector('.auth-print-telemetry-heading')===null,
         pathLength:total,nozzleError:Math.hypot(point.x-matrix.e,point.y-matrix.f)};
