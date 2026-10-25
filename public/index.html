@@ -1553,20 +1553,17 @@
             <svg class="auth-printer-illustration" viewBox="0 0 660 410" fill="none"
                  xmlns="http://www.w3.org/2000/svg">
               <defs>
-                <clipPath id="authPrintGridCrop"><rect x="56" y="56" width="553" height="306" rx="2"/></clipPath>
-                <radialGradient id="authPrintSurfaceGlow" cx="50%" cy="49%" r="60%">
-                  <stop stop-color="#1b3762" stop-opacity=".24"/>
-                  <stop offset="1" stop-color="#101b2b" stop-opacity="0"/>
-                </radialGradient>
+                <clipPath id="authBuildPlateCrop">
+                  <path d="M330 135 552 241 330 347 108 241Z"/>
+                </clipPath>
               </defs>
-              <rect class="auth-bed-backdrop" x="56" y="56" width="553" height="306"/>
-              <g clip-path="url(#authPrintGridCrop)">
-                <rect x="56" y="56" width="553" height="306" fill="url(#authPrintSurfaceGlow)"/>
-                <!-- Square bed, rotated 45 degrees around the vertical axis:
-                     guide lines and the growing part use the same projection. -->
-                <path class="auth-build-area" d="M330 135 552 241 330 347 108 241Z"/>
-                <g id="authBuildGrid" class="auth-build-grid"></g>
-                <path class="auth-build-guides" d="M330 135V347M108 241H552"/>
+              <!-- One quiet, projected build plate, without a second square background grid. -->
+              <path class="auth-bed-shadow" d="M330 148 560 255 330 363 100 255Z"/>
+              <path class="auth-build-area" d="M330 135 552 241 330 347 108 241Z"/>
+              <g id="authBuildGrid" class="auth-build-grid"
+                 clip-path="url(#authBuildPlateCrop)"></g>
+              <path class="auth-pyramid-contact-shadow"
+                    d="M177 245 330 173 483 245 330 317Z"/>
                 <!-- Completed layers accumulate here; each new footprint is
                      narrower and higher to create a genuine stepped pyramid. -->
                 <g id="authPyramidLayers" class="auth-pyramid-layers" data-demo-completed-layers="0"></g>
@@ -1583,7 +1580,10 @@
                 </g>
               </g>
               <g class="auth-toolpath-legend" aria-hidden="true">
-                <text x="59" y="382" class="auth-print-telemetry-layer">Layer <tspan id="authPrintLayer">01</tspan> / 18</text>
+                <text x="330" y="379" text-anchor="middle" class="auth-print-telemetry-layer">Layer <tspan id="authPrintLayer">01</tspan> / 18</text>
+                <rect class="auth-layer-progress-track" x="238" y="391" width="184" height="3" rx="1.5"/>
+                <rect id="authLayerProgress" class="auth-layer-progress-fill"
+                      x="238" y="391" width="0" height="3" rx="1.5"/>
               </g>
             </svg>
           </div>
