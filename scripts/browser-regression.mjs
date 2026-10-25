@@ -3657,7 +3657,7 @@ async function nativeAuthenticationSmoke(browser){
     assert.equal(farmScene.links,4,'every printer has a path to the same controller');
     assert.equal(farmScene.hub,'ONE CONTROLLER','the common controller is clearly identified');
     assert.ok(farmScene.visible,'the connected farm must appear after zooming');
-    assert.match(farmScene.firstTransform,/scale\\(0\\.4/,
+    assert.ok(farmScene.firstTransform.includes('scale(0.4)'),
       'the first printer shrinks into the farm rather than disappearing');
     assert.ok(new Set(farmScene.layers).size>=3,
       'the printers depict independently staggered, active print jobs');
