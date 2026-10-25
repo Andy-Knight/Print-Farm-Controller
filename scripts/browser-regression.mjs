@@ -3694,8 +3694,10 @@ async function nativeAuthenticationSmoke(browser){
       await page.evaluate(()=>document.documentElement.dataset.theme='dark');
     }
     await page.setViewportSize({width:820,height:844});
-    assert.equal(await page.locator('.auth-printer-illustration').getAttribute('data-demo-stage'),'solo',
-      'compact laptop layout stays focused on the original single-printer animation');
+    // The matchMedia change event is delivered asynchronously after resizing.
+    // Wait for the renderer to switch scenes instead of racing that event.
+    await page.waitForFunction(()=>document.querySelector('.auth-printer-illustration')
+      ?.dataset.demoStage==='solo',null,{timeout:4000});
     assert.equal(await page.locator('.auth-printer-art').isVisible(),true,
       'compact laptop viewport retains visible printer animation');
     await page.evaluate(()=>document.documentElement.dataset.theme='light');
