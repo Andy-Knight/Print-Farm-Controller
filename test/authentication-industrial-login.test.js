@@ -17,6 +17,12 @@ test('industrial login retains the native sign-in and initial-enrollment contrac
     assert.match(html,new RegExp('name="'+name+'"'));
   assert.match(gate,/nativeFetch\('\/api\/auth\/login'/);
   assert.match(gate,/nativeFetch\('\/api\/auth\/enroll'/);
+  assert.match(gate,/function errorText\(error\)/,
+    'pyramid renderer must retain shared human-readable API errors');
+  assert.match(gate,/async function call\(path,options=\{\}\)/,
+    'pyramid renderer must retain the user-management API helper');
+  assert.match(gate,/const data=await call\('\/api\/auth\/users'\)/,
+    'administrator user list is loaded via the shared helper');
   assert.match(gate,/location\.reload\(\)/);
   assert.match(gate,/location\.assign\('\/'\)/);
   assert.match(html,/role="status" hidden/);
