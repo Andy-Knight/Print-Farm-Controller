@@ -1012,6 +1012,11 @@ input:focus,select:focus { border-color:#7a9fbe; }
 .batch-field-grid { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
 .field-inline-help { color:#697b89; font-weight:500; font-size:.72rem; }
 
+/* Five evenly sized reporting KPIs on large desktop screens; preserve the
+   existing two-column layout at tablet/mobile widths. */
+@media (min-width:901px) {
+  .reporting-kpis .reporting-kpi { min-width:0; }
+}
 @media (max-width:900px) {
   .topbar { align-items:flex-start; flex-direction:column; }
   .topbar-actions { max-width:none; width:100%; justify-content:flex-start; flex-wrap:wrap; }
@@ -3022,7 +3027,7 @@ button.library-file-preview { cursor:zoom-in; }
 .reporting-section-head h3 { margin:0 0 3px; font-size:.98rem; }
 .reporting-kpis {
   display:grid;
-  grid-template-columns:repeat(4,minmax(120px,1fr));
+  grid-template-columns:repeat(5,minmax(0,1fr));
   gap:10px;
 }
 .reporting-kpi {
