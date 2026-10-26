@@ -3795,13 +3795,15 @@ async function nativeAuthenticationSmoke(browser){
     assert.equal(await page.locator('#tlsRegenerateBtn').isVisible(),false,
       'regeneration is unavailable until the SAVED mode is self-signed HTTPS');
     assert.equal(await page.locator('#tlsConfigureBtn').isVisible(),true);
-    const securitySections=await page.locator('#tlsSettings').evaluate(root=>
-      ['#tlsSummaryHeading','#tlsConfigureForm','#tlsMaintenance'].map(sel=>{
-        const node=root.querySelector(sel);
-        return node?.getBoundingClientRect().top;
-      }));
-    assert.ok(securitySections[0]<securitySections[1]&&securitySections[1]<securitySections[2],
-      'HTTPS sections must render in summary, settings, replacement order');
+    const sectionOrder=await page.locator('#tlsSettings').evaluate(root=>{
+      const a=root.querySelector('#tlsSummaryHeading');
+      const b=root.querySelector('#tlsConfigureForm');
+      const c=root.querySelector('#tlsMaintenance');
+      return Boolean(a.compareDocumentPosition(b)&Node.DOCUMENT_POSITION_FOLLOWING)
+        &&Boolean(b.compareDocumentPosition(c)&Node.DOCUMENT_POSITION_FOLLOWING);
+    });
+    assert.equal(sectionOrder,true,
+      'HTTPS sections must follow Summary, Settings, Replacement even while the last is hidden');
     await page.locator('#tlsConfigureMode').selectOption('provided');
     assert.equal(await page.locator('#tlsConfigureCertificatePem').isVisible(),true);
     assert.equal(await page.locator('#tlsConfigurePrivateKeyPem').isVisible(),true);
