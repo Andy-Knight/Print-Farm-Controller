@@ -54,7 +54,7 @@ async function preactReady(page) {
 
 async function reportsLoaded(page,where) {
   await page.waitForFunction(() =>
-    document.querySelectorAll('#reportingKpis .reporting-kpi').length >= 4
+    document.querySelectorAll('#reportingKpis .reporting-kpi').length >= 5
     && document.querySelector('#reportingStatus')?.textContent?.includes('Reporting period:')
   ,null,{timeout:20000});
   const kpis = await page.locator('#reportingKpis .reporting-kpi').allTextContents();
@@ -1952,14 +1952,17 @@ async function routeSmoke(page,url) {
       {label:'Total print jobs',value:'20',detail:'In selected period',tone:'info',iconName:'jobs',progressPercent:null},
       {label:'Completed',value:'17',detail:'85% completion rate',tone:'positive',iconName:'check',progressPercent:85,progressLabel:'Completion rate'},
       {label:'Failed',value:'2',detail:'10% failure rate',tone:'negative',iconName:'cross',progressPercent:10,progressLabel:'Failure rate'},
-      {label:'Total run time',value:'31.5 h',detail:'Reported from print timestamps',tone:'info',iconName:'clock',progressPercent:null}
+      {label:'Total run time',value:'31.5 h',detail:'Reported from print timestamps',tone:'info',iconName:'clock',progressPercent:null},
+      {label:'Filament used',value:'3.85 kg',detail:'Recorded for completed prints',tone:'info',iconName:'spool',progressPercent:null}
     ]}
   })));
-  await page.waitForFunction(() => document.querySelectorAll('#reportingKpis .reporting-kpi-gauge').length === 4);
+  await page.waitForFunction(() => document.querySelectorAll('#reportingKpis .reporting-kpi-gauge').length === 5);
   assert.equal(await page.locator('#reportingKpis .reporting-kpi-meter').count(),2,
     'only rates should have progress bars');
-  assert.equal(await page.locator('#reportingKpis .reporting-kpi-accent').count(),2,
-    'count and runtime should have a decorative accent, not false progress');
+  assert.equal(await page.locator('#reportingKpis .reporting-kpi-accent').count(),3,
+    'job count, runtime and material kg have decorative accents, not false progress');
+  assert.equal(await page.locator('#reportingKpis .reporting-kpi').count(),5);
+  assert.equal(await page.locator('#reportingKpis .reporting-kpi').last().locator('.reporting-kpi-body strong').innerText(),'3.85 kg');
   assert.equal(await page.locator('#reportingKpis [aria-label="Completion rate"]').getAttribute('aria-valuenow'),'85');
   assert.equal(await page.locator('#reportingKpis [aria-label="Failure rate"]').getAttribute('aria-valuenow'),'10');
   for (const theme of ['dark','light']) {
@@ -1970,7 +1973,7 @@ async function routeSmoke(page,url) {
         fill:getComputedStyle(card.querySelector('.reporting-kpi-icon')).color
       }))
     );
-    assert.equal(palette.length,4);
+    assert.equal(palette.length,5);
     assert.ok(palette.every(p=>p.width>=50 && p.fill),'Option D rings visible in both themes');
     assert.notEqual(palette[1].fill,palette[2].fill,'success and failure should use different colours');
   }
@@ -1989,11 +1992,14 @@ async function routeSmoke(page,url) {
         change:{symbol:'▼',label:'22.7%',tone:'positive',caption:'vs previous period',description:'Decrease of 22.7% vs previous period'}},
       {label:'Total run time',value:'412.6 h',detail:'Reported from print timestamps',
         tone:'info',iconName:'clock',progressPercent:null,
-        change:{symbol:'',label:'—',tone:'muted',caption:'No previous period data',description:'No previous period data for selected printer filters'}}
+        change:{symbol:'',label:'—',tone:'muted',caption:'No previous period data',description:'No previous period data for selected printer filters'}},
+      {label:'Filament used',value:'15.30 kg',detail:'Recorded for completed prints',
+        tone:'info',iconName:'spool',progressPercent:null,
+        change:{symbol:'▲',label:'23.4%',tone:'neutral',caption:'vs previous period',description:'Increase of 23.4% vs previous period'}}
     ]}
   })));
-  await page.waitForFunction(() => document.querySelectorAll('#reportingKpis .reporting-kpi-change').length === 4);
-  assert.equal(await page.locator('#reportingKpis .reporting-kpi-change').count(),4);
+  await page.waitForFunction(() => document.querySelectorAll('#reportingKpis .reporting-kpi-change').length === 5);
+  assert.equal(await page.locator('#reportingKpis .reporting-kpi-change').count(),5);
   const deltas=await page.locator('#reportingKpis .reporting-kpi-change').evaluateAll(
     nodes=>nodes.map(node=>({
       value:node.querySelector('.reporting-kpi-change-value').textContent,
@@ -2009,6 +2015,8 @@ async function routeSmoke(page,url) {
   assert.match(deltas[2].value,/▼22.7%/);
   assert.match(deltas[2].className,/positive/);
   assert.equal(deltas[3].caption,'No previous period data');
+  assert.match(deltas[4].value,/▲23.4%/);
+  assert.match(deltas[4].className,/neutral/);
   for (const theme of ['light','dark']) {
     await page.evaluate(theme=>{document.documentElement.dataset.theme=theme;},theme);
     const colors=await page.locator('#reportingKpis .reporting-kpi-change').evaluateAll(
@@ -2016,6 +2024,26 @@ async function routeSmoke(page,url) {
     );
     assert.notEqual(colors[0],colors[1],'neutral and positive delta colours must differ');
   }
+  // Five equal-width KPI cards remain readable and on one row at a wide
+  // desktop viewport; they stack without page overflow on small screens.
+  for (const width of [1920,1365,900,620,390,320]) {
+    await page.setViewportSize({width,height:900});
+    const layout=await page.evaluate(()=>{
+      const parent=document.querySelector('#reportingKpis');
+      const cards=[...parent.querySelectorAll('.reporting-kpi')];
+      return {columns:getComputedStyle(parent).gridTemplateColumns.split(' ').length,
+        overflow:document.documentElement.scrollWidth>window.innerWidth+2,
+        cardRects:cards.map(card=>({left:card.getBoundingClientRect().left,
+          right:card.getBoundingClientRect().right,width:card.getBoundingClientRect().width})),
+        spoolPaths:cards.at(-1)?.querySelectorAll('.reporting-kpi-icon svg circle').length || 0};
+    });
+    assert.equal(layout.cardRects.length,5,'five KPI cards remain rendered at '+width);
+    assert.equal(layout.columns,width>900 ? 5 : 2,'responsive grid columns at '+width);
+    assert.equal(layout.overflow,false,'no horizontal page overflow at '+width);
+    assert.ok(layout.cardRects.every(card=>card.width>75),'cards remain readable at '+width);
+    assert.equal(layout.spoolPaths,2,'fifth KPI uses the two-ring catalogue spool');
+  }
+  await page.setViewportSize({width:1365,height:900});
   // Sparse production history: all three jobs completed on one date.
   // The previous SVG contained only a move command and rendered no line.
   await page.evaluate(() => {
