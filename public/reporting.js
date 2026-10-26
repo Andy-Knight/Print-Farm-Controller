@@ -490,7 +490,8 @@ function reportingKpiSvg(name) {
     jobs:'<rect x="5" y="3" width="14" height="18" rx="2"/><path d="M9 8h6M9 12h6M9 16h4"/>',
     check:'<path d="M4.5 12.5 9.5 17.5 19.5 6.5"/>',
     cross:'<path d="M6 6l12 12M18 6 6 18"/>',
-    clock:'<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.5 2"/>'
+    clock:'<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.5 2"/>',
+    spool:'<circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="3.3"/><path d="M6 6h12M6 18h12"/>'
   };
   return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
       stroke-linecap="round" stroke-linejoin="round" focusable="false" aria-hidden="true">
@@ -528,6 +529,15 @@ function reportingKpiViewModel(report = {}) {
   const totals = report?.totals || {};
   const previous = report?.previousTotals || {};
   const hasPrevious = Number(previous.attempts || 0) > 0;
+  // The reporting service tallies material grams only for completed jobs,
+  // including older entries that have weight but no identifiable filament.
+  const recordedGrams=Number(totals.materialGrams);
+  const hasRecordedUsage=Number.isFinite(recordedGrams) && recordedGrams >= 0
+    && (recordedGrams > 0 || Number(totals.completed || 0) === 0);
+  const materialValue=hasRecordedUsage ? `${formatNumber(recordedGrams / 1000, 2)} kg` : '—';
+  const materialChange=hasRecordedUsage && hasPrevious && Number.isFinite(Number(previous.materialGrams))
+    ? reportingPreviousPeriodChange(recordedGrams,previous.materialGrams,true,'neutral')
+    : reportingPreviousPeriodChange(0,0,false,'neutral');
   const change = (key, measure = key) =>
     reportingPreviousPeriodChange(totals[key] || 0, previous[key] || 0, hasPrevious, measure);
   // Only measured completion/failure rates receive progress meters.
@@ -542,7 +552,8 @@ function reportingKpiViewModel(report = {}) {
     { label:'Total print jobs', value:formatNumber(totals.attempts), detail:'In selected period', icon:'▤', iconName:'jobs', tone:'info', progressPercent:null, change:change('attempts','neutral') },
     { label:'Completed', value:formatNumber(totals.completed), detail:`${formatPercent(totals.completionRate)} completion rate`, icon:'✓', iconName:'check', tone:Number(totals.completed || 0) > 0 ? 'positive' : 'info', progressPercent:percent(totals.completionRate), progressLabel:'Completion rate', change:change('completed') },
     { label:'Failed', value:formatNumber(totals.failed), detail:`${formatPercent(totals.failureRate)} failure rate`, icon:Number(totals.failed || 0) > 0 ? '×' : '✓', iconName:Number(totals.failed || 0) > 0 ? 'cross' : 'check', tone:Number(totals.failed || 0) > 0 ? 'negative' : 'positive', progressPercent:percent(totals.failureRate), progressLabel:'Failure rate', change:change('failed') },
-    { label:'Total run time', value:`${formatNumber(totals.runHours, 1)} h`, detail:'Reported from print timestamps', icon:'◷', iconName:'clock', tone:'info', progressPercent:null, change:change('runHours','neutral') }
+    { label:'Total run time', value:`${formatNumber(totals.runHours, 1)} h`, detail:'Reported from print timestamps', icon:'◷', iconName:'clock', tone:'info', progressPercent:null, change:change('runHours','neutral') },
+    { label:'Filament used', value:materialValue, detail:hasRecordedUsage ? 'Recorded for completed prints' : 'No recorded material usage', iconName:'spool', tone:'info', progressPercent:null, change:materialChange }
   ];
 }
 
