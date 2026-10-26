@@ -72,6 +72,24 @@ test('new installations start HTTP; GUI selection persists managed TLS across re
   }finally{await fs.rm(dataDir,{recursive:true,force:true});}
 });
 
+test('Apply connection settings leaves an unchanged managed certificate and its fingerprint intact',async()=>{
+  const dataDir=await tempDir();
+  try{
+    const tls=new ControllerTls({dataDir,port:4242});
+    await tls.init();
+    const settings={mode:'self-signed',names:'localhost,127.0.0.1',port:4242};
+    await tls.applyConfiguration(await tls.prepareConfiguration(settings),async()=>{});
+    const first=tls.status().certificate.fingerprint256;
+    assert.equal(tls.configurationMatches(settings),true);
+    assert.equal(tls.configurationMatches({...settings,names:'127.0.0.1,localhost'}),false,
+      'reordering hostnames is a real change to the saved configuration');
+    assert.equal(tls.configurationMatches({...settings,port:4443}),false);
+    assert.equal(tls.configurationMatches({...settings,names:'example.internal'}),false);
+    assert.equal(tls.status().certificate.fingerprint256,first);
+    assert.equal((await fs.readdir(path.join(dataDir,'tls','identities'))).length,1);
+  }finally{await fs.rm(dataDir,{recursive:true,force:true});}
+});
+
 test('changing certificate hostnames rotates identity, and failure keeps original identity',async()=>{
   const dataDir=await tempDir();
   try{
