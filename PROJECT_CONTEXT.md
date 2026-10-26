@@ -21,7 +21,7 @@ Repository policy: `AGENTS.md` defines agent startup behavior; `docs/DOCUMENTATI
 
 - **UI baselines:** Print Library uses sidebar-aware full workspace width, aligned sticky headings and responsive cards; the decorative login scene zooms at layer 04 into four printer beds without exposing telemetry.
 - **Authentication/RBAC:** Enabled by default. First administrator setup requires a private startup-log code. HTTP credentials/sessions remain interceptable until browser TLS is configured; `PFC_AUTH_ALLOW_HTTP=0` blocks HTTP login. A durable activation marker forbids anonymous fallback if account data is lost. Offline recovery is available.
-- **Native HTTPS candidate:** Work is isolated in `feature/native-https-controller`. Controller-side HTTPS, managed ECDSA certificates, provided PEM certificates, protected self-signed regeneration and the Security & users certificate UI are coded but not production validated. See `docs/HTTPS_CONFIGURATION.md`; issue #128 covers the optional MetalLB/ingress alternative.
+- **Native HTTPS candidate:** HTTP starts by default (4242) on new installations; Administrators configure the HTTPS mode, DNS/IP SANs, port or supplied PEM paths directly in Security & users, with durable settings under `DATA_DIR/tls`. The controller changes browser listeners without restarting print services, and administrator-only regeneration remains available. Feature is in `feature/native-https-controller`, unreleased pending validation. See `docs/HTTPS_CONFIGURATION.md`; issue #128 covers optional ingress.
 - **Role boundary:** Operators can run print jobs and maintain library metadata/filament assignments but cannot delete Print Library items, purge queue history or edit shared catalogue costs; all restrictions are server-enforced.
 - **Validation:** Complete unit/browser, licence, simulator, Windows SEA and container gates before releasing; physical Creator 5/Bambu validation remains incomplete. Preserve protected recovery and backup/restore boundaries.
 
@@ -132,11 +132,11 @@ Manufacturer-specific discovery, capabilities, limits, status normalization, fil
 
 ## Current task
 
-Native HTTPS is implemented as an opt-in controller listener (`PFC_HTTPS_MODE=self-signed|provided`) replacing port 4242 HTTP when selected. A persistent, locally issued P-256 TLS identity uses validated DNS/IPv4 SANs, imports PEM pairs if provided, and supports password-confirmed Administrator-only regeneration without a service restart. The **Security & users → HTTPS & certificates** panel displays identity details and downloads only the public certificate. `src/security/controller-tls.js`, `src/security/self-signed-certificate.js` and `test/native-https.test.js` are the initial implementation. This is an **unreleased feature-branch candidate**; end-to-end tests/CI and Windows/container validation have not been verified yet. See `docs/HTTPS_CONFIGURATION.md`.
+Finish and validate the **GUI-first HTTPS setup** on `feature/native-https-controller`: new installations start on HTTP, first administrator signs in over localhost/trusted LAN, uses Security & users to configure self-signed or supplied certificates and the listener port, applies the settings and reconnects over HTTPS. No TLS environment variables are required. Settings persist and an Administrator may regenerate managed certificates, with existing HTTP sessions revoked on protocol change. Current implementation is not production validated; see `docs/HTTPS_CONFIGURATION.md`.
 
 ## Next steps
 
-1. Run new TLS unit tests and existing npm regression suite in CI; fix any cryptography, authorization, runtime-startup, packaging or documentation failures. Confirm older HTTP-only operation is unchanged.
+1. Run GUI-first HTTPS, TLS persistence and live listener-switch tests plus existing npm regression suite in CI; fix any runtime, authentication or documentation failures. Confirm default HTTP and existing users remain unchanged.
 2. Validate real Chrome/Windows packaged SEA and container/K3s MetalLB deployments with browser trust, DNS/IP SAN handling, session cookies, SSE, printer cameras, uploads/downloads and regeneration/reconnection.
 3. Validate fail-closed behaviour for invalid stored certs, imported cert/key mismatch, revoked sessions, wrong password/Origin/CSRF and backup/restore/volume persistence. Review filesystem permissions, port exposure and certificate recovery.
 4. Consider provided-cert hot reload and optional HTTP redirect only after confirming safe configuration and avoiding a direct-HTTP bypass. Capture remaining limitations transparently.
