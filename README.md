@@ -83,15 +83,38 @@ and use `node scripts/manage-users.mjs recover` or
 `PrintFarmController.exe --auth-recover` from a privileged terminal with access to
 the persistent data directory. Preserve the same security storage across restores.
 
-### HTTPS requirements and reverse proxy
+### HTTPS: native controller or optional reverse proxy
 
-**Passwords and session cookies are not secure over bare HTTP.** By request, this controller permits HTTP enrollment and login by default, with visible warnings; authentication still does **not** protect credentials or sessions from interception. You can require HTTPS-only password entry using `PFC_AUTH_ALLOW_HTTP=0`. For secure deployment configure a trusted reverse proxy/ingress and the exact public origin:
+**Passwords and session cookies are not secure over bare HTTP.** By default, the controller runs HTTP on port 4242 for compatibility. To make the Node.js controller itself serve HTTPS on the *same* port, choose one of these certificate sources before starting it.
 
-```bash
-PFC_PUBLIC_ORIGIN=https://controller.example.internal
+For a controller-generated **self-signed** identity (works with Windows, Docker, and Kubernetes/MetalLB):
+
+```text
+PFC_HTTPS_MODE=self-signed
+PFC_HTTPS_NAMES=controller.example.internal,192.168.1.100
+PORT=4242
 ```
 
-The public origin enables `Secure` session cookies and strict Origin validation. The controller **does not trust arbitrary X-Forwarded headers**. Terminate TLS at the trusted proxy, restrict direct port 4242 access to that proxy and prevent bypass via the MetalLB Service; validate HTTPS, EventSource, printer cameras and upload/restore operations before real production use. TLS deployment using MetalLB/Ultimate Certificate Manager remains tracked separately in issue #128. The login screen and RBAC alone **do not constitute a secure Internet-facing deployment**.
+Set `PFC_HTTPS_NAMES` to the real hostname and/or IPv4 address that clients type into their browsers. The controller does **not** guess a LAN address. It also includes `localhost,127.0.0.1` only when the names setting is absent; the example above requires using the listed names. Connect to `https://controller.example.internal:4242` (or the configured IP). On K3s, you can map the existing MetalLB Service's TCP port 443 to container port 4242, provided your Service matches this controller's actual HTTPS port; no ingress is required.
+
+The generated identity is stored under the persistent `DATA_DIR/tls` directory (`/data/tls` in the container). **Preserve the data volume and protect the private key.** The certificate remains stable across restarts and upgrades. In **Security & users → HTTPS & certificates**, administrators can inspect certificate details, download the *public* certificate, and regenerate a self-signed identity after entering their password and confirming the impact. Regeneration changes the key and fingerprint and may require browser clients to trust the new certificate again. The controller never serves or exports the private key through the UI. A self-signed certificate provides encryption but **not automatic browser trust**; install/trust the public certificate separately on each client, or use a certificate from an already trusted CA.
+
+For a **supplied certificate/key**, such as a restricted Kubernetes TLS Secret maintained by Ultimate Certificate Manager:
+
+```text
+PFC_HTTPS_MODE=provided
+PFC_HTTPS_CERT_FILE=/path/to/tls.crt
+PFC_HTTPS_KEY_FILE=/path/to/tls.key
+PORT=4242
+```
+
+Supply PEM-formatted matching certificate/key files with server-auth use and SANs for the browser name/IP. Mount secrets read-only and do not put private keys into browser assets, Git repositories or logical backup archives. A supplied identity is not overwritten by the controller's self-signed regeneration action; restarting the controller after external certificate replacement loads the new files.
+
+`PFC_HTTPS_MODE=off` (the default) keeps plain HTTP. Native HTTPS mode does **not** also expose an unencrypted listener or HTTP redirect on the same port; use an explicit ingress/firewall redirect if needed, and do not leave the old HTTP access path reachable. Once HTTPS is active, sessions use Secure cookies and request Origin checks use `https://` automatically. You can optionally set `PFC_PUBLIC_ORIGIN=https://controller.example.internal:4242` to enforce one exact canonical origin (including the correct public port); using an `http://` origin with native HTTPS is rejected.
+
+Alternatively, the controller can remain behind a **trusted reverse proxy/ingress** that terminates HTTPS. In this deployment set `PFC_PUBLIC_ORIGIN=https://controller.example.internal` and restrict direct HTTP access to port 4242 so proxy security cannot be bypassed. The controller does not trust arbitrary forwarded headers. The optional MetalLB/Ultimate Certificate Manager ingress alternative remains tracked in issue #128. In either configuration test login, Secure cookies, SSE, cameras, file transfer and browser trust before production deployment. This controller is not intended to be exposed directly to the public Internet.
+
+See [HTTPS configuration](docs/HTTPS_CONFIGURATION.md) for certificate lifecycle, current limits and tests.
 
 Authentication is enabled unless `PFC_AUTH_REQUIRED=0` explicitly selects **legacy unauthenticated mode** before any user is enrolled. This insecure opt-out is for temporary troubleshooting only; once the durable security marker or account store exists it cannot disable RBAC. `PFC_AUTH_ALLOW_HTTP=0` blocks enrollment and login on HTTP. Native sessions use `HttpOnly`, `SameSite=Strict`, Origin and CSRF checks; cookies have `Secure` only when a trusted HTTPS public origin is configured. HTTP traffic remains unencrypted.
 
