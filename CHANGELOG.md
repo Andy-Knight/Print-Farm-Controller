@@ -4,6 +4,11 @@ This file contains the version-by-version release history for Print Farm Control
 
 Historical entries describe the behaviour of the controller at the time of that release and may be superseded by later versions. For current installation, configuration and supported-hardware guidance, see [README.md](README.md).
 
+## v0.60.1
+
+- Added permanent user deletion to **Security & users → Users**. Administrators can remove other accounts using a red Delete control alongside Save, with a confirmation naming the affected user; cancelling leaves the account untouched. Deleted users are removed from the persistent account store and their active login sessions and streams are revoked immediately.
+- Enforced deletion permissions on the server with administrator-only role checks, same-origin and CSRF protection, and safeguards preventing deletion of the current user or the last enabled administrator. Added account, authentication, browser and packaging regression coverage and updated the user-management guidance.
+
 ## v0.60.0
 
 - Introduced GUI-managed native browser HTTPS in **Security & users → Connection settings**, with controller-managed self-signed certificates or administrator-supplied matching PEM certificate/private-key pairs pasted securely over an existing HTTPS session. Imported private keys persist in protected controller identity files and are never returned in status or downloaded; legacy path-based configurations remain readable for migration. Added explicit administrator-protected self-signed certificate regeneration, certificate metadata and public-certificate download; unchanged settings no longer rotate identities.
