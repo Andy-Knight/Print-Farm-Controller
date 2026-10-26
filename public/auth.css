@@ -452,7 +452,7 @@ html.auth-pending body>aside,html.auth-pending body>header,html.auth-pending bod
 .auth-tls-regenerate{max-width:620px;margin-top:22px;padding-top:20px;border-top:1px solid var(--ds-border);}
 .auth-tls-regenerate h4{margin:0;font-size:var(--ds-font-lg);}
 .auth-tls-confirm{display:flex!important;flex-direction:row;align-items:flex-start;gap:12px;}
-.auth-tls-confirm input{width:20px;min-width:20px;min-height:20px;margin:2px 0 0;accent-color:var(--ds-brand);}
+.auth-form .auth-tls-confirm input[type=checkbox]{width:20px;min-width:20px;min-height:20px;height:20px;margin:2px 0 0;accent-color:var(--ds-brand);}
 .auth-tls-regenerate .actions{display:flex;gap:12px;}
 .auth-tls-regenerate button{min-height:var(--ds-button-height);}
 @media(max-width:700px){.auth-tls-details{grid-template-columns:minmax(0,1fr);}}
