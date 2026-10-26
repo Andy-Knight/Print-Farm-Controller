@@ -442,7 +442,6 @@ async function loadTlsSettings(){
       configure.elements.privateKeyPem.value='';
     }
     syncTlsConfigureFields();
-    }
     if(tls.lastError)status.textContent=tls.lastError;
   }catch(error){
     status.textContent=errorText(error);
