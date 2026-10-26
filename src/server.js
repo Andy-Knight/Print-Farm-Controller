@@ -708,6 +708,16 @@ async function refreshAfterCommand(id) {
 }
 
 async function apiRoute(req, res, url) {
+  const mutation = ['POST','PUT','PATCH','DELETE'].includes(req.method);
+  const mayCancelStagedRestore = req.method === 'DELETE' && url.pathname === '/api/restore/stage';
+  if ((restorePendingRestart || restoreInspectionInProgress) && mutation && !mayCancelStagedRestore) {
+    const error = new Error(restorePendingRestart
+      ? 'A restore is staged and waiting for controller restart. Restart the controller to activate it, or cancel the staged restore before making further changes.'
+      : 'A restore backup operation is in progress. Try this change again after it finishes.');
+    error.statusCode = 409;
+    throw error;
+  }
+
   // Even in pre-enrollment legacy mode these endpoints require a real admin.
   // Neither keys nor certificate status may bypass the native RBAC boundary.
   if (req.method === 'GET' && url.pathname === '/api/tls/status') {
@@ -739,15 +749,6 @@ async function apiRoute(req, res, url) {
       fingerprint256:tls.certificate?.fingerprint256
     }).catch(()=>{});
     return json(res,200,{tls});
-  }
-  const mutation = ['POST','PUT','PATCH','DELETE'].includes(req.method);
-  const mayCancelStagedRestore = req.method === 'DELETE' && url.pathname === '/api/restore/stage';
-  if ((restorePendingRestart || restoreInspectionInProgress) && mutation && !mayCancelStagedRestore) {
-    const error = new Error(restorePendingRestart
-      ? 'A restore is staged and waiting for controller restart. Restart the controller to activate it, or cancel the staged restore before making further changes.'
-      : 'A restore backup operation is in progress. Try this change again after it finishes.');
-    error.statusCode = 409;
-    throw error;
   }
 
   if (req.method === 'GET' && url.pathname === '/api/health') {
