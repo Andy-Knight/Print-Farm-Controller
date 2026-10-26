@@ -339,8 +339,11 @@ test('analytics chart is first after KPIs, popular files and filament kg graph s
   const unsuccessful = renderModel({ totals:{ attempts:11, completed:10, failed:1, completionRate:0.9, failureRate:0.1, runHours:12 } });
   assert.deepEqual(Array.from(unsuccessful, (item)=>item.tone), ['info','positive','negative','info','info']);
   const noFailures = renderModel({ totals:{ attempts:10, completed:10, failed:0, completionRate:1, failureRate:0, runHours:12 } });
-  assert.equal(noFailures[2].tone, 'positive');
-  assert.equal(noFailures[2].icon, '✓');
+  assert.equal(noFailures[2].tone, 'negative');
+  assert.equal(noFailures[2].icon, '×');
+  assert.equal(noFailures[2].iconName, 'cross');
+  assert.equal(unsuccessful[2].iconName, 'cross');
+  assert.equal(renderModel({totals:{failed:0}})[2].iconName,'cross');
   const idle = renderModel({ totals:{} });
   assert.equal(idle[1].tone, 'info');
   assert.equal(idle[1].progressPercent, null);
@@ -353,7 +356,7 @@ test('analytics chart is first after KPIs, popular files and filament kg graph s
   assert.equal(unsuccessful[2].progressPercent, 10);
   assert.equal(unsuccessful[2].progressLabel, 'Failure rate');
   assert.equal(noFailures[2].progressPercent, 0);
-  assert.equal(noFailures[2].iconName, 'check');
+  assert.equal(noFailures[2].iconName, 'cross');
 });
 
 test('single-day print history draws a visible chart marker and a complete date timeline in Preact and fallback', () => {
@@ -446,6 +449,8 @@ test('five Analytics summary headings span the full card and never share the nar
   assert.match(styles,/\.reporting-kpi \.reporting-kpi-gauge\s*\{[^}]*grid-row:2\s*\/\s*4/);
   assert.match(styles,/\.reporting-kpi \.reporting-kpi-change\s*\{[^}]*grid-row:3/);
   assert.match(styles,/grid-template-columns:repeat\(5,minmax\(0,1fr\)\)/);
+  assert.match(styles,/@media \(min-width:901px\) and \(max-width:1150px\)[\s\S]*?grid-template-columns:repeat\(3,minmax\(0,1fr\)\)/);
+  assert.match(styles,/@media \(max-width:380px\)[\s\S]*?grid-template-columns:minmax\(0,1fr\)/);
 });
 
 test('previous-period change graphics show honest equal-window comparisons with appropriate sentiment', () => {
