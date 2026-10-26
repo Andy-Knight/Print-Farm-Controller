@@ -414,7 +414,7 @@ test('Option D reporting KPI rings display measured rates but no fictitious coun
   assert.equal(rows[2].progressPercent,10);
   assert.equal(rows[3].progressPercent,null);
   assert.equal(rows[4].progressPercent,null);
-  assert.equal(rows[4].label,'Filament used');
+  assert.equal(rows[4].label,'Total filament used');
   assert.equal(rows[4].value,'3.85 kg');
   assert.equal(rows[4].detail,'Recorded for completed prints');
   assert.deepEqual(Array.from(rows,item=>item.iconName),['jobs','check','cross','clock','spool']);
