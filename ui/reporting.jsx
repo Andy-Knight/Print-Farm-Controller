@@ -63,12 +63,12 @@ function ReportingKpis({ items }) {
     const hasRate = progress != null;
     const tone = ['info','positive','negative'].includes(item.tone) ? item.tone : 'info';
     return <div class={`reporting-kpi reporting-kpi-${tone}`} key={item.label}>
+      <span class="reporting-kpi-label">{item.label}</span>
       <span class={`reporting-kpi-gauge${hasRate ? '' : ' reporting-kpi-gauge-neutral'}`}
         style={{'--reporting-kpi-angle':`${hasRate ? progress * 3.6 : 0}deg`}} aria-hidden="true">
         <span class="reporting-kpi-icon"><ReportingKpiSymbol name={item.iconName} /></span>
       </span>
       <div class="reporting-kpi-body">
-        <span class="reporting-kpi-label">{item.label}</span>
         <strong>{item.value}</strong>
         <small>{item.detail}</small>
         {hasRate ? <div class="reporting-kpi-meter" role="progressbar"
