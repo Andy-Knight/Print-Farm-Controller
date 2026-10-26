@@ -337,7 +337,7 @@ test('analytics chart is first after KPIs, popular files and filament kg graph s
     formatPercent:(value)=>String(value ?? 0) + '%'
   });
   const unsuccessful = renderModel({ totals:{ attempts:11, completed:10, failed:1, completionRate:0.9, failureRate:0.1, runHours:12 } });
-  assert.deepEqual(Array.from(unsuccessful, (item)=>item.tone), ['info','positive','negative','info']);
+  assert.deepEqual(Array.from(unsuccessful, (item)=>item.tone), ['info','positive','negative','info','info']);
   const noFailures = renderModel({ totals:{ attempts:10, completed:10, failed:0, completionRate:1, failureRate:0, runHours:12 } });
   assert.equal(noFailures[2].tone, 'positive');
   assert.equal(noFailures[2].icon, '✓');
@@ -347,6 +347,8 @@ test('analytics chart is first after KPIs, popular files and filament kg graph s
   assert.equal(idle[2].progressPercent, null);
   assert.equal(unsuccessful[0].progressPercent, null, 'job count has no percentage target');
   assert.equal(unsuccessful[3].progressPercent, null, 'runtime has no percentage target');
+  assert.equal(unsuccessful[4].progressPercent, null, 'filament kg has no percentage target');
+  assert.equal(unsuccessful[4].value,'—','unknown historical material use must not masquerade as zero');
   assert.equal(unsuccessful[1].progressPercent, 90);
   assert.equal(unsuccessful[2].progressPercent, 10);
   assert.equal(unsuccessful[2].progressLabel, 'Failure rate');
@@ -400,20 +402,28 @@ test('Option D reporting KPI rings display measured rates but no fictitious coun
   const view = vm.runInNewContext(code + '\n({ reportingKpiSvg, reportingKpiViewModel })');
   assert.match(view.reportingKpiSvg('jobs'), /<rect/);
   assert.match(view.reportingKpiSvg('clock'), /<circle/);
+  assert.match(view.reportingKpiSvg('spool'), /<circle[^>]*r="8.5"/);
+  assert.match(view.reportingKpiSvg('spool'), /<circle[^>]*r="3.3"/);
   const rows = view.reportingKpiViewModel({totals:{
-    attempts:20,completed:17,failed:2,cancelled:1,runHours:31.5,
+    attempts:20,completed:17,failed:2,cancelled:1,runHours:31.5,materialGrams:3850,
     completionRate:.85,failureRate:.10
   }});
-  assert.equal(rows.length,4);
+  assert.equal(rows.length,5);
   assert.equal(rows[0].progressPercent,null);
   assert.equal(rows[1].progressPercent,85);
   assert.equal(rows[2].progressPercent,10);
   assert.equal(rows[3].progressPercent,null);
-  assert.deepEqual(Array.from(rows,item=>item.iconName),['jobs','check','cross','clock']);
+  assert.equal(rows[4].progressPercent,null);
+  assert.equal(rows[4].label,'Filament used');
+  assert.equal(rows[4].value,'3.85 kg');
+  assert.equal(rows[4].detail,'Recorded for completed prints');
+  assert.deepEqual(Array.from(rows,item=>item.iconName),['jobs','check','cross','clock','spool']);
   const preact=fs.readFileSync(new URL('../ui/reporting.jsx',import.meta.url),'utf8');
   assert.match(preact,/aria-valuenow=\{progress\}/);
   assert.match(preact,/progress \* 3\.6/);
   assert.match(preact,/reporting-kpi-gauge-neutral/);
+  assert.match(preact,/name === 'spool'/);
+  assert.match(styles,/grid-template-columns:repeat\(5,minmax\(0,1fr\)\)/);
   assert.match(reportingUi,/aria-valuenow="\$\{progress\}"/);
   assert.match(reportingUi,/progress \* 3\.6/);
   assert.match(styles,/conic-gradient\(from -90deg/);
@@ -433,17 +443,19 @@ test('previous-period change graphics show honest equal-window comparisons with 
     formatPercent:(value)=>value == null ? '—' : Math.round(Number(value)*100)+'%'
   });
   const report = { totals:{
-    attempts:342,completed:325,failed:17,runHours:412.6,
+    attempts:342,completed:325,failed:17,runHours:412.6,materialGrams:15300,
     completionRate:325/342,failureRate:17/342
   },previousTotals:{
-    attempts:305,completed:301,failed:22,runHours:350
+    attempts:305,completed:301,failed:22,runHours:350,materialGrams:12400
   }};
   const items=models.reportingKpiViewModel(report);
-  assert.deepEqual(Array.from(items,item=>item.change.label),['12.1%','8.0%','22.7%','17.9%']);
-  assert.deepEqual(Array.from(items,item=>item.change.symbol),['▲','▲','▼','▲']);
-  assert.deepEqual(Array.from(items,item=>item.change.tone),['neutral','positive','positive','neutral']);
+  assert.deepEqual(Array.from(items,item=>item.change.label),['12.1%','8.0%','22.7%','17.9%','23.4%']);
+  assert.deepEqual(Array.from(items,item=>item.change.symbol),['▲','▲','▼','▲','▲']);
+  assert.deepEqual(Array.from(items,item=>item.change.tone),['neutral','positive','positive','neutral','neutral']);
   assert.ok(items.every(item=>item.change.caption==='vs previous period'));
   assert.equal(items[1].progressPercent,95);
+  assert.equal(items[4].value,'15.30 kg');
+  assert.equal(items[4].change.caption,'vs previous period');
   const deteriorated=models.reportingKpiViewModel({
     totals:{ attempts:10,completed:7,failed:3,runHours:7,completionRate:.7,failureRate:.3 },
     previousTotals:{ attempts:10,completed:9,failed:1,runHours:9 }
@@ -454,6 +466,8 @@ test('previous-period change graphics show honest equal-window comparisons with 
   assert.equal(deteriorated[2].change.tone,'negative');
   assert.equal(deteriorated[2].change.symbol,'▲');
   assert.equal(deteriorated[3].change.tone,'neutral');
+  assert.equal(deteriorated[4].value,'—');
+  assert.equal(deteriorated[4].change.caption,'No previous period data');
   const none=models.reportingKpiViewModel({totals:{attempts:5,completed:5,failed:0,runHours:8}});
   assert.ok(none.every(item=>item.change.caption==='No previous period data'));
   assert.ok(none.every(item=>item.change.symbol===''));
@@ -467,6 +481,7 @@ test('previous-period change graphics show honest equal-window comparisons with 
   assert.equal(zeroBaseline[2].change.tone,'negative');
   assert.equal(zeroBaseline[3].change.label,'From 0');
   assert.equal(zeroBaseline[3].change.tone,'neutral');
+  assert.equal(zeroBaseline[4].change.caption,'No previous period data');
   const noPriorJobs=models.reportingKpiViewModel({
     totals:{attempts:7,completed:7,failed:0,runHours:4},
     previousTotals:{attempts:0,completed:0,failed:0,runHours:0}
@@ -479,6 +494,19 @@ test('previous-period change graphics show honest equal-window comparisons with 
   assert.equal(quiet[0].change.label,'100.0%');
   assert.equal(quiet[1].change.tone,'negative');
   assert.equal(quiet[2].change.tone,'positive');
+  assert.equal(quiet[4].value,'0.00 kg','no completed prints means no filament consumed');
+  const filtered=models.reportingKpiViewModel({
+    totals:{attempts:3,completed:2,failed:1,materialGrams:2250},
+    previousTotals:{attempts:5,completed:4,materialGrams:1000}
+  });
+  assert.equal(filtered[4].value,'2.25 kg','summary uses supplied period/filter totals');
+  assert.equal(filtered[4].change.label,'125.0%');
+  const missing=models.reportingKpiViewModel({
+    totals:{attempts:2,completed:2,materialGrams:0},
+    previousTotals:{attempts:3,materialGrams:1100}
+  });
+  assert.equal(missing[4].value,'—','completed jobs without recorded weight are unknown, not zero');
+  assert.equal(missing[4].change.caption,'No previous period data');
   assert.match(reportingService,/getPreviousPeriodTotals/);
   assert.match(server,/report\.previousTotals = previous\.totals/);
   assert.match(server,/printerIds\s*\}\)/);
