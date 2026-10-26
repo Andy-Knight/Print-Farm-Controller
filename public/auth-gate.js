@@ -354,6 +354,14 @@ async function loadUsers(){
     container.replaceChildren(outer);
   }catch(error){loading.textContent=errorText(error);}
 }
+function syncTlsConfigureFields(){
+  const mode=$('#tlsConfigureMode')?.value;
+  $('#tlsConfigureManaged').hidden=mode!=='self-signed';
+  $('#tlsConfigureProvided').hidden=mode!=='provided';
+  $('#tlsConfigureNames').required=mode==='self-signed';
+  $('#tlsConfigureCertPath').required=mode==='provided';
+  $('#tlsConfigureKeyPath').required=mode==='provided';
+}
 async function loadTlsSettings(){
   if(session?.user?.role!=='administrator')return;
   const panel=$('#tlsSettings');
@@ -383,9 +391,22 @@ async function loadTlsSettings(){
       ?'Self-signed certificates encrypt the connection but are not automatically trusted. Install the public certificate on each client before depending on it for secure access. Regenerating requires re-trusting the new identity.'
       :tls.mode==='provided'
         ?'Certificate rotation is managed by your external certificate provider; this controller cannot regenerate an imported identity.'
-        :'HTTPS is not enabled. Configure PFC_HTTPS_MODE=self-signed with PFC_HTTPS_NAMES for your actual browser hostname/IP and restart the controller.';
+        :'HTTP is unencrypted: passwords and sessions can be intercepted on the network. Configure HTTPS below before normal production use; complete the initial administrator sign-in only on a trusted local network or host.';
     $('#tlsRegenerateForm').hidden=!tls.canRegenerate;
     $('#tlsDownloadBtn').hidden=!tls.enabled;
+    const configure=$('#tlsConfigureForm');
+    if(configure&&!configure.dataset.editing){
+      configure.elements.mode.value=tls.mode;
+      configure.elements.port.value=String(tls.port||4242);
+      const names=Array.isArray(tls.names)?tls.names:[];
+      const suggested=tls.mode==='off'&&location.hostname&&!names.includes(location.hostname)
+        ?[location.hostname,...names]:names;
+      configure.elements.names.value=[...new Set(suggested)].join(',');
+      configure.elements.certFile.value=tls.certFile||'';
+      configure.elements.keyFile.value=tls.keyFile||'';
+      syncTlsConfigureFields();
+    }
+    if(tls.lastError)status.textContent=tls.lastError;
   }catch(error){
     status.textContent=errorText(error);
   }
@@ -441,6 +462,55 @@ function initializeAccountUi(){
     $('#usersBtn').hidden=false;
     $('#usersBtn').addEventListener('click',loadUsers);
     $('#usersBtn').addEventListener('click',loadTlsSettings);
+    $('#tlsConfigureMode')?.addEventListener('change',syncTlsConfigureFields);
+    $('#tlsConfigureForm')?.addEventListener('input',event=>{
+      event.currentTarget.dataset.editing='true';
+    });
+    $('#tlsConfigureForm')?.addEventListener('submit',async event=>{
+      event.preventDefault();
+      const form=event.currentTarget;
+      const button=$('#tlsConfigureBtn');
+      const notice=$('#tlsActivationStatus');
+      const link=$('#tlsActivationLink');
+      notice.textContent='';
+      link.hidden=true;
+      if(!form.elements.confirm.checked)return;
+      const mode=form.elements.mode.value;
+      const question=mode==='off'
+        ?'Disable HTTPS and return to unencrypted HTTP? Passwords and sessions will become interceptable on the network.'
+        :'Apply the new connection settings? Browser connections will disconnect and require signing in again. New self-signed certificates must be explicitly trusted.';
+      if(!window.confirm(question))return;
+      button.disabled=true;button.setAttribute('aria-busy','true');
+      try{
+        const body={
+          mode,port:Number(form.elements.port.value),names:form.elements.names.value,
+          certFile:form.elements.certFile.value,keyFile:form.elements.keyFile.value,
+          password:form.elements.password.value,confirm:'APPLY'
+        };
+        const result=await call('/api/tls/configure',{
+          method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(body)
+        });
+        const next=new URL(location.href);
+        next.protocol=result.mode==='off'?'http:':'https:';
+        const chosenNames=Array.isArray(result.names)?result.names:[];
+        if(result.mode==='self-signed' && !chosenNames.includes(location.hostname.toLowerCase()) && chosenNames.length){
+          next.hostname=chosenNames[0];
+        }
+        next.port=String(result.mode==='off'?(result.httpPort||4242):result.port);
+        next.pathname='/';next.search='';next.hash='';
+        link.href=next.href;
+        link.textContent='Open controller at '+next.origin;
+        link.hidden=false;
+        notice.textContent='Settings validated. The browser listener is changing now. Open the address above after a brief connection interruption and sign in again. Self-signed certificates may prompt for trust.';
+        $('#tlsStatusMessage').textContent='';
+      }catch(error){
+        $('#tlsStatusMessage').textContent=errorText(error);
+      }finally{
+        form.elements.password.value='';
+        form.elements.confirm.checked=false;
+        button.disabled=false;button.removeAttribute('aria-busy');
+      }
+    });
     $('#tlsRegenerateForm')?.addEventListener('submit',async event=>{
       event.preventDefault();
       const form=event.currentTarget;
