@@ -456,3 +456,20 @@ html.auth-pending body>aside,html.auth-pending body>header,html.auth-pending bod
 .auth-tls-regenerate .actions{display:flex;gap:12px;}
 .auth-tls-regenerate button{min-height:var(--ds-button-height);}
 @media(max-width:700px){.auth-tls-details{grid-template-columns:minmax(0,1fr);}}
+
+/* Transport is configured through the controller GUI, not startup variables. */
+#tlsConfigureManaged[hidden],#tlsConfigureProvided[hidden],#tlsConfigureForm[hidden],
+#tlsActivationLink[hidden]{display:none!important;}
+.auth-tls-configure{max-width:720px;margin:20px 0 24px;
+  padding:20px;border:1px solid var(--ds-border);border-radius:var(--ds-radius-sm);
+  background:var(--ds-surface-muted);}
+.auth-tls-configure h4{font-size:var(--ds-font-lg);margin:0;}
+.auth-tls-mode-fields{display:grid;gap:12px;padding:14px;
+  border:1px solid var(--ds-border);border-radius:var(--ds-radius-sm);
+  background:var(--ds-surface);}
+.auth-tls-configure .field-help{margin:0;color:var(--ds-text-muted);font-size:var(--ds-font-sm);line-height:1.5;}
+.auth-tls-configure button{min-height:var(--ds-button-height);}
+.auth-tls-configure input[type=number],.auth-tls-configure input[type=text]{width:100%;}
+#tlsActivationStatus:empty{display:none;}
+#tlsActivationLink{margin-bottom:14px;}
+@media(max-width:700px){.auth-tls-configure{padding:14px;}.auth-tls-mode-fields{padding:12px;}}
