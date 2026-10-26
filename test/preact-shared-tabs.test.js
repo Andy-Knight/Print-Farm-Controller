@@ -74,8 +74,8 @@ test('Legacy fallback exposes matching icon names on every tabbed page',()=>{
   }
   assert.equal((html.match(/data-pfc-tabs role="tablist"/g)||[]).length,6,
     'Security & users adds the sixth canonical tablist');
-  assert.match(html,/id="authTabUsers"[^>]*data-pfc-icon="users"[^>]*role="tab"/);
-  assert.match(html,/id="authTabHttps"[^>]*data-pfc-icon="server"[^>]*role="tab"/);
+  assert.match(html,/id="authTabUsers"[^>]*role="tab"[^>]*data-pfc-icon="users"/);
+  assert.match(html,/id="authTabHttps"[^>]*role="tab"[^>]*data-pfc-icon="server"/);
   assert.match(css,/#usersDialog \[data-pfc-tabs\]/);
   assert.match(css,/\[data-pfc-icon="users"\]::before/);
   assert.match(app,/data-pfc-tabs role="tablist" aria-label="Printer details"/);
