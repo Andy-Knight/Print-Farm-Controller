@@ -90,7 +90,7 @@ test('real controller starts HTTP, switches to GUI-managed HTTPS and retains it 
   const directory=await fs.mkdtemp(path.join(os.tmpdir(),'pfc-live-gui-https-'));
   const dataDir=path.join(directory,'data'),logDir=path.join(directory,'logs');
   const logs=[];
-  let child=null;
+  let child=null,blocker=null;
   try{
     await new AccountStore({dataDir}).bootstrapAdministrator({username:'guiadmin',password});
     const port=await freePort();
@@ -108,6 +108,28 @@ test('real controller starts HTTP, switches to GUI-managed HTTPS and retains it 
     assert.equal((await secureRequest(plain,'/api/tls/configure',{
       method:'POST',origin:plain,identity:admin,body:{...settings,password:'wrong'}
     })).status,403,'admin password required for HTTPS setup');
+    // Failed port activation must restore the original working HTTP listener
+    // rather than strand the administrator or leave settings half-written.
+    const occupiedPort=await freePort();
+    blocker=net.createServer();
+    await new Promise(resolve=>blocker.listen(occupiedPort,'127.0.0.1',resolve));
+    const occupied=await secureRequest(plain,'/api/tls/configure',{
+      method:'POST',origin:plain,identity:admin,
+      body:{...settings,port:occupiedPort}
+    });
+    assert.equal(occupied.status,202);
+    let recovered=null;
+    for(let attempt=0;attempt<80;attempt++){
+      try{
+        const probe=await secureRequest(plain,'/api/tls/status',{identity:admin});
+        if(probe.body?.tls?.lastError){recovered=probe.body.tls;break;}
+      }catch{}
+      await new Promise(resolve=>setTimeout(resolve,120));
+    }
+    assert.ok(recovered?.lastError,'failed HTTPS bind must be reported to the administrator');
+    assert.equal(recovered.mode,'off','bind error must leave HTTP enabled');
+    assert.equal((await secureRequest(plain,'/api/health')).status,200);
+    await new Promise(resolve=>blocker.close(resolve));blocker=null;
     const accepted=await secureRequest(plain,'/api/tls/configure',{
       method:'POST',origin:plain,identity:admin,body:settings
     });
@@ -147,6 +169,7 @@ test('real controller starts HTTP, switches to GUI-managed HTTPS and retains it 
     assert.equal(persisted.body.tls.certificate.fingerprint256,
       regenerated.body.tls.certificate.fingerprint256);
   }finally{
+    if(blocker?.listening)await new Promise(resolve=>blocker.close(resolve));
     await stop(child);
     await fs.rm(directory,{recursive:true,force:true});
   }
