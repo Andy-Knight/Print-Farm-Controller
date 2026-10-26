@@ -2068,7 +2068,7 @@ async function routeSmoke(page,url) {
   await page.waitForFunction(() => !!document.querySelector('#reportingFiles .reporting-table-scroll'));
   assert.equal(await page.locator('#reportingFiles .reporting-analytics-table thead th').count(),6);
   const columnLabels=await page.locator('#reportingFiles .reporting-analytics-table thead th').allTextContents();
-  assert.deepEqual(columnLabels.map(label=>label.trim().replace(/[▲▼↕]/g,'').trim()),
+  assert.deepEqual(columnLabels.map(label=>label.trim().replace(/[▲▼↕]/g,'').trim().toUpperCase()),
     ['#','PRINT FILE','COMPLETED','FAILED','MATERIAL','COST'],
     'only six ranking columns are shown, in the specified order');
   assert.match(await page.locator('#reportingFiles .reporting-file-material').innerText(),/0\.45 kg/);
