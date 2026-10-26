@@ -3169,6 +3169,19 @@ button.library-file-preview { cursor:zoom-in; }
 .reporting-analytics-grid .reporting-section-head h3 { font-size:1.03rem; }
 .reporting-analytics-grid .reporting-section-head .subtle { font-size:.76rem; }
 .reporting-analytics-grid .reporting-analytics-trend { grid-column:1 / -1; }
+/* Keep the filament grouping selector in the same top-right header position
+   as Popular print files. Long helper text must shrink/wrap beside it rather
+   than pushing the selector onto a second header row. */
+.reporting-analytics-materials .reporting-section-head { flex-wrap:nowrap; }
+.reporting-analytics-materials .reporting-section-head > div:first-child { flex:1 1 0;min-width:0; }
+.reporting-analytics-materials .reporting-section-head .reporting-segmented {
+  flex:0 0 auto;margin-left:auto;
+}
+@media (max-width:760px) {
+  .reporting-analytics-materials .reporting-section-head { flex-wrap:wrap; }
+  .reporting-analytics-materials .reporting-section-head > div:first-child { flex:1 1 100%; }
+  .reporting-analytics-materials .reporting-section-head .reporting-segmented { margin-left:0; }
+}
 /* Two-choice segmented selector: button-group semantics, not a boolean switch.
    The selected item uses the common brand tokens and both targets are 42px. */
 .reporting-segmented {
