@@ -1523,14 +1523,14 @@
     </section>
     <section id="tlsSettings" class="auth-panel auth-tls-settings auth-security-tab-panel" role="tabpanel" aria-labelledby="authTabHttps" tabindex="0" hidden>
       <h3 id="tlsSettingsHeading">Connection settings</h3>
-      <p class="subtle">The controller starts with HTTP. Configure the browser connection here; internal HTTP 4242 and HTTPS 4243 ports remain fixed. MetalLB can expose them as standard ports 80 and 443.</p>
+      <p class="subtle">The controller starts with HTTP. Its internal listening ports are fixed at 4242 (HTTP) and 4243 (HTTPS). Container networking can optionally expose these using standard web ports 80 and 443.</p>
 
       <section class="auth-tls-summary" aria-labelledby="tlsSummaryHeading">
         <h4 id="tlsSummaryHeading">Connection summary</h4>
         <dl class="auth-tls-details">
           <div><dt>Connection mode</dt><dd id="tlsMode">Loading…</dd></div>
-          <div><dt>HTTP port (direct / MetalLB)</dt><dd id="tlsHttpPort">4242 / 80</dd></div>
-          <div><dt>HTTPS port (direct / MetalLB)</dt><dd id="tlsPort">4243 / 443</dd></div>
+          <div><dt>HTTP port (controller)</dt><dd id="tlsHttpPort">4242</dd></div>
+          <div><dt>HTTPS port (controller)</dt><dd id="tlsPort">4243</dd></div>
           <div><dt>HTTP behaviour</dt><dd id="tlsHttpBehaviour">HTTP access until HTTPS is enabled</dd></div>
           <div><dt>Certificate source</dt><dd id="tlsSource">—</dd></div>
           <div><dt>Subject</dt><dd id="tlsSubject">—</dd></div>
