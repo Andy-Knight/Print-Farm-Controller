@@ -205,6 +205,8 @@ test('real controller starts HTTP, switches to GUI-managed HTTPS and retains it 
     assert.equal(accepted.status,202,accepted.text);
     assert.equal(accepted.body.mode,'self-signed');
     await pollHealthy(secure,child,logs);
+    const {identity:secureAdmin,status}=await waitForCommittedTlsMode(
+      secure,'self-signed',child,logs);
     assert.equal((await secureRequest(plain,'/healthz')).status,200,
       'Docker and K3s health checks use the permanent HTTP port');
     const redirect=await secureRequest(plain,'/printer-details?test=one');
@@ -228,8 +230,6 @@ test('real controller starts HTTP, switches to GUI-managed HTTPS and retains it 
     const session=await secureRequest(secure,'/api/auth/session',{identity:admin});
     assert.equal(session.body.transportSecure,true);
     assert.equal(session.body.user,null,'HTTP-era sessions revoked on HTTPS transition');
-    const {identity:secureAdmin,status}=await waitForCommittedTlsMode(
-      secure,'self-signed',child,logs);
     const loginResponse=await secureRequest(secure,'/api/auth/login',{
       method:'POST',origin:secure,body:{username:'guiadmin',password}
     });
