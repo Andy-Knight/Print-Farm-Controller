@@ -22,15 +22,16 @@ function validatePair(cert,key) {
     throw fail('HTTPS certificate is expired or not yet valid');
   return x509;
 }
-function settingsFor(input,{httpPort}){
+function settingsFor(input,{httpPort,httpsPort,allowLegacyPort=false}){
   if(!input||typeof input!=='object'||Array.isArray(input))
     throw fail('HTTPS settings must be an object');
   const mode=String(input.mode||'off');
   if(!MODES.has(mode))throw fail('Invalid HTTPS mode');
-  const requestedPort=input.port===undefined ? httpPort : Number(input.port);
-  const port=mode==='off'?httpPort:requestedPort;
-  if(!Number.isInteger(port)||port<1||port>65535)
-    throw fail('Port must be an integer between 1 and 65535');
+  // GUI callers cannot modify listener ports. A stored pre-upgrade settings
+  // file may carry the previous configurable port: migrate it to 4243 (or
+  // the paired test port) without weakening the fixed-port API contract.
+  if(input.port!==undefined&&!allowLegacyPort&&Number(input.port)!==httpsPort)
+    throw fail('HTTPS listener port is fixed and cannot be changed in the GUI');
   const names=normalizeCertificateNames(input.names||DEFAULT_NAMES);
   const certFile=String(input.certFile||'').trim();
   const keyFile=String(input.keyFile||'').trim();
@@ -38,12 +39,12 @@ function settingsFor(input,{httpPort}){
     throw fail('Supplied certificate and key require two different absolute file paths on the controller');
   if(certFile.length>2048||keyFile.length>2048)
     throw fail('HTTPS certificate paths are too long');
-  return {version:1,mode,port,names,certFile:mode==='provided'?certFile:'',keyFile:mode==='provided'?keyFile:''};
+  return {version:1,mode,names,certFile:mode==='provided'?certFile:'',keyFile:mode==='provided'?keyFile:''};
 }
-function publicStatus(settings,identity,{busy=false,lastError=null}={}) {
+function publicStatus(settings,identity,{httpPort,httpsPort,busy=false,lastError=null}={}) {
   const certificate=identity?new X509Certificate(identity.cert):null;
   return {
-    enabled:settings.mode!=='off',mode:settings.mode,port:settings.port,
+    enabled:settings.mode!=='off',mode:settings.mode,port:httpsPort,httpPort,httpsPort,
     names:settings.names,certFile:settings.certFile,keyFile:settings.keyFile,
     canRegenerate:settings.mode==='self-signed',busy,lastError,
     certificate:certificate?{
@@ -69,25 +70,38 @@ async function writeAtomic(file,contents) {
 export class ControllerTls {
   #directory;
   #httpPort;
+  #httpsPort;
   #settings;
   #identity=null;
   #busy=false;
   #lastError=null;
-  constructor({dataDir,port=4242}={}){
+  constructor({dataDir,port=4242,httpsPort=port+1}={}){
     if(!dataDir)throw new Error('TLS requires a persistent data directory');
+    if(!Number.isInteger(port)||!Number.isInteger(httpsPort)||port<1||httpsPort>65535||
+       httpsPort===port||httpsPort<1)throw new Error('Invalid fixed HTTP/HTTPS listener ports');
     this.#directory=path.join(dataDir,'tls');
     this.#httpPort=port;
-    this.#settings=settingsFor({mode:'off'},{httpPort:port});
+    this.#httpsPort=httpsPort;
+    this.#settings=settingsFor({mode:'off'},{httpPort:port,httpsPort});
   }
   get enabled(){return this.#settings.mode!=='off';}
   get mode(){return this.#settings.mode;}
-  get port(){return this.#settings.port;}
+  get port(){return this.#httpsPort;}
+  get httpPort(){return this.#httpPort;}
+  get httpsPort(){return this.#httpsPort;}
+  hostMatchesCertificate(name){
+    if(!this.enabled||!this.#identity)return false;
+    const cert=new X509Certificate(this.#identity.cert);
+    return Boolean(cert.checkIP(name)||cert.checkHost(name));
+  }
   get options(){
     if(!this.enabled)return null;
     if(!this.#identity)throw fail('HTTPS certificate is not initialized',503);
     return {cert:this.#identity.cert,key:this.#identity.key,minVersion:'TLSv1.2'};
   }
-  status(){return publicStatus(this.#settings,this.enabled?this.#identity:null,{busy:this.#busy,lastError:this.#lastError});}
+  status(){return publicStatus(this.#settings,this.enabled?this.#identity:null,{
+    httpPort:this.#httpPort,httpsPort:this.#httpsPort,busy:this.#busy,lastError:this.#lastError
+  });}
   publicCertificate(){
     if(!this.enabled||!this.#identity)throw fail('HTTPS is not enabled',409);
     return this.#identity.cert;
@@ -122,7 +136,8 @@ export class ControllerTls {
     }
     if(input.version!==undefined&&input.version!==1)
       throw new Error('Unsupported HTTPS settings format');
-    this.#settings=settingsFor(input,{httpPort:this.#httpPort});
+    this.#settings=settingsFor(input,{httpPort:this.#httpPort,httpsPort:this.#httpsPort,
+      allowLegacyPort:true});
     if(this.#settings.mode==='self-signed'){
       // Never silently replace a corrupted identity. Only a new GUI setup
       // creates a key; existing installations must keep their identity.
@@ -162,7 +177,7 @@ export class ControllerTls {
   configurationMatches(input){
     // Reapplying identical settings must neither replace the certificate
     // nor disconnect users; explicit regeneration is a separate operation.
-    return JSON.stringify(settingsFor(input,{httpPort:this.#httpPort}))===
+    return JSON.stringify(settingsFor(input,{httpPort:this.#httpPort,httpsPort:this.#httpsPort}))===
       JSON.stringify(this.#settings);
   }
   async prepareConfiguration(input){
@@ -171,7 +186,7 @@ export class ControllerTls {
     this.#lastError=null;
     let candidate=null;
     try{
-      const settings=settingsFor(input,{httpPort:this.#httpPort});
+      const settings=settingsFor(input,{httpPort:this.#httpPort,httpsPort:this.#httpsPort});
       if(settings.mode==='self-signed'){
         const unchanged=this.#settings.mode==='self-signed'
           &&JSON.stringify(settings.names)===JSON.stringify(this.#settings.names);
@@ -208,7 +223,7 @@ export class ControllerTls {
       const nextOptions=settings.mode==='off'?null:{
         cert:candidate.cert,key:candidate.key,minVersion:'TLSv1.2'
       };
-      await activate({options:nextOptions,port:settings.port,secure:settings.mode!=='off'});
+      await activate({options:nextOptions,port:this.#httpsPort,secure:settings.mode!=='off'});
       switched=true;
       if(settings.mode==='self-signed'&&candidate.id!==previousIdentity?.id){
         await this.#writePointer(candidate.id);
@@ -227,7 +242,7 @@ export class ControllerTls {
         const oldOptions=previous.mode==='off'?null:{
           cert:previousIdentity.cert,key:previousIdentity.key,minVersion:'TLSv1.2'
         };
-        try{await activate({options:oldOptions,port:previous.port,secure:previous.mode!=='off'});}
+        try{await activate({options:oldOptions,port:this.#httpsPort,secure:previous.mode!=='off'});}
         catch(rollbackError){this.#lastError='HTTPS activation and listener rollback both failed; local recovery required';}
       }
       if(pointerUpdated&&previousIdentity?.id)
