@@ -1523,73 +1523,81 @@
     </section>
     <section id="tlsSettings" class="auth-panel auth-tls-settings auth-security-tab-panel" role="tabpanel" aria-labelledby="authTabHttps" tabindex="0" hidden>
       <h3 id="tlsSettingsHeading">HTTPS &amp; certificates</h3>
-      <p class="subtle">The controller starts with HTTP on a new installation. Administrators can enable or change HTTPS here—no environment variables, reverse proxy or command-line certificate generation required.</p>
-      <div id="tlsMaintenance" class="auth-tls-maintenance" hidden>
-        <h4>Certificate management</h4>
+      <p class="subtle">The controller starts with HTTP. Configure the browser connection here; internal HTTP 4242 and HTTPS 4243 ports remain fixed. MetalLB can expose them as standard ports 80 and 443.</p>
+
+      <section class="auth-tls-summary" aria-labelledby="tlsSummaryHeading">
+        <h4 id="tlsSummaryHeading">Connection summary</h4>
+        <dl class="auth-tls-details">
+          <div><dt>Connection mode</dt><dd id="tlsMode">Loading…</dd></div>
+          <div><dt>HTTP port (direct / MetalLB)</dt><dd id="tlsHttpPort">4242 / 80</dd></div>
+          <div><dt>HTTPS port (direct / MetalLB)</dt><dd id="tlsPort">4243 / 443</dd></div>
+          <div><dt>HTTP behaviour</dt><dd id="tlsHttpBehaviour">HTTP access until HTTPS is enabled</dd></div>
+          <div><dt>Certificate source</dt><dd id="tlsSource">—</dd></div>
+          <div><dt>Subject</dt><dd id="tlsSubject">—</dd></div>
+          <div><dt>Issuer</dt><dd id="tlsIssuer">—</dd></div>
+          <div><dt>DNS/IP names</dt><dd id="tlsNames">—</dd></div>
+          <div><dt>Issued</dt><dd id="tlsIssued">—</dd></div>
+          <div><dt>Expires</dt><dd id="tlsExpiry">—</dd></div>
+          <div><dt>Serial number</dt><dd id="tlsSerial">—</dd></div>
+          <div><dt>SHA-256 fingerprint</dt><dd id="tlsFingerprint">—</dd></div>
+        </dl>
+        <p id="tlsTrustNotice" class="auth-transport-notice" role="note"></p>
         <a id="tlsDownloadBtn" class="secondary auth-tls-download" href="/api/tls/certificate" download="print-farm-controller.crt" hidden>Download public certificate</a>
-        <form id="tlsRegenerateForm" class="auth-form auth-tls-regenerate" hidden>
-        <h5>Replace current self-signed certificate</h5>
-        <p class="subtle">Create a fresh certificate and private key using the currently saved hostnames/IP addresses. This action is separate from Apply connection settings and does not change the selected connection mode or port. Browsers may need to trust the new certificate again. Existing print jobs are not modified.</p>
-        <label for="tlsAdminPassword">Current administrator password
-          <input id="tlsAdminPassword" name="password" type="password" autocomplete="current-password" required>
-        </label>
-        <label class="auth-tls-confirm"><input id="tlsConfirm" name="confirm" type="checkbox" required>
-          I understand that browsers may disconnect or display certificate warnings until the new certificate is trusted.
-        </label>
-        <div class="actions"><button id="tlsRegenerateBtn" type="submit" class="attention">Regenerate self-signed certificate</button></div>
-      </form>
-      </div>
-      <dl class="auth-tls-details">
-        <div><dt>Connection mode</dt><dd id="tlsMode">Loading…</dd></div>
-        <div><dt>HTTP port (direct / MetalLB)</dt><dd id="tlsHttpPort">4242 / 80</dd></div>
-        <div><dt>HTTPS port (direct / MetalLB)</dt><dd id="tlsPort">4243 / 443</dd></div>
-        <div><dt>HTTP behaviour</dt><dd id="tlsHttpBehaviour">HTTP access until HTTPS is enabled</dd></div>
-        <div><dt>Subject</dt><dd id="tlsSubject">—</dd></div>
-        <div><dt>Issuer</dt><dd id="tlsIssuer">—</dd></div>
-        <div><dt>DNS/IP names</dt><dd id="tlsNames">—</dd></div>
-        <div><dt>Issued</dt><dd id="tlsIssued">—</dd></div>
-        <div><dt>Expires</dt><dd id="tlsExpiry">—</dd></div>
-        <div><dt>Serial number</dt><dd id="tlsSerial">—</dd></div>
-        <div><dt>SHA-256 fingerprint</dt><dd id="tlsFingerprint">—</dd></div>
-      </dl>
-      <p id="tlsTrustNotice" class="auth-transport-notice" role="note"></p>
-      <p id="tlsStatusMessage" class="auth-row-status" role="status" aria-live="polite"></p>
+      </section>
+
       <form id="tlsConfigureForm" class="auth-form auth-tls-configure" autocomplete="off">
         <h4>Connection settings</h4>
-        <p class="field-help">Apply saves changes to the connection mode or certificate names. Applying unchanged settings keeps the certificate and active sessions intact. Use the separate regeneration action above to replace a managed certificate.</p>
+        <p class="field-help">Apply saves the connection mode or certificate. Applying unchanged settings does not regenerate the current certificate or disconnect your session.</p>
         <label for="tlsConfigureMode">Browser connection
           <select id="tlsConfigureMode" name="mode">
             <option value="off">HTTP only (unencrypted)</option>
             <option value="self-signed">HTTPS — controller-managed certificate</option>
-            <option value="provided">HTTPS — external certificate files</option>
+            <option value="provided">HTTPS — external PEM certificate</option>
           </select>
         </label>
-        <p class="field-help">Listening ports are fixed and cannot be changed in this interface: HTTP 4242 and HTTPS 4243 inside the controller. A standard MetalLB Service exposes those as ports 80 and 443. HTTP becomes redirect-only after HTTPS is enabled (except the minimal health check).</p>
+        <p class="field-help">HTTP listens internally on 4242 and HTTPS on 4243. After HTTPS is enabled, HTTP redirects browser GET requests and retains only its health endpoint.</p>
         <div id="tlsConfigureManaged" class="auth-tls-mode-fields">
           <label for="tlsConfigureNames">Certificate hostnames and IPv4 addresses
             <input id="tlsConfigureNames" name="names" type="text" autocomplete="off" spellcheck="false" placeholder="controller.local,192.168.1.100">
           </label>
-          <p class="field-help">Comma-separated. Include the address you enter in your browser. Changing these names issues a new certificate and requires browsers to trust it again. The controller does not guess your LAN IP.</p>
+          <p class="field-help">Comma-separated. Include the exact hostname or IP used in your browser. Updating names creates a new certificate requiring clients to trust it again.</p>
         </div>
         <div id="tlsConfigureProvided" class="auth-tls-mode-fields" hidden>
-          <label for="tlsConfigureCertPath">Certificate file path on controller
-            <input id="tlsConfigureCertPath" name="certFile" type="text" autocomplete="off" spellcheck="false" placeholder="/etc/controller-tls/tls.crt">
+          <p class="field-help">Paste the PEM-encoded certificate (and optional intermediate certificate chain) and its matching private key. The controller validates the pair and stores both in its protected persistent data directory.</p>
+          <p id="tlsPemTransportWarning" class="auth-transport-notice" role="note"></p>
+          <label for="tlsConfigureCertificatePem">Public certificate (PEM)
+            <textarea id="tlsConfigureCertificatePem" name="certificatePem" class="auth-pem-textarea" rows="7" spellcheck="false" autocapitalize="off" autocomplete="off" autocorrect="off" placeholder="-----BEGIN CERTIFICATE-----"></textarea>
           </label>
-          <label for="tlsConfigureKeyPath">Private-key file path on controller
-            <input id="tlsConfigureKeyPath" name="keyFile" type="text" autocomplete="off" spellcheck="false" placeholder="/etc/controller-tls/tls.key">
+          <label for="tlsConfigurePrivateKeyPem">Private key (PEM)
+            <textarea id="tlsConfigurePrivateKeyPem" name="privateKeyPem" class="auth-pem-textarea" rows="7" spellcheck="false" autocapitalize="off" autocomplete="off" autocorrect="off" aria-describedby="tlsPemTransportWarning" placeholder="-----BEGIN PRIVATE KEY-----"></textarea>
           </label>
-          <p class="field-help">The paths must exist on the Windows/controller host or inside the container (for example, a mounted Kubernetes Secret). No private-key contents are uploaded through the browser. External certificate replacement requires the controller to restart.</p>
+          <p class="field-help">Pasted private keys are never returned through the GUI, even after saving. To keep the current imported certificate, leave both fields blank. To replace it, paste both fields. Never transmit a private key over HTTP: enable controller-managed HTTPS first, reconnect securely, and then switch to external PEM.</p>
         </div>
         <label for="tlsConfigurePassword">Current administrator password
           <input id="tlsConfigurePassword" name="password" type="password" autocomplete="current-password" required>
         </label>
         <label class="auth-tls-confirm"><input id="tlsConfigureConfirm" name="confirm" type="checkbox" required>
-          I understand that switching connection modes may require signing in again, and self-signed HTTPS requires explicit trust on clients.
+          I understand that changing connection mode or certificates can disconnect browsers and require trusting a new certificate.
         </label>
         <div class="actions"><button id="tlsConfigureBtn" type="submit" class="primary">Apply connection settings</button></div>
       </form>
+      <p id="tlsStatusMessage" class="auth-row-status" role="status" aria-live="polite"></p>
       <p id="tlsActivationStatus" class="auth-transport-notice" role="status" aria-live="polite"></p>
       <a id="tlsActivationLink" class="secondary auth-tls-download" href="#" hidden>Open controller at the new address</a>
+
+      <section id="tlsMaintenance" class="auth-tls-maintenance" aria-labelledby="tlsMaintenanceHeading" hidden>
+        <h4 id="tlsMaintenanceHeading">Self-signed certificate replacement</h4>
+        <form id="tlsRegenerateForm" class="auth-form auth-tls-regenerate" hidden>
+          <p class="subtle">Regenerate the controller-managed certificate and private key using the currently saved hostnames/IP addresses. Ports and connection mode do not change. Browsers may need to trust the new certificate again.</p>
+          <label for="tlsAdminPassword">Current administrator password
+            <input id="tlsAdminPassword" name="password" type="password" autocomplete="current-password" required>
+          </label>
+          <label class="auth-tls-confirm"><input id="tlsConfirm" name="confirm" type="checkbox" required>
+            I understand that browsers may disconnect or require trusting the replacement certificate.
+          </label>
+          <div class="actions"><button id="tlsRegenerateBtn" type="submit" class="attention">Regenerate self-signed certificate</button></div>
+        </form>
+      </section>
     </section>
   </section>
 
