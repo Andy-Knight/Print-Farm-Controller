@@ -133,15 +133,15 @@ Manufacturer-specific discovery, capabilities, limits, status normalization, fil
 
 ## Current task
 
-Implement native HTTPS for browser-to-controller communication on Windows and container/K3s deployments, without requiring ingress or a reverse proxy. The initial design and acceptance criteria are in `docs/HTTPS_CONFIGURATION.md`, including a restricted **administrator interface to regenerate the controller-managed self-signed certificate**. No TLS listener, generator or UI action has been implemented yet. Continue to support separately supplied/UCM certificates without overwriting them, and preserve login/RBAC, session security and local recovery.
+Native HTTPS is implemented as an opt-in controller listener (`PFC_HTTPS_MODE=self-signed|provided`) replacing port 4242 HTTP when selected. A persistent, locally issued P-256 TLS identity uses validated DNS/IPv4 SANs, imports PEM pairs if provided, and supports password-confirmed Administrator-only regeneration without a service restart. The **Security & users → HTTPS & certificates** panel displays identity details and downloads only the public certificate. `src/security/controller-tls.js`, `src/security/self-signed-certificate.js` and `test/native-https.test.js` are the initial implementation. This is an **unreleased feature-branch candidate**; end-to-end tests/CI and Windows/container validation have not been verified yet. See `docs/HTTPS_CONFIGURATION.md`.
 
 ## Next steps
 
-1. Inspect the real Node HTTP listener, authentication/Origin handling, runtime packaging, ports and existing Security & users UI; design native TLS configuration and persistent certificate storage for Windows/containers.
-2. Add reliable self-signed generation with DNS/IP SANs, initial provisioning, validation and safe replacement/rollback; support imported certificates separately and test persistence across restarts.
-3. Add admin-only certificate status/renewal endpoints with CSRF/Origin and confirmation/re-authentication; expose status, public certificate and regeneration in the UI using the canonical visual style.
-4. Test TLS reload/redirect, Secure cookies, login, SSE, cameras, uploads/downloads, direct HTTP bypass and certificate-recovery paths in source, Windows SEA and container/K3s deployments.
-5. Run relevant test and documentation gates and review the feature branch in a PR before any release or merge. Record release history only in `CHANGELOG.md`.
+1. Run new TLS unit tests and existing npm regression suite in CI; fix any cryptography, authorization, runtime-startup, packaging or documentation failures. Confirm older HTTP-only operation is unchanged.
+2. Validate real Chrome/Windows packaged SEA and container/K3s MetalLB deployments with browser trust, DNS/IP SAN handling, session cookies, SSE, printer cameras, uploads/downloads and regeneration/reconnection.
+3. Validate fail-closed behaviour for invalid stored certs, imported cert/key mismatch, revoked sessions, wrong password/Origin/CSRF and backup/restore/volume persistence. Review filesystem permissions, port exposure and certificate recovery.
+4. Consider provided-cert hot reload and optional HTTP redirect only after confirming safe configuration and avoiding a direct-HTTP bypass. Capture remaining limitations transparently.
+5. Review draft PR and complete test, browser, documentation and packaging gates before requesting user merge approval. Record version history only in `CHANGELOG.md`.
 
 ## Licensing baseline
 
