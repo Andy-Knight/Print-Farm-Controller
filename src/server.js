@@ -752,6 +752,13 @@ async function apiRoute(req, res, url) {
       throw error;
     }
     const body=await readJson(req);
+    if(body?.mode==='provided'&&!req.socket.encrypted){
+      // The controller's initial HTTP setup is deliberately insufficient
+      // for transporting a private key. Activate managed HTTPS first, then
+      // submit the imported key through its encrypted listener.
+      const error=new Error('External PEM keys can only be imported over HTTPS. Enable controller-managed HTTPS first.');
+      error.statusCode=403;throw error;
+    }
     if(typeof body?.password!=='string'||!body.password){
       const error=new Error('Current administrator password is required');
       error.statusCode=403;throw error;
