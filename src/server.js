@@ -85,11 +85,14 @@ const bundledMicrosoftClientId = typeof __PFC_MICROSOFT_CLIENT_ID__ === 'string'
 const packageInfo = PACKAGE_PATH ? JSON.parse(readFileSync(PACKAGE_PATH, 'utf8')) : {};
 const CONTROLLER_VERSION = String(bundledVersion || packageInfo.version || 'unknown');
 const PORT = Number(process.env.PORT || 4242);
+const HTTPS_PORT = PORT + 1; // 4243 by default; paired with legacy PORT in isolated tests
 const HOST = process.env.HOST || '0.0.0.0';
 const diagnosticLogger = new DiagnosticLogger({ logDir:runtimePaths.logDir, version:CONTROLLER_VERSION });
 const controllerAuth = new ControllerAuth({dataDir:runtimePaths.dataDir});
-const controllerTls = new ControllerTls({dataDir:runtimePaths.dataDir,port:PORT});
-let server = null;
+const controllerTls = new ControllerTls({dataDir:runtimePaths.dataDir,port:PORT,httpsPort:HTTPS_PORT});
+let server = null; // Active HTTPS listener, or null when native TLS is disabled.
+let httpServer = null; // Permanent HTTP listener for onboarding, redirects and health.
+let httpsActive = false;
 let tlsChangeInProgress = false;
 const memoryMonitor = new MemoryMonitor({
   diagnosticFn:(level, message, meta) => diagnosticLogger[level]?.('memory', message, meta)
@@ -760,7 +763,7 @@ async function apiRoute(req, res, url) {
     }
     if(controllerTls.configurationMatches(body))
       return json(res,200,{unchanged:true,mode:controllerTls.mode,port:controllerTls.port,
-        tls:controllerTls.status(),
+        httpPort:PORT,httpsPort:HTTPS_PORT,tls:controllerTls.status(),
         message:'Settings unchanged; certificate and listener have not been replaced.'});
     const prepared=await controllerTls.prepareConfiguration(body);
     tlsChangeInProgress=true;
@@ -781,8 +784,8 @@ async function apiRoute(req, res, url) {
             mode:status.mode,port:status.port,
             fingerprint256:status.certificate?.fingerprint256||null
           }).catch(()=>{});
-          console.log('Browser endpoint now '+(status.enabled?'https':'http')+' on port '+status.port+
-            '; existing sessions must sign in again.');
+          console.log('Browser access now '+(status.enabled?'HTTPS :'+HTTPS_PORT+' (HTTP redirects)':'HTTP :'+PORT')+
+            '; fixed listeners unchanged; existing sessions must sign in again.');
         }catch(error){
           await diagnosticLogger.error('security','HTTPS transport change failed; retaining previous listener',{
             error:error.message
@@ -793,7 +796,7 @@ async function apiRoute(req, res, url) {
       timer.unref?.();
     });
     return json(res,202,{
-      pending:true,mode:prepared.settings.mode,port:prepared.settings.port,httpPort:PORT,
+      pending:true,mode:prepared.settings.mode,port:HTTPS_PORT,httpPort:PORT,httpsPort:HTTPS_PORT,
       names:prepared.settings.names,
       message:'Configuration validated. The browser listener will change shortly; reconnect and sign in again.'
     });
@@ -2662,6 +2665,11 @@ async function serveStatic(res, pathname) {
 
 async function handleControllerRequest(req, res) {
   const url = new URL(req.url, (req.socket.encrypted ? 'https://' : 'http://') + (req.headers.host || 'localhost'));
+  if(url.pathname==='/healthz'&&(req.method==='GET'||req.method==='HEAD')){
+    res.writeHead(200,{'content-type':'text/plain; charset=utf-8','cache-control':'no-store'});
+    res.end(req.method==='HEAD'?undefined:'ok');
+    return;
+  }
   const countedMutation = url.pathname.startsWith('/api/')
     && ['POST','PUT','PATCH','DELETE'].includes(req.method);
   if (countedMutation) activeMutationRequests += 1;
@@ -2732,7 +2740,9 @@ async function shutdown() {
   fleetState.stop();
   cameraManager.stop();
   try { await emulatorManager.stop(); } catch {}
-  if (server) server.close(() => process.exit(0));
+  if(server?.listening)server.close();
+  if(httpServer?.listening)httpServer.close();
+  if(!server?.listening&&!httpServer?.listening)process.exit(0);
   setTimeout(() => process.exit(0), 2000).unref();
 }
 
@@ -2748,39 +2758,102 @@ async function listenOn(instance,port) {
     instance.listen(port,HOST);
   });
 }
+// Only HTTP GET/HEAD navigations redirect; never redirect API writes or echo
+// cookies/body over plaintext. Reject Host injection and certificate mismatch.
+function httpsRedirectTarget(req){
+  const host=String(req.headers.host||'');
+  if(!host||host.length>260||/[\s\\/@?#]/.test(host))
+    return null;
+  if(!req.url?.startsWith('/')||req.url.startsWith('//')||req.url.includes('\\'))
+    return null;
+  let incoming, requested;
+  try{
+    incoming=new URL('http://'+host);
+    requested=new URL(req.url,'http://controller.invalid');
+  }catch{return null;}
+  const hostname=incoming.hostname.replace(/^\[|\]$/g,'');
+  if(!controllerTls.hostMatchesCertificate(hostname))return null;
+  incoming.protocol='https:';
+  // Browsers routed through MetalLB: HTTP 80 -> HTTPS 443. Browsers using
+  // the two internal/native ports (Windows/direct access): 4242 -> 4243.
+  incoming.port=incoming.port===String(PORT)?String(HTTPS_PORT):'';
+  incoming.pathname=requested.pathname;
+  incoming.search=requested.search;
+  incoming.hash='';
+  return incoming.href;
+}
+
+function handleHttpRequest(req,res){
+  // Docker and K3s probes remain independent of certificate trust or the
+  // presence of an HTTPS listener. Never expose authentication/production data.
+  if((req.method==='GET'||req.method==='HEAD')&&req.url==='/healthz'){
+    res.writeHead(200,{'content-type':'text/plain; charset=utf-8','cache-control':'no-store'});
+    return res.end(req.method==='HEAD'?undefined:'ok');
+  }
+  if(!httpsActive)return void handleControllerRequest(req,res);
+  if(req.method==='GET'||req.method==='HEAD'){
+    const target=httpsRedirectTarget(req);
+    if(target){
+      res.writeHead(302,{location:target,'cache-control':'no-store','content-length':'0'});
+      return res.end();
+    }
+    res.writeHead(421,{'content-type':'text/plain; charset=utf-8','cache-control':'no-store'});
+    return res.end('The requested host does not match the HTTPS certificate');
+  }
+  res.writeHead(403,{'content-type':'text/plain; charset=utf-8','cache-control':'no-store'});
+  res.end('HTTP accepts no actions while HTTPS is enabled');
+}
+
 async function listenControllerServer(){
-  await listenOn(server,controllerTls.enabled?controllerTls.port:PORT);
+  // TLS must bind successfully before HTTP is made visible when HTTPS was
+  // previously enabled: an invalid HTTPS configuration never opens an
+  // unauthenticated plaintext fallback.
+  const options=controllerTls.options;
+  if(options){
+    server=https.createServer(options,handleControllerRequest);
+    await listenOn(server,HTTPS_PORT);
+    httpsActive=true;
+  }
+  httpServer=http.createServer(handleHttpRequest);
+  try{await listenOn(httpServer,PORT);}
+  catch(error){
+    if(server?.listening)await stopListener(server);
+    server=null;httpsActive=false;
+    throw error;
+  }
 }
 async function stopListener(instance){
   if(!instance?.listening)return;
   const closed=new Promise((resolve,reject)=>instance.close(error=>error?reject(error):resolve()));
-  // Explicitly close old HTTP keep-alive/SSE/browser sockets. Closing the
-  // listener does not interrupt fleet polling or printer-side print execution.
   instance.closeAllConnections?.();
   instance.closeIdleConnections?.();
   await closed;
 }
-async function swapControllerListener({options,port,secure}){
+async function swapControllerListener({options,secure}){
   const previous=server;
-  const previousPort=previous.address()?.port??PORT;
-  const previousOptions=controllerTls.options;
-  await stopListener(previous);
-  const replacement=options
-    ?https.createServer(options,handleControllerRequest)
-    :http.createServer(handleControllerRequest);
-  try{
-    await listenOn(replacement,secure?port:PORT);
-    controllerAuth.setNativeTransportSecure(secure,{forceRevoke:true});
-    server=replacement;
-  }catch(error){
-    if(replacement.listening)replacement.close();
-    const restored=previousOptions
-      ?https.createServer(previousOptions,handleControllerRequest)
-      :http.createServer(handleControllerRequest);
-    await listenOn(restored,previousPort);
-    controllerAuth.setNativeTransportSecure(Boolean(previousOptions));
-    server=restored;
-    throw error;
+  if(options){
+    if(previous?.listening){
+      // Replacing certificate source or SANs never changes a port. Node's
+      // secure-context reload takes effect for subsequent TLS handshakes.
+      previous.setSecureContext(options);
+    }else{
+      const candidate=https.createServer(options,handleControllerRequest);
+      try{await listenOn(candidate,HTTPS_PORT);}
+      catch(error){if(candidate.listening)await stopListener(candidate);throw error;}
+      server=candidate;
+    }
+    try{controllerAuth.setNativeTransportSecure(true,{forceRevoke:true});}
+    catch(error){
+      if(!previous&&server?.listening)await stopListener(server);
+      server=previous;
+      throw error;
+    }
+    httpsActive=true;
+  }else{
+    if(previous?.listening)await stopListener(previous);
+    server=null;
+    httpsActive=false;
+    controllerAuth.setNativeTransportSecure(false,{forceRevoke:true});
   }
 }
 
@@ -2838,9 +2911,6 @@ async function startController() {
     chamberPreheat.startService();
     const tlsOptions = await controllerTls.init();
     controllerAuth.setNativeTransportSecure(Boolean(tlsOptions),{revokeSessions:false});
-    server = tlsOptions
-      ? https.createServer(tlsOptions,handleControllerRequest)
-      : http.createServer(handleControllerRequest);
     await listenControllerServer();
 
     if (restoreTransaction) {
@@ -2863,7 +2933,8 @@ async function startController() {
     }
 
     const browserScheme = controllerTls.enabled ? 'https' : 'http';
-    console.log(`Print Farm Controller v${CONTROLLER_VERSION} running at ${browserScheme}://localhost:${controllerTls.enabled?controllerTls.port:PORT}`);
+    console.log(`Print Farm Controller v${CONTROLLER_VERSION} running at ${browserScheme}://localhost:${controllerTls.enabled?HTTPS_PORT:PORT}`);
+    console.log(`HTTP onboarding/redirect/health :${PORT}, HTTPS listener :${HTTPS_PORT} (when enabled)`);
     if (controllerAuth.enabled) {
       console.log(controllerAuth.setupRequired
         ? 'Authentication requires first administrator enrollment in the browser (Security & users) using the private code printed at controller startup.'
@@ -2874,7 +2945,7 @@ async function startController() {
     } else console.warn('SECURITY WARNING: Legacy unauthenticated LAN mode. Enrol an administrator to enable access controls.');
     const license = currentLicenseSnapshot();
     console.log(`Licence: ${license.label} (${license.source}; enforcement ${license.enforcementEnabled ? 'enabled' : 'disabled'})`);
-    console.log(`LAN access: ${browserScheme}://<controller-host-or-ip>:${controllerTls.enabled?controllerTls.port:PORT}`);
+    console.log(`LAN direct access: ${browserScheme}://<controller-host-or-ip>:${controllerTls.enabled?HTTPS_PORT:PORT} (MetalLB Service maps 80/443)`);
     console.log('Generic printer adapter + capability layer enabled (FlashForge AD5M + Snapmaker U1 + experimental Bambu P1P/P1S/X1C/A1 Mini)');
     console.log('Live fleet polling + SSE enabled');
     console.log('Concurrent client command arbitration + serialized shared mutations enabled');
