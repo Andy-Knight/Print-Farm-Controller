@@ -1,4 +1,4 @@
-# Print Farm Controller v0.60.0
+# Print Farm Controller v0.60.1
 A local-first 3D printer fleet controller. It runs entirely on your LAN and currently supports:
 
 - **FlashForge Adventurer 5M / 5M Pro** through the local FlashForge HTTP/TCP APIs.
@@ -7,7 +7,7 @@ A local-first 3D printer fleet controller. It runs entirely on your LAN and curr
 - **Prusa CORE One+ (experimental)** through the local PrusaLink API, supporting Standard (1-tool), INDX4 and INDX8 configurations.
 - **Bambu Lab P1P / P1S / X1C / A1 Mini (experimental)** through the local MQTT TLS and FTPS TLS interfaces. P1P/P1S/A1 Mini use the TLS/JPEG camera path; X1C camera decoding remains unsupported.
 
-**Current development version: v0.60.0**
+**Current development version: v0.60.1**
 
 ## Key capabilities
 
@@ -42,7 +42,7 @@ gantry drawn across the workpiece. On phones the illustration yields to a compac
 setup, login errors and HTTP security warnings. The sign-in password field includes an
 accessible show/hide button. No printer state is displayed before login.
 
-The controller supports **local username/password login** and enforces role permissions on the server, not just by hiding buttons. **Administrator** can manage accounts, security, printer settings, licence, backups and cloud credentials. **Operator** can run printers, edit (but not delete) Print Library records, manage active/queued production, assign filament/nozzles to printers, and complete routine maintenance. Operators cannot purge queue history, change the shared filament cost catalogue, manage users, credentials or restore backups. **Viewer** can see status, reports and camera feeds without making changes. Permissions are independent of signed edition/licence limits.
+The controller supports **local username/password login** and enforces role permissions on the server, not just by hiding buttons. Administrators can delete other accounts from **Security & users → Users** using a confirmed red Delete action; a deleted account loses all active sessions immediately. The signed-in account and last enabled administrator are protected from deletion. **Administrator** can manage accounts, security, printer settings, licence, backups and cloud credentials. **Operator** can run printers, edit (but not delete) Print Library records, manage active/queued production, assign filament/nozzles to printers, and complete routine maintenance. Operators cannot purge queue history, change the shared filament cost catalogue, manage users, credentials or restore backups. **Viewer** can see status, reports and camera feeds without making changes. Permissions are independent of signed edition/licence limits.
 
 ### Set up the first administrator using the GUI
 

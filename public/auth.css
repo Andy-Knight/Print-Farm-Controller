@@ -46,7 +46,10 @@ html.auth-pending body>aside,html.auth-pending body>header,html.auth-pending bod
 }
 .auth-users-table tbody tr:hover{background:var(--pfc-table-hover);}
 .auth-users-table td input[type=checkbox]{min-height:22px;width:22px;}
-.auth-row-actions{display:grid;gap:4px;}
+.auth-row-actions{display:flex;flex-wrap:wrap;align-items:center;gap:6px;}
+.auth-row-actions .auth-row-status{flex-basis:100%;}
+.auth-row-actions .auth-user-delete{background:var(--ds-danger);color:var(--ds-surface);}
+
 .auth-users-table button{min-height:32px;}
 .auth-password-dialog{position:fixed;margin:auto;inset:0;width:min(450px,calc(100% - 30px));max-height:85vh;overflow:auto;}
 .auth-password-dialog::backdrop{background:rgba(0,0,0,.75);}

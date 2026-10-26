@@ -3861,9 +3861,32 @@ async function nativeAuthenticationSmoke(browser){
     const row=page.locator('#authUserList tbody tr').filter({hasText:'shiftoperator'});
     assert.equal(await row.locator('select').inputValue(),'operator');
     await row.locator('select').selectOption('viewer');
-    await row.locator('button').click();
+    await row.locator('button').filter({hasText:'Save'}).click();
     await page.waitForFunction(()=>[...document.querySelectorAll('#authUserList tbody tr')]
       .some(tr=>tr.textContent.includes('shiftoperator')&&tr.querySelector('select')?.value==='viewer'));
+    const ownerRow=page.locator('#authUserList tbody tr').filter({
+      has:page.locator('th[scope="row"]:text-is("owner")')
+    });
+    assert.equal(await ownerRow.locator('button.auth-user-delete').isDisabled(),true,
+      'administrators cannot delete their own signed-in account');
+    const removable=page.locator('#authUserList tbody tr').filter({
+      has:page.locator('th[scope="row"]:text-is("shiftoperator")')
+    });
+    assert.equal(await removable.locator('button.auth-user-delete').isVisible(),true,
+      'administrators can delete other users');
+    page.once('dialog',dialog=>{
+      assert.match(dialog.message(),/shiftoperator/,'deletion must name the affected user');
+      void dialog.dismiss();
+    });
+    await removable.locator('button.auth-user-delete').click();
+    assert.equal(await removable.count(),1,'cancelled deletion preserves the account');
+    page.once('dialog',dialog=>{void dialog.accept();});
+    await removable.locator('button.auth-user-delete').click();
+    await page.waitForFunction(()=>[...document.querySelectorAll('#authUserList tbody tr th[scope=row]')]
+      .some(cell=>cell.textContent==='shopoperator')
+      &&![...document.querySelectorAll('#authUserList tbody tr th[scope=row]')]
+        .some(cell=>cell.textContent==='shiftoperator'));
+    assert.equal(await removable.count(),0,'deleted account row is removed from the user list');
     await page.locator('#authAccountBtn').click();
     await page.locator('#authLogoutBtn').click();
     await page.locator('#authOverlay').waitFor({state:'visible'});

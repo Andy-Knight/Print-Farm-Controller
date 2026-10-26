@@ -200,6 +200,53 @@ test('disabled user, changed role/password and logout revoke sessions and stream
   });
 });
 
+test('only a current administrator can delete another user with CSRF protection and immediate revocation',async()=>{
+  await fixture(async dataDir=>{
+    const {auth,store,admin}=await initialised(dataDir);
+    const operatorUser=await store.addUser({username:'operator',role:'operator',password:OP_PASSWORD});
+    const victim=await store.addUser({username:'victim',role:'viewer',password:VIEW_PASSWORD});
+    const other=await store.addUser({username:'other',role:'viewer',password:VIEW_PASSWORD});
+    const operator=await login(auth,'operator',OP_PASSWORD);
+    const viewer=await login(auth,'victim',VIEW_PASSWORD);
+    const route='/api/auth/users/'+victim.id;
+    const streamRequest=request('GET','/api/events',{cookie:viewer.cookie}),stream=response();
+    assert.equal(await auth.authorize(streamRequest.req,stream,streamRequest.url,{json:send}),true);
+    assert.equal((await exercise(auth,'DELETE',route,{cookie:viewer.cookie,csrf:viewer.csrf})).res.status,403);
+    assert.equal((await exercise(auth,'DELETE',route,{cookie:operator.cookie,csrf:operator.csrf})).res.status,403);
+    assert.equal((await exercise(auth,'DELETE',route)).res.status,401);
+    assert.equal((await exercise(auth,'DELETE',route,{cookie:admin.cookie})).res.status,403);
+    assert.equal((await exercise(auth,'DELETE',route,{
+      cookie:admin.cookie,csrf:admin.csrf,origin:'https://evil.example'
+    })).res.status,403);
+    assert.equal((await store.getUser(victim.id)).id,victim.id,'unauthorized attempts do not delete');
+    const owner=(await store.listUsers()).find(user=>user.username==='owner');
+    const current=await exercise(auth,'DELETE','/api/auth/users/'+owner.id,{
+      cookie:admin.cookie,csrf:admin.csrf
+    });
+    assert.equal(current.res.status,409);
+    assert.match(current.res.body.error,/current account/);
+    const missing=await exercise(auth,'DELETE','/api/auth/users/00000000-0000-4000-8000-000000000000',{
+      cookie:admin.cookie,csrf:admin.csrf
+    });
+    assert.equal(missing.res.status,404);
+    const deleted=await exercise(auth,'DELETE',route,{cookie:admin.cookie,csrf:admin.csrf});
+    assert.equal(deleted.res.status,200,deleted.res.body?.error);
+    assert.equal(deleted.res.body.user.id,victim.id);
+    assert.equal(deleted.res.body.user.password,undefined);
+    assert.equal(stream.destroyed,true,'open victim SSE stream closes immediately');
+    assert.equal((await gate(auth,'GET','/api/fleet',{cookie:viewer.cookie})).res.status,401);
+    assert.equal((await exercise(auth,'GET','/api/auth/session',{cookie:viewer.cookie})).res.body.user,null);
+    assert.equal((await exercise(auth,'POST','/api/auth/login',{
+      body:{username:'victim',password:VIEW_PASSWORD}
+    })).res.status,401);
+    const persisted=new AccountStore({dataDir});
+    assert.equal((await persisted.listUsers()).some(user=>user.id===victim.id),false);
+    assert.equal((await persisted.listUsers()).some(user=>user.id===other.id),true);
+    assert.equal((await persisted.listUsers()).some(user=>user.id===operatorUser.id),true);
+    assert.equal((await gate(auth,'GET','/api/fleet',{cookie:admin.cookie})).allowed,true);
+  });
+});
+
 test('HTTP login works by default with conspicuous warning, or can be explicitly HTTPS-only',async()=>{
   await fixture(async dataDir=>{
     const store=new AccountStore({dataDir});

@@ -32,6 +32,19 @@ test('GUI setup requires protected code and confirmed password without unauthent
   assert.doesNotMatch(html,/value="(?:admin|password123)"/);
 });
 
+test('user list requires confirmation before deleting and prevents self deletion',()=>{
+  assert.match(ui,/deletion\.className='danger auth-user-delete'/);
+  assert.match(ui,/deletion\.disabled=self/);
+  assert.match(ui,/window\.confirm\('Permanently delete user/);
+  assert.match(ui,/method:'DELETE'/);
+  assert.match(ui,/await loadUsers\(\)/);
+  assert.match(css,/\.auth-row-actions \.auth-user-delete/);
+  assert.match(html,/Deletion requires confirmation and cannot be undone/);
+  assert.match(backend,/if\(method==='DELETE'&&edit\)/);
+  assert.match(backend,/You cannot delete your current account/);
+  assert.match(backend,/this\.#revokeUser\(user\.id\)/);
+});
+
 test('Security & users has separate keyboard-accessible tabs and an unmistakable managed renewal action',()=>{
   const nav=html.indexOf('id="authAdminTabs"');
   const users=html.indexOf('id="authUsersPanel"');

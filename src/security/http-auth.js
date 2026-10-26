@@ -322,6 +322,16 @@ export class ControllerAuth {
       }catch(error){const e=jsonError(error);return bad(res,json,e.status,e.error);}
       return true;
     }
+    if(method==='DELETE'&&edit){
+      if(edit[1]===identity.user.id)
+        return bad(res,json,409,'You cannot delete your current account');
+      try{
+        const user=await this.#accounts.deleteUser(edit[1]);
+        this.#revokeUser(user.id);
+        json(res,200,{ok:true,user});
+      }catch(error){const e=jsonError(error);return bad(res,json,e.status,e.error);}
+      return true;
+    }
     return bad(res,json,404,'Authentication route not found');
   }
   /**
