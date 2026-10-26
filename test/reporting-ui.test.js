@@ -507,6 +507,13 @@ test('previous-period change graphics show honest equal-window comparisons with 
   });
   assert.equal(missing[4].value,'—','completed jobs without recorded weight are unknown, not zero');
   assert.equal(missing[4].change.caption,'No previous period data');
+  const oldUnrecorded=models.reportingKpiViewModel({
+    totals:{attempts:4,completed:4,materialGrams:2000},
+    previousTotals:{attempts:6,completed:6,materialGrams:0}
+  });
+  assert.equal(oldUnrecorded[4].value,'2.00 kg');
+  assert.equal(oldUnrecorded[4].change.caption,'No previous period data',
+    'previous jobs without weight must not imply material grew from zero');
   assert.match(reportingService,/getPreviousPeriodTotals/);
   assert.match(server,/report\.previousTotals = previous\.totals/);
   assert.match(server,/printerIds\s*\}\)/);
