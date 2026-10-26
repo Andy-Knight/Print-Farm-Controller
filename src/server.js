@@ -749,11 +749,19 @@ async function apiRoute(req, res, url) {
       throw error;
     }
     const body=await readJson(req);
-    await controllerAuth.assertAdministrator(req,body?.password);
+    if(typeof body?.password!=='string'||!body.password){
+      const error=new Error('Current administrator password is required');
+      error.statusCode=403;throw error;
+    }
+    await controllerAuth.assertAdministrator(req,body.password);
     if(body?.confirm!=='APPLY'){
       const error=new Error('Confirm the browser transport change before applying HTTPS settings');
       error.statusCode=400;throw error;
     }
+    if(controllerTls.configurationMatches(body))
+      return json(res,200,{unchanged:true,mode:controllerTls.mode,port:controllerTls.port,
+        tls:controllerTls.status(),
+        message:'Settings unchanged; certificate and listener have not been replaced.'});
     const prepared=await controllerTls.prepareConfiguration(body);
     tlsChangeInProgress=true;
     res.setHeader('connection','close');
@@ -797,7 +805,11 @@ async function apiRoute(req, res, url) {
       error.statusCode = 400;
       throw error;
     }
-    await controllerAuth.assertAdministrator(req,body?.password);
+    if(typeof body?.password!=='string'||!body.password){
+      const error=new Error('Current administrator password is required');
+      error.statusCode=403;throw error;
+    }
+    await controllerAuth.assertAdministrator(req,body.password);
     const tls = await controllerTls.regenerate(server);
     await diagnosticLogger.warn('security','Controller-managed HTTPS certificate regenerated',{
       fingerprint256:tls.certificate?.fingerprint256
