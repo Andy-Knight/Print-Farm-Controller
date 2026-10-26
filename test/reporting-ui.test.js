@@ -584,9 +584,9 @@ test('print-file analytics show material, historical cost, and total printer tim
 test('filament usage is a token-based kg bar chart in both Preact and fallback renderers', () => {
   assert.match(index, /<h3>Filament used \(kg\)<\/h3>/);
   assert.match(index, /Filament consumed by completed prints, measured in kg\./);
-  assert.match(styles,/\.reporting-analytics-materials \.reporting-section-head\s*\{\s*flex-wrap:nowrap;/);
-  assert.match(styles,/\.reporting-analytics-materials \.reporting-section-head \.reporting-segmented\s*\{[^}]*margin-left:auto/);
-  assert.match(styles,/@media \(max-width:760px\)[\s\S]*?\.reporting-analytics-materials \.reporting-section-head\s*\{\s*flex-wrap:wrap;/);
+  assert.match(styles,/\.reporting-analytics-files \.reporting-section-head,\s*\.reporting-analytics-materials \.reporting-section-head\s*\{[^}]*align-items:flex-start;flex-wrap:nowrap;/);
+  assert.match(styles,/\.reporting-analytics-files \.reporting-section-head \.reporting-segmented,\s*\.reporting-analytics-materials \.reporting-section-head \.reporting-segmented\s*\{[^}]*margin-left:auto/);
+  assert.match(styles,/@media \(max-width:760px\)[\s\S]*?\.reporting-analytics-files \.reporting-section-head,\s*\.reporting-analytics-materials \.reporting-section-head\s*\{\s*flex-wrap:wrap;/);
   assert.match(index, /data-reporting-material-mode="filament" aria-pressed="true"/);
   assert.match(reportingUi, /let reportingMaterialMode = 'filament'/);
   assert.match(reportingUi,/function reportingFilamentBarColour\(value\)/);
