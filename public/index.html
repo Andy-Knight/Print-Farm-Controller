@@ -1517,7 +1517,7 @@
     </div>
     <section id="tlsSettings" class="auth-panel auth-tls-settings" aria-labelledby="tlsSettingsHeading" hidden>
       <h3 id="tlsSettingsHeading">HTTPS &amp; certificates</h3>
-      <p class="subtle">Secure browser connections directly to this controller on Windows or in a container. Certificate settings come from the controller's startup configuration.</p>
+      <p class="subtle">The controller starts with HTTP on a new installation. Administrators can enable or change HTTPS here—no environment variables, reverse proxy or command-line certificate generation required.</p>
       <dl class="auth-tls-details">
         <div><dt>Connection mode</dt><dd id="tlsMode">Loading…</dd></div>
         <div><dt>HTTPS port</dt><dd id="tlsPort">—</dd></div>
@@ -1530,6 +1530,45 @@
         <div><dt>SHA-256 fingerprint</dt><dd id="tlsFingerprint">—</dd></div>
       </dl>
       <p id="tlsTrustNotice" class="auth-transport-notice" role="note"></p>
+      <form id="tlsConfigureForm" class="auth-form auth-tls-configure" autocomplete="off">
+        <h4>Connection settings</h4>
+        <label for="tlsConfigureMode">Browser connection
+          <select id="tlsConfigureMode" name="mode">
+            <option value="off">HTTP only (unencrypted)</option>
+            <option value="self-signed">HTTPS — controller-managed certificate</option>
+            <option value="provided">HTTPS — external certificate files</option>
+          </select>
+        </label>
+        <label for="tlsConfigurePort">HTTPS listening port
+          <input id="tlsConfigurePort" name="port" type="number" min="1" max="65535" step="1" inputmode="numeric" required>
+        </label>
+        <p class="field-help">Default 4242. Use the same port to replace HTTP with HTTPS. Kubernetes/MetalLB can expose port 443 and forward it to this port; no ingress is required.</p>
+        <div id="tlsConfigureManaged" class="auth-tls-mode-fields">
+          <label for="tlsConfigureNames">Certificate hostnames and IPv4 addresses
+            <input id="tlsConfigureNames" name="names" type="text" autocomplete="off" spellcheck="false" placeholder="controller.local,192.168.1.100">
+          </label>
+          <p class="field-help">Comma-separated. Include the address you enter in your browser. Changing these names issues a new certificate and requires browsers to trust it again. The controller does not guess your LAN IP.</p>
+        </div>
+        <div id="tlsConfigureProvided" class="auth-tls-mode-fields" hidden>
+          <label for="tlsConfigureCertPath">Certificate file path on controller
+            <input id="tlsConfigureCertPath" name="certFile" type="text" autocomplete="off" spellcheck="false" placeholder="/etc/controller-tls/tls.crt">
+          </label>
+          <label for="tlsConfigureKeyPath">Private-key file path on controller
+            <input id="tlsConfigureKeyPath" name="keyFile" type="text" autocomplete="off" spellcheck="false" placeholder="/etc/controller-tls/tls.key">
+          </label>
+          <p class="field-help">The paths must exist on the Windows/controller host or inside the container (for example, a mounted Kubernetes Secret). No private-key contents are uploaded through the browser. External certificate replacement requires the controller to restart.</p>
+        </div>
+        <label for="tlsConfigurePassword">Current administrator password
+          <input id="tlsConfigurePassword" name="password" type="password" autocomplete="current-password" required>
+        </label>
+        <label class="auth-tls-confirm"><input id="tlsConfigureConfirm" name="confirm" type="checkbox" required>
+          I understand that saving these settings may disconnect browsers, requires signing in again, and self-signed HTTPS needs explicit trust on clients.
+        </label>
+        <div class="actions"><button id="tlsConfigureBtn" type="submit" class="primary">Apply connection settings</button></div>
+      </form>
+      <p id="tlsActivationStatus" class="auth-transport-notice" role="status" aria-live="polite"></p>
+      <a id="tlsActivationLink" class="secondary auth-tls-download" href="#" hidden>Open controller at the new address</a>
+
       <a id="tlsDownloadBtn" class="secondary auth-tls-download" href="/api/tls/certificate" download="print-farm-controller.crt" hidden>Download public certificate</a>
       <form id="tlsRegenerateForm" class="auth-form auth-tls-regenerate" hidden>
         <h4>Regenerate self-signed certificate</h4>
