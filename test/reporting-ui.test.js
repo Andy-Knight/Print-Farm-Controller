@@ -432,6 +432,22 @@ test('Option D reporting KPI rings display measured rates but no fictitious coun
   assert.match(styles,/data-theme="light".*reporting-kpi-positive/);
 });
 
+test('five Analytics summary headings span the full card and never share the narrow ring/value columns', () => {
+  const preact=fs.readFileSync(new URL('../ui/reporting.jsx',import.meta.url),'utf8');
+  const kpiComponent=preact.slice(preact.indexOf('function ReportingKpis('),preact.indexOf('function ReportingTrend('));
+  const fallback=reportingUi.slice(reportingUi.indexOf('function renderReport(report)'), reportingUi.indexOf('function ', reportingUi.indexOf('function renderReport(report)')+9));
+  assert.match(kpiComponent,/class="reporting-kpi-label">\{item\.label\}<\/span>[\s\S]*?class=\{`reporting-kpi-gauge/);
+  assert.doesNotMatch(kpiComponent,/<div class="reporting-kpi-body">\s*<span class="reporting-kpi-label"/);
+  assert.match(fallback,/class="reporting-kpi-label">\$\{escapeHtml\(item\.label\)\}<\/span>/);
+  assert.doesNotMatch(fallback,/<div class="reporting-kpi-body">\s*<span class="reporting-kpi-label"/);
+  assert.match(styles,/\.reporting-kpis \.reporting-kpi\s*\{[^}]*display:grid/);
+  assert.match(styles,/\.reporting-kpi \.reporting-kpi-label\s*\{[^}]*grid-column:1\s*\/\s*-1/);
+  assert.match(styles,/\.reporting-kpi \.reporting-kpi-label\s*\{[^}]*white-space:nowrap/);
+  assert.match(styles,/\.reporting-kpi \.reporting-kpi-gauge\s*\{[^}]*grid-row:2\s*\/\s*4/);
+  assert.match(styles,/\.reporting-kpi \.reporting-kpi-change\s*\{[^}]*grid-row:3/);
+  assert.match(styles,/grid-template-columns:repeat\(5,minmax\(0,1fr\)\)/);
+});
+
 test('previous-period change graphics show honest equal-window comparisons with appropriate sentiment', () => {
   const source = [
     reportingUi.slice(reportingUi.indexOf('function formatNumber('), reportingUi.indexOf('function reportRangeDates(')),
