@@ -1,5 +1,7 @@
 import http from 'node:http';
 import https from 'node:https';
+import {X509Certificate} from 'node:crypto';
+import {isIP} from 'node:net';
 import { promises as fs, readFileSync } from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
@@ -93,6 +95,7 @@ const controllerTls = new ControllerTls({dataDir:runtimePaths.dataDir,port:PORT,
 let server = null; // Active HTTPS listener, or null when native TLS is disabled.
 let httpServer = null; // Permanent HTTP listener for onboarding, redirects and health.
 let httpsActive = false;
+let redirectCertificate = null; // Follows the live TLS listener, including pre-persistence activation.
 let tlsChangeInProgress = false;
 const memoryMonitor = new MemoryMonitor({
   diagnosticFn:(level, message, meta) => diagnosticLogger[level]?.('memory', message, meta)
@@ -2786,7 +2789,9 @@ function httpsRedirectTarget(req){
     requested=new URL(req.url,'http://controller.invalid');
   }catch{return null;}
   const hostname=incoming.hostname.replace(/^\[|\]$/g,'');
-  if(!controllerTls.hostMatchesCertificate(hostname))return null;
+  if(!redirectCertificate||
+    !(isIP(hostname)?redirectCertificate.checkIP(hostname):redirectCertificate.checkHost(hostname)))
+    return null;
   incoming.protocol='https:';
   // Browsers routed through MetalLB: HTTP 80 -> HTTPS 443. Browsers using
   // the two internal/native ports (Windows/direct access): 4242 -> 4243.
@@ -2826,13 +2831,14 @@ async function listenControllerServer(){
   if(options){
     server=https.createServer(options,handleControllerRequest);
     await listenOn(server,HTTPS_PORT);
+    redirectCertificate=new X509Certificate(options.cert);
     httpsActive=true;
   }
   httpServer=http.createServer(handleHttpRequest);
   try{await listenOn(httpServer,PORT);}
   catch(error){
     if(server?.listening)await stopListener(server);
-    server=null;httpsActive=false;
+    server=null;redirectCertificate=null;httpsActive=false;
     throw error;
   }
 }
@@ -2862,10 +2868,12 @@ async function swapControllerListener({options,secure}){
       server=previous;
       throw error;
     }
+    redirectCertificate=new X509Certificate(options.cert);
     httpsActive=true;
   }else{
     if(previous?.listening)await stopListener(previous);
     server=null;
+    redirectCertificate=null;
     httpsActive=false;
     controllerAuth.setNativeTransportSecure(false,{forceRevoke:true});
   }
