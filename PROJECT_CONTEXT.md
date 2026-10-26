@@ -11,7 +11,7 @@ Repository policy: `AGENTS.md` defines agent startup behavior; `docs/DOCUMENTATI
 - Repository: `Andy-Knight/Print-Farm-Controller`
 - Project path: repository root (`/`)
 - Primary branch: `main` (current production baseline)
-- Current controller source version: **0.59.16** (feature-branch candidate; main remains v0.59.15).
+- Current controller source version: **0.59.16**.
 - Previous baseline audited: **0.48.0** (main before the regression test audit release).
 - Runtime: **Node.js 24.22.1+** (Node 24 release line), ES modules; build-time **npm 12.2.0** and committed lockfile; no npm runtime dependency for deployed controller. Follow `docs/dependency-security.md` for updates.
 - GitHub is the authoritative code baseline.
@@ -19,7 +19,7 @@ Repository policy: `AGENTS.md` defines agent startup behavior; `docs/DOCUMENTATI
 
 ## Current work
 
-- **Current UI task:** Align Print Library page/table with the normal sidebar-aware routed workspace width, preserve capped price/history columns, table/header alignment, selection toolbar and responsive cards. Validate on wide and narrow desktop widths, mobile, both themes, and do not merge without approval.
+- **Print Library layout baseline:** The routed Print Library page and table use the shared sidebar-aware workspace width, with bounded sale-price/history columns, aligned fixed headings and independently scrolling rows. Compact screens use responsive cards; preserve contextual actions, table tokens and narrow-screen usability when extending the page.
 - **Login baseline:** The decorative 18-layer isometric animation zooms from layer 04 into four independently printing beds linked to one controller. Smaller screens retain a single bed or compact logo animation. No unauthenticated telemetry; preserve authentication/RBAC and transport warnings.
 - **Activation:** Authentication and backend RBAC are enabled by default for HTTPS and HTTP. Without an administrator, startup blocks printer APIs and displays GUI setup, requiring a private code from startup logs. HTTP enrollment/login work by default but display a clear risk warning: credentials/session cookies remain interceptable without TLS. `PFC_AUTH_REQUIRED=0` is a temporary unsafe legacy opt-out before enrollment; durable account/activation state overrides it. `PFC_AUTH_ALLOW_HTTP=0` requires HTTPS for credential entry. Store corruption must never reopen anonymous access. Offline recovery remains supported.
 - **Security rollout risk:** [Issue #128](https://github.com/Andy-Knight/Print-Farm-Controller/issues/128) tracks TLS at ingress/reverse proxy using MetalLB and Ultimate Certificate Manager, preventing direct backend bypass, cookie/Origin testing, and Kubernetes hardening. Login/RBAC are not a substitute for encrypted browser transport.
