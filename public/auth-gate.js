@@ -374,11 +374,17 @@ function showSecurityTab(tab,{focus=false}={}){
 }
 function syncTlsConfigureFields(){
   const mode=$('#tlsConfigureMode')?.value;
+  const secure=location.protocol==='https:';
+  const initialExternal=$('#tlsConfigureForm')?.dataset.savedMode!=='provided';
   $('#tlsConfigureManaged').hidden=mode!=='self-signed';
   $('#tlsConfigureProvided').hidden=mode!=='provided';
   $('#tlsConfigureNames').required=mode==='self-signed';
-  $('#tlsConfigureCertPath').required=mode==='provided';
-  $('#tlsConfigureKeyPath').required=mode==='provided';
+  $('#tlsConfigureCertificatePem').required=mode==='provided'&&initialExternal;
+  $('#tlsConfigurePrivateKeyPem').required=mode==='provided'&&initialExternal;
+  $('#tlsPemTransportWarning').textContent=secure
+    ?'Private-key contents are submitted over this HTTPS connection and stored only in the controller data directory. Existing key contents are never returned to the browser.'
+    :'Private keys cannot be submitted over HTTP. First enable a controller-managed certificate, then reconnect to HTTPS before switching to an external PEM certificate.';
+  $('#tlsConfigureBtn').disabled=mode==='provided'&&!secure;
 }
 async function loadTlsSettings(){
   if(session?.user?.role!=='administrator')return;
@@ -399,6 +405,12 @@ async function loadTlsSettings(){
     $('#tlsHttpBehaviour').textContent=tls.enabled
       ?'Redirects browser GET/HEAD to HTTPS; health endpoint remains available'
       :'Normal HTTP access (initial setup)';
+    $('#tlsSource').textContent=({
+      off:'Not configured',
+      'self-signed':'Controller-managed',
+      'pasted-pem':'Imported PEM, stored securely',
+      'legacy-mounted-files':'Legacy on-disk certificate'
+    })[tls.certificateSource]||'—';
     const cert=tls.certificate;
     $('#tlsSubject').textContent=cert?.subject||'No certificate';
     $('#tlsIssuer').textContent=cert?.issuer||'—';
@@ -414,19 +426,22 @@ async function loadTlsSettings(){
       :tls.mode==='provided'
         ?'Certificate rotation is managed by your external certificate provider; this controller cannot regenerate an imported identity.'
         :'HTTP is unencrypted: passwords and sessions can be intercepted on the network. Configure HTTPS below before normal production use; complete the initial administrator sign-in only on a trusted local network or host.';
-    $('#tlsMaintenance').hidden=!tls.enabled;
+    $('#tlsMaintenance').hidden=!tls.canRegenerate;
     $('#tlsRegenerateForm').hidden=!tls.canRegenerate;
     $('#tlsDownloadBtn').hidden=!tls.enabled;
     const configure=$('#tlsConfigureForm');
+    configure.dataset.savedMode=tls.mode;
     if(configure&&!configure.dataset.editing){
       configure.elements.mode.value=tls.mode;
       const names=Array.isArray(tls.names)?tls.names:[];
       const suggested=tls.mode==='off'&&location.hostname&&!names.includes(location.hostname)
         ?[location.hostname,...names]:names;
       configure.elements.names.value=[...new Set(suggested)].join(',');
-      configure.elements.certFile.value=tls.certFile||'';
-      configure.elements.keyFile.value=tls.keyFile||'';
-      syncTlsConfigureFields();
+      // Never insert a saved private key into browser forms, HTML, or status.
+      configure.elements.certificatePem.value='';
+      configure.elements.privateKeyPem.value='';
+    }
+    syncTlsConfigureFields();
     }
     if(tls.lastError)status.textContent=tls.lastError;
   }catch(error){
@@ -499,7 +514,7 @@ function initializeAccountUi(){
     });
     $('#tlsConfigureMode')?.addEventListener('change',syncTlsConfigureFields);
     $('#tlsConfigureForm')?.addEventListener('input',event=>{
-      if(['mode','names','certFile','keyFile'].includes(event.target.name))
+      if(['mode','names','certificatePem','privateKeyPem'].includes(event.target.name))
         event.currentTarget.dataset.editing='true';
     });
     $('#tlsConfigureForm')?.addEventListener('submit',async event=>{
@@ -512,6 +527,14 @@ function initializeAccountUi(){
       link.hidden=true;
       if(!form.elements.confirm.checked)return;
       const mode=form.elements.mode.value;
+      if(mode==='provided'&&location.protocol!=='https:'){
+        $('#tlsStatusMessage').textContent='For security, first enable controller-managed HTTPS and reconnect before pasting a private key.';
+        return;
+      }
+      if(mode==='provided'&&Boolean(form.elements.certificatePem.value.trim())!==Boolean(form.elements.privateKeyPem.value.trim())){
+        $('#tlsStatusMessage').textContent='Paste both the public certificate and matching private key, or leave both blank to keep the existing imported certificate.';
+        return;
+      }
       const question=mode==='off'
         ?'Disable HTTPS and return to unencrypted HTTP? Passwords and sessions will become interceptable on the network.'
         :'Apply connection settings? If something changed, browsers may disconnect and need a fresh login or certificate trust. Unchanged settings do not regenerate the certificate.';
@@ -520,7 +543,8 @@ function initializeAccountUi(){
       try{
         const body={
           mode,names:form.elements.names.value,
-          certFile:form.elements.certFile.value,keyFile:form.elements.keyFile.value,
+          certificatePem:mode==='provided'?form.elements.certificatePem.value:'',
+          privateKeyPem:mode==='provided'?form.elements.privateKeyPem.value:'',
           password:form.elements.password.value,confirm:'APPLY'
         };
         const result=await call('/api/tls/configure',{
@@ -549,9 +573,13 @@ function initializeAccountUi(){
       }catch(error){
         $('#tlsStatusMessage').textContent=errorText(error);
       }finally{
+        // Do not retain pasted private-key material in a live DOM after Apply.
+        form.elements.privateKeyPem.value='';
+        form.elements.certificatePem.value='';
         form.elements.password.value='';
         form.elements.confirm.checked=false;
-        button.disabled=false;button.removeAttribute('aria-busy');
+        button.removeAttribute('aria-busy');
+        syncTlsConfigureFields();
       }
     });
     $('#tlsRegenerateForm')?.addEventListener('submit',async event=>{
