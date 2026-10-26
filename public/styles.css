@@ -3400,6 +3400,14 @@ button.library-file-preview { cursor:zoom-in; }
 :root[data-theme="light"] .reporting-kpi .reporting-kpi-change-neutral { color:#177bd8; }
 :root[data-theme="light"] .reporting-kpi .reporting-kpi-change-positive { color:#12754e; }
 :root[data-theme="light"] .reporting-kpi .reporting-kpi-change-negative { color:#b52231; }
+/* Preserve complete single-line KPI titles as the workspace narrows: reflow
+   the cards instead of giving each title less than its readable width. */
+@media (min-width:901px) and (max-width:1150px) {
+  .reporting-kpis { grid-template-columns:repeat(3,minmax(0,1fr)); }
+}
+@media (max-width:380px) {
+  .reporting-kpis { grid-template-columns:minmax(0,1fr); }
+}
 @media (max-width:1550px) and (min-width:901px) {
   .reporting-kpis .reporting-kpi { column-gap:10px; }
   .reporting-kpi .reporting-kpi-change-caption { max-width:none; }
