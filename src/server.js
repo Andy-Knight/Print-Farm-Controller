@@ -784,7 +784,7 @@ async function apiRoute(req, res, url) {
             mode:status.mode,port:status.port,
             fingerprint256:status.certificate?.fingerprint256||null
           }).catch(()=>{});
-          console.log('Browser access now '+(status.enabled?'HTTPS :'+HTTPS_PORT+' (HTTP redirects)':'HTTP :'+PORT')+
+          console.log('Browser access now '+(status.enabled?'HTTPS :'+HTTPS_PORT+' (HTTP redirects)':'HTTP :'+PORT)+
             '; fixed listeners unchanged; existing sessions must sign in again.');
         }catch(error){
           await diagnosticLogger.error('security','HTTPS transport change failed; retaining previous listener',{
