@@ -536,8 +536,11 @@ function reportingKpiViewModel(report = {}) {
   const hasRecordedUsage=!hasCompletedPrints || (Number.isFinite(recordedGrams) && recordedGrams > 0);
   const materialValue=hasRecordedUsage
     ? `${formatNumber((Number.isFinite(recordedGrams) ? recordedGrams : 0) / 1000, 2)} kg` : '—';
-  const materialChange=hasRecordedUsage && hasPrevious && Number.isFinite(Number(previous.materialGrams))
-    ? reportingPreviousPeriodChange(recordedGrams,previous.materialGrams,true,'neutral')
+  const previousGrams=Number(previous.materialGrams);
+  const previousUsageKnown=Number.isFinite(previousGrams) && previousGrams >= 0
+    && (previousGrams > 0 || Number(previous.completed || 0) === 0);
+  const materialChange=hasRecordedUsage && hasPrevious && previousUsageKnown
+    ? reportingPreviousPeriodChange(Number.isFinite(recordedGrams) ? recordedGrams : 0,previousGrams,true,'neutral')
     : reportingPreviousPeriodChange(0,0,false,'neutral');
   const change = (key, measure = key) =>
     reportingPreviousPeriodChange(totals[key] || 0, previous[key] || 0, hasPrevious, measure);
