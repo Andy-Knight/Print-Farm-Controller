@@ -779,7 +779,7 @@ async function apiRoute(req, res, url) {
       timer.unref?.();
     });
     return json(res,202,{
-      pending:true,mode:prepared.settings.mode,port:prepared.settings.port,
+      pending:true,mode:prepared.settings.mode,port:prepared.settings.port,httpPort:PORT,
       names:prepared.settings.names,
       message:'Configuration validated. The browser listener will change shortly; reconnect and sign in again.'
     });
