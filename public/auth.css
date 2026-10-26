@@ -497,3 +497,6 @@ html.auth-pending body>aside,html.auth-pending body>header,html.auth-pending bod
 .auth-tls-maintenance .auth-tls-regenerate h5{font-size:var(--ds-font-lg);margin:0;}
 .auth-tls-maintenance .auth-row-status{display:block;margin-top:12px;}
 @media(max-width:700px){.auth-tls-maintenance{padding:14px;}}
+
+#tlsMaintenance[hidden]{display:none!important;}
+#tlsStatusMessage:not(:empty){display:block;margin:12px 0;color:var(--ds-text);}
