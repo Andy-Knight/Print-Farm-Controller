@@ -3795,6 +3795,24 @@ async function nativeAuthenticationSmoke(browser){
     assert.equal(await page.locator('#tlsRegenerateBtn').isVisible(),false,
       'regeneration is unavailable until the SAVED mode is self-signed HTTPS');
     assert.equal(await page.locator('#tlsConfigureBtn').isVisible(),true);
+    const securitySections=await page.locator('#tlsSettings').evaluate(root=>
+      ['#tlsSummaryHeading','#tlsConfigureForm','#tlsMaintenance'].map(sel=>{
+        const node=root.querySelector(sel);
+        return node?.getBoundingClientRect().top;
+      }));
+    assert.ok(securitySections[0]<securitySections[1]&&securitySections[1]<securitySections[2],
+      'HTTPS sections must render in summary, settings, replacement order');
+    await page.locator('#tlsConfigureMode').selectOption('provided');
+    assert.equal(await page.locator('#tlsConfigureCertificatePem').isVisible(),true);
+    assert.equal(await page.locator('#tlsConfigurePrivateKeyPem').isVisible(),true);
+    assert.equal(await page.locator('#tlsConfigureBtn').isDisabled(),true,
+      'pasted PEM private keys may only be submitted over HTTPS');
+    assert.match(await page.locator('#tlsPemTransportWarning').innerText(),
+      /first enable a controller-managed certificate/i);
+    assert.equal(await page.locator('#tlsMaintenance').isVisible(),false,
+      'replacement section hidden when stored mode is not managed');
+    assert.equal(await page.locator('#tlsConfigureCertPath,#tlsConfigureKeyPath').count(),0,
+      'external certificates must be supplied by PEM paste, never file paths');
     await page.locator('#tlsConfigureMode').selectOption('self-signed');
     assert.equal(await page.locator('#tlsRegenerateBtn').isVisible(),false,
       'drafting managed mode must not enable renewal until configuration is applied');
