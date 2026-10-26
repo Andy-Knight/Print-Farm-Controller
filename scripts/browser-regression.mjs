@@ -2075,7 +2075,8 @@ async function routeSmoke(page,url) {
         spoolPaths:cards.at(-1)?.querySelectorAll('.reporting-kpi-icon svg circle').length || 0};
     });
     assert.equal(layout.cardRects.length,5,'five KPI cards remain rendered at '+width);
-    assert.equal(layout.columns,width>900 ? 5 : 2,'responsive grid columns at '+width);
+    const expectedColumns=width<=380 ? 1 : width<=900 ? 2 : width<=1150 ? 3 : 5;
+    assert.equal(layout.columns,expectedColumns,'responsive grid columns at '+width);
     assert.equal(layout.overflow,false,'no horizontal page overflow at '+width);
     assert.ok(layout.cardRects.every(card=>card.width>75),'cards remain readable at '+width);
     assert.equal(layout.spoolPaths,2,'fifth KPI uses the two-ring catalogue spool');
