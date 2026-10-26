@@ -3216,42 +3216,35 @@ button.library-file-preview { cursor:zoom-in; }
 }
 .reporting-segmented button:focus-visible { outline:2px solid var(--ds-focus); outline-offset:2px; filter:none; }
 .reporting-table-scroll { width:100%; max-width:100%; min-width:0; max-height:365px; overflow:auto; border:1px solid var(--ds-border,#29323b); border-radius:10px; scrollbar-gutter:stable; }
-/* Popular files and filament use share the desktop row at equal widths.
-   The eight-column file table stays intact with its own keyboard-scrollable
-   viewport, never forcing the entire Analytics panel to overflow. */
+/* Popular files and filament use the desktop row at equal widths.
+   Six independent sortable columns retain their controller table styling
+   while scrolling inside the narrow card when necessary. */
 .reporting-analytics-files,.reporting-analytics-materials { grid-column:auto; }
 .reporting-analytics-files .reporting-table-scroll { overflow:auto; }
-
-.reporting-analytics-files .reporting-analytics-table { width:100%; min-width:880px; table-layout:fixed; }
-/* Eight independent file-ranking columns; resource values never stack. */
+.reporting-analytics-files .reporting-analytics-table { width:100%; min-width:600px; table-layout:fixed; }
+/* #, Print file, Completed, Failed, Material, Cost. */
 .reporting-analytics-files .reporting-analytics-table th:nth-child(1),
-.reporting-analytics-files .reporting-analytics-table td:nth-child(1) { width:4%; }
+.reporting-analytics-files .reporting-analytics-table td:nth-child(1) { width:5%; }
 .reporting-analytics-files .reporting-analytics-table th:nth-child(2),
-.reporting-analytics-files .reporting-analytics-table td:nth-child(2) { width:28%; }
+.reporting-analytics-files .reporting-analytics-table td:nth-child(2) { width:39%; }
 .reporting-analytics-files .reporting-analytics-table th:nth-child(3),
-.reporting-analytics-files .reporting-analytics-table td:nth-child(3) { width:12%; }
+.reporting-analytics-files .reporting-analytics-table td:nth-child(3) { width:17%; }
 .reporting-analytics-files .reporting-analytics-table th:nth-child(4),
-.reporting-analytics-files .reporting-analytics-table td:nth-child(4) { width:9%; }
+.reporting-analytics-files .reporting-analytics-table td:nth-child(4) { width:12%; }
 .reporting-analytics-files .reporting-analytics-table th:nth-child(5),
 .reporting-analytics-files .reporting-analytics-table td:nth-child(5) { width:14%; }
 .reporting-analytics-files .reporting-analytics-table th:nth-child(6),
-.reporting-analytics-files .reporting-analytics-table td:nth-child(6) { width:11%; }
-.reporting-analytics-files .reporting-analytics-table th:nth-child(7),
-.reporting-analytics-files .reporting-analytics-table td:nth-child(7) { width:10%; }
-.reporting-analytics-files .reporting-analytics-table th:nth-child(8),
-.reporting-analytics-files .reporting-analytics-table td:nth-child(8) { width:12%; }
+.reporting-analytics-files .reporting-analytics-table td:nth-child(6) { width:13%; }
 .reporting-analytics-files .reporting-file-identity { max-width:none; width:100%; }
 .reporting-analytics-files .reporting-file-material,
-.reporting-analytics-files .reporting-file-cost,
-.reporting-analytics-files .reporting-file-time { white-space:nowrap; font-variant-numeric:tabular-nums; }
+.reporting-analytics-files .reporting-file-cost { white-space:nowrap; font-variant-numeric:tabular-nums; }
 .reporting-analytics-files .reporting-file-material small,
-.reporting-analytics-files .reporting-file-cost small,
-.reporting-analytics-files .reporting-file-time small {
+.reporting-analytics-files .reporting-file-cost small {
   display:block; margin-top:2px; color:var(--ds-text-muted,#9ba9b6); font-size:.64rem;
 }
 @media (max-width:760px) {
-  /* Small screens scroll inside the file table rather than cropping columns. */
-  .reporting-analytics-files .reporting-analytics-table { min-width:960px; }
+  /* Mobile tables scroll internally, never stretch the route viewport. */
+  .reporting-analytics-files .reporting-analytics-table { min-width:600px; }
 }
 /* Kilogram-based filament usage chart. Width encodes kg relative to the
    largest filament, NOT percentage of total. Filament colour follows the
@@ -4473,7 +4466,7 @@ body:not([data-route="/"]) > main > :not(.route-page) { display:none !important;
   background:var(--pfc-table-surface);
 }
 
-/* Popular-file analytics retains eight independently sortable columns. */
+/* Popular-file analytics retains six independently sortable columns. */
 #reportingFiles .reporting-analytics-table { font-size:.78rem; }
 #reportingFiles .reporting-analytics-table thead th { white-space:normal; }
 #reportingFiles .reporting-analytics-table .reporting-table-sort {
