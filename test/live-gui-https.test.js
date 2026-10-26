@@ -130,6 +130,12 @@ test('real controller starts HTTP, switches to GUI-managed HTTPS and retains it 
     assert.equal(recovered.mode,'off','bind error must leave HTTP enabled');
     assert.equal((await secureRequest(plain,'/api/health')).status,200);
     await new Promise(resolve=>blocker.close(resolve));blocker=null;
+    for(const missing of [undefined,null,'']){
+      const bypass=await secureRequest(plain,'/api/tls/configure',{
+        method:'POST',origin:plain,identity:admin,body:{...settings,password:missing}
+      });
+      assert.equal(bypass.status,403,'HTTPS setup must demand current password even when omitted');
+    }
     const accepted=await secureRequest(plain,'/api/tls/configure',{
       method:'POST',origin:plain,identity:admin,body:settings
     });
@@ -152,6 +158,22 @@ test('real controller starts HTTP, switches to GUI-managed HTTPS and retains it 
     const certificate=await secureRequest(secure,'/api/tls/certificate',{identity:secureAdmin});
     assert.match(certificate.text,/BEGIN CERTIFICATE/);
     const oldFingerprint=status.body.tls.certificate.fingerprint256;
+    const unchanged=await secureRequest(secure,'/api/tls/configure',{
+      method:'POST',identity:secureAdmin,origin:secure,body:settings
+    });
+    assert.equal(unchanged.status,200,unchanged.text);
+    assert.equal(unchanged.body.unchanged,true,'reapplying saved settings is a no-op');
+    const unchangedStatus=await secureRequest(secure,'/api/tls/status',{identity:secureAdmin});
+    assert.equal(unchangedStatus.body.tls.certificate.fingerprint256,oldFingerprint);
+    assert.equal((await secureRequest(secure,'/api/auth/session',{identity:secureAdmin}))
+      .body.user.username,'guiadmin','no-op must not revoke the active session');
+    for(const missing of [undefined,null,'']){
+      const response=await secureRequest(secure,'/api/tls/regenerate',{
+        method:'POST',identity:secureAdmin,origin:secure,
+        body:{password:missing,confirm:'REGENERATE'}
+      });
+      assert.equal(response.status,403,'regeneration requires administrator reauthentication');
+    }
     const regenerated=await secureRequest(secure,'/api/tls/regenerate',{
       method:'POST',identity:secureAdmin,origin:secure,
       body:{password,confirm:'REGENERATE'}
