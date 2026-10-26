@@ -645,26 +645,22 @@ function renderReportFiles(files) {
   const headings = [
     { label:'#' }, { label:'Print file', html:`<button type="button" class="reporting-table-sort" data-reporting-file-sort="fileName" aria-label="Sort by file name" aria-pressed="${reportingFilesSort.key === 'fileName'}">Print file ${reportingFilesSort.key === 'fileName' ? (reportingFilesSort.direction === 'desc' ? '▼' : '▲') : '↕'}</button>` },
     ...[
-      ['completed','Completed'], ['failed','Failed'], ['successRate','Success rate']
+      ['completed','Completed'], ['failed','Failed']
     ].map(([key,label]) => ({
       label,
       numeric:true,
       html:`<button type="button" class="reporting-table-sort" data-reporting-file-sort="${key}" aria-label="Sort by ${label.toLowerCase()}" aria-pressed="${reportingFilesSort.key === key}">${label} ${reportingFilesSort.key === key ? (reportingFilesSort.direction === 'desc' ? '▼' : '▲') : '↕'}</button>`
     })),
     { label:'Material', numeric:true, html:`<button type="button" class="reporting-table-sort" data-reporting-file-sort="materialGrams" aria-label="Sort by material usage" aria-pressed="${reportingFilesSort.key === 'materialGrams'}">Material ${reportingFilesSort.key === 'materialGrams' ? (reportingFilesSort.direction === 'desc' ? '▼' : '▲') : '↕'}</button>` },
-    { label:'Cost', numeric:true, html:`<button type="button" class="reporting-table-sort" data-reporting-file-sort="materialCost" aria-label="Sort by historical material cost, grouped by currency" title="Historical costs are sorted within currency groups, without currency conversion" aria-pressed="${reportingFilesSort.key === 'materialCost'}">Cost ${reportingFilesSort.key === 'materialCost' ? (reportingFilesSort.direction === 'desc' ? '▼' : '▲') : '↕'}</button>` },
-    { label:'Print time', numeric:true, html:`<button type="button" class="reporting-table-sort" data-reporting-file-sort="runSeconds" aria-label="Sort by total print time" aria-pressed="${reportingFilesSort.key === 'runSeconds'}">Print time ${reportingFilesSort.key === 'runSeconds' ? (reportingFilesSort.direction === 'desc' ? '▼' : '▲') : '↕'}</button>` }
+    { label:'Cost', numeric:true, html:`<button type="button" class="reporting-table-sort" data-reporting-file-sort="materialCost" aria-label="Sort by historical material cost, grouped by currency" title="Historical costs are sorted within currency groups, without currency conversion" aria-pressed="${reportingFilesSort.key === 'materialCost'}">Cost ${reportingFilesSort.key === 'materialCost' ? (reportingFilesSort.direction === 'desc' ? '▼' : '▲') : '↕'}</button>` }
   ];
   return reportingTableShell(headings, files.map((file) => `<tr>
       <td>${file.rank}</td><td>${reportingFileNameHtml(file)}</td>
       <td class="numeric">${file.completed}</td><td class="numeric">${file.failed}</td>
-      <td class="numeric">${file.successRate}</td>
       <td class="numeric reporting-file-material" title="${escapeHtml(file.materialTitle)}">
         ${escapeHtml(file.materialText)}${file.materialPartial ? '<small>partial</small>' : ''}</td>
       <td class="numeric reporting-file-cost" title="${escapeHtml(file.costTitle)}">
         ${escapeHtml(file.materialCostText)}${file.materialCostPartial ? '<small>partial</small>' : ''}</td>
-      <td class="numeric reporting-file-time" title="${escapeHtml(file.printTimeTitle)}">
-        ${escapeHtml(file.printTime)}${file.printTimePartial ? '<small>partial</small>' : ''}</td>
     </tr>`),
     'No completed print files for the selected period.');
 }
