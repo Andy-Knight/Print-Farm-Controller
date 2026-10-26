@@ -45,8 +45,10 @@ test('new installations start HTTP; GUI selection persists managed TLS across re
     const tls=new ControllerTls({dataDir,port:4242,env:{PFC_HTTPS_MODE:'self-signed'}});
     assert.equal(await tls.init(),null,'environment variables do not enable HTTPS');
     assert.equal(tls.status().mode,'off');
-    assert.equal(tls.status().port,4242);
-    const prepared=await tls.prepareConfiguration({mode:'self-signed',names:'controller.home,127.0.0.1',port:4242});
+    assert.equal(tls.status().port,4243);
+    assert.equal(tls.status().httpPort,4242);
+    assert.equal(tls.status().httpsPort,4243);
+    const prepared=await tls.prepareConfiguration({mode:'self-signed',names:'controller.home,127.0.0.1'});
     assert.equal(prepared.settings.mode,'self-signed');
     assert.ok(prepared.candidate.cert.includes('CERTIFICATE'));
     const switched=[];
@@ -75,18 +77,38 @@ test('new installations start HTTP; GUI selection persists managed TLS across re
 test('Apply connection settings leaves an unchanged managed certificate and its fingerprint intact',async()=>{
   const dataDir=await tempDir();
   try{
-    const tls=new ControllerTls({dataDir,port:4242});
+    const tls=new ControllerTls({dataDir});
     await tls.init();
-    const settings={mode:'self-signed',names:'localhost,127.0.0.1',port:4242};
+    const settings={mode:'self-signed',names:'localhost,127.0.0.1'};
     await tls.applyConfiguration(await tls.prepareConfiguration(settings),async()=>{});
     const first=tls.status().certificate.fingerprint256;
     assert.equal(tls.configurationMatches(settings),true);
     assert.equal(tls.configurationMatches({...settings,names:'127.0.0.1,localhost'}),false,
       'reordering hostnames is a real change to the saved configuration');
-    assert.equal(tls.configurationMatches({...settings,port:4443}),false);
+    assert.throws(()=>tls.configurationMatches({...settings,port:4443}),/fixed/);
     assert.equal(tls.configurationMatches({...settings,names:'example.internal'}),false);
     assert.equal(tls.status().certificate.fingerprint256,first);
     assert.equal((await fs.readdir(path.join(dataDir,'tls','identities'))).length,1);
+  }finally{await fs.rm(dataDir,{recursive:true,force:true});}
+});
+
+test('migration ignores obsolete saved listener port without rotating the current identity',async()=>{
+  const dataDir=await tempDir();
+  try{
+    const original=new ControllerTls({dataDir});
+    await original.init();
+    await original.applyConfiguration(
+      await original.prepareConfiguration({mode:'self-signed',names:'localhost'}),async()=>{}
+    );
+    const settingsPath=path.join(dataDir,'tls','settings.json');
+    const saved=JSON.parse(await fs.readFile(settingsPath,'utf8'));
+    await fs.writeFile(settingsPath,JSON.stringify({...saved,port:4242}));
+    const migrated=new ControllerTls({dataDir});
+    await migrated.init();
+    assert.equal(migrated.status().port,4243);
+    assert.equal(migrated.status().certificate.fingerprint256,
+      original.status().certificate.fingerprint256);
+    assert.throws(()=>migrated.configurationMatches({...saved,port:5555}),/fixed/);
   }finally{await fs.rm(dataDir,{recursive:true,force:true});}
 });
 
@@ -161,7 +183,7 @@ test('provided certificates are selected through controller file paths, never ov
     await fs.writeFile(certFile,pair.cert);await fs.writeFile(keyFile,pair.key);
     const tls=new ControllerTls({dataDir});
     assert.equal(await tls.init(),null);
-    const choice=await tls.prepareConfiguration({mode:'provided',certFile,keyFile,port:4242});
+    const choice=await tls.prepareConfiguration({mode:'provided',certFile,keyFile});
     await tls.applyConfiguration(choice,async()=>{});
     assert.equal(tls.status().canRegenerate,false);
     assert.equal(tls.status().certFile,certFile);
@@ -180,7 +202,7 @@ test('GUI can return to HTTP, with persistent mode restored at next startup',asy
     await tls.init();
     await tls.applyConfiguration(await tls.prepareConfiguration({mode:'self-signed',names:'localhost'}),async()=>{});
     const sequence=[];
-    await tls.applyConfiguration(await tls.prepareConfiguration({mode:'off',port:4242}),
+    await tls.applyConfiguration(await tls.prepareConfiguration({mode:'off'}),
       async({secure})=>sequence.push(secure));
     assert.deepEqual(sequence,[false]);
     assert.equal(tls.status().mode,'off');
