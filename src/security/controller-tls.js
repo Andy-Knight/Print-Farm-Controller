@@ -181,6 +181,14 @@ export class ControllerTls {
       throw e;
     }
   }
+  async cancelPreparedConfiguration(prepared){
+    if(!this.#busy)return;
+    // The HTTP client disconnected before receiving confirmation. Do not
+    // change listeners or leave a permanently locked configuration service.
+    if(prepared?.candidate?.dir&&prepared.candidate!==this.#identity)
+      await fs.rm(prepared.candidate.dir,{recursive:true,force:true}).catch(()=>{});
+    this.#busy=false;
+  }
   /**
    * Called after the GUI receives 202: swap the actual listener and roll back
    * disk settings + identity pointer if any stage fails.
