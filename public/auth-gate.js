@@ -354,6 +354,39 @@ async function loadUsers(){
     container.replaceChildren(outer);
   }catch(error){loading.textContent=errorText(error);}
 }
+async function loadTlsSettings(){
+  if(session?.user?.role!=='administrator')return;
+  const panel=$('#tlsSettings');
+  if(!panel)return;
+  panel.hidden=false;
+  const status=$('#tlsStatusMessage');
+  status.textContent='';
+  try{
+    const {tls}=await call('/api/tls/status');
+    $('#tlsMode').textContent=({
+      off:'HTTP / HTTPS not configured',
+      'self-signed':'Controller-managed self-signed',
+      provided:'Externally supplied certificate'
+    })[tls.mode]||tls.mode;
+    $('#tlsPort').textContent=tls.enabled?String(tls.port):'Not enabled';
+    const cert=tls.certificate;
+    $('#tlsSubject').textContent=cert?.subject||'No certificate';
+    $('#tlsNames').textContent=cert?.subjectAltName||'—';
+    $('#tlsExpiry').textContent=cert?.validTo
+      ?new Date(cert.validTo).toLocaleString()+' ('+cert.daysRemaining+' days remaining)'
+      :'—';
+    $('#tlsFingerprint').textContent=cert?.fingerprint256||'—';
+    $('#tlsTrustNotice').textContent=tls.mode==='self-signed'
+      ?'Self-signed certificates encrypt the connection but are not automatically trusted. Install the public certificate on each client before depending on it for secure access. Regenerating requires re-trusting the new identity.'
+      :tls.mode==='provided'
+        ?'Certificate rotation is managed by your external certificate provider; this controller cannot regenerate an imported identity.'
+        :'HTTPS is not enabled. Configure PFC_HTTPS_MODE=self-signed with PFC_HTTPS_NAMES for your actual browser hostname/IP and restart the controller.';
+    $('#tlsRegenerateForm').hidden=!tls.canRegenerate;
+    $('#tlsDownloadBtn').hidden=!tls.enabled;
+  }catch(error){
+    status.textContent=errorText(error);
+  }
+}
 function initializeSetupUi(){
   if(!session?.enrollmentAvailable||session.enabled)return;
   $('#usersBtn').hidden=false;
@@ -404,6 +437,36 @@ function initializeAccountUi(){
   if(session.user.role==='administrator'){
     $('#usersBtn').hidden=false;
     $('#usersBtn').addEventListener('click',loadUsers);
+    $('#usersBtn').addEventListener('click',loadTlsSettings);
+    $('#tlsRegenerateForm')?.addEventListener('submit',async event=>{
+      event.preventDefault();
+      const form=event.currentTarget;
+      const button=$('#tlsRegenerateBtn');
+      const status=$('#tlsStatusMessage');
+      if(!form.elements.confirm.checked)return;
+      if(!window.confirm('Regenerate the self-signed HTTPS certificate and private key now? Existing browser trust may be lost.'))return;
+      button.disabled=true;
+      button.setAttribute('aria-busy','true');
+      status.textContent='Generating and applying a new certificate…';
+      try{
+        const body={
+          password:form.elements.password.value,
+          confirm:'REGENERATE'
+        };
+        await call('/api/tls/regenerate',{
+          method:'POST',headers:{'content-type':'application/json'},
+          body:JSON.stringify(body)
+        });
+        form.reset();
+        await loadTlsSettings();
+        status.textContent='New certificate activated. Your browser may need to trust it again after reconnecting.';
+      }catch(error){status.textContent=errorText(error);}
+      finally{
+        form.elements.password.value='';
+        button.disabled=false;
+        button.removeAttribute('aria-busy');
+      }
+    });
     $('#authUserAddForm').addEventListener('submit',async event=>{
       event.preventDefault();
       const form=event.currentTarget;
