@@ -14,7 +14,7 @@ A local-first 3D printer fleet controller. It runs entirely on your LAN and curr
 - **Farm dashboard:** Live printer status, job progress and maintenance indicators, with card or sortable table views, a Farm operations switch for selected-printer bulk actions, and light/dark themes.
 - **Print Library and scheduling:** Search and filter files, check printer compatibility and readiness, queue jobs to printers or groups, and review print history.
 - **Pricing and costs:** Estimate filament and machine time costs, add labour and sundries, and calculate selling prices using shared currency, profit and tax settings.
-- **Reports & finance:** Production trends, completed and failed prints, printer reliability, popular-file rankings, a filament-used (kg) bar chart grouped by filament or material type, and historical cost reporting.
+- **Reports & finance:** Production trends, completed and failed prints, printer reliability, a period-filtered total filament used (kg) summary, popular-file rankings, a filament-used (kg) chart grouped by filament or material type, and historical cost reporting.
 - **Printer management and alerts:** Supported filament/nozzle controls, file management, scheduled maintenance, local notifications, ntfy push and webhooks.
 - **Backup and recovery:** Compressed backups to local/NAS storage, Google Drive, experimental OneDrive or S3-compatible services.
 - **Flexible deployment:** Windows portable executable or installer, Docker images for AMD64/ARM64 and K3s/Kubernetes; signed offline Community, Pro and Farm licences.
