@@ -170,6 +170,19 @@ export class AccountStore {
       return publicUser(record);
     });
   }
+  async deleteUser(id){
+    return this.#serial(async()=>{
+      const data=await this.#read();
+      if(!data)throw new Error('Authentication has not been initialized');
+      const index=data.users.findIndex(user=>user.id===id);
+      if(index<0)throw Object.assign(new Error('User not found'),{statusCode:404});
+      const [removed]=data.users.splice(index,1);
+      if(!data.users.some(user=>user.role==='administrator'&&!user.disabled))
+        throw Object.assign(new Error('Cannot delete the last enabled administrator'),{statusCode:409});
+      await this.#save(data);
+      return publicUser(removed);
+    });
+  }
   async updateUser(id,{role,disabled,displayName,password}={}){
     return this.#serial(async()=>{
       const data=await this.#read();
