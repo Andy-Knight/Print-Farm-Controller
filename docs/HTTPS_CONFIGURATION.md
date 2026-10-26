@@ -13,7 +13,7 @@ The container exposes both ports from startup. The sample [Kubernetes Deployment
 
 For a new installation, open `http://<controller-host>:4242` (direct) or `http://<MetalLB-IP>` (Kubernetes). Create the initial administrator using the private startup-log enrollment code or sign in as an existing administrator. **HTTP credentials and sessions can be intercepted.** Perform this only on localhost or a trusted isolated network and enable HTTPS promptly.
 
-Navigate to **Farm management → Security & users → HTTPS & certificates**. The page has three ordered sections:
+Navigate to **Farm management → Security & users → Connection settings**. The page has three ordered sections:
 
 1. **Connection summary** — read-only mode, HTTP/HTTPS ports, redirect state, certificate source, subject, issuer, SANs, issue/expiry, serial and fingerprint, with an administrator-only download of the *public* certificate. No private-key content or path is ever returned in this metadata.
 2. **Connection settings** — choose HTTP, controller-managed self-signed HTTPS or external PEM certificate. Enter DNS and IPv4 SANs for managed certificates, or paste the public PEM certificate/chain and matching private PEM key into two separately labelled multiline text areas for external certificates. Ports are not editable. Enter the current administrator password and confirm the action.
