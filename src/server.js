@@ -1,4 +1,5 @@
 import http from 'node:http';
+import https from 'node:https';
 import { promises as fs, readFileSync } from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
@@ -50,6 +51,7 @@ import { KeyedSerialExecutor, PrinterOperationCoordinator } from './concurrency.
 import { evaluatePrinterOperation, PrinterPhysicalActivityTracker, PRINTER_OPERATION_TYPES } from './printer-operation-policy.js';
 import { DiagnosticLogger } from './diagnostic-logger.js';
 import { ControllerAuth } from './security/http-auth.js';
+import { ControllerTls } from './security/controller-tls.js';
 import { runLocalSecurityCommand } from './security/local-admin.js';
 import { MemoryMonitor } from './memory-monitor.js';
 import { MaintenanceService } from './maintenance-service.js';
@@ -86,6 +88,8 @@ const PORT = Number(process.env.PORT || 4242);
 const HOST = process.env.HOST || '0.0.0.0';
 const diagnosticLogger = new DiagnosticLogger({ logDir:runtimePaths.logDir, version:CONTROLLER_VERSION });
 const controllerAuth = new ControllerAuth({dataDir:runtimePaths.dataDir});
+const controllerTls = new ControllerTls({dataDir:runtimePaths.dataDir,port:PORT});
+let server = null;
 const memoryMonitor = new MemoryMonitor({
   diagnosticFn:(level, message, meta) => diagnosticLogger[level]?.('memory', message, meta)
 });
@@ -704,6 +708,38 @@ async function refreshAfterCommand(id) {
 }
 
 async function apiRoute(req, res, url) {
+  // Even in pre-enrollment legacy mode these endpoints require a real admin.
+  // Neither keys nor certificate status may bypass the native RBAC boundary.
+  if (req.method === 'GET' && url.pathname === '/api/tls/status') {
+    await controllerAuth.assertAdministrator(req);
+    return json(res, 200, {tls:controllerTls.status()});
+  }
+  if (req.method === 'GET' && url.pathname === '/api/tls/certificate') {
+    await controllerAuth.assertAdministrator(req);
+    const certificate = controllerTls.publicCertificate();
+    res.writeHead(200, {
+      'content-type':'application/x-pem-file',
+      'content-disposition':'attachment; filename="print-farm-controller.crt"',
+      'cache-control':'no-store',
+      'x-content-type-options':'nosniff'
+    });
+    res.end(certificate);
+    return true;
+  }
+  if (req.method === 'POST' && url.pathname === '/api/tls/regenerate') {
+    const body = await readJson(req);
+    if (body?.confirm !== 'REGENERATE') {
+      const error = new Error('Explicit certificate regeneration confirmation is required');
+      error.statusCode = 400;
+      throw error;
+    }
+    await controllerAuth.assertAdministrator(req,body?.password);
+    const tls = await controllerTls.regenerate(server);
+    await diagnosticLogger.warn('security','Controller-managed HTTPS certificate regenerated',{
+      fingerprint256:tls.certificate?.fingerprint256
+    }).catch(()=>{});
+    return json(res,200,{tls});
+  }
   const mutation = ['POST','PUT','PATCH','DELETE'].includes(req.method);
   const mayCancelStagedRestore = req.method === 'DELETE' && url.pathname === '/api/restore/stage';
   if ((restorePendingRestart || restoreInspectionInProgress) && mutation && !mayCancelStagedRestore) {
@@ -2557,8 +2593,8 @@ async function serveStatic(res, pathname) {
   }
 }
 
-const server = http.createServer(async (req, res) => {
-  const url = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
+async function handleControllerRequest(req, res) {
+  const url = new URL(req.url, (req.socket.encrypted ? 'https://' : 'http://') + (req.headers.host || 'localhost'));
   const countedMutation = url.pathname.startsWith('/api/')
     && ['POST','PUT','PATCH','DELETE'].includes(req.method);
   if (countedMutation) activeMutationRequests += 1;
@@ -2614,7 +2650,7 @@ const server = http.createServer(async (req, res) => {
   } finally {
     if (countedMutation) activeMutationRequests = Math.max(0, activeMutationRequests - 1);
   }
-});
+}
 
 async function shutdown() {
   await diagnosticLogger.info('controller', 'Controller shutdown requested').catch(() => {});
@@ -2629,7 +2665,7 @@ async function shutdown() {
   fleetState.stop();
   cameraManager.stop();
   try { await emulatorManager.stop(); } catch {}
-  server.close(() => process.exit(0));
+  if (server) server.close(() => process.exit(0));
   setTimeout(() => process.exit(0), 2000).unref();
 }
 
@@ -2704,6 +2740,10 @@ async function startController() {
     await reportingService.init();
     await printQueue.start();
     chamberPreheat.startService();
+    const tlsOptions = await controllerTls.init();
+    server = tlsOptions
+      ? https.createServer(tlsOptions,handleControllerRequest)
+      : http.createServer(handleControllerRequest);
     await listenControllerServer();
 
     if (restoreTransaction) {
@@ -2725,16 +2765,19 @@ async function startController() {
       console.warn(`Scheduled backup service unavailable: ${error.message}`);
     }
 
-    console.log(`Print Farm Controller v${CONTROLLER_VERSION} running at http://localhost:${PORT}`);
+    const browserScheme = controllerTls.enabled ? 'https' : 'http';
+    console.log(`Print Farm Controller v${CONTROLLER_VERSION} running at ${browserScheme}://localhost:${PORT}`);
     if (controllerAuth.enabled) {
       console.log(controllerAuth.setupRequired
         ? 'Authentication requires first administrator enrollment in the browser (Security & users) using the private code printed at controller startup.'
         : 'Native authentication and server-side RBAC ENABLED.');
-      if (!controllerAuth.secure)console.warn('SECURITY WARNING: HTTP does not protect credentials. Configure HTTPS with PFC_PUBLIC_ORIGIN before production login.');
+      if (!controllerAuth.secure)console.warn('SECURITY WARNING: HTTP does not protect credentials. Configure HTTPS before production login.');
+      if (controllerTls.mode === 'self-signed') console.warn('HTTPS uses a self-signed certificate. Clients must explicitly trust its identity; configure matching SAN names via PFC_HTTPS_NAMES.');
+
     } else console.warn('SECURITY WARNING: Legacy unauthenticated LAN mode. Enrol an administrator to enable access controls.');
     const license = currentLicenseSnapshot();
     console.log(`Licence: ${license.label} (${license.source}; enforcement ${license.enforcementEnabled ? 'enabled' : 'disabled'})`);
-    console.log(`LAN access: http://<this-computer-ip>:${PORT}`);
+    console.log(`LAN access: ${browserScheme}://<certificate-SAN-host-or-ip>:${PORT}`);
     console.log('Generic printer adapter + capability layer enabled (FlashForge AD5M + Snapmaker U1 + experimental Bambu P1P/P1S/X1C/A1 Mini)');
     console.log('Live fleet polling + SSE enabled');
     console.log('Concurrent client command arbitration + serialized shared mutations enabled');
