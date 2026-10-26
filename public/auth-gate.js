@@ -410,6 +410,7 @@ async function loadTlsSettings(){
       :tls.mode==='provided'
         ?'Certificate rotation is managed by your external certificate provider; this controller cannot regenerate an imported identity.'
         :'HTTP is unencrypted: passwords and sessions can be intercepted on the network. Configure HTTPS below before normal production use; complete the initial administrator sign-in only on a trusted local network or host.';
+    $('#tlsMaintenance').hidden=!tls.enabled;
     $('#tlsRegenerateForm').hidden=!tls.canRegenerate;
     $('#tlsDownloadBtn').hidden=!tls.enabled;
     const configure=$('#tlsConfigureForm');
@@ -495,7 +496,8 @@ function initializeAccountUi(){
     });
     $('#tlsConfigureMode')?.addEventListener('change',syncTlsConfigureFields);
     $('#tlsConfigureForm')?.addEventListener('input',event=>{
-      event.currentTarget.dataset.editing='true';
+      if(['mode','port','names','certFile','keyFile'].includes(event.target.name))
+        event.currentTarget.dataset.editing='true';
     });
     $('#tlsConfigureForm')?.addEventListener('submit',async event=>{
       event.preventDefault();
@@ -509,7 +511,7 @@ function initializeAccountUi(){
       const mode=form.elements.mode.value;
       const question=mode==='off'
         ?'Disable HTTPS and return to unencrypted HTTP? Passwords and sessions will become interceptable on the network.'
-        :'Apply the new connection settings? Browser connections will disconnect and require signing in again. New self-signed certificates must be explicitly trusted.';
+        :'Apply connection settings? If something changed, browsers may disconnect and need a fresh login or certificate trust. Unchanged settings do not regenerate the certificate.';
       if(!window.confirm(question))return;
       button.disabled=true;button.setAttribute('aria-busy','true');
       try{
