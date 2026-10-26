@@ -215,7 +215,9 @@ test('analytics view models rank real print completions and aggregate materials'
   assert.match(html, /api\/library\/id-0\/preview/);
   assert.match(html, /data-reporting-file-sort="materialGrams"/);
   assert.match(html, /data-reporting-file-sort="materialCost"/);
-  assert.match(html, /data-reporting-file-sort="runSeconds"/);
+  assert.doesNotMatch(html, /data-reporting-file-sort="runSeconds"/);
+  assert.doesNotMatch(html, /data-reporting-file-sort="successRate"/);
+  assert.equal((html.match(/<th scope="col"/g) || []).length,6);
   assert.match(html, /Material ↕/);
   assert.doesNotMatch(html, /Popularity/);
   assert.doesNotMatch(html, /of leading file/);
@@ -541,7 +543,8 @@ test('print-file analytics show material, historical cost, and total printer tim
   const html=ui.renderReportFiles(rows);
   assert.match(html, /0\.45 kg/);
   assert.match(html, /£6\.00/);
-  assert.match(html, /2h 0m/);
+  assert.doesNotMatch(html, /2h 0m/, 'print time is retained in analytics but not displayed in this table');
+  assert.doesNotMatch(html, /<td[^>]*>100\.0%<\/td>/,'success rate is not displayed in this table');
   assert.match(html, /<small>partial<\/small>/);
   assert.match(html, /Sort by historical material cost, grouped by currency/);
   assert.doesNotMatch(html,/Popularity/);
@@ -561,7 +564,8 @@ test('print-file analytics show material, historical cost, and total printer tim
   const preact=fs.readFileSync(new URL('../ui/reporting.jsx',import.meta.url),'utf8');
   assert.match(preact,/file\.materialCostText/);
   assert.match(preact,/file\.materialText/);
-  assert.match(preact,/file\.printTime/);
+  assert.doesNotMatch(preact.slice(preact.indexOf('function ReportFiles('),preact.indexOf('function ReportMaterials(')),
+    /file\.printTime|file\.successRate/);
   assert.match(styles,/reporting-file-material/);
   assert.match(styles,/reporting-file-cost/);
   assert.doesNotMatch(html,/reporting-file-resource/);
@@ -569,8 +573,8 @@ test('print-file analytics show material, historical cost, and total printer tim
   assert.match(html,/data-reporting-file-sort="materialCost"/);
   const headerCells=(html.match(/<th scope="col"/g)||[]).length;
   const valueCells=(html.match(/<td(?: class=|>)/g)||[]).length;
-  assert.equal(headerCells,8,'popular files must display eight independent column headings');
-  assert.equal(valueCells,rows.length*8,'each row must display Material and Cost in separate cells');
+  assert.equal(headerCells,6,'popular files must display six independent column headings');
+  assert.equal(valueCells,rows.length*6,'each row must display six fields, including distinct Material and Cost cells');
   assert.match(html,/<td class="numeric reporting-file-material"/);
   assert.match(html,/<td class="numeric reporting-file-cost"/);
   const material=html.match(/<td class="numeric reporting-file-material"[^>]*>([\s\S]*?)<\/td>/);
@@ -578,7 +582,9 @@ test('print-file analytics show material, historical cost, and total printer tim
   assert.ok(material && cost,'resource columns must contain data');
   assert.doesNotMatch(material[1],/£6\.00/,'historical cost must not appear below material');
   assert.doesNotMatch(cost[1],/0\.45 kg/,'material weight must not appear within Cost');
-  assert.match(styles,/reporting-file-time/);
+  assert.doesNotMatch(styles.slice(styles.indexOf('/* Popular files and filament use the desktop row'),
+    styles.indexOf('/* Kilogram-based filament usage chart.')), /reporting-file-time/);
+  assert.match(styles,/\.reporting-analytics-files \.reporting-analytics-table\s*\{[^}]*min-width:600px/);
 });
 
 test('filament usage is a token-based kg bar chart in both Preact and fallback renderers', () => {
@@ -630,7 +636,9 @@ test('the remaining three Analytics tables preserve the controller table design 
   assert.match(preact, /class="numeric reporting-file-material"/);
   assert.match(preact, /class="numeric reporting-file-cost"/);
   assert.doesNotMatch(preact, /reporting-file-resource-heading/);
-  assert.match(styles, /\.reporting-analytics-files \.reporting-analytics-table td:nth-child\(8\)/);
+  assert.match(styles, /\.reporting-analytics-files \.reporting-analytics-table td:nth-child\(6\)/);
+  assert.doesNotMatch(styles.slice(styles.indexOf('/* Popular files and filament use the desktop row'),
+    styles.indexOf('/* Kilogram-based filament usage chart.')),/nth-child\((7|8)\)/);
 });
 
 test('analytics table grouping selectors use the standard 42px segmented-choice style', () => {
