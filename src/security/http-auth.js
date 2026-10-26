@@ -80,11 +80,11 @@ export class ControllerAuth {
    * Existing HTTP-issued sessions must never carry over into HTTPS: a stolen
    * HTTP cookie may otherwise be replayed as a privileged Secure session.
    */
-  setNativeTransportSecure(enabled,{revokeSessions=true}={}){
+  setNativeTransportSecure(enabled,{revokeSessions=true,forceRevoke=false}={}){
     if(enabled&&this.#origin&&new URL(this.#origin).protocol!=='https:')
       throw new Error('An existing HTTP PFC_PUBLIC_ORIGIN conflicts with native HTTPS; clear this legacy proxy setting');
     const next=Boolean(enabled)||Boolean(this.#origin?.startsWith('https://'));
-    if(this.#secure===next)return;
+    if(this.#secure===next&&!forceRevoke)return;
     this.#secure=next;
     if(revokeSessions){
       this.#sessions.clear();
