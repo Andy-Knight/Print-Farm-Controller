@@ -1524,18 +1524,6 @@
     <section id="tlsSettings" class="auth-panel auth-tls-settings auth-security-tab-panel" role="tabpanel" aria-labelledby="authTabHttps" tabindex="0" hidden>
       <h3 id="tlsSettingsHeading">HTTPS &amp; certificates</h3>
       <p class="subtle">The controller starts with HTTP on a new installation. Administrators can enable or change HTTPS here—no environment variables, reverse proxy or command-line certificate generation required.</p>
-      <dl class="auth-tls-details">
-        <div><dt>Connection mode</dt><dd id="tlsMode">Loading…</dd></div>
-        <div><dt>HTTPS port</dt><dd id="tlsPort">—</dd></div>
-        <div><dt>Subject</dt><dd id="tlsSubject">—</dd></div>
-        <div><dt>Issuer</dt><dd id="tlsIssuer">—</dd></div>
-        <div><dt>DNS/IP names</dt><dd id="tlsNames">—</dd></div>
-        <div><dt>Issued</dt><dd id="tlsIssued">—</dd></div>
-        <div><dt>Expires</dt><dd id="tlsExpiry">—</dd></div>
-        <div><dt>Serial number</dt><dd id="tlsSerial">—</dd></div>
-        <div><dt>SHA-256 fingerprint</dt><dd id="tlsFingerprint">—</dd></div>
-      </dl>
-      <p id="tlsTrustNotice" class="auth-transport-notice" role="note"></p>
       <div id="tlsMaintenance" class="auth-tls-maintenance" hidden>
         <h4>Certificate management</h4>
         <a id="tlsDownloadBtn" class="secondary auth-tls-download" href="/api/tls/certificate" download="print-farm-controller.crt" hidden>Download public certificate</a>
@@ -1550,7 +1538,20 @@
         </label>
         <div class="actions"><button id="tlsRegenerateBtn" type="submit" class="attention">Regenerate self-signed certificate</button></div>
       </form>
-      </div>
+      </div
+      <dl class="auth-tls-details">
+        <div><dt>Connection mode</dt><dd id="tlsMode">Loading…</dd></div>
+        <div><dt>HTTPS port</dt><dd id="tlsPort">—</dd></div>
+        <div><dt>Subject</dt><dd id="tlsSubject">—</dd></div>
+        <div><dt>Issuer</dt><dd id="tlsIssuer">—</dd></div>
+        <div><dt>DNS/IP names</dt><dd id="tlsNames">—</dd></div>
+        <div><dt>Issued</dt><dd id="tlsIssued">—</dd></div>
+        <div><dt>Expires</dt><dd id="tlsExpiry">—</dd></div>
+        <div><dt>Serial number</dt><dd id="tlsSerial">—</dd></div>
+        <div><dt>SHA-256 fingerprint</dt><dd id="tlsFingerprint">—</dd></div>
+      </dl>
+      <p id="tlsTrustNotice" class="auth-transport-notice" role="note"></p>
+>
       <p id="tlsStatusMessage" class="auth-row-status" role="status" aria-live="polite"></p>
       <form id="tlsConfigureForm" class="auth-form auth-tls-configure" autocomplete="off">
         <h4>Connection settings</h4>
