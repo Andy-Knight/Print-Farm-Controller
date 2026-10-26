@@ -10,6 +10,7 @@ import http from 'node:http';
 import https from 'node:https';
 import net from 'node:net';
 import {AccountStore} from '../src/security/account-store.js';
+import {createSelfSignedCertificate} from '../src/security/self-signed-certificate.js';
 
 const cwd=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
 const password='GUI HTTPS transition integration 2026!';
@@ -121,6 +122,10 @@ test('real controller starts HTTP, switches to GUI-managed HTTPS and retains it 
     assert.equal((await secureRequest(plain,'/api/tls/status',{identity:admin})).body.tls.mode,'off');
     const settings={mode:'self-signed',names:'127.0.0.1,localhost',password,confirm:'APPLY'};
     assert.equal((await secureRequest(plain,'/api/tls/configure',{
+      method:'POST',origin:plain,identity:admin,
+      body:{mode:'provided',certificatePem:'test-cert',privateKeyPem:'test-key',password,confirm:'APPLY'}
+    })).status,403,'private key imports are disallowed before enabling HTTPS');
+    assert.equal((await secureRequest(plain,'/api/tls/configure',{
       method:'POST',origin:plain,identity:admin,csrf:false,body:settings
     })).status,403,'Origin and CSRF must protect native HTTPS setup');
     assert.equal((await secureRequest(plain,'/api/tls/configure',{
@@ -223,6 +228,40 @@ test('real controller starts HTTP, switches to GUI-managed HTTPS and retains it 
     });
     assert.equal(regenerated.status,200,regenerated.text);
     assert.notEqual(regenerated.body.tls.certificate.fingerprint256,oldFingerprint);
+    // Supply a real matching PEM pair over the already-active TLS listener.
+    const supplied=createSelfSignedCertificate({names:['127.0.0.1','localhost']});
+    const badPair=createSelfSignedCertificate({names:['localhost']});
+    const importSettings={mode:'provided',certificatePem:supplied.cert,
+      privateKeyPem:supplied.key,password,confirm:'APPLY'};
+    assert.equal((await secureRequest(secure,'/api/tls/configure',{
+      method:'POST',identity:secureAdmin,origin:secure,
+      body:{...importSettings,privateKeyPem:badPair.key}
+    })).status,400,'mismatched keys must be rejected before activation');
+    const imported=await secureRequest(secure,'/api/tls/configure',{
+      method:'POST',identity:secureAdmin,origin:secure,body:importSettings
+    });
+    assert.equal(imported.status,202,imported.text);
+    assert.doesNotMatch(JSON.stringify(imported.body),/BEGIN CERTIFICATE|PRIVATE KEY/);
+    // Configuration changes are acknowledged before the TLS context swaps.
+    await new Promise(resolve=>setTimeout(resolve,1300));
+    const importedAdmin=await login(secure);
+    const importedStatus=await secureRequest(secure,'/api/tls/status',{identity:importedAdmin});
+    assert.equal(importedStatus.body.tls.mode,'provided');
+    assert.equal(importedStatus.body.tls.canRegenerate,false);
+    assert.equal(importedStatus.body.tls.certificateSource,'pasted-pem');
+    const suppliedFingerprint=importedStatus.body.tls.certificate.fingerprint256;
+    assert.notEqual(suppliedFingerprint,regenerated.body.tls.certificate.fingerprint256);
+    assert.doesNotMatch(JSON.stringify(importedStatus.body),/BEGIN PRIVATE KEY|certFile|keyFile/);
+    assert.equal((await secureRequest(secure,'/api/tls/regenerate',{
+      method:'POST',identity:importedAdmin,origin:secure,
+      body:{password,confirm:'REGENERATE'}
+    })).status,409,'self-signed regeneration not permitted for imported identity');
+    const kept=await secureRequest(secure,'/api/tls/configure',{
+      method:'POST',identity:importedAdmin,origin:secure,
+      body:{mode:'provided',password,confirm:'APPLY'}
+    });
+    assert.equal(kept.status,200,'blank PEM fields preserve the imported identity');
+    assert.equal(kept.body.unchanged,true);
     await stop(child);
     child=startController({dataDir,logDir,port,logs});
     await pollHealthy(secure,child,logs);
@@ -233,7 +272,7 @@ test('real controller starts HTTP, switches to GUI-managed HTTPS and retains it 
     const adminRestart=await login(secure);
     const persisted=await secureRequest(secure,'/api/tls/status',{identity:adminRestart});
     assert.equal(persisted.body.tls.certificate.fingerprint256,
-      regenerated.body.tls.certificate.fingerprint256);
+      suppliedFingerprint);
   }finally{
     if(blocker?.listening)await new Promise(resolve=>blocker.close(resolve));
     await stop(child);
