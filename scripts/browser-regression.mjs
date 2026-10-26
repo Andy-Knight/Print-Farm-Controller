@@ -3782,6 +3782,31 @@ async function nativeAuthenticationSmoke(browser){
     // overwrite the refreshed list and cause a false browser regression.
     await page.locator('#authUserList tbody tr').filter({hasText:'owner'})
       .waitFor({state:'visible'});
+    assert.equal(await page.locator('#authAdminTabs').isVisible(),true,
+      'Security & users must offer dedicated Users and HTTPS tabs');
+    assert.equal(await page.locator('#authTabUsers').getAttribute('aria-selected'),'true');
+    assert.equal(await page.locator('#authTabHttps').getAttribute('aria-selected'),'false');
+    await page.locator('#authTabHttps').click();
+    await page.locator('#tlsConfigureForm').waitFor({state:'visible'});
+    await page.waitForFunction(()=>document.querySelector('#tlsMode')?.textContent
+      .includes('HTTP / HTTPS not configured'));
+    assert.equal(await page.locator('#authUserAddForm').isVisible(),false,
+      'Users form must be hidden while HTTPS tab is selected');
+    assert.equal(await page.locator('#tlsRegenerateBtn').isVisible(),false,
+      'regeneration is unavailable until the SAVED mode is self-signed HTTPS');
+    assert.equal(await page.locator('#tlsConfigureBtn').isVisible(),true);
+    await page.locator('#tlsConfigureMode').selectOption('self-signed');
+    assert.equal(await page.locator('#tlsRegenerateBtn').isVisible(),false,
+      'drafting managed mode must not enable renewal until configuration is applied');
+    await page.locator('#authTabHttps').focus();
+    await page.keyboard.press('ArrowLeft');
+    assert.equal(await page.locator('#authTabUsers').getAttribute('aria-selected'),'true');
+    assert.equal(await page.locator('#authUserAddForm').isVisible(),true,
+      'arrow-key navigation switches the tab panel');
+    await page.locator('#authTabUsers').press('End');
+    assert.equal(await page.locator('#authTabHttps').getAttribute('aria-selected'),'true');
+    await page.locator('#authTabHttps').press('Home');
+    assert.equal(await page.locator('#authTabUsers').getAttribute('aria-selected'),'true');
     await page.locator('#authUserAddForm [name=username]').fill('shiftoperator');
     await page.locator('#authUserAddForm [name=displayName]').fill('Shift operator');
     await page.locator('#authUserAddForm [name=role]').selectOption('operator');
