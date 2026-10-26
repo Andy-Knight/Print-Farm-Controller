@@ -3310,7 +3310,9 @@ button.library-file-preview { cursor:zoom-in; }
   --reporting-kpi-color:#328de2;
   --reporting-kpi-track:rgba(92,151,215,.18);
   --reporting-kpi-center:#121a21;
-  display:flex; align-items:center; gap:14px; min-height:114px; padding:14px;
+  display:grid; align-items:center; align-content:center;
+  grid-template-columns:72px minmax(0,1fr); grid-template-rows:auto auto auto;
+  column-gap:12px; row-gap:6px; min-height:160px; padding:14px;
 }
 .reporting-kpis .reporting-kpi-positive {
   --reporting-kpi-color:#20b37b;
@@ -3321,6 +3323,7 @@ button.library-file-preview { cursor:zoom-in; }
   --reporting-kpi-track:rgba(237,112,120,.17);
 }
 .reporting-kpi .reporting-kpi-gauge {
+  grid-column:1;grid-row:2 / 4;align-self:center;
   position:relative; display:grid; place-items:center; width:72px; height:72px;
   flex:0 0 72px; border-radius:50%;
   background:conic-gradient(from -90deg,var(--reporting-kpi-color) var(--reporting-kpi-angle),var(--reporting-kpi-track) 0deg);
@@ -3338,10 +3341,17 @@ button.library-file-preview { cursor:zoom-in; }
   background:transparent; font-size:1.55rem;
 }
 .reporting-kpi .reporting-kpi-icon svg { display:block; width:27px; height:27px; stroke:currentColor; }
-.reporting-kpi .reporting-kpi-body { display:flex; min-width:0; flex:1; flex-direction:column; align-items:flex-start; }
+.reporting-kpi .reporting-kpi-body {
+  display:flex;grid-column:2;grid-row:2;min-width:0;
+  flex-direction:column;align-items:flex-start;
+}
+/* The KPI title is a direct grid child spanning the *whole* card, not a
+   narrow column between the icon and the comparison metric. */
 .reporting-kpi .reporting-kpi-label {
-  display:block; margin:0 0 3px; color:var(--ds-text-muted,#8493a1);
-  font-size:.73rem; font-weight:650; line-height:1.25;
+  grid-column:1 / -1;grid-row:1;min-width:0;
+  display:block;margin:0;color:var(--ds-text-muted,#8493a1);
+  font-size:.73rem;font-weight:650;line-height:1.25;
+  white-space:nowrap;
 }
 .reporting-kpi .reporting-kpi-body strong {
   display:block; margin:0; font-size:1.55rem; line-height:1.2;
@@ -3370,9 +3380,9 @@ button.library-file-preview { cursor:zoom-in; }
 /* Previous-period comparisons align with Option D's right-hand metric column.
    Green/red indicate production improvement/deterioration; neutral activity is blue. */
 .reporting-kpi .reporting-kpi-change {
-  display:flex; flex:0 1 auto; min-width:0; margin-left:auto;
-  flex-direction:column; align-items:flex-end; gap:3px;
-  text-align:right; color:#84bdff;
+  display:flex;grid-column:2;grid-row:3;min-width:0;
+  flex-direction:column;align-items:flex-start;gap:3px;
+  text-align:left;color:#84bdff;
 }
 .reporting-kpi .reporting-kpi-change-value {
   display:inline-flex; align-items:center; justify-content:flex-end;
@@ -3391,15 +3401,12 @@ button.library-file-preview { cursor:zoom-in; }
 :root[data-theme="light"] .reporting-kpi .reporting-kpi-change-positive { color:#12754e; }
 :root[data-theme="light"] .reporting-kpi .reporting-kpi-change-negative { color:#b52231; }
 @media (max-width:1550px) and (min-width:901px) {
-  .reporting-kpis .reporting-kpi { flex-wrap:wrap; align-content:center; }
-  .reporting-kpi .reporting-kpi-change {
-    margin-left:86px; align-items:flex-start; text-align:left;
-  }
+  .reporting-kpis .reporting-kpi { column-gap:10px; }
   .reporting-kpi .reporting-kpi-change-caption { max-width:none; }
 }
-@media (max-width:580px) {
-  .reporting-kpis .reporting-kpi { flex-wrap:wrap; }
-  .reporting-kpi .reporting-kpi-change { margin-left:61px; align-items:flex-start; text-align:left; }
+@media (max-width:620px) {
+  .reporting-kpis .reporting-kpi { grid-template-columns:52px minmax(0,1fr);column-gap:8px; }
+  .reporting-kpi .reporting-kpi-change-caption { max-width:none; }
 }
 
 /* Both themes inherit identical semantic segmented-control styling. */
@@ -3420,7 +3427,7 @@ button.library-file-preview { cursor:zoom-in; }
   .reporting-segmented { width:100%; }
   .reporting-segmented button { flex:1 1 auto; }
   .reporting-table-scroll { scrollbar-gutter:auto; }
-  .reporting-kpis .reporting-kpi { gap:9px; padding:11px; min-height:98px; }
+  .reporting-kpis .reporting-kpi { column-gap:8px;row-gap:7px;padding:11px;min-height:142px; }
   .reporting-kpi .reporting-kpi-gauge { width:52px; height:52px; flex-basis:52px; }
   .reporting-kpi .reporting-kpi-gauge::before { inset:7px; }
   .reporting-kpi .reporting-kpi-icon { width:28px; height:28px; }
