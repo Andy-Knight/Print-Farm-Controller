@@ -1555,7 +1555,7 @@
             <option value="provided">HTTPS — external PEM certificate</option>
           </select>
         </label>
-        <p class="field-help">HTTP listens internally on 4242 and HTTPS on 4243. After HTTPS is enabled, HTTP redirects browser GET requests and retains only its health endpoint.</p>
+        <p class="field-help">The controller uses internal port 4242 for HTTP and 4243 for HTTPS. In a container environment such as Kubernetes, networking configuration (for example, a Kubernetes Service) can expose these on standard web ports 80 and 443. Once HTTPS is enabled, HTTP redirects eligible browser requests to HTTPS and remains available for health checks.</p>
         <div id="tlsConfigureManaged" class="auth-tls-mode-fields">
           <label for="tlsConfigureNames">Certificate hostnames and IPv4 addresses
             <input id="tlsConfigureNames" name="names" type="text" autocomplete="off" spellcheck="false" placeholder="controller.local,192.168.1.100">
