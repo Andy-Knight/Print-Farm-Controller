@@ -101,7 +101,7 @@ export class ControllerTls {
       fs.readFile(path.join(root,'key.pem'),'utf8')
     ]);
     validatePair(cert,key);
-    return {cert,key,id:manifest.id};
+    return {cert,key,id:manifest.id,dir:root};
   }
   async #readProvided(settings){
     const [cert,key]=await Promise.all([
