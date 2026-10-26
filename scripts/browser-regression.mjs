@@ -2166,6 +2166,29 @@ async function routeSmoke(page,url) {
   }
   assert.equal(layout.chartPresent,true);
   assert.equal(layout.viewportOverflow,false,'paired analytics cannot overflow the document');
+  // Both selectors should appear level at the top-right of their equal-width
+  // desktop cards. The filament helper copy must not force an extra row.
+  const headerAlignment=await page.evaluate(()=>{
+    const geometry=(selector)=> {
+      const el=document.querySelector(selector);
+      const r=el.getBoundingClientRect();
+      return {top:r.top,right:r.right,bottom:r.bottom};
+    };
+    return {
+      filesCard:geometry('.reporting-analytics-files'),
+      materialCard:geometry('.reporting-analytics-materials'),
+      filesButtons:geometry('.reporting-analytics-files .reporting-segmented'),
+      materialButtons:geometry('.reporting-analytics-materials .reporting-segmented')
+    };
+  });
+  if(layout.columns===2) {
+    assert.ok(Math.abs(headerAlignment.filesButtons.top-headerAlignment.materialButtons.top)<=3,
+      'filament grouping switch must align vertically with popular-files switch: '
+      +JSON.stringify(headerAlignment));
+    assert.ok(Math.abs(headerAlignment.filesButtons.right-headerAlignment.filesCard.right
+      -(headerAlignment.materialButtons.right-headerAlignment.materialCard.right))<=3,
+      'both grouping selectors must have matching right-edge inset');
+  }
   for (const [mode,label] of [['filament','Example · ASA-CF · ASA'],['type','ASA']]) {
     await page.evaluate(({mode,label})=>{
       const base=window.__PFC_REPORTING_UI_STATE__ || {};
