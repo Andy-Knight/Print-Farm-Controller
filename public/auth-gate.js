@@ -406,8 +406,8 @@ async function loadTlsSettings(){
       'self-signed':'Controller-managed self-signed',
       provided:'Externally supplied certificate'
     })[tls.mode]||tls.mode;
-    $('#tlsHttpPort').textContent=String(tls.httpPort||4242)+' / 80 (MetalLB)';
-    $('#tlsPort').textContent=String(tls.httpsPort||4243)+' / 443 (MetalLB)'+(tls.enabled?'':' · inactive');
+    $('#tlsHttpPort').textContent=String(tls.httpPort||4242);
+    $('#tlsPort').textContent=String(tls.httpsPort||4243)+(tls.enabled?'':' · inactive');
     $('#tlsHttpBehaviour').textContent=tls.enabled
       ?'Redirects browser GET/HEAD to HTTPS; health endpoint remains available'
       :'Normal HTTP access (initial setup)';
@@ -564,8 +564,8 @@ function initializeAccountUi(){
         const chosenNames=Array.isArray(result.names)?result.names:[];
         if(result.mode==='self-signed' && !chosenNames.includes(location.hostname.toLowerCase()) && chosenNames.length)
           next.hostname=chosenNames[0];
-        // Direct Windows/source browsers use 4242/4243; with MetalLB the
-        // exposed ports are the standard 80/443, independent of pod ports.
+        // Direct Windows/source browsers use 4242/4243. Container port mapping
+        // may expose standard browser ports 80/443 independently.
         next.port=direct?(result.mode==='off'?httpPort:httpsPort):'';
         next.pathname='/';next.search='';next.hash='';
         link.href=next.href;
