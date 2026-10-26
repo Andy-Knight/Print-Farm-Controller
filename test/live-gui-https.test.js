@@ -71,17 +71,17 @@ function secureRequest(base,url,{method='GET',body,identity,origin,csrf=true}={}
     req.end(body?JSON.stringify(body):undefined);
   });
 }
-async function pollHealthy(base,child){
+async function pollHealthy(base,child,logs=[]){
   for(let i=0;i<100;i++){
     if(child.exitCode!==null||child.signalCode!==null)
-      throw Error('Controller process exited');
+      throw Error('Controller process exited: '+logs.join('').slice(-2000));
     try{
       const result=await secureRequest(base,'/api/health');
       if(result.status===200)return;
     }catch{}
     await new Promise(resolve=>setTimeout(resolve,150));
   }
-  throw Error('Controller did not become ready at '+base);
+  throw Error('Controller did not become ready at '+base+': '+logs.join('').slice(-2000));
 }
 function startController({dataDir,logDir,port,logs}){
   const child=spawn(process.execPath,['src/server.js'],{
@@ -114,7 +114,7 @@ test('real controller starts HTTP, switches to GUI-managed HTTPS and retains it 
     const plain='http://127.0.0.1:'+port;
     const secure='https://127.0.0.1:'+(port+1);
     child=startController({dataDir,logDir,port,logs});
-    await pollHealthy(plain,child);
+    await pollHealthy(plain,child,logs);
     assert.equal((await secureRequest(plain,'/api/auth/session')).body.transportSecure,false);
     const admin=await login(plain);
     assert.equal((await secureRequest(plain,'/api/tls/status',{identity:admin})).body.tls.mode,'off');
@@ -163,7 +163,7 @@ test('real controller starts HTTP, switches to GUI-managed HTTPS and retains it 
     });
     assert.equal(accepted.status,202,accepted.text);
     assert.equal(accepted.body.mode,'self-signed');
-    await pollHealthy(secure,child);
+    await pollHealthy(secure,child,logs);
     assert.equal((await secureRequest(plain,'/healthz')).status,200,
       'Docker and K3s health checks use the permanent HTTP port');
     const redirect=await secureRequest(plain,'/printer-details?test=one');
@@ -214,7 +214,7 @@ test('real controller starts HTTP, switches to GUI-managed HTTPS and retains it 
     assert.notEqual(regenerated.body.tls.certificate.fingerprint256,oldFingerprint);
     await stop(child);
     child=startController({dataDir,logDir,port,logs});
-    await pollHealthy(secure,child);
+    await pollHealthy(secure,child,logs);
     assert.equal((await secureRequest(secure,'/api/auth/session')).body.transportSecure,true);
     // Plain HTTP remains bound but only redirects or rejects requests.
     assert.equal((await secureRequest(plain,'/api/auth/session')).status,302);
