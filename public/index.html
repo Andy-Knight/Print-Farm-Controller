@@ -1538,10 +1538,12 @@
         </label>
         <div class="actions"><button id="tlsRegenerateBtn" type="submit" class="attention">Regenerate self-signed certificate</button></div>
       </form>
-      </div
+      </div>
       <dl class="auth-tls-details">
         <div><dt>Connection mode</dt><dd id="tlsMode">Loading…</dd></div>
-        <div><dt>HTTPS port</dt><dd id="tlsPort">—</dd></div>
+        <div><dt>HTTP port (direct / MetalLB)</dt><dd id="tlsHttpPort">4242 / 80</dd></div>
+        <div><dt>HTTPS port (direct / MetalLB)</dt><dd id="tlsPort">4243 / 443</dd></div>
+        <div><dt>HTTP behaviour</dt><dd id="tlsHttpBehaviour">HTTP access until HTTPS is enabled</dd></div>
         <div><dt>Subject</dt><dd id="tlsSubject">—</dd></div>
         <div><dt>Issuer</dt><dd id="tlsIssuer">—</dd></div>
         <div><dt>DNS/IP names</dt><dd id="tlsNames">—</dd></div>
@@ -1551,11 +1553,10 @@
         <div><dt>SHA-256 fingerprint</dt><dd id="tlsFingerprint">—</dd></div>
       </dl>
       <p id="tlsTrustNotice" class="auth-transport-notice" role="note"></p>
->
       <p id="tlsStatusMessage" class="auth-row-status" role="status" aria-live="polite"></p>
       <form id="tlsConfigureForm" class="auth-form auth-tls-configure" autocomplete="off">
         <h4>Connection settings</h4>
-        <p class="field-help">Apply saves changes to the connection mode, port or certificate names. Applying unchanged settings does not regenerate the current certificate; use the dedicated regeneration action above.</p>
+        <p class="field-help">Apply saves changes to the connection mode or certificate names. Applying unchanged settings keeps the certificate and active sessions intact. Use the separate regeneration action above to replace a managed certificate.</p>
         <label for="tlsConfigureMode">Browser connection
           <select id="tlsConfigureMode" name="mode">
             <option value="off">HTTP only (unencrypted)</option>
@@ -1563,10 +1564,7 @@
             <option value="provided">HTTPS — external certificate files</option>
           </select>
         </label>
-        <label for="tlsConfigurePort">HTTPS listening port
-          <input id="tlsConfigurePort" name="port" type="number" min="1" max="65535" step="1" inputmode="numeric" required>
-        </label>
-        <p class="field-help">Default 4242. Use the same port to replace HTTP with HTTPS. Kubernetes/MetalLB can expose port 443 and forward it to this port; no ingress is required.</p>
+        <p class="field-help">Listening ports are fixed and cannot be changed in this interface: HTTP 4242 and HTTPS 4243 inside the controller. A standard MetalLB Service exposes those as ports 80 and 443. HTTP becomes redirect-only after HTTPS is enabled (except the minimal health check).</p>
         <div id="tlsConfigureManaged" class="auth-tls-mode-fields">
           <label for="tlsConfigureNames">Certificate hostnames and IPv4 addresses
             <input id="tlsConfigureNames" name="names" type="text" autocomplete="off" spellcheck="false" placeholder="controller.local,192.168.1.100">
@@ -1586,7 +1584,7 @@
           <input id="tlsConfigurePassword" name="password" type="password" autocomplete="current-password" required>
         </label>
         <label class="auth-tls-confirm"><input id="tlsConfigureConfirm" name="confirm" type="checkbox" required>
-          I understand that saving these settings may disconnect browsers, requires signing in again, and self-signed HTTPS needs explicit trust on clients.
+          I understand that switching connection modes may require signing in again, and self-signed HTTPS requires explicit trust on clients.
         </label>
         <div class="actions"><button id="tlsConfigureBtn" type="submit" class="primary">Apply connection settings</button></div>
       </form>
