@@ -354,6 +354,24 @@ async function loadUsers(){
     container.replaceChildren(outer);
   }catch(error){loading.textContent=errorText(error);}
 }
+function showSecurityTab(tab,{focus=false}={}){
+  if(session?.user?.role!=='administrator')return;
+  const choice=tab==='https'?'https':'users';
+  for(const [name,buttonId,panelId] of [
+    ['users','authTabUsers','authUsersPanel'],
+    ['https','authTabHttps','tlsSettings']
+  ]){
+    const button=$('#'+buttonId),panel=$('#'+panelId);
+    const selected=name===choice;
+    panel.hidden=!selected;
+    button.classList.toggle('active',selected);
+    button.setAttribute('aria-selected',String(selected));
+    button.tabIndex=selected?0:-1;
+    if(selected&&focus)button.focus();
+  }
+  if(choice==='https')void loadTlsSettings();
+  else void loadUsers();
+}
 function syncTlsConfigureFields(){
   const mode=$('#tlsConfigureMode')?.value;
   $('#tlsConfigureManaged').hidden=mode!=='self-signed';
@@ -366,7 +384,7 @@ async function loadTlsSettings(){
   if(session?.user?.role!=='administrator')return;
   const panel=$('#tlsSettings');
   if(!panel)return;
-  panel.hidden=false;
+  if(panel.hidden)return;
   const status=$('#tlsStatusMessage');
   status.textContent='';
   try{
@@ -460,8 +478,21 @@ function initializeAccountUi(){
   });
   if(session.user.role==='administrator'){
     $('#usersBtn').hidden=false;
-    $('#usersBtn').addEventListener('click',loadUsers);
-    $('#usersBtn').addEventListener('click',loadTlsSettings);
+    $('#authAdminTabs').hidden=false;
+    $('#authUsersPanel').hidden=false;
+    $('#usersBtn').addEventListener('click',()=>showSecurityTab('users'));
+    for(const [tab,id] of [['users','authTabUsers'],['https','authTabHttps']]){
+      $('#'+id).addEventListener('click',()=>showSecurityTab(tab));
+    }
+    $('#authAdminTabs').addEventListener('keydown',event=>{
+      const keys=['ArrowLeft','ArrowRight','Home','End'];
+      if(!keys.includes(event.key)||!event.target.matches('[role="tab"]'))return;
+      event.preventDefault();
+      const current=event.target.id==='authTabHttps'?1:0;
+      const next=event.key==='Home'?0:event.key==='End'?1
+        :event.key==='ArrowRight'?(current+1)%2:(current+1)%2;
+      showSecurityTab(next===0?'users':'https',{focus:true});
+    });
     $('#tlsConfigureMode')?.addEventListener('change',syncTlsConfigureFields);
     $('#tlsConfigureForm')?.addEventListener('input',event=>{
       event.currentTarget.dataset.editing='true';
@@ -500,8 +531,10 @@ function initializeAccountUi(){
         next.pathname='/';next.search='';next.hash='';
         link.href=next.href;
         link.textContent='Open controller at '+next.origin;
-        link.hidden=false;
-        notice.textContent='Settings validated. The browser listener is changing now. Open the address above after a brief connection interruption and sign in again. Self-signed certificates may prompt for trust.';
+        link.hidden=Boolean(result.unchanged);
+        notice.textContent=result.unchanged
+          ?'Settings are already saved. Your current certificate has not changed; use Regenerate self-signed certificate to replace it.'
+          :'Settings validated. The browser listener is changing now. Open the address above after a brief connection interruption and sign in again. Self-signed certificates may prompt for trust.';
         $('#tlsStatusMessage').textContent='';
       }catch(error){
         $('#tlsStatusMessage').textContent=errorText(error);
