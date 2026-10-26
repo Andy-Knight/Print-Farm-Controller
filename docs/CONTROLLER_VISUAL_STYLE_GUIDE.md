@@ -235,7 +235,7 @@ A standard table has **white uppercase bold headings** (`.68rem`, 800, `.04em` t
 
 **Option D shared headline design:** circular coloured outline SVG inside a ring; count/title/description and a slim **6px** meter or short neutral accent, on the same visual band. Dashboard icon on the **left**, text and meter **to its right**, not underneath. For Dashboard: printer blue, connectivity green, printing cyan, needs-attention amber, zero attention a green check. Ring shows measured status share of printers in selected group; no meaningful fraction for All Printers means a decorative neutral ring. Empty fleet means no invented percentages. Selected KPI remains clickable and visibly pressed without changing metric data.
 
-**Analytics cards:** job total, completed, failed, run time. Completion and failure rings reflect real report rates; other measures use neutral/accent rings. Previous-period arrows compare adjacent equal-duration, same-filter periods. Green means *more completed / fewer failures*, red the inverse, blue neutral activity. Missing prior history displays **No previous period data**; a prior zero baseline displays **From 0**, not infinity.
+**Analytics cards:** five period-filtered KPIs—job total, completed, failed, run time, and **Filament used** (recorded completed-print weight in kg). The latter uses the catalogue's 24px outline `spool` symbol as a 27px KPI icon with a neutral informational ring and no artificial percentage progress; show `—` when completed jobs exist but no usage weight was recorded, rather than inventing zero usage. Completion and failure rings reflect real report rates; other measures use neutral/accent rings. Previous-period arrows compare adjacent equal-duration, same-filter periods. Green means *more completed / fewer failures*, red the inverse, blue neutral activity. Missing prior history displays **No previous period data**; a prior zero baseline displays **From 0**, not infinity.
 
 **Printer tiles:** consistent headers, status pills, maintenance and reorder controls, static local model images, circular filament colour swatches overlaid only on the image area, then job progress, 2×2 metric cards (nozzle, bed, layer, remaining), connection/latency, Open printer. Printer images use `object-fit:contain`, bottom breathing room and a dedicated slot; **subgrid aligns images across one fleet row** despite wrapped names. Crucially, outer fleet rows have no inherited *internal* gaps between hidden status-strip subgrid tracks; separate whole cards with appropriate margins. Never crop the printer model just to fill the tile. Card view stays separate from dense Dashboard table view. Offline printers retain a visible reason below the Open printer button.
 
@@ -266,7 +266,7 @@ A standard table has **white uppercase bold headings** (`.68rem`, 800, `.04em` t
 | Family | Concepts seen in controller | Typical use |
 |---|---|---|
 | Dashboard status | `printer`, `connected`, `play/printing`, `warning`, `healthy/check` | Four filter cards and healthy no-attention state |
-| Analytics headline | `jobs`, `check`, `cross`, `clock` | Four Option D report totals |
+| Analytics headline | `jobs`, `check`, `cross`, `clock`, `spool` | Five Option D report totals (includes recorded filament kg) |
 | Navigation | dashboard grid, queue, library/files, maintenance wrench, groups, chart/reports, alert bell/triangle, backup, diagnostics, licence | Sidebar routes and actions |
 | Printer detail tabs | sliders, camera, files, thermometer, clock, wrench | Option A text-and-icon underline rail |
 | Actions | plus, close, drag/reorder, clear in allowed contexts, arrow/up/down, save/edit, pause/resume, delete | Buttons and compact toolbar utilities |
@@ -279,7 +279,7 @@ The next set is **not yet adopted**. It is a curated extension of the current 24
 
 | Proposed icon ID | Meaning | Appropriate future use |
 |---|---|---|
-| `spool` | Filament reel | Inventory, spool life, spool assignment |
+
 | `layers` | Stacked print layers | Layer analysis, build complexity |
 | `nozzle` | Extruder/nozzle | Nozzle swaps, maintenance |
 | `bed` | Print plate | Bed clearance, first-layer validation |
