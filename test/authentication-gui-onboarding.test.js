@@ -36,11 +36,17 @@ test('Security & users has separate keyboard-accessible tabs and an unmistakable
   const nav=html.indexOf('id="authAdminTabs"');
   const users=html.indexOf('id="authUsersPanel"');
   const https=html.indexOf('id="tlsSettings"');
-  const renewal=html.indexOf('id="tlsRegenerateBtn"');
+  const summary=html.indexOf('id="tlsSummaryHeading"');
   const configure=html.indexOf('id="tlsConfigureForm"');
+  const renewal=html.indexOf('id="tlsRegenerateBtn"');
   assert.ok(nav>0&&users>nav&&https>users,'tabs and both panels must exist in page order');
-  assert.ok(renewal>https&&configure>renewal,
-    'renewal button must be prominently placed above Apply connection settings');
+  assert.ok(summary>https&&configure>summary&&renewal>configure,
+    'HTTPS sections must be Summary then Connection settings then managed-only Replacement');
+  assert.match(html,/id="tlsConfigureCertificatePem"[^>]*name="certificatePem"[^>]*textarea|id="tlsConfigureCertificatePem"[^>]*name="certificatePem"/);
+  assert.match(html,/id="tlsConfigurePrivateKeyPem"[^>]*name="privateKeyPem"/);
+  assert.doesNotMatch(html,/id="tlsConfigureCertPath"|id="tlsConfigureKeyPath"/);
+  assert.match(ui,/\.hidden=!tls\.canRegenerate/);
+  assert.match(ui,/location\.protocol==='https:'/);
   assert.match(html,/id="authTabUsers"[^>]*role="tab"[^>]*aria-selected="true"/);
   assert.match(html,/id="authTabHttps"[^>]*role="tab"[^>]*aria-selected="false"/);
   assert.match(html,/id="tlsRegenerateBtn"[^>]*type="submit"[^>]*class="attention"/);
