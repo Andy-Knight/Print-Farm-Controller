@@ -3412,6 +3412,14 @@ button.library-file-preview { cursor:zoom-in; }
   .reporting-kpis .reporting-kpi { column-gap:10px; }
   .reporting-kpi .reporting-kpi-change-caption { max-width:none; }
 }
+/* A five-across KPI layout gets too narrow near laptop/tablet sizes.
+   Balance into 3 cards, then 2 wider cards before switching to the
+   established two-column tablet layout. Never squeeze or wrap KPI titles. */
+@media (min-width:901px) and (max-width:1199px) {
+  .reporting-kpis { grid-template-columns:repeat(6,minmax(0,1fr)); }
+  .reporting-kpis .reporting-kpi { grid-column:span 2; }
+  .reporting-kpis .reporting-kpi:nth-last-child(-n+2) { grid-column:span 3; }
+}
 @media (max-width:620px) {
   .reporting-kpis .reporting-kpi { grid-template-columns:52px minmax(0,1fr);column-gap:8px; }
   .reporting-kpi .reporting-kpi-change-caption { max-width:none; }
