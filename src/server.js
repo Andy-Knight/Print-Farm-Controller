@@ -2755,7 +2755,7 @@ async function swapControllerListener({options,port,secure}){
     controllerAuth.setNativeTransportSecure(secure);
     server=replacement;
   }catch(error){
-    replacement.close?.();
+    if(replacement.listening)replacement.close();
     const restored=previousOptions
       ?https.createServer(previousOptions,handleControllerRequest)
       :http.createServer(handleControllerRequest);
