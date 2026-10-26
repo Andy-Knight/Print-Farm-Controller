@@ -27,7 +27,8 @@ function settingsFor(input,{httpPort}){
     throw fail('HTTPS settings must be an object');
   const mode=String(input.mode||'off');
   if(!MODES.has(mode))throw fail('Invalid HTTPS mode');
-  const port=input.port===undefined ? httpPort : Number(input.port);
+  const requestedPort=input.port===undefined ? httpPort : Number(input.port);
+  const port=mode==='off'?httpPort:requestedPort;
   if(!Number.isInteger(port)||port<1||port>65535)
     throw fail('Port must be an integer between 1 and 65535');
   const names=normalizeCertificateNames(input.names||DEFAULT_NAMES);
