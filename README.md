@@ -1,4 +1,4 @@
-# Print Farm Controller v0.59.16
+# Print Farm Controller v0.60.0
 A local-first 3D printer fleet controller. It runs entirely on your LAN and currently supports:
 
 - **FlashForge Adventurer 5M / 5M Pro** through the local FlashForge HTTP/TCP APIs.
@@ -7,7 +7,7 @@ A local-first 3D printer fleet controller. It runs entirely on your LAN and curr
 - **Prusa CORE One+ (experimental)** through the local PrusaLink API, supporting Standard (1-tool), INDX4 and INDX8 configurations.
 - **Bambu Lab P1P / P1S / X1C / A1 Mini (experimental)** through the local MQTT TLS and FTPS TLS interfaces. P1P/P1S/A1 Mini use the TLS/JPEG camera path; X1C camera decoding remains unsupported.
 
-**Current development version: v0.59.16**
+**Current development version: v0.60.0**
 
 ## Key capabilities
 
@@ -83,17 +83,23 @@ and use `node scripts/manage-users.mjs recover` or
 `PrintFarmController.exe --auth-recover` from a privileged terminal with access to
 the persistent data directory. Preserve the same security storage across restores.
 
-### HTTPS requirements and reverse proxy
+### HTTPS — configure in the controller interface
 
-**Passwords and session cookies are not secure over bare HTTP.** By request, this controller permits HTTP enrollment and login by default, with visible warnings; authentication still does **not** protect credentials or sessions from interception. You can require HTTPS-only password entry using `PFC_AUTH_ALLOW_HTTP=0`. For secure deployment configure a trusted reverse proxy/ingress and the exact public origin:
+A fresh installation starts with HTTP on the controller's fixed internal port **4242**, with HTTPS reserved for internal port **4243**. The container exposes both ports permanently. A K3s/MetalLB LoadBalancer Service forwards external **80 → 4242** and **443 → 4243** (see [example Kubernetes deployment](deploy/kubernetes/print-farm-controller.yaml)), so browser addresses are simply `http://<controller-ip>` during initial setup and `https://<controller-ip>` after HTTPS is enabled. Without that Service, a Windows or direct-container browser connects on `:4242` for HTTP and `:4243` for HTTPS. A custom legacy `PORT` override keeps its existing HTTP port and pairs HTTPS with the following port; the normal production configuration needs no HTTPS port environment variable.
 
-```bash
-PFC_PUBLIC_ORIGIN=https://controller.example.internal
-```
+On localhost or a trusted, isolated LAN, sign in as an administrator (or complete first-admin setup using the private controller startup-log code). **HTTP password entry and session traffic are not encrypted.** In **Farm management → Security & users → Connection settings**, use the page sections in order: **Connection summary**, **Connection settings**, and (only for a currently managed self-signed identity) **Self-signed certificate replacement**. In Connection settings, choose controller-managed self-signed HTTPS, externally supplied PEM certificate/key contents pasted into the GUI, or HTTP-only mode. For a managed certificate, enter the exact browser DNS hostnames and IPv4 addresses as comma-separated certificate names. Confirm with your current admin password.
 
-The public origin enables `Secure` session cookies and strict Origin validation. The controller **does not trust arbitrary X-Forwarded headers**. Terminate TLS at the trusted proxy, restrict direct port 4242 access to that proxy and prevent bypass via the MetalLB Service; validate HTTPS, EventSource, printer cameras and upload/restore operations before real production use. TLS deployment using MetalLB/Ultimate Certificate Manager remains tracked separately in issue #128. The login screen and RBAC alone **do not constitute a secure Internet-facing deployment**.
+**HTTP and HTTPS listening ports are not editable in the GUI**, so enabling HTTPS never requires changing the Kubernetes Deployment or MetalLB Service ports. After HTTPS is enabled, port 4242 stays open but accepts only a minimal `GET /healthz` probe and **GET/HEAD redirects** to HTTPS (302, no-store) for hosts that match the active certificate. Other HTTP requests (including logins and API writes) are rejected. The TLS listener accepts the full application on port 4243. Redirects do not bypass browser certificate trust, and there is no plaintext fallback if an HTTPS identity fails to initialize. The health endpoint reports only `ok` and is deliberately independent of authentication, printer data and certificate status. The Docker health check and Kubernetes probes use HTTP `:4242/healthz`.
 
-Authentication is enabled unless `PFC_AUTH_REQUIRED=0` explicitly selects **legacy unauthenticated mode** before any user is enrolled. This insecure opt-out is for temporary troubleshooting only; once the durable security marker or account store exists it cannot disable RBAC. `PFC_AUTH_ALLOW_HTTP=0` blocks enrollment and login on HTTP. Native sessions use `HttpOnly`, `SameSite=Strict`, Origin and CSRF checks; cookies have `Secure` only when a trusted HTTPS public origin is configured. HTTP traffic remains unencrypted.
+Changing a certificate source or saved DNS/IP names updates the HTTPS certificate as required without changing the fixed ports or interrupting printer/queue services. **Reapplying unchanged connection settings is a no-op:** no new certificate and no session interruption. When the saved mode is controller-managed, the prominent amber **Regenerate self-signed certificate** action generates a fresh key and identity after administrator password and confirmation, while keeping existing SANs and ports. For external certificates, paste the public certificate chain and matching private key into separate text areas **over an existing HTTPS connection**; the controller validates and stores the pair under its protected persistent data directory. If HTTPS is not yet enabled, first activate controller-managed HTTPS and reconnect securely before importing a private key. A blank pair of text areas retains the existing imported certificate; paste both to replace it. The private key is never returned to the browser. Certificate renewal with your issuer is a separate responsibility. Downloading the managed **public certificate only** is available in the HTTPS tab.
+
+The controller persists the mode, managed key/certificate and metadata in the protected `DATA_DIR/tls` directory (standard container volume: `/data/tls`). Protect this directory and back up its contents through appropriate host/storage-level mechanisms; logical `.pfcbackup` exports exclude private TLS keys. Self-signed HTTPS encrypts traffic but **is not automatically trusted by browsers**: verify the certificate fingerprint through a trusted channel, then explicitly install the public identity on client devices. Regeneration may require repeating this trust step.
+
+External proxy/ingress termination remains an optional architecture, not required by the native K3s/MetalLB setup. Use the trusted-proxy configuration (`PFC_PUBLIC_ORIGIN`) only if the backend cannot be accessed directly over untrusted HTTP. Issue #128 tracks ingress alternatives. The controller is intended for private LANs rather than direct Internet exposure.
+
+See [HTTPS configuration](docs/HTTPS_CONFIGURATION.md) for port-mapping, certificate, migration and recovery details.
+
+Authentication is enabled unless `PFC_AUTH_REQUIRED=0` explicitly selects **legacy unauthenticated mode** before any user is enrolled. This insecure opt-out is for temporary troubleshooting only; once the durable security marker or account store exists it cannot disable RBAC. `PFC_AUTH_ALLOW_HTTP=0` blocks enrollment and login on HTTP. Native sessions use `HttpOnly`, `SameSite=Strict`, Origin and CSRF checks; cookies have `Secure` when native HTTPS or a trusted HTTPS public origin is active. HTTP traffic remains unencrypted.
 
 Full design and security rollout requirements: [Authentication and RBAC](docs/AUTHENTICATION_AND_RBAC.md).
 

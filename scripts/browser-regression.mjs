@@ -3782,6 +3782,60 @@ async function nativeAuthenticationSmoke(browser){
     // overwrite the refreshed list and cause a false browser regression.
     await page.locator('#authUserList tbody tr').filter({hasText:'owner'})
       .waitFor({state:'visible'});
+    assert.equal(await page.locator('#authAdminTabs').isVisible(),true,
+      'Security & users must offer dedicated Users and HTTPS tabs');
+    assert.equal(await page.locator('#authTabUsers').getAttribute('aria-selected'),'true');
+    assert.equal(await page.locator('#authTabHttps').getAttribute('aria-selected'),'false');
+    assert.equal(await page.locator('#authTabHttps').innerText(),'Connection settings');
+    await page.locator('#authTabHttps').click();
+    assert.equal(await page.locator('#tlsSettingsHeading').innerText(),'Connection settings');
+    await page.locator('#tlsConfigureForm').waitFor({state:'visible'});
+    await page.waitForFunction(()=>document.querySelector('#tlsMode')?.textContent
+      .includes('HTTP / HTTPS not configured'));
+    const listenerPort=Number(new URL(url).port);
+    assert.equal(await page.locator('#tlsHttpPort').innerText(),String(listenerPort),
+      'HTTP summary shows the actual controller listener, not a hypothetical external port');
+    assert.equal(await page.locator('#tlsPort').innerText(),String(listenerPort+1)+' · inactive',
+      'HTTPS summary shows the inactive fixed partner listener');
+    assert.doesNotMatch(await page.locator('#tlsSettings').innerText(),/MetalLB/i,
+      'Connection settings must remain load-balancer agnostic');
+    assert.equal(await page.locator('#authUserAddForm').isVisible(),false,
+      'Users form must be hidden while HTTPS tab is selected');
+    assert.equal(await page.locator('#tlsRegenerateBtn').isVisible(),false,
+      'regeneration is unavailable until the SAVED mode is self-signed HTTPS');
+    assert.equal(await page.locator('#tlsConfigureBtn').isVisible(),true);
+    const sectionOrder=await page.locator('#tlsSettings').evaluate(root=>{
+      const a=root.querySelector('#tlsSummaryHeading');
+      const b=root.querySelector('#tlsConfigureForm');
+      const c=root.querySelector('#tlsMaintenance');
+      return Boolean(a.compareDocumentPosition(b)&Node.DOCUMENT_POSITION_FOLLOWING)
+        &&Boolean(b.compareDocumentPosition(c)&Node.DOCUMENT_POSITION_FOLLOWING);
+    });
+    assert.equal(sectionOrder,true,
+      'HTTPS sections must follow Summary, Settings, Replacement even while the last is hidden');
+    await page.locator('#tlsConfigureMode').selectOption('provided');
+    assert.equal(await page.locator('#tlsConfigureCertificatePem').isVisible(),true);
+    assert.equal(await page.locator('#tlsConfigurePrivateKeyPem').isVisible(),true);
+    assert.equal(await page.locator('#tlsConfigureBtn').isDisabled(),true,
+      'pasted PEM private keys may only be submitted over HTTPS');
+    assert.match(await page.locator('#tlsPemTransportWarning').innerText(),
+      /first enable a controller-managed certificate/i);
+    assert.equal(await page.locator('#tlsMaintenance').isVisible(),false,
+      'replacement section hidden when stored mode is not managed');
+    assert.equal(await page.locator('#tlsConfigureCertPath,#tlsConfigureKeyPath').count(),0,
+      'external certificates must be supplied by PEM paste, never file paths');
+    await page.locator('#tlsConfigureMode').selectOption('self-signed');
+    assert.equal(await page.locator('#tlsRegenerateBtn').isVisible(),false,
+      'drafting managed mode must not enable renewal until configuration is applied');
+    await page.locator('#authTabHttps').focus();
+    await page.keyboard.press('ArrowLeft');
+    assert.equal(await page.locator('#authTabUsers').getAttribute('aria-selected'),'true');
+    assert.equal(await page.locator('#authUserAddForm').isVisible(),true,
+      'arrow-key navigation switches the tab panel');
+    await page.locator('#authTabUsers').press('End');
+    assert.equal(await page.locator('#authTabHttps').getAttribute('aria-selected'),'true');
+    await page.locator('#authTabHttps').press('Home');
+    assert.equal(await page.locator('#authTabUsers').getAttribute('aria-selected'),'true');
     await page.locator('#authUserAddForm [name=username]').fill('shiftoperator');
     await page.locator('#authUserAddForm [name=displayName]').fill('Shift operator');
     await page.locator('#authUserAddForm [name=role]').selectOption('operator');

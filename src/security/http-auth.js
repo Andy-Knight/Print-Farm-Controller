@@ -75,6 +75,24 @@ export class ControllerAuth {
   get enabled(){return this.#enabled;}
   get setupRequired(){return this.#setupRequired;}
   get secure(){return this.#secure;}
+  /**
+   * Browser transport changes only after the underlying listener is swapped.
+   * Existing HTTP-issued sessions must never carry over into HTTPS: a stolen
+   * HTTP cookie may otherwise be replayed as a privileged Secure session.
+   */
+  setNativeTransportSecure(enabled,{revokeSessions=true,forceRevoke=false}={}){
+    if(enabled&&this.#origin&&new URL(this.#origin).protocol!=='https:')
+      throw new Error('An existing HTTP PFC_PUBLIC_ORIGIN conflicts with native HTTPS; clear this legacy proxy setting');
+    const next=Boolean(enabled)||Boolean(this.#origin?.startsWith('https://'));
+    if(this.#secure===next&&!forceRevoke)return;
+    this.#secure=next;
+    if(revokeSessions){
+      this.#sessions.clear();
+      for(const streams of this.#streams.values())
+        for(const res of streams)if(!res.destroyed)res.destroy();
+      this.#streams.clear();
+    }
+  }
   async init(){
     const dataDir=path.dirname(path.dirname(this.#accounts.filePath));
     const marker=path.join(dataDir,'security','enabled');
@@ -108,7 +126,7 @@ export class ControllerAuth {
       (this.#secure?'; Secure':'')+'; Max-Age='+(token?86400:0));
   }
   #expectedOrigin(req){
-    return this.#origin||'http://'+String(req.headers.host||'');
+    return this.#origin||(this.#secure?'https://':'http://')+String(req.headers.host||'');
   }
   #originAllowed(req){
     const origin=String(req.headers.origin||'');
@@ -305,6 +323,30 @@ export class ControllerAuth {
       return true;
     }
     return bad(res,json,404,'Authentication route not found');
+  }
+  /**
+   * Certificate endpoints stay administrator-only even when an installation
+   * explicitly opted into legacy unauthenticated mode. Requiring the current
+   * password also limits damage from an unattended unlocked admin session.
+   */
+  async assertAdministrator(req, password = null) {
+    const identity=await this.#identity(req);
+    if(!this.#enabled||this.#setupRequired||identity?.user?.role!=='administrator')
+      throw Object.assign(new Error('Administrator sign-in required'),{statusCode:403});
+    if(MUTATIONS.has(req.method)&&!this.#mutationAllowed(req,identity))
+      throw Object.assign(new Error('Origin or CSRF verification failed'),{statusCode:403});
+    if(password!==null){
+      const username=identity.user.username;
+      const address=req.socket?.remoteAddress||'unknown';
+      if(typeof password!=='string'||!this.#limiter.canAttempt(username,address))
+        throw Object.assign(new Error('Reauthentication unavailable. Try again later.'),{statusCode:429});
+      if(!await this.#accounts.authenticate(username,password)){
+        this.#limiter.recordFailure(username,address);
+        throw Object.assign(new Error('Current password is incorrect'),{statusCode:403});
+      }
+      this.#limiter.recordSuccess(username,address);
+    }
+    return identity.user;
   }
   /** Refuse all unknown controller API actions even to administrators. */
   async authorize(req,res,url,{json}){

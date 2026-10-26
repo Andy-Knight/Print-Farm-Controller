@@ -31,3 +31,38 @@ test('GUI setup requires protected code and confirmed password without unauthent
   assert.doesNotMatch(ui,/localStorage\.setItem\([^)]*(?:token|password)/i);
   assert.doesNotMatch(html,/value="(?:admin|password123)"/);
 });
+
+test('Security & users has separate keyboard-accessible tabs and an unmistakable managed renewal action',()=>{
+  const nav=html.indexOf('id="authAdminTabs"');
+  const users=html.indexOf('id="authUsersPanel"');
+  const https=html.indexOf('id="tlsSettings"');
+  const summary=html.indexOf('id="tlsSummaryHeading"');
+  const configure=html.indexOf('id="tlsConfigureForm"');
+  const renewal=html.indexOf('id="tlsRegenerateBtn"');
+  assert.ok(nav>0&&users>nav&&https>users,'tabs and both panels must exist in page order');
+  assert.ok(summary>https&&configure>summary&&renewal>configure,
+    'HTTPS sections must be Summary then Connection settings then managed-only Replacement');
+  assert.match(html,/id="tlsConfigureCertificatePem"[^>]*name="certificatePem"[^>]*textarea|id="tlsConfigureCertificatePem"[^>]*name="certificatePem"/);
+  assert.match(html,/id="tlsConfigurePrivateKeyPem"[^>]*name="privateKeyPem"/);
+  assert.doesNotMatch(html,/id="tlsConfigureCertPath"|id="tlsConfigureKeyPath"/);
+  assert.match(ui,/\.hidden=!tls\.canRegenerate/);
+  assert.match(ui,/location\.protocol==='https:'/);
+  assert.match(html,/id="authTabUsers"[^>]*role="tab"[^>]*aria-selected="true"/);
+  assert.match(html,/id="authTabHttps"[^>]*role="tab"[^>]*aria-selected="false"/);
+  assert.match(html,/id="authTabHttps"[^>]*>Connection settings<\/button>/);
+  assert.match(html,/<h3 id="tlsSettingsHeading">Connection settings<\/h3>/);
+  assert.doesNotMatch(html,/HTTPS &amp; certificates/);
+  assert.doesNotMatch(html,/MetalLB/i,'connection settings tab must use deployment-neutral wording');
+  assert.match(html,/<dt>HTTP port \(controller\)<\/dt><dd id="tlsHttpPort">4242<\/dd>/);
+  assert.match(html,/<dt>HTTPS port \(controller\)<\/dt><dd id="tlsPort">4243<\/dd>/);
+  assert.match(ui,/String\(tls\.httpPort\|\|4242\)/);
+  assert.match(ui,/String\(tls\.httpsPort\|\|4243\)/);
+  assert.doesNotMatch(ui,/MetalLB/i,'connection settings runtime text must use deployment-neutral wording');
+  assert.match(html,/id="tlsRegenerateBtn"[^>]*type="submit"[^>]*class="attention"/);
+  assert.match(ui,/function showSecurityTab\(/);
+  assert.match(ui,/if\(choice==='https'\)void loadTlsSettings\(\)/);
+  assert.match(ui,/\.hidden=!tls\.canRegenerate/);
+  assert.match(ui,/result\.unchanged/);
+  assert.match(css,/#authUsersPanel\[hidden\]/);
+  assert.match(css,/#tlsMaintenance\[hidden\]/);
+});

@@ -11,7 +11,7 @@ Repository policy: `AGENTS.md` defines agent startup behavior; `docs/DOCUMENTATI
 - Repository: `Andy-Knight/Print-Farm-Controller`
 - Project path: repository root (`/`)
 - Primary branch: `main` (current production baseline)
-- Current controller source version: **0.59.16**.
+- Current controller source version: **0.60.0**.
 - Previous baseline audited: **0.48.0** (main before the regression test audit release).
 - Runtime: **Node.js 24.22.1+** (Node 24 release line), ES modules; build-time **npm 12.2.0** and committed lockfile; no npm runtime dependency for deployed controller. Follow `docs/dependency-security.md` for updates.
 - GitHub is the authoritative code baseline.
@@ -19,12 +19,11 @@ Repository policy: `AGENTS.md` defines agent startup behavior; `docs/DOCUMENTATI
 
 ## Current work
 
-- **Print Library layout baseline:** The routed Print Library page and table use the shared sidebar-aware workspace width, with bounded sale-price/history columns, aligned fixed headings and independently scrolling rows. Compact screens use responsive cards; preserve contextual actions, table tokens and narrow-screen usability when extending the page.
-- **Login baseline:** The decorative 18-layer isometric animation zooms from layer 04 into four independently printing beds linked to one controller. Smaller screens retain a single bed or compact logo animation. No unauthenticated telemetry; preserve authentication/RBAC and transport warnings.
-- **Activation:** Authentication and backend RBAC are enabled by default for HTTPS and HTTP. Without an administrator, startup blocks printer APIs and displays GUI setup, requiring a private code from startup logs. HTTP enrollment/login work by default but display a clear risk warning: credentials/session cookies remain interceptable without TLS. `PFC_AUTH_REQUIRED=0` is a temporary unsafe legacy opt-out before enrollment; durable account/activation state overrides it. `PFC_AUTH_ALLOW_HTTP=0` requires HTTPS for credential entry. Store corruption must never reopen anonymous access. Offline recovery remains supported.
-- **Security rollout risk:** [Issue #128](https://github.com/Andy-Knight/Print-Farm-Controller/issues/128) tracks TLS at ingress/reverse proxy using MetalLB and Ultimate Certificate Manager, preventing direct backend bypass, cookie/Origin testing, and Kubernetes hardening. Login/RBAC are not a substitute for encrypted browser transport.
-- **Operator role boundary:** Operators can create/edit library files, manage active/queued print work, assign filament/nozzles per printer and maintain equipment, but cannot delete library files, purge queue history or modify shared filament catalogue costs/entries; the backend enforces these distinctions independent of the UI.
-- **Known validation boundaries:** Keep existing concurrency, licence, simulator, Windows SEA and hardware regression gates. Bambu and Creator 5 physical-hardware validation remains incomplete. Handle security state separately from logical backup/restore and retain local administrative recovery.
+- **UI baselines:** Print Library uses sidebar-aware full workspace width, aligned sticky headings and responsive cards; the decorative login scene zooms at layer 04 into four printer beds without exposing telemetry.
+- **Authentication/RBAC:** Enabled by default. First administrator setup requires a private startup-log code. HTTP credentials/sessions remain interceptable until browser TLS is configured; `PFC_AUTH_ALLOW_HTTP=0` blocks HTTP login. A durable activation marker forbids anonymous fallback if account data is lost. Offline recovery is available.
+- **Native HTTPS:** GUI-managed browser TLS uses fixed direct/internal HTTP 4242 and HTTPS 4243 (a container Service may optionally map them to 80/443). Administrators configure modes, managed self-signed SANs and securely imported external PEM pairs under **Security & users → Connection settings**; private keys are stored only in protected TLS identity files, not returned through the API, and external imports require existing HTTPS. HTTP is only a health endpoint and GET/HEAD redirect once TLS is active; non-GET requests are blocked. The tabs are Users and Connection settings, with Connection summary, Connection settings and saved-managed-mode-only Self-signed certificate replacement. Self-signed regeneration is explicit and password-protected; unchanged Apply preserves identity and sessions. Persistent TLS configuration survives restart; Windows fresh install/activation/managed renewal/restart have been manually verified. Physical Kubernetes Service mapping and external PEM import remain deployment-acceptance checks. See `docs/HTTPS_CONFIGURATION.md`; issue #128 tracks optional ingress.
+- **Role boundary:** Operators can run print jobs and maintain library metadata/filament assignments but cannot delete Print Library items, purge queue history or edit shared catalogue costs; all restrictions are server-enforced.
+- **Validation:** Complete unit/browser, licence, simulator, Windows SEA and container gates before releasing; physical Creator 5/Bambu validation remains incomplete. Preserve protected recovery and backup/restore boundaries.
 
 ## Architecture
 
@@ -99,7 +98,7 @@ Manufacturer-specific discovery, capabilities, limits, status normalization, fil
 - Historical `queue-files/` directories migrate automatically to `print-library/` while keeping the same UUID directories, preserving existing queue/history references.
 - Library files are deleted only by an explicit library delete action, and deletion is blocked while any current queue/history record still references the entry.
 - Every application release updates `package.json`, the lockfile, the current-version metadata in `README.md` and `PROJECT_CONTEXT.md`, and a new version entry in `CHANGELOG.md`. Documentation-only changes do not require an application version bump.
-- **Native authentication and RBAC candidate:** Administrator/Operator/Viewer checks are routed server-side in `src/security/http-auth.js` (separate from signed licence entitlements). Auth activation is opt-in, with local-only enrollment and recovery, in-memory revocable sessions and CSRF/Origin checks. Full transport, packaged, backup/restore and client validations remain mandatory before production deployment. See `docs/AUTHENTICATION_AND_RBAC.md`.
+- **Native authentication and RBAC:** Administrator/Operator/Viewer authorization is enforced server-side in `src/security/http-auth.js` independently from signed licences. Authentication is on by default; first administrator setup uses a one-time startup-log code, sessions are revocable, and CSRF/Origin checks apply to mutations. Native HTTPS encrypts login/session traffic when enabled; independent packaged/client and certificate-trust verification is still required. See `docs/AUTHENTICATION_AND_RBAC.md`.
 - **Documentation authority:** `README.md` contains current capabilities and setup (current-version metadata only), `CHANGELOG.md` contains every release change, this file contains live handoff/decisions, and `docs/CONTROLLER_VISUAL_STYLE_GUIDE.md` contains visual standards. Follow `AGENTS.md` and `docs/DOCUMENTATION_POLICY.md`.
 - The browser appearance switch is accessible, persists only in browser `localStorage`, and follows the device colour scheme until the user explicitly selects Light or Dark.
 - **Live-telemetry edit protection rule:** if a UI field is both refreshed from live printer telemetry and user-editable, and the user's change requires a separate **Save / Apply / Set** action, the UI must treat the edit as pending/dirty and must not let telemetry overwrite the user's unsaved value. Clear the dirty state only after the write succeeds (or the control is intentionally rebuilt/cancelled). The Snapmaker U1 filament type/colour editor is the current reference implementation. Controls that save immediately on selection, or controls that are not rewritten by telemetry, do not need this protection.
@@ -133,15 +132,15 @@ Manufacturer-specific discovery, capabilities, limits, status normalization, fil
 
 ## Current task
 
-Develop user authentication and backend RBAC as issue #127. The first phase formalises the exact API role/permission policy, security threat model, safe first-admin bootstrap, upgrade and TLS rollout architecture (`docs/AUTHENTICATION_AND_RBAC.md`) and builds testable isolated account/session primitives. This phase is **not runtime authorization**; the controller remains accessible over plain HTTP until a tested security-enabled implementation is deliberately deployed.
+Finish and validate the **GUI-first HTTPS setup** on `feature/native-https-controller`: new installations start on HTTP, first administrator signs in over localhost/trusted LAN, uses Security & users to configure self-signed or supplied certificates and the listener port, applies the settings and reconnects over HTTPS. No TLS environment variables are required. Settings persist and an Administrator may regenerate managed certificates, with existing HTTP sessions revoked on protocol change. Current implementation is not production validated; see `docs/HTTPS_CONFIGURATION.md`.
 
 ## Next steps
 
-1. Implement and test account storage, password hashing, rate-limited login, opaque sessions, secure cookies, CSRF/Origin checks, revocation, safe enrollment and local administrator recovery before enabling native authentication.
-2. Integrate the reviewed default-deny policy into the server's `/api/` and emulator routers; extend action-sensitive permissions, live SSE and camera handling, backup/restore and licence access checks. Add forged-request and role-matrix API tests.
-3. Create the login/admin-users UI consistent with the visual style guide and verify both Preact and fallback. Do not imply inactive policy modules secure the current HTTP endpoints.
-4. Implement HTTPS through UCM-backed MetalLB ingress/reverse proxy (#128) before marketing production password login as secure. Restrict direct HTTP access and validate browser trust, proxy origin handling, uploads and live streams.
-5. Continue hardware validation, retain Node, Chromium, Windows SEA and container gates, and record any releases only in `CHANGELOG.md`.
+1. Run GUI-first HTTPS, TLS persistence and live listener-switch tests plus existing npm regression suite in CI; fix any runtime, authentication or documentation failures. Confirm default HTTP and existing users remain unchanged.
+2. Validate real Chrome/Windows packaged SEA and container/K3s MetalLB deployments with browser trust, DNS/IP SAN handling, session cookies, SSE, printer cameras, uploads/downloads and regeneration/reconnection.
+3. Validate fail-closed behaviour for invalid stored certs, imported cert/key mismatch, revoked sessions, wrong password/Origin/CSRF and backup/restore/volume persistence. Review filesystem permissions, port exposure and certificate recovery.
+4. Consider provided-cert hot reload and optional HTTP redirect only after confirming safe configuration and avoiding a direct-HTTP bypass. Capture remaining limitations transparently.
+5. Review draft PR and complete test, browser, documentation and packaging gates before requesting user merge approval. Record version history only in `CHANGELOG.md`.
 
 ## Licensing baseline
 

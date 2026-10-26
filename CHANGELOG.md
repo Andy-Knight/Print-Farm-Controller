@@ -4,6 +4,12 @@ This file contains the version-by-version release history for Print Farm Control
 
 Historical entries describe the behaviour of the controller at the time of that release and may be superseded by later versions. For current installation, configuration and supported-hardware guidance, see [README.md](README.md).
 
+## v0.60.0
+
+- Introduced GUI-managed native browser HTTPS in **Security & users → Connection settings**, with controller-managed self-signed certificates or administrator-supplied matching PEM certificate/private-key pairs pasted securely over an existing HTTPS session. Imported private keys persist in protected controller identity files and are never returned in status or downloaded; legacy path-based configurations remain readable for migration. Added explicit administrator-protected self-signed certificate regeneration, certificate metadata and public-certificate download; unchanged settings no longer rotate identities.
+- Standardised the direct/container listener ports as **HTTP 4242** and **HTTPS 4243** with no user-editable listening ports. HTTP initially supports administrator enrolment but becomes redirect-only for GET/HEAD and continues a minimal `/healthz` endpoint after enabling TLS; insecure logins and mutations are blocked. Included a sample Kubernetes Service exposing standard external ports 80 and 443 without requiring ingress or a reverse proxy.
+- Reorganised the Security & users page into **Users** and **Connection settings** tabs, with Connection summary, Connection settings and managed-only Self-signed certificate replacement sections. Removed load-balancer-specific branding from the connection settings tab, and added browser/Windows, integration, Docker, and documentation regression checks. Operator account controls, printer queues and existing persistent data handling remain intact.
+
 ## v0.59.16
 
 - Brought the Print Library page and table up to the full sidebar-aware workspace width used by the Dashboard and other management pages, removing the previous 1300px workbench cap. Capped the selling-price and history tracks to keep the extra space useful for filenames, filament requirements and other descriptive columns. Retained aligned sticky table headers, internal scrolling, search and contextual actions, and responsive cards on smaller screens.

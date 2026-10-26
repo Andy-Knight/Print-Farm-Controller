@@ -1497,6 +1497,11 @@
       <p class="auth-transport-notice">HTTP authentication is available, but your password and session can be intercepted on the network. Use HTTPS as soon as possible.</p>
       <button id="authSetupStartBtn" type="button" class="primary">Set up administrator</button>
     </section>
+    <div id="authAdminTabs" class="maintenance-view-selector auth-security-tabs" data-pfc-tabs role="tablist" aria-label="Security & users sections" hidden>
+      <button id="authTabUsers" type="button" class="maintenance-view-button active" role="tab" data-pfc-icon="users" aria-selected="true" aria-controls="authUsersPanel">Users</button>
+      <button id="authTabHttps" type="button" class="maintenance-view-button" role="tab" data-pfc-icon="server" aria-selected="false" aria-controls="tlsSettings" tabindex="-1">Connection settings</button>
+    </div>
+    <section id="authUsersPanel" class="auth-security-tab-panel" role="tabpanel" aria-labelledby="authTabUsers" tabindex="0" hidden>
     <div id="authUsersLayout" class="auth-users-layout" hidden>
       <section class="auth-panel" aria-labelledby="authAddHeading">
         <h3 id="authAddHeading">Add user</h3>
@@ -1515,6 +1520,85 @@
         <div id="authUserList" class="auth-user-list" aria-live="polite"></div>
       </section>
     </div>
+    </section>
+    <section id="tlsSettings" class="auth-panel auth-tls-settings auth-security-tab-panel" role="tabpanel" aria-labelledby="authTabHttps" tabindex="0" hidden>
+      <h3 id="tlsSettingsHeading">Connection settings</h3>
+      <p class="subtle">The controller starts with HTTP. Its internal listening ports are fixed at 4242 (HTTP) and 4243 (HTTPS). Container networking can optionally expose these using standard web ports 80 and 443.</p>
+
+      <section class="auth-tls-summary" aria-labelledby="tlsSummaryHeading">
+        <h4 id="tlsSummaryHeading">Connection summary</h4>
+        <dl class="auth-tls-details">
+          <div><dt>Connection mode</dt><dd id="tlsMode">Loading…</dd></div>
+          <div><dt>HTTP port (controller)</dt><dd id="tlsHttpPort">4242</dd></div>
+          <div><dt>HTTPS port (controller)</dt><dd id="tlsPort">4243</dd></div>
+          <div><dt>HTTP behaviour</dt><dd id="tlsHttpBehaviour">HTTP access until HTTPS is enabled</dd></div>
+          <div><dt>Certificate source</dt><dd id="tlsSource">—</dd></div>
+          <div><dt>Subject</dt><dd id="tlsSubject">—</dd></div>
+          <div><dt>Issuer</dt><dd id="tlsIssuer">—</dd></div>
+          <div><dt>DNS/IP names</dt><dd id="tlsNames">—</dd></div>
+          <div><dt>Issued</dt><dd id="tlsIssued">—</dd></div>
+          <div><dt>Expires</dt><dd id="tlsExpiry">—</dd></div>
+          <div><dt>Serial number</dt><dd id="tlsSerial">—</dd></div>
+          <div><dt>SHA-256 fingerprint</dt><dd id="tlsFingerprint">—</dd></div>
+        </dl>
+        <p id="tlsTrustNotice" class="auth-transport-notice" role="note"></p>
+        <a id="tlsDownloadBtn" class="secondary auth-tls-download" href="/api/tls/certificate" download="print-farm-controller.crt" hidden>Download public certificate</a>
+      </section>
+
+      <form id="tlsConfigureForm" class="auth-form auth-tls-configure" autocomplete="off">
+        <h4>Connection settings</h4>
+        <p class="field-help">Apply saves the connection mode or certificate. Applying unchanged settings does not regenerate the current certificate or disconnect your session.</p>
+        <label for="tlsConfigureMode">Browser connection
+          <select id="tlsConfigureMode" name="mode">
+            <option value="off">HTTP only (unencrypted)</option>
+            <option value="self-signed">HTTPS — controller-managed certificate</option>
+            <option value="provided">HTTPS — external PEM certificate</option>
+          </select>
+        </label>
+        <p class="field-help">The controller uses internal port 4242 for HTTP and 4243 for HTTPS. In a container environment such as Kubernetes, networking configuration (for example, a Kubernetes Service) can expose these on standard web ports 80 and 443. Once HTTPS is enabled, HTTP redirects eligible browser requests to HTTPS and remains available for health checks.</p>
+        <div id="tlsConfigureManaged" class="auth-tls-mode-fields">
+          <label for="tlsConfigureNames">Certificate hostnames and IPv4 addresses
+            <input id="tlsConfigureNames" name="names" type="text" autocomplete="off" spellcheck="false" placeholder="controller.local,192.168.1.100">
+          </label>
+          <p class="field-help">Comma-separated. Include the exact hostname or IP used in your browser. Updating names creates a new certificate requiring clients to trust it again.</p>
+        </div>
+        <div id="tlsConfigureProvided" class="auth-tls-mode-fields" hidden>
+          <p class="field-help">Paste the PEM-encoded certificate (and optional intermediate certificate chain) and its matching private key. The controller validates the pair and stores both in its protected persistent data directory.</p>
+          <p id="tlsPemTransportWarning" class="auth-transport-notice" role="note"></p>
+          <label for="tlsConfigureCertificatePem">Public certificate (PEM)
+            <textarea id="tlsConfigureCertificatePem" name="certificatePem" class="auth-pem-textarea" rows="7" spellcheck="false" autocapitalize="off" autocomplete="off" autocorrect="off" placeholder="-----BEGIN CERTIFICATE-----"></textarea>
+          </label>
+          <label for="tlsConfigurePrivateKeyPem">Private key (PEM)
+            <textarea id="tlsConfigurePrivateKeyPem" name="privateKeyPem" class="auth-pem-textarea" rows="7" spellcheck="false" autocapitalize="off" autocomplete="off" autocorrect="off" aria-describedby="tlsPemTransportWarning" placeholder="-----BEGIN PRIVATE KEY-----"></textarea>
+          </label>
+          <p class="field-help">Pasted private keys are never returned through the GUI, even after saving. To keep the current imported certificate, leave both fields blank. To replace it, paste both fields. Never transmit a private key over HTTP: enable controller-managed HTTPS first, reconnect securely, and then switch to external PEM.</p>
+        </div>
+        <label for="tlsConfigurePassword">Current administrator password
+          <input id="tlsConfigurePassword" name="password" type="password" autocomplete="current-password" required>
+        </label>
+        <label class="auth-tls-confirm"><input id="tlsConfigureConfirm" name="confirm" type="checkbox" required>
+          I understand that changing connection mode or certificates can disconnect browsers and require trusting a new certificate.
+        </label>
+        <div class="actions"><button id="tlsConfigureBtn" type="submit" class="primary">Apply connection settings</button></div>
+      </form>
+      <p id="tlsStatusMessage" class="auth-row-status" role="status" aria-live="polite"></p>
+      <p id="tlsActivationStatus" class="auth-transport-notice" role="status" aria-live="polite"></p>
+      <a id="tlsActivationLink" class="secondary auth-tls-download" href="#" hidden>Open controller at the new address</a>
+
+      <section id="tlsMaintenance" class="auth-tls-maintenance" aria-labelledby="tlsMaintenanceHeading" hidden>
+        <h4 id="tlsMaintenanceHeading">Self-signed certificate replacement</h4>
+        <form id="tlsRegenerateForm" class="auth-form auth-tls-regenerate" hidden>
+          <p class="subtle">Regenerate the controller-managed certificate and private key using the currently saved hostnames/IP addresses. Ports and connection mode do not change. Browsers may need to trust the new certificate again.</p>
+          <label for="tlsAdminPassword">Current administrator password
+            <input id="tlsAdminPassword" name="password" type="password" autocomplete="current-password" required>
+          </label>
+          <label class="auth-tls-confirm"><input id="tlsConfirm" name="confirm" type="checkbox" required>
+            I understand that browsers may disconnect or require trusting the replacement certificate.
+          </label>
+          <div class="actions"><button id="tlsRegenerateBtn" type="submit" class="attention">Regenerate self-signed certificate</button></div>
+        </form>
+      </section>
+    </section>
   </section>
 
   <dialog id="authPasswordDialog" class="auth-password-dialog">
