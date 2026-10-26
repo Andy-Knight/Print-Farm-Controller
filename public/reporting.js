@@ -49,7 +49,7 @@ let reportingPricingSaving = false;
 let reportingCurrencyActive = 'GBP';
 let reportingFilesScope = 'top10';
 let reportingFilesSort = { key:'completed', direction:'desc' };
-let reportingMaterialMode = 'type';
+let reportingMaterialMode = 'filament';
 // Legacy mode has no identity; once signed in, only administrators may edit
 // the central filament cost catalogue. Operator printer assignments are separate.
 const canManageFilamentCatalogue = () => !document.body.dataset.authRole || document.body.dataset.authRole === 'administrator';
@@ -406,14 +406,34 @@ function reportingFilamentLabel(entry, materialType) {
   };
 }
 
-function reportingMaterialRows(materials = []) {
+// Filament colours come from the current catalogue, not historical print
+// snapshots. Accept only known colour words or hex RGB values: user-entered
+// catalogue descriptions must never become arbitrary CSS.
+function reportingFilamentBarColour(value) {
+  const colour=String(value || '').trim().toLowerCase();
+  const names={
+    black:'#344252',white:'#f0f5fa',red:'#dc5964',orange:'#e99549',
+    yellow:'#e2c258',green:'#4dbd8b',blue:'#4997d7',purple:'#ae82df',
+    violet:'#ae82df',pink:'#e88fb5',grey:'#8999a8',gray:'#8999a8',
+    silver:'#a9b6c1',brown:'#a67559',cyan:'#4fb9c9',
+    gold:'#d4b767',natural:'#e5dfc8'
+  };
+  if (/^#[0-9a-f]{3}(?:[0-9a-f]{3})?$/.test(colour)) return colour;
+  return names[colour] || 'var(--ds-brand-strong)';
+}
+
+function reportingMaterialRows(materials = [], catalogue = []) {
   const groupByType = reportingMaterialMode === 'type';
   const groups = new Map();
+  const catalogueById=new Map((catalogue || []).map(item=>[String(item.id || ''),item]));
   for (const entry of materials) {
     const type = String(entry.material || 'Unknown material').trim().toUpperCase();
     const display = groupByType ? { label:type, note:'' } : reportingFilamentLabel(entry, type);
     const key = groupByType ? type : String(entry.filamentId || entry.label || type);
-    if (!groups.has(key)) groups.set(key, { key, ...display, grams:0, spendByCurrency:{} });
+    if (!groups.has(key)) groups.set(key, { key, ...display, grams:0, spendByCurrency:{},
+      barColour:groupByType ? 'var(--ds-brand-strong)'
+        : reportingFilamentBarColour(catalogueById.get(String(entry.filamentId || ''))?.colour)
+    });
     const row = groups.get(key);
     row.grams += Number(entry.grams || 0);
     for (const [currency, amount] of Object.entries(entry.spendByCurrency || {})) {
@@ -436,9 +456,11 @@ function reportingMaterialRows(materials = []) {
       key:row.key,
       label:row.label,
       note:row.note,
-      kg:formatNumber(row.grams / 1000, 2),
+      kg:formatNumber(row.grams / 1000, row.grams < 10 ? 3 : 2),
       percentage:total > 0 ? `${formatNumber(row.grams * 100 / total, 1)}%` : '—',
       percent:total > 0 ? Number((row.grams * 100 / total).toFixed(1)) : 0,
+      barPercent:ordered[0]?.grams > 0 ? Number((row.grams * 100 / ordered[0].grams).toFixed(2)) : 0,
+      barColour:row.barColour,
       cost:formatCurrencyTotals(row.spendByCurrency)
     })),
     totalKg:formatNumber(total / 1000, 2),
@@ -545,7 +567,7 @@ function publishReportingUiState(report = currentReport || {}) {
     fileFailures:reportingFileRows(report?.files || [], { failures:true }),
     fileScope:reportingFilesScope,
     fileSort:reportingFilesSort,
-    materials:reportingMaterialRows(report?.materials || []),
+    materials:reportingMaterialRows(report?.materials || [], reportingFilamentsState),
     materialMode:reportingMaterialMode,
     filaments:reportingFilamentsViewModel(),
     canManageFilaments:canManageFilamentCatalogue()
@@ -648,19 +670,26 @@ function renderReportFiles(files) {
 }
 
 function renderReportMaterials(materials) {
-  const headings = [
-    { label:reportingMaterialMode === 'type' ? 'Material type' : 'Filament' },
-    { label:'Used (kg)', numeric:true }, { label:'Share', numeric:true },
-    { label:'Estimated cost', numeric:true }, { label:'Usage' }
-  ];
-  const foot = `<tfoot><tr class="reporting-total-row"><th scope="row">Total</th>
-    <td class="numeric">${materials.totalKg}</td><td class="numeric">100%</td>
-    <td class="numeric">${escapeHtml(materials.totalCost)}</td><td></td></tr></tfoot>`;
-  return reportingTableShell(headings, materials.rows.map((row) => `<tr>
-    <td title="${escapeHtml(row.note || row.label)}">${escapeHtml(row.label)}</td>
-    <td class="numeric">${row.kg}</td><td class="numeric">${row.percentage}</td>
-    <td class="numeric">${escapeHtml(row.cost)}</td><td><div class="reporting-progress"><span style="width:${row.percent}%"></span></div></td>
-  </tr>`), 'No material usage captured for completed prints in this period.', foot);
+  if (!materials.rows.length)
+    return '<div class="reporting-empty">No material usage captured for completed prints in this period.</div>';
+  const rows=materials.rows.map(row=>`<div class="reporting-usage-row" role="listitem">
+    <div class="reporting-usage-row-head">
+      <strong title="${escapeHtml(row.note || row.label)}">${escapeHtml(row.label)}</strong>
+      <span class="reporting-usage-kg">${escapeHtml(row.kg)} kg</span>
+    </div>
+    <div class="reporting-usage-track" role="img"
+      aria-label="${escapeHtml(row.label)}: ${escapeHtml(row.kg)} kilograms, ${escapeHtml(row.percentage)} of recorded usage">
+      <span style="width:${Math.max(0,Math.min(100,Number(row.barPercent || 0)))}%;--reporting-usage-colour:${escapeHtml(row.barColour)}"></span>
+    </div>
+    <div class="reporting-usage-meta"><span>${escapeHtml(row.percentage)} of total</span><span>Recorded cost: ${escapeHtml(row.cost)}</span></div>
+  </div>`).join('');
+  return `<div class="reporting-usage-chart" role="region" aria-label="Filament used in kilograms" tabindex="0">
+    <div class="reporting-usage-rows" role="list">${rows}</div>
+    <div class="reporting-usage-total">
+      <strong>Total filament used</strong><span>${escapeHtml(materials.totalKg)} kg</span>
+      <small>Recorded cost: ${escapeHtml(materials.totalCost)}</small>
+    </div>
+  </div>`;
 }
 
 function renderProblemPrinters(printers = []) {
@@ -728,7 +757,7 @@ function renderReport(report) {
   if (reportingTrend) reportingTrend.innerHTML = lineChartSvg(report?.daily || [], report?.range);
   if (reportingPrinters) reportingPrinters.innerHTML = renderProblemPrinters(report?.printers || []);
   if (reportingFiles) reportingFiles.innerHTML = renderReportFiles(reportingFileRows(report?.files || []));
-  if (reportingMaterials) reportingMaterials.innerHTML = renderReportMaterials(reportingMaterialRows(report?.materials || []));
+  if (reportingMaterials) reportingMaterials.innerHTML = renderReportMaterials(reportingMaterialRows(report?.materials || [], reportingFilamentsState));
   if (reportingFileFailures) reportingFileFailures.innerHTML = renderFileFailures(reportingFileRows(report?.files || [], { failures:true }));
 
 }
