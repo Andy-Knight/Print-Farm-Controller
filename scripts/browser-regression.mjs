@@ -3786,7 +3786,9 @@ async function nativeAuthenticationSmoke(browser){
       'Security & users must offer dedicated Users and HTTPS tabs');
     assert.equal(await page.locator('#authTabUsers').getAttribute('aria-selected'),'true');
     assert.equal(await page.locator('#authTabHttps').getAttribute('aria-selected'),'false');
+    assert.equal(await page.locator('#authTabHttps').innerText(),'Connection settings');
     await page.locator('#authTabHttps').click();
+    assert.equal(await page.locator('#tlsSettingsHeading').innerText(),'Connection settings');
     await page.locator('#tlsConfigureForm').waitFor({state:'visible'});
     await page.waitForFunction(()=>document.querySelector('#tlsMode')?.textContent
       .includes('HTTP / HTTPS not configured'));
