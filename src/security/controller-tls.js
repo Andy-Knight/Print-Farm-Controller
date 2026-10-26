@@ -174,7 +174,13 @@ export class ControllerTls {
     await writeAtomic(path.join(this.#directory,'current.json'),JSON.stringify({version:1,id})+'\n');
   }
   async #writeSettings(settings){
-    await writeAtomic(path.join(this.#directory,'settings.json'),JSON.stringify(settings,null,2)+'\n');
+    // Persist the selected mode and safe metadata only. A freshly pasted
+    // private key is stored solely in the protected identity files. Legacy
+    // paths are retained only if a preexisting path-based deployment remains
+    // active so it survives a restart before its administrator migrates it.
+    const {certFile,keyFile,...safe}=settings;
+    const stored=certFile?{...safe,certFile,keyFile}:safe;
+    await writeAtomic(path.join(this.#directory,'settings.json'),JSON.stringify(stored,null,2)+'\n');
   }
   /**
    * Prepare an administrator-requested GUI change *before* replying to the
