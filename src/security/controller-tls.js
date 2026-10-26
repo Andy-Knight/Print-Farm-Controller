@@ -7,6 +7,7 @@ import {promises as fs} from 'node:fs';
 import path from 'node:path';
 import {randomBytes, X509Certificate, createPrivateKey} from 'node:crypto';
 import tls from 'node:tls';
+import {isIP} from 'node:net';
 import {createSelfSignedCertificate, normalizeCertificateNames} from './self-signed-certificate.js';
 
 const DEFAULT_NAMES=['localhost','127.0.0.1'];
@@ -92,7 +93,7 @@ export class ControllerTls {
   hostMatchesCertificate(name){
     if(!this.enabled||!this.#identity)return false;
     const cert=new X509Certificate(this.#identity.cert);
-    return Boolean(cert.checkIP(name)||cert.checkHost(name));
+    return Boolean(isIP(name)?cert.checkIP(name):cert.checkHost(name));
   }
   get options(){
     if(!this.enabled)return null;
