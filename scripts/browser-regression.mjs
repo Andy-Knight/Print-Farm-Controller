@@ -1965,6 +1965,11 @@ async function routeSmoke(page,url) {
   assert.equal(await page.locator('#reportingKpis .reporting-kpi').last().locator('.reporting-kpi-body strong').innerText(),'3.85 kg');
   assert.equal(await page.locator('#reportingKpis [aria-label="Completion rate"]').getAttribute('aria-valuenow'),'85');
   assert.equal(await page.locator('#reportingKpis [aria-label="Failure rate"]').getAttribute('aria-valuenow'),'10');
+  const failedIcon=page.locator('#reportingKpis .reporting-kpi').nth(2);
+  assert.match(await failedIcon.locator('.reporting-kpi-icon svg path').getAttribute('d'),/M6 6l12 12M18 6 6 18/,
+    'the Failed KPI must render a cross, not a check icon');
+  assert.match(await failedIcon.getAttribute('class'),/reporting-kpi-negative/,
+    'Failed KPI retains the red failure identity regardless of trend');
   for (const theme of ['dark','light']) {
     await page.evaluate(theme=>{document.documentElement.dataset.theme=theme;},theme);
     const palette=await page.locator('#reportingKpis .reporting-kpi').evaluateAll(
