@@ -151,8 +151,9 @@ test('explicit dynamic API routes cover actual router action families',()=>{
     assert.ok(requiredPermission(method,path),`missing permission mapping ${method} ${path}`);
 });
 
-test('HTTP dispatcher invokes authentication before emulator and API routes',()=>{
-  assert.match(server,/const server = http\.createServer\(/);
+test('HTTP and HTTPS dispatchers invoke authentication before emulator and API routes',()=>{
+  assert.match(server,/https\.createServer\(tlsOptions,handleControllerRequest\)/);
+  assert.match(server,/http\.createServer\(handleControllerRequest\)/);
   assert.match(server,/ControllerAuth/);
   const auth=server.indexOf('controllerAuth.authorize(req,res,url');
   const emulator=server.indexOf('emulatorManager.handleApi(req, res, url)');
