@@ -34,19 +34,23 @@ function settingsFor(input,{httpPort,httpsPort,allowLegacyPort=false}){
   if(input.port!==undefined&&!allowLegacyPort&&Number(input.port)!==httpsPort)
     throw fail('HTTPS listener port is fixed and cannot be changed in the GUI');
   const names=normalizeCertificateNames(input.names||DEFAULT_NAMES);
-  const certFile=String(input.certFile||'').trim();
-  const keyFile=String(input.keyFile||'').trim();
-  if(mode==='provided'&&(!path.isAbsolute(certFile)||!path.isAbsolute(keyFile)||certFile===keyFile))
-    throw fail('Supplied certificate and key require two different absolute file paths on the controller');
+  // Legacy path-based provided mode is readable on startup only. The new GUI
+  // accepts pasted PEM contents, never filesystem paths or inline key storage
+  // in settings.json. PEM is held in an identity directory with mode 0600.
+  const certFile=allowLegacyPort?String(input.certFile||'').trim():'';
+  const keyFile=allowLegacyPort?String(input.keyFile||'').trim():'';
+  if((certFile||keyFile)&&(!path.isAbsolute(certFile)||!path.isAbsolute(keyFile)))
+    throw fail('Stored legacy certificate locations are invalid');
   if(certFile.length>2048||keyFile.length>2048)
-    throw fail('HTTPS certificate paths are too long');
+    throw fail('Stored legacy certificate paths are too long');
   return {version:1,mode,names,certFile:mode==='provided'?certFile:'',keyFile:mode==='provided'?keyFile:''};
 }
 function publicStatus(settings,identity,{httpPort,httpsPort,busy=false,lastError=null}={}) {
   const certificate=identity?new X509Certificate(identity.cert):null;
   return {
     enabled:settings.mode!=='off',mode:settings.mode,port:httpsPort,httpPort,httpsPort,
-    names:settings.names,certFile:settings.certFile,keyFile:settings.keyFile,
+    names:settings.names,certificateSource:settings.mode==='provided'
+      ?(settings.certFile?'legacy-mounted-files':'pasted-pem') : settings.mode,
     canRegenerate:settings.mode==='self-signed',busy,lastError,
     certificate:certificate?{
       subject:certificate.subject,issuer:certificate.issuer,
@@ -144,7 +148,8 @@ export class ControllerTls {
       // creates a key; existing installations must keep their identity.
       this.#identity=await this.#readManaged();
     }else if(this.#settings.mode==='provided'){
-      this.#identity=await this.#readProvided(this.#settings);
+      this.#identity=this.#settings.certFile
+        ?await this.#readProvided(this.#settings):await this.#readManaged();
     }else this.#identity=null;
     return this.options;
   }
@@ -176,10 +181,11 @@ export class ControllerTls {
    * HTTP request. The HTTP->HTTPS listener swap runs after response delivery.
    */
   configurationMatches(input){
-    // Reapplying identical settings must neither replace the certificate
-    // nor disconnect users; explicit regeneration is a separate operation.
-    return JSON.stringify(settingsFor(input,{httpPort:this.#httpPort,httpsPort:this.#httpsPort}))===
-      JSON.stringify(this.#settings);
+    const settings=settingsFor(input,{httpPort:this.#httpPort,httpsPort:this.#httpsPort});
+    const hasCertificate=Boolean(input?.certificatePem||input?.privateKeyPem);
+    // The provided certificate is never returned through the GUI. Blank PEM
+    // fields mean "keep current", not "delete" or a certificate rotation.
+    return !hasCertificate&&JSON.stringify(settings)===JSON.stringify(this.#settings);
   }
   async prepareConfiguration(input){
     if(this.#busy)throw fail('An HTTPS configuration change is already in progress',409);
@@ -188,13 +194,33 @@ export class ControllerTls {
     let candidate=null;
     try{
       const settings=settingsFor(input,{httpPort:this.#httpPort,httpsPort:this.#httpsPort});
+      if(settings.mode==='provided' && !String(input.certificatePem||'').trim()
+         && !String(input.privateKeyPem||'').trim() && this.#settings.mode!=='provided')
+        throw fail('Paste the PEM certificate and matching private key before enabling external certificates');
       if(settings.mode==='self-signed'){
         const unchanged=this.#settings.mode==='self-signed'
           &&JSON.stringify(settings.names)===JSON.stringify(this.#settings.names);
         candidate=unchanged?this.#identity:
           await this.#storeCandidate(createSelfSignedCertificate({names:settings.names}));
       }else if(settings.mode==='provided'){
-        candidate=await this.#readProvided(settings);
+        const cert=String(input.certificatePem||'').trim();
+        const key=String(input.privateKeyPem||'').trim();
+        if(!cert&&!key&&this.#settings.mode==='provided'){
+          candidate=this.#identity;
+          // A path-based older configuration continues operating until the
+          // administrator intentionally replaces it with pasted PEM.
+          settings.certFile=this.#settings.certFile;
+          settings.keyFile=this.#settings.keyFile;
+        }else{
+          if(!cert||!key)throw fail('Paste both the PEM certificate and private key');
+          if(cert.length>131072||key.length>32768)
+            throw fail('PEM contents are too large');
+          if(!/^-----BEGIN CERTIFICATE-----/.test(cert)||
+             !/-----END CERTIFICATE-----$/.test(cert)||
+             !/^-----BEGIN (?:RSA |EC |ENCRYPTED )?PRIVATE KEY-----/.test(key))
+            throw fail('Paste a PEM certificate chain and matching private key');
+          candidate=await this.#storeCandidate({cert:cert+'\n',key:key+'\n'});
+        }
       }
       return {settings,candidate,previous:this.#settings,previousIdentity:this.#identity};
     }catch(e){
@@ -226,7 +252,7 @@ export class ControllerTls {
       };
       await activate({options:nextOptions,port:this.#httpsPort,secure:settings.mode!=='off'});
       switched=true;
-      if(settings.mode==='self-signed'&&candidate.id!==previousIdentity?.id){
+      if(settings.mode!=='off'&&candidate?.id&&candidate.id!==previousIdentity?.id){
         await this.#writePointer(candidate.id);
         pointerUpdated=true;
       }
