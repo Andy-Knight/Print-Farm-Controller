@@ -3789,6 +3789,12 @@ async function nativeAuthenticationSmoke(browser){
     assert.equal(await page.locator('#authTabHttps').innerText(),'Connection settings');
     await page.locator('#authTabHttps').click();
     assert.equal(await page.locator('#tlsSettingsHeading').innerText(),'Connection settings');
+    assert.equal(await page.locator('#tlsHttpPort').innerText(),String(port),
+      'HTTP summary shows the actual controller listener, not a hypothetical external port');
+    assert.equal(await page.locator('#tlsPort').innerText(),String(port+1)+' · inactive',
+      'HTTPS summary shows the inactive fixed partner listener');
+    assert.doesNotMatch(await page.locator('#tlsSettings').innerText(),/MetalLB/i,
+      'Connection settings must remain load-balancer agnostic');
     await page.locator('#tlsConfigureForm').waitFor({state:'visible'});
     await page.waitForFunction(()=>document.querySelector('#tlsMode')?.textContent
       .includes('HTTP / HTTPS not configured'));
