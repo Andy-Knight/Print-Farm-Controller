@@ -555,7 +555,7 @@ function reportingKpiViewModel(report = {}) {
   return [
     { label:'Total print jobs', value:formatNumber(totals.attempts), detail:'In selected period', icon:'▤', iconName:'jobs', tone:'info', progressPercent:null, change:change('attempts','neutral') },
     { label:'Completed', value:formatNumber(totals.completed), detail:`${formatPercent(totals.completionRate)} completion rate`, icon:'✓', iconName:'check', tone:Number(totals.completed || 0) > 0 ? 'positive' : 'info', progressPercent:percent(totals.completionRate), progressLabel:'Completion rate', change:change('completed') },
-    { label:'Failed', value:formatNumber(totals.failed), detail:`${formatPercent(totals.failureRate)} failure rate`, icon:Number(totals.failed || 0) > 0 ? '×' : '✓', iconName:Number(totals.failed || 0) > 0 ? 'cross' : 'check', tone:Number(totals.failed || 0) > 0 ? 'negative' : 'positive', progressPercent:percent(totals.failureRate), progressLabel:'Failure rate', change:change('failed') },
+    { label:'Failed', value:formatNumber(totals.failed), detail:`${formatPercent(totals.failureRate)} failure rate`, icon:'×', iconName:'cross', tone:'negative', progressPercent:percent(totals.failureRate), progressLabel:'Failure rate', change:change('failed') },
     { label:'Total run time', value:`${formatNumber(totals.runHours, 1)} h`, detail:'Reported from print timestamps', icon:'◷', iconName:'clock', tone:'info', progressPercent:null, change:change('runHours','neutral') },
     { label:'Total filament used', value:materialValue, detail:hasRecordedUsage ? 'Recorded for completed prints' : 'No recorded material usage', iconName:'spool', tone:'info', progressPercent:null, change:materialChange }
   ];
