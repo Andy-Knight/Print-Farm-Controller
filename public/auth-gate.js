@@ -394,7 +394,11 @@ async function loadTlsSettings(){
       'self-signed':'Controller-managed self-signed',
       provided:'Externally supplied certificate'
     })[tls.mode]||tls.mode;
-    $('#tlsPort').textContent=tls.enabled?String(tls.port):'Not enabled';
+    $('#tlsHttpPort').textContent=String(tls.httpPort||4242)+' / 80 (MetalLB)';
+    $('#tlsPort').textContent=String(tls.httpsPort||4243)+' / 443 (MetalLB)'+(tls.enabled?'':' · inactive');
+    $('#tlsHttpBehaviour').textContent=tls.enabled
+      ?'Redirects browser GET/HEAD to HTTPS; health endpoint remains available'
+      :'Normal HTTP access (initial setup)';
     const cert=tls.certificate;
     $('#tlsSubject').textContent=cert?.subject||'No certificate';
     $('#tlsIssuer').textContent=cert?.issuer||'—';
@@ -416,7 +420,6 @@ async function loadTlsSettings(){
     const configure=$('#tlsConfigureForm');
     if(configure&&!configure.dataset.editing){
       configure.elements.mode.value=tls.mode;
-      configure.elements.port.value=String(tls.port||4242);
       const names=Array.isArray(tls.names)?tls.names:[];
       const suggested=tls.mode==='off'&&location.hostname&&!names.includes(location.hostname)
         ?[location.hostname,...names]:names;
@@ -496,7 +499,7 @@ function initializeAccountUi(){
     });
     $('#tlsConfigureMode')?.addEventListener('change',syncTlsConfigureFields);
     $('#tlsConfigureForm')?.addEventListener('input',event=>{
-      if(['mode','port','names','certFile','keyFile'].includes(event.target.name))
+      if(['mode','names','certFile','keyFile'].includes(event.target.name))
         event.currentTarget.dataset.editing='true';
     });
     $('#tlsConfigureForm')?.addEventListener('submit',async event=>{
@@ -516,7 +519,7 @@ function initializeAccountUi(){
       button.disabled=true;button.setAttribute('aria-busy','true');
       try{
         const body={
-          mode,port:Number(form.elements.port.value),names:form.elements.names.value,
+          mode,names:form.elements.names.value,
           certFile:form.elements.certFile.value,keyFile:form.elements.keyFile.value,
           password:form.elements.password.value,confirm:'APPLY'
         };
@@ -524,19 +527,24 @@ function initializeAccountUi(){
           method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(body)
         });
         const next=new URL(location.href);
+        const incomingPort=location.port||'';
+        const httpPort=String(result.httpPort||4242);
+        const httpsPort=String(result.httpsPort||4243);
+        const direct=incomingPort===httpPort||incomingPort===httpsPort;
         next.protocol=result.mode==='off'?'http:':'https:';
         const chosenNames=Array.isArray(result.names)?result.names:[];
-        if(result.mode==='self-signed' && !chosenNames.includes(location.hostname.toLowerCase()) && chosenNames.length){
+        if(result.mode==='self-signed' && !chosenNames.includes(location.hostname.toLowerCase()) && chosenNames.length)
           next.hostname=chosenNames[0];
-        }
-        next.port=String(result.mode==='off'?(result.httpPort||4242):result.port);
+        // Direct Windows/source browsers use 4242/4243; with MetalLB the
+        // exposed ports are the standard 80/443, independent of pod ports.
+        next.port=direct?(result.mode==='off'?httpPort:httpsPort):'';
         next.pathname='/';next.search='';next.hash='';
         link.href=next.href;
         link.textContent='Open controller at '+next.origin;
         link.hidden=Boolean(result.unchanged);
         notice.textContent=result.unchanged
           ?'Settings are already saved. Your current certificate has not changed; use Regenerate self-signed certificate to replace it.'
-          :'Settings validated. The browser listener is changing now. Open the address above after a brief connection interruption and sign in again. Self-signed certificates may prompt for trust.';
+          :'Settings validated. The fixed HTTP port remains available for health and will redirect browser requests to the HTTPS port when secure mode is active. Open the address above and sign in again. Self-signed certificates may prompt for trust.';
         $('#tlsStatusMessage').textContent='';
       }catch(error){
         $('#tlsStatusMessage').textContent=errorText(error);
