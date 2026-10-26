@@ -331,8 +331,16 @@ async function loadUsers(){
       password.type='password';password.minLength=12;password.maxLength=256;password.autocomplete='new-password';password.placeholder='Leave blank to keep';td(password);
       const action=document.createElement('button');
       action.type='button';action.className='secondary';action.textContent='Save';
+      const deletion=document.createElement('button');
+      deletion.type='button';deletion.className='danger auth-user-delete';deletion.textContent='Delete';
+      deletion.setAttribute('aria-label','Delete user '+user.username);
+      // Never allow an administrator to remove their own signed-in account.
+      const self=user.id===session.user.id;
+      deletion.disabled=self;
+      if(self)deletion.title='You cannot delete your current account';
       const status=document.createElement('span');status.className='auth-row-status';status.setAttribute('role','status');
-      const actions=document.createElement('div');actions.className='auth-row-actions';actions.append(action,status);td(actions);
+      const actions=document.createElement('div');actions.className='auth-row-actions';
+      actions.append(action,deletion,status);td(actions);
       action.addEventListener('click',async()=>{
         action.disabled=true;status.textContent='';
         const data={displayName:display.value,role:role.value,disabled:disabled.checked};
@@ -346,6 +354,21 @@ async function loadUsers(){
           await loadUsers();
         }catch(error){status.textContent=errorText(error);}
         finally{action.disabled=false;}
+      });
+      deletion.addEventListener('click',async()=>{
+        if(self)return;
+        if(!window.confirm('Permanently delete user "'+user.username+'"? Their active sessions will be closed immediately. This cannot be undone.'))return;
+        action.disabled=true;deletion.disabled=true;deletion.setAttribute('aria-busy','true');
+        status.textContent='Deleting…';
+        try{
+          await call('/api/auth/users/'+encodeURIComponent(user.id),{method:'DELETE'});
+          await loadUsers();
+        }catch(error){status.textContent=errorText(error);}
+        finally{
+          action.disabled=false;
+          deletion.disabled=self;
+          deletion.removeAttribute('aria-busy');
+        }
       });
       body.append(tr);
     }
