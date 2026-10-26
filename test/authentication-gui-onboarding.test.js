@@ -52,6 +52,12 @@ test('Security & users has separate keyboard-accessible tabs and an unmistakable
   assert.match(html,/id="authTabHttps"[^>]*>Connection settings<\/button>/);
   assert.match(html,/<h3 id="tlsSettingsHeading">Connection settings<\/h3>/);
   assert.doesNotMatch(html,/HTTPS &amp; certificates/);
+  assert.doesNotMatch(html,/MetalLB/i,'connection settings tab must use deployment-neutral wording');
+  assert.match(html,/<dt>HTTP port \(controller\)<\/dt><dd id="tlsHttpPort">4242<\/dd>/);
+  assert.match(html,/<dt>HTTPS port \(controller\)<\/dt><dd id="tlsPort">4243<\/dd>/);
+  assert.match(ui,/String\(tls\.httpPort\|\|4242\)/);
+  assert.match(ui,/String\(tls\.httpsPort\|\|4243\)/);
+  assert.doesNotMatch(ui,/MetalLB/i,'connection settings runtime text must use deployment-neutral wording');
   assert.match(html,/id="tlsRegenerateBtn"[^>]*type="submit"[^>]*class="attention"/);
   assert.match(ui,/function showSecurityTab\(/);
   assert.match(ui,/if\(choice==='https'\)void loadTlsSettings\(\)/);
