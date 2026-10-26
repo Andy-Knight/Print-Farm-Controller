@@ -241,7 +241,11 @@ test('analytics view models rank real print completions and aggregate materials'
   assert.equal(byType.rows[0].kg, '3.00');
   assert.equal(byType.rows[0].percentage, '75.0%');
   assert.equal(byType.totalKg, '4.00');
-  assert.match(ui.renderReportMaterials(byType), /Total/);
+  assert.match(ui.renderReportMaterials(byType), /Total filament used/);
+  assert.match(ui.renderReportMaterials(byType), /reporting-usage-chart/);
+  assert.equal(byType.rows[0].barPercent,100);
+  assert.equal(byType.rows[1].barPercent,33.33);
+  assert.equal(byType.rows[0].barColour,'var(--ds-brand-strong)');
   ui.setMode('filament');
   const byFilament = ui.reportingMaterialRows(materials);
   assert.equal(byFilament.rows.length, 3);
@@ -262,6 +266,18 @@ test('analytics view models rank real print completions and aggregate materials'
   const materialHtml = ui.renderReportMaterials(ui.reportingMaterialRows(snapshotMaterials));
   assert.match(materialHtml, /PLA \(Unidentified filament\)/);
   assert.match(materialHtml, /title="The print recorded this material type/);
+  assert.match(materialHtml, /aria-label="Filament used in kilograms"/);
+  assert.match(materialHtml, /0.25 kg/);
+  assert.doesNotMatch(materialHtml, /<table/);
+  const coloured=ui.reportingMaterialRows(materials,[
+    {id:'a',colour:'#ff0000'},{id:'b',colour:'Green'}, {id:'c',colour:'url(javascript:evil)'}
+  ]);
+  assert.equal(coloured.rows[0].barColour,'#ff0000');
+  assert.equal(coloured.rows[1].barColour,'#4dbd8b');
+  assert.equal(coloured.rows[2].barColour,'var(--ds-brand-strong)');
+  const coloursHtml=ui.renderReportMaterials(coloured);
+  assert.match(coloursHtml,/--reporting-usage-colour:#ff0000/);
+  assert.doesNotMatch(coloursHtml,/javascript:evil/,'catalogue colour cannot inject CSS');
   assert.match(materialHtml, /PLA \(Brand\/product not recorded\)/);
   assert.match(materialHtml, /eSUN · PLA\+ · PLA/);
   ui.setMode('type');
@@ -275,13 +291,17 @@ test('analytics view models rank real print completions and aggregate materials'
   assert.equal(ui.reportingFileRows([{fileName:'cancelled.gcode',completed:0,failed:0,attempts:2}]).length, 0);
 });
 
-test('analytics chart is first after KPIs, print file table spans full width and KPI icon colours reflect outcomes', () => {
+test('analytics chart is first after KPIs, popular files and filament kg graph share a desktop row', () => {
   const panel = index.slice(index.indexOf('id="reportingPanelAnalytics"'), index.indexOf('id="reportingPanelFilament"'));
   const ids = ['reportingKpis','reportingTrend','reportingFiles','reportingMaterials','reportingPrinters','reportingFileFailures'];
   const positions = ids.map((id) => panel.indexOf('id="' + id + '"'));
   assert.ok(positions.every((position) => position >= 0));
   assert.deepEqual(positions, [...positions].sort((a, b) => a - b));
-  assert.match(styles, /\.reporting-analytics-files\s*\{\s*grid-column:1\s*\/\s*-1/);
+  assert.match(styles, /\.reporting-analytics-grid\s*\{\s*grid-template-columns:repeat\(2,minmax\(0,1fr\)\)/);
+  assert.match(styles, /\.reporting-analytics-files,\.reporting-analytics-materials\s*\{\s*grid-column:auto/);
+  assert.match(styles, /\.reporting-analytics-files \.reporting-table-scroll\s*\{\s*overflow:auto/);
+  assert.match(styles, /\.reporting-usage-chart\s*\{[^}]*var\(--pfc-table-border\)/);
+  assert.match(styles, /\.reporting-usage-track>span\s*\{[^}]*var\(--reporting-usage-colour/);
   assert.match(styles, /#reportingPanelAnalytics\s*\{\s*padding-bottom:32px/);
   assert.match(styles, /@media \(max-width:760px\)\s*\{\s*#reportingPanelAnalytics\s*\{\s*padding-bottom:24px/);
   assert.match(styles, /\.reporting-table-scroll\s*\{[^}]*width:100%;[^}]*max-width:100%;/);
@@ -561,45 +581,39 @@ test('print-file analytics show material, historical cost, and total printer tim
   assert.match(styles,/reporting-file-time/);
 });
 
-test('Material usage table follows the controller-wide table standard in both grouping modes', () => {
-  const design = styles.slice(styles.indexOf('/* Controller table design system.'),
-    styles.indexOf('/* Toolhead tables use the same header block'));
-  for (const selector of [
-    '#reportingMaterials .reporting-table-scroll',
-    '#reportingMaterials .reporting-analytics-table thead th',
-    '#reportingMaterials .reporting-analytics-table tbody td',
-    '#reportingMaterials .reporting-analytics-table tbody tr:hover > *'
-  ]) assert.ok(design.includes(selector), 'Missing shared table rule: ' + selector);
-  for (const token of [
-    '--pfc-table-header-background', '--pfc-table-header-text',
-    '--pfc-table-border', '--pfc-table-divider', '--pfc-table-hover',
-    '--pfc-table-radius', '--pfc-table-surface'
-  ]) assert.ok(design.includes('var(' + token + ')'), 'Missing table theme token: ' + token);
-  assert.match(design, /#reportingMaterials \.reporting-analytics-table tfoot > tr > \*\s*\{[^}]*border-top:1px solid var\(--pfc-table-header-divider\)/);
-  assert.match(design, /#reportingMaterials \.reporting-analytics-table tbody td:first-child\s*\{[^}]*overflow-wrap:anywhere/);
-  const preact = fs.readFileSync(new URL('../ui/reporting.jsx', import.meta.url), 'utf8');
-  assert.match(preact, /function ReportMaterials\(\{ materials, materialMode \}\)/);
-  assert.match(preact, /label="Material usage" headers=\{headings\}/);
-  assert.match(reportingUi, /function renderReportMaterials\(materials\)/);
-  assert.match(reportingUi, /return reportingTableShell\(headings, materials\.rows\.map/);
-  assert.match(index, /data-reporting-material-mode="type"/);
-  assert.match(index, /data-reporting-material-mode="filament"/);
-  assert.match(fs.readFileSync(new URL('../scripts/browser-regression.mjs', import.meta.url), 'utf8'),
-    /Material usage table shares printer-group table skin/);
+test('filament usage is a token-based kg bar chart in both Preact and fallback renderers', () => {
+  assert.match(index, /<h3>Filament used \(kg\)<\/h3>/);
+  assert.match(index, /data-reporting-material-mode="filament" aria-pressed="true"/);
+  assert.match(reportingUi, /let reportingMaterialMode = 'filament'/);
+  assert.match(reportingUi,/function reportingFilamentBarColour\(value\)/);
+  assert.match(reportingUi,/function renderReportMaterials\(materials\)/);
+  assert.match(reportingUi,/class="reporting-usage-chart" role="region"/);
+  assert.match(reportingUi,/barPercent/);
+  assert.match(reportingUi,/\-\-reporting-usage-colour/);
+  const preact=fs.readFileSync(new URL('../ui/reporting.jsx',import.meta.url),'utf8');
+  assert.match(preact,/function ReportMaterials\(\{ materials \}\)/);
+  assert.match(preact,/class="reporting-usage-chart" role="region"/);
+  assert.match(preact,/role="img"/);
+  assert.match(preact,/row\.barColour/);
+  for(const token of ['--pfc-table-border','--pfc-table-radius','--pfc-table-surface',
+    '--pfc-table-divider','--pfc-table-hover','--ds-text','--ds-surface-muted']){
+    assert.ok(styles.includes('var('+token+')'),'kg graph must follow controller colour semantics: '+token);
+  }
+  assert.match(fs.readFileSync(new URL('../scripts/browser-regression.mjs',import.meta.url),'utf8'),
+    /Filament used in kilograms/);
 });
 
-test('all four Analytics tables use the shared controller table tokens and geometry', () => {
+test('the remaining three Analytics tables preserve the controller table design system', () => {
   const shared=styles.slice(styles.indexOf('/* Controller table design system.'),
     styles.indexOf('/* Toolhead tables use the same header block'));
-  for(const id of ['reportingFiles','reportingMaterials','reportingPrinters','reportingFileFailures']){
+  for(const id of ['reportingFiles','reportingPrinters','reportingFileFailures']){
     for(const selector of [
       '#' + id + ' .reporting-table-scroll',
       '#' + id + ' .reporting-analytics-table thead th',
       '#' + id + ' .reporting-analytics-table tbody tr:hover > *'
     ]) assert.ok(shared.includes(selector),'Missing shared table selector: '+selector);
   }
-  assert.match(shared, /#reportingPrinters \.reporting-analytics-table tbody > tr > :is\(th,td\)/,
-    'printer-name row headers must use the same padding and dividers as ordinary cells');
+  assert.match(shared, /#reportingPrinters \.reporting-analytics-table tbody > tr > :is\(th,td\)/);
   assert.match(shared, /#reportingFileFailures \.reporting-analytics-table tbody td/);
   assert.match(shared, /#reportingPrinters \.reporting-analytics-table tbody tr:last-child > \*/);
   for(const token of ['--pfc-table-header-background','--pfc-table-header-text',
