@@ -49,6 +49,9 @@ test('Security & users has separate keyboard-accessible tabs and an unmistakable
   assert.match(ui,/location\.protocol==='https:'/);
   assert.match(html,/id="authTabUsers"[^>]*role="tab"[^>]*aria-selected="true"/);
   assert.match(html,/id="authTabHttps"[^>]*role="tab"[^>]*aria-selected="false"/);
+  assert.match(html,/id="authTabHttps"[^>]*>Connection settings<\/button>/);
+  assert.match(html,/<h3 id="tlsSettingsHeading">Connection settings<\/h3>/);
+  assert.doesNotMatch(html,/HTTPS &amp; certificates/);
   assert.match(html,/id="tlsRegenerateBtn"[^>]*type="submit"[^>]*class="attention"/);
   assert.match(ui,/function showSecurityTab\(/);
   assert.match(ui,/if\(choice==='https'\)void loadTlsSettings\(\)/);
