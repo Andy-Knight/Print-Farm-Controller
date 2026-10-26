@@ -449,7 +449,8 @@ test('five Analytics summary headings span the full card and never share the nar
   assert.match(styles,/\.reporting-kpi \.reporting-kpi-gauge\s*\{[^}]*grid-row:2\s*\/\s*4/);
   assert.match(styles,/\.reporting-kpi \.reporting-kpi-change\s*\{[^}]*grid-row:3/);
   assert.match(styles,/grid-template-columns:repeat\(5,minmax\(0,1fr\)\)/);
-  assert.match(styles,/@media \(min-width:901px\) and \(max-width:1150px\)[\s\S]*?grid-template-columns:repeat\(3,minmax\(0,1fr\)\)/);
+  assert.match(styles,/@media \(min-width:901px\) and \(max-width:1199px\)[\s\S]*?grid-template-columns:repeat\(6,minmax\(0,1fr\)\)/);
+  assert.match(styles,/\.reporting-kpis \.reporting-kpi:nth-last-child\(-n\+2\)\s*\{\s*grid-column:span 3/);
   assert.match(styles,/@media \(max-width:380px\)[\s\S]*?grid-template-columns:minmax\(0,1fr\)/);
 });
 
