@@ -1,6 +1,16 @@
 # Native HTTPS and certificate management — implementation plan
 
-**Status:** Planned for `feature/native-https-controller`; no HTTPS or certificate-management capability is implemented by this document.
+**Status:** Initial implementation on `feature/native-https-controller`, pending automated/packaged/browser validation. Native HTTPS, managed/imported certs, admin metadata/download/regeneration and in-process rotation are coded. HTTP redirect, automatic provided-certificate reload, IPv6 SAN generation and final deployment validation remain outstanding.
+
+## Current configuration
+
+Native HTTPS is opt-in. Configure `PFC_HTTPS_MODE=self-signed` and `PFC_HTTPS_NAMES=hostname,192.168.1.100` (comma-separated DNS/IPv4 SANs) to generate a persistent ECDSA P-256 identity at `DATA_DIR/tls`. Without a name setting, only `localhost,127.0.0.1` are included. Do not assume a LAN address is in the certificate. A provided PEM certificate can instead be loaded using `PFC_HTTPS_MODE=provided`, `PFC_HTTPS_CERT_FILE`, and `PFC_HTTPS_KEY_FILE`.
+
+The HTTPS listener replaces HTTP on the existing `PORT` (default 4242); it does not open an additional unauthenticated port. The GUI in **Security & users** shows certificate status, public certificate download and administrator-confirmed self-signed regeneration. Rotation requires the currently signed-in administrator's password and updates the live listener. Existing connections may need to reconnect; self-signed trust must be installed again. Provided certificates are read on startup and require restart for external updates in this first implementation.
+
+Certificate identity is separate from logical `.pfcbackup` data. Protect the data directory/host permissions and keep independent restricted backups of the TLS identity if continuity matters. For Kubernetes, mount `/data` on a durable PVC and configure MetalLB's Service port 443 to forward to the configured controller `PORT` if desired.
+
+**Remaining work before release:** complete automated CI/browser tests, Windows SEA and multi-architecture container smoke, evaluate certificate trust/recovery and TLS-only exposure, test ingress/direct modes, add redirect only if explicitly requested, and improve external certificate hot reload/rotation if necessary. Self-signed identities are not publicly trusted.
 
 ## Objective and deployment modes
 
