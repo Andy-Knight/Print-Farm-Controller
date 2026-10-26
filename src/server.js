@@ -90,6 +90,7 @@ const diagnosticLogger = new DiagnosticLogger({ logDir:runtimePaths.logDir, vers
 const controllerAuth = new ControllerAuth({dataDir:runtimePaths.dataDir});
 const controllerTls = new ControllerTls({dataDir:runtimePaths.dataDir,port:PORT});
 let server = null;
+let tlsChangeInProgress = false;
 const memoryMonitor = new MemoryMonitor({
   diagnosticFn:(level, message, meta) => diagnosticLogger[level]?.('memory', message, meta)
 });
@@ -708,6 +709,11 @@ async function refreshAfterCommand(id) {
 }
 
 async function apiRoute(req, res, url) {
+  if(tlsChangeInProgress && ['POST','PUT','PATCH','DELETE'].includes(req.method)){
+    const error=new Error('HTTPS listener change in progress; reconnect once the transport is ready');
+    error.statusCode=503;
+    throw error;
+  }
   const mutation = ['POST','PUT','PATCH','DELETE'].includes(req.method);
   const mayCancelStagedRestore = req.method === 'DELETE' && url.pathname === '/api/restore/stage';
   if ((restorePendingRestart || restoreInspectionInProgress) && mutation && !mayCancelStagedRestore) {
@@ -735,6 +741,48 @@ async function apiRoute(req, res, url) {
     });
     res.end(certificate);
     return true;
+  }
+  if (req.method === 'POST' && url.pathname === '/api/tls/configure') {
+    if(activeMutationRequests>1){
+      const error=new Error('Another controller change is in progress. Retry HTTPS setup after other operations complete.');
+      error.statusCode=409;
+      throw error;
+    }
+    const body=await readJson(req);
+    await controllerAuth.assertAdministrator(req,body?.password);
+    if(body?.confirm!=='APPLY'){
+      const error=new Error('Confirm the browser transport change before applying HTTPS settings');
+      error.statusCode=400;throw error;
+    }
+    const prepared=await controllerTls.prepareConfiguration(body);
+    tlsChangeInProgress=true;
+    res.setHeader('connection','close');
+    res.once('finish',()=>{
+      // The current HTTP/HTTPS request has to finish before the port can be
+      // rebound. Do not restart the controller's queues or printer services.
+      const timer=setTimeout(async()=>{
+        try{
+          const status=await controllerTls.applyConfiguration(prepared,swapControllerListener);
+          await diagnosticLogger.warn('security','Browser transport configuration changed',{
+            mode:status.mode,port:status.port,
+            fingerprint256:status.certificate?.fingerprint256||null
+          }).catch(()=>{});
+          console.log('Browser endpoint now '+(status.enabled?'https':'http')+' on port '+status.port+
+            '; existing sessions must sign in again.');
+        }catch(error){
+          await diagnosticLogger.error('security','HTTPS transport change failed; retaining previous listener',{
+            error:error.message
+          }).catch(()=>{});
+          console.error('HTTPS transport change failed: '+error.message);
+        }finally{tlsChangeInProgress=false;}
+      },750);
+      timer.unref?.();
+    });
+    return json(res,202,{
+      pending:true,mode:prepared.settings.mode,port:prepared.settings.port,
+      names:prepared.settings.names,
+      message:'Configuration validated. The browser listener will change shortly; reconnect and sign in again.'
+    });
   }
   if (req.method === 'POST' && url.pathname === '/api/tls/regenerate') {
     const body = await readJson(req);
@@ -2673,20 +2721,49 @@ async function shutdown() {
 process.on('SIGINT', shutdown);
 process.on('SIGTERM', shutdown);
 
-async function listenControllerServer() {
-  await new Promise((resolve, reject) => {
-    const onError = (error) => {
-      server.off('listening', onListening);
-      reject(error);
-    };
-    const onListening = () => {
-      server.off('error', onError);
-      resolve();
-    };
-    server.once('error', onError);
-    server.once('listening', onListening);
-    server.listen(PORT, HOST);
+async function listenOn(instance,port) {
+  await new Promise((resolve,reject)=>{
+    const onError=(error)=>{instance.off('listening',onListening);reject(error);};
+    const onListening=()=>{instance.off('error',onError);resolve();};
+    instance.once('error',onError);
+    instance.once('listening',onListening);
+    instance.listen(port,HOST);
   });
+}
+async function listenControllerServer(){
+  await listenOn(server,controllerTls.enabled?controllerTls.port:PORT);
+}
+async function stopListener(instance){
+  if(!instance?.listening)return;
+  const closed=new Promise((resolve,reject)=>instance.close(error=>error?reject(error):resolve()));
+  // Explicitly close old HTTP keep-alive/SSE/browser sockets. Closing the
+  // listener does not interrupt fleet polling or printer-side print execution.
+  instance.closeAllConnections?.();
+  instance.closeIdleConnections?.();
+  await closed;
+}
+async function swapControllerListener({options,port,secure}){
+  const previous=server;
+  const previousPort=previous.address()?.port??PORT;
+  const previousOptions=controllerTls.options;
+  await stopListener(previous);
+  const replacement=options
+    ?https.createServer(options,handleControllerRequest)
+    :http.createServer(handleControllerRequest);
+  try{
+    await listenOn(replacement,secure?port:PORT);
+    controllerAuth.setNativeTransportSecure(secure);
+    server=replacement;
+  }catch(error){
+    replacement.close?.();
+    const restored=previousOptions
+      ?https.createServer(previousOptions,handleControllerRequest)
+      :http.createServer(handleControllerRequest);
+    await listenOn(restored,previousPort);
+    controllerAuth.setNativeTransportSecure(Boolean(previousOptions));
+    server=restored;
+    throw error;
+  }
 }
 
 async function startController() {
@@ -2742,6 +2819,7 @@ async function startController() {
     await printQueue.start();
     chamberPreheat.startService();
     const tlsOptions = await controllerTls.init();
+    controllerAuth.setNativeTransportSecure(Boolean(tlsOptions),{revokeSessions:false});
     server = tlsOptions
       ? https.createServer(tlsOptions,handleControllerRequest)
       : http.createServer(handleControllerRequest);
@@ -2767,18 +2845,18 @@ async function startController() {
     }
 
     const browserScheme = controllerTls.enabled ? 'https' : 'http';
-    console.log(`Print Farm Controller v${CONTROLLER_VERSION} running at ${browserScheme}://localhost:${PORT}`);
+    console.log(`Print Farm Controller v${CONTROLLER_VERSION} running at ${browserScheme}://localhost:${controllerTls.enabled?controllerTls.port:PORT}`);
     if (controllerAuth.enabled) {
       console.log(controllerAuth.setupRequired
         ? 'Authentication requires first administrator enrollment in the browser (Security & users) using the private code printed at controller startup.'
         : 'Native authentication and server-side RBAC ENABLED.');
       if (!controllerAuth.secure)console.warn('SECURITY WARNING: HTTP does not protect credentials. Configure HTTPS before production login.');
-      if (controllerTls.mode === 'self-signed') console.warn('HTTPS uses a self-signed certificate. Clients must explicitly trust its identity; configure matching SAN names via PFC_HTTPS_NAMES.');
+      if (controllerTls.mode === 'self-signed') console.warn('HTTPS uses a self-signed certificate. Clients must explicitly trust it; certificate names are configured under Security & users.');
 
     } else console.warn('SECURITY WARNING: Legacy unauthenticated LAN mode. Enrol an administrator to enable access controls.');
     const license = currentLicenseSnapshot();
     console.log(`Licence: ${license.label} (${license.source}; enforcement ${license.enforcementEnabled ? 'enabled' : 'disabled'})`);
-    console.log(`LAN access: ${browserScheme}://<certificate-SAN-host-or-ip>:${PORT}`);
+    console.log(`LAN access: ${browserScheme}://<controller-host-or-ip>:${controllerTls.enabled?controllerTls.port:PORT}`);
     console.log('Generic printer adapter + capability layer enabled (FlashForge AD5M + Snapmaker U1 + experimental Bambu P1P/P1S/X1C/A1 Mini)');
     console.log('Live fleet polling + SSE enabled');
     console.log('Concurrent client command arbitration + serialized shared mutations enabled');
