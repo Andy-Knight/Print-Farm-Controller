@@ -500,3 +500,28 @@ html.auth-pending body>aside,html.auth-pending body>header,html.auth-pending bod
 
 #tlsMaintenance[hidden]{display:none!important;}
 #tlsStatusMessage:not(:empty){display:block;margin:12px 0;color:var(--ds-text);}
+
+/* Security HTTPS tab: deliberate hierarchy — summary, settings, renewal. */
+.auth-tls-summary{padding:18px 20px;border:1px solid var(--ds-border);border-radius:var(--ds-radius-sm);background:var(--ds-surface-raised);}
+.auth-tls-summary h4{margin:0 0 14px;font-size:var(--ds-font-lg);}
+.auth-tls-summary .auth-tls-details{margin:10px 0 18px;}
+.auth-tls-summary .auth-tls-download{margin-top:14px;}
+.auth-tls-configure{max-width:100%;margin:18px 0 24px;}
+.auth-tls-maintenance{margin:24px 0 0;}
+.auth-tls-maintenance .auth-tls-regenerate{max-width:720px;padding:0;border-top:0;margin:0;}
+#tlsConfigureProvided .auth-pem-textarea{
+  display:block;width:100%;min-width:0;min-height:158px;
+  resize:vertical;box-sizing:border-box;
+  padding:12px;border:1px solid var(--ds-border);
+  border-radius:var(--ds-radius-sm);
+  background:var(--ds-surface);color:var(--ds-text);
+  font:var(--ds-font-sm)/1.55 ui-monospace,SFMono-Regular,Consolas,monospace;
+  overflow-wrap:anywhere;
+}
+#tlsConfigureProvided .auth-pem-textarea:focus-visible{outline:2px solid var(--ds-focus);outline-offset:2px;}
+#tlsConfigureProvided textarea::placeholder{color:var(--ds-text-subtle);}
+#tlsConfigureProvided #tlsPemTransportWarning{margin:0;}
+@media(max-width:700px){
+ .auth-tls-summary{padding:14px;}
+ #tlsConfigureProvided .auth-pem-textarea{min-height:130px;}
+}
