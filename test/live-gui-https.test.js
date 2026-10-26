@@ -44,13 +44,14 @@ async function stop(child){
   await Promise.race([ended,new Promise(resolve=>setTimeout(resolve,2500))]);
   if(child.exitCode===null&&child.signalCode===null)child.kill('SIGKILL');
 }
-function secureRequest(base,url,{method='GET',body,identity,origin,csrf=true}={}){
+function secureRequest(base,url,{method='GET',body,identity,origin,csrf=true,hostHeader}={}){
   return new Promise((resolve,reject)=>{
     const target=new URL(url,base);
     const agent=target.protocol==='https:'?https:http;
     const headers={};
     if(body)headers['content-type']='application/json';
     if(origin)headers.origin=origin;
+    if(hostHeader)headers.host=hostHeader;
     if(identity){
       headers.cookie=identity.cookie;
       if(csrf)headers['x-pfc-csrf']=identity.csrf;
@@ -169,6 +170,16 @@ test('real controller starts HTTP, switches to GUI-managed HTTPS and retains it 
     const redirect=await secureRequest(plain,'/printer-details?test=one');
     assert.equal(redirect.status,302);
     assert.equal(redirect.headers.location,secure+'/printer-details?test=one');
+    const metalLbRedirect=await secureRequest(plain,'/library?view=table',{
+      hostHeader:'127.0.0.1'
+    });
+    assert.equal(metalLbRedirect.status,302);
+    assert.equal(metalLbRedirect.headers.location,'https://127.0.0.1/library?view=table',
+      'browser on external port 80 must redirect to standard HTTPS port 443');
+    assert.equal((await secureRequest(plain,'/',{hostHeader:'example.attacker.test'})).status,421,
+      'an untrusted Host cannot cause an open redirect');
+    assert.equal((await secureRequest(plain,'/healthz',{hostHeader:'example.attacker.test'})).status,200,
+      'minimal health check is independent of browser host and TLS trust');
     assert.equal((await secureRequest(plain,'/api/health')).status,302,
       'HTTP API GET requests are never served in cleartext');
     assert.equal((await secureRequest(plain,'/api/auth/login',{
