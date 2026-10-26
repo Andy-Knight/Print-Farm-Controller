@@ -152,8 +152,11 @@ test('explicit dynamic API routes cover actual router action families',()=>{
 });
 
 test('HTTP and HTTPS dispatchers invoke authentication before emulator and API routes',()=>{
-  assert.match(server,/https\.createServer\(tlsOptions,handleControllerRequest\)/);
-  assert.match(server,/http\.createServer\(handleControllerRequest\)/);
+  assert.match(server,/https\.createServer\(options,handleControllerRequest\)/);
+  assert.match(server,/http\.createServer\(handleHttpRequest\)/);
+  assert.match(server,/if\(!httpsActive\)return void handleControllerRequest\(req,res\)/);
+  assert.match(server,/HTTP accepts no actions while HTTPS is enabled/);
+  assert.match(server,/req\.url==='\/healthz'/);
   assert.match(server,/ControllerAuth/);
   const auth=server.indexOf('controllerAuth.authorize(req,res,url');
   const emulator=server.indexOf('emulatorManager.handleApi(req, res, url)');
