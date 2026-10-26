@@ -14,11 +14,28 @@ import {AccountStore} from '../src/security/account-store.js';
 const cwd=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
 const password='GUI HTTPS transition integration 2026!';
 async function freePort(){
-  const s=net.createServer();
-  s.listen(0,'127.0.0.1');await once(s,'listening');
-  const port=s.address().port;
-  await new Promise(resolve=>s.close(resolve));
-  return port;
+  // Test-only HTTP PORT uses its immediately succeeding HTTPS port. Ensure
+  // both are free before exercising the two production listener roles.
+  for(let attempt=0;attempt<30;attempt++){
+    const first=net.createServer();
+    first.listen(0,'127.0.0.1');await once(first,'listening');
+    const port=first.address().port;
+    if(port>=65535){await new Promise(resolve=>first.close(resolve));continue;}
+    const second=net.createServer();
+    try{
+      await new Promise((resolve,reject)=>{
+        second.once('error',reject);
+        second.listen(port+1,'127.0.0.1',resolve);
+      });
+      await new Promise(resolve=>second.close(resolve));
+      await new Promise(resolve=>first.close(resolve));
+      return port;
+    }catch{
+      if(second.listening)await new Promise(resolve=>second.close(resolve));
+      await new Promise(resolve=>first.close(resolve));
+    }
+  }
+  throw Error('Unable to reserve an adjacent HTTP/HTTPS port pair');
 }
 async function stop(child){
   if(!child||child.exitCode!==null||child.signalCode!==null)return;
@@ -95,27 +112,31 @@ test('real controller starts HTTP, switches to GUI-managed HTTPS and retains it 
     await new AccountStore({dataDir}).bootstrapAdministrator({username:'guiadmin',password});
     const port=await freePort();
     const plain='http://127.0.0.1:'+port;
-    const secure='https://127.0.0.1:'+port;
+    const secure='https://127.0.0.1:'+(port+1);
     child=startController({dataDir,logDir,port,logs});
     await pollHealthy(plain,child);
     assert.equal((await secureRequest(plain,'/api/auth/session')).body.transportSecure,false);
     const admin=await login(plain);
     assert.equal((await secureRequest(plain,'/api/tls/status',{identity:admin})).body.tls.mode,'off');
-    const settings={mode:'self-signed',names:'127.0.0.1,localhost',port,password,confirm:'APPLY'};
+    const settings={mode:'self-signed',names:'127.0.0.1,localhost',password,confirm:'APPLY'};
     assert.equal((await secureRequest(plain,'/api/tls/configure',{
       method:'POST',origin:plain,identity:admin,csrf:false,body:settings
     })).status,403,'Origin and CSRF must protect native HTTPS setup');
     assert.equal((await secureRequest(plain,'/api/tls/configure',{
       method:'POST',origin:plain,identity:admin,body:{...settings,password:'wrong'}
     })).status,403,'admin password required for HTTPS setup');
-    // Failed port activation must restore the original working HTTP listener
-    // rather than strand the administrator or leave settings half-written.
-    const occupiedPort=await freePort();
-    blocker=net.createServer();
-    await new Promise(resolve=>blocker.listen(occupiedPort,'127.0.0.1',resolve));
-    const occupied=await secureRequest(plain,'/api/tls/configure',{
+    const attemptedOverride=await secureRequest(plain,'/api/tls/configure',{
       method:'POST',origin:plain,identity:admin,
-      body:{...settings,port:occupiedPort}
+      body:{...settings,port:port+12}
+    });
+    assert.equal(attemptedOverride.status,400,
+      'clients must not override immutable HTTPS ports even with admin credentials');
+    // An occupied HTTPS port must never take down the already listening
+    // HTTP endpoint or persist a broken certificate.
+    blocker=net.createServer();
+    await new Promise(resolve=>blocker.listen(port+1,'127.0.0.1',resolve));
+    const occupied=await secureRequest(plain,'/api/tls/configure',{
+      method:'POST',origin:plain,identity:admin,body:settings
     });
     assert.equal(occupied.status,202);
     let recovered=null;
@@ -126,9 +147,10 @@ test('real controller starts HTTP, switches to GUI-managed HTTPS and retains it 
       }catch{}
       await new Promise(resolve=>setTimeout(resolve,120));
     }
-    assert.ok(recovered?.lastError,'failed HTTPS bind must be reported to the administrator');
-    assert.equal(recovered.mode,'off','bind error must leave HTTP enabled');
-    assert.equal((await secureRequest(plain,'/api/health')).status,200);
+    assert.ok(recovered?.lastError,'occupied immutable HTTPS port must be reported');
+    assert.equal(recovered.mode,'off','failed HTTPS bind must leave HTTP enabled');
+    assert.equal((await secureRequest(plain,'/healthz')).status,200);
+    assert.equal((await secureRequest(plain,'/api/auth/session')).status,200);
     await new Promise(resolve=>blocker.close(resolve));blocker=null;
     for(const missing of [undefined,null,'']){
       const bypass=await secureRequest(plain,'/api/tls/configure',{
@@ -142,6 +164,16 @@ test('real controller starts HTTP, switches to GUI-managed HTTPS and retains it 
     assert.equal(accepted.status,202,accepted.text);
     assert.equal(accepted.body.mode,'self-signed');
     await pollHealthy(secure,child);
+    assert.equal((await secureRequest(plain,'/healthz')).status,200,
+      'Docker and K3s health checks use the permanent HTTP port');
+    const redirect=await secureRequest(plain,'/printer-details?test=one');
+    assert.equal(redirect.status,302);
+    assert.equal(redirect.headers.location,secure+'/printer-details?test=one');
+    assert.equal((await secureRequest(plain,'/api/health')).status,302,
+      'HTTP API GET requests are never served in cleartext');
+    assert.equal((await secureRequest(plain,'/api/auth/login',{
+      method:'POST',origin:plain,body:{username:'guiadmin',password}
+    })).status,403,'HTTP credentials must never be accepted after HTTPS activation');
     const session=await secureRequest(secure,'/api/auth/session',{identity:admin});
     assert.equal(session.body.transportSecure,true);
     assert.equal(session.body.user,null,'HTTP-era sessions revoked on HTTPS transition');
@@ -184,8 +216,9 @@ test('real controller starts HTTP, switches to GUI-managed HTTPS and retains it 
     child=startController({dataDir,logDir,port,logs});
     await pollHealthy(secure,child);
     assert.equal((await secureRequest(secure,'/api/auth/session')).body.transportSecure,true);
-    // A failed plain HTTP connection is not a bypass around TLS/RBAC.
-    await assert.rejects(()=>secureRequest(plain,'/api/auth/session'));
+    // Plain HTTP remains bound but only redirects or rejects requests.
+    assert.equal((await secureRequest(plain,'/api/auth/session')).status,302);
+    assert.equal((await secureRequest(plain,'/healthz')).status,200);
     const adminRestart=await login(secure);
     const persisted=await secureRequest(secure,'/api/tls/status',{identity:adminRestart});
     assert.equal(persisted.body.tls.certificate.fingerprint256,
