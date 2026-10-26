@@ -196,22 +196,28 @@ function ReportFiles({ files, sort }) {
     </tr>)}/>;
 }
 
-function ReportMaterials({ materials, materialMode }) {
-  const headings = [
-    { label:materialMode === 'type' ? 'Material type' : 'Filament' },
-    { label:'Used (kg)', numeric:true }, { label:'Share', numeric:true },
-    { label:'Estimated cost', numeric:true }, { label:'Usage' }
-  ];
-  return <ReportingTable label="Material usage" headers={headings} empty="No material usage captured for completed prints in this period."
-    rows={materials.rows.map((row) => <tr key={row.key}>
-      <td title={row.note || row.label}>{row.label}</td><td class="numeric">{row.kg}</td>
-      <td class="numeric">{row.percentage}</td><td class="numeric">{row.cost}</td>
-      <td><ReportingProgress percent={row.percent} /></td>
-    </tr>)}
-    footer={<tr class="reporting-total-row"><th scope="row">Total</th>
-      <td class="numeric">{materials.totalKg}</td><td class="numeric">100%</td>
-      <td class="numeric">{materials.totalCost}</td><td></td>
-    </tr>}/>;
+function ReportMaterials({ materials }) {
+  if (!materials.rows.length) return <div class="reporting-empty">No material usage captured for completed prints in this period.</div>;
+  return <div class="reporting-usage-chart" role="region" aria-label="Filament used in kilograms" tabindex="0">
+    <div class="reporting-usage-rows" role="list">
+      {materials.rows.map((row) => <div class="reporting-usage-row" role="listitem" key={row.key}>
+        <div class="reporting-usage-row-head">
+          <strong title={row.note || row.label}>{row.label}</strong>
+          <span class="reporting-usage-kg">{row.kg} kg</span>
+        </div>
+        <div class="reporting-usage-track" role="img"
+          aria-label={row.label + ': ' + row.kg + ' kilograms, ' + row.percentage + ' of recorded usage'}>
+          <span style={{ width:String(Math.max(0,Math.min(100,Number(row.barPercent || 0)))) + '%',
+            '--reporting-usage-colour':row.barColour || 'var(--ds-brand-strong)' }} />
+        </div>
+        <div class="reporting-usage-meta"><span>{row.percentage} of total</span><span>Recorded cost: {row.cost}</span></div>
+      </div>)}
+    </div>
+    <div class="reporting-usage-total">
+      <strong>Total filament used</strong><span>{materials.totalKg} kg</span>
+      <small>Recorded cost: {materials.totalCost}</small>
+    </div>
+  </div>;
 }
 
 function ProblemPrinters({ printers, hasActivity }) {
@@ -273,7 +279,7 @@ function normalizeState(detail = {}) {
     fileSort:detail.fileSort || { key:'completed', direction:'desc' },
     materials:detail.materials && Array.isArray(detail.materials.rows)
       ? detail.materials : { rows:[], totalKg:'0.00', totalCost:'—' },
-    materialMode:detail.materialMode === 'filament' ? 'filament' : 'type',
+    materialMode:detail.materialMode === 'type' ? 'type' : 'filament',
     filaments:Array.isArray(detail.filaments) ? detail.filaments : [],
     canManageFilaments:detail.canManageFilaments === true
   };
