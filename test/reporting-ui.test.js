@@ -600,7 +600,7 @@ test('filament usage is a token-based kg bar chart in both Preact and fallback r
     assert.ok(styles.includes('var('+token+')'),'kg graph must follow controller colour semantics: '+token);
   }
   assert.match(fs.readFileSync(new URL('../scripts/browser-regression.mjs',import.meta.url),'utf8'),
-    /Filament used in kilograms/);
+    /reporting-usage-row/);
 });
 
 test('the remaining three Analytics tables preserve the controller table design system', () => {
