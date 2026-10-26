@@ -2740,10 +2740,17 @@ async function shutdown() {
   fleetState.stop();
   cameraManager.stop();
   try { await emulatorManager.stop(); } catch {}
-  if(server?.listening)server.close();
-  if(httpServer?.listening)httpServer.close();
-  if(!server?.listening&&!httpServer?.listening)process.exit(0);
-  setTimeout(() => process.exit(0), 2000).unref();
+  const forceExit=setTimeout(()=>process.exit(0),2000);
+  forceExit.unref();
+  await Promise.all([server,httpServer].filter(listener=>listener?.listening).map(listener=>
+    new Promise(resolve=>{
+      listener.close(()=>resolve());
+      listener.closeAllConnections?.();
+      listener.closeIdleConnections?.();
+    })
+  ));
+  clearTimeout(forceExit);
+  process.exit(0);
 }
 
 process.on('SIGINT', shutdown);
