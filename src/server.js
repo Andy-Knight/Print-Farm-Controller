@@ -757,6 +757,12 @@ async function apiRoute(req, res, url) {
     const prepared=await controllerTls.prepareConfiguration(body);
     tlsChangeInProgress=true;
     res.setHeader('connection','close');
+    res.once('close',()=>{
+      if(!res.writableFinished){
+        tlsChangeInProgress=false;
+        void controllerTls.cancelPreparedConfiguration(prepared);
+      }
+    });
     res.once('finish',()=>{
       // The current HTTP/HTTPS request has to finish before the port can be
       // rebound. Do not restart the controller's queues or printer services.
