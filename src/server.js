@@ -2752,7 +2752,7 @@ async function swapControllerListener({options,port,secure}){
     :http.createServer(handleControllerRequest);
   try{
     await listenOn(replacement,secure?port:PORT);
-    controllerAuth.setNativeTransportSecure(secure);
+    controllerAuth.setNativeTransportSecure(secure,{forceRevoke:true});
     server=replacement;
   }catch(error){
     if(replacement.listening)replacement.close();
