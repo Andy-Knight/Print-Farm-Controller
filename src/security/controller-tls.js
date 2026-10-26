@@ -159,6 +159,12 @@ export class ControllerTls {
    * Prepare an administrator-requested GUI change *before* replying to the
    * HTTP request. The HTTP->HTTPS listener swap runs after response delivery.
    */
+  configurationMatches(input){
+    // Reapplying identical settings must neither replace the certificate
+    // nor disconnect users; explicit regeneration is a separate operation.
+    return JSON.stringify(settingsFor(input,{httpPort:this.#httpPort}))===
+      JSON.stringify(this.#settings);
+  }
   async prepareConfiguration(input){
     if(this.#busy)throw fail('An HTTPS configuration change is already in progress',409);
     this.#busy=true;
