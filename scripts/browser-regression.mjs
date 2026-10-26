@@ -2066,22 +2066,28 @@ async function routeSmoke(page,url) {
     }}));
   });
   await page.waitForFunction(() => !!document.querySelector('#reportingFiles .reporting-table-scroll'));
-  assert.equal(await page.locator('#reportingFiles .reporting-analytics-table thead th').count(),8);
+  assert.equal(await page.locator('#reportingFiles .reporting-analytics-table thead th').count(),6);
+  const columnLabels=await page.locator('#reportingFiles .reporting-analytics-table thead th').allTextContents();
+  assert.deepEqual(columnLabels.map(label=>label.trim().replace(/[▲▼↕]/g,'').trim()),
+    ['#','PRINT FILE','COMPLETED','FAILED','MATERIAL','COST'],
+    'only six ranking columns are shown, in the specified order');
   assert.match(await page.locator('#reportingFiles .reporting-file-material').innerText(),/0\.45 kg/);
   assert.match(await page.locator('#reportingFiles .reporting-file-cost').innerText(),/£6\.00/);
-  assert.equal(await page.locator('#reportingFiles .reporting-analytics-table tbody tr').first().locator('td').count(),8,
-    'Material and Cost must occupy distinct table cells');
+  assert.equal(await page.locator('#reportingFiles .reporting-analytics-table tbody tr').first().locator('td').count(),6,
+    'six visible cells, with Material and Cost in separate columns');
   const resourceColumns = await page.locator('#reportingFiles .reporting-analytics-table').evaluate(table => {
     const head=[...table.querySelectorAll('thead th')], row=[...table.querySelectorAll('tbody tr:first-child td')];
     const left=n=>n.getBoundingClientRect().left;
-    return {materialHeader:head[5].innerText,costHeader:head[6].innerText,
-      headingDelta:left(head[6])-left(head[5]),valueDelta:left(row[6])-left(row[5])};
+    return {materialHeader:head[4].innerText,costHeader:head[5].innerText,
+      headingDelta:left(head[5])-left(head[4]),valueDelta:left(row[5])-left(row[4])};
   });
   assert.match(resourceColumns.materialHeader,/Material/i);
   assert.match(resourceColumns.costHeader,/Cost/i);
   assert.ok(resourceColumns.headingDelta>40 && resourceColumns.valueDelta>40,
     'resource cells must be side by side, not stacked in one column');
-  assert.match(await page.locator('#reportingFiles .reporting-file-time').innerText(),/2h 0m/);
+  assert.equal(await page.locator('#reportingFiles .reporting-file-time').count(),0);
+  assert.equal(await page.locator('#reportingFiles [data-reporting-file-sort="runSeconds"]').count(),0);
+  assert.equal(await page.locator('#reportingFiles [data-reporting-file-sort="successRate"]').count(),0);
   assert.equal(await page.locator('#reportingFiles .reporting-progress').count(),0,
     'completed count must not also be duplicated as a popularity bar');
   // Compare the real Most popular print files table against the controller's
@@ -2162,7 +2168,7 @@ async function routeSmoke(page,url) {
   if(layout.columns===2){
     assert.ok(Math.abs(layout.filesWidth-layout.materialWidth)<3,
       'Popular files and kg graph must take equal desktop widths');
-    assert.equal(layout.filesScroll,true,'full eight-column file table scrolls inside its half');
+    assert.equal(layout.filesScroll,true,'six-column file table scrolls inside its half when required');
   }
   assert.equal(layout.chartPresent,true);
   assert.equal(layout.viewportOverflow,false,'paired analytics cannot overflow the document');
@@ -2360,11 +2366,11 @@ async function routeSmoke(page,url) {
   assert.ok(reportingLayout.fileTableWidth >= reportingLayout.fileCardWidth - 40,
     'Print file table must fill its section, not stop at a fixed narrow width');
   assert.ok(reportingLayout.tableOverhang > 0,
-    'The complete eight-column ranking table must scroll within its half-width card');
+    'The six-column ranking table remains locally scrollable at laptop widths');
   // This fixture is sent directly to Preact, not injected into the server's
   // persisted report. Confirm that accessible sort controls are rendered;
   // the executable reporting UI tests cover actual ordering and direction.
-  for (const key of ['runSeconds','materialGrams','materialCost']) {
+  for (const key of ['materialGrams','materialCost']) {
     const button=page.locator('#reportingFiles [data-reporting-file-sort="'+key+'"]');
     assert.equal(await button.count(),1,'sortable resource column '+key+' must be rendered');
     assert.equal(await button.getAttribute('aria-pressed'),'false');
