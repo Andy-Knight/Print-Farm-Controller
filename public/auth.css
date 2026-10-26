@@ -436,3 +436,23 @@ html.auth-pending body>aside,html.auth-pending body>header,html.auth-pending bod
   .auth-input-wrap>input{transition:none}
   .auth-brand-symbol::after{animation:auth-logo-layer 3.5s ease-in-out infinite}
 }
+
+/* Security & users: administrator-only native HTTPS certificate management. */
+#tlsSettings[hidden],#tlsRegenerateForm[hidden],#tlsDownloadBtn[hidden]{display:none!important;}
+.auth-tls-settings{margin-top:20px;max-width:100%;}
+.auth-tls-details{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px 24px;margin:16px 0;}
+.auth-tls-details>div{min-width:0;border-bottom:1px solid var(--ds-border);padding:8px 0;}
+.auth-tls-details dt{font-size:var(--ds-font-sm);color:var(--ds-text-muted);font-weight:650;}
+.auth-tls-details dd{margin:4px 0 0;overflow-wrap:anywhere;font-size:var(--ds-font-sm);color:var(--ds-text);}
+.auth-tls-download{display:inline-flex;align-items:center;justify-content:center;
+  text-decoration:none;min-height:var(--ds-button-height);padding:8px 16px;
+  border:1px solid var(--ds-border);border-radius:var(--ds-radius-sm);
+  background:var(--ds-surface-raised);color:var(--ds-text);font-weight:650;}
+.auth-tls-download:focus-visible{outline:2px solid var(--ds-focus);outline-offset:2px;}
+.auth-tls-regenerate{max-width:620px;margin-top:22px;padding-top:20px;border-top:1px solid var(--ds-border);}
+.auth-tls-regenerate h4{margin:0;font-size:var(--ds-font-lg);}
+.auth-tls-confirm{display:flex!important;flex-direction:row;align-items:flex-start;gap:12px;}
+.auth-tls-confirm input{width:20px;min-width:20px;min-height:20px;margin:2px 0 0;accent-color:var(--ds-brand);}
+.auth-tls-regenerate .actions{display:flex;gap:12px;}
+.auth-tls-regenerate button{min-height:var(--ds-button-height);}
+@media(max-width:700px){.auth-tls-details{grid-template-columns:minmax(0,1fr);}}
