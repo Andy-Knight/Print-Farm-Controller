@@ -378,6 +378,12 @@ function syncTlsConfigureFields(){
   const initialExternal=$('#tlsConfigureForm')?.dataset.savedMode!=='provided';
   $('#tlsConfigureManaged').hidden=mode!=='self-signed';
   $('#tlsConfigureProvided').hidden=mode!=='provided';
+  if(mode!=='provided'){
+    // Changing away from external mode must discard any unsent secret pasted
+    // into this page, even if the administrator later changes their mind.
+    $('#tlsConfigurePrivateKeyPem').value='';
+    $('#tlsConfigureCertificatePem').value='';
+  }
   $('#tlsConfigureNames').required=mode==='self-signed';
   $('#tlsConfigureCertificatePem').required=mode==='provided'&&initialExternal;
   $('#tlsConfigurePrivateKeyPem').required=mode==='provided'&&initialExternal;
