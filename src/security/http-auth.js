@@ -69,6 +69,10 @@ export class ControllerAuth {
     // NOT encrypt credentials or cookies in transit. PFC_AUTH_REQUIRED=0 is
     // an explicit pre-enrollment legacy opt-out; PFC_AUTH_ALLOW_HTTP=0
     // explicitly requires HTTPS for password entry.
+    const nativeHttps=['self-signed','provided'].includes(String(env.PFC_HTTPS_MODE||'off').toLowerCase());
+    if(nativeHttps&&this.#origin&&!this.#secure)
+      throw new Error('PFC_PUBLIC_ORIGIN must use https:// when native HTTPS is enabled');
+    if(nativeHttps)this.#secure=true;
     this.#allowHttp=env.PFC_AUTH_ALLOW_HTTP!=='0';
     this.#enabled=env.PFC_AUTH_REQUIRED!=='0';
   }
@@ -108,7 +112,7 @@ export class ControllerAuth {
       (this.#secure?'; Secure':'')+'; Max-Age='+(token?86400:0));
   }
   #expectedOrigin(req){
-    return this.#origin||'http://'+String(req.headers.host||'');
+    return this.#origin||(this.#secure?'https://':'http://')+String(req.headers.host||'');
   }
   #originAllowed(req){
     const origin=String(req.headers.origin||'');
@@ -305,6 +309,30 @@ export class ControllerAuth {
       return true;
     }
     return bad(res,json,404,'Authentication route not found');
+  }
+  /**
+   * Certificate endpoints stay administrator-only even when an installation
+   * explicitly opted into legacy unauthenticated mode. Requiring the current
+   * password also limits damage from an unattended unlocked admin session.
+   */
+  async assertAdministrator(req, password = null) {
+    const identity=await this.#identity(req);
+    if(!this.#enabled||this.#setupRequired||identity?.user?.role!=='administrator')
+      throw Object.assign(new Error('Administrator sign-in required'),{statusCode:403});
+    if(MUTATIONS.has(req.method)&&!this.#mutationAllowed(req,identity))
+      throw Object.assign(new Error('Origin or CSRF verification failed'),{statusCode:403});
+    if(password!==null){
+      const username=identity.user.username;
+      const address=req.socket?.remoteAddress||'unknown';
+      if(typeof password!=='string'||!this.#limiter.canAttempt(username,address))
+        throw Object.assign(new Error('Reauthentication unavailable. Try again later.'),{statusCode:429});
+      if(!await this.#accounts.authenticate(username,password)){
+        this.#limiter.recordFailure(username,address);
+        throw Object.assign(new Error('Current password is incorrect'),{statusCode:403});
+      }
+      this.#limiter.recordSuccess(username,address);
+    }
+    return identity.user;
   }
   /** Refuse all unknown controller API actions even to administrators. */
   async authorize(req,res,url,{json}){
