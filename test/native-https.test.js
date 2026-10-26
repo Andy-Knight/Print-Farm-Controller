@@ -175,23 +175,72 @@ test('existing damaged TLS identity fails closed instead of returning to anonymo
   }finally{await fs.rm(dataDir,{recursive:true,force:true});}
 });
 
-test('provided certificates are selected through controller file paths, never overwritten',async()=>{
+test('pasted external PEM pair persists without storing private key in settings or returning it in status',async()=>{
+  const dataDir=await tempDir();
+  const pair=createSelfSignedCertificate({names:['controller.example.test','127.0.0.1']});
+  try{
+    const tls=new ControllerTls({dataDir});
+    await tls.init();
+    const input={mode:'provided',certificatePem:pair.cert,privateKeyPem:pair.key};
+    const change=await tls.prepareConfiguration(input);
+    await tls.applyConfiguration(change,async()=>{});
+    assert.equal(tls.status().canRegenerate,false);
+    assert.equal(tls.status().certificateSource,'pasted-pem');
+    assert.equal(tls.configurationMatches({mode:'provided'}),true);
+    assert.equal(tls.configurationMatches(input),false,'pasted PEM triggers explicit reimport');
+    assert.equal(tls.publicCertificate(),pair.cert);
+    assert.equal(tls.hostMatchesCertificate('controller.example.test'),true);
+    assert.equal(tls.hostMatchesCertificate('different.host.test'),false);
+    const dir=path.join(dataDir,'tls');
+    const saved=await fs.readFile(path.join(dir,'settings.json'),'utf8');
+    assert.doesNotMatch(saved,/BEGIN|PRIVATE KEY|certFile|keyFile/);
+    assert.doesNotMatch(JSON.stringify(tls.status()),/BEGIN PRIVATE KEY|certFile|keyFile/);
+    const pointer=JSON.parse(await fs.readFile(path.join(dir,'current.json'),'utf8'));
+    const keyFile=path.join(dir,'identities',pointer.id,'key.pem');
+    assert.equal(await fs.readFile(keyFile,'utf8'),pair.key);
+    if(process.platform!=='win32')assert.equal((await fs.stat(keyFile)).mode&0o777,0o600);
+    const restart=new ControllerTls({dataDir});
+    assert.equal((await restart.init()).cert,pair.cert);
+    assert.equal(restart.status().certificateSource,'pasted-pem');
+    await assert.rejects(()=>tls.regenerate({setSecureContext(){}}),/Only controller-managed/);
+    await assert.rejects(()=>tls.prepareConfiguration({mode:'provided',
+      certificatePem:pair.cert,privateKeyPem:'-----BEGIN PRIVATE KEY-----\ninvalid\n-----END PRIVATE KEY-----'}),
+      /error|invalid|decode|ASN|PEM|header|key|certificate/i);
+    assert.equal(tls.publicCertificate(),pair.cert);
+  }finally{await fs.rm(dataDir,{recursive:true,force:true});}
+});
+
+test('provided PEM validation rejects incomplete, oversized and missing pairs',async()=>{
+  const dataDir=await tempDir();
+  try{
+    const tls=new ControllerTls({dataDir});
+    await tls.init();
+    for(const input of [
+      {mode:'provided'},
+      {mode:'provided',certificatePem:'-----BEGIN CERTIFICATE-----'},
+      {mode:'provided',privateKeyPem:'-----BEGIN PRIVATE KEY-----'},
+      {mode:'provided',certificatePem:'x'.repeat(131073),privateKeyPem:'key'}
+    ])await assert.rejects(()=>tls.prepareConfiguration(input),/Paste|large/);
+    assert.equal(tls.status().mode,'off');
+    assert.equal(tls.configurationMatches({mode:'off'}),true);
+  }finally{await fs.rm(dataDir,{recursive:true,force:true});}
+});
+
+test('legacy file-path configuration still loads but is not exposed or accepted through GUI',async()=>{
   const dataDir=await tempDir();
   const pair=createSelfSignedCertificate({names:['localhost']});
-  const certFile=path.join(dataDir,'external.crt'),keyFile=path.join(dataDir,'external.key');
+  const certFile=path.join(dataDir,'legacy-cert.pem'),keyFile=path.join(dataDir,'legacy-key.pem');
   try{
-    await fs.writeFile(certFile,pair.cert);await fs.writeFile(keyFile,pair.key);
+    await fs.mkdir(path.join(dataDir,'tls'),{recursive:true});
+    await fs.writeFile(certFile,pair.cert);
+    await fs.writeFile(keyFile,pair.key);
+    await fs.writeFile(path.join(dataDir,'tls','settings.json'),
+      JSON.stringify({version:1,mode:'provided',names:['localhost'],certFile,keyFile}));
     const tls=new ControllerTls({dataDir});
-    assert.equal(await tls.init(),null);
-    const choice=await tls.prepareConfiguration({mode:'provided',certFile,keyFile});
-    await tls.applyConfiguration(choice,async()=>{});
-    assert.equal(tls.status().canRegenerate,false);
-    assert.equal(tls.status().certFile,certFile);
-    await assert.rejects(()=>tls.regenerate({setSecureContext(){}}),/Only controller-managed/);
-    assert.equal(await fs.readFile(keyFile,'utf8'),pair.key);
-    assert.equal((await new ControllerTls({dataDir}).init()).cert,pair.cert);
-    await assert.rejects(()=>tls.prepareConfiguration({mode:'provided',certFile,keyFile:'/missing/private.key'}),
-      /ENOENT/);
+    assert.equal((await tls.init()).cert,pair.cert);
+    assert.equal(tls.status().certificateSource,'legacy-mounted-files');
+    assert.equal('certFile' in tls.status(),false);
+    assert.equal(tls.configurationMatches({mode:'provided',certFile,keyFile}),false);
   }finally{await fs.rm(dataDir,{recursive:true,force:true});}
 });
 
