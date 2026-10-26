@@ -2063,7 +2063,7 @@ async function routeSmoke(page,url) {
   }
   // Five equal-width KPI cards remain readable and on one row at a wide
   // desktop viewport; they stack without page overflow on small screens.
-  for (const width of [1920,1365,900,620,390,320]) {
+  for (const width of [1920,1365,1200,1050,900,620,390,320]) {
     await page.setViewportSize({width,height:900});
     const layout=await page.evaluate(()=>{
       const parent=document.querySelector('#reportingKpis');
