@@ -69,16 +69,30 @@ export class ControllerAuth {
     // NOT encrypt credentials or cookies in transit. PFC_AUTH_REQUIRED=0 is
     // an explicit pre-enrollment legacy opt-out; PFC_AUTH_ALLOW_HTTP=0
     // explicitly requires HTTPS for password entry.
-    const nativeHttps=['self-signed','provided'].includes(String(env.PFC_HTTPS_MODE||'off').toLowerCase());
-    if(nativeHttps&&this.#origin&&!this.#secure)
-      throw new Error('PFC_PUBLIC_ORIGIN must use https:// when native HTTPS is enabled');
-    if(nativeHttps)this.#secure=true;
     this.#allowHttp=env.PFC_AUTH_ALLOW_HTTP!=='0';
     this.#enabled=env.PFC_AUTH_REQUIRED!=='0';
   }
   get enabled(){return this.#enabled;}
   get setupRequired(){return this.#setupRequired;}
   get secure(){return this.#secure;}
+  /**
+   * Browser transport changes only after the underlying listener is swapped.
+   * Existing HTTP-issued sessions must never carry over into HTTPS: a stolen
+   * HTTP cookie may otherwise be replayed as a privileged Secure session.
+   */
+  setNativeTransportSecure(enabled,{revokeSessions=true}={}){
+    if(enabled&&this.#origin&&new URL(this.#origin).protocol!=='https:')
+      throw new Error('An existing HTTP PFC_PUBLIC_ORIGIN conflicts with native HTTPS; clear this legacy proxy setting');
+    const next=Boolean(enabled)||Boolean(this.#origin?.startsWith('https://'));
+    if(this.#secure===next)return;
+    this.#secure=next;
+    if(revokeSessions){
+      this.#sessions.clear();
+      for(const streams of this.#streams.values())
+        for(const res of streams)if(!res.destroyed)res.destroy();
+      this.#streams.clear();
+    }
+  }
   async init(){
     const dataDir=path.dirname(path.dirname(this.#accounts.filePath));
     const marker=path.join(dataDir,'security','enabled');
