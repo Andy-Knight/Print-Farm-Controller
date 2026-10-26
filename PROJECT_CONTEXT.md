@@ -11,7 +11,7 @@ Repository policy: `AGENTS.md` defines agent startup behavior; `docs/DOCUMENTATI
 - Repository: `Andy-Knight/Print-Farm-Controller`
 - Project path: repository root (`/`)
 - Primary branch: `main` (current production baseline)
-- Current controller source version: **0.60.0**.
+- Current controller source version: **0.60.1**.
 - Previous baseline audited: **0.48.0** (main before the regression test audit release).
 - Runtime: **Node.js 24.22.1+** (Node 24 release line), ES modules; build-time **npm 12.2.0** and committed lockfile; no npm runtime dependency for deployed controller. Follow `docs/dependency-security.md` for updates.
 - GitHub is the authoritative code baseline.
@@ -22,7 +22,7 @@ Repository policy: `AGENTS.md` defines agent startup behavior; `docs/DOCUMENTATI
 - **UI baselines:** Print Library uses sidebar-aware full workspace width, aligned sticky headings and responsive cards; the decorative login scene zooms at layer 04 into four printer beds without exposing telemetry.
 - **Authentication/RBAC:** Enabled by default. First administrator setup requires a private startup-log code. HTTP credentials/sessions remain interceptable until browser TLS is configured; `PFC_AUTH_ALLOW_HTTP=0` blocks HTTP login. A durable activation marker forbids anonymous fallback if account data is lost. Offline recovery is available.
 - **Native HTTPS:** GUI-managed direct HTTP 4242 / HTTPS 4243; container Services may expose 80/443. Administrators select managed self-signed, externally pasted PEM (HTTPS-only import) or HTTP-only in Security & users → Connection settings. Keys persist in protected TLS identities. With TLS active, HTTP permits limited health and redirects browser GET/HEAD; mutations are blocked. Certificate renewal is explicit and password-protected; unchanged Apply preserves identity and sessions. Windows install, TLS activation/renewal/restart and Kubernetes HTTPS/redeployment persistence passed manual testing. External PEM import still needs manual acceptance. See `docs/HTTPS_CONFIGURATION.md`; issue #128 tracks ingress.
-- **User lifecycle:** Administrators can create, edit, disable and permanently delete other users through Security & users → Users. Deletion requires browser confirmation; the server enforces administrator-only requests with origin/CSRF checks, rejects self-deletion and deletion of the last enabled administrator, and revokes the deleted user's sessions and open streams. Work is under `feature/user-account-deletion` pending CI and manual UI approval.
+- **User lifecycle:** Administrators can add, edit, disable and permanently delete other users under Security & users → Users. Deletion requires explicit confirmation and current administrator privileges with origin/CSRF checks; the current account and last enabled administrator cannot be deleted. Deleted users' sessions and active streams are immediately revoked; account removal is persistent. 
 - **Role boundary:** Operators can run print jobs and maintain library metadata/filament assignments but cannot delete Print Library items, purge queue history or edit shared catalogue costs; all restrictions are server-enforced.
 - **Validation:** Complete unit/browser, licence, simulator, Windows SEA and container gates before releasing; physical Creator 5/Bambu validation remains incomplete. Preserve protected recovery and backup/restore boundaries.
 
