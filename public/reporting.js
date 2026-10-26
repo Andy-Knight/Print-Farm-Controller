@@ -532,9 +532,10 @@ function reportingKpiViewModel(report = {}) {
   // The reporting service tallies material grams only for completed jobs,
   // including older entries that have weight but no identifiable filament.
   const recordedGrams=Number(totals.materialGrams);
-  const hasRecordedUsage=Number.isFinite(recordedGrams) && recordedGrams >= 0
-    && (recordedGrams > 0 || Number(totals.completed || 0) === 0);
-  const materialValue=hasRecordedUsage ? `${formatNumber(recordedGrams / 1000, 2)} kg` : '—';
+  const hasCompletedPrints=Number(totals.completed || 0) > 0;
+  const hasRecordedUsage=!hasCompletedPrints || (Number.isFinite(recordedGrams) && recordedGrams > 0);
+  const materialValue=hasRecordedUsage
+    ? `${formatNumber((Number.isFinite(recordedGrams) ? recordedGrams : 0) / 1000, 2)} kg` : '—';
   const materialChange=hasRecordedUsage && hasPrevious && Number.isFinite(Number(previous.materialGrams))
     ? reportingPreviousPeriodChange(recordedGrams,previous.materialGrams,true,'neutral')
     : reportingPreviousPeriodChange(0,0,false,'neutral');
