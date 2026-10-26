@@ -2336,8 +2336,8 @@ async function routeSmoke(page,url) {
     'Most popular files must follow the trend graph');
   assert.ok(reportingLayout.fileTableWidth >= reportingLayout.fileCardWidth - 40,
     'Print file table must fill its section, not stop at a fixed narrow width');
-  assert.ok(reportingLayout.tableOverhang <= 2,
-    'Desktop print file table must not require horizontal scrolling');
+  assert.ok(reportingLayout.tableOverhang > 0,
+    'The complete eight-column ranking table must scroll within its half-width card');
   // This fixture is sent directly to Preact, not injected into the server's
   // persisted report. Confirm that accessible sort controls are rendered;
   // the executable reporting UI tests cover actual ordering and direction.
