@@ -85,6 +85,7 @@ read('/api/license', P.SYSTEM_READ);
 read('/api/tls/status', P.USER_MANAGE);
 read('/api/tls/certificate', P.USER_MANAGE);
 write('POST', '/api/tls/regenerate', P.USER_MANAGE);
+write('POST', '/api/tls/configure', P.USER_MANAGE);
 exact('POST', '/api/license/install', P.LICENSE_MANAGE);
 read('/api/adapters', P.SYSTEM_READ);
 read('/api/events', P.PRINTER_READ); // SSE contains fleet, queue and alerts
