@@ -371,7 +371,10 @@ async function loadTlsSettings(){
     $('#tlsPort').textContent=tls.enabled?String(tls.port):'Not enabled';
     const cert=tls.certificate;
     $('#tlsSubject').textContent=cert?.subject||'No certificate';
+    $('#tlsIssuer').textContent=cert?.issuer||'—';
     $('#tlsNames').textContent=cert?.subjectAltName||'—';
+    $('#tlsIssued').textContent=cert?.validFrom?new Date(cert.validFrom).toLocaleString():'—';
+    $('#tlsSerial').textContent=cert?.serialNumber||'—';
     $('#tlsExpiry').textContent=cert?.validTo
       ?new Date(cert.validTo).toLocaleString()+' ('+cert.daysRemaining+' days remaining)'
       :'—';
