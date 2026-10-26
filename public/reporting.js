@@ -744,12 +744,12 @@ function renderReport(report) {
       const hasRate = progress != null;
       const safeTone = ['positive','negative','info'].includes(item.tone) ? item.tone : 'info';
       return `<div class="reporting-kpi reporting-kpi-${safeTone}">
+        <span class="reporting-kpi-label">${escapeHtml(item.label)}</span>
         <span class="reporting-kpi-gauge${hasRate ? '' : ' reporting-kpi-gauge-neutral'}"
             style="--reporting-kpi-angle:${hasRate ? progress * 3.6 : 0}deg" aria-hidden="true">
           <span class="reporting-kpi-icon">${reportingKpiSvg(item.iconName)}</span>
         </span>
         <div class="reporting-kpi-body">
-          <span class="reporting-kpi-label">${escapeHtml(item.label)}</span>
           <strong>${escapeHtml(item.value)}</strong>
           <small>${escapeHtml(item.detail)}</small>
           ${hasRate ? `<div class="reporting-kpi-meter" role="progressbar" aria-label="${escapeHtml(item.progressLabel)}"
