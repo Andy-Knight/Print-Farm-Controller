@@ -3193,8 +3193,13 @@ button.library-file-preview { cursor:zoom-in; }
 }
 .reporting-segmented button:focus-visible { outline:2px solid var(--ds-focus); outline-offset:2px; filter:none; }
 .reporting-table-scroll { width:100%; max-width:100%; min-width:0; max-height:365px; overflow:auto; border:1px solid var(--ds-border,#29323b); border-radius:10px; scrollbar-gutter:stable; }
-.reporting-analytics-files { grid-column:1 / -1; }
-.reporting-analytics-files .reporting-analytics-table { width:100%; min-width:0; table-layout:fixed; }
+/* Popular files and filament use share the desktop row at equal widths.
+   The eight-column file table stays intact with its own keyboard-scrollable
+   viewport, never forcing the entire Analytics panel to overflow. */
+.reporting-analytics-files,.reporting-analytics-materials { grid-column:auto; }
+.reporting-analytics-files .reporting-table-scroll { overflow:auto; }
+
+.reporting-analytics-files .reporting-analytics-table { width:100%; min-width:880px; table-layout:fixed; }
 /* Eight independent file-ranking columns; resource values never stack. */
 .reporting-analytics-files .reporting-analytics-table th:nth-child(1),
 .reporting-analytics-files .reporting-analytics-table td:nth-child(1) { width:4%; }
@@ -3224,6 +3229,35 @@ button.library-file-preview { cursor:zoom-in; }
 @media (max-width:760px) {
   /* Small screens scroll inside the file table rather than cropping columns. */
   .reporting-analytics-files .reporting-analytics-table { min-width:960px; }
+}
+/* Kilogram-based filament usage chart. Width encodes kg relative to the
+   largest filament, NOT percentage of total. Filament colour follows the
+   current catalogue when available, otherwise the theme brand tone. */
+.reporting-usage-chart {
+  width:100%;min-width:0;max-height:365px;overflow:auto;
+  border:1px solid var(--pfc-table-border);border-radius:var(--pfc-table-radius);
+  background:var(--pfc-table-surface);scrollbar-gutter:stable;
+}
+.reporting-usage-rows{display:grid;gap:0;}
+.reporting-usage-row{min-width:0;padding:11px 13px;border-bottom:1px solid var(--pfc-table-divider);}
+.reporting-usage-row:hover{background:var(--pfc-table-hover);}
+.reporting-usage-row-head,.reporting-usage-meta{display:flex;justify-content:space-between;gap:10px;align-items:baseline;}
+.reporting-usage-row-head strong{font-size:var(--ds-font-sm);font-weight:700;color:var(--ds-text);overflow-wrap:anywhere;min-width:0;}
+.reporting-usage-kg{flex:none;font-variant-numeric:tabular-nums;font-size:var(--ds-font-sm);font-weight:800;color:var(--ds-text);}
+.reporting-usage-track{height:13px;margin:9px 0 6px;background:var(--ds-surface-muted);
+  border:1px solid var(--ds-border);border-radius:var(--ds-radius-sm);overflow:hidden;}
+.reporting-usage-track>span{display:block;height:100%;min-width:1px;max-width:100%;
+  background:var(--reporting-usage-colour,var(--ds-brand-strong));border-radius:inherit;}
+.reporting-usage-meta{color:var(--ds-text-muted);font-size:.7rem;flex-wrap:wrap;}
+.reporting-usage-total{display:flex;gap:8px 12px;flex-wrap:wrap;align-items:baseline;
+  padding:12px 13px;background:var(--ds-surface-raised);color:var(--ds-text);}
+.reporting-usage-total strong{font-size:var(--ds-font-sm);margin-right:auto;}
+.reporting-usage-total>span{font-weight:850;font-variant-numeric:tabular-nums;}
+.reporting-usage-total small{flex-basis:100%;font-size:.7rem;color:var(--ds-text-muted);}
+.reporting-usage-chart:focus-visible{outline:2px solid var(--ds-focus);outline-offset:2px;}
+@media (max-width:620px){
+  .reporting-usage-chart{scrollbar-gutter:auto;}
+  .reporting-usage-row{padding:10px;}
 }
 .reporting-table-content { min-height:110px; }
 .reporting-analytics-table { width:100%; min-width:540px; border-collapse:separate; border-spacing:0; color:inherit; font-size:.76rem; }
