@@ -60,7 +60,15 @@ test('new installations start HTTP; GUI selection persists managed TLS across re
     assert.equal(persisted.status().certificate.fingerprint256,fingerprint);
     const pointer=JSON.parse(await fs.readFile(path.join(dataDir,'tls','current.json'),'utf8'));
     const keyPath=path.join(dataDir,'tls','identities',pointer.id,'key.pem');
-    assert.equal((await fs.stat(keyPath)).mode & 0o777,0o600);
+    const keyStat=await fs.stat(keyPath);
+    assert.equal(keyStat.isFile(),true);
+    assert.match(await fs.readFile(keyPath,'utf8'),/-----BEGIN PRIVATE KEY-----/);
+    // Node's Windows fs.stat().mode is not an NTFS ACL representation:
+    // fs.writeFile({mode:0o600}) can still stat as 0o666 on Windows.
+    // Assert POSIX owner-only permissions where the mode bits are meaningful.
+    // NTFS ACL restrictions require separate Windows-specific validation.
+    if (process.platform !== 'win32')
+      assert.equal(keyStat.mode & 0o777,0o600);
   }finally{await fs.rm(dataDir,{recursive:true,force:true});}
 });
 
