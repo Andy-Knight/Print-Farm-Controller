@@ -2144,15 +2144,33 @@ async function routeSmoke(page,url) {
     assert.equal(ours.firstCell.borderRight,'0px',
       theme+' file table body should not contain isolated vertical gridlines');
   }
-  // Material usage table shares printer-group table skin (both modes and
-  // themes). Keep the actual data cells, 100% total and progress bars intact.
-  for (const [mode, label] of [['type','ASA'],['filament','Example · ASA-CF · ASA']]) {
+  // The popular-files table now shares one 50/50 desktop row with the
+  // filament kilogram bar chart. Neither half may overflow the whole page.
+  const layout=await page.evaluate(()=>{
+    const grid=document.querySelector('.reporting-analytics-grid');
+    const files=document.querySelector('.reporting-analytics-files');
+    const materials=document.querySelector('.reporting-analytics-materials');
+    const chart=document.querySelector('#reportingMaterials');
+    const left=files.getBoundingClientRect(),right=materials.getBoundingClientRect();
+    return {columns:getComputedStyle(grid).gridTemplateColumns.split(' ').length,
+      filesWidth:left.width,materialWidth:right.width,
+      filesScroll:files.querySelector('.reporting-table-scroll').scrollWidth >
+        files.querySelector('.reporting-table-scroll').clientWidth,
+      viewportOverflow:document.documentElement.scrollWidth>innerWidth+2,
+      chartPresent:chart!==null};
+  });
+  if(layout.columns===2){
+    assert.ok(Math.abs(layout.filesWidth-layout.materialWidth)<3,
+      'Popular files and kg graph must take equal desktop widths');
+    assert.equal(layout.filesScroll,true,'full eight-column file table scrolls inside its half');
+  }
+  assert.equal(layout.chartPresent,true);
+  assert.equal(layout.viewportOverflow,false,'paired analytics cannot overflow the document');
+  for (const [mode,label] of [['filament','Example · ASA-CF · ASA'],['type','ASA']]) {
     await page.evaluate(({mode,label})=>{
       const base=window.__PFC_REPORTING_UI_STATE__ || {};
       window.dispatchEvent(new CustomEvent('pfc:reporting-ui-state',{detail:{
         ...base,materialMode:mode,
-        // Keep the earlier file-geometry fixture in Preact state: dispatching
-        // this custom event replaces the entire view model, not just materials.
         files:[{
           id:'layout-check',rank:1,fileName:'Regression layout sample.3mf',
           libraryFileId:null,previewUrl:'',completed:10,failed:0,
@@ -2164,75 +2182,57 @@ async function routeSmoke(page,url) {
         }],
         materials:{rows:[
           {key:'sample',label,note:'Historical materials sample',
-            kg:'1.50',percentage:'75.0%',percent:75,cost:'£19.50'},
+            kg:'1.50',percentage:'75.0%',percent:75,barPercent:100,
+            barColour:'#dc5964',cost:'£19.50'},
           {key:'sample2',label:'PLA',note:'',kg:'0.50',
-            percentage:'25.0%',percent:25,cost:'£4.50'}
+            percentage:'25.0%',percent:25,barPercent:33.33,
+            barColour:'var(--ds-brand-strong)',cost:'£4.50'}
         ],totalKg:'2.00',totalCost:'£24.00'}
       }}));
     },{mode,label});
-    await page.waitForFunction((materialLabel) =>
-      document.querySelector('#reportingMaterials tbody tr td')?.textContent === materialLabel,label);
-    const styling=await page.evaluate(()=>{
-      const fixture=document.createElement('div');
-      fixture.style.cssText='position:fixed;left:-5000px;top:0';
-      fixture.innerHTML='<div class="printer-group-members"><table class="printer-group-members-table">'
-        +'<thead><tr><th>Material</th></tr></thead><tbody><tr><td>Material</td></tr></tbody></table></div>';
-      document.body.appendChild(fixture);
+    await page.waitForFunction((materialLabel)=>
+      document.querySelector('#reportingMaterials .reporting-usage-row-head strong')?.textContent===materialLabel,label);
+    const rows=page.locator('#reportingMaterials .reporting-usage-row');
+    assert.equal(await rows.count(),2,mode+' retains all historical kg rows');
+    assert.equal(await page.locator('#reportingMaterials .reporting-usage-total>span').textContent(),'2.00 kg');
+    assert.match(await page.locator('#reportingMaterials .reporting-usage-total').innerText(),/£24.00/);
+    assert.match(await rows.first().locator('.reporting-usage-track').getAttribute('aria-label'),/1.50 kilograms, 75.0%/);
+    const themes=await page.evaluate(()=>{
       const original=document.documentElement.getAttribute('data-theme');
-      const props=node=>{
-        const s=getComputedStyle(node);
-        return {bg:s.backgroundColor,color:s.color,fontSize:s.fontSize,
-          fontWeight:s.fontWeight,letterSpacing:s.letterSpacing,
-          textTransform:s.textTransform,borderRadius:s.borderTopLeftRadius,
-          borderColor:s.borderTopColor,borderBottom:s.borderBottomColor,
-          borderWidth:s.borderRightWidth,divider:s.getPropertyValue('--pfc-table-divider').trim()};
-      };
-      const output={};
+      const values={};
       try {
-        for(const theme of ['dark','light']){
+        for (const theme of ['dark','light']){
           document.documentElement.setAttribute('data-theme',theme);
-          output[theme]={
-            ours:{
-              panel:props(document.querySelector('#reportingMaterials .reporting-table-scroll')),
-              heading:props(document.querySelector('#reportingMaterials thead th')),
-              row:props(document.querySelector('#reportingMaterials tbody td')),
-              footer:props(document.querySelector('#reportingMaterials tfoot th'))
-            },
-            ref:{
-              panel:props(fixture.querySelector('.printer-group-members')),
-              heading:props(fixture.querySelector('thead th')),
-              row:props(fixture.querySelector('tbody td'))
-            }
+          const rows=[...document.querySelectorAll('#reportingMaterials .reporting-usage-row')];
+          const bars=rows.map(row=>row.querySelector('.reporting-usage-track>span'));
+          const track=rows[0].querySelector('.reporting-usage-track');
+          const chart=document.querySelector('#reportingMaterials .reporting-usage-chart');
+          const total=document.querySelector('#reportingMaterials .reporting-usage-total');
+          values[theme]={
+            widths:bars.map(el=>el.getBoundingClientRect().width),
+            firstColour:getComputedStyle(bars[0]).backgroundColor,
+            fallbackColour:getComputedStyle(bars[1]).backgroundColor,
+            border:getComputedStyle(track).borderTopWidth,
+            surface:getComputedStyle(chart).backgroundColor,
+            total:getComputedStyle(total).backgroundColor
           };
         }
-      } finally {
-        if(original===null) document.documentElement.removeAttribute('data-theme');
+      }finally{
+        if(original===null)document.documentElement.removeAttribute('data-theme');
         else document.documentElement.setAttribute('data-theme',original);
-        fixture.remove();
       }
-      return output;
+      return values;
     });
-    for(const [theme,{ours,ref}] of Object.entries(styling)){
-      for(const prop of ['bg','borderColor','borderRadius'])
-        assert.equal(ours.panel[prop],ref.panel[prop],
-          mode+' '+theme+' Material usage surface must match shared table '+prop);
-      for(const prop of ['bg','color','fontSize','fontWeight','letterSpacing','textTransform','borderBottom','borderWidth'])
-        assert.equal(ours.heading[prop],ref.heading[prop],
-          mode+' '+theme+' Material usage header must match shared table '+prop);
-      assert.equal(ours.row.divider,ref.row.divider,
-        mode+' '+theme+' Material usage divider must match shared table token');
-      assert.equal(ours.row.borderWidth,'0px',mode+' '+theme+' no vertical cell borders');
-      assert.equal(ours.footer.bg,ours.panel.bg,mode+' '+theme+' totals use shared table surface');
+    for(const [theme,result] of Object.entries(themes)){
+      assert.ok(result.widths[0]>result.widths[1]*2.8,mode+' '+theme+' bar length follows kg');
+      assert.equal(result.firstColour,'rgb(220, 89, 100)',
+        mode+' '+theme+' preserves known catalogue filament colour');
+      assert.notEqual(result.fallbackColour,'rgba(0, 0, 0, 0)',
+        mode+' '+theme+' unknown filament uses visible theme brand colour');
+      assert.notEqual(result.border,'0px',mode+' '+theme+' chart track has a visible border');
+      assert.notEqual(result.surface,'rgba(0, 0, 0, 0)');
+      assert.notEqual(result.total,'rgba(0, 0, 0, 0)');
     }
-    const count=await page.locator('#reportingMaterials tbody tr').count();
-    assert.equal(count,2,mode+' retains historical usage rows');
-    assert.equal(await page.locator('#reportingMaterials tfoot .numeric').first().textContent(),'2.00');
-    assert.equal(await page.locator('#reportingMaterials tfoot .numeric').nth(1).textContent(),'100%');
-    assert.equal(await page.locator('#reportingMaterials tfoot .numeric').nth(2).textContent(),'£24.00');
-    assert.equal(await page.locator('#reportingMaterials .reporting-progress').count(),2,
-      mode+' must retain material usage progress bars');
-    assert.ok((await page.locator('#reportingMaterials .numeric').count())>=6,
-      mode+' must preserve numeric column alignment');
   }
   // Both remaining Analytics tables must match the established Printer Groups
   // table standard in both themes, including row-header (th) cells.
