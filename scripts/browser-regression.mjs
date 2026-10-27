@@ -1953,7 +1953,7 @@ async function routeSmoke(page,url) {
       {label:'Completed',value:'17',detail:'85% completion rate',tone:'positive',iconName:'check',progressPercent:85,progressLabel:'Completion rate'},
       {label:'Failed',value:'2',detail:'10% failure rate',tone:'negative',iconName:'cross',progressPercent:10,progressLabel:'Failure rate'},
       {label:'Total run time',value:'31.5 h',detail:'Reported from print timestamps',tone:'info',iconName:'clock',progressPercent:null},
-      {label:'Total filament used',value:'3.85 kg',detail:'Recorded for completed prints',tone:'info',iconName:'spool',progressPercent:null}
+      {label:'Total filament used',value:'3.85 kg',detail:'Recorded for completed prints',tone:'info',iconName:'scale',progressPercent:null}
     ]}
   })));
   await page.waitForFunction(() => document.querySelectorAll('#reportingKpis .reporting-kpi-gauge').length === 5);
@@ -1963,6 +1963,12 @@ async function routeSmoke(page,url) {
     'job count, runtime and material kg have decorative accents, not false progress');
   assert.equal(await page.locator('#reportingKpis .reporting-kpi').count(),5);
   assert.equal(await page.locator('#reportingKpis .reporting-kpi').last().locator('.reporting-kpi-body strong').innerText(),'3.85 kg');
+  const massSymbol=page.locator('#reportingKpis .reporting-kpi').last().locator('.reporting-kpi-icon svg');
+  assert.equal(await massSymbol.locator('rect').count(),1,
+    'filament kg summary uses a weighing scale housing, not a filament spool');
+  assert.equal(await massSymbol.locator('circle').count(),0,
+    'filament kg pictogram uses a weighing dial path rather than a spool ring');
+  assert.equal(await massSymbol.locator('rect').getAttribute('width'),'18');
   assert.equal(await page.locator('#reportingKpis [aria-label="Completion rate"]').getAttribute('aria-valuenow'),'85');
   assert.equal(await page.locator('#reportingKpis [aria-label="Failure rate"]').getAttribute('aria-valuenow'),'10');
   const failedIcon=page.locator('#reportingKpis .reporting-kpi').nth(2);
@@ -2042,7 +2048,7 @@ async function routeSmoke(page,url) {
         tone:'info',iconName:'clock',progressPercent:null,
         change:{symbol:'',label:'—',tone:'muted',caption:'No previous period data',description:'No previous period data for selected printer filters'}},
       {label:'Total filament used',value:'15.30 kg',detail:'Recorded for completed prints',
-        tone:'info',iconName:'spool',progressPercent:null,
+        tone:'info',iconName:'scale',progressPercent:null,
         change:{symbol:'▲',label:'23.4%',tone:'neutral',caption:'vs previous period',description:'Increase of 23.4% vs previous period'}}
     ]}
   })));
