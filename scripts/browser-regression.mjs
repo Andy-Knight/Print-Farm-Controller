@@ -1004,6 +1004,79 @@ async function sharedTabNavigationSmoke(page,url) {
 
 // Print Library live Preact cost cards: current material estimate vs genuinely
 // unavailable cost, visually consistent on light/dark desktop and mobile.
+// Verify actual maintenance button geometry, not just CSS selectors.
+async function maintenanceActionWidthSmoke(page,url) {
+  console.log('Chromium: maintenance individual-task action widths across scopes');
+  await page.setViewportSize({width:1365,height:900});
+  await page.goto(url+'/maintenance',{waitUntil:'load'});
+  await preactReady(page);
+  await page.waitForFunction(()=>window.__PFC_PREACT_MAINTENANCE__===true);
+  await page.evaluate(()=>{
+    const task=(scope)=>({
+      id:'scope-'+scope,scope,name:scope+' maintenance',description:'',
+      state:'current',statusLabel:'Current',scopeLabel:scope,
+      meta:['Every 200 print hours','200h remaining'],
+      completionAllowed:false,completionTitle:'Not due yet',
+      editText:scope==='printer'?'Edit task':'Edit '+scope+' task',
+      deleteText:scope==='printer'?'Delete task':'Delete '+scope+' task'
+    });
+    const detail={
+      activeView:'printers',modelTasks:[],groupTasks:[],
+      printers:[{
+        id:'maintenance-layout-fixture',name:'Layout fixture',modelLabel:'AD5M Pro',
+        due:0,dueSoon:0,printHours:'0h',printCount:0,
+        tasks:['group','model','printer'].map(task),history:[],historyCount:0
+      }]
+    };
+    window.dispatchEvent(new CustomEvent('pfc:maintenance-ui-state',{detail}));
+  });
+  await page.waitForFunction(()=>document.querySelectorAll('#maintenanceList .maintenance-task').length===3);
+  for(const viewport of [{width:1365,height:900},{width:1024,height:900},{width:390,height:844}]){
+    await page.setViewportSize(viewport);
+    for(const theme of ['dark','light']){
+      await page.evaluate(theme=>{document.documentElement.dataset.theme=theme;},theme);
+      const rows=await page.locator('#maintenanceList .maintenance-task').evaluateAll(elements=>
+        elements.map(row=>{
+          const buttons=[...row.querySelectorAll('.maintenance-task-actions > button')];
+          return buttons.map(button=>{
+            const rect=button.getBoundingClientRect();
+            return {text:button.textContent.trim(),x:rect.x,y:rect.y,
+              width:rect.width,height:rect.height,
+              scrollWidth:button.scrollWidth,clientWidth:button.clientWidth};
+          });
+        })
+      );
+      assert.equal(rows.length,3,'fixture has three printer-specific task scopes');
+      assert.ok(rows.every(row=>row.length===3),'each task keeps Complete/Edit/Delete actions');
+      for(const row of rows)for(const button of row){
+        assert.ok(button.scrollWidth<=button.clientWidth+1,
+          'task action text must not be clipped: '+JSON.stringify({viewport,theme,button}));
+      }
+      if(viewport.width>620){
+        const expected=[120,176,190];
+        for(const row of rows){
+          row.forEach((button,i)=>assert.ok(Math.abs(button.width-expected[i])<=1,
+            'each task action column has fixed width: '+JSON.stringify({viewport,theme,row})));
+        }
+        for(let col=0;col<3;col++){
+          assert.ok(Math.max(...rows.map(row=>row[col].x))-
+            Math.min(...rows.map(row=>row[col].x))<=1,
+            'corresponding action buttons align across group/model/printer tasks');
+        }
+      } else {
+        for(const row of rows){
+          assert.ok(Math.max(...row.map(button=>button.width))-
+            Math.min(...row.map(button=>button.width))<=1,
+            'phone layout stacks three full-width buttons');
+          assert.ok(row[0].y<row[1].y && row[1].y<row[2].y,
+            'phone action buttons remain fully readable in a vertical stack');
+        }
+      }
+    }
+  }
+  await page.setViewportSize({width:1365,height:900});
+}
+
 async function libraryCostSmoke(page,url) {
   await page.goto(url+'/library',{waitUntil:'load'});
   await preactReady(page);
@@ -4298,6 +4371,7 @@ async function main() {
     await workspaceShellSmoke(browser,url);
     await workspaceHeadingSmoke(page,url);
     await sharedTabNavigationSmoke(page,url);
+    await maintenanceActionWidthSmoke(page,url);
     await libraryCostSmoke(page,url);
     await libraryCompactTableSmoke(page,url);
     await librarySelectionSmoke(page,url,{ mutateFixture:!externalUrl });

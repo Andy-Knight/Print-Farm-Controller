@@ -4,6 +4,10 @@ This file contains the version-by-version release history for Print Farm Control
 
 Historical entries describe the behaviour of the controller at the time of that release and may be superseded by later versions. For current installation, configuration and supported-hardware guidance, see [README.md](README.md).
 
+## v0.61.6
+
+- Aligned **Individual printer tasks** action buttons on the Maintenance page: corresponding **Complete**, **Edit printer/model/group task** and **Delete printer/model/group task** controls now use consistent column widths (120/176/190px) regardless of task scope. Kept existing semantic colours, disabled controls and shared-task layouts; on narrow phone screens the three buttons stack at full width. Added Node/CSS and Chromium light/dark desktop/tablet/mobile layout tests.
+
 ## v0.61.5
 
 - Standardised **Queue & history** and **Print Library** sidebar count badges to fixed **48×24px** rounded pills with centred tabular numerals and consistent right-edge alignment for simultaneous one-, two- or three-digit counts. Zero remains hidden. Counts above 999 display `999+` with the exact total in a tooltip. Scoped geometry to sidebar navigation only, retaining controller colours and other button badges. Added unit and Chromium desktop/mobile/light/dark regression checks.

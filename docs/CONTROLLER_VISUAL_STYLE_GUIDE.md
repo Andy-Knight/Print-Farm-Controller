@@ -170,6 +170,8 @@ Default ordinary buttons are **42px high**; `ui-button-small` is **32px**, used 
 
 **Functional colour conventions:** pause amber, resume blue/green according to the established control context, printer setup actions blue, destructive actions red. If a screen already has a specific approved semantics mapping, follow it rather than standardising away that meaning.
 
+**Individual printer maintenance actions:** Inside each Individual printer tasks card, Complete, Edit (printer/model/group task) and Delete (printer/model/group task) occupy the same respective columns in every row. Use fixed **120px Complete / 176px Edit / 190px Delete** button widths, keeping the existing 7px gaps, semantic button variants and disabled states. These widths are scoped to `.maintenance-task > .maintenance-task-actions` only; the Model-wide and Group-wide task lists retain their existing buttons. At phone widths (≤620px), stack the three buttons at equal full-row widths to avoid clipping or horizontal scrolling. Verify matching corresponding column edges in both themes and all printer-task scopes.
+
 ### Button states
 
 | State | Requirement |
