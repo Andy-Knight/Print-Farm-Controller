@@ -304,7 +304,7 @@ test('analytics chart is first after KPIs, popular files and filament kg graph s
   assert.match(styles, /\.reporting-analytics-files,\.reporting-analytics-materials\s*\{\s*grid-column:auto/);
   assert.match(styles, /\.reporting-analytics-files \.reporting-table-scroll\s*\{\s*overflow:auto/);
   assert.match(styles, /\.reporting-usage-chart\s*\{[^}]*var\(--pfc-table-border\)/);
-  assert.match(styles, /\.reporting-usage-track>span\s*\{[^}]*var\(--reporting-usage-colour/);
+  assert.match(styles, /\.reporting-usage-pie :is\(path,circle\)\s*\{[^}]*var\(--pfc-table-surface\)/);
   assert.match(styles, /#reportingPanelAnalytics\s*\{\s*padding-bottom:32px/);
   assert.match(styles, /@media \(max-width:760px\)\s*\{\s*#reportingPanelAnalytics\s*\{\s*padding-bottom:24px/);
   assert.match(styles, /\.reporting-table-scroll\s*\{[^}]*width:100%;[^}]*max-width:100%;/);
@@ -683,6 +683,19 @@ test('filament usage is a proportional, token-based kg pie chart in both Preact 
 });
 
 test('pie sectors use recorded gram shares for multiple and single categories', () => {
+  const helpers = [
+    reportingUi.slice(reportingUi.indexOf('function escapeHtml('), reportingUi.indexOf('async function requestJson(')),
+    reportingUi.slice(reportingUi.indexOf('function formatNumber('), reportingUi.indexOf('function reportRangeDates(')),
+    reportingUi.slice(reportingUi.indexOf('function formatReportingDate('), reportingUi.indexOf('function reportingKpiViewModel(')),
+    reportingUi.slice(reportingUi.indexOf('function reportingFileNameHtml('), reportingUi.indexOf('function renderReport('))
+  ];
+  const ui = vm.runInNewContext([
+    "let reportingFilesScope = 'top10';",
+    "let reportingFilesSort = { key:'completed', direction:'desc' };",
+    "let reportingMaterialMode = 'type';",
+    helpers.join('\n'),
+    '({ reportingMaterialRows, renderReportMaterials, setMode:(mode)=>reportingMaterialMode=mode })'
+  ].join('\n'));
   ui.setMode('type');
   const mixed=ui.reportingMaterialRows([
     {material:'ASA',grams:3000},{material:'PLA',grams:1000}
