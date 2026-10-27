@@ -47,7 +47,7 @@ let activeReportingTab = 'analytics';
 let reportingPricingLoadSerial = 0;
 let reportingPricingSaving = false;
 let reportingCurrencyActive = 'GBP';
-let reportingFilesScope = 'top10';
+let reportingFilesScope = 'top6';
 let reportingFilesSort = { key:'completed', direction:'desc' };
 let reportingMaterialMode = 'filament';
 // Legacy mode has no identity; once signed in, only administrators may edit
@@ -344,7 +344,7 @@ function reportingFileRows(files = [], { failures = false } = {}) {
       || String(a.fileName || '').localeCompare(String(b.fileName || ''));
   });
   return (failures ? sorted.slice(0, 5)
-    : reportingFilesScope === 'all' ? sorted : sorted.slice(0, 10))
+    : reportingFilesScope === 'all' ? sorted : sorted.slice(0, 6))
     .map((item) => {
       const completed = Number(item.completed || 0);
       const grams = Number(item.materialGrams || 0);
@@ -938,6 +938,7 @@ reportsBtn?.addEventListener('click', async () => {
 
 document.querySelectorAll('[data-reporting-close]').forEach((button) => button.addEventListener('click', () => reportingDialog?.close()));
 function updateReportingSegments() {
+  document.querySelector('.reporting-analytics-files')?.setAttribute('data-reporting-files-scope',reportingFilesScope);
   document.querySelectorAll('[data-reporting-files-scope]').forEach((button) => {
     const active = button.dataset.reportingFilesScope === reportingFilesScope;
     button.classList.toggle('active', active);
@@ -959,7 +960,7 @@ reportingDialog?.addEventListener('click', (event) => {
     window.dispatchEvent(new CustomEvent('pfc:reporting-open-library-file', { detail:{ id:open.dataset.reportingOpenFile } }));
     return;
   }
-  if (scope && ['top10','all'].includes(scope.dataset.reportingFilesScope)) reportingFilesScope = scope.dataset.reportingFilesScope;
+  if (scope && ['top6','all'].includes(scope.dataset.reportingFilesScope)) reportingFilesScope = scope.dataset.reportingFilesScope;
   else if (group && ['type','filament'].includes(group.dataset.reportingMaterialMode)) reportingMaterialMode = group.dataset.reportingMaterialMode;
   else if (sort && ['fileName','completed','failed','successRate','materialGrams','materialCost','runSeconds'].includes(sort.dataset.reportingFileSort)) {
     const key = sort.dataset.reportingFileSort;
