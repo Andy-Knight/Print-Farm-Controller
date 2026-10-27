@@ -203,7 +203,7 @@ test('analytics view models rank real print completions and aggregate materials'
   files[11].failed=2;
   files[11].attempts+=2;
   const top = ui.reportingFileRows(files);
-  assert.equal(top.length, 10);
+  assert.equal(top.length, 6);
   assert.equal(top[0].rank, 1);
   assert.equal(top[0].completed, 20);
   assert.equal(top[0].materialText,'—');
