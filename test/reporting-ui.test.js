@@ -679,7 +679,7 @@ test('Top 6 ranks six files, All files restores the full sorted list and both re
   assert.match(reportingUi,/setAttribute\('data-reporting-files-view',reportingFilesScope\)/);
   const preact=fs.readFileSync(new URL('../ui/reporting.jsx',import.meta.url),'utf8');
   assert.match(preact,/fileScope:detail\.fileScope === 'all' \? 'all' : 'top6'/);
-  assert.match(styles,/\.reporting-analytics-files\[data-reporting-files-scope="top6"\] \.reporting-table-scroll\s*\{[^}]*max-height:none/);
+  assert.match(styles,/\.reporting-analytics-files\[data-reporting-files-view="top6"\] \.reporting-table-scroll\s*\{[^}]*max-height:none/);
   assert.match(styles,/@media \(min-width:1051px\)[\s\S]*?\.reporting-analytics-materials #reportingMaterials \{ display:flex;flex:1/);
   assert.match(styles,/\.reporting-analytics-materials \.reporting-usage-total \{ flex:0 0 auto;margin-top:auto;/);
 });
