@@ -3251,34 +3251,44 @@ button.library-file-preview { cursor:zoom-in; }
   /* Mobile tables scroll internally, never stretch the route viewport. */
   .reporting-analytics-files .reporting-analytics-table { min-width:600px; }
 }
-/* Kilogram-based filament usage chart. Width encodes kg relative to the
-   largest filament, NOT percentage of total. Filament colour follows the
-   current catalogue when available, otherwise the theme brand tone. */
+/* Kilogram-based filament usage chart. Pie slices show shares of total recorded weight. */
 .reporting-usage-chart {
+  --reporting-pie-1:#318bce;--reporting-pie-2:#4cae8b;
+  --reporting-pie-3:#e0af55;--reporting-pie-4:#ab85d7;
+  --reporting-pie-5:#db7884;--reporting-pie-6:#50b3c3;
+  --reporting-pie-7:#d28a58;--reporting-pie-8:#879cbb;
   width:100%;min-width:0;max-height:365px;overflow:auto;
   border:1px solid var(--pfc-table-border);border-radius:var(--pfc-table-radius);
-  background:var(--pfc-table-surface);scrollbar-gutter:stable;
+  background:var(--pfc-table-surface);
 }
-.reporting-usage-rows{display:grid;gap:0;}
-.reporting-usage-row{min-width:0;padding:11px 13px;border-bottom:1px solid var(--pfc-table-divider);}
+.reporting-usage-plot{display:grid;grid-template-columns:minmax(135px,0.9fr) minmax(0,1.1fr);
+  align-items:start;gap:12px;padding:14px;min-width:0;}
+.reporting-usage-pie{width:100%;max-width:210px;height:auto;aspect-ratio:1;justify-self:center;overflow:visible;}
+.reporting-usage-pie :is(path,circle){stroke:var(--pfc-table-surface);stroke-width:1.5;stroke-linejoin:round;}
+.reporting-usage-rows{list-style:none;display:grid;gap:0;align-content:start;margin:0;padding:0;min-width:0;}
+.reporting-usage-row{display:grid;grid-template-columns:13px minmax(0,1fr) auto;
+  gap:8px;align-items:start;min-width:0;padding:7px 0;border-bottom:1px solid var(--pfc-table-divider);}
+.reporting-usage-row:last-child{border-bottom:0;}
 .reporting-usage-row:hover{background:var(--pfc-table-hover);}
-.reporting-usage-row-head,.reporting-usage-meta{display:flex;justify-content:space-between;gap:10px;align-items:baseline;}
-.reporting-usage-row-head strong{font-size:var(--ds-font-sm);font-weight:700;color:var(--ds-text);overflow-wrap:anywhere;min-width:0;}
-.reporting-usage-kg{flex:none;font-variant-numeric:tabular-nums;font-size:var(--ds-font-sm);font-weight:800;color:var(--ds-text);}
-.reporting-usage-track{height:13px;margin:9px 0 6px;background:var(--ds-surface-muted);
-  border:1px solid var(--ds-border);border-radius:var(--ds-radius-sm);overflow:hidden;}
-.reporting-usage-track>span{display:block;height:100%;min-width:1px;max-width:100%;
-  background:var(--reporting-usage-colour,var(--ds-brand-strong));border-radius:inherit;}
-.reporting-usage-meta{color:var(--ds-text-muted);font-size:.7rem;flex-wrap:wrap;}
+.reporting-usage-swatch{width:13px;height:13px;margin-top:3px;
+  border:1px solid var(--ds-border);border-radius:3px;}
+.reporting-usage-description{min-width:0;}
+.reporting-usage-description strong{display:block;font-size:var(--ds-font-sm);font-weight:700;
+  color:var(--ds-text);overflow-wrap:anywhere;}
+.reporting-usage-meta{display:block;color:var(--ds-text-muted);font-size:.69rem;overflow-wrap:anywhere;}
+.reporting-usage-value{text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums;
+  font-size:var(--ds-font-sm);font-weight:800;color:var(--ds-text);}
+.reporting-usage-value small{display:block;font-size:.69rem;font-weight:650;color:var(--ds-text-muted);}
 .reporting-usage-total{display:flex;gap:8px 12px;flex-wrap:wrap;align-items:baseline;
-  padding:12px 13px;background:var(--ds-surface-raised);color:var(--ds-text);}
+  padding:12px 13px;border-top:1px solid var(--pfc-table-divider);
+  background:var(--ds-surface-raised);color:var(--ds-text);}
 .reporting-usage-total strong{font-size:var(--ds-font-sm);margin-right:auto;}
 .reporting-usage-total>span{font-weight:850;font-variant-numeric:tabular-nums;}
 .reporting-usage-total small{flex-basis:100%;font-size:.7rem;color:var(--ds-text-muted);}
 .reporting-usage-chart:focus-visible{outline:2px solid var(--ds-focus);outline-offset:2px;}
 @media (max-width:620px){
-  .reporting-usage-chart{scrollbar-gutter:auto;}
-  .reporting-usage-row{padding:10px;}
+  .reporting-usage-plot{grid-template-columns:minmax(0,1fr);gap:8px;padding:10px;}
+  .reporting-usage-pie{max-width:210px;}
 }
 .reporting-table-content { min-height:110px; }
 .reporting-analytics-table { width:100%; min-width:540px; border-collapse:separate; border-spacing:0; color:inherit; font-size:.76rem; }

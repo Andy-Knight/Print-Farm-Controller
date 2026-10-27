@@ -193,20 +193,28 @@ function ReportFiles({ files, sort }) {
 
 function ReportMaterials({ materials }) {
   if (!materials.rows.length) return <div class="reporting-empty">No material usage captured for completed prints in this period.</div>;
-  return <div class="reporting-usage-chart" role="region" aria-label="Filament used in kilograms" tabindex="0">
-    <div class="reporting-usage-rows" role="list">
-      {materials.rows.map((row) => <div class="reporting-usage-row" role="listitem" key={row.key}>
-        <div class="reporting-usage-row-head">
-          <strong title={row.note || row.label}>{row.label}</strong>
-          <span class="reporting-usage-kg">{row.kg} kg</span>
-        </div>
-        <div class="reporting-usage-track" role="img"
-          aria-label={row.label + ': ' + row.kg + ' kilograms, ' + row.percentage + ' of recorded usage'}>
-          <span style={{ width:String(Math.max(0,Math.min(100,Number(row.barPercent || 0)))) + '%',
-            '--reporting-usage-colour':row.barColour || 'var(--ds-brand-strong)' }} />
-        </div>
-        <div class="reporting-usage-meta"><span>{row.percentage} of total</span><span>Recorded cost: {row.cost}</span></div>
-      </div>)}
+  return <div class="reporting-usage-chart" role="region" aria-label="Filament used pie chart in kilograms" tabindex="0">
+    <div class="reporting-usage-plot">
+      <svg class="reporting-usage-pie" viewBox="0 0 200 200" role="img" aria-label="Proportion of recorded filament usage by group">
+        <title>Recorded filament use by weight</title>
+        {materials.rows.map((row) => row.pieFull
+          ? <circle key={row.key} cx="100" cy="100" r="90" style={{fill:row.pieColour}}>
+              <title>{row.label}: {row.kg} kg ({row.percentage})</title>
+            </circle>
+          : <path key={row.key} d={row.piePath} style={{fill:row.pieColour}}>
+              <title>{row.label}: {row.kg} kg ({row.percentage})</title>
+            </path>)}
+      </svg>
+      <ol class="reporting-usage-rows" aria-label="Filament usage legend">
+        {materials.rows.map((row) => <li class="reporting-usage-row" key={row.key}>
+          <span class="reporting-usage-swatch" style={{backgroundColor:row.pieColour}} aria-hidden="true" />
+          <div class="reporting-usage-description">
+            <strong title={row.note || row.label}>{row.label}</strong>
+            <span class="reporting-usage-meta">Recorded cost: {row.cost}</span>
+          </div>
+          <span class="reporting-usage-value">{row.kg} kg <small>{row.percentage}</small></span>
+        </li>)}
+      </ol>
     </div>
     <div class="reporting-usage-total">
       <strong>Total filament used</strong><span>{materials.totalKg} kg</span>
