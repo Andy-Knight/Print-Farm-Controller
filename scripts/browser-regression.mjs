@@ -721,6 +721,57 @@ async function workspaceShellSmoke(browser,url) {
       'desktop sidebar retains practical width');
     assert.ok(desktop.main.left>=desktop.sidebar.right-2,'workspace does not overlap fixed sidebar');
     assert.ok(desktop.header.left>=desktop.sidebar.right-2,'header aligns with workspace');
+    // Queue and Library badges must retain identical pill geometry for one,
+    // two and three digits, including when both counters appear together.
+    const verifySidebarBadges=async (where) => page.evaluate((where) => {
+      const queue=document.querySelector('#queueButtonCount');
+      const library=document.querySelector('#libraryButtonCount');
+      if (!queue || !library) throw new Error('Missing sidebar counters');
+      const initial=[queue,library].map(el=>({
+        text:el.textContent,hidden:el.classList.contains('hidden'),title:el.title
+      }));
+      const oldTheme=document.documentElement.dataset.theme;
+      const measurements=[];
+      for (const theme of ['dark','light']) {
+        document.documentElement.dataset.theme=theme;
+        for(const counts of [['3','19'],['125','7'],['999','999+']]) {
+          [queue,library].forEach((el,i)=>{
+            el.classList.remove('hidden');
+            el.textContent=counts[i];
+          });
+          measurements.push({where,theme,counts,items:[queue,library].map(el=>{
+            const rect=el.getBoundingClientRect();
+            const css=getComputedStyle(el);
+            return {width:rect.width,height:rect.height,right:rect.right,
+              clientWidth:el.clientWidth,scrollWidth:el.scrollWidth,
+              radius:css.borderRadius,numerals:css.fontVariantNumeric};
+          })});
+        }
+      }
+      [queue,library].forEach((el,i)=>{
+        el.textContent=initial[i].text;
+        el.title=initial[i].title;
+        el.classList.toggle('hidden',initial[i].hidden);
+      });
+      if (oldTheme) document.documentElement.dataset.theme=oldTheme;
+      else delete document.documentElement.dataset.theme;
+      return measurements;
+    },where);
+    const assertSidebarBadges=(measurements)=>{
+      for(const scenario of measurements){
+        for(const item of scenario.items){
+          assert.equal(item.width,48,scenario.where+' '+scenario.theme+' badge width '+scenario.counts);
+          assert.equal(item.height,24,scenario.where+' '+scenario.theme+' badge height '+scenario.counts);
+          assert.equal(item.radius,'999px','sidebar uses standard pill rounding');
+          assert.match(item.numerals,/tabular-nums/,'counts should use tabular numerals');
+          assert.ok(item.scrollWidth<=item.clientWidth+1,
+            'badge text must fit inside 48px: '+JSON.stringify(scenario));
+        }
+        assert.ok(Math.abs(scenario.items[0].right-scenario.items[1].right)<=1,
+          'Queue and Library badges must align vertically: '+JSON.stringify(scenario));
+      }
+    };
+    assertSidebarBadges(await verifySidebarBadges('desktop'));
     if(captureDir){
       await page.screenshot({path:path.join(captureDir,'workspace-dark-desktop.png'),
         animations:'disabled',fullPage:true});
@@ -741,6 +792,7 @@ async function workspaceShellSmoke(browser,url) {
     assert.equal(await page.locator('#controllerSidebar').evaluate(n=>n.inert),false);
     assert.ok(await page.locator('.sidebar-item.active').evaluate(el=>document.activeElement===el),
       'drawer autofocuses active navigation for keyboard users');
+    assertSidebarBadges(await verifySidebarBadges('mobile drawer'));
     if(captureDir)await page.screenshot({path:path.join(captureDir,'workspace-light-mobile-drawer.png'),
       animations:'disabled',fullPage:true});
     await page.locator('#reportsBtn').click();

@@ -250,6 +250,16 @@ const libraryFilamentAssignments = document.querySelector('#libraryFilamentAssig
 const libraryMetadataError = document.querySelector('#libraryMetadataError');
 const queueBtn = document.querySelector('#queueBtn');
 const queueButtonCount = document.querySelector('#queueButtonCount');
+
+/* Keep sidebar badges the same width, while preserving the exact value when
+   the count exceeds the three digits that fit the fixed-width pill. */
+function updateSidebarCountBadge(badge, value, description) {
+  if (!badge) return;
+  const count = Math.max(0, Math.trunc(Number(value) || 0));
+  badge.textContent = count > 999 ? '999+' : String(count);
+  badge.classList.toggle('hidden', count === 0);
+  badge.title = count > 999 ? `${count} ${description}` : '';
+}
 const queueDialog = document.querySelector('#queueDialog');
 const queueSummary = document.querySelector('#queueSummary');
 const queueActiveList = document.querySelector('#queueActiveList');
@@ -3503,10 +3513,7 @@ function renderPrintQueue() {
     ? `${activeJobs.length} active · ${queuedJobs.length} queued copies · ${reviewJobs.length} needs review${productionText} · ${clearanceItems.length} awaiting bed clearance · ${historyCount} recent history`
     : `${historyCount ? `${historyCount} history item${historyCount === 1 ? '' : 's'}` : 'No queued prints'}`;
 
-  if (queueButtonCount) {
-    queueButtonCount.textContent = String(outstanding);
-    queueButtonCount.classList.toggle('hidden', outstanding === 0);
-  }
+  updateSidebarCountBadge(queueButtonCount, outstanding, 'outstanding queue items');
 
   if (clearQueueHistoryBtn) {
     clearQueueHistoryBtn.hidden = !canPurgeFarmRecords();
@@ -4089,10 +4096,7 @@ function renderPrintLibrary({preserveScroll=false} = {}) {
   });
   const bytes = files.reduce((sum, file) => sum + Number(file.size || 0), 0);
   const summary = `${files.length} file${files.length === 1 ? '' : 's'} · ${formatBytes(bytes)} stored on this controller`;
-  if (libraryButtonCount) {
-    libraryButtonCount.textContent = String(files.length);
-    libraryButtonCount.classList.toggle('hidden', files.length === 0);
-  }
+  updateSidebarCountBadge(libraryButtonCount, files.length, 'print library files');
   const scroll=preserveScroll ? libraryList.scrollTop : 0;
   if (window.__PFC_PREACT_LIBRARY__) {
     publishPrintLibraryUiState({files,visible:pagination.items,summary,query:libraryFilters().query,pagination});
