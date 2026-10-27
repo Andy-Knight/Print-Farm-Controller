@@ -2356,6 +2356,62 @@ async function routeSmoke(page,url) {
       assert.equal(result.viewportOverflow,false,mode+' '+theme+' no horizontal overflow');
     }
   }
+  // The default six-row list must be fully visible without a vertical
+  // scrollbar, and both paired cards must finish at the same height.
+  await page.evaluate(() => {
+    const base=window.__PFC_REPORTING_UI_STATE__ || {};
+    const files=Array.from({length:6},(_,i)=>({
+      id:'top-six-'+i,rank:i+1,fileName:'Print file '+(i+1)+'.gcode',
+      completed:6-i,failed:0,materialText:'0.08 kg',
+      materialCostText:'£1.00',materialPartial:false,materialCostPartial:false,
+      materialTitle:'Recorded weight',costTitle:'Recorded cost'
+    }));
+    window.dispatchEvent(new CustomEvent('pfc:reporting-ui-state',{detail:{
+      ...base,fileScope:'top6',files,
+      materials:{rows:[
+        {key:'asa',label:'ASA',kg:'0.40',percentage:'80.0%',pieColour:'var(--reporting-pie-1)',
+          piePath:'M 100 100 L 100 10 A 90 90 0 1 1 14 72 Z',cost:'£4.00'},
+        {key:'pla',label:'PLA',kg:'0.10',percentage:'20.0%',pieColour:'var(--reporting-pie-2)',
+          piePath:'M 100 100 L 14 72 A 90 90 0 0 1 100 10 Z',cost:'£1.00'}
+      ],totalKg:'0.50',totalCost:'£5.00'}
+    }}));
+  });
+  await page.waitForFunction(()=>document.querySelectorAll('#reportingFiles tbody tr').length===6);
+  const sixLayout=await page.evaluate(()=>{
+    const rect=selector=>document.querySelector(selector).getBoundingClientRect();
+    const files=rect('.reporting-analytics-files');
+    const materials=rect('.reporting-analytics-materials');
+    const scroll=document.querySelector('#reportingFiles .reporting-table-scroll');
+    const total=rect('#reportingMaterials .reporting-usage-total');
+    return {filesBottom:files.bottom,materialsBottom:materials.bottom,
+      fileClient:scroll.clientHeight,fileContent:scroll.scrollHeight,
+      totalBottom:total.bottom,
+      verticalScrollbar:scroll.scrollHeight>scroll.clientHeight+1};
+  });
+  assert.equal(sixLayout.verticalScrollbar,false,'Top 6 never cuts off a ranked row');
+  assert.ok(Math.abs(sixLayout.filesBottom-sixLayout.materialsBottom)<=2,
+    'the two side-by-side cards must have equal bottom edges: '+JSON.stringify(sixLayout));
+  assert.ok(sixLayout.materialsBottom-sixLayout.totalBottom<25,
+    'the filament total should stay at the bottom of the paired card');
+  // All files keeps its contained vertical scrollbar when the list is long.
+  await page.evaluate(()=>{
+    document.querySelector('.reporting-analytics-files').dataset.reportingFilesScope='all';
+    const base=window.__PFC_REPORTING_UI_STATE__ || {};
+    const files=Array.from({length:12},(_,i)=>({
+      id:'all-files-'+i,rank:i+1,fileName:'Print file '+(i+1)+'.gcode',
+      completed:12-i,failed:0,materialText:'0.05 kg',
+      materialCostText:'£1.00',materialPartial:false,materialCostPartial:false,
+      materialTitle:'Recorded weight',costTitle:'Recorded cost'
+    }));
+    window.dispatchEvent(new CustomEvent('pfc:reporting-ui-state',{detail:{...base,fileScope:'all',files}}));
+  });
+  await page.waitForFunction(()=>document.querySelectorAll('#reportingFiles tbody tr').length===12);
+  const allScroll=await page.locator('#reportingFiles .reporting-table-scroll').evaluate(el=>({
+    client:el.clientHeight,content:el.scrollHeight,overflow:getComputedStyle(el).overflowY
+  }));
+  assert.ok(allScroll.content>allScroll.client+1,'All files remains vertically scrollable for long lists');
+  assert.equal(allScroll.overflow,'auto');
+
   // Both remaining Analytics tables must match the established Printer Groups
   // table standard in both themes, including row-header (th) cells.
   await page.evaluate(() => {
@@ -2470,8 +2526,8 @@ async function routeSmoke(page,url) {
   }
   await page.locator('[data-reporting-files-scope="all"]').click();
   assert.equal(await page.locator('[data-reporting-files-scope="all"]').getAttribute('aria-pressed'),'true');
-  await page.locator('[data-reporting-files-scope="top10"]').click();
-  assert.equal(await page.locator('[data-reporting-files-scope="top10"]').getAttribute('aria-pressed'),'true');
+  await page.locator('[data-reporting-files-scope="top6"]').click();
+  assert.equal(await page.locator('[data-reporting-files-scope="top6"]').getAttribute('aria-pressed'),'true');
   await page.locator('[data-reporting-material-mode="filament"]').click();
   assert.equal(await page.locator('[data-reporting-material-mode="filament"]').getAttribute('aria-pressed'),'true');
   await page.locator('[data-reporting-material-mode="type"]').click();
