@@ -2395,7 +2395,7 @@ async function routeSmoke(page,url) {
     'the filament total should stay at the bottom of the paired card');
   // All files keeps its contained vertical scrollbar when the list is long.
   await page.evaluate(()=>{
-    document.querySelector('.reporting-analytics-files').dataset.reportingFilesScope='all';
+    document.querySelector('.reporting-analytics-files').dataset.reportingFilesView='all';
     const base=window.__PFC_REPORTING_UI_STATE__ || {};
     const files=Array.from({length:12},(_,i)=>({
       id:'all-files-'+i,rank:i+1,fileName:'Print file '+(i+1)+'.gcode',
