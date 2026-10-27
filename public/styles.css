@@ -3226,6 +3226,26 @@ button.library-file-preview { cursor:zoom-in; }
    while scrolling inside the narrow card when necessary. */
 .reporting-analytics-files,.reporting-analytics-materials { grid-column:auto; }
 .reporting-analytics-files .reporting-table-scroll { overflow:auto; }
+ /* Top 6 shows every row without a vertical scrollbar; All files uses the
+    regular capped scroll region. Horizontal overflow remains available on
+    narrower card widths for the six-column table. */
+ .reporting-analytics-files[data-reporting-files-scope="top6"] .reporting-table-scroll {
+   max-height:none;scrollbar-gutter:auto;
+ }
+ /* Both cards span the same grid-row height on desktops. The usage plot
+    stretches, leaving its total attached to the card's bottom edge. */
+ @media (min-width:1051px) {
+   .reporting-analytics-files,.reporting-analytics-materials { align-self:stretch; }
+   .reporting-analytics-materials { display:flex;flex-direction:column; }
+   .reporting-analytics-materials #reportingMaterials { display:flex;flex:1;min-height:0; }
+   .reporting-analytics-materials .reporting-usage-chart {
+     display:flex;flex:1;flex-direction:column;min-height:0;max-height:none;overflow:hidden;
+   }
+   .reporting-analytics-materials .reporting-usage-plot {
+     flex:1;min-height:0;overflow:auto;align-items:center;
+   }
+   .reporting-analytics-materials .reporting-usage-total { flex:0 0 auto;margin-top:auto; }
+ }
 .reporting-analytics-files .reporting-analytics-table { width:100%; min-width:600px; table-layout:fixed; }
 /* #, Print file, Completed, Failed, Material, Cost. */
 .reporting-analytics-files .reporting-analytics-table th:nth-child(1),
