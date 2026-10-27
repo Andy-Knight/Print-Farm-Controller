@@ -4,6 +4,10 @@ This file contains the version-by-version release history for Print Farm Control
 
 Historical entries describe the behaviour of the controller at the time of that release and may be superseded by later versions. For current installation, configuration and supported-hardware guidance, see [README.md](README.md).
 
+## v0.61.1
+
+- Changed **Reports & finance → Analytics → Filament used (kg)** from horizontal bars to a proportional pie chart, preserving recorded kg and cost totals, grouped filament/material views, current-catalogue colours, accessible per-slice kilogram/percentage/cost legend and the responsive paired-card layout.
+
 ## v0.61.0
 
 - Redesigned **Reports & finance → Analytics** to pair the **Most popular print files** ranking and **Filament used (kg)** chart in equal-width desktop cards, with matching top-right segmented controls and responsive stacking. Simplified the popular-file table to six sortable columns (**#**, **Print file**, **Completed**, **Failed**, **Material**, **Cost**), with local scrolling at narrow widths and no Success rate or Print time columns.
