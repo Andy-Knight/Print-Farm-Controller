@@ -278,7 +278,7 @@ function normalizeState(detail = {}) {
     printerActivity:detail.printerActivity === true,
     files:Array.isArray(detail.files) ? detail.files : [],
     fileFailures:Array.isArray(detail.fileFailures) ? detail.fileFailures : [],
-    fileScope:detail.fileScope === 'all' ? 'all' : 'top10',
+    fileScope:detail.fileScope === 'all' ? 'all' : 'top6',
     fileSort:detail.fileSort || { key:'completed', direction:'desc' },
     materials:detail.materials && Array.isArray(detail.materials.rows)
       ? detail.materials : { rows:[], totalKg:'0.00', totalCost:'—' },
