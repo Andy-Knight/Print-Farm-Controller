@@ -2072,8 +2072,8 @@ async function routeSmoke(page,url) {
     );
     assert.notEqual(colors[0],colors[1],'neutral and positive delta colours must differ');
   }
-  // Five equal-width KPI cards remain readable and on one row at a wide
-  // desktop viewport; they stack without page overflow on small screens.
+  // Five KPI cards share a row only on roomy desktops. Narrower
+  // viewports balance the cards across rows without horizontal overflow.
   for (const width of [1920,1365,1200,1050,900,620,390,320]) {
     await page.setViewportSize({width,height:900});
     const layout=await page.evaluate(()=>{
@@ -2086,7 +2086,7 @@ async function routeSmoke(page,url) {
         spoolPaths:cards.at(-1)?.querySelectorAll('.reporting-kpi-icon svg circle').length || 0};
     });
     assert.equal(layout.cardRects.length,5,'five KPI cards remain rendered at '+width);
-    const expectedColumns=width<=380 ? 1 : width<=900 ? 2 : width<=1279 ? 6 : 5;
+    const expectedColumns=width<=580 ? 1 : width<=900 ? 2 : width<=1550 ? 6 : 5;
     assert.equal(layout.columns,expectedColumns,'responsive grid columns at '+width);
     assert.equal(layout.overflow,false,'no horizontal page overflow at '+width);
     assert.ok(layout.cardRects.every(card=>card.width>75),'cards remain readable at '+width);
