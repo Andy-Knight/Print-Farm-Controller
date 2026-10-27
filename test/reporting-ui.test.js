@@ -397,6 +397,50 @@ test('single-day print history draws a visible chart marker and a complete date 
   assert.match(reportingUi, /lineChartSvg\(report\?\.daily \|\| \[\], report\?\.range\)/);
 });
 
+test('seven-day charts keep all positive point values visible, while dense longer ranges use hover titles', () => {
+  const helpers = [
+    reportingUi.slice(reportingUi.indexOf('function chartTimelineRows('), reportingUi.indexOf('function reportingBarRowsViewModel(')),
+    reportingUi.slice(reportingUi.indexOf('function lineChartSvg('), reportingUi.indexOf('function renderBarRows(')),
+    reportingUi.slice(reportingUi.indexOf('function escapeHtml('), reportingUi.indexOf('async function requestJson('))
+  ].join('\n');
+  const ui = vm.runInNewContext(helpers + '\n({ lineChartViewModel, lineChartSvg })',
+    { Date, Math, Number, Set, Map, Array });
+  // Exactly seven elapsed days straddle eight UTC dates in the controller.
+  const seven = {from:'2026-10-14T14:00:00.000Z',to:'2026-10-21T14:00:00.000Z'};
+  const denseDays = Array.from({length:8},(_,i)=>({
+    date:new Date(Date.UTC(2026,9,14+i)).toISOString().slice(0,10),
+    completed:2,failed:2,cancelled:2
+  }));
+  const denseShort = ui.lineChartViewModel(denseDays,seven);
+  assert.equal(denseShort.rows.length,8,'seven-day selection can cover eight calendar dates');
+  assert.equal(denseShort.points.length,24,'three non-zero outcomes on each date');
+  assert.equal(denseShort.showPointValues,true,'seven days always show numeric values beyond eight points');
+  assert.deepEqual(Array.from(denseShort.points.slice(0,3),p=>p.key),['completed','failed','cancelled']);
+  assert.equal(new Set(denseShort.points.slice(0,3).map(p=>p.labelX)).size,3,
+    'equal counts on one date have staggered labels, not overlapping numbers');
+  assert.ok(denseShort.points.every(p=>p.labelX>=24 && p.labelX<=736 && p.labelY>=11));
+  const shortSvg=ui.lineChartSvg(denseDays,seven);
+  assert.equal((shortSvg.match(/class="reporting-point-value /g)||[]).length,24,
+    'fallback renderer outputs every non-zero seven-day count');
+  assert.match(shortSvg,/2026-10-14: 2 completed/,'hover descriptions survive visible labels');
+
+  const thirty = {from:'2026-09-21T14:00:00.000Z',to:'2026-10-21T14:00:00.000Z'};
+  const denseLong = ui.lineChartViewModel(denseDays,thirty);
+  assert.equal(denseLong.points.length,24);
+  assert.equal(denseLong.showPointValues,false,'long period hides crowded numeric labels');
+  const longSvg=ui.lineChartSvg(denseDays,thirty);
+  assert.doesNotMatch(longSvg,/class="reporting-point-value /);
+  assert.match(longSvg,/2026-10-14: 2 failed/,
+    'hidden labels retain exact per-point numbers in native hover titles');
+  const sparseLong=ui.lineChartViewModel([{date:'2026-10-20',completed:3}],thirty);
+  assert.equal(sparseLong.showPointValues,true,'existing sparse longer-range labels remain visible');
+  assert.equal(ui.lineChartViewModel(denseDays).showPointValues,false,
+    'unknown period never claims a seven-day selection');
+  const preact=fs.readFileSync(new URL('../ui/reporting.jsx',import.meta.url),'utf8');
+  assert.match(preact,/point\.labelX \?\? point\.x/);
+  assert.match(preact,/point\.labelY \?\? Math\.max\(11, point\.y - 10\)/);
+});
+
 test('Option D reporting KPI rings display measured rates but no fictitious count/runtime progress', () => {
   const code = [
     reportingUi.slice(reportingUi.indexOf('function escapeHtml('), reportingUi.indexOf('async function requestJson(')),

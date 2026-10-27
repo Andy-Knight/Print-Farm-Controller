@@ -221,14 +221,36 @@ function lineChartViewModel(rows = [], range = null) {
       y:Number(y(value).toFixed(1)), title:`${row.date}: ${value} ${key}`
     }] : [];
   }));
+
+  // Seven elapsed days may span eight UTC calendar dates. Always show
+  // short-period counts, even after the ninth plotted non-zero outcome.
+  const from = Date.parse(range?.from || '');
+  const to = Date.parse(range?.to || '');
+  const shortPeriod = Number.isFinite(from) && Number.isFinite(to)
+    && to >= from && to - from <= 7 * 24 * 60 * 60 * 1000;
+  const showPointValues = shortPeriod || points.length <= 8;
+  // When two or three result types occur on one date, separate their labels
+  // horizontally rather than letting equal counts print on top of each other.
+  const pointsByDate = new Map();
+  for (const point of points) {
+    if (!pointsByDate.has(point.date)) pointsByDate.set(point.date, []);
+    pointsByDate.get(point.date).push(point);
+  }
+  const labelledPoints = points.map((point) => {
+    const sameDate = pointsByDate.get(point.date);
+    const index = sameDate.indexOf(point);
+    return {...point,
+      labelX:Math.max(24,Math.min(width - 24,point.x + (index - (sameDate.length - 1) / 2) * 30)),
+      labelY:Math.max(11,point.y - 10)};
+  });
   return {
     rows:timeline,
     viewBox:`0 0 ${width} ${height}`,
     completedPath:path('completed'),
     failedPath:path('failed'),
     cancelledPath:path('cancelled'),
-    points,
-    showPointValues:points.length <= 8,
+    points:labelledPoints,
+    showPointValues,
     grid:Array.from({ length:Math.floor(axisMax / step) + 1 }, (_, index) => {
       const value = index * step;
       const yy = y(value);
@@ -618,7 +640,7 @@ function lineChartSvg(rows = [], range = null) {
   const points = chart.points.map((point) => `<circle cx="${point.x}" cy="${point.y}" r="4.5" class="reporting-point ${point.key}">
       <title>${escapeHtml(point.title)}</title>
     </circle>${chart.showPointValues
-      ? `<text x="${point.x}" y="${Math.max(11,point.y - 10)}" text-anchor="middle" class="reporting-point-value ${point.key}">${point.value}</text>`
+      ? `<text x="${point.labelX ?? point.x}" y="${point.labelY ?? Math.max(11,point.y - 10)}" text-anchor="middle" class="reporting-point-value ${point.key}">${point.value}</text>`
       : ''}`).join('');
   return `<div class="reporting-chart-legend">
       <span><i class="reporting-legend-dot completed"></i>Completed</span>

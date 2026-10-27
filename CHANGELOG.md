@@ -4,6 +4,10 @@ This file contains the version-by-version release history for Print Farm Control
 
 Historical entries describe the behaviour of the controller at the time of that release and may be superseded by later versions. For current installation, configuration and supported-hardware guidance, see [README.md](README.md).
 
+## v0.61.4
+
+- Improved **Reports & finance → Analytics → Print outcomes over time** so non-zero numbers always appear for the seven-day reporting window, even when more than eight outcome points exist. Staggered same-date labels to reduce overlap. Longer periods retain sparse value labels and hide only crowded ones, with exact counts and dates still available from each point's tooltip. Kept both Preact and fallback SVG renderers in sync with browser and model regression coverage.
+
 ## v0.61.3
 
 - Distinguished the five **Reports & finance → Analytics** summary icons and decorative rings by metric: print jobs blue, completed green, failed red, total run time orange and total filament used purple. Used existing chart-palette accents with more contrast in light mode, preserving the outline SVG icons, actual completion/failure-rate progress and historical values. Standardised all previous-period arrows and percentages to green for increases and red for decreases (including failed jobs), with unchanged/missing comparisons muted rather than interpreting performance sentiment. Added Preact/fallback styling and browser regression checks.
