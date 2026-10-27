@@ -2627,6 +2627,21 @@ button.library-file-preview { cursor:zoom-in; }
 .maintenance-task-meta { display:flex; gap:10px; flex-wrap:wrap; margin-top:6px; color:#718391; font-size:.69rem; }
 .maintenance-task-actions { justify-content:flex-end; flex-wrap:wrap; }
 .maintenance-task-actions button { padding:7px 9px; }
+/* Individual-printer tasks repeat three actions with different scope labels.
+   Fix each action column so Edit model/group/task and Delete model/group/task
+   stay perfectly aligned across adjacent task rows; shared tasks are excluded. */
+.maintenance-task > .maintenance-task-actions {
+  display:grid;
+  grid-template-columns:120px 176px 190px;
+  justify-content:end;
+  gap:7px;
+}
+.maintenance-task > .maintenance-task-actions > button {
+  box-sizing:border-box;
+  width:100%;
+  min-width:0;
+  white-space:nowrap;
+}
 .maintenance-no-tasks { padding:12px 4px; }
 .maintenance-history-row {
   display:grid;
@@ -2698,6 +2713,13 @@ button.library-file-preview { cursor:zoom-in; }
   .maintenance-description-field { grid-column:1 / -1; }
   .maintenance-task { grid-template-columns:1fr; }
   .maintenance-task-actions { justify-content:flex-start; }
+}
+@media (max-width:620px) {
+  /* Do not truncate the longest action label inside compact phone cards. */
+  .maintenance-task > .maintenance-task-actions {
+    grid-template-columns:minmax(0,1fr);
+    width:100%;
+  }
 }
 @media (max-width:620px) {
   .maintenance-shell { padding:16px; }
