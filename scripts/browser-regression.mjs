@@ -1982,33 +1982,44 @@ async function routeSmoke(page,url) {
     assert.ok(palette.every(p=>p.width>=50 && p.fill),'Option D rings visible in both themes');
     assert.notEqual(palette[1].fill,palette[2].fill,'success and failure should use different colours');
   }
-  // Five independent summary titles must span the entire width of
-  // their cards, not the cramped space between icon and comparison values.
-  // Exercise the real geometry in both themes at desktop and narrow sizes.
-  for (const width of [1920,1440,1365,1200,1050,900,760,390,320]) {
+  // The header and its figure must share the same left edge, beside the
+  // gauge icon. Verify this in both themes and across desktop/phone widths.
+  for (const width of [1920,1440,1365,1200,1050,900,760,580,390,320]) {
     await page.setViewportSize({width,height:900});
-    for(const theme of ['light','dark']){
+    for (const theme of ['light','dark']) {
       await page.evaluate(value=>{document.documentElement.dataset.theme=value;},theme);
-      const kpiGeometry=await page.locator('#reportingKpis .reporting-kpi').evaluateAll(cards=>
+      const geometry=await page.locator('#reportingKpis .reporting-kpi').evaluateAll(cards=>
         cards.map(card=>{
-          const label=card.querySelector(':scope > .reporting-kpi-label');
-          const ring=card.querySelector(':scope > .reporting-kpi-gauge');
-          const header=label?.getBoundingClientRect(), box=card.getBoundingClientRect();
-          return {label:label?.textContent,width:label?.clientWidth,
-            scrollWidth:label?.scrollWidth,cardWidth:box.width,
-            titleWidth:header?.width, titleTop:header?.top,titleBottom:header?.bottom,
-            ringTop:ring?.getBoundingClientRect().top,whiteSpace:getComputedStyle(label).whiteSpace};
-        })
-      );
-      assert.equal(kpiGeometry.length,5,width+' '+theme+' all five KPI cards');
-      for(const rect of kpiGeometry){
-        assert.equal(rect.whiteSpace,'nowrap',width+' '+theme+' '+rect.label+' title cannot wrap');
-        assert.ok(rect.titleWidth>=rect.cardWidth-35,
-          width+' '+theme+' '+rect.label+' title must have card-wide space: '+JSON.stringify(rect));
-        assert.ok(rect.scrollWidth<=rect.width+1,
-          width+' '+theme+' '+rect.label+' title must fit without clipping: '+JSON.stringify(rect));
-        assert.ok(rect.ringTop>=rect.titleBottom-1,
-          width+' '+theme+' '+rect.label+' title must sit above the icon ring: '+JSON.stringify(rect));
+          const body=card.querySelector('.reporting-kpi-body');
+          const label=body.querySelector('.reporting-kpi-label');
+          const value=body.querySelector('strong');
+          const ring=card.querySelector('.reporting-kpi-gauge');
+          const delta=card.querySelector('.reporting-kpi-change');
+          const header=label.getBoundingClientRect(),figure=value.getBoundingClientRect(),
+            icon=ring.getBoundingClientRect(),comparison=delta.getBoundingClientRect(),
+            box=card.getBoundingClientRect();
+          return {label:label.textContent.trim(),titleLeft:header.left,
+            valueLeft:figure.left, titleBottom:header.bottom,valueTop:figure.top,
+            iconRight:icon.right,comparisonLeft:comparison.left,cardRight:box.right,
+            titleRight:header.right,labelClient:label.clientWidth,
+            labelScroll:label.scrollWidth,cardBottom:box.bottom,
+            titleWrap:getComputedStyle(label).whiteSpace};
+        }));
+      assert.equal(geometry.length,5,width+' '+theme+' all five summary cards');
+      for (const g of geometry) {
+        assert.ok(Math.abs(g.titleLeft-g.valueLeft)<=1,
+          width+' '+theme+' '+g.label+' heading must align with number: '+JSON.stringify(g));
+        assert.ok(Math.abs(g.comparisonLeft-g.valueLeft)<=1,
+          width+' '+theme+' '+g.label+' previous-period text must follow number alignment');
+        assert.ok(g.titleBottom<=g.valueTop+1,
+          width+' '+theme+' '+g.label+' heading must sit above number');
+        assert.ok(g.iconRight<g.valueLeft,
+          width+' '+theme+' '+g.label+' icon should remain left of the heading/value');
+        assert.ok(g.labelScroll<=g.labelClient+1,
+          width+' '+theme+' '+g.label+' heading must wrap without clipping');
+        assert.ok(g.titleRight<=g.cardRight+1,
+          width+' '+theme+' '+g.label+' heading must stay in its card');
+        assert.equal(g.titleWrap,'normal');
       }
     }
   }
