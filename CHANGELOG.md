@@ -4,6 +4,10 @@ This file contains the version-by-version release history for Print Farm Control
 
 Historical entries describe the behaviour of the controller at the time of that release and may be superseded by later versions. For current installation, configuration and supported-hardware guidance, see [README.md](README.md).
 
+## v0.61.5
+
+- Standardised **Queue & history** and **Print Library** sidebar count badges to fixed **48×24px** rounded pills with centred tabular numerals and consistent right-edge alignment for simultaneous one-, two- or three-digit counts. Zero remains hidden. Counts above 999 display `999+` with the exact total in a tooltip. Scoped geometry to sidebar navigation only, retaining controller colours and other button badges. Added unit and Chromium desktop/mobile/light/dark regression checks.
+
 ## v0.61.4
 
 - Improved **Reports & finance → Analytics → Print outcomes over time** so non-zero numbers always appear for the seven-day reporting window, even when more than eight outcome points exist. Staggered same-date labels to reduce overlap. Longer periods retain sparse value labels and hide only crowded ones, with exact counts and dates still available from each point's tooltip. Kept both Preact and fallback SVG renderers in sync with browser and model regression coverage.
