@@ -405,8 +405,8 @@ test('Option D reporting KPI rings display measured rates but no fictitious coun
   const view = vm.runInNewContext(code + '\n({ reportingKpiSvg, reportingKpiViewModel })');
   assert.match(view.reportingKpiSvg('jobs'), /<rect/);
   assert.match(view.reportingKpiSvg('clock'), /<circle/);
-  assert.match(view.reportingKpiSvg('spool'), /<circle[^>]*r="8.5"/);
-  assert.match(view.reportingKpiSvg('spool'), /<circle[^>]*r="3.3"/);
+  assert.match(view.reportingKpiSvg('scale'), /<rect x="3" y="9" width="18" height="12" rx="2.5"\/>/);
+  assert.match(view.reportingKpiSvg('scale'), /M8 17a4 4 0 0 1 8 0M12 17l2-2/);
   const rows = view.reportingKpiViewModel({totals:{
     attempts:20,completed:17,failed:2,cancelled:1,runHours:31.5,materialGrams:3850,
     completionRate:.85,failureRate:.10
@@ -420,12 +420,17 @@ test('Option D reporting KPI rings display measured rates but no fictitious coun
   assert.equal(rows[4].label,'Total filament used');
   assert.equal(rows[4].value,'3.85 kg');
   assert.equal(rows[4].detail,'Recorded for completed prints');
-  assert.deepEqual(Array.from(rows,item=>item.iconName),['jobs','check','cross','clock','spool']);
+  assert.deepEqual(Array.from(rows,item=>item.iconName),['jobs','check','cross','clock','scale']);
   const preact=fs.readFileSync(new URL('../ui/reporting.jsx',import.meta.url),'utf8');
   assert.match(preact,/aria-valuenow=\{progress\}/);
   assert.match(preact,/progress \* 3\.6/);
   assert.match(preact,/reporting-kpi-gauge-neutral/);
-  assert.match(preact,/name === 'spool'/);
+  assert.match(preact,/name === 'scale'/);
+  assert.match(preact,/d="M4 4h16M7 4v4h10V4"/);
+  assert.match(preact,/d="M8 17a4 4 0 0 1 8 0M12 17l2-2"/);
+  assert.doesNotMatch(preact.slice(preact.indexOf('function ReportingKpiSymbol'),preact.indexOf('function ReportingKpis(')),/name === 'spool'/);
+  assert.doesNotMatch(reportingUi.slice(reportingUi.indexOf('function reportingKpiSvg('),
+    reportingUi.indexOf('function reportingPreviousPeriodChange(')),/spool:/);
   assert.match(styles,/grid-template-columns:repeat\(5,minmax\(0,1fr\)\)/);
   assert.match(reportingUi,/aria-valuenow="\$\{progress\}"/);
   assert.match(reportingUi,/progress \* 3\.6/);
