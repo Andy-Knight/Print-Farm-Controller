@@ -938,7 +938,7 @@ reportsBtn?.addEventListener('click', async () => {
 
 document.querySelectorAll('[data-reporting-close]').forEach((button) => button.addEventListener('click', () => reportingDialog?.close()));
 function updateReportingSegments() {
-  document.querySelector('.reporting-analytics-files')?.setAttribute('data-reporting-files-scope',reportingFilesScope);
+  document.querySelector('.reporting-analytics-files')?.setAttribute('data-reporting-files-view',reportingFilesScope);
   document.querySelectorAll('[data-reporting-files-scope]').forEach((button) => {
     const active = button.dataset.reportingFilesScope === reportingFilesScope;
     button.classList.toggle('active', active);
