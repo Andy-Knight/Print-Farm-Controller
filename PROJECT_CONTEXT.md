@@ -11,7 +11,7 @@ Repository policy: `AGENTS.md` defines agent startup behavior; `docs/DOCUMENTATI
 - Repository: `Andy-Knight/Print-Farm-Controller`
 - Project path: repository root (`/`)
 - Primary branch: `main` (current production baseline)
-- Current controller source version: **0.60.1**.
+- Current controller source version: **0.61.0**.
 - Previous baseline audited: **0.48.0** (main before the regression test audit release).
 - Runtime: **Node.js 24.22.1+** (Node 24 release line), ES modules; build-time **npm 12.2.0** and committed lockfile; no npm runtime dependency for deployed controller. Follow `docs/dependency-security.md` for updates.
 - GitHub is the authoritative code baseline.
@@ -19,6 +19,7 @@ Repository policy: `AGENTS.md` defines agent startup behavior; `docs/DOCUMENTATI
 
 ## Current work
 
+- **Analytics UI baseline:** Five period-filtered summary cards include recorded filament usage (kg) with a weight-scale icon. The popular-files ranking shows six columns beside the coloured filament-kg graph; selected-period and printer filters consistently scope both. Preserve partial/missing history messaging and Preact/fallback visual parity.
 - **UI baselines:** Print Library uses sidebar-aware full workspace width, aligned sticky headings and responsive cards; the decorative login scene zooms at layer 04 into four printer beds without exposing telemetry.
 - **Authentication/RBAC:** Enabled by default. First administrator setup requires a private startup-log code. HTTP credentials/sessions remain interceptable until browser TLS is configured; `PFC_AUTH_ALLOW_HTTP=0` blocks HTTP login. A durable activation marker forbids anonymous fallback if account data is lost. Offline recovery is available.
 - **Native HTTPS:** GUI-managed direct HTTP 4242 / HTTPS 4243; container Services may expose 80/443. Administrators select managed self-signed, externally pasted PEM (HTTPS-only import) or HTTP-only in Security & users → Connection settings. Keys persist in protected TLS identities. With TLS active, HTTP permits limited health and redirects browser GET/HEAD; mutations are blocked. Certificate renewal is explicit and password-protected; unchanged Apply preserves identity and sessions. Windows install, TLS activation/renewal/restart and Kubernetes HTTPS/redeployment persistence passed manual testing. External PEM import still needs manual acceptance. See `docs/HTTPS_CONFIGURATION.md`; issue #128 tracks ingress.

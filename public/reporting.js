@@ -49,7 +49,7 @@ let reportingPricingSaving = false;
 let reportingCurrencyActive = 'GBP';
 let reportingFilesScope = 'top10';
 let reportingFilesSort = { key:'completed', direction:'desc' };
-let reportingMaterialMode = 'type';
+let reportingMaterialMode = 'filament';
 // Legacy mode has no identity; once signed in, only administrators may edit
 // the central filament cost catalogue. Operator printer assignments are separate.
 const canManageFilamentCatalogue = () => !document.body.dataset.authRole || document.body.dataset.authRole === 'administrator';
@@ -406,14 +406,34 @@ function reportingFilamentLabel(entry, materialType) {
   };
 }
 
-function reportingMaterialRows(materials = []) {
+// Filament colours come from the current catalogue, not historical print
+// snapshots. Accept only known colour words or hex RGB values: user-entered
+// catalogue descriptions must never become arbitrary CSS.
+function reportingFilamentBarColour(value) {
+  const colour=String(value || '').trim().toLowerCase();
+  const names={
+    black:'#344252',white:'#f0f5fa',red:'#dc5964',orange:'#e99549',
+    yellow:'#e2c258',green:'#4dbd8b',blue:'#4997d7',purple:'#ae82df',
+    violet:'#ae82df',pink:'#e88fb5',grey:'#8999a8',gray:'#8999a8',
+    silver:'#a9b6c1',brown:'#a67559',cyan:'#4fb9c9',
+    gold:'#d4b767',natural:'#e5dfc8'
+  };
+  if (/^#[0-9a-f]{3}(?:[0-9a-f]{3})?$/.test(colour)) return colour;
+  return names[colour] || 'var(--ds-brand-strong)';
+}
+
+function reportingMaterialRows(materials = [], catalogue = []) {
   const groupByType = reportingMaterialMode === 'type';
   const groups = new Map();
+  const catalogueById=new Map((catalogue || []).map(item=>[String(item.id || ''),item]));
   for (const entry of materials) {
     const type = String(entry.material || 'Unknown material').trim().toUpperCase();
     const display = groupByType ? { label:type, note:'' } : reportingFilamentLabel(entry, type);
     const key = groupByType ? type : String(entry.filamentId || entry.label || type);
-    if (!groups.has(key)) groups.set(key, { key, ...display, grams:0, spendByCurrency:{} });
+    if (!groups.has(key)) groups.set(key, { key, ...display, grams:0, spendByCurrency:{},
+      barColour:groupByType ? 'var(--ds-brand-strong)'
+        : reportingFilamentBarColour(catalogueById.get(String(entry.filamentId || ''))?.colour)
+    });
     const row = groups.get(key);
     row.grams += Number(entry.grams || 0);
     for (const [currency, amount] of Object.entries(entry.spendByCurrency || {})) {
@@ -436,9 +456,11 @@ function reportingMaterialRows(materials = []) {
       key:row.key,
       label:row.label,
       note:row.note,
-      kg:formatNumber(row.grams / 1000, 2),
+      kg:formatNumber(row.grams / 1000, row.grams < 10 ? 3 : 2),
       percentage:total > 0 ? `${formatNumber(row.grams * 100 / total, 1)}%` : '—',
       percent:total > 0 ? Number((row.grams * 100 / total).toFixed(1)) : 0,
+      barPercent:ordered[0]?.grams > 0 ? Number((row.grams * 100 / ordered[0].grams).toFixed(2)) : 0,
+      barColour:row.barColour,
       cost:formatCurrencyTotals(row.spendByCurrency)
     })),
     totalKg:formatNumber(total / 1000, 2),
@@ -468,7 +490,8 @@ function reportingKpiSvg(name) {
     jobs:'<rect x="5" y="3" width="14" height="18" rx="2"/><path d="M9 8h6M9 12h6M9 16h4"/>',
     check:'<path d="M4.5 12.5 9.5 17.5 19.5 6.5"/>',
     cross:'<path d="M6 6l12 12M18 6 6 18"/>',
-    clock:'<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.5 2"/>'
+    clock:'<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.5 2"/>',
+    scale:'<path d="M4 4h16M7 4v4h10V4"/><rect x="3" y="9" width="18" height="12" rx="2.5"/><path d="M8 17a4 4 0 0 1 8 0M12 17l2-2"/>'
   };
   return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
       stroke-linecap="round" stroke-linejoin="round" focusable="false" aria-hidden="true">
@@ -506,6 +529,19 @@ function reportingKpiViewModel(report = {}) {
   const totals = report?.totals || {};
   const previous = report?.previousTotals || {};
   const hasPrevious = Number(previous.attempts || 0) > 0;
+  // The reporting service tallies material grams only for completed jobs,
+  // including older entries that have weight but no identifiable filament.
+  const recordedGrams=Number(totals.materialGrams);
+  const hasCompletedPrints=Number(totals.completed || 0) > 0;
+  const hasRecordedUsage=!hasCompletedPrints || (Number.isFinite(recordedGrams) && recordedGrams > 0);
+  const materialValue=hasRecordedUsage
+    ? `${formatNumber((Number.isFinite(recordedGrams) ? recordedGrams : 0) / 1000, 2)} kg` : '—';
+  const previousGrams=Number(previous.materialGrams);
+  const previousUsageKnown=Number.isFinite(previousGrams) && previousGrams >= 0
+    && (previousGrams > 0 || Number(previous.completed || 0) === 0);
+  const materialChange=hasRecordedUsage && hasPrevious && previousUsageKnown
+    ? reportingPreviousPeriodChange(Number.isFinite(recordedGrams) ? recordedGrams : 0,previousGrams,true,'neutral')
+    : reportingPreviousPeriodChange(0,0,false,'neutral');
   const change = (key, measure = key) =>
     reportingPreviousPeriodChange(totals[key] || 0, previous[key] || 0, hasPrevious, measure);
   // Only measured completion/failure rates receive progress meters.
@@ -519,8 +555,9 @@ function reportingKpiViewModel(report = {}) {
   return [
     { label:'Total print jobs', value:formatNumber(totals.attempts), detail:'In selected period', icon:'▤', iconName:'jobs', tone:'info', progressPercent:null, change:change('attempts','neutral') },
     { label:'Completed', value:formatNumber(totals.completed), detail:`${formatPercent(totals.completionRate)} completion rate`, icon:'✓', iconName:'check', tone:Number(totals.completed || 0) > 0 ? 'positive' : 'info', progressPercent:percent(totals.completionRate), progressLabel:'Completion rate', change:change('completed') },
-    { label:'Failed', value:formatNumber(totals.failed), detail:`${formatPercent(totals.failureRate)} failure rate`, icon:Number(totals.failed || 0) > 0 ? '×' : '✓', iconName:Number(totals.failed || 0) > 0 ? 'cross' : 'check', tone:Number(totals.failed || 0) > 0 ? 'negative' : 'positive', progressPercent:percent(totals.failureRate), progressLabel:'Failure rate', change:change('failed') },
-    { label:'Total run time', value:`${formatNumber(totals.runHours, 1)} h`, detail:'Reported from print timestamps', icon:'◷', iconName:'clock', tone:'info', progressPercent:null, change:change('runHours','neutral') }
+    { label:'Failed', value:formatNumber(totals.failed), detail:`${formatPercent(totals.failureRate)} failure rate`, icon:'×', iconName:'cross', tone:'negative', progressPercent:percent(totals.failureRate), progressLabel:'Failure rate', change:change('failed') },
+    { label:'Total run time', value:`${formatNumber(totals.runHours, 1)} h`, detail:'Reported from print timestamps', icon:'◷', iconName:'clock', tone:'info', progressPercent:null, change:change('runHours','neutral') },
+    { label:'Total filament used', value:materialValue, detail:hasRecordedUsage ? 'Recorded for completed prints' : 'No recorded material usage', iconName:'scale', tone:'info', progressPercent:null, change:materialChange }
   ];
 }
 
@@ -545,7 +582,7 @@ function publishReportingUiState(report = currentReport || {}) {
     fileFailures:reportingFileRows(report?.files || [], { failures:true }),
     fileScope:reportingFilesScope,
     fileSort:reportingFilesSort,
-    materials:reportingMaterialRows(report?.materials || []),
+    materials:reportingMaterialRows(report?.materials || [], reportingFilamentsState),
     materialMode:reportingMaterialMode,
     filaments:reportingFilamentsViewModel(),
     canManageFilaments:canManageFilamentCatalogue()
@@ -623,44 +660,47 @@ function renderReportFiles(files) {
   const headings = [
     { label:'#' }, { label:'Print file', html:`<button type="button" class="reporting-table-sort" data-reporting-file-sort="fileName" aria-label="Sort by file name" aria-pressed="${reportingFilesSort.key === 'fileName'}">Print file ${reportingFilesSort.key === 'fileName' ? (reportingFilesSort.direction === 'desc' ? '▼' : '▲') : '↕'}</button>` },
     ...[
-      ['completed','Completed'], ['failed','Failed'], ['successRate','Success rate']
+      ['completed','Completed'], ['failed','Failed']
     ].map(([key,label]) => ({
       label,
       numeric:true,
       html:`<button type="button" class="reporting-table-sort" data-reporting-file-sort="${key}" aria-label="Sort by ${label.toLowerCase()}" aria-pressed="${reportingFilesSort.key === key}">${label} ${reportingFilesSort.key === key ? (reportingFilesSort.direction === 'desc' ? '▼' : '▲') : '↕'}</button>`
     })),
     { label:'Material', numeric:true, html:`<button type="button" class="reporting-table-sort" data-reporting-file-sort="materialGrams" aria-label="Sort by material usage" aria-pressed="${reportingFilesSort.key === 'materialGrams'}">Material ${reportingFilesSort.key === 'materialGrams' ? (reportingFilesSort.direction === 'desc' ? '▼' : '▲') : '↕'}</button>` },
-    { label:'Cost', numeric:true, html:`<button type="button" class="reporting-table-sort" data-reporting-file-sort="materialCost" aria-label="Sort by historical material cost, grouped by currency" title="Historical costs are sorted within currency groups, without currency conversion" aria-pressed="${reportingFilesSort.key === 'materialCost'}">Cost ${reportingFilesSort.key === 'materialCost' ? (reportingFilesSort.direction === 'desc' ? '▼' : '▲') : '↕'}</button>` },
-    { label:'Print time', numeric:true, html:`<button type="button" class="reporting-table-sort" data-reporting-file-sort="runSeconds" aria-label="Sort by total print time" aria-pressed="${reportingFilesSort.key === 'runSeconds'}">Print time ${reportingFilesSort.key === 'runSeconds' ? (reportingFilesSort.direction === 'desc' ? '▼' : '▲') : '↕'}</button>` }
+    { label:'Cost', numeric:true, html:`<button type="button" class="reporting-table-sort" data-reporting-file-sort="materialCost" aria-label="Sort by historical material cost, grouped by currency" title="Historical costs are sorted within currency groups, without currency conversion" aria-pressed="${reportingFilesSort.key === 'materialCost'}">Cost ${reportingFilesSort.key === 'materialCost' ? (reportingFilesSort.direction === 'desc' ? '▼' : '▲') : '↕'}</button>` }
   ];
   return reportingTableShell(headings, files.map((file) => `<tr>
       <td>${file.rank}</td><td>${reportingFileNameHtml(file)}</td>
       <td class="numeric">${file.completed}</td><td class="numeric">${file.failed}</td>
-      <td class="numeric">${file.successRate}</td>
       <td class="numeric reporting-file-material" title="${escapeHtml(file.materialTitle)}">
         ${escapeHtml(file.materialText)}${file.materialPartial ? '<small>partial</small>' : ''}</td>
       <td class="numeric reporting-file-cost" title="${escapeHtml(file.costTitle)}">
         ${escapeHtml(file.materialCostText)}${file.materialCostPartial ? '<small>partial</small>' : ''}</td>
-      <td class="numeric reporting-file-time" title="${escapeHtml(file.printTimeTitle)}">
-        ${escapeHtml(file.printTime)}${file.printTimePartial ? '<small>partial</small>' : ''}</td>
     </tr>`),
     'No completed print files for the selected period.');
 }
 
 function renderReportMaterials(materials) {
-  const headings = [
-    { label:reportingMaterialMode === 'type' ? 'Material type' : 'Filament' },
-    { label:'Used (kg)', numeric:true }, { label:'Share', numeric:true },
-    { label:'Estimated cost', numeric:true }, { label:'Usage' }
-  ];
-  const foot = `<tfoot><tr class="reporting-total-row"><th scope="row">Total</th>
-    <td class="numeric">${materials.totalKg}</td><td class="numeric">100%</td>
-    <td class="numeric">${escapeHtml(materials.totalCost)}</td><td></td></tr></tfoot>`;
-  return reportingTableShell(headings, materials.rows.map((row) => `<tr>
-    <td title="${escapeHtml(row.note || row.label)}">${escapeHtml(row.label)}</td>
-    <td class="numeric">${row.kg}</td><td class="numeric">${row.percentage}</td>
-    <td class="numeric">${escapeHtml(row.cost)}</td><td><div class="reporting-progress"><span style="width:${row.percent}%"></span></div></td>
-  </tr>`), 'No material usage captured for completed prints in this period.', foot);
+  if (!materials.rows.length)
+    return '<div class="reporting-empty">No material usage captured for completed prints in this period.</div>';
+  const rows=materials.rows.map(row=>`<div class="reporting-usage-row" role="listitem">
+    <div class="reporting-usage-row-head">
+      <strong title="${escapeHtml(row.note || row.label)}">${escapeHtml(row.label)}</strong>
+      <span class="reporting-usage-kg">${escapeHtml(row.kg)} kg</span>
+    </div>
+    <div class="reporting-usage-track" role="img"
+      aria-label="${escapeHtml(row.label)}: ${escapeHtml(row.kg)} kilograms, ${escapeHtml(row.percentage)} of recorded usage">
+      <span style="width:${Math.max(0,Math.min(100,Number(row.barPercent || 0)))}%;--reporting-usage-colour:${escapeHtml(row.barColour)}"></span>
+    </div>
+    <div class="reporting-usage-meta"><span>${escapeHtml(row.percentage)} of total</span><span>Recorded cost: ${escapeHtml(row.cost)}</span></div>
+  </div>`).join('');
+  return `<div class="reporting-usage-chart" role="region" aria-label="Filament used in kilograms" tabindex="0">
+    <div class="reporting-usage-rows" role="list">${rows}</div>
+    <div class="reporting-usage-total">
+      <strong>Total filament used</strong><span>${escapeHtml(materials.totalKg)} kg</span>
+      <small>Recorded cost: ${escapeHtml(materials.totalCost)}</small>
+    </div>
+  </div>`;
 }
 
 function renderProblemPrinters(printers = []) {
@@ -728,7 +768,7 @@ function renderReport(report) {
   if (reportingTrend) reportingTrend.innerHTML = lineChartSvg(report?.daily || [], report?.range);
   if (reportingPrinters) reportingPrinters.innerHTML = renderProblemPrinters(report?.printers || []);
   if (reportingFiles) reportingFiles.innerHTML = renderReportFiles(reportingFileRows(report?.files || []));
-  if (reportingMaterials) reportingMaterials.innerHTML = renderReportMaterials(reportingMaterialRows(report?.materials || []));
+  if (reportingMaterials) reportingMaterials.innerHTML = renderReportMaterials(reportingMaterialRows(report?.materials || [], reportingFilamentsState));
   if (reportingFileFailures) reportingFileFailures.innerHTML = renderFileFailures(reportingFileRows(report?.files || [], { failures:true }));
 
 }

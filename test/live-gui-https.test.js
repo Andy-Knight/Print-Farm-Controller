@@ -104,6 +104,41 @@ async function login(base){
   return {cookie:response.headers['set-cookie'][0].split(';')[0],csrf:response.body.csrf};
 }
 
+/**
+ * The HTTPS listener becomes reachable *before* the durable TLS settings
+ * write finishes. A healthy HTTPS socket is not proof that the requested
+ * mode has committed yet (especially on Windows). Wait for the configured
+ * mode and busy=false rather than inspecting an intermediate "off" status.
+ *
+ * Reauthenticate during the transition because swapping HTTPS listeners
+ * intentionally revokes sessions, including a login made during the swap.
+ */
+async function waitForCommittedTlsMode(base,expectedMode,child,logs){
+  let lastStatus=null,lastError=null;
+  for(let attempt=0;attempt<100;attempt++){
+    if(child.exitCode!==null||child.signalCode!==null)
+      throw Error('Controller exited during HTTPS change: '+logs.join('').slice(-2000));
+    try{
+      const identity=await login(base);
+      const status=await secureRequest(base,'/api/tls/status',{identity});
+      lastStatus=status;
+      if(status.status===200&&status.body?.tls?.lastError)
+        throw Error('Controller HTTPS change failed: '+status.body.tls.lastError);
+      if(status.status===200&&status.body?.tls?.mode===expectedMode
+          &&status.body.tls.busy===false&&status.body.tls.certificate)
+        return {identity,status};
+    }catch(error){
+      if(/Controller HTTPS change failed:/.test(error.message))throw error;
+      lastError=error;
+    }
+    await new Promise(resolve=>setTimeout(resolve,120));
+  }
+  throw Error('Timed out waiting for committed HTTPS mode '+expectedMode+
+    '. Last status: '+JSON.stringify(lastStatus?.body?.tls||lastStatus||null)+
+    '; last error: '+(lastError?.message||'none')+
+    '; controller logs: '+logs.join('').slice(-1600));
+}
+
 test('real controller starts HTTP, switches to GUI-managed HTTPS and retains it after restart',
   {timeout:85000},async()=>{
   const directory=await fs.mkdtemp(path.join(os.tmpdir(),'pfc-live-gui-https-'));
@@ -170,6 +205,8 @@ test('real controller starts HTTP, switches to GUI-managed HTTPS and retains it 
     assert.equal(accepted.status,202,accepted.text);
     assert.equal(accepted.body.mode,'self-signed');
     await pollHealthy(secure,child,logs);
+    const {identity:secureAdmin,status}=await waitForCommittedTlsMode(
+      secure,'self-signed',child,logs);
     assert.equal((await secureRequest(plain,'/healthz')).status,200,
       'Docker and K3s health checks use the permanent HTTP port');
     const redirect=await secureRequest(plain,'/printer-details?test=one');
@@ -193,12 +230,10 @@ test('real controller starts HTTP, switches to GUI-managed HTTPS and retains it 
     const session=await secureRequest(secure,'/api/auth/session',{identity:admin});
     assert.equal(session.body.transportSecure,true);
     assert.equal(session.body.user,null,'HTTP-era sessions revoked on HTTPS transition');
-    const secureAdmin=await login(secure);
     const loginResponse=await secureRequest(secure,'/api/auth/login',{
       method:'POST',origin:secure,body:{username:'guiadmin',password}
     });
     assert.match(loginResponse.headers['set-cookie'][0],/; Secure/);
-    const status=await secureRequest(secure,'/api/tls/status',{identity:secureAdmin});
     assert.equal(status.status,200);
     assert.equal(status.body.tls.mode,'self-signed');
     assert.match(status.body.tls.certificate.subjectAltName,/IP Address:127\.0\.0\.1/);
@@ -242,10 +277,10 @@ test('real controller starts HTTP, switches to GUI-managed HTTPS and retains it 
     });
     assert.equal(imported.status,202,imported.text);
     assert.doesNotMatch(JSON.stringify(imported.body),/BEGIN CERTIFICATE|PRIVATE KEY/);
-    // Configuration changes are acknowledged before the TLS context swaps.
-    await new Promise(resolve=>setTimeout(resolve,1300));
-    const importedAdmin=await login(secure);
-    const importedStatus=await secureRequest(secure,'/api/tls/status',{identity:importedAdmin});
+    // Configuration changes are acknowledged before the TLS context swaps;
+    // poll the durable mode instead of assuming a fixed sleep is sufficient.
+    const {identity:importedAdmin,status:importedStatus}=await waitForCommittedTlsMode(
+      secure,'provided',child,logs);
     assert.equal(importedStatus.body.tls.mode,'provided');
     assert.equal(importedStatus.body.tls.canRegenerate,false);
     assert.equal(importedStatus.body.tls.certificateSource,'pasted-pem');

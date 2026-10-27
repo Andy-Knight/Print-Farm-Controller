@@ -215,7 +215,9 @@ test('analytics view models rank real print completions and aggregate materials'
   assert.match(html, /api\/library\/id-0\/preview/);
   assert.match(html, /data-reporting-file-sort="materialGrams"/);
   assert.match(html, /data-reporting-file-sort="materialCost"/);
-  assert.match(html, /data-reporting-file-sort="runSeconds"/);
+  assert.doesNotMatch(html, /data-reporting-file-sort="runSeconds"/);
+  assert.doesNotMatch(html, /data-reporting-file-sort="successRate"/);
+  assert.equal((html.match(/<th scope="col"/g) || []).length,6);
   assert.match(html, /Material ↕/);
   assert.doesNotMatch(html, /Popularity/);
   assert.doesNotMatch(html, /of leading file/);
@@ -241,7 +243,11 @@ test('analytics view models rank real print completions and aggregate materials'
   assert.equal(byType.rows[0].kg, '3.00');
   assert.equal(byType.rows[0].percentage, '75.0%');
   assert.equal(byType.totalKg, '4.00');
-  assert.match(ui.renderReportMaterials(byType), /Total/);
+  assert.match(ui.renderReportMaterials(byType), /Total filament used/);
+  assert.match(ui.renderReportMaterials(byType), /reporting-usage-chart/);
+  assert.equal(byType.rows[0].barPercent,100);
+  assert.equal(byType.rows[1].barPercent,33.33);
+  assert.equal(byType.rows[0].barColour,'var(--ds-brand-strong)');
   ui.setMode('filament');
   const byFilament = ui.reportingMaterialRows(materials);
   assert.equal(byFilament.rows.length, 3);
@@ -262,6 +268,18 @@ test('analytics view models rank real print completions and aggregate materials'
   const materialHtml = ui.renderReportMaterials(ui.reportingMaterialRows(snapshotMaterials));
   assert.match(materialHtml, /PLA \(Unidentified filament\)/);
   assert.match(materialHtml, /title="The print recorded this material type/);
+  assert.match(materialHtml, /aria-label="Filament used in kilograms"/);
+  assert.match(materialHtml, /0.25 kg/);
+  assert.doesNotMatch(materialHtml, /<table/);
+  const coloured=ui.reportingMaterialRows(materials,[
+    {id:'a',colour:'#ff0000'},{id:'b',colour:'Green'}, {id:'c',colour:'url(javascript:evil)'}
+  ]);
+  assert.equal(coloured.rows[0].barColour,'#ff0000');
+  assert.equal(coloured.rows[1].barColour,'#4dbd8b');
+  assert.equal(coloured.rows[2].barColour,'var(--ds-brand-strong)');
+  const coloursHtml=ui.renderReportMaterials(coloured);
+  assert.match(coloursHtml,/--reporting-usage-colour:#ff0000/);
+  assert.doesNotMatch(coloursHtml,/javascript:evil/,'catalogue colour cannot inject CSS');
   assert.match(materialHtml, /PLA \(Brand\/product not recorded\)/);
   assert.match(materialHtml, /eSUN · PLA\+ · PLA/);
   ui.setMode('type');
@@ -275,13 +293,17 @@ test('analytics view models rank real print completions and aggregate materials'
   assert.equal(ui.reportingFileRows([{fileName:'cancelled.gcode',completed:0,failed:0,attempts:2}]).length, 0);
 });
 
-test('analytics chart is first after KPIs, print file table spans full width and KPI icon colours reflect outcomes', () => {
+test('analytics chart is first after KPIs, popular files and filament kg graph share a desktop row', () => {
   const panel = index.slice(index.indexOf('id="reportingPanelAnalytics"'), index.indexOf('id="reportingPanelFilament"'));
   const ids = ['reportingKpis','reportingTrend','reportingFiles','reportingMaterials','reportingPrinters','reportingFileFailures'];
   const positions = ids.map((id) => panel.indexOf('id="' + id + '"'));
   assert.ok(positions.every((position) => position >= 0));
   assert.deepEqual(positions, [...positions].sort((a, b) => a - b));
-  assert.match(styles, /\.reporting-analytics-files\s*\{\s*grid-column:1\s*\/\s*-1/);
+  assert.match(styles, /\.reporting-analytics-grid\s*\{\s*grid-template-columns:repeat\(2,minmax\(0,1fr\)\)/);
+  assert.match(styles, /\.reporting-analytics-files,\.reporting-analytics-materials\s*\{\s*grid-column:auto/);
+  assert.match(styles, /\.reporting-analytics-files \.reporting-table-scroll\s*\{\s*overflow:auto/);
+  assert.match(styles, /\.reporting-usage-chart\s*\{[^}]*var\(--pfc-table-border\)/);
+  assert.match(styles, /\.reporting-usage-track>span\s*\{[^}]*var\(--reporting-usage-colour/);
   assert.match(styles, /#reportingPanelAnalytics\s*\{\s*padding-bottom:32px/);
   assert.match(styles, /@media \(max-width:760px\)\s*\{\s*#reportingPanelAnalytics\s*\{\s*padding-bottom:24px/);
   assert.match(styles, /\.reporting-table-scroll\s*\{[^}]*width:100%;[^}]*max-width:100%;/);
@@ -315,21 +337,26 @@ test('analytics chart is first after KPIs, print file table spans full width and
     formatPercent:(value)=>String(value ?? 0) + '%'
   });
   const unsuccessful = renderModel({ totals:{ attempts:11, completed:10, failed:1, completionRate:0.9, failureRate:0.1, runHours:12 } });
-  assert.deepEqual(Array.from(unsuccessful, (item)=>item.tone), ['info','positive','negative','info']);
+  assert.deepEqual(Array.from(unsuccessful, (item)=>item.tone), ['info','positive','negative','info','info']);
   const noFailures = renderModel({ totals:{ attempts:10, completed:10, failed:0, completionRate:1, failureRate:0, runHours:12 } });
-  assert.equal(noFailures[2].tone, 'positive');
-  assert.equal(noFailures[2].icon, '✓');
+  assert.equal(noFailures[2].tone, 'negative');
+  assert.equal(noFailures[2].icon, '×');
+  assert.equal(noFailures[2].iconName, 'cross');
+  assert.equal(unsuccessful[2].iconName, 'cross');
+  assert.equal(renderModel({totals:{failed:0}})[2].iconName,'cross');
   const idle = renderModel({ totals:{} });
   assert.equal(idle[1].tone, 'info');
   assert.equal(idle[1].progressPercent, null);
   assert.equal(idle[2].progressPercent, null);
   assert.equal(unsuccessful[0].progressPercent, null, 'job count has no percentage target');
   assert.equal(unsuccessful[3].progressPercent, null, 'runtime has no percentage target');
+  assert.equal(unsuccessful[4].progressPercent, null, 'filament kg has no percentage target');
+  assert.equal(unsuccessful[4].value,'—','unknown historical material use must not masquerade as zero');
   assert.equal(unsuccessful[1].progressPercent, 90);
   assert.equal(unsuccessful[2].progressPercent, 10);
   assert.equal(unsuccessful[2].progressLabel, 'Failure rate');
   assert.equal(noFailures[2].progressPercent, 0);
-  assert.equal(noFailures[2].iconName, 'check');
+  assert.equal(noFailures[2].iconName, 'cross');
 });
 
 test('single-day print history draws a visible chart marker and a complete date timeline in Preact and fallback', () => {
@@ -378,26 +405,58 @@ test('Option D reporting KPI rings display measured rates but no fictitious coun
   const view = vm.runInNewContext(code + '\n({ reportingKpiSvg, reportingKpiViewModel })');
   assert.match(view.reportingKpiSvg('jobs'), /<rect/);
   assert.match(view.reportingKpiSvg('clock'), /<circle/);
+  assert.match(view.reportingKpiSvg('scale'), /<rect x="3" y="9" width="18" height="12" rx="2.5"\/>/);
+  assert.match(view.reportingKpiSvg('scale'), /M8 17a4 4 0 0 1 8 0M12 17l2-2/);
   const rows = view.reportingKpiViewModel({totals:{
-    attempts:20,completed:17,failed:2,cancelled:1,runHours:31.5,
+    attempts:20,completed:17,failed:2,cancelled:1,runHours:31.5,materialGrams:3850,
     completionRate:.85,failureRate:.10
   }});
-  assert.equal(rows.length,4);
+  assert.equal(rows.length,5);
   assert.equal(rows[0].progressPercent,null);
   assert.equal(rows[1].progressPercent,85);
   assert.equal(rows[2].progressPercent,10);
   assert.equal(rows[3].progressPercent,null);
-  assert.deepEqual(Array.from(rows,item=>item.iconName),['jobs','check','cross','clock']);
+  assert.equal(rows[4].progressPercent,null);
+  assert.equal(rows[4].label,'Total filament used');
+  assert.equal(rows[4].value,'3.85 kg');
+  assert.equal(rows[4].detail,'Recorded for completed prints');
+  assert.deepEqual(Array.from(rows,item=>item.iconName),['jobs','check','cross','clock','scale']);
   const preact=fs.readFileSync(new URL('../ui/reporting.jsx',import.meta.url),'utf8');
   assert.match(preact,/aria-valuenow=\{progress\}/);
   assert.match(preact,/progress \* 3\.6/);
   assert.match(preact,/reporting-kpi-gauge-neutral/);
+  assert.match(preact,/name === 'scale'/);
+  assert.match(preact,/d="M4 4h16M7 4v4h10V4"/);
+  assert.match(preact,/d="M8 17a4 4 0 0 1 8 0M12 17l2-2"/);
+  assert.doesNotMatch(preact.slice(preact.indexOf('function ReportingKpiSymbol'),preact.indexOf('function ReportingKpis(')),/name === 'spool'/);
+  assert.doesNotMatch(reportingUi.slice(reportingUi.indexOf('function reportingKpiSvg('),
+    reportingUi.indexOf('function reportingPreviousPeriodChange(')),/spool:/);
+  assert.match(styles,/grid-template-columns:repeat\(5,minmax\(0,1fr\)\)/);
   assert.match(reportingUi,/aria-valuenow="\$\{progress\}"/);
   assert.match(reportingUi,/progress \* 3\.6/);
   assert.match(styles,/conic-gradient\(from -90deg/);
   assert.match(styles,/\.reporting-kpi-positive/);
   assert.match(styles,/\.reporting-kpi-negative/);
   assert.match(styles,/data-theme="light".*reporting-kpi-positive/);
+});
+
+test('five Analytics summary headings share the number column beside the icon', () => {
+  const preact=fs.readFileSync(new URL('../ui/reporting.jsx',import.meta.url),'utf8');
+  const kpiComponent=preact.slice(preact.indexOf('function ReportingKpis('),preact.indexOf('function ReportingTrend('));
+  const fallback=reportingUi.slice(reportingUi.indexOf('function renderReport(report)'),
+    reportingUi.indexOf('async function loadReportingContext()'));
+  assert.match(kpiComponent,/<div class="reporting-kpi-body">\s*<span class="reporting-kpi-label">\{item\.label\}<\/span>\s*<strong>\{item\.value\}<\/strong>/);
+  assert.match(fallback,/<div class="reporting-kpi-body">\s*<span class="reporting-kpi-label">\$\{escapeHtml\(item\.label\)\}<\/span>\s*<strong>\$\{escapeHtml\(item\.value\)\}<\/strong>/);
+  assert.doesNotMatch(kpiComponent,/<span class="reporting-kpi-label">\{item\.label\}<\/span>\s*<span class=\{`reporting-kpi-gauge/);
+  assert.match(styles,/\.reporting-kpis \.reporting-kpi\s*\{[^}]*display:grid/);
+  assert.match(styles,/\.reporting-kpi \.reporting-kpi-body\s*\{[^}]*grid-column:2;grid-row:1/);
+  assert.match(styles,/\.reporting-kpi \.reporting-kpi-label\s*\{[^}]*white-space:normal/);
+  assert.match(styles,/\.reporting-kpi \.reporting-kpi-gauge\s*\{[^}]*grid-row:1\s*\/\s*3/);
+  assert.match(styles,/\.reporting-kpi \.reporting-kpi-change\s*\{[^}]*grid-column:2;grid-row:2/);
+  assert.match(styles,/grid-template-columns:repeat\(5,minmax\(0,1fr\)\)/);
+  assert.match(styles,/@media \(min-width:901px\) and \(max-width:1550px\)[\s\S]*?grid-template-columns:repeat\(6,minmax\(0,1fr\)\)/);
+  assert.match(styles,/\.reporting-kpis \.reporting-kpi:nth-last-child\(-n\+2\)\s*\{\s*grid-column:span 3/);
+  assert.match(styles,/@media \(max-width:580px\)[\s\S]*?grid-template-columns:minmax\(0,1fr\)/);
 });
 
 test('previous-period change graphics show honest equal-window comparisons with appropriate sentiment', () => {
@@ -411,17 +470,19 @@ test('previous-period change graphics show honest equal-window comparisons with 
     formatPercent:(value)=>value == null ? '—' : Math.round(Number(value)*100)+'%'
   });
   const report = { totals:{
-    attempts:342,completed:325,failed:17,runHours:412.6,
+    attempts:342,completed:325,failed:17,runHours:412.6,materialGrams:15300,
     completionRate:325/342,failureRate:17/342
   },previousTotals:{
-    attempts:305,completed:301,failed:22,runHours:350
+    attempts:305,completed:301,failed:22,runHours:350,materialGrams:12400
   }};
   const items=models.reportingKpiViewModel(report);
-  assert.deepEqual(Array.from(items,item=>item.change.label),['12.1%','8.0%','22.7%','17.9%']);
-  assert.deepEqual(Array.from(items,item=>item.change.symbol),['▲','▲','▼','▲']);
-  assert.deepEqual(Array.from(items,item=>item.change.tone),['neutral','positive','positive','neutral']);
+  assert.deepEqual(Array.from(items,item=>item.change.label),['12.1%','8.0%','22.7%','17.9%','23.4%']);
+  assert.deepEqual(Array.from(items,item=>item.change.symbol),['▲','▲','▼','▲','▲']);
+  assert.deepEqual(Array.from(items,item=>item.change.tone),['neutral','positive','positive','neutral','neutral']);
   assert.ok(items.every(item=>item.change.caption==='vs previous period'));
   assert.equal(items[1].progressPercent,95);
+  assert.equal(items[4].value,'15.30 kg');
+  assert.equal(items[4].change.caption,'vs previous period');
   const deteriorated=models.reportingKpiViewModel({
     totals:{ attempts:10,completed:7,failed:3,runHours:7,completionRate:.7,failureRate:.3 },
     previousTotals:{ attempts:10,completed:9,failed:1,runHours:9 }
@@ -432,6 +493,8 @@ test('previous-period change graphics show honest equal-window comparisons with 
   assert.equal(deteriorated[2].change.tone,'negative');
   assert.equal(deteriorated[2].change.symbol,'▲');
   assert.equal(deteriorated[3].change.tone,'neutral');
+  assert.equal(deteriorated[4].value,'—');
+  assert.equal(deteriorated[4].change.caption,'No previous period data');
   const none=models.reportingKpiViewModel({totals:{attempts:5,completed:5,failed:0,runHours:8}});
   assert.ok(none.every(item=>item.change.caption==='No previous period data'));
   assert.ok(none.every(item=>item.change.symbol===''));
@@ -445,6 +508,7 @@ test('previous-period change graphics show honest equal-window comparisons with 
   assert.equal(zeroBaseline[2].change.tone,'negative');
   assert.equal(zeroBaseline[3].change.label,'From 0');
   assert.equal(zeroBaseline[3].change.tone,'neutral');
+  assert.equal(zeroBaseline[4].change.caption,'No previous period data');
   const noPriorJobs=models.reportingKpiViewModel({
     totals:{attempts:7,completed:7,failed:0,runHours:4},
     previousTotals:{attempts:0,completed:0,failed:0,runHours:0}
@@ -457,6 +521,26 @@ test('previous-period change graphics show honest equal-window comparisons with 
   assert.equal(quiet[0].change.label,'100.0%');
   assert.equal(quiet[1].change.tone,'negative');
   assert.equal(quiet[2].change.tone,'positive');
+  assert.equal(quiet[4].value,'0.00 kg','no completed prints means no filament consumed');
+  const filtered=models.reportingKpiViewModel({
+    totals:{attempts:3,completed:2,failed:1,materialGrams:2250},
+    previousTotals:{attempts:5,completed:4,materialGrams:1000}
+  });
+  assert.equal(filtered[4].value,'2.25 kg','summary uses supplied period/filter totals');
+  assert.equal(filtered[4].change.label,'125.0%');
+  const missing=models.reportingKpiViewModel({
+    totals:{attempts:2,completed:2,materialGrams:0},
+    previousTotals:{attempts:3,materialGrams:1100}
+  });
+  assert.equal(missing[4].value,'—','completed jobs without recorded weight are unknown, not zero');
+  assert.equal(missing[4].change.caption,'No previous period data');
+  const oldUnrecorded=models.reportingKpiViewModel({
+    totals:{attempts:4,completed:4,materialGrams:2000},
+    previousTotals:{attempts:6,completed:6,materialGrams:0}
+  });
+  assert.equal(oldUnrecorded[4].value,'2.00 kg');
+  assert.equal(oldUnrecorded[4].change.caption,'No previous period data',
+    'previous jobs without weight must not imply material grew from zero');
   assert.match(reportingService,/getPreviousPeriodTotals/);
   assert.match(server,/report\.previousTotals = previous\.totals/);
   assert.match(server,/printerIds\s*\}\)/);
@@ -521,7 +605,8 @@ test('print-file analytics show material, historical cost, and total printer tim
   const html=ui.renderReportFiles(rows);
   assert.match(html, /0\.45 kg/);
   assert.match(html, /£6\.00/);
-  assert.match(html, /2h 0m/);
+  assert.doesNotMatch(html, /2h 0m/, 'print time is retained in analytics but not displayed in this table');
+  assert.doesNotMatch(html, /<td[^>]*>100\.0%<\/td>/,'success rate is not displayed in this table');
   assert.match(html, /<small>partial<\/small>/);
   assert.match(html, /Sort by historical material cost, grouped by currency/);
   assert.doesNotMatch(html,/Popularity/);
@@ -541,7 +626,8 @@ test('print-file analytics show material, historical cost, and total printer tim
   const preact=fs.readFileSync(new URL('../ui/reporting.jsx',import.meta.url),'utf8');
   assert.match(preact,/file\.materialCostText/);
   assert.match(preact,/file\.materialText/);
-  assert.match(preact,/file\.printTime/);
+  assert.doesNotMatch(preact.slice(preact.indexOf('function ReportFiles('),preact.indexOf('function ReportMaterials(')),
+    /file\.printTime|file\.successRate/);
   assert.match(styles,/reporting-file-material/);
   assert.match(styles,/reporting-file-cost/);
   assert.doesNotMatch(html,/reporting-file-resource/);
@@ -549,8 +635,8 @@ test('print-file analytics show material, historical cost, and total printer tim
   assert.match(html,/data-reporting-file-sort="materialCost"/);
   const headerCells=(html.match(/<th scope="col"/g)||[]).length;
   const valueCells=(html.match(/<td(?: class=|>)/g)||[]).length;
-  assert.equal(headerCells,8,'popular files must display eight independent column headings');
-  assert.equal(valueCells,rows.length*8,'each row must display Material and Cost in separate cells');
+  assert.equal(headerCells,6,'popular files must display six independent column headings');
+  assert.equal(valueCells,rows.length*6,'each row must display six fields, including distinct Material and Cost cells');
   assert.match(html,/<td class="numeric reporting-file-material"/);
   assert.match(html,/<td class="numeric reporting-file-cost"/);
   const material=html.match(/<td class="numeric reporting-file-material"[^>]*>([\s\S]*?)<\/td>/);
@@ -558,48 +644,48 @@ test('print-file analytics show material, historical cost, and total printer tim
   assert.ok(material && cost,'resource columns must contain data');
   assert.doesNotMatch(material[1],/£6\.00/,'historical cost must not appear below material');
   assert.doesNotMatch(cost[1],/0\.45 kg/,'material weight must not appear within Cost');
-  assert.match(styles,/reporting-file-time/);
+  assert.doesNotMatch(styles.slice(styles.indexOf('/* Popular files and filament use the desktop row'),
+    styles.indexOf('/* Kilogram-based filament usage chart.')), /reporting-file-time/);
+  assert.match(styles,/\.reporting-analytics-files \.reporting-analytics-table\s*\{[^}]*min-width:600px/);
 });
 
-test('Material usage table follows the controller-wide table standard in both grouping modes', () => {
-  const design = styles.slice(styles.indexOf('/* Controller table design system.'),
-    styles.indexOf('/* Toolhead tables use the same header block'));
-  for (const selector of [
-    '#reportingMaterials .reporting-table-scroll',
-    '#reportingMaterials .reporting-analytics-table thead th',
-    '#reportingMaterials .reporting-analytics-table tbody td',
-    '#reportingMaterials .reporting-analytics-table tbody tr:hover > *'
-  ]) assert.ok(design.includes(selector), 'Missing shared table rule: ' + selector);
-  for (const token of [
-    '--pfc-table-header-background', '--pfc-table-header-text',
-    '--pfc-table-border', '--pfc-table-divider', '--pfc-table-hover',
-    '--pfc-table-radius', '--pfc-table-surface'
-  ]) assert.ok(design.includes('var(' + token + ')'), 'Missing table theme token: ' + token);
-  assert.match(design, /#reportingMaterials \.reporting-analytics-table tfoot > tr > \*\s*\{[^}]*border-top:1px solid var\(--pfc-table-header-divider\)/);
-  assert.match(design, /#reportingMaterials \.reporting-analytics-table tbody td:first-child\s*\{[^}]*overflow-wrap:anywhere/);
-  const preact = fs.readFileSync(new URL('../ui/reporting.jsx', import.meta.url), 'utf8');
-  assert.match(preact, /function ReportMaterials\(\{ materials, materialMode \}\)/);
-  assert.match(preact, /label="Material usage" headers=\{headings\}/);
-  assert.match(reportingUi, /function renderReportMaterials\(materials\)/);
-  assert.match(reportingUi, /return reportingTableShell\(headings, materials\.rows\.map/);
-  assert.match(index, /data-reporting-material-mode="type"/);
-  assert.match(index, /data-reporting-material-mode="filament"/);
-  assert.match(fs.readFileSync(new URL('../scripts/browser-regression.mjs', import.meta.url), 'utf8'),
-    /Material usage table shares printer-group table skin/);
+test('filament usage is a token-based kg bar chart in both Preact and fallback renderers', () => {
+  assert.match(index, /<h3>Filament used \(kg\)<\/h3>/);
+  assert.match(index, /Filament consumed by completed prints, measured in kg\./);
+  assert.match(styles,/\.reporting-analytics-files \.reporting-section-head,\s*\.reporting-analytics-materials \.reporting-section-head\s*\{[^}]*align-items:flex-start;flex-wrap:nowrap;/);
+  assert.match(styles,/\.reporting-analytics-files \.reporting-section-head \.reporting-segmented,\s*\.reporting-analytics-materials \.reporting-section-head \.reporting-segmented\s*\{[^}]*margin-left:auto/);
+  assert.match(styles,/@media \(max-width:760px\)[\s\S]*?\.reporting-analytics-files \.reporting-section-head,\s*\.reporting-analytics-materials \.reporting-section-head\s*\{\s*flex-wrap:wrap;/);
+  assert.match(index, /data-reporting-material-mode="filament" aria-pressed="true"/);
+  assert.match(reportingUi, /let reportingMaterialMode = 'filament'/);
+  assert.match(reportingUi,/function reportingFilamentBarColour\(value\)/);
+  assert.match(reportingUi,/function renderReportMaterials\(materials\)/);
+  assert.match(reportingUi,/class="reporting-usage-chart" role="region"/);
+  assert.match(reportingUi,/barPercent/);
+  assert.match(reportingUi,/\-\-reporting-usage-colour/);
+  const preact=fs.readFileSync(new URL('../ui/reporting.jsx',import.meta.url),'utf8');
+  assert.match(preact,/function ReportMaterials\(\{ materials \}\)/);
+  assert.match(preact,/class="reporting-usage-chart" role="region"/);
+  assert.match(preact,/role="img"/);
+  assert.match(preact,/row\.barColour/);
+  for(const token of ['--pfc-table-border','--pfc-table-radius','--pfc-table-surface',
+    '--pfc-table-divider','--pfc-table-hover','--ds-text','--ds-surface-muted']){
+    assert.ok(styles.includes('var('+token+')'),'kg graph must follow controller colour semantics: '+token);
+  }
+  assert.match(fs.readFileSync(new URL('../scripts/browser-regression.mjs',import.meta.url),'utf8'),
+    /reporting-usage-row/);
 });
 
-test('all four Analytics tables use the shared controller table tokens and geometry', () => {
+test('the remaining three Analytics tables preserve the controller table design system', () => {
   const shared=styles.slice(styles.indexOf('/* Controller table design system.'),
     styles.indexOf('/* Toolhead tables use the same header block'));
-  for(const id of ['reportingFiles','reportingMaterials','reportingPrinters','reportingFileFailures']){
+  for(const id of ['reportingFiles','reportingPrinters','reportingFileFailures']){
     for(const selector of [
       '#' + id + ' .reporting-table-scroll',
       '#' + id + ' .reporting-analytics-table thead th',
       '#' + id + ' .reporting-analytics-table tbody tr:hover > *'
     ]) assert.ok(shared.includes(selector),'Missing shared table selector: '+selector);
   }
-  assert.match(shared, /#reportingPrinters \.reporting-analytics-table tbody > tr > :is\(th,td\)/,
-    'printer-name row headers must use the same padding and dividers as ordinary cells');
+  assert.match(shared, /#reportingPrinters \.reporting-analytics-table tbody > tr > :is\(th,td\)/);
   assert.match(shared, /#reportingFileFailures \.reporting-analytics-table tbody td/);
   assert.match(shared, /#reportingPrinters \.reporting-analytics-table tbody tr:last-child > \*/);
   for(const token of ['--pfc-table-header-background','--pfc-table-header-text',
@@ -612,7 +698,9 @@ test('all four Analytics tables use the shared controller table tokens and geome
   assert.match(preact, /class="numeric reporting-file-material"/);
   assert.match(preact, /class="numeric reporting-file-cost"/);
   assert.doesNotMatch(preact, /reporting-file-resource-heading/);
-  assert.match(styles, /\.reporting-analytics-files \.reporting-analytics-table td:nth-child\(8\)/);
+  assert.match(styles, /\.reporting-analytics-files \.reporting-analytics-table td:nth-child\(6\)/);
+  assert.doesNotMatch(styles.slice(styles.indexOf('/* Popular files and filament use the desktop row'),
+    styles.indexOf('/* Kilogram-based filament usage chart.')),/nth-child\((7|8)\)/);
 });
 
 test('analytics table grouping selectors use the standard 42px segmented-choice style', () => {

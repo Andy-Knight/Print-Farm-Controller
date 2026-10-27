@@ -54,7 +54,7 @@ async function preactReady(page) {
 
 async function reportsLoaded(page,where) {
   await page.waitForFunction(() =>
-    document.querySelectorAll('#reportingKpis .reporting-kpi').length >= 4
+    document.querySelectorAll('#reportingKpis .reporting-kpi').length >= 5
     && document.querySelector('#reportingStatus')?.textContent?.includes('Reporting period:')
   ,null,{timeout:20000});
   const kpis = await page.locator('#reportingKpis .reporting-kpi').allTextContents();
@@ -1952,16 +1952,30 @@ async function routeSmoke(page,url) {
       {label:'Total print jobs',value:'20',detail:'In selected period',tone:'info',iconName:'jobs',progressPercent:null},
       {label:'Completed',value:'17',detail:'85% completion rate',tone:'positive',iconName:'check',progressPercent:85,progressLabel:'Completion rate'},
       {label:'Failed',value:'2',detail:'10% failure rate',tone:'negative',iconName:'cross',progressPercent:10,progressLabel:'Failure rate'},
-      {label:'Total run time',value:'31.5 h',detail:'Reported from print timestamps',tone:'info',iconName:'clock',progressPercent:null}
+      {label:'Total run time',value:'31.5 h',detail:'Reported from print timestamps',tone:'info',iconName:'clock',progressPercent:null},
+      {label:'Total filament used',value:'3.85 kg',detail:'Recorded for completed prints',tone:'info',iconName:'scale',progressPercent:null}
     ]}
   })));
-  await page.waitForFunction(() => document.querySelectorAll('#reportingKpis .reporting-kpi-gauge').length === 4);
+  await page.waitForFunction(() => document.querySelectorAll('#reportingKpis .reporting-kpi-gauge').length === 5);
   assert.equal(await page.locator('#reportingKpis .reporting-kpi-meter').count(),2,
     'only rates should have progress bars');
-  assert.equal(await page.locator('#reportingKpis .reporting-kpi-accent').count(),2,
-    'count and runtime should have a decorative accent, not false progress');
+  assert.equal(await page.locator('#reportingKpis .reporting-kpi-accent').count(),3,
+    'job count, runtime and material kg have decorative accents, not false progress');
+  assert.equal(await page.locator('#reportingKpis .reporting-kpi').count(),5);
+  assert.equal(await page.locator('#reportingKpis .reporting-kpi').last().locator('.reporting-kpi-body strong').innerText(),'3.85 kg');
+  const massSymbol=page.locator('#reportingKpis .reporting-kpi').last().locator('.reporting-kpi-icon svg');
+  assert.equal(await massSymbol.locator('rect').count(),1,
+    'filament kg summary uses a weighing scale housing, not a filament spool');
+  assert.equal(await massSymbol.locator('circle').count(),0,
+    'filament kg pictogram uses a weighing dial path rather than a spool ring');
+  assert.equal(await massSymbol.locator('rect').getAttribute('width'),'18');
   assert.equal(await page.locator('#reportingKpis [aria-label="Completion rate"]').getAttribute('aria-valuenow'),'85');
   assert.equal(await page.locator('#reportingKpis [aria-label="Failure rate"]').getAttribute('aria-valuenow'),'10');
+  const failedIcon=page.locator('#reportingKpis .reporting-kpi').nth(2);
+  assert.match(await failedIcon.locator('.reporting-kpi-icon svg path').getAttribute('d'),/M6 6l12 12M18 6 6 18/,
+    'the Failed KPI must render a cross, not a check icon');
+  assert.match(await failedIcon.getAttribute('class'),/reporting-kpi-negative/,
+    'Failed KPI retains the red failure identity regardless of trend');
   for (const theme of ['dark','light']) {
     await page.evaluate(theme=>{document.documentElement.dataset.theme=theme;},theme);
     const palette=await page.locator('#reportingKpis .reporting-kpi').evaluateAll(
@@ -1970,10 +1984,53 @@ async function routeSmoke(page,url) {
         fill:getComputedStyle(card.querySelector('.reporting-kpi-icon')).color
       }))
     );
-    assert.equal(palette.length,4);
+    assert.equal(palette.length,5);
     assert.ok(palette.every(p=>p.width>=50 && p.fill),'Option D rings visible in both themes');
     assert.notEqual(palette[1].fill,palette[2].fill,'success and failure should use different colours');
   }
+  // The header and its figure must share the same left edge, beside the
+  // gauge icon. Verify this in both themes and across desktop/phone widths.
+  for (const width of [1920,1440,1365,1200,1050,900,760,580,390,320]) {
+    await page.setViewportSize({width,height:900});
+    for (const theme of ['light','dark']) {
+      await page.evaluate(value=>{document.documentElement.dataset.theme=value;},theme);
+      const geometry=await page.locator('#reportingKpis .reporting-kpi').evaluateAll(cards=>
+        cards.map(card=>{
+          const body=card.querySelector('.reporting-kpi-body');
+          const label=body.querySelector('.reporting-kpi-label');
+          const value=body.querySelector('strong');
+          const ring=card.querySelector('.reporting-kpi-gauge');
+          const delta=card.querySelector('.reporting-kpi-change');
+          const header=label.getBoundingClientRect(),figure=value.getBoundingClientRect(),
+            icon=ring.getBoundingClientRect(),comparison=delta.getBoundingClientRect(),
+            box=card.getBoundingClientRect();
+          return {label:label.textContent.trim(),titleLeft:header.left,
+            valueLeft:figure.left, titleBottom:header.bottom,valueTop:figure.top,
+            iconRight:icon.right,comparisonLeft:comparison.left,cardRight:box.right,
+            titleRight:header.right,labelClient:label.clientWidth,
+            labelScroll:label.scrollWidth,cardBottom:box.bottom,
+            titleWrap:getComputedStyle(label).whiteSpace};
+        }));
+      assert.equal(geometry.length,5,width+' '+theme+' all five summary cards');
+      for (const g of geometry) {
+        assert.ok(Math.abs(g.titleLeft-g.valueLeft)<=1,
+          width+' '+theme+' '+g.label+' heading must align with number: '+JSON.stringify(g));
+        assert.ok(Math.abs(g.comparisonLeft-g.valueLeft)<=1,
+          width+' '+theme+' '+g.label+' previous-period text must follow number alignment');
+        assert.ok(g.titleBottom<=g.valueTop+1,
+          width+' '+theme+' '+g.label+' heading must sit above number');
+        assert.ok(g.iconRight<g.valueLeft,
+          width+' '+theme+' '+g.label+' icon should remain left of the heading/value');
+        assert.ok(g.labelScroll<=g.labelClient+1,
+          width+' '+theme+' '+g.label+' heading must wrap without clipping');
+        assert.ok(g.titleRight<=g.cardRight+1,
+          width+' '+theme+' '+g.label+' heading must stay in its card');
+        assert.equal(g.titleWrap,'normal');
+      }
+    }
+  }
+  await page.setViewportSize({width:1365,height:900});
+  await page.evaluate(()=>{document.documentElement.dataset.theme='dark';});
   // Compare headline periods in the same layout, with a favourable decrease
   // in failures, neutral increase in total activity and missing-baseline state.
   await page.evaluate(() => window.dispatchEvent(new CustomEvent('pfc:reporting-ui-state', {
@@ -1989,11 +2046,14 @@ async function routeSmoke(page,url) {
         change:{symbol:'▼',label:'22.7%',tone:'positive',caption:'vs previous period',description:'Decrease of 22.7% vs previous period'}},
       {label:'Total run time',value:'412.6 h',detail:'Reported from print timestamps',
         tone:'info',iconName:'clock',progressPercent:null,
-        change:{symbol:'',label:'—',tone:'muted',caption:'No previous period data',description:'No previous period data for selected printer filters'}}
+        change:{symbol:'',label:'—',tone:'muted',caption:'No previous period data',description:'No previous period data for selected printer filters'}},
+      {label:'Total filament used',value:'15.30 kg',detail:'Recorded for completed prints',
+        tone:'info',iconName:'scale',progressPercent:null,
+        change:{symbol:'▲',label:'23.4%',tone:'neutral',caption:'vs previous period',description:'Increase of 23.4% vs previous period'}}
     ]}
   })));
-  await page.waitForFunction(() => document.querySelectorAll('#reportingKpis .reporting-kpi-change').length === 4);
-  assert.equal(await page.locator('#reportingKpis .reporting-kpi-change').count(),4);
+  await page.waitForFunction(() => document.querySelectorAll('#reportingKpis .reporting-kpi-change').length === 5);
+  assert.equal(await page.locator('#reportingKpis .reporting-kpi-change').count(),5);
   const deltas=await page.locator('#reportingKpis .reporting-kpi-change').evaluateAll(
     nodes=>nodes.map(node=>({
       value:node.querySelector('.reporting-kpi-change-value').textContent,
@@ -2009,6 +2069,8 @@ async function routeSmoke(page,url) {
   assert.match(deltas[2].value,/▼22.7%/);
   assert.match(deltas[2].className,/positive/);
   assert.equal(deltas[3].caption,'No previous period data');
+  assert.match(deltas[4].value,/▲23.4%/);
+  assert.match(deltas[4].className,/neutral/);
   for (const theme of ['light','dark']) {
     await page.evaluate(theme=>{document.documentElement.dataset.theme=theme;},theme);
     const colors=await page.locator('#reportingKpis .reporting-kpi-change').evaluateAll(
@@ -2016,6 +2078,30 @@ async function routeSmoke(page,url) {
     );
     assert.notEqual(colors[0],colors[1],'neutral and positive delta colours must differ');
   }
+  // Five KPI cards share a row only on roomy desktops. Narrower
+  // viewports balance the cards across rows without horizontal overflow.
+  for (const width of [1920,1365,1200,1050,900,620,390,320]) {
+    await page.setViewportSize({width,height:900});
+    const layout=await page.evaluate(()=>{
+      const parent=document.querySelector('#reportingKpis');
+      const cards=[...parent.querySelectorAll('.reporting-kpi')];
+      return {columns:getComputedStyle(parent).gridTemplateColumns.split(' ').length,
+        overflow:document.documentElement.scrollWidth>window.innerWidth+2,
+        cardRects:cards.map(card=>({left:card.getBoundingClientRect().left,
+          right:card.getBoundingClientRect().right,width:card.getBoundingClientRect().width})),
+        scaleHousing:cards.at(-1)?.querySelector('.reporting-kpi-icon svg rect')?.getAttribute('width'),
+        scaleGauge:cards.at(-1)?.querySelector('.reporting-kpi-icon svg path:last-child')?.getAttribute('d')};
+    });
+    assert.equal(layout.cardRects.length,5,'five KPI cards remain rendered at '+width);
+    const expectedColumns=width<=580 ? 1 : width<=900 ? 2 : width<=1550 ? 6 : 5;
+    assert.equal(layout.columns,expectedColumns,'responsive grid columns at '+width);
+    assert.equal(layout.overflow,false,'no horizontal page overflow at '+width);
+    assert.ok(layout.cardRects.every(card=>card.width>75),'cards remain readable at '+width);
+    assert.equal(layout.scaleHousing,'18','filament weight scale housing stays present at '+width);
+    assert.match(layout.scaleGauge||'',/M8 17a4 4 0 0 1 8 0M12 17l2-2/,
+      'filament weight scale dial stays present at '+width);
+  }
+  await page.setViewportSize({width:1365,height:900});
   // Sparse production history: all three jobs completed on one date.
   // The previous SVG contained only a move command and rendered no line.
   await page.evaluate(() => {
@@ -2066,22 +2152,28 @@ async function routeSmoke(page,url) {
     }}));
   });
   await page.waitForFunction(() => !!document.querySelector('#reportingFiles .reporting-table-scroll'));
-  assert.equal(await page.locator('#reportingFiles .reporting-analytics-table thead th').count(),8);
+  assert.equal(await page.locator('#reportingFiles .reporting-analytics-table thead th').count(),6);
+  const columnLabels=await page.locator('#reportingFiles .reporting-analytics-table thead th').allTextContents();
+  assert.deepEqual(columnLabels.map(label=>label.trim().replace(/[▲▼↕]/g,'').trim().toUpperCase()),
+    ['#','PRINT FILE','COMPLETED','FAILED','MATERIAL','COST'],
+    'only six ranking columns are shown, in the specified order');
   assert.match(await page.locator('#reportingFiles .reporting-file-material').innerText(),/0\.45 kg/);
   assert.match(await page.locator('#reportingFiles .reporting-file-cost').innerText(),/£6\.00/);
-  assert.equal(await page.locator('#reportingFiles .reporting-analytics-table tbody tr').first().locator('td').count(),8,
-    'Material and Cost must occupy distinct table cells');
+  assert.equal(await page.locator('#reportingFiles .reporting-analytics-table tbody tr').first().locator('td').count(),6,
+    'six visible cells, with Material and Cost in separate columns');
   const resourceColumns = await page.locator('#reportingFiles .reporting-analytics-table').evaluate(table => {
     const head=[...table.querySelectorAll('thead th')], row=[...table.querySelectorAll('tbody tr:first-child td')];
     const left=n=>n.getBoundingClientRect().left;
-    return {materialHeader:head[5].innerText,costHeader:head[6].innerText,
-      headingDelta:left(head[6])-left(head[5]),valueDelta:left(row[6])-left(row[5])};
+    return {materialHeader:head[4].innerText,costHeader:head[5].innerText,
+      headingDelta:left(head[5])-left(head[4]),valueDelta:left(row[5])-left(row[4])};
   });
   assert.match(resourceColumns.materialHeader,/Material/i);
   assert.match(resourceColumns.costHeader,/Cost/i);
   assert.ok(resourceColumns.headingDelta>40 && resourceColumns.valueDelta>40,
     'resource cells must be side by side, not stacked in one column');
-  assert.match(await page.locator('#reportingFiles .reporting-file-time').innerText(),/2h 0m/);
+  assert.equal(await page.locator('#reportingFiles .reporting-file-time').count(),0);
+  assert.equal(await page.locator('#reportingFiles [data-reporting-file-sort="runSeconds"]').count(),0);
+  assert.equal(await page.locator('#reportingFiles [data-reporting-file-sort="successRate"]').count(),0);
   assert.equal(await page.locator('#reportingFiles .reporting-progress').count(),0,
     'completed count must not also be duplicated as a popularity bar');
   // Compare the real Most popular print files table against the controller's
@@ -2144,15 +2236,56 @@ async function routeSmoke(page,url) {
     assert.equal(ours.firstCell.borderRight,'0px',
       theme+' file table body should not contain isolated vertical gridlines');
   }
-  // Material usage table shares printer-group table skin (both modes and
-  // themes). Keep the actual data cells, 100% total and progress bars intact.
-  for (const [mode, label] of [['type','ASA'],['filament','Example · ASA-CF · ASA']]) {
+  // The popular-files table now shares one 50/50 desktop row with the
+  // filament kilogram bar chart. Neither half may overflow the whole page.
+  const layout=await page.evaluate(()=>{
+    const grid=document.querySelector('.reporting-analytics-grid');
+    const files=document.querySelector('.reporting-analytics-files');
+    const materials=document.querySelector('.reporting-analytics-materials');
+    const chart=document.querySelector('#reportingMaterials');
+    const left=files.getBoundingClientRect(),right=materials.getBoundingClientRect();
+    return {columns:getComputedStyle(grid).gridTemplateColumns.split(' ').length,
+      filesWidth:left.width,materialWidth:right.width,
+      filesScroll:files.querySelector('.reporting-table-scroll').scrollWidth >
+        files.querySelector('.reporting-table-scroll').clientWidth,
+      viewportOverflow:document.documentElement.scrollWidth>innerWidth+2,
+      chartPresent:chart!==null};
+  });
+  if(layout.columns===2){
+    assert.ok(Math.abs(layout.filesWidth-layout.materialWidth)<3,
+      'Popular files and kg graph must take equal desktop widths');
+    assert.equal(layout.filesScroll,true,'six-column file table scrolls inside its half when required');
+  }
+  assert.equal(layout.chartPresent,true);
+  assert.equal(layout.viewportOverflow,false,'paired analytics cannot overflow the document');
+  // Both selectors should appear level at the top-right of their equal-width
+  // desktop cards. The filament helper copy must not force an extra row.
+  const headerAlignment=await page.evaluate(()=>{
+    const geometry=(selector)=> {
+      const el=document.querySelector(selector);
+      const r=el.getBoundingClientRect();
+      return {top:r.top,right:r.right,bottom:r.bottom};
+    };
+    return {
+      filesCard:geometry('.reporting-analytics-files'),
+      materialCard:geometry('.reporting-analytics-materials'),
+      filesButtons:geometry('.reporting-analytics-files .reporting-segmented'),
+      materialButtons:geometry('.reporting-analytics-materials .reporting-segmented')
+    };
+  });
+  if(layout.columns===2) {
+    assert.ok(Math.abs(headerAlignment.filesButtons.top-headerAlignment.materialButtons.top)<=3,
+      'filament grouping switch must align vertically with popular-files switch: '
+      +JSON.stringify(headerAlignment));
+    assert.ok(Math.abs(headerAlignment.filesButtons.right-headerAlignment.filesCard.right
+      -(headerAlignment.materialButtons.right-headerAlignment.materialCard.right))<=3,
+      'both grouping selectors must have matching right-edge inset');
+  }
+  for (const [mode,label] of [['filament','Example · ASA-CF · ASA'],['type','ASA']]) {
     await page.evaluate(({mode,label})=>{
       const base=window.__PFC_REPORTING_UI_STATE__ || {};
       window.dispatchEvent(new CustomEvent('pfc:reporting-ui-state',{detail:{
         ...base,materialMode:mode,
-        // Keep the earlier file-geometry fixture in Preact state: dispatching
-        // this custom event replaces the entire view model, not just materials.
         files:[{
           id:'layout-check',rank:1,fileName:'Regression layout sample.3mf',
           libraryFileId:null,previewUrl:'',completed:10,failed:0,
@@ -2164,75 +2297,57 @@ async function routeSmoke(page,url) {
         }],
         materials:{rows:[
           {key:'sample',label,note:'Historical materials sample',
-            kg:'1.50',percentage:'75.0%',percent:75,cost:'£19.50'},
+            kg:'1.50',percentage:'75.0%',percent:75,barPercent:100,
+            barColour:'#dc5964',cost:'£19.50'},
           {key:'sample2',label:'PLA',note:'',kg:'0.50',
-            percentage:'25.0%',percent:25,cost:'£4.50'}
+            percentage:'25.0%',percent:25,barPercent:33.33,
+            barColour:'var(--ds-brand-strong)',cost:'£4.50'}
         ],totalKg:'2.00',totalCost:'£24.00'}
       }}));
     },{mode,label});
-    await page.waitForFunction((materialLabel) =>
-      document.querySelector('#reportingMaterials tbody tr td')?.textContent === materialLabel,label);
-    const styling=await page.evaluate(()=>{
-      const fixture=document.createElement('div');
-      fixture.style.cssText='position:fixed;left:-5000px;top:0';
-      fixture.innerHTML='<div class="printer-group-members"><table class="printer-group-members-table">'
-        +'<thead><tr><th>Material</th></tr></thead><tbody><tr><td>Material</td></tr></tbody></table></div>';
-      document.body.appendChild(fixture);
+    await page.waitForFunction((materialLabel)=>
+      document.querySelector('#reportingMaterials .reporting-usage-row-head strong')?.textContent===materialLabel,label);
+    const rows=page.locator('#reportingMaterials .reporting-usage-row');
+    assert.equal(await rows.count(),2,mode+' retains all historical kg rows');
+    assert.equal(await page.locator('#reportingMaterials .reporting-usage-total>span').textContent(),'2.00 kg');
+    assert.match(await page.locator('#reportingMaterials .reporting-usage-total').innerText(),/£24.00/);
+    assert.match(await rows.first().locator('.reporting-usage-track').getAttribute('aria-label'),/1.50 kilograms, 75.0%/);
+    const themes=await page.evaluate(()=>{
       const original=document.documentElement.getAttribute('data-theme');
-      const props=node=>{
-        const s=getComputedStyle(node);
-        return {bg:s.backgroundColor,color:s.color,fontSize:s.fontSize,
-          fontWeight:s.fontWeight,letterSpacing:s.letterSpacing,
-          textTransform:s.textTransform,borderRadius:s.borderTopLeftRadius,
-          borderColor:s.borderTopColor,borderBottom:s.borderBottomColor,
-          borderWidth:s.borderRightWidth,divider:s.getPropertyValue('--pfc-table-divider').trim()};
-      };
-      const output={};
+      const values={};
       try {
-        for(const theme of ['dark','light']){
+        for (const theme of ['dark','light']){
           document.documentElement.setAttribute('data-theme',theme);
-          output[theme]={
-            ours:{
-              panel:props(document.querySelector('#reportingMaterials .reporting-table-scroll')),
-              heading:props(document.querySelector('#reportingMaterials thead th')),
-              row:props(document.querySelector('#reportingMaterials tbody td')),
-              footer:props(document.querySelector('#reportingMaterials tfoot th'))
-            },
-            ref:{
-              panel:props(fixture.querySelector('.printer-group-members')),
-              heading:props(fixture.querySelector('thead th')),
-              row:props(fixture.querySelector('tbody td'))
-            }
+          const rows=[...document.querySelectorAll('#reportingMaterials .reporting-usage-row')];
+          const bars=rows.map(row=>row.querySelector('.reporting-usage-track>span'));
+          const track=rows[0].querySelector('.reporting-usage-track');
+          const chart=document.querySelector('#reportingMaterials .reporting-usage-chart');
+          const total=document.querySelector('#reportingMaterials .reporting-usage-total');
+          values[theme]={
+            widths:bars.map(el=>el.getBoundingClientRect().width),
+            firstColour:getComputedStyle(bars[0]).backgroundColor,
+            fallbackColour:getComputedStyle(bars[1]).backgroundColor,
+            border:getComputedStyle(track).borderTopWidth,
+            surface:getComputedStyle(chart).backgroundColor,
+            total:getComputedStyle(total).backgroundColor
           };
         }
-      } finally {
-        if(original===null) document.documentElement.removeAttribute('data-theme');
+      }finally{
+        if(original===null)document.documentElement.removeAttribute('data-theme');
         else document.documentElement.setAttribute('data-theme',original);
-        fixture.remove();
       }
-      return output;
+      return values;
     });
-    for(const [theme,{ours,ref}] of Object.entries(styling)){
-      for(const prop of ['bg','borderColor','borderRadius'])
-        assert.equal(ours.panel[prop],ref.panel[prop],
-          mode+' '+theme+' Material usage surface must match shared table '+prop);
-      for(const prop of ['bg','color','fontSize','fontWeight','letterSpacing','textTransform','borderBottom','borderWidth'])
-        assert.equal(ours.heading[prop],ref.heading[prop],
-          mode+' '+theme+' Material usage header must match shared table '+prop);
-      assert.equal(ours.row.divider,ref.row.divider,
-        mode+' '+theme+' Material usage divider must match shared table token');
-      assert.equal(ours.row.borderWidth,'0px',mode+' '+theme+' no vertical cell borders');
-      assert.equal(ours.footer.bg,ours.panel.bg,mode+' '+theme+' totals use shared table surface');
+    for(const [theme,result] of Object.entries(themes)){
+      assert.ok(result.widths[0]>result.widths[1]*2.8,mode+' '+theme+' bar length follows kg');
+      assert.equal(result.firstColour,'rgb(220, 89, 100)',
+        mode+' '+theme+' preserves known catalogue filament colour');
+      assert.notEqual(result.fallbackColour,'rgba(0, 0, 0, 0)',
+        mode+' '+theme+' unknown filament uses visible theme brand colour');
+      assert.notEqual(result.border,'0px',mode+' '+theme+' chart track has a visible border');
+      assert.notEqual(result.surface,'rgba(0, 0, 0, 0)');
+      assert.notEqual(result.total,'rgba(0, 0, 0, 0)');
     }
-    const count=await page.locator('#reportingMaterials tbody tr').count();
-    assert.equal(count,2,mode+' retains historical usage rows');
-    assert.equal(await page.locator('#reportingMaterials tfoot .numeric').first().textContent(),'2.00');
-    assert.equal(await page.locator('#reportingMaterials tfoot .numeric').nth(1).textContent(),'100%');
-    assert.equal(await page.locator('#reportingMaterials tfoot .numeric').nth(2).textContent(),'£24.00');
-    assert.equal(await page.locator('#reportingMaterials .reporting-progress').count(),2,
-      mode+' must retain material usage progress bars');
-    assert.ok((await page.locator('#reportingMaterials .numeric').count())>=6,
-      mode+' must preserve numeric column alignment');
   }
   // Both remaining Analytics tables must match the established Printer Groups
   // table standard in both themes, including row-header (th) cells.
@@ -2336,12 +2451,12 @@ async function routeSmoke(page,url) {
     'Most popular files must follow the trend graph');
   assert.ok(reportingLayout.fileTableWidth >= reportingLayout.fileCardWidth - 40,
     'Print file table must fill its section, not stop at a fixed narrow width');
-  assert.ok(reportingLayout.tableOverhang <= 2,
-    'Desktop print file table must not require horizontal scrolling');
+  assert.ok(reportingLayout.tableOverhang > 0,
+    'The six-column ranking table remains locally scrollable at laptop widths');
   // This fixture is sent directly to Preact, not injected into the server's
   // persisted report. Confirm that accessible sort controls are rendered;
   // the executable reporting UI tests cover actual ordering and direction.
-  for (const key of ['runSeconds','materialGrams','materialCost']) {
+  for (const key of ['materialGrams','materialCost']) {
     const button=page.locator('#reportingFiles [data-reporting-file-sort="'+key+'"]');
     assert.equal(await button.count(),1,'sortable resource column '+key+' must be rendered');
     assert.equal(await button.getAttribute('aria-pressed'),'false');

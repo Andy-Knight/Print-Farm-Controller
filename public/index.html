@@ -374,7 +374,7 @@
         </section>
         <section class="reporting-section reporting-analytics-files">
           <div class="reporting-section-head">
-            <div><h3>Most popular print files</h3><span class="subtle">Ranked by completed runs. Material/cost cover completed jobs; time includes recorded printer attempts.</span></div>
+            <div><h3>Most popular print files</h3><span class="subtle">Ranked by completed runs; material and cost cover completed jobs.</span></div>
             <div class="reporting-segmented" role="group" aria-label="Popular print files list size">
               <button type="button" class="active" data-reporting-files-scope="top10" aria-pressed="true">Top 10</button>
               <button type="button" data-reporting-files-scope="all" aria-pressed="false">All files</button>
@@ -385,10 +385,10 @@
 
         <section class="reporting-section reporting-analytics-materials">
           <div class="reporting-section-head">
-            <div><h3>Material usage</h3><span class="subtle">Estimated filament consumption and recorded historical material cost.</span></div>
+            <div><h3>Filament used (kg)</h3><span class="subtle">Filament consumed by completed prints, measured in kg.</span></div>
             <div class="reporting-segmented" role="group" aria-label="Material usage grouping">
-              <button type="button" class="active" data-reporting-material-mode="type" aria-pressed="true">By material type</button>
-              <button type="button" data-reporting-material-mode="filament" aria-pressed="false">By filament</button>
+              <button type="button" data-reporting-material-mode="type" aria-pressed="false">By material type</button>
+              <button type="button" class="active" data-reporting-material-mode="filament" aria-pressed="true">By filament</button>
             </div>
           </div>
           <div id="reportingMaterials" class="reporting-table-content"></div>

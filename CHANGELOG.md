@@ -4,6 +4,12 @@ This file contains the version-by-version release history for Print Farm Control
 
 Historical entries describe the behaviour of the controller at the time of that release and may be superseded by later versions. For current installation, configuration and supported-hardware guidance, see [README.md](README.md).
 
+## v0.61.0
+
+- Redesigned **Reports & finance → Analytics** to pair the **Most popular print files** ranking and **Filament used (kg)** chart in equal-width desktop cards, with matching top-right segmented controls and responsive stacking. Simplified the popular-file table to six sortable columns (**#**, **Print file**, **Completed**, **Failed**, **Material**, **Cost**), with local scrolling at narrow widths and no Success rate or Print time columns.
+- Replaced the material usage table with a horizontal completed-print kilogram chart, preserving material-type/filament grouping, historical recorded cost and percentage shares. Uses safely validated current catalogue colours when available and standard controller theme colours otherwise.
+- Added a fifth reporting summary for **Total filament used** from recorded completed-print material weights in the selected reporting period, with a locally rendered weight-scale outline icon and honest unknown/missing-data handling. Five KPI cards reflow at smaller screen widths; previous-period comparisons use existing semantics and measured history. Extended browser, accessibility, fallback, layout, Windows and container regression coverage.
+
 ## v0.60.1
 
 - Added permanent user deletion to **Security & users → Users**. Administrators can remove other accounts using a red Delete control alongside Save, with a confirmation naming the affected user; cancelling leaves the account untouched. Deleted users are removed from the persistent account store and their active login sessions and streams are revoked immediately.
