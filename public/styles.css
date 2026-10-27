@@ -3311,8 +3311,8 @@ button.library-file-preview { cursor:zoom-in; }
   --reporting-kpi-track:rgba(92,151,215,.18);
   --reporting-kpi-center:#121a21;
   display:grid; align-items:center; align-content:center;
-  grid-template-columns:72px minmax(0,1fr); grid-template-rows:auto auto auto;
-  column-gap:12px; row-gap:6px; min-height:160px; padding:14px;
+  grid-template-columns:72px minmax(0,1fr); grid-template-rows:auto auto;
+  column-gap:12px; row-gap:6px; min-height:140px; padding:14px;
 }
 .reporting-kpis .reporting-kpi-positive {
   --reporting-kpi-color:#20b37b;
@@ -3323,7 +3323,7 @@ button.library-file-preview { cursor:zoom-in; }
   --reporting-kpi-track:rgba(237,112,120,.17);
 }
 .reporting-kpi .reporting-kpi-gauge {
-  grid-column:1;grid-row:2 / 4;align-self:center;
+  grid-column:1;grid-row:1 / 3;align-self:center;
   position:relative; display:grid; place-items:center; width:72px; height:72px;
   flex:0 0 72px; border-radius:50%;
   background:conic-gradient(from -90deg,var(--reporting-kpi-color) var(--reporting-kpi-angle),var(--reporting-kpi-track) 0deg);
@@ -3342,16 +3342,16 @@ button.library-file-preview { cursor:zoom-in; }
 }
 .reporting-kpi .reporting-kpi-icon svg { display:block; width:27px; height:27px; stroke:currentColor; }
 .reporting-kpi .reporting-kpi-body {
-  display:flex;grid-column:2;grid-row:2;min-width:0;
+  display:flex;grid-column:2;grid-row:1;min-width:0;
   flex-direction:column;align-items:flex-start;
 }
-/* The KPI title is a direct grid child spanning the *whole* card, not a
-   narrow column between the icon and the comparison metric. */
+/* The heading and its numeric value share exactly the same text track
+   alongside the icon. Allow long labels to wrap rather than clip. */
 .reporting-kpi .reporting-kpi-label {
-  grid-column:1 / -1;grid-row:1;min-width:0;
-  display:block;margin:0;color:var(--ds-text-muted,#8493a1);
+  display:block;width:100%;min-width:0;margin:0 0 4px;
+  color:var(--ds-text-muted,#8493a1);
   font-size:.73rem;font-weight:650;line-height:1.25;
-  white-space:nowrap;
+  white-space:normal;overflow-wrap:normal;
 }
 .reporting-kpi .reporting-kpi-body strong {
   display:block; margin:0; font-size:1.55rem; line-height:1.2;
@@ -3380,7 +3380,7 @@ button.library-file-preview { cursor:zoom-in; }
 /* Previous-period comparisons align with Option D's right-hand metric column.
    Green/red indicate production improvement/deterioration; neutral activity is blue. */
 .reporting-kpi .reporting-kpi-change {
-  display:flex;grid-column:2;grid-row:3;min-width:0;
+  display:flex;grid-column:2;grid-row:2;min-width:0;
   flex-direction:column;align-items:flex-start;gap:3px;
   text-align:left;color:#84bdff;
 }
@@ -3400,18 +3400,18 @@ button.library-file-preview { cursor:zoom-in; }
 :root[data-theme="light"] .reporting-kpi .reporting-kpi-change-neutral { color:#177bd8; }
 :root[data-theme="light"] .reporting-kpi .reporting-kpi-change-positive { color:#12754e; }
 :root[data-theme="light"] .reporting-kpi .reporting-kpi-change-negative { color:#b52231; }
-/* Smallest mobiles stack reporting KPIs to keep full-width headings legible. */
-@media (max-width:380px) {
+/* At phone widths, single-column cards leave enough room for aligned
+   heading, value and long kilogram units alongside the 52px ring. */
+@media (max-width:580px) {
   .reporting-kpis { grid-template-columns:minmax(0,1fr); }
 }
 @media (max-width:1550px) and (min-width:901px) {
   .reporting-kpis .reporting-kpi { column-gap:10px; }
   .reporting-kpi .reporting-kpi-change-caption { max-width:none; }
 }
-/* A five-across KPI layout gets too narrow near laptop/tablet sizes.
-   Balance into 3 cards, then 2 wider cards before switching to the
-   established two-column tablet layout. Never squeeze or wrap KPI titles. */
-@media (min-width:901px) and (max-width:1279px) {
+/* At intermediate desktop widths, three then two KPI cards preserve
+   room for the label/value text column beside each icon. */
+@media (min-width:901px) and (max-width:1550px) {
   .reporting-kpis { grid-template-columns:repeat(6,minmax(0,1fr)); }
   .reporting-kpis .reporting-kpi { grid-column:span 2; }
   .reporting-kpis .reporting-kpi:nth-last-child(-n+2) { grid-column:span 3; }
