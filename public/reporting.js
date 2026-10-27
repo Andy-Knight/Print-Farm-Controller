@@ -766,7 +766,9 @@ function renderReport(report) {
       const progress = item.progressPercent;
       const hasRate = progress != null;
       const safeTone = ['positive','negative','info'].includes(item.tone) ? item.tone : 'info';
-      return `<div class="reporting-kpi reporting-kpi-${safeTone}">
+      const identity = item.iconName === 'clock' ? ' reporting-kpi-runtime'
+        : item.iconName === 'scale' ? ' reporting-kpi-filament' : '';
+      return `<div class="reporting-kpi reporting-kpi-${safeTone}${identity}">
         <span class="reporting-kpi-gauge${hasRate ? '' : ' reporting-kpi-gauge-neutral'}"
             style="--reporting-kpi-angle:${hasRate ? progress * 3.6 : 0}deg" aria-hidden="true">
           <span class="reporting-kpi-icon">${reportingKpiSvg(item.iconName)}</span>
