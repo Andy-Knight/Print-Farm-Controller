@@ -422,6 +422,14 @@ function reportingFilamentBarColour(value) {
   return names[colour] || 'var(--ds-brand-strong)';
 }
 
+function reportingPiePath(start, end) {
+  const at = (portion) => {
+    const radians = portion * Math.PI * 2 - Math.PI / 2;
+    return `${(100 + 90 * Math.cos(radians)).toFixed(4)} ${(100 + 90 * Math.sin(radians)).toFixed(4)}`;
+  };
+  return `M 100 100 L ${at(start)} A 90 90 0 ${end - start > 0.5 ? 1 : 0} 1 ${at(end)} Z`;
+}
+
 function reportingMaterialRows(materials = [], catalogue = []) {
   const groupByType = reportingMaterialMode === 'type';
   const groups = new Map();
@@ -451,8 +459,13 @@ function reportingMaterialRows(materials = [], catalogue = []) {
       spendByCurrency[currency] = (spendByCurrency[currency] || 0) + value;
     }
   }
+  let accumulated = 0;
   return {
-    rows:ordered.map((row) => ({
+    rows:ordered.map((row, index) => {
+      const pieStart = accumulated / total;
+      accumulated += row.grams;
+      const pieEnd = Math.min(1, accumulated / total);
+      return {
       key:row.key,
       label:row.label,
       note:row.note,
@@ -461,8 +474,12 @@ function reportingMaterialRows(materials = [], catalogue = []) {
       percent:total > 0 ? Number((row.grams * 100 / total).toFixed(1)) : 0,
       barPercent:ordered[0]?.grams > 0 ? Number((row.grams * 100 / ordered[0].grams).toFixed(2)) : 0,
       barColour:row.barColour,
+      pieColour:row.barColour === 'var(--ds-brand-strong)'
+        ? `var(--reporting-pie-${index % 8 + 1})` : row.barColour,
+      pieFull:ordered.length === 1,
+      piePath:ordered.length === 1 ? '' : reportingPiePath(pieStart, pieEnd),
       cost:formatCurrencyTotals(row.spendByCurrency)
-    })),
+    }; }),
     totalKg:formatNumber(total / 1000, 2),
     totalCost:formatCurrencyTotals(spendByCurrency)
   };
@@ -683,19 +700,25 @@ function renderReportFiles(files) {
 function renderReportMaterials(materials) {
   if (!materials.rows.length)
     return '<div class="reporting-empty">No material usage captured for completed prints in this period.</div>';
-  const rows=materials.rows.map(row=>`<div class="reporting-usage-row" role="listitem">
-    <div class="reporting-usage-row-head">
+  const slices=materials.rows.map(row => row.pieFull
+    ? `<circle cx="100" cy="100" r="90" style="fill:${escapeHtml(row.pieColour)}"><title>${escapeHtml(row.label)}: ${escapeHtml(row.kg)} kg (${escapeHtml(row.percentage)})</title></circle>`
+    : `<path d="${escapeHtml(row.piePath)}" style="fill:${escapeHtml(row.pieColour)}"><title>${escapeHtml(row.label)}: ${escapeHtml(row.kg)} kg (${escapeHtml(row.percentage)})</title></path>`
+  ).join('');
+  const rows=materials.rows.map(row=>`<li class="reporting-usage-row">
+    <span class="reporting-usage-swatch" style="background-color:${escapeHtml(row.pieColour)}" aria-hidden="true"></span>
+    <div class="reporting-usage-description">
       <strong title="${escapeHtml(row.note || row.label)}">${escapeHtml(row.label)}</strong>
-      <span class="reporting-usage-kg">${escapeHtml(row.kg)} kg</span>
+      <span class="reporting-usage-meta">Recorded cost: ${escapeHtml(row.cost)}</span>
     </div>
-    <div class="reporting-usage-track" role="img"
-      aria-label="${escapeHtml(row.label)}: ${escapeHtml(row.kg)} kilograms, ${escapeHtml(row.percentage)} of recorded usage">
-      <span style="width:${Math.max(0,Math.min(100,Number(row.barPercent || 0)))}%;--reporting-usage-colour:${escapeHtml(row.barColour)}"></span>
+    <span class="reporting-usage-value">${escapeHtml(row.kg)} kg <small>${escapeHtml(row.percentage)}</small></span>
+  </li>`).join('');
+  return `<div class="reporting-usage-chart" role="region" aria-label="Filament used pie chart in kilograms" tabindex="0">
+    <div class="reporting-usage-plot">
+      <svg class="reporting-usage-pie" viewBox="0 0 200 200" role="img" aria-label="Proportion of recorded filament usage by group">
+        <title>Recorded filament use by weight</title>${slices}
+      </svg>
+      <ol class="reporting-usage-rows" aria-label="Filament usage legend">${rows}</ol>
     </div>
-    <div class="reporting-usage-meta"><span>${escapeHtml(row.percentage)} of total</span><span>Recorded cost: ${escapeHtml(row.cost)}</span></div>
-  </div>`).join('');
-  return `<div class="reporting-usage-chart" role="region" aria-label="Filament used in kilograms" tabindex="0">
-    <div class="reporting-usage-rows" role="list">${rows}</div>
     <div class="reporting-usage-total">
       <strong>Total filament used</strong><span>${escapeHtml(materials.totalKg)} kg</span>
       <small>Recorded cost: ${escapeHtml(materials.totalCost)}</small>

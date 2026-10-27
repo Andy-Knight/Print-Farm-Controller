@@ -268,7 +268,7 @@ test('analytics view models rank real print completions and aggregate materials'
   const materialHtml = ui.renderReportMaterials(ui.reportingMaterialRows(snapshotMaterials));
   assert.match(materialHtml, /PLA \(Unidentified filament\)/);
   assert.match(materialHtml, /title="The print recorded this material type/);
-  assert.match(materialHtml, /aria-label="Filament used in kilograms"/);
+  assert.match(materialHtml, /aria-label="Filament used pie chart in kilograms"/);
   assert.match(materialHtml, /0.25 kg/);
   assert.doesNotMatch(materialHtml, /<table/);
   const coloured=ui.reportingMaterialRows(materials,[
@@ -278,7 +278,8 @@ test('analytics view models rank real print completions and aggregate materials'
   assert.equal(coloured.rows[1].barColour,'#4dbd8b');
   assert.equal(coloured.rows[2].barColour,'var(--ds-brand-strong)');
   const coloursHtml=ui.renderReportMaterials(coloured);
-  assert.match(coloursHtml,/--reporting-usage-colour:#ff0000/);
+  assert.match(coloursHtml,/fill:#ff0000/);
+  assert.match(coloursHtml,/background-color:#ff0000/);
   assert.doesNotMatch(coloursHtml,/javascript:evil/,'catalogue colour cannot inject CSS');
   assert.match(materialHtml, /PLA \(Brand\/product not recorded\)/);
   assert.match(materialHtml, /eSUN · PLA\+ · PLA/);
@@ -303,7 +304,7 @@ test('analytics chart is first after KPIs, popular files and filament kg graph s
   assert.match(styles, /\.reporting-analytics-files,\.reporting-analytics-materials\s*\{\s*grid-column:auto/);
   assert.match(styles, /\.reporting-analytics-files \.reporting-table-scroll\s*\{\s*overflow:auto/);
   assert.match(styles, /\.reporting-usage-chart\s*\{[^}]*var\(--pfc-table-border\)/);
-  assert.match(styles, /\.reporting-usage-track>span\s*\{[^}]*var\(--reporting-usage-colour/);
+  assert.match(styles, /\.reporting-usage-pie :is\(path,circle\)\s*\{[^}]*var\(--pfc-table-surface\)/);
   assert.match(styles, /#reportingPanelAnalytics\s*\{\s*padding-bottom:32px/);
   assert.match(styles, /@media \(max-width:760px\)\s*\{\s*#reportingPanelAnalytics\s*\{\s*padding-bottom:24px/);
   assert.match(styles, /\.reporting-table-scroll\s*\{[^}]*width:100%;[^}]*max-width:100%;/);
@@ -649,7 +650,7 @@ test('print-file analytics show material, historical cost, and total printer tim
   assert.match(styles,/\.reporting-analytics-files \.reporting-analytics-table\s*\{[^}]*min-width:600px/);
 });
 
-test('filament usage is a token-based kg bar chart in both Preact and fallback renderers', () => {
+test('filament usage is a proportional, token-based kg pie chart in both Preact and fallback renderers', () => {
   assert.match(index, /<h3>Filament used \(kg\)<\/h3>/);
   assert.match(index, /Filament consumed by completed prints, measured in kg\./);
   assert.match(styles,/\.reporting-analytics-files \.reporting-section-head,\s*\.reporting-analytics-materials \.reporting-section-head\s*\{[^}]*align-items:flex-start;flex-wrap:nowrap;/);
@@ -658,21 +659,62 @@ test('filament usage is a token-based kg bar chart in both Preact and fallback r
   assert.match(index, /data-reporting-material-mode="filament" aria-pressed="true"/);
   assert.match(reportingUi, /let reportingMaterialMode = 'filament'/);
   assert.match(reportingUi,/function reportingFilamentBarColour\(value\)/);
+  assert.match(reportingUi,/function reportingPiePath\(start, end\)/);
   assert.match(reportingUi,/function renderReportMaterials\(materials\)/);
   assert.match(reportingUi,/class="reporting-usage-chart" role="region"/);
-  assert.match(reportingUi,/barPercent/);
-  assert.match(reportingUi,/\-\-reporting-usage-colour/);
+  assert.match(reportingUi,/class="reporting-usage-pie"/);
+  assert.match(reportingUi,/piePath/);
+  assert.match(reportingUi,/pieColour/);
   const preact=fs.readFileSync(new URL('../ui/reporting.jsx',import.meta.url),'utf8');
   assert.match(preact,/function ReportMaterials\(\{ materials \}\)/);
   assert.match(preact,/class="reporting-usage-chart" role="region"/);
+  assert.match(preact,/class="reporting-usage-pie"/);
   assert.match(preact,/role="img"/);
-  assert.match(preact,/row\.barColour/);
+  assert.match(preact,/row\.pieColour/);
+  assert.match(preact,/row\.piePath/);
   for(const token of ['--pfc-table-border','--pfc-table-radius','--pfc-table-surface',
-    '--pfc-table-divider','--pfc-table-hover','--ds-text','--ds-surface-muted']){
-    assert.ok(styles.includes('var('+token+')'),'kg graph must follow controller colour semantics: '+token);
+    '--pfc-table-divider','--pfc-table-hover','--ds-text','--ds-border']){
+    assert.ok(styles.includes('var('+token+')'),'kg pie chart must follow controller colour semantics: '+token);
   }
+  assert.match(styles,/\.reporting-usage-plot\{display:grid;grid-template-columns:/);
+  assert.match(styles,/@media \(max-width:620px\)[\s\S]*?\.reporting-usage-plot\{grid-template-columns:minmax\(0,1fr\)/);
   assert.match(fs.readFileSync(new URL('../scripts/browser-regression.mjs',import.meta.url),'utf8'),
-    /reporting-usage-row/);
+    /reporting-usage-pie/);
+});
+
+test('pie sectors use recorded gram shares for multiple and single categories', () => {
+  const helpers = [
+    reportingUi.slice(reportingUi.indexOf('function escapeHtml('), reportingUi.indexOf('async function requestJson(')),
+    reportingUi.slice(reportingUi.indexOf('function formatNumber('), reportingUi.indexOf('function reportRangeDates(')),
+    reportingUi.slice(reportingUi.indexOf('function formatReportingDate('), reportingUi.indexOf('function reportingKpiViewModel(')),
+    reportingUi.slice(reportingUi.indexOf('function reportingFileNameHtml('), reportingUi.indexOf('function renderReport('))
+  ];
+  const ui = vm.runInNewContext([
+    "let reportingFilesScope = 'top10';",
+    "let reportingFilesSort = { key:'completed', direction:'desc' };",
+    "let reportingMaterialMode = 'type';",
+    helpers.join('\n'),
+    '({ reportingMaterialRows, renderReportMaterials, setMode:(mode)=>reportingMaterialMode=mode })'
+  ].join('\n'));
+  ui.setMode('type');
+  const mixed=ui.reportingMaterialRows([
+    {material:'ASA',grams:3000},{material:'PLA',grams:1000}
+  ]);
+  assert.equal(mixed.rows.length,2);
+  assert.equal(mixed.rows[0].percentage,'75.0%');
+  assert.match(mixed.rows[0].piePath,/ A 90 90 0 1 1 /,'75% is a large sector');
+  assert.match(mixed.rows[1].piePath,/ A 90 90 0 0 1 /,'25% is a small sector');
+  assert.notEqual(mixed.rows[0].pieColour,mixed.rows[1].pieColour,'material categories need distinguishable slices');
+  assert.equal((ui.renderReportMaterials(mixed).match(/<path d=/g) || []).length,2);
+  const single=ui.reportingMaterialRows([{material:'ASA',grams:1000}]);
+  assert.equal(single.rows[0].pieFull,true);
+  assert.match(ui.renderReportMaterials(single),/<circle cx="100" cy="100" r="90"/);
+  const tiny=ui.reportingMaterialRows([{material:'ASA',grams:999999},{material:'PLA',grams:1}]);
+  assert.match(tiny.rows[1].piePath,/^M 100 100 L /);
+  assert.doesNotMatch(tiny.rows[1].piePath,/NaN|Infinity/);
+  const none=ui.reportingMaterialRows([{material:'PLA',grams:0}]);
+  assert.match(ui.renderReportMaterials(none),/No material usage captured/);
+  ui.setMode('filament');
 });
 
 test('the remaining three Analytics tables preserve the controller table design system', () => {

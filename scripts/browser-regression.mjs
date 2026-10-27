@@ -2237,7 +2237,7 @@ async function routeSmoke(page,url) {
       theme+' file table body should not contain isolated vertical gridlines');
   }
   // The popular-files table now shares one 50/50 desktop row with the
-  // filament kilogram bar chart. Neither half may overflow the whole page.
+  // filament kilogram pie chart. Neither half may overflow the whole page.
   const layout=await page.evaluate(()=>{
     const grid=document.querySelector('.reporting-analytics-grid');
     const files=document.querySelector('.reporting-analytics-files');
@@ -2298,55 +2298,62 @@ async function routeSmoke(page,url) {
         materials:{rows:[
           {key:'sample',label,note:'Historical materials sample',
             kg:'1.50',percentage:'75.0%',percent:75,barPercent:100,
-            barColour:'#dc5964',cost:'£19.50'},
+            barColour:'#dc5964',pieColour:'#dc5964',piePath:"M 100 100 L 100.0000 10.0000 A 90 90 0 1 1 10.0000 100.0000 Z",cost:'£19.50'},
           {key:'sample2',label:'PLA',note:'',kg:'0.50',
             percentage:'25.0%',percent:25,barPercent:33.33,
-            barColour:'var(--ds-brand-strong)',cost:'£4.50'}
+            barColour:'var(--ds-brand-strong)',pieColour:'var(--reporting-pie-2)',
+            piePath:"M 100 100 L 10.0000 100.0000 A 90 90 0 0 1 100.0000 10.0000 Z",cost:'£4.50'}
         ],totalKg:'2.00',totalCost:'£24.00'}
       }}));
     },{mode,label});
     await page.waitForFunction((materialLabel)=>
-      document.querySelector('#reportingMaterials .reporting-usage-row-head strong')?.textContent===materialLabel,label);
+      document.querySelector('#reportingMaterials .reporting-usage-description strong')?.textContent===materialLabel,label);
     const rows=page.locator('#reportingMaterials .reporting-usage-row');
     assert.equal(await rows.count(),2,mode+' retains all historical kg rows');
     assert.equal(await page.locator('#reportingMaterials .reporting-usage-total>span').textContent(),'2.00 kg');
     assert.match(await page.locator('#reportingMaterials .reporting-usage-total').innerText(),/£24.00/);
-    assert.match(await rows.first().locator('.reporting-usage-track').getAttribute('aria-label'),/1.50 kilograms, 75.0%/);
+    assert.match(await page.locator('#reportingMaterials .reporting-usage-pie').getAttribute('aria-label'),/Proportion of recorded filament usage/);
+    assert.match(await rows.first().locator('.reporting-usage-value').innerText(),/1\.50 kg[\s\S]*75\.0%/);
+    const shapes=page.locator('#reportingMaterials .reporting-usage-pie path');
+    assert.equal(await shapes.count(),2,mode+' shows two pie sectors');
+    assert.match(await shapes.first().getAttribute('d'),/ A 90 90 0 1 1 /,
+      mode+' first sector spans three quarters');
+    assert.match(await shapes.last().getAttribute('d'),/ A 90 90 0 0 1 /,
+      mode+' remaining sector spans one quarter');
     const themes=await page.evaluate(()=>{
-      const original=document.documentElement.getAttribute('data-theme');
-      const values={};
-      try {
-        for (const theme of ['dark','light']){
-          document.documentElement.setAttribute('data-theme',theme);
-          const rows=[...document.querySelectorAll('#reportingMaterials .reporting-usage-row')];
-          const bars=rows.map(row=>row.querySelector('.reporting-usage-track>span'));
-          const track=rows[0].querySelector('.reporting-usage-track');
+      const root=document.documentElement,original=root.getAttribute('data-theme'),values={};
+      try{
+        for(const theme of ['dark','light']){
+          root.setAttribute('data-theme',theme);
           const chart=document.querySelector('#reportingMaterials .reporting-usage-chart');
-          const total=document.querySelector('#reportingMaterials .reporting-usage-total');
+          const pie=chart.querySelector('.reporting-usage-pie');
+          const slices=[...pie.querySelectorAll('path')];
+          const total=chart.querySelector('.reporting-usage-total');
           values[theme]={
-            widths:bars.map(el=>el.getBoundingClientRect().width),
-            firstColour:getComputedStyle(bars[0]).backgroundColor,
-            fallbackColour:getComputedStyle(bars[1]).backgroundColor,
-            border:getComputedStyle(track).borderTopWidth,
+            pieWidth:pie.getBoundingClientRect().width,
+            firstColour:getComputedStyle(slices[0]).fill,
+            secondColour:getComputedStyle(slices[1]).fill,
+            border:getComputedStyle(slices[0]).strokeWidth,
             surface:getComputedStyle(chart).backgroundColor,
-            total:getComputedStyle(total).backgroundColor
+            total:getComputedStyle(total).backgroundColor,
+            viewportOverflow:document.documentElement.scrollWidth>innerWidth+2
           };
         }
       }finally{
-        if(original===null)document.documentElement.removeAttribute('data-theme');
-        else document.documentElement.setAttribute('data-theme',original);
+        if(original===null)root.removeAttribute('data-theme');
+        else root.setAttribute('data-theme',original);
       }
       return values;
     });
     for(const [theme,result] of Object.entries(themes)){
-      assert.ok(result.widths[0]>result.widths[1]*2.8,mode+' '+theme+' bar length follows kg');
-      assert.equal(result.firstColour,'rgb(220, 89, 100)',
-        mode+' '+theme+' preserves known catalogue filament colour');
-      assert.notEqual(result.fallbackColour,'rgba(0, 0, 0, 0)',
-        mode+' '+theme+' unknown filament uses visible theme brand colour');
-      assert.notEqual(result.border,'0px',mode+' '+theme+' chart track has a visible border');
+      assert.ok(result.pieWidth>=120,mode+' '+theme+' pie is visible');
+      assert.equal(result.firstColour,'rgb(220, 89, 100)',mode+' '+theme+' catalogue colour');
+      assert.notEqual(result.secondColour,'rgba(0, 0, 0, 0)',mode+' '+theme+' fallback colour');
+      assert.notEqual(result.firstColour,result.secondColour,mode+' '+theme+' distinguishable sectors');
+      assert.notEqual(result.border,'0px',mode+' '+theme+' slice outlines are visible');
       assert.notEqual(result.surface,'rgba(0, 0, 0, 0)');
       assert.notEqual(result.total,'rgba(0, 0, 0, 0)');
+      assert.equal(result.viewportOverflow,false,mode+' '+theme+' no horizontal overflow');
     }
   }
   // Both remaining Analytics tables must match the established Printer Groups
