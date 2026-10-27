@@ -52,8 +52,9 @@ function ReportingKpiSymbol({ name }) {
     {name === 'check' && <path d="M4.5 12.5 9.5 17.5 19.5 6.5" />}
     {name === 'cross' && <path d="M6 6l12 12M18 6 6 18" />}
     {name === 'clock' && <><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3.5 2" /></>}
-    {name === 'spool' && <><circle cx="12" cy="12" r="8.5" /><circle cx="12" cy="12" r="3.3" />
-      <path d="M6 6h12M6 18h12" /></>}
+    {name === 'scale' && <><path d="M4 4h16M7 4v4h10V4" />
+      <rect x="3" y="9" width="18" height="12" rx="2.5" />
+      <path d="M8 17a4 4 0 0 1 8 0M12 17l2-2" /></>}
   </svg>;
 }
 
