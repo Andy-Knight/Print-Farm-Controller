@@ -53,6 +53,26 @@ test('maintenance window uses task terminology across all maintenance tabs', () 
   assert.match(maintenanceUi, /Delete group task/);
 });
 
+test('individual printer tasks share aligned action widths regardless of model, group or printer scope', () => {
+  const preact=fs.readFileSync(new URL('../ui/maintenance.jsx',import.meta.url),'utf8');
+  assert.match(maintenanceUi, /class="mini-actions maintenance-task-actions"/);
+  assert.match(maintenanceUi, /Edit model task/);
+  assert.match(maintenanceUi, /Edit group task/);
+  assert.match(preact, /class="mini-actions maintenance-task-actions"/);
+  assert.match(preact, /\{task\.editText\}/);
+  assert.match(preact, /\{task\.deleteText\}/);
+  const selector='.maintenance-task > .maintenance-task-actions {';
+  assert.ok(styles.includes(selector),'size contract is limited to individual-printer task rows');
+  const rule=styles.split(selector)[1].split('}')[0];
+  assert.match(rule,/display:grid;/);
+  assert.match(rule,/grid-template-columns:120px 176px 190px;/);
+  assert.match(rule,/justify-content:end;/);
+  assert.match(styles,/\.maintenance-task > \.maintenance-task-actions > button\s*\{[^}]*width:100%;/);
+  assert.match(styles,/@media \(max-width:620px\)[\s\S]*?\.maintenance-task > \.maintenance-task-actions\s*\{[^}]*grid-template-columns:minmax\(0,1fr\)/);
+  assert.doesNotMatch(styles,/\.maintenance-model-rule > \.maintenance-task-actions\s*\{/,
+    'model and group-wide shared-task cards must keep their existing layout');
+});
+
 test('maintenance UI uses the persistent maintenance API', () => {
   assert.match(maintenanceUi, /api\('\/api\/maintenance'\)/);
   assert.match(maintenanceUi, /\/maintenance\/tasks/);
