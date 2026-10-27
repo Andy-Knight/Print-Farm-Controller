@@ -2161,6 +2161,46 @@ async function routeSmoke(page,url) {
     /2026-10-20: 3 completed/, 'a sparse daily chart must show its real completed count');
   assert.equal(await page.locator('#reportingTrend .reporting-axis-text').first().textContent(), '0',
     'the chart must start at zero');
+
+  // Short-range point-count labels remain visible when all three outcomes
+  // occur on multiple days; both browser renderers use labelled positions.
+  await page.evaluate(() => {
+    const points=Array.from({length:4},(_,day)=>['completed','failed','cancelled'].map((key,index)=>({
+      date:'2026-10-'+String(17+day).padStart(2,'0'),key,value:2,
+      x:110+day*165,y:75,title:'2026-10-'+String(17+day).padStart(2,'0')+': 2 '+key,
+      labelX:110+day*165+(index-1)*30,labelY:65
+    }))).flat();
+    const chart={rows:[{date:'2026-10-17',completed:2,failed:2,cancelled:2}],
+      grid:[],labels:[],viewBox:'0 0 760 230',
+      completedPath:'',failedPath:'',cancelledPath:'',points,showPointValues:true};
+    window.dispatchEvent(new CustomEvent('pfc:reporting-ui-state',{
+      detail:{...(window.__PFC_REPORTING_UI_STATE__||{}),chart}
+    }));
+  });
+  await page.waitForFunction(() =>
+    document.querySelectorAll('#reportingTrend .reporting-point-value').length===12);
+  const labelCoords=await page.locator('#reportingTrend .reporting-point-value').evaluateAll(
+    nodes=>nodes.map(node=>({x:Number(node.getAttribute('x')),text:node.textContent})));
+  assert.equal(new Set(labelCoords.slice(0,3).map(node=>node.x)).size,3,
+    'same-date outcome counts are offset to avoid colliding labels');
+  assert.ok(labelCoords.every(node=>node.text==='2'),'all twelve labels show their real count');
+  assert.equal(await page.locator('#reportingTrend .reporting-point title').count(),12,
+    'all points retain their exact accessible hover descriptions');
+  await page.evaluate(() => {
+    const current=window.__PFC_REPORTING_UI_STATE__||{};
+    const chart={rows:[{date:'2026-10-17',completed:2,failed:2,cancelled:2}],
+      grid:[],labels:[],viewBox:'0 0 760 230',
+      completedPath:'',failedPath:'',cancelledPath:'',
+      points:Array.from({length:12},(_,i)=>({
+        date:'2026-10-17',key:'completed',value:2,x:110+i*14,y:75,
+        title:'2026-10-17: 2 completed'
+      })),showPointValues:false};
+    window.dispatchEvent(new CustomEvent('pfc:reporting-ui-state',{detail:{...current,chart}}));
+  });
+  await page.waitForFunction(() =>
+    document.querySelectorAll('#reportingTrend .reporting-point-value').length===0
+    && document.querySelectorAll('#reportingTrend .reporting-point title').length===12);
+
   // Validate the physical desktop geometry, not merely CSS class names.
   // Inject one synthetic view row so even an empty reporting fixture tests real table width.
   await page.setViewportSize({width:1365,height:900});
