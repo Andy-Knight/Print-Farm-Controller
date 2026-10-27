@@ -3424,8 +3424,9 @@ button.library-file-preview { cursor:zoom-in; }
 :root[data-theme="light"] .reporting-kpis .reporting-kpi-filament {
   --reporting-kpi-color:#8250b4; --reporting-kpi-track:#eee4f7;
 }
-/* Previous-period comparisons align with Option D's right-hand metric column.
-   Green/red indicate production improvement/deterioration; neutral activity is blue. */
+/* Previous-period comparisons align with the metric column. The arrows and
+   percentages show direction, not performance quality: up is green, down
+   is red, while flat/unavailable data is muted for every KPI. */
 .reporting-kpi .reporting-kpi-change {
   display:flex;grid-column:2;grid-row:2;min-width:0;
   flex-direction:column;align-items:flex-start;gap:3px;
@@ -3441,12 +3442,11 @@ button.library-file-preview { cursor:zoom-in; }
   color:var(--ds-text-muted,#8ea1b3); font-size:.66rem;
   line-height:1.2; max-width:116px;
 }
-.reporting-kpi .reporting-kpi-change-positive { color:#55d6a4; }
-.reporting-kpi .reporting-kpi-change-negative { color:#ed7078; }
+.reporting-kpi .reporting-kpi-change-increase { color:#55d6a4; }
+.reporting-kpi .reporting-kpi-change-decrease { color:#ed7078; }
 .reporting-kpi .reporting-kpi-change-muted { color:var(--ds-text-muted,#8ea1b3); }
-:root[data-theme="light"] .reporting-kpi .reporting-kpi-change-neutral { color:#177bd8; }
-:root[data-theme="light"] .reporting-kpi .reporting-kpi-change-positive { color:#12754e; }
-:root[data-theme="light"] .reporting-kpi .reporting-kpi-change-negative { color:#b52231; }
+:root[data-theme="light"] .reporting-kpi .reporting-kpi-change-increase { color:#12754e; }
+:root[data-theme="light"] .reporting-kpi .reporting-kpi-change-decrease { color:#b52231; }
 /* At phone widths, single-column cards leave enough room for aligned
    heading, value and long kilogram units alongside the 52px ring. */
 @media (max-width:580px) {
