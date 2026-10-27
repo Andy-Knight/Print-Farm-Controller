@@ -161,7 +161,7 @@ test('analytics mock-up contains the new workbench tables in both renderers', ()
   for (const id of ['reportingFiles','reportingMaterials','reportingPrinters','reportingFileFailures','reportingTrend']) {
     assert.match(index, new RegExp('id="' + id + '"'));
   }
-  assert.match(index, /data-reporting-files-scope="top10"/);
+  assert.match(index, /data-reporting-files-scope="top6"/);
   assert.match(index, /data-reporting-files-scope="all"/);
   assert.match(index, /data-reporting-material-mode="type"/);
   assert.match(index, /data-reporting-material-mode="filament"/);
@@ -188,7 +188,7 @@ test('analytics view models rank real print completions and aggregate materials'
     reportingUi.slice(reportingUi.indexOf('function reportingFileNameHtml('), reportingUi.indexOf('function renderReport('))
   ];
   const ui = vm.runInNewContext([
-    "let reportingFilesScope = 'top10';",
+    "let reportingFilesScope = 'top6';",
     "let reportingFilesSort = { key:'completed', direction:'desc' };",
     "let reportingMaterialMode = 'type';",
     helpers.join('\n'),
@@ -203,7 +203,7 @@ test('analytics view models rank real print completions and aggregate materials'
   files[11].failed=2;
   files[11].attempts+=2;
   const top = ui.reportingFileRows(files);
-  assert.equal(top.length, 10);
+  assert.equal(top.length, 6);
   assert.equal(top[0].rank, 1);
   assert.equal(top[0].completed, 20);
   assert.equal(top[0].materialText,'—');
@@ -650,6 +650,40 @@ test('print-file analytics show material, historical cost, and total printer tim
   assert.match(styles,/\.reporting-analytics-files \.reporting-analytics-table\s*\{[^}]*min-width:600px/);
 });
 
+test('Top 6 ranks six files, All files restores the full sorted list and both renderers agree', () => {
+  const helpers = [
+    reportingUi.slice(reportingUi.indexOf('function escapeHtml('), reportingUi.indexOf('async function requestJson(')),
+    reportingUi.slice(reportingUi.indexOf('function formatNumber('), reportingUi.indexOf('function reportRangeDates(')),
+    reportingUi.slice(reportingUi.indexOf('function formatReportingDate('), reportingUi.indexOf('function reportingKpiSvg(')),
+    reportingUi.slice(reportingUi.indexOf('function reportingFileNameHtml('), reportingUi.indexOf('function renderReportMaterials('))
+  ].join('\n');
+  const ui=vm.runInNewContext([
+    "let reportingFilesScope = 'top6';",
+    "let reportingFilesSort = { key:'completed', direction:'desc' };",
+    helpers,
+    '({ reportingFileRows, setScope:(scope)=>reportingFilesScope=scope })'
+  ].join('\n'));
+  const files=Array.from({length:12},(_,i)=>({
+    fileName:'Ranking '+i+'.gcode',completed:12-i,failed:0,attempts:12-i
+  }));
+  const six=ui.reportingFileRows(files);
+  assert.equal(six.length,6,'default Top 6 displays exactly six results');
+  assert.deepEqual(Array.from(six,row=>row.rank),[1,2,3,4,5,6]);
+  ui.setScope('all');
+  assert.equal(ui.reportingFileRows(files).length,12,'All files restores the full ranking');
+  ui.setScope('top6');
+  assert.equal(ui.reportingFileRows(files.slice(0,4)).length,4,'short reports never gain placeholder rows');
+  assert.match(index,/data-reporting-files-scope="top6" aria-pressed="true">Top 6<\/button>/);
+  assert.match(reportingUi,/let reportingFilesScope = 'top6'/);
+  assert.match(reportingUi,/sorted\.slice\(0, 6\)/);
+  assert.match(reportingUi,/setAttribute\('data-reporting-files-view',reportingFilesScope\)/);
+  const preact=fs.readFileSync(new URL('../ui/reporting.jsx',import.meta.url),'utf8');
+  assert.match(preact,/fileScope:detail\.fileScope === 'all' \? 'all' : 'top6'/);
+  assert.match(styles,/\.reporting-analytics-files\[data-reporting-files-view="top6"\] \.reporting-table-scroll\s*\{[^}]*max-height:none/);
+  assert.match(styles,/@media \(min-width:1051px\)[\s\S]*?\.reporting-analytics-materials #reportingMaterials \{ display:flex;flex:1/);
+  assert.match(styles,/\.reporting-analytics-materials \.reporting-usage-total \{ flex:0 0 auto;margin-top:auto;/);
+});
+
 test('filament usage is a proportional, token-based kg pie chart in both Preact and fallback renderers', () => {
   assert.match(index, /<h3>Filament used \(kg\)<\/h3>/);
   assert.match(index, /Filament consumed by completed prints, measured in kg\./);
@@ -690,7 +724,7 @@ test('pie sectors use recorded gram shares for multiple and single categories', 
     reportingUi.slice(reportingUi.indexOf('function reportingFileNameHtml('), reportingUi.indexOf('function renderReport('))
   ];
   const ui = vm.runInNewContext([
-    "let reportingFilesScope = 'top10';",
+    "let reportingFilesScope = 'top6';",
     "let reportingFilesSort = { key:'completed', direction:'desc' };",
     "let reportingMaterialMode = 'type';",
     helpers.join('\n'),
@@ -749,8 +783,8 @@ test('analytics table grouping selectors use the standard 42px segmented-choice 
   for(const label of ['Popular print files list size','Material usage grouping']){
     assert.match(index,new RegExp('class="reporting-segmented" role="group" aria-label="'+label+'"'));
   }
-  for(const value of ['top10','all','type','filament']){
-    const kind=['top10','all'].includes(value)?'files-scope':'material-mode';
+  for(const value of ['top6','all','type','filament']){
+    const kind=['top6','all'].includes(value)?'files-scope':'material-mode';
     assert.match(index,new RegExp('data-reporting-'+kind+'="'+value+'" aria-pressed="(true|false)"'));
   }
   assert.match(styles,/\.reporting-segmented button\s*\{[^}]*min-height:var\(--ds-button-height\)/);

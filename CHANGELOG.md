@@ -4,6 +4,10 @@ This file contains the version-by-version release history for Print Farm Control
 
 Historical entries describe the behaviour of the controller at the time of that release and may be superseded by later versions. For current installation, configuration and supported-hardware guidance, see [README.md](README.md).
 
+## v0.61.2
+
+- Refined the paired **Reports & finance → Analytics** cards: **Most popular print files** now defaults to **Top 6** with every row visible and no vertical scrollbar, while **All files** retains local scrolling for longer lists. Matched the desktop height of the files and filament pie-chart cards, keeping the filament total aligned to the bottom; mobile stacked cards retain natural heights. Added browser and fallback/Preact regression coverage.
+
 ## v0.61.1
 
 - Changed **Reports & finance → Analytics → Filament used (kg)** from horizontal bars to a proportional pie chart, preserving recorded kg and cost totals, grouped filament/material views, current-catalogue colours, accessible per-slice kilogram/percentage/cost legend and the responsive paired-card layout.
