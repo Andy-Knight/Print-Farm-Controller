@@ -454,10 +454,10 @@ test('five Analytics KPI icons have distinct identities in both themes without r
     ['runtime','#d28a58','#a75b22'],
     ['filament','#ab85d7','#8250b4']
   ]){
-    assert.ok(styles.includes('.reporting-kpis .reporting-kpi-'+name+' {\\n  --reporting-kpi-color:'+dark),
+    assert.ok(styles.includes('.reporting-kpis .reporting-kpi-'+name+' {\n  --reporting-kpi-color:'+dark),
       name+' needs its own dark icon/ring accent');
     assert.ok(styles.includes(':root[data-theme="light"] .reporting-kpis .reporting-kpi-'+name+
-      ' {\\n  --reporting-kpi-color:'+light),name+' needs an accessible light-theme accent');
+      ' {\n  --reporting-kpi-color:'+light),name+' needs an accessible light-theme accent');
   }
   assert.match(styles,/\.reporting-kpi \.reporting-kpi-icon\s*\{[^}]*color:var\(--reporting-kpi-color\)/);
   assert.match(styles,/\.reporting-kpi \.reporting-kpi-gauge-neutral\s*\{[^}]*background:var\(--reporting-kpi-track\)/);
