@@ -2089,7 +2089,8 @@ async function routeSmoke(page,url) {
       nodes=>nodes.map(node=>({
         container:getComputedStyle(node).color,
         percent:getComputedStyle(node.querySelector('.reporting-kpi-change-value')).color,
-        arrow:getComputedStyle(node.querySelector('.reporting-kpi-change-value span')).color
+        arrow:node.querySelector('.reporting-kpi-change-value span')
+          ? getComputedStyle(node.querySelector('.reporting-kpi-change-value span')).color : null
       }))
     );
     const up=theme==='dark'?'rgb(85, 214, 164)':'rgb(18, 117, 78)';
