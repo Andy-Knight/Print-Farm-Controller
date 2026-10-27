@@ -3229,7 +3229,7 @@ button.library-file-preview { cursor:zoom-in; }
  /* Top 6 shows every row without a vertical scrollbar; All files uses the
     regular capped scroll region. Horizontal overflow remains available on
     narrower card widths for the six-column table. */
- .reporting-analytics-files[data-reporting-files-scope="top6"] .reporting-table-scroll {
+ .reporting-analytics-files[data-reporting-files-view="top6"] .reporting-table-scroll {
    max-height:none;scrollbar-gutter:auto;
  }
  /* Both cards span the same grid-row height on desktops. The usage plot
