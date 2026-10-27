@@ -2089,14 +2089,17 @@ async function routeSmoke(page,url) {
         overflow:document.documentElement.scrollWidth>window.innerWidth+2,
         cardRects:cards.map(card=>({left:card.getBoundingClientRect().left,
           right:card.getBoundingClientRect().right,width:card.getBoundingClientRect().width})),
-        spoolPaths:cards.at(-1)?.querySelectorAll('.reporting-kpi-icon svg circle').length || 0};
+        scaleHousing:cards.at(-1)?.querySelector('.reporting-kpi-icon svg rect')?.getAttribute('width'),
+        scaleGauge:cards.at(-1)?.querySelector('.reporting-kpi-icon svg path:last-child')?.getAttribute('d')};
     });
     assert.equal(layout.cardRects.length,5,'five KPI cards remain rendered at '+width);
     const expectedColumns=width<=580 ? 1 : width<=900 ? 2 : width<=1550 ? 6 : 5;
     assert.equal(layout.columns,expectedColumns,'responsive grid columns at '+width);
     assert.equal(layout.overflow,false,'no horizontal page overflow at '+width);
     assert.ok(layout.cardRects.every(card=>card.width>75),'cards remain readable at '+width);
-    assert.equal(layout.spoolPaths,2,'fifth KPI uses the two-ring catalogue spool');
+    assert.equal(layout.scaleHousing,'18','filament weight scale housing stays present at '+width);
+    assert.match(layout.scaleGauge||'',/M8 17a4 4 0 0 1 8 0M12 17l2-2/,
+      'filament weight scale dial stays present at '+width);
   }
   await page.setViewportSize({width:1365,height:900});
   // Sparse production history: all three jobs completed on one date.
