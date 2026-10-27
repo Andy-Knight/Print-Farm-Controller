@@ -1981,12 +1981,24 @@ async function routeSmoke(page,url) {
     const palette=await page.locator('#reportingKpis .reporting-kpi').evaluateAll(
       cards=>cards.map(card=>({
         width:card.querySelector('.reporting-kpi-gauge').getBoundingClientRect().width,
-        fill:getComputedStyle(card.querySelector('.reporting-kpi-icon')).color
+        fill:getComputedStyle(card.querySelector('.reporting-kpi-icon')).color,
+        ring:getComputedStyle(card.querySelector('.reporting-kpi-gauge')).backgroundColor,
+        identity:card.className
       }))
     );
     assert.equal(palette.length,5);
     assert.ok(palette.every(p=>p.width>=50 && p.fill),'Option D rings visible in both themes');
-    assert.notEqual(palette[1].fill,palette[2].fill,'success and failure should use different colours');
+    assert.equal(new Set(palette.map(kpi=>kpi.fill)).size,5,
+      theme+' five KPI icons must have distinct identity colours');
+    const expected=theme==='dark'
+      ? ['rgb(50, 141, 226)','rgb(32, 179, 123)','rgb(239, 81, 93)','rgb(210, 138, 88)','rgb(171, 133, 215)']
+      : ['rgb(23, 123, 216)','rgb(19, 167, 108)','rgb(230, 66, 78)','rgb(167, 91, 34)','rgb(130, 80, 180)'];
+    assert.deepEqual(palette.map(kpi=>kpi.fill),expected,
+      theme+' blue, green, red, orange and purple card palette');
+    assert.match(palette[3].identity,/reporting-kpi-runtime/);
+    assert.match(palette[4].identity,/reporting-kpi-filament/);
+    assert.notEqual(palette[3].ring,palette[4].ring,
+      theme+' decorative rings must use their respective distinct colour tracks');
   }
   // The header and its figure must share the same left edge, beside the
   // gauge icon. Verify this in both themes and across desktop/phone widths.
