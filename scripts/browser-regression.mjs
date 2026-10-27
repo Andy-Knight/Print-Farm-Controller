@@ -2049,19 +2049,19 @@ async function routeSmoke(page,url) {
     detail:{...window.__PFC_REPORTING_UI_STATE__, kpis:[
       {label:'Total print jobs',value:'342',detail:'In selected period',
         tone:'info',iconName:'jobs',progressPercent:null,
-        change:{symbol:'▲',label:'12.1%',tone:'neutral',caption:'vs previous period',description:'Increase of 12.1% vs previous period'}},
+        change:{symbol:'▲',label:'12.1%',tone:'increase',caption:'vs previous period',description:'Increase of 12.1% vs previous period'}},
       {label:'Completed',value:'325',detail:'95% completion rate',
         tone:'positive',iconName:'check',progressPercent:95,progressLabel:'Completion rate',
-        change:{symbol:'▲',label:'8.0%',tone:'positive',caption:'vs previous period',description:'Increase of 8.0% vs previous period'}},
+        change:{symbol:'▲',label:'8.0%',tone:'increase',caption:'vs previous period',description:'Increase of 8.0% vs previous period'}},
       {label:'Failed',value:'17',detail:'5% failure rate',
         tone:'negative',iconName:'cross',progressPercent:5,progressLabel:'Failure rate',
-        change:{symbol:'▼',label:'22.7%',tone:'positive',caption:'vs previous period',description:'Decrease of 22.7% vs previous period'}},
+        change:{symbol:'▼',label:'22.7%',tone:'decrease',caption:'vs previous period',description:'Decrease of 22.7% vs previous period'}},
       {label:'Total run time',value:'412.6 h',detail:'Reported from print timestamps',
         tone:'info',iconName:'clock',progressPercent:null,
         change:{symbol:'',label:'—',tone:'muted',caption:'No previous period data',description:'No previous period data for selected printer filters'}},
       {label:'Total filament used',value:'15.30 kg',detail:'Recorded for completed prints',
         tone:'info',iconName:'scale',progressPercent:null,
-        change:{symbol:'▲',label:'23.4%',tone:'neutral',caption:'vs previous period',description:'Increase of 23.4% vs previous period'}}
+        change:{symbol:'▲',label:'23.4%',tone:'increase',caption:'vs previous period',description:'Increase of 23.4% vs previous period'}}
     ]}
   })));
   await page.waitForFunction(() => document.querySelectorAll('#reportingKpis .reporting-kpi-change').length === 5);
@@ -2075,20 +2075,35 @@ async function routeSmoke(page,url) {
     }))
   );
   assert.match(deltas[0].value,/▲12.1%/);
-  assert.match(deltas[0].className,/neutral/);
+  assert.match(deltas[0].className,/increase/);
   assert.match(deltas[1].value,/▲8.0%/);
-  assert.match(deltas[1].className,/positive/);
+  assert.match(deltas[1].className,/increase/);
   assert.match(deltas[2].value,/▼22.7%/);
-  assert.match(deltas[2].className,/positive/);
+  assert.match(deltas[2].className,/decrease/);
   assert.equal(deltas[3].caption,'No previous period data');
   assert.match(deltas[4].value,/▲23.4%/);
-  assert.match(deltas[4].className,/neutral/);
+  assert.match(deltas[4].className,/increase/);
   for (const theme of ['light','dark']) {
     await page.evaluate(theme=>{document.documentElement.dataset.theme=theme;},theme);
     const colors=await page.locator('#reportingKpis .reporting-kpi-change').evaluateAll(
-      nodes=>nodes.map(node=>getComputedStyle(node).color)
+      nodes=>nodes.map(node=>({
+        container:getComputedStyle(node).color,
+        percent:getComputedStyle(node.querySelector('.reporting-kpi-change-value')).color,
+        arrow:getComputedStyle(node.querySelector('.reporting-kpi-change-value span')).color
+      }))
     );
-    assert.notEqual(colors[0],colors[1],'neutral and positive delta colours must differ');
+    const up=theme==='dark'?'rgb(85, 214, 164)':'rgb(18, 117, 78)';
+    const down=theme==='dark'?'rgb(237, 112, 120)':'rgb(181, 34, 49)';
+    for(const i of [0,1,4]) {
+      assert.equal(colors[i].container,up,theme+' increased KPI '+i+' should be green');
+      assert.equal(colors[i].percent,up,theme+' increased percentage should be green');
+      assert.equal(colors[i].arrow,up,theme+' increased arrow should be green');
+    }
+    assert.equal(colors[2].container,down,theme+' fewer failed jobs should be red');
+    assert.equal(colors[2].percent,down,theme+' decrease percentage should be red');
+    assert.equal(colors[2].arrow,down,theme+' decrease arrow should be red');
+    assert.notEqual(colors[3].container,up,theme+' missing comparison remains muted');
+    assert.notEqual(colors[3].container,down,theme+' missing comparison is not a decline');
   }
   // Five KPI cards share a row only on roomy desktops. Narrower
   // viewports balance the cards across rows without horizontal overflow.
