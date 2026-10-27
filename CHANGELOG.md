@@ -6,7 +6,7 @@ Historical entries describe the behaviour of the controller at the time of that 
 
 ## v0.61.3
 
-- Distinguished the five **Reports & finance → Analytics** summary icons and decorative rings by metric: print jobs blue, completed green, failed red, total run time orange and total filament used purple. Used existing chart-palette accents with more contrast in light mode, preserving the outline SVG icons, actual completion/failure-rate progress, historical values and independent previous-period comparison sentiment. Added Preact/fallback styling and browser regression checks.
+- Distinguished the five **Reports & finance → Analytics** summary icons and decorative rings by metric: print jobs blue, completed green, failed red, total run time orange and total filament used purple. Used existing chart-palette accents with more contrast in light mode, preserving the outline SVG icons, actual completion/failure-rate progress and historical values. Standardised all previous-period arrows and percentages to green for increases and red for decreases (including failed jobs), with unchanged/missing comparisons muted rather than interpreting performance sentiment. Added Preact/fallback styling and browser regression checks.
 
 ## v0.61.2
 
