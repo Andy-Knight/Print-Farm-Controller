@@ -114,7 +114,7 @@ function ReportingTrend({ chart }) {
           <title>{point.title}</title>
         </circle>
         {chart.showPointValues &&
-          <text x={point.x} y={Math.max(11, point.y - 10)} text-anchor="middle"
+          <text x={point.labelX ?? point.x} y={point.labelY ?? Math.max(11, point.y - 10)} text-anchor="middle"
             class={`reporting-point-value ${point.key}`}>{point.value}</text>}
       </g>)}
       {chart.labels.map((label, index) =>
