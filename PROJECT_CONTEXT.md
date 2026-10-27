@@ -11,7 +11,7 @@ Repository policy: `AGENTS.md` defines agent startup behavior; `docs/DOCUMENTATI
 - Repository: `Andy-Knight/Print-Farm-Controller`
 - Project path: repository root (`/`)
 - Primary branch: `main` (current production baseline)
-- Current controller source version: **0.61.2**.
+- Current controller source version: **0.61.3**.
 - Previous baseline audited: **0.48.0** (main before the regression test audit release).
 - Runtime: **Node.js 24.22.1+** (Node 24 release line), ES modules; build-time **npm 12.2.0** and committed lockfile; no npm runtime dependency for deployed controller. Follow `docs/dependency-security.md` for updates.
 - GitHub is the authoritative code baseline.
@@ -19,7 +19,7 @@ Repository policy: `AGENTS.md` defines agent startup behavior; `docs/DOCUMENTATI
 
 ## Current work
 
-- **Analytics UI baseline:** Five period-filtered summary cards include kg usage. Popular files default to Top 6 without vertical scrolling alongside an equal-height pie chart with a bottom-aligned total; filters apply to both. Preserve missing-data messaging and Preact/fallback parity.
+- **Analytics UI baseline:** KPI icons use blue/green/red/orange/purple; comparison arrows and percentages use green ▲ for increases, red ▼ for decreases, even failures (flat/missing muted). Top 6 popular files align with filament pie chart; filters apply to both. Preserve missing data and Preact/fallback parity.
 - **UI baselines:** Print Library uses sidebar-aware full workspace width, aligned sticky headings and responsive cards; the decorative login scene zooms at layer 04 into four printer beds without exposing telemetry.
 - **Authentication/RBAC:** Enabled by default. First administrator setup requires a private startup-log code. HTTP credentials/sessions remain interceptable until browser TLS is configured; `PFC_AUTH_ALLOW_HTTP=0` blocks HTTP login. A durable activation marker forbids anonymous fallback if account data is lost. Offline recovery is available.
 - **Native HTTPS:** GUI-managed direct HTTP 4242 / HTTPS 4243; container Services may expose 80/443. Administrators select managed self-signed, externally pasted PEM (HTTPS-only import) or HTTP-only in Security & users → Connection settings. Keys persist in protected TLS identities. With TLS active, HTTP permits limited health and redirects browser GET/HEAD; mutations are blocked. Certificate renewal is explicit and password-protected; unchanged Apply preserves identity and sessions. Windows install, TLS activation/renewal/restart and Kubernetes HTTPS/redeployment persistence passed manual testing. External PEM import still needs manual acceptance. See `docs/HTTPS_CONFIGURATION.md`; issue #128 tracks ingress.

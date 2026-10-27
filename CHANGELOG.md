@@ -4,6 +4,10 @@ This file contains the version-by-version release history for Print Farm Control
 
 Historical entries describe the behaviour of the controller at the time of that release and may be superseded by later versions. For current installation, configuration and supported-hardware guidance, see [README.md](README.md).
 
+## v0.61.3
+
+- Distinguished the five **Reports & finance → Analytics** summary icons and decorative rings by metric: print jobs blue, completed green, failed red, total run time orange and total filament used purple. Used existing chart-palette accents with more contrast in light mode, preserving the outline SVG icons, actual completion/failure-rate progress and historical values. Standardised all previous-period arrows and percentages to green for increases and red for decreases (including failed jobs), with unchanged/missing comparisons muted rather than interpreting performance sentiment. Added Preact/fallback styling and browser regression checks.
+
 ## v0.61.2
 
 - Refined the paired **Reports & finance → Analytics** cards: **Most popular print files** now defaults to **Top 6** with every row visible and no vertical scrollbar, while **All files** retains local scrolling for longer lists. Matched the desktop height of the files and filament pie-chart cards, keeping the filament total aligned to the bottom; mobile stacked cards retain natural heights. Added browser and fallback/Preact regression coverage.

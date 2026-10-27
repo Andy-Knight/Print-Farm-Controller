@@ -515,7 +515,7 @@ function reportingKpiSvg(name) {
       ${paths[name] || paths.jobs}</svg>`;
 }
 
-function reportingPreviousPeriodChange(current, previous, hasPrevious, measure) {
+function reportingPreviousPeriodChange(current, previous, hasPrevious) {
   if (!hasPrevious) return {
     symbol:'', label:'—', caption:'No previous period data',
     description:'No previous period data for the selected printer filters', tone:'muted'
@@ -527,11 +527,10 @@ function reportingPreviousPeriodChange(current, previous, hasPrevious, measure) 
     description:'Unable to compare this statistic with the previous period', tone:'muted'
   };
   const direction = now > before ? 'up' : now < before ? 'down' : 'flat';
-  const beneficial = measure === 'completed' ? direction === 'up'
-    : measure === 'failed' ? direction === 'down' : null;
-  const tone = direction === 'flat' ? 'muted'
-    : beneficial === true ? 'positive'
-    : beneficial === false ? 'negative' : 'neutral';
+  // Colour describes the direction of a quantity, never whether it is good or bad.
+  // For example, more failed jobs still use green ↑ and fewer use red ↓.
+  const tone = direction === 'up' ? 'increase'
+    : direction === 'down' ? 'decrease' : 'muted';
   const symbol = direction === 'up' ? '▲' : direction === 'down' ? '▼' : '—';
   const label = direction === 'flat' ? '0.0%'
     : before === 0 ? 'From 0'
@@ -557,10 +556,10 @@ function reportingKpiViewModel(report = {}) {
   const previousUsageKnown=Number.isFinite(previousGrams) && previousGrams >= 0
     && (previousGrams > 0 || Number(previous.completed || 0) === 0);
   const materialChange=hasRecordedUsage && hasPrevious && previousUsageKnown
-    ? reportingPreviousPeriodChange(Number.isFinite(recordedGrams) ? recordedGrams : 0,previousGrams,true,'neutral')
-    : reportingPreviousPeriodChange(0,0,false,'neutral');
-  const change = (key, measure = key) =>
-    reportingPreviousPeriodChange(totals[key] || 0, previous[key] || 0, hasPrevious, measure);
+    ? reportingPreviousPeriodChange(Number.isFinite(recordedGrams) ? recordedGrams : 0,previousGrams,true)
+    : reportingPreviousPeriodChange(0,0,false);
+  const change = (key) =>
+    reportingPreviousPeriodChange(totals[key] || 0, previous[key] || 0, hasPrevious);
   // Only measured completion/failure rates receive progress meters.
   // Job totals and machine hours have no meaningful 0–100% target.
   const percent = (rate) => {
@@ -570,10 +569,10 @@ function reportingKpiViewModel(report = {}) {
       : null;
   };
   return [
-    { label:'Total print jobs', value:formatNumber(totals.attempts), detail:'In selected period', icon:'▤', iconName:'jobs', tone:'info', progressPercent:null, change:change('attempts','neutral') },
+    { label:'Total print jobs', value:formatNumber(totals.attempts), detail:'In selected period', icon:'▤', iconName:'jobs', tone:'info', progressPercent:null, change:change('attempts') },
     { label:'Completed', value:formatNumber(totals.completed), detail:`${formatPercent(totals.completionRate)} completion rate`, icon:'✓', iconName:'check', tone:Number(totals.completed || 0) > 0 ? 'positive' : 'info', progressPercent:percent(totals.completionRate), progressLabel:'Completion rate', change:change('completed') },
     { label:'Failed', value:formatNumber(totals.failed), detail:`${formatPercent(totals.failureRate)} failure rate`, icon:'×', iconName:'cross', tone:'negative', progressPercent:percent(totals.failureRate), progressLabel:'Failure rate', change:change('failed') },
-    { label:'Total run time', value:`${formatNumber(totals.runHours, 1)} h`, detail:'Reported from print timestamps', icon:'◷', iconName:'clock', tone:'info', progressPercent:null, change:change('runHours','neutral') },
+    { label:'Total run time', value:`${formatNumber(totals.runHours, 1)} h`, detail:'Reported from print timestamps', icon:'◷', iconName:'clock', tone:'info', progressPercent:null, change:change('runHours') },
     { label:'Total filament used', value:materialValue, detail:hasRecordedUsage ? 'Recorded for completed prints' : 'No recorded material usage', iconName:'scale', tone:'info', progressPercent:null, change:materialChange }
   ];
 }
@@ -766,7 +765,9 @@ function renderReport(report) {
       const progress = item.progressPercent;
       const hasRate = progress != null;
       const safeTone = ['positive','negative','info'].includes(item.tone) ? item.tone : 'info';
-      return `<div class="reporting-kpi reporting-kpi-${safeTone}">
+      const identity = item.iconName === 'clock' ? ' reporting-kpi-runtime'
+        : item.iconName === 'scale' ? ' reporting-kpi-filament' : '';
+      return `<div class="reporting-kpi reporting-kpi-${safeTone}${identity}">
         <span class="reporting-kpi-gauge${hasRate ? '' : ' reporting-kpi-gauge-neutral'}"
             style="--reporting-kpi-angle:${hasRate ? progress * 3.6 : 0}deg" aria-hidden="true">
           <span class="reporting-kpi-icon">${reportingKpiSvg(item.iconName)}</span>
