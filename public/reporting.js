@@ -491,7 +491,7 @@ function reportingKpiSvg(name) {
     check:'<path d="M4.5 12.5 9.5 17.5 19.5 6.5"/>',
     cross:'<path d="M6 6l12 12M18 6 6 18"/>',
     clock:'<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.5 2"/>',
-    spool:'<circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="3.3"/><path d="M6 6h12M6 18h12"/>'
+    scale:'<path d="M4 4h16M7 4v4h10V4"/><rect x="3" y="9" width="18" height="12" rx="2.5"/><path d="M8 17a4 4 0 0 1 8 0M12 17l2-2"/>'
   };
   return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
       stroke-linecap="round" stroke-linejoin="round" focusable="false" aria-hidden="true">
@@ -557,7 +557,7 @@ function reportingKpiViewModel(report = {}) {
     { label:'Completed', value:formatNumber(totals.completed), detail:`${formatPercent(totals.completionRate)} completion rate`, icon:'✓', iconName:'check', tone:Number(totals.completed || 0) > 0 ? 'positive' : 'info', progressPercent:percent(totals.completionRate), progressLabel:'Completion rate', change:change('completed') },
     { label:'Failed', value:formatNumber(totals.failed), detail:`${formatPercent(totals.failureRate)} failure rate`, icon:'×', iconName:'cross', tone:'negative', progressPercent:percent(totals.failureRate), progressLabel:'Failure rate', change:change('failed') },
     { label:'Total run time', value:`${formatNumber(totals.runHours, 1)} h`, detail:'Reported from print timestamps', icon:'◷', iconName:'clock', tone:'info', progressPercent:null, change:change('runHours','neutral') },
-    { label:'Total filament used', value:materialValue, detail:hasRecordedUsage ? 'Recorded for completed prints' : 'No recorded material usage', iconName:'spool', tone:'info', progressPercent:null, change:materialChange }
+    { label:'Total filament used', value:materialValue, detail:hasRecordedUsage ? 'Recorded for completed prints' : 'No recorded material usage', iconName:'scale', tone:'info', progressPercent:null, change:materialChange }
   ];
 }
 
