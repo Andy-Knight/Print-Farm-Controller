@@ -461,8 +461,8 @@ test('five Analytics KPI icons have distinct identities in both themes without r
   }
   assert.match(styles,/\.reporting-kpi \.reporting-kpi-icon\s*\{[^}]*color:var\(--reporting-kpi-color\)/);
   assert.match(styles,/\.reporting-kpi \.reporting-kpi-gauge-neutral\s*\{[^}]*background:var\(--reporting-kpi-track\)/);
-  assert.match(styles,/\.reporting-kpi \.reporting-kpi-change-positive\s*\{[^}]*color:/);
-  assert.match(styles,/\.reporting-kpi \.reporting-kpi-change-negative\s*\{[^}]*color:/);
+  assert.match(styles,/\.reporting-kpi \.reporting-kpi-change-increase\s*\{[^}]*color:/);
+  assert.match(styles,/\.reporting-kpi \.reporting-kpi-change-decrease\s*\{[^}]*color:/);
 });
 
 test('five Analytics summary headings share the number column beside the icon', () => {
@@ -484,7 +484,7 @@ test('five Analytics summary headings share the number column beside the icon', 
   assert.match(styles,/@media \(max-width:580px\)[\s\S]*?grid-template-columns:minmax\(0,1fr\)/);
 });
 
-test('previous-period change graphics show honest equal-window comparisons with appropriate sentiment', () => {
+test('previous-period arrow and percentage colours show direction consistently for every metric', () => {
   const source = [
     reportingUi.slice(reportingUi.indexOf('function formatNumber('), reportingUi.indexOf('function reportRangeDates(')),
     reportingUi.slice(reportingUi.indexOf('function reportingPreviousPeriodChange('),
@@ -503,7 +503,7 @@ test('previous-period change graphics show honest equal-window comparisons with 
   const items=models.reportingKpiViewModel(report);
   assert.deepEqual(Array.from(items,item=>item.change.label),['12.1%','8.0%','22.7%','17.9%','23.4%']);
   assert.deepEqual(Array.from(items,item=>item.change.symbol),['▲','▲','▼','▲','▲']);
-  assert.deepEqual(Array.from(items,item=>item.change.tone),['neutral','positive','positive','neutral','neutral']);
+  assert.deepEqual(Array.from(items,item=>item.change.tone),['increase','increase','decrease','increase','increase']);
   assert.ok(items.every(item=>item.change.caption==='vs previous period'));
   assert.equal(items[1].progressPercent,95);
   assert.equal(items[4].value,'15.30 kg');
@@ -513,11 +513,22 @@ test('previous-period change graphics show honest equal-window comparisons with 
     previousTotals:{ attempts:10,completed:9,failed:1,runHours:9 }
   });
   assert.equal(deteriorated[0].change.tone,'muted');
-  assert.equal(deteriorated[1].change.tone,'negative');
+  assert.equal(deteriorated[1].change.tone,'decrease');
   assert.equal(deteriorated[1].change.symbol,'▼');
-  assert.equal(deteriorated[2].change.tone,'negative');
+  assert.equal(deteriorated[2].change.tone,'increase');
   assert.equal(deteriorated[2].change.symbol,'▲');
-  assert.equal(deteriorated[3].change.tone,'neutral');
+  assert.equal(deteriorated[3].change.tone,'decrease');
+  assert.equal(deteriorated[2].change.description,'Increase of 200.0% vs previous period',
+    'more failed jobs is still an increase, rather than a positive outcome');
+  assert.equal(deteriorated[2].change.label,'200.0%');
+  assert.equal(deteriorated[3].change.symbol,'▼');
+  assert.equal(deteriorated[3].change.label,'22.2%');
+  assert.equal(models.reportingPreviousPeriodChange(6,6,true).tone,'muted',
+    'no change has no directional colour');
+  assert.equal(models.reportingPreviousPeriodChange(6,6,true).symbol,'—');
+  assert.equal(models.reportingPreviousPeriodChange(0,1,false).tone,'muted',
+    'no prior period remains an unavailable comparison');
+
   assert.equal(deteriorated[4].value,'—');
   assert.equal(deteriorated[4].change.caption,'No previous period data');
   const none=models.reportingKpiViewModel({totals:{attempts:5,completed:5,failed:0,runHours:8}});
@@ -528,11 +539,11 @@ test('previous-period change graphics show honest equal-window comparisons with 
     previousTotals:{ attempts:2,completed:0,failed:0,runHours:0 }
   });
   assert.equal(zeroBaseline[1].change.label,'From 0');
-  assert.equal(zeroBaseline[1].change.tone,'positive');
+  assert.equal(zeroBaseline[1].change.tone,'increase');
   assert.equal(zeroBaseline[2].change.label,'From 0');
-  assert.equal(zeroBaseline[2].change.tone,'negative');
+  assert.equal(zeroBaseline[2].change.tone,'increase');
   assert.equal(zeroBaseline[3].change.label,'From 0');
-  assert.equal(zeroBaseline[3].change.tone,'neutral');
+  assert.equal(zeroBaseline[3].change.tone,'increase');
   assert.equal(zeroBaseline[4].change.caption,'No previous period data');
   const noPriorJobs=models.reportingKpiViewModel({
     totals:{attempts:7,completed:7,failed:0,runHours:4},
@@ -544,8 +555,8 @@ test('previous-period change graphics show honest equal-window comparisons with 
     previousTotals:{attempts:8,completed:7,failed:1,runHours:9}
   });
   assert.equal(quiet[0].change.label,'100.0%');
-  assert.equal(quiet[1].change.tone,'negative');
-  assert.equal(quiet[2].change.tone,'positive');
+  assert.equal(quiet[1].change.tone,'decrease');
+  assert.equal(quiet[2].change.tone,'decrease');
   assert.equal(quiet[4].value,'0.00 kg','no completed prints means no filament consumed');
   const filtered=models.reportingKpiViewModel({
     totals:{attempts:3,completed:2,failed:1,materialGrams:2250},
@@ -570,9 +581,9 @@ test('previous-period change graphics show honest equal-window comparisons with 
   assert.match(server,/report\.previousTotals = previous\.totals/);
   assert.match(server,/printerIds\s*\}\)/);
   assert.match(reportingUi,/reporting-kpi-change-caption/);
-  assert.match(styles,/\.reporting-kpi \.reporting-kpi-change-positive/);
-  assert.match(styles,/\.reporting-kpi \.reporting-kpi-change-negative/);
-  assert.match(styles,/\.reporting-kpi \.reporting-kpi-change-neutral/);
+  assert.match(styles,/\.reporting-kpi \.reporting-kpi-change-increase/);
+  assert.match(styles,/\.reporting-kpi \.reporting-kpi-change-decrease/);
+  assert.doesNotMatch(styles,/\.reporting-kpi \.reporting-kpi-change-neutral/);
   assert.match(reportingUi,/vs previous period/);
   const preact=fs.readFileSync(new URL('../ui/reporting.jsx',import.meta.url),'utf8');
   assert.match(preact,/item\.change\?\.symbol/);
