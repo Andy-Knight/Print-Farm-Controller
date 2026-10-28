@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 
-const read=filename=>readFileSync(new URL('../'+filename,import.meta.url),'utf8');
+const read=filename=>readFileSync(new URL('../'+filename,import.meta.url),'utf8').replaceAll('\r\n', '\n');
 
 test('container permanently exposes both ports and uses a TLS-independent health endpoint',()=>{
   const docker=read('Dockerfile');

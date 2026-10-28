@@ -134,15 +134,18 @@ Manufacturer-specific discovery, capabilities, limits, status normalization, fil
 
 ## Current task
 
-Finish and validate the **GUI-first HTTPS setup** on `feature/native-https-controller`: new installations start on HTTP, first administrator signs in over localhost/trusted LAN, uses Security & users to configure self-signed or supplied certificates and the listener port, applies the settings and reconnects over HTTPS. No TLS environment variables are required. Settings persist and an Administrator may regenerate managed certificates, with existing HTTP sessions revoked on protocol change. Current implementation is not production validated; see `docs/HTTPS_CONFIGURATION.md`.
+Windows development baseline is ready on `codex/development-baseline`. Node.js 24.22.1, npm 12.2.0, locked dependencies and Playwright Chromium are installed; Docker Desktop is running. The Codex sandbox cannot reliably read the user-level npm installation, so npm commands currently require execution outside that sandbox.
+
+All ten original Windows regression failures were CRLF-sensitive source-text assertions. The affected test readers now normalize CRLF to LF without changing their assertions or application files. Windows CI now runs the full regression suite before SEA packaging, alongside the existing Linux suite.
+
+Validation on 28 October 2026: the full Windows regression suite passed (813 passing, zero failures, one skipped MinIO integration test; 814 total). Frontend build, dependency audit (zero reported vulnerabilities), Chromium regression, Windows x64 SEA build, local container build and localhost health/default-authentication onboarding smoke checks also passed during baseline setup. The SEA packaging tool emitted a signature warning; this is an unsigned development artifact, not a verified signed release.
 
 ## Next steps
 
-1. Run GUI-first HTTPS, TLS persistence and live listener-switch tests plus existing npm regression suite in CI; fix any runtime, authentication or documentation failures. Confirm default HTTP and existing users remain unchanged.
-2. Validate real Chrome/Windows packaged SEA and container/K3s MetalLB deployments with browser trust, DNS/IP SAN handling, session cookies, SSE, printer cameras, uploads/downloads and regeneration/reconnection.
-3. Validate fail-closed behaviour for invalid stored certs, imported cert/key mismatch, revoked sessions, wrong password/Origin/CSRF and backup/restore/volume persistence. Review filesystem permissions, port exposure and certificate recovery.
-4. Consider provided-cert hot reload and optional HTTP redirect only after confirming safe configuration and avoiding a direct-HTTP bypass. Capture remaining limitations transparently.
-5. Review draft PR and complete test, browser, documentation and packaging gates before requesting user merge approval. Record version history only in `CHANGELOG.md`.
+1. Review the test-portability and Windows CI changes through a feature-branch PR; GitHub workflow execution is still pending. Never merge into main or publish a release without explicit user approval.
+2. Choose the next product feature and develop it on a feature branch, preserving adapter boundaries, server-side permissions, signed licensing and persistent-data safeguards.
+3. Complete release-only validation separately: MinIO S3 integration, AMD64/ARM64 builds, signed Windows installer/runtime acceptance and Kubernetes deployment checks. The local container smoke used no production OAuth credentials and does not replace CI OAuth-injection checks.
+4. Native HTTPS is implemented with fixed internal HTTP 4242 / HTTPS 4243 ports. Preserve the manual Windows/Kubernetes acceptance recorded under Current work; external PEM import still needs manual acceptance. See `docs/HTTPS_CONFIGURATION.md`.
 
 ## Licensing baseline
 
