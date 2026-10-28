@@ -39,13 +39,22 @@ async function waitForController(url, processHandle, logs) {
 async function preactReady(page) {
   await page.waitForFunction(() => {
     const s = window.__PFC_FRONTEND_RENDERER_STATUS__;
-    return s && s.bundleLoaded === true && s.preactCount === 13 && s.fallbackCount === 0;
+    return window.__PFC_FRONTEND_BOOTED__ === true && s && s.bundleLoaded === true
+      && s.preactCount === 13 && s.fallbackCount === 0;
   },null,{timeout:15000});
+  // Authenticated bootstrap loads auxiliary modules and route data asynchronously.
+  // Synthetic Library fixtures must not race the initial server response.
+  if(await page.evaluate(()=>document.body.dataset.route==='/library')){
+    await page.waitForFunction(()=>
+      Boolean(window.__PFC_LIBRARY_UI_STATE__)
+      && !(document.querySelector('#libraryStatus')?.textContent||'').includes('Loading')
+    ,null,{timeout:15000});
+  }
 }
 
 async function reportsLoaded(page,where) {
   await page.waitForFunction(() =>
-    document.querySelectorAll('#reportingKpis .reporting-kpi').length >= 4
+    document.querySelectorAll('#reportingKpis .reporting-kpi').length >= 5
     && document.querySelector('#reportingStatus')?.textContent?.includes('Reporting period:')
   ,null,{timeout:20000});
   const kpis = await page.locator('#reportingKpis .reporting-kpi').allTextContents();
@@ -438,6 +447,58 @@ async function dashboardPhase3Smoke(browser,url) {
     assert.ok((await page.evaluate(()=>window.__PFC_PHASE3_ACTIONS__))
       .some(event=>event.type==='filter'&&event.value==='attention'),
       'summary stat uses controller filter event');
+    // A legacy bottom margin on the group filter previously raised both the
+    // "Printer group" heading and its select above the two switch controls.
+    // Exercise a visible printer group, not the default hidden filter.
+    await page.evaluate(()=>{
+      const state={...window.__PFC_DASHBOARD_STATE__,
+        groups:[{id:'alignment-fixture',name:'Alignment fixture',printerCount:2}],
+        groupId:''};
+      window.__PFC_DASHBOARD_STATE__=state;
+      window.dispatchEvent(new CustomEvent('pfc:dashboard-state',{detail:state}));
+    });
+    await page.locator('#dashboardGroupFilterBar:not(.hidden) #dashboardGroupFilter').waitFor();
+    for (const width of [1920,1512,1365,1280]) {
+      await page.setViewportSize({width,height:900});
+      const controls=await page.evaluate(()=>{
+        const rect=selector=>{
+          const r=document.querySelector(selector).getBoundingClientRect();
+          return {top:r.top,left:r.left,right:r.right,height:r.height};
+        };
+        return {
+          labels:[
+            rect('#dashboardGroupFilterBar label'),
+            rect('.dashboard-hero .dashboard-view-control:not(.dashboard-operations-control) .dashboard-view-label'),
+            rect('.dashboard-hero .dashboard-operations-control .dashboard-view-label')
+          ],
+          fields:[
+            rect('#dashboardGroupFilter'),
+            rect('#dashboardViewToggle'),
+            rect('#farmOperationsToggle')
+          ],
+          groupMargin:getComputedStyle(document.querySelector('#dashboardGroupFilterBar')).marginBottom
+        };
+      });
+      assert.equal(controls.groupMargin,'0px','legacy group-filter bottom spacing must not shift the Dashboard row');
+      assert.ok(Math.max(...controls.labels.map(r=>r.top))-Math.min(...controls.labels.map(r=>r.top))<=2,
+        'all three Dashboard field headings must align at '+width+'px: '+JSON.stringify(controls));
+      assert.ok(Math.max(...controls.fields.map(r=>r.top))-Math.min(...controls.fields.map(r=>r.top))<=2,
+        'group dropdown and both switches must align vertically at '+width+'px: '+JSON.stringify(controls));
+    }
+    await page.setViewportSize({width:1365,height:900});
+    // Farm operations must live on the Dashboard, never in shell navigation.
+    assert.equal(await page.locator('#batchModeBtn, #batchModeMenuBtn, #topbarOverflow').count(), 0);
+    const operations=page.locator('#farmOperationsToggle');
+    assert.equal(await operations.getAttribute('role'),'switch');
+    assert.equal(await operations.getAttribute('aria-checked'),'false');
+    await operations.click();
+    await page.waitForFunction(()=>document.querySelector('#farmOperationsToggle')?.getAttribute('aria-checked')==='true'
+      && !document.querySelector('#batchToolbar')?.classList.contains('hidden')
+      && document.querySelector('#fleet')?.classList.contains('selection-mode'));
+    await operations.click();
+    await page.waitForFunction(()=>document.querySelector('#farmOperationsToggle')?.getAttribute('aria-checked')==='false'
+      && document.querySelector('#batchToolbar')?.classList.contains('hidden')
+      && !document.querySelector('#fleet')?.classList.contains('selection-mode'));
     const toggle=page.locator('#dashboardViewToggle');
     await toggle.click();
     await page.waitForFunction(()=>document.querySelector('#fleetViewport')?.classList.contains('table-view')
@@ -471,16 +532,126 @@ async function dashboardPhase3Smoke(browser,url) {
       hero:document.querySelector('.dashboard-hero').getBoundingClientRect().toJSON(),
       cards:[...document.querySelectorAll('#summary [data-dashboard-filter]')].map(n=>n.getBoundingClientRect().toJSON()),
       view:document.querySelector('#dashboardViewToggle').getBoundingClientRect().toJSON(),
+      ops:document.querySelector('#farmOperationsToggle').getBoundingClientRect().toJSON(),
       heading:document.querySelector('#dashboardFleetHeadingRoot').getBoundingClientRect().toJSON()
     }));
     assert.ok(mobile.cards.every(r=>r.left>=-1&&r.right<=391),
       'summary cards remain inside a 390px phone viewport');
     assert.ok(mobile.view.left>=0&&mobile.view.right<=391,'dashboard view switch stays visible on mobile');
+    assert.ok(mobile.ops.left>=0&&mobile.ops.right<=391,'Farm operations switch stays visible on mobile');
     assert.ok(mobile.heading.left>=0&&mobile.heading.right<=391);
     if(captureDir)await page.screenshot({path:path.join(captureDir,'dashboard-phase3-light-mobile.png'),
       animations:'disabled',fullPage:true});
     assert.deepEqual(errors,[]);
   }finally{await context.close();}
+}
+
+// Validate actual compact Dashboard table geometry on MacBook CSS viewports.
+// Use a standalone DOM fixture so telemetry/Preact cannot replace the row
+// while viewport measurements run; all selectors are the production classes.
+async function dashboardCompactTableSmoke(browser,url) {
+  console.log('Chromium: Dashboard table fits laptop widths with visible Actions');
+  const context=await browser.newContext({viewport:{width:1512,height:900}});
+  const page=await context.newPage();
+  try {
+    await page.goto(url+'/',{waitUntil:'load'});
+    await preactReady(page);
+    await page.evaluate(()=>{
+      const fixture=document.createElement('div');
+      fixture.id='pfcDashboardTableWidthFixture';
+      fixture.className='fleet-viewport table-view';
+      const headers=['Printer','Status','Current job','Progress','Nozzle','Bed',
+        'Layer','Remaining','Filament','Last seen','Actions'];
+      fixture.innerHTML=`
+        <div class="fleet-table-header">
+          ${headers.map(title=>'<span>'+title+'</span>').join('')}
+        </div>
+        <section class="fleet table-view"><article class="card">
+          <div class="card-head">
+            <div class="card-title-area"><h3>Production printer 001</h3></div>
+            <div class="card-head-actions">
+              <button class="maintenance-status-icon-button" aria-label="Maintenance">⚙</button>
+              <span class="badge">OFFLINE</span>
+            </div>
+          </div>
+          <div class="printer-image-slot"><div class="dashboard-filament-overlay">ASA</div></div>
+          <div class="card-body">
+            <div class="job"><span class="job-name">Large production batch</span></div>
+            <div class="progress"><span></span></div>
+            <div class="metrics">
+              <div class="metric"><span>Nozzle</span><b>250°C</b></div>
+              <div class="metric"><span>Bed</span><b>95°C</b></div>
+              <div class="metric"><span>Layer</span><b>120/250</b></div>
+              <div class="metric"><span>Remaining</span><b>1h 42m</b></div>
+            </div>
+            <div class="health-line"><span>Seen 2s ago</span></div>
+          </div>
+          <div class="card-footer"><div class="card-footer-actions">
+            <button type="button">Pause</button>
+            <button type="button">Open printer</button>
+          </div></div>
+        </article></section>`;
+      document.querySelector('#fleetViewport').before(fixture);
+    });
+    const scenarios=[
+      {width:1920,cols:11},{width:1512,cols:11},{width:1440,cols:9},
+      {width:1365,cols:9},{width:1280,cols:9},{width:1200,cols:8},
+      {width:1100,cols:6},{width:900,cols:6},{width:760,cols:5},
+      {width:560,cols:3},{width:390,cols:3},{width:320,cols:2}
+    ];
+    for (const {width,cols} of scenarios){
+      await page.setViewportSize({width,height:900});
+      const layout=await page.evaluate(()=>{
+        const container=document.querySelector('#pfcDashboardTableWidthFixture');
+        const header=container.querySelector('.fleet-table-header');
+        const row=container.querySelector('.fleet.table-view .card');
+        const actions=row.querySelector('.card-footer-actions');
+        const rect=(el)=>el.getBoundingClientRect();
+        const heads=[...header.children].filter(el=>getComputedStyle(el).display!=='none');
+        const cells=[
+          row.querySelector('.card-title-area'),row.querySelector('.card-head-actions'),
+          row.querySelector('.job'),row.querySelector('.progress'),
+          ...row.querySelectorAll('.metric'),
+          row.querySelector('.printer-image-slot'),row.querySelector('.health-line'),
+          actions
+        ].filter(el=>getComputedStyle(el).display!=='none');
+        return {container:rect(container).toJSON(),header:rect(header).toJSON(),
+          row:rect(row).toJSON(),actions:rect(actions).toJSON(),
+          clientWidth:container.clientWidth,scrollWidth:container.scrollWidth,
+          visibleHeaders:heads.map(el=>el.textContent),
+          headerColumns:heads.map(el=>rect(el).toJSON()),
+          cellColumns:cells.map(el=>rect(el).toJSON()),
+          buttonWidths:[...actions.querySelectorAll('button')].map(el=>({
+            scroll:el.scrollWidth,client:el.clientWidth
+          }))
+        };
+      });
+      assert.equal(layout.visibleHeaders.length,cols,'expected column density at '+width+'px');
+      assert.equal(layout.visibleHeaders.at(-1),'Actions','Actions must remain in final visible column');
+      assert.ok(layout.scrollWidth<=layout.clientWidth+2,
+        'Dashboard table must fit viewport at '+width+'px: '+JSON.stringify(layout));
+      assert.ok(layout.actions.right<=layout.container.right+2 &&
+        layout.actions.left>=layout.container.left-2,
+        'Action buttons must stay onscreen at '+width+'px: '+JSON.stringify(layout));
+      assert.equal(layout.headerColumns.length,layout.cellColumns.length,
+        'heading and cell visibility must match at '+width+'px: '+JSON.stringify(layout));
+      for(let col=0;col<layout.headerColumns.length;col++){
+        const h=layout.headerColumns[col],cell=layout.cellColumns[col];
+        // Progress is intentionally an inset bar (7px side margins) rather
+        // than an edge-aligned text cell. Test that it fits its grid track.
+        if(layout.visibleHeaders[col]==='Progress'){
+          assert.ok(cell.left>=h.left-1&&cell.right<=h.right+1,
+            'progress bar stays inside its grid track at '+width+'px: '+JSON.stringify(layout));
+        }else{
+          assert.ok(Math.abs(h.left-cell.left)<=2,
+            'header/data cell column alignment '+col+' at '+width+'px: '+JSON.stringify(layout));
+        }
+      }
+      assert.ok(layout.buttonWidths.every(({scroll,client})=>scroll<=client+2),
+        'both action buttons must fit their labels at '+width+'px: '+JSON.stringify(layout));
+    }
+    console.log('Chromium: compact Dashboard table widths and Actions PASS');
+  } finally { await context.close(); }
 }
 
 async function workspaceShellSmoke(browser,url) {
@@ -550,6 +721,57 @@ async function workspaceShellSmoke(browser,url) {
       'desktop sidebar retains practical width');
     assert.ok(desktop.main.left>=desktop.sidebar.right-2,'workspace does not overlap fixed sidebar');
     assert.ok(desktop.header.left>=desktop.sidebar.right-2,'header aligns with workspace');
+    // Queue and Library badges must retain identical pill geometry for one,
+    // two and three digits, including when both counters appear together.
+    const verifySidebarBadges=async (where) => page.evaluate((where) => {
+      const queue=document.querySelector('#queueButtonCount');
+      const library=document.querySelector('#libraryButtonCount');
+      if (!queue || !library) throw new Error('Missing sidebar counters');
+      const initial=[queue,library].map(el=>({
+        text:el.textContent,hidden:el.classList.contains('hidden'),title:el.title
+      }));
+      const oldTheme=document.documentElement.dataset.theme;
+      const measurements=[];
+      for (const theme of ['dark','light']) {
+        document.documentElement.dataset.theme=theme;
+        for(const counts of [['3','19'],['125','7'],['999','999+']]) {
+          [queue,library].forEach((el,i)=>{
+            el.classList.remove('hidden');
+            el.textContent=counts[i];
+          });
+          measurements.push({where,theme,counts,items:[queue,library].map(el=>{
+            const rect=el.getBoundingClientRect();
+            const css=getComputedStyle(el);
+            return {width:rect.width,height:rect.height,right:rect.right,
+              clientWidth:el.clientWidth,scrollWidth:el.scrollWidth,
+              radius:css.borderRadius,numerals:css.fontVariantNumeric};
+          })});
+        }
+      }
+      [queue,library].forEach((el,i)=>{
+        el.textContent=initial[i].text;
+        el.title=initial[i].title;
+        el.classList.toggle('hidden',initial[i].hidden);
+      });
+      if (oldTheme) document.documentElement.dataset.theme=oldTheme;
+      else delete document.documentElement.dataset.theme;
+      return measurements;
+    },where);
+    const assertSidebarBadges=(measurements)=>{
+      for(const scenario of measurements){
+        for(const item of scenario.items){
+          assert.equal(item.width,48,scenario.where+' '+scenario.theme+' badge width '+scenario.counts);
+          assert.equal(item.height,24,scenario.where+' '+scenario.theme+' badge height '+scenario.counts);
+          assert.equal(item.radius,'999px','sidebar uses standard pill rounding');
+          assert.match(item.numerals,/tabular-nums/,'counts should use tabular numerals');
+          assert.ok(item.scrollWidth<=item.clientWidth+1,
+            'badge text must fit inside 48px: '+JSON.stringify(scenario));
+        }
+        assert.ok(Math.abs(scenario.items[0].right-scenario.items[1].right)<=1,
+          'Queue and Library badges must align vertically: '+JSON.stringify(scenario));
+      }
+    };
+    assertSidebarBadges(await verifySidebarBadges('desktop'));
     if(captureDir){
       await page.screenshot({path:path.join(captureDir,'workspace-dark-desktop.png'),
         animations:'disabled',fullPage:true});
@@ -570,6 +792,7 @@ async function workspaceShellSmoke(browser,url) {
     assert.equal(await page.locator('#controllerSidebar').evaluate(n=>n.inert),false);
     assert.ok(await page.locator('.sidebar-item.active').evaluate(el=>document.activeElement===el),
       'drawer autofocuses active navigation for keyboard users');
+    assertSidebarBadges(await verifySidebarBadges('mobile drawer'));
     if(captureDir)await page.screenshot({path:path.join(captureDir,'workspace-light-mobile-drawer.png'),
       animations:'disabled',fullPage:true});
     await page.locator('#reportsBtn').click();
@@ -781,6 +1004,79 @@ async function sharedTabNavigationSmoke(page,url) {
 
 // Print Library live Preact cost cards: current material estimate vs genuinely
 // unavailable cost, visually consistent on light/dark desktop and mobile.
+// Verify actual maintenance button geometry, not just CSS selectors.
+async function maintenanceActionWidthSmoke(page,url) {
+  console.log('Chromium: maintenance individual-task action widths across scopes');
+  await page.setViewportSize({width:1365,height:900});
+  await page.goto(url+'/maintenance',{waitUntil:'load'});
+  await preactReady(page);
+  await page.waitForFunction(()=>window.__PFC_PREACT_MAINTENANCE__===true);
+  await page.evaluate(()=>{
+    const task=(scope)=>({
+      id:'scope-'+scope,scope,name:scope+' maintenance',description:'',
+      state:'current',statusLabel:'Current',scopeLabel:scope,
+      meta:['Every 200 print hours','200h remaining'],
+      completionAllowed:false,completionTitle:'Not due yet',
+      editText:scope==='printer'?'Edit task':'Edit '+scope+' task',
+      deleteText:scope==='printer'?'Delete task':'Delete '+scope+' task'
+    });
+    const detail={
+      activeView:'printers',modelTasks:[],groupTasks:[],
+      printers:[{
+        id:'maintenance-layout-fixture',name:'Layout fixture',modelLabel:'AD5M Pro',
+        due:0,dueSoon:0,printHours:'0h',printCount:0,
+        tasks:['group','model','printer'].map(task),history:[],historyCount:0
+      }]
+    };
+    window.dispatchEvent(new CustomEvent('pfc:maintenance-ui-state',{detail}));
+  });
+  await page.waitForFunction(()=>document.querySelectorAll('#maintenanceList .maintenance-task').length===3);
+  for(const viewport of [{width:1365,height:900},{width:1024,height:900},{width:390,height:844}]){
+    await page.setViewportSize(viewport);
+    for(const theme of ['dark','light']){
+      await page.evaluate(theme=>{document.documentElement.dataset.theme=theme;},theme);
+      const rows=await page.locator('#maintenanceList .maintenance-task').evaluateAll(elements=>
+        elements.map(row=>{
+          const buttons=[...row.querySelectorAll('.maintenance-task-actions > button')];
+          return buttons.map(button=>{
+            const rect=button.getBoundingClientRect();
+            return {text:button.textContent.trim(),x:rect.x,y:rect.y,
+              width:rect.width,height:rect.height,
+              scrollWidth:button.scrollWidth,clientWidth:button.clientWidth};
+          });
+        })
+      );
+      assert.equal(rows.length,3,'fixture has three printer-specific task scopes');
+      assert.ok(rows.every(row=>row.length===3),'each task keeps Complete/Edit/Delete actions');
+      for(const row of rows)for(const button of row){
+        assert.ok(button.scrollWidth<=button.clientWidth+1,
+          'task action text must not be clipped: '+JSON.stringify({viewport,theme,button}));
+      }
+      if(viewport.width>620){
+        const expected=[120,176,190];
+        for(const row of rows){
+          row.forEach((button,i)=>assert.ok(Math.abs(button.width-expected[i])<=1,
+            'each task action column has fixed width: '+JSON.stringify({viewport,theme,row})));
+        }
+        for(let col=0;col<3;col++){
+          assert.ok(Math.max(...rows.map(row=>row[col].x))-
+            Math.min(...rows.map(row=>row[col].x))<=1,
+            'corresponding action buttons align across group/model/printer tasks');
+        }
+      } else {
+        for(const row of rows){
+          assert.ok(Math.max(...row.map(button=>button.width))-
+            Math.min(...row.map(button=>button.width))<=1,
+            'phone layout stacks three full-width buttons');
+          assert.ok(row[0].y<row[1].y && row[1].y<row[2].y,
+            'phone action buttons remain fully readable in a vertical stack');
+        }
+      }
+    }
+  }
+  await page.setViewportSize({width:1365,height:900});
+}
+
 async function libraryCostSmoke(page,url) {
   await page.goto(url+'/library',{waitUntil:'load'});
   await preactReady(page);
@@ -850,20 +1146,17 @@ async function libraryCostSmoke(page,url) {
 // Browser smoke against real API-backed temporary library files (never run
 // mutations against an external configured controller). Verifies that the
 // selected row, toolbar and existing queue/edit/delete workflows still work.
-// Validate the narrowed desktop Print Library table against browser geometry
-// and retain responsive cards before the fixed tracks would overflow.
+// Validate that the desktop Print Library fills the same sidebar-constrained
+// workspace as other routes without oversized trailing tracks or clipped cards.
 async function libraryCompactTableSmoke(page,url) {
   await page.setViewportSize({width:1920,height:900});
   await page.goto(url+'/library',{waitUntil:'load'});
   await preactReady(page);
   await page.waitForFunction(()=>window.__PFC_PREACT_LIBRARY__===true);
-  // Wait for the initial asynchronous API refresh before injecting a synthetic
-  // row. A late refresh can otherwise replace the row between the wait and
-  // geometry measurement, particularly on slower filesystem-backed pricing.
-  await page.waitForFunction(()=>{
-    const summary=document.querySelector('#librarySummary')?.textContent || '';
-    return summary.length>0 && !summary.includes('Loading library');
-  });
+  // The controller may perform two overlapping Print Library refreshes on a
+  // direct /library load (startup and route activation). Wait for an actual
+  // controller-published state, not Preact's initial placeholder summary.
+  await page.waitForFunction(()=>Boolean(window.__PFC_LIBRARY_UI_STATE__?.summary));
   const fixture=[{
     id:'compact-table-fixture',fileName:'Batch production ASA part.gcode',
     sizeText:'24 KB',description:'Production part',printerTarget:'AD5M Pro',
@@ -874,6 +1167,19 @@ async function libraryCompactTableSmoke(page,url) {
     historyCount:'2 completed prints',historyLast:'Last printed recently',
     historyAdded:'Added recently'
   }];
+  // This smoke tests presentational geometry with a synthetic row, without
+  // adding files to a real/external controller. A late independent API refresh
+  // must not replace the fixture before the geometry assertions execute.
+  // Restore it only during this visual check, then remove the test listener.
+  await page.evaluate(files=>{
+    const fixtureState={summary:'1 file · compact table regression',files,emptyText:'No files'};
+    const replay=(event)=>{
+      if(event?.detail?.summary===fixtureState.summary)return;
+      window.dispatchEvent(new CustomEvent('pfc:library-ui-state',{detail:fixtureState}));
+    };
+    window.__PFC_COMPACT_TABLE_REPLAY__=replay;
+    window.addEventListener('pfc:library-ui-state',replay);
+  },fixture);
   for(const viewport of [
     {width:1920,height:900,desktop:true},
     {width:1365,height:900,desktop:true},
@@ -887,7 +1193,8 @@ async function libraryCompactTableSmoke(page,url) {
         detail:{summary:'1 file · compact table regression',files,emptyText:'No files'}
       }));
     },fixture);
-    await page.waitForFunction(()=>document.querySelectorAll('#libraryList .library-file-row').length===1);
+    await page.waitForFunction(()=>document.querySelectorAll('#libraryList .library-file-row').length===1
+      && document.querySelector('#libraryList [data-library-file="compact-table-fixture"]'));
     const topControls=await page.evaluate(()=>{
       const rect=(selector)=>{
         const node=document.querySelector(selector);
@@ -925,7 +1232,10 @@ async function libraryCompactTableSmoke(page,url) {
       const sale=row.querySelector('.library-sale-cell');
       const history=row.querySelector('.library-history-cell');
       return {
-        main:box(main),header:box(header),row:box(row),
+        main:box(main),page:box(document.querySelector('#libraryDialog')),
+        workspaceWidth:main.clientWidth-parseFloat(getComputedStyle(main).paddingLeft)
+          -parseFloat(getComputedStyle(main).paddingRight),
+        header:box(header),row:box(row),
         visible:getComputedStyle(header).display!=='none',
         headings,cells,sale:box(sale),history:box(history),
         windowWidth:window.innerWidth,docWidth:document.documentElement.scrollWidth
@@ -933,9 +1243,15 @@ async function libraryCompactTableSmoke(page,url) {
     });
     if(viewport.desktop){
       assert.ok(geometry.visible,'desktop Print Library retains sortable table header');
-      assert.ok(geometry.header.width<=1302,'table should be capped at approximately 1300px');
+      assert.ok(Math.abs(geometry.page.width-geometry.workspaceWidth)<=2,
+        'Print Library page must use the shared sidebar-aware workspace width: '+JSON.stringify({viewport,geometry}));
+      assert.ok(Math.abs(geometry.header.width-geometry.page.width)<=2,
+        'Print Library table must fill its routed page, just like other workspace tables');
       assert.ok(geometry.header.right<=geometry.main.right+1,
         'table must fit within the sidebar-constrained workspace');
+      if(viewport.width===1920)
+        assert.ok(geometry.header.width>1400,
+          'wide desktops must not inherit the obsolete 1300px library-only cap');
       assert.equal(geometry.headings.length,9);
       assert.equal(geometry.cells.length,9);
       const saleTrack=geometry.headings[7],historyTrack=geometry.headings[8];
@@ -955,6 +1271,10 @@ async function libraryCompactTableSmoke(page,url) {
     assert.ok(geometry.docWidth<=geometry.windowWidth+2,
       'compact library must not introduce horizontal page scrolling');
   }
+  await page.evaluate(()=>{
+    window.removeEventListener('pfc:library-ui-state',window.__PFC_COMPACT_TABLE_REPLAY__);
+    delete window.__PFC_COMPACT_TABLE_REPLAY__;
+  });
   await page.setViewportSize({width:1365,height:900});
   console.log('Chromium: compact Print Library columns and responsive geometry PASS');
 }
@@ -1642,8 +1962,15 @@ async function libraryAvailabilityBadgeSmoke(page,url) {
   // The initial /api/library response is asynchronous. Wait until the
   // controller has published it before injecting synthetic badge cases,
   // otherwise that response can overwrite the fixture during CI.
-  await page.waitForFunction(()=>window.__PFC_PREACT_LIBRARY__===true
-    && window.__PFC_LIBRARY_UI_STATE__?.summary?.includes('stored on this controller'));
+  // The initial library response can update its visible summary before
+  // Preact publishes the state snapshot. Either observable state is sufficient
+  // to establish that the async refresh finished before inserting fixtures.
+  await page.waitForFunction(()=>{
+    const summary=window.__PFC_LIBRARY_UI_STATE__?.summary
+      || document.querySelector('#librarySummary')?.textContent || '';
+    return window.__PFC_PREACT_LIBRARY__===true
+      && summary.includes('stored on this controller');
+  });
   const endpoint=await page.evaluate(async()=>{
     const result=await fetch('/api/library/readiness');
     return {status:result.status,data:await result.json()};
@@ -1750,48 +2077,120 @@ async function routeSmoke(page,url) {
       {label:'Total print jobs',value:'20',detail:'In selected period',tone:'info',iconName:'jobs',progressPercent:null},
       {label:'Completed',value:'17',detail:'85% completion rate',tone:'positive',iconName:'check',progressPercent:85,progressLabel:'Completion rate'},
       {label:'Failed',value:'2',detail:'10% failure rate',tone:'negative',iconName:'cross',progressPercent:10,progressLabel:'Failure rate'},
-      {label:'Total run time',value:'31.5 h',detail:'Reported from print timestamps',tone:'info',iconName:'clock',progressPercent:null}
+      {label:'Total run time',value:'31.5 h',detail:'Reported from print timestamps',tone:'info',iconName:'clock',progressPercent:null},
+      {label:'Total filament used',value:'3.85 kg',detail:'Recorded for completed prints',tone:'info',iconName:'scale',progressPercent:null}
     ]}
   })));
-  await page.waitForFunction(() => document.querySelectorAll('#reportingKpis .reporting-kpi-gauge').length === 4);
+  await page.waitForFunction(() => document.querySelectorAll('#reportingKpis .reporting-kpi-gauge').length === 5);
   assert.equal(await page.locator('#reportingKpis .reporting-kpi-meter').count(),2,
     'only rates should have progress bars');
-  assert.equal(await page.locator('#reportingKpis .reporting-kpi-accent').count(),2,
-    'count and runtime should have a decorative accent, not false progress');
+  assert.equal(await page.locator('#reportingKpis .reporting-kpi-accent').count(),3,
+    'job count, runtime and material kg have decorative accents, not false progress');
+  assert.equal(await page.locator('#reportingKpis .reporting-kpi').count(),5);
+  assert.equal(await page.locator('#reportingKpis .reporting-kpi').last().locator('.reporting-kpi-body strong').innerText(),'3.85 kg');
+  const massSymbol=page.locator('#reportingKpis .reporting-kpi').last().locator('.reporting-kpi-icon svg');
+  assert.equal(await massSymbol.locator('rect').count(),1,
+    'filament kg summary uses a weighing scale housing, not a filament spool');
+  assert.equal(await massSymbol.locator('circle').count(),0,
+    'filament kg pictogram uses a weighing dial path rather than a spool ring');
+  assert.equal(await massSymbol.locator('rect').getAttribute('width'),'18');
   assert.equal(await page.locator('#reportingKpis [aria-label="Completion rate"]').getAttribute('aria-valuenow'),'85');
   assert.equal(await page.locator('#reportingKpis [aria-label="Failure rate"]').getAttribute('aria-valuenow'),'10');
+  const failedIcon=page.locator('#reportingKpis .reporting-kpi').nth(2);
+  assert.match(await failedIcon.locator('.reporting-kpi-icon svg path').getAttribute('d'),/M6 6l12 12M18 6 6 18/,
+    'the Failed KPI must render a cross, not a check icon');
+  assert.match(await failedIcon.getAttribute('class'),/reporting-kpi-negative/,
+    'Failed KPI retains the red failure identity regardless of trend');
   for (const theme of ['dark','light']) {
     await page.evaluate(theme=>{document.documentElement.dataset.theme=theme;},theme);
     const palette=await page.locator('#reportingKpis .reporting-kpi').evaluateAll(
       cards=>cards.map(card=>({
         width:card.querySelector('.reporting-kpi-gauge').getBoundingClientRect().width,
-        fill:getComputedStyle(card.querySelector('.reporting-kpi-icon')).color
+        fill:getComputedStyle(card.querySelector('.reporting-kpi-icon')).color,
+        ring:getComputedStyle(card.querySelector('.reporting-kpi-gauge')).backgroundColor,
+        identity:card.className
       }))
     );
-    assert.equal(palette.length,4);
+    assert.equal(palette.length,5);
     assert.ok(palette.every(p=>p.width>=50 && p.fill),'Option D rings visible in both themes');
-    assert.notEqual(palette[1].fill,palette[2].fill,'success and failure should use different colours');
+    assert.equal(new Set(palette.map(kpi=>kpi.fill)).size,5,
+      theme+' five KPI icons must have distinct identity colours');
+    const expected=theme==='dark'
+      ? ['rgb(50, 141, 226)','rgb(32, 179, 123)','rgb(239, 81, 93)','rgb(210, 138, 88)','rgb(171, 133, 215)']
+      : ['rgb(23, 123, 216)','rgb(19, 167, 108)','rgb(230, 66, 78)','rgb(167, 91, 34)','rgb(130, 80, 180)'];
+    assert.deepEqual(palette.map(kpi=>kpi.fill),expected,
+      theme+' blue, green, red, orange and purple card palette');
+    assert.match(palette[3].identity,/reporting-kpi-runtime/);
+    assert.match(palette[4].identity,/reporting-kpi-filament/);
+    assert.notEqual(palette[3].ring,palette[4].ring,
+      theme+' decorative rings must use their respective distinct colour tracks');
   }
+  // The header and its figure must share the same left edge, beside the
+  // gauge icon. Verify this in both themes and across desktop/phone widths.
+  for (const width of [1920,1440,1365,1200,1050,900,760,580,390,320]) {
+    await page.setViewportSize({width,height:900});
+    for (const theme of ['light','dark']) {
+      await page.evaluate(value=>{document.documentElement.dataset.theme=value;},theme);
+      const geometry=await page.locator('#reportingKpis .reporting-kpi').evaluateAll(cards=>
+        cards.map(card=>{
+          const body=card.querySelector('.reporting-kpi-body');
+          const label=body.querySelector('.reporting-kpi-label');
+          const value=body.querySelector('strong');
+          const ring=card.querySelector('.reporting-kpi-gauge');
+          const delta=card.querySelector('.reporting-kpi-change');
+          const header=label.getBoundingClientRect(),figure=value.getBoundingClientRect(),
+            icon=ring.getBoundingClientRect(),comparison=delta.getBoundingClientRect(),
+            box=card.getBoundingClientRect();
+          return {label:label.textContent.trim(),titleLeft:header.left,
+            valueLeft:figure.left, titleBottom:header.bottom,valueTop:figure.top,
+            iconRight:icon.right,comparisonLeft:comparison.left,cardRight:box.right,
+            titleRight:header.right,labelClient:label.clientWidth,
+            labelScroll:label.scrollWidth,cardBottom:box.bottom,
+            titleWrap:getComputedStyle(label).whiteSpace};
+        }));
+      assert.equal(geometry.length,5,width+' '+theme+' all five summary cards');
+      for (const g of geometry) {
+        assert.ok(Math.abs(g.titleLeft-g.valueLeft)<=1,
+          width+' '+theme+' '+g.label+' heading must align with number: '+JSON.stringify(g));
+        assert.ok(Math.abs(g.comparisonLeft-g.valueLeft)<=1,
+          width+' '+theme+' '+g.label+' previous-period text must follow number alignment');
+        assert.ok(g.titleBottom<=g.valueTop+1,
+          width+' '+theme+' '+g.label+' heading must sit above number');
+        assert.ok(g.iconRight<g.valueLeft,
+          width+' '+theme+' '+g.label+' icon should remain left of the heading/value');
+        assert.ok(g.labelScroll<=g.labelClient+1,
+          width+' '+theme+' '+g.label+' heading must wrap without clipping');
+        assert.ok(g.titleRight<=g.cardRight+1,
+          width+' '+theme+' '+g.label+' heading must stay in its card');
+        assert.equal(g.titleWrap,'normal');
+      }
+    }
+  }
+  await page.setViewportSize({width:1365,height:900});
+  await page.evaluate(()=>{document.documentElement.dataset.theme='dark';});
   // Compare headline periods in the same layout, with a favourable decrease
   // in failures, neutral increase in total activity and missing-baseline state.
   await page.evaluate(() => window.dispatchEvent(new CustomEvent('pfc:reporting-ui-state', {
     detail:{...window.__PFC_REPORTING_UI_STATE__, kpis:[
       {label:'Total print jobs',value:'342',detail:'In selected period',
         tone:'info',iconName:'jobs',progressPercent:null,
-        change:{symbol:'▲',label:'12.1%',tone:'neutral',caption:'vs previous period',description:'Increase of 12.1% vs previous period'}},
+        change:{symbol:'▲',label:'12.1%',tone:'increase',caption:'vs previous period',description:'Increase of 12.1% vs previous period'}},
       {label:'Completed',value:'325',detail:'95% completion rate',
         tone:'positive',iconName:'check',progressPercent:95,progressLabel:'Completion rate',
-        change:{symbol:'▲',label:'8.0%',tone:'positive',caption:'vs previous period',description:'Increase of 8.0% vs previous period'}},
+        change:{symbol:'▲',label:'8.0%',tone:'increase',caption:'vs previous period',description:'Increase of 8.0% vs previous period'}},
       {label:'Failed',value:'17',detail:'5% failure rate',
         tone:'negative',iconName:'cross',progressPercent:5,progressLabel:'Failure rate',
-        change:{symbol:'▼',label:'22.7%',tone:'positive',caption:'vs previous period',description:'Decrease of 22.7% vs previous period'}},
+        change:{symbol:'▼',label:'22.7%',tone:'decrease',caption:'vs previous period',description:'Decrease of 22.7% vs previous period'}},
       {label:'Total run time',value:'412.6 h',detail:'Reported from print timestamps',
         tone:'info',iconName:'clock',progressPercent:null,
-        change:{symbol:'',label:'—',tone:'muted',caption:'No previous period data',description:'No previous period data for selected printer filters'}}
+        change:{symbol:'',label:'—',tone:'muted',caption:'No previous period data',description:'No previous period data for selected printer filters'}},
+      {label:'Total filament used',value:'15.30 kg',detail:'Recorded for completed prints',
+        tone:'info',iconName:'scale',progressPercent:null,
+        change:{symbol:'▲',label:'23.4%',tone:'increase',caption:'vs previous period',description:'Increase of 23.4% vs previous period'}}
     ]}
   })));
-  await page.waitForFunction(() => document.querySelectorAll('#reportingKpis .reporting-kpi-change').length === 4);
-  assert.equal(await page.locator('#reportingKpis .reporting-kpi-change').count(),4);
+  await page.waitForFunction(() => document.querySelectorAll('#reportingKpis .reporting-kpi-change').length === 5);
+  assert.equal(await page.locator('#reportingKpis .reporting-kpi-change').count(),5);
   const deltas=await page.locator('#reportingKpis .reporting-kpi-change').evaluateAll(
     nodes=>nodes.map(node=>({
       value:node.querySelector('.reporting-kpi-change-value').textContent,
@@ -1801,19 +2200,61 @@ async function routeSmoke(page,url) {
     }))
   );
   assert.match(deltas[0].value,/▲12.1%/);
-  assert.match(deltas[0].className,/neutral/);
+  assert.match(deltas[0].className,/increase/);
   assert.match(deltas[1].value,/▲8.0%/);
-  assert.match(deltas[1].className,/positive/);
+  assert.match(deltas[1].className,/increase/);
   assert.match(deltas[2].value,/▼22.7%/);
-  assert.match(deltas[2].className,/positive/);
+  assert.match(deltas[2].className,/decrease/);
   assert.equal(deltas[3].caption,'No previous period data');
+  assert.match(deltas[4].value,/▲23.4%/);
+  assert.match(deltas[4].className,/increase/);
   for (const theme of ['light','dark']) {
     await page.evaluate(theme=>{document.documentElement.dataset.theme=theme;},theme);
     const colors=await page.locator('#reportingKpis .reporting-kpi-change').evaluateAll(
-      nodes=>nodes.map(node=>getComputedStyle(node).color)
+      nodes=>nodes.map(node=>({
+        container:getComputedStyle(node).color,
+        percent:getComputedStyle(node.querySelector('.reporting-kpi-change-value')).color,
+        arrow:node.querySelector('.reporting-kpi-change-value span')
+          ? getComputedStyle(node.querySelector('.reporting-kpi-change-value span')).color : null
+      }))
     );
-    assert.notEqual(colors[0],colors[1],'neutral and positive delta colours must differ');
+    const up=theme==='dark'?'rgb(85, 214, 164)':'rgb(18, 117, 78)';
+    const down=theme==='dark'?'rgb(237, 112, 120)':'rgb(181, 34, 49)';
+    for(const i of [0,1,4]) {
+      assert.equal(colors[i].container,up,theme+' increased KPI '+i+' should be green');
+      assert.equal(colors[i].percent,up,theme+' increased percentage should be green');
+      assert.equal(colors[i].arrow,up,theme+' increased arrow should be green');
+    }
+    assert.equal(colors[2].container,down,theme+' fewer failed jobs should be red');
+    assert.equal(colors[2].percent,down,theme+' decrease percentage should be red');
+    assert.equal(colors[2].arrow,down,theme+' decrease arrow should be red');
+    assert.notEqual(colors[3].container,up,theme+' missing comparison remains muted');
+    assert.notEqual(colors[3].container,down,theme+' missing comparison is not a decline');
   }
+  // Five KPI cards share a row only on roomy desktops. Narrower
+  // viewports balance the cards across rows without horizontal overflow.
+  for (const width of [1920,1365,1200,1050,900,620,390,320]) {
+    await page.setViewportSize({width,height:900});
+    const layout=await page.evaluate(()=>{
+      const parent=document.querySelector('#reportingKpis');
+      const cards=[...parent.querySelectorAll('.reporting-kpi')];
+      return {columns:getComputedStyle(parent).gridTemplateColumns.split(' ').length,
+        overflow:document.documentElement.scrollWidth>window.innerWidth+2,
+        cardRects:cards.map(card=>({left:card.getBoundingClientRect().left,
+          right:card.getBoundingClientRect().right,width:card.getBoundingClientRect().width})),
+        scaleHousing:cards.at(-1)?.querySelector('.reporting-kpi-icon svg rect')?.getAttribute('width'),
+        scaleGauge:cards.at(-1)?.querySelector('.reporting-kpi-icon svg path:last-child')?.getAttribute('d')};
+    });
+    assert.equal(layout.cardRects.length,5,'five KPI cards remain rendered at '+width);
+    const expectedColumns=width<=580 ? 1 : width<=900 ? 2 : width<=1550 ? 6 : 5;
+    assert.equal(layout.columns,expectedColumns,'responsive grid columns at '+width);
+    assert.equal(layout.overflow,false,'no horizontal page overflow at '+width);
+    assert.ok(layout.cardRects.every(card=>card.width>75),'cards remain readable at '+width);
+    assert.equal(layout.scaleHousing,'18','filament weight scale housing stays present at '+width);
+    assert.match(layout.scaleGauge||'',/M8 17a4 4 0 0 1 8 0M12 17l2-2/,
+      'filament weight scale dial stays present at '+width);
+  }
+  await page.setViewportSize({width:1365,height:900});
   // Sparse production history: all three jobs completed on one date.
   // The previous SVG contained only a move command and rendered no line.
   await page.evaluate(() => {
@@ -1845,6 +2286,46 @@ async function routeSmoke(page,url) {
     /2026-10-20: 3 completed/, 'a sparse daily chart must show its real completed count');
   assert.equal(await page.locator('#reportingTrend .reporting-axis-text').first().textContent(), '0',
     'the chart must start at zero');
+
+  // Short-range point-count labels remain visible when all three outcomes
+  // occur on multiple days; both browser renderers use labelled positions.
+  await page.evaluate(() => {
+    const points=Array.from({length:4},(_,day)=>['completed','failed','cancelled'].map((key,index)=>({
+      date:'2026-10-'+String(17+day).padStart(2,'0'),key,value:2,
+      x:110+day*165,y:75,title:'2026-10-'+String(17+day).padStart(2,'0')+': 2 '+key,
+      labelX:110+day*165+(index-1)*30,labelY:65
+    }))).flat();
+    const chart={rows:[{date:'2026-10-17',completed:2,failed:2,cancelled:2}],
+      grid:[],labels:[],viewBox:'0 0 760 230',
+      completedPath:'',failedPath:'',cancelledPath:'',points,showPointValues:true};
+    window.dispatchEvent(new CustomEvent('pfc:reporting-ui-state',{
+      detail:{...(window.__PFC_REPORTING_UI_STATE__||{}),chart}
+    }));
+  });
+  await page.waitForFunction(() =>
+    document.querySelectorAll('#reportingTrend .reporting-point-value').length===12);
+  const labelCoords=await page.locator('#reportingTrend .reporting-point-value').evaluateAll(
+    nodes=>nodes.map(node=>({x:Number(node.getAttribute('x')),text:node.textContent})));
+  assert.equal(new Set(labelCoords.slice(0,3).map(node=>node.x)).size,3,
+    'same-date outcome counts are offset to avoid colliding labels');
+  assert.ok(labelCoords.every(node=>node.text==='2'),'all twelve labels show their real count');
+  assert.equal(await page.locator('#reportingTrend .reporting-point title').count(),12,
+    'all points retain their exact accessible hover descriptions');
+  await page.evaluate(() => {
+    const current=window.__PFC_REPORTING_UI_STATE__||{};
+    const chart={rows:[{date:'2026-10-17',completed:2,failed:2,cancelled:2}],
+      grid:[],labels:[],viewBox:'0 0 760 230',
+      completedPath:'',failedPath:'',cancelledPath:'',
+      points:Array.from({length:12},(_,i)=>({
+        date:'2026-10-17',key:'completed',value:2,x:110+i*14,y:75,
+        title:'2026-10-17: 2 completed'
+      })),showPointValues:false};
+    window.dispatchEvent(new CustomEvent('pfc:reporting-ui-state',{detail:{...current,chart}}));
+  });
+  await page.waitForFunction(() =>
+    document.querySelectorAll('#reportingTrend .reporting-point-value').length===0
+    && document.querySelectorAll('#reportingTrend .reporting-point title').length===12);
+
   // Validate the physical desktop geometry, not merely CSS class names.
   // Inject one synthetic view row so even an empty reporting fixture tests real table width.
   await page.setViewportSize({width:1365,height:900});
@@ -1864,10 +2345,28 @@ async function routeSmoke(page,url) {
     }}));
   });
   await page.waitForFunction(() => !!document.querySelector('#reportingFiles .reporting-table-scroll'));
-  assert.equal(await page.locator('#reportingFiles .reporting-analytics-table thead th').count(),7);
-  assert.match(await page.locator('#reportingFiles .reporting-file-resource').innerText(),/0\.45 kg/);
-  assert.match(await page.locator('#reportingFiles .reporting-file-resource').innerText(),/£6\.00/);
-  assert.match(await page.locator('#reportingFiles .reporting-file-time').innerText(),/2h 0m/);
+  assert.equal(await page.locator('#reportingFiles .reporting-analytics-table thead th').count(),6);
+  const columnLabels=await page.locator('#reportingFiles .reporting-analytics-table thead th').allTextContents();
+  assert.deepEqual(columnLabels.map(label=>label.trim().replace(/[▲▼↕]/g,'').trim().toUpperCase()),
+    ['#','PRINT FILE','COMPLETED','FAILED','MATERIAL','COST'],
+    'only six ranking columns are shown, in the specified order');
+  assert.match(await page.locator('#reportingFiles .reporting-file-material').innerText(),/0\.45 kg/);
+  assert.match(await page.locator('#reportingFiles .reporting-file-cost').innerText(),/£6\.00/);
+  assert.equal(await page.locator('#reportingFiles .reporting-analytics-table tbody tr').first().locator('td').count(),6,
+    'six visible cells, with Material and Cost in separate columns');
+  const resourceColumns = await page.locator('#reportingFiles .reporting-analytics-table').evaluate(table => {
+    const head=[...table.querySelectorAll('thead th')], row=[...table.querySelectorAll('tbody tr:first-child td')];
+    const left=n=>n.getBoundingClientRect().left;
+    return {materialHeader:head[4].innerText,costHeader:head[5].innerText,
+      headingDelta:left(head[5])-left(head[4]),valueDelta:left(row[5])-left(row[4])};
+  });
+  assert.match(resourceColumns.materialHeader,/Material/i);
+  assert.match(resourceColumns.costHeader,/Cost/i);
+  assert.ok(resourceColumns.headingDelta>40 && resourceColumns.valueDelta>40,
+    'resource cells must be side by side, not stacked in one column');
+  assert.equal(await page.locator('#reportingFiles .reporting-file-time').count(),0);
+  assert.equal(await page.locator('#reportingFiles [data-reporting-file-sort="runSeconds"]').count(),0);
+  assert.equal(await page.locator('#reportingFiles [data-reporting-file-sort="successRate"]').count(),0);
   assert.equal(await page.locator('#reportingFiles .reporting-progress').count(),0,
     'completed count must not also be duplicated as a popularity bar');
   // Compare the real Most popular print files table against the controller's
@@ -1930,15 +2429,56 @@ async function routeSmoke(page,url) {
     assert.equal(ours.firstCell.borderRight,'0px',
       theme+' file table body should not contain isolated vertical gridlines');
   }
-  // Material usage table shares printer-group table skin (both modes and
-  // themes). Keep the actual data cells, 100% total and progress bars intact.
-  for (const [mode, label] of [['type','ASA'],['filament','Example · ASA-CF · ASA']]) {
+  // The popular-files table now shares one 50/50 desktop row with the
+  // filament kilogram pie chart. Neither half may overflow the whole page.
+  const layout=await page.evaluate(()=>{
+    const grid=document.querySelector('.reporting-analytics-grid');
+    const files=document.querySelector('.reporting-analytics-files');
+    const materials=document.querySelector('.reporting-analytics-materials');
+    const chart=document.querySelector('#reportingMaterials');
+    const left=files.getBoundingClientRect(),right=materials.getBoundingClientRect();
+    return {columns:getComputedStyle(grid).gridTemplateColumns.split(' ').length,
+      filesWidth:left.width,materialWidth:right.width,
+      filesScroll:files.querySelector('.reporting-table-scroll').scrollWidth >
+        files.querySelector('.reporting-table-scroll').clientWidth,
+      viewportOverflow:document.documentElement.scrollWidth>innerWidth+2,
+      chartPresent:chart!==null};
+  });
+  if(layout.columns===2){
+    assert.ok(Math.abs(layout.filesWidth-layout.materialWidth)<3,
+      'Popular files and kg graph must take equal desktop widths');
+    assert.equal(layout.filesScroll,true,'six-column file table scrolls inside its half when required');
+  }
+  assert.equal(layout.chartPresent,true);
+  assert.equal(layout.viewportOverflow,false,'paired analytics cannot overflow the document');
+  // Both selectors should appear level at the top-right of their equal-width
+  // desktop cards. The filament helper copy must not force an extra row.
+  const headerAlignment=await page.evaluate(()=>{
+    const geometry=(selector)=> {
+      const el=document.querySelector(selector);
+      const r=el.getBoundingClientRect();
+      return {top:r.top,right:r.right,bottom:r.bottom};
+    };
+    return {
+      filesCard:geometry('.reporting-analytics-files'),
+      materialCard:geometry('.reporting-analytics-materials'),
+      filesButtons:geometry('.reporting-analytics-files .reporting-segmented'),
+      materialButtons:geometry('.reporting-analytics-materials .reporting-segmented')
+    };
+  });
+  if(layout.columns===2) {
+    assert.ok(Math.abs(headerAlignment.filesButtons.top-headerAlignment.materialButtons.top)<=3,
+      'filament grouping switch must align vertically with popular-files switch: '
+      +JSON.stringify(headerAlignment));
+    assert.ok(Math.abs(headerAlignment.filesButtons.right-headerAlignment.filesCard.right
+      -(headerAlignment.materialButtons.right-headerAlignment.materialCard.right))<=3,
+      'both grouping selectors must have matching right-edge inset');
+  }
+  for (const [mode,label] of [['filament','Example · ASA-CF · ASA'],['type','ASA']]) {
     await page.evaluate(({mode,label})=>{
       const base=window.__PFC_REPORTING_UI_STATE__ || {};
       window.dispatchEvent(new CustomEvent('pfc:reporting-ui-state',{detail:{
         ...base,materialMode:mode,
-        // Keep the earlier file-geometry fixture in Preact state: dispatching
-        // this custom event replaces the entire view model, not just materials.
         files:[{
           id:'layout-check',rank:1,fileName:'Regression layout sample.3mf',
           libraryFileId:null,previewUrl:'',completed:10,failed:0,
@@ -1950,75 +2490,203 @@ async function routeSmoke(page,url) {
         }],
         materials:{rows:[
           {key:'sample',label,note:'Historical materials sample',
-            kg:'1.50',percentage:'75.0%',percent:75,cost:'£19.50'},
+            kg:'1.50',percentage:'75.0%',percent:75,barPercent:100,
+            barColour:'#dc5964',pieColour:'#dc5964',piePath:"M 100 100 L 100.0000 10.0000 A 90 90 0 1 1 10.0000 100.0000 Z",cost:'£19.50'},
           {key:'sample2',label:'PLA',note:'',kg:'0.50',
-            percentage:'25.0%',percent:25,cost:'£4.50'}
+            percentage:'25.0%',percent:25,barPercent:33.33,
+            barColour:'var(--ds-brand-strong)',pieColour:'var(--reporting-pie-2)',
+            piePath:"M 100 100 L 10.0000 100.0000 A 90 90 0 0 1 100.0000 10.0000 Z",cost:'£4.50'}
         ],totalKg:'2.00',totalCost:'£24.00'}
       }}));
     },{mode,label});
-    await page.waitForFunction((materialLabel) =>
-      document.querySelector('#reportingMaterials tbody tr td')?.textContent === materialLabel,label);
-    const styling=await page.evaluate(()=>{
-      const fixture=document.createElement('div');
-      fixture.style.cssText='position:fixed;left:-5000px;top:0';
-      fixture.innerHTML='<div class="printer-group-members"><table class="printer-group-members-table">'
-        +'<thead><tr><th>Material</th></tr></thead><tbody><tr><td>Material</td></tr></tbody></table></div>';
-      document.body.appendChild(fixture);
-      const original=document.documentElement.getAttribute('data-theme');
-      const props=node=>{
-        const s=getComputedStyle(node);
-        return {bg:s.backgroundColor,color:s.color,fontSize:s.fontSize,
-          fontWeight:s.fontWeight,letterSpacing:s.letterSpacing,
-          textTransform:s.textTransform,borderRadius:s.borderTopLeftRadius,
-          borderColor:s.borderTopColor,borderBottom:s.borderBottomColor,
-          borderWidth:s.borderRightWidth,divider:s.getPropertyValue('--pfc-table-divider').trim()};
-      };
-      const output={};
-      try {
+    await page.waitForFunction((materialLabel)=>
+      document.querySelector('#reportingMaterials .reporting-usage-description strong')?.textContent===materialLabel,label);
+    const rows=page.locator('#reportingMaterials .reporting-usage-row');
+    assert.equal(await rows.count(),2,mode+' retains all historical kg rows');
+    assert.equal(await page.locator('#reportingMaterials .reporting-usage-total>span').textContent(),'2.00 kg');
+    assert.match(await page.locator('#reportingMaterials .reporting-usage-total').innerText(),/£24.00/);
+    assert.match(await page.locator('#reportingMaterials .reporting-usage-pie').getAttribute('aria-label'),/Proportion of recorded filament usage/);
+    assert.match(await rows.first().locator('.reporting-usage-value').innerText(),/1\.50 kg[\s\S]*75\.0%/);
+    const shapes=page.locator('#reportingMaterials .reporting-usage-pie path');
+    assert.equal(await shapes.count(),2,mode+' shows two pie sectors');
+    assert.match(await shapes.first().getAttribute('d'),/ A 90 90 0 1 1 /,
+      mode+' first sector spans three quarters');
+    assert.match(await shapes.last().getAttribute('d'),/ A 90 90 0 0 1 /,
+      mode+' remaining sector spans one quarter');
+    const themes=await page.evaluate(()=>{
+      const root=document.documentElement,original=root.getAttribute('data-theme'),values={};
+      try{
         for(const theme of ['dark','light']){
-          document.documentElement.setAttribute('data-theme',theme);
-          output[theme]={
-            ours:{
-              panel:props(document.querySelector('#reportingMaterials .reporting-table-scroll')),
-              heading:props(document.querySelector('#reportingMaterials thead th')),
-              row:props(document.querySelector('#reportingMaterials tbody td')),
-              footer:props(document.querySelector('#reportingMaterials tfoot th'))
-            },
-            ref:{
-              panel:props(fixture.querySelector('.printer-group-members')),
-              heading:props(fixture.querySelector('thead th')),
-              row:props(fixture.querySelector('tbody td'))
-            }
+          root.setAttribute('data-theme',theme);
+          const chart=document.querySelector('#reportingMaterials .reporting-usage-chart');
+          const pie=chart.querySelector('.reporting-usage-pie');
+          const slices=[...pie.querySelectorAll('path')];
+          const total=chart.querySelector('.reporting-usage-total');
+          values[theme]={
+            pieWidth:pie.getBoundingClientRect().width,
+            firstColour:getComputedStyle(slices[0]).fill,
+            secondColour:getComputedStyle(slices[1]).fill,
+            border:getComputedStyle(slices[0]).strokeWidth,
+            surface:getComputedStyle(chart).backgroundColor,
+            total:getComputedStyle(total).backgroundColor,
+            viewportOverflow:document.documentElement.scrollWidth>innerWidth+2
           };
         }
-      } finally {
-        if(original===null) document.documentElement.removeAttribute('data-theme');
-        else document.documentElement.setAttribute('data-theme',original);
-        fixture.remove();
+      }finally{
+        if(original===null)root.removeAttribute('data-theme');
+        else root.setAttribute('data-theme',original);
       }
-      return output;
+      return values;
     });
-    for(const [theme,{ours,ref}] of Object.entries(styling)){
-      for(const prop of ['bg','borderColor','borderRadius'])
-        assert.equal(ours.panel[prop],ref.panel[prop],
-          mode+' '+theme+' Material usage surface must match shared table '+prop);
-      for(const prop of ['bg','color','fontSize','fontWeight','letterSpacing','textTransform','borderBottom','borderWidth'])
-        assert.equal(ours.heading[prop],ref.heading[prop],
-          mode+' '+theme+' Material usage header must match shared table '+prop);
-      assert.equal(ours.row.divider,ref.row.divider,
-        mode+' '+theme+' Material usage divider must match shared table token');
-      assert.equal(ours.row.borderWidth,'0px',mode+' '+theme+' no vertical cell borders');
-      assert.equal(ours.footer.bg,ours.panel.bg,mode+' '+theme+' totals use shared table surface');
+    for(const [theme,result] of Object.entries(themes)){
+      assert.ok(result.pieWidth>=120,mode+' '+theme+' pie is visible');
+      assert.equal(result.firstColour,'rgb(220, 89, 100)',mode+' '+theme+' catalogue colour');
+      assert.notEqual(result.secondColour,'rgba(0, 0, 0, 0)',mode+' '+theme+' fallback colour');
+      assert.notEqual(result.firstColour,result.secondColour,mode+' '+theme+' distinguishable sectors');
+      assert.notEqual(result.border,'0px',mode+' '+theme+' slice outlines are visible');
+      assert.notEqual(result.surface,'rgba(0, 0, 0, 0)');
+      assert.notEqual(result.total,'rgba(0, 0, 0, 0)');
+      assert.equal(result.viewportOverflow,false,mode+' '+theme+' no horizontal overflow');
     }
-    const count=await page.locator('#reportingMaterials tbody tr').count();
-    assert.equal(count,2,mode+' retains historical usage rows');
-    assert.equal(await page.locator('#reportingMaterials tfoot .numeric').first().textContent(),'2.00');
-    assert.equal(await page.locator('#reportingMaterials tfoot .numeric').nth(1).textContent(),'100%');
-    assert.equal(await page.locator('#reportingMaterials tfoot .numeric').nth(2).textContent(),'£24.00');
-    assert.equal(await page.locator('#reportingMaterials .reporting-progress').count(),2,
-      mode+' must retain material usage progress bars');
-    assert.ok((await page.locator('#reportingMaterials .numeric').count())>=6,
-      mode+' must preserve numeric column alignment');
+  }
+  // The default six-row list must be fully visible without a vertical
+  // scrollbar, and both paired cards must finish at the same height.
+  await page.evaluate(() => {
+    const base=window.__PFC_REPORTING_UI_STATE__ || {};
+    const files=Array.from({length:6},(_,i)=>({
+      id:'top-six-'+i,rank:i+1,fileName:'Print file '+(i+1)+'.gcode',
+      completed:6-i,failed:0,materialText:'0.08 kg',
+      materialCostText:'£1.00',materialPartial:false,materialCostPartial:false,
+      materialTitle:'Recorded weight',costTitle:'Recorded cost'
+    }));
+    window.dispatchEvent(new CustomEvent('pfc:reporting-ui-state',{detail:{
+      ...base,fileScope:'top6',files,
+      materials:{rows:[
+        {key:'asa',label:'ASA',kg:'0.40',percentage:'80.0%',pieColour:'var(--reporting-pie-1)',
+          piePath:'M 100 100 L 100 10 A 90 90 0 1 1 14 72 Z',cost:'£4.00'},
+        {key:'pla',label:'PLA',kg:'0.10',percentage:'20.0%',pieColour:'var(--reporting-pie-2)',
+          piePath:'M 100 100 L 14 72 A 90 90 0 0 1 100 10 Z',cost:'£1.00'}
+      ],totalKg:'0.50',totalCost:'£5.00'}
+    }}));
+  });
+  await page.waitForFunction(()=>document.querySelectorAll('#reportingFiles tbody tr').length===6);
+  const sixLayout=await page.evaluate(()=>{
+    const rect=selector=>document.querySelector(selector).getBoundingClientRect();
+    const files=rect('.reporting-analytics-files');
+    const materials=rect('.reporting-analytics-materials');
+    const scroll=document.querySelector('#reportingFiles .reporting-table-scroll');
+    const total=rect('#reportingMaterials .reporting-usage-total');
+    return {filesBottom:files.bottom,materialsBottom:materials.bottom,
+      fileClient:scroll.clientHeight,fileContent:scroll.scrollHeight,
+      totalBottom:total.bottom,
+      verticalScrollbar:scroll.scrollHeight>scroll.clientHeight+1};
+  });
+  assert.equal(sixLayout.verticalScrollbar,false,'Top 6 never cuts off a ranked row');
+  assert.ok(Math.abs(sixLayout.filesBottom-sixLayout.materialsBottom)<=2,
+    'the two side-by-side cards must have equal bottom edges: '+JSON.stringify(sixLayout));
+  assert.ok(sixLayout.materialsBottom-sixLayout.totalBottom<25,
+    'the filament total should stay at the bottom of the paired card');
+  // All files keeps its contained vertical scrollbar when the list is long.
+  await page.evaluate(()=>{
+    document.querySelector('.reporting-analytics-files').dataset.reportingFilesView='all';
+    const base=window.__PFC_REPORTING_UI_STATE__ || {};
+    const files=Array.from({length:12},(_,i)=>({
+      id:'all-files-'+i,rank:i+1,fileName:'Print file '+(i+1)+'.gcode',
+      completed:12-i,failed:0,materialText:'0.05 kg',
+      materialCostText:'£1.00',materialPartial:false,materialCostPartial:false,
+      materialTitle:'Recorded weight',costTitle:'Recorded cost'
+    }));
+    window.dispatchEvent(new CustomEvent('pfc:reporting-ui-state',{detail:{...base,fileScope:'all',files}}));
+  });
+  await page.waitForFunction(()=>document.querySelectorAll('#reportingFiles tbody tr').length===12);
+  const allScroll=await page.locator('#reportingFiles .reporting-table-scroll').evaluate(el=>({
+    client:el.clientHeight,content:el.scrollHeight,overflow:getComputedStyle(el).overflowY
+  }));
+  assert.ok(allScroll.content>allScroll.client+1,'All files remains vertically scrollable for long lists');
+  assert.equal(allScroll.overflow,'auto');
+
+  // Both remaining Analytics tables must match the established Printer Groups
+  // table standard in both themes, including row-header (th) cells.
+  await page.evaluate(() => {
+    const state=window.__PFC_REPORTING_UI_STATE__ || {};
+    window.dispatchEvent(new CustomEvent('pfc:reporting-ui-state',{detail:{
+      ...state,
+      files:[{id:'layout-check',rank:1,fileName:'Regression layout sample.3mf',
+        libraryFileId:null,previewUrl:'',completed:10,failed:0,successRate:'100%',
+        materialText:'0.45 kg',materialCostText:'£6.00',materialTitle:'Measured grams',
+        costTitle:'Historical GBP',printTime:'2h 0m',printTimeTitle:'Recorded time'}],
+      printers:[{id:'printer-a',name:'Sample Printer A',attempts:8,completed:5,
+        failed:3,failureRate:'37.5%',trend:'Worsening',latestFailure:'Today',
+        attention:['Failure rate high']},
+        {id:'printer-b',name:'Sample Printer B',attempts:4,completed:3,
+        failed:1,failureRate:'25%',trend:'Stable',latestFailure:'Yesterday',
+        attention:['Failed job']}],
+      printerActivity:true,
+      fileFailures:[{id:'failure-a',fileName:'Test failure.3mf',attempts:5,
+        failed:2,failureRate:'40%',lastFailure:'Today'},
+        {id:'failure-b',fileName:'Test failure B.3mf',attempts:2,
+        failed:1,failureRate:'50%',lastFailure:'Yesterday'}]
+    }}));
+  });
+  await page.waitForFunction(() =>
+    document.querySelectorAll('#reportingPrinters tbody tr').length===2 &&
+    document.querySelectorAll('#reportingFileFailures tbody tr').length===2);
+  const otherTableStyles=await page.evaluate(() => {
+    const fixture=document.createElement('div');
+    fixture.style.cssText='position:fixed;left:-5000px;top:0;';
+    fixture.innerHTML='<div class="printer-group-members"><table class="printer-group-members-table">'
+      +'<thead><tr><th>Printer</th></tr></thead><tbody><tr><td>First</td></tr>'
+      +'<tr><td>Second</td></tr></tbody></table></div>';
+    document.body.appendChild(fixture);
+    const root=document.documentElement,old=root.getAttribute('data-theme');
+    const props=el=>{
+      const st=getComputedStyle(el);
+      return {bg:st.backgroundColor,color:st.color,size:st.fontSize,
+        weight:st.fontWeight,spacing:st.letterSpacing,upper:st.textTransform,
+        radius:st.borderTopLeftRadius,border:st.borderTopColor,
+        divider:st.borderBottomColor,bottom:st.borderBottomWidth,
+        right:st.borderRightWidth,padding:st.padding};
+    };
+    const output={};
+    try{
+      for(const theme of ['dark','light']){
+        root.setAttribute('data-theme',theme);
+        const ref={
+          panel:props(fixture.querySelector('.printer-group-members')),
+          header:props(fixture.querySelector('thead th')),
+          body:props(fixture.querySelector('tbody tr:first-child td')),
+          final:props(fixture.querySelector('tbody tr:last-child td'))
+        };
+        output[theme]={ref,tables:{}};
+        for(const id of ['reportingPrinters','reportingFileFailures']){
+          const el=document.getElementById(id);
+          output[theme].tables[id]={
+            panel:props(el.querySelector('.reporting-table-scroll')),
+            header:props(el.querySelector('thead th')),
+            body:props(el.querySelector('tbody tr:first-child > :first-child')),
+            final:props(el.querySelector('tbody tr:last-child > :first-child')),
+            hover:getComputedStyle(el).getPropertyValue('--pfc-table-hover').trim()
+          };
+        }
+      }
+    }finally{
+      if(old===null)root.removeAttribute('data-theme');
+      else root.setAttribute('data-theme',old);
+      fixture.remove();
+    }
+    return output;
+  });
+  for(const [theme,{ref,tables}] of Object.entries(otherTableStyles)){
+    for(const [id,t] of Object.entries(tables)){
+      for(const prop of ['bg','radius','border'])
+        assert.equal(t.panel[prop],ref.panel[prop],theme+' '+id+' panel '+prop);
+      for(const prop of ['bg','color','size','weight','spacing','upper','divider','right','padding'])
+        assert.equal(t.header[prop],ref.header[prop],theme+' '+id+' heading '+prop);
+      for(const prop of ['bottom','right','padding'])
+        assert.equal(t.body[prop],ref.body[prop],theme+' '+id+' first-row '+prop);
+      assert.equal(t.final.bottom,ref.final.bottom,theme+' '+id+' final-row divider');
+      assert.ok(t.hover,theme+' '+id+' inherits hover token');
+    }
   }
   const reportingLayout = await page.evaluate(() => {
     const box = (selector) => document.querySelector(selector).getBoundingClientRect();
@@ -2039,24 +2707,70 @@ async function routeSmoke(page,url) {
     'Most popular files must follow the trend graph');
   assert.ok(reportingLayout.fileTableWidth >= reportingLayout.fileCardWidth - 40,
     'Print file table must fill its section, not stop at a fixed narrow width');
-  assert.ok(reportingLayout.tableOverhang <= 2,
-    'Desktop print file table must not require horizontal scrolling');
+  assert.ok(reportingLayout.tableOverhang > 0,
+    'The six-column ranking table remains locally scrollable at laptop widths');
   // This fixture is sent directly to Preact, not injected into the server's
   // persisted report. Confirm that accessible sort controls are rendered;
   // the executable reporting UI tests cover actual ordering and direction.
-  for (const key of ['runSeconds','materialGrams','materialCost']) {
+  for (const key of ['materialGrams','materialCost']) {
     const button=page.locator('#reportingFiles [data-reporting-file-sort="'+key+'"]');
     assert.equal(await button.count(),1,'sortable resource column '+key+' must be rendered');
     assert.equal(await button.getAttribute('aria-pressed'),'false');
   }
   await page.locator('[data-reporting-files-scope="all"]').click();
   assert.equal(await page.locator('[data-reporting-files-scope="all"]').getAttribute('aria-pressed'),'true');
-  await page.locator('[data-reporting-files-scope="top10"]').click();
-  assert.equal(await page.locator('[data-reporting-files-scope="top10"]').getAttribute('aria-pressed'),'true');
+  await page.locator('[data-reporting-files-scope="top6"]').click();
+  assert.equal(await page.locator('[data-reporting-files-scope="top6"]').getAttribute('aria-pressed'),'true');
   await page.locator('[data-reporting-material-mode="filament"]').click();
   assert.equal(await page.locator('[data-reporting-material-mode="filament"]').getAttribute('aria-pressed'),'true');
   await page.locator('[data-reporting-material-mode="type"]').click();
   assert.equal(await page.locator('[data-reporting-material-mode="type"]').getAttribute('aria-pressed'),'true');
+  // Segmented table selectors are 2-choice groups, not the Dashboard's
+  // boolean role=switch. Verify accessible state and token-driven appearance.
+  const segmentedStyles=await page.evaluate(()=>{
+    const root=document.documentElement;
+    const original=root.getAttribute('data-theme');
+    const output={};
+    try {
+      for(const theme of ['dark','light']){
+        root.setAttribute('data-theme',theme);
+        output[theme]=[...document.querySelectorAll('.reporting-segmented')].map(group=>{
+          const btns=[...group.querySelectorAll('button')];
+          const styles=btns.map(btn=>getComputedStyle(btn));
+          const s=getComputedStyle(group);
+          return {
+            role:group.getAttribute('role'),label:group.getAttribute('aria-label'),
+            pressed:btns.map(btn=>btn.getAttribute('aria-pressed')),
+            height:btns.map(btn=>btn.getBoundingClientRect().height),
+            borders:btns.map((_,i)=>styles[i].borderTopWidth),
+            selected:styles[0].backgroundColor,other:styles[1].backgroundColor,
+            selectedColor:styles[0].color,otherColor:styles[1].color,
+            brandStrong:s.getPropertyValue('--ds-brand-strong').trim(),
+            focus:s.getPropertyValue('--ds-focus').trim()
+          };
+        });
+      }
+    } finally {
+      if(original===null)root.removeAttribute('data-theme');
+      else root.setAttribute('data-theme',original);
+    }
+    return output;
+  });
+  for(const [theme,groups] of Object.entries(segmentedStyles)){
+    assert.equal(groups.length,2,theme+' expects two reporting choice groups');
+    for(const group of groups){
+      assert.equal(group.role,'group',theme+' segmented choice is not a boolean switch');
+      assert.ok(group.label,theme+' segmented choice must have an accessible label');
+      assert.deepEqual(group.pressed,['true','false'],
+        theme+' exactly one choice must be active');
+      assert.ok(group.height.every(height=>height>=42),
+        theme+' segmented controls must use the standard 42px target');
+      assert.notEqual(group.selected,group.other,
+        theme+' selected and inactive controls must look different');
+      assert.notEqual(group.selectedColor,group.otherColor,
+        theme+' selected choice must have visibly different text');
+    }
+  }
   await page.reload({waitUntil:'load'});
   await reportsLoaded(page,'refreshed report');
   await page.locator('[data-reporting-tab="filament"]').click();
@@ -3108,11 +3822,573 @@ async function simulatorSseSmoke(browser,url) {
     // verifies the shared table geometry without registering a second
     // simulator instance with a duplicate serial number.
     console.log('Chromium: AD5M / Pro shared filament/nozzle action alignment PASS');
+    const x1c=await jsonPost('/api/emulator/printers',{
+      profileId:'bambu-x1c',name:'Virtual X1C camera regression',
+      ports:{mqttPort:0,ftpsPort:0,cameraPort:0}
+    });
+    const x1cRegistered=await jsonPost('/api/printers',x1c.printer.controllerSettings);
+    const x1cId=x1cRegistered.printer?.id;
+    assert.ok(x1cId,'X1C is registered with the real controller');
+    await page.waitForFunction(id=>Boolean(document.querySelector('[data-printer-card="'+id+'"] [data-open]')),
+      x1cId,{timeout:30000});
+    await page.locator('[data-printer-card="'+x1cId+'"] [data-open]').click();
+    await page.locator('#printerDialog [data-detail-tab="camera"]').click();
+    assert.doesNotMatch(await page.locator('#printerDialog').textContent(),
+      /RTSPS\/H\.264 camera decoding is not yet supported/);
+    await page.waitForFunction(()=>{
+      const image=document.querySelector('#detailTabCamera img.detail-camera');
+      return image && image.naturalWidth>0 && image.naturalHeight>0;
+    },null,{timeout:30000});
+    // Decode in Chromium, independently of FFmpeg's scaler. A valid JPEG can
+    // still contain corrupt colours/scanlines, so compare the whole test card.
+    const cameraReference=await fs.readFile(path.join(root,'emulator/assets/test-frame.jpg'));
+    const cameraPixelError=await page.evaluate(async reference=>{
+      const expected=new Image();
+      expected.src=reference;
+      await expected.decode();
+      const canvas=document.createElement('canvas');
+      canvas.width=64; canvas.height=36;
+      const ctx=canvas.getContext('2d',{willReadFrequently:true});
+      const pixels=image=>{
+        ctx.drawImage(image,0,0,64,36);
+        return ctx.getImageData(0,0,64,36).data;
+      };
+      const wanted=pixels(expected);
+      const actual=pixels(document.querySelector('#detailTabCamera img.detail-camera'));
+      let error=0;
+      for(let i=0;i<actual.length;i++) if(i%4!==3) error+=Math.abs(actual[i]-wanted[i]);
+      return error/(64*36*3);
+    },'data:image/jpeg;base64,'+cameraReference.toString('base64'));
+    assert.ok(cameraPixelError<12,
+      'X1C camera colours match the simulator card (mean RGB error '+cameraPixelError.toFixed(2)+')');
+    await page.locator('#printerDialog [data-detail-close]').click();
+    await removeTestPrinter(x1cId);
+    console.log('Chromium: virtual X1C RTSPS -> bundled decoder -> correct camera pixels PASS');
   } finally {
     await context.close();
     // Isolated controller process teardown is the safety boundary; no external
     // printer or persistent user configuration is touched by this test.
   }
+}
+
+// Authentication is a separate isolated controller: never enrol real-user or
+// shared-browser test installations as a side effect of the visual suite.
+async function nativeAuthenticationSmoke(browser){
+  console.log('Chromium: native login, administrator user management and sign-out');
+  const rootDir=await fs.mkdtemp(path.join(os.tmpdir(),'pfc-auth-browser-'));
+  const dataDir=path.join(rootDir,'data');
+  const logs=[];
+  let child=null,context=null;
+  try{
+    const url='http://127.0.0.1:'+(await portNumber());
+    child=spawn(process.execPath,['src/server.js'],{
+      cwd:root,env:{...process.env,HOST:'127.0.0.1',PORT:url.split(':').at(-1),
+        DATA_DIR:dataDir,LOG_DIR:path.join(rootDir,'logs'),
+        DISCOVERY_SUBNET:'',EMULATOR_NO_DEFAULTS:'1'},
+      stdio:['ignore','pipe','pipe']
+    });
+    child.stdout.on('data',x=>logs.push(String(x)));
+    child.stderr.on('data',x=>logs.push(String(x)));
+    await waitForController(url,child,logs);
+    context=await browser.newContext({viewport:{width:1280,height:800}});
+    // Plain Playwright library has no default action timeout. A missing
+    // role-specific control must fail instead of stalling GitHub CI indefinitely.
+    context.setDefaultTimeout(15000);
+    context.setDefaultNavigationTimeout(25000);
+    const page=await context.newPage();
+    const errorLog=[];
+    page.on('pageerror',error=>errorLog.push(error.message));
+    await page.goto(url+'/');
+    await page.locator('#authOverlay').waitFor({state:'visible'});
+    assert.equal(await page.locator('body.auth-locked').count(),1,'workspace locked before login');
+    const authVisualDir=process.env.PFC_VISUAL_CAPTURE_DIR
+      ? path.resolve(process.env.PFC_VISUAL_CAPTURE_DIR):null;
+    if(authVisualDir){
+      await fs.mkdir(authVisualDir,{recursive:true});
+      await page.screenshot({path:path.join(authVisualDir,'auth-setup-dark-desktop.png'),
+        animations:'disabled',fullPage:true});
+    }
+    // The same geometry drives deposited material AND the hotend tip.
+    const desktop=await page.evaluate(()=>{
+      const a=document.querySelector('.auth-story').getBoundingClientRect();
+      const b=document.querySelector('.auth-access-area').getBoundingClientRect();
+      const path=document.querySelector('#authExtrusionPath');
+      const head=document.querySelector('#authPrinterHead');
+      const total=path.getTotalLength();
+      const offset=Number(path.style.strokeDashoffset);
+      const point=path.getPointAtLength(total-offset);
+      const matrix=head.transform.baseVal.consolidate().matrix;
+      const brand=document.querySelector('.auth-brand .stacked-layers-mark');
+      return {story:a.toJSON(),access:b.toJSON(),
+        artwork:Boolean(document.querySelector('.auth-printer-art svg')),
+        exactLogo:Boolean(brand&&brand.querySelectorAll('polygon').length===3),
+        nozzle:Boolean(head.querySelector('.auth-head-guide')&&head.querySelector('.auth-heat-block')
+          &&head.querySelector('.auth-printer-nozzle')),
+        grid:Boolean(document.querySelector('.auth-build-grid')),
+        clippedGrid:document.querySelector('#authBuildGrid')?.getAttribute('clip-path')===
+          'url(#authBuildPlateCrop)',
+        quietBackdrop:getComputedStyle(document.querySelector('.auth-story'),'::before')
+          .backgroundImage==='none',
+        radialGlow:getComputedStyle(document.querySelector('.auth-story'))
+          .backgroundImage.includes('radial-gradient'),
+        plateShadow:Boolean(document.querySelector('.auth-bed-shadow')),
+        contactShadow:Boolean(document.querySelector('.auth-pyramid-contact-shadow')),
+        progressMeter:Boolean(document.querySelector('.auth-printer-illustration')
+          ?.contains(document.querySelector('#authLayerProgress'))
+          &&document.querySelector('.auth-layer-progress-track')),
+        removedDemoHeading:document.querySelector('.auth-print-telemetry-heading')===null,
+        pathLength:total,nozzleError:Math.hypot(point.x-matrix.e,point.y-matrix.f)};
+    });
+    assert.ok(desktop.story.right<=desktop.access.left+2,
+      'branding panel must sit beside, not on top of, the login');
+    assert.ok(desktop.artwork,'the local printer illustration renders');
+    assert.ok(desktop.exactLogo,'sign-in uses the actual layered controller brand mark');
+    assert.ok(desktop.nozzle,'minimal amber nozzle and guide are present on the print bed');
+    assert.ok(desktop.grid,'45-degree isometric grid is rendered behind the pyramid');
+    assert.ok(desktop.clippedGrid,'only the isometric build plate contains the grid');
+    assert.ok(desktop.quietBackdrop,'no square graph-paper overlay remains');
+    assert.ok(desktop.radialGlow,'subtle radial illumination replaces the square grid');
+    assert.ok(desktop.plateShadow&&desktop.contactShadow,
+      'plate and printed layers have restrained depth');
+    assert.ok(desktop.progressMeter,'the layer counter has a compact progress meter');
+    assert.equal(desktop.removedDemoHeading,true,
+      'no Pyramid Build – Demo heading should appear over the animation');
+    assert.ok(desktop.pathLength>550,'first pyramid layer spans a complete isometric perimeter');
+    assert.ok(desktop.nozzleError<.5,'nozzle tip must touch the exact traced extrusion line');
+    const initial=await page.locator('#authPrinterHead').getAttribute('transform');
+    await page.waitForFunction(initial=>document.querySelector('#authPrinterHead')
+      ?.getAttribute('transform')!==initial,initial,{timeout:6000});
+    const alignment=await page.evaluate(()=>{
+      const path=document.querySelector('#authExtrusionPath');
+      const len=path.getTotalLength();
+      const drawn=len-Number(path.style.strokeDashoffset);
+      const point=path.getPointAtLength(drawn);
+      const head=document.querySelector('#authPrinterHead').transform.baseVal.consolidate().matrix;
+      return Math.hypot(point.x-head.e,point.y-head.f);
+    });
+    assert.ok(alignment<.5,'moving nozzle must stay aligned with its visible extrusion point');
+    const startWidth=await page.locator('#authExtrusionPath').evaluate(el=>el.getBBox().width);
+    await page.waitForFunction(()=>Number(document.querySelector('#authPyramidLayers')
+      ?.dataset.demoCompletedLayers)>=3,null,{timeout:8000});
+    const build=await page.evaluate(()=>{
+      const group=document.querySelector('#authPyramidLayers');
+      const shells=[...group.querySelectorAll('.auth-pyramid-shell')];
+      const footprints=shells.map(shell=>
+        shell.querySelector('.auth-pyramid-finished-ring').getBBox().width);
+      const active=document.querySelector('#authExtrusionPath');
+      const pathLength=active.getTotalLength();
+      const p=active.getPointAtLength(pathLength-Number(active.style.strokeDashoffset));
+      const tip=document.querySelector('#authPrinterHead').transform.baseVal.consolidate().matrix;
+      const grid=[...document.querySelectorAll('#authBuildGrid .auth-grid-line')];
+      const counter=Number(document.querySelector('#authPrintLayer').textContent);
+      return {shells:shells.length,footprints,activeWidth:active.getBBox().width,
+        layer:counter,tipError:Math.hypot(p.x-tip.e,p.y-tip.f),
+        grid:grid.length,
+        progressWidth:Number(document.querySelector('#authLayerProgress')?.getAttribute('width')),
+        startsWith45DegreeAngles:grid.some(line=>{
+          const box=line.getBBox();
+          return box.width>100&&box.height>40;
+        })};
+    });
+    assert.ok(build.shells>=3,'the animation must construct completed pyramid layers');
+    assert.ok(build.footprints.every((w,i)=>i===0||w<build.footprints[i-1]),
+      'successive pyramid tiers must visibly shrink instead of repeating a rectangle');
+    assert.ok(build.activeWidth<startWidth,
+      'the moving nozzle prints successively narrower pyramid contours');
+    assert.equal(build.layer,build.shells+1,
+      'the demo layer counter must advance as each actual tier is completed');
+    assert.ok(build.progressWidth>184*build.shells/18
+      &&build.progressWidth<184*(build.shells+1)/18,
+      'layer progress advances in sync with the active deposited perimeter');
+    assert.ok(build.tipError<.5,'the nozzle stays on the shrinking active perimeter');
+    assert.ok(build.grid>=20&&build.startsWith45DegreeAngles,
+      'bed grid lines must share the pyramid’s angled isometric projection');
+    if(authVisualDir){
+      // Record a genuinely half-built pyramid, not a one-layer first frame.
+      // The screenshot is a visual QA artifact and never contains farm data.
+      await page.waitForFunction(()=>Number(document.querySelector('#authPyramidLayers')
+        ?.dataset.demoCompletedLayers)>=9,null,{timeout:18000});
+      const beforeTheme=await page.evaluate(()=>document.documentElement.dataset.theme);
+      await page.evaluate(()=>document.documentElement.dataset.theme='dark');
+      await page.screenshot({path:path.join(authVisualDir,'auth-pyramid-half-built-dark.png'),
+        animations:'disabled',fullPage:true});
+      await page.evaluate(theme=>document.documentElement.dataset.theme=theme,beforeTheme);
+    }
+    // Unlike the previous 3D gantry, the reference-inspired scene has no
+    // raised printer frame. All perimeter points and the full slim nozzle
+    // must remain inside the technical print-bed diagram.
+    const clearance=await page.evaluate(()=>{
+      const path=document.querySelector('#authExtrusionPath');
+      const length=path.getTotalLength();
+      let safelyInside=true;
+      for(let i=0;i<=120;i++){
+        const p=path.getPointAtLength(length*i/120);
+        if(p.x-11<=56||p.x+11>=609||p.y-51<=58||p.y+2>=347){
+          safelyInside=false;break;
+        }
+      }
+      return safelyInside;
+    });
+    assert.equal(clearance,true,'the complete nozzle remains inside the print bed');
+    assert.equal(await page.locator('.auth-printer-base,.auth-printer-rail').count(),0,
+      'reference visualization must not show a printer gantry or frame');
+    assert.match(await page.locator('#authSoloPrinter .auth-print-telemetry-layer').textContent(),
+      /Layer \d{2} \/ 18/,'the demo layer counter remains legible');
+    assert.equal(await page.locator('#authMotionToggle').count(),0,
+      'login must no longer show a pause animation button');
+    await page.emulateMedia({reducedMotion:'reduce'});
+    const initialOffset=await page.locator('#authExtrusionPath').evaluate(el=>
+      el.style.strokeDashoffset);
+    await page.waitForFunction(initial=>document.querySelector('#authExtrusionPath')
+      ?.style.strokeDashoffset!==initial,initial,{timeout:5000});
+    assert.equal(await page.locator('#authPrinterHead').isVisible(),true,
+      'the printhead still animates automatically in Windows Chrome');
+    await page.emulateMedia({reducedMotion:'no-preference'});
+    // Restart only the decorative timer to check the exact layer-04 trigger;
+    // the animation must begin revealing the farm after THREE finished layers.
+    await page.evaluate(()=>document.dispatchEvent(new Event('visibilitychange')));
+    await page.waitForFunction(()=>document.querySelector('.auth-printer-illustration')
+      ?.dataset.demoStage==='zoom',null,{timeout:8000});
+    const zoomStart=await page.evaluate(()=>({
+      layer:Number(document.querySelector('#authPrintLayer').textContent),
+      completed:Number(document.querySelector('#authPyramidLayers').dataset.demoCompletedLayers),
+      stage:document.querySelector('.auth-printer-illustration').dataset.demoStage,
+      extrusion:Number(document.querySelector('#authLayerProgress').getAttribute('width'))
+    }));
+    assert.equal(zoomStart.layer,4,'zoom starts while the fourth layer is actively printing');
+    assert.equal(zoomStart.completed,3,'zoom starts after exactly three complete layers');
+    assert.ok(zoomStart.extrusion>184*3/18&&zoomStart.extrusion<184*4/18,
+      'first printer continues depositing the fourth layer during zoom');
+    // The original printer shrinks into a four-bed layout connected to
+    // one common controller, without stopping its print.
+    await page.waitForFunction(()=>document.querySelector('.auth-printer-illustration')
+      ?.dataset.demoStage==='farm',null,{timeout:9000});
+    const farmScene=await page.evaluate(()=>{
+      const svg=document.querySelector('.auth-printer-illustration');
+      const first=document.querySelector('#authSoloPrinter');
+      const copies=[...document.querySelectorAll('.auth-farm-printer')];
+      const machines=[first,...copies];
+      const layers=machines.map(node=>Number(node.querySelector('.auth-print-telemetry-layer tspan').textContent));
+      const tipErrors=machines.map(node=>{
+        const path=node.querySelector('.auth-printer-trace');
+        const length=path.getTotalLength();
+        const offset=Number(path.style.strokeDashoffset);
+        const point=path.getPointAtLength(length-offset);
+        const nozzle=node.querySelector('.auth-printer-head-motion')
+          .transform.baseVal.consolidate().matrix;
+        return Math.hypot(nozzle.e-point.x,nozzle.f-point.y);
+      });
+      const ids=[...svg.querySelectorAll('[id]')].map(node=>node.id);
+      const names=[...svg.querySelectorAll('.auth-farm-printer-label')];
+      const labelClearances=names.map((label,i)=>{
+        const track=machines[i].querySelector('.auth-layer-progress-track');
+        return label.getBoundingClientRect().top-track.getBoundingClientRect().bottom;
+      });
+      return {
+        stage:svg.dataset.demoStage,
+        firstTransform:first.getAttribute('transform'),
+        copies:copies.length,links:svg.querySelectorAll('.auth-farm-link').length,
+        hub:svg.querySelector('.auth-farm-hub-label')?.textContent,
+        visible:document.querySelector('#authFarmConnections').getAttribute('visibility')==='visible'
+          &&document.querySelector('#authFarmReplicas').getAttribute('visibility')==='visible',
+        layers,tipErrors,labelClearances,uniqueIds:new Set(ids).size===ids.length
+      };
+    });
+    assert.equal(farmScene.copies,3,'three additional animated printers join the first');
+    assert.equal(farmScene.links,4,'every printer has a path to the same controller');
+    assert.equal(farmScene.hub,'ONE CONTROLLER','the common controller is clearly identified');
+    assert.ok(farmScene.visible,'the connected farm must appear after zooming');
+    assert.ok(farmScene.firstTransform.includes('scale(0.4000)'),
+      'the first printer shrinks into the farm rather than disappearing');
+    assert.ok(new Set(farmScene.layers).size>=3,
+      'the printers depict independently staggered, active print jobs');
+    assert.ok(farmScene.tipErrors.every(error=>error<.5),
+      'every miniature nozzle traces its own exact extrusion perimeter');
+    assert.ok(farmScene.labelClearances.every(gap=>gap>=5),
+      'each printer name must have visible clearance below its own layer progress bar');
+    assert.ok(farmScene.uniqueIds,'cloned SVG printers cannot duplicate DOM IDs');
+    if(authVisualDir){
+      await page.screenshot({path:path.join(authVisualDir,'auth-connected-farm-dark.png'),
+        animations:'disabled',fullPage:true});
+      await page.evaluate(()=>document.documentElement.dataset.theme='light');
+      await page.screenshot({path:path.join(authVisualDir,'auth-connected-farm-light.png'),
+        animations:'disabled',fullPage:true});
+      await page.evaluate(()=>document.documentElement.dataset.theme='dark');
+    }
+    await page.setViewportSize({width:820,height:844});
+    // The matchMedia change event is delivered asynchronously after resizing.
+    // Wait for the renderer to switch scenes instead of racing that event.
+    await page.waitForFunction(()=>document.querySelector('.auth-printer-illustration')
+      ?.dataset.demoStage==='solo',null,{timeout:4000});
+    assert.equal(await page.locator('.auth-printer-art').isVisible(),true,
+      'compact laptop viewport retains visible printer animation');
+    await page.evaluate(()=>document.documentElement.dataset.theme='light');
+    assert.equal(await page.locator('.auth-story').evaluate(element=>
+      getComputedStyle(element).backgroundColor),'rgb(246, 249, 253)',
+      'access branding inherits the light theme');
+    await page.evaluate(()=>document.documentElement.dataset.theme='dark');
+    await page.setViewportSize({width:390,height:844});
+    assert.equal(await page.locator('.auth-printer-art').isVisible(),false,
+      'phone layout hides the large printer art');
+    assert.equal(await page.locator('.auth-brand-symbol').evaluate(element=>
+      getComputedStyle(element,'::after').animationName),'auth-logo-layer',
+      'phone layout has a subtle animated brand layer');
+    await page.emulateMedia({reducedMotion:'reduce'});
+    assert.equal(await page.locator('.auth-brand-symbol').evaluate(el=>
+      getComputedStyle(el,'::after').animationName),'auth-logo-layer',
+      'mobile brand line remains subtle and automatic without extra controls');
+    await page.emulateMedia({reducedMotion:'no-preference'});
+    const mobile=await page.evaluate(()=>({
+      scroll:document.documentElement.scrollWidth,
+      width:innerWidth,
+      form:document.querySelector('.auth-login-card').getBoundingClientRect().toJSON()
+    }));
+    assert.ok(mobile.scroll<=mobile.width+1,'mobile auth gate must not overflow horizontally');
+    assert.ok(mobile.form.left>=0&&mobile.form.right<=mobile.width,
+      'mobile setup form stays within viewport');
+    await page.setViewportSize({width:1280,height:800});
+    assert.equal(await page.locator('#authSetupForm').isVisible(),true,
+      'default HTTP setup must be visible without any environment override');
+    assert.equal(await page.locator('#authTransportNotice').isVisible(),true,
+      'unencrypted credentials must show an explicit warning');
+    const code=logs.join('').match(/One-time enrollment code \(private\): ([0-9A-F]{48})/)?.[1];
+    assert.ok(code,'setup code must appear in protected controller startup output');
+    assert.equal((await page.locator('body').innerText()).includes(code),false,
+      'setup code must never be emitted to the browser');
+    await page.locator('#authSetupForm [name=code]').fill(code);
+    await page.locator('#authSetupForm [name=username]').fill('owner');
+    await page.locator('#authSetupForm [name=displayName]').fill('Owner');
+    await page.locator('#authSetupForm [name=password]').fill('Admin password for tests 2026');
+    await page.locator('#authSetupForm [name=confirmPassword]').fill('Admin password for tests 2026');
+    await page.locator('#authSetupForm button[type=submit]').click();
+    await page.locator('#authLoginForm').waitFor({state:'visible'});
+    assert.equal(await page.locator('#authTransportNotice').isVisible(),true);
+    if(authVisualDir){
+      await page.screenshot({path:path.join(authVisualDir,'auth-login-dark-desktop.png'),
+        animations:'disabled',fullPage:true});
+      await page.evaluate(()=>document.documentElement.dataset.theme='light');
+      await page.screenshot({path:path.join(authVisualDir,'auth-login-light-desktop.png'),
+        animations:'disabled',fullPage:true});
+      await page.setViewportSize({width:390,height:844});
+      await page.screenshot({path:path.join(authVisualDir,'auth-login-mobile.png'),
+        animations:'disabled',fullPage:true});
+      await page.setViewportSize({width:1280,height:800});
+      await page.evaluate(()=>document.documentElement.dataset.theme='dark');
+    }
+    await page.locator('#authLoginForm [name=username]').fill('owner');
+    await page.locator('#authLoginForm [name=password]').fill('Admin password for tests 2026');
+    await page.locator('#authPasswordToggle').click();
+    assert.equal(await page.locator('#authLoginForm [name=password]').getAttribute('type'),'text');
+    assert.equal(await page.locator('#authPasswordToggle').getAttribute('aria-pressed'),'true');
+    await page.locator('#authPasswordToggle').click();
+    assert.equal(await page.locator('#authLoginForm [name=password]').getAttribute('type'),'password');
+    assert.equal(await page.locator('#authPasswordToggle').getAttribute('aria-pressed'),'false');
+    await page.locator('#authLoginForm button[type=submit]').click();
+    await page.waitForFunction(()=>window.__PFC_FRONTEND_BOOTED__===true
+      && document.body.dataset.authRole==='administrator',{},{timeout:25000});
+    assert.equal(await page.locator('#usersBtn').isVisible(),true);
+    assert.equal(await page.locator('#authIdentity').isVisible(),true);
+    await page.locator('#usersBtn').click();
+    await page.locator('#authUserAddForm').waitFor({state:'visible'});
+    // The native account-list fetch is asynchronous. Wait for its initial
+    // response before creating a user so a late initial list render cannot
+    // overwrite the refreshed list and cause a false browser regression.
+    await page.locator('#authUserList tbody tr').filter({hasText:'owner'})
+      .waitFor({state:'visible'});
+    assert.equal(await page.locator('#authAdminTabs').isVisible(),true,
+      'Security & users must offer dedicated Users and HTTPS tabs');
+    assert.equal(await page.locator('#authTabUsers').getAttribute('aria-selected'),'true');
+    assert.equal(await page.locator('#authTabHttps').getAttribute('aria-selected'),'false');
+    assert.equal(await page.locator('#authTabHttps').innerText(),'Connection settings');
+    await page.locator('#authTabHttps').click();
+    assert.equal(await page.locator('#tlsSettingsHeading').innerText(),'Connection settings');
+    await page.locator('#tlsConfigureForm').waitFor({state:'visible'});
+    await page.waitForFunction(()=>document.querySelector('#tlsMode')?.textContent
+      .includes('HTTP / HTTPS not configured'));
+    const listenerPort=Number(new URL(url).port);
+    assert.equal(await page.locator('#tlsHttpPort').innerText(),String(listenerPort),
+      'HTTP summary shows the actual controller listener, not a hypothetical external port');
+    assert.equal(await page.locator('#tlsPort').innerText(),String(listenerPort+1)+' · inactive',
+      'HTTPS summary shows the inactive fixed partner listener');
+    assert.doesNotMatch(await page.locator('#tlsSettings').innerText(),/MetalLB/i,
+      'Connection settings must remain load-balancer agnostic');
+    assert.equal(await page.locator('#authUserAddForm').isVisible(),false,
+      'Users form must be hidden while HTTPS tab is selected');
+    assert.equal(await page.locator('#tlsRegenerateBtn').isVisible(),false,
+      'regeneration is unavailable until the SAVED mode is self-signed HTTPS');
+    assert.equal(await page.locator('#tlsConfigureBtn').isVisible(),true);
+    const sectionOrder=await page.locator('#tlsSettings').evaluate(root=>{
+      const a=root.querySelector('#tlsSummaryHeading');
+      const b=root.querySelector('#tlsConfigureForm');
+      const c=root.querySelector('#tlsMaintenance');
+      return Boolean(a.compareDocumentPosition(b)&Node.DOCUMENT_POSITION_FOLLOWING)
+        &&Boolean(b.compareDocumentPosition(c)&Node.DOCUMENT_POSITION_FOLLOWING);
+    });
+    assert.equal(sectionOrder,true,
+      'HTTPS sections must follow Summary, Settings, Replacement even while the last is hidden');
+    await page.locator('#tlsConfigureMode').selectOption('provided');
+    assert.equal(await page.locator('#tlsConfigureCertificatePem').isVisible(),true);
+    assert.equal(await page.locator('#tlsConfigurePrivateKeyPem').isVisible(),true);
+    assert.equal(await page.locator('#tlsConfigureBtn').isDisabled(),true,
+      'pasted PEM private keys may only be submitted over HTTPS');
+    assert.match(await page.locator('#tlsPemTransportWarning').innerText(),
+      /first enable a controller-managed certificate/i);
+    assert.equal(await page.locator('#tlsMaintenance').isVisible(),false,
+      'replacement section hidden when stored mode is not managed');
+    assert.equal(await page.locator('#tlsConfigureCertPath,#tlsConfigureKeyPath').count(),0,
+      'external certificates must be supplied by PEM paste, never file paths');
+    await page.locator('#tlsConfigureMode').selectOption('self-signed');
+    assert.equal(await page.locator('#tlsRegenerateBtn').isVisible(),false,
+      'drafting managed mode must not enable renewal until configuration is applied');
+    await page.locator('#authTabHttps').focus();
+    await page.keyboard.press('ArrowLeft');
+    assert.equal(await page.locator('#authTabUsers').getAttribute('aria-selected'),'true');
+    assert.equal(await page.locator('#authUserAddForm').isVisible(),true,
+      'arrow-key navigation switches the tab panel');
+    await page.locator('#authTabUsers').press('End');
+    assert.equal(await page.locator('#authTabHttps').getAttribute('aria-selected'),'true');
+    await page.locator('#authTabHttps').press('Home');
+    assert.equal(await page.locator('#authTabUsers').getAttribute('aria-selected'),'true');
+    await page.locator('#authUserAddForm [name=username]').fill('shiftoperator');
+    await page.locator('#authUserAddForm [name=displayName]').fill('Shift operator');
+    await page.locator('#authUserAddForm [name=role]').selectOption('operator');
+    await page.locator('#authUserAddForm [name=password]').fill('Operator password for tests 2026');
+    await page.locator('#authUserAddForm button[type=submit]').click();
+    await page.locator('#authUserList tbody tr').filter({hasText:'shiftoperator'}).waitFor();
+    await page.locator('#authUserAddForm [name=username]').fill('viewer');
+    await page.locator('#authUserAddForm [name=displayName]').fill('Viewer');
+    await page.locator('#authUserAddForm [name=role]').selectOption('viewer');
+    await page.locator('#authUserAddForm [name=password]').fill('Viewer password for tests 2026');
+    await page.locator('#authUserAddForm button[type=submit]').click();
+    await page.locator('#authUserList tbody tr').filter({
+      has:page.locator('th[scope="row"]:text-is("viewer")')
+    }).waitFor();
+    console.log('Chromium auth: viewer created; creating production operator');
+    await page.locator('#authUserAddForm [name=username]').fill('shopoperator');
+    await page.locator('#authUserAddForm [name=displayName]').fill('Shop operator');
+    await page.locator('#authUserAddForm [name=role]').selectOption('operator');
+    await page.locator('#authUserAddForm [name=password]').fill('Shop operator password 2026');
+    await page.locator('#authUserAddForm button[type=submit]').click();
+    await page.locator('#authUserList th[scope=row]').filter({hasText:'shopoperator'}).waitFor();
+    console.log('Chromium auth: operator created; switching shift operator role');
+    const row=page.locator('#authUserList tbody tr').filter({hasText:'shiftoperator'});
+    assert.equal(await row.locator('select').inputValue(),'operator');
+    await row.locator('select').selectOption('viewer');
+    // Selecting a draft value is not evidence that Save finished. The PATCH
+    // triggers a GET which temporarily replaces the entire table with Loading.
+    const roleSaved=page.waitForResponse(response=>response.request().method()==='PATCH'
+      && new URL(response.url()).pathname.startsWith('/api/auth/users/'));
+    const usersRefreshed=page.waitForResponse(response=>response.request().method()==='GET'
+      && new URL(response.url()).pathname==='/api/auth/users');
+    await row.locator('button').filter({hasText:'Save'}).click();
+    assert.equal((await roleSaved).status(),200,'role update succeeds on the server');
+    const refreshed=await usersRefreshed;
+    assert.equal(refreshed.status(),200,'user list reload succeeds');
+    assert.equal((await refreshed.json()).users.find(user=>user.username==='shiftoperator')?.role,
+      'viewer','the refreshed server list contains the saved role');
+    await row.waitFor({state:'visible'});
+    assert.equal(await row.locator('select').inputValue(),'viewer');
+    const ownerRow=page.locator('#authUserList tbody tr').filter({
+      has:page.locator('th[scope="row"]:text-is("owner")')
+    });
+    assert.equal(await ownerRow.locator('button.auth-user-delete').isDisabled(),true,
+      'administrators cannot delete their own signed-in account');
+    const removable=page.locator('#authUserList tbody tr').filter({
+      has:page.locator('th[scope="row"]:text-is("shiftoperator")')
+    });
+    assert.equal(await removable.locator('button.auth-user-delete').isVisible(),true,
+      'administrators can delete other users');
+    page.once('dialog',dialog=>{
+      assert.match(dialog.message(),/shiftoperator/,'deletion must name the affected user');
+      void dialog.dismiss();
+    });
+    await removable.locator('button.auth-user-delete').click();
+    assert.equal(await removable.count(),1,'cancelled deletion preserves the account');
+    page.once('dialog',dialog=>{void dialog.accept();});
+    await removable.locator('button.auth-user-delete').click();
+    await page.waitForFunction(()=>[...document.querySelectorAll('#authUserList tbody tr th[scope=row]')]
+      .some(cell=>cell.textContent==='shopoperator')
+      &&![...document.querySelectorAll('#authUserList tbody tr th[scope=row]')]
+        .some(cell=>cell.textContent==='shiftoperator'));
+    assert.equal(await removable.count(),0,'deleted account row is removed from the user list');
+    await page.locator('#authAccountBtn').click();
+    await page.locator('#authLogoutBtn').click();
+    await page.locator('#authOverlay').waitFor({state:'visible'});
+    console.log('Chromium auth: admin signed out; signing in viewer');
+    await page.locator('#authLoginForm [name=username]').fill('viewer');
+    await page.locator('#authLoginForm [name=password]').fill('Viewer password for tests 2026');
+    await page.locator('#authLoginForm button[type=submit]').click();
+    await page.waitForFunction(()=>window.__PFC_FRONTEND_BOOTED__===true
+      && document.body.dataset.authRole==='viewer',null,{timeout:25000});
+    assert.equal(await page.locator('#usersBtn').isVisible(),false,'viewer cannot see user admin');
+    console.log('Chromium auth: viewer signed in; opening account dialog to sign out');
+    await page.locator('#authAccountBtn').click();
+    await page.locator('#authLogoutBtn').click();
+    await page.locator('#authOverlay').waitFor({state:'visible'});
+    console.log('Chromium auth: viewer signed out; signing in production operator');
+    await page.locator('#authLoginForm [name=username]').fill('shopoperator');
+    await page.locator('#authLoginForm [name=password]').fill('Shop operator password 2026');
+    await page.locator('#authLoginForm button[type=submit]').click();
+    await page.waitForFunction(()=>window.__PFC_FRONTEND_BOOTED__===true
+      && document.body.dataset.authRole==='operator',null,{timeout:25000});
+    console.log('Chromium auth: production operator signed in; checking permissions');
+    assert.equal(await page.locator('#clearQueueHistoryBtn').isVisible(),false,
+      'operators cannot purge queue history');
+    assert.equal(await page.locator('#libraryDeleteSelectedBtn').isVisible(),false,
+      'operators cannot delete library records');
+    assert.equal(await page.locator('#filamentForm').isVisible(),false,
+      'operators cannot edit the shared filament cost catalogue');
+    assert.equal(await page.locator('#reportsBtn').isVisible(),true,
+      'operators retain read access to reporting');
+    assert.deepEqual(errorLog,[],'native login UI must have no uncaught browser errors');
+    console.log('Chromium: native login, role-based user administration and sign-out PASS');
+  }catch(error){
+    console.error('Auth browser server tail:',logs.join('').slice(-3000));
+    if(context){
+      const pages=context.pages();
+      const p=pages[0];
+      if(p){
+        console.error('Auth browser client state:',await p.evaluate(()=>({
+          role:document.body.dataset.authRole,
+          locked:document.body.classList.contains('auth-locked'),
+          userError:document.querySelector('#authUserAddError')?.textContent,
+          loginError:document.querySelector('#authLoginError')?.textContent,
+          route:location.pathname,
+          accountList:document.querySelector('#authUserList')?.textContent?.slice(0,450),
+          usersHidden:document.querySelector('#authUsersLayout')?.hidden,
+          usersButtonHidden:document.querySelector('#usersBtn')?.hidden
+        })).catch(()=>({unavailable:true})));
+        // A hung UI account-list fetch can otherwise look like an unrelated
+        // menu failure. Compare network access from browser and API context.
+        console.error('Auth users HTTP probe:',await p.request.get(new URL('/api/auth/users',p.url()).toString(),
+          {timeout:4500}).then(async response=>({
+          status:response.status(),preview:(await response.text()).slice(0,180)
+        })).catch(error=>({error:String(error).slice(0,220)})));
+      }
+    }
+    throw error;
+  }finally{
+    await context?.close().catch(()=>{});
+    await stopIsolatedController(child,'authentication fixture');
+    await fs.rm(rootDir,{recursive:true,force:true}).catch(()=>{});
+  }
+}
+
+/** The UI fixtures spawn real Node servers. SIGTERM may hang while clearing
+ * active SSE or printer streams; always reap child processes after testing. */
+async function stopIsolatedController(child,label){
+  if(!child)return;
+  if(child.exitCode!==null||child.signalCode!==null)return;
+  child.kill('SIGTERM');
+  await new Promise(resolve=>{
+    if(child.exitCode!==null||child.signalCode!==null)return resolve();
+    const timer=setTimeout(()=>{
+      console.warn('Chromium: forcing exit of '+label+' after graceful shutdown deadline');
+      child.kill('SIGKILL');
+      resolve();
+    },3000);
+    child.once('exit',()=>{clearTimeout(timer);resolve();});
+  });
 }
 
 async function main() {
@@ -3125,7 +4401,8 @@ async function main() {
     if (!externalUrl) {
       processHandle=spawn(process.execPath,['src/server.js'],{
         cwd:root,env:{...process.env,HOST:'127.0.0.1',PORT:url.split(':').at(-1),
-          DATA_DIR:path.join(dir,'data'),LOG_DIR:path.join(dir,'logs'),DISCOVERY_SUBNET:'',EMULATOR_NO_DEFAULTS:'1'},
+          DATA_DIR:path.join(dir,'data'),LOG_DIR:path.join(dir,'logs'),DISCOVERY_SUBNET:'',EMULATOR_NO_DEFAULTS:'1',
+          PFC_AUTH_REQUIRED:'0'},
         stdio:['ignore','pipe','pipe']
       });
       processHandle.stdout.on('data',(x)=>logs.push(String(x)));
@@ -3143,9 +4420,11 @@ async function main() {
     page.on('pageerror',(e)=>errors.push(e.message));
     await designSystemSmoke(browser,url);
     await dashboardPhase3Smoke(browser,url);
+    await dashboardCompactTableSmoke(browser,url);
     await workspaceShellSmoke(browser,url);
     await workspaceHeadingSmoke(page,url);
     await sharedTabNavigationSmoke(page,url);
+    await maintenanceActionWidthSmoke(page,url);
     await libraryCostSmoke(page,url);
     await libraryCompactTableSmoke(page,url);
     await librarySelectionSmoke(page,url,{ mutateFixture:!externalUrl });
@@ -3156,6 +4435,7 @@ async function main() {
     await queueClickSmoke(browser,url);
     await groupEditorSmoke(browser,url);
     if(!externalUrl) await simulatorSseSmoke(browser,url);
+    if(!externalUrl) await nativeAuthenticationSmoke(browser);
     assert.deepEqual(errors,[],'browser Javascript errors');
     console.log('Chromium browser regression: PASSED');
   } catch (error) {
@@ -3168,17 +4448,26 @@ async function main() {
     }
     process.exitCode=1;
   } finally {
-    await browser?.close().catch(()=>{});
-    if (processHandle) {
-      processHandle.kill();
-      await new Promise((resolve)=>{
-        if(processHandle.exitCode!==null)return resolve();
-        processHandle.once('exit',resolve);
-        setTimeout(resolve,3000).unref();
-      });
+    console.log('Chromium: closing browser and isolated controller');
+    if(browser){
+      let timer;
+      try {
+        await Promise.race([
+          browser.close(),
+          new Promise((_,reject)=>{timer=setTimeout(()=>reject(new Error('Chromium browser close timed out')),10000);})
+        ]);
+      }catch(error){
+        process.exitCode=1;
+        console.error('Chromium cleanup error:',error.message);
+      }finally{clearTimeout(timer);}
     }
-    if(dir) await fs.rm(dir,{recursive:true,force:true}).catch(()=>{});
+    await stopIsolatedController(processHandle,'visual test controller');
+    if(dir)await fs.rm(dir,{recursive:true,force:true}).catch(()=>{});
+    console.log('Chromium: browser regression cleanup complete');
   }
 }
 
+// Standalone smoke-test CLI: an orphaned Chromium transport or SSE socket
+// must not make a PASS run appear stuck until the GitHub job times out.
 await main();
+process.exit(process.exitCode||0);

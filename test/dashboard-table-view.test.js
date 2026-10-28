@@ -18,6 +18,21 @@ test('dashboard exposes a card/table view switch with a tabular printer header',
   }
 });
 
+test('dashboard table width scales to MacBook layouts without hiding Actions', () => {
+  assert.match(styles, /--dashboard-table-min-width:100%;/,
+    'the old 1556px fixed table minimum must be removed');
+  assert.doesNotMatch(styles, /--dashboard-table-min-width:1556px/);
+  for (const width of [1450,1220,1120,950,850,560,380]) {
+    assert.ok(styles.includes('@media (max-width:'+width+'px)'),
+      'responsive density tier at '+width+'px');
+  }
+  assert.match(styles, /\.fleet-table-header > :nth-child\(7\),/);
+  assert.match(styles, /\.fleet\.table-view \.metric:nth-child\(3\),/);
+  assert.match(styles, /\.fleet\.table-view \.card-footer-actions \{ grid-column:9; \}/);
+  assert.match(styles, /\.fleet\.table-view \.card-footer-actions \{ grid-column:2; \}/);
+  assert.doesNotMatch(styles, /\.fleet\.table-view \.card-footer-actions \{ display:none;/);
+});
+
 test('dashboard view preference persists in browser local storage', () => {
   assert.match(app, /const DASHBOARD_VIEW_STORAGE_KEY = 'printer-fleet-dashboard-view'/);
   assert.match(app, /function savedDashboardViewMode\(\)/);

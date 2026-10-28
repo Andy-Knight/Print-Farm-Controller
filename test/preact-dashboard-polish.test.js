@@ -64,9 +64,10 @@ test('visual redesign leaves table geometry and multi-row card image alignment u
 
 test('table status column can display OFFLINE pill and maintenance icon together',()=>{
   const source=read('public/styles.css');
-  assert.match(source,/--dashboard-table-columns:[^\n]* 148px /,
-    'status grid column needs enough width for icon plus OFFLINE pill');
-  assert.match(source,/--dashboard-table-min-width:1556px/);
+  assert.match(source,/--dashboard-table-columns:minmax\(145px,1\.3fr\) minmax\(115px,\.95fr\)/,
+    'desktop status column needs enough width for icon plus OFFLINE pill');
+  assert.match(source,/--dashboard-table-min-width:100%/);
+  assert.doesNotMatch(source,/--dashboard-table-min-width:1556px/);
   const badge=source.slice(source.indexOf('.fleet.table-view .badge {'),
     source.indexOf('.fleet.table-view .maintenance-status-icon-button {'));
   assert.match(badge,/max-width:calc\(100% - 36px\)/);
@@ -81,4 +82,14 @@ test('printer groups page uses Farm Organisation terminology in its shared page 
   assert.match(section,/<div class="eyebrow ui-page-eyebrow">FARM ORGANISATION<\/div>/);
   assert.doesNotMatch(section,/FLEET ORGANISATION/);
   assert.match(section,/<h2 class="ui-page-title">Printer groups<\/h2>/);
+});
+
+test('Dashboard group field and both switches have a common desktop vertical alignment',()=>{
+  const styles=read('public/styles.css');
+  const browser=read('scripts/browser-regression.mjs');
+  assert.match(styles,/\.dashboard-group-filter \{ margin:0; padding:0; \}/,
+    'dashboard group filter must not retain legacy 12px bottom margin');
+  assert.match(browser,/alignment-fixture/,'exercise an actual visible group, not only no-groups state');
+  assert.match(browser,/all three Dashboard field headings must align/);
+  assert.match(browser,/group dropdown and both switches must align vertically/);
 });

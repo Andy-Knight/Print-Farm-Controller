@@ -24,7 +24,9 @@ const DEFAULT_STATE = Object.freeze({
   activeFilter:'all',
   groups:[],
   groupId:'',
-  viewMode:'cards'
+  viewMode:'cards',
+  farmOperationsEnabled:false,
+  farmOperationsBusy:false
 });
 
 function normalizeDashboardState(input = {}) {
@@ -43,7 +45,9 @@ function normalizeDashboardState(input = {}) {
       printerCount:Number(group?.printerCount || 0)
     })).filter((group) => group.id) : [],
     groupId:String(input.groupId || ''),
-    viewMode:input.viewMode === 'table' ? 'table' : 'cards'
+    viewMode:input.viewMode === 'table' ? 'table' : 'cards',
+    farmOperationsEnabled:input.farmOperationsEnabled === true,
+    farmOperationsBusy:input.farmOperationsBusy === true
   };
 }
 
@@ -96,6 +100,23 @@ function DashboardControls({ state }) {
         >
           <span class="dashboard-view-toggle-track" aria-hidden="true"></span>
           <span class="dashboard-view-toggle-label">{tableView ? 'Table' : 'Cards'}</span>
+        </UiButton>
+      </div>
+      <div class="dashboard-view-control dashboard-operations-control">
+        <span class="dashboard-view-label">Farm operations</span>
+        <UiButton
+          id="farmOperationsToggle"
+          class="dashboard-view-toggle dashboard-operations-toggle"
+          variant="ghost"
+          role="switch"
+          aria-checked={String(state.farmOperationsEnabled)}
+          aria-label={state.farmOperationsEnabled ? 'Disable farm operations' : 'Enable farm operations'}
+          aria-controls="batchToolbar"
+          disabled={state.farmOperationsBusy}
+          onClick={() => dispatchDashboardAction('operations', !state.farmOperationsEnabled)}
+        >
+          <span class="dashboard-view-toggle-track" aria-hidden="true"></span>
+          <span class="dashboard-view-toggle-label">{state.farmOperationsEnabled ? 'On' : 'Off'}</span>
         </UiButton>
       </div>
     </section>

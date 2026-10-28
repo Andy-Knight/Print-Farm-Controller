@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { existsSync, readFileSync } from 'node:fs';
 
-const read=(path)=>readFileSync(new URL('../'+path,import.meta.url),'utf8');
+const read=(path)=>readFileSync(new URL('../'+path,import.meta.url),'utf8').replaceAll('\r\n', '\n');
 const css=read('public/design-system.css');
 const html=read('public/index.html');
 const components=read('ui/components.jsx');
@@ -101,8 +101,9 @@ test('GitHub visual-regression artifacts use a native Node.js 24 action',(t)=>{
     t.skip('GitHub workflow metadata is not shipped with this installation');
     return;
   }
-  const workflow=readFileSync(workflowPath,'utf8');
-  assert.equal((workflow.match(/uses: actions\/upload-artifact@v7/g)||[]).length,2,
+  const workflow=readFileSync(workflowPath,'utf8').replaceAll('\r\n','\n');
+  const browser=workflow.split('\n  browser:\n')[1]?.split(/\n  [a-z][a-z0-9_-]*:\n/)[0] || '';
+  assert.equal((browser.match(/uses: actions\/upload-artifact@v7/g)||[]).length,2,
     'visual screenshot and failure artifact uploads must use the Node.js 24 action');
   assert.doesNotMatch(workflow,/uses: actions\/upload-artifact@v[1-5](?:\s|$)/m,
     'Node 20 artifact upload actions cause deprecated runtime warnings');
@@ -138,4 +139,20 @@ test('dashboard summary adopts the Analytics circular icon and genuine-ratio pre
   assert.match(fallback,/function dashboardSummaryIconSvg/);
   assert.match(fallback,/gauge\.style\.setProperty\('--dashboard-stat-angle'/);
   assert.match(regression,/Dashboard summary cards match Analytics outline ring styling/);
+});
+
+
+test('Print Library route fills the shared workspace and caps only narrow trailing table columns',()=>{
+  const library=read('public/print-library-polish.css');
+  const legacy=read('public/styles.css');
+  assert.match(legacy,/\.route-page\s*\{[\s\S]*?width:100%/);
+  assert.match(library,/#libraryDialog\.library-dialog\s*\{[^}]*width:100%;[^}]*max-width:none;[^}]*min-width:0;/);
+  assert.doesNotMatch(library,/width:min\(1300px,100%\)/,
+    'a routed page must not retain the old 1300px dialog cap');
+  assert.match(library,/minmax\(136px,160px\) minmax\(104px,128px\)/,
+    'selling price and history should not grow into blank space on wide screens');
+  assert.match(regression,/Math\.abs\(geometry\.header\.width-geometry\.page\.width\)<=2/,
+    'Chromium must verify that the table reaches the route edges');
+  assert.match(regression,/geometry\.header\.width>1400/,
+    'Chromium must test the formerly capped wide workspace');
 });

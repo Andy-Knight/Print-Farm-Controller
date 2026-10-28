@@ -97,7 +97,9 @@ test('browser boot and bundle expose renderer health without depending on Preact
   const build = readFileSync(new URL('../scripts/build-frontend.mjs', import.meta.url), 'utf8');
 
   assert.ok(html.includes('id="frontendRendererStatus"'));
-  assert.ok(html.indexOf('src="/dashboard-preact.js"') < html.indexOf('src="/app.js"'));
+  const gate = readFileSync(new URL('../public/auth-gate.js', import.meta.url), 'utf8');
+  assert.ok(html.includes('src="/auth-gate.js"'));
+  assert.ok(gate.indexOf("import('/dashboard-preact.js')") < gate.indexOf("import('/app.js')"));
   assert.match(app, /initializeFrontendRendererDiagnostics\(\)/);
   assert.match(app, /refreshFrontendRendererStatus\(\);/);
   assert.match(bundleSource, /__PFC_PREACT_BUNDLE_LOADED__ = true/);

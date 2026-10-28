@@ -182,9 +182,7 @@ const restoreCancelStageBtn = document.querySelector('#restoreCancelStageBtn');
 const restoreInspectStatus = document.querySelector('#restoreInspectStatus');
 const restoreInspectError = document.querySelector('#restoreInspectError');
 const restoreInspectionSummary = document.querySelector('#restoreInspectionSummary');
-const batchModeBtn = document.querySelector('#batchModeBtn');
-const batchModeMenuBtn = document.querySelector('#batchModeMenuBtn');
-const topbarOverflow = document.querySelector('#topbarOverflow');
+const farmOperationsToggle = document.querySelector('#farmOperationsToggle');
 const batchToolbar = document.querySelector('#batchToolbar');
 const batchSelectedCount = document.querySelector('#batchSelectedCount');
 const batchResult = document.querySelector('#batchResult');
@@ -252,6 +250,16 @@ const libraryFilamentAssignments = document.querySelector('#libraryFilamentAssig
 const libraryMetadataError = document.querySelector('#libraryMetadataError');
 const queueBtn = document.querySelector('#queueBtn');
 const queueButtonCount = document.querySelector('#queueButtonCount');
+
+/* Keep sidebar badges the same width, while preserving the exact value when
+   the count exceeds the three digits that fit the fixed-width pill. */
+function updateSidebarCountBadge(badge, value, description) {
+  if (!badge) return;
+  const count = Math.max(0, Math.trunc(Number(value) || 0));
+  badge.textContent = count > 999 ? '999+' : String(count);
+  badge.classList.toggle('hidden', count === 0);
+  badge.title = count > 999 ? `${count} ${description}` : '';
+}
 const queueDialog = document.querySelector('#queueDialog');
 const queueSummary = document.querySelector('#queueSummary');
 const queueActiveList = document.querySelector('#queueActiveList');
@@ -292,7 +300,8 @@ const controllerRoutes = {
   '/alerts': { button:'alertsSettingsBtn', dialog:'alertsDialog', title:'Alerts & notifications', topbarTitle:'Farm management', subtitle:'Review alerts and notification settings' },
   '/backup': { button:'backupRecoveryBtn', dialog:'backupRecoveryDialog', title:'Backup & recovery', topbarTitle:'Farm management', subtitle:'Protect and restore controller data' },
   '/diagnostics': { button:'diagnosticsBtn', dialog:'diagnosticsDialog', title:'Diagnostics', topbarTitle:'Farm management', subtitle:'Review controller health and diagnostic logs' },
-  '/licence': { button:'licenseBtn', dialog:'licenseDialog', title:'Licence', subtitle:'Review controller edition and licence status' }
+  '/licence': { button:'licenseBtn', dialog:'licenseDialog', title:'Licence', subtitle:'Review controller edition and licence status' },
+  '/users': { button:'usersBtn', dialog:'usersDialog', title:'Security & users', topbarTitle:'Farm management', subtitle:'Set up secure access and manage local user roles' }
 };
 const workspaceMain = document.querySelector('body > main');
 // Bind route title and subtitle separately to avoid duplicate context labels.
@@ -365,11 +374,8 @@ function renderControllerRoute(pathname, { invoke = true } = {}) {
   const route = controllerRoutes[routePath];
   activeRoute = routePath;
   document.body.dataset.route = routePath;
-  if (batchModeBtn) {
-    batchModeBtn.disabled = routePath !== '/';
-    batchModeBtn.setAttribute('aria-disabled', routePath === '/' ? 'false' : 'true');
-    if (routePath !== '/' && selectionMode) setSelectionMode(false);
-  }
+  // Bulk controls only operate from the Dashboard; leaving it clears selections.
+  if (routePath !== '/' && selectionMode) setSelectionMode(false);
   document.querySelectorAll('.sidebar-item[data-route]').forEach((item) => {
     const current = item.dataset.route === routePath;
     item.classList.toggle('active', current);
@@ -536,9 +542,9 @@ renderControllerRoute(location.pathname, { invoke:false });
 // page-specific loaders before their module listeners are registered. Once all
 // module scripts have finished loading, re-activate the current route through
 // its normal open action so direct browser refreshes populate route data too.
-window.addEventListener('load', () => {
-  renderControllerRoute(location.pathname);
-}, { once:true });
+// Authentication gate imports auxiliary page modules after app.js. Only invoke
+// the initial route after all page-specific listeners have registered.
+window.__PFC_REACTIVATE_ROUTE__ = () => renderControllerRoute(location.pathname);
 
 const FILAMENT_COLOR_FAMILIES = Object.freeze([
   { value:'black', label:'Black', representative:'#111111' },
@@ -3004,7 +3010,9 @@ function publishDashboardUiState() {
         printerCount:Number(group.printerIds?.length || 0)
       })),
     groupId:dashboardGroupId,
-    viewMode:dashboardViewMode
+    viewMode:dashboardViewMode,
+    farmOperationsEnabled:selectionMode,
+    farmOperationsBusy:batchBusy
   };
   window.__PFC_DASHBOARD_STATE__ = detail;
   window.dispatchEvent(new CustomEvent('pfc:dashboard-state', { detail }));
@@ -3505,13 +3513,11 @@ function renderPrintQueue() {
     ? `${activeJobs.length} active · ${queuedJobs.length} queued copies · ${reviewJobs.length} needs review${productionText} · ${clearanceItems.length} awaiting bed clearance · ${historyCount} recent history`
     : `${historyCount ? `${historyCount} history item${historyCount === 1 ? '' : 's'}` : 'No queued prints'}`;
 
-  if (queueButtonCount) {
-    queueButtonCount.textContent = String(outstanding);
-    queueButtonCount.classList.toggle('hidden', outstanding === 0);
-  }
+  updateSidebarCountBadge(queueButtonCount, outstanding, 'outstanding queue items');
 
   if (clearQueueHistoryBtn) {
-    clearQueueHistoryBtn.disabled = clearableHistoryJobs.length === 0;
+    clearQueueHistoryBtn.hidden = !canPurgeFarmRecords();
+    clearQueueHistoryBtn.disabled = !canPurgeFarmRecords() || clearableHistoryJobs.length === 0;
     clearQueueHistoryBtn.title = clearanceItems.length ? 'History items holding an uncleared-bed interlock are retained until the bed is confirmed clear.' : '';
   }
 
@@ -3983,6 +3989,9 @@ function publishPrintLibraryUiState({ files, visible, summary, query, pagination
   window.dispatchEvent(new CustomEvent('pfc:library-ui-state', { detail }));
 }
 
+// This affects presentation only; the HTTP authorization policy is authoritative.
+function canPurgeFarmRecords(){const role=document.body.dataset.authRole;return !role||role==='administrator';}
+
 function selectedLibraryFile() {
   return (libraryState.files || []).find((file) => file.id === librarySelectedFileId) || null;
 }
@@ -4001,7 +4010,8 @@ function updateLibrarySelectionToolbar() {
   }
   const referenced = Number(file?.usage?.queueReferences || 0) > 0;
   if (libraryDeleteSelectedBtn) {
-    libraryDeleteSelectedBtn.disabled = !ready || referenced;
+    libraryDeleteSelectedBtn.hidden = !canPurgeFarmRecords();
+    libraryDeleteSelectedBtn.disabled = !canPurgeFarmRecords() || !ready || referenced;
     libraryDeleteSelectedBtn.title = referenced
       ? 'Clear queue/history references before deleting this file'
       : (file ? 'Delete the selected library file' : 'Select a file to delete');
@@ -4086,10 +4096,7 @@ function renderPrintLibrary({preserveScroll=false} = {}) {
   });
   const bytes = files.reduce((sum, file) => sum + Number(file.size || 0), 0);
   const summary = `${files.length} file${files.length === 1 ? '' : 's'} · ${formatBytes(bytes)} stored on this controller`;
-  if (libraryButtonCount) {
-    libraryButtonCount.textContent = String(files.length);
-    libraryButtonCount.classList.toggle('hidden', files.length === 0);
-  }
+  updateSidebarCountBadge(libraryButtonCount, files.length, 'print library files');
   const scroll=preserveScroll ? libraryList.scrollTop : 0;
   if (window.__PFC_PREACT_LIBRARY__) {
     publishPrintLibraryUiState({files,visible:pagination.items,summary,query:libraryFilters().query,pagination});
@@ -4420,9 +4427,15 @@ function updateBatchUi() {
   }
   fleetEl.classList.toggle('selection-mode', selectionMode);
   batchToolbar.classList.toggle('hidden', !selectionMode);
-  const fleetModeLabel = selectionMode ? 'Exit farm ops' : 'Farm operations';
-  batchModeBtn.textContent = fleetModeLabel;
-  if (batchModeMenuBtn) batchModeMenuBtn.textContent = fleetModeLabel;
+  // Fallback controls stay accessible without the Preact bundle. Preact reads
+  // the same transient selection state from pfc:dashboard-state below.
+  if (!window.__PFC_PREACT_DASHBOARD__ && farmOperationsToggle) {
+    farmOperationsToggle.setAttribute('aria-checked', String(selectionMode));
+    farmOperationsToggle.setAttribute('aria-label', selectionMode ? 'Disable farm operations' : 'Enable farm operations');
+    farmOperationsToggle.disabled = batchBusy;
+    const label = farmOperationsToggle.querySelector('.dashboard-view-toggle-label');
+    if (label) label.textContent = selectionMode ? 'On' : 'Off';
+  }
   batchSelectedCount.textContent = String(selectedPrinterIds.size);
 
   if (window.__PFC_PREACT_FLEET__) {
@@ -4439,6 +4452,7 @@ function updateBatchUi() {
   batchToolbar.querySelectorAll('[data-batch-open],[data-batch-direct]').forEach((button) => {
     button.disabled = batchBusy || selectedPrinterIds.size === 0;
   });
+  publishDashboardUiState();
 }
 
 function setSelectionMode(enabled) {
@@ -5208,12 +5222,10 @@ function openAdd() {
 
 document.querySelector('#addPrinterBtn').addEventListener('click', openAdd);
 diagnosticsBtn?.addEventListener('click', async () => {
-  if (topbarOverflow) topbarOverflow.open = false;
   diagnosticsDialog?.showModal();
   await loadDiagnostics();
 });
 printerGroupsBtn?.addEventListener('click', async () => {
-  if (topbarOverflow) topbarOverflow.open = false;
   printerGroupsDialog?.showModal();
   // Reset immediately on navigation, never after an async load. A slow group
   // refresh must not erase a draft the user has already started typing.
@@ -5312,7 +5324,6 @@ printerGroupsList?.addEventListener('click', async (event) => {
 });
 
 backupRecoveryBtn?.addEventListener('click', async () => {
-  if (topbarOverflow) topbarOverflow.open = false;
   if (backupActionStatus) backupActionStatus.textContent = '';
   clearRestoreInspection();
   if (restoreBackupFileInput) {
@@ -5372,7 +5383,6 @@ diagnosticsSearch?.addEventListener('input', () => {
   diagnosticsSearchTimer = setTimeout(loadDiagnostics, 250);
 });
 licenseBtn?.addEventListener('click', () => {
-  if (topbarOverflow) topbarOverflow.open = false;
   if (licenseInstallStatus) licenseInstallStatus.textContent = '';
   if (licenseInstallError) {
     licenseInstallError.textContent = '';
@@ -5634,7 +5644,7 @@ libraryFavouriteSelectedBtn?.addEventListener('click',async ()=>{
 });
 
 libraryDeleteSelectedBtn?.addEventListener('click', async () => {
-  if (libraryActionBusy) return;
+  if (libraryActionBusy || !canPurgeFarmRecords()) return;
   const file = selectedLibraryFile();
   if (!file || Number(file.usage?.queueReferences || 0) > 0) return;
   if (!confirm(`Delete ${file.fileName} from the Print Library? The stored controller copy will be removed.`)) return;
@@ -5751,6 +5761,7 @@ queueAddForm?.addEventListener('submit', async (event) => {
   }
 });
 clearQueueHistoryBtn?.addEventListener('click', async () => {
+  if (!canPurgeFarmRecords()) return;
   if (!confirm('Clear completed, failed and cancelled print history? Active and queued jobs will be kept.')) return;
   try {
     const result = await api('/api/queue/history', { method:'DELETE' });
@@ -5944,17 +5955,12 @@ queueHistoryList?.addEventListener('click', async (event) => {
     renderPrintQueue();
   } catch (error) { alert(error.message); button.disabled = false; }
 });
-batchModeBtn.addEventListener('click', () => setSelectionMode(!selectionMode));
-batchModeMenuBtn?.addEventListener('click', () => {
-  if (topbarOverflow) topbarOverflow.open = false;
-  setSelectionMode(!selectionMode);
-});
-topbarOverflow?.addEventListener('click', (event) => {
-  if (event.target.closest('[onclick]')) topbarOverflow.open = false;
-});
-document.addEventListener('click', (event) => {
-  if (topbarOverflow?.open && !topbarOverflow.contains(event.target)) topbarOverflow.open = false;
-});
+if (!window.__PFC_PREACT_DASHBOARD__) {
+  farmOperationsToggle?.addEventListener('click', () => {
+    if (activeRoute !== '/' || batchBusy) return;
+    setSelectionMode(!selectionMode);
+  });
+}
 document.querySelectorAll('[data-add-printer]').forEach((el) => el.addEventListener('click', openAdd));
 document.querySelectorAll('[data-close]').forEach((el) => el.addEventListener('click', () => el.closest('dialog').close()));
 scanNetworkBtn.addEventListener('click', scanNetwork);
@@ -6035,6 +6041,10 @@ window.addEventListener('pfc:dashboard-action', (event) => {
   }
   if (action.type === 'view') {
     applyDashboardViewMode(action.value, { persist:true });
+    return;
+  }
+  if (action.type === 'operations' && activeRoute === '/' && !batchBusy) {
+    setSelectionMode(Boolean(action.value));
   }
 });
 
@@ -6353,8 +6363,9 @@ async function runFileDistribution() {
 function setBatchBusy(busy) {
   batchBusy = Boolean(busy);
   batchToolbar.querySelectorAll('button').forEach((button) => { button.disabled = batchBusy || (button.matches('[data-batch-open],[data-batch-direct]') && selectedPrinterIds.size === 0); });
-  batchModeBtn.disabled = batchBusy;
-  if (batchModeMenuBtn) batchModeMenuBtn.disabled = batchBusy;
+  // Also disable the Preact switch while requests are in flight.
+  if (!window.__PFC_PREACT_DASHBOARD__ && farmOperationsToggle) farmOperationsToggle.disabled = batchBusy;
+  publishDashboardUiState();
 }
 
 async function runBatchAction(action, params = {}) {
@@ -8318,7 +8329,7 @@ async function openPrinter(id) {
     <div id="detailConnectionError" class="error hidden" role="alert" aria-live="assertive"></div>
     ${printerDetailActivityMarkup(printer)}
     ${printer.licenseActive === false ? '<div class="license-detail-warning">This printer is inactive because it does not have a selected licence slot. Live monitoring and safety controls remain available, but new jobs and normal controller commands are disabled.</div>' : ''}
-    ${printer.adapterType === 'bambu-lab' ? `<div class="file-warning">Experimental Bambu ${escapeHtml(printer.model || '')} support: validate behavior carefully before relying on unattended printing.${printer.model === 'X1C' ? ' X1C RTSPS/H.264 camera decoding is not yet supported.' : ''}${printer.model === 'A1 Mini' ? ' Single-material A1 Mini .gcode starts remain experimental until validated on physical hardware; multi-material AMS Lite jobs require sliced .3mf.' : ''}</div>` : ''}
+    ${printer.adapterType === 'bambu-lab' ? `<div class="file-warning">Experimental Bambu ${escapeHtml(printer.model || '')} support: validate behavior carefully before relying on unattended printing.${printer.model === 'A1 Mini' ? ' Single-material A1 Mini .gcode starts remain experimental until validated on physical hardware; multi-material AMS Lite jobs require sliced .3mf.' : ''}</div>` : ''}
     ${printerDetailTabsMarkup()}
     <div class="printer-detail-tab-panels">
       <section id="detailTabToolheads" class="printer-detail-tab-panel" role="tabpanel" aria-labelledby="printer-detail-tab-toolheads" data-detail-panel="toolheads"></section>

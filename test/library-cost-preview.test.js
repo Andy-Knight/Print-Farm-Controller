@@ -85,7 +85,7 @@ test('changing catalogue prices updates library estimates without rewriting hist
 });
 
 test('Print Library API and both UI renderers expose a clearly-labelled per-print estimate',()=>{
-  const root=(p)=>readFileSync(new URL('../'+p,import.meta.url),'utf8');
+  const root=(p)=>readFileSync(new URL('../'+p,import.meta.url),'utf8').replaceAll('\r\n', '\n');
   const server=root('src/server.js');
   const app=root('public/app.js');
   const preact=root('ui/print-library.jsx');

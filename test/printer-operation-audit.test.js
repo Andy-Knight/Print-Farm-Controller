@@ -51,7 +51,7 @@ test('printer operation safety decisions are activity-sensitive, including recov
 });
 
 test('fault injection detects accidental allowance of print-start during bed levelling', () => {
-  const source = readFileSync(new URL('../src/printer-operation-policy.js', import.meta.url), 'utf8');
+  const source = readFileSync(new URL('../src/printer-operation-policy.js', import.meta.url), 'utf8').replaceAll('\r\n', '\n');
   const original = "'bed-leveling': new Set([\n    PRINTER_OPERATION_TYPES.FILE_UPLOAD,";
   const mutant = "'bed-leveling': new Set([\n    PRINTER_OPERATION_TYPES.PRINT_START,\n    PRINTER_OPERATION_TYPES.FILE_UPLOAD,";
   assert.equal(source.split(original).length, 2, 'locate the real bed-level policy');

@@ -10,6 +10,7 @@ import {
   registerPrinterAdapter
 } from '../src/adapters/adapter-registry.js';
 import { PrinterAdapter, normalizeCapabilities } from '../src/adapters/printer-adapter.js';
+import { x1cDecoderPath } from '../src/bambu-x1c-camera.js';
 
 test('FlashForge AD5M adapter exposes the current controller capabilities and limits', () => {
   const adapter = getPrinterAdapter({
@@ -153,7 +154,7 @@ test('Bambu P1P, P1S, X1C and A1 Mini configuration exposes model-specific exper
   assert.equal(x1c.capabilities.chamberFan, true);
   assert.equal(x1c.capabilities.chamberTemperatureSensor, true);
   assert.equal(x1c.capabilities.materialSlotMapping, true);
-  assert.equal(x1c.capabilities.camera, false);
+  assert.equal(x1c.capabilities.camera, Boolean(x1cDecoderPath()));
   assert.equal(x1c.limits.bedTemperature.max, 120);
   assert.equal(a1Mini.capabilities.camera, true);
   assert.equal(a1Mini.capabilities.chamberFan, false);

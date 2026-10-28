@@ -249,7 +249,7 @@ test('All Set filament and nozzle Assign buttons match the 160px dropdown width 
 });
 
 test('All printer toolhead filament type, colour and nozzle dropdowns share one width', () => {
-  const css = readFileSync(new URL('../public/styles.css', import.meta.url), 'utf8');
+  const css = readFileSync(new URL('../public/styles.css', import.meta.url), 'utf8').replaceAll('\r\n', '\n');
   const start = css.indexOf('.material-panel {\n  --toolhead-dropdown-width:160px;');
   const end = css.indexOf('/* Use one compact, consistent type/colour field pair', start);
   assert.ok(start >= 0 && end > start, 'shared dropdown width declaration exists');

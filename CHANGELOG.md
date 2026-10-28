@@ -4,6 +4,102 @@ This file contains the version-by-version release history for Print Farm Control
 
 Historical entries describe the behaviour of the controller at the time of that release and may be superseded by later versions. For current installation, configuration and supported-hardware guidance, see [README.md](README.md).
 
+## v0.61.7
+
+- Added experimental X1C RTSPS/H.264 camera conversion into the controller's existing JPEG previews and MJPEG live view, with shared decoders, bounded output, reconnect backoff and idle/shutdown cleanup. Removed the obsolete camera-unsupported notice. Physical X1C and Kubernetes acceptance remain pending.
+- Bundled a minimal, pinned, source-built LGPL FFmpeg decoder in Windows portable/installer and AMD64/ARM64 container packages. Included matching source, licence notices, build records and integrity checks; normal packaged installations require no external decoder setup. Preserved `PFC_FFMPEG_PATH` as an administrator override.
+- Made virtual X1C cameras serve authenticated RTSPS/RTP H.264 through the production decoder. Corrected magenta/green scanline corruption in x86 decoder builds by enabling NASM assembly support, and added independent browser pixel comparisons.
+- Corrected the account-management browser regression to wait for the saved role and refreshed user table before checking Delete. Normalised Windows CRLF-sensitive regression readers and enabled the full Windows test suite in CI.
+
+## v0.61.6
+
+- Aligned **Individual printer tasks** action buttons on the Maintenance page: corresponding **Complete**, **Edit printer/model/group task** and **Delete printer/model/group task** controls now use consistent column widths (120/176/190px) regardless of task scope. Kept existing semantic colours, disabled controls and shared-task layouts; on narrow phone screens the three buttons stack at full width. Added Node/CSS and Chromium light/dark desktop/tablet/mobile layout tests.
+
+## v0.61.5
+
+- Standardised **Queue & history** and **Print Library** sidebar count badges to fixed **48×24px** rounded pills with centred tabular numerals and consistent right-edge alignment for simultaneous one-, two- or three-digit counts. Zero remains hidden. Counts above 999 display `999+` with the exact total in a tooltip. Scoped geometry to sidebar navigation only, retaining controller colours and other button badges. Added unit and Chromium desktop/mobile/light/dark regression checks.
+
+## v0.61.4
+
+- Improved **Reports & finance → Analytics → Print outcomes over time** so non-zero numbers always appear for the seven-day reporting window, even when more than eight outcome points exist. Staggered same-date labels to reduce overlap. Longer periods retain sparse value labels and hide only crowded ones, with exact counts and dates still available from each point's tooltip. Kept both Preact and fallback SVG renderers in sync with browser and model regression coverage.
+
+## v0.61.3
+
+- Distinguished the five **Reports & finance → Analytics** summary icons and decorative rings by metric: print jobs blue, completed green, failed red, total run time orange and total filament used purple. Used existing chart-palette accents with more contrast in light mode, preserving the outline SVG icons, actual completion/failure-rate progress and historical values. Standardised all previous-period arrows and percentages to green for increases and red for decreases (including failed jobs), with unchanged/missing comparisons muted rather than interpreting performance sentiment. Added Preact/fallback styling and browser regression checks.
+
+## v0.61.2
+
+- Refined the paired **Reports & finance → Analytics** cards: **Most popular print files** now defaults to **Top 6** with every row visible and no vertical scrollbar, while **All files** retains local scrolling for longer lists. Matched the desktop height of the files and filament pie-chart cards, keeping the filament total aligned to the bottom; mobile stacked cards retain natural heights. Added browser and fallback/Preact regression coverage.
+
+## v0.61.1
+
+- Changed **Reports & finance → Analytics → Filament used (kg)** from horizontal bars to a proportional pie chart, preserving recorded kg and cost totals, grouped filament/material views, current-catalogue colours, accessible per-slice kilogram/percentage/cost legend and the responsive paired-card layout.
+
+## v0.61.0
+
+- Redesigned **Reports & finance → Analytics** to pair the **Most popular print files** ranking and **Filament used (kg)** chart in equal-width desktop cards, with matching top-right segmented controls and responsive stacking. Simplified the popular-file table to six sortable columns (**#**, **Print file**, **Completed**, **Failed**, **Material**, **Cost**), with local scrolling at narrow widths and no Success rate or Print time columns.
+- Replaced the material usage table with a horizontal completed-print kilogram chart, preserving material-type/filament grouping, historical recorded cost and percentage shares. Uses safely validated current catalogue colours when available and standard controller theme colours otherwise.
+- Added a fifth reporting summary for **Total filament used** from recorded completed-print material weights in the selected reporting period, with a locally rendered weight-scale outline icon and honest unknown/missing-data handling. Five KPI cards reflow at smaller screen widths; previous-period comparisons use existing semantics and measured history. Extended browser, accessibility, fallback, layout, Windows and container regression coverage.
+
+## v0.60.1
+
+- Added permanent user deletion to **Security & users → Users**. Administrators can remove other accounts using a red Delete control alongside Save, with a confirmation naming the affected user; cancelling leaves the account untouched. Deleted users are removed from the persistent account store and their active login sessions and streams are revoked immediately.
+- Enforced deletion permissions on the server with administrator-only role checks, same-origin and CSRF protection, and safeguards preventing deletion of the current user or the last enabled administrator. Added account, authentication, browser and packaging regression coverage and updated the user-management guidance.
+
+## v0.60.0
+
+- Introduced GUI-managed native browser HTTPS in **Security & users → Connection settings**, with controller-managed self-signed certificates or administrator-supplied matching PEM certificate/private-key pairs pasted securely over an existing HTTPS session. Imported private keys persist in protected controller identity files and are never returned in status or downloaded; legacy path-based configurations remain readable for migration. Added explicit administrator-protected self-signed certificate regeneration, certificate metadata and public-certificate download; unchanged settings no longer rotate identities.
+- Standardised the direct/container listener ports as **HTTP 4242** and **HTTPS 4243** with no user-editable listening ports. HTTP initially supports administrator enrolment but becomes redirect-only for GET/HEAD and continues a minimal `/healthz` endpoint after enabling TLS; insecure logins and mutations are blocked. Included a sample Kubernetes Service exposing standard external ports 80 and 443 without requiring ingress or a reverse proxy.
+- Reorganised the Security & users page into **Users** and **Connection settings** tabs, with Connection summary, Connection settings and managed-only Self-signed certificate replacement sections. Removed load-balancer-specific branding from the connection settings tab, and added browser/Windows, integration, Docker, and documentation regression checks. Operator account controls, printer queues and existing persistent data handling remain intact.
+
+## v0.59.16
+
+- Brought the Print Library page and table up to the full sidebar-aware workspace width used by the Dashboard and other management pages, removing the previous 1300px workbench cap. Capped the selling-price and history tracks to keep the extra space useful for filenames, filament requirements and other descriptive columns. Retained aligned sticky table headers, internal scrolling, search and contextual actions, and responsive cards on smaller screens.
+
+## v0.59.15
+
+- Expanded the decorative login print sequence from a single 18-tier isometric pyramid to a print-farm story: the initial build starts zooming out when layer 04 begins (without stopping extrusion) into one of four independent animated printer beds, all visibly linked to the same central Stacked Layers controller. Printer-name labels are spaced below the miniature layer progress bars to prevent overlap. The other printers reuse the identical projected layer/nozzle geometry with staggered, independently cycling extrusion; the illustration eventually returns to the original close-up and repeats. All SVG content remains local and decorative; no printer telemetry is shown to unauthenticated visitors. The 521–980px compact header retains the single printer, with the original minimal mobile-brand treatment at 520px or below. Both themes, keyboard/login functionality, HTTP warning and backend authentication/RBAC are unchanged.
+
+## v0.59.14
+
+- Simplified the Industrial Control Centre login's decorative pyramid background: removed the competing full-panel square grid, retained a subdued isometric calibration grid clipped to the diamond build plate, added a smooth static theme-derived glow and restrained part/plate shadows, increased completed-layer visibility, and centred the example layer counter above a slim progress bar driven by actual toolpath completion. Kept the 18-layer nozzle/extrusion alignment, automatic login-only motion, accessibility, responsive layouts, authentication/RBAC and printer behaviour unchanged.
+
+## v0.59.13
+
+- Redesigned the signed-out and first-administrator setup screen as a theme-aware Industrial Control Centre with split desktop branding, the original Stacked Layers sidebar logo, a genuine 18-tier stepped pyramid assembled layer by layer in a 45-degree isometric projection, a diagonal build-bed grid, decreasing blue extrusion perimeters with connected front faces, and a small amber nozzle aligned precisely to the active deposited contour, compact laptop/mobile motion treatments, and an accessible password-visibility control. Removed the `PYRAMID BUILD · DEMO` heading from the illustration while retaining the standalone example layer counter; no real printer telemetry is displayed before sign-in. Made the gentle login printer animation start automatically even when Windows or Chrome reports reduced motion, without any browser configuration or first-visit click. Removed the animation pause button and its stored preference, and retained the frameless bed visual to avoid misleading printer-gantry collisions. No other controller animations override accessibility preferences. The existing authentication, RBAC and HTTP warning behaviour is unchanged.
+
+## v0.59.12
+
+- Refined Operator RBAC: retained queue operations, Print Library editing and printer filament/nozzle assignments, while restricting permanent library deletion, queue-history purge and central filament cost catalogue changes to Administrators; applied the same visibility rules to Preact and fallback UI.
+- Fixed first-run authentication blocking the controller HTML shell and static assets: the administrator setup and login GUI remain accessible while all protected APIs and simulator endpoints stay locked until enrollment.
+- Introduced **default-on native user authentication**, including HTTP deployments, backed by the account/scrypt and revocable-session primitives, with code-verified first administrator enrollment through the Security & users GUI and offline local disaster recovery. A private one-time code is read from protected startup logs, not a public browser endpoint, and successful enrollment activates a durable security marker immediately.
+- Implemented **server-side RBAC** for Administrator, Operator and Viewer before controller and emulator API dispatch, covering printer commands, uploads, backups/restores, camera streams, SSE and sensitive integration/diagnostics endpoints. Unknown API routes fail closed when access control is enabled.
+- Added a themed sign-in experience, top-bar identity/account controls, password change and a routed **Security & users** screen for administrators to create, disable, change roles and reset passwords.
+- Added Origin and CSRF validation for mutations, credential throttling, secure cookies for configured HTTPS origins, session revocation on role/password changes and logout, and tests for role enforcement, bootstrap, expiry, disabled users and session persistence boundaries.
+- **Deployment security:** Installations require administrator enrollment before printer API access, even on HTTP, using a private one-time code and visible interception warning. HTTP login works by default but **does not encrypt passwords or sessions**. `PFC_AUTH_REQUIRED=0` opts into insecure legacy mode only before enrollment; `PFC_AUTH_ALLOW_HTTP=0` requires HTTPS for credentials. Controller transport is **not production-secure until TLS termination and prevention of direct HTTP bypass** are configured and validated. This feature-branch candidate still requires full browser, container/K3s, SEA and end-to-end verification.
+
+## v0.59.11
+
+- Established the **native authentication and role-based access control (RBAC) foundation** with explicit Administrator, Operator and Viewer permission mappings for controller HTTP API methods, protected file and backup operations, print controls, camera streams and live telemetry. Unknown API routes are denied by the proposed policy.
+- Added **isolated security primitives** for local accounts: password hashing using Node.js built-in scrypt with individual salts, persistently stored user roles/status, initial administrator creation, and protection against disabling the final enabled administrator. Added random opaque, revocable session tokens with expiry and login-attempt throttling.
+- Added security unit/regression coverage for API route/role classification, salted hashes, account persistence and corruption handling, privileged account continuity, session expiry/revocation and login attempt throttling. Documented first-run enrollment, migration, session/CSRF protection, RBAC enforcement and TLS rollout requirements in `docs/AUTHENTICATION_AND_RBAC.md`.
+- **Security scope:** These primitives are intentionally **not connected to the production HTTP router**. This release does **not** introduce a login screen, enable user authentication or enforce access control on controller requests. Existing HTTP/LAN behavior is unchanged; HTTPS via MetalLB and Ultimate Certificate Manager is planned separately.
+
+## v0.59.10
+
+- Adopted an audited **Node.js 24.22.1** and **npm 12.2.0** development/build baseline; recorded the required npm version in `package.json`.
+- Committed `package-lock.json` and switched GitHub Actions and container dependency installation to **`npm ci`** for reproducible dependency resolution. Production uses the Node.js runtime without an npm process.
+- Added npm supply-chain guardrails: a seven-day minimum dependency publication age, disabled unapproved Git/remote dependency sources, and kept the esbuild install-script approval explicit. Routine/urgent update procedure documented in `docs/dependency-security.md`.
+- Added CI vulnerability scanning at high severity and above, Dependabot proposals for npm, Docker images and GitHub Actions, and reduced workflow token permissions to release-only package publishing. Tested the Windows x64 SEA build using the patched Node/npm baseline and retained Chromium, Node, MinIO and disposable container regression gates.
+- Updated local-security regression tests to tolerate GitHub-only configuration files being absent from distributed Windows source directories while enforcing them in GitHub Actions. No changes to printer protocols, queue commands, licensing, stored data or interface behaviour.
+
+## v0.59.9
+
+- Standardised **all four Analytics tables** to the shared `--pfc-table-*` controller visual style, extending existing table header, row, border, hover and surface treatments to **Printers needing attention** and **Print file failure analysis** in dark and light themes. Kept the printer-name header cell aligned with ordinary table cells.
+- In **Most popular print files**, separated **Material** and **Cost** into distinct, independently sortable columns rather than stacking the values in one column, making eight columns. Retained correct alignment, saved historical costs and currencies, missing/partial values, thumbnails, links and internal mobile table scrolling. Updated Preact and HTML fallback views.
+- Standardised the **Top 10 / All files** and **By material type / By filament** grouped choice buttons to the established 42px controller control height, semantic blue selected state, muted unselected state and visible keyboard focus. These remain mutually exclusive choices with `role="group"` and `aria-pressed`, not binary switches.
+- Updated the standalone Controller Visual Style Guide and expanded Node/Chromium visual, DOM, responsive and selection regression coverage. No changes to printer control, job history, or analytics aggregation.
+
 ## v0.59.8
 
 - Applied the controller's established `--pfc-table-*` table design system to Reports & finance → Analytics → **Material usage**, in both **By material type** and **By filament** presentations. Use matching dark header/white uppercase text, shared panel borders and radius, compact cell padding, horizontal dividers, hover highlighting and light/dark theme appearance.

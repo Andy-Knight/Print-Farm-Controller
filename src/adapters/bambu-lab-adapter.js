@@ -5,6 +5,7 @@ import { setBambuExternalFilament } from '../bambu-external-filament.js';
 import { bambuAmsRfidState, bambuAmsSlotPresent, setBambuAmsFilament } from '../bambu-ams-filament.js';
 import { deleteBambuFile, downloadBambuFile, listBambuFiles, uploadBambuFile, verifyBambuFile } from '../bambu-ftps.js';
 import { createBambuCameraSource } from '../bambu-camera.js';
+import { BambuX1cCameraSource, x1cDecoderPath } from '../bambu-x1c-camera.js';
 import { colorFamily } from '../color-family.js';
 import { parse3mfPrintRequirements, parseGcodePrintRequirements } from '../file-print-requirements.js';
 
@@ -188,7 +189,7 @@ export function normalizeBambuStatus(payload = {}, printer = {}) {
     chamberFan: fanPercent(print.big_fan2_speed),
     auxiliaryFan: fanPercent(print.big_fan1_speed),
     light: Array.isArray(print.lights_report) ? print.lights_report.find((item) => item.node === 'chamber_light')?.mode || null : null,
-    cameraAvailable: model !== 'X1C',
+    cameraAvailable: model !== 'X1C' || Boolean(x1cDecoderPath()),
     lidarAvailable: model === 'X1C',
     model,
     experimental: true
@@ -271,9 +272,8 @@ const P1S_CAPABILITIES = normalizeCapabilities({
 
 const X1C_CAPABILITIES = normalizeCapabilities({
   ...P1S_CAPABILITIES,
-  // X1C exposes H.264 over RTSPS rather than the P1 TLS/JPEG stream. The
-  // controller has no native H.264 decoder, so do not advertise camera support.
-  camera: false
+  // Runtime discovery enables the camera only when a decoder is available.
+  camera: true
 });
 
 export class BambuLabAdapter extends PrinterAdapter {
@@ -281,7 +281,7 @@ export class BambuLabAdapter extends PrinterAdapter {
   get manufacturer() { return 'Bambu Lab'; }
   get model() { return normalizeModel(this.printer.model); }
   get capabilities() {
-    if (this.model === 'X1C') return X1C_CAPABILITIES;
+    if (this.model === 'X1C') return normalizeCapabilities({ ...X1C_CAPABILITIES, camera: Boolean(x1cDecoderPath()) });
     if (this.model === 'P1S') return P1S_CAPABILITIES;
     if (this.model === 'A1 Mini') return A1_MINI_CAPABILITIES;
     return P1P_CAPABILITIES;
@@ -352,7 +352,10 @@ export class BambuLabAdapter extends PrinterAdapter {
     return sendBambuCommand(this.printer, { print: { command: 'gcode_line', sequence_id: sequenceId(), param: `${commands.join('\n')}\n` } });
   }
   async getCameraSource() {
-    if (this.model === 'X1C') return this.unsupported('X1C RTSPS/H.264 camera');
+    if (this.model === 'X1C') {
+      if (!x1cDecoderPath()) return this.unsupported('X1C camera without its bundled decoder');
+      return new BambuX1cCameraSource(this.printer);
+    }
     return createBambuCameraSource(this.printer);
   }
   async activateCamera() { return { ok: true }; }
@@ -376,7 +379,7 @@ export const bambuLabAdapterDefinition = Object.freeze({
     { name: 'accessCode', label: 'LAN access code', required: true, secret: true, placeholder: 'Shown in LAN / Developer mode', help: 'Enable LAN Only or Developer mode on the printer, then enter its access code.' },
     { name: 'mqttPort', label: 'MQTT TLS port', required: true, type: 'number', defaultValue: 8883, min: 1, max: 65535 },
     { name: 'ftpsPort', label: 'FTPS TLS port', required: true, type: 'number', defaultValue: 990, min: 1, max: 65535 },
-    { name: 'cameraPort', label: 'Camera port', required: true, type: 'number', defaultValue: 6000, min: 1, max: 65535, help: 'P1P/P1S/A1 Mini use TLS/JPEG port 6000. X1C uses RTSPS/H.264 port 322; X1C camera decoding is not yet supported by the controller.' }
+    { name: 'cameraPort', label: 'Camera port', required: true, type: 'number', defaultValue: 6000, min: 1, max: 65535, help: 'P1P/P1S/A1 Mini use TLS/JPEG port 6000. Experimental X1C RTSPS/H.264 uses port 322 with the included camera decoder.' }
   ],
   prepareConfig: prepareBambuLabConfig,
   create: (printer) => new BambuLabAdapter(printer)
