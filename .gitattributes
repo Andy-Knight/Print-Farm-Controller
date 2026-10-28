@@ -4,3 +4,4 @@
 #
 # Exclude only optional documentation artwork, not docs/ itself.
 /docs/assets/ export-ignore
+/scripts/ffmpeg-build.sh text eol=lf

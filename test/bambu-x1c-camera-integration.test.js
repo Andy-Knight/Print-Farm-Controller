@@ -3,14 +3,15 @@ import assert from 'node:assert/strict';
 import tls from 'node:tls';
 import { readFileSync } from 'node:fs';
 import { spawn } from 'node:child_process';
-import { BambuX1cCameraSource } from '../src/bambu-x1c-camera.js';
+import { BambuX1cCameraSource, x1cDecoderPath } from '../src/bambu-x1c-camera.js';
 
 // A generated solid-blue, two-frame H.264 fixture; no captured printer footage.
 const video = readFileSync(new URL('fixtures/x1c-blue.h264', import.meta.url));
 const nals = video.toString('hex').split(/00000001|000001/).filter(Boolean).map(hex => Buffer.from(hex, 'hex'));
+const decoderPath = process.env.PFC_TEST_FFMPEG_PATH || x1cDecoderPath();
 
-test('external FFmpeg decodes authenticated RTSPS/RTP H.264 into fresh JPEG snapshots', {
-  skip: !process.env.PFC_TEST_FFMPEG_PATH, timeout:30000
+test('bundled or selected FFmpeg decodes authenticated RTSPS/RTP H.264 into fresh JPEG snapshots', {
+  skip: !decoderPath, timeout:30000
 }, async t => {
   const sockets = new Set();
   const commands = [];
@@ -85,7 +86,7 @@ test('external FFmpeg decodes authenticated RTSPS/RTP H.264 into fresh JPEG snap
   let decoderErrors = '';
   const source = new BambuX1cCameraSource({
     host:'127.0.0.1', cameraPort:server.address().port, checkCode:'test-access'
-  }, { decoderPath:process.env.PFC_TEST_FFMPEG_PATH, frameTimeoutMs:15000,
+  }, { decoderPath, frameTimeoutMs:15000,
     spawnProcess(command,args,options) {
       const child = spawn(command,args,{ ...options, stdio:['ignore','pipe','pipe'] });
       child.stderr.on('data',chunk => { decoderErrors = (decoderErrors + chunk.toString()).slice(-4000); });
@@ -109,7 +110,7 @@ test('external FFmpeg decodes authenticated RTSPS/RTP H.264 into fresh JPEG snap
   assert.equal(source.child,null);
   const denied = new BambuX1cCameraSource({
     host:'127.0.0.1', cameraPort:server.address().port, checkCode:'wrong-code'
-  }, { decoderPath:process.env.PFC_TEST_FFMPEG_PATH, frameTimeoutMs:5000 });
+  }, { decoderPath, frameTimeoutMs:5000 });
   t.after(() => denied.stop());
   await assert.rejects(denied.waitForFirstSnapshot(), error =>
     /decoder stopped/.test(error.message) && !/wrong-code|rtsps:\/\//.test(error.message),

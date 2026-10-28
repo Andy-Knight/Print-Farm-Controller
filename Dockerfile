@@ -1,5 +1,19 @@
 # syntax=docker/dockerfile:1.7
 
+FROM --platform=$BUILDPLATFORM debian:bookworm-slim AS decoder
+ARG TARGETARCH
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ca-certificates curl xz-utils make gcc libc6-dev pkg-config jq libssl-dev \
+    && if [ "$TARGETARCH" = arm64 ] && [ "$(uname -m)" != aarch64 ]; then \
+         dpkg --add-architecture arm64 && apt-get update \
+           && apt-get install -y --no-install-recommends gcc-aarch64-linux-gnu libc6-dev-arm64-cross libssl-dev:arm64; \
+       fi \
+    && rm -rf /var/lib/apt/lists/*
+COPY scripts/ffmpeg-source.json scripts/ffmpeg-build.sh /build-input/
+COPY third-party/ffmpeg/source.tar.xz /build-input/source.tar.xz
+RUN if [ "$TARGETARCH" = arm64 ] && [ "$(uname -m)" != aarch64 ]; then target=linux-arm64; else target=linux; fi \
+    && sh /build-input/ffmpeg-build.sh "$target" /opt/pfc-ffmpeg
+
 FROM node:24.22.1-bookworm-slim AS builder
 
 WORKDIR /app
@@ -37,8 +51,12 @@ COPY src ./src
 COPY --from=builder /app/public ./public
 COPY emulator ./emulator
 COPY --from=builder /app/build/controller.cjs ./build/controller.cjs
+COPY --from=decoder /opt/pfc-ffmpeg ./ffmpeg
 
-RUN mkdir -p /data /logs \
+RUN apt-get update && apt-get install -y --no-install-recommends libssl3 \
+    && rm -rf /var/lib/apt/lists/* \
+    && /app/ffmpeg/bin/ffmpeg -version \
+    && mkdir -p /data /logs \
     && chown -R node:node /data /logs
 
 ENV NODE_ENV=production

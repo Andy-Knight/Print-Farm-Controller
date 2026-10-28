@@ -13,6 +13,7 @@ on:
       - public/**
       - ui/**
       - scripts/**
+      - third-party/**
       - emulator/**
       - test/**
       - .github/workflows/container-image.yml
@@ -32,6 +33,7 @@ on:
       - public/**
       - ui/**
       - scripts/**
+      - third-party/**
       - emulator/**
       - test/**
       - .github/workflows/container-image.yml
@@ -66,22 +68,14 @@ jobs:
       - name: Audit dependency vulnerabilities
         run: npm audit --audit-level=high
 
+      - name: Build bundled Linux LGPL decoder
+        run: node scripts/build-ffmpeg.mjs linux-x64
+
       - name: Run regression suite
         run: npm test
 
       - name: Summarise regression test inventory
         run: npm run test:audit
-
-      - name: Install external decoder for RTSPS fixture validation
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y --no-install-recommends ffmpeg
-          ffmpeg -version
-
-      - name: Decode authenticated RTSPS H.264 fixture
-        env:
-          PFC_TEST_FFMPEG_PATH: /usr/bin/ffmpeg
-        run: node --test test/bambu-x1c-camera-integration.test.js
 
       - name: Set up Go for pinned MinIO
         uses: actions/setup-go@v6
@@ -175,8 +169,22 @@ jobs:
           path: test-artifacts/
           if-no-files-found: ignore
 
+  decoder:
+    name: Build Windows LGPL decoder
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - name: Cross-build pinned Windows decoder
+        run: docker build -f scripts/ffmpeg.Dockerfile --build-arg DECODER_TARGET=windows-x64 --target export --output type=local,dest=build/ffmpeg/windows-x64 .
+      - uses: actions/upload-artifact@v7
+        with:
+          name: windows-lgpl-ffmpeg
+          path: build/ffmpeg/windows-x64/
+          if-no-files-found: error
+
   windows:
     name: Windows SEA compatibility
+    needs: [decoder]
     runs-on: windows-latest
     steps:
       - name: Check out repository
@@ -193,6 +201,11 @@ jobs:
 
       - name: Install locked dependencies
         run: npm ci --include=dev --no-audit --no-fund
+
+      - uses: actions/download-artifact@v7
+        with:
+          name: windows-lgpl-ffmpeg
+          path: build/ffmpeg/windows-x64/
 
       - name: Run full Windows regression suite
         run: npm test
@@ -230,6 +243,9 @@ jobs:
       - name: Start smoke-test container
         run: |
           docker run -d --name pfc-smoke -p 4242:4242 print-farm-controller:smoke
+
+      - name: Verify bundled camera decoder without environment setup
+        run: docker exec pfc-smoke /app/ffmpeg/bin/ffmpeg -version
 
       - name: Verify authentication and HTTP enrollment are on by default
         run: |

@@ -31,4 +31,15 @@ The local Node.js/npm installations are independent of the dependencies bundled 
 
 ## Release validation
 
+The camera decoder is a separately executed, bundled FFmpeg built from the official
+source pinned in `scripts/ffmpeg-source.json` and vendored under `third-party/ffmpeg`.
+Updates require reviewing FFmpeg security advisories, replacing source and SHA-256
+together, rebuilding Windows/AMD64/ARM64, and running the real authenticated RTSPS
+fixture on the packaged executables. npm audit does not audit this native dependency.
+Do not enable GPL/nonfree components or download executable updates at runtime.
+Preserve the matching source, build records, integrity manifest and licence notices
+in every portable/installer/container distribution. Windows uses Schannel; Linux
+uses patched system OpenSSL 3. See [X1C camera packaging](X1C_CAMERA.md) for build,
+licence and commercial patent-review boundaries.
+
 Require unit and regression tests, a real-browser Preact run, the MinIO S3 integration check, container smoke tests and a successful multi-architecture image build. Validate Windows SEA/installer output on Windows before a Windows release. Avoid production promotion from feature branches.

@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { EventEmitter } from 'node:events';
 import { PassThrough } from 'node:stream';
+import path from 'node:path';
 import { BambuX1cCameraSource, x1cDecoderPath, x1cCameraUrl, x1cDecoderArgs } from '../src/bambu-x1c-camera.js';
 import { BambuLabAdapter, normalizeBambuStatus } from '../src/adapters/bambu-lab-adapter.js';
 import { CameraManager } from '../src/camera-manager.js';
@@ -33,10 +34,21 @@ function harness(t, options = {}) {
 }
 
 test('X1C decoder configuration comes only from an absolute deployment path', () => {
-  assert.equal(x1cDecoderPath({}), null);
+  assert.equal(x1cDecoderPath({}, { fileExists:() => false }), null);
   assert.equal(x1cDecoderPath({ PFC_FFMPEG_PATH:'ffmpeg' }), null);
   assert.equal(x1cDecoderPath({ PFC_FFMPEG_PATH:'./ffmpeg' }), null);
   assert.equal(x1cDecoderPath({ PFC_FFMPEG_PATH:process.execPath }), process.execPath);
+});
+
+test('X1C automatically discovers packaged/source decoders without searching PATH or data', () => {
+  const applicationDir = path.resolve('test-install');
+  const bundled = path.join(applicationDir,'ffmpeg','bin','ffmpeg.exe');
+  const source = path.join(applicationDir,'build','ffmpeg','windows-x64','bin','ffmpeg.exe');
+  const options = { applicationDir, platform:'win32', arch:'x64' };
+  assert.equal(x1cDecoderPath({}, { ...options, fileExists:file => file === bundled }),bundled);
+  assert.equal(x1cDecoderPath({}, { ...options, fileExists:file => file === source }),source);
+  assert.equal(x1cDecoderPath({ PFC_FFMPEG_PATH:process.execPath },options),process.execPath);
+  assert.equal(x1cDecoderPath({ PFC_FFMPEG_PATH:'relative.exe' }, { ...options, fileExists:() => true }),null);
 });
 
 test('X1C URL uses configured host and encoded credentials, never a reported camera URL', () => {
@@ -155,11 +167,13 @@ test('X1C idle stop cancels pending first-frame wait and escalates an unresponsi
   assert.equal(source.waiters.size, 0);
 });
 
-test('X1C adapter advertises the external decoder only when configured', async t => {
+test('X1C adapter follows bundled discovery and explicit deployment overrides', async t => {
   const previous = process.env.PFC_FFMPEG_PATH;
   t.after(() => { if (previous === undefined) delete process.env.PFC_FFMPEG_PATH; else process.env.PFC_FFMPEG_PATH = previous; });
   const adapter = new BambuLabAdapter(printer);
   delete process.env.PFC_FFMPEG_PATH;
+  assert.equal(adapter.capabilities.camera, Boolean(x1cDecoderPath()));
+  process.env.PFC_FFMPEG_PATH = 'disabled';
   assert.equal(adapter.capabilities.camera, false);
   assert.equal(normalizeBambuStatus({ print:{} }, printer).cameraAvailable, false);
   process.env.PFC_FFMPEG_PATH = process.execPath;

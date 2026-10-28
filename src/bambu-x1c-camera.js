@@ -2,6 +2,8 @@ import { spawn, execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import path from 'node:path';
 import { isIP } from 'node:net';
+import { existsSync } from 'node:fs';
+import { resolveControllerRuntimePaths } from './runtime-paths.js';
 
 const SOI = Buffer.from([0xff, 0xd8]);
 const EOI = Buffer.from([0xff, 0xd9]);
@@ -22,11 +24,19 @@ async function decoderTlsOption(executable) {
   return decoderProbes.get(executable);
 }
 
-// Only trusted deployment configuration may select an executable. Never take
-// this from a printer, an HTTP request, the working directory or a search PATH.
-export function x1cDecoderPath(env = process.env) {
+// Prefer the packaged decoder; only trusted deployment configuration can
+// override it. Never search a printer-supplied path, working directory or PATH.
+export function x1cDecoderPath(env = process.env, {
+  platform = process.platform, arch = process.arch,
+  applicationDir = resolveControllerRuntimePaths().applicationDir,
+  fileExists = existsSync
+} = {}) {
   const value = String(env.PFC_FFMPEG_PATH || '').trim();
-  return value && path.isAbsolute(value) ? value : null;
+  if (value) return path.isAbsolute(value) ? value : null;
+  const binary = platform === 'win32' ? 'ffmpeg.exe' : 'ffmpeg';
+  const target = `${platform === 'win32' ? 'windows' : platform}-${arch}`;
+  return [path.join(applicationDir,'ffmpeg','bin',binary),
+    path.join(applicationDir,'build','ffmpeg',target,'bin',binary)].find(fileExists) || null;
 }
 
 export function x1cCameraUrl(printer) {
@@ -92,7 +102,7 @@ export class BambuX1cCameraSource {
     if (this.stopping) await this.stopping;
     if (this.starting) return this.starting;
     if (this.child && !this.failure) return;
-    if (!this.decoderPath) throw new Error('X1C camera needs an absolute PFC_FFMPEG_PATH to an external FFmpeg executable');
+    if (!this.decoderPath) throw new Error('X1C camera decoder is missing; restore the bundled ffmpeg folder or configure PFC_FFMPEG_PATH');
     if (Date.now() < this.retryAt) throw new Error('X1C camera reconnect is waiting before retry');
     this.starting = this.launch().finally(() => { this.starting = null; });
     return this.starting;

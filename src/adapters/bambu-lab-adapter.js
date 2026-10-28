@@ -272,7 +272,7 @@ const P1S_CAPABILITIES = normalizeCapabilities({
 
 const X1C_CAPABILITIES = normalizeCapabilities({
   ...P1S_CAPABILITIES,
-  // An external decoder is deployment-owned until redistribution is reviewed.
+  // Runtime discovery enables the camera only when a decoder is available.
   camera: true
 });
 
@@ -353,7 +353,7 @@ export class BambuLabAdapter extends PrinterAdapter {
   }
   async getCameraSource() {
     if (this.model === 'X1C') {
-      if (!x1cDecoderPath()) return this.unsupported('X1C camera without an absolute PFC_FFMPEG_PATH');
+      if (!x1cDecoderPath()) return this.unsupported('X1C camera without its bundled decoder');
       return new BambuX1cCameraSource(this.printer);
     }
     return createBambuCameraSource(this.printer);
@@ -379,7 +379,7 @@ export const bambuLabAdapterDefinition = Object.freeze({
     { name: 'accessCode', label: 'LAN access code', required: true, secret: true, placeholder: 'Shown in LAN / Developer mode', help: 'Enable LAN Only or Developer mode on the printer, then enter its access code.' },
     { name: 'mqttPort', label: 'MQTT TLS port', required: true, type: 'number', defaultValue: 8883, min: 1, max: 65535 },
     { name: 'ftpsPort', label: 'FTPS TLS port', required: true, type: 'number', defaultValue: 990, min: 1, max: 65535 },
-    { name: 'cameraPort', label: 'Camera port', required: true, type: 'number', defaultValue: 6000, min: 1, max: 65535, help: 'P1P/P1S/A1 Mini use TLS/JPEG port 6000. Experimental X1C RTSPS/H.264 uses port 322 and requires an external decoder configured by the controller administrator.' }
+    { name: 'cameraPort', label: 'Camera port', required: true, type: 'number', defaultValue: 6000, min: 1, max: 65535, help: 'P1P/P1S/A1 Mini use TLS/JPEG port 6000. Experimental X1C RTSPS/H.264 uses port 322 with the included camera decoder.' }
   ],
   prepareConfig: prepareBambuLabConfig,
   create: (printer) => new BambuLabAdapter(printer)
