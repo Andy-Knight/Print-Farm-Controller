@@ -3822,6 +3822,24 @@ async function simulatorSseSmoke(browser,url) {
     // verifies the shared table geometry without registering a second
     // simulator instance with a duplicate serial number.
     console.log('Chromium: AD5M / Pro shared filament/nozzle action alignment PASS');
+    const x1c=await jsonPost('/api/emulator/printers',{
+      profileId:'bambu-x1c',name:'Virtual X1C camera regression',
+      ports:{mqttPort:0,ftpsPort:0,cameraPort:0}
+    });
+    const x1cRegistered=await jsonPost('/api/printers',x1c.printer.controllerSettings);
+    const x1cId=x1cRegistered.printer?.id;
+    assert.ok(x1cId,'X1C is registered with the real controller');
+    await page.waitForFunction(id=>Boolean(document.querySelector('[data-printer-card="'+id+'"] [data-open]')),
+      x1cId,{timeout:30000});
+    await page.locator('[data-printer-card="'+x1cId+'"] [data-open]').click();
+    await page.locator('#printerDialog [data-detail-tab="camera"]').click();
+    await page.waitForFunction(()=>{
+      const image=document.querySelector('#detailTabCamera img.detail-camera');
+      return image && image.naturalWidth>0 && image.naturalHeight>0;
+    },null,{timeout:30000});
+    await page.locator('#printerDialog [data-detail-close]').click();
+    await removeTestPrinter(x1cId);
+    console.log('Chromium: virtual X1C RTSPS -> bundled decoder -> visible camera image PASS');
   } finally {
     await context.close();
     // Isolated controller process teardown is the safety boundary; no external

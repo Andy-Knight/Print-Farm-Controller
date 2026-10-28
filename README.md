@@ -640,7 +640,7 @@ Bambu P1S FTPS:   127.0.0.1:20000
 Bambu P1S camera: 127.0.0.1:16010
 Bambu X1C MQTT:   127.0.0.1:18903
 Bambu X1C FTPS:   127.0.0.1:20010
-Bambu X1C camera test endpoint: 127.0.0.1:16020
+Bambu X1C RTSPS camera: 127.0.0.1:16020
 Bambu A1 Mini MQTT:   127.0.0.1:18913
 Bambu A1 Mini FTPS:   127.0.0.1:20020
 Bambu A1 Mini camera: 127.0.0.1:16030
@@ -650,7 +650,7 @@ For FlashForge, the Add printer form now exposes the normally fixed HTTP, TCP an
 
 Set `EMULATOR_NO_DEFAULTS=1` to start with an empty simulator fleet, or `CONTROLLER_EMULATOR_ENABLED=1` to enable the integrated simulator for the current launch. The virtual protocol endpoints always use loopback in integrated mode. The standalone `npm run emulator` command remains available for development and retains its `EMULATOR_HOST` and `EMULATOR_PORT` overrides.
 
-The Bambu endpoints use a simulator-owned self-signed certificate, MQTT username `bblp`, and the access code shown in the emulator UI. They model the LAN/Developer interfaces used by P1, X1C and A1 Mini printers but remain experimental until compared with physical hardware. The X1C camera test endpoint produces the simulator's existing TLS/JPEG test frames and does not claim to emulate the physical X1C RTSPS/H.264 stream. The emulator verifies controller behaviour against the implemented protocol model; new manufacturer support remains experimental until checked against reliable captures, documentation or physical hardware.
+The Bambu endpoints use a simulator-owned self-signed certificate, MQTT username `bblp`, and the access code shown in the emulator UI. They model the LAN/Developer interfaces used by P1, X1C and A1 Mini printers but remain experimental until compared with physical hardware. The X1C camera endpoint serves authenticated RTSPS/RTP H.264 from a generated simulator image through the same production adapter and bundled decoder as physical X1C cameras. Other Bambu models retain their TLS/JPEG endpoints. Protocol simulation does not establish physical-printer acceptance. The emulator verifies controller behaviour against the implemented protocol model; new manufacturer support remains experimental until checked against reliable captures, documentation or physical hardware.
 
 ### Adding an experimental Bambu P1P, P1S, X1C or A1 Mini
 

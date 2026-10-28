@@ -104,7 +104,13 @@ checks also cover framing, bounded output, stale frames, backoff, cancellation,
 termination and sharing. Packaging tests reject altered binary/source/recipe
 checksums, missing notices, wrong targets and GPL/nonfree configurations.
 
-The existing X1C emulator camera remains a TLS/JPEG test endpoint and does not
-validate RTSPS. Physical acceptance must cover firmware settings, disconnects,
+The virtual X1C serves authenticated RTSPS/RTP H.264 at its existing camera port
+(default 16020). It repeats a generated simulator image at five FPS with matching
+RTP timing; the normal bundled decoder produces the existing previews/live view.
+P1/A1 Mini virtual printers retain TLS/JPEG. Emulator tests exercise HTTP snapshots,
+MJPEG, authentication, offline/camera faults and decoder idle cleanup. Browser CI
+also requires an actual decoded image in the X1C camera tab.
+
+Physical acceptance must cover firmware settings, disconnects,
 multiple viewers, snapshots, idle/shutdown cleanup and resource usage on Windows
 and Kubernetes. Signed production publication remains a separate release gate.
