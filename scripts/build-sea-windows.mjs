@@ -4,6 +4,7 @@ import { promises as fs } from 'node:fs';
 import path from 'node:path';
 import { buildControllerBundle, buildDir, projectRoot } from './build-controller-bundle.mjs';
 import { buildFrontend } from './build-frontend.mjs';
+import { buildFfmpeg } from './build-ffmpeg.mjs';
 
 const require = createRequire(import.meta.url);
 const { inject } = require('postject');
@@ -64,6 +65,7 @@ async function embeddedAssets() {
 }
 async function buildWindowsSea() {
   requireWindowsX64Node24();
+  const decoderDir = await buildFfmpeg('windows-x64');
   await buildFrontend();
   const { version, bundlePath } = await buildControllerBundle();
 
@@ -89,11 +91,13 @@ async function buildWindowsSea() {
   await inject(executablePath, 'NODE_SEA_BLOB', blob, {
     sentinelFuse:SEA_FUSE
   });
+  await fs.cp(decoderDir, path.join(outputDir, 'ffmpeg'), { recursive:true });
 
   console.log('');
   console.log(`Hardened portable build created: ${executablePath}`);
   console.log(`Embedded application assets for Print Farm Controller v${version} using Node.js ${process.version}`);
   console.log('Run PrintFarmController.exe, then open http://localhost:4242');
+  console.log('Distribute the entire windows-x64 folder, including ffmpeg and its corresponding source/licences.');
 }
 
 buildWindowsSea().catch((error) => {

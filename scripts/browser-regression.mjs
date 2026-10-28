@@ -3822,6 +3822,48 @@ async function simulatorSseSmoke(browser,url) {
     // verifies the shared table geometry without registering a second
     // simulator instance with a duplicate serial number.
     console.log('Chromium: AD5M / Pro shared filament/nozzle action alignment PASS');
+    const x1c=await jsonPost('/api/emulator/printers',{
+      profileId:'bambu-x1c',name:'Virtual X1C camera regression',
+      ports:{mqttPort:0,ftpsPort:0,cameraPort:0}
+    });
+    const x1cRegistered=await jsonPost('/api/printers',x1c.printer.controllerSettings);
+    const x1cId=x1cRegistered.printer?.id;
+    assert.ok(x1cId,'X1C is registered with the real controller');
+    await page.waitForFunction(id=>Boolean(document.querySelector('[data-printer-card="'+id+'"] [data-open]')),
+      x1cId,{timeout:30000});
+    await page.locator('[data-printer-card="'+x1cId+'"] [data-open]').click();
+    await page.locator('#printerDialog [data-detail-tab="camera"]').click();
+    assert.doesNotMatch(await page.locator('#printerDialog').textContent(),
+      /RTSPS\/H\.264 camera decoding is not yet supported/);
+    await page.waitForFunction(()=>{
+      const image=document.querySelector('#detailTabCamera img.detail-camera');
+      return image && image.naturalWidth>0 && image.naturalHeight>0;
+    },null,{timeout:30000});
+    // Decode in Chromium, independently of FFmpeg's scaler. A valid JPEG can
+    // still contain corrupt colours/scanlines, so compare the whole test card.
+    const cameraReference=await fs.readFile(path.join(root,'emulator/assets/test-frame.jpg'));
+    const cameraPixelError=await page.evaluate(async reference=>{
+      const expected=new Image();
+      expected.src=reference;
+      await expected.decode();
+      const canvas=document.createElement('canvas');
+      canvas.width=64; canvas.height=36;
+      const ctx=canvas.getContext('2d',{willReadFrequently:true});
+      const pixels=image=>{
+        ctx.drawImage(image,0,0,64,36);
+        return ctx.getImageData(0,0,64,36).data;
+      };
+      const wanted=pixels(expected);
+      const actual=pixels(document.querySelector('#detailTabCamera img.detail-camera'));
+      let error=0;
+      for(let i=0;i<actual.length;i++) if(i%4!==3) error+=Math.abs(actual[i]-wanted[i]);
+      return error/(64*36*3);
+    },'data:image/jpeg;base64,'+cameraReference.toString('base64'));
+    assert.ok(cameraPixelError<12,
+      'X1C camera colours match the simulator card (mean RGB error '+cameraPixelError.toFixed(2)+')');
+    await page.locator('#printerDialog [data-detail-close]').click();
+    await removeTestPrinter(x1cId);
+    console.log('Chromium: virtual X1C RTSPS -> bundled decoder -> correct camera pixels PASS');
   } finally {
     await context.close();
     // Isolated controller process teardown is the safety boundary; no external
@@ -4232,9 +4274,20 @@ async function nativeAuthenticationSmoke(browser){
     const row=page.locator('#authUserList tbody tr').filter({hasText:'shiftoperator'});
     assert.equal(await row.locator('select').inputValue(),'operator');
     await row.locator('select').selectOption('viewer');
+    // Selecting a draft value is not evidence that Save finished. The PATCH
+    // triggers a GET which temporarily replaces the entire table with Loading.
+    const roleSaved=page.waitForResponse(response=>response.request().method()==='PATCH'
+      && new URL(response.url()).pathname.startsWith('/api/auth/users/'));
+    const usersRefreshed=page.waitForResponse(response=>response.request().method()==='GET'
+      && new URL(response.url()).pathname==='/api/auth/users');
     await row.locator('button').filter({hasText:'Save'}).click();
-    await page.waitForFunction(()=>[...document.querySelectorAll('#authUserList tbody tr')]
-      .some(tr=>tr.textContent.includes('shiftoperator')&&tr.querySelector('select')?.value==='viewer'));
+    assert.equal((await roleSaved).status(),200,'role update succeeds on the server');
+    const refreshed=await usersRefreshed;
+    assert.equal(refreshed.status(),200,'user list reload succeeds');
+    assert.equal((await refreshed.json()).users.find(user=>user.username==='shiftoperator')?.role,
+      'viewer','the refreshed server list contains the saved role');
+    await row.waitFor({state:'visible'});
+    assert.equal(await row.locator('select').inputValue(),'viewer');
     const ownerRow=page.locator('#authUserList tbody tr').filter({
       has:page.locator('th[scope="row"]:text-is("owner")')
     });

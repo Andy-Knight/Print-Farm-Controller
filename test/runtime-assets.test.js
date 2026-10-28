@@ -31,6 +31,11 @@ test('runtime asset helpers read source assets during development', async () => 
     key:runtimeAssetKeys.emulatorTestFrame,
     filePath:path.join(root, 'emulator', 'assets', 'test-frame.jpg')
   });
+  const h264 = readRuntimeAssetSync({
+    key:runtimeAssetKeys.emulatorX1cFrame,
+    filePath:path.join(root,'emulator','assets','x1c-test-frame.h264')
+  });
+  assert.ok(h264.length > 1000,'X1C H.264 simulator asset is available to source/SEA asset paths');
   assert.ok(Buffer.isBuffer(frame));
   assert.ok(frame.length > 100);
 });

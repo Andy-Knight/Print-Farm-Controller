@@ -534,7 +534,7 @@ export class CameraManager extends EventEmitter {
     stream.snapshotBusy = false;
     const sourceControl = stream.sourceControl;
     stream.sourceControl = null;
-    if (sourceControl?.stop) Promise.resolve(sourceControl.stop()).catch(() => {});
+    const stopped = sourceControl?.stop ? Promise.resolve(sourceControl.stop()).catch(() => {}) : Promise.resolve();
     stream.response = null;
     stream.request = null;
     stream.connected = false;
@@ -544,6 +544,7 @@ export class CameraManager extends EventEmitter {
     // Keep the last good JPEG as a short-lived fallback for fleet previews.
     // It is naturally discarded when the printer is removed or the manager stops.
     this.setHealth(id, { state: 'idle', subscribers: 0, lastError: null });
+    return stopped;
   }
 
   remove(id) {
@@ -553,7 +554,8 @@ export class CameraManager extends EventEmitter {
   }
 
   stop() {
-    for (const id of this.streams.keys()) this.closeStream(id);
+    const stopped = [...this.streams.keys()].map(id => this.closeStream(id));
     this.streams.clear();
+    return Promise.all(stopped);
   }
 }

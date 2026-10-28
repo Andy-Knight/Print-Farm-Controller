@@ -101,8 +101,9 @@ test('GitHub visual-regression artifacts use a native Node.js 24 action',(t)=>{
     t.skip('GitHub workflow metadata is not shipped with this installation');
     return;
   }
-  const workflow=readFileSync(workflowPath,'utf8');
-  assert.equal((workflow.match(/uses: actions\/upload-artifact@v7/g)||[]).length,2,
+  const workflow=readFileSync(workflowPath,'utf8').replaceAll('\r\n','\n');
+  const browser=workflow.split('\n  browser:\n')[1]?.split(/\n  [a-z][a-z0-9_-]*:\n/)[0] || '';
+  assert.equal((browser.match(/uses: actions\/upload-artifact@v7/g)||[]).length,2,
     'visual screenshot and failure artifact uploads must use the Node.js 24 action');
   assert.doesNotMatch(workflow,/uses: actions\/upload-artifact@v[1-5](?:\s|$)/m,
     'Node 20 artifact upload actions cause deprecated runtime warnings');

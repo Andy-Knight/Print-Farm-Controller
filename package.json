@@ -13,6 +13,7 @@
     "test:browser": "node scripts/browser-regression.mjs",
     "postinstall": "npm run build:frontend",
     "build:frontend": "node scripts/build-frontend.mjs",
+    "build:ffmpeg": "node scripts/build-ffmpeg.mjs",
     "build:bundle": "npm run build:frontend && node scripts/build-controller-bundle.mjs",
     "build:sea:windows": "node scripts/build-sea-windows.mjs",
     "build:installer:windows": "npm run build:sea:windows && node scripts/build-installer-windows.mjs",

@@ -5,7 +5,7 @@ A local-first 3D printer fleet controller. It runs entirely on your LAN and curr
 - **FlashForge Creator 5 / Creator 5 Pro** through the supported local FlashForge control interfaces.
 - **Snapmaker U1** through its local Moonraker/Klipper API.
 - **Prusa CORE One+ (experimental)** through the local PrusaLink API, supporting Standard (1-tool), INDX4 and INDX8 configurations.
-- **Bambu Lab P1P / P1S / X1C / A1 Mini (experimental)** through the local MQTT TLS and FTPS TLS interfaces. P1P/P1S/A1 Mini use the TLS/JPEG camera path; X1C camera decoding remains unsupported.
+- **Bambu Lab P1P / P1S / X1C / A1 Mini (experimental)** through the local MQTT TLS and FTPS TLS interfaces. P1P/P1S/A1 Mini use the TLS/JPEG camera path; X1C camera uses the bundled FFmpeg decoder; see [X1C camera setup](docs/X1C_CAMERA.md).
 
 **Current development version: v0.61.6**
 
@@ -547,7 +547,7 @@ Because the GHCR package is public, no `imagePullSecret` is required. Use the fu
 
 ## Windows Portable Executable
 
-Print Farm Controller includes a Windows x64 Node SEA packaging pipeline for building a standalone portable executable. Development/source mode remains unchanged: `npm start` runs directly from the repository.
+Print Farm Controller includes a Windows x64 Node SEA packaging pipeline for building a portable controller with its bundled FFmpeg camera decoder. Development/source mode remains unchanged: `npm start` runs directly from the repository.
 
 Install the build dependencies using the committed lockfile:
 
@@ -588,6 +588,8 @@ The executable reads its built-in web/simulator resources and trusted licence pu
 The Ed25519 private signing key is never included in the controller. The Bambu simulator TLS key embedded in the executable is only a local simulator/test credential and is unrelated to production licence signing.
 
 Injecting the SEA payload invalidates any original Authenticode signature on the copied Node executable. The generated executable is unsigned unless the release process applies a signing certificate after embedding.
+
+Keep the entire `dist/windows-x64/` folder together, including `ffmpeg/` with its decoder, licence notices and corresponding source. Installed and container builds discover the bundled decoder automatically; see [X1C camera setup](docs/X1C_CAMERA.md).
 
 ### Windows installer
 
@@ -638,7 +640,7 @@ Bambu P1S FTPS:   127.0.0.1:20000
 Bambu P1S camera: 127.0.0.1:16010
 Bambu X1C MQTT:   127.0.0.1:18903
 Bambu X1C FTPS:   127.0.0.1:20010
-Bambu X1C camera test endpoint: 127.0.0.1:16020
+Bambu X1C RTSPS camera: 127.0.0.1:16020
 Bambu A1 Mini MQTT:   127.0.0.1:18913
 Bambu A1 Mini FTPS:   127.0.0.1:20020
 Bambu A1 Mini camera: 127.0.0.1:16030
@@ -648,14 +650,14 @@ For FlashForge, the Add printer form now exposes the normally fixed HTTP, TCP an
 
 Set `EMULATOR_NO_DEFAULTS=1` to start with an empty simulator fleet, or `CONTROLLER_EMULATOR_ENABLED=1` to enable the integrated simulator for the current launch. The virtual protocol endpoints always use loopback in integrated mode. The standalone `npm run emulator` command remains available for development and retains its `EMULATOR_HOST` and `EMULATOR_PORT` overrides.
 
-The Bambu endpoints use a simulator-owned self-signed certificate, MQTT username `bblp`, and the access code shown in the emulator UI. They model the LAN/Developer interfaces used by P1, X1C and A1 Mini printers but remain experimental until compared with physical hardware. The X1C camera test endpoint produces the simulator's existing TLS/JPEG test frames and does not claim to emulate the physical X1C RTSPS/H.264 stream. The emulator verifies controller behaviour against the implemented protocol model; new manufacturer support remains experimental until checked against reliable captures, documentation or physical hardware.
+The Bambu endpoints use a simulator-owned self-signed certificate, MQTT username `bblp`, and the access code shown in the emulator UI. They model the LAN/Developer interfaces used by P1, X1C and A1 Mini printers but remain experimental until compared with physical hardware. The X1C camera endpoint serves authenticated RTSPS/RTP H.264 from a generated simulator image through the same production adapter and bundled decoder as physical X1C cameras. Other Bambu models retain their TLS/JPEG endpoints. Protocol simulation does not establish physical-printer acceptance. The emulator verifies controller behaviour against the implemented protocol model; new manufacturer support remains experimental until checked against reliable captures, documentation or physical hardware.
 
 ### Adding an experimental Bambu P1P, P1S, X1C or A1 Mini
 
 1. Enable the printer's LAN Only or Developer mode and note its serial number and LAN access code.
 2. Click **+ Add printer** and select **Bambu Lab P1P / P1S / X1C / A1 Mini (experimental)**.
 3. Choose `P1P`, `P1S`, `X1 Carbon (X1C)` or `A1 Mini` from the model dropdown, then enter the IP address, serial number and access code.
-4. Keep the physical-printer defaults of MQTT TLS `8883` and implicit FTPS `990`. P1P/P1S/A1 Mini camera TLS defaults to `6000`; selecting X1C changes the stored camera port to its RTSPS default `322`, although X1C camera decoding is not yet enabled. Use the alternate ports displayed by the emulator only for simulated printers.
+4. Keep the physical-printer defaults of MQTT TLS `8883` and implicit FTPS `990`. P1P/P1S/A1 Mini camera TLS defaults to `6000`; selecting X1C changes the stored camera port to its RTSPS default `322`, with experimental decoding provided by the bundled FFmpeg decoder (see [X1C camera setup](docs/X1C_CAMERA.md)). Use the alternate ports displayed by the emulator only for simulated printers.
 5. **Test & add** validates the MQTT credentials before saving the printer.
 
 Bambu discovery is not yet implemented, so supported Bambu printers are added manually. Access codes remain backend-side and are never returned by the public fleet API. Until physical validation is complete, supervise test prints and do not rely on this adapter for unattended production.

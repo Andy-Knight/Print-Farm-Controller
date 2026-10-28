@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { normalizeBambuStatus, bambuAdapterInternals } from '../src/adapters/bambu-lab-adapter.js';
 import { bambuCameraInternals } from '../src/bambu-camera.js';
+import { x1cDecoderPath } from '../src/bambu-x1c-camera.js';
 import { bambuMqttInternals } from '../src/bambu-mqtt.js';
 
 
@@ -87,7 +88,7 @@ test('normalizes terminal Bambu states without letting retained filenames imply 
   assert.equal(failed.status, 'failed');
 });
 
-test('normalizes X1C model telemetry without advertising the unsupported RTSPS camera', () => {
+test('normalizes X1C model telemetry with camera availability matching decoder discovery', () => {
   const status = normalizeBambuStatus({ print:{
     gcode_state:'IDLE', nozzle_diameter:'0.4', chamber_temper:41,
     vt_tray:{ tray_type:'PA-CF', tray_color:'222222FF' }
@@ -95,7 +96,7 @@ test('normalizes X1C model telemetry without advertising the unsupported RTSPS c
   assert.equal(status.model, 'X1C');
   assert.equal(status.chamber.actual, 41);
   assert.equal(status.lidarAvailable, true);
-  assert.equal(status.cameraAvailable, false);
+  assert.equal(status.cameraAvailable, Boolean(x1cDecoderPath()));
   assert.equal(status.tools[0].filament.material, 'PA-CF');
 });
 

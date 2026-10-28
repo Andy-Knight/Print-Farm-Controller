@@ -64,6 +64,7 @@ test('packaged runtime reads UI, simulator and licence trust data through SEA as
   assert.match(emulatorServer, /emulatorPublicAssetKey/);
   assert.match(emulatorServer, /readRuntimeAsset/);
   assert.match(emulatorProtocols, /runtimeAssetKeys\.emulatorTestFrame/);
+  assert.match(emulatorProtocols, /runtimeAssetKeys\.emulatorX1cFrame/);
   assert.match(emulatorProtocols, /runtimeAssetKeys\.emulatorBambuKey/);
   assert.match(emulatorProtocols, /runtimeAssetKeys\.emulatorBambuCert/);
   assert.match(licenceLoader, /readRuntimeTextAsset/);
