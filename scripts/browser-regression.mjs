@@ -3837,9 +3837,31 @@ async function simulatorSseSmoke(browser,url) {
       const image=document.querySelector('#detailTabCamera img.detail-camera');
       return image && image.naturalWidth>0 && image.naturalHeight>0;
     },null,{timeout:30000});
+    // Decode in Chromium, independently of FFmpeg's scaler. A valid JPEG can
+    // still contain corrupt colours/scanlines, so compare the whole test card.
+    const cameraReference=await fs.readFile(path.join(root,'emulator/assets/test-frame.jpg'));
+    const cameraPixelError=await page.evaluate(async reference=>{
+      const expected=new Image();
+      expected.src=reference;
+      await expected.decode();
+      const canvas=document.createElement('canvas');
+      canvas.width=64; canvas.height=36;
+      const ctx=canvas.getContext('2d',{willReadFrequently:true});
+      const pixels=image=>{
+        ctx.drawImage(image,0,0,64,36);
+        return ctx.getImageData(0,0,64,36).data;
+      };
+      const wanted=pixels(expected);
+      const actual=pixels(document.querySelector('#detailTabCamera img.detail-camera'));
+      let error=0;
+      for(let i=0;i<actual.length;i++) if(i%4!==3) error+=Math.abs(actual[i]-wanted[i]);
+      return error/(64*36*3);
+    },'data:image/jpeg;base64,'+cameraReference.toString('base64'));
+    assert.ok(cameraPixelError<12,
+      'X1C camera colours match the simulator card (mean RGB error '+cameraPixelError.toFixed(2)+')');
     await page.locator('#printerDialog [data-detail-close]').click();
     await removeTestPrinter(x1cId);
-    console.log('Chromium: virtual X1C RTSPS -> bundled decoder -> visible camera image PASS');
+    console.log('Chromium: virtual X1C RTSPS -> bundled decoder -> correct camera pixels PASS');
   } finally {
     await context.close();
     // Isolated controller process teardown is the safety boundary; no external

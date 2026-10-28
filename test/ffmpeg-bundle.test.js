@@ -28,7 +28,7 @@ test('vendored FFmpeg source matches the pinned official archive', async () => {
   assert.throws(() => ffmpegBundleDir('../outside'), /Unsupported/);
 });
 
-test('decoder packaging rejects altered binaries, source, recipe, target, missing notices and GPL builds', async t => {
+test('decoder packaging rejects altered bundles, missing x86 assembly/notices and GPL builds', async t => {
   const directory = await fs.mkdtemp(path.join(os.tmpdir(),'pfc-ffmpeg-metadata-'));
   t.after(() => fs.rm(directory,{ recursive:true,force:true }));
   const metadata = path.join(directory,'share','ffmpeg');
@@ -52,7 +52,8 @@ test('decoder packaging rejects altered binaries, source, recipe, target, missin
     await fs.writeFile(path.join(metadata,filename),'test metadata');
   }
   const configPath = path.join(metadata,'config.h');
-  await fs.writeFile(configPath,'#define FFMPEG_LICENSE "LGPL version 2.1 or later"');
+  const validConfig='#define FFMPEG_LICENSE "LGPL version 2.1 or later"\n#define HAVE_X86ASM 1\n';
+  await fs.writeFile(configPath,validConfig);
   const argsPath = path.join(metadata,'configure-arguments.txt');
   await fs.writeFile(argsPath,'--enable-schannel');
   assert.equal(await validateFfmpegBundle(directory,'windows-x64'),directory);
@@ -69,7 +70,9 @@ test('decoder packaging rejects altered binaries, source, recipe, target, missin
   await assert.rejects(validateFfmpegBundle(directory,'linux-x64'),/source\/target/);
   await fs.writeFile(configPath,'#define FFMPEG_LICENSE "GPL version 3 or later"');
   await assert.rejects(validateFfmpegBundle(directory,'windows-x64'),/LGPL build/);
-  await fs.writeFile(configPath,'#define FFMPEG_LICENSE "LGPL version 2.1 or later"');
+  await fs.writeFile(configPath,validConfig.replace('HAVE_X86ASM 1','HAVE_X86ASM 0'));
+  await assert.rejects(validateFfmpegBundle(directory,'windows-x64'),/assembly support/);
+  await fs.writeFile(configPath,validConfig);
   await fs.writeFile(argsPath,'--enable-nonfree');
   await assert.rejects(validateFfmpegBundle(directory,'windows-x64'),/LGPL build/);
   await fs.writeFile(argsPath,'--enable-schannel');

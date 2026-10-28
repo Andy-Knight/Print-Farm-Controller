@@ -40,6 +40,12 @@ build artifact is absent. CI cross-builds Windows FFmpeg on Linux and supplies
 that verified artifact to the Windows job. Container builds compile their own
 native decoder. Source builds require Docker/build tools; installed users do not.
 
+After updating the source, rerun the decoder build command and restart the
+controller. The build verifies its recipe and replaces an outdated local bundle.
+The x86 builds require NASM assembly support: disabling it in FFmpeg 8.1.3 can
+produce magenta/green scanlines despite valid JPEG output. Both Docker build
+recipes install NASM, and bundle verification rejects x86 builds without it.
+
 An administrator may set PFC_FFMPEG_PATH to an absolute trusted executable path
 to override the bundle, then restart. Relative overrides disable discovery rather
 than being executed. There is no PATH or writable-data-directory search, and the
@@ -109,7 +115,8 @@ The virtual X1C serves authenticated RTSPS/RTP H.264 at its existing camera port
 RTP timing; the normal bundled decoder produces the existing previews/live view.
 P1/A1 Mini virtual printers retain TLS/JPEG. Emulator tests exercise HTTP snapshots,
 MJPEG, authentication, offline/camera faults and decoder idle cleanup. Browser CI
-also requires an actual decoded image in the X1C camera tab.
+also compares the decoded X1C camera pixels with the original simulator card,
+allowing lossy compression while rejecting colour/scanline corruption.
 
 Physical acceptance must cover firmware settings, disconnects,
 multiple viewers, snapshots, idle/shutdown cleanup and resource usage on Windows

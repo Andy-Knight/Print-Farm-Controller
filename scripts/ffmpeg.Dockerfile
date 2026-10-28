@@ -2,7 +2,7 @@
 FROM --platform=$BUILDPLATFORM debian:bookworm-slim AS decoder
 ARG DECODER_TARGET=linux
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    ca-certificates curl xz-utils make gcc libc6-dev pkg-config jq libssl-dev \
+    ca-certificates curl xz-utils make gcc libc6-dev pkg-config jq libssl-dev nasm \
     && if [ "$DECODER_TARGET" = windows-x64 ]; then \
          apt-get install -y --no-install-recommends gcc-mingw-w64-x86-64; \
        elif [ "$DECODER_TARGET" = linux-arm64 ]; then \

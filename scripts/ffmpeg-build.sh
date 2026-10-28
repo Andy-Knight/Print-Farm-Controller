@@ -23,7 +23,7 @@ tar -xf "$archive"
 cd "ffmpeg-$version"
 
 set -- --prefix="$prefix" --disable-autodetect --disable-everything \
-  --disable-doc --disable-debug --disable-x86asm --disable-shared --enable-static \
+  --disable-doc --disable-debug --disable-shared --enable-static \
   --disable-ffplay --disable-ffprobe --enable-ffmpeg --enable-network \
   --enable-protocol=file,pipe,tcp,tls --enable-demuxer=rtsp,rtp,sdp,h264 \
   --enable-parser=h264 --enable-decoder=h264 --enable-encoder=mjpeg \

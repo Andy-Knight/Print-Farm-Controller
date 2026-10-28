@@ -55,6 +55,11 @@ export async function validateFfmpegBundle(directory, target) {
   if (/--enable-(gpl|nonfree)\b/.test(args) || !/^#define FFMPEG_LICENSE "LGPL version/m.test(config)) {
     throw new Error('FFmpeg bundle must be an LGPL build without GPL/nonfree options');
   }
+  // FFmpeg 8.1.3 can select incompatible scaler layouts on x86 when the
+  // external assembly writers are absent, producing valid but corrupt JPEGs.
+  if (target !== 'linux-arm64' && !/^#define HAVE_X86ASM 1\s*$/m.test(config)) {
+    throw new Error('FFmpeg x86 bundle requires assembly support for correct camera colours');
+  }
   return directory;
 }
 
