@@ -3833,6 +3833,8 @@ async function simulatorSseSmoke(browser,url) {
       x1cId,{timeout:30000});
     await page.locator('[data-printer-card="'+x1cId+'"] [data-open]').click();
     await page.locator('#printerDialog [data-detail-tab="camera"]').click();
+    assert.doesNotMatch(await page.locator('#printerDialog').textContent(),
+      /RTSPS\/H\.264 camera decoding is not yet supported/);
     await page.waitForFunction(()=>{
       const image=document.querySelector('#detailTabCamera img.detail-camera');
       return image && image.naturalWidth>0 && image.naturalHeight>0;

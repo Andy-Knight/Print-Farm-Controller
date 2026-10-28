@@ -12,6 +12,8 @@ Configure the X1C host, LAN access code and camera port (normally 322) using the
 existing printer settings. Enable local camera liveview on the printer as required
 by its firmware. The controller constructs /streaming/live/1 at the configured
 host and never follows printer-reported camera URLs.
+Printer details retain the general experimental Bambu guidance without an
+obsolete warning that RTSPS/H.264 decoding is unsupported.
 
 The decoder is discovered at ffmpeg/bin/ffmpeg.exe beside the Windows controller,
 or /app/ffmpeg/bin/ffmpeg inside the container. The Windows installer installs the
