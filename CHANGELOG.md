@@ -4,6 +4,13 @@ This file contains the version-by-version release history for Print Farm Control
 
 Historical entries describe the behaviour of the controller at the time of that release and may be superseded by later versions. For current installation, configuration and supported-hardware guidance, see [README.md](README.md).
 
+## v0.61.7
+
+- Added experimental X1C RTSPS/H.264 camera conversion into the controller's existing JPEG previews and MJPEG live view, with shared decoders, bounded output, reconnect backoff and idle/shutdown cleanup. Removed the obsolete camera-unsupported notice. Physical X1C and Kubernetes acceptance remain pending.
+- Bundled a minimal, pinned, source-built LGPL FFmpeg decoder in Windows portable/installer and AMD64/ARM64 container packages. Included matching source, licence notices, build records and integrity checks; normal packaged installations require no external decoder setup. Preserved `PFC_FFMPEG_PATH` as an administrator override.
+- Made virtual X1C cameras serve authenticated RTSPS/RTP H.264 through the production decoder. Corrected magenta/green scanline corruption in x86 decoder builds by enabling NASM assembly support, and added independent browser pixel comparisons.
+- Corrected the account-management browser regression to wait for the saved role and refreshed user table before checking Delete. Normalised Windows CRLF-sensitive regression readers and enabled the full Windows test suite in CI.
+
 ## v0.61.6
 
 - Aligned **Individual printer tasks** action buttons on the Maintenance page: corresponding **Complete**, **Edit printer/model/group task** and **Delete printer/model/group task** controls now use consistent column widths (120/176/190px) regardless of task scope. Kept existing semantic colours, disabled controls and shared-task layouts; on narrow phone screens the three buttons stack at full width. Added Node/CSS and Chromium light/dark desktop/tablet/mobile layout tests.
