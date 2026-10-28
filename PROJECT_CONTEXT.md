@@ -56,7 +56,7 @@ PrinterAdapter boundary (`src/adapters/`)
         +-- FlashForge Creator 5 / Creator 5 Pro -> modern HTTP-only API + four-tool material station + MJPEG camera
         +-- Snapmaker U1 -> Moonraker / Klipper
         +-- Prusa CORE One+ -> local PrusaLink HTTP API (Digest/API-key auth)
-        +-- Bambu Lab P1P / P1S / X1C / A1 Mini -> experimental MQTT/FTPS adapter; P1/A1 Mini TLS-JPEG camera
+        +-- Bambu Lab P1P / P1S / X1C / A1 Mini -> experimental MQTT/FTPS adapter; P1/A1 Mini TLS-JPEG camera; opt-in X1C external FFmpeg
 
 Development Printer Emulator (`emulator/`, loopback only)
         +-- management UI/API + SSE
@@ -107,7 +107,7 @@ Manufacturer-specific discovery, capabilities, limits, status normalization, fil
 - Queue priority is **High / Normal / Low**. Effective priority ranks before manual queue order; a waiting job gains one priority level every six hours so low-priority work cannot be starved. Within the same effective priority, manual order remains authoritative.
 - When multiple compatible idle printers are ready for an automatic job, a printer with a verified existing copy of the file is preferred; the assigned job records the selection reason.
 - The development printer simulator is integrated into the controller lifecycle and UI, but its virtual protocol endpoints remain loopback-only. It is disabled by default, remembers explicit enablement, and exercises production adapters through network protocols rather than bypassing the adapter boundary. Simulator-only support never counts as physical hardware validation. The standalone emulator command remains available for development.
-- Bambu P1P/P1S/X1C/A1 Mini support remains explicitly experimental until MQTT telemetry/commands, FTPS behavior, material mapping and camera behavior are compared with physical printers. P1P/P1S/A1 Mini use the TLS/JPEG camera path on port 6000. X1C uses RTSPS/H.264 on port 322; the controller deliberately reports X1C camera as unsupported until a suitable decoder is implemented. Manual entry is used; Bambu LAN discovery is not yet implemented.
+- Bambu P1P/P1S/X1C/A1 Mini support remains explicitly experimental until MQTT telemetry/commands, FTPS behavior, material mapping and camera behavior are compared with physical printers. P1P/P1S/A1 Mini use the TLS/JPEG camera path on port 6000. X1C uses RTSPS/H.264 on port 322; experimental JPEG/MJPEG conversion requires an administrator-configured external FFmpeg executable via an absolute `PFC_FFMPEG_PATH`. No decoder binary is redistributed by the prototype; see `docs/X1C_CAMERA.md`. Manual entry is used; Bambu LAN discovery is not yet implemented.
 - Bambu AMS support models each AMS/AMS Lite tray and the external spool as a material source, separate from the printer's single physical nozzle. Automatic scheduling maps logical 3MF filaments to unique live sources, while multi-material raw G-code is rejected because it does not carry the project-level mapping required by the print command.
 - Production licensing is offline and Ed25519-signed. The controller ships trusted public verification keys only; production private keys live only in the separate private `Andy-Knight/Print-Farm-Licensing` application.
 - No valid signed licence means Community Edition. Current physical-printer allowances are Community 3, Pro 10, Farm 25; simulator printers do not consume licence slots.
@@ -130,22 +130,20 @@ Manufacturer-specific discovery, capabilities, limits, status normalization, fil
 - Offline Ed25519-signed licensing enforces physical-printer allowances: Community 3, Pro 10 and Farm 25; simulator printers do not consume licence slots.
 - Integrated printer simulator covers FlashForge, Snapmaker and experimental Bambu protocol paths for repeatable development and automated validation.
 - Production deployment supports the hardened Windows x64 Node SEA/installer path and the multi-architecture GHCR container image for `linux/amd64` and `linux/arm64`, with persistent `/data` and `/logs`.
-- Known validation limits: Creator 5 / Creator 5 Pro physical-hardware validation remains incomplete; Bambu support remains experimental; X1C RTSPS/H.264 camera streaming is not currently supported.
+- Known validation limits: Creator 5 / Creator 5 Pro physical-hardware validation remains incomplete; Bambu support remains experimental; X1C RTSPS/H.264 camera streaming is an opt-in external-decoder prototype requiring physical Windows/Kubernetes acceptance.
 
 ## Current task
 
-Windows development baseline is ready on `codex/development-baseline`. Node.js 24.22.1, npm 12.2.0, locked dependencies and Playwright Chromium are installed; Docker Desktop is running. The Codex sandbox cannot reliably read the user-level npm installation, so npm commands currently require execution outside that sandbox.
+Implement and validate the experimental X1C external-FFmpeg camera on `codex/x1c-ffmpeg-camera`. An absolute deployment-owned `PFC_FFMPEG_PATH` enables the adapter capability. A shared decoder produces bounded 1 FPS JPEG snapshots for the existing camera manager/MJPEG interface, with startup/freshness timeouts, reconnect backoff and awaited shutdown. FFmpeg TLS-option support is probed once per executable to accommodate older/newer builds. No decoder binary or npm runtime dependency is bundled; Windows and container deployment instructions are in `docs/X1C_CAMERA.md`.
 
-All ten original Windows regression failures were CRLF-sensitive source-text assertions. The affected test readers now normalize CRLF to LF without changing their assertions or application files. Windows CI now runs the full regression suite before SEA packaging, alongside the existing Linux suite.
-
-Validation on 28 October 2026: the full Windows regression suite passed (813 passing, zero failures, one skipped MinIO integration test; 814 total). Frontend build, dependency audit (zero reported vulnerabilities), Chromium regression, Windows x64 SEA build, local container build and localhost health/default-authentication onboarding smoke checks also passed during baseline setup. The SEA packaging tool emitted a signature warning; this is an unsigned development artifact, not a verified signed release.
+A real Linux FFmpeg decoder passed the authenticated loopback RTSPS/RTP H.264 fixture test. Source tests cover framing, bounded output, credential-safe errors, retry/stop races and camera-manager sharing. The emulator X1C camera remains a TLS/JPEG test endpoint, not an RTSPS implementation. Windows regression passed (824 passing, zero failures, two skipped: MinIO and the separately run external-decoder fixture). Chromium regression, frontend/SEA/unsigned Windows installer builds, controller container build and health/authentication/graceful-shutdown smoke passed. The real Linux decoder fixture also passed wrong-access-code rejection. Windows decoder and physical X1C/Kubernetes acceptance remain pending.
 
 ## Next steps
 
-1. Review the test-portability and Windows CI changes through a feature-branch PR; GitHub workflow execution is still pending. Never merge into main or publish a release without explicit user approval.
-2. Choose the next product feature and develop it on a feature branch, preserving adapter boundaries, server-side permissions, signed licensing and persistent-data safeguards.
-3. Complete release-only validation separately: MinIO S3 integration, AMD64/ARM64 builds, signed Windows installer/runtime acceptance and Kubernetes deployment checks. The local container smoke used no production OAuth credentials and does not replace CI OAuth-injection checks.
-4. Native HTTPS is implemented with fixed internal HTTP 4242 / HTTPS 4243 ports. Preserve the manual Windows/Kubernetes acceptance recorded under Current work; external PEM import still needs manual acceptance. See `docs/HTTPS_CONFIGURATION.md`.
+1. Complete automated regression/browser/packaging checks and review the feature-branch PR. All future changes use feature branches; never merge into main or publish without explicit user approval.
+2. Run the real-decoder fixture on Windows with the selected external executable, then validate a physical X1C on Windows and Kubernetes (AMD64/ARM64), including firmware liveview settings, disconnects, multiple viewers, idle/shutdown cleanup, CPU/memory and credential handling.
+3. Review the exact decoder build, redistribution notices/corresponding source and H.264 patent position before distributing decoder binaries in commercial packages. Browser/API errors omit authenticated URLs, but privileged host users can inspect FFmpeg arguments. Printer camera certificate verification is disabled for the LAN prototype; browser HTTPS/RBAC remain independent.
+4. Before release, complete MinIO, multi-architecture image and signed Windows installer acceptance. Preserve native HTTPS acceptance and outstanding external-PEM import checks recorded under Current work.
 
 ## Licensing baseline
 

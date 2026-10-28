@@ -72,6 +72,17 @@ jobs:
       - name: Summarise regression test inventory
         run: npm run test:audit
 
+      - name: Install external decoder for RTSPS fixture validation
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends ffmpeg
+          ffmpeg -version
+
+      - name: Decode authenticated RTSPS H.264 fixture
+        env:
+          PFC_TEST_FFMPEG_PATH: /usr/bin/ffmpeg
+        run: node --test test/bambu-x1c-camera-integration.test.js
+
       - name: Set up Go for pinned MinIO
         uses: actions/setup-go@v6
         with:

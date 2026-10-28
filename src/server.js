@@ -2748,7 +2748,7 @@ async function shutdown() {
   await maintenanceService.stop().catch(() => {});
   printQueue.stop();
   fleetState.stop();
-  cameraManager.stop();
+  await cameraManager.stop();
   try { await emulatorManager.stop(); } catch {}
   const forceExit=setTimeout(()=>process.exit(0),2000);
   forceExit.unref();
@@ -2988,7 +2988,7 @@ async function startController() {
     await maintenanceService.stop().catch(() => {});
     printQueue.stop();
     fleetState.stop();
-    cameraManager.stop();
+    await cameraManager.stop();
     try { await emulatorManager.stop(); } catch {}
     if (restoreTransaction) {
       try {

@@ -87,7 +87,7 @@ test('normalizes terminal Bambu states without letting retained filenames imply 
   assert.equal(failed.status, 'failed');
 });
 
-test('normalizes X1C model telemetry without advertising the unsupported RTSPS camera', () => {
+test('normalizes X1C model telemetry with camera disabled when no external decoder is configured', () => {
   const status = normalizeBambuStatus({ print:{
     gcode_state:'IDLE', nozzle_diameter:'0.4', chamber_temper:41,
     vt_tray:{ tray_type:'PA-CF', tray_color:'222222FF' }
