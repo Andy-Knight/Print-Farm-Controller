@@ -134,7 +134,7 @@ Manufacturer-specific discovery, capabilities, limits, status normalization, fil
 
 ## Current task
 
-Refresh the documentation-only tab icon catalogue on `docs/tab-icon-catalogue` (PR #115) against the current controller. Document all 18 deployed tab masks, including Security & users, preserve the Management-tab renderer discrepancy, and keep artwork checks compatible with source ZIPs that omit optional `docs/assets/`. Version remains 0.61.7; merge requires explicit user approval.
+The documentation-only tab icon catalogue on `docs/tab-icon-catalogue` (PR #115) is refreshed against the current controller and awaiting review. It documents all 18 deployed tab masks, including Security & users, preserves the Management-tab renderer discrepancy, and keeps artwork checks compatible with source ZIPs that omit optional `docs/assets/`. Version remains 0.61.7; merge requires explicit user approval.
 
 The bundled decoder baseline uses a pinned, checksum-verified official FFmpeg source archive under `third-party/ffmpeg`, Schannel/LGPL 2.1-or-later on Windows and system OpenSSL 3/LGPL 3-or-later on Linux, without GPL/nonfree components. Preserve matching source, notices and build/integrity records. Windows signing covers both executables before installer compilation. x86 builds require NASM assembly support for correct scaler output; bundle verification rejects builds without it. See `docs/X1C_CAMERA.md`.
 
