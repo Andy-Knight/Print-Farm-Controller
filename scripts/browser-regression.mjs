@@ -4274,9 +4274,20 @@ async function nativeAuthenticationSmoke(browser){
     const row=page.locator('#authUserList tbody tr').filter({hasText:'shiftoperator'});
     assert.equal(await row.locator('select').inputValue(),'operator');
     await row.locator('select').selectOption('viewer');
+    // Selecting a draft value is not evidence that Save finished. The PATCH
+    // triggers a GET which temporarily replaces the entire table with Loading.
+    const roleSaved=page.waitForResponse(response=>response.request().method()==='PATCH'
+      && new URL(response.url()).pathname.startsWith('/api/auth/users/'));
+    const usersRefreshed=page.waitForResponse(response=>response.request().method()==='GET'
+      && new URL(response.url()).pathname==='/api/auth/users');
     await row.locator('button').filter({hasText:'Save'}).click();
-    await page.waitForFunction(()=>[...document.querySelectorAll('#authUserList tbody tr')]
-      .some(tr=>tr.textContent.includes('shiftoperator')&&tr.querySelector('select')?.value==='viewer'));
+    assert.equal((await roleSaved).status(),200,'role update succeeds on the server');
+    const refreshed=await usersRefreshed;
+    assert.equal(refreshed.status(),200,'user list reload succeeds');
+    assert.equal((await refreshed.json()).users.find(user=>user.username==='shiftoperator')?.role,
+      'viewer','the refreshed server list contains the saved role');
+    await row.waitFor({state:'visible'});
+    assert.equal(await row.locator('select').inputValue(),'viewer');
     const ownerRow=page.locator('#authUserList tbody tr').filter({
       has:page.locator('th[scope="row"]:text-is("owner")')
     });
