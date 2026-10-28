@@ -183,8 +183,8 @@ jobs:
       - name: Install locked dependencies
         run: npm ci --include=dev --no-audit --no-fund
 
-      - name: Run Windows HTTPS and listener integration tests
-        run: node --test test/native-https.test.js test/live-gui-https.test.js
+      - name: Run full Windows regression suite
+        run: npm test
 
       - name: Build Windows SEA executable
         run: npm run build:sea:windows

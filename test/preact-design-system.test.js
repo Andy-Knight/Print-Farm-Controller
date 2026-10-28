@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { existsSync, readFileSync } from 'node:fs';
 
-const read=(path)=>readFileSync(new URL('../'+path,import.meta.url),'utf8');
+const read=(path)=>readFileSync(new URL('../'+path,import.meta.url),'utf8').replaceAll('\r\n', '\n');
 const css=read('public/design-system.css');
 const html=read('public/index.html');
 const components=read('ui/components.jsx');

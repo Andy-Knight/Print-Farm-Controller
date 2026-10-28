@@ -6,7 +6,7 @@ import vm from 'node:vm';
 const index = fs.readFileSync(new URL('../public/index.html', import.meta.url), 'utf8');
 const app = fs.readFileSync(new URL('../public/app.js', import.meta.url), 'utf8');
 const reportingUi = fs.readFileSync(new URL('../public/reporting.js', import.meta.url), 'utf8');
-const styles = fs.readFileSync(new URL('../public/styles.css', import.meta.url), 'utf8');
+const styles = fs.readFileSync(new URL('../public/styles.css', import.meta.url), 'utf8').replaceAll('\r\n', '\n');
 const server = fs.readFileSync(new URL('../src/server.js', import.meta.url), 'utf8');
 const reportingService = fs.readFileSync(new URL('../src/reporting-service.js', import.meta.url), 'utf8');
 const backupService = fs.readFileSync(new URL('../src/backup-recovery/backup-service.js', import.meta.url), 'utf8');

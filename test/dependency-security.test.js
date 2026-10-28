@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { existsSync, readFileSync } from 'node:fs';
 
 const root = new URL('../', import.meta.url);
-const read = name => readFileSync(new URL(name, root), 'utf8');
+const read = name => readFileSync(new URL(name, root), 'utf8').replaceAll('\r\n', '\n');
 
 test('dependency versions and lockfile align with the approved npm 12 baseline', () => {
   const pkg = JSON.parse(read('package.json'));
