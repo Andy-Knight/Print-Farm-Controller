@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { performance } from 'node:perf_hooks';
 import { PrintQueueService, printQueueHelpers } from '../src/print-queue.js';
 import { PrinterOperationCoordinator } from '../src/concurrency.js';
 import { evaluatePrinterOperation } from '../src/printer-operation-policy.js';
@@ -41,16 +42,19 @@ function memoryStore(initial = []) {
   };
 }
 
-async function waitFor(predicate, timeoutMs = 500) {
-  const end = Date.now() + timeoutMs;
-  while (Date.now() < end) {
-    if (predicate()) return;
+async function waitFor(predicate, timeoutMs = 5000, describe = () => '') {
+  const end = performance.now() + timeoutMs;
+  // A busy test worker may resume after the deadline with the condition
+  // already satisfied. Check it before deciding that the wait failed.
+  while (!predicate()) {
+    if (performance.now() >= end) {
+      assert.fail(`Timed out waiting for condition after ${timeoutMs} ms. ${describe()}`);
+    }
     await new Promise((resolve) => setTimeout(resolve, 5));
   }
-  assert.fail('Timed out waiting for condition');
 }
 
-test('queued print starts on an idle printer and records completion', async () => {
+test('queued print starts on an idle printer and records completion', async (t) => {
   const fleetState = new FakeFleetState([{ id:'p1', online:true, status:{ status:'idle', fileName:null, progress:0 } }]);
   const store = memoryStore();
   const starts = [];
@@ -67,23 +71,26 @@ test('queued print starts on an idle printer and records completion', async () =
     }),
     loadJobsFn: store.load,
     saveJobsFn: store.save,
+    getFileMaterialMetadataFn: async () => null,
+    buildMaterialCostSnapshotFn: async () => null,
     minActiveMs: 0
   });
+  t.after(() => service.stop());
   await service.start();
   const queued = await service.add({ printerId:'p1', fileName:'part.gcode', options:{ levelingBeforePrint:false } });
-  await waitFor(() => starts.length === 1);
+  const describe = () => `Queue job: ${JSON.stringify(service.getJob(queued.id))}`;
+  await waitFor(() => starts.length === 1, 5000, describe);
   assert.equal(starts[0].fileName, 'part.gcode');
   assert.equal(starts[0].options.levelingBeforePrint, false);
   assert.equal(service.getJob(queued.id).status, 'starting');
 
   fleetState.setState('p1', { online:true, status:{ status:'printing', fileName:'part.gcode', progress:37 } });
-  await waitFor(() => service.getJob(queued.id).status === 'printing');
+  await waitFor(() => service.getJob(queued.id).status === 'printing', 5000, describe);
   assert.equal(service.getJob(queued.id).maxProgress, 37);
 
   fleetState.setState('p1', { online:true, status:{ status:'idle', fileName:null, progress:100 } });
-  await waitFor(() => service.getJob(queued.id).status === 'completed');
+  await waitFor(() => service.getJob(queued.id).status === 'completed', 5000, describe);
   assert.ok(service.getJob(queued.id).finishedAt);
-  service.stop();
 });
 
 test('material cost is snapshotted immediately before a queued print starts', async () => {
