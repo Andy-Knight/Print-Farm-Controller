@@ -1,4 +1,4 @@
-# Print Farm Controller v0.61.11
+# Print Farm Controller v0.61.12
 A local-first 3D printer fleet controller. It runs entirely on your LAN and currently supports:
 
 - **FlashForge Adventurer 5M / 5M Pro** through the local FlashForge HTTP/TCP APIs.
@@ -7,7 +7,7 @@ A local-first 3D printer fleet controller. It runs entirely on your LAN and curr
 - **Prusa CORE One+ (experimental)** through the local PrusaLink API, supporting Standard (1-tool), INDX4 and INDX8 configurations.
 - **Bambu Lab P1P / P1S / X1C / A1 Mini (experimental)** through the local MQTT TLS and FTPS TLS interfaces. P1P/P1S/A1 Mini use the TLS/JPEG camera path; X1C camera uses the bundled FFmpeg decoder; see [X1C camera setup](docs/X1C_CAMERA.md).
 
-**Current development version: v0.61.11**
+**Current development version: v0.61.12**
 
 ## Key capabilities
 
@@ -593,6 +593,8 @@ Injecting the SEA payload invalidates any original Authenticode signature on the
 Keep the entire `dist/windows-x64/` folder together, including `ffmpeg/` with its decoder, licence notices and corresponding source. Installed and container builds discover the bundled decoder automatically; see [X1C camera setup](docs/X1C_CAMERA.md).
 
 ### Windows installer
+
+Versioned installer downloads are provided through [GitHub Releases](https://github.com/Andy-Knight/Print-Farm-Controller/releases). After validation on `main`, GitHub Actions prepares a draft containing the unsigned installer, SHA-256 checksum and source metadata. A maintainer reviews and publishes the draft before it becomes a public download. See [Windows release preparation](docs/WINDOWS_RELEASES.md) for workflow, signing and recovery details.
 
 The Windows installer uses **Inno Setup 7** (preferred; Inno Setup 6 remains supported as a fallback) and installs the controller under Program Files. Select the individual Windows account that will run the controller. Data and logs are restricted to that account, SYSTEM and Administrators; browser users do not need filesystem access. Upgrades retain the selected owner and repair existing broad permissions. Source/portable startup also verifies and restricts Windows storage before loading credentials. See [Windows data security and repair](docs/WINDOWS_DATA_SECURITY.md), including upgrades, custom directories and unattended installation.
 

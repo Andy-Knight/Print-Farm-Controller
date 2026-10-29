@@ -52,3 +52,25 @@ test('Chromium regression budget includes browser installation on slow runners',
   assert.match(browser,/npx playwright install --with-deps chromium/);
   assert.match(browser,/npm run test:browser/);
 });
+
+test('Windows draft releases use main-only validated artifacts and never gain PR write access',()=>{
+  const yml=readFileSync(workflowUrl,'utf8').replaceAll('\r\n','\n');
+  const windows=yml.split('\n  windows:\n')[1].split('\n  smoke:\n')[0];
+  const draft=yml.split('\n  windows-draft:\n')[1];
+  assert.match(windows,/node scripts\/build-installer-windows\.mjs/);
+  assert.match(windows,/node scripts\/windows-release-bundle\.mjs/);
+  assert.match(windows,/actions\/upload-artifact@v7/);
+  assert.match(windows,/name: windows-installer/);
+  assert.match(windows,/github\.ref == 'refs\/heads\/main' && github\.event_name != 'pull_request' && secrets\.PFC_GOOGLE_CLIENT_SECRET/);
+  assert.match(draft,/if: github\.ref == 'refs\/heads\/main' && \(github\.event_name == 'push' \|\| github\.event_name == 'workflow_dispatch'\)/);
+  assert.match(draft,/needs: \[windows, build\]/);
+  assert.match(draft,/contents: write/);
+  assert.equal((yml.match(/contents: write/g)||[]).length,1,'only the main-only draft job can write releases');
+  assert.match(draft,/persist-credentials: false/);
+  assert.match(draft,/cancel-in-progress: false/);
+  assert.match(draft,/needs\.windows\.outputs\.version/);
+  assert.match(draft,/name: windows-installer/);
+  assert.match(draft,/node scripts\/draft-windows-release\.mjs/);
+  assert.doesNotMatch(draft,/secrets\.PFC_|draft=false/);
+  assert.equal((yml.match(/- installer\/\*\*/g)||[]).length,2,'installer source changes trigger PR and main validation');
+});
