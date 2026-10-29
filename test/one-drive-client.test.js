@@ -173,9 +173,9 @@ test('OneDrive uploads backup plus controller metadata and prunes only this inst
           return jsonResponse({ id:'app-root', name:'Print Farm Controller', folder:{} });
         }
         if (target.includes('/createUploadSession')) {
-          return jsonResponse({ uploadUrl:'https://upload.example/onedrive-session' });
+          return jsonResponse({ uploadUrl:'https://test.up.1drv.com/onedrive-session' });
         }
-        if (target === 'https://upload.example/onedrive-session') {
+        if (target === 'https://test.up.1drv.com/onedrive-session') {
           assert.equal(options.headers.authorization, undefined);
           assert.match(String(options.headers['content-range']), /^bytes 0-\d+\/23$/);
           return jsonResponse({

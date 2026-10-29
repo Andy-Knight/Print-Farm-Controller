@@ -6,6 +6,10 @@ Historical entries describe the behaviour of the controller at the time of that 
 
 ## v0.61.8
 
+- Reject printer HTTP redirects so API keys, Digest authorization and command credentials cannot reach a redirected host. Validate cloud pagination/upload destinations and strip Graph bearer tokens from approved OneDrive content redirects.
+- Bound printer HTTP bodies, camera frames, MQTT packets/queues, WebSocket frames, FTPS control/listing input and TCP file replies; stop oversized or stalled reads.
+- Reserve password-verification capacity before hashing, with shared limits across login, password changes and administrator reauthentication.
+
 - Catch malformed requests at the HTTP/HTTPS listener boundary without terminating the controller.
 - Validate camera response media types and sandbox proxied media against executable HTML.
 - Require HTTPS for password entry by default and provision persistent managed HTTPS before onboarding. Plaintext mode requires an explicit host opt-in.

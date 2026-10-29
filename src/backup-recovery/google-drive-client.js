@@ -1,3 +1,4 @@
+import {trustedCloudUrl} from '../security/cloud-http.js';
 import crypto from 'node:crypto';
 import { createReadStream, createWriteStream, promises as fs } from 'node:fs';
 import os from 'node:os';
@@ -77,7 +78,7 @@ export class GoogleDriveClient {
     this.environmentClientSecret = cleanString(clientSecret);
     this.builtInClientId = cleanString(builtInClientId);
     this.builtInClientSecret = cleanString(builtInClientSecret);
-    this.fetchFn = fetchFn;
+    this.fetchFn = (url,options={})=>fetchFn(url,{...options,redirect:options.redirect??'error'});
     this.nowFn = typeof nowFn === 'function' ? nowFn : Date.now;
     this.diagnostic = typeof diagnosticFn === 'function' ? diagnosticFn : null;
     this.folderName = cleanString(folderName) || GOOGLE_DRIVE_FOLDER_NAME;
@@ -403,10 +404,11 @@ export class GoogleDriveClient {
   }
 
   async authorizedFetch(url, options = {}) {
+    url=trustedCloudUrl(url,{origin:'https://www.googleapis.com'});
     const token = await this.getAccessToken();
     const headers = new Headers(options.headers || {});
     headers.set('authorization', `Bearer ${token}`);
-    return this.fetchFn(url, { ...options, headers });
+    return this.fetchFn(url, { ...options, headers, redirect:'error' });
   }
 
   async ensureBackupFolder() {

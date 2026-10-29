@@ -134,7 +134,7 @@ Manufacturer-specific discovery, capabilities, limits, status normalization, fil
 
 ## Current task
 
-Security hardening on `codex/security-http-camera-alerts`: protect listener errors, reject executable camera media types, bootstrap HTTPS before password entry, and limit destination configuration to administrators. Validate Windows, Chromium, container and secure-upgrade paths before merge; no merge approval has been given.
+Deployment acceptance remains for secure HTTPS onboarding and physical printer behavior. Preserve printer/cloud destination validation, bounded network input and shared authentication admission limits documented in `docs/NETWORK_INPUT_SECURITY.md` and `docs/AUTHENTICATION_AND_RBAC.md`. Fresh-source Linux validation passed (853 tests, zero failures, three documented skips), as did complete Chromium and Windows SEA/installer builds. Native Windows validation outside the restricted sandbox passed (855 tests, zero failures, one optional skip), including all camera checks. Schannel credential acquisition fails in the restricted local sandbox; native decoder tests remain mandatory and run outside it. Physical X1C/Creator 5 and deployment acceptance remain pending.
 
 The bundled decoder baseline uses a pinned, checksum-verified official FFmpeg source archive under `third-party/ffmpeg`, Schannel/LGPL 2.1-or-later on Windows and system OpenSSL 3/LGPL 3-or-later on Linux, without GPL/nonfree components. Preserve matching source, notices and build/integrity records. Windows signing covers both executables before installer compilation. x86 builds require NASM assembly support for correct scaler output; bundle verification rejects builds without it. See `docs/X1C_CAMERA.md`.
 

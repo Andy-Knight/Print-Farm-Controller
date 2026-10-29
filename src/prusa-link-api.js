@@ -1,3 +1,4 @@
+import {fetchPrinterResponse, readPrinterText, readPrinterJson} from './security/printer-http.js';
 import crypto from 'node:crypto';
 import { createReadStream, promises as fs } from 'node:fs';
 import path from 'node:path';
@@ -95,7 +96,7 @@ async function fetchWithTimeout(url, options = {}, timeoutMs = DEFAULT_TIMEOUT_M
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
-    return await fetch(url, { ...options, signal:controller.signal });
+    return await fetchPrinterResponse(url, { ...options, signal:controller.signal });
   } catch (error) {
     if (error?.name === 'AbortError') throw new PrusaLinkApiError(`PrusaLink request timed out after ${Math.round(timeoutMs / 1000)} seconds`);
     throw error;
@@ -115,6 +116,7 @@ async function obtainDigestChallenge(printer, { force = false } = {}) {
     headers:{ accept:'application/json' }
   });
   const challenge = parseDigestChallenge(response.headers.get('www-authenticate'));
+  void response.body?.cancel().catch(()=>{});
   if (!challenge) {
     throw new PrusaLinkApiError(
       response.status === 401
@@ -133,10 +135,10 @@ async function responseError(response) {
   try {
     const contentType = String(response.headers.get('content-type') || '');
     if (contentType.includes('application/json')) {
-      const body = await response.json();
+      const body = await readPrinterJson(response);
       detail = body?.text || body?.title || body?.message || body?.error || '';
     } else {
-      detail = (await response.text()).trim();
+      detail = (await readPrinterText(response)).trim();
     }
   } catch {}
   const suffix = detail ? `: ${detail}` : '';
@@ -181,18 +183,22 @@ async function prusaRequest(printer, pathname, {
 
     if (response.status === 401 && !auth.apiKey && attempt === 0) {
       digestSessions.delete(sessionKey(printer));
+      void response.body?.cancel().catch(()=>{});
       try { body?.destroy?.(); } catch {}
       continue;
     }
     if (!response.ok) throw await responseError(response);
-    if (response.status === 204 || requestMethod === 'HEAD' || responseType === 'none') return null;
-    if (responseType === 'text') return response.text();
+    if (response.status === 204 || requestMethod === 'HEAD' || responseType === 'none') {
+      void response.body?.cancel().catch(()=>{});
+      return null;
+    }
+    if (responseType === 'text') return readPrinterText(response);
     const contentType = String(response.headers.get('content-type') || '');
     if (!contentType.includes('json')) {
-      const text = await response.text();
+      const text = await readPrinterText(response);
       return text ? JSON.parse(text) : null;
     }
-    return response.json();
+    return readPrinterJson(response);
   }
 
   throw new PrusaLinkApiError('PrusaLink authentication failed', { status:401 });

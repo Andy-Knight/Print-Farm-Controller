@@ -55,6 +55,7 @@ class ImplicitFtpsClient {
     this.timeoutMs = timeoutMs;
     this.socket = null;
     this.buffer = '';
+    this.controlBytes = 0;
     this.responses = [];
     this.waiters = [];
     this.multilineCode = null;
@@ -84,7 +85,8 @@ class ImplicitFtpsClient {
   acceptResponse(response) {
     const waiter = this.waiters.shift();
     if (waiter) waiter.resolve(response);
-    else this.responses.push(response);
+    else if (this.responses.length<16) this.responses.push(response);
+    else this.socket?.destroy(new BambuFtpsError('FTPS response queue exceeds limit'));
   }
 
   readResponse(label = 'response') {
@@ -100,15 +102,22 @@ class ImplicitFtpsClient {
     });
   }
 
+  acceptControlData(chunk) {
+    this.controlBytes+=Buffer.byteLength(chunk);
+    if (this.controlBytes>1024*1024 || this.buffer.length+chunk.length>65536) {
+      this.buffer='';this.multilineLines=[];this.responses=[];
+      this.socket.destroy(new BambuFtpsError('FTPS control input exceeds size limit'));return;
+    }
+    this.buffer += chunk;
+    const lines = this.buffer.split(/\r?\n/);
+    this.buffer = lines.pop() || '';
+    for (const line of lines) this.acceptLine(line);
+  }
+
   async connect() {
     this.socket = await connectTls({ host: this.settings.host, port: this.settings.port }, this.timeoutMs);
     this.socket.setEncoding('utf8');
-    this.socket.on('data', (chunk) => {
-      this.buffer += chunk;
-      const lines = this.buffer.split(/\r?\n/);
-      this.buffer = lines.pop() || '';
-      for (const line of lines) this.acceptLine(line);
-    });
+    this.socket.on('data', chunk=>this.acceptControlData(chunk));
     this.socket.on('error', (error) => {
       for (const waiter of this.waiters.splice(0)) waiter.reject(new BambuFtpsError(`FTPS connection failed: ${error.message}`, { cause: error }));
     });
@@ -153,24 +162,34 @@ class ImplicitFtpsClient {
       dataSocket.destroy();
       throw new BambuFtpsError(`FTPS transfer failed: ${preliminary.message}`);
     }
-    await writer(dataSocket);
+    try { await writer(dataSocket); }
+    finally {dataSocket.destroy();}
     const complete = await this.readResponse('transfer completion');
     if (![226, 250].includes(complete.code)) throw new BambuFtpsError(`FTPS transfer did not complete: ${complete.message}`);
   }
 
   async list() {
     const chunks = [];
+    let bytes=0;
     const collect = (dataSocket) => new Promise((resolve, reject) => {
-      dataSocket.on('data', (chunk) => chunks.push(Buffer.from(chunk)));
-      dataSocket.once('end', resolve);
-      dataSocket.once('close', resolve);
-      dataSocket.once('error', reject);
+      const timer=setTimeout(()=>dataSocket.destroy(new BambuFtpsError('FTPS listing timed out')),this.timeoutMs);
+      dataSocket.on('data', (chunk) => {
+        if (bytes+chunk.length>8*1024*1024) {
+          dataSocket.destroy(new BambuFtpsError('FTPS listing exceeds size limit'));return;
+        }
+        bytes+=chunk.length;chunks.push(Buffer.from(chunk));
+      });
+      dataSocket.once('end', ()=>{clearTimeout(timer);resolve();});
+      dataSocket.once('close', ()=>{clearTimeout(timer);resolve();});
+      dataSocket.once('error', error=>{clearTimeout(timer);reject(error);});
     });
     let machineReadable = true;
     try { await this.transfer('MLSD', collect); }
-    catch {
+    catch (error) {
+      if (/size limit|timed out/i.test(error.message)) throw error;
       machineReadable = false;
       chunks.length = 0;
+      bytes=0;
       await this.transfer('LIST', collect);
     }
     return Buffer.concat(chunks).toString().split(/\r?\n/).map((line) => line.trim()).filter(Boolean).flatMap((line) => {
