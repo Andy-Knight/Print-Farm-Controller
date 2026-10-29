@@ -134,7 +134,7 @@ Manufacturer-specific discovery, capabilities, limits, status normalization, fil
 
 ## Current task
 
-Windows storage security on `codex/windows-data-permissions`: select one Windows owning account, remove broad local-user access from existing and new data/log trees, and fail startup before credential access if protection cannot be applied. Preserve owner selection on upgrades, local recovery and separate data/log volumes. Validate actual ACLs, packaged startup, installer compilation, Linux/browser regression and elevated owner reassignment in Windows CI. No merge approval has been given. See `docs/WINDOWS_DATA_SECURITY.md`.
+Preserve Windows storage access for the owning account, SYSTEM and Administrators, owner retention on upgrades, local recovery and separate data/log volumes. Interactive Windows installation is manually confirmed; validation under a separate selected account/UAC elevation identity remains a deployment check. Actual ACL and elevated reassignment tests, packaged startup, Windows builds, Linux/browser regression and container smoke passed. See `docs/WINDOWS_DATA_SECURITY.md`.
 
 Queue lifecycle unit tests use a five-second monotonic polling budget and check the condition before expiring it after a delayed wakeup. The basic lifecycle fixture stubs metadata and costing reads and always stops its service on test cleanup. Keep queue runtime timing and safety interlocks independent of test-runner scheduling.
 
