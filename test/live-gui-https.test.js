@@ -342,3 +342,22 @@ test('secure default enrolls over HTTPS, rejects plaintext actions and survives 
     assert.equal((await secureRequest(secure,'/api/tls/status',{identity:next})).body.tls.certificate.fingerprint256,fingerprint);
   } finally {await stop(child);await fs.rm(root,{recursive:true,force:true});}
 });
+
+test('existing HTTP-only accounts migrate to managed HTTPS without re-enrollment', {timeout:30000}, async()=>{
+  const root=await fs.mkdtemp(path.join(os.tmpdir(),'pfc-https-upgrade-'));
+  const dataDir=path.join(root,'data'),logDir=path.join(root,'logs');
+  const logs=[];
+  let child;
+  try {
+    await new AccountStore({dataDir}).bootstrapAdministrator({username:'guiadmin',password});
+    await fs.mkdir(path.join(dataDir,'tls'),{recursive:true});
+    await fs.writeFile(path.join(dataDir,'tls','settings.json'),JSON.stringify({version:1,mode:'off',names:['localhost','127.0.0.1']}));
+    const port=await freePort(),secure='https://127.0.0.1:'+(port+1);
+    child=startController({dataDir,logDir,port,logs,secureDefault:true});
+    await pollHealthy(secure,child,logs);
+    const identity=await login(secure);
+    assert.equal((await secureRequest(secure,'/api/tls/status',{identity})).body.tls.mode,'self-signed');
+    assert.equal((await secureRequest(secure,'/api/auth/session',{identity})).body.setupRequired,false);
+    assert.doesNotMatch(logs.join(''),/One-time enrollment code/);
+  } finally {await stop(child);await fs.rm(root,{recursive:true,force:true});}
+});

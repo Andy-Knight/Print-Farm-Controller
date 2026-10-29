@@ -46,7 +46,7 @@ export class ControllerAuth {
   #enabled=true;
   #setupRequired=false;
   #secure=false;
-  #allowHttp=true;
+  #allowHttp=false;
   #origin=null;
   #enrollmentCode=null;
   #enrollmentAvailable=false;
