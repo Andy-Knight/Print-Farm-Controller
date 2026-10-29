@@ -1500,6 +1500,7 @@
     <div id="authAdminTabs" class="maintenance-view-selector auth-security-tabs" data-pfc-tabs role="tablist" aria-label="Security & users sections" hidden>
       <button id="authTabUsers" type="button" class="maintenance-view-button active" role="tab" data-pfc-icon="users" aria-selected="true" aria-controls="authUsersPanel">Users</button>
       <button id="authTabHttps" type="button" class="maintenance-view-button" role="tab" data-pfc-icon="server" aria-selected="false" aria-controls="tlsSettings" tabindex="-1">Connection settings</button>
+      <button id="authTabLimits" type="button" class="maintenance-view-button" role="tab" data-pfc-icon="sliders" aria-selected="false" aria-controls="resourceLimitsSettings" tabindex="-1">Resource limits</button>
     </div>
     <section id="authUsersPanel" class="auth-security-tab-panel" role="tabpanel" aria-labelledby="authTabUsers" tabindex="0" hidden>
     <div id="authUsersLayout" class="auth-users-layout" hidden>
@@ -1598,6 +1599,24 @@
           <div class="actions"><button id="tlsRegenerateBtn" type="submit" class="attention">Regenerate self-signed certificate</button></div>
         </form>
       </section>
+    </section>
+    <section id="resourceLimitsSettings" class="auth-panel auth-security-tab-panel" role="tabpanel" aria-labelledby="authTabLimits" tabindex="0" hidden>
+      <h3>Resource limits</h3>
+      <p class="subtle">Set capacity for this controller. The lowest applicable account, session, source IP or total limit applies. Camera and live-event connections share their allowance; reverse proxies share a source IP allowance.</p>
+      <p id="resourceLimitsRestart" class="auth-transport-notice" role="status">Changes take effect after a controller restart. Restart only when active work has finished.</p>
+      <form id="resourceLimitsForm" class="auth-form">
+        <div id="resourceLimitFields"></div>
+        <div class="actions resource-limit-actions">
+          <button id="resourceLimitsSave" type="submit" class="primary" disabled>Save resource limits</button>
+          <button id="resourceLimitsDefaults" type="button" class="secondary">Use default values</button>
+          <button id="resourceLimitsReload" type="button" class="secondary">Reload saved limits</button>
+        </div>
+      </form>
+      <p id="resourceLimitsStatus" role="status" aria-live="polite"></p>
+      <p class="subtle">Existing files are never automatically deleted. Reducing a limit affects admission of new work after restart. Host-managed fields are locked. Default values are prepared as a draft until you save.</p>
+      <details class="resource-limit-fixed"><summary>Fixed processing limits</summary>
+        <p class="subtle">Individual print files: 512 MiB. Cloud restore downloads: 4 GiB. ZIP directories: 16 MiB / 50,000 entries. Cloud listings: 100 pages / 10,000 items. Cloud metadata: 4 MiB per response / 16 MiB per operation. File inspection: two active jobs and 16 waiting jobs. These processing safeguards cannot be changed here.</p>
+      </details>
     </section>
   </section>
 

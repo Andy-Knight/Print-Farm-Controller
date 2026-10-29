@@ -16,7 +16,7 @@ export class SessionManager {
   #absolute;
   #maxSessions;
   #maxPerUser;
-  constructor({now=()=>Date.now(),idleMs=DEFAULT_IDLE_MS,absoluteMs=DEFAULT_ABSOLUTE_MS,maxSessions=configuredLimit('PFC_MAX_SESSIONS',1000),maxPerUser=configuredLimit('PFC_MAX_SESSIONS_PER_USER',20)}={}){
+  constructor({now=()=>Date.now(),idleMs=DEFAULT_IDLE_MS,absoluteMs=DEFAULT_ABSOLUTE_MS,maxSessions,maxPerUser}={}){
     if(!Number.isFinite(idleMs)||idleMs<=0||!Number.isFinite(absoluteMs)||absoluteMs<=0)
       throw new Error('Session timeout must be positive');
     this.#now=now;
@@ -26,7 +26,7 @@ export class SessionManager {
   create(userId){
     if(typeof userId!=='string'||!userId)throw new Error('A real user ID is required');
     this.pruneExpired();
-    if(this.#sessions.size>=this.#maxSessions||[...this.#sessions.values()].filter(entry=>entry.userId===userId).length>=this.#maxPerUser)
+    if(this.#sessions.size>=(this.#maxSessions??configuredLimit('PFC_MAX_SESSIONS',1000))||[...this.#sessions.values()].filter(entry=>entry.userId===userId).length>=(this.#maxPerUser??configuredLimit('PFC_MAX_SESSIONS_PER_USER',20)))
       throw resourceError('Active session limit reached. Sign out of an existing session before retrying.');
     const token=randomBytes(32).toString('hex');
     const now=this.#now();

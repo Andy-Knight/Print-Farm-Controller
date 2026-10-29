@@ -2,9 +2,33 @@
 
 Limits apply on Windows and in containers. They protect control/monitoring capacity;
 they do not change signed licensing or bypass print readiness and recovery holds.
-Host administrators can set the environment variables below before startup. Values
+Administrators can tune every setting in the table under **Security & users →
+Resource limits**. Fields show the active value and default in readable count,
+MiB/GiB or seconds units. **Save resource limits** persists the draft, and a
+restart notice remains until the controller is restarted and the values are active.
+The GUI does not restart the controller or interrupt active work. Restart only
+after printing and backup/restore work has finished. Reducing a quota does not
+delete existing files or immediately terminate connections; new admission uses
+the new policy after restart. Tab changes and live telemetry preserve unsaved edits.
+**Use default values** prepares an editable draft; save and restart to apply it.
+**Reload saved limits** explicitly discards the current draft.
+
+Host administrators can also set the environment variables below before startup. Values
 are positive integer counts, bytes or milliseconds; timeout overrides must not
 exceed 24 hours. Invalid overrides fail startup when that policy is initialized.
+Environment variables take precedence over saved GUI settings and defaults.
+Host-managed fields are locked and identify their environment setting; edit the
+Windows service/container environment and restart to change those overrides.
+GUI changes require an enrolled, signed-in Administrator and normal Origin/CSRF
+checks, including when the host has explicitly selected legacy authentication mode.
+
+Settings persist in `<DATA_DIR>/security/resource-limits.json` with private file
+permissions. They are installation policy: portable backups do not export them,
+and restore activation leaves the target installation's resource policy intact.
+Absent settings use defaults; malformed/invalid saved settings stop startup rather
+than silently removing protection. A host administrator can repair the file or
+move it aside while the controller is stopped to recover the defaults; host
+environment overrides still take precedence.
 
 | Environment setting | Default | Meaning |
 | --- | --- | --- |
@@ -21,6 +45,8 @@ exceed 24 hours. Invalid overrides fail startup when that policy is initialized.
 | `PFC_MAX_SESSIONS_PER_USER` | 20 | Sessions per account |
 | `PFC_MAX_STREAMS` | 128 | Combined camera/event connections |
 | `PFC_MAX_STREAMS_PER_USER` | 16 | Camera/event connections per account |
+| `PFC_MAX_STREAMS_PER_SESSION` | 8 | Camera/event connections per login session |
+| `PFC_MAX_STREAMS_PER_IP` | 32 | Camera/event connections per socket source IP |
 | `PFC_BACKUP_MAX_EXPANDED_BYTES` | 64 GiB | Aggregate declared ZIP expansion |
 | `PFC_BACKUP_MAX_ENTRY_BYTES` | 1 GiB | Uncompressed ZIP entry size |
 | `PFC_BACKUP_ARCHIVE_TIMEOUT_MS` | 600000 | Archive verification/processing budget |
@@ -48,7 +74,7 @@ and the operating-system temporary directory as well as the library itself.
 
 Expired sessions are swept before new-session admission and quota accounting;
 expired tokens cannot keep occupying login capacity. Close/sign out of unused
-sessions to free active capacity. Live streams also have fixed caps of eight per
+sessions to free active capacity. Live streams also default to eight per
 session and 32 per socket source IP. Reverse proxies share that source-IP bucket.
 Explicit legacy mode shares account/session capacity by source IP. Closed or failed
 streams release all counters; ordinary health/status requests are not stream slots.
@@ -89,3 +115,12 @@ report an operation error or close an interrupted streaming response. Other cont
 and health routes remain available when these capacities are exhausted. Tune host
 limits deliberately for slower links and larger installations; clients cannot raise
 them through request parameters.
+
+The administrator API uses `GET /api/settings/resource-limits` for active/saved
+values, units, defaults, host-lock status and restart status. `PUT` on the same
+path accepts `{ "overrides": { "PFC_MAX_UPLOADS": 4 } }` in base units (counts,
+bytes, milliseconds), replacing saved unlocked overrides. Omitted unlocked keys
+return to defaults. Host-managed keys cannot be written; their dormant saved
+values are retained. Writes never change active process policy before restart.
+The GUI lists fixed file-format, parser, cloud listing/response and inspection
+concurrency limits as read-only processing safeguards.

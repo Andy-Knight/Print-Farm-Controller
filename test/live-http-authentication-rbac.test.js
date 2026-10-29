@@ -86,6 +86,18 @@ test('real HTTP dispatcher enforces login, CSRF and RBAC before controller actio
     assert.equal((await call('GET','/api/emulator/status',admin)).status,200);
     assert.equal((await call('GET','/api/auth/users',viewer)).status,403);
     assert.equal((await call('GET','/api/auth/users',admin)).status,200);
+    for(const identity of [viewer,operator]){
+      assert.equal((await call('GET','/api/settings/resource-limits',identity)).status,403);
+      assert.equal((await call('PUT','/api/settings/resource-limits',identity,{body:{overrides:{}}})).status,403);
+    }
+    assert.equal((await call('PUT','/api/settings/resource-limits',admin,{csrf:false,body:{overrides:{}}})).status,403);
+    assert.equal((await call('PUT','/api/settings/resource-limits',admin,{origin:false,body:{overrides:{}}})).status,403);
+    const limits=await (await call('GET','/api/settings/resource-limits',admin)).json();
+    assert.equal(limits.limits.fields.find(field=>field.key==='PFC_MAX_STREAMS').locked,true);
+    assert.equal((await call('PUT','/api/settings/resource-limits',admin,{body:{overrides:{PFC_MAX_STREAMS:3}}})).status,409);
+    assert.equal((await call('PUT','/api/settings/resource-limits',admin,{body:{overrides:{PFC_MAX_SESSIONS:0}}})).status,400);
+    const saved=await call('PUT','/api/settings/resource-limits',admin,{body:{overrides:{PFC_MAX_SESSIONS_PER_USER:21}}});
+    assert.equal(saved.status,200);assert.equal((await saved.json()).limits.restartRequired,true);
     assert.equal((await call('GET','/api/undocumented',admin)).status,404);
     assert.equal((await call('POST','/api/batch',admin,{csrf:false})).status,403);
     assert.equal((await call('POST','/api/batch',admin,{origin:false})).status,403);

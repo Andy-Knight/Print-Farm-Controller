@@ -1,6 +1,7 @@
 /* Standalone native authentication gate. Runs before Preact and legacy modules.
  * No token or password is persisted in the DOM, URL, or browser storage.
  */
+import {createResourceLimitEditor} from './resource-limit-settings.js';
 const nativeFetch=window.fetch.bind(window);
 const $=(selector)=>document.querySelector(selector);
 const lock=$('#authOverlay');
@@ -377,12 +378,14 @@ async function loadUsers(){
     container.replaceChildren(outer);
   }catch(error){loading.textContent=errorText(error);}
 }
+const resourceLimitEditor=createResourceLimitEditor({call});
 function showSecurityTab(tab,{focus=false}={}){
   if(session?.user?.role!=='administrator')return;
-  const choice=tab==='https'?'https':'users';
+  const choice=['https','limits'].includes(tab)?tab:'users';
   for(const [name,buttonId,panelId] of [
     ['users','authTabUsers','authUsersPanel'],
-    ['https','authTabHttps','tlsSettings']
+    ['https','authTabHttps','tlsSettings'],
+    ['limits','authTabLimits','resourceLimitsSettings']
   ]){
     const button=$('#'+buttonId),panel=$('#'+panelId);
     const selected=name===choice;
@@ -393,6 +396,7 @@ function showSecurityTab(tab,{focus=false}={}){
     if(selected&&focus)button.focus();
   }
   if(choice==='https')void loadTlsSettings();
+  else if(choice==='limits')void resourceLimitEditor.load();
   else void loadUsers();
 }
 function syncTlsConfigureFields(){
@@ -528,17 +532,18 @@ function initializeAccountUi(){
     $('#authAdminTabs').hidden=false;
     $('#authUsersPanel').hidden=false;
     $('#usersBtn').addEventListener('click',()=>showSecurityTab('users'));
-    for(const [tab,id] of [['users','authTabUsers'],['https','authTabHttps']]){
+    for(const [tab,id] of [['users','authTabUsers'],['https','authTabHttps'],['limits','authTabLimits']]){
       $('#'+id).addEventListener('click',()=>showSecurityTab(tab));
     }
     $('#authAdminTabs').addEventListener('keydown',event=>{
       const keys=['ArrowLeft','ArrowRight','Home','End'];
       if(!keys.includes(event.key)||!event.target.matches('[role="tab"]'))return;
       event.preventDefault();
-      const current=event.target.id==='authTabHttps'?1:0;
-      const next=event.key==='Home'?0:event.key==='End'?1
-        :event.key==='ArrowRight'?(current+1)%2:(current+1)%2;
-      showSecurityTab(next===0?'users':'https',{focus:true});
+      const tabs=['users','https','limits'],ids=['authTabUsers','authTabHttps','authTabLimits'];
+      const current=ids.indexOf(event.target.id);
+      const next=event.key==='Home'?0:event.key==='End'?tabs.length-1
+        :(current+(event.key==='ArrowRight'?1:tabs.length-1))%tabs.length;
+      showSecurityTab(tabs[next],{focus:true});
     });
     $('#tlsConfigureMode')?.addEventListener('change',syncTlsConfigureFields);
     $('#tlsConfigureForm')?.addEventListener('input',event=>{

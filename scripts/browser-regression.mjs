@@ -3884,7 +3884,7 @@ async function nativeAuthenticationSmoke(browser){
     child=spawn(process.execPath,['src/server.js'],{
       cwd:root,env:{...process.env,HOST:'127.0.0.1',PORT:url.split(':').at(-1),
         DATA_DIR:dataDir,LOG_DIR:path.join(rootDir,'logs'),
-        DISCOVERY_SUBNET:'',EMULATOR_NO_DEFAULTS:'1',PFC_AUTH_ALLOW_HTTP:'1'},
+        DISCOVERY_SUBNET:'',EMULATOR_NO_DEFAULTS:'1',PFC_AUTH_ALLOW_HTTP:'1',PFC_MAX_STREAMS_PER_IP:'40'},
       stdio:['ignore','pipe','pipe']
     });
     child.stdout.on('data',x=>logs.push(String(x)));
@@ -4200,6 +4200,64 @@ async function nativeAuthenticationSmoke(browser){
     assert.equal(await page.locator('#authTabUsers').getAttribute('aria-selected'),'true');
     assert.equal(await page.locator('#authTabHttps').getAttribute('aria-selected'),'false');
     assert.equal(await page.locator('#authTabHttps').innerText(),'Connection settings');
+    await page.locator('#authTabUsers').focus();
+    await page.keyboard.press('End');
+    await page.locator('#resourceLimitsForm input[name=PFC_MAX_UPLOADS]').waitFor({state:'visible'});
+    assert.equal(await page.locator('#authTabLimits').getAttribute('aria-selected'),'true');
+    assert.equal(await page.locator('#authUsersPanel').isVisible(),false);
+    assert.equal(await page.locator('#resourceLimitsForm input[name=PFC_MAX_STREAMS_PER_IP]').isDisabled(),true);
+    assert.equal(await page.locator('#resourceLimitsForm input[name=PFC_MAX_STREAMS_PER_IP]').inputValue(),'40');
+    assert.match(await page.locator('#limit-PFC_MAX_STREAMS_PER_IP-help').innerText(),/Managed by host/);
+    const perUserSessions=page.locator('#limit-PFC_MAX_SESSIONS_PER_USER');
+    await perUserSessions.fill('1.5');await page.locator('#resourceLimitsSave').click();
+    assert.match(await page.locator('#resourceLimitsStatus').innerText(),/Counts must be whole numbers/);
+    await perUserSessions.fill('21');
+    await page.locator('#authTabUsers').click();
+    await page.locator('#authTabLimits').click();
+    assert.equal(await perUserSessions.inputValue(),'21','tab changes preserve pending edits');
+    const saveLimits=page.waitForResponse(response=>response.url().endsWith('/api/settings/resource-limits')&&response.request().method()==='PUT');
+    await page.locator('#resourceLimitsSave').click();
+    assert.equal((await saveLimits).status(),200);
+    await page.waitForFunction(()=>document.querySelector('#resourceLimitsRestart').textContent.includes('waiting for'));
+    assert.match(await page.locator('#limit-PFC_MAX_SESSIONS_PER_USER-help').innerText(),/Active: 20/);
+    await page.reload();
+    await page.locator('#usersBtn').click();await page.locator('#authTabLimits').click();
+    await page.locator('#limit-PFC_MAX_SESSIONS_PER_USER').waitFor({state:'visible'});
+    assert.equal(await perUserSessions.inputValue(),'21','saved values survive a browser reload');
+    for(const theme of ['dark','light']){
+      await page.evaluate(theme=>document.documentElement.dataset.theme=theme,theme);
+      for(const width of [1365,900,760,620,390,320]){
+        await page.setViewportSize({width,height:900});
+        const geometry=await page.locator('#resourceLimitsSettings').evaluate(panel=>({
+          width:innerWidth,pageWidth:document.documentElement.scrollWidth,
+          inputs:[...panel.querySelectorAll('input')].map(input=>input.getBoundingClientRect().toJSON())
+        }));
+        assert.ok(geometry.pageWidth<=width+1,`resource settings overflow at ${width}px in ${theme}`);
+        assert.ok(geometry.inputs.every(rect=>rect.width>80&&rect.left>=0&&rect.right<=width),
+          `resource fields remain readable at ${width}px in ${theme}`);
+        if(authVisualDir&&[1365,390].includes(width))await page.screenshot({path:path.join(authVisualDir,`resource-limits-${theme}-${width}.png`),fullPage:true,animations:'disabled'});
+      }
+    }
+    await page.setViewportSize({width:1280,height:800});
+    await page.evaluate(()=>document.documentElement.dataset.theme='dark');
+    const fallback=await context.newPage();
+    try{
+      await fallback.route('**/dashboard-preact.js',route=>route.abort());
+      await fallback.goto(url+'/');await fallback.locator('#usersBtn').click();
+      await fallback.locator('#authTabLimits').click();
+      await fallback.locator('#limit-PFC_MAX_SESSIONS_PER_USER').waitFor({state:'visible'});
+      assert.equal(await fallback.locator('#limit-PFC_MAX_SESSIONS_PER_USER').inputValue(),'21');
+      assert.equal(await fallback.locator('#limit-PFC_MAX_STREAMS_PER_IP').isDisabled(),true);
+      await fallback.locator('#authTabLimits').focus();await fallback.keyboard.press('ArrowLeft');
+      assert.equal(await fallback.locator('#authTabHttps').getAttribute('aria-selected'),'true');
+    }finally{await fallback.close();}
+    await page.locator('#resourceLimitsDefaults').click();
+    assert.equal(await perUserSessions.inputValue(),'20');
+    assert.equal(await page.locator('#limit-PFC_MAX_STREAMS_PER_IP').inputValue(),'40','defaults retain host policy');
+    const resetLimits=page.waitForResponse(response=>response.url().endsWith('/api/settings/resource-limits')&&response.request().method()==='PUT');
+    await page.locator('#resourceLimitsSave').click();assert.equal((await resetLimits).status(),200);
+    await page.waitForFunction(()=>document.querySelector('#resourceLimitsRestart').textContent.startsWith('Saved limits are active.'));
+    console.log('Chromium: administrator resource limits, restart notice, drafts, host locks, themes/mobile and fallback PASS');
     await page.locator('#authTabHttps').click();
     assert.equal(await page.locator('#tlsSettingsHeading').innerText(),'Connection settings');
     await page.locator('#tlsConfigureForm').waitFor({state:'visible'});

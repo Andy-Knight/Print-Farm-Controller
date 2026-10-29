@@ -4,6 +4,12 @@ This file contains the version-by-version release history for Print Farm Control
 
 Historical entries describe the behaviour of the controller at the time of that release and may be superseded by later versions. For current installation, configuration and supported-hardware guidance, see [README.md](README.md).
 
+## v0.61.11
+
+- Add administrator-only Resource limits settings with grouped count/storage/timeout fields, active/default values, host override locks, draft reset/reload and a persistent restart notice in both frontend modes.
+- Persist validated resource policy atomically in protected installation storage. Apply it at startup across upload, library, session, stream and backup services; preserve running limits until restart and retain environment precedence.
+- Make per-session and source-IP stream allowances configurable while retaining independent file-format, parser, licensing and recovery safeguards.
+
 ## v0.61.10
 
 - Add aggregate upload, library storage, session and camera/event-stream quotas with free-space admission, bounded file-inspection work and safe cleanup. Inspect embedded 3MF metadata through bounded ZIP reads and decompress previews asynchronously.

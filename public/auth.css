@@ -502,6 +502,19 @@ html.auth-pending body>aside,html.auth-pending body>header,html.auth-pending bod
 @media(max-width:700px){.auth-tls-maintenance{padding:14px;}}
 
 #tlsMaintenance[hidden]{display:none!important;}
+#resourceLimitsSettings[hidden]{display:none!important;}
+#resourceLimitsSettings:focus-visible{outline:2px solid var(--ds-focus);outline-offset:3px;}
+#resourceLimitFields fieldset{min-width:0;margin:0 0 18px;padding:16px;border:1px solid var(--ds-border);border-radius:var(--ds-radius-sm);}
+#resourceLimitFields legend{padding:0 6px;font-size:var(--ds-font-lg);font-weight:650;}
+.resource-limit-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px 24px;}
+.resource-limit-grid>div{min-width:0;}
+.resource-limit-grid .field-help{margin:6px 0 0;font-size:var(--ds-font-sm);line-height:1.5;color:var(--ds-text-muted);overflow-wrap:anywhere;}
+.resource-limit-grid input:focus-visible{outline:2px solid var(--ds-focus);outline-offset:2px;}
+.resource-limit-grid input:disabled{opacity:.65;}
+.resource-limit-actions{display:flex;flex-wrap:wrap;gap:10px;}
+.resource-limit-fixed summary{cursor:pointer;color:var(--ds-text-muted);}
+#resourceLimitsStatus{font-size:var(--ds-font-sm);overflow-wrap:anywhere;}
+@media(max-width:760px){.resource-limit-grid{grid-template-columns:minmax(0,1fr);}.resource-limit-actions>button{width:100%;}}
 #tlsStatusMessage:not(:empty){display:block;margin:12px 0;color:var(--ds-text);}
 
 /* Security HTTPS tab: deliberate hierarchy — summary, settings, renewal. */
