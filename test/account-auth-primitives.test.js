@@ -73,6 +73,32 @@ test('user additions, roles and disablement persist and protect the last active 
   assert.equal((await reloaded.authenticate('owner','correct-password-number-one')).role,'viewer');
 });
 
+test('deleting users is durable, serialized and never removes the last enabled administrator',async t=>{
+  const {dir,store}=await freshStore(t);
+  const owner=await store.bootstrapAdministrator({username:'owner',password:'correct-password-number-one'});
+  const operator=await store.addUser({username:'operator',password:'correct-password-number-two',role:'operator'});
+  const disabled=await store.addUser({username:'disabled',password:'correct-password-number-three',role:'viewer'});
+  await store.updateUser(disabled.id,{disabled:true});
+  const removed=await store.deleteUser(operator.id);
+  assert.deepEqual(removed,operator,'deletion returns public account metadata only');
+  assert.equal(removed.password,undefined);
+  assert.equal(await store.authenticate('operator','correct-password-number-two'),null);
+  await assert.rejects(store.deleteUser(operator.id),error=>error.statusCode===404);
+  await assert.rejects(store.deleteUser(owner.id),error=>error.statusCode===409);
+  assert.equal((await store.listUsers()).some(user=>user.id===owner.id),true);
+  await store.deleteUser(disabled.id);
+  const replacement=await store.addUser({username:'operator',password:'a-new-password-number-two',role:'operator'});
+  assert.notEqual(replacement.id,operator.id,'reusing a deleted username creates a distinct identity');
+  const reloaded=new AccountStore({dataDir:dir});
+  assert.deepEqual((await reloaded.listUsers()).map(user=>user.username),['owner','operator']);
+  await reloaded.addUser({username:'secondadmin',password:'another-long-admin-password',role:'administrator'});
+  const previous=await reloaded.deleteUser(owner.id);
+  assert.equal(previous.id,owner.id,'another administrator allows removal of the old administrator');
+  await assert.rejects(reloaded.deleteUser((await reloaded.listUsers()).find(u=>u.username==='secondadmin').id),
+    error=>error.statusCode===409);
+  assert.equal((await reloaded.listUsers()).filter(u=>u.role==='administrator').length,1);
+});
+
 test('account file corruption fails closed and cannot trigger a new admin bootstrap',async t=>{
   const {store}=await freshStore(t);
   await store.bootstrapAdministrator({username:'owner',password:'correct-password-number-one'});

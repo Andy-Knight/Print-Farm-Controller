@@ -1,0 +1,94 @@
+# Example single-replica K3s/MetalLB deployment. Supply suitable persistent
+# StorageClass and network policies for your cluster before production use.
+# MetalLB exposes browser port 80 -> pod 4242 and 443 -> pod 4243.
+# HTTP becomes redirect-only after HTTPS is enabled in Security & users.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: print-farm-controller-data
+spec:
+  accessModes: [ReadWriteOnce]
+  resources:
+    requests:
+      storage: 10Gi
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: print-farm-controller-logs
+spec:
+  accessModes: [ReadWriteOnce]
+  resources:
+    requests:
+      storage: 2Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: print-farm-controller
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: print-farm-controller
+  template:
+    metadata:
+      labels:
+        app: print-farm-controller
+    spec:
+      containers:
+        - name: controller
+          # Pin to an approved published version/digest when deploying.
+          image: ghcr.io/andy-knight/print-farm-controller:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 4242
+              protocol: TCP
+            - name: https
+              containerPort: 4243
+              protocol: TCP
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            periodSeconds: 10
+            timeoutSeconds: 3
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            periodSeconds: 30
+            timeoutSeconds: 3
+          volumeMounts:
+            - name: data
+              mountPath: /data
+            - name: logs
+              mountPath: /logs
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: print-farm-controller-data
+        - name: logs
+          persistentVolumeClaim:
+            claimName: print-farm-controller-logs
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: print-farm-controller
+spec:
+  type: LoadBalancer
+  selector:
+    app: print-farm-controller
+  ports:
+    - name: http
+      port: 80
+      targetPort: http
+      protocol: TCP
+    - name: https
+      port: 443
+      targetPort: https
+      protocol: TCP

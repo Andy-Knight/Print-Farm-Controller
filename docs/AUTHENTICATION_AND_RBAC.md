@@ -101,6 +101,13 @@ The controller uses `src/security/http-auth.js` as a central gate ahead of the e
 
 ## Quality gates and future hardening
 
+Browser user-management checks must wait for the role-save PATCH and subsequent
+user-list GET, verify the persisted role in that response, and wait for the
+refreshed row before testing its actions. Selecting a dropdown changes its draft
+value immediately; it does not prove the save finished. The list temporarily
+shows a loading message during refresh, so checking Delete before that refresh
+completes can report a false permission failure.
+
 - **Foundation (v0.59.11):** Explicit route-to-permission policy, endpoint coverage regression tests, threat model, RBAC contract and isolated `AccountStore`, `SessionManager` and `LoginAttemptLimiter` primitives with unit coverage. They intentionally leave the production HTTP server untouched and preserve v0.59.10 behavior. No internet-facing identity or session endpoints exist.
 - **Core authentication (implemented in draft PR #131; validation pending):** Integrate the tested `AccountStore`, `SessionManager` and `LoginAttemptLimiter` into a locally bootstrapped authentication service; add login/logout/session APIs, cookie issuance, session validation and revocation after role/password changes, trusted proxy/Origin/CSRF checks, safe recovery and end-to-end API tests. Password hashes use Node 24 built-in scrypt, a unique salt and restricted `DATA_DIR/security/users.json` permissions. Sessions are opaque and only stored as digests in RAM, so restarts invalidate them.
 - **Enforcement (implemented in draft PR #131; validation pending):** Integrate middleware into the HTTP router *before* `/api/emulator`, `apiRoute`, streaming and downloads; protect static simulator data; add payload-specific policy where actions share a method and URL. Deny unknown routes and test direct forged client requests.

@@ -183,11 +183,11 @@ test('Sale lots and tax-inclusive Min. sell price have separate aligned sortable
 test('desktop library workbench uses compact and aligned nine-column tracks',()=>{
   const css=read('public/print-library-polish.css');
   const browser=read('scripts/browser-regression.mjs');
-  assert.match(css,/#libraryDialog\.library-dialog \{[\s\S]*?width:min\(1300px,100%\);/);
+  assert.match(css,/#libraryDialog\.library-dialog \{[\s\S]*?width:100%;[\s\S]*?max-width:none;/);
   const trackRule=css.match(/--library-table-cols:([^;]+);/);
   assert.ok(trackRule,'missing shared desktop track definition');
   assert.equal(trackRule[1].match(/minmax\(/g)?.length,6);
-  assert.match(trackRule[1],/70px minmax\(136px,\.82fr\) minmax\(104px,\.68fr\)/);
+  assert.match(trackRule[1],/70px minmax\(136px,160px\) minmax\(104px,128px\)/);
   assert.equal((css.match(/grid-template-columns:var\(--library-table-cols\)/g)||[]).length,2,
     'header and body must use identical nine-column tracks');
   assert.equal((css.match(/gap:10px;/g)||[]).length>=2,true);

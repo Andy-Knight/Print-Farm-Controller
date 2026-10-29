@@ -16,6 +16,7 @@ function sliceFunction(startMarker, endMarker) {
 }
 
 const controllerLogic = [
+  sliceFunction('function updateSidebarCountBadge(', '\nconst queueDialog ='),
   sliceFunction('async function confirmBedCleared(', '\nfunction isPrinterPrinting('),
   sliceFunction('function queueClearanceMarkup(', '\nfunction productionBatchMarkup('),
   sliceFunction('function queueClearanceViewModel(', '\nfunction productionBatchViewModel('),

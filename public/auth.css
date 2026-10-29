@@ -46,7 +46,10 @@ html.auth-pending body>aside,html.auth-pending body>header,html.auth-pending bod
 }
 .auth-users-table tbody tr:hover{background:var(--pfc-table-hover);}
 .auth-users-table td input[type=checkbox]{min-height:22px;width:22px;}
-.auth-row-actions{display:grid;gap:4px;}
+.auth-row-actions{display:flex;flex-wrap:wrap;align-items:center;gap:6px;}
+.auth-row-actions .auth-row-status{flex-basis:100%;}
+.auth-row-actions .auth-user-delete{background:var(--ds-danger);color:var(--ds-surface);}
+
 .auth-users-table button{min-height:32px;}
 .auth-password-dialog{position:fixed;margin:auto;inset:0;width:min(450px,calc(100% - 30px));max-height:85vh;overflow:auto;}
 .auth-password-dialog::backdrop{background:rgba(0,0,0,.75);}
@@ -435,4 +438,93 @@ html.auth-pending body>aside,html.auth-pending body>header,html.auth-pending bod
 @media(prefers-reduced-motion:reduce){
   .auth-input-wrap>input{transition:none}
   .auth-brand-symbol::after{animation:auth-logo-layer 3.5s ease-in-out infinite}
+}
+
+/* Security & users: administrator-only native HTTPS certificate management. */
+#tlsSettings[hidden],#tlsRegenerateForm[hidden],#tlsDownloadBtn[hidden]{display:none!important;}
+.auth-tls-settings{margin-top:20px;max-width:100%;}
+.auth-tls-details{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px 24px;margin:16px 0;}
+.auth-tls-details>div{min-width:0;border-bottom:1px solid var(--ds-border);padding:8px 0;}
+.auth-tls-details dt{font-size:var(--ds-font-sm);color:var(--ds-text-muted);font-weight:650;}
+.auth-tls-details dd{margin:4px 0 0;overflow-wrap:anywhere;font-size:var(--ds-font-sm);color:var(--ds-text);}
+.auth-tls-download{display:inline-flex;align-items:center;justify-content:center;
+  text-decoration:none;min-height:var(--ds-button-height);padding:8px 16px;
+  border:1px solid var(--ds-border);border-radius:var(--ds-radius-sm);
+  background:var(--ds-surface-raised);color:var(--ds-text);font-weight:650;}
+.auth-tls-download:focus-visible{outline:2px solid var(--ds-focus);outline-offset:2px;}
+.auth-tls-regenerate{max-width:620px;margin-top:22px;padding-top:20px;border-top:1px solid var(--ds-border);}
+.auth-tls-regenerate h4{margin:0;font-size:var(--ds-font-lg);}
+.auth-tls-confirm{display:flex!important;flex-direction:row;align-items:flex-start;gap:12px;}
+.auth-form .auth-tls-confirm input[type=checkbox]{width:20px;min-width:20px;min-height:20px;height:20px;margin:2px 0 0;accent-color:var(--ds-brand);}
+.auth-tls-regenerate .actions{display:flex;gap:12px;}
+.auth-tls-regenerate button{min-height:var(--ds-button-height);}
+@media(max-width:700px){.auth-tls-details{grid-template-columns:minmax(0,1fr);}}
+
+/* Transport is configured through the controller GUI, not startup variables. */
+#tlsConfigureManaged[hidden],#tlsConfigureProvided[hidden],#tlsConfigureForm[hidden],
+#tlsActivationLink[hidden]{display:none!important;}
+.auth-tls-configure{max-width:720px;margin:20px 0 24px;
+  padding:20px;border:1px solid var(--ds-border);border-radius:var(--ds-radius-sm);
+  background:var(--ds-surface-muted);}
+.auth-tls-configure h4{font-size:var(--ds-font-lg);margin:0;}
+.auth-tls-mode-fields{display:grid;gap:12px;padding:14px;
+  border:1px solid var(--ds-border);border-radius:var(--ds-radius-sm);
+  background:var(--ds-surface);}
+.auth-tls-configure .field-help{margin:0;color:var(--ds-text-muted);font-size:var(--ds-font-sm);line-height:1.5;}
+.auth-tls-configure button{min-height:var(--ds-button-height);}
+.auth-tls-configure input[type=number],.auth-tls-configure input[type=text]{width:100%;}
+#tlsActivationStatus:empty{display:none;}
+#tlsActivationLink{margin-bottom:14px;}
+@media(max-width:700px){.auth-tls-configure{padding:14px;}.auth-tls-mode-fields{padding:12px;}}
+
+/* The Users and HTTPS tabs follow the same underline grammar as every
+   other controller page. Hidden panels must not occupy layout space. */
+#authAdminTabs[hidden],#authUsersPanel[hidden],#tlsSettings[hidden]{display:none!important;}
+.auth-security-tabs{margin-top:20px!important;}
+.auth-security-tab-panel{min-width:0;}
+#authUsersPanel:focus-visible,#tlsSettings:focus-visible{outline:2px solid var(--ds-focus);outline-offset:3px;}
+/* Self-signed renewal is a first-class, separate action: no accidental
+   rotation when an administrator reapplies unchanged connection settings. */
+.auth-tls-maintenance{
+  margin:20px 0 24px;padding:18px 20px;
+  border:1px solid var(--ds-border);
+  border-radius:var(--ds-radius-sm);
+  background:var(--ds-surface-raised);
+}
+.auth-tls-maintenance>h4{margin:0 0 12px;font-size:var(--ds-font-lg);}
+.auth-tls-maintenance .auth-tls-download{margin-bottom:14px;}
+.auth-tls-maintenance .auth-tls-regenerate{
+  margin:4px 0 0;padding:16px 0 0;
+  border-top:1px solid var(--ds-border);
+}
+.auth-tls-maintenance .auth-tls-regenerate h5{font-size:var(--ds-font-lg);margin:0;}
+.auth-tls-maintenance .auth-row-status{display:block;margin-top:12px;}
+@media(max-width:700px){.auth-tls-maintenance{padding:14px;}}
+
+#tlsMaintenance[hidden]{display:none!important;}
+#tlsStatusMessage:not(:empty){display:block;margin:12px 0;color:var(--ds-text);}
+
+/* Security HTTPS tab: deliberate hierarchy — summary, settings, renewal. */
+.auth-tls-summary{padding:18px 20px;border:1px solid var(--ds-border);border-radius:var(--ds-radius-sm);background:var(--ds-surface-raised);}
+.auth-tls-summary h4{margin:0 0 14px;font-size:var(--ds-font-lg);}
+.auth-tls-summary .auth-tls-details{margin:10px 0 18px;}
+.auth-tls-summary .auth-tls-download{margin-top:14px;}
+.auth-tls-configure{max-width:100%;margin:18px 0 24px;}
+.auth-tls-maintenance{margin:24px 0 0;}
+.auth-tls-maintenance .auth-tls-regenerate{max-width:720px;padding:0;border-top:0;margin:0;}
+#tlsConfigureProvided .auth-pem-textarea{
+  display:block;width:100%;min-width:0;min-height:158px;
+  resize:vertical;box-sizing:border-box;
+  padding:12px;border:1px solid var(--ds-border);
+  border-radius:var(--ds-radius-sm);
+  background:var(--ds-surface);color:var(--ds-text);
+  font:var(--ds-font-sm)/1.55 ui-monospace,SFMono-Regular,Consolas,monospace;
+  overflow-wrap:anywhere;
+}
+#tlsConfigureProvided .auth-pem-textarea:focus-visible{outline:2px solid var(--ds-focus);outline-offset:2px;}
+#tlsConfigureProvided textarea::placeholder{color:var(--ds-text-subtle);}
+#tlsConfigureProvided #tlsPemTransportWarning{margin:0;}
+@media(max-width:700px){
+ .auth-tls-summary{padding:14px;}
+ #tlsConfigureProvided .auth-pem-textarea{min-height:130px;}
 }

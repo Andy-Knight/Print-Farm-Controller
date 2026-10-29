@@ -11,7 +11,7 @@ test('feature pull requests run tests and disposable container smoke, without mu
     t.skip('GitHub workflow files are not present in this installation');
     return;
   }
-  const yml=readFileSync(workflowUrl,'utf8');
+  const yml=readFileSync(workflowUrl,'utf8').replaceAll('\r\n', '\n');
   assert.match(yml,/  pull_request:\n/);
   assert.match(yml,/  push:\n    branches:\n      - main\n/);
   assert.match(yml,/  workflow_dispatch:\n/);
@@ -32,6 +32,10 @@ test('feature pull requests run tests and disposable container smoke, without mu
   assert.match(build,/push: true/);
   assert.match(build,/pfc_google_client_id=\$\{\{ secrets\.PFC_GOOGLE_CLIENT_ID \}\}/,
     'production secrets are still scoped to published images');
+  const windows=yml.split('  windows:\n')[1]?.split('\n  smoke:\n')[0] || '';
+  assert.match(windows,/runs-on: windows-latest/);
+  assert.match(windows,/name: Run full Windows regression suite\n        run: npm test\n/,
+    'Windows must exercise the full suite, including checkout line-ending portability');
 });
 
 test('Chromium regression budget includes browser installation on slow runners',t=>{
@@ -40,7 +44,7 @@ test('Chromium regression budget includes browser installation on slow runners',
     t.skip('GitHub workflow files are not present in this installation');
     return;
   }
-  const yml=readFileSync(workflowUrl,'utf8');
+  const yml=readFileSync(workflowUrl,'utf8').replaceAll('\r\n', '\n');
   const browser=yml.split('  browser:\n')[1]?.split('\n  windows:\n')[0] || '';
   const budget=Number(browser.match(/timeout-minutes:\s*(\d+)/)?.[1]);
   assert.ok(budget>=25,

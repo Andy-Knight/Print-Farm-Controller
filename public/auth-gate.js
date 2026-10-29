@@ -331,8 +331,16 @@ async function loadUsers(){
       password.type='password';password.minLength=12;password.maxLength=256;password.autocomplete='new-password';password.placeholder='Leave blank to keep';td(password);
       const action=document.createElement('button');
       action.type='button';action.className='secondary';action.textContent='Save';
+      const deletion=document.createElement('button');
+      deletion.type='button';deletion.className='danger auth-user-delete';deletion.textContent='Delete';
+      deletion.setAttribute('aria-label','Delete user '+user.username);
+      // Never allow an administrator to remove their own signed-in account.
+      const self=user.id===session.user.id;
+      deletion.disabled=self;
+      if(self)deletion.title='You cannot delete your current account';
       const status=document.createElement('span');status.className='auth-row-status';status.setAttribute('role','status');
-      const actions=document.createElement('div');actions.className='auth-row-actions';actions.append(action,status);td(actions);
+      const actions=document.createElement('div');actions.className='auth-row-actions';
+      actions.append(action,deletion,status);td(actions);
       action.addEventListener('click',async()=>{
         action.disabled=true;status.textContent='';
         const data={displayName:display.value,role:role.value,disabled:disabled.checked};
@@ -347,12 +355,126 @@ async function loadUsers(){
         }catch(error){status.textContent=errorText(error);}
         finally{action.disabled=false;}
       });
+      deletion.addEventListener('click',async()=>{
+        if(self)return;
+        if(!window.confirm('Permanently delete user "'+user.username+'"? Their active sessions will be closed immediately. This cannot be undone.'))return;
+        action.disabled=true;deletion.disabled=true;deletion.setAttribute('aria-busy','true');
+        status.textContent='Deleting…';
+        try{
+          await call('/api/auth/users/'+encodeURIComponent(user.id),{method:'DELETE'});
+          await loadUsers();
+        }catch(error){status.textContent=errorText(error);}
+        finally{
+          action.disabled=false;
+          deletion.disabled=self;
+          deletion.removeAttribute('aria-busy');
+        }
+      });
       body.append(tr);
     }
     table.append(body);
     const outer=document.createElement('div');outer.className='auth-table-scroll';outer.append(table);
     container.replaceChildren(outer);
   }catch(error){loading.textContent=errorText(error);}
+}
+function showSecurityTab(tab,{focus=false}={}){
+  if(session?.user?.role!=='administrator')return;
+  const choice=tab==='https'?'https':'users';
+  for(const [name,buttonId,panelId] of [
+    ['users','authTabUsers','authUsersPanel'],
+    ['https','authTabHttps','tlsSettings']
+  ]){
+    const button=$('#'+buttonId),panel=$('#'+panelId);
+    const selected=name===choice;
+    panel.hidden=!selected;
+    button.classList.toggle('active',selected);
+    button.setAttribute('aria-selected',String(selected));
+    button.tabIndex=selected?0:-1;
+    if(selected&&focus)button.focus();
+  }
+  if(choice==='https')void loadTlsSettings();
+  else void loadUsers();
+}
+function syncTlsConfigureFields(){
+  const mode=$('#tlsConfigureMode')?.value;
+  const secure=location.protocol==='https:';
+  const initialExternal=$('#tlsConfigureForm')?.dataset.savedMode!=='provided';
+  $('#tlsConfigureManaged').hidden=mode!=='self-signed';
+  $('#tlsConfigureProvided').hidden=mode!=='provided';
+  if(mode!=='provided'){
+    // Changing away from external mode must discard any unsent secret pasted
+    // into this page, even if the administrator later changes their mind.
+    $('#tlsConfigurePrivateKeyPem').value='';
+    $('#tlsConfigureCertificatePem').value='';
+  }
+  $('#tlsConfigureNames').required=mode==='self-signed';
+  $('#tlsConfigureCertificatePem').required=mode==='provided'&&initialExternal;
+  $('#tlsConfigurePrivateKeyPem').required=mode==='provided'&&initialExternal;
+  $('#tlsPemTransportWarning').textContent=secure
+    ?'Private-key contents are submitted over this HTTPS connection and stored only in the controller data directory. Existing key contents are never returned to the browser.'
+    :'Private keys cannot be submitted over HTTP. First enable a controller-managed certificate, then reconnect to HTTPS before switching to an external PEM certificate.';
+  $('#tlsConfigureBtn').disabled=mode==='provided'&&!secure;
+}
+async function loadTlsSettings(){
+  if(session?.user?.role!=='administrator')return;
+  const panel=$('#tlsSettings');
+  if(!panel)return;
+  if(panel.hidden)return;
+  const status=$('#tlsStatusMessage');
+  status.textContent='';
+  try{
+    const {tls}=await call('/api/tls/status');
+    $('#tlsMode').textContent=({
+      off:'HTTP / HTTPS not configured',
+      'self-signed':'Controller-managed self-signed',
+      provided:'Externally supplied certificate'
+    })[tls.mode]||tls.mode;
+    $('#tlsHttpPort').textContent=String(tls.httpPort||4242);
+    $('#tlsPort').textContent=String(tls.httpsPort||4243)+(tls.enabled?'':' · inactive');
+    $('#tlsHttpBehaviour').textContent=tls.enabled
+      ?'Redirects browser GET/HEAD to HTTPS; health endpoint remains available'
+      :'Normal HTTP access (initial setup)';
+    $('#tlsSource').textContent=({
+      off:'Not configured',
+      'self-signed':'Controller-managed',
+      'pasted-pem':'Imported PEM, stored securely',
+      'legacy-mounted-files':'Legacy on-disk certificate'
+    })[tls.certificateSource]||'—';
+    const cert=tls.certificate;
+    $('#tlsSubject').textContent=cert?.subject||'No certificate';
+    $('#tlsIssuer').textContent=cert?.issuer||'—';
+    $('#tlsNames').textContent=cert?.subjectAltName||'—';
+    $('#tlsIssued').textContent=cert?.validFrom?new Date(cert.validFrom).toLocaleString():'—';
+    $('#tlsSerial').textContent=cert?.serialNumber||'—';
+    $('#tlsExpiry').textContent=cert?.validTo
+      ?new Date(cert.validTo).toLocaleString()+' ('+cert.daysRemaining+' days remaining)'
+      :'—';
+    $('#tlsFingerprint').textContent=cert?.fingerprint256||'—';
+    $('#tlsTrustNotice').textContent=tls.mode==='self-signed'
+      ?'Self-signed certificates encrypt the connection but are not automatically trusted. Install the public certificate on each client before depending on it for secure access. Regenerating requires re-trusting the new identity.'
+      :tls.mode==='provided'
+        ?'Certificate rotation is managed by your external certificate provider; this controller cannot regenerate an imported identity.'
+        :'HTTP is unencrypted: passwords and sessions can be intercepted on the network. Configure HTTPS below before normal production use; complete the initial administrator sign-in only on a trusted local network or host.';
+    $('#tlsMaintenance').hidden=!tls.canRegenerate;
+    $('#tlsRegenerateForm').hidden=!tls.canRegenerate;
+    $('#tlsDownloadBtn').hidden=!tls.enabled;
+    const configure=$('#tlsConfigureForm');
+    configure.dataset.savedMode=tls.mode;
+    if(configure&&!configure.dataset.editing){
+      configure.elements.mode.value=tls.mode;
+      const names=Array.isArray(tls.names)?tls.names:[];
+      const suggested=tls.mode==='off'&&location.hostname&&!names.includes(location.hostname)
+        ?[location.hostname,...names]:names;
+      configure.elements.names.value=[...new Set(suggested)].join(',');
+      // Never insert a saved private key into browser forms, HTML, or status.
+      configure.elements.certificatePem.value='';
+      configure.elements.privateKeyPem.value='';
+    }
+    syncTlsConfigureFields();
+    if(tls.lastError)status.textContent=tls.lastError;
+  }catch(error){
+    status.textContent=errorText(error);
+  }
 }
 function initializeSetupUi(){
   if(!session?.enrollmentAvailable||session.enabled)return;
@@ -403,7 +525,120 @@ function initializeAccountUi(){
   });
   if(session.user.role==='administrator'){
     $('#usersBtn').hidden=false;
-    $('#usersBtn').addEventListener('click',loadUsers);
+    $('#authAdminTabs').hidden=false;
+    $('#authUsersPanel').hidden=false;
+    $('#usersBtn').addEventListener('click',()=>showSecurityTab('users'));
+    for(const [tab,id] of [['users','authTabUsers'],['https','authTabHttps']]){
+      $('#'+id).addEventListener('click',()=>showSecurityTab(tab));
+    }
+    $('#authAdminTabs').addEventListener('keydown',event=>{
+      const keys=['ArrowLeft','ArrowRight','Home','End'];
+      if(!keys.includes(event.key)||!event.target.matches('[role="tab"]'))return;
+      event.preventDefault();
+      const current=event.target.id==='authTabHttps'?1:0;
+      const next=event.key==='Home'?0:event.key==='End'?1
+        :event.key==='ArrowRight'?(current+1)%2:(current+1)%2;
+      showSecurityTab(next===0?'users':'https',{focus:true});
+    });
+    $('#tlsConfigureMode')?.addEventListener('change',syncTlsConfigureFields);
+    $('#tlsConfigureForm')?.addEventListener('input',event=>{
+      if(['mode','names','certificatePem','privateKeyPem'].includes(event.target.name))
+        event.currentTarget.dataset.editing='true';
+    });
+    $('#tlsConfigureForm')?.addEventListener('submit',async event=>{
+      event.preventDefault();
+      const form=event.currentTarget;
+      const button=$('#tlsConfigureBtn');
+      const notice=$('#tlsActivationStatus');
+      const link=$('#tlsActivationLink');
+      notice.textContent='';
+      link.hidden=true;
+      if(!form.elements.confirm.checked)return;
+      const mode=form.elements.mode.value;
+      if(mode==='provided'&&location.protocol!=='https:'){
+        $('#tlsStatusMessage').textContent='For security, first enable controller-managed HTTPS and reconnect before pasting a private key.';
+        return;
+      }
+      if(mode==='provided'&&Boolean(form.elements.certificatePem.value.trim())!==Boolean(form.elements.privateKeyPem.value.trim())){
+        $('#tlsStatusMessage').textContent='Paste both the public certificate and matching private key, or leave both blank to keep the existing imported certificate.';
+        return;
+      }
+      const question=mode==='off'
+        ?'Disable HTTPS and return to unencrypted HTTP? Passwords and sessions will become interceptable on the network.'
+        :'Apply connection settings? If something changed, browsers may disconnect and need a fresh login or certificate trust. Unchanged settings do not regenerate the certificate.';
+      if(!window.confirm(question))return;
+      button.disabled=true;button.setAttribute('aria-busy','true');
+      try{
+        const body={
+          mode,names:form.elements.names.value,
+          certificatePem:mode==='provided'?form.elements.certificatePem.value:'',
+          privateKeyPem:mode==='provided'?form.elements.privateKeyPem.value:'',
+          password:form.elements.password.value,confirm:'APPLY'
+        };
+        const result=await call('/api/tls/configure',{
+          method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(body)
+        });
+        const next=new URL(location.href);
+        const incomingPort=location.port||'';
+        const httpPort=String(result.httpPort||4242);
+        const httpsPort=String(result.httpsPort||4243);
+        const direct=incomingPort===httpPort||incomingPort===httpsPort;
+        next.protocol=result.mode==='off'?'http:':'https:';
+        const chosenNames=Array.isArray(result.names)?result.names:[];
+        if(result.mode==='self-signed' && !chosenNames.includes(location.hostname.toLowerCase()) && chosenNames.length)
+          next.hostname=chosenNames[0];
+        // Direct Windows/source browsers use 4242/4243. Container port mapping
+        // may expose standard browser ports 80/443 independently.
+        next.port=direct?(result.mode==='off'?httpPort:httpsPort):'';
+        next.pathname='/';next.search='';next.hash='';
+        link.href=next.href;
+        link.textContent='Open controller at '+next.origin;
+        link.hidden=Boolean(result.unchanged);
+        notice.textContent=result.unchanged
+          ?'Settings are already saved. Your current certificate has not changed; use Regenerate self-signed certificate to replace it.'
+          :'Settings validated. The fixed HTTP port remains available for health and will redirect browser requests to the HTTPS port when secure mode is active. Open the address above and sign in again. Self-signed certificates may prompt for trust.';
+        $('#tlsStatusMessage').textContent='';
+      }catch(error){
+        $('#tlsStatusMessage').textContent=errorText(error);
+      }finally{
+        // Do not retain pasted private-key material in a live DOM after Apply.
+        form.elements.privateKeyPem.value='';
+        form.elements.certificatePem.value='';
+        form.elements.password.value='';
+        form.elements.confirm.checked=false;
+        button.removeAttribute('aria-busy');
+        syncTlsConfigureFields();
+      }
+    });
+    $('#tlsRegenerateForm')?.addEventListener('submit',async event=>{
+      event.preventDefault();
+      const form=event.currentTarget;
+      const button=$('#tlsRegenerateBtn');
+      const status=$('#tlsStatusMessage');
+      if(!form.elements.confirm.checked)return;
+      if(!window.confirm('Regenerate the self-signed HTTPS certificate and private key now? Existing browser trust may be lost.'))return;
+      button.disabled=true;
+      button.setAttribute('aria-busy','true');
+      status.textContent='Generating and applying a new certificate…';
+      try{
+        const body={
+          password:form.elements.password.value,
+          confirm:'REGENERATE'
+        };
+        await call('/api/tls/regenerate',{
+          method:'POST',headers:{'content-type':'application/json'},
+          body:JSON.stringify(body)
+        });
+        form.reset();
+        await loadTlsSettings();
+        status.textContent='New certificate activated. Your browser may need to trust it again after reconnecting.';
+      }catch(error){status.textContent=errorText(error);}
+      finally{
+        form.elements.password.value='';
+        button.disabled=false;
+        button.removeAttribute('aria-busy');
+      }
+    });
     $('#authUserAddForm').addEventListener('submit',async event=>{
       event.preventDefault();
       const form=event.currentTarget;

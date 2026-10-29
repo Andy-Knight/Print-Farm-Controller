@@ -1,20 +1,20 @@
-# Print Farm Controller v0.59.15
+# Print Farm Controller v0.61.7
 A local-first 3D printer fleet controller. It runs entirely on your LAN and currently supports:
 
 - **FlashForge Adventurer 5M / 5M Pro** through the local FlashForge HTTP/TCP APIs.
 - **FlashForge Creator 5 / Creator 5 Pro** through the supported local FlashForge control interfaces.
 - **Snapmaker U1** through its local Moonraker/Klipper API.
 - **Prusa CORE One+ (experimental)** through the local PrusaLink API, supporting Standard (1-tool), INDX4 and INDX8 configurations.
-- **Bambu Lab P1P / P1S / X1C / A1 Mini (experimental)** through the local MQTT TLS and FTPS TLS interfaces. P1P/P1S/A1 Mini use the TLS/JPEG camera path; X1C camera decoding remains unsupported.
+- **Bambu Lab P1P / P1S / X1C / A1 Mini (experimental)** through the local MQTT TLS and FTPS TLS interfaces. P1P/P1S/A1 Mini use the TLS/JPEG camera path; X1C camera uses the bundled FFmpeg decoder; see [X1C camera setup](docs/X1C_CAMERA.md).
 
-**Current development version: v0.59.15**
+**Current development version: v0.61.7**
 
 ## Key capabilities
 
 - **Farm dashboard:** Live printer status, job progress and maintenance indicators, with card or sortable table views, a Farm operations switch for selected-printer bulk actions, and light/dark themes.
 - **Print Library and scheduling:** Search and filter files, check printer compatibility and readiness, queue jobs to printers or groups, and review print history.
 - **Pricing and costs:** Estimate filament and machine time costs, add labour and sundries, and calculate selling prices using shared currency, profit and tax settings.
-- **Reports & finance:** Production trends, completed and failed prints, printer reliability, popular files, material use and historical cost reporting.
+- **Reports & finance:** Production trends with always-visible 7-day outcome counts, completed and failed prints, printer reliability, a period-filtered total filament used (kg) summary, a Top 6 / All files ranking, a filament-used (kg) pie chart grouped by filament or material type, and historical cost reporting.
 - **Printer management and alerts:** Supported filament/nozzle controls, file management, scheduled maintenance, local notifications, ntfy push and webhooks.
 - **Backup and recovery:** Compressed backups to local/NAS storage, Google Drive, experimental OneDrive or S3-compatible services.
 - **Flexible deployment:** Windows portable executable or installer, Docker images for AMD64/ARM64 and K3s/Kubernetes; signed offline Community, Pro and Farm licences.
@@ -42,7 +42,7 @@ gantry drawn across the workpiece. On phones the illustration yields to a compac
 setup, login errors and HTTP security warnings. The sign-in password field includes an
 accessible show/hide button. No printer state is displayed before login.
 
-The controller supports **local username/password login** and enforces role permissions on the server, not just by hiding buttons. **Administrator** can manage accounts, security, printer settings, licence, backups and cloud credentials. **Operator** can run printers, edit (but not delete) Print Library records, manage active/queued production, assign filament/nozzles to printers, and complete routine maintenance. Operators cannot purge queue history, change the shared filament cost catalogue, manage users, credentials or restore backups. **Viewer** can see status, reports and camera feeds without making changes. Permissions are independent of signed edition/licence limits.
+The controller supports **local username/password login** and enforces role permissions on the server, not just by hiding buttons. Administrators can delete other accounts from **Security & users → Users** using a confirmed red Delete action; a deleted account loses all active sessions immediately. The signed-in account and last enabled administrator are protected from deletion. **Administrator** can manage accounts, security, printer settings, licence, backups and cloud credentials. **Operator** can run printers, edit (but not delete) Print Library records, manage active/queued production, assign filament/nozzles to printers, and complete routine maintenance. Operators cannot purge queue history, change the shared filament cost catalogue, manage users, credentials or restore backups. **Viewer** can see status, reports and camera feeds without making changes. Permissions are independent of signed edition/licence limits.
 
 ### Set up the first administrator using the GUI
 
@@ -83,17 +83,23 @@ and use `node scripts/manage-users.mjs recover` or
 `PrintFarmController.exe --auth-recover` from a privileged terminal with access to
 the persistent data directory. Preserve the same security storage across restores.
 
-### HTTPS requirements and reverse proxy
+### HTTPS — configure in the controller interface
 
-**Passwords and session cookies are not secure over bare HTTP.** By request, this controller permits HTTP enrollment and login by default, with visible warnings; authentication still does **not** protect credentials or sessions from interception. You can require HTTPS-only password entry using `PFC_AUTH_ALLOW_HTTP=0`. For secure deployment configure a trusted reverse proxy/ingress and the exact public origin:
+A fresh installation starts with HTTP on the controller's fixed internal port **4242**, with HTTPS reserved for internal port **4243**. The container exposes both ports permanently. A K3s/MetalLB LoadBalancer Service forwards external **80 → 4242** and **443 → 4243** (see [example Kubernetes deployment](deploy/kubernetes/print-farm-controller.yaml)), so browser addresses are simply `http://<controller-ip>` during initial setup and `https://<controller-ip>` after HTTPS is enabled. Without that Service, a Windows or direct-container browser connects on `:4242` for HTTP and `:4243` for HTTPS. A custom legacy `PORT` override keeps its existing HTTP port and pairs HTTPS with the following port; the normal production configuration needs no HTTPS port environment variable.
 
-```bash
-PFC_PUBLIC_ORIGIN=https://controller.example.internal
-```
+On localhost or a trusted, isolated LAN, sign in as an administrator (or complete first-admin setup using the private controller startup-log code). **HTTP password entry and session traffic are not encrypted.** In **Farm management → Security & users → Connection settings**, use the page sections in order: **Connection summary**, **Connection settings**, and (only for a currently managed self-signed identity) **Self-signed certificate replacement**. In Connection settings, choose controller-managed self-signed HTTPS, externally supplied PEM certificate/key contents pasted into the GUI, or HTTP-only mode. For a managed certificate, enter the exact browser DNS hostnames and IPv4 addresses as comma-separated certificate names. Confirm with your current admin password.
 
-The public origin enables `Secure` session cookies and strict Origin validation. The controller **does not trust arbitrary X-Forwarded headers**. Terminate TLS at the trusted proxy, restrict direct port 4242 access to that proxy and prevent bypass via the MetalLB Service; validate HTTPS, EventSource, printer cameras and upload/restore operations before real production use. TLS deployment using MetalLB/Ultimate Certificate Manager remains tracked separately in issue #128. The login screen and RBAC alone **do not constitute a secure Internet-facing deployment**.
+**HTTP and HTTPS listening ports are not editable in the GUI**, so enabling HTTPS never requires changing the Kubernetes Deployment or MetalLB Service ports. After HTTPS is enabled, port 4242 stays open but accepts only a minimal `GET /healthz` probe and **GET/HEAD redirects** to HTTPS (302, no-store) for hosts that match the active certificate. Other HTTP requests (including logins and API writes) are rejected. The TLS listener accepts the full application on port 4243. Redirects do not bypass browser certificate trust, and there is no plaintext fallback if an HTTPS identity fails to initialize. The health endpoint reports only `ok` and is deliberately independent of authentication, printer data and certificate status. The Docker health check and Kubernetes probes use HTTP `:4242/healthz`.
 
-Authentication is enabled unless `PFC_AUTH_REQUIRED=0` explicitly selects **legacy unauthenticated mode** before any user is enrolled. This insecure opt-out is for temporary troubleshooting only; once the durable security marker or account store exists it cannot disable RBAC. `PFC_AUTH_ALLOW_HTTP=0` blocks enrollment and login on HTTP. Native sessions use `HttpOnly`, `SameSite=Strict`, Origin and CSRF checks; cookies have `Secure` only when a trusted HTTPS public origin is configured. HTTP traffic remains unencrypted.
+Changing a certificate source or saved DNS/IP names updates the HTTPS certificate as required without changing the fixed ports or interrupting printer/queue services. **Reapplying unchanged connection settings is a no-op:** no new certificate and no session interruption. When the saved mode is controller-managed, the prominent amber **Regenerate self-signed certificate** action generates a fresh key and identity after administrator password and confirmation, while keeping existing SANs and ports. For external certificates, paste the public certificate chain and matching private key into separate text areas **over an existing HTTPS connection**; the controller validates and stores the pair under its protected persistent data directory. If HTTPS is not yet enabled, first activate controller-managed HTTPS and reconnect securely before importing a private key. A blank pair of text areas retains the existing imported certificate; paste both to replace it. The private key is never returned to the browser. Certificate renewal with your issuer is a separate responsibility. Downloading the managed **public certificate only** is available in the HTTPS tab.
+
+The controller persists the mode, managed key/certificate and metadata in the protected `DATA_DIR/tls` directory (standard container volume: `/data/tls`). Protect this directory and back up its contents through appropriate host/storage-level mechanisms; logical `.pfcbackup` exports exclude private TLS keys. Self-signed HTTPS encrypts traffic but **is not automatically trusted by browsers**: verify the certificate fingerprint through a trusted channel, then explicitly install the public identity on client devices. Regeneration may require repeating this trust step.
+
+External proxy/ingress termination remains an optional architecture, not required by the native K3s/MetalLB setup. Use the trusted-proxy configuration (`PFC_PUBLIC_ORIGIN`) only if the backend cannot be accessed directly over untrusted HTTP. Issue #128 tracks ingress alternatives. The controller is intended for private LANs rather than direct Internet exposure.
+
+See [HTTPS configuration](docs/HTTPS_CONFIGURATION.md) for port-mapping, certificate, migration and recovery details.
+
+Authentication is enabled unless `PFC_AUTH_REQUIRED=0` explicitly selects **legacy unauthenticated mode** before any user is enrolled. This insecure opt-out is for temporary troubleshooting only; once the durable security marker or account store exists it cannot disable RBAC. `PFC_AUTH_ALLOW_HTTP=0` blocks enrollment and login on HTTP. Native sessions use `HttpOnly`, `SameSite=Strict`, Origin and CSRF checks; cookies have `Secure` when native HTTPS or a trusted HTTPS public origin is active. HTTP traffic remains unencrypted.
 
 Full design and security rollout requirements: [Authentication and RBAC](docs/AUTHENTICATION_AND_RBAC.md).
 
@@ -541,7 +547,7 @@ Because the GHCR package is public, no `imagePullSecret` is required. Use the fu
 
 ## Windows Portable Executable
 
-Print Farm Controller includes a Windows x64 Node SEA packaging pipeline for building a standalone portable executable. Development/source mode remains unchanged: `npm start` runs directly from the repository.
+Print Farm Controller includes a Windows x64 Node SEA packaging pipeline for building a portable controller with its bundled FFmpeg camera decoder. Development/source mode remains unchanged: `npm start` runs directly from the repository.
 
 Install the build dependencies using the committed lockfile:
 
@@ -582,6 +588,8 @@ The executable reads its built-in web/simulator resources and trusted licence pu
 The Ed25519 private signing key is never included in the controller. The Bambu simulator TLS key embedded in the executable is only a local simulator/test credential and is unrelated to production licence signing.
 
 Injecting the SEA payload invalidates any original Authenticode signature on the copied Node executable. The generated executable is unsigned unless the release process applies a signing certificate after embedding.
+
+Keep the entire `dist/windows-x64/` folder together, including `ffmpeg/` with its decoder, licence notices and corresponding source. Installed and container builds discover the bundled decoder automatically; see [X1C camera setup](docs/X1C_CAMERA.md).
 
 ### Windows installer
 
@@ -632,7 +640,7 @@ Bambu P1S FTPS:   127.0.0.1:20000
 Bambu P1S camera: 127.0.0.1:16010
 Bambu X1C MQTT:   127.0.0.1:18903
 Bambu X1C FTPS:   127.0.0.1:20010
-Bambu X1C camera test endpoint: 127.0.0.1:16020
+Bambu X1C RTSPS camera: 127.0.0.1:16020
 Bambu A1 Mini MQTT:   127.0.0.1:18913
 Bambu A1 Mini FTPS:   127.0.0.1:20020
 Bambu A1 Mini camera: 127.0.0.1:16030
@@ -642,14 +650,14 @@ For FlashForge, the Add printer form now exposes the normally fixed HTTP, TCP an
 
 Set `EMULATOR_NO_DEFAULTS=1` to start with an empty simulator fleet, or `CONTROLLER_EMULATOR_ENABLED=1` to enable the integrated simulator for the current launch. The virtual protocol endpoints always use loopback in integrated mode. The standalone `npm run emulator` command remains available for development and retains its `EMULATOR_HOST` and `EMULATOR_PORT` overrides.
 
-The Bambu endpoints use a simulator-owned self-signed certificate, MQTT username `bblp`, and the access code shown in the emulator UI. They model the LAN/Developer interfaces used by P1, X1C and A1 Mini printers but remain experimental until compared with physical hardware. The X1C camera test endpoint produces the simulator's existing TLS/JPEG test frames and does not claim to emulate the physical X1C RTSPS/H.264 stream. The emulator verifies controller behaviour against the implemented protocol model; new manufacturer support remains experimental until checked against reliable captures, documentation or physical hardware.
+The Bambu endpoints use a simulator-owned self-signed certificate, MQTT username `bblp`, and the access code shown in the emulator UI. They model the LAN/Developer interfaces used by P1, X1C and A1 Mini printers but remain experimental until compared with physical hardware. The X1C camera endpoint serves authenticated RTSPS/RTP H.264 from a generated simulator image through the same production adapter and bundled decoder as physical X1C cameras. Other Bambu models retain their TLS/JPEG endpoints. Protocol simulation does not establish physical-printer acceptance. The emulator verifies controller behaviour against the implemented protocol model; new manufacturer support remains experimental until checked against reliable captures, documentation or physical hardware.
 
 ### Adding an experimental Bambu P1P, P1S, X1C or A1 Mini
 
 1. Enable the printer's LAN Only or Developer mode and note its serial number and LAN access code.
 2. Click **+ Add printer** and select **Bambu Lab P1P / P1S / X1C / A1 Mini (experimental)**.
 3. Choose `P1P`, `P1S`, `X1 Carbon (X1C)` or `A1 Mini` from the model dropdown, then enter the IP address, serial number and access code.
-4. Keep the physical-printer defaults of MQTT TLS `8883` and implicit FTPS `990`. P1P/P1S/A1 Mini camera TLS defaults to `6000`; selecting X1C changes the stored camera port to its RTSPS default `322`, although X1C camera decoding is not yet enabled. Use the alternate ports displayed by the emulator only for simulated printers.
+4. Keep the physical-printer defaults of MQTT TLS `8883` and implicit FTPS `990`. P1P/P1S/A1 Mini camera TLS defaults to `6000`; selecting X1C changes the stored camera port to its RTSPS default `322`, with experimental decoding provided by the bundled FFmpeg decoder (see [X1C camera setup](docs/X1C_CAMERA.md)). Use the alternate ports displayed by the emulator only for simulated printers.
 5. **Test & add** validates the MQTT credentials before saving the printer.
 
 Bambu discovery is not yet implemented, so supported Bambu printers are added manually. Access codes remain backend-side and are never returned by the public fleet API. Until physical validation is complete, supervise test prints and do not rely on this adapter for unattended production.

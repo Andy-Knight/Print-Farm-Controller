@@ -54,7 +54,7 @@ async function preactReady(page) {
 
 async function reportsLoaded(page,where) {
   await page.waitForFunction(() =>
-    document.querySelectorAll('#reportingKpis .reporting-kpi').length >= 4
+    document.querySelectorAll('#reportingKpis .reporting-kpi').length >= 5
     && document.querySelector('#reportingStatus')?.textContent?.includes('Reporting period:')
   ,null,{timeout:20000});
   const kpis = await page.locator('#reportingKpis .reporting-kpi').allTextContents();
@@ -721,6 +721,57 @@ async function workspaceShellSmoke(browser,url) {
       'desktop sidebar retains practical width');
     assert.ok(desktop.main.left>=desktop.sidebar.right-2,'workspace does not overlap fixed sidebar');
     assert.ok(desktop.header.left>=desktop.sidebar.right-2,'header aligns with workspace');
+    // Queue and Library badges must retain identical pill geometry for one,
+    // two and three digits, including when both counters appear together.
+    const verifySidebarBadges=async (where) => page.evaluate((where) => {
+      const queue=document.querySelector('#queueButtonCount');
+      const library=document.querySelector('#libraryButtonCount');
+      if (!queue || !library) throw new Error('Missing sidebar counters');
+      const initial=[queue,library].map(el=>({
+        text:el.textContent,hidden:el.classList.contains('hidden'),title:el.title
+      }));
+      const oldTheme=document.documentElement.dataset.theme;
+      const measurements=[];
+      for (const theme of ['dark','light']) {
+        document.documentElement.dataset.theme=theme;
+        for(const counts of [['3','19'],['125','7'],['999','999+']]) {
+          [queue,library].forEach((el,i)=>{
+            el.classList.remove('hidden');
+            el.textContent=counts[i];
+          });
+          measurements.push({where,theme,counts,items:[queue,library].map(el=>{
+            const rect=el.getBoundingClientRect();
+            const css=getComputedStyle(el);
+            return {width:rect.width,height:rect.height,right:rect.right,
+              clientWidth:el.clientWidth,scrollWidth:el.scrollWidth,
+              radius:css.borderRadius,numerals:css.fontVariantNumeric};
+          })});
+        }
+      }
+      [queue,library].forEach((el,i)=>{
+        el.textContent=initial[i].text;
+        el.title=initial[i].title;
+        el.classList.toggle('hidden',initial[i].hidden);
+      });
+      if (oldTheme) document.documentElement.dataset.theme=oldTheme;
+      else delete document.documentElement.dataset.theme;
+      return measurements;
+    },where);
+    const assertSidebarBadges=(measurements)=>{
+      for(const scenario of measurements){
+        for(const item of scenario.items){
+          assert.equal(item.width,48,scenario.where+' '+scenario.theme+' badge width '+scenario.counts);
+          assert.equal(item.height,24,scenario.where+' '+scenario.theme+' badge height '+scenario.counts);
+          assert.equal(item.radius,'999px','sidebar uses standard pill rounding');
+          assert.match(item.numerals,/tabular-nums/,'counts should use tabular numerals');
+          assert.ok(item.scrollWidth<=item.clientWidth+1,
+            'badge text must fit inside 48px: '+JSON.stringify(scenario));
+        }
+        assert.ok(Math.abs(scenario.items[0].right-scenario.items[1].right)<=1,
+          'Queue and Library badges must align vertically: '+JSON.stringify(scenario));
+      }
+    };
+    assertSidebarBadges(await verifySidebarBadges('desktop'));
     if(captureDir){
       await page.screenshot({path:path.join(captureDir,'workspace-dark-desktop.png'),
         animations:'disabled',fullPage:true});
@@ -741,6 +792,7 @@ async function workspaceShellSmoke(browser,url) {
     assert.equal(await page.locator('#controllerSidebar').evaluate(n=>n.inert),false);
     assert.ok(await page.locator('.sidebar-item.active').evaluate(el=>document.activeElement===el),
       'drawer autofocuses active navigation for keyboard users');
+    assertSidebarBadges(await verifySidebarBadges('mobile drawer'));
     if(captureDir)await page.screenshot({path:path.join(captureDir,'workspace-light-mobile-drawer.png'),
       animations:'disabled',fullPage:true});
     await page.locator('#reportsBtn').click();
@@ -952,6 +1004,79 @@ async function sharedTabNavigationSmoke(page,url) {
 
 // Print Library live Preact cost cards: current material estimate vs genuinely
 // unavailable cost, visually consistent on light/dark desktop and mobile.
+// Verify actual maintenance button geometry, not just CSS selectors.
+async function maintenanceActionWidthSmoke(page,url) {
+  console.log('Chromium: maintenance individual-task action widths across scopes');
+  await page.setViewportSize({width:1365,height:900});
+  await page.goto(url+'/maintenance',{waitUntil:'load'});
+  await preactReady(page);
+  await page.waitForFunction(()=>window.__PFC_PREACT_MAINTENANCE__===true);
+  await page.evaluate(()=>{
+    const task=(scope)=>({
+      id:'scope-'+scope,scope,name:scope+' maintenance',description:'',
+      state:'current',statusLabel:'Current',scopeLabel:scope,
+      meta:['Every 200 print hours','200h remaining'],
+      completionAllowed:false,completionTitle:'Not due yet',
+      editText:scope==='printer'?'Edit task':'Edit '+scope+' task',
+      deleteText:scope==='printer'?'Delete task':'Delete '+scope+' task'
+    });
+    const detail={
+      activeView:'printers',modelTasks:[],groupTasks:[],
+      printers:[{
+        id:'maintenance-layout-fixture',name:'Layout fixture',modelLabel:'AD5M Pro',
+        due:0,dueSoon:0,printHours:'0h',printCount:0,
+        tasks:['group','model','printer'].map(task),history:[],historyCount:0
+      }]
+    };
+    window.dispatchEvent(new CustomEvent('pfc:maintenance-ui-state',{detail}));
+  });
+  await page.waitForFunction(()=>document.querySelectorAll('#maintenanceList .maintenance-task').length===3);
+  for(const viewport of [{width:1365,height:900},{width:1024,height:900},{width:390,height:844}]){
+    await page.setViewportSize(viewport);
+    for(const theme of ['dark','light']){
+      await page.evaluate(theme=>{document.documentElement.dataset.theme=theme;},theme);
+      const rows=await page.locator('#maintenanceList .maintenance-task').evaluateAll(elements=>
+        elements.map(row=>{
+          const buttons=[...row.querySelectorAll('.maintenance-task-actions > button')];
+          return buttons.map(button=>{
+            const rect=button.getBoundingClientRect();
+            return {text:button.textContent.trim(),x:rect.x,y:rect.y,
+              width:rect.width,height:rect.height,
+              scrollWidth:button.scrollWidth,clientWidth:button.clientWidth};
+          });
+        })
+      );
+      assert.equal(rows.length,3,'fixture has three printer-specific task scopes');
+      assert.ok(rows.every(row=>row.length===3),'each task keeps Complete/Edit/Delete actions');
+      for(const row of rows)for(const button of row){
+        assert.ok(button.scrollWidth<=button.clientWidth+1,
+          'task action text must not be clipped: '+JSON.stringify({viewport,theme,button}));
+      }
+      if(viewport.width>620){
+        const expected=[120,176,190];
+        for(const row of rows){
+          row.forEach((button,i)=>assert.ok(Math.abs(button.width-expected[i])<=1,
+            'each task action column has fixed width: '+JSON.stringify({viewport,theme,row})));
+        }
+        for(let col=0;col<3;col++){
+          assert.ok(Math.max(...rows.map(row=>row[col].x))-
+            Math.min(...rows.map(row=>row[col].x))<=1,
+            'corresponding action buttons align across group/model/printer tasks');
+        }
+      } else {
+        for(const row of rows){
+          assert.ok(Math.max(...row.map(button=>button.width))-
+            Math.min(...row.map(button=>button.width))<=1,
+            'phone layout stacks three full-width buttons');
+          assert.ok(row[0].y<row[1].y && row[1].y<row[2].y,
+            'phone action buttons remain fully readable in a vertical stack');
+        }
+      }
+    }
+  }
+  await page.setViewportSize({width:1365,height:900});
+}
+
 async function libraryCostSmoke(page,url) {
   await page.goto(url+'/library',{waitUntil:'load'});
   await preactReady(page);
@@ -1021,8 +1146,8 @@ async function libraryCostSmoke(page,url) {
 // Browser smoke against real API-backed temporary library files (never run
 // mutations against an external configured controller). Verifies that the
 // selected row, toolbar and existing queue/edit/delete workflows still work.
-// Validate the narrowed desktop Print Library table against browser geometry
-// and retain responsive cards before the fixed tracks would overflow.
+// Validate that the desktop Print Library fills the same sidebar-constrained
+// workspace as other routes without oversized trailing tracks or clipped cards.
 async function libraryCompactTableSmoke(page,url) {
   await page.setViewportSize({width:1920,height:900});
   await page.goto(url+'/library',{waitUntil:'load'});
@@ -1107,7 +1232,10 @@ async function libraryCompactTableSmoke(page,url) {
       const sale=row.querySelector('.library-sale-cell');
       const history=row.querySelector('.library-history-cell');
       return {
-        main:box(main),header:box(header),row:box(row),
+        main:box(main),page:box(document.querySelector('#libraryDialog')),
+        workspaceWidth:main.clientWidth-parseFloat(getComputedStyle(main).paddingLeft)
+          -parseFloat(getComputedStyle(main).paddingRight),
+        header:box(header),row:box(row),
         visible:getComputedStyle(header).display!=='none',
         headings,cells,sale:box(sale),history:box(history),
         windowWidth:window.innerWidth,docWidth:document.documentElement.scrollWidth
@@ -1115,9 +1243,15 @@ async function libraryCompactTableSmoke(page,url) {
     });
     if(viewport.desktop){
       assert.ok(geometry.visible,'desktop Print Library retains sortable table header');
-      assert.ok(geometry.header.width<=1302,'table should be capped at approximately 1300px');
+      assert.ok(Math.abs(geometry.page.width-geometry.workspaceWidth)<=2,
+        'Print Library page must use the shared sidebar-aware workspace width: '+JSON.stringify({viewport,geometry}));
+      assert.ok(Math.abs(geometry.header.width-geometry.page.width)<=2,
+        'Print Library table must fill its routed page, just like other workspace tables');
       assert.ok(geometry.header.right<=geometry.main.right+1,
         'table must fit within the sidebar-constrained workspace');
+      if(viewport.width===1920)
+        assert.ok(geometry.header.width>1400,
+          'wide desktops must not inherit the obsolete 1300px library-only cap');
       assert.equal(geometry.headings.length,9);
       assert.equal(geometry.cells.length,9);
       const saleTrack=geometry.headings[7],historyTrack=geometry.headings[8];
@@ -1943,48 +2077,120 @@ async function routeSmoke(page,url) {
       {label:'Total print jobs',value:'20',detail:'In selected period',tone:'info',iconName:'jobs',progressPercent:null},
       {label:'Completed',value:'17',detail:'85% completion rate',tone:'positive',iconName:'check',progressPercent:85,progressLabel:'Completion rate'},
       {label:'Failed',value:'2',detail:'10% failure rate',tone:'negative',iconName:'cross',progressPercent:10,progressLabel:'Failure rate'},
-      {label:'Total run time',value:'31.5 h',detail:'Reported from print timestamps',tone:'info',iconName:'clock',progressPercent:null}
+      {label:'Total run time',value:'31.5 h',detail:'Reported from print timestamps',tone:'info',iconName:'clock',progressPercent:null},
+      {label:'Total filament used',value:'3.85 kg',detail:'Recorded for completed prints',tone:'info',iconName:'scale',progressPercent:null}
     ]}
   })));
-  await page.waitForFunction(() => document.querySelectorAll('#reportingKpis .reporting-kpi-gauge').length === 4);
+  await page.waitForFunction(() => document.querySelectorAll('#reportingKpis .reporting-kpi-gauge').length === 5);
   assert.equal(await page.locator('#reportingKpis .reporting-kpi-meter').count(),2,
     'only rates should have progress bars');
-  assert.equal(await page.locator('#reportingKpis .reporting-kpi-accent').count(),2,
-    'count and runtime should have a decorative accent, not false progress');
+  assert.equal(await page.locator('#reportingKpis .reporting-kpi-accent').count(),3,
+    'job count, runtime and material kg have decorative accents, not false progress');
+  assert.equal(await page.locator('#reportingKpis .reporting-kpi').count(),5);
+  assert.equal(await page.locator('#reportingKpis .reporting-kpi').last().locator('.reporting-kpi-body strong').innerText(),'3.85 kg');
+  const massSymbol=page.locator('#reportingKpis .reporting-kpi').last().locator('.reporting-kpi-icon svg');
+  assert.equal(await massSymbol.locator('rect').count(),1,
+    'filament kg summary uses a weighing scale housing, not a filament spool');
+  assert.equal(await massSymbol.locator('circle').count(),0,
+    'filament kg pictogram uses a weighing dial path rather than a spool ring');
+  assert.equal(await massSymbol.locator('rect').getAttribute('width'),'18');
   assert.equal(await page.locator('#reportingKpis [aria-label="Completion rate"]').getAttribute('aria-valuenow'),'85');
   assert.equal(await page.locator('#reportingKpis [aria-label="Failure rate"]').getAttribute('aria-valuenow'),'10');
+  const failedIcon=page.locator('#reportingKpis .reporting-kpi').nth(2);
+  assert.match(await failedIcon.locator('.reporting-kpi-icon svg path').getAttribute('d'),/M6 6l12 12M18 6 6 18/,
+    'the Failed KPI must render a cross, not a check icon');
+  assert.match(await failedIcon.getAttribute('class'),/reporting-kpi-negative/,
+    'Failed KPI retains the red failure identity regardless of trend');
   for (const theme of ['dark','light']) {
     await page.evaluate(theme=>{document.documentElement.dataset.theme=theme;},theme);
     const palette=await page.locator('#reportingKpis .reporting-kpi').evaluateAll(
       cards=>cards.map(card=>({
         width:card.querySelector('.reporting-kpi-gauge').getBoundingClientRect().width,
-        fill:getComputedStyle(card.querySelector('.reporting-kpi-icon')).color
+        fill:getComputedStyle(card.querySelector('.reporting-kpi-icon')).color,
+        ring:getComputedStyle(card.querySelector('.reporting-kpi-gauge')).backgroundColor,
+        identity:card.className
       }))
     );
-    assert.equal(palette.length,4);
+    assert.equal(palette.length,5);
     assert.ok(palette.every(p=>p.width>=50 && p.fill),'Option D rings visible in both themes');
-    assert.notEqual(palette[1].fill,palette[2].fill,'success and failure should use different colours');
+    assert.equal(new Set(palette.map(kpi=>kpi.fill)).size,5,
+      theme+' five KPI icons must have distinct identity colours');
+    const expected=theme==='dark'
+      ? ['rgb(50, 141, 226)','rgb(32, 179, 123)','rgb(239, 81, 93)','rgb(210, 138, 88)','rgb(171, 133, 215)']
+      : ['rgb(23, 123, 216)','rgb(19, 167, 108)','rgb(230, 66, 78)','rgb(167, 91, 34)','rgb(130, 80, 180)'];
+    assert.deepEqual(palette.map(kpi=>kpi.fill),expected,
+      theme+' blue, green, red, orange and purple card palette');
+    assert.match(palette[3].identity,/reporting-kpi-runtime/);
+    assert.match(palette[4].identity,/reporting-kpi-filament/);
+    assert.notEqual(palette[3].ring,palette[4].ring,
+      theme+' decorative rings must use their respective distinct colour tracks');
   }
+  // The header and its figure must share the same left edge, beside the
+  // gauge icon. Verify this in both themes and across desktop/phone widths.
+  for (const width of [1920,1440,1365,1200,1050,900,760,580,390,320]) {
+    await page.setViewportSize({width,height:900});
+    for (const theme of ['light','dark']) {
+      await page.evaluate(value=>{document.documentElement.dataset.theme=value;},theme);
+      const geometry=await page.locator('#reportingKpis .reporting-kpi').evaluateAll(cards=>
+        cards.map(card=>{
+          const body=card.querySelector('.reporting-kpi-body');
+          const label=body.querySelector('.reporting-kpi-label');
+          const value=body.querySelector('strong');
+          const ring=card.querySelector('.reporting-kpi-gauge');
+          const delta=card.querySelector('.reporting-kpi-change');
+          const header=label.getBoundingClientRect(),figure=value.getBoundingClientRect(),
+            icon=ring.getBoundingClientRect(),comparison=delta.getBoundingClientRect(),
+            box=card.getBoundingClientRect();
+          return {label:label.textContent.trim(),titleLeft:header.left,
+            valueLeft:figure.left, titleBottom:header.bottom,valueTop:figure.top,
+            iconRight:icon.right,comparisonLeft:comparison.left,cardRight:box.right,
+            titleRight:header.right,labelClient:label.clientWidth,
+            labelScroll:label.scrollWidth,cardBottom:box.bottom,
+            titleWrap:getComputedStyle(label).whiteSpace};
+        }));
+      assert.equal(geometry.length,5,width+' '+theme+' all five summary cards');
+      for (const g of geometry) {
+        assert.ok(Math.abs(g.titleLeft-g.valueLeft)<=1,
+          width+' '+theme+' '+g.label+' heading must align with number: '+JSON.stringify(g));
+        assert.ok(Math.abs(g.comparisonLeft-g.valueLeft)<=1,
+          width+' '+theme+' '+g.label+' previous-period text must follow number alignment');
+        assert.ok(g.titleBottom<=g.valueTop+1,
+          width+' '+theme+' '+g.label+' heading must sit above number');
+        assert.ok(g.iconRight<g.valueLeft,
+          width+' '+theme+' '+g.label+' icon should remain left of the heading/value');
+        assert.ok(g.labelScroll<=g.labelClient+1,
+          width+' '+theme+' '+g.label+' heading must wrap without clipping');
+        assert.ok(g.titleRight<=g.cardRight+1,
+          width+' '+theme+' '+g.label+' heading must stay in its card');
+        assert.equal(g.titleWrap,'normal');
+      }
+    }
+  }
+  await page.setViewportSize({width:1365,height:900});
+  await page.evaluate(()=>{document.documentElement.dataset.theme='dark';});
   // Compare headline periods in the same layout, with a favourable decrease
   // in failures, neutral increase in total activity and missing-baseline state.
   await page.evaluate(() => window.dispatchEvent(new CustomEvent('pfc:reporting-ui-state', {
     detail:{...window.__PFC_REPORTING_UI_STATE__, kpis:[
       {label:'Total print jobs',value:'342',detail:'In selected period',
         tone:'info',iconName:'jobs',progressPercent:null,
-        change:{symbol:'▲',label:'12.1%',tone:'neutral',caption:'vs previous period',description:'Increase of 12.1% vs previous period'}},
+        change:{symbol:'▲',label:'12.1%',tone:'increase',caption:'vs previous period',description:'Increase of 12.1% vs previous period'}},
       {label:'Completed',value:'325',detail:'95% completion rate',
         tone:'positive',iconName:'check',progressPercent:95,progressLabel:'Completion rate',
-        change:{symbol:'▲',label:'8.0%',tone:'positive',caption:'vs previous period',description:'Increase of 8.0% vs previous period'}},
+        change:{symbol:'▲',label:'8.0%',tone:'increase',caption:'vs previous period',description:'Increase of 8.0% vs previous period'}},
       {label:'Failed',value:'17',detail:'5% failure rate',
         tone:'negative',iconName:'cross',progressPercent:5,progressLabel:'Failure rate',
-        change:{symbol:'▼',label:'22.7%',tone:'positive',caption:'vs previous period',description:'Decrease of 22.7% vs previous period'}},
+        change:{symbol:'▼',label:'22.7%',tone:'decrease',caption:'vs previous period',description:'Decrease of 22.7% vs previous period'}},
       {label:'Total run time',value:'412.6 h',detail:'Reported from print timestamps',
         tone:'info',iconName:'clock',progressPercent:null,
-        change:{symbol:'',label:'—',tone:'muted',caption:'No previous period data',description:'No previous period data for selected printer filters'}}
+        change:{symbol:'',label:'—',tone:'muted',caption:'No previous period data',description:'No previous period data for selected printer filters'}},
+      {label:'Total filament used',value:'15.30 kg',detail:'Recorded for completed prints',
+        tone:'info',iconName:'scale',progressPercent:null,
+        change:{symbol:'▲',label:'23.4%',tone:'increase',caption:'vs previous period',description:'Increase of 23.4% vs previous period'}}
     ]}
   })));
-  await page.waitForFunction(() => document.querySelectorAll('#reportingKpis .reporting-kpi-change').length === 4);
-  assert.equal(await page.locator('#reportingKpis .reporting-kpi-change').count(),4);
+  await page.waitForFunction(() => document.querySelectorAll('#reportingKpis .reporting-kpi-change').length === 5);
+  assert.equal(await page.locator('#reportingKpis .reporting-kpi-change').count(),5);
   const deltas=await page.locator('#reportingKpis .reporting-kpi-change').evaluateAll(
     nodes=>nodes.map(node=>({
       value:node.querySelector('.reporting-kpi-change-value').textContent,
@@ -1994,19 +2200,61 @@ async function routeSmoke(page,url) {
     }))
   );
   assert.match(deltas[0].value,/▲12.1%/);
-  assert.match(deltas[0].className,/neutral/);
+  assert.match(deltas[0].className,/increase/);
   assert.match(deltas[1].value,/▲8.0%/);
-  assert.match(deltas[1].className,/positive/);
+  assert.match(deltas[1].className,/increase/);
   assert.match(deltas[2].value,/▼22.7%/);
-  assert.match(deltas[2].className,/positive/);
+  assert.match(deltas[2].className,/decrease/);
   assert.equal(deltas[3].caption,'No previous period data');
+  assert.match(deltas[4].value,/▲23.4%/);
+  assert.match(deltas[4].className,/increase/);
   for (const theme of ['light','dark']) {
     await page.evaluate(theme=>{document.documentElement.dataset.theme=theme;},theme);
     const colors=await page.locator('#reportingKpis .reporting-kpi-change').evaluateAll(
-      nodes=>nodes.map(node=>getComputedStyle(node).color)
+      nodes=>nodes.map(node=>({
+        container:getComputedStyle(node).color,
+        percent:getComputedStyle(node.querySelector('.reporting-kpi-change-value')).color,
+        arrow:node.querySelector('.reporting-kpi-change-value span')
+          ? getComputedStyle(node.querySelector('.reporting-kpi-change-value span')).color : null
+      }))
     );
-    assert.notEqual(colors[0],colors[1],'neutral and positive delta colours must differ');
+    const up=theme==='dark'?'rgb(85, 214, 164)':'rgb(18, 117, 78)';
+    const down=theme==='dark'?'rgb(237, 112, 120)':'rgb(181, 34, 49)';
+    for(const i of [0,1,4]) {
+      assert.equal(colors[i].container,up,theme+' increased KPI '+i+' should be green');
+      assert.equal(colors[i].percent,up,theme+' increased percentage should be green');
+      assert.equal(colors[i].arrow,up,theme+' increased arrow should be green');
+    }
+    assert.equal(colors[2].container,down,theme+' fewer failed jobs should be red');
+    assert.equal(colors[2].percent,down,theme+' decrease percentage should be red');
+    assert.equal(colors[2].arrow,down,theme+' decrease arrow should be red');
+    assert.notEqual(colors[3].container,up,theme+' missing comparison remains muted');
+    assert.notEqual(colors[3].container,down,theme+' missing comparison is not a decline');
   }
+  // Five KPI cards share a row only on roomy desktops. Narrower
+  // viewports balance the cards across rows without horizontal overflow.
+  for (const width of [1920,1365,1200,1050,900,620,390,320]) {
+    await page.setViewportSize({width,height:900});
+    const layout=await page.evaluate(()=>{
+      const parent=document.querySelector('#reportingKpis');
+      const cards=[...parent.querySelectorAll('.reporting-kpi')];
+      return {columns:getComputedStyle(parent).gridTemplateColumns.split(' ').length,
+        overflow:document.documentElement.scrollWidth>window.innerWidth+2,
+        cardRects:cards.map(card=>({left:card.getBoundingClientRect().left,
+          right:card.getBoundingClientRect().right,width:card.getBoundingClientRect().width})),
+        scaleHousing:cards.at(-1)?.querySelector('.reporting-kpi-icon svg rect')?.getAttribute('width'),
+        scaleGauge:cards.at(-1)?.querySelector('.reporting-kpi-icon svg path:last-child')?.getAttribute('d')};
+    });
+    assert.equal(layout.cardRects.length,5,'five KPI cards remain rendered at '+width);
+    const expectedColumns=width<=580 ? 1 : width<=900 ? 2 : width<=1550 ? 6 : 5;
+    assert.equal(layout.columns,expectedColumns,'responsive grid columns at '+width);
+    assert.equal(layout.overflow,false,'no horizontal page overflow at '+width);
+    assert.ok(layout.cardRects.every(card=>card.width>75),'cards remain readable at '+width);
+    assert.equal(layout.scaleHousing,'18','filament weight scale housing stays present at '+width);
+    assert.match(layout.scaleGauge||'',/M8 17a4 4 0 0 1 8 0M12 17l2-2/,
+      'filament weight scale dial stays present at '+width);
+  }
+  await page.setViewportSize({width:1365,height:900});
   // Sparse production history: all three jobs completed on one date.
   // The previous SVG contained only a move command and rendered no line.
   await page.evaluate(() => {
@@ -2038,6 +2286,46 @@ async function routeSmoke(page,url) {
     /2026-10-20: 3 completed/, 'a sparse daily chart must show its real completed count');
   assert.equal(await page.locator('#reportingTrend .reporting-axis-text').first().textContent(), '0',
     'the chart must start at zero');
+
+  // Short-range point-count labels remain visible when all three outcomes
+  // occur on multiple days; both browser renderers use labelled positions.
+  await page.evaluate(() => {
+    const points=Array.from({length:4},(_,day)=>['completed','failed','cancelled'].map((key,index)=>({
+      date:'2026-10-'+String(17+day).padStart(2,'0'),key,value:2,
+      x:110+day*165,y:75,title:'2026-10-'+String(17+day).padStart(2,'0')+': 2 '+key,
+      labelX:110+day*165+(index-1)*30,labelY:65
+    }))).flat();
+    const chart={rows:[{date:'2026-10-17',completed:2,failed:2,cancelled:2}],
+      grid:[],labels:[],viewBox:'0 0 760 230',
+      completedPath:'',failedPath:'',cancelledPath:'',points,showPointValues:true};
+    window.dispatchEvent(new CustomEvent('pfc:reporting-ui-state',{
+      detail:{...(window.__PFC_REPORTING_UI_STATE__||{}),chart}
+    }));
+  });
+  await page.waitForFunction(() =>
+    document.querySelectorAll('#reportingTrend .reporting-point-value').length===12);
+  const labelCoords=await page.locator('#reportingTrend .reporting-point-value').evaluateAll(
+    nodes=>nodes.map(node=>({x:Number(node.getAttribute('x')),text:node.textContent})));
+  assert.equal(new Set(labelCoords.slice(0,3).map(node=>node.x)).size,3,
+    'same-date outcome counts are offset to avoid colliding labels');
+  assert.ok(labelCoords.every(node=>node.text==='2'),'all twelve labels show their real count');
+  assert.equal(await page.locator('#reportingTrend .reporting-point title').count(),12,
+    'all points retain their exact accessible hover descriptions');
+  await page.evaluate(() => {
+    const current=window.__PFC_REPORTING_UI_STATE__||{};
+    const chart={rows:[{date:'2026-10-17',completed:2,failed:2,cancelled:2}],
+      grid:[],labels:[],viewBox:'0 0 760 230',
+      completedPath:'',failedPath:'',cancelledPath:'',
+      points:Array.from({length:12},(_,i)=>({
+        date:'2026-10-17',key:'completed',value:2,x:110+i*14,y:75,
+        title:'2026-10-17: 2 completed'
+      })),showPointValues:false};
+    window.dispatchEvent(new CustomEvent('pfc:reporting-ui-state',{detail:{...current,chart}}));
+  });
+  await page.waitForFunction(() =>
+    document.querySelectorAll('#reportingTrend .reporting-point-value').length===0
+    && document.querySelectorAll('#reportingTrend .reporting-point title').length===12);
+
   // Validate the physical desktop geometry, not merely CSS class names.
   // Inject one synthetic view row so even an empty reporting fixture tests real table width.
   await page.setViewportSize({width:1365,height:900});
@@ -2057,22 +2345,28 @@ async function routeSmoke(page,url) {
     }}));
   });
   await page.waitForFunction(() => !!document.querySelector('#reportingFiles .reporting-table-scroll'));
-  assert.equal(await page.locator('#reportingFiles .reporting-analytics-table thead th').count(),8);
+  assert.equal(await page.locator('#reportingFiles .reporting-analytics-table thead th').count(),6);
+  const columnLabels=await page.locator('#reportingFiles .reporting-analytics-table thead th').allTextContents();
+  assert.deepEqual(columnLabels.map(label=>label.trim().replace(/[▲▼↕]/g,'').trim().toUpperCase()),
+    ['#','PRINT FILE','COMPLETED','FAILED','MATERIAL','COST'],
+    'only six ranking columns are shown, in the specified order');
   assert.match(await page.locator('#reportingFiles .reporting-file-material').innerText(),/0\.45 kg/);
   assert.match(await page.locator('#reportingFiles .reporting-file-cost').innerText(),/£6\.00/);
-  assert.equal(await page.locator('#reportingFiles .reporting-analytics-table tbody tr').first().locator('td').count(),8,
-    'Material and Cost must occupy distinct table cells');
+  assert.equal(await page.locator('#reportingFiles .reporting-analytics-table tbody tr').first().locator('td').count(),6,
+    'six visible cells, with Material and Cost in separate columns');
   const resourceColumns = await page.locator('#reportingFiles .reporting-analytics-table').evaluate(table => {
     const head=[...table.querySelectorAll('thead th')], row=[...table.querySelectorAll('tbody tr:first-child td')];
     const left=n=>n.getBoundingClientRect().left;
-    return {materialHeader:head[5].innerText,costHeader:head[6].innerText,
-      headingDelta:left(head[6])-left(head[5]),valueDelta:left(row[6])-left(row[5])};
+    return {materialHeader:head[4].innerText,costHeader:head[5].innerText,
+      headingDelta:left(head[5])-left(head[4]),valueDelta:left(row[5])-left(row[4])};
   });
   assert.match(resourceColumns.materialHeader,/Material/i);
   assert.match(resourceColumns.costHeader,/Cost/i);
   assert.ok(resourceColumns.headingDelta>40 && resourceColumns.valueDelta>40,
     'resource cells must be side by side, not stacked in one column');
-  assert.match(await page.locator('#reportingFiles .reporting-file-time').innerText(),/2h 0m/);
+  assert.equal(await page.locator('#reportingFiles .reporting-file-time').count(),0);
+  assert.equal(await page.locator('#reportingFiles [data-reporting-file-sort="runSeconds"]').count(),0);
+  assert.equal(await page.locator('#reportingFiles [data-reporting-file-sort="successRate"]').count(),0);
   assert.equal(await page.locator('#reportingFiles .reporting-progress').count(),0,
     'completed count must not also be duplicated as a popularity bar');
   // Compare the real Most popular print files table against the controller's
@@ -2135,15 +2429,56 @@ async function routeSmoke(page,url) {
     assert.equal(ours.firstCell.borderRight,'0px',
       theme+' file table body should not contain isolated vertical gridlines');
   }
-  // Material usage table shares printer-group table skin (both modes and
-  // themes). Keep the actual data cells, 100% total and progress bars intact.
-  for (const [mode, label] of [['type','ASA'],['filament','Example · ASA-CF · ASA']]) {
+  // The popular-files table now shares one 50/50 desktop row with the
+  // filament kilogram pie chart. Neither half may overflow the whole page.
+  const layout=await page.evaluate(()=>{
+    const grid=document.querySelector('.reporting-analytics-grid');
+    const files=document.querySelector('.reporting-analytics-files');
+    const materials=document.querySelector('.reporting-analytics-materials');
+    const chart=document.querySelector('#reportingMaterials');
+    const left=files.getBoundingClientRect(),right=materials.getBoundingClientRect();
+    return {columns:getComputedStyle(grid).gridTemplateColumns.split(' ').length,
+      filesWidth:left.width,materialWidth:right.width,
+      filesScroll:files.querySelector('.reporting-table-scroll').scrollWidth >
+        files.querySelector('.reporting-table-scroll').clientWidth,
+      viewportOverflow:document.documentElement.scrollWidth>innerWidth+2,
+      chartPresent:chart!==null};
+  });
+  if(layout.columns===2){
+    assert.ok(Math.abs(layout.filesWidth-layout.materialWidth)<3,
+      'Popular files and kg graph must take equal desktop widths');
+    assert.equal(layout.filesScroll,true,'six-column file table scrolls inside its half when required');
+  }
+  assert.equal(layout.chartPresent,true);
+  assert.equal(layout.viewportOverflow,false,'paired analytics cannot overflow the document');
+  // Both selectors should appear level at the top-right of their equal-width
+  // desktop cards. The filament helper copy must not force an extra row.
+  const headerAlignment=await page.evaluate(()=>{
+    const geometry=(selector)=> {
+      const el=document.querySelector(selector);
+      const r=el.getBoundingClientRect();
+      return {top:r.top,right:r.right,bottom:r.bottom};
+    };
+    return {
+      filesCard:geometry('.reporting-analytics-files'),
+      materialCard:geometry('.reporting-analytics-materials'),
+      filesButtons:geometry('.reporting-analytics-files .reporting-segmented'),
+      materialButtons:geometry('.reporting-analytics-materials .reporting-segmented')
+    };
+  });
+  if(layout.columns===2) {
+    assert.ok(Math.abs(headerAlignment.filesButtons.top-headerAlignment.materialButtons.top)<=3,
+      'filament grouping switch must align vertically with popular-files switch: '
+      +JSON.stringify(headerAlignment));
+    assert.ok(Math.abs(headerAlignment.filesButtons.right-headerAlignment.filesCard.right
+      -(headerAlignment.materialButtons.right-headerAlignment.materialCard.right))<=3,
+      'both grouping selectors must have matching right-edge inset');
+  }
+  for (const [mode,label] of [['filament','Example · ASA-CF · ASA'],['type','ASA']]) {
     await page.evaluate(({mode,label})=>{
       const base=window.__PFC_REPORTING_UI_STATE__ || {};
       window.dispatchEvent(new CustomEvent('pfc:reporting-ui-state',{detail:{
         ...base,materialMode:mode,
-        // Keep the earlier file-geometry fixture in Preact state: dispatching
-        // this custom event replaces the entire view model, not just materials.
         files:[{
           id:'layout-check',rank:1,fileName:'Regression layout sample.3mf',
           libraryFileId:null,previewUrl:'',completed:10,failed:0,
@@ -2155,76 +2490,121 @@ async function routeSmoke(page,url) {
         }],
         materials:{rows:[
           {key:'sample',label,note:'Historical materials sample',
-            kg:'1.50',percentage:'75.0%',percent:75,cost:'£19.50'},
+            kg:'1.50',percentage:'75.0%',percent:75,barPercent:100,
+            barColour:'#dc5964',pieColour:'#dc5964',piePath:"M 100 100 L 100.0000 10.0000 A 90 90 0 1 1 10.0000 100.0000 Z",cost:'£19.50'},
           {key:'sample2',label:'PLA',note:'',kg:'0.50',
-            percentage:'25.0%',percent:25,cost:'£4.50'}
+            percentage:'25.0%',percent:25,barPercent:33.33,
+            barColour:'var(--ds-brand-strong)',pieColour:'var(--reporting-pie-2)',
+            piePath:"M 100 100 L 10.0000 100.0000 A 90 90 0 0 1 100.0000 10.0000 Z",cost:'£4.50'}
         ],totalKg:'2.00',totalCost:'£24.00'}
       }}));
     },{mode,label});
-    await page.waitForFunction((materialLabel) =>
-      document.querySelector('#reportingMaterials tbody tr td')?.textContent === materialLabel,label);
-    const styling=await page.evaluate(()=>{
-      const fixture=document.createElement('div');
-      fixture.style.cssText='position:fixed;left:-5000px;top:0';
-      fixture.innerHTML='<div class="printer-group-members"><table class="printer-group-members-table">'
-        +'<thead><tr><th>Material</th></tr></thead><tbody><tr><td>Material</td></tr></tbody></table></div>';
-      document.body.appendChild(fixture);
-      const original=document.documentElement.getAttribute('data-theme');
-      const props=node=>{
-        const s=getComputedStyle(node);
-        return {bg:s.backgroundColor,color:s.color,fontSize:s.fontSize,
-          fontWeight:s.fontWeight,letterSpacing:s.letterSpacing,
-          textTransform:s.textTransform,borderRadius:s.borderTopLeftRadius,
-          borderColor:s.borderTopColor,borderBottom:s.borderBottomColor,
-          borderWidth:s.borderRightWidth,divider:s.getPropertyValue('--pfc-table-divider').trim()};
-      };
-      const output={};
-      try {
+    await page.waitForFunction((materialLabel)=>
+      document.querySelector('#reportingMaterials .reporting-usage-description strong')?.textContent===materialLabel,label);
+    const rows=page.locator('#reportingMaterials .reporting-usage-row');
+    assert.equal(await rows.count(),2,mode+' retains all historical kg rows');
+    assert.equal(await page.locator('#reportingMaterials .reporting-usage-total>span').textContent(),'2.00 kg');
+    assert.match(await page.locator('#reportingMaterials .reporting-usage-total').innerText(),/£24.00/);
+    assert.match(await page.locator('#reportingMaterials .reporting-usage-pie').getAttribute('aria-label'),/Proportion of recorded filament usage/);
+    assert.match(await rows.first().locator('.reporting-usage-value').innerText(),/1\.50 kg[\s\S]*75\.0%/);
+    const shapes=page.locator('#reportingMaterials .reporting-usage-pie path');
+    assert.equal(await shapes.count(),2,mode+' shows two pie sectors');
+    assert.match(await shapes.first().getAttribute('d'),/ A 90 90 0 1 1 /,
+      mode+' first sector spans three quarters');
+    assert.match(await shapes.last().getAttribute('d'),/ A 90 90 0 0 1 /,
+      mode+' remaining sector spans one quarter');
+    const themes=await page.evaluate(()=>{
+      const root=document.documentElement,original=root.getAttribute('data-theme'),values={};
+      try{
         for(const theme of ['dark','light']){
-          document.documentElement.setAttribute('data-theme',theme);
-          output[theme]={
-            ours:{
-              panel:props(document.querySelector('#reportingMaterials .reporting-table-scroll')),
-              heading:props(document.querySelector('#reportingMaterials thead th')),
-              row:props(document.querySelector('#reportingMaterials tbody td')),
-              footer:props(document.querySelector('#reportingMaterials tfoot th'))
-            },
-            ref:{
-              panel:props(fixture.querySelector('.printer-group-members')),
-              heading:props(fixture.querySelector('thead th')),
-              row:props(fixture.querySelector('tbody td'))
-            }
+          root.setAttribute('data-theme',theme);
+          const chart=document.querySelector('#reportingMaterials .reporting-usage-chart');
+          const pie=chart.querySelector('.reporting-usage-pie');
+          const slices=[...pie.querySelectorAll('path')];
+          const total=chart.querySelector('.reporting-usage-total');
+          values[theme]={
+            pieWidth:pie.getBoundingClientRect().width,
+            firstColour:getComputedStyle(slices[0]).fill,
+            secondColour:getComputedStyle(slices[1]).fill,
+            border:getComputedStyle(slices[0]).strokeWidth,
+            surface:getComputedStyle(chart).backgroundColor,
+            total:getComputedStyle(total).backgroundColor,
+            viewportOverflow:document.documentElement.scrollWidth>innerWidth+2
           };
         }
-      } finally {
-        if(original===null) document.documentElement.removeAttribute('data-theme');
-        else document.documentElement.setAttribute('data-theme',original);
-        fixture.remove();
+      }finally{
+        if(original===null)root.removeAttribute('data-theme');
+        else root.setAttribute('data-theme',original);
       }
-      return output;
+      return values;
     });
-    for(const [theme,{ours,ref}] of Object.entries(styling)){
-      for(const prop of ['bg','borderColor','borderRadius'])
-        assert.equal(ours.panel[prop],ref.panel[prop],
-          mode+' '+theme+' Material usage surface must match shared table '+prop);
-      for(const prop of ['bg','color','fontSize','fontWeight','letterSpacing','textTransform','borderBottom','borderWidth'])
-        assert.equal(ours.heading[prop],ref.heading[prop],
-          mode+' '+theme+' Material usage header must match shared table '+prop);
-      assert.equal(ours.row.divider,ref.row.divider,
-        mode+' '+theme+' Material usage divider must match shared table token');
-      assert.equal(ours.row.borderWidth,'0px',mode+' '+theme+' no vertical cell borders');
-      assert.equal(ours.footer.bg,ours.panel.bg,mode+' '+theme+' totals use shared table surface');
+    for(const [theme,result] of Object.entries(themes)){
+      assert.ok(result.pieWidth>=120,mode+' '+theme+' pie is visible');
+      assert.equal(result.firstColour,'rgb(220, 89, 100)',mode+' '+theme+' catalogue colour');
+      assert.notEqual(result.secondColour,'rgba(0, 0, 0, 0)',mode+' '+theme+' fallback colour');
+      assert.notEqual(result.firstColour,result.secondColour,mode+' '+theme+' distinguishable sectors');
+      assert.notEqual(result.border,'0px',mode+' '+theme+' slice outlines are visible');
+      assert.notEqual(result.surface,'rgba(0, 0, 0, 0)');
+      assert.notEqual(result.total,'rgba(0, 0, 0, 0)');
+      assert.equal(result.viewportOverflow,false,mode+' '+theme+' no horizontal overflow');
     }
-    const count=await page.locator('#reportingMaterials tbody tr').count();
-    assert.equal(count,2,mode+' retains historical usage rows');
-    assert.equal(await page.locator('#reportingMaterials tfoot .numeric').first().textContent(),'2.00');
-    assert.equal(await page.locator('#reportingMaterials tfoot .numeric').nth(1).textContent(),'100%');
-    assert.equal(await page.locator('#reportingMaterials tfoot .numeric').nth(2).textContent(),'£24.00');
-    assert.equal(await page.locator('#reportingMaterials .reporting-progress').count(),2,
-      mode+' must retain material usage progress bars');
-    assert.ok((await page.locator('#reportingMaterials .numeric').count())>=6,
-      mode+' must preserve numeric column alignment');
   }
+  // The default six-row list must be fully visible without a vertical
+  // scrollbar, and both paired cards must finish at the same height.
+  await page.evaluate(() => {
+    const base=window.__PFC_REPORTING_UI_STATE__ || {};
+    const files=Array.from({length:6},(_,i)=>({
+      id:'top-six-'+i,rank:i+1,fileName:'Print file '+(i+1)+'.gcode',
+      completed:6-i,failed:0,materialText:'0.08 kg',
+      materialCostText:'£1.00',materialPartial:false,materialCostPartial:false,
+      materialTitle:'Recorded weight',costTitle:'Recorded cost'
+    }));
+    window.dispatchEvent(new CustomEvent('pfc:reporting-ui-state',{detail:{
+      ...base,fileScope:'top6',files,
+      materials:{rows:[
+        {key:'asa',label:'ASA',kg:'0.40',percentage:'80.0%',pieColour:'var(--reporting-pie-1)',
+          piePath:'M 100 100 L 100 10 A 90 90 0 1 1 14 72 Z',cost:'£4.00'},
+        {key:'pla',label:'PLA',kg:'0.10',percentage:'20.0%',pieColour:'var(--reporting-pie-2)',
+          piePath:'M 100 100 L 14 72 A 90 90 0 0 1 100 10 Z',cost:'£1.00'}
+      ],totalKg:'0.50',totalCost:'£5.00'}
+    }}));
+  });
+  await page.waitForFunction(()=>document.querySelectorAll('#reportingFiles tbody tr').length===6);
+  const sixLayout=await page.evaluate(()=>{
+    const rect=selector=>document.querySelector(selector).getBoundingClientRect();
+    const files=rect('.reporting-analytics-files');
+    const materials=rect('.reporting-analytics-materials');
+    const scroll=document.querySelector('#reportingFiles .reporting-table-scroll');
+    const total=rect('#reportingMaterials .reporting-usage-total');
+    return {filesBottom:files.bottom,materialsBottom:materials.bottom,
+      fileClient:scroll.clientHeight,fileContent:scroll.scrollHeight,
+      totalBottom:total.bottom,
+      verticalScrollbar:scroll.scrollHeight>scroll.clientHeight+1};
+  });
+  assert.equal(sixLayout.verticalScrollbar,false,'Top 6 never cuts off a ranked row');
+  assert.ok(Math.abs(sixLayout.filesBottom-sixLayout.materialsBottom)<=2,
+    'the two side-by-side cards must have equal bottom edges: '+JSON.stringify(sixLayout));
+  assert.ok(sixLayout.materialsBottom-sixLayout.totalBottom<25,
+    'the filament total should stay at the bottom of the paired card');
+  // All files keeps its contained vertical scrollbar when the list is long.
+  await page.evaluate(()=>{
+    document.querySelector('.reporting-analytics-files').dataset.reportingFilesView='all';
+    const base=window.__PFC_REPORTING_UI_STATE__ || {};
+    const files=Array.from({length:12},(_,i)=>({
+      id:'all-files-'+i,rank:i+1,fileName:'Print file '+(i+1)+'.gcode',
+      completed:12-i,failed:0,materialText:'0.05 kg',
+      materialCostText:'£1.00',materialPartial:false,materialCostPartial:false,
+      materialTitle:'Recorded weight',costTitle:'Recorded cost'
+    }));
+    window.dispatchEvent(new CustomEvent('pfc:reporting-ui-state',{detail:{...base,fileScope:'all',files}}));
+  });
+  await page.waitForFunction(()=>document.querySelectorAll('#reportingFiles tbody tr').length===12);
+  const allScroll=await page.locator('#reportingFiles .reporting-table-scroll').evaluate(el=>({
+    client:el.clientHeight,content:el.scrollHeight,overflow:getComputedStyle(el).overflowY
+  }));
+  assert.ok(allScroll.content>allScroll.client+1,'All files remains vertically scrollable for long lists');
+  assert.equal(allScroll.overflow,'auto');
+
   // Both remaining Analytics tables must match the established Printer Groups
   // table standard in both themes, including row-header (th) cells.
   await page.evaluate(() => {
@@ -2327,20 +2707,20 @@ async function routeSmoke(page,url) {
     'Most popular files must follow the trend graph');
   assert.ok(reportingLayout.fileTableWidth >= reportingLayout.fileCardWidth - 40,
     'Print file table must fill its section, not stop at a fixed narrow width');
-  assert.ok(reportingLayout.tableOverhang <= 2,
-    'Desktop print file table must not require horizontal scrolling');
+  assert.ok(reportingLayout.tableOverhang > 0,
+    'The six-column ranking table remains locally scrollable at laptop widths');
   // This fixture is sent directly to Preact, not injected into the server's
   // persisted report. Confirm that accessible sort controls are rendered;
   // the executable reporting UI tests cover actual ordering and direction.
-  for (const key of ['runSeconds','materialGrams','materialCost']) {
+  for (const key of ['materialGrams','materialCost']) {
     const button=page.locator('#reportingFiles [data-reporting-file-sort="'+key+'"]');
     assert.equal(await button.count(),1,'sortable resource column '+key+' must be rendered');
     assert.equal(await button.getAttribute('aria-pressed'),'false');
   }
   await page.locator('[data-reporting-files-scope="all"]').click();
   assert.equal(await page.locator('[data-reporting-files-scope="all"]').getAttribute('aria-pressed'),'true');
-  await page.locator('[data-reporting-files-scope="top10"]').click();
-  assert.equal(await page.locator('[data-reporting-files-scope="top10"]').getAttribute('aria-pressed'),'true');
+  await page.locator('[data-reporting-files-scope="top6"]').click();
+  assert.equal(await page.locator('[data-reporting-files-scope="top6"]').getAttribute('aria-pressed'),'true');
   await page.locator('[data-reporting-material-mode="filament"]').click();
   assert.equal(await page.locator('[data-reporting-material-mode="filament"]').getAttribute('aria-pressed'),'true');
   await page.locator('[data-reporting-material-mode="type"]').click();
@@ -3442,6 +3822,48 @@ async function simulatorSseSmoke(browser,url) {
     // verifies the shared table geometry without registering a second
     // simulator instance with a duplicate serial number.
     console.log('Chromium: AD5M / Pro shared filament/nozzle action alignment PASS');
+    const x1c=await jsonPost('/api/emulator/printers',{
+      profileId:'bambu-x1c',name:'Virtual X1C camera regression',
+      ports:{mqttPort:0,ftpsPort:0,cameraPort:0}
+    });
+    const x1cRegistered=await jsonPost('/api/printers',x1c.printer.controllerSettings);
+    const x1cId=x1cRegistered.printer?.id;
+    assert.ok(x1cId,'X1C is registered with the real controller');
+    await page.waitForFunction(id=>Boolean(document.querySelector('[data-printer-card="'+id+'"] [data-open]')),
+      x1cId,{timeout:30000});
+    await page.locator('[data-printer-card="'+x1cId+'"] [data-open]').click();
+    await page.locator('#printerDialog [data-detail-tab="camera"]').click();
+    assert.doesNotMatch(await page.locator('#printerDialog').textContent(),
+      /RTSPS\/H\.264 camera decoding is not yet supported/);
+    await page.waitForFunction(()=>{
+      const image=document.querySelector('#detailTabCamera img.detail-camera');
+      return image && image.naturalWidth>0 && image.naturalHeight>0;
+    },null,{timeout:30000});
+    // Decode in Chromium, independently of FFmpeg's scaler. A valid JPEG can
+    // still contain corrupt colours/scanlines, so compare the whole test card.
+    const cameraReference=await fs.readFile(path.join(root,'emulator/assets/test-frame.jpg'));
+    const cameraPixelError=await page.evaluate(async reference=>{
+      const expected=new Image();
+      expected.src=reference;
+      await expected.decode();
+      const canvas=document.createElement('canvas');
+      canvas.width=64; canvas.height=36;
+      const ctx=canvas.getContext('2d',{willReadFrequently:true});
+      const pixels=image=>{
+        ctx.drawImage(image,0,0,64,36);
+        return ctx.getImageData(0,0,64,36).data;
+      };
+      const wanted=pixels(expected);
+      const actual=pixels(document.querySelector('#detailTabCamera img.detail-camera'));
+      let error=0;
+      for(let i=0;i<actual.length;i++) if(i%4!==3) error+=Math.abs(actual[i]-wanted[i]);
+      return error/(64*36*3);
+    },'data:image/jpeg;base64,'+cameraReference.toString('base64'));
+    assert.ok(cameraPixelError<12,
+      'X1C camera colours match the simulator card (mean RGB error '+cameraPixelError.toFixed(2)+')');
+    await page.locator('#printerDialog [data-detail-close]').click();
+    await removeTestPrinter(x1cId);
+    console.log('Chromium: virtual X1C RTSPS -> bundled decoder -> correct camera pixels PASS');
   } finally {
     await context.close();
     // Isolated controller process teardown is the safety boundary; no external
@@ -3773,6 +4195,60 @@ async function nativeAuthenticationSmoke(browser){
     // overwrite the refreshed list and cause a false browser regression.
     await page.locator('#authUserList tbody tr').filter({hasText:'owner'})
       .waitFor({state:'visible'});
+    assert.equal(await page.locator('#authAdminTabs').isVisible(),true,
+      'Security & users must offer dedicated Users and HTTPS tabs');
+    assert.equal(await page.locator('#authTabUsers').getAttribute('aria-selected'),'true');
+    assert.equal(await page.locator('#authTabHttps').getAttribute('aria-selected'),'false');
+    assert.equal(await page.locator('#authTabHttps').innerText(),'Connection settings');
+    await page.locator('#authTabHttps').click();
+    assert.equal(await page.locator('#tlsSettingsHeading').innerText(),'Connection settings');
+    await page.locator('#tlsConfigureForm').waitFor({state:'visible'});
+    await page.waitForFunction(()=>document.querySelector('#tlsMode')?.textContent
+      .includes('HTTP / HTTPS not configured'));
+    const listenerPort=Number(new URL(url).port);
+    assert.equal(await page.locator('#tlsHttpPort').innerText(),String(listenerPort),
+      'HTTP summary shows the actual controller listener, not a hypothetical external port');
+    assert.equal(await page.locator('#tlsPort').innerText(),String(listenerPort+1)+' · inactive',
+      'HTTPS summary shows the inactive fixed partner listener');
+    assert.doesNotMatch(await page.locator('#tlsSettings').innerText(),/MetalLB/i,
+      'Connection settings must remain load-balancer agnostic');
+    assert.equal(await page.locator('#authUserAddForm').isVisible(),false,
+      'Users form must be hidden while HTTPS tab is selected');
+    assert.equal(await page.locator('#tlsRegenerateBtn').isVisible(),false,
+      'regeneration is unavailable until the SAVED mode is self-signed HTTPS');
+    assert.equal(await page.locator('#tlsConfigureBtn').isVisible(),true);
+    const sectionOrder=await page.locator('#tlsSettings').evaluate(root=>{
+      const a=root.querySelector('#tlsSummaryHeading');
+      const b=root.querySelector('#tlsConfigureForm');
+      const c=root.querySelector('#tlsMaintenance');
+      return Boolean(a.compareDocumentPosition(b)&Node.DOCUMENT_POSITION_FOLLOWING)
+        &&Boolean(b.compareDocumentPosition(c)&Node.DOCUMENT_POSITION_FOLLOWING);
+    });
+    assert.equal(sectionOrder,true,
+      'HTTPS sections must follow Summary, Settings, Replacement even while the last is hidden');
+    await page.locator('#tlsConfigureMode').selectOption('provided');
+    assert.equal(await page.locator('#tlsConfigureCertificatePem').isVisible(),true);
+    assert.equal(await page.locator('#tlsConfigurePrivateKeyPem').isVisible(),true);
+    assert.equal(await page.locator('#tlsConfigureBtn').isDisabled(),true,
+      'pasted PEM private keys may only be submitted over HTTPS');
+    assert.match(await page.locator('#tlsPemTransportWarning').innerText(),
+      /first enable a controller-managed certificate/i);
+    assert.equal(await page.locator('#tlsMaintenance').isVisible(),false,
+      'replacement section hidden when stored mode is not managed');
+    assert.equal(await page.locator('#tlsConfigureCertPath,#tlsConfigureKeyPath').count(),0,
+      'external certificates must be supplied by PEM paste, never file paths');
+    await page.locator('#tlsConfigureMode').selectOption('self-signed');
+    assert.equal(await page.locator('#tlsRegenerateBtn').isVisible(),false,
+      'drafting managed mode must not enable renewal until configuration is applied');
+    await page.locator('#authTabHttps').focus();
+    await page.keyboard.press('ArrowLeft');
+    assert.equal(await page.locator('#authTabUsers').getAttribute('aria-selected'),'true');
+    assert.equal(await page.locator('#authUserAddForm').isVisible(),true,
+      'arrow-key navigation switches the tab panel');
+    await page.locator('#authTabUsers').press('End');
+    assert.equal(await page.locator('#authTabHttps').getAttribute('aria-selected'),'true');
+    await page.locator('#authTabHttps').press('Home');
+    assert.equal(await page.locator('#authTabUsers').getAttribute('aria-selected'),'true');
     await page.locator('#authUserAddForm [name=username]').fill('shiftoperator');
     await page.locator('#authUserAddForm [name=displayName]').fill('Shift operator');
     await page.locator('#authUserAddForm [name=role]').selectOption('operator');
@@ -3798,9 +4274,43 @@ async function nativeAuthenticationSmoke(browser){
     const row=page.locator('#authUserList tbody tr').filter({hasText:'shiftoperator'});
     assert.equal(await row.locator('select').inputValue(),'operator');
     await row.locator('select').selectOption('viewer');
-    await row.locator('button').click();
-    await page.waitForFunction(()=>[...document.querySelectorAll('#authUserList tbody tr')]
-      .some(tr=>tr.textContent.includes('shiftoperator')&&tr.querySelector('select')?.value==='viewer'));
+    // Selecting a draft value is not evidence that Save finished. The PATCH
+    // triggers a GET which temporarily replaces the entire table with Loading.
+    const roleSaved=page.waitForResponse(response=>response.request().method()==='PATCH'
+      && new URL(response.url()).pathname.startsWith('/api/auth/users/'));
+    const usersRefreshed=page.waitForResponse(response=>response.request().method()==='GET'
+      && new URL(response.url()).pathname==='/api/auth/users');
+    await row.locator('button').filter({hasText:'Save'}).click();
+    assert.equal((await roleSaved).status(),200,'role update succeeds on the server');
+    const refreshed=await usersRefreshed;
+    assert.equal(refreshed.status(),200,'user list reload succeeds');
+    assert.equal((await refreshed.json()).users.find(user=>user.username==='shiftoperator')?.role,
+      'viewer','the refreshed server list contains the saved role');
+    await row.waitFor({state:'visible'});
+    assert.equal(await row.locator('select').inputValue(),'viewer');
+    const ownerRow=page.locator('#authUserList tbody tr').filter({
+      has:page.locator('th[scope="row"]:text-is("owner")')
+    });
+    assert.equal(await ownerRow.locator('button.auth-user-delete').isDisabled(),true,
+      'administrators cannot delete their own signed-in account');
+    const removable=page.locator('#authUserList tbody tr').filter({
+      has:page.locator('th[scope="row"]:text-is("shiftoperator")')
+    });
+    assert.equal(await removable.locator('button.auth-user-delete').isVisible(),true,
+      'administrators can delete other users');
+    page.once('dialog',dialog=>{
+      assert.match(dialog.message(),/shiftoperator/,'deletion must name the affected user');
+      void dialog.dismiss();
+    });
+    await removable.locator('button.auth-user-delete').click();
+    assert.equal(await removable.count(),1,'cancelled deletion preserves the account');
+    page.once('dialog',dialog=>{void dialog.accept();});
+    await removable.locator('button.auth-user-delete').click();
+    await page.waitForFunction(()=>[...document.querySelectorAll('#authUserList tbody tr th[scope=row]')]
+      .some(cell=>cell.textContent==='shopoperator')
+      &&![...document.querySelectorAll('#authUserList tbody tr th[scope=row]')]
+        .some(cell=>cell.textContent==='shiftoperator'));
+    assert.equal(await removable.count(),0,'deleted account row is removed from the user list');
     await page.locator('#authAccountBtn').click();
     await page.locator('#authLogoutBtn').click();
     await page.locator('#authOverlay').waitFor({state:'visible'});
@@ -3914,6 +4424,7 @@ async function main() {
     await workspaceShellSmoke(browser,url);
     await workspaceHeadingSmoke(page,url);
     await sharedTabNavigationSmoke(page,url);
+    await maintenanceActionWidthSmoke(page,url);
     await libraryCostSmoke(page,url);
     await libraryCompactTableSmoke(page,url);
     await librarySelectionSmoke(page,url,{ mutateFixture:!externalUrl });
