@@ -9,31 +9,31 @@ import {once} from 'node:events';
 import http from 'node:http';
 import https from 'node:https';
 import net from 'node:net';
+import {randomInt} from 'node:crypto';
 import {AccountStore} from '../src/security/account-store.js';
 import {createSelfSignedCertificate} from '../src/security/self-signed-certificate.js';
 
 const cwd=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
 const password='GUI HTTPS transition integration 2026!';
 async function freePort(){
-  // Test-only HTTP PORT uses its immediately succeeding HTTPS port. Ensure
-  // both are free before exercising the two production listener roles.
+  // Keep both listeners outside the default OS ephemeral range: otherwise an
+  // outbound socket in a parallel test can claim the released HTTPS port.
   for(let attempt=0;attempt<30;attempt++){
-    const first=net.createServer();
-    first.listen(0,'127.0.0.1');await once(first,'listening');
-    const port=first.address().port;
-    if(port>=65535){await new Promise(resolve=>first.close(resolve));continue;}
-    const second=net.createServer();
+    const first=net.createServer(),second=net.createServer();
+    const port=randomInt(10000,15000)*2;
     try{
       await new Promise((resolve,reject)=>{
-        second.once('error',reject);
-        second.listen(port+1,'127.0.0.1',resolve);
+        first.once('error',reject);first.listen(port,'127.0.0.1',resolve);
+      });
+      await new Promise((resolve,reject)=>{
+        second.once('error',reject);second.listen(port+1,'127.0.0.1',resolve);
       });
       await new Promise(resolve=>second.close(resolve));
       await new Promise(resolve=>first.close(resolve));
       return port;
     }catch{
       if(second.listening)await new Promise(resolve=>second.close(resolve));
-      await new Promise(resolve=>first.close(resolve));
+      if(first.listening)await new Promise(resolve=>first.close(resolve));
     }
   }
   throw Error('Unable to reserve an adjacent HTTP/HTTPS port pair');

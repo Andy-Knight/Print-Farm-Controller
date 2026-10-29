@@ -90,7 +90,12 @@ function Set-PrivateAcl($Item, $Owner) {
   }
   $acl.SetAccessRuleProtection($true,$false)
   if ($Item.GetAccessControl().GetOwner([Security.Principal.SecurityIdentifier]).Value -ne $Owner.Value) {
-    if (-not $Repair) { throw 'Storage has a different Windows owner; run elevated installer/permission repair.' }
+    $existingOwner=$Item.GetAccessControl().GetOwner([Security.Principal.SecurityIdentifier]).Value
+    # Elevated Windows processes commonly create files owned by Administrators.
+    # That is the current administrator's default owner, not a different user.
+    if (-not $Repair -and -not ($administrator -and $existingOwner -eq 'S-1-5-32-544')) {
+      throw 'Storage has a different Windows owner; run elevated installer/permission repair.'
+    }
     $acl.SetOwner($Owner)
   }
   $inheritance = if ($Item.PSIsContainer) { 'ContainerInherit,ObjectInherit' } else { 'None' }
@@ -155,7 +160,9 @@ try {
     $pending.Push($root)
     while ($pending.Count) {
       $item=Assert-PlainPath $pending.Pop()
-      if (-not $Repair -and $item.GetAccessControl().GetOwner([Security.Principal.SecurityIdentifier]).Value -ne $owner.Value) {
+      $existingOwner=$item.GetAccessControl().GetOwner([Security.Principal.SecurityIdentifier]).Value
+      if (-not $Repair -and $existingOwner -ne $owner.Value -and
+          -not ($administrator -and $existingOwner -eq 'S-1-5-32-544')) {
         throw 'Storage has a different Windows owner; run elevated installer/permission repair.'
       }
       $entries.Add($item)

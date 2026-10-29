@@ -82,6 +82,8 @@ test('Windows installer restricts persistent data to the selected account and pr
   assert.match(installerScript, /ControllerAccount/);
   assert.match(installerScript, /ssPostInstall/);
   assert.match(installerScript, /RaiseException/);
+  assert.match(bundleScript, /__PFC_WINDOWS_ACL_SCRIPT__/);
+  assert.match(bundleScript, /windows-data-permissions\.ps1/);
   assert.match(installerScript, /Source: "\.\.\\\.\.\\dist\\windows-x64\\\{#MyAppExeName\}"/);
   assert.doesNotMatch(installerScript, /Permissions: users-modify.*MyAppExeName/);
   assert.match(installerBuildScript, /Inno Setup 7/);
