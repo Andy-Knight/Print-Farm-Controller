@@ -1,3 +1,5 @@
+import {requireFreeSpace} from '../security/resource-limits.js';
+import {installCloudOperationLimits} from '../security/cloud-operation-limits.js';
 import {trustedCloudUrl, fetchMicrosoftDownload, MICROSOFT_FILE_DOMAINS} from '../security/cloud-http.js';
 import crypto from 'node:crypto';
 import { createReadStream, createWriteStream, promises as fs } from 'node:fs';
@@ -48,7 +50,7 @@ function readableStreamToNode(stream) {
 }
 
 async function responsePayload(response) {
-  const text = await response.text().catch(() => '');
+  const text = await response.text().catch(error=>{if(error.name==='AbortError'||/size limit/.test(error.message))throw error;return '';});
   if (!text) return {};
   try { return JSON.parse(text); } catch { return { raw:text }; }
 }
@@ -77,7 +79,8 @@ export class OneDriveClient {
     tenant = ONEDRIVE_TENANT,
     fetchFn = globalThis.fetch,
     nowFn = Date.now,
-    diagnosticFn = null
+    diagnosticFn = null,
+    networkOptions = {}
   } = {}) {
     if (!dataDir) throw new Error('OneDrive client requires a data directory');
     if (typeof fetchFn !== 'function') throw new Error('OneDrive client requires fetch support');
@@ -95,6 +98,7 @@ export class OneDriveClient {
     this.accessTokenExpiresAtMs = 0;
     this.reconnectRequired = false;
     this.lastError = null;
+    installCloudOperationLimits(this,networkOptions);
   }
 
   async log(level, message, meta = {}) {
@@ -560,7 +564,9 @@ export class OneDriveClient {
     await this.ensureBackupFolder();
     let next = `${GRAPH_API}/me/drive/special/approot/children?$select=id,name,size,createdDateTime,lastModifiedDateTime,file&$top=200`;
     const items = [];
+    let pages=0;
     while (next) {
+      if(++pages>100)throw oneDriveError('Cloud listing exceeds page budget',502);
       const response = await this.authorizedFetch(next);
       const payload = await responsePayload(response);
       if (!response.ok) {
@@ -570,7 +576,10 @@ export class OneDriveClient {
           'ONEDRIVE_LIST_FAILED'
         );
       }
-      if (Array.isArray(payload.value)) items.push(...payload.value);
+      if (Array.isArray(payload.value)) {
+        if(items.length+payload.value.length>10000)throw oneDriveError('Cloud listing exceeds item budget',502);
+        items.push(...payload.value);
+      }
       next = cleanString(payload['@odata.nextLink']) || null;
     }
     return items;
@@ -656,6 +665,7 @@ export class OneDriveClient {
       throw oneDriveError('OneDrive backup exceeds the supported restore size limit.', 413, 'ONEDRIVE_BACKUP_TOO_LARGE');
     }
 
+    await requireFreeSpace(os.tmpdir(),backup.size||Math.min(maxBytes,256*1024**2));
     const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'pfc-onedrive-restore-'));
     const safeName = safeBackupFileName(backup.name);
     const filePath = path.join(directory, safeName);

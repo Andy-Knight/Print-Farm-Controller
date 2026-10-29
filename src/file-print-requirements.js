@@ -1,3 +1,5 @@
+import {readZipDirectory as readArchiveDirectory,readZipEntry as readArchiveEntry} from './backup-recovery/backup-archive.js';
+import {fileInspectionPool} from './security/resource-limits.js';
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
 import { inflateRawSync } from 'node:zlib';
@@ -189,11 +191,20 @@ export function parse3mfPrintRequirements(buffer, { fileName = null } = {}) {
   return { ...parsed, source:'3mf-embedded-gcode', warning:parsed.warning };
 }
 
-export async function readFilePrintRequirements(filePath, { maxChunkBytes = MAX_CHUNK_BYTES } = {}) {
+export async function readFilePrintRequirements(filePath, options = {}) {
+  return fileInspectionPool.run(()=>readFilePrintRequirementsBounded(filePath,options));
+}
+
+async function readFilePrintRequirementsBounded(filePath, { maxChunkBytes = MAX_CHUNK_BYTES } = {}) {
   const extension = path.extname(String(filePath || '')).toLowerCase();
   if (extension === '.3mf') {
     try {
-      return parse3mfPrintRequirements(await fs.readFile(filePath), { fileName:path.basename(filePath) });
+      const entries=await readArchiveDirectory(filePath,{maxEntries:10000,maxDirectoryBytes:4*1024**2});
+      const plates=entries.filter(entry=>/^Metadata\/plate_\d+\.gcode$/i.test(entry.name)).sort((a,b)=>a.name.localeCompare(b.name,undefined,{numeric:true}));
+      if(!plates.length)throw new Error('The 3MF does not contain embedded plate G-code');
+      const bytes=await readArchiveEntry(filePath,plates[0],{maxBytes:16*1024**2});
+      const text=bytes.length<=maxChunkBytes*2?bytes.toString('utf8'):bytes.subarray(0,maxChunkBytes).toString('utf8')+'\n'+bytes.subarray(-maxChunkBytes).toString('utf8');
+      return {...parseGcodePrintRequirements(text,{fileName:path.basename(filePath)}),source:'3mf-embedded-gcode'};
     } catch (error) {
       return {
         fileName:path.basename(String(filePath || '')) || null,

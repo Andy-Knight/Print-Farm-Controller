@@ -1,3 +1,4 @@
+import {requireFreeSpace} from '../security/resource-limits.js';
 import crypto from 'node:crypto';
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
@@ -179,6 +180,8 @@ export async function createBackupArchive({
     dataDir, applicationDir, licensePath, controllerVersion, source, now
   });
 
+  await fs.mkdir(path.dirname(finalPath),{recursive:true,mode:0o700});
+  await requireFreeSpace(path.dirname(finalPath),Math.min((snapshot.manifest.payloadBytes||0)+32*1024**2,0xffffffff));
   try {
     await writeZipArchive(tempPath, snapshot.entries, { timestamp:now });
     const verification = await verifyBackupArchive(tempPath);

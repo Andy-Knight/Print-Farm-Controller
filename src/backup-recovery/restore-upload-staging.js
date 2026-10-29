@@ -1,3 +1,5 @@
+import {currentOperation} from '../security/operation-budget.js';
+import {requireFreeSpace} from '../security/resource-limits.js';
 import { createWriteStream, promises as fs } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -25,6 +27,7 @@ export async function stageRestoreUploadRequest(readable, rawFileName, { maxByte
   const declaredLength = Number(readable.headers?.['content-length'] || 0);
   if (declaredLength && declaredLength > maxBytes) throw new Error('Backup file exceeds the supported restore size limit');
 
+  await requireFreeSpace(os.tmpdir(),declaredLength||Math.min(maxBytes,256*1024**2));
   const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'pfc-restore-inspect-'));
   const filePath = path.join(directory, fileName);
   let bytes = 0;
@@ -37,7 +40,7 @@ export async function stageRestoreUploadRequest(readable, rawFileName, { maxByte
   });
 
   try {
-    await pipeline(readable, limiter, createWriteStream(filePath, { flags:'wx', mode:0o600 }));
+    await pipeline(readable, limiter, createWriteStream(filePath, { flags:'wx', mode:0o600 }), {signal:currentOperation()?.signal});
     if (!bytes) throw new Error('Uploaded backup file is empty');
     return {
       fileName,

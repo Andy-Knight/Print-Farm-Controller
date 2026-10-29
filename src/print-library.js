@@ -1,3 +1,4 @@
+import {requireLibraryCapacity} from './security/library-quota.js';
 import crypto from 'node:crypto';
 import { createReadStream, promises as fs } from 'node:fs';
 import path from 'node:path';
@@ -288,7 +289,7 @@ export async function listLibraryFiles() {
   });
 }
 
-export async function addLibraryFile(sourcePath, rawFileName, { description = '', printerTarget = null } = {}) {
+export async function addLibraryFile(sourcePath, rawFileName, { description = '', printerTarget = null, ownerId = 'local' } = {}) {
   return libraryMutations.run('catalog', async () => {
   await ensureRoot();
   const fileName = validateUploadFilename(rawFileName);
@@ -301,6 +302,7 @@ export async function addLibraryFile(sourcePath, rawFileName, { description = ''
   const existing = (await listLibraryFiles()).find((file) => file.sha256 === sourceHash && Number(file.size) === sourceStat.size);
   if (existing) return { ...existing, duplicate:true };
 
+  await requireLibraryCapacity(ROOT,sourceStat.size,{ownerId,overheadBytes:9*1024**2});
   const id = crypto.randomUUID();
   const directory = path.join(ROOT, id);
   const finalPath = path.join(directory, fileName);
@@ -320,6 +322,7 @@ export async function addLibraryFile(sourcePath, rawFileName, { description = ''
       id,
       fileName,
       size: sourceStat.size,
+      ownerId,
       sha256: sourceHash,
       description: cleanDescription,
       category:'',

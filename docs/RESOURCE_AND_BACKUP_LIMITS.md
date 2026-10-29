@@ -1,0 +1,91 @@
+# Resource admission and backup budgets
+
+Limits apply on Windows and in containers. They protect control/monitoring capacity;
+they do not change signed licensing or bypass print readiness and recovery holds.
+Host administrators can set the environment variables below before startup. Values
+are positive integer counts, bytes or milliseconds; timeout overrides must not
+exceed 24 hours. Invalid overrides fail startup when that policy is initialized.
+
+| Environment setting | Default | Meaning |
+| --- | --- | --- |
+| `PFC_MAX_UPLOADS` | 4 | Simultaneous staged print uploads, including downstream processing |
+| `PFC_MAX_UPLOADS_PER_USER` | 2 | Upload reservations per authenticated account |
+| `PFC_MAX_STAGED_UPLOAD_BYTES` | 1 GiB | Aggregate reserved print-upload bytes |
+| `PFC_MIN_FREE_DISK_BYTES` | 512 MiB | Free-space margin at upload/library/cloud-download admission |
+| `PFC_UPLOAD_TIMEOUT_MS` | 600000 | Absolute print-upload body deadline |
+| `PFC_UPLOAD_IDLE_TIMEOUT_MS` | 30000 | Maximum print-upload inactivity |
+| `PFC_LIBRARY_MAX_BYTES` | 50 GiB | Actual library storage, including metadata and previews |
+| `PFC_LIBRARY_MAX_FILES` | 10000 | Library item directories, including damaged retained items |
+| `PFC_LIBRARY_MAX_USER_BYTES` | 10 GiB | Logical file bytes owned by an uploading account |
+| `PFC_MAX_SESSIONS` | 1000 | Active sessions across the controller |
+| `PFC_MAX_SESSIONS_PER_USER` | 20 | Sessions per account |
+| `PFC_MAX_STREAMS` | 128 | Combined camera/event connections |
+| `PFC_MAX_STREAMS_PER_USER` | 16 | Camera/event connections per account |
+| `PFC_BACKUP_MAX_EXPANDED_BYTES` | 64 GiB | Aggregate declared ZIP expansion |
+| `PFC_BACKUP_MAX_ENTRY_BYTES` | 1 GiB | Uncompressed ZIP entry size |
+| `PFC_BACKUP_ARCHIVE_TIMEOUT_MS` | 600000 | Archive verification/processing budget |
+| `PFC_BACKUP_ENTRY_TIMEOUT_MS` | 120000 | Maximum duration of an entry read |
+| `PFC_CLOUD_OPERATION_TIMEOUT_MS` | 900000 | Shared total deadline across an operation's cloud calls |
+| `PFC_CLOUD_HEADER_TIMEOUT_MS` | 30000 | Cloud response-header deadline |
+| `PFC_CLOUD_IDLE_TIMEOUT_MS` | 30000 | Cloud response-body inactivity limit |
+
+The existing 512 MiB per-print-file limit remains. Unknown-length print uploads
+reserve their full permitted size. Reservations are acquired before disk work and
+released after staging cleanup, including failures. A 9 MiB allowance for preview
+and metadata is reserved when admitting a new library copy. Quotas are checked
+inside the serialized catalog mutation; identical-file deduplication still reuses
+existing content. Existing files are never automatically deleted to satisfy a quota.
+Older library entries without account ownership count against the installation
+quota; new API uploads record the account ID internally for future user accounting.
+
+Free-space checks use the relevant staging/library/backup filesystem. Generated
+backups reserve their declared payload plus 32 MiB overhead, capped at the ZIP32
+output limit, before writing. This is conservative for highly compressible data. Restore target
+checks retain the additional payload/staging margin and run before payload hashing.
+Free space can change after admission; write failures still clean up staged files.
+Keep persistent data/log volumes separate and provision space for backups, staging
+and the operating-system temporary directory as well as the library itself.
+
+Expired sessions are swept before new-session admission and quota accounting;
+expired tokens cannot keep occupying login capacity. Close/sign out of unused
+sessions to free active capacity. Live streams also have fixed caps of eight per
+session and 32 per socket source IP. Reverse proxies share that source-IP bucket.
+Explicit legacy mode shares account/session capacity by source IP. Closed or failed
+streams release all counters; ordinary health/status requests are not stream slots.
+
+File inspection runs at most two jobs with at most 16 waiting jobs. 3MF requirements
+use bounded ZIP-directory/range reads and a maximum 16 MiB embedded plate, parsing
+only the head/tail metadata window. Previews use asynchronous decompression, bounded
+output/candidate counts and a bounded G-code line scan. Unsupported or oversized
+inspection retains the existing unavailable-metadata/preview behavior and cannot
+invent automatic print compatibility.
+
+Backup ZIP directories are limited to 16 MiB and 50000 entries before allocation.
+Declared per-entry/aggregate expansion and checksum sizes are checked before
+payload verification. Actual reads enforce declared sizes, CRCs, SHA-256 checksums,
+an aggregate output-work budget and deadlines, and close upstream readers on error.
+Checksums do not encrypt or authenticate an intentionally rewritten backup; backup
+encryption remains separate work. ZIP32 and existing restore upload limits remain.
+
+Google Drive, OneDrive and S3 share operation budgets through authentication,
+pagination, transfers and cleanup. Metadata/error bodies are limited to 4 MiB per
+response and 16 MiB per operation; listing work is capped at 100 pages/10000 items.
+Streaming backup bodies retain the existing maximum 4 GiB restore size. No new
+automatic retries are added; existing refresh/retry behavior shares the same total
+budget. Destination validation and credential-safe redirect rules still apply.
+
+An authenticated Administrator can cancel active backup/restore work using
+`POST /api/backup/cancel` with the normal same-origin and CSRF headers. It returns
+the number of active operation contexts signalled for cancellation. Cancellation
+closes fetch/upload/download streams, aborts archive work, removes partial staging
+and releases locks after cleanup. Already committed remote files are not implicitly
+deleted, and this does not undo a completed restore stage or activate a restore.
+Use the existing staged-restore cancellation for an already completed stage.
+Cancellation is available through the API; no new browser button is added.
+
+Excess upload/session/stream admission returns HTTP 429; inspection saturation uses
+503 and storage/free-space quota failures use 507. Deadline/cancellation failures
+report an operation error or close an interrupted streaming response. Other control
+and health routes remain available when these capacities are exhausted. Tune host
+limits deliberately for slower links and larger installations; clients cannot raise
+them through request parameters.

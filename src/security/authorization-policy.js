@@ -130,7 +130,7 @@ for (const path of ['/api/backup/status','/api/backup/settings'])
   read(path,P.BACKUP_MANAGE);
 write('PUT','/api/backup/settings',P.BACKUP_MANAGE);
 for (const path of [
-  '/api/backup/test-destination','/api/backup/create',
+  '/api/backup/cancel','/api/backup/test-destination','/api/backup/create',
   '/api/backup/create/google-drive','/api/backup/create/one-drive',
   '/api/backup/create/s3'
 ]) write('POST',path,P.BACKUP_MANAGE);

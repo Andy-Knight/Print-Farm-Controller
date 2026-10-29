@@ -92,7 +92,7 @@ export async function inspectRestoreBackup(filePath, {
   targetDataDir = null,
   originalFileName = null
 } = {}) {
-  const verification = await verifyBackupArchive(filePath);
+  const verification = await verifyBackupArchive(filePath,{onDeclaredPayload:bytes=>validateFreeSpace(targetDataDir,bytes)});
   const { manifest, checksums } = verification;
   const archive = await inspectZipArchive(filePath);
 

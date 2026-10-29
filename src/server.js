@@ -1,3 +1,6 @@
+import {StreamAdmission} from './security/stream-admission.js';
+import {withOperationBudget,cancelActiveOperations} from './security/operation-budget.js';
+const streamAdmission=new StreamAdmission();
 import {secureWindowsDataDirectories} from './security/windows-data-permissions.js';
 import {guardedHttpListener} from './security/http-listener.js';
 import http from 'node:http';
@@ -724,7 +727,7 @@ async function apiRoute(req, res, url) {
     throw error;
   }
   const mutation = ['POST','PUT','PATCH','DELETE'].includes(req.method);
-  const mayCancelStagedRestore = req.method === 'DELETE' && url.pathname === '/api/restore/stage';
+  const mayCancelStagedRestore = (req.method === 'DELETE' && url.pathname === '/api/restore/stage') || (req.method==='POST'&&url.pathname==='/api/backup/cancel');
   if ((restorePendingRestart || restoreInspectionInProgress) && mutation && !mayCancelStagedRestore) {
     const error = new Error(restorePendingRestart
       ? 'A restore is staged and waiting for controller restart. Restart the controller to activate it, or cancel the staged restore before making further changes.'
@@ -844,6 +847,11 @@ async function apiRoute(req, res, url) {
 
   if (req.method === 'GET' && url.pathname === '/api/license') {
     return json(res, 200, { license: currentLicenseSnapshot() });
+  }
+
+  if(req.method==='POST'&&url.pathname==='/api/backup/cancel'){
+    const cancelled=cancelActiveOperations();
+    return json(res,200,{cancelled,operation:backupOperationLock.status()});
   }
 
   if (req.method === 'GET' && url.pathname === '/api/backup/status') {
@@ -1757,7 +1765,7 @@ async function apiRoute(req, res, url) {
   if (req.method === 'POST' && url.pathname === '/api/library') {
     const stagedUpload = await stageUploadRequest(req, req.headers['x-file-name']);
     try {
-      const file = await controllerMutations.run('library-queue', () => addLibraryFile(stagedUpload.filePath, stagedUpload.fileName));
+      const file = await controllerMutations.run('library-queue', () => addLibraryFile(stagedUpload.filePath, stagedUpload.fileName,{ownerId:req.pfcUser?.id||'local'}));
       return json(res, file.duplicate ? 200 : 201, { file });
     } finally {
       await stagedUpload.cleanup().catch(() => {});
@@ -1811,7 +1819,7 @@ async function apiRoute(req, res, url) {
   if (req.method === 'POST' && url.pathname === '/api/queue/stage') {
     const stagedUpload = await stageUploadRequest(req, req.headers['x-file-name']);
     try {
-      const stagedFile = await controllerMutations.run('library-queue', () => addLibraryFile(stagedUpload.filePath, stagedUpload.fileName));
+      const stagedFile = await controllerMutations.run('library-queue', () => addLibraryFile(stagedUpload.filePath, stagedUpload.fileName,{ownerId:req.pfcUser?.id||'local'}));
       return json(res, stagedFile.duplicate ? 200 : 201, { stagedFile });
     } finally {
       await stagedUpload.cleanup().catch(() => {});
@@ -2692,6 +2700,7 @@ async function handleControllerRequest(req, res) {
   try {
     if (await controllerAuth.route(req,res,url,{json,readJson})) return;
     if (!await controllerAuth.authorize(req,res,url,{json})) return;
+    if(url.pathname==='/api/events'||url.pathname.endsWith('/camera/stream'))streamAdmission.admit(req,res);
     if (url.pathname.startsWith('/api/emulator')) {
       if ((restorePendingRestart || restoreInspectionInProgress) && ['POST','PUT','PATCH','DELETE'].includes(req.method)) {
         return json(res, 409, {
@@ -2704,7 +2713,8 @@ async function handleControllerRequest(req, res) {
       return;
     }
     if (url.pathname.startsWith('/api/')) {
-      const handled = await apiRoute(req, res, url);
+      const backupRoute=(url.pathname.startsWith('/api/backup/')||url.pathname.startsWith('/api/restore/'))&&!['/api/backup/cancel','/api/backup/status','/api/backup/settings','/api/restore/status','/api/restore/cloud/providers'].includes(url.pathname);
+      const handled = backupRoute?await withOperationBudget(()=>apiRoute(req,res,url)):await apiRoute(req,res,url);
       if (handled !== false) return;
       return json(res, 404, { error: 'API route not found' });
     }
