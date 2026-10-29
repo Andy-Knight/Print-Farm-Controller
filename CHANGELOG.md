@@ -4,6 +4,11 @@ This file contains the version-by-version release history for Print Farm Control
 
 Historical entries describe the behaviour of the controller at the time of that release and may be superseded by later versions. For current installation, configuration and supported-hardware guidance, see [README.md](README.md).
 
+## v0.61.9
+
+- Restrict Windows data and logs to the selected owning account, SYSTEM and Administrators. Preserve that owner on upgrades and remove legacy broad local-user access.
+- Enforce Windows storage protection before credential loading, account writes and HTTPS key creation, including a recheck after restore activation. Reject linked storage and stop startup on permission failures with local repair guidance.
+
 ## v0.61.8
 
 - Reject printer HTTP redirects so API keys, Digest authorization and command credentials cannot reach a redirected host. Validate cloud pagination/upload destinations and strip Graph bearer tokens from approved OneDrive content redirects.

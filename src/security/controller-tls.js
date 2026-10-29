@@ -1,3 +1,4 @@
+import {secureWindowsDataDirectories} from './windows-data-permissions.js';
 /**
  * Controller-owned HTTPS configuration. The installation always begins with
  * plain HTTP when no persistent TLS settings exist. Administrators configure
@@ -132,6 +133,7 @@ export class ControllerTls {
     return {cert,key,id:null};
   }
   async init(){
+    await secureWindowsDataDirectories({dataDir:path.dirname(this.#directory)});
     const file=path.join(this.#directory,'settings.json');
     let input;
     try{input=JSON.parse(await fs.readFile(file,'utf8'));}
@@ -154,6 +156,7 @@ export class ControllerTls {
     return this.options;
   }
   async #storeCandidate(pair){
+    await secureWindowsDataDirectories({dataDir:path.dirname(this.#directory)});
     await fs.mkdir(this.#directory,{recursive:true,mode:0o700});
     const base=path.join(this.#directory,'identities');
     await fs.mkdir(base,{recursive:true,mode:0o700});

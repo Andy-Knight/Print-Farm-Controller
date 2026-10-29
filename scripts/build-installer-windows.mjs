@@ -73,4 +73,4 @@ await fs.access(outputInstaller).catch(() => {
 
 console.log('');
 console.log(`Windows installer created: ${outputInstaller}`);
-console.log('The installer keeps program files protected and grants standard users modify access only to the data and logs directories.');
+console.log('The installer protects data and logs for the selected Windows account, SYSTEM and Administrators.');

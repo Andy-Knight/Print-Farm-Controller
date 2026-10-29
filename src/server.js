@@ -1,3 +1,4 @@
+import {secureWindowsDataDirectories} from './security/windows-data-permissions.js';
 import {guardedHttpListener} from './security/http-listener.js';
 import http from 'node:http';
 import https from 'node:https';
@@ -20,7 +21,8 @@ import {
   setPrinterToolNozzleDesignation,
   setPrinterNozzleDesignation,
   setPrinterToolCount,
-  controllerDataDir
+  controllerDataDir,
+  prepareControllerDataDirectory
 } from './store.js';
 import {
   getPrinterAdapter,
@@ -2886,6 +2888,8 @@ async function swapControllerListener({options,secure}){
 async function startController() {
   let restoreTransaction = null;
   try {
+    await prepareControllerDataDirectory();
+    await secureWindowsDataDirectories({dataDir:runtimePaths.dataDir,logDir:runtimePaths.logDir});
     const restoreStartup = await activatePendingRestore({
       dataDir:runtimePaths.dataDir,
       licensePath:runtimePaths.licensePath
@@ -2897,6 +2901,8 @@ async function startController() {
       console.warn(`Rolled back an incomplete restore startup: ${restoreStartup.reason}`);
     }
 
+    if (restoreStartup?.activated || restoreStartup?.rolledBack)
+      await secureWindowsDataDirectories({dataDir:runtimePaths.dataDir,logDir:runtimePaths.logDir,force:true});
     await controllerAuth.init();
     try {
       await diagnosticLogger.init();
