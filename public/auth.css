@@ -522,7 +522,7 @@ html.auth-pending body>aside,html.auth-pending body>header,html.auth-pending bod
  .modern-topbar:has(.auth-identity:not([hidden])){flex-wrap:wrap;}
  .modern-topbar:has(.auth-identity:not([hidden])) .topbar-actions{flex-basis:100%;min-width:0;flex-wrap:wrap;}
  .modern-topbar .auth-identity{flex:1;min-width:0;overflow-wrap:anywhere;}
- .modern-topbar .auth-account-button{flex:0 0 auto;width:auto;}
+ .modern-topbar .topbar-actions > .auth-account-button{flex:0 0 auto;width:auto;}
 }
 #tlsStatusMessage:not(:empty){display:block;margin:12px 0;color:var(--ds-text);}
 

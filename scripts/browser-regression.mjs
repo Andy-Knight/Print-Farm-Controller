@@ -4306,8 +4306,8 @@ async function nativeAuthenticationSmoke(browser){
     assert.equal(await page.locator('#authUserAddForm').isVisible(),true,
       'arrow-key navigation switches the tab panel');
     await page.locator('#authTabUsers').press('End');
-    assert.equal(await page.locator('#authTabHttps').getAttribute('aria-selected'),'true');
-    await page.locator('#authTabHttps').press('Home');
+    assert.equal(await page.locator('#authTabLimits').getAttribute('aria-selected'),'true');
+    await page.locator('#authTabLimits').press('Home');
     assert.equal(await page.locator('#authTabUsers').getAttribute('aria-selected'),'true');
     await page.locator('#authUserAddForm [name=username]').fill('shiftoperator');
     await page.locator('#authUserAddForm [name=displayName]').fill('Shift operator');
