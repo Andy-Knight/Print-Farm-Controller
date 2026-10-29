@@ -180,16 +180,16 @@ test('Sale lots and tax-inclusive Min. sell price have separate aligned sortable
   assert.match(jsx,/per sale lot · incl\. tax/);
 });
 
-test('desktop library workbench uses compact and aligned nine-column tracks',()=>{
+test('desktop library workbench uses compact and aligned ten-column tracks',()=>{
   const css=read('public/print-library-polish.css');
   const browser=read('scripts/browser-regression.mjs');
   assert.match(css,/#libraryDialog\.library-dialog \{[\s\S]*?width:100%;[\s\S]*?max-width:none;/);
   const trackRule=css.match(/--library-table-cols:([^;]+);/);
   assert.ok(trackRule,'missing shared desktop track definition');
-  assert.equal(trackRule[1].match(/minmax\(/g)?.length,6);
-  assert.match(trackRule[1],/70px minmax\(136px,160px\) minmax\(104px,128px\)/);
+  assert.equal(trackRule[1].match(/minmax\(/g)?.length,7);
+  assert.match(trackRule[1],/54px minmax\(116px,140px\) minmax\(98px,120px\)/);
   assert.equal((css.match(/grid-template-columns:var\(--library-table-cols\)/g)||[]).length,2,
-    'header and body must use identical nine-column tracks');
+    'header and body must use identical ten-column tracks');
   assert.equal((css.match(/gap:10px;/g)||[]).length>=2,true);
   assert.equal((css.match(/@media\(max-width:1350px\)/g)||[]).length,2,
     'both card styling and scrollbar treatment use the same breakpoint');

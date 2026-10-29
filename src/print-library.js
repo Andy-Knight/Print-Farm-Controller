@@ -1,4 +1,5 @@
-import {requireLibraryCapacity} from './security/library-quota.js';
+import {requireLibraryCapacity,readLibraryOwnerUsage} from './security/library-quota.js';
+import {configuredLimit,resourceError} from './security/resource-limits.js';
 import crypto from 'node:crypto';
 import { createReadStream, promises as fs } from 'node:fs';
 import path from 'node:path';
@@ -203,6 +204,8 @@ function normalizeMetadata(metadata) {
   const addedAt = metadata.addedAt || metadata.stagedAt || null;
   return {
     id: metadata.id,
+    ownerId:metadata.ownerId||null,
+    uploadedById:Object.hasOwn(metadata,'uploadedById')?metadata.uploadedById:metadata.ownerId||null,
     fileName: metadata.fileName,
     size: Number(metadata.size || 0),
     sha256: metadata.sha256 || null,
@@ -323,6 +326,7 @@ export async function addLibraryFile(sourcePath, rawFileName, { description = ''
       fileName,
       size: sourceStat.size,
       ownerId,
+      uploadedById:ownerId==='local'?null:ownerId,
       sha256: sourceHash,
       description: cleanDescription,
       category:'',
@@ -351,6 +355,39 @@ export async function getLibraryFile(id) {
   await ensureRoot();
   const normalizedId = safeId(id);
   return readMetadata(path.join(ROOT, normalizedId), normalizedId);
+}
+
+export async function libraryOwnershipInventory(){
+  return libraryMutations.run('catalog',async()=>{
+    await ensureRoot();
+    return {files:await listLibraryFiles(),usage:await readLibraryOwnerUsage(ROOT)};
+  });
+}
+
+export async function libraryOwnershipHistory(id){
+  await ensureRoot();const normalizedId=safeId(id);
+  const metadata=JSON.parse(await fs.readFile(path.join(ROOT,normalizedId,META_FILE),'utf8'));
+  if(metadata.id!==normalizedId)throw new Error('Print library metadata is invalid');
+  return (metadata.ownershipHistory||[]).slice(-100);
+}
+
+export async function reassignLibraryOwner(id,ownerId,actorId){
+  return libraryMutations.run('catalog',async()=>{
+    await ensureRoot();const normalizedId=safeId(id),directory=path.join(ROOT,normalizedId);
+    const metadata=JSON.parse(await fs.readFile(path.join(directory,META_FILE),'utf8'));
+    if(metadata.id!==normalizedId)throw new Error('Print library metadata is invalid');
+    if(metadata.ownerId===ownerId)return normalizeMetadata(metadata);
+    const size=Number(metadata.size),usage=await readLibraryOwnerUsage(ROOT);
+    if(!Number.isSafeInteger(size)||size<0)throw new Error('Print library file size is invalid');
+    if((usage.get(ownerId)?.bytes||0)+size>configuredLimit('PFC_LIBRARY_MAX_USER_BYTES',10*1024**3))
+      throw resourceError('The target account does not have enough library allowance.',507);
+    const previous=metadata.ownerId||null;
+    if(!Object.hasOwn(metadata,'uploadedById'))metadata.uploadedById=previous==='local'?null:previous;
+    metadata.ownerId=ownerId;metadata.updatedAt=new Date().toISOString();
+    metadata.ownershipHistory=[...(metadata.ownershipHistory||[]).slice(-99),{at:metadata.updatedAt,actorId,from:previous,to:ownerId}];
+    await writeMetadata(directory,metadata);
+    return normalizeMetadata(metadata);
+  });
 }
 
 export async function getLibraryPreview(id) {

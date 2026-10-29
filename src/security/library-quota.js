@@ -2,6 +2,19 @@ import {promises as fs} from 'node:fs';
 import path from 'node:path';
 import {configuredLimit,resourceError,requireFreeSpace} from './resource-limits.js';
 
+export async function readLibraryOwnerUsage(root){
+  const owners=new Map();
+  for(const entry of await fs.readdir(root,{withFileTypes:true})){
+    if(!entry.isDirectory()||entry.isSymbolicLink())continue;
+    let metadata;try{metadata=JSON.parse(await fs.readFile(path.join(root,entry.name,'metadata.json'),'utf8'));}catch{continue;}
+    const size=Number(metadata.size);
+    if(!Number.isSafeInteger(size)||size<0)continue;
+    const id=metadata.ownerId||'local',usage=owners.get(id)||{bytes:0,files:0};
+    usage.bytes+=size;usage.files++;owners.set(id,usage);
+  }
+  return owners;
+}
+
 /** Called while holding the library catalog mutation lock, before copying. */
 export async function requireLibraryCapacity(root,incomingBytes,{ownerId='local',overheadBytes=0,
   maxBytes=configuredLimit('PFC_LIBRARY_MAX_BYTES',50*1024**3),maxFiles=configuredLimit('PFC_LIBRARY_MAX_FILES',10000),

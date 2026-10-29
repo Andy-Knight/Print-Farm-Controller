@@ -1,4 +1,6 @@
 import {StreamAdmission} from './security/stream-admission.js';
+import {libraryAccountPresentation} from './library-accounts.js';
+import {libraryOwnershipInventory,libraryOwnershipHistory,reassignLibraryOwner} from './print-library.js';
 import {ResourceLimitSettings} from './security/resource-limit-settings.js';
 import {withOperationBudget,cancelActiveOperations} from './security/operation-budget.js';
 const streamAdmission=new StreamAdmission();
@@ -1745,7 +1747,10 @@ async function apiRoute(req, res, url) {
       if (!byLibraryId.has(id)) byLibraryId.set(id,[]);
       byLibraryId.get(id).push(job);
     }
-    const filesWithUsage = (await listLibraryFiles()).map((file) => {
+    const ownership=await libraryOwnershipInventory();
+    const accounts=await controllerAuth.libraryAccounts();
+    const accountView=libraryAccountPresentation({...ownership,accounts,currentUser:req.pfcUser});
+    const filesWithUsage = accountView.files.map((file) => {
       const references = byLibraryId.get(file.id) || [];
       const completed = references.filter((job) => job.status === 'completed');
       const finished = references
@@ -1772,7 +1777,7 @@ async function apiRoute(req, res, url) {
       resolveAdapter:getPrinterAdapter,
       getState:(id)=>fleetState.getPrinterState(id)
     });
-    return json(res, 200, { files });
+    return json(res, 200, { files,storage:accountView.storage,ownershipAccounts:accountView.ownershipAccounts });
   }
 
   if (req.method === 'POST' && url.pathname === '/api/library') {
@@ -1785,6 +1790,18 @@ async function apiRoute(req, res, url) {
     }
   }
 
+  const ownershipMatch=url.pathname.match(/^\/api\/library\/([^/]+)\/ownership$/);
+  if(ownershipMatch&&['GET','PUT'].includes(req.method)){
+    const administrator=await controllerAuth.assertAdministrator(req);
+    const fileId=decodeURIComponent(ownershipMatch[1]);
+    if(req.method==='GET')return json(res,200,{history:await libraryOwnershipHistory(fileId)});
+    const body=await readJson(req);
+    if(!body||Array.isArray(body)||Object.keys(body).some(key=>key!=='ownerId'))throw Object.assign(new Error('Expected a target account only.'),{statusCode:400});
+    const accounts=await controllerAuth.libraryAccounts();
+    if(!accounts.some(account=>account.id===body.ownerId&&!account.disabled))throw Object.assign(new Error('Choose an enabled account.'),{statusCode:400});
+    const file=await controllerMutations.run('library-queue',()=>reassignLibraryOwner(fileId,body.ownerId,administrator.id));
+    return json(res,200,{file});
+  }
   const libraryPreviewMatch = url.pathname.match(/^\/api\/library\/([^/]+)\/preview$/);
   if (libraryPreviewMatch && req.method === 'GET') {
     const fileId = decodeURIComponent(libraryPreviewMatch[1]);

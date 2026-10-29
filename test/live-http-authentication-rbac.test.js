@@ -69,6 +69,34 @@ test('real HTTP dispatcher enforces login, CSRF and RBAC before controller actio
         ...(body?{'content-type':'application/json'}:{})
       },...(body?{body:JSON.stringify(body)}:{})
     });
+    const userRecords=await accounts.listUsers();
+    const adminId=userRecords.find(user=>user.username==='controlleradmin').id;
+    const operatorId=userRecords.find(user=>user.username==='operatoruser').id;
+    const upload=identity=>fetch(base+'/api/library',{method:'POST',headers:{cookie:identity.cookie,origin:base,'x-pfc-csrf':identity.csrf,'x-file-name':'ownership.gcode','content-type':'application/octet-stream'},body:'; ownership fixture\nG1 X1\n'});
+    const firstUpload=await upload(operator);assert.equal(firstUpload.status,201);
+    const libraryId=(await firstUpload.json()).file.id;
+    const initialLibrary=await (await call('GET','/api/library',viewer)).json();
+    assert.equal(initialLibrary.files[0].uploader.id,operatorId);
+    assert.equal(initialLibrary.files[0].uploader.label,'operatoruser');
+    assert.equal(initialLibrary.storage.accounts,null);assert.equal(initialLibrary.ownershipAccounts,null);
+    for(const identity of [viewer,operator]){
+      assert.equal((await call('GET',`/api/library/${libraryId}/ownership`,identity)).status,403);
+      assert.equal((await call('PUT',`/api/library/${libraryId}/ownership`,identity,{body:{ownerId:adminId}})).status,403);
+    }
+    assert.equal((await call('PUT',`/api/library/${libraryId}/ownership`,admin,{csrf:false,body:{ownerId:adminId}})).status,403);
+    assert.equal((await call('PUT',`/api/library/${libraryId}/ownership`,admin,{body:{ownerId:'unknown'}})).status,400);
+    assert.equal((await call('PATCH',`/api/library/${libraryId}`,operator,{body:{ownerId:adminId,uploadedById:adminId,description:'Edited'}})).status,200);
+    const afterEdit=await (await call('GET','/api/library',operator)).json();
+    assert.equal(afterEdit.files[0].ownerId,operatorId);assert.equal(afterEdit.storage.mine.files,1);
+    const transferred=await call('PUT',`/api/library/${libraryId}/ownership`,admin,{body:{ownerId:adminId}});
+    assert.equal(transferred.status,200);
+    const afterTransfer=await (await call('GET','/api/library',admin)).json();
+    assert.equal(afterTransfer.files[0].ownerId,adminId);assert.equal(afterTransfer.files[0].uploader.id,operatorId);
+    assert.equal(afterTransfer.storage.mine.files,1);
+    assert.equal((await (await call('GET','/api/library',operator)).json()).storage.mine.files,0);
+    const duplicate=await upload(admin);assert.equal(duplicate.status,200);assert.equal((await duplicate.json()).file.uploadedById,operatorId);
+    const history=await (await call('GET',`/api/library/${libraryId}/ownership`,admin)).json();
+    assert.equal(history.history.length,1);assert.equal(history.history[0].actorId,adminId);assert.equal(history.history[0].from,operatorId);assert.equal(history.history[0].to,adminId);
     assert.equal((await call('GET','/api/queue',viewer)).status,200);
     for (const identity of [viewer,operator]) {
       const alerts=await (await call('GET','/api/alerts',identity)).json();

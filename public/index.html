@@ -1197,6 +1197,7 @@
               <button id="libraryEditSelectedBtn" type="button" class="secondary" disabled>Edit details</button>
               <button id="libraryFavouriteSelectedBtn" type="button" class="secondary" disabled>☆ Favourite</button>
               <button id="libraryDeleteSelectedBtn" type="button" class="danger" disabled>Delete selected</button>
+              <button id="libraryOwnerSelectedBtn" type="button" class="secondary" hidden disabled>Change quota owner</button>
             </div>
           </div>
         </div>
@@ -1207,6 +1208,7 @@
           <label>Material<select id="libraryMaterialFilter"><option value="">All materials</option></select></label>
           <label>Category<select id="libraryCategoryFilter"><option value="">All categories</option></select></label>
           <label>Tag<select id="libraryTagFilter"><option value="">All tags</option></select></label>
+          <label>Uploaded by<select id="libraryUploaderFilter"><option value="">All accounts</option></select></label>
           <label>Cost<select id="libraryCostFilter">
             <option value="">Any cost</option><option value="available">Cost known</option><option value="missing">Cost unavailable</option>
           </select></label>
@@ -1222,6 +1224,7 @@
           <label>Sort by
             <select id="librarySortSelect">
               <option value="added">Date added</option><option value="name">Filename</option>
+              <option value="uploader">Uploaded by</option>
               <option value="printer">Printer type</option><option value="material">Material</option>
               <option value="cost">Estimated cost</option><option value="lots">Sale lots</option>
               <option value="salePrice">Min. sell price / lot</option><option value="duration">Print time</option>
@@ -1236,11 +1239,14 @@
         </details>
         <div id="librarySelectionStatus" class="library-selection-status" aria-live="polite">Select a file to enable actions</div>
         <div id="libraryStatus" class="subtle"></div>
+        <p id="libraryMyStorage" class="subtle" hidden></p>
+        <details id="libraryAccountStorage" hidden><summary>Storage by account</summary><div id="libraryAccountStorageRows" class="auth-table-scroll"></div></details>
         <div id="libraryError" class="error hidden"></div>
         <div class="library-filter-results"><span id="libraryResultCount" class="subtle" aria-live="polite"></span></div>
         <div id="libraryTableHead" class="library-table-head" aria-label="Sortable Print Library column headings" hidden>
           <span>Select</span><span>Preview</span>
           <button type="button" data-library-sort="name" aria-label="Sort by filename">File</button>
+          <button type="button" data-library-sort="uploader" aria-label="Sort by uploader">Uploaded by</button>
           <button type="button" data-library-sort="printer" aria-label="Sort by printer type">Printer</button>
           <button type="button" data-library-sort="material" aria-label="Sort by filament material">Filament &amp; requirements</button>
           <button type="button" data-library-sort="cost" aria-label="Sort by estimated material cost">Estimated cost</button>
@@ -1320,6 +1326,17 @@
     </form>
   </dialog>
 
+  <dialog id="libraryOwnerDialog" class="batch-action-dialog">
+    <form id="libraryOwnerForm" class="auth-form">
+      <h2>Change quota owner</h2><p id="libraryOwnerFile" class="subtle"></p>
+      <p class="subtle">This moves the file's storage charge. The original uploader stays unchanged. The target account must have enough allowance. The last 100 ownership changes are retained with this file.</p>
+      <label>New quota owner<select id="libraryOwnerTarget" required></select></label>
+      <label class="auth-tls-confirm"><input id="libraryOwnerConfirm" type="checkbox" required> I confirm this storage charge should move to the selected account.</label>
+      <p id="libraryOwnerError" class="auth-error" role="alert"></p>
+      <div class="actions"><button id="libraryOwnerCancel" type="button" class="secondary">Cancel</button><button type="submit" class="primary">Change quota owner</button></div>
+      <details><summary>Ownership history</summary><div id="libraryOwnerHistory" class="subtle"></div></details>
+    </form>
+  </dialog>
   <dialog id="libraryMetadataDialog" class="batch-action-dialog">
     <form id="libraryMetadataForm">
       <div class="dialog-head">

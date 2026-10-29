@@ -105,6 +105,10 @@ function LibraryFile({ file }) {
         {file.description && <div class="library-file-description">{file.description}</div>}
         {file.warning && <div class="library-warning">{file.warning}</div>}
       </div>
+      <div class="library-cell library-uploader-cell">
+        <span class="library-cell-label">Uploaded by</span>
+        <span>{file.uploaderLabel}</span>
+      </div>
       <div class="library-cell library-target-cell">
         <span class="library-cell-label">Printer</span>
         <span class="library-target-value">{file.printerTarget || 'Any supported printer'}</span>
