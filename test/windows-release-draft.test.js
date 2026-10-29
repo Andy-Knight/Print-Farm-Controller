@@ -46,6 +46,7 @@ test('new version creates an unpublished draft at the exact validated SHA and ve
   const result=await createWindowsReleaseDraft({...f,fetchFn:mock.fetchFn,log:()=>{}});
   assert.equal(result.skipped,false);assert.equal(mock.published.draft,true);
   assert.equal(mock.published.target_commitish,sha);assert.equal(mock.published.tag_name,'v'+version);
+  assert.equal(mock.published.name,'v1.2.3 Print Farm Controller');
   assert.match(mock.published.body,/Current fix/);assert.doesNotMatch(mock.published.body,/Previous fix/);
   assert.match(mock.published.body,/unsigned/);
   assert.deepEqual(mock.assets.map(asset=>asset.name),[installerName(version),'SHA256SUMS.txt','release-metadata.json']);

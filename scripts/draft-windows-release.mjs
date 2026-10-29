@@ -66,7 +66,7 @@ export async function createWindowsReleaseDraft({root=projectRoot,env=process.en
     let ref=await request(`${base}/git/ref/tags/${tag}`,{allow404:true});
     for(let depth=0;ref?.object?.type==='tag'&&depth<5;depth++)ref=await request(`${base}/git/tags/${ref.object.sha}`);
     if(ref&&(ref.object?.type!=='commit'||ref.object.sha!==sha))throw new Error('Existing release tag does not identify this source commit.');
-    release=await request(`${base}/releases`,{method:'POST',data:{tag_name:tag,target_commitish:sha,name:`Print Farm Controller ${tag}`,body:notes,draft:true,prerelease:false}});
+    release=await request(`${base}/releases`,{method:'POST',data:{tag_name:tag,target_commitish:sha,name:`${tag} Print Farm Controller`,body:notes,draft:true,prerelease:false}});
   }
   if(!release.draft||!Number.isSafeInteger(release.id)||release.id<1)throw new Error('GitHub did not return a valid draft release.');
   for(const asset of files){

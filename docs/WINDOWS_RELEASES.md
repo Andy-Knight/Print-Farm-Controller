@@ -19,7 +19,9 @@ when a required gate fails. Installer source changes also trigger validation.
 
 For a version with no existing release, the workflow prepares a **draft** tagged
 `v<version>`, targeting the exact validated source commit. Its notes use that
-version's newest `CHANGELOG.md` entry. The attachments are:
+version's newest `CHANGELOG.md` entry. The release name follows
+**v<version> Print Farm Controller** (for example, **v0.61.12 Print Farm Controller**).
+The attachments are:
 
 - `PrintFarmController-Setup-v<version>.exe`
 - `SHA256SUMS.txt`
