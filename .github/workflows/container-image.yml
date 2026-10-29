@@ -13,6 +13,7 @@ on:
       - public/**
       - ui/**
       - scripts/**
+      - installer/**
       - third-party/**
       - emulator/**
       - test/**
@@ -33,6 +34,7 @@ on:
       - public/**
       - ui/**
       - scripts/**
+      - installer/**
       - third-party/**
       - emulator/**
       - test/**
@@ -189,6 +191,8 @@ jobs:
     name: Windows SEA compatibility
     needs: [decoder]
     runs-on: windows-latest
+    outputs:
+      version: ${{ steps.installer_bundle.outputs.version }}
     steps:
       - name: Check out repository
         uses: actions/checkout@v7
@@ -214,6 +218,12 @@ jobs:
         run: npm test
 
       - name: Build Windows SEA executable
+        env:
+          # Shared installed-app OAuth configuration is included only in main
+          # builds. PRs and manually selected feature branches never receive it.
+          PFC_GOOGLE_CLIENT_ID: ${{ github.ref == 'refs/heads/main' && github.event_name != 'pull_request' && secrets.PFC_GOOGLE_CLIENT_ID || '' }}
+          PFC_GOOGLE_CLIENT_SECRET: ${{ github.ref == 'refs/heads/main' && github.event_name != 'pull_request' && secrets.PFC_GOOGLE_CLIENT_SECRET || '' }}
+          PFC_MICROSOFT_CLIENT_ID: ${{ github.ref == 'refs/heads/main' && github.event_name != 'pull_request' && secrets.PFC_MICROSOFT_CLIENT_ID || '' }}
         run: npm run build:sea:windows
 
       - name: Check portable executable exists
@@ -222,6 +232,23 @@ jobs:
           if (-not (Test-Path 'dist/windows-x64/PrintFarmController.exe')) {
             throw 'The Windows SEA build did not produce its executable.'
           }
+
+      - name: Build Windows installer with preinstalled Inno Setup
+        run: node scripts/build-installer-windows.mjs
+
+      - name: Prepare installer checksum and source metadata
+        id: installer_bundle
+        run: node scripts/windows-release-bundle.mjs
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: windows-installer
+          path: |
+            dist/installer/PrintFarmController-Setup-v${{ steps.installer_bundle.outputs.version }}.exe
+            dist/installer/SHA256SUMS.txt
+            dist/installer/release-metadata.json
+          if-no-files-found: error
+          retention-days: 30
 
   smoke:
     name: Container smoke test
@@ -402,3 +429,32 @@ jobs:
           cache-to: type=gha,mode=max
           provenance: mode=max
           sbom: true
+
+  windows-draft:
+    name: Prepare Windows release draft
+    timeout-minutes: 10
+    # Never promote a feature branch or a PR artifact. A draft is created only
+    # after all regression/platform gates and the production image build pass.
+    if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
+    needs: [windows, build]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    concurrency:
+      group: windows-draft-${{ github.repository }}-${{ needs.windows.outputs.version }}
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24.22.1'
+      - uses: actions/download-artifact@v7
+        with:
+          name: windows-installer
+          path: dist/installer/
+      - name: Create or resume unpublished Windows release draft
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node scripts/draft-windows-release.mjs

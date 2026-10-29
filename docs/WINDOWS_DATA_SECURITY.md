@@ -22,7 +22,7 @@ Program Files protects the owner record from ordinary users' modification.
 An unattended installation can select the owner explicitly:
 
 ```powershell
-.\PrintFarmController-Setup-v0.61.11.exe /VERYSILENT /ControllerAccount="MACHINE\controlleruser"
+.\PrintFarmController-Setup-v0.61.12.exe /VERYSILENT /ControllerAccount="MACHINE\controlleruser"
 ```
 
 Do not use the post-install launch option when the original desktop account

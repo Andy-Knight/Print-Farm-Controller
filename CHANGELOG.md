@@ -4,6 +4,11 @@ This file contains the version-by-version release history for Print Farm Control
 
 Historical entries describe the behaviour of the controller at the time of that release and may be superseded by later versions. For current installation, configuration and supported-hardware guidance, see [README.md](README.md).
 
+## v0.61.12
+
+- Build the Windows installer in CI and retain its checksum/source metadata as an artifact. After main-branch validation and the multi-architecture image build, prepare an unpublished versioned GitHub Release draft for maintainer review.
+- Preserve existing releases and version tags, verify uploaded asset digests and allow safe resumption of incomplete uploads from the same build. Keep release write permissions and installed-app OAuth configuration out of pull-request builds.
+
 ## v0.61.11
 
 - Add administrator-only Resource limits settings with grouped count/storage/timeout fields, active/default values, host override locks, draft reset/reload and a persistent restart notice in both frontend modes.

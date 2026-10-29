@@ -56,7 +56,7 @@ test('CI and container builds install the committed lock under pinned runtimes',
   }
   const ci = read('.github/workflows/container-image.yml');
   const docker = read('Dockerfile');
-  assert.equal((ci.match(/node-version: '24\.22\.1'/g) || []).length, 3);
+  assert.equal((ci.match(/node-version: '24\.22\.1'/g) || []).length, 4);
   assert.equal((ci.match(/run: npm ci --include=dev --no-audit --no-fund/g) || []).length, 3);
   assert.match(ci, /npm audit --audit-level=high/);
   assert.match(ci, /^permissions:\n  contents: read\n/m);
