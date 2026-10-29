@@ -149,7 +149,7 @@ test('Print Library route fills the shared workspace and caps only narrow traili
   assert.match(library,/#libraryDialog\.library-dialog\s*\{[^}]*width:100%;[^}]*max-width:none;[^}]*min-width:0;/);
   assert.doesNotMatch(library,/width:min\(1300px,100%\)/,
     'a routed page must not retain the old 1300px dialog cap');
-  assert.match(library,/minmax\(136px,160px\) minmax\(104px,128px\)/,
+  assert.match(library,/minmax\(116px,140px\) minmax\(98px,120px\)/,
     'selling price and history should not grow into blank space on wide screens');
   assert.match(regression,/Math\.abs\(geometry\.header\.width-geometry\.page\.width\)<=2/,
     'Chromium must verify that the table reaches the route edges');

@@ -4035,7 +4035,7 @@ function selectLibraryFile(id, { focus = false } = {}) {
 function renderLibraryStorage(){
   const storage=libraryState.storage,mine=document.querySelector('#libraryMyStorage');
   mine.hidden=!storage?.mine;
-  if(storage?.mine)mine.textContent=`Storage charged to your account: ${formatBytes(storage.mine.bytes)} / ${formatBytes(storage.mine.limit)} · ${storage.mine.files} files`;
+  if(storage?.mine)mine.textContent=`Storage charged to your account: ${formatBytes(storage.mine.bytes)} / ${formatBytes(storage.mine.limit)} · ${storage.mine.files} file${storage.mine.files===1?'':'s'}`;
   const panel=document.querySelector('#libraryAccountStorage'),rows=document.querySelector('#libraryAccountStorageRows');
   panel.hidden=!Array.isArray(storage?.accounts);
   if(!panel.hidden)rows.innerHTML='<table class="auth-users-table"><thead><tr><th>Account</th><th>Files</th><th>Used</th><th>Allowance</th></tr></thead><tbody>'
@@ -9529,7 +9529,11 @@ libraryOwnerForm?.addEventListener('submit',async event=>{
   for(const element of libraryOwnerForm.querySelectorAll('input,select,button'))element.disabled=true;
   try{
     await api('/api/library/'+encodeURIComponent(libraryOwnerEditing.id)+'/ownership',{method:'PUT',body:JSON.stringify({ownerId})});
-    libraryOwnerDialog.close();await refreshPrintLibrary();
+    libraryOwnerDialog.close();
+    try{await refreshPrintLibrary();}catch(error){
+      if(libraryError){libraryError.textContent='Quota owner saved, but the library could not refresh: '+error.message;libraryError.classList.remove('hidden');}
+      return;
+    }
     if(libraryStatus)libraryStatus.textContent='Quota owner saved. The original uploader is unchanged.';
   }catch(error){document.querySelector('#libraryOwnerError').textContent=error.message;}
   finally{delete libraryOwnerForm.dataset.busy;libraryOwnerForm.removeAttribute('aria-busy');for(const element of libraryOwnerForm.querySelectorAll('input,select,button'))element.disabled=false;}

@@ -1309,7 +1309,7 @@ async function librarySelectionSmoke(page,url,{mutateFixture = true} = {}) {
   assert.equal((await page.locator('#libraryTableHead [data-library-sort="salePrice"]').textContent()).trim(),'Min. sell price');
   assert.equal(await page.locator('#libraryTableHead [data-library-sort="salePrice"]').getAttribute('aria-label'),
     'Sort by minimum sell price per lot');
-  assert.equal(await page.locator('#libraryTableHead > *').count(),9);
+  assert.equal(await page.locator('#libraryTableHead > *').count(),10);
   assert.equal(await page.locator('#libraryList .library-file-row').first()
     .locator('.library-lots-cell').count(),1);
   assert.equal(await page.locator('#libraryList .library-file-row').first()
@@ -1871,8 +1871,8 @@ async function libraryScrollingSmoke(page,url) {
       assert.equal(await unknownRow.locator('.library-sale-value').innerText(),'Unavailable',
         'unknown filament costs must never create a fabricated price');
       if(viewport.desktop) {
-        assert.equal(await page.locator('#libraryTableHead > *').count(),9);
-        assert.equal(await firstRow.locator('.library-cell').count(),9);
+        assert.equal(await page.locator('#libraryTableHead > *').count(),10);
+        assert.equal(await firstRow.locator('.library-cell').count(),10);
       } else {
         assert.equal(await firstRow.locator('.library-lots-cell .library-cell-label').innerText(),'Sale lots');
         assert.equal(await firstRow.locator('.library-sale-cell .library-cell-label').innerText(),'Min. sell price');
@@ -3908,7 +3908,7 @@ async function libraryAccountSmoke({browser,context,page,url,dataDir,captureDir}
     const saved=page.waitForResponse(response=>response.request().method()==='PUT'&&response.url().endsWith('/ownership'));
     await page.locator('#libraryOwnerForm button[type=submit]').click();assert.equal((await saved).status(),200);
     await page.locator('#libraryOwnerDialog').waitFor({state:'hidden'});
-    await page.waitForFunction(()=>document.querySelector('#libraryMyStorage')?.textContent.includes('1 files'));
+    await page.waitForFunction(()=>document.querySelector('#libraryMyStorage')?.textContent.includes('1 file'));
     assert.match(await row.locator('.library-uploader-cell').innerText(),/Shop operator/);
     await page.locator('#libraryOwnerSelectedBtn').click();
     await page.waitForFunction(()=>document.querySelector('#libraryOwnerHistory')?.textContent.includes('Changed by Owner'));
@@ -3922,7 +3922,16 @@ async function libraryAccountSmoke({browser,context,page,url,dataDir,captureDir}
         const geometry=await page.evaluate(()=>({width:innerWidth,scroll:document.documentElement.scrollWidth}));
         assert.ok(geometry.scroll<=geometry.width+1,`account library fits ${width}px ${theme}`);
         assert.equal(await row.locator('.library-uploader-cell').isVisible(),true);
-        if(captureDir&&[1365,390].includes(width))await page.screenshot({path:path.join(captureDir,`library-accounts-${theme}-${width}.png`),fullPage:true,animations:'disabled'});
+        const listHeight=await page.locator('#libraryList').evaluate(element=>element.clientHeight);
+        assert.ok(listHeight>=150,'expanded panels must not collapse the result list');
+        if(captureDir&&[1365,390].includes(width)){
+          await page.locator('#libraryAdvancedFilters').evaluate(element=>element.open=false);
+          await page.locator('#libraryAccountStorage').evaluate(element=>element.open=false);
+          await page.evaluate(()=>{document.activeElement?.blur();window.scrollTo(0,0);});
+          await page.screenshot({path:path.join(captureDir,`library-accounts-${theme}-${width}.png`),fullPage:true,animations:'disabled'});
+          await page.locator('#libraryAdvancedFilters').evaluate(element=>element.open=true);
+          await page.locator('#libraryAccountStorage').evaluate(element=>element.open=true);
+        }
       }
     }
     const fallback=await context.newPage();

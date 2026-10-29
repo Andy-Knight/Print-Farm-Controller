@@ -191,8 +191,8 @@ test('desktop library workbench uses compact and aligned ten-column tracks',()=>
   assert.equal((css.match(/grid-template-columns:var\(--library-table-cols\)/g)||[]).length,2,
     'header and body must use identical ten-column tracks');
   assert.equal((css.match(/gap:10px;/g)||[]).length>=2,true);
-  assert.equal((css.match(/@media\(max-width:1350px\)/g)||[]).length,2,
-    'both card styling and scrollbar treatment use the same breakpoint');
+  assert.equal((css.match(/@media\(max-width:1350px\)/g)||[]).length,3,
+    'card styling, scrollbar treatment and action wrapping use the same breakpoint');
   assert.match(browser,/libraryCompactTableSmoke\(page,url\)/);
   assert.match(browser,/sale and history columns must not reserve large empty gaps/);
 });
