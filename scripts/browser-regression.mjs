@@ -4211,7 +4211,9 @@ async function nativeAuthenticationSmoke(browser){
     const perUserSessions=page.locator('#limit-PFC_MAX_SESSIONS_PER_USER');
     await perUserSessions.fill('1.5');await page.locator('#resourceLimitsSave').click();
     assert.match(await page.locator('#resourceLimitsStatus').innerText(),/Counts must be whole numbers/);
+    assert.equal(await perUserSessions.getAttribute('aria-invalid'),'true');
     await perUserSessions.fill('21');
+    assert.equal(await perUserSessions.getAttribute('aria-invalid'),null);
     await page.locator('#authTabUsers').click();
     await page.locator('#authTabLimits').click();
     assert.equal(await perUserSessions.inputValue(),'21','tab changes preserve pending edits');

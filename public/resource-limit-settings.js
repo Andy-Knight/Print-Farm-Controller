@@ -54,7 +54,10 @@ export function createResourceLimitEditor({call}){
       });
     return pending;
   }
-  form.addEventListener('input',()=>message('Unsaved changes. Save, then restart the controller to apply them.'));
+  form.addEventListener('input',event=>{
+    event.target.removeAttribute('aria-invalid');
+    message('Unsaved changes. Save, then restart the controller to apply them.');
+  });
   form.addEventListener('submit',async event=>{
     event.preventDefault();if(busy||!fields)return;
     const overrides={};
@@ -62,6 +65,7 @@ export function createResourceLimitEditor({call}){
       if(field.locked)continue;
       const input=form.elements.namedItem(field.key),value=Number(input.value)*field.scale;
       if(!Number.isSafeInteger(value)||value<field.min||value>field.max){
+        input.setAttribute('aria-invalid','true');
         message(field.label+': enter a positive value in the displayed unit. Counts must be whole numbers; timeouts cannot exceed 24 hours.',true);
         input.focus();return;
       }

@@ -57,6 +57,8 @@ Role-aware destructive controls: **Delete selected** in the Print Library and **
 
 **Resource limits:** Security & users includes a third underline tab, **Resource limits**, using the deployed `sliders` mask. Keep all three tabs in the shared roving-focus/Left/Right/Home/End rail, with inactive panels hidden. The native account renderer provides identical controls in Preact and fallback modes. Use labelled semantic fieldsets for Uploads, Storage, Sessions and streams, Backup processing and Timeouts; a two-column field grid becomes one column at 760px. Standard 42px number inputs use explicit count, MiB/GiB or seconds labels. Each field shows its active value and default; host-managed fields are disabled with a readable explanation naming the override. Show the restart state persistently above the form. **Save resource limits** is primary; **Use default values** and **Reload saved limits** are secondary. Defaults prepare a draft, while reload discards it. Preserve unsaved edits on tab/telemetry updates and disable editing during save. Report loading, validation failures and save outcome with accessible status text; never claim saved values are active before restart. Fixed processing caps belong in a neutral expandable read-only explanation. Reuse existing surface/border/text/focus/warning tokens, wrap actions on phones and avoid horizontal page overflow at 320px.
 
+On signed-in screens at 390px or narrower, wrap the identity/account/theme actions onto their own header row so wider system fonts and long account names cannot push controls outside the viewport. Keep the account name/role visible, allow it to wrap, and retain normal account/theme touch targets.
+
 ## 3. Colour system
 
 ### Core semantic palette — exact `--ds-*` tokens
