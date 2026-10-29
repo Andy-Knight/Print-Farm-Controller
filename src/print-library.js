@@ -226,8 +226,18 @@ function normalizeMetadata(metadata) {
   };
 }
 
-async function readMetadata(directory, expectedId = null) {
-  const metadata = JSON.parse(await fs.readFile(path.join(directory, META_FILE), 'utf8'));
+async function saveDerivedMetadata(directory,patch,catalogLocked){
+  const save=async()=>{
+    // A preview/requirements read may have started before an ownership transfer
+    // or edit. Merge derived fields into the latest record under the same lock.
+    const latest=JSON.parse(await fs.readFile(path.join(directory,META_FILE),'utf8'));
+    const updated={...latest,...patch};await writeMetadata(directory,updated);return updated;
+  };
+  return catalogLocked?save():libraryMutations.run('catalog',save);
+}
+
+async function readMetadata(directory, expectedId = null, catalogLocked=false) {
+  let metadata = JSON.parse(await fs.readFile(path.join(directory, META_FILE), 'utf8'));
   if (expectedId && metadata.id !== expectedId) throw new Error('Print library metadata is invalid');
   const fileName = validateUploadFilename(metadata.fileName);
   const filePath = path.join(directory, fileName);
@@ -247,7 +257,7 @@ async function readMetadata(directory, expectedId = null) {
       const refreshed = await readFilePrintRequirements(filePath);
       metadata.requirements = { ...refreshed, fileName };
       metadata.updatedAt = new Date().toISOString();
-      await writeMetadata(directory, metadata);
+      metadata=await saveDerivedMetadata(directory,{requirements:metadata.requirements,updatedAt:metadata.updatedAt},catalogLocked);
     } catch {
       // Preserve the existing compatibility metadata if the historical file
       // cannot be reparsed. Reporting will show usage/cost as unavailable.
@@ -260,12 +270,12 @@ async function readMetadata(directory, expectedId = null) {
       checkedAt:new Date().toISOString(),
       source:null
     }));
-    await writeMetadata(directory, metadata);
+    metadata=await saveDerivedMetadata(directory,{preview:metadata.preview},catalogLocked);
   }
   return { ...normalizeMetadata(metadata), filePath };
 }
 
-export async function listLibraryFiles() {
+export async function listLibraryFiles({catalogLocked=false}={}) {
   await ensureRoot();
   const entries = await fs.readdir(ROOT, { withFileTypes:true });
   // Bounded concurrent metadata reads avoid N serial filesystem round trips
@@ -278,7 +288,7 @@ export async function listLibraryFiles() {
     while(next < directories.length) {
       const entry = directories[next++];
       try {
-        files.push(normalizeMetadata(await readMetadata(path.join(ROOT,entry.name),entry.name)));
+        files.push(normalizeMetadata(await readMetadata(path.join(ROOT,entry.name),entry.name,catalogLocked)));
       } catch {
         // A damaged entry is ignored but remains on disk for recovery.
       }
@@ -302,7 +312,7 @@ export async function addLibraryFile(sourcePath, rawFileName, { description = ''
   if (!sourceStat.isFile() || !sourceStat.size) throw new Error('Print library file is empty');
 
   const sourceHash = await sha256File(sourcePath);
-  const existing = (await listLibraryFiles()).find((file) => file.sha256 === sourceHash && Number(file.size) === sourceStat.size);
+  const existing = (await listLibraryFiles({catalogLocked:true})).find((file) => file.sha256 === sourceHash && Number(file.size) === sourceStat.size);
   if (existing) return { ...existing, duplicate:true };
 
   await requireLibraryCapacity(ROOT,sourceStat.size,{ownerId,overheadBytes:9*1024**2});
@@ -360,7 +370,7 @@ export async function getLibraryFile(id) {
 export async function libraryOwnershipInventory(){
   return libraryMutations.run('catalog',async()=>{
     await ensureRoot();
-    return {files:await listLibraryFiles(),usage:await readLibraryOwnerUsage(ROOT)};
+    return {files:await listLibraryFiles({catalogLocked:true}),usage:await readLibraryOwnerUsage(ROOT)};
   });
 }
 

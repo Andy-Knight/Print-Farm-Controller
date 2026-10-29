@@ -65,4 +65,22 @@ test('quota transfers preserve original upload attribution, enforce capacity and
   const transaction=await activatePendingRestore({dataDir:target,licensePath});await commitActivatedRestore(transaction);
   const restored=JSON.parse(await fs.readFile(path.join(target,'print-library',first.id,'metadata.json'),'utf8'));
   assert.equal(restored.uploadedById,'one');assert.equal(restored.ownerId,'one');assert.deepEqual(restored.ownershipHistory,bounded);
+  // Pause a real metadata read after it sees the old owner. A later preview
+  // cache write must not restore that stale owner or discard its audit record.
+  const uncached=JSON.parse(await fs.readFile(firstMetadataPath,'utf8'));uncached.preview=null;
+  await fs.writeFile(firstMetadataPath,JSON.stringify(uncached));
+  const originalRead=fs.readFile;let firstRead=true,releaseRead,readStarted;
+  const held=new Promise(resolve=>{releaseRead=resolve;}),started=new Promise(resolve=>{readStarted=resolve;});
+  fs.readFile=async(...args)=>{
+    const result=await originalRead(...args);
+    if(firstRead&&String(args[0])===firstMetadataPath){firstRead=false;readStarted();await held;}
+    return result;
+  };
+  try{
+    const reading=library.getLibraryFile(first.id);await started;
+    await library.reassignLibraryOwner(first.id,'two','race-admin');releaseRead();
+    assert.equal((await reading).ownerId,'two');
+  }finally{releaseRead();fs.readFile=originalRead;}
+  assert.equal((await library.getLibraryFile(first.id)).ownerId,'two');
+  assert.equal((await library.libraryOwnershipHistory(first.id)).at(-1).actorId,'race-admin');
 });

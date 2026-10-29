@@ -7,7 +7,7 @@ Historical entries describe the behaviour of the controller at the time of that 
 ## v0.61.13
 
 - Show original uploader accounts in a dedicated Print Library column with uploader sorting/search and account, My uploads, legacy and deleted-account filters. Add personal storage usage and administrator account usage totals in both frontend modes.
-- Separate original attribution from quota ownership. Add administrator-only, capacity-checked ownership transfers with explicit confirmation and a bounded persistent per-file audit history, preserving attribution across duplicate uploads, edits and restores.
+- Separate original attribution from quota ownership. Add administrator-only, capacity-checked ownership transfers with explicit confirmation and a bounded persistent per-file audit history, preserving attribution across duplicate uploads, edits, concurrent preview refreshes and restores.
 
 ## v0.61.12
 
