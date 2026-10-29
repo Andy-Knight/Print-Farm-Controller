@@ -1,8 +1,13 @@
 import {promises as fs} from 'node:fs';
+import {validateResourceOverrides} from './resource-limit-definitions.js';
+
+let savedOverrides=Object.freeze({});
+export function setResourceLimitOverrides(value){savedOverrides=Object.freeze(validateResourceOverrides(value));}
+const resolveLimit=value=>typeof value==='function'?value():value;
 
 export function resourceError(message,statusCode=429){return Object.assign(new Error(message),{statusCode});}
 export function configuredLimit(name,fallback,env=process.env){
-  if(env[name]===undefined||env[name]==='')return fallback;
+  if(env[name]===undefined||env[name]==='')return savedOverrides[name]??fallback;
   const value=Number(env[name]);
   if(!Number.isSafeInteger(value)||value<1||(name.endsWith('_MS')&&value>24*60*60*1000))throw new Error(`${name} must be a positive safe integer`);
   return value;
@@ -17,7 +22,7 @@ export class ResourceAdmission {
   reserve(user='local',bytes=0){
     user=String(user||'local');
     if(!Number.isSafeInteger(bytes)||bytes<0)throw resourceError('Invalid resource reservation',400);
-    if(this.active>=this.maxActive||(this.users.get(user)||0)>=this.maxPerUser||this.bytes+bytes>this.maxBytes)
+    if(this.active>=resolveLimit(this.maxActive)||(this.users.get(user)||0)>=resolveLimit(this.maxPerUser)||this.bytes+bytes>resolveLimit(this.maxBytes))
       throw resourceError('Controller resource capacity reached. Retry after active work finishes.');
     this.active++;this.bytes+=bytes;this.users.set(user,(this.users.get(user)||0)+1);
     let released=false;

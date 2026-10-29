@@ -1,4 +1,4 @@
-# Print Farm Controller v0.61.10
+# Print Farm Controller v0.61.11
 A local-first 3D printer fleet controller. It runs entirely on your LAN and currently supports:
 
 - **FlashForge Adventurer 5M / 5M Pro** through the local FlashForge HTTP/TCP APIs.
@@ -7,7 +7,7 @@ A local-first 3D printer fleet controller. It runs entirely on your LAN and curr
 - **Prusa CORE One+ (experimental)** through the local PrusaLink API, supporting Standard (1-tool), INDX4 and INDX8 configurations.
 - **Bambu Lab P1P / P1S / X1C / A1 Mini (experimental)** through the local MQTT TLS and FTPS TLS interfaces. P1P/P1S/A1 Mini use the TLS/JPEG camera path; X1C camera uses the bundled FFmpeg decoder; see [X1C camera setup](docs/X1C_CAMERA.md).
 
-**Current development version: v0.61.10**
+**Current development version: v0.61.11**
 
 ## Key capabilities
 
@@ -100,7 +100,7 @@ Authentication is enabled unless `PFC_AUTH_REQUIRED=0` explicitly selects **lega
 
 Printer HTTP connections reject redirects, including redirects to the same host; configure the printer address directly. Oversized printer responses are rejected; see [network input boundaries](docs/NETWORK_INPUT_SECURITY.md) for limits and cloud destination policies. Password checks are limited to four at once across the controller, two per source address and one per account; excess attempts receive HTTP 429 and can be retried after active checks finish or the failure cooldown expires.
 
-Uploads, Print Library storage, sessions and live streams have host-configurable quotas. Backup inspection enforces ZIP directory, expansion and processing budgets; cloud transfers have shared deadlines and administrator cancellation. See [resource and backup limits](docs/RESOURCE_AND_BACKUP_LIMITS.md) for defaults, configuration and compatibility.
+Administrators can tune upload, Print Library storage, session, live-stream and backup limits under **Security & users → Resource limits**. Saved changes take effect after a controller restart; host environment overrides remain locked in the GUI. Backup inspection enforces ZIP directory, expansion and processing budgets; cloud transfers have shared deadlines and administrator cancellation. See [resource and backup limits](docs/RESOURCE_AND_BACKUP_LIMITS.md) for defaults, configuration and compatibility.
 
 Full design and security rollout requirements: [Authentication and RBAC](docs/AUTHENTICATION_AND_RBAC.md).
 

@@ -6,7 +6,7 @@ import { Transform } from 'node:stream';
 import { pipeline } from 'node:stream/promises';
 
 export const MAX_UPLOAD_BYTES = 512 * 1024 * 1024;
-const uploadAdmission=new ResourceAdmission({maxActive:configuredLimit('PFC_MAX_UPLOADS',4),maxPerUser:configuredLimit('PFC_MAX_UPLOADS_PER_USER',2),maxBytes:configuredLimit('PFC_MAX_STAGED_UPLOAD_BYTES',1024**3)});
+const uploadAdmission=new ResourceAdmission({maxActive:()=>configuredLimit('PFC_MAX_UPLOADS',4),maxPerUser:()=>configuredLimit('PFC_MAX_UPLOADS_PER_USER',2),maxBytes:()=>configuredLimit('PFC_MAX_STAGED_UPLOAD_BYTES',1024**3)});
 const ALLOWED_EXTENSIONS = new Set(['.gcode', '.gx', '.3mf', '.gco', '.g']);
 
 export function validateUploadFilename(value) {

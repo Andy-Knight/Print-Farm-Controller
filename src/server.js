@@ -1,4 +1,5 @@
 import {StreamAdmission} from './security/stream-admission.js';
+import {ResourceLimitSettings} from './security/resource-limit-settings.js';
 import {withOperationBudget,cancelActiveOperations} from './security/operation-budget.js';
 const streamAdmission=new StreamAdmission();
 import {secureWindowsDataDirectories} from './security/windows-data-permissions.js';
@@ -83,6 +84,7 @@ import {
 } from './backup-recovery/restore-service.js';
 
 const runtimePaths = resolveControllerRuntimePaths();
+const resourceLimitSettings = new ResourceLimitSettings({dataDir:runtimePaths.dataDir});
 const PUBLIC_DIR = runtimePaths.publicDir;
 const APP_DIR = runtimePaths.applicationDir;
 const PACKAGE_PATH = runtimePaths.packageJsonPath;
@@ -738,6 +740,17 @@ async function apiRoute(req, res, url) {
 
   // Even in pre-enrollment legacy mode these endpoints require a real admin.
   // Neither keys nor certificate status may bypass the native RBAC boundary.
+  if (req.method === 'GET' && url.pathname === '/api/settings/resource-limits') {
+    await controllerAuth.assertAdministrator(req);
+    return json(res,200,{limits:resourceLimitSettings.status()});
+  }
+  if (req.method === 'PUT' && url.pathname === '/api/settings/resource-limits') {
+    await controllerAuth.assertAdministrator(req);
+    const body=await readJson(req);
+    if(!body||Array.isArray(body)||Object.keys(body).some(key=>key!=='overrides'))
+      throw Object.assign(new Error('Expected resource overrides only.'),{statusCode:400});
+    return json(res,200,{limits:await resourceLimitSettings.save(body.overrides)});
+  }
   if (req.method === 'GET' && url.pathname === '/api/tls/status') {
     await controllerAuth.assertAdministrator(req);
     return json(res, 200, {tls:controllerTls.status()});
@@ -2913,6 +2926,7 @@ async function startController() {
 
     if (restoreStartup?.activated || restoreStartup?.rolledBack)
       await secureWindowsDataDirectories({dataDir:runtimePaths.dataDir,logDir:runtimePaths.logDir,force:true});
+    await resourceLimitSettings.init();
     await controllerAuth.init();
     try {
       await diagnosticLogger.init();

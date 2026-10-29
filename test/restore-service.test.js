@@ -132,6 +132,8 @@ test('activation swaps staged data and commit makes the restored state permanent
     await writeJson(path.join(liveData, 'printers.json'), [{ id:'old-printer', name:'Old printer' }]);
     await writeJson(path.join(liveData, 'print-jobs.json'), []);
     await writeJson(liveLicense, { current:'old' });
+    const policy={version:1,overrides:{PFC_MAX_UPLOADS:1}};
+    await writeJson(path.join(liveData,'security','resource-limits.json'),policy);
 
     const fixture = await createBackupFixture(root, {
       jobs:[{ id:'restored-job', status:'queued', assignmentMode:'automatic', productionBatchId:'batch-1', groupId:'group-restored', groupName:'Restored production' }],
@@ -154,6 +156,7 @@ test('activation swaps staged data and commit makes the restored state permanent
 
     const tx = await activatePendingRestore({ dataDir:liveData, licensePath:liveLicense });
     assert.equal(tx.activated, true);
+    assert.deepEqual(JSON.parse(await fs.readFile(path.join(liveData,'security','resource-limits.json'),'utf8')),policy,'restore retains target installation limits');
     const printers = JSON.parse(await fs.readFile(path.join(liveData, 'printers.json'), 'utf8'));
     assert.equal(printers[0].id, 'new-printer');
     const jobs = JSON.parse(await fs.readFile(path.join(liveData, 'print-jobs.json'), 'utf8'));

@@ -83,6 +83,8 @@ const write = (method, path, permission) => exact(method, path, permission);
 read('/api/health', 'public');
 read('/api/license', P.SYSTEM_READ);
 read('/api/tls/status', P.USER_MANAGE);
+read('/api/settings/resource-limits', P.USER_MANAGE);
+write('PUT', '/api/settings/resource-limits', P.USER_MANAGE);
 read('/api/tls/certificate', P.USER_MANAGE);
 write('POST', '/api/tls/regenerate', P.USER_MANAGE);
 write('POST', '/api/tls/configure', P.USER_MANAGE);

@@ -1,9 +1,10 @@
 import {withOperationBudget,currentOperation,abortError} from './operation-budget.js';
 import {configuredLimit} from './resource-limits.js';
 
-export function boundedCloudFetch(fetchFn,{headerTimeoutMs=configuredLimit('PFC_CLOUD_HEADER_TIMEOUT_MS',30000),idleTimeoutMs=configuredLimit('PFC_CLOUD_IDLE_TIMEOUT_MS',30000),
-  requestTimeoutMs=configuredLimit('PFC_CLOUD_OPERATION_TIMEOUT_MS',15*60*1000),metadataBytes=4*1024**2,aggregateMetadataBytes=16*1024**2,maxBodyBytes=4*1024**3}={}){
+export function boundedCloudFetch(fetchFn,limits={}){
   return async(url,options={})=>{
+    const {headerTimeoutMs=configuredLimit('PFC_CLOUD_HEADER_TIMEOUT_MS',30000),idleTimeoutMs=configuredLimit('PFC_CLOUD_IDLE_TIMEOUT_MS',30000),
+      requestTimeoutMs=configuredLimit('PFC_CLOUD_OPERATION_TIMEOUT_MS',15*60*1000),metadataBytes=4*1024**2,aggregateMetadataBytes=16*1024**2,maxBodyBytes=4*1024**3}=limits;
     const controller=new AbortController();
     const signals=[controller.signal,options.signal,currentOperation()?.signal].filter(Boolean);
     const signal=AbortSignal.any(signals);

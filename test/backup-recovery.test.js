@@ -51,6 +51,8 @@ test('logical backup creates a verified portable pfcbackup with known persistent
     await fs.mkdir(path.join(root, 'logs'), { recursive:true });
     await fs.writeFile(path.join(root, 'logs', 'controller.log'), 'must not be backed up');
     await fs.writeFile(path.join(dataDir, 'private-signing-key.pem'), 'must not be backed up');
+    await fs.mkdir(path.join(dataDir,'security'),{recursive:true});
+    await fs.writeFile(path.join(dataDir,'security','resource-limits.json'),JSON.stringify({version:1,overrides:{PFC_MAX_UPLOADS:1}}));
 
     const result = await createBackupArchive({
       destinationPath:destination,
@@ -80,6 +82,7 @@ test('logical backup creates a verified portable pfcbackup with known persistent
       `print-library/${libraryId}/part.gcode`,`print-library/${libraryId}/preview.png`
     ]) assert.ok(names.has(expected), expected);
     assert.equal([...names].some((name) => /log|private-signing-key/i.test(name)), false);
+    assert.equal([...names].some(name=>name.includes('resource-limits')),false,'host resource policy is not portable backup data');
     assert.equal((await archive.read(`print-library/${libraryId}/part.gcode`)).toString(), gcode);
     const maintenance = JSON.parse((await archive.read('state/maintenance.json')).toString('utf8'));
     assert.equal(maintenance.printers.p1.usage.printSeconds, 7200);
