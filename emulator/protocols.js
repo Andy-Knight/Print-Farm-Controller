@@ -5,20 +5,26 @@ import crypto from 'node:crypto';
 import path from 'node:path';
 import { readRuntimeAssetSync, runtimeAssetKeys } from '../src/runtime-assets.js';
 import { colorFamily } from '../src/color-family.js';
+import { createX1cCameraServer } from './x1c-camera.js';
 
 const WEBSOCKET_GUID = '258EAFA5-E914-47DA-95CA-C5AB0DC85B11';
 
 let TEST_FRAME_JPEG = null;
+let TEST_FRAME_H264 = null;
 let BAMBU_TLS = null;
 let loadedAssetsDir = null;
 
 function loadProtocolAssets(assetsDir) {
   const sourceDir = assetsDir ? path.resolve(String(assetsDir)) : null;
   const cacheKey = sourceDir || 'embedded-sea-assets';
-  if (loadedAssetsDir === cacheKey && TEST_FRAME_JPEG && BAMBU_TLS) return;
+  if (loadedAssetsDir === cacheKey && TEST_FRAME_JPEG && TEST_FRAME_H264 && BAMBU_TLS) return;
   TEST_FRAME_JPEG = readRuntimeAssetSync({
     key:runtimeAssetKeys.emulatorTestFrame,
     filePath:sourceDir ? path.join(sourceDir, 'test-frame.jpg') : null
+  });
+  TEST_FRAME_H264 = readRuntimeAssetSync({
+    key:runtimeAssetKeys.emulatorX1cFrame,
+    filePath:sourceDir ? path.join(sourceDir,'x1c-test-frame.h264') : null
   });
   BAMBU_TLS = Object.freeze({
     key:readRuntimeAssetSync({
@@ -1238,7 +1244,9 @@ export async function startProtocolEndpoints(printer, { assetsDir } = {}) {
       const ftpsServer = createBambuFtpsServer(printer);
       printer.ports.ftpsPort = await listen(ftpsServer, printer.host, Number(printer.ports.ftpsPort));
       servers.push(ftpsServer);
-      const cameraServer = createBambuCameraServer(printer);
+      const cameraServer = printer.model === 'X1C'
+        ? createX1cCameraServer(printer,{ tlsOptions:BAMBU_TLS,video:TEST_FRAME_H264 })
+        : createBambuCameraServer(printer);
       printer.ports.cameraPort = await listen(cameraServer, printer.host, Number(printer.ports.cameraPort));
       servers.push(cameraServer);
     } else {

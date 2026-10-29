@@ -4,6 +4,7 @@ import { EventEmitter } from 'node:events';
 import tls from 'node:tls';
 import { createEmulator, DEFAULT_EMULATOR_PRINTERS } from '../emulator/server.js';
 import { CameraManager } from '../src/camera-manager.js';
+import { x1cDecoderPath } from '../src/bambu-x1c-camera.js';
 import { getPrinterAdapter } from '../src/adapters/adapter-registry.js';
 import { prepareFlashForgeAd5mConfig } from '../src/adapters/flashforge-ad5m-adapter.js';
 import { prepareFlashForgeCreator5Config } from '../src/adapters/flashforge-creator5-adapter.js';
@@ -304,9 +305,9 @@ test('Bambu X1C profile interoperates with controller status, files, controls an
   const initial = await adapter.getStatus();
   assert.equal(initial.model, 'X1C');
   assert.equal(initial.lidarAvailable, true);
-  assert.equal(initial.cameraAvailable, false);
+  assert.equal(initial.cameraAvailable, Boolean(x1cDecoderPath()));
   assert.equal(initial.materialSources.filter((source) => source.kind === 'ams').length, 4);
-  assert.equal(adapter.capabilities.camera, false);
+  assert.equal(adapter.capabilities.camera, Boolean(x1cDecoderPath()));
   assert.equal(adapter.capabilities.filamentTypeControl, true);
   assert.equal(adapter.capabilities.filamentColorControl, true);
   assert.equal(adapter.limits.bedTemperature.max, 120);
@@ -323,7 +324,11 @@ test('Bambu X1C profile interoperates with controller status, files, controls an
   assert.equal(controlled.nozzle.target, 225);
   assert.equal(controlled.bed.target, 105);
   assert.ok(Math.abs(controlled.chamberFan - 60) <= 1);
-  await assert.rejects(() => adapter.getCameraSource(), /not supported/i);
+  if (x1cDecoderPath()) {
+    assert.equal((await adapter.getCameraSource()).kind, 'snapshot');
+  } else {
+    await assert.rejects(() => adapter.getCameraSource(), /not supported/i);
+  }
 });
 
 test('Bambu A1 Mini profile interoperates with the production controller adapter and AMS Lite mapping', async (t) => {

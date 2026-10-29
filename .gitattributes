@@ -1,5 +1,7 @@
-# Exclude documentation assets from source release archives
-/docs/ export-ignore
-
-# Exclude development-only directories
-/.github/ export-ignore
+# GitHub source ZIP downloads are also used for development and npm test.
+# Keep repository policies, current context, .npmrc and CI workflow definitions
+# in the archive, since tests and source-build instructions depend on them.
+#
+# Exclude only optional documentation artwork, not docs/ itself.
+/docs/assets/ export-ignore
+/scripts/ffmpeg-build.sh text eol=lf

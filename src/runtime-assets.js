@@ -5,6 +5,7 @@ import { getAsset, isSea } from 'node:sea';
 export const runtimeAssetKeys = Object.freeze({
   trustedPublicKeys:'licensing/trusted-public-keys.json',
   emulatorTestFrame:'emulator/assets/test-frame.jpg',
+  emulatorX1cFrame:'emulator/assets/x1c-test-frame.h264',
   emulatorBambuKey:'emulator/assets/bambu-simulator-key.pem',
   emulatorBambuCert:'emulator/assets/bambu-simulator-cert.pem'
 });

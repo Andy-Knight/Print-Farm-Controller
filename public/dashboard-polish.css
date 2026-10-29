@@ -367,3 +367,54 @@
   #summary .summary-card.ui-stat-card,
   .fleet:not(.table-view) .card.ui-printer-surface { transition:none!important;animation:none!important; }
 }
+
+/* Dashboard group, presentation and Farm operations are peers; share the
+   existing 42px switch geometry in Preact and no-bundle fallback. */
+.dashboard-hero .dashboard-controls,
+#dashboardPreactRoot > .dashboard-controls {
+  display:flex;
+  flex-wrap:wrap;
+  align-items:center;
+  justify-content:flex-end;
+  gap:12px;
+}
+.dashboard-hero .dashboard-controls:has(.dashboard-group-filter.hidden) {
+  justify-content:flex-end;
+}
+.dashboard-hero .dashboard-group-filter,
+.dashboard-hero .dashboard-view-control,
+#dashboardPreactRoot > .dashboard-controls .dashboard-group-filter,
+#dashboardPreactRoot > .dashboard-controls .dashboard-view-control {
+  display:flex;
+  align-items:center;
+  gap:9px;
+  min-height:var(--ds-input-height);
+}
+.dashboard-operations-toggle .dashboard-view-toggle-label { min-width:20px; }
+@media (max-width:1400px) {
+  .dashboard-hero .dashboard-controls,
+  .dashboard-hero .dashboard-controls:has(.dashboard-group-filter.hidden) {
+    justify-content:flex-start;
+  }
+}
+@media (max-width:760px) {
+  .dashboard-hero .dashboard-controls,
+  #dashboardPreactRoot > .dashboard-controls { justify-content:flex-start; }
+  .dashboard-hero .dashboard-group-filter,
+  .dashboard-hero .dashboard-view-control,
+  .dashboard-hero .dashboard-controls:has(.dashboard-group-filter.hidden) .dashboard-view-control,
+  #dashboardPreactRoot > .dashboard-controls .dashboard-group-filter,
+  #dashboardPreactRoot > .dashboard-controls .dashboard-view-control {
+    flex-direction:column;
+    align-items:flex-start;
+    gap:7px;
+  }
+}
+@media (max-width:420px) {
+  .dashboard-hero .dashboard-controls,
+  #dashboardPreactRoot > .dashboard-controls { gap:10px; }
+  .dashboard-hero .dashboard-view-control,
+  #dashboardPreactRoot > .dashboard-controls .dashboard-view-control {
+    flex:0 1 auto;
+  }
+}

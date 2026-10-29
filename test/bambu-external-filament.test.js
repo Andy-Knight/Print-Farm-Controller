@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { bambuExternalFilamentCommand, setBambuExternalFilament, BAMBU_EXTERNAL_FILAMENT_PRESETS } from '../src/bambu-external-filament.js';
 import { BambuLabAdapter } from '../src/adapters/bambu-lab-adapter.js';
 import { createEmulator } from '../emulator/server.js';
+import { x1cDecoderPath } from '../src/bambu-x1c-camera.js';
 
 test('P1P/P1S/X1C/A1 Mini external spool has correct MQTT address, generic preset and opaque RGBA colour', () => {
   const command=bambuExternalFilamentCommand({toolIndex:0,material:'PETG',color:'#12ab34'});
@@ -97,7 +98,7 @@ test('P1P, P1S, X1C and A1 Mini simulators update the external spool through rea
       });
       assert.equal(adapter.capabilities.filamentTypeControl,true);
       assert.equal(adapter.capabilities.filamentColorControl,true);
-      if (model==='X1C') assert.equal(adapter.capabilities.camera,false, 'X1C camera decoding remains unsupported');
+      if (model==='X1C') assert.equal(adapter.capabilities.camera,Boolean(x1cDecoderPath()), 'X1C camera follows decoder discovery');
       const before=await adapter.getStatus();
       const previousAms=before.materialSources.filter((source)=>source.kind==='ams');
       const updated=await adapter.setFilamentConfig({toolIndex:0,material:'ASA',color:'#FF0000'});

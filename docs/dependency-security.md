@@ -27,7 +27,19 @@ The local Node.js/npm installations are independent of the dependencies bundled 
 - Do not automatically merge dependency updates: review the release notes and CI results, then merge and publish through the standard main-branch process.
 - CI blocks reported high/critical npm audit findings. Any exception must be justified and tracked rather than globally silencing the audit.
 - Prefer runtime patches promptly. Assess movement to the next Node.js LTS major separately after its LTS transition and successful compatibility testing.
+- The Windows SEA packaging currently rejects Node.js major versions other than 24. Dependabot ignores Node Docker image *major* upgrades while retaining proposals for compatible 24.x updates. Test Node 26+ in a dedicated migration branch before removing the restriction.
 
 ## Release validation
+
+The camera decoder is a separately executed, bundled FFmpeg built from the official
+source pinned in `scripts/ffmpeg-source.json` and vendored under `third-party/ffmpeg`.
+Updates require reviewing FFmpeg security advisories, replacing source and SHA-256
+together, rebuilding Windows/AMD64/ARM64, and running the real authenticated RTSPS
+fixture on the packaged executables. npm audit does not audit this native dependency.
+Do not enable GPL/nonfree components or download executable updates at runtime.
+Preserve the matching source, build records, integrity manifest and licence notices
+in every portable/installer/container distribution. Windows uses Schannel; Linux
+uses patched system OpenSSL 3. See [X1C camera packaging](X1C_CAMERA.md) for build,
+licence and commercial patent-review boundaries.
 
 Require unit and regression tests, a real-browser Preact run, the MinIO S3 integration check, container smoke tests and a successful multi-architecture image build. Validate Windows SEA/installer output on Windows before a Windows release. Avoid production promotion from feature branches.

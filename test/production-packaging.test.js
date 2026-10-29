@@ -50,7 +50,8 @@ test('controller bundle has no top-level startup await and embeds the applicatio
   assert.match(server, /const bundledVersion = typeof __PFC_VERSION__ === 'string'/);
   assert.match(server, /let licenseManager = null/);
   assert.match(server, /async function startController\(\)/);
-  assert.match(server, /startController\(\)\.catch/);
+  assert.match(server, /: startController\(\)\)\.catch/);
+  assert.match(server, /runLocalSecurityCommand/);
   assert.doesNotMatch(server, /const packageInfo = PACKAGE_PATH \? JSON\.parse\(await/);
   assert.doesNotMatch(runtimePaths, /import\.meta/);
 });
@@ -63,6 +64,7 @@ test('packaged runtime reads UI, simulator and licence trust data through SEA as
   assert.match(emulatorServer, /emulatorPublicAssetKey/);
   assert.match(emulatorServer, /readRuntimeAsset/);
   assert.match(emulatorProtocols, /runtimeAssetKeys\.emulatorTestFrame/);
+  assert.match(emulatorProtocols, /runtimeAssetKeys\.emulatorX1cFrame/);
   assert.match(emulatorProtocols, /runtimeAssetKeys\.emulatorBambuKey/);
   assert.match(emulatorProtocols, /runtimeAssetKeys\.emulatorBambuCert/);
   assert.match(licenceLoader, /readRuntimeTextAsset/);

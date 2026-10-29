@@ -1,119 +1,107 @@
-# Print Farm Controller v0.59.10
+# Print Farm Controller v0.61.7
 A local-first 3D printer fleet controller. It runs entirely on your LAN and currently supports:
 
 - **FlashForge Adventurer 5M / 5M Pro** through the local FlashForge HTTP/TCP APIs.
 - **FlashForge Creator 5 / Creator 5 Pro** through the supported local FlashForge control interfaces.
 - **Snapmaker U1** through its local Moonraker/Klipper API.
 - **Prusa CORE One+ (experimental)** through the local PrusaLink API, supporting Standard (1-tool), INDX4 and INDX8 configurations.
-- **Bambu Lab P1P / P1S / X1C / A1 Mini (experimental)** through the local MQTT TLS and FTPS TLS interfaces. P1P/P1S/A1 Mini use the TLS/JPEG camera path; X1C camera decoding remains unsupported.
+- **Bambu Lab P1P / P1S / X1C / A1 Mini (experimental)** through the local MQTT TLS and FTPS TLS interfaces. P1P/P1S/A1 Mini use the TLS/JPEG camera path; X1C camera uses the bundled FFmpeg decoder; see [X1C camera setup](docs/X1C_CAMERA.md).
 
-**Current development version: v0.59.10**
+**Current development version: v0.61.7**
 
-Current highlights:
+## Key capabilities
 
-- **Secure, reproducible development builds (v0.59.10):** Pin the Node.js 24.22.1 security baseline and npm 12.2.0. A committed dependency lockfile and `npm ci --include=dev` replace floating CI/container installs. npm installation security rules require a seven-day minimum package age, disallow unapproved Git/remote dependency sources and permit the documented esbuild installation script. GitHub Actions audit high/critical dependency vulnerabilities, check Windows SEA compatibility, run Node/Chromium/container regressions and limit package-publication permissions. Weekly Dependabot updates cover npm, Docker and GitHub Actions. See `docs/dependency-security.md` for Windows setup and emergency-patch policy. Printer control, queueing, reporting and stored data are unchanged.
+- **Farm dashboard:** Live printer status, job progress and maintenance indicators, with card or sortable table views, a Farm operations switch for selected-printer bulk actions, and light/dark themes.
+- **Print Library and scheduling:** Search and filter files, check printer compatibility and readiness, queue jobs to printers or groups, and review print history.
+- **Pricing and costs:** Estimate filament and machine time costs, add labour and sundries, and calculate selling prices using shared currency, profit and tax settings.
+- **Reports & finance:** Production trends with always-visible 7-day outcome counts, completed and failed prints, printer reliability, a period-filtered total filament used (kg) summary, a Top 6 / All files ranking, a filament-used (kg) pie chart grouped by filament or material type, and historical cost reporting.
+- **Printer management and alerts:** Supported filament/nozzle controls, file management, scheduled maintenance, local notifications, ntfy push and webhooks.
+- **Backup and recovery:** Compressed backups to local/NAS storage, Google Drive, experimental OneDrive or S3-compatible services.
+- **Flexible deployment:** Windows portable executable or installer, Docker images for AMD64/ARM64 and K3s/Kubernetes; signed offline Community, Pro and Farm licences.
+- **User security:** Login and backend Administrator/Operator/Viewer permissions are enabled by default, including on HTTP; GUI administrator enrollment and user management are supported. HTTPS is strongly recommended because HTTP passwords and sessions can be intercepted.
 
-- **Unified Analytics tables and selection controls (v0.59.9):** All four Reports & finance → Analytics tables now use the shared controller table styling, including Printers needing attention and Print file failure analysis. Most popular print files has separate sortable **Material** and **Cost** columns (eight columns total), with preserved historical currency and partial-data semantics. The Top 10 / All files and By material type / By filament choice groups follow standard 42px token-based button styling and accessible pressed states. Both themes, mobile overflow and Preact/HTML fallback remain supported.
+For detailed functionality and setup, use the sections below. For release-by-release changes, see [CHANGELOG.md](CHANGELOG.md).
 
+For contributing or AI-assisted development, follow [AGENTS.md](AGENTS.md) and the [Documentation policy](docs/DOCUMENTATION_POLICY.md).
 
-- **Standardised Analytics Material usage table (v0.59.8):** Reports & finance → Analytics → Material usage now matches the controller's shared table design across both **By material type** and **By filament**: dark background and white uppercase headings in either theme, matching panel borders/rounded corners, compact row separators and hover treatments. Numeric data stays right-aligned, percentage usage bars stay intact, and the bold Total row has a matching surface and divider. No changes to historical material quantities, currencies, costing, aggregation or grouping controls. Updated the standalone Controller Visual Style Guide with the table standard.
+## User accounts and access control
 
+The **Industrial Control Centre** sign-in screen uses a split desktop layout with a
+45-degree isometric print-bed animation in which a slim amber nozzle traces
+successively smaller blue perimeters and completes eighteen rising layers,
+constructing a stepped pyramid from base to peak. Completed tiers remain visible,
+including their sloping front faces. The diamond-shaped calibration grid and
+layer counter are illustrative only, not live printer telemetry. The animation does not
+display a separate heading or demo banner. The genuine Stacked Layers layered
+logo from the controller sidebar identifies the login screen.
+The decorative printhead motion **starts automatically**, including on Windows 11 and Chrome
+when the operating system requests reduced motion. No Windows or browser configuration is
+required. The animated printer remains a passive part of the branded sign-in screen, without a
+Pause/Play control or stored browser preference. The nozzle tracks the exact extrusion perimeter at every height, with no printer
+gantry drawn across the workpiece. On phones the illustration yields to a compact branded header above the sign-in form. The same screen supports initial administrator
+setup, login errors and HTTP security warnings. The sign-in password field includes an
+accessible show/hide button. No printer state is displayed before login.
 
-- **Dashboard summary and printer card refinements (v0.59.7):** The Dashboard's All Printers, Online, Printing, and Needs attention filters now use the same outlined circular KPI icons, colour accents, numeric hierarchy and slim progress meters as the Reports & finance Analytics cards. Measured percentages reflect printer counts within the selected group; the total count has a decorative ring and zero-attention shows a green check. The icon is on the left, with the label, count, context and indicator bar to its right on all screen sizes, including mobile. Printer cards no longer show excessive empty space below printer model images: subgrid no longer inherits parent row gaps between hidden status sections, while outer card separation is retained. Model pictures use contained sizing and additional bottom padding to protect the printer silhouette from the image boundary. Light/dark theme, filter actions, card/table switching, responsive layouts and existing printer controls remain intact.
+The controller supports **local username/password login** and enforces role permissions on the server, not just by hiding buttons. Administrators can delete other accounts from **Security & users → Users** using a confirmed red Delete action; a deleted account loses all active sessions immediately. The signed-in account and last enabled administrator are protected from deletion. **Administrator** can manage accounts, security, printer settings, licence, backups and cloud credentials. **Operator** can run printers, edit (but not delete) Print Library records, manage active/queued production, assign filament/nozzles to printers, and complete routine maintenance. Operators cannot purge queue history, change the shared filament cost catalogue, manage users, credentials or restore backups. **Viewer** can see status, reports and camera feeds without making changes. Permissions are independent of signed edition/licence limits.
 
+### Set up the first administrator using the GUI
 
-- **Print-file resource analytics and page clearance (v0.59.6):** Reports & finance → Analytics → Most popular print files replaces the redundant Popularity column with **Material / cost** (two stacked lines for kilograms and recorded historical filament cost) and **Print time** (total recorded printer duration for physical print attempts, including failures). All three new resource measures can be sorted; historical costs remain in their recorded currencies without automatic FX conversion, and missing/partially captured print records are labelled rather than fabricated. The full-width table keeps thumbnails, Print Library links, Top 10/All, responsive sizing and the **same standard controller table styling** as Dashboard, Alerts and Printer Groups. Analytics also includes 32px desktop / 24px mobile scroll clearance below the final Print file failure analysis card, without extending its border or changing other reporting tabs.
+Authentication is **enabled by default** on new and upgraded installations, including those
+accessed over HTTP through a MetalLB Service. If no administrator exists, opening the controller
+shows the **Set up administrator** form before any printer data or commands are available.
+No CLI command or environment variable is needed to turn authentication on.
 
+The browser setup requires a private **one-time enrollment code**. On controller startup,
+a randomly generated code is printed once to the **protected startup console/pod logs**,
+not exposed by the controller's API or diagnostics downloads. For a K3s/Kubernetes installation,
+view your controller pod's startup logs using your **cluster management GUI**. Copy the code into
+the setup form, choose an administrator username and a password of at least 12 characters,
+and confirm the password. On success, authentication is enabled immediately and all subsequent
+controller use requires sign-in. There is no default password, open-registration endpoint
+or "first visitor wins" bootstrap. Keep pod logs private; restart the controller to rotate
+an unused code. The account store and activation marker live on the persistent `DATA_DIR` volume.
 
-- **Reporting comparisons and improvements (v0.59.5):** Reports & finance → Analytics uses Option D progress-ring KPI cards with real completion/failure percentages and directional comparison indicators against the immediately preceding period of equal length. The same printer and group filters apply to both periods; arrows are green for higher completions or fewer failures, red for the reverse, and neutral blue for activity and run-time changes. Missing comparison history is explicitly identified and prior-zero values show "From 0" rather than an invalid percentage. The outcomes graph now displays sparse data (including prints concentrated on one day) with visible points, complete date timeline and non-repeating integer count ticks. Under Material usage → By filament, unidentified material-only snapshots display an explanatory label and tooltip without altering retained data.
+**HTTP setup and sign-in work by default**, but the GUI displays an unencrypted-transport
+warning. HTTP provides user authentication and server-side RBAC, **not confidentiality or session
+protection**: anyone capable of intercepting LAN traffic may steal the password, setup code
+or session. Use HTTPS as soon as possible; don't expose the HTTP endpoint to untrusted networks.
 
+For headless recovery and legacy tooling, a privileged local interactive terminal can
+still run `node scripts/manage-users.mjs setup` or
+`PrintFarmController.exe --auth-setup`. These commands are **not required for normal GUI
+onboarding**. In containers, the source-only management script is not packaged; the
+bundled `/app/build/controller.cjs --auth-setup` remains an emergency option.
 
-- **Analytics production reporting (v0.59.4):** Reorganised Reports & finance → Analytics with four production KPIs, status-coloured KPI icons, and the full-width print-outcomes graph directly below the headline statistics. The full-width popular print files table supports preview thumbnails, completion/failure counts, success rates, popularity indicators, sorting and Top 10/All, with links to Print Library details. Material-usage tables support grouping by material or filament without changing reporting collection. Separate sections show only genuinely at-risk printers and files with failed prints. The desktop popular-files table now uses the available card width without unwanted horizontal scrolling; smaller screens scroll responsively.
+After login, Administrators use **Security & users** in Farm Management to create, disable,
+update and reset accounts with Viewer/Operator/Administrator roles. **My account** in the top bar
+allows self-service password changes and sign-out. Password and role changes revoke existing
+sessions, which also expire after inactivity or a controller restart.
 
-- **One currency across current costs (v0.59.3):** Select the currency in **Reports & finance → Price settings**. The Filament cost catalogue no longer asks for currency per entry; all catalogue price displays, new print material estimates, labour, sundries, machine hourly rates and Print Library sell prices use the saved global choice. Existing single-currency catalogues inherit their previous currency on upgrade (GBP otherwise). **Currency changes relabel values without an exchange-rate conversion**, so check/re-enter prices and hourly rates. Completed print history retains its original currency and values; it must not be retrospectively relabelled.
+If the account store has been lost after activation, browser enrollment is **not** offered
+again: this protects against reverting to anonymous administration. Stop the controller
+and use `node scripts/manage-users.mjs recover` or
+`PrintFarmController.exe --auth-recover` from a privileged terminal with access to
+the persistent data directory. Preserve the same security storage across restores.
 
+### HTTPS — configure in the controller interface
 
-- **Labour costing by minutes (v0.59.3):** Selecting Labour when adding/editing a Print Library sundry shows *Labour minutes* instead of quantity and unit cost. In Reports & finance → Price settings, set a separate **Labour hourly rate**; each file's labour cost is minutes × that rate ÷ 60, in the selected global currency. Labour joins other sundry costs before profit and tax. Without a configured rate, labour-containing files cannot show a completed selling price. An explicitly set zero rate is allowed. Historical Labour quantity/unit-cost entries retain their old fixed total until you enter minutes in Edit details; nothing is silently repriced. This does not change the machine print-time hourly rate.
+A fresh installation starts with HTTP on the controller's fixed internal port **4242**, with HTTPS reserved for internal port **4243**. The container exposes both ports permanently. A K3s/MetalLB LoadBalancer Service forwards external **80 → 4242** and **443 → 4243** (see [example Kubernetes deployment](deploy/kubernetes/print-farm-controller.yaml)), so browser addresses are simply `http://<controller-ip>` during initial setup and `https://<controller-ip>` after HTTPS is enabled. Without that Service, a Windows or direct-container browser connects on `:4242` for HTTP and `:4243` for HTTPS. A custom legacy `PORT` override keeps its existing HTTP port and pairs HTTPS with the following port; the normal production configuration needs no HTTPS port environment variable.
 
+On localhost or a trusted, isolated LAN, sign in as an administrator (or complete first-admin setup using the private controller startup-log code). **HTTP password entry and session traffic are not encrypted.** In **Farm management → Security & users → Connection settings**, use the page sections in order: **Connection summary**, **Connection settings**, and (only for a currently managed self-signed identity) **Self-signed certificate replacement**. In Connection settings, choose controller-managed self-signed HTTPS, externally supplied PEM certificate/key contents pasted into the GUI, or HTTP-only mode. For a managed certificate, enter the exact browser DNS hostnames and IPv4 addresses as comma-separated certificate names. Confirm with your current admin password.
 
-- **Unified Print Library toolbar (v0.59.2):** Search, Add file and the four selected-file action buttons share a single desktop row; selection feedback stays below. On smaller screens the controls wrap responsively, retaining all actions and accessibility.
+**HTTP and HTTPS listening ports are not editable in the GUI**, so enabling HTTPS never requires changing the Kubernetes Deployment or MetalLB Service ports. After HTTPS is enabled, port 4242 stays open but accepts only a minimal `GET /healthz` probe and **GET/HEAD redirects** to HTTPS (302, no-store) for hosts that match the active certificate. Other HTTP requests (including logins and API writes) are rejected. The TLS listener accepts the full application on port 4243. Redirects do not bypass browser certificate trust, and there is no plaintext fallback if an HTTPS identity fails to initialize. The health endpoint reports only `ok` and is deliberately independent of authentication, printer data and certificate status. The Docker health check and Kubernetes probes use HTTP `:4242/healthz`.
 
-- **Compact Print Library table (v0.59.2):** Reduced the desktop workbench maximum width to 1300px, tightened the Min. sell price / History columns and column gutters, and preserved aligned sortable headings. Smaller workspaces switch to responsive cards before the table would overflow, with no changes to pricing, sorting, queueing or printed file data.
+Changing a certificate source or saved DNS/IP names updates the HTTPS certificate as required without changing the fixed ports or interrupting printer/queue services. **Reapplying unchanged connection settings is a no-op:** no new certificate and no session interruption. When the saved mode is controller-managed, the prominent amber **Regenerate self-signed certificate** action generates a fresh key and identity after administrator password and confirmation, while keeping existing SANs and ports. For external certificates, paste the public certificate chain and matching private key into separate text areas **over an existing HTTPS connection**; the controller validates and stores the pair under its protected persistent data directory. If HTTPS is not yet enabled, first activate controller-managed HTTPS and reconnect securely before importing a private key. A blank pair of text areas retains the existing imported certificate; paste both to replace it. The private key is never returned to the browser. Certificate renewal with your issuer is a separate responsibility. Downloading the managed **public certificate only** is available in the HTTPS tab.
 
+The controller persists the mode, managed key/certificate and metadata in the protected `DATA_DIR/tls` directory (standard container volume: `/data/tls`). Protect this directory and back up its contents through appropriate host/storage-level mechanisms; logical `.pfcbackup` exports exclude private TLS keys. Self-signed HTTPS encrypts traffic but **is not automatically trusted by browsers**: verify the certificate fingerprint through a trusted channel, then explicitly install the public identity on client devices. Regeneration may require repeating this trust step.
 
-- **Farm Management topbar consistency (v0.59.1):** All six pages grouped under FARM MANAGEMENT in the sidebar display **Farm management** in the top bar, with their existing descriptive subtitles and distinctive blue content headings. Workspace pages and the separate Licence footer are unchanged.
+External proxy/ingress termination remains an optional architecture, not required by the native K3s/MetalLB setup. Use the trusted-proxy configuration (`PFC_PUBLIC_ORIGIN`) only if the backend cannot be accessed directly over untrusted HTTP. Issue #128 tracks ingress alternatives. The controller is intended for private LANs rather than direct Internet exposure.
 
-- **Simplified workspace navigation and library pricing labels (v0.59.1):** Removed redundant Workspace breadcrumbs from every routed page in both Preact and fallback modes. Route titles, subtitles, shared blue page headings, tab controls and highlighted sidebar links remain; the top bar is shorter and the space before page content is standardised across desktop and mobile, without changing controller navigation or printer commands. The Print Library column and responsive card now display **Min. sell price** instead of Sell price; the sorting option uses the same terminology while the underlying price calculation remains unchanged.
+See [HTTPS configuration](docs/HTTPS_CONFIGURATION.md) for port-mapping, certificate, migration and recovery details.
 
+Authentication is enabled unless `PFC_AUTH_REQUIRED=0` explicitly selects **legacy unauthenticated mode** before any user is enrolled. This insecure opt-out is for temporary troubleshooting only; once the durable security marker or account store exists it cannot disable RBAC. `PFC_AUTH_ALLOW_HTTP=0` blocks enrollment and login on HTTP. Native sessions use `HttpOnly`, `SameSite=Strict`, Origin and CSRF checks; cookies have `Secure` when native HTTPS or a trusted HTTPS public origin is active. HTTP traffic remains unencrypted.
 
-- **Hourly print time costing (v0.59.0):** Reports & finance → Pricing settings now includes a global hourly print cost rate (default 0.00, two-decimal currency input). Every Print Library item's Sell price includes slicer-estimated print hours multiplied by the hourly rate, alongside filament and per-print sundries, before existing profit markup/gross margin, tax and sale-lot allocation. Print time charges are visible under Sell price in both Preact and fallback views. The rate inherits the item's filament currency; when the rate is nonzero but slicer duration is missing, Sell price is unavailable rather than understated. Settings are backed up/restored and legacy settings default to zero; historical queue material-cost snapshots are unchanged.
-
-- **Reports & finance and sell pricing (v0.58.1):** Renamed Reports & costing to Reports & finance, retaining Analytics, Filament cost catalogue and Pricing settings. Global Tax rate (%) on Pricing settings is applied to the computed selling price after profit markup or gross margin; old settings default to 0% tax. The Print Library has dedicated sortable **Sale lots** and **Sell price** columns: the sell price is tax-inclusive and is per lot for multi-lot prints (with the whole-print total shown below). Sundry line items now use a dropdown of Packaging, Postage, Hardware, Labour and Miscellaneous, two-decimal unit prices and an outlined red Remove button in Add File and Edit Details. Cancel discards edits. The currency continues to come from the filament cost estimate. Both Preact and fallback UIs, light/dark styling and backup/restore remain supported.
-
-- **Product pricing and costing (v0.58.0):** Print Library Add File now supports category and tags immediately. Add/edit per-file sundries with descriptions, quantities and unit prices for a whole sliced print, and define 1–999 sale lots. The currency for every sundry is inherited from the file's current *complete* filament cost estimate, never selected separately or converted silently. The library shows estimated total and per-lot selling prices using global profit settings (cost markup or gross margin) configured on the new **Pricing settings** tab of **Reports & finance**. Incomplete filament pricing prevents selling price quotes. Settings are included in backup/restore; earlier library metadata remains compatible. Add/Edit forms use the shared UI styling, fixed header and footer and scrollable detail body. No printer dispatch or queue costing snapshot changes.
-
-- **Print Library refinements (v0.57.2):** Readiness labels are clickable filters for Ready now, Printer busy, Printer offline, Needs attention and Incompatible. The selected status is shown in Advanced Filters, other active facets remain in effect, and Clear filters restores the view. Selecting/deselecting a file row no longer jumps the scrollable library list to the top (including keyboard selection). Fixed the Ascending/Descending control alignment with Sort by and Batch quantity while preserving the shared 42px field height and light/dark themes. No printer communication or queue preflight changes.
-
-- **Print Library patch (v0.57.1):** Printer-type filter now shows readable manufacturer/model names. Readiness incompatibility tooltips prefer the actual reason from the designated printer rather than another model's designation mismatch (Snapmaker U1 still needs supported sliced G-code rather than uploading a 3MF). Category and tag badges are clickable shortcuts to the existing filters, with accessible keyboard controls, preserved other facets, a first-page reset and the active Advanced Filters shown. No queue safety or printer protocol changes.
-
-- **Print Library availability indicators (v0.57.0):** Readiness separates permanent file/printer incompatibility from temporary printer availability. A compatible offline printer displays **Printer offline** (neutral), and a compatible busy printer displays **Printer busy** (blue); missing filament/nozzle information or actual configuration mismatches still show **Needs attention**, and unsupported files show **Incompatible**. Green Ready requires verified live information. While viewing the library, status-only checks follow fleet updates (throttled to avoid full-cost recalculation), without changing selected files, filters or table scroll position.
-
-- **Print Library production workflow (v0.57.0):** Seven-column file table now supports clickable sorts (file, printer, filament, cost and history), plus sorting by estimated print duration, grams, last-printed date, readiness and date-added. Collapsible **Advanced filters** cover printer type, material, category, tag, known/missing cost, readiness and favourites; search works alongside filters. Users can edit a validated primary category (60 characters) and up to 20 tags, and star favourites in the selected-file toolbar. File rows show trustworthy slicer-provided duration, complete filament grams, and live queue-compatibility readiness (ready now / printer busy / printer offline / needs attention / incompatible), never fabricated estimates. **Batch quantity** calculates a raw-material cost estimate for 1–999 copies without changing queue quantity or historical job snapshots. The rendered file list is paged at 80 entries for responsiveness, with bounded concurrent metadata reads and indexed print history lookups; action toolbar and headings remain fixed while entries scroll. No file revision history is added in this phase.
-
-- **Print Library workbench (v0.57.0):** Each library file is presented in a compact column-aligned table at desktop widths (Selection, Preview, File, Printer, Filament & requirements, Estimated cost and History). Rows reorganise into labelled responsive cards on narrow screens. Click a row or use its accessible selection button to mark a single file. The contextual **Queue selected**, **Edit details** and **Delete selected** buttons in the top toolbar stay disabled until a file is selected. The existing queue configuration, edit form, preview and delete confirmation are reused; files referenced by queue/history cannot be deleted. Search clears hidden selections. For long libraries, the page heading, Search/Add controls, selected-file actions and desktop column headings stay visible while only the file rows scroll inside the available viewport; on mobile the card list scrolls beneath the same toolbar. No bulk queue actions or backend queue protocol changes.
-- **Print Library material cost estimates (v0.57.0):** Each stored G-code/GX/3MF file shows the **estimated filament cost per print** using the existing sliced filament weights, file-specific assignments (if configured), and the current Filament Cost Catalogue in Reports. Costs are shown with the correct currency and a usage summary; when weights/prices are incomplete, incompatible, ambiguous or multi-currency, the UI displays **Unavailable** with a reason instead of a partial or fabricated amount. Prices refresh when the library is reloaded, and historical queue-job cost snapshots remain unchanged. Labour, electricity and printer amortisation are not included.
-
-- **Unified icon underline tabs (v0.56.0):** Phase 4.1 makes minimal blue-underline navigation with local monochrome outline icons the controller-wide standard in Printer Details, Maintenance Tracking, Printer Groups, Reports, Alerts & Notifications, and Backup & Recovery. All tabbed sections retain their actions, Preact/vanilla fallback, keyboard and focus behaviour, and single-row horizontal mobile scrolling. The Dashboard card/table control is deliberately unchanged because it is a view switch, not tabs. A reusable Preact `UiTab` and one last-loaded `tab-navigation.css` keep styles consistent and maintainable.
-- **Printer Details header follow-up (v0.56.0):** A richer printer identity summary pairs the actual local printer-model image with icons for model, connection, host/IP, uptime, firmware and connection health, plus the existing live status and maintenance action. Firmware and uptime only display printer-reported data; missing values show “Not reported”. The six Printer Details navigation sections use the newly standardised icon underline tabs, including the shorter Temperature and Management labels with full accessible names. User-approved on PRs #99 and #100, with Node.js 24, Chromium light/dark desktop/mobile and container smoke regression checks passing on the feature heads.
-
-- **Polished Printer Details workspace (v0.55.0):** Phase 4 of the Preact SaaS migration improves the printer-details header with printer/model/host identity, live health and maintenance/status context; applies consistent light/dark design-system styling to content and tabs; and uses a horizontally scrollable single-row tab navigation on narrow screens. All six sections retain existing printer operations, filament/nozzle configuration, 160px toolhead fields and alignment, controller telemetry, keyboard navigation and no-bundle fallback. Automated Node.js 24, Chromium desktop/mobile, responsive layout and container smoke checks passed on PR #98. See [Design System](docs/DESIGN_SYSTEM.md).
-
-- **Polished Preact SaaS interface (v0.54.0):** Phase 1 introduces local-only light/dark design tokens and reusable Preact surfaces, form controls, feedback and loading states. Phase 2 modernises the app shell, grouped sidebar with SVG icons, accessible mobile navigation and route-aware breadcrumbs. Phase 3 updates dashboard headings, farm summary, group/view controls and printer cards without changing printer control or table functionality. The update standardises headings across routes (including **Farm Organisation** for Printer Groups), fixes duplicated Dashboard breadcrumbs/subtitles, aligns images despite wrapped printer names, and ensures the full OFFLINE pill fits in table view. Node.js 24, Chromium Preact, container smoke and build checks passed on PR #96. See [Design System](docs/DESIGN_SYSTEM.md).
-
-- **A1 Mini AMS Lite and external-spool filament editing (v0.53.0):** Extends existing Bambu filament type, colour and blue **Set filament** controls to the experimental A1 Mini, for its external spool and manually configured, occupied AMS Lite slots. Uses the same LAN MQTT commands and printer-reported read-back as P1P/P1S/X1C. RFID-managed, empty, unknown-tag and busy-printer AMS slots remain read-only. External spool writes use the single-nozzle virtual tray (AMS ID 255 / tray 254). Preact and vanilla fallback share the controls. Automated Node.js 24, Chromium Preact, and container smoke checks passed; **physical A1 Mini/AMS Lite validation remains outstanding**.
-
-- **Bambu AMS slot configuration (v0.52.0):** For Bambu P1P/P1S/X1 Carbon, Printer Details → Toolheads offers material type, colour and blue **Set filament** controls for occupied non-RFID AMS slots when the printer explicitly reports an all-zero RFID tag UID. RFID-managed and unknown-tag slots are read-only. Changes are sent to the specific AMS unit/slot using LAN MQTT and accepted only after the printer reports the new values. The printer remains the source of truth; AMS data is not stored independently. A1 Mini support was subsequently added in v0.53.0. Virtual printer and automated regression tests passed; physical Bambu AMS/firmware validation is still outstanding.
-
-- **X1 Carbon external-spool configuration (v0.51.0):** Extended the existing P1P/P1S filament type and colour selectors plus the blue **Set filament** button to the experimental Bambu X1 Carbon (X1C). The controller writes the external tray setting over Bambu LAN MQTT while idle and verifies the printer-reported value; AMS slots are unaffected. X1C protocol/simulator, Preact and Node.js 24 regression checks passed. Physical X1C verification is outstanding; the X1C RTSPS camera remains unsupported.
-
-- **Bambu external-spool filament configuration (v0.50.0):** P1P and P1S can set external-spool material type and colour in Printer Details using the shared blue **Set filament** button. The controller sends a Bambu LAN MQTT command only while the printer is idle and confirms the reported external-tray metadata before reporting success. AMS slots are not modified. Available in Preact and vanilla fallback, with simulator, UI and protocol regression coverage. Physical Bambu hardware validation remains outstanding.
-
-- **Interactive Preact workflows (v0.49.0):** The **Printer Details → Toolheads** view now uses Preact-controlled controller-side filament/colour-family and nozzle designation forms (Prusa and Flashforge models, with unchanged backend safety validation); Snapmaker U1 and Creator 5 also have Preact-controlled filament selection backed by their existing verified printer-write APIs and idle/RFID/palette safety checks. The **Printer Details → Maintenance & Management** view now includes a Preact-controlled controller-name editor with Reset, validation, pending/error states and telemetry-safe draft preservation; printer removal and physical printer commands retain their established handlers. The Printer Groups screen has separate **Create group** and **Existing groups** tabs (with inline editing and deleting in Existing groups). It is the first workflow whose form inputs, unsaved edits, membership selections, validation, busy states and create/edit/delete actions are owned by Preact. Shared Preact text/checkbox form controls introduce a reusable controlled-input pattern. Controller-owned API/group-cache updates remain authoritative and the no-bundle vanilla JavaScript fallback is preserved. Chromium regression now tests drafts during state refresh and real browser form actions against an isolated API fixture. The interactive Preact workflows were merged after regression validation.
-
-- **Stronger regression protection (v0.48.1):** Automated Chromium tests now validate all controller route reloads, all 13 Preact presenters, queue button interactions, and genuine Snapmaker U1 simulator → controller polling → SSE → Preact status updates. Additional behavioural tests cover scheduler priorities, printer-operation concurrency, backup/rollback safety and Ed25519 licence enforcement. Six obsolete source-only test cases were removed after their behaviour was covered by executable tests. No controller functionality was changed.
-
-- **Consistent printer toolhead controls:** Snapmaker U1, FlashForge AD5M/AD5M Pro, Creator 5/Creator 5 Pro and Prusa CORE One+ now share consistent **Set filament** and nozzle **Assign** button styling. Filament type, colour and nozzle selectors are standardised to 160px; filament type and colour have an 8px gap, and buttons use matching 160px sizing without stretching across columns. Unneeded **Clear** actions have been removed where appropriate. U1 and Creator 5 write filament settings to printer firmware, while Prusa/AD5M manual designations remain controller-side.
-
-- **Frontend renderer diagnostics:** Diagnostics now displays whether the optional Preact bundle initialised and which migrated UI components are running in Preact versus their legacy JavaScript fallback. It warns in the browser console if any expected Preact component is missing and provides a Recheck button. This is a client-side report of successful initialisation, not a server-wide health check or proof of live rendering correctness. Specialist forms and printer command handlers deliberately remain on the established JavaScript code. To confirm manually, open the browser console and inspect `window.__PFC_FRONTEND_RENDERER_STATUS__`.
-
-
-- Preact-based dashboard UI foundation for the summary filters, printer-group selector, Cards/Table switch, printer cards and compact table rows, with reusable buttons, status badges, progress bars, metrics and non-blocking toast notifications. Printer Details now also uses the same Preact layer for its live header/status presentation, activity state and six-tab navigation while retaining the established specialist controls inside each tab. Print Queue & History now uses keyed Preact components for active/queued jobs, bed-clearance interlocks, production batches and recent history without changing scheduler behaviour. Print Library file cards now use the same Preact layer for previews, metadata, printer targets, detected requirements, colour swatches and actions while existing library workflows remain unchanged. Maintenance now uses Preact for its view selector and model/group/printer task cards while retaining the existing task form and maintenance action logic. Alerts & Notifications now uses Preact for tab navigation, alert history, destination cards and rule cards while the existing filtering, acknowledgement and configuration workflows remain unchanged. Reports & Analytics now uses Preact for its tabs, KPI cards, charts, ranked summaries and filament-cost catalogue rows while the existing report filters, calculations and filament form workflows remain unchanged. Backup & Recovery now uses Preact for its tabs, backup-status cards and restore inspection summary while all cloud-provider, scheduling, backup and restore workflows remain on the established controller logic. Printer Groups now uses Preact for group-card presentation while its multi-group membership editor and group management workflows remain unchanged. Diagnostics now uses Preact for controller-status and log-entry presentation while its filtering, verbose logging and support-bundle workflows remain unchanged. Licence now uses Preact for edition/status and entitlement presentation while signed licence installation and verification remain unchanged. All persistent controller route pages now have Preact presentation coverage; stateful Add Printer, Farm Operations, provider configuration, Print Library assignment and specialist Printer Details controls remain deliberately on the established controller logic. Preact is bundled locally at build time with esbuild, keeps the existing HTML/vanilla-JavaScript dashboard as a fallback, and introduces no npm runtime dependency.
-
-
-- The integrated Printer Simulator now uses the same persistent left-hand navigation pattern as the controller, with the simulator marked active and responsive mobile sidebar behaviour.
-
-- Print queue bed-clearance confirmation is protected from live SSE redraws so the **Bed cleared · continue** action is accepted reliably on the first press, with duplicate submissions blocked while the request is in progress.
-
-- Dashboard can switch between the existing printer cards and a compact tabular view for larger farms. The table can be sorted by printer name, status, progress or remaining time, and the selected view is remembered in browser local storage across sessions while existing filters, farm operations and printer actions remain available.
-
-- Printer Files now supports confirmed deletion of printer-local files on Snapmaker U1, Prusa CORE One+ and experimental Bambu models. FlashForge Adventurer 5M/5M Pro and Creator 5/5 Pro remain unsupported because no validated stock-firmware deletion interface is available.
-
-- Stacked Layers header branding prototype with responsive Light/Dark treatment; the existing embedded favicon is unchanged.
-- Tabbed printer details with dedicated Toolheads, Camera, Files, Temperature/Preheat/Fans, Current Job, and Maintenance/Management views using the same selector styling as the Maintenance screen. Multi-tool printers use a full-width toolhead table with manual nozzle assignment in its own column where supported.
-- Creator 5 / Creator 5 Pro now support independent nozzle-size designation for T0-T3 and remote per-tool filament type/colour configuration using the printer's native 21-material / 24-colour palette with read-back verification.
-
-- Container images for Linux AMD64 and ARM64, with Docker and K3s/Kubernetes deployment guidance.
-- Persistent Print Library, smart queueing, printer groups and maintenance tracking.
-- Farm alerts & notifications with persistent local history, attention-only top-bar warnings, scoped rules, ntfy mobile push and generic outbound webhooks.
-- Reports & finance with graphical trends, printer reliability indicators, popular-file reporting, filament usage and material-cost tracking, now split into Analytics, Filament cost catalogue and Pricing settings tabs.
-- Filament catalogue costing with Orca/Bambu slicer vendor/preset auto-matching, explicit per-tool overrides, immutable historical cost snapshots, and a controlled selector covering common world currencies.
-- Compressed portable backup and restore, including local/NAS, Google Drive, Microsoft OneDrive and generic S3-compatible destinations, multi-group printer membership, reporting history/filament catalogue data, and backwards-compatible restore of older backups.
-- Snapmaker U1, FlashForge and Prusa CORE One+ support, with experimental Bambu Lab support.
-- Offline signed licensing with Community, Pro and Farm editions.
-
-For the complete version history, see [CHANGELOG.md](CHANGELOG.md).
-
-
+Full design and security rollout requirements: [Authentication and RBAC](docs/AUTHENTICATION_AND_RBAC.md).
 
 ## Licensing
 
@@ -183,12 +171,12 @@ The internal `allowDevelopmentOverrides:true` loader option exists for tests/dev
 
 ## Run
 
-Requires Node.js 24 or later. Development has been performed against Node.js 24.21.0. There are no npm runtime dependencies. Preact and esbuild are build-time development dependencies.
+Requires a security-patched **Node.js 24.22.1 or newer in the Node.js 24 release line** and **npm 12.2.0** for development. The project has no npm runtime dependencies; Preact and esbuild are build-time dependencies. See [dependency and runtime security policy](docs/dependency-security.md) for approved updates.
 
-After downloading a fresh source ZIP, or whenever `package.json` changes, install the development dependencies once:
+After downloading a fresh source ZIP, or when dependencies change, install the development dependencies using the committed lockfile:
 
 ```bash
-npm install --include=dev
+npm ci --include=dev
 ```
 
 The project explicitly approves the pinned `esbuild@0.28.2` install script in `package.json`; no blanket install-script approval is required. The install automatically builds the local Preact dashboard bundle. Start the controller normally after that:
@@ -201,7 +189,7 @@ If the optional Preact bundle is not present, the controller still starts and th
 
 ## Reports and material costs
 
-Print Farm Controller v0.37.0 adds a persistent **Reports & finance** view for operational and material-cost reporting. The reporting history is stored independently of the bounded recent queue history so long-term trends are retained.
+The **Reports & finance** view provides operational and material-cost reporting. Reporting history is stored independently of the bounded recent queue history, retaining long-term trends.
 
 Reports can be filtered by date range, printer and printer group and include:
 
@@ -285,7 +273,7 @@ Cloud restore is provider-based rather than Google-specific. Google Drive, Micro
 
 ## Microsoft OneDrive backups (Experimental)
 
-Print Farm Controller v0.36.0 includes Microsoft OneDrive as an **experimental** cloud backup and restore provider. Automated tests and packaging validation are complete, but the integration has not yet been validated against a live Microsoft account. Manual and scheduled OneDrive backups use the same verified/compressed `.pfcbackup` format and the same restore inspection/staging engine as local and Google Drive backups.
+Microsoft OneDrive is available as an **experimental** cloud backup and restore provider. Automated tests and packaging validation are complete, but the integration has not yet been validated against a live Microsoft account. Manual and scheduled OneDrive backups use the same verified/compressed `.pfcbackup` format and the same restore inspection/staging engine as local and Google Drive backups.
 
 OneDrive authorization uses Microsoft's device-code OAuth flow and requests:
 
@@ -315,7 +303,7 @@ OneDrive stores controller backups in the Microsoft Graph `approot` application 
 
 ## S3-compatible backups
 
-Print Farm Controller v0.35.0 can use generic S3-compatible object storage for manual backups, scheduled backups with retention, and direct cloud restore. The implementation uses the standard S3 REST API and AWS Signature Version 4 without adding an AWS SDK or any other runtime npm dependency.
+The controller supports generic S3-compatible object storage for manual backups, scheduled backups with retention, and direct cloud restore. The implementation uses the standard S3 REST API and AWS Signature Version 4 without adding an AWS SDK or any other runtime npm dependency.
 
 The S3 configuration in **Backup & recovery → S3-compatible storage** contains:
 
@@ -372,11 +360,11 @@ docker run -d \
 
 Replace `192.168.1.0/24` with the subnet containing the printers. If LAN scanning is not required, `DISCOVERY_SUBNET` can be omitted and printers can still be added directly by IP.
 
-Versioned images are published from Git tags. For example, tag `v0.33.0` publishes:
+Versioned images are published from Git tags. For a tag named `vX.Y.Z` (replace `X.Y.Z` with the release version), the image tags are:
 
 ```text
-ghcr.io/andy-knight/print-farm-controller:0.33.0
-ghcr.io/andy-knight/print-farm-controller:0.33
+ghcr.io/andy-knight/print-farm-controller:X.Y.Z
+ghcr.io/andy-knight/print-farm-controller:X.Y
 ```
 
 The `latest` tag is published from the `main` branch.
@@ -385,7 +373,7 @@ The `latest` tag is published from the `main` branch.
 
 `.github/workflows/container-image.yml` has separate **test**, **Chromium browser**, **container smoke**, and **release image** jobs. Every relevant feature-branch pull-request update runs the Node.js 24 regression tests, Chromium/Preact visual checks and a disposable **single-architecture** local Docker smoke test. It **does not** build a multi-architecture release image or push anything to the registry on each commit.
 
-The full `linux/amd64` + `linux/arm64` release build runs **after merging to `main`**, publishing `latest`, or when pushing a version tag such as `v0.54.0`, publishing versioned tags. Publishing uses the repository-scoped GitHub `GITHUB_TOKEN`; no manually stored registry password or PAT is required.
+The full `linux/amd64` + `linux/arm64` release build runs **after merging to `main`**, publishing `latest`, or when pushing a version tag such as `vX.Y.Z`, publishing versioned tags. Publishing uses the repository-scoped GitHub `GITHUB_TOKEN`; no manually stored registry password or PAT is required.
 
 For a one-off final multi-architecture **verification build on a completed feature branch**, open GitHub **Actions → Controller CI and Container Release → Run workflow**, and choose the feature branch. Manual runs on feature branches build the image **without publishing** and without production OAuth secrets. This allows a full architectural build check before merging without creating intermediate GHCR releases.
 
@@ -394,7 +382,7 @@ The repository includes a Linux-container `Dockerfile` based on Node.js 24. Cont
 Build the image:
 
 ```powershell
-docker build -t print-farm-controller:0.33.0 .
+docker build -t print-farm-controller:local .
 ```
 
 Create persistent host directories:
@@ -412,7 +400,7 @@ docker run --rm `
   -p 4242:4242 `
   -v "${PWD}\container-data:/data" `
   -v "${PWD}\container-logs:/logs" `
-  print-farm-controller:0.33.0
+  print-farm-controller:local
 ```
 
 Open `http://localhost:4242`.
@@ -450,7 +438,7 @@ docker run --rm `
   -e DISCOVERY_SUBNET=192.168.1.0/24 `
   -v "${PWD}\container-data:/data" `
   -v "${PWD}\container-logs:/logs" `
-  print-farm-controller:0.33.0
+  print-farm-controller:local
 ```
 
 `DISCOVERY_SUBNET` accepts bounded IPv4 CIDRs from `/22` through `/30`. It is optional; when omitted, native interface-based discovery behaves exactly as before. The setting affects discovery only and does not change normal printer connections.
@@ -559,12 +547,12 @@ Because the GHCR package is public, no `imagePullSecret` is required. Use the fu
 
 ## Windows Portable Executable
 
-Print Farm Controller includes a Windows x64 Node SEA packaging pipeline for building a standalone portable executable. Development/source mode remains unchanged: `npm start` runs directly from the repository.
+Print Farm Controller includes a Windows x64 Node SEA packaging pipeline for building a portable controller with its bundled FFmpeg camera decoder. Development/source mode remains unchanged: `npm start` runs directly from the repository.
 
-Install the build-only dependencies once:
+Install the build dependencies using the committed lockfile:
 
 ```powershell
-npm install
+npm ci --include=dev
 ```
 
 Run the full regression suite:
@@ -599,7 +587,9 @@ The executable reads its built-in web/simulator resources and trusted licence pu
 
 The Ed25519 private signing key is never included in the controller. The Bambu simulator TLS key embedded in the executable is only a local simulator/test credential and is unrelated to production licence signing.
 
-The copied Node executable's original Authenticode signature is invalidated when the SEA payload is injected, so the build may report a signature warning. The final installer/release process will digitally sign the finished `PrintFarmController.exe` after all embedding is complete.
+Injecting the SEA payload invalidates any original Authenticode signature on the copied Node executable. The generated executable is unsigned unless the release process applies a signing certificate after embedding.
+
+Keep the entire `dist/windows-x64/` folder together, including `ffmpeg/` with its decoder, licence notices and corresponding source. Installed and container builds discover the bundled decoder automatically; see [X1C camera setup](docs/X1C_CAMERA.md).
 
 ### Windows installer
 
@@ -616,7 +606,7 @@ This rebuilds the hardened SEA executable first, then creates:
 ```text
 dist/
 └── installer/
-    └── PrintFarmController-Setup-v0.16.0.exe
+    └── PrintFarmController-Setup-v<version>.exe
 ```
 
 The installer creates a Start Menu shortcut and offers an optional desktop shortcut. Uninstalling the application does not explicitly delete the `data/` directory, so user data is not intentionally removed by the uninstall script.
@@ -650,7 +640,7 @@ Bambu P1S FTPS:   127.0.0.1:20000
 Bambu P1S camera: 127.0.0.1:16010
 Bambu X1C MQTT:   127.0.0.1:18903
 Bambu X1C FTPS:   127.0.0.1:20010
-Bambu X1C camera test endpoint: 127.0.0.1:16020
+Bambu X1C RTSPS camera: 127.0.0.1:16020
 Bambu A1 Mini MQTT:   127.0.0.1:18913
 Bambu A1 Mini FTPS:   127.0.0.1:20020
 Bambu A1 Mini camera: 127.0.0.1:16030
@@ -660,14 +650,14 @@ For FlashForge, the Add printer form now exposes the normally fixed HTTP, TCP an
 
 Set `EMULATOR_NO_DEFAULTS=1` to start with an empty simulator fleet, or `CONTROLLER_EMULATOR_ENABLED=1` to enable the integrated simulator for the current launch. The virtual protocol endpoints always use loopback in integrated mode. The standalone `npm run emulator` command remains available for development and retains its `EMULATOR_HOST` and `EMULATOR_PORT` overrides.
 
-The Bambu endpoints use a simulator-owned self-signed certificate, MQTT username `bblp`, and the access code shown in the emulator UI. They model the LAN/Developer interfaces used by P1, X1C and A1 Mini printers but remain experimental until compared with physical hardware. The X1C camera test endpoint produces the simulator's existing TLS/JPEG test frames and does not claim to emulate the physical X1C RTSPS/H.264 stream. The emulator verifies controller behaviour against the implemented protocol model; new manufacturer support remains experimental until checked against reliable captures, documentation or physical hardware.
+The Bambu endpoints use a simulator-owned self-signed certificate, MQTT username `bblp`, and the access code shown in the emulator UI. They model the LAN/Developer interfaces used by P1, X1C and A1 Mini printers but remain experimental until compared with physical hardware. The X1C camera endpoint serves authenticated RTSPS/RTP H.264 from a generated simulator image through the same production adapter and bundled decoder as physical X1C cameras. Other Bambu models retain their TLS/JPEG endpoints. Protocol simulation does not establish physical-printer acceptance. The emulator verifies controller behaviour against the implemented protocol model; new manufacturer support remains experimental until checked against reliable captures, documentation or physical hardware.
 
 ### Adding an experimental Bambu P1P, P1S, X1C or A1 Mini
 
 1. Enable the printer's LAN Only or Developer mode and note its serial number and LAN access code.
 2. Click **+ Add printer** and select **Bambu Lab P1P / P1S / X1C / A1 Mini (experimental)**.
 3. Choose `P1P`, `P1S`, `X1 Carbon (X1C)` or `A1 Mini` from the model dropdown, then enter the IP address, serial number and access code.
-4. Keep the physical-printer defaults of MQTT TLS `8883` and implicit FTPS `990`. P1P/P1S/A1 Mini camera TLS defaults to `6000`; selecting X1C changes the stored camera port to its RTSPS default `322`, although X1C camera decoding is not yet enabled. Use the alternate ports displayed by the emulator only for simulated printers.
+4. Keep the physical-printer defaults of MQTT TLS `8883` and implicit FTPS `990`. P1P/P1S/A1 Mini camera TLS defaults to `6000`; selecting X1C changes the stored camera port to its RTSPS default `322`, with experimental decoding provided by the bundled FFmpeg decoder (see [X1C camera setup](docs/X1C_CAMERA.md)). Use the alternate ports displayed by the emulator only for simulated printers.
 5. **Test & add** validates the MQTT credentials before saving the printer.
 
 Bambu discovery is not yet implemented, so supported Bambu printers are added manually. Access codes remain backend-side and are never returned by the public fleet API. Until physical validation is complete, supervise test prints and do not rely on this adapter for unattended production.

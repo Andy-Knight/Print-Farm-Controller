@@ -1,4 +1,7 @@
 import http from 'node:http';
+import https from 'node:https';
+import {X509Certificate} from 'node:crypto';
+import {isIP} from 'node:net';
 import { promises as fs, readFileSync } from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
@@ -49,6 +52,9 @@ import { publicAssetKey, readRuntimeAsset } from './runtime-assets.js';
 import { KeyedSerialExecutor, PrinterOperationCoordinator } from './concurrency.js';
 import { evaluatePrinterOperation, PrinterPhysicalActivityTracker, PRINTER_OPERATION_TYPES } from './printer-operation-policy.js';
 import { DiagnosticLogger } from './diagnostic-logger.js';
+import { ControllerAuth } from './security/http-auth.js';
+import { ControllerTls } from './security/controller-tls.js';
+import { runLocalSecurityCommand } from './security/local-admin.js';
 import { MemoryMonitor } from './memory-monitor.js';
 import { MaintenanceService } from './maintenance-service.js';
 import { PrinterGroupService } from './printer-groups.js';
@@ -81,8 +87,16 @@ const bundledMicrosoftClientId = typeof __PFC_MICROSOFT_CLIENT_ID__ === 'string'
 const packageInfo = PACKAGE_PATH ? JSON.parse(readFileSync(PACKAGE_PATH, 'utf8')) : {};
 const CONTROLLER_VERSION = String(bundledVersion || packageInfo.version || 'unknown');
 const PORT = Number(process.env.PORT || 4242);
+const HTTPS_PORT = PORT + 1; // 4243 by default; paired with legacy PORT in isolated tests
 const HOST = process.env.HOST || '0.0.0.0';
 const diagnosticLogger = new DiagnosticLogger({ logDir:runtimePaths.logDir, version:CONTROLLER_VERSION });
+const controllerAuth = new ControllerAuth({dataDir:runtimePaths.dataDir});
+const controllerTls = new ControllerTls({dataDir:runtimePaths.dataDir,port:PORT,httpsPort:HTTPS_PORT});
+let server = null; // Active HTTPS listener, or null when native TLS is disabled.
+let httpServer = null; // Permanent HTTP listener for onboarding, redirects and health.
+let httpsActive = false;
+let redirectCertificate = null; // Follows the live TLS listener, including pre-persistence activation.
+let tlsChangeInProgress = false;
 const memoryMonitor = new MemoryMonitor({
   diagnosticFn:(level, message, meta) => diagnosticLogger[level]?.('memory', message, meta)
 });
@@ -701,6 +715,11 @@ async function refreshAfterCommand(id) {
 }
 
 async function apiRoute(req, res, url) {
+  if(tlsChangeInProgress && ['POST','PUT','PATCH','DELETE'].includes(req.method)){
+    const error=new Error('HTTPS listener change in progress; reconnect once the transport is ready');
+    error.statusCode=503;
+    throw error;
+  }
   const mutation = ['POST','PUT','PATCH','DELETE'].includes(req.method);
   const mayCancelStagedRestore = req.method === 'DELETE' && url.pathname === '/api/restore/stage';
   if ((restorePendingRestart || restoreInspectionInProgress) && mutation && !mayCancelStagedRestore) {
@@ -711,8 +730,110 @@ async function apiRoute(req, res, url) {
     throw error;
   }
 
+  // Even in pre-enrollment legacy mode these endpoints require a real admin.
+  // Neither keys nor certificate status may bypass the native RBAC boundary.
+  if (req.method === 'GET' && url.pathname === '/api/tls/status') {
+    await controllerAuth.assertAdministrator(req);
+    return json(res, 200, {tls:controllerTls.status()});
+  }
+  if (req.method === 'GET' && url.pathname === '/api/tls/certificate') {
+    await controllerAuth.assertAdministrator(req);
+    const certificate = controllerTls.publicCertificate();
+    res.writeHead(200, {
+      'content-type':'application/x-pem-file',
+      'content-disposition':'attachment; filename="print-farm-controller.crt"',
+      'cache-control':'no-store',
+      'x-content-type-options':'nosniff'
+    });
+    res.end(certificate);
+    return true;
+  }
+  if (req.method === 'POST' && url.pathname === '/api/tls/configure') {
+    if(activeMutationRequests>1){
+      const error=new Error('Another controller change is in progress. Retry HTTPS setup after other operations complete.');
+      error.statusCode=409;
+      throw error;
+    }
+    const body=await readJson(req);
+    if(body?.mode==='provided'&&!req.socket.encrypted){
+      // The controller's initial HTTP setup is deliberately insufficient
+      // for transporting a private key. Activate managed HTTPS first, then
+      // submit the imported key through its encrypted listener.
+      const error=new Error('External PEM keys can only be imported over HTTPS. Enable controller-managed HTTPS first.');
+      error.statusCode=403;throw error;
+    }
+    if(typeof body?.password!=='string'||!body.password){
+      const error=new Error('Current administrator password is required');
+      error.statusCode=403;throw error;
+    }
+    await controllerAuth.assertAdministrator(req,body.password);
+    if(body?.confirm!=='APPLY'){
+      const error=new Error('Confirm the browser transport change before applying HTTPS settings');
+      error.statusCode=400;throw error;
+    }
+    if(controllerTls.configurationMatches(body))
+      return json(res,200,{unchanged:true,mode:controllerTls.mode,port:controllerTls.port,
+        httpPort:PORT,httpsPort:HTTPS_PORT,tls:controllerTls.status(),
+        message:'Settings unchanged; certificate and listener have not been replaced.'});
+    const prepared=await controllerTls.prepareConfiguration(body);
+    tlsChangeInProgress=true;
+    res.setHeader('connection','close');
+    res.once('close',()=>{
+      if(!res.writableFinished){
+        tlsChangeInProgress=false;
+        void controllerTls.cancelPreparedConfiguration(prepared);
+      }
+    });
+    res.once('finish',()=>{
+      // The current HTTP/HTTPS request has to finish before the port can be
+      // rebound. Do not restart the controller's queues or printer services.
+      const timer=setTimeout(async()=>{
+        try{
+          const status=await controllerTls.applyConfiguration(prepared,swapControllerListener);
+          await diagnosticLogger.warn('security','Browser transport configuration changed',{
+            mode:status.mode,port:status.port,
+            fingerprint256:status.certificate?.fingerprint256||null
+          }).catch(()=>{});
+          console.log('Browser access now '+(status.enabled?'HTTPS :'+HTTPS_PORT+' (HTTP redirects)':'HTTP :'+PORT)+
+            '; fixed listeners unchanged; existing sessions must sign in again.');
+        }catch(error){
+          await diagnosticLogger.error('security','HTTPS transport change failed; retaining previous listener',{
+            error:error.message
+          }).catch(()=>{});
+          console.error('HTTPS transport change failed: '+error.message);
+        }finally{tlsChangeInProgress=false;}
+      },750);
+      timer.unref?.();
+    });
+    return json(res,202,{
+      pending:true,mode:prepared.settings.mode,port:HTTPS_PORT,httpPort:PORT,httpsPort:HTTPS_PORT,
+      names:prepared.settings.names,
+      message:'Configuration validated. The browser listener will change shortly; reconnect and sign in again.'
+    });
+  }
+  if (req.method === 'POST' && url.pathname === '/api/tls/regenerate') {
+    const body = await readJson(req);
+    if (body?.confirm !== 'REGENERATE') {
+      const error = new Error('Explicit certificate regeneration confirmation is required');
+      error.statusCode = 400;
+      throw error;
+    }
+    if(typeof body?.password!=='string'||!body.password){
+      const error=new Error('Current administrator password is required');
+      error.statusCode=403;throw error;
+    }
+    await controllerAuth.assertAdministrator(req,body.password);
+    const tls = await controllerTls.regenerate(server);
+    await diagnosticLogger.warn('security','Controller-managed HTTPS certificate regenerated',{
+      fingerprint256:tls.certificate?.fingerprint256
+    }).catch(()=>{});
+    return json(res,200,{tls});
+  }
+
   if (req.method === 'GET' && url.pathname === '/api/health') {
-    return json(res, 200, { ok: true, service: 'printer-fleet-controller', version: CONTROLLER_VERSION, license: currentLicenseSnapshot(), liveState: true });
+    return json(res, 200, controllerAuth.enabled
+      ? {ok:true,service:'printer-fleet-controller'}
+      : { ok: true, service: 'printer-fleet-controller', version: CONTROLLER_VERSION, license: currentLicenseSnapshot(), liveState: true });
   }
 
   if (req.method === 'GET' && url.pathname === '/api/license') {
@@ -2552,12 +2673,19 @@ async function serveStatic(res, pathname) {
   }
 }
 
-const server = http.createServer(async (req, res) => {
-  const url = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
+async function handleControllerRequest(req, res) {
+  const url = new URL(req.url, (req.socket.encrypted ? 'https://' : 'http://') + (req.headers.host || 'localhost'));
+  if(url.pathname==='/healthz'&&(req.method==='GET'||req.method==='HEAD')){
+    res.writeHead(200,{'content-type':'text/plain; charset=utf-8','cache-control':'no-store'});
+    res.end(req.method==='HEAD'?undefined:'ok');
+    return;
+  }
   const countedMutation = url.pathname.startsWith('/api/')
     && ['POST','PUT','PATCH','DELETE'].includes(req.method);
   if (countedMutation) activeMutationRequests += 1;
   try {
+    if (await controllerAuth.route(req,res,url,{json,readJson})) return;
+    if (!await controllerAuth.authorize(req,res,url,{json})) return;
     if (url.pathname.startsWith('/api/emulator')) {
       if ((restorePendingRestart || restoreInspectionInProgress) && ['POST','PUT','PATCH','DELETE'].includes(req.method)) {
         return json(res, 409, {
@@ -2607,7 +2735,7 @@ const server = http.createServer(async (req, res) => {
   } finally {
     if (countedMutation) activeMutationRequests = Math.max(0, activeMutationRequests - 1);
   }
-});
+}
 
 async function shutdown() {
   await diagnosticLogger.info('controller', 'Controller shutdown requested').catch(() => {});
@@ -2620,29 +2748,135 @@ async function shutdown() {
   await maintenanceService.stop().catch(() => {});
   printQueue.stop();
   fleetState.stop();
-  cameraManager.stop();
+  await cameraManager.stop();
   try { await emulatorManager.stop(); } catch {}
-  server.close(() => process.exit(0));
-  setTimeout(() => process.exit(0), 2000).unref();
+  const forceExit=setTimeout(()=>process.exit(0),2000);
+  forceExit.unref();
+  await Promise.all([server,httpServer].filter(listener=>listener?.listening).map(listener=>
+    new Promise(resolve=>{
+      listener.close(()=>resolve());
+      listener.closeAllConnections?.();
+      listener.closeIdleConnections?.();
+    })
+  ));
+  clearTimeout(forceExit);
+  process.exit(0);
 }
 
 process.on('SIGINT', shutdown);
 process.on('SIGTERM', shutdown);
 
-async function listenControllerServer() {
-  await new Promise((resolve, reject) => {
-    const onError = (error) => {
-      server.off('listening', onListening);
-      reject(error);
-    };
-    const onListening = () => {
-      server.off('error', onError);
-      resolve();
-    };
-    server.once('error', onError);
-    server.once('listening', onListening);
-    server.listen(PORT, HOST);
+async function listenOn(instance,port) {
+  await new Promise((resolve,reject)=>{
+    const onError=(error)=>{instance.off('listening',onListening);reject(error);};
+    const onListening=()=>{instance.off('error',onError);resolve();};
+    instance.once('error',onError);
+    instance.once('listening',onListening);
+    instance.listen(port,HOST);
   });
+}
+// Only HTTP GET/HEAD navigations redirect; never redirect API writes or echo
+// cookies/body over plaintext. Reject Host injection and certificate mismatch.
+function httpsRedirectTarget(req){
+  const host=String(req.headers.host||'');
+  if(!host||host.length>260||/[\s\\/@?#]/.test(host))
+    return null;
+  if(!req.url?.startsWith('/')||req.url.startsWith('//')||req.url.includes('\\'))
+    return null;
+  let incoming, requested;
+  try{
+    incoming=new URL('http://'+host);
+    requested=new URL(req.url,'http://controller.invalid');
+  }catch{return null;}
+  const hostname=incoming.hostname.replace(/^\[|\]$/g,'');
+  if(!redirectCertificate||
+    !(isIP(hostname)?redirectCertificate.checkIP(hostname):redirectCertificate.checkHost(hostname)))
+    return null;
+  incoming.protocol='https:';
+  // Browsers routed through MetalLB: HTTP 80 -> HTTPS 443. Browsers using
+  // the two internal/native ports (Windows/direct access): 4242 -> 4243.
+  incoming.port=incoming.port===String(PORT)?String(HTTPS_PORT):'';
+  incoming.pathname=requested.pathname;
+  incoming.search=requested.search;
+  incoming.hash='';
+  return incoming.href;
+}
+
+function handleHttpRequest(req,res){
+  // Docker and K3s probes remain independent of certificate trust or the
+  // presence of an HTTPS listener. Never expose authentication/production data.
+  if((req.method==='GET'||req.method==='HEAD')&&req.url==='/healthz'){
+    res.writeHead(200,{'content-type':'text/plain; charset=utf-8','cache-control':'no-store'});
+    return res.end(req.method==='HEAD'?undefined:'ok');
+  }
+  if(!httpsActive)return void handleControllerRequest(req,res);
+  if(req.method==='GET'||req.method==='HEAD'){
+    const target=httpsRedirectTarget(req);
+    if(target){
+      res.writeHead(302,{location:target,'cache-control':'no-store','content-length':'0'});
+      return res.end();
+    }
+    res.writeHead(421,{'content-type':'text/plain; charset=utf-8','cache-control':'no-store'});
+    return res.end('The requested host does not match the HTTPS certificate');
+  }
+  res.writeHead(403,{'content-type':'text/plain; charset=utf-8','cache-control':'no-store'});
+  res.end('HTTP accepts no actions while HTTPS is enabled');
+}
+
+async function listenControllerServer(){
+  // TLS must bind successfully before HTTP is made visible when HTTPS was
+  // previously enabled: an invalid HTTPS configuration never opens an
+  // unauthenticated plaintext fallback.
+  const options=controllerTls.options;
+  if(options){
+    server=https.createServer(options,handleControllerRequest);
+    await listenOn(server,HTTPS_PORT);
+    redirectCertificate=new X509Certificate(options.cert);
+    httpsActive=true;
+  }
+  httpServer=http.createServer(handleHttpRequest);
+  try{await listenOn(httpServer,PORT);}
+  catch(error){
+    if(server?.listening)await stopListener(server);
+    server=null;redirectCertificate=null;httpsActive=false;
+    throw error;
+  }
+}
+async function stopListener(instance){
+  if(!instance?.listening)return;
+  const closed=new Promise((resolve,reject)=>instance.close(error=>error?reject(error):resolve()));
+  instance.closeAllConnections?.();
+  instance.closeIdleConnections?.();
+  await closed;
+}
+async function swapControllerListener({options,secure}){
+  const previous=server;
+  if(options){
+    if(previous?.listening){
+      // Replacing certificate source or SANs never changes a port. Node's
+      // secure-context reload takes effect for subsequent TLS handshakes.
+      previous.setSecureContext(options);
+    }else{
+      const candidate=https.createServer(options,handleControllerRequest);
+      try{await listenOn(candidate,HTTPS_PORT);}
+      catch(error){if(candidate.listening)await stopListener(candidate);throw error;}
+      server=candidate;
+    }
+    try{controllerAuth.setNativeTransportSecure(true,{forceRevoke:true});}
+    catch(error){
+      if(!previous&&server?.listening)await stopListener(server);
+      server=previous;
+      throw error;
+    }
+    redirectCertificate=new X509Certificate(options.cert);
+    httpsActive=true;
+  }else{
+    if(previous?.listening)await stopListener(previous);
+    server=null;
+    redirectCertificate=null;
+    httpsActive=false;
+    controllerAuth.setNativeTransportSecure(false,{forceRevoke:true});
+  }
 }
 
 async function startController() {
@@ -2659,6 +2893,7 @@ async function startController() {
       console.warn(`Rolled back an incomplete restore startup: ${restoreStartup.reason}`);
     }
 
+    await controllerAuth.init();
     try {
       await diagnosticLogger.init();
       diagnosticLogger.patchConsole();
@@ -2696,6 +2931,8 @@ async function startController() {
     await reportingService.init();
     await printQueue.start();
     chamberPreheat.startService();
+    const tlsOptions = await controllerTls.init();
+    controllerAuth.setNativeTransportSecure(Boolean(tlsOptions),{revokeSessions:false});
     await listenControllerServer();
 
     if (restoreTransaction) {
@@ -2717,10 +2954,20 @@ async function startController() {
       console.warn(`Scheduled backup service unavailable: ${error.message}`);
     }
 
-    console.log(`Print Farm Controller v${CONTROLLER_VERSION} running at http://localhost:${PORT}`);
+    const browserScheme = controllerTls.enabled ? 'https' : 'http';
+    console.log(`Print Farm Controller v${CONTROLLER_VERSION} running at ${browserScheme}://localhost:${controllerTls.enabled?HTTPS_PORT:PORT}`);
+    console.log(`HTTP onboarding/redirect/health :${PORT}, HTTPS listener :${HTTPS_PORT} (when enabled)`);
+    if (controllerAuth.enabled) {
+      console.log(controllerAuth.setupRequired
+        ? 'Authentication requires first administrator enrollment in the browser (Security & users) using the private code printed at controller startup.'
+        : 'Native authentication and server-side RBAC ENABLED.');
+      if (!controllerAuth.secure)console.warn('SECURITY WARNING: HTTP does not protect credentials. Configure HTTPS before production login.');
+      if (controllerTls.mode === 'self-signed') console.warn('HTTPS uses a self-signed certificate. Clients must explicitly trust it; certificate names are configured under Security & users.');
+
+    } else console.warn('SECURITY WARNING: Legacy unauthenticated LAN mode. Enrol an administrator to enable access controls.');
     const license = currentLicenseSnapshot();
     console.log(`Licence: ${license.label} (${license.source}; enforcement ${license.enforcementEnabled ? 'enabled' : 'disabled'})`);
-    console.log(`LAN access: http://<this-computer-ip>:${PORT}`);
+    console.log(`LAN direct access: ${browserScheme}://<controller-host-or-ip>:${controllerTls.enabled?HTTPS_PORT:PORT} (MetalLB Service maps 80/443)`);
     console.log('Generic printer adapter + capability layer enabled (FlashForge AD5M + Snapmaker U1 + experimental Bambu P1P/P1S/X1C/A1 Mini)');
     console.log('Live fleet polling + SSE enabled');
     console.log('Concurrent client command arbitration + serialized shared mutations enabled');
@@ -2741,7 +2988,7 @@ async function startController() {
     await maintenanceService.stop().catch(() => {});
     printQueue.stop();
     fleetState.stop();
-    cameraManager.stop();
+    await cameraManager.stop();
     try { await emulatorManager.stop(); } catch {}
     if (restoreTransaction) {
       try {
@@ -2755,7 +3002,9 @@ async function startController() {
   }
 }
 
-startController().catch((error) => {
+(process.argv.includes('--auth-setup') || process.argv.includes('--auth-recover')
+  ? runLocalSecurityCommand(process.argv.includes('--auth-recover')?'recover':'setup',{dataDir:runtimePaths.dataDir})
+  : startController()).catch((error) => {
   console.error(`Could not start Print Farm Controller: ${error.message}`);
   process.exitCode = 1;
 });
