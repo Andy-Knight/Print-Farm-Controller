@@ -199,10 +199,7 @@ test('a new printer family can register without changing fleet services', () => 
 
 test('FlashForge manual nozzle designation normalizes the installed nozzle for queue compatibility', async () => {
   const originalFetch = global.fetch;
-  global.fetch = async () => ({
-    ok:true,
-    async json() { return { code:0, detail:{ status:'ready', rightFilamentType:'PLA' } }; }
-  });
+  global.fetch = async () => Response.json({ code:0, detail:{ status:'ready', rightFilamentType:'PLA' } });
   try {
     const adapter = getPrinterAdapter({
       id:'p-nozzle', adapterType:FLASHFORGE_AD5M_ADAPTER_TYPE, host:'192.168.1.22',
@@ -220,10 +217,7 @@ test('FlashForge manual nozzle designation normalizes the installed nozzle for q
 
 test('FlashForge manual material designation overrides display value while retaining printer report', async () => {
   const originalFetch = global.fetch;
-  global.fetch = async () => ({
-    ok:true,
-    async json() { return { code:0, detail:{ status:'ready', rightFilamentType:'PLA' } }; }
-  });
+  global.fetch = async () => Response.json({ code:0, detail:{ status:'ready', rightFilamentType:'PLA' } });
   try {
     const adapter = getPrinterAdapter({
       id:'p-material', adapterType:FLASHFORGE_AD5M_ADAPTER_TYPE, host:'192.168.1.21',

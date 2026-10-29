@@ -1,3 +1,4 @@
+import {fetchPrinterResponse, readPrinterText} from './security/printer-http.js';
 import http from 'node:http';
 import crypto from 'node:crypto';
 import { createReadStream, promises as fs } from 'node:fs';
@@ -53,7 +54,7 @@ export async function moonrakerRequest(printer, endpoint, {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
-    const response = await fetch(`${moonrakerBaseUrl(printer)}${endpoint}`, {
+    const response = await fetchPrinterResponse(`${moonrakerBaseUrl(printer)}${endpoint}`, {
       method,
       headers: moonrakerHeaders(printer, {
         ...(body !== undefined ? { 'content-type': 'application/json' } : {}),
@@ -62,7 +63,7 @@ export async function moonrakerRequest(printer, endpoint, {
       ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
       signal: controller.signal
     });
-    const text = await response.text();
+    const text = await readPrinterText(response);
     let data = null;
     if (text) {
       try { data = JSON.parse(text); } catch { data = text; }
@@ -461,7 +462,7 @@ async function readMoonrakerFileRange(printer, fileName, start, end, { maxBytes 
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), DEFAULT_TIMEOUT_MS);
   try {
-    const response = await fetch(`${moonrakerBaseUrl(printer)}/server/files/gcodes/${encodedGcodePath(fileName)}`, {
+    const response = await fetchPrinterResponse(`${moonrakerBaseUrl(printer)}/server/files/gcodes/${encodedGcodePath(fileName)}`, {
       headers: moonrakerHeaders(printer, { range: `bytes=${Math.max(0, start)}-${Math.max(start, end)}` }),
       signal: controller.signal
     });
@@ -619,7 +620,15 @@ export async function uploadMoonrakerFile(printer, filePath, { fileName = null }
       })
     }, (response) => {
       const chunks = [];
-      response.on('data', (chunk) => chunks.push(chunk));
+      let bytes=0;
+      response.once('error',reject);
+      response.on('data', (chunk) => {
+        if (bytes+chunk.length>8*1024*1024) {
+          const error=new MoonrakerApiError('Moonraker upload response exceeds size limit');
+          reject(error);response.destroy();request.destroy();return;
+        }
+        bytes+=chunk.length;chunks.push(chunk);
+      });
       response.on('end', () => {
         const text = Buffer.concat(chunks).toString('utf8');
         let data = null;

@@ -118,6 +118,10 @@ export class ControllerAuth {
       );
     }
   }
+  #authenticate(req,username,password){
+    return this.#limiter.run(username,req.socket?.remoteAddress||'unknown',
+      ()=>this.#accounts.authenticate(username,password));
+  }
   #cookie(res,token){
     res.setHeader('set-cookie',COOKIE+'='+token+'; Path=/; HttpOnly; SameSite=Strict'+
       (this.#secure?'; Secure':'')+'; Max-Age='+(token?86400:0));
@@ -253,12 +257,12 @@ export class ControllerAuth {
       const address=req.socket?.remoteAddress||'unknown';
       if(!this.#limiter.canAttempt(username,address))
         return bad(res,json,429,'Too many login attempts. Try again later.');
-      const user=await this.#accounts.authenticate(username,data.password);
+      let user;
+      try {user=await this.#authenticate(req,username,data.password);}
+      catch(error){if(error.statusCode===429)return bad(res,json,429,error.message);throw error;}
       if(!user){
-        this.#limiter.recordFailure(username,address);
         return bad(res,json,401,'Invalid username or password');
       }
-      this.#limiter.recordSuccess(username,address);
       const token=this.#sessions.create(user.id);
       this.#cookie(res,token);
       json(res,200,this.#status({user,csrf:csrfFor(token)}));
@@ -282,7 +286,7 @@ export class ControllerAuth {
     if(method==='POST'&&pathname==='/api/auth/password'){
       try{
         const data=safeBody(await readJson(req),['currentPassword','newPassword']);
-        if(!await this.#accounts.authenticate(identity.user.username,data.currentPassword))
+        if(!await this.#authenticate(req,identity.user.username,data.currentPassword))
           return bad(res,json,403,'Current password is incorrect');
         await this.#accounts.updateUser(identity.user.id,{password:data.newPassword});
         this.#revokeUser(identity.user.id);
@@ -347,11 +351,9 @@ export class ControllerAuth {
       const address=req.socket?.remoteAddress||'unknown';
       if(typeof password!=='string'||!this.#limiter.canAttempt(username,address))
         throw Object.assign(new Error('Reauthentication unavailable. Try again later.'),{statusCode:429});
-      if(!await this.#accounts.authenticate(username,password)){
-        this.#limiter.recordFailure(username,address);
+      if(!await this.#authenticate(req,username,password)){
         throw Object.assign(new Error('Current password is incorrect'),{statusCode:403});
       }
-      this.#limiter.recordSuccess(username,address);
     }
     return identity.user;
   }

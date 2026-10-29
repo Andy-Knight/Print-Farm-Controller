@@ -6,6 +6,34 @@ import path from 'node:path';
 import {AccountStore} from '../src/security/account-store.js';
 import {SessionManager,LoginAttemptLimiter} from '../src/security/session-manager.js';
 
+test('authentication reservations reject concurrent floods before hashing and always release',async()=>{
+  const limiter=new LoginAttemptLimiter();
+  let release,calls=0;
+  const pending=new Promise(resolve=>{release=resolve;});
+  const attempts=Array.from({length:100},()=>limiter.run('Owner','source',()=>{calls++;return pending;}));
+  // Attach rejection handlers before settling the admitted operation.
+  const settled=Promise.allSettled(attempts);
+  assert.equal(calls,1);
+  release(null);
+  const results=await settled;
+  assert.equal(results.filter(r=>r.status==='rejected'&&r.reason.statusCode===429).length,99);
+  assert.equal(await limiter.run('owner','source',async()=>true),true);
+  await assert.rejects(limiter.run('owner','source',async()=>{throw new Error('hash failed');}),/hash failed/);
+  assert.equal(await limiter.run('owner','source',async()=>true),true);
+});
+
+test('authentication concurrency is bounded per source and across distinct accounts',async()=>{
+  const limiter=new LoginAttemptLimiter();
+  let release;
+  const pending=new Promise(resolve=>{release=resolve;});
+  const active=[limiter.run('a','ip1',()=>pending),limiter.run('b','ip1',()=>pending)];
+  await assert.rejects(limiter.run('c','ip1',()=>pending),{statusCode:429});
+  active.push(limiter.run('c','ip2',()=>pending),limiter.run('d','ip3',()=>pending));
+  await assert.rejects(limiter.run('e','ip4',()=>pending),{statusCode:429});
+  release(true);await Promise.all(active);
+  assert.equal(await limiter.run('e','ip4',async()=>true),true);
+});
+
 async function freshStore(t) {
   const dir=await fs.mkdtemp(path.join(os.tmpdir(),'pfc-auth-store-'));
   t.after(()=>fs.rm(dir,{recursive:true,force:true}));

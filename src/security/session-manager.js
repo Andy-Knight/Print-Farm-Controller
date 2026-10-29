@@ -60,6 +60,9 @@ export class LoginAttemptLimiter {
   #now;
   #maxFailures;
   #windowMs;
+  #active=0;
+  #byAddress=new Map();
+  #byAccount=new Set();
   constructor({now=()=>Date.now(),maxFailures=5,windowMs=15*60*1000}={}){
     if(!Number.isInteger(maxFailures)||maxFailures<1||windowMs<1)
       throw new Error('Invalid login attempt limits');
@@ -81,6 +84,25 @@ export class LoginAttemptLimiter {
     return this.#check(`name:${name}|ip:${ip}`)<this.#maxFailures &&
       this.#check(`ip:${ip}`)<this.#maxFailures*5;
   }
+  async run(username,address,operation){
+    const [name,ip]=this.#key(username,address);
+    // No waiting queue: reserve bounded expensive work before yielding.
+    if (!this.canAttempt(name,ip) || this.#active>=4 || (this.#byAddress.get(ip)||0)>=2 || this.#byAccount.has(name))
+      throw Object.assign(new Error('Too many authentication attempts. Try again later.'),{statusCode:429});
+    this.#active++;
+    this.#byAddress.set(ip,(this.#byAddress.get(ip)||0)+1);
+    this.#byAccount.add(name);
+    let success=false;
+    try {
+      const result=await operation();success=Boolean(result);return result;
+    } finally {
+      this.#active--;
+      const count=this.#byAddress.get(ip)-1;
+      if(count)this.#byAddress.set(ip,count);else this.#byAddress.delete(ip);
+      this.#byAccount.delete(name);
+      if(success)this.recordSuccess(name,ip);else this.recordFailure(name,ip);
+    }
+  }
   recordFailure(username,address){
     const [name,ip]=this.#key(username,address);
     for(const key of [`name:${name}|ip:${ip}`,`ip:${ip}`]){
@@ -88,7 +110,7 @@ export class LoginAttemptLimiter {
       this.#entries.set(key,{count,expires:this.#now()+this.#windowMs});
     }
     // Bound the allocation from spoofed account names and source addresses.
-    if(this.#entries.size>10000){
+    while(this.#entries.size>10000){
       const first=this.#entries.keys().next().value;
       if(first)this.#entries.delete(first);
     }

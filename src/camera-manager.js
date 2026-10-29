@@ -383,13 +383,14 @@ export class CameraManager extends EventEmitter {
   }
 
   captureFrames(id, stream, chunk) {
-    stream.frameBuffer = Buffer.concat([stream.frameBuffer, chunk]);
-    if (stream.frameBuffer.length > MAX_FRAME_PARSE_BUFFER) {
-      const soi = stream.frameBuffer.lastIndexOf(JPEG_SOI);
-      stream.frameBuffer = soi >= 0
-        ? stream.frameBuffer.subarray(soi)
-        : stream.frameBuffer.subarray(-2);
+    if (stream.frameBuffer.length + chunk.length > MAX_FRAME_PARSE_BUFFER) {
+      stream.frameBuffer = Buffer.alloc(0);
+      for (const subscriber of [...stream.subscribers]) subscriber.destroy();
+      stream.subscribers.clear();
+      this.failStream(id,stream,new Error('Camera frame exceeds size limit'));
+      return;
     }
+    stream.frameBuffer = Buffer.concat([stream.frameBuffer, chunk]);
 
     while (true) {
       const start = stream.frameBuffer.indexOf(JPEG_SOI);
@@ -522,6 +523,7 @@ export class CameraManager extends EventEmitter {
   }
 
   failStream(id, stream, error) {
+    stream.frameBuffer = Buffer.alloc(0);
     const message = error?.message || 'Camera stream failed';
     this.setHealth(id, { state: 'error', lastError: message, subscribers: stream.subscribers.size });
     if (stream.response) stream.response.destroy();

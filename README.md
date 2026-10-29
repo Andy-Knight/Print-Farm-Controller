@@ -98,6 +98,8 @@ See [HTTPS configuration](docs/HTTPS_CONFIGURATION.md) for port-mapping, certifi
 
 Authentication is enabled unless `PFC_AUTH_REQUIRED=0` explicitly selects **legacy unauthenticated mode** before any user is enrolled. This insecure opt-out is for temporary troubleshooting only; once the durable security marker or account store exists it cannot disable RBAC. Enrollment and login require HTTPS by default. `PFC_AUTH_ALLOW_HTTP=1` is an explicit insecure host opt-in; it is intended only for isolated legacy/testing deployments. Native sessions use `HttpOnly`, `SameSite=Strict`, Origin and CSRF checks; cookies have `Secure` when native HTTPS or a trusted HTTPS public origin is active. HTTP traffic remains unencrypted.
 
+Printer HTTP connections reject redirects, including redirects to the same host; configure the printer address directly. Oversized printer responses are rejected; see [network input boundaries](docs/NETWORK_INPUT_SECURITY.md) for limits and cloud destination policies. Password checks are limited to four at once across the controller, two per source address and one per account; excess attempts receive HTTP 429 and can be retried after active checks finish or the failure cooldown expires.
+
 Full design and security rollout requirements: [Authentication and RBAC](docs/AUTHENTICATION_AND_RBAC.md).
 
 ## Licensing

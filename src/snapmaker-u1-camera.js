@@ -1,3 +1,4 @@
+import {fetchPrinterResponse, readPrinterBytes} from './security/printer-http.js';
 import { MoonrakerWebSocket } from './moonraker-websocket.js';
 import { moonrakerBaseUrl, moonrakerRequest } from './moonraker-api.js';
 
@@ -104,13 +105,13 @@ export class SnapmakerU1CameraSource {
     const timer = setTimeout(() => controller.abort(), SNAPSHOT_TIMEOUT_MS);
     try {
       const key = configuredApiKey(this.printer);
-      const response = await fetch(`${base}/server/files/camera/monitor.jpg?_=${Date.now()}`, {
+      const response = await fetchPrinterResponse(`${base}/server/files/camera/monitor.jpg?_=${Date.now()}`, {
         headers: { accept: 'image/jpeg,*/*', ...(key ? { 'X-Api-Key': key } : {}) },
         signal: controller.signal,
         cache: 'no-store'
       });
       if (!response.ok) throw new Error(`Snapmaker camera snapshot returned HTTP ${response.status}`);
-      const buffer = Buffer.from(await response.arrayBuffer());
+      const buffer = await readPrinterBytes(response,{maxBytes:4*1024*1024});
       if (!validJpeg(buffer)) throw new Error('Snapmaker camera snapshot was not a valid JPEG');
       return buffer;
     } catch (error) {

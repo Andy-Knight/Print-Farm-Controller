@@ -101,6 +101,7 @@ function sendCommand(socket, command, {
 } = {}) {
   return new Promise((resolve, reject) => {
     let response = '';
+    let responseBytes = 0;
     let settledTimer = null;
     let completed = false;
 
@@ -123,6 +124,11 @@ function sendCommand(socket, command, {
     };
 
     const onData = (buffer) => {
+      responseBytes+=buffer.length;
+      if (responseBytes>8*1024*1024) {
+        finish(new PrinterTcpError('TCP file response exceeds size limit'));
+        socket.destroy();return;
+      }
       response += buffer.toString('utf8');
       if (settleMs) {
         // M661 is frequently two-stage: an immediate acknowledgement followed

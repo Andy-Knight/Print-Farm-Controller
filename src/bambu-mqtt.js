@@ -65,6 +65,7 @@ function publishPacket(topic, value) {
 }
 
 function takePackets(state, chunk) {
+  if (state.buffer.length+chunk.length>8*1024*1024+5) throw new BambuMqttError('MQTT input exceeds size limit');
   state.buffer = Buffer.concat([state.buffer, chunk]);
   const packets = [];
   while (state.buffer.length >= 2) {
@@ -79,6 +80,7 @@ function takePackets(state, chunk) {
       multiplier *= 128;
       if (multiplier > 128 ** 4) throw new BambuMqttError('Invalid MQTT remaining length');
     } while (byte & 0x80);
+    if (remaining>8*1024*1024) throw new BambuMqttError('MQTT packet exceeds size limit');
     if (state.buffer.length < cursor + remaining) return packets;
     packets.push({ header: state.buffer[0], payload: state.buffer.subarray(cursor, cursor + remaining) });
     state.buffer = state.buffer.subarray(cursor + remaining);
@@ -111,11 +113,17 @@ async function openClient(printer, { timeoutMs = DEFAULT_TIMEOUT_MS } = {}) {
   };
   socket.on('data', (chunk) => {
     let packets;
-    try { packets = takePackets(state, chunk); } catch (error) { failWaiters(error); socket.destroy(); return; }
+    try { packets = takePackets(state, chunk); } catch (error) { state.buffer=Buffer.alloc(0);state.queue=[];failWaiters(error); socket.destroy(); return; }
     for (const packet of packets) {
       const index = state.waiters.findIndex((waiter) => waiter.predicate(packet));
       if (index >= 0) state.waiters.splice(index, 1)[0].resolve(packet);
-      else state.queue.push(packet);
+      else {
+        if (state.queue.length>=64 || state.queue.reduce((n,p)=>n+p.payload.length,0)+packet.payload.length>8*1024*1024) {
+          state.buffer=Buffer.alloc(0);state.queue=[];
+          failWaiters(new BambuMqttError('MQTT pending input exceeds size limit'));socket.destroy();return;
+        }
+        state.queue.push(packet);
+      }
     }
   });
   socket.on('error', (error) => failWaiters(new BambuMqttError(`Bambu MQTT connection failed: ${error.message}`, { cause: error })));

@@ -101,6 +101,8 @@ export class MoonrakerWebSocket extends EventEmitter {
   }
 
   onData(chunk) {
+    if (this.closed) return;
+    if (this.buffer.length+chunk.length>4*1024*1024+14) {this.close();return;}
     this.buffer = Buffer.concat([this.buffer, chunk]);
     while (this.buffer.length >= 2) {
       const first = this.buffer[0];
@@ -123,6 +125,7 @@ export class MoonrakerWebSocket extends EventEmitter {
         length = Number(big);
         offset = 10;
       }
+      if (length>4*1024*1024) {this.close();return;}
       const maskLength = masked ? 4 : 0;
       if (this.buffer.length < offset + maskLength + length) return;
       let payload = Buffer.from(this.buffer.subarray(offset + maskLength, offset + maskLength + length));
@@ -155,6 +158,7 @@ export class MoonrakerWebSocket extends EventEmitter {
   }
 
   close(sendClose = true) {
+    this.buffer = Buffer.alloc(0);
     this.closed = true;
     this.connected = false;
     const socket = this.socket;

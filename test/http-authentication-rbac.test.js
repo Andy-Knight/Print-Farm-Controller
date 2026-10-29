@@ -11,6 +11,32 @@ const ADMIN_PASSWORD='Test admin password 2026!';
 const VIEW_PASSWORD='Viewer password 2026!';
 const OP_PASSWORD='Operator password 2026!';
 const ORIGIN='https://controller.example.test';
+
+test('login and password reauthentication share admission control before account hashing',async()=>{
+  await fixture(async dataDir=>{
+    await new AccountStore({dataDir}).bootstrapAdministrator({username:'owner',password:ADMIN_PASSWORD});
+    const auth=new ControllerAuth({dataDir,env:{PFC_PUBLIC_ORIGIN:ORIGIN}});
+    await auth.init();
+    const session=await login(auth,'owner',ADMIN_PASSWORD);
+    const original=AccountStore.prototype.authenticate;
+    let calls=0,release;
+    const pending=new Promise(resolve=>{release=resolve;});
+    AccountStore.prototype.authenticate=()=>{calls++;return pending;};
+    try{
+      const loginAttempt=exercise(auth,'POST','/api/auth/login',{body:{username:'owner',password:'wrong'}});
+      // Let request parsing reach the synchronous reservation.
+      while(!calls)await new Promise(resolve=>setImmediate(resolve));
+      const password=await exercise(auth,'POST','/api/auth/password',{
+        cookie:session.cookie,csrf:session.csrf,body:{currentPassword:'wrong',newPassword:ADMIN_PASSWORD}
+      });
+      assert.equal(password.res.status,429);
+      const r=request('POST','/api/security/tls',{cookie:session.cookie,csrf:session.csrf});
+      await assert.rejects(auth.assertAdministrator(r.req,{password:'wrong'}),{statusCode:429});
+      assert.equal(calls,1);
+      release(null);assert.equal((await loginAttempt).res.status,401);
+    }finally{release?.(null);AccountStore.prototype.authenticate=original;}
+  });
+});
 const send=(res,status,body)=>{res.status=status;res.body=body;};
 function request(method,pathname,{body=null,cookie=null,csrf=null,origin=ORIGIN}={}){
   const headers={host:'controller.example.test',...(origin?{origin}:{})};

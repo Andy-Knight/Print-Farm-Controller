@@ -172,9 +172,9 @@ test('Google Drive uploads verified backup files and prunes only older scheduled
           assert.equal(metadata.name, 'sample.pfcbackup');
           assert.equal(metadata.parents[0], 'folder-1');
           assert.equal(metadata.appProperties.installationId, '11111111-1111-4111-8111-111111111111');
-          return new Response('', { status:200, headers:{ location:'https://upload.example/session-1' } });
+          return new Response('', { status:200, headers:{ location:'https://www.googleapis.com/upload/session-1' } });
         }
-        if (target === 'https://upload.example/session-1') {
+        if (target === 'https://www.googleapis.com/upload/session-1') {
           return jsonResponse({
             id:'drive-backup-new',
             name:'sample.pfcbackup',

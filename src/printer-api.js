@@ -1,3 +1,4 @@
+import {fetchPrinterResponse, readPrinterJson} from './security/printer-http.js';
 import { listAllFilesTcp } from './tcp-files.js';
 import { runPrinterHttpExclusive } from './printer-http-queue.js';
 const DEFAULT_TIMEOUT_MS = 5000;
@@ -34,7 +35,7 @@ async function post(printer, endpoint, body, timeoutMs = DEFAULT_TIMEOUT_MS) {
     const timer = setTimeout(() => controller.abort(), timeoutMs);
 
     try {
-      const response = await fetch(`${baseUrl(printer)}${endpoint}`, {
+      const response = await fetchPrinterResponse(`${baseUrl(printer)}${endpoint}`, {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify(body),
@@ -45,7 +46,7 @@ async function post(printer, endpoint, body, timeoutMs = DEFAULT_TIMEOUT_MS) {
         throw new PrinterApiError(`Printer returned HTTP ${response.status}`);
       }
 
-      const data = await response.json();
+      const data = await readPrinterJson(response);
       // FlashForge firmware has used both negative and positive non-zero codes.
       if (typeof data.code === 'number' && data.code !== 0) {
         if (data.code === -2 || /lan mode error/i.test(String(data.message || ''))) {

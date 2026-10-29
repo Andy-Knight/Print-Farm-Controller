@@ -42,10 +42,7 @@ test('Creator 5 exposes independent per-tool nozzle designation capability', () 
 
 test('Creator 5 applies controller nozzle designations independently to T0-T3', async () => {
   const originalFetch = global.fetch;
-  global.fetch = async () => ({
-    ok:true,
-    async json() {
-      return {
+  global.fetch = async () => Response.json({
         code:0,
         message:'success',
         detail:{
@@ -54,9 +51,7 @@ test('Creator 5 applies controller nozzle designations independently to T0-T3', 
           nozzleTemps:[25,25,25,25],
           nozzleTargetTemps:[0,0,0,0]
         }
-      };
-    }
-  });
+      });
   try {
     const adapter = new FlashForgeCreator5Adapter({
       host:'127.0.0.1',
@@ -205,10 +200,7 @@ test('Creator 5 filament configuration uses the native palette command and verif
   global.fetch = async (url, options) => {
     const body = JSON.parse(options.body);
     if (String(url).endsWith('/detail')) {
-      return {
-        ok:true,
-        async json() {
-          return {
+      return Response.json({
             code:0,
             detail:{
               status:'ready',
@@ -217,9 +209,7 @@ test('Creator 5 filament configuration uses the native palette command and verif
               nozzleTargetTemps:[0,0,0,0],
               matlStationInfo:{ slotInfos:slots }
             }
-          };
-        }
-      };
+          });
     }
     if (String(url).endsWith('/control')) {
       controlArgs = body.payload?.args || null;
@@ -229,7 +219,7 @@ test('Creator 5 filament configuration uses the native palette command and verif
         materialName:controlArgs.mt,
         materialColor:controlArgs.rgb
       };
-      return { ok:true, async json() { return { code:0, message:'success' }; } };
+      return Response.json({ code:0, message:'success' });
     }
     throw new Error(`Unexpected URL ${url}`);
   };
@@ -252,10 +242,7 @@ test('Creator 5 per-tool temperature control uses four-entry nozzle arrays', asy
   let body = null;
   global.fetch = async (_url, options) => {
     body = JSON.parse(options.body);
-    return {
-      ok:true,
-      async json() { return { code:0, message:'success' }; }
-    };
+    return Response.json({ code:0, message:'success' });
   };
   try {
     await setCreator5Temperatures({
@@ -301,10 +288,7 @@ test('Creator 5 camera activation covers both observed firmware command names', 
   global.fetch = async (_url, options) => {
     const body = JSON.parse(options.body);
     commands.push(body.payload?.cmd || null);
-    return {
-      ok:true,
-      async json() { return { code:0, message:'Success' }; }
-    };
+    return Response.json({ code:0, message:'Success' });
   };
   try {
     const url = await openCreator5Camera({

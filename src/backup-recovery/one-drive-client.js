@@ -1,3 +1,4 @@
+import {trustedCloudUrl, fetchMicrosoftDownload, MICROSOFT_FILE_DOMAINS} from '../security/cloud-http.js';
 import crypto from 'node:crypto';
 import { createReadStream, createWriteStream, promises as fs } from 'node:fs';
 import os from 'node:os';
@@ -84,7 +85,7 @@ export class OneDriveClient {
     this.environmentClientId = cleanString(clientId);
     this.builtInClientId = cleanString(builtInClientId);
     this.tenant = cleanString(tenant) || ONEDRIVE_TENANT;
-    this.fetchFn = fetchFn;
+    this.fetchFn = (url,options={})=>fetchFn(url,{...options,redirect:options.redirect??'error'});
     this.nowFn = typeof nowFn === 'function' ? nowFn : Date.now;
     this.diagnostic = typeof diagnosticFn === 'function' ? diagnosticFn : null;
     this.integrationDir = path.join(this.dataDir, 'integrations');
@@ -370,10 +371,17 @@ export class OneDriveClient {
   }
 
   async authorizedFetch(url, options = {}) {
+    url=trustedCloudUrl(url,{origin:'https://graph.microsoft.com'});
     const token = await this.getAccessToken();
     const headers = new Headers(options.headers || {});
     headers.set('authorization', `Bearer ${token}`);
-    return this.fetchFn(url, { ...options, headers });
+    const response=await this.fetchFn(url, { ...options, headers, redirect:'manual' });
+    if (![301,302,303,307,308].includes(response.status))return response;
+    const location=response.headers.get('location');
+    void response.body?.cancel().catch(()=>{});
+    if ((options.method||'GET').toUpperCase()!=='GET'||!new URL(url).pathname.endsWith('/content')||!location)
+      throw oneDriveError('Unexpected OneDrive API redirect',502);
+    return fetchMicrosoftDownload(this.fetchFn,new URL(location,url).href);
   }
 
   async ensureBackupFolder() {
@@ -440,7 +448,7 @@ export class OneDriveClient {
     }
     const uploadUrl = cleanString(payload.uploadUrl);
     if (!uploadUrl) throw oneDriveError('OneDrive upload did not return an upload URL.', 502);
-    return uploadUrl;
+    return trustedCloudUrl(uploadUrl,{domains:MICROSOFT_FILE_DOMAINS});
   }
 
   async uploadLargeFile(filePath, fileName, size) {

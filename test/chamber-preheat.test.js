@@ -86,7 +86,7 @@ test('controller accepts 110 C bed commands and rejects values above the firmwar
   const requests = [];
   global.fetch = async (_url, options) => {
     requests.push(JSON.parse(options.body));
-    return { ok:true, json: async () => ({ code:0 }) };
+    return Response.json({ code:0 });
   };
 
   try {
