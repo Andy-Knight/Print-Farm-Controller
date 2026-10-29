@@ -567,6 +567,8 @@ export function publicPrinter(printer) {
   };
 }
 
+export async function prepareControllerDataDirectory() { await ensureDataDir(); }
+
 export const printerStorePath = FILE_PATH;
 export const controllerDataDir = DATA_DIR;
 export const controllerApplicationDir = APPLICATION_DIR;

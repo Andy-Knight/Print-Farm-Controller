@@ -1,3 +1,4 @@
+import {secureWindowsDataDirectories} from './windows-data-permissions.js';
 /**
  * Private, dependency-free credential persistence for controller authentication.
  * Accounts are enrolled/recovered only via the privileged local CLI.
@@ -87,6 +88,7 @@ export class AccountStore {
     return next;
   }
   async #read(){
+    await secureWindowsDataDirectories({dataDir:path.dirname(this.#directory)});
     try {return parseStore(await fs.readFile(this.#file,'utf8'));}
     catch(error){
       if(error?.code==='ENOENT') return null;
@@ -94,6 +96,7 @@ export class AccountStore {
     }
   }
   async #save(data){
+    await secureWindowsDataDirectories({dataDir:path.dirname(this.#directory)});
     // Unique temp file + rename: never truncate the active user store.
     const tmp=path.join(this.#directory,`.users-${randomBytes(12).toString('hex')}.tmp`);
     await fs.mkdir(this.#directory,{recursive:true,mode:0o700});
@@ -116,6 +119,7 @@ export class AccountStore {
   }
   async bootstrapAdministrator({username,password,displayName}={}){
     return this.#serial(async()=>{
+      await secureWindowsDataDirectories({dataDir:path.dirname(this.#directory)});
       const login=normalizeUsername(username);
       const credentials=await passwordRecord(password);
       await fs.mkdir(this.#directory,{recursive:true,mode:0o700});

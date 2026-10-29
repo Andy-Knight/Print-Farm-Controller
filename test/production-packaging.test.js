@@ -73,10 +73,15 @@ test('packaged runtime reads UI, simulator and licence trust data through SEA as
 });
 
 
-test('Windows installer protects program files and grants modify access only to persistent data', () => {
+test('Windows installer restricts persistent data to the selected account and preserves protected program files', () => {
   assert.match(installerScript, /DefaultDirName=\{autopf\}\\Print Farm Controller/);
   assert.match(installerScript, /PrivilegesRequired=admin/);
-  assert.match(installerScript, /Name: "\{app\}\\data"; Permissions: users-modify/);
+  assert.doesNotMatch(installerScript, /users-modify/);
+  assert.match(installerScript, /windows-data-permissions\.ps1/);
+  assert.match(installerScript, /controller-owner\.sid/);
+  assert.match(installerScript, /ControllerAccount/);
+  assert.match(installerScript, /ssPostInstall/);
+  assert.match(installerScript, /RaiseException/);
   assert.match(installerScript, /Source: "\.\.\\\.\.\\dist\\windows-x64\\\{#MyAppExeName\}"/);
   assert.doesNotMatch(installerScript, /Permissions: users-modify.*MyAppExeName/);
   assert.match(installerBuildScript, /Inno Setup 7/);

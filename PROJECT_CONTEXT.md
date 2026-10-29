@@ -11,7 +11,7 @@ Repository policy: `AGENTS.md` defines agent startup behavior; `docs/DOCUMENTATI
 - Repository: `Andy-Knight/Print-Farm-Controller`
 - Project path: repository root (`/`)
 - Primary branch: `main` (current production baseline)
-- Current controller source version: **0.61.8**.
+- Current controller source version: **0.61.9**.
 - Previous baseline audited: **0.48.0** (main before the regression test audit release).
 - Runtime: **Node.js 24.22.1+** (Node 24 release line), ES modules; build-time **npm 12.2.0** and committed lockfile; no npm runtime dependency for deployed controller. Follow `docs/dependency-security.md` for updates.
 - GitHub is the authoritative code baseline.
@@ -133,6 +133,8 @@ Manufacturer-specific discovery, capabilities, limits, status normalization, fil
 - Known validation limits: Creator 5 / Creator 5 Pro physical-hardware validation remains incomplete; Bambu support remains experimental; X1C RTSPS/H.264 camera streaming is a bundled-decoder prototype requiring physical Windows/Kubernetes acceptance.
 
 ## Current task
+
+Windows storage security on `codex/windows-data-permissions`: select one Windows owning account, remove broad local-user access from existing and new data/log trees, and fail startup before credential access if protection cannot be applied. Preserve owner selection on upgrades, local recovery and separate data/log volumes. Validate actual ACLs, packaged startup, installer compilation, Linux/browser regression and elevated owner reassignment in Windows CI. No merge approval has been given. See `docs/WINDOWS_DATA_SECURITY.md`.
 
 Queue lifecycle unit tests use a five-second monotonic polling budget and check the condition before expiring it after a delayed wakeup. The basic lifecycle fixture stubs metadata and costing reads and always stops its service on test cleanup. Keep queue runtime timing and safety interlocks independent of test-runner scheduling.
 
