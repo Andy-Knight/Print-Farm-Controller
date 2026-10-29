@@ -11,6 +11,7 @@ import {AccountStore} from '../src/security/account-store.js';
 const windows={skip:process.platform!=='win32',timeout:30000};
 const psHome=path.join(process.env.SystemRoot||'C:\\Windows','System32','WindowsPowerShell','v1.0');
 function powershell(script,input={}) {
+  script='[Console]::InputEncoding=New-Object Text.UTF8Encoding($false);[Console]::OutputEncoding=New-Object Text.UTF8Encoding($false);\n'+script;
   return new Promise((resolve,reject)=>{
     const child=execFile(path.join(psHome,'powershell.exe'),['-NoProfile','-NonInteractive','-EncodedCommand',Buffer.from(script,'utf16le').toString('base64')],
       {windowsHide:true,timeout:20000,env:{...process.env,PSModulePath:path.join(psHome,'Modules')}},(error,stdout,stderr)=>error?reject(new Error(stderr)):resolve(JSON.parse(stdout)));
@@ -44,7 +45,7 @@ function assertPrivate(value,{protectedAcl=true}={}){
 }
 
 test('Windows migration removes inherited and explicit broad grants from existing data and logs',windows,async t=>{
-  const root=await fixture(t),dataDir=path.join(root,'data'),logDir=path.join(root,'logs');
+  const root=await fixture(t),dataDir=path.join(root,'données-打印'),logDir=path.join(root,'logs');
   const secret=path.join(dataDir,'security','users.json');
   await fs.mkdir(path.dirname(secret),{recursive:true});await fs.mkdir(logDir);
   await fs.writeFile(secret,'synthetic existing account');
