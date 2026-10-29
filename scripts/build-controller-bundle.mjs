@@ -29,6 +29,7 @@ export async function buildControllerBundle() {
     sourcemap:false,
     legalComments:'none',
     define:{
+      __PFC_WINDOWS_ACL_SCRIPT__:JSON.stringify(await fs.readFile(path.join(projectRoot,'src','security','windows-data-permissions.ps1'),'utf8')),
       __PFC_VERSION__:JSON.stringify(String(packageInfo.version || 'unknown')),
       __PFC_GOOGLE_CLIENT_ID__:JSON.stringify(googleClientId),
       __PFC_GOOGLE_CLIENT_SECRET__:JSON.stringify(googleClientSecret),

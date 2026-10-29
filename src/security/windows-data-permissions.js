@@ -1,6 +1,6 @@
 import {execFile} from 'node:child_process';
 import path from 'node:path';
-import {readRuntimeTextAsset,runtimeAssetKeys} from '../runtime-assets.js';
+import {promises as fs} from 'node:fs';
 import {resolveControllerRuntimePaths} from '../runtime-paths.js';
 
 const protections=new Map();
@@ -13,8 +13,8 @@ export async function secureWindowsDataDirectories({dataDir,logDir=null,force=fa
   if(force)protections.delete(key);
   if(!protections.has(key)){
     const pending=(async()=>{
-      const script=await readRuntimeTextAsset({key:runtimeAssetKeys.windowsDataPermissions,
-        filePath:path.join(runtime.applicationDir,'src','security','windows-data-permissions.ps1')});
+      const script=typeof __PFC_WINDOWS_ACL_SCRIPT__==='string' ? __PFC_WINDOWS_ACL_SCRIPT__
+        : await fs.readFile(new URL('./windows-data-permissions.ps1',import.meta.url),'utf8');
       const executable=path.join(process.env.SystemRoot||'C:\\Windows','System32','WindowsPowerShell','v1.0','powershell.exe');
       const request={dataDir:path.resolve(dataDir),logDir:logDir&&path.resolve(logDir),
         applicationDir:runtime.applicationDir,

@@ -61,7 +61,6 @@ async function embeddedAssets() {
     'licensing',
     'trusted-public-keys.json'
   );
-  assets['security/windows-data-permissions.ps1'] = path.join(projectRoot,'src','security','windows-data-permissions.ps1');
   return assets;
 }
 async function buildWindowsSea() {

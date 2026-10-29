@@ -3,7 +3,6 @@ import path from 'node:path';
 import { getAsset, isSea } from 'node:sea';
 
 export const runtimeAssetKeys = Object.freeze({
-  windowsDataPermissions:'security/windows-data-permissions.ps1',
   trustedPublicKeys:'licensing/trusted-public-keys.json',
   emulatorTestFrame:'emulator/assets/test-frame.jpg',
   emulatorX1cFrame:'emulator/assets/x1c-test-frame.h264',
