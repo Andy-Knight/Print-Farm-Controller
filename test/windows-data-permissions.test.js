@@ -27,13 +27,17 @@ async function acl(file){
     $a=Get-Acl -LiteralPath $r.file
     @{owner=$a.GetOwner([Security.Principal.SecurityIdentifier]).Value;protected=$a.AreAccessRulesProtected;
       current=[Security.Principal.WindowsIdentity]::GetCurrent().User.Value;
+      admin=(New-Object Security.Principal.WindowsPrincipal([Security.Principal.WindowsIdentity]::GetCurrent())).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator);
       rules=@($a.GetAccessRules($true,$true,[Security.Principal.SecurityIdentifier])|ForEach-Object {
         @{sid=$_.IdentityReference.Value;type=$_.AccessControlType.ToString();rights=[int]$_.FileSystemRights}
       })}|ConvertTo-Json -Depth 5 -Compress`,{file});
 }
 function assertPrivate(value,{protectedAcl=true}={}){
   const allowed=[...new Set([value.current,'S-1-5-18','S-1-5-32-544'])].sort();
-  assert.equal(value.owner,value.current);
+  // New files from an elevated token may have Administrators as their default
+  // owner. Their inherited DACL must still grant access to exactly these SIDs.
+  const owners=!protectedAcl&&value.admin?[value.current,'S-1-5-32-544']:[value.current];
+  assert.ok(owners.includes(value.owner),`Unexpected Windows owner: ${value.owner}`);
   if(protectedAcl)assert.equal(value.protected,true);
   assert.deepEqual(value.rules.map(rule=>rule.sid).sort(),allowed);
   for(const rule of value.rules){assert.equal(rule.type,'Allow');assert.equal(rule.rights&2032127,2032127);}

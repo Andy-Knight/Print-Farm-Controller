@@ -35,6 +35,9 @@ credentials or opening HTTP/HTTPS listeners. The CLI account store and HTTPS key
 store also protect their data directory. New files inherit access for the owner,
 SYSTEM and Administrators; atomic replacements retain that protection. Restore
 activation triggers a new permission check before restored accounts are loaded.
+An elevated owner's token can create files owned by the Administrators group;
+their access rules still grant access only to the three trusted identities. The
+next protection pass normalizes that Windows default owner to the chosen user.
 
 Use dedicated local directories on an ACL-capable filesystem, with protected
 parent directories. Drive roots, profile/system/application roots or their
