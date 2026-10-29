@@ -1,3 +1,4 @@
+import {currentOperation} from '../security/operation-budget.js';
 import crypto from 'node:crypto';
 import { createReadStream, promises as fs } from 'node:fs';
 import path from 'node:path';
@@ -394,7 +395,7 @@ export class ManualBackupManager {
       'cache-control':'no-store'
     });
     try {
-      await pipeline(createReadStream(item.filePath), response);
+      await pipeline(createReadStream(item.filePath), response, {signal:currentOperation()?.signal});
       this.downloads.delete(item.id);
       await fs.rm(item.filePath, { force:true }).catch(() => {});
       return true;

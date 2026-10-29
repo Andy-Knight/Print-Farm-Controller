@@ -160,7 +160,7 @@ test('HTTP and HTTPS dispatchers invoke authentication before emulator and API r
   assert.match(server,/ControllerAuth/);
   const auth=server.indexOf('controllerAuth.authorize(req,res,url');
   const emulator=server.indexOf('emulatorManager.handleApi(req, res, url)');
-  const api=server.indexOf('apiRoute(req, res, url);');
+  const api=server.indexOf('const backupRoute=');
   assert.ok(auth!==-1&&auth<emulator&&auth<api,'authorization must precede all API dispatch');
 });
 

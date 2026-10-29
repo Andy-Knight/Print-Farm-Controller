@@ -50,8 +50,8 @@ export function buildManifest({
   };
 }
 
-export async function verifyBackupArchive(filePath) {
-  const archive = await inspectZipArchive(filePath);
+export async function verifyBackupArchive(filePath, options = {}) {
+  const archive = await inspectZipArchive(filePath,options);
   const manifestEntry = archive.byName.get('manifest.json');
   const checksumsEntry = archive.byName.get('checksums.json');
   if (!manifestEntry || !checksumsEntry) throw new Error('Backup archive is missing manifest or checksums');
@@ -80,6 +80,13 @@ export async function verifyBackupArchive(filePath) {
     }
     const entry = archive.byName.get(name);
     if (!entry) throw new Error(`Backup archive entry is missing: ${name}`);
+    if (entry.size!==Number(expected.size)) throw new Error(`Backup checksum size mismatch: ${name}`);
+  }
+  const payloadBytes=Object.entries(checksums.entries).filter(([name])=>name!=='manifest.json').reduce((sum,[,entry])=>sum+Number(entry.size),0);
+  if (manifest.payloadBytes!==payloadBytes) throw new Error('Backup payload size does not match the manifest');
+  await options.onDeclaredPayload?.(payloadBytes);
+  for (const [name,expected] of Object.entries(checksums.entries)) {
+    const entry=archive.byName.get(name);
     const actual = await hashZipEntry(filePath, entry);
     if (actual.size !== Number(expected.size) || actual.sha256 !== String(expected.sha256).toLowerCase()) {
       throw new Error(`Backup checksum mismatch: ${name}`);

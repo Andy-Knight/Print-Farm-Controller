@@ -1,3 +1,4 @@
+import {crc32} from 'node:zlib';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { promises as fs } from 'node:fs';
@@ -11,6 +12,7 @@ function storedZipEntry(name, content) {
   const local = Buffer.alloc(30);
   local.writeUInt32LE(0x04034b50, 0);
   local.writeUInt16LE(20, 4);
+  local.writeUInt32LE(crc32(body), 14);
   local.writeUInt32LE(body.length, 18);
   local.writeUInt32LE(body.length, 22);
   local.writeUInt16LE(fileName.length, 26);
@@ -18,6 +20,7 @@ function storedZipEntry(name, content) {
   central.writeUInt32LE(0x02014b50, 0);
   central.writeUInt16LE(20, 4);
   central.writeUInt16LE(20, 6);
+  central.writeUInt32LE(crc32(body), 16);
   central.writeUInt32LE(body.length, 20);
   central.writeUInt32LE(body.length, 24);
   central.writeUInt16LE(fileName.length, 28);

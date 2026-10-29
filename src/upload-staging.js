@@ -1,3 +1,4 @@
+import {ResourceAdmission,configuredLimit,requireFreeSpace} from './security/resource-limits.js';
 import { createWriteStream, promises as fs } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -5,6 +6,7 @@ import { Transform } from 'node:stream';
 import { pipeline } from 'node:stream/promises';
 
 export const MAX_UPLOAD_BYTES = 512 * 1024 * 1024;
+const uploadAdmission=new ResourceAdmission({maxActive:configuredLimit('PFC_MAX_UPLOADS',4),maxPerUser:configuredLimit('PFC_MAX_UPLOADS_PER_USER',2),maxBytes:configuredLimit('PFC_MAX_STAGED_UPLOAD_BYTES',1024**3)});
 const ALLOWED_EXTENSIONS = new Set(['.gcode', '.gx', '.3mf', '.gco', '.g']);
 
 export function validateUploadFilename(value) {
@@ -22,16 +24,26 @@ export function validateUploadFilename(value) {
   return fileName;
 }
 
-export async function stageUploadRequest(readable, rawFileName, { maxBytes = MAX_UPLOAD_BYTES } = {}) {
+export async function stageUploadRequest(readable, rawFileName, { maxBytes = MAX_UPLOAD_BYTES, admission=uploadAdmission, idleTimeoutMs=configuredLimit('PFC_UPLOAD_IDLE_TIMEOUT_MS',30000), timeoutMs=configuredLimit('PFC_UPLOAD_TIMEOUT_MS',10*60*1000), checkSpace=requireFreeSpace } = {}) {
   const fileName = validateUploadFilename(rawFileName);
   const declaredLength = Number(readable.headers?.['content-length'] || 0);
   if (declaredLength && declaredLength > maxBytes) throw new Error(`File exceeds the ${Math.round(maxBytes / 1024 / 1024)} MB upload limit`);
 
-  const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'flashforge-fleet-upload-'));
+  const reservation=declaredLength||maxBytes;
+  const release=admission.reserve(readable.pfcUser?.id||readable.socket?.remoteAddress||'local',reservation);
+  let directory;
+  try{
+    await checkSpace(os.tmpdir(),0,{reservedBytes:admission.bytes});
+    directory=await fs.mkdtemp(path.join(os.tmpdir(), 'flashforge-fleet-upload-'));
+  }catch(error){release();throw error;}
   const filePath = path.join(directory, fileName);
-  let bytes = 0;
+  let bytes = 0,idle;
+  const fail=()=>readable.destroy(new Error('Upload body deadline exceeded'));
+  const resetIdle=()=>{clearTimeout(idle);idle=setTimeout(fail,idleTimeoutMs);};
+  const deadline=setTimeout(fail,timeoutMs);resetIdle();
   const limiter = new Transform({
     transform(chunk, _encoding, callback) {
+      resetIdle();
       bytes += chunk.length;
       if (bytes > maxBytes) callback(new Error(`File exceeds the ${Math.round(maxBytes / 1024 / 1024)} MB upload limit`));
       else callback(null, chunk);
@@ -46,11 +58,11 @@ export async function stageUploadRequest(readable, rawFileName, { maxBytes = MAX
       filePath,
       size: bytes,
       async cleanup() {
-        await fs.rm(directory, { recursive: true, force: true });
+        try{await fs.rm(directory, { recursive: true, force: true });}finally{release();}
       }
     };
   } catch (error) {
     await fs.rm(directory, { recursive: true, force: true }).catch(() => {});
-    throw error;
-  }
+    release();throw error;
+  }finally{clearTimeout(deadline);clearTimeout(idle);}
 }

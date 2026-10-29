@@ -4,6 +4,12 @@ This file contains the version-by-version release history for Print Farm Control
 
 Historical entries describe the behaviour of the controller at the time of that release and may be superseded by later versions. For current installation, configuration and supported-hardware guidance, see [README.md](README.md).
 
+## v0.61.10
+
+- Add aggregate upload, library storage, session and camera/event-stream quotas with free-space admission, bounded file-inspection work and safe cleanup. Inspect embedded 3MF metadata through bounded ZIP reads and decompress previews asynchronously.
+- Reject backup archives exceeding directory, entry, expanded-output or processing budgets; compare declared checksum/payload sizes and staging free space before hashing payloads.
+- Apply shared cloud-operation deadlines across authentication, pagination and streaming transfers, bound metadata responses and listing work, and add administrator cancellation with stream/temp-file cleanup and backup-lock release.
+
 ## v0.61.9
 
 - Restrict Windows data and logs to the selected owning account, SYSTEM and Administrators. Preserve that owner on upgrades and remove legacy broad local-user access.

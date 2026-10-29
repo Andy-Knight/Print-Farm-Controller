@@ -1,3 +1,5 @@
+import {requireFreeSpace} from '../security/resource-limits.js';
+import {installCloudOperationLimits} from '../security/cloud-operation-limits.js';
 import crypto from 'node:crypto';
 import { createReadStream, createWriteStream, promises as fs } from 'node:fs';
 import os from 'node:os';
@@ -173,7 +175,7 @@ async function hashFile(filePath) {
 }
 
 async function responseText(response) {
-  return response.text().catch(() => '');
+  return response.text().catch(error=>{if(error.name==='AbortError'||/size limit/.test(error.message))throw error;return '';});
 }
 
 function s3ResponseMessage(response, body, fallback) {
@@ -196,7 +198,8 @@ export class S3BackupClient {
     dataDir,
     fetchFn = globalThis.fetch,
     nowFn = () => new Date(),
-    diagnosticFn = null
+    diagnosticFn = null,
+    networkOptions = {}
   } = {}) {
     if (!dataDir) throw new Error('S3 backup client requires a data directory');
     if (typeof fetchFn !== 'function') throw new Error('S3 backup client requires fetch support');
@@ -207,6 +210,7 @@ export class S3BackupClient {
     this.integrationDir = path.join(this.dataDir, 'integrations');
     this.statePath = path.join(this.integrationDir, 's3.json');
     this.lastError = null;
+    installCloudOperationLimits(this,networkOptions);
   }
 
   async log(level, message, meta = {}) {
@@ -610,8 +614,9 @@ export class S3BackupClient {
   async listObjects(state = null) {
     const activeState = state || await this.requireConfigured();
     const all = [];
-    let continuationToken = null;
+    let continuationToken = null,pages=0;
     do {
+      if(++pages>100)throw s3Error('Cloud listing exceeds page budget',502);
       const query = [
         ['encoding-type','url'],
         ['list-type','2'],
@@ -628,6 +633,7 @@ export class S3BackupClient {
         );
       }
       const parsed = parseListObjectsV2(body);
+      if(all.length+parsed.objects.length>10000)throw s3Error('Cloud listing exceeds item budget',502);
       all.push(...parsed.objects);
       continuationToken = parsed.isTruncated ? parsed.nextContinuationToken : null;
       if (parsed.isTruncated && !continuationToken) {
@@ -738,6 +744,7 @@ export class S3BackupClient {
       throw s3Error('S3 backup exceeds the supported restore size limit.', 413, 'S3_BACKUP_TOO_LARGE');
     }
 
+    await requireFreeSpace(os.tmpdir(),backup.size||Math.min(maxBytes,256*1024**2));
     const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'pfc-s3-restore-'));
     const filePath = path.join(directory, safeBackupFileName(backup.name));
     let bytes = 0;

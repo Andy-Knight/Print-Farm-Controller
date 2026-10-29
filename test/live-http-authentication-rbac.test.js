@@ -41,7 +41,7 @@ test('real HTTP dispatcher enforces login, CSRF and RBAC before controller actio
     child=spawn(process.execPath,['src/server.js'],{
       cwd,env:{...process.env,DATA_DIR:dataDir,LOG_DIR:logDir,
         HOST:'127.0.0.1',PORT:String(port),PFC_AUTH_REQUIRED:'1',
-        PFC_AUTH_ALLOW_HTTP:'1',PFC_PUBLIC_ORIGIN:base},
+        PFC_AUTH_ALLOW_HTTP:'1',PFC_PUBLIC_ORIGIN:base,PFC_MAX_STREAMS:'2',PFC_MAX_STREAMS_PER_USER:'2'},
       stdio:['ignore','pipe','pipe']
     });
     let stderr='';
@@ -89,6 +89,24 @@ test('real HTTP dispatcher enforces login, CSRF and RBAC before controller actio
     assert.equal((await call('GET','/api/undocumented',admin)).status,404);
     assert.equal((await call('POST','/api/batch',admin,{csrf:false})).status,403);
     assert.equal((await call('POST','/api/batch',admin,{origin:false})).status,403);
+    for(const identity of [viewer,operator])assert.equal((await call('POST','/api/backup/cancel',identity)).status,403);
+    assert.equal((await call('POST','/api/backup/cancel',admin,{csrf:false})).status,403);
+    const cancellation=await call('POST','/api/backup/cancel',admin);
+    assert.equal(cancellation.status,200);assert.equal((await cancellation.json()).cancelled,0);
+    const streams=[await call('GET','/api/events',viewer),await call('GET','/api/events',viewer)];
+    try{
+      assert.ok(streams.every(response=>response.status===200));
+      const excess=await call('GET','/api/events',viewer);assert.equal(excess.status,429);await excess.text();
+      assert.equal((await fetch(base+'/healthz')).status,200,'stream exhaustion leaves health responsive');
+      await streams[0].body.cancel();
+      let replacement;
+      for(let attempt=0;attempt<40;attempt++){
+        replacement=await call('GET','/api/events',viewer);
+        if(replacement.status===200)break;
+        await replacement.text();await new Promise(resolve=>setTimeout(resolve,50));
+      }
+      assert.equal(replacement.status,200);await replacement.body.cancel();
+    }finally{for(const response of streams)await response.body?.cancel().catch(()=>{});}
     assert.equal((await call('POST','/api/auth/logout',viewer)).status,200);
     assert.equal((await call('GET','/api/queue',viewer)).status,401);
   }finally{

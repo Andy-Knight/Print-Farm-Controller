@@ -1,7 +1,10 @@
+import {promisify} from 'node:util';
+import {fileInspectionPool} from './security/resource-limits.js';
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
-import { inflateRawSync } from 'node:zlib';
+import { inflateRaw } from 'node:zlib';
 
+const inflate=promisify(inflateRaw);
 const MAX_GCODE_SCAN_BYTES = 16 * 1024 * 1024;
 const MAX_CENTRAL_DIRECTORY_BYTES = 16 * 1024 * 1024;
 const MAX_PREVIEW_BYTES = 8 * 1024 * 1024;
@@ -19,7 +22,7 @@ function imageType(buffer) {
 }
 
 function gcodeThumbnailCandidates(text) {
-  const lines = String(text || '').split(/\r?\n/);
+  const lines = String(text || '').split(/\r?\n/,100000);
   const candidates = [];
   for (let index = 0; index < lines.length; index++) {
     const begin = lines[index].match(/^\s*;\s*thumbnail(?:_(PNG|JPG|JPEG))?\s+begin\s+(\d+)x(\d+)(?:\s+\d+)?\s*$/i);
@@ -31,7 +34,7 @@ function gcodeThumbnailCandidates(text) {
       const payload = lines[endIndex].replace(/^\s*;\s?/, '').trim();
       if (payload) encoded.push(payload);
     }
-    if (endIndex >= lines.length || !encoded.length) continue;
+    if (endIndex >= lines.length || !encoded.length) {index=endIndex;continue;}
     const base64 = encoded.join('');
     if (!/^[A-Za-z0-9+/=]+$/.test(base64) || base64.length > Math.ceil(MAX_PREVIEW_BYTES * 4 / 3) + 16) {
       index = endIndex;
@@ -136,7 +139,7 @@ async function readZipEntry(handle, entry) {
   const compressed = Buffer.alloc(entry.compressedSize);
   await handle.read(compressed, 0, compressed.length, dataOffset);
   if (entry.compression === 0) return compressed;
-  if (entry.compression === 8) return inflateRawSync(compressed, { maxOutputLength:MAX_PREVIEW_BYTES });
+  if (entry.compression === 8) return inflate(compressed, { maxOutputLength:MAX_PREVIEW_BYTES });
   throw new Error(`Unsupported 3MF ZIP compression method ${entry.compression}`);
 }
 
@@ -164,7 +167,7 @@ async function extract3mfPreview(filePath) {
       .map((entry) => ({ entry, rank:previewRank(entry.name) }))
       .filter((item) => item.rank > 0)
       .sort((left, right) => right.rank - left.rank);
-    for (const { entry } of candidates) {
+    for (const { entry } of candidates.slice(0,8)) {
       try {
         const data = await readZipEntry(handle, entry);
         const type = imageType(data);
@@ -180,6 +183,10 @@ async function extract3mfPreview(filePath) {
 }
 
 export async function extractFilePreview(filePath) {
+  return fileInspectionPool.run(()=>extractFilePreviewBounded(filePath));
+}
+
+async function extractFilePreviewBounded(filePath) {
   const extension = path.extname(String(filePath || '')).toLowerCase();
   try {
     if (extension === '.3mf') return await extract3mfPreview(filePath);

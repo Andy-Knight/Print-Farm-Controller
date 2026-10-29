@@ -1,3 +1,5 @@
+import {configuredLimit} from '../security/resource-limits.js';
+import {currentOperation,operationAborted} from '../security/operation-budget.js';
 import crypto from 'node:crypto';
 import { createReadStream, promises as fs } from 'node:fs';
 import path from 'node:path';
@@ -62,8 +64,10 @@ function dosTimestamp(date = new Date()) {
 }
 
 async function writeAll(handle, buffer, position) {
+  if(position+buffer.length>MAX_ZIP32)throw new Error('Backup archive exceeds ZIP32 output budget');
   let offset = 0;
   while (offset < buffer.length) {
+    operationAborted();
     const result = await handle.write(buffer, offset, buffer.length - offset, position + offset);
     offset += result.bytesWritten;
   }
@@ -78,7 +82,7 @@ async function sourceIterator(entry) {
   if (!entry.filePath) throw new Error(`Backup archive entry ${entry.name} has no source`);
   const stat = await fs.stat(entry.filePath);
   if (!stat.isFile()) throw new Error(`Backup archive source is not a file: ${entry.filePath}`);
-  return { size:stat.size, iterator:createReadStream(entry.filePath) };
+  return { size:stat.size, iterator:createReadStream(entry.filePath,{signal:currentOperation()?.signal}) };
 }
 
 export async function hashArchiveSource(entry) {
@@ -86,6 +90,7 @@ export async function hashArchiveSource(entry) {
   const hash = crypto.createHash('sha256');
   let size = 0;
   for await (const chunk of source.iterator) {
+    operationAborted();
     hash.update(chunk);
     size += chunk.length;
   }
@@ -198,7 +203,14 @@ export async function writeZipArchive(destinationPath, entries, {
   }
 }
 
-export async function readZipDirectory(filePath) {
+export async function readZipDirectory(filePath, {
+  maxDirectoryBytes=16*1024*1024,maxEntries=50000,
+  maxExpandedBytes=configuredLimit('PFC_BACKUP_MAX_EXPANDED_BYTES',64*1024**3),
+  maxEntryBytes=configuredLimit('PFC_BACKUP_MAX_ENTRY_BYTES',1024**3),
+  timeoutMs=configuredLimit('PFC_BACKUP_ARCHIVE_TIMEOUT_MS',10*60*1000),signal=currentOperation()?.signal
+} = {}) {
+  signal?.throwIfAborted();
+  const budget={remaining:maxExpandedBytes*3,deadline:Date.now()+timeoutMs,signal};
   const handle = await fs.open(filePath, 'r');
   try {
     const stat = await handle.stat();
@@ -216,11 +228,13 @@ export async function readZipDirectory(filePath) {
     const directoryOffset = tail.readUInt32LE(eocd + 16);
     if (directoryOffset + directorySize > stat.size) throw new Error('Backup archive ZIP directory is invalid');
 
+    if (directorySize>maxDirectoryBytes || count>maxEntries) throw new Error('Backup ZIP directory exceeds safety budget');
+    if (directoryOffset+directorySize>stat.size-22 || count*46>directorySize) throw new Error('Backup archive ZIP directory is invalid');
     const directory = Buffer.alloc(directorySize);
     await handle.read(directory, 0, directory.length, directoryOffset);
     const entries = [];
     const names = new Set();
-    let offset = 0;
+    let offset = 0, expandedBytes=0;
     for (let index = 0; index < count; index++) {
       if (offset + 46 > directory.length || directory.readUInt32LE(offset) !== CENTRAL_FILE_HEADER) {
         throw new Error('Backup archive ZIP directory is invalid');
@@ -234,6 +248,9 @@ export async function readZipDirectory(filePath) {
       const extraLength = directory.readUInt16LE(offset + 30);
       const commentLength = directory.readUInt16LE(offset + 32);
       const localOffset = directory.readUInt32LE(offset + 42);
+      expandedBytes+=size;
+      if (size>maxEntryBytes || expandedBytes>maxExpandedBytes) throw new Error('Backup ZIP expansion exceeds safety budget');
+      if (localOffset>=directoryOffset || localOffset+30+compressedSize>directoryOffset) throw new Error('Backup ZIP entry range is invalid');
       const nameEnd = offset + 46 + nameLength;
       if (nameEnd > directory.length) throw new Error('Backup archive ZIP entry is invalid');
       const name = safeArchivePath(directory.subarray(offset + 46, nameEnd).toString('utf8'));
@@ -242,9 +259,13 @@ export async function readZipDirectory(filePath) {
       if ((flags & 0x0001) !== 0) throw new Error('Encrypted backup ZIP entries are not supported');
       if (compression !== ZIP_STORE && compression !== ZIP_DEFLATE) throw new Error(`Unsupported backup ZIP compression method ${compression}`);
       if (compression === ZIP_STORE && compressedSize !== size) throw new Error(`Stored backup ZIP entry has inconsistent size: ${name}`);
-      entries.push({ name, flags, compression, crc, compressedSize, size, localOffset });
+      const entry={ name, flags, compression, crc, compressedSize, size, localOffset };
+      Object.defineProperty(entry,'budget',{value:budget});
+      entries.push(entry);
       offset += 46 + nameLength + extraLength + commentLength;
+      if (offset>directory.length) throw new Error('Backup archive ZIP entry is invalid');
     }
+    if (offset!==directory.length) throw new Error('Backup ZIP directory length does not match entries');
     return entries;
   } finally {
     await handle.close();
@@ -283,16 +304,33 @@ async function zipEntryReadable(filePath, entry) {
     ? Readable.from([])
     : createReadStream(filePath, { start, end:endExclusive - 1 });
   if (entry.compression === ZIP_STORE) return raw;
-  if (entry.compression === ZIP_DEFLATE) return raw.pipe(createInflateRaw());
+  if (entry.compression === ZIP_DEFLATE) {
+    const decoded=createInflateRaw();
+    raw.on('error',error=>decoded.destroy(error));
+    decoded.once('close',()=>raw.destroy());
+    return raw.pipe(decoded);
+  }
   throw new Error(`Unsupported backup ZIP compression method ${entry.compression}`);
 }
 
 async function consumeZipEntry(filePath, entry, onChunk = null) {
+  const budget=entry.budget;
+  budget?.signal?.throwIfAborted();operationAborted();
+  if (budget && Date.now()>=budget.deadline) throw new Error('Backup ZIP processing deadline exceeded');
   const stream = await zipEntryReadable(filePath, entry);
+  const abort=()=>stream.destroy(budget?.signal?.reason||new Error('Backup ZIP operation cancelled'));
+  budget?.signal?.addEventListener('abort',abort,{once:true});
+  if(budget?.signal?.aborted)abort();
+  const timer=setTimeout(()=>stream.destroy(new Error('Backup ZIP processing deadline exceeded')),Math.max(1,Math.min(configuredLimit('PFC_BACKUP_ENTRY_TIMEOUT_MS',120000),(budget?.deadline||Date.now()+120000)-Date.now())));
   let crc = 0;
   let size = 0;
-  for await (const chunk of stream) {
+  try {for await (const chunk of stream) {
+    operationAborted();budget?.signal?.throwIfAborted();
     const data = Buffer.from(chunk);
+    if (budget) {
+      budget.remaining-=data.length;
+      if (budget.remaining<0) throw new Error('Backup ZIP processing exceeds aggregate output budget');
+    }
     if (size + data.length > entry.size) {
       stream.destroy();
       throw new Error(`Backup archive entry exceeds declared uncompressed size: ${entry.name}`);
@@ -300,6 +338,9 @@ async function consumeZipEntry(filePath, entry, onChunk = null) {
     crc = crc32Update(crc, data);
     if (onChunk) await onChunk(data, size);
     size += data.length;
+  }
+  } finally {
+    clearTimeout(timer);budget?.signal?.removeEventListener('abort',abort);stream.destroy();
   }
   if (size !== entry.size) throw new Error(`Backup archive entry has inconsistent uncompressed size: ${entry.name}`);
   if ((crc >>> 0) !== (entry.crc >>> 0)) throw new Error(`Backup archive CRC mismatch: ${entry.name}`);
@@ -351,8 +392,8 @@ export async function readZipEntry(filePath, entry, { maxBytes = 512 * 1024 * 10
   return data;
 }
 
-export async function inspectZipArchive(filePath) {
-  const entries = await readZipDirectory(filePath);
+export async function inspectZipArchive(filePath, options = {}) {
+  const entries = await readZipDirectory(filePath,options);
   const byName = new Map(entries.map((entry) => [entry.name, entry]));
   return {
     entries,

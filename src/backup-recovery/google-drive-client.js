@@ -1,3 +1,5 @@
+import {requireFreeSpace} from '../security/resource-limits.js';
+import {installCloudOperationLimits} from '../security/cloud-operation-limits.js';
 import {trustedCloudUrl} from '../security/cloud-http.js';
 import crypto from 'node:crypto';
 import { createReadStream, createWriteStream, promises as fs } from 'node:fs';
@@ -46,7 +48,7 @@ function ReadableStreamToNode(stream) {
 }
 
 async function responsePayload(response) {
-  const text = await response.text().catch(() => '');
+  const text = await response.text().catch(error=>{if(error.name==='AbortError'||/size limit/.test(error.message))throw error;return '';});
   if (!text) return {};
   try { return JSON.parse(text); } catch { return { raw:text }; }
 }
@@ -69,6 +71,7 @@ export class GoogleDriveClient {
     fetchFn = globalThis.fetch,
     nowFn = Date.now,
     diagnosticFn = null,
+    networkOptions = {},
     folderName = GOOGLE_DRIVE_FOLDER_NAME
   } = {}) {
     if (!dataDir) throw new Error('Google Drive client requires a data directory');
@@ -89,6 +92,7 @@ export class GoogleDriveClient {
     this.accessTokenExpiresAtMs = 0;
     this.reconnectRequired = false;
     this.lastError = null;
+    installCloudOperationLimits(this,networkOptions);
   }
 
   async log(level, message, meta = {}) {
@@ -568,6 +572,7 @@ export class GoogleDriveClient {
       throw googleError('Google Drive backup exceeds the supported restore size limit.', 413, 'GOOGLE_DRIVE_BACKUP_TOO_LARGE');
     }
 
+    await requireFreeSpace(os.tmpdir(),backup.size||Math.min(maxBytes,256*1024**2));
     const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'pfc-google-drive-restore-'));
     const safeName = safeBackupFileName(backup.name);
     const filePath = path.join(directory, safeName);

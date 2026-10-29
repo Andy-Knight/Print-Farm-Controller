@@ -389,6 +389,7 @@ export class ControllerAuth {
       bad(res,json,403,'Origin or CSRF verification failed');return false;
     }
     req.pfcUser=identity.user;
+    req.pfcSessionId=identity.csrf;
     if(MUTATIONS.has(req.method))this.#sessions.resolve(identity.token);
     if(url.pathname==='/api/events'||url.pathname.endsWith('/camera/stream'))
       this.#track(res,identity.user.id,identity.token);

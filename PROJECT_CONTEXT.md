@@ -11,7 +11,7 @@ Repository policy: `AGENTS.md` defines agent startup behavior; `docs/DOCUMENTATI
 - Repository: `Andy-Knight/Print-Farm-Controller`
 - Project path: repository root (`/`)
 - Primary branch: `main` (current production baseline)
-- Current controller source version: **0.61.9**.
+- Current controller source version: **0.61.10**.
 - Previous baseline audited: **0.48.0** (main before the regression test audit release).
 - Runtime: **Node.js 24.22.1+** (Node 24 release line), ES modules; build-time **npm 12.2.0** and committed lockfile; no npm runtime dependency for deployed controller. Follow `docs/dependency-security.md` for updates.
 - GitHub is the authoritative code baseline.
@@ -133,6 +133,8 @@ Manufacturer-specific discovery, capabilities, limits, status normalization, fil
 - Known validation limits: Creator 5 / Creator 5 Pro physical-hardware validation remains incomplete; Bambu support remains experimental; X1C RTSPS/H.264 camera streaming is a bundled-decoder prototype requiring physical Windows/Kubernetes acceptance.
 
 ## Current task
+
+Preserve aggregate upload/library/session/stream admission, bounded file inspection and backup ZIP verification, and operation-wide cloud deadlines/cancellation. Reject excess work before allocation; keep cancellation cleanup ahead of backup-lock release. Per-file upload support, restore recovery holds, signed licensing, separate data/log volumes and Windows owner protections remain independent boundaries. Quota tuning and large-library/backup deployment acceptance must use the documented host limits in `docs/RESOURCE_AND_BACKUP_LIMITS.md`.
 
 Preserve Windows storage access for the owning account, SYSTEM and Administrators, owner retention on upgrades, local recovery and separate data/log volumes. Interactive Windows installation is manually confirmed; validation under a separate selected account/UAC elevation identity remains a deployment check. Actual ACL and elevated reassignment tests, packaged startup, Windows builds, Linux/browser regression and container smoke passed. See `docs/WINDOWS_DATA_SECURITY.md`.
 
