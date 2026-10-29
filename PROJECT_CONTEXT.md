@@ -11,7 +11,7 @@ Repository policy: `AGENTS.md` defines agent startup behavior; `docs/DOCUMENTATI
 - Repository: `Andy-Knight/Print-Farm-Controller`
 - Project path: repository root (`/`)
 - Primary branch: `main` (current production baseline)
-- Current controller source version: **0.61.6**.
+- Current controller source version: **0.61.7**.
 - Previous baseline audited: **0.48.0** (main before the regression test audit release).
 - Runtime: **Node.js 24.22.1+** (Node 24 release line), ES modules; build-time **npm 12.2.0** and committed lockfile; no npm runtime dependency for deployed controller. Follow `docs/dependency-security.md` for updates.
 - GitHub is the authoritative code baseline.
@@ -134,18 +134,18 @@ Manufacturer-specific discovery, capabilities, limits, status normalization, fil
 
 ## Current task
 
-Bundle the X1C FFmpeg camera decoder on `codex/x1c-ffmpeg-camera` (draft PR #146). A minimal decoder is built from a pinned, checksum-verified official source archive committed under `third-party/ffmpeg`. Windows uses Schannel/LGPL 2.1-or-later; Linux uses system OpenSSL 3/LGPL 3-or-later. No GPL/nonfree components are enabled. Matching source, licence texts, configure arguments, build recipe, package inventory and integrity manifest are shipped beside the executable. Runtime discovery finds the packaged decoder automatically; `PFC_FFMPEG_PATH` is only an advanced override.
+The documentation-only tab icon catalogue on `docs/tab-icon-catalogue` (PR #115) is refreshed against the current controller and awaiting review. It documents all 18 deployed tab masks, including Security & users, preserves the Management-tab renderer discrepancy, and keeps artwork checks compatible with source ZIPs that omit optional `docs/assets/`. Version remains 0.61.7; merge requires explicit user approval.
 
-Windows SEA/installer and AMD64/ARM64 container packaging include FFmpeg. Windows release signing covers both executables before installer compilation. CI cross-builds the Windows decoder on Linux and runs the authenticated RTSPS fixture with bundled binaries on both platforms. The x86 decoder requires NASM assembly support: disabling external assembly in FFmpeg 8.1.3 caused magenta/green scanlines even though JPEG framing and dimensions were valid. Both build recipes include NASM, and bundle verification rejects x86 builds without assembly support. Physical X1C/Kubernetes and signed-release acceptance remain pending. See `docs/X1C_CAMERA.md`.
+The bundled decoder baseline uses a pinned, checksum-verified official FFmpeg source archive under `third-party/ffmpeg`, Schannel/LGPL 2.1-or-later on Windows and system OpenSSL 3/LGPL 3-or-later on Linux, without GPL/nonfree components. Preserve matching source, notices and build/integrity records. Windows signing covers both executables before installer compilation. x86 builds require NASM assembly support for correct scaler output; bundle verification rejects builds without it. See `docs/X1C_CAMERA.md`.
 
-The integrated virtual X1C serves bounded, authenticated RTSPS/RTP H.264 from a generated simulator image on its existing port. HTTP JPEG/MJPEG output, fault/authentication behavior and idle cleanup are verified. Chromium compares actual camera-tab pixels with the original simulator card; valid but striped JPEGs fail that regression. Corrected Windows and packaged AMD64/ARM64 images pass independent pixel comparisons. The latest full isolated Linux suite passed 832 tests (one MinIO skip); Windows real RTSPS/camera and SEA/unsigned installer checks passed. Native Windows full-suite recovery tests encounter simulator ports held by an already-running controller; use isolated CI/container validation rather than stopping active installations. The account-delete browser assertion was traced to a test synchronization error: the edited dropdown satisfied the old wait before PATCH completed, then the list refresh temporarily removed Delete. Role-save checks now await PATCH and GET, verify the persisted role and wait for the refreshed row; controlled request gates reproduce the former failure and verify the fix. Earlier camera-startup timeouts remain a separate validation limit; retain CI/deployment acceptance as a gate. Physical X1C acceptance remains separate.
+Validation baseline: PR #146's final GitHub documentation and controller workflows passed; local full isolated Linux validation passed 832 tests with one optional MinIO skip, and full Chromium, Windows SEA/unsigned installer and packaged AMD64/ARM64 camera checks passed. Chromium verifies decoded pixels as well as image arrival; account-role checks await persisted server state and the refreshed row. Native Windows full-suite recovery tests can collide with simulator ports held by a running controller; preserve that process and use isolated validation. Earlier camera-startup timeouts remain a validation limit. Physical X1C/Kubernetes and signed-release acceptance remain pending.
 
 ## Next steps
 
-1. Review updated PR #146 and its GitHub CI results. All changes use feature branches; never merge into main or publish without explicit user approval. No production release/version bump has been cut.
+1. Review refreshed PR #115 and its documentation/catalogue checks, including source-ZIP validation. All changes use feature branches; never merge into main, create a release tag or claim successful publication without explicit approval and verification.
 2. Validate a physical X1C on Windows and Kubernetes AMD64/ARM64, including firmware liveview, outages, multiple viewers, idle/shutdown cleanup and fleet resource usage. The simulator X1C camera now serves authenticated RTSPS/RTP H.264 on its existing port and exercises the production decoder; it does not establish physical hardware acceptance.
 3. Preserve shipped third-party source/notices and review the exact commercial distribution/patent position before release. An LGPL build does not establish H.264 patent clearance. Camera TLS certificate verification remains disabled for the LAN prototype; browser HTTPS/RBAC are independent, and privileged host users can inspect process arguments.
-4. Complete release-only MinIO, signed Windows installer and cluster acceptance gates. Preserve the native HTTPS acceptance and outstanding external-PEM import checks under Current work.
+4. Complete signed Windows installer and cluster acceptance gates before claiming release acceptance. Preserve the native HTTPS acceptance and outstanding external-PEM import checks under Current work.
 
 ## Licensing baseline
 
