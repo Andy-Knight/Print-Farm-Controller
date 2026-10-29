@@ -85,11 +85,11 @@ async function pollHealthy(base,child,logs=[]){
   }
   throw Error('Controller did not become ready at '+base+': '+logs.join('').slice(-2000));
 }
-function startController({dataDir,logDir,port,logs}){
+function startController({dataDir,logDir,port,logs,secureDefault=false}){
   const child=spawn(process.execPath,['src/server.js'],{
     cwd,env:{...process.env,DATA_DIR:dataDir,LOG_DIR:logDir,
       HOST:'127.0.0.1',PORT:String(port),PFC_AUTH_REQUIRED:'1',
-      PFC_PUBLIC_ORIGIN:''},stdio:['ignore','pipe','pipe']
+      PFC_PUBLIC_ORIGIN:'',PFC_AUTH_ALLOW_HTTP:secureDefault?'0':'1',PFC_TLS_NAMES:'localhost,127.0.0.1'},stdio:['ignore','pipe','pipe']
   });
   for(const source of [child.stdout,child.stderr])
     source.on('data',chunk=>logs.push(chunk.toString()));
@@ -313,4 +313,32 @@ test('real controller starts HTTP, switches to GUI-managed HTTPS and retains it 
     await stop(child);
     await fs.rm(directory,{recursive:true,force:true});
   }
+});
+
+test('secure default enrolls over HTTPS, rejects plaintext actions and survives malformed requests and restart', {timeout:40000}, async()=>{
+  const root=await fs.mkdtemp(path.join(os.tmpdir(),'pfc-secure-default-'));
+  const dataDir=path.join(root,'data'), logDir=path.join(root,'logs');
+  const port=await freePort(), plain='http://127.0.0.1:'+port, secure='https://127.0.0.1:'+(port+1);
+  const logs=[];
+  let child;
+  try {
+    child=startController({dataDir,logDir,port,logs,secureDefault:true});
+    await pollHealthy(secure,child,logs);
+    const code=logs.join('').match(/One-time enrollment code \(private\): ([0-9A-F]{48})/)?.[1];
+    assert.ok(code);
+    assert.equal((await secureRequest(plain,'/api/auth/enroll',{method:'POST',origin:plain,body:{code,username:'guiadmin',password}})).status,403);
+    assert.equal((await secureRequest(secure,'/api/auth/session',{hostHeader:'['})).status,400);
+    assert.equal((await secureRequest(secure,'/api/health')).status,200);
+    assert.equal((await secureRequest(secure,'/api/auth/enroll',{method:'POST',origin:secure,body:{code,username:'guiadmin',password}})).status,201);
+    const identity=await login(secure);
+    const signedIn=await secureRequest(secure,'/api/auth/login',{method:'POST',origin:secure,body:{username:'guiadmin',password}});
+    assert.match(signedIn.headers['set-cookie'][0],/; Secure/);
+    assert.equal((await secureRequest(secure,'/api/tls/configure',{method:'POST',origin:secure,identity,body:{mode:'off',password,confirm:'APPLY'}})).status,403);
+    const fingerprint=(await secureRequest(secure,'/api/tls/status',{identity})).body.tls.certificate.fingerprint256;
+    await stop(child);
+    child=startController({dataDir,logDir,port,logs,secureDefault:true});
+    await pollHealthy(secure,child,logs);
+    const next=await login(secure);
+    assert.equal((await secureRequest(secure,'/api/tls/status',{identity:next})).body.tls.certificate.fingerprint256,fingerprint);
+  } finally {await stop(child);await fs.rm(root,{recursive:true,force:true});}
 });

@@ -3884,7 +3884,7 @@ async function nativeAuthenticationSmoke(browser){
     child=spawn(process.execPath,['src/server.js'],{
       cwd:root,env:{...process.env,HOST:'127.0.0.1',PORT:url.split(':').at(-1),
         DATA_DIR:dataDir,LOG_DIR:path.join(rootDir,'logs'),
-        DISCOVERY_SUBNET:'',EMULATOR_NO_DEFAULTS:'1'},
+        DISCOVERY_SUBNET:'',EMULATOR_NO_DEFAULTS:'1',PFC_AUTH_ALLOW_HTTP:'1'},
       stdio:['ignore','pipe','pipe']
     });
     child.stdout.on('data',x=>logs.push(String(x)));
@@ -4402,7 +4402,7 @@ async function main() {
       processHandle=spawn(process.execPath,['src/server.js'],{
         cwd:root,env:{...process.env,HOST:'127.0.0.1',PORT:url.split(':').at(-1),
           DATA_DIR:path.join(dir,'data'),LOG_DIR:path.join(dir,'logs'),DISCOVERY_SUBNET:'',EMULATOR_NO_DEFAULTS:'1',
-          PFC_AUTH_REQUIRED:'0'},
+          PFC_AUTH_ALLOW_HTTP:'1',PFC_AUTH_REQUIRED:'0'},
         stdio:['ignore','pipe','pipe']
       });
       processHandle.stdout.on('data',(x)=>logs.push(String(x)));

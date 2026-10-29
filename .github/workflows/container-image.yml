@@ -274,7 +274,7 @@ jobs:
       - name: Restart test container in explicit legacy mode for OAuth inspection
         run: |
           docker rm -f pfc-smoke
-          docker run -d --name pfc-smoke -e PFC_AUTH_REQUIRED=0 -p 4242:4242 print-farm-controller:smoke
+          docker run -d --name pfc-smoke -e PFC_AUTH_ALLOW_HTTP=1 -e PFC_AUTH_REQUIRED=0 -p 4242:4242 print-farm-controller:smoke
 
       - name: Verify controller responds and bundled OAuth is active
         run: |

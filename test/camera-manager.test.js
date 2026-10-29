@@ -249,3 +249,34 @@ test('camera manager adapts a snapshot camera source into dashboard JPEGs and MJ
   await new Promise((resolve) => setTimeout(resolve, 90));
   assert.ok(stops >= 1, 'snapshot camera source should be stopped after it becomes idle');
 });
+
+test('camera content types reject executable media types even with deceptive parameters',async()=>{
+  const {validatedCameraContentType}=await import('../src/camera-manager.js');
+  for(const type of ['text/html; x=image/jpeg','image/svg+xml; x=multipart/x-mixed-replace','multipart/x-mixed-replace; boundary="bad boundary"'])
+    assert.equal(validatedCameraContentType(type),null);
+  assert.equal(validatedCameraContentType('image/jpeg; charset=binary'),'image/jpeg');
+  assert.equal(validatedCameraContentType('multipart/x-mixed-replace; boundary="frame"'),'multipart/x-mixed-replace; boundary=frame');
+});
+
+test('HTTP camera rejects deceptive HTML and sandboxes allowed media responses',async()=>{
+  let malicious=true;
+  const upstream=http.createServer((req,res)=>{
+    res.writeHead(200,{'content-type':malicious?'text/html; x=image/jpeg':'image/jpeg'});
+    res.write(malicious?'<script>unexpected()</script>':Buffer.from([0xff,0xd8,1,2,0xff,0xd9]));
+  });
+  const address=await listen(upstream);
+  const printer={id:'security-camera',host:'127.0.0.1',cameraPort:address.port};
+  const manager=new CameraManager({lookupPrinter:async()=>printer,adapterResolver:()=>({capabilities:{camera:true},activateCamera:async()=>null}),connectTimeoutMs:1000});
+  try {
+    const rejected=createFakeResponse();
+    await manager.handleStream(printer.id,new EventEmitter(),rejected);
+    assert.equal(rejected.statusCode,502);
+    malicious=false;
+    const accepted=createFakeResponse();
+    await manager.handleStream(printer.id,new EventEmitter(),accepted);
+    assert.equal(accepted.statusCode,200);
+    assert.equal(accepted.headers['content-type'],'image/jpeg');
+    assert.equal(accepted.headers['x-content-type-options'],'nosniff');
+    assert.match(accepted.headers['content-security-policy'],/^sandbox;/);
+  } finally {await manager.stop();upstream.closeAllConnections();await close(upstream);}
+});

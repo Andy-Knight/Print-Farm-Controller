@@ -331,14 +331,14 @@ export class AlertService {
     return this.state.history.reduce((count, alert) => count + (alertRequiresAttention(alert) ? 1 : 0), 0);
   }
 
-  snapshot({ historyLimit = 20 } = {}) {
+  snapshot({ historyLimit = 20, includeConfiguration = true } = {}) {
     return {
       version:1,
       unreadCount:this.unreadCount(),
       attentionUnreadCount:this.attentionUnreadCount(),
       providers:this.providerDefinitions(),
       rules:this.listRules(),
-      destinations:this.listDestinations(),
+      destinations:this.listDestinations().map(destination => includeConfiguration ? destination : {id:destination.id,name:destination.name,provider:destination.provider,providerLabel:destination.providerLabel,enabled:destination.enabled}),
       history:this.listHistory({ limit:historyLimit })
     };
   }

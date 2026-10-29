@@ -1,4 +1,4 @@
-# Print Farm Controller v0.61.7
+# Print Farm Controller v0.61.8
 A local-first 3D printer fleet controller. It runs entirely on your LAN and currently supports:
 
 - **FlashForge Adventurer 5M / 5M Pro** through the local FlashForge HTTP/TCP APIs.
@@ -7,7 +7,7 @@ A local-first 3D printer fleet controller. It runs entirely on your LAN and curr
 - **Prusa CORE One+ (experimental)** through the local PrusaLink API, supporting Standard (1-tool), INDX4 and INDX8 configurations.
 - **Bambu Lab P1P / P1S / X1C / A1 Mini (experimental)** through the local MQTT TLS and FTPS TLS interfaces. P1P/P1S/A1 Mini use the TLS/JPEG camera path; X1C camera uses the bundled FFmpeg decoder; see [X1C camera setup](docs/X1C_CAMERA.md).
 
-**Current development version: v0.61.7**
+**Current development version: v0.61.8**
 
 ## Key capabilities
 
@@ -18,7 +18,7 @@ A local-first 3D printer fleet controller. It runs entirely on your LAN and curr
 - **Printer management and alerts:** Supported filament/nozzle controls, file management, scheduled maintenance, local notifications, ntfy push and webhooks.
 - **Backup and recovery:** Compressed backups to local/NAS storage, Google Drive, experimental OneDrive or S3-compatible services.
 - **Flexible deployment:** Windows portable executable or installer, Docker images for AMD64/ARM64 and K3s/Kubernetes; signed offline Community, Pro and Farm licences.
-- **User security:** Login and backend Administrator/Operator/Viewer permissions are enabled by default, including on HTTP; GUI administrator enrollment and user management are supported. HTTPS is strongly recommended because HTTP passwords and sessions can be intercepted.
+- **User security:** Login and backend Administrator/Operator/Viewer permissions are enabled by default, with HTTPS password entry; GUI administrator enrollment and user management are supported. Plaintext password entry requires an explicit host opt-in.
 
 For detailed functionality and setup, use the sections below. For release-by-release changes, see [CHANGELOG.md](CHANGELOG.md).
 
@@ -61,10 +61,7 @@ controller use requires sign-in. There is no default password, open-registration
 or "first visitor wins" bootstrap. Keep pod logs private; restart the controller to rotate
 an unused code. The account store and activation marker live on the persistent `DATA_DIR` volume.
 
-**HTTP setup and sign-in work by default**, but the GUI displays an unencrypted-transport
-warning. HTTP provides user authentication and server-side RBAC, **not confidentiality or session
-protection**: anyone capable of intercepting LAN traffic may steal the password, setup code
-or session. Use HTTPS as soon as possible; don't expose the HTTP endpoint to untrusted networks.
+**HTTPS setup and sign-in are the default.** A persistent managed certificate is created before onboarding; verify its fingerprint from the protected startup console before trusting it. Plaintext operation requires the explicit insecure host opt-in `PFC_AUTH_ALLOW_HTTP=1`.
 
 For headless recovery and legacy tooling, a privileged local interactive terminal can
 still run `node scripts/manage-users.mjs setup` or
@@ -85,9 +82,9 @@ the persistent data directory. Preserve the same security storage across restore
 
 ### HTTPS — configure in the controller interface
 
-A fresh installation starts with HTTP on the controller's fixed internal port **4242**, with HTTPS reserved for internal port **4243**. The container exposes both ports permanently. A K3s/MetalLB LoadBalancer Service forwards external **80 → 4242** and **443 → 4243** (see [example Kubernetes deployment](deploy/kubernetes/print-farm-controller.yaml)), so browser addresses are simply `http://<controller-ip>` during initial setup and `https://<controller-ip>` after HTTPS is enabled. Without that Service, a Windows or direct-container browser connects on `:4242` for HTTP and `:4243` for HTTPS. A custom legacy `PORT` override keeps its existing HTTP port and pairs HTTPS with the following port; the normal production configuration needs no HTTPS port environment variable.
+A fresh installation provisions managed HTTPS on **4243** before enrollment. HTTP **4242** remains available for health and certificate-matched redirects. Kubernetes Services may expose 80→4242 and 443→4243. Set `PFC_TLS_NAMES` before the first secure startup to include external browser DNS names/IPv4 addresses (for example a LoadBalancer address); otherwise local interface addresses and the machine hostname are used. See the HTTPS guide for certificate trust and HTTP-only upgrade migration.
 
-On localhost or a trusted, isolated LAN, sign in as an administrator (or complete first-admin setup using the private controller startup-log code). **HTTP password entry and session traffic are not encrypted.** In **Farm management → Security & users → Connection settings**, use the page sections in order: **Connection summary**, **Connection settings**, and (only for a currently managed self-signed identity) **Self-signed certificate replacement**. In Connection settings, choose controller-managed self-signed HTTPS, externally supplied PEM certificate/key contents pasted into the GUI, or HTTP-only mode. For a managed certificate, enter the exact browser DNS hostnames and IPv4 addresses as comma-separated certificate names. Confirm with your current admin password.
+After verifying and trusting the public certificate, enroll or sign in over HTTPS. Administrators can replace the managed identity or import an externally issued PEM pair through **Security & users → Connection settings**. HTTP-only mode is rejected unless the host explicitly opts in with `PFC_AUTH_ALLOW_HTTP=1`.
 
 **HTTP and HTTPS listening ports are not editable in the GUI**, so enabling HTTPS never requires changing the Kubernetes Deployment or MetalLB Service ports. After HTTPS is enabled, port 4242 stays open but accepts only a minimal `GET /healthz` probe and **GET/HEAD redirects** to HTTPS (302, no-store) for hosts that match the active certificate. Other HTTP requests (including logins and API writes) are rejected. The TLS listener accepts the full application on port 4243. Redirects do not bypass browser certificate trust, and there is no plaintext fallback if an HTTPS identity fails to initialize. The health endpoint reports only `ok` and is deliberately independent of authentication, printer data and certificate status. The Docker health check and Kubernetes probes use HTTP `:4242/healthz`.
 
@@ -99,7 +96,7 @@ External proxy/ingress termination remains an optional architecture, not require
 
 See [HTTPS configuration](docs/HTTPS_CONFIGURATION.md) for port-mapping, certificate, migration and recovery details.
 
-Authentication is enabled unless `PFC_AUTH_REQUIRED=0` explicitly selects **legacy unauthenticated mode** before any user is enrolled. This insecure opt-out is for temporary troubleshooting only; once the durable security marker or account store exists it cannot disable RBAC. `PFC_AUTH_ALLOW_HTTP=0` blocks enrollment and login on HTTP. Native sessions use `HttpOnly`, `SameSite=Strict`, Origin and CSRF checks; cookies have `Secure` when native HTTPS or a trusted HTTPS public origin is active. HTTP traffic remains unencrypted.
+Authentication is enabled unless `PFC_AUTH_REQUIRED=0` explicitly selects **legacy unauthenticated mode** before any user is enrolled. This insecure opt-out is for temporary troubleshooting only; once the durable security marker or account store exists it cannot disable RBAC. Enrollment and login require HTTPS by default. `PFC_AUTH_ALLOW_HTTP=1` is an explicit insecure host opt-in; it is intended only for isolated legacy/testing deployments. Native sessions use `HttpOnly`, `SameSite=Strict`, Origin and CSRF checks; cookies have `Secure` when native HTTPS or a trusted HTTPS public origin is active. HTTP traffic remains unencrypted.
 
 Full design and security rollout requirements: [Authentication and RBAC](docs/AUTHENTICATION_AND_RBAC.md).
 
