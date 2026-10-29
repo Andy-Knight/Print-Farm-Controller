@@ -1,6 +1,6 @@
 # Native HTTPS and certificate management
 
-**Status:** The GUI-managed HTTPS feature is implemented on `feature/native-https-controller` (draft PR #136). It is not merged or released until all automated gates and live K3s/Windows verification are complete.
+**Status:** Native HTTPS is implemented; secure onboarding is the default.
 
 ## Browser ports and initial setup
 
@@ -11,7 +11,7 @@
 
 The container exposes both ports from startup. The sample [Kubernetes Deployment and MetalLB Service](../deploy/kubernetes/print-farm-controller.yaml) forwards 80→4242 and 443→4243. Adapt this example to your existing labels, storage volumes, image tag and deployment policies; **do not apply it unchanged over an existing deployment**. The fixed ports never need changing from the GUI. The optional legacy runtime `PORT` override sets the direct HTTP port and its HTTPS partner to the next numeric port for custom Windows/test installations.
 
-For a new installation, open `http://<controller-host>:4242` (direct) or `http://<MetalLB-IP>` (Kubernetes). Create the initial administrator using the private startup-log enrollment code or sign in as an existing administrator. **HTTP credentials and sessions can be intercepted.** Perform this only on localhost or a trusted isolated network and enable HTTPS promptly.
+HTTPS is provisioned before password entry by default. Open `https://<controller-host>:4243` directly, or `https://<service-host>` through a Service exposing 443. A persistent managed certificate is generated on first secure startup (also when upgrading an HTTP-only installation); verify its SHA-256 fingerprint from the protected startup console through a trusted channel before trusting it. Existing HTTPS identities are retained. Set `PFC_TLS_NAMES` to a comma-separated list of browser DNS names/IPv4 addresses before first secure startup when the external address differs from local interfaces, especially Kubernetes LoadBalancer addresses. Otherwise localhost, the machine hostname and local IPv4 addresses are used. This setting does not rotate an existing identity; use certificate management for later changes. HTTP password entry and HTTP-only mode require the explicit insecure host opt-in `PFC_AUTH_ALLOW_HTTP=1`; unsetting it restores the secure default on restart. Existing direct HTTP bookmarks may need replacing with the HTTPS URL, and clients must establish certificate trust before login. Keep a protected local recovery console available during upgrades.
 
 Navigate to **Farm management → Security & users → Connection settings**. The page has three ordered sections:
 

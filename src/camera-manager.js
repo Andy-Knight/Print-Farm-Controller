@@ -37,6 +37,13 @@ export function safeCameraUrl(printer, reportedUrl, fallbackUrl = null) {
   }
 }
 
+export function validatedCameraContentType(value) {
+  const text = String(value || '').trim();
+  if (text.split(';',1)[0].trim().toLowerCase() === 'image/jpeg') return 'image/jpeg';
+  const match = /^multipart\/x-mixed-replace\s*;\s*boundary=(?:"([A-Za-z0-9_+.,:/=?-]{1,70})"|([A-Za-z0-9_+.,:/=?-]{1,70}))\s*$/i.exec(text);
+  return match ? 'multipart/x-mixed-replace; boundary=' + (match[1] || match[2]) : null;
+}
+
 export class CameraManager extends EventEmitter {
   constructor({
     lookupPrinter = getPrinter,
@@ -108,7 +115,9 @@ export class CameraManager extends EventEmitter {
       'cache-control': 'no-store, no-cache, must-revalidate, max-age=0',
       pragma: 'no-cache',
       connection: 'keep-alive',
-      'x-accel-buffering': 'no'
+      'x-accel-buffering': 'no',
+      'x-content-type-options':'nosniff',
+      'content-security-policy':"sandbox; default-src 'none'; frame-ancestors 'none'"
     });
 
     stream.subscribers.add(res);
@@ -216,8 +225,8 @@ export class CameraManager extends EventEmitter {
           return;
         }
 
-        const contentType = String(upstreamRes.headers['content-type'] || 'multipart/x-mixed-replace; boundary=boundarydonotcross');
-        if (!/multipart\/x-mixed-replace/i.test(contentType) && !/image\/jpeg/i.test(contentType)) {
+        const contentType = validatedCameraContentType(upstreamRes.headers['content-type']);
+        if (!contentType) {
           upstreamRes.resume();
           const error = new Error(`Unexpected camera content type: ${contentType}`);
           this.failStream(printer.id, stream, error);

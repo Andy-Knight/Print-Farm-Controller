@@ -368,3 +368,17 @@ test('generic webhook provider posts the versioned alert envelope', async () => 
   assert.equal(body.alert.type, 'maintenance.due');
   assert.equal(body.alert.printer.id, 'p1');
 });
+
+test('non-administrator alert snapshots omit all destination configuration and retain labels',async()=>{
+  const root=await fs.mkdtemp(path.join(os.tmpdir(),'pfc-alert-secret-'));
+  try {
+    const service=new AlertService({dataDir:root});
+    await service.init();
+    await service.createDestination({name:'Secret hook',provider:'webhook',config:{url:'https://example.invalid/SECRET_PATH?token=SECRET_QUERY',authorization:'SECRET_HEADER'}});
+    await service.createDestination({name:'Secret topic',provider:'ntfy',config:{server:'https://example.invalid',topic:'SECRET_TOPIC',token:'SECRET_TOKEN'}});
+    const publicState=service.snapshot({includeConfiguration:false});
+    assert.equal(publicState.destinations[0].name,'Secret hook');
+    assert.doesNotMatch(JSON.stringify(publicState),/SECRET_|example.invalid/);
+    assert.match(JSON.stringify(service.snapshot({includeConfiguration:true})),/SECRET_PATH/);
+  } finally {await fs.rm(root,{recursive:true,force:true});}
+});

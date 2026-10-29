@@ -4,6 +4,13 @@ This file contains the version-by-version release history for Print Farm Control
 
 Historical entries describe the behaviour of the controller at the time of that release and may be superseded by later versions. For current installation, configuration and supported-hardware guidance, see [README.md](README.md).
 
+## v0.61.8
+
+- Catch malformed requests at the HTTP/HTTPS listener boundary without terminating the controller.
+- Validate camera response media types and sandbox proxied media against executable HTML.
+- Require HTTPS for password entry by default and provision persistent managed HTTPS before onboarding. Plaintext mode requires an explicit host opt-in.
+- Restrict notification destination configuration to administrators; lower roles retain alert history and destination labels without secret-bearing URLs or topics.
+
 ## v0.61.7
 
 - Added experimental X1C RTSPS/H.264 camera conversion into the controller's existing JPEG previews and MJPEG live view, with shared decoders, bounded output, reconnect backoff and idle/shutdown cleanup. Removed the obsolete camera-unsupported notice. Physical X1C and Kubernetes acceptance remain pending.

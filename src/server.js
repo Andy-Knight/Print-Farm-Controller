@@ -1,3 +1,4 @@
+import {guardedHttpListener} from './security/http-listener.js';
 import http from 'node:http';
 import https from 'node:https';
 import {X509Certificate} from 'node:crypto';
@@ -755,6 +756,9 @@ async function apiRoute(req, res, url) {
       throw error;
     }
     const body=await readJson(req);
+    if(body?.mode==='off' && process.env.PFC_AUTH_ALLOW_HTTP !== '1') {
+      return json(res,403,{error:'HTTP-only mode requires an explicit host opt-in: PFC_AUTH_ALLOW_HTTP=1'});
+    }
     if(body?.mode==='provided'&&!req.socket.encrypted){
       // The controller's initial HTTP setup is deliberately insufficient
       // for transporting a private key. Activate managed HTTPS first, then
@@ -1556,7 +1560,7 @@ async function apiRoute(req, res, url) {
 
   if (req.method === 'GET' && url.pathname === '/api/alerts') {
     const historyLimit = Number(url.searchParams.get('limit') || 100);
-    return json(res, 200, { alerts:alertService.snapshot({ historyLimit }) });
+    return json(res, 200, { alerts:alertService.snapshot({ historyLimit, includeConfiguration:req.pfcUser?.role==='administrator' }) });
   }
 
   if (req.method === 'DELETE' && url.pathname === '/api/alerts/history') {
@@ -2809,7 +2813,7 @@ function handleHttpRequest(req,res){
     res.writeHead(200,{'content-type':'text/plain; charset=utf-8','cache-control':'no-store'});
     return res.end(req.method==='HEAD'?undefined:'ok');
   }
-  if(!httpsActive)return void handleControllerRequest(req,res);
+  if(!httpsActive)return handleControllerRequest(req,res);
   if(req.method==='GET'||req.method==='HEAD'){
     const target=httpsRedirectTarget(req);
     if(target){
@@ -2829,12 +2833,12 @@ async function listenControllerServer(){
   // unauthenticated plaintext fallback.
   const options=controllerTls.options;
   if(options){
-    server=https.createServer(options,handleControllerRequest);
+    server=https.createServer(options,guardedHttpListener(handleControllerRequest));
     await listenOn(server,HTTPS_PORT);
     redirectCertificate=new X509Certificate(options.cert);
     httpsActive=true;
   }
-  httpServer=http.createServer(handleHttpRequest);
+  httpServer=http.createServer(guardedHttpListener(handleHttpRequest));
   try{await listenOn(httpServer,PORT);}
   catch(error){
     if(server?.listening)await stopListener(server);
@@ -2857,7 +2861,7 @@ async function swapControllerListener({options,secure}){
       // secure-context reload takes effect for subsequent TLS handshakes.
       previous.setSecureContext(options);
     }else{
-      const candidate=https.createServer(options,handleControllerRequest);
+      const candidate=https.createServer(options,guardedHttpListener(handleControllerRequest));
       try{await listenOn(candidate,HTTPS_PORT);}
       catch(error){if(candidate.listening)await stopListener(candidate);throw error;}
       server=candidate;
@@ -2932,7 +2936,17 @@ async function startController() {
     await printQueue.start();
     chamberPreheat.startService();
     const tlsOptions = await controllerTls.init();
-    controllerAuth.setNativeTransportSecure(Boolean(tlsOptions),{revokeSessions:false});
+    if (!tlsOptions && process.env.PFC_AUTH_ALLOW_HTTP !== '1') {
+      const names = process.env.PFC_TLS_NAMES || [
+        'localhost', '127.0.0.1', os.hostname(),
+        ...Object.values(os.networkInterfaces()).flat().filter(item => item?.family === 'IPv4').map(item => item.address)
+      ];
+      const prepared = await controllerTls.prepareConfiguration({mode:'self-signed',names});
+      await controllerTls.applyConfiguration(prepared,async()=>{});
+    }
+    const secureOptions = controllerTls.options;
+    if (secureOptions) console.log('HTTPS certificate SHA-256 fingerprint: '+controllerTls.status().certificate.fingerprint256);
+    controllerAuth.setNativeTransportSecure(Boolean(secureOptions),{revokeSessions:false});
     await listenControllerServer();
 
     if (restoreTransaction) {

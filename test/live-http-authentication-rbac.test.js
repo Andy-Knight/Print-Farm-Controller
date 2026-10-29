@@ -36,6 +36,7 @@ test('real HTTP dispatcher enforces login, CSRF and RBAC before controller actio
     await accounts.bootstrapAdministrator({username:'controlleradmin',password});
     await accounts.addUser({username:'readuser',password,role:'viewer'});
     await accounts.addUser({username:'operatoruser',password,role:'operator'});
+    await fs.writeFile(path.join(dataDir,'alerts.json'),JSON.stringify({version:1,rules:[],history:[],destinations:[{id:'synthetic-hook',name:'Operations',provider:'webhook',config:{url:'https://example.invalid/SECRET_URL',authorization:'SECRET_AUTH'}}]}));
     const port=await freePort(),base='http://127.0.0.1:'+port;
     child=spawn(process.execPath,['src/server.js'],{
       cwd,env:{...process.env,DATA_DIR:dataDir,LOG_DIR:logDir,
@@ -69,6 +70,12 @@ test('real HTTP dispatcher enforces login, CSRF and RBAC before controller actio
       },...(body?{body:JSON.stringify(body)}:{})
     });
     assert.equal((await call('GET','/api/queue',viewer)).status,200);
+    for (const identity of [viewer,operator]) {
+      const alerts=await (await call('GET','/api/alerts',identity)).json();
+      assert.equal(alerts.alerts.destinations[0].name,'Operations');
+      assert.doesNotMatch(JSON.stringify(alerts),/SECRET_|example.invalid/);
+    }
+    assert.match(JSON.stringify(await (await call('GET','/api/alerts',admin)).json()),/SECRET_URL/);
     assert.equal((await call('POST','/api/printers/a/print',viewer)).status,403);
     assert.equal((await call('POST','/api/batch',viewer)).status,403);
     assert.equal((await call('GET','/api/backup/download/file',viewer)).status,403);

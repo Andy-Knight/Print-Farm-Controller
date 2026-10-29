@@ -64,7 +64,7 @@ test('authentication starts enabled by default, with explicit legacy opt-out and
     const initial=(await exercise(defaultAuth,'GET','/api/auth/session')).res.body;
     assert.equal(initial.enabled,true);
     assert.equal(initial.setupRequired,true);
-    assert.equal(initial.loginAvailable,true,'HTTP is allowed by default');
+    assert.equal(initial.loginAvailable,false,'HTTP password entry is disabled by default');
     assert.equal(initial.transportSecure,false);
     assert.match(initial.transportWarning,/not protected/);
     assert.equal((await gate(defaultAuth,'GET','/')).allowed,true,
@@ -247,11 +247,11 @@ test('only a current administrator can delete another user with CSRF protection 
   });
 });
 
-test('HTTP login works by default with conspicuous warning, or can be explicitly HTTPS-only',async()=>{
+test('HTTP login requires explicit opt-in and remains visibly insecure',async()=>{
   await fixture(async dataDir=>{
     const store=new AccountStore({dataDir});
     await store.bootstrapAdministrator({username:'owner',password:ADMIN_PASSWORD});
-    const http=new ControllerAuth({dataDir,env:{}});
+    const http=new ControllerAuth({dataDir,env:{PFC_AUTH_ALLOW_HTTP:'1'}});
     await http.init();
     const plain=await exercise(http,'POST','/api/auth/login',{
       origin:'http://controller.example.test',body:{username:'owner',password:ADMIN_PASSWORD}
@@ -326,10 +326,10 @@ test('GUI enrollment needs a private code, secure origin, and irrevocably enable
   });
 });
 
-test('GUI enrollment works on HTTP by default; explicit HTTPS-only policy and lost-store recovery fail closed',async()=>{
+test('GUI HTTP enrollment requires opt-in; HTTPS-only policy and lost-store recovery fail closed',async()=>{
   await fixture(async dataDir=>{
     let output='';
-    const auth=new ControllerAuth({dataDir,env:{},
+    const auth=new ControllerAuth({dataDir,env:{PFC_AUTH_ALLOW_HTTP:'1'},
       emitEnrollmentCode:message=>{output=message;}});
     await auth.init();
     const code=output.match(/One-time enrollment code \(private\): ([0-9A-F]{48})/)?.[1];

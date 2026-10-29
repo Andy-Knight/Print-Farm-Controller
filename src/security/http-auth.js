@@ -46,7 +46,7 @@ export class ControllerAuth {
   #enabled=true;
   #setupRequired=false;
   #secure=false;
-  #allowHttp=true;
+  #allowHttp=false;
   #origin=null;
   #enrollmentCode=null;
   #enrollmentAvailable=false;
@@ -64,12 +64,9 @@ export class ControllerAuth {
       this.#origin=origin.origin;
       this.#secure=origin.protocol==='https:';
     }
-    // Authentication and HTTP login are enabled by default, including on
-    // existing HTTP-only LAN installations. This protects API access but does
-    // NOT encrypt credentials or cookies in transit. PFC_AUTH_REQUIRED=0 is
-    // an explicit pre-enrollment legacy opt-out; PFC_AUTH_ALLOW_HTTP=0
-    // explicitly requires HTTPS for password entry.
-    this.#allowHttp=env.PFC_AUTH_ALLOW_HTTP!=='0';
+    // Password entry requires HTTPS unless the host explicitly opts into
+    // legacy plaintext operation. Authentication remains enabled independently.
+    this.#allowHttp=env.PFC_AUTH_ALLOW_HTTP==='1';
     this.#enabled=env.PFC_AUTH_REQUIRED!=='0';
   }
   get enabled(){return this.#enabled;}
@@ -389,6 +386,7 @@ export class ControllerAuth {
     if(MUTATIONS.has(req.method)&&!this.#mutationAllowed(req,identity)){
       bad(res,json,403,'Origin or CSRF verification failed');return false;
     }
+    req.pfcUser=identity.user;
     if(MUTATIONS.has(req.method))this.#sessions.resolve(identity.token);
     if(url.pathname==='/api/events'||url.pathname.endsWith('/camera/stream'))
       this.#track(res,identity.user.id,identity.token);
