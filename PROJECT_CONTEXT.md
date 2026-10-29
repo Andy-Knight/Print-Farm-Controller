@@ -134,6 +134,8 @@ Manufacturer-specific discovery, capabilities, limits, status normalization, fil
 
 ## Current task
 
+Queue lifecycle unit tests use a five-second monotonic polling budget and check the condition before expiring it after a delayed wakeup. The basic lifecycle fixture stubs metadata and costing reads and always stops its service on test cleanup. Keep queue runtime timing and safety interlocks independent of test-runner scheduling.
+
 Deployment acceptance remains for secure HTTPS onboarding and physical printer behavior. Preserve printer/cloud destination validation, bounded network input and shared authentication admission limits documented in `docs/NETWORK_INPUT_SECURITY.md` and `docs/AUTHENTICATION_AND_RBAC.md`. Fresh-source Linux validation passed (853 tests, zero failures, three documented skips), as did complete Chromium and Windows SEA/installer builds. Native Windows validation outside the restricted sandbox passed (855 tests, zero failures, one optional skip), including all camera checks. Schannel credential acquisition fails in the restricted local sandbox; native decoder tests remain mandatory and run outside it. Physical X1C/Creator 5 and deployment acceptance remain pending.
 
 The bundled decoder baseline uses a pinned, checksum-verified official FFmpeg source archive under `third-party/ffmpeg`, Schannel/LGPL 2.1-or-later on Windows and system OpenSSL 3/LGPL 3-or-later on Linux, without GPL/nonfree components. Preserve matching source, notices and build/integrity records. Windows signing covers both executables before installer compilation. x86 builds require NASM assembly support for correct scaler output; bundle verification rejects builds without it. See `docs/X1C_CAMERA.md`.
