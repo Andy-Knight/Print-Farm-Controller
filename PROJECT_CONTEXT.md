@@ -134,7 +134,7 @@ Manufacturer-specific discovery, capabilities, limits, status normalization, fil
 
 ## Current task
 
-Prepare the version correction on `codex/release-0-61-7`: synchronize package/lockfile versions, current-version metadata and the authoritative changelog with the bundled X1C decoder already merged into main through PR #146. This branch changes release metadata and handoff documentation only; merge, tag creation and signed publication remain subject to explicit user approval. Main-branch pushes automatically start the production container publishing workflow.
+The documentation-only tab icon catalogue on `docs/tab-icon-catalogue` (PR #115) is refreshed against the current controller and awaiting review. It documents all 18 deployed tab masks, including Security & users, preserves the Management-tab renderer discrepancy, and keeps artwork checks compatible with source ZIPs that omit optional `docs/assets/`. Version remains 0.61.7; merge requires explicit user approval.
 
 The bundled decoder baseline uses a pinned, checksum-verified official FFmpeg source archive under `third-party/ffmpeg`, Schannel/LGPL 2.1-or-later on Windows and system OpenSSL 3/LGPL 3-or-later on Linux, without GPL/nonfree components. Preserve matching source, notices and build/integrity records. Windows signing covers both executables before installer compilation. x86 builds require NASM assembly support for correct scaler output; bundle verification rejects builds without it. See `docs/X1C_CAMERA.md`.
 
@@ -142,10 +142,10 @@ Validation baseline: PR #146's final GitHub documentation and controller workflo
 
 ## Next steps
 
-1. Review the version-correction PR and its GitHub CI results before requesting merge approval. All changes use feature branches; never merge into main, create a release tag or claim successful publication without explicit approval and verification.
+1. Review refreshed PR #115 and its documentation/catalogue checks, including source-ZIP validation. All changes use feature branches; never merge into main, create a release tag or claim successful publication without explicit approval and verification.
 2. Validate a physical X1C on Windows and Kubernetes AMD64/ARM64, including firmware liveview, outages, multiple viewers, idle/shutdown cleanup and fleet resource usage. The simulator X1C camera now serves authenticated RTSPS/RTP H.264 on its existing port and exercises the production decoder; it does not establish physical hardware acceptance.
 3. Preserve shipped third-party source/notices and review the exact commercial distribution/patent position before release. An LGPL build does not establish H.264 patent clearance. Camera TLS certificate verification remains disabled for the LAN prototype; browser HTTPS/RBAC are independent, and privileged host users can inspect process arguments.
-4. Verify version-correction CI, including MinIO, and complete signed Windows installer and cluster acceptance gates. Preserve the native HTTPS acceptance and outstanding external-PEM import checks under Current work.
+4. Complete signed Windows installer and cluster acceptance gates before claiming release acceptance. Preserve the native HTTPS acceptance and outstanding external-PEM import checks under Current work.
 
 ## Licensing baseline
 
