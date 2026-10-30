@@ -11,7 +11,7 @@ Repository policy: `AGENTS.md` defines agent startup behavior; `docs/DOCUMENTATI
 - Repository: `Andy-Knight/Print-Farm-Controller`
 - Project path: repository root (`/`)
 - Primary branch: `main` (current production baseline)
-- Current controller source version: **0.61.14**.
+- Current controller source version: **0.61.15**.
 - Previous baseline audited: **0.48.0** (main before the regression test audit release).
 - Runtime: **Node.js 24.22.1+** (Node 24 release line), ES modules; build-time **npm 12.2.0** and committed lockfile; no npm runtime dependency for deployed controller. Follow `docs/dependency-security.md` for updates.
 - GitHub is the authoritative code baseline.
@@ -134,7 +134,7 @@ Manufacturer-specific discovery, capabilities, limits, status normalization, fil
 
 ## Current task
 
-Print Library attribution uses an immutable original uploader ID and a separately transferable quota-owner ID. Keep the dedicated Uploaded by table column, labelled mobile equivalent, account filters and role-limited usage summaries in both renderers. Transfers require an enabled target with capacity and retain the last 100 per-file changes; duplicates never rewrite attribution.
+Print Library attribution uses an immutable original uploader ID and a separately transferable quota-owner ID. Keep the dedicated Uploaded by column, labelled mobile equivalent and account filters in both renderers. Personal usage sits beside the top-bar account name; administrator-only Reports & finance → Print library owns the account pie/breakdown and disk-usage history against the active maximum. History uses the existing backed-up reporting store, retaining the latest real hourly observations for up to 366 days (9000-point cap); never infer pre-upgrade usage or join offline gaps. Transfers require enabled targets with capacity and retain 100 per-file changes; duplicates never rewrite attribution.
 
 Windows installer drafts are prepared by main-only GitHub Actions after regression, Windows packaging and multi-architecture image validation. Keep the release unpublished for maintainer review, bind assets to the exact source commit, preserve existing releases/tags and never expose production build configuration to PR jobs. See `docs/WINDOWS_RELEASES.md`.
 

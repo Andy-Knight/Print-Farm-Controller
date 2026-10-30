@@ -15,6 +15,22 @@ export async function readLibraryOwnerUsage(root){
   return owners;
 }
 
+// Match the global admission quota: count payloads, previews and metadata.
+// Never follow links out of the controller-owned library directory.
+export async function readLibraryStorageBytes(root){
+  let bytes=0;const pending=[root];
+  while(pending.length){
+    const directory=pending.pop();
+    for(const entry of await fs.readdir(directory,{withFileTypes:true})){
+      if(entry.isSymbolicLink())throw resourceError('Linked library storage cannot be measured safely.',507);
+      const target=path.join(directory,entry.name);
+      if(entry.isDirectory())pending.push(target);
+      else if(entry.isFile())bytes+=(await fs.stat(target)).size;
+    }
+  }
+  return bytes;
+}
+
 /** Called while holding the library catalog mutation lock, before copying. */
 export async function requireLibraryCapacity(root,incomingBytes,{ownerId='local',overheadBytes=0,
   maxBytes=configuredLimit('PFC_LIBRARY_MAX_BYTES',50*1024**3),maxFiles=configuredLimit('PFC_LIBRARY_MAX_FILES',10000),

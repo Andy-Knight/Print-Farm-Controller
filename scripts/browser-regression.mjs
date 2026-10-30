@@ -3903,7 +3903,7 @@ async function libraryAccountSmoke({browser,context,page,url,dataDir,captureDir}
     await page.goto(url+'/library');
     const row=page.locator(`[data-library-file="${first.id}"]`);
     await row.waitFor();assert.equal(await row.locator('.library-uploader-cell').innerText(),'Uploaded by\nShop operator');
-    assert.equal(await page.locator('#libraryAccountStorage').isVisible(),true);
+    assert.equal(await page.locator('#libraryAccountStorage').count(),0);
     await page.locator('#libraryAdvancedFilters').evaluate(element=>element.open=true);
     await page.locator('#libraryUploaderFilter').selectOption('mine');
     assert.equal(await page.locator('[data-library-file]').count(),0);
@@ -3920,12 +3920,12 @@ async function libraryAccountSmoke({browser,context,page,url,dataDir,captureDir}
     await page.locator('#libraryOwnerForm button[type=submit]').click();assert.equal((await saved).status(),200);
     await page.locator('#libraryOwnerDialog').waitFor({state:'hidden'});
     await page.waitForFunction(()=>document.querySelector('#libraryMyStorage')?.textContent.includes('1 file'));
+    await page.waitForFunction(()=>/Library [1-9]/.test(document.querySelector('#authLibraryStorage')?.textContent||''));
     assert.match(await row.locator('.library-uploader-cell').innerText(),/Shop operator/);
     await page.locator('#libraryOwnerSelectedBtn').click();
     await page.waitForFunction(()=>document.querySelector('#libraryOwnerHistory')?.textContent.includes('Changed by Owner'));
     await page.locator('#libraryOwnerCancel').click();
     await upload('duplicate.gcode','; account owner\nG1 X1\n');
-    await page.locator('#libraryAccountStorage').evaluate(element=>element.open=true);
     for(const theme of ['dark','light']){
       await page.evaluate(theme=>document.documentElement.dataset.theme=theme,theme);
       for(const width of [1365,900,760,620,390,320]){
@@ -3937,12 +3937,28 @@ async function libraryAccountSmoke({browser,context,page,url,dataDir,captureDir}
         assert.ok(listHeight>=150,'expanded panels must not collapse the result list');
         if(captureDir&&[1365,390].includes(width)){
           await page.locator('#libraryAdvancedFilters').evaluate(element=>element.open=false);
-          await page.locator('#libraryAccountStorage').evaluate(element=>element.open=false);
           await page.evaluate(()=>{document.activeElement?.blur();window.scrollTo(0,0);});
           await page.screenshot({path:path.join(captureDir,`library-accounts-${theme}-${width}.png`),fullPage:true,animations:'disabled'});
           await page.locator('#libraryAdvancedFilters').evaluate(element=>element.open=true);
-          await page.locator('#libraryAccountStorage').evaluate(element=>element.open=true);
         }
+      }
+    }
+    await page.goto(url+'/reports');
+    await page.locator('#reportingTabLibrary').click();
+    await page.locator('#libraryStorageReport .library-storage-pie').waitFor();
+    assert.match(await page.locator('#libraryStorageReport').innerText(),/Storage by account/);
+    assert.match(await page.locator('#libraryStorageReport').innerText(),/Owner/);
+    assert.equal(await page.locator('#libraryStorageReport .library-storage-point').count()>0,true);
+    await page.locator('#libraryStorageRange').selectOption('7');
+    await page.locator('#libraryStorageRefresh').click();
+    await page.waitForFunction(()=>!document.querySelector('#libraryStorageRefresh').disabled);
+    for(const theme of ['dark','light']){
+      await page.evaluate(theme=>document.documentElement.dataset.theme=theme,theme);
+      for(const width of [1365,900,760,620,390,320]){
+        await page.setViewportSize({width,height:900});
+        assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),`storage reports fit ${width}px ${theme}`);
+        assert.equal(await page.locator('#libraryStorageReport .library-storage-pie').isVisible(),true);
+        if(captureDir&&[1365,390].includes(width))await page.screenshot({path:path.join(captureDir,`library-storage-${theme}-${width}.png`),fullPage:true,animations:'disabled'});
       }
     }
     const fallback=await context.newPage();
@@ -3952,6 +3968,8 @@ async function libraryAccountSmoke({browser,context,page,url,dataDir,captureDir}
       assert.match(await fallback.locator(`[data-library-file="${first.id}"] .library-uploader-cell`).innerText(),/Shop operator/);
       await fallback.locator(`[data-library-select="${first.id}"]`).click();
       assert.equal(await fallback.locator('#libraryOwnerSelectedBtn').isVisible(),true);
+      await fallback.goto(url+'/reports');await fallback.locator('#reportingTabLibrary').click();
+      await fallback.locator('#libraryStorageReport .library-storage-pie').waitFor();
     }finally{await fallback.close();}
     const operatorPage=await operator.newPage();await operatorPage.goto(url+'/library');
     await operatorPage.locator(`[data-library-file="${first.id}"]`).waitFor();
@@ -3959,6 +3977,11 @@ async function libraryAccountSmoke({browser,context,page,url,dataDir,captureDir}
     assert.equal(await operatorPage.locator('#libraryOwnerSelectedBtn').isVisible(),false);
     assert.equal(await operatorPage.locator('#libraryAccountStorage').isVisible(),false);
     assert.match(await operatorPage.locator('#libraryMyStorage').innerText(),/0 files/);
+    await operatorPage.goto(url+'/reports');
+    assert.equal(await operatorPage.locator('#reportingTabLibrary').isVisible(),false);
+    await operatorPage.waitForFunction(()=>document.querySelector('#authLibraryStorage')?.textContent.includes('Library 0 B'));
+    await operatorPage.locator('#authLibraryStorage').waitFor({state:'visible'});
+    assert.match(await operatorPage.locator('#authLibraryStorage').innerText(),/Library 0 B/);
     console.log('Chromium: library uploader column, filters, quota transfer/audit, role boundary and fallback PASS');
     await page.setViewportSize({width:1280,height:800});await page.evaluate(()=>document.documentElement.dataset.theme='dark');
     await page.goto(url+'/users');await page.locator('#authUserList th[scope=row]').filter({hasText:'owner'}).waitFor();

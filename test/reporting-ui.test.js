@@ -42,7 +42,7 @@ test('reporting UI is available from the persistent controller navigation with g
   assert.match(reportingUi, /reportsBtn\?\.addEventListener/);
   assert.match(reportingUi, /function activateReportingTab/);
   assert.match(reportingUi, /activateReportingTab\('analytics'\)/);
-  assert.match(reportingUi, /\['analytics','filament','pricing'\]/);
+  assert.match(reportingUi, /\['analytics','library','filament','pricing'\]/);
   assert.match(reportingUi, /loadReportingPricingSettings\(\)/);
   assert.match(reportingUi, /\['ArrowLeft','ArrowRight','Home','End'\]/);
   assert.match(reportingUi, /function lineChartSvg/);
@@ -52,13 +52,13 @@ test('reporting UI is available from the persistent controller navigation with g
   assert.match(styles, /\.reporting-printer-row\.attention/);
   assert.match(styles, /\.reporting-tabs\.maintenance-view-selector/);
   assert.match(styles, /\.reporting-tab-panel\[hidden\]/);
-  assert.match(styles, /grid-template-columns:repeat\(3,minmax\(0,1fr\)\)/);
+  assert.match(styles, /grid-template-columns:repeat\(auto-fit,minmax\(160px,1fr\)\)/);
   const preact = fs.readFileSync(new URL('../ui/reporting.jsx', import.meta.url), 'utf8');
   assert.match(preact, /key:'pricing'/);
   assert.match(preact, /panel:'reportingPanelPricing'/);
-  assert.match(preact, /\['analytics','filament','pricing'\]/);
+  assert.match(preact, /\['analytics','library','filament','pricing'\]/);
   assert.doesNotMatch(index, /id="libraryPricingSettingsDialog"/);
-  new vm.Script(reportingUi);
+  new vm.Script(reportingUi.replace(/^import .*;\r?\n/gm,''));
 });
 
 test('reporting backend retains history independently of recent queue history', () => {

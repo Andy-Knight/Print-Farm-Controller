@@ -1,4 +1,4 @@
-import {requireLibraryCapacity,readLibraryOwnerUsage} from './security/library-quota.js';
+import {requireLibraryCapacity,readLibraryOwnerUsage,readLibraryStorageBytes} from './security/library-quota.js';
 import {configuredLimit,resourceError} from './security/resource-limits.js';
 import crypto from 'node:crypto';
 import { createReadStream, promises as fs } from 'node:fs';
@@ -371,6 +371,13 @@ export async function libraryOwnershipInventory(){
   return libraryMutations.run('catalog',async()=>{
     await ensureRoot();
     return {files:await listLibraryFiles({catalogLocked:true}),usage:await readLibraryOwnerUsage(ROOT)};
+  });
+}
+
+export async function libraryStorageInventory(){
+  return libraryMutations.run('catalog',async()=>{
+    await ensureRoot();
+    return {usage:await readLibraryOwnerUsage(ROOT),bytes:await readLibraryStorageBytes(ROOT)};
   });
 }
 

@@ -292,6 +292,8 @@ function installAuthorizedFetch(){
     return nativeFetch(input,{...options,headers,credentials:'same-origin'}).then(response=>{
       if(response.status===401&&url.pathname.startsWith('/api/')&&!url.pathname.startsWith('/api/auth/'))
         lockAfterExpiry();
+        if(response.ok&&['POST','PUT','PATCH','DELETE'].includes(method)&&/^\/api\/(library|queue\/stage|auth\/users)(\/|$)/.test(url.pathname))
+          window.dispatchEvent(new CustomEvent('pfc:library-storage-changed'));
       return response;
     });
   };
@@ -503,6 +505,33 @@ function initializeAccountUi(){
   const identity=$('#authIdentity');
   identity.hidden=false;
   identity.textContent=(session.user.displayName||session.user.username)+' · '+session.user.role;
+    const storage=document.createElement('span');storage.id='authLibraryStorage';storage.className='auth-library-storage';
+    identity.append(storage);
+    let loadingStorage=false;
+    const bytes=value=>{
+      const units=['B','KiB','MiB','GiB','TiB'];let unit=0;
+      while(value>=1024&&unit<units.length-1){value/=1024;unit++;}
+      return value.toLocaleString(undefined,{maximumFractionDigits:unit?1:0})+' '+units[unit];
+    };
+    const refreshStorage=async()=>{
+      if(loadingStorage||document.body.classList.contains('auth-locked'))return;
+      loadingStorage=true;
+      try{
+        const response=await window.fetch('/api/library/storage',{cache:'no-store'});
+        if(!response.ok)throw new Error('Storage unavailable');
+        const {mine}=await response.json();
+        storage.textContent=mine?' · Library '+bytes(mine.bytes)+' / '+bytes(mine.limit):'';
+        storage.title='Print Library storage charged to your account';
+      }catch{storage.textContent=' · Library usage unavailable';}
+      finally{loadingStorage=false;}
+    };
+    void refreshStorage();setInterval(()=>{if(!document.hidden)void refreshStorage();},60000);
+    // The server samples immediately after writes; a short delay lets that
+    // measurement finish before refreshing the account label.
+    let storageRefreshTimer;
+    window.addEventListener('pfc:library-storage-changed',()=>{
+      clearTimeout(storageRefreshTimer);storageRefreshTimer=setTimeout(refreshStorage,500);
+    });
   const account=$('#authAccountBtn');account.hidden=false;
   const dialog=$('#authPasswordDialog');
   account.addEventListener('click',()=>dialog.showModal());

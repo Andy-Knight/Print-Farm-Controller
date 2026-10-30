@@ -4,6 +4,11 @@ This file contains the version-by-version release history for Print Farm Control
 
 Historical entries describe the behaviour of the controller at the time of that release and may be superseded by later versions. For current installation, configuration and supported-hardware guidance, see [README.md](README.md).
 
+## v0.61.15
+
+- Show personal Print Library usage beside the signed-in account name in the top bar. Move the all-account storage breakdown into an administrator-only Print library tab beside Analytics in Reports & finance, with an account pie chart and recorded disk-usage graph against the configured maximum.
+- Retain real hourly storage observations in the backed-up reporting history, including observed limit changes, and show empty/initial history without inventing earlier usage.
+
 ## v0.61.14
 
 - Keep the Print Library Sale lots heading on one line, with room for its sort indicator and matching header/body column widths.

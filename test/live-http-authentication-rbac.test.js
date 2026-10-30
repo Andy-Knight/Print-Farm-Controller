@@ -76,6 +76,13 @@ test('real HTTP dispatcher enforces login, CSRF and RBAC before controller actio
     const firstUpload=await upload(operator);assert.equal(firstUpload.status,201);
     const libraryId=(await firstUpload.json()).file.id;
     const initialLibrary=await (await call('GET','/api/library',viewer)).json();
+    for(const identity of [viewer,operator])assert.equal((await call('GET','/api/reports/library',identity)).status,403);
+    const ownStorage=await (await call('GET','/api/library/storage',operator)).json();
+    assert.ok(ownStorage.mine.bytes>0);assert.deepEqual(Object.keys(ownStorage),['mine']);
+    const storageReport=await (await call('GET','/api/reports/library',admin)).json();
+    assert.ok(storageReport.bytes>ownStorage.mine.bytes,'global measurement includes metadata');
+    assert.ok(storageReport.limit>0);assert.ok(storageReport.history.length>0);
+    assert.equal(storageReport.accounts.find(row=>row.id===operatorId).bytes,ownStorage.mine.bytes);
     assert.equal(initialLibrary.files[0].uploader.id,operatorId);
     assert.equal(initialLibrary.files[0].uploader.label,'operatoruser');
     assert.equal(initialLibrary.storage.accounts,null);assert.equal(initialLibrary.ownershipAccounts,null);
