@@ -80,7 +80,7 @@
   min-width:0;
   /* Share tracks between the header and rows. Give additional width to
    * filenames, requirements and costs, not empty sale-price/history cells. */
-  --library-table-cols:46px 64px minmax(140px,1.6fr) minmax(90px,.9fr) minmax(90px,.8fr) minmax(115px,1.4fr) minmax(100px,.9fr) 54px minmax(116px,140px) minmax(98px,120px);
+  --library-table-cols:46px 64px minmax(140px,1.6fr) minmax(90px,.9fr) minmax(90px,.8fr) minmax(115px,1.4fr) minmax(100px,.9fr) 84px minmax(116px,140px) minmax(98px,120px);
 }
 /* Search, Add file, and selected-file actions share the same desktop row.
  * Keep selection feedback below the controls so long filenames cannot force
@@ -504,6 +504,7 @@
 #libraryDialog .library-sort-extras #libraryResultCount {align-self:center;font-size:.72rem}
 #libraryDialog .library-table-head [data-library-sort] {display:flex;justify-content:space-between;align-items:center;gap:6px;min-width:0;padding:0;border:0;border-radius:0;background:transparent;box-shadow:none;color:inherit;font-size:inherit;font-weight:inherit;letter-spacing:inherit;text-transform:inherit;text-align:left;cursor:pointer}
 #libraryDialog .library-table-head [data-library-sort]:hover {color:#bcdeff;background:transparent}
+#libraryDialog .library-table-head [data-library-sort="lots"] {white-space:nowrap}
 #libraryDialog .library-table-head [data-library-sort].sorted::after {content:"↑";color:#8bc7ff;font-size:.85rem}
 #libraryDialog .library-table-head [data-library-sort].sorted-desc::after {content:"↓"}
 #libraryDialog .library-table-head [data-library-sort]:focus-visible {outline:2px solid #90caff;outline-offset:3px}

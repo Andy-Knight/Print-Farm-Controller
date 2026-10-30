@@ -1243,6 +1243,17 @@ async function libraryCompactTableSmoke(page,url) {
     });
     if(viewport.desktop){
       assert.ok(geometry.visible,'desktop Print Library retains sortable table header');
+      const lotsHeading=page.locator('#libraryTableHead [data-library-sort="lots"]');
+      for(const direction of ['sorted','sorted sorted-desc']){
+        const fits=await lotsHeading.evaluate((node,direction)=>{
+          const previous=node.className;node.className=direction;
+          const text=document.createRange();text.selectNodeContents(node);
+          const lines=Array.from(text.getClientRects());
+          const fits=lines.length===1&&node.scrollWidth<=node.clientWidth;
+          node.className=previous;return fits;
+        },direction);
+        assert.ok(fits,'Sale lots heading and sort indicator must fit on one line');
+      }
       assert.ok(Math.abs(geometry.page.width-geometry.workspaceWidth)<=2,
         'Print Library page must use the shared sidebar-aware workspace width: '+JSON.stringify({viewport,geometry}));
       assert.ok(Math.abs(geometry.header.width-geometry.page.width)<=2,

@@ -4,6 +4,10 @@ This file contains the version-by-version release history for Print Farm Control
 
 Historical entries describe the behaviour of the controller at the time of that release and may be superseded by later versions. For current installation, configuration and supported-hardware guidance, see [README.md](README.md).
 
+## v0.61.14
+
+- Keep the Print Library Sale lots heading on one line, with room for its sort indicator and matching header/body column widths.
+
 ## v0.61.13
 
 - Show original uploader accounts in a dedicated Print Library column with uploader sorting/search and account, My uploads, legacy and deleted-account filters. Add personal storage usage and administrator account usage totals in both frontend modes.
