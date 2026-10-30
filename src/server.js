@@ -356,7 +356,7 @@ const alertService = new AlertService({
   diagnosticFn:(level, message, meta) => diagnosticLogger[level]?.('alerts', message, meta)
 });
 const reportingService = new ReportingService({ filePath:path.join(runtimePaths.dataDir, 'reporting-history.json') });
-let libraryStorageCache=null,libraryStorageTimer;
+let libraryStorageCache=null,libraryStorageTimer,libraryStorageDirty=false,libraryStorageRefreshing=false;
 async function sampleLibraryStorage(refresh=false){
   return controllerMutations.run('library-storage',async()=>{
     if(!refresh&&libraryStorageCache&&Date.now()-libraryStorageCache.measuredAt<30000)return libraryStorageCache;
@@ -368,7 +368,15 @@ async function sampleLibraryStorage(refresh=false){
   });
 }
 function refreshLibraryStorage(){
-  void sampleLibraryStorage(true).catch(error=>console.warn('Library storage measurement unavailable: '+error.message));
+  libraryStorageDirty=true;
+  if(libraryStorageRefreshing)return;
+  libraryStorageRefreshing=true;
+  // Coalesce upload bursts without losing a change that arrives during a scan.
+  void (async()=>{
+    try{while(libraryStorageDirty){libraryStorageDirty=false;await sampleLibraryStorage(true);}}
+    catch(error){console.warn('Library storage measurement unavailable: '+error.message);}
+    finally{libraryStorageRefreshing=false;}
+  })();
 }
 
 async function handleScheduledBackupResult(result = {}) {

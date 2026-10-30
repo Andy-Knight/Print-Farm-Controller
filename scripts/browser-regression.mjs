@@ -3980,6 +3980,7 @@ async function libraryAccountSmoke({browser,context,page,url,dataDir,captureDir}
     await operatorPage.goto(url+'/reports');
     assert.equal(await operatorPage.locator('#reportingTabLibrary').isVisible(),false);
     await operatorPage.waitForFunction(()=>document.querySelector('#authLibraryStorage')?.textContent.includes('Library 0 B'));
+    await operatorPage.locator('#authLibraryStorage').waitFor({state:'visible'});
     assert.match(await operatorPage.locator('#authLibraryStorage').innerText(),/Library 0 B/);
     console.log('Chromium: library uploader column, filters, quota transfer/audit, role boundary and fallback PASS');
     await page.setViewportSize({width:1280,height:800});await page.evaluate(()=>document.documentElement.dataset.theme='dark');
