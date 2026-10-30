@@ -336,6 +336,7 @@
 
       <div class="reporting-tabs maintenance-view-selector" data-pfc-tabs role="tablist" aria-label="Reports and finance view">
         <button id="reportingTabAnalytics" type="button" class="maintenance-view-button active" data-reporting-tab="analytics" data-pfc-icon="chart" role="tab" aria-selected="true" aria-controls="reportingPanelAnalytics">Analytics</button>
+        <button id="reportingTabLibrary" type="button" class="maintenance-view-button" data-reporting-tab="library" data-pfc-icon="database" role="tab" aria-selected="false" aria-controls="reportingPanelLibrary" tabindex="-1" hidden>Print library</button>
         <button id="reportingTabFilament" type="button" class="maintenance-view-button" data-reporting-tab="filament" data-pfc-icon="spool" role="tab" aria-selected="false" aria-controls="reportingPanelFilament" tabindex="-1">Filament cost catalogue</button>
         <button id="reportingTabPricing" type="button" class="maintenance-view-button" data-reporting-tab="pricing" data-pfc-icon="sliders" role="tab" aria-selected="false" aria-controls="reportingPanelPricing" tabindex="-1">Pricing settings</button>
       </div>
@@ -412,6 +413,15 @@
       </div>
       </section>
 
+      <section id="reportingPanelLibrary" class="reporting-tab-panel" data-reporting-panel="library" role="tabpanel" aria-labelledby="reportingTabLibrary" hidden>
+        <div class="reporting-toolbar">
+          <label>Period<select id="libraryStorageRange"><option value="7">Last 7 days</option><option value="30" selected>Last 30 days</option><option value="90">Last 90 days</option><option value="365">Last 12 months</option></select></label>
+          <button id="libraryStorageRefresh" type="button" class="secondary">Refresh</button>
+        </div>
+        <p id="libraryStorageStatus" class="subtle" role="status"></p>
+        <p id="libraryStorageError" class="error hidden" role="alert"></p>
+        <div id="libraryStorageReport"></div>
+      </section>
       <section id="reportingPanelFilament" class="reporting-tab-panel" data-reporting-panel="filament" role="tabpanel" aria-labelledby="reportingTabFilament" hidden>
         <section class="reporting-section">
           <div class="reporting-section-head">
@@ -1240,7 +1250,6 @@
         <div id="librarySelectionStatus" class="library-selection-status" aria-live="polite">Select a file to enable actions</div>
         <div id="libraryStatus" class="subtle"></div>
         <p id="libraryMyStorage" class="subtle" hidden></p>
-        <details id="libraryAccountStorage" hidden><summary>Storage by account</summary><div id="libraryAccountStorageRows" class="auth-table-scroll"></div></details>
         <div id="libraryError" class="error hidden"></div>
         <div class="library-filter-results"><span id="libraryResultCount" class="subtle" aria-live="polite"></span></div>
         <div id="libraryTableHead" class="library-table-head" aria-label="Sortable Print Library column headings" hidden>

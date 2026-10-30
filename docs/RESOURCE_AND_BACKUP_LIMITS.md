@@ -69,10 +69,23 @@ records; removed accounts show **Deleted account**. Duplicate uploads retain
 the existing original uploader and quota owner.
 
 Each signed-in user sees their file bytes/count against the active allowance.
-Administrators can expand **Storage by account** to see every account, including
-zero-usage, deleted and legacy ownership. Accounting includes retained valid
+The top bar shows each signed-in user's file bytes against their active allowance
+beside their account name. Administrators use **Reports & finance → Print library**
+for a pie chart and account breakdown, including zero-usage, deleted and legacy
+ownership. The library page no longer contains the all-account storage table.
+Accounting includes retained valid
 size/ownership metadata even when an entry is damaged and absent from the normal
 list. Previews/metadata count against installation storage, not logical user bytes.
+
+The storage history graph compares measured library disk bytes with the active
+`PFC_LIBRARY_MAX_BYTES` limit at each observation. Measurements run at startup,
+every five minutes, after upload/deletion/ownership changes and on uncached usage
+requests (a shared cache lasts at most 30 seconds). The latest real observation
+per UTC hour is retained for up to 366 days, capped at 9000 points, in
+`reporting-history.json`; normal backups/restores preserve it. Earlier backups
+without this history start collecting observations on upgrade. Gaps longer than
+90 minutes are left disconnected; no prior growth is inferred from today's files.
+The top bar refreshes after local changes and every minute while visible.
 
 Administrators may select a file and use **Change quota owner** to move its charge
 to an enabled account with enough allowance. This requires explicit confirmation,

@@ -3,6 +3,7 @@ import { UiButton, UiTab } from './components.jsx';
 
 const REPORT_TABS = Object.freeze([
   { key:'analytics', icon:'chart', label:'Analytics', id:'reportingTabAnalytics', panel:'reportingPanelAnalytics' },
+  { key:'library', icon:'database', label:'Print library', id:'reportingTabLibrary', panel:'reportingPanelLibrary' },
   { key:'filament', icon:'spool', label:'Filament cost catalogue', id:'reportingTabFilament', panel:'reportingPanelFilament' },
   { key:'pricing', icon:'sliders', label:'Pricing settings', id:'reportingTabPricing', panel:'reportingPanelPricing' }
 ]);
@@ -11,9 +12,10 @@ function dispatchReportingAction(type, value = '') {
   window.dispatchEvent(new CustomEvent('pfc:reporting-action', { detail:{ type, value } }));
 }
 
-function ReportingTabs({ activeTab }) {
+function ReportingTabs({ activeTab, canViewLibrary }) {
+  const tabs=REPORT_TABS.filter(tab=>tab.key!=='library'||canViewLibrary);
   return <>
-    {REPORT_TABS.map((tab, index) => {
+    {tabs.map((tab, index) => {
       const active = tab.key === activeTab;
       const onKeyDown = (event) => {
         if (!['ArrowLeft','ArrowRight','Home','End'].includes(event.key)) return;
@@ -21,9 +23,9 @@ function ReportingTabs({ activeTab }) {
         const nextIndex = event.key === 'Home'
           ? 0
           : event.key === 'End'
-            ? REPORT_TABS.length - 1
-            : (index + (event.key === 'ArrowRight' ? 1 : -1) + REPORT_TABS.length) % REPORT_TABS.length;
-        const next = REPORT_TABS[nextIndex];
+            ? tabs.length - 1
+            : (index + (event.key === 'ArrowRight' ? 1 : -1) + tabs.length) % tabs.length;
+        const next = tabs[nextIndex];
         dispatchReportingAction('tab', next.key);
         requestAnimationFrame(() => document.querySelector(`[data-reporting-tab="${next.key}"]`)?.focus());
       };
@@ -273,7 +275,8 @@ function FilamentCatalogue({ items, canManage }) {
 
 function normalizeState(detail = {}) {
   return {
-    activeTab:['analytics','filament','pricing'].includes(detail.activeTab) ? detail.activeTab : 'analytics',
+    activeTab:['analytics','library','filament','pricing'].includes(detail.activeTab) ? detail.activeTab : 'analytics',
+    canViewLibrary:detail.canViewLibrary===true,
     kpis:Array.isArray(detail.kpis) ? detail.kpis : [],
     chart:detail.chart || { rows:[], grid:[], labels:[], viewBox:'0 0 760 230', completedPath:'', failedPath:'', cancelledPath:'' },
     printers:Array.isArray(detail.printers) ? detail.printers : [],
@@ -300,10 +303,13 @@ export function initReportingUi() {
   const fileFailuresRoot = document.querySelector('#reportingFileFailures');
   const filamentRoot = document.querySelector('#filamentList');
   if (!tabsRoot || !kpisRoot || !trendRoot || !printersRoot || !filesRoot || !materialsRoot || !fileFailuresRoot || !filamentRoot) return;
+  // The fallback includes all tabs; Preact may omit the admin-only tab.
+  // Remove static children before mounting so a stale fourth tab cannot remain.
+  tabsRoot.replaceChildren();
 
   let state = normalizeState(window.__PFC_REPORTING_UI_STATE__ || {});
   const renderAll = () => {
-    render(<ReportingTabs activeTab={state.activeTab} />, tabsRoot);
+    render(<ReportingTabs activeTab={state.activeTab} canViewLibrary={state.canViewLibrary} />, tabsRoot);
     render(<ReportingKpis items={state.kpis} />, kpisRoot);
     render(<ReportingTrend chart={state.chart} />, trendRoot);
     render(<ProblemPrinters printers={state.printers} hasActivity={state.printerActivity} />, printersRoot);

@@ -2991,9 +2991,24 @@ button.library-file-preview { cursor:zoom-in; }
 .reporting-shell { padding:22px; max-height:calc(100vh - 32px); overflow:auto; }
 .reporting-head { margin-bottom:8px; }
 .reporting-tabs.maintenance-view-selector {
-  grid-template-columns:repeat(3,minmax(0,1fr));
+  grid-template-columns:repeat(auto-fit,minmax(160px,1fr));
   margin-bottom:12px;
 }
+.reporting-tabs [hidden]{display:none!important;}
+.library-storage-breakdown{display:grid;grid-template-columns:minmax(180px,260px) minmax(0,1fr);gap:24px;align-items:center;min-width:0;}
+.library-storage-pie{display:block;width:100%;max-width:260px;margin:auto;}
+.library-storage-pie :focus-visible{outline:none;stroke:var(--ds-text);stroke-width:3px;}
+.library-storage-total{font-size:var(--ds-font-lg);color:var(--ds-text);}
+.library-storage-total strong{color:var(--ds-brand);}
+#libraryStorageReport{padding-bottom:28px;min-width:0;}
+#libraryStorageReport .reporting-table-content{min-width:0;overflow:auto;}
+#libraryStorageReport .reporting-legend-dot{display:inline-block;}
+#libraryStorageReport .auth-users-table td{text-align:right;}
+.reporting-series.library-used{stroke:var(--ds-brand);}
+.reporting-series.library-limit{stroke:var(--ds-warning,#c48c28);stroke-dasharray:6 4;}
+.library-storage-point,.reporting-legend-dot.library-used{fill:var(--ds-brand);background:var(--ds-brand);}
+.reporting-legend-dot.library-limit{background:var(--ds-warning,#c48c28);}
+@media(max-width:760px){.library-storage-breakdown{grid-template-columns:minmax(0,1fr);gap:16px;}}
 .reporting-tab-panel[hidden] { display:none !important; }
 /* The Analytics page needs a small scrollable gutter beneath its last
    failure-analysis card so the bottom border never sits against the viewport.

@@ -108,6 +108,8 @@ for (const [method, path] of [
 write('DELETE','/api/queue/history',P.QUEUE_HISTORY_PURGE);
 
 read('/api/library',P.LIBRARY_READ);
+read('/api/library/storage',P.LIBRARY_READ);
+read('/api/reports/library',P.USER_MANAGE);
 read('/api/library/readiness',P.LIBRARY_READ);
 write('POST','/api/library',P.LIBRARY_MANAGE);
 read('/api/library/pricing',P.LIBRARY_READ);

@@ -1,4 +1,23 @@
+import {renderStorageReport} from './library-storage-report.js';
 const reportsBtn = document.querySelector('#reportsBtn');
+const canViewLibraryStorage=()=>document.body.dataset.authRole==='administrator';
+let libraryStorageRequest=0,libraryStorageLoading=false;
+async function loadLibraryStorage(){
+  if(!canViewLibraryStorage()||libraryStorageLoading)return;
+  const id=++libraryStorageRequest,button=document.querySelector('#libraryStorageRefresh');
+  const error=document.querySelector('#libraryStorageError'),status=document.querySelector('#libraryStorageStatus');
+  libraryStorageLoading=true;button.disabled=true;error.textContent='';error.classList.add('hidden');status.textContent='Loading library storage…';
+  try{
+    const report=await requestJson('/api/reports/library');
+    if(id!==libraryStorageRequest)return;
+    document.querySelector('#libraryStorageReport').innerHTML=renderStorageReport(report,Number(document.querySelector('#libraryStorageRange').value));
+    status.textContent='Current account usage and observed library capacity.';
+  }catch(problem){error.textContent=problem.message;error.classList.remove('hidden');status.textContent='Could not refresh library storage. Previously displayed measurements may be out of date.';}
+  finally{libraryStorageLoading=false;button.disabled=false;}
+}
+document.querySelector('#libraryStorageRefresh')?.addEventListener('click',loadLibraryStorage);
+document.querySelector('#libraryStorageRange')?.addEventListener('change',loadLibraryStorage);
+setInterval(()=>{if(activeReportingTab==='library'&&!document.hidden&&!reportingDialog.hidden)void loadLibraryStorage();},60000);
 const topbarOverflow = document.querySelector('#topbarOverflow');
 const reportingDialog = document.querySelector('#reportingDialog');
 const reportingRange = document.querySelector('#reportingRange');
@@ -612,6 +631,7 @@ function publishReportingUiState(report = currentReport || {}) {
   if (!window.__PFC_PREACT_REPORTING__) return;
   const detail = {
     activeTab:activeReportingTab,
+    canViewLibrary:canViewLibraryStorage(),
     kpis:reportingKpiViewModel(report),
     chart:lineChartViewModel(report?.daily || [], report?.range),
     printers:reportingPrintersViewModel(report?.printers || []),
@@ -900,12 +920,13 @@ function renderFilamentCatalogue() {
 }
 
 function activateReportingTab(name, focus = false) {
-  const selectedName = ['analytics','filament','pricing'].includes(name) ? name : 'analytics';
+  const selectedName = ['analytics','library','filament','pricing'].includes(name)&&(name!=='library'||canViewLibraryStorage()) ? name : 'analytics';
   activeReportingTab = selectedName;
 
   if (!window.__PFC_PREACT_REPORTING__) {
     const tabs = Array.from(document.querySelectorAll('[data-reporting-tab]'));
     for (const tab of tabs) {
+      if(tab.dataset.reportingTab==='library')tab.hidden=!canViewLibraryStorage();
       const active = tab.dataset.reportingTab === selectedName;
       tab.classList.toggle('active', active);
       tab.setAttribute('aria-selected', active ? 'true' : 'false');
@@ -918,6 +939,7 @@ function activateReportingTab(name, focus = false) {
   }
   if (window.__PFC_PREACT_REPORTING__) publishReportingUiState(currentReport || {});
   if (selectedName === 'pricing') void loadReportingPricingSettings();
+  if (selectedName === 'library') void loadLibraryStorage();
   if (focus) document.querySelector(`[data-reporting-tab="${selectedName}"]`)?.focus();
 }
 
@@ -932,15 +954,16 @@ if (!window.__PFC_PREACT_REPORTING__) {
     tab.addEventListener('keydown', (event) => {
       if (!['ArrowLeft','ArrowRight','Home','End'].includes(event.key)) return;
       event.preventDefault();
-      const currentIndex = reportingTabs.indexOf(tab);
+      const visibleTabs=reportingTabs.filter(item=>!item.hidden);
+      const currentIndex = visibleTabs.indexOf(tab);
       const nextIndex = event.key === 'Home'
         ? 0
         : event.key === 'End'
-          ? reportingTabs.length - 1
+          ? visibleTabs.length - 1
           : event.key === 'ArrowRight'
-            ? (currentIndex + 1) % reportingTabs.length
-            : (currentIndex - 1 + reportingTabs.length) % reportingTabs.length;
-      activateReportingTab(reportingTabs[nextIndex]?.dataset.reportingTab, true);
+            ? (currentIndex + 1) % visibleTabs.length
+            : (currentIndex - 1 + visibleTabs.length) % visibleTabs.length;
+      activateReportingTab(visibleTabs[nextIndex]?.dataset.reportingTab, true);
     });
   }
 }

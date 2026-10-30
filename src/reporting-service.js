@@ -129,7 +129,10 @@ export class ReportingService {
     }
     return {
       version:1,
-      records:parsed.records.map((record) => compactRecord(record)).filter(Boolean)
+      records:parsed.records.map((record) => compactRecord(record)).filter(Boolean),
+      libraryStorage:(Array.isArray(parsed.libraryStorage)?parsed.libraryStorage:[])
+        .filter(point=>validDate(point?.at)!=null&&Number.isSafeInteger(point.bytes)&&point.bytes>=0&&Number.isSafeInteger(point.limit)&&point.limit>0)
+        .map(({at,bytes,limit})=>({at:new Date(at).toISOString(),bytes,limit})).slice(-9000)
     };
   }
 
@@ -173,6 +176,31 @@ export class ReportingService {
   async getRecords() {
     await this.init();
     return clone((await this.load()).records);
+  }
+
+  async recordLibraryStorage({bytes,limit,at=new Date().toISOString()}) {
+    if(validDate(at)==null||!Number.isSafeInteger(bytes)||bytes<0||!Number.isSafeInteger(limit)||limit<1)
+      throw new Error('Library storage measurement is invalid');
+    at=new Date(at).toISOString();
+    await this.init();
+    return this.mutations.run('history',async()=>{
+      const store=await this.load();
+      const cutoff=new Date(at).getTime()-366*86400000;
+      const points=store.libraryStorage.filter(point=>new Date(point.at).getTime()>=cutoff);
+      const previous=points.at(-1);
+      if(previous&&new Date(previous.at)>new Date(at))return;
+      // Keep the latest real observation per UTC hour, bounded to one year.
+      if(previous&&previous.at.slice(0,13)===at.slice(0,13)){
+        if(previous.bytes===bytes&&previous.limit===limit)return;
+        points.pop();
+      }
+      points.push({at:new Date(at).toISOString(),bytes,limit});
+      store.libraryStorage=points.slice(-9000);await this.save(store);
+    });
+  }
+
+  async getLibraryStorageHistory(){
+    await this.init();return clone((await this.load()).libraryStorage);
   }
 
   async getPreviousPeriodTotals({ from = null, to = null, printerIds = null } = {}) {

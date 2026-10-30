@@ -818,11 +818,7 @@
   .library-sundry-row > button {grid-column:1/-1}
 }
 #libraryDialog .library-uploader-cell{min-width:0;overflow-wrap:anywhere;font-size:.77rem;color:var(--ds-text-muted);}
-#libraryMyStorage[hidden],#libraryAccountStorage[hidden],#libraryOwnerSelectedBtn[hidden]{display:none!important;}
-#libraryAccountStorage{margin:8px 0;}
-#libraryAccountStorage summary{cursor:pointer;color:var(--ds-text-muted);font-size:var(--ds-font-sm);}
-#libraryAccountStorage,#libraryAccountStorageRows{min-width:0;max-width:100%;}
-#libraryAccountStorageRows{max-height:250px;overflow:auto;}
+#libraryMyStorage[hidden],#libraryOwnerSelectedBtn[hidden]{display:none!important;}
 #libraryOwnerDialog{max-width:min(620px,calc(100vw - 28px));max-height:85vh;overflow:auto;}
 @media(max-width:1350px){
  #libraryDialog .library-toolbar .library-action-toolbar{flex:1 1 100%;max-width:100%;padding-left:0;border-left:0;}
@@ -835,7 +831,7 @@
 
 /* Expanded account/filter panels may exceed one viewport. Keep results
    reachable with normal page scrolling and a bounded inner result region. */
-#libraryDialog:has(#libraryAdvancedFilters[open],#libraryAccountStorage[open]) > .queue-shell{max-height:none;}
-#libraryDialog:has(#libraryAdvancedFilters[open],#libraryAccountStorage[open]) .library-list{min-height:160px;max-height:70dvh;}
+#libraryDialog:has(#libraryAdvancedFilters[open]) > .queue-shell{max-height:none;}
+#libraryDialog:has(#libraryAdvancedFilters[open]) .library-list{min-height:160px;max-height:70dvh;}
 
 @media(max-width:700px){#libraryDialog .library-toolbar .library-search{flex:0 0 auto;width:100%;min-width:0;align-self:stretch;}}

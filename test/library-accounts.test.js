@@ -59,12 +59,17 @@ test('quota transfers preserve original upload attribution, enforce capacity and
   const {createBackupArchive}=await import('../src/backup-recovery/backup-service.js');
   const {stageRestoreBackup,activatePendingRestore,commitActivatedRestore}=await import('../src/backup-recovery/restore-service.js');
   const backup=path.join(root,'ownership.pfcbackup'),target=path.join(root,'target');
+  const {ReportingService}=await import('../src/reporting-service.js');
+  const reports=new ReportingService({filePath:path.join(root,'reporting-history.json')});
+  await reports.recordLibraryStorage({bytes:123,limit:1000,at:'2026-10-30T12:00:00.000Z'});
   await createBackupArchive({destinationPath:backup,dataDir:root,applicationDir:root,licensePath:path.join(root,'no-license.json'),controllerVersion:'0.61.13'});
   await fs.mkdir(target);const licensePath=path.join(target,'license.json');
   await stageRestoreBackup(backup,{dataDir:target,licensePath,currentControllerVersion:'0.61.13'});
   const transaction=await activatePendingRestore({dataDir:target,licensePath});await commitActivatedRestore(transaction);
   const restored=JSON.parse(await fs.readFile(path.join(target,'print-library',first.id,'metadata.json'),'utf8'));
   assert.equal(restored.uploadedById,'one');assert.equal(restored.ownerId,'one');assert.deepEqual(restored.ownershipHistory,bounded);
+  const restoredReports=new ReportingService({filePath:path.join(target,'reporting-history.json')});
+  assert.deepEqual(await restoredReports.getLibraryStorageHistory(),[{at:'2026-10-30T12:00:00.000Z',bytes:123,limit:1000}]);
   // Pause a real metadata read after it sees the old owner. A later preview
   // cache write must not restore that stale owner or discard its audit record.
   const uncached=JSON.parse(await fs.readFile(firstMetadataPath,'utf8'));uncached.preview=null;

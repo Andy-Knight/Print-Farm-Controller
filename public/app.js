@@ -4036,10 +4036,6 @@ function renderLibraryStorage(){
   const storage=libraryState.storage,mine=document.querySelector('#libraryMyStorage');
   mine.hidden=!storage?.mine;
   if(storage?.mine)mine.textContent=`Storage charged to your account: ${formatBytes(storage.mine.bytes)} / ${formatBytes(storage.mine.limit)} · ${storage.mine.files} file${storage.mine.files===1?'':'s'}`;
-  const panel=document.querySelector('#libraryAccountStorage'),rows=document.querySelector('#libraryAccountStorageRows');
-  panel.hidden=!Array.isArray(storage?.accounts);
-  if(!panel.hidden)rows.innerHTML='<table class="auth-users-table"><thead><tr><th>Account</th><th>Files</th><th>Used</th><th>Allowance</th></tr></thead><tbody>'
-    +storage.accounts.map(account=>`<tr><th scope="row">${escapeHtml(account.label)}</th><td>${account.files}</td><td>${escapeHtml(formatBytes(account.bytes))}</td><td>${account.limit?escapeHtml(formatBytes(account.limit)):'Overall limit only'}</td></tr>`).join('')+'</tbody></table>';
 }
 
 function libraryFilters() {

@@ -1,6 +1,7 @@
 import {StreamAdmission} from './security/stream-admission.js';
 import {libraryAccountPresentation} from './library-accounts.js';
-import {libraryOwnershipInventory,libraryOwnershipHistory,reassignLibraryOwner} from './print-library.js';
+import {libraryOwnershipInventory,libraryOwnershipHistory,reassignLibraryOwner,libraryStorageInventory} from './print-library.js';
+import {configuredLimit} from './security/resource-limits.js';
 import {ResourceLimitSettings} from './security/resource-limit-settings.js';
 import {withOperationBudget,cancelActiveOperations} from './security/operation-budget.js';
 const streamAdmission=new StreamAdmission();
@@ -355,6 +356,20 @@ const alertService = new AlertService({
   diagnosticFn:(level, message, meta) => diagnosticLogger[level]?.('alerts', message, meta)
 });
 const reportingService = new ReportingService({ filePath:path.join(runtimePaths.dataDir, 'reporting-history.json') });
+let libraryStorageCache=null,libraryStorageTimer;
+async function sampleLibraryStorage(refresh=false){
+  return controllerMutations.run('library-storage',async()=>{
+    if(!refresh&&libraryStorageCache&&Date.now()-libraryStorageCache.measuredAt<30000)return libraryStorageCache;
+    const inventory=await libraryStorageInventory();
+    const limit=configuredLimit('PFC_LIBRARY_MAX_BYTES',50*1024**3);
+    const at=new Date().toISOString();
+    await reportingService.recordLibraryStorage({bytes:inventory.bytes,limit,at});
+    libraryStorageCache={...inventory,limit,at,measuredAt:Date.now()};return libraryStorageCache;
+  });
+}
+function refreshLibraryStorage(){
+  void sampleLibraryStorage(true).catch(error=>console.warn('Library storage measurement unavailable: '+error.message));
+}
 
 async function handleScheduledBackupResult(result = {}) {
   if (result?.skipped || typeof result?.success !== 'boolean') return;
@@ -1656,6 +1671,20 @@ async function apiRoute(req, res, url) {
     return json(res, 405, { error:'Notification destination operation is not supported' });
   }
 
+  if (req.method === 'GET' && url.pathname === '/api/library/storage') {
+    const snapshot=await sampleLibraryStorage();
+    const id=req.pfcUser?.id;
+    return json(res,200,{mine:id?{bytes:snapshot.usage.get(id)?.bytes||0,
+      limit:configuredLimit('PFC_LIBRARY_MAX_USER_BYTES',10*1024**3)}:null});
+  }
+  if (req.method === 'GET' && url.pathname === '/api/reports/library') {
+    await controllerAuth.assertAdministrator(req);
+    const snapshot=await sampleLibraryStorage();
+    const accounts=await controllerAuth.libraryAccounts();
+    const presentation=libraryAccountPresentation({files:[],usage:snapshot.usage,accounts,currentUser:req.pfcUser});
+    return json(res,200,{at:snapshot.at,bytes:snapshot.bytes,limit:snapshot.limit,
+      accounts:presentation.storage.accounts,history:await reportingService.getLibraryStorageHistory()});
+  }
   if (req.method === 'GET' && url.pathname === '/api/reports') {
     const from = url.searchParams.get('from') || null;
     const to = url.searchParams.get('to') || null;
@@ -1784,6 +1813,7 @@ async function apiRoute(req, res, url) {
     const stagedUpload = await stageUploadRequest(req, req.headers['x-file-name']);
     try {
       const file = await controllerMutations.run('library-queue', () => addLibraryFile(stagedUpload.filePath, stagedUpload.fileName,{ownerId:req.pfcUser?.id||'local'}));
+      refreshLibraryStorage();
       return json(res, file.duplicate ? 200 : 201, { file });
     } finally {
       await stagedUpload.cleanup().catch(() => {});
@@ -1800,6 +1830,7 @@ async function apiRoute(req, res, url) {
     const accounts=await controllerAuth.libraryAccounts();
     if(!accounts.some(account=>account.id===body.ownerId&&!account.disabled))throw Object.assign(new Error('Choose an enabled account.'),{statusCode:400});
     const file=await controllerMutations.run('library-queue',()=>reassignLibraryOwner(fileId,body.ownerId,administrator.id));
+    refreshLibraryStorage();
     return json(res,200,{file});
   }
   const libraryPreviewMatch = url.pathname.match(/^\/api\/library\/([^/]+)\/preview$/);
@@ -1842,6 +1873,7 @@ async function apiRoute(req, res, url) {
       }
       await removeLibraryFile(fileId);
     });
+    refreshLibraryStorage();
     return json(res, 200, { ok:true });
   }
 
@@ -1850,6 +1882,7 @@ async function apiRoute(req, res, url) {
     const stagedUpload = await stageUploadRequest(req, req.headers['x-file-name']);
     try {
       const stagedFile = await controllerMutations.run('library-queue', () => addLibraryFile(stagedUpload.filePath, stagedUpload.fileName,{ownerId:req.pfcUser?.id||'local'}));
+      refreshLibraryStorage();
       return json(res, stagedFile.duplicate ? 200 : 201, { stagedFile });
     } finally {
       await stagedUpload.cleanup().catch(() => {});
@@ -2784,6 +2817,7 @@ async function handleControllerRequest(req, res) {
 }
 
 async function shutdown() {
+  clearInterval(libraryStorageTimer);
   await diagnosticLogger.info('controller', 'Controller shutdown requested').catch(() => {});
   memoryMonitor.stop();
   try { await chamberPreheat.stopAll({ reason: 'controller-shutdown', turnOff: true }); } catch {}
@@ -2980,6 +3014,8 @@ async function startController() {
     await maintenanceService.start();
     await alertEventBridge.start();
     await reportingService.init();
+    await sampleLibraryStorage(true).catch(error=>console.warn('Library storage measurement unavailable: '+error.message));
+    libraryStorageTimer=setInterval(refreshLibraryStorage,5*60*1000);libraryStorageTimer.unref();
     await printQueue.start();
     chamberPreheat.startService();
     const tlsOptions = await controllerTls.init();
