@@ -357,6 +357,7 @@ export class ControllerAuth {
     }
     return identity.user;
   }
+  async libraryAccounts(){return (await this.#accounts.listUsers()).map(({id,displayName,disabled})=>({id,displayName,disabled}));}
   /** Refuse all unknown controller API actions even to administrators. */
   async authorize(req,res,url,{json}){
     if(!this.#enabled){

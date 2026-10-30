@@ -1,4 +1,5 @@
-import {requireLibraryCapacity} from './security/library-quota.js';
+import {requireLibraryCapacity,readLibraryOwnerUsage} from './security/library-quota.js';
+import {configuredLimit,resourceError} from './security/resource-limits.js';
 import crypto from 'node:crypto';
 import { createReadStream, promises as fs } from 'node:fs';
 import path from 'node:path';
@@ -203,6 +204,8 @@ function normalizeMetadata(metadata) {
   const addedAt = metadata.addedAt || metadata.stagedAt || null;
   return {
     id: metadata.id,
+    ownerId:metadata.ownerId||null,
+    uploadedById:Object.hasOwn(metadata,'uploadedById')?metadata.uploadedById:metadata.ownerId||null,
     fileName: metadata.fileName,
     size: Number(metadata.size || 0),
     sha256: metadata.sha256 || null,
@@ -223,8 +226,18 @@ function normalizeMetadata(metadata) {
   };
 }
 
-async function readMetadata(directory, expectedId = null) {
-  const metadata = JSON.parse(await fs.readFile(path.join(directory, META_FILE), 'utf8'));
+async function saveDerivedMetadata(directory,patch,catalogLocked){
+  const save=async()=>{
+    // A preview/requirements read may have started before an ownership transfer
+    // or edit. Merge derived fields into the latest record under the same lock.
+    const latest=JSON.parse(await fs.readFile(path.join(directory,META_FILE),'utf8'));
+    const updated={...latest,...patch};await writeMetadata(directory,updated);return updated;
+  };
+  return catalogLocked?save():libraryMutations.run('catalog',save);
+}
+
+async function readMetadata(directory, expectedId = null, catalogLocked=false) {
+  let metadata = JSON.parse(await fs.readFile(path.join(directory, META_FILE), 'utf8'));
   if (expectedId && metadata.id !== expectedId) throw new Error('Print library metadata is invalid');
   const fileName = validateUploadFilename(metadata.fileName);
   const filePath = path.join(directory, fileName);
@@ -244,7 +257,7 @@ async function readMetadata(directory, expectedId = null) {
       const refreshed = await readFilePrintRequirements(filePath);
       metadata.requirements = { ...refreshed, fileName };
       metadata.updatedAt = new Date().toISOString();
-      await writeMetadata(directory, metadata);
+      metadata=await saveDerivedMetadata(directory,{requirements:metadata.requirements,updatedAt:metadata.updatedAt},catalogLocked);
     } catch {
       // Preserve the existing compatibility metadata if the historical file
       // cannot be reparsed. Reporting will show usage/cost as unavailable.
@@ -257,12 +270,12 @@ async function readMetadata(directory, expectedId = null) {
       checkedAt:new Date().toISOString(),
       source:null
     }));
-    await writeMetadata(directory, metadata);
+    metadata=await saveDerivedMetadata(directory,{preview:metadata.preview},catalogLocked);
   }
   return { ...normalizeMetadata(metadata), filePath };
 }
 
-export async function listLibraryFiles() {
+export async function listLibraryFiles({catalogLocked=false}={}) {
   await ensureRoot();
   const entries = await fs.readdir(ROOT, { withFileTypes:true });
   // Bounded concurrent metadata reads avoid N serial filesystem round trips
@@ -275,7 +288,7 @@ export async function listLibraryFiles() {
     while(next < directories.length) {
       const entry = directories[next++];
       try {
-        files.push(normalizeMetadata(await readMetadata(path.join(ROOT,entry.name),entry.name)));
+        files.push(normalizeMetadata(await readMetadata(path.join(ROOT,entry.name),entry.name,catalogLocked)));
       } catch {
         // A damaged entry is ignored but remains on disk for recovery.
       }
@@ -299,7 +312,7 @@ export async function addLibraryFile(sourcePath, rawFileName, { description = ''
   if (!sourceStat.isFile() || !sourceStat.size) throw new Error('Print library file is empty');
 
   const sourceHash = await sha256File(sourcePath);
-  const existing = (await listLibraryFiles()).find((file) => file.sha256 === sourceHash && Number(file.size) === sourceStat.size);
+  const existing = (await listLibraryFiles({catalogLocked:true})).find((file) => file.sha256 === sourceHash && Number(file.size) === sourceStat.size);
   if (existing) return { ...existing, duplicate:true };
 
   await requireLibraryCapacity(ROOT,sourceStat.size,{ownerId,overheadBytes:9*1024**2});
@@ -323,6 +336,7 @@ export async function addLibraryFile(sourcePath, rawFileName, { description = ''
       fileName,
       size: sourceStat.size,
       ownerId,
+      uploadedById:ownerId==='local'?null:ownerId,
       sha256: sourceHash,
       description: cleanDescription,
       category:'',
@@ -351,6 +365,39 @@ export async function getLibraryFile(id) {
   await ensureRoot();
   const normalizedId = safeId(id);
   return readMetadata(path.join(ROOT, normalizedId), normalizedId);
+}
+
+export async function libraryOwnershipInventory(){
+  return libraryMutations.run('catalog',async()=>{
+    await ensureRoot();
+    return {files:await listLibraryFiles({catalogLocked:true}),usage:await readLibraryOwnerUsage(ROOT)};
+  });
+}
+
+export async function libraryOwnershipHistory(id){
+  await ensureRoot();const normalizedId=safeId(id);
+  const metadata=JSON.parse(await fs.readFile(path.join(ROOT,normalizedId,META_FILE),'utf8'));
+  if(metadata.id!==normalizedId)throw new Error('Print library metadata is invalid');
+  return (metadata.ownershipHistory||[]).slice(-100);
+}
+
+export async function reassignLibraryOwner(id,ownerId,actorId){
+  return libraryMutations.run('catalog',async()=>{
+    await ensureRoot();const normalizedId=safeId(id),directory=path.join(ROOT,normalizedId);
+    const metadata=JSON.parse(await fs.readFile(path.join(directory,META_FILE),'utf8'));
+    if(metadata.id!==normalizedId)throw new Error('Print library metadata is invalid');
+    if(metadata.ownerId===ownerId)return normalizeMetadata(metadata);
+    const size=Number(metadata.size),usage=await readLibraryOwnerUsage(ROOT);
+    if(!Number.isSafeInteger(size)||size<0)throw new Error('Print library file size is invalid');
+    if((usage.get(ownerId)?.bytes||0)+size>configuredLimit('PFC_LIBRARY_MAX_USER_BYTES',10*1024**3))
+      throw resourceError('The target account does not have enough library allowance.',507);
+    const previous=metadata.ownerId||null;
+    if(!Object.hasOwn(metadata,'uploadedById'))metadata.uploadedById=previous==='local'?null:previous;
+    metadata.ownerId=ownerId;metadata.updatedAt=new Date().toISOString();
+    metadata.ownershipHistory=[...(metadata.ownershipHistory||[]).slice(-99),{at:metadata.updatedAt,actorId,from:previous,to:ownerId}];
+    await writeMetadata(directory,metadata);
+    return normalizeMetadata(metadata);
+  });
 }
 
 export async function getLibraryPreview(id) {

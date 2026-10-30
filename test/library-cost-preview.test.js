@@ -92,7 +92,7 @@ test('Print Library API and both UI renderers expose a clearly-labelled per-prin
   const css=root('public/print-library-polish.css');
   const html=root('public/index.html');
   assert.match(server,/await estimateLibraryFileCosts\(filesWithUsage\)/);
-  assert.match(server,/const filesWithUsage = \(await listLibraryFiles\(\)\)/);
+  assert.match(server,/const filesWithUsage = accountView\.files/);
   assert.match(app,/function libraryCostView\(file\)/);
   assert.match(app,/NumberFormat\('en-GB'/);
   assert.match(app,/costEstimate/);

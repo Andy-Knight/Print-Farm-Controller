@@ -191,6 +191,7 @@ pattern(['PATCH','DELETE'],/^\/api\/alerts\/destinations\/[^/]+$/,P.ALERT_MANAGE
 pattern(['POST'],/^\/api\/alerts\/destinations\/[^/]+\/test$/,P.ALERT_MANAGE);
 pattern(['PATCH','DELETE'],/^\/api\/filaments\/[^/]+$/,P.FILAMENT_MANAGE);
 pattern(['GET'],/^\/api\/library\/[^/]+\/preview$/,P.LIBRARY_READ);
+pattern(['GET','PUT'],/^\/api\/library\/[^/]+\/ownership$/,P.USER_MANAGE);
 pattern(['PATCH'],/^\/api\/library\/[^/]+$/,P.LIBRARY_MANAGE);
 pattern(['DELETE'],/^\/api\/library\/[^/]+$/,P.LIBRARY_DELETE);
 pattern(['DELETE'],/^\/api\/queue\/stage\/[^/]+$/,P.QUEUE_MANAGE);

@@ -4,6 +4,11 @@ This file contains the version-by-version release history for Print Farm Control
 
 Historical entries describe the behaviour of the controller at the time of that release and may be superseded by later versions. For current installation, configuration and supported-hardware guidance, see [README.md](README.md).
 
+## v0.61.13
+
+- Show original uploader accounts in a dedicated Print Library column with uploader sorting/search and account, My uploads, legacy and deleted-account filters. Add personal storage usage and administrator account usage totals in both frontend modes.
+- Separate original attribution from quota ownership. Add administrator-only, capacity-checked ownership transfers with explicit confirmation and a bounded persistent per-file audit history, preserving attribution across duplicate uploads, edits, concurrent preview refreshes and restores.
+
 ## v0.61.12
 
 - Build the Windows installer in CI and retain its checksum/source metadata as an artifact. After main-branch validation and the multi-architecture image build, prepare an unpublished versioned GitHub Release draft for maintainer review.

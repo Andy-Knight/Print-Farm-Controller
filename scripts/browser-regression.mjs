@@ -1252,14 +1252,14 @@ async function libraryCompactTableSmoke(page,url) {
       if(viewport.width===1920)
         assert.ok(geometry.header.width>1400,
           'wide desktops must not inherit the obsolete 1300px library-only cap');
-      assert.equal(geometry.headings.length,9);
-      assert.equal(geometry.cells.length,9);
-      const saleTrack=geometry.headings[7],historyTrack=geometry.headings[8];
+      assert.equal(geometry.headings.length,10);
+      assert.equal(geometry.cells.length,10);
+      const saleTrack=geometry.headings[8],historyTrack=geometry.headings[9];
       assert.ok(saleTrack.width<=180&&historyTrack.width<=160,
         'sale and history columns must not reserve large empty gaps: '+JSON.stringify({saleTrack,historyTrack,viewport}));
       assert.ok(Math.abs(geometry.history.left-geometry.sale.right)<=14,
         'price and history columns should be tightly adjacent');
-      for(let col=0;col<9;col++){
+      for(let col=0;col<10;col++){
         assert.ok(Math.abs(geometry.headings[col].left-geometry.cells[col].left)<=8,
           'table heading/body tracks must stay aligned at column '+col);
       }
@@ -1309,7 +1309,7 @@ async function librarySelectionSmoke(page,url,{mutateFixture = true} = {}) {
   assert.equal((await page.locator('#libraryTableHead [data-library-sort="salePrice"]').textContent()).trim(),'Min. sell price');
   assert.equal(await page.locator('#libraryTableHead [data-library-sort="salePrice"]').getAttribute('aria-label'),
     'Sort by minimum sell price per lot');
-  assert.equal(await page.locator('#libraryTableHead > *').count(),9);
+  assert.equal(await page.locator('#libraryTableHead > *').count(),10);
   assert.equal(await page.locator('#libraryList .library-file-row').first()
     .locator('.library-lots-cell').count(),1);
   assert.equal(await page.locator('#libraryList .library-file-row').first()
@@ -1486,7 +1486,7 @@ async function librarySelectionSmoke(page,url,{mutateFixture = true} = {}) {
       };
     });
     assert.equal(dimensions.display,'grid');
-    assert.equal(dimensions.columns.split(' ').length,9,'desktop library has nine aligned columns');
+    assert.equal(dimensions.columns.split(' ').length,10,'desktop library has ten aligned columns');
     const tracks=(value)=>value.split(' ').map(parseFloat);
     const headTracks=tracks(dimensions.headerColumns);
     const rowTracks=tracks(dimensions.columns);
@@ -1871,8 +1871,8 @@ async function libraryScrollingSmoke(page,url) {
       assert.equal(await unknownRow.locator('.library-sale-value').innerText(),'Unavailable',
         'unknown filament costs must never create a fabricated price');
       if(viewport.desktop) {
-        assert.equal(await page.locator('#libraryTableHead > *').count(),9);
-        assert.equal(await firstRow.locator('.library-cell').count(),9);
+        assert.equal(await page.locator('#libraryTableHead > *').count(),10);
+        assert.equal(await firstRow.locator('.library-cell').count(),10);
       } else {
         assert.equal(await firstRow.locator('.library-lots-cell .library-cell-label').innerText(),'Sale lots');
         assert.equal(await firstRow.locator('.library-sale-cell .library-cell-label').innerText(),'Min. sell price');
@@ -3873,6 +3873,87 @@ async function simulatorSseSmoke(browser,url) {
 
 // Authentication is a separate isolated controller: never enrol real-user or
 // shared-browser test installations as a side effect of the visual suite.
+async function libraryAccountSmoke({browser,context,page,url,dataDir,captureDir}){
+  const operator=await browser.newContext();
+  try{
+    const login=await operator.request.post(url+'/api/auth/login',{headers:{origin:url},data:{username:'shopoperator',password:'Shop operator password 2026'}});
+    assert.equal(login.status(),200);const credentials=await login.json();
+    const upload=async(name,content)=>{
+      const response=await operator.request.post(url+'/api/library',{headers:{origin:url,'x-pfc-csrf':credentials.csrf,'x-file-name':name,'content-type':'application/octet-stream'},data:content});
+      assert.ok([200,201].includes(response.status()));return (await response.json()).file;
+    };
+    const first=await upload('account-owner.gcode','; account owner\nG1 X1\n');
+    for(const [name,id] of [['legacy-owner.gcode',null],['deleted-owner.gcode','11111111-1111-4111-8111-111111111111']]){
+      const item=await upload(name,'; '+name+'\nG1 X2\n');
+      const metadataPath=path.join(dataDir,'print-library',item.id,'metadata.json');
+      const metadata=JSON.parse(await fs.readFile(metadataPath,'utf8'));metadata.ownerId=id;metadata.uploadedById=id;
+      await fs.writeFile(metadataPath,JSON.stringify(metadata));
+    }
+    await page.goto(url+'/library');
+    const row=page.locator(`[data-library-file="${first.id}"]`);
+    await row.waitFor();assert.equal(await row.locator('.library-uploader-cell').innerText(),'Uploaded by\nShop operator');
+    assert.equal(await page.locator('#libraryAccountStorage').isVisible(),true);
+    await page.locator('#libraryAdvancedFilters').evaluate(element=>element.open=true);
+    await page.locator('#libraryUploaderFilter').selectOption('mine');
+    assert.equal(await page.locator('[data-library-file]').count(),0);
+    await page.locator('#libraryUploaderFilter').selectOption('legacy');
+    assert.equal(await page.locator('[data-library-file]').count(),1);
+    assert.match(await page.locator('.library-uploader-cell').innerText(),/Unknown \/ legacy/);
+    await page.locator('#libraryUploaderFilter').selectOption('deleted');
+    assert.match(await page.locator('.library-uploader-cell').innerText(),/Deleted account/);
+    await page.locator('#libraryUploaderFilter').selectOption('');
+    await row.locator('[data-library-select]').click();await page.locator('#libraryOwnerSelectedBtn').click();
+    const administrator=await page.evaluate(async()=> (await (await window.fetch('/api/auth/session')).json()).user);
+    await page.locator('#libraryOwnerTarget').selectOption(administrator.id);await page.locator('#libraryOwnerConfirm').check();
+    const saved=page.waitForResponse(response=>response.request().method()==='PUT'&&response.url().endsWith('/ownership'));
+    await page.locator('#libraryOwnerForm button[type=submit]').click();assert.equal((await saved).status(),200);
+    await page.locator('#libraryOwnerDialog').waitFor({state:'hidden'});
+    await page.waitForFunction(()=>document.querySelector('#libraryMyStorage')?.textContent.includes('1 file'));
+    assert.match(await row.locator('.library-uploader-cell').innerText(),/Shop operator/);
+    await page.locator('#libraryOwnerSelectedBtn').click();
+    await page.waitForFunction(()=>document.querySelector('#libraryOwnerHistory')?.textContent.includes('Changed by Owner'));
+    await page.locator('#libraryOwnerCancel').click();
+    await upload('duplicate.gcode','; account owner\nG1 X1\n');
+    await page.locator('#libraryAccountStorage').evaluate(element=>element.open=true);
+    for(const theme of ['dark','light']){
+      await page.evaluate(theme=>document.documentElement.dataset.theme=theme,theme);
+      for(const width of [1365,900,760,620,390,320]){
+        await page.setViewportSize({width,height:900});
+        const geometry=await page.evaluate(()=>({width:innerWidth,scroll:document.documentElement.scrollWidth}));
+        assert.ok(geometry.scroll<=geometry.width+1,`account library fits ${width}px ${theme}`);
+        assert.equal(await row.locator('.library-uploader-cell').isVisible(),true);
+        const listHeight=await page.locator('#libraryList').evaluate(element=>element.clientHeight);
+        assert.ok(listHeight>=150,'expanded panels must not collapse the result list');
+        if(captureDir&&[1365,390].includes(width)){
+          await page.locator('#libraryAdvancedFilters').evaluate(element=>element.open=false);
+          await page.locator('#libraryAccountStorage').evaluate(element=>element.open=false);
+          await page.evaluate(()=>{document.activeElement?.blur();window.scrollTo(0,0);});
+          await page.screenshot({path:path.join(captureDir,`library-accounts-${theme}-${width}.png`),fullPage:true,animations:'disabled'});
+          await page.locator('#libraryAdvancedFilters').evaluate(element=>element.open=true);
+          await page.locator('#libraryAccountStorage').evaluate(element=>element.open=true);
+        }
+      }
+    }
+    const fallback=await context.newPage();
+    try{
+      await fallback.route('**/dashboard-preact.js',route=>route.abort());await fallback.goto(url+'/library');
+      await fallback.locator(`[data-library-file="${first.id}"]`).waitFor();
+      assert.match(await fallback.locator(`[data-library-file="${first.id}"] .library-uploader-cell`).innerText(),/Shop operator/);
+      await fallback.locator(`[data-library-select="${first.id}"]`).click();
+      assert.equal(await fallback.locator('#libraryOwnerSelectedBtn').isVisible(),true);
+    }finally{await fallback.close();}
+    const operatorPage=await operator.newPage();await operatorPage.goto(url+'/library');
+    await operatorPage.locator(`[data-library-file="${first.id}"]`).waitFor();
+    await operatorPage.locator(`[data-library-select="${first.id}"]`).click();
+    assert.equal(await operatorPage.locator('#libraryOwnerSelectedBtn').isVisible(),false);
+    assert.equal(await operatorPage.locator('#libraryAccountStorage').isVisible(),false);
+    assert.match(await operatorPage.locator('#libraryMyStorage').innerText(),/0 files/);
+    console.log('Chromium: library uploader column, filters, quota transfer/audit, role boundary and fallback PASS');
+    await page.setViewportSize({width:1280,height:800});await page.evaluate(()=>document.documentElement.dataset.theme='dark');
+    await page.goto(url+'/users');await page.locator('#authUserList th[scope=row]').filter({hasText:'owner'}).waitFor();
+  }finally{await operator.close();}
+}
+
 async function nativeAuthenticationSmoke(browser){
   console.log('Chromium: native login, administrator user management and sign-out');
   const rootDir=await fs.mkdtemp(path.join(os.tmpdir(),'pfc-auth-browser-'));
@@ -4330,6 +4411,7 @@ async function nativeAuthenticationSmoke(browser){
     await page.locator('#authUserAddForm [name=password]').fill('Shop operator password 2026');
     await page.locator('#authUserAddForm button[type=submit]').click();
     await page.locator('#authUserList th[scope=row]').filter({hasText:'shopoperator'}).waitFor();
+    await libraryAccountSmoke({browser,context,page,url,dataDir,captureDir:authVisualDir});
     console.log('Chromium auth: operator created; switching shift operator role');
     const row=page.locator('#authUserList tbody tr').filter({hasText:'shiftoperator'});
     assert.equal(await row.locator('select').inputValue(),'operator');

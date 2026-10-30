@@ -61,8 +61,30 @@ released after staging cleanup, including failures. A 9 MiB allowance for previe
 and metadata is reserved when admitting a new library copy. Quotas are checked
 inside the serialized catalog mutation; identical-file deduplication still reuses
 existing content. Existing files are never automatically deleted to satisfy a quota.
-Older library entries without account ownership count against the installation
-quota; new API uploads record the account ID internally for future user accounting.
+New API uploads record the account ID as quota owner and original uploader.
+The Print Library shows a dedicated **Uploaded by** column (or labelled mobile
+card field), with account, **My uploads**, **Unknown / legacy** and **Deleted
+accounts** filters and uploader sorting/search. Names reflect current account
+records; removed accounts show **Deleted account**. Duplicate uploads retain
+the existing original uploader and quota owner.
+
+Each signed-in user sees their file bytes/count against the active allowance.
+Administrators can expand **Storage by account** to see every account, including
+zero-usage, deleted and legacy ownership. Accounting includes retained valid
+size/ownership metadata even when an entry is damaged and absent from the normal
+list. Previews/metadata count against installation storage, not logical user bytes.
+
+Administrators may select a file and use **Change quota owner** to move its charge
+to an enabled account with enough allowance. This requires explicit confirmation,
+administrator authorization and Origin/CSRF validation. The original uploader
+remains unchanged. The last 100 ownership changes (timestamp, actor and old/new
+account IDs) persist atomically with the file and are visible in that dialog.
+Deleting a file also deletes its per-file history. Account renaming preserves
+ownership; deleting/recreating an account does not reassign its files. Unassigned
+entries use installation quota until explicitly assigned. Backups preserve IDs
+and history, but restore does not replace target accounts; unmatched source IDs
+remain deleted/unmatched until their quota ownership is reassigned. Account
+management details and other users' usage totals remain administrator-only.
 
 Free-space checks use the relevant staging/library/backup filesystem. Generated
 backups reserve their declared payload plus 32 MiB overhead, capped at the ZIP32

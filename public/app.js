@@ -204,6 +204,7 @@ const libraryQueueSelectedBtn = document.querySelector('#libraryQueueSelectedBtn
 const libraryEditSelectedBtn = document.querySelector('#libraryEditSelectedBtn');
 const libraryDeleteSelectedBtn = document.querySelector('#libraryDeleteSelectedBtn');
 const libraryFavouriteSelectedBtn = document.querySelector('#libraryFavouriteSelectedBtn');
+const libraryUploaderFilter = document.querySelector('#libraryUploaderFilter');
 const libraryPrinterFilter = document.querySelector('#libraryPrinterFilter');
 const libraryMaterialFilter = document.querySelector('#libraryMaterialFilter');
 const libraryTagFilter = document.querySelector('#libraryTagFilter');
@@ -3889,6 +3890,7 @@ function libraryFileMarkup(file) {
       ${description ? `<div class="library-file-description">${escapeHtml(description)}</div>` : ''}
       ${warning}
     </div>
+    <div class="library-cell library-uploader-cell"><span class="library-cell-label">Uploaded by</span><span>${escapeHtml(file.uploader?.label || 'Unknown / legacy')}</span></div>
     <div class="library-cell library-target-cell">
       <span class="library-cell-label">Printer</span>
       <span class="library-target-value">${escapeHtml(printer)}</span>
@@ -3966,6 +3968,7 @@ function libraryFileViewModel(file) {
     selected:file?.id === librarySelectedFileId,
     historyCount:`${completedPrints} completed print${completedPrints === 1 ? '' : 's'}`,
     historyLast:usage.lastPrintedAt ? `Last printed ${formatLastSeen(usage.lastPrintedAt)}` : 'Not printed yet',
+    uploaderLabel:file?.uploader?.label || 'Unknown / legacy',
     historyAdded:`Added ${formatLastSeen(file?.addedAt || file?.stagedAt)}`,
     meta:`Added ${formatLastSeen(file?.addedAt || file?.stagedAt)} · ${completedPrints} completed print${completedPrints === 1 ? '' : 's'} · ${lastPrinted}`,
     warning:String(file?.requirements?.warning || ''),
@@ -4008,6 +4011,8 @@ function updateLibrarySelectionToolbar() {
     libraryFavouriteSelectedBtn.disabled = !ready;
     libraryFavouriteSelectedBtn.textContent = file?.favourite ? '★ Remove favourite' : '☆ Favourite';
   }
+  const ownerButton=document.querySelector('#libraryOwnerSelectedBtn');
+  if(ownerButton){ownerButton.hidden=document.body.dataset.authRole!=='administrator';ownerButton.disabled=!ready;}
   const referenced = Number(file?.usage?.queueReferences || 0) > 0;
   if (libraryDeleteSelectedBtn) {
     libraryDeleteSelectedBtn.hidden = !canPurgeFarmRecords();
@@ -4027,8 +4032,19 @@ function selectLibraryFile(id, { focus = false } = {}) {
   if (focus) libraryList?.querySelector(`[data-library-select="${CSS.escape(id)}"]`)?.focus({ preventScroll:true });
 }
 
+function renderLibraryStorage(){
+  const storage=libraryState.storage,mine=document.querySelector('#libraryMyStorage');
+  mine.hidden=!storage?.mine;
+  if(storage?.mine)mine.textContent=`Storage charged to your account: ${formatBytes(storage.mine.bytes)} / ${formatBytes(storage.mine.limit)} · ${storage.mine.files} file${storage.mine.files===1?'':'s'}`;
+  const panel=document.querySelector('#libraryAccountStorage'),rows=document.querySelector('#libraryAccountStorageRows');
+  panel.hidden=!Array.isArray(storage?.accounts);
+  if(!panel.hidden)rows.innerHTML='<table class="auth-users-table"><thead><tr><th>Account</th><th>Files</th><th>Used</th><th>Allowance</th></tr></thead><tbody>'
+    +storage.accounts.map(account=>`<tr><th scope="row">${escapeHtml(account.label)}</th><td>${account.files}</td><td>${escapeHtml(formatBytes(account.bytes))}</td><td>${account.limit?escapeHtml(formatBytes(account.limit)):'Overall limit only'}</td></tr>`).join('')+'</tbody></table>';
+}
+
 function libraryFilters() {
   return {
+    uploader:libraryUploaderFilter?.value || '',currentUserId:libraryState.storage?.mine?.id,
     query:String(librarySearchInput?.value || ''),
     printer:libraryPrinterFilter?.value || '',
     material:libraryMaterialFilter?.value || '',
@@ -4042,6 +4058,14 @@ function libraryFilters() {
 }
 function libraryFacetOptions() {
   const files=Array.isArray(libraryState?.files) ? libraryState.files : [];
+  if(libraryUploaderFilter){
+    const selected=libraryUploaderFilter.value;
+    const uploaders=new Map(files.filter(file=>file.uploader?.status==='account').map(file=>[file.uploader.id,file.uploader.label]));
+    libraryUploaderFilter.innerHTML='<option value="">All accounts</option>'+ (libraryState.storage?.mine?'<option value="mine">My uploads</option>':'')
+      +[...uploaders].sort((a,b)=>a[1].localeCompare(b[1])).map(([id,label])=>'<option value="'+escapeHtml(id)+'">'+escapeHtml(label)+'</option>').join('')
+      +'<option value="legacy">Unknown / legacy</option><option value="deleted">Deleted accounts</option>';
+    if([...libraryUploaderFilter.options].some(option=>option.value===selected))libraryUploaderFilter.value=selected;
+  }
   const printers=libraryPrinterFilterOptions(files, printerTargetLabel);
   const materials=[...new Set(files.flatMap(libraryMaterials))].sort((a,b)=>a.localeCompare(b));
   const tags=[...new Set(files.flatMap(x=>x.tags || []))].sort((a,b)=>a.localeCompare(b));
@@ -4112,6 +4136,7 @@ function renderPrintLibrary({preserveScroll=false} = {}) {
 
 async function refreshPrintLibrary() {
   libraryState = await api('/api/library');
+  renderLibraryStorage();
   libraryReadinessLastRequest = Date.now();
   libraryFacetOptions();
   renderPrintLibrary({preserveScroll:true});
@@ -5459,7 +5484,7 @@ libraryBtn?.addEventListener('click', async () => {
       if (file) {
         librarySelectedFileId = file.id;
         if (librarySearchInput) librarySearchInput.value = '';
-        for (const filter of [libraryPrinterFilter, libraryMaterialFilter, libraryTagFilter,
+        for (const filter of [libraryUploaderFilter,libraryPrinterFilter, libraryMaterialFilter, libraryTagFilter,
           libraryCategoryFilter, libraryCostFilter, libraryReadinessFilter]) if (filter) filter.value = '';
         if (libraryFavouritesFilter) libraryFavouritesFilter.checked = false;
         libraryCurrentPage = 0;
@@ -5476,13 +5501,13 @@ libraryBtn?.addEventListener('click', async () => {
 document.querySelectorAll('[data-library-close]').forEach((el) => el.addEventListener('click', () => libraryDialog?.close()));
 function resetLibraryPagination() { libraryCurrentPage=0; renderPrintLibrary(); }
 librarySearchInput?.addEventListener('input', resetLibraryPagination);
-for(const element of [libraryPrinterFilter,libraryMaterialFilter,libraryTagFilter,libraryCategoryFilter,
+for(const element of [libraryUploaderFilter,libraryPrinterFilter,libraryMaterialFilter,libraryTagFilter,libraryCategoryFilter,
   libraryCostFilter,libraryReadinessFilter,libraryFavouritesFilter]) {
   element?.addEventListener('change',resetLibraryPagination);
 }
 libraryClearFiltersBtn?.addEventListener('click',()=>{
   if (librarySearchInput) librarySearchInput.value='';
-  for(const field of [libraryPrinterFilter,libraryMaterialFilter,libraryTagFilter,libraryCategoryFilter,
+  for(const field of [libraryUploaderFilter,libraryPrinterFilter,libraryMaterialFilter,libraryTagFilter,libraryCategoryFilter,
     libraryCostFilter,libraryReadinessFilter]) if(field) field.value='';
   if(libraryFavouritesFilter) libraryFavouritesFilter.checked=false;
   resetLibraryPagination();
@@ -9469,3 +9494,47 @@ await loadInitialFleet();
 await loadPrinterGroups().catch((error) => console.error('Could not load printer groups', error));
 await refreshPrintLibrary().catch((error) => console.error('Could not load Print Library', error));
 connectLiveUpdates();
+
+let libraryOwnerEditing=null;
+const libraryOwnerDialog=document.querySelector('#libraryOwnerDialog');
+const libraryOwnerForm=document.querySelector('#libraryOwnerForm');
+document.querySelector('#libraryOwnerSelectedBtn')?.addEventListener('click',async()=>{
+  if(document.body.dataset.authRole!=='administrator')return;
+  const file=selectedLibraryFile();if(!file)return;
+  libraryOwnerEditing=file;
+  document.querySelector('#libraryOwnerFile').textContent=file.fileName+' · Current quota owner: '+(file.quotaOwner?.label||'Unknown / legacy');
+  const target=document.querySelector('#libraryOwnerTarget');
+  target.innerHTML='<option value="">Select account</option>'+(libraryState.ownershipAccounts||[]).map(account=>'<option value="'+escapeHtml(account.id)+'">'+escapeHtml(account.label)+'</option>').join('');
+  target.value=file.ownerId||'';
+  document.querySelector('#libraryOwnerConfirm').checked=false;
+  document.querySelector('#libraryOwnerError').textContent='';
+  const history=document.querySelector('#libraryOwnerHistory');history.textContent='Loading ownership history…';
+  libraryOwnerDialog.showModal();
+  try{
+    const result=await api('/api/library/'+encodeURIComponent(file.id)+'/ownership');
+    if(!libraryOwnerDialog.open||libraryOwnerEditing?.id!==file.id)return;
+    const label=id=>!id||id==='local'?'Unknown / legacy':libraryState.storage?.accounts?.find(account=>account.id===id)?.label||'Deleted account';
+    history.replaceChildren();
+    for(const entry of result.history||[]){const row=document.createElement('p');row.textContent=formatLastSeen(entry.at)+' · '+label(entry.from)+' → '+label(entry.to)+' · Changed by '+label(entry.actorId);history.append(row);}
+    if(!history.childNodes.length)history.textContent='No ownership changes recorded.';
+  }catch(error){history.textContent=error.message;}
+});
+document.querySelector('#libraryOwnerCancel')?.addEventListener('click',()=>{if(!libraryOwnerForm.dataset.busy)libraryOwnerDialog.close();});
+libraryOwnerDialog?.addEventListener('cancel',event=>{if(libraryOwnerForm.dataset.busy)event.preventDefault();});
+libraryOwnerForm?.addEventListener('submit',async event=>{
+  event.preventDefault();if(!libraryOwnerEditing||libraryOwnerForm.dataset.busy)return;
+  const ownerId=document.querySelector('#libraryOwnerTarget').value;
+  if(!document.querySelector('#libraryOwnerConfirm').checked||!ownerId)return;
+  libraryOwnerForm.dataset.busy='true';libraryOwnerForm.setAttribute('aria-busy','true');
+  for(const element of libraryOwnerForm.querySelectorAll('input,select,button'))element.disabled=true;
+  try{
+    await api('/api/library/'+encodeURIComponent(libraryOwnerEditing.id)+'/ownership',{method:'PUT',body:JSON.stringify({ownerId})});
+    libraryOwnerDialog.close();
+    try{await refreshPrintLibrary();}catch(error){
+      if(libraryError){libraryError.textContent='Quota owner saved, but the library could not refresh: '+error.message;libraryError.classList.remove('hidden');}
+      return;
+    }
+    if(libraryStatus)libraryStatus.textContent='Quota owner saved. The original uploader is unchanged.';
+  }catch(error){document.querySelector('#libraryOwnerError').textContent=error.message;}
+  finally{delete libraryOwnerForm.dataset.busy;libraryOwnerForm.removeAttribute('aria-busy');for(const element of libraryOwnerForm.querySelectorAll('input,select,button'))element.disabled=false;}
+});

@@ -2,7 +2,7 @@
 // bounded DOM pagination, shared by Preact and the fallback HTML renderer.
 export const LIBRARY_PAGE_SIZE = 80;
 export const LIBRARY_SORT_KEYS = Object.freeze([
-  'added','name','printer','material','cost','lots','salePrice','prints','lastPrinted','duration','weight','readiness'
+  'added','name','uploader','printer','material','cost','lots','salePrice','prints','lastPrinted','duration','weight','readiness'
 ]);
 
 export function libraryMaterials(file) {
@@ -59,6 +59,10 @@ export function librarySortAndFilter(files, options={}) {
   const sort=LIBRARY_SORT_KEYS.includes(options.sort) ? options.sort : 'added';
   const dir=options.direction==='asc' ? 1 : -1;
   const filtered=(files || []).filter(file=>{
+    const uploader=options.uploader||'';
+    if(uploader==='mine'&&(!options.currentUserId||file.uploader?.id!==options.currentUserId))return false;
+    if(['legacy','deleted'].includes(uploader)&&(file.uploader?.status||'legacy')!==uploader)return false;
+    if(uploader&&!['mine','legacy','deleted'].includes(uploader)&&file.uploader?.id!==uploader)return false;
     const mats=libraryMaterials(file);
     const printerText=file.printerTarget ? [file.printerTarget.adapterType,file.printerTarget.model].filter(Boolean).join(':') : '';
     if (printer && (printer==='any' ? Boolean(file.printerTarget) : printerText!==printer)) return false;
@@ -71,7 +75,7 @@ export function librarySortAndFilter(files, options={}) {
     if (readiness && file.readiness?.level!==readiness) return false;
     if (query) {
       const fields=[
-        file.fileName,file.description,file.category,printerText, ...(file.tags || []),
+        file.fileName,file.description,file.category,file.uploader?.label,printerText, ...(file.tags || []),
         ...mats, ...(file.requirements?.logicalTools || []).flatMap(x=>
           [x.color,x.nozzleDiameter,x.filamentPreset,x.filamentVendor]),file.sha256
       ].filter(x=>x!=null).join(' ').toLocaleLowerCase();
@@ -95,6 +99,7 @@ export function librarySortAndFilter(files, options={}) {
     }
   };
   const name=(file,key)=>{
+    if(key==='uploader')return String(file.uploader?.label||'Unknown / legacy');
     if (key==='printer') return String(file.printerTarget?.model || 'Any supported printer');
     if (key==='material') return libraryMaterials(file).join(', ');
     if (key==='readiness') return String(file.readiness?.level || '');
