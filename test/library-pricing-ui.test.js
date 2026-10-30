@@ -187,7 +187,7 @@ test('desktop library workbench uses compact and aligned ten-column tracks',()=>
   const trackRule=css.match(/--library-table-cols:([^;]+);/);
   assert.ok(trackRule,'missing shared desktop track definition');
   assert.equal(trackRule[1].match(/minmax\(/g)?.length,7);
-  assert.match(trackRule[1],/84px minmax\(116px,140px\) minmax\(98px,120px\)/);
+  assert.match(trackRule[1],/96px minmax\(116px,140px\) minmax\(98px,120px\)/);
   assert.equal((css.match(/grid-template-columns:var\(--library-table-cols\)/g)||[]).length,2,
     'header and body must use identical ten-column tracks');
   assert.equal((css.match(/gap:10px;/g)||[]).length>=2,true);

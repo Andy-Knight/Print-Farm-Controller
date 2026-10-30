@@ -80,7 +80,7 @@
   min-width:0;
   /* Share tracks between the header and rows. Give additional width to
    * filenames, requirements and costs, not empty sale-price/history cells. */
-  --library-table-cols:46px 64px minmax(140px,1.6fr) minmax(90px,.9fr) minmax(90px,.8fr) minmax(115px,1.4fr) minmax(100px,.9fr) 84px minmax(116px,140px) minmax(98px,120px);
+  --library-table-cols:46px 64px minmax(140px,1.6fr) minmax(90px,.9fr) minmax(90px,.8fr) minmax(115px,1.4fr) minmax(100px,.9fr) 96px minmax(116px,140px) minmax(98px,120px);
 }
 /* Search, Add file, and selected-file actions share the same desktop row.
  * Keep selection feedback below the controls so long filenames cannot force
