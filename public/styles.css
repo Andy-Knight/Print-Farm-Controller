@@ -3004,6 +3004,8 @@ button.library-file-preview { cursor:zoom-in; }
 #libraryStorageReport .reporting-table-content{min-width:0;overflow:auto;}
 #libraryStorageReport .reporting-legend-dot{display:inline-block;}
 #libraryStorageReport .auth-users-table td{text-align:right;}
+.library-storage-chart-scroll{max-width:100%;overflow:auto;}
+.library-storage-chart-scroll .reporting-line-chart{min-width:760px;}
 .reporting-series.library-used{stroke:var(--ds-brand);}
 .reporting-series.library-limit{stroke:var(--ds-warning,#c48c28);stroke-dasharray:6 4;}
 .library-storage-point,.reporting-legend-dot.library-used{fill:var(--ds-brand);background:var(--ds-brand);}
