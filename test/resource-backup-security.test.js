@@ -179,9 +179,13 @@ test('an aborted cloud restore removes its partially downloaded file before retu
 
 test('malformed repeated thumbnail headers remain bounded in an isolated parser process',async()=>{
   const module=new URL('../src/file-preview.js',import.meta.url).href;
-  const code=`import {gcodeThumbnailCandidates} from ${JSON.stringify(module)};console.log(gcodeThumbnailCandidates('; thumbnail begin 10x10\\n'.repeat(50000)).length);`;
-  const output=await new Promise((resolve,reject)=>execFile(process.execPath,['--input-type=module','-e',code],{windowsHide:true,timeout:5000},(error,stdout)=>error?reject(error):resolve(stdout)));
-  assert.equal(output.trim(),'0');
+  // stdout is a machine-readable result; console.log(number) adds ANSI colour
+  // when the parent npm/terminal environment enables FORCE_COLOR.
+  const code=`import {gcodeThumbnailCandidates} from ${JSON.stringify(module)};process.stdout.write(String(gcodeThumbnailCandidates('; thumbnail begin 10x10\\n'.repeat(50000)).length));`;
+  for(const colour of ['0','1','3']){
+    const output=await new Promise((resolve,reject)=>execFile(process.execPath,['--input-type=module','-e',code],{windowsHide:true,timeout:5000,env:{...process.env,FORCE_COLOR:colour}},(error,stdout)=>error?reject(error):resolve(stdout)));
+    assert.equal(output,'0',`isolated parser result with FORCE_COLOR=${colour}`);
+  }
 });
 
 test('metadata budgets are shared across repeated cloud requests in one operation',async()=>{
