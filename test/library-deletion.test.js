@@ -78,3 +78,16 @@ test('cleanup failure keeps the file and a failed file removal can be retried sa
   assert.deepEqual(await deleteLibraryFileAndHistory(fileId,retry.options),{recent:0,reporting:0});
   assert.equal(retry.deleted(),true);
 });
+
+test('slow notification delivery does not block durable history deletion',async t=>{
+  const f=await fixture(t,[job('old')]);let release,entered;
+  const held=new Promise(resolve=>{release=resolve;}),started=new Promise(resolve=>{entered=resolve;});
+  let first=true;
+  f.queue.afterPersist=async()=>{if(first){first=false;entered();await held;}};
+  const notifying=f.queue.persistAndNotify();await started;
+  try{
+    await deleteLibraryFileAndHistory(fileId,f.options);
+    assert.equal(f.deleted(),true);assert.deepEqual(await f.reporting.getRecords(),[]);
+  }finally{release();await notifying;}
+  assert.deepEqual(await f.reporting.getRecords(),[]);
+});

@@ -415,10 +415,7 @@ async function handleScheduledBackupResult(result = {}) {
   if (!alertResult?.duplicate) fleetState.schedulePublish();
 }
 
-async function recordQueueHistoryAndAlerts(jobs = [], { seed = false } = {}) {
-  const reportingResult = await reportingService.recordTerminalJobs(jobs);
-  if (seed) return reportingResult;
-
+async function emitQueueHistoryAlerts(jobs = []) {
   const printersById = new Map(fleetState.getFleet().map((printer) => [String(printer.id), printer]));
   let emitted = 0;
   for (const job of Array.isArray(jobs) ? jobs : []) {
@@ -470,7 +467,7 @@ async function recordQueueHistoryAndAlerts(jobs = [], { seed = false } = {}) {
   }
 
   if (emitted) fleetState.schedulePublish();
-  return reportingResult;
+  return {emitted};
 }
 
 let queueAlertBridge = null;
@@ -480,7 +477,8 @@ const printQueue = new PrintQueueService({
   getPrinterGroupFn:(groupId) => printerGroups.get(groupId),
   printerAllowedFn: printerLicensedForNewWork,
   operationCoordinator:printerOperations,
-  recordTerminalJobsFn:recordQueueHistoryAndAlerts,
+  recordTerminalJobsFn:jobs=>reportingService.recordTerminalJobs(jobs),
+  afterPersistFn:emitQueueHistoryAlerts,
   onChange:(snapshot) => {
     fleetState.schedulePublish();
     queueAlertBridge?.schedule(snapshot).catch(() => {});

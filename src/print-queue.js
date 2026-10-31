@@ -275,6 +275,7 @@ export class PrintQueueService {
     getQueueFileFn = getQueueFile,
     buildMaterialCostSnapshotFn = buildMaterialCostSnapshot,
     recordTerminalJobsFn = null,
+    afterPersistFn = null,
     getPrinterGroupFn = null,
     printerAllowedFn = null,
     operationCoordinator = null,
@@ -296,6 +297,7 @@ export class PrintQueueService {
     this.getQueueFile = getQueueFileFn;
     this.buildMaterialCostSnapshot = buildMaterialCostSnapshotFn;
     this.recordTerminalJobs = typeof recordTerminalJobsFn === 'function' ? recordTerminalJobsFn : null;
+    this.afterPersist=typeof afterPersistFn==='function'?afterPersistFn:null;
     this.getPrinterGroup = typeof getPrinterGroupFn === 'function' ? getPrinterGroupFn : () => null;
     this.printerAllowed = typeof printerAllowedFn === 'function' ? printerAllowedFn : () => true;
     this.operationCoordinator = operationCoordinator;
@@ -1669,6 +1671,11 @@ export class PrintQueueService {
     });
     this.saveChain = save.catch(() => {});
     await save;
+    // Notification delivery is outside the history serialization barrier, so a
+    // slow webhook cannot hold up another job's durable queue/reporting update.
+    if(this.afterPersist)await Promise.resolve(this.afterPersist(snapshot)).catch(error=>{
+      console.warn(`Queue notification update failed: ${error?.message||error}`);
+    });
     this.emitDiagnosticTransitions();
     this.notify();
   }
