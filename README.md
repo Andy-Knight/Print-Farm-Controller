@@ -1,4 +1,4 @@
-# Print Farm Controller v0.61.16
+# Print Farm Controller v0.61.17
 A local-first 3D printer fleet controller. It runs entirely on your LAN and currently supports:
 
 - **FlashForge Adventurer 5M / 5M Pro** through the local FlashForge HTTP/TCP APIs.
@@ -7,7 +7,7 @@ A local-first 3D printer fleet controller. It runs entirely on your LAN and curr
 - **Prusa CORE One+ (experimental)** through the local PrusaLink API, supporting Standard (1-tool), INDX4 and INDX8 configurations.
 - **Bambu Lab P1P / P1S / X1C / A1 Mini (experimental)** through the local MQTT TLS and FTPS TLS interfaces. P1P/P1S/A1 Mini use the TLS/JPEG camera path; X1C camera uses the bundled FFmpeg decoder; see [X1C camera setup](docs/X1C_CAMERA.md).
 
-**Current development version: v0.61.16**
+**Current development version: v0.61.17**
 
 ## Key capabilities
 
@@ -192,7 +192,7 @@ If the optional Preact bundle is not present, the controller still starts and th
 
 ## Reports and material costs
 
-The **Reports & finance** view provides operational and material-cost reporting. Reporting history is stored independently of the bounded recent queue history, retaining long-term trends.
+The **Reports & finance** view provides operational and material-cost reporting. Reporting history is stored independently of the bounded recent queue history, retaining long-term trends. Print Library storage observations use a separate bounded history file with disk writes batched at five-minute intervals; live usage remains current. Clean shutdown and logical backups preserve pending observations, while an unexpected stop can lose recent unflushed storage observations.
 
 Reports can be filtered by date range, printer and printer group and include:
 

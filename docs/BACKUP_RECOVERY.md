@@ -65,6 +65,8 @@ state/
   emulator-settings.json          # optional
   backup-settings.json            # optional, schedule restored disabled
   maintenance.json                # maintenance tasks, history and observed usage
+  reporting-history.json          # completed-print reporting
+  library-storage-history.json    # hourly library storage observations
   printer-groups.json              # custom printer groups and exclusive membership
   license.json                    # optional signed customer licence
 

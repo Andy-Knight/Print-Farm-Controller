@@ -151,6 +151,7 @@ const cloudBackupProviders = new CloudBackupProviderRegistry([
   }
 ]);
 const manualBackupManager = new ManualBackupManager({
+  libraryStorageHistoryFn:()=>reportingService.getLibraryStorageHistory(),
   dataDir:runtimePaths.dataDir,
   applicationDir:runtimePaths.applicationDir,
   licensePath:runtimePaths.licensePath,
@@ -161,6 +162,7 @@ const manualBackupManager = new ManualBackupManager({
   s3Client
 });
 const scheduledBackupService = new ScheduledBackupService({
+  libraryStorageHistoryFn:()=>reportingService.getLibraryStorageHistory(),
   dataDir:runtimePaths.dataDir,
   applicationDir:runtimePaths.applicationDir,
   licensePath:runtimePaths.licensePath,
@@ -356,7 +358,16 @@ const alertService = new AlertService({
   diagnosticFn:(level, message, meta) => diagnosticLogger[level]?.('alerts', message, meta)
 });
 const reportingService = new ReportingService({ filePath:path.join(runtimePaths.dataDir, 'reporting-history.json') });
-let libraryStorageCache=null,libraryStorageTimer,libraryStorageDirty=false,libraryStorageRefreshing=false;
+let libraryStorageCache=null,libraryStorageTimer,libraryHistoryFlushTimer,libraryStorageStopped=false,libraryStorageDirty=false,libraryStorageRefreshing=false;
+function scheduleLibraryHistoryFlush(){
+  if(libraryStorageStopped)return;
+  libraryHistoryFlushTimer=setTimeout(async()=>{
+    try{await reportingService.flushLibraryStorageHistory();}
+    catch(error){console.warn('Library storage history flush unavailable: '+error.message);}
+    finally{scheduleLibraryHistoryFlush();}
+  },5*60*1000);
+  libraryHistoryFlushTimer.unref();
+}
 async function sampleLibraryStorage(refresh=false){
   return controllerMutations.run('library-storage',async()=>{
     if(!refresh&&libraryStorageCache&&Date.now()-libraryStorageCache.measuredAt<30000)return libraryStorageCache;
@@ -368,12 +379,13 @@ async function sampleLibraryStorage(refresh=false){
   });
 }
 function refreshLibraryStorage(){
+  if(libraryStorageStopped)return;
   libraryStorageDirty=true;
   if(libraryStorageRefreshing)return;
   libraryStorageRefreshing=true;
   // Coalesce upload bursts without losing a change that arrives during a scan.
   void (async()=>{
-    try{while(libraryStorageDirty){libraryStorageDirty=false;await sampleLibraryStorage(true);}}
+    try{while(libraryStorageDirty&&!libraryStorageStopped){libraryStorageDirty=false;await sampleLibraryStorage(true);}}
     catch(error){console.warn('Library storage measurement unavailable: '+error.message);}
     finally{libraryStorageRefreshing=false;}
   })();
@@ -2825,7 +2837,11 @@ async function handleControllerRequest(req, res) {
 }
 
 async function shutdown() {
+  libraryStorageStopped=true;
   clearInterval(libraryStorageTimer);
+  clearTimeout(libraryHistoryFlushTimer);
+  if(reportingService.initialization)await controllerMutations.run('library-storage',()=>reportingService.flushLibraryStorageHistory({force:true}))
+    .catch(error=>console.warn('Library storage history shutdown flush unavailable: '+error.message));
   await diagnosticLogger.info('controller', 'Controller shutdown requested').catch(() => {});
   memoryMonitor.stop();
   try { await chamberPreheat.stopAll({ reason: 'controller-shutdown', turnOff: true }); } catch {}
@@ -3022,6 +3038,7 @@ async function startController() {
     await maintenanceService.start();
     await alertEventBridge.start();
     await reportingService.init();
+    scheduleLibraryHistoryFlush();
     await sampleLibraryStorage(true).catch(error=>console.warn('Library storage measurement unavailable: '+error.message));
     libraryStorageTimer=setInterval(refreshLibraryStorage,5*60*1000);libraryStorageTimer.unref();
     await printQueue.start();

@@ -81,9 +81,18 @@ The storage history graph compares measured library disk bytes with the active
 `PFC_LIBRARY_MAX_BYTES` limit at each observation. Measurements run at startup,
 every five minutes, after upload/deletion/ownership changes and on uncached usage
 requests (a shared cache lasts at most 30 seconds). The latest real observation
-per UTC hour is retained for up to 366 days, capped at 9000 points, in
-`reporting-history.json`; normal backups/restores preserve it. Earlier backups
-without this history start collecting observations on upgrade. Gaps longer than
+per UTC hour is retained for up to 366 days, capped at 9000 points, in the separate
+`library-storage-history.json` file. New observations stay live in memory; dirty
+history is written atomically at most once every five minutes during normal
+operation. Unchanged observations within an hour do not trigger writes. A clean
+shutdown flushes pending observations; an unexpected stop can lose observations
+since the last successful flush (normally up to five minutes). This does not delay
+file metadata or quota enforcement. Backups snapshot the live buffer without
+forcing an extra disk write. Normal backups/restores preserve this history;
+upgrade migrates the old embedded `reporting-history.json` observations before
+removing their original field. Older backups migrate embedded history, or restore
+an empty history when none existed, rather than retaining target observations.
+Gaps longer than
 90 minutes are left disconnected; no prior growth is inferred from today's files.
 The top bar refreshes after local changes and every minute while visible.
 

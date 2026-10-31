@@ -62,7 +62,7 @@ test('quota transfers preserve original upload attribution, enforce capacity and
   const {ReportingService}=await import('../src/reporting-service.js');
   const reports=new ReportingService({filePath:path.join(root,'reporting-history.json')});
   await reports.recordLibraryStorage({bytes:123,limit:1000,at:'2026-10-30T12:00:00.000Z'});
-  await createBackupArchive({destinationPath:backup,dataDir:root,applicationDir:root,licensePath:path.join(root,'no-license.json'),controllerVersion:'0.61.13'});
+  await createBackupArchive({destinationPath:backup,dataDir:root,applicationDir:root,licensePath:path.join(root,'no-license.json'),controllerVersion:'0.61.13',libraryStorageHistoryFn:()=>reports.getLibraryStorageHistory()});
   await fs.mkdir(target);const licensePath=path.join(target,'license.json');
   await stageRestoreBackup(backup,{dataDir:target,licensePath,currentControllerVersion:'0.61.13'});
   const transaction=await activatePendingRestore({dataDir:target,licensePath});await commitActivatedRestore(transaction);
