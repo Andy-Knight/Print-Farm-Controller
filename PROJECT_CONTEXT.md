@@ -11,7 +11,7 @@ Repository policy: `AGENTS.md` defines agent startup behavior; `docs/DOCUMENTATI
 - Repository: `Andy-Knight/Print-Farm-Controller`
 - Project path: repository root (`/`)
 - Primary branch: `main` (current production baseline)
-- Current controller source version: **0.61.16**.
+- Current controller source version: **0.61.17**.
 - Previous baseline audited: **0.48.0** (main before the regression test audit release).
 - Runtime: **Node.js 24.22.1+** (Node 24 release line), ES modules; build-time **npm 12.2.0** and committed lockfile; no npm runtime dependency for deployed controller. Follow `docs/dependency-security.md` for updates.
 - GitHub is the authoritative code baseline.
@@ -73,6 +73,7 @@ Manufacturer-specific discovery, capabilities, limits, status normalization, fil
 ## Important decisions
 
 - Local-first/LAN-only controller; printer credentials remain backend-side.
+- Integrated simulator management uses its own same-origin session bootstrap and refreshes CSRF before each mutation; the main controller's fetch wrapper is not loaded in that separate document. Keep backend administrator/Origin checks and standalone loopback simulator behaviour intact.
 - Multiple manufacturers are supported through adapters rather than manufacturer logic in shared fleet code.
 - Creator 5-series support uses a separate `flashforge-creator5` adapter rather than extending the AD5M adapter. Creator 5/Pro share the modern authenticated FlashForge HTTP API but do not expose the legacy TCP 8899 file/control service and have four physical toolheads/material slots, so inheriting AD5M single-tool/TCP assumptions would be unsafe. Creator 5 discovery PIDs are 40 (Creator 5) and 41 (Creator 5 Pro); discovery may still advertise 8899, but the adapter deliberately ignores it.
 - Creator 5 printer-local file browsing is recent-only through `/gcodeList`; full storage enumeration and per-file sliced tool requirements are not exposed by the local API. Automatic queue jobs originating from the controller Print Library carry their parsed logical-tool/material/nozzle metadata into compatibility, upload and print-start mapping. For an already-stored printer-local file, the controller warns that it must use the mapping/defaults saved with the file rather than inventing requirements.
@@ -98,7 +99,7 @@ Manufacturer-specific discovery, capabilities, limits, status normalization, fil
 - Existing fixed-printer queue behaviour remains backward compatible.
 - The Print Library is the durable source of controller-owned G-code/GX/3MF files. Library entries store filename, size, SHA-256, added timestamp and parsed print requirements; duplicate content reuses the existing entry.
 - Historical `queue-files/` directories migrate automatically to `print-library/` while keeping the same UUID directories, preserving existing queue/history references.
-- Library files are deleted only by an explicit library delete action, and deletion is blocked while any current queue/history record still references the entry.
+- Explicit administrator library deletion removes the stored file and all linked terminal queue/reporting records by library ID, after confirming that report totals will change. Active/pending work, active production siblings and uncleared beds still block deletion. Queue persistence and terminal reporting share one save chain so stale callbacks cannot recreate purged records; cleanup persists history before removing the file and failed cleanup can be retried.
 - Every application release updates `package.json`, the lockfile, the current-version metadata in `README.md` and `PROJECT_CONTEXT.md`, and a new version entry in `CHANGELOG.md`. Documentation-only changes do not require an application version bump.
 - **Native authentication and RBAC:** Administrator/Operator/Viewer authorization is enforced server-side in `src/security/http-auth.js` independently from signed licences. Authentication is on by default; first administrator setup uses a one-time startup-log code, sessions are revocable, and CSRF/Origin checks apply to mutations. Native HTTPS encrypts login/session traffic when enabled; independent packaged/client and certificate-trust verification is still required. See `docs/AUTHENTICATION_AND_RBAC.md`.
 - **Documentation authority:** `README.md` contains current capabilities and setup (current-version metadata only), `CHANGELOG.md` contains every release change, this file contains live handoff/decisions, and `docs/CONTROLLER_VISUAL_STYLE_GUIDE.md` contains visual standards. Follow `AGENTS.md` and `docs/DOCUMENTATION_POLICY.md`.
@@ -134,7 +135,7 @@ Manufacturer-specific discovery, capabilities, limits, status normalization, fil
 
 ## Current task
 
-Print Library attribution uses an immutable original uploader ID and a separately transferable quota-owner ID. Keep the dedicated Uploaded by column, labelled mobile equivalent and account filters in both renderers. Personal usage sits beside the top-bar account name; administrator-only Reports & finance → Print library owns the account pie/breakdown and disk-usage history against the active maximum. History uses the existing backed-up reporting store, retaining the latest real hourly observations for up to 366 days (9000-point cap); never infer pre-upgrade usage or join offline gaps. Transfers require enabled targets with capacity and retain 100 per-file changes; duplicates never rewrite attribution.
+Print Library attribution uses an immutable original uploader ID and a separately transferable quota-owner ID. Keep the dedicated Uploaded by column, labelled mobile equivalent and account filters in both renderers. Personal usage sits beside the top-bar account name; administrator-only Reports & finance → Print library owns the account pie/breakdown and disk-usage history against the active maximum. Storage observations use a separate backed-up library-storage-history.json buffer/store, retaining real hourly observations for up to 366 days (9000-point cap). Normal dirty flushes occur at most every five minutes; clean shutdown flushes pending observations and backups capture the live buffer. Migration commits the new file before removing the embedded reporting-history.json field; never infer pre-upgrade usage or join offline gaps. Transfers require enabled targets with capacity and retain 100 per-file changes; duplicates never rewrite attribution.
 
 Windows installer drafts are prepared by main-only GitHub Actions after regression, Windows packaging and multi-architecture image validation. Keep the release unpublished for maintainer review, bind assets to the exact source commit, preserve existing releases/tags and never expose production build configuration to PR jobs. See `docs/WINDOWS_RELEASES.md`.
 

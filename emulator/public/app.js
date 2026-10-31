@@ -111,12 +111,34 @@ function showToast(message) {
   toastTimer = setTimeout(() => toast.classList.remove('visible'), 3500);
 }
 
+async function controllerSession(){
+  const response=await fetch('/api/auth/session',{credentials:'same-origin',cache:'no-store'});
+  if(!response.ok)throw new Error('Unable to check controller sign-in. Sign in to the controller and reload this page.');
+  const session=await response.json();
+  if(session.enabled&&(!session.user||!session.csrf))
+    throw new Error('Your controller session has expired. Sign in to the controller and reload this page.');
+  return session;
+}
+
 async function request(url, options = {}) {
+  const target=new URL(url,location.href);
+  if(integrated&&target.origin!==location.origin)throw new Error('Simulator requests must use the controller origin.');
+  const headers=new Headers(options.headers||{});
+  headers.set('content-type','application/json');
+  const method=String(options.method||'GET').toUpperCase();
+  if(integrated&&/^\/api\/emulator(?:\/|$)/.test(target.pathname)&&['POST','PUT','PATCH','DELETE'].includes(method)){
+    // The simulator is a separate document: the main controller's authorized
+    // fetch wrapper is not loaded here. Refresh the current tab-shared session
+    // before each mutation so login/logout in another tab cannot leave stale CSRF.
+    const session=await controllerSession();
+    if(session.csrf)headers.set('x-pfc-csrf',session.csrf);
+  }
   const response = await fetch(url, {
     ...options,
-    headers: { 'content-type': 'application/json', ...(options.headers || {}) }
+    credentials:'same-origin',headers
   });
   const data = await response.json().catch(() => ({}));
+  if(integrated&&response.status===401)throw new Error('Your controller session has expired. Sign in to the controller and reload this page.');
   if (!response.ok) throw new Error(data.error || `Request failed with HTTP ${response.status}`);
   return data;
 }
@@ -481,7 +503,9 @@ async function initialize() {
     const panel = document.querySelector('#integrated-control');
     const content = document.querySelector('#simulator-content');
     const toggle = document.querySelector('#simulator-toggle');
+    toggle.disabled=true;
     panel.classList.remove('hidden');
+    await controllerSession();
     let status = await request(apiUrl('/status'));
     const renderStatus = (current) => {
       document.querySelector('#integrated-heading').textContent = current.running ? 'Printer simulator is enabled' : 'Printer simulator is disabled';
@@ -503,6 +527,7 @@ async function initialize() {
       } catch (error) { showToast(error.message); }
       finally { toggle.disabled = false; }
     });
+    toggle.disabled=false;
     if (!status.running) return;
   }
   await Promise.all([loadProfiles(), request(apiUrl('/printers')).then((data) => render(data.printers))]);

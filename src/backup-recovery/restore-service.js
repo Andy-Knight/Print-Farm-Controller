@@ -3,6 +3,7 @@ import { promises as fs } from 'node:fs';
 import path from 'node:path';
 import { inspectZipArchive, extractZipEntryToFile } from './backup-archive.js';
 import { inspectRestoreBackup } from './restore-inspector.js';
+import {normalizeLegacyStorageHistory,validateLibraryStorageHistory} from '../library-storage-history.js';
 
 const TERMINAL_STATES = new Set(['completed','failed','cancelled']);
 const PRINT_MAY_HAVE_STARTED_STATES = new Set(['starting','printing']);
@@ -18,6 +19,7 @@ const BASE_MANAGED_ENTRIES = Object.freeze([
   'printer-groups.json',
   'filaments.json',
   'reporting-history.json',
+  'library-storage-history.json',
   'library-pricing.json',
   'alerts.json',
   'print-library',
@@ -278,12 +280,15 @@ export async function stageRestoreBackup(filePath, {
       await writeStateJson(stageDir, 'filaments.json', { version:1, filaments:[] });
     }
 
-    if (archive.byName.has('state/reporting-history.json')) {
-      const reportingHistory = JSON.parse((await archive.read('state/reporting-history.json')).toString('utf8'));
-      await writeStateJson(stageDir, 'reporting-history.json', reportingHistory);
-    } else {
-      await writeStateJson(stageDir, 'reporting-history.json', { version:1, records:[] });
-    }
+    const reportingHistory=archive.byName.has('state/reporting-history.json')
+      ? JSON.parse((await archive.read('state/reporting-history.json')).toString('utf8'))
+      : {version:1,records:[]};
+    const libraryStorageHistory=archive.byName.has('state/library-storage-history.json')
+      ? validateLibraryStorageHistory(JSON.parse((await archive.read('state/library-storage-history.json')).toString('utf8')))
+      : {version:1,points:normalizeLegacyStorageHistory(reportingHistory.libraryStorage)};
+    delete reportingHistory.libraryStorage;
+    await writeStateJson(stageDir,'reporting-history.json',reportingHistory);
+    await writeStateJson(stageDir,'library-storage-history.json',libraryStorageHistory);
 
     // Backups created before product pricing existed retain the unconfigured
     // default instead of keeping settings from the running controller.

@@ -3,6 +3,7 @@ import path from 'node:path';
 import { inspectZipArchive } from './backup-archive.js';
 import { BACKUP_FORMAT_VERSION, verifyBackupArchive } from './backup-format.js';
 import { normalizePricingSettings } from '../library-pricing.js';
+import {validateLibraryStorageHistory} from '../library-storage-history.js';
 
 const CURRENT_SCHEMA_VERSION = 1;
 const TERMINAL_QUEUE_STATES = new Set(['completed', 'failed', 'cancelled']);
@@ -153,6 +154,10 @@ export async function inspectRestoreBackup(filePath, {
     if (!plainObject(reportingHistory) || reportingHistory.version !== 1 || !Array.isArray(reportingHistory.records)) {
       throw new Error('Backup reporting history store is invalid');
     }
+  }
+
+  if(archive.byName.has('state/library-storage-history.json')){
+    validateLibraryStorageHistory(await readJsonEntry(archive,'state/library-storage-history.json'));
   }
 
   if (archive.byName.has('state/library-pricing.json')) {

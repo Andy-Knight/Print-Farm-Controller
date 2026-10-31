@@ -3,6 +3,7 @@ import { promises as fs } from 'node:fs';
 import path from 'node:path';
 import { printerStorePath } from './store.js';
 import { KeyedSerialExecutor } from './concurrency.js';
+import {LibraryStorageHistory} from './library-storage-history.js';
 
 const TERMINAL_STATES = new Set(['completed', 'failed', 'cancelled']);
 const DEFAULT_PATH = path.join(path.dirname(printerStorePath), 'reporting-history.json');
@@ -102,6 +103,9 @@ export class ReportingService {
     this.filePath = path.resolve(filePath);
     this.mutations = new KeyedSerialExecutor();
     this.initialization = null;
+    this.libraryStorageHistory=new LibraryStorageHistory({
+      filePath:path.join(path.dirname(this.filePath),'library-storage-history.json'),legacyPath:this.filePath
+    });
   }
 
   async init() {
@@ -114,6 +118,12 @@ export class ReportingService {
           if (error?.code !== 'EEXIST') throw error;
         }
         await this.load();
+        await this.libraryStorageHistory.init();
+        const legacy=JSON.parse(await fs.readFile(this.filePath,'utf8'));
+        if(Object.hasOwn(legacy,'libraryStorage')){
+          delete legacy.libraryStorage;
+          await this.save(legacy);
+        }
       })().catch((error) => {
         this.initialization = null;
         throw error;
@@ -129,10 +139,7 @@ export class ReportingService {
     }
     return {
       version:1,
-      records:parsed.records.map((record) => compactRecord(record)).filter(Boolean),
-      libraryStorage:(Array.isArray(parsed.libraryStorage)?parsed.libraryStorage:[])
-        .filter(point=>validDate(point?.at)!=null&&Number.isSafeInteger(point.bytes)&&point.bytes>=0&&Number.isSafeInteger(point.limit)&&point.limit>0)
-        .map(({at,bytes,limit})=>({at:new Date(at).toISOString(),bytes,limit})).slice(-9000)
+      records:parsed.records.map((record) => compactRecord(record)).filter(Boolean)
     };
   }
 
@@ -178,29 +185,28 @@ export class ReportingService {
     return clone((await this.load()).records);
   }
 
-  async recordLibraryStorage({bytes,limit,at=new Date().toISOString()}) {
-    if(validDate(at)==null||!Number.isSafeInteger(bytes)||bytes<0||!Number.isSafeInteger(limit)||limit<1)
-      throw new Error('Library storage measurement is invalid');
-    at=new Date(at).toISOString();
+  async removeLibraryHistory(fileId){
     await this.init();
     return this.mutations.run('history',async()=>{
-      const store=await this.load();
-      const cutoff=new Date(at).getTime()-366*86400000;
-      const points=store.libraryStorage.filter(point=>new Date(point.at).getTime()>=cutoff);
-      const previous=points.at(-1);
-      if(previous&&new Date(previous.at)>new Date(at))return;
-      // Keep the latest real observation per UTC hour, bounded to one year.
-      if(previous&&previous.at.slice(0,13)===at.slice(0,13)){
-        if(previous.bytes===bytes&&previous.limit===limit)return;
-        points.pop();
-      }
-      points.push({at:new Date(at).toISOString(),bytes,limit});
-      store.libraryStorage=points.slice(-9000);await this.save(store);
+      const store=await this.load(),before=store.records.length;
+      store.records=store.records.filter(record=>record.libraryFileId!==fileId);
+      const removed=before-store.records.length;
+      if(removed)await this.save(store);
+      return removed;
     });
   }
 
+  async recordLibraryStorage({bytes,limit,at=new Date().toISOString()}) {
+    await this.init();
+    return this.libraryStorageHistory.observe({bytes,limit,at});
+  }
+
   async getLibraryStorageHistory(){
-    await this.init();return clone((await this.load()).libraryStorage);
+    await this.init();return this.libraryStorageHistory.getHistory();
+  }
+
+  async flushLibraryStorageHistory(options){
+    await this.init();return this.libraryStorageHistory.flush(options);
   }
 
   async getPreviousPeriodTotals({ from = null, to = null, printerIds = null } = {}) {

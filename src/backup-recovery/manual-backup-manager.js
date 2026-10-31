@@ -17,6 +17,7 @@ function backupBusyError() {
 
 export class ManualBackupManager {
   constructor({
+    libraryStorageHistoryFn = null,
     dataDir,
     applicationDir,
     licensePath,
@@ -32,6 +33,7 @@ export class ManualBackupManager {
     this.applicationDir = applicationDir ? path.resolve(applicationDir) : path.dirname(this.dataDir);
     this.licensePath = licensePath ? path.resolve(licensePath) : path.join(this.dataDir, 'license.json');
     this.controllerVersion = String(controllerVersion || 'unknown');
+    this.libraryStorageHistoryFn=libraryStorageHistoryFn;
     this.downloadTtlMs = Math.max(60_000, Number(downloadTtlMs) || DEFAULT_DOWNLOAD_TTL_MS);
     this.operationLock = operationLock || new BackupOperationLock();
     this.googleDriveClient = googleDriveClient || null;
@@ -112,7 +114,7 @@ export class ManualBackupManager {
           dataDir:this.dataDir,
           applicationDir:this.applicationDir,
           licensePath:this.licensePath,
-          controllerVersion:this.controllerVersion,
+          controllerVersion:this.controllerVersion, libraryStorageHistoryFn:this.libraryStorageHistoryFn,
           source:'manual'
         });
         const id = crypto.randomUUID();
@@ -188,7 +190,7 @@ export class ManualBackupManager {
           dataDir:this.dataDir,
           applicationDir:this.applicationDir,
           licensePath:this.licensePath,
-          controllerVersion:this.controllerVersion,
+          controllerVersion:this.controllerVersion, libraryStorageHistoryFn:this.libraryStorageHistoryFn,
           source:'manual'
         });
         const uploaded = await this.googleDriveClient.uploadBackup({
@@ -260,7 +262,7 @@ export class ManualBackupManager {
           dataDir:this.dataDir,
           applicationDir:this.applicationDir,
           licensePath:this.licensePath,
-          controllerVersion:this.controllerVersion,
+          controllerVersion:this.controllerVersion, libraryStorageHistoryFn:this.libraryStorageHistoryFn,
           source:'manual'
         });
         const uploaded = await this.oneDriveClient.uploadBackup({
@@ -332,7 +334,7 @@ export class ManualBackupManager {
           dataDir:this.dataDir,
           applicationDir:this.applicationDir,
           licensePath:this.licensePath,
-          controllerVersion:this.controllerVersion,
+          controllerVersion:this.controllerVersion, libraryStorageHistoryFn:this.libraryStorageHistoryFn,
           source:'manual'
         });
         const uploaded = await this.s3Client.uploadBackup({

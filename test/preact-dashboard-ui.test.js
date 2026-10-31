@@ -284,8 +284,8 @@ test('Preact Print Library preserves file metadata and delete interlock presenta
   assert.match(app, /requirements:libraryRequirementSummary\(file\)/);
   assert.match(app, /colours,/);
   assert.match(app, /previewUrl:String\(file\?\.previewUrl \|\| ''\)/);
-  assert.match(app, /deleteDisabled:Number\(usage\.queueReferences \|\| 0\) > 0/);
-  assert.match(app, /Clear queue\/history references before deleting this file/);
+  assert.match(app, /deleteDisabled:libraryDeletionBlocked\(file\)/);
+  assert.match(app, /Finish or cancel linked work and confirm bed clearance before deleting this file/);
   assert.match(app, /libraryDeleteSelectedBtn\.disabled = !canPurgeFarmRecords\(\) \|\| !ready \|\| referenced/);
   assert.match(app, /libraryDeleteSelectedBtn\.hidden = !canPurgeFarmRecords\(\)/);
   assert.match(libraryUi, /class="library-target-value"/);

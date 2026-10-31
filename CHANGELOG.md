@@ -4,6 +4,14 @@ This file contains the version-by-version release history for Print Farm Control
 
 Historical entries describe the behaviour of the controller at the time of that release and may be superseded by later versions. For current installation, configuration and supported-hardware guidance, see [README.md](README.md).
 
+## v0.61.17
+
+- Separate Print Library storage observations into a bounded history file and batch changed observations to disk at most once every five minutes, keeping live reporting and quota enforcement current without rewriting completed-print history.
+- Migrate existing embedded history safely, include buffered observations in manual/scheduled backups and preserve the new file through restore/rollback. Flush pending observations on clean shutdown and retry failed writes without discarding the buffer.
+- Restore authenticated simulator enable/disable and printer-management actions by sending the current session CSRF token from the separate simulator page, preserving Origin and administrator checks.
+- Keep the Print Library reporting Refresh button content-sized beside its Period selector on desktop and mobile.
+- Allow administrators to delete previously printed library files together with linked recent and reporting history. Protect active/pending jobs and uncleared beds, confirm the historical-report impact and prevent delayed reporting writes from recreating deleted records.
+
 ## v0.61.16
 
 - Rename the Security & users page and menu entry to Users & settings, updating the top-bar heading, descriptions and navigation guidance while retaining the existing menu icon.

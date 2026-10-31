@@ -64,7 +64,7 @@ test('real HTTP dispatcher enforces login, CSRF and RBAC before controller actio
     const viewer=await signIn('readuser'),operator=await signIn('operatoruser'),admin=await signIn('controlleradmin');
     const call=(method,url,identity,{csrf=true,origin=true,body=null}={})=>fetch(base+url,{
       method,headers:{
-        cookie:identity.cookie,...(origin?{origin:base}:{}),
+        cookie:identity.cookie,...(origin?{origin:typeof origin==='string'?origin:base}:{}),
         ...(csrf?{'x-pfc-csrf':identity.csrf}:{}),
         ...(body?{'content-type':'application/json'}:{})
       },...(body?{body:JSON.stringify(body)}:{})
@@ -76,6 +76,8 @@ test('real HTTP dispatcher enforces login, CSRF and RBAC before controller actio
     const firstUpload=await upload(operator);assert.equal(firstUpload.status,201);
     const libraryId=(await firstUpload.json()).file.id;
     const initialLibrary=await (await call('GET','/api/library',viewer)).json();
+    assert.equal((await call('POST','/api/emulator/status',admin,{csrf:false,body:{enabled:false}})).status,403);
+    assert.equal((await call('POST','/api/emulator/status',admin,{origin:'https://other.invalid',body:{enabled:false}})).status,403);
     for(const identity of [viewer,operator])assert.equal((await call('GET','/api/reports/library',identity)).status,403);
     const ownStorage=await (await call('GET','/api/library/storage',operator)).json();
     assert.ok(ownStorage.mine.bytes>0);assert.deepEqual(Object.keys(ownStorage),['mine']);
@@ -104,6 +106,17 @@ test('real HTTP dispatcher enforces login, CSRF and RBAC before controller actio
     const duplicate=await upload(admin);assert.equal(duplicate.status,200);assert.equal((await duplicate.json()).file.uploadedById,operatorId);
     const history=await (await call('GET',`/api/library/${libraryId}/ownership`,admin)).json();
     assert.equal(history.history.length,1);assert.equal(history.history[0].actorId,adminId);assert.equal(history.history[0].from,operatorId);assert.equal(history.history[0].to,adminId);
+    const queued=await call('POST','/api/queue',admin,{body:{assignmentMode:'automatic',libraryFileId:libraryId}});
+    assert.equal(queued.status,201);const linkedJob=(await queued.json()).job;
+    assert.equal((await call('DELETE',`/api/library/${libraryId}`,admin)).status,409,'pending work blocks deletion');
+    assert.equal((await call('DELETE',`/api/queue/${linkedJob.id}`,admin)).status,200);
+    for(const identity of [viewer,operator])assert.equal((await call('DELETE',`/api/library/${libraryId}`,identity)).status,403);
+    assert.equal((await call('DELETE',`/api/library/${libraryId}`,admin,{csrf:false})).status,403);
+    const deleted=await call('DELETE',`/api/library/${libraryId}`,admin);
+    assert.equal(deleted.status,200);assert.equal((await deleted.json()).historyRemoved.recent,1);
+    assert.equal((await (await call('GET','/api/library',admin)).json()).files.some(file=>file.id===libraryId),false);
+    assert.equal((await (await call('GET','/api/queue',admin)).json()).jobs.some(job=>job.id===linkedJob.id),false);
+    assert.equal(JSON.parse(await fs.readFile(path.join(dataDir,'reporting-history.json'),'utf8')).records.some(job=>job.libraryFileId===libraryId),false);
     assert.equal((await call('GET','/api/queue',viewer)).status,200);
     for (const identity of [viewer,operator]) {
       const alerts=await (await call('GET','/api/alerts',identity)).json();
@@ -156,6 +169,16 @@ test('real HTTP dispatcher enforces login, CSRF and RBAC before controller actio
     }finally{for(const response of streams)await response.body?.cancel().catch(()=>{});}
     assert.equal((await call('POST','/api/auth/logout',viewer)).status,200);
     assert.equal((await call('GET','/api/queue',viewer)).status,401);
+    const historyPath=path.join(dataDir,'library-storage-history.json');
+    assert.deepEqual(JSON.parse(await fs.readFile(historyPath,'utf8')).points,[],
+      'live upload/transfer reporting must not force immediate history writes');
+    // Windows TerminateProcess does not deliver a catchable SIGTERM. Exercise
+    // the real graceful signal path on the Linux CI/container platform.
+    if(process.platform!=='win32'){
+      const exited=once(child,'exit');child.kill('SIGTERM');await exited;
+      assert.ok(JSON.parse(await fs.readFile(historyPath,'utf8')).points.length>0,
+        'clean controller shutdown persists pending storage observations');
+    }
   }finally{
     if(child&&child.exitCode===null){
       const exit=once(child,'exit');
