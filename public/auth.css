@@ -440,7 +440,7 @@ html.auth-pending body>aside,html.auth-pending body>header,html.auth-pending bod
   .auth-brand-symbol::after{animation:auth-logo-layer 3.5s ease-in-out infinite}
 }
 
-/* Security & users: administrator-only native HTTPS certificate management. */
+/* Users & settings: administrator-only native HTTPS certificate management. */
 #tlsSettings[hidden],#tlsRegenerateForm[hidden],#tlsDownloadBtn[hidden]{display:none!important;}
 .auth-tls-settings{margin-top:20px;max-width:100%;}
 .auth-tls-details{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px 24px;margin:16px 0;}

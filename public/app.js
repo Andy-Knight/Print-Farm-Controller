@@ -302,7 +302,7 @@ const controllerRoutes = {
   '/backup': { button:'backupRecoveryBtn', dialog:'backupRecoveryDialog', title:'Backup & recovery', topbarTitle:'Farm management', subtitle:'Protect and restore controller data' },
   '/diagnostics': { button:'diagnosticsBtn', dialog:'diagnosticsDialog', title:'Diagnostics', topbarTitle:'Farm management', subtitle:'Review controller health and diagnostic logs' },
   '/licence': { button:'licenseBtn', dialog:'licenseDialog', title:'Licence', subtitle:'Review controller edition and licence status' },
-  '/users': { button:'usersBtn', dialog:'usersDialog', title:'Security & users', topbarTitle:'Farm management', subtitle:'Set up secure access and manage local user roles' }
+  '/users': { button:'usersBtn', dialog:'usersDialog', title:'Users & settings', topbarTitle:'Users & settings', subtitle:'Manage user accounts and controller settings' }
 };
 const workspaceMain = document.querySelector('body > main');
 // Bind route title and subtitle separately to avoid duplicate context labels.

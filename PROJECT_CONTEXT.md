@@ -1,6 +1,6 @@
 # Print Farm Controller — Project Context
 Cross-chat handoff file. At the start of every new development conversation, read root `AGENTS.md` and `docs/DOCUMENTATION_POLICY.md` as well as this file. Keep this context limited to current architecture, enduring decisions, open risks and the active task; update or replace completed tasks instead of appending release notes.
- 
+
 ## Handoff rule
 
 If chat context and this file disagree about the codebase, inspect current GitHub files and tests. **GitHub is authoritative for code; this document is authoritative for project intent/status until deliberately updated.**
@@ -11,7 +11,7 @@ Repository policy: `AGENTS.md` defines agent startup behavior; `docs/DOCUMENTATI
 - Repository: `Andy-Knight/Print-Farm-Controller`
 - Project path: repository root (`/`)
 - Primary branch: `main` (current production baseline)
-- Current controller source version: **0.61.15**.
+- Current controller source version: **0.61.16**.
 - Previous baseline audited: **0.48.0** (main before the regression test audit release).
 - Runtime: **Node.js 24.22.1+** (Node 24 release line), ES modules; build-time **npm 12.2.0** and committed lockfile; no npm runtime dependency for deployed controller. Follow `docs/dependency-security.md` for updates.
 - GitHub is the authoritative code baseline.
@@ -22,8 +22,8 @@ Repository policy: `AGENTS.md` defines agent startup behavior; `docs/DOCUMENTATI
 - **Analytics UI baseline:** Preserve readable trend labels, five KPI colours, directional comparison arrows, Top 6/kg alignment, filters and Preact/fallback parity.
 - **UI baselines:** Sidebar badges fixed 48×24px; individual maintenance Complete/Edit/Delete columns fixed across scopes (stack on phones); Print Library fills width. Login zooms at layer 04 to four decorative beds.
 - **Authentication/RBAC:** Enabled by default. First administrator setup requires a private startup-log code. HTTP credentials/sessions remain interceptable until browser TLS is configured; HTTPS password entry is the default; only `PFC_AUTH_ALLOW_HTTP=1` permits legacy plaintext operation. A durable activation marker forbids anonymous fallback if account data is lost. Offline recovery is available.
-- **Native HTTPS:** GUI-managed direct HTTP 4242 / HTTPS 4243; container Services may expose 80/443. Administrators select managed self-signed, externally pasted PEM (HTTPS-only import) or HTTP-only in Security & users → Connection settings. Keys persist in protected TLS identities. With TLS active, HTTP permits limited health and redirects browser GET/HEAD; mutations are blocked. Certificate renewal is explicit and password-protected; unchanged Apply preserves identity and sessions. Windows install, TLS activation/renewal/restart and Kubernetes HTTPS/redeployment persistence passed manual testing. External PEM import still needs manual acceptance. See `docs/HTTPS_CONFIGURATION.md`; issue #128 tracks ingress.
-- **User lifecycle:** Administrators can add, edit, disable and permanently delete other users under Security & users → Users. Deletion requires explicit confirmation and current administrator privileges with origin/CSRF checks; the current account and last enabled administrator cannot be deleted. Deleted users' sessions and active streams are immediately revoked; account removal is persistent. 
+- **Native HTTPS:** GUI-managed direct HTTP 4242 / HTTPS 4243; container Services may expose 80/443. Administrators select managed self-signed, externally pasted PEM (HTTPS-only import) or HTTP-only in Users & settings → Connection settings. Keys persist in protected TLS identities. With TLS active, HTTP permits limited health and redirects browser GET/HEAD; mutations are blocked. Certificate renewal is explicit and password-protected; unchanged Apply preserves identity and sessions. Windows install, TLS activation/renewal/restart and Kubernetes HTTPS/redeployment persistence passed manual testing. External PEM import still needs manual acceptance. See `docs/HTTPS_CONFIGURATION.md`; issue #128 tracks ingress.
+- **User lifecycle:** Administrators can add, edit, disable and permanently delete other users under Users & settings → Users. Deletion requires explicit confirmation and current administrator privileges with origin/CSRF checks; the current account and last enabled administrator cannot be deleted. Deleted users' sessions and active streams are immediately revoked; account removal is persistent.
 - **Role boundary:** Operators can run print jobs and maintain library metadata/filament assignments but cannot delete Print Library items, purge queue history or edit shared catalogue costs; all restrictions are server-enforced.
 - **Validation:** Complete unit/browser, licence, simulator, Windows SEA and container gates before releasing; physical Creator 5/Bambu validation remains incomplete. Preserve protected recovery and backup/restore boundaries.
 
@@ -138,7 +138,7 @@ Print Library attribution uses an immutable original uploader ID and a separatel
 
 Windows installer drafts are prepared by main-only GitHub Actions after regression, Windows packaging and multi-architecture image validation. Keep the release unpublished for maintainer review, bind assets to the exact source commit, preserve existing releases/tags and never expose production build configuration to PR jobs. See `docs/WINDOWS_RELEASES.md`.
 
-Preserve aggregate upload/library/session/stream admission, bounded file inspection and backup ZIP verification, and operation-wide cloud deadlines/cancellation. Reject excess work before allocation; keep cancellation cleanup ahead of backup-lock release. Per-file upload support, restore recovery holds, signed licensing, separate data/log volumes and Windows owner protections remain independent boundaries. Administrators tune saved resource policy under Security & users → Resource limits; changes apply only at restart, environment overrides remain authoritative, and portable restores preserve target installation policy. Quota tuning and large-library/backup deployment acceptance must use `docs/RESOURCE_AND_BACKUP_LIMITS.md`.
+Preserve aggregate upload/library/session/stream admission, bounded file inspection and backup ZIP verification, and operation-wide cloud deadlines/cancellation. Reject excess work before allocation; keep cancellation cleanup ahead of backup-lock release. Per-file upload support, restore recovery holds, signed licensing, separate data/log volumes and Windows owner protections remain independent boundaries. Administrators tune saved resource policy under Users & settings → Resource limits; changes apply only at restart, environment overrides remain authoritative, and portable restores preserve target installation policy. Quota tuning and large-library/backup deployment acceptance must use `docs/RESOURCE_AND_BACKUP_LIMITS.md`.
 
 Preserve Windows storage access for the owning account, SYSTEM and Administrators, owner retention on upgrades, local recovery and separate data/log volumes. Interactive Windows installation is manually confirmed; validation under a separate selected account/UAC elevation identity remains a deployment check. Actual ACL and elevated reassignment tests, packaged startup, Windows builds, Linux/browser regression and container smoke passed. See `docs/WINDOWS_DATA_SECURITY.md`.
 

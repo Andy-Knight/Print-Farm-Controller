@@ -4,6 +4,10 @@ This file contains the version-by-version release history for Print Farm Control
 
 Historical entries describe the behaviour of the controller at the time of that release and may be superseded by later versions. For current installation, configuration and supported-hardware guidance, see [README.md](README.md).
 
+## v0.61.16
+
+- Rename the Security & users page and menu entry to Users & settings, updating the top-bar heading, descriptions and navigation guidance while retaining the existing menu icon.
+
 ## v0.61.15
 
 - Show personal Print Library usage beside the signed-in account name in the top bar. Move the all-account storage breakdown into an administrator-only Print library tab beside Analytics in Reports & finance, with an account pie chart and recorded disk-usage graph against the configured maximum.

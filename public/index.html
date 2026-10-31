@@ -61,7 +61,7 @@
       <button id="alertsSettingsBtn" type="button" class="sidebar-item" data-route="/alerts"><span class="sidebar-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4a8 8 0 1 0 0 16a8 8 0 0 0 0-16Z M12 8v5 M12 16h.01"/></svg></span><span>Alerts &amp; notifications</span></button>
       <button id="backupRecoveryBtn" type="button" class="sidebar-item" data-route="/backup"><span class="sidebar-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v12 M8 12l4 4 4-4 M4 20h16"/></svg></span><span>Backup &amp; recovery</span></button>
       <button id="diagnosticsBtn" type="button" class="sidebar-item" data-route="/diagnostics"><span class="sidebar-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h16 M4 10h16 M4 15h10 M4 20h7"/></svg></span><span>Diagnostics</span></button>
-      <button id="usersBtn" type="button" class="sidebar-item" data-route="/users" hidden><span class="sidebar-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3"/><path d="M3 20v-2a6 6 0 0 1 12 0v2M18 8h4M20 6v4"/></svg></span><span>Security &amp; users</span></button>
+      <button id="usersBtn" type="button" class="sidebar-item" data-route="/users" hidden><span class="sidebar-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3"/><path d="M3 20v-2a6 6 0 0 1 12 0v2M18 8h4M20 6v4"/></svg></span><span>Users &amp; settings</span></button>
     </nav>
     <div class="sidebar-foot">
       <button type="button" class="sidebar-quick-add" data-add-printer aria-label="Add a printer to the farm">+ Add printer</button>
@@ -1510,8 +1510,8 @@
     <div class="ui-page-heading dialog-head">
       <div class="ui-page-heading-copy">
         <div class="eyebrow ui-page-eyebrow">FARM MANAGEMENT</div>
-        <h2 class="ui-page-title">Security &amp; users</h2>
-        <div class="ui-page-description subtle">Enable sign-in and manage server-enforced access to your print farm.</div>
+        <h2 class="ui-page-title">Users &amp; settings</h2>
+        <div class="ui-page-description subtle">Manage user accounts, secure connections and controller resource limits.</div>
       </div>
     </div>
     <section id="authSetupOverview" class="auth-panel auth-setup-overview" aria-labelledby="authSecurityHeading" hidden>
@@ -1523,7 +1523,7 @@
       <p class="auth-transport-notice">HTTP authentication is available, but your password and session can be intercepted on the network. Use HTTPS as soon as possible.</p>
       <button id="authSetupStartBtn" type="button" class="primary">Set up administrator</button>
     </section>
-    <div id="authAdminTabs" class="maintenance-view-selector auth-security-tabs" data-pfc-tabs role="tablist" aria-label="Security & users sections" hidden>
+    <div id="authAdminTabs" class="maintenance-view-selector auth-security-tabs" data-pfc-tabs role="tablist" aria-label="Users & settings sections" hidden>
       <button id="authTabUsers" type="button" class="maintenance-view-button active" role="tab" data-pfc-icon="users" aria-selected="true" aria-controls="authUsersPanel">Users</button>
       <button id="authTabHttps" type="button" class="maintenance-view-button" role="tab" data-pfc-icon="server" aria-selected="false" aria-controls="tlsSettings" tabindex="-1">Connection settings</button>
       <button id="authTabLimits" type="button" class="maintenance-view-button" role="tab" data-pfc-icon="sliders" aria-selected="false" aria-controls="resourceLimitsSettings" tabindex="-1">Resource limits</button>
