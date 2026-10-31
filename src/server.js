@@ -370,7 +370,7 @@ function scheduleLibraryHistoryFlush(){
 }
 async function sampleLibraryStorage(refresh=false){
   return controllerMutations.run('library-storage',async()=>{
-    if(!refresh&&libraryStorageCache&&Date.now()-libraryStorageCache.measuredAt<30000)return libraryStorageCache;
+    if(libraryStorageCache&&(libraryStorageStopped||(!refresh&&Date.now()-libraryStorageCache.measuredAt<30000)))return libraryStorageCache;
     const inventory=await libraryStorageInventory();
     const limit=configuredLimit('PFC_LIBRARY_MAX_BYTES',50*1024**3);
     const at=new Date().toISOString();

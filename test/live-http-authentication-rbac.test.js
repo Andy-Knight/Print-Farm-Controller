@@ -156,6 +156,16 @@ test('real HTTP dispatcher enforces login, CSRF and RBAC before controller actio
     }finally{for(const response of streams)await response.body?.cancel().catch(()=>{});}
     assert.equal((await call('POST','/api/auth/logout',viewer)).status,200);
     assert.equal((await call('GET','/api/queue',viewer)).status,401);
+    const historyPath=path.join(dataDir,'library-storage-history.json');
+    assert.deepEqual(JSON.parse(await fs.readFile(historyPath,'utf8')).points,[],
+      'live upload/transfer reporting must not force immediate history writes');
+    // Windows TerminateProcess does not deliver a catchable SIGTERM. Exercise
+    // the real graceful signal path on the Linux CI/container platform.
+    if(process.platform!=='win32'){
+      const exited=once(child,'exit');child.kill('SIGTERM');await exited;
+      assert.ok(JSON.parse(await fs.readFile(historyPath,'utf8')).points.length>0,
+        'clean controller shutdown persists pending storage observations');
+    }
   }finally{
     if(child&&child.exitCode===null){
       const exit=once(child,'exit');
