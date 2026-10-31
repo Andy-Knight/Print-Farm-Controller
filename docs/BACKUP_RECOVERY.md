@@ -439,7 +439,7 @@ Reasons:
 
 Current JSON stores are already written using temp-file + rename semantics, so each store can be read atomically.
 
-The Print Library uses immutable file IDs/content. Queue/history references protect referenced library entries from deletion. Backup code should still tolerate a concurrent unreferenced library change by retrying or omitting an entry only when it was removed before the snapshot was finalized.
+The Print Library uses immutable file IDs/content. Active/pending queue work and uncleared beds protect library entries from deletion. Explicit administrator deletion removes linked terminal queue/reporting records before removing a file. Backup code should still tolerate a concurrent unreferenced library change by retrying or omitting an entry only when it was removed before the snapshot was finalized.
 
 Cloud integration state is intentionally outside the logical snapshot allowlist. Backup creation enumerates known logical stores rather than copying `DATA_DIR`, so `data/integrations/google-drive.json`, `data/integrations/one-drive.json` and `data/integrations/s3.json` cannot place cloud credentials into a portable backup.
 

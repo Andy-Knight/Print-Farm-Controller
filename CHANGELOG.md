@@ -10,6 +10,7 @@ Historical entries describe the behaviour of the controller at the time of that 
 - Migrate existing embedded history safely, include buffered observations in manual/scheduled backups and preserve the new file through restore/rollback. Flush pending observations on clean shutdown and retry failed writes without discarding the buffer.
 - Restore authenticated simulator enable/disable and printer-management actions by sending the current session CSRF token from the separate simulator page, preserving Origin and administrator checks.
 - Keep the Print Library reporting Refresh button content-sized beside its Period selector on desktop and mobile.
+- Allow administrators to delete previously printed library files together with linked recent and reporting history. Protect active/pending jobs and uncleared beds, confirm the historical-report impact and prevent delayed reporting writes from recreating deleted records.
 
 ## v0.61.16
 

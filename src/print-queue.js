@@ -11,6 +11,14 @@ import { buildMaterialCostSnapshot } from './material-costing.js';
 import { PRINTER_OPERATION_TYPES } from './printer-operation-policy.js';
 
 const TERMINAL_STATES = new Set(['completed', 'failed', 'cancelled']);
+
+export function libraryDeletionBlock(references,activeProductionIds=new Set()){
+  if(references.some(job=>!TERMINAL_STATES.has(job.status)||activeProductionIds.has(job.productionBatchId)))
+    return 'This library file is used by active, queued or pending production work. Cancel or finish that work before deleting it.';
+  if(references.some(job=>job.bedClearanceRequired===true&&!job.bedClearedAt))
+    return 'Confirm Bed cleared for the linked print before deleting this library file.';
+  return null;
+}
 const ACTIVE_PRINTER_STATES = new Set(['printing', 'working', 'building_from_sd', 'pause', 'paused']);
 const IDLE_PRINTER_STATES = new Set(['idle', 'ready', 'standby', 'complete', 'completed', 'cancel', 'cancelled', 'canceled', 'stopped']);
 const CANCELLED_PRINTER_STATES = new Set(['cancel', 'cancelled', 'canceled', 'stopped']);
@@ -978,6 +986,25 @@ export class PrintQueueService {
     return before - this.jobs.length;
   }
 
+  async removeLibraryHistory(fileId){
+    const references=this.jobs.filter(job=>(job.libraryFileId||job.stagedFile?.id)===fileId);
+    const activeProductionIds=new Set(this.jobs.filter(job=>job.productionBatchId&&!TERMINAL_STATES.has(job.status)).map(job=>job.productionBatchId));
+    const blocked=libraryDeletionBlock(references,activeProductionIds);
+    if(blocked)throw Object.assign(new Error(blocked),{statusCode:409});
+    const removed=new Set(references.map(job=>job.id));
+    this.jobs=this.jobs.filter(job=>!removed.has(job.id));
+    try{
+      // Even an empty removal drains older persistence/reporting callbacks.
+      // They must finish before the reporting store is purged for this file.
+      await this.persistAndNotify();
+    }catch(error){
+      const currentIds=new Set(this.jobs.map(job=>job.id));
+      this.jobs.push(...references.filter(job=>!currentIds.has(job.id)));
+      throw error;
+    }
+    return references.length;
+  }
+
   async reorder(jobIds) {
     const queued = this.jobs.filter((job) => job.status === 'queued');
     const requested = Array.isArray(jobIds) ? [...new Set(jobIds.map(String))] : [];
@@ -1632,14 +1659,16 @@ export class PrintQueueService {
 
   async persistAndNotify() {
     const snapshot = structuredClone(this.jobs);
-    const save = this.saveChain.then(() => this.saveJobs(snapshot));
+    const save = this.saveChain.then(async()=>{
+      await this.saveJobs(snapshot);
+      if(this.recordTerminalJobs){
+        await Promise.resolve(this.recordTerminalJobs(snapshot,{seed:false})).catch(error=>{
+          console.warn(`Reporting history update failed: ${error?.message||error}`);
+        });
+      }
+    });
     this.saveChain = save.catch(() => {});
     await save;
-    if (this.recordTerminalJobs) {
-      await Promise.resolve(this.recordTerminalJobs(snapshot, { seed:false })).catch((error) => {
-        console.warn(`Reporting history update failed: ${error?.message || error}`);
-      });
-    }
     this.emitDiagnosticTransitions();
     this.notify();
   }

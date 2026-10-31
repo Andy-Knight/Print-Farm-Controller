@@ -185,6 +185,17 @@ export class ReportingService {
     return clone((await this.load()).records);
   }
 
+  async removeLibraryHistory(fileId){
+    await this.init();
+    return this.mutations.run('history',async()=>{
+      const store=await this.load(),before=store.records.length;
+      store.records=store.records.filter(record=>record.libraryFileId!==fileId);
+      const removed=before-store.records.length;
+      if(removed)await this.save(store);
+      return removed;
+    });
+  }
+
   async recordLibraryStorage({bytes,limit,at=new Date().toISOString()}) {
     await this.init();
     return this.libraryStorageHistory.observe({bytes,limit,at});

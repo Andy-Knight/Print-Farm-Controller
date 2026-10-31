@@ -3973,8 +3973,8 @@ function libraryFileViewModel(file) {
     meta:`Added ${formatLastSeen(file?.addedAt || file?.stagedAt)} · ${completedPrints} completed print${completedPrints === 1 ? '' : 's'} · ${lastPrinted}`,
     warning:String(file?.requirements?.warning || ''),
     previewUrl:String(file?.previewUrl || ''),
-    deleteDisabled:Number(usage.queueReferences || 0) > 0,
-    deleteTitle:Number(usage.queueReferences || 0) > 0 ? 'Clear queue/history references before deleting this file' : ''
+    deleteDisabled:libraryDeletionBlocked(file),
+    deleteTitle:libraryDeletionBlocked(file) ? (usage.deletionReason||'Finish or cancel linked work and confirm bed clearance before deleting this file') : ''
   };
 }
 
@@ -3999,6 +3999,11 @@ function selectedLibraryFile() {
   return (libraryState.files || []).find((file) => file.id === librarySelectedFileId) || null;
 }
 
+function libraryDeletionBlocked(file){
+  const usage=file?.usage||{};
+  return usage.deletionBlocked===true||Number(usage.activeReferences||0)>0||Number(usage.bedClearanceReferences||0)>0;
+}
+
 function updateLibrarySelectionToolbar() {
   const file = selectedLibraryFile();
   const ready = Boolean(file) && !libraryActionBusy;
@@ -4013,13 +4018,13 @@ function updateLibrarySelectionToolbar() {
   }
   const ownerButton=document.querySelector('#libraryOwnerSelectedBtn');
   if(ownerButton){ownerButton.hidden=document.body.dataset.authRole!=='administrator';ownerButton.disabled=!ready;}
-  const referenced = Number(file?.usage?.queueReferences || 0) > 0;
+  const referenced = libraryDeletionBlocked(file);
   if (libraryDeleteSelectedBtn) {
     libraryDeleteSelectedBtn.hidden = !canPurgeFarmRecords();
     libraryDeleteSelectedBtn.disabled = !canPurgeFarmRecords() || !ready || referenced;
     libraryDeleteSelectedBtn.title = referenced
-      ? 'Clear queue/history references before deleting this file'
-      : (file ? 'Delete the selected library file' : 'Select a file to delete');
+      ? (file?.usage?.deletionReason||'Finish or cancel linked work and confirm bed clearance before deleting this file')
+      : (file ? 'Delete the selected library file and its linked print history' : 'Select a file to delete');
   }
 }
 
@@ -5667,15 +5672,15 @@ libraryFavouriteSelectedBtn?.addEventListener('click',async ()=>{
 libraryDeleteSelectedBtn?.addEventListener('click', async () => {
   if (libraryActionBusy || !canPurgeFarmRecords()) return;
   const file = selectedLibraryFile();
-  if (!file || Number(file.usage?.queueReferences || 0) > 0) return;
-  if (!confirm(`Delete ${file.fileName} from the Print Library? The stored controller copy will be removed.`)) return;
+  if (!file || libraryDeletionBlocked(file)) return;
+  if (!confirm(`Delete ${file.fileName} from the Print Library? The stored controller copy and all linked completed, failed and cancelled print history will be permanently removed, including reporting records. Historical report totals will change.`)) return;
   libraryActionBusy = true;
   updateLibrarySelectionToolbar();
   try {
     await api(`/api/library/${encodeURIComponent(file.id)}`, { method:'DELETE' });
     librarySelectedFileId = null;
     await refreshPrintLibrary();
-    if (libraryStatus) libraryStatus.textContent = `${file.fileName} deleted from the Print Library.`;
+    if (libraryStatus) libraryStatus.textContent = `${file.fileName} and its linked print history deleted.`;
   } catch (error) {
     alert(error.message);
   } finally {

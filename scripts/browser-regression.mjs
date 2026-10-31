@@ -3991,6 +3991,22 @@ async function libraryAccountSmoke({browser,context,page,url,dataDir,captureDir}
     await operatorPage.waitForFunction(()=>document.querySelector('#authLibraryStorage')?.textContent.includes('Library 0 B'));
     await operatorPage.locator('#authLibraryStorage').waitFor({state:'visible'});
     assert.match(await operatorPage.locator('#authLibraryStorage').innerText(),/Library 0 B/);
+    const queuedForDeletion=await page.evaluate(async libraryFileId=>{
+      const response=await fetch('/api/queue',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({assignmentMode:'automatic',libraryFileId})});
+      if(!response.ok)throw new Error('Unable to create linked deletion history');return (await response.json()).job;
+    },first.id);
+    await page.goto(url+'/library');await page.locator(`[data-library-select="${first.id}"]`).click();
+    assert.equal(await page.locator('#libraryDeleteSelectedBtn').isDisabled(),true,'pending work keeps Delete disabled');
+    await page.evaluate(async id=>{const response=await fetch('/api/queue/'+id,{method:'DELETE'});if(!response.ok)throw new Error('Unable to cancel deletion fixture');},queuedForDeletion.id);
+    await page.reload();await page.locator(`[data-library-select="${first.id}"]`).click();
+    assert.equal(await page.locator('#libraryDeleteSelectedBtn').isEnabled(),true,'finished history no longer blocks Delete');
+    let deletionConfirmation='';page.once('dialog',dialog=>{deletionConfirmation=dialog.message();void dialog.accept();});
+    const removed=page.waitForResponse(response=>response.url()===url+'/api/library/'+first.id&&response.request().method()==='DELETE');
+    await page.locator('#libraryDeleteSelectedBtn').click();assert.equal((await removed).status(),200);
+    assert.match(deletionConfirmation,/linked completed, failed and cancelled print history/);
+    await page.waitForFunction(id=>!document.querySelector(`[data-library-file="${id}"]`),first.id);
+    const remainingQueue=await (await page.request.get(url+'/api/queue')).json();
+    assert.equal(remainingQueue.jobs.some(job=>job.id===queuedForDeletion.id),false);
     console.log('Chromium: library uploader column, filters, quota transfer/audit, role boundary and fallback PASS');
     await page.setViewportSize({width:1280,height:800});await page.evaluate(()=>document.documentElement.dataset.theme='dark');
     await page.goto(url+'/users');await page.locator('#authUserList th[scope=row]').filter({hasText:'owner'}).waitFor();

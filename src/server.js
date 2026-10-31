@@ -1,5 +1,6 @@
 import {StreamAdmission} from './security/stream-admission.js';
 import {libraryAccountPresentation} from './library-accounts.js';
+import {deleteLibraryFileAndHistory} from './library-deletion.js';
 import {libraryOwnershipInventory,libraryOwnershipHistory,reassignLibraryOwner,libraryStorageInventory} from './print-library.js';
 import {configuredLimit} from './security/resource-limits.js';
 import {ResourceLimitSettings} from './security/resource-limit-settings.js';
@@ -43,7 +44,7 @@ import { ChamberPreheatService } from './chamber-preheat.js';
 import { BatchControlService } from './batch-control.js';
 import { FileDistributionService } from './file-distribution.js';
 import { stageUploadRequest } from './upload-staging.js';
-import { addLibraryFile, getLibraryPreview, listLibraryFiles, removeLibraryFile, updateLibraryFileMetadata } from './print-library.js';
+import { addLibraryFile, getLibraryPreview, listLibraryFiles, updateLibraryFileMetadata } from './print-library.js';
 import { estimateLibraryFileCosts } from './library-cost-preview.js';
 import { getLibraryPricingSettings, saveLibraryPricingSettings, estimateLibrarySalePrice } from './library-pricing.js';
 import { attachLibraryReadiness } from './library-readiness.js';
@@ -52,7 +53,7 @@ import { ReportingService } from './reporting-service.js';
 import { AlertService } from './alert-service.js';
 import { AlertEventBridge } from './alert-event-bridge.js';
 import { QueueAlertBridge } from './queue-alert-bridge.js';
-import { PrintQueueService } from './print-queue.js';
+import { PrintQueueService,libraryDeletionBlock } from './print-queue.js';
 import { assessMaterialCompatibility } from './file-material-metadata.js';
 import { getPrinterFileMaterialMetadata, removePrinterFileMaterialMetadata } from './file-material-store.js';
 import { EmulatorManager } from './emulator-manager.js';
@@ -1788,10 +1789,11 @@ async function apiRoute(req, res, url) {
 
   if (req.method === 'GET' && url.pathname === '/api/library') {
     const queueSnapshot = printQueue.getSnapshot();
+    const activeProductionIds=new Set((queueSnapshot.jobs||[]).filter(job=>job.productionBatchId&&!['completed','failed','cancelled'].includes(job.status)).map(job=>job.productionBatchId));
     // Index references once instead of scanning every job for each file.
     const byLibraryId = new Map();
     for (const job of queueSnapshot.jobs || []) {
-      const id = job.stagedFile?.id;
+      const id = job.libraryFileId||job.stagedFile?.id;
       if (!id) continue;
       if (!byLibraryId.has(id)) byLibraryId.set(id,[]);
       byLibraryId.get(id).push(job);
@@ -1801,6 +1803,7 @@ async function apiRoute(req, res, url) {
     const accountView=libraryAccountPresentation({...ownership,accounts,currentUser:req.pfcUser});
     const filesWithUsage = accountView.files.map((file) => {
       const references = byLibraryId.get(file.id) || [];
+      const deletionReason=libraryDeletionBlock(references,activeProductionIds);
       const completed = references.filter((job) => job.status === 'completed');
       const finished = references
         .map((job) => job.finishedAt)
@@ -1812,6 +1815,8 @@ async function apiRoute(req, res, url) {
         usage: {
           queueReferences: references.length,
           activeReferences: references.filter((job) => !['completed', 'failed', 'cancelled'].includes(job.status)).length,
+          bedClearanceReferences:references.filter(job=>job.bedClearanceRequired===true&&!job.bedClearedAt).length,
+          deletionBlocked:Boolean(deletionReason),deletionReason,
           completedPrints: completed.length,
           lastPrintedAt: finished.length ? finished[finished.length - 1] : null
         }
@@ -1886,15 +1891,9 @@ async function apiRoute(req, res, url) {
   }
   if (libraryFileMatch && req.method === 'DELETE') {
     const fileId = decodeURIComponent(libraryFileMatch[1]);
-    await controllerMutations.run('library-queue', async () => {
-      const references = (printQueue.getSnapshot().jobs || []).filter((job) => job.stagedFile?.id === fileId);
-      if (references.length) {
-        throw new Error('This library file is still referenced by the print queue or history. Cancel/clear those records before deleting it.');
-      }
-      await removeLibraryFile(fileId);
-    });
+    const historyRemoved=await controllerMutations.run('library-queue',()=>deleteLibraryFileAndHistory(fileId,{queue:printQueue,reporting:reportingService}));
     refreshLibraryStorage();
-    return json(res, 200, { ok:true });
+    return json(res, 200, { ok:true,historyRemoved });
   }
 
 

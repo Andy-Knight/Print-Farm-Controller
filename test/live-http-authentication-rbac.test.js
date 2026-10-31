@@ -106,6 +106,17 @@ test('real HTTP dispatcher enforces login, CSRF and RBAC before controller actio
     const duplicate=await upload(admin);assert.equal(duplicate.status,200);assert.equal((await duplicate.json()).file.uploadedById,operatorId);
     const history=await (await call('GET',`/api/library/${libraryId}/ownership`,admin)).json();
     assert.equal(history.history.length,1);assert.equal(history.history[0].actorId,adminId);assert.equal(history.history[0].from,operatorId);assert.equal(history.history[0].to,adminId);
+    const queued=await call('POST','/api/queue',admin,{body:{assignmentMode:'automatic',libraryFileId:libraryId}});
+    assert.equal(queued.status,201);const linkedJob=(await queued.json()).job;
+    assert.equal((await call('DELETE',`/api/library/${libraryId}`,admin)).status,409,'pending work blocks deletion');
+    assert.equal((await call('DELETE',`/api/queue/${linkedJob.id}`,admin)).status,200);
+    for(const identity of [viewer,operator])assert.equal((await call('DELETE',`/api/library/${libraryId}`,identity)).status,403);
+    assert.equal((await call('DELETE',`/api/library/${libraryId}`,admin,{csrf:false})).status,403);
+    const deleted=await call('DELETE',`/api/library/${libraryId}`,admin);
+    assert.equal(deleted.status,200);assert.equal((await deleted.json()).historyRemoved.recent,1);
+    assert.equal((await (await call('GET','/api/library',admin)).json()).files.some(file=>file.id===libraryId),false);
+    assert.equal((await (await call('GET','/api/queue',admin)).json()).jobs.some(job=>job.id===linkedJob.id),false);
+    assert.equal(JSON.parse(await fs.readFile(path.join(dataDir,'reporting-history.json'),'utf8')).records.some(job=>job.libraryFileId===libraryId),false);
     assert.equal((await call('GET','/api/queue',viewer)).status,200);
     for (const identity of [viewer,operator]) {
       const alerts=await (await call('GET','/api/alerts',identity)).json();
