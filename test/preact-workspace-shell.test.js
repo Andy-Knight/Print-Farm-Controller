@@ -72,7 +72,7 @@ test('the workspace topbar retains route context without breadcrumbs in Preact o
   assert.match(browser,/breadcrumb elements must be absent/);
 });
 
-test('only sidebar Farm Management pages share its topbar section title',()=>{
+test('Farm Management pages share its topbar title except the named Users & settings page',()=>{
   const workNav=html.split('class="sidebar-section-label">WORKSPACE</span>')[1]
     ?.split('class="sidebar-section-label">FARM MANAGEMENT</span>')[0]||'';
   const manageNav=html.split('class="sidebar-section-label">FARM MANAGEMENT</span>')[1]
@@ -86,8 +86,9 @@ test('only sidebar Farm Management pages share its topbar section title',()=>{
   for(const route of managementRoutes){
     const line=app.split('\n').find(s=>s.startsWith("  '"+route+"': {"));
     assert.ok(line,'missing route '+route);
-    assert.ok(line.includes("topbarTitle:'Farm management'"),
-      'Farm Management route must use the section title in the topbar: '+route);
+    const title=route==='/users'?'Users & settings':'Farm management';
+    assert.ok(line.includes("topbarTitle:'"+title+"'"),
+      'route must use its expected topbar title: '+route);
   }
   for(const route of [...workspaceRoutes,'/licence']){
     const line=app.split('\n').find(s=>s.startsWith("  '"+route+"': {"));

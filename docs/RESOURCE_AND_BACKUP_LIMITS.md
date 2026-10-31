@@ -2,7 +2,7 @@
 
 Limits apply on Windows and in containers. They protect control/monitoring capacity;
 they do not change signed licensing or bypass print readiness and recovery holds.
-Administrators can tune every setting in the table under **Security & users →
+Administrators can tune every setting in the table under **Users & settings →
 Resource limits**. Fields show the active value and default in readable count,
 MiB/GiB or seconds units. **Save resource limits** persists the draft, and a
 restart notice remains until the controller is restarted and the values are active.

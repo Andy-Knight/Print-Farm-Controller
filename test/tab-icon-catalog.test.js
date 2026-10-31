@@ -15,7 +15,7 @@ const proposedSection = guide.split('#### Matching ideas for new tab icons (not 
 const rowNames = section => [...section.matchAll(/^\| `([^`]+)` \|/gm)]
   .map(match => match[1]).filter(name => name !== 'data-pfc-icon');
 
-test('documented tab inventory matches every deployed CSS mask, including Security & users', () => {
+test('documented tab inventory matches every deployed CSS mask, including Users & settings', () => {
   const names = rules.map(([, name]) => name);
   assert.equal(names.length, 18, 'review the documented count when adding/removing tab masks');
   assert.equal(new Set(names).size, names.length, 'CSS icon IDs must be unique');
@@ -29,8 +29,8 @@ test('documented tab inventory matches every deployed CSS mask, including Securi
   const html = read('../public/index.html');
   assert.match(html, /id="authTabUsers"[^>]*data-pfc-icon="users"/);
   assert.match(html, /id="authTabHttps"[^>]*data-pfc-icon="server"/);
-  assert.match(deployedSection, /`users`.*Security & users → Users/);
-  assert.match(deployedSection, /`server`.*Security & users → Connection settings/);
+  assert.match(deployedSection, /`users`.*Users & settings → Users/);
+  assert.match(deployedSection, /`server`.*Users & settings → Connection settings/);
   const management = read('../ui/printer-details.jsx').match(/\{ key:'management'[^}]*\}/)?.[0];
   assert.ok(management, 'Management Preact tab must exist');
   assert.doesNotMatch(management, /icon:/);

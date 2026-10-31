@@ -8,7 +8,7 @@ const backend=read('src/security/http-auth.js');
 
 test('legacy farm visibly offers secure GUI onboarding in both frontend paths',()=>{
   assert.match(html,/id="usersBtn"[^>]*data-route="\/users"[^>]*hidden/);
-  assert.match(html,/Security &amp; users/);
+  assert.match(html,/Users &amp; settings/);
   assert.match(html,/id="authSetupOverview"/);
   assert.match(html,/id="authSecurityStatus"/);
   assert.match(html,/id="authSetupStartBtn"/);
@@ -45,7 +45,7 @@ test('user list requires confirmation before deleting and prevents self deletion
   assert.match(backend,/this\.#revokeUser\(user\.id\)/);
 });
 
-test('Security & users has separate keyboard-accessible tabs and an unmistakable managed renewal action',()=>{
+test('Users & settings has separate keyboard-accessible tabs and an unmistakable managed renewal action',()=>{
   const nav=html.indexOf('id="authAdminTabs"');
   const users=html.indexOf('id="authUsersPanel"');
   const https=html.indexOf('id="tlsSettings"');

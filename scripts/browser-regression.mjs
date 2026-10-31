@@ -4305,13 +4305,18 @@ async function nativeAuthenticationSmoke(browser){
     assert.equal(await page.locator('#authIdentity').isVisible(),true);
     await page.locator('#usersBtn').click();
     await page.locator('#authUserAddForm').waitFor({state:'visible'});
+    assert.equal((await page.locator('#usersBtn').innerText()).trim(),'Users & settings');
+    assert.equal(await page.locator('#usersDialog .ui-page-title').innerText(),'Users & settings');
+    assert.equal(await page.locator('#topbarContextTitle').innerText(),'Users & settings');
+    assert.equal(await page.locator('#topbarContextSubtitle').innerText(),'Manage user accounts and controller settings');
+    assert.equal(await page.locator('#usersDialog .ui-page-description').innerText(),'Manage user accounts, secure connections and controller resource limits.');
     // The native account-list fetch is asynchronous. Wait for its initial
     // response before creating a user so a late initial list render cannot
     // overwrite the refreshed list and cause a false browser regression.
     await page.locator('#authUserList tbody tr').filter({hasText:'owner'})
       .waitFor({state:'visible'});
     assert.equal(await page.locator('#authAdminTabs').isVisible(),true,
-      'Security & users must offer dedicated Users and HTTPS tabs');
+      'Users & settings must offer dedicated Users and HTTPS tabs');
     assert.equal(await page.locator('#authTabUsers').getAttribute('aria-selected'),'true');
     assert.equal(await page.locator('#authTabHttps').getAttribute('aria-selected'),'false');
     assert.equal(await page.locator('#authTabHttps').innerText(),'Connection settings');

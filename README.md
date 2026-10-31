@@ -1,4 +1,4 @@
-# Print Farm Controller v0.61.15
+# Print Farm Controller v0.61.16
 A local-first 3D printer fleet controller. It runs entirely on your LAN and currently supports:
 
 - **FlashForge Adventurer 5M / 5M Pro** through the local FlashForge HTTP/TCP APIs.
@@ -7,7 +7,7 @@ A local-first 3D printer fleet controller. It runs entirely on your LAN and curr
 - **Prusa CORE One+ (experimental)** through the local PrusaLink API, supporting Standard (1-tool), INDX4 and INDX8 configurations.
 - **Bambu Lab P1P / P1S / X1C / A1 Mini (experimental)** through the local MQTT TLS and FTPS TLS interfaces. P1P/P1S/A1 Mini use the TLS/JPEG camera path; X1C camera uses the bundled FFmpeg decoder; see [X1C camera setup](docs/X1C_CAMERA.md).
 
-**Current development version: v0.61.15**
+**Current development version: v0.61.16**
 
 ## Key capabilities
 
@@ -42,7 +42,7 @@ gantry drawn across the workpiece. On phones the illustration yields to a compac
 setup, login errors and HTTP security warnings. The sign-in password field includes an
 accessible show/hide button. No printer state is displayed before login.
 
-The controller supports **local username/password login** and enforces role permissions on the server, not just by hiding buttons. Administrators can delete other accounts from **Security & users → Users** using a confirmed red Delete action; a deleted account loses all active sessions immediately. The signed-in account and last enabled administrator are protected from deletion. **Administrator** can manage accounts, security, printer settings, licence, backups and cloud credentials. **Operator** can run printers, edit (but not delete) Print Library records, manage active/queued production, assign filament/nozzles to printers, and complete routine maintenance. Operators cannot purge queue history, change the shared filament cost catalogue, manage users, credentials or restore backups. **Viewer** can see status, reports and camera feeds without making changes. Permissions are independent of signed edition/licence limits.
+The controller supports **local username/password login** and enforces role permissions on the server, not just by hiding buttons. Administrators can delete other accounts from **Users & settings → Users** using a confirmed red Delete action; a deleted account loses all active sessions immediately. The signed-in account and last enabled administrator are protected from deletion. **Administrator** can manage accounts, security, printer settings, licence, backups and cloud credentials. **Operator** can run printers, edit (but not delete) Print Library records, manage active/queued production, assign filament/nozzles to printers, and complete routine maintenance. Operators cannot purge queue history, change the shared filament cost catalogue, manage users, credentials or restore backups. **Viewer** can see status, reports and camera feeds without making changes. Permissions are independent of signed edition/licence limits.
 
 ### Set up the first administrator using the GUI
 
@@ -69,7 +69,7 @@ still run `node scripts/manage-users.mjs setup` or
 onboarding**. In containers, the source-only management script is not packaged; the
 bundled `/app/build/controller.cjs --auth-setup` remains an emergency option.
 
-After login, Administrators use **Security & users** in Farm Management to create, disable,
+After login, Administrators use **Users & settings** in Farm Management to create, disable,
 update and reset accounts with Viewer/Operator/Administrator roles. **My account** in the top bar
 allows self-service password changes and sign-out. Password and role changes revoke existing
 sessions, which also expire after inactivity or a controller restart.
@@ -84,7 +84,7 @@ the persistent data directory. Preserve the same security storage across restore
 
 A fresh installation provisions managed HTTPS on **4243** before enrollment. HTTP **4242** remains available for health and certificate-matched redirects. Kubernetes Services may expose 80→4242 and 443→4243. Set `PFC_TLS_NAMES` before the first secure startup to include external browser DNS names/IPv4 addresses (for example a LoadBalancer address); otherwise local interface addresses and the machine hostname are used. See the HTTPS guide for certificate trust and HTTP-only upgrade migration.
 
-After verifying and trusting the public certificate, enroll or sign in over HTTPS. Administrators can replace the managed identity or import an externally issued PEM pair through **Security & users → Connection settings**. HTTP-only mode is rejected unless the host explicitly opts in with `PFC_AUTH_ALLOW_HTTP=1`.
+After verifying and trusting the public certificate, enroll or sign in over HTTPS. Administrators can replace the managed identity or import an externally issued PEM pair through **Users & settings → Connection settings**. HTTP-only mode is rejected unless the host explicitly opts in with `PFC_AUTH_ALLOW_HTTP=1`.
 
 **HTTP and HTTPS listening ports are not editable in the GUI**, so enabling HTTPS never requires changing the Kubernetes Deployment or MetalLB Service ports. After HTTPS is enabled, port 4242 stays open but accepts only a minimal `GET /healthz` probe and **GET/HEAD redirects** to HTTPS (302, no-store) for hosts that match the active certificate. Other HTTP requests (including logins and API writes) are rejected. The TLS listener accepts the full application on port 4243. Redirects do not bypass browser certificate trust, and there is no plaintext fallback if an HTTPS identity fails to initialize. The health endpoint reports only `ok` and is deliberately independent of authentication, printer data and certificate status. The Docker health check and Kubernetes probes use HTTP `:4242/healthz`.
 
@@ -102,7 +102,7 @@ Printer HTTP connections reject redirects, including redirects to the same host;
 
 The Print Library includes an Uploaded by column and account/My uploads filters. Signed-in users see their library usage beside their account name in the top bar. Reports & finance → Print library gives administrators a pie chart of account usage and recorded storage growth against the configured maximum. Administrators can reassign quota ownership with a retained audit history while preserving original upload attribution.
 
-Administrators can tune upload, Print Library storage, session, live-stream and backup limits under **Security & users → Resource limits**. Saved changes take effect after a controller restart; host environment overrides remain locked in the GUI. Backup inspection enforces ZIP directory, expansion and processing budgets; cloud transfers have shared deadlines and administrator cancellation. See [resource and backup limits](docs/RESOURCE_AND_BACKUP_LIMITS.md) for defaults, configuration and compatibility.
+Administrators can tune upload, Print Library storage, session, live-stream and backup limits under **Users & settings → Resource limits**. Saved changes take effect after a controller restart; host environment overrides remain locked in the GUI. Backup inspection enforces ZIP directory, expansion and processing budgets; cloud transfers have shared deadlines and administrator cancellation. See [resource and backup limits](docs/RESOURCE_AND_BACKUP_LIMITS.md) for defaults, configuration and compatibility.
 
 Full design and security rollout requirements: [Authentication and RBAC](docs/AUTHENTICATION_AND_RBAC.md).
 
