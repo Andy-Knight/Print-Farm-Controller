@@ -3988,6 +3988,32 @@ async function libraryAccountSmoke({browser,context,page,url,dataDir,captureDir}
   }finally{await operator.close();}
 }
 
+async function authenticatedSimulatorSmoke(context,url){
+  const page=await context.newPage();
+  try{
+    await page.goto(url+'/simulator/');
+    await page.waitForFunction(()=>document.querySelector('#simulator-toggle')?.disabled===false);
+    assert.equal(await page.locator('#simulator-toggle').innerText(),'Enable simulator');
+    const enabled=page.waitForResponse(response=>response.url()===url+'/api/emulator/status'&&response.request().method()==='POST');
+    await page.locator('#simulator-toggle').click();
+    const enableResponse=await enabled;assert.equal(enableResponse.status(),200);
+    assert.ok(enableResponse.request().headers()['x-pfc-csrf'],'simulator enable sends the current CSRF token');
+    await page.waitForFunction(()=>document.querySelector('#simulator-toggle')?.textContent==='Disable simulator'&&!document.querySelector('#simulator-toggle').disabled);
+    await page.locator('#show-add').click();
+    await page.locator('#profile').selectOption('flashforge-ad5m-pro');
+    await page.locator('#printer-name').fill('Authenticated simulator test');
+    const created=page.waitForResponse(response=>response.url()===url+'/api/emulator/printers'&&response.request().method()==='POST');
+    await page.locator('#add-form button[type=submit]').click();
+    assert.equal((await created).status(),201);
+    await page.locator('.printer-title').filter({hasText:'Authenticated simulator test'}).waitFor();
+    const disabled=page.waitForResponse(response=>response.url()===url+'/api/emulator/status'&&response.request().method()==='POST');
+    await page.locator('#simulator-toggle').click();
+    assert.equal((await disabled).status(),200);
+    await page.waitForFunction(()=>document.querySelector('#simulator-toggle')?.textContent==='Enable simulator');
+    console.log('Chromium: authenticated simulator enable, printer creation and disable PASS');
+  }finally{await page.close();}
+}
+
 async function nativeAuthenticationSmoke(browser){
   console.log('Chromium: native login, administrator user management and sign-out');
   const rootDir=await fs.mkdtemp(path.join(os.tmpdir(),'pfc-auth-browser-'));
@@ -4450,6 +4476,7 @@ async function nativeAuthenticationSmoke(browser){
     await page.locator('#authUserAddForm [name=password]').fill('Shop operator password 2026');
     await page.locator('#authUserAddForm button[type=submit]').click();
     await page.locator('#authUserList th[scope=row]').filter({hasText:'shopoperator'}).waitFor();
+    await authenticatedSimulatorSmoke(context,url);
     await libraryAccountSmoke({browser,context,page,url,dataDir,captureDir:authVisualDir});
     console.log('Chromium auth: operator created; switching shift operator role');
     const row=page.locator('#authUserList tbody tr').filter({hasText:'shiftoperator'});

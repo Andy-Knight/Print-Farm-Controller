@@ -64,7 +64,7 @@ test('real HTTP dispatcher enforces login, CSRF and RBAC before controller actio
     const viewer=await signIn('readuser'),operator=await signIn('operatoruser'),admin=await signIn('controlleradmin');
     const call=(method,url,identity,{csrf=true,origin=true,body=null}={})=>fetch(base+url,{
       method,headers:{
-        cookie:identity.cookie,...(origin?{origin:base}:{}),
+        cookie:identity.cookie,...(origin?{origin:typeof origin==='string'?origin:base}:{}),
         ...(csrf?{'x-pfc-csrf':identity.csrf}:{}),
         ...(body?{'content-type':'application/json'}:{})
       },...(body?{body:JSON.stringify(body)}:{})
@@ -76,6 +76,8 @@ test('real HTTP dispatcher enforces login, CSRF and RBAC before controller actio
     const firstUpload=await upload(operator);assert.equal(firstUpload.status,201);
     const libraryId=(await firstUpload.json()).file.id;
     const initialLibrary=await (await call('GET','/api/library',viewer)).json();
+    assert.equal((await call('POST','/api/emulator/status',admin,{csrf:false,body:{enabled:false}})).status,403);
+    assert.equal((await call('POST','/api/emulator/status',admin,{origin:'https://other.invalid',body:{enabled:false}})).status,403);
     for(const identity of [viewer,operator])assert.equal((await call('GET','/api/reports/library',identity)).status,403);
     const ownStorage=await (await call('GET','/api/library/storage',operator)).json();
     assert.ok(ownStorage.mine.bytes>0);assert.deepEqual(Object.keys(ownStorage),['mine']);

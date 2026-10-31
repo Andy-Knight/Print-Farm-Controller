@@ -626,6 +626,11 @@ Open the controller and select **Printer simulator**, or go directly to:
 http://<Controller-IP>:4242/simulator/
 ```
 
+With native authentication enabled, simulator management requires an Administrator
+session. The simulator page automatically sends the current session's CSRF token
+with management actions. If the session expires, sign in to the controller again
+and reload the simulator page.
+
 The simulator is disabled by default. Enable it from that page to start the loopback endpoints; the setting is remembered, the endpoints start with the controller on later launches, and they stop when the controller stops. It creates simulated FlashForge Adventurer 5M Pro, Snapmaker U1, Bambu Lab P1P, Bambu Lab P1S, Bambu Lab X1C and Bambu Lab A1 Mini printers, and displays the exact host, ports and credentials for each endpoint. Additional instances receive non-conflicting ports automatically.
 
 The simulator uses the same responsive visual system and shared light/dark preference as the main controller. Its UI provides live state, progress and temperature controls; accelerated print time; virtual printer files; activity logs; repeatable scenarios; and fault injection for retained filenames, persistent cancellation, failed verification, rejected or malformed commands, delayed responses and unavailable cameras. Bambu profiles can emulate zero to four four-slot AMS units plus the external spool, with editable material, colour, loaded state and active source. FlashForge uses a continuous MJPEG camera stream, Snapmaker uses its Moonraker WebSocket/snapshot sequence, and the Bambu profiles expose TLS MQTT status/control, implicit FTPS file transfer and the authenticated local camera stream. All state changes are streamed live to the browser.

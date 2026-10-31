@@ -8,6 +8,7 @@ Historical entries describe the behaviour of the controller at the time of that 
 
 - Separate Print Library storage observations into a bounded history file and batch changed observations to disk at most once every five minutes, keeping live reporting and quota enforcement current without rewriting completed-print history.
 - Migrate existing embedded history safely, include buffered observations in manual/scheduled backups and preserve the new file through restore/rollback. Flush pending observations on clean shutdown and retry failed writes without discarding the buffer.
+- Restore authenticated simulator enable/disable and printer-management actions by sending the current session CSRF token from the separate simulator page, preserving Origin and administrator checks.
 
 ## v0.61.16
 
