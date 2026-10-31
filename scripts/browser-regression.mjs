@@ -3957,6 +3957,15 @@ async function libraryAccountSmoke({browser,context,page,url,dataDir,captureDir}
       for(const width of [1365,900,760,620,390,320]){
         await page.setViewportSize({width,height:900});
         assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),`storage reports fit ${width}px ${theme}`);
+        const controls=await page.evaluate(()=>{
+          const rect=selector=>{const box=document.querySelector(selector).getBoundingClientRect();return {left:box.left,right:box.right,bottom:box.bottom,width:box.width,height:box.height};};
+          return {period:rect('#libraryStorageRange'),refresh:rect('#libraryStorageRefresh')};
+        });
+        assert.ok(controls.refresh.width<160,`library storage Refresh stays content-sized at ${width}px`);
+        assert.ok(controls.period.width<=220&&controls.refresh.left>=controls.period.right,
+          'library storage controls stay compact and side by side');
+        assert.ok(Math.abs(controls.refresh.bottom-controls.period.bottom)<=2,
+          'Refresh aligns with the Period selector');
         assert.equal(await page.locator('#libraryStorageReport .library-storage-pie').isVisible(),true);
         if(captureDir&&[1365,390].includes(width))await page.screenshot({path:path.join(captureDir,`library-storage-${theme}-${width}.png`),fullPage:true,animations:'disabled'});
       }
