@@ -6,6 +6,7 @@ import path from 'node:path';
 import { PassThrough } from 'node:stream';
 import { ManualBackupManager } from '../src/backup-recovery/manual-backup-manager.js';
 import { verifyBackupArchive } from '../src/backup-recovery/backup-format.js';
+import {inspectZipArchive} from '../src/backup-recovery/backup-archive.js';
 
 test('manual backup manager creates a verified one-time streamed download', async () => {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), 'pfc-manual-backup-'));
@@ -14,6 +15,7 @@ test('manual backup manager creates a verified one-time streamed download', asyn
     await fs.mkdir(dataDir, { recursive:true });
     await fs.writeFile(path.join(dataDir, 'printers.json'), JSON.stringify([{ id:'printer-1', name:'Test printer' }]));
     const manager = new ManualBackupManager({
+      libraryStorageHistoryFn:async()=>[{at:'2026-10-31T00:00:00.000Z',bytes:123,limit:1000}],
       dataDir,
       applicationDir:root,
       licensePath:path.join(root, 'missing-license.json'),
@@ -29,6 +31,8 @@ test('manual backup manager creates a verified one-time streamed download', asyn
     const pending = await manager.get(created.id);
     assert.ok(pending);
     assert.ok((await fs.stat(pending.filePath)).isFile());
+    const archive=await inspectZipArchive(pending.filePath);
+    assert.equal(JSON.parse((await archive.read('state/library-storage-history.json')).toString('utf8')).points[0].bytes,123);
 
     const response = new PassThrough();
     const chunks = [];

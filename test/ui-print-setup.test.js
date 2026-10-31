@@ -490,7 +490,7 @@ test('Print Library persists files independently and queues selected library ent
   assert.match(server, /url\.pathname === '\/api\/library'/);
   assert.match(server, /addLibraryFile/);
   assert.match(server, /listLibraryFiles/);
-  assert.match(server, /removeLibraryFile/);
+  assert.match(server, /deleteLibraryFileAndHistory/);
   assert.match(server, /body\.libraryFileId \|\| body\.stagedFileId/);
   assert.match(server, /preserved:true/);
   assert.match(library, /const ROOT = path\.join\(DATA_ROOT, 'print-library'\)/);

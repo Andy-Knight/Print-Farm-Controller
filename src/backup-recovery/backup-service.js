@@ -6,6 +6,7 @@ import { resolveControllerRuntimePaths } from '../runtime-paths.js';
 import { loadBackupSettings } from './backup-settings-store.js';
 import { hashArchiveSource, writeZipArchive } from './backup-archive.js';
 import { normalizePricingSettings } from '../library-pricing.js';
+import {normalizeLegacyStorageHistory,validateLibraryStorageHistory} from '../library-storage-history.js';
 import {
   BACKUP_EXTENSION,
   backupFileName,
@@ -79,6 +80,7 @@ async function collectLibraryEntries(dataDir) {
 }
 
 export async function collectLogicalBackupSnapshot({
+  libraryStorageHistoryFn = null,
   dataDir = resolveControllerRuntimePaths().dataDir,
   applicationDir = resolveControllerRuntimePaths().applicationDir,
   licensePath = resolveControllerRuntimePaths().licensePath,
@@ -107,6 +109,11 @@ export async function collectLogicalBackupSnapshot({
   if (!printerGroups || printerGroups.version !== 1 || !Array.isArray(printerGroups.groups)) throw new Error('Printer group store is invalid');
   if (!filaments || filaments.version !== 1 || !Array.isArray(filaments.filaments)) throw new Error('Filament catalogue store is invalid');
   if (!reportingHistory || reportingHistory.version !== 1 || !Array.isArray(reportingHistory.records)) throw new Error('Reporting history store is invalid');
+  const libraryStorageHistory=validateLibraryStorageHistory(typeof libraryStorageHistoryFn==='function'
+    ? {version:1,points:await libraryStorageHistoryFn()}
+    : await readJsonFile(path.join(resolvedDataDir,'library-storage-history.json'),
+      {version:1,points:normalizeLegacyStorageHistory(reportingHistory.libraryStorage)}));
+  delete reportingHistory.libraryStorage;
   if (!alerts || alerts.version !== 1 || !Array.isArray(alerts.rules) || !Array.isArray(alerts.destinations) || !Array.isArray(alerts.history)) throw new Error('Alert store is invalid');
 
   const payload = [
@@ -118,6 +125,7 @@ export async function collectLogicalBackupSnapshot({
     jsonEntry('state/printer-groups.json', printerGroups),
     jsonEntry('state/filaments.json', filaments),
     jsonEntry('state/reporting-history.json', reportingHistory),
+    jsonEntry('state/library-storage-history.json',libraryStorageHistory),
     jsonEntry('state/library-pricing.json', libraryPricing),
     jsonEntry('state/alerts.json', alerts),
     ...library.entries
@@ -163,6 +171,7 @@ export async function collectLogicalBackupSnapshot({
 }
 
 export async function createBackupArchive({
+  libraryStorageHistoryFn = null,
   destinationPath,
   dataDir,
   applicationDir,
@@ -177,7 +186,7 @@ export async function createBackupArchive({
     : `${destinationPath}${BACKUP_EXTENSION}`);
   const tempPath = `${finalPath}.${crypto.randomUUID()}.tmp`;
   const snapshot = await collectLogicalBackupSnapshot({
-    dataDir, applicationDir, licensePath, controllerVersion, source, now
+    dataDir, applicationDir, licensePath, controllerVersion, source, now, libraryStorageHistoryFn
   });
 
   await fs.mkdir(path.dirname(finalPath),{recursive:true,mode:0o700});

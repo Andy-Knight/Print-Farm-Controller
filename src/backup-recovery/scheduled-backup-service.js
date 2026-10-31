@@ -157,6 +157,7 @@ export async function pruneScheduledBackups({
 
 export class ScheduledBackupService {
   constructor({
+    libraryStorageHistoryFn = null,
     dataDir,
     applicationDir,
     licensePath,
@@ -177,6 +178,7 @@ export class ScheduledBackupService {
     this.applicationDir = applicationDir ? path.resolve(applicationDir) : path.dirname(this.dataDir);
     this.licensePath = licensePath ? path.resolve(licensePath) : path.join(this.dataDir, 'license.json');
     this.controllerVersion = String(controllerVersion || 'unknown');
+    this.libraryStorageHistoryFn=libraryStorageHistoryFn;
     this.operationLock = operationLock || new BackupOperationLock();
     this.diagnostic = typeof diagnosticFn === 'function' ? diagnosticFn : null;
     this.onResult = typeof onResult === 'function' ? onResult : null;
@@ -481,7 +483,7 @@ export class ScheduledBackupService {
             dataDir:this.dataDir,
             applicationDir:this.applicationDir,
             licensePath:this.licensePath,
-            controllerVersion:this.controllerVersion,
+            controllerVersion:this.controllerVersion, libraryStorageHistoryFn:this.libraryStorageHistoryFn,
             source:'scheduled',
             now
           });

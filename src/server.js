@@ -1,5 +1,6 @@
 import {StreamAdmission} from './security/stream-admission.js';
 import {libraryAccountPresentation} from './library-accounts.js';
+import {deleteLibraryFileAndHistory} from './library-deletion.js';
 import {libraryOwnershipInventory,libraryOwnershipHistory,reassignLibraryOwner,libraryStorageInventory} from './print-library.js';
 import {configuredLimit} from './security/resource-limits.js';
 import {ResourceLimitSettings} from './security/resource-limit-settings.js';
@@ -43,7 +44,7 @@ import { ChamberPreheatService } from './chamber-preheat.js';
 import { BatchControlService } from './batch-control.js';
 import { FileDistributionService } from './file-distribution.js';
 import { stageUploadRequest } from './upload-staging.js';
-import { addLibraryFile, getLibraryPreview, listLibraryFiles, removeLibraryFile, updateLibraryFileMetadata } from './print-library.js';
+import { addLibraryFile, getLibraryPreview, listLibraryFiles, updateLibraryFileMetadata } from './print-library.js';
 import { estimateLibraryFileCosts } from './library-cost-preview.js';
 import { getLibraryPricingSettings, saveLibraryPricingSettings, estimateLibrarySalePrice } from './library-pricing.js';
 import { attachLibraryReadiness } from './library-readiness.js';
@@ -52,7 +53,7 @@ import { ReportingService } from './reporting-service.js';
 import { AlertService } from './alert-service.js';
 import { AlertEventBridge } from './alert-event-bridge.js';
 import { QueueAlertBridge } from './queue-alert-bridge.js';
-import { PrintQueueService } from './print-queue.js';
+import { PrintQueueService,libraryDeletionBlock } from './print-queue.js';
 import { assessMaterialCompatibility } from './file-material-metadata.js';
 import { getPrinterFileMaterialMetadata, removePrinterFileMaterialMetadata } from './file-material-store.js';
 import { EmulatorManager } from './emulator-manager.js';
@@ -151,6 +152,7 @@ const cloudBackupProviders = new CloudBackupProviderRegistry([
   }
 ]);
 const manualBackupManager = new ManualBackupManager({
+  libraryStorageHistoryFn:()=>reportingService.getLibraryStorageHistory(),
   dataDir:runtimePaths.dataDir,
   applicationDir:runtimePaths.applicationDir,
   licensePath:runtimePaths.licensePath,
@@ -161,6 +163,7 @@ const manualBackupManager = new ManualBackupManager({
   s3Client
 });
 const scheduledBackupService = new ScheduledBackupService({
+  libraryStorageHistoryFn:()=>reportingService.getLibraryStorageHistory(),
   dataDir:runtimePaths.dataDir,
   applicationDir:runtimePaths.applicationDir,
   licensePath:runtimePaths.licensePath,
@@ -356,10 +359,19 @@ const alertService = new AlertService({
   diagnosticFn:(level, message, meta) => diagnosticLogger[level]?.('alerts', message, meta)
 });
 const reportingService = new ReportingService({ filePath:path.join(runtimePaths.dataDir, 'reporting-history.json') });
-let libraryStorageCache=null,libraryStorageTimer,libraryStorageDirty=false,libraryStorageRefreshing=false;
+let libraryStorageCache=null,libraryStorageTimer,libraryHistoryFlushTimer,libraryStorageStopped=false,libraryStorageDirty=false,libraryStorageRefreshing=false;
+function scheduleLibraryHistoryFlush(){
+  if(libraryStorageStopped)return;
+  libraryHistoryFlushTimer=setTimeout(async()=>{
+    try{await reportingService.flushLibraryStorageHistory();}
+    catch(error){console.warn('Library storage history flush unavailable: '+error.message);}
+    finally{scheduleLibraryHistoryFlush();}
+  },5*60*1000);
+  libraryHistoryFlushTimer.unref();
+}
 async function sampleLibraryStorage(refresh=false){
   return controllerMutations.run('library-storage',async()=>{
-    if(!refresh&&libraryStorageCache&&Date.now()-libraryStorageCache.measuredAt<30000)return libraryStorageCache;
+    if(libraryStorageCache&&(libraryStorageStopped||(!refresh&&Date.now()-libraryStorageCache.measuredAt<30000)))return libraryStorageCache;
     const inventory=await libraryStorageInventory();
     const limit=configuredLimit('PFC_LIBRARY_MAX_BYTES',50*1024**3);
     const at=new Date().toISOString();
@@ -368,12 +380,13 @@ async function sampleLibraryStorage(refresh=false){
   });
 }
 function refreshLibraryStorage(){
+  if(libraryStorageStopped)return;
   libraryStorageDirty=true;
   if(libraryStorageRefreshing)return;
   libraryStorageRefreshing=true;
   // Coalesce upload bursts without losing a change that arrives during a scan.
   void (async()=>{
-    try{while(libraryStorageDirty){libraryStorageDirty=false;await sampleLibraryStorage(true);}}
+    try{while(libraryStorageDirty&&!libraryStorageStopped){libraryStorageDirty=false;await sampleLibraryStorage(true);}}
     catch(error){console.warn('Library storage measurement unavailable: '+error.message);}
     finally{libraryStorageRefreshing=false;}
   })();
@@ -402,10 +415,7 @@ async function handleScheduledBackupResult(result = {}) {
   if (!alertResult?.duplicate) fleetState.schedulePublish();
 }
 
-async function recordQueueHistoryAndAlerts(jobs = [], { seed = false } = {}) {
-  const reportingResult = await reportingService.recordTerminalJobs(jobs);
-  if (seed) return reportingResult;
-
+async function emitQueueHistoryAlerts(jobs = []) {
   const printersById = new Map(fleetState.getFleet().map((printer) => [String(printer.id), printer]));
   let emitted = 0;
   for (const job of Array.isArray(jobs) ? jobs : []) {
@@ -457,7 +467,7 @@ async function recordQueueHistoryAndAlerts(jobs = [], { seed = false } = {}) {
   }
 
   if (emitted) fleetState.schedulePublish();
-  return reportingResult;
+  return {emitted};
 }
 
 let queueAlertBridge = null;
@@ -467,7 +477,8 @@ const printQueue = new PrintQueueService({
   getPrinterGroupFn:(groupId) => printerGroups.get(groupId),
   printerAllowedFn: printerLicensedForNewWork,
   operationCoordinator:printerOperations,
-  recordTerminalJobsFn:recordQueueHistoryAndAlerts,
+  recordTerminalJobsFn:jobs=>reportingService.recordTerminalJobs(jobs),
+  afterPersistFn:emitQueueHistoryAlerts,
   onChange:(snapshot) => {
     fleetState.schedulePublish();
     queueAlertBridge?.schedule(snapshot).catch(() => {});
@@ -1776,10 +1787,11 @@ async function apiRoute(req, res, url) {
 
   if (req.method === 'GET' && url.pathname === '/api/library') {
     const queueSnapshot = printQueue.getSnapshot();
+    const activeProductionIds=new Set((queueSnapshot.jobs||[]).filter(job=>job.productionBatchId&&!['completed','failed','cancelled'].includes(job.status)).map(job=>job.productionBatchId));
     // Index references once instead of scanning every job for each file.
     const byLibraryId = new Map();
     for (const job of queueSnapshot.jobs || []) {
-      const id = job.stagedFile?.id;
+      const id = job.libraryFileId||job.stagedFile?.id;
       if (!id) continue;
       if (!byLibraryId.has(id)) byLibraryId.set(id,[]);
       byLibraryId.get(id).push(job);
@@ -1789,6 +1801,7 @@ async function apiRoute(req, res, url) {
     const accountView=libraryAccountPresentation({...ownership,accounts,currentUser:req.pfcUser});
     const filesWithUsage = accountView.files.map((file) => {
       const references = byLibraryId.get(file.id) || [];
+      const deletionReason=libraryDeletionBlock(references,activeProductionIds);
       const completed = references.filter((job) => job.status === 'completed');
       const finished = references
         .map((job) => job.finishedAt)
@@ -1800,6 +1813,8 @@ async function apiRoute(req, res, url) {
         usage: {
           queueReferences: references.length,
           activeReferences: references.filter((job) => !['completed', 'failed', 'cancelled'].includes(job.status)).length,
+          bedClearanceReferences:references.filter(job=>job.bedClearanceRequired===true&&!job.bedClearedAt).length,
+          deletionBlocked:Boolean(deletionReason),deletionReason,
           completedPrints: completed.length,
           lastPrintedAt: finished.length ? finished[finished.length - 1] : null
         }
@@ -1874,15 +1889,9 @@ async function apiRoute(req, res, url) {
   }
   if (libraryFileMatch && req.method === 'DELETE') {
     const fileId = decodeURIComponent(libraryFileMatch[1]);
-    await controllerMutations.run('library-queue', async () => {
-      const references = (printQueue.getSnapshot().jobs || []).filter((job) => job.stagedFile?.id === fileId);
-      if (references.length) {
-        throw new Error('This library file is still referenced by the print queue or history. Cancel/clear those records before deleting it.');
-      }
-      await removeLibraryFile(fileId);
-    });
+    const historyRemoved=await controllerMutations.run('library-queue',()=>deleteLibraryFileAndHistory(fileId,{queue:printQueue,reporting:reportingService}));
     refreshLibraryStorage();
-    return json(res, 200, { ok:true });
+    return json(res, 200, { ok:true,historyRemoved });
   }
 
 
@@ -2825,7 +2834,11 @@ async function handleControllerRequest(req, res) {
 }
 
 async function shutdown() {
+  libraryStorageStopped=true;
   clearInterval(libraryStorageTimer);
+  clearTimeout(libraryHistoryFlushTimer);
+  if(reportingService.initialization)await controllerMutations.run('library-storage',()=>reportingService.flushLibraryStorageHistory({force:true}))
+    .catch(error=>console.warn('Library storage history shutdown flush unavailable: '+error.message));
   await diagnosticLogger.info('controller', 'Controller shutdown requested').catch(() => {});
   memoryMonitor.stop();
   try { await chamberPreheat.stopAll({ reason: 'controller-shutdown', turnOff: true }); } catch {}
@@ -3022,6 +3035,7 @@ async function startController() {
     await maintenanceService.start();
     await alertEventBridge.start();
     await reportingService.init();
+    scheduleLibraryHistoryFlush();
     await sampleLibraryStorage(true).catch(error=>console.warn('Library storage measurement unavailable: '+error.message));
     libraryStorageTimer=setInterval(refreshLibraryStorage,5*60*1000);libraryStorageTimer.unref();
     await printQueue.start();

@@ -6,6 +6,7 @@ import path from 'node:path';
 import { createBackupInDirectory } from '../src/backup-recovery/backup-service.js';
 import { loadBackupSettings, saveBackupSettings } from '../src/backup-recovery/backup-settings-store.js';
 import { BackupOperationLock } from '../src/backup-recovery/backup-operation-lock.js';
+import {inspectZipArchive} from '../src/backup-recovery/backup-archive.js';
 import {
   nextScheduledBackupAt,
   previousScheduledBackupAt,
@@ -111,6 +112,7 @@ test('scheduled backups are verified, retained by installation, and never prune 
     const lock = new BackupOperationLock();
     const outcomes = [];
     const service = new ScheduledBackupService({
+      libraryStorageHistoryFn:async()=>[{at:'2026-10-31T00:00:00.000Z',bytes:321,limit:1000}],
       dataDir,
       applicationDir:root,
       licensePath:path.join(root, 'no-license-a.json'),
@@ -139,6 +141,8 @@ test('scheduled backups are verified, retained by installation, and never prune 
     ]) {
       const result = await service.runScheduledBackup({ now });
       assert.equal(result.success, true);
+      const archive=await inspectZipArchive(path.join(destination,result.backup.fileName));
+      assert.equal(JSON.parse((await archive.read('state/library-storage-history.json')).toString('utf8')).points[0].bytes,321);
     }
 
     assert.equal(outcomes.length, 3);

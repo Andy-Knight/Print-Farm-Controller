@@ -3957,6 +3957,15 @@ async function libraryAccountSmoke({browser,context,page,url,dataDir,captureDir}
       for(const width of [1365,900,760,620,390,320]){
         await page.setViewportSize({width,height:900});
         assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),`storage reports fit ${width}px ${theme}`);
+        const controls=await page.evaluate(()=>{
+          const rect=selector=>{const box=document.querySelector(selector).getBoundingClientRect();return {left:box.left,right:box.right,bottom:box.bottom,width:box.width,height:box.height};};
+          return {period:rect('#libraryStorageRange'),refresh:rect('#libraryStorageRefresh')};
+        });
+        assert.ok(controls.refresh.width<160,`library storage Refresh stays content-sized at ${width}px`);
+        assert.ok(controls.period.width<=220&&controls.refresh.left>=controls.period.right,
+          'library storage controls stay compact and side by side');
+        assert.ok(Math.abs(controls.refresh.bottom-controls.period.bottom)<=2,
+          'Refresh aligns with the Period selector');
         assert.equal(await page.locator('#libraryStorageReport .library-storage-pie').isVisible(),true);
         if(captureDir&&[1365,390].includes(width))await page.screenshot({path:path.join(captureDir,`library-storage-${theme}-${width}.png`),fullPage:true,animations:'disabled'});
       }
@@ -3982,10 +3991,52 @@ async function libraryAccountSmoke({browser,context,page,url,dataDir,captureDir}
     await operatorPage.waitForFunction(()=>document.querySelector('#authLibraryStorage')?.textContent.includes('Library 0 B'));
     await operatorPage.locator('#authLibraryStorage').waitFor({state:'visible'});
     assert.match(await operatorPage.locator('#authLibraryStorage').innerText(),/Library 0 B/);
+    const queuedForDeletion=await page.evaluate(async libraryFileId=>{
+      const response=await fetch('/api/queue',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({assignmentMode:'automatic',libraryFileId})});
+      if(!response.ok)throw new Error('Unable to create linked deletion history');return (await response.json()).job;
+    },first.id);
+    await page.goto(url+'/library');await page.locator(`[data-library-select="${first.id}"]`).click();
+    assert.equal(await page.locator('#libraryDeleteSelectedBtn').isDisabled(),true,'pending work keeps Delete disabled');
+    await page.evaluate(async id=>{const response=await fetch('/api/queue/'+id,{method:'DELETE'});if(!response.ok)throw new Error('Unable to cancel deletion fixture');},queuedForDeletion.id);
+    await page.reload();await page.locator(`[data-library-select="${first.id}"]`).click();
+    assert.equal(await page.locator('#libraryDeleteSelectedBtn').isEnabled(),true,'finished history no longer blocks Delete');
+    let deletionConfirmation='';page.once('dialog',dialog=>{deletionConfirmation=dialog.message();void dialog.accept();});
+    const removed=page.waitForResponse(response=>response.url()===url+'/api/library/'+first.id&&response.request().method()==='DELETE');
+    await page.locator('#libraryDeleteSelectedBtn').click();assert.equal((await removed).status(),200);
+    assert.match(deletionConfirmation,/linked completed, failed and cancelled print history/);
+    await page.waitForFunction(id=>!document.querySelector(`[data-library-file="${id}"]`),first.id);
+    const remainingQueue=await (await page.request.get(url+'/api/queue')).json();
+    assert.equal(remainingQueue.jobs.some(job=>job.id===queuedForDeletion.id),false);
     console.log('Chromium: library uploader column, filters, quota transfer/audit, role boundary and fallback PASS');
     await page.setViewportSize({width:1280,height:800});await page.evaluate(()=>document.documentElement.dataset.theme='dark');
     await page.goto(url+'/users');await page.locator('#authUserList th[scope=row]').filter({hasText:'owner'}).waitFor();
   }finally{await operator.close();}
+}
+
+async function authenticatedSimulatorSmoke(context,url){
+  const page=await context.newPage();
+  try{
+    await page.goto(url+'/simulator/');
+    await page.waitForFunction(()=>document.querySelector('#simulator-toggle')?.disabled===false);
+    assert.equal(await page.locator('#simulator-toggle').innerText(),'Enable simulator');
+    const enabled=page.waitForResponse(response=>response.url()===url+'/api/emulator/status'&&response.request().method()==='POST');
+    await page.locator('#simulator-toggle').click();
+    const enableResponse=await enabled;assert.equal(enableResponse.status(),200);
+    assert.ok(enableResponse.request().headers()['x-pfc-csrf'],'simulator enable sends the current CSRF token');
+    await page.waitForFunction(()=>document.querySelector('#simulator-toggle')?.textContent==='Disable simulator'&&!document.querySelector('#simulator-toggle').disabled);
+    await page.locator('#show-add').click();
+    await page.locator('#profile').selectOption('flashforge-ad5m-pro');
+    await page.locator('#printer-name').fill('Authenticated simulator test');
+    const created=page.waitForResponse(response=>response.url()===url+'/api/emulator/printers'&&response.request().method()==='POST');
+    await page.locator('#add-form button[type=submit]').click();
+    assert.equal((await created).status(),201);
+    await page.locator('.printer-title').filter({hasText:'Authenticated simulator test'}).waitFor();
+    const disabled=page.waitForResponse(response=>response.url()===url+'/api/emulator/status'&&response.request().method()==='POST');
+    await page.locator('#simulator-toggle').click();
+    assert.equal((await disabled).status(),200);
+    await page.waitForFunction(()=>document.querySelector('#simulator-toggle')?.textContent==='Enable simulator');
+    console.log('Chromium: authenticated simulator enable, printer creation and disable PASS');
+  }finally{await page.close();}
 }
 
 async function nativeAuthenticationSmoke(browser){
@@ -4450,6 +4501,7 @@ async function nativeAuthenticationSmoke(browser){
     await page.locator('#authUserAddForm [name=password]').fill('Shop operator password 2026');
     await page.locator('#authUserAddForm button[type=submit]').click();
     await page.locator('#authUserList th[scope=row]').filter({hasText:'shopoperator'}).waitFor();
+    await authenticatedSimulatorSmoke(context,url);
     await libraryAccountSmoke({browser,context,page,url,dataDir,captureDir:authVisualDir});
     console.log('Chromium auth: operator created; switching shift operator role');
     const row=page.locator('#authUserList tbody tr').filter({hasText:'shiftoperator'});

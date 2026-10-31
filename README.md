@@ -1,4 +1,4 @@
-# Print Farm Controller v0.61.16
+# Print Farm Controller v0.61.17
 A local-first 3D printer fleet controller. It runs entirely on your LAN and currently supports:
 
 - **FlashForge Adventurer 5M / 5M Pro** through the local FlashForge HTTP/TCP APIs.
@@ -7,7 +7,7 @@ A local-first 3D printer fleet controller. It runs entirely on your LAN and curr
 - **Prusa CORE One+ (experimental)** through the local PrusaLink API, supporting Standard (1-tool), INDX4 and INDX8 configurations.
 - **Bambu Lab P1P / P1S / X1C / A1 Mini (experimental)** through the local MQTT TLS and FTPS TLS interfaces. P1P/P1S/A1 Mini use the TLS/JPEG camera path; X1C camera uses the bundled FFmpeg decoder; see [X1C camera setup](docs/X1C_CAMERA.md).
 
-**Current development version: v0.61.16**
+**Current development version: v0.61.17**
 
 ## Key capabilities
 
@@ -192,7 +192,7 @@ If the optional Preact bundle is not present, the controller still starts and th
 
 ## Reports and material costs
 
-The **Reports & finance** view provides operational and material-cost reporting. Reporting history is stored independently of the bounded recent queue history, retaining long-term trends.
+The **Reports & finance** view provides operational and material-cost reporting. Reporting history is stored independently of the bounded recent queue history, retaining long-term trends. Print Library storage observations use a separate bounded history file with disk writes batched at five-minute intervals; live usage remains current. Clean shutdown and logical backups preserve pending observations, while an unexpected stop can lose recent unflushed storage observations.
 
 Reports can be filtered by date range, printer and printer group and include:
 
@@ -626,6 +626,11 @@ Open the controller and select **Printer simulator**, or go directly to:
 http://<Controller-IP>:4242/simulator/
 ```
 
+With native authentication enabled, simulator management requires an Administrator
+session. The simulator page automatically sends the current session's CSRF token
+with management actions. If the session expires, sign in to the controller again
+and reload the simulator page.
+
 The simulator is disabled by default. Enable it from that page to start the loopback endpoints; the setting is remembered, the endpoints start with the controller on later launches, and they stop when the controller stops. It creates simulated FlashForge Adventurer 5M Pro, Snapmaker U1, Bambu Lab P1P, Bambu Lab P1S, Bambu Lab X1C and Bambu Lab A1 Mini printers, and displays the exact host, ports and credentials for each endpoint. Additional instances receive non-conflicting ports automatically.
 
 The simulator uses the same responsive visual system and shared light/dark preference as the main controller. Its UI provides live state, progress and temperature controls; accelerated print time; virtual printer files; activity logs; repeatable scenarios; and fault injection for retained filenames, persistent cancellation, failed verification, rejected or malformed commands, delayed responses and unavailable cameras. Bambu profiles can emulate zero to four four-slot AMS units plus the external spool, with editable material, colour, loaded state and active source. FlashForge uses a continuous MJPEG camera stream, Snapmaker uses its Moonraker WebSocket/snapshot sequence, and the Bambu profiles expose TLS MQTT status/control, implicit FTPS file transfer and the authenticated local camera stream. All state changes are streamed live to the browser.
@@ -826,7 +831,7 @@ DELETE /api/queue/history
 POST   /api/queue/bed-clearance/:printerId
 ```
 
-The Print Library is the durable controller-side source of printable files. Each entry stores the original filename, byte size, SHA-256 and bounded print requirements. Queue/history cleanup never deletes library files; removal is explicit and is blocked while a queue/history record still references the file. Duplicate uploads are detected by SHA-256 and size.
+The Print Library is the durable controller-side source of printable files. Each entry stores the original filename, byte size, SHA-256 and bounded print requirements. Queue/history cleanup never deletes library files; administrator deletion removes the stored file and its linked terminal queue/reporting history. Active/pending work and uncleared beds must be resolved first. Duplicate uploads are detected by SHA-256 and size.
 
 The queue supports both fixed-printer and automatic assignment. Automatic jobs reference a Print Library file, evaluate every configured printer as **Eligible**, **Waiting**, **Needs review**, or **Not compatible**, and reserve one eligible printer at a time. Compatibility includes verified upload/print capability, supported file type, required tool count, loaded material/colour where known, required nozzle diameter, U1 logical→physical tool mapping, online/idle state, existing queue reservations, and the persistent bed-clearance interlock. The library file is uploaded only when required, verified on printer storage, and followed by a fresh live preflight before print start. Fixed-printer jobs keep the original behaviour and remain backward compatible.
 
@@ -851,7 +856,7 @@ Print-Farm-Controller/
 
 On first startup with this layout, if `data/` does not yet exist, the controller looks for the previous profile-based **Printer Fleet Controller** data directory and migrates the complete directory into `data/`. If that directory is absent, the still older **FlashForge Fleet** location is also recognised. This preserves printer configuration, queue/history, Print Library files, emulator settings and material metadata. Historical `queue-files/` entries are still promoted into `print-library/` by the existing Print Library migration.
 
-The persistent fleet print queue/history is stored as `data/print-jobs.json`. Print Library files live under `data/print-library/`, one UUID directory per file, with metadata, SHA-256, parsed print requirements and cached previews where available. Printer configuration is stored in `data/printers.json`, controller-inspected file material metadata in `data/file-material-metadata.json`, and integrated emulator enablement in `data/emulator-settings.json`. Library lifetime is independent of queue/history lifetime: clearing history never deletes a library file. Library deletion is explicit and is blocked while a current queue/history record still references that file. Queued jobs survive a normal controller restart; interrupted automatic upload/preflight work returns safely to the queue, while jobs already handed to a printer are reconciled against live printer state. Build-plate clearance is persisted on the completed queue record, so restarting the controller or clearing ordinary history cannot accidentally release a printer that is still waiting for its bed to be cleared.
+The persistent fleet print queue/history is stored as `data/print-jobs.json`. Print Library files live under `data/print-library/`, one UUID directory per file, with metadata, SHA-256, parsed print requirements and cached previews where available. Printer configuration is stored in `data/printers.json`, controller-inspected file material metadata in `data/file-material-metadata.json`, and integrated emulator enablement in `data/emulator-settings.json`. Library lifetime is independent of queue/history lifetime: clearing history never deletes a library file. Administrator library deletion also removes linked completed, failed and cancelled queue/reporting history, changing historical report totals; active/pending work and uncleared beds remain protected. Queued jobs survive a normal controller restart; interrupted automatic upload/preflight work returns safely to the queue, while jobs already handed to a printer are reconciled against live printer state. Build-plate clearance is persisted on the completed queue record, so restarting the controller or clearing ordinary history cannot accidentally release a printer that is still waiting for its bed to be cleared.
 
 You can still override the storage location with `DATA_DIR`. A custom `DATA_DIR` is used exactly as configured and is not automatically migrated.
 
