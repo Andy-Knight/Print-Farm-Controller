@@ -20,25 +20,24 @@ test('diagnostic redaction removes credential values but preserves useful contex
   assert.equal(value.filePath, 'private-part.3mf');
 });
 
-test('diagnostic logger writes normal entries and gates debug entries behind verbose mode', async () => {
+test('diagnostic logger records operation starts and results without temporary configuration', async () => {
   const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'pfc-diagnostics-'));
   try {
     const logger = new DiagnosticLogger({ logDir:dir, version:'test' });
     await logger.init();
-    await logger.debug('test', 'hidden debug');
-    await logger.info('test', 'normal info', { password:'secret', printerId:'p1' });
-    let entries = await logger.recent({ limit:50 });
-    assert.ok(entries.some((entry) => entry.message === 'normal info'));
-    assert.ok(!entries.some((entry) => entry.message === 'hidden debug'));
-    const normal = entries.find((entry) => entry.message === 'normal info');
-    assert.equal(normal.meta.password, '[REDACTED]');
-
-    await logger.setVerbose(true, 30);
-    await logger.debug('test', 'visible debug', { accessCode:'1234' });
-    entries = await logger.recent({ limit:50, level:'DEBUG' });
-    assert.ok(entries.some((entry) => entry.message === 'visible debug'));
-    assert.equal(entries.find((entry) => entry.message === 'visible debug').meta.accessCode, '[REDACTED]');
-    assert.equal(logger.status().verbose, true);
+    await logger.info('printer-operation', 'Starting printer operation', { printerId:'p1', label:'print start', password:'secret' });
+    await logger.info('printer-operation', 'Printer operation completed', { printerId:'p1' });
+    await logger.warn('printer-operation', 'Printer operation failed or was blocked', { printerId:'p2' });
+    const entries = await logger.recent({ limit:50, level:'INFO', search:'printer-operation' });
+    assert.deepEqual(entries.map((entry) => entry.message), ['Starting printer operation', 'Printer operation completed']);
+    assert.equal(entries[0].meta.password, '[REDACTED]');
+    assert.equal((await logger.recent({ level:'WARN' })).length, 1);
+    assert.equal(logger.status().level, 'info');
+    assert.ok(!('verbose' in logger.status()));
+    assert.ok(!('verboseUntil' in logger.status()));
+    const bundle = await logger.createBundle();
+    assert.ok(bundle.includes(Buffer.from('Log level: INFO')));
+    assert.ok(bundle.includes(Buffer.from('Starting printer operation')));
   } finally {
     await fs.rm(dir, { recursive:true, force:true });
   }

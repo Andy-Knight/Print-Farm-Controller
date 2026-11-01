@@ -177,7 +177,6 @@ write('DELETE','/api/restore/stage',P.RESTORE_MANAGE);
 
 for(const path of ['/api/diagnostics','/api/diagnostics/bundle'])
   read(path,P.DIAGNOSTICS_MANAGE);
-write('POST','/api/diagnostics/verbose',P.DIAGNOSTICS_MANAGE);
 
 // Dynamic routes require both an exact verb and an anchored, known suffix.
 const dynamic = [];

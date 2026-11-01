@@ -4354,6 +4354,21 @@ async function nativeAuthenticationSmoke(browser){
       && document.body.dataset.authRole==='administrator',{},{timeout:25000});
     assert.equal(await page.locator('#usersBtn').isVisible(),true);
     assert.equal(await page.locator('#authIdentity').isVisible(),true);
+    await page.locator('#diagnosticsBtn').click();
+    await page.waitForFunction(()=>document.querySelector('#diagnosticsStatus')?.textContent.includes('INFO'));
+    assert.equal(await page.locator('#diagnosticsVerboseBtn').count(),0);
+    assert.equal(await page.locator('#diagnosticsLevel option[value=DEBUG]').count(),0);
+    assert.equal(await page.locator('#diagnosticsBundleBtn').isVisible(),true);
+    await page.locator('#diagnosticsLevel').selectOption('WARN');
+    await page.locator('#diagnosticsSearch').fill('printer-operation');
+    await page.locator('#diagnosticsRefreshBtn').click();
+    await page.locator('#diagnosticsLevel').selectOption('');
+    await page.locator('#diagnosticsSearch').fill('');
+    const downloadPromise=page.waitForEvent('download');
+    await page.locator('#diagnosticsBundleBtn').click();
+    const diagnosticDownload=await downloadPromise;
+    assert.equal(await diagnosticDownload.failure(),null,'administrator can download diagnostic ZIP');
+
     await page.locator('#usersBtn').click();
     await page.locator('#authUserAddForm').waitFor({state:'visible'});
     assert.equal((await page.locator('#usersBtn').innerText()).trim(),'Users & settings');

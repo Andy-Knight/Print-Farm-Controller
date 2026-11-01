@@ -255,6 +255,8 @@ A standard table has **white uppercase bold headings** (`.68rem`, 800, `.04em` t
 
 ## 11. Status, alerts, messages and feedback
 
+Diagnostics uses a compact status summary, frontend-renderer status, a Diagnostic bundle section and a searchable severity-filtered log. Retain the primary Download diagnostic bundle action and secondary Refresh action in both renderers. There is no verbose toggle, expiry display or Debug filter; standard operation events are recorded automatically.
+
 - Status badge: compact pill, uppercase, bold (.72rem), readable foreground and background. Printing/ready/idle green; offline/error red; paused amber. Status text must be visible, not just a coloured dot.
 - Maintenance spanner, notification bell, alert triangle and link/action icons use the matching line-icon language, with unread or urgent state indicated clearly. Informational alerts don't require a fake acknowledgment action.
 - Use `UiInlineMessage` for appropriate in-context info/success/warning/error and `ToastHost` for transient events. Avoid permanent alerts for normal idle states.

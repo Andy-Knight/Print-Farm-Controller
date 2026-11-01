@@ -230,11 +230,10 @@
       <section class="diagnostics-controls">
         <div class="diagnostics-control-row">
           <div>
-            <strong>Verbose diagnostics</strong>
-            <div id="diagnosticsVerboseHelp" class="field-help">Temporarily records DEBUG-level activity while reproducing an issue.</div>
+            <strong>Diagnostic bundle</strong>
+            <div class="field-help">Download retained logs and controller status for troubleshooting. Printer operation starts and results are recorded automatically.</div>
           </div>
           <div class="mini-actions">
-            <button id="diagnosticsVerboseBtn" type="button" class="secondary">Enable for 30 minutes</button>
             <button id="diagnosticsBundleBtn" type="button" class="primary">Download diagnostic bundle</button>
           </div>
         </div>
@@ -245,7 +244,6 @@
           <label>Level
             <select id="diagnosticsLevel">
               <option value="">All</option>
-              <option value="DEBUG">Debug</option>
               <option value="INFO">Info</option>
               <option value="WARN">Warn</option>
               <option value="ERROR">Error</option>

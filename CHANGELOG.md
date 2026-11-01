@@ -4,6 +4,11 @@ This file contains the version-by-version release history for Print Farm Control
 
 Historical entries describe the behaviour of the controller at the time of that release and may be superseded by later versions. For current installation, configuration and supported-hardware guidance, see [README.md](README.md).
 
+## v0.61.18
+
+- Record printer operation starts at INFO alongside completion and warning events without enabling a temporary logging mode.
+- Simplify Diagnostics by removing verbose controls and its API; retain log search, severity filtering, memory status, rotation and support bundles.
+
 ## v0.61.17
 
 - Separate Print Library storage observations into a bounded history file and batch changed observations to disk at most once every five minutes, keeping live reporting and quota enforcement current without rewriting completed-print history.
