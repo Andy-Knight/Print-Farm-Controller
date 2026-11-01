@@ -16,21 +16,22 @@ test('diagnostics is available from the persistent controller navigation', () =>
   assert.match(app, /function navigateController\(routePath\)/);
   });
 
-test('diagnostics UI supports log filtering, verbose mode and bundle download', () => {
+test('diagnostics UI supports log filtering and bundle download', () => {
   assert.match(html, /id="diagnosticsLevel"/);
   assert.match(html, /id="diagnosticsSearch"/);
-  assert.match(html, /id="diagnosticsVerboseBtn"/);
+  assert.doesNotMatch(html, /diagnosticsVerbose|Verbose diagnostics/);
   assert.match(html, /id="diagnosticsBundleBtn"/);
   assert.match(app, /\/api\/diagnostics\?/);
-  assert.match(app, /\/api\/diagnostics\/verbose/);
+  assert.doesNotMatch(app, /diagnosticsVerbose|verboseUntil|toggleVerboseDiagnostics/);
   assert.match(app, /\/api\/diagnostics\/bundle/);
   assert.match(styles, /\.diagnostics-dialog/);
   assert.match(styles, /\.diagnostic-entry/);
 });
 
-test('server exposes diagnostic status, verbose and bundle endpoints', () => {
+test('server exposes diagnostic status and bundle endpoints', () => {
   assert.match(server, /url\.pathname === '\/api\/diagnostics'/);
-  assert.match(server, /url\.pathname === '\/api\/diagnostics\/verbose'/);
+  assert.doesNotMatch(server, /\/api\/diagnostics\/verbose/);
+  assert.match(server, /diagnosticLogger\.info\('printer-operation', 'Starting printer operation'/);
   assert.match(server, /url\.pathname === '\/api\/diagnostics\/bundle'/);
   assert.match(server, /content-type':'application\/zip'/);
 });

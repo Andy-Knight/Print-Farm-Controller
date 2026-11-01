@@ -11,7 +11,7 @@ Repository policy: `AGENTS.md` defines agent startup behavior; `docs/DOCUMENTATI
 - Repository: `Andy-Knight/Print-Farm-Controller`
 - Project path: repository root (`/`)
 - Primary branch: `main` (current production baseline)
-- Current controller source version: **0.61.17**.
+- Current controller source version: **0.61.18**.
 - Previous baseline audited: **0.48.0** (main before the regression test audit release).
 - Runtime: **Node.js 24.22.1+** (Node 24 release line), ES modules; build-time **npm 12.2.0** and committed lockfile; no npm runtime dependency for deployed controller. Follow `docs/dependency-security.md` for updates.
 - GitHub is the authoritative code baseline.
@@ -71,6 +71,8 @@ Development Printer Emulator (`emulator/`, loopback only)
 Manufacturer-specific discovery, capabilities, limits, status normalization, files, print control, temperatures and camera selection belong behind the adapter boundary. Core fleet services should remain manufacturer-agnostic.
 
 ## Important decisions
+
+- Diagnostics records printer-operation starts/results at INFO and failures at WARN. There is no temporary verbose mode; preserve administrator-only viewing, redaction, file rotation and support bundles.
 
 - Local-first/LAN-only controller; printer credentials remain backend-side.
 - Integrated simulator management uses its own same-origin session bootstrap and refreshes CSRF before each mutation; the main controller's fetch wrapper is not loaded in that separate document. Keep backend administrator/Origin checks and standalone loopback simulator behaviour intact.

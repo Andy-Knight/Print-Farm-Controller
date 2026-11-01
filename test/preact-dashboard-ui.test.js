@@ -528,10 +528,10 @@ test('Preact Diagnostics preserves status and log presentation', async () => {
   assert.match(app, /window\.__PFC_PREACT_DIAGNOSTICS__/);
 });
 
-test('Preact Diagnostics keeps filters, verbose controls, bundle download and vanilla fallback', async () => {
+test('Preact Diagnostics keeps filters, bundle download and vanilla fallback', async () => {
   const app = await read('public/app.js');
   assert.match(app, /diagnosticsRefreshBtn\?\.addEventListener\('click', loadDiagnostics\)/);
-  assert.match(app, /diagnosticsVerboseBtn\?\.addEventListener\('click', toggleVerboseDiagnostics\)/);
+  assert.doesNotMatch(app, /diagnosticsVerboseBtn|toggleVerboseDiagnostics/);
   assert.match(app, /diagnosticsBundleBtn\?\.addEventListener\('click', downloadDiagnosticBundle\)/);
   assert.match(app, /diagnosticsLevel\?\.addEventListener\('change', loadDiagnostics\)/);
   assert.match(app, /diagnosticsSearch\?\.addEventListener\('input'/);

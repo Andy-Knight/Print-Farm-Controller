@@ -2,7 +2,7 @@ import { promises as fs } from 'node:fs';
 import path from 'node:path';
 import util from 'node:util';
 
-const LEVELS = new Set(['debug', 'info', 'warn', 'error']);
+const LEVELS = new Set(['info', 'warn', 'error']);
 const SENSITIVE_KEY = /(password|passwd|access.?code|api.?key|token|secret|private.?key|authorization|credential)/i;
 const LOG_FILE_RE = /^controller(?:\.\d+)?\.log$/;
 
@@ -141,7 +141,6 @@ export class DiagnosticLogger {
     this.now = now;
     this.activeFile = path.join(this.logDir, 'controller.log');
     this.enabled = false;
-    this.verboseUntilMs = 0;
     this.writeChain = Promise.resolve();
     this.consolePatched = false;
     this.originalConsole = null;
@@ -160,12 +159,9 @@ export class DiagnosticLogger {
   }
 
   status() {
-    const now = this.now().getTime();
     return {
       enabled:this.enabled,
-      level:this.isVerbose() ? 'debug' : 'info',
-      verbose:this.isVerbose(),
-      verboseUntil:this.verboseUntilMs > now ? new Date(this.verboseUntilMs).toISOString() : null,
+      level:'info',
       logDir:this.logDir,
       activeFile:path.basename(this.activeFile),
       maxFileBytes:this.maxBytes,
@@ -173,22 +169,6 @@ export class DiagnosticLogger {
     };
   }
 
-  isVerbose() {
-    return this.verboseUntilMs > this.now().getTime();
-  }
-
-  async setVerbose(enabled, minutes = 30) {
-    if (!this.enabled && enabled !== false) throw new Error('Diagnostic file logging is unavailable');
-    const safeMinutes = Math.min(120, Math.max(1, Number(minutes) || 30));
-    this.verboseUntilMs = enabled ? this.now().getTime() + safeMinutes * 60_000 : 0;
-    await this.info('diagnostics', enabled ? 'Verbose diagnostic logging enabled' : 'Verbose diagnostic logging disabled', enabled ? { minutes:safeMinutes } : {});
-    return this.status();
-  }
-
-  debug(subsystem, message, meta = {}) {
-    if (!this.isVerbose()) return Promise.resolve();
-    return this._write('debug', subsystem, message, meta);
-  }
   info(subsystem, message, meta = {}) { return this._write('info', subsystem, message, meta); }
   warn(subsystem, message, meta = {}) { return this._write('warn', subsystem, message, meta); }
   error(subsystem, message, meta = {}) { return this._write('error', subsystem, message, meta); }
@@ -312,7 +292,7 @@ export class DiagnosticLogger {
           'Print Farm Controller diagnostic bundle',
           `Generated: ${this.now().toISOString()}`,
           `Controller version: ${this.version}`,
-          `Log level: ${this.isVerbose() ? 'DEBUG (verbose)' : 'INFO'}`,
+          'Log level: INFO',
           `Printers: ${Array.isArray(printers) ? printers.length : 0}`,
           '',
           'Sensitive credential fields are redacted. Print files and licence contents are not included.'

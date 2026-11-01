@@ -43,8 +43,6 @@ const licenseInstallError = document.querySelector('#licenseInstallError');
 const diagnosticsBtn = document.querySelector('#diagnosticsBtn');
 const diagnosticsDialog = document.querySelector('#diagnosticsDialog');
 const diagnosticsStatus = document.querySelector('#diagnosticsStatus');
-const diagnosticsVerboseHelp = document.querySelector('#diagnosticsVerboseHelp');
-const diagnosticsVerboseBtn = document.querySelector('#diagnosticsVerboseBtn');
 const diagnosticsBundleBtn = document.querySelector('#diagnosticsBundleBtn');
 const diagnosticsLevel = document.querySelector('#diagnosticsLevel');
 const diagnosticsSearch = document.querySelector('#diagnosticsSearch');
@@ -1183,7 +1181,6 @@ function diagnosticsStatusViewModel(status = {}) {
   const items = [
     { label:'Logging', value:loggingAvailable ? 'Enabled' : 'Unavailable', code:false },
     { label:'Logging level', value:String(status.level || 'info').toUpperCase(), code:false },
-    { label:'Verbose until', value:status.verbose ? diagnosticStatusTime(status.verboseUntil) : 'Off', code:false },
     { label:'Log location', value:String(status.logDir || '—'), code:true },
     {
       label:'Rotation',
@@ -1236,25 +1233,12 @@ function renderDiagnostics(payload) {
     diagnosticsStatus.innerHTML = `
       <div><span>Logging</span><strong>${loggingAvailable ? 'Enabled' : 'Unavailable'}</strong></div>
       <div><span>Logging level</span><strong>${escapeHtml(String(status.level || 'info').toUpperCase())}</strong></div>
-      <div><span>Verbose until</span><strong>${escapeHtml(status.verbose ? diagnosticStatusTime(status.verboseUntil) : 'Off')}</strong></div>
       <div><span>Log location</span><code>${escapeHtml(status.logDir || '—')}</code></div>
       <div><span>Rotation</span><strong>${escapeHtml(status.maxFileBytes ? `${Math.round(status.maxFileBytes / 1024 / 1024)} MB × ${status.retainedFiles || '—'} files` : '—')}</strong></div>
       ${status.memory ? `<div><span>Heap memory</span><strong>${escapeHtml(`${formatDiagnosticBytes(status.memory.heapUsedBytes)} / ${formatDiagnosticBytes(status.memory.heapLimitBytes)} · ${status.memory.heapUsedPercent ?? '—'}% · ${String(status.memory.state || 'normal').toUpperCase()}`)}</strong></div>
       <div><span>Process RSS</span><strong>${escapeHtml(formatDiagnosticBytes(status.memory.rssBytes))}</strong></div>` : ''}
     `;
   }
-  if (diagnosticsVerboseBtn) {
-    diagnosticsVerboseBtn.textContent = status.verbose ? 'Disable verbose logging' : 'Enable for 30 minutes';
-    diagnosticsVerboseBtn.disabled = !loggingAvailable;
-  }
-  if (diagnosticsVerboseHelp) {
-    diagnosticsVerboseHelp.textContent = !loggingAvailable
-      ? 'The configured log directory is not writable. The controller continues to run, but file logging is unavailable.'
-      : status.verbose
-        ? `DEBUG logging is active until ${diagnosticStatusTime(status.verboseUntil)}.`
-        : 'Temporarily records DEBUG-level activity while reproducing an issue.';
-  }
-
   const entries = Array.isArray(payload?.entries) ? payload.entries : [];
   if (window.__PFC_PREACT_DIAGNOSTICS__) {
     publishDiagnosticsUiState({ status, entries });
@@ -1291,27 +1275,6 @@ async function loadDiagnostics() {
       diagnosticsError.textContent = error.message;
       diagnosticsError.classList.remove('hidden');
     }
-  }
-}
-
-async function toggleVerboseDiagnostics() {
-  if (!diagnosticsVerboseBtn) return;
-  diagnosticsVerboseBtn.disabled = true;
-  try {
-    const enabled = !Boolean(diagnosticsState?.verbose);
-    const result = await api('/api/diagnostics/verbose', {
-      method:'POST',
-      body:JSON.stringify({ enabled, minutes:30 })
-    });
-    diagnosticsState = result.status;
-    await loadDiagnostics();
-  } catch (error) {
-    if (diagnosticsError) {
-      diagnosticsError.textContent = error.message;
-      diagnosticsError.classList.remove('hidden');
-    }
-  } finally {
-    diagnosticsVerboseBtn.disabled = false;
   }
 }
 
@@ -5401,7 +5364,6 @@ restoreCancelStageBtn?.addEventListener('click', cancelStagedRestoreUi);
 restoreBackupFileInput?.addEventListener('change', clearRestoreInspection);
 document.querySelectorAll('[data-diagnostics-close]').forEach((el) => el.addEventListener('click', () => diagnosticsDialog?.close()));
 diagnosticsRefreshBtn?.addEventListener('click', loadDiagnostics);
-diagnosticsVerboseBtn?.addEventListener('click', toggleVerboseDiagnostics);
 diagnosticsBundleBtn?.addEventListener('click', downloadDiagnosticBundle);
 diagnosticsLevel?.addEventListener('change', loadDiagnostics);
 diagnosticsSearch?.addEventListener('input', () => {

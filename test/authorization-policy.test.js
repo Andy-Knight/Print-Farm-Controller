@@ -81,7 +81,7 @@ test('operator may run production but cannot manage security, credentials or bac
     ['POST','/api/printers/x/tool-configuration'],['PUT','/api/library/pricing'],
     ['POST','/api/backup/create'],['POST','/api/restore/stage'],
     ['GET','/api/integrations/s3/status'],['DELETE','/api/integrations/google-drive'],
-    ['POST','/api/license/install'],['POST','/api/diagnostics/verbose'],
+    ['POST','/api/license/install'],
     ['POST','/api/alerts/destinations'],['PATCH','/api/printer-groups/x'],
     ['DELETE','/api/printers/x/maintenance/history'],['GET','/api/backup/download/x'],
     ['POST','/api/emulator/start']

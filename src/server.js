@@ -312,7 +312,7 @@ function printerLicensedForNewWork(printerId) {
 
 async function runPrinterMutation(printerId, label, task, { allowInactive = false, operationType = null } = {}) {
   const meta = { printerId, operationType:operationType || null, label };
-  await diagnosticLogger.debug('printer-operation', 'Starting printer operation', meta);
+  await diagnosticLogger.info('printer-operation', 'Starting printer operation', meta);
   try {
     const result = await printerOperations.run(printerId, label, async () => {
       const currentPrinter = await getPrinter(printerId);
@@ -1405,12 +1405,6 @@ async function apiRoute(req, res, url) {
       status:{ ...diagnosticLogger.status(), memory:memoryMonitor.getSnapshot() },
       entries
     });
-  }
-
-  if (req.method === 'POST' && url.pathname === '/api/diagnostics/verbose') {
-    const body = await readJson(req);
-    const status = await diagnosticLogger.setVerbose(body.enabled !== false, body.minutes || 30);
-    return json(res, 200, { status });
   }
 
   if (req.method === 'GET' && url.pathname === '/api/diagnostics/bundle') {
