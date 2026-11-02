@@ -136,11 +136,15 @@ test('P1P, P1S and X1C virtual TLS MQTT AMS writes preserve RFID, other slots an
   }finally{await emulator.stop();}
 });
 
-test('A1 Mini AMS Lite virtual TLS MQTT writes the selected manual slot and protects RFID, other slots and external holder',async()=>{
+for (const {model,profileId,maxBed} of [
+  {model:'A1',profileId:'bambu-a1',maxBed:100},
+  {model:'A1 Mini',profileId:'bambu-a1-mini',maxBed:80}
+]) {
+test(`${model} AMS Lite virtual TLS MQTT writes the selected manual slot and protects RFID, other slots and external holder`,async()=>{
   const emulator=createEmulator({managementPort:0,withDefaults:false});
   await emulator.start();
   try{
-    const virtual=await emulator.addPrinter({profileId:'bambu-a1-mini',
+    const virtual=await emulator.addPrinter({profileId:profileId,
       ports:{mqttPort:0,ftpsPort:0,cameraPort:0}});
     const internal=emulator.printers.get(virtual.id);
     // AMS Lite has four numbered slots in its first unit. Only the slot
@@ -151,14 +155,14 @@ test('A1 Mini AMS Lite virtual TLS MQTT writes the selected manual slot and prot
       {unitIndex:0,slotIndex:2,present:false},
       {unitIndex:0,slotIndex:3,present:true,material:'PLA',color:'#FF0000',rfid:false}
     ]});
-    const adapter=new BambuLabAdapter({model:'A1 Mini',host:virtual.host,
+    const adapter=new BambuLabAdapter({model:model,host:virtual.host,
       serialNumber:virtual.serialNumber,checkCode:virtual.checkCode,
       mqttPort:virtual.ports.mqttPort});
     assert.equal(adapter.capabilities.filamentTypeControl,true);
     assert.equal(adapter.capabilities.filamentColorControl,true);
     assert.equal(adapter.capabilities.camera,true);
     assert.equal(adapter.capabilities.chamberFan,false);
-    assert.equal(adapter.limits.bedTemperature.max,80);
+    assert.equal(adapter.limits.bedTemperature.max,maxBed);
     const before=await adapter.getStatus();
     assert.equal(before.materialSources.filter(x=>x.kind==='ams').length,4);
     assert.equal(before.materialSources.find(x=>x.id==='ams-0-0').rfidState,'rfid');
@@ -185,3 +189,4 @@ test('A1 Mini AMS Lite virtual TLS MQTT writes the selected manual slot and prot
     assert.equal((await adapter.getStatus()).materialSources.find(x=>x.id==='ams-0-1').material,'PETG');
   }finally{await emulator.stop();}
 });
+}

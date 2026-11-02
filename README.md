@@ -1,13 +1,13 @@
-# Print Farm Controller v0.61.18
+# Print Farm Controller v0.62.0
 A local-first 3D printer fleet controller. It runs entirely on your LAN and currently supports:
 
 - **FlashForge Adventurer 5M / 5M Pro** through the local FlashForge HTTP/TCP APIs.
 - **FlashForge Creator 5 / Creator 5 Pro** through the supported local FlashForge control interfaces.
 - **Snapmaker U1** through its local Moonraker/Klipper API.
 - **Prusa CORE One+ (experimental)** through the local PrusaLink API, supporting Standard (1-tool), INDX4 and INDX8 configurations.
-- **Bambu Lab P1P / P1S / X1C / A1 Mini (experimental)** through the local MQTT TLS and FTPS TLS interfaces. P1P/P1S/A1 Mini use the TLS/JPEG camera path; X1C camera uses the bundled FFmpeg decoder; see [X1C camera setup](docs/X1C_CAMERA.md).
+- **Bambu Lab P1P / P1S / X1C / A1 / A1 Mini (experimental)** through the local MQTT TLS and FTPS TLS interfaces. P1P/P1S/A1/A1 Mini use the TLS/JPEG camera path; X1C camera uses the bundled FFmpeg decoder; see [X1C camera setup](docs/X1C_CAMERA.md).
 
-**Current development version: v0.61.18**
+**Current development version: v0.62.0**
 
 ## Key capabilities
 
@@ -635,9 +635,9 @@ session. The simulator page automatically sends the current session's CSRF token
 with management actions. If the session expires, sign in to the controller again
 and reload the simulator page.
 
-The simulator is disabled by default. Enable it from that page to start the loopback endpoints; the setting is remembered, the endpoints start with the controller on later launches, and they stop when the controller stops. It creates simulated FlashForge Adventurer 5M Pro, Snapmaker U1, Bambu Lab P1P, Bambu Lab P1S, Bambu Lab X1C and Bambu Lab A1 Mini printers, and displays the exact host, ports and credentials for each endpoint. Additional instances receive non-conflicting ports automatically.
+The simulator is disabled by default. Enable it from that page to start the loopback endpoints; the setting is remembered, the endpoints start with the controller on later launches, and they stop when the controller stops. It creates simulated FlashForge Adventurer 5M Pro, Snapmaker U1, Bambu Lab P1P, Bambu Lab P1S, Bambu Lab X1C, Bambu Lab A1 and Bambu Lab A1 Mini printers, and displays the exact host, ports and credentials for each endpoint. Additional instances receive non-conflicting ports automatically.
 
-The simulator uses the same responsive visual system and shared light/dark preference as the main controller. Its UI provides live state, progress and temperature controls; accelerated print time; virtual printer files; activity logs; repeatable scenarios; and fault injection for retained filenames, persistent cancellation, failed verification, rejected or malformed commands, delayed responses and unavailable cameras. Bambu profiles can emulate zero to four four-slot AMS units plus the external spool, with editable material, colour, loaded state and active source. FlashForge uses a continuous MJPEG camera stream, Snapmaker uses its Moonraker WebSocket/snapshot sequence, and the Bambu profiles expose TLS MQTT status/control, implicit FTPS file transfer and the authenticated local camera stream. All state changes are streamed live to the browser.
+The simulator uses the same responsive visual system and shared light/dark preference as the main controller. Its UI provides live state, progress and temperature controls; accelerated print time; virtual printer files; activity logs; repeatable scenarios; and fault injection for retained filenames, persistent cancellation, failed verification, rejected or malformed commands, delayed responses and unavailable cameras. Bambu profiles can emulate zero to four four-slot AMS units plus the external spool (A1 is limited to one AMS Lite), with editable material, colour, loaded state and active source. FlashForge uses a continuous MJPEG camera stream, Snapmaker uses its Moonraker WebSocket/snapshot sequence, and the Bambu profiles expose TLS MQTT status/control, implicit FTPS file transfer and the authenticated local camera stream. All state changes are streamed live to the browser.
 
 Default endpoints are:
 
@@ -655,6 +655,9 @@ Bambu P1S camera: 127.0.0.1:16010
 Bambu X1C MQTT:   127.0.0.1:18903
 Bambu X1C FTPS:   127.0.0.1:20010
 Bambu X1C RTSPS camera: 127.0.0.1:16020
+Bambu A1 MQTT:        127.0.0.1:18923
+Bambu A1 FTPS:        127.0.0.1:20030
+Bambu A1 camera:      127.0.0.1:16040
 Bambu A1 Mini MQTT:   127.0.0.1:18913
 Bambu A1 Mini FTPS:   127.0.0.1:20020
 Bambu A1 Mini camera: 127.0.0.1:16030
@@ -664,14 +667,14 @@ For FlashForge, the Add printer form now exposes the normally fixed HTTP, TCP an
 
 Set `EMULATOR_NO_DEFAULTS=1` to start with an empty simulator fleet, or `CONTROLLER_EMULATOR_ENABLED=1` to enable the integrated simulator for the current launch. The virtual protocol endpoints always use loopback in integrated mode. The standalone `npm run emulator` command remains available for development and retains its `EMULATOR_HOST` and `EMULATOR_PORT` overrides.
 
-The Bambu endpoints use a simulator-owned self-signed certificate, MQTT username `bblp`, and the access code shown in the emulator UI. They model the LAN/Developer interfaces used by P1, X1C and A1 Mini printers but remain experimental until compared with physical hardware. The X1C camera endpoint serves authenticated RTSPS/RTP H.264 from a generated simulator image through the same production adapter and bundled decoder as physical X1C cameras. Other Bambu models retain their TLS/JPEG endpoints. Protocol simulation does not establish physical-printer acceptance. The emulator verifies controller behaviour against the implemented protocol model; new manufacturer support remains experimental until checked against reliable captures, documentation or physical hardware.
+The Bambu endpoints use a simulator-owned self-signed certificate, MQTT username `bblp`, and the access code shown in the emulator UI. They model the LAN/Developer interfaces used by P1, X1C and A1-series printers but remain experimental until compared with physical hardware. The X1C camera endpoint serves authenticated RTSPS/RTP H.264 from a generated simulator image through the same production adapter and bundled decoder as physical X1C cameras. Other Bambu models retain their TLS/JPEG endpoints. Protocol simulation does not establish physical-printer acceptance. The emulator verifies controller behaviour against the implemented protocol model; new manufacturer support remains experimental until checked against reliable captures, documentation or physical hardware.
 
-### Adding an experimental Bambu P1P, P1S, X1C or A1 Mini
+### Adding an experimental Bambu P1P, P1S, X1C, A1 or A1 Mini
 
 1. Enable the printer's LAN Only or Developer mode and note its serial number and LAN access code.
-2. Click **+ Add printer** and select **Bambu Lab P1P / P1S / X1C / A1 Mini (experimental)**.
-3. Choose `P1P`, `P1S`, `X1 Carbon (X1C)` or `A1 Mini` from the model dropdown, then enter the IP address, serial number and access code.
-4. Keep the physical-printer defaults of MQTT TLS `8883` and implicit FTPS `990`. P1P/P1S/A1 Mini camera TLS defaults to `6000`; selecting X1C changes the stored camera port to its RTSPS default `322`, with experimental decoding provided by the bundled FFmpeg decoder (see [X1C camera setup](docs/X1C_CAMERA.md)). Use the alternate ports displayed by the emulator only for simulated printers.
+2. Click **+ Add printer** and select **Bambu Lab P1P / P1S / X1C / A1 / A1 Mini (experimental)**.
+3. Choose `P1P`, `P1S`, `X1 Carbon (X1C)`, `A1` or `A1 Mini` from the model dropdown, then enter the IP address, serial number and access code.
+4. Keep the physical-printer defaults of MQTT TLS `8883` and implicit FTPS `990`. P1P/P1S/A1/A1 Mini camera TLS defaults to `6000`; selecting X1C changes the stored camera port to its RTSPS default `322`, with experimental decoding provided by the bundled FFmpeg decoder (see [X1C camera setup](docs/X1C_CAMERA.md)). Use the alternate ports displayed by the emulator only for simulated printers.
 5. **Test & add** validates the MQTT credentials before saving the printer.
 
 Bambu discovery is not yet implemented, so supported Bambu printers are added manually. Access codes remain backend-side and are never returned by the public fleet API. Until physical validation is complete, supervise test prints and do not rely on this adapter for unattended production.
@@ -680,11 +683,13 @@ Bambu discovery is not yet implemented, so supported Bambu printers are added ma
 
 - The printer detail view shows each reported AMS tray and the external spool, including loaded state, material, colour and active source.
 - Before printing or queueing a sliced `.3mf`, the controller reads the embedded plate G-code and lets each logical filament be mapped to a loaded source. Exact material-and-colour matches are selected automatically when possible.
-- File-centric automatic queue jobs use the live AMS inventory when choosing a compatible P1P/P1S/X1C/A1 Mini and recheck that mapping immediately before print start.
-- Multi-material Bambu jobs require `.3mf`. P1P/P1S/X1C and A1 Mini allow raw `.gcode` for single-material starts; the A1 Mini `gcode_file` path remains experimental until physically validated.
-- P1-family and A1 Mini printers still have one nozzle. Multiple filaments are valid, but conflicting nozzle-size requirements are rejected.
+- File-centric automatic queue jobs use the live AMS inventory when choosing a compatible P1P/P1S/X1C/A1/A1 Mini and recheck that mapping immediately before print start.
+- Multi-material Bambu jobs require `.3mf`. P1P/P1S/X1C/A1 and A1 Mini allow raw `.gcode` for single-material starts; the A1-series `gcode_file` path remains experimental until physically validated.
+- P1-family and A1-series printers still have one nozzle. Multiple filaments are valid, but conflicting nozzle-size requirements are rejected.
 
-AMS behavior is implemented against the emulator protocol model and must remain experimental until start commands and telemetry are confirmed on physical P1P/P1S/X1C/A1 Mini hardware with the applicable AMS/AMS Lite configuration.
+A1 uses one four-slot **AMS Lite** or its external spool, with the same Toolheads, Camera, Files, Temperature, Current Job and Management tabs as other Bambu models. It has a 100°C bed limit (A1 Mini: 80°C), a 300°C nozzle limit and no chamber controls. The existing filament-type list, canonical colour-family dropdown and blue **Set filament** buttons are shared; editing is idle-only, and RFID or unknown-tag AMS slots stay read-only. See [A1 validation and setup](docs/BAMBU_A1.md).
+
+AMS behavior is implemented against the emulator protocol model and must remain experimental until start commands and telemetry are confirmed on physical P1P/P1S/X1C/A1/A1 Mini hardware with the applicable AMS/AMS Lite configuration.
 
 ## Supported features
 

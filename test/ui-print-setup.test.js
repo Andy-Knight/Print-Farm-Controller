@@ -721,10 +721,10 @@ test('Bambu printer detail exposes AMS slots and material mapping setup', () => 
   assert.match(app, /filamentColorFamilyFromHex/);
   assert.match(app, /filamentSourceFamily/);
   assert.match(bambuAdapter, /colorFamily:colorFamily\(color\)/);
-  assert.match(app, /P1P\/P1S\/X1C\/A1 Mini external-spool filament can be set while idle/);
+  assert.match(app, /P1P\/P1S\/X1C\/A1\/A1 Mini external-spool filament can be set while idle/);
   assert.doesNotMatch(app, /RTSPS\/H\.264 camera decoding is not yet supported/);
-  assert.match(app, /Single-material A1 Mini \.gcode starts remain experimental/);
-  assert.match(bambuAdapter, /label: 'Bambu Lab P1P \/ P1S \/ X1C \/ A1 Mini \(experimental\)'/);
+  assert.match(app, /Single-material A1-series \.gcode starts remain experimental/);
+  assert.match(bambuAdapter, /label: 'Bambu Lab P1P \/ P1S \/ X1C \/ A1 \/ A1 Mini \(experimental\)'/);
   assert.match(bambuAdapter, /experimental: true/);
   assert.match(app, /Experimental Bambu \$\{escapeHtml\(printer\.model \|\| ''\)\} support/);
 });

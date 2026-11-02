@@ -52,7 +52,7 @@ An administrator may set PFC_FFMPEG_PATH to an absolute trusted executable path
 to override the bundle, then restart. Relative overrides disable discovery rather
 than being executed. There is no PATH or writable-data-directory search, and the
 browser/printer cannot choose an executable. Without a discovered decoder the
-X1C camera is disabled; P1/A1 Mini JPEG cameras do not need FFmpeg.
+X1C camera is disabled; P1/A1-series JPEG cameras do not need FFmpeg.
 
 ## Bundled source, licences and updates
 
@@ -115,7 +115,7 @@ checksums, missing notices, wrong targets and GPL/nonfree configurations.
 The virtual X1C serves authenticated RTSPS/RTP H.264 at its existing camera port
 (default 16020). It repeats a generated simulator image at five FPS with matching
 RTP timing; the normal bundled decoder produces the existing previews/live view.
-P1/A1 Mini virtual printers retain TLS/JPEG. Emulator tests exercise HTTP snapshots,
+P1/A1-series virtual printers retain TLS/JPEG. Emulator tests exercise HTTP snapshots,
 MJPEG, authentication, offline/camera faults and decoder idle cleanup. Browser CI
 also compares the decoded X1C camera pixels with the original simulator card,
 allowing lossy compression while rejecting colour/scanline corruption.

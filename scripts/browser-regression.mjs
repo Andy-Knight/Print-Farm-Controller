@@ -3312,6 +3312,78 @@ async function checkToolheadHelpAlignment(page,name,{filamentMode,nozzleMode}) {
     name+' filament/nozzle help text must have aligned top edges: '+JSON.stringify(measurement));
 }
 
+async function bambuA1Smoke(browser,url) {
+  const context=await browser.newContext({viewport:{width:1365,height:900}});
+  context.setDefaultTimeout(20000);
+  const page=await context.newPage();
+  const jsonPost=async(endpoint,body)=>{
+    const response=await fetch(url+endpoint,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(body)});
+    const payload=await response.json();assert.ok(response.ok,JSON.stringify(payload));return payload;
+  };
+  const removeTestPrinter=async id=>{
+    const response=await fetch(url+'/api/printers/'+id,{method:'DELETE'});assert.equal(response.status,200);
+  };
+  try{
+    await jsonPost('/api/emulator/status',{enabled:true});
+    await page.goto(url+'/');await preactReady(page);
+    const a1=await jsonPost('/api/emulator/printers',{
+      profileId:'bambu-a1',name:'Virtual A1 AMS Lite regression',
+      ports:{mqttPort:0,ftpsPort:0,cameraPort:0}
+    });
+    const configured=await fetch(url+'/api/emulator/printers/'+a1.printer.id,{
+      method:'PATCH',headers:{'content-type':'application/json'},
+      body:JSON.stringify({amsSlots:[{unitIndex:0,slotIndex:1,rfid:true},{unitIndex:0,slotIndex:2,present:false}]})
+    });
+    assert.equal(configured.status,200);
+    const a1Registered=await jsonPost('/api/printers',a1.printer.controllerSettings);
+    const a1Id=a1Registered.printer.id;
+    await page.waitForFunction(id=>document.querySelector('[data-printer-card="'+id+'"] [data-open]'),a1Id,{timeout:25000});
+    await page.locator('[data-printer-card="'+a1Id+'"] [data-open]').click();
+    await page.locator('#printerDialog [data-detail-tab="toolheads"]').click();
+    const manual=page.locator('[data-preact-toolhead-editor="bambu-ams-filament"][data-tool-index="0"]');
+    await manual.waitFor({state:'visible',timeout:15000});
+    assert.equal(await page.locator('#printerDialog [data-detail-tab]').count(),6);
+    assert.equal(await page.locator('[data-preact-toolhead-editor="bambu-ams-filament"]').count(),4);
+    assert.equal(await page.locator('[data-preact-toolhead-editor="bambu-filament"]').count(),1);
+    for(const slot of [1,2])assert.equal(await page.locator('[data-preact-toolhead-editor="bambu-ams-filament"][data-tool-index="'+slot+'"] [data-toolhead-save]').isDisabled(),true);
+    await manual.locator('[data-toolhead-material]').selectOption('PETG');
+    await manual.locator('summary').click();
+    await manual.locator('[data-toolhead-color-option]').filter({hasText:/^Green$/}).click();
+    const saved=page.waitForResponse(r=>r.url().includes('/filament-config')&&r.request().method()==='POST');
+    await manual.locator('[data-toolhead-save]').click();
+    assert.equal((await saved).status(),200,'A1 AMS edit is sent through the production controller API');
+    await page.waitForFunction(()=>document.querySelector('[data-preact-toolhead-editor="bambu-ams-filament"][data-tool-index="0"]')?.textContent.includes('updated and verified'));
+    for(const theme of ['dark','light']){
+      await page.evaluate(t=>document.documentElement.dataset.theme=t,theme);
+      for(const width of [1365,390]){
+        await page.setViewportSize({width,height:900});
+        assert.equal(await manual.locator('[data-toolhead-save]').isVisible(),true);
+        if(process.env.PFC_VISUAL_CAPTURE_DIR){
+          await fs.mkdir(process.env.PFC_VISUAL_CAPTURE_DIR,{recursive:true});
+          await page.screenshot({path:path.join(process.env.PFC_VISUAL_CAPTURE_DIR,'a1-'+theme+'-'+width+'.png'),fullPage:true});
+        }
+      }
+    }
+    await page.setViewportSize({width:1365,height:900});
+    await page.locator('#printerDialog [data-detail-tab="camera"]').click();
+    await page.waitForFunction(()=>document.querySelector('#detailTabCamera img.detail-camera')?.naturalWidth>0,null,{timeout:15000});
+    await page.locator('#printerDialog [data-detail-close]').click();
+    const fallback=await context.newPage();
+    try{
+      await fallback.route('**/dashboard-preact.js',route=>route.abort());
+      await fallback.goto(url+'/');
+      await fallback.locator('[data-printer-card="'+a1Id+'"] [data-open]').click();
+      await fallback.locator('#printerDialog [data-detail-tab="toolheads"]').click();
+      await fallback.locator('[data-bambu-ams-save]').first().waitFor({state:'visible'});
+      assert.equal(await fallback.locator('[data-bambu-ams-save]').count(),4);
+      assert.equal(await fallback.locator('[data-bambu-external-save]').count(),1);
+      assert.equal(await fallback.locator('#printerDialog [data-detail-tab]').count(),6);
+    }finally{await fallback.close();}
+    await removeTestPrinter(a1Id);
+    console.log('Chromium: A1 six tabs, AMS Lite/manual/RFID/empty editors, real save, camera, themes/mobile and fallback PASS');
+  } finally {await context.close();}
+}
+
 async function simulatorSseSmoke(browser,url) {
   console.log('Chromium: real controller SSE with protocol-backed simulated printer');
   const jsonPost=async (endpoint,body)=>{
@@ -3875,6 +3947,8 @@ async function simulatorSseSmoke(browser,url) {
     await page.locator('#printerDialog [data-detail-close]').click();
     await removeTestPrinter(x1cId);
     console.log('Chromium: virtual X1C RTSPS -> bundled decoder -> correct camera pixels PASS');
+
+
   } finally {
     await context.close();
     // Isolated controller process teardown is the safety boundary; no external
@@ -4682,6 +4756,7 @@ async function main() {
     await routeSmoke(page,url);
     await queueClickSmoke(browser,url);
     await groupEditorSmoke(browser,url);
+    if(!externalUrl) await bambuA1Smoke(browser,url);
     if(!externalUrl) await simulatorSseSmoke(browser,url);
     if(!externalUrl) await nativeAuthenticationSmoke(browser);
     assert.deepEqual(errors,[],'browser Javascript errors');

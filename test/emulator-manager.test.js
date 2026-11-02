@@ -46,6 +46,7 @@ test('integrated emulator exposes management API and UI under controller paths',
   const profiles = await fetch(`${base}/api/emulator/profiles`).then((response) => response.json());
   assert.ok(profiles.profiles.some((profile) => profile.id === 'bambu-x1c'));
   assert.ok(profiles.profiles.some((profile) => profile.id === 'bambu-a1-mini'));
+  assert.ok(profiles.profiles.some((profile) => profile.id === 'bambu-a1'));
   const app = await fetch(`${base}/simulator/app.js`).then((response) => response.text());
   assert.match(app, /\/api\/emulator/);
 });
@@ -214,4 +215,15 @@ test('virtual-printer add flow greys an endpoint already present in the controll
   assert.match(server, /const simulatedInstanceId = emulatorManager\.simulatedInstanceId\(input\)/);
   assert.match(server, /emulatorManager\.simulatedInstanceId\(printer\) === simulatedInstanceId/);
   assert.match(server, /This virtual printer is already added/);
+});
+
+test('A1 simulator is recognised by endpoint identity without marking physical endpoints simulated', async (t) => {
+  const directory=await fs.mkdtemp(path.join(os.tmpdir(),'pfc-emulator-a1-'));
+  const manager=new EmulatorManager({settingsPath:path.join(directory,'settings.json'),withDefaults:false});
+  t.after(async()=>{await manager.stop();await fs.rm(directory,{recursive:true,force:true});});
+  await manager.setEnabled(true);
+  const virtual=await manager.emulator.addPrinter({profileId:'bambu-a1',ports:{mqttPort:0,ftpsPort:0,cameraPort:0}});
+  assert.equal(manager.isSimulatedConfig(virtual.controllerSettings),true);
+  assert.equal(manager.isSimulatedConfig({...virtual.controllerSettings,mqttPort:virtual.ports.mqttPort+1}),false);
+  assert.equal(manager.isSimulatedConfig({...virtual.controllerSettings,host:'192.168.4.196'}),false);
 });
