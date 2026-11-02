@@ -4,6 +4,16 @@ This file contains the version-by-version release history for Print Farm Control
 
 Historical entries describe the behaviour of the controller at the time of that release and may be superseded by later versions. For current installation, configuration and supported-hardware guidance, see [README.md](README.md).
 
+## v0.62.1
+
+- Update the bundled Preact UI library to 11.0.2 and align the approved dependency-version assertion with the reviewed patch release.
+
+## v0.62.0
+
+- Add experimental Bambu Lab A1 support through the existing Bambu LAN MQTT/FTPS adapter, including TLS/JPEG camera, file transfer, print control, temperature/fan controls and AMS Lite/external-spool material mapping.
+- Reuse the shared six-tab printer details, filament-type and colour-family controls and Set filament actions, preserving idle-only edits, RFID safeguards and print safety checks. Apply the A1 100°C bed limit independently of the A1 Mini.
+- Add an A1 simulator profile with one four-slot AMS Lite, local model artwork and protocol/browser regression coverage. Physical A1 acceptance remains required.
+
 ## v0.61.18
 
 - Record printer operation starts at INFO alongside completion and warning events without enabling a temporary logging mode.

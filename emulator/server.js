@@ -19,6 +19,7 @@ export const DEFAULT_EMULATOR_PRINTERS = Object.freeze([
   Object.freeze({ profileId:'bambu-p1p', name:'Simulated Bambu Lab P1P' }),
   Object.freeze({ profileId:'bambu-p1s', name:'Simulated Bambu Lab P1S' }),
   Object.freeze({ profileId:'bambu-x1c', name:'Simulated Bambu Lab X1 Carbon' }),
+  Object.freeze({ profileId:'bambu-a1', name:'Simulated Bambu Lab A1' }),
   Object.freeze({ profileId:'bambu-a1-mini', name:'Simulated Bambu Lab A1 Mini' })
 ]);
 

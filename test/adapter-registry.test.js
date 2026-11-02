@@ -110,11 +110,11 @@ test('Snapmaker U1 exposes print tool mapping and flow-calibration capabilities'
   assert.equal(adapter.limits.toolCount, 4);
 });
 
-test('Bambu P1P, P1S, X1C and A1 Mini configuration exposes model-specific experimental capabilities', () => {
+test('Bambu P1P, P1S, X1C, A1 and A1 Mini configuration exposes model-specific experimental capabilities', () => {
   const definition = listAdapterDefinitions().find((item) => item.type === BAMBU_LAB_ADAPTER_TYPE);
   const modelField = definition.configFields.find((field) => field.name === 'model');
   assert.equal(modelField.type, 'select');
-  assert.deepEqual(modelField.options.map((option) => option.value), ['P1P','P1S','X1C','A1 Mini']);
+  assert.deepEqual(modelField.options.map((option) => option.value), ['P1P','P1S','X1C','A1','A1 Mini']);
   const common = {
     adapterType:BAMBU_LAB_ADAPTER_TYPE,
     name:'Bambu test',
@@ -128,6 +128,16 @@ test('Bambu P1P, P1S, X1C and A1 Mini configuration exposes model-specific exper
   const p1pConfig = preparePrinterConfig({ ...common, model:'p1p' });
   const p1sConfig = preparePrinterConfig({ ...common, model:'P1S' });
   const x1cConfig = preparePrinterConfig({ ...common, model:'x1c' });
+  const a1Config = preparePrinterConfig({ ...common, model:'a1', cameraPort:undefined });
+  const a1 = getPrinterAdapter(a1Config);
+  assert.equal(a1.model, 'A1');
+  assert.equal(a1Config.cameraPort, 6000);
+  assert.equal(a1Config.adapterConfig.cameraProtocol, 'tls-jpeg');
+  assert.equal(a1.limits.bedTemperature.max, 100);
+  assert.equal(a1.limits.nozzleTemperature.max, 300);
+  assert.equal(a1.capabilities.chamberPreheat, false);
+  assert.equal(a1.capabilities.chamberFan, false);
+  assert.equal(a1.capabilities.materialSlotMapping, true);
   const a1MiniConfig = preparePrinterConfig({ ...common, model:'a1 mini', cameraPort:undefined });
   const a1MiniAliasConfig = preparePrinterConfig({ ...common, model:'A1-MINI', cameraPort:undefined });
   const x1cDefaults = preparePrinterConfig({ ...common, model:'X1C', cameraPort:undefined });
@@ -164,7 +174,7 @@ test('Bambu P1P, P1S, X1C and A1 Mini configuration exposes model-specific exper
   assert.equal(a1Mini.limits.nozzleTemperature.max, 300);
   assert.deepEqual(a1Mini.uploadExtensions, ['.3mf', '.gcode']);
   assert.deepEqual(p1s.uploadExtensions, ['.3mf', '.gcode']);
-  assert.throws(() => preparePrinterConfig({ ...common, model:'A1' }), /model must be P1P, P1S, X1C or A1 Mini/);
+  assert.throws(() => preparePrinterConfig({ ...common, model:'Unsupported' }), /model must be P1P, P1S, X1C, A1 or A1 Mini/);
 });
 
 test('a new printer family can register without changing fleet services', () => {

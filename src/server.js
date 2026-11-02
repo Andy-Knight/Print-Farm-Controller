@@ -3081,7 +3081,7 @@ async function startController() {
     const license = currentLicenseSnapshot();
     console.log(`Licence: ${license.label} (${license.source}; enforcement ${license.enforcementEnabled ? 'enabled' : 'disabled'})`);
     console.log(`LAN direct access: ${browserScheme}://<controller-host-or-ip>:${controllerTls.enabled?HTTPS_PORT:PORT} (MetalLB Service maps 80/443)`);
-    console.log('Generic printer adapter + capability layer enabled (FlashForge AD5M + Snapmaker U1 + experimental Bambu P1P/P1S/X1C/A1 Mini)');
+    console.log('Generic printer adapter + capability layer enabled (FlashForge AD5M + Snapmaker U1 + experimental Bambu P1P/P1S/X1C/A1/A1 Mini)');
     console.log('Live fleet polling + SSE enabled');
     console.log('Concurrent client command arbitration + serialized shared mutations enabled');
     console.log('Shared backend camera proxy enabled');

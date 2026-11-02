@@ -11,7 +11,7 @@ Repository policy: `AGENTS.md` defines agent startup behavior; `docs/DOCUMENTATI
 - Repository: `Andy-Knight/Print-Farm-Controller`
 - Project path: repository root (`/`)
 - Primary branch: `main` (current production baseline)
-- Current controller source version: **0.61.18**.
+- Current controller source version: **0.62.1**.
 - Previous baseline audited: **0.48.0** (main before the regression test audit release).
 - Runtime: **Node.js 24.22.1+** (Node 24 release line), ES modules; build-time **npm 12.2.0** and committed lockfile; no npm runtime dependency for deployed controller. Follow `docs/dependency-security.md` for updates.
 - GitHub is the authoritative code baseline.
@@ -56,7 +56,7 @@ PrinterAdapter boundary (`src/adapters/`)
         +-- FlashForge Creator 5 / Creator 5 Pro -> modern HTTP-only API + four-tool material station + MJPEG camera
         +-- Snapmaker U1 -> Moonraker / Klipper
         +-- Prusa CORE One+ -> local PrusaLink HTTP API (Digest/API-key auth)
-        +-- Bambu Lab P1P / P1S / X1C / A1 Mini -> experimental MQTT/FTPS adapter; P1/A1 Mini TLS-JPEG camera; bundled X1C FFmpeg decoder
+        +-- Bambu Lab P1P / P1S / X1C / A1 / A1 Mini -> experimental MQTT/FTPS adapter; P1/A1-series TLS-JPEG camera; bundled X1C FFmpeg decoder
 
 Development Printer Emulator (`emulator/`, loopback only)
         +-- management UI/API + SSE
@@ -64,7 +64,7 @@ Development Printer Emulator (`emulator/`, loopback only)
         +-- FlashForge AD5M HTTP/TCP/camera endpoints
         +-- FlashForge Creator 5 / Creator 5 Pro HTTP-only/camera endpoints
         +-- Snapmaker U1 Moonraker endpoints
-        +-- Bambu P1P/P1S/X1C/A1 Mini MQTT TLS, FTPS TLS and camera test endpoints
+        +-- Bambu P1P/P1S/X1C/A1/A1 Mini MQTT TLS, FTPS TLS and camera test endpoints
         +-- Prusa CORE One+ PrusaLink HTTP/Digest-auth test endpoint
 ```
 
@@ -110,7 +110,7 @@ Manufacturer-specific discovery, capabilities, limits, status normalization, fil
 - Queue priority is **High / Normal / Low**. Effective priority ranks before manual queue order; a waiting job gains one priority level every six hours so low-priority work cannot be starved. Within the same effective priority, manual order remains authoritative.
 - When multiple compatible idle printers are ready for an automatic job, a printer with a verified existing copy of the file is preferred; the assigned job records the selection reason.
 - The development printer simulator is integrated into the controller lifecycle and UI, but its virtual protocol endpoints remain loopback-only. It is disabled by default, remembers explicit enablement, and exercises production adapters through network protocols rather than bypassing the adapter boundary. Simulator-only support never counts as physical hardware validation. The standalone emulator command remains available for development.
-- Bambu P1P/P1S/X1C/A1 Mini support remains explicitly experimental until MQTT telemetry/commands, FTPS behavior, material mapping and camera behavior are compared with physical printers. P1P/P1S/A1 Mini use the TLS/JPEG camera path on port 6000. X1C uses RTSPS/H.264 on port 322; experimental JPEG/MJPEG conversion uses the automatically discovered source-built LGPL FFmpeg decoder bundled in Windows/container packages; `PFC_FFMPEG_PATH` remains an optional administrator override. Matching source, notices and build records accompany the binary; see `docs/X1C_CAMERA.md`. Manual entry is used; Bambu LAN discovery is not yet implemented.
+- Bambu P1P/P1S/X1C/A1/A1 Mini support remains explicitly experimental until MQTT telemetry/commands, FTPS behavior, material mapping and camera behavior are compared with physical printers. P1P/P1S/A1/A1 Mini use the TLS/JPEG camera path on port 6000. X1C uses RTSPS/H.264 on port 322; experimental JPEG/MJPEG conversion uses the automatically discovered source-built LGPL FFmpeg decoder bundled in Windows/container packages; `PFC_FFMPEG_PATH` remains an optional administrator override. Matching source, notices and build records accompany the binary; see `docs/X1C_CAMERA.md`. Manual entry is used; Bambu LAN discovery is not yet implemented.
 - Bambu AMS support models each AMS/AMS Lite tray and the external spool as a material source, separate from the printer's single physical nozzle. Automatic scheduling maps logical 3MF filaments to unique live sources, while multi-material raw G-code is rejected because it does not carry the project-level mapping required by the print command.
 - Production licensing is offline and Ed25519-signed. The controller ships trusted public verification keys only; production private keys live only in the separate private `Andy-Knight/Print-Farm-Licensing` application.
 - No valid signed licence means Community Edition. Current physical-printer allowances are Community 3, Pro 10, Farm 25; simulator printers do not consume licence slots.
@@ -122,7 +122,7 @@ Manufacturer-specific discovery, capabilities, limits, status normalization, fil
 
 ## Current baseline
 
-- Supported printers: FlashForge Adventurer 5M / 5M Pro, FlashForge Creator 5 / Creator 5 Pro, Snapmaker U1, experimental Prusa CORE One+, and experimental Bambu Lab P1P / P1S / X1C / A1 Mini support.
+- Supported printers: FlashForge Adventurer 5M / 5M Pro, FlashForge Creator 5 / Creator 5 Pro, Snapmaker U1, experimental Prusa CORE One+, and experimental Bambu Lab P1P / P1S / X1C / A1 / A1 Mini support.
 - Persistent printer registry with manufacturer-specific adapters, local discovery where supported, controller-side printer naming, live SSE fleet state, dashboard filtering and printer groups with overlapping membership.
 - Persistent Print Library with descriptions, previews, target-printer metadata, material/colour/nozzle requirements, verified file distribution and queue integration.
 - Persistent print queue/history with fixed-printer or next-compatible-printer assignment, priorities, production batches, reprint, compatibility/preflight checks, material/tool mapping and bed-clearance interlocks.
@@ -136,6 +136,10 @@ Manufacturer-specific discovery, capabilities, limits, status normalization, fil
 - Known validation limits: Creator 5 / Creator 5 Pro physical-hardware validation remains incomplete; Bambu support remains experimental; X1C RTSPS/H.264 camera streaming is a bundled-decoder prototype requiring physical Windows/Kubernetes acceptance.
 
 ## Current task
+
+Preact is pinned to 11.0.2 in the manifest/lockfile and frontend contract test. Keep exact dependency pins reviewed together and validate the built frontend, browser interactions and deployment packages on patch updates.
+
+A1 support uses the existing Bambu adapter and shared details/AMS editors, TLS/JPEG camera and AMS Lite mapping. Simulator validation must cover four slots/external spool, RFID and busy guards, file/queue controls and both renderers. Local validation passed: Windows 913/915 tests (two skips), fresh-source Linux 909/915 (six skips), complete Chromium including real A1 AMS edits/camera and both renderers, and Windows SEA/installer builds. Physical A1 acceptance remains pending; see docs/BAMBU_A1.md.
 
 Print Library attribution uses an immutable original uploader ID and a separately transferable quota-owner ID. Keep the dedicated Uploaded by column, labelled mobile equivalent and account filters in both renderers. Personal usage sits beside the top-bar account name; administrator-only Reports & finance → Print library owns the account pie/breakdown and disk-usage history against the active maximum. Storage observations use a separate backed-up library-storage-history.json buffer/store, retaining real hourly observations for up to 366 days (9000-point cap). Normal dirty flushes occur at most every five minutes; clean shutdown flushes pending observations and backups capture the live buffer. Migration commits the new file before removing the embedded reporting-history.json field; never infer pre-upgrade usage or join offline gaps. Transfers require enabled targets with capacity and retain 100 per-file changes; duplicates never rewrite attribution.
 

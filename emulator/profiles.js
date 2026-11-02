@@ -1,4 +1,19 @@
 export const EMULATOR_PROFILES = Object.freeze({
+  'bambu-a1': Object.freeze({
+    id: 'bambu-a1',
+    adapterType: 'bambu-lab',
+    manufacturer: 'Bambu Lab',
+    model: 'A1',
+    toolCount: 1,
+    maxAmsUnits: 1,
+    defaults: Object.freeze({
+      mqttPort: 18923,
+      ftpsPort: 20030,
+      cameraPort: 16040,
+      serialNumber: 'A1SIM000001',
+      checkCode: '55443322'
+    })
+  }),
   'bambu-a1-mini': Object.freeze({
     id: 'bambu-a1-mini',
     adapterType: 'bambu-lab',
