@@ -59,6 +59,7 @@ function profileIdFromControllerConfig(config = {}) {
     if (model === 'p1p') return 'bambu-p1p';
     if (model === 'p1s') return 'bambu-p1s';
     if (model === 'x1c' || model.includes('x1 carbon')) return 'bambu-x1c';
+    if (model === 'a1') return 'bambu-a1';
     if (model === 'a1 mini' || model === 'a1-mini') return 'bambu-a1-mini';
   }
 

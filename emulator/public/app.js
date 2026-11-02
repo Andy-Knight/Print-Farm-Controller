@@ -187,6 +187,7 @@ function renderAmsControls(card, printer) {
   if (printer.adapterType !== 'bambu-lab') return;
   const units = Array.isArray(printer.amsUnits) ? printer.amsUnits : [];
   const unitCount = panel.querySelector('.ams-unit-count');
+  unitCount.max = printer.maxAmsUnits ?? 4;
   if (document.activeElement !== unitCount) unitCount.value = units.length;
   unitCount.onchange = () => updatePrinter(printer.id, { amsUnits:Number(unitCount.value) });
   const active = panel.querySelector('.ams-active-source');

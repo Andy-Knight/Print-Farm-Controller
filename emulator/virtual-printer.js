@@ -96,6 +96,7 @@ export class VirtualPrinter extends EventEmitter {
       });
     }
     if (this.model === 'X1C') this.tools[0].nozzleVolumeType = 'hardened-steel';
+    this.maxAmsUnits = profile.maxAmsUnits ?? 4;
     this.amsUnits = defaultAmsUnits(profile.adapterType === 'bambu-lab');
     this.externalSpool = { present:true, material:'PLA', materialVariant:null, colorFamily:'white', color:representativeColor('white'), vendor:'Simulator' };
     this.activeMaterialSource = this.amsUnits.length ? 0 : 254;
@@ -267,7 +268,7 @@ export class VirtualPrinter extends EventEmitter {
       }
     }
     if (values.amsUnits !== undefined) {
-      const count = Math.round(clamp(values.amsUnits, 0, 4));
+      const count = Math.round(clamp(values.amsUnits, 0, this.maxAmsUnits));
       const current = this.amsUnits;
       this.amsUnits = Array.from({ length:count }, (_, unitIndex) => current[unitIndex] || {
         id:unitIndex, humidity:3,
@@ -427,6 +428,7 @@ export class VirtualPrinter extends EventEmitter {
       chamber: { actual:Number(this.chamber.actual.toFixed(1)), target:this.chamber.target },
       tools: this.tools.map((tool) => ({ ...tool, filament: { ...tool.filament }, offset: [...tool.offset] })),
       toolConfigurations:this.toolConfigurations.map((item) => ({ ...item })),
+      maxAmsUnits:this.maxAmsUnits,
       amsUnits:this.amsUnits.map((unit) => ({ ...unit, trays:unit.trays.map((tray) => ({ ...tray })) })),
       externalSpool:{ ...this.externalSpool },
       activeMaterialSource:this.activeMaterialSource,

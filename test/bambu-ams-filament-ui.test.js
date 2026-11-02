@@ -15,7 +15,7 @@ test('AMS slot editor permits manual non-RFID spools only on idle supported prin
   const printer=(model,status)=>({adapterType:'bambu-lab',model,status:{status},
     capabilities:{filamentTypeControl:true,filamentColorControl:true}});
   const manual={kind:'ams',present:true,rfidState:'manual'};
-  for(const model of ['P1P','P1S','X1C','A1 Mini']){
+  for(const model of ['P1P','P1S','X1C','A1','A1 Mini']){
     assert.equal(fn(printer(model,'idle'),manual).enabled,true);
     assert.equal(fn(printer(model,'printing'),manual).enabled,false);
     assert.equal(fn(printer(model,'paused'),manual).enabled,false);
