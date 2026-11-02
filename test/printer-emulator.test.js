@@ -25,6 +25,7 @@ test('built-in simulator defaults include both Creator 5 models', () => {
       'bambu-p1p',
       'bambu-p1s',
       'bambu-x1c',
+      'bambu-a1',
       'bambu-a1-mini'
     ]
   );
@@ -49,7 +50,7 @@ test('emulator management API creates and controls a virtual printer', async (t)
   const base = `http://127.0.0.1:${address.port}`;
 
   const profiles = await fetch(`${base}/api/profiles`).then((response) => response.json());
-  assert.deepEqual(profiles.profiles.map((profile) => profile.id).sort(), ['bambu-a1-mini', 'bambu-p1p', 'bambu-p1s', 'bambu-x1c', 'flashforge-ad5m-pro', 'flashforge-creator-5', 'flashforge-creator-5-pro', 'prusa-core-one-plus', 'snapmaker-u1']);
+  assert.deepEqual(profiles.profiles.map((profile) => profile.id).sort(), ['bambu-a1', 'bambu-a1-mini', 'bambu-p1p', 'bambu-p1s', 'bambu-x1c', 'flashforge-ad5m-pro', 'flashforge-creator-5', 'flashforge-creator-5-pro', 'prusa-core-one-plus', 'snapmaker-u1']);
   const coreOnePlusProfile = profiles.profiles.find((profile) => profile.id === 'prusa-core-one-plus');
   assert.deepEqual(coreOnePlusProfile.toolConfigurations.map((item) => item.count), [1, 4, 8]);
 
@@ -331,13 +332,17 @@ test('Bambu X1C profile interoperates with controller status, files, controls an
   }
 });
 
-test('Bambu A1 Mini profile interoperates with the production controller adapter and AMS Lite mapping', async (t) => {
+for (const {model,profileId,maxBed} of [
+  {model:'A1',profileId:'bambu-a1',maxBed:100},
+  {model:'A1 Mini',profileId:'bambu-a1-mini',maxBed:80}
+]) {
+test(`Bambu ${model} profile interoperates with the production controller adapter and AMS Lite mapping`, async (t) => {
   const emulator = createEmulator({ managementPort: 0, withDefaults: false });
   await emulator.start();
   t.after(() => emulator.stop());
   const virtual = await emulator.addPrinter({
-    profileId: 'bambu-a1-mini',
-    name: 'Adapter Test A1 Mini',
+    profileId: profileId,
+    name: `Adapter Test ${model}`,
     ports: { mqttPort: 0, ftpsPort: 0, cameraPort: 0 }
   });
   const config = prepareBambuLabConfig({
@@ -352,8 +357,8 @@ test('Bambu A1 Mini profile interoperates with the production controller adapter
   });
   const adapter = getPrinterAdapter(config);
 
-  assert.equal(adapter.model, 'A1 Mini');
-  assert.equal(adapter.limits.bedTemperature.max, 80);
+  assert.equal(adapter.model, model);
+  assert.equal(adapter.limits.bedTemperature.max, maxBed);
   assert.equal(adapter.capabilities.camera, true);
   assert.equal(adapter.capabilities.filamentTypeControl, true);
   assert.equal(adapter.capabilities.filamentColorControl, true);
@@ -362,7 +367,7 @@ test('Bambu A1 Mini profile interoperates with the production controller adapter
 
   const initial = await adapter.getStatus();
   assert.equal(initial.status, 'idle');
-  assert.equal(initial.model, 'A1 Mini');
+  assert.equal(initial.model, model);
   assert.equal(initial.cameraAvailable, true);
   assert.equal(initial.lidarAvailable, false);
   assert.equal(initial.amsAttached, true);
@@ -370,12 +375,16 @@ test('Bambu A1 Mini profile interoperates with the production controller adapter
 
   await adapter.printLocalFile('calibration-cube.gcode');
   assert.equal((await adapter.getStatus()).status, 'printing');
+  await adapter.setJobState('pause');
+  assert.equal((await adapter.getStatus()).status, 'paused');
+  await adapter.setJobState('resume');
+  assert.equal((await adapter.getStatus()).status, 'printing');
   await adapter.setJobState('cancel');
   assert.equal((await adapter.getStatus()).status, 'cancelled');
 
   await adapter.uploadFile(new URL('../README.md', import.meta.url), { fileName:'A1 Mini upload test.3mf' });
   assert.equal((await adapter.verifyFile('A1 Mini upload test.3mf')).verified, true);
-  await adapter.printLocalFile('A1 Mini upload test.3mf', { materialMap:{ 0:1 }, usedLogicalTools:[0] });
+  await adapter.printLocalFile('A1 Mini upload test.3mf', { materialMap:{ 0:1, 1:2 }, usedLogicalTools:[0,1] });
   const printing = await adapter.getStatus();
   assert.equal(printing.status, 'printing');
   assert.equal(printing.materialSources.find((source) => source.active).protocolIndex, 1);
@@ -392,7 +401,24 @@ test('Bambu A1 Mini profile interoperates with the production controller adapter
   assert.equal(jpeg[1], 0xd8);
   assert.ok(jpeg.length > 10000);
   await camera.stop();
+  await adapter.setJobState('cancel');
+  await adapter.deleteFile('A1 Mini upload test.3mf');
+  assert.ok(!(await adapter.getFiles()).files.includes('A1 Mini upload test.3mf'));
+  const internal=emulator.printers.get(virtual.id);
+  if(model==='A1'){
+    internal.configure({amsUnits:4});
+    assert.equal(internal.amsUnits.length,1,'A1 simulator models one AMS Lite');
+  }
+  internal.configure({amsUnits:0,status:'idle',activeMaterialSource:254});
+  const externalOnly=await adapter.getStatus();
+  assert.equal(externalOnly.amsAttached,false);
+  assert.equal(externalOnly.materialSources.length,1);
+  assert.equal(externalOnly.materialSources[0].kind,'external');
+  await adapter.printLocalFile('calibration-cube.gcode');
+  assert.equal((await adapter.getStatus()).status,'printing');
 });
+
+}
 
 test('Bambu P1S profile interoperates with the production controller adapter', async (t) => {
   const emulator = createEmulator({ managementPort: 0, withDefaults: false });
