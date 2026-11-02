@@ -209,7 +209,7 @@ jobs:
       - name: Install locked dependencies
         run: npm ci --include=dev --no-audit --no-fund
 
-      - uses: actions/download-artifact@v7
+      - uses: actions/download-artifact@v8
         with:
           name: windows-lgpl-ffmpeg
           path: build/ffmpeg/windows-x64/
@@ -450,7 +450,7 @@ jobs:
       - uses: actions/setup-node@v7
         with:
           node-version: '24.22.1'
-      - uses: actions/download-artifact@v7
+      - uses: actions/download-artifact@v8
         with:
           name: windows-installer
           path: dist/installer/
