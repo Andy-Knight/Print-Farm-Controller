@@ -11,7 +11,7 @@ Repository policy: `AGENTS.md` defines agent startup behavior; `docs/DOCUMENTATI
 - Repository: `Andy-Knight/Print-Farm-Controller`
 - Project path: repository root (`/`)
 - Primary branch: `main` (current production baseline)
-- Current controller source version: **0.62.0**.
+- Current controller source version: **0.62.1**.
 - Previous baseline audited: **0.48.0** (main before the regression test audit release).
 - Runtime: **Node.js 24.22.1+** (Node 24 release line), ES modules; build-time **npm 12.2.0** and committed lockfile; no npm runtime dependency for deployed controller. Follow `docs/dependency-security.md` for updates.
 - GitHub is the authoritative code baseline.
@@ -136,6 +136,8 @@ Manufacturer-specific discovery, capabilities, limits, status normalization, fil
 - Known validation limits: Creator 5 / Creator 5 Pro physical-hardware validation remains incomplete; Bambu support remains experimental; X1C RTSPS/H.264 camera streaming is a bundled-decoder prototype requiring physical Windows/Kubernetes acceptance.
 
 ## Current task
+
+Preact is pinned to 11.0.2 in the manifest/lockfile and frontend contract test. Keep exact dependency pins reviewed together and validate the built frontend, browser interactions and deployment packages on patch updates.
 
 A1 support uses the existing Bambu adapter and shared details/AMS editors, TLS/JPEG camera and AMS Lite mapping. Simulator validation must cover four slots/external spool, RFID and busy guards, file/queue controls and both renderers. Local validation passed: Windows 913/915 tests (two skips), fresh-source Linux 909/915 (six skips), complete Chromium including real A1 AMS edits/camera and both renderers, and Windows SEA/installer builds. Physical A1 acceptance remains pending; see docs/BAMBU_A1.md.
 
