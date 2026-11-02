@@ -4,6 +4,10 @@ This file contains the version-by-version release history for Print Farm Control
 
 Historical entries describe the behaviour of the controller at the time of that release and may be superseded by later versions. For current installation, configuration and supported-hardware guidance, see [README.md](README.md).
 
+## v0.62.1
+
+- Update the bundled Preact UI library to 11.0.2 and align the approved dependency-version assertion with the reviewed patch release.
+
 ## v0.62.0
 
 - Add experimental Bambu Lab A1 support through the existing Bambu LAN MQTT/FTPS adapter, including TLS/JPEG camera, file transfer, print control, temperature/fan controls and AMS Lite/external-spool material mapping.
