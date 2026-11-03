@@ -69,6 +69,51 @@ async function reportsLoaded(page,where) {
  * Optional full-page captures are written only if PFC_VISUAL_CAPTURE_DIR is set;
  * the test never compares screenshots against brittle machine-specific pixels.
  */
+async function a1ArtworkSmoke(browser,url) {
+  const context=await browser.newContext({viewport:{width:1365,height:900},reducedMotion:'reduce'});
+  const page=await context.newPage();
+  await context.route('**/api/events',route=>route.fulfill({status:200,headers:{'content-type':'text/event-stream'},body:': artwork fixture\n\n'}));
+  try {
+    await page.goto(url+'/');await preactReady(page);
+    await page.waitForTimeout(250);
+    await page.evaluate(()=>{
+      const printer={id:'a1-artwork',name:'Simulated Bambu Lab A1',hostText:'127.0.0.1 · A1',visible:true,
+        state:'IDLE',stateClass:'idle',maintenance:{state:'none',actionText:'Maintenance'},progress:0,progressText:'0%',
+        jobName:'No active print job',nozzleLabel:'Nozzle',nozzle:'25 / 0°C',bed:'25 / 0°C',layer:'0 / 100',remaining:'—',
+        lastSeen:'just now',latency:'4 ms',image:{key:'a1',label:'Bambu Lab A1'}};
+      window.dispatchEvent(new CustomEvent('pfc:dashboard-fleet-state',{detail:{printers:[printer]}}));
+      document.querySelector('#fleetViewport')?.classList.remove('hidden');
+      document.querySelector('#fleet')?.classList.remove('hidden');document.querySelector('#empty')?.classList.add('hidden');
+    });
+    const card=page.locator('[data-printer-card="a1-artwork"]');
+    await card.locator('img').waitFor();
+    const alpha=await card.locator('img').evaluate(async image=>{
+      await image.decode();const c=document.createElement('canvas');c.width=image.naturalWidth;c.height=image.naturalHeight;
+      const ctx=c.getContext('2d');ctx.drawImage(image,0,0);
+      const maximumAlpha=(x,y)=>Math.max(...Array.from(ctx.getImageData(x,y,8,8).data).filter((_,i)=>i%4===3));
+      const pixels=ctx.getImageData(0,0,c.width,c.height).data;
+      return {width:c.width,height:c.height,frame:maximumAlpha(197,104),loop:maximumAlpha(208,22),opaque:Array.from(pixels).filter((v,i)=>i%4===3&&v>128).length};
+    });
+    assert.equal(alpha.width,400);assert.equal(alpha.height,190);
+    assert.ok(alpha.frame<10,'A1 frame opening must show the card background, not a white fill');
+    assert.ok(alpha.loop<10,'A1 filament-tube loop must be transparent');
+    assert.ok(alpha.opaque>2000,'the printer itself remains visible');
+    for(const theme of ['dark','light']){
+      await page.evaluate(t=>document.documentElement.dataset.theme=t,theme);
+      for(const width of [1365,390]){
+        await page.setViewportSize({width,height:900});
+        await page.waitForTimeout(300); // Allow the dashboard resize observer to settle.
+        assert.equal(await card.locator('img').isVisible(),true);
+        if(process.env.PFC_VISUAL_CAPTURE_DIR){
+          await fs.mkdir(process.env.PFC_VISUAL_CAPTURE_DIR,{recursive:true});
+          await card.screenshot({path:path.join(process.env.PFC_VISUAL_CAPTURE_DIR,'a1-artwork-'+theme+'-'+width+'.png')});
+        }
+      }
+    }
+    console.log('Chromium: A1 artwork enclosed openings are transparent in dark/light desktop/mobile cards PASS');
+  } finally {await context.close();}
+}
+
 async function designSystemSmoke(browser,url) {
   console.log('Chromium: SaaS design-system light/dark + desktop/mobile visual contract');
   const context=await browser.newContext({viewport:{width:1365,height:900}});
@@ -4740,6 +4785,7 @@ async function main() {
     const context=await browser.newContext({viewport:{width:1365,height:900}});
     page=await context.newPage();
     page.on('pageerror',(e)=>errors.push(e.message));
+    await a1ArtworkSmoke(browser,url);
     await designSystemSmoke(browser,url);
     await dashboardPhase3Smoke(browser,url);
     await dashboardCompactTableSmoke(browser,url);

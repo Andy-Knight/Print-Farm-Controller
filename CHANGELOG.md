@@ -4,6 +4,10 @@ This file contains the version-by-version release history for Print Farm Control
 
 Historical entries describe the behaviour of the controller at the time of that release and may be superseded by later versions. For current installation, configuration and supported-hardware guidance, see [README.md](README.md).
 
+## v0.62.2
+
+- Correct Bambu A1 artwork transparency, including enclosed openings inside the printer frame and filament-tube loop, so dashboard images blend with dark and light themes.
+
 ## v0.62.1
 
 - Update the bundled Preact UI library to 11.0.2 and align the approved dependency-version assertion with the reviewed patch release.
