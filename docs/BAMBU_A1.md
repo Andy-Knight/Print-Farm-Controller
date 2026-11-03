@@ -20,4 +20,4 @@ Before unattended physical use, verify LAN/Developer-mode access, status and rec
 
 ## Bundled model artwork
 
-The dashboard's `public/assets/printers/a1.webp` is a resized product-identification image from Bambu's [A1 product page](https://uk.store.bambulab.com/products/a1), using the [manufacturer-hosted source image](https://store.bblcdn.eu/f1da182f80474db1b1573dc7c8651454.png). Bambu Lab retains its product artwork and trademarks. The image is bundled locally and does not require browser requests to the manufacturer.
+The dashboard's `public/assets/printers/a1.webp` is a transparent product-identification cutout, resized to the shared 400×190 canvas, from Bambu's [A1 product page](https://uk.store.bambulab.com/products/a1), using the [manufacturer-hosted source image](https://store.bblcdn.eu/f1da182f80474db1b1573dc7c8651454.png). Bambu Lab retains its product artwork and trademarks. The image is bundled locally and does not require browser requests to the manufacturer.
