@@ -1,4 +1,4 @@
-# Print Farm Controller v0.62.2
+# Print Farm Controller v0.62.3
 A local-first 3D printer fleet controller. It runs entirely on your LAN and currently supports:
 
 - **FlashForge Adventurer 5M / 5M Pro** through the local FlashForge HTTP/TCP APIs.
@@ -7,7 +7,7 @@ A local-first 3D printer fleet controller. It runs entirely on your LAN and curr
 - **Prusa CORE One+ (experimental)** through the local PrusaLink API, supporting Standard (1-tool), INDX4 and INDX8 configurations.
 - **Bambu Lab P1P / P1S / X1C / A1 / A1 Mini (experimental)** through the local MQTT TLS and FTPS TLS interfaces. P1P/P1S/A1/A1 Mini use the TLS/JPEG camera path; X1C camera uses the bundled FFmpeg decoder; see [X1C camera setup](docs/X1C_CAMERA.md).
 
-**Current development version: v0.62.2**
+**Current development version: v0.62.3**
 
 ## Key capabilities
 
@@ -26,7 +26,7 @@ For contributing or AI-assisted development, follow [AGENTS.md](AGENTS.md) and t
 
 ## Diagnostics and logs
 
-Administrators can open **Diagnostics** to search retained logs, filter by severity, inspect memory usage and download a support ZIP. Printer operation starts and completions are recorded automatically at INFO; failures or blocked operations use WARN. There is no temporary verbose mode. Logs rotate at approximately 5 MiB with seven files retained, in the application-local logs directory or the location set by LOG_DIR (the container defaults to /logs). Recognised credentials are redacted; bundles can still include printer addresses, names and job filenames. Keep the logs volume separate from controller data.
+Administrators can open **Diagnostics** to search retained logs, filter by severity, inspect memory usage and download a support ZIP. Printer operation starts and completions are recorded automatically at INFO; failures or blocked operations use WARN. Login/logout outcomes are recorded under the authentication subsystem with usernames, available account IDs, source IPs and rejection reasons; passwords and session/CSRF tokens are excluded. Administrators can search for authentication in Diagnostics. There is no temporary verbose mode. Logs rotate at approximately 5 MiB with seven files retained, in the application-local logs directory or the location set by LOG_DIR (the container defaults to /logs). Recognised credentials are redacted; bundles can still include printer addresses, names and job filenames. Keep the logs volume separate from controller data.
 
 ## User accounts and access control
 

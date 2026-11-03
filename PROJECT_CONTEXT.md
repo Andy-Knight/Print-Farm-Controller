@@ -11,7 +11,7 @@ Repository policy: `AGENTS.md` defines agent startup behavior; `docs/DOCUMENTATI
 - Repository: `Andy-Knight/Print-Farm-Controller`
 - Project path: repository root (`/`)
 - Primary branch: `main` (current production baseline)
-- Current controller source version: **0.62.2**.
+- Current controller source version: **0.62.3**.
 - Previous baseline audited: **0.48.0** (main before the regression test audit release).
 - Runtime: **Node.js 24.22.1+** (Node 24 release line), ES modules; build-time **npm 12.2.0** and committed lockfile; no npm runtime dependency for deployed controller. Follow `docs/dependency-security.md` for updates.
 - GitHub is the authoritative code baseline.
@@ -136,6 +136,8 @@ Manufacturer-specific discovery, capabilities, limits, status normalization, fil
 - Known validation limits: Creator 5 / Creator 5 Pro physical-hardware validation remains incomplete; Bambu support remains experimental; X1C RTSPS/H.264 camera streaming is a bundled-decoder prototype requiring physical Windows/Kubernetes acceptance.
 
 ## Current task
+
+Authentication login/logout events use the existing rotating diagnostic logger through an injected callback. Metadata is allowlisted; use socket peer addresses, never forwarded headers or credential/token payloads. Logging errors do not change authentication decisions. At most 32 event writes may be outstanding; overflow is counted and summarized after the backlog drains. This is operational diagnostic history, not a full account-change audit store.
 
 Preact is pinned to 11.0.2 in the manifest/lockfile and frontend contract test. Keep exact dependency pins reviewed together and validate the built frontend, browser interactions and deployment packages on patch updates.
 

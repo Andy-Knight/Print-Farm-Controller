@@ -4,6 +4,11 @@ This file contains the version-by-version release history for Print Farm Control
 
 Historical entries describe the behaviour of the controller at the time of that release and may be superseded by later versions. For current installation, configuration and supported-hardware guidance, see [README.md](README.md).
 
+## v0.62.3
+
+- Record login successes, invalid credentials, rejected or throttled login attempts and logout outcomes in the existing rotating diagnostic logs, with available account identity and socket peer IP.
+- Keep authentication log metadata credential-free, preserve login/logout decisions when logging fails and bound outstanding event writes with an overflow summary.
+
 ## v0.62.2
 
 - Correct Bambu A1 artwork transparency, including enclosed openings inside the printer frame and filament-tube loop, so dashboard images blend with dark and light themes.
