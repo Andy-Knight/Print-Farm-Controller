@@ -102,7 +102,10 @@ const PORT = Number(process.env.PORT || 4242);
 const HTTPS_PORT = PORT + 1; // 4243 by default; paired with legacy PORT in isolated tests
 const HOST = process.env.HOST || '0.0.0.0';
 const diagnosticLogger = new DiagnosticLogger({ logDir:runtimePaths.logDir, version:CONTROLLER_VERSION });
-const controllerAuth = new ControllerAuth({dataDir:runtimePaths.dataDir});
+const controllerAuth = new ControllerAuth({
+  dataDir:runtimePaths.dataDir,
+  diagnosticFn:(level,message,meta)=>diagnosticLogger[level]?.('authentication',message,meta)
+});
 const controllerTls = new ControllerTls({dataDir:runtimePaths.dataDir,port:PORT,httpsPort:HTTPS_PORT});
 let server = null; // Active HTTPS listener, or null when native TLS is disabled.
 let httpServer = null; // Permanent HTTP listener for onboarding, redirects and health.

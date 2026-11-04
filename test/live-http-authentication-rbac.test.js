@@ -169,6 +169,18 @@ test('real HTTP dispatcher enforces login, CSRF and RBAC before controller actio
     }finally{for(const response of streams)await response.body?.cancel().catch(()=>{});}
     assert.equal((await call('POST','/api/auth/logout',viewer)).status,200);
     assert.equal((await call('GET','/api/queue',viewer)).status,401);
+    const invalidLogin=await fetch(base+'/api/auth/login',{
+      method:'POST',headers:{origin:base,'content-type':'application/json'},
+      body:JSON.stringify({username:'controlleradmin',password:'SYNTHETIC_WRONG_PASSWORD'})
+    });
+    assert.equal(invalidLogin.status,401);await invalidLogin.text();
+    const diagnostics=await (await call('GET','/api/diagnostics',admin)).json();
+    const authentication=diagnostics.entries.filter(entry=>entry.subsystem==='authentication');
+    assert.ok(authentication.some(entry=>entry.meta.event==='login'&&entry.meta.outcome==='success'&&entry.meta.userId===adminId));
+    assert.ok(authentication.some(entry=>entry.meta.event==='logout'&&entry.meta.outcome==='success'&&entry.meta.username==='readuser'));
+    assert.ok(authentication.some(entry=>entry.meta.reason==='invalid_credentials'&&entry.meta.username==='controlleradmin'));
+    for(const secret of [password,'SYNTHETIC_WRONG_PASSWORD',admin.cookie.split('=')[1],admin.csrf])
+      assert.ok(!JSON.stringify(authentication).includes(secret));
     const historyPath=path.join(dataDir,'library-storage-history.json');
     assert.deepEqual(JSON.parse(await fs.readFile(historyPath,'utf8')).points,[],
       'live upload/transfer reporting must not force immediate history writes');

@@ -52,8 +52,12 @@ export class ControllerAuth {
   #enrollmentAvailable=false;
   #enrolling=false;
   #emitEnrollmentCode;
-  constructor({dataDir,env=process.env,emitEnrollmentCode=message=>process.stdout.write(message)}={}){
+  #diagnostic;
+  #pendingLogEvents=0;
+  #suppressedLogEvents=0;
+  constructor({dataDir,env=process.env,emitEnrollmentCode=message=>process.stdout.write(message),diagnosticFn=null}={}){
     this.#emitEnrollmentCode=emitEnrollmentCode;
+    this.#diagnostic=typeof diagnosticFn==='function'?diagnosticFn:null;
     this.#accounts=new AccountStore({dataDir});
     const configured=String(env.PFC_PUBLIC_ORIGIN||'').trim();
     if(configured){
@@ -121,6 +125,73 @@ export class ControllerAuth {
   #authenticate(req,username,password){
     return this.#limiter.run(username,req.socket?.remoteAddress||'unknown',
       ()=>this.#accounts.authenticate(username,password));
+  }
+  async #authenticationEvent(req,event,outcome,{username=null,user=null,reason,statusCode}={}){
+    if(!this.#diagnostic)return;
+    // Bound outstanding writes during an unauthenticated request flood. Report
+    // dropped events once the backlog drains, without retaining request data.
+    if(this.#pendingLogEvents>=32){
+      this.#suppressedLogEvents=Math.min(Number.MAX_SAFE_INTEGER,this.#suppressedLogEvents+1);
+      return;
+    }
+    this.#pendingLogEvents++;
+    try{
+      const name=user?.username??username;
+      await this.#diagnostic(outcome==='success'?'info':outcome==='error'?'error':'warn',
+        `${event==='login'?'Login':'Logout'} ${outcome==='success'?'succeeded':outcome==='failure'?'failed':outcome}`,
+        {event,outcome,reason,statusCode,
+          username:typeof name==='string'?name.trim().toLowerCase().replace(/[\x00-\x1f\x7f]/g,'').slice(0,100)||null:null,
+          userId:user?.id||null,role:user?.role||null,
+          sourceAddress:String(req.socket?.remoteAddress||'unknown').slice(0,128)});
+    }catch{
+      // Diagnostic storage must not change login/logout or session decisions.
+    }finally{
+      // Keep this slot reserved while the overflow summary is being written.
+      if(this.#pendingLogEvents===1&&this.#suppressedLogEvents){
+        const count=this.#suppressedLogEvents;this.#suppressedLogEvents=0;
+        try{await this.#diagnostic('warn','Authentication log backlog drained; events were suppressed',
+          {event:'authentication_log_overflow',outcome:'suppressed',count});}catch{}
+      }
+      this.#pendingLogEvents--;
+    }
+  }
+  async #login(req,res,{json,readJson}){
+    let username=null,user=null;
+    const reject=async(status,message,reason)=>{
+      await this.#authenticationEvent(req,'login',status===429?'throttled':'rejected',
+        {username,user,reason,statusCode:status});
+      return bad(res,json,status,message);
+    };
+    if(!this.#enabled)return reject(404,'Authentication is not enabled','authentication_disabled');
+    if(this.#setupRequired)return reject(503,'Administrator account recovery required','setup_required');
+    if(!this.#originAllowed(req))return reject(403,'Origin verification failed','origin_rejected');
+    if(!this.#secure&&!this.#allowHttp)
+      return reject(503,'HTTP login disabled: configure HTTPS or explicitly permit HTTP','insecure_transport');
+    let data;
+    try{data=safeBody(await readJson(req),['username','password']);}
+    catch(error){const e=jsonError(error);return reject(e.status,e.error,'invalid_request');}
+    username=String(data.username||'').slice(0,100);
+    const address=req.socket?.remoteAddress||'unknown';
+    if(!this.#limiter.canAttempt(username,address))
+      return reject(429,'Too many login attempts. Try again later.','rate_limited');
+    let token;
+    try{
+      user=await this.#authenticate(req,username,data.password);
+      if(user)token=this.#sessions.create(user.id);
+    }catch(error){
+      if(error.statusCode===429)return reject(429,error.message,user?'session_limit':'rate_limited');
+      await this.#authenticationEvent(req,'login','error',
+        {username,reason:'authentication_error',statusCode:Number.isInteger(Number(error?.statusCode))?Number(error.statusCode):400});
+      throw error;
+    }
+    if(!user){
+      await this.#authenticationEvent(req,'login','failure',{username,reason:'invalid_credentials',statusCode:401});
+      return bad(res,json,401,'Invalid username or password');
+    }
+    this.#cookie(res,token);
+    await this.#authenticationEvent(req,'login','success',{user,reason:'authenticated',statusCode:200});
+    json(res,200,this.#status({user,csrf:csrfFor(token)}));
+    return true;
   }
   #cookie(res,token){
     res.setHeader('set-cookie',COOKIE+'='+token+'; Path=/; HttpOnly; SameSite=Strict'+
@@ -244,34 +315,25 @@ export class ControllerAuth {
       }finally{this.#enrolling=false;}
       return true;
     }
-    if(!this.#enabled)return bad(res,json,404,'Authentication is not enabled');
-    if(this.#setupRequired)return bad(res,json,503,'Administrator account recovery required');
-    if(method==='POST'&&pathname==='/api/auth/login'){
-      if(!this.#originAllowed(req))return bad(res,json,403,'Origin verification failed');
-      if(!this.#secure&&!this.#allowHttp)
-        return bad(res,json,503,'HTTP login disabled: configure HTTPS or explicitly permit HTTP');
-      let data;
-      try{data=safeBody(await readJson(req),['username','password']);}
-      catch(error){const e=jsonError(error);return bad(res,json,e.status,e.error);}
-      const username=String(data.username||'').slice(0,100);
-      const address=req.socket?.remoteAddress||'unknown';
-      if(!this.#limiter.canAttempt(username,address))
-        return bad(res,json,429,'Too many login attempts. Try again later.');
-      let user;
-      try {user=await this.#authenticate(req,username,data.password);}
-      catch(error){if(error.statusCode===429)return bad(res,json,429,error.message);throw error;}
-      if(!user){
-        return bad(res,json,401,'Invalid username or password');
-      }
-      const token=this.#sessions.create(user.id);
-      this.#cookie(res,token);
-      json(res,200,this.#status({user,csrf:csrfFor(token)}));
-      return true;
+    if(method==='POST'&&pathname==='/api/auth/login')return this.#login(req,res,{json,readJson});
+    const logout=method==='POST'&&pathname==='/api/auth/logout';
+    if(!this.#enabled){
+      if(logout)await this.#authenticationEvent(req,'logout','rejected',{reason:'authentication_disabled',statusCode:404});
+      return bad(res,json,404,'Authentication is not enabled');
+    }
+    if(this.#setupRequired){
+      if(logout)await this.#authenticationEvent(req,'logout','rejected',{reason:'setup_required',statusCode:503});
+      return bad(res,json,503,'Administrator account recovery required');
     }
     const identity=await this.#identity(req);
-    if(!identity)return bad(res,json,401,'Authentication required');
-    if(MUTATIONS.has(method)&&!this.#mutationAllowed(req,identity))
+    if(!identity){
+      if(logout)await this.#authenticationEvent(req,'logout','rejected',{reason:'authentication_required',statusCode:401});
+      return bad(res,json,401,'Authentication required');
+    }
+    if(MUTATIONS.has(method)&&!this.#mutationAllowed(req,identity)){
+      if(logout)await this.#authenticationEvent(req,'logout','rejected',{user:identity.user,reason:'origin_or_csrf_rejected',statusCode:403});
       return bad(res,json,403,'Origin or CSRF verification failed');
+    }
     if(MUTATIONS.has(method))this.#sessions.resolve(identity.token);
     if(method==='POST'&&pathname==='/api/auth/activity'){
       json(res,200,{ok:true});return true;
@@ -280,6 +342,7 @@ export class ControllerAuth {
       this.#sessions.revoke(identity.token);
       this.#closeStreams(identity.user.id);
       this.#cookie(res,'');
+      await this.#authenticationEvent(req,'logout','success',{user:identity.user,reason:'signed_out',statusCode:200});
       json(res,200,{ok:true});
       return true;
     }
