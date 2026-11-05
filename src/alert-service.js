@@ -331,6 +331,11 @@ export class AlertService {
     return this.state.history.reduce((count, alert) => count + (alertRequiresAttention(alert) ? 1 : 0), 0);
   }
 
+  attentionPrinterIds() {
+    return [...new Set(this.state.history.filter(alertRequiresAttention)
+      .map(alert => alert.printer?.id).filter(Boolean))];
+  }
+
   snapshot({ historyLimit = 20, includeConfiguration = true } = {}) {
     return {
       version:1,

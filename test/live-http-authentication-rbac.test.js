@@ -70,6 +70,25 @@ test('real HTTP dispatcher enforces login, CSRF and RBAC before controller actio
       },...(body?{body:JSON.stringify(body)}:{})
     });
     const userRecords=await accounts.listUsers();
+    const roomPath = '/api/printer-maps';
+    const room = { name:'Workshop', placements:[] };
+    const createdRoom = await call('POST', roomPath, admin, { body:room });
+    assert.equal(createdRoom.status, 201);
+    const { maps:[savedRoom] } = await createdRoom.json();
+    const savedRoomPath = `${roomPath}/${savedRoom.id}`;
+    for (const identity of [viewer, operator]) {
+      assert.deepEqual((await (await call('GET', roomPath, identity)).json()).maps, [savedRoom]);
+      assert.equal((await call('POST', roomPath, identity, { body:room })).status, 403);
+      assert.equal((await call('PUT', savedRoomPath, identity, { body:savedRoom })).status, 403);
+      assert.equal((await call('DELETE', savedRoomPath, identity, { body:savedRoom })).status, 403);
+    }
+    assert.equal((await call('PUT', savedRoomPath, admin, { csrf:false, body:savedRoom })).status, 403);
+    const renamedRoom = await call('PUT', savedRoomPath, admin, { body:{ ...savedRoom, name:'Upstairs' } });
+    assert.equal(renamedRoom.status, 200);
+    const { maps:[updatedRoom] } = await renamedRoom.json();
+    assert.equal(updatedRoom.name, 'Upstairs');
+    assert.equal((await call('DELETE', savedRoomPath, admin, { body:savedRoom })).status, 409);
+    assert.equal((await call('DELETE', savedRoomPath, admin, { body:updatedRoom })).status, 200);
     const adminId=userRecords.find(user=>user.username==='controlleradmin').id;
     const operatorId=userRecords.find(user=>user.username==='operatoruser').id;
     const upload=identity=>fetch(base+'/api/library',{method:'POST',headers:{cookie:identity.cookie,origin:base,'x-pfc-csrf':identity.csrf,'x-file-name':'ownership.gcode','content-type':'application/octet-stream'},body:'; ownership fixture\nG1 X1\n'});

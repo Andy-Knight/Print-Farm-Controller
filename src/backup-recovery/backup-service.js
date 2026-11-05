@@ -6,6 +6,7 @@ import { resolveControllerRuntimePaths } from '../runtime-paths.js';
 import { loadBackupSettings } from './backup-settings-store.js';
 import { hashArchiveSource, writeZipArchive } from './backup-archive.js';
 import { normalizePricingSettings } from '../library-pricing.js';
+import { printerMapsFile, readPrinterMaps } from '../printer-maps.js';
 import {normalizeLegacyStorageHistory,validateLibraryStorageHistory} from '../library-storage-history.js';
 import {
   BACKUP_EXTENSION,
@@ -96,6 +97,7 @@ export async function collectLogicalBackupSnapshot({
   const emulatorSettings = await readJsonFile(path.join(resolvedDataDir, 'emulator-settings.json'), null);
   const maintenance = await readJsonFile(path.join(resolvedDataDir, 'maintenance.json'), { version:1, modelTasks:[], groupTasks:[], printers:{} });
   const printerGroups = await readJsonFile(path.join(resolvedDataDir, 'printer-groups.json'), { version:1, groups:[] });
+  const printerMaps = await readPrinterMaps(resolvedDataDir);
   const filaments = await readJsonFile(path.join(resolvedDataDir, 'filaments.json'), { version:1, filaments:[] });
   const reportingHistory = await readJsonFile(path.join(resolvedDataDir, 'reporting-history.json'), { version:1, records:[] });
   const libraryPricing = normalizePricingSettings(await readJsonFile(path.join(resolvedDataDir, 'library-pricing.json'), { profitPercent:null, profitMethod:'markup', taxRate:0 }));
@@ -123,6 +125,7 @@ export async function collectLogicalBackupSnapshot({
     jsonEntry('state/backup-settings.json', settings),
     jsonEntry('state/maintenance.json', maintenance),
     jsonEntry('state/printer-groups.json', printerGroups),
+    jsonEntry(`state/${printerMapsFile}`, printerMaps),
     jsonEntry('state/filaments.json', filaments),
     jsonEntry('state/reporting-history.json', reportingHistory),
     jsonEntry('state/library-storage-history.json',libraryStorageHistory),

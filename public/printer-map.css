@@ -1,0 +1,451 @@
+.printer-map-panel {
+  --map-marker-width: 132px;
+  --map-marker-height: 148px;
+  --map-model-width: 120px;
+  --map-model-height: 64px;
+  display: grid;
+  gap: var(--ds-space-3);
+  min-width: 0;
+  padding: var(--ds-space-4);
+  border: 1px solid var(--ds-border);
+  border-radius: var(--ds-radius-lg);
+  background: var(--ds-surface);
+}
+
+.printer-map-panel [hidden],
+.printer-map-panel p:empty {
+  display: none !important;
+}
+
+.printer-map-panel p {
+  margin: 0;
+}
+
+.printer-map-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: var(--ds-space-2);
+  margin: 0;
+  padding: 0;
+  min-width: 0;
+  border: 0;
+}
+
+.printer-map-toolbar label {
+  display: grid;
+  gap: var(--ds-space-1);
+  width: min(100%, 240px);
+  min-width: 0;
+  margin: 0;
+  color: var(--ds-text-muted);
+  font-size: var(--ds-font-sm);
+  font-weight: 650;
+}
+
+.printer-map-toolbar :is(input, select) {
+  width: 100%;
+  min-width: 0;
+  height: var(--ds-input-height);
+  margin: 0;
+  border: 1px solid var(--ds-border);
+  border-radius: var(--ds-radius-sm);
+  color: var(--ds-text);
+  background-color: var(--ds-surface-muted);
+}
+
+.printer-map-toolbar button {
+  min-height: var(--ds-button-height);
+}
+
+.printer-map-room-controls > label {
+  flex: 1 1 112px;
+  max-width: 240px;
+}
+
+.printer-map-room-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--ds-space-2);
+}
+
+.printer-map-viewport {
+  overflow: auto;
+  max-height: max(280px, 65vh);
+  border: 1px solid var(--ds-border);
+  border-radius: var(--ds-radius-md);
+  background: var(--ds-surface-muted);
+}
+
+.printer-map-fullscreen[open] {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: var(--ds-space-2);
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  max-height: none;
+  margin: 0;
+  padding: var(--ds-space-3);
+  border: 0;
+  border-radius: 0;
+  background: var(--ds-page);
+  color: var(--ds-text);
+}
+
+.printer-map-fullscreen-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--ds-space-2);
+  overflow: visible;
+  border-radius: 0;
+}
+
+.printer-map-fullscreen-header h2 {
+  min-width: 0;
+  margin: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--ds-font-lg);
+}
+
+.printer-map-fullscreen-header button {
+  flex: none;
+  min-height: var(--ds-button-height);
+}
+
+.printer-map-fullscreen-stage {
+  position: relative;
+  min-width: 0;
+  min-height: 0;
+}
+
+.printer-map-fullscreen .printer-map-viewport {
+  position: absolute;
+  inset: 0;
+  max-height: none;
+  overflow: clip;
+  border: 0;
+}
+
+.printer-map-fullscreen #printerMapCanvas {
+  position: absolute;
+  inset: 0 auto auto 0;
+  transform-origin: 0 0;
+  transform: translate(var(--map-fit-x, 0px), var(--map-fit-y, 0px)) scale(var(--map-fit-scale, 1));
+  clip-path: inset(var(--map-fit-crop, 0px));
+}
+
+.printer-map-toolbar :is(.printer-map-step-field, .printer-map-density) {
+  width: min(100%, 145px);
+}
+
+#printerMapCanvas {
+  --map-grid-step: 20;
+  --map-dot-spacing: 15px;
+  --map-room-width: calc(var(--map-columns, 50) * var(--map-dot-spacing));
+  --map-room-height: calc(var(--map-rows, 50) * var(--map-dot-spacing));
+  position: relative;
+  isolation: isolate;
+  overflow: clip;
+  width: calc(var(--map-room-width) + var(--map-marker-width));
+  height: calc(var(--map-room-height) + var(--map-marker-height));
+}
+
+#printerMapCanvas.is-compact {
+  --map-marker-width: 96px;
+  --map-marker-height: 116px;
+  --map-model-width: 84px;
+  --map-model-height: 40px;
+}
+
+#printerMapBox {
+  position: absolute;
+  z-index: 5;
+  border: 1px solid var(--ds-brand);
+  background: var(--ds-brand-soft);
+  pointer-events: none;
+}
+
+#printerMapItems {
+  position: absolute;
+  inset: 0 auto auto 0;
+  width: var(--map-room-width);
+  height: var(--map-room-height);
+  background-image: radial-gradient(circle, var(--ds-border-strong) .75px, transparent .75px);
+  background-size: var(--map-dot-spacing) var(--map-dot-spacing);
+  pointer-events: none;
+}
+
+.printer-map-item {
+  position: absolute;
+  z-index: 1;
+  left: calc(var(--map-dot-spacing) * var(--map-x));
+  top: calc(var(--map-dot-spacing) * var(--map-y));
+  width: calc(var(--map-dot-spacing) * var(--map-item-width));
+  height: calc(var(--map-dot-spacing) * var(--map-item-height));
+  display: grid;
+  place-items: center;
+  min-width: 0;
+  padding: 3px;
+  border: 1px solid var(--ds-border-strong);
+  border-radius: 3px;
+  background: var(--ds-surface-raised);
+  color: var(--ds-text-muted);
+  font-size: var(--ds-font-sm);
+  line-height: 1.2;
+}
+
+.printer-map-item:disabled {
+  opacity: 1;
+}
+
+.printer-map-item:enabled {
+  pointer-events: auto;
+  touch-action: none;
+  cursor: grab;
+}
+
+.printer-map-item:enabled:active {
+  cursor: grabbing;
+}
+
+.printer-map-item:is([data-kind="zone"], [data-kind="rectangle"], [data-kind="aisle"]) {
+  z-index: -1;
+  background: color-mix(in srgb, var(--ds-brand) 6%, transparent);
+}
+
+.printer-map-item:is([data-kind="zone"], [data-kind="aisle"]) {
+  border-style: dashed;
+}
+
+.printer-map-item[data-kind="aisle"] {
+  background: repeating-linear-gradient(135deg, transparent 0 7px,
+    color-mix(in srgb, var(--ds-border-strong) 22%, transparent) 7px 8px);
+}
+
+.printer-map-item[data-kind="rack"] {
+  background: repeating-linear-gradient(90deg, var(--ds-surface-raised) 0 23px, var(--ds-border) 23px 24px);
+}
+
+button.printer-map-item:is([data-kind="bench"], [data-kind="rack"]) {
+  z-index: auto;
+  filter: none;
+}
+
+.printer-map-item:is([data-kind="bench"], [data-kind="rack"]) .printer-map-item-label {
+  z-index: 4;
+}
+
+.printer-map-item:is([data-kind="label"], [data-kind="wall"], [data-kind="line"], [data-kind="door"]) {
+  border-color: transparent;
+  background: transparent;
+}
+
+.printer-map-item:is([data-kind="wall"], [data-kind="line"]) {
+  --map-line-stroke: 2px;
+  border: 0;
+}
+
+.printer-map-item[data-kind="wall"] {
+  --map-line-stroke: 5px;
+}
+
+.printer-map-item:is([data-kind="wall"], [data-kind="line"])::before {
+  --line-start: calc(var(--map-line-start, 0) * var(--map-dot-spacing) - var(--map-line-stroke) / 2);
+  --line-end: calc(var(--map-line-end, 0) * var(--map-dot-spacing) - var(--map-line-stroke) / 2);
+  content: '';
+  position: absolute;
+  inset: 50% var(--line-end) auto var(--line-start);
+  height: var(--map-line-stroke);
+  background: var(--ds-border-strong);
+  transform: translateY(-50%);
+  pointer-events: none;
+}
+
+.printer-map-item:is([data-kind="wall"], [data-kind="line"])[data-axis="vertical"]::before {
+  inset: var(--line-start) auto var(--line-end) 50%;
+  width: var(--map-line-stroke);
+  height: auto;
+  transform: translateX(-50%);
+}
+
+.printer-map-door-symbol {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  transform: rotate(var(--map-door-angle, 0deg)) scaleX(var(--map-door-flip, 1));
+}
+
+.printer-map-item-editor button[aria-pressed="true"] {
+  outline: 2px solid var(--ds-brand);
+  outline-offset: -2px;
+}
+
+.printer-map-item-label {
+  position: absolute;
+  inset: auto 3px 0;
+  width: max-content;
+  max-width: calc(100% - 6px);
+  max-height: 100%;
+  margin-inline: auto;
+  line-height: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+.printer-map-item-label:not(:empty) {
+  padding-inline: 4px;
+  border-radius: 3px;
+  background: var(--ds-surface-muted);
+}
+
+.printer-map-item:is(:focus-visible, [aria-pressed="true"]) {
+  outline: 2px solid var(--ds-focus);
+  outline-offset: -2px;
+}
+
+.printer-map-item [data-map-resize] {
+  display: none;
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  width: 16px;
+  height: 16px;
+  border-right: 3px solid var(--ds-brand);
+  border-bottom: 3px solid var(--ds-brand);
+  cursor: nwse-resize;
+}
+
+.printer-map-item.is-single-selection [data-map-resize] {
+  display: block;
+}
+
+.printer-map-item-editor legend {
+  padding: 0;
+  margin-bottom: var(--ds-space-2);
+}
+
+.printer-map-item-editor label:has(input[type="number"]) {
+  width: min(100%, 145px);
+}
+
+.printer-map-unplaced {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--ds-space-2);
+}
+
+.printer-map-marker {
+  display: grid;
+  grid-template-rows: var(--map-model-height) auto auto;
+  justify-items: center;
+  align-items: center;
+  align-content: center;
+  gap: 3px;
+  width: var(--map-marker-width);
+  height: var(--map-marker-height);
+  padding: 4px;
+  border: 1px solid var(--ds-border);
+  border-radius: var(--ds-radius-md);
+  background: var(--ds-surface-raised);
+  color: var(--ds-text);
+  font-size: var(--ds-font-sm);
+  user-select: none;
+}
+
+#printerMapCanvas .printer-map-marker {
+  position: absolute;
+  z-index: 2;
+  left: calc(var(--map-dot-spacing) * var(--map-x));
+  top: calc(var(--map-dot-spacing) * var(--map-y));
+}
+
+#printerMapCanvas.is-editing .printer-map-marker {
+  cursor: grab;
+  touch-action: none;
+}
+
+#printerMapCanvas.is-editing .printer-map-marker:active {
+  cursor: grabbing;
+}
+
+.printer-map-marker:hover,
+.printer-map-marker[aria-pressed="true"] {
+  background: var(--ds-surface-hover);
+  border-color: var(--ds-brand);
+}
+
+#printerMapCanvas .printer-map-marker:is([aria-pressed="true"], :focus-visible) {
+  z-index: 3;
+}
+
+.printer-map-viewport:focus-visible,
+.printer-map-marker:focus-visible {
+  outline: 2px solid var(--ds-focus);
+  outline-offset: -2px;
+}
+
+.printer-map-marker strong {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  width: 100%;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+  line-height: 1.2;
+}
+
+.printer-map-model {
+  width: var(--map-model-width);
+  height: var(--map-model-height);
+  object-fit: contain;
+}
+
+.printer-map-placeholder {
+  width: 54px;
+}
+
+.is-compact .printer-map-marker {
+  font-size: var(--ds-font-xs);
+}
+
+.is-compact .printer-map-placeholder {
+  width: 36px;
+}
+
+.is-compact .printer-map-flags span {
+  font-size: .68rem;
+  padding-inline: 3px;
+}
+
+.printer-map-flags {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 2px;
+}
+
+.printer-map-flags span {
+  padding: 1px 4px;
+  border-radius: var(--ds-radius-pill);
+  background: var(--ds-surface-muted);
+  color: var(--ds-text-muted);
+  font-size: var(--ds-font-xs);
+  line-height: 1.2;
+}
+
+.printer-map-flags .printer-map-alert {
+  color: var(--ds-warning);
+}
+
+.printer-map-flags .printer-map-printing {
+  color: var(--ds-success);
+}

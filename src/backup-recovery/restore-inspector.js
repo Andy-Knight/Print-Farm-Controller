@@ -3,6 +3,7 @@ import path from 'node:path';
 import { inspectZipArchive } from './backup-archive.js';
 import { BACKUP_FORMAT_VERSION, verifyBackupArchive } from './backup-format.js';
 import { normalizePricingSettings } from '../library-pricing.js';
+import { normalizePrinterMaps, printerMapsFile } from '../printer-maps.js';
 import {validateLibraryStorageHistory} from '../library-storage-history.js';
 
 const CURRENT_SCHEMA_VERSION = 1;
@@ -170,6 +171,10 @@ export async function inspectRestoreBackup(filePath, {
   }
 
   let printerGroups = null;
+  const printerMapsEntry = `state/${printerMapsFile}`;
+  if (archive.byName.has(printerMapsEntry)) {
+    normalizePrinterMaps(await readJsonEntry(archive, printerMapsEntry));
+  }
   const printerGroupIds = new Set();
   if (archive.byName.has('state/printer-groups.json')) {
     printerGroups = await readJsonEntry(archive, 'state/printer-groups.json');

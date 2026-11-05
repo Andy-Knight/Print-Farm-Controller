@@ -4,6 +4,12 @@ This file contains the version-by-version release history for Print Farm Control
 
 Historical entries describe the behaviour of the controller at the time of that release and may be superseded by later versions. For current installation, configuration and supported-hardware guidance, see [README.md](README.md).
 
+## v0.63.0
+
+- Add Printer map with shared, named room layouts, live printer alerts and queue counts, and compact printer tiles. All roles can view saved maps, while administrators control their layout.
+- Add a grid editor for printer placement and room items, with wall joins, door orientation, resizing, and group movement. Fit the occupied layout to the browser in full-screen view.
+- Include room layouts in portable backups and restore.
+
 ## v0.62.4
 
 - Restore green, amber and red severity borders on Diagnostics events in light mode.

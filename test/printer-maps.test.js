@@ -1,0 +1,96 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { promises as fs } from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import { normalizePrinterMaps, printerMapsFile, readPrinterMaps, savePrinterMap } from '../src/printer-maps.js';
+
+test('printer map writes preserve room geometry and enforce placement and revision constraints', async t => {
+  const dataDir = await fs.mkdtemp(path.join(os.tmpdir(), 'pfc-printer-maps-'));
+  t.after(() => fs.rm(dataDir, { recursive:true, force:true }));
+  const printerIds = new Set(['a1', 'u1']);
+  const save = (input, id) => savePrinterMap(dataDir, { id, input, printerIds });
+  assert.deepEqual(await readPrinterMaps(dataDir), { version:1, maps:[] });
+  const placement = { printerId:'a1', x:234, y:670 };
+  const { maps:[first] } = await save({ name:' Workshop ', placements:[placement] });
+  assert.equal(first.name, 'Workshop');
+  assert.deepEqual(first.items, []);
+  assert.deepEqual([first.columns, first.rows, first.compactPrinters], [50, 50, false]);
+  assert.deepEqual((await readPrinterMaps(dataDir)).maps, [first]);
+  await fs.writeFile(path.join(dataDir, printerMapsFile), JSON.stringify({
+    version:1, maps:[{ id:first.id, name:first.name, revision:first.revision, placements:[{ ...placement, rotation:90 }] }]
+  }));
+  assert.deepEqual((await readPrinterMaps(dataDir)).maps, [first]);
+  await assert.rejects(save({ name:'Workshop', placements:[] }), { statusCode:409 });
+  await assert.rejects(save({ name:'Upstairs', placements:[placement] }), { statusCode:409 });
+  await assert.rejects(save({ name:'Upstairs', placements:[{ ...placement, x:1001 }] }), { statusCode:400 });
+  await assert.rejects(save({ name:'Upstairs', placements:[null] }), { statusCode:400 });
+  const moved = { ...placement, x:1000, y:0 };
+  const { maps:[updated] } = await save({ ...first, placements:[moved] }, first.id);
+  assert.deepEqual(updated.placements, [moved]);
+  assert.deepEqual(JSON.parse(await fs.readFile(path.join(dataDir, printerMapsFile), 'utf8')).maps, [updated]);
+  await assert.rejects(save(first, first.id), { statusCode:409 });
+  assert.deepEqual((await readPrinterMaps(dataDir)).maps, [updated]);
+  printerIds.delete('a1');
+  const { maps:[pruned] } = await save(updated, updated.id);
+  assert.deepEqual(pruned.placements, []);
+  await assert.rejects(save({ name:'Upstairs', placements:[placement] }), { statusCode:409 });
+});
+
+test('room items round-trip, remain map-scoped and reject invalid geometry', async t => {
+  const dataDir = await fs.mkdtemp(path.join(os.tmpdir(), 'pfc-room-items-'));
+  t.after(() => fs.rm(dataDir, { recursive:true, force:true }));
+  const save = (input, id) => savePrinterMap(dataDir, { id, input, printerIds:new Set() });
+  const item = { id:'bench-1', type:'bench', label:'Finishing', x:50, y:80, width:300, height:120 };
+  const room = { name:'Main room', placements:[], items:[item] };
+  const { maps:[first] } = await save(room);
+  assert.deepEqual(first.items, [item]);
+  await save({ ...room, name:'Second room' });
+  assert.deepEqual((await readPrinterMaps(dataDir)).maps.map(map => map.items), [[item], [item]]);
+  const { maps:[renamed] } = await save({ name:'New name', revision:first.revision, placements:[] }, first.id);
+  assert.deepEqual(renamed.items, [item]);
+  await assert.rejects(save({ ...room, items:[item, item] }), { statusCode:400 });
+  await assert.rejects(save({ ...room, items:[{ ...item, width:980 }] }), { statusCode:400 });
+  await assert.rejects(save({ ...room, items:[{ ...item, type:'unknown' }] }), { statusCode:400 });
+  const { maps:[cleared] } = await save({ ...renamed, items:[] }, renamed.id);
+  assert.deepEqual(cleared.items, []);
+  const roomSized = { ...item, x:0, y:0, width:1000, height:1000 };
+  const { maps:[fullRoom] } = await save({ ...cleared, columns:75, rows:60, compactPrinters:true, items:[roomSized] }, cleared.id);
+  assert.deepEqual(fullRoom.items, [roomSized]);
+  assert.deepEqual((await readPrinterMaps(dataDir)).maps[0].items, [roomSized]);
+  const { maps:[legacyEdit] } = await save({ name:'Legacy edit', revision:fullRoom.revision, placements:[] }, cleared.id);
+  assert.deepEqual([legacyEdit.columns, legacyEdit.rows, legacyEdit.compactPrinters], [75, 60, true]);
+  await assert.rejects(save({ ...legacyEdit, columns:49 }, cleared.id), { statusCode:400 });
+  await assert.rejects(save({ ...legacyEdit, rows:201 }, cleared.id), { statusCode:400 });
+});
+
+test('doors preserve legacy orientation and save an explicit swing direction and hinge', async t => {
+  const dataDir = await fs.mkdtemp(path.join(os.tmpdir(), 'pfc-map-doors-'));
+  t.after(() => fs.rm(dataDir, { recursive:true, force:true }));
+  const door = { id:'door-1', type:'door', label:'Entrance', x:50, y:80, width:80, height:120 };
+  await fs.writeFile(path.join(dataDir, printerMapsFile), JSON.stringify({
+    version:1, maps:[{ id:'room-1', name:'Workshop', placements:[], revision:1, items:[door] }]
+  }));
+  const { maps:[room] } = await readPrinterMaps(dataDir);
+  assert.deepEqual(room.items, [{ ...door, rotation:90, mirrored:false }]);
+  const adjusted = { ...door, rotation:270, mirrored:true };
+  const save = item => savePrinterMap(dataDir, {
+    id:room.id, input:{ ...room, items:[item] }, printerIds:new Set()
+  });
+  await assert.rejects(save({ ...adjusted, rotation:45 }), { statusCode:400 });
+  await assert.rejects(save({ ...adjusted, mirrored:'true' }), { statusCode:400 });
+  await save(adjusted);
+  assert.deepEqual((await readPrinterMaps(dataDir)).maps[0].items, [adjusted]);
+});
+
+test('wall and line thickness normalize to two steps, including legacy items at room edges', () => {
+  const room = { id:'room-1', name:'Workshop', placements:[], revision:1, items:[
+    { id:'wall', type:'wall', x:40, y:980, width:120, height:20 },
+    { id:'line', type:'line', axis:'vertical', x:180, y:40, width:100, height:100 }
+  ] };
+  const { maps:[normalized] } = normalizePrinterMaps({ version:1, maps:[room] });
+  assert.deepEqual(normalized.items, [
+    { ...room.items[0], label:'', axis:'horizontal', y:960, height:40 },
+    { ...room.items[1], label:'', width:40 }
+  ]);
+});

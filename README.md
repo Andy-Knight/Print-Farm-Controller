@@ -1,4 +1,4 @@
-# Print Farm Controller v0.62.4
+# Print Farm Controller v0.63.0
 A local-first 3D printer fleet controller. It runs entirely on your LAN and currently supports:
 
 - **FlashForge Adventurer 5M / 5M Pro** through the local FlashForge HTTP/TCP APIs.
@@ -7,7 +7,7 @@ A local-first 3D printer fleet controller. It runs entirely on your LAN and curr
 - **Prusa CORE One+ (experimental)** through the local PrusaLink API, supporting Standard (1-tool), INDX4 and INDX8 configurations.
 - **Bambu Lab P1P / P1S / X1C / A1 / A1 Mini (experimental)** through the local MQTT TLS and FTPS TLS interfaces. P1P/P1S/A1/A1 Mini use the TLS/JPEG camera path; X1C camera uses the bundled FFmpeg decoder; see [X1C camera setup](docs/X1C_CAMERA.md).
 
-**Current development version: v0.62.4**
+**Current development version: v0.63.0**
 
 ## Key capabilities
 
@@ -699,6 +699,7 @@ AMS behavior is implemented against the emulator protocol model and must remain 
 - Automatic bounded LAN discovery for Snapmaker U1 / compatible U1 Moonraker instances.
 - Add/remove printers and persistently rename the controller display name without changing printer-side identity.
 - Persistent drag-and-drop dashboard ordering.
+- **Printer map** sits between Dashboard and Queue & history. In **Edit map**, administrators can set the room width and height in grid steps and choose **Standard** or **Compact** printer tiles. Wider maps scroll within the page. Use **Add item** to place labels, zones, benches, racks, walls, doors, aisles, rectangles or lines. Select an item to edit its label or dimensions, drag its corner to resize it, or remove it. For a selected door, choose its swing direction and use **Flip hinge** to swap sides. Draw a box from empty space around printers and room items, then drag one of the selected items to move the whole group. To move a printer to another room, return it to **Unplaced printers** and save, then place it on the destination map. All roles can switch maps and see the saved layout, printer names, artwork, alerts, printing status and assigned queue counts. Select **Full screen** on a saved map to centre and fit the occupied layout in the browser, and **Exit full screen** to return. Saved layouts are included in portable backups.
 - Accessible light/dark appearance switch with browser persistence and automatic device-theme default.
 - Live backend polling with SSE updates.
 - Online/offline state, progress, layers, temperatures, ETA, and diagnostics.

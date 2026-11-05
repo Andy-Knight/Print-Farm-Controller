@@ -11,7 +11,7 @@ Repository policy: `AGENTS.md` defines agent startup behavior; `docs/DOCUMENTATI
 - Repository: `Andy-Knight/Print-Farm-Controller`
 - Project path: repository root (`/`)
 - Primary branch: `main` (current production baseline)
-- Current controller source version: **0.62.4**.
+- Current controller source version: **0.63.0**.
 - Previous baseline audited: **0.48.0** (main before the regression test audit release).
 - Runtime: **Node.js 24.22.1+** (Node 24 release line), ES modules; build-time **npm 12.2.0** and committed lockfile; no npm runtime dependency for deployed controller. Follow `docs/dependency-security.md` for updates.
 - GitHub is the authoritative code baseline.
@@ -44,6 +44,7 @@ Local Fleet Controller (`src/`)
         +-- persistent Print Library store + cached slicer preview extraction
         +-- compatibility engine
         +-- persistent custom printer groups + overlapping printer membership
+        +-- shared room maps + configurable grid and tile density + printer placements and room items + administrator-only editing
         +-- persistent print queue + history + bed-clearance interlock + optional group restriction
         +-- persistent maintenance tasks + printer/group/model assignment + completion history + controller-observed printer usage
         +-- persistent reporting history + graphical analytics + filament catalogue/material-cost snapshots
@@ -83,6 +84,7 @@ Manufacturer-specific discovery, capabilities, limits, status normalization, fil
 - Default persistent controller data now lives in the application-local `data/` directory rather than the operating-system user profile. If `data/` does not yet exist, startup migrates the previous profile-based `Printer Fleet Controller` directory, falling back to the older `FlashForge Fleet` location. This moves printer configuration, queue/history, Print Library files, emulator settings and file material metadata together. Custom `DATA_DIR` locations are used exactly as configured and are never moved.
 - Print Library files, queue/history and their references persist across restarts. Queue/history cleanup never owns library-file deletion.
 - Printer groups are controller-owned and manufacturer-agnostic. A printer may belong to zero, one or multiple groups at the same time; editing one group changes only that group's membership. Group membership is not part of printer connection/adaptor configuration.
+- Printer maps are shared layouts stored in `printer-maps.json` in the controller data directory and included in portable backups. Admin writes check map revisions and serialize with printer registry mutations. A printer can be placed in one room at a time. Tile status comes from the live fleet, queue and alerts rather than the saved layout.
 - Automatic queue work may optionally carry a printer-group restriction. The controller evaluates only current members of that group for assignment, and group membership changes trigger queue reevaluation. The group restriction narrows the candidate set but does not bypass model/file targeting, material/colour/nozzle compatibility, licensing, busy state, bed clearance, concurrency or any other safety/preflight rule.
 - Maintenance task assignment supports three scopes: individual printer, custom printer group, and printer model. Group-wide rules follow current group membership while maintaining independent per-printer assignment state, recurrence baseline, last-completed data and history.
 - Maintenance tracking is a controller-owned fleet service keyed by printer ID rather than adapter-specific state. `maintenance.json` stores task definitions, completion history, per-task interval baselines, and controller-observed print seconds/cycles. Observed counters begin when this controller tracks activity and must not be presented as manufacturer lifetime counters. A maintenance task may recur by calendar days, observed print hours, or observed print count; reaching 80% of an interval is **Due soon**, reaching 100% is **Due**. Completing a task creates a retained history entry with notes/usage snapshot before resetting only that task's baseline.

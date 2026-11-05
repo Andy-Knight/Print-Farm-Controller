@@ -1,4 +1,5 @@
 import { initializeFrontendRendererDiagnostics } from './frontend-renderer-diagnostics.js';
+import { createPrinterMapPage } from './printer-map.js';
 import {
   LIBRARY_PAGE_SIZE,libraryMaterials,libraryPrintSeconds,libraryWeightGrams,
   libraryTimeLabel,libraryWeightLabel,librarySortAndFilter,libraryPage,libraryPrinterFilterOptions
@@ -291,6 +292,7 @@ const mobileSidebarQuery = window.matchMedia('(max-width: 760px)');
 const dashboardHomeBtn = document.querySelector('[data-dashboard-home]');
 const controllerRoutes = {
   '/': { title:'Dashboard', subtitle:'Monitor and manage your print farm' },
+  '/printer-map': { button:'printerMapBtn', dialog:'printerMapPage', title:'Printer map', subtitle:'View printers by room' },
   '/queue': { button:'queueBtn', dialog:'queueDialog', title:'Queue & history', subtitle:'Manage queued, active and completed print jobs' },
   '/library': { button:'libraryBtn', dialog:'libraryDialog', title:'Print library', subtitle:'Manage files available to your print farm' },
   '/maintenance': { button:'maintenanceBtn', dialog:'maintenanceDialog', title:'Maintenance', topbarTitle:'Farm management', subtitle:'Track maintenance tasks across the farm' },
@@ -535,6 +537,16 @@ let dashboardGroupId = '';
 let dashboardViewMode = 'cards';
 let dashboardTableSort = { key:'', direction:'asc' };
 const DASHBOARD_FILTER_LABELS = Object.freeze({ all:'All Printers', online:'Online', printing:'Printing', attention:'Needs attention', maintenance:'Maintenance' });
+const printerMap = createPrinterMapPage({
+  api,
+  canEdit:() => !document.body.dataset.authRole || document.body.dataset.authRole === 'administrator',
+  openPrinter
+});
+document.querySelector('#printerMapBtn').addEventListener('click', event => {
+  if (!event.__controllerRouteInvoke) return;
+  updatePrinterMap();
+  printerMap.load();
+});
 renderControllerRoute(location.pathname, { invoke:false });
 
 // The first route render makes the correct routed page visible without invoking
@@ -2872,6 +2884,7 @@ function setAlertsSummary(summary = {}) {
   alertsSummaryState = {
     unreadCount:Math.max(0, Number(summary?.unreadCount || 0)),
     attentionUnreadCount:Math.max(0, Number(summary?.attentionUnreadCount || 0)),
+    attentionPrinterIds:Array.isArray(summary?.attentionPrinterIds) ? summary.attentionPrinterIds : [],
     recent:Array.isArray(summary?.recent) ? summary.recent : []
   };
   if (alertsBtn && alertsButtonCount) {
@@ -4866,7 +4879,26 @@ function publishDashboardPrinterState() {
   window.dispatchEvent(new CustomEvent('pfc:dashboard-fleet-state', { detail }));
 }
 
+function updatePrinterMap() {
+  const queuedByPrinter = new Map();
+  for (const job of queueState.jobs || []) {
+    if (job.status === 'queued' && job.printerId) {
+      queuedByPrinter.set(job.printerId, (queuedByPrinter.get(job.printerId) || 0) + 1);
+    }
+  }
+  const alertPrinters = new Set(alertsSummaryState.attentionPrinterIds);
+  printerMap.update(fleet.map(printer => ({
+    id:printer.id,
+    name:printer.name,
+    imageKey:dashboardPrinterImageKey(printer),
+    alert:alertPrinters.has(printer.id) || printerNeedsAttention(printer) || printerHasMaintenanceAlert(printer),
+    printing:printer.online && isPrinterPrinting(printer),
+    queued:queuedByPrinter.get(printer.id) || 0
+  })));
+}
+
 function reconcileFleet() {
+  if (activeRoute === '/printer-map') updatePrinterMap();
   emptyEl.classList.toggle('hidden', fleet.length !== 0);
   fleetEl.classList.toggle('hidden', fleet.length === 0);
   renderSummary();
