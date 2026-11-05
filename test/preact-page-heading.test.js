@@ -9,6 +9,7 @@ const css = read('public/dashboard-polish.css');
 const chromium = read('scripts/browser-regression.mjs');
 
 const routes = {
+  printerMapPage:'Printer map',
   licenseDialog:'Licence',
   diagnosticsDialog:'Diagnostics',
   printerGroupsDialog:'Printer groups',
@@ -37,8 +38,8 @@ test('all main workspace routes use the same page heading as Dashboard', () => {
       'heading title or hierarchy changed on '+id);
     assert.match(head,/<div [^>]*class="ui-page-description subtle">/);
   }
-  assert.equal((html.match(/class="dialog-head ui-page-heading/g)||[]).length,9,
-    'all nine main routes use shared heading; smaller pop-up dialogs remain separate');
+  assert.equal((html.match(/class="dialog-head ui-page-heading/g)||[]).length,Object.keys(routes).length,
+    'all main routes use shared heading; smaller pop-up dialogs remain separate');
 });
 
 test('three routed pages use the requested farm-oriented blue eyebrow labels', () => {

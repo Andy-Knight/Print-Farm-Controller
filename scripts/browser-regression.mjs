@@ -12,7 +12,7 @@ import { chromium } from 'playwright';
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const controllerVersion = JSON.parse(await fs.readFile(path.join(root, 'package.json'), 'utf8')).version;
 const routes = [
-  ['/',null],['/queue','queueDialog'],['/library','libraryDialog'],
+  ['/',null],['/printer-map','printerMapPage'],['/queue','queueDialog'],['/library','libraryDialog'],
   ['/maintenance','maintenanceDialog'],['/groups','printerGroupsDialog'],
   ['/reports','reportingDialog'],['/alerts','alertsDialog'],
   ['/backup','backupRecoveryDialog'],['/diagnostics','diagnosticsDialog'],
@@ -920,7 +920,7 @@ async function workspaceHeadingSmoke(page,url) {
       assert.ok(actual.headingText,'route page must retain its own title: '+route);
       assert.ok(actual.eyebrowText,'route page must retain its category: '+route);
       const groupRoutes=['/maintenance','/groups','/reports','/alerts','/backup','/diagnostics'];
-      const workspaceTitles={'/queue':'Queue & history','/library':'Print library','/licence':'Licence'};
+      const workspaceTitles={'/printer-map':'Printer map','/queue':'Queue & history','/library':'Print library','/licence':'Licence'};
       const topbarTitle=(await page.locator('#topbarContextTitle').textContent()).trim();
       const subtitle=(await page.locator('#topbarContextSubtitle').textContent()).trim();
       if(groupRoutes.includes(route)){
@@ -2102,6 +2102,429 @@ async function libraryAvailabilityBadgeSmoke(page,url) {
     'using status badges must not select a file');
   await page.locator('#libraryClearFiltersBtn').click();
   console.log('Chromium: Print Library readiness availability badges PASS');
+}
+
+async function printerMapSmoke(browser, url) {
+  const context = await browser.newContext({ viewport:{ width:1365, height:900 } });
+  const page = await context.newPage();
+  const printer = { id:'map-p1', name:'Workshop Bambu Lab A1', model:'A1', adapterType:'bambu-lab',
+    online:true, status:{ status:'printing' } };
+  const unknownPrinter = { id:'map-unknown', name:'Unknown model', model:'Unknown', adapterType:'unknown' };
+  const secondPrinter = { ...printer, id:'map-p2', name:'Second printer' };
+  const fleet = { printers:[printer, unknownPrinter, secondPrinter], queue:{ jobs:[{ id:'queued-1', printerId:printer.id, status:'queued' }] },
+    alerts:{ attentionPrinterIds:[printer.id] } };
+  const store = { version:1, maps:[{ id:'upstairs', name:'Upstairs', revision:1, placements:[], items:[
+    { id:'join-h', type:'wall', axis:'horizontal', label:'', x:30, y:30, width:120, height:40 },
+    { id:'join-v', type:'wall', axis:'vertical', label:'', x:150, y:30, width:40, height:120 }
+  ] }] };
+  await context.route('**/dashboard-preact.js', route => route.abort());
+  await context.route('**/api/fleet', route => route.fulfill({ json:fleet }));
+  await context.route('**/api/events', route => route.fulfill({
+    headers:{ 'content-type':'text/event-stream' }, body:`event: fleet\ndata: ${JSON.stringify(fleet)}\n\n`
+  }));
+  await context.route('**/api/printer-maps', route => {
+    if (route.request().method() === 'POST') {
+      store.maps.push({ ...route.request().postDataJSON(), id:'workshop', revision:1 });
+      return route.fulfill({ status:201, json:store });
+    }
+    return route.fulfill({ json:store });
+  });
+  try {
+    await page.goto(url + '/');
+    await page.waitForFunction(() => window.__PFC_FRONTEND_BOOTED__ === true);
+    const newMap = page.getByRole('button', { name:'New map', exact:true });
+    await page.locator('#printerMapBtn').click();
+    await newMap.click();
+    assert.equal(await page.getByRole('button', { name:'Full screen', exact:true }).isVisible(), false);
+    await page.getByLabel('Map name').fill('Workshop');
+    await page.locator('#printerMapEditor select[name="printer"]').selectOption(printer.id);
+    await page.getByRole('button', { name:'Place printer', exact:true }).click();
+    const marker = page.locator('#printerMapCanvas [data-printer-id="map-p1"]');
+    await marker.waitFor();
+    const image = marker.locator('img');
+    assert.equal(await image.getAttribute('src'), '/assets/printers/a1.webp');
+    await image.evaluate(node => node.decode());
+    const imageBounds = await image.boundingBox();
+    assert.deepEqual([imageBounds.width, imageBounds.height], [120, 64]);
+    assert.equal(await marker.locator('.printer-map-placeholder').isVisible(), false,
+      'the fallback icon is hidden when the model has artwork');
+    assert.equal(await marker.locator('.printer-map-direction').count(), 0);
+    assert.equal(await page.getByRole('button', { name:/rotate/i }).count(), 0);
+    assert.match(await marker.getAttribute('aria-label'), /Workshop Bambu Lab A1.*Alert.*Printing.*1 queued/);
+    const name = marker.locator('strong');
+    const nameLines = await name.evaluate(node => node.offsetHeight / parseFloat(getComputedStyle(node).lineHeight));
+    assert.ok(Math.abs(nameLines - 2) < 0.1, 'the printer name wraps onto two lines');
+    assert.equal(await name.getAttribute('title'), printer.name);
+    const nameBounds = await name.boundingBox();
+    const flagBounds = await marker.locator('.printer-map-flags').boundingBox();
+    const tileBounds = await marker.boundingBox();
+    assert.ok(nameBounds.y + nameBounds.height <= flagBounds.y, 'the name leaves room for the flags');
+    assert.ok(flagBounds.y + flagBounds.height <= tileBounds.y + tileBounds.height, 'all flags fit inside the tile');
+    const gridPosition = () => marker.evaluate(element => {
+      const style = getComputedStyle(element);
+      return [style.getPropertyValue('--map-x'), style.getPropertyValue('--map-y')]
+        .map(value => Math.round(Number(value) * 20));
+    });
+    const assertSnapped = async () => {
+      const position = await gridPosition();
+      assert.deepEqual(position.map(value => value % 20), [10, 10]);
+      const pixels = await marker.evaluate(element => {
+        const canvas = element.parentElement;
+        const origin = canvas.getBoundingClientRect();
+        const travel = canvas.querySelector('#printerMapItems').getBoundingClientRect();
+        const tile = element.getBoundingClientRect();
+        const stepX = travel.width / Number(canvas.style.getPropertyValue('--map-columns'));
+        const stepY = travel.height / Number(canvas.style.getPropertyValue('--map-rows'));
+        return { stepX, stepY, gridPoint:[(tile.left - origin.left) / stepX, (tile.top - origin.top) / stepY] };
+      });
+      assert.equal(pixels.stepX, pixels.stepY, 'horizontal and vertical steps have the same distance');
+      for (const coordinate of pixels.gridPoint) {
+        assert.ok(Math.abs(coordinate - Math.floor(coordinate) - 0.5) < 0.02);
+      }
+      return position;
+    };
+    await assertSnapped();
+    const bounds = await marker.boundingBox();
+    await page.mouse.move(bounds.x + 30, bounds.y + 25);
+    await page.mouse.down();
+    await page.mouse.move(bounds.x + 220, bounds.y + 80, { steps:4 });
+    await page.mouse.up();
+    assert.ok((await marker.boundingBox()).x > bounds.x + 150);
+    const [dragX, dragY] = await assertSnapped();
+    await marker.press('Shift+ArrowDown');
+    assert.deepEqual(await assertSnapped(), [dragX, dragY + 60]);
+    await marker.press('ArrowLeft');
+    let savedPosition = [dragX - 20, dragY + 60];
+    assert.deepEqual(await assertSnapped(), savedPosition);
+    const layoutType = page.locator('select[name="layoutType"]');
+    const addItem = page.getByRole('button', { name:'Add item', exact:true });
+    await layoutType.selectOption('zone');
+    await addItem.click();
+    const zone = page.locator('.printer-map-item[data-kind="zone"]');
+    const label = page.getByRole('textbox', { name:'Item label', exact:true });
+    await label.fill('Post-processing');
+    const initialZone = await zone.boundingBox();
+    await page.mouse.move(initialZone.x + 20, initialZone.y + 20);
+    await page.mouse.down();
+    await page.mouse.move(initialZone.x + 65, initialZone.y + 45, { steps:4 });
+    await page.mouse.up();
+    assert.ok((await zone.boundingBox()).x > initialZone.x + 25, 'layout items are draggable');
+    const resize = zone.locator('[data-map-resize]');
+    await resize.scrollIntoViewIfNeeded();
+    const handle = await resize.boundingBox();
+    const beforeResize = await zone.boundingBox();
+    await page.mouse.move(handle.x + 10, handle.y + 10);
+    await page.mouse.down();
+    await page.mouse.move(handle.x + 50, handle.y + 30, { steps:4 });
+    await page.mouse.up();
+    assert.ok((await zone.boundingBox()).width > beforeResize.width + 20, 'zones resize from the corner');
+    await resize.scrollIntoViewIfNeeded();
+    const edgeHandle = await resize.boundingBox();
+    const canvasBounds = await page.locator('#printerMapCanvas').boundingBox();
+    const originalX = await zone.evaluate(node => Number(node.style.getPropertyValue('--map-x')));
+    await page.mouse.move(edgeHandle.x + 8, edgeHandle.y + 8);
+    await page.mouse.down();
+    await page.mouse.move(canvasBounds.x + canvasBounds.width - 5, edgeHandle.y + 8, { steps:4 });
+    await page.mouse.up();
+    const resizedAtEdge = await zone.evaluate(node => ({
+      x:Number(node.style.getPropertyValue('--map-x')),
+      steps:Number(node.style.getPropertyValue('--map-item-width'))
+    }));
+    assert.equal(resizedAtEdge.x, originalX, 'the opposite edge stays anchored while dragging');
+    assert.equal(resizedAtEdge.steps, Math.floor(50 - originalX),
+      'dragging stops at the last whole step inside the room');
+    const itemWidth = page.getByLabel('Width (grid steps)');
+    await itemWidth.fill('16');
+    await itemWidth.press('Tab');
+    assert.equal(await zone.evaluate(element => element.style.getPropertyValue('--map-item-width')), '16');
+    assert.equal(await page.getByRole('button', { name:'Box select' }).count(), 0);
+    const viewport = page.locator('#printerMapViewport');
+    await viewport.scrollIntoViewIfNeeded();
+    await viewport.evaluate(element => element.scrollTo(0, 0));
+    const zonePosition = () => zone.evaluate(node => ['--map-x', '--map-y']
+      .map(key => Math.round(Number(node.style.getPropertyValue(key)) * 20)));
+    const beforeGroup = await zonePosition();
+    const targets = await Promise.all([marker.boundingBox(), zone.boundingBox()]);
+    const left = Math.min(...targets.map(rect => rect.x)) - 4;
+    const top = Math.min(...targets.map(rect => rect.y)) - 4;
+    const right = Math.max(...targets.map(rect => rect.x + rect.width)) + 4;
+    const bottom = Math.max(...targets.map(rect => rect.y + rect.height)) + 4;
+    await page.mouse.move(left, top);
+    await page.mouse.down();
+    await page.mouse.move(right, bottom, { steps:4 });
+    await page.locator('#printerMapBox').waitFor();
+    await page.mouse.up();
+    await page.getByText('2 selected.', { exact:false }).waitFor();
+    assert.equal(await marker.getAttribute('aria-pressed'), 'true');
+    assert.equal(await zone.getAttribute('aria-pressed'), 'true');
+    const groupedTile = await marker.boundingBox();
+    await page.mouse.move(groupedTile.x + 24, groupedTile.y + 24);
+    await page.mouse.down();
+    await page.mouse.move(groupedTile.x + 80, groupedTile.y + 60, { steps:4 });
+    await page.mouse.up();
+    const groupPosition = await gridPosition();
+    const displacement = groupPosition.map((value, index) => value - savedPosition[index]);
+    assert.ok(displacement.every(value => value > 0), 'dragging a selected tile moves the group');
+    assert.deepEqual(await zonePosition(), beforeGroup.map((value, index) => value + displacement[index]));
+    await marker.press('ArrowRight');
+    savedPosition = [groupPosition[0] + 20, groupPosition[1]];
+    assert.deepEqual(await gridPosition(), savedPosition);
+    const savedZonePosition = [beforeGroup[0] + displacement[0] + 20, beforeGroup[1] + displacement[1]];
+    assert.deepEqual(await zonePosition(), savedZonePosition);
+    for (const type of ['label', 'bench', 'rack', 'wall', 'door', 'aisle', 'rectangle', 'line']) {
+      await layoutType.selectOption(type);
+      await addItem.click();
+      assert.equal(await page.locator(`.printer-map-item[data-kind="${type}"]`).count(), 1);
+      if (type === 'door') {
+        await page.locator('select[name="doorRotation"]').selectOption('270');
+        await page.getByRole('button', { name:'Flip hinge' }).click();
+        assert.equal(await page.getByRole('button', { name:'Flip hinge' }).getAttribute('aria-pressed'), 'true');
+      }
+      if (type === 'wall') {
+        const itemHeight = page.getByLabel('Height (grid steps)', { exact:true });
+        assert.equal(await itemHeight.inputValue(), '2');
+        assert.ok(await itemHeight.isDisabled(), 'a horizontal wall has a fixed two-step height');
+      }
+      if (type === 'line') {
+        await page.locator('select[name="lineAxis"]').selectOption('vertical');
+        assert.equal(await itemWidth.inputValue(), '2');
+        assert.ok(await itemWidth.isDisabled(), 'a vertical line has a fixed two-step width');
+      }
+      if (type === 'rectangle') {
+        const canvas = page.locator('#printerMapCanvas');
+        const initialCanvas = await canvas.boundingBox();
+        const initialPrinterOffset = await marker.evaluate(node => [node.offsetLeft, node.offsetTop]);
+        await itemWidth.fill('50');
+        await itemWidth.press('Tab');
+        const itemHeight = page.getByLabel('Height (grid steps)');
+        await itemHeight.fill('50');
+        await itemHeight.press('Tab');
+        const resizedCanvas = await canvas.boundingBox();
+        assert.deepEqual([resizedCanvas.width, resizedCanvas.height], [initialCanvas.width, initialCanvas.height]);
+        assert.deepEqual(await marker.evaluate(node => [node.offsetLeft, node.offsetTop]), initialPrinterOffset,
+          'room-sized items preserve the existing grid and printer position');
+      }
+    }
+    const door = page.locator('.printer-map-item[data-kind="door"]');
+    assert.equal(await door.locator('.printer-map-door-symbol path[stroke-dasharray]').isVisible(), true);
+    const doorTransform = () => door.locator('svg').evaluate(node => getComputedStyle(node).transform);
+    const savedDoorTransform = await doorTransform();
+    assert.equal(savedDoorTransform, 'matrix(0, 1, 1, 0, 0, 0)');
+    for (const type of ['label', 'zone', 'bench', 'rack', 'aisle']) {
+      const item = page.locator(`.printer-map-item[data-kind="${type}"]`);
+      const objectBounds = await item.boundingBox();
+      const labelBounds = await item.locator('.printer-map-item-label').boundingBox();
+      const bottomInset = objectBounds.y + objectBounds.height - labelBounds.y - labelBounds.height;
+      assert.ok(labelBounds.y >= objectBounds.y && bottomInset >= 0 && bottomInset <= 2,
+        `${type} label sits inside the bottom edge`);
+      if (type === 'bench' || type === 'rack') {
+        const furnitureLabel = item.locator('.printer-map-item-label');
+        await furnitureLabel.scrollIntoViewIfNeeded();
+        const abovePrinter = await furnitureLabel.evaluate((node, printerId) => {
+          const canvas = node.closest('#printerMapCanvas');
+          const tile = canvas.querySelector(`[data-printer-id="${CSS.escape(printerId)}"]`);
+          const { left, top } = canvas.getBoundingClientRect();
+          const label = node.getBoundingClientRect();
+          const x = label.left + label.width / 2;
+          const y = label.top + label.height / 2;
+          tile.style.left = `${x - left - tile.offsetWidth / 2}px`;
+          tile.style.top = `${y - top - tile.offsetHeight / 2}px`;
+          node.style.pointerEvents = 'auto';
+          try {
+            const layers = document.elementsFromPoint(x, y);
+            return layers.includes(tile) && layers.includes(node) && layers.indexOf(node) < layers.indexOf(tile);
+          } finally {
+            tile.style.removeProperty('left');
+            tile.style.removeProperty('top');
+            node.style.removeProperty('pointer-events');
+          }
+        }, printer.id);
+        assert.ok(abovePrinter, `${type} label remains visible above an overlapping printer`);
+      }
+    }
+    await addItem.click();
+    await page.getByRole('button', { name:'Remove item' }).click();
+    assert.equal(await page.locator('.printer-map-item').count(), 9);
+    const columns = page.getByRole('spinbutton', { name:'Map width (steps)', exact:true });
+    const rows = page.getByRole('spinbutton', { name:'Map height (steps)', exact:true });
+    const standardBounds = await marker.boundingBox();
+    await page.locator('select[name="printerDensity"]').selectOption('compact');
+    const compactBounds = await marker.boundingBox();
+    assert.ok(compactBounds.width < standardBounds.width && compactBounds.height < standardBounds.height);
+    const compactFlags = await marker.locator('.printer-map-flags').boundingBox();
+    assert.ok(compactFlags.y + compactFlags.height <= compactBounds.y + compactBounds.height);
+    await columns.fill('90');
+    await columns.press('Tab');
+    assert.ok(await viewport.evaluate(node => node.scrollWidth > node.clientWidth), 'a wide room scrolls on desktop');
+    assert.deepEqual(await assertSnapped(), savedPosition, 'room size does not move the printer');
+    await columns.fill('40');
+    await columns.press('Tab');
+    assert.match(await page.locator('#printerMapError').innerText(), /before shrinking/);
+    await columns.fill('54');
+    await columns.press('Tab');
+    await rows.fill('55');
+    await rows.press('Tab');
+    await page.locator('#printerMapEditor select[name="printer"]').selectOption(secondPrinter.id);
+    await page.getByRole('button', { name:'Place printer', exact:true }).click();
+    const nextMarker = page.locator('#printerMapCanvas [data-printer-id="map-p2"]');
+    const [firstTile, secondTile] = await Promise.all([marker.boundingBox(), nextMarker.boundingBox()]);
+    assert.ok(firstTile.x + firstTile.width <= secondTile.x || secondTile.x + secondTile.width <= firstTile.x
+      || firstTile.y + firstTile.height <= secondTile.y || secondTile.y + secondTile.height <= firstTile.y,
+    'new compact printers are placed without overlapping existing tiles');
+    await page.getByRole('button', { name:'Save map', exact:true }).click();
+    await page.locator('#printerMapEditor').waitFor({ state:'hidden' });
+    assert.deepEqual(Object.keys(store.maps[1].placements[0]).sort(), ['printerId', 'x', 'y']);
+    assert.deepEqual([store.maps[1].columns, store.maps[1].rows, store.maps[1].compactPrinters], [54, 55, true]);
+    assert.equal(store.maps[1].items.length, 9);
+    assert.equal(store.maps[1].items[0].label, 'Post-processing');
+    assert.equal(store.maps[1].items[0].width, 320);
+    const savedDoor = store.maps[1].items.find(item => item.type === 'door');
+    assert.deepEqual([savedDoor.rotation, savedDoor.mirrored, savedDoor.width, savedDoor.height], [270, true, 120, 80]);
+    const savedLine = store.maps[1].items.find(item => item.type === 'line');
+    assert.deepEqual([savedLine.axis, savedLine.width, savedLine.height], ['vertical', 40, 260]);
+    const savedRectangle = store.maps[1].items.find(item => item.type === 'rectangle');
+    assert.deepEqual([savedRectangle.x, savedRectangle.y, savedRectangle.width, savedRectangle.height], [0, 0, 1000, 1000]);
+    const savedStyle = await marker.getAttribute('style');
+    await page.reload();
+    await marker.waitFor();
+    assert.equal(await marker.getAttribute('style'), savedStyle);
+    assert.deepEqual(await assertSnapped(), savedPosition);
+    assert.equal((await marker.boundingBox()).width, compactBounds.width);
+    assert.equal(await zone.innerText(), 'Post-processing');
+    assert.equal(await doorTransform(), savedDoorTransform);
+    assert.deepEqual(await page.locator('.printer-map-item[data-kind="rectangle"]').evaluate(node =>
+      ['--map-item-width', '--map-item-height'].map(key => node.style.getPropertyValue(key))), ['50', '50']);
+    assert.deepEqual(await zonePosition(), savedZonePosition);
+    assert.equal(await zone.isEnabled(), false, 'room items are read-only outside edit mode');
+    await page.locator('#printerMapSelect').selectOption('upstairs');
+    await marker.waitFor({ state:'hidden' });
+    await zone.waitFor({ state:'hidden' });
+    const connected = await page.locator('[data-map-item-id="join-h"]').evaluate(horizontal => {
+      const vertical = document.querySelector('[data-map-item-id="join-v"]');
+      const h = horizontal.getBoundingClientRect();
+      const v = vertical.getBoundingClientRect();
+      const hStroke = getComputedStyle(horizontal, '::before');
+      const vStroke = getComputedStyle(vertical, '::before');
+      const jointX = v.left + v.width / 2;
+      const jointY = h.top + h.height / 2;
+      return h.right - parseFloat(hStroke.right) >= jointX
+        && v.top + parseFloat(vStroke.top) <= jointY;
+    });
+    assert.ok(connected, 'touching perpendicular walls meet at their centreline intersection');
+    await page.locator('#printerMapSelect').selectOption('');
+    assert.equal(await page.getByRole('button', { name:'Full screen', exact:true }).isVisible(), false);
+    const unknown = page.locator('#printerMapUnplaced [data-printer-id="map-unknown"]');
+    await unknown.locator('.printer-map-placeholder').waitFor();
+    assert.equal(await unknown.locator('img').isVisible(), false);
+    await page.locator('#printerMapSelect').selectOption('workshop');
+    await marker.waitFor();
+    await page.addStyleTag({ content:'#printerMapViewport::-webkit-scrollbar { width:15px; height:15px; }' });
+    for (const theme of ['light', 'dark']) {
+      await page.evaluate(theme => { document.documentElement.dataset.theme = theme; }, theme);
+      for (const width of [1365, 900, 760, 620, 390, 320]) {
+        await page.setViewportSize({ width, height:900 });
+        const fits = await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth);
+        assert.ok(fits, `Printer map fits the ${width}px ${theme} viewport`);
+        assert.deepEqual(await assertSnapped(), savedPosition);
+        const scroll = await viewport.evaluate(node => {
+          const style = getComputedStyle(node);
+          const originalLeft = node.scrollLeft;
+          node.scrollLeft = 20;
+          const canScrollHorizontally = node.scrollLeft > 0;
+          node.scrollLeft = originalLeft;
+          return {
+            visibleWidth:node.clientWidth, mapWidth:node.scrollWidth,
+            canvasWidth:node.querySelector('#printerMapCanvas').offsetWidth,
+            canScrollHorizontally,
+            horizontalBar:node.offsetHeight - node.clientHeight
+              - parseFloat(style.borderTopWidth) - parseFloat(style.borderBottomWidth)
+          };
+        });
+        if (scroll.visibleWidth >= scroll.canvasWidth) {
+          assert.equal(scroll.mapWidth, scroll.visibleWidth, 'the map fits beside the vertical scrollbar');
+          assert.ok(scroll.horizontalBar < 1 && !scroll.canScrollHorizontally, 'a fitting map has no horizontal scrollbar');
+        } else {
+          assert.ok(scroll.mapWidth > scroll.visibleWidth && scroll.canScrollHorizontally,
+            'a narrow viewport retains horizontal scrolling');
+        }
+        const field = await page.locator('#printerMapSelect').boundingBox();
+        const createButton = await newMap.boundingBox();
+        const editButton = await page.locator('#printerMapEdit').boundingBox();
+        assert.ok(Math.abs(createButton.y - editButton.y) < 1, 'map actions share a row');
+        if (width >= 620) {
+          assert.ok(Math.abs(field.y - createButton.y) < 1, 'map selector and actions align at the top');
+          assert.ok(Math.abs(field.y + field.height - createButton.y - createButton.height) < 1,
+            'map selector and actions align at the bottom');
+        }
+      }
+    }
+    const fullScreen = page.getByRole('button', { name:'Full screen', exact:true });
+    const exitFullScreen = page.getByRole('button', { name:'Exit full screen', exact:true });
+    const fullScreenDialog = page.locator('#printerMapFullscreen');
+    const canvas = page.locator('#printerMapCanvas');
+    const assertFitsFullscreen = async (title = 'Workshop') => {
+      await page.waitForFunction(() => {
+        const viewport = document.querySelector('#printerMapViewport');
+        const canvas = document.querySelector('#printerMapCanvas');
+        const outer = viewport.getBoundingClientRect();
+        const items = [...canvas.querySelectorAll('.printer-map-marker, .printer-map-item')]
+          .map(item => item.getBoundingClientRect());
+        const left = Math.min(...items.map(item => item.left));
+        const top = Math.min(...items.map(item => item.top));
+        const right = Math.max(...items.map(item => item.right));
+        const bottom = Math.max(...items.map(item => item.bottom));
+        const scale = canvas.getBoundingClientRect().width / canvas.offsetWidth;
+        const margin = 2 * parseFloat(getComputedStyle(canvas).getPropertyValue('--map-dot-spacing')) * scale + 2;
+        return right > left && bottom > top
+          && left >= outer.left - 1 && right <= outer.right + 1
+          && top >= outer.top - 1 && bottom <= outer.bottom + 1
+          && Math.abs(left + right - outer.left - outer.right) < scale + 2
+          && Math.abs(top + bottom - outer.top - outer.bottom) < scale + 2
+          && Math.min(outer.width - (right - left), outer.height - (bottom - top)) < margin;
+      });
+      assert.equal(await viewport.evaluate(node => getComputedStyle(node).overflow), 'clip');
+      assert.equal(await fullScreenDialog.getByRole('heading').innerText(), title);
+      const scale = await canvas.evaluate(node => node.getBoundingClientRect().width / node.offsetWidth);
+      if (title === 'Workshop') {
+        const tileScale = await marker.evaluate(node => node.getBoundingClientRect().width / node.offsetWidth);
+        const itemScale = await zone.evaluate(node => node.getBoundingClientRect().width / node.offsetWidth);
+        assert.ok(Math.abs(scale - tileScale) < 0.01, 'printer tiles scale with the entire map');
+        assert.ok(Math.abs(scale - itemScale) < 0.01, 'room items scale with the entire map');
+      }
+      assert.ok(await exitFullScreen.isVisible());
+      return scale;
+    };
+    await fullScreenDialog.evaluate(node => { node.requestFullscreen = undefined; });
+    await viewport.evaluate(node => node.scrollTo(100, 100));
+    await fullScreen.click();
+    await fullScreenDialog.waitFor();
+    const narrowScale = await assertFitsFullscreen();
+    await page.setViewportSize({ width:1365, height:900 });
+    assert.ok(await assertFitsFullscreen() > narrowScale, 'the saved map refits when the viewport grows');
+    await exitFullScreen.click();
+    await fullScreenDialog.waitFor({ state:'hidden' });
+    await page.waitForFunction(() => document.activeElement?.id === 'printerMapEnterFullscreen'
+      && document.querySelector('#printerMapViewport').parentElement.classList.contains('printer-map-panel'));
+    assert.equal(await viewport.evaluate(node => getComputedStyle(node).overflow), 'auto');
+    await page.locator('#printerMapSelect').selectOption('upstairs');
+    await page.setViewportSize({ width:1800, height:720 });
+    await fullScreen.click();
+    assert.ok(await assertFitsFullscreen('Upstairs') > 2, 'a sparse layout fills the view despite unused grid space');
+    await exitFullScreen.click();
+    await page.waitForFunction(() => document.querySelector('#printerMapViewport').parentElement.classList.contains('printer-map-panel'));
+    await page.locator('#printerMapSelect').selectOption('workshop');
+    await fullScreenDialog.evaluate(node => { delete node.requestFullscreen; });
+    await fullScreen.click();
+    await fullScreenDialog.waitFor();
+    await assertFitsFullscreen();
+    await exitFullScreen.click();
+    await page.waitForFunction(() => !document.fullscreenElement
+      && document.activeElement?.id === 'printerMapEnterFullscreen'
+      && document.querySelector('#printerMapViewport').parentElement.classList.contains('printer-map-panel'));
+    console.log('Chromium: Printer map full-screen fit for sparse and full layouts, resize and exit PASS');
+  } finally {
+    await context.close();
+  }
 }
 
 async function routeSmoke(page,url) {
@@ -4814,6 +5237,7 @@ async function main() {
     const context=await browser.newContext({viewport:{width:1365,height:900}});
     page=await context.newPage();
     page.on('pageerror',(e)=>errors.push(e.message));
+    await printerMapSmoke(browser,url);
     await a1ArtworkSmoke(browser,url);
     await designSystemSmoke(browser,url);
     await dashboardPhase3Smoke(browser,url);

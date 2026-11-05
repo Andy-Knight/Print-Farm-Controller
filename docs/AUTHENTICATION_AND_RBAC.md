@@ -26,6 +26,8 @@ Source of the proposed RBAC policy: `src/security/authorization-policy.js`; poli
 | Permission | Viewer | Operator | Administrator |
 | --- | :---: | :---: | :---: |
 | Dashboard, fleet, status and current printer data | ✓ | ✓ | ✓ |
+| View and switch printer room maps | ✓ | ✓ | ✓ |
+| Create, edit or delete printer room maps | – | – | ✓ |
 | Read queues, library previews, filament catalogue and reports | ✓ | ✓ | ✓ |
 | Camera streams and SSE live fleet updates | ✓ | ✓ | ✓ |
 | Start/pause/resume/cancel prints, bed clearance, fans/temperatures | – | ✓ | ✓ |

@@ -3,6 +3,7 @@ import { promises as fs } from 'node:fs';
 import path from 'node:path';
 import { inspectZipArchive, extractZipEntryToFile } from './backup-archive.js';
 import { inspectRestoreBackup } from './restore-inspector.js';
+import { emptyPrinterMaps, normalizePrinterMaps, printerMapsFile } from '../printer-maps.js';
 import {normalizeLegacyStorageHistory,validateLibraryStorageHistory} from '../library-storage-history.js';
 
 const TERMINAL_STATES = new Set(['completed','failed','cancelled']);
@@ -17,6 +18,7 @@ const BASE_MANAGED_ENTRIES = Object.freeze([
   'emulator-settings.json',
   'maintenance.json',
   'printer-groups.json',
+  printerMapsFile,
   'filaments.json',
   'reporting-history.json',
   'library-storage-history.json',
@@ -259,6 +261,11 @@ export async function stageRestoreBackup(filePath, {
     await writeStateJson(stageDir, 'print-jobs.json', prepareRestoredJobs(jobs, { restoredAt }));
     await writeStateJson(stageDir, 'file-material-metadata.json', fileMaterials);
     await writeStateJson(stageDir, 'backup-settings.json', restoredBackupSettings(backupSettings));
+    const printerMapsEntry = `state/${printerMapsFile}`;
+    const printerMaps = archive.byName.has(printerMapsEntry)
+      ? normalizePrinterMaps(JSON.parse((await archive.read(printerMapsEntry)).toString('utf8')))
+      : emptyPrinterMaps;
+    await writeStateJson(stageDir, printerMapsFile, printerMaps);
     if (archive.byName.has('state/maintenance.json')) {
       const maintenance = JSON.parse((await archive.read('state/maintenance.json')).toString('utf8'));
       await writeStateJson(stageDir, 'maintenance.json', maintenance);

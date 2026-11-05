@@ -28,6 +28,7 @@
   <link rel="stylesheet" href="/printer-details-polish.css" />
   <link rel="stylesheet" href="/tab-navigation.css" />
   <link rel="stylesheet" href="/print-library-polish.css" />
+  <link rel="stylesheet" href="/printer-map.css" />
   <link rel="stylesheet" href="/auth.css" />
 </head>
 <body>
@@ -51,6 +52,7 @@
     <nav class="sidebar-nav" aria-label="Main navigation">
       <span class="sidebar-section-label">WORKSPACE</span>
       <button type="button" class="sidebar-item active" data-dashboard-home data-route="/"><span class="sidebar-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 3 10h2v10h6v-6h2v6h6V10h2L12 3Z"/></svg></span><span>Dashboard</span></button>
+      <button id="printerMapBtn" type="button" class="sidebar-item" data-route="/printer-map"><span class="sidebar-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m3 6 6-3 6 3 6-3v15l-6 3-6-3-6 3V6Zm6-3v15m6-12v15"/></svg></span><span>Printer map</span></button>
       <button id="queueBtn" type="button" class="sidebar-item" data-route="/queue"><span class="sidebar-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M4 12h16M4 17h10"/></svg></span><span>Queue &amp; history</span><span id="queueButtonCount" class="queue-button-count hidden">0</span></button>
       <button id="libraryBtn" type="button" class="sidebar-item" data-route="/library"><span class="sidebar-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h7v7H4z M13 5h7v7h-7z M4 14h7v6H4z M13 14h7v6h-7z"/></svg></span><span>Print library</span><span id="libraryButtonCount" class="queue-button-count hidden">0</span></button>
       <div class="sidebar-divider" aria-hidden="true"></div>
@@ -261,6 +263,100 @@
       <div class="actions">
         <button type="button" class="secondary" data-diagnostics-close>Close</button>
       </div>
+    </div>
+  </section>
+
+  <section id="printerMapPage" class="route-page" aria-label="Printer map" hidden>
+    <div class="dialog-head ui-page-heading">
+      <div class="ui-page-heading-copy">
+        <div class="eyebrow ui-page-eyebrow">FARM OPERATIONS</div>
+        <h2 class="ui-page-title">Printer map</h2>
+        <div class="ui-page-description subtle">Find printers by room and see their live status.</div>
+      </div>
+    </div>
+    <div class="printer-map-panel">
+      <div class="printer-map-toolbar printer-map-room-controls">
+        <label>Map <select id="printerMapSelect" disabled></select></label>
+        <div class="printer-map-room-actions">
+          <button id="printerMapNew" type="button" class="primary" hidden>New map</button>
+          <button id="printerMapEdit" type="button" class="secondary" hidden>Edit map</button>
+          <button id="printerMapEnterFullscreen" type="button" class="secondary" hidden>Full screen</button>
+          <button id="printerMapReload" type="button" class="secondary" hidden>Reload maps</button>
+        </div>
+      </div>
+      <form id="printerMapEditor" hidden>
+        <fieldset class="printer-map-toolbar">
+          <label>Map name <input name="mapName" maxlength="80" required></label>
+          <label class="printer-map-step-field">Map width (steps) <input name="mapColumns" type="number" min="1" max="200" step="1" required></label>
+          <label class="printer-map-step-field">Map height (steps) <input name="mapRows" type="number" min="1" max="200" step="1" required></label>
+          <label class="printer-map-density">Printer tiles
+            <select name="printerDensity">
+              <option value="standard">Standard</option>
+              <option value="compact">Compact</option>
+            </select>
+          </label>
+          <label>Unplaced printer <select name="printer"></select></label>
+          <button type="button" class="secondary" data-map-action="add">Place printer</button>
+          <label>Layout item
+            <select name="layoutType">
+              <option value="label">Label</option>
+              <option value="zone">Zone</option>
+              <option value="bench">Bench</option>
+              <option value="rack">Rack</option>
+              <option value="wall">Wall</option>
+              <option value="door">Door</option>
+              <option value="aisle">Aisle</option>
+              <option value="rectangle">Rectangle</option>
+              <option value="line">Line</option>
+            </select>
+          </label>
+          <button type="button" class="secondary" data-map-action="addItem">Add item</button>
+          <button type="submit" class="primary">Save map</button>
+          <button type="button" class="secondary" data-map-action="cancel">Cancel</button>
+          <button type="button" class="danger" data-map-action="delete" hidden>Delete map</button>
+        </fieldset>
+      </form>
+      <p id="printerMapStatus" class="subtle" role="status"></p>
+      <p id="printerMapError" class="error" role="alert"></p>
+      <p id="printerMapHelp" class="subtle" hidden>Start on empty grid space and drag around items to select them. Drag a selected item to move the group. Arrow keys move one grid step, or three with Shift.</p>
+      <div id="printerMapSelection" class="printer-map-toolbar" hidden>
+        <strong></strong>
+        <button type="button" class="secondary" data-map-action="unplace">Return to unplaced</button>
+      </div>
+      <fieldset id="printerMapItemEditor" class="printer-map-toolbar printer-map-item-editor" hidden>
+        <legend class="subtle"></legend>
+        <label>Item label <input name="itemLabel" maxlength="80"></label>
+        <label>Width (grid steps) <input name="itemWidth" type="number" min="1" step="1"></label>
+        <label>Height (grid steps) <input name="itemHeight" type="number" min="1" step="1"></label>
+        <label id="printerMapLineAxis" hidden>Orientation
+          <select name="lineAxis">
+            <option value="horizontal">Horizontal</option>
+            <option value="vertical">Vertical</option>
+          </select>
+        </label>
+        <label id="printerMapDoorDirection" hidden>Door swing direction
+          <select name="doorRotation">
+            <option value="0">Up</option>
+            <option value="90">Right</option>
+            <option value="180">Down</option>
+            <option value="270">Left</option>
+          </select>
+        </label>
+        <button type="button" class="secondary" data-map-action="flipDoor" aria-pressed="false" hidden>Flip hinge</button>
+        <button type="button" class="danger" data-map-action="removeItem">Remove item</button>
+      </fieldset>
+      <div id="printerMapViewport" class="printer-map-viewport" role="region" aria-label="Room layout" tabindex="0" hidden>
+        <div id="printerMapCanvas"><div id="printerMapItems"></div><div id="printerMapBox" aria-hidden="true" hidden></div></div>
+      </div>
+      <p id="printerMapGroup" class="subtle" role="status" hidden></p>
+      <div id="printerMapUnplaced" class="printer-map-unplaced" aria-label="Unplaced printers"></div>
+      <dialog id="printerMapFullscreen" class="printer-map-fullscreen" aria-labelledby="printerMapFullscreenTitle">
+        <header class="printer-map-fullscreen-header">
+          <h2 id="printerMapFullscreenTitle"></h2>
+          <button id="printerMapExitFullscreen" type="button" class="secondary" autofocus>Exit full screen</button>
+        </header>
+        <div id="printerMapFullscreenStage" class="printer-map-fullscreen-stage"></div>
+      </dialog>
     </div>
   </section>
 

@@ -135,6 +135,12 @@ test('end-to-end disaster recovery restores portable state and reinitializes saf
     addedAt:'2026-09-20T12:00:00.000Z',
     stagedAt:'2026-09-20T12:00:00.000Z'
   };
+  const printerMaps = { version:1, maps:[{
+    id:'room-1', name:'Workshop', revision:1,
+    columns:75, rows:60, compactPrinters:true,
+    placements:[{ printerId:'ff-dr', x:125, y:440 }],
+    items:[{ id:'room-bench', type:'bench', label:'Work bench', x:50, y:400, width:320, height:240 }]
+  }] };
   const jobs = [
     {
       id:'history-complete',
@@ -222,6 +228,7 @@ test('end-to-end disaster recovery restores portable state and reinitializes saf
   try {
     await fs.mkdir(libraryDir, { recursive:true });
     await writeJson(path.join(sourceData, 'printers.json'), printers);
+    await writeJson(path.join(sourceData, 'printer-maps.json'), printerMaps);
     await writeJson(path.join(sourceData, 'print-jobs.json'), jobs);
     await writeJson(path.join(sourceData, 'file-material-metadata.json'), fileMaterials);
     await writeJson(path.join(sourceData, 'emulator-settings.json'), { enabled:true });
@@ -288,6 +295,7 @@ test('end-to-end disaster recovery restores portable state and reinitializes saf
 
     const restoredPrinters = JSON.parse(await fs.readFile(path.join(targetData, 'printers.json'), 'utf8'));
     assert.deepEqual(restoredPrinters, printers);
+    assert.deepEqual(JSON.parse(await fs.readFile(path.join(targetData, 'printer-maps.json'), 'utf8')), printerMaps);
 
     const restoredMetadata = JSON.parse(await fs.readFile(
       path.join(targetData, 'print-library', libraryId, 'metadata.json'),

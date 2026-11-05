@@ -16,6 +16,7 @@ export const PERMISSIONS = Object.freeze({
   PRINTER_READ:'printer.read',
   PRINTER_OPERATE:'printer.operate',
   PRINTER_CONFIGURE:'printer.configure',
+  PRINTER_MAP_MANAGE:'printer-map.manage',
   PRINTER_FILE_MANAGE:'printer.files.manage',
   CAMERA_READ:'camera.read',
   QUEUE_READ:'queue.read',
@@ -94,6 +95,8 @@ read('/api/events', P.PRINTER_READ); // SSE contains fleet, queue and alerts
 read('/api/discovery', P.PRINTER_CONFIGURE);
 read('/api/printers', P.PRINTER_READ);
 read('/api/fleet', P.PRINTER_READ);
+read('/api/printer-maps', P.PRINTER_READ);
+write('POST', '/api/printer-maps', P.PRINTER_MAP_MANAGE);
 write('POST', '/api/printers', P.PRINTER_CONFIGURE);
 write('PUT', '/api/printers/order', P.PRINTER_CONFIGURE);
 
@@ -184,6 +187,7 @@ function pattern(methods, regex, permission) {
   for(const method of methods) dynamic.push({method,regex,permission});
 }
 pattern(['PATCH','DELETE'],/^\/api\/printer-groups\/[^/]+$/,P.GROUP_MANAGE);
+pattern(['PUT','DELETE'],/^\/api\/printer-maps\/[^/]+$/,P.PRINTER_MAP_MANAGE);
 pattern(['GET'],/^\/api\/backup\/download\/[^/]+$/,P.BACKUP_MANAGE);
 pattern(['GET'],/^\/api\/restore\/cloud\/[^/]+\/backups$/,P.RESTORE_MANAGE);
 pattern(['POST'],/^\/api\/restore\/cloud\/[^/]+\/(?:inspect|stage)$/,P.RESTORE_MANAGE);

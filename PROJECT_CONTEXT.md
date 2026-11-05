@@ -44,6 +44,7 @@ Local Fleet Controller (`src/`)
         +-- persistent Print Library store + cached slicer preview extraction
         +-- compatibility engine
         +-- persistent custom printer groups + overlapping printer membership
+        +-- shared room maps + configurable grid and tile density + printer placements and room items + administrator-only editing
         +-- persistent print queue + history + bed-clearance interlock + optional group restriction
         +-- persistent maintenance tasks + printer/group/model assignment + completion history + controller-observed printer usage
         +-- persistent reporting history + graphical analytics + filament catalogue/material-cost snapshots

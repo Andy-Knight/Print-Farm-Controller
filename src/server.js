@@ -69,6 +69,7 @@ import { runLocalSecurityCommand } from './security/local-admin.js';
 import { MemoryMonitor } from './memory-monitor.js';
 import { MaintenanceService } from './maintenance-service.js';
 import { PrinterGroupService } from './printer-groups.js';
+import { readPrinterMaps, savePrinterMap } from './printer-maps.js';
 import { ManualBackupManager } from './backup-recovery/manual-backup-manager.js';
 import { BackupOperationLock } from './backup-recovery/backup-operation-lock.js';
 import { ScheduledBackupService } from './backup-recovery/scheduled-backup-service.js';
@@ -733,6 +734,7 @@ function openEventStream(req, res) {
       alerts:{
         unreadCount:alertService.unreadCount(),
         attentionUnreadCount:alertService.attentionUnreadCount(),
+        attentionPrinterIds:alertService.attentionPrinterIds(),
         recent:alertService.listHistory({ limit:5 })
       },
       version:CONTROLLER_VERSION,
@@ -1521,6 +1523,22 @@ async function apiRoute(req, res, url) {
     });
   }
 
+  if (req.method === 'GET' && url.pathname === '/api/printer-maps') {
+    return json(res, 200, await readPrinterMaps(runtimePaths.dataDir));
+  }
+
+  const printerMapMatch = url.pathname.match(/^\/api\/printer-maps\/([^/]+)$/);
+  const createPrinterMap = req.method === 'POST' && url.pathname === '/api/printer-maps';
+  if (createPrinterMap || (printerMapMatch && ['PUT', 'DELETE'].includes(req.method))) {
+    const input = await readJson(req);
+    const id = printerMapMatch ? decodeURIComponent(printerMapMatch[1]) : null;
+    const store = await controllerMutations.run('printer-registry', async () => {
+      const printerIds = new Set((await listPrinters()).map(printer => printer.id));
+      return savePrinterMap(runtimePaths.dataDir, { id, input, printerIds, remove:req.method === 'DELETE' });
+    });
+    return json(res, createPrinterMap ? 201 : 200, store);
+  }
+
   if (req.method === 'GET' && url.pathname === '/api/printer-groups') {
     const printers = (await listPrinters()).map(publicPrinter);
     return json(res, 200, printerGroups.snapshot(printers));
@@ -1598,6 +1616,7 @@ async function apiRoute(req, res, url) {
       alerts:{
         unreadCount:alertService.unreadCount(),
         attentionUnreadCount:alertService.attentionUnreadCount(),
+        attentionPrinterIds:alertService.attentionPrinterIds(),
         recent:alertService.listHistory({ limit:5 })
       },
       version:CONTROLLER_VERSION,
