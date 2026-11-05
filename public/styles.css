@@ -2185,6 +2185,10 @@ button.library-file-preview { cursor:zoom-in; }
   background:#f7fafc;
   border-color:#d5dee5;
 }
+:root[data-theme="light"] .diagnostic-debug { border-left-color:var(--ds-info); }
+:root[data-theme="light"] .diagnostic-info { border-left-color:var(--ds-success); }
+:root[data-theme="light"] .diagnostic-warn { border-left-color:var(--ds-warning); }
+:root[data-theme="light"] .diagnostic-error { border-left-color:var(--ds-danger); }
 :root[data-theme="light"] .diagnostics-status-grid strong,
 :root[data-theme="light"] .diagnostics-status-grid code,
 :root[data-theme="light"] .diagnostic-message { color:#263744; }
