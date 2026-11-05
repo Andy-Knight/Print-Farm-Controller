@@ -4473,8 +4473,37 @@ async function nativeAuthenticationSmoke(browser){
       && document.body.dataset.authRole==='administrator',{},{timeout:25000});
     assert.equal(await page.locator('#usersBtn').isVisible(),true);
     assert.equal(await page.locator('#authIdentity').isVisible(),true);
+    const diagnosticLevels=['INFO','WARN','ERROR'];
+    const diagnosticsRoute='**/api/diagnostics?*';
+    const mockDiagnostics=route=>route.fulfill({json:{
+      status:{level:'info'},
+      entries:diagnosticLevels.map(level=>({level,message:`${level} test event`}))
+    }});
+    await page.route(diagnosticsRoute,mockDiagnostics);
     await page.locator('#diagnosticsBtn').click();
-    await page.waitForFunction(()=>document.querySelector('#diagnosticsStatus')?.textContent.includes('INFO'));
+    for(const level of diagnosticLevels){
+      const label=page.locator(`.diagnostic-${level.toLowerCase()} .diagnostic-level`);
+      await label.waitFor({state:'visible'});
+      assert.equal(await label.innerText(),level);
+    }
+    const originalTheme=await page.locator('html').getAttribute('data-theme');
+    try{
+      for(const theme of ['dark','light']){
+        await page.evaluate(value=>document.documentElement.dataset.theme=value,theme);
+        const borders=await page.locator('#diagnosticsLog .diagnostic-entry').evaluateAll(rows=>rows.map(row=>{
+          const style=getComputedStyle(row);
+          return {accent:style.borderLeftColor,outline:style.borderTopColor};
+        }));
+        assert.ok(borders.every(({accent,outline})=>accent!==outline),`${theme} diagnostics must retain severity accents`);
+        assert.equal(new Set(borders.map(({accent})=>accent)).size,3,`${theme} severity accents must be distinct`);
+      }
+    }finally{
+      await page.evaluate(theme=>{
+        if(theme===null)delete document.documentElement.dataset.theme;
+        else document.documentElement.dataset.theme=theme;
+      },originalTheme);
+      await page.unroute(diagnosticsRoute,mockDiagnostics);
+    }
     assert.equal(await page.locator('#diagnosticsVerboseBtn').count(),0);
     assert.equal(await page.locator('#diagnosticsLevel option[value=DEBUG]').count(),0);
     assert.equal(await page.locator('#diagnosticsBundleBtn').isVisible(),true);

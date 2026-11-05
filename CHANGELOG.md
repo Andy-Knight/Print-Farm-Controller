@@ -4,6 +4,10 @@ This file contains the version-by-version release history for Print Farm Control
 
 Historical entries describe the behaviour of the controller at the time of that release and may be superseded by later versions. For current installation, configuration and supported-hardware guidance, see [README.md](README.md).
 
+## v0.62.4
+
+- Restore green, amber and red severity borders on Diagnostics events in light mode.
+
 ## v0.62.3
 
 - Record login successes, invalid credentials, rejected or throttled login attempts and logout outcomes in the existing rotating diagnostic logs, with available account identity and socket peer IP.
