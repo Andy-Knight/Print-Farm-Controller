@@ -1,10 +1,14 @@
-import { randomUUID } from 'node:crypto';
+import { randomBytes, randomUUID, timingSafeEqual } from 'node:crypto';
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
 
 export const printerMapsFile = 'printer-maps.json';
 export const emptyPrinterMaps = { version:1, maps:[] };
-const itemTypes = new Set(['label', 'zone', 'bench', 'rack', 'wall', 'door', 'aisle', 'rectangle', 'line']);
+const displayTokenPattern = /^[A-Za-z0-9_-]{43}$/;
+const itemTypes = new Set([
+  'floor', 'label', 'zone', 'bench', 'rack', 'wall', 'door', 'aisle', 'rectangle', 'line',
+  'plant-pot', 'window', 'chair', 'stool', 'computer'
+]);
 
 function mapError(message, statusCode = 400) {
   return Object.assign(new Error(message), { statusCode });
@@ -62,16 +66,21 @@ function normalizeLayout(input) {
       }
       Object.assign(normalized, { rotation, mirrored });
     }
+    if ((type === 'chair' || type === 'computer') && item.rotation !== undefined) {
+      if (![0, 90, 180, 270].includes(item.rotation)) throw mapError('Invalid furniture orientation.');
+      normalized.rotation = item.rotation;
+    }
     return normalized;
   });
   return { name:name.trim(), columns, rows, compactPrinters, placements:positions, items:layoutItems };
 }
 
-export function normalizePrinterMaps(store) {
+export function normalizePrinterMaps(store, { includeDisplayLinks = false } = {}) {
   if (store?.version !== 1 || !Array.isArray(store.maps)) throw mapError('Printer map store is invalid.');
   const mapIds = new Set();
   const names = new Set();
   const printerIds = new Set();
+  const displayTokens = new Set();
   const maps = store.maps.map(map => {
     const layout = normalizeLayout(map);
     const nameKey = layout.name.toLowerCase();
@@ -85,14 +94,25 @@ export function normalizePrinterMaps(store) {
       if (printerIds.has(printerId)) throw mapError('A printer appears on more than one map.');
       printerIds.add(printerId);
     }
-    return { id:map.id, ...layout, revision:map.revision };
+    const normalized = { id:map.id, ...layout, revision:map.revision };
+    if (includeDisplayLinks && map.displayToken !== undefined) {
+      if (typeof map.displayToken !== 'string' || !displayTokenPattern.test(map.displayToken)
+          || displayTokens.has(map.displayToken)) throw mapError('Printer map display link is invalid.');
+      displayTokens.add(map.displayToken);
+      normalized.displayToken = map.displayToken;
+    }
+    return normalized;
   });
   return { version:1, maps };
 }
 
-export async function readPrinterMaps(dataDir) {
+export async function readPrinterMaps(dataDir, options) {
   try {
-    return normalizePrinterMaps(JSON.parse(await fs.readFile(path.join(dataDir, printerMapsFile), 'utf8')));
+    const contents = await fs.readFile(path.join(dataDir, printerMapsFile), 'utf8');
+    let store;
+    try { store = JSON.parse(contents); }
+    catch { throw mapError('Printer map store is invalid.'); }
+    return normalizePrinterMaps(store, options);
   } catch (error) {
     if (error.code === 'ENOENT') return structuredClone(emptyPrinterMaps);
     throw error;
@@ -101,7 +121,7 @@ export async function readPrinterMaps(dataDir) {
 
 // The controller serializes map writes and printer registry mutations together.
 export async function savePrinterMap(dataDir, { id, input, printerIds, remove = false }) {
-  const store = await readPrinterMaps(dataDir);
+  const store = await readPrinterMaps(dataDir, { includeDisplayLinks:true });
   const index = id ? store.maps.findIndex(map => map.id === id) : -1;
   const previous = store.maps[index];
   if (id && !previous) throw mapError('This map no longer exists.', 404);
@@ -130,9 +150,15 @@ export async function savePrinterMap(dataDir, { id, input, printerIds, remove = 
       placements.push(position);
     }
     const next = { id:id || randomUUID(), ...layout, placements, revision:(previous?.revision || 0) + 1 };
+    if (previous?.displayToken) next.displayToken = previous.displayToken;
     if (previous) store.maps[index] = next;
     else store.maps.push(next);
   }
+  await writePrinterMaps(dataDir, store);
+  return normalizePrinterMaps(store);
+}
+
+async function writePrinterMaps(dataDir, store) {
   const file = path.join(dataDir, printerMapsFile);
   const temporary = `${file}.${randomUUID()}.tmp`;
   try {
@@ -141,5 +167,30 @@ export async function savePrinterMap(dataDir, { id, input, printerIds, remove = 
   } finally {
     await fs.rm(temporary, { force:true }).catch(() => {});
   }
-  return store;
+}
+
+// Link management uses the same controller mutation lock as layout writes.
+export async function printerMapDisplayLink(dataDir, id, method) {
+  const store = await readPrinterMaps(dataDir, { includeDisplayLinks:true });
+  const map = store.maps.find(entry => entry.id === id);
+  if (!map) throw mapError('This map no longer exists.', 404);
+  if (method === 'POST') {
+    map.displayToken = randomBytes(32).toString('base64url');
+    await writePrinterMaps(dataDir, store);
+  } else if (method === 'DELETE' && map.displayToken) {
+    delete map.displayToken;
+    await writePrinterMaps(dataDir, store);
+  }
+  return { token:map.displayToken || '' };
+}
+
+export async function readDisplayedPrinterMap(dataDir, authorization) {
+  const token = /^Bearer ([A-Za-z0-9_-]{43})$/.exec(authorization || '')?.[1];
+  if (!token) return null;
+  const { maps } = await readPrinterMaps(dataDir, { includeDisplayLinks:true });
+  const supplied = Buffer.from(token);
+  const map = maps.find(entry => entry.displayToken && timingSafeEqual(Buffer.from(entry.displayToken), supplied));
+  if (!map) return null;
+  const { name, columns, rows, compactPrinters, items, placements } = map;
+  return { name, columns, rows, compactPrinters, items, placements };
 }

@@ -49,6 +49,9 @@ function mockEvents() {
 function makeHarness({ preact = false, confirmed = true, request = null, transformController = null } = {}) {
   const events = mockEvents();
   const document = mockEvents();
+  const printerScope = { hidden:true };
+  const queueHistorySection = { hidden:false };
+  document.querySelector = selector => selector === '#queuePrinterScope' ? printerScope : null;
   const calls = [];
   const alerts = [];
   const published = [];
@@ -91,7 +94,7 @@ function makeHarness({ preact = false, confirmed = true, request = null, transfo
   const originalQueue = { jobs:[], productionBatches:[], bedClearance:[clearance] };
   const sandbox = {
     queueState:originalQueue,
-    queueDialog:{},
+    queueDialog:{ querySelector:selector => selector === '.queue-history-section' ? queueHistorySection : null },
     queueActiveList:queue,
     queueHistoryList:null,
     queueSummary:{textContent:''},
@@ -101,6 +104,9 @@ function makeHarness({ preact = false, confirmed = true, request = null, transfo
     queueRenderPending:false,
     queueInteractionReleaseTimer:null,
     pendingBedClearanceActions:new Set(),
+    activeRoute:'/queue',
+    location:{ search:'' },
+    URLSearchParams,
     window:{ __PFC_PREACT_QUEUE__:preact },
     document,
     confirm:() => confirmed,

@@ -312,10 +312,11 @@ export class AlertService {
     return this.state.destinations.map((destination) => publicDestination(destination, this.providers));
   }
 
-  listHistory({ limit = 100, unreadOnly = false } = {}) {
+  listHistory({ limit = 100, unreadOnly = false, printerId = '' } = {}) {
     const bounded = Math.max(1, Math.min(this.historyLimit, Number(limit) || 100));
-    const source = unreadOnly
-      ? this.state.history.filter((alert) => alertRequiresRead(alert) && !alert.readAt)
+    const source = unreadOnly || printerId
+      ? this.state.history.filter(alert => (!printerId || alert.printer?.id === printerId)
+        && (!unreadOnly || (alertRequiresRead(alert) && !alert.readAt)))
       : this.state.history;
     return clone(source.slice(0, bounded));
   }
@@ -336,7 +337,7 @@ export class AlertService {
       .map(alert => alert.printer?.id).filter(Boolean))];
   }
 
-  snapshot({ historyLimit = 20, includeConfiguration = true } = {}) {
+  snapshot({ historyLimit = 20, includeConfiguration = true, printerId = '' } = {}) {
     return {
       version:1,
       unreadCount:this.unreadCount(),
@@ -344,7 +345,7 @@ export class AlertService {
       providers:this.providerDefinitions(),
       rules:this.listRules(),
       destinations:this.listDestinations().map(destination => includeConfiguration ? destination : {id:destination.id,name:destination.name,provider:destination.provider,providerLabel:destination.providerLabel,enabled:destination.enabled}),
-      history:this.listHistory({ limit:historyLimit })
+      history:this.listHistory({ limit:historyLimit, printerId })
     };
   }
 

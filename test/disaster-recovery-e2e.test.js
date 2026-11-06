@@ -139,7 +139,10 @@ test('end-to-end disaster recovery restores portable state and reinitializes saf
     id:'room-1', name:'Workshop', revision:1,
     columns:75, rows:60, compactPrinters:true,
     placements:[{ printerId:'ff-dr', x:125, y:440 }],
-    items:[{ id:'room-bench', type:'bench', label:'Work bench', x:50, y:400, width:320, height:240 }]
+    items:[
+      { id:'room-bench', type:'bench', label:'Work bench', x:50, y:400, width:320, height:240 },
+      { id:'room-computer', type:'computer', label:'Slicing station', x:70, y:720, width:120, height:100 }
+    ]
   }] };
   const jobs = [
     {
@@ -228,7 +231,9 @@ test('end-to-end disaster recovery restores portable state and reinitializes saf
   try {
     await fs.mkdir(libraryDir, { recursive:true });
     await writeJson(path.join(sourceData, 'printers.json'), printers);
-    await writeJson(path.join(sourceData, 'printer-maps.json'), printerMaps);
+    await writeJson(path.join(sourceData, 'printer-maps.json'), {
+      version:printerMaps.version, maps:printerMaps.maps.map(map => ({ ...map, displayToken:'x'.repeat(43) }))
+    });
     await writeJson(path.join(sourceData, 'print-jobs.json'), jobs);
     await writeJson(path.join(sourceData, 'file-material-metadata.json'), fileMaterials);
     await writeJson(path.join(sourceData, 'emulator-settings.json'), { enabled:true });

@@ -11,6 +11,7 @@ const DEFAULT_QUEUE_STATE = Object.freeze({
 function normalizeState(input = {}) {
   return {
     summary:String(input.summary || 'No queued prints'),
+    activeEmptyText:String(input.activeEmptyText || 'No active, queued or review-blocked jobs.'),
     activeItems:Array.isArray(input.activeItems) ? input.activeItems : [],
     historyItems:Array.isArray(input.historyItems) ? input.historyItems : []
   };
@@ -92,7 +93,7 @@ function QueueJob({ item }) {
         <Compatibility rows={item.compatibility} />
         {item.error && <div class="queue-job-error">{item.error}</div>}
       </div>
-      {item.history ? (
+      {item.readOnly ? null : item.history ? (
         <UiButton variant="secondary" data-queue-reprint={item.id}>Reprint</UiButton>
       ) : (
         <div class="queue-job-actions">
@@ -228,7 +229,7 @@ function QueueSummaryRoot({ state }) {
 }
 
 function QueueActiveRoot({ state }) {
-  return <QueueList items={state.activeItems} emptyText="No active, queued or review-blocked jobs." />;
+  return <QueueList items={state.activeItems} emptyText={state.activeEmptyText} />;
 }
 
 function QueueHistoryRoot({ state }) {

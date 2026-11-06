@@ -41,7 +41,8 @@ test('farm alerts UI exposes history, destinations and scoped notification rules
   assert.match(index, /src="\/auth-gate\.js"/);
   assert.match(fs.readFileSync(new URL('../public/auth-gate.js', import.meta.url),'utf8'), /import\('\/alerts\.js'\)/);
 
-  assert.match(alertsUi, /\/api\/alerts\?limit=100/);
+  assert.match(alertsUi, /new URLSearchParams\(\{ limit:'100' \}\)/);
+  assert.match(alertsUi, /requestJson\(`\/api\/alerts\?\$\{params\}`\)/);
   assert.match(alertsUi, /\/api\/alerts\/destinations/);
   assert.match(alertsUi, /\/api\/alerts\/rules/);
   assert.match(alertsUi, /\/api\/alerts\/mark-read/);
@@ -54,7 +55,8 @@ test('farm alerts UI exposes history, destinations and scoped notification rules
   assert.match(alertsUi, /Saved token — leave blank to keep/);
   assert.match(alertsUi, /pfc-alerts-live/);
   assert.match(alertsUi, /function activateAlertsTab/);
-  assert.equal((alertsUi.match(/openAlerts\('history'\)/g) || []).length >= 2, true);
+  assert.match(app, /alertsBtn\?\.addEventListener\('click',[\s\S]*?navigateController\('\/alerts'\)/);
+  assert.match(alertsUi, /alertsSettingsBtn\?\.addEventListener\('click', \(\) => openAlerts\('history'\)\)/);
   assert.match(alertsUi, /\['ArrowLeft','ArrowRight','Home','End'\]/);
   new vm.Script(alertsUi);
 });

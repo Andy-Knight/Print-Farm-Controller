@@ -160,18 +160,22 @@ test('informational alerts stay in history without requiring read acknowledgemen
       type:'print.completed',
       severity:'info',
       title:'Print completed',
-      message:'Part finished'
+      message:'Part finished',
+      printer:{ id:'p1', name:'Printer one' }
     });
     const warning = await service.emit({
       type:'queue.needs_review',
       severity:'warning',
       title:'Queue job needs review',
-      message:'Review required'
+      message:'Review required',
+      printer:{ id:'p2', name:'Printer two' }
     });
 
     assert.equal(service.listHistory().length, 2);
     assert.equal(service.unreadCount(), 1);
     assert.deepEqual(service.listHistory({ unreadOnly:true }).map((alert) => alert.id), [warning.alert.id]);
+    assert.deepEqual(service.snapshot({ printerId:'p1', historyLimit:1 }).history.map(alert => alert.id), [info.alert.id]);
+    assert.deepEqual(service.listHistory({ printerId:'p1', unreadOnly:true }), []);
 
     const infoMark = await service.markRead(info.alert.id);
     assert.equal(infoMark.changed, 0);

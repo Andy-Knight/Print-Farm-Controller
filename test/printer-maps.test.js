@@ -42,16 +42,23 @@ test('room items round-trip, remain map-scoped and reject invalid geometry', asy
   t.after(() => fs.rm(dataDir, { recursive:true, force:true }));
   const save = (input, id) => savePrinterMap(dataDir, { id, input, printerIds:new Set() });
   const item = { id:'bench-1', type:'bench', label:'Finishing', x:50, y:80, width:300, height:120 };
-  const room = { name:'Main room', placements:[], items:[item] };
+  const objects = ['plant-pot', 'window', 'chair', 'stool', 'computer'].map((type, index) => ({
+    id:type, type, label:`Fixture ${index + 1}`, x:50 + index * 100, y:260, width:80, height:80,
+    ...(type === 'chair' ? { rotation:90 } : type === 'computer' ? { rotation:270 } : {})
+  }));
+  const floor = { id:'floor', type:'floor', label:'Workshop floor', x:0, y:0, width:1000, height:1000 };
+  const items = [item, ...objects, floor];
+  const room = { name:'Main room', placements:[], items };
   const { maps:[first] } = await save(room);
-  assert.deepEqual(first.items, [item]);
+  assert.deepEqual(first.items, items);
   await save({ ...room, name:'Second room' });
-  assert.deepEqual((await readPrinterMaps(dataDir)).maps.map(map => map.items), [[item], [item]]);
+  assert.deepEqual((await readPrinterMaps(dataDir)).maps.map(map => map.items), [items, items]);
   const { maps:[renamed] } = await save({ name:'New name', revision:first.revision, placements:[] }, first.id);
-  assert.deepEqual(renamed.items, [item]);
+  assert.deepEqual(renamed.items, items);
   await assert.rejects(save({ ...room, items:[item, item] }), { statusCode:400 });
   await assert.rejects(save({ ...room, items:[{ ...item, width:980 }] }), { statusCode:400 });
   await assert.rejects(save({ ...room, items:[{ ...item, type:'unknown' }] }), { statusCode:400 });
+  await assert.rejects(save({ ...room, items:[{ ...objects[2], rotation:45 }] }), { statusCode:400 });
   const { maps:[cleared] } = await save({ ...renamed, items:[] }, renamed.id);
   assert.deepEqual(cleared.items, []);
   const roomSized = { ...item, x:0, y:0, width:1000, height:1000 };

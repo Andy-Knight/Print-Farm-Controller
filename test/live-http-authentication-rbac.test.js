@@ -36,6 +36,12 @@ test('real HTTP dispatcher enforces login, CSRF and RBAC before controller actio
     await accounts.bootstrapAdministrator({username:'controlleradmin',password});
     await accounts.addUser({username:'readuser',password,role:'viewer'});
     await accounts.addUser({username:'operatoruser',password,role:'operator'});
+    await fs.writeFile(path.join(dataDir,'printers.json'), JSON.stringify([
+      { id:'display-a', name:'Displayed printer', adapterType:'flashforge-ad5m', model:'AD5M Pro',
+        host:'127.0.0.2', checkCode:'DISPLAY_PRIVATE_CODE' },
+      { id:'display-b', name:'Other room printer', adapterType:'flashforge-ad5m', model:'AD5M Pro',
+        host:'127.0.0.3', checkCode:'OTHER_PRIVATE_CODE' }
+    ]));
     await fs.writeFile(path.join(dataDir,'alerts.json'),JSON.stringify({version:1,rules:[],history:[],destinations:[{id:'synthetic-hook',name:'Operations',provider:'webhook',config:{url:'https://example.invalid/SECRET_URL',authorization:'SECRET_AUTH'}}]}));
     const port=await freePort(),base='http://127.0.0.1:'+port;
     child=spawn(process.execPath,['src/server.js'],{
@@ -71,22 +77,68 @@ test('real HTTP dispatcher enforces login, CSRF and RBAC before controller actio
     });
     const userRecords=await accounts.listUsers();
     const roomPath = '/api/printer-maps';
-    const room = { name:'Workshop', placements:[] };
+    const room = { name:'Workshop', placements:[{ printerId:'display-a', x:20, y:20 }] };
     const createdRoom = await call('POST', roomPath, admin, { body:room });
     assert.equal(createdRoom.status, 201);
     const { maps:[savedRoom] } = await createdRoom.json();
     const savedRoomPath = `${roomPath}/${savedRoom.id}`;
+    const displayLinkPath = `${savedRoomPath}/display-link`;
+    const display = (token, endpoint = '/api/map-display', method = 'GET') => fetch(base + endpoint, {
+      method, headers:{ authorization:`Bearer ${token}` }
+    });
+    const displayShell = await fetch(base + '/map-display');
+    assert.equal(displayShell.status, 200);
+    assert.equal(displayShell.headers.get('referrer-policy'), 'no-referrer');
+    assert.equal(displayShell.headers.get('cache-control'), 'no-store');
+    assert.doesNotMatch(await displayShell.text(), /auth-gate\.js|controllerSidebar/);
+    assert.equal((await fetch(base + '/api/map-display')).status, 404);
+    assert.equal((await display('x'.repeat(43))).status, 404);
+    assert.equal((await call('POST', displayLinkPath, admin, { csrf:false })).status, 403);
+    const { token } = await (await call('POST', displayLinkPath, admin)).json();
+    assert.match(token, /^[A-Za-z0-9_-]{43}$/);
+    assert.equal((await (await call('GET', displayLinkPath, admin)).json()).token, token);
+    const displayed = await display(token);
+    assert.equal(displayed.status, 200);
+    assert.equal(displayed.headers.get('set-cookie'), null);
+    assert.equal(displayed.headers.get('cache-control'), 'no-store');
+    const displayBody = await displayed.json();
+    assert.deepEqual(Object.keys(displayBody).sort(), ['map', 'printers']);
+    assert.equal(displayBody.map.name, room.name);
+    assert.deepEqual(displayBody.printers.map(printer => printer.name), ['Displayed printer']);
+    assert.deepEqual(Object.keys(displayBody.printers[0]).sort(), ['alert','id','imageKey','name','printing','queued']);
+    assert.doesNotMatch(JSON.stringify(displayBody), /PRIVATE_CODE|Other room printer|display-b|displayToken/);
+    for (const endpoint of ['/api/fleet','/api/events','/api/printers','/api/alerts','/api/queue',roomPath,displayLinkPath]) {
+      assert.equal((await display(token, endpoint)).status, 401, endpoint);
+    }
+    assert.equal((await display(token, '/api/map-display', 'POST')).status, 401);
     for (const identity of [viewer, operator]) {
       assert.deepEqual((await (await call('GET', roomPath, identity)).json()).maps, [savedRoom]);
       assert.equal((await call('POST', roomPath, identity, { body:room })).status, 403);
       assert.equal((await call('PUT', savedRoomPath, identity, { body:savedRoom })).status, 403);
       assert.equal((await call('DELETE', savedRoomPath, identity, { body:savedRoom })).status, 403);
+      for (const method of ['GET','POST','DELETE']) assert.equal((await call(method, displayLinkPath, identity)).status, 403);
     }
     assert.equal((await call('PUT', savedRoomPath, admin, { csrf:false, body:savedRoom })).status, 403);
     const renamedRoom = await call('PUT', savedRoomPath, admin, { body:{ ...savedRoom, name:'Upstairs' } });
     assert.equal(renamedRoom.status, 200);
     const { maps:[updatedRoom] } = await renamedRoom.json();
     assert.equal(updatedRoom.name, 'Upstairs');
+    assert.equal((await (await display(token)).json()).map.name, 'Upstairs', 'saving a map preserves the display link');
+    const secondRoom = (await (await call('POST', roomPath, admin, {
+      body:{ name:'Other room', placements:[{ printerId:'display-b', x:20, y:20 }] }
+    })).json()).maps.at(-1);
+    const secondRoomPath = `${roomPath}/${secondRoom.id}`;
+    const { token:secondToken } = await (await call('POST', secondRoomPath + '/display-link', admin)).json();
+    assert.notEqual(token, secondToken);
+    assert.deepEqual((await (await display(secondToken)).json()).printers.map(printer => printer.name), ['Other room printer']);
+    assert.equal((await call('DELETE', secondRoomPath, admin, { body:secondRoom })).status, 200);
+    assert.equal((await display(secondToken)).status, 404, 'deleting a map invalidates its link');
+    const { token:replacement } = await (await call('POST', displayLinkPath, admin)).json();
+    assert.notEqual(replacement, token);
+    assert.equal((await display(token)).status, 404);
+    assert.equal((await display(replacement)).status, 200);
+    assert.equal((await call('DELETE', displayLinkPath, admin)).status, 200);
+    assert.equal((await display(replacement)).status, 404);
     assert.equal((await call('DELETE', savedRoomPath, admin, { body:savedRoom })).status, 409);
     assert.equal((await call('DELETE', savedRoomPath, admin, { body:updatedRoom })).status, 200);
     const adminId=userRecords.find(user=>user.username==='controlleradmin').id;

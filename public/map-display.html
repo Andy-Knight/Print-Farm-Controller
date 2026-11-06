@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="referrer" content="no-referrer">
+  <title>Printer map</title>
+  <link rel="stylesheet" href="/styles.css">
+  <link rel="stylesheet" href="/design-system.css">
+  <link rel="stylesheet" href="/shell.css">
+  <link rel="stylesheet" href="/printer-map.css">
+  <script type="module" src="/map-display.js"></script>
+</head>
+<body>
+  <div id="printerMapPage" class="printer-map-fullscreen printer-map-monitor" role="main">
+    <header class="printer-map-fullscreen-header">
+      <div class="brand-lockup">
+        <svg class="stacked-layers-mark" viewBox="0 0 120 92" aria-hidden="true" focusable="false">
+          <polygon points="60,2 114,27 60,52 6,27"></polygon>
+          <polygon points="14,39 60,60 106,39 114,43 60,69 6,43"></polygon>
+          <polygon points="14,58 60,79 106,58 114,62 60,90 6,62"></polygon>
+        </svg>
+        <div class="brand-copy">
+          <span class="brand-name">STACKED LAYERS</span>
+          <span class="brand-product">Print Farm Controller</span>
+        </div>
+      </div>
+      <h1 id="printerMapFullscreenTitle">Printer map</h1>
+      <button id="mapDisplayFullscreen" type="button" class="ui-button ui-button-secondary ui-button-medium secondary" hidden>Full screen</button>
+    </header>
+    <div id="printerMapFullscreenStage" class="printer-map-fullscreen-stage">
+      <p id="mapDisplayStatus" class="printer-map-monitor-status" role="status">Loading printer map…</p>
+      <div id="printerMapViewport" class="printer-map-viewport" role="region" aria-label="Room layout" hidden>
+        <div id="printerMapCanvas"><div id="printerMapItems"></div></div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

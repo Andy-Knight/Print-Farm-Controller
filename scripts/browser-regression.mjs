@@ -2111,14 +2111,42 @@ async function printerMapSmoke(browser, url) {
     online:true, status:{ status:'printing' } };
   const unknownPrinter = { id:'map-unknown', name:'Unknown model', model:'Unknown', adapterType:'unknown' };
   const secondPrinter = { ...printer, id:'map-p2', name:'Second printer' };
-  const fleet = { printers:[printer, unknownPrinter, secondPrinter], queue:{ jobs:[{ id:'queued-1', printerId:printer.id, status:'queued' }] },
+  const fleet = { printers:[printer, unknownPrinter, secondPrinter], queue:{ jobs:[
+    { id:'queued-1', printerId:printer.id, printerName:printer.name, fileName:'Workshop job.gcode', status:'queued' },
+    { id:'active-copy', printerId:printer.id, fileName:'Workshop production copy.gcode', productionBatchId:'batch-1', status:'printing' },
+    { id:'other-queued', printerId:secondPrinter.id, fileName:'Other job.gcode', status:'queued' },
+    { id:'old-job', printerId:printer.id, fileName:'Completed job.gcode', status:'completed' }
+  ] },
     alerts:{ attentionPrinterIds:[printer.id] } };
+  const alerts = [printer, secondPrinter].map(device => ({
+    id:device.id, printer:{ id:device.id, name:device.name }, title:`Alert for ${device.name}`,
+    severity:'warning', createdAt:'2026-11-01T09:00:00Z'
+  }));
+  const testDisplayToken = 'm'.repeat(43);
+  let displayToken = '';
   const store = { version:1, maps:[{ id:'upstairs', name:'Upstairs', revision:1, placements:[], items:[
     { id:'join-h', type:'wall', axis:'horizontal', label:'', x:30, y:30, width:120, height:40 },
-    { id:'join-v', type:'wall', axis:'vertical', label:'', x:150, y:30, width:40, height:120 }
+    { id:'join-v', type:'wall', axis:'vertical', label:'', x:150, y:30, width:40, height:120 },
+    { id:'door-left', type:'wall', axis:'horizontal', label:'', x:210, y:90, width:40, height:40 },
+    { id:'door-right', type:'wall', axis:'horizontal', label:'', x:410, y:90, width:80, height:40 },
+    { id:'door-h', type:'door', label:'', rotation:0, x:270, y:70, width:120, height:80 },
+    { id:'door-above', type:'wall', axis:'vertical', label:'', x:350, y:90, width:40, height:60 },
+    { id:'door-v', type:'door', label:'', rotation:90, mirrored:true, x:330, y:170, width:80, height:100 },
+    { id:'window-wall', type:'wall', axis:'vertical', label:'', x:220, y:110, width:40, height:180 },
+    { id:'window-v', type:'window', label:'Old label', x:210, y:140, width:40, height:100 },
+    { id:'window-left', type:'wall', axis:'horizontal', label:'', x:10, y:225, width:40, height:40 },
+    { id:'window-right', type:'wall', axis:'horizontal', label:'', x:170, y:225, width:60, height:40 },
+    { id:'window-h', type:'window', label:'', x:60, y:220, width:100, height:40 }
   ] }] };
   await context.route('**/dashboard-preact.js', route => route.abort());
   await context.route('**/api/fleet', route => route.fulfill({ json:fleet }));
+  await context.route('**/api/queue', route => route.fulfill({ json:fleet.queue }));
+  await context.route(/\/api\/alerts\?/, route => {
+    const printerId = new URL(route.request().url()).searchParams.get('printerId');
+    return route.fulfill({ json:{ alerts:{
+      unreadCount:2, history:printerId ? alerts.filter(alert => alert.printer.id === printerId) : alerts
+    } } });
+  });
   await context.route('**/api/events', route => route.fulfill({
     headers:{ 'content-type':'text/event-stream' }, body:`event: fleet\ndata: ${JSON.stringify(fleet)}\n\n`
   }));
@@ -2129,12 +2157,20 @@ async function printerMapSmoke(browser, url) {
     }
     return route.fulfill({ json:store });
   });
+  await context.route('**/api/printer-maps/workshop/display-link', route => {
+    const method = route.request().method();
+    if (method === 'POST') displayToken = testDisplayToken;
+    if (method === 'DELETE') displayToken = '';
+    return route.fulfill({ json:{ token:displayToken } });
+  });
   try {
     await page.goto(url + '/');
     await page.waitForFunction(() => window.__PFC_FRONTEND_BOOTED__ === true);
     const newMap = page.getByRole('button', { name:'New map', exact:true });
     await page.locator('#printerMapBtn').click();
     await newMap.click();
+    const mapSelect = page.locator('#printerMapSelect');
+    assert.equal(await mapSelect.isVisible(), false, 'creating a map hides the room selector');
     assert.equal(await page.getByRole('button', { name:'Full screen', exact:true }).isVisible(), false);
     await page.getByLabel('Map name').fill('Workshop');
     await page.locator('#printerMapEditor select[name="printer"]').selectOption(printer.id);
@@ -2151,6 +2187,7 @@ async function printerMapSmoke(browser, url) {
     assert.equal(await marker.locator('.printer-map-direction').count(), 0);
     assert.equal(await page.getByRole('button', { name:/rotate/i }).count(), 0);
     assert.match(await marker.getAttribute('aria-label'), /Workshop Bambu Lab A1.*Alert.*Printing.*1 queued/);
+    assert.equal(await marker.locator('.printer-map-alert').isDisabled(), true, 'map editing reserves tile clicks for selection');
     const name = marker.locator('strong');
     const nameLines = await name.evaluate(node => node.offsetHeight / parseFloat(getComputedStyle(node).lineHeight));
     assert.ok(Math.abs(nameLines - 2) < 0.1, 'the printer name wraps onto two lines');
@@ -2196,28 +2233,47 @@ async function printerMapSmoke(browser, url) {
     await marker.press('ArrowLeft');
     let savedPosition = [dragX - 20, dragY + 60];
     assert.deepEqual(await assertSnapped(), savedPosition);
-    const layoutType = page.locator('select[name="layoutType"]');
-    const addItem = page.getByRole('button', { name:'Add item', exact:true });
-    await layoutType.selectOption('zone');
-    await addItem.click();
+    const paletteButton = type => page.locator(`#printerMapPalette [data-map-item-type="${type}"]`);
+    assert.equal(await page.locator('#printerMapPalette button').count(), 15);
+    await page.getByRole('button', { name:'Add zone', exact:true }).press('Enter');
     const zone = page.locator('.printer-map-item[data-kind="zone"]');
     const label = page.getByRole('textbox', { name:'Item label', exact:true });
+    assert.equal(await label.isVisible(), false, 'selection alone does not open the label editor');
+    assert.equal(await page.locator('#printerMapItemEditor input').count(), 0);
+    await zone.dblclick({ position:{ x:20, y:20 } });
+    assert.equal(await label.inputValue(), 'Zone');
+    const labelBoundsInZone = await label.boundingBox();
+    const zoneBeforeRename = await zone.boundingBox();
+    assert.ok(Math.abs(labelBoundsInZone.y + labelBoundsInZone.height
+      - zoneBeforeRename.y - zoneBeforeRename.height) <= 1, 'label editing takes place at the bottom of the item');
     await label.fill('Post-processing');
+    await label.press('ArrowLeft');
+    assert.deepEqual(await zone.boundingBox(), zoneBeforeRename, 'caret keys do not move the item');
+    await label.press('Enter');
+    assert.equal(await zone.innerText(), 'Post-processing');
+    await zone.press('F2');
+    await label.fill('Discarded');
+    await label.press('Escape');
+    assert.equal(await zone.innerText(), 'Post-processing');
     const initialZone = await zone.boundingBox();
     await page.mouse.move(initialZone.x + 20, initialZone.y + 20);
     await page.mouse.down();
     await page.mouse.move(initialZone.x + 65, initialZone.y + 45, { steps:4 });
     await page.mouse.up();
     assert.ok((await zone.boundingBox()).x > initialZone.x + 25, 'layout items are draggable');
-    const resize = zone.locator('[data-map-resize]');
-    await resize.scrollIntoViewIfNeeded();
-    const handle = await resize.boundingBox();
+    const resizeHandleBy = async (handle, dx, dy) => {
+      await handle.scrollIntoViewIfNeeded();
+      const { x, y } = await handle.boundingBox();
+      await page.mouse.move(x + 8, y + 8);
+      await page.mouse.down();
+      await page.mouse.move(x + 8 + dx, y + 8 + dy, { steps:4 });
+      await page.mouse.up();
+    };
+    const resizeBy = (item, dx, dy) => resizeHandleBy(item.locator('[data-map-resize]'), dx, dy);
     const beforeResize = await zone.boundingBox();
-    await page.mouse.move(handle.x + 10, handle.y + 10);
-    await page.mouse.down();
-    await page.mouse.move(handle.x + 50, handle.y + 30, { steps:4 });
-    await page.mouse.up();
+    await resizeBy(zone, 40, 20);
     assert.ok((await zone.boundingBox()).width > beforeResize.width + 20, 'zones resize from the corner');
+    const resize = zone.locator('[data-map-resize]');
     await resize.scrollIntoViewIfNeeded();
     const edgeHandle = await resize.boundingBox();
     const canvasBounds = await page.locator('#printerMapCanvas').boundingBox();
@@ -2233,9 +2289,7 @@ async function printerMapSmoke(browser, url) {
     assert.equal(resizedAtEdge.x, originalX, 'the opposite edge stays anchored while dragging');
     assert.equal(resizedAtEdge.steps, Math.floor(50 - originalX),
       'dragging stops at the last whole step inside the room');
-    const itemWidth = page.getByLabel('Width (grid steps)');
-    await itemWidth.fill('16');
-    await itemWidth.press('Tab');
+    await resizeBy(zone, (16 - resizedAtEdge.steps) * 15, 0);
     assert.equal(await zone.evaluate(element => element.style.getPropertyValue('--map-item-width')), '16');
     assert.equal(await page.getByRole('button', { name:'Box select' }).count(), 0);
     const viewport = page.locator('#printerMapViewport');
@@ -2272,44 +2326,45 @@ async function printerMapSmoke(browser, url) {
     const savedZonePosition = [beforeGroup[0] + displacement[0] + 20, beforeGroup[1] + displacement[1]];
     assert.deepEqual(await zonePosition(), savedZonePosition);
     for (const type of ['label', 'bench', 'rack', 'wall', 'door', 'aisle', 'rectangle', 'line']) {
-      await layoutType.selectOption(type);
-      await addItem.click();
-      assert.equal(await page.locator(`.printer-map-item[data-kind="${type}"]`).count(), 1);
+      await paletteButton(type).click();
+      const item = page.locator(`.printer-map-item[data-kind="${type}"]`);
+      assert.equal(await item.count(), 1);
+      if (type === 'bench') {
+        const finish = item.locator('.printer-map-bench-finish');
+        assert.ok(await finish.isVisible(), 'the bench shows its butcher-block finish');
+        assert.equal(await finish.locator('pattern').getAttribute('patternUnits'), 'userSpaceOnUse');
+      }
       if (type === 'door') {
         await page.locator('select[name="doorRotation"]').selectOption('270');
         await page.getByRole('button', { name:'Flip hinge' }).click();
         assert.equal(await page.getByRole('button', { name:'Flip hinge' }).getAttribute('aria-pressed'), 'true');
       }
       if (type === 'wall') {
-        const itemHeight = page.getByLabel('Height (grid steps)', { exact:true });
-        assert.equal(await itemHeight.inputValue(), '2');
-        assert.ok(await itemHeight.isDisabled(), 'a horizontal wall has a fixed two-step height');
+        assert.equal(await item.evaluate(node => node.style.getPropertyValue('--map-item-height')), '2',
+          'a horizontal wall has a fixed two-step height');
       }
       if (type === 'line') {
         await page.locator('select[name="lineAxis"]').selectOption('vertical');
-        assert.equal(await itemWidth.inputValue(), '2');
-        assert.ok(await itemWidth.isDisabled(), 'a vertical line has a fixed two-step width');
+        await resizeBy(item, 30, 0);
+        assert.equal(await item.evaluate(node => node.style.getPropertyValue('--map-item-width')), '2',
+          'a vertical line has a fixed two-step width');
       }
       if (type === 'rectangle') {
         const canvas = page.locator('#printerMapCanvas');
         const initialCanvas = await canvas.boundingBox();
         const initialPrinterOffset = await marker.evaluate(node => [node.offsetLeft, node.offsetTop]);
-        await itemWidth.fill('50');
-        await itemWidth.press('Tab');
-        const itemHeight = page.getByLabel('Height (grid steps)');
-        await itemHeight.fill('50');
-        await itemHeight.press('Tab');
+        await resizeBy(item, 30, 30);
         const resizedCanvas = await canvas.boundingBox();
         assert.deepEqual([resizedCanvas.width, resizedCanvas.height], [initialCanvas.width, initialCanvas.height]);
         assert.deepEqual(await marker.evaluate(node => [node.offsetLeft, node.offsetTop]), initialPrinterOffset,
-          'room-sized items preserve the existing grid and printer position');
+          'resizing items preserves the existing grid and printer position');
       }
     }
     const door = page.locator('.printer-map-item[data-kind="door"]');
     assert.equal(await door.locator('.printer-map-door-symbol path[stroke-dasharray]').isVisible(), true);
-    const doorTransform = () => door.locator('svg').evaluate(node => getComputedStyle(node).transform);
+    const doorTransform = () => door.locator('svg g').getAttribute('transform');
     const savedDoorTransform = await doorTransform();
-    assert.equal(savedDoorTransform, 'matrix(0, 1, 1, 0, 0, 0)');
+    assert.equal(savedDoorTransform, 'translate(100 80) rotate(270) translate(80 0) scale(-1 1)');
     for (const type of ['label', 'zone', 'bench', 'rack', 'aisle']) {
       const item = page.locator(`.printer-map-item[data-kind="${type}"]`);
       const objectBounds = await item.boundingBox();
@@ -2342,9 +2397,116 @@ async function printerMapSmoke(browser, url) {
         assert.ok(abovePrinter, `${type} label remains visible above an overlapping printer`);
       }
     }
-    await addItem.click();
+    await paletteButton('line').click();
     await page.getByRole('button', { name:'Remove item' }).click();
     assert.equal(await page.locator('.printer-map-item').count(), 9);
+    const roomObjects = ['plant-pot', 'window', 'chair', 'stool', 'computer'];
+    const objectOnMap = type => page.locator(`.printer-map-item[data-kind="${type}"]`);
+    await paletteButton('floor').press('Enter');
+    const floor = objectOnMap('floor');
+    assert.equal(await floor.innerText(), 'Floor');
+    await floor.press('Escape');
+    await floor.scrollIntoViewIfNeeded();
+    const unselectedFloor = await floor.boundingBox();
+    const floorPoint = { x:unselectedFloor.width - 55, y:65 };
+    const start = { x:unselectedFloor.x + floorPoint.x, y:unselectedFloor.y + floorPoint.y };
+    await page.mouse.move(start.x, start.y);
+    await page.mouse.down();
+    await page.mouse.move(start.x + 25, start.y + 20);
+    assert.ok(await page.locator('#printerMapBox').isVisible(), 'an unselected floor can start box selection');
+    await page.mouse.up();
+    await floor.click({ position:floorPoint });
+    assert.equal(await floor.getAttribute('aria-pressed'), 'true', 'clicking the floor surface selects it');
+    const beforeFloorDrag = await floor.boundingBox();
+    const floorDragX = beforeFloorDrag.x + floorPoint.x;
+    const floorDragY = beforeFloorDrag.y + floorPoint.y;
+    await page.mouse.move(floorDragX, floorDragY);
+    await page.mouse.down();
+    await page.mouse.move(floorDragX + 30, floorDragY + 15, { steps:4 });
+    await page.mouse.up();
+    const movedFloor = await floor.boundingBox();
+    assert.deepEqual([movedFloor.x - beforeFloorDrag.x, movedFloor.y - beforeFloorDrag.y], [30, 15],
+      'dragging a selected floor surface moves it');
+    const floorHandle = page.locator('#printerMapFloorResize');
+    const overlappingRack = objectOnMap('rack');
+    await overlappingRack.evaluate(node => {
+      const corner = document.querySelector('#printerMapFloorResize');
+      node.style.left = `${corner.offsetLeft - 30}px`;
+      node.style.top = `${corner.offsetTop - 30}px`;
+    });
+    try {
+      await resizeHandleBy(floorHandle, 15, 15);
+    } finally {
+      await overlappingRack.evaluate(node => {
+        node.style.removeProperty('left');
+        node.style.removeProperty('top');
+      });
+    }
+    const startPaletteDrag = async type => {
+      const button = paletteButton(type);
+      await button.scrollIntoViewIfNeeded();
+      const bounds = await button.boundingBox();
+      await page.mouse.move(bounds.x + bounds.width / 2, bounds.y + bounds.height / 2);
+      await page.mouse.down();
+    };
+    for (const type of roomObjects.slice(0, -1)) {
+      if (type === 'chair') {
+        await startPaletteDrag(type);
+        await page.mouse.move(5, 5, { steps:4 });
+        await page.mouse.up();
+        assert.equal(await objectOnMap(type).count(), 0, 'dropping outside the room cancels placement');
+      }
+      await paletteButton(type).click();
+    }
+    const computer = objectOnMap('computer');
+    await startPaletteDrag('computer');
+    const roomGrid = await page.locator('#printerMapItems').boundingBox();
+    await page.mouse.move(roomGrid.x + 462, roomGrid.y + 259, { steps:8 });
+    const preview = page.locator('#printerMapItemPreview');
+    await preview.waitFor();
+    const previewBounds = await preview.boundingBox();
+    assert.ok(Math.abs(previewBounds.x + previewBounds.width / 2 - roomGrid.x - 462) < 8
+      && Math.abs(previewBounds.y + previewBounds.height / 2 - roomGrid.y - 259) < 8,
+    'the preview centres the item under the pointer and snaps it to the grid');
+    const position = item => item.evaluate(node => ['--map-x', '--map-y'].map(key => node.style.getPropertyValue(key)));
+    const dropPosition = await position(preview);
+    await page.mouse.up();
+    await preview.waitFor({ state:'hidden' });
+    assert.deepEqual(await position(computer), dropPosition, 'the new item snaps to its preview position');
+    assert.equal(await computer.count(), 1, 'a successful drop places exactly one item');
+    for (const type of roomObjects) {
+      assert.ok(await objectOnMap(type).locator('svg.printer-map-object-symbol').isVisible(), `${type} has a map symbol`);
+      if (type !== 'window') {
+        assert.ok(await objectOnMap(type).locator('.printer-map-furniture').isVisible(), `${type} uses the selected artwork`);
+        assert.equal(await paletteButton(type).locator('svg defs').count(), 0, `${type} retains its outline palette icon`);
+      }
+      if (type !== 'computer') {
+        assert.equal(await objectOnMap(type).innerText(), '', `${type} has no on-map label`);
+        await objectOnMap(type).press('F2');
+        assert.equal(await label.isVisible(), false, `${type} has no inline label editor`);
+      }
+    }
+    assert.equal(await paletteButton('window').locator('svg path').getAttribute('d'), 'M2 24h44m-22-20v40');
+    const windowPlan = objectOnMap('window').locator('.printer-map-window-plan');
+    assert.equal(await windowPlan.locator('.printer-map-window-frame').getAttribute('width'), '160');
+    const mullions = windowPlan.locator('.printer-map-window-mullions');
+    assert.equal((await mullions.getAttribute('d')).match(/M/g)?.length, 2,
+      'two steel mullions divide the opening into three sections');
+    assert.match(await windowPlan.getAttribute('transform'), /^translate\(0 /);
+    const chair = objectOnMap('chair');
+    const rotate = page.getByRole('button', { name:'Rotate 90°', exact:true });
+    await chair.press('Space');
+    await rotate.click();
+    const chairDrawing = chair.locator('.printer-map-furniture');
+    assert.equal(await chairDrawing.getAttribute('viewBox'), '0 0 60 48');
+    assert.equal(await chairDrawing.locator(':scope > g').getAttribute('transform'), 'translate(60 0) rotate(90)');
+    await computer.press('Shift+ArrowRight');
+    await rotate.click();
+    const computerDrawing = computer.locator('.printer-map-furniture');
+    assert.equal(await computerDrawing.getAttribute('viewBox'), '0 0 48 72');
+    await computer.press('F2');
+    await label.fill('Slicing station');
+    await label.press('Enter');
     const columns = page.getByRole('spinbutton', { name:'Map width (steps)', exact:true });
     const rows = page.getByRole('spinbutton', { name:'Map height (steps)', exact:true });
     const standardBounds = await marker.boundingBox();
@@ -2357,7 +2519,7 @@ async function printerMapSmoke(browser, url) {
     await columns.press('Tab');
     assert.ok(await viewport.evaluate(node => node.scrollWidth > node.clientWidth), 'a wide room scrolls on desktop');
     assert.deepEqual(await assertSnapped(), savedPosition, 'room size does not move the printer');
-    await columns.fill('40');
+    await columns.fill('10');
     await columns.press('Tab');
     assert.match(await page.locator('#printerMapError').innerText(), /before shrinking/);
     await columns.fill('54');
@@ -2373,9 +2535,18 @@ async function printerMapSmoke(browser, url) {
     'new compact printers are placed without overlapping existing tiles');
     await page.getByRole('button', { name:'Save map', exact:true }).click();
     await page.locator('#printerMapEditor').waitFor({ state:'hidden' });
+    assert.equal(await mapSelect.isVisible(), true, 'saving restores the room selector');
     assert.deepEqual(Object.keys(store.maps[1].placements[0]).sort(), ['printerId', 'x', 'y']);
     assert.deepEqual([store.maps[1].columns, store.maps[1].rows, store.maps[1].compactPrinters], [54, 55, true]);
-    assert.equal(store.maps[1].items.length, 9);
+    assert.equal(store.maps[1].items.length, 10 + roomObjects.length);
+    const savedFloor = store.maps[1].items.find(item => item.type === 'floor');
+    assert.deepEqual([savedFloor.width, savedFloor.height], [620, 420], 'the resized floor is saved');
+    assert.deepEqual(store.maps[1].items.slice(-roomObjects.length).map(item => item.type), roomObjects);
+    assert.equal(store.maps[1].items.at(-1).label, 'Slicing station');
+    const savedChair = store.maps[1].items.find(item => item.type === 'chair');
+    const savedComputer = store.maps[1].items.at(-1);
+    assert.deepEqual([savedChair.width, savedChair.height, savedChair.rotation], [100, 80, 90]);
+    assert.deepEqual([savedComputer.width, savedComputer.height, savedComputer.rotation], [100, 120, 90]);
     assert.equal(store.maps[1].items[0].label, 'Post-processing');
     assert.equal(store.maps[1].items[0].width, 320);
     const savedDoor = store.maps[1].items.find(item => item.type === 'door');
@@ -2383,22 +2554,63 @@ async function printerMapSmoke(browser, url) {
     const savedLine = store.maps[1].items.find(item => item.type === 'line');
     assert.deepEqual([savedLine.axis, savedLine.width, savedLine.height], ['vertical', 40, 260]);
     const savedRectangle = store.maps[1].items.find(item => item.type === 'rectangle');
-    assert.deepEqual([savedRectangle.x, savedRectangle.y, savedRectangle.width, savedRectangle.height], [0, 0, 1000, 1000]);
+    assert.deepEqual([savedRectangle.width, savedRectangle.height], [260, 200]);
     const savedStyle = await marker.getAttribute('style');
     await page.reload();
     await marker.waitFor();
+    assert.ok(await floor.isVisible());
+    assert.ok(await floor.evaluate(node => {
+      const layer = element => Number(getComputedStyle(element).zIndex) || 0;
+      const foreground = node.closest('#printerMapCanvas').querySelectorAll(
+        '.printer-map-item:not([data-kind="floor"]), .printer-map-marker');
+      return [...foreground].every(element => layer(element) > layer(node));
+    }), 'the floor sits below all room items and printers');
+    for (const type of roomObjects) {
+      assert.ok(await objectOnMap(type).locator('svg.printer-map-object-symbol').isVisible());
+    }
+    assert.equal(await computer.innerText(), 'Slicing station');
+    assert.equal(await chairDrawing.getAttribute('viewBox'), '0 0 60 48');
+    assert.equal(await computerDrawing.getAttribute('viewBox'), '0 0 48 72');
     assert.equal(await marker.getAttribute('style'), savedStyle);
     assert.deepEqual(await assertSnapped(), savedPosition);
     assert.equal((await marker.boundingBox()).width, compactBounds.width);
     assert.equal(await zone.innerText(), 'Post-processing');
     assert.equal(await doorTransform(), savedDoorTransform);
     assert.deepEqual(await page.locator('.printer-map-item[data-kind="rectangle"]').evaluate(node =>
-      ['--map-item-width', '--map-item-height'].map(key => node.style.getPropertyValue(key))), ['50', '50']);
+      ['--map-item-width', '--map-item-height'].map(key => node.style.getPropertyValue(key))), ['13', '10']);
     assert.deepEqual(await zonePosition(), savedZonePosition);
     assert.equal(await zone.isEnabled(), false, 'room items are read-only outside edit mode');
+    await page.getByRole('button', { name:'Edit map', exact:true }).click();
+    assert.equal(await mapSelect.isVisible(), false, 'editing a saved map hides the room selector');
+    await page.setViewportSize({ width:320, height:900 });
+    assert.ok(await page.locator('#printerMapPalette').evaluate(palette =>
+      palette.scrollWidth <= palette.clientWidth
+      && palette.firstElementChild.offsetTop < palette.lastElementChild.offsetTop),
+    'the palette wraps within a narrow editor');
+    await page.setViewportSize({ width:1365, height:900 });
+    await zone.press('F2');
+    await label.fill('Unsaved rename');
+    await label.press('Tab');
+    assert.equal(await zone.innerText(), 'Unsaved rename', 'leaving the editor applies the label to the draft');
+    await page.getByRole('button', { name:'Cancel', exact:true }).click();
+    await mapSelect.waitFor();
+    assert.equal(await zone.innerText(), 'Post-processing', 'cancelling the map edit restores its saved label');
     await page.locator('#printerMapSelect').selectOption('upstairs');
     await marker.waitFor({ state:'hidden' });
     await zone.waitFor({ state:'hidden' });
+    const verticalWindow = page.locator('[data-map-item-id="window-v"]');
+    const windowWall = page.locator('[data-map-item-id="window-wall"]');
+    const wallMask = () => windowWall.evaluate(node => getComputedStyle(node, '::before').maskImage);
+    assert.equal(await verticalWindow.innerText(), '', 'previously saved labels are hidden');
+    assert.equal(await verticalWindow.locator('.printer-map-window-plan').getAttribute('transform'), 'translate(30 0) rotate(90)');
+    assert.match(await wallMask(), /linear-gradient/, 'the continuous wall has an opening for the window');
+    const horizontalWindow = page.locator('[data-map-item-id="window-h"] .printer-map-window-plan');
+    assert.equal(await horizontalWindow.getAttribute('transform'), 'translate(0 25)');
+    const wallOffsets = await page.locator('[data-map-item-id="window-left"], [data-map-item-id="window-right"]')
+      .evaluateAll(([left, right]) => [
+        left.style.getPropertyValue('--map-line-end'), right.style.getPropertyValue('--map-line-start')
+      ]);
+    assert.deepEqual(wallOffsets, ['-0.5', '-0.5'], 'both walls extend to the horizontal window jambs');
     const connected = await page.locator('[data-map-item-id="join-h"]').evaluate(horizontal => {
       const vertical = document.querySelector('[data-map-item-id="join-v"]');
       const h = horizontal.getBoundingClientRect();
@@ -2411,6 +2623,48 @@ async function printerMapSmoke(browser, url) {
         && v.top + parseFloat(vStroke.top) <= jointY;
     });
     assert.ok(connected, 'touching perpendicular walls meet at their centreline intersection');
+    const horizontalDoor = page.locator('[data-map-item-id="door-h"]');
+    const verticalDoor = page.locator('[data-map-item-id="door-v"]');
+    const assertDoorJoin = async (door, wallId, vertical, after = false) => {
+      const aligned = await door.evaluate((node, { wallId, vertical, after }) => {
+        const frame = node.querySelector('svg g path');
+        const wall = document.querySelector(`[data-map-item-id="${wallId}"]`);
+        const origin = new DOMPoint(0, 0).matrixTransform(frame.getScreenCTM());
+        const reverse = frame.getScreenCTM()[vertical ? 'b' : 'a'] < 0;
+        const frameEnd = frame.getPointAtLength(frame.getTotalLength()).matrixTransform(frame.getScreenCTM());
+        const jamb = after !== reverse ? frameEnd : origin;
+        const bounds = wall.getBoundingClientRect();
+        const stroke = getComputedStyle(wall, '::before');
+        const wallEnd = after
+          ? (vertical ? bounds.top + parseFloat(stroke.top) : bounds.left + parseFloat(stroke.left))
+          : (vertical ? bounds.bottom - parseFloat(stroke.bottom) : bounds.right - parseFloat(stroke.right));
+        const wallCentre = vertical ? bounds.left + bounds.width / 2 : bounds.top + bounds.height / 2;
+        return Math.abs((vertical ? jamb.x : jamb.y) - wallCentre) < 1
+          && Math.abs((vertical ? jamb.y : jamb.x) - wallEnd) <= 2.6;
+      }, { wallId, vertical, after });
+      assert.ok(aligned, `door meets ${wallId} on the wall centreline`);
+    };
+    await assertDoorJoin(horizontalDoor, 'door-left', false);
+    await assertDoorJoin(horizontalDoor, 'door-right', false, true);
+    await assertDoorJoin(verticalDoor, 'door-above', true);
+    await page.getByRole('button', { name:'Edit map', exact:true }).click();
+    await verticalWindow.press('Shift+ArrowRight');
+    assert.equal(await wallMask(), 'none', 'moving the window away restores the wall stroke');
+    await verticalWindow.press('Shift+ArrowLeft');
+    assert.match(await wallMask(), /linear-gradient/, 'moving the window back restores the opening');
+    await horizontalDoor.press('F2');
+    await label.press('Escape');
+    await resizeBy(horizontalDoor, 15, 30);
+    assert.equal(await horizontalDoor.locator('svg').getAttribute('viewBox'), '0 0 140 120');
+    await assertDoorJoin(horizontalDoor, 'door-left', false);
+    await assertDoorJoin(horizontalDoor, 'door-right', false, true);
+    await verticalDoor.press('F2');
+    await label.press('Escape');
+    await resizeBy(verticalDoor, 30, 15);
+    assert.equal(await verticalDoor.locator('svg').getAttribute('viewBox'), '0 0 120 120');
+    await assertDoorJoin(verticalDoor, 'door-above', true);
+    await page.getByRole('button', { name:'Cancel', exact:true }).click();
+    await mapSelect.waitFor();
     await page.locator('#printerMapSelect').selectOption('');
     assert.equal(await page.getByRole('button', { name:'Full screen', exact:true }).isVisible(), false);
     const unknown = page.locator('#printerMapUnplaced [data-printer-id="map-unknown"]');
@@ -2484,6 +2738,26 @@ async function printerMapSmoke(browser, url) {
       });
       assert.equal(await viewport.evaluate(node => getComputedStyle(node).overflow), 'clip');
       assert.equal(await fullScreenDialog.getByRole('heading').innerText(), title);
+      const header = await fullScreenDialog.evaluate(dialog => {
+        const brand = dialog.querySelector('.brand-lockup');
+        const sidebar = document.querySelector('.sidebar-brand .brand-lockup');
+        const button = dialog.querySelector('#printerMapExitFullscreen');
+        const style = getComputedStyle(button);
+        const { top, right, height } = button.getBoundingClientRect();
+        return {
+          sameBrand:brand.isEqualNode(sidebar),
+          brandVisible:brand.getBoundingClientRect().width > 0 && brand.querySelector('svg').getBoundingClientRect().height > 0,
+          height,
+          inset:Math.min(top, innerWidth - right),
+          radii:[style.borderTopLeftRadius, style.borderTopRightRadius,
+            style.borderBottomRightRadius, style.borderBottomLeftRadius],
+          standardRadius:style.getPropertyValue('--ds-radius-sm').trim()
+        };
+      });
+      assert.ok(header.sameBrand && header.brandVisible, 'full screen displays the sidebar brand lockup');
+      assert.equal(header.height, 42, 'the exit button uses the standard height');
+      assert.deepEqual(header.radii, Array(4).fill(header.standardRadius), 'all exit button corners use the shared radius');
+      assert.ok(header.inset >= 4, 'the exit button and its focus outline clear the viewport edges');
       const scale = await canvas.evaluate(node => node.getBoundingClientRect().width / node.offsetWidth);
       if (title === 'Workshop') {
         const tileScale = await marker.evaluate(node => node.getBoundingClientRect().width / node.offsetWidth);
@@ -2521,7 +2795,104 @@ async function printerMapSmoke(browser, url) {
     await page.waitForFunction(() => !document.fullscreenElement
       && document.activeElement?.id === 'printerMapEnterFullscreen'
       && document.querySelector('#printerMapViewport').parentElement.classList.contains('printer-map-panel'));
-    console.log('Chromium: Printer map full-screen fit for sparse and full layouts, resize and exit PASS');
+    for (const preact of [false, true]) {
+      if (preact) {
+        await context.unroute('**/dashboard-preact.js');
+        await page.reload();
+        await preactReady(page);
+      }
+      await marker.waitFor();
+      if (preact) {
+        await fullScreen.click();
+        await fullScreenDialog.waitFor();
+      }
+      await image.click();
+      const details = page.locator('#printerDialog');
+      await details.waitFor();
+      await fullScreenDialog.waitFor({ state:'hidden' });
+      assert.match(await details.locator('h2').first().innerText(), /Workshop Bambu Lab A1/);
+      await page.keyboard.press('Escape');
+      await details.waitFor({ state:'hidden' });
+
+      await marker.getByRole('button', { name:/View queue/ }).click();
+      assert.equal(new URL(page.url()).searchParams.get('printer'), printer.id);
+      const scopedQueue = page.locator('#queueActiveList');
+      await scopedQueue.getByText('Workshop job.gcode').waitFor();
+      assert.ok(await scopedQueue.getByText('Workshop production copy.gcode').isVisible());
+      assert.equal(await scopedQueue.getByText('Other job.gcode').count(), 0);
+      assert.equal(await page.locator('.queue-history-section').isVisible(), false);
+      await page.getByRole('button', { name:'Show all jobs' }).click();
+      await scopedQueue.getByText('Other job.gcode').waitFor();
+      await page.goBack();
+      await scopedQueue.getByText('Workshop job.gcode').waitFor();
+      await page.goBack();
+      await marker.waitFor();
+
+      await fullScreen.click();
+      await fullScreenDialog.waitFor();
+      await marker.getByRole('button', { name:/View alerts/ }).press('Enter');
+      await fullScreenDialog.waitFor({ state:'hidden' });
+      assert.equal(new URL(page.url()).searchParams.get('printer'), printer.id);
+      const scopedAlerts = page.locator('#alertsHistory');
+      await scopedAlerts.getByText(`Alert for ${printer.name}`).waitFor();
+      assert.equal(await scopedAlerts.getByText(`Alert for ${secondPrinter.name}`).count(), 0);
+      assert.equal(await page.locator('#alertsClearHistoryBtn').isVisible(), false);
+      await page.getByRole('button', { name:'Show all alerts' }).click();
+      await scopedAlerts.getByText(`Alert for ${secondPrinter.name}`).waitFor();
+      await page.goBack();
+      await scopedAlerts.getByText(`Alert for ${printer.name}`).waitFor();
+      await page.goBack();
+    }
+    await marker.waitFor();
+    await page.getByRole('button', { name:'Monitoring link', exact:true }).click();
+    const linkDialog = page.getByRole('dialog', { name:'Monitoring link' });
+    await linkDialog.getByRole('button', { name:'Create link' }).click();
+    const link = linkDialog.getByLabel('Display URL');
+    await link.waitFor();
+    assert.equal(await link.inputValue(), url + '/map-display#' + testDisplayToken);
+    const monitorContext = await browser.newContext({ viewport:{ width:1280, height:720 } });
+    try {
+      let queued = 3;
+      const apiRequests = [];
+      await monitorContext.route('**/api/**', async route => {
+        const request = route.request();
+        const endpoint = new URL(request.url()).pathname;
+        const headers = await request.allHeaders();
+        apiRequests.push({ endpoint, method:request.method(), hasCookie:Boolean(headers.cookie) });
+        if (endpoint !== '/api/map-display' || !displayToken || headers.authorization !== `Bearer ${displayToken}`) {
+          return route.fulfill({ status:404, json:{} });
+        }
+        const map = store.maps.find(saved => saved.id === 'workshop');
+        return route.fulfill({ json:{ map:{
+          ...map, placements:map.placements.filter(item => item.printerId === printer.id)
+        }, printers:[{ id:printer.id, name:printer.name, imageKey:'a1', alert:true, printing:true, queued }] } });
+      });
+      const monitor = await monitorContext.newPage();
+      await monitor.goto(await link.inputValue());
+      await monitor.getByRole('heading', { name:'Workshop', exact:true }).waitFor();
+      const monitorTile = monitor.locator('.printer-map-marker');
+      await monitorTile.getByText('3 queued').waitFor();
+      assert.ok(await monitor.locator('.printer-map-item[data-kind="floor"]').isVisible(), 'the monitor shows the saved floor');
+      assert.ok(await monitor.locator('.printer-map-bench-finish').isVisible(), 'the saved bench keeps its finish on the monitoring page');
+      assert.equal(await monitor.locator('.printer-map-furniture').count(), 4, 'the monitoring page uses the same artwork');
+      assert.equal(await monitor.locator('[data-kind="chair"] .printer-map-furniture').getAttribute('viewBox'), '0 0 60 48');
+      assert.equal(await monitorTile.locator('button, a').count(), 0);
+      assert.equal(await monitor.locator('#controllerSidebar, #printerMapSelect, #printerMapEditor, #authOverlay').count(), 0);
+      const bounds = await monitor.locator('#printerMapViewport').boundingBox();
+      assert.ok(bounds.width > 1200 && bounds.height > 600, 'the map fills the monitoring window');
+      assert.equal(await monitor.locator('#printerMapViewport').evaluate(node => getComputedStyle(node).overflow), 'clip');
+      queued = 4;
+      await monitorTile.getByText('4 queued').waitFor({ timeout:10000 });
+      await linkDialog.getByRole('button', { name:'Disable link' }).click();
+      await monitor.getByText('Monitoring link unavailable.').waitFor({ timeout:10000 });
+      assert.equal(await monitorTile.count(), 0, 'the display clears after its link is revoked');
+      assert.ok(apiRequests.length >= 3);
+      assert.ok(apiRequests.every(request => request.endpoint === '/api/map-display'
+        && request.method === 'GET' && !request.hasCookie));
+    } finally {
+      await monitorContext.close();
+    }
+    console.log('Chromium: Printer map full-screen fit, printer shortcuts and monitoring link PASS');
   } finally {
     await context.close();
   }
