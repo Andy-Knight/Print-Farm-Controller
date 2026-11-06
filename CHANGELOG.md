@@ -8,6 +8,9 @@ Historical entries describe the behaviour of the controller at the time of that 
 
 - Add Printer map with shared, named room layouts, live printer alerts and queue counts, and compact printer tiles. All roles can view saved maps, while administrators control their layout.
 - Add a grid editor for printer placement and room items, with wall joins, door orientation, resizing, and group movement. Fit the occupied layout to the browser in full-screen view.
+- Use a compact drag-and-drop palette with inline label editing, resizable floors, finished benches and racks, rotatable chairs and workstations, and steel windows that join horizontal and vertical walls.
+- Open printer details, printer-specific alerts, or the assigned queue directly from map tiles.
+- Show the Stacked Layers branding in full screen and let administrators create revocable, read-only monitoring links for individual rooms.
 - Include room layouts in portable backups and restore.
 
 ## v0.62.4

@@ -1,5 +1,6 @@
 import { initializeFrontendRendererDiagnostics } from './frontend-renderer-diagnostics.js';
 import { createPrinterMapPage } from './printer-map.js';
+import { printerArtworkKey, printerIsPrinting, printerMapTiles } from './printer-map-status.js';
 import {
   LIBRARY_PAGE_SIZE,libraryMaterials,libraryPrintSeconds,libraryWeightGrams,
   libraryTimeLabel,libraryWeightLabel,librarySortAndFilter,libraryPage,libraryPrinterFilterOptions
@@ -398,9 +399,10 @@ function renderControllerRoute(pathname, { invoke = true } = {}) {
   }
   window.scrollTo({ top:0, behavior:'smooth' });
 }
-function navigateController(routePath) {
+function navigateController(routePath, { printerId } = {}) {
   const target = normaliseControllerRoute(routePath);
-  if (location.pathname !== target) history.pushState({}, '', target);
+  const search = printerId ? `?${new URLSearchParams({ printer:printerId })}` : '';
+  if (location.pathname + location.search !== target + search) history.pushState({}, '', target + search);
   renderControllerRoute(target);
 }
 document.querySelectorAll('.sidebar-item[data-route]').forEach((item) => {
@@ -409,9 +411,12 @@ document.querySelectorAll('.sidebar-item[data-route]').forEach((item) => {
     event.preventDefault();
     const routePath = item.dataset.route;
     if (!routePath) return;
-    if (activeRoute === routePath && routePath !== '/') return;
+    if (activeRoute === routePath && routePath !== '/' && !location.search) return;
     navigateController(routePath);
   }, true);
+});
+document.querySelectorAll('[data-clear-printer-scope]').forEach(button => {
+  button.addEventListener('click', () => navigateController(button.dataset.clearPrinterScope));
 });
 window.addEventListener('popstate', () => renderControllerRoute(location.pathname));
 
@@ -540,7 +545,9 @@ const DASHBOARD_FILTER_LABELS = Object.freeze({ all:'All Printers', online:'Onli
 const printerMap = createPrinterMapPage({
   api,
   canEdit:() => !document.body.dataset.authRole || document.body.dataset.authRole === 'administrator',
-  openPrinter
+  openPrinter,
+  openAlerts:printerId => navigateController('/alerts', { printerId }),
+  openQueue:printerId => navigateController('/queue', { printerId })
 });
 document.querySelector('#printerMapBtn').addEventListener('click', event => {
   if (!event.__controllerRouteInvoke) return;
@@ -856,21 +863,7 @@ function printerModelLabel(printer) {
 }
 
 function dashboardPrinterImageKey(printer) {
-  const adapterType = String(printer?.adapterType || '').trim().toLowerCase();
-  const model = String(printer?.model || '').trim().toLowerCase();
-
-  if (adapterType === 'snapmaker-u1') return 'snapmaker-u1';
-  if (adapterType === 'prusa-core-one-plus') return 'prusa-core-one-plus';
-  if (adapterType === 'flashforge-ad5m') return 'ad5m-pro';
-  if (adapterType === 'flashforge-creator5') return model.includes('pro') ? 'creator-5-pro' : 'creator-5';
-  if (adapterType === 'bambu-lab') {
-    if (model === 'p1p') return 'p1p';
-    if (model === 'p1s') return 'p1s';
-    if (model === 'x1c' || model.includes('x1 carbon')) return 'x1c';
-    if (model === 'a1') return 'a1';
-    if (model === 'a1 mini' || model === 'a1-mini') return 'a1-mini';
-  }
-  return null;
+  return printerArtworkKey(printer);
 }
 
 function printerTargetValue(target) {
@@ -2815,9 +2808,7 @@ async function confirmBedCleared(printerId, printerName) {
 }
 
 function isPrinterPrinting(printer) {
-  const state = String(printer?.status?.status || '').toLowerCase();
-  if (state === 'heating' && printer?.chamberPreheat?.active && !printer?.status?.fileName) return false;
-  return ['printing', 'working', 'heating', 'building_from_sd'].includes(state);
+  return printerIsPrinting(printer);
 }
 
 function printerNeedsAttention(printer) {
@@ -3210,7 +3201,7 @@ function queuePriorityBadge(job) {
   return `<span class="queue-priority priority-${escapeHtml(effective)}" title="${escapeHtml(title)}">${escapeHtml(text)}</span>`;
 }
 
-function queueJobMarkup(job, { history = false, queuedIndex = -1, queuedCount = 0, canMoveUp = false, canMoveDown = false } = {}) {
+function queueJobMarkup(job, { history = false, queuedIndex = -1, queuedCount = 0, canMoveUp = false, canMoveDown = false, readOnly = false } = {}) {
   const terminalTime = history ? (job.finishedAt || job.updatedAt) : job.queuedAt;
   const elapsed = queueElapsed(job);
   const progress = job.status === 'printing' ? `${Math.round(Number(job.maxProgress || 0))}%` : '';
@@ -3218,7 +3209,7 @@ function queueJobMarkup(job, { history = false, queuedIndex = -1, queuedCount = 
   const meta = history
     ? `${formatQueueTime(terminalTime)}${elapsed ? ` · ${escapeHtml(elapsed)}` : ''}`
     : `${formatQueueTime(job.queuedAt)} · ${escapeHtml(queueOptionsText(job))}`;
-  const controls = history
+  const controls = readOnly ? '' : history
     ? `<button type="button" class="secondary" data-queue-reprint="${escapeHtml(job.id)}">Reprint</button>`
     : `<div class="queue-job-actions">
         ${['queued','needs_review'].includes(job.status) ? `<label class="queue-priority-control">Priority<select data-queue-priority="${escapeHtml(job.id)}">${queuePriorityOptions(String(job.priority || 'normal').toLowerCase())}</select></label>` : ''}
@@ -3350,7 +3341,7 @@ function queueCompatibilityView(job) {
   });
 }
 
-function queueJobViewModel(job, { history = false, canMoveUp = false, canMoveDown = false } = {}) {
+function queueJobViewModel(job, { history = false, canMoveUp = false, canMoveDown = false, readOnly = false } = {}) {
   const terminalTime = history ? (job.finishedAt || job.updatedAt) : job.queuedAt;
   const elapsed = queueElapsed(job);
   const progressText = job.status === 'printing' ? `${Math.round(Number(job.maxProgress || 0))}%` : '';
@@ -3367,6 +3358,7 @@ function queueJobViewModel(job, { history = false, canMoveUp = false, canMoveDow
     fileName:String(job.fileName || ''),
     status:String(job.status || ''),
     history,
+    readOnly,
     restoreRecoveryHold:job.restoreRecoveryHold === true,
     statusText:job.restoreRecoveryHold ? 'Restored — review required' : queueStatusLabel(job.status),
     statusClass:job.restoreRecoveryHold ? 'restore-hold' : String(job.status || ''),
@@ -3446,7 +3438,7 @@ function productionBatchViewModel(batch, { history = false } = {}) {
   };
 }
 
-function publishPrintQueueUiState({ summary, currentJobs, queuedJobs, activeProduction, historyJobs, historyProduction, clearanceItems }) {
+function publishPrintQueueUiState({ summary, currentJobs, queuedJobs, activeProduction, historyJobs, historyProduction, clearanceItems, readOnly, activeEmptyText }) {
   if (!window.__PFC_PREACT_QUEUE__) return;
   const activeItems = [
     ...clearanceItems.map(queueClearanceViewModel),
@@ -3455,6 +3447,7 @@ function publishPrintQueueUiState({ summary, currentJobs, queuedJobs, activeProd
       const queuedIndex = job.status === 'queued' ? queuedJobs.findIndex((queued) => queued.id === job.id) : -1;
       const effectivePriority = String(job.effectivePriority || job.priority || 'normal');
       return queueJobViewModel(job, {
+        readOnly,
         canMoveUp:queuedIndex > 0 && String(queuedJobs[queuedIndex - 1]?.effectivePriority || queuedJobs[queuedIndex - 1]?.priority || 'normal') === effectivePriority,
         canMoveDown:queuedIndex >= 0 && queuedIndex < queuedJobs.length - 1 && String(queuedJobs[queuedIndex + 1]?.effectivePriority || queuedJobs[queuedIndex + 1]?.priority || 'normal') === effectivePriority
       });
@@ -3464,7 +3457,7 @@ function publishPrintQueueUiState({ summary, currentJobs, queuedJobs, activeProd
     ...historyProduction.map((batch) => productionBatchViewModel(batch, { history:true })),
     ...historyJobs.map((job) => queueJobViewModel(job, { history:true }))
   ];
-  const detail = { summary, activeItems, historyItems };
+  const detail = { summary, activeItems, historyItems, activeEmptyText };
   window.__PFC_QUEUE_UI_STATE__ = detail;
   window.dispatchEvent(new CustomEvent('pfc:queue-ui-state', { detail }));
 }
@@ -3487,7 +3480,7 @@ function renderPrintQueue() {
   const outstanding = currentJobs.length + activeProduction.length + clearanceItems.length;
   const historyCount = historyJobs.length + historyProduction.length;
   const productionText = activeProduction.length ? ` · ${activeProduction.length} production batch${activeProduction.length === 1 ? '' : 'es'}` : '';
-  const summary = outstanding
+  let summary = outstanding
     ? `${activeJobs.length} active · ${queuedJobs.length} queued copies · ${reviewJobs.length} needs review${productionText} · ${clearanceItems.length} awaiting bed clearance · ${historyCount} recent history`
     : `${historyCount ? `${historyCount} history item${historyCount === 1 ? '' : 's'}` : 'No queued prints'}`;
 
@@ -3499,6 +3492,20 @@ function renderPrintQueue() {
     clearQueueHistoryBtn.title = clearanceItems.length ? 'History items holding an uncleared-bed interlock are retained until the bed is confirmed clear.' : '';
   }
 
+  const printerId = activeRoute === '/queue' ? new URLSearchParams(location.search).get('printer') : '';
+  const printerScope = document.querySelector('#queuePrinterScope');
+  const scoped = Boolean(printerId);
+  printerScope.hidden = !scoped;
+  queueDialog.querySelector('.queue-history-section').hidden = scoped;
+  const visibleJobs = scoped ? jobs.filter(job => job.printerId === printerId
+    && ['uploading','preflight','starting','printing','needs_review','queued'].includes(job.status)) : currentJobs;
+  const activeEmptyText = scoped ? 'No active or queued jobs for this printer.' : 'No active, queued or review-blocked jobs.';
+  if (scoped) {
+    printerScope.querySelector('strong').textContent = fleet.find(printer => printer.id === printerId)?.name
+      || visibleJobs[0]?.printerName || printerId;
+    summary = `${visibleJobs.length} active or queued ${visibleJobs.length === 1 ? 'job' : 'jobs'} for this printer`;
+  }
+
   if (window.__PFC_PREACT_QUEUE__) {
     if (queuePointerInteractionActive) {
       queueRenderPending = true;
@@ -3506,12 +3513,14 @@ function renderPrintQueue() {
     }
     publishPrintQueueUiState({
       summary,
-      currentJobs,
+      currentJobs:visibleJobs,
       queuedJobs,
-      activeProduction,
-      historyJobs,
-      historyProduction,
-      clearanceItems
+      activeProduction:scoped ? [] : activeProduction,
+      historyJobs:scoped ? [] : historyJobs,
+      historyProduction:scoped ? [] : historyProduction,
+      clearanceItems:scoped ? [] : clearanceItems,
+      readOnly:scoped,
+      activeEmptyText
     });
     queueRenderPending = false;
     return;
@@ -3519,12 +3528,13 @@ function renderPrintQueue() {
 
   if (queueSummary) queueSummary.textContent = summary;
   if (queueActiveList) {
-    const clearanceMarkup = clearanceItems.map(queueClearanceMarkup).join('');
-    const productionMarkup = activeProduction.map((batch) => productionBatchMarkup(batch)).join('');
-    const jobsMarkup = currentJobs.map((job) => {
+    const clearanceMarkup = scoped ? '' : clearanceItems.map(queueClearanceMarkup).join('');
+    const productionMarkup = scoped ? '' : activeProduction.map((batch) => productionBatchMarkup(batch)).join('');
+    const jobsMarkup = visibleJobs.map((job) => {
       const queuedIndex = job.status === 'queued' ? queuedJobs.findIndex((queued) => queued.id === job.id) : -1;
       const effectivePriority = String(job.effectivePriority || job.priority || 'normal');
       return queueJobMarkup(job, {
+        readOnly:scoped,
         queuedIndex,
         queuedCount: queuedJobs.length,
         canMoveUp:queuedIndex > 0 && String(queuedJobs[queuedIndex - 1]?.effectivePriority || queuedJobs[queuedIndex - 1]?.priority || 'normal') === effectivePriority,
@@ -3533,7 +3543,7 @@ function renderPrintQueue() {
     }).join('');
     const nextActiveMarkup = clearanceMarkup || productionMarkup || jobsMarkup
       ? `${clearanceMarkup}${productionMarkup}${jobsMarkup}`
-      : '<div class="queue-empty">No active, queued or review-blocked jobs.</div>';
+      : `<div class="queue-empty">${activeEmptyText}</div>`;
     if (queuePointerInteractionActive) {
       queueRenderPending = true;
     } else {
@@ -4880,21 +4890,7 @@ function publishDashboardPrinterState() {
 }
 
 function updatePrinterMap() {
-  const queuedByPrinter = new Map();
-  for (const job of queueState.jobs || []) {
-    if (job.status === 'queued' && job.printerId) {
-      queuedByPrinter.set(job.printerId, (queuedByPrinter.get(job.printerId) || 0) + 1);
-    }
-  }
-  const alertPrinters = new Set(alertsSummaryState.attentionPrinterIds);
-  printerMap.update(fleet.map(printer => ({
-    id:printer.id,
-    name:printer.name,
-    imageKey:dashboardPrinterImageKey(printer),
-    alert:alertPrinters.has(printer.id) || printerNeedsAttention(printer) || printerHasMaintenanceAlert(printer),
-    printing:printer.online && isPrinterPrinting(printer),
-    queued:queuedByPrinter.get(printer.id) || 0
-  })));
+  printerMap.update(printerMapTiles(fleet, queueState, alertsSummaryState.attentionPrinterIds));
 }
 
 function reconcileFleet() {

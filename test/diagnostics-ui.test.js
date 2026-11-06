@@ -13,7 +13,7 @@ test('diagnostics is available from the persistent controller navigation', () =>
   assert.match(html, /id="diagnosticsDialog"/);
   assert.match(app, /diagnosticsBtn\?\.addEventListener\('click'/);
   assert.doesNotMatch(html, /id="topbarOverflow"/, 'removed Farm operations overflow must not return');
-  assert.match(app, /function navigateController\(routePath\)/);
+  assert.match(app, /function navigateController\(routePath\b/);
   });
 
 test('diagnostics UI supports log filtering and bundle download', () => {

@@ -82,6 +82,8 @@ const write = (method, path, permission) => exact(method, path, permission);
 // Keep this public health response minimal when activating authentication:
 // the current implementation includes licence information.
 read('/api/health', 'public');
+// This endpoint authorizes a separate, single-map bearer link in its handler.
+read('/api/map-display', 'public');
 read('/api/license', P.SYSTEM_READ);
 read('/api/tls/status', P.USER_MANAGE);
 read('/api/settings/resource-limits', P.USER_MANAGE);
@@ -188,6 +190,7 @@ function pattern(methods, regex, permission) {
 }
 pattern(['PATCH','DELETE'],/^\/api\/printer-groups\/[^/]+$/,P.GROUP_MANAGE);
 pattern(['PUT','DELETE'],/^\/api\/printer-maps\/[^/]+$/,P.PRINTER_MAP_MANAGE);
+pattern(['GET','POST','DELETE'],/^\/api\/printer-maps\/[^/]+\/display-link$/,P.PRINTER_MAP_MANAGE);
 pattern(['GET'],/^\/api\/backup\/download\/[^/]+$/,P.BACKUP_MANAGE);
 pattern(['GET'],/^\/api\/restore\/cloud\/[^/]+\/backups$/,P.RESTORE_MANAGE);
 pattern(['POST'],/^\/api\/restore\/cloud\/[^/]+\/(?:inspect|stage)$/,P.RESTORE_MANAGE);

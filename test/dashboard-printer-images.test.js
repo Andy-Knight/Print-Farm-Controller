@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 
 const app = fs.readFileSync(new URL('../public/app.js', import.meta.url), 'utf8');
+const mapStatus = fs.readFileSync(new URL('../public/printer-map-status.js', import.meta.url), 'utf8');
 const styles = fs.readFileSync(new URL('../public/styles.css', import.meta.url), 'utf8');
 const server = fs.readFileSync(new URL('../src/server.js', import.meta.url), 'utf8');
 
@@ -31,7 +32,7 @@ test('dashboard uses static printer model artwork instead of live camera snapsho
 
 test('dashboard has artwork mappings for every currently supported printer model', () => {
   for (const key of printerImageKeys) {
-    assert.match(app, new RegExp(`'${key}'`));
+    assert.match(mapStatus, new RegExp(`'${key}'`));
   }
   assert.match(app, /\/assets\/printers\/\$\{escapeHtml\(imageKey\)\}\.webp/);
 });

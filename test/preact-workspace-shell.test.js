@@ -34,7 +34,7 @@ test('sidebar retains controller-owned action selectors, routes and accessible n
   assert.match(html,/class="sidebar-icon" aria-hidden="true"><svg/);
   assert.match(app,/renderControllerRoute/);
   assert.match(app,/item\.setAttribute\('aria-current','page'\)/);
-  assert.match(app,/function navigateController\(routePath\)/);
+  assert.match(app,/function navigateController\(routePath\b/);
   assert.match(app,/window\.addEventListener\('popstate'/);
 
 });

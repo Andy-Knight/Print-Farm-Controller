@@ -2,7 +2,7 @@ import {StreamAdmission} from './security/stream-admission.js';
 import {libraryAccountPresentation} from './library-accounts.js';
 import {deleteLibraryFileAndHistory} from './library-deletion.js';
 import {libraryOwnershipInventory,libraryOwnershipHistory,reassignLibraryOwner,libraryStorageInventory} from './print-library.js';
-import {configuredLimit} from './security/resource-limits.js';
+import {configuredLimit, ResourceAdmission} from './security/resource-limits.js';
 import {ResourceLimitSettings} from './security/resource-limit-settings.js';
 import {withOperationBudget,cancelActiveOperations} from './security/operation-budget.js';
 const streamAdmission=new StreamAdmission();
@@ -69,7 +69,8 @@ import { runLocalSecurityCommand } from './security/local-admin.js';
 import { MemoryMonitor } from './memory-monitor.js';
 import { MaintenanceService } from './maintenance-service.js';
 import { PrinterGroupService } from './printer-groups.js';
-import { readPrinterMaps, savePrinterMap } from './printer-maps.js';
+import { printerMapDisplayLink, readDisplayedPrinterMap, readPrinterMaps, savePrinterMap } from './printer-maps.js';
+import { printerMapTiles } from '../public/printer-map-status.js';
 import { ManualBackupManager } from './backup-recovery/manual-backup-manager.js';
 import { BackupOperationLock } from './backup-recovery/backup-operation-lock.js';
 import { ScheduledBackupService } from './backup-recovery/scheduled-backup-service.js';
@@ -507,6 +508,7 @@ const alertEventBridge = new AlertEventBridge({
   diagnosticFn:(level, message, meta) => diagnosticLogger[level]?.('alerts', message, meta)
 });
 const toolOffsetCalibrationLocks = new Map();
+const displayMapAdmission = new ResourceAdmission({ maxActive:16, maxPerUser:4 });
 
 const contentTypes = {
   '.html': 'text/html; charset=utf-8',
@@ -1527,6 +1529,30 @@ async function apiRoute(req, res, url) {
     return json(res, 200, await readPrinterMaps(runtimePaths.dataDir));
   }
 
+  if (req.method === 'GET' && url.pathname === '/api/map-display') {
+    const release = displayMapAdmission.reserve(req.socket.remoteAddress);
+    try {
+      const map = await readDisplayedPrinterMap(runtimePaths.dataDir, req.headers.authorization);
+      if (!map) return json(res, 404, { error:'Monitoring link unavailable.' });
+      const ids = new Set(map.placements.map(item => item.printerId));
+      const printers = decoratedFleet().filter(printer => ids.has(printer.id));
+      const tiles = printerMapTiles(printers, printQueue.getSnapshot(), alertService.attentionPrinterIds());
+      return json(res, 200, { map, printers:tiles });
+    } catch {
+      return json(res, 503, { error:'Map display is temporarily unavailable.' });
+    } finally {
+      release();
+    }
+  }
+
+  const mapDisplayLink = url.pathname.match(/^\/api\/printer-maps\/([^/]+)\/display-link$/);
+  if (mapDisplayLink && ['GET', 'POST', 'DELETE'].includes(req.method)) {
+    const id = decodeURIComponent(mapDisplayLink[1]);
+    const link = await controllerMutations.run('printer-registry', () =>
+      printerMapDisplayLink(runtimePaths.dataDir, id, req.method));
+    return json(res, 200, link);
+  }
+
   const printerMapMatch = url.pathname.match(/^\/api\/printer-maps\/([^/]+)$/);
   const createPrinterMap = req.method === 'POST' && url.pathname === '/api/printer-maps';
   if (createPrinterMap || (printerMapMatch && ['PUT', 'DELETE'].includes(req.method))) {
@@ -1635,7 +1661,8 @@ async function apiRoute(req, res, url) {
 
   if (req.method === 'GET' && url.pathname === '/api/alerts') {
     const historyLimit = Number(url.searchParams.get('limit') || 100);
-    return json(res, 200, { alerts:alertService.snapshot({ historyLimit, includeConfiguration:req.pfcUser?.role==='administrator' }) });
+    const printerId = url.searchParams.get('printerId') || '';
+    return json(res, 200, { alerts:alertService.snapshot({ historyLimit, printerId, includeConfiguration:req.pfcUser?.role==='administrator' }) });
   }
 
   if (req.method === 'DELETE' && url.pathname === '/api/alerts/history') {
@@ -2762,7 +2789,7 @@ async function apiRoute(req, res, url) {
   return false;
 }
 
-async function serveStatic(res, pathname) {
+async function serveStatic(res, pathname, headers = {}) {
   const requested = pathname === '/' ? 'index.html' : String(pathname || '').replace(/^\/+/, '');
   const normalized = path.posix.normalize(requested.replaceAll('\\', '/'));
   if (!normalized || normalized === '..' || normalized.startsWith('../') || path.posix.isAbsolute(normalized)) return false;
@@ -2774,7 +2801,8 @@ async function serveStatic(res, pathname) {
     });
     res.writeHead(200, {
       'content-type': contentTypes[path.extname(normalized)] || 'application/octet-stream',
-      'cache-control': 'no-cache'
+      'cache-control': 'no-cache',
+      ...headers
     });
     res.end(data);
     return true;
@@ -2823,6 +2851,16 @@ async function handleControllerRequest(req, res) {
     if (url.pathname.startsWith('/simulator/')) {
       await emulatorManager.serveStatic(res, url);
       return;
+    }
+
+    if (['/map-display', '/map-display.html'].includes(url.pathname)) {
+      if (await serveStatic(res, '/map-display.html', {
+        'cache-control':'no-store',
+        'referrer-policy':'no-referrer',
+        'x-robots-tag':'noindex, nofollow',
+        'content-security-policy':"default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self'; connect-src 'self'; base-uri 'none'; frame-ancestors 'none'; form-action 'none'"
+      })) return;
+      return json(res, 404, { error:'Map display is unavailable.' });
     }
 
     if (await serveStatic(res, url.pathname)) return;

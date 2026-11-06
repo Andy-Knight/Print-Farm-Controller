@@ -1,4 +1,3 @@
-const alertsBtn = document.querySelector('#alertsBtn');
 const alertsSettingsBtn = document.querySelector('#alertsSettingsBtn');
 const topbarOverflow = document.querySelector('#topbarOverflow');
 const alertsDialog = document.querySelector('#alertsDialog');
@@ -6,6 +5,7 @@ const alertsStatus = document.querySelector('#alertsStatus');
 const alertsError = document.querySelector('#alertsError');
 const alertsHistory = document.querySelector('#alertsHistory');
 const alertsSeverityFilter = document.querySelector('#alertsSeverityFilter');
+const alertsPrinterScope = document.querySelector('#alertsPrinterScope');
 const alertsMarkAllReadBtn = document.querySelector('#alertsMarkAllReadBtn');
 const alertsClearHistoryBtn = document.querySelector('#alertsClearHistoryBtn');
 const alertTabs = Array.from(document.querySelectorAll('[data-alerts-tab]'));
@@ -60,6 +60,8 @@ let alertGroups = [];
 let alertAdapters = [];
 let currentLiveSummary = { unreadCount:0, recent:[] };
 let alertHistorySeverity = 'all';
+let alertHistoryPrinter = '';
+let alertLoadRequest = 0;
 let activeAlertsTab = 'history';
 
 function escapeHtml(value = '') {
@@ -145,6 +147,11 @@ function filteredAlertHistory() {
     : history.filter((alert) => String(alert.severity || 'info') === alertHistorySeverity);
 }
 
+function alertHistoryEmptyText() {
+  if (alertHistorySeverity !== 'all') return `No ${severityLabel(alertHistorySeverity).toLowerCase()} alerts match this filter.`;
+  return alertHistoryPrinter ? 'No alerts have been recorded for this printer.' : 'No alerts have been recorded yet.';
+}
+
 function alertHistoryRowsViewModel() {
   return filteredAlertHistory().map((alert) => {
     const severity = String(alert.severity || 'info');
@@ -205,16 +212,11 @@ function updateAlertHistoryControls() {
 
 function publishAlertsUiState() {
   if (!window.__PFC_PREACT_ALERTS__) return;
-  const history = Array.isArray(alertUiState.history) ? alertUiState.history : [];
   const rows = alertHistoryRowsViewModel();
   const detail = {
     activeTab:activeAlertsTab,
     historyRows:rows,
-    historyEmptyText:history.length === 0
-      ? 'No alerts have been recorded yet.'
-      : rows.length === 0
-        ? `No ${severityLabel(alertHistorySeverity).toLowerCase()} alerts match this filter.`
-        : '',
+    historyEmptyText:rows.length ? '' : alertHistoryEmptyText(),
     destinations:alertDestinationsViewModel(),
     rules:alertRulesViewModel()
   };
@@ -224,23 +226,11 @@ function publishAlertsUiState() {
 
 function renderHistory() {
   if (!alertsHistory) return;
-  const history = Array.isArray(alertUiState.history) ? alertUiState.history : [];
-  if (!history.length) {
-    alertsHistory.innerHTML = '<div class="alerts-empty">No alerts have been recorded yet.</div>';
-    alertsMarkAllReadBtn?.setAttribute('disabled', '');
-    alertsClearHistoryBtn?.setAttribute('disabled', '');
-    return;
-  }
-  alertsClearHistoryBtn?.removeAttribute('disabled');
-  if (alertUiState.unreadCount > 0) alertsMarkAllReadBtn?.removeAttribute('disabled');
-  else alertsMarkAllReadBtn?.setAttribute('disabled', '');
-
-  const filteredHistory = alertHistorySeverity === 'all'
-    ? history
-    : history.filter((alert) => String(alert.severity || 'info') === alertHistorySeverity);
+  updateAlertHistoryControls();
+  const filteredHistory = filteredAlertHistory();
 
   if (!filteredHistory.length) {
-    alertsHistory.innerHTML = `<div class="alerts-empty">No ${escapeHtml(severityLabel(alertHistorySeverity).toLowerCase())} alerts match this filter.</div>`;
+    alertsHistory.innerHTML = `<div class="alerts-empty">${escapeHtml(alertHistoryEmptyText())}</div>`;
     return;
   }
 
@@ -517,18 +507,25 @@ function editRule(id) {
 }
 
 async function loadAlertUi({ preserveForms = false } = {}) {
+  const request = ++alertLoadRequest;
+  const params = new URLSearchParams({ limit:'100' });
+  if (alertHistoryPrinter) params.set('printerId', alertHistoryPrinter);
   setStatus('Loading alerts…');
   showError();
   const [alertsResponse, printersResponse, groupsResponse, adaptersResponse] = await Promise.all([
-    requestJson('/api/alerts?limit=100'),
+    requestJson(`/api/alerts?${params}`),
     requestJson('/api/printers'),
     requestJson('/api/printer-groups'),
     requestJson('/api/adapters')
   ]);
+  if (request !== alertLoadRequest) return;
   alertUiState = alertsResponse.alerts || alertUiState;
   alertPrinters = printersResponse.printers || [];
   alertGroups = groupsResponse.groups || [];
   alertAdapters = adaptersResponse.adapters || [];
+  if (alertHistoryPrinter) alertsPrinterScope.querySelector('strong').textContent =
+    alertPrinters.find(printer => printer.id === alertHistoryPrinter)?.name
+      || alertUiState.history?.[0]?.printer?.name || alertHistoryPrinter;
   populateScopeOptions();
   renderAll();
   if (!preserveForms) {
@@ -562,6 +559,19 @@ function activateAlertsTab(name, focus = false) {
 
 async function openAlerts(tab = 'history') {
   if (topbarOverflow) topbarOverflow.open = false;
+  const printerId = new URLSearchParams(location.search).get('printer') || '';
+  if (printerId !== alertHistoryPrinter) {
+    alertHistoryPrinter = printerId;
+    alertsPrinterScope.hidden = !printerId;
+    alertsPrinterScope.querySelector('strong').textContent =
+      alertPrinters.find(printer => printer.id === printerId)?.name || printerId;
+    alertUiState = { ...alertUiState, history:[] };
+    if (printerId) {
+      alertHistorySeverity = 'all';
+      alertsSeverityFilter.value = 'all';
+    }
+    renderAll();
+  }
   activateAlertsTab(tab);
   alertsDialog?.showModal();
   try {
@@ -617,7 +627,6 @@ function buildRulePayload() {
   };
 }
 
-alertsBtn?.addEventListener('click', () => openAlerts('history'));
 alertsSettingsBtn?.addEventListener('click', () => openAlerts('history'));
 document.querySelectorAll('[data-alerts-close]').forEach((button) => button.addEventListener('click', () => alertsDialog?.close()));
 
@@ -715,7 +724,7 @@ alertsHistory?.addEventListener('click', async (event) => {
 });
 
 alertsClearHistoryBtn?.addEventListener('click', async () => {
-  if (!alertUiState.history?.length) return;
+  if (alertHistoryPrinter || !alertUiState.history?.length) return;
   if (!confirm('Clear all alert history? This cannot be undone.')) return;
   alertsClearHistoryBtn.disabled = true;
   showError();
@@ -731,6 +740,7 @@ alertsClearHistoryBtn?.addEventListener('click', async () => {
 });
 
 alertsMarkAllReadBtn?.addEventListener('click', async () => {
+  if (alertHistoryPrinter) return;
   alertsMarkAllReadBtn.disabled = true;
   try {
     await requestJson('/api/alerts/mark-read', { method:'POST', body:'{}' });

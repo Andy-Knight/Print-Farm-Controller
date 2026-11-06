@@ -49,10 +49,10 @@
   border-bottom:1px solid var(--shell-sidebar-divider);
   margin-bottom:16px;
 }
-.sidebar-brand .brand-lockup { gap:11px; }
-.sidebar-brand .stacked-layers-mark { width:39px; }
-.sidebar-brand .brand-name { font-size:.96rem;letter-spacing:-.03em;color:var(--ds-text); }
-.sidebar-brand .brand-product { color:var(--shell-sidebar-muted);font-size:.54rem;letter-spacing:.1em; }
+:is(.sidebar-brand, .printer-map-fullscreen-header) .brand-lockup { gap:11px; }
+:is(.sidebar-brand, .printer-map-fullscreen-header) .stacked-layers-mark { width:39px; }
+:is(.sidebar-brand, .printer-map-fullscreen-header) .brand-name { font-size:.96rem;letter-spacing:-.03em;color:var(--ds-text); }
+:is(.sidebar-brand, .printer-map-fullscreen-header) .brand-product { margin-top:4px;color:var(--shell-sidebar-muted);font-size:.54rem;letter-spacing:.1em; }
 .sidebar-section-label {
   display:block;
   margin:13px 9px 4px;

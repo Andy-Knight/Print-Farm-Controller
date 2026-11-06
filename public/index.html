@@ -283,6 +283,7 @@
           <button id="printerMapEnterFullscreen" type="button" class="secondary" hidden>Full screen</button>
           <button id="printerMapReload" type="button" class="secondary" hidden>Reload maps</button>
         </div>
+        <button id="printerMapMonitoringLink" type="button" class="secondary" hidden>Monitoring link</button>
       </div>
       <form id="printerMapEditor" hidden>
         <fieldset class="printer-map-toolbar">
@@ -297,37 +298,20 @@
           </label>
           <label>Unplaced printer <select name="printer"></select></label>
           <button type="button" class="secondary" data-map-action="add">Place printer</button>
-          <label>Layout item
-            <select name="layoutType">
-              <option value="label">Label</option>
-              <option value="zone">Zone</option>
-              <option value="bench">Bench</option>
-              <option value="rack">Rack</option>
-              <option value="wall">Wall</option>
-              <option value="door">Door</option>
-              <option value="aisle">Aisle</option>
-              <option value="rectangle">Rectangle</option>
-              <option value="line">Line</option>
-            </select>
-          </label>
-          <button type="button" class="secondary" data-map-action="addItem">Add item</button>
           <button type="submit" class="primary">Save map</button>
           <button type="button" class="secondary" data-map-action="cancel">Cancel</button>
           <button type="button" class="danger" data-map-action="delete" hidden>Delete map</button>
+          <div id="printerMapPalette" class="printer-map-palette" role="group" aria-labelledby="printerMapPaletteLabel">
+            <span id="printerMapPaletteLabel">Layout items</span>
+          </div>
         </fieldset>
       </form>
-      <p id="printerMapStatus" class="subtle" role="status"></p>
-      <p id="printerMapError" class="error" role="alert"></p>
-      <p id="printerMapHelp" class="subtle" hidden>Start on empty grid space and drag around items to select them. Drag a selected item to move the group. Arrow keys move one grid step, or three with Shift.</p>
       <div id="printerMapSelection" class="printer-map-toolbar" hidden>
         <strong></strong>
         <button type="button" class="secondary" data-map-action="unplace">Return to unplaced</button>
       </div>
-      <fieldset id="printerMapItemEditor" class="printer-map-toolbar printer-map-item-editor" hidden>
-        <legend class="subtle"></legend>
-        <label>Item label <input name="itemLabel" maxlength="80"></label>
-        <label>Width (grid steps) <input name="itemWidth" type="number" min="1" step="1"></label>
-        <label>Height (grid steps) <input name="itemHeight" type="number" min="1" step="1"></label>
+      <fieldset id="printerMapItemEditor" class="printer-map-toolbar printer-map-item-editor" aria-labelledby="printerMapSelectedItem" hidden>
+        <strong id="printerMapSelectedItem"></strong>
         <label id="printerMapLineAxis" hidden>Orientation
           <select name="lineAxis">
             <option value="horizontal">Horizontal</option>
@@ -343,17 +327,41 @@
           </select>
         </label>
         <button type="button" class="secondary" data-map-action="flipDoor" aria-pressed="false" hidden>Flip hinge</button>
+        <button type="button" class="secondary" data-map-action="rotateItem" hidden>Rotate 90°</button>
         <button type="button" class="danger" data-map-action="removeItem">Remove item</button>
       </fieldset>
+      <p id="printerMapStatus" class="subtle" role="status"></p>
+      <p id="printerMapError" class="error" role="alert"></p>
+      <p id="printerMapHelp" class="subtle" hidden>Drag a layout icon onto the map, or activate it to add an item. Double-click or press F2 to rename. Drag a corner to resize or drag from empty space to select a group. Click a floor to select it before dragging. Arrow keys move one grid step, or three with Shift.</p>
       <div id="printerMapViewport" class="printer-map-viewport" role="region" aria-label="Room layout" tabindex="0" hidden>
-        <div id="printerMapCanvas"><div id="printerMapItems"></div><div id="printerMapBox" aria-hidden="true" hidden></div></div>
+        <div id="printerMapCanvas">
+          <div id="printerMapItems"></div>
+          <span id="printerMapFloorResize" data-map-resize aria-hidden="true" hidden></span>
+          <div id="printerMapBox" aria-hidden="true" hidden></div>
+          <div id="printerMapItemPreview" aria-hidden="true" hidden></div>
+          <input id="printerMapInlineLabel" type="text" aria-label="Item label" maxlength="80" hidden>
+        </div>
       </div>
       <p id="printerMapGroup" class="subtle" role="status" hidden></p>
       <div id="printerMapUnplaced" class="printer-map-unplaced" aria-label="Unplaced printers"></div>
+      <dialog id="printerMapLinkDialog" class="printer-map-link-dialog" aria-labelledby="printerMapLinkTitle">
+        <div class="printer-map-link-content">
+          <h2 id="printerMapLinkTitle">Monitoring link</h2>
+          <p class="subtle">Anyone with this link can view this map without signing in. Replacing or disabling the link disconnects displays using the old address.</p>
+          <label id="printerMapLinkField" hidden>Display URL <input type="url" readonly></label>
+          <p id="printerMapLinkStatus" class="subtle" role="status"></p>
+          <div class="printer-map-toolbar">
+            <button type="button" class="secondary" data-map-link="copy" hidden>Copy link</button>
+            <button type="button" class="primary" data-map-link="generate">Create link</button>
+            <button type="button" class="danger" data-map-link="disable" hidden>Disable link</button>
+            <button type="button" class="secondary" data-map-link="close">Close</button>
+          </div>
+        </div>
+      </dialog>
       <dialog id="printerMapFullscreen" class="printer-map-fullscreen" aria-labelledby="printerMapFullscreenTitle">
         <header class="printer-map-fullscreen-header">
           <h2 id="printerMapFullscreenTitle"></h2>
-          <button id="printerMapExitFullscreen" type="button" class="secondary" autofocus>Exit full screen</button>
+          <button id="printerMapExitFullscreen" type="button" class="ui-button ui-button-secondary ui-button-medium secondary" autofocus>Exit full screen</button>
         </header>
         <div id="printerMapFullscreenStage" class="printer-map-fullscreen-stage"></div>
       </dialog>
@@ -788,6 +796,10 @@
             <button id="alertsMarkAllReadBtn" type="button" class="secondary">Mark all read</button>
             <button id="alertsClearHistoryBtn" type="button" class="danger">Clear history</button>
           </div>
+        </div>
+        <div id="alertsPrinterScope" class="printer-route-scope" hidden>
+          <strong></strong>
+          <button type="button" class="secondary" data-clear-printer-scope="/alerts">Show all alerts</button>
         </div>
         <div id="alertsHistory" class="alerts-history"></div>
       </section>
@@ -1518,6 +1530,10 @@
         <div class="queue-section-head">
           <div><h3>Active &amp; queued</h3><span class="subtle">Fixed jobs wait for their assigned printer. Automatic jobs wait for the next compatible idle printer after its build plate has been confirmed clear.</span></div>
           <button id="queueAddFileBtn" type="button" class="primary">+ Queue file</button>
+        </div>
+        <div id="queuePrinterScope" class="printer-route-scope" hidden>
+          <strong></strong>
+          <button type="button" class="secondary" data-clear-printer-scope="/queue">Show all jobs</button>
         </div>
         <div id="queueActiveList" class="queue-list"></div>
       </section>

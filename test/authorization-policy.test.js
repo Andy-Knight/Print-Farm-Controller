@@ -18,7 +18,7 @@ test('only three explicit roles exist; every declared permission is known',()=>{
     assert.ok(route.permission==='public'||allPermissions.has(route.permission),route.route);
 });
 
-test('anonymous or unknown roles are denied by default; only health is explicitly public',()=>{
+test('anonymous or unknown roles are denied by default except for explicitly public endpoints',()=>{
   for(const [method,path] of [
     ['GET','/api/events'],['GET','/api/fleet'],['GET','/api/queue'],
     ['GET','/api/printers/id/camera/stream'],['POST','/api/batch'],
@@ -29,7 +29,10 @@ test('anonymous or unknown roles are denied by default; only health is explicitl
     assert.equal(isRoleAllowed('unknown',method,path),false);
   }
   assert.equal(isRoleAllowed(null,'GET','/api/health'),true);
+  assert.equal(isRoleAllowed(null,'GET','/api/map-display'),true,'the display handler checks its own bearer link');
   assert.equal(requiredPermission('POST','/api/health'),null);
+  assert.equal(requiredPermission('POST','/api/map-display'),null);
+  assert.equal(isRoleAllowed('viewer','GET','/api/printer-maps/example/display-link'),false);
   for(const method of ['GET','POST','PATCH','PUT','DELETE','OPTIONS','HEAD']){
     assert.equal(requiredPermission(method,'/api/undocumented-route'),null,method);
     assert.equal(isRoleAllowed('administrator',method,'/api/undocumented-route'),false);

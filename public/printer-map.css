@@ -1,8 +1,11 @@
-.printer-map-panel {
+:is(.printer-map-panel, .printer-map-monitor) {
   --map-marker-width: 132px;
   --map-marker-height: 148px;
   --map-model-width: 120px;
   --map-model-height: 64px;
+}
+
+.printer-map-panel {
   display: grid;
   gap: var(--ds-space-3);
   min-width: 0;
@@ -13,6 +16,7 @@
 }
 
 .printer-map-panel [hidden],
+.printer-map-monitor [hidden],
 .printer-map-panel p:empty {
   display: none !important;
 }
@@ -77,7 +81,8 @@
   background: var(--ds-surface-muted);
 }
 
-.printer-map-fullscreen[open] {
+.printer-map-fullscreen[open],
+.printer-map-monitor {
   display: grid;
   grid-template-rows: auto minmax(0, 1fr);
   gap: var(--ds-space-2);
@@ -95,27 +100,59 @@
   color: var(--ds-text);
 }
 
+.printer-map-monitor {
+  overflow: hidden;
+}
+
+.printer-map-monitor-status {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  margin: 0;
+  text-align: center;
+}
+
+.printer-map-link-content {
+  padding: var(--ds-space-4);
+}
+
 .printer-map-fullscreen-header {
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(max-content, 1fr) minmax(0, 2fr) minmax(max-content, 1fr);
   align-items: center;
-  justify-content: space-between;
   gap: var(--ds-space-2);
+  padding: var(--ds-space-1);
   overflow: visible;
   border-radius: 0;
 }
 
-.printer-map-fullscreen-header h2 {
+.printer-map-fullscreen-header :is(h1, h2) {
   min-width: 0;
   margin: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
   font-size: var(--ds-font-lg);
+  text-align: center;
 }
 
 .printer-map-fullscreen-header button {
-  flex: none;
-  min-height: var(--ds-button-height);
+  justify-self: end;
+}
+
+@media (max-width: 520px) {
+  .printer-map-fullscreen-header {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .printer-map-fullscreen-header .brand-lockup {
+    grid-column: 1 / -1;
+  }
+
+  .printer-map-fullscreen-header :is(h1, h2) {
+    text-align: start;
+  }
 }
 
 .printer-map-fullscreen-stage {
@@ -144,6 +181,46 @@
   width: min(100%, 145px);
 }
 
+#printerMapEditor label:has([name="mapName"], [name="printer"]) {
+  width: min(100%, 160px);
+}
+
+.printer-map-palette {
+  display: flex;
+  flex: 1 0 100%;
+  min-width: 0;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--ds-space-1);
+}
+
+.printer-map-palette > span {
+  margin-inline-end: var(--ds-space-2);
+  color: var(--ds-text-muted);
+  font-size: var(--ds-font-sm);
+  font-weight: var(--ds-weight-semibold);
+}
+
+.printer-map-palette button {
+  width: var(--ds-button-height);
+  padding: 0;
+  touch-action: none;
+}
+
+.printer-map-palette button:enabled {
+  cursor: grab;
+}
+
+.printer-map-palette button:enabled:active {
+  cursor: grabbing;
+}
+
+.printer-map-palette svg {
+  width: 22px;
+  height: 22px;
+  pointer-events: none;
+}
+
 #printerMapCanvas {
   --map-grid-step: 20;
   --map-dot-spacing: 15px;
@@ -168,6 +245,24 @@
   z-index: 5;
   border: 1px solid var(--ds-brand);
   background: var(--ds-brand-soft);
+  pointer-events: none;
+}
+
+#printerMapItemPreview {
+  position: absolute;
+  z-index: 5;
+  left: calc(var(--map-dot-spacing) * var(--map-x));
+  top: calc(var(--map-dot-spacing) * var(--map-y));
+  width: calc(var(--map-dot-spacing) * var(--map-item-width));
+  height: calc(var(--map-dot-spacing) * var(--map-item-height));
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  border: 1px dashed var(--ds-brand);
+  border-radius: var(--ds-radius-sm);
+  background: var(--ds-brand-soft);
+  color: var(--ds-text);
+  font-size: var(--ds-font-sm);
   pointer-events: none;
 }
 
@@ -214,6 +309,24 @@
   cursor: grabbing;
 }
 
+.printer-map-item[data-kind="floor"] {
+  z-index: -2;
+  border: 0;
+  border-radius: 0;
+  background:
+    radial-gradient(circle, var(--ds-border-strong) .75px, transparent .75px) 0 0 / var(--map-dot-spacing) var(--map-dot-spacing),
+    linear-gradient(140deg, light-dark(#dedbd5, #303334), light-dark(#d1cec7, #282b2d));
+}
+
+.printer-map-item[data-kind="floor"]:enabled:not([aria-pressed="true"]) {
+  cursor: default;
+}
+
+.printer-map-item[data-kind="floor"]:enabled .printer-map-item-label {
+  cursor: grab;
+  pointer-events: auto;
+}
+
 .printer-map-item:is([data-kind="zone"], [data-kind="rectangle"], [data-kind="aisle"]) {
   z-index: -1;
   background: color-mix(in srgb, var(--ds-brand) 6%, transparent);
@@ -229,7 +342,36 @@
 }
 
 .printer-map-item[data-kind="rack"] {
-  background: repeating-linear-gradient(90deg, var(--ds-surface-raised) 0 23px, var(--ds-border) 23px 24px);
+  --rack-rail: light-dark(#344753, #2b3944);
+  --rack-highlight: light-dark(#7b8d98, #687f90);
+  --rack-shadow: light-dark(#42515b, #19242d);
+  --rack-shelf: light-dark(#647987, #536675);
+  --rack-post: linear-gradient(135deg, var(--rack-highlight) 15%, var(--rack-rail) 42%, var(--rack-shadow));
+  --rack-post-size: min(9px, 45%);
+  border-color: var(--rack-shadow);
+  background:
+    var(--rack-post) left top / var(--rack-post-size) var(--rack-post-size) no-repeat,
+    var(--rack-post) right top / var(--rack-post-size) var(--rack-post-size) no-repeat,
+    var(--rack-post) left bottom / var(--rack-post-size) var(--rack-post-size) no-repeat,
+    var(--rack-post) right bottom / var(--rack-post-size) var(--rack-post-size) no-repeat,
+    linear-gradient(var(--rack-highlight), var(--rack-shelf) 14% 94%, var(--rack-shadow))
+      center / calc(100% - 6px) calc(100% - 6px) no-repeat,
+    var(--rack-rail);
+}
+
+.printer-map-bench-finish {
+  --bench-board-0: light-dark(#d4a171, #bb895f);
+  --bench-board-1: light-dark(#e2b585, #cfa579);
+  --bench-board-2: light-dark(#c79468, #a97c56);
+  --bench-board-3: light-dark(#d7a87a, #c1986d);
+  --bench-edge: light-dark(#935f3f, #735037);
+  --bench-grain: light-dark(#805435, #623c28);
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border-radius: inherit;
+  pointer-events: none;
 }
 
 button.printer-map-item:is([data-kind="bench"], [data-kind="rack"]) {
@@ -241,7 +383,11 @@ button.printer-map-item:is([data-kind="bench"], [data-kind="rack"]) {
   z-index: 4;
 }
 
-.printer-map-item:is([data-kind="label"], [data-kind="wall"], [data-kind="line"], [data-kind="door"]) {
+.printer-map-item:enabled:is([data-kind="bench"], [data-kind="rack"]) .printer-map-item-label:not(:empty) {
+  pointer-events: auto;
+}
+
+.printer-map-item:is([data-kind="label"], [data-kind="wall"], [data-kind="line"], [data-kind="door"], :has(.printer-map-object-symbol)) {
   border-color: transparent;
   background: transparent;
 }
@@ -255,6 +401,19 @@ button.printer-map-item:is([data-kind="bench"], [data-kind="rack"]) {
   --map-line-stroke: 5px;
 }
 
+.printer-map-item[data-kind="door"] {
+  border: 0;
+}
+
+.printer-map-item[data-kind="window"],
+.printer-map-item[data-kind="door"].is-single-selection {
+  z-index: 2;
+}
+
+.printer-map-item[data-kind="window"] {
+  border: 0;
+}
+
 .printer-map-item:is([data-kind="wall"], [data-kind="line"])::before {
   --line-start: calc(var(--map-line-start, 0) * var(--map-dot-spacing) - var(--map-line-stroke) / 2);
   --line-end: calc(var(--map-line-end, 0) * var(--map-dot-spacing) - var(--map-line-stroke) / 2);
@@ -263,6 +422,7 @@ button.printer-map-item:is([data-kind="bench"], [data-kind="rack"]) {
   inset: 50% var(--line-end) auto var(--line-start);
   height: var(--map-line-stroke);
   background: var(--ds-border-strong);
+  mask-image: var(--map-line-mask, none);
   transform: translateY(-50%);
   pointer-events: none;
 }
@@ -276,10 +436,75 @@ button.printer-map-item:is([data-kind="bench"], [data-kind="rack"]) {
 
 .printer-map-door-symbol {
   position: absolute;
+  inset: 0;
   width: 100%;
   height: 100%;
+  overflow: visible;
   pointer-events: none;
-  transform: rotate(var(--map-door-angle, 0deg)) scaleX(var(--map-door-flip, 1));
+}
+
+.printer-map-object-symbol {
+  position: absolute;
+  inset: 0 3px auto;
+  width: calc(100% - 6px);
+  height: calc(100% - min(14px, 40%));
+  pointer-events: none;
+}
+
+.printer-map-item.is-unlabelled .printer-map-object-symbol {
+  height: 100%;
+}
+
+.printer-map-furniture {
+  --art-rim-light: light-dark(#c69570, #d6a887);
+  --art-rim-dark: light-dark(#865236, #8d5136);
+  --art-soil: light-dark(#534030, #423327);
+  --art-leaf-light: light-dark(#578348, #86b36e);
+  --art-leaf-mid: light-dark(#3e6c42, #629657);
+  --art-leaf-dark: light-dark(#2f5540, #3d6c48);
+  --art-leaf-vein: light-dark(#9bb480, #b5ca86);
+  --art-metal-light: light-dark(#9aaab5, #9caebc);
+  --art-metal-dark: light-dark(#465662, #495966);
+  --art-edge: light-dark(#233744, #17242e);
+  --art-fabric-light: light-dark(#67869b, #819eb1);
+  --art-fabric-dark: light-dark(#355164, #415e72);
+  --art-wood-light: light-dark(#cc9b66, #e0ae76);
+  --art-wood-dark: light-dark(#9a673e, #a87548);
+  --art-wood-grain: light-dark(#94643f, #9d6c45);
+  --art-screen-edge: light-dark(#7d9eac, #8eb1bd);
+  --art-shadow: light-dark(rgb(24 48 64 / .21), rgb(1 7 13 / .58));
+}
+
+.printer-map-item[data-kind="window"] .printer-map-object-symbol {
+  inset: 0;
+  width: 100%;
+  overflow: visible;
+}
+
+.printer-map-window-plan {
+  --window-steel: light-dark(#394c56, #212f39);
+  stroke-linecap: butt;
+  stroke-linejoin: miter;
+}
+
+.printer-map-window-frame {
+  fill: var(--window-steel);
+  stroke: light-dark(#536875, #a0b7c7);
+  stroke-width: 1;
+}
+
+.printer-map-window-glass {
+  fill: light-dark(#cee8eb, #345a6a);
+  stroke: none;
+}
+
+.printer-map-window-glazing {
+  stroke: light-dark(#50838b, #93c3cf);
+  stroke-width: 1;
+}
+
+.printer-map-window-mullions {
+  stroke: var(--window-steel);
 }
 
 .printer-map-item-editor button[aria-pressed="true"] {
@@ -312,11 +537,8 @@ button.printer-map-item:is([data-kind="bench"], [data-kind="rack"]) {
   outline-offset: -2px;
 }
 
-.printer-map-item [data-map-resize] {
-  display: none;
+:is(.printer-map-item [data-map-resize], #printerMapFloorResize) {
   position: absolute;
-  right: 0;
-  bottom: 0;
   width: 16px;
   height: 16px;
   border-right: 3px solid var(--ds-brand);
@@ -324,17 +546,46 @@ button.printer-map-item:is([data-kind="bench"], [data-kind="rack"]) {
   cursor: nwse-resize;
 }
 
+.printer-map-item [data-map-resize] {
+  display: none;
+  right: 0;
+  bottom: 0;
+}
+
+#printerMapFloorResize {
+  z-index: 4;
+  left: calc(var(--map-dot-spacing) * var(--map-x));
+  top: calc(var(--map-dot-spacing) * var(--map-y));
+  transform: translate(-100%, -100%);
+  touch-action: none;
+}
+
 .printer-map-item.is-single-selection [data-map-resize] {
   display: block;
 }
 
-.printer-map-item-editor legend {
-  padding: 0;
-  margin-bottom: var(--ds-space-2);
+.printer-map-item-editor > strong {
+  align-self: center;
 }
 
-.printer-map-item-editor label:has(input[type="number"]) {
-  width: min(100%, 145px);
+#printerMapInlineLabel {
+  --map-label-width: min(220px, var(--map-room-width));
+  --map-label-centre: calc(var(--map-dot-spacing) * (var(--map-x) + var(--map-item-width) / 2));
+  position: absolute;
+  z-index: 6;
+  left: clamp(0px, var(--map-label-centre) - var(--map-label-width) / 2,
+    var(--map-room-width) - var(--map-label-width));
+  top: max(26px, var(--map-dot-spacing) * (var(--map-y) + var(--map-item-height)));
+  width: var(--map-label-width);
+  height: 26px;
+  margin: 0;
+  padding: 2px 6px;
+  transform: translateY(-100%);
+  border: 1px solid var(--ds-border-strong);
+  border-radius: var(--ds-radius-sm);
+  color: var(--ds-text);
+  background: var(--ds-surface-muted);
+  font-size: var(--ds-font-sm);
 }
 
 .printer-map-unplaced {
@@ -345,7 +596,7 @@ button.printer-map-item:is([data-kind="bench"], [data-kind="rack"]) {
 
 .printer-map-marker {
   display: grid;
-  grid-template-rows: var(--map-model-height) auto auto;
+  grid-template-rows: auto auto;
   justify-items: center;
   align-items: center;
   align-content: center;
@@ -388,9 +639,31 @@ button.printer-map-item:is([data-kind="bench"], [data-kind="rack"]) {
 }
 
 .printer-map-viewport:focus-visible,
-.printer-map-marker:focus-visible {
+.printer-map-marker:focus-visible,
+.printer-map-marker button:focus-visible {
   outline: 2px solid var(--ds-focus);
   outline-offset: -2px;
+}
+
+.printer-map-details {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: var(--map-model-height) auto;
+  justify-items: center;
+  align-items: center;
+  gap: 3px;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  border-radius: var(--ds-radius-sm);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+}
+
+.printer-map-marker button:disabled {
+  opacity: 1;
+  pointer-events: none;
 }
 
 .printer-map-marker strong {
@@ -421,7 +694,7 @@ button.printer-map-item:is([data-kind="bench"], [data-kind="rack"]) {
   width: 36px;
 }
 
-.is-compact .printer-map-flags span {
+.is-compact .printer-map-flags > * {
   font-size: .68rem;
   padding-inline: 3px;
 }
@@ -433,13 +706,18 @@ button.printer-map-item:is([data-kind="bench"], [data-kind="rack"]) {
   gap: 2px;
 }
 
-.printer-map-flags span {
+.printer-map-flags > * {
   padding: 1px 4px;
+  border: 0;
   border-radius: var(--ds-radius-pill);
   background: var(--ds-surface-muted);
   color: var(--ds-text-muted);
   font-size: var(--ds-font-xs);
   line-height: 1.2;
+}
+
+.printer-map-flags button:enabled:hover {
+  text-decoration: underline;
 }
 
 .printer-map-flags .printer-map-alert {
