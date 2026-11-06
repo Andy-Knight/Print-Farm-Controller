@@ -22,7 +22,7 @@ Other subject-specific guides, such as `docs/dependency-security.md`, own their 
 - **Release/version bump:** Update `package.json`, `package-lock.json`, the current version shown in README and PROJECT_CONTEXT, and prepend a **single** `CHANGELOG.md` entry describing the release. Do not append release details to README or PROJECT_CONTEXT.
 - **Bug fix:** If behaviour changes, update the relevant current-use guidance and tests. Describe the fix under CHANGELOG when a release is cut; avoid adding a second release log anywhere else.
 - **UI design change:** Follow the canonical style guide and update its definitive tokens/icon/table/interaction guidance. Keep `docs/DESIGN_SYSTEM.md` as legacy background, not a competing specification.
-- **Active development/handoff:** Replace resolved `Current work` or `Current task` text in PROJECT_CONTEXT with the new status. Link to PRs, tests and limitations as needed; do not accumulate closed PR stories.
+- **Active development/handoff:** Keep a single `Current work` section in PROJECT_CONTEXT for open work and validation gaps. Move lasting constraints to `Important decisions`. Link to PRs, tests and limitations as needed.
 - **Documentation-only change:** Does not require an application version bump or a new changelog release entry.
 
 ## Operational checklist for every PR
