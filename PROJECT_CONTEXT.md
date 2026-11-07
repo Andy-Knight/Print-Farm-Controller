@@ -1,5 +1,5 @@
 # Print Farm Controller — Project Context
-Cross-chat handoff file. At the start of every new development conversation, read root `AGENTS.md` and `docs/DOCUMENTATION_POLICY.md` as well as this file. Keep this context limited to current architecture, enduring decisions, open risks and the active task; update or replace completed tasks instead of appending release notes.
+Cross-chat handoff file. At the start of every new development conversation, read root `AGENTS.md` and `docs/DOCUMENTATION_POLICY.md` as well as this file. Use **Current work** for open work and validation gaps. Record lasting constraints under **Important decisions** and release changes in `CHANGELOG.md`.
 
 ## Handoff rule
 
@@ -12,61 +12,45 @@ Repository policy: `AGENTS.md` defines agent startup behavior; `docs/DOCUMENTATI
 - Project path: repository root (`/`)
 - Primary branch: `main` (current production baseline)
 - Current controller source version: **0.63.0**.
-- Previous baseline audited: **0.48.0** (main before the regression test audit release).
 - Runtime: **Node.js 24.22.1+** (Node 24 release line), ES modules; build-time **npm 12.2.0** and committed lockfile; no npm runtime dependency for deployed controller. Follow `docs/dependency-security.md` for updates.
 - GitHub is the authoritative code baseline.
 - `CHANGELOG.md` owns all per-version release history. `README.md` describes the current product; this file contains active project context, not a release diary. See `docs/DOCUMENTATION_POLICY.md`.
 
 ## Current work
 
-- **Analytics UI baseline:** Preserve readable trend labels, five KPI colours, directional comparison arrows, Top 6/kg alignment, filters and Preact/fallback parity.
-- **UI baselines:** Sidebar badges fixed 48×24px; individual maintenance Complete/Edit/Delete columns fixed across scopes (stack on phones); Print Library fills width. Login zooms at layer 04 to four decorative beds.
-- **Authentication/RBAC:** Enabled by default. First administrator setup requires a private startup-log code. HTTP credentials/sessions remain interceptable until browser TLS is configured; HTTPS password entry is the default; only `PFC_AUTH_ALLOW_HTTP=1` permits legacy plaintext operation. A durable activation marker forbids anonymous fallback if account data is lost. Offline recovery is available.
-- **Native HTTPS:** GUI-managed direct HTTP 4242 / HTTPS 4243; container Services may expose 80/443. Administrators select managed self-signed, externally pasted PEM (HTTPS-only import) or HTTP-only in Users & settings → Connection settings. Keys persist in protected TLS identities. With TLS active, HTTP permits limited health and redirects browser GET/HEAD; mutations are blocked. Certificate renewal is explicit and password-protected; unchanged Apply preserves identity and sessions. Windows install, TLS activation/renewal/restart and Kubernetes HTTPS/redeployment persistence passed manual testing. External PEM import still needs manual acceptance. See `docs/HTTPS_CONFIGURATION.md`; issue #128 tracks ingress.
-- **User lifecycle:** Administrators can add, edit, disable and permanently delete other users under Users & settings → Users. Deletion requires explicit confirmation and current administrator privileges with origin/CSRF checks; the current account and last enabled administrator cannot be deleted. Deleted users' sessions and active streams are immediately revoked; account removal is persistent.
-- **Role boundary:** Operators can run print jobs and maintain library metadata/filament assignments but cannot delete Print Library items, purge queue history or edit shared catalogue costs; all restrictions are server-enforced.
-- **Validation:** Complete unit/browser, licence, simulator, Windows SEA and container gates before releasing; physical Creator 5/Bambu validation remains incomplete. Preserve protected recovery and backup/restore boundaries.
+- **Physical printer acceptance.** Validate Creator 5/Pro and the experimental Bambu adapters against real hardware. For X1C, verify RTSPS live view and decoder cleanup on Windows and Kubernetes AMD64/ARM64. For A1, verify AMS Lite and external-spool workflows. See [X1C acceptance](docs/X1C_CAMERA.md#validation) and [A1 acceptance](docs/BAMBU_A1.md#simulator-and-acceptance).
+- **External HTTPS certificate acceptance.** Verify external PEM import and replacement over a trusted HTTPS connection on deployed Windows and Kubernetes installations. See [HTTPS release validation](docs/HTTPS_CONFIGURATION.md#release-validation).
+- **Windows deployment acceptance.** Validate installer ownership and upgrades using a separate selected account under UAC. Verify the signed Windows path for a signed distribution. See [Windows storage security](docs/WINDOWS_DATA_SECURITY.md) and [Windows releases](docs/WINDOWS_RELEASES.md).
 
 ## Architecture
 
 ```text
-Browser UI (`public/`; build-time Preact sources in `ui/`)
-        |
-        v
-Local Fleet Controller (`src/`)
-        |
-        +-- printer registry / persistent state
-        +-- fleet state + SSE updates
-        +-- camera manager
-        +-- batch control
-        +-- chamber preheat
-        +-- file distribution / material metadata
-        +-- persistent Print Library store + cached slicer preview extraction
-        +-- compatibility engine
-        +-- persistent custom printer groups + overlapping printer membership
-        +-- shared room maps + configurable grid and tile density + printer placements and room items + administrator-only editing
-        +-- persistent print queue + history + bed-clearance interlock + optional group restriction
-        +-- persistent maintenance tasks + printer/group/model assignment + completion history + controller-observed printer usage
-        +-- persistent reporting history + graphical analytics + filament catalogue/material-cost snapshots
-        +-- logical `.pfcbackup` backup/recovery + scheduled local/network backups + staged restart restore/rollback
-        +-- signed licence loader / verifier / edition + printer-slot enforcement
-        |
-        v
-PrinterAdapter boundary (`src/adapters/`)
-        +-- FlashForge Adventurer 5M / 5M Pro -> HTTP + TCP 8899 + MJPEG camera
-        +-- FlashForge Creator 5 / Creator 5 Pro -> modern HTTP-only API + four-tool material station + MJPEG camera
-        +-- Snapmaker U1 -> Moonraker / Klipper
-        +-- Prusa CORE One+ -> local PrusaLink HTTP API (Digest/API-key auth)
-        +-- Bambu Lab P1P / P1S / X1C / A1 / A1 Mini -> experimental MQTT/FTPS adapter; P1/A1-series TLS-JPEG camera; bundled X1C FFmpeg decoder
-
-Development Printer Emulator (`emulator/`, loopback only)
-        +-- management UI/API + SSE
-        +-- shared virtual-printer state and scenarios
-        +-- FlashForge AD5M HTTP/TCP/camera endpoints
-        +-- FlashForge Creator 5 / Creator 5 Pro HTTP-only/camera endpoints
-        +-- Snapmaker U1 Moonraker endpoints
-        +-- Bambu P1P/P1S/X1C/A1/A1 Mini MQTT TLS, FTPS TLS and camera test endpoints
-        +-- Prusa CORE One+ PrusaLink HTTP/Digest-auth test endpoint
+Controller browser UI (public/, Preact built from ui/ plus DOM fallback)
+    | HTTP(S) API and fleet SSE, with session and role checks
+    v
+Node.js controller (src/server.js) <--- Standalone map display (public/map-display.html)
+    |                                    GET /api/map-display with one room's bearer link
+    +-- HTTP(S), account/session security, RBAC, resource admission and diagnostics
+    +-- Printer registry, discovery, fleet state, cameras and alerts
+    +-- Printer groups and shared room maps with administrator-only editing
+    +-- Print Library, compatibility, file distribution, queue/history and bed clearance
+    +-- Batch control, chamber preheat, maintenance, reporting and filament costing
+    +-- Portable backups, scheduled destinations and restart restore/rollback
+    +-- Offline signed licensing and physical-printer slot enforcement
+    +-- Persistent state and library files in DATA_DIR, diagnostics in LOG_DIR
+    |
+    v
+Printer adapters (src/adapters/)
+    +-- FlashForge Adventurer 5M / 5M Pro: HTTP, TCP 8899 and MJPEG
+    +-- FlashForge Creator 5 / Pro: modern HTTP API, four tools and MJPEG
+    +-- Snapmaker U1: Moonraker / Klipper
+    +-- Prusa CORE One+: PrusaLink HTTP with Digest or API key
+    +-- Bambu P1P / P1S / X1C / A1 / A1 Mini: MQTT over TLS and FTPS
+        +-- P1/A1-series TLS/JPEG cameras, X1C RTSPS/H.264 via bundled FFmpeg
+    |
+    +-- Physical printers on the LAN
+    +-- Virtual printer protocol endpoints (emulator/; loopback when integrated)
+        +-- Controller-managed scenarios or standalone development UI/API and SSE
 ```
 
 Manufacturer-specific discovery, capabilities, limits, status normalization, files, print control, temperatures and camera selection belong behind the adapter boundary. Core fleet services should remain manufacturer-agnostic.
@@ -74,7 +58,7 @@ Manufacturer-specific discovery, capabilities, limits, status normalization, fil
 ## Important decisions
 
 - Diagnostics records printer-operation starts/results at INFO and failures at WARN. There is no temporary verbose mode; preserve administrator-only viewing, redaction, file rotation and support bundles.
-
+- Authentication event diagnostics use allowlisted metadata and the socket peer address. The logger caps outstanding event writes at 32 and summarizes overflow. A logging failure leaves authentication decisions intact.
 - Local-first/LAN-only controller; printer credentials remain backend-side.
 - Integrated simulator management uses its own same-origin session bootstrap and refreshes CSRF before each mutation; the main controller's fetch wrapper is not loaded in that separate document. Keep backend administrator/Origin checks and standalone loopback simulator behaviour intact.
 - Multiple manufacturers are supported through adapters rather than manufacturer logic in shared fleet code.
@@ -83,6 +67,7 @@ Manufacturer-specific discovery, capabilities, limits, status normalization, fil
 - Creator 5 Pro native chamber temperature control is distinct from the controller's generic bed-powered chamber-preheat feature. The Pro exposes a chamber sensor and direct target up to 65 °C; base Creator 5 does not. Creator 5 Pro filtration hardware is not exposed as a writable controller capability because the available local circulation command is ineffective.
 - Default persistent controller data now lives in the application-local `data/` directory rather than the operating-system user profile. If `data/` does not yet exist, startup migrates the previous profile-based `Printer Fleet Controller` directory, falling back to the older `FlashForge Fleet` location. This moves printer configuration, queue/history, Print Library files, emulator settings and file material metadata together. Custom `DATA_DIR` locations are used exactly as configured and are never moved.
 - Print Library files, queue/history and their references persist across restarts. Queue/history cleanup never owns library-file deletion.
+- Print Library attribution preserves the original uploader and tracks a separate transferable quota owner. Transfers require an enabled account with capacity. Storage history records actual hourly observations in the backed-up `library-storage-history.json` store and preserves gaps. See [library ownership and quotas](docs/RESOURCE_AND_BACKUP_LIMITS.md).
 - Printer groups are controller-owned and manufacturer-agnostic. A printer may belong to zero, one or multiple groups at the same time; editing one group changes only that group's membership. Group membership is not part of printer connection/adaptor configuration.
 - Printer maps are shared layouts stored in `printer-maps.json` in the controller data directory and included in portable backups. Admin writes check map revisions and serialize with printer registry mutations. A printer can be placed in one room at a time. Tile status comes from the live fleet, queue and alerts rather than the saved layout. Admins can opt a map into standalone monitoring using a revocable bearer link. The link is persisted with the map, excluded from normal map responses and portable backups, and accepted only by the dedicated read-only display endpoint.
 - Automatic queue work may optionally carry a printer-group restriction. The controller evaluates only current members of that group for assignment, and group membership changes trigger queue reevaluation. The group restriction narrows the candidate set but does not bypass model/file targeting, material/colour/nozzle compatibility, licensing, busy state, bed clearance, concurrency or any other safety/preflight rule.
@@ -105,7 +90,10 @@ Manufacturer-specific discovery, capabilities, limits, status normalization, fil
 - Historical `queue-files/` directories migrate automatically to `print-library/` while keeping the same UUID directories, preserving existing queue/history references.
 - Explicit administrator library deletion removes the stored file and all linked terminal queue/reporting records by library ID, after confirming that report totals will change. Active/pending work, active production siblings and uncleared beds still block deletion. Queue persistence and terminal reporting share one save chain so stale callbacks cannot recreate purged records; cleanup persists history before removing the file and failed cleanup can be retried.
 - Every application release updates `package.json`, the lockfile, the current-version metadata in `README.md` and `PROJECT_CONTEXT.md`, and a new version entry in `CHANGELOG.md`. Documentation-only changes do not require an application version bump.
-- **Native authentication and RBAC:** Administrator/Operator/Viewer authorization is enforced server-side in `src/security/http-auth.js` independently from signed licences. Authentication is on by default; first administrator setup uses a one-time startup-log code, sessions are revocable, and CSRF/Origin checks apply to mutations. Native HTTPS encrypts login/session traffic when enabled; independent packaged/client and certificate-trust verification is still required. See `docs/AUTHENTICATION_AND_RBAC.md`.
+- **Native authentication and RBAC.** Authorization is enforced server-side independently from signed licences. Authentication defaults on. The first administrator uses a one-time startup-log code. The activation marker preserves the authentication requirement after account data loss. Mutations require Origin and CSRF checks. Account deletion protects the current account and last enabled administrator and revokes the deleted user's sessions and streams. See [Authentication and RBAC](docs/AUTHENTICATION_AND_RBAC.md).
+- **Native HTTPS.** The controller protects certificate keys, requires HTTPS for external PEM import, and restricts the HTTP listener to limited health responses and browser redirects when TLS is active. See [HTTPS configuration](docs/HTTPS_CONFIGURATION.md).
+- **Resource and storage boundaries.** Preserve aggregate admission, bounded file inspection and backup verification, operation-wide cloud deadlines, and cleanup before backup-lock release. Resource policy changes apply after restart. Environment overrides and target installation policy remain authoritative. Keep separate data/log paths and preserve Windows storage ownership across upgrades. See [Resource and backup limits](docs/RESOURCE_AND_BACKUP_LIMITS.md) and [Windows storage security](docs/WINDOWS_DATA_SECURITY.md).
+- **Windows packaging.** Main-only CI creates an unpublished Windows draft after regression, Windows packaging and production container validation. Assets must match the source commit and checksum. Preserve existing releases and tags and keep production build configuration out of PR jobs. See [Windows releases](docs/WINDOWS_RELEASES.md).
 - **Documentation authority:** `README.md` contains current capabilities and setup (current-version metadata only), `CHANGELOG.md` contains every release change, this file contains live handoff/decisions, and `docs/CONTROLLER_VISUAL_STYLE_GUIDE.md` contains visual standards. Follow `AGENTS.md` and `docs/DOCUMENTATION_POLICY.md`.
 - The browser appearance switch is accessible, persists only in browser `localStorage`, and follows the device colour scheme until the user explicitly selects Light or Dark.
 - **Live-telemetry edit protection rule:** if a UI field is both refreshed from live printer telemetry and user-editable, and the user's change requires a separate **Save / Apply / Set** action, the UI must treat the edit as pending/dirty and must not let telemetry overwrite the user's unsaved value. Clear the dirty state only after the write succeeds (or the control is intentionally rebuilt/cancelled). The Snapmaker U1 filament type/colour editor is the current reference implementation. Controls that save immediately on selection, or controls that are not rewritten by telemetry, do not need this protection.
@@ -133,40 +121,9 @@ Manufacturer-specific discovery, capabilities, limits, status normalization, fil
 - Backup & recovery on the production baseline uses portable verified/compressed `.pfcbackup` archives with local/NAS, Google Drive, generic S3-compatible and **Experimental Microsoft OneDrive** destinations, scheduled backups, explicit inspection, staged restart restore, rollback and recovery holds for unfinished queue work. Portable backups include the filament catalogue and persistent reporting history.
 - Google Drive production deployments use the shared built-in OAuth configuration injected at build time; customers authorize their own Google account without supplying an OAuth client. Advanced custom OAuth remains available for source/development or bespoke deployments.
 - Offline Ed25519-signed licensing enforces physical-printer allowances: Community 3, Pro 10 and Farm 25; simulator printers do not consume licence slots.
-- Integrated printer simulator covers FlashForge, Snapmaker and experimental Bambu protocol paths for repeatable development and automated validation.
+- The integrated printer simulator covers FlashForge, Snapmaker, Prusa and Bambu protocol paths for repeatable development and automated validation.
 - Production deployment supports the hardened Windows x64 Node SEA/installer path and the multi-architecture GHCR container image for `linux/amd64` and `linux/arm64`, with persistent `/data` and `/logs`.
-- Known validation limits: Creator 5 / Creator 5 Pro physical-hardware validation remains incomplete; Bambu support remains experimental; X1C RTSPS/H.264 camera streaming is a bundled-decoder prototype requiring physical Windows/Kubernetes acceptance.
-
-## Current task
-
-Authentication login/logout events use the existing rotating diagnostic logger through an injected callback. Metadata is allowlisted; use socket peer addresses, never forwarded headers or credential/token payloads. Logging errors do not change authentication decisions. At most 32 event writes may be outstanding; overflow is counted and summarized after the backlog drains. This is operational diagnostic history, not a full account-change audit store.
-
-Preact is pinned to 11.0.2 in the manifest/lockfile and frontend contract test. Keep exact dependency pins reviewed together and validate the built frontend, browser interactions and deployment packages on patch updates.
-
-A1 support uses the existing Bambu adapter and shared details/AMS editors, TLS/JPEG camera and AMS Lite mapping. Simulator validation must cover four slots/external spool, RFID and busy guards, file/queue controls and both renderers. Local validation passed: Windows 913/915 tests (two skips), fresh-source Linux 909/915 (six skips), complete Chromium including real A1 AMS edits/camera and both renderers, and Windows SEA/installer builds. Physical A1 acceptance remains pending; see docs/BAMBU_A1.md.
-
-Print Library attribution uses an immutable original uploader ID and a separately transferable quota-owner ID. Keep the dedicated Uploaded by column, labelled mobile equivalent and account filters in both renderers. Personal usage sits beside the top-bar account name; administrator-only Reports & finance → Print library owns the account pie/breakdown and disk-usage history against the active maximum. Storage observations use a separate backed-up library-storage-history.json buffer/store, retaining real hourly observations for up to 366 days (9000-point cap). Normal dirty flushes occur at most every five minutes; clean shutdown flushes pending observations and backups capture the live buffer. Migration commits the new file before removing the embedded reporting-history.json field; never infer pre-upgrade usage or join offline gaps. Transfers require enabled targets with capacity and retain 100 per-file changes; duplicates never rewrite attribution.
-
-Windows installer drafts are prepared by main-only GitHub Actions after regression, Windows packaging and multi-architecture image validation. Keep the release unpublished for maintainer review, bind assets to the exact source commit, preserve existing releases/tags and never expose production build configuration to PR jobs. See `docs/WINDOWS_RELEASES.md`.
-
-Preserve aggregate upload/library/session/stream admission, bounded file inspection and backup ZIP verification, and operation-wide cloud deadlines/cancellation. Reject excess work before allocation; keep cancellation cleanup ahead of backup-lock release. Per-file upload support, restore recovery holds, signed licensing, separate data/log volumes and Windows owner protections remain independent boundaries. Administrators tune saved resource policy under Users & settings → Resource limits; changes apply only at restart, environment overrides remain authoritative, and portable restores preserve target installation policy. Quota tuning and large-library/backup deployment acceptance must use `docs/RESOURCE_AND_BACKUP_LIMITS.md`.
-
-Preserve Windows storage access for the owning account, SYSTEM and Administrators, owner retention on upgrades, local recovery and separate data/log volumes. Interactive Windows installation is manually confirmed; validation under a separate selected account/UAC elevation identity remains a deployment check. Actual ACL and elevated reassignment tests, packaged startup, Windows builds, Linux/browser regression and container smoke passed. See `docs/WINDOWS_DATA_SECURITY.md`.
-
-Queue lifecycle unit tests use a five-second monotonic polling budget and check the condition before expiring it after a delayed wakeup. The basic lifecycle fixture stubs metadata and costing reads and always stops its service on test cleanup. Keep queue runtime timing and safety interlocks independent of test-runner scheduling.
-
-Deployment acceptance remains for secure HTTPS onboarding and physical printer behavior. Preserve printer/cloud destination validation, bounded network input and shared authentication admission limits documented in `docs/NETWORK_INPUT_SECURITY.md` and `docs/AUTHENTICATION_AND_RBAC.md`. Fresh-source Linux validation passed (853 tests, zero failures, three documented skips), as did complete Chromium and Windows SEA/installer builds. Native Windows validation outside the restricted sandbox passed (855 tests, zero failures, one optional skip), including all camera checks. Schannel credential acquisition fails in the restricted local sandbox; native decoder tests remain mandatory and run outside it. Physical X1C/Creator 5 and deployment acceptance remain pending.
-
-The bundled decoder baseline uses a pinned, checksum-verified official FFmpeg source archive under `third-party/ffmpeg`, Schannel/LGPL 2.1-or-later on Windows and system OpenSSL 3/LGPL 3-or-later on Linux, without GPL/nonfree components. Preserve matching source, notices and build/integrity records. Windows signing covers both executables before installer compilation. x86 builds require NASM assembly support for correct scaler output; bundle verification rejects builds without it. See `docs/X1C_CAMERA.md`.
-
-Validation baseline: PR #146's final GitHub documentation and controller workflows passed; local full isolated Linux validation passed 832 tests with one optional MinIO skip, and full Chromium, Windows SEA/unsigned installer and packaged AMD64/ARM64 camera checks passed. Chromium verifies decoded pixels as well as image arrival; account-role checks await persisted server state and the refreshed row. Native Windows full-suite recovery tests can collide with simulator ports held by a running controller; preserve that process and use isolated validation. Earlier camera-startup timeouts remain a validation limit. Physical X1C/Kubernetes and signed-release acceptance remain pending.
-
-## Next steps
-
-1. Review remaining dependency PRs individually against current main and require passing CI on each updated head. All changes use feature branches; never merge into main, create a release tag or claim successful publication without explicit approval and verification.
-2. Validate a physical X1C on Windows and Kubernetes AMD64/ARM64, including firmware liveview, outages, multiple viewers, idle/shutdown cleanup and fleet resource usage. The simulator X1C camera now serves authenticated RTSPS/RTP H.264 on its existing port and exercises the production decoder; it does not establish physical hardware acceptance.
-3. Preserve shipped third-party source/notices and review the exact commercial distribution/patent position before release. An LGPL build does not establish H.264 patent clearance. Camera TLS certificate verification remains disabled for the LAN prototype; browser HTTPS/RBAC are independent, and privileged host users can inspect process arguments.
-4. Complete signed Windows installer and cluster acceptance gates before claiming release acceptance. Preserve the native HTTPS acceptance and outstanding external-PEM import checks under Current work.
+- Local Windows validation uses isolated simulator ports when another controller is running. Native Schannel decoder tests require an environment with working Windows credential acquisition. See [X1C validation](docs/X1C_CAMERA.md#validation).
 
 ## Licensing baseline
 
