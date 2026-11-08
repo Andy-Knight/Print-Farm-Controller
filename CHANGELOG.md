@@ -4,6 +4,16 @@ This file contains the version-by-version release history for Print Farm Control
 
 Historical entries describe the behaviour of the controller at the time of that release and may be superseded by later versions. For current installation, configuration and supported-hardware guidance, see [README.md](README.md).
 
+## v0.64.0
+
+- Show reported print progress and bed-clearance status on Printer map tiles. Briefly highlight new alerts, completed prints, queue starts and reconnects when motion is enabled.
+- Animate a character on saved Printer maps with a computer. It carries finished prints in a box held with both hands, drops them off at a reachable shelf when available, and returns to a computer.
+- Add a Bin layout item. While idle at a computer, the character can throw a paper airplane into a bin with a clear flight path or take a trip through a reachable door. When both options are available, the character chooses randomly.
+- Animate doors during crossings and hold them open until the character clears the swing. Add a blue monitor glow across the keyboard when the character is seated at a workstation.
+- Add a browser-saved **Animate person** switch to the map, full-screen view and monitoring display. By default, it follows the browser’s reduced-motion setting.
+- Add Shelf and branded Mini PC layout items, draw wire racks and align butcher-block planks with the longest bench edge. Hide furniture labels on floors, benches, racks and shelves, and retire aisle items.
+- Use the Light/Dark pill style for the Dashboard view, Farm operations and map animation switches.
+
 ## v0.63.0
 
 - Add Printer map with shared, named room layouts, live printer alerts and queue counts, and compact printer tiles. All roles can view saved maps, while administrators control their layout.
