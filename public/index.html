@@ -92,9 +92,9 @@
       </button>
       <span id="authIdentity" class="auth-identity" hidden></span>
       <button id="authAccountBtn" type="button" class="secondary auth-account-button" hidden>My account</button>
-      <button id="themeToggle" class="theme-toggle" type="button" role="switch" aria-checked="true" aria-label="Switch to light mode">
-        <span class="theme-toggle-track" aria-hidden="true"></span>
-        <span class="theme-toggle-label">Dark</span>
+      <button id="themeToggle" class="ui-switch" type="button" role="switch" aria-checked="true" aria-label="Switch to light mode">
+        <span class="ui-switch-track" aria-hidden="true"></span>
+        <span class="ui-switch-label">Dark</span>
       </button>
       <button id="addPrinterBtn" class="primary">+ Add printer</button>
     </div>
@@ -111,16 +111,16 @@
         </div>
         <div class="dashboard-view-control">
           <span class="dashboard-view-label">Dashboard view</span>
-          <button id="dashboardViewToggle" class="dashboard-view-toggle" type="button" role="switch" aria-checked="false" aria-label="Switch dashboard to table view">
-            <span class="dashboard-view-toggle-track" aria-hidden="true"></span>
-            <span class="dashboard-view-toggle-label">Cards</span>
+          <button id="dashboardViewToggle" class="ui-switch" type="button" role="switch" aria-checked="false" aria-label="Switch dashboard to table view">
+            <span class="ui-switch-track" aria-hidden="true"></span>
+            <span class="ui-switch-label">Cards</span>
           </button>
         </div>
         <div class="dashboard-view-control dashboard-operations-control">
           <span class="dashboard-view-label">Farm operations</span>
-          <button id="farmOperationsToggle" class="dashboard-view-toggle dashboard-operations-toggle" type="button" role="switch" aria-checked="false" aria-label="Enable farm operations" aria-controls="batchToolbar">
-            <span class="dashboard-view-toggle-track" aria-hidden="true"></span>
-            <span class="dashboard-view-toggle-label">Off</span>
+          <button id="farmOperationsToggle" class="ui-switch dashboard-operations-toggle" type="button" role="switch" aria-checked="false" aria-label="Enable farm operations" aria-controls="batchToolbar">
+            <span class="ui-switch-track" aria-hidden="true"></span>
+            <span class="ui-switch-label">Off</span>
           </button>
         </div>
       </section>
@@ -284,6 +284,10 @@
           <button id="printerMapReload" type="button" class="secondary" hidden>Reload maps</button>
         </div>
         <button id="printerMapMonitoringLink" type="button" class="secondary" hidden>Monitoring link</button>
+        <button data-map-motion type="button" class="ui-switch" role="switch" aria-checked="false" hidden>
+          <span class="ui-switch-track" aria-hidden="true"></span>
+          <span class="ui-switch-label">Animate person</span>
+        </button>
       </div>
       <form id="printerMapEditor" hidden>
         <fieldset class="printer-map-toolbar">
@@ -361,7 +365,13 @@
       <dialog id="printerMapFullscreen" class="printer-map-fullscreen" aria-labelledby="printerMapFullscreenTitle">
         <header class="printer-map-fullscreen-header">
           <h2 id="printerMapFullscreenTitle"></h2>
-          <button id="printerMapExitFullscreen" type="button" class="ui-button ui-button-secondary ui-button-medium secondary" autofocus>Exit full screen</button>
+          <div class="printer-map-fullscreen-actions">
+            <button data-map-motion type="button" class="ui-switch" role="switch" aria-checked="false" hidden>
+              <span class="ui-switch-track" aria-hidden="true"></span>
+              <span class="ui-switch-label">Animate person</span>
+            </button>
+            <button id="printerMapExitFullscreen" type="button" class="ui-button ui-button-secondary ui-button-medium secondary" autofocus>Exit full screen</button>
+          </div>
         </header>
         <div id="printerMapFullscreenStage" class="printer-map-fullscreen-stage"></div>
       </dialog>

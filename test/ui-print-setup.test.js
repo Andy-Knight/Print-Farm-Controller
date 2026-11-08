@@ -105,7 +105,7 @@ test('interface exposes a persistent accessible light and dark mode switch', () 
   assert.match(app, /localStorage\.setItem\(THEME_STORAGE_KEY, next\)/);
   assert.match(app, /themeToggle\?\.addEventListener\('click'/);
   assert.match(styles, /:root\[data-theme="light"\]/);
-  assert.match(styles, /\.theme-toggle-track::after/);
+  assert.match(styles, /\.ui-switch-track::after/);
   assert.match(emulatorIndex, /id="theme-toggle" class="theme-toggle"/);
   assert.match(emulatorIndex, /printer-fleet-theme/);
   assert.match(emulatorApp, /const themeStorageKey = 'printer-fleet-theme'/);

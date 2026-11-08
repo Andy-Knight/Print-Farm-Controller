@@ -1,9 +1,11 @@
 import { orientPrinterMapFurniture, printerMapFurnitureArtwork } from './printer-map-artwork.js';
+import { createPrinterMapPerson } from './printer-map-person.js';
 
 const endpoint = '/api/printer-maps';
 const preferenceKey = 'pfc-printer-map';
+const motionPreferenceKey = 'pfc-printer-map-motion';
 const defaultRoomSteps = 50;
-const unlabelledTypes = new Set(['window', 'plant-pot', 'chair', 'stool']);
+const unlabelledTypes = new Set(['floor', 'bench', 'rack', 'shelf', 'window', 'plant-pot', 'chair', 'stool']);
 const rotatableFurniture = new Set(['chair', 'computer']);
 const itemTypes = {
   floor:{ name:'Floor', size:[600, 400] },
@@ -11,16 +13,17 @@ const itemTypes = {
   zone:{ name:'Zone', size:[420, 320] },
   bench:{ name:'Bench', size:[280, 140] },
   rack:{ name:'Rack', size:[220, 100] },
+  shelf:{ name:'Shelf', size:[200, 80] },
   wall:{ name:'Wall', size:[340, 40] },
   door:{ name:'Door', size:[120, 80] },
-  aisle:{ name:'Aisle', size:[400, 120] },
   rectangle:{ name:'Rectangle', size:[220, 160] },
   line:{ name:'Line', size:[260, 40] },
   'plant-pot':{ name:'Plant pot', size:[80, 80] },
   window:{ name:'Window', size:[160, 40] },
   chair:{ name:'Chair', size:[80, 100] },
   stool:{ name:'Stool', size:[80, 80] },
-  computer:{ name:'Computer', size:[120, 100] }
+  computer:{ name:'Computer', size:[120, 100] },
+  controller:{ name:'Controller', size:[100, 80] }
 };
 const paletteSymbols = {
   floor:'<path d="M24 8 43 18 24 28 5 18 24 8ZM5 25l19 10 19-10M5 32l19 10 19-10"/>',
@@ -28,11 +31,13 @@ const paletteSymbols = {
   zone:'<rect x="6" y="8" width="36" height="32" rx="2" stroke-dasharray="4 4"/>',
   bench:'<path d="M7 15h34v9H7zm4 9v12m26-12v12"/>',
   rack:'<path d="M8 8h32v32H8zM8 19h32M8 29h32M19 8v32M29 8v32"/>',
+  shelf:'<path d="M5 15h38v9H5zM10 24v10l10-10m18 0v10L28 24"/>',
   wall:'<path d="M5 11h38v26H5zM5 24h38M18 11v13m12 0v13"/>',
   door:'<path d="M6 35h7m23 0h6M13 35V12m0 0a23 23 0 0 1 23 23" />',
-  aisle:'<path d="M8 8v32M40 8v32M24 8v32" stroke-dasharray="4 4"/>',
   rectangle:'<rect x="6" y="12" width="36" height="24" rx="2"/>',
   line:'<path d="M8 35 40 13"/>',
+  controller:`<rect x="4" y="8" width="40" height="32" rx="6"/>
+    <path d="m24 13 12 6-12 6-12-6 12-6Zm-12 12 12 6 12-6m-24 6 12 6 12-6"/>`,
   window:`<rect x="2" y="4" width="44" height="40" rx="1"/>
     <path d="M2 24h44m-22-20v40"/>`
 };
@@ -99,6 +104,19 @@ export function createPrinterMapPage({ api, canEdit, openPrinter, openAlerts, op
   const gridStep = Number(canvasStyle.getPropertyValue('--map-grid-step'));
   const gridPixels = parseFloat(canvasStyle.getPropertyValue('--map-dot-spacing'));
   const gridOffset = gridStep / 2;
+  const personScale = gridPixels / gridStep;
+  const person = createPrinterMapPerson(canvas, {
+    step:gridStep, scale:personScale, getItemNode:id => itemNodes.get(id)
+  });
+  const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)');
+  const motionSwitches = page.querySelectorAll('[data-map-motion]');
+  let motionOverride = null;
+  try {
+    const savedMotion = localStorage.getItem(motionPreferenceKey);
+    if (savedMotion === 'on' || savedMotion === 'off') motionOverride = savedMotion === 'on';
+  } catch {}
+  let personWalls = [];
+  const doorways = [];
   const shelf = page.querySelector('#printerMapUnplaced');
   const selection = page.querySelector('#printerMapSelection');
   const actions = Object.fromEntries([...page.querySelectorAll('[data-map-action]')]
@@ -168,6 +186,38 @@ export function createPrinterMapPage({ api, canEdit, openPrinter, openAlerts, op
     canvas.style.setProperty('--map-columns', width / gridStep);
     canvas.style.setProperty('--map-rows', height / gridStep);
     canvas.classList.toggle('is-compact', Boolean(currentMap()?.compactPrinters));
+  }
+
+  function syncPerson() {
+    const map = currentMap();
+    const hasPerson = !draft && map?.items?.some(item => item.type === 'computer');
+    const motionEnabled = motionOverride ?? !reducedMotion.matches;
+    for (const control of motionSwitches) {
+      control.hidden = !hasPerson;
+      control.setAttribute('aria-checked', String(motionEnabled));
+    }
+    if (!hasPerson || page.hidden || document.hidden) {
+      person.stop();
+      return;
+    }
+    const printerWidth = parseFloat(canvasStyle.getPropertyValue('--map-marker-width')) / personScale;
+    const printerHeight = parseFloat(canvasStyle.getPropertyValue('--map-marker-height')) / personScale;
+    const placements = map.placements.filter(item => markers.has(item.printerId));
+    person.update({ ...roomBounds(), map, tiles:printers, walls:personWalls, doorways, motionEnabled,
+      printers:placements.map(({ printerId, x, y }) =>
+        ({ id:printerId, x, y, width:printerWidth, height:printerHeight }))
+    });
+  }
+
+  new MutationObserver(syncPerson).observe(page, { attributes:true, attributeFilter:['hidden'] });
+  document.addEventListener('visibilitychange', syncPerson);
+  reducedMotion.addEventListener('change', syncPerson);
+  for (const control of motionSwitches) {
+    control.addEventListener('click', () => {
+      motionOverride = !(motionOverride ?? !reducedMotion.matches);
+      try { localStorage.setItem(motionPreferenceKey, motionOverride ? 'on' : 'off'); } catch {}
+      syncPerson();
+    });
   }
 
   function applyRoomDimensions() {
@@ -267,6 +317,7 @@ export function createPrinterMapPage({ api, canEdit, openPrinter, openAlerts, op
         renderRoomGeometry();
         renderMarkers();
         renderItems();
+        syncPerson();
         fitFullscreen();
       }
     };
@@ -388,6 +439,11 @@ export function createPrinterMapPage({ api, canEdit, openPrinter, openAlerts, op
     node.style.setProperty('--map-item-height', item.height / gridStep);
     node.dataset.kind = item.type;
     node.dataset.axis = item.axis || (item.height > item.width ? 'vertical' : 'horizontal');
+    if (item.type === 'bench') {
+      const pattern = node.querySelector('.printer-map-bench-finish pattern');
+      if (item.height > item.width) pattern.setAttribute('patternTransform', 'rotate(90)');
+      else pattern.removeAttribute('patternTransform');
+    }
     if (item.type === 'floor' && !node.disabled && node.classList.contains('is-single-selection')) {
       positionFloorResize(item);
       floorResize.hidden = false;
@@ -439,6 +495,7 @@ export function createPrinterMapPage({ api, canEdit, openPrinter, openAlerts, op
     const inset = Math.min(gridStep, depth / 2);
     const defaultCentre = crossStart + (swingsNegative ? depth - inset : inset);
     const centre = joinOpening(walls, { vertical, start, end:start + length, crossStart, depth, defaultCentre });
+    doorways.push({ vertical, centre, start, end:start + length });
     const baseline = centre - crossStart;
     const x = vertical ? baseline : reverse ? length : 0;
     const y = vertical ? (reverse ? length : 0) : baseline;
@@ -540,8 +597,10 @@ export function createPrinterMapPage({ api, canEdit, openPrinter, openAlerts, op
       }
     }
     const walls = segments.filter(segment => segment.item.type === 'wall');
+    doorways.length = 0;
     for (const door of items.filter(item => item.type === 'door')) drawDoor(door, walls);
     for (const window of items.filter(item => item.type === 'window')) drawWindow(window, walls);
+    personWalls = walls;
     for (const segment of segments) {
       const { item, start, length, from, to } = segment;
       const node = itemNodes.get(item.id);
@@ -583,7 +642,9 @@ export function createPrinterMapPage({ api, canEdit, openPrinter, openAlerts, op
           aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.5"
           stroke-linecap="round" stroke-linejoin="round">${objectSymbols[item.type]}</svg>` : '');
         const resize = item.type === 'floor' ? '' : '<span data-map-resize aria-hidden="true"></span>';
-        node.innerHTML = `${symbol}<span class="printer-map-item-label"></span>${resize}`;
+        const shelfParts = item.type === 'shelf'
+          ? `<span class="printer-map-shelf-parts" aria-hidden="true">${'<span hidden></span>'.repeat(4)}</span>` : '';
+        node.innerHTML = `${symbol}${shelfParts}<span class="printer-map-item-label"></span>${resize}`;
         itemLayer.append(node);
         itemNodes.set(item.id, node);
       }
@@ -704,6 +765,7 @@ export function createPrinterMapPage({ api, canEdit, openPrinter, openAlerts, op
     actions.delete.hidden = !draft?.id;
     renderMarkers();
     renderItems();
+    syncPerson();
   }
 
   function endEdit() {
@@ -978,7 +1040,7 @@ export function createPrinterMapPage({ api, canEdit, openPrinter, openAlerts, op
     const marker = markerAt(event);
     const placement = marker && placementFor(marker);
     const unselectedFloor = placement?.type === 'floor' && !selected.has(placement)
-      && event.target === marker && !event.ctrlKey && !event.metaKey;
+      && !event.ctrlKey && !event.metaKey;
     if ((!marker || unselectedFloor) && event.pointerType !== 'touch') {
       event.preventDefault();
       canvas.setPointerCapture(event.pointerId);
@@ -1246,7 +1308,10 @@ export function createPrinterMapPage({ api, canEdit, openPrinter, openAlerts, op
     load,
     update(nextPrinters) {
       printers = nextPrinters;
-      if (!page.hidden && loaded) renderMarkers();
+      if (!page.hidden && loaded) {
+        renderMarkers();
+        syncPerson();
+      }
     }
   };
 }

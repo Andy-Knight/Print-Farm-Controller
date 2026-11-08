@@ -93,24 +93,9 @@
   border-radius:var(--ds-radius-sm);
   min-width:0;
 }
-.dashboard-hero .dashboard-view-toggle {
-  min-height:var(--ds-input-height);
-  height:var(--ds-input-height);
-  border-radius:var(--ds-radius-sm);
-  border-color:var(--ds-border);
-  background:var(--ds-surface);
-  color:var(--ds-text);
-  box-shadow:var(--ds-shadow-sm);
-}
-.dashboard-hero .dashboard-view-toggle:focus-visible,
 .dashboard-hero .dashboard-group-filter select:focus-visible {
   outline:2px solid var(--ds-focus);
   outline-offset:2px;
-}
-.dashboard-hero .dashboard-view-toggle:hover:not(:disabled) {
-  filter:none;
-  background:var(--ds-surface-hover);
-  border-color:var(--ds-border-strong);
 }
 #summary.summary {
   grid-template-columns:repeat(4,minmax(0,1fr));
@@ -354,7 +339,7 @@
     align-items:flex-start;
   }
   .dashboard-hero .dashboard-group-filter select { width:100%; }
-  .dashboard-hero .dashboard-view-toggle { align-self:flex-start; }
+  .dashboard-hero .ui-switch { align-self:flex-start; }
 }
 @media (max-width:420px) {
   .dashboard-hero .dashboard-controls { align-items:stretch; }
@@ -363,7 +348,7 @@
   .dashboard-fleet-view-badge { padding:5px 8px; }
 }
 @media (prefers-reduced-motion:reduce) {
-  .dashboard-hero .dashboard-view-toggle,
+  .dashboard-hero .ui-switch,
   #summary .summary-card.ui-stat-card,
   .fleet:not(.table-view) .card.ui-printer-surface { transition:none!important;animation:none!important; }
 }
@@ -390,7 +375,7 @@
   gap:9px;
   min-height:var(--ds-input-height);
 }
-.dashboard-operations-toggle .dashboard-view-toggle-label { min-width:20px; }
+.dashboard-operations-toggle .ui-switch-label { min-width:20px; }
 @media (max-width:1400px) {
   .dashboard-hero .dashboard-controls,
   .dashboard-hero .dashboard-controls:has(.dashboard-group-filter.hidden) {
