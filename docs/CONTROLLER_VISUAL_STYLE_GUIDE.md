@@ -1,10 +1,13 @@
 # Print Farm Controller — Visual Style Guide & Icon Catalogue
 
-**Document type:** canonical UI/UX design reference (separate from the README and project handoff)  
-**Reference baseline:** v0.59.7 candidate, 21 October 2026 · PR #113 Dashboard refinements  
-**Maintained in:** `docs/CONTROLLER_VISUAL_STYLE_GUIDE.md`  
-**Scope:** controller web application, desktop and mobile, both themes; Preact and no-bundle fallbacks. The emulator may share principles but has its own stylesheet.  
-**Authority:** actual CSS, components and approved UI behaviour take precedence over illustrative samples in this guide. New designs **should conform to these rules** unless explicitly approved as an exception.
+This is the canonical design reference for the controller web app in both themes, at desktop and mobile widths, with Preact and the no-bundle fallback. The emulator has its own stylesheet. Check the [implementation sources](#2-css-and-implementation-sources) for deployed behaviour and follow the documented standards for new work.
+
+## Contents
+
+- [Foundations](#1-design-character) · [Implementation sources](#2-css-and-implementation-sources) · [Colour](#3-colour-system) · [Typography](#4-typography) · [Spacing and dimensions](#5-spacing-dimensions-shapes-depth)
+- [Navigation](#6-page-structure-and-navigation) · [Sign-in and account management](#native-account-and-access-management) · [Printer map](#printer-map)
+- [Buttons](#7-buttons-and-action-hierarchy) · [Switches and fields](#8-switches-checkboxes-selects-and-fields) · [Tables](#9-shared-table-standard--mandatory) · [Charts and printer tiles](#10-kpi-cards-charts-printer-tiles) · [Status](#11-status-alerts-messages-and-feedback)
+- [Deployed icons](#production-tab-icons--exact-catalogue) · [Responsive layout](#13-responsive-rules) · [Accessibility](#14-interaction-and-accessibility-contract) · [QA checklist](#15-design-qa-and-change-acceptance-checklist) · [Icon proposals](#appendix-a-icon-proposals)
 
 ## 1. Design character
 
@@ -16,15 +19,9 @@
 - **Compact but readable:** 42px normal controls, restrained panels, consistent headings, square-ish tables with breathing room, and informative hover/focus/disabled states.
 - **Accessible and responsive:** mouse, touch, keyboard, Windows Chrome and Android Chrome; never invent data visualisations or mask printer-control failures.
 
-### Quick visual reference
-
-![Current and proposed 24px outline icon catalogue](assets/controller-icon-catalog.svg)
-
-The icon sheet above intentionally separates **existing concepts** (blue) from **future suggestions** (teal). Suggestions are not implemented features. The shapes provide design candidates, not instructions to change the application's deployed icons.
-
 ## 2. CSS and implementation sources
 
-Stylesheets load in this order (later, more specific declarations win):
+The [controller entry point](../public/index.html) loads these stylesheets in order. Use the entry point to verify the current cascade.
 
 ```text
 public/styles.css                 legacy geometry, printer controls, table tokens
@@ -34,30 +31,59 @@ public/dashboard-polish.css       shared page headings, dashboard cards
 public/printer-details-polish.css printer identity/detail tabs and forms
 public/tab-navigation.css         universal underline tablists and icon masks
 public/print-library-polish.css   Library workbench layout and responsive cards
+public/printer-map.css            Map editor, fitted views and character animation
 public/auth.css                   Login gate, current account and user-management route
 ```
 
-`ui/components.jsx` exports the reusable Preact primitives. The relevant page renderers are under `ui/`; `public/app.js` retains controller dispatch and compatibility presentation. `public/styles.css` owns shared `--pfc-table-*` tokens. Avoid visually overriding a new component in a stylesheet that loads later (this previously stacked Dashboard summary text below its icons).
+`ui/components.jsx` exports the reusable Preact primitives. Page renderers live under `ui/`. `public/app.js` owns controller dispatch and the no-bundle presentation, and `public/styles.css` owns the shared `--pfc-table-*` tokens. Keep route-specific overrides scoped to their own components.
 
 **New UI construction rule:** use tokens rather than copying a neighbouring screen's hard-coded CSS, keep page-owned layout scoped to its route, and test both Preact and fallback paths. Respect established `data-*` hooks, route IDs, printer commands, user drafts and SSE refreshes.
 
 ### Native account and access management
 
-Login is a full-viewport access gate served by `public/auth-gate.js` and styled with `public/auth.css`. It is **not** a floating workspace dialog: while signed out, regular workspace/sidebar is inaccessible; do not paint live printer data behind a transparent login overlay. The approved **Industrial Control Centre** composition uses a branded left panel and a focused sign-in area to the right on desktop, collapsing into a compact brand header and full-width login area under 980px (smaller again under 520px). The illustration is an **inline, decorative, locally bundled outline SVG** showing a printer frame, bed, nozzle and part layers — never simulated printer status or live production data. The controller sign-in uses the **same three filled-polygon Stacked Layers logo** (`viewBox="0 0 120 92"`) as the authenticated sidebar; do not substitute a generic printer pictogram as the brand mark. The decorative graphic shows an **18-layer stepped pyramid actually growing from its base** in a **45-degree isometric view**. A diamond-shaped print-bed boundary and diagonal projected calibration grid establish the elevated view. Every deposited perimeter shrinks in X/Y by a fixed taper and rises in Z by one layer height; front-facing left/right wall polygons and their blue tier outlines accumulate so the silhouette visibly narrows toward the peak. The minimal amber nozzle moves around each tier's exact perimeter using the same `#authExtrusionPath`, `getPointAtLength()` and stroke-dash distance as deposited filament. The ground grid, workpiece and nozzle must all use `projectPrintPoint()`, not independent 2D transforms. Keep the nozzle inside the SVG illustration rather than near a solid printer frame; do **not** restore the oversized gantry/cube that obstructed the workpiece. This is a compressed time-lapse, not real G-code. The illustration may show its own changing **Layer 01 / 18** counter but must not display the previously used `PYRAMID BUILD · DEMO` heading or any other demo banner. This counter refers solely to the decorative animation; it must never disclose or suggest actual fleet status to unauthenticated visitors. Render locally using SVG and a single bounded `requestAnimationFrame` loop, suspending when the sign-in gate is hidden or the tab is backgrounded. On compact laptop-width layouts (521–980px), retain a smaller visible printer illustration rather than removing all motion; at phone width (520px or less), replace the large art with a tiny animated layer line in the brand mark. **Approved narrow exception for this one illustration:** the slow, non-flashing printhead/toolpath/brand-line animation starts automatically when the login page is shown, even when `prefers-reduced-motion:reduce` is reported. This deliberately differs from our usual default and applies to no other controller animations. The decorative animation is passive and has **no visible Pause/Play control** or browser-stored motion state. Avoid visually claiming any full printer frame or mechanical motion. The first perimeter follows (177,241)–(330,169)–(483,241)–(330,313) in SVG coordinates; each of 18 layers decreases footprint radius by 4 units while rising 5.2 units. The bed is drawn within the illustration's x=56..609, y=56..362 viewport; the nozzle guide extends at most 47 SVG units above its tip. Browser tests must prove nozzle/extrusion alignment, monotonic shrinkage of successive layer footprints, rising tiers, automatic animation and the absence of the obsolete Pause control. Keep the animation low-intensity and avoid flashing or whole-page movement. The layout remains accessible, uses local inline SVG and a self-contained native browser animation (no third-party assets) and does not imply live printer state. Preserve light/dark themes via existing `--ds-*` tokens; primary buttons retain the 42px class geometry, focus remains clearly visible, errors use `--ds-danger`, and HTTP insecurity remains a prominent amber `--ds-warning` notice. The single login password field provides an accessible show/hide button with an accurate `aria-pressed` state, without password copies or storage. The illustration is `aria-hidden` and disappears on narrow layouts. Preserve keyboard navigation, focus restoration and constrained mobile widths.
+#### Sign-in layout
 
-**Blueprint illustration backdrop:** The login brand panel uses one smooth, stationary theme-derived radial illumination on `--ds-surface-raised`; **do not layer a second orthogonal full-panel graph-paper grid** over the print. The only calibration grid is the thin, subdued diagonal grid projected by `projectPrintPoint()` and clipped to the 45-degree diamond build plate. Keep the plate border delicate, include only faint static plate/contact shadows, and emphasise completed blue perimeters and the moving extrusion over background detail. Centre the standalone `Layer NN / 18` label below the plate with a slim brand-blue progress track driven by the same fractional layer progress as the nozzle. In dark and light themes, inherit `--ds-*` colours rather than using hard-coded illustrative gradient stops. The background is always static: there is no ambient shimmer, pulsing glow or extra animation. Preserve the phone-sized brand-line alternative and the login-only reduced-motion exception.
+- Serve the full-viewport access gate through `public/auth-gate.js` and `public/auth.css`. Hide the workspace and sidebar from sight, keyboard navigation and assistive technology while signed out.
+- Use the three-polygon Stacked Layers logo (`viewBox="0 0 120 92"`) from the sidebar. The desktop Industrial Control Centre layout places the brand panel on the left and the form on the right. At 980px and below, use a compact brand header above the full-width form.
+- Keep the primary button at 42px, keyboard focus visible, form errors in `--ds-danger`, and the insecure HTTP notice prominent in `--ds-warning` on sign-in and setup in both themes. The password visibility button reflects its state with `aria-pressed`. Preserve focus restoration and usable forms at mobile widths.
 
-**Connected-farm login reveal:** On desktop widths above 980px, begin a measured camera zoom-out (about 2 seconds) **as layer 04 starts**: the first three layers are complete and the original nozzle continues extruding during the zoom into the upper-left position of a four-bed schematic. Do not wait for the whole pyramid to finish or jump it prematurely to the completed state. Three other miniature printer scenes must be **separate SVG copies of the same projected 18-layer geometry** with their own nozzle, extrusion path, accumulating faces and toolpath-derived layer progress. Each printer has an unobtrusive connection route to the one central, Stacked Layers-branded controller; never suggest individual controllers, report fabricated live statuses or expose production telemetry to signed-out users. Use a single paused-on-hide `requestAnimationFrame` driver and stagger the demonstration loops, not four independent animations or generated images. Position both rows of printer-name labels comfortably below their respective scaled progress bars (at least 5 CSS px clearance at the tested desktop viewport), never overlapping the layer progress presentation. The controller and connectors inherit theme colours; no large printer gantries, ambient pulses or full-panel graph-paper grid. Following a short fleet view, smoothly return to the original close-up and repeat. At 521–980px keep the original single-printer artwork for legibility and preserve the <=520px branded-line alternative. The illustration remains `aria-hidden`, never interactive, and retains the approved login-only motion setting.
+#### Sign-in illustration
 
-First-administrator enrollment uses the same full-viewport access gate, with a five-field setup form and clear error handling. Authentication is enabled by default, so setup appears before printer operations when no administrator exists. **Users & settings** remains a Farm Management route for signed-in Administrators; only an explicitly configured pre-enrollment legacy mode shows the pre-setup route and optional return-to-workspace action. The setup page explains that the private code comes from protected controller startup logs. Enrollment and sign-in require HTTPS by default. Explicit legacy HTTP mode retains a prominent amber warning that passwords and sessions are interceptable. The warning stays visible on both setup and login screens in both frontend modes. The code is never shown in the browser or ordinary diagnostics. The top bar displays a current user display-name/role text label and a secondary **My account** action for self-service password change and sign-out. Its local page header uses FARM MANAGEMENT eyebrow, primary page title and muted explanatory text, with a compact add-user panel and a responsive list. The user table reuses shared `--pfc-table-*` header, divider, hover and background tokens with dark white uppercase headings and accessible row labels. Password fields must not display stored hashes or existing passwords. Saving changed roles, disabled status or password visibly reports success or errors and signs out the affected user's old sessions. Show a compact **red Delete** action beside **Save** in each other user's Actions cell. An administrator cannot delete their own currently signed-in account (render its Delete button disabled with an explanation); server-side checks also preserve at least one enabled administrator. Require a native confirmation naming the target user before deletion; failed requests report an inline error, and successful deletion removes the row on refresh and revokes all of that user's active sessions and streams. Keep deletion controls administrator-only and use standard danger-token/button styling in both themes.
+- Render a local, decorative, `aria-hidden` SVG of an 18-layer stepped pyramid growing on a diamond bed in a 45° isometric view. The illustration and its layer counter represent a time-lapse. Keep live printer data, simulated status banners and large gantry frames out of the scene.
+- Use `projectPrintPoint()` for the grid, workpiece and nozzle. Each tier shrinks by 4 SVG units and rises by 5.2. The first perimeter follows (177,241), (330,169), (483,241) and (330,313). The bed fits in x=56..609 and y=56..362. The amber nozzle guide extends at most 47 units above its tip. Use the same `#authExtrusionPath`, `getPointAtLength()` and stroke-dash distance for the nozzle and deposited filament. Accumulate front faces and blue tier outlines as the part grows.
+- Use a stationary radial illumination on `--ds-surface-raised`, faint contact shadows and a thin diagonal calibration grid clipped to the bed. Centre the `Layer NN / 18` counter and slim blue progress track below the bed. Drive both from toolpath progress. Theme the scene with `--ds-*` tokens.
+- Above 980px, begin a roughly two-second zoom-out as layer 04 starts. The original nozzle continues extruding as its bed becomes the upper-left scene of a four-bed schematic. The other three scenes each use the same projected geometry with separate toolpaths, nozzles, progress and accumulated faces. Route connections to one Stacked Layers controller. Leave at least 5 CSS px between the scaled progress bars and printer names at the tested desktop viewport. Hold briefly, return smoothly to the close-up and repeat with staggered loops.
+- At 521–980px, retain the smaller single-printer illustration. At 520px and below, use the animated layer line in the brand mark.
+- Use one bounded `requestAnimationFrame` loop and suspend it when the gate is hidden or the tab is backgrounded. The sign-in illustration has an approved reduced-motion exception. Its slow, non-flashing motion starts automatically, including when the browser requests reduced motion. Keep it passive, with no play/pause control, stored motion preference, ambient pulses or whole-page movement.
+- Browser checks cover nozzle/toolpath alignment, shrinking footprints, rising tiers, automatic motion, the connected-farm reveal and the absence of a play/pause control.
 
-**Users & settings tabs and certificate management:** New controllers provision persistent managed HTTPS before enrollment. Administrators manage the certificate within Users & settings. HTTP-only mode requires an explicit insecure host policy. Show three controller-standard underline tabs, **Users**, **Connection settings** and **Resource limits**, directly below the page heading. Use `data-pfc-tabs`, `role=tablist`, `role=tab`, `role=tabpanel`, `aria-selected`/`aria-controls`, roving `tabindex`, keyboard Left/Right/Home/End and clear focus; the inactive panel must remain hidden (including its form controls). Load users only for the Users tab and certificate data only when the HTTPS tab is opened. These tabs reuse the canonical styles and icon masks from `public/tab-navigation.css` with Users, Server and Sliders icons; do not introduce pill tabs. The HTTPS panel is a regular page section, not a separate floating modal. Use the same `auth-panel`, theme tokens, standard 42px buttons/inputs, and responsive single-column card fallback; detail labels use compact muted type and values wrap long certificate fingerprints/SANs. Display certificate source, port, subject, DNS/IP SANs, expiry and SHA-256 fingerprint as descriptive definition pairs, not a coloured dashboard table. The public certificate download is a neutral secondary link-button. Present the HTTPS tab as three sequential sections: **1. Connection summary** (certificate and listener details plus public-certificate download), **2. Connection settings** (mode, names or PEM import, admin password, confirmation), and **3. Self-signed certificate replacement** (shown only when *saved* mode is controller-managed self-signed; otherwise remove it entirely from layout). The inline Connection settings form uses standard select/text inputs for HTTP only or controller-managed certificates, and two responsive monospace **textarea** controls labelled Public certificate (PEM) and Private key (PEM) for externally imported certificates. No filesystem paths, private-key download, or prefilled key material appear in the GUI. The PEM fields are blank on each load; blank both means retain the existing imported pair, but first import or replacement requires both. Admin password and an explicit confirmation checkbox are mandatory. **HTTP 4242 / HTTPS 4243 are fixed internal ports; container networking (for example, a Kubernetes Service) may optionally expose them as standard external ports 80 / 443.** On the Connection settings tab, show the real controller listening ports as readable definition pairs and a clear HTTP/HTTPS redirect mode label, not editable number controls. Do not use vendor-specific load-balancer terminology in that tab's help text or displayed port values. Explain that HTTP only redirects and serves minimal health after HTTPS activation; browser direct/Windows URLs include 4242 or 4243. Hide irrelevant fields when mode changes and provide a concrete reconnect URL after applying. Warn that HTTP setup credentials are unencrypted and that switching protocols revokes browser sessions. Do not require terminal commands, environment variables or a separate TLS settings route. Keep the public-certificate download in Connection summary. Place the dedicated amber **Regenerate self-signed certificate** action only in the final Self-signed certificate replacement section *after* Connection settings. The regeneration button is visible **only when saved mode is controller-managed HTTPS**, never merely when a draft selection says self-signed. Regeneration uses attention/amber semantics and requires the current admin password, explicit acknowledgement checkbox and browser confirmation, with visible busy/status feedback. Applying unchanged connection settings must be a no-op: it must not regenerate the identity, revoke sessions, or rebind the browser listener. Do not expose a regeneration section for externally supplied certificates or disabled HTTPS. Importing a private key must occur only over an existing HTTPS connection; if HTTP setup is active, show a security notice requiring the admin to enable managed HTTPS and reconnect securely before importing. Never return a private key through any status endpoint, form or diagnostic log. The signed-in role must be Administrator to even see this panel, and backend RBAC/password verification is mandatory. Make the trust/reconnection warning persistent and legible in both themes, and keep HTTPS actions independent of the Preact/fallback page renderer. Avoid revealing private keys in any browser state, API or download.
+#### Enrollment and user management
 
-Role-aware destructive controls: **Delete selected** in the Print Library and **Clear history** in Queue & History are absent for Operators and Viewers. The Reports & Finance filament cost catalogue stays readable but hides the add/edit form and row Edit/Delete controls for non-Administrators in both Preact and legacy renderers. Operators retain operational filament/nozzle assignment buttons on Printer Details. Use native `hidden` plus an explicit CSS `[hidden]` selector when a component has author-level display rules; do not leave disabled destructive controls taking up toolbar space. Visibility by role is only user-experience guidance; **backend authorization is always authoritative**. Screen readers and keyboard users must not be able to interact with locked workspace controls before sign-in, and the sign-in field focus must be restored when applicable. The no-bundle frontend uses the same native login UI, permission states and route identity; never make user security dependent on Preact being available.
+See [Authentication and RBAC](AUTHENTICATION_AND_RBAC.md#account-and-session-lifecycle) for enrollment, authorization and session rules, and [HTTPS setup](HTTPS_CONFIGURATION.md#browser-ports-and-initial-setup) for secure onboarding.
 
-**Resource limits:** Users & settings includes a third underline tab, **Resource limits**, using the deployed `sliders` mask. Keep all three tabs in the shared roving-focus/Left/Right/Home/End rail, with inactive panels hidden. The native account renderer provides identical controls in Preact and fallback modes. Use labelled semantic fieldsets for Uploads, Storage, Sessions and streams, Backup processing and Timeouts; a two-column field grid becomes one column at 760px. Standard 42px number inputs use explicit count, MiB/GiB or seconds labels. Each field shows its active value and default; host-managed fields are disabled with a readable explanation naming the override. Show the restart state persistently above the form. **Save resource limits** is primary; **Use default values** and **Reload saved limits** are secondary. Defaults prepare a draft, while reload discards it. Preserve unsaved edits on tab/telemetry updates and disable editing during save. Report loading, validation failures and save outcome with accessible status text; never claim saved values are active before restart. Fixed processing caps belong in a neutral expandable read-only explanation. Reuse existing surface/border/text/focus/warning tokens, wrap actions on phones and avoid horizontal page overflow at 320px.
+- Use the access gate for first-administrator enrollment, with the five-field setup form and inline errors. Explain where to find the private setup code in protected startup logs. Show the return-to-workspace action only when the configured pre-enrollment legacy mode permits it.
+- Show the signed-in display name and role in the top bar and offer a secondary **My account** action for password change and sign-out. At 390px and below, let the identity wrap and put the identity, account and theme controls on their own header row.
+- **Users & settings** is an Administrator route. Use the Farm Management page heading, a compact add-user panel and a responsive user list built on the [shared table standard](#9-shared-table-standard--mandatory). Show changes to roles, account status or passwords with visible save feedback.
+- Use a red **Delete** beside **Save** in the Actions cell. Disable self-deletion with an explanation, confirm other deletions with the target name, and show failures inline. Refresh the list after a successful deletion.
+- Apply the same role visibility in both frontend modes. Hide **Delete selected** in the Print Library and **Clear history** in Queue & History for Operators and Viewers. Keep the filament cost catalogue readable while hiding Administrator-only editing controls. Operators retain the operational filament and nozzle assignment controls. Use native `hidden` and an explicit CSS `[hidden]` rule where author-level display styles would otherwise override it.
 
-On signed-in screens at 390px or narrower, wrap the identity/account/theme actions onto their own header row so wider system fonts and long account names cannot push controls outside the viewport. Keep the account name/role visible, allow it to wrap, and retain normal account/theme touch targets.
+#### Connection settings
+
+Use the [standard underline tabs](#production-tab-icons--exact-catalogue) below the Users & settings heading. **Users**, **Connection settings** and **Resource limits** use the Users, Server and Sliders icons. Keep inactive panels and their controls hidden. Load the user list and certificate details when their respective tabs open.
+
+| Section | Presentation and behaviour |
+|---|---|
+| Connection summary | Show certificate source, listener ports, redirect mode, subject, DNS/IP SANs, expiry and SHA-256 fingerprint as readable definition pairs. Wrap long values and use a secondary link-button for the public certificate download. |
+| Connection settings | Use standard 42px fields and buttons, with responsive monospace text areas for **Public certificate (PEM)** and **Private key (PEM)**. Keep PEM fields blank on load, hide fields that do not apply to the selected mode, and require the administrator password and a confirmation checkbox. Show the actual listener ports as read-only values. |
+| Self-signed certificate replacement | Show this section only when the saved mode uses controller-managed self-signed HTTPS. Keep the amber **Regenerate self-signed certificate** action after Connection settings. Require the administrator password, an acknowledgement checkbox and browser confirmation. Show busy and status feedback. |
+
+Keep the panel in the page using `auth-panel` and the shared theme tokens. Collapse to one column on narrow screens. Use clear browser-facing labels and a concrete reconnect URL after a change. Keep trust, insecure HTTP and session-revocation notices legible in both themes. When importing requires reconnecting over HTTPS, explain how to enable managed HTTPS first. See [HTTPS configuration](HTTPS_CONFIGURATION.md#safely-importing-external-pem-certificates) for PEM handling, listener behaviour, saved modes and the unchanged-settings case.
+
+#### Resource limits
+
+- Use labelled fieldsets for Uploads, Storage, Sessions and streams, Backup processing and Timeouts. Use 42px number inputs with count, MiB/GiB or seconds labels. Show active and default values and explain disabled host-managed fields. Put fixed caps in a neutral expandable read-only section.
+- Show restart state above the form. **Save resource limits** is primary. **Use default values** prepares a draft and **Reload saved limits** discards it. Preserve edits across tab and telemetry updates, disable editing while saving, and show loading, validation and save feedback as accessible status text. Distinguish saved values from active values pending restart.
+- Use one field column at 760px and below. Wrap actions at phone widths and keep the layout within 320px. The native account renderer supplies the same controls in both frontend modes.
 
 ## 3. Colour system
 
@@ -155,11 +181,55 @@ Use `--ds-shadow-sm` for quiet elevation; `--ds-shadow-md` for hover/focus empha
 - **Workspace heading**: blue uppercase eyebrow, bold primary page title, muted description. Align auxiliary controls alongside or below as width dictates.
 - **Sections**: use `UiSurface` or the route's established panel, 12–16px radius, consistent borders/padding; keep related controls close to the data they govern.
 - **No floating workspace windows** for core navigation: use routes. Printer Details remains a purpose-specific details dialog with tabs.
-- **Printer map** sits between Dashboard and Queue & history with an 18px outline folded-map icon. Use a labelled room selector and a dotted plan with 15px square steps. The room dimensions control the canvas, with horizontal scrolling inside the panel when the map exceeds the available width. Align **New map** and **Edit map** with the selector’s 42px field. When space is tight, wrap the buttons together. Hide the selector and its action row while editing a map so the editor takes its place. Preserve the aspect ratio of upright Dashboard artwork in a 120 × 64px area for standard tiles or 84 × 40px for compact tiles. Show the generic printer icon only for models without artwork. Wrap printer names onto up to two lines above the alert, printing and queue flags. Keep the full name in the tooltip. In view mode, make the image and name, alert flag and queue count separate focusable actions. Open Printer Details from the image or name and scope the Alert history and queue views to the selected printer. Show a clear way back to all alerts or jobs. In edit mode, use the tile as one selection and drag target. Snap a tile’s top-left corner to the nearest dot when placed or dragged. Arrow keys move one grid interval and Shift with an arrow key moves three. Use an explicit save.
-- **Room items** use a row of 42px secondary icon buttons in edit mode. Wrap the palette on narrow screens and give each icon a tooltip and accessible name. Show a grid-snapped preview while dragging onto the room and place the item on release. Clicking or pressing Enter adds the item at its default position. On the map, use quiet outlines, fills and patterns behind the live printer tiles. Align labels inside the bottom edge of each item. Place floor items beneath every other room item and printer tile. Use a muted warm-gray surface with the grid dots visible. In edit mode, a click on the floor selects it. Drag the selected floor surface to move it, and draw its resize handle above other items so it stays usable. Drag across an unselected floor to start box selection. Draw benches with a top-down butcher-block finish using staggered wood planks, restrained grain and a darker front edge. Keep the planks at a fixed scale as the bench is resized and run them parallel to the longest edge. Use horizontal planks on square benches. Draw racks with an open wire deck, perimeter rails and four round steel posts. Draw a Shelf item as a shallow wood board with steel end brackets and room for up to four decorative parts. Use the outline icons in the palette. On the map, show a top-down rubber plant in a round pot, a padded task chair with armrests and casters, a round timber stool, and a desktop workstation with a monitor, keyboard and mouse. Show the Controller as a top-down graphite Mini PC with the Stacked Layers mark on its case and its label below the artwork. Use restrained material shading that reads on both grid themes and scales with the item footprint. Let the selected task chair and workstation rotate clockwise in 90° steps with a secondary button. Swap the footprint dimensions on each turn and keep the item inside the room. Keep the four-pane window icon in the palette. On the map, draw an industrial steel frame with two mullions dividing the glazing into three sections. Run the parallel glazing lines along the long axis of the footprint. Snap the frame to a parallel wall centreline crossing the window and join nearby wall ends to the jambs. When the window lies inside a wall, draw the wall only on either side of the opening. Show floors, benches, racks, shelves, windows, plant pots, chairs and stools without labels. Draw doors with a leaf, hinge, jambs and a dashed swing arc. On saved maps with a Computer item, render the character in a blue overshirt from above at room-item scale. Use directional walking, short pickup and shelf drop-off poses, and a seated pose for chairs or stools in front of computers. Leave space for the walking character’s body around furniture and printer tiles. Alternate forward and backward foot motion at a cadence tied to the character’s travel speed. Keep the character out of map fitting and interaction targets. Follow the browser’s reduced-motion setting by default. On saved maps with a Computer item, offer an **Animate person** switch in the normal and full-screen views and on the monitoring display. Use the [standard toggle switch style](#8-switches-checkboxes-selects-and-fields). Save an explicit choice in this browser and apply it only to the map character. Give selected doors a four-direction swing selector and a hinge flip. Align the doorway with a parallel wall centreline when it crosses the door bounds and the wall end is within one grid step of a jamb. Draw the adjoining wall to the jamb, then scale the door leaf and swing arc within the available space. Walls and lines have an explicit horizontal or vertical orientation and occupy two steps across their short axis, or one in a one-step room. Draw their strokes on the centreline and join touching pieces of the same type at their intersections. In edit mode, show a focus outline and a corner resize handle for a single selected item. Keep the opposite corner fixed when dragging and stop at the last whole grid step inside the room. Double-click an item or press F2 on a focused item to edit its label at the bottom edge on the map. Enter or moving focus applies the text to the draft. Escape restores the previous label. A translucent box drawn from empty space selects fully enclosed printers and room items. Move the selection by dragging any selected item or using the arrow keys, preserving relative spacing. Save item edits with the room layout.
-- **Full-screen Printer map** centres and fits the occupied layout with a small grid margin, trimming unused outer grid space. Fit the grid on empty maps. Use one proportional scale for items, artwork, names and flags. Above the fitted map, reuse the sidebar Stacked Layers lockup at the upper left. Keep the room name visible and use the standard 42px secondary button for **Exit full screen**. Inset the header controls so the button corners and focus ring clear the viewport edges. On narrow screens put the brand on its own row. Refit on viewport resize and retain the normal map’s scroll position when exiting. On the standalone monitoring page, reuse the fitted map and brand header with passive tiles and a browser fullscreen toggle. Keep map editing and controller navigation out of the monitoring page.
 - **Navigation tabs**: transparent background, one text-and-icon horizontal rail, subtle lower divider, **3px brand-blue underline** for selected tab, no filled segmented blocks. Overflow horizontally on mobile, preserving Arrow, Home and End keyboard support.
-- **Card / table switch**: a semantic `role="switch"` with `aria-checked`, separate from tabs; retained view preference. Do not make it look like a tab.
+
+### Printer map
+
+#### Room selector and printer tiles
+
+- Place Printer map between Dashboard and Queue & history with an 18px folded-map icon. Use a labelled room selector and a dotted plan with 15px square steps. Let the room dimensions determine the canvas. Keep horizontal scrolling inside the panel.
+- Align **New map** and **Edit map** with the 42px selector and wrap the buttons together when space is tight. Replace the selector and its action row with the editor while editing.
+- Preserve the aspect ratio of Dashboard printer artwork within 120 × 64px for standard tiles or 84 × 40px for compact tiles. Use the generic icon for models without artwork. Wrap names onto up to two lines above the alert, printing and queue flags, with the full name in a tooltip.
+- In view mode, make the image and name, alert flag and queue count separate focusable actions. The image and name open Printer Details. The alert and queue actions open lists scoped to that printer with a clear way back to all alerts or jobs.
+
+#### Editing and placement
+
+- Use the tile as one selection and drag target in edit mode. Snap its top-left corner to the nearest grid dot. Arrow keys move one step, or three with Shift. Save the room layout explicitly.
+- Give layout items a wrapping palette of 42px secondary icon buttons, each with an accessible name and tooltip. Drag an icon to show a snapped preview and place it on release. Click or press Enter to place at the default position.
+- Give a single selected item a focus outline and corner resize handle. Keep the opposite corner fixed and stop at the last whole grid step inside the room.
+- Double-click a labelable item or focus it and press F2 to edit the label in place. Enter or moving focus applies the draft label. Escape restores the previous label.
+- Draw a translucent selection box from empty space to select fully enclosed printers and room items. Drag one selected item or use the arrow keys to move the group and preserve the relative spacing. Click the floor to select it. Drag an unselected floor to start box selection, or drag a selected floor to move it. Keep the selected floor’s resize handle above other items.
+
+#### Room artwork
+
+Draw room items behind printer tiles with restrained outlines, fills and shading in both themes. Scale the artwork with its footprint. Place floor items underneath the room and keep grid dots visible on the warm-grey surface. Put editable labels inside the bottom edge. Floors, benches, racks, shelves, windows, plant pots, chairs and stools have no labels.
+
+| Item | On-map treatment |
+|---|---|
+| Bench | Butcher block with staggered planks, restrained grain and a darker front edge. Keep plank scale fixed and run the grain along the longest edge, horizontally on square benches. |
+| Rack and shelf | Open wire rack with perimeter rails and four round steel posts. The shelf is a shallow wooden board with steel end brackets and room for four decorative parts. |
+| Plant pot, chair and stool | Top-down rubber plant in a round pot, padded task chair with armrests and casters, and round timber stool. |
+| Computer and Controller | Desktop workstation with monitor, keyboard and mouse. The Controller is a graphite Mini PC with the Stacked Layers mark and its label below the artwork. |
+
+Keep outline icons in the palette. Give the task chair and workstation a secondary 90° clockwise rotation action. Swap their footprint dimensions on each turn and keep them inside the room.
+
+#### Walls, doors and windows
+
+- Walls and lines have horizontal or vertical orientation. Use two steps across the short axis, or one in a one-step room. Draw strokes on the centreline and join touching pieces of the same type.
+- Draw a door with leaf, hinge, jambs and a dashed swing arc. Give selected doors a four-direction swing selector and hinge flip. When a parallel wall centreline crosses the door and its end is within one grid step of a jamb, align the doorway to it and extend the wall to the jamb. Scale the leaf and swing arc within the opening.
+- Keep the four-pane window in the palette. Draw the top-down window as an industrial steel frame with two mullions and parallel glazing along its long axis. Snap it to a parallel wall centreline and join nearby wall ends to its jambs. If it sits inside a wall, draw the wall on either side of the opening.
+
+#### Character animation
+
+On saved maps with a Computer item, show the top-down character in a blue overshirt at room-item scale. Give it walking, pickup, shelf drop-off and seated poses. Leave clearance around furniture and printer tiles and tie the alternating foot motion to travel speed. Exclude the character from map fitting and interaction targets.
+
+Follow the browser’s reduced-motion setting by default. Offer the [standard Animate person switch](#8-switches-checkboxes-selects-and-fields) on the saved map, in full screen and on the monitoring display. Persist the choice in that browser and apply it to the map character.
+
+#### Full screen and monitoring
+
+- Centre and fit the occupied layout with a small grid margin, trimming unused outer grid space. Fit the grid on empty maps. Scale items, artwork, names and flags together and refit on viewport resize.
+- Put the sidebar Stacked Layers lockup at the upper left and retain the room name. Inset the standard 42px secondary **Exit full screen** button so its focus outline clears the viewport. Place the brand on its own row at narrow widths. Restore the normal map’s scroll position on exit.
+- Reuse the fitted map and brand header on the monitoring page. Use passive printer tiles and provide a browser fullscreen control. Keep editing and controller navigation outside that page.
 
 ## 7. Buttons and action hierarchy
 
@@ -198,11 +268,12 @@ Default ordinary buttons are **42px high**; `ui-button-small` is **32px**, used 
 - Use the Light/Dark switch design for binary toggles. Reuse `.ui-switch`, `.ui-switch-track` and `.ui-switch-label`. The pill has a 40px minimum height, a 36 × 20px track and a white 14px thumb. The unchecked track uses `#34424e` in dark mode and `#9aabb8` in light mode. The checked track uses `#4f8fc2` and the thumb moves 16px. Keyboard focus gets a 2px blue outline.
 - Use a native button with `role="switch"`, `aria-checked` and an accessible name. The top-bar theme switch shows the active theme name and hides that text at 760px and below. The checked state represents Dark.
 - The Printer map’s **Animate person** switch keeps its visible label and stable accessible name in the map toolbar, full-screen view and monitoring display.
-- The Dashboard **Cards / Table** and **Farm operations** switches use the same pill at 42px to align with the Printer group select. Keep the visible state labels and persist the Cards/Table preference.
 
-**Dashboard Farm operations switch:** this is a second dashboard-level binary toggle placed beside the Cards/Table preference, never a sidebar or topbar menu item. It reuses the identical 42px switch surface, track/thumb, focus outline and semantic `role="switch"`/`aria-checked` state. Off is the safe default on page load; On reveals multi-printer selection controls and bulk-action toolbar on the Dashboard. Switching Off clears selected printers; navigating away from the Dashboard exits selection mode. Disable switching while a bulk operation is running. The controller's existing command confirmation, permission and preflight checks continue to apply. In Preact and fallback modes, keep the same appearance and behavior. The Dashboard control row must have **zero extra margin** on the Printer group selector: on desktop, the Printer group, Dashboard view and Farm operations headings align horizontally, and their 42px select/switch surfaces share the same top edge. When space is constrained, wrap the whole labelled control cleanly without misaligning its heading. Test this with an actual visible group filter in Preact and no-bundle fallback, not only when the group filter is hidden.
+### Dashboard switches
 
-**Analytics paired charts:** At desktop width, **Most popular print files** and **Filament used (kg)** form a **50/50, equal-height pair** below the outcomes chart. The default **Top 6** shows up to six complete table rows without a vertical scrollbar; **All files** retains a vertically scrollable table for longer rankings. Keep horizontal table scrolling when narrow widths require it. The filament total stays pinned to the bottom of its card alongside the table; when stacked on narrow screens the cards return to their natural heights. The files table retains six sortable columns (**#**, **Print file**, **Completed**, **Failed**, **Material**, **Cost**), without Success rate or Print time. Both segmented grouping controls remain aligned at the top right of their respective nonwrapping desktop card headers; they can move below helper text only on narrow screens. The neighbouring **pie chart** shows each category's share of the **total recorded completed-print weight**, not weight relative to the largest category. Use a full pie, not a donut, with subtle sector outlines and an accessible colour-keyed legend listing **kg, percentage and recorded historical cost**, plus a persistent total kg/cost footer. The default is **By filament** and the alternative is **By material type**; preserve both accessible two-choice controls and the reporting period/printer/group filters. Known current catalogue colours may identify filaments; use varied local chart palette tones for unidentified entries and material-type groups so slices remain distinguishable. Catalogue colours are never historical snapshots. A single category fills the circle, zero recorded material uses the established empty state, and missing/partial/unidentified history notes remain truthful. Each SVG sector has a title and the legend conveys each value without relying on colour. Match light/dark tokens, keyboard focus, compact overflow, Preact/no-bundle parity and responsive stacking; at small widths the legend moves below the pie.
+- Use the shared pill at 42px for **Cards / Table** and **Farm operations**. Keep the state labels visible and persist the Cards/Table preference.
+- On desktop, align both switch surfaces with the top of the Printer group select and align all three field headings. Keep extra margin off the select. Wrap each labelled control together at narrower widths. Verify alignment with a visible Printer group in both frontend modes.
+- Place **Farm operations** beside Cards/Table. Default to Off on page load. Turning it on reveals multi-printer selection and the bulk-action toolbar. Turning it off clears the selection. Leaving the Dashboard exits selection mode. Disable the switch during a bulk operation and retain the established confirmation, permission and preflight checks.
 
 **Analytics two-option segmented selectors (existing):** `Top 6 / All files` and `By material type / By filament` are **mutually exclusive selection groups**, not binary on/off switches. Keep `role="group"` with a descriptive `aria-label`, two native `button` controls with truthful `aria-pressed` values, and a visible selected segment. Each segment has a **42px minimum target** (`--ds-button-height`), `--ds-font-sm` semibold text, `--ds-radius-sm` corners, and a grouped inset surface/border using `--ds-surface-muted` and `--ds-border`. Selected state uses `--ds-brand-strong` with white text; the unselected option uses `--ds-text-muted` and a `--ds-surface-hover` hover response. Keyboard focus uses a **2px `--ds-focus` outline**. Both dark and light themes derive from semantic design tokens, not separate hard-coded colour palettes. On mobile both options remain reachable without truncation. Other mutually exclusive table grouping selectors should reuse this pattern rather than inventing a new variant.
 
@@ -257,6 +328,14 @@ A standard table has **white uppercase bold headings** (`.68rem`, 800, `.04em` t
 
 **Charts and data visualisations:** blue/cyan/green/red combinations have consistent semantic meaning, dark/light readability, muted axes and concise labels. Draw a marker for a one-day series; show zero-activity dates and integer y-axis values when plotting counts. **Print outcomes over time:** always show non-zero point values in the 7-day reporting period (seven elapsed days may cover eight UTC calendar dates), regardless of the number of points. Spread completed/failed/cancelled labels horizontally when multiple outcomes occur on one date so identical counts remain legible; avoid clipping at chart edges. Longer reporting periods retain labels when there are at most eight non-zero points, but hide dense numeric labels and preserve the exact count/date/outcome in each marker's native title tooltip. Never show labels for zero-valued points. Preact and fallback SVGs must display the same labels and accessible titles. For a count of 3 on one date, the chart must not be a move-only invisible SVG path. Charts/totals must derive from actual persisted records; avoid fake sample trends in production.
 
+### Analytics paired charts
+
+- On desktop, place **Most popular print files** and **Filament used (kg)** in equal-width, equal-height cards below the outcomes chart. Keep their [segmented selectors](#8-switches-checkboxes-selects-and-fields) at the top right of each non-wrapping desktop header. On narrow screens, stack the cards at their natural heights and allow selectors to move below the helper text.
+- The files table has six sortable columns (**#**, **Print file**, **Completed**, **Failed**, **Material**, **Cost**). **Top 6** shows up to six complete rows without vertical scrolling. **All files** scrolls vertically as needed. Keep horizontal scrolling inside the table at narrow widths.
+- Use a full pie with subtle sector outlines. Each slice shows a share of the total recorded completed-print weight. Use **By filament** as the default and offer **By material type**. Preserve the period, printer and group filters.
+- Give each SVG sector a title and show category name, kg, percentage and recorded historical cost in the legend. Keep the total kg and cost pinned to the bottom of the desktop card. Place the legend below the pie at small widths.
+- Use known catalogue colours for identification where available. Use distinct local palette colours for unidentified entries and material groups. Catalogue colours represent the current catalogue. A single category fills the circle, zero recorded material uses the empty state, and notes describe missing or unidentified history. Match both themes, keyboard focus and Preact/fallback behaviour.
+
 ## 11. Status, alerts, messages and feedback
 
 Diagnostics uses a compact status summary, frontend-renderer status, a Diagnostic bundle section and a searchable severity-filtered log. Retain the primary Download diagnostic bundle action and secondary Refresh action in both renderers. There is no verbose toggle, expiry display or Debug filter; standard operation events are recorded automatically.
@@ -283,9 +362,7 @@ In both themes, event rows use a green left border for INFO, amber for WARN and 
 
 ### Production tab icons — exact catalogue
 
-![Exact deployed tab icons and unimplemented future suggestions](assets/controller-tab-icon-catalog.svg)
-
-The [dedicated tab icon reference sheet](assets/controller-tab-icon-catalog.svg) contains **all 18 deployed `data-pfc-icon` definitions**, faithfully decoded from the live SVG mask paths in `public/tab-navigation.css`. The blue icons show their actual vector geometry both enlarged and at the **17px runtime scale**. The 12 teal icons are **proposed designs only**, not active tabs or implemented features. This is a visual reference, **not an additional runtime dependency**.
+The [tab icon reference sheet](assets/controller-tab-icon-catalog.svg) shows the 18 deployed `data-pfc-icon` masks from `public/tab-navigation.css` in blue, enlarged and at their 17px runtime size. Its teal designs are listed separately under [Icon proposals](#appendix-a-icon-proposals).
 
 #### Deployed icon inventory and actual tab usage
 
@@ -314,6 +391,72 @@ The [dedicated tab icon reference sheet](assets/controller-tab-icon-catalog.svg)
 
 **Known documentation discrepancy:** The `wrench` mask exists and is used for Maintenance's Individual printer tasks tab. In current Preact code, however, **Printer Details → Management has no `icon` field assigned** in `ui/printer-details.jsx`. The no-bundle fallback in `public/app.js` does render the wrench on Management; preserve this distinction when documenting the two renderers. This documentation-only update does not change that UI behaviour.
 
+### Implemented icon concepts (reference)
+
+| Family | Concepts seen in controller | Typical use |
+|---|---|---|
+| Dashboard status | `printer`, `connected`, `play/printing`, `warning`, `healthy/check` | Four filter cards and healthy no-attention state |
+| Analytics headline | `jobs`, `check`, `cross`, `clock`, `scale` | Five Option D report totals; `scale` represents the recorded filament weight in kilograms |
+| Navigation | dashboard grid, queue, library/files, maintenance wrench, groups, chart/reports, alert bell/triangle, backup, diagnostics, licence | Sidebar routes and actions |
+| Tab navigation | 18 exact production glyphs documented above | Shared text-and-icon underline rail across seven tab interfaces |
+| Actions | plus, close, drag/reorder, clear in allowed contexts, arrow/up/down, save/edit, pause/resume, delete | Buttons and compact toolbar utilities |
+
+These are **icon concepts/families**, not guarantees that every illustration in the sheet is a byte-for-byte reproduction of deployed paths. The production SVGs are in `ui/dashboard.jsx`, `ui/reporting.jsx`, `public/index.html` and the tab mask rules in `public/tab-navigation.css`.
+
+**`scale` icon:** use the canonical 24×24 outline weighing-platform and analogue-dial silhouette with `stroke-width="2.2"` in the 27px KPI ring. The scale signifies mass in kilograms. Use the same paths and the established purple material-usage accent in both renderers.
+
+## 13. Responsive rules
+
+| Environment | Design requirement |
+|---|---|
+| Desktop | Four Dashboard KPI boxes across where width permits; workspace sidebar persistent; printer cards form a fluid grid |
+| Tablet / constrained desktop | KPI and data columns reflow; avoid stretched empty space and clipped action labels |
+| <=1050px | Smaller/adjusted shell/sidebar widths and two-column summary where relevant |
+| <=760px | Sidebar drawer, narrower gutters, compact headings, two-column KPI grid and internally scrolling tab rails |
+| <=620px | KPI ring goes to 52px with **adjacent** text still in the second grid track |
+| 390px / Android Chrome | No horizontal page overflow, all relevant buttons reachable, action labels and figures legible |
+| <=320px | Preserve left icon/right text geometry using smaller icon and fluid second column |
+
+Mobile is not a shrunken desktop screenshot. Use single-column printer cards, labelled detail rows and sensible scroll regions. A wide data table may scroll internally if that is safer than clipping it. Allow viewport-relative content heights and maintain scroll clearance beneath the final page panel.
+
+## 14. Interaction and accessibility contract
+
+- Visible hover *and* keyboard focus. `Tab` must expose controls; Enter/Space activate buttons, with native keyboard behaviours for selects/switches.
+- Button labels describe actions (`Open printer`, `Set filament`, `Bed cleared`), not arbitrary icons. Icon-only actions must have `aria-label`/`title`.
+- Follow the [tab icon and navigation pattern](#production-tab-icons--exact-catalogue) and the [switch standard](#8-switches-checkboxes-selects-and-fields) for roles, state and keyboard behaviour.
+- Progress bars: actual measured `aria-valuenow`, min/max and label; unknown/missing metrics must not claim percentages.
+- Do not re-create whole user-editable forms on every SSE status update, reset user input, or swallow clicks by replacing button DOM during mouse-down.
+- Respect reduced-motion settings. Avoid flashing banners and colour-only status differentiation.
+- Dialog close, Escape/overlay click, mobile sidebar focus trapping and return focus must work.
+- Protect status and temperature information with readable contrast against both themes.
+- Keep images locally served and aspect-ratio intact; respect filament colour swatches without repainting them on hover.
+
+## 15. Design QA and change-acceptance checklist
+
+Before a visual feature is accepted or merged:
+
+1. Compare against **Dashboard / Printer Details / Reports & finance** in both themes. Shared buttons, tabs, tables, icons and headings must use the same scale.
+2. Check named routes and the no-bundle fallback. No broken navigation, licence gating, error paths, camera, upload, queue, printer commands or tab state.
+3. Check responsive widths around **1365, 900, 760, 620, 390 and 320px**. No accidental page scrollbar, clipped buttons or text under KPI icons.
+4. Check keyboard focus, ARIA descriptions, disabled and busy states, screen-reader names and reduced-motion behaviour.
+5. For the Dashboard, confirm **all four summary filters still work**, group scoping, and card/table switching; check long wrapped printer names, static image containment, hidden strip spacing, metrics and footer alignment.
+6. For tables, check the **shared dark header/white uppercase text**, sortable headings, aligned body columns, visible actions, hover and selected states, card/scroll behaviour and sparse/long data.
+7. For costing and reports, verify currency provenance, incomplete records, date filters and actual progress ratios. Never introduce invented growth arrows, false success rates or empty graphs.
+8. Run `npm test`, `npm run build:frontend`, and `npm run test:browser` (Node.js 24); inspect GitHub Chromium visual-regression artifacts for dark/light desktop and mobile.
+9. Record substantial design changes in **this guide**, including the icon inventory and any new reusable CSS tokens. Historical implementation milestones remain in the older `docs/DESIGN_SYSTEM.md`; the canonical visual rules are maintained here.
+
+## 16. How to use this document for future UI changes
+
+When designing a new controller screen: select an existing reusable component; choose semantic status/colour; select an implemented icon or a proposed icon from the catalogue; decide the table/field/button/tabs pattern; document any genuinely new interaction state; verify both themes and responsive widths. Add the new icon concept to the **implemented** set *only after* it ships. Avoid a new colour, shadow, border radius, font or button variant when an existing one serves the task.
+
+The controller's visual language should be recognizable across every future feature: **quiet surfaces, blue hierarchy, purposeful status colour, rounded outline icons, compact data, strict tables and predictable interaction.**
+
+## Appendix A. Icon proposals
+
+### Proposed tab icons
+
+![Deployed tab icons in blue and proposed designs in teal](assets/controller-tab-icon-catalog.svg)
+
 #### Matching ideas for new tab icons (not implemented)
 
 | Proposed icon ID | Concept / suggested future context |
@@ -333,23 +476,11 @@ The [dedicated tab icon reference sheet](assets/controller-tab-icon-catalog.svg)
 
 **Adoption rule:** First reuse an existing deployed icon if it communicates the function. Only introduce a new proposed design when needed, in `public/tab-navigation.css` as **both** `mask-image` and `-webkit-mask-image`; reference it using `data-pfc-icon` in **Preact and the static HTML fallback**. Then update this guide/catalogue to mark it *deployed*. Icons are decorative, so real tab labels and ARIA behaviour remain unchanged. Verify both themes, selected/hover/focus/disabled states, touch widths, keyboard navigation and reduced-motion preferences. The test `test/tab-icon-catalog.test.js` checks the documented inventory and CSS masks in every source checkout. Artwork comparisons also run when the optional `docs/assets/` catalogue is present; GitHub source ZIPs exclude that directory and skip only those comparisons.
 
-### Implemented icon concepts (reference)
-
-| Family | Concepts seen in controller | Typical use |
-|---|---|---|
-| Dashboard status | `printer`, `connected`, `play/printing`, `warning`, `healthy/check` | Four filter cards and healthy no-attention state |
-| Analytics headline | `jobs`, `check`, `cross`, `clock`, `scale` | Five Option D report totals; `scale` represents the recorded filament weight in kilograms |
-| Navigation | dashboard grid, queue, library/files, maintenance wrench, groups, chart/reports, alert bell/triangle, backup, diagnostics, licence | Sidebar routes and actions |
-| Tab navigation | 18 exact production glyphs documented above | Shared text-and-icon underline rail across seven tab interfaces |
-| Actions | plus, close, drag/reorder, clear in allowed contexts, arrow/up/down, save/edit, pause/resume, delete | Buttons and compact toolbar utilities |
-
-These are **icon concepts/families**, not guarantees that every illustration in the sheet is a byte-for-byte reproduction of deployed paths. The production SVGs are in `ui/dashboard.jsx`, `ui/reporting.jsx`, `public/index.html` and the tab mask rules in `public/tab-navigation.css`.
-
-**Newly adopted `scale` icon:** use the canonical 24×24 outline weighing-platform/analogue-dial silhouette with `stroke-width="2.2"` in the 27px KPI ring. The scale pictogram signifies **mass in kilograms** (not a filament spool, sale price, or percentage). Both the Preact and fallback reporting renderers must use the same geometric paths and the established purple material-usage accent.
-
 ### General icon concepts and future-ready illustrations
 
-The separate, older 42-icon catalogue shows **illustrative icon artwork**, not exact production tab masks. Some *concepts* there (spool, layers, cloud and calendar) are already used as tabs with different SVG paths. Consult the exact 18-glyph sheet above for deployed tab artwork. Other general icon concepts remain future ideas; the teal tab proposals above have not been implemented.
+![General icon concepts and future suggestions](assets/controller-icon-catalog.svg)
+
+The general catalogue shows 42 illustrative designs. Spool, layers, cloud and calendar already appear on deployed tabs with their own paths. Use the [production inventory](#production-tab-icons--exact-catalogue) for deployed artwork. Treat the remaining concepts as design proposals.
 
 | General catalogue concept | Meaning | Example use (some concepts already have tab equivalents) |
 |---|---|---|
@@ -388,49 +519,3 @@ The separate, older 42-icon catalogue shows **illustrative icon artwork**, not e
 ```
 
 Use `stroke-width="2.2"` for larger KPI badge treatment when it visually matches the existing 27px set. The general **concept SVG catalogue** is `docs/assets/controller-icon-catalog.svg`; the exact **production tab icon catalogue** is `docs/assets/controller-tab-icon-catalog.svg`. Both are design assets, not automatically loaded by the controller. The second includes the precise paths of the tab CSS masks.
-
-## 13. Responsive rules
-
-| Environment | Design requirement |
-|---|---|
-| Desktop | Four Dashboard KPI boxes across where width permits; workspace sidebar persistent; printer cards form a fluid grid |
-| Tablet / constrained desktop | KPI and data columns reflow; avoid stretched empty space and clipped action labels |
-| <=1050px | Smaller/adjusted shell/sidebar widths and two-column summary where relevant |
-| <=760px | Sidebar drawer, narrower gutters, compact headings, two-column KPI grid and internally scrolling tab rails |
-| <=620px | KPI ring goes to 52px with **adjacent** text still in the second grid track |
-| 390px / Android Chrome | No horizontal page overflow, all relevant buttons reachable, action labels and figures legible |
-| <=320px | Preserve left icon/right text geometry using smaller icon and fluid second column |
-
-Mobile is not a shrunken desktop screenshot. Use single-column printer cards, labelled detail rows and sensible scroll regions. A wide data table may scroll internally if that is safer than clipping it. Allow viewport-relative content heights and maintain scroll clearance beneath the final page panel.
-
-## 14. Interaction and accessibility contract
-
-- Visible hover *and* keyboard focus. `Tab` must expose controls; Enter/Space activate buttons, with native keyboard behaviours for selects/switches.
-- Button labels describe actions (`Open printer`, `Set filament`, `Bed cleared`), not arbitrary icons. Icon-only actions must have `aria-label`/`title`.
-- Tabs: `role="tablist"`, `role="tab"`, `aria-selected`, referenced tab panels and keyboard navigation. Switches: `role="switch"`, `aria-checked`.
-- Progress bars: actual measured `aria-valuenow`, min/max and label; unknown/missing metrics must not claim percentages.
-- Do not re-create whole user-editable forms on every SSE status update, reset user input, or swallow clicks by replacing button DOM during mouse-down.
-- Respect reduced-motion settings. Avoid flashing banners and colour-only status differentiation.
-- Dialog close, Escape/overlay click, mobile sidebar focus trapping and return focus must work.
-- Protect status and temperature information with readable contrast against both themes.
-- Keep images locally served and aspect-ratio intact; respect filament colour swatches without repainting them on hover.
-
-## 15. Design QA and change-acceptance checklist
-
-Before a visual feature is accepted or merged:
-
-1. Compare against **Dashboard / Printer Details / Reports & finance** in both themes. Shared buttons, tabs, tables, icons and headings must use the same scale.
-2. Check named routes and the no-bundle fallback. No broken navigation, licence gating, error paths, camera, upload, queue, printer commands or tab state.
-3. Check responsive widths around **1365, 900, 760, 620, 390 and 320px**. No accidental page scrollbar, clipped buttons or text under KPI icons.
-4. Check keyboard focus, ARIA descriptions, disabled and busy states, screen-reader names and reduced-motion behaviour.
-5. For the Dashboard, confirm **all four summary filters still work**, group scoping, and card/table switching; check long wrapped printer names, static image containment, hidden strip spacing, metrics and footer alignment.
-6. For tables, check the **shared dark header/white uppercase text**, sortable headings, aligned body columns, visible actions, hover and selected states, card/scroll behaviour and sparse/long data.
-7. For costing and reports, verify currency provenance, incomplete records, date filters and actual progress ratios. Never introduce invented growth arrows, false success rates or empty graphs.
-8. Run `npm test`, `npm run build:frontend`, and `npm run test:browser` (Node.js 24); inspect GitHub Chromium visual-regression artifacts for dark/light desktop and mobile.
-9. Record substantial design changes in **this guide**, including the icon inventory and any new reusable CSS tokens. Historical implementation milestones remain in the older `docs/DESIGN_SYSTEM.md`; the canonical visual rules are maintained here.
-
-## 16. How to use this document for future UI changes
-
-When designing a new controller screen: select an existing reusable component; choose semantic status/colour; select an implemented icon or a proposed icon from the catalogue; decide the table/field/button/tabs pattern; document any genuinely new interaction state; verify both themes and responsive widths. Add the new icon concept to the **implemented** set *only after* it ships. Avoid a new colour, shadow, border radius, font or button variant when an existing one serves the task.
-
-The controller's visual language should be recognizable across every future feature: **quiet surfaces, blue hierarchy, purposeful status colour, rounded outline icons, compact data, strict tables and predictable interaction.**
