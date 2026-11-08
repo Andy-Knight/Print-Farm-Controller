@@ -5,7 +5,7 @@ const endpoint = '/api/printer-maps';
 const preferenceKey = 'pfc-printer-map';
 const motionPreferenceKey = 'pfc-printer-map-motion';
 const defaultRoomSteps = 50;
-const unlabelledTypes = new Set(['floor', 'bench', 'rack', 'shelf', 'window', 'plant-pot', 'chair', 'stool']);
+const unlabelledTypes = new Set(['floor', 'bench', 'rack', 'shelf', 'window', 'plant-pot', 'chair', 'stool', 'bin']);
 const rotatableFurniture = new Set(['chair', 'computer']);
 const itemTypes = {
   floor:{ name:'Floor', size:[600, 400] },
@@ -23,7 +23,8 @@ const itemTypes = {
   chair:{ name:'Chair', size:[80, 100] },
   stool:{ name:'Stool', size:[80, 80] },
   computer:{ name:'Computer', size:[120, 100] },
-  controller:{ name:'Controller', size:[100, 80] }
+  controller:{ name:'Controller', size:[100, 80] },
+  bin:{ name:'Bin', size:[60, 60] }
 };
 const paletteSymbols = {
   floor:'<path d="M24 8 43 18 24 28 5 18 24 8ZM5 25l19 10 19-10M5 32l19 10 19-10"/>',
@@ -32,6 +33,7 @@ const paletteSymbols = {
   bench:'<path d="M7 15h34v9H7zm4 9v12m26-12v12"/>',
   rack:'<path d="M8 8h32v32H8zM8 19h32M8 29h32M19 8v32M29 8v32"/>',
   shelf:'<path d="M5 15h38v9H5zM10 24v10l10-10m18 0v10L28 24"/>',
+  bin:'<path d="M9 12h30M18 12V7h12v5m-17 0 2 28h18l2-28M21 19v14m6-14v14"/>',
   wall:'<path d="M5 11h38v26H5zM5 24h38M18 11v13m12 0v13"/>',
   door:'<path d="M6 35h7m23 0h6M13 35V12m0 0a23 23 0 0 1 23 23" />',
   rectangle:'<rect x="6" y="12" width="36" height="24" rx="2"/>',
@@ -192,6 +194,8 @@ export function createPrinterMapPage({ api, canEdit, openPrinter, openAlerts, op
     const map = currentMap();
     const hasPerson = !draft && map?.items?.some(item => item.type === 'computer');
     const motionEnabled = motionOverride ?? !reducedMotion.matches;
+    const showMotion = Boolean(hasPerson && motionEnabled && !page.hidden && !document.hidden);
+    canvas.classList.toggle('is-character-animated', showMotion);
     for (const control of motionSwitches) {
       control.hidden = !hasPerson;
       control.setAttribute('aria-checked', String(motionEnabled));
@@ -211,7 +215,10 @@ export function createPrinterMapPage({ api, canEdit, openPrinter, openAlerts, op
 
   new MutationObserver(syncPerson).observe(page, { attributes:true, attributeFilter:['hidden'] });
   document.addEventListener('visibilitychange', syncPerson);
-  reducedMotion.addEventListener('change', syncPerson);
+  reducedMotion.addEventListener('change', () => {
+    if (reducedMotion.matches) for (const marker of markers.values()) stopTileEffects(marker);
+    syncPerson();
+  });
   for (const control of motionSwitches) {
     control.addEventListener('click', () => {
       motionOverride = !(motionOverride ?? !reducedMotion.matches);
@@ -253,11 +260,19 @@ export function createPrinterMapPage({ api, canEdit, openPrinter, openAlerts, op
       <${action}${type} class="printer-map-alert" data-map-printer-action="alerts" hidden>Alert</${action}>
       <span class="printer-map-printing" hidden>Printing</span>
       <${action}${type} class="printer-map-queued" data-map-printer-action="queue"></${action}>
-    </span>`;
+    </span>
+    <span class="printer-map-clearance" role="img" aria-label="Bed needs clearing" title="Bed needs clearing" hidden>
+      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-linecap="round" aria-hidden="true">
+        <path d="M5 8V3h6v5M3 9h10l2 4H1zM5 11h6"/>
+      </svg>
+    </span>
+    <span class="printer-map-progress" role="progressbar" hidden></span>`;
     const marker = {
       tile, image:tile.querySelector('img'), placeholder:tile.querySelector('.printer-map-placeholder'),
       details:tile.querySelector('.printer-map-details'), label:tile.querySelector('strong'), alert:tile.querySelector('.printer-map-alert'),
-      printing:tile.querySelector('.printer-map-printing'), queued:tile.querySelector('.printer-map-queued')
+      printing:tile.querySelector('.printer-map-printing'), queued:tile.querySelector('.printer-map-queued'),
+      clearance:tile.querySelector('.printer-map-clearance'), progress:tile.querySelector('.printer-map-progress'),
+      effects:new Map()
     };
     markers.set(printerId, marker);
     return marker;
@@ -265,6 +280,57 @@ export function createPrinterMapPage({ api, canEdit, openPrinter, openAlerts, op
 
   function setText(element, value) {
     if (element.textContent !== value) element.textContent = value;
+  }
+
+  function stopTileEffects(marker) {
+    for (const effect of marker.effects.values()) effect.cancel();
+    marker.effects.clear();
+  }
+
+  function updateTileActivity(marker, printer, mapId) {
+    marker.clearance.hidden = !printer.bedClearance;
+    marker.progress.hidden = !printer.printing || !Number.isFinite(printer.progress);
+    if (!marker.progress.hidden) {
+      marker.progress.setAttribute('aria-label', `Print progress for ${printer.name}`);
+      marker.progress.setAttribute('aria-valuenow', String(printer.progress));
+      marker.progress.style.setProperty('--map-print-progress', printer.progress / 100);
+    }
+    const previous = marker.previousMap === mapId ? marker.previousActivity : null;
+    marker.previousMap = mapId;
+    marker.previousActivity = { online:printer.online, alert:printer.alert,
+      alertAt:Math.max(previous?.alertAt || 0, printer.alertAt || 0),
+      completedAt:Math.max(previous?.completedAt || 0, printer.completedAt || 0),
+      queueStartedAt:Math.max(previous?.queueStartedAt || 0, printer.queueStartedAt || 0)
+    };
+    if (!previous || !mapId || draft || page.hidden || document.hidden || reducedMotion.matches) {
+      stopTileEffects(marker);
+      return;
+    }
+    const pulse = (name, target, frames, duration) => {
+      marker.effects.get(name)?.cancel();
+      const effect = target.animate(frames, { duration, easing:'ease-out', id:name });
+      marker.effects.set(name, effect);
+      const forget = () => {
+        if (marker.effects.get(name) === effect) marker.effects.delete(name);
+      };
+      effect.finished.then(forget, forget);
+    };
+    const highlight = (colour, width) => [
+      { boxShadow:`inset 0 0 0 ${width}px var(${colour})` },
+      { boxShadow:'inset 0 0 0 0 transparent' }
+    ];
+    if (printer.completedAt > previous.completedAt) {
+      pulse('map-print-complete', marker.tile, highlight('--ds-success', 3), 1500);
+    }
+    if (printer.alert && (!previous.alert || printer.alertAt > previous.alertAt)) {
+      pulse('map-new-alert', marker.alert, [{ scale:1 }, { scale:1.15, offset:.35 }, { scale:1 }], 650);
+    }
+    if (printer.queueStartedAt > previous.queueStartedAt) {
+      pulse('map-next-job', marker.queued, highlight('--ds-brand', 2), 1100);
+    }
+    if (printer.online === true && previous.online === false) {
+      pulse('map-reconnect', marker.tile, [{ opacity:.6 }, { opacity:1 }], 800);
+    }
   }
 
   function fitFullscreen() {
@@ -495,7 +561,6 @@ export function createPrinterMapPage({ api, canEdit, openPrinter, openAlerts, op
     const inset = Math.min(gridStep, depth / 2);
     const defaultCentre = crossStart + (swingsNegative ? depth - inset : inset);
     const centre = joinOpening(walls, { vertical, start, end:start + length, crossStart, depth, defaultCentre });
-    doorways.push({ vertical, centre, start, end:start + length });
     const baseline = centre - crossStart;
     const x = vertical ? baseline : reverse ? length : 0;
     const y = vertical ? (reverse ? length : 0) : baseline;
@@ -503,6 +568,17 @@ export function createPrinterMapPage({ api, canEdit, openPrinter, openAlerts, op
     const opening = length - 2 * jamb;
     const swingSpace = swingsNegative ? baseline : depth - baseline;
     const swing = Math.min(opening, Math.max(inset / 2, swingSpace));
+    // The animated leaf lengthens as it closes, extending past the drawn arc on shallow doors.
+    const sweepDepth = swing + (opening - swing) / 2;
+    const swingEdge = centre + (swingsNegative ? -sweepDepth : sweepDepth);
+    const crossMin = Math.min(centre, swingEdge);
+    const crossMax = Math.max(centre, swingEdge);
+    const alongMin = start + jamb;
+    const alongMax = start + length - jamb;
+    const sweep = vertical
+      ? { left:crossMin, right:crossMax, top:alongMin, bottom:alongMax }
+      : { left:alongMin, right:alongMax, top:crossMin, bottom:crossMax };
+    doorways.push({ itemId:item.id, vertical, centre, start, end:start + length, sweep });
     const symbol = itemNodes.get(item.id).querySelector('.printer-map-door-symbol');
     symbol.setAttribute('viewBox', `0 0 ${item.width} ${item.height}`);
     symbol.firstElementChild.setAttribute('transform', `translate(${x} ${y}) rotate(${rotation})`
@@ -510,6 +586,8 @@ export function createPrinterMapPage({ api, canEdit, openPrinter, openAlerts, op
     const [frame, leaf, arc, hinge] = symbol.firstElementChild.children;
     frame.setAttribute('d', `M0 0H${jamb} M${length - jamb} 0H${length}`);
     leaf.setAttribute('d', `M${jamb} 0V${-swing}`);
+    leaf.style.setProperty('--map-door-hinge', `${jamb}px`);
+    leaf.style.setProperty('--map-door-closed-scale', opening / swing);
     arc.setAttribute('d', `M${jamb} ${-swing}A${opening} ${swing} 0 0 1 ${length - jamb} 0`);
     hinge.setAttribute('cx', jamb);
   }
@@ -633,7 +711,7 @@ export function createPrinterMapPage({ api, canEdit, openPrinter, openAlerts, op
           fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
           <g>
             <path stroke-width="4"/>
-            <path stroke-width="3"/>
+            <path class="printer-map-door-leaf" stroke-width="3"/>
             <path stroke-width="2" stroke-dasharray="3 3"/>
             <circle r="2.5" fill="currentColor"/>
           </g>
@@ -697,6 +775,7 @@ export function createPrinterMapPage({ api, canEdit, openPrinter, openAlerts, op
     const visibleIds = new Set(visible.map(printer => printer.id));
     for (const [id, marker] of markers) {
       if (visibleIds.has(id)) continue;
+      stopTileEffects(marker);
       marker.tile.remove();
       markers.delete(id);
     }
@@ -711,6 +790,7 @@ export function createPrinterMapPage({ api, canEdit, openPrinter, openAlerts, op
       marker.alert.hidden = !printer.alert;
       marker.printing.hidden = !printer.printing;
       setText(marker.queued, `${printer.queued} queued`);
+      updateTileActivity(marker, printer, map?.id);
       if (!displayOnly) {
         marker.details.disabled = marker.alert.disabled = marker.queued.disabled = Boolean(draft);
         marker.details.setAttribute('aria-label', `Open printer details for ${printer.name}`);
@@ -726,7 +806,8 @@ export function createPrinterMapPage({ api, canEdit, openPrinter, openAlerts, op
         marker.tile.setAttribute('aria-pressed', String(selected.has(placement)));
         marker.tile.setAttribute('aria-label', [
           printer.name,
-          printer.alert && 'Alert', printer.printing && 'Printing', `${printer.queued} queued`
+          printer.alert && 'Alert', printer.printing && 'Printing', printer.bedClearance && 'Bed needs clearing',
+          `${printer.queued} queued`
         ].filter(Boolean).join(', '));
       } else {
         for (const attr of ['role', 'tabindex', 'aria-disabled', 'aria-pressed', 'aria-label']) marker.tile.removeAttribute(attr);

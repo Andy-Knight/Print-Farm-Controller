@@ -420,6 +420,17 @@ async function handleScheduledBackupResult(result = {}) {
   if (!alertResult?.duplicate) fleetState.schedulePublish();
 }
 
+function fleetAlertsSummary() {
+  const attentionPrinterTimes = alertService.attentionPrinterTimes();
+  return {
+    unreadCount:alertService.unreadCount(),
+    attentionUnreadCount:alertService.attentionUnreadCount(),
+    attentionPrinterIds:Object.keys(attentionPrinterTimes),
+    attentionPrinterTimes,
+    recent:alertService.listHistory({ limit:5 })
+  };
+}
+
 async function emitQueueHistoryAlerts(jobs = []) {
   const printersById = new Map(fleetState.getFleet().map((printer) => [String(printer.id), printer]));
   let emitted = 0;
@@ -733,12 +744,7 @@ function openEventStream(req, res) {
     writeChunk(`event: fleet\ndata: ${JSON.stringify({
       printers:decoratedFleet(printers),
       queue:printQueue.getSnapshot(),
-      alerts:{
-        unreadCount:alertService.unreadCount(),
-        attentionUnreadCount:alertService.attentionUnreadCount(),
-        attentionPrinterIds:alertService.attentionPrinterIds(),
-        recent:alertService.listHistory({ limit:5 })
-      },
+      alerts:fleetAlertsSummary(),
       version:CONTROLLER_VERSION,
       license:currentLicenseSnapshot(printers),
       serverTime:new Date().toISOString()
@@ -1536,7 +1542,8 @@ async function apiRoute(req, res, url) {
       if (!map) return json(res, 404, { error:'Monitoring link unavailable.' });
       const ids = new Set(map.placements.map(item => item.printerId));
       const printers = decoratedFleet().filter(printer => ids.has(printer.id));
-      const tiles = printerMapTiles(printers, printQueue.getSnapshot(), alertService.attentionPrinterIds());
+      const attention = alertService.attentionPrinterTimes();
+      const tiles = printerMapTiles(printers, printQueue.getSnapshot(), Object.keys(attention), attention);
       return json(res, 200, { map, printers:tiles });
     } catch {
       return json(res, 503, { error:'Map display is temporarily unavailable.' });
@@ -1639,12 +1646,7 @@ async function apiRoute(req, res, url) {
     return json(res, 200, {
       printers:decoratedFleet(),
       queue:printQueue.getSnapshot(),
-      alerts:{
-        unreadCount:alertService.unreadCount(),
-        attentionUnreadCount:alertService.attentionUnreadCount(),
-        attentionPrinterIds:alertService.attentionPrinterIds(),
-        recent:alertService.listHistory({ limit:5 })
-      },
+      alerts:fleetAlertsSummary(),
       version:CONTROLLER_VERSION,
       license:currentLicenseSnapshot()
     });

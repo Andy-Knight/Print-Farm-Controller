@@ -21,6 +21,28 @@ test('map tiles expose the latest successful queued or directly observed complet
   ]);
 });
 
+test('map activity shows measured progress, clearance and the start time of an active queue job', () => {
+  const startedAt = '2026-11-07T10:00:00Z';
+  const printers = [
+    { id:'working', online:true, status:{ status:'printing', progress:'42.5' } },
+    { id:'unknown', online:true, status:{ status:'printing', progress:null } },
+    { id:'offline', online:false, status:{ status:'printing', progress:40 } },
+    { id:'idle', online:true, status:{ status:'idle', progress:100 } }
+  ];
+  const queue = {
+    jobs:[
+      { printerId:'working', status:'printing', startedAt },
+      { printerId:'idle', status:'completed', startedAt }
+    ],
+    bedClearance:[{ printerId:'idle', jobStatus:'completed' }]
+  };
+  assert.deepEqual(printerMapTiles(printers, queue, []).map(tile =>
+    [tile.online, tile.progress, tile.bedClearance, tile.queueStartedAt]), [
+    [true, 42.5, false, Date.parse(startedAt)], [true, null, false, null],
+    [false, null, false, null], [true, null, true, null]
+  ]);
+});
+
 test('a route crosses a wall at the doorway and can reach the exit threshold', () => {
   const printer = { x:160, y:20, width:30, height:30 };
   const floor = { type:'floor', x:0, y:0, width:220, height:160 };
@@ -45,6 +67,17 @@ test('a door at the map edge is approached from inside the room', () => {
   assert.deepEqual(open.doorApproaches(door).map(approach => approach.outside), [{ x:0, y:50 }]);
   const blocked = createWalkspace({ ...room, items:[{ type:'computer', x:40, y:20, width:80, height:60 }] });
   assert.deepEqual(blocked.doorApproaches(door), []);
+});
+
+test('a paper plane can pass above furniture but stays on the same side of a wall', () => {
+  const bin = { type:'bin', x:140, y:100, width:40, height:40 };
+  const bench = { type:'bench', x:65, y:90, width:50, height:50 };
+  const wall = { vertical:true, centre:120, from:0, to:180 };
+  const room = { width:220, height:180, step:20, items:[bench, bin], printers:[], doors:[] };
+  const from = { x:35, y:120 };
+  const to = { x:160, y:120 };
+  assert.equal(createWalkspace({ ...room, walls:[] }).clearFlight(from, to), true);
+  assert.equal(createWalkspace({ ...room, walls:[wall] }).clearFlight(from, to), false);
 });
 
 test('a route leaves space for the character to walk past a rack', () => {

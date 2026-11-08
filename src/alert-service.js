@@ -332,9 +332,15 @@ export class AlertService {
     return this.state.history.reduce((count, alert) => count + (alertRequiresAttention(alert) ? 1 : 0), 0);
   }
 
-  attentionPrinterIds() {
-    return [...new Set(this.state.history.filter(alertRequiresAttention)
-      .map(alert => alert.printer?.id).filter(Boolean))];
+  attentionPrinterTimes() {
+    const times = new Map();
+    for (const alert of this.state.history) {
+      const id = alert.printer?.id;
+      if (id && alertRequiresAttention(alert)) {
+        times.set(id, Math.max(times.get(id) || 0, Date.parse(alert.createdAt) || 0));
+      }
+    }
+    return Object.fromEntries(times);
   }
 
   snapshot({ historyLimit = 20, includeConfiguration = true, printerId = '' } = {}) {

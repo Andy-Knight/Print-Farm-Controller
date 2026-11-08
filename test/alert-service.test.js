@@ -85,6 +85,10 @@ test('alert service persists history and sends only matching rules', async () =>
     assert.equal(sent.length, 1);
     assert.equal(service.listHistory().length, 2);
     assert.equal(service.unreadCount(), 2);
+    assert.deepEqual(service.attentionPrinterTimes(), {
+      p1:Date.parse(matched.alert.createdAt),
+      p2:Date.parse(unmatched.alert.createdAt)
+    });
 
     const markOne = await service.markRead(matched.alert.id);
     assert.equal(markOne.changed, 1);
@@ -92,6 +96,7 @@ test('alert service persists history and sends only matching rules', async () =>
     const markAll = await service.markRead();
     assert.equal(markAll.changed, 1);
     assert.equal(markAll.unreadCount, 0);
+    assert.deepEqual(service.attentionPrinterTimes(), {});
 
     const reloaded = new AlertService({
       dataDir:root,

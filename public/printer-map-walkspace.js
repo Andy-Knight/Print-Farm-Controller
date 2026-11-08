@@ -1,4 +1,4 @@
-const obstacles = new Set(['bench', 'rack', 'shelf', 'rectangle', 'computer', 'controller', 'chair', 'stool', 'plant-pot', 'window']);
+const obstacles = new Set(['bench', 'rack', 'shelf', 'rectangle', 'computer', 'controller', 'chair', 'stool', 'plant-pot', 'window', 'bin']);
 const front = [[0, 1], [-1, 0], [0, -1], [1, 0]];
 
 export function centreOf({ x, y, width, height }) {
@@ -150,11 +150,21 @@ export function createWalkspace({ width, height, step, items, printers, walls, d
       const id = cellAt(threshold.x + dx, threshold.y + dy);
       const outside = { x:threshold.x - dx, y:threshold.y - dy };
       if (id < 0 || blocked[id] || blocked[cellAt(outside.x, outside.y)]) return [];
-      return [{ id, inside:point(id), threshold, outside }];
+      return [{ id, itemId:door.itemId, sweep:door.sweep, inside:point(id), threshold, outside }];
     });
   }
 
-  return { route, approaches, doorApproaches, cellAt };
+  function clearFlight(from, to) {
+    const steps = Math.ceil(distance(from, to) / (cell / 2));
+    for (let i = 0; i <= steps; i++) {
+      const fraction = steps ? i / steps : 0;
+      const id = cellAt(from.x + (to.x - from.x) * fraction, from.y + (to.y - from.y) * fraction);
+      if (id < 0 || wallBlocked[id]) return false;
+    }
+    return true;
+  }
+
+  return { route, approaches, doorApproaches, cellAt, clearFlight };
 }
 
 function distance(a, b) {
