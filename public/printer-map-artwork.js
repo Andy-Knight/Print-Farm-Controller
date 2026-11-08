@@ -71,6 +71,18 @@ function timberStool(id) {
 
 function desktopWorkstation(id) {
   return `${gradients(id, ['metal'])}
+    <defs>
+      <linearGradient id="${id}-screen-light" gradientUnits="userSpaceOnUse" x1="0" y1="14" x2="0" y2="44">
+        <stop stop-color="var(--art-screen-light)" stop-opacity=".66"/>
+        <stop offset=".25" stop-color="var(--art-screen-light)" stop-opacity=".36"/>
+        <stop offset=".57" stop-color="var(--art-screen-light)" stop-opacity=".22"/>
+        <stop offset="1" stop-color="var(--art-screen-light)" stop-opacity="0"/>
+      </linearGradient>
+      <filter id="${id}-screen-soften" x="-4" y="9" width="56" height="39" filterUnits="userSpaceOnUse">
+        <feGaussianBlur stdDeviation="1.2"/>
+      </filter>
+      <clipPath id="${id}-screen-front"><rect x="-4" y="14" width="56" height="34"/></clipPath>
+    </defs>
     <g transform="scale(1.5 1)">
       <g stroke="var(--art-edge)">
         <rect x="17" y="16" width="14" height="4.2" rx="1" fill="var(--art-metal-dark)"/>
@@ -79,7 +91,10 @@ function desktopWorkstation(id) {
         <rect x="6" y="27" width="31" height="10.5" rx="1.3" fill="var(--art-metal-light)"/>
         <rect x="40" y="27" width="5.5" height="8" rx="2.6" fill="url(#${id}-metal)"/>
       </g>
-        <path class="printer-map-workstation-screen" d="M6.5 14H41.5" stroke="var(--art-screen-edge)" stroke-width=".65"/>
+      <g class="printer-map-workstation-glow" clip-path="url(#${id}-screen-front)">
+        <path d="M6.5 13H41.5L48 44H0Z" fill="url(#${id}-screen-light)" filter="url(#${id}-screen-soften)"/>
+      </g>
+      <path class="printer-map-workstation-screen" d="M6.5 14H41.5" stroke="var(--art-screen-edge)" stroke-width=".65"/>
       <path d="M8 29.5H35M8 32.5H35M8 35.4H15M31 35.4H35"
         stroke="var(--art-edge)" stroke-width="1.85" stroke-linecap="butt" stroke-dasharray="2.15 .65"/>
       <path d="M17.5 35.4H28.5" stroke="var(--art-edge)" stroke-width="1.85" stroke-linecap="butt"/>

@@ -2520,6 +2520,11 @@ async function printerMapSmoke(browser, url) {
     await rotate.click();
     const computerDrawing = computer.locator('.printer-map-furniture');
     assert.equal(await computerDrawing.getAttribute('viewBox'), '0 0 48 72');
+    const glowFollowsKeyboard = await computerDrawing.locator('.printer-map-workstation-glow').evaluate(node => {
+      const transform = node.getCTM();
+      return transform.c < 0 && Math.abs(transform.d) < .001;
+    });
+    assert.ok(glowFollowsKeyboard, 'the glow turns toward the keyboard when the workstation rotates');
     await computer.press('F2');
     await label.fill('Slicing station');
     await label.press('Enter');
@@ -2969,6 +2974,10 @@ async function printerMapSmoke(browser, url) {
       await monitor.locator('.printer-map-person[data-pose="seated"] svg').waitFor();
       assert.equal(await actorPosition(), 'translate(75px, 157.5px)', 'the character begins in the chair at the first computer');
       assert.equal(await monitor.locator('[data-map-item-id="first"][data-workstation-active]').count(), 1);
+      const firstGlow = '[data-map-item-id="first"] .printer-map-workstation-glow';
+      await monitor.waitForFunction(selector => getComputedStyle(document.querySelector(selector)).opacity === '1', firstGlow);
+      assert.equal(await monitor.locator('[data-map-item-id="second"] .printer-map-workstation-glow')
+        .evaluate(node => getComputedStyle(node).opacity), '0');
       activity = { ...activity, alertAt:Date.now(), printing:false, bedClearance:true };
       completedAt = Date.now();
       const openInteriorDoor = monitor.locator('[data-map-item-id="interior-door"][data-door-open]');
@@ -2976,6 +2985,7 @@ async function printerMapSmoke(browser, url) {
       await monitor.locator('.printer-map-person[data-pose="collecting"] svg').waitFor({ timeout:15000 });
       assert.equal(await openInteriorDoor.count(), 0, 'the door closes after a crossing on the way to a printer');
       assert.equal(await monitor.locator('[data-workstation-active]').count(), 0);
+      await monitor.waitForFunction(selector => getComputedStyle(document.querySelector(selector)).opacity === '0', firstGlow);
       assert.ok((await monitor.evaluate(() => window.mapEffects)).includes('map-print-complete'));
       assert.equal(await monitor.evaluate(() => window.mapEffects.filter(id => id === 'map-new-alert').length), 2,
         'a newer alert highlights the badge even while an earlier alert is active');
@@ -3067,6 +3077,22 @@ async function printerMapSmoke(browser, url) {
       assert.equal(stride[0].name, 'printer-map-foot-stride');
       assert.equal(stride[1].name, stride[0].name);
       assert.equal(stride[1].delay - stride[0].delay, -stride[0].duration / 2, 'the feet alternate half a stride apart');
+      const arms = await actor.evaluate(node => [...node.querySelectorAll('.map-person-arm-swing')].map(arm => {
+        const animation = arm.getAnimations()[0];
+        return {
+          duration:animation.effect.getTiming().duration / 1000,
+          delay:animation.effect.getTiming().delay / 1000,
+          angles:animation.effect.getKeyframes().map(frame => frame.transform)
+        };
+      }));
+      assert.deepEqual(arms.map(arm => arm.duration), stride.map(foot => foot.duration));
+      assert.deepEqual(arms.map(arm => arm.delay), stride.map(foot => foot.delay));
+      assert.deepEqual(arms[0].angles, ['rotate(-60deg)', 'rotate(60deg)', 'rotate(-60deg)'],
+        'the left arm swings from back to front as the left foot moves from front to back');
+      const shadow = actor.locator('.map-person-shadow');
+      assert.equal(await shadow.evaluate(node => getComputedStyle(node).fill), 'rgba(0, 0, 0, 0)');
+      await monitor.evaluate(() => { document.documentElement.dataset.theme = 'light'; });
+      assert.equal(await shadow.evaluate(node => getComputedStyle(node).fill), 'rgba(0, 0, 0, 0.25)');
       await linkDialog.getByRole('button', { name:'Disable link' }).click();
       await monitor.getByText('Monitoring link unavailable.').waitFor({ timeout:10000 });
       await sprite.waitFor({ state:'hidden' });

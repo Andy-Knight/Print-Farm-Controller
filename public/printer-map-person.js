@@ -17,10 +17,18 @@ const blueOvershirt = `<svg viewBox="0 0 44 52" focusable="false">
         <path class="map-person-shoe" d="M0 13v5"/>
       </g>
     </g>
-    <path class="map-person-arm map-person-left" d="m10 22-4 12"/>
-    <path class="map-person-arm map-person-right" d="m34 22 4-6"/>
-    <path class="map-person-hand map-person-left" d="m6 34-1 2"/>
-    <path class="map-person-hand map-person-right" d="m38 16 1-2"/>
+    <g transform="translate(10 22)">
+      <g class="map-person-arm-swing">
+        <path class="map-person-arm" d="M0 0-4.5 1.5-8 0"/>
+        <path class="map-person-hand" d="M-8 0h-1.4"/>
+      </g>
+    </g>
+    <g transform="translate(34 22) scale(-1 1)">
+      <g class="map-person-arm-swing map-person-right">
+        <path class="map-person-arm" d="M0 0-4.5 1.5-8 0"/>
+        <path class="map-person-hand" d="M-8 0h-1.4"/>
+      </g>
+    </g>
   </g>
   <g class="map-person-seated">
     <path class="map-person-arm" d="m11 24-4-13m26 13 4-13"/>

@@ -269,7 +269,7 @@
   overflow: visible;
 }
 
-.printer-map-person .map-person-shadow { fill: rgb(0 0 0 / .25); }
+.printer-map-person .map-person-shadow { fill: light-dark(rgb(0 0 0 / .25), transparent); }
 .printer-map-person .map-person-shirt { fill: var(--person-shirt); stroke: var(--person-shirt-edge); }
 .printer-map-person .map-person-shirt-seam { fill: none; stroke: var(--person-shirt-edge); }
 .printer-map-person .map-person-skin { fill: var(--person-skin); }
@@ -286,7 +286,7 @@
 .printer-map-person .map-person-shoe { stroke: light-dark(#273746, #18232d); }
 .printer-map-person:not([data-pose="seated"], [data-pose="dropping"], [data-pose="collecting"]) .map-person-seated,
 .printer-map-person[data-pose="seated"] :is(.map-person-standing, .map-person-shadow),
-.printer-map-person:is([data-pose="dropping"], [data-pose="collecting"]) .map-person-standing :is(.map-person-arm, .map-person-hand),
+.printer-map-person:is([data-pose="dropping"], [data-pose="collecting"]) .map-person-arm-swing,
 .printer-map-person:not([data-pose="walking"]) .map-person-legs-walking,
 .printer-map-person[data-pose="walking"] .map-person-legs-resting,
 .printer-map-person:not([data-carrying]) .map-person-part { display: none; }
@@ -317,10 +317,15 @@
 .map-person-legs-walking .map-person-shoe { animation-name: printer-map-foot-stride; }
 .map-person-legs-walking .map-person-right > * { animation-delay: calc(var(--person-stride-duration) / -2); }
 
-.printer-map-person[data-pose="walking"] :is(.map-person-arm, .map-person-hand) {
+.map-person-arm-swing {
+  transform: rotate(-35deg);
+  transform-origin: 0 0;
+}
+
+.printer-map-person[data-pose="walking"] .map-person-arm-swing {
   animation: printer-map-arm-swing var(--person-stride-duration) ease-in-out infinite;
 }
-.printer-map-person[data-pose="walking"] :is(.map-person-arm, .map-person-hand).map-person-right {
+.printer-map-person[data-pose="walking"] .map-person-arm-swing.map-person-right {
   animation-delay: calc(var(--person-stride-duration) / -2);
 }
 
@@ -335,8 +340,8 @@
 }
 
 @keyframes printer-map-arm-swing {
-  0%, 100% { transform: translateY(3px); }
-  50% { transform: translateY(-3px); }
+  0%, 100% { transform: rotate(-60deg); }
+  50% { transform: rotate(60deg); }
 }
 
 #printerMapBox {
@@ -487,13 +492,23 @@
 }
 
 .is-character-animated .printer-map-workstation-screen {
-  transition: stroke 240ms ease-out, filter 240ms ease-out;
+  transition: stroke 240ms ease-out;
+}
+
+.printer-map-workstation-glow {
+  opacity: 0;
+}
+
+.is-character-animated .printer-map-workstation-glow {
+  transition: opacity 240ms ease-out;
+}
+
+.printer-map-item[data-workstation-active] .printer-map-workstation-glow {
+  opacity: 1;
 }
 
 .printer-map-item[data-workstation-active] .printer-map-workstation-screen {
-  stroke: var(--ds-brand);
-  stroke-width: 1.2;
-  filter: drop-shadow(0 0 1.5px var(--ds-brand));
+  stroke: var(--art-screen-light);
 }
 
 .printer-map-bench-finish {
@@ -614,6 +629,7 @@ button.printer-map-item:is([data-kind="bench"], [data-kind="rack"]) {
   --art-wood-dark: light-dark(#9a673e, #a87548);
   --art-wood-grain: light-dark(#94643f, #9d6c45);
   --art-screen-edge: light-dark(#7d9eac, #8eb1bd);
+  --art-screen-light: light-dark(#2e9be6, #55b9ff);
   --art-shadow: light-dark(rgb(24 48 64 / .21), rgb(1 7 13 / .58));
 }
 
