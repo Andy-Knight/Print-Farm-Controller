@@ -8,6 +8,7 @@ Applies to the entire repository. These are permanent working rules, not a versi
 2. **Read `PROJECT_CONTEXT.md` and `docs/DOCUMENTATION_POLICY.md`.** For UI work also read `docs/CONTROLLER_VISUAL_STYLE_GUIDE.md`. Consult `docs/dependency-security.md` before changing runtime or dependencies.
 3. Use `PROJECT_CONTEXT.md` for current priorities, architecture, decisions and known validation limits. Replace stale task descriptions when work completes.
 4. Work in a feature branch/PR, run relevant unit, browser, packaging and documentation checks. Do not merge or claim a release is published without explicit user approval and verification.
+   - For new features, fetch the latest `origin/main` and create a `codex/` feature branch from it in the existing local clone. Continue follow-up changes on the same branch and PR while the PR is open.
 
 ## Documentation contract
 
