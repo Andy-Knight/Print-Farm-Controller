@@ -69,6 +69,17 @@ test('a door at the map edge is approached from inside the room', () => {
   assert.deepEqual(blocked.doorApproaches(door), []);
 });
 
+test('a paper plane can pass above furniture but stays on the same side of a wall', () => {
+  const bin = { type:'bin', x:140, y:100, width:40, height:40 };
+  const bench = { type:'bench', x:65, y:90, width:50, height:50 };
+  const wall = { vertical:true, centre:120, from:0, to:180 };
+  const room = { width:220, height:180, step:20, items:[bench, bin], printers:[], doors:[] };
+  const from = { x:35, y:120 };
+  const to = { x:160, y:120 };
+  assert.equal(createWalkspace({ ...room, walls:[] }).clearFlight(from, to), true);
+  assert.equal(createWalkspace({ ...room, walls:[wall] }).clearFlight(from, to), false);
+});
+
 test('a route leaves space for the character to walk past a rack', () => {
   const rack = { type:'rack', x:80, y:40, width:100, height:80 };
   const room = { width:260, height:200, step:20, items:[rack], printers:[], walls:[], doors:[] };

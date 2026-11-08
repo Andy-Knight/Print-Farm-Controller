@@ -2242,7 +2242,7 @@ async function printerMapSmoke(browser, url) {
     let savedPosition = [dragX - 20, dragY + 60];
     assert.deepEqual(await assertSnapped(), savedPosition);
     const paletteButton = type => page.locator(`#printerMapPalette [data-map-item-type="${type}"]`);
-    assert.equal(await page.locator('#printerMapPalette button').count(), 16);
+    assert.equal(await page.locator('#printerMapPalette button').count(), 17);
     assert.equal(await paletteButton('aisle').count(), 0);
     await page.getByRole('button', { name:'Add zone', exact:true }).press('Enter');
     const zone = page.locator('.printer-map-item[data-kind="zone"]');
@@ -2403,7 +2403,7 @@ async function printerMapSmoke(browser, url) {
     await paletteButton('line').click();
     await page.getByRole('button', { name:'Remove item' }).click();
     assert.equal(await page.locator('.printer-map-item').count(), 8);
-    const roomObjects = ['controller', 'plant-pot', 'window', 'chair', 'stool', 'computer'];
+    const roomObjects = ['controller', 'plant-pot', 'window', 'chair', 'stool', 'bin', 'computer'];
     const objectOnMap = type => page.locator(`.printer-map-item[data-kind="${type}"]`);
     await paletteButton('floor').press('Enter');
     const floor = objectOnMap('floor');
@@ -2935,7 +2935,7 @@ async function printerMapSmoke(browser, url) {
         assert.equal(await monitor.locator(`.printer-map-item[data-kind="${type}"]`).innerText(), '',
           `the monitoring page hides previously saved ${type} labels`);
       }
-      assert.equal(await monitor.locator('.printer-map-furniture').count(), 5, 'the monitoring page uses the same artwork');
+      assert.equal(await monitor.locator('.printer-map-furniture').count(), 6, 'the monitoring page uses the same artwork');
       assert.ok(await monitor.locator('[data-kind="controller"] .printer-map-controller-mark').isVisible(),
         'the monitoring page shows the saved Controller artwork');
       assert.equal(await monitor.locator('[data-kind="chair"] .printer-map-furniture').getAttribute('viewBox'), '0 0 60 48');
@@ -2999,6 +2999,7 @@ async function printerMapSmoke(browser, url) {
       activity = { ...activity, bedClearance:false };
       animationMap = { ...animationMap, revision:2, items:[...animationMap.items.filter(item => !item.id.startsWith('interior-')),
         { id:'parts-shelf', type:'shelf', label:'Parts shelf', x:420, y:300, width:140, height:60 },
+        { id:'paper-bin', type:'bin', x:540, y:220, width:60, height:60 },
         { id:'exit', type:'door', label:'', x:0, y:300, width:40, height:100, rotation:90 }
       ] };
       const partsShelf = monitor.locator('[data-map-item-id="parts-shelf"]');
@@ -3010,9 +3011,9 @@ async function printerMapSmoke(browser, url) {
         window.setTimeout = (fn, ms, ...args) => {
           const timer = timeout(fn, ms, ...args);
           if (ms >= 60000) {
-            window.setTimeout = timeout;
-            window.startMapDoorTrip = () => {
+            window.startMapIdleAction = () => {
               clearTimeout(timer);
+              window.startMapIdleAction = null;
               fn(...args);
             };
           }
@@ -3020,6 +3021,11 @@ async function printerMapSmoke(browser, url) {
         };
       });
       completedAt = Date.now();
+      const carrying = monitor.locator('.printer-map-person[data-pose="walking"][data-carrying]');
+      const carryPose = carrying.locator('.map-person-carry');
+      await carryPose.locator('.map-person-part').waitFor({ timeout:15000 });
+      assert.equal(await carryPose.locator('.map-person-hand').count(), 2);
+      assert.equal(await carrying.locator('.map-person-arm-swing:visible').count(), 0, 'the walking arms are hidden while carrying a box');
       const dropoff = monitor.locator('.printer-map-person[data-pose="dropping"][data-carrying] svg');
       await dropoff.waitFor({ timeout:16000 });
       const part = partsShelf.locator('.printer-map-shelf-parts > span:not([hidden])');
@@ -3028,8 +3034,8 @@ async function printerMapSmoke(browser, url) {
       await monitor.locator('.printer-map-person[data-pose="seated"] svg').waitFor({ timeout:12000 });
       assert.equal(await actorPosition(), 'translate(375px, 157.5px)', 'after the drop-off the character returns to the selected computer');
       assert.ok(await part.isVisible());
-      await monitor.waitForFunction(() => typeof window.startMapDoorTrip === 'function');
-      await monitor.evaluate(() => window.startMapDoorTrip());
+      await monitor.waitForFunction(() => typeof window.startMapIdleAction === 'function');
+      await monitor.evaluate(() => window.startMapIdleAction());
       const openDoor = monitor.locator('[data-map-item-id="exit"][data-door-open]');
       await openDoor.waitFor({ timeout:15000 });
       assert.equal(await actor.getAttribute('data-carrying'), 'true', 'the character carries the shelf part out');
@@ -3042,6 +3048,19 @@ async function printerMapSmoke(browser, url) {
       assert.ok(await openDoor.isVisible(), 'the exit door remains open when the character reappears at the threshold');
       await monitor.locator('.printer-map-person[data-pose="seated"] svg').waitFor({ timeout:12000 });
       assert.equal(await openDoor.count(), 0, 'the exit door closes after the character clears the return swing');
+      const deskPosition = await actorPosition();
+      await monitor.waitForFunction(() => typeof window.startMapIdleAction === 'function');
+      await monitor.evaluate(() => {
+        Math.random = () => .1;
+        window.startMapIdleAction();
+      });
+      const plane = monitor.locator('.printer-map-plane');
+      await plane.waitFor({ timeout:5000 });
+      const landing = await plane.evaluate(node => node.getAnimations()[0].effect.getKeyframes().at(-1).transform);
+      assert.match(landing, /^translate\(427\.5px, 187\.5px\)/, 'the plane lands in the centre of the bin');
+      assert.equal(await actorPosition(), deskPosition, 'the character stays at the computer for a throw');
+      await plane.waitFor({ state:'hidden', timeout:5000 });
+      assert.equal(await openDoor.count(), 0, 'the plane throw is an alternative to a door trip');
       await monitor.emulateMedia({ reducedMotion:'reduce' });
       await monitor.waitForFunction(() => {
         const node = document.querySelector('.printer-map-person');

@@ -149,7 +149,12 @@ const designs = {
   chair:{ size:[48, 60], draw:taskChair },
   stool:{ size:[48, 48], draw:timberStool },
   computer:{ size:[72, 48], draw:desktopWorkstation },
-  controller:{ size:[60, 45], draw:controllerMiniPc }
+  controller:{ size:[60, 45], draw:controllerMiniPc },
+  bin:{ size:[48, 48], draw:id => `${gradients(id, ['metal'])}
+    <circle cx="24" cy="24" r="19" fill="url(#${id}-metal)" stroke="var(--art-edge)"/>
+    <circle cx="24" cy="24" r="15.5" fill="var(--art-graphite-dark)" stroke="var(--art-metal-light)"/>
+    <ellipse cx="24" cy="25.5" rx="10.5" ry="9" fill="var(--art-graphite-light)" opacity=".45"/>
+    <path d="M13 14a15 15 0 0 1 22 0" stroke="var(--art-metal-light)"/>` }
 };
 let nextArtworkId = 0;
 

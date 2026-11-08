@@ -5,7 +5,7 @@ const endpoint = '/api/printer-maps';
 const preferenceKey = 'pfc-printer-map';
 const motionPreferenceKey = 'pfc-printer-map-motion';
 const defaultRoomSteps = 50;
-const unlabelledTypes = new Set(['floor', 'bench', 'rack', 'shelf', 'window', 'plant-pot', 'chair', 'stool']);
+const unlabelledTypes = new Set(['floor', 'bench', 'rack', 'shelf', 'window', 'plant-pot', 'chair', 'stool', 'bin']);
 const rotatableFurniture = new Set(['chair', 'computer']);
 const itemTypes = {
   floor:{ name:'Floor', size:[600, 400] },
@@ -23,7 +23,8 @@ const itemTypes = {
   chair:{ name:'Chair', size:[80, 100] },
   stool:{ name:'Stool', size:[80, 80] },
   computer:{ name:'Computer', size:[120, 100] },
-  controller:{ name:'Controller', size:[100, 80] }
+  controller:{ name:'Controller', size:[100, 80] },
+  bin:{ name:'Bin', size:[60, 60] }
 };
 const paletteSymbols = {
   floor:'<path d="M24 8 43 18 24 28 5 18 24 8ZM5 25l19 10 19-10M5 32l19 10 19-10"/>',
@@ -32,6 +33,7 @@ const paletteSymbols = {
   bench:'<path d="M7 15h34v9H7zm4 9v12m26-12v12"/>',
   rack:'<path d="M8 8h32v32H8zM8 19h32M8 29h32M19 8v32M29 8v32"/>',
   shelf:'<path d="M5 15h38v9H5zM10 24v10l10-10m18 0v10L28 24"/>',
+  bin:'<path d="M9 12h30M18 12V7h12v5m-17 0 2 28h18l2-28M21 19v14m6-14v14"/>',
   wall:'<path d="M5 11h38v26H5zM5 24h38M18 11v13m12 0v13"/>',
   door:'<path d="M6 35h7m23 0h6M13 35V12m0 0a23 23 0 0 1 23 23" />',
   rectangle:'<rect x="6" y="12" width="36" height="24" rx="2"/>',

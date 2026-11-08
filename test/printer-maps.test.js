@@ -65,7 +65,7 @@ test('room items round-trip, remain map-scoped and reject invalid geometry', asy
   t.after(() => fs.rm(dataDir, { recursive:true, force:true }));
   const save = (input, id) => savePrinterMap(dataDir, { id, input, printerIds:new Set() });
   const item = { id:'bench-1', type:'bench', label:'Finishing', x:50, y:80, width:300, height:120 };
-  const objects = ['plant-pot', 'window', 'chair', 'stool', 'computer', 'controller', 'shelf'].map((type, index) => ({
+  const objects = ['plant-pot', 'window', 'chair', 'stool', 'computer', 'controller', 'shelf', 'bin'].map((type, index) => ({
     id:type, type, label:`Fixture ${index + 1}`, x:50 + index * 100, y:260, width:80, height:80,
     ...(type === 'chair' ? { rotation:90 } : type === 'computer' ? { rotation:270 } : {})
   }));

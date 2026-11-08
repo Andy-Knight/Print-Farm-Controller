@@ -287,16 +287,43 @@
 .printer-map-person:not([data-pose="seated"], [data-pose="dropping"], [data-pose="collecting"]) .map-person-seated,
 .printer-map-person[data-pose="seated"] :is(.map-person-standing, .map-person-shadow),
 .printer-map-person:is([data-pose="dropping"], [data-pose="collecting"]) .map-person-arm-swing,
+.printer-map-person:is([data-carrying], [data-throwing]) :is(.map-person-arm-swing, .map-person-seated),
 .printer-map-person:not([data-pose="walking"]) .map-person-legs-walking,
 .printer-map-person[data-pose="walking"] .map-person-legs-resting,
-.printer-map-person:not([data-carrying]) .map-person-part { display: none; }
+.printer-map-person:not([data-carrying]) .map-person-carry,
+.printer-map-person:not([data-throwing]) .map-person-throwing { display: none; }
 
 .printer-map-person:is([data-pose="dropping"], [data-pose="collecting"]) .map-person-seated {
   animation: printer-map-reach 450ms ease-out both;
 }
 
-.printer-map-person[data-carrying] .map-person-part {
-  animation: printer-map-part-arrive 240ms ease-out both;
+.printer-map-person[data-throwing] .map-person-throw-arm {
+  transform-origin: 34px 22px;
+  animation: printer-map-paper-throw 480ms ease-out both;
+}
+
+.printer-map-plane {
+  position: absolute;
+  inset: 0 auto auto 0;
+  width: 17px;
+  height: 17px;
+  z-index: 5;
+  pointer-events: none;
+}
+
+.printer-map-plane svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  fill: light-dark(#f4f8fa, #dde8f0);
+  stroke: light-dark(#576e7e, #6d8ba0);
+  stroke-width: 1.4;
+  stroke-linejoin: round;
+}
+
+@keyframes printer-map-paper-throw {
+  from { transform: rotate(36deg); }
+  54%, to { transform: rotate(0deg); }
 }
 
 @keyframes printer-map-reach {
@@ -322,7 +349,7 @@
   transform-origin: 0 0;
 }
 
-.printer-map-person[data-pose="walking"] .map-person-arm-swing {
+.printer-map-person[data-pose="walking"]:not([data-carrying]) .map-person-arm-swing {
   animation: printer-map-arm-swing var(--person-stride-duration) ease-in-out infinite;
 }
 .printer-map-person[data-pose="walking"] .map-person-arm-swing.map-person-right {

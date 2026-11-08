@@ -39,9 +39,22 @@ const blueOvershirt = `<svg viewBox="0 0 44 52" focusable="false">
   <ellipse class="map-person-skin" cx="22" cy="14" rx="8" ry="9"/>
   <ellipse class="map-person-skin" cx="22" cy="5" rx="2" ry="2"/>
   <ellipse class="map-person-hair" cx="22" cy="15.5" rx="7" ry="7"/>
-  <g class="map-person-part">
-    <path d="m22 5 6-3 6 3v7l-6 3-6-3z"/>
-    <path d="m22 5 6 3 6-3m-6 3v7" fill="none"/>
+  <g class="map-person-carry">
+    <path class="map-person-arm" d="M10 22 7 12 12 0M34 22 37 12 32 0"/>
+    <g class="map-person-part">
+      <path d="M13-10h18v8l-3 4H13z"/>
+      <path d="M13-10h18l-3 4H13zm15 4v8" fill="none"/>
+    </g>
+    <path class="map-person-hand" d="M12 0h3"/>
+    <path class="map-person-hand" d="M29 0h3"/>
+  </g>
+  <g class="map-person-throwing">
+    <path class="map-person-arm" d="m11 24-4-10"/>
+    <path class="map-person-hand" d="M7 14v-3"/>
+    <g class="map-person-throw-arm">
+      <path class="map-person-arm" d="M34 22 39 13 35 7"/>
+      <path class="map-person-hand" d="m35 7-1-2"/>
+    </g>
   </g>
 </svg>`;
 
@@ -72,6 +85,12 @@ export function createPrinterMapPerson(canvas, { step, scale, getItemNode }) {
   node.setAttribute('aria-hidden', 'true');
   node.innerHTML = blueOvershirt;
   canvas.append(node);
+  const plane = document.createElement('div');
+  plane.className = 'printer-map-plane';
+  plane.hidden = true;
+  plane.setAttribute('aria-hidden', 'true');
+  plane.innerHTML = '<svg viewBox="0 0 24 24" focusable="false"><path d="M12 1 22 22 12 17 2 22Z"/><path d="M12 1v16" fill="none"/></svg>';
+  canvas.append(plane);
   const sprite = getComputedStyle(node.firstElementChild);
   // Allow for the rotated sprite and the thickness of the door leaf.
   const doorClearance = Math.hypot(parseFloat(sprite.width), parseFloat(sprite.height)) / (2 * scale) + 2;
@@ -81,8 +100,10 @@ export function createPrinterMapPerson(canvas, { step, scale, getItemNode }) {
   let generation = 0;
   let idleTimer;
   let movement;
+  let flight;
   let running = false;
   let activeDesk;
+  let deskAt;
   let motionEnabled = true;
   let position;
   let seatedApproach;
@@ -91,6 +112,7 @@ export function createPrinterMapPerson(canvas, { step, scale, getItemNode }) {
   let doors = [];
   let targets = new Map();
   let shelves = [];
+  let bins = [];
   const placedParts = new Set();
   let completions = new Map();
   let pending = [];
@@ -98,6 +120,7 @@ export function createPrinterMapPerson(canvas, { step, scale, getItemNode }) {
   function clearDesk() {
     activeDesk?.removeAttribute('data-workstation-active');
     activeDesk = null;
+    deskAt = null;
   }
 
   function closeDoor(id) {
@@ -121,6 +144,10 @@ export function createPrinterMapPerson(canvas, { step, scale, getItemNode }) {
     clearTimeout(idleTimer);
     movement?.cancel();
     movement = null;
+    flight?.cancel();
+    flight = null;
+    plane.hidden = true;
+    delete node.dataset.throwing;
     clearDesk();
     for (const id of openDoors.keys()) closeDoor(id);
     running = false;
@@ -221,6 +248,7 @@ export function createPrinterMapPerson(canvas, { step, scale, getItemNode }) {
       seatedApproach = destination.seated ? destination.route.at(-2) : null;
       delete node.dataset.carrying;
       pose(destination.seated ? 'seated' : 'standing', position, centreOf(desk));
+      deskAt = desk;
       if (destination.seated && motionEnabled) {
         activeDesk = getItemNode(desk.id);
         activeDesk?.setAttribute('data-workstation-active', '');
@@ -305,11 +333,8 @@ export function createPrinterMapPerson(canvas, { step, scale, getItemNode }) {
     }
   }
 
-  async function leaveRoom(token) {
-    const from = seatedApproach || position;
-    let trip = doorTrip(from);
-    if (!trip) return;
-    const visit = placedParts.size ? shelfVisit(from, ':not([hidden])') : null;
+  async function leaveRoom(token, trip) {
+    const visit = placedParts.size ? shelfVisit(seatedApproach || position, ':not([hidden])') : null;
     const fromShelf = visit && doorTrip(visit.route.at(-1));
     if (fromShelf) {
       if (!await walk(visit.route, token)) return;
@@ -329,6 +354,60 @@ export function createPrinterMapPerson(canvas, { step, scale, getItemNode }) {
     await wait(4000);
     if (token !== generation) return;
     if (await crossDoor(door, [door.threshold, door.inside], token, true)) await goToDesk(token, true);
+  }
+
+  function paperTargets() {
+    if (!deskAt) return [];
+    return bins.flatMap(bin => {
+      const to = centreOf(bin);
+      const length = distance(position, to);
+      if (length < step) return [];
+      const dx = (to.x - position.x) / length;
+      const dy = (to.y - position.y) / length;
+      const from = {
+        x:position.x + step * (dx - dy * .7),
+        y:position.y + step * (dy + dx * .7)
+      };
+      const clear = [position, to].every(point => space.clearFlight(from, point)
+        && crossingsBetween(from, point, doors).every(({ door }) => openDoors.has(door.itemId)));
+      return clear ? [{ from, to }] : [];
+    });
+  }
+
+  async function throwPaper({ from, to }, token) {
+    const facing = node.style.getPropertyValue('--person-heading');
+    node.style.setProperty('--person-heading', `${heading(position, to)}deg`);
+    node.dataset.throwing = '';
+    try {
+      await wait(260);
+      if (token !== generation) return;
+      const angle = heading(from, to);
+      const tilt = `translate(-50%, -50%) rotate(${angle}deg)`;
+      const mid = { x:(from.x + to.x) / 2, y:(from.y + to.y) / 2 };
+      plane.hidden = false;
+      flight = plane.animate([
+        { transform:`${transform(from)} ${tilt}`, opacity:1 },
+        { transform:`${transform(mid)} ${tilt} scale(1.12)`, opacity:1 },
+        { transform:`${transform(to)} ${tilt} scale(.25)`, opacity:0 }
+      ], { duration:Math.min(1400, Math.max(650, distance(from, to) * scale * 4)), easing:'ease-out' });
+      try { await flight.finished; } catch { return; }
+    } finally {
+      if (token === generation) {
+        flight = null;
+        plane.hidden = true;
+        delete node.dataset.throwing;
+        node.style.setProperty('--person-heading', facing);
+      }
+    }
+  }
+
+  async function idleAction(token) {
+    const trip = doors.length ? doorTrip(seatedApproach || position) : null;
+    const throws = paperTargets();
+    if (throws.length && (!trip || Math.random() < .5)) {
+      return throwPaper(throws[Math.floor(Math.random() * throws.length)], token);
+    }
+    if (trip) return leaveRoom(token, trip);
   }
 
   async function run(task) {
@@ -351,8 +430,8 @@ export function createPrinterMapPerson(canvas, { step, scale, getItemNode }) {
     if (pending.length) {
       const next = pending.shift();
       void run(token => collect(next, token));
-    } else if (doors.length) {
-      idleTimer = setTimeout(() => void run(leaveRoom), 60000 + Math.random() * 60000);
+    } else if (doors.length || (deskAt && bins.length)) {
+      idleTimer = setTimeout(() => void run(idleAction), 60000 + Math.random() * 60000);
     }
   }
 
@@ -376,6 +455,7 @@ export function createPrinterMapPerson(canvas, { step, scale, getItemNode }) {
       targets = new Map(printers.map(printer => [printer.id, { points:space.approaches(printer), printer }]));
       shelves = items.filter(item => item.type === 'shelf')
         .map(shelf => ({ shelf, points:space.approaches(shelf, [0, 1], step / 2) }));
+      bins = items.filter(item => item.type === 'bin');
       completions = new Map(tiles.filter(tile => visible.has(tile.id)).map(tile => [tile.id, tile.completedAt || 0]));
       delete node.dataset.carrying;
       void run(token => goToDesk(token, false));

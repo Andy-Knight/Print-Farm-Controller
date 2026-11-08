@@ -7,7 +7,7 @@ export const emptyPrinterMaps = { version:1, maps:[] };
 const displayTokenPattern = /^[A-Za-z0-9_-]{43}$/;
 const itemTypes = new Set([
   'floor', 'label', 'zone', 'bench', 'rack', 'shelf', 'wall', 'door', 'rectangle', 'line',
-  'plant-pot', 'window', 'chair', 'stool', 'computer', 'controller'
+  'plant-pot', 'window', 'chair', 'stool', 'computer', 'controller', 'bin'
 ]);
 
 function mapError(message, statusCode = 400) {
