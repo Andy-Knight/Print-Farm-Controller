@@ -21,6 +21,28 @@ test('map tiles expose the latest successful queued or directly observed complet
   ]);
 });
 
+test('map activity shows measured progress, clearance and the start time of an active queue job', () => {
+  const startedAt = '2026-11-07T10:00:00Z';
+  const printers = [
+    { id:'working', online:true, status:{ status:'printing', progress:'42.5' } },
+    { id:'unknown', online:true, status:{ status:'printing', progress:null } },
+    { id:'offline', online:false, status:{ status:'printing', progress:40 } },
+    { id:'idle', online:true, status:{ status:'idle', progress:100 } }
+  ];
+  const queue = {
+    jobs:[
+      { printerId:'working', status:'printing', startedAt },
+      { printerId:'idle', status:'completed', startedAt }
+    ],
+    bedClearance:[{ printerId:'idle', jobStatus:'completed' }]
+  };
+  assert.deepEqual(printerMapTiles(printers, queue, []).map(tile =>
+    [tile.online, tile.progress, tile.bedClearance, tile.queueStartedAt]), [
+    [true, 42.5, false, Date.parse(startedAt)], [true, null, false, null],
+    [false, null, false, null], [true, null, true, null]
+  ]);
+});
+
 test('a route crosses a wall at the doorway and can reach the exit threshold', () => {
   const printer = { x:160, y:20, width:30, height:30 };
   const floor = { type:'floor', x:0, y:0, width:220, height:160 };

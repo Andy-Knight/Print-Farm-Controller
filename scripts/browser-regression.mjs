@@ -2896,6 +2896,7 @@ async function printerMapSmoke(browser, url) {
       let queued = 3;
       let animationMap;
       let completedAt = null;
+      let activity = { alert:false, online:false, printing:false };
       const apiRequests = [];
       await monitorContext.route('**/api/**', async route => {
         const request = route.request();
@@ -2908,9 +2909,17 @@ async function printerMapSmoke(browser, url) {
         const map = animationMap || store.maps.find(saved => saved.id === 'workshop');
         return route.fulfill({ json:{ map:{
           ...map, placements:map.placements.filter(item => item.printerId === printer.id)
-        }, printers:[{ id:printer.id, name:printer.name, imageKey:'a1', alert:true, printing:!completedAt, queued, completedAt }] } });
+        }, printers:[{ id:printer.id, name:printer.name, imageKey:'a1', queued, completedAt, ...activity }] } });
       });
       const monitor = await monitorContext.newPage();
+      await monitor.addInitScript(() => {
+        window.mapEffects = [];
+        const animate = Element.prototype.animate;
+        Element.prototype.animate = function(frames, options) {
+          if (options?.id?.startsWith('map-')) window.mapEffects.push(options.id);
+          return animate.call(this, frames, options);
+        };
+      });
       await monitor.goto(await link.inputValue());
       await monitor.getByRole('heading', { name:'Workshop', exact:true }).waitFor();
       const monitorTile = monitor.locator('.printer-map-marker');
@@ -2930,8 +2939,14 @@ async function printerMapSmoke(browser, url) {
       const bounds = await monitor.locator('#printerMapViewport').boundingBox();
       assert.ok(bounds.width > 1200 && bounds.height > 600, 'the map fills the monitoring window');
       assert.equal(await monitor.locator('#printerMapViewport').evaluate(node => getComputedStyle(node).overflow), 'clip');
+      assert.deepEqual(await monitor.evaluate(() => window.mapEffects), [], 'loading a snapshot does not replay activity');
+      activity = { alert:true, alertAt:Date.now(), online:true, printing:true, progress:41, queueStartedAt:Date.now() };
       queued = 4;
       await monitorTile.getByText('4 queued').waitFor({ timeout:10000 });
+      const progress = monitorTile.getByRole('progressbar', { name:`Print progress for ${printer.name}` });
+      assert.equal(await progress.getAttribute('aria-valuenow'), '41');
+      assert.deepEqual((await monitor.evaluate(() => window.mapEffects)).sort(),
+        ['map-new-alert', 'map-next-job', 'map-reconnect']);
       await monitor.evaluate(() => { Math.random = () => .9; });
       animationMap = {
         id:'animation-test', revision:1, name:'Animation test', columns:32, rows:22, compactPrinters:true,
@@ -2950,15 +2965,28 @@ async function printerMapSmoke(browser, url) {
       const actorPosition = () => actor.evaluate(node => node.style.transform);
       await monitor.locator('.printer-map-person[data-pose="seated"] svg').waitFor();
       assert.equal(await actorPosition(), 'translate(75px, 157.5px)', 'the character begins in the chair at the first computer');
+      assert.equal(await monitor.locator('[data-map-item-id="first"][data-workstation-active]').count(), 1);
+      activity = { ...activity, alertAt:Date.now(), printing:false, bedClearance:true };
       completedAt = Date.now();
       await monitor.locator('.printer-map-person[data-pose="collecting"] svg').waitFor({ timeout:15000 });
+      assert.equal(await monitor.locator('[data-workstation-active]').count(), 0);
+      assert.ok((await monitor.evaluate(() => window.mapEffects)).includes('map-print-complete'));
+      assert.equal(await monitor.evaluate(() => window.mapEffects.filter(id => id === 'map-new-alert').length), 2,
+        'a newer alert highlights the badge even while an earlier alert is active');
+      assert.ok(await progress.isHidden());
+      const clearance = monitorTile.getByRole('img', { name:'Bed needs clearing' });
+      assert.ok(await clearance.isVisible());
       await monitor.locator('.printer-map-person[data-pose="seated"] svg').waitFor({ timeout:12000 });
       assert.equal(await actorPosition(), 'translate(375px, 157.5px)', 'the character returns to the selected computer and sits on its stool');
+      assert.equal(await monitor.locator('[data-map-item-id="second"][data-workstation-active]').count(), 1);
+      activity = { ...activity, bedClearance:false };
       animationMap = { ...animationMap, revision:2, items:[...animationMap.items,
-        { id:'parts-shelf', type:'shelf', label:'Parts shelf', x:420, y:300, width:140, height:60 }
+        { id:'parts-shelf', type:'shelf', label:'Parts shelf', x:420, y:300, width:140, height:60 },
+        { id:'exit', type:'door', label:'', x:0, y:300, width:40, height:100, rotation:90 }
       ] };
       const partsShelf = monitor.locator('[data-map-item-id="parts-shelf"]');
       await partsShelf.waitFor({ timeout:10000 });
+      assert.ok(await clearance.isHidden(), 'the clearance indicator disappears when the bed is confirmed clear');
       await monitor.locator('.printer-map-person[data-pose="seated"] svg').waitFor();
       completedAt = Date.now();
       const dropoff = monitor.locator('.printer-map-person[data-pose="dropping"][data-carrying] svg');
@@ -2966,9 +2994,6 @@ async function printerMapSmoke(browser, url) {
       const part = partsShelf.locator('.printer-map-shelf-parts > span:not([hidden])');
       await part.waitFor();
       assert.equal(await actor.getAttribute('data-carrying'), null, 'the character leaves the part on the shelf');
-      await monitor.locator('.printer-map-person[data-pose="seated"] svg').waitFor({ timeout:12000 });
-      assert.equal(await actorPosition(), 'translate(375px, 157.5px)', 'after the drop-off the character returns to the selected computer');
-      assert.ok(await part.isVisible());
       await monitor.evaluate(() => {
         const timeout = window.setTimeout.bind(window);
         let expediteDoorTrip = true;
@@ -2978,13 +3003,17 @@ async function printerMapSmoke(browser, url) {
           return timeout(fn, 350, ...args);
         };
       });
-      animationMap = { ...animationMap, revision:3, items:[...animationMap.items,
-        { id:'exit', type:'door', label:'', x:0, y:300, width:40, height:100, rotation:90 }
-      ] };
-      await monitor.locator('[data-map-item-id="exit"]').waitFor({ timeout:10000 });
-      await sprite.waitFor({ state:'visible' });
-      await sprite.waitFor({ state:'hidden', timeout:12000 });
+      await monitor.locator('.printer-map-person[data-pose="seated"] svg').waitFor({ timeout:12000 });
+      assert.equal(await actorPosition(), 'translate(375px, 157.5px)', 'after the drop-off the character returns to the selected computer');
+      assert.ok(await part.isVisible());
+      const openDoor = monitor.locator('[data-map-item-id="exit"][data-door-open]');
+      await openDoor.waitFor({ timeout:15000 });
+      assert.equal(await actor.getAttribute('data-carrying'), 'true', 'the character carries the shelf part out');
+      assert.ok(await part.isHidden(), 'a part is removed from the shelf when collected');
+      await sprite.waitFor({ state:'hidden', timeout:5000 });
+      assert.equal(await openDoor.count(), 0, 'the door closes after the character leaves');
       assert.equal(await actorPosition(), 'translate(0px, 262.5px)', 'the idle character leaves via the door');
+      await openDoor.waitFor({ timeout:10000 });
       await sprite.waitFor({ state:'visible', timeout:10000 });
       await monitor.locator('.printer-map-person[data-pose="seated"] svg').waitFor({ timeout:12000 });
       await monitor.emulateMedia({ reducedMotion:'reduce' });
@@ -2994,7 +3023,9 @@ async function printerMapSmoke(browser, url) {
       });
       completedAt = Date.now();
       queued = 5;
+      const effectsBefore = await monitor.evaluate(() => window.mapEffects.length);
       await monitorTile.getByText('5 queued').waitFor({ timeout:10000 });
+      assert.equal(await monitor.evaluate(() => window.mapEffects.length), effectsBefore, 'reduced motion suppresses printer pulses');
       assert.equal(await actorPosition(), 'translate(75px, 157.5px)', 'reduced motion keeps the idle character visible and still');
       assert.ok(await sprite.isVisible());
       const animate = monitor.getByRole('switch', { name:'Animate person' });

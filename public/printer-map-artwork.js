@@ -79,7 +79,7 @@ function desktopWorkstation(id) {
         <rect x="6" y="27" width="31" height="10.5" rx="1.3" fill="var(--art-metal-light)"/>
         <rect x="40" y="27" width="5.5" height="8" rx="2.6" fill="url(#${id}-metal)"/>
       </g>
-      <path d="M6.5 14H41.5" stroke="var(--art-screen-edge)" stroke-width=".65"/>
+        <path class="printer-map-workstation-screen" d="M6.5 14H41.5" stroke="var(--art-screen-edge)" stroke-width=".65"/>
       <path d="M8 29.5H35M8 32.5H35M8 35.4H15M31 35.4H35"
         stroke="var(--art-edge)" stroke-width="1.85" stroke-linecap="butt" stroke-dasharray="2.15 .65"/>
       <path d="M17.5 35.4H28.5" stroke="var(--art-edge)" stroke-width="1.85" stroke-linecap="butt"/>

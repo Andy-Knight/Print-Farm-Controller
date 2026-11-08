@@ -2876,6 +2876,7 @@ function setAlertsSummary(summary = {}) {
     unreadCount:Math.max(0, Number(summary?.unreadCount || 0)),
     attentionUnreadCount:Math.max(0, Number(summary?.attentionUnreadCount || 0)),
     attentionPrinterIds:Array.isArray(summary?.attentionPrinterIds) ? summary.attentionPrinterIds : [],
+    attentionPrinterTimes:summary?.attentionPrinterTimes || {},
     recent:Array.isArray(summary?.recent) ? summary.recent : []
   };
   if (alertsBtn && alertsButtonCount) {
@@ -4890,7 +4891,7 @@ function publishDashboardPrinterState() {
 }
 
 function updatePrinterMap() {
-  printerMap.update(printerMapTiles(fleet, queueState, alertsSummaryState.attentionPrinterIds));
+  printerMap.update(printerMapTiles(fleet, queueState, alertsSummaryState.attentionPrinterIds, alertsSummaryState.attentionPrinterTimes));
 }
 
 function reconcileFleet() {

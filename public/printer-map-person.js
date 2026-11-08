@@ -31,7 +31,10 @@ const blueOvershirt = `<svg viewBox="0 0 44 52" focusable="false">
   <ellipse class="map-person-skin" cx="22" cy="14" rx="8" ry="9"/>
   <ellipse class="map-person-skin" cx="22" cy="5" rx="2" ry="2"/>
   <ellipse class="map-person-hair" cx="22" cy="15.5" rx="7" ry="7"/>
-  <path class="map-person-part" d="M29 7h10v8H29z"/>
+  <g class="map-person-part">
+    <path d="m22 5 6-3 6 3v7l-6 3-6-3z"/>
+    <path d="m22 5 6 3 6-3m-6 3v7" fill="none"/>
+  </g>
 </svg>`;
 
 const heading = (from, to) => Math.atan2(to.y - from.y, to.x - from.x) * 180 / Math.PI + 90;
@@ -54,6 +57,8 @@ export function createPrinterMapPerson(canvas, { step, scale, getItemNode }) {
   let idleTimer;
   let movement;
   let running = false;
+  let activeDesk;
+  let activeDoor;
   let motionEnabled = true;
   let position;
   let seatedApproach;
@@ -61,10 +66,20 @@ export function createPrinterMapPerson(canvas, { step, scale, getItemNode }) {
   let desks = [];
   let doors = [];
   let targets = new Map();
-  let shelfTargets = new Map();
+  let shelves = [];
   const placedParts = new Set();
   let completions = new Map();
   let pending = [];
+
+  function clearDesk() {
+    activeDesk?.removeAttribute('data-workstation-active');
+    activeDesk = null;
+  }
+
+  function closeDoor() {
+    activeDoor?.removeAttribute('data-door-open');
+    activeDoor = null;
+  }
 
   function stop() {
     if (!key) return;
@@ -73,10 +88,13 @@ export function createPrinterMapPerson(canvas, { step, scale, getItemNode }) {
     clearTimeout(idleTimer);
     movement?.cancel();
     movement = null;
+    clearDesk();
+    closeDoor();
     running = false;
     position = null;
     seatedApproach = null;
     pending = [];
+    delete node.dataset.carrying;
     node.hidden = true;
     for (const part of placedParts) part.hidden = true;
     placedParts.clear();
@@ -92,6 +110,8 @@ export function createPrinterMapPerson(canvas, { step, scale, getItemNode }) {
   }
 
   async function walk(points, token) {
+    if (token !== generation) return false;
+    clearDesk();
     seatedApproach = null;
     for (const point of points) {
       if (token !== generation) return false;
@@ -130,6 +150,10 @@ export function createPrinterMapPerson(canvas, { step, scale, getItemNode }) {
       seatedApproach = destination.seated ? destination.route.at(-2) : null;
       delete node.dataset.carrying;
       pose(destination.seated ? 'seated' : 'standing', position, centreOf(desk));
+      if (destination.seated && motionEnabled) {
+        activeDesk = getItemNode(desk.id);
+        activeDesk?.setAttribute('data-workstation-active', '');
+      }
       return;
     }
     pose('standing');
@@ -148,36 +172,76 @@ export function createPrinterMapPerson(canvas, { step, scale, getItemNode }) {
   }
 
   async function dropAtShelf(token) {
-    if (!shelfTargets.size) return true;
-    const route = space.route(position, [...shelfTargets.keys()]);
-    if (!route) return true;
-    const { x, y } = route.at(-1);
-    const shelf = shelfTargets.get(space.cellAt(x, y));
-    if (!await walk(route, token)) return false;
-    pose('dropping', position, centreOf(shelf));
+    const visit = shelfVisit(position, '[hidden]');
+    if (!visit) return true;
+    if (!await walk(visit.route, token)) return false;
+    pose('dropping', position, centreOf(visit.shelf));
     await wait(650);
     if (token !== generation) return false;
-    const part = getItemNode(shelf.id)?.querySelector('.printer-map-shelf-parts > [hidden]');
-    if (part) {
-      part.hidden = false;
-      placedParts.add(part);
-    }
+    visit.part.hidden = false;
+    placedParts.add(visit.part);
     delete node.dataset.carrying;
     return true;
   }
 
-  async function leaveRoom(token) {
+  function shelfVisit(from, partSelector) {
+    const available = new Map();
+    for (const { shelf, points } of shelves) {
+      const part = getItemNode(shelf.id)?.querySelector(`.printer-map-shelf-parts > span${partSelector}`);
+      if (!part) continue;
+      for (const cell of points) {
+        if (!available.has(cell)) available.set(cell, { shelf, part });
+      }
+    }
+    const route = space.route(from, [...available.keys()]);
+    if (!route) return null;
+    const { x, y } = route.at(-1);
+    return { route, ...available.get(space.cellAt(x, y)) };
+  }
+
+  function doorTrip(from) {
     const options = doors.flatMap(door => space.doorApproaches(door));
-    const route = space.route(seatedApproach || position, options.map(door => door.id));
-    if (!route) return;
+    const route = space.route(from, options.map(door => door.id));
+    if (!route) return null;
     const inside = route.at(-1);
     const door = options.find(option => distance(option.inside, inside) === 0);
-    if (!door || !await walk([...route, door.threshold, door.outside], token)) return;
+    return door && { route, door };
+  }
+
+  async function crossDoor(door, route, token, returning = false) {
+    activeDoor = getItemNode(door.itemId);
+    activeDoor?.setAttribute('data-door-open', '');
+    await wait(220);
+    if (token !== generation) return false;
+    if (returning) node.hidden = false;
+    const crossed = await walk(route, token);
+    if (token === generation) closeDoor();
+    return crossed;
+  }
+
+  async function leaveRoom(token) {
+    const from = seatedApproach || position;
+    let trip = doorTrip(from);
+    if (!trip) return;
+    const visit = placedParts.size ? shelfVisit(from, ':not([hidden])') : null;
+    const fromShelf = visit && doorTrip(visit.route.at(-1));
+    if (fromShelf) {
+      if (!await walk(visit.route, token)) return;
+      pose('collecting', position, centreOf(visit.shelf));
+      await wait(950);
+      if (token !== generation) return;
+      visit.part.hidden = true;
+      placedParts.delete(visit.part);
+      node.dataset.carrying = 'true';
+      trip = fromShelf;
+    }
+    const { route, door } = trip;
+    if (!await walk(route, token) || !await crossDoor(door, [door.threshold, door.outside], token)) return;
     node.hidden = true;
+    delete node.dataset.carrying;
     await wait(4000);
     if (token !== generation) return;
-    node.hidden = false;
-    if (await walk([door.threshold, inside], token)) await goToDesk(token, true);
+    if (await crossDoor(door, [door.threshold, door.inside], token, true)) await goToDesk(token, true);
   }
 
   async function run(task) {
@@ -223,12 +287,8 @@ export function createPrinterMapPerson(canvas, { step, scale, getItemNode }) {
       const seats = items.filter(item => item.type === 'chair' || item.type === 'stool');
       desks = computers.map(computer => ({ ...computer, seat:computerSeat(computer, seats, step) }));
       targets = new Map(printers.map(printer => [printer.id, { points:space.approaches(printer), printer }]));
-      shelfTargets = new Map();
-      for (const shelf of items.filter(item => item.type === 'shelf')) {
-        for (const cell of space.approaches(shelf, [0, 1], step / 2)) {
-          if (!shelfTargets.has(cell)) shelfTargets.set(cell, shelf);
-        }
-      }
+      shelves = items.filter(item => item.type === 'shelf')
+        .map(shelf => ({ shelf, points:space.approaches(shelf, [0, 1], step / 2) }));
       completions = new Map(tiles.filter(tile => visible.has(tile.id)).map(tile => [tile.id, tile.completedAt || 0]));
       delete node.dataset.carrying;
       void run(token => goToDesk(token, false));
