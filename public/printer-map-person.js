@@ -43,6 +43,19 @@ const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
 const walkingSpeed = 80;
 const stepLength = 24;
 
+function crossingsBetween(from, to, doors) {
+  return doors.flatMap(door => {
+    const axis = door.vertical ? 'x' : 'y';
+    const along = door.vertical ? 'y' : 'x';
+    const change = to[axis] - from[axis];
+    if (!change) return [];
+    const at = (door.centre - from[axis]) / change;
+    if (at <= 0 || at >= 1) return [];
+    const offset = from[along] + (to[along] - from[along]) * at;
+    return offset > door.start && offset < door.end ? [{ door, at }] : [];
+  }).sort((a, b) => a.at - b.at);
+}
+
 export function createPrinterMapPerson(canvas, { step, scale, getItemNode }) {
   const node = document.createElement('div');
   node.className = 'printer-map-person';
@@ -109,24 +122,46 @@ export function createPrinterMapPerson(canvas, { step, scale, getItemNode }) {
     if (from && to && distance(from, to) > .1) node.style.setProperty('--person-heading', `${heading(from, to)}deg`);
   }
 
+  async function moveTo(point, token) {
+    if (token !== generation) return false;
+    const length = position ? distance(position, point) * scale : 0;
+    if (length > 1) {
+      pose('walking', position, point);
+      movement = node.animate([{ transform:transform(position) }, { transform:transform(point) }],
+        { duration:1000 * length / walkingSpeed, easing:'linear' });
+      try { await movement.finished; } catch { return false; }
+      if (token !== generation) return false;
+      movement = null;
+    }
+    position = point;
+    node.style.transform = transform(point);
+    node.hidden = false;
+    return true;
+  }
+
   async function walk(points, token) {
     if (token !== generation) return false;
     clearDesk();
     seatedApproach = null;
     for (const point of points) {
-      if (token !== generation) return false;
-      const length = position ? distance(position, point) * scale : 0;
-      if (length > 1) {
-        pose('walking', position, point);
-        movement = node.animate([{ transform:transform(position) }, { transform:transform(point) }],
-          { duration:1000 * length / walkingSpeed, easing:'linear' });
-        try { await movement.finished; } catch { return false; }
-        if (token !== generation) return false;
-        movement = null;
+      const from = position;
+      const crossings = from ? crossingsBetween(from, point, doors) : [];
+      if (crossings.length) {
+        const pointAt = fraction => ({
+          x:from.x + (point.x - from.x) * fraction,
+          y:from.y + (point.y - from.y) * fraction
+        });
+        const margin = step / distance(from, point);
+        let passed = 0;
+        for (const [index, { door, at }] of crossings.entries()) {
+          if (at <= passed) continue;
+          if (!await moveTo(pointAt(Math.max(passed, at - margin)), token)) return false;
+          const next = crossings[index + 1]?.at;
+          passed = Math.min(1, at + margin, next === undefined ? 1 : (at + next) / 2);
+          if (!await crossDoor(door, [pointAt(passed)], token)) return false;
+        }
       }
-      position = point;
-      node.style.transform = transform(point);
-      node.hidden = false;
+      if (!await moveTo(point, token)) return false;
     }
     return token === generation;
   }
@@ -209,14 +244,20 @@ export function createPrinterMapPerson(canvas, { step, scale, getItemNode }) {
   }
 
   async function crossDoor(door, route, token, returning = false) {
+    if (token !== generation) return false;
     activeDoor = getItemNode(door.itemId);
     activeDoor?.setAttribute('data-door-open', '');
     await wait(220);
     if (token !== generation) return false;
     if (returning) node.hidden = false;
-    const crossed = await walk(route, token);
-    if (token === generation) closeDoor();
-    return crossed;
+    try {
+      for (const point of route) {
+        if (!await moveTo(point, token)) return false;
+      }
+      return true;
+    } finally {
+      if (token === generation) closeDoor();
+    }
   }
 
   async function leaveRoom(token) {

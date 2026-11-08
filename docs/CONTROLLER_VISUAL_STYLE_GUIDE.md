@@ -225,7 +225,7 @@ Keep outline icons in the palette. Give the task chair and workstation a seconda
 
 On saved maps with a Computer item, show the top-down character in a blue overshirt at room-item scale. Give it walking, pickup, shelf drop-off and seated poses. Leave clearance around furniture and printer tiles and tie the alternating foot motion to travel speed. Exclude the character from map fitting and interaction targets.
 
-Show a small carried part after pickup and place it into a free shelf slot on drop-off. During an idle trip, the character can collect a staged part from a reachable shelf and carry it out through a reachable door. Swing the selected door leaf around its hinge as the character crosses and close it behind the character in either direction. Give the workstation screen a soft glow while the character is seated there.
+Show a small carried part after pickup and place it into a free shelf slot on drop-off. During an idle trip, the character can collect a staged part from a reachable shelf and carry it out through a reachable door. Swing the door leaf around its hinge during interior crossings and when the character leaves or returns. Close it after each crossing. Give the workstation screen a soft glow while the character is seated there.
 
 Follow the browser’s reduced-motion setting by default. Offer the [standard Animate person switch](#8-switches-checkboxes-selects-and-fields) on the saved map, in full screen and on the monitoring display. Persist the choice in that browser and apply it to the map character.
 

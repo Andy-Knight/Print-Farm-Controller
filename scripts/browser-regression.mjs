@@ -2955,7 +2955,10 @@ async function printerMapSmoke(browser, url) {
           { id:'first', type:'computer', label:'', x:40, y:50, width:120, height:100 },
           { id:'seat-one', type:'chair', label:'', x:60, y:170, width:80, height:80 },
           { id:'second', type:'computer', label:'', x:440, y:50, width:120, height:100 },
-          { id:'seat-two', type:'stool', label:'', x:460, y:170, width:80, height:80 }
+          { id:'seat-two', type:'stool', label:'', x:460, y:170, width:80, height:80 },
+          { id:'interior-north', type:'wall', axis:'vertical', x:190, y:0, width:40, height:180 },
+          { id:'interior-south', type:'wall', axis:'vertical', x:190, y:300, width:40, height:140 },
+          { id:'interior-door', type:'door', x:190, y:180, width:40, height:120, rotation:90 }
         ]
       };
       completedAt = Date.now() - 60000;
@@ -2968,7 +2971,10 @@ async function printerMapSmoke(browser, url) {
       assert.equal(await monitor.locator('[data-map-item-id="first"][data-workstation-active]').count(), 1);
       activity = { ...activity, alertAt:Date.now(), printing:false, bedClearance:true };
       completedAt = Date.now();
+      const openInteriorDoor = monitor.locator('[data-map-item-id="interior-door"][data-door-open]');
+      await openInteriorDoor.waitFor({ timeout:15000 });
       await monitor.locator('.printer-map-person[data-pose="collecting"] svg').waitFor({ timeout:15000 });
+      assert.equal(await openInteriorDoor.count(), 0, 'the door closes after a crossing on the way to a printer');
       assert.equal(await monitor.locator('[data-workstation-active]').count(), 0);
       assert.ok((await monitor.evaluate(() => window.mapEffects)).includes('map-print-complete'));
       assert.equal(await monitor.evaluate(() => window.mapEffects.filter(id => id === 'map-new-alert').length), 2,
@@ -2980,7 +2986,7 @@ async function printerMapSmoke(browser, url) {
       assert.equal(await actorPosition(), 'translate(375px, 157.5px)', 'the character returns to the selected computer and sits on its stool');
       assert.equal(await monitor.locator('[data-map-item-id="second"][data-workstation-active]').count(), 1);
       activity = { ...activity, bedClearance:false };
-      animationMap = { ...animationMap, revision:2, items:[...animationMap.items,
+      animationMap = { ...animationMap, revision:2, items:[...animationMap.items.filter(item => !item.id.startsWith('interior-')),
         { id:'parts-shelf', type:'shelf', label:'Parts shelf', x:420, y:300, width:140, height:60 },
         { id:'exit', type:'door', label:'', x:0, y:300, width:40, height:100, rotation:90 }
       ] };
@@ -2988,24 +2994,31 @@ async function printerMapSmoke(browser, url) {
       await partsShelf.waitFor({ timeout:10000 });
       assert.ok(await clearance.isHidden(), 'the clearance indicator disappears when the bed is confirmed clear');
       await monitor.locator('.printer-map-person[data-pose="seated"] svg').waitFor();
+      await monitor.evaluate(() => {
+        const timeout = window.setTimeout.bind(window);
+        window.setTimeout = (fn, ms, ...args) => {
+          const timer = timeout(fn, ms, ...args);
+          if (ms >= 60000) {
+            window.setTimeout = timeout;
+            window.startMapDoorTrip = () => {
+              clearTimeout(timer);
+              fn(...args);
+            };
+          }
+          return timer;
+        };
+      });
       completedAt = Date.now();
       const dropoff = monitor.locator('.printer-map-person[data-pose="dropping"][data-carrying] svg');
       await dropoff.waitFor({ timeout:16000 });
       const part = partsShelf.locator('.printer-map-shelf-parts > span:not([hidden])');
       await part.waitFor();
       assert.equal(await actor.getAttribute('data-carrying'), null, 'the character leaves the part on the shelf');
-      await monitor.evaluate(() => {
-        const timeout = window.setTimeout.bind(window);
-        let expediteDoorTrip = true;
-        window.setTimeout = (fn, ms, ...args) => {
-          if (ms < 60000 || !expediteDoorTrip) return timeout(fn, ms, ...args);
-          expediteDoorTrip = false;
-          return timeout(fn, 350, ...args);
-        };
-      });
       await monitor.locator('.printer-map-person[data-pose="seated"] svg').waitFor({ timeout:12000 });
       assert.equal(await actorPosition(), 'translate(375px, 157.5px)', 'after the drop-off the character returns to the selected computer');
       assert.ok(await part.isVisible());
+      await monitor.waitForFunction(() => typeof window.startMapDoorTrip === 'function');
+      await monitor.evaluate(() => window.startMapDoorTrip());
       const openDoor = monitor.locator('[data-map-item-id="exit"][data-door-open]');
       await openDoor.waitFor({ timeout:15000 });
       assert.equal(await actor.getAttribute('data-carrying'), 'true', 'the character carries the shelf part out');
