@@ -2983,7 +2983,7 @@ async function printerMapSmoke(browser, url) {
       const openInteriorDoor = monitor.locator('[data-map-item-id="interior-door"][data-door-open]');
       await openInteriorDoor.waitFor({ timeout:15000 });
       await monitor.locator('.printer-map-person[data-pose="collecting"] svg').waitFor({ timeout:15000 });
-      assert.equal(await openInteriorDoor.count(), 0, 'the door closes after a crossing on the way to a printer');
+      assert.ok(await openInteriorDoor.isVisible(), 'the door stays open while the character collects a part inside the swing');
       assert.equal(await monitor.locator('[data-workstation-active]').count(), 0);
       await monitor.waitForFunction(selector => getComputedStyle(document.querySelector(selector)).opacity === '0', firstGlow);
       assert.ok((await monitor.evaluate(() => window.mapEffects)).includes('map-print-complete'));
@@ -2993,6 +2993,7 @@ async function printerMapSmoke(browser, url) {
       const clearance = monitorTile.getByRole('img', { name:'Bed needs clearing' });
       assert.ok(await clearance.isVisible());
       await monitor.locator('.printer-map-person[data-pose="seated"] svg').waitFor({ timeout:12000 });
+      assert.equal(await openInteriorDoor.count(), 0, 'the interior door closes once the character clears the swing');
       assert.equal(await actorPosition(), 'translate(375px, 157.5px)', 'the character returns to the selected computer and sits on its stool');
       assert.equal(await monitor.locator('[data-map-item-id="second"][data-workstation-active]').count(), 1);
       activity = { ...activity, bedClearance:false };
@@ -3038,7 +3039,9 @@ async function printerMapSmoke(browser, url) {
       assert.equal(await actorPosition(), 'translate(0px, 262.5px)', 'the idle character leaves via the door');
       await openDoor.waitFor({ timeout:10000 });
       await sprite.waitFor({ state:'visible', timeout:10000 });
+      assert.ok(await openDoor.isVisible(), 'the exit door remains open when the character reappears at the threshold');
       await monitor.locator('.printer-map-person[data-pose="seated"] svg').waitFor({ timeout:12000 });
+      assert.equal(await openDoor.count(), 0, 'the exit door closes after the character clears the return swing');
       await monitor.emulateMedia({ reducedMotion:'reduce' });
       await monitor.waitForFunction(() => {
         const node = document.querySelector('.printer-map-person');

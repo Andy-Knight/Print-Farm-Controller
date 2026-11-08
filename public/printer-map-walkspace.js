@@ -150,7 +150,7 @@ export function createWalkspace({ width, height, step, items, printers, walls, d
       const id = cellAt(threshold.x + dx, threshold.y + dy);
       const outside = { x:threshold.x - dx, y:threshold.y - dy };
       if (id < 0 || blocked[id] || blocked[cellAt(outside.x, outside.y)]) return [];
-      return [{ id, itemId:door.itemId, inside:point(id), threshold, outside }];
+      return [{ id, itemId:door.itemId, sweep:door.sweep, inside:point(id), threshold, outside }];
     });
   }
 

@@ -559,7 +559,6 @@ export function createPrinterMapPage({ api, canEdit, openPrinter, openAlerts, op
     const inset = Math.min(gridStep, depth / 2);
     const defaultCentre = crossStart + (swingsNegative ? depth - inset : inset);
     const centre = joinOpening(walls, { vertical, start, end:start + length, crossStart, depth, defaultCentre });
-    doorways.push({ itemId:item.id, vertical, centre, start, end:start + length });
     const baseline = centre - crossStart;
     const x = vertical ? baseline : reverse ? length : 0;
     const y = vertical ? (reverse ? length : 0) : baseline;
@@ -567,6 +566,17 @@ export function createPrinterMapPage({ api, canEdit, openPrinter, openAlerts, op
     const opening = length - 2 * jamb;
     const swingSpace = swingsNegative ? baseline : depth - baseline;
     const swing = Math.min(opening, Math.max(inset / 2, swingSpace));
+    // The animated leaf lengthens as it closes, extending past the drawn arc on shallow doors.
+    const sweepDepth = swing + (opening - swing) / 2;
+    const swingEdge = centre + (swingsNegative ? -sweepDepth : sweepDepth);
+    const crossMin = Math.min(centre, swingEdge);
+    const crossMax = Math.max(centre, swingEdge);
+    const alongMin = start + jamb;
+    const alongMax = start + length - jamb;
+    const sweep = vertical
+      ? { left:crossMin, right:crossMax, top:alongMin, bottom:alongMax }
+      : { left:alongMin, right:alongMax, top:crossMin, bottom:crossMax };
+    doorways.push({ itemId:item.id, vertical, centre, start, end:start + length, sweep });
     const symbol = itemNodes.get(item.id).querySelector('.printer-map-door-symbol');
     symbol.setAttribute('viewBox', `0 0 ${item.width} ${item.height}`);
     symbol.firstElementChild.setAttribute('transform', `translate(${x} ${y}) rotate(${rotation})`

@@ -72,6 +72,10 @@ export function createPrinterMapPerson(canvas, { step, scale, getItemNode }) {
   node.setAttribute('aria-hidden', 'true');
   node.innerHTML = blueOvershirt;
   canvas.append(node);
+  const sprite = getComputedStyle(node.firstElementChild);
+  // Allow for the rotated sprite and the thickness of the door leaf.
+  const doorClearance = Math.hypot(parseFloat(sprite.width), parseFloat(sprite.height)) / (2 * scale) + 2;
+  const openDoors = new Map();
 
   let key = '';
   let generation = 0;
@@ -79,7 +83,6 @@ export function createPrinterMapPerson(canvas, { step, scale, getItemNode }) {
   let movement;
   let running = false;
   let activeDesk;
-  let activeDoor;
   let motionEnabled = true;
   let position;
   let seatedApproach;
@@ -97,9 +100,18 @@ export function createPrinterMapPerson(canvas, { step, scale, getItemNode }) {
     activeDesk = null;
   }
 
-  function closeDoor() {
-    activeDoor?.removeAttribute('data-door-open');
-    activeDoor = null;
+  function closeDoor(id) {
+    openDoors.get(id)?.node?.removeAttribute('data-door-open');
+    openDoors.delete(id);
+  }
+
+  function closeClearedDoors(point) {
+    for (const [id, { sweep, crossing }] of openDoors) {
+      if (crossing) continue;
+      const dx = Math.max(sweep.left - point.x, point.x - sweep.right, 0);
+      const dy = Math.max(sweep.top - point.y, point.y - sweep.bottom, 0);
+      if (Math.hypot(dx, dy) > doorClearance) closeDoor(id);
+    }
   }
 
   function stop() {
@@ -110,7 +122,7 @@ export function createPrinterMapPerson(canvas, { step, scale, getItemNode }) {
     movement?.cancel();
     movement = null;
     clearDesk();
-    closeDoor();
+    for (const id of openDoors.keys()) closeDoor(id);
     running = false;
     position = null;
     seatedApproach = null;
@@ -132,18 +144,34 @@ export function createPrinterMapPerson(canvas, { step, scale, getItemNode }) {
 
   async function moveTo(point, token) {
     if (token !== generation) return false;
-    const length = position ? distance(position, point) * scale : 0;
+    const from = position;
+    const length = from ? distance(from, point) * scale : 0;
     if (length > 1) {
-      pose('walking', position, point);
-      movement = node.animate([{ transform:transform(position) }, { transform:transform(point) }],
+      pose('walking', from, point);
+      const animation = node.animate([{ transform:transform(from) }, { transform:transform(point) }],
         { duration:1000 * length / walkingSpeed, easing:'linear' });
-      try { await movement.finished; } catch { return false; }
+      movement = animation;
+      let frame;
+      const checkDoors = () => {
+        if (token !== generation || !openDoors.size) return;
+        const progress = animation.effect.getComputedTiming().progress;
+        if (progress !== null) {
+          closeClearedDoors({
+            x:from.x + (point.x - from.x) * progress,
+            y:from.y + (point.y - from.y) * progress
+          });
+        }
+        if (openDoors.size) frame = requestAnimationFrame(checkDoors);
+      };
+      if (openDoors.size) frame = requestAnimationFrame(checkDoors);
+      try { await animation.finished; } catch { return false; } finally { cancelAnimationFrame(frame); }
       if (token !== generation) return false;
       movement = null;
     }
     position = point;
     node.style.transform = transform(point);
     node.hidden = false;
+    closeClearedDoors(point);
     return true;
   }
 
@@ -253,9 +281,15 @@ export function createPrinterMapPerson(canvas, { step, scale, getItemNode }) {
 
   async function crossDoor(door, route, token, returning = false) {
     if (token !== generation) return false;
-    activeDoor = getItemNode(door.itemId);
-    activeDoor?.setAttribute('data-door-open', '');
-    await wait(220);
+    let open = openDoors.get(door.itemId);
+    if (open) {
+      open.crossing = true;
+    } else {
+      open = { node:getItemNode(door.itemId), sweep:door.sweep, crossing:true };
+      openDoors.set(door.itemId, open);
+      open.node?.setAttribute('data-door-open', '');
+      await wait(220);
+    }
     if (token !== generation) return false;
     if (returning) node.hidden = false;
     try {
@@ -264,7 +298,10 @@ export function createPrinterMapPerson(canvas, { step, scale, getItemNode }) {
       }
       return true;
     } finally {
-      if (token === generation) closeDoor();
+      if (token === generation) {
+        open.crossing = false;
+        closeClearedDoors(position);
+      }
     }
   }
 
@@ -288,6 +325,7 @@ export function createPrinterMapPerson(canvas, { step, scale, getItemNode }) {
     if (!await walk(route, token) || !await crossDoor(door, [door.threshold, door.outside], token)) return;
     node.hidden = true;
     delete node.dataset.carrying;
+    for (const id of openDoors.keys()) closeDoor(id);
     await wait(4000);
     if (token !== generation) return;
     if (await crossDoor(door, [door.threshold, door.inside], token, true)) await goToDesk(token, true);
