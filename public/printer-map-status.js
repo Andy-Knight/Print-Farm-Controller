@@ -22,13 +22,25 @@ export function printerIsPrinting(printer) {
 
 export function printerMapTiles(printers, queue, attentionPrinterIds) {
   const queued = new Map();
+  const completions = new Map();
+  const recordCompletion = (printerId, status, finishedAt) => {
+    if (!printerId || status !== 'completed') return;
+    const time = Date.parse(finishedAt);
+    if (time > (completions.get(printerId) || 0)) {
+      completions.set(printerId, time);
+    }
+  };
   for (const job of queue.jobs || []) {
     if (job.status === 'queued' && job.printerId) {
       queued.set(job.printerId, (queued.get(job.printerId) || 0) + 1);
     }
+    recordCompletion(job.printerId, job.status, job.finishedAt);
   }
   const attention = new Set(attentionPrinterIds);
-  for (const item of queue.bedClearance || []) attention.add(item.printerId);
+  for (const item of queue.bedClearance || []) {
+    attention.add(item.printerId);
+    recordCompletion(item.printerId, item.jobStatus, item.finishedAt);
+  }
   return printers.map(printer => ({
     id:printer.id,
     name:printer.name,
@@ -37,6 +49,7 @@ export function printerMapTiles(printers, queue, attentionPrinterIds) {
     alert:attention.has(printer.id) || !printer.online
       || ['error', 'pause', 'paused'].includes(String(printer.status?.status || '').toLowerCase())
       || ['due', 'due_soon'].includes(String(printer.maintenance?.state || '').toLowerCase()),
-    queued:queued.get(printer.id) || 0
+    queued:queued.get(printer.id) || 0,
+    completedAt:completions.get(printer.id) || null
   }));
 }

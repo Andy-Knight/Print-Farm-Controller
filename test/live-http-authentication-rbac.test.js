@@ -105,7 +105,7 @@ test('real HTTP dispatcher enforces login, CSRF and RBAC before controller actio
     assert.deepEqual(Object.keys(displayBody).sort(), ['map', 'printers']);
     assert.equal(displayBody.map.name, room.name);
     assert.deepEqual(displayBody.printers.map(printer => printer.name), ['Displayed printer']);
-    assert.deepEqual(Object.keys(displayBody.printers[0]).sort(), ['alert','id','imageKey','name','printing','queued']);
+    assert.deepEqual(Object.keys(displayBody.printers[0]).sort(), ['alert','completedAt','id','imageKey','name','printing','queued']);
     assert.doesNotMatch(JSON.stringify(displayBody), /PRIVATE_CODE|Other room printer|display-b|displayToken/);
     for (const endpoint of ['/api/fleet','/api/events','/api/printers','/api/alerts','/api/queue',roomPath,displayLinkPath]) {
       assert.equal((await display(token, endpoint)).status, 401, endpoint);

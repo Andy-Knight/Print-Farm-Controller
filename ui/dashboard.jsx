@@ -89,25 +89,25 @@ function DashboardControls({ state }) {
       </div>
       <div class="dashboard-view-control">
         <span class="dashboard-view-label">Dashboard view</span>
-        <UiButton
+        <button
           id="dashboardViewToggle"
-          class="dashboard-view-toggle"
-          variant="ghost"
+          class="ui-switch"
+          type="button"
           role="switch"
           aria-checked={String(tableView)}
           aria-label={`Switch dashboard to ${tableView ? 'card' : 'table'} view`}
           onClick={() => dispatchDashboardAction('view', tableView ? 'cards' : 'table')}
         >
-          <span class="dashboard-view-toggle-track" aria-hidden="true"></span>
-          <span class="dashboard-view-toggle-label">{tableView ? 'Table' : 'Cards'}</span>
-        </UiButton>
+          <span class="ui-switch-track" aria-hidden="true"></span>
+          <span class="ui-switch-label">{tableView ? 'Table' : 'Cards'}</span>
+        </button>
       </div>
       <div class="dashboard-view-control dashboard-operations-control">
         <span class="dashboard-view-label">Farm operations</span>
-        <UiButton
+        <button
           id="farmOperationsToggle"
-          class="dashboard-view-toggle dashboard-operations-toggle"
-          variant="ghost"
+          class="ui-switch dashboard-operations-toggle"
+          type="button"
           role="switch"
           aria-checked={String(state.farmOperationsEnabled)}
           aria-label={state.farmOperationsEnabled ? 'Disable farm operations' : 'Enable farm operations'}
@@ -115,9 +115,9 @@ function DashboardControls({ state }) {
           disabled={state.farmOperationsBusy}
           onClick={() => dispatchDashboardAction('operations', !state.farmOperationsEnabled)}
         >
-          <span class="dashboard-view-toggle-track" aria-hidden="true"></span>
-          <span class="dashboard-view-toggle-label">{state.farmOperationsEnabled ? 'On' : 'Off'}</span>
-        </UiButton>
+          <span class="ui-switch-track" aria-hidden="true"></span>
+          <span class="ui-switch-label">{state.farmOperationsEnabled ? 'On' : 'Off'}</span>
+        </button>
       </div>
     </section>
   );

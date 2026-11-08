@@ -787,7 +787,7 @@ function applyDashboardViewMode(mode, { persist = false } = {}) {
   if (!window.__PFC_PREACT_DASHBOARD__ && dashboardViewToggle) {
     dashboardViewToggle.setAttribute('aria-checked', String(tableView));
     dashboardViewToggle.setAttribute('aria-label', `Switch dashboard to ${tableView ? 'card' : 'table'} view`);
-    const label = dashboardViewToggle.querySelector('.dashboard-view-toggle-label');
+    const label = dashboardViewToggle.querySelector('.ui-switch-label');
     if (label) label.textContent = tableView ? 'Table' : 'Cards';
   }
   if (persist) {
@@ -830,7 +830,7 @@ function applyTheme(theme, { persist = false } = {}) {
     const dark = next === 'dark';
     themeToggle.setAttribute('aria-checked', String(dark));
     themeToggle.setAttribute('aria-label', `Switch to ${dark ? 'light' : 'dark'} mode`);
-    const label = themeToggle.querySelector('.theme-toggle-label');
+    const label = themeToggle.querySelector('.ui-switch-label');
     if (label) label.textContent = dark ? 'Dark' : 'Light';
   }
   if (persist) {
@@ -4446,7 +4446,7 @@ function updateBatchUi() {
     farmOperationsToggle.setAttribute('aria-checked', String(selectionMode));
     farmOperationsToggle.setAttribute('aria-label', selectionMode ? 'Disable farm operations' : 'Enable farm operations');
     farmOperationsToggle.disabled = batchBusy;
-    const label = farmOperationsToggle.querySelector('.dashboard-view-toggle-label');
+    const label = farmOperationsToggle.querySelector('.ui-switch-label');
     if (label) label.textContent = selectionMode ? 'On' : 'Off';
   }
   batchSelectedCount.textContent = String(selectedPrinterIds.size);

@@ -34,9 +34,9 @@ test('switch and bulk controls share controller state in Preact and fallback', (
 });
 
 test('switch uses the agreed visual geometry, mobile layout, and Chromium interactions', () => {
-  assert.match(html, /dashboard-view-toggle dashboard-operations-toggle/);
+  assert.match(html, /ui-switch dashboard-operations-toggle/);
   assert.match(polish, /#dashboardPreactRoot > \.dashboard-controls/);
-  assert.match(polish, /dashboard-operations-toggle \.dashboard-view-toggle-label/);
+  assert.match(polish, /dashboard-operations-toggle \.ui-switch-label/);
   assert.match(browser, /const operations=page\.locator\('#farmOperationsToggle'\)/);
   assert.match(browser, /Farm operations switch stays visible on mobile/);
 });

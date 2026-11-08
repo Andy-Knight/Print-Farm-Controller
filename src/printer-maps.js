@@ -6,15 +6,15 @@ export const printerMapsFile = 'printer-maps.json';
 export const emptyPrinterMaps = { version:1, maps:[] };
 const displayTokenPattern = /^[A-Za-z0-9_-]{43}$/;
 const itemTypes = new Set([
-  'floor', 'label', 'zone', 'bench', 'rack', 'wall', 'door', 'aisle', 'rectangle', 'line',
-  'plant-pot', 'window', 'chair', 'stool', 'computer'
+  'floor', 'label', 'zone', 'bench', 'rack', 'shelf', 'wall', 'door', 'rectangle', 'line',
+  'plant-pot', 'window', 'chair', 'stool', 'computer', 'controller'
 ]);
 
 function mapError(message, statusCode = 400) {
   return Object.assign(new Error(message), { statusCode });
 }
 
-function normalizeLayout(input) {
+function normalizeLayout(input, { omitLegacyAisles = false } = {}) {
   const { name, placements, items = [], columns = 50, rows = 50, compactPrinters = false } = input || {};
   if (typeof name !== 'string' || !name.trim() || name.length > 80 || /[\x00-\x1f\x7f]/.test(name)) {
     throw mapError('Enter a map name of up to 80 characters.');
@@ -36,7 +36,8 @@ function normalizeLayout(input) {
   });
   if (!Array.isArray(items) || items.length > 200) throw mapError('A map can contain up to 200 layout items.');
   const itemIds = new Set();
-  const layoutItems = items.map(item => {
+  const currentItems = omitLegacyAisles ? items.filter(item => item?.type !== 'aisle') : items;
+  const layoutItems = currentItems.map(item => {
     const { id, type, label = '', x, y, width, height } = item || {};
     if (typeof id !== 'string' || !/^[a-z0-9-]{1,80}$/i.test(id) || itemIds.has(id)
         || !itemTypes.has(type)
@@ -82,7 +83,7 @@ export function normalizePrinterMaps(store, { includeDisplayLinks = false } = {}
   const printerIds = new Set();
   const displayTokens = new Set();
   const maps = store.maps.map(map => {
-    const layout = normalizeLayout(map);
+    const layout = normalizeLayout(map, { omitLegacyAisles:true });
     const nameKey = layout.name.toLowerCase();
     if (typeof map.id !== 'string' || !map.id || mapIds.has(map.id) || names.has(nameKey)
         || !Number.isSafeInteger(map.revision) || map.revision < 1) {

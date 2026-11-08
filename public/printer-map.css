@@ -58,7 +58,7 @@
   background-color: var(--ds-surface-muted);
 }
 
-.printer-map-toolbar button {
+.printer-map-toolbar button:not(.ui-switch) {
   min-height: var(--ds-button-height);
 }
 
@@ -137,13 +137,17 @@
   text-align: center;
 }
 
-.printer-map-fullscreen-header button {
-  justify-self: end;
+.printer-map-fullscreen-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: end;
+  gap: var(--ds-space-2);
 }
 
-@media (max-width: 520px) {
+@media (max-width: 620px) {
   .printer-map-fullscreen-header {
-    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-columns: minmax(0, 1fr) minmax(0, max-content);
   }
 
   .printer-map-fullscreen-header .brand-lockup {
@@ -152,6 +156,10 @@
 
   .printer-map-fullscreen-header :is(h1, h2) {
     text-align: start;
+  }
+
+  .printer-map-fullscreen-actions {
+    max-width: 60vw;
   }
 }
 
@@ -240,6 +248,81 @@
   --map-model-height: 40px;
 }
 
+.printer-map-person {
+  --person-shirt: light-dark(#547ca4, #628cb5);
+  --person-shirt-edge: light-dark(#355572, #344c65);
+  --person-skin: light-dark(#e3b38c, #edbd96);
+  position: absolute;
+  z-index: 4;
+  top: 0;
+  left: 0;
+  width: 0;
+  height: 0;
+  pointer-events: none;
+}
+
+.printer-map-person svg {
+  display: block;
+  width: 36px;
+  height: 42px;
+  transform: translate(-50%, -50%) rotate(var(--person-heading, 0deg));
+  overflow: visible;
+}
+
+.printer-map-person .map-person-shadow { fill: rgb(0 0 0 / .25); }
+.printer-map-person .map-person-shirt { fill: var(--person-shirt); stroke: var(--person-shirt-edge); }
+.printer-map-person .map-person-shirt-seam { fill: none; stroke: var(--person-shirt-edge); }
+.printer-map-person .map-person-skin { fill: var(--person-skin); }
+.printer-map-person .map-person-hair { fill: light-dark(#3e332e, #392c28); }
+.printer-map-person .map-person-part { fill: light-dark(#7596b0, #9ec8e2); stroke: light-dark(#38556a, #3f6077); }
+.printer-map-person :is(.map-person-arm, .map-person-leg, .map-person-shoe, .map-person-hand) {
+  fill: none;
+  stroke-width: 6;
+  stroke-linecap: round;
+}
+.printer-map-person .map-person-arm { stroke: var(--person-shirt); }
+.printer-map-person .map-person-hand { stroke: var(--person-skin); stroke-width: 4; }
+.printer-map-person .map-person-leg { stroke: light-dark(#586779, #495666); }
+.printer-map-person .map-person-shoe { stroke: light-dark(#273746, #18232d); }
+.printer-map-person:not([data-pose="seated"], [data-pose="dropping"]) .map-person-seated,
+.printer-map-person[data-pose="seated"] :is(.map-person-standing, .map-person-shadow),
+.printer-map-person[data-pose="dropping"] .map-person-standing :is(.map-person-arm, .map-person-hand),
+.printer-map-person:not([data-pose="walking"]) .map-person-legs-walking,
+.printer-map-person[data-pose="walking"] .map-person-legs-resting,
+.printer-map-person:not([data-carrying]) .map-person-part { display: none; }
+
+.map-person-legs-walking :is(.map-person-leg, .map-person-shoe) {
+  animation-duration: var(--person-stride-duration);
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+}
+
+.map-person-legs-walking .map-person-leg { animation-name: printer-map-leg-swing; }
+.map-person-legs-walking .map-person-shoe { animation-name: printer-map-foot-stride; }
+.map-person-legs-walking .map-person-right > * { animation-delay: calc(var(--person-stride-duration) / -2); }
+
+.printer-map-person[data-pose="walking"] :is(.map-person-arm, .map-person-hand) {
+  animation: printer-map-arm-swing var(--person-stride-duration) ease-in-out infinite;
+}
+.printer-map-person[data-pose="walking"] :is(.map-person-arm, .map-person-hand).map-person-right {
+  animation-delay: calc(var(--person-stride-duration) / -2);
+}
+
+@keyframes printer-map-leg-swing {
+  0%, 100% { transform: scaleY(-.875); }
+  50% { transform: scaleY(1); animation-timing-function: ease-in-out; }
+}
+
+@keyframes printer-map-foot-stride {
+  0%, 100% { transform: translateY(-30px); }
+  50% { transform: translateY(0); animation-timing-function: ease-in-out; }
+}
+
+@keyframes printer-map-arm-swing {
+  0%, 100% { transform: translateY(3px); }
+  50% { transform: translateY(-3px); }
+}
+
 #printerMapBox {
   position: absolute;
   z-index: 5;
@@ -322,41 +405,60 @@
   cursor: default;
 }
 
-.printer-map-item[data-kind="floor"]:enabled .printer-map-item-label {
-  cursor: grab;
-  pointer-events: auto;
-}
-
-.printer-map-item:is([data-kind="zone"], [data-kind="rectangle"], [data-kind="aisle"]) {
+.printer-map-item:is([data-kind="zone"], [data-kind="rectangle"]) {
   z-index: -1;
   background: color-mix(in srgb, var(--ds-brand) 6%, transparent);
 }
 
-.printer-map-item:is([data-kind="zone"], [data-kind="aisle"]) {
+.printer-map-item[data-kind="zone"] {
   border-style: dashed;
-}
-
-.printer-map-item[data-kind="aisle"] {
-  background: repeating-linear-gradient(135deg, transparent 0 7px,
-    color-mix(in srgb, var(--ds-border-strong) 22%, transparent) 7px 8px);
 }
 
 .printer-map-item[data-kind="rack"] {
   --rack-rail: light-dark(#344753, #2b3944);
-  --rack-highlight: light-dark(#7b8d98, #687f90);
+  --rack-cross-wire: light-dark(#7b8d98, #687f90);
   --rack-shadow: light-dark(#42515b, #19242d);
-  --rack-shelf: light-dark(#647987, #536675);
-  --rack-post: linear-gradient(135deg, var(--rack-highlight) 15%, var(--rack-rail) 42%, var(--rack-shadow));
-  --rack-post-size: min(9px, 45%);
+  --rack-wire: light-dark(#728491, #8499a9);
+  --rack-post: radial-gradient(circle at center, var(--rack-wire) 52%, var(--rack-shadow) 60% 67%, transparent 72%);
+  --rack-post-size: min(10px, 45%);
   border-color: var(--rack-shadow);
   background:
     var(--rack-post) left top / var(--rack-post-size) var(--rack-post-size) no-repeat,
     var(--rack-post) right top / var(--rack-post-size) var(--rack-post-size) no-repeat,
     var(--rack-post) left bottom / var(--rack-post-size) var(--rack-post-size) no-repeat,
     var(--rack-post) right bottom / var(--rack-post-size) var(--rack-post-size) no-repeat,
-    linear-gradient(var(--rack-highlight), var(--rack-shelf) 14% 94%, var(--rack-shadow))
-      center / calc(100% - 6px) calc(100% - 6px) no-repeat,
-    var(--rack-rail);
+    linear-gradient(90deg, var(--rack-rail) 3px, transparent 3px calc(100% - 3px), var(--rack-rail) calc(100% - 3px)),
+    linear-gradient(var(--rack-rail) 3px, transparent 3px calc(100% - 3px), var(--rack-rail) calc(100% - 3px)),
+    repeating-linear-gradient(90deg, var(--rack-wire) 0 1px, transparent 1px 6px),
+    repeating-linear-gradient(0deg, var(--rack-cross-wire) 0 1px, transparent 1px 15px);
+}
+
+.printer-map-item[data-kind="shelf"] {
+  --shelf-bracket: light-dark(#586b78, #354a58);
+  --shelf-board: light-dark(#ddbf95, #b59770);
+  --shelf-edge: light-dark(#a3825e, #775c44);
+  border-color: var(--shelf-edge);
+  background: linear-gradient(90deg, var(--shelf-bracket) 4px, transparent 4px calc(100% - 4px), var(--shelf-bracket) calc(100% - 4px)),
+    linear-gradient(var(--shelf-board) 0 calc(100% - 3px), var(--shelf-edge) calc(100% - 3px));
+}
+
+.printer-map-shelf-parts {
+  position: absolute;
+  inset: 2px 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.printer-map-shelf-parts > span {
+  flex: 0 0 10px;
+  height: 8px;
+  border: 1px solid light-dark(#38556a, #3f6077);
+  border-radius: 2px;
+  background: light-dark(#7596b0, #9ec8e2);
 }
 
 .printer-map-bench-finish {
@@ -377,14 +479,6 @@
 button.printer-map-item:is([data-kind="bench"], [data-kind="rack"]) {
   z-index: auto;
   filter: none;
-}
-
-.printer-map-item:is([data-kind="bench"], [data-kind="rack"]) .printer-map-item-label {
-  z-index: 4;
-}
-
-.printer-map-item:enabled:is([data-kind="bench"], [data-kind="rack"]) .printer-map-item-label:not(:empty) {
-  pointer-events: auto;
 }
 
 .printer-map-item:is([data-kind="label"], [data-kind="wall"], [data-kind="line"], [data-kind="door"], :has(.printer-map-object-symbol)) {
@@ -465,6 +559,10 @@ button.printer-map-item:is([data-kind="bench"], [data-kind="rack"]) {
   --art-leaf-vein: light-dark(#9bb480, #b5ca86);
   --art-metal-light: light-dark(#9aaab5, #9caebc);
   --art-metal-dark: light-dark(#465662, #495966);
+  --art-graphite-light: light-dark(#586673, #43505d);
+  --art-graphite-dark: light-dark(#34404b, #1d2731);
+  --art-graphite-edge: light-dark(#202c36, #8ba3b5);
+  --art-controller-mark: light-dark(#e4f2ff, #b9dcf5);
   --art-edge: light-dark(#233744, #17242e);
   --art-fabric-light: light-dark(#67869b, #819eb1);
   --art-fabric-dark: light-dark(#355164, #415e72);

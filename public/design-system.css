@@ -131,7 +131,7 @@
   font-weight:var(--ds-weight-semibold);
   letter-spacing:.005em;
 }
-.ui-button:not(.ui-button-small):not(.dashboard-view-toggle):not(.summary-card) {
+.ui-button:not(.ui-button-small):not(.summary-card) {
   min-height:var(--ds-button-height);
 }
 .ui-button:focus-visible,

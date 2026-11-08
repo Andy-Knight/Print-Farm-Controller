@@ -4,7 +4,8 @@ const materials = {
   leafMuted:['leaf-mid', 'leaf-dark'],
   fabric:['fabric-light', 'fabric-dark'],
   timber:['wood-light', 'wood-dark'],
-  metal:['metal-light', 'metal-dark']
+  metal:['metal-light', 'metal-dark'],
+  graphite:['graphite-light', 'graphite-dark']
 };
 
 function gradients(id, names) {
@@ -86,6 +87,21 @@ function desktopWorkstation(id) {
     </g>`;
 }
 
+function controllerMiniPc(id) {
+  return `${gradients(id, ['graphite'])}
+    <rect x="2" y="3" width="57" height="42" rx="7" fill="var(--art-shadow)"/>
+    <rect x="1" y="1" width="58" height="42" rx="7" fill="url(#${id}-graphite)" stroke="var(--art-graphite-edge)"/>
+    <path d="M11 8H49" stroke="var(--art-graphite-dark)" stroke-width="5"
+      stroke-dasharray="2 2" stroke-linecap="butt"/>
+    <g class="printer-map-controller-mark" fill="var(--art-controller-mark)" transform="translate(18 12) scale(.2)">
+      <polygon points="60,2 114,27 60,52 6,27"/>
+      <polygon points="14,39 60,60 106,39 114,43 60,69 6,43"/>
+      <polygon points="14,58 60,79 106,58 114,62 60,90 6,62"/>
+    </g>
+    <path d="M10 36H50" stroke="var(--art-metal-light)" stroke-width="4"
+      stroke-dasharray="7 4" stroke-linecap="butt"/>`;
+}
+
 function butcherBlock(id) {
   const boardWidth = 58;
   const boardHeight = 12;
@@ -117,7 +133,8 @@ const designs = {
   'plant-pot':{ size:[48, 48], draw:rubberPlant },
   chair:{ size:[48, 60], draw:taskChair },
   stool:{ size:[48, 48], draw:timberStool },
-  computer:{ size:[72, 48], draw:desktopWorkstation }
+  computer:{ size:[72, 48], draw:desktopWorkstation },
+  controller:{ size:[60, 45], draw:controllerMiniPc }
 };
 let nextArtworkId = 0;
 

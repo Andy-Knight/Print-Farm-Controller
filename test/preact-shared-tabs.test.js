@@ -28,7 +28,7 @@ test('Phase 4.1 shared tabs are loaded last, local, theme-aware and scoped to ta
   assert.match(css,/overflow-x:auto/);
   assert.match(css,/scrollbar-width:thin/);
   assert.match(css,/@media\(prefers-reduced-motion:reduce\)/);
-  assert.doesNotMatch(css,/dashboard-view-toggle|summary-card|\bfleet\b/,
+  assert.doesNotMatch(css,/ui-switch|summary-card|\bfleet\b/,
     'only actual tablists receive this navigation treatment');
   assert.match(css,/data:image\/svg\+xml/);
 });

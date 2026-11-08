@@ -26,7 +26,13 @@
         </div>
       </div>
       <h1 id="printerMapFullscreenTitle">Printer map</h1>
-      <button id="mapDisplayFullscreen" type="button" class="ui-button ui-button-secondary ui-button-medium secondary" hidden>Full screen</button>
+      <div class="printer-map-fullscreen-actions">
+        <button data-map-motion type="button" class="ui-switch" role="switch" aria-checked="false" hidden>
+          <span class="ui-switch-track" aria-hidden="true"></span>
+          <span class="ui-switch-label">Animate person</span>
+        </button>
+        <button id="mapDisplayFullscreen" type="button" class="ui-button ui-button-secondary ui-button-medium secondary" hidden>Full screen</button>
+      </div>
     </header>
     <div id="printerMapFullscreenStage" class="printer-map-fullscreen-stage">
       <p id="mapDisplayStatus" class="printer-map-monitor-status" role="status">Loading printer map…</p>

@@ -37,12 +37,35 @@ test('printer map writes preserve room geometry and enforce placement and revisi
   await assert.rejects(save({ name:'Upstairs', placements:[placement] }), { statusCode:409 });
 });
 
+test('existing maps omit retired aisles and new layouts cannot add them', async t => {
+  const dataDir = await fs.mkdtemp(path.join(os.tmpdir(), 'pfc-map-aisles-'));
+  t.after(() => fs.rm(dataDir, { recursive:true, force:true }));
+  const aisle = { id:'aisle', type:'aisle', label:'Walkway', x:20, y:40, width:180, height:40 };
+  const shelf = { id:'shelf', type:'shelf', label:'', x:20, y:100, width:180, height:60 };
+  const placement = { printerId:'a1', x:200, y:100 };
+  const room = { id:'workshop', name:'Workshop', revision:1, placements:[placement], items:[aisle, shelf] };
+  const displayToken = 'a'.repeat(43);
+  const file = path.join(dataDir, printerMapsFile);
+  await fs.writeFile(file, JSON.stringify({ version:1, maps:[{ ...room, displayToken }] }));
+
+  const { maps:[read] } = await readPrinterMaps(dataDir, { includeDisplayLinks:true });
+  assert.deepEqual(read.items, [shelf]);
+  assert.deepEqual(read.placements, [placement]);
+  assert.equal(read.displayToken, displayToken);
+  const save = input => savePrinterMap(dataDir, { id:room.id, input, printerIds:new Set(['a1']) });
+  await assert.rejects(save(room), { statusCode:400 });
+  await save(read);
+  const { maps:[stored] } = JSON.parse(await fs.readFile(file, 'utf8'));
+  assert.deepEqual(stored.items, [shelf]);
+  assert.equal(stored.displayToken, displayToken);
+});
+
 test('room items round-trip, remain map-scoped and reject invalid geometry', async t => {
   const dataDir = await fs.mkdtemp(path.join(os.tmpdir(), 'pfc-room-items-'));
   t.after(() => fs.rm(dataDir, { recursive:true, force:true }));
   const save = (input, id) => savePrinterMap(dataDir, { id, input, printerIds:new Set() });
   const item = { id:'bench-1', type:'bench', label:'Finishing', x:50, y:80, width:300, height:120 };
-  const objects = ['plant-pot', 'window', 'chair', 'stool', 'computer'].map((type, index) => ({
+  const objects = ['plant-pot', 'window', 'chair', 'stool', 'computer', 'controller', 'shelf'].map((type, index) => ({
     id:type, type, label:`Fixture ${index + 1}`, x:50 + index * 100, y:260, width:80, height:80,
     ...(type === 'chair' ? { rotation:90 } : type === 'computer' ? { rotation:270 } : {})
   }));
