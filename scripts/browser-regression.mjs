@@ -2119,7 +2119,9 @@ async function printerMapSmoke(browser, url) {
     online:true, status:{ status:'printing' } };
   const unknownPrinter = { id:'map-unknown', name:'Unknown model', model:'Unknown', adapterType:'unknown' };
   const secondPrinter = { ...printer, id:'map-p2', name:'Second printer' };
-  const fleet = { printers:[printer, unknownPrinter, secondPrinter], queue:{ jobs:[
+  const fleet = { printers:[printer, unknownPrinter, secondPrinter], queue:{
+    bedClearance:[{ printerId:printer.id, printerName:printer.name }],
+    jobs:[
     { id:'queued-1', printerId:printer.id, printerName:printer.name, fileName:'Workshop job.gcode', status:'queued' },
     { id:'active-copy', printerId:printer.id, fileName:'Workshop production copy.gcode', productionBatchId:'batch-1', status:'printing' },
     { id:'other-queued', printerId:secondPrinter.id, fileName:'Other job.gcode', status:'queued' },
@@ -2132,6 +2134,7 @@ async function printerMapSmoke(browser, url) {
   }));
   const testDisplayToken = 'm'.repeat(43);
   let displayToken = '';
+  let clearanceSubmissions = 0;
   const store = { version:1, maps:[{ id:'upstairs', name:'Upstairs', revision:1, placements:[], items:[
     { id:'join-h', type:'wall', axis:'horizontal', label:'', x:30, y:30, width:120, height:40 },
     { id:'join-v', type:'wall', axis:'vertical', label:'', x:150, y:30, width:40, height:120 },
@@ -2149,6 +2152,12 @@ async function printerMapSmoke(browser, url) {
   await context.route('**/dashboard-preact.js', route => route.abort());
   await context.route('**/api/fleet', route => route.fulfill({ json:fleet }));
   await context.route('**/api/queue', route => route.fulfill({ json:fleet.queue }));
+  await context.route('**/api/queue/bed-clearance/map-p1', route => {
+    assert.equal(route.request().method(), 'POST');
+    clearanceSubmissions++;
+    fleet.queue.bedClearance = [];
+    return route.fulfill({ json:{ queue:fleet.queue } });
+  });
   await context.route(/\/api\/alerts\?/, route => {
     const printerId = new URL(route.request().url()).searchParams.get('printerId');
     return route.fulfill({ json:{ alerts:{
@@ -2196,6 +2205,7 @@ async function printerMapSmoke(browser, url) {
     assert.equal(await page.getByRole('button', { name:/rotate/i }).count(), 0);
     assert.match(await marker.getAttribute('aria-label'), /Workshop Bambu Lab A1.*Alert.*Printing.*1 queued/);
     assert.equal(await marker.locator('.printer-map-alert').isDisabled(), true, 'map editing reserves tile clicks for selection');
+    assert.equal(await marker.locator('.printer-map-clearance').isDisabled(), true, 'map editing disables the clearance action');
     const name = marker.locator('strong');
     const nameLines = await name.evaluate(node => node.offsetHeight / parseFloat(getComputedStyle(node).lineHeight));
     assert.ok(Math.abs(nameLines - 2) < 0.1, 'the printer name wraps onto two lines');
@@ -2906,6 +2916,23 @@ async function printerMapSmoke(browser, url) {
     await page.waitForFunction(() => !document.fullscreenElement
       && document.activeElement?.id === 'printerMapEnterFullscreen'
       && document.querySelector('#printerMapViewport').parentElement.classList.contains('printer-map-panel'));
+    const clearBed = marker.getByRole('button', { name:`Mark bed cleared for ${printer.name}` });
+    page.once('dialog', dialog => dialog.dismiss());
+    await clearBed.click();
+    assert.equal(clearanceSubmissions, 0, 'cancelling the clearance prompt submits nothing');
+    assert.ok(await clearBed.isVisible());
+    await fullScreen.click();
+    let clearancePrompt;
+    page.once('dialog', dialog => {
+      clearancePrompt = dialog.message();
+      return dialog.accept();
+    });
+    await clearBed.press('Enter');
+    await clearBed.waitFor({ state:'hidden' });
+    assert.match(clearancePrompt, /The next queued job may start immediately/);
+    assert.equal(clearanceSubmissions, 1, 'confirming the map action clears just the selected printer');
+    assert.ok(await fullScreenDialog.isVisible(), 'clearing a bed keeps the map in full screen');
+    await exitFullScreen.click();
     for (const preact of [false, true]) {
       if (preact) {
         await context.unroute('**/dashboard-preact.js');
@@ -3077,6 +3104,8 @@ async function printerMapSmoke(browser, url) {
       assert.ok(await progress.isHidden());
       const clearance = monitorTile.getByRole('img', { name:'Bed needs clearing' });
       assert.ok(await clearance.isVisible());
+      assert.equal(await monitorTile.getByRole('button', { name:/Mark bed cleared/ }).count(), 0,
+        'the monitoring badge is read-only');
       await monitor.locator('.printer-map-person[data-pose="seated"] svg').waitFor({ timeout:12000 });
       assert.equal(await openInteriorDoor.count(), 0, 'the interior door closes once the character clears the swing');
       assert.equal(await actorPosition(), 'translate(375px, 157.5px)', 'the character returns to the selected computer and sits on its stool');

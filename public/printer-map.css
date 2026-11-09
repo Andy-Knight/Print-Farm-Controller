@@ -964,10 +964,15 @@ button.printer-map-item:is([data-kind="bench"], [data-kind="rack"]) {
   place-items: center;
   width: 20px;
   height: 20px;
+  padding: 0;
   border: 1px solid currentColor;
   border-radius: var(--ds-radius-sm);
   color: var(--ds-warning);
   background: var(--ds-surface-muted);
+}
+
+button.printer-map-clearance[aria-disabled="true"] {
+  cursor: progress;
 }
 
 .printer-map-clearance svg {

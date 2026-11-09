@@ -64,7 +64,7 @@ const objectSymbols = {
     <path d="M15 38h18"/>`
 };
 
-export function createPrinterMapPage({ api, canEdit, openPrinter, openAlerts, openQueue, displayOnly = false }) {
+export function createPrinterMapPage({ api, canEdit, openPrinter, openAlerts, openQueue, clearBed, displayOnly = false }) {
   const page = document.querySelector('#printerMapPage');
   const room = page.querySelector('#printerMapSelect');
   const roomControls = room?.closest('.printer-map-room-controls');
@@ -125,6 +125,7 @@ export function createPrinterMapPage({ api, canEdit, openPrinter, openAlerts, op
   const actions = Object.fromEntries([...page.querySelectorAll('[data-map-action]')]
     .map(button => [button.dataset.mapAction, button]));
   const markers = new Map();
+  const pendingClearances = new Set();
   const itemNodes = new Map();
   const paletteButtons = new Map();
   let maps = [];
@@ -250,6 +251,10 @@ export function createPrinterMapPage({ api, canEdit, openPrinter, openAlerts, op
     const tile = document.createElement('div');
     const action = displayOnly ? 'span' : 'button';
     const type = displayOnly ? '' : ' type="button"';
+    const clearanceTag = !displayOnly && clearBed ? 'button' : 'span';
+    const clearanceAttrs = clearanceTag === 'button'
+      ? 'type="button" data-map-printer-action="clear-bed" title="Mark bed cleared"'
+      : 'role="img" aria-label="Bed needs clearing" title="Bed needs clearing"';
     tile.className = 'printer-map-marker';
     tile.dataset.printerId = printerId;
     tile.innerHTML = `<${action}${type} class="printer-map-details" data-map-printer-action="details">
@@ -262,11 +267,11 @@ export function createPrinterMapPage({ api, canEdit, openPrinter, openAlerts, op
       <span class="printer-map-printing" hidden>Printing</span>
       <${action}${type} class="printer-map-queued" data-map-printer-action="queue"></${action}>
     </span>
-    <span class="printer-map-clearance" role="img" aria-label="Bed needs clearing" title="Bed needs clearing" hidden>
+    <${clearanceTag} class="printer-map-clearance" ${clearanceAttrs} hidden>
       <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-linecap="round" aria-hidden="true">
         <path d="M5 8V3h6v5M3 9h10l2 4H1zM5 11h6"/>
       </svg>
-    </span>
+    </${clearanceTag}>
     <span class="printer-map-progress" role="progressbar" hidden></span>`;
     const marker = {
       tile, image:tile.querySelector('img'), placeholder:tile.querySelector('.printer-map-placeholder'),
@@ -808,6 +813,11 @@ export function createPrinterMapPage({ api, canEdit, openPrinter, openAlerts, op
         marker.details.setAttribute('aria-label', `Open printer details for ${printer.name}`);
         marker.alert.setAttribute('aria-label', `View alerts for ${printer.name}`);
         marker.queued.setAttribute('aria-label', `View queue for ${printer.name} (${printer.queued} queued)`);
+        if (clearBed) {
+          marker.clearance.disabled = Boolean(draft);
+          marker.clearance.setAttribute('aria-label', `Mark bed cleared for ${printer.name}`);
+          marker.clearance.setAttribute('aria-disabled', String(pendingClearances.has(printer.id)));
+        }
       }
       const placement = placements.get(printer.id);
       if (placement) updateMarkerPosition(marker.tile, placement);
@@ -1112,7 +1122,7 @@ export function createPrinterMapPage({ api, canEdit, openPrinter, openAlerts, op
     finishItemLabel(event.key === 'Enter')?.focus({ preventScroll:true });
   });
 
-  page.addEventListener('click', event => {
+  page.addEventListener('click', async event => {
     const marker = markerAt(event);
     if (!marker) return;
     if (draft) {
@@ -1128,8 +1138,23 @@ export function createPrinterMapPage({ api, canEdit, openPrinter, openAlerts, op
     } else if (!busy && marker.dataset.printerId) {
       const action = event.target.closest('[data-map-printer-action]')?.dataset.mapPrinterAction;
       if (!action) return;
-      if (fullscreenDialog.open) fullscreenDialog.close();
       const printerId = marker.dataset.printerId;
+      if (action === 'clear-bed') {
+        const printer = printers.find(item => item.id === printerId);
+        if (!clearBed || !printer?.bedClearance || pendingClearances.has(printerId)) return;
+        pendingClearances.add(printerId);
+        markers.get(printerId).clearance.setAttribute('aria-disabled', 'true');
+        try {
+          await clearBed(printerId, printer.name);
+        } catch (error) {
+          alert(error.message);
+        } finally {
+          pendingClearances.delete(printerId);
+          markers.get(printerId)?.clearance.setAttribute('aria-disabled', 'false');
+        }
+        return;
+      }
+      if (fullscreenDialog.open) fullscreenDialog.close();
       if (action === 'alerts') openAlerts(printerId);
       else if (action === 'queue') openQueue(printerId);
       else openPrinter(printerId);
