@@ -895,7 +895,7 @@ export function createPrinterMapPage({ api, canEdit, openPrinter, openAlerts, op
     if (activeRack) {
       const choices = draft ? printers.filter(printer => !assigned.has(printer.id)
         && !placements.get(printer.id)?.rackId).map(printer => [printer.id, printer.name]) : [];
-      rackView.render(activeRack.item, rackName(map, activeRack.item), Boolean(draft), busy, activeRack.slots,
+      rackView.render(activeRack.item, Boolean(draft), busy, activeRack.slots,
         new Map(printers.map(printer => [printer.id, printer.name])), choices);
     } else if (rackView.dialog.open) rackView.dialog.close();
     if (draft) {

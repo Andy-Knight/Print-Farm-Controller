@@ -3248,7 +3248,7 @@ async function printerMapSmoke(browser, url) {
       assert.equal(await monitorRackAlert.innerText(), '1 alert');
       assert.equal(await monitorRackButton.getAttribute('data-rack-alert'), '');
       await monitor.getByRole('button', { name:/View Rack 1/ }).click({ position:{ x:8, y:8 } });
-      const monitoredRack = monitor.getByRole('dialog', { name:'Rack 1 · Front view' });
+      const monitoredRack = monitor.getByRole('dialog', { name:'Rack front view', exact:true });
       assert.ok(await monitoredRack.locator('[data-rack-slot="2:1"] img').isVisible());
       assert.equal(await monitoredRack.getByRole('combobox').count(), 0);
       assert.equal(await monitoredRack.getByRole('button', { name:/Open printer details|Mark bed cleared/ }).count(), 0);
@@ -3277,7 +3277,7 @@ async function printerMapSmoke(browser, url) {
     await page.getByRole('button', { name:'Edit map', exact:true }).click();
     const rackItem = objectOnMap('rack');
     const manageRack = page.getByRole('button', { name:'Manage rack', exact:true });
-    const rackView = page.getByRole('dialog', { name:'Rack 1 · Front view' });
+    const rackView = page.getByRole('dialog', { name:'Rack front view', exact:true });
     const rackSlot = (level, bay) => rackView.getByRole('combobox', { name:`Printer for level ${level}, bay ${bay}` });
     const closeRack = () => rackView.getByRole('button', { name:'Close', exact:true }).click();
     await rackItem.press('Space');

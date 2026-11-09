@@ -5,7 +5,7 @@ export function createRackView(page, { onClose, onResize, onAssign, setOptions }
   dialog.className = 'printer-map-rack-dialog';
   dialog.setAttribute('aria-labelledby', 'printerMapRackTitle');
   dialog.innerHTML = `<div class="dialog-head">
-    <h2 id="printerMapRackTitle"></h2>
+    <h2 id="printerMapRackTitle">Rack front view</h2>
     <button type="button" class="secondary">Close</button>
   </div>
   <fieldset class="printer-map-toolbar printer-map-rack-settings" aria-label="Rack layout">
@@ -15,7 +15,6 @@ export function createRackView(page, { onClose, onResize, onAssign, setOptions }
   <p class="error" role="alert"></p>
   <div class="printer-map-rack-scroll"><div class="printer-map-rack-levels"></div></div>`;
   page.append(dialog);
-  const heading = dialog.querySelector('h2');
   const fields = dialog.querySelector('fieldset');
   const { levels, bays } = fields.elements;
   const error = dialog.querySelector('[role="alert"]');
@@ -66,8 +65,7 @@ export function createRackView(page, { onClose, onResize, onAssign, setOptions }
 
   return {
     dialog,
-    render(rack, name, editing, busy, placements, printerNames, assignable) {
-      heading.textContent = `${name} · Front view`;
+    render(rack, editing, busy, placements, printerNames, assignable) {
       fields.hidden = !editing;
       fields.disabled = busy;
       levels.value = rack.levels;
