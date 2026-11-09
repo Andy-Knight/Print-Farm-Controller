@@ -1,6 +1,6 @@
 import { orientPrinterMapFurniture, printerMapFurnitureArtwork } from './printer-map-artwork.js';
 import { createPrinterMapPerson } from './printer-map-person.js';
-import { fixedSeatingSizes } from './printer-map-seating.js';
+import { fixedItemSizes } from './printer-map-fixed-sizes.js';
 
 const endpoint = '/api/printer-maps';
 const preferenceKey = 'pfc-printer-map';
@@ -21,9 +21,9 @@ const itemTypes = {
   line:{ name:'Line', size:[260, 40] },
   'plant-pot':{ name:'Plant pot', size:[80, 80] },
   window:{ name:'Window', size:[160, 40] },
-  chair:{ name:'Chair', size:fixedSeatingSizes.chair },
-  stool:{ name:'Stool', size:fixedSeatingSizes.stool },
-  computer:{ name:'Computer', size:[120, 100] },
+  chair:{ name:'Chair', size:fixedItemSizes.chair },
+  stool:{ name:'Stool', size:fixedItemSizes.stool },
+  computer:{ name:'Computer', size:fixedItemSizes.computer },
   controller:{ name:'Controller', size:[100, 80] },
   bin:{ name:'Bin', size:[60, 60] }
 };
@@ -725,7 +725,7 @@ export function createPrinterMapPage({ api, canEdit, openPrinter, openAlerts, op
           viewBox="0 0 48 48" preserveAspectRatio="${item.type === 'window' ? 'none' : 'xMidYMid meet'}"
           aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.5"
           stroke-linecap="round" stroke-linejoin="round">${objectSymbols[item.type]}</svg>` : '');
-        const resize = item.type === 'floor' || Object.hasOwn(fixedSeatingSizes, item.type)
+        const resize = item.type === 'floor' || Object.hasOwn(fixedItemSizes, item.type)
           ? '' : '<span data-map-resize="left" aria-hidden="true"></span><span data-map-resize="right" aria-hidden="true"></span>';
         const shelfParts = item.type === 'shelf'
           ? `<span class="printer-map-shelf-parts" aria-hidden="true">${'<span hidden></span>'.repeat(4)}</span>` : '';
@@ -742,8 +742,8 @@ export function createPrinterMapPage({ api, canEdit, openPrinter, openAlerts, op
     if (displayOnly) return;
     const { width, height } = roomBounds();
     for (const [type, button] of paletteButtons) {
-      const tooSmall = Object.hasOwn(fixedSeatingSizes, type)
-        && (fixedSeatingSizes[type][0] > width || fixedSeatingSizes[type][1] > height);
+      const tooSmall = Object.hasOwn(fixedItemSizes, type)
+        && (fixedItemSizes[type][0] > width || fixedItemSizes[type][1] > height);
       button.disabled = items.length >= 200 || tooSmall;
     }
     const item = singleSelection();
@@ -1362,8 +1362,7 @@ export function createPrinterMapPage({ api, canEdit, openPrinter, openAlerts, op
     if (!draft || busy || !rotatableFurniture.has(item?.type)) return;
     const { width, height } = roomBounds();
     if (item.height > width || item.width > height) {
-      setText(error, item.type === 'chair' ? 'Enlarge the room to fit the rotated chair.'
-        : 'Resize the item so its rotated footprint fits in the room.');
+      setText(error, `Enlarge the room to fit the rotated ${itemTypeName(item.type).toLowerCase()}.`);
       return;
     }
     [item.width, item.height] = [item.height, item.width];

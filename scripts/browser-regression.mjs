@@ -2554,6 +2554,7 @@ async function printerMapSmoke(browser, url) {
       }), 'the bench covers overlapping seating');
     }
     await computer.press('Shift+ArrowRight');
+    assert.equal(await computer.locator('[data-map-resize]').count(), 0, 'computers cannot be resized');
     await rotate.click();
     const computerDrawing = computer.locator('.printer-map-furniture');
     assert.equal(await computerDrawing.getAttribute('viewBox'), '0 0 48 72');
@@ -2608,7 +2609,7 @@ async function printerMapSmoke(browser, url) {
     assert.deepEqual([savedChair.width, savedChair.height, savedChair.rotation], [80, 60, 90]);
     const savedStool = store.maps[1].items.find(item => item.type === 'stool');
     assert.deepEqual([savedStool.width, savedStool.height], [60, 60]);
-    assert.deepEqual([savedComputer.width, savedComputer.height, savedComputer.rotation], [100, 120, 90]);
+    assert.deepEqual([savedComputer.width, savedComputer.height, savedComputer.rotation], [60, 80, 90]);
     assert.equal(store.maps[1].items[0].label, 'Post-processing');
     assert.equal(store.maps[1].items[0].width, 320);
     const savedDoor = store.maps[1].items.find(item => item.type === 'door');
@@ -2995,9 +2996,9 @@ async function printerMapSmoke(browser, url) {
         placements:[{ printerId:printer.id, x:240, y:240 }],
         items:[
           { id:'seat-bench', type:'bench', label:'', x:40, y:50, width:120, height:140 },
-          { id:'first', type:'computer', label:'', x:40, y:50, width:120, height:100 },
+          { id:'first', type:'computer', label:'', x:60, y:90, width:80, height:60 },
           { id:'seat-one', type:'chair', label:'', x:60, y:170, width:80, height:80 },
-          { id:'second', type:'computer', label:'', x:440, y:50, width:120, height:100 },
+          { id:'second', type:'computer', label:'', x:460, y:90, width:80, height:60 },
           { id:'seat-two', type:'stool', label:'', x:460, y:170, width:80, height:80 },
           { id:'interior-north', type:'wall', axis:'vertical', x:190, y:0, width:40, height:180 },
           { id:'interior-south', type:'wall', axis:'vertical', x:190, y:300, width:40, height:140 },

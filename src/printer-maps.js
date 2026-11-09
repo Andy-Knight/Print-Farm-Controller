@@ -1,7 +1,8 @@
 import { randomBytes, randomUUID, timingSafeEqual } from 'node:crypto';
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
-import { fixedSeatingSizes } from '../public/printer-map-seating.js';
+import { fixedItemSizes } from '../public/printer-map-fixed-sizes.js';
+import { deskFront } from '../public/printer-map-walkspace.js';
 
 export const printerMapsFile = 'printer-maps.json';
 export const emptyPrinterMaps = { version:1, maps:[] };
@@ -74,19 +75,25 @@ function normalizeLayout(input, { readStoredLayout = false } = {}) {
       if (![0, 90, 180, 270].includes(item.rotation)) throw mapError('Invalid furniture orientation.');
       normalized.rotation = item.rotation;
     }
-    if (Object.hasOwn(fixedSeatingSizes, type)) {
-      const [seatWidth, seatHeight] = fixedSeatingSizes[type];
-      const sideways = normalized.rotation % 180 === 90;
-      normalized.width = sideways ? seatHeight : seatWidth;
-      normalized.height = sideways ? seatWidth : seatHeight;
+    if (Object.hasOwn(fixedItemSizes, type)) {
+      const [fixedWidth, fixedHeight] = fixedItemSizes[type];
+      const sideways = (normalized.rotation ?? 0) % 180 === 90;
+      normalized.width = sideways ? fixedHeight : fixedWidth;
+      normalized.height = sideways ? fixedWidth : fixedHeight;
       if (!readStoredLayout && (normalized.width > maxX || normalized.height > maxY)) {
-        throw mapError('The room is too small for this seat.');
+        throw mapError(`The room is too small for this ${type}.`);
       }
-      // A legacy room may have been saved with a seat smaller than its fixed footprint.
+      if (type === 'computer') {
+        // Preserve the centre of the keyboard-facing edge so the chair stays lined up.
+        const [dx, dy] = deskFront(normalized);
+        normalized.x += Math.round((width - normalized.width) * (1 + dx) / 2);
+        normalized.y += Math.round((height - normalized.height) * (1 + dy) / 2);
+      }
+      // A legacy room may have been saved with an item smaller than its fixed footprint.
       roomWidth = Math.max(roomWidth, normalized.width);
       roomHeight = Math.max(roomHeight, normalized.height);
-      normalized.x = Math.min(x, Math.max(maxX, normalized.width) - normalized.width);
-      normalized.y = Math.min(y, Math.max(maxY, normalized.height) - normalized.height);
+      normalized.x = Math.max(0, Math.min(normalized.x, maxX - normalized.width));
+      normalized.y = Math.max(0, Math.min(normalized.y, maxY - normalized.height));
     }
     return normalized;
   });

@@ -67,7 +67,7 @@ test('room items round-trip, remain map-scoped and reject invalid geometry', asy
   const item = { id:'bench-1', type:'bench', label:'Finishing', x:50, y:80, width:300, height:120 };
   const objects = ['plant-pot', 'window', 'chair', 'stool', 'computer', 'controller', 'shelf', 'bin'].map((type, index) => ({
     id:type, type, label:`Fixture ${index + 1}`, x:50 + index * 100, y:260, width:80, height:80,
-    ...(type === 'chair' ? { rotation:90, height:60 } : type === 'computer' ? { rotation:270 } : {}),
+    ...(type === 'chair' ? { rotation:90, height:60 } : type === 'computer' ? { rotation:270, width:60 } : {}),
     ...(type === 'stool' ? { width:60, height:60 } : {})
   }));
   const floor = { id:'floor', type:'floor', label:'Workshop floor', x:0, y:0, width:1000, height:1000 };
@@ -109,6 +109,19 @@ test('seating uses fixed rotated footprints and keeps legacy seats inside the ro
   const { maps:[legacy] } = normalizePrinterMaps({ version:1, maps:[{ ...tiny, id:'old', revision:1 }] });
   assert.deepEqual([legacy.columns, legacy.rows], [4, 3]);
   assert.deepEqual(legacy.items[0], { ...chair, label:'', x:0, y:0, width:80, height:60 });
+});
+
+test('legacy computers keep their keyboard edge aligned as their footprint shrinks', () => {
+  const sizes = [[70, 90, 80, 60], [50, 70, 60, 80], [70, 50, 80, 60], [90, 70, 60, 80]];
+  const items = [0, 90, 180, 270].map(rotation => ({
+    id:`computer-${rotation}`, type:'computer', x:50, y:50, rotation,
+    width:rotation % 180 ? 100 : 120, height:rotation % 180 ? 120 : 100
+  }));
+  const normalized = normalizePrinterMaps({ version:1, maps:[
+    { id:'room', name:'Workshop', revision:1, placements:[], items }
+  ] });
+  assert.deepEqual(normalized.maps[0].items.map(({ x, y, width, height }) => [x, y, width, height]), sizes);
+  assert.deepEqual(normalizePrinterMaps(normalized), normalized);
 });
 
 test('doors preserve legacy orientation and save an explicit swing direction and hinge', async t => {
