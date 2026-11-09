@@ -3282,6 +3282,25 @@ async function printerMapSmoke(browser, url) {
     await rackBays.selectOption('3');
     await rackSlot(2, 1).selectOption(printer.id);
     await rackSlot(2, 2).selectOption(secondPrinter.id);
+    const rackPrinter = rackView.locator('[data-rack-slot="2:1"] [data-printer-id="map-p1"]');
+    assert.ok(await rackPrinter.locator('img').isVisible());
+    for (const selector of ['.printer-map-placeholder', '.printer-map-clearance', '.printer-map-progress']) {
+      assert.ok(await rackPrinter.locator(selector).isHidden(), `${selector} stays hidden when unused in the rack editor`);
+    }
+    assert.ok(await rackPrinter.evaluate(tile => {
+      const bounds = tile.getBoundingClientRect();
+      return [...tile.querySelectorAll('img, strong, .printer-map-flags > :not([hidden])')].every(node => {
+        const rect = node.getBoundingClientRect();
+        return rect.top >= bounds.top && rect.bottom <= bounds.bottom
+          && rect.left >= bounds.left && rect.right <= bounds.right;
+      });
+    }), 'rack printer artwork, name and flags fit inside the compact tile');
+    await rackSlot(2, 3).selectOption(unknownPrinter.id);
+    const unknownRackPrinter = rackView.locator('[data-rack-slot="2:3"] [data-printer-id="map-unknown"]');
+    assert.ok(await unknownRackPrinter.locator('img').isHidden());
+    assert.ok(await unknownRackPrinter.locator('.printer-map-placeholder').isVisible(),
+      'printers without artwork still show the fallback icon');
+    await rackSlot(2, 3).selectOption('');
     await rackLevels.selectOption('1');
     assert.match(await rackView.getByRole('alert').innerText(), /Empty the affected slots/);
     assert.equal(await rackLevels.inputValue(), '2');

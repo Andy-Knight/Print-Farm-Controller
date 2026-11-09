@@ -17,6 +17,7 @@
 
 .printer-map-panel [hidden],
 .printer-map-monitor [hidden],
+.printer-map-rack-dialog [hidden],
 .printer-map-panel p:empty {
   display: none !important;
 }
@@ -1017,15 +1018,15 @@ button.printer-map-item:is([data-kind="bench"], [data-kind="rack"]) {
   width: 54px;
 }
 
-.is-compact .printer-map-marker {
+:is(.is-compact, .printer-map-rack-dialog) .printer-map-marker {
   font-size: var(--ds-font-xs);
 }
 
-.is-compact .printer-map-placeholder {
+:is(.is-compact, .printer-map-rack-dialog) .printer-map-placeholder {
   width: 36px;
 }
 
-.is-compact .printer-map-flags > * {
+:is(.is-compact, .printer-map-rack-dialog) .printer-map-flags > * {
   font-size: .68rem;
   padding-inline: 3px;
 }
