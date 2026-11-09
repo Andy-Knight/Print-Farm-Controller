@@ -506,6 +506,92 @@
     repeating-linear-gradient(0deg, var(--rack-cross-wire) 0 1px, transparent 1px 15px);
 }
 
+.printer-map-item[data-rack-view]:enabled {
+  cursor: pointer;
+  touch-action: auto;
+}
+
+.printer-map-rack-summary {
+  position: absolute;
+  inset: 1px 2px auto;
+  display: flex;
+  gap: 4px;
+  overflow: hidden;
+  padding-inline: 3px;
+  border-radius: 3px;
+  background: var(--ds-surface-muted);
+  color: var(--ds-text);
+  text-align: start;
+  white-space: nowrap;
+  font-size: var(--ds-font-sm);
+}
+
+.printer-map-rack-description {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.printer-map-rack-alert, .printer-map-rack-beds { color: var(--ds-warning); }
+.printer-map-rack-beds { display: inline-flex; align-items: center; gap: 2px; }
+.printer-map-rack-beds svg { width: 12px; height: 12px; }
+
+.printer-map-rack-summary[hidden],
+.printer-map-rack-beds[hidden],
+.printer-map-rack-settings[hidden],
+#printerMapCanvas .printer-map-marker[hidden] { display: none; }
+
+.printer-map-rack-dialog {
+  --map-marker-width: 96px;
+  --map-marker-height: 116px;
+  --map-model-width: 84px;
+  --map-model-height: 40px;
+  width: min(820px, calc(100vw - 30px));
+}
+
+.printer-map-rack-dialog [role="alert"]:empty { display: none; }
+
+.printer-map-rack-scroll {
+  overflow-x: auto;
+}
+
+.printer-map-rack-levels {
+  width: max-content;
+  min-width: 100%;
+  border-inline: 3px solid var(--ds-border-strong);
+  border-top: 3px solid var(--ds-border-strong);
+}
+
+.printer-map-rack-level {
+  padding: 6px;
+  border-bottom: 3px solid var(--ds-border-strong);
+}
+
+.printer-map-rack-level h3 { margin: 0 0 4px; }
+
+.printer-map-rack-bays {
+  display: grid;
+  grid-template-columns: repeat(var(--rack-bays), minmax(110px, 1fr));
+  gap: 6px;
+}
+
+.printer-map-rack-slot {
+  display: grid;
+  justify-items: center;
+  align-content: start;
+  gap: 4px;
+  min-height: 142px;
+  padding: 4px;
+  border: 1px solid var(--ds-border);
+  border-radius: var(--ds-radius-sm);
+  background: var(--ds-surface-muted);
+}
+
+.printer-map-rack-slot select {
+  width: 100%;
+  max-width: 132px;
+}
+
 .printer-map-item[data-kind="shelf"] {
   --shelf-bracket: light-dark(#586b78, #354a58);
   --shelf-board: light-dark(#ddbf95, #b59770);
@@ -846,6 +932,11 @@ button.printer-map-item:is([data-kind="bench"], [data-kind="rack"]) {
   z-index: 2;
   left: calc(var(--map-dot-spacing) * var(--map-x));
   top: calc(var(--map-dot-spacing) * var(--map-y));
+}
+
+#printerMapCanvas .printer-map-marker.is-rack-projected {
+  transform: scale(var(--rack-marker-scale));
+  transform-origin: top left;
 }
 
 #printerMapCanvas.is-editing .printer-map-marker {

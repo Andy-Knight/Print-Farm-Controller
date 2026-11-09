@@ -3236,6 +3236,18 @@ async function printerMapSmoke(browser, url) {
       assert.equal(await shadow.evaluate(node => getComputedStyle(node).fill), 'rgba(0, 0, 0, 0)');
       await monitor.evaluate(() => { document.documentElement.dataset.theme = 'light'; });
       assert.equal(await shadow.evaluate(node => getComputedStyle(node).fill), 'rgba(0, 0, 0, 0.25)');
+      animationMap = {
+        name:'Rack monitoring', columns:40, rows:25, placements:[
+          { printerId:printer.id, rackId:'display-rack', level:2, bay:1 }
+        ], items:[{ id:'display-rack', type:'rack', x:40, y:40, width:280, height:140, levels:3, bays:2 }]
+      };
+      await monitor.getByRole('heading', { name:'Rack monitoring' }).waitFor({ timeout:10000 });
+      await monitor.getByRole('button', { name:/View Rack 1/ }).click({ position:{ x:8, y:8 } });
+      const monitoredRack = monitor.getByRole('dialog', { name:'Rack 1 · Front view' });
+      assert.ok(await monitoredRack.locator('[data-rack-slot="2:1"] img').isVisible());
+      assert.equal(await monitoredRack.getByRole('combobox').count(), 0);
+      assert.equal(await monitoredRack.getByRole('button', { name:/Open printer details|Mark bed cleared/ }).count(), 0);
+      await monitoredRack.getByRole('button', { name:'Close', exact:true }).click();
       await linkDialog.getByRole('button', { name:'Disable link' }).click();
       await monitor.getByText('Monitoring link unavailable.').waitFor({ timeout:10000 });
       await sprite.waitFor({ state:'hidden' });
@@ -3247,6 +3259,68 @@ async function printerMapSmoke(browser, url) {
     } finally {
       await monitorContext.close();
     }
+    await linkDialog.getByRole('button', { name:'Close', exact:true }).click();
+    await context.route('**/api/printer-maps/workshop', route => {
+      assert.equal(route.request().method(), 'PUT');
+      const saved = store.maps.find(map => map.id === 'workshop');
+      Object.assign(saved, route.request().postDataJSON(), { revision:saved.revision + 1 });
+      return route.fulfill({ json:store });
+    });
+    await page.getByRole('button', { name:'Edit map', exact:true }).click();
+    const rackItem = objectOnMap('rack');
+    const manageRack = page.getByRole('button', { name:'Manage rack', exact:true });
+    const rackView = page.getByRole('dialog', { name:'Rack 1 · Front view' });
+    const rackSlot = (level, bay) => rackView.getByRole('combobox', { name:`Printer for level ${level}, bay ${bay}` });
+    const closeRack = () => rackView.getByRole('button', { name:'Close', exact:true }).click();
+    await rackItem.press('Space');
+    await manageRack.click();
+    await rackView.getByLabel('Levels', { exact:true }).selectOption('3');
+    await rackView.getByLabel('Bays per level', { exact:true }).selectOption('6');
+    assert.equal(await rackView.locator('[data-rack-slot]').count(), 18);
+    await rackView.getByLabel('Bays per level', { exact:true }).selectOption('2');
+    await rackSlot(3, 1).selectOption(printer.id);
+    await rackSlot(3, 2).selectOption(secondPrinter.id);
+    await rackView.getByLabel('Levels', { exact:true }).selectOption('2');
+    assert.match(await rackView.getByRole('alert').innerText(), /Empty the affected slots/);
+    assert.equal(await rackView.getByLabel('Levels', { exact:true }).inputValue(), '3');
+    await closeRack();
+    await page.getByRole('button', { name:'Save map', exact:true }).click();
+    await marker.waitFor();
+    assert.ok(await marker.evaluate(tile => tile.classList.contains('is-rack-projected')));
+    assert.ok(await image.isVisible(), 'a single occupied rack level shows printer images on the plan');
+    assert.match(await rackItem.innerText(), /Level 3/);
+
+    await page.getByRole('button', { name:'Edit map', exact:true }).click();
+    const rackX = (await geometry(rackItem))[0];
+    await rackItem.press('ArrowRight');
+    assert.equal((await geometry(rackItem))[0], rackX + 1);
+    await manageRack.click();
+    await rackSlot(3, 2).selectOption('');
+    await rackSlot(2, 2).selectOption(secondPrinter.id);
+    await closeRack();
+    await page.getByRole('button', { name:'Save map', exact:true }).click();
+    await page.locator('#printerMapEditor').waitFor({ state:'hidden' });
+    await marker.waitFor({ state:'hidden' });
+    await rackItem.press('Enter');
+    await rackView.waitFor();
+    assert.equal(await rackView.locator('[data-rack-slot="3:1"] [data-printer-id="map-p1"]').count(), 1);
+    assert.equal(await rackView.locator('[data-rack-slot="2:2"] [data-printer-id="map-p2"]').count(), 1);
+    assert.ok(await rackView.getByRole('button', { name:`View alerts for ${printer.name}` }).isVisible());
+    assert.equal(await rackView.getByText('Empty slot', { exact:true }).count(), 4);
+    await closeRack();
+    await page.reload();
+    await rackItem.waitFor();
+    assert.equal((await geometry(rackItem))[0], rackX + 1, 'rack movement persists alongside slot assignments');
+    await rackItem.press('Enter');
+    assert.ok(await rackView.locator('[data-rack-slot="2:2"] [data-printer-id="map-p2"]').isVisible());
+    await closeRack();
+    await fullScreen.click();
+    await rackItem.press('Enter');
+    assert.ok(await rackView.isVisible(), 'the rack front view can open in full screen');
+    assert.ok(await marker.isVisible(), 'the rack view presents its printer tiles in full screen');
+    await closeRack();
+    await marker.waitFor({ state:'hidden' });
+    await exitFullScreen.click();
     console.log('Chromium: Printer map full-screen fit, printer shortcuts and monitoring link PASS');
   } finally {
     await context.close();

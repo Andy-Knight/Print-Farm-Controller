@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { promises as fs } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { normalizePrinterMaps, printerMapsFile, readPrinterMaps, savePrinterMap } from '../src/printer-maps.js';
+import { normalizePrinterMaps, printerMapDisplayLink, printerMapsFile, readDisplayedPrinterMap, readPrinterMaps, savePrinterMap } from '../src/printer-maps.js';
 
 test('printer map writes preserve room geometry and enforce placement and revision constraints', async t => {
   const dataDir = await fs.mkdtemp(path.join(os.tmpdir(), 'pfc-printer-maps-'));
@@ -122,6 +122,37 @@ test('legacy computers keep their keyboard edge aligned as their footprint shrin
   ] });
   assert.deepEqual(normalized.maps[0].items.map(({ x, y, width, height }) => [x, y, width, height]), sizes);
   assert.deepEqual(normalizePrinterMaps(normalized), normalized);
+});
+
+test('rack slots survive saves and enforce rack capacity and unique printer placement', async t => {
+  const dataDir = await fs.mkdtemp(path.join(os.tmpdir(), 'pfc-map-racks-'));
+  t.after(() => fs.rm(dataDir, { recursive:true, force:true }));
+  const rack = { id:'rack', type:'rack', label:'', x:20, y:20, width:200, height:120, levels:3, bays:6 };
+  const placements = [
+    { printerId:'a1', rackId:'rack', level:1, bay:6 },
+    { printerId:'u1', rackId:'rack', level:3, bay:6 }
+  ];
+  const input = { name:'Rack room', items:[rack], placements };
+  const printerIds = new Set(['a1', 'u1']);
+  const save = (data, id) => savePrinterMap(dataDir, { id, input:data, printerIds });
+  const { maps:[created] } = await save(input);
+  assert.deepEqual(created.placements, placements);
+  const moved = { ...rack, x:80, y:120 };
+  const { maps:[updated] } = await save({ ...created, items:[moved] }, created.id);
+  assert.deepEqual(updated.placements, placements);
+  assert.deepEqual((await readPrinterMaps(dataDir)).maps[0], updated);
+  const token = (await printerMapDisplayLink(dataDir, created.id, 'POST')).token;
+  assert.deepEqual((await readDisplayedPrinterMap(dataDir, `Bearer ${token}`)).placements, placements);
+  for (const invalid of [
+    { placements:[placements[0], { ...placements[1], level:1 }] },
+    { placements:[placements[0], { printerId:'a1', x:10, y:10 }] },
+    { placements:[{ ...placements[0], rackId:'missing' }] },
+    { items:[{ ...rack, bays:5 }] },
+    { items:[{ ...rack, levels:7 }] }
+  ]) {
+    await assert.rejects(save({ ...updated, ...invalid }, updated.id), { statusCode:400 });
+  }
+  await assert.rejects(save({ ...input, name:'Second room' }), { statusCode:409 });
 });
 
 test('doors preserve legacy orientation and save an explicit swing direction and hinge', async t => {

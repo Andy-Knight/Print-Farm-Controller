@@ -3,6 +3,7 @@ import { promises as fs } from 'node:fs';
 import path from 'node:path';
 import { fixedItemSizes } from '../public/printer-map-fixed-sizes.js';
 import { deskFront } from '../public/printer-map-walkspace.js';
+import { maxRackBays, maxRackLevels, rackSlotKey } from '../public/printer-map-rack.js';
 
 export const printerMapsFile = 'printer-maps.json';
 export const emptyPrinterMaps = { version:1, maps:[] };
@@ -28,16 +29,6 @@ function normalizeLayout(input, { readStoredLayout = false } = {}) {
   const maxY = rows * 20;
   let roomWidth = maxX;
   let roomHeight = maxY;
-  const ids = new Set();
-  const positions = placements.map(placement => {
-    const { printerId, x, y } = placement || {};
-    if (typeof printerId !== 'string' || !printerId || ids.has(printerId)
-        || ![x, y].every(value => Number.isInteger(value) && value >= 0) || x > maxX || y > maxY) {
-      throw mapError('Invalid or duplicate printer placement.');
-    }
-    ids.add(printerId);
-    return { printerId, x, y };
-  });
   if (!Array.isArray(items) || items.length > 200) throw mapError('A map can contain up to 200 layout items.');
   const itemIds = new Set();
   const currentItems = readStoredLayout ? items.filter(item => item?.type !== 'aisle') : items;
@@ -52,6 +43,14 @@ function normalizeLayout(input, { readStoredLayout = false } = {}) {
     }
     itemIds.add(id);
     const normalized = { id, type, label:label.trim(), x, y, width, height };
+    if (type === 'rack' && (item.levels !== undefined || item.bays !== undefined)) {
+      const { levels, bays } = item;
+      if (!Number.isInteger(levels) || levels < 1 || levels > maxRackLevels
+          || !Number.isInteger(bays) || bays < 1 || bays > maxRackBays) {
+        throw mapError('Invalid rack level or bay count.');
+      }
+      Object.assign(normalized, { levels, bays });
+    }
     if (type === 'wall' || type === 'line') {
       const axis = item.axis ?? (height > width ? 'vertical' : 'horizontal');
       if (axis !== 'vertical' && axis !== 'horizontal') throw mapError('Invalid wall or line orientation.');
@@ -96,6 +95,31 @@ function normalizeLayout(input, { readStoredLayout = false } = {}) {
       normalized.y = Math.max(0, Math.min(normalized.y, maxY - normalized.height));
     }
     return normalized;
+  });
+  const racks = new Map(layoutItems.filter(item => item.levels).map(item => [item.id, item]));
+  const printerIds = new Set();
+  const occupiedSlots = new Set();
+  const positions = placements.map(placement => {
+    const { printerId, x, y, rackId, level, bay } = placement || {};
+    if (typeof printerId !== 'string' || !printerId || printerIds.has(printerId)) {
+      throw mapError('Invalid or duplicate printer placement.');
+    }
+    printerIds.add(printerId);
+    if (rackId !== undefined) {
+      const rack = racks.get(rackId);
+      if (!rack || !Number.isInteger(level) || level < 1 || level > rack.levels
+          || !Number.isInteger(bay) || bay < 1 || bay > rack.bays) {
+        throw mapError('Invalid or occupied printer rack slot.');
+      }
+      const slot = `${rackId}:${rackSlotKey(level, bay)}`;
+      if (occupiedSlots.has(slot)) throw mapError('Invalid or occupied printer rack slot.');
+      occupiedSlots.add(slot);
+      return { printerId, rackId, level, bay };
+    }
+    if (![x, y].every(value => Number.isInteger(value) && value >= 0) || x > maxX || y > maxY) {
+      throw mapError('Invalid or duplicate printer placement.');
+    }
+    return { printerId, x, y };
   });
   return { name:name.trim(), columns:roomWidth / 20, rows:roomHeight / 20, compactPrinters, placements:positions, items:layoutItems };
 }
