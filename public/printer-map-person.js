@@ -31,10 +31,6 @@ const blueOvershirt = `<svg viewBox="0 0 44 52" focusable="false">
       </g>
     </g>
   </g>
-  <g class="map-person-legs-seated">
-    <path class="map-person-leg" d="M17 34 13 14 12 9M27 34l4-20 1-5"/>
-    <path class="map-person-shoe" d="M12 9 11 4m21 5 1-5"/>
-  </g>
   <g class="map-person-seated">
     <path class="map-person-arm" d="m11 24-4-13m26 13 4-13"/>
     <path class="map-person-hand" d="M7 11V8m30 3V8"/>
@@ -63,6 +59,11 @@ const blueOvershirt = `<svg viewBox="0 0 44 52" focusable="false">
   </g>
 </svg>`;
 
+const seatedLegs = `<svg viewBox="0 0 44 52" focusable="false">
+  <path class="map-person-leg" d="M17 34 13 14 12 9M27 34l4-20 1-5"/>
+  <path class="map-person-shoe" d="M12 9 11 4m21 5 1-5"/>
+</svg>`;
+
 const heading = (from, to) => Math.atan2(to.y - from.y, to.x - from.x) * 180 / Math.PI + 90;
 const distance = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
 const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
@@ -89,7 +90,11 @@ export function createPrinterMapPerson(canvas, { step, scale, getItemNode }) {
   node.hidden = true;
   node.setAttribute('aria-hidden', 'true');
   node.innerHTML = blueOvershirt;
-  canvas.append(node);
+  const legs = document.createElement('div');
+  legs.className = 'printer-map-seated-legs';
+  legs.setAttribute('aria-hidden', 'true');
+  legs.innerHTML = seatedLegs;
+  canvas.append(node, legs);
   const plane = document.createElement('div');
   plane.className = 'printer-map-plane';
   plane.hidden = true;
@@ -169,9 +174,14 @@ export function createPrinterMapPerson(canvas, { step, scale, getItemNode }) {
     return `translate(${x * scale}px, ${y * scale}px)`;
   }
 
+  function face(angle) {
+    node.style.setProperty('--person-heading', angle);
+    legs.style.setProperty('--person-heading', angle);
+  }
+
   function pose(value, from, to) {
     node.dataset.pose = value;
-    if (from && to && distance(from, to) > .1) node.style.setProperty('--person-heading', `${heading(from, to)}deg`);
+    if (from && to && distance(from, to) > .1) face(`${heading(from, to)}deg`);
   }
 
   async function moveTo(point, token) {
@@ -201,7 +211,7 @@ export function createPrinterMapPerson(canvas, { step, scale, getItemNode }) {
       movement = null;
     }
     position = point;
-    node.style.transform = transform(point);
+    node.style.transform = legs.style.transform = transform(point);
     node.hidden = false;
     closeClearedDoors(point);
     return true;
@@ -381,7 +391,7 @@ export function createPrinterMapPerson(canvas, { step, scale, getItemNode }) {
 
   async function throwPaper({ binId, from, to }, token) {
     const facing = node.style.getPropertyValue('--person-heading');
-    node.style.setProperty('--person-heading', `${heading(position, to)}deg`);
+    face(`${heading(position, to)}deg`);
     node.dataset.throwing = '';
     try {
       await wait(260);
@@ -402,7 +412,7 @@ export function createPrinterMapPerson(canvas, { step, scale, getItemNode }) {
         flight = null;
         plane.hidden = true;
         delete node.dataset.throwing;
-        node.style.setProperty('--person-heading', facing);
+        face(facing);
       }
     }
   }

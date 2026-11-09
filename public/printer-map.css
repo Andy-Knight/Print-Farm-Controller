@@ -248,12 +248,8 @@
   --map-model-height: 40px;
 }
 
-.printer-map-person {
-  --person-shirt: light-dark(#547ca4, #628cb5);
-  --person-shirt-edge: light-dark(#355572, #344c65);
-  --person-skin: light-dark(#e3b38c, #edbd96);
+:is(.printer-map-person, .printer-map-seated-legs) {
   position: absolute;
-  z-index: 4;
   top: 0;
   left: 0;
   width: 0;
@@ -261,7 +257,24 @@
   pointer-events: none;
 }
 
-.printer-map-person svg {
+.printer-map-person {
+  --person-shirt: light-dark(#547ca4, #628cb5);
+  --person-shirt-edge: light-dark(#355572, #344c65);
+  --person-skin: light-dark(#e3b38c, #edbd96);
+  z-index: 4;
+}
+
+/* Draw after the seat at the same layer, underneath the bench. */
+.printer-map-seated-legs {
+  z-index: -1;
+  display: none;
+}
+
+.printer-map-person[data-pose="seated"]:not([hidden]) + .printer-map-seated-legs {
+  display: block;
+}
+
+:is(.printer-map-person, .printer-map-seated-legs) svg {
   display: block;
   width: 36px;
   height: 42px;
@@ -275,18 +288,17 @@
 .printer-map-person .map-person-skin { fill: var(--person-skin); }
 .printer-map-person .map-person-hair { fill: light-dark(#3e332e, #392c28); }
 .printer-map-person .map-person-part { fill: light-dark(#7596b0, #9ec8e2); stroke: light-dark(#38556a, #3f6077); }
-.printer-map-person :is(.map-person-arm, .map-person-leg, .map-person-shoe, .map-person-hand) {
+:is(.printer-map-person, .printer-map-seated-legs) :is(.map-person-arm, .map-person-leg, .map-person-shoe, .map-person-hand) {
   fill: none;
   stroke-width: 6;
   stroke-linecap: round;
 }
 .printer-map-person .map-person-arm { stroke: var(--person-shirt); }
 .printer-map-person .map-person-hand { stroke: var(--person-skin); stroke-width: 4; }
-.printer-map-person .map-person-leg { stroke: light-dark(#586779, #495666); }
-.printer-map-person .map-person-shoe { stroke: light-dark(#273746, #18232d); }
+.map-person-leg { stroke: light-dark(#586779, #495666); }
+.map-person-shoe { stroke: light-dark(#273746, #18232d); }
 .printer-map-person:not([data-pose="seated"], [data-pose="dropping"], [data-pose="collecting"]) .map-person-seated,
 .printer-map-person[data-pose="seated"] :is(.map-person-standing, .map-person-shadow),
-.printer-map-person:not([data-pose="seated"]) .map-person-legs-seated,
 .printer-map-person:is([data-pose="dropping"], [data-pose="collecting"]) .map-person-arm-swing,
 .printer-map-person:is([data-carrying], [data-throwing]) :is(.map-person-arm-swing, .map-person-seated),
 .printer-map-person:not([data-pose="walking"]) .map-person-legs-walking,

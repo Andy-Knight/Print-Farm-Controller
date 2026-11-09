@@ -2978,6 +2978,7 @@ async function printerMapSmoke(browser, url) {
         id:'animation-test', revision:1, name:'Animation test', columns:32, rows:22, compactPrinters:true,
         placements:[{ printerId:printer.id, x:240, y:240 }],
         items:[
+          { id:'seat-bench', type:'bench', label:'', x:40, y:50, width:120, height:140 },
           { id:'first', type:'computer', label:'', x:40, y:50, width:120, height:100 },
           { id:'seat-one', type:'chair', label:'', x:60, y:170, width:80, height:80 },
           { id:'second', type:'computer', label:'', x:440, y:50, width:120, height:100 },
@@ -2991,11 +2992,27 @@ async function printerMapSmoke(browser, url) {
       await monitor.getByRole('heading', { name:'Animation test', exact:true }).waitFor({ timeout:10000 });
       const actor = monitor.locator('.printer-map-person');
       const sprite = actor.locator('svg');
-      const seatedLegs = sprite.locator('.map-person-legs-seated');
+      const seatedLegs = monitor.locator('.printer-map-seated-legs svg');
       const actorPosition = () => actor.evaluate(node => node.style.transform);
       await monitor.locator('.printer-map-person[data-pose="seated"] svg').waitFor();
       assert.equal(await actorPosition(), 'translate(75px, 157.5px)', 'the character begins in the chair at the first computer');
       assert.ok(await seatedLegs.isVisible(), 'the character has visible legs while sitting in a chair');
+      assert.ok(await seatedLegs.evaluate(svg => {
+        const bench = document.querySelector('[data-map-item-id="seat-bench"]');
+        const seat = document.querySelector('[data-map-item-id="seat-one"]');
+        const shoe = svg.querySelector('.map-person-shoe');
+        const layers = [bench, seat, shoe];
+        const pointerEvents = layers.map(layer => layer.style.pointerEvents);
+        try {
+          for (const layer of layers) layer.style.pointerEvents = 'auto';
+          const point = new DOMPoint(11.25, 5.25).matrixTransform(shoe.getScreenCTM());
+          const hits = document.elementsFromPoint(point.x, point.y);
+          return layers.every(layer => hits.includes(layer))
+            && hits.indexOf(bench) < hits.indexOf(shoe) && hits.indexOf(shoe) < hits.indexOf(seat);
+        } finally {
+          layers.forEach((layer, index) => { layer.style.pointerEvents = pointerEvents[index]; });
+        }
+      }), 'the bench covers the shoe while the shoe remains above the chair');
       assert.equal(await monitor.locator('[data-map-item-id="first"][data-workstation-active]').count(), 1);
       const firstGlow = '[data-map-item-id="first"] .printer-map-workstation-glow';
       await monitor.waitForFunction(selector => getComputedStyle(document.querySelector(selector)).opacity === '1', firstGlow);
@@ -3005,6 +3022,7 @@ async function printerMapSmoke(browser, url) {
       completedAt = Date.now();
       const openInteriorDoor = monitor.locator('[data-map-item-id="interior-door"][data-door-open]');
       await openInteriorDoor.waitFor({ timeout:15000 });
+      assert.ok(await seatedLegs.isHidden(), 'the separate seated legs are hidden while walking');
       await monitor.locator('.printer-map-person[data-pose="collecting"] svg').waitFor({ timeout:15000 });
       assert.ok(await openInteriorDoor.isVisible(), 'the door stays open while the character collects a part inside the swing');
       assert.equal(await monitor.locator('[data-workstation-active]').count(), 0);
@@ -3082,6 +3100,8 @@ async function printerMapSmoke(browser, url) {
       });
       const plane = monitor.locator('.printer-map-plane');
       await plane.waitFor({ timeout:5000 });
+      assert.equal(await seatedLegs.evaluate(svg => getComputedStyle(svg).transform),
+        await sprite.evaluate(svg => getComputedStyle(svg).transform), 'seated legs follow the character heading during a throw');
       const landing = await plane.evaluate(node => node.getAnimations()[0].effect.getKeyframes().at(-1).transform);
       assert.match(landing, /^translate\(427\.5px, 187\.5px\)/, 'the plane lands in the centre of the bin');
       assert.equal(await actorPosition(), deskPosition, 'the character stays at the computer for a throw');
