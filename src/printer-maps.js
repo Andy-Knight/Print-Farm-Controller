@@ -1,6 +1,9 @@
 import { randomBytes, randomUUID, timingSafeEqual } from 'node:crypto';
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
+import { fixedItemSizes } from '../public/printer-map-fixed-sizes.js';
+import { deskFront } from '../public/printer-map-walkspace.js';
+import { maxRackBays, maxRackLevels, rackSlotKey } from '../public/printer-map-rack.js';
 
 export const printerMapsFile = 'printer-maps.json';
 export const emptyPrinterMaps = { version:1, maps:[] };
@@ -14,7 +17,7 @@ function mapError(message, statusCode = 400) {
   return Object.assign(new Error(message), { statusCode });
 }
 
-function normalizeLayout(input, { omitLegacyAisles = false } = {}) {
+function normalizeLayout(input, { readStoredLayout = false } = {}) {
   const { name, placements, items = [], columns = 50, rows = 50, compactPrinters = false } = input || {};
   if (typeof name !== 'string' || !name.trim() || name.length > 80 || /[\x00-\x1f\x7f]/.test(name)) {
     throw mapError('Enter a map name of up to 80 characters.');
@@ -24,19 +27,11 @@ function normalizeLayout(input, { omitLegacyAisles = false } = {}) {
       || typeof compactPrinters !== 'boolean') throw mapError('Invalid map size or printer tile setting.');
   const maxX = columns * 20;
   const maxY = rows * 20;
-  const ids = new Set();
-  const positions = placements.map(placement => {
-    const { printerId, x, y } = placement || {};
-    if (typeof printerId !== 'string' || !printerId || ids.has(printerId)
-        || ![x, y].every(value => Number.isInteger(value) && value >= 0) || x > maxX || y > maxY) {
-      throw mapError('Invalid or duplicate printer placement.');
-    }
-    ids.add(printerId);
-    return { printerId, x, y };
-  });
+  let roomWidth = maxX;
+  let roomHeight = maxY;
   if (!Array.isArray(items) || items.length > 200) throw mapError('A map can contain up to 200 layout items.');
   const itemIds = new Set();
-  const currentItems = omitLegacyAisles ? items.filter(item => item?.type !== 'aisle') : items;
+  const currentItems = readStoredLayout ? items.filter(item => item?.type !== 'aisle') : items;
   const layoutItems = currentItems.map(item => {
     const { id, type, label = '', x, y, width, height } = item || {};
     if (typeof id !== 'string' || !/^[a-z0-9-]{1,80}$/i.test(id) || itemIds.has(id)
@@ -48,6 +43,14 @@ function normalizeLayout(input, { omitLegacyAisles = false } = {}) {
     }
     itemIds.add(id);
     const normalized = { id, type, label:label.trim(), x, y, width, height };
+    if (type === 'rack' && (item.levels !== undefined || item.bays !== undefined)) {
+      const { levels, bays } = item;
+      if (!Number.isInteger(levels) || levels < 1 || levels > maxRackLevels
+          || !Number.isInteger(bays) || bays < 1 || bays > maxRackBays) {
+        throw mapError('Invalid rack level or bay count.');
+      }
+      Object.assign(normalized, { levels, bays });
+    }
     if (type === 'wall' || type === 'line') {
       const axis = item.axis ?? (height > width ? 'vertical' : 'horizontal');
       if (axis !== 'vertical' && axis !== 'horizontal') throw mapError('Invalid wall or line orientation.');
@@ -71,9 +74,54 @@ function normalizeLayout(input, { omitLegacyAisles = false } = {}) {
       if (![0, 90, 180, 270].includes(item.rotation)) throw mapError('Invalid furniture orientation.');
       normalized.rotation = item.rotation;
     }
+    if (Object.hasOwn(fixedItemSizes, type)) {
+      const [fixedWidth, fixedHeight] = fixedItemSizes[type];
+      const sideways = (normalized.rotation ?? 0) % 180 === 90;
+      normalized.width = sideways ? fixedHeight : fixedWidth;
+      normalized.height = sideways ? fixedWidth : fixedHeight;
+      if (!readStoredLayout && (normalized.width > maxX || normalized.height > maxY)) {
+        throw mapError(`The room is too small for this ${type}.`);
+      }
+      if (type === 'computer') {
+        // Preserve the centre of the keyboard-facing edge so the chair stays lined up.
+        const [dx, dy] = deskFront(normalized);
+        normalized.x += Math.round((width - normalized.width) * (1 + dx) / 2);
+        normalized.y += Math.round((height - normalized.height) * (1 + dy) / 2);
+      }
+      // A legacy room may have been saved with an item smaller than its fixed footprint.
+      roomWidth = Math.max(roomWidth, normalized.width);
+      roomHeight = Math.max(roomHeight, normalized.height);
+      normalized.x = Math.max(0, Math.min(normalized.x, maxX - normalized.width));
+      normalized.y = Math.max(0, Math.min(normalized.y, maxY - normalized.height));
+    }
     return normalized;
   });
-  return { name:name.trim(), columns, rows, compactPrinters, placements:positions, items:layoutItems };
+  const racks = new Map(layoutItems.filter(item => item.levels).map(item => [item.id, item]));
+  const printerIds = new Set();
+  const occupiedSlots = new Set();
+  const positions = placements.map(placement => {
+    const { printerId, x, y, rackId, level, bay } = placement || {};
+    if (typeof printerId !== 'string' || !printerId || printerIds.has(printerId)) {
+      throw mapError('Invalid or duplicate printer placement.');
+    }
+    printerIds.add(printerId);
+    if (rackId !== undefined) {
+      const rack = racks.get(rackId);
+      if (!rack || !Number.isInteger(level) || level < 1 || level > rack.levels
+          || !Number.isInteger(bay) || bay < 1 || bay > rack.bays) {
+        throw mapError('Invalid or occupied printer rack slot.');
+      }
+      const slot = `${rackId}:${rackSlotKey(level, bay)}`;
+      if (occupiedSlots.has(slot)) throw mapError('Invalid or occupied printer rack slot.');
+      occupiedSlots.add(slot);
+      return { printerId, rackId, level, bay };
+    }
+    if (![x, y].every(value => Number.isInteger(value) && value >= 0) || x > maxX || y > maxY) {
+      throw mapError('Invalid or duplicate printer placement.');
+    }
+    return { printerId, x, y };
+  });
+  return { name:name.trim(), columns:roomWidth / 20, rows:roomHeight / 20, compactPrinters, placements:positions, items:layoutItems };
 }
 
 export function normalizePrinterMaps(store, { includeDisplayLinks = false } = {}) {
@@ -83,7 +131,7 @@ export function normalizePrinterMaps(store, { includeDisplayLinks = false } = {}
   const printerIds = new Set();
   const displayTokens = new Set();
   const maps = store.maps.map(map => {
-    const layout = normalizeLayout(map, { omitLegacyAisles:true });
+    const layout = normalizeLayout(map, { readStoredLayout:true });
     const nameKey = layout.name.toLowerCase();
     if (typeof map.id !== 'string' || !map.id || mapIds.has(map.id) || names.has(nameKey)
         || !Number.isSafeInteger(map.revision) || map.revision < 1) {

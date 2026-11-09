@@ -17,6 +17,7 @@
 
 .printer-map-panel [hidden],
 .printer-map-monitor [hidden],
+.printer-map-rack-dialog [hidden],
 .printer-map-panel p:empty {
   display: none !important;
 }
@@ -248,12 +249,8 @@
   --map-model-height: 40px;
 }
 
-.printer-map-person {
-  --person-shirt: light-dark(#547ca4, #628cb5);
-  --person-shirt-edge: light-dark(#355572, #344c65);
-  --person-skin: light-dark(#e3b38c, #edbd96);
+:is(.printer-map-person, .printer-map-seated-legs) {
   position: absolute;
-  z-index: 4;
   top: 0;
   left: 0;
   width: 0;
@@ -261,7 +258,24 @@
   pointer-events: none;
 }
 
-.printer-map-person svg {
+.printer-map-person {
+  --person-shirt: light-dark(#547ca4, #628cb5);
+  --person-shirt-edge: light-dark(#355572, #344c65);
+  --person-skin: light-dark(#e3b38c, #edbd96);
+  z-index: 4;
+}
+
+/* Draw after the seat at the same layer, underneath the bench. */
+.printer-map-seated-legs {
+  z-index: -1;
+  display: none;
+}
+
+.printer-map-person[data-pose="seated"]:not([hidden]) + .printer-map-seated-legs {
+  display: block;
+}
+
+:is(.printer-map-person, .printer-map-seated-legs) svg {
   display: block;
   width: 36px;
   height: 42px;
@@ -275,15 +289,15 @@
 .printer-map-person .map-person-skin { fill: var(--person-skin); }
 .printer-map-person .map-person-hair { fill: light-dark(#3e332e, #392c28); }
 .printer-map-person .map-person-part { fill: light-dark(#7596b0, #9ec8e2); stroke: light-dark(#38556a, #3f6077); }
-.printer-map-person :is(.map-person-arm, .map-person-leg, .map-person-shoe, .map-person-hand) {
+:is(.printer-map-person, .printer-map-seated-legs) :is(.map-person-arm, .map-person-leg, .map-person-shoe, .map-person-hand) {
   fill: none;
   stroke-width: 6;
   stroke-linecap: round;
 }
 .printer-map-person .map-person-arm { stroke: var(--person-shirt); }
 .printer-map-person .map-person-hand { stroke: var(--person-skin); stroke-width: 4; }
-.printer-map-person .map-person-leg { stroke: light-dark(#586779, #495666); }
-.printer-map-person .map-person-shoe { stroke: light-dark(#273746, #18232d); }
+.map-person-leg { stroke: light-dark(#586779, #495666); }
+.map-person-shoe { stroke: light-dark(#273746, #18232d); }
 .printer-map-person:not([data-pose="seated"], [data-pose="dropping"], [data-pose="collecting"]) .map-person-seated,
 .printer-map-person[data-pose="seated"] :is(.map-person-standing, .map-person-shadow),
 .printer-map-person:is([data-pose="dropping"], [data-pose="collecting"]) .map-person-arm-swing,
@@ -315,10 +329,18 @@
   display: block;
   width: 100%;
   height: 100%;
+}
+
+.printer-map-plane svg,
+.printer-map-bin-paper {
   fill: light-dark(#f4f8fa, #dde8f0);
   stroke: light-dark(#576e7e, #6d8ba0);
   stroke-width: 1.4;
   stroke-linejoin: round;
+}
+
+.printer-map-item:not([data-paper-landed]) .printer-map-bin-paper {
+  display: none;
 }
 
 @keyframes printer-map-paper-throw {
@@ -441,7 +463,7 @@
 }
 
 .printer-map-item[data-kind="floor"] {
-  z-index: -2;
+  z-index: -3;
   border: 0;
   border-radius: 0;
   background:
@@ -454,12 +476,16 @@
 }
 
 .printer-map-item:is([data-kind="zone"], [data-kind="rectangle"]) {
-  z-index: -1;
+  z-index: -2;
   background: color-mix(in srgb, var(--ds-brand) 6%, transparent);
 }
 
 .printer-map-item[data-kind="zone"] {
   border-style: dashed;
+}
+
+.printer-map-item:is([data-kind="chair"], [data-kind="stool"]) {
+  z-index: -1;
 }
 
 .printer-map-item[data-kind="rack"] {
@@ -479,6 +505,106 @@
     linear-gradient(var(--rack-rail) 3px, transparent 3px calc(100% - 3px), var(--rack-rail) calc(100% - 3px)),
     repeating-linear-gradient(90deg, var(--rack-wire) 0 1px, transparent 1px 6px),
     repeating-linear-gradient(0deg, var(--rack-cross-wire) 0 1px, transparent 1px 15px);
+}
+
+.printer-map-item[data-rack-view]:enabled {
+  cursor: pointer;
+  touch-action: auto;
+}
+
+.printer-map-item[data-rack-alert] {
+  border-color: var(--ds-warning);
+  box-shadow: inset 0 0 0 2px var(--ds-warning);
+}
+
+.printer-map-rack-summary {
+  position: absolute;
+  inset: 1px 2px auto;
+  display: flex;
+  gap: 4px;
+  overflow: hidden;
+  padding-inline: 3px;
+  border-radius: 3px;
+  background: var(--ds-surface-muted);
+  color: var(--ds-text);
+  text-align: start;
+  white-space: nowrap;
+  font-size: var(--ds-font-sm);
+}
+
+.printer-map-rack-description {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.printer-map-rack-alert {
+  flex-shrink: 0;
+  padding-inline: 4px;
+  border-radius: var(--ds-radius-sm);
+  background: color-mix(in srgb, var(--ds-warning) 20%, var(--ds-surface-muted));
+  color: var(--ds-warning);
+  font-weight: 700;
+}
+
+.printer-map-rack-beds { color: var(--ds-warning); }
+.printer-map-rack-beds { display: inline-flex; align-items: center; gap: 2px; }
+.printer-map-rack-beds svg { width: 12px; height: 12px; }
+
+.printer-map-rack-summary[hidden],
+.printer-map-rack-beds[hidden],
+.printer-map-rack-settings[hidden],
+#printerMapCanvas .printer-map-marker[hidden] { display: none; }
+
+.printer-map-rack-dialog {
+  --map-marker-width: 96px;
+  --map-marker-height: 116px;
+  --map-model-width: 84px;
+  --map-model-height: 40px;
+  width: min(820px, calc(100vw - 30px));
+}
+
+.printer-map-rack-dialog [role="alert"]:empty { display: none; }
+
+.printer-map-rack-scroll {
+  overflow-x: auto;
+}
+
+.printer-map-rack-levels {
+  width: max-content;
+  min-width: 100%;
+  border-inline: 3px solid var(--ds-border-strong);
+  border-top: 3px solid var(--ds-border-strong);
+}
+
+.printer-map-rack-level {
+  padding: 6px;
+  border-bottom: 3px solid var(--ds-border-strong);
+}
+
+.printer-map-rack-level h3 { margin: 0 0 4px; }
+
+.printer-map-rack-bays {
+  display: grid;
+  grid-template-columns: repeat(var(--rack-bays), minmax(110px, 1fr));
+  gap: 6px;
+}
+
+.printer-map-rack-slot {
+  display: grid;
+  justify-items: center;
+  align-content: start;
+  gap: 4px;
+  min-height: 142px;
+  padding: 4px;
+  border: 1px solid var(--ds-border);
+  border-radius: var(--ds-radius-sm);
+  background: var(--ds-surface-muted);
+}
+
+.printer-map-rack-slot select {
+  width: 100%;
+  max-width: 132px;
 }
 
 .printer-map-item[data-kind="shelf"] {
@@ -722,27 +848,45 @@ button.printer-map-item:is([data-kind="bench"], [data-kind="rack"]) {
   outline-offset: -2px;
 }
 
-:is(.printer-map-item [data-map-resize], #printerMapFloorResize) {
+:is(.printer-map-item [data-map-resize], .printer-map-floor-resize) {
   position: absolute;
   width: 16px;
   height: 16px;
-  border-right: 3px solid var(--ds-brand);
   border-bottom: 3px solid var(--ds-brand);
+}
+
+[data-map-resize="right"] {
+  border-right: 3px solid var(--ds-brand);
   cursor: nwse-resize;
+}
+
+[data-map-resize="left"] {
+  border-left: 3px solid var(--ds-brand);
+  cursor: nesw-resize;
 }
 
 .printer-map-item [data-map-resize] {
   display: none;
-  right: 0;
+  max-width: 50%;
+  max-height: 100%;
   bottom: 0;
 }
 
-#printerMapFloorResize {
+.printer-map-item [data-map-resize="left"] { left: 0; }
+.printer-map-item [data-map-resize="right"] { right: 0; }
+
+.printer-map-floor-resize {
   z-index: 4;
   left: calc(var(--map-dot-spacing) * var(--map-x));
   top: calc(var(--map-dot-spacing) * var(--map-y));
-  transform: translate(-100%, -100%);
+  max-width: calc(var(--map-dot-spacing) * var(--map-item-width) / 2);
+  max-height: calc(var(--map-dot-spacing) * var(--map-item-height));
+  transform: translateY(-100%);
   touch-action: none;
+}
+
+.printer-map-floor-resize[data-map-resize="right"] {
+  transform: translate(-100%, -100%);
 }
 
 .printer-map-item.is-single-selection [data-map-resize] {
@@ -803,6 +947,22 @@ button.printer-map-item:is([data-kind="bench"], [data-kind="rack"]) {
   z-index: 2;
   left: calc(var(--map-dot-spacing) * var(--map-x));
   top: calc(var(--map-dot-spacing) * var(--map-y));
+}
+
+#printerMapCanvas .printer-map-marker.is-rack-projected {
+  transform: scale(var(--rack-marker-scale));
+  transform-origin: top left;
+}
+
+.printer-map-bay-level:not([hidden]) {
+  position: absolute;
+  inset: 4px auto auto 4px;
+  padding: 1px 4px;
+  border-radius: var(--ds-radius-pill);
+  background: var(--ds-surface-muted);
+  color: var(--ds-text);
+  font-size: var(--ds-font-sm);
+  pointer-events: none;
 }
 
 #printerMapCanvas.is-editing .printer-map-marker {
@@ -872,15 +1032,15 @@ button.printer-map-item:is([data-kind="bench"], [data-kind="rack"]) {
   width: 54px;
 }
 
-.is-compact .printer-map-marker {
+:is(.is-compact, .printer-map-rack-dialog) .printer-map-marker {
   font-size: var(--ds-font-xs);
 }
 
-.is-compact .printer-map-placeholder {
+:is(.is-compact, .printer-map-rack-dialog) .printer-map-placeholder {
   width: 36px;
 }
 
-.is-compact .printer-map-flags > * {
+:is(.is-compact, .printer-map-rack-dialog) .printer-map-flags > * {
   font-size: .68rem;
   padding-inline: 3px;
 }
@@ -921,10 +1081,15 @@ button.printer-map-item:is([data-kind="bench"], [data-kind="rack"]) {
   place-items: center;
   width: 20px;
   height: 20px;
+  padding: 0;
   border: 1px solid currentColor;
   border-radius: var(--ds-radius-sm);
   color: var(--ds-warning);
   background: var(--ds-surface-muted);
+}
+
+button.printer-map-clearance[aria-disabled="true"] {
+  cursor: progress;
 }
 
 .printer-map-clearance svg {

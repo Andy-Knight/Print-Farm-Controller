@@ -1,11 +1,17 @@
 import { orientPrinterMapFurniture, printerMapFurnitureArtwork } from './printer-map-artwork.js';
 import { createPrinterMapPerson } from './printer-map-person.js';
+import { fixedItemSizes } from './printer-map-fixed-sizes.js';
+import { defaultRackSize, rackBayBounds } from './printer-map-rack.js';
+import { createRackView } from './printer-map-rack-view.js';
 
 const endpoint = '/api/printer-maps';
 const preferenceKey = 'pfc-printer-map';
 const motionPreferenceKey = 'pfc-printer-map-motion';
+const bedClearanceIcon = `<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-linecap="round" aria-hidden="true">
+  <path d="M5 8V3h6v5M3 9h10l2 4H1zM5 11h6"/>
+</svg>`;
 const defaultRoomSteps = 50;
-const unlabelledTypes = new Set(['floor', 'bench', 'rack', 'shelf', 'window', 'plant-pot', 'chair', 'stool', 'bin']);
+const unlabelledTypes = new Set(['floor', 'bench', 'rack', 'shelf', 'window', 'plant-pot', 'chair', 'stool', 'computer', 'bin']);
 const rotatableFurniture = new Set(['chair', 'computer']);
 const itemTypes = {
   floor:{ name:'Floor', size:[600, 400] },
@@ -20,9 +26,9 @@ const itemTypes = {
   line:{ name:'Line', size:[260, 40] },
   'plant-pot':{ name:'Plant pot', size:[80, 80] },
   window:{ name:'Window', size:[160, 40] },
-  chair:{ name:'Chair', size:[80, 100] },
-  stool:{ name:'Stool', size:[80, 80] },
-  computer:{ name:'Computer', size:[120, 100] },
+  chair:{ name:'Chair', size:fixedItemSizes.chair },
+  stool:{ name:'Stool', size:fixedItemSizes.stool },
+  computer:{ name:'Computer', size:fixedItemSizes.computer },
   controller:{ name:'Controller', size:[100, 80] },
   bin:{ name:'Bin', size:[60, 60] }
 };
@@ -63,7 +69,7 @@ const objectSymbols = {
     <path d="M15 38h18"/>`
 };
 
-export function createPrinterMapPage({ api, canEdit, openPrinter, openAlerts, openQueue, displayOnly = false }) {
+export function createPrinterMapPage({ api, canEdit, openPrinter, openAlerts, openQueue, clearBed, displayOnly = false }) {
   const page = document.querySelector('#printerMapPage');
   const room = page.querySelector('#printerMapSelect');
   const roomControls = room?.closest('.printer-map-room-controls');
@@ -95,7 +101,7 @@ export function createPrinterMapPage({ api, canEdit, openPrinter, openAlerts, op
   const box = page.querySelector('#printerMapBox');
   const groupStatus = page.querySelector('#printerMapGroup');
   const itemLayer = page.querySelector('#printerMapItems');
-  const floorResize = page.querySelector('#printerMapFloorResize');
+  const floorResizes = [...page.querySelectorAll('.printer-map-floor-resize')];
   const itemEditor = page.querySelector('#printerMapItemEditor');
   const selectedItem = page.querySelector('#printerMapSelectedItem');
   const inlineLabel = page.querySelector('#printerMapInlineLabel');
@@ -124,6 +130,7 @@ export function createPrinterMapPage({ api, canEdit, openPrinter, openAlerts, op
   const actions = Object.fromEntries([...page.querySelectorAll('[data-map-action]')]
     .map(button => [button.dataset.mapAction, button]));
   const markers = new Map();
+  const pendingClearances = new Set();
   const itemNodes = new Map();
   const paletteButtons = new Map();
   let maps = [];
@@ -139,6 +146,18 @@ export function createPrinterMapPage({ api, canEdit, openPrinter, openAlerts, op
   let loaded = false;
   let nativeFullscreen = false;
   let previousScroll;
+  let openRackId = '';
+  const rackView = createRackView(page, {
+    setOptions,
+    onClose:() => {
+      if (rackView.dialog.open) return;
+      openRackId = '';
+      renderMarkers();
+      fitFullscreen();
+    },
+    onResize:resizeRack,
+    onAssign:assignRackSlot
+  });
 
   for (const [type, { name: itemName }] of displayOnly ? [] : Object.entries(itemTypes)) {
     const button = document.createElement('button');
@@ -159,6 +178,45 @@ export function createPrinterMapPage({ api, canEdit, openPrinter, openAlerts, op
 
   function currentMap() {
     return displayOnly ? maps[0] : draft || maps.find(map => map.id === activeId);
+  }
+
+  function rackName(map, rack) {
+    return `Rack ${map.items.filter(item => item.type === 'rack').indexOf(rack) + 1}`;
+  }
+
+  function openRack(rack) {
+    if (!rack || busy || rackView.dialog.open) return;
+    if (draft && !rack.levels) Object.assign(rack, defaultRackSize);
+    if (!rack.levels) return;
+    openRackId = rack.id;
+    (fullscreenDialog?.open ? fullscreenDialog : page).append(rackView.dialog);
+    rackView.showError('');
+    rackView.dialog.showModal();
+    renderMarkers();
+  }
+
+  function resizeRack(levels, bays) {
+    const rack = draft?.items.find(item => item.id === openRackId);
+    if (!rack || busy) return;
+    if (draft.placements.some(item => item.rackId === rack.id && (item.level > levels || item.bay > bays))) {
+      rackView.showError('Empty the affected slots before reducing the number of levels or bays.');
+    } else {
+      Object.assign(rack, { levels, bays });
+      rackView.showError('');
+    }
+    renderMarkers();
+  }
+
+  function assignRackSlot(level, bay, printerId) {
+    if (!draft || busy || !openRackId) return;
+    draft.placements = draft.placements.filter(item => {
+      const keep = item.printerId !== printerId && !(item.rackId === openRackId && item.level === level && item.bay === bay);
+      if (!keep) selected.delete(item);
+      return keep;
+    });
+    if (printerId) draft.placements.push({ printerId, rackId:openRackId, level, bay });
+    rackView.showError('');
+    renderMarkers();
   }
 
   function setOptions(select, options, value) {
@@ -206,10 +264,14 @@ export function createPrinterMapPage({ api, canEdit, openPrinter, openAlerts, op
     }
     const printerWidth = parseFloat(canvasStyle.getPropertyValue('--map-marker-width')) / personScale;
     const printerHeight = parseFloat(canvasStyle.getPropertyValue('--map-marker-height')) / personScale;
-    const placements = map.placements.filter(item => markers.has(item.printerId));
+    const racks = new Map(map.items.filter(item => item.levels).map(item => [item.id, item]));
+    const placements = map.placements.filter(item => markers.has(item.printerId)).map(item => ({
+      id:item.printerId,
+      ...(item.rackId ? rackBayBounds(racks.get(item.rackId), item.bay)
+        : { x:item.x, y:item.y, width:printerWidth, height:printerHeight })
+    }));
     person.update({ ...roomBounds(), map, tiles:printers, walls:personWalls, doorways, motionEnabled,
-      printers:placements.map(({ printerId, x, y }) =>
-        ({ id:printerId, x, y, width:printerWidth, height:printerHeight }))
+      printers:placements
     });
   }
 
@@ -249,6 +311,10 @@ export function createPrinterMapPage({ api, canEdit, openPrinter, openAlerts, op
     const tile = document.createElement('div');
     const action = displayOnly ? 'span' : 'button';
     const type = displayOnly ? '' : ' type="button"';
+    const clearanceTag = !displayOnly && clearBed ? 'button' : 'span';
+    const clearanceAttrs = clearanceTag === 'button'
+      ? 'type="button" data-map-printer-action="clear-bed" title="Mark bed cleared"'
+      : 'role="img" aria-label="Bed needs clearing" title="Bed needs clearing"';
     tile.className = 'printer-map-marker';
     tile.dataset.printerId = printerId;
     tile.innerHTML = `<${action}${type} class="printer-map-details" data-map-printer-action="details">
@@ -261,17 +327,17 @@ export function createPrinterMapPage({ api, canEdit, openPrinter, openAlerts, op
       <span class="printer-map-printing" hidden>Printing</span>
       <${action}${type} class="printer-map-queued" data-map-printer-action="queue"></${action}>
     </span>
-    <span class="printer-map-clearance" role="img" aria-label="Bed needs clearing" title="Bed needs clearing" hidden>
-      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-linecap="round" aria-hidden="true">
-        <path d="M5 8V3h6v5M3 9h10l2 4H1zM5 11h6"/>
-      </svg>
-    </span>
+    <${clearanceTag} class="printer-map-clearance" ${clearanceAttrs} hidden>
+      ${bedClearanceIcon}
+    </${clearanceTag}>
+    <span class="printer-map-bay-level" role="img" hidden></span>
     <span class="printer-map-progress" role="progressbar" hidden></span>`;
     const marker = {
       tile, image:tile.querySelector('img'), placeholder:tile.querySelector('.printer-map-placeholder'),
       details:tile.querySelector('.printer-map-details'), label:tile.querySelector('strong'), alert:tile.querySelector('.printer-map-alert'),
       printing:tile.querySelector('.printer-map-printing'), queued:tile.querySelector('.printer-map-queued'),
       clearance:tile.querySelector('.printer-map-clearance'), progress:tile.querySelector('.printer-map-progress'),
+      bayLevel:tile.querySelector('.printer-map-bay-level'),
       effects:new Map()
     };
     markers.set(printerId, marker);
@@ -338,7 +404,7 @@ export function createPrinterMapPage({ api, canEdit, openPrinter, openAlerts, op
     const canvasWidth = canvas.offsetWidth;
     const canvasHeight = canvas.offsetHeight;
     if (!canvasWidth || !canvasHeight) return;
-    const contents = canvas.querySelectorAll('.printer-map-marker, .printer-map-item');
+    const contents = canvas.querySelectorAll('.printer-map-marker:not(.is-rack-projected, [hidden]), .printer-map-item');
     let left = 0;
     let top = 0;
     let right = canvasWidth;
@@ -381,8 +447,8 @@ export function createPrinterMapPage({ api, canEdit, openPrinter, openAlerts, op
         setText(fullscreenTitle, map?.name || 'Printer map');
         fullscreenTitle.title = map?.name || '';
         renderRoomGeometry();
-        renderMarkers();
         renderItems();
+        renderMarkers();
         syncPerson();
         fitFullscreen();
       }
@@ -481,6 +547,7 @@ export function createPrinterMapPage({ api, canEdit, openPrinter, openAlerts, op
     }
   });
   fullscreenDialog.addEventListener('close', () => {
+    if (rackView.dialog.open) rackView.dialog.close();
     nativeFullscreen = false;
     if (document.fullscreenElement === fullscreenDialog) document.exitFullscreen().catch(() => {});
     fullscreenResize.disconnect();
@@ -495,8 +562,13 @@ export function createPrinterMapPage({ api, canEdit, openPrinter, openAlerts, op
   }
 
   function positionFloorResize(item) {
-    floorResize.style.setProperty('--map-x', (item.x + item.width) / gridStep);
-    floorResize.style.setProperty('--map-y', (item.y + item.height) / gridStep);
+    for (const handle of floorResizes) {
+      const x = handle.dataset.mapResize === 'left' ? item.x : item.x + item.width;
+      handle.style.setProperty('--map-x', x / gridStep);
+      handle.style.setProperty('--map-y', (item.y + item.height) / gridStep);
+      handle.style.setProperty('--map-item-width', item.width / gridStep);
+      handle.style.setProperty('--map-item-height', item.height / gridStep);
+    }
   }
 
   function updateItem(node, item) {
@@ -512,7 +584,7 @@ export function createPrinterMapPage({ api, canEdit, openPrinter, openAlerts, op
     }
     if (item.type === 'floor' && !node.disabled && node.classList.contains('is-single-selection')) {
       positionFloorResize(item);
-      floorResize.hidden = false;
+      for (const handle of floorResizes) handle.hidden = false;
     }
     if (rotatableFurniture.has(item.type)) {
       orientPrinterMapFurniture(node.querySelector('.printer-map-furniture'), item.type, item.rotation ?? 0);
@@ -689,7 +761,7 @@ export function createPrinterMapPage({ api, canEdit, openPrinter, openAlerts, op
   }
 
   function renderItems() {
-    if (floorResize) floorResize.hidden = true;
+    for (const handle of floorResizes) handle.hidden = true;
     const items = currentMap()?.items || [];
     const itemIds = new Set(items.map(item => item.id));
     for (const [id, node] of itemNodes) {
@@ -719,26 +791,47 @@ export function createPrinterMapPage({ api, canEdit, openPrinter, openAlerts, op
           viewBox="0 0 48 48" preserveAspectRatio="${item.type === 'window' ? 'none' : 'xMidYMid meet'}"
           aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.5"
           stroke-linecap="round" stroke-linejoin="round">${objectSymbols[item.type]}</svg>` : '');
-        const resize = item.type === 'floor' ? '' : '<span data-map-resize aria-hidden="true"></span>';
+        const resize = item.type === 'floor' || Object.hasOwn(fixedItemSizes, item.type)
+          ? '' : '<span data-map-resize="left" aria-hidden="true"></span><span data-map-resize="right" aria-hidden="true"></span>';
         const shelfParts = item.type === 'shelf'
           ? `<span class="printer-map-shelf-parts" aria-hidden="true">${'<span hidden></span>'.repeat(4)}</span>` : '';
-        node.innerHTML = `${symbol}${shelfParts}<span class="printer-map-item-label"></span>${resize}`;
+        const rackSummary = item.type === 'rack' ? `<span class="printer-map-rack-summary" hidden>
+          <span class="printer-map-rack-description"></span>
+          <span class="printer-map-rack-alert" aria-hidden="true" hidden></span>
+          <span class="printer-map-rack-beds" aria-hidden="true" hidden>${bedClearanceIcon}<span></span></span>
+        </span>` : '';
+        node.innerHTML = `${symbol}${shelfParts}${rackSummary}<span class="printer-map-item-label"></span>${resize}`;
+        if (item.type === 'rack') node.addEventListener('click', () => {
+          if (!draft) openRack(currentMap().items.find(entry => entry.id === item.id));
+        });
         itemLayer.append(node);
         itemNodes.set(item.id, node);
       }
-      node.disabled = busy || !draft;
-      node.setAttribute('aria-pressed', String(selected.has(item)));
+      node.disabled = busy || (!draft && !item.levels);
+      if (item.type === 'rack') {
+        node.querySelector('.printer-map-rack-summary').hidden = !item.levels;
+        if (!item.levels) node.removeAttribute('data-rack-alert');
+      }
+      node.toggleAttribute('data-rack-view', Boolean(!draft && item.levels));
+      if (draft) node.setAttribute('aria-pressed', String(selected.has(item)));
+      else node.removeAttribute('aria-pressed');
       node.classList.toggle('is-single-selection', selected.has(item) && selected.size === 1);
       updateItem(node, item);
     }
     updateLayoutJoins();
     if (displayOnly) return;
-    for (const button of paletteButtons.values()) button.disabled = items.length >= 200;
+    const { width, height } = roomBounds();
+    for (const [type, button] of paletteButtons) {
+      const tooSmall = Object.hasOwn(fixedItemSizes, type)
+        && (fixedItemSizes[type][0] > width || fixedItemSizes[type][1] > height);
+      button.disabled = items.length >= 200 || tooSmall;
+    }
     const item = singleSelection();
     const editableItem = Boolean(item?.type);
     const editingDoor = item?.type === 'door';
     const canRotate = rotatableFurniture.has(item?.type);
     actions.rotateItem.hidden = !canRotate;
+    actions.manageRack.hidden = item?.type !== 'rack';
     lineOrientation.hidden = !item?.axis;
     if (item?.axis) itemFields.lineAxis.value = item.axis;
     doorDirection.hidden = actions.flipDoor.hidden = !editingDoor;
@@ -759,9 +852,52 @@ export function createPrinterMapPage({ api, canEdit, openPrinter, openAlerts, op
   function renderMarkers() {
     const map = currentMap();
     const placements = new Map(map?.placements.map(item => [item.printerId, item]));
+    const racks = new Map(map?.items?.filter(item => item.levels)
+      .map(item => [item.id, { item, slots:[], levels:new Set(), bays:new Map() }]));
+    const printerById = new Map(printers.map(printer => [printer.id, printer]));
+    for (const placement of placements.values()) {
+      const rack = racks.get(placement.rackId);
+      if (!rack) continue;
+      rack.slots.push(placement);
+      if (!printerById.has(placement.printerId)) continue;
+      rack.levels.add(placement.level);
+      const bay = rack.bays.get(placement.bay) ?? { top:placement, count:0 };
+      if (placement.level > bay.top.level) bay.top = placement;
+      bay.count++;
+      rack.bays.set(placement.bay, bay);
+    }
+    for (const [id, rack] of racks) {
+      const node = itemNodes.get(id);
+      if (!node) continue;
+      const devices = rack.slots.map(slot => printerById.get(slot.printerId)).filter(Boolean);
+      const alerts = devices.filter(device => device.alert).length;
+      const beds = devices.filter(device => device.bedClearance).length;
+      const alertCount = alerts ? `${alerts} alert${alerts === 1 ? '' : 's'}` : '';
+      const description = [rackName(map, rack.item), `${devices.length} printer${devices.length === 1 ? '' : 's'}`,
+        rack.levels.size === 1 ? `Level ${rack.levels.values().next().value}` : `${rack.item.levels} levels`].join(' · ');
+      const summary = [description, alertCount,
+        beds && `${beds} bed${beds === 1 ? '' : 's'} to clear`].filter(Boolean).join(' · ');
+      setText(node.querySelector('.printer-map-rack-description'), description);
+      const alertBadge = node.querySelector('.printer-map-rack-alert');
+      node.toggleAttribute('data-rack-alert', Boolean(alertCount));
+      alertBadge.hidden = !alertCount;
+      setText(alertBadge, alertCount);
+      const bedBadge = node.querySelector('.printer-map-rack-beds');
+      bedBadge.hidden = !beds;
+      setText(bedBadge.lastElementChild, beds.toString());
+      node.title = summary;
+      if (!draft) node.setAttribute('aria-label', `View ${summary}`);
+    }
     const assigned = new Set(maps.filter(saved => saved.id !== map?.id)
       .flatMap(saved => saved.placements.map(item => item.printerId)));
     const unplaced = printers.filter(printer => !assigned.has(printer.id) && !placements.has(printer.id));
+    const activeRack = rackView.dialog.open ? racks.get(openRackId) : null;
+    if (activeRack) {
+      const choices = draft ? printers.filter(printer => !assigned.has(printer.id)
+        && !placements.get(printer.id)?.rackId).map(printer => [printer.id, printer.name]) : [];
+      rackView.render(activeRack.item, rackName(map, activeRack.item), Boolean(draft), busy, activeRack.slots,
+        new Map(printers.map(printer => [printer.id, printer.name])), choices);
+    } else if (rackView.dialog.open) rackView.dialog.close();
     if (draft) {
       setOptions(available, [['', 'Choose a printer'], ...unplaced.map(printer => [printer.id, printer.name])], available.value);
       available.disabled = !unplaced.length;
@@ -796,10 +932,30 @@ export function createPrinterMapPage({ api, canEdit, openPrinter, openAlerts, op
         marker.details.setAttribute('aria-label', `Open printer details for ${printer.name}`);
         marker.alert.setAttribute('aria-label', `View alerts for ${printer.name}`);
         marker.queued.setAttribute('aria-label', `View queue for ${printer.name} (${printer.queued} queued)`);
+        if (clearBed) {
+          marker.clearance.disabled = Boolean(draft);
+          marker.clearance.setAttribute('aria-label', `Mark bed cleared for ${printer.name}`);
+          marker.clearance.setAttribute('aria-disabled', String(pendingClearances.has(printer.id)));
+        }
       }
       const placement = placements.get(printer.id);
-      if (placement) updateMarkerPosition(marker.tile, placement);
-      if (draft) {
+      const rack = racks.get(placement?.rackId);
+      const bay = rack?.bays.get(placement.bay);
+      const frontSlot = rack && rack === activeRack ? rackView.slot(placement) : null;
+      const projected = Boolean(bay && !draft && !frontSlot && bay.top === placement);
+      const tile = marker.tile;
+      tile.hidden = Boolean(rack && !frontSlot && !projected);
+      tile.classList.toggle('is-rack-projected', projected);
+      marker.bayLevel.hidden = !projected || rack.levels.size === 1;
+      if (!marker.bayLevel.hidden) {
+        const below = bay.count - 1;
+        setText(marker.bayLevel, `L${placement.level}${below ? ` · +${below}` : ''}`);
+        marker.bayLevel.setAttribute('aria-label',
+          `Level ${placement.level}${below ? ` · ${below} printer${below === 1 ? '' : 's'} below` : ''}`);
+      }
+      if (projected) positionRackPrinter(tile, rack.item, placement.bay);
+      else if (placement && !rack) updateMarkerPosition(tile, placement);
+      if (draft && !frontSlot) {
         marker.tile.setAttribute('role', 'button');
         marker.tile.tabIndex = busy ? -1 : 0;
         marker.tile.setAttribute('aria-disabled', String(busy));
@@ -812,7 +968,8 @@ export function createPrinterMapPage({ api, canEdit, openPrinter, openAlerts, op
       } else {
         for (const attr of ['role', 'tabindex', 'aria-disabled', 'aria-pressed', 'aria-label']) marker.tile.removeAttribute(attr);
       }
-      if (marker.tile.parentElement !== parent) parent.append(marker.tile);
+      const container = frontSlot || parent;
+      if (tile.parentElement !== container) container.append(tile);
     }
 
     if (displayOnly) return;
@@ -825,6 +982,20 @@ export function createPrinterMapPage({ api, canEdit, openPrinter, openAlerts, op
         ? `${visible.length} ${visible.length === 1 ? 'printer' : 'printers'} on this map`
         : `${maps.length ? '' : 'No room maps yet. '}${unplaced.length} unplaced ${unplaced.length === 1 ? 'printer' : 'printers'}`);
     }
+  }
+
+  function positionRackPrinter(tile, rack, bay) {
+    const bounds = rackBayBounds(rack, bay);
+    const width = parseFloat(canvasStyle.getPropertyValue('--map-marker-width')) / personScale;
+    const height = parseFloat(canvasStyle.getPropertyValue('--map-marker-height')) / personScale;
+    const header = 18 / personScale;
+    const scale = Math.min(1, (bounds.width - 4 / personScale) / width, (bounds.height - header) / height);
+    tile.hidden = scale <= 0;
+    tile.style.setProperty('--rack-marker-scale', scale);
+    updateMarkerPosition(tile, {
+      x:bounds.x + (bounds.width - width * scale) / 2,
+      y:bounds.y + (bounds.height + header - height * scale) / 2
+    });
   }
 
   function render() {
@@ -844,12 +1015,13 @@ export function createPrinterMapPage({ api, canEdit, openPrinter, openAlerts, op
     canvas.classList.toggle('is-editing', editing);
     renderRoomGeometry();
     actions.delete.hidden = !draft?.id;
-    renderMarkers();
     renderItems();
+    renderMarkers();
     syncPerson();
   }
 
   function endEdit() {
+    if (rackView.dialog.open) rackView.dialog.close();
     finishItemLabel(false);
     clearPaletteDrag();
     draft = null;
@@ -965,8 +1137,9 @@ export function createPrinterMapPage({ api, canEdit, openPrinter, openAlerts, op
     const { width, height } = roomBounds();
     if (entries.length === 1) {
       const [{ placement, x, y }] = entries;
-      placement.x = snap(x + dx, width, placement.width);
-      placement.y = snap(y + dy, height, placement.height);
+      const step = placementStep(placement.type);
+      placement.x = snap(x + dx, width, placement.width, step);
+      placement.y = snap(y + dy, height, placement.height, step);
     } else {
       // Clamp one shared grid delta so the group cannot shear at a map edge.
       const minX = Math.max(...entries.map(entry => -entry.x));
@@ -986,28 +1159,35 @@ export function createPrinterMapPage({ api, canEdit, openPrinter, openAlerts, op
       const node = nodeFor(placement);
       if (node) updateMarkerPosition(node, placement);
     }
-    if (!floorResize.hidden && entries.length === 1 && entries[0].placement.type === 'floor') {
+    if (entries.length === 1 && entries[0].placement.type === 'floor' && floorResizes.some(handle => !handle.hidden)) {
       positionFloorResize(entries[0].placement);
     }
     if (entries.some(({ placement }) => placement.axis || ['door', 'window'].includes(placement.type))) updateLayoutJoins();
   }
 
-  function snap(value, boundary, extent = 0) {
-    // Each dot is centred in its grid cell over the tile's usable travel.
-    const nearest = Math.round((value - gridOffset) / gridStep) * gridStep + gridOffset;
-    const limit = Math.floor((boundary - gridOffset - extent) / gridStep) * gridStep + gridOffset;
-    if (limit < gridOffset) return boundary - extent;
-    return Math.min(limit, Math.max(gridOffset, nearest));
+  function placementStep(type) {
+    return type === 'chair' || type === 'stool' ? gridStep / 2 : gridStep;
   }
 
-  function resizeItem(item, width, height, anchored = false) {
+  function snap(value, boundary, extent = 0, step = gridStep) {
+    // Seat positions can also land halfway between the regular grid dots.
+    const offset = gridOffset % step;
+    const nearest = Math.round((value - offset) / step) * step + offset;
+    const limit = Math.floor((boundary - offset - extent) / step) * step + offset;
+    if (limit < offset) return boundary - extent;
+    return Math.min(limit, Math.max(offset, nearest));
+  }
+
+  function resizeItem(item, width, height, anchor) {
     const bounds = roomBounds();
-    const dimension = (value, boundary, start) => Math.min(Math.floor((boundary - start) / gridStep),
+    const dimension = (value, limit) => Math.min(Math.floor(limit / gridStep),
       Math.max(1, Math.round(value / gridStep))) * gridStep;
-    item.width = dimension(width, bounds.width, anchored ? item.x : 0);
-    item.height = dimension(height, bounds.height, anchored ? item.y : 0);
+    const maxWidth = anchor?.edge === 'left' ? anchor.right : bounds.width - (anchor?.x ?? 0);
+    item.width = dimension(width, maxWidth);
+    item.height = dimension(height, bounds.height - (anchor?.y ?? 0));
     if (item.axis === 'vertical') item.width = Math.min(2 * gridStep, bounds.width);
     if (item.axis === 'horizontal') item.height = Math.min(2 * gridStep, bounds.height);
+    if (anchor?.edge === 'left') item.x = anchor.right - item.width;
     if (item.x + item.width > bounds.width) item.x = snap(item.x, bounds.width, item.width);
     if (item.y + item.height > bounds.height) item.y = snap(item.y, bounds.height, item.height);
     updateItem(itemNodes.get(item.id), item);
@@ -1042,7 +1222,7 @@ export function createPrinterMapPage({ api, canEdit, openPrinter, openAlerts, op
   }
 
   function markerAt(event) {
-    if (event.target === floorResize) {
+    if (floorResizes.includes(event.target)) {
       const item = singleSelection();
       return item ? nodeFor(item) : null;
     }
@@ -1092,7 +1272,8 @@ export function createPrinterMapPage({ api, canEdit, openPrinter, openAlerts, op
     finishItemLabel(event.key === 'Enter')?.focus({ preventScroll:true });
   });
 
-  page.addEventListener('click', event => {
+  page.addEventListener('click', async event => {
+    if (draft && rackView.dialog.contains(event.target)) return;
     const marker = markerAt(event);
     if (!marker) return;
     if (draft) {
@@ -1108,8 +1289,24 @@ export function createPrinterMapPage({ api, canEdit, openPrinter, openAlerts, op
     } else if (!busy && marker.dataset.printerId) {
       const action = event.target.closest('[data-map-printer-action]')?.dataset.mapPrinterAction;
       if (!action) return;
-      if (fullscreenDialog.open) fullscreenDialog.close();
       const printerId = marker.dataset.printerId;
+      if (action === 'clear-bed') {
+        const printer = printers.find(item => item.id === printerId);
+        if (!clearBed || !printer?.bedClearance || pendingClearances.has(printerId)) return;
+        pendingClearances.add(printerId);
+        markers.get(printerId).clearance.setAttribute('aria-disabled', 'true');
+        try {
+          await clearBed(printerId, printer.name);
+        } catch (error) {
+          alert(error.message);
+        } finally {
+          pendingClearances.delete(printerId);
+          markers.get(printerId)?.clearance.setAttribute('aria-disabled', 'false');
+        }
+        return;
+      }
+      if (rackView.dialog.open) rackView.dialog.close();
+      if (fullscreenDialog.open) fullscreenDialog.close();
       if (action === 'alerts') openAlerts(printerId);
       else if (action === 'queue') openQueue(printerId);
       else openPrinter(printerId);
@@ -1132,12 +1329,13 @@ export function createPrinterMapPage({ api, canEdit, openPrinter, openAlerts, op
     if (!placement) return;
     if (!selected.has(placement)) selected = new Set([placement]);
     marker.focus({ preventScroll:true });
-    const captureTarget = event.target === floorResize ? floorResize : marker;
+    const captureTarget = floorResizes.includes(event.target) ? event.target : marker;
     captureTarget.setPointerCapture(event.pointerId);
+    const edge = event.target.closest('[data-map-resize]')?.dataset.mapResize;
     drag = { placement, id:event.pointerId, start:canvasPoint(event),
       entries:[...selected].map(entry => ({ placement:entry, x:entry.x, y:entry.y })),
       width:placement.width, height:placement.height,
-      resizing:Boolean(event.target.closest('[data-map-resize]')),
+      resizeAnchor:edge && { edge, x:placement.x, y:placement.y, right:placement.x + placement.width },
     };
   });
   canvas.addEventListener('pointermove', event => {
@@ -1149,8 +1347,9 @@ export function createPrinterMapPage({ api, canEdit, openPrinter, openAlerts, op
     }
     const dx = (point.x - drag.start.x) * gridStep / gridPixels;
     const dy = (point.y - drag.start.y) * gridStep / gridPixels;
-    if (drag.resizing) {
-      resizeItem(drag.placement, drag.width + dx, drag.height + dy, true);
+    if (drag.resizeAnchor) {
+      const width = drag.width + (drag.resizeAnchor.edge === 'left' ? -dx : dx);
+      resizeItem(drag.placement, width, drag.height + dy, drag.resizeAnchor);
       return;
     }
     moveSelection(drag.entries, dx, dy);
@@ -1162,7 +1361,7 @@ export function createPrinterMapPage({ api, canEdit, openPrinter, openAlerts, op
     selected.clear();
     if (!box.hidden) {
       const bounds = box.getBoundingClientRect();
-      for (const placement of [...draft.placements, ...draft.items]) {
+      for (const placement of [...draft.placements.filter(item => !item.rackId), ...draft.items]) {
         const rect = nodeFor(placement)?.getBoundingClientRect();
         if (rect && rect.left >= bounds.left && rect.right <= bounds.right
             && rect.top >= bounds.top && rect.bottom <= bounds.bottom) selected.add(placement);
@@ -1201,7 +1400,7 @@ export function createPrinterMapPage({ api, canEdit, openPrinter, openAlerts, op
     const placement = placementFor(marker);
     if (!placement) return;
     if (!selected.has(placement)) selected = new Set([placement]);
-    const step = gridStep * (event.shiftKey ? 3 : 1);
+    const step = event.shiftKey ? 3 * gridStep : selected.size === 1 ? placementStep(placement.type) : gridStep;
     const entries = [...selected].map(entry => ({ placement:entry, x:entry.x, y:entry.y }));
     moveSelection(entries, delta[0] * step, delta[1] * step);
     renderMarkers();
@@ -1240,7 +1439,8 @@ export function createPrinterMapPage({ api, canEdit, openPrinter, openAlerts, op
     const units = gridStep / gridPixels;
     const x = point ? point.x * units - width / 2 : viewport.scrollLeft * units + offset;
     const y = point ? point.y * units - height / 2 : viewport.scrollTop * units + offset;
-    return { x:snap(x, bounds.width, width), y:snap(y, bounds.height, height), width, height };
+    const step = placementStep(type);
+    return { x:snap(x, bounds.width, width, step), y:snap(y, bounds.height, height, step), width, height };
   }
 
   function addItem(type, geometry) {
@@ -1317,9 +1517,15 @@ export function createPrinterMapPage({ api, canEdit, openPrinter, openAlerts, op
     if (!draft || busy || !item?.type) return;
     if (labelItem === item) finishItemLabel(false);
     draft.items = draft.items.filter(entry => entry !== item);
+    if (item.type === 'rack') draft.placements = draft.placements.filter(entry => entry.rackId !== item.id);
     selected.clear();
     renderItems();
+    renderMarkers();
     paletteButtons.get(item.type).focus();
+  });
+  actions.manageRack.addEventListener('click', () => {
+    const rack = singleSelection();
+    if (draft && rack?.type === 'rack') openRack(rack);
   });
   itemFields.doorRotation.addEventListener('change', () => {
     const item = singleSelection();
@@ -1346,13 +1552,14 @@ export function createPrinterMapPage({ api, canEdit, openPrinter, openAlerts, op
     if (!draft || busy || !rotatableFurniture.has(item?.type)) return;
     const { width, height } = roomBounds();
     if (item.height > width || item.width > height) {
-      setText(error, 'Resize the item so its rotated footprint fits in the room.');
+      setText(error, `Enlarge the room to fit the rotated ${itemTypeName(item.type).toLowerCase()}.`);
       return;
     }
     [item.width, item.height] = [item.height, item.width];
     item.rotation = ((item.rotation ?? 0) + 90) % 360;
-    if (item.x + item.width > width) item.x = snap(item.x, width, item.width);
-    if (item.y + item.height > height) item.y = snap(item.y, height, item.height);
+    const step = placementStep(item.type);
+    if (item.x + item.width > width) item.x = snap(item.x, width, item.width, step);
+    if (item.y + item.height > height) item.y = snap(item.y, height, item.height, step);
     setText(error, '');
     renderItems();
   });
@@ -1379,6 +1586,7 @@ export function createPrinterMapPage({ api, canEdit, openPrinter, openAlerts, op
     if (!draft || busy) return;
     draft.compactPrinters = printerDensity.value === 'compact';
     renderRoomGeometry();
+    renderMarkers();
   });
   form.addEventListener('submit', event => {
     event.preventDefault();

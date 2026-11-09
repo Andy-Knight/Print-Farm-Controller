@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { promises as fs } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { normalizePrinterMaps, printerMapsFile, readPrinterMaps, savePrinterMap } from '../src/printer-maps.js';
+import { normalizePrinterMaps, printerMapDisplayLink, printerMapsFile, readDisplayedPrinterMap, readPrinterMaps, savePrinterMap } from '../src/printer-maps.js';
 
 test('printer map writes preserve room geometry and enforce placement and revision constraints', async t => {
   const dataDir = await fs.mkdtemp(path.join(os.tmpdir(), 'pfc-printer-maps-'));
@@ -67,7 +67,8 @@ test('room items round-trip, remain map-scoped and reject invalid geometry', asy
   const item = { id:'bench-1', type:'bench', label:'Finishing', x:50, y:80, width:300, height:120 };
   const objects = ['plant-pot', 'window', 'chair', 'stool', 'computer', 'controller', 'shelf', 'bin'].map((type, index) => ({
     id:type, type, label:`Fixture ${index + 1}`, x:50 + index * 100, y:260, width:80, height:80,
-    ...(type === 'chair' ? { rotation:90 } : type === 'computer' ? { rotation:270 } : {})
+    ...(type === 'chair' ? { rotation:90, height:60 } : type === 'computer' ? { rotation:270, width:60 } : {}),
+    ...(type === 'stool' ? { width:60, height:60 } : {})
   }));
   const floor = { id:'floor', type:'floor', label:'Workshop floor', x:0, y:0, width:1000, height:1000 };
   const items = [item, ...objects, floor];
@@ -92,6 +93,66 @@ test('room items round-trip, remain map-scoped and reject invalid geometry', asy
   assert.deepEqual([legacyEdit.columns, legacyEdit.rows, legacyEdit.compactPrinters], [75, 60, true]);
   await assert.rejects(save({ ...legacyEdit, columns:49 }, cleared.id), { statusCode:400 });
   await assert.rejects(save({ ...legacyEdit, rows:201 }, cleared.id), { statusCode:400 });
+});
+
+test('seating uses fixed rotated footprints and keeps legacy seats inside the room', async t => {
+  const dataDir = await fs.mkdtemp(path.join(os.tmpdir(), 'pfc-map-seating-'));
+  t.after(() => fs.rm(dataDir, { recursive:true, force:true }));
+  const chair = { id:'chair', type:'chair', x:40, y:40, width:20, height:20, rotation:90 };
+  const stool = { id:'stool', type:'stool', x:0, y:0, width:80, height:100 };
+  const room = { name:'Seating', columns:5, rows:5, placements:[], items:[chair, stool] };
+  const { maps:[saved] } = await savePrinterMap(dataDir, { input:room, printerIds:new Set() });
+  assert.deepEqual(saved.items.map(({ x, y, width, height }) => [x, y, width, height]),
+    [[20, 40, 80, 60], [0, 0, 60, 60]]);
+  const tiny = { ...room, columns:3, rows:3, items:[chair] };
+  await assert.rejects(savePrinterMap(dataDir, { input:tiny, printerIds:new Set() }), /too small/);
+  const { maps:[legacy] } = normalizePrinterMaps({ version:1, maps:[{ ...tiny, id:'old', revision:1 }] });
+  assert.deepEqual([legacy.columns, legacy.rows], [4, 3]);
+  assert.deepEqual(legacy.items[0], { ...chair, label:'', x:0, y:0, width:80, height:60 });
+});
+
+test('legacy computers keep their keyboard edge aligned as their footprint shrinks', () => {
+  const sizes = [[70, 90, 80, 60], [50, 70, 60, 80], [70, 50, 80, 60], [90, 70, 60, 80]];
+  const items = [0, 90, 180, 270].map(rotation => ({
+    id:`computer-${rotation}`, type:'computer', x:50, y:50, rotation,
+    width:rotation % 180 ? 100 : 120, height:rotation % 180 ? 120 : 100
+  }));
+  const normalized = normalizePrinterMaps({ version:1, maps:[
+    { id:'room', name:'Workshop', revision:1, placements:[], items }
+  ] });
+  assert.deepEqual(normalized.maps[0].items.map(({ x, y, width, height }) => [x, y, width, height]), sizes);
+  assert.deepEqual(normalizePrinterMaps(normalized), normalized);
+});
+
+test('rack slots survive saves and enforce rack capacity and unique printer placement', async t => {
+  const dataDir = await fs.mkdtemp(path.join(os.tmpdir(), 'pfc-map-racks-'));
+  t.after(() => fs.rm(dataDir, { recursive:true, force:true }));
+  const rack = { id:'rack', type:'rack', label:'', x:20, y:20, width:200, height:120, levels:3, bays:6 };
+  const placements = [
+    { printerId:'a1', rackId:'rack', level:1, bay:6 },
+    { printerId:'u1', rackId:'rack', level:3, bay:6 }
+  ];
+  const input = { name:'Rack room', items:[rack], placements };
+  const printerIds = new Set(['a1', 'u1']);
+  const save = (data, id) => savePrinterMap(dataDir, { id, input:data, printerIds });
+  const { maps:[created] } = await save(input);
+  assert.deepEqual(created.placements, placements);
+  const moved = { ...rack, x:80, y:120 };
+  const { maps:[updated] } = await save({ ...created, items:[moved] }, created.id);
+  assert.deepEqual(updated.placements, placements);
+  assert.deepEqual((await readPrinterMaps(dataDir)).maps[0], updated);
+  const token = (await printerMapDisplayLink(dataDir, created.id, 'POST')).token;
+  assert.deepEqual((await readDisplayedPrinterMap(dataDir, `Bearer ${token}`)).placements, placements);
+  for (const invalid of [
+    { placements:[placements[0], { ...placements[1], level:1 }] },
+    { placements:[placements[0], { printerId:'a1', x:10, y:10 }] },
+    { placements:[{ ...placements[0], rackId:'missing' }] },
+    { items:[{ ...rack, bays:5 }] },
+    { items:[{ ...rack, levels:7 }] }
+  ]) {
+    await assert.rejects(save({ ...updated, ...invalid }, updated.id), { statusCode:400 });
+  }
+  await assert.rejects(save({ ...input, name:'Second room' }), { statusCode:409 });
 });
 
 test('doors preserve legacy orientation and save an explicit swing direction and hinge', async t => {

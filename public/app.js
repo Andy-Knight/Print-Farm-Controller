@@ -547,7 +547,8 @@ const printerMap = createPrinterMapPage({
   canEdit:() => !document.body.dataset.authRole || document.body.dataset.authRole === 'administrator',
   openPrinter,
   openAlerts:printerId => navigateController('/alerts', { printerId }),
-  openQueue:printerId => navigateController('/queue', { printerId })
+  openQueue:printerId => navigateController('/queue', { printerId }),
+  clearBed:['', 'administrator', 'operator'].includes(document.body.dataset.authRole || '') ? confirmBedCleared : null
 });
 document.querySelector('#printerMapBtn').addEventListener('click', event => {
   if (!event.__controllerRouteInvoke) return;

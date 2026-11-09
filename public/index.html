@@ -286,7 +286,7 @@
         <button id="printerMapMonitoringLink" type="button" class="secondary" hidden>Monitoring link</button>
         <button data-map-motion type="button" class="ui-switch" role="switch" aria-checked="false" hidden>
           <span class="ui-switch-track" aria-hidden="true"></span>
-          <span class="ui-switch-label">Animate person</span>
+          <span class="ui-switch-label">Enable animation</span>
         </button>
       </div>
       <form id="printerMapEditor" hidden>
@@ -332,6 +332,7 @@
         </label>
         <button type="button" class="secondary" data-map-action="flipDoor" aria-pressed="false" hidden>Flip hinge</button>
         <button type="button" class="secondary" data-map-action="rotateItem" hidden>Rotate 90°</button>
+        <button type="button" class="secondary" data-map-action="manageRack" hidden>Manage rack</button>
         <button type="button" class="danger" data-map-action="removeItem">Remove item</button>
       </fieldset>
       <p id="printerMapStatus" class="subtle" role="status"></p>
@@ -340,7 +341,8 @@
       <div id="printerMapViewport" class="printer-map-viewport" role="region" aria-label="Room layout" tabindex="0" hidden>
         <div id="printerMapCanvas">
           <div id="printerMapItems"></div>
-          <span id="printerMapFloorResize" data-map-resize aria-hidden="true" hidden></span>
+          <span id="printerMapFloorResize" class="printer-map-floor-resize" data-map-resize="right" aria-hidden="true" hidden></span>
+          <span class="printer-map-floor-resize" data-map-resize="left" aria-hidden="true" hidden></span>
           <div id="printerMapBox" aria-hidden="true" hidden></div>
           <div id="printerMapItemPreview" aria-hidden="true" hidden></div>
           <input id="printerMapInlineLabel" type="text" aria-label="Item label" maxlength="80" hidden>
@@ -368,7 +370,7 @@
           <div class="printer-map-fullscreen-actions">
             <button data-map-motion type="button" class="ui-switch" role="switch" aria-checked="false" hidden>
               <span class="ui-switch-track" aria-hidden="true"></span>
-              <span class="ui-switch-label">Animate person</span>
+              <span class="ui-switch-label">Enable animation</span>
             </button>
             <button id="printerMapExitFullscreen" type="button" class="ui-button ui-button-secondary ui-button-medium secondary" autofocus>Exit full screen</button>
           </div>

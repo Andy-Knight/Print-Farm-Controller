@@ -2119,7 +2119,9 @@ async function printerMapSmoke(browser, url) {
     online:true, status:{ status:'printing' } };
   const unknownPrinter = { id:'map-unknown', name:'Unknown model', model:'Unknown', adapterType:'unknown' };
   const secondPrinter = { ...printer, id:'map-p2', name:'Second printer' };
-  const fleet = { printers:[printer, unknownPrinter, secondPrinter], queue:{ jobs:[
+  const fleet = { printers:[printer, unknownPrinter, secondPrinter], queue:{
+    bedClearance:[{ printerId:printer.id, printerName:printer.name }],
+    jobs:[
     { id:'queued-1', printerId:printer.id, printerName:printer.name, fileName:'Workshop job.gcode', status:'queued' },
     { id:'active-copy', printerId:printer.id, fileName:'Workshop production copy.gcode', productionBatchId:'batch-1', status:'printing' },
     { id:'other-queued', printerId:secondPrinter.id, fileName:'Other job.gcode', status:'queued' },
@@ -2132,6 +2134,7 @@ async function printerMapSmoke(browser, url) {
   }));
   const testDisplayToken = 'm'.repeat(43);
   let displayToken = '';
+  let clearanceSubmissions = 0;
   const store = { version:1, maps:[{ id:'upstairs', name:'Upstairs', revision:1, placements:[], items:[
     { id:'join-h', type:'wall', axis:'horizontal', label:'', x:30, y:30, width:120, height:40 },
     { id:'join-v', type:'wall', axis:'vertical', label:'', x:150, y:30, width:40, height:120 },
@@ -2149,6 +2152,12 @@ async function printerMapSmoke(browser, url) {
   await context.route('**/dashboard-preact.js', route => route.abort());
   await context.route('**/api/fleet', route => route.fulfill({ json:fleet }));
   await context.route('**/api/queue', route => route.fulfill({ json:fleet.queue }));
+  await context.route('**/api/queue/bed-clearance/map-p1', route => {
+    assert.equal(route.request().method(), 'POST');
+    clearanceSubmissions++;
+    fleet.queue.bedClearance = [];
+    return route.fulfill({ json:{ queue:fleet.queue } });
+  });
   await context.route(/\/api\/alerts\?/, route => {
     const printerId = new URL(route.request().url()).searchParams.get('printerId');
     return route.fulfill({ json:{ alerts:{
@@ -2196,6 +2205,7 @@ async function printerMapSmoke(browser, url) {
     assert.equal(await page.getByRole('button', { name:/rotate/i }).count(), 0);
     assert.match(await marker.getAttribute('aria-label'), /Workshop Bambu Lab A1.*Alert.*Printing.*1 queued/);
     assert.equal(await marker.locator('.printer-map-alert').isDisabled(), true, 'map editing reserves tile clicks for selection');
+    assert.equal(await marker.locator('.printer-map-clearance').isDisabled(), true, 'map editing disables the clearance action');
     const name = marker.locator('strong');
     const nameLines = await name.evaluate(node => node.offsetHeight / parseFloat(getComputedStyle(node).lineHeight));
     assert.ok(Math.abs(nameLines - 2) < 0.1, 'the printer name wraps onto two lines');
@@ -2278,11 +2288,11 @@ async function printerMapSmoke(browser, url) {
       await page.mouse.move(x + 8 + dx, y + 8 + dy, { steps:4 });
       await page.mouse.up();
     };
-    const resizeBy = (item, dx, dy) => resizeHandleBy(item.locator('[data-map-resize]'), dx, dy);
+    const resizeBy = (item, dx, dy, edge = 'right') => resizeHandleBy(item.locator(`[data-map-resize="${edge}"]`), dx, dy);
     const beforeResize = await zone.boundingBox();
     await resizeBy(zone, 40, 20);
     assert.ok((await zone.boundingBox()).width > beforeResize.width + 20, 'zones resize from the corner');
-    const resize = zone.locator('[data-map-resize]');
+    const resize = zone.locator('[data-map-resize="right"]');
     await resize.scrollIntoViewIfNeeded();
     const edgeHandle = await resize.boundingBox();
     const canvasBounds = await page.locator('#printerMapCanvas').boundingBox();
@@ -2300,6 +2310,15 @@ async function printerMapSmoke(browser, url) {
       'dragging stops at the last whole step inside the room');
     await resizeBy(zone, (16 - resizedAtEdge.steps) * 15, 0);
     assert.equal(await zone.evaluate(element => element.style.getPropertyValue('--map-item-width')), '16');
+    const geometry = item => item.evaluate(node => ['--map-x', '--map-y', '--map-item-width', '--map-item-height']
+      .map(key => Number(node.style.getPropertyValue(key))));
+    const zoneBeforeLeft = await geometry(zone);
+    const [zoneX, zoneY, zoneWidth, zoneHeight] = zoneBeforeLeft;
+    await resizeBy(zone, -30, 15, 'left');
+    assert.deepEqual(await geometry(zone), [zoneX - 2, zoneY, zoneWidth + 2, zoneHeight + 1],
+      'the bottom-left handle keeps the top-right corner anchored');
+    await resizeBy(zone, 30, -15, 'left');
+    assert.deepEqual(await geometry(zone), zoneBeforeLeft, 'the bottom-left handle can shrink both dimensions');
     assert.equal(await page.getByRole('button', { name:'Box select' }).count(), 0);
     const viewport = page.locator('#printerMapViewport');
     await viewport.scrollIntoViewIfNeeded();
@@ -2445,6 +2464,13 @@ async function printerMapSmoke(browser, url) {
         node.style.removeProperty('top');
       });
     }
+    const floorLeft = page.locator('.printer-map-floor-resize[data-map-resize="left"]');
+    const floorBeforeLeft = await geometry(floor);
+    const [floorX, floorY, floorWidth, floorHeight] = floorBeforeLeft;
+    await resizeHandleBy(floorLeft, -15, 0);
+    assert.deepEqual(await geometry(floor), [floorX - 1, floorY, floorWidth + 1, floorHeight]);
+    await resizeHandleBy(floorLeft, 15, 0);
+    assert.deepEqual(await geometry(floor), floorBeforeLeft);
     await paletteButton('shelf').press('Enter');
     const unlabelledItems = ['floor', 'bench', 'rack', 'shelf'];
     for (const type of unlabelledItems) {
@@ -2492,7 +2518,7 @@ async function printerMapSmoke(browser, url) {
         assert.ok(await objectOnMap(type).locator('.printer-map-furniture').isVisible(), `${type} uses the selected artwork`);
         assert.equal(await paletteButton(type).locator('svg defs').count(), 0, `${type} retains its outline palette icon`);
       }
-      if (type !== 'computer' && type !== 'controller') {
+      if (type !== 'controller') {
         assert.equal(await objectOnMap(type).innerText(), '', `${type} has no on-map label`);
         await objectOnMap(type).press('F2');
         assert.equal(await label.isVisible(), false, `${type} has no inline label editor`);
@@ -2510,13 +2536,35 @@ async function printerMapSmoke(browser, url) {
       'two steel mullions divide the opening into three sections');
     assert.match(await windowPlan.getAttribute('transform'), /^translate\(0 /);
     const chair = objectOnMap('chair');
+    const stool = objectOnMap('stool');
     const rotate = page.getByRole('button', { name:'Rotate 90°', exact:true });
     await chair.press('Space');
+    assert.equal(await chair.locator('[data-map-resize]').count(), 0, 'chairs cannot be resized');
     await rotate.click();
     const chairDrawing = chair.locator('.printer-map-furniture');
     assert.equal(await chairDrawing.getAttribute('viewBox'), '0 0 60 48');
     assert.equal(await chairDrawing.locator(':scope > g').getAttribute('transform'), 'translate(60 0) rotate(90)');
+    await stool.press('Space');
+    assert.equal(await stool.locator('[data-map-resize]').count(), 0, 'stools cannot be resized');
+    const bench = objectOnMap('bench');
+    await bench.scrollIntoViewIfNeeded();
+    for (const seat of [chair, stool]) {
+      assert.ok(await seat.evaluate(node => {
+        const bench = document.querySelector('.printer-map-item[data-kind="bench"]');
+        const original = node.style.cssText;
+        try {
+          node.style.left = `${bench.offsetLeft + 10}px`;
+          node.style.top = `${bench.offsetTop + 10}px`;
+          const { x, y } = node.getBoundingClientRect();
+          const hits = document.elementsFromPoint(x + 5, y + 5);
+          return hits.includes(node) && hits.includes(bench) && hits.indexOf(bench) < hits.indexOf(node);
+        } finally {
+          node.style.cssText = original;
+        }
+      }), 'the bench covers overlapping seating');
+    }
     await computer.press('Shift+ArrowRight');
+    assert.equal(await computer.locator('[data-map-resize]').count(), 0, 'computers cannot be resized');
     await rotate.click();
     const computerDrawing = computer.locator('.printer-map-furniture');
     assert.equal(await computerDrawing.getAttribute('viewBox'), '0 0 48 72');
@@ -2525,9 +2573,31 @@ async function printerMapSmoke(browser, url) {
       return transform.c < 0 && Math.abs(transform.d) < .001;
     });
     assert.ok(glowFollowsKeyboard, 'the glow turns toward the keyboard when the workstation rotates');
-    await computer.press('F2');
-    await label.fill('Slicing station');
-    await label.press('Enter');
+    const [computerX, computerY, , computerHeight] = await geometry(computer);
+    const [chairX, chairY, chairWidth, chairHeight] = await geometry(chair);
+    const chairTarget = [computerX - chairWidth - 1, computerY + (computerHeight - chairHeight) / 2];
+    const moveChair = async (delta, positive, negative) => {
+      const key = delta > 0 ? positive : negative;
+      const halfSteps = Math.abs(delta * 2);
+      for (let i = 0; i < Math.floor(halfSteps / 6); i++) await chair.press(`Shift+${key}`);
+      for (let i = 0; i < halfSteps % 6; i++) await chair.press(key);
+    };
+    await moveChair(chairTarget[0] - chairX, 'ArrowRight', 'ArrowLeft');
+    await moveChair(chairTarget[1] - chairY - .5, 'ArrowDown', 'ArrowUp');
+    assert.deepEqual((await geometry(chair)).slice(0, 2), [chairTarget[0], chairTarget[1] - .5]);
+    await chair.scrollIntoViewIfNeeded();
+    const chairBounds = await chair.boundingBox();
+    const chairCentre = { x:chairBounds.x + chairBounds.width / 2, y:chairBounds.y + chairBounds.height / 2 };
+    await page.mouse.move(chairCentre.x, chairCentre.y);
+    await page.mouse.down();
+    await page.mouse.move(chairCentre.x, chairCentre.y + 7.5, { steps:4 });
+    await page.mouse.up();
+    assert.deepEqual((await geometry(chair)).slice(0, 2), chairTarget,
+      'a half-step drag centres the chair in front of the rotated computer');
+    const [stoolX, stoolY] = await geometry(stool);
+    await stool.press('ArrowRight');
+    assert.deepEqual((await geometry(stool)).slice(0, 2), [stoolX + .5, stoolY],
+      'stools also move a half step with an arrow key');
     const columns = page.getByRole('spinbutton', { name:'Map width (steps)', exact:true });
     const rows = page.getByRole('spinbutton', { name:'Map height (steps)', exact:true });
     const standardBounds = await marker.boundingBox();
@@ -2567,11 +2637,15 @@ async function printerMapSmoke(browser, url) {
     const savedFloor = store.maps[1].items.find(item => item.type === 'floor');
     assert.deepEqual([savedFloor.width, savedFloor.height], [620, 420], 'the resized floor is saved');
     assert.deepEqual(store.maps[1].items.slice(-roomObjects.length).map(item => item.type), roomObjects);
-    assert.equal(store.maps[1].items.at(-1).label, 'Slicing station');
     const savedChair = store.maps[1].items.find(item => item.type === 'chair');
     const savedComputer = store.maps[1].items.at(-1);
-    assert.deepEqual([savedChair.width, savedChair.height, savedChair.rotation], [100, 80, 90]);
-    assert.deepEqual([savedComputer.width, savedComputer.height, savedComputer.rotation], [100, 120, 90]);
+    assert.equal(savedComputer.label, '');
+    savedComputer.label = 'Label from an older map';
+    assert.deepEqual([savedChair.width, savedChair.height, savedChair.rotation], [80, 60, 90]);
+    assert.deepEqual([savedChair.x, savedChair.y], chairTarget.map(value => value * 20));
+    const savedStool = store.maps[1].items.find(item => item.type === 'stool');
+    assert.deepEqual([savedStool.width, savedStool.height], [60, 60]);
+    assert.deepEqual([savedComputer.width, savedComputer.height, savedComputer.rotation], [60, 80, 90]);
     assert.equal(store.maps[1].items[0].label, 'Post-processing');
     assert.equal(store.maps[1].items[0].width, 320);
     const savedDoor = store.maps[1].items.find(item => item.type === 'door');
@@ -2597,8 +2671,9 @@ async function printerMapSmoke(browser, url) {
     for (const type of unlabelledItems) {
       assert.equal(await objectOnMap(type).innerText(), '', `previously saved ${type} labels are hidden`);
     }
-    assert.equal(await computer.innerText(), 'Slicing station');
+    assert.equal(await computer.innerText(), '', 'previously saved computer labels are hidden');
     assert.equal(await chairDrawing.getAttribute('viewBox'), '0 0 60 48');
+    assert.deepEqual((await geometry(chair)).slice(0, 2), chairTarget, 'the half-step position survives reload');
     assert.equal(await computerDrawing.getAttribute('viewBox'), '0 0 48 72');
     assert.equal(await marker.getAttribute('style'), savedStyle);
     assert.deepEqual(await assertSnapped(), savedPosition);
@@ -2702,7 +2777,7 @@ async function printerMapSmoke(browser, url) {
     await page.locator('#printerMapSelect').selectOption('workshop');
     await marker.waitFor();
     await page.addStyleTag({ content:'#printerMapViewport::-webkit-scrollbar { width:15px; height:15px; }' });
-    const mapMotion = page.getByRole('switch', { name:'Animate person' });
+    const mapMotion = page.getByRole('switch', { name:'Enable animation' });
     for (const theme of ['light', 'dark']) {
       await page.evaluate(theme => { document.documentElement.dataset.theme = theme; }, theme);
       for (const width of [1365, 900, 760, 620, 390, 320]) {
@@ -2812,7 +2887,7 @@ async function printerMapSmoke(browser, url) {
     await fullScreen.click();
     await fullScreenDialog.waitFor();
     const narrowScale = await assertFitsFullscreen();
-    const fullscreenMotion = fullScreenDialog.getByRole('switch', { name:'Animate person' });
+    const fullscreenMotion = fullScreenDialog.getByRole('switch', { name:'Enable animation' });
     assert.ok(await fullscreenMotion.isVisible());
     const motionBefore = await fullscreenMotion.getAttribute('aria-checked');
     await fullscreenMotion.press('Space');
@@ -2841,6 +2916,23 @@ async function printerMapSmoke(browser, url) {
     await page.waitForFunction(() => !document.fullscreenElement
       && document.activeElement?.id === 'printerMapEnterFullscreen'
       && document.querySelector('#printerMapViewport').parentElement.classList.contains('printer-map-panel'));
+    const clearBed = marker.getByRole('button', { name:`Mark bed cleared for ${printer.name}` });
+    page.once('dialog', dialog => dialog.dismiss());
+    await clearBed.click();
+    assert.equal(clearanceSubmissions, 0, 'cancelling the clearance prompt submits nothing');
+    assert.ok(await clearBed.isVisible());
+    await fullScreen.click();
+    let clearancePrompt;
+    page.once('dialog', dialog => {
+      clearancePrompt = dialog.message();
+      return dialog.accept();
+    });
+    await clearBed.press('Enter');
+    await clearBed.waitFor({ state:'hidden' });
+    assert.match(clearancePrompt, /The next queued job may start immediately/);
+    assert.equal(clearanceSubmissions, 1, 'confirming the map action clears just the selected printer');
+    assert.ok(await fullScreenDialog.isVisible(), 'clearing a bed keeps the map in full screen');
+    await exitFullScreen.click();
     for (const preact of [false, true]) {
       if (preact) {
         await context.unroute('**/dashboard-preact.js');
@@ -2957,9 +3049,10 @@ async function printerMapSmoke(browser, url) {
         id:'animation-test', revision:1, name:'Animation test', columns:32, rows:22, compactPrinters:true,
         placements:[{ printerId:printer.id, x:240, y:240 }],
         items:[
-          { id:'first', type:'computer', label:'', x:40, y:50, width:120, height:100 },
+          { id:'seat-bench', type:'bench', label:'', x:40, y:50, width:120, height:140 },
+          { id:'first', type:'computer', label:'', x:60, y:90, width:80, height:60 },
           { id:'seat-one', type:'chair', label:'', x:60, y:170, width:80, height:80 },
-          { id:'second', type:'computer', label:'', x:440, y:50, width:120, height:100 },
+          { id:'second', type:'computer', label:'', x:460, y:90, width:80, height:60 },
           { id:'seat-two', type:'stool', label:'', x:460, y:170, width:80, height:80 },
           { id:'interior-north', type:'wall', axis:'vertical', x:190, y:0, width:40, height:180 },
           { id:'interior-south', type:'wall', axis:'vertical', x:190, y:300, width:40, height:140 },
@@ -2970,9 +3063,27 @@ async function printerMapSmoke(browser, url) {
       await monitor.getByRole('heading', { name:'Animation test', exact:true }).waitFor({ timeout:10000 });
       const actor = monitor.locator('.printer-map-person');
       const sprite = actor.locator('svg');
+      const seatedLegs = monitor.locator('.printer-map-seated-legs svg');
       const actorPosition = () => actor.evaluate(node => node.style.transform);
       await monitor.locator('.printer-map-person[data-pose="seated"] svg').waitFor();
       assert.equal(await actorPosition(), 'translate(75px, 157.5px)', 'the character begins in the chair at the first computer');
+      assert.ok(await seatedLegs.isVisible(), 'the character has visible legs while sitting in a chair');
+      assert.ok(await seatedLegs.evaluate(svg => {
+        const bench = document.querySelector('[data-map-item-id="seat-bench"]');
+        const seat = document.querySelector('[data-map-item-id="seat-one"]');
+        const shoe = svg.querySelector('.map-person-shoe');
+        const layers = [bench, seat, shoe];
+        const pointerEvents = layers.map(layer => layer.style.pointerEvents);
+        try {
+          for (const layer of layers) layer.style.pointerEvents = 'auto';
+          const point = new DOMPoint(11.25, 5.25).matrixTransform(shoe.getScreenCTM());
+          const hits = document.elementsFromPoint(point.x, point.y);
+          return layers.every(layer => hits.includes(layer))
+            && hits.indexOf(bench) < hits.indexOf(shoe) && hits.indexOf(shoe) < hits.indexOf(seat);
+        } finally {
+          layers.forEach((layer, index) => { layer.style.pointerEvents = pointerEvents[index]; });
+        }
+      }), 'the bench covers the shoe while the shoe remains above the chair');
       assert.equal(await monitor.locator('[data-map-item-id="first"][data-workstation-active]').count(), 1);
       const firstGlow = '[data-map-item-id="first"] .printer-map-workstation-glow';
       await monitor.waitForFunction(selector => getComputedStyle(document.querySelector(selector)).opacity === '1', firstGlow);
@@ -2982,6 +3093,7 @@ async function printerMapSmoke(browser, url) {
       completedAt = Date.now();
       const openInteriorDoor = monitor.locator('[data-map-item-id="interior-door"][data-door-open]');
       await openInteriorDoor.waitFor({ timeout:15000 });
+      assert.ok(await seatedLegs.isHidden(), 'the separate seated legs are hidden while walking');
       await monitor.locator('.printer-map-person[data-pose="collecting"] svg').waitFor({ timeout:15000 });
       assert.ok(await openInteriorDoor.isVisible(), 'the door stays open while the character collects a part inside the swing');
       assert.equal(await monitor.locator('[data-workstation-active]').count(), 0);
@@ -2992,9 +3104,12 @@ async function printerMapSmoke(browser, url) {
       assert.ok(await progress.isHidden());
       const clearance = monitorTile.getByRole('img', { name:'Bed needs clearing' });
       assert.ok(await clearance.isVisible());
+      assert.equal(await monitorTile.getByRole('button', { name:/Mark bed cleared/ }).count(), 0,
+        'the monitoring badge is read-only');
       await monitor.locator('.printer-map-person[data-pose="seated"] svg').waitFor({ timeout:12000 });
       assert.equal(await openInteriorDoor.count(), 0, 'the interior door closes once the character clears the swing');
       assert.equal(await actorPosition(), 'translate(375px, 157.5px)', 'the character returns to the selected computer and sits on its stool');
+      assert.ok(await seatedLegs.isVisible(), 'the character has visible legs while sitting on a stool');
       assert.equal(await monitor.locator('[data-map-item-id="second"][data-workstation-active]').count(), 1);
       activity = { ...activity, bedClearance:false };
       animationMap = { ...animationMap, revision:2, items:[...animationMap.items.filter(item => !item.id.startsWith('interior-')),
@@ -3049,6 +3164,8 @@ async function printerMapSmoke(browser, url) {
       await monitor.locator('.printer-map-person[data-pose="seated"] svg').waitFor({ timeout:12000 });
       assert.equal(await openDoor.count(), 0, 'the exit door closes after the character clears the return swing');
       const deskPosition = await actorPosition();
+      const paperInBin = monitor.locator('[data-map-item-id="paper-bin"] .printer-map-bin-paper');
+      assert.ok(await paperInBin.isHidden(), 'the bin starts empty');
       await monitor.waitForFunction(() => typeof window.startMapIdleAction === 'function');
       await monitor.evaluate(() => {
         Math.random = () => .1;
@@ -3056,16 +3173,20 @@ async function printerMapSmoke(browser, url) {
       });
       const plane = monitor.locator('.printer-map-plane');
       await plane.waitFor({ timeout:5000 });
+      assert.equal(await seatedLegs.evaluate(svg => getComputedStyle(svg).transform),
+        await sprite.evaluate(svg => getComputedStyle(svg).transform), 'seated legs follow the character heading during a throw');
       const landing = await plane.evaluate(node => node.getAnimations()[0].effect.getKeyframes().at(-1).transform);
       assert.match(landing, /^translate\(427\.5px, 187\.5px\)/, 'the plane lands in the centre of the bin');
       assert.equal(await actorPosition(), deskPosition, 'the character stays at the computer for a throw');
       await plane.waitFor({ state:'hidden', timeout:5000 });
+      assert.ok(await paperInBin.isVisible(), 'part of the plane stays visible after landing');
       assert.equal(await openDoor.count(), 0, 'the plane throw is an alternative to a door trip');
       await monitor.emulateMedia({ reducedMotion:'reduce' });
       await monitor.waitForFunction(() => {
         const node = document.querySelector('.printer-map-person');
         return !node.hidden && node.dataset.pose === 'seated' && node.style.transform === 'translate(75px, 157.5px)';
       });
+      assert.ok(await paperInBin.isVisible(), 'the landed plane remains visible with reduced motion');
       completedAt = Date.now();
       queued = 5;
       const effectsBefore = await monitor.evaluate(() => window.mapEffects.length);
@@ -3073,7 +3194,7 @@ async function printerMapSmoke(browser, url) {
       assert.equal(await monitor.evaluate(() => window.mapEffects.length), effectsBefore, 'reduced motion suppresses printer pulses');
       assert.equal(await actorPosition(), 'translate(75px, 157.5px)', 'reduced motion keeps the idle character visible and still');
       assert.ok(await sprite.isVisible());
-      const animate = monitor.getByRole('switch', { name:'Animate person' });
+      const animate = monitor.getByRole('switch', { name:'Enable animation' });
       assert.equal(await animate.getAttribute('aria-checked'), 'false');
       const track = animate.locator('.ui-switch-track');
       assert.deepEqual(await track.evaluate(node => [node.offsetWidth, node.offsetHeight]), [36, 20]);
@@ -3115,6 +3236,26 @@ async function printerMapSmoke(browser, url) {
       assert.equal(await shadow.evaluate(node => getComputedStyle(node).fill), 'rgba(0, 0, 0, 0)');
       await monitor.evaluate(() => { document.documentElement.dataset.theme = 'light'; });
       assert.equal(await shadow.evaluate(node => getComputedStyle(node).fill), 'rgba(0, 0, 0, 0.25)');
+      animationMap = {
+        name:'Rack monitoring', columns:40, rows:25, placements:[
+          { printerId:printer.id, rackId:'display-rack', level:2, bay:1 }
+        ], items:[{ id:'display-rack', type:'rack', x:40, y:40, width:280, height:140, levels:3, bays:2 }]
+      };
+      activity = { ...activity, alert:true };
+      await monitor.getByRole('heading', { name:'Rack monitoring' }).waitFor({ timeout:10000 });
+      const monitorRackButton = monitor.getByRole('button', { name:/View Rack 1/ });
+      const monitorRackAlert = monitorRackButton.locator('.printer-map-rack-alert');
+      assert.equal(await monitorRackAlert.innerText(), '1 alert');
+      assert.equal(await monitorRackButton.getAttribute('data-rack-alert'), '');
+      await monitor.getByRole('button', { name:/View Rack 1/ }).click({ position:{ x:8, y:8 } });
+      const monitoredRack = monitor.getByRole('dialog', { name:'Rack 1 · Front view' });
+      assert.ok(await monitoredRack.locator('[data-rack-slot="2:1"] img').isVisible());
+      assert.equal(await monitoredRack.getByRole('combobox').count(), 0);
+      assert.equal(await monitoredRack.getByRole('button', { name:/Open printer details|Mark bed cleared/ }).count(), 0);
+      await monitoredRack.getByRole('button', { name:'Close', exact:true }).click();
+      activity = { ...activity, alert:false };
+      await monitorRackAlert.waitFor({ state:'hidden', timeout:10000 });
+      assert.equal(await monitorRackButton.getAttribute('data-rack-alert'), null);
       await linkDialog.getByRole('button', { name:'Disable link' }).click();
       await monitor.getByText('Monitoring link unavailable.').waitFor({ timeout:10000 });
       await sprite.waitFor({ state:'hidden' });
@@ -3126,6 +3267,121 @@ async function printerMapSmoke(browser, url) {
     } finally {
       await monitorContext.close();
     }
+    await linkDialog.getByRole('button', { name:'Close', exact:true }).click();
+    await context.route('**/api/printer-maps/workshop', route => {
+      assert.equal(route.request().method(), 'PUT');
+      const saved = store.maps.find(map => map.id === 'workshop');
+      Object.assign(saved, route.request().postDataJSON(), { revision:saved.revision + 1 });
+      return route.fulfill({ json:store });
+    });
+    await page.getByRole('button', { name:'Edit map', exact:true }).click();
+    const rackItem = objectOnMap('rack');
+    const manageRack = page.getByRole('button', { name:'Manage rack', exact:true });
+    const rackView = page.getByRole('dialog', { name:'Rack 1 · Front view' });
+    const rackSlot = (level, bay) => rackView.getByRole('combobox', { name:`Printer for level ${level}, bay ${bay}` });
+    const closeRack = () => rackView.getByRole('button', { name:'Close', exact:true }).click();
+    await rackItem.press('Space');
+    await manageRack.click();
+    const rackLevels = rackView.getByRole('combobox', { name:'Levels', exact:true });
+    const rackBays = rackView.getByRole('combobox', { name:'Bays per level', exact:true });
+    await rackLevels.selectOption('2');
+    await rackBays.selectOption('6');
+    assert.equal(await rackView.locator('[data-rack-slot]').count(), 12);
+    await rackBays.selectOption('3');
+    await rackSlot(2, 1).selectOption(printer.id);
+    await rackSlot(2, 2).selectOption(secondPrinter.id);
+    const rackPrinter = rackView.locator('[data-rack-slot="2:1"] [data-printer-id="map-p1"]');
+    assert.ok(await rackPrinter.locator('img').isVisible());
+    for (const selector of ['.printer-map-placeholder', '.printer-map-clearance', '.printer-map-progress']) {
+      assert.ok(await rackPrinter.locator(selector).isHidden(), `${selector} stays hidden when unused in the rack editor`);
+    }
+    assert.ok(await rackPrinter.evaluate(tile => {
+      const bounds = tile.getBoundingClientRect();
+      return [...tile.querySelectorAll('img, strong, .printer-map-flags > :not([hidden])')].every(node => {
+        const rect = node.getBoundingClientRect();
+        return rect.top >= bounds.top && rect.bottom <= bounds.bottom
+          && rect.left >= bounds.left && rect.right <= bounds.right;
+      });
+    }), 'rack printer artwork, name and flags fit inside the compact tile');
+    await rackSlot(2, 3).selectOption(unknownPrinter.id);
+    const unknownRackPrinter = rackView.locator('[data-rack-slot="2:3"] [data-printer-id="map-unknown"]');
+    assert.ok(await unknownRackPrinter.locator('img').isHidden());
+    assert.ok(await unknownRackPrinter.locator('.printer-map-placeholder').isVisible(),
+      'printers without artwork still show the fallback icon');
+    await rackSlot(2, 3).selectOption('');
+    await rackLevels.selectOption('1');
+    assert.match(await rackView.getByRole('alert').innerText(), /Empty the affected slots/);
+    assert.equal(await rackLevels.inputValue(), '2');
+    await closeRack();
+    await page.getByRole('button', { name:'Save map', exact:true }).click();
+    await marker.waitFor();
+    assert.ok(await marker.evaluate(tile => tile.classList.contains('is-rack-projected')));
+    assert.ok(await image.isVisible(), 'a single occupied rack level shows printer images on the plan');
+    assert.match(await rackItem.innerText(), /Level 2/);
+
+    await page.getByRole('button', { name:'Edit map', exact:true }).click();
+    const rackX = (await geometry(rackItem))[0];
+    await rackItem.press('ArrowRight');
+    assert.equal((await geometry(rackItem))[0], rackX + 1);
+    await manageRack.click();
+    await rackSlot(2, 2).selectOption('');
+    await rackSlot(1, 2).selectOption(secondPrinter.id);
+    await closeRack();
+    await page.getByRole('button', { name:'Save map', exact:true }).click();
+    await page.locator('#printerMapEditor').waitFor({ state:'hidden' });
+    await marker.waitFor();
+    const secondRackMarker = page.locator('#printerMapCanvas [data-printer-id="map-p2"]');
+    assert.ok(await image.isVisible(), 'the top-down map shows level 2 in bay 1');
+    assert.ok(await secondRackMarker.locator('img').isVisible(), 'the top-down map shows level 1 in bay 2');
+    assert.equal(await marker.locator('.printer-map-bay-level').innerText(), 'L2');
+    assert.equal(await secondRackMarker.locator('.printer-map-bay-level').innerText(), 'L1');
+    await rackItem.press('Enter');
+    await rackView.waitFor();
+    assert.equal(await rackView.locator('[data-rack-slot="2:1"] [data-printer-id="map-p1"]').count(), 1);
+    assert.equal(await rackView.locator('[data-rack-slot="1:2"] [data-printer-id="map-p2"]').count(), 1);
+    assert.ok(await rackView.getByRole('button', { name:`View alerts for ${printer.name}` }).isVisible());
+    assert.equal(await rackView.getByText('Empty slot', { exact:true }).count(), 4);
+    await closeRack();
+    await page.reload();
+    await rackItem.waitFor();
+    assert.equal((await geometry(rackItem))[0], rackX + 1, 'rack movement persists alongside slot assignments');
+    await rackItem.press('Enter');
+    assert.ok(await rackView.locator('[data-rack-slot="1:2"] [data-printer-id="map-p2"]').isVisible());
+    await closeRack();
+    await fullScreen.click();
+    await rackItem.press('Enter');
+    assert.ok(await rackView.isVisible(), 'the rack front view can open in full screen');
+    assert.ok(await rackView.locator('[data-printer-id="map-p1"]').isVisible(),
+      'the rack view presents its printer tiles in full screen');
+    await closeRack();
+    await marker.waitFor();
+    await exitFullScreen.click();
+    await page.getByRole('button', { name:'Edit map', exact:true }).click();
+    await rackItem.press('Space');
+    await manageRack.click();
+    await rackSlot(1, 2).selectOption('');
+    await rackSlot(1, 1).selectOption(secondPrinter.id);
+    await closeRack();
+    await page.getByRole('button', { name:'Save map', exact:true }).click();
+    await marker.waitFor();
+    assert.equal(await marker.locator('.printer-map-bay-level').innerText(), 'L2 · +1');
+    assert.ok(await secondRackMarker.isHidden(), 'the lower printer shares the top-down bay with the upper printer');
+    await rackItem.press('Enter');
+    assert.ok(await rackView.locator('[data-rack-slot="1:1"] [data-printer-id="map-p2"]').isVisible());
+    await closeRack();
+    fleet.alerts.attentionPrinterIds = [printer.id, secondPrinter.id];
+    await page.reload();
+    await rackItem.getByText('2 alerts', { exact:true }).waitFor();
+    assert.ok(await rackItem.evaluate(node => {
+      const style = getComputedStyle(node);
+      const badge = getComputedStyle(node.querySelector('.printer-map-rack-alert'));
+      return style.borderTopColor === badge.color && style.boxShadow.includes('inset');
+    }), 'the rack has a visible amber outline and labelled count');
+    fleet.alerts.attentionPrinterIds = [secondPrinter.id];
+    await page.reload();
+    await rackItem.getByText('1 alert', { exact:true }).waitFor();
+    assert.ok(await secondRackMarker.isHidden(), 'an alert on the hidden lower printer still marks the rack');
+    assert.equal(await rackItem.getAttribute('data-rack-alert'), '');
     console.log('Chromium: Printer map full-screen fit, printer shortcuts and monitoring link PASS');
   } finally {
     await context.close();

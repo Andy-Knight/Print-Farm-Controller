@@ -191,30 +191,34 @@ Use `--ds-shadow-sm` for quiet elevation; `--ds-shadow-md` for hover/focus empha
 - Align **New map** and **Edit map** with the 42px selector and wrap the buttons together when space is tight. Replace the selector and its action row with the editor while editing.
 - Preserve the aspect ratio of Dashboard printer artwork within 120 × 64px for standard tiles or 84 × 40px for compact tiles. Use the generic icon for models without artwork. Wrap names onto up to two lines above the alert, printing and queue flags, with the full name in a tooltip.
 - In view mode, make the image and name, alert flag and queue count separate focusable actions. The image and name open Printer Details. The alert and queue actions open lists scoped to that printer with a clear way back to all alerts or jobs.
-- Show measured print progress as a thin bar along the bottom of the tile. Use an accessible amber build-plate badge while clearance is pending. Keep these indicators within the existing tile footprint.
+- Show measured print progress as a thin bar along the bottom of the tile. Use an accessible amber build-plate badge while clearance is pending. For operators and administrators viewing a saved map, make the badge a button that opens the standard bed-clearance confirmation. Show a status indicator for viewers and on monitoring displays. Keep these indicators within the existing tile footprint.
 - In saved map views, briefly outline a tile in green on completion, expand the badge once for a new alert, highlight the queue badge when a job starts, and fade the tile back in on reconnect. Respond to live changes after the first snapshot. With reduced motion, show the same status with immediate updates.
 
 #### Editing and placement
 
-- Use the tile as one selection and drag target in edit mode. Snap its top-left corner to the nearest grid dot. Arrow keys move one step, or three with Shift. Save the room layout explicitly.
+- Use the tile as one selection and drag target in edit mode. Snap its top-left corner to the nearest grid dot. Allow a single chair or stool to move in half steps so it can centre on a computer. Arrow keys move by the item's snap distance, or by three full steps with Shift. Save the room layout explicitly.
 - Give layout items a wrapping palette of 42px secondary icon buttons, each with an accessible name and tooltip. Drag an icon to show a snapped preview and place it on release. Click or press Enter to place at the default position.
-- Give a single selected item a focus outline and corner resize handle. Keep the opposite corner fixed and stop at the last whole grid step inside the room.
+- Give a single selected item a focus outline. Give resizable items handles at the bottom-left and bottom-right corners. Keep the opposite top corner fixed and stop at the last whole grid step inside the room. Chairs, stools and computers have fixed footprints.
 - Double-click a labelable item or focus it and press F2 to edit the label in place. Enter or moving focus applies the draft label. Escape restores the previous label.
-- Draw a translucent selection box from empty space to select fully enclosed printers and room items. Drag one selected item or use the arrow keys to move the group and preserve the relative spacing. Click the floor to select it. Drag an unselected floor to start box selection, or drag a selected floor to move it. Keep the selected floor’s resize handle above other items.
+- Draw a translucent selection box from empty space to select fully enclosed printers and room items. Drag one selected item or use the arrow keys to move the group and preserve the relative spacing. Click the floor to select it. Drag an unselected floor to start box selection, or drag a selected floor to move it. Keep both resize handles above other items when the floor is selected.
 
 #### Room artwork
 
-Draw room items behind printer tiles with restrained outlines, fills and shading in both themes. Scale the artwork with its footprint. Place floor items underneath the room and keep grid dots visible on the warm-grey surface. Put editable labels inside the bottom edge. Floors, benches, racks, shelves, windows, plant pots, chairs, stools and bins have no labels.
+Draw room items behind printer tiles with restrained outlines, fills and shading in both themes. Scale the artwork with its footprint. Place floor items underneath the room and keep grid dots visible on the warm-grey surface. Put editable labels inside the bottom edge. Floors, benches, racks, shelves, windows, plant pots, chairs, stools, computers and bins have no labels.
 
 | Item | On-map treatment |
 |---|---|
 | Bench | Butcher block with staggered planks, restrained grain and a darker front edge. Keep plank scale fixed and run the grain along the longest edge, horizontally on square benches. |
 | Rack and shelf | Open wire rack with perimeter rails and four round steel posts. The shelf is a shallow wooden board with steel end brackets and room for four decorative parts. |
 | Plant pot, chair and stool | Top-down rubber plant in a round pot, padded task chair with armrests and casters, and round timber stool. |
-| Bin | Top-down round metal bin with a visible open rim. |
+| Bin | Top-down round metal bin with a visible open rim. After a throw, show part of the airplane inside the rim. |
 | Computer and Controller | Desktop workstation with monitor, keyboard and mouse. The Controller is a graphite Mini PC with the Stacked Layers mark and its label below the artwork. |
 
 Keep outline icons in the palette. Give the task chair and workstation a secondary 90° clockwise rotation action. Swap their footprint dimensions on each turn and keep them inside the room.
+
+Size the task chair at three by four grid steps, the stool at three by three, and the computer at four by three to stay in proportion to the map character. Draw benches over seating where they overlap so the legs and casters look tucked under the worktop.
+
+Keep a configured rack as a single footprint with a concise status strip. Use a steady amber outline and a labelled alert count when printers on any level need attention. Show the highest occupied slot in each bay on the top-down map. If printers occupy different levels, label each visible printer with its level and show the number of additional printers in that bay. Let users open a front view from the rack, with higher levels above lower ones, bays in order, and compact printer tiles with the usual actions. Use **Manage rack** in edit mode to configure and assign slots. On monitoring displays, show the front view with read-only tiles.
 
 #### Walls, doors and windows
 
@@ -224,11 +228,11 @@ Keep outline icons in the palette. Give the task chair and workstation a seconda
 
 #### Character animation
 
-On saved maps with a Computer item, show the top-down character in a blue overshirt at room-item scale. Give it walking, pickup, shelf drop-off and seated poses. Leave clearance around furniture and printer tiles. Tie the alternating foot motion to travel speed and swing each arm from the shoulder opposite the foot on that side. Show the standing and walking shadow only in light mode. Exclude the character from map fitting and interaction targets.
+On saved maps with a Computer item, show the top-down character in a blue overshirt at room-item scale. Give it walking, pickup, shelf drop-off and seated poses. In the seated pose, show both legs and shoes extending toward the workstation. Draw them above the seat so the bench covers only the parts that overlap it. Leave clearance around furniture and printer tiles. Tie the alternating foot motion to travel speed and swing each arm from the shoulder opposite the foot on that side. Show the standing and walking shadow only in light mode. Exclude the character from map fitting and interaction targets.
 
 Show the carried part as a box held in both hands in front of the character. Keep the arms steady while the walking feet continue to alternate. Place the part into a free shelf slot on drop-off. During an idle trip, the character can collect a staged part from a reachable shelf and carry it out through a reachable door. At an idle computer, animate a paper airplane landing in an unobstructed bin. Pick at random when both a throw and a door trip are available. Swing the door leaf around its hinge during interior crossings and when the character leaves or returns. Hold the door open until the character’s whole sprite clears the leaf’s sweep. When the character sits at a workstation, fade in a steady blue glow from the monitor’s front edge across the keyboard. Soften the edges and taper the light beyond the keys. Rotate the glow with the workstation.
 
-Follow the browser’s reduced-motion setting by default. Offer the [standard Animate person switch](#8-switches-checkboxes-selects-and-fields) on the saved map, in full screen and on the monitoring display. Persist the choice in that browser and apply it to the map character.
+Follow the browser’s reduced-motion setting by default. Offer the [standard Enable animation switch](#8-switches-checkboxes-selects-and-fields) on the saved map, in full screen and on the monitoring display. Persist the choice in that browser and apply it to the map character.
 
 #### Full screen and monitoring
 
@@ -272,7 +276,7 @@ Default ordinary buttons are **42px high**; `ui-button-small` is **32px**, used 
 
 - Use the Light/Dark switch design for binary toggles. Reuse `.ui-switch`, `.ui-switch-track` and `.ui-switch-label`. The pill has a 40px minimum height, a 36 × 20px track and a white 14px thumb. The unchecked track uses `#34424e` in dark mode and `#9aabb8` in light mode. The checked track uses `#4f8fc2` and the thumb moves 16px. Keyboard focus gets a 2px blue outline.
 - Use a native button with `role="switch"`, `aria-checked` and an accessible name. The top-bar theme switch shows the active theme name and hides that text at 760px and below. The checked state represents Dark.
-- The Printer map’s **Animate person** switch keeps its visible label and stable accessible name in the map toolbar, full-screen view and monitoring display.
+- The Printer map’s **Enable animation** switch keeps its visible label and stable accessible name in the map toolbar, full-screen view and monitoring display.
 
 ### Dashboard switches
 

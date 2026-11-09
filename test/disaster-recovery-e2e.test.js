@@ -141,7 +141,7 @@ test('end-to-end disaster recovery restores portable state and reinitializes saf
     placements:[{ printerId:'ff-dr', x:125, y:440 }],
     items:[
       { id:'room-bench', type:'bench', label:'Work bench', x:50, y:400, width:320, height:240 },
-      { id:'room-computer', type:'computer', label:'Slicing station', x:70, y:720, width:120, height:100 }
+      { id:'room-computer', type:'computer', label:'Slicing station', x:90, y:760, width:80, height:60 }
     ]
   }] };
   const jobs = [
