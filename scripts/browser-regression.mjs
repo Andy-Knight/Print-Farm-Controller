@@ -3241,13 +3241,21 @@ async function printerMapSmoke(browser, url) {
           { printerId:printer.id, rackId:'display-rack', level:2, bay:1 }
         ], items:[{ id:'display-rack', type:'rack', x:40, y:40, width:280, height:140, levels:3, bays:2 }]
       };
+      activity = { ...activity, alert:true };
       await monitor.getByRole('heading', { name:'Rack monitoring' }).waitFor({ timeout:10000 });
+      const monitorRackButton = monitor.getByRole('button', { name:/View Rack 1/ });
+      const monitorRackAlert = monitorRackButton.locator('.printer-map-rack-alert');
+      assert.equal(await monitorRackAlert.innerText(), '1 alert');
+      assert.equal(await monitorRackButton.getAttribute('data-rack-alert'), '');
       await monitor.getByRole('button', { name:/View Rack 1/ }).click({ position:{ x:8, y:8 } });
       const monitoredRack = monitor.getByRole('dialog', { name:'Rack 1 · Front view' });
       assert.ok(await monitoredRack.locator('[data-rack-slot="2:1"] img').isVisible());
       assert.equal(await monitoredRack.getByRole('combobox').count(), 0);
       assert.equal(await monitoredRack.getByRole('button', { name:/Open printer details|Mark bed cleared/ }).count(), 0);
       await monitoredRack.getByRole('button', { name:'Close', exact:true }).click();
+      activity = { ...activity, alert:false };
+      await monitorRackAlert.waitFor({ state:'hidden', timeout:10000 });
+      assert.equal(await monitorRackButton.getAttribute('data-rack-alert'), null);
       await linkDialog.getByRole('button', { name:'Disable link' }).click();
       await monitor.getByText('Monitoring link unavailable.').waitFor({ timeout:10000 });
       await sprite.waitFor({ state:'hidden' });
@@ -3361,6 +3369,19 @@ async function printerMapSmoke(browser, url) {
     await rackItem.press('Enter');
     assert.ok(await rackView.locator('[data-rack-slot="1:1"] [data-printer-id="map-p2"]').isVisible());
     await closeRack();
+    fleet.alerts.attentionPrinterIds = [printer.id, secondPrinter.id];
+    await page.reload();
+    await rackItem.getByText('2 alerts', { exact:true }).waitFor();
+    assert.ok(await rackItem.evaluate(node => {
+      const style = getComputedStyle(node);
+      const badge = getComputedStyle(node.querySelector('.printer-map-rack-alert'));
+      return style.borderTopColor === badge.color && style.boxShadow.includes('inset');
+    }), 'the rack has a visible amber outline and labelled count');
+    fleet.alerts.attentionPrinterIds = [secondPrinter.id];
+    await page.reload();
+    await rackItem.getByText('1 alert', { exact:true }).waitFor();
+    assert.ok(await secondRackMarker.isHidden(), 'an alert on the hidden lower printer still marks the rack');
+    assert.equal(await rackItem.getAttribute('data-rack-alert'), '');
     console.log('Chromium: Printer map full-screen fit, printer shortcuts and monitoring link PASS');
   } finally {
     await context.close();

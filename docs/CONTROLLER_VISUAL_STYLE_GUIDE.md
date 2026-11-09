@@ -218,7 +218,7 @@ Keep outline icons in the palette. Give the task chair and workstation a seconda
 
 Size the task chair at three by four grid steps, the stool at three by three, and the computer at four by three to stay in proportion to the map character. Draw benches over seating where they overlap so the legs and casters look tucked under the worktop.
 
-Keep a configured rack as a single footprint with a concise status strip. Show the highest occupied slot in each bay on the top-down map. If printers occupy different levels, label each visible printer with its level and show the number of additional printers in that bay. Let users open a front view from the rack, with higher levels above lower ones, bays in order, and compact printer tiles with the usual actions. Use **Manage rack** in edit mode to configure and assign slots. On monitoring displays, show the front view with read-only tiles.
+Keep a configured rack as a single footprint with a concise status strip. Use a steady amber outline and a labelled alert count when printers on any level need attention. Show the highest occupied slot in each bay on the top-down map. If printers occupy different levels, label each visible printer with its level and show the number of additional printers in that bay. Let users open a front view from the rack, with higher levels above lower ones, bays in order, and compact printer tiles with the usual actions. Use **Manage rack** in edit mode to configure and assign slots. On monitoring displays, show the front view with read-only tiles.
 
 #### Walls, doors and windows
 

@@ -808,7 +808,10 @@ export function createPrinterMapPage({ api, canEdit, openPrinter, openAlerts, op
         itemNodes.set(item.id, node);
       }
       node.disabled = busy || (!draft && !item.levels);
-      if (item.type === 'rack') node.querySelector('.printer-map-rack-summary').hidden = !item.levels;
+      if (item.type === 'rack') {
+        node.querySelector('.printer-map-rack-summary').hidden = !item.levels;
+        if (!item.levels) node.removeAttribute('data-rack-alert');
+      }
       node.toggleAttribute('data-rack-view', Boolean(!draft && item.levels));
       if (draft) node.setAttribute('aria-pressed', String(selected.has(item)));
       else node.removeAttribute('aria-pressed');
@@ -869,14 +872,16 @@ export function createPrinterMapPage({ api, canEdit, openPrinter, openAlerts, op
       const devices = rack.slots.map(slot => printerById.get(slot.printerId)).filter(Boolean);
       const alerts = devices.filter(device => device.alert).length;
       const beds = devices.filter(device => device.bedClearance).length;
+      const alertCount = alerts ? `${alerts} alert${alerts === 1 ? '' : 's'}` : '';
       const description = [rackName(map, rack.item), `${devices.length} printer${devices.length === 1 ? '' : 's'}`,
         rack.levels.size === 1 ? `Level ${rack.levels.values().next().value}` : `${rack.item.levels} levels`].join(' · ');
-      const summary = [description, alerts && `${alerts} alert${alerts === 1 ? '' : 's'}`,
+      const summary = [description, alertCount,
         beds && `${beds} bed${beds === 1 ? '' : 's'} to clear`].filter(Boolean).join(' · ');
       setText(node.querySelector('.printer-map-rack-description'), description);
       const alertBadge = node.querySelector('.printer-map-rack-alert');
-      alertBadge.hidden = !alerts;
-      setText(alertBadge, `! ${alerts}`);
+      node.toggleAttribute('data-rack-alert', Boolean(alertCount));
+      alertBadge.hidden = !alertCount;
+      setText(alertBadge, alertCount);
       const bedBadge = node.querySelector('.printer-map-rack-beds');
       bedBadge.hidden = !beds;
       setText(bedBadge.lastElementChild, beds.toString());
