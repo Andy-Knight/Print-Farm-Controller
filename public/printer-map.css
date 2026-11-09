@@ -939,6 +939,17 @@ button.printer-map-item:is([data-kind="bench"], [data-kind="rack"]) {
   transform-origin: top left;
 }
 
+.printer-map-bay-level:not([hidden]) {
+  position: absolute;
+  inset: 4px auto auto 4px;
+  padding: 1px 4px;
+  border-radius: var(--ds-radius-pill);
+  background: var(--ds-surface-muted);
+  color: var(--ds-text);
+  font-size: var(--ds-font-sm);
+  pointer-events: none;
+}
+
 #printerMapCanvas.is-editing .printer-map-marker {
   cursor: grab;
   touch-action: none;

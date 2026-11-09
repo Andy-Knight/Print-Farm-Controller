@@ -330,12 +330,14 @@ export function createPrinterMapPage({ api, canEdit, openPrinter, openAlerts, op
     <${clearanceTag} class="printer-map-clearance" ${clearanceAttrs} hidden>
       ${bedClearanceIcon}
     </${clearanceTag}>
+    <span class="printer-map-bay-level" role="img" hidden></span>
     <span class="printer-map-progress" role="progressbar" hidden></span>`;
     const marker = {
       tile, image:tile.querySelector('img'), placeholder:tile.querySelector('.printer-map-placeholder'),
       details:tile.querySelector('.printer-map-details'), label:tile.querySelector('strong'), alert:tile.querySelector('.printer-map-alert'),
       printing:tile.querySelector('.printer-map-printing'), queued:tile.querySelector('.printer-map-queued'),
       clearance:tile.querySelector('.printer-map-clearance'), progress:tile.querySelector('.printer-map-progress'),
+      bayLevel:tile.querySelector('.printer-map-bay-level'),
       effects:new Map()
     };
     markers.set(printerId, marker);
@@ -847,14 +849,20 @@ export function createPrinterMapPage({ api, canEdit, openPrinter, openAlerts, op
   function renderMarkers() {
     const map = currentMap();
     const placements = new Map(map?.placements.map(item => [item.printerId, item]));
-    const racks = new Map(map?.items?.filter(item => item.levels).map(item => [item.id, { item, slots:[], levels:new Set() }]));
+    const racks = new Map(map?.items?.filter(item => item.levels)
+      .map(item => [item.id, { item, slots:[], levels:new Set(), bays:new Map() }]));
+    const printerById = new Map(printers.map(printer => [printer.id, printer]));
     for (const placement of placements.values()) {
       const rack = racks.get(placement.rackId);
       if (!rack) continue;
       rack.slots.push(placement);
+      if (!printerById.has(placement.printerId)) continue;
       rack.levels.add(placement.level);
+      const bay = rack.bays.get(placement.bay) ?? { top:placement, count:0 };
+      if (placement.level > bay.top.level) bay.top = placement;
+      bay.count++;
+      rack.bays.set(placement.bay, bay);
     }
-    const printerById = new Map(printers.map(printer => [printer.id, printer]));
     for (const [id, rack] of racks) {
       const node = itemNodes.get(id);
       if (!node) continue;
@@ -862,7 +870,7 @@ export function createPrinterMapPage({ api, canEdit, openPrinter, openAlerts, op
       const alerts = devices.filter(device => device.alert).length;
       const beds = devices.filter(device => device.bedClearance).length;
       const description = [rackName(map, rack.item), `${devices.length} printer${devices.length === 1 ? '' : 's'}`,
-        rack.levels.size === 1 ? `Level ${rack.slots[0].level}` : `${rack.item.levels} levels`].join(' · ');
+        rack.levels.size === 1 ? `Level ${rack.levels.values().next().value}` : `${rack.item.levels} levels`].join(' · ');
       const summary = [description, alerts && `${alerts} alert${alerts === 1 ? '' : 's'}`,
         beds && `${beds} bed${beds === 1 ? '' : 's'} to clear`].filter(Boolean).join(' · ');
       setText(node.querySelector('.printer-map-rack-description'), description);
@@ -927,11 +935,19 @@ export function createPrinterMapPage({ api, canEdit, openPrinter, openAlerts, op
       }
       const placement = placements.get(printer.id);
       const rack = racks.get(placement?.rackId);
+      const bay = rack?.bays.get(placement.bay);
       const frontSlot = rack && rack === activeRack ? rackView.slot(placement) : null;
-      const projected = rack && !draft && !frontSlot && rack.levels.size === 1;
+      const projected = Boolean(bay && !draft && !frontSlot && bay.top === placement);
       const tile = marker.tile;
       tile.hidden = Boolean(rack && !frontSlot && !projected);
-      tile.classList.toggle('is-rack-projected', Boolean(projected));
+      tile.classList.toggle('is-rack-projected', projected);
+      marker.bayLevel.hidden = !projected || rack.levels.size === 1;
+      if (!marker.bayLevel.hidden) {
+        const below = bay.count - 1;
+        setText(marker.bayLevel, `L${placement.level}${below ? ` · +${below}` : ''}`);
+        marker.bayLevel.setAttribute('aria-label',
+          `Level ${placement.level}${below ? ` · ${below} printer${below === 1 ? '' : 's'} below` : ''}`);
+      }
       if (projected) positionRackPrinter(tile, rack.item, placement.bay);
       else if (placement && !rack) updateMarkerPosition(tile, placement);
       if (draft && !frontSlot) {
