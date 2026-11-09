@@ -3319,7 +3319,8 @@ async function printerMapSmoke(browser, url) {
     await fullScreen.click();
     await rackItem.press('Enter');
     assert.ok(await rackView.isVisible(), 'the rack front view can open in full screen');
-    assert.ok(await marker.isVisible(), 'the rack view presents its printer tiles in full screen');
+    assert.ok(await rackView.locator('[data-printer-id="map-p1"]').isVisible(),
+      'the rack view presents its printer tiles in full screen');
     await closeRack();
     await marker.waitFor({ state:'hidden' });
     await exitFullScreen.click();
