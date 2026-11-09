@@ -3372,6 +3372,10 @@ async function printerMapSmoke(browser, url) {
     fleet.alerts.attentionPrinterIds = [printer.id, secondPrinter.id];
     await page.reload();
     await rackItem.getByText('2 alerts', { exact:true }).waitFor();
+    assert.equal(await rackItem.locator('.printer-map-rack-description').innerText(), '2 printers · 2 levels');
+    assert.doesNotMatch(await rackItem.getAttribute('title'), /Rack 1/);
+    assert.match(await rackItem.getAttribute('aria-label'), /^View Rack 1 · /,
+      'the rack keeps an accessible name without showing it on the map');
     assert.ok(await rackItem.evaluate(node => {
       const style = getComputedStyle(node);
       const badge = getComputedStyle(node.querySelector('.printer-map-rack-alert'));

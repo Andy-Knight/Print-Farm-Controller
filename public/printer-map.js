@@ -873,7 +873,7 @@ export function createPrinterMapPage({ api, canEdit, openPrinter, openAlerts, op
       const alerts = devices.filter(device => device.alert).length;
       const beds = devices.filter(device => device.bedClearance).length;
       const alertCount = alerts ? `${alerts} alert${alerts === 1 ? '' : 's'}` : '';
-      const description = [rackName(map, rack.item), `${devices.length} printer${devices.length === 1 ? '' : 's'}`,
+      const description = [`${devices.length} printer${devices.length === 1 ? '' : 's'}`,
         rack.levels.size === 1 ? `Level ${rack.levels.values().next().value}` : `${rack.item.levels} levels`].join(' · ');
       const summary = [description, alertCount,
         beds && `${beds} bed${beds === 1 ? '' : 's'} to clear`].filter(Boolean).join(' · ');
@@ -886,7 +886,7 @@ export function createPrinterMapPage({ api, canEdit, openPrinter, openAlerts, op
       bedBadge.hidden = !beds;
       setText(bedBadge.lastElementChild, beds.toString());
       node.title = summary;
-      if (!draft) node.setAttribute('aria-label', `View ${summary}`);
+      if (!draft) node.setAttribute('aria-label', `View ${rackName(map, rack.item)} · ${summary}`);
     }
     const assigned = new Set(maps.filter(saved => saved.id !== map?.id)
       .flatMap(saved => saved.placements.map(item => item.printerId)));
