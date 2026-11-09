@@ -4,6 +4,15 @@ This file contains the version-by-version release history for Print Farm Control
 
 Historical entries describe the behaviour of the controller at the time of that release and may be superseded by later versions. For current installation, configuration and supported-hardware guidance, see [README.md](README.md).
 
+## v0.65.0
+
+- Configure Printer map racks with up to six levels and six bays per level. Assign one printer per slot and move the rack with its assignments. Open the rack front view for every level, empty slot and printer action.
+- Show the highest printer in each occupied bay on the top-down map. Identify its level and any printers below it. Outline racks in amber and show the number of printers needing attention, including those on lower levels.
+- Use compact tiles in the rack front view and show the generic printer icon only when model artwork is unavailable.
+- Let operators and administrators confirm bed clearance from the printer tile on saved maps and in full screen.
+- Keep chairs, stools and computers at fixed proportions. Move seating in half steps to centre it at a computer. Add resize handles at both bottom corners for resizable layout items.
+- Rename the switch to **Enable animation** and hide computer layout labels. Show seated legs under overlapping benches and leave paper airplanes partly visible in the bin after landing.
+
 ## v0.64.0
 
 - Show reported print progress and bed-clearance status on Printer map tiles. Briefly highlight new alerts, completed prints, queue starts and reconnects when motion is enabled.
