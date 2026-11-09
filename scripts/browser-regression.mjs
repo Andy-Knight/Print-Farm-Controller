@@ -2510,12 +2510,33 @@ async function printerMapSmoke(browser, url) {
       'two steel mullions divide the opening into three sections');
     assert.match(await windowPlan.getAttribute('transform'), /^translate\(0 /);
     const chair = objectOnMap('chair');
+    const stool = objectOnMap('stool');
     const rotate = page.getByRole('button', { name:'Rotate 90°', exact:true });
     await chair.press('Space');
+    assert.equal(await chair.locator('[data-map-resize]').count(), 0, 'chairs cannot be resized');
     await rotate.click();
     const chairDrawing = chair.locator('.printer-map-furniture');
     assert.equal(await chairDrawing.getAttribute('viewBox'), '0 0 60 48');
     assert.equal(await chairDrawing.locator(':scope > g').getAttribute('transform'), 'translate(60 0) rotate(90)');
+    await stool.press('Space');
+    assert.equal(await stool.locator('[data-map-resize]').count(), 0, 'stools cannot be resized');
+    const bench = objectOnMap('bench');
+    await bench.scrollIntoViewIfNeeded();
+    for (const seat of [chair, stool]) {
+      assert.ok(await seat.evaluate(node => {
+        const bench = document.querySelector('.printer-map-item[data-kind="bench"]');
+        const original = node.style.cssText;
+        try {
+          node.style.left = `${bench.offsetLeft + 10}px`;
+          node.style.top = `${bench.offsetTop + 10}px`;
+          const { x, y } = node.getBoundingClientRect();
+          const hits = document.elementsFromPoint(x + 5, y + 5);
+          return hits.includes(node) && hits.includes(bench) && hits.indexOf(bench) < hits.indexOf(node);
+        } finally {
+          node.style.cssText = original;
+        }
+      }), 'the bench covers overlapping seating');
+    }
     await computer.press('Shift+ArrowRight');
     await rotate.click();
     const computerDrawing = computer.locator('.printer-map-furniture');
@@ -2570,7 +2591,9 @@ async function printerMapSmoke(browser, url) {
     assert.equal(store.maps[1].items.at(-1).label, 'Slicing station');
     const savedChair = store.maps[1].items.find(item => item.type === 'chair');
     const savedComputer = store.maps[1].items.at(-1);
-    assert.deepEqual([savedChair.width, savedChair.height, savedChair.rotation], [100, 80, 90]);
+    assert.deepEqual([savedChair.width, savedChair.height, savedChair.rotation], [80, 60, 90]);
+    const savedStool = store.maps[1].items.find(item => item.type === 'stool');
+    assert.deepEqual([savedStool.width, savedStool.height], [60, 60]);
     assert.deepEqual([savedComputer.width, savedComputer.height, savedComputer.rotation], [100, 120, 90]);
     assert.equal(store.maps[1].items[0].label, 'Post-processing');
     assert.equal(store.maps[1].items[0].width, 320);

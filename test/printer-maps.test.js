@@ -67,7 +67,8 @@ test('room items round-trip, remain map-scoped and reject invalid geometry', asy
   const item = { id:'bench-1', type:'bench', label:'Finishing', x:50, y:80, width:300, height:120 };
   const objects = ['plant-pot', 'window', 'chair', 'stool', 'computer', 'controller', 'shelf', 'bin'].map((type, index) => ({
     id:type, type, label:`Fixture ${index + 1}`, x:50 + index * 100, y:260, width:80, height:80,
-    ...(type === 'chair' ? { rotation:90 } : type === 'computer' ? { rotation:270 } : {})
+    ...(type === 'chair' ? { rotation:90, height:60 } : type === 'computer' ? { rotation:270 } : {}),
+    ...(type === 'stool' ? { width:60, height:60 } : {})
   }));
   const floor = { id:'floor', type:'floor', label:'Workshop floor', x:0, y:0, width:1000, height:1000 };
   const items = [item, ...objects, floor];
@@ -92,6 +93,22 @@ test('room items round-trip, remain map-scoped and reject invalid geometry', asy
   assert.deepEqual([legacyEdit.columns, legacyEdit.rows, legacyEdit.compactPrinters], [75, 60, true]);
   await assert.rejects(save({ ...legacyEdit, columns:49 }, cleared.id), { statusCode:400 });
   await assert.rejects(save({ ...legacyEdit, rows:201 }, cleared.id), { statusCode:400 });
+});
+
+test('seating uses fixed rotated footprints and keeps legacy seats inside the room', async t => {
+  const dataDir = await fs.mkdtemp(path.join(os.tmpdir(), 'pfc-map-seating-'));
+  t.after(() => fs.rm(dataDir, { recursive:true, force:true }));
+  const chair = { id:'chair', type:'chair', x:40, y:40, width:20, height:20, rotation:90 };
+  const stool = { id:'stool', type:'stool', x:0, y:0, width:80, height:100 };
+  const room = { name:'Seating', columns:5, rows:5, placements:[], items:[chair, stool] };
+  const { maps:[saved] } = await savePrinterMap(dataDir, { input:room, printerIds:new Set() });
+  assert.deepEqual(saved.items.map(({ x, y, width, height }) => [x, y, width, height]),
+    [[20, 40, 80, 60], [0, 0, 60, 60]]);
+  const tiny = { ...room, columns:3, rows:3, items:[chair] };
+  await assert.rejects(savePrinterMap(dataDir, { input:tiny, printerIds:new Set() }), /too small/);
+  const { maps:[legacy] } = normalizePrinterMaps({ version:1, maps:[{ ...tiny, id:'old', revision:1 }] });
+  assert.deepEqual([legacy.columns, legacy.rows], [4, 3]);
+  assert.deepEqual(legacy.items[0], { ...chair, label:'', x:0, y:0, width:80, height:60 });
 });
 
 test('doors preserve legacy orientation and save an explicit swing direction and hinge', async t => {

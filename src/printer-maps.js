@@ -1,6 +1,7 @@
 import { randomBytes, randomUUID, timingSafeEqual } from 'node:crypto';
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
+import { fixedSeatingSizes } from '../public/printer-map-seating.js';
 
 export const printerMapsFile = 'printer-maps.json';
 export const emptyPrinterMaps = { version:1, maps:[] };
@@ -14,7 +15,7 @@ function mapError(message, statusCode = 400) {
   return Object.assign(new Error(message), { statusCode });
 }
 
-function normalizeLayout(input, { omitLegacyAisles = false } = {}) {
+function normalizeLayout(input, { readStoredLayout = false } = {}) {
   const { name, placements, items = [], columns = 50, rows = 50, compactPrinters = false } = input || {};
   if (typeof name !== 'string' || !name.trim() || name.length > 80 || /[\x00-\x1f\x7f]/.test(name)) {
     throw mapError('Enter a map name of up to 80 characters.');
@@ -24,6 +25,8 @@ function normalizeLayout(input, { omitLegacyAisles = false } = {}) {
       || typeof compactPrinters !== 'boolean') throw mapError('Invalid map size or printer tile setting.');
   const maxX = columns * 20;
   const maxY = rows * 20;
+  let roomWidth = maxX;
+  let roomHeight = maxY;
   const ids = new Set();
   const positions = placements.map(placement => {
     const { printerId, x, y } = placement || {};
@@ -36,7 +39,7 @@ function normalizeLayout(input, { omitLegacyAisles = false } = {}) {
   });
   if (!Array.isArray(items) || items.length > 200) throw mapError('A map can contain up to 200 layout items.');
   const itemIds = new Set();
-  const currentItems = omitLegacyAisles ? items.filter(item => item?.type !== 'aisle') : items;
+  const currentItems = readStoredLayout ? items.filter(item => item?.type !== 'aisle') : items;
   const layoutItems = currentItems.map(item => {
     const { id, type, label = '', x, y, width, height } = item || {};
     if (typeof id !== 'string' || !/^[a-z0-9-]{1,80}$/i.test(id) || itemIds.has(id)
@@ -71,9 +74,23 @@ function normalizeLayout(input, { omitLegacyAisles = false } = {}) {
       if (![0, 90, 180, 270].includes(item.rotation)) throw mapError('Invalid furniture orientation.');
       normalized.rotation = item.rotation;
     }
+    if (Object.hasOwn(fixedSeatingSizes, type)) {
+      const [seatWidth, seatHeight] = fixedSeatingSizes[type];
+      const sideways = normalized.rotation % 180 === 90;
+      normalized.width = sideways ? seatHeight : seatWidth;
+      normalized.height = sideways ? seatWidth : seatHeight;
+      if (!readStoredLayout && (normalized.width > maxX || normalized.height > maxY)) {
+        throw mapError('The room is too small for this seat.');
+      }
+      // A legacy room may have been saved with a seat smaller than its fixed footprint.
+      roomWidth = Math.max(roomWidth, normalized.width);
+      roomHeight = Math.max(roomHeight, normalized.height);
+      normalized.x = Math.min(x, Math.max(maxX, normalized.width) - normalized.width);
+      normalized.y = Math.min(y, Math.max(maxY, normalized.height) - normalized.height);
+    }
     return normalized;
   });
-  return { name:name.trim(), columns, rows, compactPrinters, placements:positions, items:layoutItems };
+  return { name:name.trim(), columns:roomWidth / 20, rows:roomHeight / 20, compactPrinters, placements:positions, items:layoutItems };
 }
 
 export function normalizePrinterMaps(store, { includeDisplayLinks = false } = {}) {
@@ -83,7 +100,7 @@ export function normalizePrinterMaps(store, { includeDisplayLinks = false } = {}
   const printerIds = new Set();
   const displayTokens = new Set();
   const maps = store.maps.map(map => {
-    const layout = normalizeLayout(map, { omitLegacyAisles:true });
+    const layout = normalizeLayout(map, { readStoredLayout:true });
     const nameKey = layout.name.toLowerCase();
     if (typeof map.id !== 'string' || !map.id || mapIds.has(map.id) || names.has(nameKey)
         || !Number.isSafeInteger(map.revision) || map.revision < 1) {

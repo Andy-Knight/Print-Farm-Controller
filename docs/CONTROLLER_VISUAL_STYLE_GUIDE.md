@@ -198,7 +198,7 @@ Use `--ds-shadow-sm` for quiet elevation; `--ds-shadow-md` for hover/focus empha
 
 - Use the tile as one selection and drag target in edit mode. Snap its top-left corner to the nearest grid dot. Arrow keys move one step, or three with Shift. Save the room layout explicitly.
 - Give layout items a wrapping palette of 42px secondary icon buttons, each with an accessible name and tooltip. Drag an icon to show a snapped preview and place it on release. Click or press Enter to place at the default position.
-- Give a single selected item a focus outline and corner resize handle. Keep the opposite corner fixed and stop at the last whole grid step inside the room.
+- Give a single selected item a focus outline. Give resizable items a corner handle, keep the opposite corner fixed and stop at the last whole grid step inside the room. Chairs and stools have fixed footprints.
 - Double-click a labelable item or focus it and press F2 to edit the label in place. Enter or moving focus applies the draft label. Escape restores the previous label.
 - Draw a translucent selection box from empty space to select fully enclosed printers and room items. Drag one selected item or use the arrow keys to move the group and preserve the relative spacing. Click the floor to select it. Drag an unselected floor to start box selection, or drag a selected floor to move it. Keep the selected floor’s resize handle above other items.
 
@@ -215,6 +215,8 @@ Draw room items behind printer tiles with restrained outlines, fills and shading
 | Computer and Controller | Desktop workstation with monitor, keyboard and mouse. The Controller is a graphite Mini PC with the Stacked Layers mark and its label below the artwork. |
 
 Keep outline icons in the palette. Give the task chair and workstation a secondary 90° clockwise rotation action. Swap their footprint dimensions on each turn and keep them inside the room.
+
+Size the task chair at three by four grid steps and the stool at three by three to stay in proportion to the map character. Draw benches over seating where they overlap so the legs and casters look tucked under the worktop.
 
 #### Walls, doors and windows
 
