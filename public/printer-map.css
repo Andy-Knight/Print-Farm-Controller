@@ -747,27 +747,45 @@ button.printer-map-item:is([data-kind="bench"], [data-kind="rack"]) {
   outline-offset: -2px;
 }
 
-:is(.printer-map-item [data-map-resize], #printerMapFloorResize) {
+:is(.printer-map-item [data-map-resize], .printer-map-floor-resize) {
   position: absolute;
   width: 16px;
   height: 16px;
-  border-right: 3px solid var(--ds-brand);
   border-bottom: 3px solid var(--ds-brand);
+}
+
+[data-map-resize="right"] {
+  border-right: 3px solid var(--ds-brand);
   cursor: nwse-resize;
+}
+
+[data-map-resize="left"] {
+  border-left: 3px solid var(--ds-brand);
+  cursor: nesw-resize;
 }
 
 .printer-map-item [data-map-resize] {
   display: none;
-  right: 0;
+  max-width: 50%;
+  max-height: 100%;
   bottom: 0;
 }
 
-#printerMapFloorResize {
+.printer-map-item [data-map-resize="left"] { left: 0; }
+.printer-map-item [data-map-resize="right"] { right: 0; }
+
+.printer-map-floor-resize {
   z-index: 4;
   left: calc(var(--map-dot-spacing) * var(--map-x));
   top: calc(var(--map-dot-spacing) * var(--map-y));
-  transform: translate(-100%, -100%);
+  max-width: calc(var(--map-dot-spacing) * var(--map-item-width) / 2);
+  max-height: calc(var(--map-dot-spacing) * var(--map-item-height));
+  transform: translateY(-100%);
   touch-action: none;
+}
+
+.printer-map-floor-resize[data-map-resize="right"] {
+  transform: translate(-100%, -100%);
 }
 
 .printer-map-item.is-single-selection [data-map-resize] {

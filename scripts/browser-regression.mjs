@@ -2278,11 +2278,11 @@ async function printerMapSmoke(browser, url) {
       await page.mouse.move(x + 8 + dx, y + 8 + dy, { steps:4 });
       await page.mouse.up();
     };
-    const resizeBy = (item, dx, dy) => resizeHandleBy(item.locator('[data-map-resize]'), dx, dy);
+    const resizeBy = (item, dx, dy, edge = 'right') => resizeHandleBy(item.locator(`[data-map-resize="${edge}"]`), dx, dy);
     const beforeResize = await zone.boundingBox();
     await resizeBy(zone, 40, 20);
     assert.ok((await zone.boundingBox()).width > beforeResize.width + 20, 'zones resize from the corner');
-    const resize = zone.locator('[data-map-resize]');
+    const resize = zone.locator('[data-map-resize="right"]');
     await resize.scrollIntoViewIfNeeded();
     const edgeHandle = await resize.boundingBox();
     const canvasBounds = await page.locator('#printerMapCanvas').boundingBox();
@@ -2300,6 +2300,15 @@ async function printerMapSmoke(browser, url) {
       'dragging stops at the last whole step inside the room');
     await resizeBy(zone, (16 - resizedAtEdge.steps) * 15, 0);
     assert.equal(await zone.evaluate(element => element.style.getPropertyValue('--map-item-width')), '16');
+    const geometry = item => item.evaluate(node => ['--map-x', '--map-y', '--map-item-width', '--map-item-height']
+      .map(key => Number(node.style.getPropertyValue(key))));
+    const zoneBeforeLeft = await geometry(zone);
+    const [zoneX, zoneY, zoneWidth, zoneHeight] = zoneBeforeLeft;
+    await resizeBy(zone, -30, 15, 'left');
+    assert.deepEqual(await geometry(zone), [zoneX - 2, zoneY, zoneWidth + 2, zoneHeight + 1],
+      'the bottom-left handle keeps the top-right corner anchored');
+    await resizeBy(zone, 30, -15, 'left');
+    assert.deepEqual(await geometry(zone), zoneBeforeLeft, 'the bottom-left handle can shrink both dimensions');
     assert.equal(await page.getByRole('button', { name:'Box select' }).count(), 0);
     const viewport = page.locator('#printerMapViewport');
     await viewport.scrollIntoViewIfNeeded();
@@ -2445,6 +2454,13 @@ async function printerMapSmoke(browser, url) {
         node.style.removeProperty('top');
       });
     }
+    const floorLeft = page.locator('.printer-map-floor-resize[data-map-resize="left"]');
+    const floorBeforeLeft = await geometry(floor);
+    const [floorX, floorY, floorWidth, floorHeight] = floorBeforeLeft;
+    await resizeHandleBy(floorLeft, -15, 0);
+    assert.deepEqual(await geometry(floor), [floorX - 1, floorY, floorWidth + 1, floorHeight]);
+    await resizeHandleBy(floorLeft, 15, 0);
+    assert.deepEqual(await geometry(floor), floorBeforeLeft);
     await paletteButton('shelf').press('Enter');
     const unlabelledItems = ['floor', 'bench', 'rack', 'shelf'];
     for (const type of unlabelledItems) {

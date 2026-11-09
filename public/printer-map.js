@@ -96,7 +96,7 @@ export function createPrinterMapPage({ api, canEdit, openPrinter, openAlerts, op
   const box = page.querySelector('#printerMapBox');
   const groupStatus = page.querySelector('#printerMapGroup');
   const itemLayer = page.querySelector('#printerMapItems');
-  const floorResize = page.querySelector('#printerMapFloorResize');
+  const floorResizes = [...page.querySelectorAll('.printer-map-floor-resize')];
   const itemEditor = page.querySelector('#printerMapItemEditor');
   const selectedItem = page.querySelector('#printerMapSelectedItem');
   const inlineLabel = page.querySelector('#printerMapInlineLabel');
@@ -496,8 +496,13 @@ export function createPrinterMapPage({ api, canEdit, openPrinter, openAlerts, op
   }
 
   function positionFloorResize(item) {
-    floorResize.style.setProperty('--map-x', (item.x + item.width) / gridStep);
-    floorResize.style.setProperty('--map-y', (item.y + item.height) / gridStep);
+    for (const handle of floorResizes) {
+      const x = handle.dataset.mapResize === 'left' ? item.x : item.x + item.width;
+      handle.style.setProperty('--map-x', x / gridStep);
+      handle.style.setProperty('--map-y', (item.y + item.height) / gridStep);
+      handle.style.setProperty('--map-item-width', item.width / gridStep);
+      handle.style.setProperty('--map-item-height', item.height / gridStep);
+    }
   }
 
   function updateItem(node, item) {
@@ -513,7 +518,7 @@ export function createPrinterMapPage({ api, canEdit, openPrinter, openAlerts, op
     }
     if (item.type === 'floor' && !node.disabled && node.classList.contains('is-single-selection')) {
       positionFloorResize(item);
-      floorResize.hidden = false;
+      for (const handle of floorResizes) handle.hidden = false;
     }
     if (rotatableFurniture.has(item.type)) {
       orientPrinterMapFurniture(node.querySelector('.printer-map-furniture'), item.type, item.rotation ?? 0);
@@ -690,7 +695,7 @@ export function createPrinterMapPage({ api, canEdit, openPrinter, openAlerts, op
   }
 
   function renderItems() {
-    if (floorResize) floorResize.hidden = true;
+    for (const handle of floorResizes) handle.hidden = true;
     const items = currentMap()?.items || [];
     const itemIds = new Set(items.map(item => item.id));
     for (const [id, node] of itemNodes) {
@@ -721,7 +726,7 @@ export function createPrinterMapPage({ api, canEdit, openPrinter, openAlerts, op
           aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.5"
           stroke-linecap="round" stroke-linejoin="round">${objectSymbols[item.type]}</svg>` : '');
         const resize = item.type === 'floor' || Object.hasOwn(fixedSeatingSizes, item.type)
-          ? '' : '<span data-map-resize aria-hidden="true"></span>';
+          ? '' : '<span data-map-resize="left" aria-hidden="true"></span><span data-map-resize="right" aria-hidden="true"></span>';
         const shelfParts = item.type === 'shelf'
           ? `<span class="printer-map-shelf-parts" aria-hidden="true">${'<span hidden></span>'.repeat(4)}</span>` : '';
         node.innerHTML = `${symbol}${shelfParts}<span class="printer-map-item-label"></span>${resize}`;
@@ -993,7 +998,7 @@ export function createPrinterMapPage({ api, canEdit, openPrinter, openAlerts, op
       const node = nodeFor(placement);
       if (node) updateMarkerPosition(node, placement);
     }
-    if (!floorResize.hidden && entries.length === 1 && entries[0].placement.type === 'floor') {
+    if (entries.length === 1 && entries[0].placement.type === 'floor' && floorResizes.some(handle => !handle.hidden)) {
       positionFloorResize(entries[0].placement);
     }
     if (entries.some(({ placement }) => placement.axis || ['door', 'window'].includes(placement.type))) updateLayoutJoins();
@@ -1007,14 +1012,16 @@ export function createPrinterMapPage({ api, canEdit, openPrinter, openAlerts, op
     return Math.min(limit, Math.max(gridOffset, nearest));
   }
 
-  function resizeItem(item, width, height, anchored = false) {
+  function resizeItem(item, width, height, anchor) {
     const bounds = roomBounds();
-    const dimension = (value, boundary, start) => Math.min(Math.floor((boundary - start) / gridStep),
+    const dimension = (value, limit) => Math.min(Math.floor(limit / gridStep),
       Math.max(1, Math.round(value / gridStep))) * gridStep;
-    item.width = dimension(width, bounds.width, anchored ? item.x : 0);
-    item.height = dimension(height, bounds.height, anchored ? item.y : 0);
+    const maxWidth = anchor?.edge === 'left' ? anchor.right : bounds.width - (anchor?.x ?? 0);
+    item.width = dimension(width, maxWidth);
+    item.height = dimension(height, bounds.height - (anchor?.y ?? 0));
     if (item.axis === 'vertical') item.width = Math.min(2 * gridStep, bounds.width);
     if (item.axis === 'horizontal') item.height = Math.min(2 * gridStep, bounds.height);
+    if (anchor?.edge === 'left') item.x = anchor.right - item.width;
     if (item.x + item.width > bounds.width) item.x = snap(item.x, bounds.width, item.width);
     if (item.y + item.height > bounds.height) item.y = snap(item.y, bounds.height, item.height);
     updateItem(itemNodes.get(item.id), item);
@@ -1049,7 +1056,7 @@ export function createPrinterMapPage({ api, canEdit, openPrinter, openAlerts, op
   }
 
   function markerAt(event) {
-    if (event.target === floorResize) {
+    if (floorResizes.includes(event.target)) {
       const item = singleSelection();
       return item ? nodeFor(item) : null;
     }
@@ -1139,12 +1146,13 @@ export function createPrinterMapPage({ api, canEdit, openPrinter, openAlerts, op
     if (!placement) return;
     if (!selected.has(placement)) selected = new Set([placement]);
     marker.focus({ preventScroll:true });
-    const captureTarget = event.target === floorResize ? floorResize : marker;
+    const captureTarget = floorResizes.includes(event.target) ? event.target : marker;
     captureTarget.setPointerCapture(event.pointerId);
+    const edge = event.target.closest('[data-map-resize]')?.dataset.mapResize;
     drag = { placement, id:event.pointerId, start:canvasPoint(event),
       entries:[...selected].map(entry => ({ placement:entry, x:entry.x, y:entry.y })),
       width:placement.width, height:placement.height,
-      resizing:Boolean(event.target.closest('[data-map-resize]')),
+      resizeAnchor:edge && { edge, x:placement.x, y:placement.y, right:placement.x + placement.width },
     };
   });
   canvas.addEventListener('pointermove', event => {
@@ -1156,8 +1164,9 @@ export function createPrinterMapPage({ api, canEdit, openPrinter, openAlerts, op
     }
     const dx = (point.x - drag.start.x) * gridStep / gridPixels;
     const dy = (point.y - drag.start.y) * gridStep / gridPixels;
-    if (drag.resizing) {
-      resizeItem(drag.placement, drag.width + dx, drag.height + dy, true);
+    if (drag.resizeAnchor) {
+      const width = drag.width + (drag.resizeAnchor.edge === 'left' ? -dx : dx);
+      resizeItem(drag.placement, width, drag.height + dy, drag.resizeAnchor);
       return;
     }
     moveSelection(drag.entries, dx, dy);
