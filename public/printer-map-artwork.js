@@ -144,6 +144,8 @@ function butcherBlock(id) {
   </svg>`;
 }
 
+export const paperPlaneShape = '<path d="M12 1 22 22 12 17 2 22Z"/><path d="M12 1v16" fill="none"/>';
+
 const designs = {
   'plant-pot':{ size:[48, 48], draw:rubberPlant },
   chair:{ size:[48, 60], draw:taskChair },
@@ -151,9 +153,13 @@ const designs = {
   computer:{ size:[72, 48], draw:desktopWorkstation },
   controller:{ size:[60, 45], draw:controllerMiniPc },
   bin:{ size:[48, 48], draw:id => `${gradients(id, ['metal'])}
+    <defs><clipPath id="${id}-opening"><circle cx="24" cy="24" r="15"/></clipPath></defs>
     <circle cx="24" cy="24" r="19" fill="url(#${id}-metal)" stroke="var(--art-edge)"/>
     <circle cx="24" cy="24" r="15.5" fill="var(--art-graphite-dark)" stroke="var(--art-metal-light)"/>
     <ellipse cx="24" cy="25.5" rx="10.5" ry="9" fill="var(--art-graphite-light)" opacity=".45"/>
+    <g class="printer-map-bin-paper" clip-path="url(#${id}-opening)">
+      <g transform="translate(25 34) rotate(24) scale(.85) translate(-12 -12)">${paperPlaneShape}</g>
+    </g>
     <path d="M13 14a15 15 0 0 1 22 0" stroke="var(--art-metal-light)"/>` }
 };
 let nextArtworkId = 0;

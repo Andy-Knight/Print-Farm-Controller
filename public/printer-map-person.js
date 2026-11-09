@@ -1,3 +1,4 @@
+import { paperPlaneShape } from './printer-map-artwork.js';
 import { centreOf, computerSeat, createWalkspace, deskFront } from './printer-map-walkspace.js';
 
 const blueOvershirt = `<svg viewBox="0 0 44 52" focusable="false">
@@ -29,6 +30,10 @@ const blueOvershirt = `<svg viewBox="0 0 44 52" focusable="false">
         <path class="map-person-hand" d="M-8 0h-1.4"/>
       </g>
     </g>
+  </g>
+  <g class="map-person-legs-seated">
+    <path class="map-person-leg" d="M17 34 13 14 12 9M27 34l4-20 1-5"/>
+    <path class="map-person-shoe" d="M12 9 11 4m21 5 1-5"/>
   </g>
   <g class="map-person-seated">
     <path class="map-person-arm" d="m11 24-4-13m26 13 4-13"/>
@@ -89,7 +94,7 @@ export function createPrinterMapPerson(canvas, { step, scale, getItemNode }) {
   plane.className = 'printer-map-plane';
   plane.hidden = true;
   plane.setAttribute('aria-hidden', 'true');
-  plane.innerHTML = '<svg viewBox="0 0 24 24" focusable="false"><path d="M12 1 22 22 12 17 2 22Z"/><path d="M12 1v16" fill="none"/></svg>';
+  plane.innerHTML = `<svg viewBox="0 0 24 24" focusable="false">${paperPlaneShape}</svg>`;
   canvas.append(plane);
   const sprite = getComputedStyle(node.firstElementChild);
   // Allow for the rotated sprite and the thickness of the door leaf.
@@ -370,11 +375,11 @@ export function createPrinterMapPerson(canvas, { step, scale, getItemNode }) {
       };
       const clear = [position, to].every(point => space.clearFlight(from, point)
         && crossingsBetween(from, point, doors).every(({ door }) => openDoors.has(door.itemId)));
-      return clear ? [{ from, to }] : [];
+      return clear ? [{ binId:bin.id, from, to }] : [];
     });
   }
 
-  async function throwPaper({ from, to }, token) {
+  async function throwPaper({ binId, from, to }, token) {
     const facing = node.style.getPropertyValue('--person-heading');
     node.style.setProperty('--person-heading', `${heading(position, to)}deg`);
     node.dataset.throwing = '';
@@ -388,9 +393,10 @@ export function createPrinterMapPerson(canvas, { step, scale, getItemNode }) {
       flight = plane.animate([
         { transform:`${transform(from)} ${tilt}`, opacity:1 },
         { transform:`${transform(mid)} ${tilt} scale(1.12)`, opacity:1 },
-        { transform:`${transform(to)} ${tilt} scale(.25)`, opacity:0 }
+        { transform:`${transform(to)} ${tilt} scale(.8)`, opacity:1 }
       ], { duration:Math.min(1400, Math.max(650, distance(from, to) * scale * 4)), easing:'ease-out' });
       try { await flight.finished; } catch { return; }
+      if (token === generation) getItemNode(binId)?.setAttribute('data-paper-landed', '');
     } finally {
       if (token === generation) {
         flight = null;

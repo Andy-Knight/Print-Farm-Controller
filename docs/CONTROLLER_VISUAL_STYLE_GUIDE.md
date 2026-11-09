@@ -204,14 +204,14 @@ Use `--ds-shadow-sm` for quiet elevation; `--ds-shadow-md` for hover/focus empha
 
 #### Room artwork
 
-Draw room items behind printer tiles with restrained outlines, fills and shading in both themes. Scale the artwork with its footprint. Place floor items underneath the room and keep grid dots visible on the warm-grey surface. Put editable labels inside the bottom edge. Floors, benches, racks, shelves, windows, plant pots, chairs, stools and bins have no labels.
+Draw room items behind printer tiles with restrained outlines, fills and shading in both themes. Scale the artwork with its footprint. Place floor items underneath the room and keep grid dots visible on the warm-grey surface. Put editable labels inside the bottom edge. Floors, benches, racks, shelves, windows, plant pots, chairs, stools, computers and bins have no labels.
 
 | Item | On-map treatment |
 |---|---|
 | Bench | Butcher block with staggered planks, restrained grain and a darker front edge. Keep plank scale fixed and run the grain along the longest edge, horizontally on square benches. |
 | Rack and shelf | Open wire rack with perimeter rails and four round steel posts. The shelf is a shallow wooden board with steel end brackets and room for four decorative parts. |
 | Plant pot, chair and stool | Top-down rubber plant in a round pot, padded task chair with armrests and casters, and round timber stool. |
-| Bin | Top-down round metal bin with a visible open rim. |
+| Bin | Top-down round metal bin with a visible open rim. After a throw, show part of the airplane inside the rim. |
 | Computer and Controller | Desktop workstation with monitor, keyboard and mouse. The Controller is a graphite Mini PC with the Stacked Layers mark and its label below the artwork. |
 
 Keep outline icons in the palette. Give the task chair and workstation a secondary 90° clockwise rotation action. Swap their footprint dimensions on each turn and keep them inside the room.
@@ -226,11 +226,11 @@ Size the task chair at three by four grid steps and the stool at three by three 
 
 #### Character animation
 
-On saved maps with a Computer item, show the top-down character in a blue overshirt at room-item scale. Give it walking, pickup, shelf drop-off and seated poses. Leave clearance around furniture and printer tiles. Tie the alternating foot motion to travel speed and swing each arm from the shoulder opposite the foot on that side. Show the standing and walking shadow only in light mode. Exclude the character from map fitting and interaction targets.
+On saved maps with a Computer item, show the top-down character in a blue overshirt at room-item scale. Give it walking, pickup, shelf drop-off and seated poses. In the seated pose, show both legs and shoes extending toward the workstation. Leave clearance around furniture and printer tiles. Tie the alternating foot motion to travel speed and swing each arm from the shoulder opposite the foot on that side. Show the standing and walking shadow only in light mode. Exclude the character from map fitting and interaction targets.
 
 Show the carried part as a box held in both hands in front of the character. Keep the arms steady while the walking feet continue to alternate. Place the part into a free shelf slot on drop-off. During an idle trip, the character can collect a staged part from a reachable shelf and carry it out through a reachable door. At an idle computer, animate a paper airplane landing in an unobstructed bin. Pick at random when both a throw and a door trip are available. Swing the door leaf around its hinge during interior crossings and when the character leaves or returns. Hold the door open until the character’s whole sprite clears the leaf’s sweep. When the character sits at a workstation, fade in a steady blue glow from the monitor’s front edge across the keyboard. Soften the edges and taper the light beyond the keys. Rotate the glow with the workstation.
 
-Follow the browser’s reduced-motion setting by default. Offer the [standard Animate person switch](#8-switches-checkboxes-selects-and-fields) on the saved map, in full screen and on the monitoring display. Persist the choice in that browser and apply it to the map character.
+Follow the browser’s reduced-motion setting by default. Offer the [standard Enable animation switch](#8-switches-checkboxes-selects-and-fields) on the saved map, in full screen and on the monitoring display. Persist the choice in that browser and apply it to the map character.
 
 #### Full screen and monitoring
 
@@ -274,7 +274,7 @@ Default ordinary buttons are **42px high**; `ui-button-small` is **32px**, used 
 
 - Use the Light/Dark switch design for binary toggles. Reuse `.ui-switch`, `.ui-switch-track` and `.ui-switch-label`. The pill has a 40px minimum height, a 36 × 20px track and a white 14px thumb. The unchecked track uses `#34424e` in dark mode and `#9aabb8` in light mode. The checked track uses `#4f8fc2` and the thumb moves 16px. Keyboard focus gets a 2px blue outline.
 - Use a native button with `role="switch"`, `aria-checked` and an accessible name. The top-bar theme switch shows the active theme name and hides that text at 760px and below. The checked state represents Dark.
-- The Printer map’s **Animate person** switch keeps its visible label and stable accessible name in the map toolbar, full-screen view and monitoring display.
+- The Printer map’s **Enable animation** switch keeps its visible label and stable accessible name in the map toolbar, full-screen view and monitoring display.
 
 ### Dashboard switches
 

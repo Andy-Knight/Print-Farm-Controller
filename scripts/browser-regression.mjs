@@ -2492,7 +2492,7 @@ async function printerMapSmoke(browser, url) {
         assert.ok(await objectOnMap(type).locator('.printer-map-furniture').isVisible(), `${type} uses the selected artwork`);
         assert.equal(await paletteButton(type).locator('svg defs').count(), 0, `${type} retains its outline palette icon`);
       }
-      if (type !== 'computer' && type !== 'controller') {
+      if (type !== 'controller') {
         assert.equal(await objectOnMap(type).innerText(), '', `${type} has no on-map label`);
         await objectOnMap(type).press('F2');
         assert.equal(await label.isVisible(), false, `${type} has no inline label editor`);
@@ -2546,9 +2546,6 @@ async function printerMapSmoke(browser, url) {
       return transform.c < 0 && Math.abs(transform.d) < .001;
     });
     assert.ok(glowFollowsKeyboard, 'the glow turns toward the keyboard when the workstation rotates');
-    await computer.press('F2');
-    await label.fill('Slicing station');
-    await label.press('Enter');
     const columns = page.getByRole('spinbutton', { name:'Map width (steps)', exact:true });
     const rows = page.getByRole('spinbutton', { name:'Map height (steps)', exact:true });
     const standardBounds = await marker.boundingBox();
@@ -2588,9 +2585,10 @@ async function printerMapSmoke(browser, url) {
     const savedFloor = store.maps[1].items.find(item => item.type === 'floor');
     assert.deepEqual([savedFloor.width, savedFloor.height], [620, 420], 'the resized floor is saved');
     assert.deepEqual(store.maps[1].items.slice(-roomObjects.length).map(item => item.type), roomObjects);
-    assert.equal(store.maps[1].items.at(-1).label, 'Slicing station');
     const savedChair = store.maps[1].items.find(item => item.type === 'chair');
     const savedComputer = store.maps[1].items.at(-1);
+    assert.equal(savedComputer.label, '');
+    savedComputer.label = 'Label from an older map';
     assert.deepEqual([savedChair.width, savedChair.height, savedChair.rotation], [80, 60, 90]);
     const savedStool = store.maps[1].items.find(item => item.type === 'stool');
     assert.deepEqual([savedStool.width, savedStool.height], [60, 60]);
@@ -2620,7 +2618,7 @@ async function printerMapSmoke(browser, url) {
     for (const type of unlabelledItems) {
       assert.equal(await objectOnMap(type).innerText(), '', `previously saved ${type} labels are hidden`);
     }
-    assert.equal(await computer.innerText(), 'Slicing station');
+    assert.equal(await computer.innerText(), '', 'previously saved computer labels are hidden');
     assert.equal(await chairDrawing.getAttribute('viewBox'), '0 0 60 48');
     assert.equal(await computerDrawing.getAttribute('viewBox'), '0 0 48 72');
     assert.equal(await marker.getAttribute('style'), savedStyle);
@@ -2725,7 +2723,7 @@ async function printerMapSmoke(browser, url) {
     await page.locator('#printerMapSelect').selectOption('workshop');
     await marker.waitFor();
     await page.addStyleTag({ content:'#printerMapViewport::-webkit-scrollbar { width:15px; height:15px; }' });
-    const mapMotion = page.getByRole('switch', { name:'Animate person' });
+    const mapMotion = page.getByRole('switch', { name:'Enable animation' });
     for (const theme of ['light', 'dark']) {
       await page.evaluate(theme => { document.documentElement.dataset.theme = theme; }, theme);
       for (const width of [1365, 900, 760, 620, 390, 320]) {
@@ -2835,7 +2833,7 @@ async function printerMapSmoke(browser, url) {
     await fullScreen.click();
     await fullScreenDialog.waitFor();
     const narrowScale = await assertFitsFullscreen();
-    const fullscreenMotion = fullScreenDialog.getByRole('switch', { name:'Animate person' });
+    const fullscreenMotion = fullScreenDialog.getByRole('switch', { name:'Enable animation' });
     assert.ok(await fullscreenMotion.isVisible());
     const motionBefore = await fullscreenMotion.getAttribute('aria-checked');
     await fullscreenMotion.press('Space');
@@ -2993,9 +2991,11 @@ async function printerMapSmoke(browser, url) {
       await monitor.getByRole('heading', { name:'Animation test', exact:true }).waitFor({ timeout:10000 });
       const actor = monitor.locator('.printer-map-person');
       const sprite = actor.locator('svg');
+      const seatedLegs = sprite.locator('.map-person-legs-seated');
       const actorPosition = () => actor.evaluate(node => node.style.transform);
       await monitor.locator('.printer-map-person[data-pose="seated"] svg').waitFor();
       assert.equal(await actorPosition(), 'translate(75px, 157.5px)', 'the character begins in the chair at the first computer');
+      assert.ok(await seatedLegs.isVisible(), 'the character has visible legs while sitting in a chair');
       assert.equal(await monitor.locator('[data-map-item-id="first"][data-workstation-active]').count(), 1);
       const firstGlow = '[data-map-item-id="first"] .printer-map-workstation-glow';
       await monitor.waitForFunction(selector => getComputedStyle(document.querySelector(selector)).opacity === '1', firstGlow);
@@ -3018,6 +3018,7 @@ async function printerMapSmoke(browser, url) {
       await monitor.locator('.printer-map-person[data-pose="seated"] svg').waitFor({ timeout:12000 });
       assert.equal(await openInteriorDoor.count(), 0, 'the interior door closes once the character clears the swing');
       assert.equal(await actorPosition(), 'translate(375px, 157.5px)', 'the character returns to the selected computer and sits on its stool');
+      assert.ok(await seatedLegs.isVisible(), 'the character has visible legs while sitting on a stool');
       assert.equal(await monitor.locator('[data-map-item-id="second"][data-workstation-active]').count(), 1);
       activity = { ...activity, bedClearance:false };
       animationMap = { ...animationMap, revision:2, items:[...animationMap.items.filter(item => !item.id.startsWith('interior-')),
@@ -3072,6 +3073,8 @@ async function printerMapSmoke(browser, url) {
       await monitor.locator('.printer-map-person[data-pose="seated"] svg').waitFor({ timeout:12000 });
       assert.equal(await openDoor.count(), 0, 'the exit door closes after the character clears the return swing');
       const deskPosition = await actorPosition();
+      const paperInBin = monitor.locator('[data-map-item-id="paper-bin"] .printer-map-bin-paper');
+      assert.ok(await paperInBin.isHidden(), 'the bin starts empty');
       await monitor.waitForFunction(() => typeof window.startMapIdleAction === 'function');
       await monitor.evaluate(() => {
         Math.random = () => .1;
@@ -3083,12 +3086,14 @@ async function printerMapSmoke(browser, url) {
       assert.match(landing, /^translate\(427\.5px, 187\.5px\)/, 'the plane lands in the centre of the bin');
       assert.equal(await actorPosition(), deskPosition, 'the character stays at the computer for a throw');
       await plane.waitFor({ state:'hidden', timeout:5000 });
+      assert.ok(await paperInBin.isVisible(), 'part of the plane stays visible after landing');
       assert.equal(await openDoor.count(), 0, 'the plane throw is an alternative to a door trip');
       await monitor.emulateMedia({ reducedMotion:'reduce' });
       await monitor.waitForFunction(() => {
         const node = document.querySelector('.printer-map-person');
         return !node.hidden && node.dataset.pose === 'seated' && node.style.transform === 'translate(75px, 157.5px)';
       });
+      assert.ok(await paperInBin.isVisible(), 'the landed plane remains visible with reduced motion');
       completedAt = Date.now();
       queued = 5;
       const effectsBefore = await monitor.evaluate(() => window.mapEffects.length);
@@ -3096,7 +3101,7 @@ async function printerMapSmoke(browser, url) {
       assert.equal(await monitor.evaluate(() => window.mapEffects.length), effectsBefore, 'reduced motion suppresses printer pulses');
       assert.equal(await actorPosition(), 'translate(75px, 157.5px)', 'reduced motion keeps the idle character visible and still');
       assert.ok(await sprite.isVisible());
-      const animate = monitor.getByRole('switch', { name:'Animate person' });
+      const animate = monitor.getByRole('switch', { name:'Enable animation' });
       assert.equal(await animate.getAttribute('aria-checked'), 'false');
       const track = animate.locator('.ui-switch-track');
       assert.deepEqual(await track.evaluate(node => [node.offsetWidth, node.offsetHeight]), [36, 20]);

@@ -6,7 +6,7 @@ const endpoint = '/api/printer-maps';
 const preferenceKey = 'pfc-printer-map';
 const motionPreferenceKey = 'pfc-printer-map-motion';
 const defaultRoomSteps = 50;
-const unlabelledTypes = new Set(['floor', 'bench', 'rack', 'shelf', 'window', 'plant-pot', 'chair', 'stool', 'bin']);
+const unlabelledTypes = new Set(['floor', 'bench', 'rack', 'shelf', 'window', 'plant-pot', 'chair', 'stool', 'computer', 'bin']);
 const rotatableFurniture = new Set(['chair', 'computer']);
 const itemTypes = {
   floor:{ name:'Floor', size:[600, 400] },

@@ -286,6 +286,7 @@
 .printer-map-person .map-person-shoe { stroke: light-dark(#273746, #18232d); }
 .printer-map-person:not([data-pose="seated"], [data-pose="dropping"], [data-pose="collecting"]) .map-person-seated,
 .printer-map-person[data-pose="seated"] :is(.map-person-standing, .map-person-shadow),
+.printer-map-person:not([data-pose="seated"]) .map-person-legs-seated,
 .printer-map-person:is([data-pose="dropping"], [data-pose="collecting"]) .map-person-arm-swing,
 .printer-map-person:is([data-carrying], [data-throwing]) :is(.map-person-arm-swing, .map-person-seated),
 .printer-map-person:not([data-pose="walking"]) .map-person-legs-walking,
@@ -315,10 +316,18 @@
   display: block;
   width: 100%;
   height: 100%;
+}
+
+.printer-map-plane svg,
+.printer-map-bin-paper {
   fill: light-dark(#f4f8fa, #dde8f0);
   stroke: light-dark(#576e7e, #6d8ba0);
   stroke-width: 1.4;
   stroke-linejoin: round;
+}
+
+.printer-map-item:not([data-paper-landed]) .printer-map-bin-paper {
+  display: none;
 }
 
 @keyframes printer-map-paper-throw {
