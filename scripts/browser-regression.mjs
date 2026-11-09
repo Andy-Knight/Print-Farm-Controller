@@ -2563,6 +2563,31 @@ async function printerMapSmoke(browser, url) {
       return transform.c < 0 && Math.abs(transform.d) < .001;
     });
     assert.ok(glowFollowsKeyboard, 'the glow turns toward the keyboard when the workstation rotates');
+    const [computerX, computerY, , computerHeight] = await geometry(computer);
+    const [chairX, chairY, chairWidth, chairHeight] = await geometry(chair);
+    const chairTarget = [computerX - chairWidth - 1, computerY + (computerHeight - chairHeight) / 2];
+    const moveChair = async (delta, positive, negative) => {
+      const key = delta > 0 ? positive : negative;
+      const halfSteps = Math.abs(delta * 2);
+      for (let i = 0; i < Math.floor(halfSteps / 6); i++) await chair.press(`Shift+${key}`);
+      for (let i = 0; i < halfSteps % 6; i++) await chair.press(key);
+    };
+    await moveChair(chairTarget[0] - chairX, 'ArrowRight', 'ArrowLeft');
+    await moveChair(chairTarget[1] - chairY - .5, 'ArrowDown', 'ArrowUp');
+    assert.deepEqual((await geometry(chair)).slice(0, 2), [chairTarget[0], chairTarget[1] - .5]);
+    await chair.scrollIntoViewIfNeeded();
+    const chairBounds = await chair.boundingBox();
+    const chairCentre = { x:chairBounds.x + chairBounds.width / 2, y:chairBounds.y + chairBounds.height / 2 };
+    await page.mouse.move(chairCentre.x, chairCentre.y);
+    await page.mouse.down();
+    await page.mouse.move(chairCentre.x, chairCentre.y + 7.5, { steps:4 });
+    await page.mouse.up();
+    assert.deepEqual((await geometry(chair)).slice(0, 2), chairTarget,
+      'a half-step drag centres the chair in front of the rotated computer');
+    const [stoolX, stoolY] = await geometry(stool);
+    await stool.press('ArrowRight');
+    assert.deepEqual((await geometry(stool)).slice(0, 2), [stoolX + .5, stoolY],
+      'stools also move a half step with an arrow key');
     const columns = page.getByRole('spinbutton', { name:'Map width (steps)', exact:true });
     const rows = page.getByRole('spinbutton', { name:'Map height (steps)', exact:true });
     const standardBounds = await marker.boundingBox();
@@ -2607,6 +2632,7 @@ async function printerMapSmoke(browser, url) {
     assert.equal(savedComputer.label, '');
     savedComputer.label = 'Label from an older map';
     assert.deepEqual([savedChair.width, savedChair.height, savedChair.rotation], [80, 60, 90]);
+    assert.deepEqual([savedChair.x, savedChair.y], chairTarget.map(value => value * 20));
     const savedStool = store.maps[1].items.find(item => item.type === 'stool');
     assert.deepEqual([savedStool.width, savedStool.height], [60, 60]);
     assert.deepEqual([savedComputer.width, savedComputer.height, savedComputer.rotation], [60, 80, 90]);
@@ -2637,6 +2663,7 @@ async function printerMapSmoke(browser, url) {
     }
     assert.equal(await computer.innerText(), '', 'previously saved computer labels are hidden');
     assert.equal(await chairDrawing.getAttribute('viewBox'), '0 0 60 48');
+    assert.deepEqual((await geometry(chair)).slice(0, 2), chairTarget, 'the half-step position survives reload');
     assert.equal(await computerDrawing.getAttribute('viewBox'), '0 0 48 72');
     assert.equal(await marker.getAttribute('style'), savedStyle);
     assert.deepEqual(await assertSnapped(), savedPosition);

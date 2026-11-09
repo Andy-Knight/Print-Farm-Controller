@@ -977,8 +977,9 @@ export function createPrinterMapPage({ api, canEdit, openPrinter, openAlerts, op
     const { width, height } = roomBounds();
     if (entries.length === 1) {
       const [{ placement, x, y }] = entries;
-      placement.x = snap(x + dx, width, placement.width);
-      placement.y = snap(y + dy, height, placement.height);
+      const step = placementStep(placement.type);
+      placement.x = snap(x + dx, width, placement.width, step);
+      placement.y = snap(y + dy, height, placement.height, step);
     } else {
       // Clamp one shared grid delta so the group cannot shear at a map edge.
       const minX = Math.max(...entries.map(entry => -entry.x));
@@ -1004,12 +1005,17 @@ export function createPrinterMapPage({ api, canEdit, openPrinter, openAlerts, op
     if (entries.some(({ placement }) => placement.axis || ['door', 'window'].includes(placement.type))) updateLayoutJoins();
   }
 
-  function snap(value, boundary, extent = 0) {
-    // Each dot is centred in its grid cell over the tile's usable travel.
-    const nearest = Math.round((value - gridOffset) / gridStep) * gridStep + gridOffset;
-    const limit = Math.floor((boundary - gridOffset - extent) / gridStep) * gridStep + gridOffset;
-    if (limit < gridOffset) return boundary - extent;
-    return Math.min(limit, Math.max(gridOffset, nearest));
+  function placementStep(type) {
+    return type === 'chair' || type === 'stool' ? gridStep / 2 : gridStep;
+  }
+
+  function snap(value, boundary, extent = 0, step = gridStep) {
+    // Seat positions can also land halfway between the regular grid dots.
+    const offset = gridOffset % step;
+    const nearest = Math.round((value - offset) / step) * step + offset;
+    const limit = Math.floor((boundary - offset - extent) / step) * step + offset;
+    if (limit < offset) return boundary - extent;
+    return Math.min(limit, Math.max(offset, nearest));
   }
 
   function resizeItem(item, width, height, anchor) {
@@ -1217,7 +1223,7 @@ export function createPrinterMapPage({ api, canEdit, openPrinter, openAlerts, op
     const placement = placementFor(marker);
     if (!placement) return;
     if (!selected.has(placement)) selected = new Set([placement]);
-    const step = gridStep * (event.shiftKey ? 3 : 1);
+    const step = event.shiftKey ? 3 * gridStep : selected.size === 1 ? placementStep(placement.type) : gridStep;
     const entries = [...selected].map(entry => ({ placement:entry, x:entry.x, y:entry.y }));
     moveSelection(entries, delta[0] * step, delta[1] * step);
     renderMarkers();
@@ -1256,7 +1262,8 @@ export function createPrinterMapPage({ api, canEdit, openPrinter, openAlerts, op
     const units = gridStep / gridPixels;
     const x = point ? point.x * units - width / 2 : viewport.scrollLeft * units + offset;
     const y = point ? point.y * units - height / 2 : viewport.scrollTop * units + offset;
-    return { x:snap(x, bounds.width, width), y:snap(y, bounds.height, height), width, height };
+    const step = placementStep(type);
+    return { x:snap(x, bounds.width, width, step), y:snap(y, bounds.height, height, step), width, height };
   }
 
   function addItem(type, geometry) {
@@ -1367,8 +1374,9 @@ export function createPrinterMapPage({ api, canEdit, openPrinter, openAlerts, op
     }
     [item.width, item.height] = [item.height, item.width];
     item.rotation = ((item.rotation ?? 0) + 90) % 360;
-    if (item.x + item.width > width) item.x = snap(item.x, width, item.width);
-    if (item.y + item.height > height) item.y = snap(item.y, height, item.height);
+    const step = placementStep(item.type);
+    if (item.x + item.width > width) item.x = snap(item.x, width, item.width, step);
+    if (item.y + item.height > height) item.y = snap(item.y, height, item.height, step);
     setText(error, '');
     renderItems();
   });

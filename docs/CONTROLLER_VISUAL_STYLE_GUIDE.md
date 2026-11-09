@@ -196,7 +196,7 @@ Use `--ds-shadow-sm` for quiet elevation; `--ds-shadow-md` for hover/focus empha
 
 #### Editing and placement
 
-- Use the tile as one selection and drag target in edit mode. Snap its top-left corner to the nearest grid dot. Arrow keys move one step, or three with Shift. Save the room layout explicitly.
+- Use the tile as one selection and drag target in edit mode. Snap its top-left corner to the nearest grid dot. Allow a single chair or stool to move in half steps so it can centre on a computer. Arrow keys move by the item's snap distance, or by three full steps with Shift. Save the room layout explicitly.
 - Give layout items a wrapping palette of 42px secondary icon buttons, each with an accessible name and tooltip. Drag an icon to show a snapped preview and place it on release. Click or press Enter to place at the default position.
 - Give a single selected item a focus outline. Give resizable items handles at the bottom-left and bottom-right corners. Keep the opposite top corner fixed and stop at the last whole grid step inside the room. Chairs, stools and computers have fixed footprints.
 - Double-click a labelable item or focus it and press F2 to edit the label in place. Enter or moving focus applies the draft label. Escape restores the previous label.
