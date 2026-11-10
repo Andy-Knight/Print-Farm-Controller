@@ -2668,9 +2668,15 @@ async function printerMapSmoke(browser, url) {
       await page.mouse.down();
       await page.mouse.move(centreX + 4, worktop.y + 24, { steps:4 });
       await benchGuide.waitFor({ state:'visible' });
-      const guide = await benchGuide.boundingBox();
-      assert.ok(Math.abs(guide.x + guide.width / 2 - centreX) < .5 && guide.y === worktop.y
-        && guide.height === worktop.height, 'the drag guide spans the bench centreline');
+      // Compare both elements in one layout snapshot, allowing for subpixel rounding.
+      const offsets = await bench.evaluate(node => {
+        const worktop = node.getBoundingClientRect();
+        const guide = document.querySelector('#printerMapBenchGuide').getBoundingClientRect();
+        return [guide.x + guide.width / 2 - worktop.x - worktop.width / 2,
+          guide.top - worktop.top, guide.bottom - worktop.bottom];
+      });
+      assert.ok(offsets.every(offset => Math.abs(offset) < .5),
+        `the drag guide spans the bench centreline (centre, top and bottom offsets: ${offsets.join(', ')})`);
       for (const direction of [-1, 1]) {
         await page.mouse.move(centreX + direction * 25, worktop.y + 24);
         await benchGuide.waitFor({ state:'hidden' });
