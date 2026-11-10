@@ -3280,7 +3280,26 @@ async function printerMapSmoke(browser, url) {
       assert.ok(await monitoredRack.locator('[data-rack-slot="2:1"] img').isVisible());
       assert.equal(await monitoredRack.getByRole('combobox').count(), 0);
       assert.equal(await monitoredRack.getByRole('button', { name:/Open printer details|Mark bed cleared/ }).count(), 0);
+      const monitorSize = monitor.viewportSize();
+      await monitor.setViewportSize({ width:390, height:420 });
+      const shelves = monitoredRack.getByRole('region', { name:'Rack shelves' });
+      await shelves.focus();
+      assert.ok(await shelves.evaluate(region => {
+        const dialog = region.closest('dialog');
+        const bounds = dialog.getBoundingClientRect();
+        const header = dialog.querySelector('.dialog-head').getBoundingClientRect();
+        const viewport = region.getBoundingClientRect();
+        return region.scrollHeight > region.clientHeight && dialog.scrollHeight === dialog.clientHeight
+          && header.left - bounds.left >= 12 && bounds.right - header.right >= 12
+          && header.top - bounds.top >= 12 && bounds.bottom - viewport.bottom >= 12;
+      }), 'the rack header and shelves clear all rounded corners on a small monitoring display');
+      await shelves.press('End');
+      await monitor.waitForFunction(() => {
+        const region = document.querySelector('.printer-map-rack-scroll');
+        return region.scrollTop > 0 && region.scrollHeight - region.clientHeight - region.scrollTop <= 1;
+      });
       await monitoredRack.getByRole('button', { name:'Close', exact:true }).click();
+      await monitor.setViewportSize(monitorSize);
       activity = { ...activity, alert:false };
       await monitorRackAlert.waitFor({ state:'hidden', timeout:10000 });
       assert.equal(await monitorRackButton.getAttribute('data-rack-alert'), null);
