@@ -3001,19 +3001,23 @@ async function printerMapSmoke(browser, url) {
         await preactReady(page);
       }
       await marker.waitFor();
-      if (preact) {
-        await fullScreen.click();
-        await fullScreenDialog.waitFor();
-      }
+      await fullScreen.click();
+      await fullScreenDialog.waitFor();
+      const fittedScale = await assertFitsFullscreen();
       await image.click();
       const details = page.locator('#printerDialog');
       await details.waitFor();
-      await fullScreenDialog.waitFor({ state:'hidden' });
+      assert.equal(await fullScreenDialog.evaluate(dialog => dialog.open), true,
+        'the full-screen map stays open behind Printer Details');
       assert.match(await details.locator('h2').first().innerText(), /Workshop Bambu Lab A1/);
-      await page.keyboard.press('Escape');
+      if (preact) await page.keyboard.press('Escape');
+      else await details.getByRole('button', { name:'Close printer details', exact:true }).click();
       await details.waitFor({ state:'hidden' });
+      assert.equal(await assertFitsFullscreen(), fittedScale, 'closing Printer Details restores the fitted map');
+      await page.waitForFunction(() => document.activeElement?.matches('#printerMapFullscreen .printer-map-details'));
 
       await marker.getByRole('button', { name:/View queue/ }).click();
+      await fullScreenDialog.waitFor({ state:'hidden' });
       assert.equal(new URL(page.url()).searchParams.get('printer'), printer.id);
       const scopedQueue = page.locator('#queueActiveList');
       await scopedQueue.getByText('Workshop job.gcode').waitFor();
@@ -3434,7 +3438,12 @@ async function printerMapSmoke(browser, url) {
     assert.ok(await rackView.isVisible(), 'the rack front view can open in full screen');
     assert.ok(await rackView.locator('[data-printer-id="map-p1"]').isVisible(),
       'the rack view presents its printer tiles in full screen');
-    await closeRack();
+    await rackView.getByRole('button', { name:`Open printer details for ${printer.name}`, exact:true }).click();
+    await rackView.waitFor({ state:'hidden' });
+    const rackPrinterDetails = page.locator('#printerDialog');
+    await rackPrinterDetails.getByRole('button', { name:'Close printer details', exact:true }).click();
+    await rackPrinterDetails.waitFor({ state:'hidden' });
+    assert.ok(await fullScreenDialog.isVisible(), 'closing rack printer details returns to the full-screen map');
     await marker.waitFor();
     await exitFullScreen.click();
     await page.getByRole('button', { name:'Edit map', exact:true }).click();
