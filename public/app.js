@@ -3586,6 +3586,15 @@ function renderPrintQueue() {
   }
 }
 
+function openQueueAfterPrinterDetails() {
+  if (document.querySelector('#printerMapFullscreen').open) {
+    navigateController('/queue');
+  } else {
+    renderPrintQueue();
+    queueDialog.showModal();
+  }
+}
+
 async function refreshPrintQueue() {
   queueState = await api('/api/queue');
   renderPrintQueue();
@@ -7308,7 +7317,7 @@ function renderBambuPrintSetup(printer, setup, fileName, mode = 'print') {
       if (queueMode) await addPrintQueueJob(printer, fileName, options);
       else await command(printer.id, 'print', { fileName, ...options });
       printerDialog.close();
-      if (queueMode) { renderPrintQueue(); queueDialog.showModal(); }
+      if (queueMode) openQueueAfterPrinterDetails();
     } catch (error) { showError(error); }
   };
   refresh();
@@ -7429,7 +7438,7 @@ function renderCreator5PrintSetup(printer, setup, fileName, mode = 'print') {
       if (queueMode) await addPrintQueueJob(printer, fileName, options);
       else await command(printer.id, 'print', { fileName, ...options });
       printerDialog.close();
-      if (queueMode) { renderPrintQueue(); queueDialog.showModal(); }
+      if (queueMode) openQueueAfterPrinterDetails();
     } catch (error) { showPrinterDetailError(error); }
   };
   refresh();
@@ -7541,10 +7550,7 @@ function renderU1PrintSetup(printer, setup, fileName, mode = 'print') {
       if (queueMode) await addPrintQueueJob(printer, fileName, options);
       else await command(printer.id, 'print', { fileName, ...options });
       printerDialog.close();
-      if (queueMode) {
-        renderPrintQueue();
-        queueDialog.showModal();
-      }
+      if (queueMode) openQueueAfterPrinterDetails();
     } catch (error) {
       showPrinterDetailError(error);
     }
@@ -8659,8 +8665,7 @@ ${materialText}` : ''}
 The controller will start it automatically when this printer is idle and all safety checks pass.`)) return;
       await addPrintQueueJob(printer, btn.dataset.queueFile, { levelingBeforePrint:leveling });
       printerDialog.close();
-      renderPrintQueue();
-      queueDialog.showModal();
+      openQueueAfterPrinterDetails();
     } catch (error) { showError(error); }
   });
   printerDetail.querySelectorAll('[data-delete-printer-file]').forEach((btn) => btn.onclick = async () => {

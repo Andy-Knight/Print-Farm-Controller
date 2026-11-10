@@ -1386,10 +1386,13 @@ export function createPrinterMapPage({ api, canEdit, openPrinter, openAlerts, op
         return;
       }
       if (rackView.dialog.open) rackView.dialog.close();
+      if (action === 'details') {
+        openPrinter(printerId);
+        return;
+      }
       if (fullscreenDialog.open) fullscreenDialog.close();
       if (action === 'alerts') openAlerts(printerId);
       else if (action === 'queue') openQueue(printerId);
-      else openPrinter(printerId);
     }
   });
   canvas.addEventListener('pointerdown', event => {
