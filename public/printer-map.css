@@ -1190,6 +1190,16 @@ button.printer-map-item:is([data-kind="bench"], [data-kind="rack"]) {
   color: var(--ds-warning);
 }
 
+.printer-map-flags .printer-map-alert.is-quiet { color: var(--ds-text-muted); }
+
+.printer-map-monitor-alerts { padding: clamp(12px, 3vw, 22px); }
+.printer-map-monitor-alerts .dialog-head { align-items: center; }
+.printer-map-monitor-alerts h2 { overflow-wrap: anywhere; }
+.printer-map-monitor-alerts button { flex-shrink: 0; }
+.printer-map-monitor-alerts ol { display: grid; gap: var(--ds-space-2); margin: 0; padding: 0; list-style: none; }
+.printer-map-monitor-alerts li { display: grid; gap: 4px; border-top: 1px solid var(--ds-border); padding-top: var(--ds-space-2); }
+.printer-map-monitor-alerts li small { color: var(--ds-text-muted); }
+
 .printer-map-flags .printer-map-printing {
   color: var(--ds-success);
 }

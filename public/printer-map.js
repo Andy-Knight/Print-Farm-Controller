@@ -362,7 +362,7 @@ export function createPrinterMapPage({ api, canEdit, openPrinter, openAlerts, op
       <strong></strong>
     </${action}>
     <span class="printer-map-flags">
-      <${action}${type} class="printer-map-alert" data-map-printer-action="alerts" hidden>Alert</${action}>
+      <button type="button" class="printer-map-alert" data-map-printer-action="alerts" hidden>Alert</button>
       <span class="printer-map-printing" hidden>Printing</span>
       <${action}${type} class="printer-map-queued" data-map-printer-action="queue"></${action}>
     </span>
@@ -479,6 +479,12 @@ export function createPrinterMapPage({ api, canEdit, openPrinter, openAlerts, op
   const fullscreenResize = new ResizeObserver(fitFullscreen);
   if (displayOnly) {
     fullscreenResize.observe(viewport);
+    page.addEventListener('click', event => {
+      const button = event.target.closest('[data-map-printer-action="alerts"]');
+      if (!button) return;
+      const printer = printers.find(item => item.id === button.closest('[data-printer-id]')?.dataset.printerId);
+      if (printer) openAlerts(printer.id, printer.name);
+    });
     return {
       show(map, tiles = []) {
         maps = map ? [map] : [];
@@ -958,14 +964,18 @@ export function createPrinterMapPage({ api, canEdit, openPrinter, openAlerts, op
       marker.placeholder.toggleAttribute('hidden', Boolean(source));
       setText(marker.label, printer.name);
       marker.label.title = printer.name;
-      marker.alert.hidden = !printer.alert;
+      marker.alert.hidden = !displayOnly && !printer.alert;
+      marker.alert.setAttribute('aria-label', `View alerts for ${printer.name}`);
+      if (displayOnly) {
+        setText(marker.alert, printer.alert ? 'Alert' : 'Alerts');
+        marker.alert.classList.toggle('is-quiet', !printer.alert);
+      }
       marker.printing.hidden = !printer.printing;
       setText(marker.queued, `${printer.queued} queued`);
       updateTileActivity(marker, printer, map?.id);
       if (!displayOnly) {
         marker.details.disabled = marker.alert.disabled = marker.queued.disabled = Boolean(draft);
         marker.details.setAttribute('aria-label', `Open printer details for ${printer.name}`);
-        marker.alert.setAttribute('aria-label', `View alerts for ${printer.name}`);
         marker.queued.setAttribute('aria-label', `View queue for ${printer.name} (${printer.queued} queued)`);
         if (clearBed) {
           marker.clearance.disabled = Boolean(draft);

@@ -3062,11 +3062,18 @@ async function printerMapSmoke(browser, url) {
       const apiRequests = [];
       await monitorContext.route('**/api/**', async route => {
         const request = route.request();
-        const endpoint = new URL(request.url()).pathname;
+        const requestUrl = new URL(request.url());
+        const endpoint = requestUrl.pathname;
         const headers = await request.allHeaders();
         apiRequests.push({ endpoint, method:request.method(), hasCookie:Boolean(headers.cookie) });
         if (endpoint !== '/api/map-display' || !displayToken || headers.authorization !== `Bearer ${displayToken}`) {
           return route.fulfill({ status:404, json:{} });
+        }
+        if (requestUrl.searchParams.has('printerId')) {
+          assert.equal(requestUrl.searchParams.get('printerId'), printer.id);
+          return route.fulfill({ json:{ alerts:[{
+            title:'Print failed', severity:'critical', createdAt:'2026-11-01T09:00:00.000Z', read:true
+          }] } });
         }
         const map = animationMap || store.maps.find(saved => saved.id === 'workshop');
         return route.fulfill({ json:{ map:{
@@ -3096,7 +3103,16 @@ async function printerMapSmoke(browser, url) {
       assert.ok(await monitor.locator('[data-kind="controller"] .printer-map-controller-mark').isVisible(),
         'the monitoring page shows the saved Controller artwork');
       assert.equal(await monitor.locator('[data-kind="chair"] .printer-map-furniture').getAttribute('viewBox'), '0 0 60 48');
-      assert.equal(await monitorTile.locator('button, a').count(), 0);
+      assert.equal(await monitorTile.locator('button, a').count(), 1);
+      const monitorAlerts = monitor.getByRole('dialog', { name:`Alerts for ${printer.name}` });
+      const monitorAlertButton = scope => scope.getByRole('button', { name:`View alerts for ${printer.name}` });
+      await monitorAlertButton(monitorTile).click();
+      await monitorAlerts.getByText('Print failed', { exact:true }).waitFor();
+      assert.match(await monitorAlerts.locator('li').innerText(), /Critical · Read/);
+      assert.equal(await monitorAlerts.getByRole('button').count(), 1, 'monitor alerts have only a Close action');
+      await monitorAlerts.getByRole('button', { name:'Close', exact:true }).click();
+      await monitorAlerts.waitFor({ state:'hidden' });
+      assert.ok(await monitorAlertButton(monitorTile).evaluate(button => document.activeElement === button));
       assert.equal(await monitor.locator('#controllerSidebar, #printerMapSelect, #printerMapEditor, #authOverlay').count(), 0);
       const bounds = await monitor.locator('#printerMapViewport').boundingBox();
       assert.ok(bounds.width > 1200 && bounds.height > 600, 'the map fills the monitoring window');
@@ -3336,13 +3352,20 @@ async function printerMapSmoke(browser, url) {
         const region = document.querySelector('.printer-map-rack-scroll');
         return region.scrollTop > 0 && region.scrollHeight - region.clientHeight - region.scrollTop <= 1;
       });
+      await monitorAlertButton(monitoredRack).click();
+      await monitorAlerts.getByText('Print failed', { exact:true }).waitFor();
+      await monitor.keyboard.press('Escape');
+      await monitorAlerts.waitFor({ state:'hidden' });
       await monitoredRack.getByRole('button', { name:'Close', exact:true }).click();
       await monitor.setViewportSize(monitorSize);
       activity = { ...activity, alert:false };
       await monitorRackAlert.waitFor({ state:'hidden', timeout:10000 });
       assert.equal(await monitorRackButton.getAttribute('data-rack-alert'), null);
+      await monitorAlertButton(monitorTile).click();
+      await monitorAlerts.getByText('Print failed', { exact:true }).waitFor();
       await linkDialog.getByRole('button', { name:'Disable link' }).click();
       await monitor.getByText('Monitoring link unavailable.').waitFor({ timeout:10000 });
+      await monitorAlerts.waitFor({ state:'hidden' });
       await sprite.waitFor({ state:'hidden' });
       assert.equal(await monitorTile.count(), 0, 'the display clears after its link is revoked');
       assert.ok(await animate.isHidden());
