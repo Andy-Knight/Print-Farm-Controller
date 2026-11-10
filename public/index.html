@@ -300,8 +300,11 @@
               <option value="compact">Compact</option>
             </select>
           </label>
-          <label>Unplaced printer <select name="printer"></select></label>
-          <button type="button" class="secondary" data-map-action="add">Place printer</button>
+          <details id="printerMapAvailable" class="printer-map-printer-picker">
+            <summary><span id="printerMapAvailableLabel">Unplaced printers</span> <span data-map-picked-count hidden></span></summary>
+            <div class="printer-map-printer-options" role="group" aria-labelledby="printerMapAvailableLabel"></div>
+          </details>
+          <button type="button" class="secondary" data-map-action="add" disabled>Place selected</button>
           <button type="submit" class="primary">Save map</button>
           <button type="button" class="secondary" data-map-action="cancel">Cancel</button>
           <button type="button" class="danger" data-map-action="delete" hidden>Delete map</button>
