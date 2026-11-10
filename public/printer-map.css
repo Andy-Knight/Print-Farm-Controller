@@ -557,49 +557,105 @@
 #printerMapCanvas .printer-map-marker[hidden] { display: none; }
 
 .printer-map-rack-dialog {
-  --map-marker-width: 96px;
-  --map-marker-height: 116px;
+  --map-marker-width: 106px;
+  --map-marker-height: 124px;
   --map-model-width: 84px;
-  --map-model-height: 40px;
+  --map-model-height: 50px;
   width: min(820px, calc(100vw - 30px));
+  max-height: calc(100dvh - 30px);
 }
 
+.printer-map-rack-panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ds-space-3);
+  max-height: calc(100dvh - 32px);
+  padding: clamp(12px, 3vw, 22px);
+  overflow: hidden;
+}
+
+.printer-map-rack-panel .dialog-head { align-items: center; margin: 0; }
+.printer-map-rack-panel .dialog-head h2 { margin: 0; }
+.printer-map-rack-panel .dialog-head button { flex-shrink: 0; }
+.printer-map-rack-dialog [role="alert"] { margin: 0; }
 .printer-map-rack-dialog [role="alert"]:empty { display: none; }
 
 .printer-map-rack-scroll {
-  overflow-x: auto;
+  min-height: 0;
+  overflow: auto;
+  border-radius: var(--ds-radius-sm);
+}
+
+.printer-map-rack-scroll:focus-visible {
+  outline: 2px solid var(--ds-focus);
+  outline-offset: 2px;
 }
 
 .printer-map-rack-levels {
+  --rack-post-width: 11px;
+  --rack-steel-edge: light-dark(#a8bac8, #718695);
+  --rack-steel-face: light-dark(#8197a9, #465d6c);
+  --rack-steel-shadow: light-dark(#586e7f, #273944);
+  position: relative;
   width: max-content;
   min-width: 100%;
-  border-inline: 3px solid var(--ds-border-strong);
-  border-top: 3px solid var(--ds-border-strong);
+  padding: 4px var(--rack-post-width) 12px;
+  background: var(--ds-surface-muted);
 }
+
+.printer-map-rack-levels::before,
+.printer-map-rack-levels::after {
+  content: '';
+  position: absolute;
+  inset-block: 0 3px;
+  width: var(--rack-post-width);
+  border-radius: 3px;
+  background: radial-gradient(ellipse 2px 3px at center, var(--ds-surface-muted) 80%, transparent) 0 0 / 100% 14px,
+    linear-gradient(90deg, var(--rack-steel-shadow), var(--rack-steel-face), var(--rack-steel-shadow));
+  pointer-events: none;
+}
+
+.printer-map-rack-levels::before { left: 0; }
+.printer-map-rack-levels::after { right: 0; }
 
 .printer-map-rack-level {
-  padding: 6px;
-  border-bottom: 3px solid var(--ds-border-strong);
+  padding: 6px 6px 12px;
+  background: linear-gradient(var(--rack-steel-edge) 2px, var(--rack-steel-face) 2px 9px, var(--rack-steel-shadow) 9px)
+    bottom / 100% 12px no-repeat;
 }
 
-.printer-map-rack-level h3 { margin: 0 0 4px; }
+.printer-map-rack-level h3 { margin: 0 0 4px; font-size: var(--ds-font-sm); }
 
 .printer-map-rack-bays {
   display: grid;
-  grid-template-columns: repeat(var(--rack-bays), minmax(110px, 1fr));
-  gap: 6px;
+  grid-template-columns: repeat(var(--rack-bays), minmax(116px, 1fr));
 }
 
 .printer-map-rack-slot {
   display: grid;
+  grid-template-rows: auto 1fr;
   justify-items: center;
-  align-content: start;
   gap: 4px;
-  min-height: 142px;
+  min-height: 152px;
   padding: 4px;
+}
+
+.printer-map-rack-slot > strong {
+  padding: 1px 6px;
   border: 1px solid var(--ds-border);
-  border-radius: var(--ds-radius-sm);
-  background: var(--ds-surface-muted);
+  border-radius: 3px;
+  background: var(--ds-surface);
+  color: var(--ds-text-muted);
+  font-size: var(--ds-font-xs);
+}
+
+.printer-map-rack-slot > span { grid-row: 2; align-self: center; color: var(--ds-text-muted); }
+.printer-map-rack-slot > div { grid-row: 2; align-self: end; }
+.printer-map-rack-slot > div:empty { display: none; }
+
+.printer-map-rack-slot .printer-map-marker:not(:hover, :focus-within) {
+  border-color: transparent;
+  background: transparent;
 }
 
 .printer-map-rack-slot select {

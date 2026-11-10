@@ -220,6 +220,8 @@ Size the task chair at three by four grid steps, the stool at three by three, an
 
 Keep a configured rack as a single footprint with a concise status strip for the printer count, level information and any alerts or beds to clear. Use a rack number in the accessible name of the map button so users can distinguish racks. Title the dialog **Rack front view**. Use a steady amber outline and a labelled alert count when printers on any level need attention. Show the highest occupied slot in each bay on the top-down map. If printers occupy different levels, label each visible printer with its level and show the number of additional printers in that bay. Let users open a front view from the rack, with higher levels above lower ones, bays in order, and compact printer tiles with the usual actions. Use **Manage rack** in edit mode to configure and assign slots. On monitoring displays, show the front view with read-only tiles.
 
+In the front view, draw powder-coated steel shelves with perforated upright posts and continuous shelf beams. Use small bay plaques and seat printer tiles along each shelf. Inset the title, standard secondary **Close** button and rack frame inside the rounded dialog. Keep the header and edit controls visible while the rack shelves scroll within the dialog on smaller screens.
+
 #### Walls, doors and windows
 
 - Walls and lines have horizontal or vertical orientation. Use two steps across the short axis, or one in a one-step room. Draw strokes on the centreline and join touching pieces of the same type.
