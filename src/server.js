@@ -420,6 +420,17 @@ async function handleScheduledBackupResult(result = {}) {
   if (!alertResult?.duplicate) fleetState.schedulePublish();
 }
 
+const monitoringAlertTitles = new Map([
+  ['printer.offline', 'Printer offline'],
+  ['maintenance.due_soon', 'Maintenance due soon'],
+  ['maintenance.due', 'Maintenance due'],
+  ['queue.needs_review', 'Queue job needs review'],
+  ['queue.bed_clearance', 'Bed clearance required'],
+  ['print.completed', 'Print completed'],
+  ['print.failed', 'Print failed'],
+  ['print.cancelled', 'Print cancelled']
+]);
+
 function fleetAlertsSummary() {
   const attentionPrinterTimes = alertService.attentionPrinterTimes();
   return {
@@ -1541,6 +1552,17 @@ async function apiRoute(req, res, url) {
       const map = await readDisplayedPrinterMap(runtimePaths.dataDir, req.headers.authorization);
       if (!map) return json(res, 404, { error:'Monitoring link unavailable.' });
       const ids = new Set(map.placements.map(item => item.printerId));
+      if (url.searchParams.has('printerId')) {
+        const printerId = url.searchParams.get('printerId');
+        if (!ids.has(printerId)) return json(res, 404, { error:'Printer unavailable on this map.' });
+        const alerts = alertService.listHistory({ printerId, limit:20 }).map(alert => ({
+          title:monitoringAlertTitles.get(alert.type) || 'Printer alert',
+          severity:alert.severity,
+          createdAt:alert.createdAt,
+          read:Boolean(alert.readAt)
+        }));
+        return json(res, 200, { alerts });
+      }
       const printers = decoratedFleet().filter(printer => ids.has(printer.id));
       const attention = alertService.attentionPrinterTimes();
       const tiles = printerMapTiles(printers, printQueue.getSnapshot(), Object.keys(attention), attention);

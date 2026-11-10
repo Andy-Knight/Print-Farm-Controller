@@ -42,7 +42,15 @@ test('real HTTP dispatcher enforces login, CSRF and RBAC before controller actio
       { id:'display-b', name:'Other room printer', adapterType:'flashforge-ad5m', model:'AD5M Pro',
         host:'127.0.0.3', checkCode:'OTHER_PRIVATE_CODE' }
     ]));
-    await fs.writeFile(path.join(dataDir,'alerts.json'),JSON.stringify({version:1,rules:[],history:[],destinations:[{id:'synthetic-hook',name:'Operations',provider:'webhook',config:{url:'https://example.invalid/SECRET_URL',authorization:'SECRET_AUTH'}}]}));
+    const alertTime = '2026-11-01T09:00:00.000Z';
+    const monitorAlert = {
+      id:'monitor-alert', type:'print.failed', severity:'critical', title:'SECRET_TITLE',
+      message:'SECRET_FILE.gcode failed', createdAt:alertTime, readAt:alertTime,
+      printer:{ id:'display-a', name:'Displayed printer' }, metadata:{ host:'SECRET_HOST' }
+    };
+    await fs.writeFile(path.join(dataDir,'alerts.json'),JSON.stringify({version:1,rules:[],history:[monitorAlert, {
+      ...monitorAlert, id:'other-monitor-alert', printer:{ id:'display-b', name:'Other room printer' }
+    }],destinations:[{id:'synthetic-hook',name:'Operations',provider:'webhook',config:{url:'https://example.invalid/SECRET_URL',authorization:'SECRET_AUTH'}}]}));
     const port=await freePort(),base='http://127.0.0.1:'+port;
     child=spawn(process.execPath,['src/server.js'],{
       cwd,env:{...process.env,DATA_DIR:dataDir,LOG_DIR:logDir,
@@ -108,6 +116,16 @@ test('real HTTP dispatcher enforces login, CSRF and RBAC before controller actio
     assert.deepEqual(Object.keys(displayBody.printers[0]).sort(),
       ['alert','alertAt','bedClearance','completedAt','id','imageKey','name','online','printing','progress','queueStartedAt','queued']);
     assert.doesNotMatch(JSON.stringify(displayBody), /PRIVATE_CODE|Other room printer|display-b|displayToken/);
+    const monitorAlertPath = '/api/map-display?printerId=display-a';
+    const monitoredAlerts = await display(token, monitorAlertPath);
+    assert.equal(monitoredAlerts.status, 200);
+    assert.equal(monitoredAlerts.headers.get('cache-control'), 'no-store');
+    assert.deepEqual(await monitoredAlerts.json(), {
+      alerts:[{ title:'Print failed', severity:'critical', createdAt:alertTime, read:true }]
+    });
+    assert.equal((await fetch(base + monitorAlertPath)).status, 404);
+    assert.equal((await display(token, '/api/map-display?printerId=display-b')).status, 404);
+    assert.equal((await display(token, monitorAlertPath, 'POST')).status, 401);
     for (const endpoint of ['/api/fleet','/api/events','/api/printers','/api/alerts','/api/queue',roomPath,displayLinkPath]) {
       assert.equal((await display(token, endpoint)).status, 401, endpoint);
     }
@@ -137,6 +155,7 @@ test('real HTTP dispatcher enforces login, CSRF and RBAC before controller actio
     const { token:replacement } = await (await call('POST', displayLinkPath, admin)).json();
     assert.notEqual(replacement, token);
     assert.equal((await display(token)).status, 404);
+    assert.equal((await display(token, monitorAlertPath)).status, 404, 'rotated links cannot read printer alerts');
     assert.equal((await display(replacement)).status, 200);
     assert.equal((await call('DELETE', displayLinkPath, admin)).status, 200);
     assert.equal((await display(replacement)).status, 404);
@@ -193,7 +212,7 @@ test('real HTTP dispatcher enforces login, CSRF and RBAC before controller actio
     for (const identity of [viewer,operator]) {
       const alerts=await (await call('GET','/api/alerts',identity)).json();
       assert.equal(alerts.alerts.destinations[0].name,'Operations');
-      assert.doesNotMatch(JSON.stringify(alerts),/SECRET_|example.invalid/);
+      assert.doesNotMatch(JSON.stringify(alerts.alerts.destinations),/SECRET_|example.invalid/);
     }
     assert.match(JSON.stringify(await (await call('GET','/api/alerts',admin)).json()),/SECRET_URL/);
     assert.equal((await call('POST','/api/printers/a/print',viewer)).status,403);

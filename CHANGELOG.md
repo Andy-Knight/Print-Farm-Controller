@@ -4,6 +4,10 @@ This file contains the version-by-version release history for Print Farm Control
 
 Historical entries describe the behaviour of the controller at the time of that release and may be superseded by later versions. For current installation, configuration and supported-hardware guidance, see [README.md](README.md).
 
+## v0.66.2
+
+- Open read-only alert summaries for printers on an external monitoring map, including printers in rack bays. Summaries show event type, severity, time and read status.
+
 ## v0.66.1
 
 - Keep the Printer map full screen when opening and closing Printer Details from a printer tile or rack front view.

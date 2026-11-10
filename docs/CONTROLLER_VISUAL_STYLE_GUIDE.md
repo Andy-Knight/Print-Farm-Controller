@@ -244,7 +244,7 @@ Follow the browser’s reduced-motion setting by default. Offer the [standard En
 - Centre and fit the occupied layout with a small grid margin, trimming unused outer grid space. Fit the grid on empty maps. Scale items, artwork, names and flags together and refit on viewport resize.
 - Put the sidebar Stacked Layers lockup at the upper left and retain the room name. Inset the standard 42px secondary **Exit full screen** button so its focus outline clears the viewport. Place the brand on its own row at narrow widths. Restore the normal map’s scroll position on exit.
 - Open Printer Details above the full-screen map. Closing Details returns focus to the map without leaving full screen. A shortcut that opens another controller page exits the full-screen view.
-- Reuse the fitted map and brand header on the monitoring page. Use passive printer tiles and provide a browser fullscreen control. Keep editing and controller navigation outside that page.
+- Reuse the fitted map and brand header on the monitoring page. Use passive printer artwork and queue indicators and provide a browser fullscreen control. Open recent alert summaries from a printer tile or rack bay in a read-only dialog. Use amber for a tile that needs attention and a muted Alerts button for history on other tiles. Keep editing and controller navigation outside that page.
 
 ## 7. Buttons and action hierarchy
 
