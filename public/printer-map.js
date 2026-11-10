@@ -1174,8 +1174,10 @@ export function createPrinterMapPage({ api, canEdit, openPrinter, openAlerts, op
     if (entries.length === 1) {
       const [{ placement, x, y }] = entries;
       const step = placementStep(placement.type);
-      placement.x = snap(x + dx, width, placement.width, step);
       placement.y = snap(y + dy, height, placement.height, step);
+      placement.x = placement.printerId
+        ? snapPrinterX(x + dx, placement.y, width)
+        : snap(x + dx, width, placement.width, step);
     } else {
       // Clamp one shared grid delta so the group cannot shear at a map edge.
       const minX = Math.max(...entries.map(entry => -entry.x));
@@ -1212,6 +1214,22 @@ export function createPrinterMapPage({ api, canEdit, openPrinter, openAlerts, op
     const limit = Math.floor((boundary - offset - extent) / step) * step + offset;
     if (limit < offset) return boundary - extent;
     return Math.min(limit, Math.max(offset, nearest));
+  }
+
+  function snapPrinterX(x, y, roomWidth) {
+    const tileWidth = parseFloat(canvasStyle.getPropertyValue('--map-marker-width')) / personScale;
+    const tileHeight = parseFloat(canvasStyle.getPropertyValue('--map-marker-height')) / personScale;
+    let alignedX = snap(x, roomWidth);
+    let nearest = gridStep / 2;
+    for (const bench of draft.items) {
+      if (bench.type !== 'bench' || y >= bench.y + bench.height || y + tileHeight <= bench.y) continue;
+      const centreX = Math.round(bench.x + (bench.width - tileWidth) / 2);
+      const distance = Math.abs(centreX - x);
+      if (centreX < 0 || centreX > roomWidth || distance > nearest) continue;
+      alignedX = centreX;
+      nearest = distance;
+    }
+    return alignedX;
   }
 
   function resizeItem(item, width, height, anchor) {

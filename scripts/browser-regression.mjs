@@ -2652,6 +2652,22 @@ async function printerMapSmoke(browser, url) {
     await extraMarker.press('Escape');
     await extraMarker.click();
     await page.getByRole('button', { name:'Return to unplaced', exact:true }).click();
+    const printerDensity = page.getByLabel('Printer tiles', { exact:true });
+    const assertBenchCentred = async () => {
+      const [tile, worktop] = await Promise.all([nextMarker.boundingBox(), bench.boundingBox()]);
+      assert.ok(Math.abs(tile.x + tile.width / 2 - worktop.x - worktop.width / 2) < .5,
+        'the printer and bench have the same horizontal centre');
+    };
+    for (const density of ['standard', 'compact']) {
+      await printerDensity.selectOption(density);
+      await nextMarker.scrollIntoViewIfNeeded();
+      const [tile, worktop] = await Promise.all([nextMarker.boundingBox(), bench.boundingBox()]);
+      await page.mouse.move(tile.x + tile.width / 2, tile.y + 18);
+      await page.mouse.down();
+      await page.mouse.move(worktop.x + worktop.width / 2 + 4, worktop.y + 24, { steps:4 });
+      await page.mouse.up();
+      await assertBenchCentred();
+    }
     await page.getByRole('button', { name:'Save map', exact:true }).click();
     await page.locator('#printerMapEditor').waitFor({ state:'hidden' });
     assert.equal(await mapSelect.isVisible(), true, 'saving restores the room selector');
@@ -2685,6 +2701,7 @@ async function printerMapSmoke(browser, url) {
     const savedStyle = await marker.getAttribute('style');
     await page.reload();
     await marker.waitFor();
+    await assertBenchCentred();
     assert.ok(await floor.isVisible());
     assert.ok(await floor.evaluate(node => {
       const layer = element => Number(getComputedStyle(element).zIndex) || 0;

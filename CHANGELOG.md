@@ -4,6 +4,13 @@ This file contains the version-by-version release history for Print Farm Control
 
 Historical entries describe the behaviour of the controller at the time of that release and may be superseded by later versions. For current installation, configuration and supported-hardware guidance, see [README.md](README.md).
 
+## v0.65.1
+
+- Snap Standard and Compact printer tiles to the horizontal centre of a bench when moved near its centreline.
+- Select and place multiple unplaced printers at once. Find separate grid positions clear of existing printer tiles and occupied racks before placing the batch.
+- Give the rack front view a powder-coated steel frame and inset controls. Keep the title and Close button visible while the shelves scroll. Omit generated rack names from the front-view title and map status strip.
+- Let the map character sit on a reachable chair or stool partly tucked under a bench.
+
 ## v0.65.0
 
 - Configure Printer map racks with up to six levels and six bays per level. Assign one printer per slot and move the rack with its assignments. Open the rack front view for every level, empty slot and printer action.
