@@ -2190,8 +2190,31 @@ async function printerMapSmoke(browser, url) {
     assert.equal(await mapSelect.isVisible(), false, 'creating a map hides the room selector');
     assert.equal(await page.getByRole('button', { name:'Full screen', exact:true }).isVisible(), false);
     await page.getByLabel('Map name').fill('Workshop');
-    await page.locator('#printerMapEditor select[name="printer"]').selectOption(printer.id);
-    await page.getByRole('button', { name:'Place printer', exact:true }).click();
+    const picker = page.locator('#printerMapAvailable');
+    const pickerToggle = picker.locator('summary');
+    const placeSelected = page.getByRole('button', { name:'Place selected', exact:true });
+    const columns = page.getByRole('spinbutton', { name:'Map width (steps)', exact:true });
+    const rows = page.getByRole('spinbutton', { name:'Map height (steps)', exact:true });
+    const [initialColumns, initialRows] = await Promise.all([columns.inputValue(), rows.inputValue()]);
+    await columns.fill('1');
+    await rows.fill('1');
+    await rows.press('Tab');
+    assert.ok(await placeSelected.isDisabled());
+    await pickerToggle.press('Space');
+    await picker.getByRole('checkbox', { name:printer.name, exact:true }).check();
+    await picker.getByRole('checkbox', { name:secondPrinter.name, exact:true }).check();
+    assert.match(await pickerToggle.innerText(), /2 selected/);
+    await placeSelected.click();
+    assert.match(await page.locator('#printerMapError').innerText(), /Not enough free space/);
+    assert.equal(await page.locator('#printerMapCanvas [data-printer-id]').count(), 0,
+      'a batch that cannot fit leaves the map unchanged');
+    assert.match(await pickerToggle.innerText(), /2 selected/, 'a failed placement retains the selection');
+    await columns.fill(initialColumns);
+    await rows.fill(initialRows);
+    await rows.press('Tab');
+    await pickerToggle.click();
+    await picker.getByRole('checkbox', { name:secondPrinter.name, exact:true }).uncheck();
+    await placeSelected.click();
     const marker = page.locator('#printerMapCanvas [data-printer-id="map-p1"]');
     await marker.waitFor();
     const image = marker.locator('img');
@@ -2598,8 +2621,6 @@ async function printerMapSmoke(browser, url) {
     await stool.press('ArrowRight');
     assert.deepEqual((await geometry(stool)).slice(0, 2), [stoolX + .5, stoolY],
       'stools also move a half step with an arrow key');
-    const columns = page.getByRole('spinbutton', { name:'Map width (steps)', exact:true });
-    const rows = page.getByRole('spinbutton', { name:'Map height (steps)', exact:true });
     const standardBounds = await marker.boundingBox();
     await page.locator('select[name="printerDensity"]').selectOption('compact');
     const compactBounds = await marker.boundingBox();
@@ -2617,13 +2638,20 @@ async function printerMapSmoke(browser, url) {
     await columns.press('Tab');
     await rows.fill('55');
     await rows.press('Tab');
-    await page.locator('#printerMapEditor select[name="printer"]').selectOption(secondPrinter.id);
-    await page.getByRole('button', { name:'Place printer', exact:true }).click();
+    await pickerToggle.click();
+    await picker.getByRole('checkbox', { name:secondPrinter.name, exact:true }).check();
+    await picker.getByRole('checkbox', { name:unknownPrinter.name, exact:true }).check();
+    await placeSelected.click();
     const nextMarker = page.locator('#printerMapCanvas [data-printer-id="map-p2"]');
-    const [firstTile, secondTile] = await Promise.all([marker.boundingBox(), nextMarker.boundingBox()]);
-    assert.ok(firstTile.x + firstTile.width <= secondTile.x || secondTile.x + secondTile.width <= firstTile.x
-      || firstTile.y + firstTile.height <= secondTile.y || secondTile.y + secondTile.height <= firstTile.y,
-    'new compact printers are placed without overlapping existing tiles');
+    const extraMarker = page.locator('#printerMapCanvas [data-printer-id="map-unknown"]');
+    const [firstTile, secondTile, extraTile] = await Promise.all([marker, nextMarker, extraMarker].map(tile => tile.boundingBox()));
+    for (const [a, b] of [[firstTile, secondTile], [firstTile, extraTile], [secondTile, extraTile]]) {
+      assert.ok(a.x + a.width <= b.x || b.x + b.width <= a.x || a.y + a.height <= b.y || b.y + b.height <= a.y,
+        'batch placement keeps new and existing printer tiles separate');
+    }
+    await extraMarker.press('Escape');
+    await extraMarker.click();
+    await page.getByRole('button', { name:'Return to unplaced', exact:true }).click();
     await page.getByRole('button', { name:'Save map', exact:true }).click();
     await page.locator('#printerMapEditor').waitFor({ state:'hidden' });
     assert.equal(await mapSelect.isVisible(), true, 'saving restores the room selector');

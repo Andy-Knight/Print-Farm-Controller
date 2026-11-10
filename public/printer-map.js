@@ -86,7 +86,10 @@ export function createPrinterMapPage({ api, canEdit, openPrinter, openAlerts, op
   const exitFullscreen = page.querySelector('#printerMapExitFullscreen');
   const form = page.querySelector('#printerMapEditor');
   const name = form?.elements.mapName;
-  const available = form?.elements.printer;
+  const available = form?.querySelector('#printerMapAvailable');
+  const availableSummary = available?.querySelector('summary');
+  const availableOptions = available?.querySelector('.printer-map-printer-options');
+  const availableCount = available?.querySelector('[data-map-picked-count]');
   const mapColumns = form?.elements.mapColumns;
   const mapRows = form?.elements.mapRows;
   const printerDensity = form?.elements.printerDensity;
@@ -226,6 +229,41 @@ export function createPrinterMapPage({ api, canEdit, openPrinter, openAlerts, op
     }
     select.value = value;
     if (select.selectedIndex === -1) select.selectedIndex = 0;
+  }
+
+  function updateAvailableCount() {
+    const count = availableOptions.querySelectorAll('input:checked').length;
+    setText(availableCount, `(${count} selected)`);
+    availableCount.hidden = count === 0;
+    actions.add.disabled = busy || count === 0;
+  }
+
+  function renderAvailablePrinters(unplaced) {
+    const inputs = [...availableOptions.querySelectorAll('input')];
+    if (!availableOptions.firstChild || inputs.length !== unplaced.length || unplaced.some((printer, index) =>
+      inputs[index].value !== printer.id || inputs[index].nextElementSibling.textContent !== printer.name)) {
+      const checked = new Set(inputs.filter(input => input.checked).map(input => input.value));
+      const focused = inputs.includes(document.activeElement) ? document.activeElement.value : null;
+      availableOptions.replaceChildren(...unplaced.map(printer => {
+        const label = document.createElement('label');
+        const input = document.createElement('input');
+        input.type = 'checkbox';
+        input.value = printer.id;
+        input.checked = checked.has(printer.id);
+        const text = document.createElement('span');
+        text.textContent = printer.name;
+        label.append(input, text);
+        return label;
+      }));
+      if (!unplaced.length) {
+        const empty = document.createElement('p');
+        empty.textContent = 'No unplaced printers.';
+        availableOptions.append(empty);
+      }
+      if (focused) ([...availableOptions.querySelectorAll('input')].find(input => input.value === focused)
+        || availableSummary).focus({ preventScroll:true });
+    }
+    updateAvailableCount();
   }
 
   function updateMarkerPosition(marker, placement) {
@@ -898,11 +936,7 @@ export function createPrinterMapPage({ api, canEdit, openPrinter, openAlerts, op
       rackView.render(activeRack.item, Boolean(draft), busy, activeRack.slots,
         new Map(printers.map(printer => [printer.id, printer.name])), choices);
     } else if (rackView.dialog.open) rackView.dialog.close();
-    if (draft) {
-      setOptions(available, [['', 'Choose a printer'], ...unplaced.map(printer => [printer.id, printer.name])], available.value);
-      available.disabled = !unplaced.length;
-      actions.add.disabled = !available.value;
-    }
+    if (draft) renderAvailablePrinters(unplaced);
 
     viewport.hidden = !map;
     if (shelf) shelf.hidden = Boolean(map);
@@ -1024,6 +1058,8 @@ export function createPrinterMapPage({ api, canEdit, openPrinter, openAlerts, op
     if (rackView.dialog.open) rackView.dialog.close();
     finishItemLabel(false);
     clearPaletteDrag();
+    available.open = false;
+    availableOptions.replaceChildren();
     draft = null;
     selected.clear();
     drag = null;
@@ -1194,31 +1230,43 @@ export function createPrinterMapPage({ api, canEdit, openPrinter, openAlerts, op
     if (item.axis || ['door', 'window'].includes(item.type)) updateLayoutJoins();
   }
 
-  function findPrinterSpace() {
+  function findPrinterSpaces(count) {
     const { width, height } = roomBounds();
-    const tileWidth = (parseFloat(canvasStyle.getPropertyValue('--map-marker-width')) + 8) * gridStep / gridPixels;
-    const tileHeight = (parseFloat(canvasStyle.getPropertyValue('--map-marker-height')) + 8) * gridStep / gridPixels;
+    const tileWidth = parseFloat(canvasStyle.getPropertyValue('--map-marker-width')) / personScale;
+    const tileHeight = parseFloat(canvasStyle.getPropertyValue('--map-marker-height')) / personScale;
+    const gap = 8 / personScale;
+    const occupiedRackIds = new Set(draft.placements.map(item => item.rackId).filter(Boolean));
+    const occupied = draft.placements.filter(item => !item.rackId)
+      .map(({ x, y }) => ({ x, y, width:tileWidth, height:tileHeight }));
+    occupied.push(...draft.items.filter(item => occupiedRackIds.has(item.id)));
+    const positions = [];
     for (let y = gridOffset; y < height; y += gridStep) {
       for (let x = gridOffset; x < width; x += gridStep) {
-        if (!draft.placements.some(item => Math.abs(item.x - x) < tileWidth
-            && Math.abs(item.y - y) < tileHeight)) return { x, y };
+        if (occupied.some(item => x < item.x + item.width + gap && x + tileWidth + gap > item.x
+            && y < item.y + item.height + gap && y + tileHeight + gap > item.y)) continue;
+        positions.push({ x, y });
+        if (positions.length === count) return positions;
+        occupied.push({ x, y, width:tileWidth, height:tileHeight });
       }
     }
   }
 
-  function addPrinter() {
-    if (!draft || busy || !available.value) return;
-    const position = findPrinterSpace();
-    if (!position) {
-      setText(error, 'No free space for this printer. Move existing tiles, switch to Compact, or enlarge the map.');
+  function addPrinters() {
+    if (!draft || busy) return;
+    const ids = [...availableOptions.querySelectorAll('input:checked')].map(input => input.value);
+    if (!ids.length) return;
+    const positions = findPrinterSpaces(ids.length);
+    if (!positions) {
+      setText(error, 'Not enough free space for the selected printers. Select fewer printers, move tiles, switch to Compact, or enlarge the map.');
       return;
     }
     setText(error, '');
-    const placement = { printerId:available.value, ...position };
-    draft.placements.push(placement);
-    selected = new Set([placement]);
+    const placements = ids.map((printerId, index) => ({ printerId, ...positions[index] }));
+    draft.placements.push(...placements);
+    selected = new Set(placements);
+    available.open = false;
     render();
-    nodeFor(placement)?.focus();
+    nodeFor(placements[0])?.focus();
   }
 
   function markerAt(event) {
@@ -1428,7 +1476,7 @@ export function createPrinterMapPage({ api, canEdit, openPrinter, openAlerts, op
     draft.placements = draft.placements.filter(item => item !== printer);
     selected.clear();
     renderMarkers();
-    available.focus();
+    availableSummary.focus();
   });
   function itemGeometry(type, point) {
     const bounds = roomBounds();
@@ -1572,8 +1620,22 @@ export function createPrinterMapPage({ api, canEdit, openPrinter, openAlerts, op
   create.addEventListener('click', () => startEdit());
   edit.addEventListener('click', () => startEdit(currentMap()));
   reload.addEventListener('click', load);
-  available.addEventListener('change', () => { actions.add.disabled = !available.value; });
-  actions.add.addEventListener('click', addPrinter);
+  availableOptions.addEventListener('change', updateAvailableCount);
+  availableSummary.addEventListener('click', event => { if (busy) event.preventDefault(); });
+  available.addEventListener('focusout', event => {
+    if (event.relatedTarget && !available.contains(event.relatedTarget)) available.open = false;
+  });
+  available.addEventListener('keydown', event => {
+    if (event.key !== 'Escape' || !available.open) return;
+    event.preventDefault();
+    event.stopPropagation();
+    available.open = false;
+    availableSummary.focus();
+  });
+  document.addEventListener('pointerdown', event => {
+    if (available.open && !available.contains(event.target)) available.open = false;
+  });
+  actions.add.addEventListener('click', addPrinters);
   actions.cancel.addEventListener('click', () => {
     endEdit();
     room.focus();
