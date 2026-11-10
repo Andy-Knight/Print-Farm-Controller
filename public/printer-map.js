@@ -102,6 +102,7 @@ export function createPrinterMapPage({ api, canEdit, openPrinter, openAlerts, op
   const viewportNext = viewport.nextElementSibling;
   const canvas = page.querySelector('#printerMapCanvas');
   const box = page.querySelector('#printerMapBox');
+  const benchGuide = page.querySelector('#printerMapBenchGuide');
   const groupStatus = page.querySelector('#printerMapGroup');
   const itemLayer = page.querySelector('#printerMapItems');
   const floorResizes = [...page.querySelectorAll('.printer-map-floor-resize')];
@@ -1064,6 +1065,7 @@ export function createPrinterMapPage({ api, canEdit, openPrinter, openAlerts, op
     selected.clear();
     drag = null;
     box.hidden = true;
+    benchGuide.hidden = true;
     error.textContent = '';
     render();
   }
@@ -1169,13 +1171,15 @@ export function createPrinterMapPage({ api, canEdit, openPrinter, openAlerts, op
     box.hidden = width < 3 || height < 3;
   }
 
-  function moveSelection(entries, dx, dy) {
+  function moveSelection(entries, dx, dy, showGuide = false) {
     const { width, height } = roomBounds();
+    let alignment;
     if (entries.length === 1) {
       const [{ placement, x, y }] = entries;
       const step = placementStep(placement.type);
-      placement.x = snap(x + dx, width, placement.width, step);
       placement.y = snap(y + dy, height, placement.height, step);
+      if (placement.printerId) alignment = printerBenchSnap(x + dx, placement.y, width);
+      placement.x = alignment?.x ?? snap(x + dx, width, placement.width, step);
     } else {
       // Clamp one shared grid delta so the group cannot shear at a map edge.
       const minX = Math.max(...entries.map(entry => -entry.x));
@@ -1195,6 +1199,7 @@ export function createPrinterMapPage({ api, canEdit, openPrinter, openAlerts, op
       const node = nodeFor(placement);
       if (node) updateMarkerPosition(node, placement);
     }
+    if (showGuide) showBenchGuide(alignment?.centreBench);
     if (entries.length === 1 && entries[0].placement.type === 'floor' && floorResizes.some(handle => !handle.hidden)) {
       positionFloorResize(entries[0].placement);
     }
@@ -1212,6 +1217,33 @@ export function createPrinterMapPage({ api, canEdit, openPrinter, openAlerts, op
     const limit = Math.floor((boundary - offset - extent) / step) * step + offset;
     if (limit < offset) return boundary - extent;
     return Math.min(limit, Math.max(offset, nearest));
+  }
+
+  function printerBenchSnap(x, y, roomWidth) {
+    const tileWidth = parseFloat(canvasStyle.getPropertyValue('--map-marker-width')) / personScale;
+    const tileHeight = parseFloat(canvasStyle.getPropertyValue('--map-marker-height')) / personScale;
+    const tileCentre = x + tileWidth / 2;
+    let alignment;
+    let bestOverlap = 0;
+    for (const bench of draft.items) {
+      if (bench.type !== 'bench' || tileCentre < bench.x || tileCentre > bench.x + bench.width) continue;
+      const overlap = Math.min(y + tileHeight, bench.y + bench.height) - Math.max(y, bench.y);
+      if (overlap <= bestOverlap) continue;
+      const centredX = Math.round(bench.x + (bench.width - tileWidth) / 2);
+      const offset = Math.round((x - centredX) / gridStep) * gridStep;
+      const snappedX = centredX + offset;
+      if (snappedX < 0 || snappedX > roomWidth) continue;
+      alignment = { x:snappedX, centreBench:offset === 0 ? bench : null };
+      bestOverlap = overlap;
+    }
+    return alignment;
+  }
+
+  function showBenchGuide(bench) {
+    benchGuide.hidden = !bench;
+    if (!bench) return;
+    updateMarkerPosition(benchGuide, { x:bench.x + bench.width / 2, y:bench.y });
+    benchGuide.style.setProperty('--map-item-height', bench.height / gridStep);
   }
 
   function resizeItem(item, width, height, anchor) {
@@ -1400,10 +1432,12 @@ export function createPrinterMapPage({ api, canEdit, openPrinter, openAlerts, op
       resizeItem(drag.placement, width, drag.height + dy, drag.resizeAnchor);
       return;
     }
-    moveSelection(drag.entries, dx, dy);
+    moveSelection(drag.entries, dx, dy, true);
   });
   canvas.addEventListener('pointerup', event => {
-    if (drag?.id !== event.pointerId || !drag.boxStart) return;
+    if (drag?.id !== event.pointerId) return;
+    benchGuide.hidden = true;
+    if (!drag.boxStart) return;
     const point = canvasPoint(event);
     drawBox(drag.boxStart, point);
     selected.clear();
@@ -1423,13 +1457,16 @@ export function createPrinterMapPage({ api, canEdit, openPrinter, openAlerts, op
     renderMarkers();
     renderItems();
   });
-  canvas.addEventListener('lostpointercapture', event => {
+  function clearDrag(event) {
     if (drag?.id !== event.pointerId) return;
     box.hidden = true;
+    benchGuide.hidden = true;
     drag = null;
     renderMarkers();
     renderItems();
-  });
+  }
+  canvas.addEventListener('pointercancel', clearDrag);
+  canvas.addEventListener('lostpointercapture', clearDrag);
   canvas.addEventListener('keydown', event => {
     const marker = markerAt(event);
     if (draft && !busy && marker?.dataset.printerId && ['Enter', ' '].includes(event.key)) {
