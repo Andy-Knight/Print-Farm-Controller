@@ -2621,8 +2621,9 @@ async function printerMapSmoke(browser, url) {
     await stool.press('ArrowRight');
     assert.deepEqual((await geometry(stool)).slice(0, 2), [stoolX + .5, stoolY],
       'stools also move a half step with an arrow key');
+    const printerDensity = page.locator('select[name="printerDensity"]');
     const standardBounds = await marker.boundingBox();
-    await page.locator('select[name="printerDensity"]').selectOption('compact');
+    await printerDensity.selectOption('compact');
     const compactBounds = await marker.boundingBox();
     assert.ok(compactBounds.width < standardBounds.width && compactBounds.height < standardBounds.height);
     const compactFlags = await marker.locator('.printer-map-flags').boundingBox();
@@ -2652,7 +2653,6 @@ async function printerMapSmoke(browser, url) {
     await extraMarker.press('Escape');
     await extraMarker.click();
     await page.getByRole('button', { name:'Return to unplaced', exact:true }).click();
-    const printerDensity = page.getByLabel('Printer tiles', { exact:true });
     const assertBenchCentred = async () => {
       const [tile, worktop] = await Promise.all([nextMarker.boundingBox(), bench.boundingBox()]);
       assert.ok(Math.abs(tile.x + tile.width / 2 - worktop.x - worktop.width / 2) < .5,
