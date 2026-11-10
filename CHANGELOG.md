@@ -4,6 +4,10 @@ This file contains the version-by-version release history for Print Farm Control
 
 Historical entries describe the behaviour of the controller at the time of that release and may be superseded by later versions. For current installation, configuration and supported-hardware guidance, see [README.md](README.md).
 
+## v0.66.1
+
+- Keep the Printer map full screen when opening and closing Printer Details from a printer tile or rack front view.
+
 ## v0.66.0
 
 - Open the integrated Printer simulator in the controller workspace with the shared sidebar, mobile drawer and theme switch. Use the same route from the sidebar, the Add printer dialog and direct links.
