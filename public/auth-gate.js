@@ -695,7 +695,7 @@ function initializeAccountUi(){
     });
   }else{
     // Presentation restrictions supplement (never replace) backend RBAC checks.
-    for(const selector of ['#backupRecoveryBtn','#diagnosticsBtn','#openSimulatorBtn',
+    for(const selector of ['#backupRecoveryBtn','#diagnosticsBtn','#simulatorBtn','#openSimulatorBtn',
       '#licenseInstallForm','#reportingPricingForm','#printerGroupForm']){
       const el=$(selector);if(el)el.hidden=true;
     }

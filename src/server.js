@@ -2845,13 +2845,18 @@ async function handleControllerRequest(req, res) {
       return json(res, 404, { error: 'API route not found' });
     }
 
-    if (url.pathname === '/simulator') {
-      res.writeHead(302, { location: '/simulator/' });
+    if (url.pathname === '/simulator/index.html') {
+      res.writeHead(302, { location:'/simulator/' });
       res.end();
       return;
     }
+    if (url.pathname === '/simulator' || url.pathname === '/simulator/') {
+      if (await serveStatic(res, '/index.html')) return;
+      return json(res, 404, { error:'Simulator page is unavailable.' });
+    }
     if (url.pathname.startsWith('/simulator/')) {
-      await emulatorManager.serveStatic(res, url);
+      const assetUrl = url.pathname === '/simulator/content.html' ? new URL('/simulator/index.html', url) : url;
+      await emulatorManager.serveStatic(res, assetUrl);
       return;
     }
 

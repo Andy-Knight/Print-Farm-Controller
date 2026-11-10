@@ -11,7 +11,6 @@ let profileDefinitions = [];
 let toastTimer = null;
 const integrated = location.pathname.startsWith('/simulator');
 document.body.classList.toggle('integrated-simulator', integrated);
-const simulatorSidebarToggle = document.querySelector('#simulator-sidebar-toggle');
 const apiBase = integrated ? '/api/emulator' : '/api';
 const apiUrl = (pathname) => `${apiBase}${pathname}`;
 
@@ -127,8 +126,7 @@ async function request(url, options = {}) {
   headers.set('content-type','application/json');
   const method=String(options.method||'GET').toUpperCase();
   if(integrated&&/^\/api\/emulator(?:\/|$)/.test(target.pathname)&&['POST','PUT','PATCH','DELETE'].includes(method)){
-    // The simulator is a separate document: the main controller's authorized
-    // fetch wrapper is not loaded here. Refresh the current tab-shared session
+    // The simulator content has its own document and fetch. Refresh the shared session
     // before each mutation so login/logout in another tab cannot leave stale CSRF.
     const session=await controllerSession();
     if(session.csrf)headers.set('x-pfc-csrf',session.csrf);
@@ -432,26 +430,6 @@ function connectEvents() {
   events.onerror = () => { state.textContent = 'Reconnecting…'; state.classList.add('disconnected'); };
 }
 
-function closeSimulatorSidebar() {
-  document.body.classList.remove('simulator-sidebar-open');
-  simulatorSidebarToggle?.setAttribute('aria-expanded', 'false');
-}
-
-simulatorSidebarToggle?.addEventListener('click', () => {
-  const open = document.body.classList.toggle('simulator-sidebar-open');
-  simulatorSidebarToggle.setAttribute('aria-expanded', open ? 'true' : 'false');
-});
-
-document.querySelectorAll('.simulator-sidebar-item').forEach((item) => {
-  item.addEventListener('click', () => {
-    if (window.matchMedia('(max-width:760px)').matches) closeSimulatorSidebar();
-  });
-});
-
-document.addEventListener('keydown', (event) => {
-  if (event.key === 'Escape') closeSimulatorSidebar();
-});
-
 profileSelect.addEventListener('change', updateAddToolConfiguration);
 document.querySelector('#show-add').addEventListener('click', () => document.querySelector('#add-panel').classList.remove('hidden'));
 document.querySelector('#hide-add').addEventListener('click', () => document.querySelector('#add-panel').classList.add('hidden'));
@@ -491,13 +469,15 @@ function applyTheme(theme, { persist = false } = {}) {
   }
 }
 
-applyTheme(document.documentElement.dataset.theme || (themeMedia.matches ? 'light' : 'dark'));
-themeToggle.addEventListener('click', () => {
-  applyTheme(document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark', { persist:true });
-});
-themeMedia.addEventListener('change', (event) => {
-  if (!savedTheme()) applyTheme(event.matches ? 'light' : 'dark');
-});
+if (!integrated) {
+  applyTheme(document.documentElement.dataset.theme || (themeMedia.matches ? 'light' : 'dark'));
+  themeToggle.addEventListener('click', () => {
+    applyTheme(document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark', { persist:true });
+  });
+  themeMedia.addEventListener('change', (event) => {
+    if (!savedTheme()) applyTheme(event.matches ? 'light' : 'dark');
+  });
+}
 
 async function initialize() {
   if (integrated) {

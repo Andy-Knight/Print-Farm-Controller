@@ -208,6 +208,13 @@
 .sidebar-toggle:hover { filter:none;background:var(--ds-surface-hover); }
 .sidebar-backdrop { display:none; }
 body > main { padding-top:18px; }
+#simulatorFrame {
+  display:block;
+  width:100%;
+  height:calc(100dvh - var(--shell-topbar-height) - 64px);
+  min-height:180px;
+  border:0;
+}
 @media (max-width:1050px) and (min-width:761px) {
   :root { --sidebar-width:222px; }
   .modern-topbar { padding-inline:19px; }

@@ -624,7 +624,7 @@ The installer creates a Start Menu shortcut and offers an optional desktop short
 
 Start the controller normally:
 
-Open the controller and select **Printer simulator**, or go directly to:
+Select **Printer simulator** in the controller sidebar. The simulator opens in the same workspace with the shared sidebar and top bar. You can also go directly to:
 
 ```text
 http://<Controller-IP>:4242/simulator/
