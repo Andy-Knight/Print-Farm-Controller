@@ -3080,8 +3080,9 @@ async function printerMapSmoke(browser, url) {
           { id:'seat-bench', type:'bench', label:'', x:40, y:50, width:120, height:140 },
           { id:'first', type:'computer', label:'', x:60, y:90, width:80, height:60 },
           { id:'seat-one', type:'chair', label:'', x:60, y:170, width:80, height:80 },
+          { id:'stool-bench', type:'bench', label:'', x:440, y:50, width:120, height:80 },
           { id:'second', type:'computer', label:'', x:460, y:90, width:80, height:60 },
-          { id:'seat-two', type:'stool', label:'', x:460, y:170, width:80, height:80 },
+          { id:'seat-two', type:'stool', label:'', x:470, y:110, width:60, height:60 },
           { id:'interior-north', type:'wall', axis:'vertical', x:190, y:0, width:40, height:180 },
           { id:'interior-south', type:'wall', axis:'vertical', x:190, y:300, width:40, height:140 },
           { id:'interior-door', type:'door', x:190, y:180, width:40, height:120, rotation:90 }
@@ -3136,7 +3137,7 @@ async function printerMapSmoke(browser, url) {
         'the monitoring badge is read-only');
       await monitor.locator('.printer-map-person[data-pose="seated"] svg').waitFor({ timeout:12000 });
       assert.equal(await openInteriorDoor.count(), 0, 'the interior door closes once the character clears the swing');
-      assert.equal(await actorPosition(), 'translate(375px, 157.5px)', 'the character returns to the selected computer and sits on its stool');
+      assert.equal(await actorPosition(), 'translate(375px, 105px)', 'the character sits on the stool tucked partly under the bench');
       assert.ok(await seatedLegs.isVisible(), 'the character has visible legs while sitting on a stool');
       assert.equal(await monitor.locator('[data-map-item-id="second"][data-workstation-active]').count(), 1);
       activity = { ...activity, bedClearance:false };
@@ -3175,7 +3176,7 @@ async function printerMapSmoke(browser, url) {
       await part.waitFor();
       assert.equal(await actor.getAttribute('data-carrying'), null, 'the character leaves the part on the shelf');
       await monitor.locator('.printer-map-person[data-pose="seated"] svg').waitFor({ timeout:12000 });
-      assert.equal(await actorPosition(), 'translate(375px, 157.5px)', 'after the drop-off the character returns to the selected computer');
+      assert.equal(await actorPosition(), 'translate(375px, 105px)', 'after the drop-off the character returns to the selected computer');
       assert.ok(await part.isVisible());
       await monitor.waitForFunction(() => typeof window.startMapIdleAction === 'function');
       await monitor.evaluate(() => window.startMapIdleAction());

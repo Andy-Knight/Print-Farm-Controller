@@ -136,3 +136,11 @@ test('a chair in front of a computer set back on a bench is matched by the gap b
   assert.equal(computerSeat(computer, [distant, chair], 20), chair);
   assert.equal(computerSeat(computer, [distant], 20), null);
 });
+
+test('a partly tucked stool is matched when it extends past the keyboard edge', () => {
+  const computer = { x:460, y:90, width:80, height:60 };
+  const stool = { type:'stool', x:470, y:110, width:60, height:60 };
+  const underneath = { ...stool, y:90 };
+  assert.equal(computerSeat(computer, [stool], 20), stool);
+  assert.equal(computerSeat(computer, [underneath], 20), null);
+});
