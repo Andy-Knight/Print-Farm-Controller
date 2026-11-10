@@ -445,6 +445,18 @@
   50% { transform: rotate(60deg); }
 }
 
+#printerMapBenchGuide {
+  position: absolute;
+  z-index: 4;
+  left: calc(var(--map-x) * var(--map-dot-spacing));
+  top: calc(var(--map-y) * var(--map-dot-spacing));
+  height: calc(var(--map-item-height) * var(--map-dot-spacing));
+  transform: translateX(-50%);
+  border-left: 2px dashed var(--ds-focus);
+  filter: drop-shadow(0 0 1px var(--ds-surface-muted));
+  pointer-events: none;
+}
+
 #printerMapBox {
   position: absolute;
   z-index: 5;

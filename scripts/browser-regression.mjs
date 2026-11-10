@@ -2658,14 +2658,25 @@ async function printerMapSmoke(browser, url) {
       assert.ok(Math.abs(tile.x + tile.width / 2 - worktop.x - worktop.width / 2) < .5,
         'the printer and bench have the same horizontal centre');
     };
+    const benchGuide = page.locator('#printerMapBenchGuide');
     for (const density of ['standard', 'compact']) {
       await printerDensity.selectOption(density);
       await nextMarker.scrollIntoViewIfNeeded();
       const [tile, worktop] = await Promise.all([nextMarker.boundingBox(), bench.boundingBox()]);
+      const centreX = worktop.x + worktop.width / 2;
       await page.mouse.move(tile.x + tile.width / 2, tile.y + 18);
       await page.mouse.down();
-      await page.mouse.move(worktop.x + worktop.width / 2 + 4, worktop.y + 24, { steps:4 });
+      await page.mouse.move(centreX + 4, worktop.y + 24, { steps:4 });
+      await benchGuide.waitFor({ state:'visible' });
+      const guide = await benchGuide.boundingBox();
+      assert.ok(Math.abs(guide.x + guide.width / 2 - centreX) < .5 && guide.y === worktop.y
+        && guide.height === worktop.height, 'the drag guide spans the bench centreline');
+      await page.mouse.move(centreX + 25, worktop.y + 24);
+      await benchGuide.waitFor({ state:'hidden' });
+      await page.mouse.move(centreX + 4, worktop.y + 24);
+      await benchGuide.waitFor({ state:'visible' });
       await page.mouse.up();
+      await benchGuide.waitFor({ state:'hidden' });
       await assertBenchCentred();
     }
     await page.getByRole('button', { name:'Save map', exact:true }).click();
