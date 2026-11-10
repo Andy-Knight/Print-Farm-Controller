@@ -4,16 +4,20 @@ export function createRackView(page, { onClose, onResize, onAssign, setOptions }
   const dialog = document.createElement('dialog');
   dialog.className = 'printer-map-rack-dialog';
   dialog.setAttribute('aria-labelledby', 'printerMapRackTitle');
-  dialog.innerHTML = `<div class="dialog-head">
-    <h2 id="printerMapRackTitle">Rack front view</h2>
-    <button type="button" class="secondary">Close</button>
-  </div>
-  <fieldset class="printer-map-toolbar printer-map-rack-settings" aria-label="Rack layout">
-    <label>Levels <select name="levels"></select></label>
-    <label>Bays per level <select name="bays"></select></label>
-  </fieldset>
-  <p class="error" role="alert"></p>
-  <div class="printer-map-rack-scroll"><div class="printer-map-rack-levels"></div></div>`;
+  dialog.innerHTML = `<div class="printer-map-rack-panel">
+    <div class="dialog-head">
+      <h2 id="printerMapRackTitle">Rack front view</h2>
+      <button type="button" class="ui-button ui-button-secondary ui-button-medium secondary">Close</button>
+    </div>
+    <fieldset class="printer-map-toolbar printer-map-rack-settings" aria-label="Rack layout">
+      <label>Levels <select name="levels"></select></label>
+      <label>Bays per level <select name="bays"></select></label>
+    </fieldset>
+    <p class="error" role="alert"></p>
+    <div class="printer-map-rack-scroll" role="region" aria-label="Rack shelves" tabindex="0">
+      <div class="printer-map-rack-levels"></div>
+    </div>
+  </div>`;
   page.append(dialog);
   const fields = dialog.querySelector('fieldset');
   const { levels, bays } = fields.elements;

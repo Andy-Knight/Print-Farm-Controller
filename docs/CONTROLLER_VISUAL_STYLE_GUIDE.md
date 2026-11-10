@@ -196,6 +196,7 @@ Use `--ds-shadow-sm` for quiet elevation; `--ds-shadow-md` for hover/focus empha
 
 #### Editing and placement
 
+- Use a compact **Unplaced printers** dropdown with labelled checkboxes and a selected count. **Place selected** adds the full selection in separate grid positions clear of existing printer tiles. Keep the selection available if the batch cannot fit.
 - Use the tile as one selection and drag target in edit mode. Snap its top-left corner to the nearest grid dot. Allow a single chair or stool to move in half steps so it can centre on a computer. Arrow keys move by the item's snap distance, or by three full steps with Shift. Save the room layout explicitly.
 - Give layout items a wrapping palette of 42px secondary icon buttons, each with an accessible name and tooltip. Drag an icon to show a snapped preview and place it on release. Click or press Enter to place at the default position.
 - Give a single selected item a focus outline. Give resizable items handles at the bottom-left and bottom-right corners. Keep the opposite top corner fixed and stop at the last whole grid step inside the room. Chairs, stools and computers have fixed footprints.
@@ -219,6 +220,8 @@ Keep outline icons in the palette. Give the task chair and workstation a seconda
 Size the task chair at three by four grid steps, the stool at three by three, and the computer at four by three to stay in proportion to the map character. Draw benches over seating where they overlap so the legs and casters look tucked under the worktop.
 
 Keep a configured rack as a single footprint with a concise status strip for the printer count, level information and any alerts or beds to clear. Use a rack number in the accessible name of the map button so users can distinguish racks. Title the dialog **Rack front view**. Use a steady amber outline and a labelled alert count when printers on any level need attention. Show the highest occupied slot in each bay on the top-down map. If printers occupy different levels, label each visible printer with its level and show the number of additional printers in that bay. Let users open a front view from the rack, with higher levels above lower ones, bays in order, and compact printer tiles with the usual actions. Use **Manage rack** in edit mode to configure and assign slots. On monitoring displays, show the front view with read-only tiles.
+
+In the front view, draw powder-coated steel shelves with perforated upright posts and continuous shelf beams. Use small bay plaques and seat printer tiles along each shelf. Inset the title, standard secondary **Close** button and rack frame inside the rounded dialog. Keep the header and edit controls visible while the rack shelves scroll within the dialog on smaller screens.
 
 #### Walls, doors and windows
 
