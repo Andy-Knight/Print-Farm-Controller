@@ -20,7 +20,8 @@ export function computerSeat(computer, seats, step) {
     const lateral = Math.abs(x * dy - y * dx);
     const seatDepth = (dx ? seat.width : seat.height) / 2;
     const gap = forward - depth - seatDepth;
-    if (forward < depth || gap > step * 4 || lateral > across) continue;
+    const extendsPastKeyboard = forward + seatDepth > depth;
+    if (forward <= 0 || !extendsPastKeyboard || gap > step * 4 || lateral > across) continue;
     const distance = Math.hypot(forward, lateral);
     if (distance < shortest) {
       shortest = distance;
