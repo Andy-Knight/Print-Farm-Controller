@@ -2671,8 +2671,13 @@ async function printerMapSmoke(browser, url) {
       const guide = await benchGuide.boundingBox();
       assert.ok(Math.abs(guide.x + guide.width / 2 - centreX) < .5 && guide.y === worktop.y
         && guide.height === worktop.height, 'the drag guide spans the bench centreline');
-      await page.mouse.move(centreX + 25, worktop.y + 24);
-      await benchGuide.waitFor({ state:'hidden' });
+      for (const direction of [-1, 1]) {
+        await page.mouse.move(centreX + direction * 25, worktop.y + 24);
+        await benchGuide.waitFor({ state:'hidden' });
+        const side = await nextMarker.boundingBox();
+        assert.ok(Math.abs(side.x + side.width / 2 - centreX - direction * 30) < .5,
+          `${density} tiles snap to equal steps on either side of the bench centreline`);
+      }
       await page.mouse.move(centreX + 4, worktop.y + 24);
       await benchGuide.waitFor({ state:'visible' });
       await page.mouse.up();

@@ -1199,7 +1199,7 @@ export function createPrinterMapPage({ api, canEdit, openPrinter, openAlerts, op
       const node = nodeFor(placement);
       if (node) updateMarkerPosition(node, placement);
     }
-    if (showGuide) showBenchGuide(alignment?.bench);
+    if (showGuide) showBenchGuide(alignment?.centreBench);
     if (entries.length === 1 && entries[0].placement.type === 'floor' && floorResizes.some(handle => !handle.hidden)) {
       positionFloorResize(entries[0].placement);
     }
@@ -1222,15 +1222,19 @@ export function createPrinterMapPage({ api, canEdit, openPrinter, openAlerts, op
   function printerBenchSnap(x, y, roomWidth) {
     const tileWidth = parseFloat(canvasStyle.getPropertyValue('--map-marker-width')) / personScale;
     const tileHeight = parseFloat(canvasStyle.getPropertyValue('--map-marker-height')) / personScale;
+    const tileCentre = x + tileWidth / 2;
     let alignment;
-    let nearest = gridStep / 2;
+    let bestOverlap = 0;
     for (const bench of draft.items) {
-      if (bench.type !== 'bench' || y >= bench.y + bench.height || y + tileHeight <= bench.y) continue;
-      const centreX = Math.round(bench.x + (bench.width - tileWidth) / 2);
-      const distance = Math.abs(centreX - x);
-      if (centreX < 0 || centreX > roomWidth || distance > nearest) continue;
-      alignment = { x:centreX, bench };
-      nearest = distance;
+      if (bench.type !== 'bench' || tileCentre < bench.x || tileCentre > bench.x + bench.width) continue;
+      const overlap = Math.min(y + tileHeight, bench.y + bench.height) - Math.max(y, bench.y);
+      if (overlap <= bestOverlap) continue;
+      const centredX = Math.round(bench.x + (bench.width - tileWidth) / 2);
+      const offset = Math.round((x - centredX) / gridStep) * gridStep;
+      const snappedX = centredX + offset;
+      if (snappedX < 0 || snappedX > roomWidth) continue;
+      alignment = { x:snappedX, centreBench:offset === 0 ? bench : null };
+      bestOverlap = overlap;
     }
     return alignment;
   }
