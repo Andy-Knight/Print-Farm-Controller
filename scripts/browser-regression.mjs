@@ -5469,6 +5469,8 @@ async function libraryAccountSmoke({browser,context,page,url,dataDir,captureDir}
       await fallback.locator('#libraryStorageReport .library-storage-pie').waitFor();
     }finally{await fallback.close();}
     const operatorPage=await operator.newPage();await operatorPage.goto(url+'/library');
+    assert.equal(await operatorPage.locator('#simulatorBtn').isVisible(),false,
+      'operator navigation excludes simulator management');
     await operatorPage.locator(`[data-library-file="${first.id}"]`).waitFor();
     await operatorPage.locator(`[data-library-select="${first.id}"]`).click();
     assert.equal(await operatorPage.locator('#libraryOwnerSelectedBtn').isVisible(),false);
@@ -5504,17 +5506,37 @@ async function libraryAccountSmoke({browser,context,page,url,dataDir,captureDir}
 async function authenticatedSimulatorSmoke(context,url){
   const page=await context.newPage();
   try{
-    await page.goto(url+'/simulator/');
-    await page.waitForFunction(()=>document.querySelector('#simulator-toggle')?.disabled===false);
-    assert.equal(await page.locator('#simulator-toggle').innerText(),'Enable simulator');
+    await page.setViewportSize({width:1280,height:800});
+    await page.goto(url+'/');
+    await page.waitForFunction(()=>window.__PFC_FRONTEND_BOOTED__===true);
+    const sidebar=page.locator('#controllerSidebar');
+    const simulatorEntry=sidebar.getByRole('button',{name:'Printer simulator',exact:true});
+    const simulator=page.frameLocator('#simulatorFrame');
+    const enable=simulator.getByRole('button',{name:'Enable simulator',exact:true});
+    const disable=simulator.getByRole('button',{name:'Disable simulator',exact:true});
+    await sidebar.evaluate(node=>{window.sidebarBeforeSimulator=node;});
+    await simulatorEntry.click();
+    await page.waitForURL(url+'/simulator');
+    await enable.waitFor();
+    assert.equal(await sidebar.evaluate(node=>node===window.sidebarBeforeSimulator),true,
+      'the same controller sidebar stays mounted while opening the simulator');
+    assert.equal(await simulatorEntry.getAttribute('aria-current'),'page');
+    assert.ok(await sidebar.getByRole('button',{name:'Printer map',exact:true}).isVisible());
+    assert.equal(await simulator.locator('nav, aside').count(),0,'simulator controls have no separate navigation');
+    const oldTheme=await page.locator('html').getAttribute('data-theme');
+    await page.locator('#themeToggle').click();
+    const currentTheme=oldTheme==='dark'?'light':'dark';
+    await simulator.locator(`html[data-theme="${currentTheme}"]`).waitFor({state:'attached'});
+    assert.ok(await simulator.locator('#theme-toggle').isHidden());
+    await page.locator('#themeToggle').click();
     const enabled=page.waitForResponse(response=>response.url()===url+'/api/emulator/status'&&response.request().method()==='POST');
-    await page.locator('#simulator-toggle').click();
+    await enable.click();
     const enableResponse=await enabled;assert.equal(enableResponse.status(),200);
     assert.ok(enableResponse.request().headers()['x-pfc-csrf'],'simulator enable sends the current CSRF token');
-    await page.waitForFunction(()=>document.querySelector('#simulator-toggle')?.textContent==='Disable simulator'&&!document.querySelector('#simulator-toggle').disabled);
-    await page.locator('#show-add').click();
-    await page.locator('#profile').selectOption('flashforge-ad5m-pro');
-    await page.locator('#printer-name').fill('Authenticated simulator test');
+    await disable.waitFor();
+    await simulator.locator('#show-add').click();
+    await simulator.locator('#profile').selectOption('flashforge-ad5m-pro');
+    await simulator.locator('#printer-name').fill('Authenticated simulator test');
     const printersUrl=url+'/api/emulator/printers';
     // Give this fixture its own protocol ports when another controller's simulator is running.
     await page.route(printersUrl,route=>{
@@ -5525,16 +5547,35 @@ async function authenticatedSimulatorSmoke(context,url){
       }});
     });
     const created=page.waitForResponse(response=>response.url()===printersUrl&&response.request().method()==='POST');
-    await page.locator('#add-form button[type=submit]').click();
+    await simulator.locator('#add-form button[type=submit]').click();
     const createResponse=await created;
     assert.equal(createResponse.status(),201,createResponse.ok()?undefined:(await createResponse.json()).error);
     assert.ok(createResponse.request().headers()['x-pfc-csrf'],'printer creation sends the current CSRF token');
-    await page.locator('.printer-title').filter({hasText:'Authenticated simulator test'}).waitFor();
+    await simulator.locator('.printer-title').filter({hasText:'Authenticated simulator test'}).waitFor();
     const disabled=page.waitForResponse(response=>response.url()===url+'/api/emulator/status'&&response.request().method()==='POST');
-    await page.locator('#simulator-toggle').click();
+    await disable.click();
     assert.equal((await disabled).status(),200);
-    await page.waitForFunction(()=>document.querySelector('#simulator-toggle')?.textContent==='Enable simulator');
-    console.log('Chromium: authenticated simulator enable, printer creation and disable PASS');
+    await enable.waitFor();
+    await page.setViewportSize({width:390,height:750});
+    await page.getByRole('button',{name:'Open navigation',exact:true}).click();
+    await sidebar.getByRole('button',{name:'Printer map',exact:true}).click();
+    await page.waitForURL(url+'/printer-map');
+    assert.equal(await page.locator('#simulatorFrame').count(),0,'leaving the simulator unloads its frame');
+    await page.goBack();
+    await page.waitForURL(url+'/simulator');
+    await enable.waitFor();
+    assert.equal(await sidebar.evaluate(node=>node===window.sidebarBeforeSimulator),true);
+    await page.setViewportSize({width:1280,height:800});
+    await sidebar.getByRole('button',{name:'Dashboard',exact:true}).click();
+    await page.locator('#addPrinterBtn').click();
+    await page.locator('#openSimulatorBtn').click();
+    await page.waitForURL(url+'/simulator');
+    assert.equal(await page.locator('#addPrinterDialog').isVisible(),false);
+    await enable.waitFor();
+    await page.goto(url+'/simulator/');
+    await enable.waitFor();
+    assert.equal(await simulatorEntry.getAttribute('aria-current'),'page');
+    console.log('Chromium: shared simulator navigation, authenticated enable, printer creation and disable PASS');
   }finally{await page.close();}
 }
 

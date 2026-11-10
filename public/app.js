@@ -303,9 +303,12 @@ const controllerRoutes = {
   '/backup': { button:'backupRecoveryBtn', dialog:'backupRecoveryDialog', title:'Backup & recovery', topbarTitle:'Farm management', subtitle:'Protect and restore controller data' },
   '/diagnostics': { button:'diagnosticsBtn', dialog:'diagnosticsDialog', title:'Diagnostics', topbarTitle:'Farm management', subtitle:'Review controller health and diagnostic logs' },
   '/licence': { button:'licenseBtn', dialog:'licenseDialog', title:'Licence', subtitle:'Review controller edition and licence status' },
+  '/simulator': { dialog:'simulatorPage', title:'Printer simulator', subtitle:'Manage simulated printers and loopback endpoints' },
   '/users': { button:'usersBtn', dialog:'usersDialog', title:'Users & settings', topbarTitle:'Users & settings', subtitle:'Manage user accounts and controller settings' }
 };
 const workspaceMain = document.querySelector('body > main');
+const simulatorFrameTemplate = document.querySelector('#simulatorFrameTemplate');
+let simulatorFrame = null;
 // Bind route title and subtitle separately to avoid duplicate context labels.
 const topbarContextTitle = document.querySelector('#topbarContextTitle');
 const topbarContextSubtitle = document.querySelector('#topbarContextSubtitle');
@@ -371,6 +374,20 @@ function normaliseControllerRoute(pathname) {
   const clean = pathname.replace(/\/+$/, '') || '/';
   return controllerRoutes[clean] ? clean : '/';
 }
+
+function setSimulatorVisible(visible) {
+  if (visible === Boolean(simulatorFrame)) return;
+  if (visible) {
+    simulatorFrame = simulatorFrameTemplate.content.firstElementChild.cloneNode(true);
+    simulatorFrame.addEventListener('load', syncSimulatorTheme);
+    simulatorFrameTemplate.after(simulatorFrame);
+  } else {
+    // Removing the frame also closes its live event stream.
+    simulatorFrame.remove();
+    simulatorFrame = null;
+  }
+}
+
 function renderControllerRoute(pathname, { invoke = true } = {}) {
   const routePath = normaliseControllerRoute(pathname);
   const route = controllerRoutes[routePath];
@@ -387,6 +404,7 @@ function renderControllerRoute(pathname, { invoke = true } = {}) {
   document.querySelectorAll('.route-page').forEach((page) => {
     page.hidden = page.id !== route.dialog;
   });
+  if (invoke) setSimulatorVisible(routePath === '/simulator');
   if (topbarContextTitle) topbarContextTitle.textContent = route.topbarTitle || route.title;
   if (topbarContextSubtitle) topbarContextSubtitle.textContent = route.subtitle;
   if (invoke && route.button) {
@@ -826,6 +844,7 @@ function applyTheme(theme, { persist = false } = {}) {
   const next = theme === 'light' ? 'light' : 'dark';
   document.documentElement.dataset.theme = next;
   document.documentElement.style.colorScheme = next;
+  syncSimulatorTheme();
   themeColorMeta?.setAttribute('content', next === 'light' ? '#eef3f7' : '#0c1015');
   if (themeToggle) {
     const dark = next === 'dark';
@@ -837,6 +856,11 @@ function applyTheme(theme, { persist = false } = {}) {
   if (persist) {
     try { localStorage.setItem(THEME_STORAGE_KEY, next); } catch {}
   }
+}
+
+function syncSimulatorTheme() {
+  const root = simulatorFrame?.contentDocument?.documentElement;
+  if (root) root.dataset.theme = document.documentElement.dataset.theme;
 }
 
 applyTheme(document.documentElement.dataset.theme || (themeMedia.matches ? 'light' : 'dark'));
@@ -5984,7 +6008,11 @@ document.querySelectorAll('[data-add-printer]').forEach((el) => el.addEventListe
 document.querySelectorAll('[data-close]').forEach((el) => el.addEventListener('click', () => el.closest('dialog').close()));
 scanNetworkBtn.addEventListener('click', scanNetwork);
 refreshVirtualPrintersBtn?.addEventListener('click', () => loadVirtualPrinters());
-openSimulatorBtn?.addEventListener('click', () => window.open('/simulator/', '_blank', 'noopener'));
+openSimulatorBtn?.addEventListener('click', () => {
+  addDialog.close();
+  navigateController('/simulator');
+  topbarContextTitle?.focus({ preventScroll:true });
+});
 virtualPrinterResults?.addEventListener('click', (event) => {
   const button = event.target.closest('[data-add-virtual-printer]');
   if (!button) return;

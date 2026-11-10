@@ -16,7 +16,7 @@ test('modern shell keeps primary actions visible and moves secondary actions int
   assert.match(index, /id="sidebarToggle"/);
   assert.match(index, /id="themeToggle"/);
   assert.match(index, /id="licenseBtn"[^>]*class="sidebar-item sidebar-licence"/);
-  assert.match(index, /onclick="location\.href='\/simulator\/'"[^>]*>[\s\S]*Printer simulator<\/span><\/button>/);
+  assert.match(index, /id="simulatorBtn"[^>]*class="sidebar-item"[^>]*data-route="\/simulator"/);
   assert.match(index, /id="farmOperationsToggle"[^>]*role="switch"/);
   assert.doesNotMatch(index, /id="batchModeBtn"|id="batchModeMenuBtn"/);
   assert.match(index, /id="maintenanceBtn"[^>]*class="sidebar-item"/);

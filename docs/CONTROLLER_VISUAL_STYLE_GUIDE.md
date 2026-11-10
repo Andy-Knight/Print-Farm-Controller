@@ -181,6 +181,7 @@ Use `--ds-shadow-sm` for quiet elevation; `--ds-shadow-md` for hover/focus empha
 - **Workspace heading**: blue uppercase eyebrow, bold primary page title, muted description. Align auxiliary controls alongside or below as width dictates.
 - **Sections**: use `UiSurface` or the route's established panel, 12–16px radius, consistent borders/padding; keep related controls close to the data they govern.
 - **No floating workspace windows** for core navigation: use routes. Printer Details remains a purpose-specific details dialog with tabs.
+- Open **Printer simulator** in the controller workspace with the same sidebar, active navigation state, mobile drawer and theme switch used by other routes.
 - **Navigation tabs**: transparent background, one text-and-icon horizontal rail, subtle lower divider, **3px brand-blue underline** for selected tab, no filled segmented blocks. Overflow horizontally on mobile, preserving Arrow, Home and End keyboard support.
 
 ### Printer map
