@@ -194,10 +194,17 @@ test('real controller starts HTTP, switches to GUI-managed HTTPS and retains it 
     assert.equal((await secureRequest(plain,'/api/auth/session')).status,200);
     await new Promise(resolve=>blocker.close(resolve));blocker=null;
     for(const missing of [undefined,null,'']){
-      const bypass=await secureRequest(plain,'/api/tls/configure',{
-        method:'POST',origin:plain,identity:admin,body:{...settings,password:missing}
-      });
-      assert.equal(bypass.status,403,'HTTPS setup must demand current password even when omitted');
+      // The bind error is visible before listener cleanup and logging finish.
+      // Wait out only the transition response before checking password enforcement.
+      let bypass;
+      for(let attempt=0;attempt<80;attempt++){
+        bypass=await secureRequest(plain,'/api/tls/configure',{
+          method:'POST',origin:plain,identity:admin,body:{...settings,password:missing}
+        });
+        if(bypass.status!==503||bypass.body?.error!=='HTTPS listener change in progress; reconnect once the transport is ready')break;
+        await new Promise(resolve=>setTimeout(resolve,120));
+      }
+      assert.equal(bypass.status,403,'HTTPS setup must demand current password even when omitted: '+bypass.text);
     }
     const accepted=await secureRequest(plain,'/api/tls/configure',{
       method:'POST',origin:plain,identity:admin,body:settings
