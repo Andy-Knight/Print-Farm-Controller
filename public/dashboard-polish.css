@@ -154,7 +154,7 @@
 }
 #dashboardProductionMetrics.summary { margin-bottom:var(--ds-space-4); }
 #dashboardProductionMetrics .summary-card { text-decoration:none; }
-#dashboardProductionMetrics .dashboard-stat-detail {
+#dashboardProductionMetrics [data-production-queue-view="oldest"] .dashboard-stat-detail {
   max-width:100%;
   overflow:hidden;
   text-overflow:ellipsis;

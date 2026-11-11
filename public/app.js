@@ -3120,7 +3120,7 @@ function renderDashboardProductionQueue() {
   };
   const reason = blocked[0]?.waitingReason;
   const metrics = {
-    queued:[pending.length, 'Includes jobs needing review'],
+    queued:[pending.length, 'Includes jobs in review'],
     oldest:[age(oldestTime), oldest?.fileName],
     blocked:[blocked.length, reason && (blocked.every(job => job.waitingReason === reason) ? reason : 'Multiple reasons')],
     clearance:[beds.length, Number.isFinite(oldestBedTime) ? `Longest wait ${age(oldestBedTime)}` : '']
