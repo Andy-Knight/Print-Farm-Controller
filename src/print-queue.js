@@ -393,6 +393,11 @@ export class PrintQueueService {
       const first = firstFixed.get(job.printerId);
       if (!first || compareQueuePriority(job, first, positions, atMs) < 0) firstFixed.set(job.printerId, job);
     }
+    const fixedReasons = new Map();
+    for (const [printerId, first] of firstFixed) {
+      fixedReasons.set(printerId, this.fixedWaitingReason(printerId,
+        uncleared.has(printerId), activePrinters.has(printerId), first.status === 'needs_review'));
+    }
     let queuedIndex = 0;
     const orderedJobs = this.jobs.map((job) => job.status === 'queued' ? orderedQueued[queuedIndex++] : job);
     const jobs = orderedJobs.map((job) => {
@@ -405,7 +410,7 @@ export class PrintQueueService {
         ...(currentGroupName ? { groupName:currentGroupName } : {})
       });
       if (job.status === 'queued' || job.status === 'needs_review') {
-        const reason = this.waitingReason(job, printer, uncleared, activePrinters, firstFixed);
+        const reason = this.waitingReason(job, fixedReasons);
         if (reason) snapshot.waitingReason = reason;
       }
       return snapshot;
@@ -422,21 +427,24 @@ export class PrintQueueService {
     };
   }
 
-  waitingReason(job, printer, uncleared, activePrinters, firstFixed) {
+  waitingReason(job, fixedReasons) {
     if (job.status === 'needs_review') return 'Needs review';
     if (job.productionPaused) return 'Production batch paused';
     if (this.dispatchPaused) return 'Queue dispatch paused';
-    if (job.assignmentMode === 'automatic') {
-      const compatibility = job.compatibility;
-      return compatibility?.evaluatedAt && !compatibility.ready?.length ? 'No ready compatible printer' : null;
-    }
+    if (job.assignmentMode !== 'automatic') return fixedReasons.get(job.printerId);
+    const compatibility = job.compatibility;
+    return compatibility?.evaluatedAt && !compatibility.ready?.length ? 'No ready compatible printer' : null;
+  }
+
+  fixedWaitingReason(printerId, uncleared, active, firstNeedsReview) {
+    const printer = this.fleetState.getPrinterState(printerId);
     if (!printer) return 'Assigned printer unavailable';
-    if (uncleared.has(job.printerId)) return 'Bed not cleared';
-    if (!this.printerAllowed(job.printerId)) return 'Printer licence slot inactive';
+    if (uncleared) return 'Bed not cleared';
     if (!printer.online || !printer.status) return 'Printer offline';
-    if (activePrinters.has(job.printerId) || this.startingPrinters.has(job.printerId) || printIsActive(printer.status)) return 'Printer busy';
+    if (!this.printerAllowed(printerId)) return 'Printer licence slot inactive';
+    if (active || this.startingPrinters.has(printerId) || printIsActive(printer.status)) return 'Printer busy';
     if (!printerCanStart(printer.status)) return 'Printer not ready';
-    if (firstFixed.get(job.printerId)?.status === 'needs_review') return 'Earlier job needs review';
+    if (firstNeedsReview) return 'Earlier job needs review';
     return null;
   }
 
