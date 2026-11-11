@@ -382,12 +382,41 @@ async function dashboardProductionQueueSmoke(browser, url) {
       const tile = name => panel.getByRole('link', { name:new RegExp(`^${name}`) });
       const group = page.locator('#dashboardGroupFilter');
       await group.waitFor();
-      assert.deepEqual(await panel.locator('strong').allTextContents(), ['3', '47m', '2', '1']);
+      const values = panel.locator('.dashboard-stat-body > b');
+      assert.deepEqual(await values.allTextContents(), ['3', '47m', '2', '1']);
       await group.selectOption('room');
-      assert.deepEqual(await panel.locator('strong').allTextContents(), ['2', '47m', '2', '1']);
+      assert.deepEqual(await values.allTextContents(), ['2', '47m', '2', '1']);
       await page.locator('#summary [data-dashboard-filter="printing"]').click();
       await page.locator('#dashboardViewToggle').click();
-      assert.deepEqual(await panel.locator('strong').allTextContents(), ['2', '47m', '2', '1']);
+      assert.deepEqual(await values.allTextContents(), ['2', '47m', '2', '1']);
+      for (const theme of ['dark', 'light']) {
+        await page.evaluate(name => {
+          if (document.documentElement.dataset.theme !== name) document.querySelector('#themeToggle').click();
+        }, theme);
+        for (const width of [1365, 390, 320]) {
+          await page.setViewportSize({ width, height:900 });
+          const measureCards = selector => page.locator(selector).evaluateAll(cards => cards.map(card => {
+            const gauge = card.querySelector('.dashboard-stat-gauge');
+            const icon = gauge.querySelector('svg');
+            const value = card.querySelector('.dashboard-stat-body > b');
+            const rect = card.getBoundingClientRect();
+            const skin = getComputedStyle(card);
+            return { background:skin.backgroundImage, geometry:{
+              x:rect.x, width:rect.width, minHeight:skin.minHeight, padding:skin.padding, radius:skin.borderRadius,
+              ringWidth:gauge.getBoundingClientRect().width, iconWidth:icon?.getBoundingClientRect().width,
+              valueSize:getComputedStyle(value).fontSize
+            } };
+          }));
+          const overview = await measureCards('#summary .dashboard-summary-kpi');
+          const queue = await measureCards('#dashboardProductionMetrics .dashboard-summary-kpi');
+          assert.equal(queue.length, 4);
+          for (let index = 0; index < queue.length; index++) {
+            assert.deepEqual(queue[index].geometry, overview[index].geometry, `dashboard card geometry in ${theme} at ${width}px`);
+            assert.equal(queue[index].background, overview[0].background, 'queue links share the unselected overview gradient');
+          }
+        }
+      }
+      await page.setViewportSize({ width:1365, height:900 });
       const rows = () => panel.getByRole('link').evaluateAll(nodes => new Set(nodes.map(node => node.offsetTop)).size);
       assert.equal(await rows(), 1, 'the four production tiles share one desktop row');
       await page.setViewportSize({ width:390, height:900 });

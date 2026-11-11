@@ -3022,6 +3022,9 @@ function dashboardSummaryIconSvg(name) {
     connected:'<path d="M3 8.5a13 13 0 0 1 18 0M6.5 12a8 8 0 0 1 11 0M9 16l2.5 2.5L16 14"/>',
     printing:'<path d="M8 5.5v13l11-6.5z"/>',
     warning:'<path d="M12 3 22 20H2zM12 9v5M12 17.5h.01"/>',
+    queued:'<path d="M8 6h12M8 12h12M8 18h12M4 6h.01M4 12h.01M4 18h.01"/>',
+    oldest:'<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
+    clearance:'<path d="M8 12V5h8v7M5 13h14l2.5 6h-19zM8 16h8"/>',
     check:'<circle cx="12" cy="12" r="9"/><path d="M7.5 12.5 10.5 15.5 16.5 9"/>'
   };
   return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
@@ -3125,11 +3128,12 @@ function renderDashboardProductionQueue() {
   for (const link of dashboardProductionQueue.querySelectorAll('[data-production-queue-view]')) {
     const view = link.dataset.productionQueueView;
     const [value, detail = ''] = metrics[view];
-    const valueElement = link.querySelector('strong');
-    const detailElement = link.querySelector('small');
+    const valueElement = link.querySelector('b');
+    const detailElement = link.querySelector('.dashboard-stat-detail');
+    const icon = link.querySelector('.dashboard-stat-icon');
+    if (!icon.firstElementChild) icon.innerHTML = dashboardSummaryIconSvg(view === 'blocked' ? 'warning' : view);
     if (valueElement.textContent !== String(value)) valueElement.textContent = value;
     if (detailElement.textContent !== detail) detailElement.textContent = detail;
-    detailElement.hidden = !detail;
     detailElement.title = detail;
     link.href = `/queue${productionQueueSearch(view, dashboardGroupId)}`;
   }
