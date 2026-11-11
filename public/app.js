@@ -3567,7 +3567,7 @@ function renderPrintQueue() {
   const params = new URLSearchParams(activeRoute === '/queue' ? location.search : '');
   const printerId = params.get('printer');
   const queueView = params.get('view');
-  const productionScoped = !printerId && Object.hasOwn(productionQueueViews, queueView);
+  const productionScoped = Boolean(queueView && !printerId && Object.hasOwn(productionQueueViews, queueView));
   const printerScope = document.querySelector('#queuePrinterScope');
   const scoped = Boolean(printerId || productionScoped);
   printerScope.hidden = !scoped;
