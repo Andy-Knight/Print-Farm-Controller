@@ -150,7 +150,13 @@ jobs:
         run: node scripts/build-ffmpeg.mjs linux-x64
 
       - name: Install Chromium with system dependencies
-        run: npx playwright install --with-deps chromium
+        run: |
+          mirrors=/etc/apt/apt-mirrors.txt
+          if [[ -f "$mirrors" ]] && ! getent ahosts azure.archive.ubuntu.com >/dev/null; then
+            echo 'Azure Ubuntu mirror DNS is unavailable. Using the primary Ubuntu archive.'
+            sudo sed -Ei 's|https?://azure\.archive\.ubuntu\.com/ubuntu|https://archive.ubuntu.com/ubuntu|' "$mirrors"
+          fi
+          npx playwright install --with-deps chromium
 
       - name: Run real-browser Preact regression
         env:
