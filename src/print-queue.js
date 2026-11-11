@@ -379,21 +379,37 @@ export class PrintQueueService {
 
   getSnapshot() {
     const positions = new Map(this.jobs.map((job, index) => [job.id, index]));
+    const atMs = nowMs();
     const orderedQueued = this.jobs
       .filter((job) => job.status === 'queued')
-      .sort((left, right) => compareQueuePriority(left, right, positions));
+      .sort((left, right) => compareQueuePriority(left, right, positions, atMs));
+    const bedClearance = this.getBedClearance();
+    const uncleared = new Set(bedClearance.map(item => item.printerId));
+    const activePrinters = new Set();
+    const firstFixed = new Map();
+    for (const job of this.jobs) {
+      if (ACTIVE_QUEUE_STATES.has(job.status)) activePrinters.add(job.printerId);
+      if (job.assignmentMode === 'automatic' || !['queued', 'needs_review'].includes(job.status)) continue;
+      const first = firstFixed.get(job.printerId);
+      if (!first || compareQueuePriority(job, first, positions, atMs) < 0) firstFixed.set(job.printerId, job);
+    }
     let queuedIndex = 0;
     const orderedJobs = this.jobs.map((job) => job.status === 'queued' ? orderedQueued[queuedIndex++] : job);
     const jobs = orderedJobs.map((job) => {
-      const currentName = this.fleetState.getPrinterState(job.printerId)?.name;
+      const printer = this.fleetState.getPrinterState(job.printerId);
+      const currentName = printer?.name;
       const currentGroupName = job.groupId ? this.getPrinterGroup(job.groupId)?.name : null;
-      return publicJob({
+      const snapshot = publicJob({
         ...job,
         ...(currentName ? { printerName:currentName } : {}),
         ...(currentGroupName ? { groupName:currentGroupName } : {})
       });
+      if (job.status === 'queued' || job.status === 'needs_review') {
+        const reason = this.waitingReason(job, printer, uncleared, activePrinters, firstFixed);
+        if (reason) snapshot.waitingReason = reason;
+      }
+      return snapshot;
     });
-    const bedClearance = this.getBedClearance();
     return {
       jobs,
       queued: jobs.filter((job) => job.status === 'queued').length,
@@ -404,6 +420,24 @@ export class PrintQueueService {
       bedClearance,
       productionBatches: this.getProductionBatches()
     };
+  }
+
+  waitingReason(job, printer, uncleared, activePrinters, firstFixed) {
+    if (job.status === 'needs_review') return 'Needs review';
+    if (job.productionPaused) return 'Production batch paused';
+    if (this.dispatchPaused) return 'Queue dispatch paused';
+    if (job.assignmentMode === 'automatic') {
+      const compatibility = job.compatibility;
+      return compatibility?.evaluatedAt && !compatibility.ready?.length ? 'No ready compatible printer' : null;
+    }
+    if (!printer) return 'Assigned printer unavailable';
+    if (uncleared.has(job.printerId)) return 'Bed not cleared';
+    if (!this.printerAllowed(job.printerId)) return 'Printer licence slot inactive';
+    if (!printer.online || !printer.status) return 'Printer offline';
+    if (activePrinters.has(job.printerId) || this.startingPrinters.has(job.printerId) || printIsActive(printer.status)) return 'Printer busy';
+    if (!printerCanStart(printer.status)) return 'Printer not ready';
+    if (firstFixed.get(job.printerId)?.status === 'needs_review') return 'Earlier job needs review';
+    return null;
   }
 
   getProductionBatches() {

@@ -89,6 +89,7 @@ function QueueJob({ item }) {
         {item.printerTarget && <div class="queue-job-meta">{item.printerTarget}</div>}
         {item.groupTarget && <div class="queue-job-meta">{item.groupTarget}</div>}
         <div class="queue-job-meta">{item.meta}</div>
+        {item.waitingReason && <div class="queue-job-meta">{item.waitingReason}</div>}
         {item.selectionReason && <div class="queue-selection-reason">{item.selectionReason}</div>}
         <Compatibility rows={item.compatibility} />
         {item.error && <div class="queue-job-error">{item.error}</div>}

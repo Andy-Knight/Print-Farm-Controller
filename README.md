@@ -194,6 +194,10 @@ npm start
 
 If the optional Preact bundle is not present, the controller still starts and the existing vanilla-JavaScript dashboard fallback remains usable. Production container and Windows SEA builds generate and package the Preact bundle automatically.
 
+## Dashboard production queue
+
+The **Production queue** panel shows queued jobs (including jobs needing review), the oldest queued job, jobs currently blocked and beds awaiting clearance. Select a tile to open the matching view in **Queue & history**. A selected printer group includes jobs targeting that group and jobs assigned to its printers. Jobs without a printer or group assignment appear in **All printers**. The panel follows the printer group in both Cards and Table views.
+
 ## Reports and material costs
 
 The **Reports & finance** view provides operational and material-cost reporting. Reporting history is stored independently of the bounded recent queue history, retaining long-term trends. Print Library storage observations use a separate bounded history file with disk writes batched at five-minute intervals; live usage remains current. Clean shutdown and logical backups preserve pending observations, while an unexpected stop can lose recent unflushed storage observations.

@@ -126,6 +126,23 @@
       </section>
       <section id="summary" class="summary"></section>
     </div>
+    <section id="dashboardProductionQueue" class="dashboard-production-queue" aria-labelledby="dashboardProductionQueueTitle">
+      <h2 id="dashboardProductionQueueTitle">Production queue</h2>
+      <div class="dashboard-production-metrics">
+        <a class="ui-surface" data-production-queue-view="queued" href="/queue?view=queued">
+          <span>Queued jobs</span><strong>—</strong><small>Includes jobs needing review</small>
+        </a>
+        <a class="ui-surface" data-production-queue-view="oldest" href="/queue?view=oldest">
+          <span>Oldest queued job</span><strong>—</strong><small hidden></small>
+        </a>
+        <a class="ui-surface" data-production-queue-view="blocked" href="/queue?view=blocked">
+          <span>Jobs blocked</span><strong>—</strong><small hidden></small>
+        </a>
+        <a class="ui-surface" data-production-queue-view="clearance" href="/queue?view=clearance">
+          <span>Beds to clear</span><strong>—</strong><small hidden></small>
+        </a>
+      </div>
+    </section>
     <section id="licenseNotice" class="license-notice hidden" aria-live="polite"></section>
     <section id="batchToolbar" class="batch-toolbar hidden" aria-label="Batch printer controls">
       <div class="batch-toolbar-head">

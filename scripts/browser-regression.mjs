@@ -351,6 +351,69 @@ async function designSystemSmoke(browser,url) {
 }
 
 
+async function dashboardProductionQueueSmoke(browser, url) {
+  const queuedAt = new Date(Date.now() - 47 * 60_000).toISOString();
+  const fleet = {
+    printers:[{ id:'room-p1', name:'Room printer', online:true, status:{ status:'idle' } }],
+    queue:{
+      jobs:[
+        { id:'room-job', printerId:'room-p1', status:'queued', fileName:'Room job.gcode', queuedAt, waitingReason:'Bed not cleared' },
+        { id:'room-review', groupId:'room', status:'needs_review', fileName:'Review job.gcode', waitingReason:'Needs review' },
+        { id:'unassigned', status:'queued', fileName:'Unassigned job.gcode' },
+        { id:'finished', printerId:'room-p1', status:'completed', fileName:'Finished job.gcode' }
+      ],
+      bedClearance:[{ printerId:'room-p1', printerName:'Room printer', finishedAt:queuedAt }]
+    }
+  };
+  for (const fallback of [false, true]) {
+    const context = await browser.newContext({ viewport:{ width:1365, height:900 } });
+    try {
+      await context.route('**/api/fleet', route => route.fulfill({ json:fleet }));
+      await context.route('**/api/queue', route => route.fulfill({ json:fleet.queue }));
+      await context.route('**/api/printer-groups', route => route.fulfill({
+        json:{ groups:[{ id:'room', name:'Print room', printerIds:['room-p1'] }] }
+      }));
+      await context.route('**/api/events', route => route.fulfill({ contentType:'text/event-stream', body:': fixture\n\n' }));
+      if (fallback) await context.route('**/dashboard-preact.js', route => route.abort());
+      const page = await context.newPage();
+      await page.goto(url + '/');
+      if (!fallback) await preactReady(page);
+      const panel = page.getByRole('region', { name:'Production queue' });
+      const tile = name => panel.getByRole('link', { name:new RegExp(`^${name}`) });
+      const group = page.locator('#dashboardGroupFilter');
+      await group.waitFor();
+      assert.deepEqual(await panel.locator('strong').allTextContents(), ['3', '47m', '2', '1']);
+      await group.selectOption('room');
+      assert.deepEqual(await panel.locator('strong').allTextContents(), ['2', '47m', '2', '1']);
+      await page.locator('#summary [data-dashboard-filter="printing"]').click();
+      await page.locator('#dashboardViewToggle').click();
+      assert.deepEqual(await panel.locator('strong').allTextContents(), ['2', '47m', '2', '1']);
+      const rows = () => panel.getByRole('link').evaluateAll(nodes => new Set(nodes.map(node => node.offsetTop)).size);
+      assert.equal(await rows(), 1, 'the four production tiles share one desktop row');
+      await page.setViewportSize({ width:390, height:900 });
+      assert.equal(await rows(), 2, 'the production tiles wrap into two mobile rows');
+      const active = page.locator('#queueActiveList');
+      for (const [label, jobs, beds] of [
+        ['Queued jobs', ['room-job', 'room-review'], 0],
+        ['Oldest queued job', ['room-job'], 0],
+        ['Jobs blocked', ['room-job', 'room-review'], 0],
+        ['Beds to clear', [], 1]
+      ]) {
+        await tile(label).click();
+        await page.locator('#queuePrinterScope').getByText('Print room').waitFor();
+        await page.locator('#queueSummary').getByText(label, { exact:true }).waitFor();
+        assert.deepEqual((await active.locator('[data-queue-job]').evaluateAll(nodes => nodes.map(node => node.dataset.queueJob))).sort(), jobs);
+        assert.equal(await active.locator('[data-bed-clearance-printer]').count(), beds);
+        await page.goBack();
+        await panel.waitFor();
+      }
+    } finally {
+      await context.close();
+    }
+  }
+  console.log('Chromium: production queue tiles, group scope and filtered links PASS');
+}
+
 async function dashboardPhase3Smoke(browser,url) {
   console.log('Chromium: Phase 3 dashboard hierarchy, filters, card/table and mobile layout');
   const context=await browser.newContext({viewport:{width:1365,height:900}});
@@ -6276,6 +6339,7 @@ async function main() {
     await printerMapSmoke(browser,url);
     await a1ArtworkSmoke(browser,url);
     await designSystemSmoke(browser,url);
+    await dashboardProductionQueueSmoke(browser,url);
     await dashboardPhase3Smoke(browser,url);
     await dashboardCompactTableSmoke(browser,url);
     await workspaceShellSmoke(browser,url);
