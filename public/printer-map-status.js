@@ -44,7 +44,6 @@ export function printerMapTiles(printers, queue, attentionPrinterIds, attentionT
   const attention = new Set(attentionPrinterIds);
   const clearance = new Set();
   for (const item of queue.bedClearance || []) {
-    attention.add(item.printerId);
     clearance.add(item.printerId);
     recordCompletion(item.printerId, item.jobStatus, item.finishedAt);
   }
