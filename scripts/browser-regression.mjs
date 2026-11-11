@@ -382,6 +382,7 @@ async function dashboardProductionQueueSmoke(browser, url) {
       const tile = name => panel.getByRole('link', { name:new RegExp(`^${name}`) });
       const group = page.locator('#dashboardGroupFilter');
       await group.waitFor();
+      assert.equal(await page.locator('#summary').count(), 1, 'only one Farm overview grid contributes spacing');
       const values = panel.locator('.dashboard-stat-body > b');
       assert.deepEqual(await values.allTextContents(), ['3', '47m', '2', '1']);
       await group.selectOption('room');
@@ -395,6 +396,10 @@ async function dashboardProductionQueueSmoke(browser, url) {
         }, theme);
         for (const width of [1365, 390, 320]) {
           await page.setViewportSize({ width, height:900 });
+          const gap = await page.evaluate(() =>
+            document.querySelector('#dashboardProductionQueueTitle').getBoundingClientRect().top
+            - document.querySelector('#summary').getBoundingClientRect().bottom);
+          assert.ok(Math.abs(gap - 12) < 1, `Farm overview and Production queue heading are 12px apart at ${width}px`);
           const measureCards = selector => page.locator(selector).evaluateAll(cards => cards.map(card => {
             const gauge = card.querySelector('.dashboard-stat-gauge');
             const icon = gauge.querySelector('svg');

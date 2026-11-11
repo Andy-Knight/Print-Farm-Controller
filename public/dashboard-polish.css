@@ -100,8 +100,9 @@
 :is(#summary, #dashboardProductionMetrics).summary {
   grid-template-columns:repeat(4,minmax(0,1fr));
   gap:12px;
-  margin:0 0 23px;
+  margin:0;
 }
+#summary.summary { margin-bottom:var(--ds-space-3); }
 #summary .summary-card.ui-stat-card:not(.dashboard-summary-kpi) {
   position:relative;
   /* Legacy stacked layout only. Analytics-style stat cards use the
@@ -325,7 +326,8 @@
 }
 @media (max-width:760px) {
   .dashboard-hero { margin-bottom:17px; }
-  :is(#summary, #dashboardProductionMetrics).summary { grid-template-columns:repeat(2,minmax(0,1fr));gap:9px;margin-bottom:18px; }
+  :is(#summary, #dashboardProductionMetrics).summary { grid-template-columns:repeat(2,minmax(0,1fr));gap:9px; }
+  #dashboardProductionMetrics.summary { margin-bottom:18px; }
   #summary .summary-card.ui-stat-card:not(.dashboard-summary-kpi) { min-height:104px;padding:13px 14px; }
   .dashboard-fleet-heading { align-items:flex-start; }
   .dashboard-fleet-heading-copy { flex-direction:column;gap:3px; }
