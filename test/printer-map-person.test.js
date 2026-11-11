@@ -21,7 +21,7 @@ test('map tiles expose the latest successful queued or directly observed complet
   ]);
 });
 
-test('map activity shows measured progress, clearance and the start time of an active queue job', () => {
+test('map activity shows measured progress, independent clearance and alert flags, and queue start time', () => {
   const startedAt = '2026-11-07T10:00:00Z';
   const printers = [
     { id:'working', online:true, status:{ status:'printing', progress:'42.5' } },
@@ -37,10 +37,13 @@ test('map activity shows measured progress, clearance and the start time of an a
     bedClearance:[{ printerId:'idle', jobStatus:'completed' }]
   };
   assert.deepEqual(printerMapTiles(printers, queue, []).map(tile =>
-    [tile.online, tile.progress, tile.bedClearance, tile.queueStartedAt]), [
-    [true, 42.5, false, Date.parse(startedAt)], [true, null, false, null],
-    [false, null, false, null], [true, null, true, null]
+    [tile.online, tile.progress, tile.bedClearance, tile.alert, tile.queueStartedAt]), [
+    [true, 42.5, false, false, Date.parse(startedAt)], [true, null, false, false, null],
+    [false, null, false, true, null], [true, null, true, false, null]
   ]);
+  const [idle] = printerMapTiles(printers.filter(printer => printer.id === 'idle'), queue, ['idle']);
+  assert.equal(idle.alert, true);
+  assert.equal(idle.bedClearance, true);
 });
 
 test('a route crosses a wall at the doorway and can reach the exit threshold', () => {
