@@ -2024,7 +2024,13 @@ async function apiRoute(req, res, url) {
 
   const bedClearanceMatch = url.pathname.match(/^\/api\/queue\/bed-clearance\/([^/]+)$/);
   if (bedClearanceMatch && req.method === 'POST') {
-    const result = await controllerMutations.run('library-queue', () => printQueue.clearBed(decodeURIComponent(bedClearanceMatch[1])));
+    const printerId = decodeURIComponent(bedClearanceMatch[1]);
+    const { result, pending } = await controllerMutations.run('library-queue', async () => {
+      const pending = printQueue.getBedClearance().find(item => item.printerId === printerId);
+      const result = await printQueue.clearBed(printerId);
+      return { result, pending };
+    });
+    if (pending) await queueAlertBridge.markBedClearanceRead(pending);
     return json(res, 200, { ok: true, clearance: result, queue: printQueue.getSnapshot() });
   }
 
