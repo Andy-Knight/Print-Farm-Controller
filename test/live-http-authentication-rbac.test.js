@@ -48,9 +48,16 @@ test('real HTTP dispatcher enforces login, CSRF and RBAC before controller actio
       message:'SECRET_FILE.gcode failed', createdAt:alertTime, readAt:alertTime,
       printer:{ id:'display-a', name:'Displayed printer' }, metadata:{ host:'SECRET_HOST' }
     };
+    const clearanceJob = { id:'finished-a', printerId:'display-a', fileName:'Part.gcode', status:'completed',
+      finishedAt:alertTime, bedClearanceRequired:true };
+    const clearanceAlert = {
+      ...monitorAlert, id:`bed-clearance:display-a|${clearanceJob.id}|${alertTime}|${clearanceJob.fileName}`,
+      type:'queue.bed_clearance', severity:'warning', readAt:null
+    };
+    await fs.writeFile(path.join(dataDir,'print-jobs.json'), JSON.stringify([clearanceJob]));
     await fs.writeFile(path.join(dataDir,'alerts.json'),JSON.stringify({version:1,rules:[],history:[monitorAlert, {
       ...monitorAlert, id:'other-monitor-alert', printer:{ id:'display-b', name:'Other room printer' }
-    }],destinations:[{id:'synthetic-hook',name:'Operations',provider:'webhook',config:{url:'https://example.invalid/SECRET_URL',authorization:'SECRET_AUTH'}}]}));
+    }, clearanceAlert],destinations:[{id:'synthetic-hook',name:'Operations',provider:'webhook',config:{url:'https://example.invalid/SECRET_URL',authorization:'SECRET_AUTH'}}]}));
     const port=await freePort(),base='http://127.0.0.1:'+port;
     child=spawn(process.execPath,['src/server.js'],{
       cwd,env:{...process.env,DATA_DIR:dataDir,LOG_DIR:logDir,
@@ -121,8 +128,16 @@ test('real HTTP dispatcher enforces login, CSRF and RBAC before controller actio
     assert.equal(monitoredAlerts.status, 200);
     assert.equal(monitoredAlerts.headers.get('cache-control'), 'no-store');
     assert.deepEqual(await monitoredAlerts.json(), {
-      alerts:[{ title:'Print failed', severity:'critical', createdAt:alertTime, read:true }]
+      alerts:[{ title:'Print failed', severity:'critical', createdAt:alertTime, read:true },
+        { title:'Bed clearance required', severity:'warning', createdAt:alertTime, read:false }]
     });
+    const clearBedPath = '/api/queue/bed-clearance/display-a';
+    assert.equal((await call('POST', clearBedPath, viewer)).status, 403);
+    const clearedBed = await call('POST', clearBedPath, operator);
+    assert.equal(clearedBed.status, 200);
+    assert.equal((await clearedBed.json()).queue.bedClearance.length, 0);
+    const afterClearance = await (await display(token, monitorAlertPath)).json();
+    assert.equal(afterClearance.alerts.find(alert => alert.title === 'Bed clearance required')?.read, true);
     assert.equal((await fetch(base + monitorAlertPath)).status, 404);
     assert.equal((await display(token, '/api/map-display?printerId=display-b')).status, 404);
     assert.equal((await display(token, monitorAlertPath, 'POST')).status, 401);

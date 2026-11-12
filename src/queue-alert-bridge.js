@@ -1,3 +1,11 @@
+import { createHash } from 'node:crypto';
+
+function bedClearanceAlertId(key) {
+  const legacyId = `bed-clearance:${key}`;
+  return legacyId.length <= 120 ? legacyId
+    : `bed-clearance:${createHash('sha256').update(key).digest('hex')}`;
+}
+
 function printerRef(printerId, printerName, lookup) {
   if (!printerId) return null;
   const live = lookup(printerId) || {};
@@ -52,6 +60,26 @@ export class QueueAlertBridge {
     }
   }
 
+  async markBedClearanceRead(item) {
+    const alertId = bedClearanceAlertId(this.clearanceKey(item));
+    const markRead = async () => {
+      try {
+        const result = await this.alertService.markRead(alertId);
+        if (result.changed) this.onAlert();
+        return true;
+      } catch (error) {
+        if (error.statusCode === 404) return false;
+        await Promise.resolve(this.diagnostic('warn', 'Bed clearance warning could not be marked as read', {
+          alertId, printerId:item.printerId, error:error?.message || String(error)
+        })).catch(() => {});
+        return true;
+      }
+    };
+    // A clearance can be confirmed while its warning is still queued for emission.
+    // Retry behind that work without holding up the bed-clearance request.
+    if (!await markRead()) this.chain = this.chain.catch(() => {}).then(markRead);
+  }
+
   async observe(snapshot = {}) {
     const jobs = Array.isArray(snapshot.jobs) ? snapshot.jobs : [];
     const clearance = Array.isArray(snapshot.bedClearance) ? snapshot.bedClearance : [];
@@ -95,12 +123,12 @@ export class QueueAlertBridge {
       const printer = printerRef(item.printerId, item.printerName, this.printerLookup);
       const name = item.printerName || printer?.name || 'Printer';
       await this.emit({
-        id:`bed-clearance:${key}`,
+        id:bedClearanceAlertId(key),
         type:'queue.bed_clearance',
         severity:'warning',
         title:'Bed clearance required',
         message:`${name} requires the print bed to be cleared before queued work can continue.`,
-        source:{ kind:'queue', id:item.jobId ? String(item.jobId) : null, name:item.fileName || 'Completed print' },
+        source:{ kind:'queue', id:item.jobId ? String(item.jobId) : null, name:String(item.fileName || 'Completed print').slice(0, 160) },
         printer,
         metadata:{
           jobId:item.jobId || null,
