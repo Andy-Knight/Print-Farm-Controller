@@ -690,7 +690,11 @@ test('FlashForge queued material mismatch becomes Needs review and blocks later 
   assert.equal(starts.length, 0);
   assert.equal(service.getJob(second.id).status, 'queued');
   assert.match(service.getJob(first.id).error, /file requires PETG/i);
-  assert.equal(service.getSnapshot().needsReview, 1);
+  const blockedSnapshot = service.getSnapshot();
+  assert.equal(blockedSnapshot.needsReview, 1);
+  assert.deepEqual(blockedSnapshot.jobs.map(job => [job.id, job.waitingReason]), [
+    [first.id, 'Needs review'], [second.id, 'Earlier job needs review']
+  ]);
 
   printer.adapterConfig.filamentDesignation = 'petg';
   await service.recheck(first.id);

@@ -500,7 +500,9 @@ window.__PFC_PREACT_BUNDLE_LOADED__ = true;
 
 const dashboardRoot = document.querySelector('#dashboardPreactRoot');
 if (dashboardRoot) {
+  const fallbackSummary = dashboardRoot.querySelector('#summary');
   render(<DashboardOverview />, dashboardRoot);
+  if (dashboardRoot.querySelectorAll('#summary').length > 1) fallbackSummary?.remove();
   window.__PFC_PREACT_DASHBOARD__ = true;
 }
 

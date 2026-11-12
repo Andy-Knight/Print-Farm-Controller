@@ -97,11 +97,12 @@
   outline:2px solid var(--ds-focus);
   outline-offset:2px;
 }
-#summary.summary {
+:is(#summary, #dashboardProductionMetrics).summary {
   grid-template-columns:repeat(4,minmax(0,1fr));
   gap:12px;
-  margin:0 0 23px;
+  margin:0;
 }
+#summary.summary { margin-bottom:var(--ds-space-3); }
 #summary .summary-card.ui-stat-card:not(.dashboard-summary-kpi) {
   position:relative;
   /* Legacy stacked layout only. Analytics-style stat cards use the
@@ -148,6 +149,18 @@
   opacity:.95;
 }
 #summary .summary-card.ui-stat-card[data-tone="warning"] > b { color:var(--ds-text); }
+.dashboard-production-queue h2 {
+  margin:0 0 var(--ds-space-2);
+  font-size:var(--ds-font-md);
+}
+#dashboardProductionMetrics.summary { margin-bottom:var(--ds-space-4); }
+#dashboardProductionMetrics .summary-card { text-decoration:none; }
+#dashboardProductionMetrics [data-production-queue-view="oldest"] .dashboard-stat-detail {
+  max-width:100%;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+}
 .dashboard-fleet-heading-root {
   margin:0 0 13px;
 }
@@ -308,12 +321,13 @@
   .dashboard-hero .dashboard-controls:has(.dashboard-group-filter.hidden) { justify-content:flex-start; }
 }
 @media (max-width:960px) {
-  #summary.summary { gap:9px; }
+  :is(#summary, #dashboardProductionMetrics).summary { gap:9px; }
   #summary .summary-card.ui-stat-card:not(.dashboard-summary-kpi) { padding:13px;min-height:103px; }
 }
 @media (max-width:760px) {
   .dashboard-hero { margin-bottom:17px; }
-  #summary.summary { grid-template-columns:repeat(2,minmax(0,1fr));gap:9px;margin-bottom:18px; }
+  :is(#summary, #dashboardProductionMetrics).summary { grid-template-columns:repeat(2,minmax(0,1fr));gap:9px; }
+  #dashboardProductionMetrics.summary { margin-bottom:18px; }
   #summary .summary-card.ui-stat-card:not(.dashboard-summary-kpi) { min-height:104px;padding:13px 14px; }
   .dashboard-fleet-heading { align-items:flex-start; }
   .dashboard-fleet-heading-copy { flex-direction:column;gap:3px; }
@@ -349,7 +363,7 @@
 }
 @media (prefers-reduced-motion:reduce) {
   .dashboard-hero .ui-switch,
-  #summary .summary-card.ui-stat-card,
+  :is(#summary, #dashboardProductionMetrics) .summary-card.ui-stat-card,
   .fleet:not(.table-view) .card.ui-printer-surface { transition:none!important;animation:none!important; }
 }
 

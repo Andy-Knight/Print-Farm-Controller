@@ -1,6 +1,7 @@
 import { initializeFrontendRendererDiagnostics } from './frontend-renderer-diagnostics.js';
 import { createPrinterMapPage } from './printer-map.js';
 import { printerArtworkKey, printerIsPrinting, printerMapTiles } from './printer-map-status.js';
+import { productionQueueSearch, productionQueueSnapshot, productionQueueViews } from './production-queue.js';
 import {
   LIBRARY_PAGE_SIZE,libraryMaterials,libraryPrintSeconds,libraryWeightGrams,
   libraryTimeLabel,libraryWeightLabel,librarySortAndFilter,libraryPage,libraryPrinterFilterOptions
@@ -262,6 +263,7 @@ function updateSidebarCountBadge(badge, value, description) {
   badge.title = count > 999 ? `${count} ${description}` : '';
 }
 const queueDialog = document.querySelector('#queueDialog');
+const dashboardProductionQueue = document.querySelector('#dashboardProductionQueue');
 const queueSummary = document.querySelector('#queueSummary');
 const queueActiveList = document.querySelector('#queueActiveList');
 const queueHistoryList = document.querySelector('#queueHistoryList');
@@ -417,9 +419,10 @@ function renderControllerRoute(pathname, { invoke = true } = {}) {
   }
   window.scrollTo({ top:0, behavior:'smooth' });
 }
-function navigateController(routePath, { printerId } = {}) {
+function navigateController(routePath, { printerId, queueView, groupId } = {}) {
   const target = normaliseControllerRoute(routePath);
-  const search = printerId ? `?${new URLSearchParams({ printer:printerId })}` : '';
+  const search = queueView ? productionQueueSearch(queueView, groupId)
+    : printerId ? `?${new URLSearchParams({ printer:printerId })}` : '';
   if (location.pathname + location.search !== target + search) history.pushState({}, '', target + search);
   renderControllerRoute(target);
 }
@@ -3019,6 +3022,9 @@ function dashboardSummaryIconSvg(name) {
     connected:'<path d="M3 8.5a13 13 0 0 1 18 0M6.5 12a8 8 0 0 1 11 0M9 16l2.5 2.5L16 14"/>',
     printing:'<path d="M8 5.5v13l11-6.5z"/>',
     warning:'<path d="M12 3 22 20H2zM12 9v5M12 17.5h.01"/>',
+    queued:'<path d="M8 6h12M8 12h12M8 18h12M4 6h.01M4 12h.01M4 18h.01"/>',
+    oldest:'<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
+    clearance:'<path d="M8 12V5h8v7M5 13h14l2.5 6h-19zM8 16h8"/>',
     check:'<circle cx="12" cy="12" r="9"/><path d="M7.5 12.5 10.5 15.5 16.5 9"/>'
   };
   return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
@@ -3028,6 +3034,7 @@ function dashboardSummaryIconSvg(name) {
 
 function renderSummary() {
   renderMaintenanceAlert();
+  renderDashboardProductionQueue();
   const scopedFleet = dashboardScopedFleet();
   const items = [
     ['all', scopedFleet.length],
@@ -3102,6 +3109,46 @@ function renderSummary() {
     }
   }
 }
+
+function renderDashboardProductionQueue() {
+  const group = printerGroupsState.groups?.find(item => item.id === dashboardGroupId);
+  const { pending, oldest, oldestTime, oldestBedTime, beds, blocked } = productionQueueSnapshot(queueState, group);
+  const age = time => {
+    if (!Number.isFinite(time)) return '—';
+    const seconds = (Date.now() - time) / 1000;
+    return seconds < 60 ? '<1 min' : formatDuration(seconds);
+  };
+  const reason = blocked[0]?.waitingReason;
+  const metrics = {
+    queued:[pending.length, 'Includes jobs in review'],
+    oldest:[age(oldestTime), oldest?.fileName],
+    blocked:[blocked.length, reason && (blocked.every(job => job.waitingReason === reason) ? reason : 'Multiple reasons')],
+    clearance:[beds.length, Number.isFinite(oldestBedTime) ? `Longest wait ${age(oldestBedTime)}` : '']
+  };
+  for (const link of dashboardProductionQueue.querySelectorAll('[data-production-queue-view]')) {
+    const view = link.dataset.productionQueueView;
+    const [value, detail = ''] = metrics[view];
+    const valueElement = link.querySelector('b');
+    const detailElement = link.querySelector('.dashboard-stat-detail');
+    const icon = link.querySelector('.dashboard-stat-icon');
+    if (!icon.firstElementChild) icon.innerHTML = dashboardSummaryIconSvg(view === 'blocked' ? 'warning' : view);
+    if (valueElement.textContent !== String(value)) valueElement.textContent = value;
+    if (detailElement.textContent !== detail) detailElement.textContent = detail;
+    detailElement.title = detail;
+    link.href = `/queue${productionQueueSearch(view, dashboardGroupId)}`;
+  }
+}
+
+dashboardProductionQueue.addEventListener('click', event => {
+  const link = event.target.closest('[data-production-queue-view]');
+  if (!link || event.button !== 0 || event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return;
+  event.preventDefault();
+  navigateController('/queue', { queueView:link.dataset.productionQueueView, groupId:dashboardGroupId });
+});
+
+setInterval(() => {
+  if (activeRoute === '/' && !document.hidden) renderDashboardProductionQueue();
+}, 30_000);
 
 function applyDashboardFilter() {
   const visible = fleet.filter((printer) => matchesDashboardGroup(printer) && matchesDashboardFilter(printer)).length;
@@ -3256,6 +3303,7 @@ function queueJobMarkup(job, { history = false, queuedIndex = -1, queuedCount = 
       ${groupTarget ? `<div class="queue-job-meta">${escapeHtml(groupTarget)}</div>` : ''}
       <div class="queue-job-meta">${escapeHtml(meta)}</div>
       ${job.selectionReason ? `<div class="queue-selection-reason">${escapeHtml(job.selectionReason)}</div>` : ''}
+      ${job.status === 'queued' && job.waitingReason ? `<div class="queue-job-meta">${escapeHtml(job.waitingReason)}</div>` : ''}
       ${queueCompatibilityMarkup(job)}
       ${error}
     </div>
@@ -3393,6 +3441,7 @@ function queueJobViewModel(job, { history = false, canMoveUp = false, canMoveDow
     printerTarget:job.printerTarget ? `Target printer: ${printerTargetLabel(job.printerTarget)}` : '',
     groupTarget:job.groupId ? `Printer group: ${job.groupName || job.groupId}` : '',
     meta,
+    waitingReason:job.status === 'queued' ? job.waitingReason : '',
     selectionReason:String(job.selectionReason || ''),
     error:String(job.error || ''),
     compatibility:queueCompatibilityView(job),
@@ -3490,6 +3539,7 @@ function publishPrintQueueUiState({ summary, currentJobs, queuedJobs, activeProd
 
 function renderPrintQueue() {
   if (!queueDialog) return;
+  if (activeRoute === '/') renderDashboardProductionQueue();
   const jobs = Array.isArray(queueState?.jobs) ? queueState.jobs : [];
   const productionBatches = Array.isArray(queueState?.productionBatches) ? queueState.productionBatches : [];
   const standaloneJobs = jobs.filter((job) => !job.productionBatchId);
@@ -3518,18 +3568,31 @@ function renderPrintQueue() {
     clearQueueHistoryBtn.title = clearanceItems.length ? 'History items holding an uncleared-bed interlock are retained until the bed is confirmed clear.' : '';
   }
 
-  const printerId = activeRoute === '/queue' ? new URLSearchParams(location.search).get('printer') : '';
+  const params = new URLSearchParams(activeRoute === '/queue' ? location.search : '');
+  const printerId = params.get('printer');
+  const queueView = params.get('view');
+  const productionScoped = Boolean(queueView && !printerId && Object.hasOwn(productionQueueViews, queueView));
   const printerScope = document.querySelector('#queuePrinterScope');
-  const scoped = Boolean(printerId);
+  const scoped = Boolean(printerId || productionScoped);
   printerScope.hidden = !scoped;
   queueDialog.querySelector('.queue-history-section').hidden = scoped;
-  const visibleJobs = scoped ? jobs.filter(job => job.printerId === printerId
+  let visibleJobs = printerId ? jobs.filter(job => job.printerId === printerId
     && ['uploading','preflight','starting','printing','needs_review','queued'].includes(job.status)) : currentJobs;
-  const activeEmptyText = scoped ? 'No active or queued jobs for this printer.' : 'No active, queued or review-blocked jobs.';
-  if (scoped) {
+  let visibleClearance = scoped ? [] : clearanceItems;
+  let activeEmptyText = printerId ? 'No active or queued jobs for this printer.' : 'No active, queued or review-blocked jobs.';
+  if (printerId) {
     printerScope.querySelector('strong').textContent = fleet.find(printer => printer.id === printerId)?.name
       || visibleJobs[0]?.printerName || printerId;
     summary = `${visibleJobs.length} active or queued ${visibleJobs.length === 1 ? 'job' : 'jobs'} for this printer`;
+  } else if (productionScoped) {
+    const groupId = params.get('group');
+    const group = groupId ? printerGroupsState.groups?.find(item => item.id === groupId) || { id:groupId } : null;
+    const { pending, oldest, blocked, beds } = productionQueueSnapshot(queueState, group);
+    visibleJobs = { queued:pending, oldest:oldest ? [oldest] : [], blocked, clearance:[] }[queueView];
+    if (queueView === 'clearance') visibleClearance = beds;
+    printerScope.querySelector('strong').textContent = group ? group.name || 'Selected printer group' : 'All printers';
+    summary = productionQueueViews[queueView];
+    activeEmptyText = queueView === 'clearance' ? 'No beds waiting to be cleared.' : 'No queued jobs match this view.';
   }
 
   if (window.__PFC_PREACT_QUEUE__) {
@@ -3544,7 +3607,7 @@ function renderPrintQueue() {
       activeProduction:scoped ? [] : activeProduction,
       historyJobs:scoped ? [] : historyJobs,
       historyProduction:scoped ? [] : historyProduction,
-      clearanceItems:scoped ? [] : clearanceItems,
+      clearanceItems:visibleClearance,
       readOnly:scoped,
       activeEmptyText
     });
@@ -3554,7 +3617,7 @@ function renderPrintQueue() {
 
   if (queueSummary) queueSummary.textContent = summary;
   if (queueActiveList) {
-    const clearanceMarkup = scoped ? '' : clearanceItems.map(queueClearanceMarkup).join('');
+    const clearanceMarkup = visibleClearance.map(queueClearanceMarkup).join('');
     const productionMarkup = scoped ? '' : activeProduction.map((batch) => productionBatchMarkup(batch)).join('');
     const jobsMarkup = visibleJobs.map((job) => {
       const queuedIndex = job.status === 'queued' ? queuedJobs.findIndex((queued) => queued.id === job.id) : -1;
@@ -4392,6 +4455,7 @@ async function loadPrinterGroups({ preserveForm = false } = {}) {
   renderSummary();
   applyDashboardFilter();
   renderPrinterGroups();
+  if (activeRoute === '/queue') renderPrintQueue();
   if (!preserveForm) renderPrinterGroupMembers();
   window.dispatchEvent(new CustomEvent('pfc:printer-groups-changed', { detail:printerGroupsState }));
   return printerGroupsState;

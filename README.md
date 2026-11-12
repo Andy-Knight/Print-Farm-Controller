@@ -1,4 +1,4 @@
-# Print Farm Controller v0.66.3
+# Print Farm Controller v0.67.0
 A local-first 3D printer fleet controller. It runs entirely on your LAN and currently supports:
 
 - **FlashForge Adventurer 5M / 5M Pro** through the local FlashForge HTTP/TCP APIs.
@@ -7,7 +7,7 @@ A local-first 3D printer fleet controller. It runs entirely on your LAN and curr
 - **Prusa CORE One+ (experimental)** through the local PrusaLink API, supporting Standard (1-tool), INDX4 and INDX8 configurations.
 - **Bambu Lab P1P / P1S / X1C / A1 / A1 Mini (experimental)** through the local MQTT TLS and FTPS TLS interfaces. P1P/P1S/A1/A1 Mini use the TLS/JPEG camera path; X1C camera uses the bundled FFmpeg decoder; see [X1C camera setup](docs/X1C_CAMERA.md).
 
-**Current development version: v0.66.3**
+**Current development version: v0.67.0**
 
 ## Key capabilities
 
@@ -193,6 +193,10 @@ npm start
 ```
 
 If the optional Preact bundle is not present, the controller still starts and the existing vanilla-JavaScript dashboard fallback remains usable. Production container and Windows SEA builds generate and package the Preact bundle automatically.
+
+## Dashboard production queue
+
+The **Production queue** panel shows queued jobs (including jobs needing review), the oldest queued job, jobs currently blocked and beds awaiting clearance. Select a tile to open the matching view in **Queue & history**. A selected printer group includes jobs targeting that group and jobs assigned to its printers. Jobs without a printer or group assignment appear in **All printers**. The panel follows the printer group in both Cards and Table views.
 
 ## Reports and material costs
 

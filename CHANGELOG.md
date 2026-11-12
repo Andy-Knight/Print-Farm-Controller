@@ -4,6 +4,10 @@ This file contains the version-by-version release history for Print Farm Control
 
 Historical entries describe the behaviour of the controller at the time of that release and may be superseded by later versions. For current installation, configuration and supported-hardware guidance, see [README.md](README.md).
 
+## v0.67.0
+
+- Add a **Production queue** panel to the Dashboard with queued jobs, the oldest queued job, blocked jobs and beds to clear. The tiles follow the selected printer group and open matching views in **Queue & history**.
+
 ## v0.66.3
 
 - Show pending bed clearance with its own badge on printer maps. Racks count beds to clear separately from printer alerts.

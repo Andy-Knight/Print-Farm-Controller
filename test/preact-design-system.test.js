@@ -133,9 +133,9 @@ test('dashboard summary adopts the Analytics circular icon and genuine-ratio pre
     'late-loaded dashboard polish must not replace the new two-column layout');
   assert.match(polish,/#summary \.summary-card\.ui-stat-card:not\(\.dashboard-summary-kpi\)/);
   assert.match(regression,/dashboard summary text always remains beside its ring/);
-  assert.match(skin,/#summary \.dashboard-summary-kpi\[data-tone="working"\]/);
-  assert.match(skin,/#summary \.dashboard-summary-kpi\[data-tone="warning"\]/);
-  assert.match(skin,/:root\[data-theme="light"\] #summary \.dashboard-summary-kpi/);
+  assert.match(skin,/:is\(#summary, #dashboardProductionMetrics\) \.dashboard-summary-kpi\[data-tone="working"\]/);
+  assert.match(skin,/:is\(#summary, #dashboardProductionMetrics\) \.dashboard-summary-kpi\[data-tone="warning"\]/);
+  assert.match(skin,/:root\[data-theme="light"\] :is\(#summary, #dashboardProductionMetrics\) \.dashboard-summary-kpi/);
   assert.match(fallback,/function dashboardSummaryIconSvg/);
   assert.match(fallback,/gauge\.style\.setProperty\('--dashboard-stat-angle'/);
   assert.match(regression,/Dashboard summary cards match Analytics outline ring styling/);
