@@ -3159,7 +3159,8 @@ async function loadDashboardHistory() {
 
 function renderDashboardProductionQueue() {
   const group = printerGroupsState.groups?.find(item => item.id === dashboardGroupId);
-  const { pending, oldest, oldestTime, oldestBedTime, beds, blocked } = productionQueueSnapshot(queueState, group);
+  const printerIds = dashboardScopedFleet().map(printer => printer.id);
+  const { pending, oldest, oldestTime, oldestBedTime, beds, blocked } = productionQueueSnapshot(queueState, group, printerIds);
   const age = time => {
     if (!Number.isFinite(time)) return '—';
     const seconds = (Date.now() - time) / 1000;
@@ -3184,13 +3185,18 @@ function renderDashboardProductionQueue() {
     detailElement.title = detail;
     link.href = `/queue${productionQueueSearch(view, dashboardGroupId)}`;
   }
-  const meter = dashboardProductionQueue.querySelector('[data-production-queue-view="blocked"] .dashboard-stat-meter');
-  const blockedPercent = pending.length ? Math.round(blocked.length * 1000 / pending.length) / 10 : 0;
-  const blockedShare = pending.length ? `${blocked.length} of ${pending.length} queued jobs blocked (${blockedPercent}%)` : 'No queued jobs';
-  meter.setAttribute('aria-valuenow', String(blockedPercent));
-  meter.setAttribute('aria-valuetext', blockedShare);
-  meter.title = blockedShare;
-  meter.firstElementChild.style.width = `${blockedPercent}%`;
+  for (const [view, count, total, description, empty] of [
+    ['blocked', blocked.length, pending.length, 'queued jobs blocked', 'No queued jobs'],
+    ['clearance', beds.length, printerIds.length, 'printers with beds to clear', 'No printers']
+  ]) {
+    const meter = dashboardProductionQueue.querySelector(`[data-production-queue-view="${view}"] .dashboard-stat-meter`);
+    const percent = total ? Math.round(count * 1000 / total) / 10 : 0;
+    const share = total ? `${count} of ${total} ${description} (${percent}%)` : empty;
+    meter.setAttribute('aria-valuenow', String(percent));
+    meter.setAttribute('aria-valuetext', share);
+    meter.title = share;
+    meter.firstElementChild.style.width = `${percent}%`;
+  }
 }
 
 dashboardProductionQueue.addEventListener('click', event => {
@@ -3643,7 +3649,7 @@ function renderPrintQueue() {
   } else if (productionScoped) {
     const groupId = params.get('group');
     const group = groupId ? printerGroupsState.groups?.find(item => item.id === groupId) || { id:groupId } : null;
-    const { pending, oldest, blocked, beds } = productionQueueSnapshot(queueState, group);
+    const { pending, oldest, blocked, beds } = productionQueueSnapshot(queueState, group, fleet.map(printer => printer.id));
     visibleJobs = { queued:pending, oldest:oldest ? [oldest] : [], blocked, clearance:[] }[queueView];
     if (queueView === 'clearance') visibleClearance = beds;
     printerScope.querySelector('strong').textContent = group ? group.name || 'Selected printer group' : 'All printers';

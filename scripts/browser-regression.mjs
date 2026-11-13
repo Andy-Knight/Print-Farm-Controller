@@ -354,7 +354,10 @@ async function designSystemSmoke(browser,url) {
 async function dashboardProductionQueueSmoke(browser, url) {
   const queuedAt = new Date(Date.now() - 47 * 60_000).toISOString();
   const fleet = {
-    printers:[{ id:'room-p1', name:'Room printer', online:true, status:{ status:'idle' } }],
+    printers:[
+      { id:'room-p1', name:'Room printer', online:true, status:{ status:'idle' } },
+      { id:'other-p1', name:'Other printer', online:false }
+    ],
     queue:{
       jobs:[
         { id:'room-job', printerId:'room-p1', status:'queued', fileName:'Room job.gcode', queuedAt, waitingReason:'Bed not cleared' },
@@ -362,7 +365,10 @@ async function dashboardProductionQueueSmoke(browser, url) {
         { id:'unassigned', status:'queued', fileName:'Unassigned job.gcode' },
         { id:'finished', printerId:'room-p1', status:'completed', fileName:'Finished job.gcode' }
       ],
-      bedClearance:[{ printerId:'room-p1', printerName:'Room printer', finishedAt:queuedAt }]
+      bedClearance:[
+        { printerId:'room-p1', printerName:'Room printer', finishedAt:queuedAt },
+        { printerId:'removed-p1', printerName:'Removed printer', finishedAt:queuedAt }
+      ]
     }
   };
   for (const fallback of [false, true]) {
@@ -388,21 +394,26 @@ async function dashboardProductionQueueSmoke(browser, url) {
       assert.equal(await page.locator('#summary').count(), 1, 'only one Farm overview grid contributes spacing');
       const values = panel.locator('.dashboard-stat-body > b');
       assert.deepEqual(await values.allTextContents(), ['3', '47m', '2', '1']);
-      const meter = tile('Jobs blocked').getByRole('meter', { name:'Share of queued jobs blocked' });
-      const assertBlockedShare = async (percent, description) => {
+      const blockedMeter = tile('Jobs blocked').getByRole('meter', { name:'Share of queued jobs blocked' });
+      const bedsMeter = tile('Beds to clear').getByRole('meter', { name:'Share of printers with beds to clear' });
+      const assertShare = async (meter, percent, description) => {
         assert.equal(await meter.getAttribute('aria-valuenow'), String(percent));
         assert.equal(await meter.getAttribute('aria-valuetext'), description);
         assert.equal(await meter.locator('span').evaluate(node => node.style.width), percent + '%');
       };
-      await assertBlockedShare(66.7, '2 of 3 queued jobs blocked (66.7%)');
+      await assertShare(blockedMeter, 66.7, '2 of 3 queued jobs blocked (66.7%)');
+      await assertShare(bedsMeter, 50, '1 of 2 printers with beds to clear (50%)');
       await group.selectOption('empty');
-      await assertBlockedShare(0, 'No queued jobs');
+      await assertShare(blockedMeter, 0, 'No queued jobs');
+      await assertShare(bedsMeter, 0, 'No printers');
       await group.selectOption('room');
       assert.deepEqual(await values.allTextContents(), ['2', '47m', '2', '1']);
-      await assertBlockedShare(100, '2 of 2 queued jobs blocked (100%)');
+      await assertShare(blockedMeter, 100, '2 of 2 queued jobs blocked (100%)');
+      await assertShare(bedsMeter, 100, '1 of 1 printers with beds to clear (100%)');
       await page.locator('#summary [data-dashboard-filter="printing"]').click();
       await page.locator('#dashboardViewToggle').click();
       assert.deepEqual(await values.allTextContents(), ['2', '47m', '2', '1']);
+      await assertShare(bedsMeter, 100, '1 of 1 printers with beds to clear (100%)');
       for (const theme of ['dark', 'light']) {
         await page.evaluate(name => {
           if (document.documentElement.dataset.theme !== name) document.querySelector('#themeToggle').click();
