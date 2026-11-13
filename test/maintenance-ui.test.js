@@ -29,7 +29,7 @@ test('maintenance window uses task terminology across all maintenance tabs', () 
   assert.match(index, /data-maintenance-view="add"[^>]*>Add maintenance tasks<\/button>/);
   assert.match(index, /data-maintenance-view="model"[^>]*>Model-wide maintenance tasks<\/button>/);
   assert.match(index, /data-maintenance-view="group"[^>]*>Group-wide maintenance tasks<\/button>/);
-  assert.match(index, /data-maintenance-view="printers"[^>]*>Individual printer tasks<\/button>/);
+  assert.match(index, /data-maintenance-view="printers"[^>]*>Assigned printer tasks<\/button>/);
   assert.match(index, /id="maintenanceTaskForm"[^>]*data-maintenance-view-panel="add"/);
   assert.match(maintenanceUi, /let activeMaintenanceView = 'printers'/);
   assert.match(maintenanceUi, /function setMaintenanceView\(view\)/);
@@ -50,7 +50,6 @@ test('maintenance window uses task terminology across all maintenance tabs', () 
   assert.match(maintenanceUi, /Model-wide maintenance tasks/);
   assert.match(maintenanceUi, /Group-wide maintenance tasks/);
   assert.match(maintenanceUi, /Edit model task/);
-  assert.match(maintenanceUi, /Delete group task/);
 });
 
 test('individual printer tasks share aligned action widths regardless of model, group or printer scope', () => {
@@ -60,7 +59,10 @@ test('individual printer tasks share aligned action widths regardless of model, 
   assert.match(maintenanceUi, /Edit group task/);
   assert.match(preact, /class="mini-actions maintenance-task-actions"/);
   assert.match(preact, /\{task\.editText\}/);
-  assert.match(preact, /\{task\.deleteText\}/);
+  assert.match(preact, /task\.scope === 'printer' && \(\s*<UiButton[^>]*data-maintenance-delete/);
+  assert.match(maintenanceUi, /\(task\.assignment\?\.scope \|\| 'printer'\) === 'printer' \? `<button[^>]*data-maintenance-delete/);
+  assert.match(maintenanceUi, /data-maintenance-delete data-task-scope="model"/);
+  assert.match(maintenanceUi, /data-maintenance-delete data-task-scope="group"/);
   const selector='.maintenance-task > .maintenance-task-actions {';
   assert.ok(styles.includes(selector),'size contract is limited to individual-printer task rows');
   const rule=styles.split(selector)[1].split('}')[0];

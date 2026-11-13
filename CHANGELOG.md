@@ -4,6 +4,12 @@ This file contains the version-by-version release history for Print Farm Control
 
 Historical entries describe the behaviour of the controller at the time of that release and may be superseded by later versions. For current installation, configuration and supported-hardware guidance, see [README.md](README.md).
 
+## v0.67.2
+
+- Show 24-hour trends beside the Dashboard counts for online, printing and needs-attention printers. Trends follow the selected printer group and hide when the tiles are too narrow.
+- Show the share of queued jobs blocked and the share of configured printers awaiting bed clearance on the Dashboard.
+- Rename the Maintenance tab to **Assigned printer tasks**. Delete model-wide and group-wide tasks from their respective tabs.
+
 ## v0.67.1
 
 - Mark the associated **Bed clearance required** warning as read when an operator confirms **Bed cleared**.

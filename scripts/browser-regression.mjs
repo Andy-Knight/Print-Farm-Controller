@@ -1212,8 +1212,7 @@ async function maintenanceActionWidthSmoke(page,url) {
       state:'current',statusLabel:'Current',scopeLabel:scope,
       meta:['Every 200 print hours','200h remaining'],
       completionAllowed:false,completionTitle:'Not due yet',
-      editText:scope==='printer'?'Edit task':'Edit '+scope+' task',
-      deleteText:scope==='printer'?'Delete task':'Delete '+scope+' task'
+      editText:scope==='printer'?'Edit task':'Edit '+scope+' task'
     });
     const detail={
       activeView:'printers',modelTasks:[],groupTasks:[],
@@ -1242,7 +1241,11 @@ async function maintenanceActionWidthSmoke(page,url) {
         })
       );
       assert.equal(rows.length,3,'fixture has three printer-specific task scopes');
-      assert.ok(rows.every(row=>row.length===3),'each task keeps Complete/Edit/Delete actions');
+      assert.deepEqual(rows.map(row=>row.map(button=>button.text)),[
+        ['Complete','Edit group task'],
+        ['Complete','Edit model task'],
+        ['Complete','Edit task','Delete task']
+      ]);
       for(const row of rows)for(const button of row){
         assert.ok(button.scrollWidth<=button.clientWidth+1,
           'task action text must not be clipped: '+JSON.stringify({viewport,theme,button}));
@@ -1253,7 +1256,7 @@ async function maintenanceActionWidthSmoke(page,url) {
           row.forEach((button,i)=>assert.ok(Math.abs(button.width-expected[i])<=1,
             'each task action column has fixed width: '+JSON.stringify({viewport,theme,row})));
         }
-        for(let col=0;col<3;col++){
+        for(let col=0;col<2;col++){
           assert.ok(Math.max(...rows.map(row=>row[col].x))-
             Math.min(...rows.map(row=>row[col].x))<=1,
             'corresponding action buttons align across group/model/printer tasks');
@@ -1262,8 +1265,8 @@ async function maintenanceActionWidthSmoke(page,url) {
         for(const row of rows){
           assert.ok(Math.max(...row.map(button=>button.width))-
             Math.min(...row.map(button=>button.width))<=1,
-            'phone layout stacks three full-width buttons');
-          assert.ok(row[0].y<row[1].y && row[1].y<row[2].y,
+            'phone layout stacks full-width buttons');
+          assert.ok(row.slice(1).every((button,index)=>button.y>row[index].y),
             'phone action buttons remain fully readable in a vertical stack');
         }
       }

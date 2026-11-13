@@ -276,7 +276,7 @@ function printerCardsMarkup() {
               <div class="mini-actions maintenance-task-actions">
                 <button type="button" class="primary" data-maintenance-complete data-task-scope="${escapeHtml(task.assignment?.scope || 'printer')}" data-printer-id="${escapeHtml(printer.printerId)}" data-task-id="${escapeHtml(task.id)}" ${task.completionAllowed === false ? `disabled aria-disabled="true" title="${escapeHtml(task.completionReason || 'This maintenance task cannot be completed yet')}"` : ''}>Complete</button>
                 <button type="button" class="secondary" data-maintenance-edit data-task-scope="${escapeHtml(task.assignment?.scope || 'printer')}" data-printer-id="${escapeHtml(printer.printerId)}" data-task-id="${escapeHtml(task.id)}">${task.assignment?.scope === 'model' ? 'Edit model task' : task.assignment?.scope === 'group' ? 'Edit group task' : 'Edit task'}</button>
-                <button type="button" class="danger" data-maintenance-delete data-task-scope="${escapeHtml(task.assignment?.scope || 'printer')}" data-printer-id="${escapeHtml(printer.printerId)}" data-task-id="${escapeHtml(task.id)}">${task.assignment?.scope === 'model' ? 'Delete model task' : task.assignment?.scope === 'group' ? 'Delete group task' : 'Delete task'}</button>
+                ${(task.assignment?.scope || 'printer') === 'printer' ? `<button type="button" class="danger" data-maintenance-delete data-task-scope="printer" data-printer-id="${escapeHtml(printer.printerId)}" data-task-id="${escapeHtml(task.id)}">Delete task</button>` : ''}
               </div>
             </article>
           `).join('') : '<div class="subtle maintenance-no-tasks">No maintenance tasks configured for this printer.</div>'}
@@ -356,8 +356,7 @@ function printerTaskViewModel(task, printer) {
     meta,
     completionAllowed:task.completionAllowed !== false,
     completionTitle:task.completionAllowed === false ? String(task.completionReason || 'This maintenance task cannot be completed yet') : '',
-    editText:scope === 'model' ? 'Edit model task' : scope === 'group' ? 'Edit group task' : 'Edit task',
-    deleteText:scope === 'model' ? 'Delete model task' : scope === 'group' ? 'Delete group task' : 'Delete task'
+    editText:scope === 'model' ? 'Edit model task' : scope === 'group' ? 'Edit group task' : 'Edit task'
   };
 }
 
