@@ -196,6 +196,8 @@ If the optional Preact bundle is not present, the controller still starts and th
 
 ## Dashboard production queue
 
+The **Online**, **Printing** and **Needs attention** tiles show 24-hour trends beside their live counts when the tiles have room. Trends follow the selected printer group and use the controller's five-minute samples. History builds up from the first sample, and gaps show periods without observations.
+
 The **Production queue** panel shows queued jobs (including jobs needing review), the oldest queued job, jobs currently blocked and beds awaiting clearance. Select a tile to open the matching view in **Queue & history**. A selected printer group includes jobs targeting that group and jobs assigned to its printers. Jobs without a printer or group assignment appear in **All printers**. The panel follows the printer group in both Cards and Table views.
 
 ## Reports and material costs

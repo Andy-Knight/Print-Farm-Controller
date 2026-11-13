@@ -71,6 +71,7 @@ import { MaintenanceService } from './maintenance-service.js';
 import { PrinterGroupService } from './printer-groups.js';
 import { printerMapDisplayLink, readDisplayedPrinterMap, readPrinterMaps, savePrinterMap } from './printer-maps.js';
 import { printerMapTiles } from '../public/printer-map-status.js';
+import { FleetHistory } from './fleet-history.js';
 import { ManualBackupManager } from './backup-recovery/manual-backup-manager.js';
 import { BackupOperationLock } from './backup-recovery/backup-operation-lock.js';
 import { ScheduledBackupService } from './backup-recovery/scheduled-backup-service.js';
@@ -364,6 +365,11 @@ const alertService = new AlertService({
   diagnosticFn:(level, message, meta) => diagnosticLogger[level]?.('alerts', message, meta)
 });
 const reportingService = new ReportingService({ filePath:path.join(runtimePaths.dataDir, 'reporting-history.json') });
+const fleetHistory = new FleetHistory({
+  filePath:path.join(runtimePaths.dataDir, 'dashboard-fleet-history.json'),
+  getPrinters:decoratedFleet,
+  getBedClearance:() => printQueue.getBedClearance()
+});
 let libraryStorageCache=null,libraryStorageTimer,libraryHistoryFlushTimer,libraryStorageStopped=false,libraryStorageDirty=false,libraryStorageRefreshing=false;
 function scheduleLibraryHistoryFlush(){
   if(libraryStorageStopped)return;
@@ -1674,6 +1680,13 @@ async function apiRoute(req, res, url) {
     });
   }
 
+  if (req.method === 'GET' && url.pathname === '/api/fleet/history') {
+    const groupId = url.searchParams.get('groupId');
+    const group = groupId ? printerGroups.get(groupId) : null;
+    if (groupId && !group) return json(res, 404, {error:'Printer group not found'});
+    return json(res, 200, fleetHistory.getHistory(group?.printerIds));
+  }
+
   if (req.method === 'GET' && url.pathname === '/api/queue') {
     return json(res, 200, printQueue.getSnapshot());
   }
@@ -2923,6 +2936,7 @@ async function handleControllerRequest(req, res) {
 }
 
 async function shutdown() {
+  await fleetHistory.stop();
   libraryStorageStopped=true;
   clearInterval(libraryStorageTimer);
   clearTimeout(libraryHistoryFlushTimer);
@@ -3153,6 +3167,7 @@ async function startController() {
       restoreTransaction = null;
     }
 
+    await fleetHistory.start();
     try {
       await scheduledBackupService.start();
     } catch (error) {
@@ -3189,6 +3204,7 @@ async function startController() {
     console.log('Farm alerts + outbound notification framework enabled');
   } catch (error) {
     memoryMonitor.stop();
+    await fleetHistory.stop();
     chamberPreheat.stopService();
     scheduledBackupService.stop();
     await alertEventBridge.stop().catch(() => {});

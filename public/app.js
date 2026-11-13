@@ -1,6 +1,7 @@
 import { initializeFrontendRendererDiagnostics } from './frontend-renderer-diagnostics.js';
 import { createPrinterMapPage } from './printer-map.js';
 import { printerArtworkKey, printerIsPrinting, printerMapTiles } from './printer-map-status.js';
+import { dashboardPrinterNeedsAttention, dashboardTrend, FLEET_HISTORY_INTERVAL } from './dashboard-fleet-history.js';
 import { productionQueueSearch, productionQueueSnapshot, productionQueueViews } from './production-queue.js';
 import {
   LIBRARY_PAGE_SIZE,libraryMaterials,libraryPrintSeconds,libraryWeightGrams,
@@ -407,6 +408,8 @@ function renderControllerRoute(pathname, { invoke = true } = {}) {
     page.hidden = page.id !== route.dialog;
   });
   if (invoke) setSimulatorVisible(routePath === '/simulator');
+  if (invoke && routePath === '/') void loadDashboardHistory();
+  if (routePath !== '/') dashboardHistoryRequest?.abort();
   if (topbarContextTitle) topbarContextTitle.textContent = route.topbarTitle || route.title;
   if (topbarContextSubtitle) topbarContextSubtitle.textContent = route.subtitle;
   if (invoke && route.button) {
@@ -560,6 +563,9 @@ let batchBusy = false;
 let pendingBatchAction = null;
 let dashboardFilter = 'all';
 let dashboardGroupId = '';
+let dashboardHistory = null;
+let dashboardHistoryRequest = null;
+let renderedDashboardHistory;
 let dashboardViewMode = 'cards';
 let dashboardTableSort = { key:'', direction:'asc' };
 const DASHBOARD_FILTER_LABELS = Object.freeze({ all:'All Printers', online:'Online', printing:'Printing', attention:'Needs attention', maintenance:'Maintenance' });
@@ -2840,9 +2846,7 @@ function isPrinterPrinting(printer) {
 }
 
 function printerNeedsAttention(printer) {
-  if (!printer?.online) return true;
-  if (['error', 'pause', 'paused'].includes(String(printer?.status?.status || '').toLowerCase())) return true;
-  return Boolean(queueBedClearance(printer?.id));
+  return dashboardPrinterNeedsAttention(printer, queueBedClearance(printer?.id));
 }
 
 function printerMaintenanceState(printer) {
@@ -2999,6 +3003,7 @@ function publishDashboardUiState() {
       printing:scopedFleet.filter(isPrinterPrinting).length,
       attention:scopedFleet.filter(printerNeedsAttention).length
     },
+    history:dashboardHistory?.groupId === dashboardGroupId ? dashboardHistory.data : null,
     activeFilter:dashboardFilter,
     groups:[...(printerGroupsState.groups || [])]
       .sort((a, b) => String(a.name).localeCompare(String(b.name)))
@@ -3057,13 +3062,15 @@ function renderSummary() {
     && existingButtons.every((button) => expectedFilters.has(button.dataset.dashboardFilter));
 
   if (!structureValid) {
+    renderedDashboardHistory = undefined;
     summaryEl.innerHTML = items.map(([filter]) =>
       `<button type="button" class="summary-card ui-stat-card dashboard-summary-kpi" data-tone="neutral" data-dashboard-filter="${filter}" aria-pressed="false">
         <span class="dashboard-stat-gauge dashboard-stat-gauge-neutral" aria-hidden="true"><span class="dashboard-stat-icon"></span></span>
         <span class="dashboard-stat-body"><span class="summary-card-label"><span class="subtle"></span></span>
           <b></b><span class="dashboard-stat-detail"></span>
           <span class="dashboard-stat-meter hidden" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><span></span></span>
-          <span class="dashboard-stat-accent" aria-hidden="true"></span></span></button>`
+          <span class="dashboard-stat-accent" aria-hidden="true"></span></span>
+        ${filter === 'all' ? '' : '<span class="dashboard-stat-trend"></span>'}</button>`
     ).join('');
   }
   const allCount = new Map(items).get('all') || 0;
@@ -3107,6 +3114,46 @@ function renderSummary() {
       const fill = meter.querySelector('span');
       if (fill) fill.style.width = `${percent}%`;
     }
+  }
+  renderDashboardHistory();
+}
+
+function renderDashboardHistory() {
+  if (window.__PFC_PREACT_DASHBOARD__) {
+    publishDashboardUiState();
+    return;
+  }
+  const history = dashboardHistory?.groupId === dashboardGroupId ? dashboardHistory.data : null;
+  if (renderedDashboardHistory === history) return;
+  renderedDashboardHistory = history;
+  for (const container of summaryEl.querySelectorAll('.dashboard-stat-trend')) {
+    const trend = dashboardTrend(history, container.parentElement.dataset.dashboardFilter);
+    const markup = trend
+      ? `<svg viewBox="0 0 96 38" role="img" aria-label="${trend.description}" focusable="false">
+          <path d="${trend.line}"></path>
+          ${trend.dots.map(({x,y}) => `<circle cx="${x}" cy="${y}" r="1.7"></circle>`).join('')}
+        </svg><span aria-hidden="true">Last 24 h</span>`
+      : '';
+    container.innerHTML = markup;
+  }
+}
+
+async function loadDashboardHistory() {
+  if (activeRoute !== '/') return;
+  const groupId = dashboardGroupId;
+  dashboardHistoryRequest?.abort();
+  const request = new AbortController();
+  dashboardHistoryRequest = request;
+  try {
+    const search = groupId ? '?' + new URLSearchParams({groupId}) : '';
+    const data = await api('/api/fleet/history' + search, {signal:request.signal});
+    if (request.signal.aborted || groupId !== dashboardGroupId) return;
+    dashboardHistory = {groupId, data};
+    renderDashboardHistory();
+  } catch {
+    // Live tile counts remain available if history cannot be fetched.
+  } finally {
+    if (dashboardHistoryRequest === request) dashboardHistoryRequest = null;
   }
 }
 
@@ -3182,6 +3229,7 @@ function setDashboardGroupFilter(groupId) {
   if (!window.__PFC_PREACT_DASHBOARD__ && dashboardGroupFilter) dashboardGroupFilter.value = dashboardGroupId;
   renderSummary();
   applyDashboardFilter();
+  void loadDashboardHistory();
 }
 
 function resetDashboardFilters() {
@@ -3190,6 +3238,7 @@ function resetDashboardFilters() {
   if (!window.__PFC_PREACT_DASHBOARD__ && dashboardGroupFilter) dashboardGroupFilter.value = '';
   renderSummary();
   applyDashboardFilter();
+  void loadDashboardHistory();
 }
 
 
@@ -4448,6 +4497,7 @@ function renderPrinterGroups() {
 }
 
 async function loadPrinterGroups({ preserveForm = false } = {}) {
+  const previousDashboardGroup = dashboardGroupId;
   const selectedGroup = queueAddGroup?.value || '';
   printerGroupsState = await api('/api/printer-groups');
   populateQueueGroupOptions(selectedGroup);
@@ -4458,6 +4508,7 @@ async function loadPrinterGroups({ preserveForm = false } = {}) {
   if (activeRoute === '/queue') renderPrintQueue();
   if (!preserveForm) renderPrinterGroupMembers();
   window.dispatchEvent(new CustomEvent('pfc:printer-groups-changed', { detail:printerGroupsState }));
+  if (previousDashboardGroup) void loadDashboardHistory();
   return printerGroupsState;
 }
 
@@ -9582,6 +9633,8 @@ window.addEventListener('beforeunload', () => eventSource?.close());
 
 await loadAdapters();
 await loadInitialFleet();
+void loadDashboardHistory();
+setInterval(loadDashboardHistory, FLEET_HISTORY_INTERVAL);
 await loadPrinterGroups().catch((error) => console.error('Could not load printer groups', error));
 await refreshPrintLibrary().catch((error) => console.error('Could not load Print Library', error));
 connectLiveUpdates();

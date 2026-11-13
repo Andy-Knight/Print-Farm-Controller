@@ -20,7 +20,7 @@ test('only three explicit roles exist; every declared permission is known',()=>{
 
 test('anonymous or unknown roles are denied by default except for explicitly public endpoints',()=>{
   for(const [method,path] of [
-    ['GET','/api/events'],['GET','/api/fleet'],['GET','/api/queue'],
+    ['GET','/api/events'],['GET','/api/fleet'],['GET','/api/fleet/history'],['GET','/api/queue'],
     ['GET','/api/printers/id/camera/stream'],['POST','/api/batch'],
     ['POST','/api/backup/create'],['POST','/api/restore/stage'],
     ['GET','/api/diagnostics/bundle']

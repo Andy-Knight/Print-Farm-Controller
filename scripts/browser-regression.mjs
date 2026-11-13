@@ -451,6 +451,13 @@ async function dashboardProductionQueueSmoke(browser, url) {
 async function dashboardPhase3Smoke(browser,url) {
   console.log('Chromium: Phase 3 dashboard hierarchy, filters, card/table and mobile layout');
   const context=await browser.newContext({viewport:{width:1365,height:900}});
+  await context.route('**/api/fleet/history', (route) => {
+    const endAt = Date.now();
+    return route.fulfill({json:{endAt,samples:[
+      {at:endAt - 300000, all:12, online:9, printing:3, attention:3},
+      {at:endAt, all:12, online:10, printing:5, attention:2}
+    ]}});
+  });
   const page=await context.newPage();
   const errors=[];
   page.on('pageerror',(error)=>errors.push(error.message));
@@ -474,6 +481,20 @@ async function dashboardPhase3Smoke(browser,url) {
       summaries:[...document.querySelectorAll('#summary .dashboard-stat-detail')].map(n=>n.textContent)
     }));
     assert.deepEqual(initial.stats,['all','online','printing','attention']);
+    const trends = page.locator('#summary .dashboard-stat-trend');
+    await page.setViewportSize({width:1680,height:900});
+    await trends.last().waitFor({state:'visible'});
+    assert.equal(await trends.count(),3);
+    assert.ok(await trends.evaluateAll(nodes => nodes.every(trend => {
+      const text = trend.previousElementSibling;
+      return trend.getBoundingClientRect().left >= text.querySelector('b').getBoundingClientRect().right;
+    })), 'sparklines appear beside the live text on wide tiles');
+    await page.setViewportSize({width:500,height:900});
+    await trends.last().waitFor({state:'hidden'});
+    assert.equal(await page.locator('#summary').evaluate(node => getComputedStyle(node).gridTemplateColumns.split(' ').length),2);
+    await page.setViewportSize({width:1680,height:900});
+    await trends.last().waitFor({state:'visible'});
+    await page.setViewportSize({width:1365,height:900});
     assert.equal(initial.summaries.length,4,'every operational metric has useful supporting context');
     assert.ok(initial.hero.width>600,'hero fills the available workspace');
     assert.ok(Math.max(...initial.cards.map(n=>n.top))-Math.min(...initial.cards.map(n=>n.top))<=1,

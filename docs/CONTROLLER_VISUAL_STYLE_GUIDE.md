@@ -168,6 +168,7 @@ Use semantic tokens to build new components. **Some established components use m
 | KPI outline icon | **27px** SVG | Inside 72px desktop circular ring |
 | Dashboard KPI ring (desktop) | **72px** | With text alongside it |
 | Dashboard KPI ring (small viewport) | **52px** | With text still alongside it |
+| Dashboard KPI sparkline | **72px** | Right of the live text, visible from **268px** of tile content width |
 | Desktop top bar | **64px** minimum | Global context/action header |
 | Tab target | **46px** min-height | Horizontal underline navigation |
 
