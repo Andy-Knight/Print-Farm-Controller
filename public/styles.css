@@ -3283,20 +3283,24 @@ button.library-file-preview { cursor:zoom-in; }
   /* Mobile tables scroll internally, never stretch the route viewport. */
   .reporting-analytics-files .reporting-analytics-table { min-width:600px; }
 }
-/* Kilogram-based filament usage chart. Pie slices show shares of total recorded weight. */
+/* Filament usage by recorded weight, with the total centred inside the ring. */
 .reporting-usage-chart {
-  --reporting-pie-1:#318bce;--reporting-pie-2:#4cae8b;
-  --reporting-pie-3:#e0af55;--reporting-pie-4:#ab85d7;
-  --reporting-pie-5:#db7884;--reporting-pie-6:#50b3c3;
-  --reporting-pie-7:#d28a58;--reporting-pie-8:#879cbb;
+  --reporting-donut-1:#318bce;--reporting-donut-2:#4cae8b;
+  --reporting-donut-3:#e0af55;--reporting-donut-4:#ab85d7;
+  --reporting-donut-5:#db7884;--reporting-donut-6:#50b3c3;
+  --reporting-donut-7:#d28a58;--reporting-donut-8:#879cbb;
   width:100%;min-width:0;max-height:365px;overflow:auto;
   border:1px solid var(--pfc-table-border);border-radius:var(--pfc-table-radius);
   background:var(--pfc-table-surface);
 }
 .reporting-usage-plot{display:grid;grid-template-columns:minmax(135px,0.9fr) minmax(0,1.1fr);
   align-items:start;gap:12px;padding:14px;min-width:0;}
-.reporting-usage-pie{width:100%;max-width:210px;height:auto;aspect-ratio:1;justify-self:center;overflow:visible;}
-.reporting-usage-pie :is(path,circle){stroke:var(--pfc-table-surface);stroke-width:1.5;stroke-linejoin:round;}
+.reporting-usage-ring{display:grid;place-items:center;width:100%;max-width:210px;justify-self:center;min-width:0;}
+.reporting-usage-donut{display:block;grid-area:1/1;width:100%;height:auto;aspect-ratio:1;}
+.reporting-usage-donut path{stroke:var(--pfc-table-surface);stroke-width:1.5;stroke-linejoin:round;}
+.reporting-usage-weight{grid-area:1/1;width:59%;min-width:0;text-align:center;overflow-wrap:anywhere;color:var(--ds-text);}
+.reporting-usage-weight strong{display:block;font-size:var(--ds-font-md,1rem);font-weight:850;font-variant-numeric:tabular-nums;}
+.reporting-usage-weight span{display:block;font-size:.7rem;color:var(--ds-text-muted);}
 .reporting-usage-rows{list-style:none;display:grid;gap:0;align-content:start;margin:0;padding:0;min-width:0;}
 .reporting-usage-row{display:grid;grid-template-columns:13px minmax(0,1fr) auto;
   gap:8px;align-items:start;min-width:0;padding:7px 0;border-bottom:1px solid var(--pfc-table-divider);}
@@ -3316,11 +3320,9 @@ button.library-file-preview { cursor:zoom-in; }
   background:var(--ds-surface-raised);color:var(--ds-text);}
 .reporting-usage-total strong{font-size:var(--ds-font-sm);margin-right:auto;}
 .reporting-usage-total>span{font-weight:850;font-variant-numeric:tabular-nums;}
-.reporting-usage-total small{flex-basis:100%;font-size:.7rem;color:var(--ds-text-muted);}
 .reporting-usage-chart:focus-visible{outline:2px solid var(--ds-focus);outline-offset:2px;}
 @media (max-width:620px){
   .reporting-usage-plot{grid-template-columns:minmax(0,1fr);gap:8px;padding:10px;}
-  .reporting-usage-pie{max-width:210px;}
 }
 .reporting-table-content { min-height:110px; }
 .reporting-analytics-table { width:100%; min-width:540px; border-collapse:separate; border-spacing:0; color:inherit; font-size:.76rem; }

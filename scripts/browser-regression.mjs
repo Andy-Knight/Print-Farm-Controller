@@ -4038,7 +4038,7 @@ async function routeSmoke(page,url) {
       theme+' file table body should not contain isolated vertical gridlines');
   }
   // The popular-files table now shares one 50/50 desktop row with the
-  // filament kilogram pie chart. Neither half may overflow the whole page.
+  // filament kilogram donut chart. Neither half may overflow the whole page.
   const layout=await page.evaluate(()=>{
     const grid=document.querySelector('.reporting-analytics-grid');
     const files=document.querySelector('.reporting-analytics-files');
@@ -4099,11 +4099,11 @@ async function routeSmoke(page,url) {
         materials:{rows:[
           {key:'sample',label,note:'Historical materials sample',
             kg:'1.50',percentage:'75.0%',percent:75,barPercent:100,
-            barColour:'#dc5964',pieColour:'#dc5964',piePath:"M 100 100 L 100.0000 10.0000 A 90 90 0 1 1 10.0000 100.0000 Z",cost:'£19.50'},
+            barColour:'#dc5964',donutColour:'#dc5964',donutPath:"M 100 10 A 90 90 0 1 1 10 100 L 32 100 A 68 68 0 1 0 100 32 Z",cost:'£19.50'},
           {key:'sample2',label:'PLA',note:'',kg:'0.50',
             percentage:'25.0%',percent:25,barPercent:33.33,
-            barColour:'var(--ds-brand-strong)',pieColour:'var(--reporting-pie-2)',
-            piePath:"M 100 100 L 10.0000 100.0000 A 90 90 0 0 1 100.0000 10.0000 Z",cost:'£4.50'}
+            barColour:'var(--ds-brand-strong)',donutColour:'var(--reporting-donut-2)',
+            donutPath:"M 10 100 A 90 90 0 0 1 100 10 L 100 32 A 68 68 0 0 0 32 100 Z",cost:'£4.50'}
         ],totalKg:'2.00',totalCost:'£24.00'}
       }}));
     },{mode,label});
@@ -4111,12 +4111,12 @@ async function routeSmoke(page,url) {
       document.querySelector('#reportingMaterials .reporting-usage-description strong')?.textContent===materialLabel,label);
     const rows=page.locator('#reportingMaterials .reporting-usage-row');
     assert.equal(await rows.count(),2,mode+' retains all historical kg rows');
-    assert.equal(await page.locator('#reportingMaterials .reporting-usage-total>span').textContent(),'2.00 kg');
+    assert.equal(await page.locator('#reportingMaterials .reporting-usage-weight strong').textContent(),'2.00 kg');
     assert.match(await page.locator('#reportingMaterials .reporting-usage-total').innerText(),/£24.00/);
-    assert.match(await page.locator('#reportingMaterials .reporting-usage-pie').getAttribute('aria-label'),/Proportion of recorded filament usage/);
+    assert.match(await page.locator('#reportingMaterials .reporting-usage-donut').getAttribute('aria-label'),/Proportion of recorded filament usage/);
     assert.match(await rows.first().locator('.reporting-usage-value').innerText(),/1\.50 kg[\s\S]*75\.0%/);
-    const shapes=page.locator('#reportingMaterials .reporting-usage-pie path');
-    assert.equal(await shapes.count(),2,mode+' shows two pie sectors');
+    const shapes=page.locator('#reportingMaterials .reporting-usage-donut path');
+    assert.equal(await shapes.count(),2,mode+' shows two donut sectors');
     assert.match(await shapes.first().getAttribute('d'),/ A 90 90 0 1 1 /,
       mode+' first sector spans three quarters');
     assert.match(await shapes.last().getAttribute('d'),/ A 90 90 0 0 1 /,
@@ -4127,11 +4127,14 @@ async function routeSmoke(page,url) {
         for(const theme of ['dark','light']){
           root.setAttribute('data-theme',theme);
           const chart=document.querySelector('#reportingMaterials .reporting-usage-chart');
-          const pie=chart.querySelector('.reporting-usage-pie');
-          const slices=[...pie.querySelectorAll('path')];
+          const donut=chart.querySelector('.reporting-usage-donut');
+          const slices=[...donut.querySelectorAll('path')];
+          const ring=donut.getBoundingClientRect();
+          const weight=chart.querySelector('.reporting-usage-weight').getBoundingClientRect();
           const total=chart.querySelector('.reporting-usage-total');
           values[theme]={
-            pieWidth:pie.getBoundingClientRect().width,
+            donutWidth:ring.width,
+            centreOffset:Math.hypot(weight.x+weight.width/2-ring.x-ring.width/2,weight.y+weight.height/2-ring.y-ring.height/2),
             firstColour:getComputedStyle(slices[0]).fill,
             secondColour:getComputedStyle(slices[1]).fill,
             border:getComputedStyle(slices[0]).strokeWidth,
@@ -4147,7 +4150,8 @@ async function routeSmoke(page,url) {
       return values;
     });
     for(const [theme,result] of Object.entries(themes)){
-      assert.ok(result.pieWidth>=120,mode+' '+theme+' pie is visible');
+      assert.ok(result.donutWidth>=120,mode+' '+theme+' donut is visible');
+      assert.ok(result.centreOffset<1,mode+' '+theme+' total is centred in the donut');
       assert.equal(result.firstColour,'rgb(220, 89, 100)',mode+' '+theme+' catalogue colour');
       assert.notEqual(result.secondColour,'rgba(0, 0, 0, 0)',mode+' '+theme+' fallback colour');
       assert.notEqual(result.firstColour,result.secondColour,mode+' '+theme+' distinguishable sectors');
@@ -4170,10 +4174,10 @@ async function routeSmoke(page,url) {
     window.dispatchEvent(new CustomEvent('pfc:reporting-ui-state',{detail:{
       ...base,fileScope:'top6',files,
       materials:{rows:[
-        {key:'asa',label:'ASA',kg:'0.40',percentage:'80.0%',pieColour:'var(--reporting-pie-1)',
-          piePath:'M 100 100 L 100 10 A 90 90 0 1 1 14 72 Z',cost:'£4.00'},
-        {key:'pla',label:'PLA',kg:'0.10',percentage:'20.0%',pieColour:'var(--reporting-pie-2)',
-          piePath:'M 100 100 L 14 72 A 90 90 0 0 1 100 10 Z',cost:'£1.00'}
+        {key:'asa',label:'ASA',kg:'0.40',percentage:'80.0%',donutColour:'var(--reporting-donut-1)',
+          donutPath:'M 100 10 A 90 90 0 1 1 10 100 L 32 100 A 68 68 0 1 0 100 32 Z',cost:'£4.00'},
+        {key:'pla',label:'PLA',kg:'0.10',percentage:'20.0%',donutColour:'var(--reporting-donut-2)',
+          donutPath:'M 10 100 A 90 90 0 0 1 100 10 L 100 32 A 68 68 0 0 0 32 100 Z',cost:'£1.00'}
       ],totalKg:'0.50',totalCost:'£5.00'}
     }}));
   });

@@ -463,12 +463,13 @@ function reportingFilamentBarColour(value) {
   return names[colour] || 'var(--ds-brand-strong)';
 }
 
-function reportingPiePath(start, end) {
-  const at = (portion) => {
+function reportingDonutPath(start, end) {
+  const at = (portion, radius) => {
     const radians = portion * Math.PI * 2 - Math.PI / 2;
-    return `${(100 + 90 * Math.cos(radians)).toFixed(4)} ${(100 + 90 * Math.sin(radians)).toFixed(4)}`;
+    return `${(100 + radius * Math.cos(radians)).toFixed(4)} ${(100 + radius * Math.sin(radians)).toFixed(4)}`;
   };
-  return `M 100 100 L ${at(start)} A 90 90 0 ${end - start > 0.5 ? 1 : 0} 1 ${at(end)} Z`;
+  const largeArc = end - start > 0.5 ? 1 : 0;
+  return `M ${at(start,90)} A 90 90 0 ${largeArc} 1 ${at(end,90)} L ${at(end,68)} A 68 68 0 ${largeArc} 0 ${at(start,68)} Z`;
 }
 
 function reportingMaterialRows(materials = [], catalogue = []) {
@@ -503,9 +504,9 @@ function reportingMaterialRows(materials = [], catalogue = []) {
   let accumulated = 0;
   return {
     rows:ordered.map((row, index) => {
-      const pieStart = accumulated / total;
+      const start = accumulated / total;
       accumulated += row.grams;
-      const pieEnd = Math.min(1, accumulated / total);
+      const end = Math.min(1, accumulated / total);
       return {
       key:row.key,
       label:row.label,
@@ -515,10 +516,10 @@ function reportingMaterialRows(materials = [], catalogue = []) {
       percent:total > 0 ? Number((row.grams * 100 / total).toFixed(1)) : 0,
       barPercent:ordered[0]?.grams > 0 ? Number((row.grams * 100 / ordered[0].grams).toFixed(2)) : 0,
       barColour:row.barColour,
-      pieColour:row.barColour === 'var(--ds-brand-strong)'
-        ? `var(--reporting-pie-${index % 8 + 1})` : row.barColour,
-      pieFull:ordered.length === 1,
-      piePath:ordered.length === 1 ? '' : reportingPiePath(pieStart, pieEnd),
+      donutColour:row.barColour === 'var(--ds-brand-strong)'
+        ? `var(--reporting-donut-${index % 8 + 1})` : row.barColour,
+      donutFull:ordered.length === 1,
+      donutPath:ordered.length === 1 ? '' : reportingDonutPath(start, end),
       cost:formatCurrencyTotals(row.spendByCurrency)
     }; }),
     totalKg:formatNumber(total / 1000, 2),
@@ -741,28 +742,30 @@ function renderReportFiles(files) {
 function renderReportMaterials(materials) {
   if (!materials.rows.length)
     return '<div class="reporting-empty">No material usage captured for completed prints in this period.</div>';
-  const slices=materials.rows.map(row => row.pieFull
-    ? `<circle cx="100" cy="100" r="90" style="fill:${escapeHtml(row.pieColour)}"><title>${escapeHtml(row.label)}: ${escapeHtml(row.kg)} kg (${escapeHtml(row.percentage)})</title></circle>`
-    : `<path d="${escapeHtml(row.piePath)}" style="fill:${escapeHtml(row.pieColour)}"><title>${escapeHtml(row.label)}: ${escapeHtml(row.kg)} kg (${escapeHtml(row.percentage)})</title></path>`
+  const slices=materials.rows.map(row => row.donutFull
+    ? `<circle cx="100" cy="100" r="79" fill="none" stroke-width="22" style="stroke:${escapeHtml(row.donutColour)}"><title>${escapeHtml(row.label)}: ${escapeHtml(row.kg)} kg (${escapeHtml(row.percentage)})</title></circle>`
+    : `<path d="${escapeHtml(row.donutPath)}" style="fill:${escapeHtml(row.donutColour)}"><title>${escapeHtml(row.label)}: ${escapeHtml(row.kg)} kg (${escapeHtml(row.percentage)})</title></path>`
   ).join('');
   const rows=materials.rows.map(row=>`<li class="reporting-usage-row">
-    <span class="reporting-usage-swatch" style="background-color:${escapeHtml(row.pieColour)}" aria-hidden="true"></span>
+    <span class="reporting-usage-swatch" style="background-color:${escapeHtml(row.donutColour)}" aria-hidden="true"></span>
     <div class="reporting-usage-description">
       <strong title="${escapeHtml(row.note || row.label)}">${escapeHtml(row.label)}</strong>
       <span class="reporting-usage-meta">Recorded cost: ${escapeHtml(row.cost)}</span>
     </div>
     <span class="reporting-usage-value">${escapeHtml(row.kg)} kg <small>${escapeHtml(row.percentage)}</small></span>
   </li>`).join('');
-  return `<div class="reporting-usage-chart" role="region" aria-label="Filament used pie chart in kilograms" tabindex="0">
+  return `<div class="reporting-usage-chart" role="region" aria-label="Filament used donut chart in kilograms" tabindex="0">
     <div class="reporting-usage-plot">
-      <svg class="reporting-usage-pie" viewBox="0 0 200 200" role="img" aria-label="Proportion of recorded filament usage by group">
-        <title>Recorded filament use by weight</title>${slices}
-      </svg>
+      <div class="reporting-usage-ring">
+        <svg class="reporting-usage-donut" viewBox="0 0 200 200" role="img" aria-label="Proportion of recorded filament usage by group">
+          <title>Recorded filament use by weight</title>${slices}
+        </svg>
+        <div class="reporting-usage-weight"><strong>${escapeHtml(materials.totalKg)} kg</strong><span>Total used</span></div>
+      </div>
       <ol class="reporting-usage-rows" aria-label="Filament usage legend">${rows}</ol>
     </div>
     <div class="reporting-usage-total">
-      <strong>Total filament used</strong><span>${escapeHtml(materials.totalKg)} kg</span>
-      <small>Recorded cost: ${escapeHtml(materials.totalCost)}</small>
+      <strong>Total recorded cost</strong><span>${escapeHtml(materials.totalCost)}</span>
     </div>
   </div>`;
 }
