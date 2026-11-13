@@ -263,7 +263,7 @@ Default ordinary buttons are **42px high**; `ui-button-small` is **32px**, used 
 
 **Functional colour conventions:** pause amber, resume blue/green according to the established control context, printer setup actions blue, destructive actions red. If a screen already has a specific approved semantics mapping, follow it rather than standardising away that meaning.
 
-**Individual printer maintenance actions:** Inside each Individual printer tasks card, Complete, Edit (printer/model/group task) and Delete (printer/model/group task) occupy the same respective columns in every row. Use fixed **120px Complete / 176px Edit / 190px Delete** button widths, keeping the existing 7px gaps, semantic button variants and disabled states. These widths are scoped to `.maintenance-task > .maintenance-task-actions` only; the Model-wide and Group-wide task lists retain their existing buttons. At phone widths (≤620px), stack the three buttons at equal full-row widths to avoid clipping or horizontal scrolling. Verify matching corresponding column edges in both themes and all printer-task scopes.
+**Individual printer maintenance actions:** Inside each Assigned printer tasks card, Complete, Edit (printer/model/group task) and Delete (printer/model/group task) occupy the same respective columns in every row. Use fixed **120px Complete / 176px Edit / 190px Delete** button widths, keeping the existing 7px gaps, semantic button variants and disabled states. These widths are scoped to `.maintenance-task > .maintenance-task-actions` only; the Model-wide and Group-wide task lists retain their existing buttons. At phone widths (≤620px), stack the three buttons at equal full-row widths to avoid clipping or horizontal scrolling. Verify matching corresponding column edges in both themes and all printer-task scopes.
 
 ### Button states
 
@@ -391,7 +391,7 @@ The [tab icon reference sheet](assets/controller-tab-icon-catalog.svg) shows the
 | `files` | File/document | Printer Details → Files |
 | `thermometer` | Temperature | Printer Details → Temperature |
 | `clock` | Clock | Printer Details → Current Job; Alerts → Alert history |
-| `wrench` | Maintenance spanner | Maintenance → Individual printer tasks; Printer Details → Management in the no-bundle fallback only. Preact does not currently assign that tab an icon. |
+| `wrench` | Maintenance spanner | Maintenance → Assigned printer tasks; Printer Details → Management in the no-bundle fallback only. Preact does not currently assign that tab an icon. |
 | `plus` | Add | Maintenance → Add tasks; Printer Groups → Create group |
 | `printer` | Printer | Maintenance → Model-wide maintenance tasks |
 | `layers` | Layer stack | Maintenance → Group-wide tasks; Printer Groups → Existing groups |
@@ -407,7 +407,7 @@ The [tab icon reference sheet](assets/controller-tab-icon-catalog.svg) shows the
 
 **Implementation details:** Seven tab interfaces share this pattern: Printer Details, Maintenance, Printer Groups, Reports & finance, Alerts & notifications, Backup & recovery and Users & settings. Each CSS mask uses a **24×24 SVG** with `fill="none"`, `stroke="black"` (for mask opacity only), **1.8px** line weight and rounded end caps/joins; the visible glyph is **17×17px** and inherits the tab's `currentColor`. Inactive icons use muted text, while active icons and the 3px underline use `--ds-brand`. Tabs remain transparent, at least 46px tall, with an 8px label gap; on mobile the tablist scrolls horizontally.
 
-**Known documentation discrepancy:** The `wrench` mask exists and is used for Maintenance's Individual printer tasks tab. In current Preact code, however, **Printer Details → Management has no `icon` field assigned** in `ui/printer-details.jsx`. The no-bundle fallback in `public/app.js` does render the wrench on Management; preserve this distinction when documenting the two renderers. This documentation-only update does not change that UI behaviour.
+**Known documentation discrepancy:** The `wrench` mask exists and is used for Maintenance's Assigned printer tasks tab. In current Preact code, however, **Printer Details → Management has no `icon` field assigned** in `ui/printer-details.jsx`. The no-bundle fallback in `public/app.js` does render the wrench on Management; preserve this distinction when documenting the two renderers. This documentation-only update does not change that UI behaviour.
 
 ### Implemented icon concepts (reference)
 

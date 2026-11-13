@@ -29,7 +29,7 @@ test('maintenance window uses task terminology across all maintenance tabs', () 
   assert.match(index, /data-maintenance-view="add"[^>]*>Add maintenance tasks<\/button>/);
   assert.match(index, /data-maintenance-view="model"[^>]*>Model-wide maintenance tasks<\/button>/);
   assert.match(index, /data-maintenance-view="group"[^>]*>Group-wide maintenance tasks<\/button>/);
-  assert.match(index, /data-maintenance-view="printers"[^>]*>Individual printer tasks<\/button>/);
+  assert.match(index, /data-maintenance-view="printers"[^>]*>Assigned printer tasks<\/button>/);
   assert.match(index, /id="maintenanceTaskForm"[^>]*data-maintenance-view-panel="add"/);
   assert.match(maintenanceUi, /let activeMaintenanceView = 'printers'/);
   assert.match(maintenanceUi, /function setMaintenanceView\(view\)/);

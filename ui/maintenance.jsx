@@ -5,7 +5,7 @@ const VIEW_LABELS = Object.freeze([
   ['add','Add maintenance tasks','plus'],
   ['model','Model-wide maintenance tasks','printer'],
   ['group','Group-wide maintenance tasks','layers'],
-  ['printers','Individual printer tasks','wrench']
+  ['printers','Assigned printer tasks','wrench']
 ]);
 
 function dispatchMaintenanceAction(type, value = '') {
