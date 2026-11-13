@@ -371,7 +371,10 @@ async function dashboardProductionQueueSmoke(browser, url) {
       await context.route('**/api/fleet', route => route.fulfill({ json:fleet }));
       await context.route('**/api/queue', route => route.fulfill({ json:fleet.queue }));
       await context.route('**/api/printer-groups', route => route.fulfill({
-        json:{ groups:[{ id:'room', name:'Print room', printerIds:['room-p1'] }] }
+        json:{ groups:[
+          { id:'room', name:'Print room', printerIds:['room-p1'] },
+          { id:'empty', name:'Empty room', printerIds:[] }
+        ] }
       }));
       await context.route('**/api/events', route => route.fulfill({ contentType:'text/event-stream', body:': fixture\n\n' }));
       if (fallback) await context.route('**/dashboard-preact.js', route => route.abort());
@@ -385,8 +388,18 @@ async function dashboardProductionQueueSmoke(browser, url) {
       assert.equal(await page.locator('#summary').count(), 1, 'only one Farm overview grid contributes spacing');
       const values = panel.locator('.dashboard-stat-body > b');
       assert.deepEqual(await values.allTextContents(), ['3', '47m', '2', '1']);
+      const meter = tile('Jobs blocked').getByRole('meter', { name:'Share of queued jobs blocked' });
+      const assertBlockedShare = async (percent, description) => {
+        assert.equal(await meter.getAttribute('aria-valuenow'), String(percent));
+        assert.equal(await meter.getAttribute('aria-valuetext'), description);
+        assert.equal(await meter.locator('span').evaluate(node => node.style.width), percent + '%');
+      };
+      await assertBlockedShare(66.7, '2 of 3 queued jobs blocked (66.7%)');
+      await group.selectOption('empty');
+      await assertBlockedShare(0, 'No queued jobs');
       await group.selectOption('room');
       assert.deepEqual(await values.allTextContents(), ['2', '47m', '2', '1']);
+      await assertBlockedShare(100, '2 of 2 queued jobs blocked (100%)');
       await page.locator('#summary [data-dashboard-filter="printing"]').click();
       await page.locator('#dashboardViewToggle').click();
       assert.deepEqual(await values.allTextContents(), ['2', '47m', '2', '1']);

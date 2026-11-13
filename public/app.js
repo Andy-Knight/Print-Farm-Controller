@@ -3184,6 +3184,13 @@ function renderDashboardProductionQueue() {
     detailElement.title = detail;
     link.href = `/queue${productionQueueSearch(view, dashboardGroupId)}`;
   }
+  const meter = dashboardProductionQueue.querySelector('[data-production-queue-view="blocked"] .dashboard-stat-meter');
+  const blockedPercent = pending.length ? Math.round(blocked.length * 1000 / pending.length) / 10 : 0;
+  const blockedShare = pending.length ? `${blocked.length} of ${pending.length} queued jobs blocked (${blockedPercent}%)` : 'No queued jobs';
+  meter.setAttribute('aria-valuenow', String(blockedPercent));
+  meter.setAttribute('aria-valuetext', blockedShare);
+  meter.title = blockedShare;
+  meter.firstElementChild.style.width = `${blockedPercent}%`;
 }
 
 dashboardProductionQueue.addEventListener('click', event => {
