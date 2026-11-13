@@ -97,6 +97,7 @@ read('/api/events', P.PRINTER_READ); // SSE contains fleet, queue and alerts
 read('/api/discovery', P.PRINTER_CONFIGURE);
 read('/api/printers', P.PRINTER_READ);
 read('/api/fleet', P.PRINTER_READ);
+read('/api/fleet/history', P.PRINTER_READ);
 read('/api/printer-maps', P.PRINTER_READ);
 write('POST', '/api/printer-maps', P.PRINTER_MAP_MANAGE);
 write('POST', '/api/printers', P.PRINTER_CONFIGURE);

@@ -32,6 +32,7 @@ Node.js controller (src/server.js) <--- Standalone map display (public/map-displ
     |                                    GET /api/map-display with one room's bearer link
     +-- HTTP(S), account/session security, RBAC, resource admission and diagnostics
     +-- Printer registry, discovery, fleet state, cameras and alerts
+    +-- Dashboard trends from rolling 24-hour, per-printer samples in DATA_DIR
     +-- Printer groups and shared room maps with administrator-only editing
     +-- Print Library, compatibility, file distribution, queue/history and bed clearance
     +-- Batch control, chamber preheat, maintenance, reporting and filament costing

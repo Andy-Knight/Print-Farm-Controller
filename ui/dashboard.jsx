@@ -1,5 +1,5 @@
 import { render } from 'preact';
-import { useEffect, useState } from 'preact/hooks';
+import { useEffect, useMemo, useState } from 'preact/hooks';
 import { Metric, ProgressBar, StatusBadge, ToastHost, UiButton } from './components.jsx';
 import { initPrinterDetailsUi } from './printer-details.jsx';
 import { initPrintQueueUi } from './print-queue.jsx';
@@ -11,6 +11,7 @@ import { initBackupRecoveryUi } from './backup-recovery.jsx';
 import { initPrinterGroupsUi } from './printer-groups.jsx';
 import { initDiagnosticsUi } from './diagnostics.jsx';
 import { initLicenseUi } from './license.jsx';
+import { dashboardTrend } from '../public/dashboard-fleet-history.js';
 
 const FILTERS = Object.freeze([
   { key:'all', label:'All Printers', tone:'neutral', detail:'Configured in this view' },
@@ -39,6 +40,7 @@ function normalizeDashboardState(input = {}) {
       attention:Number(counts.attention || 0)
     },
     activeFilter:[...FILTERS.map((item) => item.key), 'maintenance'].includes(input.activeFilter) ? input.activeFilter : 'all',
+    history:input.history || null,
     groups:Array.isArray(input.groups) ? input.groups.map((group) => ({
       id:String(group?.id || ''),
       name:String(group?.name || ''),
@@ -141,6 +143,9 @@ function DashboardSummarySymbol({ name }) {
 
 function DashboardSummary({ state }) {
   const configured = Math.max(0, state.counts.all);
+  const trends = useMemo(() => Object.fromEntries(FILTERS.map(({key}) => [
+    key, dashboardTrend(state.history, key)
+  ])), [state.history]);
   return (
     <section id="summary" class="summary" aria-label="Farm status filters">
       {FILTERS.map((item) => {
@@ -151,6 +156,7 @@ function DashboardSummary({ state }) {
           : null;
         const tone = item.key === 'attention' && count === 0 && configured > 0
           ? 'success' : item.tone;
+        const trend = trends[item.key];
         const icon = item.key === 'all' ? 'printer'
           : item.key === 'online' ? 'connected'
           : item.key === 'printing' ? 'printing'
@@ -182,6 +188,13 @@ function DashboardSummary({ state }) {
                     <span style={{width:`${percent}%`}}></span>
                   </span>}
             </span>
+            {trend && <span class="dashboard-stat-trend">
+              <svg viewBox="0 0 96 38" role="img" aria-label={trend.description} focusable="false">
+                <path d={trend.line} />
+                {trend.dots.map(({x,y}) => <circle key={x} cx={x} cy={y} r="1.7" />)}
+              </svg>
+              <span aria-hidden="true">Last 24 h</span>
+            </span>}
           </UiButton>
         );
       })}

@@ -354,7 +354,10 @@ async function designSystemSmoke(browser,url) {
 async function dashboardProductionQueueSmoke(browser, url) {
   const queuedAt = new Date(Date.now() - 47 * 60_000).toISOString();
   const fleet = {
-    printers:[{ id:'room-p1', name:'Room printer', online:true, status:{ status:'idle' } }],
+    printers:[
+      { id:'room-p1', name:'Room printer', online:true, status:{ status:'idle' } },
+      { id:'other-p1', name:'Other printer', online:false }
+    ],
     queue:{
       jobs:[
         { id:'room-job', printerId:'room-p1', status:'queued', fileName:'Room job.gcode', queuedAt, waitingReason:'Bed not cleared' },
@@ -362,7 +365,10 @@ async function dashboardProductionQueueSmoke(browser, url) {
         { id:'unassigned', status:'queued', fileName:'Unassigned job.gcode' },
         { id:'finished', printerId:'room-p1', status:'completed', fileName:'Finished job.gcode' }
       ],
-      bedClearance:[{ printerId:'room-p1', printerName:'Room printer', finishedAt:queuedAt }]
+      bedClearance:[
+        { printerId:'room-p1', printerName:'Room printer', finishedAt:queuedAt },
+        { printerId:'removed-p1', printerName:'Removed printer', finishedAt:queuedAt }
+      ]
     }
   };
   for (const fallback of [false, true]) {
@@ -371,7 +377,10 @@ async function dashboardProductionQueueSmoke(browser, url) {
       await context.route('**/api/fleet', route => route.fulfill({ json:fleet }));
       await context.route('**/api/queue', route => route.fulfill({ json:fleet.queue }));
       await context.route('**/api/printer-groups', route => route.fulfill({
-        json:{ groups:[{ id:'room', name:'Print room', printerIds:['room-p1'] }] }
+        json:{ groups:[
+          { id:'room', name:'Print room', printerIds:['room-p1'] },
+          { id:'empty', name:'Empty room', printerIds:[] }
+        ] }
       }));
       await context.route('**/api/events', route => route.fulfill({ contentType:'text/event-stream', body:': fixture\n\n' }));
       if (fallback) await context.route('**/dashboard-preact.js', route => route.abort());
@@ -385,11 +394,26 @@ async function dashboardProductionQueueSmoke(browser, url) {
       assert.equal(await page.locator('#summary').count(), 1, 'only one Farm overview grid contributes spacing');
       const values = panel.locator('.dashboard-stat-body > b');
       assert.deepEqual(await values.allTextContents(), ['3', '47m', '2', '1']);
+      const blockedMeter = tile('Jobs blocked').getByRole('meter', { name:'Share of queued jobs blocked' });
+      const bedsMeter = tile('Beds to clear').getByRole('meter', { name:'Share of printers with beds to clear' });
+      const assertShare = async (meter, percent, description) => {
+        assert.equal(await meter.getAttribute('aria-valuenow'), String(percent));
+        assert.equal(await meter.getAttribute('aria-valuetext'), description);
+        assert.equal(await meter.locator('span').evaluate(node => node.style.width), percent + '%');
+      };
+      await assertShare(blockedMeter, 66.7, '2 of 3 queued jobs blocked (66.7%)');
+      await assertShare(bedsMeter, 50, '1 of 2 printers with beds to clear (50%)');
+      await group.selectOption('empty');
+      await assertShare(blockedMeter, 0, 'No queued jobs');
+      await assertShare(bedsMeter, 0, 'No printers');
       await group.selectOption('room');
       assert.deepEqual(await values.allTextContents(), ['2', '47m', '2', '1']);
+      await assertShare(blockedMeter, 100, '2 of 2 queued jobs blocked (100%)');
+      await assertShare(bedsMeter, 100, '1 of 1 printers with beds to clear (100%)');
       await page.locator('#summary [data-dashboard-filter="printing"]').click();
       await page.locator('#dashboardViewToggle').click();
       assert.deepEqual(await values.allTextContents(), ['2', '47m', '2', '1']);
+      await assertShare(bedsMeter, 100, '1 of 1 printers with beds to clear (100%)');
       for (const theme of ['dark', 'light']) {
         await page.evaluate(name => {
           if (document.documentElement.dataset.theme !== name) document.querySelector('#themeToggle').click();
@@ -451,6 +475,13 @@ async function dashboardProductionQueueSmoke(browser, url) {
 async function dashboardPhase3Smoke(browser,url) {
   console.log('Chromium: Phase 3 dashboard hierarchy, filters, card/table and mobile layout');
   const context=await browser.newContext({viewport:{width:1365,height:900}});
+  await context.route('**/api/fleet/history', (route) => {
+    const endAt = Date.now();
+    return route.fulfill({json:{endAt,samples:[
+      {at:endAt - 300000, all:12, online:9, printing:3, attention:3},
+      {at:endAt, all:12, online:10, printing:5, attention:2}
+    ]}});
+  });
   const page=await context.newPage();
   const errors=[];
   page.on('pageerror',(error)=>errors.push(error.message));
@@ -474,6 +505,20 @@ async function dashboardPhase3Smoke(browser,url) {
       summaries:[...document.querySelectorAll('#summary .dashboard-stat-detail')].map(n=>n.textContent)
     }));
     assert.deepEqual(initial.stats,['all','online','printing','attention']);
+    const trends = page.locator('#summary .dashboard-stat-trend');
+    await page.setViewportSize({width:1680,height:900});
+    await trends.last().waitFor({state:'visible'});
+    assert.equal(await trends.count(),3);
+    assert.ok(await trends.evaluateAll(nodes => nodes.every(trend => {
+      const text = trend.previousElementSibling;
+      return trend.getBoundingClientRect().left >= text.querySelector('b').getBoundingClientRect().right;
+    })), 'sparklines appear beside the live text on wide tiles');
+    await page.setViewportSize({width:500,height:900});
+    await trends.last().waitFor({state:'hidden'});
+    assert.equal(await page.locator('#summary').evaluate(node => getComputedStyle(node).gridTemplateColumns.split(' ').length),2);
+    await page.setViewportSize({width:1680,height:900});
+    await trends.last().waitFor({state:'visible'});
+    await page.setViewportSize({width:1365,height:900});
     assert.equal(initial.summaries.length,4,'every operational metric has useful supporting context');
     assert.ok(initial.hero.width>600,'hero fills the available workspace');
     assert.ok(Math.max(...initial.cards.map(n=>n.top))-Math.min(...initial.cards.map(n=>n.top))<=1,

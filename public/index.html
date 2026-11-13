@@ -142,12 +142,18 @@
         <a class="summary-card ui-stat-card dashboard-summary-kpi" data-tone="warning" data-production-queue-view="blocked" href="/queue?view=blocked">
           <span class="dashboard-stat-gauge dashboard-stat-gauge-neutral" aria-hidden="true"><span class="dashboard-stat-icon"></span></span>
           <span class="dashboard-stat-body"><span class="summary-card-label"><span class="subtle">Jobs blocked</span></span>
-            <b>—</b><span class="dashboard-stat-detail"></span><span class="dashboard-stat-accent" aria-hidden="true"></span></span>
+            <b>—</b><span class="dashboard-stat-detail"></span>
+            <span class="dashboard-stat-meter" role="meter" aria-label="Share of queued jobs blocked"
+              aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" aria-valuetext="No queued jobs"><span style="width:0%"></span></span>
+          </span>
         </a>
         <a class="summary-card ui-stat-card dashboard-summary-kpi" data-tone="warning" data-production-queue-view="clearance" href="/queue?view=clearance">
           <span class="dashboard-stat-gauge dashboard-stat-gauge-neutral" aria-hidden="true"><span class="dashboard-stat-icon"></span></span>
           <span class="dashboard-stat-body"><span class="summary-card-label"><span class="subtle">Beds to clear</span></span>
-            <b>—</b><span class="dashboard-stat-detail"></span><span class="dashboard-stat-accent" aria-hidden="true"></span></span>
+            <b>—</b><span class="dashboard-stat-detail"></span>
+            <span class="dashboard-stat-meter" role="meter" aria-label="Share of printers with beds to clear"
+              aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" aria-valuetext="No printers"><span style="width:0%"></span></span>
+          </span>
         </a>
       </div>
     </section>

@@ -231,6 +231,34 @@
   flex-direction:column; align-items:flex-start; justify-content:center;
   overflow-wrap:anywhere;
 }
+#summary .dashboard-summary-kpi { position:relative; container-type:inline-size; }
+.dashboard-stat-trend { display:none; }
+@container (min-width:268px) {
+  #summary .dashboard-summary-kpi:has(.dashboard-stat-trend svg) .dashboard-stat-body {
+    padding-inline-end:84px;
+  }
+  .dashboard-stat-trend:not(:empty) {
+    display:grid;
+    gap:2px;
+    position:absolute;
+    inset-inline-end:14px;
+    inset-block-start:50%;
+    transform:translateY(-50%);
+    width:72px;
+    color:var(--ds-text-muted);
+    font-size:.66rem;
+    text-align:end;
+  }
+  .dashboard-stat-trend svg { display:block; width:100%; color:var(--dashboard-stat-color); }
+  .dashboard-stat-trend path {
+    fill:none;
+    stroke:currentColor;
+    stroke-width:1.7px;
+    stroke-linecap:round;
+    stroke-linejoin:round;
+  }
+  .dashboard-stat-trend circle { fill:currentColor; }
+}
 :is(#summary, #dashboardProductionMetrics) .dashboard-summary-kpi .summary-card-label {
   margin:0 0 3px; line-height:1.25;
 }

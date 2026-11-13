@@ -5,12 +5,14 @@ export const productionQueueViews = Object.freeze({
   clearance:'Beds to clear'
 });
 
-export function productionQueueSnapshot(queue, group) {
+export function productionQueueSnapshot(queue, group, printerIds) {
   const members = new Set(group?.printerIds);
+  const configured = new Set(printerIds);
   const pending = (queue.jobs || []).filter(job =>
     (job.status === 'queued' || job.status === 'needs_review') &&
     (!group || (job.groupId ? job.groupId === group.id : members.has(job.printerId))));
-  const beds = (queue.bedClearance || []).filter(item => !group || members.has(item.printerId));
+  const beds = (queue.bedClearance || []).filter(item =>
+    configured.has(item.printerId) && (!group || members.has(item.printerId)));
   let oldest = null;
   let oldestTime = Infinity;
   let oldestBedTime = Infinity;
