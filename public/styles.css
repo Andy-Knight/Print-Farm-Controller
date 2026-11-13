@@ -2598,9 +2598,8 @@ button.library-file-preview { cursor:zoom-in; }
 .maintenance-task-meta { display:flex; gap:10px; flex-wrap:wrap; margin-top:6px; color:#718391; font-size:.69rem; }
 .maintenance-task-actions { justify-content:flex-end; flex-wrap:wrap; }
 .maintenance-task-actions button { padding:7px 9px; }
-/* Individual-printer tasks repeat three actions with different scope labels.
-   Fix each action column so Edit model/group/task and Delete model/group/task
-   stay perfectly aligned across adjacent task rows; shared tasks are excluded. */
+/* Keep Complete and Edit aligned across assigned task rows. Printer-only tasks
+   also use the third column for Delete task. */
 .maintenance-task > .maintenance-task-actions {
   display:grid;
   grid-template-columns:120px 176px 190px;

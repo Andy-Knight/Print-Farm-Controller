@@ -153,9 +153,11 @@ function PrinterTask({ printerId, task }) {
         <UiButton variant="secondary" data-maintenance-edit data-task-scope={task.scope} data-printer-id={printerId} data-task-id={task.id}>
           {task.editText}
         </UiButton>
-        <UiButton variant="danger" data-maintenance-delete data-task-scope={task.scope} data-printer-id={printerId} data-task-id={task.id}>
-          {task.deleteText}
-        </UiButton>
+        {task.scope === 'printer' && (
+          <UiButton variant="danger" data-maintenance-delete data-task-scope="printer" data-printer-id={printerId} data-task-id={task.id}>
+            Delete task
+          </UiButton>
+        )}
       </div>
     </article>
   );
