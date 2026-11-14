@@ -49,6 +49,7 @@ test('diagnostic bundle writer creates a ZIP container', () => {
     { name:'system.json', data:'{}' }
   ]);
   assert.equal(zip.readUInt32LE(0), 0x04034b50);
+  assert.equal(zip.readUInt32LE(14), 0x3610a686, 'local header contains the ZIP CRC-32 of hello');
   assert.equal(zip.readUInt32LE(zip.length - 22), 0x06054b50);
   assert.ok(zip.includes(Buffer.from('diagnostic-summary.txt')));
   assert.ok(zip.includes(Buffer.from('system.json')));

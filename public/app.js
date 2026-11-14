@@ -1318,13 +1318,46 @@ async function loadDiagnostics() {
   }
 }
 
-function downloadDiagnosticBundle() {
-  const link = document.createElement('a');
-  link.href = '/api/diagnostics/bundle';
-  link.download = '';
-  document.body.append(link);
-  link.click();
-  link.remove();
+async function downloadDiagnosticBundle() {
+  const button = diagnosticsBundleBtn;
+  const status = document.querySelector('#diagnosticsBundleStatus');
+  if (button.disabled) return;
+  button.disabled = true;
+  status.textContent = 'Preparing diagnostic bundle…';
+  try {
+    const response = await fetch('/api/diagnostics/bundle', {cache:'no-store'});
+    if ([401,403].includes(response.status)) {
+      throw new Error('Sign in as an administrator to download the diagnostic bundle.');
+    }
+    if (!response.ok) throw new Error(`The controller could not prepare the diagnostic bundle (HTTP ${response.status}). Try again.`);
+    if (response.headers.get('content-type')?.split(';')[0] !== 'application/zip') {
+      throw new Error('The controller did not return a ZIP file. Reload the page and try again.');
+    }
+    const zip = await response.blob();
+    const expectedLength = Number(response.headers.get('content-length'));
+    if (!zip.size || (expectedLength && !response.headers.has('content-encoding') && zip.size !== expectedLength)) {
+      throw new Error('The diagnostic bundle was incomplete. Try downloading it again.');
+    }
+    const filename = response.headers.get('content-disposition')?.match(/filename="(PrintFarmController-Diagnostics-[\w-]+\.zip)"/i)?.[1];
+    const url = URL.createObjectURL(zip);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename || 'PrintFarmController-Diagnostics.zip';
+    document.body.append(link);
+    try {
+      link.click();
+      status.textContent = 'Diagnostic bundle sent to your browser downloads.';
+    } finally {
+      link.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 30_000);
+    }
+  } catch (error) {
+    status.textContent = error instanceof TypeError
+      ? 'The download from the controller was interrupted. Try downloading it again.'
+      : error.message;
+  } finally {
+    button.disabled = false;
+  }
 }
 
 function backupStatusTime(value, empty = 'Never') {

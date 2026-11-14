@@ -1,6 +1,7 @@
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
 import util from 'node:util';
+import { crc32 } from 'node:zlib';
 
 const LEVELS = new Set(['info', 'warn', 'error']);
 const SENSITIVE_KEY = /(password|passwd|access.?code|api.?key|token|secret|private.?key|authorization|credential)/i;
@@ -47,15 +48,6 @@ async function tailText(filePath, maxBytes = 768 * 1024) {
   } finally {
     await handle.close();
   }
-}
-
-function crc32(buffer) {
-  let crc = 0xffffffff;
-  for (const byte of buffer) {
-    crc ^= byte;
-    for (let bit = 0; bit < 8; bit++) crc = (crc >>> 1) ^ ((crc & 1) ? 0xedb88320 : 0);
-  }
-  return (crc ^ 0xffffffff) >>> 0;
 }
 
 function dosDateTime(date = new Date()) {
