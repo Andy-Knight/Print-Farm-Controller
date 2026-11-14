@@ -5329,8 +5329,25 @@ async function simulatorSseSmoke(browser,url) {
 
     const materialSelect=materialEditor.locator('[data-toolhead-material]');
     await materialSelect.selectOption('PETG');
-    await materialEditor.locator('.color-family-dropdown summary').click();
+    const colourTrigger=materialEditor.locator('.color-family-dropdown summary');
+    const colourMenu=materialEditor.locator('.color-family-menu');
+    const printerDialog=page.locator('#printerDialog');
+    await printerDialog.evaluate(dialog=>{dialog.style.maxHeight='500px';});
+    await colourTrigger.scrollIntoViewIfNeeded();
+    const dialogScrollHeight=await printerDialog.evaluate(dialog=>dialog.scrollHeight);
+    await colourTrigger.click();
+    await materialEditor.locator('.color-family-menu:popover-open').waitFor();
+    const dialogBounds=await printerDialog.boundingBox();
+    const menuBounds=await colourMenu.boundingBox();
+    assert.ok(menuBounds.y<dialogBounds.y || menuBounds.y+menuBounds.height>dialogBounds.y+dialogBounds.height,
+      'filament colours can extend past the modal edge');
+    assert.equal(await printerDialog.evaluate(dialog=>dialog.scrollHeight),dialogScrollHeight);
+    await page.keyboard.press('Escape');
+    await materialEditor.locator('.color-family-dropdown:not([open])').waitFor();
+    assert.ok(await printerDialog.isVisible(), 'Escape only dismisses the colour popup');
+    await colourTrigger.click();
     await materialEditor.locator('[data-toolhead-color-option="blue"]').click();
+    await printerDialog.evaluate(dialog=>{dialog.style.removeProperty('max-height');});
     assert.ok(await materialEditor.locator('[data-toolhead-save]').isEnabled(),
       'changed filament type and colour can be submitted');
     await page.evaluate(()=>{

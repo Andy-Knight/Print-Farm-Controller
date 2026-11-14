@@ -1,5 +1,6 @@
 import { initializeFrontendRendererDiagnostics } from './frontend-renderer-diagnostics.js';
 import { createPrinterMapPage } from './printer-map.js';
+import { bindFilamentColourPopup } from './filament-colour-popup.js';
 import { printerArtworkKey, printerIsPrinting, printerMapTiles } from './printer-map-status.js';
 import { dashboardPrinterNeedsAttention, dashboardTrend, FLEET_HISTORY_INTERVAL } from './dashboard-fleet-history.js';
 import { productionQueueSearch, productionQueueSnapshot, productionQueueViews } from './production-queue.js';
@@ -655,6 +656,7 @@ function bindColorFamilyDropdowns(root) {
   root?.querySelectorAll('[data-color-family-dropdown]').forEach((dropdown) => {
     if (dropdown.dataset.bound === '1') return;
     dropdown.dataset.bound = '1';
+    bindFilamentColourPopup(dropdown);
     dropdown.querySelectorAll('[data-color-family-option]').forEach((button) => {
       button.onclick = () => {
         if (dropdown.dataset.disabled === '1') return;
@@ -6963,6 +6965,7 @@ function bindCreator5FilamentColorDropdowns(root, printer) {
   root?.querySelectorAll('[data-creator5-color-dropdown]').forEach((dropdown) => {
     if (dropdown.dataset.creator5Bound === '1') return;
     dropdown.dataset.creator5Bound = '1';
+    bindFilamentColourPopup(dropdown);
     dropdown.querySelectorAll('[data-creator5-color-option]').forEach((button) => {
       button.onclick = () => {
         if (dropdown.dataset.disabled === '1') return;
