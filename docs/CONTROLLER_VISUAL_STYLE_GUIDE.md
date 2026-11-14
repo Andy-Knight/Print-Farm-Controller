@@ -356,7 +356,7 @@ Place **Production queue** between the Farm overview cards and **Printers**, in 
 
 ## 11. Status, alerts, messages and feedback
 
-Diagnostics uses a compact status summary, frontend-renderer status, a Diagnostic bundle section and a searchable severity-filtered log. Retain the primary Download diagnostic bundle action and secondary Refresh action in both renderers. There is no verbose toggle, expiry display or Debug filter; standard operation events are recorded automatically.
+Diagnostics uses a compact status summary, frontend-renderer status, a Diagnostic bundle section and a searchable severity-filtered log. Retain the primary Download diagnostic bundle action and secondary Refresh action in both renderers. Show preparation and retry messages beside the bundle action, and disable repeat clicks while the ZIP is being received. There is no verbose toggle, expiry display or Debug filter; standard operation events are recorded automatically.
 
 In both themes, event rows use a green left border for INFO, amber for WARN and red for ERROR. Keep the level text visible alongside the colour cue.
 
