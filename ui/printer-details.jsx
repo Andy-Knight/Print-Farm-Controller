@@ -1,6 +1,7 @@
 import { render } from 'preact';
 import { useEffect, useRef, useState } from 'preact/hooks';
 import { StatusBadge, UiButton, UiTab, UiTextField } from './components.jsx';
+import { bindFilamentColourPopup } from '../public/filament-colour-popup.js';
 
 export const PRINTER_DETAIL_TABS = Object.freeze([
   { key:'toolheads', label:'Toolheads', controls:'detailTabToolheads', icon:'sliders' },
@@ -284,6 +285,9 @@ function ToolheadDesignationEditor({printerId,control,readOnly}) {
   const disabled = readOnly || control.enabled === false || busy;
   const dirty = Object.keys(control.values).some((key) => String(draft[key]??'') !== String(baseline[key]??''));
   const filament = control.mode.endsWith('filament');
+  useEffect(() => {
+    if (filament) bindFilamentColourPopup(menuRef.current);
+  }, [filament]);
   const palette = ['creator5-filament','bambu-filament','bambu-ams-filament'].includes(control.mode);
   const colourKey = palette ? 'color' : 'colorFamily';
   const allowedMaterials=[...new Set([draft.material, ...(control.materials||DEFAULT_MATERIALS)].filter(Boolean))];

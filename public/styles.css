@@ -1293,6 +1293,8 @@ input:focus,select:focus { border-color:#7a9fbe; }
 .color-family-selected.placeholder { color:#71818d; }
 .color-family-caret { color:#8493a1; font-size:.8rem; flex:0 0 auto; }
 .color-family-menu { position:absolute; z-index:40; left:0; right:0; top:calc(100% + 5px); display:grid; gap:4px; max-height:300px; overflow:auto; padding:5px; border:1px solid #33404b; border-radius:9px; background:#0c1218; box-shadow:0 16px 35px rgba(0,0,0,.45); }
+.color-family-menu[popover] { position:fixed; inset:auto; margin:0; color:inherit; }
+.color-family-menu[popover]:not(:popover-open) { display:none; }
 .color-family-option { width:100%; padding:8px 9px; border:1px solid transparent; border-radius:7px; background:#111820; color:#e4eaf0; text-align:left; }
 .color-family-option:hover,.color-family-option:focus-visible { border-color:#506171; background:#16212a; }
 .color-family-option.selected { border-color:#5c829e; background:#17242d; }
