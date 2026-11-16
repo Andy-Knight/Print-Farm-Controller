@@ -83,6 +83,8 @@ Keep the panel in the page using `auth-panel` and the shared theme tokens. Colla
 
 Show the installed version, available version and last successful check in the administrator panel. Keep the status beside the **Check for updates** action. Show an amber **Update available** link beside the sidebar version only when a newer release or image is available.
 
+Show **Upgrade container** only for an opted-in Kubernetes controller with a newer published image. Confirm the exact image before requesting the upgrade. Keep the rollout status and previous image in the Software updates panel.
+
 #### Resource limits
 
 - Use labelled fieldsets for Uploads, Storage, Sessions and streams, Backup processing and Timeouts. Use 42px number inputs with count, MiB/GiB or seconds labels. Show active and default values and explain disabled host-managed fields. Put fixed caps in a neutral expandable read-only section.
