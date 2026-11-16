@@ -2,7 +2,7 @@
 
 ## Baseline
 
-- Node.js: supported 24.x LTS, patched to **24.22.1 or newer**. Container and CI builds currently pin **24.22.1**.
+- Node.js: supported 24.x LTS, patched to **24.22.3 or newer**. Container and CI builds currently pin **24.22.3**.
 - npm: **12.2.0** (declared in `package.json`; installed explicitly in CI and the container build stage).
 - Use `npm ci --include=dev` for deterministic installs. Commit `package-lock.json`; never hand-edit package integrity hashes.
 - npm 12 blocks unapproved dependency installation scripts; `esbuild@0.28.2` is the explicitly approved script in `package.json`. Review any change to `allowScripts`.
@@ -11,7 +11,7 @@
 
 ## Windows developer setup
 
-1. Install Node.js 24.22.1 or a newer security-patched 24.x LTS.
+1. Install Node.js 24.22.3 or a newer security-patched 24.x LTS.
 2. Run `npm install --global npm@12.2.0`.
 3. Confirm `node --version` and `npm --version`.
 4. In a clean checkout, run `npm ci --include=dev`, `npm audit --audit-level=high`, `npm test`, `npm run test:browser`, and the Windows SEA build when preparing a release.

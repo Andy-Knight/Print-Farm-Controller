@@ -178,7 +178,7 @@ The internal `allowDevelopmentOverrides:true` loader option exists for tests/dev
 
 ## Run
 
-Requires a security-patched **Node.js 24.22.1 or newer in the Node.js 24 release line** and **npm 12.2.0** for development. The project has no npm runtime dependencies; Preact and esbuild are build-time dependencies. See [dependency and runtime security policy](docs/dependency-security.md) for approved updates.
+Requires a security-patched **Node.js 24.22.3 or newer in the Node.js 24 release line** and **npm 12.2.0** for development. The project has no npm runtime dependencies; Preact and esbuild are build-time dependencies. See [dependency and runtime security policy](docs/dependency-security.md) for approved updates.
 
 After downloading a fresh source ZIP, or when dependencies change, install the development dependencies using the committed lockfile:
 

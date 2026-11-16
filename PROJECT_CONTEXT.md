@@ -12,7 +12,7 @@ Repository policy: `AGENTS.md` defines agent startup behavior; `docs/DOCUMENTATI
 - Project path: repository root (`/`)
 - Primary branch: `main` (current production baseline)
 - Current controller source version: **0.67.2**.
-- Runtime: **Node.js 24.22.1+** (Node 24 release line), ES modules; build-time **npm 12.2.0** and committed lockfile; no npm runtime dependency for deployed controller. Follow `docs/dependency-security.md` for updates.
+- Runtime: **Node.js 24.22.3+** (Node 24 release line), ES modules; build-time **npm 12.2.0** and committed lockfile; no npm runtime dependency for deployed controller. Follow `docs/dependency-security.md` for updates.
 - GitHub is the authoritative code baseline.
 - `CHANGELOG.md` owns all per-version release history. `README.md` describes the current product; this file contains active project context, not a release diary. See `docs/DOCUMENTATION_POLICY.md`.
 

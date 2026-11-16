@@ -14,7 +14,7 @@ COPY third-party/ffmpeg/source.tar.xz /build-input/source.tar.xz
 RUN if [ "$TARGETARCH" = arm64 ] && [ "$(uname -m)" != aarch64 ]; then target=linux-arm64; else target=linux; fi \
     && sh /build-input/ffmpeg-build.sh "$target" /opt/pfc-ffmpeg
 
-FROM node:24.22.1-bookworm-slim AS builder
+FROM node:24.22.3-bookworm-slim AS builder
 
 WORKDIR /app
 
@@ -38,7 +38,7 @@ RUN --mount=type=secret,id=pfc_google_client_id,required=false \
     PFC_BUNDLE_BUILD_NONCE="$PFC_BUNDLE_BUILD_NONCE" \
     npm run build:bundle
 
-FROM node:24.22.1-bookworm-slim
+FROM node:24.22.3-bookworm-slim
 
 WORKDIR /app
 
