@@ -4,6 +4,7 @@ import {deleteLibraryFileAndHistory} from './library-deletion.js';
 import {libraryOwnershipInventory,libraryOwnershipHistory,reassignLibraryOwner,libraryStorageInventory} from './print-library.js';
 import {configuredLimit, ResourceAdmission} from './security/resource-limits.js';
 import {ResourceLimitSettings} from './security/resource-limit-settings.js';
+import {ControllerUpdateCheck} from './controller-update-check.js';
 import {withOperationBudget,cancelActiveOperations} from './security/operation-budget.js';
 const streamAdmission=new StreamAdmission();
 import {secureWindowsDataDirectories} from './security/windows-data-permissions.js';
@@ -101,6 +102,10 @@ const bundledGoogleClientSecret = typeof __PFC_GOOGLE_CLIENT_SECRET__ === 'strin
 const bundledMicrosoftClientId = typeof __PFC_MICROSOFT_CLIENT_ID__ === 'string' ? __PFC_MICROSOFT_CLIENT_ID__ : '';
 const packageInfo = PACKAGE_PATH ? JSON.parse(readFileSync(PACKAGE_PATH, 'utf8')) : {};
 const CONTROLLER_VERSION = String(bundledVersion || packageInfo.version || 'unknown');
+const controllerUpdates = new ControllerUpdateCheck({
+  version:CONTROLLER_VERSION,
+  channel:runtimePaths.runningAsSea ? 'windows' : process.env.PFC_DEPLOYMENT_CHANNEL === 'container' ? 'container' : 'source'
+});
 const PORT = Number(process.env.PORT || 4242);
 const HTTPS_PORT = PORT + 1; // 4243 by default; paired with legacy PORT in isolated tests
 const HOST = process.env.HOST || '0.0.0.0';
@@ -806,6 +811,11 @@ async function apiRoute(req, res, url) {
 
   // Even in pre-enrollment legacy mode these endpoints require a real admin.
   // Neither keys nor certificate status may bypass the native RBAC boundary.
+  if (url.pathname === '/api/controller-updates' && ['GET','POST'].includes(req.method)) {
+    const manual = req.method === 'POST';
+    if (manual) await controllerAuth.assertAdministrator(req);
+    return json(res, 200, await controllerUpdates.check({manual}));
+  }
   if (req.method === 'GET' && url.pathname === '/api/settings/resource-limits') {
     await controllerAuth.assertAdministrator(req);
     return json(res,200,{limits:resourceLimitSettings.status()});

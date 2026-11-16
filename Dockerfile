@@ -60,6 +60,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends libssl3 \
     && chown -R node:node /data /logs
 
 ENV NODE_ENV=production
+ENV PFC_DEPLOYMENT_CHANNEL=container
 ENV HOST=0.0.0.0
 ENV PORT=4242
 ENV DATA_DIR=/data
