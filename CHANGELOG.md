@@ -4,6 +4,13 @@ This file contains the version-by-version release history for Print Farm Control
 
 Historical entries describe the behaviour of the controller at the time of that release and may be superseded by later versions. For current installation, configuration and supported-hardware guidance, see [README.md](README.md).
 
+## v0.68.0
+
+- Show a sidebar notice when a newer stable controller version is available. Administrators can check manually in **Users & settings → Software updates**, see the last successful check, and open the published Windows installer or view the versioned container image.
+- Show total recorded filament weight in the centre of the Reports & finance usage donut.
+- Keep filament colour swatch menus visible outside the Printer Details window, with scrolling inside long menus.
+- Update the Node.js runtime to 24.22.3 LTS and refresh the Preact and Playwright dependencies.
+
 ## v0.67.2
 
 - Show 24-hour trends beside the Dashboard counts for online, printing and needs-attention printers. Trends follow the selected printer group and hide when the tiles are too narrow.
