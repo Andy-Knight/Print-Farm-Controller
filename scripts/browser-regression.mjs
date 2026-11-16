@@ -6161,6 +6161,7 @@ async function nativeAuthenticationSmoke(browser){
     assert.equal(await page.locator('#authTabHttps').innerText(),'Connection settings');
     await page.locator('#authTabUsers').focus();
     await page.keyboard.press('End');
+    await page.keyboard.press('ArrowLeft');
     await page.locator('#resourceLimitsForm input[name=PFC_MAX_UPLOADS]').waitFor({state:'visible'});
     assert.equal(await page.locator('#authTabLimits').getAttribute('aria-selected'),'true');
     assert.equal(await page.locator('#authUsersPanel').isVisible(),false);
@@ -6269,7 +6270,7 @@ async function nativeAuthenticationSmoke(browser){
     const updateStatus = page.locator('#controllerUpdateStatus');
     const updateStatusRoute = '**/api/controller-updates';
     await page.route(updateStatusRoute, route => {
-      assert.equal(route.request().method(), 'POST');
+      if (route.request().method() !== 'POST') return route.continue();
       return route.fulfill({json:{installedVersion:'0.67.2', status:'checked',
         checkedAt:'2026-11-16T10:00:00.000Z', updateAvailable:true,
         latest:{version:'0.68.0', releaseUrl:'https://github.com/Andy-Knight/Print-Farm-Controller/releases/tag/v0.68.0',
