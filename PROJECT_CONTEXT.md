@@ -33,6 +33,7 @@ Node.js controller (src/server.js) <--- Standalone map display (public/map-displ
     +-- HTTP(S), account/session security, RBAC, resource admission and diagnostics
     +-- Printer registry, discovery, fleet state, cameras and alerts
     +-- Dashboard trends from rolling 24-hour, per-printer samples in DATA_DIR
+    +-- Read-only update discovery from GitHub Releases or GHCR, cached per controller
     +-- Printer groups and shared room maps with administrator-only editing
     +-- Print Library, compatibility, file distribution, queue/history and bed clearance
     +-- Batch control, chamber preheat, maintenance, reporting and filament costing

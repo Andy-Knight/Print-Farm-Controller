@@ -6265,8 +6265,23 @@ async function nativeAuthenticationSmoke(browser){
     assert.equal(await page.locator('#authUserAddForm').isVisible(),true,
       'arrow-key navigation switches the tab panel');
     await page.locator('#authTabUsers').press('End');
-    assert.equal(await page.locator('#authTabLimits').getAttribute('aria-selected'),'true');
-    await page.locator('#authTabLimits').press('Home');
+    assert.equal(await page.locator('#authTabUpdates').getAttribute('aria-selected'),'true');
+    const updateStatus = page.locator('#controllerUpdateStatus');
+    const updateStatusRoute = '**/api/controller-updates';
+    await page.route(updateStatusRoute, route => {
+      assert.equal(route.request().method(), 'POST');
+      return route.fulfill({json:{installedVersion:'0.67.2', status:'checked',
+        checkedAt:'2026-11-16T10:00:00.000Z', updateAvailable:true,
+        latest:{version:'0.68.0', releaseUrl:'https://github.com/Andy-Knight/Print-Farm-Controller/releases/tag/v0.68.0',
+          downloadUrl:'https://github.com/Andy-Knight/Print-Farm-Controller/releases/download/v0.68.0/PrintFarmController-Setup-v0.68.0.exe'}
+      }});
+    });
+    await page.locator('#controllerUpdateCheck').click();
+    await updateStatus.getByText('Version 0.68.0 is available.').waitFor();
+    assert.match(await page.locator('#controllerUpdateDownload').getAttribute('href'), /0\.68\.0\.exe$/);
+    assert.match(await page.locator('#controllerUpdateBadge').innerText(), /v0\.68\.0/);
+    await page.unroute(updateStatusRoute);
+    await page.locator('#authTabUpdates').press('Home');
     assert.equal(await page.locator('#authTabUsers').getAttribute('aria-selected'),'true');
     await page.locator('#authUserAddForm [name=username]').fill('shiftoperator');
     await page.locator('#authUserAddForm [name=displayName]').fill('Shift operator');

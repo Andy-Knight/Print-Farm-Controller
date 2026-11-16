@@ -85,6 +85,8 @@ read('/api/health', 'public');
 // This endpoint authorizes a separate, single-map bearer link in its handler.
 read('/api/map-display', 'public');
 read('/api/license', P.SYSTEM_READ);
+read('/api/controller-updates', P.SYSTEM_READ);
+write('POST', '/api/controller-updates', P.USER_MANAGE);
 read('/api/tls/status', P.USER_MANAGE);
 read('/api/settings/resource-limits', P.USER_MANAGE);
 write('PUT', '/api/settings/resource-limits', P.USER_MANAGE);

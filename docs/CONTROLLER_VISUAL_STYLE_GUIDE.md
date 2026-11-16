@@ -69,7 +69,7 @@ See [Authentication and RBAC](AUTHENTICATION_AND_RBAC.md#account-and-session-lif
 
 #### Connection settings
 
-Use the [standard underline tabs](#production-tab-icons--exact-catalogue) below the Users & settings heading. **Users**, **Connection settings** and **Resource limits** use the Users, Server and Sliders icons. Keep inactive panels and their controls hidden. Load the user list and certificate details when their respective tabs open.
+Use the [standard underline tabs](#production-tab-icons--exact-catalogue) below the Users & settings heading. **Users**, **Connection settings**, **Resource limits** and **Software updates** use the Users, Server, Sliders and Bell icons. Keep inactive panels and their controls hidden. Load the user list and certificate details when their respective tabs open.
 
 | Section | Presentation and behaviour |
 |---|---|
@@ -78,6 +78,10 @@ Use the [standard underline tabs](#production-tab-icons--exact-catalogue) below 
 | Self-signed certificate replacement | Show this section only when the saved mode uses controller-managed self-signed HTTPS. Keep the amber **Regenerate self-signed certificate** action after Connection settings. Require the administrator password, an acknowledgement checkbox and browser confirmation. Show busy and status feedback. |
 
 Keep the panel in the page using `auth-panel` and the shared theme tokens. Collapse to one column on narrow screens. Use clear browser-facing labels and a concrete reconnect URL after a change. Keep trust, insecure HTTP and session-revocation notices legible in both themes. When importing requires reconnecting over HTTPS, explain how to enable managed HTTPS first. See [HTTPS configuration](HTTPS_CONFIGURATION.md#safely-importing-external-pem-certificates) for PEM handling, listener behaviour, saved modes and the unchanged-settings case.
+
+#### Software updates
+
+Show the installed version, available version and last successful check in the administrator panel. Keep the status beside the **Check for updates** action. Show an amber **Update available** link beside the sidebar version only when a newer release or image is available.
 
 #### Resource limits
 

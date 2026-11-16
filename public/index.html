@@ -70,7 +70,7 @@
       <span id="liveIndicator" class="live-indicator connecting"><i></i><span>Connecting</span></span>
       <button id="licenseBtn" type="button" class="sidebar-item sidebar-licence" data-route="/licence"><span class="sidebar-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h16v12H4z M8 5h8 M8 13h8"/></svg></span><span>Licence</span></button>
       <button id="simulatorBtn" type="button" class="sidebar-item" data-route="/simulator"><span class="sidebar-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16v16H4z M8 8h8v8H8z"/></svg></span><span>Printer simulator</span></button>
-      <div class="sidebar-version">Print Farm Controller <span id="controllerVersion">v—</span><br><span id="controllerEdition">Development Edition</span></div>
+      <div class="sidebar-version">Print Farm Controller <span id="controllerVersion">v—</span><br><span id="controllerEdition">Development Edition</span><br><a id="controllerUpdateBadge" class="sidebar-update-badge" target="_blank" rel="noopener noreferrer" hidden>Update available</a></div>
     </div>
   </aside>
   <div id="sidebarBackdrop" class="sidebar-backdrop" aria-hidden="true"></div>
@@ -1690,6 +1690,7 @@
       <button id="authTabUsers" type="button" class="maintenance-view-button active" role="tab" data-pfc-icon="users" aria-selected="true" aria-controls="authUsersPanel">Users</button>
       <button id="authTabHttps" type="button" class="maintenance-view-button" role="tab" data-pfc-icon="server" aria-selected="false" aria-controls="tlsSettings" tabindex="-1">Connection settings</button>
       <button id="authTabLimits" type="button" class="maintenance-view-button" role="tab" data-pfc-icon="sliders" aria-selected="false" aria-controls="resourceLimitsSettings" tabindex="-1">Resource limits</button>
+      <button id="authTabUpdates" type="button" class="maintenance-view-button" role="tab" data-pfc-icon="bell" aria-selected="false" aria-controls="controllerUpdateSettings" tabindex="-1">Software updates</button>
     </div>
     <section id="authUsersPanel" class="auth-security-tab-panel" role="tabpanel" aria-labelledby="authTabUsers" tabindex="0" hidden>
     <div id="authUsersLayout" class="auth-users-layout" hidden>
@@ -1806,6 +1807,21 @@
       <details class="resource-limit-fixed"><summary>Fixed processing limits</summary>
         <p class="subtle">Individual print files: 512 MiB. Cloud restore downloads: 4 GiB. ZIP directories: 16 MiB / 50,000 entries. Cloud listings: 100 pages / 10,000 items. Cloud metadata: 4 MiB per response / 16 MiB per operation. File inspection: two active jobs and 16 waiting jobs. These processing safeguards cannot be changed here.</p>
       </details>
+    </section>
+    <section id="controllerUpdateSettings" class="auth-panel auth-security-tab-panel" role="tabpanel" aria-labelledby="authTabUpdates" tabindex="0" hidden>
+      <h3>Software updates</h3>
+      <dl class="auth-tls-summary">
+        <div><dt>Installed version</dt><dd id="controllerUpdateInstalled">—</dd></div>
+        <div><dt>Available version</dt><dd id="controllerUpdateLatest">—</dd></div>
+        <div><dt>Last successful check</dt><dd id="controllerUpdateCheckedAt">—</dd></div>
+      </dl>
+      <p id="controllerUpdateStatus" class="subtle" role="status"></p>
+      <p id="controllerUpdateImage" hidden>Image to deploy <code></code></p>
+      <div class="mini-actions">
+        <button id="controllerUpdateCheck" class="primary" type="button">Check for updates</button>
+        <a id="controllerUpdateDetails" class="ui-button secondary" target="_blank" rel="noopener noreferrer" hidden></a>
+        <a id="controllerUpdateDownload" class="ui-button secondary" target="_blank" rel="noopener noreferrer" hidden>Download Windows installer</a>
+      </div>
     </section>
   </section>
 

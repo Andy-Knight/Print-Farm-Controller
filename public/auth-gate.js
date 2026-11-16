@@ -381,14 +381,16 @@ async function loadUsers(){
   }catch(error){loading.textContent=errorText(error);}
 }
 const resourceLimitEditor=createResourceLimitEditor({call});
+const securityTabs=[
+  ['users','authTabUsers','authUsersPanel'],
+  ['https','authTabHttps','tlsSettings'],
+  ['limits','authTabLimits','resourceLimitsSettings'],
+  ['updates','authTabUpdates','controllerUpdateSettings']
+];
 function showSecurityTab(tab,{focus=false}={}){
   if(session?.user?.role!=='administrator')return;
-  const choice=['https','limits'].includes(tab)?tab:'users';
-  for(const [name,buttonId,panelId] of [
-    ['users','authTabUsers','authUsersPanel'],
-    ['https','authTabHttps','tlsSettings'],
-    ['limits','authTabLimits','resourceLimitsSettings']
-  ]){
+  const choice=securityTabs.some(([name])=>name===tab)?tab:'users';
+  for(const [name,buttonId,panelId] of securityTabs){
     const button=$('#'+buttonId),panel=$('#'+panelId);
     const selected=name===choice;
     panel.hidden=!selected;
@@ -399,7 +401,7 @@ function showSecurityTab(tab,{focus=false}={}){
   }
   if(choice==='https')void loadTlsSettings();
   else if(choice==='limits')void resourceLimitEditor.load();
-  else void loadUsers();
+  else if(choice==='users')void loadUsers();
 }
 function syncTlsConfigureFields(){
   const mode=$('#tlsConfigureMode')?.value;
@@ -561,18 +563,18 @@ function initializeAccountUi(){
     $('#authAdminTabs').hidden=false;
     $('#authUsersPanel').hidden=false;
     $('#usersBtn').addEventListener('click',()=>showSecurityTab('users'));
-    for(const [tab,id] of [['users','authTabUsers'],['https','authTabHttps'],['limits','authTabLimits']]){
+    for(const [tab,id] of securityTabs){
       $('#'+id).addEventListener('click',()=>showSecurityTab(tab));
     }
     $('#authAdminTabs').addEventListener('keydown',event=>{
       const keys=['ArrowLeft','ArrowRight','Home','End'];
       if(!keys.includes(event.key)||!event.target.matches('[role="tab"]'))return;
       event.preventDefault();
-      const tabs=['users','https','limits'],ids=['authTabUsers','authTabHttps','authTabLimits'];
-      const current=ids.indexOf(event.target.id);
-      const next=event.key==='Home'?0:event.key==='End'?tabs.length-1
-        :(current+(event.key==='ArrowRight'?1:tabs.length-1))%tabs.length;
-      showSecurityTab(tabs[next],{focus:true});
+      const current=securityTabs.findIndex(([,id])=>id===event.target.id);
+      const size=securityTabs.length;
+      const next=event.key==='Home'?0:event.key==='End'?size-1
+        :(current+(event.key==='ArrowRight'?1:size-1))%size;
+      showSecurityTab(securityTabs[next][0],{focus:true});
     });
     $('#tlsConfigureMode')?.addEventListener('change',syncTlsConfigureFields);
     $('#tlsConfigureForm')?.addEventListener('input',event=>{

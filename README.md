@@ -24,6 +24,12 @@ For detailed functionality and setup, use the sections below. For release-by-rel
 
 For contributing or AI-assisted development, follow [AGENTS.md](AGENTS.md) and the [Documentation policy](docs/DOCUMENTATION_POLICY.md).
 
+## Software updates
+
+The sidebar shows **Update available** when the controller finds a newer stable version. Administrators can open **Users & settings → Software updates** to check manually, see the last successful check, and open the release notes, Windows installer or container package.
+
+Windows builds check published GitHub releases for an installer. Docker and Kubernetes builds check full version tags in GHCR. The check compares version numbers, so a rebuild under the same version is outside its scope. The controller shares a cached result across browser sessions and keeps the last successful result if GitHub is unreachable. Administrators apply updates through their normal installation or deployment process.
+
 ## Diagnostics and logs
 
 Administrators can open **Diagnostics** to search retained logs, filter by severity, inspect memory usage and download a support ZIP. Printer operation starts and completions are recorded automatically at INFO; failures or blocked operations use WARN. Login/logout outcomes are recorded under the authentication subsystem with usernames, available account IDs, source IPs and rejection reasons; passwords and session/CSRF tokens are excluded. Administrators can search for authentication in Diagnostics. There is no temporary verbose mode. Logs rotate at approximately 5 MiB with seven files retained, in the application-local logs directory or the location set by LOG_DIR (the container defaults to /logs). Recognised credentials are redacted; bundles can still include printer addresses, names and job filenames. Keep the logs volume separate from controller data.
