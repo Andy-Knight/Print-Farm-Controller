@@ -21,7 +21,7 @@
     "release:windows": "node scripts/build-windows-release.mjs"
   },
   "engines": {
-    "node": ">=24.22.1",
+    "node": ">=24.22.3",
     "npm": ">=12.2.0 <13"
   },
   "devDependencies": {
