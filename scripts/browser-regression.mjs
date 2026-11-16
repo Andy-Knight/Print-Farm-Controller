@@ -6282,6 +6282,37 @@ async function nativeAuthenticationSmoke(browser){
     assert.match(await page.locator('#controllerUpdateDownload').getAttribute('href'), /0\.68\.0\.exe$/);
     assert.match(await page.locator('#controllerUpdateBadge').innerText(), /v0\.68\.0/);
     await page.unroute(updateStatusRoute);
+    assert.equal(await page.locator('#controllerUpgradeStart').isVisible(), false, 'upgrades are opt-in');
+    const upgradeRoute = '**/api/controller-upgrade';
+    const targetImage = 'ghcr.io/andy-knight/print-farm-controller:0.69.0';
+    let upgradeJob = null;
+    await page.route(upgradeRoute, route => {
+      if (route.request().method() === 'POST') {
+        assert.deepEqual(route.request().postDataJSON(), {image:targetImage});
+        upgradeJob = {id:'upgrade-fixture',phase:'requested',image:targetImage};
+      }
+      return route.fulfill({json:{enabled:true,job:upgradeJob}});
+    });
+    await page.route(updateStatusRoute, route => route.fulfill({json:{
+      installedVersion:controllerVersion,status:'checked',updateAvailable:true,
+      latest:{version:'0.69.0',image:targetImage,
+        packageUrl:'https://github.com/Andy-Knight/Print-Farm-Controller/pkgs/container/print-farm-controller'}
+    }}));
+    await page.locator('#controllerUpdateCheck').click();
+    const upgradeButton = page.locator('#controllerUpgradeStart');
+    await upgradeButton.waitFor({state:'visible'});
+    page.once('dialog', async dialog => {
+      assert.ok(dialog.message().includes(targetImage));
+      await dialog.accept();
+    });
+    await upgradeButton.click();
+    const upgradeNotice = page.locator('#controllerUpgradeStatus');
+    await upgradeNotice.getByText(/Upgrade requested/).waitFor();
+    assert.equal(await upgradeButton.isDisabled(), true);
+    upgradeJob = {...upgradeJob,phase:'succeeded',previousImage:'ghcr.io/andy-knight/print-farm-controller:0.68.0'};
+    await upgradeNotice.getByText(/replacement controller container is healthy/).waitFor();
+    await page.unroute(upgradeRoute);
+    await page.unroute(updateStatusRoute);
     await page.locator('#authTabUpdates').press('Home');
     assert.equal(await page.locator('#authTabUsers').getAttribute('aria-selected'),'true');
     await page.locator('#authUserAddForm [name=username]').fill('shiftoperator');

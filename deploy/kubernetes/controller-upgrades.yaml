@@ -1,0 +1,93 @@
+# Optional. Apply in the same namespace as print-farm-controller.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: print-farm-controller-upgrade
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: print-farm-controller-upgrade-requester
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: print-farm-controller-updater
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: print-farm-controller-upgrade-mailbox
+rules:
+  - apiGroups: [""]
+    resources: ["configmaps"]
+    resourceNames: ["print-farm-controller-upgrade"]
+    verbs: ["get", "patch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: print-farm-controller-upgrade-mailbox
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: print-farm-controller-upgrade-mailbox
+subjects:
+  - kind: ServiceAccount
+    name: print-farm-controller-upgrade-requester
+  - kind: ServiceAccount
+    name: print-farm-controller-updater
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: print-farm-controller-updater
+rules:
+  - apiGroups: ["apps"]
+    resources: ["deployments"]
+    resourceNames: ["print-farm-controller"]
+    verbs: ["get", "patch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: print-farm-controller-updater
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: print-farm-controller-updater
+subjects:
+  - kind: ServiceAccount
+    name: print-farm-controller-updater
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: print-farm-controller-updater
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: print-farm-controller-updater
+  template:
+    metadata:
+      labels:
+        app: print-farm-controller-updater
+    spec:
+      serviceAccountName: print-farm-controller-updater
+      automountServiceAccountToken: true
+      containers:
+        - name: updater
+          # Pin to a published image that includes the Kubernetes upgrade worker.
+          image: ghcr.io/andy-knight/print-farm-controller:latest
+          imagePullPolicy: Always
+          command: ["node", "/app/src/kubernetes-upgrade-worker.js"]
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+            runAsUser: 1000
+            capabilities:
+              drop: ["ALL"]

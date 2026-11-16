@@ -6,7 +6,50 @@ export function initControllerUpdates(api) {
   const details = get('controllerUpdateDetails');
   const download = get('controllerUpdateDownload');
   const image = get('controllerUpdateImage');
+  const upgradeButton = get('controllerUpgradeStart');
+  const upgradeStatus = get('controllerUpgradeStatus');
+  const administrator = document.body.dataset.authRole === 'administrator';
+  let candidate;
+  let upgradeEnabled = false;
+  let upgradeJob;
+  let requestError = '';
+  let upgradeRefresh = 0;
+  let submitting = false;
   let checking = false;
+
+  function renderUpgrade() {
+    const pending = ['requested','deploying'].includes(upgradeJob?.phase);
+    upgradeButton.hidden = !upgradeEnabled || !candidate;
+    upgradeButton.disabled = checking || submitting || pending;
+    const messages = {
+      requested:'Upgrade requested. The controller will briefly disconnect.',
+      deploying:'Replacing the controller container. Waiting for it to become healthy.',
+      succeeded:'The replacement controller container is healthy.'
+    };
+    upgradeStatus.textContent = requestError || (upgradeJob?.phase === 'failed'
+      ? upgradeJob.message : messages[upgradeJob?.phase] || '');
+    if (upgradeJob?.previousImage && !pending) {
+      upgradeStatus.textContent += ` Previous image: ${upgradeJob.previousImage}`;
+    }
+  }
+
+  async function readUpgrade() {
+    if (!administrator || submitting || document.hidden || get('controllerUpdateSettings').hidden
+      || get('usersDialog').hidden) return;
+    const refresh = ++upgradeRefresh;
+    try {
+      const {enabled, job} = await api('/api/controller-upgrade');
+      if (refresh !== upgradeRefresh) return;
+      upgradeEnabled = enabled;
+      if (job?.id !== upgradeJob?.id || job?.phase !== upgradeJob?.phase) requestError = '';
+      upgradeJob = job;
+      renderUpgrade();
+    } catch {
+      if (refresh === upgradeRefresh && upgradeEnabled) {
+        upgradeStatus.textContent = 'Cannot reach the updater. Reconnect to check rollout status.';
+      }
+    }
+  }
 
   function setLink(link, href) {
     link.hidden = !href;
@@ -18,6 +61,7 @@ export function initControllerUpdates(api) {
     if (checking || (!manual && document.hidden)) return;
     checking = true;
     button.disabled = true;
+    renderUpgrade();
     status.textContent = 'Checking for updates…';
     try {
       const {installedVersion, status:result, checkedAt, latest, updateAvailable} = await api(
@@ -34,18 +78,46 @@ export function initControllerUpdates(api) {
       setLink(download, updateAvailable ? latest.downloadUrl : null);
       image.hidden = !updateAvailable || !latest?.image;
       image.querySelector('code').textContent = image.hidden ? '' : latest.image;
+      candidate = result === 'checked' && updateAvailable ? latest.image : null;
       status.textContent = result === 'unavailable' ? 'Could not check for updates. Try again later.'
         : updateAvailable ? `Version ${latest.version} is available.`
         : result === 'checked' ? 'No newer version is available.' : 'Update checks are unavailable for this build.';
     } catch {
+      candidate = null;
       status.textContent = 'Could not check for updates. Try again later.';
     } finally {
       checking = false;
       button.disabled = false;
+      renderUpgrade();
     }
   }
 
   button.addEventListener('click', () => void check(true));
+  upgradeButton.addEventListener('click', async () => {
+    if (!candidate || upgradeButton.disabled) return;
+    const target = candidate;
+    if (!window.confirm(`Upgrade the controller to ${target}? The controller will briefly disconnect.`)) return;
+    submitting = true;
+    upgradeRefresh++;
+    requestError = '';
+    renderUpgrade();
+    try {
+      const {job} = await api('/api/controller-upgrade', {method:'POST', body:JSON.stringify({image:target})});
+      upgradeJob = job;
+      renderUpgrade();
+    } catch (error) {
+      requestError = error.message;
+      renderUpgrade();
+    } finally {
+      submitting = false;
+      upgradeButton.disabled = checking || ['requested','deploying'].includes(upgradeJob?.phase);
+    }
+  });
+  if (administrator) {
+    const updatePanel = get('controllerUpdateSettings');
+    new MutationObserver(() => void readUpgrade()).observe(updatePanel, {attributes:true, attributeFilter:['hidden']});
+    setInterval(readUpgrade, 5000);
+  }
   document.addEventListener('visibilitychange', () => { if (!document.hidden) void check(); });
   void check();
   setInterval(check, 15 * 60 * 1000);

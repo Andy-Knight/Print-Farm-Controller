@@ -87,6 +87,8 @@ read('/api/map-display', 'public');
 read('/api/license', P.SYSTEM_READ);
 read('/api/controller-updates', P.SYSTEM_READ);
 write('POST', '/api/controller-updates', P.USER_MANAGE);
+read('/api/controller-upgrade', P.USER_MANAGE);
+write('POST', '/api/controller-upgrade', P.USER_MANAGE);
 read('/api/tls/status', P.USER_MANAGE);
 read('/api/settings/resource-limits', P.USER_MANAGE);
 write('PUT', '/api/settings/resource-limits', P.USER_MANAGE);
