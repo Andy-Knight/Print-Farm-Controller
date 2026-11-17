@@ -6137,10 +6137,55 @@ async function nativeAuthenticationSmoke(browser){
     await page.locator('#diagnosticsRefreshBtn').click();
     await page.locator('#diagnosticsLevel').selectOption('');
     await page.locator('#diagnosticsSearch').fill('');
+    const bundleRoute='**/api/diagnostics/bundle';
+    const bundleButton=page.locator('#diagnosticsBundleBtn');
+    const bundleStatus=page.locator('#diagnosticsBundleStatus');
+    let failBundle;
+    const allowFailure=new Promise(resolve=>{failBundle=resolve;});
+    await page.route(bundleRoute, async route=>{
+      await allowFailure;
+      await route.abort('connectionreset');
+    });
+    await bundleButton.click();
+    await bundleStatus.getByText('Preparing diagnostic bundle…').waitFor();
+    assert.equal(await bundleButton.isDisabled(),true);
+    failBundle();
+    await bundleStatus.getByText(/download from the controller was interrupted/i).waitFor();
+    assert.equal(await bundleButton.isEnabled(),true);
+    await page.unroute(bundleRoute);
+
+    let releaseStalledBundle;
+    const stalledBundle=new Promise(resolve=>{releaseStalledBundle=resolve;});
+    const stallBundle=async route=>{
+      await stalledBundle;
+      await route.abort().catch(()=>{});
+    };
+    await page.route(bundleRoute,stallBundle);
+    await page.evaluate(()=>{
+      const timeout=AbortSignal.timeout;
+      AbortSignal.timeout=function(ms){
+        if (ms !== 120_000) return timeout.call(this,ms);
+        AbortSignal.timeout=timeout;
+        return timeout.call(this,500);
+      };
+    });
+    try {
+      await bundleButton.click();
+      await bundleStatus.getByText(/diagnostic bundle download timed out/i).waitFor();
+      assert.equal(await bundleButton.isEnabled(),true);
+    } finally {
+      releaseStalledBundle();
+      await page.unroute(bundleRoute,stallBundle);
+    }
+
     const downloadPromise=page.waitForEvent('download');
-    await page.locator('#diagnosticsBundleBtn').click();
+    await bundleButton.click();
     const diagnosticDownload=await downloadPromise;
     assert.equal(await diagnosticDownload.failure(),null,'administrator can download diagnostic ZIP');
+    assert.match(diagnosticDownload.suggestedFilename(),/^PrintFarmController-Diagnostics-.+\.zip$/);
+    const diagnosticZip=await fs.readFile(await diagnosticDownload.path());
+    assert.equal(diagnosticZip.readUInt32LE(0),0x04034b50);
+    assert.equal(diagnosticZip.readUInt32LE(diagnosticZip.length-22),0x06054b50);
 
     await page.locator('#usersBtn').click();
     await page.locator('#authUserAddForm').waitFor({state:'visible'});
