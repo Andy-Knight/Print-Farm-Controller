@@ -6153,6 +6153,31 @@ async function nativeAuthenticationSmoke(browser){
     await bundleStatus.getByText(/download from the controller was interrupted/i).waitFor();
     assert.equal(await bundleButton.isEnabled(),true);
     await page.unroute(bundleRoute);
+
+    let releaseStalledBundle;
+    const stalledBundle=new Promise(resolve=>{releaseStalledBundle=resolve;});
+    const stallBundle=async route=>{
+      await stalledBundle;
+      await route.abort().catch(()=>{});
+    };
+    await page.route(bundleRoute,stallBundle);
+    await page.evaluate(()=>{
+      const timeout=AbortSignal.timeout;
+      AbortSignal.timeout=function(ms){
+        if (ms !== 120_000) return timeout.call(this,ms);
+        AbortSignal.timeout=timeout;
+        return timeout.call(this,500);
+      };
+    });
+    try {
+      await bundleButton.click();
+      await bundleStatus.getByText(/diagnostic bundle download timed out/i).waitFor();
+      assert.equal(await bundleButton.isEnabled(),true);
+    } finally {
+      releaseStalledBundle();
+      await page.unroute(bundleRoute,stallBundle);
+    }
+
     const downloadPromise=page.waitForEvent('download');
     await bundleButton.click();
     const diagnosticDownload=await downloadPromise;

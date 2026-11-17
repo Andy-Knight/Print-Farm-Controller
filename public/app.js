@@ -1327,8 +1327,11 @@ async function downloadDiagnosticBundle() {
   if (button.disabled) return;
   button.disabled = true;
   status.textContent = 'Preparing diagnostic bundle…';
+  const deadline = AbortSignal.timeout(120_000);
   try {
-    const response = await fetch('/api/diagnostics/bundle', {cache:'no-store'});
+    const response = await fetch('/api/diagnostics/bundle', {
+      cache:'no-store', signal:deadline
+    });
     if ([401,403].includes(response.status)) {
       throw new Error('Sign in as an administrator to download the diagnostic bundle.');
     }
@@ -1355,9 +1358,13 @@ async function downloadDiagnosticBundle() {
       setTimeout(() => URL.revokeObjectURL(url), 30_000);
     }
   } catch (error) {
-    status.textContent = error instanceof TypeError
-      ? 'The download from the controller was interrupted. Try downloading it again.'
-      : error.message;
+    if (deadline.aborted) {
+      status.textContent = 'The diagnostic bundle download timed out. Try downloading it again.';
+    } else if (error instanceof TypeError) {
+      status.textContent = 'The download from the controller was interrupted. Try downloading it again.';
+    } else {
+      status.textContent = error.message;
+    }
   } finally {
     button.disabled = false;
   }
