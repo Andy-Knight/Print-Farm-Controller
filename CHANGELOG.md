@@ -4,6 +4,11 @@ This file contains the version-by-version release history for Print Farm Control
 
 Historical entries describe the behaviour of the controller at the time of that release and may be superseded by later versions. For current installation, configuration and supported-hardware guidance, see [README.md](README.md).
 
+## v0.68.1
+
+- Show progress and retry messages for diagnostic ZIP downloads. Report interrupted or stalled downloads in the controller and re-enable the download button.
+- Add opt-in, administrator-initiated controller container upgrades for single-replica Kubernetes and K3s deployments. Track rollout status and record the previous image for manual recovery.
+
 ## v0.68.0
 
 - Show a sidebar notice when a newer stable controller version is available. Administrators can check manually in **Users & settings → Software updates**, see the last successful check, and open the published Windows installer or view the versioned container image.
