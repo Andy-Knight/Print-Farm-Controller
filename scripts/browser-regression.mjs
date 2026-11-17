@@ -5329,8 +5329,25 @@ async function simulatorSseSmoke(browser,url) {
 
     const materialSelect=materialEditor.locator('[data-toolhead-material]');
     await materialSelect.selectOption('PETG');
-    await materialEditor.locator('.color-family-dropdown summary').click();
+    const colourTrigger=materialEditor.locator('.color-family-dropdown summary');
+    const colourMenu=materialEditor.locator('.color-family-menu');
+    const printerDialog=page.locator('#printerDialog');
+    await printerDialog.evaluate(dialog=>{dialog.style.maxHeight='500px';});
+    await colourTrigger.scrollIntoViewIfNeeded();
+    const dialogScrollHeight=await printerDialog.evaluate(dialog=>dialog.scrollHeight);
+    await colourTrigger.click();
+    await materialEditor.locator('.color-family-menu:popover-open').waitFor();
+    const dialogBounds=await printerDialog.boundingBox();
+    const menuBounds=await colourMenu.boundingBox();
+    assert.ok(menuBounds.y<dialogBounds.y || menuBounds.y+menuBounds.height>dialogBounds.y+dialogBounds.height,
+      'filament colours can extend past the modal edge');
+    assert.equal(await printerDialog.evaluate(dialog=>dialog.scrollHeight),dialogScrollHeight);
+    await page.keyboard.press('Escape');
+    await materialEditor.locator('.color-family-dropdown:not([open])').waitFor();
+    assert.ok(await printerDialog.isVisible(), 'Escape only dismisses the colour popup');
+    await colourTrigger.click();
     await materialEditor.locator('[data-toolhead-color-option="blue"]').click();
+    await printerDialog.evaluate(dialog=>{dialog.style.removeProperty('max-height');});
     assert.ok(await materialEditor.locator('[data-toolhead-save]').isEnabled(),
       'changed filament type and colour can be submitted');
     await page.evaluate(()=>{
@@ -6164,6 +6181,7 @@ async function nativeAuthenticationSmoke(browser){
     assert.equal(await page.locator('#authTabHttps').innerText(),'Connection settings');
     await page.locator('#authTabUsers').focus();
     await page.keyboard.press('End');
+    await page.keyboard.press('ArrowLeft');
     await page.locator('#resourceLimitsForm input[name=PFC_MAX_UPLOADS]').waitFor({state:'visible'});
     assert.equal(await page.locator('#authTabLimits').getAttribute('aria-selected'),'true');
     assert.equal(await page.locator('#authUsersPanel').isVisible(),false);
@@ -6268,8 +6286,54 @@ async function nativeAuthenticationSmoke(browser){
     assert.equal(await page.locator('#authUserAddForm').isVisible(),true,
       'arrow-key navigation switches the tab panel');
     await page.locator('#authTabUsers').press('End');
-    assert.equal(await page.locator('#authTabLimits').getAttribute('aria-selected'),'true');
-    await page.locator('#authTabLimits').press('Home');
+    assert.equal(await page.locator('#authTabUpdates').getAttribute('aria-selected'),'true');
+    const updateStatus = page.locator('#controllerUpdateStatus');
+    const updateStatusRoute = '**/api/controller-updates';
+    await page.route(updateStatusRoute, route => {
+      if (route.request().method() !== 'POST') return route.continue();
+      return route.fulfill({json:{installedVersion:'0.67.2', status:'checked',
+        checkedAt:'2026-11-16T10:00:00.000Z', updateAvailable:true,
+        latest:{version:'0.68.0', releaseUrl:'https://github.com/Andy-Knight/Print-Farm-Controller/releases/tag/v0.68.0',
+          downloadUrl:'https://github.com/Andy-Knight/Print-Farm-Controller/releases/download/v0.68.0/PrintFarmController-Setup-v0.68.0.exe'}
+      }});
+    });
+    await page.locator('#controllerUpdateCheck').click();
+    await updateStatus.getByText('Version 0.68.0 is available.').waitFor();
+    assert.match(await page.locator('#controllerUpdateDownload').getAttribute('href'), /0\.68\.0\.exe$/);
+    assert.match(await page.locator('#controllerUpdateBadge').innerText(), /v0\.68\.0/);
+    await page.unroute(updateStatusRoute);
+    assert.equal(await page.locator('#controllerUpgradeStart').isVisible(), false, 'upgrades are opt-in');
+    const upgradeRoute = '**/api/controller-upgrade';
+    const targetImage = 'ghcr.io/andy-knight/print-farm-controller:0.69.0';
+    let upgradeJob = null;
+    await page.route(upgradeRoute, route => {
+      if (route.request().method() === 'POST') {
+        assert.deepEqual(route.request().postDataJSON(), {image:targetImage});
+        upgradeJob = {id:'upgrade-fixture',phase:'requested',image:targetImage};
+      }
+      return route.fulfill({json:{enabled:true,job:upgradeJob}});
+    });
+    await page.route(updateStatusRoute, route => route.fulfill({json:{
+      installedVersion:controllerVersion,status:'checked',updateAvailable:true,
+      latest:{version:'0.69.0',image:targetImage,
+        packageUrl:'https://github.com/Andy-Knight/Print-Farm-Controller/pkgs/container/print-farm-controller'}
+    }}));
+    await page.locator('#controllerUpdateCheck').click();
+    const upgradeButton = page.locator('#controllerUpgradeStart');
+    await upgradeButton.waitFor({state:'visible'});
+    page.once('dialog', async dialog => {
+      assert.ok(dialog.message().includes(targetImage));
+      await dialog.accept();
+    });
+    await upgradeButton.click();
+    const upgradeNotice = page.locator('#controllerUpgradeStatus');
+    await upgradeNotice.getByText(/Upgrade requested/).waitFor();
+    assert.equal(await upgradeButton.isDisabled(), true);
+    upgradeJob = {...upgradeJob,phase:'succeeded',previousImage:'ghcr.io/andy-knight/print-farm-controller:0.68.0'};
+    await upgradeNotice.getByText(/replacement controller container is healthy/).waitFor();
+    await page.unroute(upgradeRoute);
+    await page.unroute(updateStatusRoute);
+    await page.locator('#authTabUpdates').press('Home');
     assert.equal(await page.locator('#authTabUsers').getAttribute('aria-selected'),'true');
     await page.locator('#authUserAddForm [name=username]').fill('shiftoperator');
     await page.locator('#authUserAddForm [name=displayName]').fill('Shift operator');

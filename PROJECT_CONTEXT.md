@@ -11,8 +11,8 @@ Repository policy: `AGENTS.md` defines agent startup behavior; `docs/DOCUMENTATI
 - Repository: `Andy-Knight/Print-Farm-Controller`
 - Project path: repository root (`/`)
 - Primary branch: `main` (current production baseline)
-- Current controller source version: **0.67.2**.
-- Runtime: **Node.js 24.22.1+** (Node 24 release line), ES modules; build-time **npm 12.2.0** and committed lockfile; no npm runtime dependency for deployed controller. Follow `docs/dependency-security.md` for updates.
+- Current controller source version: **0.68.0**.
+- Runtime: **Node.js 24.22.3+** (Node 24 release line), ES modules; build-time **npm 12.2.0** and committed lockfile; no npm runtime dependency for deployed controller. Follow `docs/dependency-security.md` for updates.
 - GitHub is the authoritative code baseline.
 - `CHANGELOG.md` owns all per-version release history. `README.md` describes the current product; this file contains active project context, not a release diary. See `docs/DOCUMENTATION_POLICY.md`.
 
@@ -33,6 +33,8 @@ Node.js controller (src/server.js) <--- Standalone map display (public/map-displ
     +-- HTTP(S), account/session security, RBAC, resource admission and diagnostics
     +-- Printer registry, discovery, fleet state, cameras and alerts
     +-- Dashboard trends from rolling 24-hour, per-printer samples in DATA_DIR
+    +-- Read-only update discovery from GitHub Releases or GHCR, cached per controller
+    +-- Optional Kubernetes upgrades through a per-namespace request ConfigMap and separate updater
     +-- Printer groups and shared room maps with administrator-only editing
     +-- Print Library, compatibility, file distribution, queue/history and bed clearance
     +-- Batch control, chamber preheat, maintenance, reporting and filament costing

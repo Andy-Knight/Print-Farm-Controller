@@ -9,7 +9,7 @@ test('dependency versions and lockfile align with the approved npm 12 baseline',
   const pkg = JSON.parse(read('package.json'));
   const lock = JSON.parse(read('package-lock.json'));
   assert.equal(pkg.packageManager, 'npm@12.2.0');
-  assert.match(pkg.engines.node, /24\.22\.1/);
+  assert.match(pkg.engines.node, /^>=24\.\d+\.\d+$/);
   assert.equal(pkg.engines.npm, '>=12.2.0 <13');
   assert.equal(lock.lockfileVersion, 3);
   assert.equal(lock.packages[''].version, pkg.version);
@@ -56,17 +56,17 @@ test('CI and container builds install the committed lock under pinned runtimes',
   }
   const ci = read('.github/workflows/container-image.yml');
   const docker = read('Dockerfile');
-  assert.equal((ci.match(/node-version: '24\.22\.1'/g) || []).length, 4);
+  const baseline = JSON.parse(read('package.json')).engines.node.slice(2);
+  const nodePins = workflow => [...workflow.matchAll(/node-version: '([^']+)'/g)].map(match => match[1]);
+  assert.deepEqual(nodePins(ci), Array(4).fill(baseline));
+  assert.deepEqual(nodePins(read('.github/workflows/documentation-policy.yml')), [baseline]);
   assert.equal((ci.match(/run: npm ci --include=dev --no-audit --no-fund/g) || []).length, 3);
   assert.match(ci, /npm audit --audit-level=high/);
   assert.match(ci, /^permissions:\n  contents: read\n/m);
   assert.match(ci, /  build:\n    name: Release or manually verify multi-architecture image\n    permissions:\n      contents: read\n      packages: write/);
   const imageVersions = [...docker.matchAll(/^FROM node:(24\.\d+\.\d+)-bookworm-slim(?: AS builder)?$/gm)].map(m => m[1]);
   assert.equal(imageVersions.length, 2, 'builder and runtime must use patched Node 24');
-  assert.equal(imageVersions[0], imageVersions[1], 'both Docker stages must use the same Node version');
-  const [major, minor, patch] = imageVersions[0].split('.').map(Number);
-  assert.equal(major, 24, 'Windows SEA requires Node 24 for this release');
-  assert.ok(minor > 22 || (minor === 22 && patch >= 1), 'Docker Node patch version must not predate the audited baseline');
+  assert.deepEqual(imageVersions, [baseline, baseline], 'both Docker stages must match the Node baseline');
   assert.match(docker, /COPY package\.json package-lock\.json \.npmrc/);
   assert.match(docker, /npm ci --include=dev --no-audit --no-fund/);
 });

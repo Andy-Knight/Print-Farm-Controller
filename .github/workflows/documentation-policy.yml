@@ -42,7 +42,7 @@ jobs:
       - name: Set up Node.js 24
         uses: actions/setup-node@v7
         with:
-          node-version: '24.22.1'
+          node-version: '24.22.3'
       - name: Validate documentation and release metadata
         run: node --test test/documentation-policy.test.js test/release-version.test.js
 

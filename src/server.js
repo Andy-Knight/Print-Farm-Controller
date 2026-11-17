@@ -4,6 +4,8 @@ import {deleteLibraryFileAndHistory} from './library-deletion.js';
 import {libraryOwnershipInventory,libraryOwnershipHistory,reassignLibraryOwner,libraryStorageInventory} from './print-library.js';
 import {configuredLimit, ResourceAdmission} from './security/resource-limits.js';
 import {ResourceLimitSettings} from './security/resource-limit-settings.js';
+import {ControllerUpdateCheck} from './controller-update-check.js';
+import {inClusterUpgradeClient, mailboxJob, requestedUpgrade, upgradePending} from './kubernetes-upgrade.js';
 import {withOperationBudget,cancelActiveOperations} from './security/operation-budget.js';
 const streamAdmission=new StreamAdmission();
 import {secureWindowsDataDirectories} from './security/windows-data-permissions.js';
@@ -101,6 +103,12 @@ const bundledGoogleClientSecret = typeof __PFC_GOOGLE_CLIENT_SECRET__ === 'strin
 const bundledMicrosoftClientId = typeof __PFC_MICROSOFT_CLIENT_ID__ === 'string' ? __PFC_MICROSOFT_CLIENT_ID__ : '';
 const packageInfo = PACKAGE_PATH ? JSON.parse(readFileSync(PACKAGE_PATH, 'utf8')) : {};
 const CONTROLLER_VERSION = String(bundledVersion || packageInfo.version || 'unknown');
+const controllerUpdates = new ControllerUpdateCheck({
+  version:CONTROLLER_VERSION,
+  channel:runtimePaths.runningAsSea ? 'windows' : process.env.PFC_DEPLOYMENT_CHANNEL === 'container' ? 'container' : 'source'
+});
+const kubernetesUpgradeEnabled = controllerUpdates.channel === 'container' && process.env.PFC_KUBERNETES_UPGRADES === '1';
+let upgradeClient, upgradeMonitor, upgradeLocked = false;
 const PORT = Number(process.env.PORT || 4242);
 const HTTPS_PORT = PORT + 1; // 4243 by default; paired with legacy PORT in isolated tests
 const HOST = process.env.HOST || '0.0.0.0';
@@ -287,7 +295,7 @@ function currentLicenseSnapshot(printers = fleetState.getFleet()) {
   });
 }
 
-function restorePhysicalActivityBlockers() {
+function restorePhysicalActivityBlockers({includeSimulated = false} = {}) {
   const blockers = [];
   const activeQueue = printQueue?.getSnapshot?.().active || 0;
   if (activeQueue > 0) blockers.push(`${activeQueue} controller queue operation${activeQueue === 1 ? '' : 's'} are active`);
@@ -295,12 +303,12 @@ function restorePhysicalActivityBlockers() {
   const fleetById = new Map(decoratedFleet().map((printer) => [printer.id, printer]));
   for (const operation of printerOperations.activeOperations()) {
     const printer = fleetById.get(operation.printerId);
-    if (!printer || isControllerSimulator(printer)) continue;
+    if (!printer || (!includeSimulated && isControllerSimulator(printer))) continue;
     blockers.push(`${printer.name || printer.id}: ${operation.label || 'controller operation'}`);
   }
 
   for (const printer of fleetById.values()) {
-    if (isControllerSimulator(printer)) continue;
+    if (!includeSimulated && isControllerSimulator(printer)) continue;
     const state = String(printer?.status?.status || '').trim().toLowerCase();
     const activePrint = ['printing','working','building_from_sd','pause','paused'].includes(state)
       || (state === 'heating' && Boolean(printer?.status?.fileName));
@@ -309,6 +317,72 @@ function restorePhysicalActivityBlockers() {
     if (printer?.controllerActivity) blockers.push(`${printer.name || printer.id}: ${printer.controllerActivity.label || printer.controllerActivity.kind || 'controller operation'}`);
   }
   return [...new Set(blockers)];
+}
+
+function lockForControllerUpgrade() {
+  upgradeLocked = true;
+  printQueue.setDispatchPaused(true);
+  scheduledBackupService.stop();
+}
+
+function monitorControllerUpgrade(uncertainRequest) {
+  if (upgradeMonitor) return;
+  const check = async () => {
+    try {
+      const status = await upgradeClient.readMailbox();
+      if (uncertainRequest && status.metadata.resourceVersion === uncertainRequest.resourceVersion) {
+        // Fence off a delayed PATCH after an ambiguous transport failure.
+        await upgradeClient.writeMailbox(status, {...uncertainRequest.job, phase:'failed',
+          message:'The upgrade request could not be confirmed. Check for updates and try again.'});
+      }
+      if (!upgradePending(mailboxJob(status))) {
+        upgradeMonitor = undefined;
+        upgradeLocked = false;
+        printQueue.setDispatchPaused(false);
+        scheduledBackupService.start().catch(error => console.warn('Scheduled backup service unavailable:', error.message));
+        return;
+      }
+    } catch {
+      // An interrupted response cannot confirm whether the updater accepted the request.
+    }
+    upgradeMonitor = setTimeout(check, 3000);
+    upgradeMonitor.unref();
+  };
+  upgradeMonitor = setTimeout(check, 3000);
+  upgradeMonitor.unref();
+}
+
+async function requestControllerUpgrade(req) {
+  const body = await readJson(req);
+  const available = await controllerUpdates.check({manual:true});
+  if (available.status !== 'checked' || !available.updateAvailable || body?.image !== available.latest?.image) {
+    throw Object.assign(new Error('Check for updates again and confirm the current published image.'), {statusCode:409});
+  }
+  const mailbox = await upgradeClient.readMailbox();
+  if (upgradeLocked || upgradePending(mailboxJob(mailbox))) {
+    throw Object.assign(new Error('A controller upgrade is already pending.'), {statusCode:409});
+  }
+  const blockers = restorePhysicalActivityBlockers({includeSimulated:true});
+  if (printQueue.startingPrinters.size) blockers.push('A queued print is starting');
+  if (activeMutationRequests > 1) blockers.push('Another controller change or upload is in progress');
+  if (backupOperationLock.isBusy()) blockers.push('A backup or restore is in progress');
+  if (blockers.length) {
+    throw Object.assign(new Error(`Upgrade when the farm is idle. ${blockers.join('. ')}.`), {statusCode:409});
+  }
+  const job = requestedUpgrade(body.image);
+  // Pause dispatch and block new changes before the request can reach the updater.
+  lockForControllerUpgrade();
+  let uncertainRequest;
+  try {
+    await upgradeClient.writeMailbox(mailbox, job);
+    void diagnosticLogger.info('upgrade', 'Kubernetes controller upgrade requested', {id:job.id,image:job.image,userId:req.pfcUser?.id});
+  } catch (error) {
+    uncertainRequest = {job,resourceVersion:mailbox.metadata.resourceVersion};
+    throw error;
+  } finally {
+    monitorControllerUpgrade(uncertainRequest);
+  }
+  return job;
 }
 
 function printerLicensedForNewWork(printerId) {
@@ -806,6 +880,20 @@ async function apiRoute(req, res, url) {
 
   // Even in pre-enrollment legacy mode these endpoints require a real admin.
   // Neither keys nor certificate status may bypass the native RBAC boundary.
+  if (url.pathname === '/api/controller-updates' && ['GET','POST'].includes(req.method)) {
+    const manual = req.method === 'POST';
+    if (manual) await controllerAuth.assertAdministrator(req);
+    return json(res, 200, await controllerUpdates.check({manual}));
+  }
+  if (url.pathname === '/api/controller-upgrade' && ['GET','POST'].includes(req.method)) {
+    await controllerAuth.assertAdministrator(req);
+    if (req.method === 'GET') {
+      if (!upgradeClient) return json(res, 200, {enabled:false});
+      return json(res, 200, {enabled:true, job:mailboxJob(await upgradeClient.readMailbox())});
+    }
+    if (!upgradeClient) return json(res, 409, {error:'Kubernetes upgrades are not enabled.'});
+    return json(res, 202, {enabled:true, job:await requestControllerUpgrade(req)});
+  }
   if (req.method === 'GET' && url.pathname === '/api/settings/resource-limits') {
     await controllerAuth.assertAdministrator(req);
     return json(res,200,{limits:resourceLimitSettings.status()});
@@ -2867,6 +2955,9 @@ async function handleControllerRequest(req, res) {
   try {
     if (await controllerAuth.route(req,res,url,{json,readJson})) return;
     if (!await controllerAuth.authorize(req,res,url,{json})) return;
+    if (countedMutation && upgradeLocked) {
+      return json(res, 409, {error:'Controller upgrade in progress. Try again after the restart.'});
+    }
     if(url.pathname==='/api/events'||url.pathname.endsWith('/camera/stream'))streamAdmission.admit(req,res);
     if (url.pathname.startsWith('/api/emulator')) {
       if ((restorePendingRestart || restoreInspectionInProgress) && ['POST','PUT','PATCH','DELETE'].includes(req.method)) {
@@ -2936,6 +3027,7 @@ async function handleControllerRequest(req, res) {
 }
 
 async function shutdown() {
+  clearTimeout(upgradeMonitor);
   await fleetHistory.stop();
   libraryStorageStopped=true;
   clearInterval(libraryStorageTimer);
@@ -3141,6 +3233,15 @@ async function startController() {
     scheduleLibraryHistoryFlush();
     await sampleLibraryStorage(true).catch(error=>console.warn('Library storage measurement unavailable: '+error.message));
     libraryStorageTimer=setInterval(refreshLibraryStorage,5*60*1000);libraryStorageTimer.unref();
+    if (kubernetesUpgradeEnabled) {
+      upgradeClient = await inClusterUpgradeClient();
+      try {
+        if (upgradePending(mailboxJob(await upgradeClient.readMailbox()))) lockForControllerUpgrade();
+      } catch {
+        lockForControllerUpgrade();
+      }
+      if (upgradeLocked) monitorControllerUpgrade();
+    }
     await printQueue.start();
     chamberPreheat.startService();
     const tlsOptions = await controllerTls.init();
@@ -3169,7 +3270,7 @@ async function startController() {
 
     await fleetHistory.start();
     try {
-      await scheduledBackupService.start();
+      if (!upgradeLocked) await scheduledBackupService.start();
     } catch (error) {
       await diagnosticLogger.warn('backup', 'Scheduled backup service could not start', {
         error:error?.message || String(error)

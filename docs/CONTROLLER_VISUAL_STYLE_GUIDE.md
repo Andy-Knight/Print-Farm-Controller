@@ -69,7 +69,7 @@ See [Authentication and RBAC](AUTHENTICATION_AND_RBAC.md#account-and-session-lif
 
 #### Connection settings
 
-Use the [standard underline tabs](#production-tab-icons--exact-catalogue) below the Users & settings heading. **Users**, **Connection settings** and **Resource limits** use the Users, Server and Sliders icons. Keep inactive panels and their controls hidden. Load the user list and certificate details when their respective tabs open.
+Use the [standard underline tabs](#production-tab-icons--exact-catalogue) below the Users & settings heading. **Users**, **Connection settings**, **Resource limits** and **Software updates** use the Users, Server, Sliders and Bell icons. Keep inactive panels and their controls hidden. Load the user list and certificate details when their respective tabs open.
 
 | Section | Presentation and behaviour |
 |---|---|
@@ -78,6 +78,12 @@ Use the [standard underline tabs](#production-tab-icons--exact-catalogue) below 
 | Self-signed certificate replacement | Show this section only when the saved mode uses controller-managed self-signed HTTPS. Keep the amber **Regenerate self-signed certificate** action after Connection settings. Require the administrator password, an acknowledgement checkbox and browser confirmation. Show busy and status feedback. |
 
 Keep the panel in the page using `auth-panel` and the shared theme tokens. Collapse to one column on narrow screens. Use clear browser-facing labels and a concrete reconnect URL after a change. Keep trust, insecure HTTP and session-revocation notices legible in both themes. When importing requires reconnecting over HTTPS, explain how to enable managed HTTPS first. See [HTTPS configuration](HTTPS_CONFIGURATION.md#safely-importing-external-pem-certificates) for PEM handling, listener behaviour, saved modes and the unchanged-settings case.
+
+#### Software updates
+
+Show the installed version, available version and last successful check in the administrator panel. Keep the status beside the **Check for updates** action. Show an amber **Update available** link beside the sidebar version only when a newer release or image is available.
+
+Show **Upgrade container** only for an opted-in Kubernetes controller with a newer published image. Confirm the exact image before requesting the upgrade. Keep the rollout status and previous image in the Software updates panel.
 
 #### Resource limits
 
@@ -295,7 +301,7 @@ Default ordinary buttons are **42px high**; `ui-button-small` is **32px**, used 
 
 **Checkboxes:** show a real checked square with corresponding label; keep at least the normal controller touch target for the clickable row, don't hide the checkbox state behind a purely decorative icon. Selected printer cards and selected Print Library rows have their own subtle highlight.
 
-**Text/select/number fields:** follow `UiTextField`, `UiSelectField`, `UiCheckboxField` where possible. Inputs/selects use a muted inset surface, border `--ds-border`, radius 8px (new token-driven forms) and **42px** nominal height. Labels are muted, around .8rem semibold; hint and validation feedback sit with the field. Use dropdowns for nozzle size, filament types/colours and known enumerations rather than accepting free text; avoid incidental Clear buttons for toolheads where the approved design omits them.
+**Text/select/number fields:** follow `UiTextField`, `UiSelectField`, `UiCheckboxField` where possible. Inputs/selects use a muted inset surface, border `--ds-border`, radius 8px (new token-driven forms) and **42px** nominal height. Labels are muted, around .8rem semibold; hint and validation feedback sit with the field. Use dropdowns for nozzle size, filament types/colours and known enumerations rather than accepting free text; avoid incidental Clear buttons for toolheads where the approved design omits them. Open filament colour swatch menus over the Printer Details dialog, flip above the field when there is more room there, and keep scrolling within the menu when it exceeds the available viewport.
 
 **Validation:** invalid controls get the danger border and inline message; success/alert/empty/busy states must be visually distinct. Preserve unsaved form drafts across live printer telemetry. A controller-wide currency setting belongs in Reports & finance → Price settings, not independently in each costing editor.
 

@@ -168,6 +168,15 @@
   color:var(--ds-text-subtle);
   line-height:1.6;
 }
+.sidebar-update-badge:not([hidden]) {
+  display:inline-block;
+  margin-top:4px;
+  padding:1px 7px;
+  border:1px solid currentColor;
+  border-radius:999px;
+  color:var(--ds-warning);
+  font-weight:650;
+}
 .sidebar-quick-add {
   display:none;
   min-height:42px;

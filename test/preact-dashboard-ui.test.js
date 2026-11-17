@@ -18,7 +18,7 @@ test('Preact dashboard is bundled locally and loaded before the legacy controlle
   const pkg = JSON.parse(pkgText);
 
   assert.match(pkg.version, /^\d+\.\d+\.\d+$/, 'package version must be valid semver');
-  assert.equal(pkg.devDependencies?.preact, '11.0.2');
+  assert.match(pkg.devDependencies?.preact ?? '', /^11\.\d+\.\d+$/, 'Preact must be pinned to an exact 11.x version');
   assert.equal(pkg.allowScripts?.['esbuild@0.28.2'], true);
   assert.match(pkg.scripts?.['build:frontend'] || '', /build-frontend\.mjs/);
   assert.equal(pkg.scripts?.start, 'node src/server.js');

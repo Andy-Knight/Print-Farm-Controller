@@ -503,6 +503,9 @@ html.auth-pending body>aside,html.auth-pending body>header,html.auth-pending bod
 
 #tlsMaintenance[hidden]{display:none!important;}
 #resourceLimitsSettings[hidden]{display:none!important;}
+#controllerUpdateSettings[hidden],#controllerUpdateSettings a[hidden]{display:none!important;}
+#controllerUpgradeStart[hidden]{display:none!important;}
+#controllerUpdateSettings code{overflow-wrap:anywhere;}
 #resourceLimitsSettings:focus-visible{outline:2px solid var(--ds-focus);outline-offset:3px;}
 #resourceLimitFields fieldset{min-width:0;margin:0 0 18px;padding:16px;border:1px solid var(--ds-border);border-radius:var(--ds-radius-sm);}
 #resourceLimitFields legend{padding:0 6px;font-size:var(--ds-font-lg);font-weight:650;}
