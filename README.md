@@ -1,4 +1,4 @@
-# Print Farm Controller v0.68.2
+# Print Farm Controller v0.68.3
 A local-first 3D printer fleet controller. It runs entirely on your LAN and currently supports:
 
 - **FlashForge Adventurer 5M / 5M Pro** through the local FlashForge HTTP/TCP APIs.
@@ -7,7 +7,7 @@ A local-first 3D printer fleet controller. It runs entirely on your LAN and curr
 - **Prusa CORE One+ (experimental)** through the local PrusaLink API, supporting Standard (1-tool), INDX4 and INDX8 configurations.
 - **Bambu Lab P1P / P1S / X1C / A1 / A1 Mini (experimental)** through the local MQTT TLS and FTPS TLS interfaces. P1P/P1S/A1/A1 Mini use the TLS/JPEG camera path; X1C camera uses the bundled FFmpeg decoder; see [X1C camera setup](docs/X1C_CAMERA.md).
 
-**Current development version: v0.68.2**
+**Current development version: v0.68.3**
 
 ## Key capabilities
 
@@ -28,7 +28,7 @@ For contributing or AI-assisted development, follow [AGENTS.md](AGENTS.md) and t
 
 The sidebar shows **Update available** when the controller finds a newer stable version. Administrators can open **Users & settings → Software updates** to check manually, see the last successful check, and open the release notes, Windows installer or container package.
 
-Windows builds check published GitHub releases for an installer. Docker and Kubernetes builds check full version tags in GHCR. The check compares version numbers, so a rebuild under the same version is outside its scope. The controller shares a cached result across browser sessions and keeps the last successful result if GitHub is unreachable. Kubernetes administrators can opt in to [in-app container upgrades](docs/KUBERNETES_UPGRADES.md). Docker Compose and Windows updates use their normal deployment or installation process.
+Windows builds check published GitHub releases for an installer. Docker and Kubernetes builds check full version tags in GHCR. The check compares version numbers, so a rebuild under the same version is outside its scope. The controller shares a cached result across browser sessions and keeps the last successful result if GitHub is unreachable. The example Kubernetes Deployment includes [in-app container upgrade settings](docs/KUBERNETES_UPGRADES.md). Apply its updater resources first. Existing Kubernetes installations can enable upgrades using the documented patch. Docker Compose and Windows updates use their normal deployment or installation process.
 
 ## Diagnostics and logs
 

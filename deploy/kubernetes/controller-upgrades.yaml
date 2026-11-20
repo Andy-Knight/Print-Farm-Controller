@@ -45,6 +45,7 @@ metadata:
 rules:
   - apiGroups: ["apps"]
     resources: ["deployments"]
+    # Match PFC_KUBERNETES_DEPLOYMENT on the updater below.
     resourceNames: ["print-farm-controller"]
     verbs: ["get", "patch"]
 ---
@@ -81,9 +82,12 @@ spec:
       containers:
         - name: updater
           # Pin to a published image that includes the Kubernetes upgrade worker.
-          image: ghcr.io/andy-knight/print-farm-controller:latest
+          image: ghcr.io/andy-knight/print-farm-controller:0.68.3
           imagePullPolicy: Always
           command: ["node", "/app/src/kubernetes-upgrade-worker.js"]
+          env:
+            - name: PFC_KUBERNETES_DEPLOYMENT
+              value: print-farm-controller
           securityContext:
             allowPrivilegeEscalation: false
             readOnlyRootFilesystem: true

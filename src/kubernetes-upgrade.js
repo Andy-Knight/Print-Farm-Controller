@@ -3,7 +3,6 @@ import { request } from 'node:https';
 import { randomUUID } from 'node:crypto';
 
 const serviceAccount = '/var/run/secrets/kubernetes.io/serviceaccount';
-const deployment = 'print-farm-controller';
 const mailbox = 'print-farm-controller-upgrade';
 const imageName = 'ghcr.io/andy-knight/print-farm-controller';
 const versionPattern = '(?:0|[1-9]\\d{0,8})';
@@ -14,17 +13,21 @@ const deadlineMs = 10 * 60 * 1000;
 
 export const upgradePending = job => ['requested', 'deploying'].includes(job?.phase);
 
-export async function inClusterUpgradeClient() {
-  const namespace = (await readFile(`${serviceAccount}/namespace`, 'utf8')).trim();
-  const ca = await readFile(`${serviceAccount}/ca.crt`);
+export async function inClusterUpgradeClient({
+  deploymentName = process.env.PFC_KUBERNETES_DEPLOYMENT || 'print-farm-controller',
+  readFileImpl = readFile,
+  requestImpl = request
+} = {}) {
+  const namespace = (await readFileImpl(`${serviceAccount}/namespace`, 'utf8')).trim();
+  const ca = await readFileImpl(`${serviceAccount}/ca.crt`);
   const configPath = `/api/v1/namespaces/${encodeURIComponent(namespace)}/configmaps/${mailbox}`;
-  const deploymentPath = `/apis/apps/v1/namespaces/${encodeURIComponent(namespace)}/deployments/${deployment}`;
+  const deploymentPath = `/apis/apps/v1/namespaces/${encodeURIComponent(namespace)}/deployments/${encodeURIComponent(deploymentName)}`;
 
   async function api(path, body, type = 'application/merge-patch+json') {
-    const token = (await readFile(`${serviceAccount}/token`, 'utf8')).trim();
+    const token = (await readFileImpl(`${serviceAccount}/token`, 'utf8')).trim();
     const encoded = body === undefined ? undefined : JSON.stringify(body);
     return new Promise((resolve, reject) => {
-      const req = request({hostname:'kubernetes.default.svc', path, ca,
+      const req = requestImpl({hostname:'kubernetes.default.svc', path, ca,
         signal:AbortSignal.timeout(5000), method:encoded ? 'PATCH' : 'GET',
         headers:{authorization:`Bearer ${token}`, accept:'application/json',
           ...(encoded ? {'content-type':type,'content-length':Buffer.byteLength(encoded)} : {})}
@@ -39,7 +42,7 @@ export async function inClusterUpgradeClient() {
         });
         res.on('end', () => {
           if (res.statusCode !== 200) {
-            return reject(Object.assign(new Error('Kubernetes upgrade request failed'), {kubeStatus:res.statusCode}));
+            return reject(Object.assign(new Error(`Kubernetes upgrade request failed (HTTP ${res.statusCode}, ${path})`), {kubeStatus:res.statusCode}));
           }
           try { resolve(JSON.parse(Buffer.concat(chunks))); } catch (error) { reject(error); }
         });
@@ -99,7 +102,18 @@ export async function reconcileUpgrade(client, { now = Date.now(), resolveImage 
   if (!versionedImage.test(job.image) || !Number.isFinite(job.requestedAt) || job.requestedAt > now + 30_000) {
     return fail('Invalid upgrade request.');
   }
-  const target = await client.readDeployment();
+  let target;
+  try {
+    target = await client.readDeployment();
+  } catch (error) {
+    if (job.phase === 'requested' && error.kubeStatus === 404) {
+      return fail('The controller Deployment was not found. Check PFC_KUBERNETES_DEPLOYMENT on the updater and its namespace.');
+    }
+    if (job.phase === 'requested' && error.kubeStatus === 403) {
+      return fail('The updater cannot read the controller Deployment. Check its Role resourceNames and service account permissions.');
+    }
+    throw error;
+  }
   const currentImage = target.spec?.template?.spec?.containers?.find(container => container.name === 'controller')?.image;
   if (target.spec?.replicas !== 1 || target.spec?.strategy?.type !== 'Recreate' || !currentImage) {
     return fail('The controller Deployment must use a single replica and the Recreate strategy.');

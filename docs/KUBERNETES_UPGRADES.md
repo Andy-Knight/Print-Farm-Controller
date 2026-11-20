@@ -1,15 +1,50 @@
 # In-app Kubernetes upgrades
 
-Use the optional updater with the example single-replica K3s/Kubernetes Deployment. The existing data and log PVCs remain attached across the replacement. The interface briefly disconnects while Kubernetes recreates the pod.
+The example single-replica K3s/Kubernetes Deployment includes the updater settings. Install its separate updater resources first. Custom installations can enable the updater with the patch below. The existing data and log PVCs remain attached across the replacement. The interface briefly disconnects while Kubernetes recreates the pod.
 
-## Enable upgrades
+## New installations
+
+The [controller Deployment](../deploy/kubernetes/print-farm-controller.yaml) includes the requester service account, token mounting and upgrade environment variable. Both example Deployments use versioned images. Select your approved image versions, configure storage and networking for your cluster, and apply the updater resources before the controller. From the repository root, using namespace `pfc`, run the following commands.
+
+```sh
+kubectl create namespace pfc
+kubectl -n pfc apply -f deploy/kubernetes/controller-upgrades.yaml
+kubectl -n pfc apply -f deploy/kubernetes/print-farm-controller.yaml
+kubectl -n pfc rollout status deployment/print-farm-controller
+```
+
+Use your existing namespace if it has already been created. The new-install Deployment already contains the settings from `enable-upgrades.json`.
+
+## Enable upgrades on existing installations
 
 1. In the controller's namespace, apply [controller-upgrades.yaml](../deploy/kubernetes/controller-upgrades.yaml). Pin the updater Deployment to a published controller image that includes the updater worker.
 2. Pin the existing controller image to a full published version or immutable digest. Keep the controller Deployment named `print-farm-controller`, its container named `controller`, replicas at one, and the strategy set to `Recreate`.
-3. In the controller Deployment's pod spec, set `serviceAccountName: print-farm-controller-upgrade-requester` and `automountServiceAccountToken: true`. Add the environment variable `PFC_KUBERNETES_UPGRADES` with value `"1"` to the controller container.
+3. Apply [enable-upgrades.json](../deploy/kubernetes/enable-upgrades.json) as a strategic merge patch to the controller Deployment. It sets one replica, the `Recreate` strategy, the requester service account, token mounting and `PFC_KUBERNETES_UPGRADES=1` on the `controller` container. Configure the controller image pin in step 2 separately.
 4. Deploy the updated configuration. The requester can only read and update its named upgrade ConfigMap. The separate updater can also read and patch the named controller Deployment. Network policy must allow both workloads to reach the Kubernetes API and GHCR over HTTPS.
 
 If GitOps manages the image field, use its normal upgrade flow or configure it to allow image updates from this updater. Otherwise it can revert the selected image.
+
+From the repository root, run the following commands when the farm is idle. This example uses namespace `pfc`. Substitute the namespace used by your installation. Pin the updater image in `controller-upgrades.yaml` before applying it, and confirm the controller image uses a full version or digest. Applying the patch restarts the controller and briefly interrupts access.
+
+```sh
+kubectl -n pfc apply -f deploy/kubernetes/controller-upgrades.yaml
+kubectl -n pfc patch deployment print-farm-controller --type=strategic --patch-file deploy/kubernetes/enable-upgrades.json
+kubectl -n pfc rollout status deployment/print-farm-controller
+```
+
+The patch targets the `controller` container. The commands use the repository's `print-farm-controller` Deployment name. Keep the equivalent configuration in your deployment source so later redeployments retain upgrade support.
+
+### Custom Deployment names
+
+For a Deployment named `controller`, set `PFC_KUBERNETES_DEPLOYMENT` to `controller` on the **updater** container in `controller-upgrades.yaml`, and set the updater Role's Deployment `resourceNames` to `["controller"]`. Apply `enable-upgrades.json` to `deployment/controller` and monitor that Deployment's rollout. Keep the ConfigMap and service account names as declared in the manifests. The application container inside the target Deployment must be named `controller`.
+
+Custom target names require an updater image containing support for `PFC_KUBERNETES_DEPLOYMENT`. Published updater images through v0.68.2 always target `print-farm-controller`. Changing the Role alone on those images cannot redirect the updater.
+
+## Upgrade button unavailable
+
+Finding an image confirms access to GHCR. Enabling upgrades also requires the optional updater configuration above. When a newer container image is available, Software updates shows administrators a disabled **Upgrade container** action with setup instructions if upgrades are disabled, or a connection message if upgrade status cannot be read. Builds through v0.68.2 hide the action in these cases.
+
+In the controller's namespace, inspect the controller Deployment's environment and service account, confirm that ConfigMap `print-farm-controller-upgrade` exists, and check the `print-farm-controller-updater` Deployment and its logs. The administrator-only `GET /api/controller-upgrade` returns `enabled:false` when the controller upgrade feature is disabled. A failed request can indicate missing ConfigMap permissions or Kubernetes API connectivity. After correcting deployment configuration, reopen Software updates and choose **Check for updates**.
 
 ## Run an upgrade
 

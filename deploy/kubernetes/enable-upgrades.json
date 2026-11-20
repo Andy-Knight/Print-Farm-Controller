@@ -1,0 +1,26 @@
+{
+  "spec": {
+    "replicas": 1,
+    "strategy": {
+      "type": "Recreate",
+      "rollingUpdate": null
+    },
+    "template": {
+      "spec": {
+        "serviceAccountName": "print-farm-controller-upgrade-requester",
+        "automountServiceAccountToken": true,
+        "containers": [
+          {
+            "name": "controller",
+            "env": [
+              {
+                "name": "PFC_KUBERNETES_UPGRADES",
+                "value": "1"
+              }
+            ]
+          }
+        ]
+      }
+    }
+  }
+}

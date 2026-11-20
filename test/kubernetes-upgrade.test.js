@@ -1,12 +1,51 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mailboxJob, reconcileUpgrade, requestedUpgrade, upgradePending } from '../src/kubernetes-upgrade.js';
+import { EventEmitter } from 'node:events';
+import { PassThrough } from 'node:stream';
+import { inClusterUpgradeClient, mailboxJob, reconcileUpgrade, requestedUpgrade, upgradePending } from '../src/kubernetes-upgrade.js';
 import { isRoleAllowed } from '../src/security/authorization-policy.js';
 
 const image = 'ghcr.io/andy-knight/print-farm-controller';
 const next = `${image}:0.69.0`;
 const pinned = `${next}@sha256:${'a'.repeat(64)}`;
 const previous = `${image}:0.68.0`;
+
+test('Kubernetes client targets the configured Deployment for reads and image patches', async () => {
+  for (const deploymentName of ['print-farm-controller','controller']) {
+    const calls = [];
+    let statusCode = 200;
+    const client = await inClusterUpgradeClient({
+      deploymentName,
+      readFileImpl:async file => file.endsWith('/namespace') ? 'pfc\n' : 'test-credential',
+      requestImpl:(options, callback) => {
+        const req = new EventEmitter();
+        req.end = body => {
+          calls.push({...options,body:body && JSON.parse(body)});
+          const res = new PassThrough();
+          res.statusCode = statusCode;
+          callback(res);
+          res.end('{}');
+        };
+        return req;
+      }
+    });
+    await client.readDeployment();
+    await client.setImage({metadata:{resourceVersion:'42'}},pinned);
+    for (const call of calls) {
+      assert.equal(call.hostname,'kubernetes.default.svc');
+      assert.equal(call.path,`/apis/apps/v1/namespaces/pfc/deployments/${deploymentName}`);
+    }
+    assert.equal(calls[0].method,'GET');
+    assert.equal(calls[1].method,'PATCH');
+    assert.deepEqual(calls[1].body,{metadata:{resourceVersion:'42'},spec:{template:{spec:{containers:[{name:'controller',image:pinned}]}}}});
+    await client.readMailbox();
+    assert.equal(calls[2].path,'/api/v1/namespaces/pfc/configmaps/print-farm-controller-upgrade');
+    statusCode = 404;
+    await assert.rejects(client.readDeployment(),error => error.kubeStatus === 404
+      && error.message.includes(`HTTP 404, /apis/apps/v1/namespaces/pfc/deployments/${deploymentName}`)
+      && !error.message.includes('test-credential'));
+  }
+});
 
 function fixture() {
   const target = {
@@ -51,6 +90,21 @@ test('worker reports stalled replacements and does not overwrite an externally c
     assert.equal(mailboxJob(mailbox).previousImage, previous);
     assert.equal(container.image, externalChange ? `${image}:0.70.0` : pinned);
   }
+});
+
+test('missing Deployment or permissions fail the request with configuration guidance', async () => {
+  for (const status of [403,404]) {
+    const {mailbox,client} = fixture();
+    client.readDeployment = async () => { throw Object.assign(new Error('Kubernetes request failed'),{kubeStatus:status}); };
+    await reconcileUpgrade(client,{now:2_000});
+    assert.equal(mailboxJob(mailbox).phase,'failed');
+    assert.match(mailboxJob(mailbox).message,status === 403 ? /Role resourceNames/ : /PFC_KUBERNETES_DEPLOYMENT/);
+  }
+  const {mailbox,client} = fixture();
+  const error = Object.assign(new Error('Temporary Kubernetes API failure'),{kubeStatus:503});
+  client.readDeployment = async () => { throw error; };
+  await assert.rejects(reconcileUpgrade(client,{now:2_000}),error);
+  assert.equal(mailboxJob(mailbox).phase,'requested');
 });
 
 test('worker rejects expired requests, mutable previous images and external repositories', async () => {

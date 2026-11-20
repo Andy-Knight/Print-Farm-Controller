@@ -8,9 +8,11 @@ export function initControllerUpdates(api) {
   const image = get('controllerUpdateImage');
   const upgradeButton = get('controllerUpgradeStart');
   const upgradeStatus = get('controllerUpgradeStatus');
+  const upgradeSetup = get('controllerUpgradeSetup');
   const administrator = document.body.dataset.authRole === 'administrator';
   let candidate;
   let upgradeEnabled = false;
+  let upgradeAvailability = 'checking';
   let upgradeJob;
   let requestError = '';
   let upgradeRefresh = 0;
@@ -19,8 +21,9 @@ export function initControllerUpdates(api) {
 
   function renderUpgrade() {
     const pending = ['requested','deploying'].includes(upgradeJob?.phase);
-    upgradeButton.hidden = !upgradeEnabled || !candidate;
-    upgradeButton.disabled = checking || submitting || pending;
+    upgradeButton.hidden = !administrator || !candidate;
+    upgradeButton.disabled = !upgradeEnabled || checking || submitting || pending;
+    upgradeSetup.hidden = !administrator || !candidate || upgradeEnabled;
     const messages = {
       requested:'Upgrade requested. The controller will briefly disconnect.',
       deploying:'Replacing the controller container. Waiting for it to become healthy.',
@@ -28,6 +31,14 @@ export function initControllerUpdates(api) {
     };
     upgradeStatus.textContent = requestError || (upgradeJob?.phase === 'failed'
       ? upgradeJob.message : messages[upgradeJob?.phase] || '');
+    if (administrator && candidate && !upgradeEnabled) {
+      const availabilityMessages = {
+        checking:'Checking whether container upgrades are enabled…',
+        disabled:'Container upgrades require the optional Kubernetes/K3s updater to be installed and enabled. Follow the setup instructions to enable the upgrade button.',
+        unavailable:'Cannot read container upgrade status. Check the controller connection and its access to the upgrade ConfigMap.'
+      };
+      upgradeStatus.textContent = availabilityMessages[upgradeAvailability];
+    }
     if (upgradeJob?.previousImage && !pending) {
       upgradeStatus.textContent += ` Previous image: ${upgradeJob.previousImage}`;
     }
@@ -41,12 +52,15 @@ export function initControllerUpdates(api) {
       const {enabled, job} = await api('/api/controller-upgrade');
       if (refresh !== upgradeRefresh) return;
       upgradeEnabled = enabled;
+      upgradeAvailability = enabled ? 'enabled' : 'disabled';
       if (job?.id !== upgradeJob?.id || job?.phase !== upgradeJob?.phase) requestError = '';
       upgradeJob = job;
       renderUpgrade();
     } catch {
-      if (refresh === upgradeRefresh && upgradeEnabled) {
-        upgradeStatus.textContent = 'Cannot reach the updater. Reconnect to check rollout status.';
+      if (refresh === upgradeRefresh) {
+        upgradeEnabled = false;
+        upgradeAvailability = 'unavailable';
+        renderUpgrade();
       }
     }
   }
@@ -89,6 +103,7 @@ export function initControllerUpdates(api) {
       checking = false;
       button.disabled = false;
       renderUpgrade();
+      void readUpgrade();
     }
   }
 
@@ -110,7 +125,7 @@ export function initControllerUpdates(api) {
       renderUpgrade();
     } finally {
       submitting = false;
-      upgradeButton.disabled = checking || ['requested','deploying'].includes(upgradeJob?.phase);
+      renderUpgrade();
     }
   });
   if (administrator) {

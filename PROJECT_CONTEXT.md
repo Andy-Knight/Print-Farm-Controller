@@ -11,12 +11,14 @@ Repository policy: `AGENTS.md` defines agent startup behavior; `docs/DOCUMENTATI
 - Repository: `Andy-Knight/Print-Farm-Controller`
 - Project path: repository root (`/`)
 - Primary branch: `main` (current production baseline)
-- Current controller source version: **0.68.2**.
+- Current controller source version: **0.68.3**.
 - Runtime: **Node.js 24.22.3+** (Node 24 release line), ES modules; build-time **npm 12.2.0** and committed lockfile; no npm runtime dependency for deployed controller. Follow `docs/dependency-security.md` for updates.
 - GitHub is the authoritative code baseline.
 - `CHANGELOG.md` owns all per-version release history. `README.md` describes the current product; this file contains active project context, not a release diary. See `docs/DOCUMENTATION_POLICY.md`.
 
 ## Current work
+
+- **Kubernetes upgrade acceptance.** Verify an administrator-initiated upgrade and failed-rollout recovery on a disposable Kubernetes/K3s cluster. The Software updates page explains disabled upgrade setup and failed status reads. See [Kubernetes upgrades](docs/KUBERNETES_UPGRADES.md).
 
 - **Physical printer acceptance.** Validate Creator 5/Pro and the experimental Bambu adapters against real hardware. For X1C, verify RTSPS live view and decoder cleanup on Windows and Kubernetes AMD64/ARM64. For A1, verify AMS Lite and external-spool workflows. See [X1C acceptance](docs/X1C_CAMERA.md#validation) and [A1 acceptance](docs/BAMBU_A1.md#simulator-and-acceptance).
 - **External HTTPS certificate acceptance.** Verify external PEM import and replacement over a trusted HTTPS connection on deployed Windows and Kubernetes installations. See [HTTPS release validation](docs/HTTPS_CONFIGURATION.md#release-validation).
