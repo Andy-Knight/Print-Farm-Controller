@@ -3239,6 +3239,10 @@ function renderDashboardProductionQueue() {
     meter.setAttribute('aria-valuetext', share);
     meter.title = share;
     meter.firstElementChild.style.width = `${percent}%`;
+    if (view === 'clearance') {
+      meter.closest('.dashboard-summary-kpi').querySelector('.dashboard-stat-gauge')
+        .style.setProperty('--dashboard-stat-angle', `${percent * 3.6}deg`);
+    }
   }
 }
 
