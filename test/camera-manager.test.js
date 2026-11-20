@@ -9,7 +9,10 @@ function listen(server) {
 }
 
 function close(server) {
-  return new Promise((resolve) => server.close(resolve));
+  return new Promise((resolve) => {
+    server.close(resolve);
+    server.closeAllConnections();
+  });
 }
 
 function createFakeResponse() {
@@ -102,14 +105,15 @@ test('camera manager serves the last good frame during a transient reconnect fai
     res.write(Buffer.from('\r\n'));
   });
   const address = await listen(upstream);
+  t.after(() => close(upstream));
 
   const printer = { id: 'printer-cache', host: '127.0.0.1', cameraPort: address.port };
   const manager = new CameraManager({
     lookupPrinter: async () => printer,
     activateCamera: async () => `http://127.0.0.1:${address.port}/?action=stream`,
     idleCloseMs: 20,
-    connectTimeoutMs: 300,
-    frameTimeoutMs: 300,
+    connectTimeoutMs: 3000,
+    frameTimeoutMs: 3000,
     snapshotCacheMaxAgeMs: 5000
   });
   t.after(() => manager.stop());

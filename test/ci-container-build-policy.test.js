@@ -34,7 +34,7 @@ test('feature pull requests run tests and disposable container smoke, without mu
     'production secrets are still scoped to published images');
   const windows=yml.split('  windows:\n')[1]?.split('\n  smoke:\n')[0] || '';
   assert.match(windows,/runs-on: windows-latest/);
-  assert.match(windows,/name: Run full Windows regression suite\n        run: npm test\n/,
+  assert.match(windows,/name: Run full Windows regression suite\n        timeout-minutes: 8\n        run: npm test -- --test-concurrency=2\n/,
     'Windows must exercise the full suite, including checkout line-ending portability');
 });
 

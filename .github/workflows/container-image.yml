@@ -197,6 +197,7 @@ jobs:
     name: Windows SEA compatibility
     needs: [decoder]
     runs-on: windows-latest
+    timeout-minutes: 15
     outputs:
       version: ${{ steps.installer_bundle.outputs.version }}
     steps:
@@ -221,7 +222,8 @@ jobs:
           path: build/ffmpeg/windows-x64/
 
       - name: Run full Windows regression suite
-        run: npm test
+        timeout-minutes: 8
+        run: npm test -- --test-concurrency=2
 
       - name: Build Windows SEA executable
         env:
