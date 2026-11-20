@@ -6,10 +6,20 @@ Use the optional updater with the example single-replica K3s/Kubernetes Deployme
 
 1. In the controller's namespace, apply [controller-upgrades.yaml](../deploy/kubernetes/controller-upgrades.yaml). Pin the updater Deployment to a published controller image that includes the updater worker.
 2. Pin the existing controller image to a full published version or immutable digest. Keep the controller Deployment named `print-farm-controller`, its container named `controller`, replicas at one, and the strategy set to `Recreate`.
-3. In the controller Deployment's pod spec, set `serviceAccountName: print-farm-controller-upgrade-requester` and `automountServiceAccountToken: true`. Add the environment variable `PFC_KUBERNETES_UPGRADES` with value `"1"` to the controller container.
+3. Apply [enable-upgrades.json](../deploy/kubernetes/enable-upgrades.json) as a strategic merge patch to the controller Deployment. It sets one replica, the `Recreate` strategy, the requester service account, token mounting and `PFC_KUBERNETES_UPGRADES=1` on the `controller` container. Configure the controller image pin in step 2 separately.
 4. Deploy the updated configuration. The requester can only read and update its named upgrade ConfigMap. The separate updater can also read and patch the named controller Deployment. Network policy must allow both workloads to reach the Kubernetes API and GHCR over HTTPS.
 
 If GitOps manages the image field, use its normal upgrade flow or configure it to allow image updates from this updater. Otherwise it can revert the selected image.
+
+From the repository root, run the following commands when the farm is idle. This example uses namespace `pfc`. Substitute the namespace used by your installation. Pin the updater image in `controller-upgrades.yaml` before applying it, and confirm the controller image uses a full version or digest. Applying the patch restarts the controller and briefly interrupts access.
+
+```sh
+kubectl -n pfc apply -f deploy/kubernetes/controller-upgrades.yaml
+kubectl -n pfc patch deployment print-farm-controller --type=strategic --patch-file deploy/kubernetes/enable-upgrades.json
+kubectl -n pfc rollout status deployment/print-farm-controller
+```
+
+The patch targets the repository's `print-farm-controller` Deployment and its `controller` container. Custom deployments must match these names for the updater to manage them. Keep the equivalent configuration in your deployment source so later redeployments retain upgrade support.
 
 ## Upgrade button unavailable
 
