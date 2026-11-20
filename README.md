@@ -28,7 +28,7 @@ For contributing or AI-assisted development, follow [AGENTS.md](AGENTS.md) and t
 
 The sidebar shows **Update available** when the controller finds a newer stable version. Administrators can open **Users & settings → Software updates** to check manually, see the last successful check, and open the release notes, Windows installer or container package.
 
-Windows builds check published GitHub releases for an installer. Docker and Kubernetes builds check full version tags in GHCR. The check compares version numbers, so a rebuild under the same version is outside its scope. The controller shares a cached result across browser sessions and keeps the last successful result if GitHub is unreachable. Kubernetes administrators can opt in to [in-app container upgrades](docs/KUBERNETES_UPGRADES.md). Docker Compose and Windows updates use their normal deployment or installation process.
+Windows builds check published GitHub releases for an installer. Docker and Kubernetes builds check full version tags in GHCR. The check compares version numbers, so a rebuild under the same version is outside its scope. The controller shares a cached result across browser sessions and keeps the last successful result if GitHub is unreachable. The example Kubernetes Deployment includes [in-app container upgrade settings](docs/KUBERNETES_UPGRADES.md). Apply its updater resources first. Existing Kubernetes installations can enable upgrades using the documented patch. Docker Compose and Windows updates use their normal deployment or installation process.
 
 ## Diagnostics and logs
 

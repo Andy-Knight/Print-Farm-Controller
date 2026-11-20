@@ -2,6 +2,7 @@
 # StorageClass and network policies for your cluster before production use.
 # MetalLB exposes browser port 80 -> pod 4242 and 443 -> pod 4243.
 # HTTP becomes redirect-only after HTTPS is enabled in Security & users.
+# Apply controller-upgrades.yaml in the same namespace before this file.
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
@@ -38,11 +39,16 @@ spec:
       labels:
         app: print-farm-controller
     spec:
+      serviceAccountName: print-farm-controller-upgrade-requester
+      automountServiceAccountToken: true
       containers:
         - name: controller
           # Pin to an approved published version/digest when deploying.
-          image: ghcr.io/andy-knight/print-farm-controller:latest
+          image: ghcr.io/andy-knight/print-farm-controller:0.68.2
           imagePullPolicy: IfNotPresent
+          env:
+            - name: PFC_KUBERNETES_UPGRADES
+              value: "1"
           ports:
             - name: http
               containerPort: 4242

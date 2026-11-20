@@ -1,8 +1,21 @@
 # In-app Kubernetes upgrades
 
-Use the optional updater with the example single-replica K3s/Kubernetes Deployment. The existing data and log PVCs remain attached across the replacement. The interface briefly disconnects while Kubernetes recreates the pod.
+The example single-replica K3s/Kubernetes Deployment includes the updater settings. Install its separate updater resources first. Custom installations can enable the updater with the patch below. The existing data and log PVCs remain attached across the replacement. The interface briefly disconnects while Kubernetes recreates the pod.
 
-## Enable upgrades
+## New installations
+
+The [controller Deployment](../deploy/kubernetes/print-farm-controller.yaml) includes the requester service account, token mounting and upgrade environment variable. Both example Deployments use versioned images. Select your approved image versions, configure storage and networking for your cluster, and apply the updater resources before the controller. From the repository root, using namespace `pfc`, run the following commands.
+
+```sh
+kubectl create namespace pfc
+kubectl -n pfc apply -f deploy/kubernetes/controller-upgrades.yaml
+kubectl -n pfc apply -f deploy/kubernetes/print-farm-controller.yaml
+kubectl -n pfc rollout status deployment/print-farm-controller
+```
+
+Use your existing namespace if it has already been created. The new-install Deployment already contains the settings from `enable-upgrades.json`.
+
+## Enable upgrades on existing installations
 
 1. In the controller's namespace, apply [controller-upgrades.yaml](../deploy/kubernetes/controller-upgrades.yaml). Pin the updater Deployment to a published controller image that includes the updater worker.
 2. Pin the existing controller image to a full published version or immutable digest. Keep the controller Deployment named `print-farm-controller`, its container named `controller`, replicas at one, and the strategy set to `Recreate`.
