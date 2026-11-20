@@ -32,7 +32,13 @@ kubectl -n pfc patch deployment print-farm-controller --type=strategic --patch-f
 kubectl -n pfc rollout status deployment/print-farm-controller
 ```
 
-The patch targets the repository's `print-farm-controller` Deployment and its `controller` container. Custom deployments must match these names for the updater to manage them. Keep the equivalent configuration in your deployment source so later redeployments retain upgrade support.
+The patch targets the `controller` container. The commands use the repository's `print-farm-controller` Deployment name. Keep the equivalent configuration in your deployment source so later redeployments retain upgrade support.
+
+### Custom Deployment names
+
+For a Deployment named `controller`, set `PFC_KUBERNETES_DEPLOYMENT` to `controller` on the **updater** container in `controller-upgrades.yaml`, and set the updater Role's Deployment `resourceNames` to `["controller"]`. Apply `enable-upgrades.json` to `deployment/controller` and monitor that Deployment's rollout. Keep the ConfigMap and service account names as declared in the manifests. The application container inside the target Deployment must be named `controller`.
+
+Custom target names require an updater image containing support for `PFC_KUBERNETES_DEPLOYMENT`. Published updater images through v0.68.2 always target `print-farm-controller`. Changing the Role alone on those images cannot redirect the updater.
 
 ## Upgrade button unavailable
 
