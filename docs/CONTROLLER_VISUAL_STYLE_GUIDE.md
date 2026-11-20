@@ -83,7 +83,7 @@ Keep the panel in the page using `auth-panel` and the shared theme tokens. Colla
 
 Show the installed version, available version and last successful check in the administrator panel. Keep the status beside the **Check for updates** action. Show an amber **Update available** link beside the sidebar version only when a newer release or image is available.
 
-Show **Upgrade container** only for an opted-in Kubernetes controller with a newer published image. Confirm the exact image before requesting the upgrade. Keep the rollout status and previous image in the Software updates panel.
+Show **Upgrade container** for administrators when a newer container image is available. Disable it until the optional Kubernetes/K3s updater is enabled and its status can be read. Explain missing setup or a status-read failure beside the action and offer **Container upgrade setup** instructions. Confirm the exact image before requesting the upgrade. Keep the rollout status and previous image in the Software updates panel.
 
 #### Resource limits
 

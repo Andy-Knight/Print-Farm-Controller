@@ -6332,16 +6332,18 @@ async function nativeAuthenticationSmoke(browser){
     assert.match(await page.locator('#controllerUpdateDownload').getAttribute('href'), /0\.68\.0\.exe$/);
     assert.match(await page.locator('#controllerUpdateBadge').innerText(), /v0\.68\.0/);
     await page.unroute(updateStatusRoute);
-    assert.equal(await page.locator('#controllerUpgradeStart').isVisible(), false, 'upgrades are opt-in');
+    assert.equal(await page.locator('#controllerUpgradeStart').isVisible(), false, 'Windows updates use the installer link');
     const upgradeRoute = '**/api/controller-upgrade';
     const targetImage = 'ghcr.io/andy-knight/print-farm-controller:0.69.0';
     let upgradeJob = null;
+    let upgradeMode = 'disabled';
     await page.route(upgradeRoute, route => {
+      if (upgradeMode === 'unavailable') return route.fulfill({status:503,json:{error:'Upgrade ConfigMap unavailable'}});
       if (route.request().method() === 'POST') {
         assert.deepEqual(route.request().postDataJSON(), {image:targetImage});
         upgradeJob = {id:'upgrade-fixture',phase:'requested',image:targetImage};
       }
-      return route.fulfill({json:{enabled:true,job:upgradeJob}});
+      return route.fulfill({json:{enabled:upgradeMode === 'enabled',job:upgradeJob}});
     });
     await page.route(updateStatusRoute, route => route.fulfill({json:{
       installedVersion:controllerVersion,status:'checked',updateAvailable:true,
@@ -6351,12 +6353,25 @@ async function nativeAuthenticationSmoke(browser){
     await page.locator('#controllerUpdateCheck').click();
     const upgradeButton = page.locator('#controllerUpgradeStart');
     await upgradeButton.waitFor({state:'visible'});
+    const upgradeNotice = page.locator('#controllerUpgradeStatus');
+    const upgradeSetup = page.locator('#controllerUpgradeSetup');
+    await upgradeNotice.getByText(/optional Kubernetes\/K3s updater/).waitFor();
+    assert.equal(await upgradeButton.isDisabled(),true);
+    assert.equal(await upgradeSetup.isVisible(),true);
+    assert.match(await upgradeSetup.getAttribute('href'),/docs\/KUBERNETES_UPGRADES\.md$/);
+    upgradeMode = 'unavailable';
+    await page.locator('#controllerUpdateCheck').click();
+    await upgradeNotice.getByText(/Cannot read container upgrade status/).waitFor();
+    assert.equal(await upgradeButton.isDisabled(),true);
+    upgradeMode = 'enabled';
+    await page.locator('#controllerUpdateCheck').click();
+    await page.waitForFunction(()=>!document.getElementById('controllerUpgradeStart').disabled);
+    assert.equal(await upgradeSetup.isVisible(),false);
     page.once('dialog', async dialog => {
       assert.ok(dialog.message().includes(targetImage));
       await dialog.accept();
     });
     await upgradeButton.click();
-    const upgradeNotice = page.locator('#controllerUpgradeStatus');
     await upgradeNotice.getByText(/Upgrade requested/).waitFor();
     assert.equal(await upgradeButton.isDisabled(), true);
     upgradeJob = {...upgradeJob,phase:'succeeded',previousImage:'ghcr.io/andy-knight/print-farm-controller:0.68.0'};

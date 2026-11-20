@@ -11,6 +11,12 @@ Use the optional updater with the example single-replica K3s/Kubernetes Deployme
 
 If GitOps manages the image field, use its normal upgrade flow or configure it to allow image updates from this updater. Otherwise it can revert the selected image.
 
+## Upgrade button unavailable
+
+Finding an image confirms access to GHCR. Enabling upgrades also requires the optional updater configuration above. When a newer container image is available, Software updates shows administrators a disabled **Upgrade container** action with setup instructions if upgrades are disabled, or a connection message if upgrade status cannot be read. Builds through v0.68.2 hide the action in these cases.
+
+In the controller's namespace, inspect the controller Deployment's environment and service account, confirm that ConfigMap `print-farm-controller-upgrade` exists, and check the `print-farm-controller-updater` Deployment and its logs. The administrator-only `GET /api/controller-upgrade` returns `enabled:false` when the controller upgrade feature is disabled. A failed request can indicate missing ConfigMap permissions or Kubernetes API connectivity. After correcting deployment configuration, reopen Software updates and choose **Check for updates**.
+
 ## Run an upgrade
 
 Sign in as an administrator and open **Users & settings → Software updates**. Choose **Check for updates**, then **Upgrade container**, and confirm the published image shown. Finish active jobs, uploads and backups before starting. The controller pauses queue dispatch and blocks new work while the request is pending. Avoid starting jobs directly on a printer during this interval.
