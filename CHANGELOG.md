@@ -4,6 +4,13 @@ This file contains the version-by-version release history for Print Farm Control
 
 Historical entries describe the behaviour of the controller at the time of that release and may be superseded by later versions. For current installation, configuration and supported-hardware guidance, see [README.md](README.md).
 
+## v0.68.3
+
+- Support custom controller Deployment names through `PFC_KUBERNETES_DEPLOYMENT` on the Kubernetes updater. Report missing Deployment and permission errors in upgrade status and include HTTP status and resource paths in updater logs.
+- Explain unavailable container upgrades in Software updates, with a disabled action and setup instructions when configuration or status access is missing.
+- Include upgrade settings in the new-install Kubernetes example and provide a reusable enablement patch for existing installations.
+- Close camera test connections after failures and bound Windows CI concurrency and execution time to prevent stalled regression runs.
+
 ## v0.68.2
 
 - Fill the Dashboard **Beds to clear** ring orange to match its progress bar, using the share of configured printers awaiting bed clearance in the selected group.

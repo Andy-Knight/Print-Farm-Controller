@@ -82,7 +82,7 @@ spec:
       containers:
         - name: updater
           # Pin to a published image that includes the Kubernetes upgrade worker.
-          image: ghcr.io/andy-knight/print-farm-controller:0.68.2
+          image: ghcr.io/andy-knight/print-farm-controller:0.68.3
           imagePullPolicy: Always
           command: ["node", "/app/src/kubernetes-upgrade-worker.js"]
           env:

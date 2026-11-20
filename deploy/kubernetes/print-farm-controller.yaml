@@ -44,7 +44,7 @@ spec:
       containers:
         - name: controller
           # Pin to an approved published version/digest when deploying.
-          image: ghcr.io/andy-knight/print-farm-controller:0.68.2
+          image: ghcr.io/andy-knight/print-farm-controller:0.68.3
           imagePullPolicy: IfNotPresent
           env:
             - name: PFC_KUBERNETES_UPGRADES
