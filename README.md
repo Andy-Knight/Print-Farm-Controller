@@ -1,4 +1,4 @@
-# Print Farm Controller v0.68.1
+# Print Farm Controller v0.68.2
 A local-first 3D printer fleet controller. It runs entirely on your LAN and currently supports:
 
 - **FlashForge Adventurer 5M / 5M Pro** through the local FlashForge HTTP/TCP APIs.
@@ -7,7 +7,7 @@ A local-first 3D printer fleet controller. It runs entirely on your LAN and curr
 - **Prusa CORE One+ (experimental)** through the local PrusaLink API, supporting Standard (1-tool), INDX4 and INDX8 configurations.
 - **Bambu Lab P1P / P1S / X1C / A1 / A1 Mini (experimental)** through the local MQTT TLS and FTPS TLS interfaces. P1P/P1S/A1/A1 Mini use the TLS/JPEG camera path; X1C camera uses the bundled FFmpeg decoder; see [X1C camera setup](docs/X1C_CAMERA.md).
 
-**Current development version: v0.68.1**
+**Current development version: v0.68.2**
 
 ## Key capabilities
 
@@ -204,7 +204,7 @@ If the optional Preact bundle is not present, the controller still starts and th
 
 The **Online**, **Printing** and **Needs attention** tiles show 24-hour trends beside their live counts when the tiles have room. Trends follow the selected printer group and use the controller's five-minute samples. History builds up from the first sample, and gaps show periods without observations.
 
-The **Production queue** panel shows queued jobs (including jobs needing review), the oldest queued job, jobs currently blocked and beds awaiting clearance. The orange bars show the share of queued jobs that are blocked and the share of printers in **All Printers** whose beds need clearing. Select a tile to open the matching view in **Queue & history**. A selected printer group includes jobs targeting that group and jobs assigned to its printers. Jobs without a printer or group assignment appear in **All printers**. The panel follows the printer group in both Cards and Table views.
+The **Production queue** panel shows queued jobs (including jobs needing review), the oldest queued job, jobs currently blocked and beds awaiting clearance. The orange bars show the share of queued jobs that are blocked and the share of printers in **All Printers** whose beds need clearing. The **Beds to clear** ring fills to the same percentage as its bar. Select a tile to open the matching view in **Queue & history**. A selected printer group includes jobs targeting that group and jobs assigned to its printers. Jobs without a printer or group assignment appear in **All printers**. The panel follows the printer group in both Cards and Table views.
 
 ## Reports and material costs
 

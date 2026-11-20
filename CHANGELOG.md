@@ -4,6 +4,10 @@ This file contains the version-by-version release history for Print Farm Control
 
 Historical entries describe the behaviour of the controller at the time of that release and may be superseded by later versions. For current installation, configuration and supported-hardware guidance, see [README.md](README.md).
 
+## v0.68.2
+
+- Fill the Dashboard **Beds to clear** ring orange to match its progress bar, using the share of configured printers awaiting bed clearance in the selected group.
+
 ## v0.68.1
 
 - Show progress and retry messages for diagnostic ZIP downloads. Report interrupted or stalled downloads in the controller and re-enable the download button.

@@ -400,6 +400,11 @@ async function dashboardProductionQueueSmoke(browser, url) {
         assert.equal(await meter.getAttribute('aria-valuenow'), String(percent));
         assert.equal(await meter.getAttribute('aria-valuetext'), description);
         assert.equal(await meter.locator('span').evaluate(node => node.style.width), percent + '%');
+        if (meter === bedsMeter) {
+          const ring = tile('Beds to clear').locator('.dashboard-stat-gauge');
+          assert.equal(await ring.evaluate(node => Number.parseFloat(node.style.getPropertyValue('--dashboard-stat-angle'))), percent * 3.6);
+          assert.match(await ring.evaluate(node => getComputedStyle(node).backgroundImage), /conic-gradient/);
+        }
       };
       await assertShare(blockedMeter, 66.7, '2 of 3 queued jobs blocked (66.7%)');
       await assertShare(bedsMeter, 50, '1 of 2 printers with beds to clear (50%)');
